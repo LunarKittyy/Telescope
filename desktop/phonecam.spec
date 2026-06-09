@@ -8,16 +8,21 @@
 #   - pyvirtualcam's unitycapture backend calls into a system-installed
 #     DirectShow COM filter (UnityCapture), so no DLLs need bundling.
 #   - cv2 wheels ship their own DLLs; PyInstaller's cv2 hook handles collection.
-#   - PyQt6 is well-supported but we explicitly collect it to avoid missing plugins.
+#   - collect_all results are passed into Analysis directly; in PyInstaller 6.x
+#     appending them to a.datas/a.binaries after the fact causes a 2-vs-3-tuple
+#     mismatch in normalize_toc.
+
+from PyInstaller.utils.hooks import collect_all
+
+qt_datas, qt_bins, qt_hidden = collect_all('PyQt6')
 
 a = Analysis(
     ['phonecam_desktop.py'],
     pathex=[],
-    binaries=[],
-    datas=[],
-    hiddenimports=[
+    binaries=qt_bins,
+    datas=qt_datas,
+    hiddenimports=qt_hidden + [
         'pyvirtualcam',
-        'pyvirtualcam.backends',
         'cv2',
         'numpy',
         'PyQt6.sip',
@@ -34,13 +39,6 @@ a = Analysis(
     ],
     noarchive=False,
 )
-
-# Collect all PyQt6 data (platform plugins, styles, etc.)
-from PyInstaller.utils.hooks import collect_all  # noqa: E402
-qt_datas, qt_bins, qt_hidden = collect_all('PyQt6')
-a.datas    += qt_datas
-a.binaries += qt_bins
-a.hiddenimports += qt_hidden
 
 pyz = PYZ(a.pure)
 
