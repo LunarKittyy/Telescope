@@ -10,8 +10,6 @@
 #   - cv2 wheels ship their own DLLs; PyInstaller's cv2 hook handles collection.
 #   - PyQt6 is well-supported but we explicitly collect it to avoid missing plugins.
 
-block_cipher = None
-
 a = Analysis(
     ['phonecam_desktop.py'],
     pathex=[],
@@ -34,9 +32,6 @@ a = Analysis(
         'matplotlib', 'scipy', 'PIL', 'tkinter',
         'PyQt5', 'PySide2', 'PySide6',
     ],
-    win_no_prefer_redirects=False,
-    win_private_assemblies=False,
-    cipher=block_cipher,
     noarchive=False,
 )
 
@@ -47,7 +42,7 @@ a.datas    += qt_datas
 a.binaries += qt_bins
 a.hiddenimports += qt_hidden
 
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+pyz = PYZ(a.pure)
 
 exe = EXE(
     pyz,
@@ -63,11 +58,11 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,          # no console window — GUI app
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,              # add an .ico path here if you have one
+    icon=None,
 )
