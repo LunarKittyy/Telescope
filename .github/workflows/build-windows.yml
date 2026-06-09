@@ -2,7 +2,7 @@ name: Build Windows EXE
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths: [desktop/**]
   pull_request:
     paths: [desktop/**]
