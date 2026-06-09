@@ -1,0 +1,37 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [main]
+    paths: [desktop/**]
+  pull_request:
+    paths: [desktop/**]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install runtime deps + PyInstaller
+        working-directory: desktop
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Build EXE
+        working-directory: desktop
+        run: pyinstaller phonecam.spec
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PhoneCamDesktop-windows
+          path: desktop/dist/PhoneCamDesktop.exe
+          retention-days: 30
