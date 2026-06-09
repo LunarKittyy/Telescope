@@ -84,11 +84,11 @@ class CameraStreamService : Service() {
     private var streamWidth  = 1920
     private var streamHeight = 1080
 
-    // Exposure state — null ISO/shutter = auto AE
+    // Exposure state - null ISO/shutter = auto AE
     @Volatile private var currentIso:       Int?  = null
     @Volatile private var currentShutterNs: Long? = null
     @Volatile private var currentOis:       Boolean = true
-    // WB state — null Kelvin = auto AWB
+    // WB state - null Kelvin = auto AWB
     @Volatile private var currentWbKelvin:  Int?  = null
 
     // Camera catalogue

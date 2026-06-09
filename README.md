@@ -1,12 +1,12 @@
 # PhoneCam
 
-Stream your Android phone's camera — including telephoto and wide-angle lenses — to a virtual webcam on Linux or Windows. Camera controls (ISO, shutter, white balance, lens selection) are exposed over a local HTTP API so the desktop app can drive them live.
+Stream your Android phone's camera - including telephoto and wide-angle lenses - to a virtual webcam on Linux or Windows. Camera controls (ISO, shutter, white balance, lens selection) are exposed over a local HTTP API so the desktop app can drive them live.
 
 ---
 
 ## Why
 
-Most Android camera streaming solutions either lock you to a specific app ecosystem, use ADB screen mirroring which blocks the back camera on some devices, or route through OBS to create the virtual camera — which is a problem if you need OBS free for its own output. PhoneCam runs as a self-contained foreground service that serves MJPEG directly and exposes camera controls as a simple REST API, leaving OBS (or any other capture tool) completely unencumbered.
+Most Android camera streaming solutions either lock you to a specific app ecosystem, use ADB screen mirroring which blocks the back camera on some devices, or route through OBS to create the virtual camera - which is a problem if you need OBS free for its own output. PhoneCam runs as a self-contained foreground service that serves MJPEG directly and exposes camera controls as a simple REST API, leaving OBS (or any other capture tool) completely unencumbered.
 
 ---
 
@@ -27,7 +27,7 @@ Any app that reads a webcam
 
 On **Linux**, two `v4l2loopback` devices are created (`/dev/video10` and `/dev/video11`). PhoneCam writes to `video10`; `video11` is intentionally left free for other software (e.g. OBS Virtual Camera) so the two don't conflict.
 
-On **Windows**, the virtual camera is [UnityCapture](https://github.com/schellingb/UnityCapture) — a standalone DirectShow filter, no OBS required.
+On **Windows**, the virtual camera is [UnityCapture](https://github.com/schellingb/UnityCapture) - a standalone DirectShow filter, no OBS required.
 
 ---
 
@@ -70,9 +70,9 @@ phonecam/
 
 Runs a **foreground service** (declared type `camera`, required on Android 14+) that owns a Camera2 session and an HTTP server on port 8080. Three endpoints:
 
-- `GET /video` — MJPEG stream (`multipart/x-mixed-replace`)
-- `GET /cameras` — JSON of all detected cameras + current exposure/WB state
-- `GET /control?action=...` — live camera control
+- `GET /video` - MJPEG stream (`multipart/x-mixed-replace`)
+- `GET /cameras` - JSON of all detected cameras + current exposure/WB state
+- `GET /control?action=...` - live camera control
 
 The app enumerates **physical sub-cameras** of logical multi-camera groups via `CameraCharacteristics.physicalCameraIds` (API 28+). On many modern phones the logical back camera (ID `0`) hides individual wide/main/telephoto sensors behind it; this app surfaces all of them and lets you pick. Physical cameras are opened via `OutputConfiguration.setPhysicalCameraId()` within a session on the logical parent.
 
@@ -92,7 +92,7 @@ echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
 adb install app/build/outputs/apk/debug/app-debug.apk
 ```
 
-This is a debug build — self-signed, for personal/development use.
+This is a debug build - self-signed, for personal/development use.
 
 ### Permissions
 
@@ -123,7 +123,7 @@ This is a debug build — self-signed, for personal/development use.
 
 **Linux:**
 ```bash
-# Two loopback devices — one for this app, one free for other tools
+# Two loopback devices - one for this app, one free for other tools
 sudo modprobe v4l2loopback devices=2 video_nr=10,11 \
   card_label="Phone Camera,Virtual Camera 2" exclusive_caps=1
 
@@ -163,11 +163,11 @@ python desktop/phonecam_desktop.py
 
 ### Key implementation notes (for contributors / AI agents)
 
-**Live transform:** `StreamWorker.flip_h`, `flip_v`, `rotation` are plain instance attributes. Python's GIL makes bool/`None` writes atomic, so the UI thread sets them while the worker reads them each frame — no lock needed.
+**Live transform:** `StreamWorker.flip_h`, `flip_v`, `rotation` are plain instance attributes. Python's GIL makes bool/`None` writes atomic, so the UI thread sets them while the worker reads them each frame - no lock needed.
 
 **Live FPS/resolution:** Changing these requires recreating the `pyvirtualcam.Camera` context (it is constructed with fixed dimensions). The worker holds a `threading.Event` (`_restart_vcam`). When set, the inner loop breaks, the pyvirtualcam context closes, and the outer loop re-enters with new parameters. Interruption is typically under one second.
 
-**Control client:** `PhoneControlClient` sends `GET /control?...` in a daemon thread per request, fire-and-forget. Failures are silently dropped — a missed control command is non-critical; the next interaction resyncs state.
+**Control client:** `PhoneControlClient` sends `GET /control?...` in a daemon thread per request, fire-and-forget. Failures are silently dropped - a missed control command is non-critical; the next interaction resyncs state.
 
 **ISO/shutter sliders:** log scale over 2000 steps across the range the phone reports per camera. Range updates when switching lenses. Spinbox allows direct numeric entry.
 
@@ -218,10 +218,10 @@ All requests are plain `GET`. Server is on the phone at port 8080.
 | `action` | extra params | effect |
 |---|---|---|
 | `camera` | `id=<id>` | Switch camera. Closes current session, reopens with correct physical-stream config. |
-| `auto` | — | Restore auto exposure (AE mode ON, AF continuous video). |
+| `auto` | - | Restore auto exposure (AE mode ON, AF continuous video). |
 | `iso` | `value=<int>` | Set ISO. Switches AE to OFF. See note below. |
 | `shutter` | `value=<long ns>` | Set shutter in nanoseconds. Switches AE to OFF. See note below. |
-| `wb_auto` | — | Restore auto white balance. |
+| `wb_auto` | - | Restore auto white balance. |
 | `wb_kelvin` | `value=<int>` | Set color temperature 1000–40000 K via `COLOR_CORRECTION_GAINS`. |
 | `ois` | `value=1\|0` | Toggle OIS (only applied if camera reports support). |
 
@@ -233,7 +233,7 @@ All responses: `{"ok": true}` or `{"ok": false, "error": "..."}`.
 
 ## CI / GitHub Actions
 
-### `build-apk.yml` — triggered on changes to `android/**`
+### `build-apk.yml` - triggered on changes to `android/**`
 
 1. JDK 21 (Temurin) + Gradle cache via `actions/setup-java@v4`
 2. Android SDK via `android-actions/setup-android@v3` (platform-tools, android-34, build-tools;34.0.0)
@@ -241,7 +241,7 @@ All responses: `{"ok": true}` or `{"ok": false, "error": "..."}`.
 4. `./gradlew assembleDebug --no-daemon`
 5. Upload `app-debug.apk` as artifact (30-day retention)
 
-### `build-windows.yml` — triggered on changes to `desktop/**`
+### `build-windows.yml` - triggered on changes to `desktop/**`
 
 1. Python 3.11 + pip cache via `actions/setup-python@v5`
 2. `pip install -r requirements.txt pyinstaller`
@@ -264,5 +264,5 @@ Both workflows also expose `workflow_dispatch` for manual triggering.
 | pyvirtualcam fails to open device (Windows) | UnityCapture not installed | Run `Install.bat` as Administrator |
 | Camera control panel never appears | Phone HTTP server slow to start | App retries 6× over 12 s; check USB debugging is active |
 | WB slider has no effect | Camera doesn't expose `COLOR_CORRECTION_GAINS` | Falls back gracefully; auto AWB still works |
-| ISO/shutter change has no effect | Only one of the two was sent | Switch to Manual — desktop sends both simultaneously |
+| ISO/shutter change has no effect | Only one of the two was sent | Switch to Manual - desktop sends both simultaneously |
 | High latency over Wi-Fi | MJPEG is per-frame JPEG, higher bandwidth than H.264 | Use USB mode, or lower resolution in phone app |

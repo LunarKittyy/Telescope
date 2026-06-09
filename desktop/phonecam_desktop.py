@@ -31,7 +31,7 @@ try:    import pyvirtualcam
 except ImportError: _missing.append("pyvirtualcam")
 
 if _missing:
-    # Can't use PyQt6 if it's missing — fall back to print
+    # Can't use PyQt6 if it's missing - fall back to print
     print(f"Missing: pip install {' '.join(_missing)}", file=sys.stderr)
     sys.exit(1)
 
@@ -354,7 +354,7 @@ class StreamWorker(QThread):
                  fps: int, flip_h: bool, flip_v: bool, rotation):
         super().__init__()
         self.url = url
-        # Mutable output params — UI thread can update these safely
+        # Mutable output params - UI thread can update these safely
         self._width    = width
         self._height   = height
         self._fps      = fps
@@ -678,7 +678,7 @@ class PhoneCamWindow(QMainWindow):
         c_lay.addWidget(self._build_status())
         c_lay.addStretch()
 
-        # Start/Stop button — outside scroll, always visible at bottom
+        # Start/Stop button - outside scroll, always visible at bottom
         btn_frame = QWidget()
         btn_frame.setStyleSheet(f"background: {BG0};")
         btn_lay = QVBoxLayout(btn_frame)
