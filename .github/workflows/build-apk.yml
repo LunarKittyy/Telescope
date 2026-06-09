@@ -42,9 +42,30 @@ jobs:
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
 
+      - name: Rename APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk PhoneCam.apk
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: phonecam-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: PhoneCam.apk
           retention-days: 30
+
+      - name: Update rolling release
+        if: github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest
+          body: |
+            Rolling release — always contains the newest builds from `master`.
+
+            | File | Description |
+            |------|-------------|
+            | `PhoneCamDesktop.exe` | Windows desktop app (requires [UnityCapture](https://github.com/schellingb/UnityCapture) for virtual camera) |
+            | `phonecam_desktop.py` | Desktop app source — run directly with `pip install PyQt6 opencv-python pyvirtualcam numpy` |
+            | `PhoneCam.apk` | Android app |
+          prerelease: true
+          make_latest: false
+          files: PhoneCam.apk

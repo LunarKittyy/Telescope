@@ -35,3 +35,23 @@ jobs:
           name: PhoneCamDesktop-windows
           path: desktop/dist/PhoneCamDesktop.exe
           retention-days: 30
+
+      - name: Update rolling release
+        if: github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest
+          body: |
+            Rolling release — always contains the newest builds from `master`.
+
+            | File | Description |
+            |------|-------------|
+            | `PhoneCamDesktop.exe` | Windows desktop app (requires [UnityCapture](https://github.com/schellingb/UnityCapture) for virtual camera) |
+            | `phonecam_desktop.py` | Desktop app source — run directly with `pip install PyQt6 opencv-python pyvirtualcam numpy` |
+            | `PhoneCam.apk` | Android app |
+          prerelease: true
+          make_latest: false
+          files: |
+            desktop/dist/PhoneCamDesktop.exe
+            desktop/phonecam_desktop.py
