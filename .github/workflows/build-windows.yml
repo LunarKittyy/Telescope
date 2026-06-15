@@ -31,11 +31,21 @@ jobs:
         working-directory: desktop
         run: pyinstaller phonecam.spec
 
-      - name: Upload EXE artifact
+      - name: Assemble release bundle
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path bundle
+          Copy-Item desktop/dist/PhoneCamDesktop.exe bundle/
+          Copy-Item desktop/start.bat bundle/
+          Copy-Item -Recurse desktop/platform-tools bundle/platform-tools
+          Copy-Item -Recurse desktop/unitycapture bundle/unitycapture
+          Compress-Archive -Path bundle/* -DestinationPath PhoneCam-windows.zip
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PhoneCamDesktop-windows
-          path: desktop/dist/PhoneCamDesktop.exe
+          name: PhoneCam-windows
+          path: PhoneCam-windows.zip
           retention-days: 30
 
       - name: Update rolling release
@@ -44,16 +54,6 @@ jobs:
         with:
           tag_name: latest
           name: Latest
-          body: |
-            Rolling release — always contains the newest builds from `master`.
-
-            | File | Description |
-            |------|-------------|
-            | `PhoneCamDesktop.exe` | Windows desktop app (requires [UnityCapture](https://github.com/schellingb/UnityCapture) for virtual camera) |
-            | `phonecam_desktop.py` | Desktop app source — run directly with `pip install PyQt6 opencv-python pyvirtualcam numpy` |
-            | `PhoneCam.apk` | Android app |
           prerelease: true
           make_latest: false
-          files: |
-            desktop/dist/PhoneCamDesktop.exe
-            desktop/phonecam_desktop.py
+          files: PhoneCam-windows.zip

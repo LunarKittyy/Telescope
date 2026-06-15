@@ -1,0 +1,45 @@
+name: Build Linux bundle
+
+on:
+  push:
+    branches: [master]
+    paths: [desktop/**]
+  pull_request:
+    paths: [desktop/**]
+  workflow_dispatch:
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble release bundle
+        run: |
+          mkdir bundle
+          cp desktop/phonecam_desktop.py bundle/
+          cp desktop/requirements.txt bundle/
+          cp desktop/start.sh bundle/
+          chmod +x bundle/start.sh
+          tar -czf PhoneCam-linux.tar.gz -C bundle .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PhoneCam-linux
+          path: PhoneCam-linux.tar.gz
+          retention-days: 30
+
+      - name: Update rolling release
+        if: github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest
+          prerelease: true
+          make_latest: false
+          files: PhoneCam-linux.tar.gz
+
