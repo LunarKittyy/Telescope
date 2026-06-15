@@ -61,12 +61,12 @@ jobs:
           tag_name: latest
           name: Latest
           body: |
-            Rolling release — always contains the newest builds from `master`.
+            Rolling release - always contains the newest builds from `master`.
 
             | File | Description |
             |------|-------------|
-            | `PhoneCamDesktop.exe` | Windows desktop app (requires [UnityCapture](https://github.com/schellingb/UnityCapture) for virtual camera) |
-            | `phonecam_desktop.py` | Desktop app source — run directly with `pip install PyQt6 opencv-python pyvirtualcam numpy` |
+            | `PhoneCam-windows.zip` | Windows bundle: EXE + start.bat + adb + UnityCapture driver. Extract and run `start.bat` or `PhoneCamDesktop.exe`. |
+            | `PhoneCam-linux.tar.gz` | Linux bundle: Python script + start.sh. Run `./start.sh` to install deps and launch. |
             | `PhoneCam.apk` | Android app |
           prerelease: true
           make_latest: false
