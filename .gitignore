@@ -1,0 +1,30 @@
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+
+# Desktop
+desktop/phonecam_config.json
+desktop/__pycache__/
+desktop/*.pyc
+desktop/build/
+desktop/dist/
+desktop/*.egg-info/
+desktop/.venv/
+venv/
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.DS_Store
+Thumbs.db
