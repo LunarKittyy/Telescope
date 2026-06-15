@@ -55,5 +55,5 @@ jobs:
           tag_name: latest
           name: Latest
           prerelease: false
-          make_latest: false
+          make_latest: true
           files: PhoneCam-windows.zip
