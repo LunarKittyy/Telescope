@@ -51,6 +51,7 @@ from PyQt6.QtWidgets import (
     QComboBox, QCheckBox, QRadioButton, QButtonGroup,
     QPushButton, QSlider, QTextEdit, QFrame,
     QSizePolicy, QMessageBox, QSystemTrayIcon, QMenu,
+    QDialog, QDialogButtonBox, QFormLayout,
 )
 from pathlib import Path
 from qt_material import apply_stylesheet
@@ -303,36 +304,36 @@ class NoScrollDoubleSpinBox(QDoubleSpinBox):
 def create_vector_icon(icon_name: str, color_hex: str) -> QIcon:
     pixmap = QPixmap(32, 32)
     pixmap.fill(Qt.GlobalColor.transparent)
-    
+
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    
+
     color = QColor(color_hex)
     pen = QPen(color)
     pen.setWidth(2)
     pen.setCapStyle(Qt.PenCapStyle.RoundCap)
     pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
     painter.setPen(pen)
-    
+
     brush = QBrush(Qt.BrushStyle.NoBrush)
     painter.setBrush(brush)
-    
+
     if icon_name == "connection":
         painter.drawRoundedRect(11, 10, 10, 12, 2, 2)
         painter.drawLine(5, 13, 11, 13)
         painter.drawLine(5, 19, 11, 19)
         painter.drawLine(21, 16, 27, 16)
-        
+
     elif icon_name == "camera":
         painter.drawRoundedRect(6, 11, 20, 13, 2, 2)
         painter.drawEllipse(12, 13, 8, 8)
         painter.drawRect(10, 8, 5, 3)
-        
+
     elif icon_name == "stream":
         painter.drawRoundedRect(5, 8, 22, 14, 2, 2)
         painter.drawLine(16, 22, 16, 26)
         painter.drawLine(11, 26, 21, 26)
-        
+
     elif icon_name == "gear":
         painter.drawEllipse(11, 11, 10, 10)
         painter.drawEllipse(14, 14, 4, 4)
@@ -343,7 +344,7 @@ def create_vector_icon(icon_name: str, color_hex: str) -> QIcon:
             painter.rotate(angle)
             painter.drawLine(0, -5, 0, -8)
             painter.restore()
-            
+
     elif icon_name == "status":
         painter.drawEllipse(7, 7, 18, 18)
         pen_dot = QPen(color)
@@ -352,7 +353,7 @@ def create_vector_icon(icon_name: str, color_hex: str) -> QIcon:
         painter.drawPoint(16, 12)
         painter.setPen(pen)
         painter.drawLine(16, 15, 16, 20)
-        
+
     painter.end()
     return QIcon(pixmap)
 
@@ -394,9 +395,9 @@ def v4l2_load() -> tuple:
     import os
     if v4l2_module_loaded():
         return False, (
-            f"v4l2loopback is already loaded with a different configuration "
-            f"and {V4L2_PHONE_DEV} is not available. "
-            f"If nothing else is using it, run: sudo modprobe -r v4l2loopback"
+            f"v4l2loopback is loaded with a different config "
+            f"and {V4L2_PHONE_DEV} is unavailable. "
+            f"Run: sudo modprobe -r v4l2loopback"
         )
     # Check our target device numbers aren't already claimed by something else
     for dev in (V4L2_PHONE_DEV, V4L2_OBS_DEV):
@@ -510,6 +511,22 @@ def transform_frame(frame, flip_h: bool, flip_v: bool, rotation):
     if rotation is not None: frame = cv2.rotate(frame, rotation)
     return frame
 
+def apply_zoom(frame, zoom: float, pan_x: float, pan_y: float):
+    """Center-crop with optional pan offset. zoom=1.0 is a no-op."""
+    if zoom <= 1.0:
+        return frame
+    h, w = frame.shape[:2]
+    crop_w = int(w / zoom)
+    crop_h = int(h / zoom)
+    max_dx = (w - crop_w) // 2
+    max_dy = (h - crop_h) // 2
+    cx = max_dx + int(pan_x * max_dx)
+    cy = max_dy + int(pan_y * max_dy)
+    x0 = max(0, min(cx, w - crop_w))
+    y0 = max(0, min(cy, h - crop_h))
+    cropped = frame[y0:y0 + crop_h, x0:x0 + crop_w]
+    return cv2.resize(cropped, (w, h), interpolation=cv2.INTER_LINEAR)
+
 # ── UnityCapture helpers (Windows) ────────────────────────────────────────────
 
 def download_unitycapture(progress_cb=None) -> tuple:
@@ -605,7 +622,8 @@ class StreamWorker(QThread):
     status = pyqtSignal(str, str)   # (kind, msg): info/ok/warn/fps/idle
 
     def __init__(self, url: str, width: Optional[int], height: Optional[int],
-                 fps: int, flip_h: bool, flip_v: bool, rotation):
+                 fps: int, flip_h: bool, flip_v: bool, rotation,
+                 zoom: float = 1.0, pan_x: float = 0.0, pan_y: float = 0.0):
         super().__init__()
         self.url       = url
         self._width    = width
@@ -614,6 +632,9 @@ class StreamWorker(QThread):
         self.flip_h    = flip_h
         self.flip_v    = flip_v
         self.rotation  = rotation
+        self.zoom      = zoom
+        self.pan_x     = pan_x
+        self.pan_y     = pan_y
         self._stop_flag    = False
         self._restart_vcam = threading.Event()
         self._latest_rgb   = None
@@ -662,6 +683,7 @@ class StreamWorker(QThread):
                 rw = resize_w or raw.shape[1]
                 rh = resize_h or raw.shape[0]
                 raw = cv2.resize(raw, (rw, rh))
+            raw = apply_zoom(raw, self.zoom, self.pan_x, self.pan_y)
             raw = transform_frame(raw, self.flip_h, self.flip_v, self.rotation)
             self._latest_rgb = cv2.cvtColor(raw, cv2.COLOR_BGR2RGB)
         if cap is not None:
@@ -692,6 +714,7 @@ class StreamWorker(QThread):
                 rw = self._width  or frame.shape[1]
                 rh = self._height or frame.shape[0]
                 frame = cv2.resize(frame, (rw, rh))
+            frame = apply_zoom(frame, self.zoom, self.pan_x, self.pan_y)
             frame = transform_frame(frame, self.flip_h, self.flip_v, self.rotation)
             w = frame.shape[1]
             h = frame.shape[0]
@@ -980,6 +1003,106 @@ class WbSliderRow(QWidget):
         self._slider.setEnabled(enabled)
         self._spin.setEnabled(enabled)
 
+# ── Linear pan slider ─────────────────────────────────────────────────────────
+class PanSliderRow(QWidget):
+    """Linear slider -1.0 to 1.0 with a centered zero tick."""
+    value_changed = pyqtSignal(float)
+    STEPS = 200
+
+    def __init__(self, label_neg: str = "L", label_pos: str = "R", parent=None):
+        super().__init__(parent)
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(8)
+
+        neg_lbl = QLabel(label_neg)
+        neg_lbl.setObjectName("dim")
+        lay.addWidget(neg_lbl)
+
+        self._slider = NoScrollSlider(Qt.Orientation.Horizontal)
+        self._slider.setRange(-self.STEPS, self.STEPS)
+        self._slider.setValue(0)
+        self._slider.setMinimumWidth(120)
+        lay.addWidget(self._slider, 1)
+
+        pos_lbl = QLabel(label_pos)
+        pos_lbl.setObjectName("dim")
+        lay.addWidget(pos_lbl)
+
+        self._debounce: Optional[QTimer] = None
+        self._slider.valueChanged.connect(self._on_slider)
+
+    def _on_slider(self, pos: int):
+        val = pos / self.STEPS
+        if self._debounce:
+            self._debounce.stop()
+        self._debounce = QTimer(self)
+        self._debounce.setSingleShot(True)
+        self._debounce.timeout.connect(lambda: self.value_changed.emit(val))
+        self._debounce.start(30)
+
+    def get_value(self) -> float:
+        return self._slider.value() / self.STEPS
+
+    def set_value(self, val: float):
+        self._slider.blockSignals(True)
+        self._slider.setValue(int(val * self.STEPS))
+        self._slider.blockSignals(False)
+
+    def reset(self):
+        self.set_value(0.0)
+
+    def set_enabled(self, enabled: bool):
+        self._slider.setEnabled(enabled)
+
+# ── Add device dialog ─────────────────────────────────────────────────────────
+class AddDeviceDialog(QDialog):
+    def __init__(self, parent=None, existing_names: list = None):
+        super().__init__(parent)
+        self.setWindowTitle("Add Device")
+        self.setMinimumWidth(320)
+        self._existing = existing_names or []
+
+        form = QFormLayout()
+        self._name_edit = QLineEdit()
+        self._name_edit.setPlaceholderText("e.g. Phone1")
+        self._ip_edit   = QLineEdit()
+        self._ip_edit.setPlaceholderText("e.g. 192.168.1.100")
+        form.addRow("Name", self._name_edit)
+        form.addRow("IP address", self._ip_edit)
+
+        self._err_lbl = QLabel("")
+        self._err_lbl.setObjectName("status_err")
+        self._err_lbl.setWordWrap(True)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self._on_accept)
+        buttons.rejected.connect(self.reject)
+
+        lay = QVBoxLayout(self)
+        lay.addLayout(form)
+        lay.addWidget(self._err_lbl)
+        lay.addWidget(buttons)
+
+    def _on_accept(self):
+        name = self._name_edit.text().strip()
+        ip   = self._ip_edit.text().strip()
+        if not name:
+            self._err_lbl.setText("Name cannot be empty.")
+            return
+        if name in self._existing:
+            self._err_lbl.setText(f'"{name}" already exists.')
+            return
+        if not ip:
+            self._err_lbl.setText("IP address cannot be empty.")
+            return
+        self.accept()
+
+    def result_values(self) -> tuple:
+        return self._name_edit.text().strip(), self._ip_edit.text().strip()
+
 # ── Main window ───────────────────────────────────────────────────────────────
 class PhoneCamWindow(QMainWindow):
     _sig_state       = pyqtSignal(dict)
@@ -997,13 +1120,18 @@ class PhoneCamWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("PhoneCam")
         self.setMinimumSize(520, 480)
-        self.resize(540, 820)
+        self.resize(540, 900)
 
         self._worker: Optional[StreamWorker] = None
         self._ctrl:   Optional[PhoneControlClient] = None
         self._adb_port: Optional[int] = None
         self._manual_exp = False
         self._manual_wb  = False
+
+        # Device list: [{"name": str, "ip": str}, ...]
+        self._devices: list = []
+        self._selected_device: Optional[str] = None
+        self._switching_device = False  # suppress save during programmatic combo change
 
         # Windows-specific widget refs (populated in _build_platform_setup)
         self._uc_status_lbl:  Optional[QLabel]      = None
@@ -1061,7 +1189,7 @@ class PhoneCamWindow(QMainWindow):
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         content = QWidget()
         content.setObjectName("content_widget")
         c_lay = QVBoxLayout(content)
@@ -1123,28 +1251,28 @@ class PhoneCamWindow(QMainWindow):
         card = QFrame()
         card.setFrameShape(QFrame.Shape.StyledPanel)
         card.setObjectName("card")
-        
+
         lay = QVBoxLayout(card)
         lay.setContentsMargins(14, 14, 14, 14)
         lay.setSpacing(10)
-        
+
         # Header layout
         hdr = QHBoxLayout()
         hdr.setContentsMargins(0, 0, 0, 4)
         hdr.setSpacing(8)
-        
+
         # Icon
         icon_lbl = QLabel()
         icon_lbl.setPixmap(create_vector_icon(icon_name, "#518cc6").pixmap(18, 18))
         icon_lbl.setFixedSize(18, 18)
         hdr.addWidget(icon_lbl)
-        
+
         # Title
         title_lbl = QLabel(title)
         title_lbl.setObjectName("card_title")
         hdr.addWidget(title_lbl)
         hdr.addStretch()
-        
+
         lay.addLayout(hdr)
         return card, lay
 
@@ -1195,14 +1323,51 @@ class PhoneCamWindow(QMainWindow):
         mode_row.addStretch()
         lay.addLayout(mode_row)
 
-        self._ip_field = QLineEdit("192.168.1.x")
-        self._ip_field.setMaximumWidth(200)
-        self._ip_field.editingFinished.connect(self._schedule_save)
-        self._ip_row_w = QWidget()
-        self._ip_row_w.setObjectName("ip_row_container")
-        self._ip_row_w.setLayout(self._row("Phone IP", self._ip_field))
-        lay.addWidget(self._ip_row_w)
-        self._ip_row_w.setVisible(False)
+        # Device selector (shown in Wi-Fi mode)
+        self._device_row_w = QWidget()
+        self._device_row_w.setObjectName("ip_row_container")
+        device_v = QVBoxLayout(self._device_row_w)
+        device_v.setContentsMargins(0, 0, 0, 0)
+        device_v.setSpacing(4)
+
+        # Combo + buttons row
+        combo_row = QHBoxLayout()
+        combo_row.setContentsMargins(0, 0, 0, 0)
+        combo_row.setSpacing(6)
+        dev_lbl = QLabel("Device")
+        dev_lbl.setObjectName("dim")
+        dev_lbl.setFixedWidth(110)
+        dev_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        combo_row.addWidget(dev_lbl)
+        self._device_combo = NoScrollComboBox()
+        self._device_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self._device_combo.currentIndexChanged.connect(self._on_device_changed)
+        combo_row.addWidget(self._device_combo, 1)
+        _icon_btn_style = "padding: 0px;"
+        self._add_device_btn = QPushButton("+")
+        self._add_device_btn.setFixedSize(28, 28)
+        self._add_device_btn.setStyleSheet(_icon_btn_style)
+        self._add_device_btn.clicked.connect(self._on_add_device)
+        self._remove_device_btn = QPushButton("−")
+        self._remove_device_btn.setFixedSize(28, 28)
+        self._remove_device_btn.setStyleSheet(_icon_btn_style)
+        self._remove_device_btn.clicked.connect(self._on_remove_device)
+        combo_row.addWidget(self._add_device_btn)
+        combo_row.addWidget(self._remove_device_btn)
+        device_v.addLayout(combo_row)
+
+        # IP display label (dim, read-only)
+        ip_display_row = QHBoxLayout()
+        ip_display_row.setContentsMargins(0, 0, 0, 0)
+        ip_display_row.addSpacing(118)  # align with combo
+        self._ip_display_lbl = QLabel("")
+        self._ip_display_lbl.setObjectName("dim")
+        self._ip_display_lbl.setWordWrap(True)
+        ip_display_row.addWidget(self._ip_display_lbl, 1)
+        device_v.addLayout(ip_display_row)
+
+        lay.addWidget(self._device_row_w)
+        self._device_row_w.setVisible(False)
 
         self._port_field = QLineEdit(str(DEFAULT_PORT))
         self._port_field.setValidator(QIntValidator(1, 65535))
@@ -1216,12 +1381,13 @@ class PhoneCamWindow(QMainWindow):
         if IS_LINUX:
             self._v4l_lbl = QLabel("Status unknown")
             self._v4l_lbl.setObjectName("status_dim")
+            self._v4l_lbl.setWordWrap(True)
             self._v4l_lbl.setToolTip(
                 "Virtual camera mapping:\n"
                 f"  • Phone Feed: {V4L2_PHONE_DEV}\n"
                 f"  • OBS Loopback: {V4L2_OBS_DEV}"
             )
-            lay.addLayout(self._row("Virtual Cam", self._v4l_lbl))
+            lay.addLayout(self._row("Virtual Cam", self._v4l_lbl, stretch=True))
 
             btn_row = QHBoxLayout()
             btn_row.setContentsMargins(0, 0, 0, 0)
@@ -1257,8 +1423,102 @@ class PhoneCamWindow(QMainWindow):
         return gb
 
     def _on_mode(self):
-        self._ip_row_w.setVisible(self._rb_wifi.isChecked())
+        self._device_row_w.setVisible(self._rb_wifi.isChecked())
         self._schedule_save()
+
+    # ── Device management ─────────────────────────────────────────────────────
+
+    def _current_device_name(self) -> Optional[str]:
+        idx = self._device_combo.currentIndex()
+        if idx < 0 or idx >= len(self._devices):
+            return None
+        return self._devices[idx]["name"]
+
+    def _current_device_ip(self) -> Optional[str]:
+        idx = self._device_combo.currentIndex()
+        if idx < 0 or idx >= len(self._devices):
+            return None
+        return self._devices[idx]["ip"]
+
+    def _refresh_device_combo(self, select_name: Optional[str] = None):
+        self._switching_device = True
+        self._device_combo.blockSignals(True)
+        self._device_combo.clear()
+        for d in self._devices:
+            self._device_combo.addItem(d["name"])
+        # Restore selection
+        idx = 0
+        if select_name:
+            for i, d in enumerate(self._devices):
+                if d["name"] == select_name:
+                    idx = i
+                    break
+        if self._devices:
+            self._device_combo.setCurrentIndex(idx)
+        self._device_combo.blockSignals(False)
+        self._switching_device = False
+        self._update_ip_display()
+        self._remove_device_btn.setEnabled(bool(self._devices))
+
+    def _update_ip_display(self):
+        ip = self._current_device_ip()
+        self._ip_display_lbl.setText(ip or "")
+
+    def _on_device_changed(self, idx: int):
+        if self._switching_device:
+            return
+        name = self._devices[idx]["name"] if 0 <= idx < len(self._devices) else None
+        if name and name != self._selected_device:
+            # Save settings for the outgoing device before switching
+            if self._selected_device:
+                self._save_config()
+            self._selected_device = name
+            self._update_ip_display()
+            cfg = self._load_config()
+            device_cfg = cfg.get("devices", {}).get(name, {})
+            self._apply_device_settings(device_cfg)
+
+    def _on_add_device(self):
+        existing = [d["name"] for d in self._devices]
+        dlg = AddDeviceDialog(self, existing_names=existing)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        name, ip = dlg.result_values()
+        self._devices.append({"name": name, "ip": ip})
+        self._refresh_device_combo(select_name=name)
+        self._selected_device = name
+        self._save_config()
+
+    def _on_remove_device(self):
+        name = self._current_device_name()
+        if not name:
+            return
+        r = QMessageBox.question(
+            self, "Remove device",
+            f'Remove "{name}"? Its saved settings will be deleted.',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if r != QMessageBox.StandardButton.Yes:
+            return
+        self._devices = [d for d in self._devices if d["name"] != name]
+        # Remove device settings from config file immediately
+        cfg = self._load_config()
+        cfg.get("devices", {}).pop(name, None)
+        cfg["devices"] = cfg.get("devices", {})
+        if self._devices:
+            new_name = self._devices[0]["name"]
+            cfg["selected_device"] = new_name
+            self._selected_device = new_name
+        else:
+            cfg.pop("selected_device", None)
+            self._selected_device = None
+        try:
+            CONFIG_FILE.write_text(json.dumps(cfg, indent=2))
+        except Exception:
+            pass
+        self._refresh_device_combo(select_name=self._selected_device)
+        self._update_ip_display()
 
     # ── Camera control ────────────────────────────────────────────────────────
     def _build_camera_control(self) -> QFrame:
@@ -1395,6 +1655,44 @@ class PhoneCamWindow(QMainWindow):
         self._rot_combo.currentTextChanged.connect(self._on_rotate)
         lay.addLayout(self._row("Rotation", self._rot_combo))
 
+        lay.addWidget(create_separator())
+
+        # Zoom
+        zoom_row = QHBoxLayout()
+        zoom_row.setContentsMargins(0, 0, 0, 0)
+        zoom_row.setSpacing(8)
+        zoom_lbl = QLabel("Zoom")
+        zoom_lbl.setObjectName("dim")
+        zoom_lbl.setFixedWidth(110)
+        zoom_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        zoom_row.addWidget(zoom_lbl)
+        self._zoom_slider = NoScrollSlider(Qt.Orientation.Horizontal)
+        self._zoom_slider.setRange(100, 500)  # 1.00x – 5.00x stored as integer *100
+        self._zoom_slider.setValue(100)
+        self._zoom_slider.setMinimumWidth(120)
+        self._zoom_val_lbl = QLabel("1.0×")
+        self._zoom_val_lbl.setObjectName("val")
+        self._zoom_val_lbl.setMinimumWidth(40)
+        self._zoom_slider.valueChanged.connect(self._on_zoom_changed)
+        zoom_row.addWidget(self._zoom_slider, 1)
+        zoom_row.addWidget(self._zoom_val_lbl)
+        lay.addLayout(zoom_row)
+
+        # Pan X
+        self._pan_x_slider = PanSliderRow("L", "R")
+        self._pan_x_slider.value_changed.connect(self._on_pan_changed)
+        self._pan_x_row = self._row("Pan X", self._pan_x_slider, stretch=True)
+        lay.addLayout(self._pan_x_row)
+
+        # Pan Y
+        self._pan_y_slider = PanSliderRow("U", "D")
+        self._pan_y_slider.value_changed.connect(self._on_pan_changed)
+        self._pan_y_row = self._row("Pan Y", self._pan_y_slider, stretch=True)
+        lay.addLayout(self._pan_y_row)
+
+        self._pan_x_slider.set_enabled(False)
+        self._pan_y_slider.set_enabled(False)
+
         return gb
 
     def _build_stream_output(self) -> QFrame:
@@ -1478,12 +1776,11 @@ class PhoneCamWindow(QMainWindow):
         elif v4l2_module_loaded():
             self._v4l_lbl.setObjectName("status_warn")
             self._v4l_lbl.setText(
-                f"Module loaded but {V4L2_PHONE_DEV} not found "
-                "(another config is active)"
+                f"Module loaded but {V4L2_PHONE_DEV} not found — another config active"
             )
         else:
             self._v4l_lbl.setObjectName("status_err")
-            self._v4l_lbl.setText("Not loaded: click Load module")
+            self._v4l_lbl.setText("Not loaded — click Load Module")
         self._v4l_lbl.setStyleSheet("")
 
     def _v4l_load(self):
@@ -1495,7 +1792,7 @@ class PhoneCamWindow(QMainWindow):
         ).start()
 
     def _on_v4l_result(self, ok: bool, msg: str):
-        self._v4l_lbl.setText(("Loaded - " if ok else "Failed - ") + msg)
+        self._v4l_lbl.setText(("Loaded — " if ok else "Failed — ") + msg)
         self._v4l_lbl.setObjectName("status_ok" if ok else "status_err")
         self._v4l_lbl.setStyleSheet("")
 
@@ -1664,6 +1961,27 @@ class PhoneCamWindow(QMainWindow):
             self._worker.rotation = ROTATIONS.get(self._rot_combo.currentText())
         self._schedule_save()
 
+    def _on_zoom_changed(self, val: int):
+        zoom = val / 100.0
+        self._zoom_val_lbl.setText(f"{zoom:.1f}×")
+        pan_active = zoom > 1.0
+        self._pan_x_slider.set_enabled(pan_active)
+        self._pan_y_slider.set_enabled(pan_active)
+        if not pan_active:
+            self._pan_x_slider.reset()
+            self._pan_y_slider.reset()
+        if self._worker:
+            self._worker.zoom  = zoom
+            self._worker.pan_x = self._pan_x_slider.get_value() if pan_active else 0.0
+            self._worker.pan_y = self._pan_y_slider.get_value() if pan_active else 0.0
+        self._schedule_save()
+
+    def _on_pan_changed(self, _val: float):
+        if self._worker:
+            self._worker.pan_x = self._pan_x_slider.get_value()
+            self._worker.pan_y = self._pan_y_slider.get_value()
+        self._schedule_save()
+
     def _on_resolution(self):
         if self._worker:
             res = RESOLUTIONS.get(self._res_combo.currentText())
@@ -1698,26 +2016,42 @@ class PhoneCamWindow(QMainWindow):
         except Exception:
             return {}
 
-    def _save_config(self):
-        cfg = {
-            "mode":        "wifi" if self._rb_wifi.isChecked() else "usb",
-            "ip":          self._ip_field.text(),
-            "port":        self._port_field.text(),
-            "resolution":  self._res_combo.currentText(),
-            "fps":         self._fps_spin.value(),
-            "flip_h":      self._flip_h.isChecked(),
-            "flip_v":      self._flip_v.isChecked(),
-            "rotation":    self._rot_combo.currentText(),
-            "exp_manual":  self._rb_exp_manual.isChecked(),
-            "iso":         self._iso_slider.get_value(),
-            "shutter_ns":  self._sht_slider.get_value(),
-            "ois":         self._ois_cb.isChecked(),
+    def _device_settings_snapshot(self) -> dict:
+        """Capture all per-device settings from the current UI state."""
+        return {
+            "resolution":   self._res_combo.currentText(),
+            "fps":          self._fps_spin.value(),
+            "flip_h":       self._flip_h.isChecked(),
+            "flip_v":       self._flip_v.isChecked(),
+            "rotation":     self._rot_combo.currentText(),
+            "exp_manual":   self._rb_exp_manual.isChecked(),
+            "iso":          self._iso_slider.get_value(),
+            "shutter_ns":   self._sht_slider.get_value(),
+            "ois":          self._ois_cb.isChecked(),
             "jpeg_quality": self._quality_slider.value(),
-            "phone_fps":   self._phone_fps_spin.value(),
-            "batt_alert":  self._batt_alert_spin.value(),
-            "temp_alert":  self._temp_alert_spin.value(),
+            "phone_fps":    self._phone_fps_spin.value(),
+            "batt_alert":   self._batt_alert_spin.value(),
+            "temp_alert":   self._temp_alert_spin.value(),
+            "zoom":         self._zoom_slider.value() / 100.0,
+            "pan_x":        self._pan_x_slider.get_value(),
+            "pan_y":        self._pan_y_slider.get_value(),
         }
-        # Preserve unitycapture_installed flag if it exists
+
+    def _save_config(self):
+        cfg = self._load_config()
+
+        # Global (non-device) settings
+        cfg["mode"] = "wifi" if self._rb_wifi.isChecked() else "usb"
+        cfg["port"] = self._port_field.text()
+        cfg["devices_list"] = self._devices  # ordered list with name+ip
+
+        if self._selected_device:
+            cfg["selected_device"] = self._selected_device
+            devices = cfg.get("devices", {})
+            devices[self._selected_device] = self._device_settings_snapshot()
+            cfg["devices"] = devices
+
+        # Preserve unitycapture_installed flag
         try:
             existing = json.loads(CONFIG_FILE.read_text())
             if "unitycapture_installed" in existing:
@@ -1729,17 +2063,10 @@ class PhoneCamWindow(QMainWindow):
         except Exception:
             pass
 
-    def _apply_config(self, cfg: dict):
+    def _apply_device_settings(self, cfg: dict):
+        """Load per-device settings into the UI without touching global fields."""
         if not cfg:
             return
-        if cfg.get("mode") == "wifi":
-            self._rb_wifi.setChecked(True)
-            self._rb_usb.setChecked(False)
-            self._on_mode()
-        if ip := cfg.get("ip"):
-            self._ip_field.setText(ip)
-        if port := cfg.get("port"):
-            self._port_field.setText(str(port))
         if res := cfg.get("resolution"):
             idx = self._res_combo.findText(res)
             if idx >= 0:
@@ -1770,6 +2097,50 @@ class PhoneCamWindow(QMainWindow):
             self._batt_alert_spin.setValue(int(ba))
         if ta := cfg.get("temp_alert"):
             self._temp_alert_spin.setValue(int(ta))
+        zoom = cfg.get("zoom", 1.0)
+        self._zoom_slider.setValue(int(zoom * 100))
+        pan_active = zoom > 1.0
+        self._pan_x_slider.set_value(cfg.get("pan_x", 0.0))
+        self._pan_y_slider.set_value(cfg.get("pan_y", 0.0))
+        self._pan_x_slider.set_enabled(pan_active)
+        self._pan_y_slider.set_enabled(pan_active)
+
+    def _apply_config(self, cfg: dict):
+        if not cfg:
+            return
+
+        # ── Migrate old flat format ───────────────────────────────────────────
+        if "ip" in cfg and "devices_list" not in cfg:
+            old_ip   = cfg.pop("ip", "")
+            old_name = "Phone"
+            cfg["devices_list"]    = [{"name": old_name, "ip": old_ip}]
+            cfg["selected_device"] = old_name
+            cfg["devices"]         = {old_name: {
+                k: cfg.pop(k) for k in list(cfg.keys())
+                if k in ("resolution", "fps", "flip_h", "flip_v", "rotation",
+                         "exp_manual", "iso", "shutter_ns", "ois", "jpeg_quality",
+                         "phone_fps", "batt_alert", "temp_alert")
+            }}
+
+        # Global settings
+        if cfg.get("mode") == "wifi":
+            self._rb_wifi.setChecked(True)
+            self._rb_usb.setChecked(False)
+            self._on_mode()
+        if port := cfg.get("port"):
+            self._port_field.setText(str(port))
+
+        # Device list
+        self._devices = cfg.get("devices_list", [])
+        selected = cfg.get("selected_device")
+        if self._devices and not selected:
+            selected = self._devices[0]["name"]
+        self._selected_device = selected
+        self._refresh_device_combo(select_name=selected)
+
+        # Per-device settings for the selected device
+        device_cfg = cfg.get("devices", {}).get(selected, {}) if selected else {}
+        self._apply_device_settings(device_cfg)
 
     # ── Start / Stop ──────────────────────────────────────────────────────────
     def _toggle(self):
@@ -1818,22 +2189,25 @@ class PhoneCamWindow(QMainWindow):
             self._adb_port = port
             url = f"http://localhost:{port}/video"
         else:
-            ip = self._ip_field.text().strip()
-            if not ip or ip == "192.168.1.x":
-                QMessageBox.critical(self, "No IP", "Enter the phone's IP address."); return
+            ip = self._current_device_ip()
+            if not ip:
+                QMessageBox.critical(self, "No device", "Add a device in Wi-Fi mode first."); return
             url = f"http://{ip}:{port}/video"
             self._adb_port = None
 
         res = RESOLUTIONS.get(self._res_combo.currentText())
         w, h = res if res else (None, None)
         rotation = ROTATIONS.get(self._rot_combo.currentText())
+        zoom  = self._zoom_slider.value() / 100.0
+        pan_x = self._pan_x_slider.get_value() if zoom > 1.0 else 0.0
+        pan_y = self._pan_y_slider.get_value() if zoom > 1.0 else 0.0
 
         self._lens_panel.set_placeholder("Loading lenses...")
         self._ctrl   = PhoneControlClient(url)
         self._worker = StreamWorker(
             url=url, width=w, height=h, fps=self._fps_spin.value(),
             flip_h=self._flip_h.isChecked(), flip_v=self._flip_v.isChecked(),
-            rotation=rotation,
+            rotation=rotation, zoom=zoom, pan_x=pan_x, pan_y=pan_y,
         )
         self._worker.status.connect(self._on_worker_status)
         self._worker.start()
@@ -1985,6 +2359,7 @@ class PhoneCamWindow(QMainWindow):
         self.activateWindow()
 
     def _tray_quit(self):
+        self._tray_close_notified = True
         self._stop()
         QApplication.quit()
 
