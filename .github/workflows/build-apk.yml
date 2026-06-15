@@ -69,5 +69,5 @@ jobs:
             | `PhoneCam-linux.tar.gz` | Linux bundle. Extract and run `./start.sh` - installs Python deps and launches the app. |
             | `PhoneCam.apk` | Android app. |
           prerelease: false
-          make_latest: false
+          make_latest: true
           files: PhoneCam.apk
