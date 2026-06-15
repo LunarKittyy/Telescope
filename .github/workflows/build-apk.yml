@@ -68,6 +68,6 @@ jobs:
             | `PhoneCam-windows.zip` | Windows bundle. Extract and run `start.bat` (needs Python) or `PhoneCamDesktop.exe` (standalone). Includes adb and UnityCapture virtual camera driver. |
             | `PhoneCam-linux.tar.gz` | Linux bundle. Extract and run `./start.sh` - installs Python deps and launches the app. |
             | `PhoneCam.apk` | Android app. |
-          prerelease: true
+          prerelease: false
           make_latest: false
           files: PhoneCam.apk
