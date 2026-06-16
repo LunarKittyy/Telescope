@@ -350,7 +350,14 @@ All responses: `{"ok": true}` or `{"ok": false, "error": "..."}`.
 
 ---
 
+## License
+
+This project is licensed under [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) - see [LICENSE](LICENSE).
+You are free to use, modify, and share it with attribution, but not for commercial purposes or monetary gain.
+
 ## Third-party components
+
+Bundled third-party components retain their own licenses.
 
 **UnityCapture** (`desktop/unitycapture/`) - DirectShow virtual camera filter for Windows.
 Copyright (c) 2018 Bernhard Schelling. MIT License. See `desktop/unitycapture/LICENSE`.
