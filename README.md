@@ -224,14 +224,14 @@ The `start.sh` script handles pip dependencies automatically. For the virtual ca
 ```bash
 # Load v4l2loopback (the app's Load Module button does this for you, or run manually)
 sudo modprobe v4l2loopback devices=2 video_nr=10,11 \
-  card_label="Phone Camera,Virtual Camera 2" exclusive_caps=1
+  card_label="OBS Virtual Camera,Phone Camera" exclusive_caps=1
 ```
 
 PhoneCam uses `/dev/video11`; `/dev/video10` is left free for other tools (e.g. OBS Virtual Camera).
 
 Persist across reboots (Fedora/Nobara/any `dracut` distro):
 ```bash
-echo 'options v4l2loopback devices=2 video_nr=10,11 card_label="Phone Camera,Virtual Camera 2" exclusive_caps=1' \
+echo 'options v4l2loopback devices=2 video_nr=10,11 card_label="OBS Virtual Camera,Phone Camera" exclusive_caps=1' \
   | sudo tee /etc/modprobe.d/98-v4l2loopback.conf
 
 # Remove any conflicting file (kmod package ships one at the same path)

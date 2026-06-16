@@ -2,7 +2,7 @@
 """
 PhoneCam Desktop
 Receives MJPEG stream from PhoneCam Android app and feeds it into a virtual camera.
-  Linux  : /dev/video10 via v4l2loopback
+  Linux  : /dev/video11 via v4l2loopback
   Windows: "Unity Video Capture" via UnityCapture
 
 Control API: sends HTTP GET requests to the phone's /control endpoint.
@@ -406,7 +406,7 @@ def v4l2_load() -> tuple:
     priv = ["pkexec"] if shutil.which("pkexec") else ["sudo"]
     rc, _, err = _run(priv + ["modprobe", "v4l2loopback",
         "devices=2", "video_nr=10,11",
-        "card_label=Phone Camera,OBS Virtual Camera",
+        "card_label=OBS Virtual Camera,Phone Camera",
         "exclusive_caps=1"], timeout=60)
     return (True, f"Loaded: {V4L2_PHONE_DEV} + {V4L2_OBS_DEV}") \
         if rc == 0 else (False, err or "modprobe failed")
