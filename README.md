@@ -251,7 +251,7 @@ flatpak override --user --device=all com.obsproject.Studio
 
 For the `PhoneCamDesktop.exe` path: `adb.exe` and the UnityCapture DLLs are already bundled in the repo under `desktop/platform-tools/` and `desktop/unitycapture/`. The app looks for them next to itself, so as long as those folders are in the same directory as the EXE, everything is found automatically. No extra installs needed.
 
-### Key implementation notes (for contributors / AI agents)
+### Key implementation notes (for contributors)
 
 **Live transform:** `StreamWorker.flip_h`, `flip_v`, `rotation`, `zoom`, `pan_x`, `pan_y` are plain instance attributes. Python's GIL makes bool/`None`/float writes atomic, so the UI thread sets them while the worker reads them each frame - no lock needed.
 
