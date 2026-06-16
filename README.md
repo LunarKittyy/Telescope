@@ -57,7 +57,7 @@ Run `start.bat` (installs Python deps and launches the app) or `PhoneCamDesktop.
 **Camera control**
 - Lens picker: switches between wide, main, and telephoto sensors (physical sub-cameras, not digital zoom)
 - Manual ISO and shutter speed with log-scale sliders and direct numeric entry; range updates per-lens
-- Manual white balance (2000-8000 K Kelvin slider) with named presets (Daylight, Incandescent, etc.)
+- Manual white balance (2000-8000 K Kelvin slider) with named presets (Daylight, Incandescent, etc.) - *partially working: applies inconsistently depending on device/lens, results may not match expectations*
 - OIS toggle
 - Controls are greyed out per-lens if the camera hardware reports it doesn't support them
 
