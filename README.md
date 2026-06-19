@@ -8,13 +8,15 @@ Stream your Android phone's camera - including telephoto and wide-angle lenses -
 
 ### 1. Install the Android app
 
-Download `PhoneCam.apk` from the [latest release](../../releases/tag/latest) and install it:
+**Easiest:** connect your phone via USB, set up the desktop app first (step 2), then use **System Setup → Install Phone App** — it runs `adb install` for you automatically if `PhoneCam.apk` is next to the desktop app.
+
+**Manually:** download `PhoneCam.apk` from the [latest release](../../releases/tag/latest) and either:
 
 ```bash
 adb install PhoneCam.apk
 ```
 
-Or sideload it from your phone's file manager if you have "Install unknown apps" enabled.
+Or sideload it from your phone's file manager with "Install unknown apps" enabled.
 
 ### 2. Set up and run the desktop app
 
