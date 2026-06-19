@@ -41,13 +41,6 @@ jobs:
           Copy-Item -Recurse desktop/unitycapture bundle/unitycapture
           Compress-Archive -Path bundle/* -DestinationPath PhoneCam-windows.zip
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: PhoneCam-windows
-          path: PhoneCam-windows.zip
-          retention-days: 30
-
       - name: Update rolling release
         if: github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v2
