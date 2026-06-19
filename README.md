@@ -23,11 +23,11 @@ Or sideload it from your phone's file manager if you have "Install unknown apps"
 ./start.sh
 ```
 
-That script installs Python dependencies automatically. The first launch will prompt you to load the v4l2loopback kernel module if it isn't already active - you can also do that from inside the app with the **Load module** button.
+The script installs Python dependencies automatically. On first launch, open **System Setup** to load the v4l2loopback kernel module if it isn't already active.
 
 For USB mode you also need `adb` on your PATH (`sudo apt install adb`, `sudo dnf install android-tools`, or `sudo pacman -S android-tools`).
 
-**Windows** - download `PhoneCam-windows.zip` from the [latest release](../../releases/tag/latest) and extract it anywhere. The zip contains everything needed:
+**Windows** - download `PhoneCam-windows.zip` from the [latest release](../../releases/tag/latest) and extract it anywhere:
 
 ```
 PhoneCam-windows/
@@ -37,11 +37,11 @@ PhoneCam-windows/
     adb.exe                    <- used automatically for USB mode
     ...
   unitycapture/
-    UnityCaptureFilter32.dll   <- registered as a virtual camera by the app on first run
+    UnityCaptureFilter32.dll   <- registered as a virtual camera by the app
     UnityCaptureFilter64.dll
 ```
 
-Run `start.bat` (installs Python deps and launches the app) or `PhoneCamDesktop.exe` directly (no Python needed). The app will detect and register the virtual camera driver on first launch.
+Run `start.bat` (installs Python deps and launches the app) or `PhoneCamDesktop.exe` directly. The app will detect and register the virtual camera driver on first launch via the System Setup dialog.
 
 ### 3. Connect your phone
 
@@ -57,37 +57,43 @@ Run `start.bat` (installs Python deps and launches the app) or `PhoneCamDesktop.
 **Camera control**
 - Lens picker: switches between wide, main, and telephoto sensors (physical sub-cameras, not digital zoom)
 - Manual ISO and shutter speed with log-scale sliders and direct numeric entry; range updates per-lens
-- Manual white balance (2000-8000 K Kelvin slider) with named presets (Daylight, Incandescent, etc.) - *partially working: applies inconsistently depending on device/lens, results may not match expectations*
+- Manual white balance (2000-8000 K slider) with named presets (Daylight, Incandescent, etc.) - *partially working: applies inconsistently depending on device/lens*
 - OIS toggle
 - Controls are greyed out per-lens if the camera hardware reports it doesn't support them
 
-**Stream transforms (applied on the desktop, no phone restart needed)**
+**Stream transforms** (applied on the desktop, no phone restart needed)
 - Horizontal and vertical flip
 - Rotation: 90 CW, 180, 90 CCW
 - Software zoom 1-5x with pan X/Y sliders (center crop + resize)
 - Output resolution downscale: pass-through, 1080p, 720p, 480p, 360p
 - Virtual camera FPS (1-120)
 
+**Canvas size control** (Advanced, in System Setup)
+- Set the virtual camera canvas independently of the phone feed resolution
+- Presets: 720p/1080p/4K in 16:9 landscape and portrait, XGA and UXGA in 4:3, or fully custom
+- On Linux: reloads v4l2loopback in a single elevated prompt (close OBS first); stream restarts automatically
+- On Windows: stops and restarts the stream with the new canvas size
+
 **Bandwidth controls**
 - JPEG quality slider (50-100%) - controls compression on the phone
 - Phone FPS target (5-60 fps) - controls capture rate on the phone
-- Both settings take effect immediately without restarting the stream
+- Both take effect immediately without restarting the stream
 
 **Monitoring**
 - Live FPS display in the footer while streaming
-- Battery level and phone temperature polled every 15 seconds while streaming, shown in the footer with color coding
-- Configurable battery alert threshold (default 20%) - fires a tray/desktop notification when the phone is discharging below it
+- Battery level and phone temperature polled every 15 seconds, shown in the footer with color coding
+- Configurable battery alert threshold (default 20%) - fires a tray/desktop notification when discharging below it
 - Configurable temperature alert threshold (default 45 C) - fires a notification when exceeded
 
 **Multi-device and config persistence**
 - Named device list in Wi-Fi mode: add/remove devices by name and IP, switch between them with a dropdown
-- All settings (resolution, fps, flip, rotation, exposure, zoom, quality, alert thresholds, etc.) are saved per device to `phonecam_config.json` and restored on next launch
-- Settings from the old single-device config format are migrated automatically
+- All settings (resolution, fps, flip, rotation, exposure, zoom, quality, alert thresholds, canvas size, etc.) are saved per device to `phonecam_config.json` and restored on next launch
+- Settings from older config formats are migrated automatically
 
 **System integration**
 - Minimizes to system tray on close; streaming continues in the background
 - Right-click the tray icon to quit, or click it to show/hide the window
-- Launching a second instance brings the existing window to the front instead of opening a duplicate
+- Launching a second instance brings the existing window to the front
 - Battery/temperature notifications use `notify-send` on Linux (if available) or the system tray on Windows
 
 ---
@@ -104,16 +110,26 @@ Most Android camera streaming solutions either lock you to a specific app ecosys
 Android device  (PhoneCam app, port 8080)
       |
       |  USB: adb forward tcp:8080 tcp:8080
-      |  WiFi: direct HTTP
+      |  Wi-Fi: direct HTTP
       v
-phonecam_desktop.py  (Python, PyQt6)
-      |  reads MJPEG with cv2.VideoCapture
-      |  pyvirtualcam -> virtual camera device
-      v
-Any app that reads a webcam
+desktop/main.py  (Python, PyQt6)
+      |
+      |-- phonecam/stream.py       StreamWorker (QThread)
+      |     reads MJPEG via cv2.VideoCapture
+      |     runs frames through plugin pipeline
+      |     _fit_frame() letterboxes to canvas size
+      |     pyvirtualcam -> virtual camera device
+      |
+      +-- phonecam/plugins/        one plugin per UI card
+            connection             IP/USB device selection
+            camera_control         lens, ISO, shutter, WB, OIS
+            stream_output          resolution, FPS, JPEG quality
+            transforms             flip, rotation, zoom, pan
+            monitoring             battery, temperature alerts
+            setup                  driver setup, canvas settings
 ```
 
-On **Linux**, two `v4l2loopback` devices are created (`/dev/video10` and `/dev/video11`). PhoneCam writes to `video11`; `video10` is intentionally left free for other software (e.g. OBS Virtual Camera) so the two don't conflict.
+On **Linux**, two `v4l2loopback` devices are created (`/dev/video10` and `/dev/video11`). PhoneCam writes to `video11`; `video10` is intentionally left free for other software (e.g. OBS Virtual Camera).
 
 On **Windows**, the virtual camera is [UnityCapture](https://github.com/schellingb/UnityCapture) - a standalone DirectShow filter, no OBS required.
 
@@ -123,38 +139,44 @@ On **Windows**, the virtual camera is [UnityCapture](https://github.com/schellin
 
 ```
 phonecam/
-|-- .github/
-|   +-- workflows/
-|       |-- build-apk.yml        # CI: debug APK on ubuntu-latest
-|       |-- build-windows.yml    # CI: Windows bundle (EXE + adb + UnityCapture)
-|       +-- build-linux.yml      # CI: Linux bundle (Python script + start.sh)
+|-- .github/workflows/
+|   |-- build-apk.yml            # CI: debug APK on ubuntu-latest
+|   |-- build-windows.yml        # CI: Windows bundle (EXE + adb + UnityCapture)
+|   +-- build-linux.yml          # CI: Linux bundle (source + start.sh)
 |
 |-- android/                     # Gradle project
-|   +-- app/
-|       |-- build.gradle         # compileSdk 34, minSdk 26, AGP 8.3.2, Kotlin 1.9.24
-|       +-- src/main/
-|           |-- AndroidManifest.xml
-|           +-- kotlin/com/phonecam/
-|               |-- MainActivity.kt          # UI: enumerate cameras, start/stop service
-|               |-- CameraStreamService.kt   # Foreground service: Camera2 + HTTP control
-|               +-- MjpegServer.kt           # HTTP: /video  /cameras  /control
+|   +-- app/src/main/kotlin/com/phonecam/
+|       |-- MainActivity.kt      # UI: enumerate cameras, start/stop service
+|       |-- CameraStreamService.kt  # Foreground service: Camera2 + HTTP control
+|       +-- MjpegServer.kt       # HTTP: /video  /cameras  /control
 |
 +-- desktop/
-    |-- phonecam_desktop.py      # PyQt6 app
+    |-- main.py                  # Entry point: registers plugins, restores config
     |-- requirements.txt
     |-- phonecam.spec            # PyInstaller spec for Windows EXE
     |-- start.sh                 # Linux launcher (auto-installs deps)
-    |-- start.bat                # Windows launcher (auto-installs deps + UnityCapture)
-    |-- platform-tools/          # Bundled adb for Windows (Google Android SDK Platform Tools)
-    |   |-- adb.exe
-    |   |-- AdbWinApi.dll
-    |   |-- AdbWinUsbApi.dll
-    |   |-- libwinpthread-1.dll
-    |   +-- NOTICE
-    +-- unitycapture/            # Bundled virtual camera driver (MIT)
-        |-- UnityCaptureFilter32.dll
-        |-- UnityCaptureFilter64.dll
-        +-- LICENSE
+    |-- start.bat                # Windows launcher (auto-installs deps)
+    |-- platform-tools/          # Bundled adb for Windows
+    |-- unitycapture/            # Bundled UnityCapture DLLs (MIT)
+    +-- phonecam/
+        |-- app.py               # PhoneCamWindow: plugin host, stream lifecycle
+        |-- stream.py            # StreamWorker: MJPEG -> pipeline -> pyvirtualcam
+        |-- plugin.py            # PhoneCamPlugin base class + EventBus
+        |-- config.py            # Versioned JSON config (v2) with migration
+        |-- phone_client.py      # HTTP client for /video and /cameras
+        |-- platform/
+        |   |-- linux.py         # v4l2loopback helpers (load, unload, reload)
+        |   +-- windows.py       # UnityCapture helpers
+        |-- plugins/
+        |   |-- connection.py
+        |   |-- camera_control.py
+        |   |-- stream_output.py
+        |   |-- transforms.py
+        |   |-- monitoring.py
+        |   +-- setup.py
+        +-- widgets/
+            |-- common.py        # NoScroll*, LogSliderRow, separators, icons
+            +-- lens_panel.py    # Lens picker widget
 ```
 
 ---
@@ -169,7 +191,7 @@ Runs a **foreground service** (declared type `camera`, required on Android 14+) 
 - `GET /cameras` - JSON of all detected cameras + current exposure/WB/battery state
 - `GET /control?action=...` - live camera control
 
-The app enumerates **physical sub-cameras** of logical multi-camera groups via `CameraCharacteristics.physicalCameraIds` (API 28+). On many modern phones the logical back camera (ID `0`) hides individual wide/main/telephoto sensors behind it; this app surfaces all of them and lets you pick. Physical cameras are opened via `OutputConfiguration.setPhysicalCameraId()` within a session on the logical parent.
+The app enumerates **physical sub-cameras** of logical multi-camera groups via `CameraCharacteristics.physicalCameraIds` (API 28+). On many modern phones the logical back camera (ID `0`) hides individual wide/main/telephoto sensors behind it; this app surfaces all of them and lets you pick.
 
 ### Build locally
 
@@ -210,31 +232,26 @@ This is a debug build - self-signed, for personal/development use.
 | Component | Library |
 |---|---|
 | UI | PyQt6 |
-| Theming | qt-material |
 | MJPEG decode | opencv-python (`cv2.VideoCapture`) |
 | Virtual camera output | pyvirtualcam |
-| Frame buffers | numpy |
+| Frame processing | numpy |
 
 ### One-time setup (detailed)
 
 **Linux:**
 
-The `start.sh` script handles pip dependencies automatically. For the virtual camera driver:
+The `start.sh` script handles pip dependencies automatically. For the virtual camera driver, use the **System Setup** dialog's Load Module button, or run manually:
 
 ```bash
-# Load v4l2loopback (the app's Load Module button does this for you, or run manually)
 sudo modprobe v4l2loopback devices=2 video_nr=10,11 \
   card_label="OBS Virtual Camera,Phone Camera" exclusive_caps=1
 ```
-
-PhoneCam uses `/dev/video11`; `/dev/video10` is left free for other tools (e.g. OBS Virtual Camera).
 
 Persist across reboots (Fedora/Nobara/any `dracut` distro):
 ```bash
 echo 'options v4l2loopback devices=2 video_nr=10,11 card_label="OBS Virtual Camera,Phone Camera" exclusive_caps=1' \
   | sudo tee /etc/modprobe.d/98-v4l2loopback.conf
 
-# Remove any conflicting file (kmod package ships one at the same path)
 sudo rm -f /etc/modprobe.d/v4l2loopback.conf
 echo "v4l2loopback" | sudo tee /etc/modules-load.d/v4l2loopback.conf
 sudo dracut --force
@@ -247,37 +264,39 @@ flatpak override --user --device=all com.obsproject.Studio
 
 **Windows:**
 
-`start.bat` installs pip dependencies and the UnityCapture DLLs (already bundled in `desktop/unitycapture/`) on first run. The app registers the virtual camera driver automatically - just click the button when prompted.
-
-For the `PhoneCamDesktop.exe` path: `adb.exe` and the UnityCapture DLLs are already bundled in the repo under `desktop/platform-tools/` and `desktop/unitycapture/`. The app looks for them next to itself, so as long as those folders are in the same directory as the EXE, everything is found automatically. No extra installs needed.
+`start.bat` installs pip dependencies and registers the UnityCapture DLLs (bundled in `desktop/unitycapture/`) on first run. The app can also do this from the System Setup dialog.
 
 ### Key implementation notes (for contributors)
 
-**Live transform:** `StreamWorker.flip_h`, `flip_v`, `rotation`, `zoom`, `pan_x`, `pan_y` are plain instance attributes. Python's GIL makes bool/`None`/float writes atomic, so the UI thread sets them while the worker reads them each frame - no lock needed.
+**Plugin system:** The app is built around `PhoneCamPlugin` - a base class with hooks for `setup()`, `create_panel()`, `process_frame()`, `on_stream_start/stop()`, `on_phone_state()`, and `get/set_config()`. Plugins are registered in `main.py` in order; each creates one UI card. An `EventBus` (QObject with Qt signals) handles cross-plugin communication.
 
-**Live FPS/resolution:** Changing these requires recreating the `pyvirtualcam.Camera` context (it is constructed with fixed dimensions). The worker holds a `threading.Event` (`_restart_vcam`). When set, the inner loop breaks, the pyvirtualcam context closes, and the outer loop re-enters with new parameters. Interruption is typically under one second.
+**Frame pipeline:** `StreamWorker` holds a list of `process_frame` callables (one per plugin). Each frame passes through the full pipeline on the reader thread. `_fit_frame()` then letterboxes/pillarboxes the result to the fixed vcam canvas size, preserving aspect ratio with black bars.
 
-**Software zoom/pan:** `apply_zoom()` center-crops the frame to `(w/zoom, h/zoom)` then resizes back to the original dimensions using `cv2.INTER_LINEAR`. Pan offsets shift the crop center within bounds. Applied after resize (to preserve aspect ratio through rotation) and before rotation.
+**Canvas size:** The vcam canvas (`pyvirtualcam.Camera` dimensions) is set at stream start from `SetupPlugin.get_canvas_dims()`. It's independent of the phone feed decode resolution. Changing it requires restarting the stream (and reloading v4l2loopback on Linux). `_fit_frame()` handles any mismatch between the processed frame size and the canvas.
 
-**Auto-reconnect:** If `cap.read()` fails, the stream reader calls `_reconnect_cap()`, which loops with a 3-second delay until the stream comes back. The pyvirtualcam context stays open during reconnect so the virtual camera device doesn't disappear from OBS.
+**Clean stop/restart:** `_stop()` disconnects the worker's status signal before requesting stop, preventing the old worker's eventual `"idle"` emission from clobbering the new worker's state after a canvas restart. Both Linux and Windows `restart_vcam_canvas()` wait for the old `QThread` to fully exit (via `QThread.wait()`) before starting the new one, avoiding pyvirtualcam slot conflicts.
 
-**Control client:** `PhoneControlClient` sends `GET /control?...` in a daemon thread per request, fire-and-forget. Failures are silently dropped - a missed control command is non-critical; the next interaction resyncs state.
+**Linux loopback reload:** `v4l2_reload()` runs `modprobe -r v4l2loopback && sleep 0.5 && modprobe v4l2loopback ...` as a single `pkexec sh -c "..."` invocation so there is only one password prompt for the full unload+reload cycle.
 
-**ISO/shutter sliders:** log scale over 2000 steps across the range the phone reports per camera. Range updates when switching lenses. Spinbox allows direct numeric entry. Shutter spinbox shows milliseconds (scale factor 1e-6) while the API and internal state use nanoseconds.
+**Live transform:** Plugin attributes like `flip_h`, `rotation`, `zoom` are plain Python instance attributes updated by the UI thread and read each frame by the worker thread. Python's GIL makes bool/float writes atomic at this granularity, so no lock is needed.
 
-**White balance:** linear Kelvin slider 2000-8000 K. Translates to `RggbChannelVector` using the Tanner Helland K->RGB algorithm and sets `COLOR_CORRECTION_GAINS`. Reverting to auto restores `CONTROL_AWB_MODE_AUTO`.
+**Live FPS change:** Changing FPS requires recreating the `pyvirtualcam.Camera` context (constructed with fixed fps). The worker holds a `threading.Event` (`_restart_vcam`). When set, the inner vcam loop breaks, the context closes, and the outer loop re-enters with new parameters.
 
-**Camera capability gating:** When a lens is selected, `supportsManualSensor` and `supportsManualWB` from `/cameras` determine whether the manual exposure and WB controls are enabled. If the camera doesn't support a capability the corresponding radio button is disabled and a tooltip explains why.
+**Live resolution change:** Unlike FPS, mid-stream resolution changes don't require a vcam restart. The reader thread reads `self._width`/`self._height` dynamically each frame, and `_fit_frame()` adapts the output to the fixed canvas dimensions.
 
-**Per-device config:** All UI settings are serialized to `phonecam_config.json` (next to the script/EXE) with a 500ms debounce on any change. The `devices` dict is keyed by device name; switching devices in the combo saves the current device's settings before loading the new one's. Old single-device flat configs are migrated automatically on first load.
+**Auto-reconnect:** If `cap.read()` fails, the stream reader calls `_reconnect_cap()`, which loops with a 3-second delay until the stream comes back. The pyvirtualcam context stays open during reconnect so the virtual camera doesn't disappear from OBS.
 
-**Single-instance:** `acquire_single_instance()` tries to bind a local TCP socket on port 47823. If already bound, it connects and sends `b"raise"` to signal the running instance to restore its window, then exits. A background thread in the running instance listens for these signals.
+**Control client:** `PhoneControlClient` sends `GET /control?...` in a daemon thread per request, fire-and-forget. Failures are silently dropped - a missed control command is non-critical.
 
-**Battery/temperature polling:** A `QTimer` fires every 15 seconds while streaming and calls `GET /cameras` for the `battery`, `charging`, and `battery_temp_c` fields. Notifications fire once per threshold crossing and reset with a 5-degree/5-percent hysteresis to avoid repeated alerts.
+**ISO/shutter sliders:** Log scale over 2000 steps across the range the phone reports per camera. Range updates when switching lenses. Shutter spinbox shows milliseconds while the API uses nanoseconds.
 
-**adb lookup:** `adb_exe()` checks `desktop/platform-tools/adb[.exe]` first, then falls back to `adb` on PATH.
+**White balance:** Linear Kelvin slider 2000-8000 K. Translates to `RggbChannelVector` using the Tanner Helland K->RGB algorithm and sets `COLOR_CORRECTION_GAINS`. Reverting to auto restores `CONTROL_AWB_MODE_AUTO`.
 
-**UnityCapture:** DLLs are bundled in `desktop/unitycapture/`. `register_unitycapture()` calls `regsvr32` to register them as a DirectShow filter. The app can also download fresh copies from GitHub if the local ones are missing.
+**Per-device config:** All UI settings serialize to `phonecam_config.json` with a 500ms debounce. The `devices` dict is keyed by device name; switching devices saves the current device's settings before loading the new one's. Config v0/v1 formats are migrated to v2 automatically on first load.
+
+**Single-instance:** `acquire_single_instance()` tries to bind a local TCP socket on port 47823. If already bound, it signals the running instance to restore its window and exits.
+
+**Battery/temperature polling:** A `QTimer` fires every 15 seconds while streaming. Notifications fire once per threshold crossing with 5-degree/5-percent hysteresis to avoid repeated alerts.
 
 ---
 
@@ -303,20 +322,6 @@ All requests are plain `GET`. Server is on the phone at port 8080.
       "supportsManualWB": true,
       "hasOis": true,
       "hwLevel": "FULL"
-    },
-    {
-      "id": "3",
-      "logicalId": "0",
-      "label": "Back ~89mm [phys]",
-      "current": true,
-      "isoMin": 50,
-      "isoMax": 6400,
-      "shutterMinNs": 200000,
-      "shutterMaxNs": 500000000,
-      "supportsManualSensor": true,
-      "supportsManualWB": false,
-      "hasOis": false,
-      "hwLevel": "LIMITED"
     }
   ],
   "auto": true,
@@ -334,19 +339,19 @@ All requests are plain `GET`. Server is on the phone at port 8080.
 
 | `action` | extra params | effect |
 |---|---|---|
-| `camera` | `id=<id>` | Switch camera. Closes current session, reopens with correct physical-stream config. |
-| `auto` | - | Restore auto exposure (AE mode ON, AF continuous video). |
-| `iso` | `value=<int>` | Set ISO. Switches AE to OFF. See note below. |
-| `shutter` | `value=<long ns>` | Set shutter in nanoseconds. Switches AE to OFF. See note below. |
-| `wb_auto` | - | Restore auto white balance. |
-| `wb_kelvin` | `value=<int>` | Set color temperature 1000-40000 K via `COLOR_CORRECTION_GAINS`. |
-| `ois` | `value=1\|0` | Toggle OIS (only applied if camera reports support). |
-| `jpeg_quality` | `value=<int 50-100>` | Set JPEG compression quality on the phone. Lower values reduce bandwidth. |
-| `fps_target` | `value=<int 5-60>` | Set the camera capture FPS on the phone. |
+| `camera` | `id=<id>` | Switch camera |
+| `auto` | - | Restore auto exposure |
+| `iso` | `value=<int>` | Set ISO; switches AE to OFF |
+| `shutter` | `value=<long ns>` | Set shutter in nanoseconds; switches AE to OFF |
+| `wb_auto` | - | Restore auto white balance |
+| `wb_kelvin` | `value=<int>` | Set color temperature via `COLOR_CORRECTION_GAINS` |
+| `ois` | `value=1\|0` | Toggle OIS |
+| `jpeg_quality` | `value=<int 50-100>` | Set JPEG quality on the phone |
+| `fps_target` | `value=<int 5-60>` | Set capture FPS on the phone |
 
 All responses: `{"ok": true}` or `{"ok": false, "error": "..."}`.
 
-> **Manual exposure note:** `CONTROL_MODE_OFF` only activates when *both* ISO and shutter are set. Sending just one has no visible effect until the other is also provided. The desktop app sends both simultaneously when switching to manual mode.
+> **Manual exposure note:** `CONTROL_MODE_OFF` only activates when *both* ISO and shutter are set. The desktop app sends both simultaneously when switching to manual mode.
 
 ---
 
@@ -357,14 +362,12 @@ You are free to use, modify, and share it with attribution, but not for commerci
 
 ## Third-party components
 
-Bundled third-party components retain their own licenses.
-
 **UnityCapture** (`desktop/unitycapture/`) - DirectShow virtual camera filter for Windows.
 Copyright (c) 2018 Bernhard Schelling. MIT License. See `desktop/unitycapture/LICENSE`.
 Source: https://github.com/schellingb/UnityCapture
 
 **Android SDK Platform Tools** (`desktop/platform-tools/`) - includes `adb.exe` for USB mode.
-Copyright (c) Google LLC. Distributed under the Android Software Development Kit License Agreement.
+Copyright (c) Google LLC. Android Software Development Kit License Agreement.
 See `desktop/platform-tools/NOTICE` and https://developer.android.com/studio/terms
 
 ---
@@ -375,30 +378,27 @@ All three workflows publish to a rolling **`latest` release** on every push to `
 
 ### `build-apk.yml` - triggered on changes to `android/**`
 
-1. JDK 21 (Temurin) + Gradle cache via `actions/setup-java@v4`
-2. Android SDK via `android-actions/setup-android@v3` (platform-tools, android-34, build-tools;34.0.0)
-3. Generate `local.properties` from `$ANDROID_SDK_ROOT`
-4. `./gradlew assembleDebug --no-daemon`
-5. Publishes `PhoneCam.apk` to the `latest` release (and as a 30-day artifact)
+1. JDK 21 (Temurin) + Gradle cache
+2. Android SDK (android-34, build-tools;34.0.0)
+3. `./gradlew assembleDebug --no-daemon`
+4. Publishes `PhoneCam.apk` to the `latest` release
 
 ### `build-windows.yml` - triggered on changes to `desktop/**`
 
-1. Python 3.11 + pip cache via `actions/setup-python@v5`
+1. Python 3.11 + pip cache
 2. `pip install -r requirements.txt pyinstaller`
 3. `pyinstaller phonecam.spec`
 4. Assembles `PhoneCam-windows.zip`: EXE + `start.bat` + `platform-tools/` + `unitycapture/`
-5. Publishes the zip to the `latest` release (and as a 30-day artifact)
+5. Publishes the zip to the `latest` release
 
-`phonecam.spec` uses `collect_all('PyQt6')` to include Qt platform plugins (`qwindows.dll` etc.) that PyInstaller's default analysis misses. UnityCapture is a system COM filter and does not need bundling. Expected EXE size: 60-80 MB.
+`phonecam.spec` uses `collect_all('PyQt6')` to include Qt platform plugins that PyInstaller's default analysis misses. Expected EXE size: 60-80 MB.
 
 ### `build-linux.yml` - triggered on changes to `desktop/**`
 
-1. Assembles `PhoneCam-linux.tar.gz`: `phonecam_desktop.py` + `requirements.txt` + `start.sh`
-2. Publishes the tarball to the `latest` release (and as a 30-day artifact)
+1. Assembles `PhoneCam-linux.tar.gz`: `main.py` + `phonecam/` package + `requirements.txt` + `start.sh`
+2. Publishes the tarball to the `latest` release
 
-No build step needed - the Linux bundle is just the Python source and the launcher script.
-
-All workflows also expose `workflow_dispatch` for manual triggering.
+No build step needed - the Linux bundle is the Python source and launcher script.
 
 ---
 
@@ -406,13 +406,14 @@ All workflows also expose `workflow_dispatch` for manual triggering.
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Only 2 cameras visible in app | Physical sub-cameras hidden behind logical camera | Already handled via `physicalCameraIds` (API 28+); if still missing, device may restrict access |
+| Only 2 cameras visible | Physical sub-cameras hidden behind logical camera | Already handled via `physicalCameraIds`; if still missing, device may restrict access |
 | Manual exposure greyed out | Camera doesn't report `MANUAL_SENSOR` capability | Some front cameras and telephoto lenses don't support it; use Auto |
 | `/dev/video11` gone after reboot | v4l2loopback not persistent | Follow the `dracut` / `modules-load.d` steps above |
-| pyvirtualcam fails to open device (Linux) | Module not loaded | App has a **Load module** button, or run `sudo modprobe v4l2loopback ...` |
-| pyvirtualcam fails to open device (Windows) | UnityCapture not registered | Use the app's setup button, or re-run `start.bat` |
-| Camera control panel never appears | Phone HTTP server slow to start | App retries 3x over 6 s after connecting; check USB debugging is active |
+| pyvirtualcam fails to open (Linux) | Module not loaded | Use System Setup -> Load Module |
+| pyvirtualcam fails to open (Windows) | UnityCapture not registered | Use System Setup -> Install Driver |
+| Canvas restart fails with "module in use" | OBS or another app still holds the device | Close all apps using the virtual camera, then retry |
+| Camera control panel never appears | Phone HTTP server slow to start | App retries 3x over 6s; check USB debugging is active |
 | WB slider has no effect | Camera doesn't support `MANUAL_POST_PROCESSING` | Falls back gracefully; auto AWB still works |
 | ISO/shutter change has no effect | Only one of the two was sent | Switch to Manual - desktop sends both simultaneously |
 | High latency over Wi-Fi | MJPEG is per-frame JPEG, higher bandwidth than H.264 | Use USB mode, lower JPEG quality, or reduce phone FPS |
-| Second launch does nothing | Single-instance enforcement | The existing window is brought to the front; only one instance runs at a time |
+| Second launch does nothing | Single-instance enforcement | The existing window is brought to the front |

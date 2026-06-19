@@ -20,10 +20,11 @@ jobs:
       - name: Assemble release bundle
         run: |
           mkdir bundle
-          cp desktop/phonecam_desktop.py bundle/
+          cp desktop/main.py bundle/
           cp desktop/requirements.txt bundle/
           cp desktop/start.sh bundle/
           chmod +x bundle/start.sh
+          cp -r desktop/phonecam bundle/phonecam
           tar -czf PhoneCam-linux.tar.gz -C bundle .
 
       - name: Upload artifact
