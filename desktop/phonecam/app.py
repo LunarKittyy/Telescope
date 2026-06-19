@@ -577,7 +577,7 @@ class PhoneCamWindow(QMainWindow):
         self._status_lbl.setStyleSheet("")
 
     def closeEvent(self, event):
-        if self._tray:
+        if self._tray and self._worker is not None:
             event.ignore()
             self.hide()
             if not self._tray_close_notified:
