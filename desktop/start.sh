@@ -25,4 +25,4 @@ python3 -m pip install --quiet -r requirements.txt 2>/dev/null \
     || python3 -m pip install --quiet --user -r requirements.txt
 
 echo "Launching..."
-python3 phonecam_desktop.py
+python3 main.py

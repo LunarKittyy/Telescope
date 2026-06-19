@@ -37,12 +37,12 @@ if not exist "unitycapture\UnityCaptureFilter64.dll" (
 if /i "%SHOW_TERMINAL%"=="true" (
     echo Launching PhoneCam...
     echo.
-    python phonecam_desktop.py
+    python main.py
     if errorlevel 1 (
         echo.
         echo PhoneCam exited with an error.
         pause
     )
 ) else (
-    start "" pythonw phonecam_desktop.py
+    start "" pythonw main.py
 )
