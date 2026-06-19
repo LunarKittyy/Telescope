@@ -245,6 +245,9 @@ class ConnectionPlugin(PhoneCamPlugin):
     def _on_mode(self):
         self._device_row_w.setVisible(self._rb_wifi.isChecked())
         self._host._schedule_save()
+        if self._host._worker is not None:
+            self._host._stop()
+            self._host._start()
 
     def _current_device_name(self) -> Optional[str]:
         idx = self._device_combo.currentIndex()
