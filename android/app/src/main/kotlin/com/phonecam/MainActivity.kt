@@ -98,6 +98,11 @@ class MainActivity : AppCompatActivity() {
         checkLocalOnly.isChecked = prefs.getBoolean("local_only", false)
         checkLocalOnly.setOnCheckedChangeListener { _, checked ->
             prefs.edit().putBoolean("local_only", checked).apply()
+            if (service?.isStreaming == true) {
+                service?.stopStreaming()
+                if (bound) { unbindService(serviceConnection); bound = false; service = null }
+                startStream()
+            }
         }
 
         tvLinkWifi.setOnClickListener { copyLink(tvLinkWifi) }
