@@ -22,6 +22,7 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.util.Range
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import java.util.concurrent.Executor
 import kotlin.math.ln
 import kotlin.math.sqrt
@@ -474,6 +475,8 @@ class CameraStreamService : Service() {
         val n = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("PhoneCam").setContentText("Streaming :$DEFAULT_PORT")
             .setSmallIcon(R.drawable.ic_notification)
+            .setColor(ContextCompat.getColor(this, R.color.colorPrimary))
+            .setColorized(false)
             .setContentIntent(pi).setOngoing(true).build()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
             startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA)
