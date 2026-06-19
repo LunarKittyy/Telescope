@@ -55,7 +55,7 @@ Run `start.bat` (installs Python deps and launches the app) or `PhoneCamDesktop.
 4. In OBS (or any other app), select **Phone Camera** (Linux) or **Unity Video Capture** (Windows) as your webcam source.
 
 > [!WARNING]
-> The MJPEG stream is served unencrypted on port 8080 with no authentication. Anyone on the same local network can view it by opening the URL in a browser. Avoid streaming on public or shared networks.
+> The MJPEG stream is served unencrypted on port 8080 with no authentication. Anyone on the same local network can view it by opening the URL in a browser. On public or shared networks, enable **Local only (USB)** in the Android app to bind the server to localhost only - the stream will then only be reachable via USB.
 
 ---
 
@@ -97,8 +97,12 @@ Run `start.bat` (installs Python deps and launches the app) or `PhoneCamDesktop.
 - All settings (resolution, fps, flip, rotation, exposure, zoom, quality, alert thresholds, canvas size, etc.) are saved per device to `phonecam_config.json` and restored on next launch
 - Settings from older config formats are migrated automatically
 
+**Privacy**
+- Local only mode: binds the server to `127.0.0.1` so the stream is unreachable from the network; only USB works in this mode
+- Toggle in the Android app restarts the stream automatically to apply the change
+
 **System integration**
-- Minimizes to system tray on close; streaming continues in the background
+- Minimizes to system tray on close only when streaming; otherwise quits
 - Right-click the tray icon to quit, or click it to show/hide the window
 - Launching a second instance brings the existing window to the front
 - Battery/temperature notifications use `notify-send` on Linux (if available) or the system tray on Windows
