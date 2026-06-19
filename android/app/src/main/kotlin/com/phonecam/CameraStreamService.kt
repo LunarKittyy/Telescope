@@ -473,7 +473,7 @@ class CameraStreamService : Service() {
             Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val n = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("PhoneCam").setContentText("Streaming :$DEFAULT_PORT")
-            .setSmallIcon(android.R.drawable.ic_menu_camera)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(pi).setOngoing(true).build()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
             startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA)
