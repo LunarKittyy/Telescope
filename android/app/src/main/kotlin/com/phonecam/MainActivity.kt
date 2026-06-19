@@ -46,11 +46,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var spinnerResolution: Spinner
     private lateinit var btnToggle: MaterialButton
     private lateinit var checkOis: CheckBox
+    private lateinit var checkLocalOnly: CheckBox
     private lateinit var tvStatus: TextView
     private lateinit var tvCameraList: TextView
     private lateinit var layoutLinks: View
     private lateinit var tvLinkWifi: TextView
     private lateinit var tvLinkUsb: TextView
+
+    private val prefs by lazy { getSharedPreferences("phonecam", MODE_PRIVATE) }
 
     private var service: CameraStreamService? = null
     private var bound = false
@@ -90,6 +93,12 @@ class MainActivity : AppCompatActivity() {
         layoutLinks       = findViewById(R.id.layoutLinks)
         tvLinkWifi        = findViewById(R.id.tvLinkWifi)
         tvLinkUsb         = findViewById(R.id.tvLinkUsb)
+        checkLocalOnly    = findViewById(R.id.checkLocalOnly)
+
+        checkLocalOnly.isChecked = prefs.getBoolean("local_only", false)
+        checkLocalOnly.setOnCheckedChangeListener { _, checked ->
+            prefs.edit().putBoolean("local_only", checked).apply()
+        }
 
         tvLinkWifi.setOnClickListener { copyLink(tvLinkWifi) }
         tvLinkUsb.setOnClickListener  { copyLink(tvLinkUsb) }
@@ -280,6 +289,7 @@ class MainActivity : AppCompatActivity() {
             putExtra(CameraStreamService.EXTRA_WIDTH,        size.width)
             putExtra(CameraStreamService.EXTRA_HEIGHT,       size.height)
             putExtra(CameraStreamService.EXTRA_OIS,          checkOis.isChecked && cam.hasOis)
+            putExtra(CameraStreamService.EXTRA_LOCAL_ONLY,   checkLocalOnly.isChecked)
         }
         ContextCompat.startForegroundService(this, intent)
 
@@ -299,10 +309,12 @@ class MainActivity : AppCompatActivity() {
             tvStatus.setTextColor(resources.getColor(R.color.colorStreamingText, theme))
             tvLinkWifi.text = "WiFi  http://$ip:$port/video"
             tvLinkUsb.text  = "USB   http://localhost:$port/video"
+            tvLinkWifi.visibility = if (checkLocalOnly.isChecked) View.GONE else View.VISIBLE
             layoutLinks.visibility = View.VISIBLE
         } else {
             tvStatus.text = "○ Not streaming"
             tvStatus.setTextColor(resources.getColor(R.color.colorOnSurfaceDim, theme))
+            tvLinkWifi.visibility = View.VISIBLE
             layoutLinks.visibility = View.GONE
         }
     }
