@@ -21,6 +21,9 @@ __pycache__/
 *.py[cod]
 *.pyo
 
+# Dev notes
+NOTES.md
+
 # IDE
 .idea/
 .vscode/
