@@ -48,14 +48,14 @@ Run `start.bat` (installs Python deps and launches the app) or `PhoneCamDesktop.
 ### 3. Connect your phone
 
 1. Open the PhoneCam app on your phone, pick a camera and resolution, tap **Start Streaming**.
-   - On first launch Android will prompt to disable battery optimization. Allow it so the service isn't killed in the background.
+   - Android will prompt to disable battery optimization if not already exempted. Allow it so the service isn't killed in the background.
    - Once streaming, the status card shows your WiFi and USB URLs. Tap either one to copy it.
 2. On the desktop app, select **USB** or **Wi-Fi** mode and press **Start Streaming**.
 3. The camera control panel (lens picker, ISO, shutter, white balance, OIS) will populate within ~2 seconds of connecting.
 4. In OBS (or any other app), select **Phone Camera** (Linux) or **Unity Video Capture** (Windows) as your webcam source.
 
 > [!WARNING]
-> The MJPEG stream is served unencrypted on port 8080 with no authentication. Anyone on the same local network can view it by opening the URL in a browser. On public or shared networks, enable **Local only (USB)** in the Android app to bind the server to localhost only - the stream will then only be reachable via USB.
+> The MJPEG stream is served unencrypted on port 8080 with no authentication. Anyone on the same local network can view it by opening the URL in a browser. On public or shared networks, enable **Local only - USB** in the Android app to bind the server to localhost only - the stream will then only be reachable via USB.
 
 ---
 
@@ -100,6 +100,7 @@ Run `start.bat` (installs Python deps and launches the app) or `PhoneCamDesktop.
 **Privacy**
 - Local only mode: binds the server to `127.0.0.1` so the stream is unreachable from the network; only USB works in this mode
 - Toggle in the Android app restarts the stream automatically to apply the change
+- Switching between USB and Wi-Fi mode on the desktop also restarts the stream automatically
 
 **System integration**
 - Minimizes to system tray on close only when streaming; otherwise quits
