@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Camera lens: blue outer circle, dark inner circle -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:fillColor="#518cc6"
+        android:pathData="M54,12 A42,42 0 1,0 54,96 A42,42 0 1,0 54,12 Z" />
+
+    <path
+        android:fillColor="#1e222b"
+        android:pathData="M54,35 A19,19 0 1,0 54,73 A19,19 0 1,0 54,35 Z" />
+
+</vector>
