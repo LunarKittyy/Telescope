@@ -5,15 +5,14 @@
     android:viewportWidth="24"
     android:viewportHeight="24">
 
-    <!-- outer ring -->
+    <!-- Lens ring + inner dot using even-odd fill so the ring is hollow -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M12,2 A10,10 0 1,0 12,22 A10,10 0 1,0 12,2 Z
-                          M12,5 A7,7 0 1,1 12,19 A7,7 0 1,1 12,5 Z" />
+        android:fillType="evenOdd"
+        android:pathData="M12,2 A10,10 0 1,0 12,22 A10,10 0 1,0 12,2 Z M12,6 A6,6 0 1,0 12,18 A6,6 0 1,0 12,6 Z" />
 
-    <!-- inner dot -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M12,8.5 A3.5,3.5 0 1,0 12,15.5 A3.5,3.5 0 1,0 12,8.5 Z" />
+        android:pathData="M12,9 A3,3 0 1,0 12,15 A3,3 0 1,0 12,9 Z" />
 
 </vector>
