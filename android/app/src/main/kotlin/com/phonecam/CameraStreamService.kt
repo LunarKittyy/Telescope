@@ -50,6 +50,7 @@ class CameraStreamService : Service() {
         const val EXTRA_WIDTH      = "width"
         const val EXTRA_HEIGHT     = "height"
         const val EXTRA_OIS        = "ois"
+        const val EXTRA_LOCAL_ONLY = "local_only"
         const val CHANNEL_ID       = "phonecam_stream"
         const val NOTIF_ID         = 1
         const val DEFAULT_PORT     = 8080
@@ -84,6 +85,7 @@ class CameraStreamService : Service() {
     // Stream config
     private var streamWidth  = 1920
     private var streamHeight = 1080
+    private var bindAddr     = "0.0.0.0"
 
     // Exposure state - null ISO/shutter = auto AE
     @Volatile private var currentIso:       Int?  = null
@@ -113,7 +115,9 @@ class CameraStreamService : Service() {
         val logicalId = intent?.getStringExtra(EXTRA_LOGICAL_ID) ?: ""
         streamWidth   = intent?.getIntExtra(EXTRA_WIDTH,  1920)  ?: 1920
         streamHeight  = intent?.getIntExtra(EXTRA_HEIGHT, 1080)  ?: 1080
-        currentOis    = intent?.getBooleanExtra(EXTRA_OIS, true) ?: true
+        currentOis    = intent?.getBooleanExtra(EXTRA_OIS,        true)  ?: true
+        val localOnly = intent?.getBooleanExtra(EXTRA_LOCAL_ONLY, false) ?: false
+        bindAddr      = if (localOnly) "127.0.0.1" else "0.0.0.0"
 
         enumerateAllCameras()
         startForegroundCompat()
@@ -215,6 +219,7 @@ class CameraStreamService : Service() {
             port           = DEFAULT_PORT,
             getCamerasJson = ::buildCamerasJson,
             handleControl  = ::handleControlCommand,
+            bindAddr       = bindAddr,
         ).also { it.start() }
     }
 

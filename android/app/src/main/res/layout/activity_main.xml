@@ -107,6 +107,16 @@
                         android:text="Optical Image Stabilization (OIS)"
                         android:textSize="14sp"
                         android:textColor="@color/colorOnSurface"
+                        android:buttonTint="@color/colorPrimary"
+                        android:layout_marginBottom="4dp" />
+
+                    <CheckBox
+                        android:id="@+id/checkLocalOnly"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Local only - USB (disables Wi-Fi access)"
+                        android:textSize="14sp"
+                        android:textColor="@color/colorOnSurface"
                         android:buttonTint="@color/colorPrimary" />
 
                 </LinearLayout>

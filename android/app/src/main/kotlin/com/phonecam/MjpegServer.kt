@@ -19,6 +19,7 @@ class MjpegServer(
     val port: Int,
     val getCamerasJson: () -> String,
     val handleControl: (Map<String, String>) -> String,
+    val bindAddr: String = "0.0.0.0",
 ) {
     private var serverSocket: ServerSocket? = null
     private val clients = CopyOnWriteArrayList<MjpegClient>()
@@ -26,7 +27,7 @@ class MjpegServer(
 
     fun start() {
         running.set(true)
-        serverSocket = ServerSocket(port)
+        serverSocket = ServerSocket(port, 50, java.net.InetAddress.getByName(bindAddr))
         thread(name = "mjpeg-accept", isDaemon = true) {
             while (running.get()) {
                 try {
