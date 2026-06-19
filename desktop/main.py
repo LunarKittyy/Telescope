@@ -45,12 +45,12 @@ def main():
     app.setStyleSheet(app.styleSheet() + EXTRA_QSS)
 
     win = PhoneCamWindow()
+    win.register_plugin(SetupPlugin())
     win.register_plugin(ConnectionPlugin())
     win.register_plugin(CameraControlPlugin())
     win.register_plugin(StreamOutputPlugin())
     win.register_plugin(TransformsPlugin())
     win.register_plugin(MonitoringPlugin())
-    win.register_plugin(SetupPlugin())
     win.apply_saved_config()
     win.show()
 
