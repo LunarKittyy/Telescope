@@ -12,16 +12,17 @@
 #     appending them to a.datas/a.binaries after the fact causes a 2-vs-3-tuple
 #     mismatch in normalize_toc.
 
-from PyInstaller.utils.hooks import collect_all
+from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 qt_datas, qt_bins, qt_hidden = collect_all('PyQt6')
+mat_datas, mat_bins, mat_hidden = collect_all('qt_material')
 
 a = Analysis(
-    ['phonecam_desktop.py'],
+    ['main.py'],
     pathex=[],
-    binaries=qt_bins,
-    datas=qt_datas,
-    hiddenimports=qt_hidden + [
+    binaries=qt_bins + mat_bins,
+    datas=qt_datas + mat_datas,
+    hiddenimports=qt_hidden + mat_hidden + collect_submodules('phonecam') + [
         'pyvirtualcam',
         'cv2',
         'numpy',
