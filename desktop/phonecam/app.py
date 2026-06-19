@@ -418,6 +418,7 @@ class PhoneCamWindow(QMainWindow):
         if self._worker:
             self._worker.status.disconnect(self._on_worker_status)
             self._worker.request_stop()
+            self._worker.wait()
             self._worker = None
         self._ctrl = None
         self._start_btn.setText("Start Streaming")

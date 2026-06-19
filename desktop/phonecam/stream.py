@@ -102,7 +102,10 @@ class StreamWorker(QThread):
     def _reconnect_cap(self, stop_event: threading.Event) -> Optional[object]:
         self.status.emit("warn", "Stream dropped - reconnecting...")
         while not stop_event.is_set() and not self._stop_flag:
-            time.sleep(RECONNECT_DELAY)
+            for _ in range(RECONNECT_DELAY * 10):
+                if stop_event.is_set() or self._stop_flag:
+                    return None
+                time.sleep(0.1)
             cap = self._open_cap()
             if cap.isOpened():
                 ret, _ = cap.read()
