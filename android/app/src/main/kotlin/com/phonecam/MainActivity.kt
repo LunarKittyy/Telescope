@@ -219,8 +219,8 @@ class MainActivity : AppCompatActivity() {
         tvCameraList.text = sb.toString().trimEnd()
 
         val adapter = ArrayAdapter(this,
-            android.R.layout.simple_spinner_item, cameras.map { it.label }
-        ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+            R.layout.spinner_item, cameras.map { it.label }
+        ).also { it.setDropDownViewResource(R.layout.spinner_dropdown_item) }
         spinnerCamera.adapter = adapter
 
         if (cameras.isNotEmpty()) populateResolutionSpinner(0)
@@ -234,8 +234,8 @@ class MainActivity : AppCompatActivity() {
 
         val labels = cam.supportedSizes.map { "${it.width} x ${it.height}" }
         val adapter = ArrayAdapter(this,
-            android.R.layout.simple_spinner_item, labels
-        ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+            R.layout.spinner_item, labels
+        ).also { it.setDropDownViewResource(R.layout.spinner_dropdown_item) }
         spinnerResolution.adapter = adapter
 
         val default1080 = cam.supportedSizes.indexOfFirst { it.width == 1920 && it.height == 1080 }
@@ -286,7 +286,7 @@ class MainActivity : AppCompatActivity() {
             tvStatus.setTextColor(resources.getColor(R.color.colorStreamingText, theme))
         } else {
             tvStatus.text = "○ Not streaming"
-            tvStatus.setTextColor(resources.getColor(android.R.color.darker_gray, theme))
+            tvStatus.setTextColor(resources.getColor(R.color.colorOnSurfaceDim, theme))
         }
     }
 

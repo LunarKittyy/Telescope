@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#00897B</color>
-    <color name="colorPrimaryDark">#00695C</color>
-    <color name="colorOnPrimary">#FFFFFF</color>
-    <color name="colorSurface">#FFFFFF</color>
-    <color name="colorSurfaceVariant">#F5F5F5</color>
-    <color name="colorOnSurface">#1C1B1F</color>
-    <color name="colorOutline">#CACACA</color>
-    <color name="colorStreaming">#E8F5E9</color>
-    <color name="colorStreamingText">#2E7D32</color>
+    <!-- Desktop app palette -->
+    <color name="colorBackground">#1e222b</color>
+    <color name="colorSurface">#282c34</color>
+    <color name="colorSurfaceRaised">#2e3340</color>
+    <color name="colorPrimary">#518cc6</color>
+    <color name="colorPrimaryDark">#3a6fa0</color>
+    <color name="colorOnPrimary">#ffffff</color>
+    <color name="colorOnSurface">#e0e0e0</color>
+    <color name="colorOnSurfaceDim">#78909c</color>
+    <color name="colorOutline">#3a3f4b</color>
+    <color name="colorStreamingText">#66bb6a</color>
+    <color name="colorHeader">#121419</color>
 </resources>
