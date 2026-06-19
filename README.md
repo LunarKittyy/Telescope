@@ -54,6 +54,8 @@ Run `start.bat` (installs Python deps and launches the app) or `PhoneCamDesktop.
 3. The camera control panel (lens picker, ISO, shutter, white balance, OIS) will populate within ~2 seconds of connecting.
 4. In OBS (or any other app), select **Phone Camera** (Linux) or **Unity Video Capture** (Windows) as your webcam source.
 
+> **Privacy note:** The MJPEG stream is served unencrypted on port 8080 with no authentication. Anyone on the same network can view it by opening the URL in a browser. Use USB mode if you are on a shared or public network.
+
 ---
 
 ## Features
