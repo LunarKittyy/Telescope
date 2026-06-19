@@ -46,8 +46,8 @@ Run `start.bat` (installs Python deps and launches the app) or `PhoneCamDesktop.
 ### 3. Connect your phone
 
 1. Open the PhoneCam app on your phone, pick a camera and resolution, tap **Start Streaming**.
-   - On first launch Android will prompt to disable battery optimization — allow it so the service isn't killed in the background.
-   - Once streaming, the status card shows your WiFi and USB URLs — tap either one to copy it.
+   - On first launch Android will prompt to disable battery optimization. Allow it so the service isn't killed in the background.
+   - Once streaming, the status card shows your WiFi and USB URLs. Tap either one to copy it.
 2. On the desktop app, select **USB** or **Wi-Fi** mode and press **Start Streaming**.
 3. The camera control panel (lens picker, ISO, shutter, white balance, OIS) will populate within ~2 seconds of connecting.
 4. In OBS (or any other app), select **Phone Camera** (Linux) or **Unity Video Capture** (Windows) as your webcam source.
