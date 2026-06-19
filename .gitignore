@@ -12,6 +12,7 @@ desktop/build/
 desktop/dist/
 desktop/*.egg-info/
 desktop/.venv/
+desktop/PhoneCam.apk
 venv/
 .venv/
 
