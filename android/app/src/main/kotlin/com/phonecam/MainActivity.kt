@@ -19,6 +19,7 @@ import android.provider.Settings
 import android.util.Size
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.button.MaterialButton
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import kotlin.math.sqrt
@@ -39,7 +40,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var spinnerCamera: Spinner
     private lateinit var spinnerResolution: Spinner
-    private lateinit var btnToggle: Button
+    private lateinit var btnToggle: MaterialButton
     private lateinit var checkOis: CheckBox
     private lateinit var tvStatus: TextView
     private lateinit var tvCameraList: TextView
@@ -75,7 +76,7 @@ class MainActivity : AppCompatActivity() {
 
         spinnerCamera     = findViewById(R.id.spinnerCamera)
         spinnerResolution = findViewById(R.id.spinnerResolution)
-        btnToggle         = findViewById(R.id.btnToggle)
+        btnToggle         = findViewById<MaterialButton>(R.id.btnToggle)
         checkOis          = findViewById(R.id.checkOis)
         tvStatus          = findViewById(R.id.tvStatus)
         tvCameraList      = findViewById(R.id.tvCameraList)
@@ -277,13 +278,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateStatusText() {
         val streaming = service?.isStreaming == true
-        btnToggle.text = if (streaming) "Stop" else "Start Streaming"
+        btnToggle.text = if (streaming) "Stop Streaming" else "Start Streaming"
         if (streaming) {
             val ip   = getDeviceIp()
             val port = service?.port ?: CameraStreamService.DEFAULT_PORT
-            tvStatus.text = "Streaming\n\nWiFi: http://$ip:$port/video\nUSB:  http://localhost:$port/video"
+            tvStatus.text = "● Streaming\n\nWiFi  http://$ip:$port/video\nUSB   http://localhost:$port/video"
+            tvStatus.setTextColor(resources.getColor(R.color.colorStreamingText, theme))
         } else {
-            tvStatus.text = "Not streaming"
+            tvStatus.text = "○ Not streaming"
+            tvStatus.setTextColor(resources.getColor(android.R.color.darker_gray, theme))
         }
     }
 

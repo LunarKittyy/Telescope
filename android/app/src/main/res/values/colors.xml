@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#00897B</color>
+    <color name="colorPrimaryDark">#00695C</color>
+    <color name="colorOnPrimary">#FFFFFF</color>
+    <color name="colorSurface">#FFFFFF</color>
+    <color name="colorSurfaceVariant">#F5F5F5</color>
+    <color name="colorOnSurface">#1C1B1F</color>
+    <color name="colorOutline">#CACACA</color>
+    <color name="colorStreaming">#E8F5E9</color>
+    <color name="colorStreamingText">#2E7D32</color>
+</resources>
