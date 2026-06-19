@@ -16,8 +16,7 @@
         android:paddingEnd="16dp"
         android:paddingTop="12dp"
         android:paddingBottom="12dp"
-        android:gravity="center_vertical"
-        android:elevation="4dp">
+        android:gravity="center_vertical">
 
         <ImageView
             android:layout_width="32dp"
@@ -56,7 +55,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
                 app:cardCornerRadius="10dp"
-                app:cardElevation="3dp"
+                app:cardElevation="0dp"
                 app:cardBackgroundColor="@color/colorSurface">
 
                 <LinearLayout
@@ -132,20 +131,67 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
                 app:cardCornerRadius="10dp"
-                app:cardElevation="3dp"
+                app:cardElevation="0dp"
                 app:cardBackgroundColor="@color/colorSurface">
 
-                <TextView
-                    android:id="@+id/tvStatus"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="○ Not streaming"
-                    android:textSize="13sp"
-                    android:textColor="@color/colorOnSurfaceDim"
-                    android:fontFamily="monospace"
-                    android:padding="16dp"
-                    android:lineSpacingMultiplier="1.5" />
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
+                    <TextView
+                        android:id="@+id/tvStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="○ Not streaming"
+                        android:textSize="13sp"
+                        android:textColor="@color/colorOnSurfaceDim"
+                        android:fontFamily="monospace"
+                        android:layout_marginBottom="0dp" />
+
+                    <!-- Link pills — hidden when not streaming -->
+                    <LinearLayout
+                        android:id="@+id/layoutLinks"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone"
+                        android:layout_marginTop="12dp">
+
+                        <TextView
+                            android:id="@+id/tvLinkWifi"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="8dp"
+                            android:background="@drawable/pill_link"
+                            android:paddingStart="14dp"
+                            android:paddingEnd="14dp"
+                            android:paddingTop="10dp"
+                            android:paddingBottom="10dp"
+                            android:textSize="12sp"
+                            android:fontFamily="monospace"
+                            android:textColor="@color/colorOnSurface"
+                            android:clickable="true"
+                            android:focusable="true" />
+
+                        <TextView
+                            android:id="@+id/tvLinkUsb"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/pill_link"
+                            android:paddingStart="14dp"
+                            android:paddingEnd="14dp"
+                            android:paddingTop="10dp"
+                            android:paddingBottom="10dp"
+                            android:textSize="12sp"
+                            android:fontFamily="monospace"
+                            android:textColor="@color/colorOnSurface"
+                            android:clickable="true"
+                            android:focusable="true" />
+
+                    </LinearLayout>
+                </LinearLayout>
             </androidx.cardview.widget.CardView>
 
             <!-- Camera debug card -->
@@ -153,7 +199,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 app:cardCornerRadius="10dp"
-                app:cardElevation="3dp"
+                app:cardElevation="0dp"
                 app:cardBackgroundColor="@color/colorSurface">
 
                 <LinearLayout

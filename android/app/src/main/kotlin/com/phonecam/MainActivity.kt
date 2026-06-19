@@ -1,7 +1,10 @@
 package com.phonecam
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
@@ -17,6 +20,7 @@ import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Size
+import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
@@ -44,6 +48,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var checkOis: CheckBox
     private lateinit var tvStatus: TextView
     private lateinit var tvCameraList: TextView
+    private lateinit var layoutLinks: View
+    private lateinit var tvLinkWifi: TextView
+    private lateinit var tvLinkUsb: TextView
 
     private var service: CameraStreamService? = null
     private var bound = false
@@ -80,6 +87,12 @@ class MainActivity : AppCompatActivity() {
         checkOis          = findViewById(R.id.checkOis)
         tvStatus          = findViewById(R.id.tvStatus)
         tvCameraList      = findViewById(R.id.tvCameraList)
+        layoutLinks       = findViewById(R.id.layoutLinks)
+        tvLinkWifi        = findViewById(R.id.tvLinkWifi)
+        tvLinkUsb         = findViewById(R.id.tvLinkUsb)
+
+        tvLinkWifi.setOnClickListener { copyLink(tvLinkWifi) }
+        tvLinkUsb.setOnClickListener  { copyLink(tvLinkUsb) }
 
         btnToggle.setOnClickListener { onToggleClicked() }
 
@@ -282,12 +295,33 @@ class MainActivity : AppCompatActivity() {
         if (streaming) {
             val ip   = getDeviceIp()
             val port = service?.port ?: CameraStreamService.DEFAULT_PORT
-            tvStatus.text = "● Streaming\n\nWiFi  http://$ip:$port/video\nUSB   http://localhost:$port/video"
+            tvStatus.text = "● Streaming"
             tvStatus.setTextColor(resources.getColor(R.color.colorStreamingText, theme))
+            tvLinkWifi.text = "WiFi  http://$ip:$port/video"
+            tvLinkUsb.text  = "USB   http://localhost:$port/video"
+            layoutLinks.visibility = View.VISIBLE
         } else {
             tvStatus.text = "○ Not streaming"
             tvStatus.setTextColor(resources.getColor(R.color.colorOnSurfaceDim, theme))
+            layoutLinks.visibility = View.GONE
         }
+    }
+
+    private fun copyLink(pill: TextView) {
+        val url = pill.text.toString().substringAfter("  ")
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("PhoneCam URL", url))
+
+        val original = pill.text
+        pill.text = "✓ Copied"
+        pill.setBackgroundResource(R.drawable.pill_link_copied)
+        pill.setTextColor(resources.getColor(R.color.colorPrimary, theme))
+
+        uiHandler.postDelayed({
+            pill.text = original
+            pill.setBackgroundResource(R.drawable.pill_link)
+            pill.setTextColor(resources.getColor(R.color.colorOnSurface, theme))
+        }, 1200)
     }
 
     private fun getDeviceIp(): String = try {
