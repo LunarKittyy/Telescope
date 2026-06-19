@@ -8,7 +8,7 @@ Stream your Android phone's camera - including telephoto and wide-angle lenses -
 
 ### 1. Install the Android app
 
-**Easiest:** connect your phone via USB, set up the desktop app first (step 2), then use **System Setup → Install Phone App** - it runs `adb install` for you automatically if `PhoneCam.apk` is next to the desktop app.
+**Easiest:** connect your phone via USB with [USB debugging enabled](https://developer.android.com/studio/debug/dev-options), set up the desktop app first (step 2), then use **System Setup → Install Phone App** — it runs `adb install` for you automatically if `PhoneCam.apk` is next to the desktop app.
 
 **Manually:** download `PhoneCam.apk` from the [latest release](../../releases/tag/latest) and either:
 
@@ -27,7 +27,7 @@ Or sideload it from your phone's file manager with "Install unknown apps" enable
 
 The script installs Python dependencies automatically. On first launch, open **System Setup** to load the v4l2loopback kernel module if it isn't already active.
 
-For USB mode you also need `adb` on your PATH (`sudo apt install adb`, `sudo dnf install android-tools`, or `sudo pacman -S android-tools`).
+For USB mode you also need `adb` on your PATH (`sudo apt install adb`, `sudo dnf install android-tools`, or `sudo pacman -S android-tools`), and **USB debugging must be enabled** on your phone — see [Configure on-device developer options](https://developer.android.com/studio/debug/dev-options).
 
 **Windows** - download `PhoneCam-windows.zip` from the [latest release](../../releases/tag/latest) and extract it anywhere:
 
