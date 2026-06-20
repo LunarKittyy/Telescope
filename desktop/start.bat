@@ -2,7 +2,7 @@
 cd /d "%~dp0"
 
 :: ── Set to 'false' to launch the app without showing this terminal window ──
-set SHOW_TERMINAL=true
+set SHOW_TERMINAL=false
 
 echo Telescope
 echo =========
