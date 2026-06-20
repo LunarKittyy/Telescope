@@ -153,6 +153,21 @@ def create_vector_icon(icon_name: str, color_hex: str) -> QIcon:
         painter.drawPoint(16, 12)
         painter.setPen(pen)
         painter.drawLine(16, 15, 16, 20)
+    elif icon_name == "qr":
+        brush = QBrush(color)
+        # corner brackets
+        painter.drawLine(4, 4, 4, 11)
+        painter.drawLine(4, 4, 11, 4)
+        painter.drawLine(28, 4, 21, 4)
+        painter.drawLine(28, 4, 28, 11)
+        painter.drawLine(4, 28, 4, 21)
+        painter.drawLine(4, 28, 11, 28)
+        painter.drawLine(28, 28, 21, 28)
+        painter.drawLine(28, 28, 28, 21)
+        # three small finder squares
+        for ox, oy in [(8, 8), (18, 8), (8, 18)]:
+            painter.drawRect(ox, oy, 6, 6)
+            painter.fillRect(ox + 2, oy + 2, 2, 2, brush)
 
     painter.end()
     return QIcon(pixmap)

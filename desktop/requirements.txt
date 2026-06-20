@@ -3,3 +3,4 @@ opencv-python>=4.8.0
 pyvirtualcam>=0.13.0
 numpy>=1.24.0
 qt-material>=2.17
+qrcode>=7.4

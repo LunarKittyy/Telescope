@@ -26,6 +26,8 @@ import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import kotlin.math.sqrt
 
 /**
@@ -52,6 +54,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var layoutLinks: View
     private lateinit var tvLinkWifi: TextView
     private lateinit var tvLinkUsb: TextView
+    private lateinit var btnScanQr: ImageButton
 
     private val prefs by lazy { getSharedPreferences("telescope", MODE_PRIVATE) }
 
@@ -80,6 +83,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val scanLauncher = registerForActivityResult(ScanContract()) { result ->
+        result.contents?.let { handleQrScan(it) }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -94,6 +101,7 @@ class MainActivity : AppCompatActivity() {
         tvLinkWifi        = findViewById(R.id.tvLinkWifi)
         tvLinkUsb         = findViewById(R.id.tvLinkUsb)
         checkLocalOnly    = findViewById(R.id.checkLocalOnly)
+        btnScanQr         = findViewById(R.id.btnScanQr)
 
         checkLocalOnly.isChecked = prefs.getBoolean("local_only", false)
         checkLocalOnly.setOnCheckedChangeListener { _, checked ->
@@ -109,6 +117,15 @@ class MainActivity : AppCompatActivity() {
         tvLinkUsb.setOnClickListener  { copyLink(tvLinkUsb) }
 
         btnToggle.setOnClickListener { onToggleClicked() }
+        btnScanQr.setOnClickListener {
+            val opts = ScanOptions().apply {
+                setPrompt("Scan the Telescope QR code on your desktop")
+                setBeepEnabled(false)
+                setOrientationLocked(false)
+                setBarcodeImageEnabled(false)
+            }
+            scanLauncher.launch(opts)
+        }
 
         spinnerCamera.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(p: AdapterView<*>?, v: android.view.View?, pos: Int, id: Long) {
@@ -145,6 +162,57 @@ class MainActivity : AppCompatActivity() {
         super.onStop()
     }
 
+    // ── QR pairing ────────────────────────────────────────────────────────────
+
+    private fun handleQrScan(data: String) {
+        try {
+            val json = org.json.JSONObject(data)
+            val port = json.getInt("port")
+            val ipsJson = json.getJSONArray("ips")
+            val desktopIps = (0 until ipsJson.length()).map { ipsJson.getString(it) }
+            val myIps = getAllDeviceIps()
+            val deviceName = Build.MODEL
+
+            Thread {
+                var success = false
+                val errors = mutableListOf<String>()
+                for (ip in desktopIps) {
+                    try {
+                        val url = java.net.URL("http://$ip:$port/pair")
+                        val conn = url.openConnection() as java.net.HttpURLConnection
+                        conn.requestMethod = "POST"
+                        conn.setRequestProperty("Content-Type", "application/json")
+                        conn.connectTimeout = 2000
+                        conn.readTimeout = 2000
+                        conn.doOutput = true
+                        val body = org.json.JSONObject().apply {
+                            put("name", deviceName)
+                            put("ips", org.json.JSONArray(myIps))
+                        }.toString()
+                        conn.outputStream.write(body.toByteArray())
+                        if (conn.responseCode == 200) {
+                            success = true
+                            break
+                        } else {
+                            errors += "$ip: HTTP ${conn.responseCode}"
+                        }
+                    } catch (e: Exception) {
+                        errors += "$ip: ${e.javaClass.simpleName}: ${e.message}"
+                    }
+                }
+                val msg = if (success)
+                    "Paired! Desktop will add this device."
+                else
+                    "Could not reach desktop.\nTried: ${errors.joinToString(", ")}"
+                runOnUiThread {
+                    Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+                }
+            }.start()
+        } catch (_: Exception) {
+            Toast.makeText(this, "Invalid QR code.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     // ── Permissions ────────────────────────────────────────────────────────────
 
     private fun requestPermissionsIfNeeded() {
@@ -175,7 +243,6 @@ class MainActivity : AppCompatActivity() {
         val result  = mutableListOf<CameraInfo>()
         val sb      = StringBuilder()
 
-        // Helper: build a CameraInfo from a camera ID (logical or physical)
         fun buildInfo(id: String, logicalParent: String?): CameraInfo? = runCatching {
             val chars = manager.getCameraCharacteristics(id)
 
@@ -195,14 +262,13 @@ class MainActivity : AppCompatActivity() {
             } else 0
 
             val oisModes = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION)
-            val hasOis   = oisModes?.contains(1) == true // 1 = LENS_OPTICAL_STABILIZATION_MODE_ON
+            val hasOis   = oisModes?.contains(1) == true
 
-            // SCALER_STREAM_CONFIGURATION_MAP can be null on physical sub-cameras
             val map   = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
             val sizes = map?.getOutputSizes(ImageFormat.JPEG)
                 ?.sortedByDescending { it.width * it.height }
                 ?.takeIf { it.isNotEmpty() }
-                ?: listOf(Size(1920, 1080), Size(1280, 720))   // safe fallback
+                ?: listOf(Size(1920, 1080), Size(1280, 720))
 
             val prefix    = if (logicalParent != null) "[phys of $logicalParent] " else ""
             val focalStr  = if (focalEq > 0) "~${focalEq}mm eq" else "focal?"
@@ -215,13 +281,11 @@ class MainActivity : AppCompatActivity() {
             CameraInfo(id, logicalParent, label, hasOis, sizes)
         }.getOrNull()
 
-        // Pass 1: regular cameraIdList
         val topLevel = manager.cameraIdList
         topLevel.forEach { id ->
             buildInfo(id, null)?.let { result += it }
         }
 
-        // Pass 2: physical sub-cameras from logical multi-camera groups (API 28+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             topLevel.forEach { logicalId ->
                 runCatching {
@@ -233,7 +297,7 @@ class MainActivity : AppCompatActivity() {
 
                     if (isLogicalMultiCam) {
                         chars.physicalCameraIds.forEach { physId ->
-                            if (result.none { it.id == physId }) {   // avoid duplicates
+                            if (result.none { it.id == physId }) {
                                 buildInfo(physId, logicalId)?.let { result += it }
                             }
                         }
@@ -341,13 +405,19 @@ class MainActivity : AppCompatActivity() {
         }, 1200)
     }
 
-    private fun getDeviceIp(): String = try {
-        java.net.NetworkInterface.getNetworkInterfaces()
-            ?.asSequence()
-            ?.flatMap { it.inetAddresses.asSequence() }
-            ?.firstOrNull { !it.isLoopbackAddress && it is java.net.Inet4Address }
-            ?.hostAddress ?: "unknown"
-    } catch (_: Exception) { "unknown" }
+    private fun getAllDeviceIps(): List<String> {
+        return try {
+            java.net.NetworkInterface.getNetworkInterfaces()
+                ?.asSequence()
+                ?.filter { it.isUp && !it.isLoopback }
+                ?.flatMap { it.inetAddresses.asSequence() }
+                ?.filter { it is java.net.Inet4Address && !it.isLoopbackAddress }
+                ?.mapNotNull { it.hostAddress }
+                ?.toList() ?: emptyList()
+        } catch (_: Exception) { emptyList() }
+    }
+
+    private fun getDeviceIp(): String = getAllDeviceIps().firstOrNull() ?: "unknown"
 
     companion object {
         private const val RC_PERMS = 100
