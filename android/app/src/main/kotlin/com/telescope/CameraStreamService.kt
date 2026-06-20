@@ -10,7 +10,9 @@ import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.graphics.ImageFormat
 import android.hardware.camera2.*
+import android.hardware.camera2.params.ColorSpaceTransform
 import android.hardware.camera2.params.OutputConfiguration
+import android.hardware.camera2.params.RggbChannelVector
 import android.hardware.camera2.params.SessionConfiguration
 import android.media.ImageReader
 import android.os.BatteryManager
@@ -21,10 +23,10 @@ import android.os.HandlerThread
 import android.os.IBinder
 import android.os.PowerManager
 import android.util.Range
+import android.util.Rational
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import java.util.concurrent.Executor
-import kotlin.math.ln
 import kotlin.math.sqrt
 
 // ── Camera catalogue entry ────────────────────────────────────────────────────
@@ -42,6 +44,10 @@ data class CameraEntry(
     val supportsManualFocus: Boolean = false,
     val minFocusDistance: Float = 0f,
     val hwLevel: String = "UNKNOWN",
+    val aeCompMin: Int = -8,
+    val aeCompMax: Int = 8,
+    val aeCompStep: Float = 0.167f,
+    val supportsFlash: Boolean = false,
 )
 
 class CameraStreamService : Service() {
@@ -57,17 +63,6 @@ class CameraStreamService : Service() {
         const val NOTIF_ID         = 1
         const val DEFAULT_PORT     = 8080
 
-        // Map a Kelvin value to the nearest Camera2 AWB mode preset.
-        // The presets use the device's own factory calibration, which is far more
-        // accurate than computing raw gains manually without sensor spectral data.
-        fun kelvinToAwbMode(kelvin: Int): Int = when {
-            kelvin < 2500 -> CaptureRequest.CONTROL_AWB_MODE_INCANDESCENT    // ~2700 K
-            kelvin < 3500 -> CaptureRequest.CONTROL_AWB_MODE_WARM_FLUORESCENT // ~3000 K
-            kelvin < 4500 -> CaptureRequest.CONTROL_AWB_MODE_FLUORESCENT      // ~4000 K
-            kelvin < 6000 -> CaptureRequest.CONTROL_AWB_MODE_DAYLIGHT         // ~5500 K / D65
-            kelvin < 7000 -> CaptureRequest.CONTROL_AWB_MODE_CLOUDY_DAYLIGHT  // ~6500 K
-            else          -> CaptureRequest.CONTROL_AWB_MODE_SHADE             // ~7000-8000 K
-        }
     }
 
     inner class LocalBinder : Binder() {
@@ -93,11 +88,19 @@ class CameraStreamService : Service() {
     @Volatile private var currentIso:       Int?  = null
     @Volatile private var currentShutterNs: Long? = null
     @Volatile private var currentOis:       Boolean = true
-    // WB state - null Kelvin = auto AWB
-    @Volatile private var currentWbKelvin:  Int?  = null
+    // WB state - null gains = auto AWB
+    @Volatile private var currentWbGains: RggbChannelVector? = null
+    @Volatile private var lastCCM:        ColorSpaceTransform? = null
+    @Volatile private var lastMeasuredGains: RggbChannelVector? = null
     // Focus state
     @Volatile private var currentFocusMode:     String = "continuous"  // "continuous" | "manual"
     @Volatile private var currentFocusDistance: Float  = 0f            // diopters; 0 = infinity
+    // Image quality controls
+    @Volatile private var currentNrMode:         Int     = CaptureRequest.NOISE_REDUCTION_MODE_FAST
+    @Volatile private var currentEdgeMode:       Int     = CaptureRequest.EDGE_MODE_FAST
+    @Volatile private var currentAeComp:         Int     = 0
+    @Volatile private var currentBlackLevelLock: Boolean = false
+    @Volatile private var currentTorch:          Boolean = false
     // Stream quality
     @Volatile private var currentJpegQuality: Int = 85
     @Volatile private var currentPhoneFps:    Int = 30
@@ -175,13 +178,20 @@ class CameraStreamService : Service() {
             val caps = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)
             val supportsManualSensor = caps?.contains(
                 CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR) == true
-            // For WB we use AWB presets (not raw COLOR_CORRECTION_GAINS), so check
-            // whether at least DAYLIGHT mode is supported rather than MANUAL_POST_PROCESSING.
-            val awbModes = chars.get(CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES)
-            val supportsManualWB = awbModes?.contains(CaptureRequest.CONTROL_AWB_MODE_DAYLIGHT) == true
+            val supportsManualWB = caps?.contains(
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_POST_PROCESSING) == true
             // Manual focus: needs MANUAL_SENSOR and a non-zero minimum focus distance
             val minFocusDist = chars.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE) ?: 0f
             val supportsManualFocus = supportsManualSensor && minFocusDist > 0f
+
+            val aeCompRange = chars.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE)
+            val aeCompMin   = aeCompRange?.lower ?: -8
+            val aeCompMax   = aeCompRange?.upper ?: 8
+            val aeStepR     = chars.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_STEP)
+            val aeCompStep  = if (aeStepR != null && aeStepR.denominator != 0)
+                                  aeStepR.numerator.toFloat() / aeStepR.denominator.toFloat()
+                              else 0.167f
+            val supportsFlash = chars.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
 
             val hwLevel = when (chars.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL)) {
                 CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY   -> "LEGACY"
@@ -197,7 +207,8 @@ class CameraStreamService : Service() {
             val pStr = if (logicalParent != null) " [phys]" else ""
             CameraEntry(id, logicalParent, "$facing $fStr$oStr$pStr", hasOis,
                         isoMin, isoMax, shtMinNs, shtMaxNs,
-                        supportsManualSensor, supportsManualWB, supportsManualFocus, minFocusDist, hwLevel)
+                        supportsManualSensor, supportsManualWB, supportsManualFocus, minFocusDist, hwLevel,
+                        aeCompMin, aeCompMax, aeCompStep, supportsFlash)
         }.getOrNull()
 
         manager.cameraIdList.forEach { id ->
@@ -253,16 +264,23 @@ class CameraStreamService : Service() {
             """"shutterMinNs":${e.shutterMinNs},"shutterMaxNs":${e.shutterMaxNs},""" +
             """"supportsManualSensor":${e.supportsManualSensor},"supportsManualWB":${e.supportsManualWB},""" +
             """"supportsManualFocus":${e.supportsManualFocus},"minFocusDistance":${e.minFocusDistance},""" +
-            """"hwLevel":"${e.hwLevel}"}"""
+            """"aeCompMin":${e.aeCompMin},"aeCompMax":${e.aeCompMax},"aeCompStep":${e.aeCompStep},""" +
+            """"supportsFlash":${e.supportsFlash},"hwLevel":"${e.hwLevel}"}"""
         }
         val auto   = (currentIso == null).toString()
         val isoStr = currentIso?.toString() ?: "null"
         val shtStr = currentShutterNs?.toString() ?: "null"
-        val wbStr  = currentWbKelvin?.toString() ?: "null"
+        val wbManual = (currentWbGains != null).toString()
+        val mg = lastMeasuredGains
+        val wbGainsStr = if (mg != null)
+            """"wb_r":${mg.red},"wb_ge":${mg.greenEven},"wb_go":${mg.greenOdd},"wb_b":${mg.blue}"""
+        else """"wb_r":null,"wb_ge":null,"wb_go":null,"wb_b":null"""
         val (battLevel, battCharging, battTempC) = getBatteryInfo()
         return """{"cameras":[$cams],"auto":$auto,"iso":$isoStr,""" +
-               """"shutter_ns":$shtStr,"wb_kelvin":$wbStr,"ois":$currentOis,""" +
+               """"shutter_ns":$shtStr,"wb_manual":$wbManual,$wbGainsStr,"ois":$currentOis,""" +
                """"focus_mode":"$currentFocusMode","focus_distance":$currentFocusDistance,""" +
+               """"nr_mode":$currentNrMode,"edge_mode":$currentEdgeMode,""" +
+               """"ae_comp":$currentAeComp,"black_level_lock":$currentBlackLevelLock,"torch":$currentTorch,""" +
                """"jpeg_quality":$currentJpegQuality,"phone_fps":$currentPhoneFps,""" +
                """"battery":$battLevel,"charging":$battCharging,"battery_temp_c":$battTempC}"""
     }
@@ -298,14 +316,17 @@ class CameraStreamService : Service() {
                     handler?.post { applyExposure() }
                     ok()
                 }
-                "wb_kelvin" -> {
-                    val k = params["value"]?.toIntOrNull() ?: return err("bad kelvin")
-                    currentWbKelvin = k.coerceIn(1000, 40000)
+                "wb_gains" -> {
+                    val r  = params["r"]?.toFloatOrNull()  ?: return err("bad r")
+                    val ge = params["ge"]?.toFloatOrNull() ?: return err("bad ge")
+                    val go = params["go"]?.toFloatOrNull() ?: return err("bad go")
+                    val b  = params["b"]?.toFloatOrNull()  ?: return err("bad b")
+                    currentWbGains = RggbChannelVector(r, ge, go, b)
                     handler?.post { applyExposure() }
                     ok()
                 }
                 "wb_auto" -> {
-                    currentWbKelvin = null
+                    currentWbGains = null
                     handler?.post { applyExposure() }
                     ok()
                 }
@@ -331,6 +352,34 @@ class CameraStreamService : Service() {
                 "focus_distance" -> {
                     val d = params["value"]?.toFloatOrNull() ?: return err("bad distance")
                     currentFocusDistance = d.coerceAtLeast(0f)
+                    handler?.post { applyExposure() }
+                    ok()
+                }
+                "nr_mode" -> {
+                    val m = params["value"]?.toIntOrNull() ?: return err("bad value")
+                    currentNrMode = m.coerceIn(0, 4)
+                    handler?.post { applyExposure() }
+                    ok()
+                }
+                "edge_mode" -> {
+                    val m = params["value"]?.toIntOrNull() ?: return err("bad value")
+                    currentEdgeMode = m.coerceIn(0, 3)
+                    handler?.post { applyExposure() }
+                    ok()
+                }
+                "ae_comp" -> {
+                    val v = params["value"]?.toIntOrNull() ?: return err("bad value")
+                    currentAeComp = v
+                    handler?.post { applyExposure() }
+                    ok()
+                }
+                "black_level_lock" -> {
+                    currentBlackLevelLock = params["value"] == "1"
+                    handler?.post { applyExposure() }
+                    ok()
+                }
+                "torch" -> {
+                    currentTorch = params["value"] == "1"
                     handler?.post { applyExposure() }
                     ok()
                 }
@@ -399,7 +448,7 @@ class CameraStreamService : Service() {
     }
 
     private fun startRepeating(camera: CameraDevice, session: CameraCaptureSession) {
-        try { session.setRepeatingRequest(buildRequest(camera), null, handler) }
+        try { session.setRepeatingRequest(buildRequest(camera), ccmCaptureCallback, handler) }
         catch (e: CameraAccessException) { stopSelf() }
     }
 
@@ -437,25 +486,56 @@ class CameraStreamService : Service() {
             // JPEG quality
             set(CaptureRequest.JPEG_QUALITY, currentJpegQuality.toByte())
 
-            // White balance — use AWB mode presets (device-calibrated, not raw gains)
-            if (currentWbKelvin != null && currentCamera?.supportsManualWB == true) {
-                set(CaptureRequest.CONTROL_AWB_MODE, kelvinToAwbMode(currentWbKelvin!!))
+            // White balance — desktop sends pre-computed RGGB gains
+            val gains = currentWbGains
+            if (gains != null && currentCamera?.supportsManualWB == true) {
+                set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_OFF)
+                set(CaptureRequest.COLOR_CORRECTION_MODE,
+                    CameraMetadata.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
+                set(CaptureRequest.COLOR_CORRECTION_GAINS, gains)
+                lastCCM?.let { set(CaptureRequest.COLOR_CORRECTION_TRANSFORM, it) }
             } else {
                 set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)
+                set(CaptureRequest.COLOR_CORRECTION_MODE, CameraMetadata.COLOR_CORRECTION_MODE_FAST)
             }
 
             // OIS
             if (currentOis) set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
                 CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_ON)
 
+            // Noise reduction and edge enhancement
+            set(CaptureRequest.NOISE_REDUCTION_MODE, currentNrMode)
+            set(CaptureRequest.EDGE_MODE, currentEdgeMode)
+
+            // AE exposure compensation (only meaningful in auto AE)
+            if (currentIso == null) set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, currentAeComp)
+
+            // Black level lock
+            set(CaptureRequest.BLACK_LEVEL_LOCK, currentBlackLevelLock)
+
+            // Torch
+            set(CaptureRequest.FLASH_MODE,
+                if (currentTorch) CaptureRequest.FLASH_MODE_TORCH else CaptureRequest.FLASH_MODE_OFF)
+
         }.build()
+    }
+
+    private val ccmCaptureCallback = object : CameraCaptureSession.CaptureCallback() {
+        override fun onCaptureCompleted(
+            session: CameraCaptureSession,
+            request: CaptureRequest,
+            result: TotalCaptureResult
+        ) {
+            result.get(CaptureResult.COLOR_CORRECTION_TRANSFORM)?.let { lastCCM = it }
+            result.get(CaptureResult.COLOR_CORRECTION_GAINS)?.let { lastMeasuredGains = it }
+        }
     }
 
     private fun applyExposure() {
         try {
             val s = captureSession ?: return
             val c = cameraDevice  ?: return
-            s.setRepeatingRequest(buildRequest(c), null, handler)
+            s.setRepeatingRequest(buildRequest(c), ccmCaptureCallback, handler)
         } catch (_: Exception) {}
     }
 
