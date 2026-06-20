@@ -23,6 +23,7 @@ import android.util.Size
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.cardview.widget.CardView
 import com.google.android.material.button.MaterialButton
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -55,6 +56,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvLinkWifi: TextView
     private lateinit var tvLinkUsb: TextView
     private lateinit var btnScanQr: ImageButton
+    private lateinit var cardPermissions: CardView
+    private lateinit var layoutPermissionsContainer: LinearLayout
 
     private val prefs by lazy { getSharedPreferences("telescope", MODE_PRIVATE) }
 
@@ -100,8 +103,10 @@ class MainActivity : AppCompatActivity() {
         layoutLinks       = findViewById(R.id.layoutLinks)
         tvLinkWifi        = findViewById(R.id.tvLinkWifi)
         tvLinkUsb         = findViewById(R.id.tvLinkUsb)
-        checkLocalOnly    = findViewById(R.id.checkLocalOnly)
-        btnScanQr         = findViewById(R.id.btnScanQr)
+        checkLocalOnly             = findViewById(R.id.checkLocalOnly)
+        btnScanQr                  = findViewById(R.id.btnScanQr)
+        cardPermissions            = findViewById(R.id.cardPermissions)
+        layoutPermissionsContainer = findViewById(R.id.layoutPermissionsContainer)
 
         checkLocalOnly.isChecked = prefs.getBoolean("local_only", false)
         checkLocalOnly.setOnCheckedChangeListener { _, checked ->
@@ -139,20 +144,12 @@ class MainActivity : AppCompatActivity() {
             override fun onNothingSelected(p: AdapterView<*>?) {}
         }
 
-        requestPermissionsIfNeeded()
-        requestBatteryOptimizationExemption()
+        checkPermissions()
     }
 
-    private fun requestBatteryOptimizationExemption() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val pm = getSystemService(POWER_SERVICE) as PowerManager
-            if (!pm.isIgnoringBatteryOptimizations(packageName)) {
-                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                    data = Uri.parse("package:$packageName")
-                }
-                startActivity(intent)
-            }
-        }
+    override fun onResume() {
+        super.onResume()
+        checkPermissions()
     }
 
     override fun onStart() {
@@ -220,25 +217,111 @@ class MainActivity : AppCompatActivity() {
 
     // ── Permissions ────────────────────────────────────────────────────────────
 
-    private fun requestPermissionsIfNeeded() {
-        val needed = mutableListOf(Manifest.permission.CAMERA)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
-            needed += Manifest.permission.POST_NOTIFICATIONS
-        val missing = needed.filter {
-            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+    private data class PermInfo(
+        val permission: String?,   // null = battery optimization
+        val label: String,
+        val reason: String
+    )
+
+    private fun checkPermissions() {
+        val missing = mutableListOf<PermInfo>()
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED)
+            missing += PermInfo(Manifest.permission.CAMERA, "Camera",
+                "Required to access your phone's cameras.")
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED)
+            missing += PermInfo(Manifest.permission.POST_NOTIFICATIONS, "Notifications",
+                "Required to show the persistent streaming notification.")
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val pm = getSystemService(POWER_SERVICE) as PowerManager
+            if (!pm.isIgnoringBatteryOptimizations(packageName))
+                missing += PermInfo(null, "Battery optimization",
+                    "Disable battery restrictions so the stream isn't killed in the background.")
         }
-        if (missing.isEmpty()) loadCameras() else
-            ActivityCompat.requestPermissions(this, missing.toTypedArray(), RC_PERMS)
+
+        layoutPermissionsContainer.removeAllViews()
+        if (missing.isEmpty()) {
+            cardPermissions.visibility = android.view.View.GONE
+            if (cameras.isEmpty()) loadCameras()
+            return
+        }
+
+        cardPermissions.visibility = android.view.View.VISIBLE
+        missing.forEach { info -> layoutPermissionsContainer.addView(buildPermRow(info)) }
+    }
+
+    private fun buildPermRow(info: PermInfo): android.view.View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, 16)
+        }
+
+        val textBlock = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        TextView(this).apply {
+            text = info.label
+            textSize = 13f
+            setTextColor(resources.getColor(R.color.colorOnSurface, theme))
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            textBlock.addView(this)
+        }
+        TextView(this).apply {
+            text = info.reason
+            textSize = 12f
+            setTextColor(resources.getColor(R.color.colorOnSurfaceDim, theme))
+            textBlock.addView(this)
+        }
+        row.addView(textBlock)
+
+        val btn = com.google.android.material.button.MaterialButton(
+            this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle
+        ).apply {
+            val perm = info.permission
+            if (perm == null) {
+                // Battery optimization
+                text = "Allow"
+                setOnClickListener {
+                    startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                        .apply { data = Uri.parse("package:$packageName") })
+                }
+            } else if (ActivityCompat.shouldShowRequestPermissionRationale(this@MainActivity, perm)) {
+                text = "Grant"
+                setOnClickListener {
+                    ActivityCompat.requestPermissions(this@MainActivity,
+                        arrayOf(perm), RC_PERMS)
+                }
+            } else {
+                text = "Open Settings"
+                setOnClickListener { openAppSettings() }
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { marginStart = 12 }
+        }
+        row.addView(btn)
+        return row
+    }
+
+    private fun openAppSettings() {
+        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+            .apply { data = Uri.parse("package:$packageName") })
     }
 
     override fun onRequestPermissionsResult(
         requestCode: Int, permissions: Array<String>, grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == RC_PERMS) {
-            if (grantResults.all { it == PackageManager.PERMISSION_GRANTED }) loadCameras()
-            else tvStatus.text = "Camera permission denied"
-        }
+        if (requestCode == RC_PERMS) checkPermissions()
     }
 
     // ── Camera enumeration ─────────────────────────────────────────────────────
