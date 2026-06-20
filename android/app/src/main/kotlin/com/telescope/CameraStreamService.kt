@@ -39,6 +39,8 @@ data class CameraEntry(
     val shutterMaxNs: Long,
     val supportsManualSensor: Boolean = false,
     val supportsManualWB: Boolean = false,
+    val supportsManualFocus: Boolean = false,
+    val minFocusDistance: Float = 0f,
     val hwLevel: String = "UNKNOWN",
 )
 
@@ -93,6 +95,9 @@ class CameraStreamService : Service() {
     @Volatile private var currentOis:       Boolean = true
     // WB state - null Kelvin = auto AWB
     @Volatile private var currentWbKelvin:  Int?  = null
+    // Focus state
+    @Volatile private var currentFocusMode:     String = "continuous"  // "continuous" | "manual"
+    @Volatile private var currentFocusDistance: Float  = 0f            // diopters; 0 = infinity
     // Stream quality
     @Volatile private var currentJpegQuality: Int = 85
     @Volatile private var currentPhoneFps:    Int = 30
@@ -174,6 +179,9 @@ class CameraStreamService : Service() {
             // whether at least DAYLIGHT mode is supported rather than MANUAL_POST_PROCESSING.
             val awbModes = chars.get(CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES)
             val supportsManualWB = awbModes?.contains(CaptureRequest.CONTROL_AWB_MODE_DAYLIGHT) == true
+            // Manual focus: needs MANUAL_SENSOR and a non-zero minimum focus distance
+            val minFocusDist = chars.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE) ?: 0f
+            val supportsManualFocus = supportsManualSensor && minFocusDist > 0f
 
             val hwLevel = when (chars.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL)) {
                 CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY   -> "LEGACY"
@@ -188,7 +196,8 @@ class CameraStreamService : Service() {
             val oStr = if (hasOis) " OIS" else ""
             val pStr = if (logicalParent != null) " [phys]" else ""
             CameraEntry(id, logicalParent, "$facing $fStr$oStr$pStr", hasOis,
-                        isoMin, isoMax, shtMinNs, shtMaxNs, supportsManualSensor, supportsManualWB, hwLevel)
+                        isoMin, isoMax, shtMinNs, shtMaxNs,
+                        supportsManualSensor, supportsManualWB, supportsManualFocus, minFocusDist, hwLevel)
         }.getOrNull()
 
         manager.cameraIdList.forEach { id ->
@@ -240,9 +249,10 @@ class CameraStreamService : Service() {
             val log  = if (e.logicalId != null) "\"${e.logicalId}\"" else "null"
             val curr = (e.id == cur?.id).toString()
             """{"id":"${e.id}","logicalId":$log,"label":"${e.label}","current":$curr,""" +
-            """"isoMin":${e.isoMin},"isoMax":${e.isoMax},""" +
+            """"hasOis":${e.hasOis},"isoMin":${e.isoMin},"isoMax":${e.isoMax},""" +
             """"shutterMinNs":${e.shutterMinNs},"shutterMaxNs":${e.shutterMaxNs},""" +
             """"supportsManualSensor":${e.supportsManualSensor},"supportsManualWB":${e.supportsManualWB},""" +
+            """"supportsManualFocus":${e.supportsManualFocus},"minFocusDistance":${e.minFocusDistance},""" +
             """"hwLevel":"${e.hwLevel}"}"""
         }
         val auto   = (currentIso == null).toString()
@@ -252,6 +262,7 @@ class CameraStreamService : Service() {
         val (battLevel, battCharging, battTempC) = getBatteryInfo()
         return """{"cameras":[$cams],"auto":$auto,"iso":$isoStr,""" +
                """"shutter_ns":$shtStr,"wb_kelvin":$wbStr,"ois":$currentOis,""" +
+               """"focus_mode":"$currentFocusMode","focus_distance":$currentFocusDistance,""" +
                """"jpeg_quality":$currentJpegQuality,"phone_fps":$currentPhoneFps,""" +
                """"battery":$battLevel,"charging":$battCharging,"battery_temp_c":$battTempC}"""
     }
@@ -307,6 +318,19 @@ class CameraStreamService : Service() {
                 "fps_target" -> {
                     val fps = params["value"]?.toIntOrNull() ?: return err("bad value")
                     currentPhoneFps = fps.coerceIn(1, 120)
+                    handler?.post { applyExposure() }
+                    ok()
+                }
+                "focus_mode" -> {
+                    val mode = params["value"] ?: return err("no value")
+                    if (mode != "continuous" && mode != "manual") return err("bad mode")
+                    currentFocusMode = mode
+                    handler?.post { applyExposure() }
+                    ok()
+                }
+                "focus_distance" -> {
+                    val d = params["value"]?.toFloatOrNull() ?: return err("bad distance")
+                    currentFocusDistance = d.coerceAtLeast(0f)
                     handler?.post { applyExposure() }
                     ok()
                 }
@@ -384,23 +408,30 @@ class CameraStreamService : Service() {
             addTarget(imageReader!!.surface)
 
             // Exposure and FPS
+            // Use CONTROL_MODE_AUTO even in manual AE so that AF keeps running independently.
+            set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
             if (currentIso != null && currentShutterNs != null && currentCamera?.supportsManualSensor == true) {
-                set(CaptureRequest.CONTROL_MODE,    CaptureRequest.CONTROL_MODE_OFF)
                 set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
                 set(CaptureRequest.SENSOR_SENSITIVITY,   currentIso!!)
                 set(CaptureRequest.SENSOR_EXPOSURE_TIME, currentShutterNs!!)
-                // In manual mode, enforce FPS via frame duration
+                // Enforce FPS via frame duration
                 val targetFrameNs = 1_000_000_000L / currentPhoneFps
                 set(CaptureRequest.SENSOR_FRAME_DURATION,
                     targetFrameNs.coerceAtLeast(currentShutterNs!!))
             } else {
-                set(CaptureRequest.CONTROL_MODE,    CaptureRequest.CONTROL_MODE_AUTO)
                 set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
-                set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
-                // In auto mode, request FPS range (allow half target in low light)
+                // In auto AE, request FPS range (allow half target in low light)
                 val fpsMin = (currentPhoneFps / 2).coerceAtLeast(5)
                 set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
                     Range(fpsMin, currentPhoneFps))
+            }
+
+            // Focus
+            if (currentFocusMode == "manual" && currentCamera?.supportsManualFocus == true) {
+                set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
+                set(CaptureRequest.LENS_FOCUS_DISTANCE, currentFocusDistance)
+            } else {
+                set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
             }
 
             // JPEG quality
