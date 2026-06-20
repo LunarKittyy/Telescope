@@ -1,17 +1,38 @@
+import math
+
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QButtonGroup, QCheckBox, QFrame, QHBoxLayout, QLabel, QRadioButton,
-    QVBoxLayout, QWidget,
+    QButtonGroup, QCheckBox, QFrame, QHBoxLayout, QLabel, QPushButton,
+    QRadioButton, QVBoxLayout, QWidget,
 )
 
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
-    LogSliderRow, NoScrollSlider, WbSliderRow, create_separator,
+    LogSliderRow, NoScrollComboBox, NoScrollSlider, create_separator,
     create_vector_icon, ns_to_display,
 )
 from telescope.widgets.lens_panel import LensPanel
 
 _FOCUS_STEPS = 1000
+_NR_MODES    = [("Off", 0), ("Fast", 1), ("High Quality", 2)]
+_EDGE_MODES  = [("Off", 0), ("Fast", 1), ("High Quality", 2)]
+_WB_MIN_K    = 2000
+_WB_MAX_K    = 10000
+_WB_NEUTRAL  = 5500   # neutral point where R gain == B gain
+
+
+def _kelvin_to_rggb(kelvin: int, tint: float) -> tuple[float, float, float, float]:
+    """Convert Kelvin + tint to Camera2 RGGB channel gains.
+
+    Uses an exponential model centred at neutral (~5500K) so warm/cool shifts
+    are symmetric and the full slider range produces visually dramatic results.
+    tint: -150 (green) to +150 (magenta).
+    """
+    t = max(-1.0, min(1.0, (kelvin - _WB_NEUTRAL) / float(_WB_NEUTRAL)))
+    r = max(0.3, 2.0 * (2.0 **  t))   # high at high K = warm
+    b = max(0.3, 2.0 * (2.0 ** -t))   # high at low K = cool
+    g = max(0.5, min(2.5, 1.0 - tint / 500.0))
+    return r, g, g, b
 
 
 def _diopters_to_label(d: float) -> str:
@@ -54,6 +75,8 @@ class CameraControlPlugin(TelescopePlugin):
         self._manual_wb         = False
         self._manual_focus      = False
         self._focus_max_diopters: float = 10.0
+        self._ae_comp_step: float = 0.167
+        self._torch_on: bool = False
         bus.phone_state_updated.connect(self._on_phone_state_from_bus)
 
     def create_panel(self) -> QWidget:
@@ -138,6 +161,20 @@ class CameraControlPlugin(TelescopePlugin):
         lay.addLayout(_row("Shutter", self._sht_slider, stretch=True))
         self._sht_slider.set_enabled(False)
 
+        self._ae_comp_slider = NoScrollSlider(Qt.Orientation.Horizontal)
+        self._ae_comp_slider.setRange(-8, 8)
+        self._ae_comp_slider.setValue(0)
+        self._ae_comp_lbl = QLabel("0.0 EV")
+        self._ae_comp_lbl.setObjectName("val")
+        self._ae_comp_lbl.setFixedWidth(52)
+        ae_inner = QHBoxLayout()
+        ae_inner.setContentsMargins(0, 0, 0, 0)
+        ae_inner.setSpacing(8)
+        ae_inner.addWidget(self._ae_comp_slider, 1)
+        ae_inner.addWidget(self._ae_comp_lbl)
+        self._ae_comp_slider.valueChanged.connect(self._on_ae_comp_changed)
+        lay.addLayout(_row("EV Comp.", ae_inner, stretch=True))
+
         lay.addWidget(create_separator())
 
         # ── White Balance ─────────────────────────────────────────────────────
@@ -162,10 +199,44 @@ class CameraControlPlugin(TelescopePlugin):
         wb_row.addStretch()
         lay.addLayout(wb_row)
 
-        self._wb_slider = WbSliderRow()
-        self._wb_slider.value_changed.connect(self._on_wb_changed)
-        lay.addLayout(_row("Temperature", self._wb_slider, stretch=True))
-        self._wb_slider.set_enabled(False)
+        self._wb_slider = NoScrollSlider(Qt.Orientation.Horizontal)
+        self._wb_slider.setRange(_WB_MIN_K, _WB_MAX_K)
+        self._wb_slider.setValue(_WB_NEUTRAL)
+        self._wb_slider.setSingleStep(100)
+        self._wb_k_lbl = QLabel(f"{_WB_NEUTRAL} K")
+        self._wb_k_lbl.setObjectName("val")
+        self._wb_k_lbl.setFixedWidth(64)
+        wb_inner = QHBoxLayout()
+        wb_inner.setContentsMargins(0, 0, 0, 0)
+        wb_inner.setSpacing(8)
+        wb_inner.addWidget(self._wb_slider, 1)
+        wb_inner.addWidget(self._wb_k_lbl)
+        self._wb_slider.valueChanged.connect(self._on_wb_changed)
+        lay.addLayout(_row("Temperature", wb_inner, stretch=True))
+        self._wb_slider.setEnabled(False)
+        self._wb_k_lbl.setEnabled(False)
+
+        self._tint_slider = NoScrollSlider(Qt.Orientation.Horizontal)
+        self._tint_slider.setRange(-150, 150)
+        self._tint_slider.setValue(0)
+        self._tint_lbl = QLabel("0")
+        self._tint_lbl.setObjectName("val")
+        self._tint_lbl.setFixedWidth(28)
+        tint_inner = QHBoxLayout()
+        tint_inner.setContentsMargins(0, 0, 0, 0)
+        tint_inner.setSpacing(8)
+        tint_inner.addWidget(self._tint_slider, 1)
+        tint_g = QLabel("G")
+        tint_g.setObjectName("dim")
+        tint_m = QLabel("M")
+        tint_m.setObjectName("dim")
+        tint_inner.insertWidget(0, tint_g)
+        tint_inner.addWidget(tint_m)
+        tint_inner.addWidget(self._tint_lbl)
+        self._tint_slider.valueChanged.connect(self._on_tint_changed)
+        lay.addLayout(_row("Tint", tint_inner, stretch=True))
+        self._tint_slider.setEnabled(False)
+        self._tint_lbl.setEnabled(False)
 
         lay.addWidget(create_separator())
 
@@ -223,6 +294,38 @@ class CameraControlPlugin(TelescopePlugin):
         focus_slider_row.addWidget(self._focus_val_lbl)
         lay.addLayout(_row("Distance", focus_slider_row, stretch=True))
 
+        lay.addWidget(create_separator())
+
+        # ── Image ─────────────────────────────────────────────────────────────
+        self._nr_combo = NoScrollComboBox()
+        for label, _ in _NR_MODES:
+            self._nr_combo.addItem(label)
+        self._nr_combo.setCurrentIndex(1)  # Fast
+        self._nr_combo.currentIndexChanged.connect(self._on_nr_mode_changed)
+        lay.addLayout(_row("Noise Red.", self._nr_combo))
+
+        self._edge_combo = NoScrollComboBox()
+        for label, _ in _EDGE_MODES:
+            self._edge_combo.addItem(label)
+        self._edge_combo.setCurrentIndex(1)  # Fast
+        self._edge_combo.currentIndexChanged.connect(self._on_edge_mode_changed)
+        lay.addLayout(_row("Sharpening", self._edge_combo))
+
+        img_row = QHBoxLayout()
+        img_row.setContentsMargins(0, 0, 0, 0)
+        il = QLabel("")
+        il.setFixedWidth(110)
+        img_row.addWidget(il)
+        self._bll_cb = QCheckBox("Black level lock")
+        self._bll_cb.toggled.connect(self._on_bll_changed)
+        img_row.addWidget(self._bll_cb)
+        img_row.addStretch()
+        self._torch_btn = QPushButton("Torch")
+        self._torch_btn.setCheckable(True)
+        self._torch_btn.toggled.connect(self._on_torch_toggled)
+        img_row.addWidget(self._torch_btn)
+        lay.addLayout(img_row)
+
         return card
 
     # ── Stream lifecycle ──────────────────────────────────────────────────────
@@ -242,12 +345,17 @@ class CameraControlPlugin(TelescopePlugin):
             return
         cameras      = state.get("cameras", [])
         is_auto      = state.get("auto", True)
-        wb_kelvin    = state.get("wb_kelvin")
+        wb_manual    = state.get("wb_manual", False)
         ois          = state.get("ois", True)
         iso_val      = state.get("iso")
         sht_val      = state.get("shutter_ns")
         focus_mode   = state.get("focus_mode", "continuous")
         focus_dist   = state.get("focus_distance", 0.0)
+        ae_comp      = state.get("ae_comp", 0)
+        nr_mode      = state.get("nr_mode", 1)
+        edge_mode    = state.get("edge_mode", 1)
+        bll          = state.get("black_level_lock", False)
+        torch        = state.get("torch", False)
 
         self._lens_panel.load(cameras)
 
@@ -258,12 +366,19 @@ class CameraControlPlugin(TelescopePlugin):
                 cur.get("shutterMinNs", 100_000),
                 cur.get("shutterMaxNs", 1_000_000_000),
             )
+            self._ae_comp_step = float(cur.get("aeCompStep", 0.167))
+            ae_min = cur.get("aeCompMin", -8)
+            ae_max = cur.get("aeCompMax", 8)
+            self._ae_comp_slider.blockSignals(True)
+            self._ae_comp_slider.setRange(ae_min, ae_max)
+            self._ae_comp_slider.blockSignals(False)
             self._update_cam_info_lbl(cur)
             self._update_camera_caps(
                 cur.get("supportsManualSensor", True),
                 cur.get("supportsManualWB", True),
                 cur.get("supportsManualFocus", False),
                 float(cur.get("minFocusDistance", 10.0)),
+                cur.get("supportsFlash", False),
             )
 
         self._rb_exp_auto.setChecked(is_auto)
@@ -274,12 +389,13 @@ class CameraControlPlugin(TelescopePlugin):
         if iso_val: self._iso_slider.set_value(float(iso_val))
         if sht_val: self._sht_slider.set_value(float(sht_val))
 
-        manual_wb = wb_kelvin is not None
-        self._rb_wb_auto.setChecked(not manual_wb)
-        self._rb_wb_manual.setChecked(manual_wb)
-        self._manual_wb = manual_wb
-        self._wb_slider.set_enabled(manual_wb)
-        if wb_kelvin: self._wb_slider.set_value(int(wb_kelvin))
+        self._rb_wb_auto.setChecked(not wb_manual)
+        self._rb_wb_manual.setChecked(wb_manual)
+        self._manual_wb = wb_manual
+        self._wb_slider.setEnabled(wb_manual)
+        self._wb_k_lbl.setEnabled(wb_manual)
+        self._tint_slider.setEnabled(wb_manual)
+        self._tint_lbl.setEnabled(wb_manual)
 
         self._ois_cb.setChecked(bool(ois))
 
@@ -289,6 +405,30 @@ class CameraControlPlugin(TelescopePlugin):
         self._manual_focus = manual_focus
         self._focus_slider.setEnabled(manual_focus)
         self._set_focus_slider_value(float(focus_dist))
+
+        self._ae_comp_slider.blockSignals(True)
+        self._ae_comp_slider.setValue(int(ae_comp))
+        self._ae_comp_slider.blockSignals(False)
+        self._ae_comp_lbl.setText(f"{int(ae_comp) * self._ae_comp_step:+.1f} EV")
+
+        nr_idx = next((i for i, (_, v) in enumerate(_NR_MODES) if v == nr_mode), 1)
+        self._nr_combo.blockSignals(True)
+        self._nr_combo.setCurrentIndex(nr_idx)
+        self._nr_combo.blockSignals(False)
+
+        edge_idx = next((i for i, (_, v) in enumerate(_EDGE_MODES) if v == edge_mode), 1)
+        self._edge_combo.blockSignals(True)
+        self._edge_combo.setCurrentIndex(edge_idx)
+        self._edge_combo.blockSignals(False)
+
+        self._bll_cb.blockSignals(True)
+        self._bll_cb.setChecked(bool(bll))
+        self._bll_cb.blockSignals(False)
+
+        self._torch_btn.blockSignals(True)
+        self._torch_btn.setChecked(bool(torch))
+        self._torch_on = bool(torch)
+        self._torch_btn.blockSignals(False)
 
     def _on_phone_state_from_bus(self, state: dict):
         # Called via bus signal — only update if we're mid-stream and this is
@@ -310,7 +450,8 @@ class CameraControlPlugin(TelescopePlugin):
         self._cam_info_lbl.setText("  ·  ".join(parts))
 
     def _update_camera_caps(self, supports_manual_sensor: bool, supports_manual_wb: bool,
-                            supports_manual_focus: bool = False, min_focus_distance: float = 10.0):
+                            supports_manual_focus: bool = False, min_focus_distance: float = 10.0,
+                            supports_flash: bool = False):
         self._rb_exp_manual.setEnabled(supports_manual_sensor)
         if not supports_manual_sensor:
             self._rb_exp_auto.setChecked(True)
@@ -327,7 +468,10 @@ class CameraControlPlugin(TelescopePlugin):
             self._rb_wb_auto.setChecked(True)
             self._rb_wb_manual.setChecked(False)
             self._manual_wb = False
-            self._wb_slider.set_enabled(False)
+            self._wb_slider.setEnabled(False)
+            self._wb_k_lbl.setEnabled(False)
+            self._tint_slider.setEnabled(False)
+            self._tint_lbl.setEnabled(False)
             self._rb_wb_manual.setToolTip("This camera does not support MANUAL_POST_PROCESSING")
         else:
             self._rb_wb_manual.setToolTip("")
@@ -343,6 +487,12 @@ class CameraControlPlugin(TelescopePlugin):
         else:
             self._rb_focus_manual.setToolTip("")
 
+        self._torch_btn.setEnabled(supports_flash)
+        if not supports_flash:
+            self._torch_btn.setToolTip("This camera does not have a flash/torch")
+        else:
+            self._torch_btn.setToolTip("")
+
     # ── Handlers ──────────────────────────────────────────────────────────────
 
     def _on_lens_selected(self, cam: dict):
@@ -353,12 +503,19 @@ class CameraControlPlugin(TelescopePlugin):
                 cam.get("shutterMinNs", 100_000),
                 cam.get("shutterMaxNs", 1_000_000_000),
             )
+            self._ae_comp_step = float(cam.get("aeCompStep", 0.167))
+            ae_min = cam.get("aeCompMin", -8)
+            ae_max = cam.get("aeCompMax", 8)
+            self._ae_comp_slider.blockSignals(True)
+            self._ae_comp_slider.setRange(ae_min, ae_max)
+            self._ae_comp_slider.blockSignals(False)
             self._update_cam_info_lbl(cam)
             self._update_camera_caps(
                 cam.get("supportsManualSensor", True),
                 cam.get("supportsManualWB", True),
                 cam.get("supportsManualFocus", False),
                 float(cam.get("minFocusDistance", 10.0)),
+                cam.get("supportsFlash", False),
             )
 
     def _on_exp_mode(self):
@@ -384,19 +541,34 @@ class CameraControlPlugin(TelescopePlugin):
             self._ctrl.send(action="shutter", value=int(val))
         self._host._schedule_save()
 
+    def _send_wb_gains(self):
+        k = self._wb_slider.value()
+        t = self._tint_slider.value()
+        r, ge, go, b = _kelvin_to_rggb(k, float(t))
+        self._ctrl.send(action="wb_gains", r=r, ge=ge, go=go, b=b)
+
     def _on_wb_mode(self):
         manual = self._rb_wb_manual.isChecked()
         self._manual_wb = manual
-        self._wb_slider.set_enabled(manual)
+        self._wb_slider.setEnabled(manual)
+        self._wb_k_lbl.setEnabled(manual)
+        self._tint_slider.setEnabled(manual)
+        self._tint_lbl.setEnabled(manual)
         if self._ctrl:
             if not manual:
                 self._ctrl.send(action="wb_auto")
             else:
-                self._ctrl.send(action="wb_kelvin", value=self._wb_slider.get_value())
+                self._send_wb_gains()
 
     def _on_wb_changed(self, k: int):
+        self._wb_k_lbl.setText(f"{k} K")
         if self._ctrl and self._manual_wb:
-            self._ctrl.send(action="wb_kelvin", value=k)
+            self._send_wb_gains()
+
+    def _on_tint_changed(self, t: int):
+        self._tint_lbl.setText(str(t))
+        if self._ctrl and self._manual_wb:
+            self._send_wb_gains()
 
     def _on_ois(self, checked: bool):
         if self._ctrl:
@@ -423,6 +595,29 @@ class CameraControlPlugin(TelescopePlugin):
             self._ctrl.send(action="focus_distance", value=d)
         self._host._schedule_save()
 
+    def _on_ae_comp_changed(self, steps: int):
+        ev = steps * self._ae_comp_step
+        self._ae_comp_lbl.setText(f"{ev:+.1f} EV")
+        if self._ctrl:
+            self._ctrl.send(action="ae_comp", value=steps)
+
+    def _on_nr_mode_changed(self, idx: int):
+        if self._ctrl:
+            self._ctrl.send(action="nr_mode", value=_NR_MODES[idx][1])
+
+    def _on_edge_mode_changed(self, idx: int):
+        if self._ctrl:
+            self._ctrl.send(action="edge_mode", value=_EDGE_MODES[idx][1])
+
+    def _on_bll_changed(self, checked: bool):
+        if self._ctrl:
+            self._ctrl.send(action="black_level_lock", value="1" if checked else "0")
+
+    def _on_torch_toggled(self, checked: bool):
+        self._torch_on = checked
+        if self._ctrl:
+            self._ctrl.send(action="torch", value="1" if checked else "0")
+
     def _slider_to_diopters(self, pos: int) -> float:
         return (pos / _FOCUS_STEPS) * self._focus_max_diopters
 
@@ -444,6 +639,12 @@ class CameraControlPlugin(TelescopePlugin):
             "ois":             self._ois_cb.isChecked(),
             "focus_manual":    self._rb_focus_manual.isChecked(),
             "focus_diopters":  self._slider_to_diopters(self._focus_slider.value()),
+            "wb_kelvin":       self._wb_slider.value(),
+            "wb_tint":         self._tint_slider.value(),
+            "ae_comp":         self._ae_comp_slider.value(),
+            "nr_mode":         _NR_MODES[self._nr_combo.currentIndex()][1],
+            "edge_mode":       _EDGE_MODES[self._edge_combo.currentIndex()][1],
+            "bll":             self._bll_cb.isChecked(),
         }
 
     def set_config(self, cfg: dict):
@@ -462,3 +663,22 @@ class CameraControlPlugin(TelescopePlugin):
             self._rb_focus_auto.setChecked(False)
         if d := cfg.get("focus_diopters"):
             self._set_focus_slider_value(float(d))
+        if k := cfg.get("wb_kelvin"):
+            self._wb_slider.blockSignals(True)
+            self._wb_slider.setValue(int(k))
+            self._wb_slider.blockSignals(False)
+            self._wb_k_lbl.setText(f"{int(k)} K")
+        if (t := cfg.get("wb_tint")) is not None:
+            self._tint_slider.setValue(int(t))
+            self._tint_lbl.setText(str(int(t)))
+        if (ae := cfg.get("ae_comp")) is not None:
+            self._ae_comp_slider.setValue(int(ae))
+            self._ae_comp_lbl.setText(f"{int(ae) * self._ae_comp_step:+.1f} EV")
+        if (nr := cfg.get("nr_mode")) is not None:
+            idx = next((i for i, (_, v) in enumerate(_NR_MODES) if v == nr), 1)
+            self._nr_combo.setCurrentIndex(idx)
+        if (em := cfg.get("edge_mode")) is not None:
+            idx = next((i for i, (_, v) in enumerate(_EDGE_MODES) if v == em), 1)
+            self._edge_combo.setCurrentIndex(idx)
+        if cfg.get("bll"):
+            self._bll_cb.setChecked(True)

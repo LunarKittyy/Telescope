@@ -7,33 +7,7 @@ from PyQt6.QtWidgets import (
     QSlider, QSpinBox, QWidget,
 )
 
-# ── WB data ───────────────────────────────────────────────────────────────────
-
-WB_NAMES = [
-    (2000, "Candlelight"),
-    (2700, "Incandescent"),
-    (3200, "Warm white"),
-    (4000, "Fluorescent"),
-    (5500, "Daylight"),
-    (6500, "Overcast"),
-    (7500, "Shade"),
-    (8000, "Deep shade"),
-]
-
-
 # ── Pure display helpers ──────────────────────────────────────────────────────
-
-def wb_preset_name(k: int) -> str:
-    if k < 2500: return "Incandescent"
-    if k < 3500: return "Warm fluorescent"
-    if k < 4500: return "Fluorescent"
-    if k < 6000: return "Daylight"
-    if k < 7000: return "Cloudy daylight"
-    return "Shade"
-
-
-def wb_name(k: int) -> str:
-    return min(WB_NAMES, key=lambda x: abs(x[0] - k))[1]
 
 
 def ns_to_display(ns: int) -> str:
@@ -283,75 +257,6 @@ class LogSliderRow(QWidget):
 
 
 # ── WB slider row ─────────────────────────────────────────────────────────────
-
-class WbSliderRow(QWidget):
-    """Linear Kelvin slider 2000-8000 with spinbox for direct entry."""
-    value_changed = pyqtSignal(int)
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(0, 0, 0, 0)
-        lay.setSpacing(8)
-
-        self._slider = NoScrollSlider(Qt.Orientation.Horizontal)
-        self._slider.setRange(2000, 8000)
-        self._slider.setValue(5500)
-        self._slider.setMinimumWidth(140)
-        self._slider.setSingleStep(50)
-        self._slider.setPageStep(500)
-        lay.addWidget(self._slider, 1)
-
-        self._lbl = QLabel("Daylight")
-        self._lbl.setObjectName("val")
-        self._lbl.setMinimumWidth(70)
-        lay.addWidget(self._lbl)
-
-        self._spin = NoScrollSpinBox()
-        self._spin.setRange(2000, 8000)
-        self._spin.setValue(5500)
-        self._spin.setSingleStep(50)
-        self._spin.setSuffix(" K")
-        self._spin.setFixedWidth(100)
-        lay.addWidget(self._spin)
-
-
-        self._slider.valueChanged.connect(self._on_slider)
-        self._spin.editingFinished.connect(self._on_spin)
-
-    def _on_slider(self, k: int):
-        self._lbl.setText(wb_name(k))
-        self._spin.blockSignals(True)
-        self._spin.setValue(k)
-        self._spin.blockSignals(False)
-        self._schedule_emit(k)
-
-    def _on_spin(self):
-        k = self._spin.value()
-        self._slider.blockSignals(True)
-        self._slider.setValue(k)
-        self._slider.blockSignals(False)
-        self._lbl.setText(wb_name(k))
-        self._schedule_emit(k)
-
-    def _schedule_emit(self, k: int):
-        self.value_changed.emit(k)
-
-    def get_value(self) -> int: return self._slider.value()
-
-    def set_value(self, k: int):
-        self._slider.blockSignals(True)
-        self._slider.setValue(k)
-        self._slider.blockSignals(False)
-        self._spin.blockSignals(True)
-        self._spin.setValue(k)
-        self._spin.blockSignals(False)
-        self._lbl.setText(wb_name(k))
-
-    def set_enabled(self, enabled: bool):
-        self._slider.setEnabled(enabled)
-        self._spin.setEnabled(enabled)
-
 
 # ── Pan slider row ────────────────────────────────────────────────────────────
 
