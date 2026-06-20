@@ -109,7 +109,7 @@ class PreviewPlugin(TelescopePlugin):
         hdr.addStretch()
 
         self._toggle_btn = QPushButton("Show")
-        self._toggle_btn.setMinimumWidth(52)
+        self._toggle_btn.setMinimumWidth(62)
         self._toggle_btn.clicked.connect(self._toggle)
         hdr.addWidget(self._toggle_btn)
 
