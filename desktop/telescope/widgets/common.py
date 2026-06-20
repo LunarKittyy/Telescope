@@ -1,7 +1,6 @@
 import math
-from typing import Optional
 
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QIcon, QPainter, QPen, QBrush, QPixmap
 from PyQt6.QtWidgets import (
     QComboBox, QDoubleSpinBox, QFrame, QHBoxLayout, QLabel,
@@ -194,7 +193,7 @@ class LogSliderRow(QWidget):
         self.v_max = v_max
         self.display_fn = display_fn or str
         self._spin_scale = spinbox_scale
-        self._debounce: Optional[QTimer] = None
+
 
         lay = QHBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
@@ -252,12 +251,7 @@ class LogSliderRow(QWidget):
         self._schedule_emit(val)
 
     def _schedule_emit(self, val: float):
-        if self._debounce:
-            self._debounce.stop()
-        self._debounce = QTimer(self)
-        self._debounce.setSingleShot(True)
-        self._debounce.timeout.connect(lambda: self.value_changed.emit(val))
-        self._debounce.start(80)
+        self.value_changed.emit(val)
 
     def set_range(self, v_min: float, v_max: float):
         self.v_min = v_min
@@ -321,7 +315,7 @@ class WbSliderRow(QWidget):
         self._spin.setFixedWidth(100)
         lay.addWidget(self._spin)
 
-        self._debounce: Optional[QTimer] = None
+
         self._slider.valueChanged.connect(self._on_slider)
         self._spin.editingFinished.connect(self._on_spin)
 
@@ -341,11 +335,7 @@ class WbSliderRow(QWidget):
         self._schedule_emit(k)
 
     def _schedule_emit(self, k: int):
-        if self._debounce: self._debounce.stop()
-        self._debounce = QTimer(self)
-        self._debounce.setSingleShot(True)
-        self._debounce.timeout.connect(lambda: self.value_changed.emit(k))
-        self._debounce.start(80)
+        self.value_changed.emit(k)
 
     def get_value(self) -> int: return self._slider.value()
 
