@@ -6,9 +6,18 @@ from PyQt6.QtWidgets import (
 
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
-    LogSliderRow, WbSliderRow, create_separator, create_vector_icon, ns_to_display,
+    LogSliderRow, NoScrollSlider, WbSliderRow, create_separator,
+    create_vector_icon, ns_to_display,
 )
 from telescope.widgets.lens_panel import LensPanel
+
+_FOCUS_STEPS = 1000
+
+
+def _diopters_to_label(d: float) -> str:
+    if d <= 0.01:
+        return "inf"
+    return f"{1.0 / d:.2f} m"
 
 
 def _row(label: str, widget, label_width=110, stretch=False) -> QHBoxLayout:
@@ -39,10 +48,12 @@ class CameraControlPlugin(TelescopePlugin):
     name = "camera_control"
 
     def setup(self, host, bus):
-        self._host       = host
-        self._ctrl       = None
-        self._manual_exp = False
-        self._manual_wb  = False
+        self._host              = host
+        self._ctrl              = None
+        self._manual_exp        = False
+        self._manual_wb         = False
+        self._manual_focus      = False
+        self._focus_max_diopters: float = 10.0
         bus.phone_state_updated.connect(self._on_phone_state_from_bus)
 
     def create_panel(self) -> QWidget:
@@ -173,6 +184,45 @@ class CameraControlPlugin(TelescopePlugin):
         ois_row.addStretch()
         lay.addLayout(ois_row)
 
+        lay.addWidget(create_separator())
+
+        # ── Focus ─────────────────────────────────────────────────────────────
+        focus_row = QHBoxLayout()
+        focus_row.setContentsMargins(0, 0, 0, 0)
+        fl = QLabel("Focus")
+        fl.setObjectName("dim")
+        fl.setFixedWidth(110)
+        fl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        focus_row.addWidget(fl)
+        self._rb_focus_auto   = QRadioButton("Auto")
+        self._rb_focus_manual = QRadioButton("Manual")
+        for rb in (self._rb_focus_auto, self._rb_focus_manual):
+            rb.setAutoExclusive(False)
+        self._focus_grp = QButtonGroup(card)
+        self._focus_grp.addButton(self._rb_focus_auto)
+        self._focus_grp.addButton(self._rb_focus_manual)
+        self._rb_focus_auto.setChecked(True)
+        self._focus_grp.buttonClicked.connect(lambda _: self._on_focus_mode())
+        focus_row.addWidget(self._rb_focus_auto)
+        focus_row.addWidget(self._rb_focus_manual)
+        focus_row.addStretch()
+        lay.addLayout(focus_row)
+
+        focus_slider_row = QHBoxLayout()
+        focus_slider_row.setContentsMargins(0, 0, 0, 0)
+        focus_slider_row.setSpacing(8)
+        self._focus_slider = NoScrollSlider(Qt.Orientation.Horizontal)
+        self._focus_slider.setRange(0, _FOCUS_STEPS)
+        self._focus_slider.setValue(0)
+        self._focus_slider.setEnabled(False)
+        self._focus_slider.valueChanged.connect(self._on_focus_slider)
+        self._focus_val_lbl = QLabel("inf")
+        self._focus_val_lbl.setObjectName("dim")
+        self._focus_val_lbl.setFixedWidth(60)
+        focus_slider_row.addWidget(self._focus_slider, 1)
+        focus_slider_row.addWidget(self._focus_val_lbl)
+        lay.addLayout(_row("Distance", focus_slider_row, stretch=True))
+
         return card
 
     # ── Stream lifecycle ──────────────────────────────────────────────────────
@@ -190,12 +240,14 @@ class CameraControlPlugin(TelescopePlugin):
         if not state:
             self._lens_panel.set_placeholder("Unavailable")
             return
-        cameras   = state.get("cameras", [])
-        is_auto   = state.get("auto", True)
-        wb_kelvin = state.get("wb_kelvin")
-        ois       = state.get("ois", True)
-        iso_val   = state.get("iso")
-        sht_val   = state.get("shutter_ns")
+        cameras      = state.get("cameras", [])
+        is_auto      = state.get("auto", True)
+        wb_kelvin    = state.get("wb_kelvin")
+        ois          = state.get("ois", True)
+        iso_val      = state.get("iso")
+        sht_val      = state.get("shutter_ns")
+        focus_mode   = state.get("focus_mode", "continuous")
+        focus_dist   = state.get("focus_distance", 0.0)
 
         self._lens_panel.load(cameras)
 
@@ -210,6 +262,8 @@ class CameraControlPlugin(TelescopePlugin):
             self._update_camera_caps(
                 cur.get("supportsManualSensor", True),
                 cur.get("supportsManualWB", True),
+                cur.get("supportsManualFocus", False),
+                float(cur.get("minFocusDistance", 10.0)),
             )
 
         self._rb_exp_auto.setChecked(is_auto)
@@ -229,6 +283,13 @@ class CameraControlPlugin(TelescopePlugin):
 
         self._ois_cb.setChecked(bool(ois))
 
+        manual_focus = focus_mode == "manual"
+        self._rb_focus_auto.setChecked(not manual_focus)
+        self._rb_focus_manual.setChecked(manual_focus)
+        self._manual_focus = manual_focus
+        self._focus_slider.setEnabled(manual_focus)
+        self._set_focus_slider_value(float(focus_dist))
+
     def _on_phone_state_from_bus(self, state: dict):
         # Called via bus signal — only update if we're mid-stream and this is
         # a monitoring poll result (has battery key), not a camera fetch.
@@ -244,10 +305,12 @@ class CameraControlPlugin(TelescopePlugin):
             parts.append(hw)
         parts.append("manual sensor " + ("✓" if cam.get("supportsManualSensor") else "✗"))
         parts.append("manual WB "     + ("✓" if cam.get("supportsManualWB")     else "✗"))
+        parts.append("manual focus "  + ("✓" if cam.get("supportsManualFocus")  else "✗"))
         parts.append("OIS "           + ("✓" if cam.get("hasOis")               else "✗"))
         self._cam_info_lbl.setText("  ·  ".join(parts))
 
-    def _update_camera_caps(self, supports_manual_sensor: bool, supports_manual_wb: bool):
+    def _update_camera_caps(self, supports_manual_sensor: bool, supports_manual_wb: bool,
+                            supports_manual_focus: bool = False, min_focus_distance: float = 10.0):
         self._rb_exp_manual.setEnabled(supports_manual_sensor)
         if not supports_manual_sensor:
             self._rb_exp_auto.setChecked(True)
@@ -269,6 +332,17 @@ class CameraControlPlugin(TelescopePlugin):
         else:
             self._rb_wb_manual.setToolTip("")
 
+        self._focus_max_diopters = min_focus_distance if min_focus_distance > 0 else 10.0
+        self._rb_focus_manual.setEnabled(supports_manual_focus)
+        if not supports_manual_focus:
+            self._rb_focus_auto.setChecked(True)
+            self._rb_focus_manual.setChecked(False)
+            self._manual_focus = False
+            self._focus_slider.setEnabled(False)
+            self._rb_focus_manual.setToolTip("This camera does not support manual focus")
+        else:
+            self._rb_focus_manual.setToolTip("")
+
     # ── Handlers ──────────────────────────────────────────────────────────────
 
     def _on_lens_selected(self, cam: dict):
@@ -283,6 +357,8 @@ class CameraControlPlugin(TelescopePlugin):
             self._update_camera_caps(
                 cam.get("supportsManualSensor", True),
                 cam.get("supportsManualWB", True),
+                cam.get("supportsManualFocus", False),
+                float(cam.get("minFocusDistance", 10.0)),
             )
 
     def _on_exp_mode(self):
@@ -327,14 +403,47 @@ class CameraControlPlugin(TelescopePlugin):
             self._ctrl.send(action="ois", value="1" if checked else "0")
         self._host._schedule_save()
 
+    def _on_focus_mode(self):
+        manual = self._rb_focus_manual.isChecked()
+        self._manual_focus = manual
+        self._focus_slider.setEnabled(manual)
+        if self._ctrl:
+            if not manual:
+                self._ctrl.send(action="focus_mode", value="continuous")
+            else:
+                self._ctrl.send(action="focus_mode", value="manual")
+                self._ctrl.send(action="focus_distance",
+                                value=self._slider_to_diopters(self._focus_slider.value()))
+        self._host._schedule_save()
+
+    def _on_focus_slider(self, pos: int):
+        d = self._slider_to_diopters(pos)
+        self._focus_val_lbl.setText(_diopters_to_label(d))
+        if self._ctrl and self._manual_focus:
+            self._ctrl.send(action="focus_distance", value=d)
+        self._host._schedule_save()
+
+    def _slider_to_diopters(self, pos: int) -> float:
+        return (pos / _FOCUS_STEPS) * self._focus_max_diopters
+
+    def _set_focus_slider_value(self, diopters: float):
+        pos = int((diopters / self._focus_max_diopters) * _FOCUS_STEPS) \
+              if self._focus_max_diopters > 0 else 0
+        self._focus_slider.blockSignals(True)
+        self._focus_slider.setValue(max(0, min(_FOCUS_STEPS, pos)))
+        self._focus_slider.blockSignals(False)
+        self._focus_val_lbl.setText(_diopters_to_label(diopters))
+
     # ── Config ────────────────────────────────────────────────────────────────
 
     def get_config(self) -> dict:
         return {
-            "exp_manual": self._rb_exp_manual.isChecked(),
-            "iso":        self._iso_slider.get_value(),
-            "shutter_ns": self._sht_slider.get_value(),
-            "ois":        self._ois_cb.isChecked(),
+            "exp_manual":      self._rb_exp_manual.isChecked(),
+            "iso":             self._iso_slider.get_value(),
+            "shutter_ns":      self._sht_slider.get_value(),
+            "ois":             self._ois_cb.isChecked(),
+            "focus_manual":    self._rb_focus_manual.isChecked(),
+            "focus_diopters":  self._slider_to_diopters(self._focus_slider.value()),
         }
 
     def set_config(self, cfg: dict):
@@ -348,3 +457,8 @@ class CameraControlPlugin(TelescopePlugin):
         if sht := cfg.get("shutter_ns"):
             self._sht_slider.set_value(float(sht))
         self._ois_cb.setChecked(cfg.get("ois", True))
+        if cfg.get("focus_manual"):
+            self._rb_focus_manual.setChecked(True)
+            self._rb_focus_auto.setChecked(False)
+        if d := cfg.get("focus_diopters"):
+            self._set_focus_slider_value(float(d))
