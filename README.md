@@ -1,4 +1,4 @@
-# PhoneCam
+# Telescope
 
 Stream your Android phone's camera - including telephoto and wide-angle lenses - to a virtual webcam on Linux or Windows. Camera controls (ISO, shutter, white balance, lens selection) are exposed over a local HTTP API so the desktop app can drive them live.
 
@@ -8,19 +8,19 @@ Stream your Android phone's camera - including telephoto and wide-angle lenses -
 
 ### 1. Install the Android app
 
-**Easiest:** connect your phone via USB with [USB debugging enabled](https://developer.android.com/studio/debug/dev-options), set up the desktop app first (step 2), then use **System Setup -> Install Phone App**. It runs `adb install` for you automatically if `PhoneCam.apk` is next to the desktop app.
+**Easiest:** connect your phone via USB with [USB debugging enabled](https://developer.android.com/studio/debug/dev-options), set up the desktop app first (step 2), then use **System Setup -> Install Phone App**. It runs `adb install` for you automatically if `Telescope.apk` is next to the desktop app.
 
-**Manually:** download `PhoneCam.apk` from the [latest release](../../releases/tag/latest) and either:
+**Manually:** download `Telescope.apk` from the [latest release](../../releases/tag/latest) and either:
 
 ```bash
-adb install PhoneCam.apk
+adb install Telescope.apk
 ```
 
 Or sideload it from your phone's file manager with "Install unknown apps" enabled.
 
 ### 2. Set up and run the desktop app
 
-**Linux** - download `PhoneCam-linux.tar.gz` from the [latest release](../../releases/tag/latest), extract it, and run:
+**Linux** - download `Telescope-linux.tar.gz` from the [latest release](../../releases/tag/latest), extract it, and run:
 ```bash
 ./start.sh
 ```
@@ -29,11 +29,11 @@ The script installs Python dependencies automatically. On first launch, open **S
 
 For USB mode you also need `adb` on your PATH (`sudo apt install adb`, `sudo dnf install android-tools`, or `sudo pacman -S android-tools`). **USB debugging must also be enabled** on your phone - see [Configure on-device developer options](https://developer.android.com/studio/debug/dev-options).
 
-**Windows** - download `PhoneCam-windows.zip` from the [latest release](../../releases/tag/latest) and extract it anywhere:
+**Windows** - download `Telescope-windows.zip` from the [latest release](../../releases/tag/latest) and extract it anywhere:
 
 ```
-PhoneCam-windows/
-  PhoneCamDesktop.exe          <- self-contained, no Python needed
+Telescope-windows/
+  TelescopeDesktop.exe          <- self-contained, no Python needed
   start.bat                    <- alternative launcher if you have Python
   platform-tools/
     adb.exe                    <- used automatically for USB mode
@@ -43,11 +43,11 @@ PhoneCam-windows/
     UnityCaptureFilter64.dll
 ```
 
-Run `start.bat` (installs Python deps and launches the app) or `PhoneCamDesktop.exe` directly. The app will detect and register the virtual camera driver on first launch via the System Setup dialog.
+Run `start.bat` (installs Python deps and launches the app) or `TelescopeDesktop.exe` directly. The app will detect and register the virtual camera driver on first launch via the System Setup dialog.
 
 ### 3. Connect your phone
 
-1. Open the PhoneCam app on your phone, pick a camera and resolution, tap **Start Streaming**.
+1. Open the Telescope app on your phone, pick a camera and resolution, tap **Start Streaming**.
    - Android will prompt to disable battery optimization if not already exempted. Allow it so the service isn't killed in the background.
    - Once streaming, the status card shows your WiFi and USB URLs. Tap either one to copy it.
 2. On the desktop app, select **USB** or **Wi-Fi** mode and press **Start Streaming**.
@@ -94,7 +94,7 @@ Run `start.bat` (installs Python deps and launches the app) or `PhoneCamDesktop.
 
 **Multi-device and config persistence**
 - Named device list in Wi-Fi mode: add/remove devices by name and IP, switch between them with a dropdown
-- All settings (resolution, fps, flip, rotation, exposure, zoom, quality, alert thresholds, canvas size, etc.) are saved per device to `phonecam_config.json` and restored on next launch
+- All settings (resolution, fps, flip, rotation, exposure, zoom, quality, alert thresholds, canvas size, etc.) are saved per device to `telescope_config.json` and restored on next launch
 - Settings from older config formats are migrated automatically
 
 **Privacy**
@@ -112,27 +112,27 @@ Run `start.bat` (installs Python deps and launches the app) or `PhoneCamDesktop.
 
 ## Why
 
-Most Android camera streaming solutions either lock you to a specific app ecosystem, use ADB screen mirroring which blocks the back camera on some devices, or route through OBS to create the virtual camera - which is a problem if you need OBS free for its own output. PhoneCam runs as a self-contained foreground service that serves MJPEG directly and exposes camera controls as a simple REST API, leaving OBS (or any other capture tool) completely unencumbered.
+Most Android camera streaming solutions either lock you to a specific app ecosystem, use ADB screen mirroring which blocks the back camera on some devices, or route through OBS to create the virtual camera - which is a problem if you need OBS free for its own output. Telescope runs as a self-contained foreground service that serves MJPEG directly and exposes camera controls as a simple REST API, leaving OBS (or any other capture tool) completely unencumbered.
 
 ---
 
 ## Architecture
 
 ```
-Android device  (PhoneCam app, port 8080)
+Android device  (Telescope app, port 8080)
       |
       |  USB: adb forward tcp:8080 tcp:8080
       |  Wi-Fi: direct HTTP
       v
 desktop/main.py  (Python, PyQt6)
       |
-      |-- phonecam/stream.py       StreamWorker (QThread)
+      |-- telescope/stream.py       StreamWorker (QThread)
       |     reads MJPEG via cv2.VideoCapture
       |     runs frames through plugin pipeline
       |     _fit_frame() letterboxes to canvas size
       |     pyvirtualcam -> virtual camera device
       |
-      +-- phonecam/plugins/        one plugin per UI card
+      +-- telescope/plugins/        one plugin per UI card
             connection             IP/USB device selection
             camera_control         lens, ISO, shutter, WB, OIS
             stream_output          resolution, FPS, JPEG quality
@@ -141,7 +141,7 @@ desktop/main.py  (Python, PyQt6)
             setup                  driver setup, canvas settings
 ```
 
-On **Linux**, two `v4l2loopback` devices are created (`/dev/video10` and `/dev/video11`). PhoneCam writes to `video11`; `video10` is intentionally left free for other software (e.g. OBS Virtual Camera).
+On **Linux**, two `v4l2loopback` devices are created (`/dev/video10` and `/dev/video11`). Telescope writes to `video11`; `video10` is intentionally left free for other software (e.g. OBS Virtual Camera).
 
 On **Windows**, the virtual camera is [UnityCapture](https://github.com/schellingb/UnityCapture) - a standalone DirectShow filter, no OBS required.
 
@@ -150,14 +150,14 @@ On **Windows**, the virtual camera is [UnityCapture](https://github.com/schellin
 ## Repository layout
 
 ```
-phonecam/
+telescope/
 |-- .github/workflows/
 |   |-- build-apk.yml            # CI: debug APK on ubuntu-latest
 |   |-- build-windows.yml        # CI: Windows bundle (EXE + adb + UnityCapture)
 |   +-- build-linux.yml          # CI: Linux bundle (source + start.sh)
 |
 |-- android/                     # Gradle project
-|   +-- app/src/main/kotlin/com/phonecam/
+|   +-- app/src/main/kotlin/com/telescope/
 |       |-- MainActivity.kt      # UI: enumerate cameras, start/stop service
 |       |-- CameraStreamService.kt  # Foreground service: Camera2 + HTTP control
 |       +-- MjpegServer.kt       # HTTP: /video  /cameras  /control
@@ -165,15 +165,15 @@ phonecam/
 +-- desktop/
     |-- main.py                  # Entry point: registers plugins, restores config
     |-- requirements.txt
-    |-- phonecam.spec            # PyInstaller spec for Windows EXE
+    |-- telescope.spec            # PyInstaller spec for Windows EXE
     |-- start.sh                 # Linux launcher (auto-installs deps)
     |-- start.bat                # Windows launcher (auto-installs deps)
     |-- platform-tools/          # Bundled adb for Windows
     |-- unitycapture/            # Bundled UnityCapture DLLs (MIT)
-    +-- phonecam/
-        |-- app.py               # PhoneCamWindow: plugin host, stream lifecycle
+    +-- telescope/
+        |-- app.py               # TelescopeWindow: plugin host, stream lifecycle
         |-- stream.py            # StreamWorker: MJPEG -> pipeline -> pyvirtualcam
-        |-- plugin.py            # PhoneCamPlugin base class + EventBus
+        |-- plugin.py            # TelescopePlugin base class + EventBus
         |-- config.py            # Versioned JSON config (v2) with migration
         |-- phone_client.py      # HTTP client for /video and /cameras
         |-- platform/
@@ -280,7 +280,7 @@ flatpak override --user --device=all com.obsproject.Studio
 
 ### Key implementation notes (for contributors)
 
-**Plugin system:** The app is built around `PhoneCamPlugin` - a base class with hooks for `setup()`, `create_panel()`, `process_frame()`, `on_stream_start/stop()`, `on_phone_state()`, and `get/set_config()`. Plugins are registered in `main.py` in order; each creates one UI card. An `EventBus` (QObject with Qt signals) handles cross-plugin communication.
+**Plugin system:** The app is built around `TelescopePlugin` - a base class with hooks for `setup()`, `create_panel()`, `process_frame()`, `on_stream_start/stop()`, `on_phone_state()`, and `get/set_config()`. Plugins are registered in `main.py` in order; each creates one UI card. An `EventBus` (QObject with Qt signals) handles cross-plugin communication.
 
 **Frame pipeline:** `StreamWorker` holds a list of `process_frame` callables (one per plugin). Each frame passes through the full pipeline on the reader thread. `_fit_frame()` then letterboxes/pillarboxes the result to the fixed vcam canvas size, preserving aspect ratio with black bars.
 
@@ -304,7 +304,7 @@ flatpak override --user --device=all com.obsproject.Studio
 
 **White balance:** Linear Kelvin slider 2000-8000 K. Translates to `RggbChannelVector` using the Tanner Helland K->RGB algorithm and sets `COLOR_CORRECTION_GAINS`. Reverting to auto restores `CONTROL_AWB_MODE_AUTO`.
 
-**Per-device config:** All UI settings serialize to `phonecam_config.json` with a 500ms debounce. The `devices` dict is keyed by device name; switching devices saves the current device's settings before loading the new one's. Config v0/v1 formats are migrated to v2 automatically on first load.
+**Per-device config:** All UI settings serialize to `telescope_config.json` with a 500ms debounce. The `devices` dict is keyed by device name; switching devices saves the current device's settings before loading the new one's. Config v0/v1 formats are migrated to v2 automatically on first load.
 
 **Single-instance:** `acquire_single_instance()` tries to bind a local TCP socket on port 47823. If already bound, it signals the running instance to restore its window and exits.
 
@@ -393,21 +393,21 @@ All three workflows publish to a rolling **`latest` release** on every push to `
 1. JDK 21 (Temurin) + Gradle cache
 2. Android SDK (android-34, build-tools;34.0.0)
 3. `./gradlew assembleDebug --no-daemon`
-4. Publishes `PhoneCam.apk` to the `latest` release
+4. Publishes `Telescope.apk` to the `latest` release
 
 ### `build-windows.yml` - triggered on changes to `desktop/**`
 
 1. Python 3.11 + pip cache
 2. `pip install -r requirements.txt pyinstaller`
-3. `pyinstaller phonecam.spec`
-4. Assembles `PhoneCam-windows.zip`: EXE + `start.bat` + `platform-tools/` + `unitycapture/`
+3. `pyinstaller telescope.spec`
+4. Assembles `Telescope-windows.zip`: EXE + `start.bat` + `platform-tools/` + `unitycapture/`
 5. Publishes the zip to the `latest` release
 
-`phonecam.spec` uses `collect_all('PyQt6')` to include Qt platform plugins that PyInstaller's default analysis misses. Expected EXE size: 60-80 MB.
+`telescope.spec` uses `collect_all('PyQt6')` to include Qt platform plugins that PyInstaller's default analysis misses. Expected EXE size: 60-80 MB.
 
 ### `build-linux.yml` - triggered on changes to `desktop/**`
 
-1. Assembles `PhoneCam-linux.tar.gz`: `main.py` + `phonecam/` package + `requirements.txt` + `start.sh`
+1. Assembles `Telescope-linux.tar.gz`: `main.py` + `telescope/` package + `requirements.txt` + `start.sh`
 2. Publishes the tarball to the `latest` release
 
 No build step needed - the Linux bundle is the Python source and launcher script.

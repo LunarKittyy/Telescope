@@ -22,17 +22,17 @@ def _run(cmd, timeout=10):
 def platform_tools_dir() -> Path:
     if getattr(sys, "frozen", False):
         return Path(sys.executable).parent / "platform-tools"
-    # __file__ is desktop/phonecam/platform/__init__.py → go up 3 levels to desktop/
+    # __file__ is desktop/telescope/platform/__init__.py → go up 3 levels to desktop/
     return Path(__file__).parent.parent.parent / "platform-tools"
 
 
 def bundled_apk_path() -> Optional[Path]:
-    """Return path to PhoneCam.apk sitting next to the script/exe, or None."""
+    """Return path to Telescope.apk sitting next to the script/exe, or None."""
     if getattr(sys, "frozen", False):
         base = Path(sys.executable).parent
     else:
         base = Path(__file__).parent.parent.parent
-    p = base / "PhoneCam.apk"
+    p = base / "Telescope.apk"
     return p if p.exists() else None
 
 

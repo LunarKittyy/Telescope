@@ -5,14 +5,14 @@ android/app/build/
 android/local.properties
 
 # Desktop
-desktop/phonecam_config.json
+desktop/telescope_config.json
 desktop/__pycache__/
 desktop/*.pyc
 desktop/build/
 desktop/dist/
 desktop/*.egg-info/
 desktop/.venv/
-desktop/PhoneCam.apk
+desktop/Telescope.apk
 venv/
 .venv/
 

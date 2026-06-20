@@ -1,4 +1,4 @@
-package com.phonecam
+package com.telescope
 
 import java.io.OutputStream
 import java.net.ServerSocket

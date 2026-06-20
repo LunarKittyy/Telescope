@@ -1,8 +1,8 @@
 # -*- mode: python ; coding: utf-8 -*-
 #
-# PyInstaller spec for PhoneCam Desktop (Windows).
-# Build: pyinstaller phonecam.spec
-# Output: dist/PhoneCamDesktop.exe  (~60-80 MB onefile)
+# PyInstaller spec for Telescope Desktop (Windows).
+# Build: pyinstaller telescope.spec
+# Output: dist/TelescopeDesktop.exe  (~60-80 MB onefile)
 #
 # Notes:
 #   - pyvirtualcam's unitycapture backend calls into a system-installed
@@ -22,7 +22,7 @@ a = Analysis(
     pathex=[],
     binaries=qt_bins + mat_bins,
     datas=qt_datas + mat_datas,
-    hiddenimports=qt_hidden + mat_hidden + collect_submodules('phonecam') + [
+    hiddenimports=qt_hidden + mat_hidden + collect_submodules('telescope') + [
         'pyvirtualcam',
         'cv2',
         'numpy',
@@ -49,7 +49,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='PhoneCamDesktop',
+    name='TelescopeDesktop',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

@@ -7,16 +7,16 @@ from PyQt6.QtWidgets import (
     QPushButton, QSpinBox, QVBoxLayout, QWidget,
 )
 
-from phonecam.platform import IS_LINUX, IS_WINDOWS, adb_available, adb_exe, bundled_apk_path, _run
-from phonecam.platform.linux import (
+from telescope.platform import IS_LINUX, IS_WINDOWS, adb_available, adb_exe, bundled_apk_path, _run
+from telescope.platform.linux import (
     V4L2_OBS_DEV, V4L2_PHONE_DEV,
     v4l2_devices_ready, v4l2_load, v4l2_module_loaded, v4l2_unload,
 )
-from phonecam.platform.windows import (
+from telescope.platform.windows import (
     download_unitycapture, register_unitycapture, uc_is_registered, unitycapture_dir,
 )
-from phonecam.plugin import PhoneCamPlugin
-from phonecam.widgets.common import NoScrollComboBox, create_vector_icon
+from telescope.plugin import TelescopePlugin
+from telescope.widgets.common import NoScrollComboBox, create_vector_icon
 
 # (width, height) tuples for canvas presets; None = auto from first frame
 CANVAS_PRESETS: list[tuple[str, tuple[int, int] | None]] = [
@@ -115,7 +115,7 @@ class SetupDialog(QDialog):
         apk_gb = QGroupBox("Install Phone App (via USB)")
         apk_lay = QHBoxLayout(apk_gb)
         _apk = bundled_apk_path()
-        self._apk_status_lbl = QLabel("PhoneCam.apk found" if _apk else "No APK found next to app")
+        self._apk_status_lbl = QLabel("Telescope.apk found" if _apk else "No APK found next to app")
         self._apk_status_lbl.setObjectName("status_ok" if _apk else "status_dim")
         self._apk_status_lbl.setWordWrap(True)
         self._apk_btn = QPushButton("Install" if _apk else "Choose APK...")
@@ -390,7 +390,7 @@ class SetupDialog(QDialog):
         self._apk_status_lbl.setStyleSheet("")
 
 
-class SetupPlugin(PhoneCamPlugin):
+class SetupPlugin(TelescopePlugin):
     name = "setup"
 
     def setup(self, host, bus):

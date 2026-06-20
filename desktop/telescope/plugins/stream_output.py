@@ -3,8 +3,8 @@ from PyQt6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget,
 )
 
-from phonecam.plugin import PhoneCamPlugin
-from phonecam.widgets.common import (
+from telescope.plugin import TelescopePlugin
+from telescope.widgets.common import (
     NoScrollComboBox, NoScrollSlider, NoScrollSpinBox,
     create_separator, create_vector_icon, quality_label,
 )
@@ -21,7 +21,7 @@ _DEFAULT_QUALITY   = 85
 _DEFAULT_PHONE_FPS = 30
 
 
-class StreamOutputPlugin(PhoneCamPlugin):
+class StreamOutputPlugin(TelescopePlugin):
     name = "stream_output"
 
     def setup(self, host, bus):

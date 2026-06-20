@@ -5,7 +5,7 @@ from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtWidgets import QWidget
 
 
-class PhoneCamPlugin:
+class TelescopePlugin:
     name: str = ""
 
     def setup(self, host, bus: "EventBus"): ...

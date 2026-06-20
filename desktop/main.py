@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PhoneCam Desktop — entry point."""
+"""Telescope Desktop — entry point."""
 
 import sys
 import threading
@@ -23,15 +23,15 @@ if _missing:
 from PyQt6.QtWidgets import QApplication
 from qt_material import apply_stylesheet
 
-from phonecam.app import (
-    EXTRA_QSS, PhoneCamWindow, acquire_single_instance, listen_for_raise,
+from telescope.app import (
+    EXTRA_QSS, TelescopeWindow, acquire_single_instance, listen_for_raise,
 )
-from phonecam.plugins.camera_control import CameraControlPlugin
-from phonecam.plugins.connection import ConnectionPlugin
-from phonecam.plugins.monitoring import MonitoringPlugin
-from phonecam.plugins.setup import SetupPlugin
-from phonecam.plugins.stream_output import StreamOutputPlugin
-from phonecam.plugins.transforms import TransformsPlugin
+from telescope.plugins.camera_control import CameraControlPlugin
+from telescope.plugins.connection import ConnectionPlugin
+from telescope.plugins.monitoring import MonitoringPlugin
+from telescope.plugins.setup import SetupPlugin
+from telescope.plugins.stream_output import StreamOutputPlugin
+from telescope.plugins.transforms import TransformsPlugin
 
 
 def main():
@@ -44,7 +44,7 @@ def main():
     apply_stylesheet(app, theme='dark_blue.xml')
     app.setStyleSheet(app.styleSheet() + EXTRA_QSS)
 
-    win = PhoneCamWindow()
+    win = TelescopeWindow()
     win.register_plugin(SetupPlugin())
     win.register_plugin(ConnectionPlugin())
     win.register_plugin(CameraControlPlugin())

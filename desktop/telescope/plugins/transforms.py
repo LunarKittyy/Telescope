@@ -6,8 +6,8 @@ from PyQt6.QtWidgets import (
     QCheckBox, QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget,
 )
 
-from phonecam.plugin import PhoneCamPlugin
-from phonecam.widgets.common import (
+from telescope.plugin import TelescopePlugin
+from telescope.widgets.common import (
     NoScrollComboBox, NoScrollSlider, PanSliderRow, create_separator, create_vector_icon,
 )
 
@@ -43,7 +43,7 @@ def _transform_frame(frame, flip_h: bool, flip_v: bool, rotation):
     return frame
 
 
-class TransformsPlugin(PhoneCamPlugin):
+class TransformsPlugin(TelescopePlugin):
     name = "transforms"
 
     def setup(self, host, bus):

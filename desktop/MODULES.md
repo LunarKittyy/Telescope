@@ -1,4 +1,4 @@
-# PhoneCam Desktop — Module Reference
+# Telescope Desktop — Module Reference
 
 Quick index of what lives where. Detailed behaviour is in the source; this is for navigation.
 
@@ -13,10 +13,10 @@ Calls `win.apply_saved_config()` **after** all plugins are registered so every p
 
 ---
 
-## `phonecam/` package
+## `telescope/` package
 
 ### `app.py`
-**PhoneCamWindow** — thin coordinator shell.
+**TelescopeWindow** — thin coordinator shell.
 - Owns the scroll area, footer (status, FPS, Start button), tray icon.
 - Owns `EventBus` and `StreamWorker` lifecycle.
 - `register_plugin(p)` — calls `p.setup()`, inserts `p.create_panel()` before the trailing stretch in the scroll area.
@@ -30,8 +30,8 @@ Calls `win.apply_saved_config()` **after** all plugins are registered so every p
 - Utility exports: `acquire_single_instance()`, `listen_for_raise()`, `EXTRA_QSS`.
 
 ### `plugin.py`
-**PhoneCamPlugin** base class + **EventBus**.
-- `PhoneCamPlugin`: override `setup`, `create_panel`, `on_stream_start`, `on_stream_stop`, `on_phone_state`, `process_frame`, `get_config`, `set_config`.
+**TelescopePlugin** base class + **EventBus**.
+- `TelescopePlugin`: override `setup`, `create_panel`, `on_stream_start`, `on_stream_stop`, `on_phone_state`, `process_frame`, `get_config`, `set_config`.
 - `EventBus(QObject)`: signals — `frame_ready`, `stream_start_requested`, `stream_stop_requested`, `stream_started`, `stream_stopped`, `phone_state_updated`, `device_changed`.
 
 ### `stream.py`
@@ -43,7 +43,7 @@ Calls `win.apply_saved_config()` **after** all plugins are registered so every p
 - Auto-reconnects on stream drop (`RECONNECT_DELAY = 3s`).
 
 ### `config.py`
-Load/save of `phonecam_config.json` with versioned schema (current: v2) and automatic migration.
+Load/save of `telescope_config.json` with versioned schema (current: v2) and automatic migration.
 
 **v2 schema:**
 ```
@@ -73,7 +73,7 @@ Load/save of `phonecam_config.json` with versioned schema (current: v2) and auto
 
 ---
 
-## `phonecam/widgets/`
+## `telescope/widgets/`
 
 ### `widgets/common.py`
 Reusable Qt widgets and helpers used across multiple panels:
@@ -90,7 +90,7 @@ Reusable Qt widgets and helpers used across multiple panels:
 
 ---
 
-## `phonecam/platform/`
+## `telescope/platform/`
 
 ### `platform/__init__.py`
 Cross-platform constants and helpers: `IS_LINUX`, `IS_WINDOWS`, `adb_available()`, `adb_forward(port)`, `adb_unforward(port)`, `adb_exe()`, `bundled_apk_path()`, `_run(cmd)`.
@@ -103,7 +103,7 @@ UnityCapture helpers: `uc_is_registered()`, `unitycapture_dir()`, `download_unit
 
 ---
 
-## `phonecam/plugins/`
+## `telescope/plugins/`
 
 ### `plugins/connection.py`
 **ConnectionPlugin** — mode selection, device list, port, ADB lifecycle. Registered first.

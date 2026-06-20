@@ -3,7 +3,7 @@ import sys
 import urllib.request
 from pathlib import Path
 
-from phonecam.platform import _run
+from telescope.platform import _run
 
 UNITYCAPTURE_URL_BASE = "https://github.com/schellingb/UnityCapture/raw/master/Install"
 

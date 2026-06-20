@@ -4,11 +4,11 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QWidget,
 )
 
-from phonecam.plugin import PhoneCamPlugin
-from phonecam.widgets.common import (
+from telescope.plugin import TelescopePlugin
+from telescope.widgets.common import (
     LogSliderRow, WbSliderRow, create_separator, create_vector_icon, ns_to_display,
 )
-from phonecam.widgets.lens_panel import LensPanel
+from telescope.widgets.lens_panel import LensPanel
 
 
 def _row(label: str, widget, label_width=110, stretch=False) -> QHBoxLayout:
@@ -35,7 +35,7 @@ def _row(label: str, widget, label_width=110, stretch=False) -> QHBoxLayout:
     return lay
 
 
-class CameraControlPlugin(PhoneCamPlugin):
+class CameraControlPlugin(TelescopePlugin):
     name = "camera_control"
 
     def setup(self, host, bus):

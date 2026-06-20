@@ -15,12 +15,12 @@ from PyQt6.QtWidgets import (
     QSizePolicy, QSystemTrayIcon, QVBoxLayout, QWidget,
 )
 
-from phonecam.config import DEVICE_LOCAL_PLUGINS, load_config, save_config
-from phonecam.phone_client import PhoneControlClient
-from phonecam.platform import IS_LINUX, IS_WINDOWS
-from phonecam.plugin import EventBus, PhoneCamPlugin
-from phonecam.stream import StreamWorker
-from phonecam.widgets.common import create_vector_icon
+from telescope.config import DEVICE_LOCAL_PLUGINS, load_config, save_config
+from telescope.phone_client import PhoneControlClient
+from telescope.platform import IS_LINUX, IS_WINDOWS
+from telescope.plugin import EventBus, TelescopePlugin
+from telescope.stream import StreamWorker
+from telescope.widgets.common import create_vector_icon
 
 # ── Theme / QSS ───────────────────────────────────────────────────────────────
 
@@ -221,19 +221,19 @@ def listen_for_raise(srv: socket.socket, raise_cb):
 
 
 # ── Main window ───────────────────────────────────────────────────────────────
-class PhoneCamWindow(QMainWindow):
+class TelescopeWindow(QMainWindow):
     _sig_state = pyqtSignal(dict)
     _sig_raise = pyqtSignal()
     _sig_canvas_reload_done = pyqtSignal(bool, str, bool)  # ok, msg, restart_stream
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("PhoneCam")
+        self.setWindowTitle("Telescope")
         self.setMinimumSize(520, 480)
         self.resize(540, 900)
 
         self._bus     = EventBus()
-        self._plugins: list[PhoneCamPlugin] = []
+        self._plugins: list[TelescopePlugin] = []
 
         self._worker: Optional[StreamWorker] = None
         self._ctrl:   Optional[PhoneControlClient] = None
@@ -251,7 +251,7 @@ class PhoneCamWindow(QMainWindow):
         self._sig_raise.connect(self._tray_show)
         self._sig_canvas_reload_done.connect(self._on_canvas_reload_done)
 
-    def register_plugin(self, plugin: PhoneCamPlugin):
+    def register_plugin(self, plugin: TelescopePlugin):
         plugin.setup(self, self._bus)
         panel = plugin.create_panel()
         if panel:
@@ -444,7 +444,7 @@ class PhoneCamWindow(QMainWindow):
             def worker():
                 if old_worker:
                     old_worker.wait(5000)
-                from phonecam.platform.linux import v4l2_reload
+                from telescope.platform.linux import v4l2_reload
                 ok, msg = v4l2_reload()
                 self._sig_canvas_reload_done.emit(ok, msg, was_streaming)
 
@@ -507,7 +507,7 @@ class PhoneCamWindow(QMainWindow):
         p.end()
 
         self._tray = QSystemTrayIcon(QIcon(px), self)
-        self._tray.setToolTip("PhoneCam")
+        self._tray.setToolTip("Telescope")
 
         menu = QMenu()
         show_action = QAction("Show", self)
@@ -543,7 +543,7 @@ class PhoneCamWindow(QMainWindow):
     def send_notification(self, title: str, body: str):
         if IS_LINUX and shutil.which("notify-send"):
             subprocess.Popen(
-                ["notify-send", "-a", "PhoneCam", "-u", "critical", title, body],
+                ["notify-send", "-a", "Telescope", "-u", "critical", title, body],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
         elif self._tray:
@@ -583,7 +583,7 @@ class PhoneCamWindow(QMainWindow):
             if not self._tray_close_notified:
                 self._tray_close_notified = True
                 self.send_notification(
-                    "PhoneCam is still running",
+                    "Telescope is still running",
                     "Streaming continues in the background. Right-click the tray icon to quit.",
                 )
         else:
