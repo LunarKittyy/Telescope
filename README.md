@@ -47,10 +47,23 @@ Run `start.bat` (installs Python deps and launches the app) or `TelescopeDesktop
 
 ### 3. Connect your phone
 
+**Easiest - QR pairing (Wi-Fi mode):**
+
+1. On the desktop app, select **Wi-Fi** mode and click the QR button next to the device selector.
+2. A QR code appears. In the Telescope app on your phone, tap the scan button in the top-right corner and scan it.
+3. The phone is added to your device list automatically. Close the pairing dialog.
+
+**Manually:**
+
+1. In the Telescope app on your phone, start streaming and note the Wi-Fi URL shown.
+2. On the desktop app, click the gear button next to the device selector, then **Add** a device with that IP.
+
+**Then:**
+
 1. Open the Telescope app on your phone, pick a camera and resolution, tap **Start Streaming**.
    - Android will prompt to disable battery optimization if not already exempted. Allow it so the service isn't killed in the background.
-   - Once streaming, the status card shows your WiFi and USB URLs. Tap either one to copy it.
-2. On the desktop app, select **USB** or **Wi-Fi** mode and press **Start Streaming**.
+   - Once streaming, the status card shows your Wi-Fi and USB URLs. Tap either one to copy it.
+2. On the desktop app, select your device and connection mode, then press **Start Streaming**.
 3. The camera control panel (lens picker, ISO, shutter, white balance, OIS) will populate within ~2 seconds of connecting.
 4. In OBS (or any other app), select **Phone Camera** (Linux) or **Unity Video Capture** (Windows) as your webcam source.
 
@@ -93,7 +106,9 @@ Run `start.bat` (installs Python deps and launches the app) or `TelescopeDesktop
 - Configurable temperature alert threshold (default 45 C) - fires a notification when exceeded
 
 **Multi-device and config persistence**
-- Named device list in Wi-Fi mode: add/remove devices by name and IP, switch between them with a dropdown
+- Named device list in Wi-Fi mode: add/remove/edit devices via the gear button popup; switch between them with a dropdown
+- Each device stores multiple IPs; a second dropdown selects the active IP. Tailscale IPs (100.64.0.0/10) are ranked first, LAN IPs second
+- QR pairing: click the QR button on the desktop to show a pairing code; tap the scan button in the Android app to register the phone automatically with all its IPs
 - All settings (resolution, fps, flip, rotation, exposure, zoom, quality, alert thresholds, canvas size, etc.) are saved per device to `telescope_config.json` and restored on next launch
 - Settings from older config formats are migrated automatically
 
@@ -133,7 +148,7 @@ desktop/main.py  (Python, PyQt6)
       |     pyvirtualcam -> virtual camera device
       |
       +-- telescope/plugins/        one plugin per UI card
-            connection             IP/USB device selection
+            connection             device list, IP dropdown, QR pairing server (port 8765)
             camera_control         lens, ISO, shutter, WB, OIS
             stream_output          resolution, FPS, JPEG quality
             transforms             flip, rotation, zoom, pan
@@ -205,6 +220,8 @@ Runs a **foreground service** (declared type `camera`, required on Android 14+) 
 
 The app enumerates **physical sub-cameras** of logical multi-camera groups via `CameraCharacteristics.physicalCameraIds` (API 28+). On many modern phones the logical back camera (ID `0`) hides individual wide/main/telephoto sensors behind it; this app surfaces all of them and lets you pick.
 
+A **scan button** in the top-right corner of the main screen opens a ZXing barcode scanner (portrait, via `journeyapps:zxing-android-embedded`). Scanning the QR code shown by the desktop app sends the phone's name and all its IPv4 addresses to the desktop over HTTP, which adds it as a named device automatically. The pairing POST requires `android:usesCleartextTraffic="true"` since the desktop's pairing server runs plain HTTP.
+
 ### Build locally
 
 Requires JDK 21 and Android SDK with `platform-tools`, `platforms;android-34`, `build-tools;34.0.0`.
@@ -234,6 +251,7 @@ This is a debug build - self-signed, for personal/development use.
 | `WAKE_LOCK` | Keep CPU active with screen off |
 | `POST_NOTIFICATIONS` | Persistent streaming notification |
 | `ACCESS_NETWORK_STATE` | Show device IP in UI |
+| `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | Prompt to exempt app from battery restrictions on first launch |
 
 ---
 
@@ -247,6 +265,7 @@ This is a debug build - self-signed, for personal/development use.
 | MJPEG decode | opencv-python (`cv2.VideoCapture`) |
 | Virtual camera output | pyvirtualcam |
 | Frame processing | numpy |
+| QR code generation | qrcode (rendered via QPainter, no Pillow) |
 
 ### One-time setup (detailed)
 
@@ -429,3 +448,5 @@ No build step needed - the Linux bundle is the Python source and launcher script
 | ISO/shutter change has no effect | Only one of the two was sent | Switch to Manual - desktop sends both simultaneously |
 | High latency over Wi-Fi | MJPEG is per-frame JPEG, higher bandwidth than H.264 | Use USB mode, lower JPEG quality, or reduce phone FPS |
 | Second launch does nothing | Single-instance enforcement | The existing window is brought to the front |
+| QR pairing fails ("Could not reach desktop") | Phone and desktop not on the same network, or desktop firewall blocking port 8765 | Make sure both are on the same Wi-Fi; the pairing server only runs while the QR dialog is open |
+| QR scanner opens in landscape | Manifest override not applied | The app overrides ZXing's default orientation to portrait; rebuild if you see this on an old build |
