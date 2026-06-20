@@ -118,10 +118,10 @@ class _DeviceDialog(QDialog):
         buttons.rejected.connect(self.reject)
         _base = "padding: 4px 12px; border-radius: 4px;"
         buttons.button(QDialogButtonBox.StandardButton.Ok).setStyleSheet(
-            f"background-color: #3a6b4f; {_base}"
+            f"QPushButton {{ background-color: #3a6b4f; {_base} }} QPushButton:hover {{ background-color: #4a8b65; }}"
         )
         buttons.button(QDialogButtonBox.StandardButton.Cancel).setStyleSheet(
-            f"background-color: #6b3a3a; {_base}"
+            f"QPushButton {{ background-color: #6b3a3a; {_base} }} QPushButton:hover {{ background-color: #8b4a4a; }}"
         )
 
         lay = QVBoxLayout(self)
@@ -186,9 +186,9 @@ class _DeviceManagerDialog(QDialog):
         self._edit_btn   = QPushButton("Edit")
         self._remove_btn = QPushButton("Remove")
         _base = "padding: 4px 12px; border-radius: 4px;"
-        self._add_btn.setStyleSheet(f"background-color: #3a6b4f; {_base}")
+        self._add_btn.setStyleSheet(f"QPushButton {{ background-color: #3a6b4f; {_base} }} QPushButton:hover {{ background-color: #4a8b65; }}")
         self._edit_btn.setStyleSheet(_base)
-        self._remove_btn.setStyleSheet(f"background-color: #6b3a3a; {_base}")
+        self._remove_btn.setStyleSheet(f"QPushButton {{ background-color: #6b3a3a; {_base} }} QPushButton:hover {{ background-color: #8b4a4a; }}")
         for btn in (self._add_btn, self._edit_btn, self._remove_btn):
             btn.setFixedWidth(90)
             btn.setFixedHeight(30)
