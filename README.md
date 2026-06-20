@@ -8,7 +8,7 @@ Stream your Android phone's camera - including telephoto and wide-angle lenses -
 
 ### 1. Install the Android app
 
-**Easiest:** connect your phone via USB with [USB debugging enabled](https://developer.android.com/studio/debug/dev-options), set up the desktop app first (step 2), then use **System Setup -> Install Phone App**. It runs `adb install` for you automatically if `Telescope.apk` is next to the desktop app.
+**Easiest:** connect your phone via USB with [USB debugging enabled](https://developer.android.com/studio/debug/dev-options), set up the desktop app first (step 2), then click **Setup Drivers & APK -> Install**. It runs `adb install` for you automatically if `Telescope.apk` is next to the desktop app.
 
 **Manually:** download `Telescope.apk` from the [latest release](../../releases/tag/latest) and either:
 
@@ -440,8 +440,8 @@ No build step needed - the Linux bundle is the Python source and launcher script
 | Only 2 cameras visible | Physical sub-cameras hidden behind logical camera | Already handled via `physicalCameraIds`; if still missing, device may restrict access |
 | Manual exposure greyed out | Camera doesn't report `MANUAL_SENSOR` capability | Some front cameras and telephoto lenses don't support it; use Auto |
 | `/dev/video11` gone after reboot | v4l2loopback not persistent | Follow the `dracut` / `modules-load.d` steps above |
-| pyvirtualcam fails to open (Linux) | Module not loaded | Use System Setup -> Load Module |
-| pyvirtualcam fails to open (Windows) | UnityCapture not registered | Use System Setup -> Install Driver |
+| pyvirtualcam fails to open (Linux) | Module not loaded | Click **Setup Drivers & APK** -> Load Module |
+| pyvirtualcam fails to open (Windows) | UnityCapture not registered | Click **Setup Drivers & APK** -> Install Driver |
 | Canvas restart fails with "module in use" | OBS or another app still holds the device | Close all apps using the virtual camera, then retry |
 | Camera control panel never appears | Phone HTTP server slow to start | App retries 3x over 6s; check USB debugging is active |
 | WB slider has no effect | Camera doesn't support `MANUAL_POST_PROCESSING` | Falls back gracefully; auto AWB still works |
