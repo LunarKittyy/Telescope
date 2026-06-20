@@ -65,6 +65,16 @@ def _best_ip(ips: list[str]) -> Optional[str]:
     return min(ips, key=_rank_ip)
 
 
+def _extract_ip(s: str) -> str:
+    """Strip protocol/port/path so 'http://1.2.3.4:8080/video' -> '1.2.3.4'."""
+    s = s.strip()
+    if "://" in s:
+        s = s.split("://", 1)[1]
+    s = s.split("/")[0]
+    s = s.split(":")[0]
+    return s.strip()
+
+
 def _valid_ipv4(ip: str) -> bool:
     parts = ip.split(".")
     if len(parts) != 4:
@@ -119,9 +129,13 @@ class _DeviceDialog(QDialog):
         lay.addWidget(self._err_lbl)
         lay.addWidget(buttons)
 
+    def _parse_ips(self) -> list[str]:
+        return [_extract_ip(l) for l in self._ips_edit.toPlainText().splitlines()
+                if l.strip()]
+
     def _on_accept(self):
         name = self._name_edit.text().strip()
-        ips = [l.strip() for l in self._ips_edit.toPlainText().splitlines() if l.strip()]
+        ips = self._parse_ips()
         if not name:
             self._err_lbl.setText("Name cannot be empty."); return
         if name != self._edit_name and name in self._existing:
@@ -139,8 +153,7 @@ class _DeviceDialog(QDialog):
 
     def result_device(self) -> dict:
         name = self._name_edit.text().strip()
-        ips = [l.strip() for l in self._ips_edit.toPlainText().splitlines() if l.strip()]
-        return {"name": name, "ips": ips}
+        return {"name": name, "ips": self._parse_ips()}
 
 
 class _DeviceManagerDialog(QDialog):
