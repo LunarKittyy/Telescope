@@ -27,13 +27,13 @@ jobs:
           cp -r desktop/telescope bundle/telescope
           tar -czf Telescope-linux.tar.gz -C bundle .
 
-      - name: Update rolling release
+      - name: Update rolling pre-release
         if: github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: latest
-          name: Latest
-          prerelease: false
-          make_latest: true
+          tag_name: nightly
+          name: Nightly
+          prerelease: true
+          make_latest: false
           files: Telescope-linux.tar.gz
 

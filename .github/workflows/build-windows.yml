@@ -41,12 +41,12 @@ jobs:
           Copy-Item -Recurse desktop/unitycapture bundle/unitycapture
           Compress-Archive -Path bundle/* -DestinationPath Telescope-windows.zip
 
-      - name: Update rolling release
+      - name: Update rolling pre-release
         if: github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: latest
-          name: Latest
-          prerelease: false
-          make_latest: true
+          tag_name: nightly
+          name: Nightly
+          prerelease: true
+          make_latest: false
           files: Telescope-windows.zip
