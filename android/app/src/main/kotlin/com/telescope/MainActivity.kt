@@ -245,26 +245,29 @@ class MainActivity : AppCompatActivity() {
                     "Disable battery restrictions so the stream isn't killed in the background.")
         }
 
+        val cameraGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
+                PackageManager.PERMISSION_GRANTED
+
         layoutPermissionsContainer.removeAllViews()
         if (missing.isEmpty()) {
             cardPermissions.visibility = android.view.View.GONE
-            if (cameras.isEmpty()) loadCameras()
-            return
-        }
-
-        // On first call, proactively request all runtime permissions via system dialog.
-        // Battery optimization has no requestPermissions() path - it stays as a manual button.
-        if (!_permissionsRequested) {
-            _permissionsRequested = true
-            val requestable = missing.mapNotNull { it.permission }
-            if (requestable.isNotEmpty()) {
-                ActivityCompat.requestPermissions(this, requestable.toTypedArray(), RC_PERMS)
-                return
+        } else {
+            // On first call, proactively request runtime permissions via system dialog.
+            // Battery optimization has no requestPermissions() path - stays as a manual button.
+            if (!_permissionsRequested) {
+                _permissionsRequested = true
+                val requestable = missing.mapNotNull { it.permission }
+                if (requestable.isNotEmpty()) {
+                    ActivityCompat.requestPermissions(this, requestable.toTypedArray(), RC_PERMS)
+                    return
+                }
             }
+            cardPermissions.visibility = android.view.View.VISIBLE
+            missing.forEach { info -> layoutPermissionsContainer.addView(buildPermRow(info)) }
         }
 
-        cardPermissions.visibility = android.view.View.VISIBLE
-        missing.forEach { info -> layoutPermissionsContainer.addView(buildPermRow(info)) }
+        // Camera permission is the only hard requirement to use the app.
+        if (cameraGranted && cameras.isEmpty()) loadCameras()
     }
 
     private fun buildPermRow(info: PermInfo): android.view.View {
