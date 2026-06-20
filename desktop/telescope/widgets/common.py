@@ -137,13 +137,14 @@ def create_vector_icon(icon_name: str, color_hex: str) -> QIcon:
         painter.drawLine(16, 22, 16, 26)
         painter.drawLine(11, 26, 21, 26)
     elif icon_name == "gear":
-        painter.drawEllipse(11, 11, 10, 10)
-        painter.drawEllipse(14, 14, 4, 4)
+        # Outer ring + teeth, larger to fill 32x32 canvas
+        painter.drawEllipse(8, 8, 16, 16)
+        painter.drawEllipse(12, 12, 8, 8)
         for i in range(8):
             painter.save()
             painter.translate(16, 16)
             painter.rotate(i * 45)
-            painter.drawLine(0, -5, 0, -8)
+            painter.drawLine(0, -7, 0, -11)
             painter.restore()
     elif icon_name == "status":
         painter.drawEllipse(7, 7, 18, 18)

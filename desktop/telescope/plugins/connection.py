@@ -5,7 +5,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Optional
 
 import qrcode
-from PyQt6.QtCore import Qt, pyqtSignal, QObject
+from PyQt6.QtCore import Qt, pyqtSignal, QObject, QSize
 from PyQt6.QtGui import QColor, QIntValidator, QPainter, QBrush
 from PyQt6.QtWidgets import (
     QButtonGroup, QDialog, QDialogButtonBox, QFormLayout, QFrame,
@@ -65,6 +65,16 @@ def _best_ip(ips: list[str]) -> Optional[str]:
     return min(ips, key=_rank_ip)
 
 
+def _valid_ipv4(ip: str) -> bool:
+    parts = ip.split(".")
+    if len(parts) != 4:
+        return False
+    try:
+        return all(0 <= int(p) <= 255 and str(int(p)) == p for p in parts)
+    except ValueError:
+        return False
+
+
 class _DeviceDialog(QDialog):
     """Add or edit a device. In edit mode pass the existing device dict."""
 
@@ -96,6 +106,13 @@ class _DeviceDialog(QDialog):
         )
         buttons.accepted.connect(self._on_accept)
         buttons.rejected.connect(self.reject)
+        _base = "padding: 4px 12px; border-radius: 4px;"
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setStyleSheet(
+            f"background-color: #3a6b4f; {_base}"
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setStyleSheet(
+            f"background-color: #6b3a3a; {_base}"
+        )
 
         lay = QVBoxLayout(self)
         lay.addLayout(form)
@@ -111,6 +128,13 @@ class _DeviceDialog(QDialog):
             self._err_lbl.setText(f'"{name}" already exists.'); return
         if not ips:
             self._err_lbl.setText("Add at least one IP address."); return
+        invalid = [ip for ip in ips if not _valid_ipv4(ip)]
+        if invalid:
+            self._err_lbl.setText(f"Invalid IP(s): {', '.join(invalid)}"); return
+        seen: set[str] = set()
+        dupes = [ip for ip in ips if ip in seen or seen.add(ip)]  # type: ignore[func-returns-value]
+        if dupes:
+            self._err_lbl.setText(f"Duplicate IP(s): {', '.join(dupes)}"); return
         self.accept()
 
     def result_device(self) -> dict:
@@ -129,6 +153,7 @@ class _DeviceManagerDialog(QDialog):
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self._devices = devices
         self._on_change = on_change
+        self._active_dlg = None
         self._build_ui()
 
     def _build_ui(self):
@@ -144,9 +169,16 @@ class _DeviceManagerDialog(QDialog):
         gb_lay.addWidget(self._list)
 
         btn_row = QHBoxLayout()
-        self._add_btn    = QPushButton("+  Add")
-        self._edit_btn   = QPushButton("✎  Edit")
-        self._remove_btn = QPushButton("−  Remove")
+        self._add_btn    = QPushButton("Add")
+        self._edit_btn   = QPushButton("Edit")
+        self._remove_btn = QPushButton("Remove")
+        _base = "padding: 4px 12px; border-radius: 4px;"
+        self._add_btn.setStyleSheet(f"background-color: #3a6b4f; {_base}")
+        self._edit_btn.setStyleSheet(_base)
+        self._remove_btn.setStyleSheet(f"background-color: #6b3a3a; {_base}")
+        for btn in (self._add_btn, self._edit_btn, self._remove_btn):
+            btn.setFixedWidth(90)
+            btn.setFixedHeight(30)
         self._edit_btn.setEnabled(False)
         self._remove_btn.setEnabled(False)
         self._add_btn.clicked.connect(self._on_add)
@@ -173,7 +205,7 @@ class _DeviceManagerDialog(QDialog):
         self._list.clear()
         for d in self._devices:
             ips = d.get("ips", [])
-            label = f"{d['name']}  —  {', '.join(ips[:2])}{'…' if len(ips) > 2 else ''}"
+            label = f"{d['name']}  -  {', '.join(ips[:2])}{'...' if len(ips) > 2 else ''}"
             self._list.addItem(label)
 
     def _on_selection(self, idx: int):
@@ -181,11 +213,22 @@ class _DeviceManagerDialog(QDialog):
         self._edit_btn.setEnabled(ok)
         self._remove_btn.setEnabled(ok)
 
+    def _open_device_dlg(self, dlg: "_DeviceDialog"):
+        if self._active_dlg and self._active_dlg.isVisible():
+            self._active_dlg.close()
+        self._active_dlg = dlg
+        dlg.setWindowModality(Qt.WindowModality.NonModal)
+        dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
+
     def _on_add(self):
         existing = [d["name"] for d in self._devices]
         dlg = _DeviceDialog(self, existing_names=existing)
-        if dlg.exec() != QDialog.DialogCode.Accepted:
-            return
+        dlg.accepted.connect(lambda: self._finish_add(dlg))
+        self._open_device_dlg(dlg)
+
+    def _finish_add(self, dlg: "_DeviceDialog"):
         self._devices.append(dlg.result_device())
         self._refresh_list()
         self._on_change(self._devices)
@@ -196,8 +239,10 @@ class _DeviceManagerDialog(QDialog):
             return
         existing = [d["name"] for i, d in enumerate(self._devices) if i != idx]
         dlg = _DeviceDialog(self, existing_names=existing, device=self._devices[idx])
-        if dlg.exec() != QDialog.DialogCode.Accepted:
-            return
+        dlg.accepted.connect(lambda: self._finish_edit(idx, dlg))
+        self._open_device_dlg(dlg)
+
+    def _finish_edit(self, idx: int, dlg: "_DeviceDialog"):
         self._devices[idx] = dlg.result_device()
         self._refresh_list()
         self._on_change(self._devices)
@@ -280,13 +325,14 @@ class _PairingDialog(QDialog):
 
         self._qr_container = QVBoxLayout()
         self._qr_container.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        lay.addLayout(self._qr_container)
+        self._qr_container.setContentsMargins(0, 0, 0, 12)
+        lay.addLayout(self._qr_container, 1)
 
-        hint = QLabel("Open Telescope on your phone and tap the scan button in the top-right corner.")
-        hint.setObjectName("dim")
-        hint.setWordWrap(True)
-        hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lay.addWidget(hint)
+        self._hint_lbl = QLabel("Open Telescope on your phone and tap the scan button in the top-right corner.")
+        self._hint_lbl.setObjectName("dim")
+        self._hint_lbl.setWordWrap(True)
+        self._hint_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.addWidget(self._hint_lbl)
 
         close_row = QHBoxLayout()
         close_row.addStretch()
@@ -370,9 +416,20 @@ class _PairingDialog(QDialog):
             self._server = None
 
     def _on_paired_signal(self, name: str, ips: list):
-        self._status_lbl.setObjectName("status_ok")
-        self._status_lbl.setText(f'Paired! Added "{name}".')
-        self._status_lbl.setStyleSheet("")
+        # Replace QR with a big success message
+        while self._qr_container.count():
+            item = self._qr_container.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        success_lbl = QLabel(f'Paired!\n"{name}" added.')
+        success_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        success_lbl.setStyleSheet("color: #4db87a; font-size: 16px; font-weight: bold;")
+        self._qr_container.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._qr_container.addStretch()
+        self._qr_container.addWidget(success_lbl)
+        self._qr_container.addStretch()
+        self._status_lbl.setText("")
+        self._hint_lbl.setVisible(False)
         self._on_paired(name, ips)
 
 
@@ -385,6 +442,8 @@ class ConnectionPlugin(TelescopePlugin):
         self._selected_device: Optional[str] = None
         self._switching_device = False
         self._forwarded_port: Optional[int] = None
+        self._device_dlg: Optional[QDialog] = None
+        self._pairing_dlg: Optional[QDialog] = None
 
     def create_panel(self) -> QWidget:
         card = QFrame()
@@ -449,18 +508,19 @@ class ConnectionPlugin(TelescopePlugin):
         self._device_combo.currentIndexChanged.connect(self._on_device_changed)
         combo_row.addWidget(self._device_combo, 1)
 
-        _btn_style = "padding: 0px;"
+        _icon_color = "#c8d0da"
+        _icon_size  = QSize(18, 18)
         self._gear_btn = QPushButton()
         self._gear_btn.setFixedSize(28, 28)
-        self._gear_btn.setStyleSheet(_btn_style)
-        self._gear_btn.setIcon(create_vector_icon("gear", "#888888"))
+        self._gear_btn.setIcon(create_vector_icon("gear", _icon_color))
+        self._gear_btn.setIconSize(_icon_size)
         self._gear_btn.setToolTip("Manage devices")
         self._gear_btn.clicked.connect(self._on_manage_devices)
 
         self._qr_btn = QPushButton()
         self._qr_btn.setFixedSize(28, 28)
-        self._qr_btn.setStyleSheet(_btn_style)
-        self._qr_btn.setIcon(create_vector_icon("qr", "#888888"))
+        self._qr_btn.setIcon(create_vector_icon("qr", _icon_color))
+        self._qr_btn.setIconSize(_icon_size)
         self._qr_btn.setToolTip("Pair via QR code")
         self._qr_btn.clicked.connect(self._on_pair_qr)
 
@@ -470,11 +530,13 @@ class ConnectionPlugin(TelescopePlugin):
 
         ip_row = QHBoxLayout()
         ip_row.setContentsMargins(0, 0, 0, 0)
-        ip_row.addSpacing(118)
+        ip_row.setSpacing(0)
+        ip_row.addSpacing(116)  # matches: label(110) + spacing(6) in combo_row
         self._ip_combo = NoScrollComboBox()
-        self._ip_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self._ip_combo.setFixedWidth(155)
         self._ip_combo.currentTextChanged.connect(self._on_ip_changed)
-        ip_row.addWidget(self._ip_combo, 1)
+        ip_row.addWidget(self._ip_combo)
+        ip_row.addStretch()
         device_v.addLayout(ip_row)
 
         lay.addWidget(self._device_row_w)
@@ -483,6 +545,7 @@ class ConnectionPlugin(TelescopePlugin):
         # ── Port ──────────────────────────────────────────────────────────────
         port_row = QHBoxLayout()
         port_row.setContentsMargins(0, 0, 0, 0)
+        port_row.setSpacing(6)
         port_lbl = QLabel("Port")
         port_lbl.setObjectName("dim")
         port_lbl.setFixedWidth(110)
@@ -603,7 +666,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._ip_combo.blockSignals(True)
         self._ip_combo.clear()
         if 0 <= idx < len(self._devices):
-            ips = self._devices[idx].get("ips", [])
+            ips = list(dict.fromkeys(self._devices[idx].get("ips", [])))  # deduplicate, preserve order
             for ip in sorted(ips, key=_rank_ip):
                 self._ip_combo.addItem(ip)
         self._ip_combo.blockSignals(False)
@@ -622,12 +685,22 @@ class ConnectionPlugin(TelescopePlugin):
         pass  # used directly via _current_device_ip()
 
     def _on_manage_devices(self):
-        dlg = _DeviceManagerDialog(self._host, self._devices, self._on_devices_changed)
-        dlg.exec()
+        if self._device_dlg is None or not self._device_dlg.isVisible():
+            self._device_dlg = _DeviceManagerDialog(self._host, self._devices, self._on_devices_changed)
+            self._device_dlg.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
+            self._device_dlg.setWindowModality(Qt.WindowModality.NonModal)
+        self._device_dlg.show()
+        self._device_dlg.raise_()
+        self._device_dlg.activateWindow()
 
     def _on_pair_qr(self):
-        dlg = _PairingDialog(self._host, self._on_device_paired)
-        dlg.exec()
+        if self._pairing_dlg is None or not self._pairing_dlg.isVisible():
+            self._pairing_dlg = _PairingDialog(self._host, self._on_device_paired)
+            self._pairing_dlg.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
+            self._pairing_dlg.setWindowModality(Qt.WindowModality.NonModal)
+        self._pairing_dlg.show()
+        self._pairing_dlg.raise_()
+        self._pairing_dlg.activateWindow()
 
     def _on_devices_changed(self, devices: list):
         self._devices = devices
