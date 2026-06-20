@@ -8,9 +8,9 @@ from PyQt6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget,
 )
 
-from phonecam.platform import IS_LINUX
-from phonecam.plugin import PhoneCamPlugin
-from phonecam.widgets.common import NoScrollSpinBox, create_separator, create_vector_icon
+from telescope.platform import IS_LINUX
+from telescope.plugin import TelescopePlugin
+from telescope.widgets.common import NoScrollSpinBox, create_separator, create_vector_icon
 
 _STATUS_COLORS = {
     "ok":   "#66bb6a",
@@ -24,7 +24,7 @@ class _Signals(QObject):
     state_ready = pyqtSignal(dict)
 
 
-class MonitoringPlugin(PhoneCamPlugin):
+class MonitoringPlugin(TelescopePlugin):
     name = "monitoring"
 
     def setup(self, host, bus):
@@ -181,7 +181,7 @@ class MonitoringPlugin(PhoneCamPlugin):
 
         if not charging and level <= batt_thresh and not self._battery_notified:
             self._battery_notified = True
-            self._host.send_notification("PhoneCam - Low Battery",
+            self._host.send_notification("Telescope - Low Battery",
                                          f"Phone battery is at {level}%.")
         elif level > batt_thresh + 5:
             self._battery_notified = False
@@ -189,7 +189,7 @@ class MonitoringPlugin(PhoneCamPlugin):
         if temp_c >= temp_thresh and not self._temp_notified:
             self._temp_notified = True
             self._host.send_notification(
-                "PhoneCam - Phone Running Hot",
+                "Telescope - Phone Running Hot",
                 f"Temperature is {temp_c:.1f} C. Consider stopping charging or closing other apps.",
             )
         elif temp_c < temp_thresh - 5:

@@ -24,8 +24,8 @@ jobs:
           cp desktop/requirements.txt bundle/
           cp desktop/start.sh bundle/
           chmod +x bundle/start.sh
-          cp -r desktop/phonecam bundle/phonecam
-          tar -czf PhoneCam-linux.tar.gz -C bundle .
+          cp -r desktop/telescope bundle/telescope
+          tar -czf Telescope-linux.tar.gz -C bundle .
 
       - name: Update rolling release
         if: github.ref == 'refs/heads/master'
@@ -35,5 +35,5 @@ jobs:
           name: Latest
           prerelease: false
           make_latest: true
-          files: PhoneCam-linux.tar.gz
+          files: Telescope-linux.tar.gz
 

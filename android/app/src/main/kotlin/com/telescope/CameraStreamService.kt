@@ -1,4 +1,4 @@
-package com.phonecam
+package com.telescope
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -51,7 +51,7 @@ class CameraStreamService : Service() {
         const val EXTRA_HEIGHT     = "height"
         const val EXTRA_OIS        = "ois"
         const val EXTRA_LOCAL_ONLY = "local_only"
-        const val CHANNEL_ID       = "phonecam_stream"
+        const val CHANNEL_ID       = "telescope_stream"
         const val NOTIF_ID         = 1
         const val DEFAULT_PORT     = 8080
 
@@ -470,7 +470,7 @@ class CameraStreamService : Service() {
 
     private fun createNotificationChannel() {
         val ch = NotificationChannel(CHANNEL_ID, "Camera Stream", NotificationManager.IMPORTANCE_LOW)
-            .apply { description = "PhoneCam MJPEG stream" }
+            .apply { description = "Telescope MJPEG stream" }
         (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(ch)
     }
 
@@ -478,7 +478,7 @@ class CameraStreamService : Service() {
         val pi = PendingIntent.getActivity(this, 0,
             Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val n = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("PhoneCam").setContentText("Streaming :$DEFAULT_PORT")
+            .setContentTitle("Telescope").setContentText("Streaming :$DEFAULT_PORT")
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(ContextCompat.getColor(this, R.color.colorPrimary))
             .setColorized(false)
@@ -491,7 +491,7 @@ class CameraStreamService : Service() {
 
     private fun acquireWakeLock() {
         val pm = getSystemService(POWER_SERVICE) as PowerManager
-        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "phonecam::stream")
+        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "telescope::stream")
         wakeLock?.acquire(12 * 60 * 60 * 1000L)
     }
 }

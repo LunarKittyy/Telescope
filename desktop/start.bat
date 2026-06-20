@@ -4,8 +4,8 @@ cd /d "%~dp0"
 :: ── Set to 'false' to launch the app without showing this terminal window ──
 set SHOW_TERMINAL=true
 
-echo PhoneCam
-echo ========
+echo Telescope
+echo =========
 echo.
 
 :: Check Python
@@ -35,12 +35,12 @@ if not exist "unitycapture\UnityCaptureFilter64.dll" (
 
 :: Launch
 if /i "%SHOW_TERMINAL%"=="true" (
-    echo Launching PhoneCam...
+    echo Launching Telescope...
     echo.
     python main.py
     if errorlevel 1 (
         echo.
-        echo PhoneCam exited with an error.
+        echo Telescope exited with an error.
         pause
     )
 ) else (

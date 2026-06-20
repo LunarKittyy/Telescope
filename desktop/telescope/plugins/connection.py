@@ -8,14 +8,14 @@ from PyQt6.QtWidgets import (
     QSizePolicy, QVBoxLayout, QWidget,
 )
 
-from phonecam.config import load_config, save_config
-from phonecam.platform import IS_LINUX, adb_available, adb_forward, adb_unforward
-from phonecam.platform.linux import (
+from telescope.config import load_config, save_config
+from telescope.platform import IS_LINUX, adb_available, adb_forward, adb_unforward
+from telescope.platform.linux import (
     V4L2_OBS_DEV, V4L2_PHONE_DEV,
     v4l2_devices_ready, v4l2_load, v4l2_module_loaded,
 )
-from phonecam.plugin import PhoneCamPlugin
-from phonecam.widgets.common import NoScrollComboBox, create_vector_icon
+from telescope.plugin import TelescopePlugin
+from telescope.widgets.common import NoScrollComboBox, create_vector_icon
 
 DEFAULT_PORT = 8080
 
@@ -61,7 +61,7 @@ class _AddDeviceDialog(QDialog):
         return self._name_edit.text().strip(), self._ip_edit.text().strip()
 
 
-class ConnectionPlugin(PhoneCamPlugin):
+class ConnectionPlugin(TelescopePlugin):
     name = "connection"
 
     def setup(self, host, bus):
@@ -191,8 +191,8 @@ class ConnectionPlugin(PhoneCamPlugin):
                 QMessageBox.warning(
                     self._host, "v4l2loopback conflict",
                     f"v4l2loopback is already loaded but {V4L2_PHONE_DEV} is not available.\n\n"
-                    "Another virtual camera setup is using the module. PhoneCam won't touch it.\n\n"
-                    "To use PhoneCam's setup instead, first run:\n"
+                    "Another virtual camera setup is using the module. Telescope won't touch it.\n\n"
+                    "To use Telescope's setup instead, first run:\n"
                     "    sudo modprobe -r v4l2loopback\n\n"
                     "Then click Start again."
                 )
@@ -200,7 +200,7 @@ class ConnectionPlugin(PhoneCamPlugin):
             r = QMessageBox.question(
                 self._host, "Virtual camera not ready",
                 f"The virtual camera module (v4l2loopback) is not loaded.\n\n"
-                f"PhoneCam will load it now. This needs admin access and may ask for your password.\n\n"
+                f"Telescope will load it now. This needs admin access and may ask for your password.\n\n"
                 f"Devices: {V4L2_PHONE_DEV} (phone), {V4L2_OBS_DEV} (OBS)",
                 QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
                 QMessageBox.StandardButton.Ok,

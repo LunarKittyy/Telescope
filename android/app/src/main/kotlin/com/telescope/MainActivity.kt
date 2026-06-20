@@ -1,4 +1,4 @@
-package com.phonecam
+package com.telescope
 
 import android.Manifest
 import android.content.ClipData
@@ -53,7 +53,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvLinkWifi: TextView
     private lateinit var tvLinkUsb: TextView
 
-    private val prefs by lazy { getSharedPreferences("phonecam", MODE_PRIVATE) }
+    private val prefs by lazy { getSharedPreferences("telescope", MODE_PRIVATE) }
 
     private var service: CameraStreamService? = null
     private var bound = false
@@ -327,7 +327,7 @@ class MainActivity : AppCompatActivity() {
     private fun copyLink(pill: TextView) {
         val url = pill.text.toString().substringAfter("  ")
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("PhoneCam URL", url))
+        clipboard.setPrimaryClip(ClipData.newPlainText("Telescope URL", url))
 
         val original = pill.text
         pill.text = "✓ Copied"

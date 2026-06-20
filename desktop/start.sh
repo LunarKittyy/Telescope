@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# PhoneCam launcher for Linux.
+# Telescope launcher for Linux.
 # Run this once to install Python dependencies, then it launches the app.
 # Usage: ./start.sh
 
 set -e
 cd "$(dirname "$0")"
 
-echo "PhoneCam"
+echo "Telescope"
 echo "========"
 
 # Check Python 3

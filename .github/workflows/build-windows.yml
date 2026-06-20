@@ -29,17 +29,17 @@ jobs:
 
       - name: Build EXE
         working-directory: desktop
-        run: pyinstaller phonecam.spec
+        run: pyinstaller telescope.spec
 
       - name: Assemble release bundle
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path bundle
-          Copy-Item desktop/dist/PhoneCamDesktop.exe bundle/
+          Copy-Item desktop/dist/TelescopeDesktop.exe bundle/
           Copy-Item desktop/start.bat bundle/
           Copy-Item -Recurse desktop/platform-tools bundle/platform-tools
           Copy-Item -Recurse desktop/unitycapture bundle/unitycapture
-          Compress-Archive -Path bundle/* -DestinationPath PhoneCam-windows.zip
+          Compress-Archive -Path bundle/* -DestinationPath Telescope-windows.zip
 
       - name: Update rolling release
         if: github.ref == 'refs/heads/master'
@@ -49,4 +49,4 @@ jobs:
           name: Latest
           prerelease: false
           make_latest: true
-          files: PhoneCam-windows.zip
+          files: Telescope-windows.zip

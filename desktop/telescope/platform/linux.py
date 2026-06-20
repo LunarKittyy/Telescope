@@ -1,7 +1,7 @@
 import os
 import shutil
 
-from phonecam.platform import _run
+from telescope.platform import _run
 
 V4L2_PHONE_DEV = "/dev/video11"
 V4L2_OBS_DEV   = "/dev/video10"
@@ -44,7 +44,7 @@ def v4l2_reload() -> tuple:
 
 
 def v4l2_load() -> tuple:
-    """Load v4l2loopback with PhoneCam's parameters.
+    """Load v4l2loopback with Telescope's parameters.
     Never unloads an already-running module -- that could break other setups.
     """
     if v4l2_module_loaded():

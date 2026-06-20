@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-CONFIG_FILE = Path(__file__).parent.parent / "phonecam_config.json"
+CONFIG_FILE = Path(__file__).parent.parent / "telescope_config.json"
 CONFIG_VERSION = 2
 
 # Plugin configs that are stored per-device rather than globally
