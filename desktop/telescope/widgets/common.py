@@ -390,17 +390,10 @@ class PanSliderRow(QWidget):
         pos_lbl.setObjectName("dim")
         lay.addWidget(pos_lbl)
 
-        self._debounce: Optional[QTimer] = None
         self._slider.valueChanged.connect(self._on_slider)
 
     def _on_slider(self, pos: int):
-        val = pos / self.STEPS
-        if self._debounce:
-            self._debounce.stop()
-        self._debounce = QTimer(self)
-        self._debounce.setSingleShot(True)
-        self._debounce.timeout.connect(lambda: self.value_changed.emit(val))
-        self._debounce.start(30)
+        self.value_changed.emit(pos / self.STEPS)
 
     def get_value(self) -> float:
         return self._slider.value() / self.STEPS
