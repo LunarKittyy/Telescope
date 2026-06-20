@@ -4,7 +4,7 @@ from typing import Optional
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QDialog, QFrame, QGroupBox, QHBoxLayout, QLabel,
-    QPushButton, QSpinBox, QVBoxLayout, QWidget,
+    QPushButton, QSpinBox, QTextBrowser, QVBoxLayout, QWidget,
 )
 
 from telescope.platform import IS_LINUX, IS_WINDOWS, adb_available, adb_exe, bundled_apk_path, _run
@@ -34,6 +34,87 @@ CANVAS_PRESETS: list[tuple[str, tuple[int, int] | None]] = [
 
 _PRESET_LABELS = [label for label, _ in CANVAS_PRESETS]
 _PRESET_VALUES = {label: val for label, val in CANVAS_PRESETS}
+
+
+_GUIDE_HTML = """
+<style>
+  body { color: #e8eaed; font-family: sans-serif; font-size: 15px; }
+  h2   { color: #ffffff; font-size: 22px; margin-bottom: 6px; font-family: sans-serif; }
+  h3   { color: #ffffff; font-size: 17px; margin-top: 18px; margin-bottom: 6px; font-family: sans-serif; }
+  p, li { color: #e8eaed; line-height: 1.6; margin-bottom: 6px; }
+  b    { color: #ffffff; }
+  code { color: #b0bec5; font-size: 13px; }
+  a    { color: #6ab0f5; }
+  .warn { color: #e8c97a; }
+</style>
+<h2>Quick Start</h2>
+
+<h3>1. Install the Android app</h3>
+<p><b>Easiest:</b> connect your phone via USB with
+<a href="https://developer.android.com/studio/debug/dev-options">USB debugging</a> enabled, then click
+<b>Setup Drivers &amp; APK &rarr; Install</b>. It runs <code>adb install</code> automatically.</p>
+<p><b>Manually:</b> download <code>Telescope.apk</code> from the latest release and run
+<code>adb install Telescope.apk</code>, or sideload it from your phone's file manager
+with "Install unknown apps" enabled.</p>
+
+<h3>2. Set up the desktop app</h3>
+<p>On first launch, click <b>Setup Drivers &amp; APK</b> to load the v4l2loopback kernel module
+(Linux) or register the UnityCapture driver (Windows) if not already active.</p>
+<p>For USB mode you also need <code>adb</code> on your PATH and
+<a href="https://developer.android.com/studio/debug/dev-options">USB debugging</a>
+enabled on your phone.</p>
+
+<h3>3. Connect your phone</h3>
+<p><b>Easiest - QR pairing (Wi-Fi mode):</b></p>
+<ol>
+  <li>On the desktop app, select <b>Wi-Fi</b> mode and click the QR button next to the device selector.</li>
+  <li>A QR code appears. In the Telescope app on your phone, tap the scan button in the top-right corner and scan it.</li>
+  <li>The phone is added to your device list automatically. Close the pairing dialog.</li>
+</ol>
+<p><b>Manually:</b></p>
+<ol>
+  <li>In the Telescope app on your phone, start streaming and note the Wi-Fi URL shown.</li>
+  <li>On the desktop app, click the gear button next to the device selector, then <b>Add</b> a device with that IP.</li>
+</ol>
+<p><b>Then:</b></p>
+<ol>
+  <li>Open the Telescope app on your phone, pick a camera and resolution, tap <b>Start Streaming</b>.
+    <br>Android will prompt to disable battery optimization - allow it so the service isn't killed in the background.
+    <br>Once streaming, the status card shows your Wi-Fi and USB URLs. Tap either one to copy it.</li>
+  <li>On the desktop app, select your device and connection mode, then press <b>Start Streaming</b>.</li>
+  <li>The camera control panel (lens picker, ISO, shutter, white balance, OIS) will populate within ~2 seconds of connecting.</li>
+  <li>In OBS (or any other app), select <b>Phone Camera</b> (Linux) or <b>Unity Video Capture</b> (Windows) as your webcam source.</li>
+</ol>
+
+<p class="warn"><b>Note:</b> The MJPEG stream is served unencrypted on port 8080 with no authentication.
+Anyone on the same local network can view it. On public or shared networks, enable
+<b>Local only</b> in the Android app to bind the server to localhost - the stream will
+then only be reachable via USB.</p>
+"""
+
+
+class _GuideDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Quick Start Guide")
+        self.setMinimumSize(680, 680)
+        self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
+        lay = QVBoxLayout(self)
+        browser = QTextBrowser()
+        browser.setStyleSheet("QTextBrowser { background-color: #1e2126; color: #e8eaed; border: none; font-size: 15px; }")
+        from PyQt6.QtGui import QFont
+        f = QFont("sans-serif", 12)
+        browser.setFont(f)
+        browser.setHtml(_GUIDE_HTML)
+        browser.setOpenExternalLinks(True)
+        browser.setReadOnly(True)
+        lay.addWidget(browser)
+        close_row = QHBoxLayout()
+        close_row.addStretch()
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        close_row.addWidget(close_btn)
+        lay.addLayout(close_row)
 
 
 class SetupDialog(QDialog):
@@ -396,6 +477,7 @@ class SetupPlugin(TelescopePlugin):
     def setup(self, host, bus):
         self._host = host
         self._dlg: Optional[SetupDialog] = None
+        self._guide_dlg: Optional[_GuideDialog] = None
         self._canvas_preset = "Auto (from first frame)"
         self._custom_w = 1920
         self._custom_h = 1080
@@ -432,13 +514,26 @@ class SetupPlugin(TelescopePlugin):
 
         btn_row = QHBoxLayout()
         btn_row.setContentsMargins(0, 0, 0, 0)
-        open_btn = QPushButton("Click to setup Drivers && APK")
+        btn_row.setSpacing(8)
+        open_btn = QPushButton("Setup Drivers && APK")
         open_btn.clicked.connect(self._open)
         btn_row.addWidget(open_btn)
+        guide_btn = QPushButton("Guide")
+        guide_btn.setFixedWidth(70)
+        guide_btn.clicked.connect(self._open_guide)
+        btn_row.addWidget(guide_btn)
         btn_row.addStretch()
         lay.addLayout(btn_row)
 
         return card
+
+    def _open_guide(self):
+        if self._guide_dlg is None or not self._guide_dlg.isVisible():
+            self._guide_dlg = _GuideDialog(self._host)
+            self._guide_dlg.setWindowModality(Qt.WindowModality.NonModal)
+        self._guide_dlg.show()
+        self._guide_dlg.raise_()
+        self._guide_dlg.activateWindow()
 
     def _open(self):
         if self._dlg is None:
