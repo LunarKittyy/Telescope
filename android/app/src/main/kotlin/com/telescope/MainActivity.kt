@@ -58,6 +58,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnScanQr: ImageButton
     private lateinit var cardPermissions: CardView
     private lateinit var layoutPermissionsContainer: LinearLayout
+    private var _permissionsRequested = false
 
     private val prefs by lazy { getSharedPreferences("telescope", MODE_PRIVATE) }
 
@@ -249,6 +250,17 @@ class MainActivity : AppCompatActivity() {
             cardPermissions.visibility = android.view.View.GONE
             if (cameras.isEmpty()) loadCameras()
             return
+        }
+
+        // On first call, proactively request all runtime permissions via system dialog.
+        // Battery optimization has no requestPermissions() path - it stays as a manual button.
+        if (!_permissionsRequested) {
+            _permissionsRequested = true
+            val requestable = missing.mapNotNull { it.permission }
+            if (requestable.isNotEmpty()) {
+                ActivityCompat.requestPermissions(this, requestable.toTypedArray(), RC_PERMS)
+                return
+            }
         }
 
         cardPermissions.visibility = android.view.View.VISIBLE
