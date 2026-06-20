@@ -118,6 +118,11 @@ class MainActivity : AppCompatActivity() {
 
         btnToggle.setOnClickListener { onToggleClicked() }
         btnScanQr.setOnClickListener {
+            if (service?.isStreaming == true) {
+                service?.stopStreaming()
+                if (bound) { unbindService(serviceConnection); bound = false; service = null }
+                updateStatusText()
+            }
             val opts = ScanOptions().apply {
                 setPrompt("Scan the Telescope QR code on your desktop")
                 setBeepEnabled(false)
