@@ -34,7 +34,7 @@ class MjpegServer(
                     val socket = serverSocket?.accept() ?: break
                     thread(name = "mjpeg-client", isDaemon = true) { dispatch(socket) }
                 } catch (e: Exception) {
-                    if (running.get()) e.printStackTrace()
+                    if (running.get()) android.util.Log.e("MjpegServer", "Accept error", e)
                 }
             }
         }
