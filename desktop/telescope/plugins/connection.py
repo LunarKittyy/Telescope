@@ -9,13 +9,13 @@ from PyQt6.QtCore import Qt, pyqtSignal, QObject, QSize
 from PyQt6.QtGui import QColor, QIntValidator, QPainter, QBrush
 from PyQt6.QtWidgets import (
     QButtonGroup, QDialog, QDialogButtonBox, QFormLayout, QFrame,
-    QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget,
+    QGroupBox, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget,
     QMessageBox, QPushButton, QRadioButton, QSizePolicy,
     QTextEdit, QVBoxLayout, QWidget,
 )
 
 from telescope.config import load_config, save_config
-from telescope.platform import IS_LINUX, adb_available, adb_forward, adb_unforward
+from telescope.platform import IS_LINUX, adb_available, adb_devices, adb_forward, adb_unforward
 from telescope.platform.linux import (
     V4L2_OBS_DEV, V4L2_PHONE_DEV,
     v4l2_devices_ready, v4l2_load, v4l2_module_loaded,
@@ -455,6 +455,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._selected_device: Optional[str] = None
         self._switching_device = False
         self._forwarded_port: Optional[int] = None
+        self._adb_serial: Optional[str] = None
         self._device_dlg: Optional[QDialog] = None
         self._pairing_dlg: Optional[QDialog] = None
 
@@ -618,11 +619,15 @@ class ConnectionPlugin(TelescopePlugin):
                     "and try again, or switch to Wi-Fi mode."
                 )
                 return None, False
-            ok, msg = adb_forward(port)
+            serial = self._resolve_adb_serial()
+            if serial is None:
+                return None, False
+            ok, msg = adb_forward(port, serial=serial)
             if not ok:
                 QMessageBox.critical(self._host, "ADB forward failed", msg)
                 return None, False
             self._forwarded_port = port
+            self._adb_serial = serial
             return f"http://localhost:{port}/video", True
         else:
             ip = self._current_device_ip()
@@ -634,8 +639,29 @@ class ConnectionPlugin(TelescopePlugin):
 
     def on_stream_stop(self):
         if self._forwarded_port is not None:
-            adb_unforward(self._forwarded_port)
+            adb_unforward(self._forwarded_port, serial=self._adb_serial)
             self._forwarded_port = None
+            self._adb_serial = None
+
+    def _resolve_adb_serial(self) -> Optional[str]:
+        """Return the adb serial to target, prompting if more than one device is attached."""
+        serials = adb_devices()
+        if not serials:
+            QMessageBox.critical(
+                self._host, "No ADB device",
+                "No authorized ADB device or emulator was found.\n\n"
+                "Make sure your phone is plugged in, USB debugging is enabled, "
+                "and you've accepted the debugging prompt on the phone."
+            )
+            return None
+        if len(serials) == 1:
+            return serials[0]
+        serial, ok = QInputDialog.getItem(
+            self._host, "Select device",
+            "Multiple ADB devices/emulators are connected.\nChoose which one to use:",
+            serials, 0, False,
+        )
+        return serial if ok else None
 
     # ── Mode / device handlers ────────────────────────────────────────────────
 

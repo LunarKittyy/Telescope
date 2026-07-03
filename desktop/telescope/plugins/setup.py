@@ -3,14 +3,17 @@ from typing import Optional
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
-    QDialog, QFrame, QGroupBox, QHBoxLayout, QLabel,
+    QCheckBox, QDialog, QFrame, QGroupBox, QHBoxLayout, QInputDialog, QLabel,
     QPushButton, QSpinBox, QTextBrowser, QVBoxLayout, QWidget,
 )
 
-from telescope.platform import IS_LINUX, IS_WINDOWS, adb_available, adb_exe, bundled_apk_path, _run
+from telescope.platform import (
+    IS_LINUX, IS_WINDOWS, _run, adb_available, adb_devices, adb_exe, bundled_apk_path,
+)
 from telescope.platform.linux import (
     V4L2_OBS_DEV, V4L2_PHONE_DEV,
     v4l2_devices_ready, v4l2_load, v4l2_module_loaded, v4l2_unload,
+    v4l2_persist_disable, v4l2_persist_enable, v4l2_persist_status,
 )
 from telescope.platform.windows import (
     download_unitycapture, register_unitycapture, uc_is_registered, unitycapture_dir,
@@ -34,6 +37,8 @@ CANVAS_PRESETS: list[tuple[str, tuple[int, int] | None]] = [
 
 _PRESET_LABELS = [label for label, _ in CANVAS_PRESETS]
 _PRESET_VALUES = {label: val for label, val in CANVAS_PRESETS}
+
+_SUDO_HINT = "This will prompt for your password (via pkexec/sudo) to make a system-level change."
 
 
 _GUIDE_HTML = """
@@ -59,7 +64,10 @@ with "Install unknown apps" enabled.</p>
 
 <h3>2. Set up the desktop app</h3>
 <p>On first launch, click <b>Setup Drivers &amp; APK</b> to load the v4l2loopback kernel module
-(Linux) or register the UnityCapture driver (Windows) if not already active.</p>
+(Linux) or register the UnityCapture driver (Windows) if not already active. On Linux, the
+"Keep this config after reboot" toggle in that dialog can additionally write the same module
+config to <code>/etc/modprobe.d/</code> and <code>/etc/modules-load.d/</code> so it survives a
+reboot - this is opt-in and fully reversible from the same toggle.</p>
 <p>For USB mode you also need <code>adb</code> on your PATH and
 <a href="https://developer.android.com/studio/debug/dev-options">USB debugging</a>
 enabled on your phone.</p>
@@ -120,6 +128,7 @@ class _GuideDialog(QDialog):
 class SetupDialog(QDialog):
     _sig_v4l_result   = pyqtSignal(bool, str)
     _sig_v4l_unload   = pyqtSignal(bool, str)
+    _sig_persist_result = pyqtSignal(bool, str)
     _sig_win_checks   = pyqtSignal(bool, bool)
     _sig_uc_done      = pyqtSignal(bool, str)
     _sig_uc_msg       = pyqtSignal(str)
@@ -134,6 +143,7 @@ class SetupDialog(QDialog):
         self._build_ui()
         self._sig_v4l_result.connect(self._on_v4l_result)
         self._sig_v4l_unload.connect(self._on_v4l_unload_result)
+        self._sig_persist_result.connect(self._on_persist_result)
         self._sig_win_checks.connect(self._on_win_checks)
         self._sig_uc_done.connect(self._on_uc_done)
         self._sig_uc_msg.connect(lambda msg: self._uc_status_lbl.setText(msg)
@@ -144,6 +154,7 @@ class SetupDialog(QDialog):
         super().showEvent(event)
         if IS_LINUX:
             self._v4l_check()
+            self._refresh_persist_status()
         else:
             threading.Thread(target=self._check_win_setup, daemon=True).start()
 
@@ -169,6 +180,8 @@ class SetupDialog(QDialog):
             unload_btn = QPushButton("Unload Module")
             load_btn.setStyleSheet(f"QPushButton {{ background-color: #3a6b4f; {_base} }} QPushButton:hover {{ background-color: #4a8b65; }}")
             unload_btn.setStyleSheet(f"QPushButton {{ background-color: #6b3a3a; {_base} }} QPushButton:hover {{ background-color: #8b4a4a; }}")
+            load_btn.setToolTip(_SUDO_HINT)
+            unload_btn.setToolTip(_SUDO_HINT)
             chk_btn.clicked.connect(self._v4l_check)
             load_btn.clicked.connect(self._v4l_load)
             unload_btn.clicked.connect(self._v4l_unload)
@@ -177,6 +190,27 @@ class SetupDialog(QDialog):
             btn_row.addWidget(unload_btn)
             btn_row.addStretch()
             vc_lay.addLayout(btn_row)
+
+            persist_row = QHBoxLayout()
+            self._persist_chk = QCheckBox("Keep this config after reboot")
+            self._persist_chk.setToolTip(
+                "Writes the same module config to /etc/modprobe.d/ and "
+                "/etc/modules-load.d/ so it survives a reboot.\n\n" + _SUDO_HINT
+            )
+            self._persist_chk.toggled.connect(self._on_persist_toggled)
+            persist_row.addWidget(self._persist_chk)
+            persist_row.addStretch()
+            vc_lay.addLayout(persist_row)
+
+            self._persist_status_lbl = QLabel("")
+            self._persist_status_lbl.setObjectName("status_dim")
+            self._persist_status_lbl.setWordWrap(True)
+            self._persist_status_lbl.setTextInteractionFlags(
+                Qt.TextInteractionFlag.TextSelectableByMouse
+            )
+            self._persist_status_lbl.setVisible(False)
+            vc_lay.addWidget(self._persist_status_lbl)
+
             lay.addWidget(vc_gb)
         else:
             vc_gb = QGroupBox("Virtual Camera (UnityCapture)")
@@ -260,6 +294,7 @@ class SetupDialog(QDialog):
             warn_lbl.setWordWrap(True)
             adv_lay.addWidget(warn_lbl)
             apply_label = "Apply && Restart Loopback"
+            apply_tooltip = _SUDO_HINT
         else:
             note_lbl = QLabel(
                 "Applying will stop and restart the stream with the new canvas size. "
@@ -269,9 +304,12 @@ class SetupDialog(QDialog):
             note_lbl.setWordWrap(True)
             adv_lay.addWidget(note_lbl)
             apply_label = "Apply Canvas"
+            apply_tooltip = None
 
         apply_row = QHBoxLayout()
         self._canvas_apply_btn = QPushButton(apply_label)
+        if apply_tooltip:
+            self._canvas_apply_btn.setToolTip(apply_tooltip)
         self._canvas_apply_btn.clicked.connect(self._apply_canvas)
         apply_row.addWidget(self._canvas_apply_btn)
         apply_row.addStretch()
@@ -380,6 +418,38 @@ class SetupDialog(QDialog):
         self._v4l_lbl.setObjectName("status_ok" if ok else "status_err")
         self._v4l_lbl.setStyleSheet("")
 
+    # ── v4l2 persistence ─────────────────────────────────────────────────────
+
+    def _refresh_persist_status(self):
+        status = v4l2_persist_status()
+        persisted = status["modprobe_conf"] or status["modules_load_conf"]
+        self._persist_chk.blockSignals(True)
+        self._persist_chk.setChecked(persisted)
+        self._persist_chk.blockSignals(False)
+
+    def _on_persist_toggled(self, checked: bool):
+        self._persist_chk.setEnabled(False)
+        self._persist_status_lbl.setObjectName("status_dim")
+        self._persist_status_lbl.setText("Working...")
+        self._persist_status_lbl.setStyleSheet("padding-bottom: 4px;")
+        self._persist_status_lbl.setVisible(True)
+        self.adjustSize()
+        action = v4l2_persist_enable if checked else v4l2_persist_disable
+        threading.Thread(target=lambda: self._sig_persist_result.emit(*action()), daemon=True).start()
+
+    def _on_persist_result(self, ok: bool, msg: str):
+        self._persist_chk.setEnabled(True)
+        if not ok:
+            # Revert the checkbox without re-triggering the write/remove action.
+            self._persist_chk.blockSignals(True)
+            self._persist_chk.setChecked(not self._persist_chk.isChecked())
+            self._persist_chk.blockSignals(False)
+        self._persist_status_lbl.setObjectName("status_ok" if ok else "status_err")
+        self._persist_status_lbl.setText(msg)
+        self._persist_status_lbl.setStyleSheet("padding-bottom: 4px;")
+        self._persist_status_lbl.setVisible(True)
+        self.adjustSize()
+
     # ── Windows ───────────────────────────────────────────────────────────────
 
     def _check_win_setup(self):
@@ -453,13 +523,29 @@ class SetupDialog(QDialog):
         else:
             path = str(apk)
 
+        serials = adb_devices()
+        if not serials:
+            self._apk_status_lbl.setObjectName("status_err")
+            self._apk_status_lbl.setText("No authorized ADB device found")
+            self._apk_status_lbl.setStyleSheet("")
+            return
+        serial = serials[0]
+        if len(serials) > 1:
+            serial, ok = QInputDialog.getItem(
+                self, "Select device",
+                "Multiple ADB devices/emulators are connected.\nChoose which one to install to:",
+                serials, 0, False,
+            )
+            if not ok:
+                return
+
         self._apk_btn.setEnabled(False)
         self._apk_status_lbl.setObjectName("status_dim")
         self._apk_status_lbl.setText("Installing...")
         self._apk_status_lbl.setStyleSheet("")
 
         def worker():
-            rc, out, err = _run([adb_exe(), "install", "-r", path], timeout=60)
+            rc, out, err = _run([adb_exe(), "-s", serial, "install", "-r", path], timeout=60)
             output = (out + err).strip()
             if rc == 0 and "Success" in output:
                 self._sig_apk_done.emit(True, "Installed successfully")

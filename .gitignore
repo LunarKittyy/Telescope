@@ -23,6 +23,7 @@ __pycache__/
 
 # Dev notes
 NOTES.md
+temp/
 
 # IDE
 .idea/

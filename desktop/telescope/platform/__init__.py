@@ -47,10 +47,27 @@ def adb_available() -> bool:
     return adb_exe() is not None
 
 
-def adb_forward(port):
-    rc, _, err = _run([adb_exe(), "forward", f"tcp:{port}", f"tcp:{port}"])
+def adb_devices() -> list:
+    """Return serials of currently connected & authorized devices/emulators."""
+    rc, out, _ = _run([adb_exe(), "devices"])
+    if rc != 0:
+        return []
+    serials = []
+    for line in out.splitlines()[1:]:
+        parts = line.strip().split("\t")
+        if len(parts) == 2 and parts[1] == "device":
+            serials.append(parts[0])
+    return serials
+
+
+def _with_serial(cmd, serial):
+    return [cmd[0], "-s", serial] + cmd[1:] if serial else cmd
+
+
+def adb_forward(port, serial=None):
+    rc, _, err = _run(_with_serial([adb_exe(), "forward", f"tcp:{port}", f"tcp:{port}"], serial))
     return (True, f"Port {port} forwarded") if rc == 0 else (False, err)
 
 
-def adb_unforward(port):
-    _run([adb_exe(), "forward", "--remove", f"tcp:{port}"])
+def adb_unforward(port, serial=None):
+    _run(_with_serial([adb_exe(), "forward", "--remove", f"tcp:{port}"], serial))
