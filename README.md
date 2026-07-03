@@ -10,7 +10,7 @@ Stream your Android phone's camera - including telephoto and wide-angle lenses -
 
 **Easiest:** connect your phone via USB with [USB debugging enabled](https://developer.android.com/studio/debug/dev-options), set up the desktop app first (step 2), then click **Setup Drivers & APK -> Install**. It runs `adb install` for you automatically if `Telescope.apk` is next to the desktop app.
 
-**Manually:** download `Telescope.apk` from the [latest release](../../releases/tag/latest) and either:
+**Manually:** download `Telescope.apk` from the [latest release](../../releases) and either:
 
 ```bash
 adb install Telescope.apk
@@ -20,7 +20,7 @@ Or sideload it from your phone's file manager with "Install unknown apps" enable
 
 ### 2. Set up and run the desktop app
 
-**Linux** - download `Telescope-linux.tar.gz` from the [latest release](../../releases/tag/latest), extract it, and run:
+**Linux** - download `Telescope-linux.tar.gz` from the [latest release](../../releases), extract it, and run:
 ```bash
 ./start.sh
 ```
@@ -29,7 +29,7 @@ The script installs Python dependencies automatically. On first launch, open **S
 
 For USB mode you also need `adb` on your PATH (`sudo apt install adb`, `sudo dnf install android-tools`, or `sudo pacman -S android-tools`). **USB debugging must also be enabled** on your phone - see [Configure on-device developer options](https://developer.android.com/studio/debug/dev-options).
 
-**Windows** - download `Telescope-windows.zip` from the [latest release](../../releases/tag/latest) and extract it anywhere:
+**Windows** - download `Telescope-windows.zip` from the [latest release](../../releases) and extract it anywhere:
 
 ```
 Telescope-windows/
