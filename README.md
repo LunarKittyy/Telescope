@@ -106,6 +106,7 @@ Run `start.bat` (installs Python deps and launches the app) or `TelescopeDesktop
 - Configurable temperature alert threshold (default 45 C) - fires a notification when exceeded
 
 **Multi-device and config persistence**
+- USB mode targets a specific ADB serial: if exactly one authorized device/emulator is connected it's picked automatically, if more than one is connected you're prompted to choose which one (avoids `adb: more than one device/emulator` failures on forward/install)
 - Named device list in Wi-Fi mode: add/remove/edit devices via the gear button popup; switch between them with a dropdown
 - Each device stores multiple IPs; a second dropdown selects the active IP. Tailscale IPs (100.64.0.0/10) are ranked first, LAN IPs second
 - QR pairing: click the QR button on the desktop to show a pairing code; tap the scan button in the Android app to register the phone automatically with all its IPs
@@ -278,7 +279,13 @@ sudo modprobe v4l2loopback devices=2 video_nr=10,11 \
   card_label="OBS Virtual Camera,Phone Camera" exclusive_caps=1
 ```
 
-Persist across reboots (Fedora/Nobara/any `dracut` distro):
+To persist across reboots, tick **Keep this config after reboot** in the System Setup dialog -
+it writes the same module options to `/etc/modprobe.d/99-telescope-v4l2loopback.conf` and
+`/etc/modules-load.d/99-telescope-v4l2loopback.conf` (and can be unticked later to remove them
+again). It refuses to write if another config already sets `v4l2loopback` options, so it won't
+conflict with an existing manual setup.
+
+To do the same by hand instead (Fedora/Nobara/any `dracut` distro):
 ```bash
 echo 'options v4l2loopback devices=2 video_nr=10,11 card_label="OBS Virtual Camera,Phone Camera" exclusive_caps=1' \
   | sudo tee /etc/modprobe.d/98-v4l2loopback.conf
