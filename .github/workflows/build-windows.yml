@@ -13,6 +13,9 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+    concurrency:
+      group: ${{ github.ref == 'refs/heads/master' && 'nightly-release' || format('build-windows-{0}', github.run_id) }}
+      cancel-in-progress: false
 
     steps:
       - uses: actions/checkout@v4
@@ -41,12 +44,9 @@ jobs:
           Copy-Item -Recurse desktop/unitycapture bundle/unitycapture
           Compress-Archive -Path bundle/* -DestinationPath Telescope-windows.zip
 
-      - name: Update rolling pre-release
+      - name: Recreate rolling pre-release
         if: github.ref == 'refs/heads/master'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: nightly
-          name: Nightly
-          prerelease: true
-          make_latest: false
-          files: Telescope-windows.zip
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/recreate-nightly.sh Telescope-windows.zip

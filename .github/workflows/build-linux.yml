@@ -13,6 +13,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    # Recreating the nightly release (see step below) races with the other
+    # nightly-publishing workflows if they run at the same time, so serialize
+    # just the master-branch runs that actually touch it.
+    concurrency:
+      group: ${{ github.ref == 'refs/heads/master' && 'nightly-release' || format('build-linux-{0}', github.run_id) }}
+      cancel-in-progress: false
 
     steps:
       - uses: actions/checkout@v4
@@ -27,13 +33,10 @@ jobs:
           cp -r desktop/telescope bundle/telescope
           tar -czf Telescope-linux.tar.gz -C bundle .
 
-      - name: Update rolling pre-release
+      - name: Recreate rolling pre-release
         if: github.ref == 'refs/heads/master'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: nightly
-          name: Nightly
-          prerelease: true
-          make_latest: false
-          files: Telescope-linux.tar.gz
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/recreate-nightly.sh Telescope-linux.tar.gz
 
