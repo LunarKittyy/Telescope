@@ -491,6 +491,7 @@ class TelescopeWindow(QMainWindow):
     # ── Tray ──────────────────────────────────────────────────────────────────
 
     def _setup_tray(self):
+        self._tray_close_notified = False
         if not QSystemTrayIcon.isSystemTrayAvailable():
             self._tray = None
             return
@@ -521,7 +522,6 @@ class TelescopeWindow(QMainWindow):
 
         self._tray.activated.connect(self._on_tray_activated)
         self._tray.show()
-        self._tray_close_notified = False
 
     def _tray_show(self):
         self.showNormal()
@@ -589,3 +589,4 @@ class TelescopeWindow(QMainWindow):
         else:
             self._stop()
             event.accept()
+            QApplication.quit()
