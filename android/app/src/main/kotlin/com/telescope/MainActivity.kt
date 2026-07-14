@@ -8,8 +8,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
-import android.graphics.ImageFormat
-import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.net.Uri
 import android.os.Build
@@ -19,7 +17,6 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
-import android.util.Size
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
@@ -29,19 +26,6 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
-import kotlin.math.sqrt
-
-/**
- * logicalId: if non-null, this camera is a physical sub-camera of the given logical camera ID.
- * We must open logicalId and route the surface via OutputConfiguration.setPhysicalCameraId(id).
- */
-data class CameraInfo(
-    val id: String,
-    val logicalId: String?,
-    val label: String,
-    val hasOis: Boolean,
-    val supportedSizes: List<Size>
-)
 
 class MainActivity : AppCompatActivity() {
 
@@ -56,6 +40,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvLinkWifi: TextView
     private lateinit var tvLinkUsb: TextView
     private lateinit var btnScanQr: ImageButton
+    private lateinit var btnPreview: ImageButton
     private lateinit var cardPermissions: CardView
     private lateinit var layoutPermissionsContainer: LinearLayout
     private var _permissionsRequested = false
@@ -106,6 +91,7 @@ class MainActivity : AppCompatActivity() {
         tvLinkUsb         = findViewById(R.id.tvLinkUsb)
         checkLocalOnly             = findViewById(R.id.checkLocalOnly)
         btnScanQr                  = findViewById(R.id.btnScanQr)
+        btnPreview                 = findViewById(R.id.btnPreview)
         cardPermissions            = findViewById(R.id.cardPermissions)
         layoutPermissionsContainer = findViewById(R.id.layoutPermissionsContainer)
 
@@ -123,6 +109,7 @@ class MainActivity : AppCompatActivity() {
         tvLinkUsb.setOnClickListener  { copyLink(tvLinkUsb) }
 
         btnToggle.setOnClickListener { onToggleClicked() }
+        btnPreview.setOnClickListener { startActivity(Intent(this, PreviewActivity::class.java)) }
         btnScanQr.setOnClickListener {
             if (service?.isStreaming == true) {
                 service?.stopStreaming()
@@ -343,73 +330,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadCameras() {
         val manager = getSystemService(CAMERA_SERVICE) as CameraManager
-        val result  = mutableListOf<CameraInfo>()
         val sb      = StringBuilder()
 
-        fun buildInfo(id: String, logicalParent: String?): CameraInfo? = runCatching {
-            val chars = manager.getCameraCharacteristics(id)
-
-            val facing = when (chars.get(CameraCharacteristics.LENS_FACING)) {
-                CameraCharacteristics.LENS_FACING_BACK     -> "Back"
-                CameraCharacteristics.LENS_FACING_FRONT    -> "Front"
-                CameraCharacteristics.LENS_FACING_EXTERNAL -> "Ext"
-                else                                        -> "?"
-            }
-
-            val focalRaw = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)
-                ?.firstOrNull() ?: 0f
-            val sensor = chars.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE)
-            val focalEq = if (sensor != null && focalRaw > 0f) {
-                val diag = sqrt((sensor.width * sensor.width + sensor.height * sensor.height).toDouble()).toFloat()
-                (focalRaw * 43.27f / diag).toInt()
-            } else 0
-
-            val oisModes = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION)
-            val hasOis   = oisModes?.contains(1) == true
-
-            val map   = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-            val sizes = map?.getOutputSizes(ImageFormat.JPEG)
-                ?.sortedByDescending { it.width * it.height }
-                ?.takeIf { it.isNotEmpty() }
-                ?: listOf(Size(1920, 1080), Size(1280, 720))
-
-            val prefix    = if (logicalParent != null) "[phys of $logicalParent] " else ""
-            val focalStr  = if (focalEq > 0) "~${focalEq}mm eq" else "focal?"
-            val oisStr    = if (hasOis) " OIS" else ""
-            val label     = "ID $id  $facing  $focalStr$oisStr"
-
-            sb.appendLine("$prefix[$id] $facing  $focalStr$oisStr")
-            sb.appendLine("     sizes: ${sizes.take(3).joinToString { "${it.width}x${it.height}" }}…")
-
-            CameraInfo(id, logicalParent, label, hasOis, sizes)
-        }.getOrNull()
-
-        val topLevel = manager.cameraIdList
-        topLevel.forEach { id ->
-            buildInfo(id, null)?.let { result += it }
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            topLevel.forEach { logicalId ->
-                runCatching {
-                    val chars = manager.getCameraCharacteristics(logicalId)
-                    val caps  = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)
-                    val isLogicalMultiCam = caps?.contains(
-                        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA
-                    ) == true
-
-                    if (isLogicalMultiCam) {
-                        chars.physicalCameraIds.forEach { physId ->
-                            if (result.none { it.id == physId }) {
-                                buildInfo(physId, logicalId)?.let { result += it }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        cameras = result
+        cameras = CameraCatalog.enumerate(manager, sb)
         tvCameraList.text = sb.toString().trimEnd()
 
         val adapter = ArrayAdapter(this,

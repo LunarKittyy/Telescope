@@ -24,6 +24,7 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.util.Range
 import android.util.Rational
+import android.view.Surface
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import java.util.concurrent.Executor
@@ -78,6 +79,7 @@ class CameraStreamService : Service() {
     private var handler: Handler? = null
     private var server: MjpegServer? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    @Volatile private var previewSurface: Surface? = null
 
     // Stream config
     private var streamWidth  = 1920
@@ -112,6 +114,27 @@ class CameraStreamService : Service() {
     var isStreaming = false
         private set
     val port: Int get() = DEFAULT_PORT
+
+    // ── Live preview (for PreviewActivity) ───────────────────────────────────
+
+    fun getCameras(): List<CameraEntry> = allCameras
+    fun getCurrentCameraId(): String? = currentCamera?.id
+    fun getStreamSize(): android.util.Size = android.util.Size(streamWidth, streamHeight)
+
+    fun switchCamera(id: String) {
+        val entry = allCameras.find { it.id == id } ?: return
+        handler?.post { switchCameraTo(entry) }
+    }
+
+    /** Adds an extra output surface to the running capture session so a live preview
+     *  can be shown without interrupting the MJPEG stream. */
+    fun attachPreviewSurface(surface: Surface) {
+        handler?.post { previewSurface = surface; reconfigureSession() }
+    }
+
+    fun detachPreviewSurface() {
+        handler?.post { previewSurface = null; reconfigureSession() }
+    }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -425,12 +448,16 @@ class CameraStreamService : Service() {
         } catch (e: Exception) { stopSelf() }
     }
 
+    private fun currentTargetSurfaces(): List<Surface> = listOfNotNull(imageReader?.surface, previewSurface)
+
     private fun createPhysicalSession(camera: CameraDevice, physId: String) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) { createLegacySession(camera); return }
-        val outCfg = OutputConfiguration(imageReader!!.surface).also { it.setPhysicalCameraId(physId) }
+        val outCfgs = currentTargetSurfaces().map { surface ->
+            OutputConfiguration(surface).also { it.setPhysicalCameraId(physId) }
+        }
         val exec   = Executor { cmd -> handler?.post(cmd) }
         camera.createCaptureSession(SessionConfiguration(
-            SessionConfiguration.SESSION_REGULAR, listOf(outCfg), exec,
+            SessionConfiguration.SESSION_REGULAR, outCfgs, exec,
             object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(s: CameraCaptureSession) { captureSession = s; startRepeating(camera, s) }
                 override fun onConfigureFailed(s: CameraCaptureSession) { stopSelf() }
@@ -440,11 +467,27 @@ class CameraStreamService : Service() {
 
     @Suppress("DEPRECATION")
     private fun createLegacySession(camera: CameraDevice) {
-        camera.createCaptureSession(listOf(imageReader!!.surface),
+        camera.createCaptureSession(currentTargetSurfaces(),
             object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(s: CameraCaptureSession) { captureSession = s; startRepeating(camera, s) }
                 override fun onConfigureFailed(s: CameraCaptureSession) { stopSelf() }
             }, handler)
+    }
+
+    /** Tears down and rebuilds the capture session on the already-open camera device,
+     *  e.g. when a preview surface is attached/detached. Does not reopen the device. */
+    private fun reconfigureSession() {
+        val camera = cameraDevice ?: return
+        try { captureSession?.stopRepeating() } catch (_: Exception) {}
+        try { captureSession?.close() } catch (_: Exception) {}
+        captureSession = null
+
+        val cam    = currentCamera
+        val physId = if (cam?.logicalId != null) cam.id else null
+        if (physId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+            createPhysicalSession(camera, physId)
+        else
+            createLegacySession(camera)
     }
 
     private fun startRepeating(camera: CameraDevice, session: CameraCaptureSession) {
@@ -455,6 +498,7 @@ class CameraStreamService : Service() {
     private fun buildRequest(camera: CameraDevice = cameraDevice!!): CaptureRequest {
         return camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
             addTarget(imageReader!!.surface)
+            previewSurface?.let { addTarget(it) }
 
             // Exposure and FPS
             // Use CONTROL_MODE_AUTO even in manual AE so that AF keeps running independently.

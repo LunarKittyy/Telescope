@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <android.view.TextureView
+        android:id="@+id/textureView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <Spinner
+        android:id="@+id/spinnerAspect"
+        android:layout_width="wrap_content"
+        android:layout_height="44dp"
+        android:minWidth="110dp"
+        android:layout_gravity="top|start"
+        android:layout_margin="16dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="8dp"
+        android:background="@drawable/pill_lens"
+        android:popupBackground="@color/colorSurfaceRaised" />
+
+    <ImageButton
+        android:id="@+id/btnClosePreview"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_gravity="top|end"
+        android:layout_margin="16dp"
+        android:src="@drawable/ic_close"
+        android:background="@drawable/bg_circle_overlay"
+        android:contentDescription="Close preview"
+        android:padding="10dp" />
+
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_marginBottom="28dp"
+        android:scrollbars="none"
+        android:clipToPadding="false"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
+
+        <LinearLayout
+            android:id="@+id/layoutLensPills"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical" />
+
+    </HorizontalScrollView>
+
+</FrameLayout>
