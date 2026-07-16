@@ -24,12 +24,9 @@ import android.util.Size
 import android.view.Gravity
 import android.view.Surface
 import android.view.TextureView
-import android.widget.AdapterView
-import android.widget.ArrayAdapter
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.LinearLayout
-import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
@@ -43,13 +40,12 @@ import java.util.concurrent.Executor
  * output surface to the running CameraStreamService session (stream keeps running).
  * Otherwise it opens a short-lived standalone Camera2 session of its own.
  */
-    private enum class AspectOption(val label: String, val ratio: Float?) {
-        FILL("Fill screen", null),
-        R16_9("16:9", 16f / 9f),
-        R4_3("4:3", 4f / 3f),
-        R3_4("3:4", 3f / 4f),
-        R1_1("1:1", 1f),
-        R9_16("9:16", 9f / 16f),
+    // Labeled the way people expect ("16:9", "4:3") even though the ratio itself is the
+    // portrait form (9:16, 3:4) — this is a portrait-locked phone camera preview, so the
+    // useful crops are the portrait ones; the landscape-style labels are just familiar.
+    private enum class AspectOption(val label: String, val ratio: Float) {
+        R16_9("16:9", 9f / 16f),
+        R4_3("4:3", 3f / 4f),
     }
 
 class PreviewActivity : AppCompatActivity() {
@@ -57,7 +53,9 @@ class PreviewActivity : AppCompatActivity() {
     private lateinit var textureView: TextureView
     private lateinit var btnClose: ImageButton
     private lateinit var lensContainer: LinearLayout
-    private lateinit var spinnerAspect: Spinner
+    private lateinit var btnAspect: TextView
+
+    private var aspectIndex = 0
 
     private var service: CameraStreamService? = null
     private var bound = false
@@ -97,17 +95,16 @@ class PreviewActivity : AppCompatActivity() {
         textureView   = findViewById(R.id.textureView)
         btnClose      = findViewById(R.id.btnClosePreview)
         lensContainer = findViewById(R.id.layoutLensPills)
-        spinnerAspect = findViewById(R.id.spinnerAspect)
+        btnAspect     = findViewById(R.id.btnAspect)
 
-        spinnerAspect.adapter = ArrayAdapter(this,
-            R.layout.spinner_item, AspectOption.entries.map { it.label }
-        ).also { it.setDropDownViewResource(R.layout.spinner_dropdown_item) }
-        spinnerAspect.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(p: AdapterView<*>?, v: android.view.View?, pos: Int, id: Long) {
-                setAspectRatio(AspectOption.entries[pos])
-            }
-            override fun onNothingSelected(p: AdapterView<*>?) {}
+        btnAspect.text = AspectOption.entries[aspectIndex].label
+        btnAspect.setOnClickListener {
+            aspectIndex = (aspectIndex + 1) % AspectOption.entries.size
+            applyAspectOption()
         }
+        // Deferred until after layout so the TextureView's parent has a real size —
+        // calling this synchronously here would no-op against a still-zero-sized view.
+        textureView.post { applyAspectOption() }
 
         btnClose.setOnClickListener { finish() }
         // Back should just leave this screen, same as the X button — it must never
@@ -352,24 +349,25 @@ class PreviewActivity : AppCompatActivity() {
     // than just guide lines. Re-applying the transform happens automatically once the
     // resize lands, via onSurfaceTextureSizeChanged.
 
+    private fun applyAspectOption() {
+        val option = AspectOption.entries[aspectIndex]
+        btnAspect.text = option.label
+        setAspectRatio(option)
+    }
+
     private fun setAspectRatio(option: AspectOption) {
         val root = textureView.parent as? FrameLayout ?: return
         val screenW = root.width
         val screenH = root.height
         if (screenW == 0 || screenH == 0) return
 
-        val (boxW, boxH) = if (option.ratio == null) {
-            screenW to screenH
-        } else {
-            var w = screenW
-            var h = (w / option.ratio).toInt()
-            if (h > screenH) { h = screenH; w = (h * option.ratio).toInt() }
-            w to h
-        }
+        var w = screenW
+        var h = (w / option.ratio).toInt()
+        if (h > screenH) { h = screenH; w = (h * option.ratio).toInt() }
 
         val lp = textureView.layoutParams as FrameLayout.LayoutParams
-        lp.width = boxW
-        lp.height = boxH
+        lp.width = w
+        lp.height = h
         lp.gravity = Gravity.CENTER
         textureView.layoutParams = lp
     }
