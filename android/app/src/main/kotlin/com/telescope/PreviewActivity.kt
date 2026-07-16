@@ -19,6 +19,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.IBinder
+import android.util.Log
 import android.util.Size
 import android.view.Gravity
 import android.view.Surface
@@ -299,7 +300,7 @@ class PreviewActivity : AppCompatActivity() {
     // ratio. The app is portrait-locked, so display rotation is always 0 and doesn't
     // factor in here.
 
-    private fun applyPreviewTransform(cameraId: String?, bufferSize: Size?) {
+    private fun applyPreviewTransform(cameraId: String?, bufferSize: Size?, retryCount: Int = 0) {
         if (cameraId == null || bufferSize == null) return
         lastCameraId = cameraId
         lastBufferSize = bufferSize
@@ -322,7 +323,24 @@ class PreviewActivity : AppCompatActivity() {
             matrix.setScale(finalScale / scaleX, finalScale / scaleY,
                 viewWidth / 2f, viewHeight / 2f)
             textureView.setTransform(matrix)
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            Log.w(TAG, "Preview transform failed for camera $cameraId (attempt ${retryCount + 1})", e)
+            if (retryCount < MAX_TRANSFORM_RETRIES) {
+                // Camera characteristics lookups can transiently fail while a lens switch or
+                // session reconfiguration is in flight — retry rather than leaving the view
+                // stuck with TextureView's default non-uniform stretch-to-fill.
+                textureView.postDelayed({
+                    // Bail if a newer call has already superseded this one (e.g. another lens switch).
+                    if (cameraId == lastCameraId && bufferSize == lastBufferSize) {
+                        applyPreviewTransform(cameraId, bufferSize, retryCount + 1)
+                    }
+                }, TRANSFORM_RETRY_DELAY_MS)
+            } else {
+                Toast.makeText(this,
+                    "Preview may look stretched — couldn't read camera info.",
+                    Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     // ── Aspect ratio crop ────────────────────────────────────────────────────
@@ -392,4 +410,10 @@ class PreviewActivity : AppCompatActivity() {
            .replace(Regex("\\[phys[^]]*\\]"), "")
            .replace(Regex("\\s{2,}"), " ")
            .trim()
+
+    companion object {
+        private const val TAG = "PreviewActivity"
+        private const val MAX_TRANSFORM_RETRIES = 3
+        private const val TRANSFORM_RETRY_DELAY_MS = 150L
+    }
 }
