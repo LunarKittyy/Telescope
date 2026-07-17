@@ -57,6 +57,16 @@ def test_dialog_preset_visibility_and_apply_callback(qapp):
     dialog.hide()
 
 
+@pytest.fixture
+def linux_dialog(monkeypatch, qapp):
+    # These widgets/handlers only exist on the IS_LINUX branch of _build_ui,
+    # so force it regardless of the OS actually running the test (CI also
+    # runs this suite on Windows).
+    monkeypatch.setattr(setup_mod, "IS_LINUX", True)
+    monkeypatch.setattr(setup_mod, "IS_WINDOWS", False)
+    return SetupDialog()
+
+
 @pytest.mark.parametrize(
     "devices,module,expected_text,expected_name",
     [
@@ -65,8 +75,8 @@ def test_dialog_preset_visibility_and_apply_callback(qapp):
         (False, False, "Not loaded", "status_err"),
     ],
 )
-def test_v4l_status_states(monkeypatch, qapp, devices, module, expected_text, expected_name):
-    dialog = SetupDialog()
+def test_v4l_status_states(monkeypatch, linux_dialog, devices, module, expected_text, expected_name):
+    dialog = linux_dialog
     monkeypatch.setattr(setup_mod, "v4l2_devices_ready", lambda: devices)
     monkeypatch.setattr(setup_mod, "v4l2_module_loaded", lambda: module)
     dialog._v4l_check()
@@ -74,8 +84,8 @@ def test_v4l_status_states(monkeypatch, qapp, devices, module, expected_text, ex
     assert dialog._v4l_lbl.objectName() == expected_name
 
 
-def test_v4l_async_load_unload_and_results(monkeypatch, qapp):
-    dialog = SetupDialog()
+def test_v4l_async_load_unload_and_results(monkeypatch, linux_dialog):
+    dialog = linux_dialog
     monkeypatch.setattr(setup_mod.threading, "Thread", _ImmediateThread)
     monkeypatch.setattr(setup_mod, "v4l2_load", lambda: (True, "loaded"))
     monkeypatch.setattr(setup_mod, "v4l2_unload", lambda: (False, "busy"))
@@ -96,15 +106,15 @@ def test_v4l_async_load_unload_and_results(monkeypatch, qapp):
         ({"modprobe_conf": False, "modules_load_conf": False}, False),
     ],
 )
-def test_refresh_persist_status(monkeypatch, qapp, status, checked):
-    dialog = SetupDialog()
+def test_refresh_persist_status(monkeypatch, linux_dialog, status, checked):
+    dialog = linux_dialog
     monkeypatch.setattr(setup_mod, "v4l2_persist_status", lambda: status)
     dialog._refresh_persist_status()
     assert dialog._persist_chk.isChecked() is checked
 
 
-def test_persist_toggle_runs_correct_action_and_displays_success(monkeypatch, qapp):
-    dialog = SetupDialog()
+def test_persist_toggle_runs_correct_action_and_displays_success(monkeypatch, linux_dialog):
+    dialog = linux_dialog
     monkeypatch.setattr(setup_mod.threading, "Thread", _ImmediateThread)
     actions = []
     monkeypatch.setattr(
@@ -127,8 +137,8 @@ def test_persist_toggle_runs_correct_action_and_displays_success(monkeypatch, qa
     assert actions == ["enable", "disable"]
 
 
-def test_failed_persist_action_reverts_checkbox(qapp):
-    dialog = SetupDialog()
+def test_failed_persist_action_reverts_checkbox(linux_dialog):
+    dialog = linux_dialog
     dialog._persist_chk.setChecked(True)
     dialog._on_persist_result(False, "denied")
     assert not dialog._persist_chk.isChecked()
@@ -345,8 +355,8 @@ def test_setup_plugin_opens_reuses_dialogs_and_syncs_config(monkeypatch, qapp):
     guide.hide()
 
 
-def test_show_event_refreshes_platform_specific_status(monkeypatch, qapp):
-    dialog = SetupDialog()
+def test_show_event_refreshes_platform_specific_status(monkeypatch, linux_dialog):
+    dialog = linux_dialog
     calls = []
     monkeypatch.setattr(dialog, "_v4l_check", lambda: calls.append("check"))
     monkeypatch.setattr(dialog, "_refresh_persist_status", lambda: calls.append("persist"))
