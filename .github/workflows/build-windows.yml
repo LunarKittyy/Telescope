@@ -16,6 +16,9 @@ jobs:
     concurrency:
       group: ${{ github.ref == 'refs/heads/master' && 'nightly-release' || format('build-windows-{0}', github.run_id) }}
       cancel-in-progress: false
+      # Let master-branch runs queue instead of a new push canceling whatever
+      # publisher run was already pending in this shared group.
+      queue: max
 
     steps:
       - uses: actions/checkout@v4
@@ -43,6 +46,24 @@ jobs:
           Copy-Item -Recurse desktop/platform-tools bundle/platform-tools
           Copy-Item -Recurse desktop/unitycapture bundle/unitycapture
           Compress-Archive -Path bundle/* -DestinationPath Telescope-windows.zip
+
+      - name: Verify release bundle
+        shell: pwsh
+        run: |
+          # Guards against start.bat referencing a file that never actually
+          # made it into the released archive (see desktop/start.bat).
+          $required = @(
+            "bundle/TelescopeDesktop.exe",
+            "bundle/start.bat",
+            "bundle/platform-tools",
+            "bundle/unitycapture"
+          )
+          $missing = $required | Where-Object { -not (Test-Path $_) }
+          if ($missing) {
+            Write-Error "Release bundle is missing: $($missing -join ', ')"
+            exit 1
+          }
+          Write-Host "Release bundle verified."
 
       - name: Recreate rolling pre-release
         if: github.ref == 'refs/heads/master'

@@ -16,6 +16,9 @@ jobs:
     concurrency:
       group: ${{ github.ref == 'refs/heads/master' && 'nightly-release' || format('build-apk-{0}', github.run_id) }}
       cancel-in-progress: false
+      # Let master-branch runs queue instead of a new push canceling whatever
+      # publisher run was already pending in this shared group.
+      queue: max
 
     steps:
       - uses: actions/checkout@v4

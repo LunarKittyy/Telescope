@@ -8,6 +8,28 @@ echo Telescope
 echo =========
 echo.
 
+:: Prebuilt EXE release: just launch it directly, no Python required.
+if exist "TelescopeDesktop.exe" (
+    echo Launching Telescope...
+    echo.
+    start "" "TelescopeDesktop.exe"
+    exit /b 0
+)
+
+:: Fallback: running from the Python source tree (not the EXE release).
+if not exist "main.py" (
+    echo Neither TelescopeDesktop.exe nor main.py was found next to this script.
+    echo This launcher only works inside a Telescope release folder.
+    pause
+    exit /b 1
+)
+if not exist "requirements.txt" (
+    echo main.py was found but requirements.txt is missing - this doesn't look
+    echo like a complete Telescope source checkout.
+    pause
+    exit /b 1
+)
+
 :: Check Python
 python --version >nul 2>&1
 if errorlevel 1 (

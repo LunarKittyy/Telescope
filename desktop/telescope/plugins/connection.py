@@ -1,4 +1,5 @@
 import json
+import secrets
 import socket
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -26,6 +27,11 @@ from telescope.widgets.common import NoScrollComboBox, create_vector_icon
 DEFAULT_PORT = 8080
 PAIRING_PORT = 8765
 
+# Pseudo-device key used to give USB-only sessions their own persisted
+# device-local plugin profile (camera settings, transforms, etc.), same as
+# named Wi-Fi devices get. Never shown in the device list/management UI.
+USB_PROFILE_KEY = "__usb__"
+
 
 def _get_local_ips() -> list[str]:
     ips: set[str] = set()
@@ -49,13 +55,15 @@ def _rank_ip(ip: str) -> int:
     parts = ip.split(".")
     if len(parts) == 4:
         try:
-            a, b = int(parts[0]), int(parts[1])
-            if a == 100 and 64 <= b <= 127:
-                return 0  # Tailscale
+            octets = [int(p) for p in parts]
         except ValueError:
-            pass
-    if ip.startswith(("192.168.", "10.", "172.")):
-        return 1  # LAN
+            return 2
+        a, b = octets[0], octets[1]
+        if a == 100 and 64 <= b <= 127:
+            return 0  # Tailscale CGNAT range
+        # RFC 1918 private ranges - note 172.16.0.0/12 only, not all of 172.x.x.x
+        if a == 10 or a == 192 and b == 168 or a == 172 and 16 <= b <= 31:
+            return 1  # LAN
     return 2
 
 
@@ -159,13 +167,15 @@ class _DeviceDialog(QDialog):
 class _DeviceManagerDialog(QDialog):
     """Device list management popup — add, edit, remove."""
 
-    def __init__(self, parent, devices: list, on_change):
+    def __init__(self, parent, devices: list, on_add, on_edit, on_remove):
         super().__init__(parent)
         self.setWindowTitle("Devices")
         self.setMinimumWidth(360)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self._devices = devices
-        self._on_change = on_change
+        self._on_add_cb    = on_add
+        self._on_edit_cb   = on_edit
+        self._on_remove_cb = on_remove
         self._active_dlg = None
         self._build_ui()
 
@@ -242,9 +252,10 @@ class _DeviceManagerDialog(QDialog):
         self._open_device_dlg(dlg)
 
     def _finish_add(self, dlg: "_DeviceDialog"):
-        self._devices.append(dlg.result_device())
+        device = dlg.result_device()
+        self._devices.append(device)
         self._refresh_list()
-        self._on_change(self._devices)
+        self._on_add_cb(device)
 
     def _on_edit(self):
         idx = self._list.currentRow()
@@ -256,9 +267,11 @@ class _DeviceManagerDialog(QDialog):
         self._open_device_dlg(dlg)
 
     def _finish_edit(self, idx: int, dlg: "_DeviceDialog"):
-        self._devices[idx] = dlg.result_device()
+        old_name = self._devices[idx]["name"]
+        new_device = dlg.result_device()
+        self._devices[idx] = new_device
         self._refresh_list()
-        self._on_change(self._devices)
+        self._on_edit_cb(old_name, new_device)
 
     def _on_remove(self):
         idx = self._list.currentRow()
@@ -275,7 +288,7 @@ class _DeviceManagerDialog(QDialog):
             return
         self._devices.pop(idx)
         self._refresh_list()
-        self._on_change(self._devices)
+        self._on_remove_cb(name)
 
 
 class _QRCodeWidget(QWidget):
@@ -316,12 +329,16 @@ class _PairingSignals(QObject):
 class _PairingDialog(QDialog):
     """Shows a QR code and runs a pairing HTTP server while open."""
 
+    _MAX_BODY_BYTES = 16 * 1024
+
     def __init__(self, parent, on_paired):
         super().__init__(parent)
         self.setWindowTitle("Pair with Phone")
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self._on_paired = on_paired
         self._server: Optional[HTTPServer] = None
+        self._server_thread: Optional[threading.Thread] = None
+        self._nonce: Optional[str] = None
         self._signals = _PairingSignals()
         self._signals.paired.connect(self._on_paired_signal)
         self._build_ui()
@@ -363,6 +380,9 @@ class _PairingDialog(QDialog):
         super().closeEvent(event)
 
     def _start_server(self):
+        if self._server is not None:
+            return  # already running - showEvent() can fire more than once
+
         local_ips = _get_local_ips()
         if not local_ips:
             self._status_lbl.setObjectName("status_err")
@@ -382,6 +402,13 @@ class _PairingDialog(QDialog):
                 port = s.getsockname()[1]
 
         signals = self._signals
+        # A fresh nonce per pairing session - the POST path must include it,
+        # so a LAN peer that doesn't already know it (i.e. hasn't scanned the
+        # current QR code) can't add itself as a paired device.
+        nonce = secrets.token_urlsafe(16)
+        self._nonce = nonce
+        max_body = self._MAX_BODY_BYTES
+        pair_path = f"/pair/{nonce}"
 
         class _Handler(BaseHTTPRequestHandler):
             def do_GET(self):
@@ -390,14 +417,22 @@ class _PairingDialog(QDialog):
                 self.wfile.write(b"Telescope pairing server")
 
             def do_POST(self):
-                if self.path != "/pair":
+                if self.path != pair_path:
                     self.send_response(404); self.end_headers(); return
-                length = int(self.headers.get("Content-Length", 0))
+                length_hdr = self.headers.get("Content-Length")
+                try:
+                    length = int(length_hdr)
+                except (TypeError, ValueError):
+                    self.send_response(411); self.end_headers(); return
+                if length < 0 or length > max_body:
+                    self.send_response(413); self.end_headers(); return
                 body = self.rfile.read(length)
                 try:
                     data = json.loads(body)
-                    name = str(data.get("name", "Phone"))
-                    ips = [str(x) for x in data.get("ips", [])]
+                    name = str(data.get("name", "Phone")).strip()
+                    ips = list(dict.fromkeys(str(x).strip() for x in data.get("ips", [])))
+                    if not name or not ips or not all(_valid_ipv4(ip) for ip in ips):
+                        raise ValueError("invalid pairing payload")
                     signals.paired.emit(name, ips)
                     self.send_response(200)
                     self.end_headers()
@@ -409,9 +444,10 @@ class _PairingDialog(QDialog):
                 pass
 
         self._server = HTTPServer(("", port), _Handler)
-        threading.Thread(target=self._server.serve_forever, daemon=True).start()
+        self._server_thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+        self._server_thread.start()
 
-        payload = json.dumps({"port": port, "ips": local_ips})
+        payload = json.dumps({"port": port, "ips": local_ips, "nonce": nonce})
         qr_widget = _QRCodeWidget(payload)
         while self._qr_container.count():
             item = self._qr_container.takeAt(0)
@@ -424,9 +460,20 @@ class _PairingDialog(QDialog):
         self._status_lbl.setStyleSheet("")
 
     def _stop_server(self):
-        if self._server:
-            threading.Thread(target=self._server.shutdown, daemon=True).start()
-            self._server = None
+        if self._server is None:
+            return
+        server, thread = self._server, self._server_thread
+        self._server = None
+        self._server_thread = None
+        self._nonce = None
+
+        def _shutdown():
+            server.shutdown()
+            if thread:
+                thread.join(timeout=5)
+            server.server_close()
+
+        threading.Thread(target=_shutdown, daemon=True).start()
 
     def _on_paired_signal(self, name: str, ips: list):
         # Replace QR with a big success message
@@ -453,11 +500,17 @@ class ConnectionPlugin(TelescopePlugin):
         self._host             = host
         self._devices: list    = []
         self._selected_device: Optional[str] = None
+        # The profile key (device name, or USB_PROFILE_KEY) that's actually
+        # been applied/reconnected via the host - kept separate from
+        # _selected_device so mode toggles and device switches only trigger a
+        # save+reset+reconnect when the *effective* profile actually changes.
+        self._active_key: Optional[str] = None
         self._switching_device = False
         self._forwarded_port: Optional[int] = None
         self._adb_serial: Optional[str] = None
         self._device_dlg: Optional[QDialog] = None
         self._pairing_dlg: Optional[QDialog] = None
+        self._last_port: str = str(DEFAULT_PORT)
 
     def create_panel(self) -> QWidget:
         card = QFrame()
@@ -568,7 +621,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._port_field = QLineEdit(str(DEFAULT_PORT))
         self._port_field.setValidator(QIntValidator(1, 65535))
         self._port_field.setMaximumWidth(90)
-        self._port_field.editingFinished.connect(self._host._schedule_save)
+        self._port_field.editingFinished.connect(self._on_port_changed)
         port_row.addWidget(self._port_field)
         port_row.addStretch()
         lay.addLayout(port_row)
@@ -665,12 +718,30 @@ class ConnectionPlugin(TelescopePlugin):
 
     # ── Mode / device handlers ────────────────────────────────────────────────
 
+    @property
+    def _profile_key(self) -> Optional[str]:
+        """The device-local-plugin profile key for the current mode: the
+        selected Wi-Fi device's name, or a fixed pseudo-key for USB so USB
+        sessions get their own persisted camera/transform/monitoring
+        settings instead of silently not saving them."""
+        if self._rb_usb.isChecked():
+            return USB_PROFILE_KEY
+        return self._selected_device
+
+    def _activate_profile(self, new_key: Optional[str]):
+        """Switch the effective device-local profile via the host, but only
+        if it actually changed - avoids a spurious save/reset/reconnect
+        cycle from signals fired while combo boxes are being repopulated."""
+        if new_key == self._active_key:
+            return
+        prev_key = self._active_key
+        self._active_key = new_key
+        self._host._switch_device(prev_key, new_key)
+
     def _on_mode(self):
         self._device_row_w.setVisible(self._rb_wifi.isChecked())
         self._host._schedule_save()
-        if self._host._worker is not None:
-            self._host._stop()
-            self._host._start()
+        self._activate_profile(self._profile_key)
 
     def _current_device_name(self) -> Optional[str]:
         idx = self._device_combo.currentIndex()
@@ -704,10 +775,19 @@ class ConnectionPlugin(TelescopePlugin):
         idx = self._device_combo.currentIndex()
         self._ip_combo.blockSignals(True)
         self._ip_combo.clear()
+        active_ip = None
         if 0 <= idx < len(self._devices):
-            ips = list(dict.fromkeys(self._devices[idx].get("ips", [])))  # deduplicate, preserve order
+            device = self._devices[idx]
+            ips = list(dict.fromkeys(device.get("ips", [])))  # deduplicate, preserve order
             for ip in sorted(ips, key=_rank_ip):
                 self._ip_combo.addItem(ip)
+            cfg = load_config()
+            saved_ip = cfg.get("devices", {}).get(device["name"], {}).get("active_ip")
+            active_ip = saved_ip if saved_ip in ips else _best_ip(ips)
+        if active_ip:
+            found = self._ip_combo.findText(active_ip)
+            if found >= 0:
+                self._ip_combo.setCurrentIndex(found)
         self._ip_combo.blockSignals(False)
 
     def _on_device_changed(self, idx: int):
@@ -715,17 +795,39 @@ class ConnectionPlugin(TelescopePlugin):
             return
         name = self._devices[idx]["name"] if 0 <= idx < len(self._devices) else None
         if name and name != self._selected_device:
-            prev = self._selected_device
             self._selected_device = name
             self._update_ip_combo()
-            self._host._switch_device(prev, name)
+            self._activate_profile(self._profile_key)
 
     def _on_ip_changed(self, ip: str):
-        pass  # used directly via _current_device_ip()
+        if self._switching_device or not ip:
+            return
+        name = self._current_device_name()
+        if not name:
+            return
+        cfg = load_config()
+        dev = cfg.setdefault("devices", {}).setdefault(name, {})
+        if dev.get("active_ip") == ip:
+            return
+        dev["active_ip"] = ip
+        save_config(cfg)
+        self._host.reconnect_stream()
+
+    def _on_port_changed(self):
+        self._host._schedule_save()
+        new_port = self._port_field.text()
+        if new_port != self._last_port:
+            self._last_port = new_port
+            self._host.reconnect_stream()
 
     def _on_manage_devices(self):
         if self._device_dlg is None or not self._device_dlg.isVisible():
-            self._device_dlg = _DeviceManagerDialog(self._host, self._devices, self._on_devices_changed)
+            self._device_dlg = _DeviceManagerDialog(
+                self._host, self._devices,
+                on_add=self._on_device_added,
+                on_edit=self._on_device_edited,
+                on_remove=self._on_device_removed,
+            )
             self._device_dlg.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
             self._device_dlg.setWindowModality(Qt.WindowModality.NonModal)
         self._device_dlg.show()
@@ -741,13 +843,39 @@ class ConnectionPlugin(TelescopePlugin):
         self._pairing_dlg.raise_()
         self._pairing_dlg.activateWindow()
 
-    def _on_devices_changed(self, devices: list):
-        self._devices = devices
-        prev = self._selected_device
-        self._refresh_device_combo(select_name=prev)
-        if not any(d["name"] == prev for d in self._devices):
-            self._selected_device = self._devices[0]["name"] if self._devices else None
+    def _on_device_added(self, device: dict):
+        # _DeviceManagerDialog mutates the shared self._devices list directly.
+        self._refresh_device_combo(select_name=self._selected_device)
         self._host._save_config()
+
+    def _on_device_edited(self, old_name: str, new_device: dict):
+        new_name = new_device["name"]
+        if new_name != old_name:
+            cfg = load_config()
+            devices_cfg = cfg.setdefault("devices", {})
+            if old_name in devices_cfg:
+                devices_cfg[new_name] = devices_cfg.pop(old_name)
+            if cfg.get("selected_device") == old_name:
+                cfg["selected_device"] = new_name
+            save_config(cfg)
+            if self._selected_device == old_name:
+                self._selected_device = new_name
+                # Same device, only the label changed - update tracking
+                # without a reset/reconnect (settings weren't moved elsewhere).
+                self._active_key = new_name
+        self._refresh_device_combo(select_name=self._selected_device)
+        self._host._save_config()
+
+    def _on_device_removed(self, name: str):
+        cfg = load_config()
+        cfg.get("devices", {}).pop(name, None)
+        save_config(cfg)
+        was_selected = self._selected_device == name
+        if was_selected:
+            self._selected_device = self._devices[0]["name"] if self._devices else None
+        self._refresh_device_combo(select_name=self._selected_device)
+        if was_selected:
+            self._activate_profile(self._profile_key)
 
     def _on_device_paired(self, name: str, ips: list):
         existing_names = [d["name"] for d in self._devices]
@@ -761,10 +889,13 @@ class ConnectionPlugin(TelescopePlugin):
         self._refresh_device_combo(select_name=name)
         self._selected_device = name
         self._host._save_config()
+        self._activate_profile(self._profile_key)
 
     @property
     def selected_device(self) -> Optional[str]:
-        return self._selected_device
+        """The profile key currently persisted/restored by the host - the
+        selected Wi-Fi device's name, or the USB pseudo-key in USB mode."""
+        return self._profile_key
 
     # ── Config ────────────────────────────────────────────────────────────────
 
@@ -779,13 +910,14 @@ class ConnectionPlugin(TelescopePlugin):
         if cfg.get("mode") == "wifi":
             self._rb_wifi.setChecked(True)
             self._rb_usb.setChecked(False)
-            self._on_mode()
+            self._device_row_w.setVisible(True)
         else:
             self._rb_usb.setChecked(True)
             self._rb_wifi.setChecked(False)
             self._device_row_w.setVisible(False)
         if port := cfg.get("port"):
             self._port_field.setText(str(port))
+            self._last_port = str(port)
         raw = cfg.get("devices_list", [])
         # Migrate old format {"name": str, "ip": str} → {"name": str, "ips": [str]}
         self._devices = []
@@ -807,3 +939,6 @@ class ConnectionPlugin(TelescopePlugin):
             name = self._devices[0]["name"]
         self._selected_device = name
         self._refresh_device_combo(select_name=name)
+        # This restores what was already applied by _apply_config()'s call to
+        # _apply_device_profile() - just record it, don't re-trigger a switch.
+        self._active_key = self._profile_key

@@ -94,10 +94,15 @@ class StreamWorker(QThread):
         self._restart_vcam.set()
 
     def _open_cap(self):
-        cap = cv2.VideoCapture(self.url)
-        cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 3000)
-        cap.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, 1000)
-        return cap
+        # OpenCV documents CAP_PROP_OPEN_TIMEOUT_MSEC / READ_TIMEOUT_MSEC as
+        # open-only for the FFmpeg backend: setting them via cap.set() after
+        # construction has no effect and the initial open can block
+        # indefinitely. They must be passed to the constructor instead.
+        return cv2.VideoCapture(
+            self.url, cv2.CAP_FFMPEG,
+            [cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 3000,
+             cv2.CAP_PROP_READ_TIMEOUT_MSEC, 1000],
+        )
 
     def _reconnect_cap(self, stop_event: threading.Event) -> Optional[object]:
         self.status.emit("warn", "Stream dropped - reconnecting...")

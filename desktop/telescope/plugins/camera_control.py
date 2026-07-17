@@ -379,6 +379,7 @@ class CameraControlPlugin(TelescopePlugin):
                 cur.get("supportsManualFocus", False),
                 float(cur.get("minFocusDistance", 10.0)),
                 cur.get("supportsFlash", False),
+                cur.get("hasOis", True),
             )
 
         self._rb_exp_auto.setChecked(is_auto)
@@ -451,7 +452,7 @@ class CameraControlPlugin(TelescopePlugin):
 
     def _update_camera_caps(self, supports_manual_sensor: bool, supports_manual_wb: bool,
                             supports_manual_focus: bool = False, min_focus_distance: float = 10.0,
-                            supports_flash: bool = False):
+                            supports_flash: bool = False, has_ois: bool = True):
         self._rb_exp_manual.setEnabled(supports_manual_sensor)
         if not supports_manual_sensor:
             self._rb_exp_auto.setChecked(True)
@@ -493,6 +494,12 @@ class CameraControlPlugin(TelescopePlugin):
         else:
             self._torch_btn.setToolTip("")
 
+        # Greyed out (but left checked) on a lens without OIS: the phone still
+        # remembers "OIS desired" and applies it as soon as an OIS-capable lens is
+        # selected again, without needing to be re-toggled here.
+        self._ois_cb.setEnabled(has_ois)
+        self._ois_cb.setToolTip("" if has_ois else "This lens does not support optical image stabilization")
+
     # ── Handlers ──────────────────────────────────────────────────────────────
 
     def _on_lens_selected(self, cam: dict):
@@ -516,6 +523,7 @@ class CameraControlPlugin(TelescopePlugin):
                 cam.get("supportsManualFocus", False),
                 float(cam.get("minFocusDistance", 10.0)),
                 cam.get("supportsFlash", False),
+                cam.get("hasOis", True),
             )
 
     def _on_exp_mode(self):

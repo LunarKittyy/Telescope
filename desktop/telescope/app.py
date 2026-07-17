@@ -1,3 +1,4 @@
+import logging
 import shutil
 import socket
 import subprocess
@@ -234,6 +235,12 @@ class TelescopeWindow(QMainWindow):
 
         self._bus     = EventBus()
         self._plugins: list[TelescopePlugin] = []
+        # Captured once, right after each device-local plugin's UI is built
+        # and before any saved config is applied - lets us reset a plugin to
+        # a clean slate before layering a device's profile on top, so a
+        # profile that's missing a key doesn't inherit the previous device's
+        # value for it.
+        self._plugin_defaults: dict[str, dict] = {}
 
         self._worker: Optional[StreamWorker] = None
         self._ctrl:   Optional[PhoneControlClient] = None
@@ -259,6 +266,8 @@ class TelescopeWindow(QMainWindow):
             stretch_idx = self._scroll_content_layout.count() - 1
             self._scroll_content_layout.insertWidget(stretch_idx, panel)
         self._plugins.append(plugin)
+        if plugin.name in DEVICE_LOCAL_PLUGINS:
+            self._plugin_defaults[plugin.name] = plugin.get_config()
 
     def apply_saved_config(self):
         """Restore persisted config into all registered plugins. Call after all plugins registered."""
@@ -335,20 +344,57 @@ class TelescopeWindow(QMainWindow):
                     dev_pcfg[p.name] = p.get_config()
         save_config(cfg)
 
-    def _switch_device(self, prev_name, new_name: str):
-        """Save current device's per-device configs then restore the new device's."""
+    def _apply_device_profile(self, name: Optional[str]):
+        """Reset every device-local plugin to its captured defaults, then layer
+        the named device's saved settings on top (only the keys its profile
+        actually has - a key a profile doesn't have stays at its default
+        instead of inheriting whatever the previously-selected device left
+        behind)."""
+        cfg = load_config()
+        pcfg = cfg.get("devices", {}).get(name, {}).get("plugin_configs", {}) if name else {}
+        for p in self._plugins:
+            if p.name and p.name in DEVICE_LOCAL_PLUGINS:
+                p.set_config(self._plugin_defaults.get(p.name, {}))
+                if p.name in pcfg:
+                    p.set_config(pcfg[p.name])
+
+    def _switch_device(self, prev_name, new_name: Optional[str]):
+        """Switch the active device/connection profile.
+
+        Ordering matters here: the outgoing device's settings are saved
+        first, then (if a stream is running) it's stopped and its phone
+        control client torn down *before* the new profile is applied, so a
+        plugin's set_config() can't fire off a control request to the old
+        (soon to be wrong) phone. Only after the new profile is in place do
+        we persist the new selection and restart the stream.
+        """
         cfg = load_config()
         if prev_name:
             prev_pcfg = cfg.setdefault("devices", {}).setdefault(prev_name, {}).setdefault("plugin_configs", {})
             for p in self._plugins:
                 if p.name and p.name in DEVICE_LOCAL_PLUGINS:
                     prev_pcfg[p.name] = p.get_config()
+        save_config(cfg)
+
+        was_streaming = self._worker is not None
+        if was_streaming:
+            self._stop()
+
         cfg["selected_device"] = new_name
         save_config(cfg)
-        new_pcfg = cfg.get("devices", {}).get(new_name, {}).get("plugin_configs", {})
-        for p in self._plugins:
-            if p.name and p.name in DEVICE_LOCAL_PLUGINS and p.name in new_pcfg:
-                p.set_config(new_pcfg[p.name])
+        self._apply_device_profile(new_name)
+
+        if was_streaming:
+            self._start()
+
+    def reconnect_stream(self):
+        """Stop and restart the stream (if one is active) so it picks up the
+        current connection settings - used after the active IP or port
+        changes while streaming."""
+        if self._worker is None:
+            return
+        self._stop()
+        self._start()
 
     def _apply_config(self, cfg: dict):
         if not cfg:
@@ -356,18 +402,14 @@ class TelescopeWindow(QMainWindow):
         # config.py's load_config() already ran migration; cfg is always v2 here
         selected    = cfg.get("selected_device")
         global_pcfg = cfg.get("plugin_configs", {})
-        device_pcfg = cfg.get("devices", {}).get(selected, {}).get("plugin_configs", {}) if selected else {}
 
         conn = next((p for p in self._plugins if p.name == "connection"), None)
         for p in self._plugins:
-            if not p.name:
+            if not p.name or p.name in DEVICE_LOCAL_PLUGINS:
                 continue
-            if p.name in DEVICE_LOCAL_PLUGINS:
-                if p.name in device_pcfg:
-                    p.set_config(device_pcfg[p.name])
-            else:
-                if p.name in global_pcfg:
-                    p.set_config(global_pcfg[p.name])
+            if p.name in global_pcfg:
+                p.set_config(global_pcfg[p.name])
+        self._apply_device_profile(selected)
         # Restore device selection after connection plugin has its devices_list
         if conn:
             conn.select_device(selected)
@@ -418,8 +460,15 @@ class TelescopeWindow(QMainWindow):
         if self._worker:
             self._worker.status.disconnect(self._on_worker_status)
             self._worker.request_stop()
-            self._worker.wait()
+            # Bounded wait so a stalled read can't freeze the GUI. With the
+            # OpenCV open/read timeouts in _open_cap() this should normally
+            # finish well within this window; if it doesn't, let the worker
+            # keep unwinding in the background rather than force-killing it.
+            if not self._worker.wait(5000):
+                logging.warning("Stream worker did not stop within 5s; abandoning it in the background")
             self._worker = None
+        if self._ctrl:
+            self._ctrl.close()
         self._ctrl = None
         self._start_btn.setText("Start Streaming")
         self._start_btn.setProperty("streaming", False)

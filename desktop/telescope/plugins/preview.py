@@ -80,6 +80,11 @@ class PreviewPlugin(TelescopePlugin):
         self._host   = host
         self._active = False
         self._popout: _PopoutWindow | None = None
+        # Plain flag mirroring "popout is open", updated only from GUI-thread
+        # slots. process_frame() runs on the stream reader thread and must
+        # never touch self._popout (a QWidget) directly - Qt widgets are not
+        # thread-safe, and the popout can also be closed between reads.
+        self._popout_active = False
         self._busy   = False
         self._sig    = _Sig()
         self._sig.frame.connect(self._on_frame)
@@ -153,9 +158,11 @@ class PreviewPlugin(TelescopePlugin):
         self._popout.closed.connect(self._on_popout_closed)
         self._popout.resize(640, 360)
         self._popout.show()
+        self._popout_active = True
 
     def _on_popout_closed(self):
         self._popout = None
+        self._popout_active = False
         self._toggle_btn.setEnabled(True)
 
     def _on_host_hidden(self):
@@ -165,7 +172,7 @@ class PreviewPlugin(TelescopePlugin):
     # ── Worker thread ─────────────────────────────────────────────────────────
 
     def process_frame(self, frame: np.ndarray) -> np.ndarray:
-        popout_open = self._popout is not None and self._popout.isVisible()
+        popout_open = self._popout_active
         if not (self._active or popout_open) or self._busy:
             return frame
         self._busy = True

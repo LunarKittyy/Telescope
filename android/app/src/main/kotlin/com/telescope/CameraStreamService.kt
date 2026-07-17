@@ -49,7 +49,74 @@ data class CameraEntry(
     val aeCompMax: Int = 8,
     val aeCompStep: Float = 0.167f,
     val supportsFlash: Boolean = false,
+    val aeFpsRanges: List<Range<Int>> = emptyList(),
+    val afModes: Set<Int> = emptySet(),
+    val nrModes: Set<Int> = emptySet(),
+    val edgeModes: Set<Int> = emptySet(),
 )
+
+/**
+ * Pure Camera2 request-parameter selection logic, kept free of any CameraDevice/Service
+ * state so it can be unit tested on a plain JVM without camera hardware.
+ */
+object CameraRequestSelection {
+    /**
+     * Picks the advertised AE target FPS range closest to [target].
+     * Preference order: (1) a range that contains target, highest lower-bound among those
+     * (reduces low-light FPS drop); (2) otherwise the range whose upper bound is nearest
+     * target. Returns null (omit the request key) if [available] is empty.
+     */
+    fun pickAeFpsRange(available: List<Range<Int>>, target: Int): Range<Int>? {
+        if (available.isEmpty()) return null
+        val containing = available.filter { target in it.lower..it.upper }
+        if (containing.isNotEmpty()) return containing.maxByOrNull { it.lower }
+        return available.minByOrNull { kotlin.math.abs(it.upper - target) }
+    }
+
+    /**
+     * Chooses an AF mode from the camera's advertised modes. When [wantContinuousVideo] is
+     * true (i.e. not doing manual focus), prefers CONTINUOUS_VIDEO, then falls back through
+     * CONTINUOUS_PICTURE, AUTO, and finally OFF (always legal per the Camera2 contract) if
+     * none of the preferred modes are advertised.
+     */
+    fun pickAfMode(available: Set<Int>, wantContinuousVideo: Boolean): Int {
+        if (wantContinuousVideo && CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO in available)
+            return CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO
+        return when {
+            CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE in available ->
+                CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE
+            CaptureRequest.CONTROL_AF_MODE_AUTO in available -> CaptureRequest.CONTROL_AF_MODE_AUTO
+            else -> CaptureRequest.CONTROL_AF_MODE_OFF
+        }
+    }
+
+    /** Returns [requested] if advertised, else a safe fallback, else null (omit the key). */
+    fun pickNrMode(available: Set<Int>, requested: Int): Int? = pickMode(
+        available, requested,
+        listOf(CaptureRequest.NOISE_REDUCTION_MODE_FAST, CaptureRequest.NOISE_REDUCTION_MODE_OFF)
+    )
+
+    /** Returns [requested] if advertised, else a safe fallback, else null (omit the key). */
+    fun pickEdgeMode(available: Set<Int>, requested: Int): Int? = pickMode(
+        available, requested,
+        listOf(CaptureRequest.EDGE_MODE_FAST, CaptureRequest.EDGE_MODE_OFF)
+    )
+
+    private fun pickMode(available: Set<Int>, requested: Int, fallbacks: List<Int>): Int? {
+        if (available.isEmpty()) return null
+        if (requested in available) return requested
+        return fallbacks.firstOrNull { it in available }
+    }
+
+    fun clamp(value: Int, min: Int, max: Int): Int =
+        if (min > max) value else value.coerceIn(min, max)
+
+    fun clamp(value: Long, min: Long, max: Long): Long =
+        if (min > max) value else value.coerceIn(min, max)
+
+    fun clamp(value: Float, min: Float, max: Float): Float =
+        if (min > max) value else value.coerceIn(min, max)
+}
 
 class CameraStreamService : Service() {
 
@@ -63,6 +130,7 @@ class CameraStreamService : Service() {
         const val CHANNEL_ID       = "telescope_stream"
         const val NOTIF_ID         = 1
         const val DEFAULT_PORT     = 8080
+        private const val TAG      = "CameraStreamService"
 
     }
 
@@ -132,8 +200,14 @@ class CameraStreamService : Service() {
         handler?.post { previewSurface = surface; reconfigureSession() }
     }
 
-    fun detachPreviewSurface() {
-        handler?.post { previewSurface = null; reconfigureSession() }
+    /** [onDetached] runs after the surface has been dropped from the capture session and
+     *  the session rebuilt without it — the caller can safely release the Surface then. */
+    fun detachPreviewSurface(onDetached: (() -> Unit)? = null) {
+        handler?.post {
+            previewSurface = null
+            reconfigureSession()
+            onDetached?.invoke()
+        }
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -150,8 +224,22 @@ class CameraStreamService : Service() {
         val localOnly = intent?.getBooleanExtra(EXTRA_LOCAL_ONLY, false) ?: false
         bindAddr      = if (localOnly) "127.0.0.1" else "0.0.0.0"
 
-        enumerateAllCameras()
+        // startForeground() must be called unconditionally and early, before any
+        // return below: this service is launched via startForegroundService(), and
+        // Android kills the app if that promotion doesn't happen soon after, no
+        // matter what else goes wrong in the rest of this method.
         startForegroundCompat()
+
+        try {
+            enumerateAllCameras()
+        } catch (e: Exception) {
+            // e.g. EADDRINUSE if a just-stopped instance's MJPEG server port hasn't
+            // been released yet — this used to be uncaught and crashed the app.
+            android.util.Log.e(TAG, "Failed to start MJPEG server", e)
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return START_NOT_STICKY
+        }
         acquireWakeLock()
 
         val physId = if (logicalId.isNotEmpty()) cameraId else null
@@ -216,6 +304,13 @@ class CameraStreamService : Service() {
                               else 0.167f
             val supportsFlash = chars.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
 
+            val aeFpsRanges = chars.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)
+                ?.toList() ?: emptyList()
+            val afModes   = chars.get(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES)?.toSet() ?: emptySet()
+            val nrModes   = chars.get(CameraCharacteristics.NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES)
+                ?.toSet() ?: emptySet()
+            val edgeModes = chars.get(CameraCharacteristics.EDGE_AVAILABLE_EDGE_MODES)?.toSet() ?: emptySet()
+
             val hwLevel = when (chars.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL)) {
                 CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY   -> "LEGACY"
                 CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED  -> "LIMITED"
@@ -231,7 +326,8 @@ class CameraStreamService : Service() {
             CameraEntry(id, logicalParent, "$facing $fStr$oStr$pStr", hasOis,
                         isoMin, isoMax, shtMinNs, shtMaxNs,
                         supportsManualSensor, supportsManualWB, supportsManualFocus, minFocusDist, hwLevel,
-                        aeCompMin, aeCompMax, aeCompStep, supportsFlash)
+                        aeCompMin, aeCompMax, aeCompStep, supportsFlash,
+                        aeFpsRanges, afModes, nrModes, edgeModes)
         }.getOrNull()
 
         manager.cameraIdList.forEach { id ->
@@ -416,6 +512,13 @@ class CameraStreamService : Service() {
 
     // ── Camera open / session ─────────────────────────────────────────────────
 
+    // Bumped on every camera-open attempt (initial open or switchCameraTo). Async
+    // onOpened/onConfigured callbacks compare their captured generation against the
+    // current value and discard themselves if a newer open has since superseded them —
+    // otherwise a stale callback from an old open could clobber the camera that's
+    // actually meant to be active (see PR3 review notes on async camera switching).
+    @Volatile private var cameraGeneration = 0
+
     private fun openCamera(openCameraId: String, physicalCameraId: String?) {
         handlerThread = HandlerThread("CamThread").also { it.start() }
         handler       = Handler(handlerThread!!.looper)
@@ -431,47 +534,82 @@ class CameraStreamService : Service() {
             } finally { image.close() }
         }, handler)
 
+        val myGeneration = ++cameraGeneration
         val manager = getSystemService(CAMERA_SERVICE) as CameraManager
         try {
             @Suppress("MissingPermission")
             manager.openCamera(openCameraId, object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
+                    if (myGeneration != cameraGeneration) { camera.close(); return }
                     cameraDevice = camera
                     if (physicalCameraId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
-                        createPhysicalSession(camera, physicalCameraId)
+                        createPhysicalSession(camera, physicalCameraId, myGeneration)
                     else
-                        createLegacySession(camera)
+                        createLegacySession(camera, myGeneration)
                 }
-                override fun onDisconnected(camera: CameraDevice) { camera.close(); cameraDevice = null }
-                override fun onError(camera: CameraDevice, error: Int) { camera.close(); cameraDevice = null; stopSelf() }
+                override fun onDisconnected(camera: CameraDevice) {
+                    camera.close()
+                    if (myGeneration == cameraGeneration) cameraDevice = null
+                }
+                override fun onError(camera: CameraDevice, error: Int) {
+                    camera.close()
+                    if (myGeneration == cameraGeneration) { cameraDevice = null; stopSelf() }
+                }
             }, handler)
         } catch (e: Exception) { stopSelf() }
     }
 
     private fun currentTargetSurfaces(): List<Surface> = listOfNotNull(imageReader?.surface, previewSurface)
 
-    private fun createPhysicalSession(camera: CameraDevice, physId: String) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) { createLegacySession(camera); return }
+    private fun createPhysicalSession(camera: CameraDevice, physId: String, generation: Int = cameraGeneration) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) { createLegacySession(camera, generation); return }
+        // A stop/teardown racing in between the generation check in the caller and
+        // this call can null out imageReader (and previewSurface) concurrently -
+        // re-check staleness and bail rather than asking Camera2 to configure a
+        // session with zero surfaces, which throws.
+        if (generation != cameraGeneration) return
         val outCfgs = currentTargetSurfaces().map { surface ->
             OutputConfiguration(surface).also { it.setPhysicalCameraId(physId) }
         }
+        if (outCfgs.isEmpty()) return
         val exec   = Executor { cmd -> handler?.post(cmd) }
-        camera.createCaptureSession(SessionConfiguration(
-            SessionConfiguration.SESSION_REGULAR, outCfgs, exec,
-            object : CameraCaptureSession.StateCallback() {
-                override fun onConfigured(s: CameraCaptureSession) { captureSession = s; startRepeating(camera, s) }
-                override fun onConfigureFailed(s: CameraCaptureSession) { stopSelf() }
-            }
-        ))
+        try {
+            camera.createCaptureSession(SessionConfiguration(
+                SessionConfiguration.SESSION_REGULAR, outCfgs, exec,
+                object : CameraCaptureSession.StateCallback() {
+                    override fun onConfigured(s: CameraCaptureSession) {
+                        if (generation != cameraGeneration) { s.close(); return }
+                        captureSession = s; startRepeating(camera, s)
+                    }
+                    override fun onConfigureFailed(s: CameraCaptureSession) {
+                        if (generation == cameraGeneration) stopSelf()
+                    }
+                }
+            ))
+        } catch (_: Exception) {
+            if (generation == cameraGeneration) stopSelf()
+        }
     }
 
     @Suppress("DEPRECATION")
-    private fun createLegacySession(camera: CameraDevice) {
-        camera.createCaptureSession(currentTargetSurfaces(),
-            object : CameraCaptureSession.StateCallback() {
-                override fun onConfigured(s: CameraCaptureSession) { captureSession = s; startRepeating(camera, s) }
-                override fun onConfigureFailed(s: CameraCaptureSession) { stopSelf() }
-            }, handler)
+    private fun createLegacySession(camera: CameraDevice, generation: Int = cameraGeneration) {
+        if (generation != cameraGeneration) return
+        val targets = currentTargetSurfaces()
+        if (targets.isEmpty()) return
+        try {
+            camera.createCaptureSession(targets,
+                object : CameraCaptureSession.StateCallback() {
+                    override fun onConfigured(s: CameraCaptureSession) {
+                        if (generation != cameraGeneration) { s.close(); return }
+                        captureSession = s; startRepeating(camera, s)
+                    }
+                    override fun onConfigureFailed(s: CameraCaptureSession) {
+                        if (generation == cameraGeneration) stopSelf()
+                    }
+                }, handler)
+        } catch (_: Exception) {
+            if (generation == cameraGeneration) stopSelf()
+        }
     }
 
     /** Tears down and rebuilds the capture session on the already-open camera device,
@@ -500,31 +638,40 @@ class CameraStreamService : Service() {
             addTarget(imageReader!!.surface)
             previewSurface?.let { addTarget(it) }
 
+            val cam = currentCamera
+
             // Exposure and FPS
             // Use CONTROL_MODE_AUTO even in manual AE so that AF keeps running independently.
             set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
-            if (currentIso != null && currentShutterNs != null && currentCamera?.supportsManualSensor == true) {
+            if (currentIso != null && currentShutterNs != null && cam != null && cam.supportsManualSensor) {
+                val iso = CameraRequestSelection.clamp(currentIso!!, cam.isoMin, cam.isoMax)
+                val sht = CameraRequestSelection.clamp(currentShutterNs!!, cam.shutterMinNs, cam.shutterMaxNs)
                 set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
-                set(CaptureRequest.SENSOR_SENSITIVITY,   currentIso!!)
-                set(CaptureRequest.SENSOR_EXPOSURE_TIME, currentShutterNs!!)
+                set(CaptureRequest.SENSOR_SENSITIVITY,   iso)
+                set(CaptureRequest.SENSOR_EXPOSURE_TIME, sht)
                 // Enforce FPS via frame duration
                 val targetFrameNs = 1_000_000_000L / currentPhoneFps
-                set(CaptureRequest.SENSOR_FRAME_DURATION,
-                    targetFrameNs.coerceAtLeast(currentShutterNs!!))
+                set(CaptureRequest.SENSOR_FRAME_DURATION, targetFrameNs.coerceAtLeast(sht))
             } else {
                 set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
-                // In auto AE, request FPS range (allow half target in low light)
-                val fpsMin = (currentPhoneFps / 2).coerceAtLeast(5)
-                set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
-                    Range(fpsMin, currentPhoneFps))
+                // Pick the closest AE FPS range Camera2 actually advertises for this
+                // camera instead of inventing one — an unsupported range can make the
+                // capture request fail outright on some devices.
+                val range = CameraRequestSelection.pickAeFpsRange(cam?.aeFpsRanges ?: emptyList(), currentPhoneFps)
+                if (range != null) {
+                    android.util.Log.d(TAG, "AE FPS range for ${cam?.id}: $range (target=$currentPhoneFps)")
+                    set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, range)
+                }
             }
 
             // Focus
-            if (currentFocusMode == "manual" && currentCamera?.supportsManualFocus == true) {
+            if (currentFocusMode == "manual" && cam != null && cam.supportsManualFocus) {
                 set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
-                set(CaptureRequest.LENS_FOCUS_DISTANCE, currentFocusDistance)
+                set(CaptureRequest.LENS_FOCUS_DISTANCE,
+                    CameraRequestSelection.clamp(currentFocusDistance, 0f, cam.minFocusDistance))
             } else {
-                set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
+                set(CaptureRequest.CONTROL_AF_MODE,
+                    CameraRequestSelection.pickAfMode(cam?.afModes ?: emptySet(), wantContinuousVideo = true))
             }
 
             // JPEG quality
@@ -532,7 +679,7 @@ class CameraStreamService : Service() {
 
             // White balance — desktop sends pre-computed RGGB gains
             val gains = currentWbGains
-            if (gains != null && currentCamera?.supportsManualWB == true) {
+            if (gains != null && cam?.supportsManualWB == true) {
                 set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_OFF)
                 set(CaptureRequest.COLOR_CORRECTION_MODE,
                     CameraMetadata.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
@@ -543,23 +690,34 @@ class CameraStreamService : Service() {
                 set(CaptureRequest.COLOR_CORRECTION_MODE, CameraMetadata.COLOR_CORRECTION_MODE_FAST)
             }
 
-            // OIS
-            if (currentOis) set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
-                CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_ON)
+            // OIS — only ever requested ON if this camera actually advertises it.
+            set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
+                if (currentOis && cam?.hasOis == true) CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_ON
+                else CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_OFF)
 
-            // Noise reduction and edge enhancement
-            set(CaptureRequest.NOISE_REDUCTION_MODE, currentNrMode)
-            set(CaptureRequest.EDGE_MODE, currentEdgeMode)
+            // Noise reduction and edge enhancement — set only when the camera advertises
+            // a usable mode; otherwise omit the key rather than force an unsupported value.
+            CameraRequestSelection.pickNrMode(cam?.nrModes ?: emptySet(), currentNrMode)?.let {
+                set(CaptureRequest.NOISE_REDUCTION_MODE, it)
+            }
+            CameraRequestSelection.pickEdgeMode(cam?.edgeModes ?: emptySet(), currentEdgeMode)?.let {
+                set(CaptureRequest.EDGE_MODE, it)
+            }
 
             // AE exposure compensation (only meaningful in auto AE)
-            if (currentIso == null) set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, currentAeComp)
+            if (currentIso == null) {
+                val comp = if (cam != null) CameraRequestSelection.clamp(currentAeComp, cam.aeCompMin, cam.aeCompMax)
+                           else currentAeComp
+                set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, comp)
+            }
 
             // Black level lock
             set(CaptureRequest.BLACK_LEVEL_LOCK, currentBlackLevelLock)
 
-            // Torch
+            // Torch — only if this camera actually has a flash unit.
             set(CaptureRequest.FLASH_MODE,
-                if (currentTorch) CaptureRequest.FLASH_MODE_TORCH else CaptureRequest.FLASH_MODE_OFF)
+                if (currentTorch && cam?.supportsFlash == true) CaptureRequest.FLASH_MODE_TORCH
+                else CaptureRequest.FLASH_MODE_OFF)
 
         }.build()
     }
@@ -584,7 +742,23 @@ class CameraStreamService : Service() {
     }
 
     private fun switchCameraTo(entry: CameraEntry) {
+        // Drop manual/flash/focus state the new lens can't honor instead of silently
+        // carrying it across — buildRequest() would otherwise mask this at request
+        // time while buildCamerasJson() kept reporting the stale values.
+        //
+        // currentOis is deliberately NOT reset here: buildRequest() already only
+        // requests OIS-on when cam.hasOis is true, so leaving the user's desired
+        // toggle alone lets OIS resume automatically when switching back to an
+        // OIS-capable lens. Resetting it (as this used to do) silently turned OIS
+        // off with no way to re-enable it except unchecking/rechecking the desktop
+        // checkbox, since nothing here ever set it back to true on returning to an
+        // OIS lens.
+        if (!entry.supportsFlash) currentTorch = false
+        if (!entry.supportsManualSensor) { currentIso = null; currentShutterNs = null }
+        if (!entry.supportsManualFocus && currentFocusMode == "manual") currentFocusMode = "continuous"
         currentCamera = entry
+
+        val myGeneration = ++cameraGeneration
         try { captureSession?.close() } catch (_: Exception) {}
         try { cameraDevice?.close()   } catch (_: Exception) {}
         captureSession = null; cameraDevice = null
@@ -596,20 +770,34 @@ class CameraStreamService : Service() {
             @Suppress("MissingPermission")
             manager.openCamera(openId, object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
+                    if (myGeneration != cameraGeneration) { camera.close(); return }
                     cameraDevice = camera
                     if (physId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
-                        createPhysicalSession(camera, physId)
+                        createPhysicalSession(camera, physId, myGeneration)
                     else
-                        createLegacySession(camera)
+                        createLegacySession(camera, myGeneration)
                 }
-                override fun onDisconnected(camera: CameraDevice) { camera.close() }
-                override fun onError(camera: CameraDevice, error: Int) { camera.close() }
+                override fun onDisconnected(camera: CameraDevice) {
+                    camera.close()
+                    if (myGeneration == cameraGeneration) cameraDevice = null
+                }
+                override fun onError(camera: CameraDevice, error: Int) {
+                    camera.close()
+                    if (myGeneration == cameraGeneration) cameraDevice = null
+                }
             }, handler)
         } catch (_: Exception) {}
     }
 
     fun stopStreaming() {
         isStreaming = false
+        // Invalidates any open/session-configure callback already in flight on the
+        // camera handler thread (e.g. from a start that was immediately followed by
+        // a stop, before onOpened even fired) — without this, such a callback could
+        // resurrect cameraDevice/captureSession using imageReader/previewSurface
+        // that this call is about to close and null out, and then hand Camera2 an
+        // empty or already-torn-down surface set, which throws and crashes the app.
+        cameraGeneration++
         try { captureSession?.stopRepeating() } catch (_: Exception) {}
         try { captureSession?.close()         } catch (_: Exception) {}
         try { cameraDevice?.close()           } catch (_: Exception) {}

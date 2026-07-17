@@ -456,4 +456,5 @@ No build step needed - the Linux bundle is the Python source and launcher script
 | High latency over Wi-Fi | MJPEG is per-frame JPEG, higher bandwidth than H.264 | Use USB mode, lower JPEG quality, or reduce phone FPS |
 | Second launch does nothing | Single-instance enforcement | The existing window is brought to the front |
 | QR pairing fails ("Could not reach desktop") | Phone and desktop not on the same network, or desktop firewall blocking port 8765 | Make sure both are on the same Wi-Fi; the pairing server only runs while the QR dialog is open |
+| QR pairing fails while a VPN is active | A VPN on the phone and/or desktop can route traffic off the local Wi-Fi network, or advertise an IP the other device can't actually reach | Temporarily disconnect the VPN on both devices while pairing, or pair first and reconnect the VPN afterward |
 | QR scanner opens in landscape | Manifest override not applied | The app overrides ZXing's default orientation to portrait; rebuild if you see this on an old build |

@@ -158,6 +158,7 @@ class MainActivity : AppCompatActivity() {
         try {
             val json = org.json.JSONObject(data)
             val port = json.getInt("port")
+            val nonce = json.getString("nonce")
             val ipsJson = json.getJSONArray("ips")
             val desktopIps = (0 until ipsJson.length()).map { ipsJson.getString(it) }
             val myIps = getAllDeviceIps()
@@ -168,7 +169,7 @@ class MainActivity : AppCompatActivity() {
                 val errors = mutableListOf<String>()
                 for (ip in desktopIps) {
                     try {
-                        val url = java.net.URL("http://$ip:$port/pair")
+                        val url = java.net.URL("http://$ip:$port/pair/$nonce")
                         val conn = url.openConnection() as java.net.HttpURLConnection
                         conn.requestMethod = "POST"
                         conn.setRequestProperty("Content-Type", "application/json")

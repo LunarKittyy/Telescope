@@ -24,6 +24,7 @@ import android.util.Size
 import android.view.Gravity
 import android.view.Surface
 import android.view.TextureView
+import android.view.View
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.LinearLayout
@@ -62,6 +63,20 @@ class PreviewActivity : AppCompatActivity() {
     private var boundToRunningStream = false
     private var resolved = false
     private var pendingSurface: Surface? = null
+    // Guards tearDownPreview() so a second call (it can run from both onStop() and
+    // onSurfaceTextureDestroyed()) is a no-op instead of redundantly detaching/closing.
+    private var tornDown = false
+
+    // True once the initial aspect-ratio crop layout has actually landed (not just been
+    // requested). tryResolve() must not attach the preview surface to the running stream's
+    // session before this: TextureView.onSizeChanged() overwrites the SurfaceTexture's
+    // default buffer size on every resize, so if that resize happens on the main thread
+    // after we've set our own default buffer size but before the service's background
+    // thread has actually called createCaptureSession(), Camera2 can silently lock the
+    // session to the view's transient pre-crop size instead of the intended stream size -
+    // the correction matrix then looks like a no-op while the real buffer is deformed.
+    private var layoutSettled = false
+    private var pendingAspectSize: Size? = null
 
     // Remembered so the transform can be recomputed when the aspect ratio (and
     // therefore the TextureView's on-screen size) changes, without re-deriving them.
@@ -75,11 +90,29 @@ class PreviewActivity : AppCompatActivity() {
     private var captureSession: CameraCaptureSession? = null
     private var handlerThread: HandlerThread? = null
     private var handler: Handler? = null
+    // Bumped on every standalone camera-open attempt so a stale onOpened/onConfigured
+    // from a superseded lens switch can't clobber the camera that's actually current.
+    private var standaloneGeneration = 0
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
             service = (binder as CameraStreamService.LocalBinder).getService()
             bound = true
+            if (service?.isStreaming == true) {
+                // Bound to an already-running stream: the preview just shows that stream's
+                // fixed-size feed, so cropping it to a different ratio only crops within a
+                // buffer that's already the streaming resolution - it never reveals more or
+                // less of the sensor the way it does in the standalone case below, where each
+                // ratio opens its own independent session at a size chosen for that ratio.
+                // The picker isn't meaningful here, so skip it and leave the TextureView at
+                // its natural full-screen size (also sidesteps the resize entirely, so there's
+                // nothing left to race against session creation).
+                btnAspect.visibility = View.GONE
+                layoutSettled = true
+            } else {
+                btnAspect.visibility = View.VISIBLE
+                beginStandaloneAspectLayout()
+            }
             tryResolve()
         }
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -97,14 +130,14 @@ class PreviewActivity : AppCompatActivity() {
         lensContainer = findViewById(R.id.layoutLensPills)
         btnAspect     = findViewById(R.id.btnAspect)
 
+        // Hidden until onServiceConnected confirms we're in the standalone (not currently
+        // streaming) case, where picking a ratio actually changes what's captured.
+        btnAspect.visibility = View.GONE
         btnAspect.text = AspectOption.entries[aspectIndex].label
         btnAspect.setOnClickListener {
             aspectIndex = (aspectIndex + 1) % AspectOption.entries.size
             applyAspectOption()
         }
-        // Deferred until after layout so the TextureView's parent has a real size —
-        // calling this synchronously here would no-op against a still-zero-sized view.
-        textureView.post { applyAspectOption() }
 
         btnClose.setOnClickListener { finish() }
         // Back should just leave this screen, same as the X button — it must never
@@ -115,6 +148,7 @@ class PreviewActivity : AppCompatActivity() {
 
         textureView.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
             override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) {
+                tornDown = false
                 pendingSurface = Surface(st)
                 tryResolve()
             }
@@ -153,6 +187,11 @@ class PreviewActivity : AppCompatActivity() {
         service = null
         resolved = false
         boundToRunningStream = false
+        // Screen off, app backgrounded, or the app switched away from while the preview is
+        // open - back out to the main screen rather than leaving a dead preview on top.
+        // Only this activity's own camera/session resources were torn down above; if a
+        // stream is live, CameraStreamService owns it independently and keeps running.
+        finish()
         super.onStop()
     }
 
@@ -160,6 +199,9 @@ class PreviewActivity : AppCompatActivity() {
 
     private fun tryResolve() {
         if (resolved) return
+        // Bound-to-stream case sets this immediately (no crop applied there); standalone
+        // case waits for its aspect-ratio crop layout to actually land - see onServiceConnected.
+        if (!layoutSettled) return
         val surface = pendingSurface ?: return
 
         if (!bound) return // still waiting for onServiceConnected
@@ -171,6 +213,9 @@ class PreviewActivity : AppCompatActivity() {
             val streamSize = svc.getStreamSize()
             // Must be set before attaching — Camera2 needs the surface's buffer size
             // fixed to a supported size before it's used as a session output target.
+            // No aspect-ratio crop is applied in this path (see onServiceConnected), so
+            // there's no pending resize left that could overwrite this before the
+            // service's background thread reads it when it creates the session.
             textureView.surfaceTexture?.setDefaultBufferSize(streamSize.width, streamSize.height)
             svc.attachPreviewSurface(surface)
             setupLensPillsFromService(streamSize)
@@ -182,11 +227,19 @@ class PreviewActivity : AppCompatActivity() {
     }
 
     private fun tearDownPreview() {
+        if (tornDown) return
+        tornDown = true
+        val surface = pendingSurface
         pendingSurface = null
         if (boundToRunningStream) {
-            service?.detachPreviewSurface()
+            // The service owns detaching the surface from its live session; only release
+            // the Surface itself once that's done (or immediately if it's already gone).
+            val svc = service
+            if (svc != null) svc.detachPreviewSurface { surface?.release() }
+            else surface?.release()
         } else {
             closeStandaloneCamera()
+            surface?.release()
         }
     }
 
@@ -234,6 +287,7 @@ class PreviewActivity : AppCompatActivity() {
         textureView.surfaceTexture?.setDefaultBufferSize(size.width, size.height)
         applyPreviewTransform(cam.id, size)
 
+        val myGeneration = ++standaloneGeneration
         val manager = getSystemService(CAMERA_SERVICE) as CameraManager
         val openId = cam.logicalId ?: cam.id
         val physId = if (cam.logicalId != null) cam.id else null
@@ -241,18 +295,26 @@ class PreviewActivity : AppCompatActivity() {
             @Suppress("MissingPermission")
             manager.openCamera(openId, object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
+                    if (myGeneration != standaloneGeneration) { camera.close(); return }
                     cameraDevice = camera
-                    openStandaloneSession(camera, surface, physId)
+                    openStandaloneSession(camera, surface, physId, myGeneration)
                 }
-                override fun onDisconnected(camera: CameraDevice) { camera.close(); cameraDevice = null }
-                override fun onError(camera: CameraDevice, error: Int) { camera.close(); cameraDevice = null }
+                override fun onDisconnected(camera: CameraDevice) {
+                    camera.close()
+                    if (myGeneration == standaloneGeneration) cameraDevice = null
+                }
+                override fun onError(camera: CameraDevice, error: Int) {
+                    camera.close()
+                    if (myGeneration == standaloneGeneration) cameraDevice = null
+                }
             }, handler)
         } catch (_: Exception) {}
     }
 
-    private fun openStandaloneSession(camera: CameraDevice, surface: Surface, physId: String?) {
+    private fun openStandaloneSession(camera: CameraDevice, surface: Surface, physId: String?, generation: Int) {
         val callback = object : CameraCaptureSession.StateCallback() {
             override fun onConfigured(s: CameraCaptureSession) {
+                if (generation != standaloneGeneration) { s.close(); return }
                 captureSession = s
                 val request = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
                     addTarget(surface)
@@ -275,6 +337,9 @@ class PreviewActivity : AppCompatActivity() {
     }
 
     private fun closeStandaloneCamera(keepThread: Boolean = false) {
+        // Invalidate any in-flight open/session-configure from a camera we're now
+        // abandoning so a late callback can't resurrect it after this returns.
+        standaloneGeneration++
         try { captureSession?.stopRepeating() } catch (_: Exception) {}
         try { captureSession?.close() } catch (_: Exception) {}
         try { cameraDevice?.close() } catch (_: Exception) {}
@@ -296,6 +361,13 @@ class PreviewActivity : AppCompatActivity() {
     // fill the view, so a corrective scale (not rotation) is what fixes the aspect
     // ratio. The app is portrait-locked, so display rotation is always 0 and doesn't
     // factor in here.
+    //
+    // Standalone mode crops the TextureView itself to a box already sized to match the
+    // chosen aspect option, so a "cover" scale (fill the box, cropping only a near-zero
+    // mismatch) is right there. Bound-to-stream mode has no such crop box - the view is
+    // the full, arbitrary-aspect screen - so a "cover" scale there would crop the edges
+    // off the stream's actual frame to fill the phone's own screen aspect; "contain"
+    // (letterbox, show the whole frame) is what's wanted instead.
 
     private fun applyPreviewTransform(cameraId: String?, bufferSize: Size?, retryCount: Int = 0) {
         if (cameraId == null || bufferSize == null) return
@@ -314,7 +386,7 @@ class PreviewActivity : AppCompatActivity() {
             val bufH = bufferSize.height.toFloat()
             val scaleX = if (axesSwapped) viewWidth  / bufH else viewWidth  / bufW
             val scaleY = if (axesSwapped) viewHeight / bufW else viewHeight / bufH
-            val finalScale = maxOf(scaleX, scaleY)
+            val finalScale = if (boundToRunningStream) minOf(scaleX, scaleY) else maxOf(scaleX, scaleY)
 
             val matrix = Matrix()
             matrix.setScale(finalScale / scaleX, finalScale / scaleY,
@@ -349,6 +421,32 @@ class PreviewActivity : AppCompatActivity() {
     // than just guide lines. Re-applying the transform happens automatically once the
     // resize lands, via onSurfaceTextureSizeChanged.
 
+    // Only called for the standalone (not currently streaming) case - see onServiceConnected.
+    private fun beginStandaloneAspectLayout() {
+        // Deferred until after layout so the TextureView's parent has a real size —
+        // calling this synchronously here would no-op against a still-zero-sized view.
+        textureView.post { applyAspectOption() }
+        // Don't trust that posting is enough of a barrier: requestLayout() only schedules
+        // a traversal for the next Choreographer frame, it doesn't run synchronously. Wait
+        // for the TextureView's bounds to actually match the computed crop size before
+        // letting tryResolve() proceed to open the camera - otherwise TextureView's own
+        // onSizeChanged (which overwrites the SurfaceTexture's default buffer size on every
+        // resize) could still be pending when the session gets created.
+        textureView.addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
+            override fun onLayoutChange(
+                v: View, left: Int, top: Int, right: Int, bottom: Int,
+                oldLeft: Int, oldTop: Int, oldRight: Int, oldBottom: Int
+            ) {
+                val target = pendingAspectSize ?: return
+                if (right - left == target.width && bottom - top == target.height) {
+                    layoutSettled = true
+                    v.removeOnLayoutChangeListener(this)
+                    tryResolve()
+                }
+            }
+        })
+    }
+
     private fun applyAspectOption() {
         val option = AspectOption.entries[aspectIndex]
         btnAspect.text = option.label
@@ -365,6 +463,7 @@ class PreviewActivity : AppCompatActivity() {
         var h = (w / option.ratio).toInt()
         if (h > screenH) { h = screenH; w = (h * option.ratio).toInt() }
 
+        pendingAspectSize = Size(w, h)
         val lp = textureView.layoutParams as FrameLayout.LayoutParams
         lp.width = w
         lp.height = h
