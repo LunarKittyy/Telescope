@@ -29,6 +29,14 @@ jobs:
           python-version: '3.11'
           cache: pip
 
+      - name: Install test dependencies
+        working-directory: desktop
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests
+        working-directory: desktop
+        run: python -m pytest -q
+
       - name: Install runtime deps + PyInstaller
         working-directory: desktop
         run: pip install -r requirements.txt pyinstaller
