@@ -193,14 +193,15 @@ def acquire_single_instance() -> Optional[socket.socket]:
         srv.listen(1)
         return srv
     except OSError:
+        c = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            c = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             c.settimeout(1)
             c.connect(("127.0.0.1", _INSTANCE_PORT))
             c.sendall(b"raise")
-            c.close()
         except Exception:
             pass
+        finally:
+            c.close()
         srv.close()
         return None
 

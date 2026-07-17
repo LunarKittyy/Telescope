@@ -223,7 +223,9 @@ class TransformsPlugin(TelescopePlugin):
         zoom = cfg.get("zoom", 1.0)
         self._zoom_slider.setValue(int(zoom * 100))
         pan_active = zoom > 1.0
-        self._pan_x_slider.set_value(cfg.get("pan_x", 0.0))
-        self._pan_y_slider.set_value(cfg.get("pan_y", 0.0))
+        self.pan_x = cfg.get("pan_x", 0.0) if pan_active else 0.0
+        self.pan_y = cfg.get("pan_y", 0.0) if pan_active else 0.0
+        self._pan_x_slider.set_value(self.pan_x)
+        self._pan_y_slider.set_value(self.pan_y)
         self._pan_x_slider.set_enabled(pan_active)
         self._pan_y_slider.set_enabled(pan_active)

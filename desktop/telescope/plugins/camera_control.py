@@ -693,29 +693,31 @@ class CameraControlPlugin(TelescopePlugin):
         }
 
     def set_config(self, cfg: dict):
-        if cfg.get("exp_manual"):
-            self._rb_exp_manual.setChecked(True)
-            self._rb_exp_auto.setChecked(False)
-            self._iso_slider.set_enabled(True)
-            self._sht_slider.set_enabled(True)
+        manual_exp = bool(cfg.get("exp_manual", False))
+        self._rb_exp_manual.setChecked(manual_exp)
+        self._rb_exp_auto.setChecked(not manual_exp)
+        self._manual_exp = manual_exp
+        self._iso_slider.set_enabled(manual_exp)
+        self._sht_slider.set_enabled(manual_exp)
         if iso := cfg.get("iso"):
             self._iso_slider.set_value(float(iso))
         if sht := cfg.get("shutter_ns"):
             self._sht_slider.set_value(float(sht))
         self._ois_cb.setChecked(cfg.get("ois", True))
-        if cfg.get("focus_manual"):
-            self._rb_focus_manual.setChecked(True)
-            self._rb_focus_auto.setChecked(False)
+        manual_focus = bool(cfg.get("focus_manual", False))
+        self._rb_focus_manual.setChecked(manual_focus)
+        self._rb_focus_auto.setChecked(not manual_focus)
+        self._manual_focus = manual_focus
         if d := cfg.get("focus_diopters"):
             self._set_focus_slider_value(float(d))
-        if cfg.get("wb_manual"):
-            self._rb_wb_manual.setChecked(True)
-            self._rb_wb_auto.setChecked(False)
-            self._manual_wb = True
-            self._wb_slider.setEnabled(True)
-            self._wb_k_lbl.setEnabled(True)
-            self._tint_slider.setEnabled(True)
-            self._tint_lbl.setEnabled(True)
+        manual_wb = bool(cfg.get("wb_manual", False))
+        self._rb_wb_manual.setChecked(manual_wb)
+        self._rb_wb_auto.setChecked(not manual_wb)
+        self._manual_wb = manual_wb
+        self._wb_slider.setEnabled(manual_wb)
+        self._wb_k_lbl.setEnabled(manual_wb)
+        self._tint_slider.setEnabled(manual_wb)
+        self._tint_lbl.setEnabled(manual_wb)
         if k := cfg.get("wb_kelvin"):
             self._wb_slider.blockSignals(True)
             self._wb_slider.setValue(int(k))
@@ -733,5 +735,4 @@ class CameraControlPlugin(TelescopePlugin):
         if (em := cfg.get("edge_mode")) is not None:
             idx = next((i for i, (_, v) in enumerate(_EDGE_MODES) if v == em), 1)
             self._edge_combo.setCurrentIndex(idx)
-        if cfg.get("bll"):
-            self._bll_cb.setChecked(True)
+        self._bll_cb.setChecked(bool(cfg.get("bll", False)))

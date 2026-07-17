@@ -1,11 +1,13 @@
 import threading
 import time
 import urllib.parse
+import urllib.error
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
 from telescope.phone_client import PhoneControlClient
+import telescope.phone_client as phone_client_module
 
 
 class _RecordingHandler(BaseHTTPRequestHandler):
@@ -70,3 +72,105 @@ def test_close_stops_accepting_new_requests(recording_server):
 
     time.sleep(0.3)
     assert recording_server.received == []
+
+
+class _Response:
+    def __init__(self, body=b"{}"):
+        self.body = body
+        self.read_count = 0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        pass
+
+    def read(self):
+        self.read_count += 1
+        return self.body
+
+
+def test_base_url_strips_only_trailing_video_component(monkeypatch):
+    monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
+    client = PhoneControlClient("http://phone/video")
+    assert client.base == "http://phone"
+    nested = PhoneControlClient("http://video-host/path/video")
+    assert nested.base == "http://video-host/path"
+
+
+def test_get_state_decodes_json_and_uses_timeout(monkeypatch):
+    monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
+    client = PhoneControlClient("http://phone/video")
+    calls = []
+    response = _Response(b'{"battery": 81}')
+    monkeypatch.setattr(
+        phone_client_module.urllib.request,
+        "urlopen",
+        lambda url, timeout: calls.append((url, timeout)) or response,
+    )
+
+    assert client.get_state() == {"battery": 81}
+    assert calls == [("http://phone/cameras", 4)]
+    assert response.read_count == 1
+
+
+@pytest.mark.parametrize("effect", [OSError("offline"), ValueError("bad json")])
+def test_get_state_returns_none_on_transport_or_json_error(monkeypatch, effect):
+    monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
+    client = PhoneControlClient("http://phone/video")
+
+    def open_url(*_args, **_kwargs):
+        if isinstance(effect, OSError):
+            raise effect
+        return _Response(b"not-json")
+
+    monkeypatch.setattr(phone_client_module.urllib.request, "urlopen", open_url)
+    assert client.get_state() is None
+
+
+def test_send_now_urlencodes_parameters_and_reads_response(monkeypatch):
+    monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
+    client = PhoneControlClient("http://phone/video")
+    calls = []
+    response = _Response(b"ok")
+    monkeypatch.setattr(
+        phone_client_module.urllib.request,
+        "urlopen",
+        lambda url, timeout: calls.append((url, timeout)) or response,
+    )
+
+    client._send_now({"action": "camera", "id": "wide angle"})
+
+    assert calls == [("http://phone/control?action=camera&id=wide+angle", 3)]
+    assert response.read_count == 1
+
+
+def test_send_now_swallows_transport_errors(monkeypatch):
+    monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
+    client = PhoneControlClient("http://phone/video")
+    monkeypatch.setattr(
+        phone_client_module.urllib.request,
+        "urlopen",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("offline")),
+    )
+    client._send_now({"action": "iso", "value": 100})
+
+
+def test_close_is_idempotent(monkeypatch):
+    monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
+    client = PhoneControlClient("http://phone/video")
+    client.close()
+    client.close()
+    assert client._closed is True
+    assert client._queue.get_nowait() is None
+
+
+def test_worker_skips_stale_pending_key(monkeypatch):
+    monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
+    client = PhoneControlClient("http://phone/video")
+    sent = []
+    monkeypatch.setattr(client, "_send_now", sent.append)
+    client._queue.put("iso")
+    client._queue.put(None)
+    client._worker()
+    assert sent == []
