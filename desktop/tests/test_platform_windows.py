@@ -15,8 +15,10 @@ def test_unitycapture_dir_frozen_and_source(monkeypatch, tmp_path):
     assert windows.unitycapture_dir() == tmp_path / "unitycapture"
 
     monkeypatch.delattr(windows.sys, "frozen", raising=False)
-    assert windows.unitycapture_dir().name == "unitycapture"
-    assert windows.unitycapture_dir().parent.name == "desktop"
+    # Anchored on this test file's own location (desktop/tests/..) rather than
+    # a literal "desktop" name, so it holds regardless of the checkout's folder name.
+    desktop_root = Path(__file__).resolve().parent.parent
+    assert windows.unitycapture_dir() == desktop_root / "unitycapture"
 
 
 def test_sha256_reads_entire_file(tmp_path):

@@ -37,8 +37,10 @@ def test_platform_tools_dir_uses_executable_when_frozen(monkeypatch, tmp_path):
 
 def test_platform_tools_dir_uses_desktop_source_tree(monkeypatch):
     monkeypatch.delattr(platform_api.sys, "frozen", raising=False)
-    assert platform_api.platform_tools_dir().name == "platform-tools"
-    assert platform_api.platform_tools_dir().parent.name == "desktop"
+    # Anchored on this test file's own location (desktop/tests/..) rather than
+    # a literal "desktop" name, so it holds regardless of the checkout's folder name.
+    desktop_root = Path(__file__).resolve().parent.parent
+    assert platform_api.platform_tools_dir() == desktop_root / "platform-tools"
 
 
 def test_bundled_apk_path_returns_existing_file(monkeypatch, tmp_path):
