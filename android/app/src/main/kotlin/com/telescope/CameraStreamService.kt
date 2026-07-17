@@ -29,6 +29,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import java.util.concurrent.Executor
 import kotlin.math.sqrt
+import kotlinx.serialization.json.Json
 
 // ── Camera catalogue entry ────────────────────────────────────────────────────
 data class CameraEntry(
@@ -131,7 +132,6 @@ class CameraStreamService : Service() {
         const val NOTIF_ID         = 1
         const val DEFAULT_PORT     = 8080
         private const val TAG      = "CameraStreamService"
-
     }
 
     inner class LocalBinder : Binder() {
@@ -179,9 +179,49 @@ class CameraStreamService : Service() {
     private var allCameras:    List<CameraEntry> = emptyList()
     private var currentCamera: CameraEntry?      = null
 
-    var isStreaming = false
-        private set
+    private val stateMachine = StreamStateMachine()
+    val state: StreamState get() = stateMachine.state
+    val isStreaming: Boolean get() = stateMachine.isStreaming
     val port: Int get() = DEFAULT_PORT
+
+    /** Records a state transition and logs it with structured context (camera
+     *  id, generation, operation, sanitized exception details - class name and
+     *  message only, never a raw stack trace or anything from request
+     *  headers/URLs). History for "Copy diagnostics" lives in [stateMachine]. */
+    private fun setState(newState: StreamState, op: String, error: Throwable? = null) {
+        val old = state
+        val transition = stateMachine.transition(newState, op, error)
+        android.util.Log.i(
+            TAG,
+            "StreamState $old -> $newState (op=$op, camera=${currentCamera?.id}, " +
+                "generation=$cameraGeneration${transition.error?.let { ", error=$it" } ?: ""})",
+        )
+    }
+
+    /** Sanitized diagnostics report for the "Copy diagnostics" action: app/device
+     *  info, current state, and recent transitions/errors. Never includes the
+     *  pairing token, any URL, or raw configuration. */
+    fun buildDiagnosticsReport(): String {
+        val sb = StringBuilder()
+        sb.appendLine("Telescope diagnostics")
+        val versionName = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "unknown"
+        sb.appendLine("App version: $versionName")
+        sb.appendLine("Device: ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})")
+        sb.appendLine("Current state: $state")
+        sb.appendLine("Current camera: ${currentCamera?.id ?: "none"} (${currentCamera?.label ?: "-"})")
+        sb.appendLine("Recent transitions:")
+        val snapshot = stateMachine.recentTransitions()
+        if (snapshot.isEmpty()) {
+            sb.appendLine("  (none)")
+        } else {
+            for (t in snapshot) {
+                sb.append("  ${t.from} -> ${t.to}  op=${t.op}")
+                if (t.error != null) sb.append("  error=${t.error}")
+                sb.appendLine()
+            }
+        }
+        return sb.toString()
+    }
 
     // ── Live preview (for PreviewActivity) ───────────────────────────────────
 
@@ -227,12 +267,13 @@ class CameraStreamService : Service() {
         // service starts via startForegroundService(), and Android kills the app if
         // the promotion doesn't happen soon after, regardless of what fails below.
         startForegroundCompat()
+        setState(StreamState.StartingServer, "onStartCommand")
 
         try {
             enumerateAllCameras()
         } catch (e: Exception) {
             // e.g. EADDRINUSE if a just-stopped instance's port hasn't been released yet.
-            android.util.Log.e(TAG, "Failed to start MJPEG server", e)
+            setState(StreamState.Failed, "startServer", e)
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
@@ -245,8 +286,8 @@ class CameraStreamService : Service() {
             ?: CameraEntry(cameraId, logicalId.ifEmpty { null }, "ID $cameraId",
                            currentOis, 50, 3200, 100_000L, 1_000_000_000L)
 
+        setState(StreamState.OpeningCamera, "onStartCommand")
         openCamera(openId, physId)
-        isStreaming = true
         return START_NOT_STICKY
     }
 
@@ -373,33 +414,41 @@ class CameraStreamService : Service() {
 
     private fun buildCamerasJson(): String {
         val cur = currentCamera
-        val cams = allCameras.joinToString(",") { e ->
-            val log  = if (e.logicalId != null) "\"${e.logicalId}\"" else "null"
-            val curr = (e.id == cur?.id).toString()
-            """{"id":"${e.id}","logicalId":$log,"label":"${e.label}","current":$curr,""" +
-            """"hasOis":${e.hasOis},"isoMin":${e.isoMin},"isoMax":${e.isoMax},""" +
-            """"shutterMinNs":${e.shutterMinNs},"shutterMaxNs":${e.shutterMaxNs},""" +
-            """"supportsManualSensor":${e.supportsManualSensor},"supportsManualWB":${e.supportsManualWB},""" +
-            """"supportsManualFocus":${e.supportsManualFocus},"minFocusDistance":${e.minFocusDistance},""" +
-            """"aeCompMin":${e.aeCompMin},"aeCompMax":${e.aeCompMax},"aeCompStep":${e.aeCompStep},""" +
-            """"supportsFlash":${e.supportsFlash},"hwLevel":"${e.hwLevel}"}"""
+        val cams = allCameras.map { e ->
+            CameraCapability(
+                id = e.id, logicalId = e.logicalId, label = e.label, current = (e.id == cur?.id),
+                hasOis = e.hasOis, isoMin = e.isoMin, isoMax = e.isoMax,
+                shutterMinNs = e.shutterMinNs, shutterMaxNs = e.shutterMaxNs,
+                supportsManualSensor = e.supportsManualSensor, supportsManualWB = e.supportsManualWB,
+                supportsManualFocus = e.supportsManualFocus, minFocusDistance = e.minFocusDistance,
+                aeCompMin = e.aeCompMin, aeCompMax = e.aeCompMax, aeCompStep = e.aeCompStep,
+                supportsFlash = e.supportsFlash, hwLevel = e.hwLevel,
+            )
         }
-        val auto   = (currentIso == null).toString()
-        val isoStr = currentIso?.toString() ?: "null"
-        val shtStr = currentShutterNs?.toString() ?: "null"
-        val wbManual = (currentWbGains != null).toString()
         val mg = lastMeasuredGains
-        val wbGainsStr = if (mg != null)
-            """"wb_r":${mg.red},"wb_ge":${mg.greenEven},"wb_go":${mg.greenOdd},"wb_b":${mg.blue}"""
-        else """"wb_r":null,"wb_ge":null,"wb_go":null,"wb_b":null"""
         val (battLevel, battCharging, battTempC) = getBatteryInfo()
-        return """{"cameras":[$cams],"auto":$auto,"iso":$isoStr,""" +
-               """"shutter_ns":$shtStr,"wb_manual":$wbManual,$wbGainsStr,"ois":$currentOis,""" +
-               """"focus_mode":"$currentFocusMode","focus_distance":$currentFocusDistance,""" +
-               """"nr_mode":$currentNrMode,"edge_mode":$currentEdgeMode,""" +
-               """"ae_comp":$currentAeComp,"black_level_lock":$currentBlackLevelLock,"torch":$currentTorch,""" +
-               """"jpeg_quality":$currentJpegQuality,"phone_fps":$currentPhoneFps,""" +
-               """"battery":$battLevel,"charging":$battCharging,"battery_temp_c":$battTempC}"""
+        val state = V1State(
+            cameras = cams,
+            auto = currentIso == null,
+            iso = currentIso,
+            shutter_ns = currentShutterNs,
+            wb_manual = currentWbGains != null,
+            wb_r = mg?.red, wb_ge = mg?.greenEven, wb_go = mg?.greenOdd, wb_b = mg?.blue,
+            ois = currentOis,
+            focus_mode = currentFocusMode,
+            focus_distance = currentFocusDistance,
+            nr_mode = currentNrMode,
+            edge_mode = currentEdgeMode,
+            ae_comp = currentAeComp,
+            black_level_lock = currentBlackLevelLock,
+            torch = currentTorch,
+            jpeg_quality = currentJpegQuality,
+            phone_fps = currentPhoneFps,
+            battery = battLevel,
+            charging = battCharging,
+            battery_temp_c = battTempC,
+        )
+        return Json.encodeToString(V1State.serializer(), state)
     }
 
     private fun handleControlCommand(params: Map<String, String>): String {
@@ -505,8 +554,8 @@ class CameraStreamService : Service() {
         } catch (e: Exception) { err(e.message ?: "exception") }
     }
 
-    private fun ok()             = """{"ok":true}"""
-    private fun err(msg: String) = """{"ok":false,"error":"$msg"}"""
+    private fun ok()             = Json.encodeToString(ControlResult.serializer(), ControlResult(ok = true))
+    private fun err(msg: String) = Json.encodeToString(ControlResult.serializer(), ControlResult(ok = false, error = msg))
 
     // ── Camera open / session ─────────────────────────────────────────────────
 
@@ -539,6 +588,7 @@ class CameraStreamService : Service() {
                 override fun onOpened(camera: CameraDevice) {
                     if (myGeneration != cameraGeneration) { camera.close(); return }
                     cameraDevice = camera
+                    setState(StreamState.ConfiguringSession, "openCamera.onOpened")
                     if (physicalCameraId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
                         createPhysicalSession(camera, physicalCameraId, myGeneration)
                     else
@@ -546,14 +596,24 @@ class CameraStreamService : Service() {
                 }
                 override fun onDisconnected(camera: CameraDevice) {
                     camera.close()
-                    if (myGeneration == cameraGeneration) cameraDevice = null
+                    if (myGeneration == cameraGeneration) {
+                        cameraDevice = null
+                        setState(StreamState.Failed, "openCamera.onDisconnected")
+                    }
                 }
                 override fun onError(camera: CameraDevice, error: Int) {
                     camera.close()
-                    if (myGeneration == cameraGeneration) { cameraDevice = null; stopSelf() }
+                    if (myGeneration == cameraGeneration) {
+                        cameraDevice = null
+                        setState(StreamState.Failed, "openCamera.onError", RuntimeException("Camera2 error code $error"))
+                        stopSelf()
+                    }
                 }
             }, handler)
-        } catch (e: Exception) { stopSelf() }
+        } catch (e: Exception) {
+            setState(StreamState.Failed, "openCamera", e)
+            stopSelf()
+        }
     }
 
     private fun currentTargetSurfaces(): List<Surface> = listOfNotNull(imageReader?.surface, previewSurface)
@@ -595,13 +655,19 @@ class CameraStreamService : Service() {
                         onComplete?.invoke()
                     }
                     override fun onConfigureFailed(s: CameraCaptureSession) {
-                        if (generation == cameraGeneration) stopSelf()
+                        if (generation == cameraGeneration) {
+                            setState(StreamState.Failed, "createPhysicalSession.onConfigureFailed")
+                            stopSelf()
+                        }
                         onComplete?.invoke()
                     }
                 }
             ))
-        } catch (_: Exception) {
-            if (generation == cameraGeneration) stopSelf()
+        } catch (e: Exception) {
+            if (generation == cameraGeneration) {
+                setState(StreamState.Failed, "createPhysicalSession", e)
+                stopSelf()
+            }
             onComplete?.invoke()
         }
     }
@@ -626,12 +692,18 @@ class CameraStreamService : Service() {
                         onComplete?.invoke()
                     }
                     override fun onConfigureFailed(s: CameraCaptureSession) {
-                        if (generation == cameraGeneration) stopSelf()
+                        if (generation == cameraGeneration) {
+                            setState(StreamState.Failed, "createLegacySession.onConfigureFailed")
+                            stopSelf()
+                        }
                         onComplete?.invoke()
                     }
                 }, handler)
-        } catch (_: Exception) {
-            if (generation == cameraGeneration) stopSelf()
+        } catch (e: Exception) {
+            if (generation == cameraGeneration) {
+                setState(StreamState.Failed, "createLegacySession", e)
+                stopSelf()
+            }
             onComplete?.invoke()
         }
     }
@@ -657,8 +729,16 @@ class CameraStreamService : Service() {
     }
 
     private fun startRepeating(camera: CameraDevice, session: CameraCaptureSession) {
-        try { session.setRepeatingRequest(buildRequest(camera), ccmCaptureCallback, handler) }
-        catch (e: CameraAccessException) { stopSelf() }
+        try {
+            session.setRepeatingRequest(buildRequest(camera), ccmCaptureCallback, handler)
+            // Only now - after Camera2 has actually accepted a repeating capture
+            // request, not merely after the session finished configuring - is a
+            // frame actually guaranteed to be on its way to sendFrame().
+            setState(StreamState.Streaming, "startRepeating")
+        } catch (e: CameraAccessException) {
+            setState(StreamState.Failed, "startRepeating", e)
+            stopSelf()
+        }
     }
 
     private fun buildRequest(camera: CameraDevice = cameraDevice!!): CaptureRequest {
@@ -779,6 +859,7 @@ class CameraStreamService : Service() {
         if (!entry.supportsManualSensor) { currentIso = null; currentShutterNs = null }
         if (!entry.supportsManualFocus && currentFocusMode == "manual") currentFocusMode = "continuous"
         currentCamera = entry
+        setState(StreamState.Recovering, "switchCameraTo")
 
         val myGeneration = ++cameraGeneration
         try { captureSession?.close() } catch (_: Exception) {}
@@ -801,18 +882,26 @@ class CameraStreamService : Service() {
                 }
                 override fun onDisconnected(camera: CameraDevice) {
                     camera.close()
-                    if (myGeneration == cameraGeneration) cameraDevice = null
+                    if (myGeneration == cameraGeneration) {
+                        cameraDevice = null
+                        setState(StreamState.Failed, "switchCameraTo.onDisconnected")
+                    }
                 }
                 override fun onError(camera: CameraDevice, error: Int) {
                     camera.close()
-                    if (myGeneration == cameraGeneration) cameraDevice = null
+                    if (myGeneration == cameraGeneration) {
+                        cameraDevice = null
+                        setState(StreamState.Failed, "switchCameraTo.onError", RuntimeException("Camera2 error code $error"))
+                    }
                 }
             }, handler)
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            setState(StreamState.Failed, "switchCameraTo", e)
+        }
     }
 
     fun stopStreaming() {
-        isStreaming = false
+        setState(StreamState.Stopping, "stopStreaming")
         // Invalidates any open/session-configure callback already in flight (e.g. a
         // start immediately followed by a stop, before onOpened fired), so it can't
         // resurrect cameraDevice/captureSession using surfaces this call is about to
@@ -826,6 +915,7 @@ class CameraStreamService : Service() {
         handlerThread?.quitSafely()
         wakeLock?.let { if (it.isHeld) it.release() }
         captureSession = null; cameraDevice = null; imageReader = null; server = null
+        setState(StreamState.Idle, "stopStreaming")
         stopForeground(STOP_FOREGROUND_REMOVE); stopSelf()
     }
 

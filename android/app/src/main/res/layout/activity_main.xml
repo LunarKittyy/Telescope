@@ -301,6 +301,15 @@
                         android:lineSpacingMultiplier="1.4"
                         android:textColor="@color/colorOnSurfaceDim" />
 
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCopyDiagnostics"
+                        style="?attr/materialButtonOutlinedStyle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="Copy Diagnostics"
+                        android:textSize="12sp" />
+
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 

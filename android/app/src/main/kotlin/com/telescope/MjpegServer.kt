@@ -11,6 +11,9 @@ import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * HTTP server that serves:
@@ -19,8 +22,14 @@ import kotlin.concurrent.thread
  *   POST /v1/control  - Camera control commands (JSON body), returns JSON
  *
  * All three routes require a bearer token matching [token], checked with a
- * constant-time comparison. A null [token] (nothing paired yet) rejects
- * every request with 401.
+ * constant-time comparison ([java.security.MessageDigest.isEqual]). A null
+ * [token] (nothing paired yet) rejects every request with 401.
+ *
+ * Status codes: `400` malformed request line/headers/body or wrong
+ * Content-Type, `401` missing/mismatched token, `404` unknown path, `405`
+ * wrong method for a known path, `413` control body over [MAX_BODY_BYTES],
+ * `431` headers over [MAX_HEADER_BYTES]. Every non-streaming response body,
+ * success or error, is JSON.
  */
 class MjpegServer(
     val port: Int,
@@ -102,13 +111,16 @@ class MjpegServer(
 
             when (request.path) {
                 "/v1/state" -> {
-                    if (request.method != "GET") { sendError(socket.getOutputStream(), 400, "Bad Request"); return }
+                    if (request.method != "GET") { sendError(socket.getOutputStream(), 405, "Method Not Allowed"); return }
                     if (!isAuthorized(request)) { sendError(socket.getOutputStream(), 401, "Unauthorized"); return }
                     sendJson(socket.getOutputStream(), getCamerasJson())
                 }
                 "/v1/control" -> {
-                    if (request.method != "POST") { sendError(socket.getOutputStream(), 400, "Bad Request"); return }
+                    if (request.method != "POST") { sendError(socket.getOutputStream(), 405, "Method Not Allowed"); return }
                     if (!isAuthorized(request)) { sendError(socket.getOutputStream(), 401, "Unauthorized"); return }
+                    if (request.headers["content-type"]?.startsWith("application/json") != true) {
+                        sendError(socket.getOutputStream(), 400, "Bad Request"); return
+                    }
                     val body = readBody(socket, request) ?: return  // already responded on error
                     val params = parseControlBody(body)
                     if (params == null) {
@@ -118,7 +130,7 @@ class MjpegServer(
                     }
                 }
                 "/v1/video" -> {
-                    if (request.method != "GET") { sendError(socket.getOutputStream(), 400, "Bad Request"); return }
+                    if (request.method != "GET") { sendError(socket.getOutputStream(), 405, "Method Not Allowed"); return }
                     if (!isAuthorized(request)) { sendError(socket.getOutputStream(), 401, "Unauthorized"); return }
                     streaming = true
                     val client = MjpegClient(socket)
@@ -236,101 +248,30 @@ class MjpegServer(
     }
 
     /**
-     * Parses a flat JSON object body (`{"key": "string"|number|true|false|null, ...}`,
-     * no nesting) into the same string-keyed param map the control handler
-     * already expects. Deliberately hand-rolled rather than using org.json:
-     * that class is an unmocked Android SDK stub under this module's plain-
-     * JVM unit test setup (it throws unconditionally outside a real device/
-     * Robolectric), which this class is specifically designed to avoid - see
-     * the class doc. Returns null on any malformed input.
+     * Parses a flat JSON object body into the same string-keyed param map the
+     * control handler already expects - each value's raw literal text (so a
+     * JSON number `1` and a JSON string `"1"` both come out as the string
+     * "1", matching what the desktop's stringified control payloads send and
+     * what the existing per-action `toIntOrNull()`/`== "1"`-style parsing in
+     * [CameraStreamService.handleControlCommand] already expects). Returns
+     * null on any malformed or non-object input.
      */
     private fun parseControlBody(body: ByteArray): Map<String, String>? {
         return try {
-            parseFlatJsonObject(String(body, Charsets.UTF_8))
+            Json.parseToJsonElement(String(body, Charsets.UTF_8))
+                .jsonObject
+                .mapValues { (_, v) -> v.jsonPrimitive.content }
         } catch (_: Exception) {
             null
         }
     }
 
-    private fun parseFlatJsonObject(text: String): Map<String, String> {
-        var i = 0
-        fun skipWs() { while (i < text.length && text[i].isWhitespace()) i++ }
-        fun expect(c: Char) {
-            require(i < text.length && text[i] == c) { "expected '$c' at $i" }
-            i++
-        }
-        fun parseString(): String {
-            expect('"')
-            val sb = StringBuilder()
-            while (true) {
-                require(i < text.length) { "unterminated string" }
-                val c = text[i]
-                when {
-                    c == '"' -> { i++; return sb.toString() }
-                    c == '\\' -> {
-                        i++
-                        require(i < text.length) { "bad escape" }
-                        when (val esc = text[i]) {
-                            '"', '\\', '/' -> sb.append(esc)
-                            'n' -> sb.append('\n')
-                            't' -> sb.append('\t')
-                            'r' -> sb.append('\r')
-                            'b' -> sb.append('\b')
-                            'u' -> {
-                                require(i + 4 < text.length) { "bad unicode escape" }
-                                sb.append(text.substring(i + 1, i + 5).toInt(16).toChar())
-                                i += 4
-                            }
-                            else -> throw IllegalArgumentException("bad escape $esc")
-                        }
-                        i++
-                    }
-                    else -> { sb.append(c); i++ }
-                }
-            }
-        }
-        fun parseValue(): String {
-            skipWs()
-            require(i < text.length) { "unexpected end" }
-            if (text[i] == '"') return parseString()
-            val start = i
-            while (i < text.length && text[i] != ',' && text[i] != '}') i++
-            val literal = text.substring(start, i).trim()
-            require(literal.isNotEmpty()) { "empty value" }
-            return literal
-        }
-
-        skipWs()
-        expect('{')
-        val result = mutableMapOf<String, String>()
-        skipWs()
-        if (i < text.length && text[i] == '}') {
-            i++
-        } else {
-            while (true) {
-                skipWs()
-                val key = parseString()
-                skipWs()
-                expect(':')
-                result[key] = parseValue()
-                skipWs()
-                require(i < text.length) { "unterminated object" }
-                when (text[i]) {
-                    ',' -> { i++ }
-                    '}' -> { i++; skipWs(); require(i == text.length) { "trailing data" }; return result }
-                    else -> throw IllegalArgumentException("expected , or }")
-                }
-            }
-        }
-        skipWs()
-        require(i == text.length) { "trailing data" }
-        return result
-    }
-
+    // Device-to-desktop only; there is no browser-origin caller to grant CORS
+    // access to, so no Access-Control-Allow-Origin header is sent.
     private fun sendJson(out: OutputStream, json: String) {
         val body = json.toByteArray(Charsets.UTF_8)
         val hdr  = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n" +
-                   "Content-Length: ${body.size}\r\nAccess-Control-Allow-Origin: *\r\n\r\n"
+                   "Content-Length: ${body.size}\r\n\r\n"
         out.write(hdr.toByteArray(Charsets.UTF_8))
         out.write(body)
         out.flush()
@@ -338,8 +279,8 @@ class MjpegServer(
 
     private fun sendError(out: OutputStream, code: Int, reason: String) {
         try {
-            val body = reason.toByteArray(Charsets.UTF_8)
-            val hdr = "HTTP/1.1 $code $reason\r\nContent-Type: text/plain\r\n" +
+            val body = Json.encodeToString(ApiError.serializer(), ApiError(reason)).toByteArray(Charsets.UTF_8)
+            val hdr = "HTTP/1.1 $code $reason\r\nContent-Type: application/json\r\n" +
                       "Content-Length: ${body.size}\r\nConnection: close\r\n\r\n"
             out.write(hdr.toByteArray(Charsets.UTF_8))
             out.write(body)

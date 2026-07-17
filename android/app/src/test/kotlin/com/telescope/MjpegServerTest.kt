@@ -61,7 +61,7 @@ class MjpegServerTest {
     }
 
     @Test
-    fun `v1 state endpoint returns UTF-8 JSON with CORS and length when authorized`() {
+    fun `v1 state endpoint returns UTF-8 JSON with length and no CORS header when authorized`() {
         val body = "{\"camera\":\"télé\"}"
         val server = MjpegServer(0, { body }, { "{}" }, "127.0.0.1", token = "secret-token")
         server.start()
@@ -71,7 +71,7 @@ class MjpegServerTest {
             assertEquals(body, response.body.toString(StandardCharsets.UTF_8))
             assertTrue(response.headers.contains("Content-Type: application/json"))
             assertTrue(response.headers.contains("Content-Length: ${body.toByteArray().size}"))
-            assertTrue(response.headers.contains("Access-Control-Allow-Origin: *"))
+            assertTrue(!response.headers.contains("Access-Control-Allow-Origin"))
         } finally {
             server.stop()
         }
@@ -152,7 +152,38 @@ class MjpegServerTest {
         val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", token = "secret-token")
         server.start()
         try {
-            assertEquals(400, authGet(actualPort(server), "/v1/control", "secret-token").status)
+            assertEquals(405, authGet(actualPort(server), "/v1/control", "secret-token").status)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `v1 control endpoint rejects non-JSON content type`() {
+        var called = false
+        val server = MjpegServer(0, { "{}" }, { called = true; "{}" }, "127.0.0.1", token = "secret-token")
+        server.start()
+        try {
+            val raw = "POST /v1/control HTTP/1.1\r\nAuthorization: Bearer secret-token\r\n" +
+                "Content-Type: text/plain\r\nContent-Length: 2\r\n\r\n{}"
+            assertEquals(400, request(actualPort(server), raw).status)
+            assertTrue(!called)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `v1 state and v1 video endpoints return 405 for the wrong method`() {
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", token = "secret-token")
+        server.start()
+        try {
+            val postState = "POST /v1/state HTTP/1.1\r\nAuthorization: Bearer secret-token\r\n" +
+                "Content-Type: application/json\r\nContent-Length: 0\r\n\r\n"
+            assertEquals(405, request(actualPort(server), postState).status)
+
+            val postVideo = "POST /v1/video HTTP/1.1\r\nAuthorization: Bearer secret-token\r\n\r\n"
+            assertEquals(405, request(actualPort(server), postVideo).status)
         } finally {
             server.stop()
         }
@@ -175,7 +206,8 @@ class MjpegServerTest {
         val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", token = "secret-token")
         server.start()
         try {
-            val raw = "POST /v1/control HTTP/1.1\r\nAuthorization: Bearer secret-token\r\nContent-Length: 4097\r\n\r\n"
+            val raw = "POST /v1/control HTTP/1.1\r\nAuthorization: Bearer secret-token\r\n" +
+                "Content-Type: application/json\r\nContent-Length: 4097\r\n\r\n"
             assertEquals(413, request(actualPort(server), raw).status)
         } finally {
             server.stop()

@@ -44,6 +44,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnPreview: ImageButton
     private lateinit var cardPermissions: CardView
     private lateinit var layoutPermissionsContainer: LinearLayout
+    private lateinit var btnCopyDiagnostics: MaterialButton
     private var _permissionsRequested = false
 
     private val prefs by lazy { getSharedPreferences("telescope", MODE_PRIVATE) }
@@ -96,6 +97,7 @@ class MainActivity : AppCompatActivity() {
         btnPreview                 = findViewById(R.id.btnPreview)
         cardPermissions            = findViewById(R.id.cardPermissions)
         layoutPermissionsContainer = findViewById(R.id.layoutPermissionsContainer)
+        btnCopyDiagnostics         = findViewById(R.id.btnCopyDiagnostics)
 
         checkLocalOnly.isChecked = prefs.getBoolean("local_only", false)
         checkLocalOnly.setOnCheckedChangeListener { _, checked ->
@@ -127,6 +129,7 @@ class MainActivity : AppCompatActivity() {
             scanLauncher.launch(opts)
         }
         btnResetPairing.setOnClickListener { resetPairing() }
+        btnCopyDiagnostics.setOnClickListener { copyDiagnostics() }
 
         spinnerCamera.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(p: AdapterView<*>?, v: android.view.View?, pos: Int, id: Long) {
@@ -462,6 +465,13 @@ class MainActivity : AppCompatActivity() {
             pill.setBackgroundResource(R.drawable.pill_link)
             pill.setTextColor(resources.getColor(R.color.colorOnSurface, theme))
         }, 1200)
+    }
+
+    private fun copyDiagnostics() {
+        val report = service?.buildDiagnosticsReport() ?: "Telescope diagnostics\n(not running)"
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("Telescope diagnostics", report))
+        Toast.makeText(this, "Diagnostics copied to clipboard", Toast.LENGTH_SHORT).show()
     }
 
     private fun getAllDeviceIps(): List<String> {
