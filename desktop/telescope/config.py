@@ -76,9 +76,11 @@ def _empty() -> dict:
 
 
 def _migrate(cfg: dict) -> dict:
-    if not cfg:
+    if not isinstance(cfg, dict):
         return _empty()
     version = cfg.get("version", 0)
+    if not isinstance(version, int):
+        return _empty()
     if version >= CONFIG_VERSION:
         return cfg
     if version == 0:

@@ -68,7 +68,7 @@ Run `start.bat` (installs Python deps and launches the app) or `TelescopeDesktop
 4. In OBS (or any other app), select **Phone Camera** (Linux) or **Unity Video Capture** (Windows) as your webcam source.
 
 > [!WARNING]
-> The MJPEG stream is served unencrypted on port 8080 with no authentication. Anyone on the same local network can view it by opening the URL in a browser. On public or shared networks, enable **Local only - USB** in the Android app to bind the server to localhost only - the stream will then only be reachable via USB.
+> The MJPEG stream and camera control endpoint are served unencrypted on port 8080 with no authentication. Anyone on the same local network can not only view the stream by opening the URL in a browser, but also switch lenses, change exposure/focus, enable the torch, or degrade the stream quality. On public or shared networks, enable **Local only - USB** in the Android app to bind the server to localhost only - the stream and controls will then only be reachable via USB.
 
 ---
 

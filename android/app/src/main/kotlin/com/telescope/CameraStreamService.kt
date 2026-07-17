@@ -201,12 +201,11 @@ class CameraStreamService : Service() {
     }
 
     /** [onDetached] runs after the surface has been dropped from the capture session and
-     *  the session rebuilt without it — the caller can safely release the Surface then. */
+     *  the session rebuilt without it - the caller can safely release the Surface then. */
     fun detachPreviewSurface(onDetached: (() -> Unit)? = null) {
         handler?.post {
             previewSurface = null
-            reconfigureSession()
-            onDetached?.invoke()
+            reconfigureSession(onDetached)
         }
     }
 
@@ -224,17 +223,15 @@ class CameraStreamService : Service() {
         val localOnly = intent?.getBooleanExtra(EXTRA_LOCAL_ONLY, false) ?: false
         bindAddr      = if (localOnly) "127.0.0.1" else "0.0.0.0"
 
-        // startForeground() must be called unconditionally and early, before any
-        // return below: this service is launched via startForegroundService(), and
-        // Android kills the app if that promotion doesn't happen soon after, no
-        // matter what else goes wrong in the rest of this method.
+        // Must be called unconditionally and early, before any return below: this
+        // service starts via startForegroundService(), and Android kills the app if
+        // the promotion doesn't happen soon after, regardless of what fails below.
         startForegroundCompat()
 
         try {
             enumerateAllCameras()
         } catch (e: Exception) {
-            // e.g. EADDRINUSE if a just-stopped instance's MJPEG server port hasn't
-            // been released yet — this used to be uncaught and crashed the app.
+            // e.g. EADDRINUSE if a just-stopped instance's port hasn't been released yet.
             android.util.Log.e(TAG, "Failed to start MJPEG server", e)
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
@@ -512,11 +509,10 @@ class CameraStreamService : Service() {
 
     // ── Camera open / session ─────────────────────────────────────────────────
 
-    // Bumped on every camera-open attempt (initial open or switchCameraTo). Async
-    // onOpened/onConfigured callbacks compare their captured generation against the
-    // current value and discard themselves if a newer open has since superseded them —
-    // otherwise a stale callback from an old open could clobber the camera that's
-    // actually meant to be active (see PR3 review notes on async camera switching).
+    // Bumped on every camera-open attempt. Async onOpened/onConfigured callbacks
+    // compare their captured generation against the current value and discard
+    // themselves if a newer open has superseded them, so a stale callback can't
+    // clobber the camera that's actually active.
     @Volatile private var cameraGeneration = 0
 
     private fun openCamera(openCameraId: String, physicalCameraId: String?) {
@@ -561,71 +557,102 @@ class CameraStreamService : Service() {
 
     private fun currentTargetSurfaces(): List<Surface> = listOfNotNull(imageReader?.surface, previewSurface)
 
-    private fun createPhysicalSession(camera: CameraDevice, physId: String, generation: Int = cameraGeneration) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) { createLegacySession(camera, generation); return }
+    // Bumped on every reconfigureSession() call (attach/detach preview surface),
+    // independent of cameraGeneration (which only changes on a full camera open/
+    // switch). Distinguishes "this is still the latest reconfigure attempt for the
+    // currently-open camera" from a rapid attach immediately followed by detach (or
+    // vice versa), where two createCaptureSession calls can be in flight at once and
+    // an older one's onConfigured could otherwise land after the newer one and
+    // clobber captureSession with a stale session.
+    @Volatile private var sessionGeneration = 0
+
+    private fun createPhysicalSession(
+        camera: CameraDevice, physId: String,
+        generation: Int = cameraGeneration,
+        mySession: Int = sessionGeneration,
+        onComplete: (() -> Unit)? = null,
+    ) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) { createLegacySession(camera, generation, mySession, onComplete); return }
         // A stop/teardown racing in between the generation check in the caller and
         // this call can null out imageReader (and previewSurface) concurrently -
         // re-check staleness and bail rather than asking Camera2 to configure a
         // session with zero surfaces, which throws.
-        if (generation != cameraGeneration) return
+        if (generation != cameraGeneration) { onComplete?.invoke(); return }
         val outCfgs = currentTargetSurfaces().map { surface ->
             OutputConfiguration(surface).also { it.setPhysicalCameraId(physId) }
         }
-        if (outCfgs.isEmpty()) return
+        if (outCfgs.isEmpty()) { onComplete?.invoke(); return }
         val exec   = Executor { cmd -> handler?.post(cmd) }
         try {
             camera.createCaptureSession(SessionConfiguration(
                 SessionConfiguration.SESSION_REGULAR, outCfgs, exec,
                 object : CameraCaptureSession.StateCallback() {
                     override fun onConfigured(s: CameraCaptureSession) {
-                        if (generation != cameraGeneration) { s.close(); return }
-                        captureSession = s; startRepeating(camera, s)
+                        if (generation != cameraGeneration) { s.close(); onComplete?.invoke(); return }
+                        if (mySession == sessionGeneration) { captureSession = s; startRepeating(camera, s) }
+                        else s.close()
+                        onComplete?.invoke()
                     }
                     override fun onConfigureFailed(s: CameraCaptureSession) {
                         if (generation == cameraGeneration) stopSelf()
+                        onComplete?.invoke()
                     }
                 }
             ))
         } catch (_: Exception) {
             if (generation == cameraGeneration) stopSelf()
+            onComplete?.invoke()
         }
     }
 
     @Suppress("DEPRECATION")
-    private fun createLegacySession(camera: CameraDevice, generation: Int = cameraGeneration) {
-        if (generation != cameraGeneration) return
+    private fun createLegacySession(
+        camera: CameraDevice,
+        generation: Int = cameraGeneration,
+        mySession: Int = sessionGeneration,
+        onComplete: (() -> Unit)? = null,
+    ) {
+        if (generation != cameraGeneration) { onComplete?.invoke(); return }
         val targets = currentTargetSurfaces()
-        if (targets.isEmpty()) return
+        if (targets.isEmpty()) { onComplete?.invoke(); return }
         try {
             camera.createCaptureSession(targets,
                 object : CameraCaptureSession.StateCallback() {
                     override fun onConfigured(s: CameraCaptureSession) {
-                        if (generation != cameraGeneration) { s.close(); return }
-                        captureSession = s; startRepeating(camera, s)
+                        if (generation != cameraGeneration) { s.close(); onComplete?.invoke(); return }
+                        if (mySession == sessionGeneration) { captureSession = s; startRepeating(camera, s) }
+                        else s.close()
+                        onComplete?.invoke()
                     }
                     override fun onConfigureFailed(s: CameraCaptureSession) {
                         if (generation == cameraGeneration) stopSelf()
+                        onComplete?.invoke()
                     }
                 }, handler)
         } catch (_: Exception) {
             if (generation == cameraGeneration) stopSelf()
+            onComplete?.invoke()
         }
     }
 
     /** Tears down and rebuilds the capture session on the already-open camera device,
-     *  e.g. when a preview surface is attached/detached. Does not reopen the device. */
-    private fun reconfigureSession() {
-        val camera = cameraDevice ?: return
+     *  e.g. when a preview surface is attached/detached. Does not reopen the device.
+     *  [onComplete], if given, fires once this specific reconfigure attempt reaches a
+     *  terminal state (configured, failed, or superseded) - not immediately after this
+     *  call returns, since the rebuild itself is asynchronous. */
+    private fun reconfigureSession(onComplete: (() -> Unit)? = null) {
+        val camera = cameraDevice ?: run { onComplete?.invoke(); return }
         try { captureSession?.stopRepeating() } catch (_: Exception) {}
         try { captureSession?.close() } catch (_: Exception) {}
         captureSession = null
 
+        val mySession = ++sessionGeneration
         val cam    = currentCamera
         val physId = if (cam?.logicalId != null) cam.id else null
         if (physId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
-            createPhysicalSession(camera, physId)
+            createPhysicalSession(camera, physId, cameraGeneration, mySession, onComplete)
         else
-            createLegacySession(camera)
+            createLegacySession(camera, cameraGeneration, mySession, onComplete)
     }
 
     private fun startRepeating(camera: CameraDevice, session: CameraCaptureSession) {
@@ -654,9 +681,8 @@ class CameraStreamService : Service() {
                 set(CaptureRequest.SENSOR_FRAME_DURATION, targetFrameNs.coerceAtLeast(sht))
             } else {
                 set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
-                // Pick the closest AE FPS range Camera2 actually advertises for this
-                // camera instead of inventing one — an unsupported range can make the
-                // capture request fail outright on some devices.
+                // Use the closest range Camera2 actually advertises; an unsupported
+                // range can make the capture request fail outright on some devices.
                 val range = CameraRequestSelection.pickAeFpsRange(cam?.aeFpsRanges ?: emptyList(), currentPhoneFps)
                 if (range != null) {
                     android.util.Log.d(TAG, "AE FPS range for ${cam?.id}: $range (target=$currentPhoneFps)")
@@ -677,7 +703,7 @@ class CameraStreamService : Service() {
             // JPEG quality
             set(CaptureRequest.JPEG_QUALITY, currentJpegQuality.toByte())
 
-            // White balance — desktop sends pre-computed RGGB gains
+            // White balance - desktop sends pre-computed RGGB gains
             val gains = currentWbGains
             if (gains != null && cam?.supportsManualWB == true) {
                 set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_OFF)
@@ -690,13 +716,13 @@ class CameraStreamService : Service() {
                 set(CaptureRequest.COLOR_CORRECTION_MODE, CameraMetadata.COLOR_CORRECTION_MODE_FAST)
             }
 
-            // OIS — only ever requested ON if this camera actually advertises it.
+            // OIS - only ever requested ON if this camera actually advertises it.
             set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
                 if (currentOis && cam?.hasOis == true) CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_ON
                 else CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_OFF)
 
-            // Noise reduction and edge enhancement — set only when the camera advertises
-            // a usable mode; otherwise omit the key rather than force an unsupported value.
+            // Noise reduction and edge enhancement - set only when the camera advertises
+            // a usable mode; otherwise omit the key.
             CameraRequestSelection.pickNrMode(cam?.nrModes ?: emptySet(), currentNrMode)?.let {
                 set(CaptureRequest.NOISE_REDUCTION_MODE, it)
             }
@@ -714,7 +740,7 @@ class CameraStreamService : Service() {
             // Black level lock
             set(CaptureRequest.BLACK_LEVEL_LOCK, currentBlackLevelLock)
 
-            // Torch — only if this camera actually has a flash unit.
+            // Torch - only if this camera actually has a flash unit.
             set(CaptureRequest.FLASH_MODE,
                 if (currentTorch && cam?.supportsFlash == true) CaptureRequest.FLASH_MODE_TORCH
                 else CaptureRequest.FLASH_MODE_OFF)
@@ -742,17 +768,12 @@ class CameraStreamService : Service() {
     }
 
     private fun switchCameraTo(entry: CameraEntry) {
-        // Drop manual/flash/focus state the new lens can't honor instead of silently
-        // carrying it across — buildRequest() would otherwise mask this at request
-        // time while buildCamerasJson() kept reporting the stale values.
+        // Drop manual/flash/focus state the new lens can't honor, so buildRequest()
+        // and buildCamerasJson() don't disagree on what's actually active.
         //
-        // currentOis is deliberately NOT reset here: buildRequest() already only
-        // requests OIS-on when cam.hasOis is true, so leaving the user's desired
-        // toggle alone lets OIS resume automatically when switching back to an
-        // OIS-capable lens. Resetting it (as this used to do) silently turned OIS
-        // off with no way to re-enable it except unchecking/rechecking the desktop
-        // checkbox, since nothing here ever set it back to true on returning to an
-        // OIS lens.
+        // currentOis is deliberately NOT reset: buildRequest() only requests OIS-on
+        // when cam.hasOis is true, so leaving the toggle alone lets OIS resume
+        // automatically on switching back to an OIS-capable lens.
         if (!entry.supportsFlash) currentTorch = false
         if (!entry.supportsManualSensor) { currentIso = null; currentShutterNs = null }
         if (!entry.supportsManualFocus && currentFocusMode == "manual") currentFocusMode = "continuous"
@@ -791,12 +812,10 @@ class CameraStreamService : Service() {
 
     fun stopStreaming() {
         isStreaming = false
-        // Invalidates any open/session-configure callback already in flight on the
-        // camera handler thread (e.g. from a start that was immediately followed by
-        // a stop, before onOpened even fired) — without this, such a callback could
-        // resurrect cameraDevice/captureSession using imageReader/previewSurface
-        // that this call is about to close and null out, and then hand Camera2 an
-        // empty or already-torn-down surface set, which throws and crashes the app.
+        // Invalidates any open/session-configure callback already in flight (e.g. a
+        // start immediately followed by a stop, before onOpened fired), so it can't
+        // resurrect cameraDevice/captureSession using surfaces this call is about to
+        // null out and hand Camera2 an empty or torn-down surface set.
         cameraGeneration++
         try { captureSession?.stopRepeating() } catch (_: Exception) {}
         try { captureSession?.close()         } catch (_: Exception) {}
@@ -826,7 +845,12 @@ class CameraStreamService : Service() {
             .setColor(ContextCompat.getColor(this, R.color.colorPrimary))
             .setColorized(false)
             .setContentIntent(pi).setOngoing(true).build()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+        // FOREGROUND_SERVICE_TYPE_CAMERA is only documented from API 30 (R) on, even
+        // though the 3-arg startForeground(id, notification, type) overload itself
+        // exists since API 29 (Q) - passing it a level early is what lint flags.
+        // Below R, the manifest's android:foregroundServiceType attribute already
+        // declares "camera", so the 2-arg overload is sufficient.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
             startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA)
         else
             startForeground(NOTIF_ID, n)

@@ -1,3 +1,4 @@
+import logging
 import platform
 import threading
 import time
@@ -7,6 +8,8 @@ import cv2
 import numpy as np
 import pyvirtualcam
 from PyQt6.QtCore import QThread, pyqtSignal
+
+logger = logging.getLogger(__name__)
 
 IS_LINUX = platform.system() == "Linux"
 
@@ -135,14 +138,17 @@ class StreamWorker(QThread):
                     return
                 self.status.emit("ok", "Stream reconnected")
                 continue
-            rw = self._width
-            rh = self._height
-            if rw or rh:
-                rw = rw or raw.shape[1]
-                rh = rh or raw.shape[0]
-                raw = cv2.resize(raw, (rw, rh))
-            raw_rgb = cv2.cvtColor(raw, cv2.COLOR_BGR2RGB)
-            self._latest_rgb = self._process(raw_rgb)
+            try:
+                rw = self._width
+                rh = self._height
+                if rw or rh:
+                    rw = rw or raw.shape[1]
+                    rh = rh or raw.shape[0]
+                    raw = cv2.resize(raw, (rw, rh))
+                raw_rgb = cv2.cvtColor(raw, cv2.COLOR_BGR2RGB)
+                self._latest_rgb = self._process(raw_rgb)
+            except Exception:
+                logger.exception("Frame processing failed; dropping this frame")
         if cap is not None:
             cap.release()
 

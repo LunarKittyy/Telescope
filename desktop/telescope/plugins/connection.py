@@ -846,7 +846,12 @@ class ConnectionPlugin(TelescopePlugin):
     def _on_device_added(self, device: dict):
         # _DeviceManagerDialog mutates the shared self._devices list directly.
         self._refresh_device_combo(select_name=self._selected_device)
+        # _refresh_device_combo() blocks signals, so if this is the first device
+        # ever added, the combo now defaults to it but _selected_device (still
+        # None from before) never hears about it - sync from the combo itself.
+        self._selected_device = self._current_device_name()
         self._host._save_config()
+        self._activate_profile(self._profile_key)
 
     def _on_device_edited(self, old_name: str, new_device: dict):
         new_name = new_device["name"]
@@ -874,6 +879,9 @@ class ConnectionPlugin(TelescopePlugin):
         if was_selected:
             self._selected_device = self._devices[0]["name"] if self._devices else None
         self._refresh_device_combo(select_name=self._selected_device)
+        # Persist the mutated devices_list too, or the removed device reappears
+        # on next launch (set_config() repopulates from the stale saved list).
+        self._host._save_config()
         if was_selected:
             self._activate_profile(self._profile_key)
 

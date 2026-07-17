@@ -47,11 +47,14 @@ echo Checking dependencies...
 python -m pip install --quiet -r requirements.txt
 echo.
 
-:: Download UnityCapture DLLs if missing
+:: Download UnityCapture DLLs if missing. Pinned to a specific commit (not the
+:: mutable master branch) and checksum-verified, since telescope.platform.windows
+:: also registers these with admin rights (regsvr32) - see UNITYCAPTURE_URL_BASE
+:: / _EXPECTED_SHA256 there, which this mirrors.
 if not exist "unitycapture\UnityCaptureFilter64.dll" (
     echo Downloading virtual camera driver...
     if not exist "unitycapture" mkdir unitycapture
-    powershell -NoProfile -Command "try { Invoke-WebRequest -Uri 'https://github.com/schellingb/UnityCapture/raw/master/Install/UnityCaptureFilter32.dll' -OutFile 'unitycapture\UnityCaptureFilter32.dll' -UseBasicParsing; Invoke-WebRequest -Uri 'https://github.com/schellingb/UnityCapture/raw/master/Install/UnityCaptureFilter64.dll' -OutFile 'unitycapture\UnityCaptureFilter64.dll' -UseBasicParsing; Write-Host 'Done.' } catch { Write-Host ('Failed: ' + $_.Exception.Message) }"
+    powershell -NoProfile -Command "$commit = '3ed54c325e0ad71afcf4f246c07e5e17b3d7f2d2'; $hashes = @{ 'UnityCaptureFilter32.dll' = 'aa3ebdf03dea7f3aab3dd7b724751f49ed71672256b57c6a19aa6809cabf30ba'; 'UnityCaptureFilter64.dll' = '72812f5363d8ecb45632253f8c8c888844b1b62e27616f3c8cc21064ccde25e5' }; try { foreach ($name in $hashes.Keys) { $dest = 'unitycapture\' + $name; $url = 'https://raw.githubusercontent.com/schellingb/UnityCapture/' + $commit + '/Install/' + $name; Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing; $actual = (Get-FileHash -Path $dest -Algorithm SHA256).Hash.ToLower(); if ($actual -ne $hashes[$name]) { Remove-Item $dest -Force; throw ($name + ' failed checksum verification') } }; Write-Host 'Done.' } catch { Write-Host ('Failed: ' + $_.Exception.Message) }"
     echo.
 )
 

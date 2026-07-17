@@ -48,6 +48,10 @@ jobs:
         working-directory: android
         run: chmod +x gradlew
 
+      - name: Lint and unit test
+        working-directory: android
+        run: ./gradlew lintDebug testDebugUnitTest --no-daemon
+
       - name: Build debug APK
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
