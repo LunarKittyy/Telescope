@@ -111,7 +111,7 @@ Run `start.bat` (installs Python deps and launches the app) or `TelescopeDesktop
 - Each device stores multiple IPs; a second dropdown selects the active IP. Tailscale IPs (100.64.0.0/10) are ranked first, LAN IPs second
 - QR pairing: click the QR button on the desktop to show a pairing code; tap the scan button in the Android app to register the phone automatically with all its IPs
 - All settings (resolution, fps, flip, rotation, exposure, zoom, quality, alert thresholds, canvas size, etc.) are saved per device to `telescope_config.json` and restored on next launch
-- Settings from older config formats are migrated automatically
+- The config format is not migrated across versions: an unsupported or malformed config is backed up alongside the real one and replaced with defaults rather than carrying compatibility code for old formats. Each section (connection/plugin settings, per-device settings, selected device) is validated independently, so one malformed section resets to defaults without discarding the rest
 
 **Privacy**
 - Local only mode: binds the server to `127.0.0.1` so the stream is unreachable from the network; only USB works in this mode
@@ -143,18 +143,19 @@ Android device  (Telescope app, port 8080)
 desktop/main.py  (Python, PyQt6)
       |
       |-- telescope/stream.py       StreamWorker (QThread)
-      |     reads MJPEG via cv2.VideoCapture
+      |     reads authenticated MJPEG via telescope/mjpeg_reader.py
       |     runs frames through plugin pipeline
       |     _fit_frame() letterboxes to canvas size
       |     pyvirtualcam -> virtual camera device
       |
       +-- telescope/plugins/        one plugin per UI card
-            connection             device list, IP dropdown, QR pairing server (port 8765)
-            camera_control         lens, ISO, shutter, WB, OIS
-            stream_output          resolution, FPS, JPEG quality
-            transforms             flip, rotation, zoom, pan
-            monitoring             battery, temperature alerts
-            setup                  driver setup, canvas settings
+            setup                   driver setup, canvas settings
+            connection              device list, IP dropdown, QR pairing server (port 8765)
+            camera_control          lens, ISO, shutter, WB, OIS
+            stream_output           resolution, FPS, JPEG quality
+            transforms              flip, rotation, zoom, pan
+            preview                 in-card and pop-out video preview
+            monitoring              battery, temperature alerts
 ```
 
 On **Linux**, two `v4l2loopback` devices are created (`/dev/video10` and `/dev/video11`). Telescope writes to `video11`; `video10` is intentionally left free for other software (e.g. OBS Virtual Camera).
@@ -189,19 +190,23 @@ telescope/
     +-- telescope/
         |-- app.py               # TelescopeWindow: plugin host, stream lifecycle
         |-- stream.py            # StreamWorker: MJPEG -> pipeline -> pyvirtualcam
-        |-- plugin.py            # TelescopePlugin base class + EventBus
-        |-- config.py            # Versioned JSON config (v2) with migration
-        |-- phone_client.py      # HTTP client for /video and /cameras
+        |-- mjpeg_reader.py      # Authenticated multipart-MJPEG reader (replaces cv2.VideoCapture)
+        |-- session.py           # StreamSession: owns worker/client for one connect-to-disconnect lifecycle
+        |-- plugin.py            # TelescopePlugin base class, EventBus, HostServices protocol
+        |-- config.py            # Versioned JSON config (v2) with per-section validation
+        |-- models.py            # Typed contracts: PhoneState, CameraCapabilities, DeviceProfile, StreamSettings
+        |-- phone_client.py      # Authenticated HTTP client for /v1/state and /v1/control
         |-- platform/
         |   |-- linux.py         # v4l2loopback helpers (load, unload, reload)
         |   +-- windows.py       # UnityCapture helpers
         |-- plugins/
+        |   |-- setup.py
         |   |-- connection.py
         |   |-- camera_control.py
         |   |-- stream_output.py
         |   |-- transforms.py
-        |   |-- monitoring.py
-        |   +-- setup.py
+        |   |-- preview.py
+        |   +-- monitoring.py
         +-- widgets/
             |-- common.py        # NoScroll*, LogSliderRow, separators, icons
             +-- lens_panel.py    # Lens picker widget
@@ -330,7 +335,7 @@ flatpak override --user --device=all com.obsproject.Studio
 
 **White balance:** Linear Kelvin slider 2000-8000 K. Translates to `RggbChannelVector` using the Tanner Helland K->RGB algorithm and sets `COLOR_CORRECTION_GAINS`. Reverting to auto restores `CONTROL_AWB_MODE_AUTO`.
 
-**Per-device config:** All UI settings serialize to `telescope_config.json` with a 500ms debounce. The `devices` dict is keyed by device name; switching devices saves the current device's settings before loading the new one's. Config v0/v1 formats are migrated to v2 automatically on first load.
+**Per-device config:** All UI settings serialize to `telescope_config.json` with a 500ms debounce. The `devices` dict is keyed by device name; switching devices saves the current device's settings before loading the new one's. There is no cross-version migration - a config from an older format is backed up as `telescope_config.json.invalid-<timestamp>` and replaced with defaults on next load.
 
 **Single-instance:** `acquire_single_instance()` tries to bind a local TCP socket on port 47823. If already bound, it signals the running instance to restore its window and exits.
 

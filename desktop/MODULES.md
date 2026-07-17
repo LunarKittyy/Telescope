@@ -8,7 +8,7 @@ Quick index of what lives where. Detailed behaviour is in the source; this is fo
 
 ### `main.py`
 Dependency check, Qt app setup, theme application, single-instance guard, plugin registration, config restore, event loop.
-Registration order (per MODULAR_PLAN): `ConnectionPlugin → CameraControlPlugin → StreamOutputPlugin → TransformsPlugin → MonitoringPlugin → SetupPlugin`.
+Registration order: `SetupPlugin → ConnectionPlugin → CameraControlPlugin → StreamOutputPlugin → TransformsPlugin → PreviewPlugin → MonitoringPlugin`.
 Calls `win.apply_saved_config()` **after** all plugins are registered so every plugin's `set_config()` is available.
 
 ---
@@ -36,14 +36,14 @@ Calls `win.apply_saved_config()` **after** all plugins are registered so every p
 
 ### `stream.py`
 **StreamWorker(QThread)** — video capture and virtual camera output.
-- Reads MJPEG stream via `cv2.VideoCapture`, writes to `pyvirtualcam`.
+- Reads the authenticated MJPEG stream via `telescope/mjpeg_reader.py`'s `MjpegReader` (bearer token in the request header), writes to `pyvirtualcam`.
 - `frame_pipeline: list[Callable]` — each callable receives an RGB numpy array and returns one; applied in order after resize.
 - `update_output(width, height, fps)` — hot-swap output resolution/FPS without stopping the worker.
 - Emits `status(kind, msg)` for the footer: `"ok"`, `"warn"`, `"fps"`, `"idle"`.
 - Auto-reconnects on stream drop (`RECONNECT_DELAY = 3s`).
 
 ### `config.py`
-Load/save of `telescope_config.json` with versioned schema (current: v2) and automatic migration.
+Load/save of `telescope_config.json` with versioned schema (current: v2) and per-section validation. No cross-version migration: an unsupported or malformed file is backed up (`.invalid-<timestamp>`) and replaced with defaults.
 
 **v2 schema:**
 ```
@@ -67,7 +67,7 @@ Load/save of `telescope_config.json` with versioned schema (current: v2) and aut
 `DEVICE_LOCAL_PLUGINS` frozenset marks which plugin names are per-device. Migration handles: v0 (original flat format with single `ip` field), v1 (Phase 3 flat `plugin_configs` dict), and v2 passthrough.
 
 ### `phone_client.py`
-**PhoneControlClient** — HTTP client for the phone app's `/video` and `/cameras` endpoints.
+**PhoneControlClient** — authenticated HTTP client for the phone app's `/v1/state` and `/v1/control` endpoints (bearer token on every request).
 - `send(action, **kwargs)` — fire-and-forget control command.
 - `get_state()` — fetch current camera state dict (lenses, ISO, shutter, WB, battery, etc.).
 
@@ -131,6 +131,13 @@ UnityCapture helpers: `uc_is_registered()`, `unitycapture_dir()`, `download_unit
 - `on_stream_start`: stores ctrl, schedules `_push_initial_settings` via `QTimer.singleShot(1500)` to sync quality/fps to the phone after connect.
 - Resolution and FPS changes call `host._worker.update_output()` for hot-swap without stream restart.
 - Config keys: `resolution`, `fps`, `jpeg_quality`, `phone_fps`.
+
+### `plugins/preview.py`
+**PreviewPlugin** — in-card and pop-out live video preview.
+- UI: "Show"/"Hide" toggle for an in-card preview label, "Pop out" button opening a floating, aspect-ratio-locked `_PopoutWindow`.
+- `process_frame(frame)` — runs on the stream reader thread; downscales to `_CARD_MAX_W` for the in-card view (full resolution for the pop-out), emits a cross-thread Qt signal rather than touching any `QWidget` directly, then returns the frame unmodified (preview-only, doesn't alter the pipeline).
+- Pop-out window auto-hides the in-card preview when opened, and closes/restores state when the main window is hidden (tray minimize).
+- No config keys - preview visibility isn't persisted across restarts.
 
 ### `plugins/transforms.py`
 **TransformsPlugin** — software frame transforms applied in the stream pipeline.

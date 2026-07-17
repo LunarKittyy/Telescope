@@ -103,8 +103,7 @@ def window(qapp, config_home, monkeypatch):
     # The window is never shown. Calling QWidget.close() here would route
     # through whichever closeEvent/worker doubles a test intentionally left
     # installed and can make Qt abort while unwinding the fixture.
-    win._worker = None
-    win._ctrl = None
+    win._session = None
 
 
 def test_register_plugin_initializes_panel_and_captures_device_defaults(window):
@@ -275,6 +274,25 @@ def test_save_config_without_connection_skips_device_profile(window, config_home
     assert config_home.load_config()["devices"] == {}
 
 
+def test_save_config_failure_notifies_once_until_a_save_succeeds(window, config_home, monkeypatch):
+    notifications = []
+    monkeypatch.setattr(window, "send_notification", lambda *args: notifications.append(args))
+    monkeypatch.setattr(app_module, "save_config", lambda _cfg: False)
+
+    window._save_config()
+    window._save_config()
+
+    assert len(notifications) == 1
+    assert notifications[0][0] == "Telescope - Save failed"
+
+    monkeypatch.setattr(app_module, "save_config", lambda _cfg: True)
+    window._save_config()
+    monkeypatch.setattr(app_module, "save_config", lambda _cfg: False)
+    window._save_config()
+
+    assert len(notifications) == 2
+
+
 def test_apply_device_profile_resets_defaults_before_saved_values(window, config_home):
     plugin = _Plugin("transforms", {"zoom": 1, "pan_x": 0})
     window.register_plugin(plugin)
@@ -307,9 +325,9 @@ def test_switch_device_saves_old_profile_applies_new_and_restarts(window, config
         "New": {"plugin_configs": {"transforms": {"zoom": 4}}}
     }
     config_home.save_config(cfg)
-    window._worker = object()
+    window._session = StreamSession(id=1, url="url", client=object(), worker=object())
     calls = []
-    monkeypatch.setattr(window, "_stop", lambda: calls.append("stop") or setattr(window, "_worker", None))
+    monkeypatch.setattr(window, "_stop", lambda: calls.append("stop") or setattr(window, "_session", None))
     monkeypatch.setattr(window, "_start", lambda: calls.append("start"))
 
     window._switch_device("Old", "New")
@@ -328,7 +346,7 @@ def test_reconnect_stream_only_restarts_when_active(window, monkeypatch):
     window.reconnect_stream()
     assert calls == []
 
-    window._worker = object()
+    window._session = StreamSession(id=1, url="url", client=object(), worker=object())
     window.reconnect_stream()
     assert calls == ["stop", "start"]
 
@@ -338,7 +356,7 @@ def test_toggle_routes_to_start_or_stop(window, monkeypatch):
     monkeypatch.setattr(window, "_start", lambda: calls.append("start"))
     monkeypatch.setattr(window, "_stop", lambda: calls.append("stop"))
     window._toggle()
-    window._worker = object()
+    window._session = StreamSession(id=1, url="url", client=object(), worker=object())
     window._toggle()
     assert calls == ["start", "stop"]
 
@@ -435,7 +453,11 @@ def test_start_builds_worker_pipeline_and_notifies_plugins(window, monkeypatch):
     assert workers[0].started is True
     assert bus_urls == ["http://phone/video"]
     assert all(plugin.started for plugin in window._plugins)
-    assert window._session == StreamSession(id=1, url="http://phone/video")
+    assert window._session == StreamSession(
+        id=1, url="http://phone/video", client=clients[0], worker=workers[0],
+    )
+    assert window._worker is workers[0]
+    assert window._ctrl is clients[0]
     assert threads[0][1] == (window._session.id,)
     assert threads[0][2] is True
     assert window._start_btn.text() == "Stop Streaming"
@@ -492,9 +514,7 @@ def test_stop_requests_worker_closes_client_and_notifies_plugins(window):
 
     worker = Worker()
     client = Client()
-    window._worker = worker
-    window._ctrl = client
-    window._session = StreamSession(id=1, url="url")
+    window._session = StreamSession(id=1, url="url", client=client, worker=worker)
 
     window._stop()
 
@@ -522,12 +542,12 @@ def test_restart_canvas_non_linux_waits_and_restarts_active_stream(window, monke
             events.append(("wait", timeout))
 
     old = OldWorker()
-    window._worker = old
+    window._session = StreamSession(id=1, url="url", client=object(), worker=old)
     monkeypatch.setattr(app_module, "IS_LINUX", False)
     monkeypatch.setattr(
         window,
         "_stop",
-        lambda: events.append("stop") or setattr(window, "_worker", None),
+        lambda: events.append("stop") or setattr(window, "_session", None),
     )
     monkeypatch.setattr(window, "_start", lambda: events.append("start"))
 
@@ -553,10 +573,18 @@ def test_canvas_reload_failure_reports_error_and_clears_callback(window, monkeyp
     assert window._vcam_reload_callback is None
 
 
+_VALID_STATE = {
+    "cameras": [], "auto": True, "wb_manual": False, "ois": True,
+    "focus_mode": "continuous", "focus_distance": 0.0, "ae_comp": 0,
+    "nr_mode": 1, "edge_mode": 1, "black_level_lock": False, "torch": False,
+    "battery": 80, "charging": False, "battery_temp_c": 25.0,
+}
+
+
 def test_fetch_state_retries_then_emits_success(window, monkeypatch):
-    window._session = StreamSession(id=1, url="url")
-    states = iter([None, {"battery": 80}])
-    window._ctrl = SimpleNamespace(get_state=lambda: next(states))
+    states = iter([None, _VALID_STATE])
+    ctrl = SimpleNamespace(get_state=lambda: next(states))
+    window._session = StreamSession(id=1, url="url", client=ctrl, worker=object())
     emitted = []
     window._sig_state.connect(lambda sid, state: emitted.append((sid, state)))
     sleeps = []
@@ -564,13 +592,13 @@ def test_fetch_state_retries_then_emits_success(window, monkeypatch):
 
     window._fetch_state_async(1)
 
-    assert emitted == [(1, {"battery": 80})]
+    assert emitted == [(1, _VALID_STATE)]
     assert sleeps == [1.5, 2]
 
 
 def test_fetch_state_emits_empty_after_three_failures(window, monkeypatch):
-    window._session = StreamSession(id=1, url="url")
-    window._ctrl = SimpleNamespace(get_state=lambda: None)
+    ctrl = SimpleNamespace(get_state=lambda: None)
+    window._session = StreamSession(id=1, url="url", client=ctrl, worker=object())
     emitted = []
     window._sig_state.connect(lambda sid, state: emitted.append((sid, state)))
     monkeypatch.setattr(app_module.time, "sleep", lambda _seconds: None)
@@ -591,15 +619,15 @@ def test_fetch_state_discards_result_from_a_superseded_session(window, monkeypat
     """Simulates the switch-device race: phone A's fetch was already in
     flight when the session moved on to phone B - its eventual result must
     never reach plugins."""
-    window._session = StreamSession(id=1, url="phoneA")
-    window._ctrl = SimpleNamespace(get_state=lambda: {"battery": 10})
+    ctrl = SimpleNamespace(get_state=lambda: {**_VALID_STATE, "battery": 10})
+    window._session = StreamSession(id=1, url="phoneA", client=ctrl, worker=object())
     emitted = []
     window._sig_state.connect(lambda sid, state: emitted.append((sid, state)))
 
     def sleep_and_switch(_seconds):
         # By the time the (single) sleep in the fetch loop returns, the
         # session has already moved on to a new device.
-        window._session = StreamSession(id=2, url="phoneB")
+        window._session = StreamSession(id=2, url="phoneB", client=object(), worker=object())
 
     monkeypatch.setattr(app_module.time, "sleep", sleep_and_switch)
 
@@ -611,24 +639,50 @@ def test_fetch_state_discards_result_from_a_superseded_session(window, monkeypat
 def test_apply_state_emits_bus_and_calls_plugins(window):
     plugin = _Plugin("other")
     window.register_plugin(plugin)
-    window._session = StreamSession(id=1, url="url")
+    window._session = StreamSession(id=1, url="url", client=object(), worker=object())
     bus = []
     window._bus.phone_state_updated.connect(bus.append)
-    state = {"battery": 50}
-    window._apply_state(1, state)
-    assert bus == [state]
-    assert plugin.states == [state]
+    window._apply_state(1, _VALID_STATE)
+    assert bus == [_VALID_STATE]
+    assert plugin.states == [_VALID_STATE]
 
 
 def test_apply_state_discards_result_for_inactive_session(window):
     plugin = _Plugin("other")
     window.register_plugin(plugin)
-    window._session = StreamSession(id=2, url="url")
+    window._session = StreamSession(id=2, url="url", client=object(), worker=object())
     bus = []
     window._bus.phone_state_updated.connect(bus.append)
-    window._apply_state(1, {"battery": 50})
+    window._apply_state(1, _VALID_STATE)
     assert bus == []
     assert plugin.states == []
+
+
+def test_apply_state_rejects_malformed_non_empty_state(window):
+    plugin = _Plugin("other")
+    window.register_plugin(plugin)
+    window._session = StreamSession(id=1, url="url", client=object(), worker=object())
+    bus = []
+    window._bus.phone_state_updated.connect(bus.append)
+
+    window._apply_state(1, {"battery": 50})  # missing every other required field
+
+    assert bus == []
+    assert plugin.states == []
+    assert "Protocol error" in window._status_lbl.text()
+
+
+def test_apply_state_accepts_empty_state(window):
+    plugin = _Plugin("other")
+    window.register_plugin(plugin)
+    window._session = StreamSession(id=1, url="url", client=object(), worker=object())
+    bus = []
+    window._bus.phone_state_updated.connect(bus.append)
+
+    window._apply_state(1, {})
+
+    assert bus == [{}]
+    assert plugin.states == [{}]
 
 
 @pytest.mark.parametrize(
@@ -644,10 +698,11 @@ def test_worker_status_updates_status_label(window, kind, object_name):
 def test_worker_fps_and_idle_status(window):
     window._on_worker_status("fps", "29.9 fps")
     assert window._fps_lbl.text() == "29.9 fps"
-    window._worker = object()
+    window._session = StreamSession(id=1, url="url", client=object(), worker=object())
     window._on_worker_status("idle", "Stopped.")
     assert window._fps_lbl.text() == ""
     assert window._worker is None
+    assert window._session is None
     assert window._start_btn.text() == "Start Streaming"
 
 
@@ -700,7 +755,7 @@ def test_tray_show_quit_and_activation(window, monkeypatch):
 
 def test_close_event_minimizes_active_stream_to_tray(window, monkeypatch):
     window._tray = object()
-    window._worker = object()
+    window._session = StreamSession(id=1, url="url", client=object(), worker=object())
     notifications = []
     monkeypatch.setattr(window, "hide", lambda: None)
     monkeypatch.setattr(window, "send_notification", lambda *args: notifications.append(args))

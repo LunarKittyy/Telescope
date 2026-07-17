@@ -1,4 +1,6 @@
 import math
+from dataclasses import dataclass
+from typing import Optional
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
@@ -39,6 +41,70 @@ def _diopters_to_label(d: float) -> str:
     if d <= 0.01:
         return "inf"
     return f"{1.0 / d:.2f} m"
+
+
+@dataclass(frozen=True)
+class CameraControlView:
+    """Everything on_phone_state needs to update the widgets, computed once
+    from a raw phone-state dict and kept separate from the Qt calls that
+    apply it - the state-to-values mapping is a pure function, independently
+    testable without a QApplication."""
+
+    lenses: list
+    current_camera: Optional[dict]
+    manual_exposure: bool
+    iso: Optional[float]
+    shutter_ns: Optional[float]
+    manual_wb: bool
+    ois: bool
+    manual_focus: bool
+    focus_distance: float
+    ae_comp: int
+    ae_comp_step: float
+    ae_comp_range: tuple
+    nr_mode_index: int
+    edge_mode_index: int
+    black_level_lock: bool
+    torch: bool
+
+
+def derive_camera_control_view(state: dict) -> Optional[CameraControlView]:
+    """Pure state -> view mapping. Returns None for an empty/unavailable
+    state (the caller should show the "Unavailable" placeholder instead)."""
+    if not state:
+        return None
+
+    cameras = state.get("cameras", [])
+    cur = next((c for c in cameras if c.get("current")), None)
+    is_auto = state.get("auto", True)
+
+    ae_min = cur.get("aeCompMin", -8) if cur else -8
+    ae_max = cur.get("aeCompMax", 8) if cur else 8
+    ae_step = float(cur.get("aeCompStep", 0.167)) if cur else 0.167
+
+    nr_mode = state.get("nr_mode", 1)
+    nr_idx = next((i for i, (_, v) in enumerate(_NR_MODES) if v == nr_mode), 1)
+    edge_mode = state.get("edge_mode", 1)
+    edge_idx = next((i for i, (_, v) in enumerate(_EDGE_MODES) if v == edge_mode), 1)
+
+    return CameraControlView(
+        lenses=cameras,
+        current_camera=cur,
+        manual_exposure=not is_auto,
+        iso=state.get("iso"),
+        shutter_ns=state.get("shutter_ns"),
+        manual_wb=state.get("wb_manual", False),
+        ois=bool(state.get("ois", True)),
+        manual_focus=state.get("focus_mode", "continuous") == "manual",
+        focus_distance=float(state.get("focus_distance", 0.0)),
+        ae_comp=int(state.get("ae_comp", 0)),
+        ae_comp_step=ae_step,
+        ae_comp_range=(ae_min, ae_max),
+        nr_mode_index=nr_idx,
+        edge_mode_index=edge_idx,
+        black_level_lock=bool(state.get("black_level_lock", False)),
+        torch=bool(state.get("torch", False)),
+    )
 
 
 def _row(label: str, widget, label_width=110, stretch=False) -> QHBoxLayout:
@@ -369,37 +435,23 @@ class CameraControlPlugin(TelescopePlugin):
         self._cam_info_lbl.setText("")
 
     def on_phone_state(self, state: dict):
-        if not state:
+        view = derive_camera_control_view(state)
+        if view is None:
             self._lens_panel.set_placeholder("Unavailable")
             return
-        cameras      = state.get("cameras", [])
-        is_auto      = state.get("auto", True)
-        wb_manual    = state.get("wb_manual", False)
-        ois          = state.get("ois", True)
-        iso_val      = state.get("iso")
-        sht_val      = state.get("shutter_ns")
-        focus_mode   = state.get("focus_mode", "continuous")
-        focus_dist   = state.get("focus_distance", 0.0)
-        ae_comp      = state.get("ae_comp", 0)
-        nr_mode      = state.get("nr_mode", 1)
-        edge_mode    = state.get("edge_mode", 1)
-        bll          = state.get("black_level_lock", False)
-        torch        = state.get("torch", False)
 
-        self._lens_panel.load(cameras)
+        self._lens_panel.load(view.lenses)
 
-        cur = next((c for c in cameras if c.get("current")), None)
+        cur = view.current_camera
         if cur:
             self._iso_slider.set_range(cur.get("isoMin", 50), cur.get("isoMax", 6400))
             self._sht_slider.set_range(
                 cur.get("shutterMinNs", 100_000),
                 cur.get("shutterMaxNs", 1_000_000_000),
             )
-            self._ae_comp_step = float(cur.get("aeCompStep", 0.167))
-            ae_min = cur.get("aeCompMin", -8)
-            ae_max = cur.get("aeCompMax", 8)
+            self._ae_comp_step = view.ae_comp_step
             self._ae_comp_slider.blockSignals(True)
-            self._ae_comp_slider.setRange(ae_min, ae_max)
+            self._ae_comp_slider.setRange(*view.ae_comp_range)
             self._ae_comp_slider.blockSignals(False)
             self._update_cam_info_lbl(cur)
             self._update_camera_caps(
@@ -411,53 +463,50 @@ class CameraControlPlugin(TelescopePlugin):
                 cur.get("hasOis", True),
             )
 
-        self._rb_exp_auto.setChecked(is_auto)
-        self._rb_exp_manual.setChecked(not is_auto)
-        self._manual_exp = not is_auto
-        self._iso_slider.set_enabled(not is_auto)
-        self._sht_slider.set_enabled(not is_auto)
-        if iso_val: self._iso_slider.set_value(float(iso_val))
-        if sht_val: self._sht_slider.set_value(float(sht_val))
+        self._rb_exp_auto.setChecked(not view.manual_exposure)
+        self._rb_exp_manual.setChecked(view.manual_exposure)
+        self._manual_exp = view.manual_exposure
+        self._iso_slider.set_enabled(view.manual_exposure)
+        self._sht_slider.set_enabled(view.manual_exposure)
+        if view.iso: self._iso_slider.set_value(float(view.iso))
+        if view.shutter_ns: self._sht_slider.set_value(float(view.shutter_ns))
 
-        self._rb_wb_auto.setChecked(not wb_manual)
-        self._rb_wb_manual.setChecked(wb_manual)
-        self._manual_wb = wb_manual
-        self._wb_slider.setEnabled(wb_manual)
-        self._wb_k_lbl.setEnabled(wb_manual)
-        self._tint_slider.setEnabled(wb_manual)
-        self._tint_lbl.setEnabled(wb_manual)
+        self._rb_wb_auto.setChecked(not view.manual_wb)
+        self._rb_wb_manual.setChecked(view.manual_wb)
+        self._manual_wb = view.manual_wb
+        self._wb_slider.setEnabled(view.manual_wb)
+        self._wb_k_lbl.setEnabled(view.manual_wb)
+        self._tint_slider.setEnabled(view.manual_wb)
+        self._tint_lbl.setEnabled(view.manual_wb)
 
-        self._ois_cb.setChecked(bool(ois))
+        self._ois_cb.setChecked(view.ois)
 
-        manual_focus = focus_mode == "manual"
-        self._rb_focus_auto.setChecked(not manual_focus)
-        self._rb_focus_manual.setChecked(manual_focus)
-        self._manual_focus = manual_focus
-        self._focus_slider.setEnabled(manual_focus)
-        self._set_focus_slider_value(float(focus_dist))
+        self._rb_focus_auto.setChecked(not view.manual_focus)
+        self._rb_focus_manual.setChecked(view.manual_focus)
+        self._manual_focus = view.manual_focus
+        self._focus_slider.setEnabled(view.manual_focus)
+        self._set_focus_slider_value(view.focus_distance)
 
         self._ae_comp_slider.blockSignals(True)
-        self._ae_comp_slider.setValue(int(ae_comp))
+        self._ae_comp_slider.setValue(view.ae_comp)
         self._ae_comp_slider.blockSignals(False)
-        self._ae_comp_lbl.setText(f"{int(ae_comp) * self._ae_comp_step:+.1f} EV")
+        self._ae_comp_lbl.setText(f"{view.ae_comp * self._ae_comp_step:+.1f} EV")
 
-        nr_idx = next((i for i, (_, v) in enumerate(_NR_MODES) if v == nr_mode), 1)
         self._nr_combo.blockSignals(True)
-        self._nr_combo.setCurrentIndex(nr_idx)
+        self._nr_combo.setCurrentIndex(view.nr_mode_index)
         self._nr_combo.blockSignals(False)
 
-        edge_idx = next((i for i, (_, v) in enumerate(_EDGE_MODES) if v == edge_mode), 1)
         self._edge_combo.blockSignals(True)
-        self._edge_combo.setCurrentIndex(edge_idx)
+        self._edge_combo.setCurrentIndex(view.edge_mode_index)
         self._edge_combo.blockSignals(False)
 
         self._bll_cb.blockSignals(True)
-        self._bll_cb.setChecked(bool(bll))
+        self._bll_cb.setChecked(view.black_level_lock)
         self._bll_cb.blockSignals(False)
 
         self._torch_btn.blockSignals(True)
-        self._torch_btn.setChecked(bool(torch))
-        self._torch_on = bool(torch)
+        self._torch_btn.setChecked(view.torch)
+        self._torch_on = view.torch
         self._torch_btn.blockSignals(False)
 
     def _on_phone_state_from_bus(self, state: dict):

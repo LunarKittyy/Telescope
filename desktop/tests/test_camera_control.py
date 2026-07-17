@@ -6,6 +6,7 @@ from telescope.plugins.camera_control import (
     CameraControlPlugin,
     _diopters_to_label,
     _kelvin_to_rggb,
+    derive_camera_control_view,
 )
 
 
@@ -33,6 +34,50 @@ def camera_plugin(qapp):
     plugin.setup(host, bus)
     panel = plugin.create_panel()
     return plugin, host, bus, panel
+
+
+def test_derive_camera_control_view_returns_none_for_empty_state():
+    assert derive_camera_control_view({}) is None
+    assert derive_camera_control_view(None) is None
+
+
+def test_derive_camera_control_view_maps_auto_and_manual_flags():
+    view = derive_camera_control_view({
+        "cameras": [], "auto": False, "wb_manual": True, "focus_mode": "manual",
+    })
+    assert view.manual_exposure is True
+    assert view.manual_wb is True
+    assert view.manual_focus is True
+
+
+def test_derive_camera_control_view_picks_current_camera_and_its_ranges():
+    state = {
+        "cameras": [
+            {"id": "0", "current": False, "aeCompMin": -8, "aeCompMax": 8},
+            {"id": "1", "current": True, "aeCompMin": -3, "aeCompMax": 3, "aeCompStep": 0.5},
+        ],
+        "auto": True,
+    }
+    view = derive_camera_control_view(state)
+    assert view.current_camera["id"] == "1"
+    assert view.ae_comp_range == (-3, 3)
+    assert view.ae_comp_step == 0.5
+
+
+def test_derive_camera_control_view_defaults_ae_range_without_current_camera():
+    view = derive_camera_control_view({"cameras": [], "auto": True})
+    assert view.current_camera is None
+    assert view.ae_comp_range == (-8, 8)
+    assert view.ae_comp_step == 0.167
+
+
+def test_derive_camera_control_view_maps_nr_and_edge_mode_indices():
+    view = derive_camera_control_view({"cameras": [], "auto": True, "nr_mode": 2, "edge_mode": 0})
+    assert view.nr_mode_index == 2
+    assert view.edge_mode_index == 0
+    # An unrecognized mode value falls back to index 1 ("Fast").
+    view2 = derive_camera_control_view({"cameras": [], "auto": True, "nr_mode": 99})
+    assert view2.nr_mode_index == 1
 
 
 def test_kelvin_gains_are_symmetric_and_tint_is_clamped():

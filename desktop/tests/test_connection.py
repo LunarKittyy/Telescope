@@ -185,6 +185,22 @@ def test_connection_config_migrates_old_ip_list_and_selects_profile(connection_p
     assert plugin._current_device_ip() == "1.2.3.4"
 
 
+def test_connection_set_config_discards_malformed_device_entries(connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    plugin.set_config({
+        "mode": "wifi",
+        "devices_list": [
+            {"name": "Good", "ips": ["10.0.0.1"], "token": "tok"},
+            {"name": ""},  # empty name
+            {"ips": ["10.0.0.2"]},  # missing name
+            {"name": "BadIps", "ips": "not-a-list"},
+            "not-a-dict",
+            {"name": "BadToken", "ips": ["10.0.0.3"], "token": 42},
+        ],
+    })
+    assert plugin._devices == [{"name": "Good", "ips": ["10.0.0.1"], "token": "tok"}]
+
+
 def test_connection_select_device_defaults_first_wifi_device(connection_plugin):
     plugin, _host, _panel = connection_plugin
     plugin.set_config({

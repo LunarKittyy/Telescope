@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
 )
 
 from telescope.config import DEVICE_LOCAL_PLUGINS, load_config, save_config
+from telescope.models import PhoneState, PhoneStateError
 from telescope.phone_client import PhoneControlClient
 from telescope.platform import IS_LINUX, IS_WINDOWS
 from telescope.plugin import EventBus, TelescopePlugin
@@ -244,14 +245,15 @@ class TelescopeWindow(QMainWindow):
         # value for it.
         self._plugin_defaults: dict[str, dict] = {}
 
-        self._worker: Optional[StreamWorker] = None
-        self._ctrl:   Optional[PhoneControlClient] = None
-        # Identity for the current connect-to-disconnect lifecycle. Captured
-        # by async completions (phone-state fetches) so a result that
-        # arrives after a device switch/stop can recognize itself as stale
-        # and get discarded instead of reaching plugins for the wrong phone.
+        # StreamSession owns the worker/client for the current connect-to-
+        # disconnect lifecycle; self._worker/self._ctrl below are read-only
+        # views onto it. Its id is captured by async completions (phone-
+        # state fetches) so a result that arrives after a device switch/stop
+        # can recognize itself as stale and get discarded instead of
+        # reaching plugins for the wrong phone.
         self._session: Optional[StreamSession] = None
         self._next_session_id = 1
+        self._save_failure_notified = False
 
         self._save_timer = QTimer(self)
         self._save_timer.setSingleShot(True)
@@ -265,6 +267,14 @@ class TelescopeWindow(QMainWindow):
         self._sig_state.connect(self._apply_state)
         self._sig_raise.connect(self._tray_show)
         self._sig_canvas_reload_done.connect(self._on_canvas_reload_done)
+
+    @property
+    def _worker(self) -> Optional[StreamWorker]:
+        return self._session.worker if self._session else None
+
+    @property
+    def _ctrl(self) -> Optional[PhoneControlClient]:
+        return self._session.client if self._session else None
 
     def register_plugin(self, plugin: TelescopePlugin):
         plugin.setup(self, self._bus)
@@ -350,7 +360,18 @@ class TelescopeWindow(QMainWindow):
             for p in self._plugins:
                 if p.name and p.name in DEVICE_LOCAL_PLUGINS:
                     dev_pcfg[p.name] = p.get_config()
-        save_config(cfg)
+        if save_config(cfg):
+            self._save_failure_notified = False
+        elif not self._save_failure_notified:
+            # Only once per failure streak - the 500ms debounce would
+            # otherwise re-trigger this on every subsequent settings change
+            # while the underlying problem (e.g. a full disk) persists.
+            self._save_failure_notified = True
+            logging.error("Failed to save settings")
+            self.send_notification(
+                "Telescope - Save failed",
+                "Could not save settings. Check disk space and permissions.",
+            )
 
     def _apply_device_profile(self, name: Optional[str]):
         """Reset every device-local plugin to its captured defaults, then layer
@@ -444,23 +465,23 @@ class TelescopeWindow(QMainWindow):
 
         pipeline = [p.process_frame for p in self._plugins]
 
-        session_id = self._next_session_id
-        self._next_session_id += 1
-        self._session = StreamSession(id=session_id, url=url)
-
-        self._ctrl = PhoneControlClient(url, token)
-        self._worker = StreamWorker(
+        ctrl = PhoneControlClient(url, token)
+        worker = StreamWorker(
             url=url, width=w, height=h, fps=fps,
             frame_pipeline=pipeline,
             canvas_width=canvas_w, canvas_height=canvas_h,
             token=token,
         )
-        self._worker.status.connect(self._on_worker_status)
-        self._worker.start()
+        session_id = self._next_session_id
+        self._next_session_id += 1
+        self._session = StreamSession(id=session_id, url=url, client=ctrl, worker=worker)
+
+        worker.status.connect(self._on_worker_status)
+        worker.start()
 
         self._bus.stream_started.emit(url)
         for p in self._plugins:
-            p.on_stream_start(url, self._ctrl)
+            p.on_stream_start(url, ctrl)
 
         threading.Thread(target=self._fetch_state_async, args=(session_id,), daemon=True).start()
 
@@ -470,20 +491,26 @@ class TelescopeWindow(QMainWindow):
         self._set_status("Connecting...", "dim")
 
     def _stop(self):
+        # Captured before clearing self._session, which must happen first so
+        # any in-flight async completion (_fetch_state_async/_apply_state)
+        # sees "no active session" immediately, even while the teardown below
+        # is still unwinding the actual worker/client synchronously.
+        session = self._session
         self._session = None
-        if self._worker:
-            self._worker.status.disconnect(self._on_worker_status)
-            self._worker.request_stop()
+        worker = session.worker if session else None
+        ctrl = session.client if session else None
+
+        if worker:
+            worker.status.disconnect(self._on_worker_status)
+            worker.request_stop()
             # Bounded wait so a stalled read can't freeze the GUI. With the
             # OpenCV open/read timeouts in _open_cap() this should normally
             # finish well within this window; if it doesn't, let the worker
             # keep unwinding in the background rather than force-killing it.
-            if not self._worker.wait(5000):
+            if not worker.wait(5000):
                 logging.warning("Stream worker did not stop within 5s; abandoning it in the background")
-            self._worker = None
-        if self._ctrl:
-            self._ctrl.close()
-        self._ctrl = None
+        if ctrl:
+            ctrl.close()
         self._start_btn.setText("Start Streaming")
         self._start_btn.setProperty("streaming", False)
         self._start_btn.setStyle(self._start_btn.style())
@@ -554,6 +581,15 @@ class TelescopeWindow(QMainWindow):
         # phone's state to plugins for the current device.
         if self._session is None or self._session.id != session_id:
             return
+        try:
+            PhoneState.from_dict(state)
+        except PhoneStateError:
+            logging.exception("Phone sent a malformed /v1/state response - not applying it")
+            self._set_status("Protocol error: phone sent malformed state", "err")
+            return
+        # Decoded successfully - forwarded as the original dict rather than
+        # the typed PhoneState so existing plugins keep consuming the shape
+        # they already expect; the validation above is the new behavior.
         self._bus.phone_state_updated.emit(state)
         for p in self._plugins:
             p.on_phone_state(state)
@@ -631,8 +667,8 @@ class TelescopeWindow(QMainWindow):
         elif kind == "idle":
             self._fps_lbl.setText("")
             self._set_status(msg, "dim")
-            if self._worker:
-                self._worker = None
+            if self._session:
+                self._session = None
                 self._start_btn.setText("Start Streaming")
                 self._start_btn.setProperty("streaming", False)
                 self._start_btn.setStyle(self._start_btn.style())

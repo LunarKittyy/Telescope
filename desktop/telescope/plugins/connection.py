@@ -1,5 +1,6 @@
 import hmac
 import json
+import logging
 import secrets
 import socket
 import threading
@@ -16,7 +17,9 @@ from PyQt6.QtWidgets import (
     QTextEdit, QVBoxLayout, QWidget,
 )
 
+from telescope import ip_utils
 from telescope.config import load_config, save_config
+from telescope.models import DeviceProfile
 from telescope.platform import IS_LINUX, adb_available, adb_devices, adb_forward, adb_unforward
 from telescope.platform.linux import (
     V4L2_OBS_DEV, V4L2_PHONE_DEV,
@@ -24,6 +27,8 @@ from telescope.platform.linux import (
 )
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import NoScrollComboBox, create_vector_icon
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_PORT = 8080
 PAIRING_PORT = 8765
@@ -34,64 +39,16 @@ PAIRING_PORT = 8765
 USB_PROFILE_KEY = "__usb__"
 
 
-def _get_local_ips() -> list[str]:
-    ips: set[str] = set()
-    try:
-        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
-            ip = info[4][0]
-            if not ip.startswith("127."):
-                ips.add(ip)
-    except Exception:
-        pass
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            s.connect(("8.8.8.8", 80))
-            ips.add(s.getsockname()[0])
-    except Exception:
-        pass
-    return sorted(ips, key=_rank_ip)
-
-
-def _rank_ip(ip: str) -> int:
-    parts = ip.split(".")
-    if len(parts) == 4:
-        try:
-            octets = [int(p) for p in parts]
-        except ValueError:
-            return 2
-        a, b = octets[0], octets[1]
-        if a == 100 and 64 <= b <= 127:
-            return 0  # Tailscale CGNAT range
-        # RFC 1918 private ranges - note 172.16.0.0/12 only, not all of 172.x.x.x
-        if a == 10 or a == 192 and b == 168 or a == 172 and 16 <= b <= 31:
-            return 1  # LAN
-    return 2
-
-
-def _best_ip(ips: list[str]) -> Optional[str]:
-    if not ips:
-        return None
-    return min(ips, key=_rank_ip)
-
-
-def _extract_ip(s: str) -> str:
-    """Strip protocol/port/path so 'http://1.2.3.4:8080/video' -> '1.2.3.4'."""
-    s = s.strip()
-    if "://" in s:
-        s = s.split("://", 1)[1]
-    s = s.split("/")[0]
-    s = s.split(":")[0]
-    return s.strip()
-
-
-def _valid_ipv4(ip: str) -> bool:
-    parts = ip.split(".")
-    if len(parts) != 4:
-        return False
-    try:
-        return all(0 <= int(p) <= 255 and str(int(p)) == p for p in parts)
-    except ValueError:
-        return False
+# Re-exported under their historical private names: this module (panel/
+# dialog UI + QR-pairing HTTP server) is not where these pure functions
+# conceptually belong, but existing code/tests reference them here, so
+# telescope/ip_utils.py is the actual implementation and this is a thin
+# compatibility alias.
+_get_local_ips = ip_utils.get_local_ips
+_rank_ip = ip_utils.rank_ip
+_best_ip = ip_utils.best_ip
+_extract_ip = ip_utils.extract_ip
+_valid_ipv4 = ip_utils.valid_ipv4
 
 
 class _DeviceDialog(QDialog):
@@ -969,13 +926,19 @@ class ConnectionPlugin(TelescopePlugin):
             self._port_field.setText(str(port))
             self._last_port = str(port)
         raw = cfg.get("devices_list", [])
-        # Migrate old format {"name": str, "ip": str} → {"name": str, "ips": [str]}
+        if not isinstance(raw, list):
+            raw = []
         self._devices = []
         for d in raw:
-            if "ip" in d and "ips" not in d:
-                self._devices.append({"name": d["name"], "ips": [d["ip"]]})
-            else:
-                self._devices.append(d)
+            # Migrate old format {"name": str, "ip": str} -> {"name": str, "ips": [str]}
+            if isinstance(d, dict) and "ip" in d and "ips" not in d:
+                d = {"name": d.get("name"), "ips": [d["ip"]]}
+            try:
+                profile = DeviceProfile.from_dict(d)
+            except ValueError:
+                logger.warning("Discarding malformed device entry in config: %r", d)
+                continue
+            self._devices.append(profile.to_dict())
         self._switching_device = True
         self._device_combo.blockSignals(True)
         self._device_combo.clear()
