@@ -58,10 +58,23 @@ class PhoneControlClient:
                     self._queue.put(action)
 
     def close(self):
-        """Stop accepting new requests and let the worker thread drain."""
+        """Stop accepting new requests and cancel any still waiting to be sent.
+
+        A device switch calls this to tear down the outgoing phone's client -
+        anything still queued (e.g. a slider drag still coalescing) must be
+        cancelled here, not sent, or it lands on the phone that's no longer
+        active.
+        """
         if self._closed:
             return
         self._closed = True
+        with self._lock:
+            self._pending.clear()
+        try:
+            while True:
+                self._queue.get_nowait()
+        except queue.Empty:
+            pass
         self._queue.put(None)
 
     def _worker(self):

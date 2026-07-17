@@ -87,6 +87,23 @@ def test_close_stops_accepting_new_requests(recording_server):
     assert recording_server.received == []
 
 
+def test_close_cancels_queued_and_pending_requests(monkeypatch):
+    monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
+    client = PhoneControlClient("http://phone/video", "tok")
+    sent = []
+    monkeypatch.setattr(client, "_send_now", sent.append)
+
+    # A coalescing action (sits in _pending) and a non-coalescing one (sits
+    # directly in _queue) - both must be cancelled by close(), not merely
+    # drained-and-sent before the shutdown sentinel.
+    client.send(action="iso", value=100)
+    client.send(action="camera", id="cam0")
+    client.close()
+
+    client._worker()
+    assert sent == []
+
+
 class _Response:
     def __init__(self, body=b"{}"):
         self.body = body

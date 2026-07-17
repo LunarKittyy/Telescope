@@ -108,10 +108,12 @@ def test_qr_widget_builds_matrix_and_renders(qapp):
 
 
 def test_pairing_dialog_reports_no_network_interfaces(monkeypatch, qapp):
+    import telescope.pairing as pairing_module
+
     dialog = _PairingDialog(None, lambda *_args: None)
-    monkeypatch.setattr(connection, "_get_local_ips", lambda: [])
+    monkeypatch.setattr(pairing_module.ip_utils, "get_local_ips", lambda: [])
     dialog._start_server()
-    assert dialog._server is None
+    assert dialog._pairing_server is None
     assert dialog._status_lbl.objectName() == "status_err"
     assert dialog._status_lbl.text() == "No network interfaces found."
 
@@ -129,8 +131,23 @@ def test_pairing_dialog_success_ui_and_callback(qapp):
     assert any('"Phone" added.' in label.text() for label in labels)
 
 
+def test_pairing_dialog_renders_qr_after_start(qapp):
+    dialog = _PairingDialog(None, lambda *_args: None)
+    dialog._start_server()
+    try:
+        assert dialog._pairing_server is not None
+        widgets = [dialog._qr_container.itemAt(i).widget()
+                   for i in range(dialog._qr_container.count())
+                   if dialog._qr_container.itemAt(i).widget()]
+        assert any(isinstance(w, _QRCodeWidget) for w in widgets)
+        assert dialog._status_lbl.text() == "Scan with the Telescope app on your phone."
+    finally:
+        dialog._stop_server()
+
+
 def test_pairing_start_is_idempotent_when_server_already_exists(qapp):
     dialog = _PairingDialog(None, lambda *_args: None)
-    dialog._server = object()
+    sentinel = object()
+    dialog._pairing_server = sentinel
     dialog._start_server()
-    assert dialog._server is not None
+    assert dialog._pairing_server is sentinel

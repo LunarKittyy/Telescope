@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import pytest
 from PyQt6.QtWidgets import QMessageBox
 
+import telescope.ip_utils as ip_utils_module
 import telescope.plugins.connection as connection_module
 from telescope.plugin import EventBus
 from telescope.plugins.connection import (
@@ -78,9 +79,9 @@ def test_get_local_ips_deduplicates_filters_loopback_and_ranks(monkeypatch):
         def getsockname(self):
             return "100.64.0.9", 999
 
-    monkeypatch.setattr(connection_module.socket, "gethostname", lambda: "host")
+    monkeypatch.setattr(ip_utils_module.socket, "gethostname", lambda: "host")
     monkeypatch.setattr(
-        connection_module.socket,
+        ip_utils_module.socket,
         "getaddrinfo",
         lambda *_args: [
             (None, None, None, None, ("127.0.0.1", 0)),
@@ -88,19 +89,19 @@ def test_get_local_ips_deduplicates_filters_loopback_and_ranks(monkeypatch):
             (None, None, None, None, ("192.168.1.2", 0)),
         ],
     )
-    monkeypatch.setattr(connection_module.socket, "socket", lambda *_args: DatagramSocket())
+    monkeypatch.setattr(ip_utils_module.socket, "socket", lambda *_args: DatagramSocket())
 
     assert connection_module._get_local_ips() == ["100.64.0.9", "192.168.1.2"]
 
 
 def test_get_local_ips_tolerates_both_discovery_failures(monkeypatch):
     monkeypatch.setattr(
-        connection_module.socket,
+        ip_utils_module.socket,
         "getaddrinfo",
         lambda *_args: (_ for _ in ()).throw(OSError()),
     )
     monkeypatch.setattr(
-        connection_module.socket,
+        ip_utils_module.socket,
         "socket",
         lambda *_args: (_ for _ in ()).throw(OSError()),
     )

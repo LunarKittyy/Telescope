@@ -1,10 +1,4 @@
-import hmac
-import json
 import logging
-import secrets
-import socket
-import threading
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Optional
 
 import qrcode
@@ -20,6 +14,7 @@ from PyQt6.QtWidgets import (
 from telescope import ip_utils
 from telescope.config import load_config, save_config
 from telescope.models import DeviceProfile
+from telescope.pairing import PairingServer
 from telescope.platform import IS_LINUX, adb_available, adb_devices, adb_forward, adb_unforward
 from telescope.platform.linux import (
     V4L2_OBS_DEV, V4L2_PHONE_DEV,
@@ -31,7 +26,6 @@ from telescope.widgets.common import NoScrollComboBox, create_vector_icon
 logger = logging.getLogger(__name__)
 
 DEFAULT_PORT = 8080
-PAIRING_PORT = 8765
 
 # Pseudo-device key used to give USB-only sessions their own persisted
 # device-local plugin profile (camera settings, transforms, etc.), same as
@@ -292,17 +286,12 @@ class _PairingSignals(QObject):
 class _PairingDialog(QDialog):
     """Shows a QR code and runs a pairing HTTP server while open."""
 
-    _MAX_BODY_BYTES = 16 * 1024
-
     def __init__(self, parent, on_paired):
         super().__init__(parent)
         self.setWindowTitle("Pair with Phone")
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self._on_paired = on_paired
-        self._server: Optional[HTTPServer] = None
-        self._server_thread: Optional[threading.Thread] = None
-        self._nonce: Optional[str] = None
-        self._token: Optional[str] = None
+        self._pairing_server: Optional[PairingServer] = None
         self._signals = _PairingSignals()
         self._signals.paired.connect(self._on_paired_signal)
         self._build_ui()
@@ -344,85 +333,20 @@ class _PairingDialog(QDialog):
         super().closeEvent(event)
 
     def _start_server(self):
-        if self._server is not None:
+        if self._pairing_server is not None:
             return  # already running - showEvent() can fire more than once
 
-        local_ips = _get_local_ips()
-        if not local_ips:
+        signals = self._signals
+        server = PairingServer(on_paired=lambda r: signals.paired.emit(r.name, r.ips, r.token))
+        offer = server.start()
+        if offer is None:
             self._status_lbl.setObjectName("status_err")
             self._status_lbl.setText("No network interfaces found.")
             self._status_lbl.setStyleSheet("")
             return
+        self._pairing_server = server
 
-        # Try to bind the fixed pairing port; fall back to random if in use
-        port = PAIRING_PORT
-        try:
-            test = socket.socket()
-            test.bind(("", port))
-            test.close()
-        except OSError:
-            with socket.socket() as s:
-                s.bind(("", 0))
-                port = s.getsockname()[1]
-
-        signals = self._signals
-        # A fresh nonce per pairing session - the POST path must include it,
-        # so a LAN peer that doesn't already know it (i.e. hasn't scanned the
-        # current QR code) can't add itself as a paired device.
-        nonce = secrets.token_urlsafe(16)
-        self._nonce = nonce
-        # The bearer token the phone will require on every /v1/* request
-        # once paired. Embedded in the QR code and echoed back in the
-        # pairing POST body as a second, defense-in-depth confirmation (on
-        # top of the nonce) that this POST came from a phone that actually
-        # read the current QR code.
-        token = secrets.token_urlsafe(32)
-        self._token = token
-        max_body = self._MAX_BODY_BYTES
-        pair_path = f"/pair/{nonce}"
-
-        class _Handler(BaseHTTPRequestHandler):
-            def do_GET(self):
-                self.send_response(200)
-                self.end_headers()
-                self.wfile.write(b"Telescope pairing server")
-
-            def do_POST(self):
-                if self.path != pair_path:
-                    self.send_response(404); self.end_headers(); return
-                length_hdr = self.headers.get("Content-Length")
-                try:
-                    length = int(length_hdr)
-                except (TypeError, ValueError):
-                    self.send_response(411); self.end_headers(); return
-                if length < 0 or length > max_body:
-                    self.send_response(413); self.end_headers(); return
-                body = self.rfile.read(length)
-                try:
-                    data = json.loads(body)
-                    name = str(data.get("name", "Phone")).strip()
-                    ips = list(dict.fromkeys(str(x).strip() for x in data.get("ips", [])))
-                    echoed_token = str(data.get("token", ""))
-                    if not name or not ips or not all(_valid_ipv4(ip) for ip in ips):
-                        raise ValueError("invalid pairing payload")
-                    if not hmac.compare_digest(echoed_token, token):
-                        raise ValueError("token mismatch")
-                    signals.paired.emit(name, ips, token)
-                    self.send_response(200)
-                    self.end_headers()
-                    self.wfile.write(b"OK")
-                except Exception:
-                    self.send_response(400); self.end_headers()
-
-            def log_message(self, *args):
-                pass
-
-        self._server = HTTPServer(("", port), _Handler)
-        self._server_thread = threading.Thread(target=self._server.serve_forever, daemon=True)
-        self._server_thread.start()
-
-        payload = json.dumps({"version": 1, "port": port, "ips": local_ips, "nonce": nonce, "token": token})
-        qr_widget = _QRCodeWidget(payload)
+        qr_widget = _QRCodeWidget(offer.payload)
         while self._qr_container.count():
             item = self._qr_container.takeAt(0)
             if item.widget():
@@ -434,21 +358,10 @@ class _PairingDialog(QDialog):
         self._status_lbl.setStyleSheet("")
 
     def _stop_server(self):
-        if self._server is None:
+        if self._pairing_server is None:
             return
-        server, thread = self._server, self._server_thread
-        self._server = None
-        self._server_thread = None
-        self._nonce = None
-        self._token = None
-
-        def _shutdown():
-            server.shutdown()
-            if thread:
-                thread.join(timeout=5)
-            server.server_close()
-
-        threading.Thread(target=_shutdown, daemon=True).start()
+        self._pairing_server.stop()
+        self._pairing_server = None
 
     def _on_paired_signal(self, name: str, ips: list, token: str):
         # Replace QR with a big success message
