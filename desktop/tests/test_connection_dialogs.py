@@ -118,9 +118,9 @@ def test_pairing_dialog_reports_no_network_interfaces(monkeypatch, qapp):
 
 def test_pairing_dialog_success_ui_and_callback(qapp):
     paired = []
-    dialog = _PairingDialog(None, lambda name, ips: paired.append((name, ips)))
-    dialog._on_paired_signal("Phone", ["10.0.0.1"])
-    assert paired == [("Phone", ["10.0.0.1"])]
+    dialog = _PairingDialog(None, lambda name, ips, token: paired.append((name, ips, token)))
+    dialog._on_paired_signal("Phone", ["10.0.0.1"], "tok-123")
+    assert paired == [("Phone", ["10.0.0.1"], "tok-123")]
     assert dialog._status_lbl.text() == ""
     assert dialog._hint_lbl.isHidden()
     labels = [dialog._qr_container.itemAt(i).widget()

@@ -2,7 +2,6 @@ import json
 import logging
 import queue
 import threading
-import urllib.parse
 import urllib.request
 from typing import Optional
 
@@ -10,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class PhoneControlClient:
-    """Sends camera-control requests to the phone.
+    """Sends authenticated camera-control requests to the phone.
 
     A single background worker thread sends queued requests in order, so a
     burst of slider drags can never have an older request's response arrive
@@ -24,8 +23,9 @@ class PhoneControlClient:
 
     _NON_COALESCING = frozenset({"camera"})
 
-    def __init__(self, stream_url: str):
+    def __init__(self, stream_url: str, token: str):
         self.base = stream_url.rsplit("/video", 1)[0]
+        self.token = token
         self._queue: "queue.Queue" = queue.Queue()
         self._pending: dict = {}
         self._lock = threading.Lock()
@@ -33,9 +33,13 @@ class PhoneControlClient:
         self._thread = threading.Thread(target=self._worker, daemon=True)
         self._thread.start()
 
+    def _auth_headers(self) -> dict:
+        return {"Authorization": f"Bearer {self.token}"}
+
     def get_state(self) -> Optional[dict]:
         try:
-            with urllib.request.urlopen(f"{self.base}/cameras", timeout=4) as r:
+            req = urllib.request.Request(f"{self.base}/state", headers=self._auth_headers())
+            with urllib.request.urlopen(req, timeout=4) as r:
                 return json.loads(r.read().decode())
         except Exception:
             return None
@@ -75,10 +79,11 @@ class PhoneControlClient:
             self._send_now(params)
 
     def _send_now(self, params: dict):
-        qs = urllib.parse.urlencode(params)
-        url = f"{self.base}/control?{qs}"
+        body = json.dumps(params).encode("utf-8")
+        headers = {**self._auth_headers(), "Content-Type": "application/json"}
+        req = urllib.request.Request(f"{self.base}/control", data=body, method="POST", headers=headers)
         try:
-            with urllib.request.urlopen(url, timeout=3) as r:
+            with urllib.request.urlopen(req, timeout=3) as r:
                 r.read()
         except Exception as exc:
             logger.debug("Control request failed: %s", exc)

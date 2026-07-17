@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import QWidget
 
 import telescope.app as app_module
 from telescope.plugin import TelescopePlugin
+from telescope.session import StreamSession
 
 
 class _Signal:
@@ -61,7 +62,7 @@ class _Plugin(TelescopePlugin):
 
 
 class _Connection(_Plugin):
-    def __init__(self, selected="Phone", stream_info=("http://phone/video", True)):
+    def __init__(self, selected="Phone", stream_info=("http://phone/video", "tok", True)):
         super().__init__("connection", {"mode": "wifi"})
         self.selected_device = selected
         self.stream_info = stream_info
@@ -370,7 +371,7 @@ def test_apply_config_empty_is_noop(window):
 def test_start_without_connection_or_invalid_stream_is_noop(window):
     window._start()
     assert window._worker is None
-    window.register_plugin(_Connection(stream_info=(None, False)))
+    window.register_plugin(_Connection(stream_info=(None, None, False)))
     window._start()
     assert window._worker is None
 
@@ -388,8 +389,9 @@ def test_start_builds_worker_pipeline_and_notifies_plugins(window, monkeypatch):
     threads = []
 
     class Client:
-        def __init__(self, url):
+        def __init__(self, url, token):
             self.url = url
+            self.token = token
             self.closed = False
             clients.append(self)
 
@@ -422,16 +424,19 @@ def test_start_builds_worker_pipeline_and_notifies_plugins(window, monkeypatch):
     window._start()
 
     assert clients[0].url == "http://phone/video"
+    assert clients[0].token == "tok"
     assert workers[0].kwargs["width"] == 1280
     assert workers[0].kwargs["height"] == 720
     assert workers[0].kwargs["fps"] == 25
     assert workers[0].kwargs["canvas_width"] == 1920
     assert workers[0].kwargs["canvas_height"] == 1080
+    assert workers[0].kwargs["token"] == "tok"
     assert workers[0].kwargs["frame_pipeline"] == [p.process_frame for p in window._plugins]
     assert workers[0].started is True
     assert bus_urls == ["http://phone/video"]
     assert all(plugin.started for plugin in window._plugins)
-    assert threads[0][1] == ("http://phone/video",)
+    assert window._session == StreamSession(id=1, url="http://phone/video")
+    assert threads[0][1] == (window._session.id,)
     assert threads[0][2] is True
     assert window._start_btn.text() == "Stop Streaming"
 
@@ -448,7 +453,7 @@ def test_start_uses_defaults_without_optional_plugins(window, monkeypatch):
         def start(self):
             pass
 
-    monkeypatch.setattr(app_module, "PhoneControlClient", lambda _url: object())
+    monkeypatch.setattr(app_module, "PhoneControlClient", lambda _url, _token: object())
     monkeypatch.setattr(app_module, "StreamWorker", Worker)
     monkeypatch.setattr(
         app_module.threading,
@@ -489,6 +494,7 @@ def test_stop_requests_worker_closes_client_and_notifies_plugins(window):
     client = Client()
     window._worker = worker
     window._ctrl = client
+    window._session = StreamSession(id=1, url="url")
 
     window._stop()
 
@@ -497,6 +503,7 @@ def test_stop_requests_worker_closes_client_and_notifies_plugins(window):
     assert client.closed is True
     assert window._worker is None
     assert window._ctrl is None
+    assert window._session is None
     assert plugin.stopped == 1
     assert bus == [True]
     assert window._start_btn.text() == "Start Streaming"
@@ -547,42 +554,81 @@ def test_canvas_reload_failure_reports_error_and_clears_callback(window, monkeyp
 
 
 def test_fetch_state_retries_then_emits_success(window, monkeypatch):
+    window._session = StreamSession(id=1, url="url")
     states = iter([None, {"battery": 80}])
     window._ctrl = SimpleNamespace(get_state=lambda: next(states))
     emitted = []
-    window._sig_state.connect(emitted.append)
+    window._sig_state.connect(lambda sid, state: emitted.append((sid, state)))
     sleeps = []
     monkeypatch.setattr(app_module.time, "sleep", sleeps.append)
 
-    window._fetch_state_async("url")
+    window._fetch_state_async(1)
 
-    assert emitted == [{"battery": 80}]
+    assert emitted == [(1, {"battery": 80})]
     assert sleeps == [1.5, 2]
 
 
 def test_fetch_state_emits_empty_after_three_failures(window, monkeypatch):
+    window._session = StreamSession(id=1, url="url")
     window._ctrl = SimpleNamespace(get_state=lambda: None)
     emitted = []
-    window._sig_state.connect(emitted.append)
+    window._sig_state.connect(lambda sid, state: emitted.append((sid, state)))
     monkeypatch.setattr(app_module.time, "sleep", lambda _seconds: None)
-    window._fetch_state_async("url")
-    assert emitted == [{}]
+    window._fetch_state_async(1)
+    assert emitted == [(1, {})]
 
 
-def test_fetch_state_exits_if_client_is_removed(window, monkeypatch):
+def test_fetch_state_exits_if_session_is_removed(window, monkeypatch):
     monkeypatch.setattr(app_module.time, "sleep", lambda _seconds: None)
-    window._fetch_state_async("url")
+    window._session = None
+    emitted = []
+    window._sig_state.connect(lambda sid, state: emitted.append((sid, state)))
+    window._fetch_state_async(1)
+    assert emitted == []
+
+
+def test_fetch_state_discards_result_from_a_superseded_session(window, monkeypatch):
+    """Simulates the switch-device race: phone A's fetch was already in
+    flight when the session moved on to phone B - its eventual result must
+    never reach plugins."""
+    window._session = StreamSession(id=1, url="phoneA")
+    window._ctrl = SimpleNamespace(get_state=lambda: {"battery": 10})
+    emitted = []
+    window._sig_state.connect(lambda sid, state: emitted.append((sid, state)))
+
+    def sleep_and_switch(_seconds):
+        # By the time the (single) sleep in the fetch loop returns, the
+        # session has already moved on to a new device.
+        window._session = StreamSession(id=2, url="phoneB")
+
+    monkeypatch.setattr(app_module.time, "sleep", sleep_and_switch)
+
+    window._fetch_state_async(1)
+
+    assert emitted == []
 
 
 def test_apply_state_emits_bus_and_calls_plugins(window):
     plugin = _Plugin("other")
     window.register_plugin(plugin)
+    window._session = StreamSession(id=1, url="url")
     bus = []
     window._bus.phone_state_updated.connect(bus.append)
     state = {"battery": 50}
-    window._apply_state(state)
+    window._apply_state(1, state)
     assert bus == [state]
     assert plugin.states == [state]
+
+
+def test_apply_state_discards_result_for_inactive_session(window):
+    plugin = _Plugin("other")
+    window.register_plugin(plugin)
+    window._session = StreamSession(id=2, url="url")
+    bus = []
+    window._bus.phone_state_updated.connect(bus.append)
+    window._apply_state(1, {"battery": 50})
+    assert bus == []
+    assert plugin.states == []
 
 
 @pytest.mark.parametrize(

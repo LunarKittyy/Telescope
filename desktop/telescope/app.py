@@ -20,6 +20,7 @@ from telescope.config import DEVICE_LOCAL_PLUGINS, load_config, save_config
 from telescope.phone_client import PhoneControlClient
 from telescope.platform import IS_LINUX, IS_WINDOWS
 from telescope.plugin import EventBus, TelescopePlugin
+from telescope.session import StreamSession
 from telescope.stream import StreamWorker
 from telescope.widgets.common import create_vector_icon
 
@@ -224,7 +225,7 @@ def listen_for_raise(srv: socket.socket, raise_cb):
 
 # ── Main window ───────────────────────────────────────────────────────────────
 class TelescopeWindow(QMainWindow):
-    _sig_state = pyqtSignal(dict)
+    _sig_state = pyqtSignal(int, dict)
     _sig_raise = pyqtSignal()
     _sig_canvas_reload_done = pyqtSignal(bool, str, bool)  # ok, msg, restart_stream
 
@@ -245,6 +246,12 @@ class TelescopeWindow(QMainWindow):
 
         self._worker: Optional[StreamWorker] = None
         self._ctrl:   Optional[PhoneControlClient] = None
+        # Identity for the current connect-to-disconnect lifecycle. Captured
+        # by async completions (phone-state fetches) so a result that
+        # arrives after a device switch/stop can recognize itself as stale
+        # and get discarded instead of reaching plugins for the wrong phone.
+        self._session: Optional[StreamSession] = None
+        self._next_session_id = 1
 
         self._save_timer = QTimer(self)
         self._save_timer.setSingleShot(True)
@@ -425,7 +432,7 @@ class TelescopeWindow(QMainWindow):
         conn = next((p for p in self._plugins if p.name == "connection"), None)
         if not conn:
             return
-        url, ok = conn.get_stream_info()
+        url, token, ok = conn.get_stream_info()
         if not ok:
             return
 
@@ -437,11 +444,16 @@ class TelescopeWindow(QMainWindow):
 
         pipeline = [p.process_frame for p in self._plugins]
 
-        self._ctrl = PhoneControlClient(url)
+        session_id = self._next_session_id
+        self._next_session_id += 1
+        self._session = StreamSession(id=session_id, url=url)
+
+        self._ctrl = PhoneControlClient(url, token)
         self._worker = StreamWorker(
             url=url, width=w, height=h, fps=fps,
             frame_pipeline=pipeline,
             canvas_width=canvas_w, canvas_height=canvas_h,
+            token=token,
         )
         self._worker.status.connect(self._on_worker_status)
         self._worker.start()
@@ -450,7 +462,7 @@ class TelescopeWindow(QMainWindow):
         for p in self._plugins:
             p.on_stream_start(url, self._ctrl)
 
-        threading.Thread(target=self._fetch_state_async, args=(url,), daemon=True).start()
+        threading.Thread(target=self._fetch_state_async, args=(session_id,), daemon=True).start()
 
         self._start_btn.setText("Stop Streaming")
         self._start_btn.setProperty("streaming", True)
@@ -458,6 +470,7 @@ class TelescopeWindow(QMainWindow):
         self._set_status("Connecting...", "dim")
 
     def _stop(self):
+        self._session = None
         if self._worker:
             self._worker.status.disconnect(self._on_worker_status)
             self._worker.request_stop()
@@ -521,19 +534,26 @@ class TelescopeWindow(QMainWindow):
             cb(ok, msg)
             self._vcam_reload_callback = None
 
-    def _fetch_state_async(self, url: str):
+    def _fetch_state_async(self, session_id: int):
         time.sleep(1.5)
         for _ in range(3):
-            if not self._ctrl: return
+            if self._session is None or self._session.id != session_id or not self._ctrl:
+                return
             state = self._ctrl.get_state()
             if state:
-                self._sig_state.emit(state)
+                self._sig_state.emit(session_id, state)
                 return
             time.sleep(2)
-        if self._ctrl:
-            self._sig_state.emit({})
+        if self._session is not None and self._session.id == session_id:
+            self._sig_state.emit(session_id, {})
 
-    def _apply_state(self, state: dict):
+    def _apply_state(self, session_id: int, state: dict):
+        # A device switch or stop between the fetch completing and this slot
+        # running (queued Qt signal) means this result belongs to a session
+        # that's no longer active - discard it rather than handing a stale
+        # phone's state to plugins for the current device.
+        if self._session is None or self._session.id != session_id:
+            return
         self._bus.phone_state_updated.emit(state)
         for p in self._plugins:
             p.on_phone_state(state)

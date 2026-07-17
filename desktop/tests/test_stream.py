@@ -1,6 +1,5 @@
 import threading
 
-import cv2
 import numpy as np
 
 import telescope.stream as stream
@@ -106,19 +105,28 @@ def test_request_stop_sets_both_stop_signals():
     assert worker._restart_vcam.is_set()
 
 
-def test_open_cap_passes_ffmpeg_timeouts(monkeypatch):
+def test_open_cap_constructs_authenticated_reader_and_opens(monkeypatch):
     calls = []
-    sentinel = object()
-    monkeypatch.setattr(stream.cv2, "VideoCapture", lambda *args: calls.append(args) or sentinel)
-    worker = stream.StreamWorker("http://phone/video", None, None, 30)
 
-    assert worker._open_cap() is sentinel
-    assert calls == [(
-        "http://phone/video",
-        cv2.CAP_FFMPEG,
-        [cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 3000,
-         cv2.CAP_PROP_READ_TIMEOUT_MSEC, 1000],
-    )]
+    class _FakeReader:
+        def __init__(self, url, token):
+            calls.append((url, token))
+            self.opened = False
+
+        def open(self):
+            self.opened = True
+            return True
+
+        def isOpened(self):
+            return self.opened
+
+    monkeypatch.setattr(stream, "MjpegReader", _FakeReader)
+    worker = stream.StreamWorker("http://phone/v1/video", None, None, 30, token="tok123")
+
+    reader = worker._open_cap()
+
+    assert calls == [("http://phone/v1/video", "tok123")]
+    assert reader.opened is True
 
 
 def test_reconnect_returns_first_capture_with_a_readable_frame(monkeypatch):

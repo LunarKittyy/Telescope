@@ -44,16 +44,29 @@ class MjpegServerTest {
         error("HTTP header terminator not found")
     }
 
+    private fun authGet(port: Int, path: String, token: String?): Response {
+        val authLine = if (token != null) "Authorization: Bearer $token\r\n" else ""
+        return request(port, "GET $path HTTP/1.1\r\n$authLine\r\n")
+    }
+
+    private fun authPost(port: Int, path: String, token: String?, jsonBody: String): Response {
+        val bodyBytes = jsonBody.toByteArray(StandardCharsets.UTF_8)
+        val authLine = if (token != null) "Authorization: Bearer $token\r\n" else ""
+        val raw = "POST $path HTTP/1.1\r\n" +
+            authLine +
+            "Content-Type: application/json\r\n" +
+            "Content-Length: ${bodyBytes.size}\r\n\r\n" +
+            jsonBody
+        return request(port, raw)
+    }
+
     @Test
-    fun `cameras endpoint returns UTF-8 JSON with CORS and length`() {
+    fun `v1 state endpoint returns UTF-8 JSON with CORS and length when authorized`() {
         val body = "{\"camera\":\"télé\"}"
-        val server = MjpegServer(0, { body }, { "{}" }, "127.0.0.1")
+        val server = MjpegServer(0, { body }, { "{}" }, "127.0.0.1", token = "secret-token")
         server.start()
         try {
-            val response = request(
-                actualPort(server),
-                "GET /cameras HTTP/1.1\r\nHost: localhost\r\n\r\n",
-            )
+            val response = authGet(actualPort(server), "/v1/state", "secret-token")
             assertEquals(200, response.status)
             assertEquals(body, response.body.toString(StandardCharsets.UTF_8))
             assertTrue(response.headers.contains("Content-Type: application/json"))
@@ -65,64 +78,68 @@ class MjpegServerTest {
     }
 
     @Test
-    fun `control endpoint decodes query parameters and ignores pairs without equals`() {
+    fun `v1 state endpoint rejects missing authorization header`() {
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", token = "secret-token")
+        server.start()
+        try {
+            assertEquals(401, authGet(actualPort(server), "/v1/state", null).status)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `v1 state endpoint rejects wrong token`() {
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", token = "secret-token")
+        server.start()
+        try {
+            assertEquals(401, authGet(actualPort(server), "/v1/state", "wrong-token").status)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `v1 state endpoint rejects everything when no token is paired yet`() {
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", token = null)
+        server.start()
+        try {
+            assertEquals(401, authGet(actualPort(server), "/v1/state", "anything").status)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `v1 control endpoint decodes JSON body and invokes handler`() {
         val received = AtomicReference<Map<String, String>>()
         val server = MjpegServer(
             0,
             { "{}" },
             { params -> received.set(params); "{\"ok\":true}" },
             "127.0.0.1",
+            token = "secret-token",
         )
         server.start()
         try {
-            val response = request(
-                actualPort(server),
-                "GET /control?action=camera&id=wide+angle&path=a%2Fb&ignored HTTP/1.1\r\n\r\n",
+            val response = authPost(
+                actualPort(server), "/v1/control", "secret-token",
+                "{\"action\":\"camera\",\"id\":\"wide angle\"}",
             )
             assertEquals(200, response.status)
-            assertEquals(
-                mapOf("action" to "camera", "id" to "wide angle", "path" to "a/b"),
-                received.get(),
-            )
+            assertEquals(mapOf("action" to "camera", "id" to "wide angle"), received.get())
         } finally {
             server.stop()
         }
     }
 
     @Test
-    fun `empty control query is accepted`() {
-        val received = AtomicReference<Map<String, String>>()
-        val server = MjpegServer(
-            0,
-            { "{}" },
-            { params -> received.set(params); "{}" },
-            "127.0.0.1",
-        )
-        server.start()
-        try {
-            val response = request(actualPort(server), "GET /control HTTP/1.1\r\n\r\n")
-            assertEquals(200, response.status)
-            assertEquals(emptyMap<String, String>(), received.get())
-        } finally {
-            server.stop()
-        }
-    }
-
-    @Test
-    fun `malformed percent encoding is rejected before control handler`() {
+    fun `v1 control endpoint rejects malformed JSON body`() {
         var called = false
-        val server = MjpegServer(
-            0,
-            { "{}" },
-            { called = true; "{}" },
-            "127.0.0.1",
-        )
+        val server = MjpegServer(0, { "{}" }, { called = true; "{}" }, "127.0.0.1", token = "secret-token")
         server.start()
         try {
-            val response = request(
-                actualPort(server),
-                "GET /control?action=%ZZ HTTP/1.1\r\n\r\n",
-            )
+            val response = authPost(actualPort(server), "/v1/control", "secret-token", "not json")
             assertEquals(400, response.status)
             assertTrue(!called)
         } finally {
@@ -131,17 +148,62 @@ class MjpegServerTest {
     }
 
     @Test
-    fun `unknown paths and non-GET methods return errors`() {
-        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1")
+    fun `v1 control endpoint requires POST method`() {
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", token = "secret-token")
         server.start()
         try {
-            assertEquals(
-                404,
-                request(actualPort(server), "GET /missing HTTP/1.1\r\n\r\n").status,
-            )
+            assertEquals(400, authGet(actualPort(server), "/v1/control", "secret-token").status)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `v1 control endpoint rejects missing content-length`() {
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", token = "secret-token")
+        server.start()
+        try {
+            val raw = "POST /v1/control HTTP/1.1\r\nAuthorization: Bearer secret-token\r\n\r\n{}"
+            assertEquals(400, request(actualPort(server), raw).status)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `v1 control endpoint rejects oversized body`() {
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", token = "secret-token")
+        server.start()
+        try {
+            val raw = "POST /v1/control HTTP/1.1\r\nAuthorization: Bearer secret-token\r\nContent-Length: 4097\r\n\r\n"
+            assertEquals(413, request(actualPort(server), raw).status)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `legacy unversioned routes are gone`() {
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", token = "secret-token")
+        server.start()
+        try {
+            assertEquals(404, authGet(actualPort(server), "/cameras", "secret-token").status)
+            assertEquals(404, authGet(actualPort(server), "/video", "secret-token").status)
+            assertEquals(404, authGet(actualPort(server), "/control", "secret-token").status)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `unknown paths and unsupported methods return errors`() {
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", token = "secret-token")
+        server.start()
+        try {
+            assertEquals(404, authGet(actualPort(server), "/missing", "secret-token").status)
             assertEquals(
                 400,
-                request(actualPort(server), "POST /cameras HTTP/1.1\r\n\r\n").status,
+                request(actualPort(server), "PUT /v1/state HTTP/1.1\r\n\r\n").status,
             )
         } finally {
             server.stop()
@@ -150,10 +212,10 @@ class MjpegServerTest {
 
     @Test
     fun `oversized request headers return 431`() {
-        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1")
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", token = "secret-token")
         server.start()
         try {
-            val raw = "GET /cameras HTTP/1.1\r\nX-Fill: ${"x".repeat(17 * 1024)}\r\n\r\n"
+            val raw = "GET /v1/state HTTP/1.1\r\nX-Fill: ${"x".repeat(17 * 1024)}\r\n\r\n"
             assertEquals(431, request(actualPort(server), raw).status)
         } finally {
             server.stop()
@@ -161,14 +223,25 @@ class MjpegServerTest {
     }
 
     @Test
-    fun `video endpoint streams a queued JPEG frame`() {
-        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1")
+    fun `video endpoint requires authorization`() {
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", token = "secret-token")
+        server.start()
+        try {
+            assertEquals(401, authGet(actualPort(server), "/v1/video", null).status)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `video endpoint streams a queued JPEG frame when authorized`() {
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", token = "secret-token")
         server.start()
         try {
             Socket("127.0.0.1", actualPort(server)).use { socket ->
                 socket.soTimeout = 2_000
                 socket.getOutputStream().apply {
-                    write("GET /video HTTP/1.1\r\n\r\n".toByteArray())
+                    write("GET /v1/video HTTP/1.1\r\nAuthorization: Bearer secret-token\r\n\r\n".toByteArray())
                     flush()
                 }
                 val input = socket.getInputStream()

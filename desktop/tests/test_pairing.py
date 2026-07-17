@@ -11,7 +11,7 @@ from telescope.plugins.connection import _PairingDialog
 @pytest.fixture
 def pairing_dialog(qapp):
     paired = []
-    dlg = _PairingDialog(None, lambda name, ips: paired.append((name, ips)))
+    dlg = _PairingDialog(None, lambda name, ips, token: paired.append((name, ips, token)))
     dlg._start_server()
     time.sleep(0.2)
     yield dlg, paired
@@ -59,15 +59,35 @@ def test_invalid_ip_in_payload_is_rejected(pairing_dialog):
     dlg, _ = pairing_dialog
     port = dlg._server.server_address[1]
     nonce = dlg._nonce
-    body = json.dumps({"name": "Phone", "ips": ["not-an-ip"]}).encode()
+    token = dlg._token
+    body = json.dumps({"name": "Phone", "ips": ["not-an-ip"], "token": token}).encode()
     assert _post(port, f"/pair/{nonce}", body) == 400
+
+
+def test_wrong_echoed_token_is_rejected(pairing_dialog):
+    dlg, paired = pairing_dialog
+    port = dlg._server.server_address[1]
+    nonce = dlg._nonce
+    body = json.dumps({"name": "Phone", "ips": ["192.168.1.55"], "token": "wrong-token"}).encode()
+    assert _post(port, f"/pair/{nonce}", body) == 400
+    assert paired == []
+
+
+def test_missing_token_is_rejected(pairing_dialog):
+    dlg, paired = pairing_dialog
+    port = dlg._server.server_address[1]
+    nonce = dlg._nonce
+    body = json.dumps({"name": "Phone", "ips": ["192.168.1.55"]}).encode()
+    assert _post(port, f"/pair/{nonce}", body) == 400
+    assert paired == []
 
 
 def test_valid_payload_pairs_and_emits_callback(pairing_dialog, qapp):
     dlg, paired = pairing_dialog
     port = dlg._server.server_address[1]
     nonce = dlg._nonce
-    body = json.dumps({"name": "MyPhone", "ips": ["192.168.1.55"]}).encode()
+    token = dlg._token
+    body = json.dumps({"name": "MyPhone", "ips": ["192.168.1.55"], "token": token}).encode()
 
     assert _post(port, f"/pair/{nonce}", body) == 200
 
@@ -76,7 +96,7 @@ def test_valid_payload_pairs_and_emits_callback(pairing_dialog, qapp):
         time.sleep(0.05)
         if paired:
             break
-    assert paired == [("MyPhone", ["192.168.1.55"])]
+    assert paired == [("MyPhone", ["192.168.1.55"], token)]
 
 
 def test_stop_server_is_idempotent(pairing_dialog):

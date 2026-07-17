@@ -219,15 +219,15 @@ def test_wifi_stream_info_and_missing_device(monkeypatch, connection_plugin):
     )
     plugin.set_config({"mode": "wifi", "port": "8123", "devices_list": []})
     plugin.select_device(None)
-    assert plugin.get_stream_info() == (None, False)
-    assert critical[-1][1] == "No device"
+    assert plugin.get_stream_info() == (None, None, False)
+    assert critical[-1][1] == "Not paired"
 
     plugin.set_config({
         "mode": "wifi", "port": "8123",
-        "devices_list": [{"name": "Phone", "ips": ["10.0.0.5"]}],
+        "devices_list": [{"name": "Phone", "ips": ["10.0.0.5"], "token": "tok-123"}],
     })
     plugin.select_device("Phone")
-    assert plugin.get_stream_info() == ("http://10.0.0.5:8123/video", True)
+    assert plugin.get_stream_info() == ("http://10.0.0.5:8123/v1/video", "tok-123", True)
 
 
 def test_bad_port_is_rejected(monkeypatch, connection_plugin):
@@ -240,7 +240,7 @@ def test_bad_port_is_rejected(monkeypatch, connection_plugin):
         lambda *_args: seen.append(_args),
     )
     plugin._port_field.setText("not-a-number")
-    assert plugin.get_stream_info() == (None, False)
+    assert plugin.get_stream_info() == (None, None, False)
     assert seen[0][1] == "Bad port"
 
 
@@ -261,16 +261,17 @@ def test_usb_stream_info_forwards_specific_device_and_unforwards(monkeypatch, co
         "adb_unforward",
         lambda port, serial: unforwards.append((port, serial)),
     )
+    plugin._on_device_paired("Phone", ["10.0.0.5"], "tok-usb")
     plugin._port_field.setText("8081")
 
-    assert plugin.get_stream_info() == ("http://localhost:8081/video", True)
+    assert plugin.get_stream_info() == ("http://localhost:8081/v1/video", "tok-usb", True)
     assert forwards == [(8081, "serial-1")]
     plugin.on_stream_stop()
     plugin.on_stream_stop()
     assert unforwards == [(8081, "serial-1")]
 
 
-def test_usb_stream_info_rejects_missing_adb_and_forward_failure(monkeypatch, connection_plugin):
+def test_usb_stream_info_requires_pairing_first(monkeypatch, connection_plugin):
     plugin, _host, _panel = connection_plugin
     monkeypatch.setattr(connection_module, "IS_LINUX", False)
     errors = []
@@ -279,14 +280,28 @@ def test_usb_stream_info_rejects_missing_adb_and_forward_failure(monkeypatch, co
         "critical",
         lambda *_args: errors.append(_args),
     )
+    assert plugin.get_stream_info() == (None, None, False)
+    assert errors[-1][1] == "Not paired"
+
+
+def test_usb_stream_info_rejects_missing_adb_and_forward_failure(monkeypatch, connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    monkeypatch.setattr(connection_module, "IS_LINUX", False)
+    plugin._on_device_paired("Phone", ["10.0.0.5"], "tok-usb")
+    errors = []
+    monkeypatch.setattr(
+        connection_module.QMessageBox,
+        "critical",
+        lambda *_args: errors.append(_args),
+    )
     monkeypatch.setattr(connection_module, "adb_available", lambda: False)
-    assert plugin.get_stream_info() == (None, False)
+    assert plugin.get_stream_info() == (None, None, False)
     assert errors[-1][1] == "ADB not found"
 
     monkeypatch.setattr(connection_module, "adb_available", lambda: True)
     monkeypatch.setattr(connection_module, "adb_devices", lambda: ["serial"])
     monkeypatch.setattr(connection_module, "adb_forward", lambda *_args, **_kwargs: (False, "denied"))
-    assert plugin.get_stream_info() == (None, False)
+    assert plugin.get_stream_info() == (None, None, False)
     assert errors[-1][1] == "ADB forward failed"
 
 
@@ -315,7 +330,7 @@ def test_linux_virtual_camera_conflict_and_cancel(monkeypatch, connection_plugin
     monkeypatch.setattr(connection_module, "v4l2_module_loaded", lambda: True)
     warnings = []
     monkeypatch.setattr(connection_module.QMessageBox, "warning", lambda *_args: warnings.append(_args))
-    assert plugin.get_stream_info() == (None, False)
+    assert plugin.get_stream_info() == (None, None, False)
     assert warnings[-1][1] == "v4l2loopback conflict"
 
     monkeypatch.setattr(connection_module, "v4l2_module_loaded", lambda: False)
@@ -324,7 +339,7 @@ def test_linux_virtual_camera_conflict_and_cancel(monkeypatch, connection_plugin
         "question",
         lambda *_args: QMessageBox.StandardButton.Cancel,
     )
-    assert plugin.get_stream_info() == (None, False)
+    assert plugin.get_stream_info() == (None, None, False)
 
 
 def test_linux_virtual_camera_load_failure_and_success(monkeypatch, connection_plugin):
@@ -340,14 +355,15 @@ def test_linux_virtual_camera_load_failure_and_success(monkeypatch, connection_p
     errors = []
     monkeypatch.setattr(connection_module.QMessageBox, "critical", lambda *_args: errors.append(_args))
     monkeypatch.setattr(connection_module, "v4l2_load", lambda: (False, "denied"))
-    assert plugin.get_stream_info() == (None, False)
+    assert plugin.get_stream_info() == (None, None, False)
     assert errors[-1][1] == "Load failed"
 
+    plugin._on_device_paired("Phone", ["10.0.0.5"], "tok-linux")
     monkeypatch.setattr(connection_module, "v4l2_load", lambda: (True, "ok"))
     monkeypatch.setattr(connection_module, "adb_available", lambda: True)
     monkeypatch.setattr(connection_module, "adb_devices", lambda: ["serial"])
     monkeypatch.setattr(connection_module, "adb_forward", lambda *_args, **_kwargs: (True, "ok"))
-    assert plugin.get_stream_info()[1] is True
+    assert plugin.get_stream_info()[2] is True
 
 
 def test_ip_and_port_changes_persist_and_reconnect(connection_plugin, config_home):
@@ -375,12 +391,26 @@ def test_pairing_adds_or_updates_device(connection_plugin):
     plugin, host, _panel = connection_plugin
     plugin._rb_wifi.setChecked(True)
     plugin._rb_usb.setChecked(False)
-    plugin._on_device_paired("Phone", ["10.0.0.1"])
-    assert plugin._devices == [{"name": "Phone", "ips": ["10.0.0.1"]}]
+    plugin._on_device_paired("Phone", ["10.0.0.1"], "tok-a")
+    assert plugin._devices == [{"name": "Phone", "ips": ["10.0.0.1"], "token": "tok-a"}]
     assert plugin.selected_device == "Phone"
-    plugin._on_device_paired("Phone", ["100.64.0.1"])
-    assert plugin._devices == [{"name": "Phone", "ips": ["100.64.0.1"]}]
+    # Re-pairing rotates the token, revoking the old one.
+    plugin._on_device_paired("Phone", ["100.64.0.1"], "tok-b")
+    assert plugin._devices == [{"name": "Phone", "ips": ["100.64.0.1"], "token": "tok-b"}]
     assert host.saves == 2
+
+
+def test_editing_a_paired_device_preserves_its_token(qapp):
+    device = {"name": "Phone", "ips": ["10.0.0.1"], "token": "tok-keep"}
+    dialog = _DeviceDialog(existing_names=[], device=device)
+    dialog._name_edit.setText("PhoneRenamed")
+    dialog._ips_edit.setPlainText("10.0.0.2")
+
+    assert dialog.result_device() == {
+        "name": "PhoneRenamed",
+        "ips": ["10.0.0.2"],
+        "token": "tok-keep",
+    }
 
 
 @pytest.fixture

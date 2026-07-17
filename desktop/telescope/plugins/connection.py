@@ -1,3 +1,4 @@
+import hmac
 import json
 import secrets
 import socket
@@ -100,6 +101,9 @@ class _DeviceDialog(QDialog):
         super().__init__(parent)
         self._existing = existing_names or []
         self._edit_name = device["name"] if device else None
+        # Kept so result_device() can preserve fields this dialog doesn't
+        # edit (e.g. a pairing token) instead of dropping them on save.
+        self._original_device = device
         self.setWindowTitle("Edit Device" if device else "Add Device")
         self.setMinimumWidth(340)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
@@ -160,8 +164,10 @@ class _DeviceDialog(QDialog):
         self.accept()
 
     def result_device(self) -> dict:
-        name = self._name_edit.text().strip()
-        return {"name": name, "ips": self._parse_ips()}
+        device = dict(self._original_device) if self._original_device else {}
+        device["name"] = self._name_edit.text().strip()
+        device["ips"] = self._parse_ips()
+        return device
 
 
 class _DeviceManagerDialog(QDialog):
@@ -323,7 +329,7 @@ class _QRCodeWidget(QWidget):
 
 
 class _PairingSignals(QObject):
-    paired = pyqtSignal(str, list)  # name, ips
+    paired = pyqtSignal(str, list, str)  # name, ips, token
 
 
 class _PairingDialog(QDialog):
@@ -339,6 +345,7 @@ class _PairingDialog(QDialog):
         self._server: Optional[HTTPServer] = None
         self._server_thread: Optional[threading.Thread] = None
         self._nonce: Optional[str] = None
+        self._token: Optional[str] = None
         self._signals = _PairingSignals()
         self._signals.paired.connect(self._on_paired_signal)
         self._build_ui()
@@ -407,6 +414,13 @@ class _PairingDialog(QDialog):
         # current QR code) can't add itself as a paired device.
         nonce = secrets.token_urlsafe(16)
         self._nonce = nonce
+        # The bearer token the phone will require on every /v1/* request
+        # once paired. Embedded in the QR code and echoed back in the
+        # pairing POST body as a second, defense-in-depth confirmation (on
+        # top of the nonce) that this POST came from a phone that actually
+        # read the current QR code.
+        token = secrets.token_urlsafe(32)
+        self._token = token
         max_body = self._MAX_BODY_BYTES
         pair_path = f"/pair/{nonce}"
 
@@ -431,9 +445,12 @@ class _PairingDialog(QDialog):
                     data = json.loads(body)
                     name = str(data.get("name", "Phone")).strip()
                     ips = list(dict.fromkeys(str(x).strip() for x in data.get("ips", [])))
+                    echoed_token = str(data.get("token", ""))
                     if not name or not ips or not all(_valid_ipv4(ip) for ip in ips):
                         raise ValueError("invalid pairing payload")
-                    signals.paired.emit(name, ips)
+                    if not hmac.compare_digest(echoed_token, token):
+                        raise ValueError("token mismatch")
+                    signals.paired.emit(name, ips, token)
                     self.send_response(200)
                     self.end_headers()
                     self.wfile.write(b"OK")
@@ -447,7 +464,7 @@ class _PairingDialog(QDialog):
         self._server_thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._server_thread.start()
 
-        payload = json.dumps({"port": port, "ips": local_ips, "nonce": nonce})
+        payload = json.dumps({"version": 1, "port": port, "ips": local_ips, "nonce": nonce, "token": token})
         qr_widget = _QRCodeWidget(payload)
         while self._qr_container.count():
             item = self._qr_container.takeAt(0)
@@ -466,6 +483,7 @@ class _PairingDialog(QDialog):
         self._server = None
         self._server_thread = None
         self._nonce = None
+        self._token = None
 
         def _shutdown():
             server.shutdown()
@@ -475,7 +493,7 @@ class _PairingDialog(QDialog):
 
         threading.Thread(target=_shutdown, daemon=True).start()
 
-    def _on_paired_signal(self, name: str, ips: list):
+    def _on_paired_signal(self, name: str, ips: list, token: str):
         # Replace QR with a big success message
         while self._qr_container.count():
             item = self._qr_container.takeAt(0)
@@ -490,7 +508,7 @@ class _PairingDialog(QDialog):
         self._qr_container.addStretch()
         self._status_lbl.setText("")
         self._hint_lbl.setVisible(False)
-        self._on_paired(name, ips)
+        self._on_paired(name, ips, token)
 
 
 class ConnectionPlugin(TelescopePlugin):
@@ -635,7 +653,7 @@ class ConnectionPlugin(TelescopePlugin):
             port = int(self._port_field.text())
         except ValueError:
             QMessageBox.critical(self._host, "Bad port", "Port must be a number.")
-            return None, False
+            return None, None, False
 
         if IS_LINUX and not v4l2_devices_ready():
             if v4l2_module_loaded():
@@ -647,7 +665,7 @@ class ConnectionPlugin(TelescopePlugin):
                     "    sudo modprobe -r v4l2loopback\n\n"
                     "Then click Start again."
                 )
-                return None, False
+                return None, None, False
             r = QMessageBox.question(
                 self._host, "Virtual camera not ready",
                 f"The virtual camera module (v4l2loopback) is not loaded.\n\n"
@@ -657,11 +675,21 @@ class ConnectionPlugin(TelescopePlugin):
                 QMessageBox.StandardButton.Ok,
             )
             if r != QMessageBox.StandardButton.Ok:
-                return None, False
+                return None, None, False
             ok, msg = v4l2_load()
             if not ok:
                 QMessageBox.critical(self._host, "Load failed", msg)
-                return None, False
+                return None, None, False
+
+        token = self._current_device_token()
+        if token is None:
+            QMessageBox.critical(
+                self._host, "Not paired",
+                "This device hasn't been paired yet.\n\n"
+                "Click the QR button next to the device selector and scan the "
+                "code with the Telescope app on your phone."
+            )
+            return None, None, False
 
         if self._rb_usb.isChecked():
             if not adb_available():
@@ -671,24 +699,37 @@ class ConnectionPlugin(TelescopePlugin):
                     "Click the Download ADB button in the Windows Setup section "
                     "and try again, or switch to Wi-Fi mode."
                 )
-                return None, False
+                return None, None, False
             serial = self._resolve_adb_serial()
             if serial is None:
-                return None, False
+                return None, None, False
             ok, msg = adb_forward(port, serial=serial)
             if not ok:
                 QMessageBox.critical(self._host, "ADB forward failed", msg)
-                return None, False
+                return None, None, False
             self._forwarded_port = port
             self._adb_serial = serial
-            return f"http://localhost:{port}/video", True
+            return f"http://localhost:{port}/v1/video", token, True
         else:
             ip = self._current_device_ip()
             if not ip:
                 QMessageBox.critical(self._host, "No device", "Add a device in Wi-Fi mode first.")
-                return None, False
+                return None, None, False
             self._forwarded_port = None
-            return f"http://{ip}:{port}/video", True
+            return f"http://{ip}:{port}/v1/video", token, True
+
+    def _current_device_token(self) -> Optional[str]:
+        """The stored pairing token for the profile currently in play (the
+        selected Wi-Fi device, or whichever device was last selected before
+        switching to USB mode - USB streaming still authenticates with a
+        paired device's token, it just reaches it via adb forward)."""
+        name = self._selected_device
+        if not name:
+            return None
+        for d in self._devices:
+            if d["name"] == name:
+                return d.get("token")
+        return None
 
     def on_stream_stop(self):
         if self._forwarded_port is not None:
@@ -885,15 +926,16 @@ class ConnectionPlugin(TelescopePlugin):
         if was_selected:
             self._activate_profile(self._profile_key)
 
-    def _on_device_paired(self, name: str, ips: list):
+    def _on_device_paired(self, name: str, ips: list, token: str):
         existing_names = [d["name"] for d in self._devices]
         if name in existing_names:
             for d in self._devices:
                 if d["name"] == name:
                     d["ips"] = ips
+                    d["token"] = token
                     break
         else:
-            self._devices.append({"name": name, "ips": ips})
+            self._devices.append({"name": name, "ips": ips, "token": token})
         self._refresh_device_combo(select_name=name)
         self._selected_device = name
         self._host._save_config()

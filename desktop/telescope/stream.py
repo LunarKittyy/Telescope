@@ -9,6 +9,8 @@ import numpy as np
 import pyvirtualcam
 from PyQt6.QtCore import QThread, pyqtSignal
 
+from telescope.mjpeg_reader import MjpegReader
+
 logger = logging.getLogger(__name__)
 
 IS_LINUX = platform.system() == "Linux"
@@ -57,9 +59,11 @@ class StreamWorker(QThread):
     def __init__(self, url: str, width: Optional[int], height: Optional[int],
                  fps: int, frame_pipeline: list = None,
                  canvas_width: Optional[int] = None,
-                 canvas_height: Optional[int] = None):
+                 canvas_height: Optional[int] = None,
+                 token: Optional[str] = None):
         super().__init__()
         self.url       = url
+        self.token     = token
         self._width    = width
         self._height   = height
         self._fps      = fps
@@ -97,15 +101,12 @@ class StreamWorker(QThread):
         self._restart_vcam.set()
 
     def _open_cap(self):
-        # OpenCV documents CAP_PROP_OPEN_TIMEOUT_MSEC / READ_TIMEOUT_MSEC as
-        # open-only for the FFmpeg backend: setting them via cap.set() after
-        # construction has no effect and the initial open can block
-        # indefinitely. They must be passed to the constructor instead.
-        return cv2.VideoCapture(
-            self.url, cv2.CAP_FFMPEG,
-            [cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 3000,
-             cv2.CAP_PROP_READ_TIMEOUT_MSEC, 1000],
-        )
+        # cv2.VideoCapture's FFmpeg backend has no way to attach the bearer
+        # header the phone's /v1/video now requires, so the stream is read
+        # and multipart-parsed directly instead of handing the URL to OpenCV.
+        reader = MjpegReader(self.url, self.token)
+        reader.open()
+        return reader
 
     def _reconnect_cap(self, stop_event: threading.Event) -> Optional[object]:
         self.status.emit("warn", "Stream dropped - reconnecting...")

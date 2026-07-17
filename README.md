@@ -67,8 +67,8 @@ Run `start.bat` (installs Python deps and launches the app) or `TelescopeDesktop
 3. The camera control panel (lens picker, ISO, shutter, white balance, OIS) will populate within ~2 seconds of connecting.
 4. In OBS (or any other app), select **Phone Camera** (Linux) or **Unity Video Capture** (Windows) as your webcam source.
 
-> [!WARNING]
-> The MJPEG stream and camera control endpoint are served unencrypted on port 8080 with no authentication. Anyone on the same local network can not only view the stream by opening the URL in a browser, but also switch lenses, change exposure/focus, enable the torch, or degrade the stream quality. On public or shared networks, enable **Local only - USB** in the Android app to bind the server to localhost only - the stream and controls will then only be reachable via USB.
+> [!NOTE]
+> QR pairing is required before a remote stream can be used: the phone's `/v1/state`, `/v1/video`, and `/v1/control` endpoints all require a bearer token that's only ever handed to a phone via a scanned QR code, so an unpaired device on the same network can't view the stream or send controls. The connection itself is still plain HTTP, not HTTPS - the token stops casual unauthorized access but doesn't provide confidentiality against a network observer. On public or shared networks, enable **Local only - USB** in the Android app to also bind the server to localhost only, so the stream and controls are reachable via USB alone.
 
 ---
 
@@ -213,11 +213,11 @@ telescope/
 
 ### What it does
 
-Runs a **foreground service** (declared type `camera`, required on Android 14+) that owns a Camera2 session and an HTTP server on port 8080. Three endpoints:
+Runs a **foreground service** (declared type `camera`, required on Android 14+) that owns a Camera2 session and an HTTP server on port 8080. Three endpoints, all requiring a bearer token issued during QR pairing:
 
-- `GET /video` - MJPEG stream (`multipart/x-mixed-replace`)
-- `GET /cameras` - JSON of all detected cameras + current exposure/WB/battery state
-- `GET /control?action=...` - live camera control
+- `GET /v1/video` - MJPEG stream (`multipart/x-mixed-replace`)
+- `GET /v1/state` - JSON of all detected cameras + current exposure/WB/battery state
+- `POST /v1/control` - live camera control, JSON body
 
 The app enumerates **physical sub-cameras** of logical multi-camera groups via `CameraCharacteristics.physicalCameraIds` (API 28+). On many modern phones the logical back camera (ID `0`) hides individual wide/main/telephoto sensors behind it; this app surfaces all of them and lets you pick.
 
@@ -340,9 +340,9 @@ flatpak override --user --device=all com.obsproject.Studio
 
 ## Control API reference
 
-All requests are plain `GET`. Server is on the phone at port 8080.
+Server is on the phone at port 8080. Every request below requires an `Authorization: Bearer <token>` header carrying the token issued during QR pairing; missing or mismatched tokens get `401`.
 
-### `GET /cameras`
+### `GET /v1/state`
 
 ```json
 {
@@ -373,7 +373,9 @@ All requests are plain `GET`. Server is on the phone at port 8080.
 }
 ```
 
-### `GET /control?action=<action>[&param=value]`
+### `POST /v1/control`
+
+JSON body `{"action": "<action>", ...params}`.
 
 | `action` | extra params | effect |
 |---|---|---|

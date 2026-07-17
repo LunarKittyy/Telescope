@@ -356,6 +356,7 @@ class CameraStreamService : Service() {
             getCamerasJson = ::buildCamerasJson,
             handleControl  = ::handleControlCommand,
             bindAddr       = bindAddr,
+            token          = TokenStore.get(this),
         ).also { it.start() }
     }
 

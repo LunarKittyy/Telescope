@@ -40,6 +40,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvLinkWifi: TextView
     private lateinit var tvLinkUsb: TextView
     private lateinit var btnScanQr: ImageButton
+    private lateinit var btnResetPairing: ImageButton
     private lateinit var btnPreview: ImageButton
     private lateinit var cardPermissions: CardView
     private lateinit var layoutPermissionsContainer: LinearLayout
@@ -91,6 +92,7 @@ class MainActivity : AppCompatActivity() {
         tvLinkUsb         = findViewById(R.id.tvLinkUsb)
         checkLocalOnly             = findViewById(R.id.checkLocalOnly)
         btnScanQr                  = findViewById(R.id.btnScanQr)
+        btnResetPairing            = findViewById(R.id.btnResetPairing)
         btnPreview                 = findViewById(R.id.btnPreview)
         cardPermissions            = findViewById(R.id.cardPermissions)
         layoutPermissionsContainer = findViewById(R.id.layoutPermissionsContainer)
@@ -124,6 +126,7 @@ class MainActivity : AppCompatActivity() {
             }
             scanLauncher.launch(opts)
         }
+        btnResetPairing.setOnClickListener { resetPairing() }
 
         spinnerCamera.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(p: AdapterView<*>?, v: android.view.View?, pos: Int, id: Long) {
@@ -157,8 +160,14 @@ class MainActivity : AppCompatActivity() {
     private fun handleQrScan(data: String) {
         try {
             val json = org.json.JSONObject(data)
+            val version = json.optInt("version", 0)
+            if (version != 1) {
+                Toast.makeText(this, "Invalid QR code.", Toast.LENGTH_SHORT).show()
+                return
+            }
             val port = json.getInt("port")
             val nonce = json.getString("nonce")
+            val token = json.getString("token")
             val ipsJson = json.getJSONArray("ips")
             val desktopIps = (0 until ipsJson.length()).map { ipsJson.getString(it) }
             val myIps = getAllDeviceIps()
@@ -179,6 +188,10 @@ class MainActivity : AppCompatActivity() {
                         val body = org.json.JSONObject().apply {
                             put("name", deviceName)
                             put("ips", org.json.JSONArray(myIps))
+                            // Echoed back so the desktop can confirm this POST actually
+                            // came from a phone that read the current QR code, on top
+                            // of the one-shot nonce already baked into the URL path.
+                            put("token", token)
                         }.toString()
                         conn.outputStream.write(body.toByteArray())
                         if (conn.responseCode == 200) {
@@ -191,6 +204,11 @@ class MainActivity : AppCompatActivity() {
                         errors += "$ip: ${e.javaClass.simpleName}: ${e.message}"
                     }
                 }
+                if (success) {
+                    // Becomes this phone's only accepted bearer token for /v1/* -
+                    // replaces (revokes) whatever was paired before.
+                    TokenStore.save(this, token)
+                }
                 val msg = if (success)
                     "Paired! Desktop will add this device."
                 else
@@ -202,6 +220,20 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) {
             Toast.makeText(this, "Invalid QR code.", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    /** Clears the stored pairing token and, if currently streaming, restarts the
+     *  service so its MjpegServer picks up the cleared state - every further
+     *  request 401s until the phone is paired again. */
+    private fun resetPairing() {
+        TokenStore.clear(this)
+        if (service?.isStreaming == true) {
+            service?.stopStreaming()
+            if (bound) { unbindService(serviceConnection); bound = false; service = null }
+            startStream()
+        }
+        updateStatusText()
+        Toast.makeText(this, "Pairing reset. Scan a new QR code to reconnect.", Toast.LENGTH_LONG).show()
     }
 
     // ── Permissions ────────────────────────────────────────────────────────────
