@@ -1,0 +1,30 @@
+# Exact dependency versions for reproducible CI/release builds. Installed
+# alongside requirements.txt / requirements-dev.txt via:
+#   pip install -r requirements.txt -c constraints.txt
+#   pip install -r requirements-dev.txt -c constraints.txt
+#   pip install pyinstaller -c constraints.txt
+#
+# requirements.txt itself keeps readable ">=" lower bounds - this file is
+# what actually pins what CI and release packaging install. Regenerate with:
+#   pip install -r requirements.txt pytest pyinstaller && pip freeze
+# in a clean virtualenv, then re-check it still installs cleanly.
+
+altgraph==0.17.5
+iniconfig==2.3.0
+Jinja2==3.1.6
+MarkupSafe==3.0.3
+numpy==2.5.1
+opencv-python==5.0.0.93
+packaging==26.2
+pluggy==1.6.0
+Pygments==2.20.0
+pyinstaller==6.21.0
+pyinstaller-hooks-contrib==2026.6
+PyQt6==6.11.0
+PyQt6-Qt6==6.11.1
+PyQt6_sip==13.11.1
+pytest==9.1.1
+pyvirtualcam==0.15.0
+qrcode==8.2
+qt-material==2.17
+setuptools==83.0.0

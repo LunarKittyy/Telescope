@@ -37,20 +37,26 @@ jobs:
         run: |
           # PyQt6 needs these even in QT_QPA_PLATFORM=offscreen mode.
           sudo apt-get update && sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libdbus-1-3
-          pip install -r requirements-dev.txt
+          pip install -r requirements-dev.txt -c constraints.txt
 
       - name: Run tests
         working-directory: desktop
         run: python -m pytest -q
+
+      - name: Packaging smoke checks
+        working-directory: desktop
+        run: python3 scripts/smoke_check.py
 
       - name: Assemble release bundle
         run: |
           mkdir bundle
           cp desktop/main.py bundle/
           cp desktop/requirements.txt bundle/
+          cp desktop/constraints.txt bundle/
           cp desktop/start.sh bundle/
           chmod +x bundle/start.sh
           cp -r desktop/telescope bundle/telescope
+          cp desktop/THIRD_PARTY_NOTICES.txt bundle/
           tar -czf Telescope-linux.tar.gz -C bundle .
 
       - name: Recreate rolling pre-release

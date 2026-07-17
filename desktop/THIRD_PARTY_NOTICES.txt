@@ -1,0 +1,53 @@
+Telescope - Third-Party Notices
+================================
+
+This file lists third-party software distributed with or required to run
+Telescope. Telescope's own license is unchanged by anything below - see
+LICENSE in the repository root.
+
+Bundled binaries
+-----------------
+
+UnityCapture (desktop/unitycapture/)
+    DirectShow virtual camera filter for Windows.
+    Copyright (c) 2018 Bernhard Schelling.
+    License: MIT (see desktop/unitycapture/LICENSE).
+    Source: https://github.com/schellingb/UnityCapture
+
+Android SDK Platform Tools (desktop/platform-tools/)
+    Includes adb.exe, used for USB mode on Windows.
+    Copyright (c) Google LLC.
+    License: Android Software Development Kit License Agreement
+    (see desktop/platform-tools/NOTICE).
+    https://developer.android.com/studio/terms
+
+Python runtime dependencies
+-----------------------------
+
+These are installed from PyPI at setup time (desktop/requirements.txt) - on
+Linux by start.sh into a Telescope-owned virtual environment, on Windows
+they are compiled into TelescopeDesktop.exe by PyInstaller. Each project's
+own repository/PyPI page has the authoritative license text.
+
+PyQt6 (https://pypi.org/project/PyQt6/)
+    Copyright (c) Riverbank Computing Limited.
+    License: GPL v3 (a commercial license is also available from Riverbank
+    Computing; this project uses the GPL-licensed distribution).
+
+opencv-python (https://pypi.org/project/opencv-python/)
+    License: Apache License 2.0.
+
+numpy (https://pypi.org/project/numpy/)
+    License: BSD 3-Clause.
+
+pyvirtualcam (https://pypi.org/project/pyvirtualcam/)
+    License: MIT.
+
+qt-material (https://pypi.org/project/qt-material/)
+    License: BSD-2-Clause.
+
+qrcode (https://pypi.org/project/qrcode/)
+    License: BSD 3-Clause.
+
+Exact installed versions for a given release are pinned in
+desktop/constraints.txt.

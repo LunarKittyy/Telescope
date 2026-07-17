@@ -31,7 +31,7 @@ jobs:
 
       - name: Install test dependencies
         working-directory: desktop
-        run: pip install -r requirements-dev.txt
+        run: pip install -r requirements-dev.txt -c constraints.txt
 
       - name: Run tests
         working-directory: desktop
@@ -39,7 +39,11 @@ jobs:
 
       - name: Install runtime deps + PyInstaller
         working-directory: desktop
-        run: pip install -r requirements.txt pyinstaller
+        run: pip install -r requirements.txt pyinstaller -c constraints.txt
+
+      - name: Packaging smoke checks
+        working-directory: desktop
+        run: python scripts/smoke_check.py
 
       - name: Build EXE
         working-directory: desktop
@@ -51,6 +55,7 @@ jobs:
           New-Item -ItemType Directory -Path bundle
           Copy-Item desktop/dist/TelescopeDesktop.exe bundle/
           Copy-Item desktop/start.bat bundle/
+          Copy-Item desktop/THIRD_PARTY_NOTICES.txt bundle/
           Copy-Item -Recurse desktop/platform-tools bundle/platform-tools
           Copy-Item -Recurse desktop/unitycapture bundle/unitycapture
           Compress-Archive -Path bundle/* -DestinationPath Telescope-windows.zip
@@ -63,6 +68,7 @@ jobs:
           $required = @(
             "bundle/TelescopeDesktop.exe",
             "bundle/start.bat",
+            "bundle/THIRD_PARTY_NOTICES.txt",
             "bundle/platform-tools",
             "bundle/unitycapture"
           )

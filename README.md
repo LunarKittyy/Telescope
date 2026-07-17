@@ -173,17 +173,26 @@ telescope/
 |   |-- build-windows.yml        # CI: Windows bundle (EXE + adb + UnityCapture)
 |   +-- build-linux.yml          # CI: Linux bundle (source + start.sh)
 |
+|-- docs/
+|   |-- device-compatibility.md  # Manually maintained per-device test matrix
+|   +-- release-checklist.md     # Manual pre-release checklist
+|
 |-- android/                     # Gradle project
 |   +-- app/src/main/kotlin/com/telescope/
-|       |-- MainActivity.kt      # UI: enumerate cameras, start/stop service
+|       |-- MainActivity.kt      # UI: enumerate cameras, start/stop service, diagnostics
 |       |-- CameraStreamService.kt  # Foreground service: Camera2 + HTTP control
-|       +-- MjpegServer.kt       # HTTP: /video  /cameras  /control
+|       |-- StreamStateMachine.kt   # Idle/StartingServer/.../Streaming/Failed state + history
+|       |-- Protocol.kt          # kotlinx.serialization models for the v1 API
+|       +-- MjpegServer.kt       # Authenticated HTTP: /v1/video  /v1/state  /v1/control
 |
 +-- desktop/
     |-- main.py                  # Entry point: registers plugins, restores config
-    |-- requirements.txt
+    |-- requirements.txt         # Readable ">=" lower bounds
+    |-- constraints.txt          # Exact pinned versions for CI/release installs
+    |-- scripts/smoke_check.py   # Packaging smoke checks (see CI section below)
+    |-- THIRD_PARTY_NOTICES.txt  # Bundled into both release archives
     |-- telescope.spec            # PyInstaller spec for Windows EXE
-    |-- start.sh                 # Linux launcher (auto-installs deps)
+    |-- start.sh                 # Linux launcher (creates/reuses a Telescope-owned venv)
     |-- start.bat                # Windows launcher (auto-installs deps)
     |-- platform-tools/          # Bundled adb for Windows
     |-- unitycapture/            # Bundled UnityCapture DLLs (MIT)
@@ -407,6 +416,8 @@ You are free to use, modify, and share it with attribution, but not for commerci
 
 ## Third-party components
 
+Full notices (bundled binaries and Python runtime dependencies) are in [`desktop/THIRD_PARTY_NOTICES.txt`](desktop/THIRD_PARTY_NOTICES.txt), which ships inside both the Windows zip and the Linux tarball. Summary:
+
 **UnityCapture** (`desktop/unitycapture/`) - DirectShow virtual camera filter for Windows.
 Copyright (c) 2018 Bernhard Schelling. MIT License. See `desktop/unitycapture/LICENSE`.
 Source: https://github.com/schellingb/UnityCapture
@@ -414,6 +425,8 @@ Source: https://github.com/schellingb/UnityCapture
 **Android SDK Platform Tools** (`desktop/platform-tools/`) - includes `adb.exe` for USB mode.
 Copyright (c) Google LLC. Android Software Development Kit License Agreement.
 See `desktop/platform-tools/NOTICE` and https://developer.android.com/studio/terms
+
+**Python runtime dependencies** (PyQt6, opencv-python, numpy, pyvirtualcam, qt-material, qrcode) - installed from PyPI; exact pinned versions are in `desktop/constraints.txt`. PyQt6 in particular is GPL v3-licensed (a commercial Riverbank Computing license also exists but isn't what this project uses).
 
 ---
 
@@ -425,25 +438,33 @@ All three workflows publish to a rolling **`latest` release** on every push to `
 
 1. JDK 21 (Temurin) + Gradle cache
 2. Android SDK (android-34, build-tools;34.0.0)
-3. `./gradlew assembleDebug --no-daemon`
+3. `./gradlew lintDebug testDebugUnitTest --no-daemon`, then `./gradlew assembleDebug --no-daemon`
 4. Publishes `Telescope.apk` to the `latest` release
 
 ### `build-windows.yml` - triggered on changes to `desktop/**`
 
 1. Python 3.11 + pip cache
-2. `pip install -r requirements.txt pyinstaller`
-3. `pyinstaller telescope.spec`
-4. Assembles `Telescope-windows.zip`: EXE + `start.bat` + `platform-tools/` + `unitycapture/`
-5. Publishes the zip to the `latest` release
+2. `pip install -r requirements-dev.txt -c constraints.txt`; runs `pytest`
+3. `pip install -r requirements.txt pyinstaller -c constraints.txt`
+4. `python scripts/smoke_check.py` - packaging smoke checks (see below)
+5. `pyinstaller telescope.spec`
+6. Assembles `Telescope-windows.zip`: EXE + `start.bat` + `THIRD_PARTY_NOTICES.txt` + `platform-tools/` + `unitycapture/`
+7. Publishes the zip to the `latest` release
 
 `telescope.spec` uses `collect_all('PyQt6')` to include Qt platform plugins that PyInstaller's default analysis misses. Expected EXE size: 60-80 MB.
 
 ### `build-linux.yml` - triggered on changes to `desktop/**`
 
-1. Assembles `Telescope-linux.tar.gz`: `main.py` + `telescope/` package + `requirements.txt` + `start.sh`
-2. Publishes the tarball to the `latest` release
+1. Python 3.11 + pip cache; installs `requirements-dev.txt` via `constraints.txt`; runs `pytest`
+2. `python3 scripts/smoke_check.py` - packaging smoke checks
+3. Assembles `Telescope-linux.tar.gz`: `main.py` + `telescope/` package + `requirements.txt` + `constraints.txt` + `start.sh` + `THIRD_PARTY_NOTICES.txt`
+4. Publishes the tarball to the `latest` release
 
-No build step needed - the Linux bundle is the Python source and launcher script.
+No compiled build step - the Linux bundle is the Python source and launcher script, which creates its own venv on first run (see `start.sh`).
+
+### `desktop/scripts/smoke_check.py`
+
+Run in both desktop CI workflows before assembling the bundle: constructs the full app and registers every plugin, exercises ADB discovery and virtual-camera-availability detection without crashing, and drives a real authenticated MJPEG round-trip (auth header, multipart framing, JPEG decode, and that an unauthenticated request is actually rejected) against a local test server. It isn't a substitute for testing against a real phone - see the manual [release checklist](docs/release-checklist.md) and [device-compatibility matrix](docs/device-compatibility.md) for that.
 
 ---
 
