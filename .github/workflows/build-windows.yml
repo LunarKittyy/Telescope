@@ -54,7 +54,6 @@ jobs:
         run: |
           New-Item -ItemType Directory -Path bundle
           Copy-Item desktop/dist/TelescopeDesktop.exe bundle/
-          Copy-Item desktop/start.bat bundle/
           Copy-Item desktop/THIRD_PARTY_NOTICES.txt bundle/
           Copy-Item -Recurse desktop/platform-tools bundle/platform-tools
           Copy-Item -Recurse desktop/unitycapture bundle/unitycapture
@@ -63,11 +62,8 @@ jobs:
       - name: Verify release bundle
         shell: pwsh
         run: |
-          # Guards against start.bat referencing a file that never actually
-          # made it into the released archive (see desktop/start.bat).
           $required = @(
             "bundle/TelescopeDesktop.exe",
-            "bundle/start.bat",
             "bundle/THIRD_PARTY_NOTICES.txt",
             "bundle/platform-tools",
             "bundle/unitycapture"

@@ -34,7 +34,6 @@ For USB mode you also need `adb` on your PATH (`sudo apt install adb`, `sudo dnf
 ```
 Telescope-windows/
   TelescopeDesktop.exe          <- self-contained, no Python needed
-  start.bat                    <- alternative launcher if you have Python
   platform-tools/
     adb.exe                    <- used automatically for USB mode
     ...
@@ -43,7 +42,7 @@ Telescope-windows/
     UnityCaptureFilter64.dll
 ```
 
-Run `start.bat` (installs Python deps and launches the app) or `TelescopeDesktop.exe` directly. The app will detect and register the virtual camera driver on first launch via the System Setup dialog.
+Run `TelescopeDesktop.exe` directly. The app will detect and register the virtual camera driver on first launch via the System Setup dialog.
 
 ### 3. Connect your phone
 
@@ -203,7 +202,7 @@ telescope/
     |-- THIRD_PARTY_NOTICES.txt  # Bundled into both release archives
     |-- telescope.spec            # PyInstaller spec for Windows EXE
     |-- start.sh                 # Linux launcher (creates/reuses a Telescope-owned venv)
-    |-- start.bat                # Windows launcher (auto-installs deps)
+    |-- start.bat                # Windows source-checkout launcher (auto-installs deps); not in the release zip, the EXE needs neither
     |-- platform-tools/          # Bundled adb for Windows
     |-- unitycapture/            # Bundled UnityCapture DLLs (MIT)
     +-- telescope/
@@ -333,7 +332,7 @@ flatpak override --user --device=all com.obsproject.Studio
 
 **Windows:**
 
-`start.bat` installs pip dependencies and registers the UnityCapture DLLs (bundled in `desktop/unitycapture/`) on first run. The app can also do this from the System Setup dialog.
+The release zip bundles the UnityCapture DLLs already; the app registers them from the System Setup dialog on first run. Running from a source checkout instead (contributors), `start.bat` installs pip dependencies and downloads+registers the DLLs on first run - it isn't part of the release zip, since the packaged EXE needs neither step.
 
 ### Key implementation notes (for contributors)
 
@@ -473,7 +472,7 @@ All three workflows publish to a rolling **`latest` release** on every push to `
 3. `pip install -r requirements.txt pyinstaller -c constraints.txt`
 4. `python scripts/smoke_check.py` - packaging smoke checks (see below)
 5. `pyinstaller telescope.spec`
-6. Assembles `Telescope-windows.zip`: EXE + `start.bat` + `THIRD_PARTY_NOTICES.txt` + `platform-tools/` + `unitycapture/`, then verifies the bundle contains all required files before publishing
+6. Assembles `Telescope-windows.zip`: EXE + `THIRD_PARTY_NOTICES.txt` + `platform-tools/` + `unitycapture/`, then verifies the bundle contains all required files before publishing
 7. Publishes the zip to the `latest` release
 
 `telescope.spec` uses `collect_all('PyQt6')` to include Qt platform plugins that PyInstaller's default analysis misses. Expected EXE size: 60-80 MB.
