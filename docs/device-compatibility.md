@@ -13,7 +13,7 @@ Legend: `OK` tested and working · `PARTIAL` works with caveats (see notes) ·
 | Pixel-like (e.g. Pixel 6/7/8) | - | - | - | - | - | - | - | - | - | - | - | |
 | Samsung Galaxy S-series | - | - | - | - | - | - | - | - | - | - | - | |
 | Samsung Galaxy A-series | - | - | - | - | - | - | - | - | - | - | - | |
-| vivo V2413 | (see build) | 56bdafe | OK | OK | OK | OK | OK | OK | PARTIAL | - | OK | Reconnect after drop resends the stream but not the last-applied control settings (exposure/WB/etc.) - phone falls back to its defaults until a setting is re-touched on desktop, see follow-up bug. Also noted: pairing isn't persisted across desktop app restarts (a fresh desktop launch loses the paired device and requires re-pairing). |
+| vivo V2413 | (see build) | b1819a6 | OK | OK | OK | OK | OK | OK | OK | - | OK | Two defects found on 56bdafe are fixed as of 448fa13/b1819a6: reconnect after drop now resends the last-applied control settings (exposure/WB/etc.) instead of leaving the phone on defaults, and the paired device now survives a desktop app restart while in USB mode instead of losing its selection. |
 
 ## What to check per row
 

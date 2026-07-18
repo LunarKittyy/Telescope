@@ -47,10 +47,13 @@ data class CameraControlSnapshot(
  * [StreamState] transition this controller makes (the service still owns
  * the actual [StreamStateMachine] and diagnostics history), and
  * [onFatalError] is invoked wherever the original in-service code called
- * `stopSelf()` on an unrecoverable open/configure failure - deliberately
- * not called from [switchTo]'s failure paths, matching the original
+ * `stopSelf()` on an unrecoverable open/configure failure. [switchTo]'s own
+ * open-failure callback deliberately skips it, matching the original
  * behavior of leaving the service running (just in a Failed state) if a
- * mid-stream camera switch fails.
+ * mid-stream camera switch fails to open the new camera - but a session-
+ * configuration or repeating-request failure downstream of that open
+ * (shared with [openCamera] via [createPhysicalSession]/
+ * [createLegacySession]/[startRepeating]) still calls it either way.
  */
 class CameraSessionController(
     private val context: Context,
