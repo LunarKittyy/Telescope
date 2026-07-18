@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Data extraction rules for Android 12+ (android:dataExtractionRules).
+
+  The pairing bearer token in the "telescope_pairing" SharedPreferences file
+  (see TokenStore) is a long-lived credential for controlling the camera
+  stream. Exclude it from both cloud backups and device-to-device transfer so
+  it can never be restored onto a different install or device.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="telescope_pairing.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="telescope_pairing.xml" />
+    </device-transfer>
+</data-extraction-rules>
