@@ -913,13 +913,13 @@ class ConnectionPlugin(TelescopePlugin):
             return
         prev_key = self._active_key
         self._active_key = new_key
-        self._host._switch_device(prev_key, new_key)
+        self._host.switch_device(prev_key, new_key)
 
     def _on_mode(self):
         self._device_row_w.setVisible(self._rb_wifi.isChecked())
         self._update_pair_button()
         self._check_pair_status()
-        self._host._schedule_save()
+        self._host.schedule_save()
         self._activate_profile(self._profile_key)
 
     def _update_pair_button(self):
@@ -1004,7 +1004,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._host.reconnect_stream()
 
     def _on_port_changed(self):
-        self._host._schedule_save()
+        self._host.schedule_save()
         new_port = self._port_field.text()
         if new_port != self._last_port:
             self._last_port = new_port
@@ -1063,7 +1063,7 @@ class ConnectionPlugin(TelescopePlugin):
                 # without a reset/reconnect (settings weren't moved elsewhere).
                 self._active_key = new_name
         self._refresh_device_combo(select_name=self._selected_device)
-        self._host._save_config()
+        self._host.save_now()
 
     def _on_device_removed(self, name: str):
         cfg = load_config()
@@ -1075,7 +1075,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._refresh_device_combo(select_name=self._selected_device)
         # Persist the mutated devices_list too, or the removed device reappears
         # on next launch (set_config() repopulates from the stale saved list).
-        self._host._save_config()
+        self._host.save_now()
         if was_selected:
             self._activate_profile(self._profile_key)
 
@@ -1085,8 +1085,8 @@ class ConnectionPlugin(TelescopePlugin):
         # only checks the token it started with) - anything the desktop was
         # mid-stream to is about to be rejected either way, so stop cleanly
         # now instead of leaving it to error out on the next request.
-        if self._host._worker:
-            self._host._stop()
+        # stop_stream() is a safe no-op when nothing is streaming.
+        self._host.stop_stream()
         existing_names = [d["name"] for d in self._devices]
         if name in existing_names:
             for d in self._devices:
@@ -1098,7 +1098,7 @@ class ConnectionPlugin(TelescopePlugin):
             self._devices.append({"name": name, "ips": ips, "token": token})
         self._refresh_device_combo(select_name=name)
         self._selected_device = name
-        self._host._save_config()
+        self._host.save_now()
         self._activate_profile(self._profile_key)
         self._check_pair_status()
         # Pairing can now be triggered from inside the device manager

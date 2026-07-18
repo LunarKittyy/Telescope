@@ -20,7 +20,7 @@ from telescope.config import DEVICE_LOCAL_PLUGINS, load_config, save_config
 from telescope.models import PhoneState, PhoneStateError
 from telescope.phone_client import PhoneControlClient
 from telescope.platform import IS_LINUX, IS_WINDOWS
-from telescope.plugin import EventBus, TelescopePlugin
+from telescope.plugin import UNCHANGED, EventBus, TelescopePlugin
 from telescope.session import StreamSession
 from telescope.stream import StreamWorker
 from telescope.widgets.common import create_vector_icon
@@ -238,6 +238,7 @@ class TelescopeWindow(QMainWindow):
 
         self._bus     = EventBus()
         self._plugins: list[TelescopePlugin] = []
+        self._plugins_by_name: dict[str, TelescopePlugin] = {}
         # Captured once, right after each device-local plugin's UI is built
         # and before any saved config is applied - lets us reset a plugin to
         # a clean slate before layering a device's profile on top, so a
@@ -257,7 +258,7 @@ class TelescopeWindow(QMainWindow):
 
         self._save_timer = QTimer(self)
         self._save_timer.setSingleShot(True)
-        self._save_timer.timeout.connect(self._save_config)
+        self._save_timer.timeout.connect(self.save_now)
 
         self._tray: Optional[QSystemTrayIcon] = None
 
@@ -284,8 +285,16 @@ class TelescopeWindow(QMainWindow):
             stretch_idx = self._scroll_content_layout.count() - 1
             self._scroll_content_layout.insertWidget(stretch_idx, panel)
         self._plugins.append(plugin)
+        if plugin.name:
+            self._plugins_by_name[plugin.name] = plugin
         if plugin.name in DEVICE_LOCAL_PLUGINS:
             self._plugin_defaults[plugin.name] = plugin.get_config()
+
+    def _plugin(self, name: str) -> Optional[TelescopePlugin]:
+        """Look up a registered plugin by its declared name, or None. Central
+        accessor so the host isn't peppered with inline `next(p for p ...)`
+        name scans."""
+        return self._plugins_by_name.get(name)
 
     def apply_saved_config(self):
         """Restore persisted config into all registered plugins. Call after all plugins registered."""
@@ -340,14 +349,14 @@ class TelescopeWindow(QMainWindow):
 
     # ── Config persistence ────────────────────────────────────────────────────
 
-    def _schedule_save(self):
+    def schedule_save(self):
         self._save_timer.start(500)
 
-    def _save_config(self):
+    def save_now(self):
         cfg = load_config()
         # Global plugin configs (connection, setup, etc.)
         global_pcfg = cfg.setdefault("plugin_configs", {})
-        conn = next((p for p in self._plugins if p.name == "connection"), None)
+        conn = self._plugin("connection")
         selected = conn.selected_device if conn else None
         cfg["selected_device"] = selected
         for p in self._plugins:
@@ -387,7 +396,7 @@ class TelescopeWindow(QMainWindow):
                 if p.name in pcfg:
                     p.set_config(pcfg[p.name])
 
-    def _switch_device(self, prev_name, new_name: Optional[str]):
+    def switch_device(self, prev_name, new_name: Optional[str]):
         """Switch the active device/connection profile.
 
         Ordering matters here: the outgoing device's settings are saved
@@ -425,6 +434,32 @@ class TelescopeWindow(QMainWindow):
         self._stop()
         self._start()
 
+    # ── Public stream controls (HostServices contract for plugins) ─────────────
+
+    def is_streaming(self) -> bool:
+        """Whether a stream worker is currently active."""
+        return self._worker is not None
+
+    def stop_stream(self):
+        """Stop the active stream. A no-op (safe) if nothing is streaming -
+        guarded so it doesn't emit a spurious stop / on_stream_stop when idle."""
+        if self._worker is not None:
+            self._stop()
+
+    def update_stream_output(self, width=UNCHANGED, height=UNCHANGED, fps=UNCHANGED):
+        """Push new output geometry and/or fps to the running stream worker.
+        A no-op if nothing is streaming. A parameter left as UNCHANGED keeps
+        its current value; None is a real value (pass-through resolution)."""
+        worker = self._worker
+        if worker is None:
+            return
+        kwargs = {}
+        if width is not UNCHANGED:  kwargs["width"] = width
+        if height is not UNCHANGED: kwargs["height"] = height
+        if fps is not UNCHANGED:    kwargs["fps"] = fps
+        if kwargs:
+            worker.update_output(**kwargs)
+
     def _on_stream_reconnected(self):
         """The stream worker dropped and reconnected on its own (stream.py's
         _reconnect_cap reopens the video reader directly, without going
@@ -444,7 +479,7 @@ class TelescopeWindow(QMainWindow):
         selected    = cfg.get("selected_device")
         global_pcfg = cfg.get("plugin_configs", {})
 
-        conn = next((p for p in self._plugins if p.name == "connection"), None)
+        conn = self._plugin("connection")
         for p in self._plugins:
             if not p.name or p.name in DEVICE_LOCAL_PLUGINS:
                 continue
@@ -465,17 +500,17 @@ class TelescopeWindow(QMainWindow):
         else:            self._start()
 
     def _start(self):
-        conn = next((p for p in self._plugins if p.name == "connection"), None)
+        conn = self._plugin("connection")
         if not conn:
             return
         url, token, ok = conn.get_stream_info()
         if not ok:
             return
 
-        so = next((p for p in self._plugins if p.name == "stream_output"), None)
+        so = self._plugin("stream_output")
         w, h, fps = so.get_stream_params() if so else (None, None, 30)
 
-        setup = next((p for p in self._plugins if p.name == "setup"), None)
+        setup = self._plugin("setup")
         canvas_w, canvas_h = setup.get_canvas_dims() if setup else (None, None)
 
         pipeline = [p.process_frame for p in self._plugins]

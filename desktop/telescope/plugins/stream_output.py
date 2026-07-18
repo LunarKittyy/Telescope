@@ -149,28 +149,28 @@ class StreamOutputPlugin(TelescopePlugin):
     # ── Handlers ──────────────────────────────────────────────────────────────
 
     def _on_resolution(self):
-        if self._host._worker:
-            res = RESOLUTIONS.get(self._res_combo.currentText())
-            w, h = res if res else (None, None)
-            self._host._worker.update_output(width=w, height=h)
-        self._host._schedule_save()
+        res = RESOLUTIONS.get(self._res_combo.currentText())
+        w, h = res if res else (None, None)
+        # None width/height is meaningful here (pass-through / no resize);
+        # update_stream_output is a no-op when nothing is streaming.
+        self._host.update_stream_output(width=w, height=h)
+        self._host.schedule_save()
 
     def _on_fps(self):
-        if self._host._worker:
-            self._host._worker.update_output(fps=self._fps_spin.value())
-        self._host._schedule_save()
+        self._host.update_stream_output(fps=self._fps_spin.value())
+        self._host.schedule_save()
 
     def _on_quality_changed(self, q: int):
         self._quality_val_lbl.setText(quality_label(q))
         if self._ctrl:
             self._ctrl.send(action="jpeg_quality", value=q)
-        self._host._schedule_save()
+        self._host.schedule_save()
 
     def _on_phone_fps_changed(self):
         fps = self._phone_fps_spin.value()
         if self._ctrl:
             self._ctrl.send(action="fps_target", value=fps)
-        self._host._schedule_save()
+        self._host.schedule_save()
 
     # ── Config ────────────────────────────────────────────────────────────────
 

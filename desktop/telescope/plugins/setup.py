@@ -640,7 +640,7 @@ class SetupPlugin(TelescopePlugin):
             if self._canvas_preset == "Custom...":
                 self._custom_w = w
                 self._custom_h = h
-        self._host._schedule_save()
+        self._host.schedule_save()
 
         def on_done(ok: bool, msg: str):
             if self._dlg:

@@ -2,7 +2,7 @@ import threading
 
 import pytest
 
-from telescope.plugin import EventBus
+from telescope.plugin import UNCHANGED, EventBus
 from telescope.plugins.monitoring import MonitoringPlugin
 from telescope.plugins.setup import SetupDialog, SetupPlugin
 from telescope.plugins.stream_output import RESOLUTIONS, StreamOutputPlugin
@@ -35,8 +35,25 @@ class _Host:
         self.notifications = []
         self.canvas_restarts = []
 
-    def _schedule_save(self):
+    def schedule_save(self):
         self.saves += 1
+
+    def is_streaming(self):
+        return self._worker is not None
+
+    def stop_stream(self):
+        if self._worker is not None:
+            self._worker = None
+
+    def update_stream_output(self, width=UNCHANGED, height=UNCHANGED, fps=UNCHANGED):
+        if self._worker is None:
+            return
+        kwargs = {}
+        if width is not UNCHANGED:  kwargs["width"] = width
+        if height is not UNCHANGED: kwargs["height"] = height
+        if fps is not UNCHANGED:    kwargs["fps"] = fps
+        if kwargs:
+            self._worker.update_output(**kwargs)
 
     def send_notification(self, title, body):
         self.notifications.append((title, body))

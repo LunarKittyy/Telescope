@@ -24,7 +24,7 @@ class _Host(QWidget):
         self.saves = 0
         self.restarts = []
 
-    def _schedule_save(self):
+    def schedule_save(self):
         self.saves += 1
 
     def restart_vcam_canvas(self, w, h, on_done=None):

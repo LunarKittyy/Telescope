@@ -23,14 +23,19 @@ Calls `win.apply_saved_config()` **after** all plugins are registered so every p
 - `apply_saved_config()` — call after all plugins are registered; restores config round-trip for each plugin.
 - `_start()` — calls `conn.get_stream_info()` for URL (validates ADB/v4l2, builds URL), queries `stream_output.get_stream_params()` for worker dimensions.
 - `_stop()` — tears down worker and ctrl; `on_stream_stop()` on each plugin (ConnectionPlugin unforwards ADB there).
-- `send_notification(title, body)` — public; uses `notify-send` on Linux, tray balloon on Windows.
-- `_save_config()` — writes global plugin configs (connection, setup) and per-device configs (camera_control, stream_output, transforms, monitoring) under `devices[selected]`.
-- `_switch_device(prev, new)` — saves `prev` device's per-device configs, restores `new` device's; called by `ConnectionPlugin._on_device_changed()`.
+- Implements the public **`HostServices`** contract plugins call on `host` (see `plugin.py`): `schedule_save()`, `save_now()`, `switch_device()`, `reconnect_stream()`, `send_notification()`, `is_streaming()`, `stop_stream()`, `update_stream_output()`, `restart_vcam_canvas()`. Plugins go through these public methods only — they never touch private (`_`-prefixed) window internals like `_worker`/`_stop()`.
+- `send_notification(title, body)` — uses `notify-send` on Linux, tray balloon on Windows.
+- `save_now()` — writes global plugin configs (connection, setup) and per-device configs (camera_control, stream_output, transforms, monitoring) under `devices[selected]`. `schedule_save()` is the debounced variant plugins call after a settings change.
+- `switch_device(prev, new)` — saves `prev` device's per-device configs, restores `new` device's; called by `ConnectionPlugin._on_device_changed()`.
+- `is_streaming()` / `stop_stream()` / `update_stream_output(width, height, fps)` — public stream controls; `stop_stream()` is a guarded no-op when idle, and `update_stream_output()` forwards only the values a caller passes (`None` width/height means pass-through).
+- `_plugin(name)` — central typed lookup of a registered plugin by name (replaces scattered inline `next(p for p ...)` scans).
 - `_apply_config(cfg)` — routes global plugin slices to `p.set_config()`, per-device slices for the selected device, then calls `conn.select_device()` to set the active device in the combo.
 - Utility exports: `acquire_single_instance()`, `listen_for_raise()`, `EXTRA_QSS`.
 
 ### `plugin.py`
-**TelescopePlugin** base class + **EventBus**.
+**TelescopePlugin** base class + **HostServices** contract + **EventBus**.
+- `HostServices` (typing.Protocol): the public surface a plugin may call on its `host` handle — `schedule_save`, `save_now`, `switch_device`, `reconnect_stream`, `send_notification`, `is_streaming`, `stop_stream`, `update_stream_output`, `restart_vcam_canvas`. Structural typing only (`TelescopeWindow` implements it without inheriting). Keeps plugins off private window internals.
+- `UNCHANGED`: sentinel for `update_stream_output` so `None` can be passed as a real value (pass-through resolution) distinct from "leave as-is".
 - `TelescopePlugin`: override `setup`, `create_panel`, `on_stream_start`, `on_stream_stop`, `on_phone_state`, `process_frame`, `get_config`, `set_config`.
 - `EventBus(QObject)`: signals — `frame_ready`, `stream_start_requested`, `stream_stop_requested`, `stream_started`, `stream_stopped`, `phone_state_updated`, `device_changed`.
 

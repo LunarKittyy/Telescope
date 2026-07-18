@@ -174,11 +174,11 @@ class TransformsPlugin(TelescopePlugin):
     def _on_flip(self):
         self.flip_h = self._flip_h.isChecked()
         self.flip_v = self._flip_v.isChecked()
-        self._host._schedule_save()
+        self._host.schedule_save()
 
     def _on_rotate(self):
         self.rotation = ROTATIONS.get(self._rot_combo.currentText())
-        self._host._schedule_save()
+        self._host.schedule_save()
 
     def _on_zoom_changed(self, val: int):
         self.zoom = val / 100.0
@@ -194,12 +194,12 @@ class TransformsPlugin(TelescopePlugin):
         else:
             self.pan_x = self._pan_x_slider.get_value()
             self.pan_y = self._pan_y_slider.get_value()
-        self._host._schedule_save()
+        self._host.schedule_save()
 
     def _on_pan_changed(self, _val: float):
         self.pan_x = self._pan_x_slider.get_value()
         self.pan_y = self._pan_y_slider.get_value()
-        self._host._schedule_save()
+        self._host.schedule_save()
 
     # ── Config ────────────────────────────────────────────────────────────────
 

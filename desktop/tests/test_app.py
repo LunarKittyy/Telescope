@@ -259,7 +259,7 @@ def test_save_config_separates_global_and_device_local_plugins(window, config_ho
     for plugin in (connection, global_plugin, local_plugin):
         window.register_plugin(plugin)
 
-    window._save_config()
+    window.save_now()
 
     cfg = config_home.load_config()
     assert cfg["selected_device"] == "PhoneA"
@@ -274,7 +274,7 @@ def test_save_config_separates_global_and_device_local_plugins(window, config_ho
 
 def test_save_config_without_connection_skips_device_profile(window, config_home):
     window.register_plugin(_Plugin("transforms", {"zoom": 2}))
-    window._save_config()
+    window.save_now()
     assert config_home.load_config()["devices"] == {}
 
 
@@ -283,16 +283,16 @@ def test_save_config_failure_notifies_once_until_a_save_succeeds(window, config_
     monkeypatch.setattr(window, "send_notification", lambda *args: notifications.append(args))
     monkeypatch.setattr(app_module, "save_config", lambda _cfg: False)
 
-    window._save_config()
-    window._save_config()
+    window.save_now()
+    window.save_now()
 
     assert len(notifications) == 1
     assert notifications[0][0] == "Telescope - Save failed"
 
     monkeypatch.setattr(app_module, "save_config", lambda _cfg: True)
-    window._save_config()
+    window.save_now()
     monkeypatch.setattr(app_module, "save_config", lambda _cfg: False)
-    window._save_config()
+    window.save_now()
 
     assert len(notifications) == 2
 
@@ -334,7 +334,7 @@ def test_switch_device_saves_old_profile_applies_new_and_restarts(window, config
     monkeypatch.setattr(window, "_stop", lambda: calls.append("stop") or setattr(window, "_session", None))
     monkeypatch.setattr(window, "_start", lambda: calls.append("start"))
 
-    window._switch_device("Old", "New")
+    window.switch_device("Old", "New")
 
     cfg = config_home.load_config()
     assert cfg["devices"]["Old"]["plugin_configs"]["transforms"] == {"zoom": 2}
@@ -353,6 +353,53 @@ def test_reconnect_stream_only_restarts_when_active(window, monkeypatch):
     window._session = StreamSession(id=1, url="url", client=object(), worker=object())
     window.reconnect_stream()
     assert calls == ["stop", "start"]
+
+
+def test_window_implements_the_public_host_services_contract(window):
+    # Every method plugins are allowed to call must exist on the window as a
+    # public (non-underscore) callable - guards against a future rename
+    # reintroducing private coupling that the HostServices Protocol hides.
+    from telescope.plugin import HostServices
+    contract = [
+        n for n, v in vars(HostServices).items()
+        if not n.startswith("_") and callable(v)
+    ]
+    assert "schedule_save" in contract  # sanity: the introspection found methods
+    for name in contract:
+        assert callable(getattr(window, name, None)), f"host missing {name}()"
+
+
+def test_is_streaming_and_stop_stream_track_the_session(window, monkeypatch):
+    assert window.is_streaming() is False
+
+    stopped = []
+    monkeypatch.setattr(window, "_stop", lambda: stopped.append(True))
+    # stop_stream is a guarded no-op while idle - no spurious _stop().
+    window.stop_stream()
+    assert stopped == []
+
+    window._session = StreamSession(id=1, url="url", client=object(), worker=object())
+    assert window.is_streaming() is True
+    window.stop_stream()
+    assert stopped == [True]
+
+
+def test_update_stream_output_forwards_only_provided_values(window):
+    class _Worker:
+        def __init__(self):
+            self.updates = []
+
+        def update_output(self, **kwargs):
+            self.updates.append(kwargs)
+
+    # No-op when idle.
+    window.update_stream_output(width=1280, height=720)
+
+    worker = _Worker()
+    window._session = StreamSession(id=1, url="url", client=object(), worker=worker)
+    window.update_stream_output(fps=60)
+    window.update_stream_output(width=None, height=None)  # None = pass-through
+    assert worker.updates == [{"fps": 60}, {"width": None, "height": None}]
 
 
 def test_stream_reconnected_resends_settings_to_every_plugin(window):
