@@ -79,6 +79,44 @@ class StreamStateMachineTest {
     }
 
     @Test
+    fun `record logs a non-fatal event without changing state`() {
+        val m = StreamStateMachine()
+        m.transition(StreamState.Streaming, "startRepeating")
+        val r = m.record("applyExposure", IllegalStateException("session closed"))
+
+        // State is unchanged: the stream is still considered live.
+        assertEquals(StreamState.Streaming, m.state)
+        assertTrue(m.isStreaming)
+        // Recorded as a self-transition with the sanitized error, so it shows up
+        // in the diagnostics history.
+        assertEquals(StreamState.Streaming, r.from)
+        assertEquals(StreamState.Streaming, r.to)
+        assertEquals("applyExposure", r.op)
+        assertEquals("IllegalStateException: session closed", r.error)
+        assertEquals(r, m.recentTransitions().last())
+    }
+
+    @Test
+    fun `record without an error still appends a history entry`() {
+        val m = StreamStateMachine()
+        m.transition(StreamState.Streaming, "startRepeating")
+        m.record("applyExposure")
+        val last = m.recentTransitions().last()
+        assertEquals("applyExposure", last.op)
+        assertEquals(null, last.error)
+    }
+
+    @Test
+    fun `record entries count against the bounded history`() {
+        val m = StreamStateMachine()
+        repeat(StreamStateMachine.MAX_HISTORY + 5) { i -> m.record("op$i") }
+        val recent = m.recentTransitions()
+        assertEquals(StreamStateMachine.MAX_HISTORY, recent.size)
+        assertEquals("op5", recent.first().op)
+        assertEquals("op${StreamStateMachine.MAX_HISTORY + 4}", recent.last().op)
+    }
+
+    @Test
     fun `history is bounded and drops the oldest entries first`() {
         val m = StreamStateMachine()
         repeat(StreamStateMachine.MAX_HISTORY + 5) { i ->

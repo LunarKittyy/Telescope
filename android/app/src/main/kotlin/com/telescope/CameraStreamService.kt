@@ -163,6 +163,19 @@ class CameraStreamService : Service() {
         )
     }
 
+    /** Records a non-fatal control-update failure (e.g. a live exposure/WB change
+     *  that couldn't be applied while the stream keeps running) into the same
+     *  sanitized history "Copy diagnostics" reads, without changing the current
+     *  state or tearing the session down. */
+    private fun recordControlError(op: String, error: Throwable) {
+        val transition = stateMachine.record(op, error)
+        android.util.Log.w(
+            TAG,
+            "Non-fatal control error (op=$op, camera=${controller?.getCurrentCameraId()}, " +
+                "generation=${controller?.currentGeneration()}${transition.error?.let { ", error=$it" } ?: ""})",
+        )
+    }
+
     /** Sanitized diagnostics report for the "Copy diagnostics" action: app/device
      *  info, current state, and recent transitions/errors. Never includes the
      *  pairing token, any URL, or raw configuration. */
@@ -252,6 +265,7 @@ class CameraStreamService : Service() {
             onFrame        = { bytes -> server?.sendFrame(bytes) },
             onStateChanged = { newState, op, error -> setState(newState, op, error) },
             onFatalError   = { stopSelf() },
+            onControlError = { op, error -> recordControlError(op, error) },
         )
 
         setState(StreamState.OpeningCamera, "onStartCommand")

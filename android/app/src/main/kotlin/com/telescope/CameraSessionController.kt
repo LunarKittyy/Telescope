@@ -54,6 +54,12 @@ data class CameraControlSnapshot(
  * configuration or repeating-request failure downstream of that open
  * (shared with [openCamera] via [createPhysicalSession]/
  * [createLegacySession]/[startRepeating]) still calls it either way.
+ *
+ * [onControlError] reports a *non-fatal* failure: a live control update that
+ * couldn't be applied even though the existing stream keeps running on the
+ * previous repeating request. It carries the failing operation and the
+ * sanitized cause so the service can surface it in diagnostics without tearing
+ * the session down.
  */
 class CameraSessionController(
     private val context: Context,
@@ -62,6 +68,7 @@ class CameraSessionController(
     private val onFrame: (ByteArray) -> Unit,
     private val onStateChanged: (StreamState, String, Throwable?) -> Unit,
     private val onFatalError: () -> Unit,
+    private val onControlError: (String, Throwable) -> Unit = { _, _ -> },
 ) {
     companion object {
         private const val TAG = "CameraSessionController"
@@ -468,11 +475,17 @@ class CameraSessionController(
     }
 
     private fun applyExposure() {
+        val s = captureSession ?: return
+        val c = cameraDevice  ?: return
         try {
-            val s = captureSession ?: return
-            val c = cameraDevice  ?: return
             s.setRepeatingRequest(buildRequest(c), ccmCaptureCallback, handler)
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            // The stream keeps running on the previous repeating request, so this
+            // is non-fatal - but the requested control change silently didn't take
+            // effect. Surface it in diagnostics instead of swallowing it whole.
+            android.util.Log.w(TAG, "applyExposure failed to update live controls", e)
+            onControlError("applyExposure", e)
+        }
     }
 
     private fun switchCameraTo(entry: CameraEntry) {
