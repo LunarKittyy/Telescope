@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Auto Backup rules for Android 11 and below (android:fullBackupContent).
+
+  The pairing bearer token lives in the "telescope_pairing" SharedPreferences
+  file (see TokenStore). It is a long-lived credential granting control of the
+  phone's camera stream, so it must never leave the device in a cloud backup or
+  be restored onto a different install. Exclude that one preferences file while
+  leaving the rest of the app's data eligible for backup.
+-->
+<full-backup-content>
+    <exclude domain="sharedpref" path="telescope_pairing.xml" />
+</full-backup-content>

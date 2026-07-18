@@ -7,6 +7,11 @@ import android.content.Context
  * during QR pairing. One phone has one active paired desktop; saving a new
  * token always overwrites the previous one, which is the rotation/
  * revocation mechanism when re-pairing or resetting.
+ *
+ * The token is a long-lived credential for controlling the camera stream, so
+ * the [PREFS] file is excluded from Auto Backup and device-to-device transfer
+ * (see res/xml/backup_rules.xml and res/xml/data_extraction_rules.xml). If
+ * this preferences name ever changes, update those exclusion rules to match.
  */
 object TokenStore {
     private const val PREFS = "telescope_pairing"
