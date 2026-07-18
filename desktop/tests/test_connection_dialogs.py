@@ -145,6 +145,36 @@ def test_pairing_dialog_renders_qr_after_start(qapp):
         dialog._stop_server()
 
 
+def test_pairing_dialog_usb_mode_reverses_and_unreverses_port(monkeypatch, qapp):
+    calls = []
+    monkeypatch.setattr(connection, "adb_reverse", lambda port, serial=None: calls.append(("reverse", port, serial)) or (True, "ok"))
+    monkeypatch.setattr(connection, "adb_unreverse", lambda port, serial=None: calls.append(("unreverse", port, serial)))
+
+    dialog = _PairingDialog(None, lambda *_args: None, usb_serial="phone-1")
+    dialog._start_server()
+    try:
+        assert dialog._pairing_server is not None
+        assert calls[0][0] == "reverse"
+        assert calls[0][2] == "phone-1"
+        assert dialog._reversed_port == calls[0][1]
+    finally:
+        dialog._stop_server()
+
+    assert calls[-1] == ("unreverse", calls[0][1], "phone-1")
+    assert dialog._reversed_port is None
+
+
+def test_pairing_dialog_usb_mode_reports_adb_reverse_failure(monkeypatch, qapp):
+    monkeypatch.setattr(connection, "adb_reverse", lambda port, serial=None: (False, "device offline"))
+
+    dialog = _PairingDialog(None, lambda *_args: None, usb_serial="phone-1")
+    dialog._start_server()
+
+    assert dialog._pairing_server is None
+    assert dialog._status_lbl.objectName() == "status_err"
+    assert "device offline" in dialog._status_lbl.text()
+
+
 def test_pairing_start_is_idempotent_when_server_already_exists(qapp):
     dialog = _PairingDialog(None, lambda *_args: None)
     sentinel = object()

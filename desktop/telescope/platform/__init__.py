@@ -71,3 +71,16 @@ def adb_forward(port, serial=None):
 
 def adb_unforward(port, serial=None):
     _run(_with_serial([adb_exe(), "forward", "--remove", f"tcp:{port}"], serial))
+
+
+def adb_reverse(port, serial=None):
+    """Tunnel connections the phone makes to its own localhost:port back to
+    this machine's localhost:port - the mirror of adb_forward, used so a
+    USB-only phone (no LAN path, e.g. behind a VPN) can still reach the
+    desktop's QR-pairing HTTP server."""
+    rc, _, err = _run(_with_serial([adb_exe(), "reverse", f"tcp:{port}", f"tcp:{port}"], serial))
+    return (True, f"Port {port} reversed") if rc == 0 else (False, err)
+
+
+def adb_unreverse(port, serial=None):
+    _run(_with_serial([adb_exe(), "reverse", "--remove", f"tcp:{port}"], serial))

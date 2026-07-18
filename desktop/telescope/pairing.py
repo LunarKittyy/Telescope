@@ -51,15 +51,21 @@ class PairingServer:
         self._server_thread: Optional[threading.Thread] = None
         self.offer: Optional[PairingOffer] = None
 
-    def start(self) -> Optional[PairingOffer]:
+    def start(self, advertise_ips: Optional[List[str]] = None) -> Optional[PairingOffer]:
         """Binds the server and returns the offer to display as a QR code, or
         None if there's no network interface to pair over. Calling this
         again while already started is a no-op that returns the existing
-        offer."""
+        offer.
+
+        [advertise_ips], if given, is used verbatim instead of discovering
+        the machine's LAN IPs - the USB-pairing path passes ["127.0.0.1"]
+        here, since the phone reaches it through an adb reverse tunnel
+        rather than the LAN (which may not exist, or may be shadowed by a
+        VPN route, for a USB-only phone)."""
         if self._server is not None:
             return self.offer
 
-        local_ips = ip_utils.get_local_ips()
+        local_ips = advertise_ips if advertise_ips is not None else ip_utils.get_local_ips()
         if not local_ips:
             return None
 
@@ -110,7 +116,10 @@ class PairingServer:
                     name = str(data.get("name", "Phone")).strip()
                     ips = list(dict.fromkeys(str(x).strip() for x in data.get("ips", [])))
                     echoed_token = str(data.get("token", ""))
-                    if not name or not ips or not all(ip_utils.valid_ipv4(ip) for ip in ips):
+                    # ips may legitimately be empty for a USB-only phone with
+                    # no Wi-Fi at all - only reject if something reported is
+                    # actually malformed.
+                    if not name or not all(ip_utils.valid_ipv4(ip) for ip in ips):
                         raise ValueError("invalid pairing payload")
                     if not hmac.compare_digest(echoed_token, token):
                         raise ValueError("token mismatch")

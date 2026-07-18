@@ -43,6 +43,36 @@ def test_start_is_idempotent(pairing_server):
     assert server.start() is offer
 
 
+def test_start_with_advertise_ips_skips_discovery(monkeypatch):
+    import telescope.pairing as pairing_module
+
+    monkeypatch.setattr(
+        pairing_module.ip_utils, "get_local_ips",
+        lambda: (_ for _ in ()).throw(AssertionError("should not discover LAN ips")),
+    )
+    server = PairingServer(on_paired=lambda r: None)
+    try:
+        offer = server.start(advertise_ips=["127.0.0.1"])
+        assert offer is not None
+        assert json.loads(offer.payload)["ips"] == ["127.0.0.1"]
+    finally:
+        server.stop()
+        time.sleep(0.2)
+
+
+def test_empty_ips_in_payload_is_accepted(pairing_server):
+    # A USB-only phone with no Wi-Fi at all has nothing to report here - only
+    # malformed (non-empty-but-invalid) entries should be rejected.
+    server, offer, paired = pairing_server
+    body = json.dumps({"name": "Phone", "ips": [], "token": offer.token}).encode()
+    assert _post(offer.port, f"/pair/{offer.nonce}", body) == 200
+    for _ in range(20):
+        time.sleep(0.05)
+        if paired:
+            break
+    assert paired == [PairingResult(name="Phone", ips=[], token=offer.token)]
+
+
 def test_wrong_nonce_is_rejected(pairing_server):
     server, offer, _paired = pairing_server
     assert _post(offer.port, "/pair/not-the-nonce", b"{}") == 404

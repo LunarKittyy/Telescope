@@ -127,3 +127,30 @@ def test_adb_forward_surfaces_error_and_unforward_ignores_it(monkeypatch):
     assert platform_api.adb_forward(9000) == (False, "forward failed")
     assert platform_api.adb_unforward(9000, serial="serial") is None
     assert calls[-1] == ["adb", "-s", "serial", "forward", "--remove", "tcp:9000"]
+
+
+def test_adb_reverse_builds_serial_specific_command(monkeypatch):
+    calls = []
+    monkeypatch.setattr(platform_api, "adb_exe", lambda: "adb")
+    monkeypatch.setattr(
+        platform_api,
+        "_run",
+        lambda cmd: calls.append(cmd) or (0, "", ""),
+    )
+
+    assert platform_api.adb_reverse(8765, serial="phone") == (True, "Port 8765 reversed")
+    assert calls == [["adb", "-s", "phone", "reverse", "tcp:8765", "tcp:8765"]]
+
+
+def test_adb_reverse_surfaces_error_and_unreverse_ignores_it(monkeypatch):
+    calls = []
+    monkeypatch.setattr(platform_api, "adb_exe", lambda: "adb")
+    monkeypatch.setattr(
+        platform_api,
+        "_run",
+        lambda cmd: calls.append(cmd) or (1, "", "reverse failed"),
+    )
+
+    assert platform_api.adb_reverse(9000) == (False, "reverse failed")
+    assert platform_api.adb_unreverse(9000, serial="serial") is None
+    assert calls[-1] == ["adb", "-s", "serial", "reverse", "--remove", "tcp:9000"]

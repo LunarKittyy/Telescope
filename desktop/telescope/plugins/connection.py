@@ -15,7 +15,9 @@ from telescope import ip_utils
 from telescope.config import load_config, save_config
 from telescope.models import DeviceProfile
 from telescope.pairing import PairingServer
-from telescope.platform import IS_LINUX, adb_available, adb_devices, adb_forward, adb_unforward
+from telescope.platform import (
+    IS_LINUX, adb_available, adb_devices, adb_forward, adb_reverse, adb_unforward, adb_unreverse,
+)
 from telescope.platform.linux import (
     V4L2_OBS_DEV, V4L2_PHONE_DEV,
     v4l2_devices_ready, v4l2_load, v4l2_module_loaded,
@@ -286,12 +288,18 @@ class _PairingSignals(QObject):
 class _PairingDialog(QDialog):
     """Shows a QR code and runs a pairing HTTP server while open."""
 
-    def __init__(self, parent, on_paired):
+    def __init__(self, parent, on_paired, usb_serial: Optional[str] = None):
         super().__init__(parent)
         self.setWindowTitle("Pair with Phone")
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self._on_paired = on_paired
+        # If set, pairing tunnels through this adb-attached phone instead of
+        # the LAN - the phone reaches the pairing server via an adb reverse
+        # tunnel to its own localhost, so it works even with no Wi-Fi at all
+        # (or a VPN shadowing the desktop's real LAN address).
+        self._usb_serial = usb_serial
         self._pairing_server: Optional[PairingServer] = None
+        self._reversed_port: Optional[int] = None
         self._signals = _PairingSignals()
         self._signals.paired.connect(self._on_paired_signal)
         self._build_ui()
@@ -338,7 +346,25 @@ class _PairingDialog(QDialog):
 
         signals = self._signals
         server = PairingServer(on_paired=lambda r: signals.paired.emit(r.name, r.ips, r.token))
-        offer = server.start()
+
+        if self._usb_serial is not None:
+            # Bind first so we know the actual port (it may have fallen back
+            # off PAIRING_PORT), then tunnel that exact port over adb before
+            # advertising it - a QR pointing at 127.0.0.1 only works once the
+            # reverse tunnel is actually up.
+            offer = server.start(advertise_ips=["127.0.0.1"])
+            if offer is not None:
+                ok, err = adb_reverse(offer.port, serial=self._usb_serial)
+                if not ok:
+                    server.stop()
+                    self._status_lbl.setObjectName("status_err")
+                    self._status_lbl.setText(f"adb reverse failed: {err}")
+                    self._status_lbl.setStyleSheet("")
+                    return
+                self._reversed_port = offer.port
+        else:
+            offer = server.start()
+
         if offer is None:
             self._status_lbl.setObjectName("status_err")
             self._status_lbl.setText("No network interfaces found.")
@@ -362,6 +388,9 @@ class _PairingDialog(QDialog):
             return
         self._pairing_server.stop()
         self._pairing_server = None
+        if self._reversed_port is not None:
+            adb_unreverse(self._reversed_port, serial=self._usb_serial)
+            self._reversed_port = None
 
     def _on_paired_signal(self, name: str, ips: list, token: str):
         # Replace QR with a big success message
@@ -443,7 +472,30 @@ class ConnectionPlugin(TelescopePlugin):
         mode_row.addStretch()
         lay.addLayout(mode_row)
 
-        # ── Device list (Wi-Fi only) ───────────────────────────────────────────
+        # ── Pair (always visible - a USB-only phone still needs to be paired,
+        #     it just gets there via adb reverse instead of the LAN) ──────────
+        pair_row = QHBoxLayout()
+        pair_row.setContentsMargins(0, 0, 0, 0)
+        pair_row.setSpacing(6)
+        pair_lbl = QLabel("Pair")
+        pair_lbl.setObjectName("dim")
+        pair_lbl.setFixedWidth(110)
+        pair_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        pair_row.addWidget(pair_lbl)
+
+        _icon_color = "#c8d0da"
+        _icon_size  = QSize(18, 18)
+        self._qr_btn = QPushButton()
+        self._qr_btn.setFixedSize(28, 28)
+        self._qr_btn.setIcon(create_vector_icon("qr", _icon_color))
+        self._qr_btn.setIconSize(_icon_size)
+        self._qr_btn.setToolTip("Pair via QR code")
+        self._qr_btn.clicked.connect(self._on_pair_qr)
+        pair_row.addWidget(self._qr_btn)
+        pair_row.addStretch()
+        lay.addLayout(pair_row)
+
+        # ── Device list (Wi-Fi only) ────────────────────────────────────────
         self._device_row_w = QWidget()
         self._device_row_w.setObjectName("ip_row_container")
         device_v = QVBoxLayout(self._device_row_w)
@@ -463,24 +515,13 @@ class ConnectionPlugin(TelescopePlugin):
         self._device_combo.currentIndexChanged.connect(self._on_device_changed)
         combo_row.addWidget(self._device_combo, 1)
 
-        _icon_color = "#c8d0da"
-        _icon_size  = QSize(18, 18)
         self._gear_btn = QPushButton()
         self._gear_btn.setFixedSize(28, 28)
         self._gear_btn.setIcon(create_vector_icon("gear", _icon_color))
         self._gear_btn.setIconSize(_icon_size)
         self._gear_btn.setToolTip("Manage devices")
         self._gear_btn.clicked.connect(self._on_manage_devices)
-
-        self._qr_btn = QPushButton()
-        self._qr_btn.setFixedSize(28, 28)
-        self._qr_btn.setIcon(create_vector_icon("qr", _icon_color))
-        self._qr_btn.setIconSize(_icon_size)
-        self._qr_btn.setToolTip("Pair via QR code")
-        self._qr_btn.clicked.connect(self._on_pair_qr)
-
         combo_row.addWidget(self._gear_btn)
-        combo_row.addWidget(self._qr_btn)
         device_v.addLayout(combo_row)
 
         ip_row = QHBoxLayout()
@@ -746,8 +787,22 @@ class ConnectionPlugin(TelescopePlugin):
         self._device_dlg.activateWindow()
 
     def _on_pair_qr(self):
+        usb_serial = None
+        if self._rb_usb.isChecked():
+            if not adb_available():
+                QMessageBox.critical(
+                    self._host, "ADB not found",
+                    "ADB is needed to pair over USB but wasn't found.\n\n"
+                    "Click the Download ADB button in the Windows Setup section "
+                    "and try again, or switch to Wi-Fi mode to pair."
+                )
+                return
+            usb_serial = self._resolve_adb_serial()
+            if usb_serial is None:
+                return
+
         if self._pairing_dlg is None or not self._pairing_dlg.isVisible():
-            self._pairing_dlg = _PairingDialog(self._host, self._on_device_paired)
+            self._pairing_dlg = _PairingDialog(self._host, self._on_device_paired, usb_serial=usb_serial)
             self._pairing_dlg.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
             self._pairing_dlg.setWindowModality(Qt.WindowModality.NonModal)
         self._pairing_dlg.show()

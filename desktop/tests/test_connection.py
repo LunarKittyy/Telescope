@@ -340,6 +340,74 @@ def test_resolve_adb_serial_none_single_multiple_and_cancel(monkeypatch, connect
     assert plugin._resolve_adb_serial() is None
 
 
+def test_device_row_visibility_toggles_with_mode(connection_plugin):
+    # The panel's never shown as a real top-level window in this fixture, so
+    # isVisible() would reflect the (never-shown) ancestor chain rather than
+    # what setVisible() was actually called with - isHidden() reads the
+    # widget's own explicit flag instead.
+    plugin, _host, _panel = connection_plugin
+    plugin._rb_wifi.setChecked(True)
+    plugin._rb_usb.setChecked(False)
+    plugin._on_mode()
+    assert not plugin._device_row_w.isHidden()
+    assert not plugin._qr_btn.isHidden()  # pairing is available in both modes
+
+    plugin._rb_usb.setChecked(True)
+    plugin._rb_wifi.setChecked(False)
+    plugin._on_mode()
+    assert plugin._device_row_w.isHidden()
+    assert not plugin._qr_btn.isHidden()
+
+
+def test_on_pair_qr_usb_mode_requires_adb_and_resolves_serial(monkeypatch, connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    plugin._rb_usb.setChecked(True)
+    plugin._rb_wifi.setChecked(False)
+
+    errors = []
+    monkeypatch.setattr(connection_module.QMessageBox, "critical", lambda *_args: errors.append(_args))
+    monkeypatch.setattr(connection_module, "adb_available", lambda: False)
+    plugin._on_pair_qr()
+    assert errors[-1][1] == "ADB not found"
+    assert plugin._pairing_dlg is None
+
+    # _PairingDialog's own adb-reverse behavior is covered directly in
+    # test_connection_dialogs.py (constructed with a real QWidget-less
+    # parent there); this test only cares that _on_pair_qr resolves a serial
+    # and passes it through, so the dialog itself is stubbed out - the
+    # fixture's fake host isn't a QWidget and can't be a real QDialog parent.
+    monkeypatch.setattr(connection_module, "adb_available", lambda: True)
+    monkeypatch.setattr(connection_module, "adb_devices", lambda: ["serial-1"])
+    captured = {}
+
+    class _FakeDialog:
+        def __init__(self, parent, on_paired, usb_serial=None):
+            captured["usb_serial"] = usb_serial
+
+        def setAttribute(self, *_a): pass
+        def setWindowModality(self, *_a): pass
+        def show(self): pass
+        def raise_(self): pass
+        def activateWindow(self): pass
+        def isVisible(self): return False
+
+    monkeypatch.setattr(connection_module, "_PairingDialog", _FakeDialog)
+    plugin._on_pair_qr()
+    assert captured["usb_serial"] == "serial-1"
+
+
+def test_on_pair_qr_usb_mode_cancelled_serial_picker_skips_dialog(monkeypatch, connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    plugin._rb_usb.setChecked(True)
+    plugin._rb_wifi.setChecked(False)
+    monkeypatch.setattr(connection_module, "adb_available", lambda: True)
+    monkeypatch.setattr(connection_module, "adb_devices", lambda: [])
+    monkeypatch.setattr(connection_module.QMessageBox, "critical", lambda *_args: None)
+
+    plugin._on_pair_qr()
+    assert plugin._pairing_dlg is None
+
+
 def test_linux_virtual_camera_conflict_and_cancel(monkeypatch, connection_plugin):
     plugin, _host, _panel = connection_plugin
     monkeypatch.setattr(connection_module, "IS_LINUX", True)
