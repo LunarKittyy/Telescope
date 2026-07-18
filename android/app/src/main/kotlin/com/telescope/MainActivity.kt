@@ -5,6 +5,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Context
+import android.content.res.ColorStateList
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.ServiceConnection
@@ -97,6 +98,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Lets the desktop confirm pairing status before it has any stream
+    // running (MjpegServer only exists once one does) - see PingServer.
+    private val pingServer = PingServer(PingServer.DEFAULT_PORT) { TokenStore.get(this) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -169,6 +174,7 @@ class MainActivity : AppCompatActivity() {
         super.onStart()
         bindService(Intent(this, CameraStreamService::class.java), serviceConnection, 0)
         uiHandler.post(statusPoller)
+        pingServer.start()
         // RECEIVER_NOT_EXPORTED silently drops this broadcast entirely - "not
         // exported" means only senders sharing this app's own UID qualify,
         // and adb shell (uid 2000, "shell") doesn't. Exported is required for
@@ -191,6 +197,7 @@ class MainActivity : AppCompatActivity() {
         uiHandler.removeCallbacks(statusPoller)
         if (bound) { unbindService(serviceConnection); bound = false }
         unregisterReceiver(pairReceiver)
+        pingServer.stop()
         super.onStop()
     }
 
@@ -253,6 +260,17 @@ class MainActivity : AppCompatActivity() {
                 else
                     "Could not reach desktop.\nTried: ${errors.joinToString(", ")}"
                 runOnUiThread {
+                    // The running MjpegServer snapshots TokenStore at startup (see
+                    // CameraStreamService.startServer()) - it keeps enforcing the
+                    // old token until restarted, so re-pairing mid-stream would
+                    // otherwise silently keep rejecting the desktop that just
+                    // paired. Stopping (not restarting) leaves it to the user to
+                    // start a fresh stream once they're ready.
+                    if (success && service?.isStreaming == true) {
+                        service?.stopStreaming()
+                        if (bound) { unbindService(serviceConnection); bound = false; service = null }
+                        updateStatusText()
+                    }
                     Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
                 }
             }.start()
@@ -286,7 +304,7 @@ class MainActivity : AppCompatActivity() {
             startStream()
         }
         updateStatusText()
-        Toast.makeText(this, "Pairing reset. Scan a new QR code to reconnect.", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "Pairing reset. Pair again from the desktop app to reconnect.", Toast.LENGTH_LONG).show()
     }
 
     // ── Permissions ────────────────────────────────────────────────────────────
@@ -483,6 +501,9 @@ class MainActivity : AppCompatActivity() {
     private fun updateStatusText() {
         val streaming = service?.isStreaming == true
         btnToggle.text = if (streaming) "Stop Streaming" else "Start Streaming"
+        btnToggle.backgroundTintList = ColorStateList.valueOf(
+            resources.getColor(if (streaming) R.color.colorError else R.color.colorPrimary, theme)
+        )
         if (streaming) {
             val ip   = getDeviceIp()
             val port = service?.port ?: CameraStreamService.DEFAULT_PORT

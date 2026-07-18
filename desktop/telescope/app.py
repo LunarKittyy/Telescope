@@ -174,12 +174,12 @@ QPushButton#start_btn:hover {
     background-color: #466e95;
 }
 QPushButton#start_btn[streaming=true] {
-    background-color: #2c3e50;
-    border: 1px solid #34495e;
-    color: #cfd8dc;
+    background-color: #c0392b;
+    border: 1px solid #a93226;
+    color: #ffffff;
 }
 QPushButton#start_btn[streaming=true]:hover {
-    background-color: #34495e;
+    background-color: #d64535;
 }
 """
 

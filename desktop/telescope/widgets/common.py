@@ -142,6 +142,14 @@ def create_vector_icon(icon_name: str, color_hex: str) -> QIcon:
         for ox, oy in [(8, 8), (18, 8), (8, 18)]:
             painter.drawRect(ox, oy, 6, 6)
             painter.fillRect(ox + 2, oy + 2, 2, 2, brush)
+    elif icon_name == "usb":
+        # connector body with two contacts on the left, cable to the right
+        painter.drawRoundedRect(6, 13, 14, 8, 1, 1)
+        painter.drawLine(6, 15, 3, 15)
+        painter.drawLine(6, 19, 3, 19)
+        painter.drawLine(20, 17, 24, 17)
+        painter.drawLine(24, 17, 24, 7)
+        painter.drawLine(24, 7, 28, 7)
 
     painter.end()
     return QIcon(pixmap)

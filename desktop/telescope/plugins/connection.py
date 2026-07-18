@@ -1,9 +1,12 @@
 import base64
 import logging
+import threading
+import urllib.error
+import urllib.request
 from typing import Optional
 
 import qrcode
-from PyQt6.QtCore import Qt, pyqtSignal, QObject, QSize
+from PyQt6.QtCore import Qt, pyqtSignal, QObject, QSize, QTimer
 from PyQt6.QtGui import QColor, QIntValidator, QPainter, QBrush
 from PyQt6.QtWidgets import (
     QButtonGroup, QDialog, QDialogButtonBox, QFormLayout, QFrame,
@@ -30,6 +33,12 @@ from telescope.widgets.common import NoScrollComboBox, create_vector_icon
 logger = logging.getLogger(__name__)
 
 DEFAULT_PORT = 8080
+
+# The phone's always-on pairing-status responder (PingServer.kt) - separate
+# from DEFAULT_PORT, which only has anything listening while actively
+# streaming, so pairing status can't be checked through it beforehand.
+PING_PORT = 8766
+_PAIR_STATUS_POLL_MS = 3_000
 
 # Pseudo-device key used to give USB-only sessions their own persisted
 # device-local plugin profile (camera settings, transforms, etc.), same as
@@ -253,23 +262,34 @@ class _DeviceManagerDialog(QDialog):
 class _QRCodeWidget(QWidget):
     """Renders a QR code matrix using QPainter — no Pillow needed."""
 
+    # qrcode's own `border` param only affects make_image(), not the raw
+    # .modules matrix this paints from directly - without an explicit margin
+    # here the code has no quiet zone at all beyond the widget's own edge,
+    # which some phone cameras struggle to autofocus/read against a dialog
+    # background that isn't already white.
+    _QUIET_ZONE_PX = 24
+
     def __init__(self, data: str, parent=None):
         super().__init__(parent)
         qr = qrcode.QRCode(
             error_correction=qrcode.constants.ERROR_CORRECT_L,
             box_size=1,
-            border=2,
+            border=0,
         )
         qr.add_data(data)
         qr.make(fit=True)
         self._matrix = qr.modules
         n = len(self._matrix)
-        size = n * 8
-        self.setFixedSize(size, size)
+        self._code_size = n * 8
+        self.setFixedSize(
+            self._code_size + self._QUIET_ZONE_PX * 2,
+            self._code_size + self._QUIET_ZONE_PX * 2,
+        )
 
     def paintEvent(self, event):
         n = len(self._matrix)
-        cell = self.width() // n
+        cell = self._code_size // n
+        margin = self._QUIET_ZONE_PX
         painter = QPainter(self)
         painter.fillRect(self.rect(), QColor("white"))
         painter.setPen(Qt.PenStyle.NoPen)
@@ -277,7 +297,7 @@ class _QRCodeWidget(QWidget):
         for row in range(n):
             for col in range(n):
                 if self._matrix[row][col]:
-                    painter.drawRect(col * cell, row * cell, cell, cell)
+                    painter.drawRect(margin + col * cell, margin + row * cell, cell, cell)
         painter.end()
 
 
@@ -285,13 +305,19 @@ class _PairingSignals(QObject):
     paired = pyqtSignal(str, list, str)  # name, ips, token
 
 
+class _PairStatusSignals(QObject):
+    result = pyqtSignal(str)  # "paired" | "not_paired" | "unreachable" | "unknown"
+
+
 class _PairingDialog(QDialog):
-    """Shows a QR code and runs a pairing HTTP server while open."""
+    """Runs a pairing HTTP server while open, and shows either a QR code
+    (Wi-Fi) or a "Pair via ADB" button (USB) to complete it."""
 
     def __init__(self, parent, on_paired, usb_serial: Optional[str] = None):
         super().__init__(parent)
         self.setWindowTitle("Pair with Phone")
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
+        self.setFixedWidth(360)
         self._on_paired = on_paired
         # If set, pairing tunnels through this adb-attached phone instead of
         # the LAN - the phone reaches the pairing server via an adb reverse
@@ -300,6 +326,8 @@ class _PairingDialog(QDialog):
         self._usb_serial = usb_serial
         self._pairing_server: Optional[PairingServer] = None
         self._reversed_port: Optional[int] = None
+        self._pair_btn: Optional[QPushButton] = None
+        self._pair_timeout: Optional[QTimer] = None
         self._signals = _PairingSignals()
         self._signals.paired.connect(self._on_paired_signal)
         self._build_ui()
@@ -312,6 +340,7 @@ class _PairingDialog(QDialog):
         self._status_lbl = QLabel("Starting pairing server...")
         self._status_lbl.setObjectName("status_dim")
         self._status_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._status_lbl.setWordWrap(True)
         lay.addWidget(self._status_lbl)
 
         self._qr_container = QVBoxLayout()
@@ -320,8 +349,7 @@ class _PairingDialog(QDialog):
         lay.addLayout(self._qr_container, 1)
 
         hint_text = (
-            "Just keep the Telescope app open on your phone - it'll pair on its own. "
-            "If it doesn't, scan the code with the app's scan button instead."
+            "Keep the Telescope app open on your phone, then click Pair via ADB below."
             if self._usb_serial is not None else
             "Open Telescope on your phone and tap the scan button in the top-right corner."
         )
@@ -378,34 +406,68 @@ class _PairingDialog(QDialog):
             return
         self._pairing_server = server
 
-        qr_widget = _QRCodeWidget(offer.payload)
         while self._qr_container.count():
             item = self._qr_container.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
-        self._qr_container.addWidget(qr_widget)
 
         self._status_lbl.setObjectName("status_dim")
         self._status_lbl.setStyleSheet("")
         if self._usb_serial is not None:
-            # Skip the deliberate camera-scan step over USB: push the same
-            # payload the QR code encodes straight to the phone's pairing
-            # broadcast receiver over adb. This only reaches the phone while
-            # its Telescope app is in the foreground (a plain broadcast, not
-            # a manifest-registered one) - the QR code stays up so there's
-            # still a way to pair if it isn't.
-            payload_b64 = base64.b64encode(offer.payload.encode()).decode()
-            ok, err = adb_broadcast_pair(payload_b64, serial=self._usb_serial)
-            if ok:
-                self._status_lbl.setText("Pairing automatically... (or scan the code)")
-            else:
-                self._status_lbl.setText(f"Auto-pair failed ({err}) - scan the code instead.")
+            # No camera-scan step over USB: a button pushes the same payload
+            # a QR code would encode straight to the phone's pairing
+            # broadcast receiver over adb. Explicit and re-triggerable rather
+            # than firing automatically the moment this dialog opens - the
+            # phone's receiver only exists while its MainActivity is actually
+            # foregrounded, and there's no way to confirm that from here
+            # before sending, so a silent auto-fire had no way to tell the
+            # user it needs a retry.
+            self._pair_btn = QPushButton("Pair via ADB")
+            self._pair_btn.clicked.connect(self._send_pair_broadcast)
+            self._qr_container.addWidget(self._pair_btn)
+            self._status_lbl.setText("Ready to pair.")
         else:
+            qr_widget = _QRCodeWidget(offer.payload)
+            self._qr_container.addWidget(qr_widget)
             self._status_lbl.setText("Scan with the Telescope app on your phone.")
+
+    def _send_pair_broadcast(self):
+        if self._pairing_server is None or self._pairing_server.offer is None:
+            return
+        self._pair_btn.setEnabled(False)
+        self._status_lbl.setObjectName("status_dim")
+        self._status_lbl.setStyleSheet("")
+        self._status_lbl.setText("Sending pairing request to phone...")
+        payload_b64 = base64.b64encode(self._pairing_server.offer.payload.encode()).decode()
+        ok, err = adb_broadcast_pair(payload_b64, serial=self._usb_serial)
+        if not ok:
+            self._status_lbl.setObjectName("status_err")
+            self._status_lbl.setText(f"Broadcast failed: {err}")
+            self._pair_btn.setEnabled(True)
+            return
+        self._status_lbl.setText("Broadcast sent - waiting for the phone to respond...")
+        self._pair_timeout = QTimer(self)
+        self._pair_timeout.setSingleShot(True)
+        self._pair_timeout.timeout.connect(self._on_pair_timeout)
+        self._pair_timeout.start(8000)
+
+    def _on_pair_timeout(self):
+        self._pair_timeout = None
+        self._status_lbl.setObjectName("status_err")
+        self._status_lbl.setStyleSheet("")
+        self._status_lbl.setText(
+            "No response after 8s. Make sure Telescope is open and in the "
+            "foreground on your phone, then click Pair via ADB again."
+        )
+        if self._pair_btn is not None:
+            self._pair_btn.setEnabled(True)
 
     def _stop_server(self):
         if self._pairing_server is None:
             return
+        if self._pair_timeout is not None:
+            self._pair_timeout.stop()
+            self._pair_timeout = None
         self._pairing_server.stop()
         self._pairing_server = None
         if self._reversed_port is not None:
@@ -413,7 +475,10 @@ class _PairingDialog(QDialog):
             self._reversed_port = None
 
     def _on_paired_signal(self, name: str, ips: list, token: str):
-        # Replace QR with a big success message
+        if self._pair_timeout is not None:
+            self._pair_timeout.stop()
+            self._pair_timeout = None
+        # Replace the QR code/pair button with a big success message
         while self._qr_container.count():
             item = self._qr_container.takeAt(0)
             if item.widget():
@@ -448,6 +513,9 @@ class ConnectionPlugin(TelescopePlugin):
         self._device_dlg: Optional[QDialog] = None
         self._pairing_dlg: Optional[QDialog] = None
         self._last_port: str = str(DEFAULT_PORT)
+        self._pair_status_signals = _PairStatusSignals()
+        self._pair_status_signals.result.connect(self._set_pair_status)
+        self._pair_status_check_id = 0
 
     def create_panel(self) -> QWidget:
         card = QFrame()
@@ -507,11 +575,13 @@ class ConnectionPlugin(TelescopePlugin):
         _icon_size  = QSize(18, 18)
         self._qr_btn = QPushButton()
         self._qr_btn.setFixedSize(28, 28)
-        self._qr_btn.setIcon(create_vector_icon("qr", _icon_color))
         self._qr_btn.setIconSize(_icon_size)
-        self._qr_btn.setToolTip("Pair via QR code")
         self._qr_btn.clicked.connect(self._on_pair_qr)
+        self._update_pair_button()
         pair_row.addWidget(self._qr_btn)
+
+        self._pair_status_lbl = QLabel("")
+        pair_row.addWidget(self._pair_status_lbl)
         pair_row.addStretch()
         lay.addLayout(pair_row)
 
@@ -574,6 +644,16 @@ class ConnectionPlugin(TelescopePlugin):
         port_row.addWidget(self._port_field)
         port_row.addStretch()
         lay.addLayout(port_row)
+
+        # Backstop for the trigger-based checks above: catches a phone that
+        # comes online (app opened, adb plugged in) between triggers,
+        # without needing the user to touch anything. Cheap enough to run
+        # often - one tiny HTTP round-trip (plus an adb forward/unforward in
+        # USB mode) every few seconds, dwarfed by the video stream itself.
+        # Stopped while actually streaming - see on_stream_start/_stop.
+        self._pair_status_timer = QTimer(card)
+        self._pair_status_timer.timeout.connect(self._check_pair_status)
+        self._pair_status_timer.start(_PAIR_STATUS_POLL_MS)
 
         return card
 
@@ -662,11 +742,119 @@ class ConnectionPlugin(TelescopePlugin):
                 return d.get("token")
         return None
 
+    def on_stream_start(self, stream_url: str, ctrl):
+        # Actively streaming is its own proof of a working pairing - no need
+        # to keep polling PingServer, which (unlike the streaming server) is
+        # tied to MainActivity's foreground lifetime and would wrongly read
+        # "unreachable" the moment the phone's screen is minimized mid-stream.
+        self._pair_status_timer.stop()
+        self._set_pair_status("paired")
+
     def on_stream_stop(self):
         if self._forwarded_port is not None:
             adb_unforward(self._forwarded_port, serial=self._adb_serial)
             self._forwarded_port = None
             self._adb_serial = None
+        self._pair_status_timer.start(_PAIR_STATUS_POLL_MS)
+        self._check_pair_status()
+
+    # ── Pair status ──────────────────────────────────────────────────────────
+
+    def _check_pair_status(self):
+        """Kicks off a background probe of whether the current profile's
+        stored token is actually still accepted by the phone right now, not
+        just whether one happens to be saved locally - a saved token can be
+        stale (the phone was reset, or paired to a different desktop since).
+        Runs off the UI thread since it may make a network call (and, in USB
+        mode, shell out to adb); the result comes back via a Qt signal."""
+        if self._host._worker:
+            # Belt-and-suspenders for the same reason as on_stream_start: any
+            # trigger firing while already streaming (the periodic timer is
+            # stopped, but a mode switch mid-stream, say, still isn't
+            # impossible) shouldn't second-guess a connection already known
+            # to be good via a check that can't see it while minimized.
+            self._set_pair_status("paired")
+            return
+        token = self._current_device_token()
+        if token is None:
+            self._set_pair_status("not_paired")
+            return
+        self._set_pair_status("checking")
+        self._pair_status_check_id += 1
+        check_id = self._pair_status_check_id
+        usb = self._rb_usb.isChecked()
+        self._spawn_pair_probe(check_id, token, usb)
+
+    def _spawn_pair_probe(self, check_id: int, token: str, usb: bool):
+        """Split out from _check_pair_status() so tests can make this
+        synchronous - a real background thread that outlives its QObject
+        (e.g. the widgets/plugin it was fired from getting torn down at the
+        end of a test, while its 3s network timeout is still pending) is a
+        real crash: PyQt aborts hard when a queued cross-thread signal is
+        finally delivered to an already-destroyed receiver."""
+        threading.Thread(
+            target=self._probe_pair_status, args=(check_id, token, usb), daemon=True,
+        ).start()
+
+    def _probe_pair_status(self, check_id: int, token: str, usb: bool):
+        result = self._probe_usb(token) if usb else self._probe_wifi(token)
+        # A later check (mode switched again, re-paired) may have already
+        # started and finished while this one was still in flight - don't
+        # let a stale result clobber a fresher one.
+        if check_id != self._pair_status_check_id:
+            return
+        try:
+            self._pair_status_signals.result.emit(result)
+        except RuntimeError:
+            # The app quit (or, in tests, the plugin/qapp was torn down)
+            # while this network call was still in flight - the receiving
+            # QObject is already gone, and there's nothing left to update.
+            pass
+
+    def _probe_wifi(self, token: str) -> str:
+        ip = self._current_device_ip()
+        if not ip:
+            return "not_paired"
+        return self._probe_url(f"http://{ip}:{PING_PORT}/v1/ping", token)
+
+    def _probe_usb(self, token: str) -> str:
+        serials = adb_devices()
+        if len(serials) != 1:
+            return "unknown"
+        serial = serials[0]
+        # A short-lived forward dedicated to the ping port - separate from
+        # whatever port streaming forwards, since the phone's PingServer
+        # binds its own fixed port independent of streaming (see
+        # PingServer.kt) and is normally not already forwarded.
+        ok, _err = adb_forward(PING_PORT, serial=serial)
+        if not ok:
+            return "unreachable"
+        try:
+            return self._probe_url(f"http://localhost:{PING_PORT}/v1/ping", token)
+        finally:
+            adb_unforward(PING_PORT, serial=serial)
+
+    @staticmethod
+    def _probe_url(url: str, token: str) -> str:
+        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
+        try:
+            with urllib.request.urlopen(req, timeout=3) as r:
+                return "paired" if r.status == 200 else "unreachable"
+        except urllib.error.HTTPError as exc:
+            return "not_paired" if exc.code == 401 else "unreachable"
+        except Exception:
+            return "unreachable"
+
+    def _set_pair_status(self, state: str):
+        color, text = {
+            "paired":      ("#4db87a", "● Paired"),
+            "not_paired":  ("#e57373", "○ Not paired"),
+            "unreachable": ("#e0a030", "○ Unreachable"),
+            "checking":    ("#78909c", "Checking..."),
+            "unknown":     ("", ""),
+        }.get(state, ("", ""))
+        self._pair_status_lbl.setText(text)
+        self._pair_status_lbl.setStyleSheet(f"color: {color};" if color else "")
 
     def _resolve_adb_serial(self) -> Optional[str]:
         """Return the adb serial to target, prompting if more than one device is attached."""
@@ -712,8 +900,21 @@ class ConnectionPlugin(TelescopePlugin):
 
     def _on_mode(self):
         self._device_row_w.setVisible(self._rb_wifi.isChecked())
+        self._update_pair_button()
+        self._check_pair_status()
         self._host._schedule_save()
         self._activate_profile(self._profile_key)
+
+    def _update_pair_button(self):
+        """The Pair button opens different flows depending on mode (a QR
+        scan over Wi-Fi, an adb-pushed pairing broadcast over USB) - its
+        icon/tooltip should say which."""
+        if self._rb_usb.isChecked():
+            self._qr_btn.setIcon(create_vector_icon("usb", "#c8d0da"))
+            self._qr_btn.setToolTip("Pair via ADB")
+        else:
+            self._qr_btn.setIcon(create_vector_icon("qr", "#c8d0da"))
+            self._qr_btn.setToolTip("Pair via QR code")
 
     def _current_device_name(self) -> Optional[str]:
         idx = self._device_combo.currentIndex()
@@ -862,6 +1063,13 @@ class ConnectionPlugin(TelescopePlugin):
             self._activate_profile(self._profile_key)
 
     def _on_device_paired(self, name: str, ips: list, token: str):
+        # A fresh pairing rotates the phone's bearer token (and, on the
+        # phone side, kills its own stream, since the running MjpegServer
+        # only checks the token it started with) - anything the desktop was
+        # mid-stream to is about to be rejected either way, so stop cleanly
+        # now instead of leaving it to error out on the next request.
+        if self._host._worker:
+            self._host._stop()
         existing_names = [d["name"] for d in self._devices]
         if name in existing_names:
             for d in self._devices:
@@ -875,6 +1083,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._selected_device = name
         self._host._save_config()
         self._activate_profile(self._profile_key)
+        self._check_pair_status()
         # Pairing can now be triggered from inside the device manager
         # ("Pair..." opens this same flow) - if it's open, its list is
         # showing a now-stale snapshot of self._devices until told to redraw.
@@ -910,6 +1119,7 @@ class ConnectionPlugin(TelescopePlugin):
             self._rb_usb.setChecked(True)
             self._rb_wifi.setChecked(False)
             self._device_row_w.setVisible(False)
+        self._update_pair_button()
         if port := cfg.get("port"):
             self._port_field.setText(str(port))
             self._last_port = str(port)
@@ -933,6 +1143,7 @@ class ConnectionPlugin(TelescopePlugin):
             name = self._devices[0]["name"] if self._devices else None
         self._selected_device = name
         self._refresh_device_combo(select_name=name)
+        self._check_pair_status()
 
     def select_device(self, name: Optional[str]):
         if not name and self._devices:

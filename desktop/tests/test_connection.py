@@ -146,6 +146,8 @@ class _ConnectionHost:
         self.saves = 0
         self.switches = []
         self.reconnects = 0
+        self._worker = None
+        self.stops = 0
 
     def _schedule_save(self):
         self.saves += 1
@@ -159,9 +161,21 @@ class _ConnectionHost:
     def reconnect_stream(self):
         self.reconnects += 1
 
+    def _stop(self):
+        self.stops += 1
+        self._worker = None
+
 
 @pytest.fixture
-def connection_plugin(qapp, config_home):
+def connection_plugin(qapp, config_home, monkeypatch):
+    # Real pair-status probes shell out to adb and/or make a network call
+    # with a multi-second timeout, from a background thread - fine in the
+    # running app, but a real thread that outlives this test's plugin/qapp
+    # teardown is a guaranteed PyQt abort (a queued cross-thread signal
+    # delivered to an already-destroyed receiver). set_config()/_on_mode()/
+    # _on_device_paired() all trigger a check incidentally, so silence it by
+    # default here; tests of the probe itself re-arm it explicitly below.
+    monkeypatch.setattr(ConnectionPlugin, "_spawn_pair_probe", lambda self, *a: None)
     host = _ConnectionHost()
     plugin = ConnectionPlugin()
     plugin.setup(host, EventBus())
@@ -511,6 +525,154 @@ def test_pairing_adds_or_updates_device(connection_plugin):
     assert host.saves == 2
 
 
+def test_pairing_stops_an_active_stream(connection_plugin):
+    plugin, host, _panel = connection_plugin
+    host._worker = object()
+    plugin._on_device_paired("Phone", ["10.0.0.1"], "tok-a")
+    assert host.stops == 1
+
+
+def test_pairing_does_not_stop_when_nothing_is_streaming(connection_plugin):
+    plugin, host, _panel = connection_plugin
+    plugin._on_device_paired("Phone", ["10.0.0.1"], "tok-a")
+    assert host.stops == 0
+
+
+def test_pair_status_shows_not_paired_without_a_token(connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    plugin._check_pair_status()
+    assert plugin._pair_status_lbl.text() == "○ Not paired"
+
+
+def test_pair_status_pins_to_paired_and_stops_polling_while_streaming(connection_plugin):
+    # PingServer only lives while MainActivity is foregrounded, unlike the
+    # streaming server - probing it mid-stream would wrongly flag a
+    # perfectly fine minimized session as unreachable.
+    plugin, _host, _panel = connection_plugin
+    assert plugin._pair_status_timer.isActive()
+    plugin.on_stream_start("http://localhost:8080/v1/video", object())
+    assert plugin._pair_status_lbl.text() == "● Paired"
+    assert not plugin._pair_status_timer.isActive()
+
+
+def test_pair_status_check_short_circuits_while_streaming(monkeypatch, connection_plugin):
+    plugin, host, _panel = connection_plugin
+    _arm_synchronous_pair_probe(monkeypatch)
+    probed = []
+    monkeypatch.setattr(ConnectionPlugin, "_probe_url", staticmethod(lambda url, token: probed.append(url) or "not_paired"))
+    host._worker = object()
+    plugin._devices = [{"name": "Phone", "ips": ["10.0.0.1"], "token": "tok-a"}]
+    plugin._selected_device = "Phone"
+    plugin._rb_wifi.setChecked(True)
+    plugin._rb_usb.setChecked(False)
+    plugin._check_pair_status()
+    assert plugin._pair_status_lbl.text() == "● Paired"
+    assert probed == []
+
+
+def test_pair_status_resumes_polling_on_stream_stop(connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    plugin.on_stream_start("http://localhost:8080/v1/video", object())
+    assert not plugin._pair_status_timer.isActive()
+    plugin.on_stream_stop()
+    assert plugin._pair_status_timer.isActive()
+
+
+def _arm_synchronous_pair_probe(monkeypatch):
+    # The fixture silences _spawn_pair_probe (see connection_plugin) so
+    # incidental checks from other tests can't leave a real background
+    # thread in flight. Tests of the probe itself put it back, but
+    # synchronous - same call, just on the calling thread instead of a
+    # spawned one - so results land immediately and deterministically.
+    monkeypatch.setattr(
+        ConnectionPlugin, "_spawn_pair_probe",
+        lambda self, *a: self._probe_pair_status(*a),
+    )
+
+
+def test_pair_status_wifi_paired(monkeypatch, connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    _arm_synchronous_pair_probe(monkeypatch)
+    monkeypatch.setattr(ConnectionPlugin, "_probe_url", staticmethod(lambda url, token: "paired"))
+    plugin._rb_wifi.setChecked(True)
+    plugin._rb_usb.setChecked(False)
+    plugin._on_device_paired("Phone", ["10.0.0.1"], "tok-a")
+    assert plugin._pair_status_lbl.text() == "● Paired"
+
+
+def test_pair_status_wifi_stale_token(monkeypatch, connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    _arm_synchronous_pair_probe(monkeypatch)
+    monkeypatch.setattr(ConnectionPlugin, "_probe_url", staticmethod(lambda url, token: "not_paired"))
+    plugin._rb_wifi.setChecked(True)
+    plugin._rb_usb.setChecked(False)
+    plugin._on_device_paired("Phone", ["10.0.0.1"], "tok-a")
+    assert plugin._pair_status_lbl.text() == "○ Not paired"
+
+
+def test_pair_status_wifi_without_an_ip_skips_probe(monkeypatch, connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    _arm_synchronous_pair_probe(monkeypatch)
+    probed = []
+    monkeypatch.setattr(ConnectionPlugin, "_probe_url", staticmethod(lambda url, token: probed.append(url) or "paired"))
+    plugin._rb_wifi.setChecked(True)
+    plugin._rb_usb.setChecked(False)
+    plugin._devices = [{"name": "Phone", "ips": [], "token": "tok-a"}]
+    plugin._selected_device = "Phone"
+    plugin._refresh_device_combo(select_name="Phone")
+    plugin._check_pair_status()
+    assert probed == []
+    assert plugin._pair_status_lbl.text() == "○ Not paired"
+
+
+def test_pair_status_usb_ambiguous_serial_shows_unknown(monkeypatch, connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    _arm_synchronous_pair_probe(monkeypatch)
+    monkeypatch.setattr(connection_module, "adb_devices", lambda: ["a", "b"])
+    forwards = []
+    monkeypatch.setattr(connection_module, "adb_forward", lambda *a, **k: forwards.append((a, k)) or (True, "ok"))
+    monkeypatch.setattr(ConnectionPlugin, "_probe_url", staticmethod(lambda url, token: "paired"))
+    plugin._devices = [{"name": "Phone", "ips": ["10.0.0.1"], "token": "tok-a"}]
+    plugin._selected_device = "Phone"
+    plugin._rb_usb.setChecked(True)
+    plugin._rb_wifi.setChecked(False)
+    plugin._check_pair_status()
+    assert plugin._pair_status_lbl.text() == ""
+    assert forwards == []
+
+
+def test_pair_status_usb_sets_up_and_tears_down_a_temporary_forward(monkeypatch, connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    _arm_synchronous_pair_probe(monkeypatch)
+    monkeypatch.setattr(connection_module, "adb_devices", lambda: ["serial-1"])
+    calls = []
+    monkeypatch.setattr(connection_module, "adb_forward", lambda port, serial: calls.append(("forward", port, serial)) or (True, "ok"))
+    monkeypatch.setattr(connection_module, "adb_unforward", lambda port, serial: calls.append(("unforward", port, serial)))
+    monkeypatch.setattr(ConnectionPlugin, "_probe_url", staticmethod(lambda url, token: "paired"))
+    plugin._rb_usb.setChecked(True)
+    plugin._rb_wifi.setChecked(False)
+    plugin._on_device_paired("Phone", ["10.0.0.1"], "tok-a")
+    assert plugin._pair_status_lbl.text() == "● Paired"
+    assert calls == [
+        ("forward", connection_module.PING_PORT, "serial-1"),
+        ("unforward", connection_module.PING_PORT, "serial-1"),
+    ]
+
+
+def test_pair_status_stale_result_is_discarded(monkeypatch, connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    plugin._devices = [{"name": "Phone", "ips": ["10.0.0.1"], "token": "tok-a"}]
+    plugin._selected_device = "Phone"
+    plugin._rb_wifi.setChecked(True)
+    plugin._rb_usb.setChecked(False)
+    plugin._pair_status_check_id = 5
+    # Simulate a check started earlier (check_id=1) finally completing after
+    # a newer one has already started (_pair_status_check_id is now 5) -
+    # its result must not clobber whatever the newer check already showed.
+    plugin._probe_pair_status(1, "tok-a", usb=False)
+    assert plugin._pair_status_lbl.text() == ""
+
+
 def test_pairing_refreshes_an_open_device_manager_list(connection_plugin):
     plugin, _host, _panel = connection_plugin
     plugin._rb_wifi.setChecked(True)
@@ -543,7 +705,7 @@ def test_editing_a_paired_device_preserves_its_token(qapp):
 
 
 @pytest.fixture
-def window_with_plugins(qapp, config_home):
+def window_with_plugins(qapp, config_home, monkeypatch):
     from telescope.app import TelescopeWindow
     from telescope.plugins.camera_control import CameraControlPlugin
     from telescope.plugins.connection import ConnectionPlugin
@@ -551,6 +713,10 @@ def window_with_plugins(qapp, config_home):
     from telescope.plugins.stream_output import StreamOutputPlugin
     from telescope.plugins.transforms import TransformsPlugin
 
+    # See connection_plugin's fixture comment: a real pair-status probe
+    # thread that outlives this test's plugin/qapp teardown is a guaranteed
+    # PyQt abort, not just a lint warning.
+    monkeypatch.setattr(ConnectionPlugin, "_spawn_pair_probe", lambda self, *a: None)
     win = TelescopeWindow()
     conn = ConnectionPlugin()
     cam = CameraControlPlugin()

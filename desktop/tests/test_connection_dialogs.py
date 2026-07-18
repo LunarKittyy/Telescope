@@ -111,7 +111,7 @@ def test_device_manager_edit_opens_dialog_and_replaces_a_prior_one(qapp):
 def test_qr_widget_builds_matrix_and_renders(qapp):
     widget = _QRCodeWidget('{"port":8765}')
     assert len(widget._matrix) > 0
-    assert widget.width() == len(widget._matrix) * 8
+    assert widget.width() == len(widget._matrix) * 8 + widget._QUIET_ZONE_PX * 2
     image = widget.grab().toImage()
     assert not image.isNull()
 
@@ -154,9 +154,7 @@ def test_pairing_dialog_renders_qr_after_start(qapp):
         dialog._stop_server()
 
 
-def test_pairing_dialog_usb_mode_reverses_and_unreverses_port(monkeypatch, qapp):
-    import base64
-
+def test_pairing_dialog_usb_mode_reverses_port_and_shows_pair_button(monkeypatch, qapp):
     calls = []
     monkeypatch.setattr(connection, "adb_reverse", lambda port, serial=None: calls.append(("reverse", port, serial)) or (True, "ok"))
     monkeypatch.setattr(connection, "adb_unreverse", lambda port, serial=None: calls.append(("unreverse", port, serial)))
@@ -173,11 +171,11 @@ def test_pairing_dialog_usb_mode_reverses_and_unreverses_port(monkeypatch, qapp)
         assert calls[0][0] == "reverse"
         assert calls[0][2] == "phone-1"
         assert dialog._reversed_port == calls[0][1]
-        assert len(broadcasts) == 1
-        payload_b64, serial = broadcasts[0]
-        assert serial == "phone-1"
-        assert base64.b64decode(payload_b64).decode() == dialog._pairing_server.offer.payload
-        assert "automatically" in dialog._status_lbl.text()
+        # Reaching the phone is a deliberate, re-triggerable click, not
+        # something that fires the instant the dialog opens.
+        assert broadcasts == []
+        assert dialog._pair_btn is not None
+        assert dialog._status_lbl.text() == "Ready to pair."
     finally:
         dialog._stop_server()
 
@@ -196,7 +194,33 @@ def test_pairing_dialog_usb_mode_reports_adb_reverse_failure(monkeypatch, qapp):
     assert "device offline" in dialog._status_lbl.text()
 
 
-def test_pairing_dialog_usb_mode_falls_back_to_qr_when_broadcast_fails(monkeypatch, qapp):
+def test_pairing_dialog_pair_button_sends_broadcast_and_awaits_response(monkeypatch, qapp):
+    import base64
+
+    monkeypatch.setattr(connection, "adb_reverse", lambda port, serial=None: (True, "ok"))
+    monkeypatch.setattr(connection, "adb_unreverse", lambda port, serial=None: None)
+    broadcasts = []
+    monkeypatch.setattr(
+        connection, "adb_broadcast_pair",
+        lambda payload_b64, serial=None: broadcasts.append((payload_b64, serial)) or (True, "Broadcast sent"),
+    )
+
+    dialog = _PairingDialog(None, lambda *_args: None, usb_serial="phone-1")
+    dialog._start_server()
+    try:
+        dialog._send_pair_broadcast()
+        assert len(broadcasts) == 1
+        payload_b64, serial = broadcasts[0]
+        assert serial == "phone-1"
+        assert base64.b64decode(payload_b64).decode() == dialog._pairing_server.offer.payload
+        assert not dialog._pair_btn.isEnabled()
+        assert "waiting for the phone to respond" in dialog._status_lbl.text()
+        assert dialog._pair_timeout is not None
+    finally:
+        dialog._stop_server()
+
+
+def test_pairing_dialog_pair_button_reports_broadcast_failure_and_reenables(monkeypatch, qapp):
     monkeypatch.setattr(connection, "adb_reverse", lambda port, serial=None: (True, "ok"))
     monkeypatch.setattr(connection, "adb_unreverse", lambda port, serial=None: None)
     monkeypatch.setattr(
@@ -207,12 +231,45 @@ def test_pairing_dialog_usb_mode_falls_back_to_qr_when_broadcast_fails(monkeypat
     dialog = _PairingDialog(None, lambda *_args: None, usb_serial="phone-1")
     dialog._start_server()
     try:
-        assert dialog._pairing_server is not None
-        assert "scan the code instead" in dialog._status_lbl.text()
-        widgets = [dialog._qr_container.itemAt(i).widget()
-                   for i in range(dialog._qr_container.count())
-                   if dialog._qr_container.itemAt(i).widget()]
-        assert any(isinstance(w, _QRCodeWidget) for w in widgets)
+        dialog._send_pair_broadcast()
+        assert dialog._status_lbl.objectName() == "status_err"
+        assert "Broadcast failed" in dialog._status_lbl.text()
+        assert dialog._pair_btn.isEnabled()
+        assert dialog._pair_timeout is None
+    finally:
+        dialog._stop_server()
+
+
+def test_pairing_dialog_pair_timeout_shows_message_and_reenables_button(monkeypatch, qapp):
+    monkeypatch.setattr(connection, "adb_reverse", lambda port, serial=None: (True, "ok"))
+    monkeypatch.setattr(connection, "adb_unreverse", lambda port, serial=None: None)
+    monkeypatch.setattr(connection, "adb_broadcast_pair", lambda payload_b64, serial=None: (True, "Broadcast sent"))
+
+    dialog = _PairingDialog(None, lambda *_args: None, usb_serial="phone-1")
+    dialog._start_server()
+    try:
+        dialog._send_pair_broadcast()
+        dialog._on_pair_timeout()
+        assert dialog._status_lbl.objectName() == "status_err"
+        assert "No response after 8s" in dialog._status_lbl.text()
+        assert dialog._pair_btn.isEnabled()
+        assert dialog._pair_timeout is None
+    finally:
+        dialog._stop_server()
+
+
+def test_pairing_dialog_success_cancels_pending_timeout(monkeypatch, qapp):
+    monkeypatch.setattr(connection, "adb_reverse", lambda port, serial=None: (True, "ok"))
+    monkeypatch.setattr(connection, "adb_unreverse", lambda port, serial=None: None)
+    monkeypatch.setattr(connection, "adb_broadcast_pair", lambda payload_b64, serial=None: (True, "Broadcast sent"))
+
+    dialog = _PairingDialog(None, lambda *_args: None, usb_serial="phone-1")
+    dialog._start_server()
+    try:
+        dialog._send_pair_broadcast()
+        assert dialog._pair_timeout is not None
+        dialog._on_paired_signal("Phone", ["10.0.0.1"], "tok-123")
+        assert dialog._pair_timeout is None
     finally:
         dialog._stop_server()
 
