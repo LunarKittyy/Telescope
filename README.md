@@ -47,16 +47,19 @@ Run `start.bat` (installs Python deps and launches the app) or `TelescopeDesktop
 
 ### 3. Connect your phone
 
-**Easiest - QR pairing (Wi-Fi mode):**
+**Wi-Fi mode - QR pairing:**
 
-1. On the desktop app, select **Wi-Fi** mode and click the QR button next to the device selector.
+1. On the desktop app, select **Wi-Fi** mode and click the Pair button next to the device selector.
 2. A QR code appears. In the Telescope app on your phone, tap the scan button in the top-right corner and scan it.
 3. The phone is added to your device list automatically. Close the pairing dialog.
 
-**Manually:**
+**USB mode - Pair via ADB:**
 
-1. In the Telescope app on your phone, start streaming and note the Wi-Fi URL shown.
-2. On the desktop app, click the gear button next to the device selector, then **Add** a device with that IP.
+1. On the desktop app, select **USB** mode and click the Pair button next to the device selector (it switches to a USB icon and opens the same dialog).
+2. Click **Pair via ADB** in the dialog. Instead of scanning a code, this pushes the pairing request to the phone over `adb shell am broadcast`.
+3. If the phone doesn't respond within 8 seconds, the dialog explains why and re-enables the button - make sure the Telescope app is open and in the foreground on the phone, then click **Pair via ADB** again.
+
+The gear button next to the device selector opens the device list; its **Pair...** button opens this same pairing dialog to add another device - there's no separate manual name/IP entry, since a device is only usable once it actually has a token. A status label next to the Pair button (**Paired** / **Not paired** / **Unreachable** / **Checking...**) shows whether the phone actually accepts the currently stored token right now, polling every few seconds, and pins to Paired once a stream is confirmed connected. Re-pairing a device rotates its token; if a stream is currently running against that device, re-pairing stops it rather than leaving it silently broken.
 
 **Then:**
 
@@ -68,7 +71,7 @@ Run `start.bat` (installs Python deps and launches the app) or `TelescopeDesktop
 4. In OBS (or any other app), select **Phone Camera** (Linux) or **Unity Video Capture** (Windows) as your webcam source.
 
 > [!NOTE]
-> QR pairing is required before a remote stream can be used: the phone's `/v1/state`, `/v1/video`, and `/v1/control` endpoints all require a bearer token that's only ever handed to a phone via a scanned QR code, so an unpaired device on the same network can't view the stream or send controls. The connection itself is still plain HTTP, not HTTPS - the token stops casual unauthorized access but doesn't provide confidentiality against a network observer. On public or shared networks, enable **Local only - USB** in the Android app to also bind the server to localhost only, so the stream and controls are reachable via USB alone.
+> Pairing is required before a remote stream can be used: the phone's `/v1/state`, `/v1/video`, `/v1/control`, and `/v1/ping` endpoints all require a bearer token that's only ever handed to a phone via a scanned QR code (Wi-Fi) or an adb broadcast restricted to the Telescope app (USB), so an unpaired device on the same network can't view the stream or send controls. The connection itself is still plain HTTP, not HTTPS - the token stops casual unauthorized access but doesn't provide confidentiality against a network observer. On public or shared networks, enable **Local only - USB** in the Android app to also bind the server to localhost only, so the stream and controls are reachable via USB alone.
 
 ---
 
@@ -109,7 +112,7 @@ Run `start.bat` (installs Python deps and launches the app) or `TelescopeDesktop
 - USB mode targets a specific ADB serial: if exactly one authorized device/emulator is connected it's picked automatically, if more than one is connected you're prompted to choose which one (avoids `adb: more than one device/emulator` failures on forward/install)
 - Named device list in Wi-Fi mode: add/remove/edit devices via the gear button popup; switch between them with a dropdown
 - Each device stores multiple IPs; a second dropdown selects the active IP. Tailscale IPs (100.64.0.0/10) are ranked first, LAN IPs second
-- QR pairing: click the QR button on the desktop to show a pairing code; tap the scan button in the Android app to register the phone automatically with all its IPs
+- Pairing: click the Pair button on the desktop to open the pairing dialog - a scannable QR code in Wi-Fi mode, or a "Pair via ADB" button in USB mode that pushes the request over adb instead. Either way the phone is registered automatically with all its IPs. A status label next to the Pair button shows live reachability (Paired / Not paired / Unreachable / Checking...), not just whether a token happens to be saved
 - All settings (resolution, fps, flip, rotation, exposure, zoom, quality, alert thresholds, canvas size, etc.) are saved per device to `telescope_config.json` and restored on next launch
 - The config format is not migrated across versions: an unsupported or malformed config is backed up alongside the real one and replaced with defaults rather than carrying compatibility code for old formats. Each section (connection/plugin settings, per-device settings, selected device) is validated independently, so one malformed section resets to defaults without discarding the rest
 
@@ -150,13 +153,15 @@ desktop/main.py  (Python, PyQt6)
       |
       +-- telescope/plugins/        one plugin per UI card
             setup                   driver setup, canvas settings
-            connection              device list, IP dropdown, QR pairing server (port 8765)
+            connection              device list, IP dropdown, pairing dialog (pairing.py, port 8765) + pair-status probe (port 8766)
             camera_control          lens, ISO, shutter, WB, OIS
             stream_output           resolution, FPS, JPEG quality
             transforms              flip, rotation, zoom, pan
             preview                 in-card and pop-out video preview
             monitoring              battery, temperature alerts
 ```
+
+A second, always-on responder on the phone (`PingServer`, port 8766) answers `GET /v1/ping` independently of the streaming server, so the desktop can confirm pairing status without a stream running.
 
 On **Linux**, two `v4l2loopback` devices are created (`/dev/video10` and `/dev/video11`). Telescope writes to `video11`; `video10` is intentionally left free for other software (e.g. OBS Virtual Camera).
 
@@ -179,11 +184,16 @@ telescope/
 |
 |-- android/                     # Gradle project
 |   +-- app/src/main/kotlin/com/telescope/
-|       |-- MainActivity.kt      # UI: enumerate cameras, start/stop service, diagnostics
+|       |-- MainActivity.kt      # UI: enumerate cameras, start/stop service, diagnostics, pairing
+|       |-- PreviewActivity.kt   # Fullscreen live preview, standalone or attached to a running stream
 |       |-- CameraStreamService.kt  # Foreground service: Camera2 + HTTP control
+|       |-- CameraSessionController.kt  # Owns the live Camera2 session and capture-request state
+|       |-- CameraCatalog.kt     # Enumerates cameras, incl. physical sub-cameras of logical multi-cams
 |       |-- StreamStateMachine.kt   # Idle/StartingServer/.../Streaming/Failed state + history
 |       |-- Protocol.kt          # kotlinx.serialization models for the v1 API
-|       +-- MjpegServer.kt       # Authenticated HTTP: /v1/video  /v1/state  /v1/control
+|       |-- MjpegServer.kt       # Authenticated HTTP: /v1/video  /v1/state  /v1/control
+|       |-- PingServer.kt        # Always-on pairing-status responder: GET /v1/ping (port 8766)
+|       +-- TokenStore.kt        # Persists the single active pairing bearer token
 |
 +-- desktop/
     |-- main.py                  # Entry point: registers plugins, restores config
@@ -205,6 +215,7 @@ telescope/
         |-- config.py            # Versioned JSON config (v2) with per-section validation
         |-- models.py            # Typed contracts: PhoneState, CameraCapabilities, DeviceProfile, StreamSettings
         |-- phone_client.py      # Authenticated HTTP client for /v1/state and /v1/control
+        |-- pairing.py           # PairingServer: Qt-free pairing HTTP handshake (nonce/token, no PyQt import)
         |-- platform/
         |   |-- linux.py         # v4l2loopback helpers (load, unload, reload)
         |   +-- windows.py       # UnityCapture helpers
@@ -227,15 +238,19 @@ telescope/
 
 ### What it does
 
-Runs a **foreground service** (declared type `camera`, required on Android 14+) that owns a Camera2 session and an HTTP server on port 8080. Three endpoints, all requiring a bearer token issued during QR pairing:
+Runs a **foreground service** (declared type `camera`, required on Android 14+) that owns a Camera2 session and an HTTP server on port 8080. Three endpoints, all requiring a bearer token issued during pairing:
 
 - `GET /v1/video` - MJPEG stream (`multipart/x-mixed-replace`)
 - `GET /v1/state` - JSON of all detected cameras + current exposure/WB/battery state
 - `POST /v1/control` - live camera control, JSON body
 
+A separate, always-on HTTP responder (`PingServer`, port 8766) runs independently of the streaming service, tied to the main screen's own lifecycle rather than the foreground service - `GET /v1/ping` checks the request's bearer token against the currently stored pairing token and returns 200 or 401. This lets the desktop confirm the phone is reachable and correctly paired before a stream is ever started, not just whether a token happens to be saved locally.
+
 The app enumerates **physical sub-cameras** of logical multi-camera groups via `CameraCharacteristics.physicalCameraIds` (API 28+). On many modern phones the logical back camera (ID `0`) hides individual wide/main/telephoto sensors behind it; this app surfaces all of them and lets you pick.
 
 A **scan button** in the top-right corner of the main screen opens a ZXing barcode scanner (portrait, via `journeyapps:zxing-android-embedded`). Scanning the QR code shown by the desktop app sends the phone's name and all its IPv4 addresses to the desktop over HTTP, which adds it as a named device automatically. The pairing POST requires `android:usesCleartextTraffic="true"` since the desktop's pairing server runs plain HTTP.
+
+In USB mode the desktop can pair without a QR scan at all: it pushes the same payload via `adb shell am broadcast` to a dedicated intent, registered exported but gated on the `DUMP` permission - held by `adb shell` by default, but not obtainable by ordinary third-party apps, so only adb (not another app on the phone) can trigger it. Either pairing path rotates the token, revoking whatever was paired before, and stops an in-progress stream rather than leaving it enforcing a token that's no longer valid. Unpairing from the phone now asks for confirmation first rather than clearing the token on a single tap.
 
 ### Build locally
 
@@ -338,6 +353,10 @@ flatpak override --user --device=all com.obsproject.Studio
 
 **Auto-reconnect:** If `cap.read()` fails, the stream reader calls `_reconnect_cap()`, which loops with a 3-second delay until the stream comes back. The pyvirtualcam context stays open during reconnect so the virtual camera doesn't disappear from OBS.
 
+**Genuine-connection signal:** `EventBus.stream_connected` fires only when `StreamWorker` reports its first `"ok"` status (an actual frame decoded), not merely when a worker object exists. `ConnectionPlugin` uses it to tell "worker started" apart from "phone actually responded" for its pair-status indicator, so a stale token doesn't get shown as a healthy pairing while the worker silently retries forever.
+
+**Re-pair mid-stream:** pairing a device rotates its bearer token, which the phone's already-running server would otherwise keep rejecting since it read the old token once at startup. `_on_device_paired` stops an active desktop stream first when this happens (matched on the Android side: a successful re-pair also stops the phone's own running stream).
+
 **Control client:** `PhoneControlClient` sends `GET /control?...` in a daemon thread per request, fire-and-forget. Failures are silently dropped - a missed control command is non-critical.
 
 **ISO/shutter sliders:** Log scale over 2000 steps across the range the phone reports per camera. Range updates when switching lenses. Shutter spinbox shows milliseconds while the API uses nanoseconds.
@@ -354,7 +373,7 @@ flatpak override --user --device=all com.obsproject.Studio
 
 ## Control API reference
 
-Server is on the phone at port 8080. Every request below requires an `Authorization: Bearer <token>` header carrying the token issued during QR pairing; missing or mismatched tokens get `401`.
+Server is on the phone at port 8080 for `/v1/video`, `/v1/state`, and `/v1/control` (all only exist while actively streaming); a separate always-on responder on port 8766 serves `/v1/ping`. Every request below requires an `Authorization: Bearer <token>` header carrying the token issued during pairing; missing or mismatched tokens get `401`.
 
 ### `GET /v1/state`
 
@@ -407,6 +426,10 @@ All responses: `{"ok": true}` or `{"ok": false, "error": "..."}`.
 
 > **Manual exposure note:** `CONTROL_MODE_OFF` only activates when *both* ISO and shutter are set. The desktop app sends both simultaneously when switching to manual mode.
 
+### `GET /v1/ping`
+
+Served on a separate port, 8766, by an always-on responder independent of the streaming service - unlike the three endpoints above, it exists whether or not a stream is running. Same bearer-token auth. Returns `200` if the token matches, `401` if it doesn't, no body either way - used by the desktop to check pairing status before starting a stream.
+
 ---
 
 ## License
@@ -448,14 +471,14 @@ All three workflows publish to a rolling **`latest` release** on every push to `
 3. `pip install -r requirements.txt pyinstaller -c constraints.txt`
 4. `python scripts/smoke_check.py` - packaging smoke checks (see below)
 5. `pyinstaller telescope.spec`
-6. Assembles `Telescope-windows.zip`: EXE + `start.bat` + `THIRD_PARTY_NOTICES.txt` + `platform-tools/` + `unitycapture/`
+6. Assembles `Telescope-windows.zip`: EXE + `start.bat` + `THIRD_PARTY_NOTICES.txt` + `platform-tools/` + `unitycapture/`, then verifies the bundle contains all required files before publishing
 7. Publishes the zip to the `latest` release
 
 `telescope.spec` uses `collect_all('PyQt6')` to include Qt platform plugins that PyInstaller's default analysis misses. Expected EXE size: 60-80 MB.
 
 ### `build-linux.yml` - triggered on changes to `desktop/**`
 
-1. Python 3.11 + pip cache; installs `requirements-dev.txt` via `constraints.txt`; runs `pytest`
+1. Python 3.11 + pip cache; apt-installs `libegl1 libgl1 libxkbcommon0 libdbus-1-3` (PyQt6 needs these even in headless/offscreen test mode); installs `requirements-dev.txt` via `constraints.txt`; runs `pytest`
 2. `python3 scripts/smoke_check.py` - packaging smoke checks
 3. Assembles `Telescope-linux.tar.gz`: `main.py` + `telescope/` package + `requirements.txt` + `constraints.txt` + `start.sh` + `THIRD_PARTY_NOTICES.txt`
 4. Publishes the tarball to the `latest` release
@@ -484,5 +507,6 @@ Run in both desktop CI workflows before assembling the bundle: constructs the fu
 | High latency over Wi-Fi | MJPEG is per-frame JPEG, higher bandwidth than H.264 | Use USB mode, lower JPEG quality, or reduce phone FPS |
 | Second launch does nothing | Single-instance enforcement | The existing window is brought to the front |
 | QR pairing fails ("Could not reach desktop") | Phone and desktop not on the same network, or desktop firewall blocking port 8765 | Make sure both are on the same Wi-Fi; the pairing server only runs while the QR dialog is open |
+| "Pair via ADB" fails or times out | `adb` not on PATH, phone app not foregrounded, or the adb reverse tunnel didn't come up | Install adb (see step 2 above) and retry; make sure the Telescope app is open and in the foreground on the phone before clicking **Pair via ADB** |
 | QR pairing fails while a VPN is active | A VPN on the phone and/or desktop can route traffic off the local Wi-Fi network, or advertise an IP the other device can't actually reach | Temporarily disconnect the VPN on both devices while pairing, or pair first and reconnect the VPN afterward |
 | QR scanner opens in landscape | Manifest override not applied | The app overrides ZXing's default orientation to portrait; rebuild if you see this on an old build |
