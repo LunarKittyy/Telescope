@@ -13,11 +13,11 @@ Legend: `OK` tested and working · `PARTIAL` works with caveats (see notes) ·
 | Pixel-like (e.g. Pixel 6/7/8) | - | - | - | - | - | - | - | - | - | - | - | |
 | Samsung Galaxy S-series | - | - | - | - | - | - | - | - | - | - | - | |
 | Samsung Galaxy A-series | - | - | - | - | - | - | - | - | - | - | - | |
-| vivo | - | - | - | - | - | - | - | - | - | - | - | |
+| vivo V2413 | (see build) | 56bdafe | OK | OK | OK | OK | OK | OK | PARTIAL | - | OK | Reconnect after drop resends the stream but not the last-applied control settings (exposure/WB/etc.) - phone falls back to its defaults until a setting is re-touched on desktop, see follow-up bug. Also noted: pairing isn't persisted across desktop app restarts (a fresh desktop launch loses the paired device and requires re-pairing). |
 
 ## What to check per row
 
-- **USB pairing**: QR pairing completes while the phone is connected via USB (still requires Wi-Fi reachability for the pairing HTTP handshake - see the README's QR pairing section); `adb forward` + authenticated stream works after.
+- **USB pairing**: QR pairing completes while the phone is connected via USB, even with no Wi-Fi/LAN path at all (tunneled over `adb reverse`); `adb forward` + authenticated stream works after.
 - **Wi-Fi pairing**: QR pairing completes over Wi-Fi; authenticated stream works without USB connected.
 - **Lens selection**: all physical sub-cameras (wide/main/telephoto) enumerate and switching between them actually changes the video feed, not just digital zoom.
 - **Manual exposure**: ISO and shutter sliders actually change exposure on-device (not just greyed-in/out correctly).
