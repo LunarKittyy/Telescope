@@ -52,6 +52,21 @@ class StreamStateMachine(private val now: () -> Long = System::currentTimeMillis
         return record
     }
 
+    /** Records a non-fatal event against the *current* state without changing
+     *  it - e.g. a live control-update that failed to apply while streaming
+     *  continues on the previous repeating request. Emitted as a self-transition
+     *  (from == to == current state) so it still surfaces in "Copy diagnostics"
+     *  and gets the same class-name+message error sanitization as [transition]. */
+    fun record(op: String, error: Throwable? = null): StateTransition {
+        val errMsg = error?.let { "${it.javaClass.simpleName}: ${it.message}" }
+        val record = StateTransition(now(), state, state, op, errMsg)
+        synchronized(historyLock) {
+            history.addLast(record)
+            while (history.size > MAX_HISTORY) history.removeFirst()
+        }
+        return record
+    }
+
     fun recentTransitions(): List<StateTransition> = synchronized(historyLock) { history.toList() }
 
     companion object {
