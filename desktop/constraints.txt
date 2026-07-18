@@ -13,7 +13,7 @@ altgraph==0.17.5
 iniconfig==2.3.0
 Jinja2==3.1.6
 MarkupSafe==3.0.3
-numpy==2.5.1
+numpy==2.4.6
 opencv-python==5.0.0.93
 packaging==26.2
 pluggy==1.6.0

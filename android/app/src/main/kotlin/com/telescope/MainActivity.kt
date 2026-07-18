@@ -182,15 +182,10 @@ class MainActivity : AppCompatActivity() {
         // instead: shell holds it by default, but no ordinary third-party
         // app can acquire it, so another app on the phone still can't
         // trigger a silent re-pair.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(
-                pairReceiver, IntentFilter(ACTION_PAIR),
-                Manifest.permission.DUMP, null, Context.RECEIVER_EXPORTED,
-            )
-        } else {
-            @Suppress("DEPRECATION")
-            registerReceiver(pairReceiver, IntentFilter(ACTION_PAIR), Manifest.permission.DUMP, null)
-        }
+        ContextCompat.registerReceiver(
+            this, pairReceiver, IntentFilter(ACTION_PAIR),
+            Manifest.permission.DUMP, null, ContextCompat.RECEIVER_EXPORTED,
+        )
     }
 
     override fun onStop() {
