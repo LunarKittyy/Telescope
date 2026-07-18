@@ -55,6 +55,12 @@ class MainActivity : AppCompatActivity() {
     private var service: CameraStreamService? = null
     private var bound = false
     private var cameras = listOf<CameraInfo>()
+    // Set the instant Start is tapped, before startForegroundService()/bindService()
+    // have had a chance to make service.state reflect anything but Idle - closes the
+    // window where a fast second tap would call startStream() again and race a second
+    // CameraSessionController against the first for the same camera id. Cleared once
+    // the real service connects and its own state takes over tracking "busy".
+    private var starting = false
 
     private val uiHandler = Handler(Looper.getMainLooper())
     private val statusPoller = object : Runnable {
@@ -68,9 +74,11 @@ class MainActivity : AppCompatActivity() {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
             service = (binder as CameraStreamService.LocalBinder).getService()
             bound = true
+            starting = false
             updateStatusText()
         }
         override fun onServiceDisconnected(name: ComponentName?) {
+            starting = false
             service = null
             bound = false
             updateStatusText()
@@ -461,19 +469,35 @@ class MainActivity : AppCompatActivity() {
     // ── Controls ───────────────────────────────────────────────────────────────
 
     private fun onToggleClicked() {
+        if (isBusy()) return
         if (service?.isStreaming == true) {
             service?.stopStreaming()
             if (bound) { unbindService(serviceConnection); bound = false; service = null }
             updateStatusText()
         } else {
-            startStream()
+            starting = startStream()
+            updateStatusText()
         }
     }
 
-    private fun startStream() {
+    /** True while a start is in flight but not yet either streaming or failed -
+     *  covers both the gap before the service binds (the [starting] flag) and,
+     *  once bound, every state between Idle and Streaming. Failed is excluded
+     *  so the button re-enables immediately for a retry rather than waiting on
+     *  the async unbind that follows the service's own stopSelf(). */
+    private fun isBusy(): Boolean {
+        if (starting) return true
+        val state = service?.state ?: StreamState.Idle
+        return state != StreamState.Idle && state != StreamState.Streaming && state != StreamState.Failed
+    }
+
+    /** Returns true if a start was actually kicked off (and so [starting]
+     *  should hold the button disabled), false if it bailed out immediately
+     *  with nothing in flight. */
+    private fun startStream(): Boolean {
         val camIdx = spinnerCamera.selectedItemPosition
         val resIdx = spinnerResolution.selectedItemPosition
-        if (cameras.isEmpty() || camIdx < 0 || camIdx >= cameras.size) return
+        if (cameras.isEmpty() || camIdx < 0 || camIdx >= cameras.size) return false
         val cam  = cameras[camIdx]
         val size = cam.supportedSizes.getOrNull(resIdx) ?: cam.supportedSizes.first()
 
@@ -489,13 +513,16 @@ class MainActivity : AppCompatActivity() {
 
         if (bound) { unbindService(serviceConnection); bound = false }
         bindService(Intent(this, CameraStreamService::class.java), serviceConnection, 0)
+        return true
     }
 
     // ── Status ─────────────────────────────────────────────────────────────────
 
     private fun updateStatusText() {
         val streaming = service?.isStreaming == true
-        btnToggle.text = if (streaming) "Stop Streaming" else "Start Streaming"
+        val busy = isBusy()
+        btnToggle.isEnabled = !busy
+        btnToggle.text = if (streaming) "Stop Streaming" else if (busy) "Starting..." else "Start Streaming"
         btnToggle.backgroundTintList = ColorStateList.valueOf(
             resources.getColor(if (streaming) R.color.colorError else R.color.colorPrimary, theme)
         )

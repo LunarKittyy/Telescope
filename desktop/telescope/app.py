@@ -679,6 +679,7 @@ class TelescopeWindow(QMainWindow):
             self._fps_lbl.setText(msg)
         elif kind == "ok":
             self._set_status(msg, "ok")
+            self._bus.stream_connected.emit()
         elif kind == "warn":
             self._set_status(msg, "warn")
         elif kind == "idle":

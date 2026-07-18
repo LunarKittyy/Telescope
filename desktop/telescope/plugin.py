@@ -38,5 +38,6 @@ class EventBus(QObject):
     stream_stop_requested  = pyqtSignal()
     stream_started         = pyqtSignal(str)
     stream_stopped         = pyqtSignal()
+    stream_connected       = pyqtSignal()
     phone_state_updated    = pyqtSignal(dict)
     device_changed         = pyqtSignal(str)

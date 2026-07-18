@@ -544,27 +544,39 @@ def test_pair_status_shows_not_paired_without_a_token(connection_plugin):
     assert plugin._pair_status_lbl.text() == "○ Not paired"
 
 
-def test_pair_status_pins_to_paired_and_stops_polling_while_streaming(connection_plugin):
-    # PingServer only lives while MainActivity is foregrounded, unlike the
-    # streaming server - probing it mid-stream would wrongly flag a
-    # perfectly fine minimized session as unreachable.
+def test_pair_status_keeps_probing_until_stream_actually_connects(connection_plugin):
+    # A worker existing is not proof the phone accepted the token - a stale
+    # token must keep showing real status while StreamWorker silently
+    # retries, not get pinned "Paired" the instant _start() fires.
     plugin, _host, _panel = connection_plugin
     assert plugin._pair_status_timer.isActive()
     plugin.on_stream_start("http://localhost:8080/v1/video", object())
+    assert plugin._pair_status_lbl.text() != "● Paired"
+    assert plugin._pair_status_timer.isActive()
+
+
+def test_pair_status_pins_to_paired_and_stops_polling_once_stream_connects(connection_plugin):
+    # PingServer only lives while MainActivity is foregrounded, unlike the
+    # streaming server - probing it mid-stream would wrongly flag a
+    # perfectly fine minimized session as unreachable, so once the stream is
+    # actually confirmed working, stop second-guessing it.
+    plugin, _host, _panel = connection_plugin
+    plugin.on_stream_start("http://localhost:8080/v1/video", object())
+    plugin._bus.stream_connected.emit()
     assert plugin._pair_status_lbl.text() == "● Paired"
     assert not plugin._pair_status_timer.isActive()
 
 
-def test_pair_status_check_short_circuits_while_streaming(monkeypatch, connection_plugin):
-    plugin, host, _panel = connection_plugin
+def test_pair_status_check_short_circuits_once_stream_connects(monkeypatch, connection_plugin):
+    plugin, _host, _panel = connection_plugin
     _arm_synchronous_pair_probe(monkeypatch)
     probed = []
     monkeypatch.setattr(ConnectionPlugin, "_probe_url", staticmethod(lambda url, token: probed.append(url) or "not_paired"))
-    host._worker = object()
     plugin._devices = [{"name": "Phone", "ips": ["10.0.0.1"], "token": "tok-a"}]
     plugin._selected_device = "Phone"
     plugin._rb_wifi.setChecked(True)
     plugin._rb_usb.setChecked(False)
+    plugin._on_stream_connected()
     plugin._check_pair_status()
     assert plugin._pair_status_lbl.text() == "● Paired"
     assert probed == []
@@ -573,6 +585,7 @@ def test_pair_status_check_short_circuits_while_streaming(monkeypatch, connectio
 def test_pair_status_resumes_polling_on_stream_stop(connection_plugin):
     plugin, _host, _panel = connection_plugin
     plugin.on_stream_start("http://localhost:8080/v1/video", object())
+    plugin._bus.stream_connected.emit()
     assert not plugin._pair_status_timer.isActive()
     plugin.on_stream_stop()
     assert plugin._pair_status_timer.isActive()

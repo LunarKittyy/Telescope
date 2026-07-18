@@ -500,6 +500,7 @@ class ConnectionPlugin(TelescopePlugin):
 
     def setup(self, host, bus):
         self._host             = host
+        self._bus               = bus
         self._devices: list    = []
         self._selected_device: Optional[str] = None
         # The profile key (device name, or USB_PROFILE_KEY) that's actually
@@ -516,6 +517,13 @@ class ConnectionPlugin(TelescopePlugin):
         self._pair_status_signals = _PairStatusSignals()
         self._pair_status_signals.result.connect(self._set_pair_status)
         self._pair_status_check_id = 0
+        # True only once the current stream has actually produced a frame
+        # (StreamWorker's first "ok" status) - a saved token or a worker
+        # object existing is not proof the phone accepted it; a stale token
+        # would otherwise pin "Paired" while StreamWorker silently retries
+        # forever.
+        self._stream_connected = False
+        self._bus.stream_connected.connect(self._on_stream_connected)
 
     def create_panel(self) -> QWidget:
         card = QFrame()
@@ -743,20 +751,29 @@ class ConnectionPlugin(TelescopePlugin):
         return None
 
     def on_stream_start(self, stream_url: str, ctrl):
-        # Actively streaming is its own proof of a working pairing - no need
-        # to keep polling PingServer, which (unlike the streaming server) is
-        # tied to MainActivity's foreground lifetime and would wrongly read
-        # "unreachable" the moment the phone's screen is minimized mid-stream.
-        self._pair_status_timer.stop()
-        self._set_pair_status("paired")
+        # A worker existing isn't proof the phone accepted it yet - keep
+        # probing (an unconfirmed connection can't rely on "is streaming" as
+        # a pinned-good signal) until _on_stream_connected fires.
+        self._stream_connected = False
+        self._check_pair_status()
 
     def on_stream_stop(self):
         if self._forwarded_port is not None:
             adb_unforward(self._forwarded_port, serial=self._adb_serial)
             self._forwarded_port = None
             self._adb_serial = None
+        self._stream_connected = False
         self._pair_status_timer.start(_PAIR_STATUS_POLL_MS)
         self._check_pair_status()
+
+    def _on_stream_connected(self):
+        # Actively streaming is its own proof of a working pairing - no need
+        # to keep polling PingServer, which (unlike the streaming server) is
+        # tied to MainActivity's foreground lifetime and would wrongly read
+        # "unreachable" the moment the phone's screen is minimized mid-stream.
+        self._stream_connected = True
+        self._pair_status_timer.stop()
+        self._set_pair_status("paired")
 
     # ── Pair status ──────────────────────────────────────────────────────────
 
@@ -767,10 +784,10 @@ class ConnectionPlugin(TelescopePlugin):
         stale (the phone was reset, or paired to a different desktop since).
         Runs off the UI thread since it may make a network call (and, in USB
         mode, shell out to adb); the result comes back via a Qt signal."""
-        if self._host._worker:
-            # Belt-and-suspenders for the same reason as on_stream_start: any
-            # trigger firing while already streaming (the periodic timer is
-            # stopped, but a mode switch mid-stream, say, still isn't
+        if self._stream_connected:
+            # Belt-and-suspenders for the same reason as _on_stream_connected:
+            # any trigger firing while already streaming (the periodic timer
+            # is stopped, but a mode switch mid-stream, say, still isn't
             # impossible) shouldn't second-guess a connection already known
             # to be good via a check that can't see it while minimized.
             self._set_pair_status("paired")
