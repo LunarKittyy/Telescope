@@ -252,6 +252,8 @@ A **scan button** in the top-right corner of the main screen opens a ZXing barco
 
 In USB mode the desktop can pair without a QR scan at all: it pushes the same payload via `adb shell am broadcast` to a dedicated intent, registered exported but gated on the `DUMP` permission - held by `adb shell` by default, but not obtainable by ordinary third-party apps, so only adb (not another app on the phone) can trigger it. Either pairing path rotates the token, revoking whatever was paired before, and stops an in-progress stream rather than leaving it enforcing a token that's no longer valid. Unpairing from the phone now asks for confirmation first rather than clearing the token on a single tap.
 
+A **Copy Diagnostics** button copies app version, device info, current stream state, and recent state transitions/errors to the clipboard, for pasting into a bug report. Never includes the pairing token, a URL, or raw config.
+
 ### Build locally
 
 Requires JDK 21 and Android SDK with `platform-tools`, `platforms;android-34`, `build-tools;34.0.0`.
@@ -351,7 +353,7 @@ flatpak override --user --device=all com.obsproject.Studio
 
 **Live resolution change:** Unlike FPS, mid-stream resolution changes don't require a vcam restart. The reader thread reads `self._width`/`self._height` dynamically each frame, and `_fit_frame()` adapts the output to the fixed canvas dimensions.
 
-**Auto-reconnect:** If `cap.read()` fails, the stream reader calls `_reconnect_cap()`, which loops with a 3-second delay until the stream comes back. The pyvirtualcam context stays open during reconnect so the virtual camera doesn't disappear from OBS.
+**Auto-reconnect:** If `cap.read()` fails, the stream reader calls `_reconnect_cap()`, which loops with a 3-second delay until the stream comes back. The pyvirtualcam context stays open during reconnect so the virtual camera doesn't disappear from OBS. Every plugin's current settings (ISO, WB, JPEG quality, etc.) are resent to the phone right after a successful reconnect, since the phone has no way to know its control state might be stale.
 
 **Genuine-connection signal:** `EventBus.stream_connected` fires only when `StreamWorker` reports its first `"ok"` status (an actual frame decoded), not merely when a worker object exists. `ConnectionPlugin` uses it to tell "worker started" apart from "phone actually responded" for its pair-status indicator, so a stale token doesn't get shown as a healthy pairing while the worker silently retries forever.
 
