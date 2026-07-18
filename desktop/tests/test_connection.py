@@ -149,21 +149,26 @@ class _ConnectionHost:
         self._worker = None
         self.stops = 0
 
-    def _schedule_save(self):
+    def schedule_save(self):
         self.saves += 1
 
-    def _save_config(self):
+    def save_now(self):
         self.saves += 1
 
-    def _switch_device(self, previous, new):
+    def switch_device(self, previous, new):
         self.switches.append((previous, new))
 
     def reconnect_stream(self):
         self.reconnects += 1
 
-    def _stop(self):
-        self.stops += 1
-        self._worker = None
+    def is_streaming(self):
+        return self._worker is not None
+
+    def stop_stream(self):
+        # Mirrors the real host: a no-op when nothing is streaming.
+        if self._worker is not None:
+            self.stops += 1
+            self._worker = None
 
 
 @pytest.fixture
@@ -765,7 +770,7 @@ def test_paired_device_survives_restart_while_in_usb_mode(window_with_plugins):
     conn._rb_usb.setChecked(True)
     conn._rb_wifi.setChecked(False)
     conn._on_mode()
-    win._save_config()
+    win.save_now()
 
     win2 = TelescopeWindow()
     conn2 = ConnectionPlugin()

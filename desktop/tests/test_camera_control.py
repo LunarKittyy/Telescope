@@ -14,7 +14,7 @@ class _Host:
     def __init__(self):
         self.saves = 0
 
-    def _schedule_save(self):
+    def schedule_save(self):
         self.saves += 1
 
 

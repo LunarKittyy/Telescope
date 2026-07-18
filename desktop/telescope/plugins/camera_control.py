@@ -615,17 +615,17 @@ class CameraControlPlugin(TelescopePlugin):
             else:
                 self._ctrl.send(action="iso",     value=int(self._iso_slider.get_value()))
                 self._ctrl.send(action="shutter", value=int(self._sht_slider.get_value()))
-        self._host._schedule_save()
+        self._host.schedule_save()
 
     def _on_iso_changed(self, val: float):
         if self._ctrl and self._manual_exp:
             self._ctrl.send(action="iso", value=int(val))
-        self._host._schedule_save()
+        self._host.schedule_save()
 
     def _on_shutter_changed(self, val: float):
         if self._ctrl and self._manual_exp:
             self._ctrl.send(action="shutter", value=int(val))
-        self._host._schedule_save()
+        self._host.schedule_save()
 
     def _send_wb_gains(self):
         k = self._wb_slider.value()
@@ -645,24 +645,24 @@ class CameraControlPlugin(TelescopePlugin):
                 self._ctrl.send(action="wb_auto")
             else:
                 self._send_wb_gains()
-        self._host._schedule_save()
+        self._host.schedule_save()
 
     def _on_wb_changed(self, k: int):
         self._wb_k_lbl.setText(f"{k} K")
         if self._ctrl and self._manual_wb:
             self._send_wb_gains()
-        self._host._schedule_save()
+        self._host.schedule_save()
 
     def _on_tint_changed(self, t: int):
         self._tint_lbl.setText(str(t))
         if self._ctrl and self._manual_wb:
             self._send_wb_gains()
-        self._host._schedule_save()
+        self._host.schedule_save()
 
     def _on_ois(self, checked: bool):
         if self._ctrl:
             self._ctrl.send(action="ois", value="1" if checked else "0")
-        self._host._schedule_save()
+        self._host.schedule_save()
 
     def _on_focus_mode(self):
         manual = self._rb_focus_manual.isChecked()
@@ -675,36 +675,36 @@ class CameraControlPlugin(TelescopePlugin):
                 self._ctrl.send(action="focus_mode", value="manual")
                 self._ctrl.send(action="focus_distance",
                                 value=self._slider_to_diopters(self._focus_slider.value()))
-        self._host._schedule_save()
+        self._host.schedule_save()
 
     def _on_focus_slider(self, pos: int):
         d = self._slider_to_diopters(pos)
         self._focus_val_lbl.setText(_diopters_to_label(d))
         if self._ctrl and self._manual_focus:
             self._ctrl.send(action="focus_distance", value=d)
-        self._host._schedule_save()
+        self._host.schedule_save()
 
     def _on_ae_comp_changed(self, steps: int):
         ev = steps * self._ae_comp_step
         self._ae_comp_lbl.setText(f"{ev:+.1f} EV")
         if self._ctrl:
             self._ctrl.send(action="ae_comp", value=steps)
-        self._host._schedule_save()
+        self._host.schedule_save()
 
     def _on_nr_mode_changed(self, idx: int):
         if self._ctrl:
             self._ctrl.send(action="nr_mode", value=_NR_MODES[idx][1])
-        self._host._schedule_save()
+        self._host.schedule_save()
 
     def _on_edge_mode_changed(self, idx: int):
         if self._ctrl:
             self._ctrl.send(action="edge_mode", value=_EDGE_MODES[idx][1])
-        self._host._schedule_save()
+        self._host.schedule_save()
 
     def _on_bll_changed(self, checked: bool):
         if self._ctrl:
             self._ctrl.send(action="black_level_lock", value="1" if checked else "0")
-        self._host._schedule_save()
+        self._host.schedule_save()
 
     def _on_torch_toggled(self, checked: bool):
         self._torch_on = checked
