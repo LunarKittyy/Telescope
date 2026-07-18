@@ -451,9 +451,12 @@ class TelescopeWindow(QMainWindow):
             if p.name in global_pcfg:
                 p.set_config(global_pcfg[p.name])
         self._apply_device_profile(selected)
-        # Restore device selection after connection plugin has its devices_list
+        # The connection plugin already restored its own roster selection
+        # from set_config() above (selected here would be the USB
+        # pseudo-key in USB mode, not a device name) - just sync its
+        # active-profile baseline now that _apply_device_profile() has run.
         if conn:
-            conn.select_device(selected)
+            conn.sync_active_profile()
 
     # ── Start / Stop ──────────────────────────────────────────────────────────
 

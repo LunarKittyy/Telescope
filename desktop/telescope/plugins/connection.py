@@ -876,9 +876,14 @@ class ConnectionPlugin(TelescopePlugin):
 
     def get_config(self) -> dict:
         return {
-            "mode":         "wifi" if self._rb_wifi.isChecked() else "usb",
-            "port":         self._port_field.text(),
-            "devices_list": self._devices,
+            "mode":                 "wifi" if self._rb_wifi.isChecked() else "usb",
+            "port":                 self._port_field.text(),
+            "devices_list":         self._devices,
+            # Persisted separately from the app-level "selected device" (which
+            # in USB mode is the USB_PROFILE_KEY pseudo-key, not a roster
+            # name) so the actually-paired device stays selected across a
+            # restart regardless of which mode was active when it saved.
+            "selected_device_name": self._selected_device,
         }
 
     def set_config(self, cfg: dict):
@@ -907,19 +912,26 @@ class ConnectionPlugin(TelescopePlugin):
                 logger.warning("Discarding malformed device entry in config: %r", d)
                 continue
             self._devices.append(profile.to_dict())
-        self._switching_device = True
-        self._device_combo.blockSignals(True)
-        self._device_combo.clear()
-        for d in self._devices:
-            self._device_combo.addItem(d["name"])
-        self._device_combo.blockSignals(False)
-        self._switching_device = False
+
+        name = cfg.get("selected_device_name")
+        if not isinstance(name, str) or not any(d["name"] == name for d in self._devices):
+            name = self._devices[0]["name"] if self._devices else None
+        self._selected_device = name
+        self._refresh_device_combo(select_name=name)
 
     def select_device(self, name: Optional[str]):
         if not name and self._devices:
             name = self._devices[0]["name"]
         self._selected_device = name
         self._refresh_device_combo(select_name=name)
-        # This restores what was already applied by _apply_config()'s call to
-        # _apply_device_profile() - just record it, don't re-trigger a switch.
+        self._active_key = self._profile_key
+
+    def sync_active_profile(self):
+        """Record _active_key after the host's _apply_device_profile() has
+        already applied the right device-local plugin settings at startup,
+        so a later _activate_profile() doesn't spuriously re-trigger a
+        switch. Deliberately doesn't touch _selected_device/the combo box -
+        set_config()'s own selected_device_name already restored those; the
+        app-level profile key this syncs against can be the USB pseudo-key,
+        which isn't a roster device name select_device() could use."""
         self._active_key = self._profile_key

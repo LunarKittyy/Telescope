@@ -181,6 +181,7 @@ def test_connection_config_migrates_old_ip_list_and_selects_profile(connection_p
         "mode": "wifi",
         "port": "9000",
         "devices_list": [{"name": "Old", "ips": ["1.2.3.4"]}],
+        "selected_device_name": "Old",
     }
     assert plugin.selected_device == "Old"
     assert plugin._current_device_ip() == "1.2.3.4"
@@ -520,6 +521,38 @@ def test_usb_only_session_gets_its_own_persisted_profile(window_with_plugins):
     win, conn, cam = window_with_plugins
     assert conn.selected_device == "__usb__"
     assert conn._active_key == "__usb__"
+
+
+def test_paired_device_survives_restart_while_in_usb_mode(window_with_plugins):
+    """A device paired over Wi-Fi, then left selected while the app is
+    switched to USB mode, must still resolve to the same roster device (and
+    its token) after a restart - the app-level persisted "selected device"
+    is the USB pseudo-key in that mode, not a roster name, so restoring the
+    roster selection from it directly used to silently fall back to
+    whichever device sorts first and had no token."""
+    from telescope.app import TelescopeWindow
+    from telescope.plugins.camera_control import CameraControlPlugin
+    from telescope.plugins.connection import ConnectionPlugin
+    from telescope.plugins.monitoring import MonitoringPlugin
+    from telescope.plugins.stream_output import StreamOutputPlugin
+    from telescope.plugins.transforms import TransformsPlugin
+
+    win, conn, cam = window_with_plugins
+    conn._on_device_paired("Alpha", ["10.0.0.1"], "tok-alpha")
+    conn._on_device_paired("V2413", ["10.0.0.2"], "tok-v2413")
+    conn._rb_usb.setChecked(True)
+    conn._rb_wifi.setChecked(False)
+    conn._on_mode()
+    win._save_config()
+
+    win2 = TelescopeWindow()
+    conn2 = ConnectionPlugin()
+    for p in (conn2, CameraControlPlugin(), StreamOutputPlugin(), TransformsPlugin(), MonitoringPlugin()):
+        win2.register_plugin(p)
+    win2.apply_saved_config()
+
+    assert conn2._selected_device == "V2413"
+    assert conn2._current_device_token() == "tok-v2413"
 
 
 def test_switching_wifi_device_resets_to_defaults_then_applies_profile(window_with_plugins):

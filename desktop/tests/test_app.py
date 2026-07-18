@@ -67,12 +67,16 @@ class _Connection(_Plugin):
         self.selected_device = selected
         self.stream_info = stream_info
         self.selected = []
+        self.synced = 0
 
     def get_stream_info(self):
         return self.stream_info
 
     def select_device(self, name):
         self.selected.append(name)
+
+    def sync_active_profile(self):
+        self.synced += 1
 
 
 class _StreamOutput(_Plugin):
@@ -403,7 +407,7 @@ def test_apply_config_routes_global_and_selected_device_config(window, monkeypat
     assert setup.config["canvas"] == "4k"
     assert local.applied == []
     assert seen == ["PhoneB"]
-    assert connection.selected == ["PhoneB"]
+    assert connection.synced == 1
 
 
 def test_apply_config_empty_is_noop(window):
