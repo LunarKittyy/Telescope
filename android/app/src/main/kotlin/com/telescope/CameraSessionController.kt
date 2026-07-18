@@ -482,8 +482,9 @@ class CameraSessionController(
         } catch (e: Exception) {
             // The stream keeps running on the previous repeating request, so this
             // is non-fatal - but the requested control change silently didn't take
-            // effect. Surface it in diagnostics instead of swallowing it whole.
-            android.util.Log.w(TAG, "applyExposure failed to update live controls", e)
+            // effect. Report it so the service records it in diagnostics and logs
+            // it (the service owns logging, same as the onStateChanged path -
+            // logging here too would double every warning in logcat).
             onControlError("applyExposure", e)
         }
     }
