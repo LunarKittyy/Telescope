@@ -19,7 +19,7 @@ def _manager(qapp, devices=None):
     dialog = _DeviceManagerDialog(
         parent,
         devices,
-        on_add=lambda device: events.append(("add", device)),
+        on_add=lambda: events.append(("add",)),
         on_edit=lambda old, new: events.append(("edit", old, new)),
         on_remove=lambda name: events.append(("remove", name)),
     )
@@ -40,12 +40,17 @@ def test_device_manager_renders_selection_and_truncated_ips(qapp):
     assert not dialog._edit_btn.isEnabled()
 
 
-def test_device_manager_finish_add_and_edit_mutate_shared_list(qapp):
-    dialog, devices, events, _parent = _manager(qapp, [])
-    add = SimpleNamespace(result_device=lambda: {"name": "A", "ips": ["1.2.3.4"]})
-    dialog._finish_add(add)
-    assert devices == [{"name": "A", "ips": ["1.2.3.4"]}]
-    assert events == [("add", devices[0])]
+def test_device_manager_add_button_starts_pairing_flow(qapp):
+    dialog, _devices, events, _parent = _manager(qapp)
+    dialog._on_add()
+    assert events == [("add",)]
+    # Nothing local was mutated - a device only appears once pairing reports
+    # back through _on_device_paired(), outside this dialog entirely.
+    assert dialog._active_dlg is None
+
+
+def test_device_manager_finish_edit_updates_shared_list(qapp):
+    dialog, devices, events, _parent = _manager(qapp, [{"name": "A", "ips": ["1.2.3.4"]}])
 
     edit = SimpleNamespace(result_device=lambda: {"name": "B", "ips": ["4.3.2.1"]})
     dialog._finish_edit(0, edit)
@@ -84,14 +89,18 @@ def test_device_manager_ignores_edit_and_remove_without_selection(qapp):
     assert events == []
 
 
-def test_device_manager_opens_add_then_replaces_with_edit_dialog(qapp):
-    dialog, _devices, _events, _parent = _manager(qapp)
-    dialog._on_add()
+def test_device_manager_edit_opens_dialog_and_replaces_a_prior_one(qapp):
+    dialog, devices, _events, _parent = _manager(qapp, [
+        {"name": "A", "ips": ["1.2.3.4"]}, {"name": "B", "ips": ["5.6.7.8"]},
+    ])
+    dialog._list.setCurrentRow(0)
+    dialog._on_edit()
     first = dialog._active_dlg
     assert first is not None
     assert first.isVisible()
+    assert first.windowTitle() == "Edit Device"
 
-    dialog._list.setCurrentRow(0)
+    dialog._list.setCurrentRow(1)
     dialog._on_edit()
     second = dialog._active_dlg
     assert second is not first
@@ -146,9 +155,16 @@ def test_pairing_dialog_renders_qr_after_start(qapp):
 
 
 def test_pairing_dialog_usb_mode_reverses_and_unreverses_port(monkeypatch, qapp):
+    import base64
+
     calls = []
     monkeypatch.setattr(connection, "adb_reverse", lambda port, serial=None: calls.append(("reverse", port, serial)) or (True, "ok"))
     monkeypatch.setattr(connection, "adb_unreverse", lambda port, serial=None: calls.append(("unreverse", port, serial)))
+    broadcasts = []
+    monkeypatch.setattr(
+        connection, "adb_broadcast_pair",
+        lambda payload_b64, serial=None: broadcasts.append((payload_b64, serial)) or (True, "Broadcast sent"),
+    )
 
     dialog = _PairingDialog(None, lambda *_args: None, usb_serial="phone-1")
     dialog._start_server()
@@ -157,6 +173,11 @@ def test_pairing_dialog_usb_mode_reverses_and_unreverses_port(monkeypatch, qapp)
         assert calls[0][0] == "reverse"
         assert calls[0][2] == "phone-1"
         assert dialog._reversed_port == calls[0][1]
+        assert len(broadcasts) == 1
+        payload_b64, serial = broadcasts[0]
+        assert serial == "phone-1"
+        assert base64.b64decode(payload_b64).decode() == dialog._pairing_server.offer.payload
+        assert "automatically" in dialog._status_lbl.text()
     finally:
         dialog._stop_server()
 
@@ -173,6 +194,27 @@ def test_pairing_dialog_usb_mode_reports_adb_reverse_failure(monkeypatch, qapp):
     assert dialog._pairing_server is None
     assert dialog._status_lbl.objectName() == "status_err"
     assert "device offline" in dialog._status_lbl.text()
+
+
+def test_pairing_dialog_usb_mode_falls_back_to_qr_when_broadcast_fails(monkeypatch, qapp):
+    monkeypatch.setattr(connection, "adb_reverse", lambda port, serial=None: (True, "ok"))
+    monkeypatch.setattr(connection, "adb_unreverse", lambda port, serial=None: None)
+    monkeypatch.setattr(
+        connection, "adb_broadcast_pair",
+        lambda payload_b64, serial=None: (False, "device offline"),
+    )
+
+    dialog = _PairingDialog(None, lambda *_args: None, usb_serial="phone-1")
+    dialog._start_server()
+    try:
+        assert dialog._pairing_server is not None
+        assert "scan the code instead" in dialog._status_lbl.text()
+        widgets = [dialog._qr_container.itemAt(i).widget()
+                   for i in range(dialog._qr_container.count())
+                   if dialog._qr_container.itemAt(i).widget()]
+        assert any(isinstance(w, _QRCodeWidget) for w in widgets)
+    finally:
+        dialog._stop_server()
 
 
 def test_pairing_start_is_idempotent_when_server_already_exists(qapp):

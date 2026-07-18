@@ -6,6 +6,7 @@ import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.hardware.camera2.CameraManager
@@ -22,6 +23,7 @@ import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.journeyapps.barcodescanner.ScanContract
@@ -78,6 +80,23 @@ class MainActivity : AppCompatActivity() {
         result.contents?.let { handleQrScan(it) }
     }
 
+    // Registered/unregistered with onStart()/onStop() rather than the manifest:
+    // only needs to work while this screen is actually in front (same
+    // requirement the QR flow already has - you have to be looking at the app
+    // to scan a code). Gated on the DUMP permission at registration (see
+    // onStart()) so it's reachable by adb but not by another app on the phone.
+    private val pairReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            // Base64-encoded on the desktop side so the JSON's braces/quotes
+            // never have to survive adb shell's remote command-line parsing.
+            intent.getStringExtra(EXTRA_PAIR_PAYLOAD)?.let {
+                runCatching { String(android.util.Base64.decode(it, android.util.Base64.DEFAULT)) }
+                    .getOrNull()
+                    ?.let(::handleQrScan)
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -128,7 +147,7 @@ class MainActivity : AppCompatActivity() {
             }
             scanLauncher.launch(opts)
         }
-        btnResetPairing.setOnClickListener { resetPairing() }
+        btnResetPairing.setOnClickListener { confirmResetPairing() }
         btnCopyDiagnostics.setOnClickListener { copyDiagnostics() }
 
         spinnerCamera.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
@@ -150,11 +169,28 @@ class MainActivity : AppCompatActivity() {
         super.onStart()
         bindService(Intent(this, CameraStreamService::class.java), serviceConnection, 0)
         uiHandler.post(statusPoller)
+        // RECEIVER_NOT_EXPORTED silently drops this broadcast entirely - "not
+        // exported" means only senders sharing this app's own UID qualify,
+        // and adb shell (uid 2000, "shell") doesn't. Exported is required for
+        // adb to reach it at all, so it's gated on the DUMP permission
+        // instead: shell holds it by default, but no ordinary third-party
+        // app can acquire it, so another app on the phone still can't
+        // trigger a silent re-pair.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(
+                pairReceiver, IntentFilter(ACTION_PAIR),
+                Manifest.permission.DUMP, null, Context.RECEIVER_EXPORTED,
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(pairReceiver, IntentFilter(ACTION_PAIR), Manifest.permission.DUMP, null)
+        }
     }
 
     override fun onStop() {
         uiHandler.removeCallbacks(statusPoller)
         if (bound) { unbindService(serviceConnection); bound = false }
+        unregisterReceiver(pairReceiver)
         super.onStop()
     }
 
@@ -223,6 +259,20 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) {
             Toast.makeText(this, "Invalid QR code.", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    /** A single tap used to instantly wipe the pairing token with no way back
+     *  short of re-pairing from scratch - one stray touch on this button (it
+     *  sits right next to others on the same row) was enough to lock a user
+     *  out of their own desktop until they could get back on the same
+     *  network. Confirm first. */
+    private fun confirmResetPairing() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Unpair this phone?")
+            .setMessage("The desktop app will need to pair again (QR code or USB) before it can reconnect.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Unpair") { _, _ -> resetPairing() }
+            .show()
     }
 
     /** Clears the stored pairing token and, if currently streaming, restarts the
@@ -490,5 +540,11 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val RC_PERMS = 100
+        // Lets the desktop app push a pairing payload straight over adb when
+        // there's no camera-scannable QR code involved (USB pairing) - the
+        // same JSON shape and handleQrScan() logic as the QR flow, just
+        // delivered a different way.
+        const val ACTION_PAIR = "com.telescope.action.PAIR"
+        const val EXTRA_PAIR_PAYLOAD = "payload"
     }
 }

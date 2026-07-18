@@ -10,6 +10,7 @@ from telescope.plugins.connection import (
     ConnectionPlugin,
     USB_PROFILE_KEY,
     _DeviceDialog,
+    _DeviceManagerDialog,
     _best_ip,
     _extract_ip,
     _rank_ip,
@@ -409,6 +410,30 @@ def test_on_pair_qr_usb_mode_cancelled_serial_picker_skips_dialog(monkeypatch, c
     assert plugin._pairing_dlg is None
 
 
+def test_manage_devices_add_button_wired_to_pairing_flow(monkeypatch, connection_plugin):
+    # _DeviceManagerDialog's parent must be a real QWidget; the fixture's
+    # fake host isn't one, so the dialog itself is stubbed out here too - see
+    # the identical note on test_on_pair_qr_usb_mode_requires_adb_and_resolves_serial.
+    plugin, _host, _panel = connection_plugin
+    captured = {}
+
+    class _FakeManagerDialog:
+        def __init__(self, parent, devices, on_add, on_edit, on_remove):
+            captured["on_add"] = on_add
+
+        def setAttribute(self, *_a): pass
+        def setWindowModality(self, *_a): pass
+        def show(self): pass
+        def raise_(self): pass
+        def activateWindow(self): pass
+        def isVisible(self): return False
+
+    monkeypatch.setattr(connection_module, "_DeviceManagerDialog", _FakeManagerDialog)
+    plugin._on_manage_devices()
+
+    assert captured["on_add"] == plugin._on_pair_qr
+
+
 def test_linux_virtual_camera_conflict_and_cancel(monkeypatch, connection_plugin):
     plugin, _host, _panel = connection_plugin
     monkeypatch.setattr(connection_module, "IS_LINUX", True)
@@ -484,6 +509,24 @@ def test_pairing_adds_or_updates_device(connection_plugin):
     plugin._on_device_paired("Phone", ["100.64.0.1"], "tok-b")
     assert plugin._devices == [{"name": "Phone", "ips": ["100.64.0.1"], "token": "tok-b"}]
     assert host.saves == 2
+
+
+def test_pairing_refreshes_an_open_device_manager_list(connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    plugin._rb_wifi.setChecked(True)
+    plugin._rb_usb.setChecked(False)
+    dlg = _DeviceManagerDialog(
+        None, plugin._devices,
+        on_add=lambda: None, on_edit=lambda *_a: None, on_remove=lambda _n: None,
+    )
+    plugin._device_dlg = dlg
+    dlg.show()
+
+    plugin._on_device_paired("Phone", ["10.0.0.1"], "tok-a")
+
+    assert dlg._list.count() == 1
+    assert dlg._list.item(0).text().startswith("Phone  -")
+    dlg.close()
 
 
 def test_editing_a_paired_device_preserves_its_token(qapp):

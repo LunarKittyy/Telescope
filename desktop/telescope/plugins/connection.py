@@ -1,3 +1,4 @@
+import base64
 import logging
 from typing import Optional
 
@@ -16,7 +17,8 @@ from telescope.config import load_config, save_config
 from telescope.models import DeviceProfile
 from telescope.pairing import PairingServer
 from telescope.platform import (
-    IS_LINUX, adb_available, adb_devices, adb_forward, adb_reverse, adb_unforward, adb_unreverse,
+    IS_LINUX, adb_available, adb_broadcast_pair, adb_devices, adb_forward,
+    adb_reverse, adb_unforward, adb_unreverse,
 )
 from telescope.platform.linux import (
     V4L2_OBS_DEV, V4L2_PHONE_DEV,
@@ -124,7 +126,12 @@ class _DeviceDialog(QDialog):
 
 
 class _DeviceManagerDialog(QDialog):
-    """Device list management popup — add, edit, remove."""
+    """Device list management popup — pair, edit, remove.
+
+    A device only ever becomes usable by pairing (it needs a bearer token
+    the phone issues, nothing here can fabricate one) - "Add" hands off to
+    that flow instead of a bare name/IP form, which used to produce
+    entries that could never actually connect."""
 
     def __init__(self, parent, devices: list, on_add, on_edit, on_remove):
         super().__init__(parent)
@@ -132,6 +139,8 @@ class _DeviceManagerDialog(QDialog):
         self.setMinimumWidth(360)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self._devices = devices
+        # on_add takes no arguments - it just starts the pairing flow, which
+        # reports its own result asynchronously via _on_device_paired().
         self._on_add_cb    = on_add
         self._on_edit_cb   = on_edit
         self._on_remove_cb = on_remove
@@ -151,7 +160,7 @@ class _DeviceManagerDialog(QDialog):
         gb_lay.addWidget(self._list)
 
         btn_row = QHBoxLayout()
-        self._add_btn    = QPushButton("Add")
+        self._add_btn    = QPushButton("Pair...")
         self._edit_btn   = QPushButton("Edit")
         self._remove_btn = QPushButton("Remove")
         _base = "padding: 4px 12px; border-radius: 4px;"
@@ -205,16 +214,7 @@ class _DeviceManagerDialog(QDialog):
         dlg.activateWindow()
 
     def _on_add(self):
-        existing = [d["name"] for d in self._devices]
-        dlg = _DeviceDialog(self, existing_names=existing)
-        dlg.accepted.connect(lambda: self._finish_add(dlg))
-        self._open_device_dlg(dlg)
-
-    def _finish_add(self, dlg: "_DeviceDialog"):
-        device = dlg.result_device()
-        self._devices.append(device)
-        self._refresh_list()
-        self._on_add_cb(device)
+        self._on_add_cb()
 
     def _on_edit(self):
         idx = self._list.currentRow()
@@ -319,7 +319,13 @@ class _PairingDialog(QDialog):
         self._qr_container.setContentsMargins(0, 0, 0, 12)
         lay.addLayout(self._qr_container, 1)
 
-        self._hint_lbl = QLabel("Open Telescope on your phone and tap the scan button in the top-right corner.")
+        hint_text = (
+            "Just keep the Telescope app open on your phone - it'll pair on its own. "
+            "If it doesn't, scan the code with the app's scan button instead."
+            if self._usb_serial is not None else
+            "Open Telescope on your phone and tap the scan button in the top-right corner."
+        )
+        self._hint_lbl = QLabel(hint_text)
         self._hint_lbl.setObjectName("dim")
         self._hint_lbl.setWordWrap(True)
         self._hint_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -380,8 +386,22 @@ class _PairingDialog(QDialog):
         self._qr_container.addWidget(qr_widget)
 
         self._status_lbl.setObjectName("status_dim")
-        self._status_lbl.setText("Scan with the Telescope app on your phone.")
         self._status_lbl.setStyleSheet("")
+        if self._usb_serial is not None:
+            # Skip the deliberate camera-scan step over USB: push the same
+            # payload the QR code encodes straight to the phone's pairing
+            # broadcast receiver over adb. This only reaches the phone while
+            # its Telescope app is in the foreground (a plain broadcast, not
+            # a manifest-registered one) - the QR code stays up so there's
+            # still a way to pair if it isn't.
+            payload_b64 = base64.b64encode(offer.payload.encode()).decode()
+            ok, err = adb_broadcast_pair(payload_b64, serial=self._usb_serial)
+            if ok:
+                self._status_lbl.setText("Pairing automatically... (or scan the code)")
+            else:
+                self._status_lbl.setText(f"Auto-pair failed ({err}) - scan the code instead.")
+        else:
+            self._status_lbl.setText("Scan with the Telescope app on your phone.")
 
     def _stop_server(self):
         if self._pairing_server is None:
@@ -776,7 +796,7 @@ class ConnectionPlugin(TelescopePlugin):
         if self._device_dlg is None or not self._device_dlg.isVisible():
             self._device_dlg = _DeviceManagerDialog(
                 self._host, self._devices,
-                on_add=self._on_device_added,
+                on_add=self._on_pair_qr,
                 on_edit=self._on_device_edited,
                 on_remove=self._on_device_removed,
             )
@@ -808,16 +828,6 @@ class ConnectionPlugin(TelescopePlugin):
         self._pairing_dlg.show()
         self._pairing_dlg.raise_()
         self._pairing_dlg.activateWindow()
-
-    def _on_device_added(self, device: dict):
-        # _DeviceManagerDialog mutates the shared self._devices list directly.
-        self._refresh_device_combo(select_name=self._selected_device)
-        # _refresh_device_combo() blocks signals, so if this is the first device
-        # ever added, the combo now defaults to it but _selected_device (still
-        # None from before) never hears about it - sync from the combo itself.
-        self._selected_device = self._current_device_name()
-        self._host._save_config()
-        self._activate_profile(self._profile_key)
 
     def _on_device_edited(self, old_name: str, new_device: dict):
         new_name = new_device["name"]
@@ -865,6 +875,11 @@ class ConnectionPlugin(TelescopePlugin):
         self._selected_device = name
         self._host._save_config()
         self._activate_profile(self._profile_key)
+        # Pairing can now be triggered from inside the device manager
+        # ("Pair..." opens this same flow) - if it's open, its list is
+        # showing a now-stale snapshot of self._devices until told to redraw.
+        if self._device_dlg is not None and self._device_dlg.isVisible():
+            self._device_dlg._refresh_list()
 
     @property
     def selected_device(self) -> Optional[str]:

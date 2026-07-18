@@ -84,3 +84,30 @@ def adb_reverse(port, serial=None):
 
 def adb_unreverse(port, serial=None):
     _run(_with_serial([adb_exe(), "reverse", "--remove", f"tcp:{port}"], serial))
+
+
+PAIR_BROADCAST_ACTION = "com.telescope.action.PAIR"
+
+
+PAIR_BROADCAST_PACKAGE = "com.telescope"
+
+
+def adb_broadcast_pair(payload_b64: str, serial=None):
+    """Delivers a base64-encoded QR-pairing payload straight to the phone's
+    pairing broadcast receiver over adb, skipping the camera/QR-scan step
+    entirely. Base64 (not the raw JSON) because adb shell reconstructs a
+    command line the phone's remote shell re-parses - the JSON's braces and
+    quotes would need escaping there, base64's alphabet doesn't. The
+    broadcast is restricted to the Telescope package (-p) - without it this
+    is an implicit broadcast, and any other app on the phone registered for
+    the same action would receive the pairing token right alongside (or
+    instead of) Telescope. Only reports whether the adb command itself
+    succeeded, not whether a foregrounded MainActivity was actually there to
+    receive it - the caller still needs a fallback (e.g. the QR code) for
+    that."""
+    rc, _, err = _run(_with_serial(
+        [adb_exe(), "shell", "am", "broadcast", "-a", PAIR_BROADCAST_ACTION,
+         "-p", PAIR_BROADCAST_PACKAGE, "--es", "payload", payload_b64],
+        serial,
+    ))
+    return (True, "Broadcast sent") if rc == 0 else (False, err)

@@ -154,3 +154,27 @@ def test_adb_reverse_surfaces_error_and_unreverse_ignores_it(monkeypatch):
     assert platform_api.adb_reverse(9000) == (False, "reverse failed")
     assert platform_api.adb_unreverse(9000, serial="serial") is None
     assert calls[-1] == ["adb", "-s", "serial", "reverse", "--remove", "tcp:9000"]
+
+
+def test_adb_broadcast_pair_builds_serial_specific_command(monkeypatch):
+    calls = []
+    monkeypatch.setattr(platform_api, "adb_exe", lambda: "adb")
+    monkeypatch.setattr(
+        platform_api,
+        "_run",
+        lambda cmd: calls.append(cmd) or (0, "", ""),
+    )
+
+    assert platform_api.adb_broadcast_pair("cGF5bG9hZA==", serial="phone") == (True, "Broadcast sent")
+    assert calls == [[
+        "adb", "-s", "phone", "shell", "am", "broadcast",
+        "-a", "com.telescope.action.PAIR", "-p", "com.telescope",
+        "--es", "payload", "cGF5bG9hZA==",
+    ]]
+
+
+def test_adb_broadcast_pair_surfaces_error(monkeypatch):
+    monkeypatch.setattr(platform_api, "adb_exe", lambda: "adb")
+    monkeypatch.setattr(platform_api, "_run", lambda cmd: (1, "", "device offline"))
+
+    assert platform_api.adb_broadcast_pair("cGF5bG9hZA==") == (False, "device offline")
