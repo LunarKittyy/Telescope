@@ -425,6 +425,18 @@ class TelescopeWindow(QMainWindow):
         self._stop()
         self._start()
 
+    def _on_stream_reconnected(self):
+        """The stream worker dropped and reconnected on its own (stream.py's
+        _reconnect_cap reopens the video reader directly, without going
+        through _stop()/_start()) - the phone has no way to know its control
+        state might be stale, so each plugin resends its current settings
+        the same way it already does for the initial connect."""
+        session = self._session
+        if session is None:
+            return
+        for p in self._plugins:
+            p.on_stream_start(session.url, session.client)
+
     def _apply_config(self, cfg: dict):
         if not cfg:
             return
@@ -477,6 +489,7 @@ class TelescopeWindow(QMainWindow):
         self._session = StreamSession(id=session_id, url=url, client=ctrl, worker=worker)
 
         worker.status.connect(self._on_worker_status)
+        worker.reconnected.connect(self._on_stream_reconnected)
         worker.start()
 
         self._bus.stream_started.emit(url)
@@ -502,6 +515,7 @@ class TelescopeWindow(QMainWindow):
 
         if worker:
             worker.status.disconnect(self._on_worker_status)
+            worker.reconnected.disconnect(self._on_stream_reconnected)
             worker.request_stop()
             # Bounded wait so a stalled read can't freeze the GUI. With the
             # OpenCV open/read timeouts in _open_cap() this should normally

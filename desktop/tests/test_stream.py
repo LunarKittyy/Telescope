@@ -194,6 +194,31 @@ def test_stream_reader_drops_pipeline_errors_and_releases_capture():
     assert cap.released is True
 
 
+def test_stream_reader_emits_reconnected_signal_on_successful_reconnect():
+    raw = np.zeros((2, 2, 3), dtype=np.uint8)
+    first_cap = _Capture([(False, None)])
+    second_cap = _Capture([(True, raw)])
+    worker = stream.StreamWorker("url", None, None, 30)
+    reconnected = []
+    worker.reconnected.connect(lambda: reconnected.append(True))
+
+    reconnect_calls = []
+
+    def fake_reconnect(_stop):
+        reconnect_calls.append(True)
+        if len(reconnect_calls) == 1:
+            return second_cap
+        worker._stop_flag = True
+        return None
+
+    worker._reconnect_cap = fake_reconnect
+    worker._stream_reader(first_cap, threading.Event())
+
+    assert reconnected == [True]
+    assert first_cap.released is True
+    assert second_cap.released is True
+
+
 def test_run_streams_a_frame_and_stops_cleanly(monkeypatch):
     frame = np.full((2, 4, 3), [10, 20, 30], dtype=np.uint8)
     cap = _Capture([(True, frame)] + [(True, frame)] * 20)

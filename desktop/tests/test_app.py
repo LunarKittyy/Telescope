@@ -351,6 +351,30 @@ def test_reconnect_stream_only_restarts_when_active(window, monkeypatch):
     assert calls == ["stop", "start"]
 
 
+def test_stream_reconnected_resends_settings_to_every_plugin(window):
+    plugin_a = _Plugin("a")
+    plugin_b = _Plugin("b")
+    window.register_plugin(plugin_a)
+    window.register_plugin(plugin_b)
+    client = object()
+    window._session = StreamSession(id=1, url="http://phone/video", client=client, worker=object())
+
+    window._on_stream_reconnected()
+
+    assert plugin_a.started == [("http://phone/video", client)]
+    assert plugin_b.started == [("http://phone/video", client)]
+
+
+def test_stream_reconnected_is_noop_without_an_active_session(window):
+    plugin = _Plugin("a")
+    window.register_plugin(plugin)
+    window._session = None
+
+    window._on_stream_reconnected()
+
+    assert plugin.started == []
+
+
 def test_toggle_routes_to_start_or_stop(window, monkeypatch):
     calls = []
     monkeypatch.setattr(window, "_start", lambda: calls.append("start"))
@@ -420,6 +444,7 @@ def test_start_builds_worker_pipeline_and_notifies_plugins(window, monkeypatch):
         def __init__(self, **kwargs):
             self.kwargs = kwargs
             self.status = _Signal()
+            self.reconnected = _Signal()
             self.started = False
             workers.append(self)
 
@@ -471,6 +496,7 @@ def test_start_uses_defaults_without_optional_plugins(window, monkeypatch):
         def __init__(self, **kwargs):
             captured.append(kwargs)
             self.status = _Signal()
+            self.reconnected = _Signal()
 
         def start(self):
             pass
@@ -499,6 +525,8 @@ def test_stop_requests_worker_closes_client_and_notifies_plugins(window):
         def __init__(self):
             self.status = _Signal()
             self.status.connect(window._on_worker_status)
+            self.reconnected = _Signal()
+            self.reconnected.connect(window._on_stream_reconnected)
             self.stop_requested = False
 
         def request_stop(self):

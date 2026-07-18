@@ -54,7 +54,8 @@ def _fit_frame(frame, target_w, target_h):
 
 
 class StreamWorker(QThread):
-    status = pyqtSignal(str, str)   # (kind, msg): info/ok/warn/fps/idle
+    status      = pyqtSignal(str, str)   # (kind, msg): info/ok/warn/fps/idle
+    reconnected = pyqtSignal()           # mid-stream reconnect succeeded (not the initial connect)
 
     def __init__(self, url: str, width: Optional[int], height: Optional[int],
                  fps: int, frame_pipeline: list = None,
@@ -138,6 +139,7 @@ class StreamWorker(QThread):
                 if cap is None:
                     return
                 self.status.emit("ok", "Stream reconnected")
+                self.reconnected.emit()
                 continue
             try:
                 rw = self._width
