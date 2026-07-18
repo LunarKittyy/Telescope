@@ -1,8 +1,10 @@
 package com.telescope
 
+import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.graphics.Matrix
@@ -89,6 +91,17 @@ class PreviewActivity : AppCompatActivity() {
     // from a superseded lens switch can't clobber the camera that's actually current.
     private var standaloneGeneration = 0
 
+    // Without a lock screen covering the activity, turning the display off only
+    // triggers onPause(), not onStop() — the camera session and TextureView are
+    // left alive but the surface stalls, so the preview comes back frozen until
+    // manually exited and reopened. Since there's no reason to keep this preview
+    // open with the screen off, just close it outright when that happens.
+    private val screenOffReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == Intent.ACTION_SCREEN_OFF) finish()
+        }
+    }
+
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
             service = (binder as CameraStreamService.LocalBinder).getService()
@@ -167,9 +180,11 @@ class PreviewActivity : AppCompatActivity() {
         // indistinguishable from "still connecting". If nothing was running this only
         // triggers the service's cheap onCreate(), and tryResolve() unbinds it immediately.
         bindService(Intent(this, CameraStreamService::class.java), serviceConnection, Context.BIND_AUTO_CREATE)
+        registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
     }
 
     override fun onStop() {
+        unregisterReceiver(screenOffReceiver)
         tearDownPreview()
         if (bound) { unbindService(serviceConnection); bound = false }
         service = null
