@@ -48,10 +48,12 @@ def test_dialog_preset_visibility_and_apply_callback(qapp):
     applied = []
     dialog = SetupDialog(on_apply_canvas=lambda w, h: applied.append((w, h)))
     dialog.show()
+    assert dialog._advanced_content.isHidden()
     dialog.set_canvas_preset("Custom...", 1000, 700)
     assert not dialog._custom_widget.isHidden()
     dialog._apply_canvas()
     assert applied == [(1000, 700)]
+    assert dialog._advanced_content.isVisible()
     assert not dialog._canvas_apply_btn.isEnabled()
     assert dialog._canvas_status_lbl.isVisible()
     dialog.hide()

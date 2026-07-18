@@ -28,7 +28,10 @@ from telescope.platform.linux import (
     v4l2_devices_ready, v4l2_load, v4l2_module_loaded,
 )
 from telescope.plugin import TelescopePlugin
-from telescope.widgets.common import NoScrollComboBox, create_vector_icon
+from telescope.widgets.common import (
+    NoScrollComboBox, add_card_header, add_section_heading, create_card,
+    create_vector_icon, set_ui_role,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -92,13 +95,8 @@ class _DeviceDialog(QDialog):
         )
         buttons.accepted.connect(self._on_accept)
         buttons.rejected.connect(self.reject)
-        _base = "padding: 4px 12px; border-radius: 4px;"
-        buttons.button(QDialogButtonBox.StandardButton.Ok).setStyleSheet(
-            f"QPushButton {{ background-color: #3a6b4f; {_base} }} QPushButton:hover {{ background-color: #4a8b65; }}"
-        )
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setStyleSheet(
-            f"QPushButton {{ background-color: #6b3a3a; {_base} }} QPushButton:hover {{ background-color: #8b4a4a; }}"
-        )
+        set_ui_role(buttons.button(QDialogButtonBox.StandardButton.Ok), "success")
+        set_ui_role(buttons.button(QDialogButtonBox.StandardButton.Cancel), "quiet")
 
         lay = QVBoxLayout(self)
         lay.addLayout(form)
@@ -172,10 +170,9 @@ class _DeviceManagerDialog(QDialog):
         self._add_btn    = QPushButton("Pair...")
         self._edit_btn   = QPushButton("Edit")
         self._remove_btn = QPushButton("Remove")
-        _base = "padding: 4px 12px; border-radius: 4px;"
-        self._add_btn.setStyleSheet(f"QPushButton {{ background-color: #3a6b4f; {_base} }} QPushButton:hover {{ background-color: #4a8b65; }}")
-        self._edit_btn.setStyleSheet(_base)
-        self._remove_btn.setStyleSheet(f"QPushButton {{ background-color: #6b3a3a; {_base} }} QPushButton:hover {{ background-color: #8b4a4a; }}")
+        set_ui_role(self._add_btn, "success")
+        set_ui_role(self._edit_btn, "quiet")
+        set_ui_role(self._remove_btn, "danger")
         for btn in (self._add_btn, self._edit_btn, self._remove_btn):
             btn.setFixedWidth(90)
             btn.setFixedHeight(30)
@@ -317,7 +314,10 @@ class _PairingDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Pair with Phone")
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
-        self.setFixedWidth(360)
+        # The QR payload length controls the matrix size.  Keep the dialog
+        # resizable and give the default layout enough room for the normal
+        # pairing code plus its quiet zone and dialog margins.
+        self.setMinimumWidth(420)
         self._on_paired = on_paired
         # If set, pairing tunnels through this adb-attached phone instead of
         # the LAN - the phone reaches the pairing server via an adb reverse
@@ -429,6 +429,12 @@ class _PairingDialog(QDialog):
         else:
             qr_widget = _QRCodeWidget(offer.payload)
             self._qr_container.addWidget(qr_widget)
+            # A device name or a larger IP list can add QR modules.  Size the
+            # dialog from the actual rendered code instead of clipping it to a
+            # hard-coded window width.
+            required_width = qr_widget.width() + 48
+            if self.width() < required_width:
+                self.resize(required_width, self.height())
             self._status_lbl.setText("Scan with the Telescope app on your phone.")
 
     def _send_pair_broadcast(self):
@@ -526,27 +532,14 @@ class ConnectionPlugin(TelescopePlugin):
         self._bus.stream_connected.connect(self._on_stream_connected)
 
     def create_panel(self) -> QWidget:
-        card = QFrame()
-        card.setFrameShape(QFrame.Shape.StyledPanel)
-        card.setObjectName("card")
+        card = create_card()
         lay = QVBoxLayout(card)
-        lay.setContentsMargins(14, 14, 14, 14)
+        lay.setContentsMargins(16, 15, 16, 15)
         lay.setSpacing(10)
-
-        hdr = QHBoxLayout()
-        hdr.setContentsMargins(0, 0, 0, 4)
-        hdr.setSpacing(8)
-        icon_lbl = QLabel()
-        icon_lbl.setPixmap(create_vector_icon("connection", "#518cc6").pixmap(18, 18))
-        icon_lbl.setFixedSize(18, 18)
-        hdr.addWidget(icon_lbl)
-        title_lbl = QLabel("Connection")
-        title_lbl.setObjectName("card_title")
-        hdr.addWidget(title_lbl)
-        hdr.addStretch()
-        lay.addLayout(hdr)
+        add_card_header(lay, "Connection", "connection")
 
         # ── Mode ──────────────────────────────────────────────────────────────
+        add_section_heading(lay, "Connection mode")
         mode_row = QHBoxLayout()
         mode_row.setContentsMargins(0, 0, 0, 0)
         mode_lbl = QLabel("Mode")
@@ -570,6 +563,7 @@ class ConnectionPlugin(TelescopePlugin):
 
         # ── Pair (always visible - a USB-only phone still needs to be paired,
         #     it just gets there via adb reverse instead of the LAN) ──────────
+        add_section_heading(lay, "Phone")
         pair_row = QHBoxLayout()
         pair_row.setContentsMargins(0, 0, 0, 0)
         pair_row.setSpacing(6)
@@ -584,6 +578,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._qr_btn = QPushButton()
         self._qr_btn.setFixedSize(28, 28)
         self._qr_btn.setIconSize(_icon_size)
+        set_ui_role(self._qr_btn, "quiet")
         self._qr_btn.clicked.connect(self._on_pair_qr)
         self._update_pair_button()
         pair_row.addWidget(self._qr_btn)
@@ -615,6 +610,7 @@ class ConnectionPlugin(TelescopePlugin):
 
         self._gear_btn = QPushButton()
         self._gear_btn.setFixedSize(28, 28)
+        set_ui_role(self._gear_btn, "quiet")
         self._gear_btn.setIcon(create_vector_icon("gear", _icon_color))
         self._gear_btn.setIconSize(_icon_size)
         self._gear_btn.setToolTip("Manage devices")
@@ -637,6 +633,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._device_row_w.setVisible(False)
 
         # ── Port ──────────────────────────────────────────────────────────────
+        add_section_heading(lay, "Network")
         port_row = QHBoxLayout()
         port_row.setContentsMargins(0, 0, 0, 0)
         port_row.setSpacing(6)

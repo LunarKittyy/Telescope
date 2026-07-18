@@ -39,42 +39,93 @@ EXTRA_QSS = """
     font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Ubuntu', 'Cantarell', 'Helvetica Neue', 'Arial', sans-serif;
 }
 QMainWindow, QScrollArea, QScrollArea > QWidget, QScrollArea > QWidget > QWidget, QWidget#content_widget, QWidget#footer_panel {
-    background-color: #1e222b;
+    background-color: #1b2028;
 }
 QScrollArea, QScrollArea > QWidget, QScrollArea > QWidget > QWidget {
     border: none;
 }
+QDialog {
+    background-color: #1b2028;
+    color: #e8edf4;
+}
 QWidget#ip_row_container, QWidget#battery_row {
     background-color: transparent;
 }
+QWidget#form_row, QWidget#form_row_content, QWidget#inline_control, QWidget#lens_panel {
+    background-color: transparent;
+    border: none;
+}
 QWidget#footer_panel {
-    border-top: 1px solid #282c34;
-    background-color: #1e222b;
+    border-top: 1px solid #303945;
+    background-color: #171c23;
 }
 QFrame#card {
-    background-color: #121419;
-    border: 1px solid #282c34;
-    border-radius: 8px;
+    background-color: #11161d;
+    border: 1px solid #303945;
+    border-radius: 10px;
 }
 QFrame#separator {
-    background-color: #282c34;
+    background-color: #303945;
     max-height: 1px;
     border: none;
 }
 QLabel#card_title {
+    font-size: 11pt;
+    font-weight: 600;
+    color: #e8edf4;
+}
+QLabel#card_subtitle {
+    color: #7f8d9e;
+    font-size: 9pt;
+}
+QLabel#dialog_title {
+    color: #edf3fa;
+    font-size: 15pt;
+    font-weight: 600;
+}
+QLabel#dialog_subtitle {
+    color: #8796a8;
+    font-size: 9pt;
+    margin-bottom: 3px;
+}
+QToolButton#section_toggle {
+    min-height: 32px;
+    padding: 0 4px;
+    border: none;
+    background-color: transparent;
+    color: #b8c5d3;
     font-size: 10pt;
-    font-weight: bold;
-    text-transform: uppercase;
-    color: #518cc6;
-    letter-spacing: 1px;
+    font-weight: 600;
+    text-align: left;
+}
+QToolButton#section_toggle:hover {
+    color: #6aa9ed;
+}
+QFrame#subsection {
+    background-color: #151b22;
+    border: 1px solid #303945;
+    border-radius: 8px;
+}
+QLabel#section_title {
+    color: #6aa9ed;
+    font-size: 9pt;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    margin-top: 4px;
+    margin-bottom: 1px;
+}
+QLabel#form_label {
+    color: #94a4b6;
+    font-size: 9pt;
+    font-weight: 500;
 }
 QLabel#dim {
-    color: #78909c;
+    color: #8796a8;
     font-size: 9pt;
     font-weight: 500;
 }
 QLabel#val {
-    color: #518cc6;
+    color: #8bbcf2;
     font-family: monospace;
     font-size: 9pt;
 }
@@ -96,12 +147,62 @@ QLabel#fps_lbl {
     font-size: 9pt;
 }
 QComboBox {
-    padding-left: 6px;
-    padding-right: 20px;
+    min-height: 30px;
+    padding: 0 24px 0 9px;
+    border: 1px solid #3a4654;
+    border-radius: 5px;
+    background-color: #1a212a;
+    color: #e8edf4;
 }
-QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {
+QComboBox:hover, QLineEdit:hover, QSpinBox:hover, QDoubleSpinBox:hover {
+    border-color: #52657a;
+}
+QComboBox QAbstractItemView {
+    background-color: #1a212a;
+    border: 1px solid #52657a;
+    selection-background-color: #315a85;
+    selection-color: #ffffff;
+}
+QLineEdit, QTextEdit, QSpinBox, QDoubleSpinBox {
+    min-height: 30px;
+    padding: 0 9px;
+    border: 1px solid #3a4654;
+    border-radius: 5px;
+    background-color: #1a212a;
+    color: #e8edf4;
+}
+QSpinBox::up-button, QSpinBox::down-button,
+QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
+    width: 0;
+    border: none;
+}
+QLineEdit:focus, QTextEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {
     color: #ffffff;
-    border-bottom: 2px solid #518cc6;
+    border: 1px solid #6aa9ed;
+}
+QGroupBox {
+    margin-top: 12px;
+    padding: 20px 14px 14px 14px;
+    border: 1px solid #465362;
+    border-radius: 8px;
+    color: #dce5ef;
+    font-size: 9pt;
+    font-weight: 600;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 12px;
+    padding: 0 6px;
+    color: #9eacbc;
+    background-color: #1b2028;
+}
+QRadioButton, QCheckBox {
+    spacing: 8px;
+    color: #e8edf4;
+    min-height: 28px;
+}
+QRadioButton:disabled, QCheckBox:disabled {
+    color: #5e6b79;
 }
 QSlider {
     background: transparent;
@@ -112,17 +213,17 @@ QSlider {
 QSlider::groove:horizontal {
     border: none;
     height: 4px;
-    background: #2c3e50;
+    background: #34414d;
     border-radius: 2px;
     margin-left: 7px;
     margin-right: 7px;
 }
 QSlider::sub-page:horizontal {
-    background: #518cc6;
+    background: #6aa9ed;
     border-radius: 2px;
 }
 QSlider::handle:horizontal {
-    background: #518cc6;
+    background: #6aa9ed;
     width: 14px;
     height: 14px;
     margin-top: -5px;
@@ -130,7 +231,7 @@ QSlider::handle:horizontal {
     border-radius: 7px;
 }
 QSlider::handle:horizontal:hover {
-    background: #487aa8;
+    background: #82b9f2;
 }
 QSlider::handle:horizontal:disabled {
     background: #546e7a;
@@ -142,44 +243,82 @@ QSlider::sub-page:horizontal:disabled {
     background: #37474f;
 }
 QPushButton {
-    background-color: #3b5e7f;
+    min-height: 30px;
+    background-color: #334253;
     border: none;
-    border-radius: 4px;
-    padding: 6px 12px;
+    border-radius: 5px;
+    padding: 0 13px;
     color: #ffffff;
-    font-weight: bold;
+    font-weight: 600;
 }
 QPushButton:hover {
-    background-color: #466e95;
+    background-color: #41566d;
 }
 QPushButton:pressed {
-    background-color: #2f4b66;
+    background-color: #293747;
 }
 QPushButton:checked {
-    background-color: #518cc6;
+    background-color: #4b8dd1;
     color: #ffffff;
 }
 QPushButton:checked:hover {
-    background-color: #619cd6;
+    background-color: #5ca0e8;
+}
+QPushButton[uiRole="primary"] {
+    background-color: #3f72a5;
+}
+QPushButton[uiRole="primary"]:hover {
+    background-color: #4e88c1;
+}
+QPushButton[uiRole="success"] {
+    background-color: #32684d;
+}
+QPushButton[uiRole="success"]:hover {
+    background-color: #3e805e;
+}
+QPushButton[uiRole="danger"] {
+    background-color: #713f43;
+}
+QPushButton[uiRole="danger"]:hover {
+    background-color: #8c4d52;
+}
+QPushButton[uiRole="quiet"] {
+    background-color: #252d37;
+    color: #b6c2cf;
+}
+QPushButton#lens_button {
+    background-color: #202a35;
+    border: 1px solid #3a4654;
+    color: #c8d5e3;
+    text-align: center;
+}
+QPushButton#lens_button:hover {
+    background-color: #293949;
+    border-color: #59738e;
+}
+QPushButton#lens_button:checked {
+    background-color: #3f72a5;
+    border-color: #6aa9ed;
+    color: #ffffff;
 }
 QPushButton#start_btn {
     font-size: 11pt;
     font-weight: bold;
     padding: 12px;
-    border-radius: 6px;
-    background-color: #3b5e7f;
+    border-radius: 7px;
+    background-color: #3f72a5;
     color: #ffffff;
 }
 QPushButton#start_btn:hover {
-    background-color: #466e95;
+    background-color: #4e88c1;
 }
 QPushButton#start_btn[streaming=true] {
-    background-color: #c0392b;
-    border: 1px solid #a93226;
+    background-color: #a94742;
+    border: 1px solid #c75c54;
     color: #ffffff;
 }
 QPushButton#start_btn[streaming=true]:hover {
-    background-color: #d64535;
+    background-color: #c75c54;
 }
 """
 
@@ -233,8 +372,8 @@ class TelescopeWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Telescope")
-        self.setMinimumSize(520, 480)
-        self.resize(540, 900)
+        self.setMinimumSize(540, 480)
+        self.resize(560, 900)
 
         self._bus     = EventBus()
         self._plugins: list[TelescopePlugin] = []
@@ -316,8 +455,8 @@ class TelescopeWindow(QMainWindow):
         content = QWidget()
         content.setObjectName("content_widget")
         self._scroll_content_layout = QVBoxLayout(content)
-        self._scroll_content_layout.setContentsMargins(16, 16, 16, 16)
-        self._scroll_content_layout.setSpacing(14)
+        self._scroll_content_layout.setContentsMargins(18, 18, 18, 18)
+        self._scroll_content_layout.setSpacing(16)
         self._scroll_content_layout.addStretch()
         scroll.setWidget(content)
         root_lay.addWidget(scroll, 1)
@@ -325,8 +464,8 @@ class TelescopeWindow(QMainWindow):
         btn_frame = QWidget()
         btn_frame.setObjectName("footer_panel")
         btn_lay = QVBoxLayout(btn_frame)
-        btn_lay.setContentsMargins(16, 10, 16, 16)
-        btn_lay.setSpacing(8)
+        btn_lay.setContentsMargins(18, 11, 18, 18)
+        btn_lay.setSpacing(7)
 
         self._status_lbl = QLabel("Idle - configure above and press Start")
         self._status_lbl.setObjectName("status_dim")
@@ -339,6 +478,7 @@ class TelescopeWindow(QMainWindow):
 
         self._start_btn = QPushButton("Start Streaming")
         self._start_btn.setObjectName("start_btn")
+        self._start_btn.setProperty("uiRole", "primary")
         self._start_btn.setProperty("streaming", False)
         self._start_btn.clicked.connect(self._toggle)
 

@@ -1,5 +1,5 @@
 from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtWidgets import QGridLayout, QLabel, QPushButton, QWidget
+from PyQt6.QtWidgets import QGridLayout, QLabel, QPushButton, QSizePolicy, QWidget
 
 
 class LensPanel(QWidget):
@@ -7,6 +7,7 @@ class LensPanel(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setObjectName("lens_panel")
         self._layout  = QGridLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(4)
@@ -25,6 +26,9 @@ class LensPanel(QWidget):
         for i, cam in enumerate(cameras):
             lbl = cam["label"].replace(" [phys]", "").replace("Back ", "").replace("Front ", "F/")
             btn = QPushButton(lbl)
+            btn.setObjectName("lens_button")
+            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            btn.setMinimumHeight(32)
             btn.setCheckable(True)
             btn.setChecked(cam.get("current", False))
             btn.clicked.connect(lambda _, c=cam, b=btn: self._select(c, b))

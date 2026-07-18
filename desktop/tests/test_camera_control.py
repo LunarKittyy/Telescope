@@ -160,6 +160,25 @@ def test_auto_mode_handlers_send_reset_commands(camera_plugin):
     assert ctrl.sent[-1]["value"] == "continuous"
 
 
+def test_manual_controls_are_progressively_disclosed(camera_plugin):
+    plugin, _host, _bus, _panel = camera_plugin
+
+    assert all(row.isHidden() for row in plugin._manual_exp_rows)
+    assert all(row.isHidden() for row in plugin._manual_wb_rows)
+    assert all(row.isHidden() for row in plugin._manual_focus_rows)
+
+    plugin._rb_exp_manual.setChecked(True)
+    plugin._on_exp_mode()
+    plugin._rb_wb_manual.setChecked(True)
+    plugin._on_wb_mode()
+    plugin._rb_focus_manual.setChecked(True)
+    plugin._on_focus_mode()
+
+    assert all(not row.isHidden() for row in plugin._manual_exp_rows)
+    assert all(not row.isHidden() for row in plugin._manual_wb_rows)
+    assert all(not row.isHidden() for row in plugin._manual_focus_rows)
+
+
 def test_discrete_control_handlers_send_selected_values(camera_plugin):
     plugin, host, _bus, _panel = camera_plugin
     ctrl = _Ctrl()

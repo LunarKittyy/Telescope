@@ -8,7 +8,8 @@ from PyQt6.QtWidgets import (
 
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
-    NoScrollComboBox, NoScrollSlider, PanSliderRow, create_separator, create_vector_icon,
+    NoScrollComboBox, NoScrollSlider, PanSliderRow, add_card_header,
+    add_section_heading, create_card, create_separator, SLIDER_TRACK_WIDTH,
 )
 
 ROTATIONS = {
@@ -57,27 +58,14 @@ class TransformsPlugin(TelescopePlugin):
         self.pan_y    = 0.0
 
     def create_panel(self) -> QWidget:
-        card = QFrame()
-        card.setFrameShape(QFrame.Shape.StyledPanel)
-        card.setObjectName("card")
+        card = create_card()
         lay = QVBoxLayout(card)
-        lay.setContentsMargins(14, 14, 14, 14)
+        lay.setContentsMargins(16, 15, 16, 15)
         lay.setSpacing(10)
-
-        hdr = QHBoxLayout()
-        hdr.setContentsMargins(0, 0, 0, 4)
-        hdr.setSpacing(8)
-        icon_lbl = QLabel()
-        icon_lbl.setPixmap(create_vector_icon("transforms", "#518cc6").pixmap(18, 18))
-        icon_lbl.setFixedSize(18, 18)
-        hdr.addWidget(icon_lbl)
-        title_lbl = QLabel("Transforms")
-        title_lbl.setObjectName("card_title")
-        hdr.addWidget(title_lbl)
-        hdr.addStretch()
-        lay.addLayout(hdr)
+        add_card_header(lay, "Transforms", "transforms")
 
         # ── Flip ─────────────────────────────────────────────────────────────
+        add_section_heading(lay, "Orientation")
         flip_row = QHBoxLayout()
         flip_row.setContentsMargins(0, 0, 0, 0)
         fl = QLabel("Flip")
@@ -113,6 +101,7 @@ class TransformsPlugin(TelescopePlugin):
         lay.addWidget(create_separator())
 
         # ── Zoom ──────────────────────────────────────────────────────────────
+        add_section_heading(lay, "Framing")
         zoom_row = QHBoxLayout()
         zoom_row.setContentsMargins(0, 0, 0, 0)
         zoom_row.setSpacing(8)
@@ -124,7 +113,7 @@ class TransformsPlugin(TelescopePlugin):
         self._zoom_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._zoom_slider.setRange(100, 500)
         self._zoom_slider.setValue(100)
-        self._zoom_slider.setMinimumWidth(120)
+        self._zoom_slider.setFixedWidth(SLIDER_TRACK_WIDTH)
         self._zoom_val_lbl = QLabel("1.0×")
         self._zoom_val_lbl.setObjectName("val")
         self._zoom_val_lbl.setMinimumWidth(40)
@@ -137,27 +126,29 @@ class TransformsPlugin(TelescopePlugin):
         pan_x_row = QHBoxLayout()
         pan_x_row.setContentsMargins(0, 0, 0, 0)
         pan_x_row.setSpacing(8)
-        pan_x_lbl = QLabel("Pan X")
+        pan_x_lbl = QLabel("Pan X (L–R)")
         pan_x_lbl.setObjectName("dim")
         pan_x_lbl.setFixedWidth(110)
         pan_x_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         pan_x_row.addWidget(pan_x_lbl)
-        self._pan_x_slider = PanSliderRow("L", "R")
+        self._pan_x_slider = PanSliderRow(show_end_labels=False)
         self._pan_x_slider.value_changed.connect(self._on_pan_changed)
-        pan_x_row.addWidget(self._pan_x_slider, 1)
+        pan_x_row.addWidget(self._pan_x_slider)
+        pan_x_row.addStretch()
         lay.addLayout(pan_x_row)
 
         pan_y_row = QHBoxLayout()
         pan_y_row.setContentsMargins(0, 0, 0, 0)
         pan_y_row.setSpacing(8)
-        pan_y_lbl = QLabel("Pan Y")
+        pan_y_lbl = QLabel("Pan Y (U–D)")
         pan_y_lbl.setObjectName("dim")
         pan_y_lbl.setFixedWidth(110)
         pan_y_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         pan_y_row.addWidget(pan_y_lbl)
-        self._pan_y_slider = PanSliderRow("U", "D")
+        self._pan_y_slider = PanSliderRow(show_end_labels=False)
         self._pan_y_slider.value_changed.connect(self._on_pan_changed)
-        pan_y_row.addWidget(self._pan_y_slider, 1)
+        pan_y_row.addWidget(self._pan_y_slider)
+        pan_y_row.addStretch()
         lay.addLayout(pan_y_row)
 
         self._pan_x_slider.set_enabled(False)

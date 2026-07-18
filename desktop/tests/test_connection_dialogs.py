@@ -116,6 +116,11 @@ def test_qr_widget_builds_matrix_and_renders(qapp):
     assert not image.isNull()
 
 
+def test_pairing_dialog_reserves_width_for_a_qr_code(qapp):
+    dialog = _PairingDialog(None, lambda *_args: None)
+    assert dialog.minimumWidth() >= 420
+
+
 def test_pairing_dialog_reports_no_network_interfaces(monkeypatch, qapp):
     import telescope.pairing as pairing_module
 

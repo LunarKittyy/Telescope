@@ -10,7 +10,10 @@ from PyQt6.QtWidgets import (
 
 from telescope.platform import IS_LINUX
 from telescope.plugin import TelescopePlugin
-from telescope.widgets.common import NoScrollSpinBox, create_separator, create_vector_icon
+from telescope.widgets.common import (
+    NoScrollSpinBox, add_card_header, add_section_heading, create_card,
+    create_separator,
+)
 
 _STATUS_COLORS = {
     "ok":   "#66bb6a",
@@ -43,27 +46,14 @@ class MonitoringPlugin(TelescopePlugin):
         bus.phone_state_updated.connect(self._on_state)
 
     def create_panel(self) -> QWidget:
-        card = QFrame()
-        card.setFrameShape(QFrame.Shape.StyledPanel)
-        card.setObjectName("card")
+        card = create_card()
         lay = QVBoxLayout(card)
-        lay.setContentsMargins(14, 14, 14, 14)
+        lay.setContentsMargins(16, 15, 16, 15)
         lay.setSpacing(10)
-
-        hdr = QHBoxLayout()
-        hdr.setContentsMargins(0, 0, 0, 4)
-        hdr.setSpacing(8)
-        icon_lbl = QLabel()
-        icon_lbl.setPixmap(create_vector_icon("status", "#518cc6").pixmap(18, 18))
-        icon_lbl.setFixedSize(18, 18)
-        hdr.addWidget(icon_lbl)
-        title_lbl = QLabel("Monitoring")
-        title_lbl.setObjectName("card_title")
-        hdr.addWidget(title_lbl)
-        hdr.addStretch()
-        lay.addLayout(hdr)
+        add_card_header(lay, "Monitoring", "status")
 
         # Live battery / temp display
+        add_section_heading(lay, "Live status")
         live_row = QHBoxLayout()
         live_row.setContentsMargins(0, 0, 0, 0)
         live_row.setSpacing(20)
@@ -83,6 +73,7 @@ class MonitoringPlugin(TelescopePlugin):
         lay.addWidget(create_separator())
 
         # Alert thresholds
+        add_section_heading(lay, "Alerts")
         batt_row = QHBoxLayout()
         batt_row.setContentsMargins(0, 0, 0, 0)
         batt_lbl = QLabel("Battery alert")

@@ -2,12 +2,10 @@ import cv2
 import numpy as np
 from PyQt6.QtCore import Qt, QEvent, QObject, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap
-from PyQt6.QtWidgets import (
-    QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget,
-)
+from PyQt6.QtWidgets import QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
 from telescope.plugin import TelescopePlugin
-from telescope.widgets.common import create_vector_icon
+from telescope.widgets.common import add_card_header, create_card, set_ui_role
 
 
 class _Sig(QObject):
@@ -94,36 +92,23 @@ class PreviewPlugin(TelescopePlugin):
         host.installEventFilter(self._host_filter)
 
     def create_panel(self) -> QWidget:
-        card = QFrame()
-        card.setFrameShape(QFrame.Shape.StyledPanel)
-        card.setObjectName("card")
+        card = create_card()
         lay = QVBoxLayout(card)
-        lay.setContentsMargins(14, 14, 14, 14)
+        lay.setContentsMargins(16, 15, 16, 15)
         lay.setSpacing(10)
-
-        hdr = QHBoxLayout()
-        hdr.setContentsMargins(0, 0, 0, 0)
-        hdr.setSpacing(8)
-        icon_lbl = QLabel()
-        icon_lbl.setPixmap(create_vector_icon("stream", "#518cc6").pixmap(18, 18))
-        icon_lbl.setFixedSize(18, 18)
-        hdr.addWidget(icon_lbl)
-        title_lbl = QLabel("Video Preview")
-        title_lbl.setObjectName("card_title")
-        hdr.addWidget(title_lbl)
-        hdr.addStretch()
+        hdr = add_card_header(lay, "Video Preview", "stream")
 
         self._toggle_btn = QPushButton("Show")
         self._toggle_btn.setMinimumWidth(62)
+        set_ui_role(self._toggle_btn, "quiet")
         self._toggle_btn.clicked.connect(self._toggle)
         hdr.addWidget(self._toggle_btn)
 
         self._popout_btn = QPushButton("Pop out")
         self._popout_btn.setMinimumWidth(66)
+        set_ui_role(self._popout_btn, "quiet")
         self._popout_btn.clicked.connect(self._open_popout)
         hdr.addWidget(self._popout_btn)
-
-        lay.addLayout(hdr)
 
         self._preview_lbl = QLabel()
         self._preview_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)

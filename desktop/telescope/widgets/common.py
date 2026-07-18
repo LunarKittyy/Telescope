@@ -4,8 +4,82 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QIcon, QPainter, QPen, QBrush, QPixmap
 from PyQt6.QtWidgets import (
     QComboBox, QDoubleSpinBox, QFrame, QHBoxLayout, QLabel,
-    QSlider, QSpinBox, QWidget,
+    QSlider, QSpinBox, QSizePolicy, QVBoxLayout, QWidget,
 )
+
+
+# ── Shared desktop UI primitives ─────────────────────────────────────────────
+
+FORM_LABEL_WIDTH = 112
+SLIDER_TRACK_WIDTH = 168
+
+
+def set_ui_role(widget: QWidget, role: str):
+    """Apply a semantic visual role defined by the application QSS."""
+    widget.setProperty("uiRole", role)
+    style = widget.style()
+    style.unpolish(widget)
+    style.polish(widget)
+
+
+def create_card(parent=None) -> QFrame:
+    card = QFrame(parent)
+    card.setObjectName("card")
+    card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+    return card
+
+
+def add_card_header(layout: QVBoxLayout, title: str, icon_name: str,
+                    subtitle: str = "") -> QHBoxLayout:
+    """Add the standard icon/title header used by every main-window card."""
+    header = QHBoxLayout()
+    header.setContentsMargins(0, 0, 0, 4)
+    header.setSpacing(9)
+
+    icon = QLabel()
+    icon.setPixmap(create_vector_icon(icon_name, "#6aa9ed").pixmap(18, 18))
+    icon.setFixedSize(18, 18)
+    header.addWidget(icon)
+
+    title_label = QLabel(title)
+    title_label.setObjectName("card_title")
+    header.addWidget(title_label)
+
+    if subtitle:
+        subtitle_label = QLabel(subtitle)
+        subtitle_label.setObjectName("card_subtitle")
+        header.addWidget(subtitle_label)
+
+    header.addStretch()
+    layout.addLayout(header)
+    return header
+
+
+def add_section_heading(layout: QVBoxLayout, text: str):
+    heading = QLabel(text)
+    heading.setObjectName("section_title")
+    layout.addWidget(heading)
+    return heading
+
+
+def form_label(text: str, width: int = FORM_LABEL_WIDTH) -> QLabel:
+    label = QLabel(text)
+    label.setObjectName("form_label")
+    label.setFixedWidth(width)
+    label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+    return label
+
+
+def add_form_row(layout: QVBoxLayout, text: str, control: QWidget,
+                 label_width: int = FORM_LABEL_WIDTH):
+    """Add a consistently aligned label/control row to a card."""
+    row = QHBoxLayout()
+    row.setContentsMargins(0, 0, 0, 0)
+    row.setSpacing(10)
+    row.addWidget(form_label(text, label_width))
+    row.addWidget(control, 1)
+    layout.addLayout(row)
+    return row
 
 # ── Pure display helpers ──────────────────────────────────────────────────────
 
@@ -150,6 +224,13 @@ def create_vector_icon(icon_name: str, color_hex: str) -> QIcon:
         painter.drawLine(20, 17, 24, 17)
         painter.drawLine(24, 17, 24, 7)
         painter.drawLine(24, 7, 28, 7)
+    elif icon_name == "transforms":
+        painter.drawLine(7, 11, 25, 11)
+        painter.drawLine(7, 21, 25, 21)
+        painter.drawLine(20, 7, 25, 11)
+        painter.drawLine(20, 15, 25, 11)
+        painter.drawLine(12, 17, 7, 21)
+        painter.drawLine(12, 25, 7, 21)
 
     painter.end()
     return QIcon(pixmap)
@@ -171,6 +252,7 @@ class LogSliderRow(QWidget):
                  spinbox_scale: float = 1.0,
                  spinbox_decimals: int = 0, parent=None):
         super().__init__(parent)
+        self.setObjectName("inline_control")
         self.v_min = v_min
         self.v_max = v_max
         self.display_fn = display_fn or str
@@ -184,8 +266,8 @@ class LogSliderRow(QWidget):
         self._slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._slider.setRange(0, self.STEPS)
         self._slider.setValue(0)
-        self._slider.setMinimumWidth(140)
-        lay.addWidget(self._slider, 1)
+        self._slider.setFixedWidth(SLIDER_TRACK_WIDTH)
+        lay.addWidget(self._slider)
 
         self._val_lbl = QLabel(display_fn(v_min) if display_fn else str(v_min))
         self._val_lbl.setObjectName("val")
@@ -273,25 +355,31 @@ class PanSliderRow(QWidget):
     value_changed = pyqtSignal(float)
     STEPS = 200
 
-    def __init__(self, label_neg: str = "L", label_pos: str = "R", parent=None):
+    def __init__(self, label_neg: str = "L", label_pos: str = "R",
+                 show_end_labels: bool = True, parent=None):
         super().__init__(parent)
+        self.setObjectName("inline_control")
         lay = QHBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(8)
 
-        neg_lbl = QLabel(label_neg)
-        neg_lbl.setObjectName("dim")
-        lay.addWidget(neg_lbl)
+        if show_end_labels:
+            neg_lbl = QLabel(label_neg)
+            neg_lbl.setObjectName("dim")
+            lay.addWidget(neg_lbl)
 
         self._slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._slider.setRange(-self.STEPS, self.STEPS)
         self._slider.setValue(0)
-        self._slider.setMinimumWidth(120)
-        lay.addWidget(self._slider, 1)
+        self._slider.setFixedWidth(SLIDER_TRACK_WIDTH)
+        lay.addWidget(self._slider)
 
-        pos_lbl = QLabel(label_pos)
-        pos_lbl.setObjectName("dim")
-        lay.addWidget(pos_lbl)
+        if show_end_labels:
+            pos_lbl = QLabel(label_pos)
+            pos_lbl.setObjectName("dim")
+            lay.addWidget(pos_lbl)
+        else:
+            self.setFixedWidth(SLIDER_TRACK_WIDTH)
 
         self._slider.valueChanged.connect(self._on_slider)
 

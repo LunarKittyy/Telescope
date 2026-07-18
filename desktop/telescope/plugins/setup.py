@@ -4,7 +4,7 @@ from typing import Optional
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QCheckBox, QDialog, QFrame, QGroupBox, QHBoxLayout, QInputDialog, QLabel,
-    QPushButton, QSpinBox, QTextBrowser, QVBoxLayout, QWidget,
+    QPushButton, QSpinBox, QSizePolicy, QTextBrowser, QToolButton, QVBoxLayout, QWidget,
 )
 
 from telescope.platform import (
@@ -19,7 +19,9 @@ from telescope.platform.windows import (
     download_unitycapture, register_unitycapture, uc_is_registered, unitycapture_dir,
 )
 from telescope.plugin import TelescopePlugin
-from telescope.widgets.common import NoScrollComboBox, create_vector_icon
+from telescope.widgets.common import (
+    NoScrollComboBox, add_card_header, create_card, set_ui_role,
+)
 
 # (width, height) tuples for canvas presets; None = auto from first frame
 CANVAS_PRESETS: list[tuple[str, tuple[int, int] | None]] = [
@@ -137,7 +139,8 @@ class SetupDialog(QDialog):
     def __init__(self, parent=None, on_apply_canvas=None):
         super().__init__(parent)
         self.setWindowTitle("System Setup")
-        self.setMinimumWidth(500)
+        self.setMinimumWidth(560)
+        self.resize(600, 560)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self._on_apply_canvas = on_apply_canvas
         self._build_ui()
@@ -160,11 +163,23 @@ class SetupDialog(QDialog):
 
     def _build_ui(self):
         lay = QVBoxLayout(self)
+        lay.setContentsMargins(20, 18, 20, 18)
         lay.setSpacing(12)
 
+        title = QLabel("System Setup")
+        title.setObjectName("dialog_title")
+        title.setFixedHeight(30)
+        lay.addWidget(title)
+        subtitle = QLabel("Prepare the virtual camera and install the phone app.")
+        subtitle.setObjectName("dialog_subtitle")
+        subtitle.setFixedHeight(22)
+        lay.addWidget(subtitle)
+
         if IS_LINUX:
-            vc_gb = QGroupBox("Virtual Camera (v4l2loopback)")
+            vc_gb = QGroupBox("Virtual camera")
+            vc_gb.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
             vc_lay = QVBoxLayout(vc_gb)
+            vc_lay.setSpacing(9)
             self._v4l_lbl = QLabel("Checking...")
             self._v4l_lbl.setObjectName("status_dim")
             self._v4l_lbl.setWordWrap(True)
@@ -173,13 +188,11 @@ class SetupDialog(QDialog):
             )
             vc_lay.addWidget(self._v4l_lbl)
             btn_row = QHBoxLayout()
-            _base = "padding: 4px 10px; border-radius: 4px;"
             chk_btn   = QPushButton("Check Status")
-            chk_btn.setStyleSheet(_base)
             load_btn  = QPushButton("Load Module")
             unload_btn = QPushButton("Unload Module")
-            load_btn.setStyleSheet(f"QPushButton {{ background-color: #3a6b4f; {_base} }} QPushButton:hover {{ background-color: #4a8b65; }}")
-            unload_btn.setStyleSheet(f"QPushButton {{ background-color: #6b3a3a; {_base} }} QPushButton:hover {{ background-color: #8b4a4a; }}")
+            set_ui_role(load_btn, "success")
+            set_ui_role(unload_btn, "danger")
             load_btn.setToolTip(_SUDO_HINT)
             unload_btn.setToolTip(_SUDO_HINT)
             chk_btn.clicked.connect(self._v4l_check)
@@ -213,41 +226,64 @@ class SetupDialog(QDialog):
 
             lay.addWidget(vc_gb)
         else:
-            vc_gb = QGroupBox("Virtual Camera (UnityCapture)")
-            vc_lay = QHBoxLayout(vc_gb)
+            vc_gb = QGroupBox("Virtual camera")
+            vc_gb.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
+            vc_lay = QVBoxLayout(vc_gb)
+            vc_lay.setSpacing(9)
+            uc_row = QHBoxLayout()
             self._uc_status_lbl = QLabel("Checking...")
             self._uc_status_lbl.setObjectName("status_dim")
             self._uc_btn = QPushButton("Install Driver")
-            self._uc_btn.setFixedWidth(180)
-            self._uc_btn.setStyleSheet("QPushButton { background-color: #3a6b4f; padding: 4px 10px; border-radius: 4px; } QPushButton:hover { background-color: #4a8b65; }")
+            self._uc_btn.setMinimumWidth(170)
+            set_ui_role(self._uc_btn, "success")
             self._uc_btn.clicked.connect(self._install_uc)
-            vc_lay.addWidget(self._uc_status_lbl, 1)
-            vc_lay.addWidget(self._uc_btn)
-            lay.addWidget(vc_gb)
+            uc_row.addWidget(self._uc_status_lbl, 1)
+            uc_row.addWidget(self._uc_btn)
+            vc_lay.addLayout(uc_row)
 
-            adb_gb = QGroupBox("ADB (USB Mode)")
-            adb_lay = QHBoxLayout(adb_gb)
+            adb_row = QHBoxLayout()
+            adb_label = QLabel("ADB availability")
+            adb_label.setObjectName("form_label")
+            adb_label.setFixedWidth(112)
             self._adb_status_lbl = QLabel("Checking...")
             self._adb_status_lbl.setObjectName("status_dim")
-            adb_lay.addWidget(self._adb_status_lbl)
-            lay.addWidget(adb_gb)
+            adb_row.addWidget(adb_label)
+            adb_row.addWidget(self._adb_status_lbl, 1)
+            vc_lay.addLayout(adb_row)
+            lay.addWidget(vc_gb)
 
-        apk_gb = QGroupBox("Install Phone App (via USB)")
+        apk_gb = QGroupBox("Phone app")
+        apk_gb.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
         apk_lay = QHBoxLayout(apk_gb)
+        apk_lay.setSpacing(12)
         _apk = bundled_apk_path()
         self._apk_status_lbl = QLabel("Telescope.apk found" if _apk else "No APK found next to app")
         self._apk_status_lbl.setObjectName("status_ok" if _apk else "status_dim")
         self._apk_status_lbl.setWordWrap(True)
-        self._apk_btn = QPushButton("Install" if _apk else "Choose APK...")
-        self._apk_btn.setFixedWidth(150)
+        self._apk_btn = QPushButton("Install APK" if _apk else "Choose APK...")
+        self._apk_btn.setMinimumWidth(150)
+        set_ui_role(self._apk_btn, "primary")
         self._apk_btn.clicked.connect(self._install_apk)
         apk_lay.addWidget(self._apk_status_lbl, 1)
         apk_lay.addWidget(self._apk_btn)
         lay.addWidget(apk_gb)
 
         # ── Advanced ──────────────────────────────────────────────────────────
-        adv_gb = QGroupBox("Advanced")
+        self._advanced_toggle = QToolButton()
+        self._advanced_toggle.setText("Advanced")
+        self._advanced_toggle.setCheckable(True)
+        self._advanced_toggle.setChecked(False)
+        self._advanced_toggle.setArrowType(Qt.ArrowType.RightArrow)
+        self._advanced_toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self._advanced_toggle.setObjectName("section_toggle")
+        self._advanced_toggle.toggled.connect(self._toggle_advanced)
+        lay.addWidget(self._advanced_toggle)
+
+        adv_gb = QFrame()
+        adv_gb.setObjectName("subsection")
+        self._advanced_content = adv_gb
         adv_lay = QVBoxLayout(adv_gb)
+        adv_lay.setContentsMargins(14, 14, 14, 14)
         adv_lay.setSpacing(8)
 
         canvas_row = QHBoxLayout()
@@ -308,6 +344,7 @@ class SetupDialog(QDialog):
 
         apply_row = QHBoxLayout()
         self._canvas_apply_btn = QPushButton(apply_label)
+        set_ui_role(self._canvas_apply_btn, "primary")
         if apply_tooltip:
             self._canvas_apply_btn.setToolTip(apply_tooltip)
         self._canvas_apply_btn.clicked.connect(self._apply_canvas)
@@ -321,19 +358,30 @@ class SetupDialog(QDialog):
         self._canvas_status_lbl.setVisible(False)
         adv_lay.addWidget(self._canvas_status_lbl)
 
+        adv_gb.setVisible(False)
         lay.addWidget(adv_gb)
 
         close_row = QHBoxLayout()
         close_row.addStretch()
         close_btn = QPushButton("Close")
+        set_ui_role(close_btn, "quiet")
         close_btn.clicked.connect(self.accept)
         close_row.addWidget(close_btn)
         lay.addLayout(close_row)
+
+    def _toggle_advanced(self, expanded: bool):
+        self._advanced_toggle.setArrowType(
+            Qt.ArrowType.DownArrow if expanded else Qt.ArrowType.RightArrow
+        )
+        self._advanced_content.setVisible(expanded)
+        self.resize(self.width(), 700 if expanded else 560)
 
     def _on_preset_changed(self, label: str):
         self._custom_widget.setVisible(label == "Custom...")
 
     def _apply_canvas(self):
+        if not self._advanced_toggle.isChecked():
+            self._advanced_toggle.setChecked(True)
         w, h = self._get_selected_dims()
         self._canvas_apply_btn.setEnabled(False)
         self._canvas_status_lbl.setObjectName("status_dim")
@@ -583,34 +631,22 @@ class SetupPlugin(TelescopePlugin):
         return val
 
     def create_panel(self) -> QWidget:
-        card = QFrame()
-        card.setFrameShape(QFrame.Shape.StyledPanel)
-        card.setObjectName("card")
+        card = create_card()
         lay = QVBoxLayout(card)
-        lay.setContentsMargins(14, 14, 14, 14)
-        lay.setSpacing(10)
-
-        hdr = QHBoxLayout()
-        hdr.setContentsMargins(0, 0, 0, 4)
-        hdr.setSpacing(8)
-        icon_lbl = QLabel()
-        icon_lbl.setPixmap(create_vector_icon("gear", "#518cc6").pixmap(18, 18))
-        icon_lbl.setFixedSize(18, 18)
-        hdr.addWidget(icon_lbl)
-        title_lbl = QLabel("System Setup")
-        title_lbl.setObjectName("card_title")
-        hdr.addWidget(title_lbl)
-        hdr.addStretch()
-        lay.addLayout(hdr)
+        lay.setContentsMargins(16, 15, 16, 15)
+        lay.setSpacing(11)
+        add_card_header(lay, "System Setup", "gear")
 
         btn_row = QHBoxLayout()
         btn_row.setContentsMargins(0, 0, 0, 0)
         btn_row.setSpacing(8)
         open_btn = QPushButton("Setup Drivers && APK")
+        set_ui_role(open_btn, "primary")
         open_btn.clicked.connect(self._open)
         btn_row.addWidget(open_btn)
         guide_btn = QPushButton("Guide")
-        guide_btn.setFixedWidth(70)
+        guide_btn.setMinimumWidth(70)
+        set_ui_role(guide_btn, "quiet")
         guide_btn.clicked.connect(self._open_guide)
         btn_row.addWidget(guide_btn)
         btn_row.addStretch()

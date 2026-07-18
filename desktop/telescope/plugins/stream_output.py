@@ -6,7 +6,8 @@ from PyQt6.QtWidgets import (
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
     NoScrollComboBox, NoScrollSlider, NoScrollSpinBox,
-    create_separator, create_vector_icon, quality_label,
+    add_card_header, add_section_heading, create_card, create_separator,
+    quality_label, SLIDER_TRACK_WIDTH,
 )
 
 RESOLUTIONS = {
@@ -29,27 +30,14 @@ class StreamOutputPlugin(TelescopePlugin):
         self._ctrl = None
 
     def create_panel(self) -> QWidget:
-        card = QFrame()
-        card.setFrameShape(QFrame.Shape.StyledPanel)
-        card.setObjectName("card")
+        card = create_card()
         lay = QVBoxLayout(card)
-        lay.setContentsMargins(14, 14, 14, 14)
+        lay.setContentsMargins(16, 15, 16, 15)
         lay.setSpacing(10)
-
-        hdr = QHBoxLayout()
-        hdr.setContentsMargins(0, 0, 0, 4)
-        hdr.setSpacing(8)
-        icon_lbl = QLabel()
-        icon_lbl.setPixmap(create_vector_icon("stream", "#518cc6").pixmap(18, 18))
-        icon_lbl.setFixedSize(18, 18)
-        hdr.addWidget(icon_lbl)
-        title_lbl = QLabel("Stream & Output")
-        title_lbl.setObjectName("card_title")
-        hdr.addWidget(title_lbl)
-        hdr.addStretch()
-        lay.addLayout(hdr)
+        add_card_header(lay, "Stream & Output", "stream")
 
         # ── Resolution ────────────────────────────────────────────────────────
+        add_section_heading(lay, "Output")
         res_row = QHBoxLayout()
         res_row.setContentsMargins(0, 0, 0, 0)
         res_lbl = QLabel("Resolution")
@@ -86,6 +74,7 @@ class StreamOutputPlugin(TelescopePlugin):
         lay.addWidget(create_separator())
 
         # ── JPEG Quality ──────────────────────────────────────────────────────
+        add_section_heading(lay, "Phone stream")
         q_row = QHBoxLayout()
         q_row.setContentsMargins(0, 0, 0, 0)
         q_row.setSpacing(8)
@@ -97,7 +86,7 @@ class StreamOutputPlugin(TelescopePlugin):
         self._quality_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._quality_slider.setRange(50, 100)
         self._quality_slider.setValue(_DEFAULT_QUALITY)
-        self._quality_slider.setMinimumWidth(120)
+        self._quality_slider.setFixedWidth(SLIDER_TRACK_WIDTH)
         self._quality_slider.setToolTip("Lower quality and FPS reduce bandwidth. Useful on slow Wi-Fi or USB 2.")
         self._quality_val_lbl = QLabel(quality_label(_DEFAULT_QUALITY))
         self._quality_val_lbl.setObjectName("val")
