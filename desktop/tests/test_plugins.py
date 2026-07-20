@@ -226,6 +226,35 @@ def test_monitoring_charging_suppresses_battery_alert(monitoring):
     assert host.notifications == []
 
 
+def test_monitoring_charging_but_falling_still_alerts(monitoring):
+    # wonky charger: `charging` stays true but the level keeps dropping
+    plugin, host, _bus, _panel = monitoring
+    plugin._check_alerts(25, True, 20)
+    assert host.notifications == []
+
+    plugin._check_alerts(19, True, 20)
+    assert len(host.notifications) == 1
+    assert "Low Battery" in host.notifications[0][0]
+    assert "plugged in" in host.notifications[0][1]
+
+
+def test_monitoring_charging_rising_does_not_alert(monitoring):
+    plugin, host, _bus, _panel = monitoring
+    plugin._check_alerts(15, True, 20)
+    plugin._check_alerts(18, True, 20)
+    plugin._check_alerts(22, True, 20)
+    assert host.notifications == []
+
+
+def test_monitoring_charging_plateau_does_not_alert(monitoring):
+    # flat readings while charging shouldn't be treated as falling
+    plugin, host, _bus, _panel = monitoring
+    plugin._check_alerts(15, True, 20)
+    plugin._check_alerts(15, True, 20)
+    plugin._check_alerts(15, True, 20)
+    assert host.notifications == []
+
+
 def test_monitoring_fetch_emits_only_valid_battery_state(monitoring):
     plugin, _host, _bus, _panel = monitoring
     seen = []

@@ -36,6 +36,7 @@ class MonitoringPlugin(TelescopePlugin):
         self._ctrl = None
         self._battery_notified = False
         self._temp_notified    = False
+        self._last_level: Optional[int] = None
         self._sig = _Signals()
         self._sig.state_ready.connect(self._on_state)
 
@@ -85,7 +86,10 @@ class MonitoringPlugin(TelescopePlugin):
         self._batt_alert_spin.setValue(20)
         self._batt_alert_spin.setSuffix("%")
         self._batt_alert_spin.setFixedWidth(90)
-        self._batt_alert_spin.setToolTip("Alert when battery drops below this level while discharging")
+        self._batt_alert_spin.setToolTip(
+            "Alert when battery drops below this level - including while charging, "
+            "if the level keeps falling anyway"
+        )
         batt_row.addWidget(self._batt_alert_spin)
         batt_row.addStretch()
         lay.addLayout(batt_row)
@@ -112,6 +116,7 @@ class MonitoringPlugin(TelescopePlugin):
         self._ctrl = ctrl
         self._battery_notified = False
         self._temp_notified    = False
+        self._last_level = None
         self._battery_lbl.setText("—")
         self._temp_lbl.setText("—")
         self._timer.start()
@@ -170,10 +175,24 @@ class MonitoringPlugin(TelescopePlugin):
         batt_thresh = self._batt_alert_spin.value()
         temp_thresh = self._temp_alert_spin.value()
 
-        if not charging and level <= batt_thresh and not self._battery_notified:
+        # A wonky/underpowered charger can leave `charging` true while the level
+        # still falls, so treat an actual drop the same as being on battery -
+        # comparing consecutive readings catches this even on batteries big
+        # enough to plateau for a while in either direction.
+        falling = (not charging) or (self._last_level is not None and level < self._last_level)
+        self._last_level = level
+
+        if falling and level <= batt_thresh and not self._battery_notified:
             self._battery_notified = True
-            self._host.send_notification("Telescope - Low Battery",
-                                         f"Phone battery is at {level}%.")
+            if charging:
+                self._host.send_notification(
+                    "Telescope - Low Battery",
+                    f"Phone battery is at {level}% and still dropping despite being "
+                    "plugged in - the charger may not be keeping up.",
+                )
+            else:
+                self._host.send_notification("Telescope - Low Battery",
+                                             f"Phone battery is at {level}%.")
         elif level > batt_thresh + 5:
             self._battery_notified = False
 
