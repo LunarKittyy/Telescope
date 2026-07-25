@@ -73,7 +73,7 @@ class TransformsPlugin(TelescopePlugin):
         self._flip_v = QCheckBox("Vertical")
         self._flip_h.toggled.connect(self._on_flip)
         self._flip_v.toggled.connect(self._on_flip)
-        lay.addLayout(_row("Flip", segmented_row(self._flip_h, self._flip_v), stretch=True))
+        lay.addLayout(_row("Flip", segmented_row(self._flip_h, self._flip_v)))
 
         # ── Rotation ──────────────────────────────────────────────────────────
         self._rot_combo = NoScrollComboBox()

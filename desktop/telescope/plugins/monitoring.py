@@ -130,7 +130,7 @@ class MonitoringPlugin(TelescopePlugin):
         batt_thresh = self._batt_alert_spin.value()
         temp_thresh = self._temp_alert_spin.value()
 
-        charge_icon = "  [charging]" if charging else ""
+        charge_icon = "  ·  charging" if charging else ""
         if not charging and level <= batt_thresh:
             batt_color = _STATUS_COLORS["err"]
         elif not charging and level <= batt_thresh + 10:

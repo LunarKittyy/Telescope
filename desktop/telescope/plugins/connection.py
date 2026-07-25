@@ -549,7 +549,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._conn_grp.addButton(self._rb_wifi)
         self._rb_usb.setChecked(True)
         self._conn_grp.buttonClicked.connect(lambda _: self._on_mode())
-        lay.addLayout(_row("Mode", segmented_row(self._rb_wifi, self._rb_usb), stretch=True))
+        lay.addLayout(_row("Mode", segmented_row(self._rb_wifi, self._rb_usb)))
 
         # ── Pairing (always available - a USB-only phone still needs to be
         #     paired, it just gets there via adb reverse instead of the LAN) ──

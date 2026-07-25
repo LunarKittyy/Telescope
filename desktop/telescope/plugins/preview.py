@@ -97,7 +97,6 @@ class PreviewPlugin(TelescopePlugin):
         # thread-safe, and the popout can also be closed between reads.
         self._popout_active = False
         self._busy   = False
-        self._source_size: tuple[int, int] = (0, 0)
         self._sig    = _Sig()
         self._sig.frame.connect(self._on_frame)
 
@@ -106,9 +105,11 @@ class PreviewPlugin(TelescopePlugin):
         host.installEventFilter(self._host_filter)
 
     def create_panel(self) -> QWidget:
-        """The video stage: a letterboxed frame area with status badges over
-        it and a toolbar beneath. It's the centre column, so unlike the rail
-        panels it has no card header competing with the picture."""
+        """The video stage: a letterboxed frame area with a toolbar beneath.
+        It's the centre column, so unlike the rail panels it carries no card
+        header, no badges and no chrome competing with the picture - what
+        the stream is doing is already said by the Stop button and the
+        footer."""
         stage = QFrame()
         stage.setObjectName("preview_stage")
         stage.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -124,18 +125,6 @@ class PreviewPlugin(TelescopePlugin):
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self._preview_lbl.setText(_IDLE_TEXT)
         lay.addWidget(self._preview_lbl, 1)
-
-        # Badges float over the frame rather than taking layout space, so the
-        # picture is never pushed around by them appearing.
-        self._live_badge = QLabel("LIVE", self._preview_lbl)
-        self._live_badge.setObjectName("preview_badge")
-        self._live_badge.setProperty("live", True)
-        self._live_badge.move(12, 12)
-        self._live_badge.setVisible(False)
-
-        self._res_badge = QLabel("", self._preview_lbl)
-        self._res_badge.setObjectName("preview_badge")
-        self._res_badge.setVisible(False)
 
         toolbar = QWidget()
         toolbar.setObjectName("preview_toolbar")
@@ -173,19 +162,15 @@ class PreviewPlugin(TelescopePlugin):
         if not self._active:
             self._preview_lbl.setPixmap(QPixmap())
             self._preview_lbl.setText("Preview hidden")
-            self._res_badge.setVisible(False)
         else:
             self._preview_lbl.setText(
                 _WAITING_TEXT if self._host.is_streaming() else _IDLE_TEXT)
 
     def on_stream_start(self, stream_url: str, ctrl):
-        self._live_badge.setVisible(True)
         if self._active and self._preview_lbl.pixmap().isNull():
             self._preview_lbl.setText(_WAITING_TEXT)
 
     def on_stream_stop(self):
-        self._live_badge.setVisible(False)
-        self._res_badge.setVisible(False)
         self._preview_lbl.setPixmap(QPixmap())
         self._preview_lbl.setText(_IDLE_TEXT if self._active else "Preview hidden")
 
@@ -221,11 +206,6 @@ class PreviewPlugin(TelescopePlugin):
             return frame
         self._busy = True
         h, w = frame.shape[:2]
-        # Recorded here, before any downscale, so the badge reports the real
-        # output size rather than whatever fits the label. A plain tuple
-        # written from this thread and read from the GUI thread - same
-        # pattern the transforms plugin uses for its settings.
-        self._source_size = (w, h)
         if popout_open:
             # Full resolution for pop-out - it can be any size
             self._sig.frame.emit(frame.copy())
@@ -256,18 +236,4 @@ class PreviewPlugin(TelescopePlugin):
                     Qt.TransformationMode.SmoothTransformation,
                 )
             )
-            self._update_res_badge()
         self._busy = False
-
-    def _update_res_badge(self):
-        """Pin the resolution badge to the frame's top-right. Repositioned
-        per frame rather than on a resize hook - it's a move() on a label
-        that's already being repainted anyway."""
-        src_w, src_h = self._source_size
-        if not src_w:
-            return
-        self._res_badge.setText(f"{src_w} × {src_h}")
-        self._res_badge.adjustSize()
-        self._res_badge.move(self._preview_lbl.width() - self._res_badge.width() - 12, 12)
-        self._res_badge.setVisible(True)
-        self._res_badge.raise_()

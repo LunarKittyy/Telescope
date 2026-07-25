@@ -200,7 +200,7 @@ def test_monitoring_display_colours(
     plugin._update_display(level, charging, temp)
     assert batt_colour in plugin._battery_lbl.styleSheet()
     assert temp_colour in plugin._temp_lbl.styleSheet()
-    assert plugin._battery_lbl.text() == f"{level}%" + ("  [charging]" if charging else "")
+    assert plugin._battery_lbl.text() == f"{level}%" + ("  ·  charging" if charging else "")
     assert plugin._temp_lbl.text() == f"{temp:.1f} °C"
 
 

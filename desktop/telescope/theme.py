@@ -540,6 +540,26 @@ QToolButton#section_toggle:hover {{
     color: {ACCENT};
 }}
 
+/* Capability chips under the lens picker. */
+QLabel#chip {{
+    background-color: {SURFACE_RAISE};
+    border: 1px solid {BORDER};
+    border-radius: 5px;
+    padding: 2px 8px;
+    color: {TEXT_DIM};
+    font-size: 8pt;
+    font-weight: 600;
+}}
+QLabel#chip_lead {{
+    background-color: rgba(47, 111, 208, 0.16);
+    border: 1px solid rgba(106, 169, 237, 0.42);
+    border-radius: 5px;
+    padding: 2px 8px;
+    color: {ACCENT};
+    font-size: 8pt;
+    font-weight: 700;
+}}
+
 /* ── Preview stage ──────────────────────────────────────────────────────── */
 QFrame#preview_stage {{
     background-color: {SURFACE_SUNK};
@@ -551,21 +571,6 @@ QLabel#preview_surface {{
     border-radius: 11px;
     color: {TEXT_FAINT};
     font-size: 10pt;
-}}
-QLabel#preview_badge {{
-    background-color: rgba(10, 14, 19, 0.78);
-    border: 1px solid {BORDER};
-    border-radius: 6px;
-    padding: 3px 9px;
-    color: {TEXT};
-    font-size: 8pt;
-    font-weight: 700;
-    letter-spacing: 0.6px;
-}}
-QLabel#preview_badge[live="true"] {{
-    background-color: rgba(169, 71, 66, 0.88);
-    border-color: #c75c54;
-    color: #ffffff;
 }}
 QWidget#preview_toolbar {{
     background-color: {SURFACE};

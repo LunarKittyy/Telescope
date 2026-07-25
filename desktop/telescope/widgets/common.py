@@ -1,6 +1,6 @@
 import math
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import QPoint, QRect, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QIcon, QPainter, QPen, QBrush, QPixmap
 from PyQt6.QtWidgets import (
     QComboBox, QDoubleSpinBox, QFrame, QHBoxLayout, QLabel, QLayout,
@@ -14,7 +14,18 @@ from telescope import theme
 
 FORM_LABEL_WIDTH = 104
 
-SLIDER_TRACK_WIDTH = 132
+VALUE_COL_WIDTH = 62
+"""Width of the numeric readout beside a slider. Fixed and right-aligned so
+readouts line up down a panel instead of drifting with their text."""
+
+SPIN_COL_WIDTH = 78
+"""Width of the direct-entry spinbox beside a slider."""
+
+SPIN_COL_GUTTER = SPIN_COL_WIDTH + 8
+"""What a slider row without a spinbox reserves on its right, so its track
+ends on the same line as the rows that have one."""
+
+SLIDER_TRACK_WIDTH = 104
 """Minimum width for a slider track, not a fixed one.
 
 Panels live in resizable columns now, so sliders stretch to whatever their
@@ -27,6 +38,68 @@ def stretch_slider(slider: QWidget, minimum: int = SLIDER_TRACK_WIDTH) -> QWidge
     slider.setMinimumWidth(minimum)
     slider.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
     return slider
+
+
+class FlowLayout(QLayout):
+    """Lays widgets out left to right, wrapping to a new line when the row
+    runs out of width.
+
+    Qt ships nothing like this. A grid with a fixed column count can't cope
+    with items whose natural widths differ (lens names run from "~15mm" to
+    "~22mm OIS"), so it either truncates the long ones or forces the whole
+    column wider than the rail. Wrapping sizes each item to its content and
+    lets the count per row fall out of the space available.
+    """
+
+    def __init__(self, parent=None, spacing: int = 6):
+        super().__init__(parent)
+        self._items: list = []
+        self._spacing = spacing
+        self.setContentsMargins(0, 0, 0, 0)
+
+    def addItem(self, item):        self._items.append(item)
+    def count(self):                return len(self._items)
+    def itemAt(self, i):            return self._items[i] if 0 <= i < len(self._items) else None
+    def takeAt(self, i):            return self._items.pop(i) if 0 <= i < len(self._items) else None
+    def expandingDirections(self):  return Qt.Orientation(0)
+    def hasHeightForWidth(self):    return True
+    def heightForWidth(self, width): return self._layout(QRect(0, 0, width, 0), apply=False)
+
+    def setGeometry(self, rect):
+        super().setGeometry(rect)
+        self._layout(rect, apply=True)
+
+    def sizeHint(self):
+        return self.minimumSize()
+
+    def minimumSize(self):
+        size = QSize()
+        for item in self._items:
+            size = size.expandedTo(item.minimumSize())
+        m = self.contentsMargins()
+        return size + QSize(m.left() + m.right(), m.top() + m.bottom())
+
+    def _layout(self, rect: QRect, apply: bool) -> int:
+        """Place every item and return the total height used. With
+        apply=False this is the heightForWidth measurement pass."""
+        m = self.contentsMargins()
+        x = rect.x() + m.left()
+        y = rect.y() + m.top()
+        right = rect.right() - m.right()
+        line_height = 0
+
+        for item in self._items:
+            hint = item.sizeHint()
+            if x > rect.x() + m.left() and x + hint.width() > right:
+                x = rect.x() + m.left()
+                y += line_height + self._spacing
+                line_height = 0
+            if apply:
+                item.setGeometry(QRect(QPoint(x, y), hint))
+            x += hint.width() + self._spacing
+            line_height = max(line_height, hint.height())
+
+        return y + line_height - rect.y() + m.bottom()
 
 
 def set_ui_role(widget: QWidget, role: str):
@@ -63,14 +136,18 @@ def make_segmented(*buttons: QWidget):
 
 
 def segmented_row(*buttons: QWidget) -> QHBoxLayout:
-    """A zero-spacing layout holding a segmented run, left-aligned."""
+    """A zero-spacing layout holding a segmented run.
+
+    No trailing stretch: the enclosing `control_row` decides whether the
+    strip fills the row or sits flush right, and a spacer in here would
+    override that.
+    """
     make_segmented(*buttons)
     lay = QHBoxLayout()
     lay.setContentsMargins(0, 0, 0, 0)
     lay.setSpacing(0)
     for btn in buttons:
         lay.addWidget(btn)
-    lay.addStretch()
     return lay
 
 
@@ -120,32 +197,33 @@ def form_label(text: str, width: int = FORM_LABEL_WIDTH) -> QLabel:
     label = QLabel(text)
     label.setObjectName("form_label")
     label.setFixedWidth(width)
-    label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+    label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
     return label
 
 
 def control_row(label: str, widget, label_width: int = FORM_LABEL_WIDTH,
                 stretch: bool = False) -> QHBoxLayout:
-    """The standard settings row: right-aligned dim label, then the control.
+    """The standard settings row: a dim label on the left, the control on
+    the right.
 
-    `widget` may be a widget or a layout. `stretch` lets the control take the
-    row's leftover width instead of hugging its hint - what you want for
-    sliders and combos in a resizable column, not for a lone spinbox.
+    Both edges of the row are anchored, which is what keeps a panel from
+    looking ragged: `stretch=True` grows the control to the card's right
+    edge (sliders, combos), `stretch=False` pushes a naturally-sized
+    control flush against it (spinboxes, segmented strips). Nothing floats
+    in the middle with dead space either side of it.
 
-    An empty label still reserves the label column, so a control can hang
-    under the one above it without breaking the alignment grid.
+    `widget` may be a widget or a layout. An empty label still reserves the
+    label column, so a control can hang under the one above it without
+    breaking the alignment grid.
     """
     lay = QHBoxLayout()
     lay.setContentsMargins(0, 0, 0, 0)
     lay.setSpacing(8)
     lay.addWidget(form_label(label, label_width))
-    if stretch:
-        if isinstance(widget, QLayout): lay.addLayout(widget, 1)
-        else:                           lay.addWidget(widget, 1)
-    else:
-        if isinstance(widget, QLayout): lay.addLayout(widget)
-        else:                           lay.addWidget(widget)
+    if not stretch:
         lay.addStretch(1)
+    if isinstance(widget, QLayout): lay.addLayout(widget, 1 if stretch else 0)
+    else:                           lay.addWidget(widget, 1 if stretch else 0)
     return lay
 
 
@@ -381,12 +459,14 @@ class LogSliderRow(QWidget):
         self._slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._slider.setRange(0, self.STEPS)
         self._slider.setValue(0)
-        stretch_slider(self._slider, 96)
+        stretch_slider(self._slider)
         lay.addWidget(self._slider, 1)
 
         self._val_lbl = QLabel(display_fn(v_min) if display_fn else str(v_min))
         self._val_lbl.setObjectName("val")
-        self._val_lbl.setMinimumWidth(58)
+        self._val_lbl.setFixedWidth(VALUE_COL_WIDTH)
+        self._val_lbl.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         lay.addWidget(self._val_lbl)
 
         self._is_double_spin = spinbox_decimals > 0
@@ -399,7 +479,7 @@ class LogSliderRow(QWidget):
             spin = NoScrollSpinBox()
             spin.setRange(int(v_min * spinbox_scale), int(v_max * spinbox_scale))
         spin.setSuffix(spinbox_suffix)
-        spin.setFixedWidth(78)
+        spin.setFixedWidth(SPIN_COL_WIDTH)
         self._spin = spin
         lay.addWidget(self._spin)
 
@@ -486,7 +566,7 @@ class PanSliderRow(QWidget):
         self._slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._slider.setRange(-self.STEPS, self.STEPS)
         self._slider.setValue(0)
-        stretch_slider(self._slider, 96)
+        stretch_slider(self._slider)
         lay.addWidget(self._slider, 1)
 
         if show_end_labels:

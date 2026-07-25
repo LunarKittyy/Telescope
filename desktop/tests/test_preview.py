@@ -63,24 +63,15 @@ def test_preview_placeholder_says_waiting_while_a_stream_is_up(qapp):
     assert plugin._preview_lbl.text() == "Waiting for the first frame…"
 
 
-def test_stream_start_and_stop_drive_the_live_badge(qapp):
+def test_stream_start_and_stop_swap_the_placeholder(qapp):
     plugin, _host, _panel = _plugin(qapp)
 
     plugin.on_stream_start("http://phone/", None)
-    assert plugin._live_badge.isVisibleTo(plugin._preview_lbl)
+    assert plugin._preview_lbl.text() == "Waiting for the first frame…"
 
     plugin.on_stream_stop()
-    assert not plugin._live_badge.isVisibleTo(plugin._preview_lbl)
     assert plugin._preview_lbl.text() == "Not streaming"
-
-
-def test_resolution_badge_reports_the_pre_downscale_size(qapp):
-    plugin, _host, _panel = _plugin(qapp)
-    plugin._preview_lbl.resize(480, 270)
-
-    plugin.process_frame(np.zeros((1080, 1920, 3), dtype=np.uint8))
-
-    assert plugin._res_badge.text() == "1920 × 1080"
+    assert plugin._preview_lbl.pixmap().isNull()
 
 
 def test_process_frame_is_zero_copy_when_inactive_or_busy(qapp):

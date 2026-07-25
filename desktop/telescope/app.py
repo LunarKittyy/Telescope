@@ -39,7 +39,7 @@ _WIDTH_THREE_COL = 1300
 _WIDTH_TWO_COL   = 900
 
 _RAIL_WIDTH_LEFT  = 364
-_RAIL_WIDTH_RIGHT = 412
+_RAIL_WIDTH_RIGHT = 434
 
 
 # ── Single-instance enforcement ───────────────────────────────────────────────
@@ -226,12 +226,21 @@ class TelescopeWindow(QMainWindow):
         self._start_btn.setObjectName("start_btn")
         self._start_btn.setProperty("uiRole", "primary")
         self._start_btn.setProperty("streaming", False)
-        self._start_btn.setIcon(create_vector_icon("play", "#ffffff"))
-        self._start_btn.setIconSize(QSize(15, 15))
+        self._start_btn.setIconSize(QSize(14, 14))
         self._start_btn.clicked.connect(self._toggle)
+        self._set_start_button(streaming=False)
         lay.addWidget(self._start_btn)
 
         return bar
+
+    def _set_start_button(self, streaming: bool):
+        """Keep the button's label, icon and colour saying the same thing -
+        a play triangle on a button that stops the stream is a small lie."""
+        self._start_btn.setText("Stop Streaming" if streaming else "Start Streaming")
+        self._start_btn.setIcon(
+            create_vector_icon("stop" if streaming else "play", "#ffffff"))
+        self._start_btn.setProperty("streaming", streaming)
+        self._start_btn.setStyle(self._start_btn.style())
 
     def _build_body(self) -> QWidget:
         body = QWidget()
@@ -270,10 +279,9 @@ class TelescopeWindow(QMainWindow):
         lay.setContentsMargins(18, 8, 18, 8)
         lay.setSpacing(14)
 
-        status_cap = QLabel("STREAM STATUS")
-        status_cap.setObjectName("footer_label")
-        lay.addWidget(status_cap)
-
+        # No caption here: the message already reads as a status ("Streaming
+        # to /dev/video11", "Stopped.") and is colour-coded. "LIVE FPS" below
+        # earns its caption because "30.0" on its own means nothing.
         self._status_lbl = QLabel("Idle - press Start Streaming")
         self._status_lbl.setObjectName("status_dim")
         lay.addWidget(self._status_lbl, 1)
@@ -564,9 +572,7 @@ class TelescopeWindow(QMainWindow):
 
         threading.Thread(target=self._fetch_state_async, args=(session_id,), daemon=True).start()
 
-        self._start_btn.setText("Stop Streaming")
-        self._start_btn.setProperty("streaming", True)
-        self._start_btn.setStyle(self._start_btn.style())
+        self._set_start_button(streaming=True)
         self._set_status("Connecting...", "dim")
 
     def _stop(self):
@@ -591,9 +597,7 @@ class TelescopeWindow(QMainWindow):
                 logging.warning("Stream worker did not stop within 5s; abandoning it in the background")
         if ctrl:
             ctrl.close()
-        self._start_btn.setText("Start Streaming")
-        self._start_btn.setProperty("streaming", False)
-        self._start_btn.setStyle(self._start_btn.style())
+        self._set_start_button(streaming=False)
         self._fps_lbl.setText("—")
         self._set_status("Stopped.", "dim")
 
@@ -750,9 +754,7 @@ class TelescopeWindow(QMainWindow):
             self._set_status(msg, "dim")
             if self._session:
                 self._session = None
-                self._start_btn.setText("Start Streaming")
-                self._start_btn.setProperty("streaming", False)
-                self._start_btn.setStyle(self._start_btn.style())
+                self._set_start_button(streaming=False)
         else:
             self._set_status(msg, "dim")
 

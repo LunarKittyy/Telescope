@@ -252,21 +252,59 @@ def test_phone_state_populates_camera_capabilities_and_controls(camera_plugin):
     assert plugin._focus_slider.value() == 500
     assert not plugin._ois_cb.isEnabled()
     assert plugin._torch_btn.isEnabled()
-    assert "FULL" in plugin._cam_info_lbl.text()
+    assert _chip_texts(plugin)[0] == "Full"
 
 
 def test_empty_phone_state_and_stop_clear_camera_ui(camera_plugin):
     plugin, _host, _bus, _panel = camera_plugin
     plugin.on_phone_state({})
-    assert plugin._lens_panel.layout().itemAt(0).widget().text() == "Unavailable"
+    assert plugin._lens_panel._ph.text() == "Unavailable"
 
-    plugin._cam_info_lbl.setText("info")
     plugin._ctrl = _Ctrl()
     plugin.on_stream_stop()
     assert plugin._ctrl is None
     assert plugin._lens_panel._btns == []
     assert plugin._lens_panel._ph.text() == "Start streaming to load lenses"
-    assert plugin._cam_info_lbl.text() == ""
+    assert _chip_texts(plugin) == []
+    assert plugin._cam_info_row.isHidden()
+
+
+def _chip_texts(plugin) -> list:
+    chips = plugin._cam_chips
+    return [chips.itemAt(i).widget().text() for i in range(chips.count())]
+
+
+def test_capability_chips_list_only_what_the_lens_supports(camera_plugin):
+    plugin, _host, _bus, _panel = camera_plugin
+
+    plugin._update_cam_info_lbl({
+        "hwLevel": "LEVEL_3",
+        "supportsManualSensor": True,
+        "supportsManualWB": False,
+        "supportsManualFocus": True,
+        "hasOis": False,
+    })
+
+    assert _chip_texts(plugin) == ["Level 3", "Manual exposure", "Manual focus"]
+    # What's missing is still recoverable, just not spending a line on it.
+    assert "Manual WB" in plugin._cam_info_row.toolTip()
+    assert "OIS" in plugin._cam_info_row.toolTip()
+
+
+def test_capability_chips_are_rebuilt_not_appended(camera_plugin):
+    plugin, _host, _bus, _panel = camera_plugin
+    cam = {"hwLevel": "FULL", "supportsManualSensor": True}
+
+    plugin._update_cam_info_lbl(cam)
+    plugin._update_cam_info_lbl(cam)
+
+    assert _chip_texts(plugin) == ["Full", "Manual exposure"]
+
+
+def test_unknown_hardware_level_passes_through_verbatim(camera_plugin):
+    plugin, _host, _bus, _panel = camera_plugin
+    plugin._update_cam_info_lbl({"hwLevel": "WHO_KNOWS"})
+    assert _chip_texts(plugin) == ["WHO_KNOWS"]
 
 
 def test_capability_gating_forces_unsupported_modes_off(camera_plugin):

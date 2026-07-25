@@ -1,11 +1,14 @@
 import math
 
 import pytest
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QCheckBox, QDoubleSpinBox, QLabel, QRadioButton, QSizePolicy, QSpinBox,
+    QWidget,
 )
 
 from telescope.widgets.common import (
+    FlowLayout,
     LogSliderRow,
     NoScrollSlider,
     PanSliderRow,
@@ -188,10 +191,9 @@ def test_segmented_row_packs_buttons_without_gaps(qapp):
     row = segmented_row(a, b)
 
     assert row.spacing() == 0
+    assert row.count() == 2
     assert row.itemAt(0).widget() is a
     assert row.itemAt(1).widget() is b
-    # A trailing stretch keeps the strip left-aligned in a wide column.
-    assert row.itemAt(2).widget() is None
 
 
 def test_stretch_slider_sets_a_floor_not_a_fixed_width(qapp):
@@ -204,15 +206,41 @@ def test_stretch_slider_sets_a_floor_not_a_fixed_width(qapp):
     assert slider.sizePolicy().horizontalPolicy() == QSizePolicy.Policy.Expanding
 
 
-def test_control_row_stretch_controls_who_absorbs_the_slack(qapp):
-    tight = control_row("Label", QLabel("x"))
-    # Without stretch the control hugs its hint and a spacer takes the rest.
+def test_control_row_anchors_the_control_to_the_right_edge(qapp):
+    control = QLabel("x")
+    tight = control_row("Label", control)
+    # Without stretch the spacer goes *before* the control, so it sits flush
+    # right rather than floating next to its label.
     assert tight.count() == 3
-    assert tight.itemAt(2).widget() is None
+    assert tight.itemAt(1).widget() is None
+    assert tight.itemAt(2).widget() is control
 
     wide = control_row("Label", QLabel("x"), stretch=True)
     assert wide.count() == 2
     assert wide.stretch(1) == 1
+
+
+def test_form_labels_are_left_aligned(qapp):
+    from telescope.widgets.common import form_label
+    assert form_label("Label").alignment() & Qt.AlignmentFlag.AlignLeft
+
+
+def test_flow_layout_wraps_and_reports_height_for_width(qapp):
+    from PyQt6.QtWidgets import QPushButton
+    host = QWidget()
+    flow = FlowLayout(host, spacing=4)
+    for _ in range(4):
+        btn = QPushButton("wide-ish")
+        btn.setFixedSize(100, 20)
+        flow.addWidget(btn)
+
+    # Two per row at 220px, four per row at 460px.
+    assert flow.heightForWidth(220) > flow.heightForWidth(460)
+    assert flow.count() == 4
+
+    taken = flow.takeAt(0)
+    assert taken is not None
+    assert flow.count() == 3
 
 
 def test_control_row_widget_is_hideable(qapp):
