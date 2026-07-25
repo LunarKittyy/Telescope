@@ -2,6 +2,7 @@ from types import SimpleNamespace
 import socket
 
 import pytest
+from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QWidget
 
 import telescope.app as app_module
@@ -39,7 +40,14 @@ class _Plugin(TelescopePlugin):
         self.setup_args = (host, bus)
 
     def create_panel(self):
-        return QWidget() if self.want_panel else None
+        self.panel = QWidget() if self.want_panel else None
+        return self.panel
+
+    def create_header_widget(self):
+        return None
+
+    def create_menu_actions(self):
+        return list(getattr(self, "menu_actions", []))
 
     def process_frame(self, frame):
         return frame
@@ -112,14 +120,13 @@ def window(qapp, config_home, monkeypatch):
 
 def test_register_plugin_initializes_panel_and_captures_device_defaults(window):
     plugin = _Plugin("transforms", {"zoom": 1})
-    before = window._scroll_content_layout.count()
 
     window.register_plugin(plugin)
 
     assert plugin.setup_args == (window, window._bus)
     assert window._plugins == [plugin]
     assert window._plugin_defaults == {"transforms": {"zoom": 1}}
-    assert window._scroll_content_layout.count() == before + 1
+    assert window._panels["left"] == [plugin.panel]
 
 
 def test_acquire_single_instance_binds_and_listens(monkeypatch):
@@ -246,9 +253,65 @@ def test_listen_for_raise_ignores_wrong_message_and_timeouts(monkeypatch):
 
 def test_register_headless_global_plugin_does_not_add_panel(window):
     plugin = _Plugin("global", panel=False)
-    before = window._scroll_content_layout.count()
     window.register_plugin(plugin)
-    assert window._scroll_content_layout.count() == before
+    assert all(not panels for panels in window._panels.values())
+
+
+@pytest.mark.parametrize("region", ["left", "center", "right"])
+def test_register_plugin_routes_panel_to_its_declared_region(window, region):
+    plugin = _Plugin("regional")
+    plugin.panel_region = region
+    window.register_plugin(plugin)
+    assert window._panels[region] == [plugin.panel]
+
+
+def test_register_plugin_routes_unknown_region_to_the_left_rail(window):
+    plugin = _Plugin("regional")
+    plugin.panel_region = "nowhere"
+    window.register_plugin(plugin)
+    assert window._panels["left"] == [plugin.panel]
+
+
+@pytest.mark.parametrize("width,mode", [
+    (1400, "three"), (1300, "three"),
+    (1299, "two"),   (900, "two"),
+    (899, "one"),    (600, "one"),
+])
+def test_layout_mode_follows_window_width(window, width, mode):
+    assert window._layout_mode_for(width) == mode
+
+
+def test_narrow_layout_stacks_every_panel_into_one_visible_column(window):
+    for name, region in (("a", "left"), ("b", "center"), ("c", "right")):
+        plugin = _Plugin(name)
+        plugin.panel_region = region
+        window.register_plugin(plugin)
+
+    window.resize(700, 800)
+    window._refresh_layout(force=True)
+
+    assert window._layout_mode == "one"
+    assert window._columns[0].isVisibleTo(window)
+    assert not window._columns[1].isVisibleTo(window)
+    assert not window._columns[2].isVisibleTo(window)
+    col = window._column_layouts[0]
+    stacked = [col.itemAt(i).widget() for i in range(col.count())]
+    stacked = [w for w in stacked if w is not None]
+    # Centre first, so the video is what you see without scrolling, then the
+    # left rail's panels, then the right rail's.
+    assert stacked == [window._panels["center"][0],
+                       window._panels["left"][0],
+                       window._panels["right"][0]]
+
+
+def test_settings_menu_collects_actions_from_every_plugin(window, qapp):
+    plugin = _Plugin("with_actions")
+    action = QAction("Do a thing", None)
+    plugin.menu_actions = [action]
+    window.register_plugin(plugin)
+
+    assert [a.text() for p in window._plugins for a in p.create_menu_actions()] \
+        == ["Do a thing"]
     assert "global" not in window._plugin_defaults
 
 
@@ -779,7 +842,7 @@ def test_worker_fps_and_idle_status(window):
     assert window._fps_lbl.text() == "29.9 fps"
     window._session = StreamSession(id=1, url="url", client=object(), worker=object())
     window._on_worker_status("idle", "Stopped.")
-    assert window._fps_lbl.text() == ""
+    assert window._fps_lbl.text() == "—"
     assert window._worker is None
     assert window._session is None
     assert window._start_btn.text() == "Start Streaming"

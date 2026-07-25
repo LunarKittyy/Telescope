@@ -15,14 +15,13 @@
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 qt_datas, qt_bins, qt_hidden = collect_all('PyQt6')
-mat_datas, mat_bins, mat_hidden = collect_all('qt_material')
 
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=qt_bins + mat_bins,
-    datas=qt_datas + mat_datas,
-    hiddenimports=qt_hidden + mat_hidden + collect_submodules('telescope') + [
+    binaries=qt_bins,
+    datas=qt_datas,
+    hiddenimports=qt_hidden + collect_submodules('telescope') + [
         'pyvirtualcam',
         'cv2',
         'numpy',

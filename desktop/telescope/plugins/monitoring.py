@@ -4,22 +4,24 @@ import threading
 from typing import Optional
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
-from PyQt6.QtWidgets import (
-    QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget,
-)
+from PyQt6.QtWidgets import QFrame, QLabel, QVBoxLayout, QWidget
 
+from telescope import theme
 from telescope.platform import IS_LINUX
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
-    NoScrollSpinBox, add_card_header, add_section_heading, create_card,
-    create_separator,
+    NoScrollSpinBox, add_card_header, add_section_heading, control_row as _row,
+    create_card, create_separator,
 )
 
+# Set inline via setStyleSheet rather than an object name, because these
+# readouts change colour with the live value; sourced from the theme so
+# there's still only one place the semantic colours are defined.
 _STATUS_COLORS = {
-    "ok":   "#66bb6a",
-    "warn": "#ffa726",
-    "err":  "#ef5350",
-    "dim":  "#78909c",
+    "ok":   theme.OK,
+    "warn": theme.WARN,
+    "err":  theme.ERR,
+    "dim":  theme.DIM,
 }
 
 
@@ -53,34 +55,20 @@ class MonitoringPlugin(TelescopePlugin):
         lay.setSpacing(10)
         add_card_header(lay, "Monitoring", "status")
 
-        # Live battery / temp display
+        # ── Live readouts ─────────────────────────────────────────────────────
         add_section_heading(lay, "Live status")
-        live_row = QHBoxLayout()
-        live_row.setContentsMargins(0, 0, 0, 0)
-        live_row.setSpacing(20)
-        lbl = QLabel("Battery / Temp")
-        lbl.setObjectName("dim")
-        lbl.setFixedWidth(110)
-        live_row.addWidget(lbl)
         self._battery_lbl = QLabel("—")
         self._battery_lbl.setObjectName("status_dim")
+        lay.addLayout(_row("Battery", self._battery_lbl, stretch=True))
+
         self._temp_lbl = QLabel("—")
         self._temp_lbl.setObjectName("status_dim")
-        live_row.addWidget(self._battery_lbl)
-        live_row.addWidget(self._temp_lbl)
-        live_row.addStretch()
-        lay.addLayout(live_row)
+        lay.addLayout(_row("Temperature", self._temp_lbl, stretch=True))
 
         lay.addWidget(create_separator())
 
-        # Alert thresholds
-        add_section_heading(lay, "Alerts")
-        batt_row = QHBoxLayout()
-        batt_row.setContentsMargins(0, 0, 0, 0)
-        batt_lbl = QLabel("Battery alert")
-        batt_lbl.setObjectName("dim")
-        batt_lbl.setFixedWidth(110)
-        batt_row.addWidget(batt_lbl)
+        # ── Alert thresholds ──────────────────────────────────────────────────
+        add_section_heading(lay, "Alert thresholds")
         self._batt_alert_spin = NoScrollSpinBox()
         self._batt_alert_spin.setRange(5, 95)
         self._batt_alert_spin.setValue(20)
@@ -90,25 +78,15 @@ class MonitoringPlugin(TelescopePlugin):
             "Alert when battery drops below this level - including while charging, "
             "if the level keeps falling anyway"
         )
-        batt_row.addWidget(self._batt_alert_spin)
-        batt_row.addStretch()
-        lay.addLayout(batt_row)
+        lay.addLayout(_row("Battery", self._batt_alert_spin))
 
-        temp_row = QHBoxLayout()
-        temp_row.setContentsMargins(0, 0, 0, 0)
-        temp_lbl = QLabel("Temp alert")
-        temp_lbl.setObjectName("dim")
-        temp_lbl.setFixedWidth(110)
-        temp_row.addWidget(temp_lbl)
         self._temp_alert_spin = NoScrollSpinBox()
         self._temp_alert_spin.setRange(35, 65)
         self._temp_alert_spin.setValue(45)
         self._temp_alert_spin.setSuffix(" °C")
         self._temp_alert_spin.setFixedWidth(90)
         self._temp_alert_spin.setToolTip("Alert when phone temperature exceeds this")
-        temp_row.addWidget(self._temp_alert_spin)
-        temp_row.addStretch()
-        lay.addLayout(temp_row)
+        lay.addLayout(_row("Temperature", self._temp_alert_spin))
 
         return card
 

@@ -1,16 +1,24 @@
 import math
 
 import pytest
-from PyQt6.QtWidgets import QDoubleSpinBox, QSpinBox
+from PyQt6.QtWidgets import (
+    QCheckBox, QDoubleSpinBox, QLabel, QRadioButton, QSizePolicy, QSpinBox,
+)
 
 from telescope.widgets.common import (
     LogSliderRow,
+    NoScrollSlider,
     PanSliderRow,
+    control_row,
+    control_row_widget,
     create_separator,
     create_vector_icon,
     log_pos_to_val,
+    make_segmented,
     ns_to_display,
     quality_label,
+    segmented_row,
+    stretch_slider,
     val_to_log_pos,
 )
 from telescope.widgets.lens_panel import LensPanel
@@ -157,3 +165,57 @@ def test_lens_panel_load_select_placeholder_and_clear(qapp):
     panel.clear()
     assert panel._btns == []
     assert panel._ph.text() == "Start streaming to load lenses"
+
+
+def test_make_segmented_marks_ends_and_middles(qapp):
+    buttons = [QRadioButton(str(i)) for i in range(3)]
+
+    make_segmented(*buttons)
+
+    assert [b.property("segPos") for b in buttons] == ["first", "mid", "last"]
+    assert all(b.property("segmented") for b in buttons)
+
+
+def test_make_segmented_handles_a_lone_button(qapp):
+    button = QCheckBox("only")
+    make_segmented(button)
+    assert button.property("segPos") == "only"
+
+
+def test_segmented_row_packs_buttons_without_gaps(qapp):
+    a, b = QRadioButton("a"), QRadioButton("b")
+
+    row = segmented_row(a, b)
+
+    assert row.spacing() == 0
+    assert row.itemAt(0).widget() is a
+    assert row.itemAt(1).widget() is b
+    # A trailing stretch keeps the strip left-aligned in a wide column.
+    assert row.itemAt(2).widget() is None
+
+
+def test_stretch_slider_sets_a_floor_not_a_fixed_width(qapp):
+    slider = NoScrollSlider()
+
+    stretch_slider(slider, 90)
+
+    assert slider.minimumWidth() == 90
+    assert slider.maximumWidth() > 90
+    assert slider.sizePolicy().horizontalPolicy() == QSizePolicy.Policy.Expanding
+
+
+def test_control_row_stretch_controls_who_absorbs_the_slack(qapp):
+    tight = control_row("Label", QLabel("x"))
+    # Without stretch the control hugs its hint and a spacer takes the rest.
+    assert tight.count() == 3
+    assert tight.itemAt(2).widget() is None
+
+    wide = control_row("Label", QLabel("x"), stretch=True)
+    assert wide.count() == 2
+    assert wide.stretch(1) == 1
+
+
+def test_control_row_widget_is_hideable(qapp):
+    row = control_row_widget("Label", QLabel("x"))
+    row.setVisible(False)
+    assert row.isHidden()

@@ -206,7 +206,8 @@ telescope/
     |-- platform-tools/          # Bundled adb for Windows
     |-- unitycapture/            # Bundled UnityCapture DLLs (MIT)
     +-- telescope/
-        |-- app.py               # TelescopeWindow: plugin host, stream lifecycle
+        |-- app.py               # TelescopeWindow: plugin host, responsive shell, stream lifecycle
+        |-- theme.py             # Palette tokens + the app stylesheet
         |-- stream.py            # StreamWorker: MJPEG -> pipeline -> pyvirtualcam
         |-- mjpeg_reader.py      # Authenticated multipart-MJPEG reader (replaces cv2.VideoCapture)
         |-- session.py           # StreamSession: owns worker/client for one connect-to-disconnect lifecycle
@@ -227,7 +228,7 @@ telescope/
         |   |-- preview.py
         |   +-- monitoring.py
         +-- widgets/
-            |-- common.py        # NoScroll*, LogSliderRow, separators, icons
+            |-- common.py        # NoScroll*, LogSliderRow, rows, segmented toggles, icons
             +-- lens_panel.py    # Lens picker widget
 ```
 
@@ -337,6 +338,10 @@ The release zip bundles the UnityCapture DLLs already; the app registers them fr
 ### Key implementation notes (for contributors)
 
 **Plugin system:** The app is built around `TelescopePlugin` - a base class with hooks for `setup()`, `create_panel()`, `process_frame()`, `on_stream_start/stop()`, `on_phone_state()`, and `get/set_config()`. Plugins are registered in `main.py` in order; each creates one UI card. An `EventBus` (QObject with Qt signals) handles cross-plugin communication.
+
+**Window layout:** A plugin declares a `panel_region` (`"left"`, `"right"` or `"center"`) and the window routes its panel there, so no plugin knows where it physically lands. Wide windows get three columns - setup rails either side of the video stage; below ~1300px the rails fold together, and below ~900px everything stacks into one scrolling column. A plugin can also contribute a header control via `create_header_widget()` (the Connection plugin puts the device picker there) or entries in the header's settings menu via `create_menu_actions()` (how System Setup and the Quick Start Guide are reached, since neither is something you adjust mid-stream).
+
+**Theming:** `telescope/theme.py` owns the entire look - palette constants, a dark `QPalette` so Qt-drawn chrome matches, and one stylesheet, applied over Fusion by `apply_theme()`. There are no image assets: icons are drawn procedurally with `QPainter` (`create_vector_icon`), and segmented toggles are ordinary radios/checkboxes carrying a `segmented` property the stylesheet picks up, so exclusivity and signal wiring stay plain Qt.
 
 **Frame pipeline:** `StreamWorker` holds a list of `process_frame` callables (one per plugin). Each frame passes through the full pipeline on the reader thread. `_fit_frame()` then letterboxes/pillarboxes the result to the fixed vcam canvas size, preserving aspect ratio with black bars.
 
@@ -463,7 +468,7 @@ Source: https://github.com/schellingb/UnityCapture
 Copyright (c) Google LLC. Android Software Development Kit License Agreement.
 See `desktop/platform-tools/NOTICE` and https://developer.android.com/studio/terms
 
-**Python runtime dependencies** (PyQt6, opencv-python, numpy, pyvirtualcam, qt-material, qrcode) - installed from PyPI; exact pinned versions are in `desktop/constraints.txt`. PyQt6 in particular is GPL v3-licensed (a commercial Riverbank Computing license also exists but isn't what this project uses).
+**Python runtime dependencies** (PyQt6, opencv-python, numpy, pyvirtualcam, qrcode) - installed from PyPI; exact pinned versions are in `desktop/constraints.txt`. PyQt6 in particular is GPL v3-licensed (a commercial Riverbank Computing license also exists but isn't what this project uses).
 
 ---
 

@@ -1,11 +1,18 @@
 import cv2
 import numpy as np
-from PyQt6.QtCore import Qt, QEvent, QObject, pyqtSignal
+from PyQt6.QtCore import Qt, QEvent, QObject, QSize, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap
-from PyQt6.QtWidgets import QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import (
+    QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget,
+)
 
+from telescope import theme
 from telescope.plugin import TelescopePlugin
-from telescope.widgets.common import add_card_header, create_card, set_ui_role
+from telescope.widgets.common import create_vector_icon, set_ui_role
+
+
+_IDLE_TEXT    = "Not streaming"
+_WAITING_TEXT = "Waiting for the first frame\u2026"
 
 
 class _Sig(QObject):
@@ -70,13 +77,19 @@ class _HostFilter(QObject):
 
 class PreviewPlugin(TelescopePlugin):
     name = "preview"
+    panel_region = "center"
 
-    # Max width sent across thread for in-card preview (label is ~400px wide at most)
-    _CARD_MAX_W = 480
+    # Max width sent across thread for the in-window preview. The stage is
+    # the widest thing on screen now, so this is larger than it was when the
+    # preview was a ~400px card.
+    _CARD_MAX_W = 960
 
     def setup(self, host, bus):
         self._host   = host
-        self._active = False
+        # On by default: the preview is the centre of the window now, not an
+        # opt-in extra. The toggle stays as an escape hatch for anyone who'd
+        # rather not spend the decode.
+        self._active = True
         self._popout: _PopoutWindow | None = None
         # Plain flag mirroring "popout is open", updated only from GUI-thread
         # slots. process_frame() runs on the stream reader thread and must
@@ -84,6 +97,7 @@ class PreviewPlugin(TelescopePlugin):
         # thread-safe, and the popout can also be closed between reads.
         self._popout_active = False
         self._busy   = False
+        self._source_size: tuple[int, int] = (0, 0)
         self._sig    = _Sig()
         self._sig.frame.connect(self._on_frame)
 
@@ -92,43 +106,88 @@ class PreviewPlugin(TelescopePlugin):
         host.installEventFilter(self._host_filter)
 
     def create_panel(self) -> QWidget:
-        card = create_card()
-        lay = QVBoxLayout(card)
-        lay.setContentsMargins(16, 15, 16, 15)
-        lay.setSpacing(10)
-        hdr = add_card_header(lay, "Video Preview", "stream")
-
-        self._toggle_btn = QPushButton("Show")
-        self._toggle_btn.setMinimumWidth(62)
-        set_ui_role(self._toggle_btn, "quiet")
-        self._toggle_btn.clicked.connect(self._toggle)
-        hdr.addWidget(self._toggle_btn)
-
-        self._popout_btn = QPushButton("Pop out")
-        self._popout_btn.setMinimumWidth(66)
-        set_ui_role(self._popout_btn, "quiet")
-        self._popout_btn.clicked.connect(self._open_popout)
-        hdr.addWidget(self._popout_btn)
+        """The video stage: a letterboxed frame area with status badges over
+        it and a toolbar beneath. It's the centre column, so unlike the rail
+        panels it has no card header competing with the picture."""
+        stage = QFrame()
+        stage.setObjectName("preview_stage")
+        stage.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        lay = QVBoxLayout(stage)
+        lay.setContentsMargins(1, 1, 1, 1)
+        lay.setSpacing(0)
 
         self._preview_lbl = QLabel()
+        self._preview_lbl.setObjectName("preview_surface")
         self._preview_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._preview_lbl.setMinimumHeight(180)
+        self._preview_lbl.setMinimumHeight(240)
         self._preview_lbl.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self._preview_lbl.setObjectName("dim")
-        self._preview_lbl.setText("Preview hidden")
-        self._preview_lbl.setVisible(False)
-        lay.addWidget(self._preview_lbl)
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._preview_lbl.setText(_IDLE_TEXT)
+        lay.addWidget(self._preview_lbl, 1)
 
-        return card
+        # Badges float over the frame rather than taking layout space, so the
+        # picture is never pushed around by them appearing.
+        self._live_badge = QLabel("LIVE", self._preview_lbl)
+        self._live_badge.setObjectName("preview_badge")
+        self._live_badge.setProperty("live", True)
+        self._live_badge.move(12, 12)
+        self._live_badge.setVisible(False)
+
+        self._res_badge = QLabel("", self._preview_lbl)
+        self._res_badge.setObjectName("preview_badge")
+        self._res_badge.setVisible(False)
+
+        toolbar = QWidget()
+        toolbar.setObjectName("preview_toolbar")
+        tb_lay = QHBoxLayout(toolbar)
+        tb_lay.setContentsMargins(12, 9, 12, 10)
+        tb_lay.setSpacing(8)
+
+        self._toggle_btn = QPushButton("Hide")
+        self._toggle_btn.setMinimumWidth(78)
+        set_ui_role(self._toggle_btn, "quiet")
+        self._toggle_btn.setToolTip(
+            "Stop decoding frames for this view. The virtual camera output is "
+            "unaffected either way."
+        )
+        self._toggle_btn.clicked.connect(self._toggle)
+        tb_lay.addWidget(self._toggle_btn)
+
+        tb_lay.addStretch()
+
+        self._popout_btn = QPushButton("  Pop out")
+        self._popout_btn.setMinimumWidth(92)
+        set_ui_role(self._popout_btn, "quiet")
+        self._popout_btn.setIcon(create_vector_icon("expand", theme.TEXT_DIM))
+        self._popout_btn.setIconSize(QSize(14, 14))
+        self._popout_btn.clicked.connect(self._open_popout)
+        tb_lay.addWidget(self._popout_btn)
+
+        lay.addWidget(toolbar)
+
+        return stage
 
     def _toggle(self):
         self._active = not self._active
         self._toggle_btn.setText("Hide" if self._active else "Show")
-        self._preview_lbl.setVisible(self._active)
         if not self._active:
             self._preview_lbl.setPixmap(QPixmap())
             self._preview_lbl.setText("Preview hidden")
+            self._res_badge.setVisible(False)
+        else:
+            self._preview_lbl.setText(
+                _WAITING_TEXT if self._host.is_streaming() else _IDLE_TEXT)
+
+    def on_stream_start(self, stream_url: str, ctrl):
+        self._live_badge.setVisible(True)
+        if self._active and self._preview_lbl.pixmap().isNull():
+            self._preview_lbl.setText(_WAITING_TEXT)
+
+    def on_stream_stop(self):
+        self._live_badge.setVisible(False)
+        self._res_badge.setVisible(False)
+        self._preview_lbl.setPixmap(QPixmap())
+        self._preview_lbl.setText(_IDLE_TEXT if self._active else "Preview hidden")
 
     def _open_popout(self):
         if self._popout and self._popout.isVisible():
@@ -162,6 +221,11 @@ class PreviewPlugin(TelescopePlugin):
             return frame
         self._busy = True
         h, w = frame.shape[:2]
+        # Recorded here, before any downscale, so the badge reports the real
+        # output size rather than whatever fits the label. A plain tuple
+        # written from this thread and read from the GUI thread - same
+        # pattern the transforms plugin uses for its settings.
+        self._source_size = (w, h)
         if popout_open:
             # Full resolution for pop-out - it can be any size
             self._sig.frame.emit(frame.copy())
@@ -192,4 +256,18 @@ class PreviewPlugin(TelescopePlugin):
                     Qt.TransformationMode.SmoothTransformation,
                 )
             )
+            self._update_res_badge()
         self._busy = False
+
+    def _update_res_badge(self):
+        """Pin the resolution badge to the frame's top-right. Repositioned
+        per frame rather than on a resize hook - it's a move() on a label
+        that's already being repainted anyway."""
+        src_w, src_h = self._source_size
+        if not src_w:
+            return
+        self._res_badge.setText(f"{src_w} × {src_h}")
+        self._res_badge.adjustSize()
+        self._res_badge.move(self._preview_lbl.width() - self._res_badge.width() - 12, 12)
+        self._res_badge.setVisible(True)
+        self._res_badge.raise_()

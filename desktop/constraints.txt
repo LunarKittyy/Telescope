@@ -26,5 +26,4 @@ PyQt6_sip==13.11.1
 pytest==9.1.1
 pyvirtualcam==0.15.0
 qrcode==8.2
-qt-material==2.17
 setuptools==83.0.0

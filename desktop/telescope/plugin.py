@@ -69,8 +69,37 @@ class HostServices(Protocol):
 class TelescopePlugin:
     name: str = ""
 
+    panel_region: str = "left"
+    """Which region of the window this plugin's panel belongs in.
+
+    The host routes panels rather than hardcoding a layout per plugin name, so
+    a plugin decides its own placement:
+
+    - ``"left"``   - left rail: connection, output, monitoring (the setup half)
+    - ``"right"``  - right rail: camera and image controls (the live half)
+    - ``"center"`` - the video stage between the rails; at most one plugin
+
+    When the window is too narrow for three columns the host collapses the
+    rails together and then, narrower still, stacks everything in one column -
+    the region is a preference, not a guarantee of a physical column."""
+
     def setup(self, host: HostServices, bus: "EventBus"): ...
     def create_panel(self) -> Optional[QWidget]: return None
+
+    def create_header_widget(self) -> Optional[QWidget]:
+        """A compact widget for the window's header bar, or None.
+
+        Returned widgets are laid out left of the header's action buttons in
+        plugin registration order. Meant for the one or two controls that are
+        worth reaching without hunting through a panel (the device picker),
+        not as a second home for panel content."""
+        return None
+
+    def create_menu_actions(self) -> list:
+        """QActions to contribute to the header's settings menu, or an empty
+        list. Lets a plugin that is only an entry point into dialogs skip
+        having a panel at all."""
+        return []
     def on_stream_start(self, stream_url: str, ctrl): ...
     def on_stream_stop(self): ...
     def on_phone_state(self, state: dict): ...

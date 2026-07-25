@@ -7,7 +7,7 @@ Quick index of what lives where. Detailed behaviour is in the source; this is fo
 ## Entry point
 
 ### `main.py`
-Dependency check, Qt app setup, theme application, single-instance guard, plugin registration, config restore, event loop.
+Dependency check, Qt app setup, `apply_theme()`, single-instance guard, plugin registration, config restore, event loop.
 Registration order: `SetupPlugin → ConnectionPlugin → CameraControlPlugin → StreamOutputPlugin → TransformsPlugin → PreviewPlugin → MonitoringPlugin`.
 Calls `win.apply_saved_config()` **after** all plugins are registered so every plugin's `set_config()` is available.
 
@@ -17,9 +17,12 @@ Calls `win.apply_saved_config()` **after** all plugins are registered so every p
 
 ### `app.py`
 **TelescopeWindow** — thin coordinator shell.
-- Owns the scroll area, footer (status, FPS, Start button), tray icon.
+- Owns the header bar (logo, plugin header widgets, settings menu, Start button), the three-column body, the footer (stream status, live FPS), and the tray icon.
 - Owns `EventBus` and `StreamWorker` lifecycle.
-- `register_plugin(p)` — calls `p.setup()`, inserts `p.create_panel()` before the trailing stretch in the scroll area.
+- `register_plugin(p)` — calls `p.setup()`, routes `p.create_panel()` into the region `p.panel_region` names, appends `p.create_header_widget()` to the header slot.
+- `_refresh_layout(force=False)` — redistributes panels across the three physical columns for the current width. `three` (≥1300px): left rail | video stage | right rail. `two` (≥900px): rails merged on the left, stage on the right. `one`: a single column, stage first. Called on resize (only re-lays out when the mode actually changes) and forced on each registration.
+- `_show_settings_menu()` — builds the header's gear menu fresh on each click from every plugin's `create_menu_actions()`.
+- Re-exports `STATUS_COLORS` from `theme.py`; `APP_VERSION` is the string shown next to the wordmark.
 - `apply_saved_config()` — call after all plugins are registered; restores config round-trip for each plugin.
 - `_start()` — calls `conn.get_stream_info()` for URL (validates ADB/v4l2, builds URL), queries `stream_output.get_stream_params()` for worker dimensions.
 - `_stop()` — tears down worker and ctrl; `on_stream_stop()` on each plugin (ConnectionPlugin unforwards ADB there).
@@ -30,13 +33,21 @@ Calls `win.apply_saved_config()` **after** all plugins are registered so every p
 - `is_streaming()` / `stop_stream()` / `update_stream_output(width, height, fps)` — public stream controls; `stop_stream()` is a guarded no-op when idle, and `update_stream_output()` forwards only the values a caller passes (`None` width/height means pass-through).
 - `_plugin(name)` — central typed lookup of a registered plugin by name (replaces scattered inline `next(p for p ...)` scans).
 - `_apply_config(cfg)` — routes global plugin slices to `p.set_config()`, per-device slices for the selected device, then calls `conn.select_device()` to set the active device in the combo.
-- Utility exports: `acquire_single_instance()`, `listen_for_raise()`, `EXTRA_QSS`.
+- Utility exports: `acquire_single_instance()`, `listen_for_raise()`.
+
+### `theme.py`
+The app's entire visual definition: palette constants (`BG`, `SURFACE`, `ACCENT`, `FILL`, the `OK`/`WARN`/`ERR`/`DIM` status set, `STATUS_COLORS`), a dark `QPalette`, and the stylesheet built from those tokens.
+- `apply_theme(app)` — sets Fusion as the base style, installs the palette, applies the QSS. Called once from `main.py`.
+- No image assets and no third-party theme: icons are painted by `create_vector_icon()`, and controls that need a custom look (segmented toggles, badges, the preview stage) are targeted by object name or property selector.
 
 ### `plugin.py`
 **TelescopePlugin** base class + **HostServices** contract + **EventBus**.
 - `HostServices` (typing.Protocol): the public surface a plugin may call on its `host` handle — `schedule_save`, `save_now`, `switch_device`, `reconnect_stream`, `send_notification`, `is_streaming`, `stop_stream`, `update_stream_output`, `restart_vcam_canvas`. Structural typing only (`TelescopeWindow` implements it without inheriting). Keeps plugins off private window internals.
 - `UNCHANGED`: sentinel for `update_stream_output` so `None` can be passed as a real value (pass-through resolution) distinct from "leave as-is".
 - `TelescopePlugin`: override `setup`, `create_panel`, `on_stream_start`, `on_stream_stop`, `on_phone_state`, `process_frame`, `get_config`, `set_config`.
+  - `panel_region` (class attr): `"left"` / `"right"` / `"center"` — which region the host puts the panel in. A preference, not a guarantee: narrow windows merge regions.
+  - `create_header_widget()` → a compact widget for the window header, or `None`.
+  - `create_menu_actions()` → `QAction`s for the header's settings menu, or `[]`. Lets a dialogs-only plugin skip having a panel.
 - `EventBus(QObject)`: signals — `frame_ready`, `stream_start_requested`, `stream_stop_requested`, `stream_started`, `stream_stopped`, `phone_state_updated`, `device_changed`.
 
 ### `stream.py`
@@ -82,12 +93,15 @@ Load/save of `telescope_config.json` with versioned schema (current: v2) and per
 
 ### `widgets/common.py`
 Reusable Qt widgets and helpers used across multiple panels:
+- `control_row(label, widget, label_width, stretch)` / `control_row_widget(...)` — the standard settings row (right-aligned dim label, then the control) and its hideable variant. Imported as `_row` / `_row_widget` by the panels that use them heavily.
+- `make_segmented(*buttons)` / `segmented_row(*buttons)` — style a run of radios/checkboxes as one joined pill strip. Sets `segmented` + `segPos` properties the stylesheet reads; the widgets stay ordinary, so `QButtonGroup` exclusivity and existing signals are untouched.
+- `stretch_slider(slider, minimum)` — give a slider a minimum width and an Expanding policy so it fills its column instead of being pinned to a fixed track width.
 - `NoScrollComboBox`, `NoScrollSlider`, `NoScrollSpinBox`, `NoScrollDoubleSpinBox` — scroll-wheel suppressed variants.
 - `LogSliderRow` — slider + spinbox with logarithmic scaling (ISO, shutter speed).
 - `WbSliderRow` — white balance Kelvin slider with preset snapping.
 - `PanSliderRow` — bipolar slider (−1 … +1) with centre-reset button.
 - `create_separator()` — thin `QFrame` horizontal rule.
-- `create_vector_icon(name, color)` — renders an SVG icon to `QIcon`.
+- `create_vector_icon(name, color)` — paints an icon to a `QIcon` with `QPainter`, tinted per use. Set: `connection`, `camera`, `stream`, `gear`, `status`, `qr`, `usb`, `transforms`, `logo`, `play`, `stop`, `expand`, `reset`.
 - `ns_to_display(ns)`, `quality_label(q)`, `wb_name(k)` — display format helpers.
 
 ### `widgets/lens_panel.py`
@@ -112,7 +126,9 @@ UnityCapture helpers: `uc_is_registered()`, `unitycapture_dir()`, `download_unit
 
 ### `plugins/connection.py`
 **ConnectionPlugin** — mode selection, device list, port, ADB lifecycle. Registered first.
-- UI: USB/Wi-Fi radio buttons, device combo (+/− buttons, IP display), port field.
+- UI: Wi-Fi/USB segmented toggle, pairing status + Pair Device button, IP combo, port field.
+- `create_header_widget()` returns the device picker (combo + manage-devices gear) for the window header. Built eagerly in `create_panel()` via `_build_device_picker()`, so a host that never asks for a header still gets a working plugin — the combo is moved there, never duplicated.
+- `_set_wifi_rows_visible(v)` — flips the header picker and the panel's address row together, since both are Wi-Fi-only.
 - `get_stream_info()` → `(url, ok)` — validates port, checks v4l2loopback (Linux), ADB-forwards if USB mode; called by `app.py._start()`. Shows error dialogs on failure.
 - `on_stream_stop()` — unforwards ADB if a forward was established this session.
 - `_AddDeviceDialog` (module-private) — dialog for adding a named Wi-Fi device.
@@ -121,7 +137,7 @@ UnityCapture helpers: `uc_is_registered()`, `unitycapture_dir()`, `download_unit
 - `DEFAULT_PORT = 8080` defined here.
 
 ### `plugins/camera_control.py`
-**CameraControlPlugin** — lens selection, exposure, white balance, OIS.
+**CameraControlPlugin** — lens selection, exposure, white balance, OIS. `panel_region = "right"`.
 - UI: `LensPanel` (horizontal lens buttons), camera capability info label, Exposure auto/manual + ISO + shutter sliders, White Balance auto/manual + Kelvin slider, OIS checkbox.
 - `on_stream_start`: stores ctrl, sets "Loading lenses..." placeholder.
 - `on_phone_state(state)`: loads cameras into `LensPanel`, syncs exp/wb/ois from phone state. Empty `state` dict (fetch failure) shows "Unavailable" on lens panel.
@@ -138,15 +154,16 @@ UnityCapture helpers: `uc_is_registered()`, `unitycapture_dir()`, `download_unit
 - Config keys: `resolution`, `fps`, `jpeg_quality`, `phone_fps`.
 
 ### `plugins/preview.py`
-**PreviewPlugin** — in-card and pop-out live video preview.
-- UI: "Show"/"Hide" toggle for an in-card preview label, "Pop out" button opening a floating, aspect-ratio-locked `_PopoutWindow`.
-- `process_frame(frame)` — runs on the stream reader thread; downscales to `_CARD_MAX_W` for the in-card view (full resolution for the pop-out), emits a cross-thread Qt signal rather than touching any `QWidget` directly, then returns the frame unmodified (preview-only, doesn't alter the pipeline).
+**PreviewPlugin** — the centre video stage and its pop-out. `panel_region = "center"`.
+- UI: a letterboxed frame surface with a "LIVE" badge and a resolution badge floating over it (positioned, not laid out, so they never shift the picture), and a toolbar below with the "Hide"/"Show" toggle and "Pop out".
+- Active by default — it's the centre of the window, not an opt-in card. The toggle remains as an escape hatch for anyone who'd rather not spend the decode.
+- `process_frame(frame)` — runs on the stream reader thread; records the pre-downscale size for the resolution badge, downscales to `_CARD_MAX_W` for the in-window view (full resolution for the pop-out), emits a cross-thread Qt signal rather than touching any `QWidget` directly, then returns the frame unmodified (preview-only, doesn't alter the pipeline).
 - Pop-out window auto-hides the in-card preview when opened, and closes/restores state when the main window is hidden (tray minimize).
 - No config keys - preview visibility isn't persisted across restarts.
 
 ### `plugins/transforms.py`
-**TransformsPlugin** — software frame transforms applied in the stream pipeline.
-- UI: flip (H/V), rotation (None / 90 CW / 180 / 90 CCW), zoom slider (1×–5×), pan X/Y (enabled only when zoomed).
+**TransformsPlugin** — software frame transforms applied in the stream pipeline. `panel_region = "right"`.
+- UI: flip (H/V segmented), rotation (None / 90 CW / 180 / 90 CCW), zoom slider (1×–5×), pan X/Y (enabled only when zoomed), and a "Reset transforms" button that drives the widgets so the handlers do the rest.
 - `process_frame(frame)` — applies zoom crop then flip/rotate; runs on the worker thread. Reads plain Python attrs (`flip_h`, `flip_v`, `rotation`, `zoom`, `pan_x`, `pan_y`) written by the Qt thread; GIL makes these reads atomic.
 - Config keys: `flip_h`, `flip_v`, `rotation`, `zoom`, `pan_x`, `pan_y`.
 
@@ -158,6 +175,7 @@ UnityCapture helpers: `uc_is_registered()`, `unitycapture_dir()`, `download_unit
 - Config keys: `battery_alert`, `temp_alert`.
 
 ### `plugins/setup.py`
-**SetupPlugin** — "Drivers & APK" panel card wrapping **SetupDialog**.
-- UI: single button that opens the dialog; no stream lifecycle hooks.
+**SetupPlugin** — entry points into **SetupDialog** and the Quick Start Guide.
+- No panel: `create_panel()` returns `None` and `create_menu_actions()` contributes "Setup Drivers & APK…" and "Quick Start Guide…" to the header's settings menu. Neither is something you adjust mid-stream, so neither earns a rail slot.
+- No stream lifecycle hooks.
 - `SetupDialog` handles: v4l2loopback status/load (Linux), UnityCapture install (Windows), ADB status (Windows), APK install via ADB.

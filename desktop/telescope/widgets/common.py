@@ -3,15 +3,30 @@ import math
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QIcon, QPainter, QPen, QBrush, QPixmap
 from PyQt6.QtWidgets import (
-    QComboBox, QDoubleSpinBox, QFrame, QHBoxLayout, QLabel,
+    QComboBox, QDoubleSpinBox, QFrame, QHBoxLayout, QLabel, QLayout,
     QSlider, QSpinBox, QSizePolicy, QVBoxLayout, QWidget,
 )
+
+from telescope import theme
 
 
 # ── Shared desktop UI primitives ─────────────────────────────────────────────
 
-FORM_LABEL_WIDTH = 112
-SLIDER_TRACK_WIDTH = 168
+FORM_LABEL_WIDTH = 104
+
+SLIDER_TRACK_WIDTH = 132
+"""Minimum width for a slider track, not a fixed one.
+
+Panels live in resizable columns now, so sliders stretch to whatever their
+row has left over and this is only the floor below which the track stops
+being usefully draggable. Apply it with `stretch_slider()`."""
+
+
+def stretch_slider(slider: QWidget, minimum: int = SLIDER_TRACK_WIDTH) -> QWidget:
+    """Let a slider grow with its column while keeping a draggable minimum."""
+    slider.setMinimumWidth(minimum)
+    slider.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+    return slider
 
 
 def set_ui_role(widget: QWidget, role: str):
@@ -20,6 +35,43 @@ def set_ui_role(widget: QWidget, role: str):
     style = widget.style()
     style.unpolish(widget)
     style.polish(widget)
+
+
+def make_segmented(*buttons: QWidget):
+    """Style a run of radio buttons or checkboxes as one joined pill strip.
+
+    Purely presentational - the widgets stay exactly what they were, so
+    QButtonGroup exclusivity and every existing signal connection are
+    untouched. Each button gets a `segPos` so the stylesheet knows which
+    corners to round and which inner borders to drop.
+
+    Callers are expected to lay the buttons out with zero spacing, otherwise
+    the segments read as separate pills with gaps between them.
+    """
+    last = len(buttons) - 1
+    for i, btn in enumerate(buttons):
+        if len(buttons) == 1:  pos = "only"
+        elif i == 0:           pos = "first"
+        elif i == last:        pos = "last"
+        else:                  pos = "mid"
+        btn.setProperty("segmented", True)
+        btn.setProperty("segPos", pos)
+        style = btn.style()
+        style.unpolish(btn)
+        style.polish(btn)
+    return buttons
+
+
+def segmented_row(*buttons: QWidget) -> QHBoxLayout:
+    """A zero-spacing layout holding a segmented run, left-aligned."""
+    make_segmented(*buttons)
+    lay = QHBoxLayout()
+    lay.setContentsMargins(0, 0, 0, 0)
+    lay.setSpacing(0)
+    for btn in buttons:
+        lay.addWidget(btn)
+    lay.addStretch()
+    return lay
 
 
 def create_card(parent=None) -> QFrame:
@@ -37,11 +89,13 @@ def add_card_header(layout: QVBoxLayout, title: str, icon_name: str,
     header.setSpacing(9)
 
     icon = QLabel()
-    icon.setPixmap(create_vector_icon(icon_name, "#6aa9ed").pixmap(18, 18))
+    icon.setPixmap(create_vector_icon(icon_name, theme.ACCENT).pixmap(18, 18))
     icon.setFixedSize(18, 18)
     header.addWidget(icon)
 
-    title_label = QLabel(title)
+    # Uppercased here rather than at each call site so panel titles read as
+    # section headers without every plugin having to shout in its source.
+    title_label = QLabel(title.upper())
     title_label.setObjectName("card_title")
     header.addWidget(title_label)
 
@@ -68,6 +122,40 @@ def form_label(text: str, width: int = FORM_LABEL_WIDTH) -> QLabel:
     label.setFixedWidth(width)
     label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
     return label
+
+
+def control_row(label: str, widget, label_width: int = FORM_LABEL_WIDTH,
+                stretch: bool = False) -> QHBoxLayout:
+    """The standard settings row: right-aligned dim label, then the control.
+
+    `widget` may be a widget or a layout. `stretch` lets the control take the
+    row's leftover width instead of hugging its hint - what you want for
+    sliders and combos in a resizable column, not for a lone spinbox.
+
+    An empty label still reserves the label column, so a control can hang
+    under the one above it without breaking the alignment grid.
+    """
+    lay = QHBoxLayout()
+    lay.setContentsMargins(0, 0, 0, 0)
+    lay.setSpacing(8)
+    lay.addWidget(form_label(label, label_width))
+    if stretch:
+        if isinstance(widget, QLayout): lay.addLayout(widget, 1)
+        else:                           lay.addWidget(widget, 1)
+    else:
+        if isinstance(widget, QLayout): lay.addLayout(widget)
+        else:                           lay.addWidget(widget)
+        lay.addStretch(1)
+    return lay
+
+
+def control_row_widget(label: str, widget, label_width: int = FORM_LABEL_WIDTH,
+                       stretch: bool = False) -> QWidget:
+    """A hideable `control_row` - for rows revealed by a mode toggle."""
+    container = QWidget()
+    container.setObjectName("form_row")
+    container.setLayout(control_row(label, widget, label_width, stretch))
+    return container
 
 
 def add_form_row(layout: QVBoxLayout, text: str, control: QWidget,
@@ -224,6 +312,33 @@ def create_vector_icon(icon_name: str, color_hex: str) -> QIcon:
         painter.drawLine(20, 17, 24, 17)
         painter.drawLine(24, 17, 24, 7)
         painter.drawLine(24, 7, 28, 7)
+    elif icon_name == "logo":
+        # The app mark, matching the tray icon: an aperture ring with a
+        # filled centre.
+        painter.drawEllipse(4, 4, 24, 24)
+        painter.setBrush(QBrush(color))
+        painter.drawEllipse(12, 12, 8, 8)
+        painter.setBrush(QBrush(Qt.BrushStyle.NoBrush))
+    elif icon_name == "play":
+        painter.setBrush(QBrush(color))
+        from PyQt6.QtGui import QPolygon
+        from PyQt6.QtCore import QPoint
+        painter.drawPolygon(QPolygon([QPoint(10, 7), QPoint(25, 16), QPoint(10, 25)]))
+        painter.setBrush(QBrush(Qt.BrushStyle.NoBrush))
+    elif icon_name == "stop":
+        painter.setBrush(QBrush(color))
+        painter.drawRoundedRect(9, 9, 14, 14, 2, 2)
+        painter.setBrush(QBrush(Qt.BrushStyle.NoBrush))
+    elif icon_name == "expand":
+        for x1, y1, x2, y2 in ((6, 12, 6, 6), (6, 6, 12, 6), (26, 12, 26, 6),
+                               (26, 6, 20, 6), (6, 20, 6, 26), (6, 26, 12, 26),
+                               (26, 20, 26, 26), (26, 26, 20, 26)):
+            painter.drawLine(x1, y1, x2, y2)
+    elif icon_name == "reset":
+        # Circular arrow: an arc left open at the top right, with a head.
+        painter.drawArc(8, 8, 16, 16, 60 * 16, 280 * 16)
+        painter.drawLine(24, 12, 24, 6)
+        painter.drawLine(24, 12, 18, 12)
     elif icon_name == "transforms":
         painter.drawLine(7, 11, 25, 11)
         painter.drawLine(7, 21, 25, 21)
@@ -266,12 +381,12 @@ class LogSliderRow(QWidget):
         self._slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._slider.setRange(0, self.STEPS)
         self._slider.setValue(0)
-        self._slider.setFixedWidth(SLIDER_TRACK_WIDTH)
-        lay.addWidget(self._slider)
+        stretch_slider(self._slider, 96)
+        lay.addWidget(self._slider, 1)
 
         self._val_lbl = QLabel(display_fn(v_min) if display_fn else str(v_min))
         self._val_lbl.setObjectName("val")
-        self._val_lbl.setMinimumWidth(70)
+        self._val_lbl.setMinimumWidth(58)
         lay.addWidget(self._val_lbl)
 
         self._is_double_spin = spinbox_decimals > 0
@@ -284,7 +399,7 @@ class LogSliderRow(QWidget):
             spin = NoScrollSpinBox()
             spin.setRange(int(v_min * spinbox_scale), int(v_max * spinbox_scale))
         spin.setSuffix(spinbox_suffix)
-        spin.setFixedWidth(100)
+        spin.setFixedWidth(78)
         self._spin = spin
         lay.addWidget(self._spin)
 
@@ -371,15 +486,15 @@ class PanSliderRow(QWidget):
         self._slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._slider.setRange(-self.STEPS, self.STEPS)
         self._slider.setValue(0)
-        self._slider.setFixedWidth(SLIDER_TRACK_WIDTH)
-        lay.addWidget(self._slider)
+        stretch_slider(self._slider, 96)
+        lay.addWidget(self._slider, 1)
 
         if show_end_labels:
             pos_lbl = QLabel(label_pos)
             pos_lbl.setObjectName("dim")
             lay.addWidget(pos_lbl)
         else:
-            self.setFixedWidth(SLIDER_TRACK_WIDTH)
+            self.setMinimumWidth(SLIDER_TRACK_WIDTH)
 
         self._slider.valueChanged.connect(self._on_slider)
 

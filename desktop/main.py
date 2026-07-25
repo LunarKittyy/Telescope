@@ -13,18 +13,15 @@ try:    import numpy as np
 except ImportError: _missing.append("numpy")
 try:    import pyvirtualcam
 except ImportError: _missing.append("pyvirtualcam")
-try:    import qt_material
-except ImportError: _missing.append("qt-material")
 
 if _missing:
     print(f"Missing: pip install {' '.join(_missing)}", file=sys.stderr)
     sys.exit(1)
 
 from PyQt6.QtWidgets import QApplication
-from qt_material import apply_stylesheet
 
 from telescope.app import (
-    EXTRA_QSS, TelescopeWindow, acquire_single_instance, listen_for_raise,
+    TelescopeWindow, acquire_single_instance, listen_for_raise,
 )
 from telescope.plugins.camera_control import CameraControlPlugin
 from telescope.plugins.connection import ConnectionPlugin
@@ -33,6 +30,7 @@ from telescope.plugins.preview import PreviewPlugin
 from telescope.plugins.setup import SetupPlugin
 from telescope.plugins.stream_output import StreamOutputPlugin
 from telescope.plugins.transforms import TransformsPlugin
+from telescope.theme import apply_theme
 
 
 def main():
@@ -42,8 +40,7 @@ def main():
     if srv is None:
         sys.exit(0)
 
-    apply_stylesheet(app, theme='dark_blue.xml')
-    app.setStyleSheet(app.styleSheet() + EXTRA_QSS)
+    apply_theme(app)
 
     win = TelescopeWindow()
     win.register_plugin(SetupPlugin())
