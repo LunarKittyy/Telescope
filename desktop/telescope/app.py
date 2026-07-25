@@ -24,7 +24,7 @@ from telescope.platform import IS_LINUX, IS_WINDOWS
 from telescope.plugin import UNCHANGED, EventBus, TelescopePlugin
 from telescope.session import StreamSession
 from telescope.stream import StreamWorker
-from telescope.widgets.common import create_vector_icon
+from telescope.widgets.common import ElidingLabel, create_vector_icon
 
 # ── Theme ─────────────────────────────────────────────────────────────────────
 # The palette and stylesheet live in telescope/theme.py; re-exported here so
@@ -195,13 +195,16 @@ class TelescopeWindow(QMainWindow):
         logo.setFixedSize(28, 28)
         lay.addWidget(logo)
 
-        name = QLabel("Telescope")
-        name.setObjectName("app_name")
-        lay.addWidget(name)
+        # Wordmark and version are the first things dropped when the window
+        # gets narrow - see _apply_header_density(). The logo stays, so the
+        # header still reads as this app's.
+        self._app_name_lbl = QLabel("Telescope")
+        self._app_name_lbl.setObjectName("app_name")
+        lay.addWidget(self._app_name_lbl)
 
-        version = QLabel(f"v{APP_VERSION}")
-        version.setObjectName("app_version")
-        lay.addWidget(version, 0, Qt.AlignmentFlag.AlignVCenter)
+        self._app_version_lbl = QLabel(f"v{APP_VERSION}")
+        self._app_version_lbl.setObjectName("app_version")
+        lay.addWidget(self._app_version_lbl, 0, Qt.AlignmentFlag.AlignVCenter)
         lay.addSpacing(8)
 
         # Plugins that contribute a header control (the device picker) land
@@ -236,11 +239,27 @@ class TelescopeWindow(QMainWindow):
     def _set_start_button(self, streaming: bool):
         """Keep the button's label, icon and colour saying the same thing -
         a play triangle on a button that stops the stream is a small lie."""
-        self._start_btn.setText("Stop Streaming" if streaming else "Start Streaming")
+        self._streaming_label = streaming
+        verb = "Stop" if streaming else "Start"
+        self._start_btn.setText(verb if self._layout_mode == "one" else f"{verb} Streaming")
         self._start_btn.setIcon(
             create_vector_icon("stop" if streaming else "play", "#ffffff"))
         self._start_btn.setProperty("streaming", streaming)
         self._start_btn.setStyle(self._start_btn.style())
+
+    def _apply_header_density(self):
+        """Shed header text as the window narrows.
+
+        Everything in the header is fixed-size, so at 560px the row simply
+        ran out of room and Qt crushed the device picker under the button.
+        Rather than let that happen, drop the parts that are decoration
+        first - the wordmark and version - and shorten the button to its
+        verb. The picker and the primary action survive at any width.
+        """
+        compact = self._layout_mode == "one"
+        self._app_name_lbl.setVisible(not compact)
+        self._app_version_lbl.setVisible(not compact)
+        self._set_start_button(getattr(self, "_streaming_label", False))
 
     def _build_body(self) -> QWidget:
         body = QWidget()
@@ -282,7 +301,10 @@ class TelescopeWindow(QMainWindow):
         # No caption here: the message already reads as a status ("Streaming
         # to /dev/video11", "Stopped.") and is colour-coded. "LIVE FPS" below
         # earns its caption because "30.0" on its own means nothing.
-        self._status_lbl = QLabel("Idle - press Start Streaming")
+        # Elides: worker messages can be long ("Virtual camera: /dev/video11"),
+        # and at the minimum window width a plain label would push the FPS
+        # readout off the end of the bar.
+        self._status_lbl = ElidingLabel("Idle - press Start Streaming")
         self._status_lbl.setObjectName("status_dim")
         lay.addWidget(self._status_lbl, 1)
 
@@ -330,6 +352,7 @@ class TelescopeWindow(QMainWindow):
         if mode == self._layout_mode and not force:
             return
         self._layout_mode = mode
+        self._apply_header_density()
 
         if mode == "three":
             groups = [self._panels["left"], self._panels["center"], self._panels["right"]]

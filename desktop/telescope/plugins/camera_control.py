@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
     LogSliderRow, NoScrollComboBox, NoScrollSlider, add_card_header,
-    FlowLayout, SPIN_COL_GUTTER, VALUE_COL_WIDTH, control_row,
+    SPIN_COL_GUTTER, VALUE_COL_WIDTH, ElidingLabel, control_row,
     control_row_widget, create_card, create_separator, ns_to_display,
     segmented_row, stretch_slider,
 )
@@ -158,13 +158,14 @@ class CameraControlPlugin(TelescopePlugin):
         self._lens_panel.lens_selected.connect(self._on_lens_selected)
         lay.addWidget(_row_widget("Lens", self._lens_panel, stretch=True))
 
-        # Capability chips: what this lens can actually do, as a wrapping
-        # run of small pills under the lens picker. The old version was a
-        # dense "manual sensor ✓ · manual WB ✓ · …" string that wrapped
-        # mid-item and was hard to scan for the one thing you cared about.
-        self._cam_info_row = QWidget()
-        self._cam_info_row.setObjectName("form_row")
-        self._cam_chips = FlowLayout(self._cam_info_row, spacing=5)
+        # One quiet line under the picker, elided, with the full detail in
+        # its tooltip. It was a block of chips, but a chip per capability
+        # wrapped into a ragged two-line pile that said little the controls
+        # underneath don't already say by being enabled or greyed out - the
+        # hardware level is the only part you can't read off the panel.
+        self._cam_info_lbl = ElidingLabel("")
+        self._cam_info_lbl.setObjectName("caps_line")
+        self._cam_info_row = control_row_widget("", self._cam_info_lbl, stretch=True)
         self._cam_info_row.setVisible(False)
         lay.addWidget(self._cam_info_row)
 
@@ -396,7 +397,7 @@ class CameraControlPlugin(TelescopePlugin):
     def on_stream_stop(self):
         self._ctrl = None
         self._lens_panel.clear()
-        self._clear_cam_chips()
+        self._cam_info_lbl.setText("")
         self._cam_info_row.setVisible(False)
 
     def on_phone_state(self, state: dict):
@@ -485,37 +486,26 @@ class CameraControlPlugin(TelescopePlugin):
     # ── Camera capability gating ──────────────────────────────────────────────
 
     def _update_cam_info_lbl(self, cam: dict):
-        """Rebuild the capability chips for the selected lens.
+        """Summarise the selected lens in one line.
 
-        Only supported capabilities get a chip. An unsupported one is
-        already visible as a greyed-out control, so listing it again as
-        "manual focus ✗" spends a line saying what the UI has already
+        Only supported capabilities are named. An unsupported one is already
+        visible as a greyed-out control directly below, so spelling out
+        "manual focus ✗" spends space saying what the panel has already
         said - and buries the ones you can use among the ones you can't.
+        The full picture, including what's missing, is in the tooltip.
         """
         supported = [(label, cam.get(key)) for key, label in _CAPABILITY_LABELS]
         hw_level  = _HW_LEVELS.get(cam.get("hwLevel", ""), cam.get("hwLevel", ""))
+        have      = [l for l, ok in supported if ok]
+        missing   = [l for l, ok in supported if not ok]
 
-        self._clear_cam_chips()
-        chips = ([hw_level] if hw_level else []) + [l for l, ok in supported if ok]
-        for i, text in enumerate(chips):
-            chip = QLabel(text)
-            # The hardware level is a different kind of fact from a feature,
-            # so it reads as the lead chip rather than one of the list.
-            chip.setObjectName("chip_lead" if i == 0 and hw_level else "chip")
-            self._cam_chips.addWidget(chip)
-
-        missing = [l for l, ok in supported if not ok]
+        parts = ([hw_level] if hw_level else []) + have
+        self._cam_info_lbl.setText("  ·  ".join(parts))
         self._cam_info_row.setToolTip(
-            "Not supported on this lens: " + ", ".join(missing) if missing
-            else "This lens supports every control Telescope can send."
+            ("Supports: " + ", ".join(have) + "\n" if have else "")
+            + ("Not supported: " + ", ".join(missing) if missing else "")
         )
-        self._cam_info_row.setVisible(bool(chips))
-
-    def _clear_cam_chips(self):
-        while self._cam_chips.count():
-            item = self._cam_chips.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        self._cam_info_row.setVisible(bool(parts))
 
     def _update_camera_caps(self, supports_manual_sensor: bool, supports_manual_wb: bool,
                             supports_manual_focus: bool = False, min_focus_distance: float = 10.0,

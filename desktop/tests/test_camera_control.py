@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from PyQt6.QtWidgets import QVBoxLayout, QWidget
 
 from telescope.plugin import EventBus
 from telescope.plugins.camera_control import (
@@ -252,7 +253,7 @@ def test_phone_state_populates_camera_capabilities_and_controls(camera_plugin):
     assert plugin._focus_slider.value() == 500
     assert not plugin._ois_cb.isEnabled()
     assert plugin._torch_btn.isEnabled()
-    assert _chip_texts(plugin)[0] == "Full"
+    assert plugin._cam_info_lbl.fullText().startswith("Full")
 
 
 def test_empty_phone_state_and_stop_clear_camera_ui(camera_plugin):
@@ -265,16 +266,11 @@ def test_empty_phone_state_and_stop_clear_camera_ui(camera_plugin):
     assert plugin._ctrl is None
     assert plugin._lens_panel._btns == []
     assert plugin._lens_panel._ph.text() == "Start streaming to load lenses"
-    assert _chip_texts(plugin) == []
+    assert plugin._cam_info_lbl.fullText() == ""
     assert plugin._cam_info_row.isHidden()
 
 
-def _chip_texts(plugin) -> list:
-    chips = plugin._cam_chips
-    return [chips.itemAt(i).widget().text() for i in range(chips.count())]
-
-
-def test_capability_chips_list_only_what_the_lens_supports(camera_plugin):
+def test_capability_line_names_only_what_the_lens_supports(camera_plugin):
     plugin, _host, _bus, _panel = camera_plugin
 
     plugin._update_cam_info_lbl({
@@ -285,26 +281,46 @@ def test_capability_chips_list_only_what_the_lens_supports(camera_plugin):
         "hasOis": False,
     })
 
-    assert _chip_texts(plugin) == ["Level 3", "Manual exposure", "Manual focus"]
-    # What's missing is still recoverable, just not spending a line on it.
-    assert "Manual WB" in plugin._cam_info_row.toolTip()
-    assert "OIS" in plugin._cam_info_row.toolTip()
+    assert plugin._cam_info_lbl.fullText() == "Level 3  ·  Manual exposure  ·  Manual focus"
+    # What's missing is still recoverable, just not spending space on it.
+    assert "Not supported: Manual WB, OIS" in plugin._cam_info_row.toolTip()
 
 
-def test_capability_chips_are_rebuilt_not_appended(camera_plugin):
+def test_capability_line_is_rebuilt_not_appended(camera_plugin):
     plugin, _host, _bus, _panel = camera_plugin
     cam = {"hwLevel": "FULL", "supportsManualSensor": True}
 
     plugin._update_cam_info_lbl(cam)
     plugin._update_cam_info_lbl(cam)
 
-    assert _chip_texts(plugin) == ["Full", "Manual exposure"]
+    assert plugin._cam_info_lbl.fullText() == "Full  ·  Manual exposure"
 
 
 def test_unknown_hardware_level_passes_through_verbatim(camera_plugin):
     plugin, _host, _bus, _panel = camera_plugin
     plugin._update_cam_info_lbl({"hwLevel": "WHO_KNOWS"})
-    assert _chip_texts(plugin) == ["WHO_KNOWS"]
+    assert plugin._cam_info_lbl.fullText() == "WHO_KNOWS"
+
+
+def test_capability_line_elides_instead_of_widening_its_column(camera_plugin, qapp):
+    plugin, _host, _bus, _panel = camera_plugin
+    plugin._update_cam_info_lbl({
+        "hwLevel": "LEVEL_3", "supportsManualSensor": True,
+        "supportsManualWB": True, "supportsManualFocus": True, "hasOis": True,
+    })
+
+    # An explicit minimum of 1 is what stops the full text from pinning the
+    # column's width open.
+    assert plugin._cam_info_lbl.minimumWidth() == 1
+
+    host = QWidget()
+    QVBoxLayout(host).addWidget(plugin._cam_info_lbl)
+    host.resize(90, 40)
+    host.show()
+    qapp.processEvents()
+
+    assert plugin._cam_info_lbl.text() != plugin._cam_info_lbl.fullText()
+    assert plugin._cam_info_lbl.text().endswith("…")
 
 
 def test_capability_gating_forces_unsupported_modes_off(camera_plugin):

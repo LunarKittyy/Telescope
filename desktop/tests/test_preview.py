@@ -1,6 +1,6 @@
 import numpy as np
 from PyQt6.QtCore import QEvent
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import QSizePolicy, QWidget
 
 from telescope.plugin import EventBus
 from telescope.plugins.preview import PreviewPlugin, _HostFilter, _PopoutWindow
@@ -184,3 +184,19 @@ def test_popout_set_frame_and_resize_guards(qapp):
     window._aspect = 0
     window.resize(500, 300)
     assert window.size().width() == 500
+
+
+def test_a_large_frame_does_not_pin_the_column_open(qapp):
+    """Regression: a QLabel reports its pixmap's size as its minimum, so
+    once a 1080p frame had arrived the window could no longer be narrowed
+    and started scrolling sideways."""
+    plugin, _host, panel = _plugin(qapp)
+    plugin._preview_lbl.resize(900, 500)
+
+    plugin.process_frame(np.zeros((1080, 1920, 3), dtype=np.uint8))
+    qapp.processEvents()
+
+    assert plugin._preview_lbl.minimumWidth() == 1
+    assert plugin._preview_lbl.sizePolicy().horizontalPolicy() == \
+        QSizePolicy.Policy.Ignored
+    assert panel.minimumSizeHint().width() < 400

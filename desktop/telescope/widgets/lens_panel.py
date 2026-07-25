@@ -43,7 +43,7 @@ class LensPanel(QWidget):
 
         self._flow_host = QWidget()
         self._flow_host.setObjectName("lens_panel")
-        self._layout = FlowLayout(self._flow_host, spacing=5)
+        self._layout = FlowLayout(self._flow_host, spacing=5, uniform=True)
         outer.addWidget(self._flow_host)
         self._flow_host.hide()
 

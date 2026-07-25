@@ -1,7 +1,9 @@
 import math
 
 from PyQt6.QtCore import QPoint, QRect, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QIcon, QPainter, QPen, QBrush, QPixmap
+from PyQt6.QtGui import (
+    QBrush, QColor, QFontMetrics, QIcon, QPainter, QPen, QPixmap,
+)
 from PyQt6.QtWidgets import (
     QComboBox, QDoubleSpinBox, QFrame, QHBoxLayout, QLabel, QLayout,
     QSlider, QSpinBox, QSizePolicy, QVBoxLayout, QWidget,
@@ -18,7 +20,7 @@ VALUE_COL_WIDTH = 62
 """Width of the numeric readout beside a slider. Fixed and right-aligned so
 readouts line up down a panel instead of drifting with their text."""
 
-SPIN_COL_WIDTH = 78
+SPIN_COL_WIDTH = 88
 """Width of the direct-entry spinbox beside a slider."""
 
 SPIN_COL_GUTTER = SPIN_COL_WIDTH + 8
@@ -40,6 +42,42 @@ def stretch_slider(slider: QWidget, minimum: int = SLIDER_TRACK_WIDTH) -> QWidge
     return slider
 
 
+class ElidingLabel(QLabel):
+    """A label that shortens its text with an ellipsis instead of forcing
+    its row wider.
+
+    Plain QLabel reports its full text width as a minimum, so one long
+    status message or capability list can stop a whole column from ever
+    being narrowed again. This keeps the full text available as a tooltip.
+    """
+
+    def __init__(self, text: str = "", parent=None,
+                 mode: Qt.TextElideMode = Qt.TextElideMode.ElideRight):
+        super().__init__(parent)
+        self._full = ""
+        self._mode = mode
+        self.setMinimumWidth(1)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.setText(text)
+
+    def setText(self, text: str):
+        self._full = text
+        self.setToolTip(text if text else "")
+        self._apply_elide()
+
+    def fullText(self) -> str:
+        return self._full
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._apply_elide()
+
+    def _apply_elide(self):
+        metrics = QFontMetrics(self.font())
+        width = max(self.width(), 1)
+        super().setText(metrics.elidedText(self._full, self._mode, width))
+
+
 class FlowLayout(QLayout):
     """Lays widgets out left to right, wrapping to a new line when the row
     runs out of width.
@@ -51,10 +89,15 @@ class FlowLayout(QLayout):
     lets the count per row fall out of the space available.
     """
 
-    def __init__(self, parent=None, spacing: int = 6):
+    def __init__(self, parent=None, spacing: int = 6, uniform: bool = False):
         super().__init__(parent)
         self._items: list = []
         self._spacing = spacing
+        # uniform: give every item the same width and divide each row evenly,
+        # so the rows end flush instead of trailing off wherever the last
+        # item happened to finish. Reads as a grid whose column count adapts,
+        # rather than a pile of differently-sized pills.
+        self._uniform = uniform
         self.setContentsMargins(0, 0, 0, 0)
 
     def addItem(self, item):        self._items.append(item)
@@ -82,16 +125,36 @@ class FlowLayout(QLayout):
     def _layout(self, rect: QRect, apply: bool) -> int:
         """Place every item and return the total height used. With
         apply=False this is the heightForWidth measurement pass."""
-        m = self.contentsMargins()
-        x = rect.x() + m.left()
-        y = rect.y() + m.top()
-        right = rect.right() - m.right()
-        line_height = 0
+        if not self._items:
+            return 0
 
+        m = self.contentsMargins()
+        left = rect.x() + m.left()
+        y = rect.y() + m.top()
+        avail = max(rect.width() - m.left() - m.right(), 1)
+
+        if self._uniform:
+            widest = max(i.sizeHint().width() for i in self._items)
+            height = max(i.sizeHint().height() for i in self._items)
+            per_row = max(1, min(len(self._items),
+                                 (avail + self._spacing) // (widest + self._spacing)))
+            width = (avail - (per_row - 1) * self._spacing) // per_row
+            for index, item in enumerate(self._items):
+                row, col = divmod(index, per_row)
+                if apply:
+                    item.setGeometry(QRect(
+                        left + col * (width + self._spacing),
+                        y + row * (height + self._spacing),
+                        width, height))
+            rows = -(-len(self._items) // per_row)
+            return rows * height + (rows - 1) * self._spacing + m.top() + m.bottom()
+
+        x = left
+        line_height = 0
         for item in self._items:
             hint = item.sizeHint()
-            if x > rect.x() + m.left() and x + hint.width() > right:
-                x = rect.x() + m.left()
+            if x > left and x + hint.width() > left + avail:
+                x = left
                 y += line_height + self._spacing
                 line_height = 0
             if apply:

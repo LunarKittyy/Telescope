@@ -247,3 +247,37 @@ def test_control_row_widget_is_hideable(qapp):
     row = control_row_widget("Label", QLabel("x"))
     row.setVisible(False)
     assert row.isHidden()
+
+
+def test_uniform_flow_divides_each_row_evenly(qapp):
+    from PyQt6.QtWidgets import QPushButton
+    host = QWidget()
+    flow = FlowLayout(host, spacing=10, uniform=True)
+    for _ in range(3):
+        btn = QPushButton("x")
+        btn.setFixedSize(100, 20)
+        flow.addWidget(btn)
+    host.resize(320, 200)
+    host.show()
+    qapp.processEvents()
+
+    widths = [flow.itemAt(i).geometry().width() for i in range(3)]
+    # Every pill the same width, and the row ends flush with the container
+    # rather than trailing off wherever the last one happened to finish.
+    assert len(set(widths)) == 1
+    assert flow.itemAt(2).geometry().right() + 1 == 320
+
+
+def test_eliding_label_keeps_its_full_text_available(qapp):
+    from telescope.widgets.common import ElidingLabel
+    from PyQt6.QtWidgets import QVBoxLayout
+    host = QWidget()
+    label = ElidingLabel("a considerably longer piece of status text")
+    QVBoxLayout(host).addWidget(label)
+    host.resize(90, 40)
+    host.show()
+    qapp.processEvents()
+
+    assert label.text() != label.fullText()
+    assert label.toolTip() == label.fullText()
+    assert label.minimumWidth() == 1

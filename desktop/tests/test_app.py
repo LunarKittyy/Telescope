@@ -673,7 +673,7 @@ def test_stop_requests_worker_closes_client_and_notifies_plugins(window):
 
 def test_stop_is_safe_when_already_stopped(window):
     window._stop()
-    assert window._status_lbl.text() == "Stopped."
+    assert window._status_lbl.fullText() == "Stopped."
 
 
 def test_restart_canvas_non_linux_waits_and_restarts_active_stream(window, monkeypatch):
@@ -709,7 +709,7 @@ def test_canvas_reload_failure_reports_error_and_clears_callback(window, monkeyp
     window._vcam_reload_callback = lambda *args: done.append(args)
     monkeypatch.setattr(window, "_start", lambda: (_ for _ in ()).throw(AssertionError()))
     window._on_canvas_reload_done(False, "busy", True)
-    assert window._status_lbl.text() == "Reload failed: busy"
+    assert window._status_lbl.fullText() == "Reload failed: busy"
     assert window._status_lbl.objectName() == "status_err"
     assert done == [(False, "busy")]
     assert window._vcam_reload_callback is None
@@ -811,7 +811,7 @@ def test_apply_state_rejects_malformed_non_empty_state(window):
 
     assert bus == []
     assert plugin.states == []
-    assert "Protocol error" in window._status_lbl.text()
+    assert "Protocol error" in window._status_lbl.fullText()
 
 
 def test_apply_state_accepts_empty_state(window):
@@ -833,7 +833,7 @@ def test_apply_state_accepts_empty_state(window):
 )
 def test_worker_status_updates_status_label(window, kind, object_name):
     window._on_worker_status(kind, "message")
-    assert window._status_lbl.text() == "message"
+    assert window._status_lbl.fullText() == "message"
     assert window._status_lbl.objectName() == object_name
 
 

@@ -540,24 +540,10 @@ QToolButton#section_toggle:hover {{
     color: {ACCENT};
 }}
 
-/* Capability chips under the lens picker. */
-QLabel#chip {{
-    background-color: {SURFACE_RAISE};
-    border: 1px solid {BORDER};
-    border-radius: 5px;
-    padding: 2px 8px;
-    color: {TEXT_DIM};
+/* The lens capability summary: supporting text, deliberately quiet. */
+QLabel#caps_line {{
+    color: {TEXT_FAINT};
     font-size: 8pt;
-    font-weight: 600;
-}}
-QLabel#chip_lead {{
-    background-color: rgba(47, 111, 208, 0.16);
-    border: 1px solid rgba(106, 169, 237, 0.42);
-    border-radius: 5px;
-    padding: 2px 8px;
-    color: {ACCENT};
-    font-size: 8pt;
-    font-weight: 700;
 }}
 
 /* ── Preview stage ──────────────────────────────────────────────────────── */

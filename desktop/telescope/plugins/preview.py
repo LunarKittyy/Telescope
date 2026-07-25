@@ -121,8 +121,14 @@ class PreviewPlugin(TelescopePlugin):
         self._preview_lbl.setObjectName("preview_surface")
         self._preview_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._preview_lbl.setMinimumHeight(240)
+        # Ignored, not Expanding: a QLabel holding a pixmap reports that
+        # pixmap's size as its minimum size hint, so once a 1920px-wide frame
+        # had arrived the column could never be made narrow again and the
+        # window started scrolling sideways. Every frame is scaled to fit on
+        # arrival, so the label has no width requirement of its own.
         self._preview_lbl.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
+        self._preview_lbl.setMinimumWidth(1)
         self._preview_lbl.setText(_IDLE_TEXT)
         lay.addWidget(self._preview_lbl, 1)
 
