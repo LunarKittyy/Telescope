@@ -6,16 +6,17 @@ import threading
 import time
 from typing import Optional
 
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QPoint, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import (
     QAction, QBrush, QColor, QIcon, QPainter, QPen, QPixmap,
 )
 from PyQt6.QtWidgets import (
     QApplication, QFrame, QHBoxLayout, QLabel,
-    QMainWindow, QMenu, QScrollArea,
+    QMainWindow, QMenu, QPushButton, QScrollArea,
     QSizePolicy, QSystemTrayIcon, QVBoxLayout, QWidget,
 )
 
+from telescope import theme
 from telescope.config import DEVICE_LOCAL_PLUGINS, load_config, save_config
 from telescope.models import PhoneState, PhoneStateError
 from telescope.phone_client import PhoneControlClient
@@ -23,304 +24,23 @@ from telescope.platform import IS_LINUX, IS_WINDOWS
 from telescope.plugin import UNCHANGED, EventBus, TelescopePlugin
 from telescope.session import StreamSession
 from telescope.stream import StreamWorker
-from telescope.widgets.common import create_vector_icon
+from telescope.widgets.common import ElidingLabel, create_vector_icon
 
-# ── Theme / QSS ───────────────────────────────────────────────────────────────
+# ── Theme ─────────────────────────────────────────────────────────────────────
+# The palette and stylesheet live in telescope/theme.py; re-exported here so
+# existing callers (and plugins colouring labels inline) keep one import site.
+STATUS_COLORS = theme.STATUS_COLORS
 
-STATUS_COLORS = {
-    "status_ok":   "#66bb6a",
-    "status_warn": "#ffa726",
-    "status_err":  "#ef5350",
-    "status_dim":  "#78909c",
-}
+APP_VERSION = "1.0"
 
-EXTRA_QSS = """
-* {
-    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Ubuntu', 'Cantarell', 'Helvetica Neue', 'Arial', sans-serif;
-}
-QMainWindow, QScrollArea, QScrollArea > QWidget, QScrollArea > QWidget > QWidget, QWidget#content_widget, QWidget#footer_panel {
-    background-color: #1b2028;
-}
-QScrollArea, QScrollArea > QWidget, QScrollArea > QWidget > QWidget {
-    border: none;
-}
-QDialog {
-    background-color: #1b2028;
-    color: #e8edf4;
-}
-QWidget#ip_row_container, QWidget#battery_row {
-    background-color: transparent;
-}
-QWidget#form_row, QWidget#form_row_content, QWidget#inline_control, QWidget#lens_panel {
-    background-color: transparent;
-    border: none;
-}
-QWidget#footer_panel {
-    border-top: 1px solid #303945;
-    background-color: #171c23;
-}
-QFrame#card {
-    background-color: #11161d;
-    border: 1px solid #303945;
-    border-radius: 10px;
-}
-QFrame#separator {
-    background-color: #303945;
-    max-height: 1px;
-    border: none;
-}
-QLabel#card_title {
-    font-size: 11pt;
-    font-weight: 600;
-    color: #e8edf4;
-}
-QLabel#card_subtitle {
-    color: #7f8d9e;
-    font-size: 9pt;
-}
-QLabel#dialog_title {
-    color: #edf3fa;
-    font-size: 15pt;
-    font-weight: 600;
-}
-QLabel#dialog_subtitle {
-    color: #8796a8;
-    font-size: 9pt;
-    margin-bottom: 3px;
-}
-QToolButton#section_toggle {
-    min-height: 32px;
-    padding: 0 4px;
-    border: none;
-    background-color: transparent;
-    color: #b8c5d3;
-    font-size: 10pt;
-    font-weight: 600;
-    text-align: left;
-}
-QToolButton#section_toggle:hover {
-    color: #6aa9ed;
-}
-QFrame#subsection {
-    background-color: #151b22;
-    border: 1px solid #303945;
-    border-radius: 8px;
-}
-QLabel#section_title {
-    color: #6aa9ed;
-    font-size: 9pt;
-    font-weight: 700;
-    letter-spacing: 0.6px;
-    margin-top: 4px;
-    margin-bottom: 1px;
-}
-QLabel#form_label {
-    color: #94a4b6;
-    font-size: 9pt;
-    font-weight: 500;
-}
-QLabel#dim {
-    color: #8796a8;
-    font-size: 9pt;
-    font-weight: 500;
-}
-QLabel#val {
-    color: #8bbcf2;
-    font-family: monospace;
-    font-size: 9pt;
-}
-QLabel#status_ok {
-    color: #66bb6a;
-}
-QLabel#status_warn {
-    color: #ffa726;
-}
-QLabel#status_err {
-    color: #ef5350;
-}
-QLabel#status_dim {
-    color: #78909c;
-}
-QLabel#fps_lbl {
-    color: #518cc6;
-    font-family: monospace;
-    font-size: 9pt;
-}
-QComboBox {
-    min-height: 30px;
-    padding: 0 24px 0 9px;
-    border: 1px solid #3a4654;
-    border-radius: 5px;
-    background-color: #1a212a;
-    color: #e8edf4;
-}
-QComboBox:hover, QLineEdit:hover, QSpinBox:hover, QDoubleSpinBox:hover {
-    border-color: #52657a;
-}
-QComboBox QAbstractItemView {
-    background-color: #1a212a;
-    border: 1px solid #52657a;
-    selection-background-color: #315a85;
-    selection-color: #ffffff;
-}
-QLineEdit, QTextEdit, QSpinBox, QDoubleSpinBox {
-    min-height: 30px;
-    padding: 0 9px;
-    border: 1px solid #3a4654;
-    border-radius: 5px;
-    background-color: #1a212a;
-    color: #e8edf4;
-}
-QSpinBox::up-button, QSpinBox::down-button,
-QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
-    width: 0;
-    border: none;
-}
-QLineEdit:focus, QTextEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {
-    color: #ffffff;
-    border: 1px solid #6aa9ed;
-}
-QGroupBox {
-    margin-top: 12px;
-    padding: 20px 14px 14px 14px;
-    border: 1px solid #465362;
-    border-radius: 8px;
-    color: #dce5ef;
-    font-size: 9pt;
-    font-weight: 600;
-}
-QGroupBox::title {
-    subcontrol-origin: margin;
-    left: 12px;
-    padding: 0 6px;
-    color: #9eacbc;
-    background-color: #1b2028;
-}
-QRadioButton, QCheckBox {
-    spacing: 8px;
-    color: #e8edf4;
-    min-height: 28px;
-}
-QRadioButton:disabled, QCheckBox:disabled {
-    color: #5e6b79;
-}
-QSlider {
-    background: transparent;
-    height: 20px;
-    padding-left: 3px;
-    padding-right: 3px;
-}
-QSlider::groove:horizontal {
-    border: none;
-    height: 4px;
-    background: #34414d;
-    border-radius: 2px;
-    margin-left: 7px;
-    margin-right: 7px;
-}
-QSlider::sub-page:horizontal {
-    background: #6aa9ed;
-    border-radius: 2px;
-}
-QSlider::handle:horizontal {
-    background: #6aa9ed;
-    width: 14px;
-    height: 14px;
-    margin-top: -5px;
-    margin-bottom: -5px;
-    border-radius: 7px;
-}
-QSlider::handle:horizontal:hover {
-    background: #82b9f2;
-}
-QSlider::handle:horizontal:disabled {
-    background: #546e7a;
-}
-QSlider::groove:horizontal:disabled {
-    background: #1c2730;
-}
-QSlider::sub-page:horizontal:disabled {
-    background: #37474f;
-}
-QPushButton {
-    min-height: 30px;
-    background-color: #334253;
-    border: none;
-    border-radius: 5px;
-    padding: 0 13px;
-    color: #ffffff;
-    font-weight: 600;
-}
-QPushButton:hover {
-    background-color: #41566d;
-}
-QPushButton:pressed {
-    background-color: #293747;
-}
-QPushButton:checked {
-    background-color: #4b8dd1;
-    color: #ffffff;
-}
-QPushButton:checked:hover {
-    background-color: #5ca0e8;
-}
-QPushButton[uiRole="primary"] {
-    background-color: #3f72a5;
-}
-QPushButton[uiRole="primary"]:hover {
-    background-color: #4e88c1;
-}
-QPushButton[uiRole="success"] {
-    background-color: #32684d;
-}
-QPushButton[uiRole="success"]:hover {
-    background-color: #3e805e;
-}
-QPushButton[uiRole="danger"] {
-    background-color: #713f43;
-}
-QPushButton[uiRole="danger"]:hover {
-    background-color: #8c4d52;
-}
-QPushButton[uiRole="quiet"] {
-    background-color: #252d37;
-    color: #b6c2cf;
-}
-QPushButton#lens_button {
-    background-color: #202a35;
-    border: 1px solid #3a4654;
-    color: #c8d5e3;
-    text-align: center;
-}
-QPushButton#lens_button:hover {
-    background-color: #293949;
-    border-color: #59738e;
-}
-QPushButton#lens_button:checked {
-    background-color: #3f72a5;
-    border-color: #6aa9ed;
-    color: #ffffff;
-}
-QPushButton#start_btn {
-    font-size: 11pt;
-    font-weight: bold;
-    padding: 12px;
-    border-radius: 7px;
-    background-color: #3f72a5;
-    color: #ffffff;
-}
-QPushButton#start_btn:hover {
-    background-color: #4e88c1;
-}
-QPushButton#start_btn[streaming=true] {
-    background-color: #a94742;
-    border: 1px solid #c75c54;
-    color: #ffffff;
-}
-QPushButton#start_btn[streaming=true]:hover {
-    background-color: #c75c54;
-}
-"""
+# Below these widths the three-column layout stops fitting and the host folds
+# the rails together, then stacks everything into a single column.
+_WIDTH_THREE_COL = 1300
+_WIDTH_TWO_COL   = 900
+
+_RAIL_WIDTH_LEFT  = 364
+_RAIL_WIDTH_RIGHT = 434
+
 
 # ── Single-instance enforcement ───────────────────────────────────────────────
 _INSTANCE_PORT = 47823
@@ -372,8 +92,8 @@ class TelescopeWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Telescope")
-        self.setMinimumSize(540, 480)
-        self.resize(560, 900)
+        self.setMinimumSize(560, 520)
+        self.resize(1380, 900)
 
         self._bus     = EventBus()
         self._plugins: list[TelescopePlugin] = []
@@ -420,9 +140,13 @@ class TelescopeWindow(QMainWindow):
         plugin.setup(self, self._bus)
         panel = plugin.create_panel()
         if panel:
-            # Insert before the trailing stretch (always last item)
-            stretch_idx = self._scroll_content_layout.count() - 1
-            self._scroll_content_layout.insertWidget(stretch_idx, panel)
+            region = plugin.panel_region if plugin.panel_region in self._panels else "left"
+            self._panels[region].append(panel)
+            # Forced: the mode hasn't changed, but the panel set has.
+            self._refresh_layout(force=True)
+        header_widget = plugin.create_header_widget()
+        if header_widget:
+            self._header_slot.addWidget(header_widget)
         self._plugins.append(plugin)
         if plugin.name:
             self._plugins_by_name[plugin.name] = plugin
@@ -442,50 +166,245 @@ class TelescopeWindow(QMainWindow):
     # ── UI construction ───────────────────────────────────────────────────────
 
     def _build_ui(self):
-        from PyQt6.QtWidgets import QPushButton
+        # Panels are routed by the region a plugin asks for rather than being
+        # appended to one stack, so the window can rearrange them as it
+        # resizes without any plugin knowing.
+        self._panels: dict[str, list[QWidget]] = {"left": [], "center": [], "right": []}
+        self._layout_mode: Optional[str] = None
+
         root = QWidget()
+        root.setObjectName("body_root")
         self.setCentralWidget(root)
         root_lay = QVBoxLayout(root)
         root_lay.setContentsMargins(0, 0, 0, 0)
         root_lay.setSpacing(0)
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        content = QWidget()
-        content.setObjectName("content_widget")
-        self._scroll_content_layout = QVBoxLayout(content)
-        self._scroll_content_layout.setContentsMargins(18, 18, 18, 18)
-        self._scroll_content_layout.setSpacing(16)
-        self._scroll_content_layout.addStretch()
-        scroll.setWidget(content)
-        root_lay.addWidget(scroll, 1)
+        root_lay.addWidget(self._build_header())
+        root_lay.addWidget(self._build_body(), 1)
+        root_lay.addWidget(self._build_footer())
 
-        btn_frame = QWidget()
-        btn_frame.setObjectName("footer_panel")
-        btn_lay = QVBoxLayout(btn_frame)
-        btn_lay.setContentsMargins(18, 11, 18, 18)
-        btn_lay.setSpacing(7)
+    def _build_header(self) -> QWidget:
+        bar = QWidget()
+        bar.setObjectName("header_bar")
+        lay = QHBoxLayout(bar)
+        lay.setContentsMargins(18, 10, 18, 10)
+        lay.setSpacing(12)
 
-        self._status_lbl = QLabel("Idle - configure above and press Start")
-        self._status_lbl.setObjectName("status_dim")
-        self._status_lbl.setWordWrap(True)
-        self._status_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        logo = QLabel()
+        logo.setPixmap(create_vector_icon("logo", theme.ACCENT).pixmap(28, 28))
+        logo.setFixedSize(28, 28)
+        lay.addWidget(logo)
 
-        self._fps_lbl = QLabel("")
-        self._fps_lbl.setObjectName("fps_lbl")
-        self._fps_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Wordmark and version are the first things dropped when the window
+        # gets narrow - see _apply_header_density(). The logo stays, so the
+        # header still reads as this app's.
+        self._app_name_lbl = QLabel("Telescope")
+        self._app_name_lbl.setObjectName("app_name")
+        lay.addWidget(self._app_name_lbl)
+
+        self._app_version_lbl = QLabel(f"v{APP_VERSION}")
+        self._app_version_lbl.setObjectName("app_version")
+        lay.addWidget(self._app_version_lbl, 0, Qt.AlignmentFlag.AlignVCenter)
+        lay.addSpacing(8)
+
+        # Plugins that contribute a header control (the device picker) land
+        # here, in registration order.
+        self._header_slot = QHBoxLayout()
+        self._header_slot.setContentsMargins(0, 0, 0, 0)
+        self._header_slot.setSpacing(14)
+        lay.addLayout(self._header_slot)
+
+        lay.addStretch()
+
+        self._menu_btn = QPushButton()
+        self._menu_btn.setObjectName("icon_btn")
+        self._menu_btn.setFixedSize(36, 36)
+        self._menu_btn.setIcon(create_vector_icon("gear", theme.TEXT_DIM))
+        self._menu_btn.setIconSize(QSize(19, 19))
+        self._menu_btn.setToolTip("Setup and tools")
+        self._menu_btn.clicked.connect(self._show_settings_menu)
+        lay.addWidget(self._menu_btn)
 
         self._start_btn = QPushButton("Start Streaming")
         self._start_btn.setObjectName("start_btn")
         self._start_btn.setProperty("uiRole", "primary")
         self._start_btn.setProperty("streaming", False)
+        self._start_btn.setIconSize(QSize(14, 14))
         self._start_btn.clicked.connect(self._toggle)
+        self._set_start_button(streaming=False)
+        lay.addWidget(self._start_btn)
 
-        btn_lay.addWidget(self._status_lbl)
-        btn_lay.addWidget(self._fps_lbl)
-        btn_lay.addWidget(self._start_btn)
-        root_lay.addWidget(btn_frame)
+        return bar
+
+    def _set_start_button(self, streaming: bool):
+        """Keep the button's label, icon and colour saying the same thing -
+        a play triangle on a button that stops the stream is a small lie."""
+        self._streaming_label = streaming
+        verb = "Stop" if streaming else "Start"
+        self._start_btn.setText(verb if self._layout_mode == "one" else f"{verb} Streaming")
+        self._start_btn.setIcon(
+            create_vector_icon("stop" if streaming else "play", "#ffffff"))
+        self._start_btn.setProperty("streaming", streaming)
+        self._start_btn.setStyle(self._start_btn.style())
+
+    def _apply_header_density(self):
+        """Shed header text as the window narrows.
+
+        Everything in the header is fixed-size, so at 560px the row simply
+        ran out of room and Qt crushed the device picker under the button.
+        Rather than let that happen, drop the parts that are decoration
+        first - the wordmark and version - and shorten the button to its
+        verb. The picker and the primary action survive at any width.
+        """
+        compact = self._layout_mode == "one"
+        self._app_name_lbl.setVisible(not compact)
+        self._app_version_lbl.setVisible(not compact)
+        self._set_start_button(getattr(self, "_streaming_label", False))
+
+    def _build_body(self) -> QWidget:
+        body = QWidget()
+        body.setObjectName("body_root")
+        self._body_lay = QHBoxLayout(body)
+        self._body_lay.setContentsMargins(16, 16, 16, 16)
+        self._body_lay.setSpacing(14)
+
+        # Three physical columns, populated differently per layout mode -
+        # in the narrower modes the trailing ones are simply hidden.
+        self._columns: list[QScrollArea] = []
+        self._column_layouts: list[QVBoxLayout] = []
+        for _ in range(3):
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            scroll.setFrameShape(QFrame.Shape.NoFrame)
+            content = QWidget()
+            content.setObjectName("rail_content")
+            col_lay = QVBoxLayout(content)
+            # Right inset reserves room for the scrollbar so it never sits on
+            # top of a card's border.
+            col_lay.setContentsMargins(0, 0, 6, 0)
+            col_lay.setSpacing(14)
+            scroll.setWidget(content)
+            self._body_lay.addWidget(scroll)
+            self._columns.append(scroll)
+            self._column_layouts.append(col_lay)
+
+        return body
+
+    def _build_footer(self) -> QWidget:
+        bar = QWidget()
+        bar.setObjectName("footer_bar")
+        lay = QHBoxLayout(bar)
+        lay.setContentsMargins(18, 8, 18, 8)
+        lay.setSpacing(14)
+
+        # No caption here: the message already reads as a status ("Streaming
+        # to /dev/video11", "Stopped.") and is colour-coded. "LIVE FPS" below
+        # earns its caption because "30.0" on its own means nothing.
+        # Elides: worker messages can be long ("Virtual camera: /dev/video11"),
+        # and at the minimum window width a plain label would push the FPS
+        # readout off the end of the bar.
+        self._status_lbl = ElidingLabel("Idle - press Start Streaming")
+        self._status_lbl.setObjectName("status_dim")
+        lay.addWidget(self._status_lbl, 1)
+
+        divider = QFrame()
+        divider.setObjectName("header_divider")
+        divider.setFixedWidth(1)
+        divider.setFixedHeight(22)
+        lay.addWidget(divider)
+
+        fps_cap = QLabel("LIVE FPS")
+        fps_cap.setObjectName("footer_label")
+        lay.addWidget(fps_cap)
+
+        self._fps_lbl = QLabel("—")
+        self._fps_lbl.setObjectName("fps_lbl")
+        self._fps_lbl.setMinimumWidth(72)
+        lay.addWidget(self._fps_lbl)
+
+        return bar
+
+    def _show_settings_menu(self):
+        """Built fresh on each click so it always reflects the plugins
+        currently registered (and whatever state their actions read)."""
+        menu = QMenu(self)
+        for p in self._plugins:
+            for action in p.create_menu_actions():
+                action.setParent(menu)
+                menu.addAction(action)
+        if menu.isEmpty():
+            return
+        menu.exec(self._menu_btn.mapToGlobal(
+            self._menu_btn.rect().bottomLeft()) + QPoint(0, 6))
+
+    # ── Responsive layout ─────────────────────────────────────────────────────
+
+    def _layout_mode_for(self, width: int) -> str:
+        if width >= _WIDTH_THREE_COL:
+            return "three"
+        if width >= _WIDTH_TWO_COL:
+            return "two"
+        return "one"
+
+    def _refresh_layout(self, force: bool = False):
+        mode = self._layout_mode_for(self.width())
+        if mode == self._layout_mode and not force:
+            return
+        self._layout_mode = mode
+        self._apply_header_density()
+
+        if mode == "three":
+            groups = [self._panels["left"], self._panels["center"], self._panels["right"]]
+            widths = [_RAIL_WIDTH_LEFT, None, _RAIL_WIDTH_RIGHT]
+        elif mode == "two":
+            # Rails fold together on the left; the video stage keeps a column
+            # of its own because it's the thing that actually needs the width.
+            groups = [self._panels["left"] + self._panels["right"], self._panels["center"], []]
+            widths = [_RAIL_WIDTH_RIGHT, None, None]
+        else:
+            groups = [self._panels["center"] + self._panels["left"] + self._panels["right"], [], []]
+            widths = [None, None, None]
+
+        for col_lay in self._column_layouts:
+            while col_lay.count():
+                item = col_lay.takeAt(0)
+                if item.widget():
+                    item.widget().setParent(None)
+
+        center_panels = set(id(p) for p in self._panels["center"])
+        for scroll, col_lay, panels, width in zip(
+                self._columns, self._column_layouts, groups, widths):
+            scroll.setVisible(bool(panels))
+            if not panels:
+                continue
+            if width is None:
+                scroll.setMinimumWidth(0)
+                scroll.setMaximumWidth(16777215)
+                scroll.setSizePolicy(QSizePolicy.Policy.Expanding,
+                                     QSizePolicy.Policy.Expanding)
+            else:
+                scroll.setFixedWidth(width)
+                scroll.setSizePolicy(QSizePolicy.Policy.Fixed,
+                                     QSizePolicy.Policy.Expanding)
+            # Only the flexible column absorbs slack; without this a lone
+            # fixed-width column ends up floating in the middle of the window.
+            self._body_lay.setStretch(self._columns.index(scroll),
+                                      1 if width is None else 0)
+            has_center = False
+            for panel in panels:
+                stretch = 1 if id(panel) in center_panels else 0
+                has_center = has_center or bool(stretch)
+                col_lay.addWidget(panel, stretch)
+                panel.setVisible(True)
+            # A column of ordinary panels keeps them top-aligned; one holding
+            # the video stage lets that panel absorb the slack instead.
+            if not has_center:
+                col_lay.addStretch()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._refresh_layout()
 
     # ── Config persistence ────────────────────────────────────────────────────
 
@@ -676,9 +595,7 @@ class TelescopeWindow(QMainWindow):
 
         threading.Thread(target=self._fetch_state_async, args=(session_id,), daemon=True).start()
 
-        self._start_btn.setText("Stop Streaming")
-        self._start_btn.setProperty("streaming", True)
-        self._start_btn.setStyle(self._start_btn.style())
+        self._set_start_button(streaming=True)
         self._set_status("Connecting...", "dim")
 
     def _stop(self):
@@ -703,10 +620,8 @@ class TelescopeWindow(QMainWindow):
                 logging.warning("Stream worker did not stop within 5s; abandoning it in the background")
         if ctrl:
             ctrl.close()
-        self._start_btn.setText("Start Streaming")
-        self._start_btn.setProperty("streaming", False)
-        self._start_btn.setStyle(self._start_btn.style())
-        self._fps_lbl.setText("")
+        self._set_start_button(streaming=False)
+        self._fps_lbl.setText("—")
         self._set_status("Stopped.", "dim")
 
         self._bus.stream_stopped.emit()
@@ -858,13 +773,11 @@ class TelescopeWindow(QMainWindow):
         elif kind == "warn":
             self._set_status(msg, "warn")
         elif kind == "idle":
-            self._fps_lbl.setText("")
+            self._fps_lbl.setText("—")
             self._set_status(msg, "dim")
             if self._session:
                 self._session = None
-                self._start_btn.setText("Start Streaming")
-                self._start_btn.setProperty("streaming", False)
-                self._start_btn.setStyle(self._start_btn.style())
+                self._set_start_button(streaming=False)
         else:
             self._set_status(msg, "dim")
 

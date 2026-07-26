@@ -43,9 +43,6 @@ numpy (https://pypi.org/project/numpy/)
 pyvirtualcam (https://pypi.org/project/pyvirtualcam/)
     License: MIT.
 
-qt-material (https://pypi.org/project/qt-material/)
-    License: BSD-2-Clause.
-
 qrcode (https://pypi.org/project/qrcode/)
     License: BSD 3-Clause.
 

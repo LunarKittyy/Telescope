@@ -1,13 +1,23 @@
 import numpy as np
 from PyQt6.QtCore import QEvent
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import QSizePolicy, QWidget
 
 from telescope.plugin import EventBus
 from telescope.plugins.preview import PreviewPlugin, _HostFilter, _PopoutWindow
 
 
+class _Host(QWidget):
+    """A window stand-in - the preview asks the host whether a stream is
+    running to pick its placeholder text."""
+
+    streaming = False
+
+    def is_streaming(self):
+        return self.streaming
+
+
 def _plugin(qapp):
-    host = QWidget()
+    host = _Host()
     plugin = PreviewPlugin()
     plugin.setup(host, EventBus())
     panel = plugin.create_panel()
@@ -25,24 +35,50 @@ def test_host_filter_emits_on_hide_only(qapp):
     assert seen == [True]
 
 
-def test_preview_toggle_updates_visibility_and_text(qapp):
+def test_preview_starts_active_and_toggles_off_and_back_on(qapp):
     plugin, _host, _panel = _plugin(qapp)
 
-    plugin._toggle()
+    # The stage is the centre of the window now, so it starts on.
     assert plugin._active is True
     assert plugin._toggle_btn.text() == "Hide"
-    assert not plugin._preview_lbl.isHidden()
 
     plugin._toggle()
     assert plugin._active is False
     assert plugin._toggle_btn.text() == "Show"
     assert plugin._preview_lbl.text() == "Preview hidden"
 
+    plugin._toggle()
+    assert plugin._active is True
+    assert plugin._toggle_btn.text() == "Hide"
+    assert plugin._preview_lbl.text() == "Not streaming"
+
+
+def test_preview_placeholder_says_waiting_while_a_stream_is_up(qapp):
+    plugin, host, _panel = _plugin(qapp)
+    host.streaming = True
+
+    plugin._toggle()
+    plugin._toggle()
+
+    assert plugin._preview_lbl.text() == "Waiting for the first frame…"
+
+
+def test_stream_start_and_stop_swap_the_placeholder(qapp):
+    plugin, _host, _panel = _plugin(qapp)
+
+    plugin.on_stream_start("http://phone/", None)
+    assert plugin._preview_lbl.text() == "Waiting for the first frame…"
+
+    plugin.on_stream_stop()
+    assert plugin._preview_lbl.text() == "Not streaming"
+    assert plugin._preview_lbl.pixmap().isNull()
+
 
 def test_process_frame_is_zero_copy_when_inactive_or_busy(qapp):
     plugin, _host, _panel = _plugin(qapp)
     frame = np.zeros((20, 30, 3), dtype=np.uint8)
 
+    plugin._active = False
     assert plugin.process_frame(frame) is frame
     plugin._active = True
     plugin._busy = True
@@ -59,7 +95,7 @@ def test_card_preview_downscales_large_frame_before_signal(qapp):
     returned = plugin.process_frame(frame)
 
     assert returned is frame
-    assert seen[-1].shape == (240, 480, 3)
+    assert seen[-1].shape == (480, 960, 3)
     assert plugin._busy is False
 
 
@@ -148,3 +184,19 @@ def test_popout_set_frame_and_resize_guards(qapp):
     window._aspect = 0
     window.resize(500, 300)
     assert window.size().width() == 500
+
+
+def test_a_large_frame_does_not_pin_the_column_open(qapp):
+    """Regression: a QLabel reports its pixmap's size as its minimum, so
+    once a 1080p frame had arrived the window could no longer be narrowed
+    and started scrolling sideways."""
+    plugin, _host, panel = _plugin(qapp)
+    plugin._preview_lbl.resize(900, 500)
+
+    plugin.process_frame(np.zeros((1080, 1920, 3), dtype=np.uint8))
+    qapp.processEvents()
+
+    assert plugin._preview_lbl.minimumWidth() == 1
+    assert plugin._preview_lbl.sizePolicy().horizontalPolicy() == \
+        QSizePolicy.Policy.Ignored
+    assert panel.minimumSizeHint().width() < 400

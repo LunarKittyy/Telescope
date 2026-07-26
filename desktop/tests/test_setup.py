@@ -335,7 +335,7 @@ def test_setup_plugin_opens_reuses_dialogs_and_syncs_config(monkeypatch, qapp):
     host = _Host()
     plugin = SetupPlugin()
     plugin.setup(host, EventBus())
-    panel = plugin.create_panel()
+    assert plugin.create_panel() is None
     plugin.set_config({
         "canvas_preset": "Custom...",
         "custom_canvas_w": 900,
@@ -371,3 +371,23 @@ def test_show_event_refreshes_platform_specific_status(monkeypatch, linux_dialog
     monkeypatch.setattr(windows, "_check_win_setup", lambda: calls.append("windows"))
     windows.showEvent(QShowEvent())
     assert calls[-1] == "windows"
+
+
+def test_setup_contributes_menu_actions_instead_of_a_panel(monkeypatch, qapp):
+    host = _Host()
+    plugin = SetupPlugin()
+    plugin.setup(host, EventBus())
+
+    # Setup is entry points into dialogs, so it takes a menu slot rather than
+    # a rail slot.
+    assert plugin.create_panel() is None
+
+    actions = plugin.create_menu_actions()
+    assert [a.text() for a in actions] == ["Setup Drivers && APK…", "Quick Start Guide…"]
+
+    actions[0].trigger()
+    assert plugin._dlg is not None
+    plugin._dlg.hide()
+    actions[1].trigger()
+    assert plugin._guide_dlg is not None
+    plugin._guide_dlg.hide()

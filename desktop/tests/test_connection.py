@@ -859,3 +859,36 @@ def test_ip_change_persists_active_ip_per_device(window_with_plugins):
     from telescope.config import load_config
     cfg = load_config()
     assert cfg["devices"]["PhoneA"]["active_ip"] == "192.168.1.10"
+
+
+def test_header_widget_hosts_the_device_picker_and_follows_the_mode(connection_plugin):
+    plugin, _host, _panel = connection_plugin
+
+    header = plugin.create_header_widget()
+
+    # The picker is moved into the header, not duplicated - the panel's own
+    # device rows must not hold a second combo.
+    assert header.isAncestorOf(plugin._device_combo)
+    assert not plugin._device_row_w.isAncestorOf(plugin._device_combo)
+
+    plugin.set_config({"mode": "wifi", "port": 8080, "devices_list": []})
+    assert not header.isHidden()
+    assert not plugin._device_row_w.isHidden()
+
+    # USB has no roster or address to pick, so both fold away together.
+    plugin.set_config({"mode": "usb", "port": 8080, "devices_list": []})
+    assert header.isHidden()
+    assert plugin._device_row_w.isHidden()
+
+
+def test_device_picker_exists_even_if_the_host_never_asks_for_a_header(connection_plugin):
+    """A host that only calls create_panel() still gets a working plugin."""
+    plugin, _host, _panel = connection_plugin
+
+    plugin.set_config({
+        "mode": "wifi", "port": 8080,
+        "devices_list": [{"name": "Phone", "ips": ["10.0.0.1"], "token": "t"}],
+    })
+    plugin.select_device("Phone")
+
+    assert plugin._device_combo.currentText() == "Phone"

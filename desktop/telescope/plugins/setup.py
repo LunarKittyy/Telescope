@@ -2,6 +2,7 @@ import threading
 from typing import Optional
 
 from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QCheckBox, QDialog, QFrame, QGroupBox, QHBoxLayout, QInputDialog, QLabel,
     QPushButton, QSpinBox, QSizePolicy, QTextBrowser, QToolButton, QVBoxLayout, QWidget,
@@ -19,9 +20,8 @@ from telescope.platform.windows import (
     download_unitycapture, register_unitycapture, uc_is_registered, unitycapture_dir,
 )
 from telescope.plugin import TelescopePlugin
-from telescope.widgets.common import (
-    NoScrollComboBox, add_card_header, create_card, set_ui_role,
-)
+from telescope import theme
+from telescope.widgets.common import NoScrollComboBox, set_ui_role
 
 # (width, height) tuples for canvas presets; None = auto from first frame
 CANVAS_PRESETS: list[tuple[str, tuple[int, int] | None]] = [
@@ -111,7 +111,10 @@ class _GuideDialog(QDialog):
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         lay = QVBoxLayout(self)
         browser = QTextBrowser()
-        browser.setStyleSheet("QTextBrowser { background-color: #1e2126; color: #e8eaed; border: none; font-size: 15px; }")
+        browser.setStyleSheet(
+            f"QTextBrowser {{ background-color: {theme.SURFACE}; "
+            f"color: {theme.TEXT}; border: none; font-size: 15px; }}"
+        )
         from PyQt6.QtGui import QFont
         f = QFont("sans-serif", 12)
         browser.setFont(f)
@@ -630,29 +633,19 @@ class SetupPlugin(TelescopePlugin):
             return self._custom_w, self._custom_h
         return val
 
-    def create_panel(self) -> QWidget:
-        card = create_card()
-        lay = QVBoxLayout(card)
-        lay.setContentsMargins(16, 15, 16, 15)
-        lay.setSpacing(11)
-        add_card_header(lay, "System Setup", "gear")
+    def create_panel(self) -> Optional[QWidget]:
+        """No panel. Setup is a pair of entry points into dialogs, not
+        something you adjust while streaming, so it lives in the header's
+        settings menu instead of occupying a rail slot - see
+        create_menu_actions()."""
+        return None
 
-        btn_row = QHBoxLayout()
-        btn_row.setContentsMargins(0, 0, 0, 0)
-        btn_row.setSpacing(8)
-        open_btn = QPushButton("Setup Drivers && APK")
-        set_ui_role(open_btn, "primary")
-        open_btn.clicked.connect(self._open)
-        btn_row.addWidget(open_btn)
-        guide_btn = QPushButton("Guide")
-        guide_btn.setMinimumWidth(70)
-        set_ui_role(guide_btn, "quiet")
-        guide_btn.clicked.connect(self._open_guide)
-        btn_row.addWidget(guide_btn)
-        btn_row.addStretch()
-        lay.addLayout(btn_row)
-
-        return card
+    def create_menu_actions(self) -> list:
+        setup_action = QAction("Setup Drivers && APK…", None)
+        setup_action.triggered.connect(self._open)
+        guide_action = QAction("Quick Start Guide…", None)
+        guide_action.triggered.connect(self._open_guide)
+        return [setup_action, guide_action]
 
     def _open_guide(self):
         if self._guide_dlg is None or not self._guide_dlg.isVisible():

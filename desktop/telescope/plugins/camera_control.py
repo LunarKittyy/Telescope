@@ -11,13 +11,31 @@ from PyQt6.QtWidgets import (
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
     LogSliderRow, NoScrollComboBox, NoScrollSlider, add_card_header,
-    SLIDER_TRACK_WIDTH, create_card, create_separator, ns_to_display,
+    SPIN_COL_GUTTER, VALUE_COL_WIDTH, ElidingLabel, control_row,
+    control_row_widget, create_card, create_separator, ns_to_display,
+    segmented_row, stretch_slider,
 )
 from telescope.widgets.lens_panel import LensPanel
 
 _FOCUS_STEPS = 1000
 _NR_MODES    = [("Off", 0), ("Fast", 1), ("High Quality", 2)]
 _EDGE_MODES  = [("Off", 0), ("Fast", 1), ("High Quality", 2)]
+_CAPABILITY_LABELS = [
+    ("supportsManualSensor", "Manual exposure"),
+    ("supportsManualWB",     "Manual WB"),
+    ("supportsManualFocus",  "Manual focus"),
+    ("hasOis",               "OIS"),
+]
+
+# Camera2's INFO_SUPPORTED_HARDWARE_LEVEL constants, in English.
+_HW_LEVELS = {
+    "LEGACY":  "Legacy",
+    "LIMITED": "Limited",
+    "FULL":    "Full",
+    "LEVEL_3": "Level 3",
+    "EXTERNAL": "External",
+}
+
 _WB_MIN_K    = 2000
 _WB_MAX_K    = 10000
 _WB_NEUTRAL  = 5500   # neutral point where R gain == B gain
@@ -107,40 +125,15 @@ def derive_camera_control_view(state: dict) -> Optional[CameraControlView]:
     )
 
 
-def _row(label: str, widget, label_width=110, stretch=False) -> QHBoxLayout:
-    from PyQt6.QtWidgets import QLayout
-    lay = QHBoxLayout()
-    lay.setContentsMargins(0, 0, 0, 0)
-    lay.setSpacing(8)
-    lbl = QLabel(label)
-    lbl.setObjectName("dim")
-    lbl.setFixedWidth(label_width)
-    lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-    lay.addWidget(lbl)
-    if stretch:
-        if isinstance(widget, QLayout):
-            lay.addLayout(widget, 1)
-        else:
-            lay.addWidget(widget, 1)
-    else:
-        if isinstance(widget, QLayout):
-            lay.addLayout(widget)
-        else:
-            lay.addWidget(widget)
-        lay.addStretch(1)
-    return lay
-
-
-def _row_widget(label: str, widget, label_width=110, stretch=False) -> QWidget:
-    """A hideable version of _row for progressively disclosed controls."""
-    container = QWidget()
-    container.setObjectName("form_row")
-    container.setLayout(_row(label, widget, label_width, stretch))
-    return container
+# The shared row helpers under their long-standing local names - this module
+# has ~20 call sites and they read better short.
+_row        = control_row
+_row_widget = control_row_widget
 
 
 class CameraControlPlugin(TelescopePlugin):
     name = "camera_control"
+    panel_region = "right"
 
     def setup(self, host, bus):
         self._host              = host
@@ -165,19 +158,20 @@ class CameraControlPlugin(TelescopePlugin):
         self._lens_panel.lens_selected.connect(self._on_lens_selected)
         lay.addWidget(_row_widget("Lens", self._lens_panel, stretch=True))
 
-        self._cam_info_lbl = QLabel("")
-        self._cam_info_lbl.setObjectName("dim")
-        self._cam_info_lbl.setWordWrap(True)
-        self._cam_info_row = _row_widget("Capabilities", self._cam_info_lbl, stretch=True)
+        # One quiet line under the picker, elided, with the full detail in
+        # its tooltip. It was a block of chips, but a chip per capability
+        # wrapped into a ragged two-line pile that said little the controls
+        # underneath don't already say by being enabled or greyed out - the
+        # hardware level is the only part you can't read off the panel.
+        self._cam_info_lbl = ElidingLabel("")
+        self._cam_info_lbl.setObjectName("caps_line")
+        self._cam_info_row = control_row_widget("", self._cam_info_lbl, stretch=True)
         self._cam_info_row.setVisible(False)
         lay.addWidget(self._cam_info_row)
 
         lay.addWidget(create_separator())
 
         # ── Exposure ──────────────────────────────────────────────────────────
-        exp_controls = QHBoxLayout()
-        exp_controls.setContentsMargins(0, 0, 0, 0)
-        exp_controls.setSpacing(12)
         self._rb_exp_auto   = QRadioButton("Auto")
         self._rb_exp_manual = QRadioButton("Manual")
         for rb in (self._rb_exp_auto, self._rb_exp_manual):
@@ -187,10 +181,8 @@ class CameraControlPlugin(TelescopePlugin):
         self._exp_grp.addButton(self._rb_exp_manual)
         self._rb_exp_auto.setChecked(True)
         self._exp_grp.buttonClicked.connect(lambda _: self._on_exp_mode())
-        exp_controls.addWidget(self._rb_exp_auto)
-        exp_controls.addWidget(self._rb_exp_manual)
-        exp_controls.addStretch()
-        lay.addWidget(_row_widget("Exposure", exp_controls, stretch=True))
+        lay.addWidget(_row_widget(
+            "Exposure", segmented_row(self._rb_exp_auto, self._rb_exp_manual)))
 
         self._iso_slider = LogSliderRow(
             v_min=50, v_max=6400,
@@ -217,25 +209,24 @@ class CameraControlPlugin(TelescopePlugin):
         self._ae_comp_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._ae_comp_slider.setRange(-8, 8)
         self._ae_comp_slider.setValue(0)
-        self._ae_comp_slider.setFixedWidth(SLIDER_TRACK_WIDTH)
+        stretch_slider(self._ae_comp_slider)
         self._ae_comp_lbl = QLabel("0.0 EV")
         self._ae_comp_lbl.setObjectName("val")
-        self._ae_comp_lbl.setFixedWidth(52)
+        self._ae_comp_lbl.setFixedWidth(VALUE_COL_WIDTH)
+        self._ae_comp_lbl.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         ae_inner = QHBoxLayout()
         ae_inner.setContentsMargins(0, 0, 0, 0)
         ae_inner.setSpacing(8)
         ae_inner.addWidget(self._ae_comp_slider)
         ae_inner.addWidget(self._ae_comp_lbl)
-        ae_inner.addStretch()
+        ae_inner.addSpacing(SPIN_COL_GUTTER)
         self._ae_comp_slider.valueChanged.connect(self._on_ae_comp_changed)
         lay.addWidget(_row_widget("Exposure comp.", ae_inner, stretch=True))
 
         lay.addWidget(create_separator())
 
         # ── White Balance ─────────────────────────────────────────────────────
-        wb_controls = QHBoxLayout()
-        wb_controls.setContentsMargins(0, 0, 0, 0)
-        wb_controls.setSpacing(12)
         self._rb_wb_auto   = QRadioButton("Auto")
         self._rb_wb_manual = QRadioButton("Manual")
         for rb in (self._rb_wb_auto, self._rb_wb_manual):
@@ -245,25 +236,25 @@ class CameraControlPlugin(TelescopePlugin):
         self._wb_grp.addButton(self._rb_wb_manual)
         self._rb_wb_auto.setChecked(True)
         self._wb_grp.buttonClicked.connect(lambda _: self._on_wb_mode())
-        wb_controls.addWidget(self._rb_wb_auto)
-        wb_controls.addWidget(self._rb_wb_manual)
-        wb_controls.addStretch()
-        lay.addWidget(_row_widget("White balance", wb_controls, stretch=True))
+        lay.addWidget(_row_widget(
+            "White balance", segmented_row(self._rb_wb_auto, self._rb_wb_manual)))
 
         self._wb_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._wb_slider.setRange(_WB_MIN_K, _WB_MAX_K)
         self._wb_slider.setValue(_WB_NEUTRAL)
         self._wb_slider.setSingleStep(100)
-        self._wb_slider.setFixedWidth(SLIDER_TRACK_WIDTH)
+        stretch_slider(self._wb_slider)
         self._wb_k_lbl = QLabel(f"{_WB_NEUTRAL} K")
         self._wb_k_lbl.setObjectName("val")
-        self._wb_k_lbl.setFixedWidth(64)
+        self._wb_k_lbl.setFixedWidth(VALUE_COL_WIDTH)
+        self._wb_k_lbl.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         wb_inner = QHBoxLayout()
         wb_inner.setContentsMargins(0, 0, 0, 0)
         wb_inner.setSpacing(8)
         wb_inner.addWidget(self._wb_slider)
         wb_inner.addWidget(self._wb_k_lbl)
-        wb_inner.addStretch()
+        wb_inner.addSpacing(SPIN_COL_GUTTER)
         self._wb_slider.valueChanged.connect(self._on_wb_changed)
         self._temperature_row = _row_widget("Temperature", wb_inner, stretch=True)
         lay.addWidget(self._temperature_row)
@@ -273,16 +264,18 @@ class CameraControlPlugin(TelescopePlugin):
         self._tint_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._tint_slider.setRange(-150, 150)
         self._tint_slider.setValue(0)
-        self._tint_slider.setFixedWidth(SLIDER_TRACK_WIDTH)
+        stretch_slider(self._tint_slider)
         self._tint_lbl = QLabel("+0")
         self._tint_lbl.setObjectName("val")
-        self._tint_lbl.setFixedWidth(28)
+        self._tint_lbl.setFixedWidth(VALUE_COL_WIDTH)
+        self._tint_lbl.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         tint_inner = QHBoxLayout()
         tint_inner.setContentsMargins(0, 0, 0, 0)
         tint_inner.setSpacing(8)
         tint_inner.addWidget(self._tint_slider)
         tint_inner.addWidget(self._tint_lbl)
-        tint_inner.addStretch()
+        tint_inner.addSpacing(SPIN_COL_GUTTER)
         self._tint_slider.valueChanged.connect(self._on_tint_changed)
         self._tint_row = _row_widget("Tint G–M", tint_inner, stretch=True)
         lay.addWidget(self._tint_row)
@@ -293,17 +286,15 @@ class CameraControlPlugin(TelescopePlugin):
         lay.addWidget(create_separator())
 
         # ── OIS ───────────────────────────────────────────────────────────────
-        self._ois_cb = QCheckBox("Optical Image Stabilization")
+        self._ois_cb = QCheckBox()
         self._ois_cb.setChecked(True)
+        self._ois_cb.setToolTip("Optical image stabilization")
         self._ois_cb.toggled.connect(self._on_ois)
-        lay.addWidget(_row_widget("Stabilization", self._ois_cb))
+        lay.addWidget(_row_widget("Stabilization (OIS)", self._ois_cb))
 
         lay.addWidget(create_separator())
 
         # ── Focus ─────────────────────────────────────────────────────────────
-        focus_controls = QHBoxLayout()
-        focus_controls.setContentsMargins(0, 0, 0, 0)
-        focus_controls.setSpacing(12)
         self._rb_focus_auto   = QRadioButton("Auto")
         self._rb_focus_manual = QRadioButton("Manual")
         for rb in (self._rb_focus_auto, self._rb_focus_manual):
@@ -313,10 +304,8 @@ class CameraControlPlugin(TelescopePlugin):
         self._focus_grp.addButton(self._rb_focus_manual)
         self._rb_focus_auto.setChecked(True)
         self._focus_grp.buttonClicked.connect(lambda _: self._on_focus_mode())
-        focus_controls.addWidget(self._rb_focus_auto)
-        focus_controls.addWidget(self._rb_focus_manual)
-        focus_controls.addStretch()
-        lay.addWidget(_row_widget("Focus", focus_controls, stretch=True))
+        lay.addWidget(_row_widget(
+            "Focus", segmented_row(self._rb_focus_auto, self._rb_focus_manual)))
 
         focus_slider_row = QHBoxLayout()
         focus_slider_row.setContentsMargins(0, 0, 0, 0)
@@ -324,15 +313,17 @@ class CameraControlPlugin(TelescopePlugin):
         self._focus_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._focus_slider.setRange(0, _FOCUS_STEPS)
         self._focus_slider.setValue(0)
-        self._focus_slider.setFixedWidth(SLIDER_TRACK_WIDTH)
+        stretch_slider(self._focus_slider)
         self._focus_slider.setEnabled(False)
         self._focus_slider.valueChanged.connect(self._on_focus_slider)
         self._focus_val_lbl = QLabel("inf")
         self._focus_val_lbl.setObjectName("dim")
-        self._focus_val_lbl.setFixedWidth(60)
+        self._focus_val_lbl.setFixedWidth(VALUE_COL_WIDTH)
+        self._focus_val_lbl.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         focus_slider_row.addWidget(self._focus_slider)
         focus_slider_row.addWidget(self._focus_val_lbl)
-        focus_slider_row.addStretch()
+        focus_slider_row.addSpacing(SPIN_COL_GUTTER)
         self._focus_distance_row = _row_widget("Distance", focus_slider_row, stretch=True)
         lay.addWidget(self._focus_distance_row)
         self._manual_focus_rows = (self._focus_distance_row,)
@@ -354,20 +345,15 @@ class CameraControlPlugin(TelescopePlugin):
         self._edge_combo.currentIndexChanged.connect(self._on_edge_mode_changed)
         lay.addWidget(_row_widget("Sharpening", self._edge_combo))
 
-        image_options = QWidget()
-        image_options.setObjectName("form_row_content")
-        img_row = QHBoxLayout(image_options)
-        img_row.setContentsMargins(0, 0, 0, 0)
-        img_row.setSpacing(10)
-        self._bll_cb = QCheckBox("Black level lock")
+        self._bll_cb = QCheckBox()
         self._bll_cb.toggled.connect(self._on_bll_changed)
-        img_row.addWidget(self._bll_cb)
-        img_row.addStretch()
-        self._torch_btn = QPushButton("Torch")
+        lay.addWidget(_row_widget("Black level lock", self._bll_cb))
+
+        self._torch_btn = QPushButton("Off")
         self._torch_btn.setCheckable(True)
+        self._torch_btn.setMinimumWidth(72)
         self._torch_btn.toggled.connect(self._on_torch_toggled)
-        img_row.addWidget(self._torch_btn)
-        lay.addWidget(_row_widget("Image options", image_options, stretch=True))
+        lay.addWidget(_row_widget("Torch", self._torch_btn))
 
         self._sync_manual_control_visibility()
 
@@ -487,6 +473,7 @@ class CameraControlPlugin(TelescopePlugin):
 
         self._torch_btn.blockSignals(True)
         self._torch_btn.setChecked(view.torch)
+        self._torch_btn.setText("On" if view.torch else "Off")
         self._torch_on = view.torch
         self._torch_btn.blockSignals(False)
 
@@ -499,15 +486,25 @@ class CameraControlPlugin(TelescopePlugin):
     # ── Camera capability gating ──────────────────────────────────────────────
 
     def _update_cam_info_lbl(self, cam: dict):
-        hw    = cam.get("hwLevel", "")
-        parts = []
-        if hw:
-            parts.append(hw)
-        parts.append("manual sensor " + ("✓" if cam.get("supportsManualSensor") else "✗"))
-        parts.append("manual WB "     + ("✓" if cam.get("supportsManualWB")     else "✗"))
-        parts.append("manual focus "  + ("✓" if cam.get("supportsManualFocus")  else "✗"))
-        parts.append("OIS "           + ("✓" if cam.get("hasOis")               else "✗"))
+        """Summarise the selected lens in one line.
+
+        Only supported capabilities are named. An unsupported one is already
+        visible as a greyed-out control directly below, so spelling out
+        "manual focus ✗" spends space saying what the panel has already
+        said - and buries the ones you can use among the ones you can't.
+        The full picture, including what's missing, is in the tooltip.
+        """
+        supported = [(label, cam.get(key)) for key, label in _CAPABILITY_LABELS]
+        hw_level  = _HW_LEVELS.get(cam.get("hwLevel", ""), cam.get("hwLevel", ""))
+        have      = [l for l, ok in supported if ok]
+        missing   = [l for l, ok in supported if not ok]
+
+        parts = ([hw_level] if hw_level else []) + have
         self._cam_info_lbl.setText("  ·  ".join(parts))
+        self._cam_info_row.setToolTip(
+            ("Supports: " + ", ".join(have) + "\n" if have else "")
+            + ("Not supported: " + ", ".join(missing) if missing else "")
+        )
         self._cam_info_row.setVisible(bool(parts))
 
     def _update_camera_caps(self, supports_manual_sensor: bool, supports_manual_wb: bool,
@@ -702,6 +699,7 @@ class CameraControlPlugin(TelescopePlugin):
 
     def _on_torch_toggled(self, checked: bool):
         self._torch_on = checked
+        self._torch_btn.setText("On" if checked else "Off")
         if self._ctrl:
             self._ctrl.send(action="torch", value="1" if checked else "0")
 

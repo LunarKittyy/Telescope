@@ -5,9 +5,9 @@ from PyQt6.QtWidgets import (
 
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
-    NoScrollComboBox, NoScrollSlider, NoScrollSpinBox,
-    add_card_header, add_section_heading, create_card, create_separator,
-    quality_label, SLIDER_TRACK_WIDTH,
+    NoScrollComboBox, NoScrollSlider, NoScrollSpinBox, add_card_header,
+    add_section_heading, control_row as _row, create_card, create_separator,
+    quality_label, stretch_slider,
 )
 
 RESOLUTIONS = {
@@ -34,76 +34,45 @@ class StreamOutputPlugin(TelescopePlugin):
         lay = QVBoxLayout(card)
         lay.setContentsMargins(16, 15, 16, 15)
         lay.setSpacing(10)
-        add_card_header(lay, "Stream & Output", "stream")
+        add_card_header(lay, "Stream Output", "stream")
 
         # ── Resolution ────────────────────────────────────────────────────────
         add_section_heading(lay, "Output")
-        res_row = QHBoxLayout()
-        res_row.setContentsMargins(0, 0, 0, 0)
-        res_lbl = QLabel("Resolution")
-        res_lbl.setObjectName("dim")
-        res_lbl.setFixedWidth(110)
-        res_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        res_row.addWidget(res_lbl)
         self._res_combo = NoScrollComboBox()
-        self._res_combo.setFixedWidth(180)
         self._res_combo.addItems(list(RESOLUTIONS.keys()))
         self._res_combo.currentTextChanged.connect(self._on_resolution)
-        res_row.addWidget(self._res_combo)
-        res_row.addStretch()
-        lay.addLayout(res_row)
+        lay.addLayout(_row("Resolution", self._res_combo, stretch=True))
 
         # ── Playback FPS ──────────────────────────────────────────────────────
-        fps_row = QHBoxLayout()
-        fps_row.setContentsMargins(0, 0, 0, 0)
-        fps_lbl = QLabel("Playback FPS")
-        fps_lbl.setObjectName("dim")
-        fps_lbl.setFixedWidth(110)
-        fps_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        fps_row.addWidget(fps_lbl)
         self._fps_spin = NoScrollSpinBox()
         self._fps_spin.setRange(1, 120)
         self._fps_spin.setValue(30)
         self._fps_spin.setSuffix(" fps")
         self._fps_spin.setFixedWidth(90)
         self._fps_spin.editingFinished.connect(self._on_fps)
-        fps_row.addWidget(self._fps_spin)
-        fps_row.addStretch()
-        lay.addLayout(fps_row)
+        lay.addLayout(_row("Playback FPS", self._fps_spin))
 
         lay.addWidget(create_separator())
 
         # ── JPEG Quality ──────────────────────────────────────────────────────
         add_section_heading(lay, "Phone stream")
-        q_row = QHBoxLayout()
-        q_row.setContentsMargins(0, 0, 0, 0)
-        q_row.setSpacing(8)
-        q_lbl = QLabel("JPEG Quality")
-        q_lbl.setObjectName("dim")
-        q_lbl.setFixedWidth(110)
-        q_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        q_row.addWidget(q_lbl)
         self._quality_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._quality_slider.setRange(50, 100)
         self._quality_slider.setValue(_DEFAULT_QUALITY)
-        self._quality_slider.setFixedWidth(SLIDER_TRACK_WIDTH)
+        stretch_slider(self._quality_slider, 104)
         self._quality_slider.setToolTip("Lower quality and FPS reduce bandwidth. Useful on slow Wi-Fi or USB 2.")
         self._quality_val_lbl = QLabel(quality_label(_DEFAULT_QUALITY))
         self._quality_val_lbl.setObjectName("val")
-        self._quality_val_lbl.setMinimumWidth(110)
+        self._quality_val_lbl.setMinimumWidth(92)
         self._quality_slider.valueChanged.connect(self._on_quality_changed)
-        q_row.addWidget(self._quality_slider, 1)
-        q_row.addWidget(self._quality_val_lbl)
-        lay.addLayout(q_row)
+        q_inner = QHBoxLayout()
+        q_inner.setContentsMargins(0, 0, 0, 0)
+        q_inner.setSpacing(8)
+        q_inner.addWidget(self._quality_slider, 1)
+        q_inner.addWidget(self._quality_val_lbl)
+        lay.addLayout(_row("JPEG quality", q_inner, stretch=True))
 
         # ── Phone FPS ─────────────────────────────────────────────────────────
-        pfps_row = QHBoxLayout()
-        pfps_row.setContentsMargins(0, 0, 0, 0)
-        pfps_lbl = QLabel("Phone FPS")
-        pfps_lbl.setObjectName("dim")
-        pfps_lbl.setFixedWidth(110)
-        pfps_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        pfps_row.addWidget(pfps_lbl)
         self._phone_fps_spin = NoScrollSpinBox()
         self._phone_fps_spin.setRange(5, 60)
         self._phone_fps_spin.setValue(_DEFAULT_PHONE_FPS)
@@ -111,9 +80,7 @@ class StreamOutputPlugin(TelescopePlugin):
         self._phone_fps_spin.setFixedWidth(90)
         self._phone_fps_spin.setToolTip("Lower quality and FPS reduce bandwidth. Useful on slow Wi-Fi or USB 2.")
         self._phone_fps_spin.editingFinished.connect(self._on_phone_fps_changed)
-        pfps_row.addWidget(self._phone_fps_spin)
-        pfps_row.addStretch()
-        lay.addLayout(pfps_row)
+        lay.addLayout(_row("Phone FPS", self._phone_fps_spin))
 
         return card
 

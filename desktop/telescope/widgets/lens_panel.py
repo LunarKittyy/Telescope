@@ -1,5 +1,26 @@
-from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtWidgets import QGridLayout, QLabel, QPushButton, QSizePolicy, QWidget
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QFontMetrics
+from PyQt6.QtWidgets import QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
+
+from telescope.widgets.common import FlowLayout
+
+# Past this, a lens name is elided and the full text moves to the tooltip.
+# Phones report anything from "~15mm" to "Back Ultra Wide [phys] OIS", and one
+# long name must not be able to widen the whole rail.
+_MAX_LABEL_W = 122
+
+
+def shorten_lens_label(raw: str) -> str:
+    """Trim the boilerplate Android puts in camera names.
+
+    Every lens on a phone is a camera on the same phone, so "Back"/"[phys]"
+    carry no information once you're looking at a list of them; the focal
+    length and the front/back distinction do.
+    """
+    return (raw.replace(" [phys]", "")
+               .replace("Back ", "")
+               .replace("Front ", "F/")
+               .strip())
 
 
 class LensPanel(QWidget):
@@ -8,32 +29,51 @@ class LensPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("lens_panel")
-        self._layout  = QGridLayout(self)
-        self._layout.setContentsMargins(0, 0, 0, 0)
-        self._layout.setSpacing(4)
-        self._cameras: list = []
-        self._btns:    list = []
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
+
+        # The placeholder sits outside the flow layout: it's a full-width
+        # message, not one of the wrapping pills.
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
         self._ph = QLabel("Start streaming to load lenses")
         self._ph.setObjectName("dim")
-        self._layout.addWidget(self._ph, 0, 0)
+        outer.addWidget(self._ph)
+
+        self._flow_host = QWidget()
+        self._flow_host.setObjectName("lens_panel")
+        self._layout = FlowLayout(self._flow_host, spacing=5, uniform=True)
+        outer.addWidget(self._flow_host)
+        self._flow_host.hide()
+
+        self._cameras: list = []
+        self._btns:    list = []
 
     def load(self, cameras: list):
         self._ph.hide()
-        for b in self._btns: b.deleteLater()
+        self._flow_host.show()
+        for b in self._btns:
+            self._layout.removeWidget(b)
+            b.deleteLater()
         self._btns.clear()
         self._cameras = cameras
-        cols = 3
-        for i, cam in enumerate(cameras):
-            lbl = cam["label"].replace(" [phys]", "").replace("Back ", "").replace("Front ", "F/")
-            btn = QPushButton(lbl)
+
+        for cam in cameras:
+            label = shorten_lens_label(cam["label"])
+            btn = QPushButton()
             btn.setObjectName("lens_button")
-            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-            btn.setMinimumHeight(32)
+            btn.setMinimumHeight(30)
             btn.setCheckable(True)
             btn.setChecked(cam.get("current", False))
+            metrics = QFontMetrics(btn.font())
+            btn.setText(metrics.elidedText(label, Qt.TextElideMode.ElideRight, _MAX_LABEL_W))
+            if btn.text() != label:
+                btn.setToolTip(label)
             btn.clicked.connect(lambda _, c=cam, b=btn: self._select(c, b))
-            self._layout.addWidget(btn, i // cols, i % cols)
+            self._layout.addWidget(btn)
             self._btns.append(btn)
+        self._flow_host.updateGeometry()
 
     def _select(self, cam: dict, clicked_btn: QPushButton):
         for b in self._btns: b.setChecked(False)
@@ -43,11 +83,15 @@ class LensPanel(QWidget):
     def set_placeholder(self, text: str):
         self._ph.setText(text)
         if not self._btns:
+            self._flow_host.hide()
             self._ph.show()
 
     def clear(self):
-        for b in self._btns: b.deleteLater()
+        for b in self._btns:
+            self._layout.removeWidget(b)
+            b.deleteLater()
         self._btns.clear()
         self._cameras.clear()
+        self._flow_host.hide()
         self._ph.setText("Start streaming to load lenses")
         self._ph.show()

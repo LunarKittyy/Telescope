@@ -11,7 +11,7 @@ from PyQt6.QtGui import QColor, QIntValidator, QPainter, QBrush
 from PyQt6.QtWidgets import (
     QButtonGroup, QDialog, QDialogButtonBox, QFormLayout, QFrame,
     QGroupBox, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget,
-    QMessageBox, QPushButton, QRadioButton, QSizePolicy,
+    QMessageBox, QPushButton, QRadioButton,
     QTextEdit, QVBoxLayout, QWidget,
 )
 
@@ -28,9 +28,10 @@ from telescope.platform.linux import (
     v4l2_devices_ready, v4l2_load, v4l2_module_loaded,
 )
 from telescope.plugin import TelescopePlugin
+from telescope import theme
 from telescope.widgets.common import (
-    NoScrollComboBox, add_card_header, add_section_heading, create_card,
-    create_vector_icon, set_ui_role,
+    NoScrollComboBox, add_card_header, control_row as _row, create_card,
+    create_vector_icon, segmented_row, set_ui_role,
 )
 
 logger = logging.getLogger(__name__)
@@ -539,116 +540,54 @@ class ConnectionPlugin(TelescopePlugin):
         add_card_header(lay, "Connection", "connection")
 
         # ── Mode ──────────────────────────────────────────────────────────────
-        add_section_heading(lay, "Connection mode")
-        mode_row = QHBoxLayout()
-        mode_row.setContentsMargins(0, 0, 0, 0)
-        mode_lbl = QLabel("Mode")
-        mode_lbl.setObjectName("dim")
-        mode_lbl.setFixedWidth(110)
-        mode_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        mode_row.addWidget(mode_lbl)
-        self._rb_usb  = QRadioButton("USB (ADB)")
         self._rb_wifi = QRadioButton("Wi-Fi")
-        for rb in (self._rb_usb, self._rb_wifi):
+        self._rb_usb  = QRadioButton("USB (ADB)")
+        for rb in (self._rb_wifi, self._rb_usb):
             rb.setAutoExclusive(False)
         self._conn_grp = QButtonGroup(card)
         self._conn_grp.addButton(self._rb_usb)
         self._conn_grp.addButton(self._rb_wifi)
         self._rb_usb.setChecked(True)
         self._conn_grp.buttonClicked.connect(lambda _: self._on_mode())
-        mode_row.addWidget(self._rb_usb)
-        mode_row.addWidget(self._rb_wifi)
-        mode_row.addStretch()
-        lay.addLayout(mode_row)
+        lay.addLayout(_row("Mode", segmented_row(self._rb_wifi, self._rb_usb)))
 
-        # ── Pair (always visible - a USB-only phone still needs to be paired,
-        #     it just gets there via adb reverse instead of the LAN) ──────────
-        add_section_heading(lay, "Phone")
-        pair_row = QHBoxLayout()
-        pair_row.setContentsMargins(0, 0, 0, 0)
-        pair_row.setSpacing(6)
-        pair_lbl = QLabel("Pair")
-        pair_lbl.setObjectName("dim")
-        pair_lbl.setFixedWidth(110)
-        pair_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        pair_row.addWidget(pair_lbl)
+        # ── Pairing (always available - a USB-only phone still needs to be
+        #     paired, it just gets there via adb reverse instead of the LAN) ──
+        self._pair_status_lbl = QLabel("")
+        lay.addLayout(_row("Status", self._pair_status_lbl, stretch=True))
 
-        _icon_color = "#c8d0da"
-        _icon_size  = QSize(18, 18)
-        self._qr_btn = QPushButton()
-        self._qr_btn.setFixedSize(28, 28)
-        self._qr_btn.setIconSize(_icon_size)
+        self._qr_btn = QPushButton("Pair Device")
+        self._qr_btn.setIconSize(QSize(16, 16))
         set_ui_role(self._qr_btn, "quiet")
         self._qr_btn.clicked.connect(self._on_pair_qr)
         self._update_pair_button()
-        pair_row.addWidget(self._qr_btn)
+        lay.addLayout(_row("", self._qr_btn, stretch=True))
 
-        self._pair_status_lbl = QLabel("")
-        pair_row.addWidget(self._pair_status_lbl)
-        pair_row.addStretch()
-        lay.addLayout(pair_row)
-
-        # ── Device list (Wi-Fi only) ────────────────────────────────────────
+        # ── Device address (Wi-Fi only; hidden wholesale in USB mode) ────────
         self._device_row_w = QWidget()
         self._device_row_w.setObjectName("ip_row_container")
         device_v = QVBoxLayout(self._device_row_w)
         device_v.setContentsMargins(0, 0, 0, 0)
         device_v.setSpacing(4)
 
-        combo_row = QHBoxLayout()
-        combo_row.setContentsMargins(0, 0, 0, 0)
-        combo_row.setSpacing(6)
-        dev_lbl = QLabel("Device")
-        dev_lbl.setObjectName("dim")
-        dev_lbl.setFixedWidth(110)
-        dev_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        combo_row.addWidget(dev_lbl)
-        self._device_combo = NoScrollComboBox()
-        self._device_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self._device_combo.currentIndexChanged.connect(self._on_device_changed)
-        combo_row.addWidget(self._device_combo, 1)
-
-        self._gear_btn = QPushButton()
-        self._gear_btn.setFixedSize(28, 28)
-        set_ui_role(self._gear_btn, "quiet")
-        self._gear_btn.setIcon(create_vector_icon("gear", _icon_color))
-        self._gear_btn.setIconSize(_icon_size)
-        self._gear_btn.setToolTip("Manage devices")
-        self._gear_btn.clicked.connect(self._on_manage_devices)
-        combo_row.addWidget(self._gear_btn)
-        device_v.addLayout(combo_row)
-
-        ip_row = QHBoxLayout()
-        ip_row.setContentsMargins(0, 0, 0, 0)
-        ip_row.setSpacing(0)
-        ip_row.addSpacing(116)  # matches: label(110) + spacing(6) in combo_row
         self._ip_combo = NoScrollComboBox()
-        self._ip_combo.setFixedWidth(155)
         self._ip_combo.currentTextChanged.connect(self._on_ip_changed)
-        ip_row.addWidget(self._ip_combo)
-        ip_row.addStretch()
-        device_v.addLayout(ip_row)
+        device_v.addLayout(_row("IP address", self._ip_combo, stretch=True))
 
         lay.addWidget(self._device_row_w)
         self._device_row_w.setVisible(False)
 
+        # Built here, not in create_header_widget(), so the picker exists as
+        # soon as the panel does - a host that never asks for a header widget
+        # still gets a working plugin, it just doesn't show the picker.
+        self._build_device_picker()
+
         # ── Port ──────────────────────────────────────────────────────────────
-        add_section_heading(lay, "Network")
-        port_row = QHBoxLayout()
-        port_row.setContentsMargins(0, 0, 0, 0)
-        port_row.setSpacing(6)
-        port_lbl = QLabel("Port")
-        port_lbl.setObjectName("dim")
-        port_lbl.setFixedWidth(110)
-        port_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        port_row.addWidget(port_lbl)
         self._port_field = QLineEdit(str(DEFAULT_PORT))
         self._port_field.setValidator(QIntValidator(1, 65535))
-        self._port_field.setMaximumWidth(90)
+        self._port_field.setMaximumWidth(96)
         self._port_field.editingFinished.connect(self._on_port_changed)
-        port_row.addWidget(self._port_field)
-        port_row.addStretch()
-        lay.addLayout(port_row)
+        lay.addLayout(_row("Port", self._port_field))
 
         # Backstop for the trigger-based checks above: catches a phone that
         # comes online (app opened, adb plugged in) between triggers,
@@ -661,6 +600,56 @@ class ConnectionPlugin(TelescopePlugin):
         self._pair_status_timer.start(_PAIR_STATUS_POLL_MS)
 
         return card
+
+    def create_header_widget(self) -> QWidget:
+        """The device picker, lifted into the window header.
+
+        Which phone you're pointing at is the one setting worth reaching
+        without scanning a panel, and it frames everything else on screen -
+        so it sits next to the Start button rather than inside the
+        Connection card. It's the same combo either way: moved, not
+        duplicated, so there's no second source of truth to keep in sync.
+        """
+        return self._header_device_w
+
+    def _build_device_picker(self):
+        self._header_device_w = QWidget()
+        self._header_device_w.setObjectName("card_body")
+        lay = QHBoxLayout(self._header_device_w)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(8)
+
+        col = QVBoxLayout()
+        col.setContentsMargins(0, 0, 0, 0)
+        col.setSpacing(1)
+        cap = QLabel("DEVICE")
+        cap.setObjectName("header_label")
+        col.addWidget(cap)
+
+        self._device_combo = NoScrollComboBox()
+        self._device_combo.setMinimumWidth(196)
+        self._device_combo.currentIndexChanged.connect(self._on_device_changed)
+        col.addWidget(self._device_combo)
+        lay.addLayout(col)
+
+        self._gear_btn = QPushButton()
+        self._gear_btn.setObjectName("icon_btn")
+        self._gear_btn.setFixedSize(30, 30)
+        self._gear_btn.setIcon(create_vector_icon("gear", theme.TEXT_DIM))
+        self._gear_btn.setIconSize(QSize(16, 16))
+        self._gear_btn.setToolTip("Manage devices")
+        self._gear_btn.clicked.connect(self._on_manage_devices)
+        lay.addWidget(self._gear_btn, 0, Qt.AlignmentFlag.AlignBottom)
+
+        self._header_device_w.setVisible(self._rb_wifi.isChecked())
+
+    def _set_wifi_rows_visible(self, visible: bool):
+        """Show or hide everything that only means something over Wi-Fi. The
+        device picker lives in the header and the address row in the panel,
+        so both need flipping together."""
+        self._device_row_w.setVisible(visible)
+        if hasattr(self, "_header_device_w"):
+            self._header_device_w.setVisible(visible)
 
     # ── Stream lifecycle ──────────────────────────────────────────────────────
 
@@ -913,7 +902,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._host.switch_device(prev_key, new_key)
 
     def _on_mode(self):
-        self._device_row_w.setVisible(self._rb_wifi.isChecked())
+        self._set_wifi_rows_visible(self._rb_wifi.isChecked())
         self._update_pair_button()
         self._check_pair_status()
         self._host.schedule_save()
@@ -1128,11 +1117,11 @@ class ConnectionPlugin(TelescopePlugin):
         if cfg.get("mode") == "wifi":
             self._rb_wifi.setChecked(True)
             self._rb_usb.setChecked(False)
-            self._device_row_w.setVisible(True)
+            self._set_wifi_rows_visible(True)
         else:
             self._rb_usb.setChecked(True)
             self._rb_wifi.setChecked(False)
-            self._device_row_w.setVisible(False)
+            self._set_wifi_rows_visible(False)
         self._update_pair_button()
         if port := cfg.get("port"):
             self._port_field.setText(str(port))
