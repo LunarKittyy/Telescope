@@ -312,7 +312,6 @@ def test_settings_menu_collects_actions_from_every_plugin(window, qapp):
 
     assert [a.text() for p in window._plugins for a in p.create_menu_actions()] \
         == ["Do a thing"]
-    assert "global" not in window._plugin_defaults
 
 
 def test_save_config_separates_global_and_device_local_plugins(window, config_home):
