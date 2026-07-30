@@ -11,6 +11,8 @@ import android.content.IntentFilter
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.hardware.camera2.CameraManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -207,80 +209,148 @@ class MainActivity : AppCompatActivity() {
     // ── QR pairing ────────────────────────────────────────────────────────────
 
     private fun handleQrScan(data: String) {
-        try {
-            val json = org.json.JSONObject(data)
-            val version = json.optInt("version", 0)
-            if (version != 1) {
+        when (val parsed = parsePairingOffer(data)) {
+            is PairingParse.Invalid ->
                 Toast.makeText(this, "Invalid QR code.", Toast.LENGTH_SHORT).show()
-                return
-            }
-            val port = json.getInt("port")
-            val nonce = json.getString("nonce")
-            val token = json.getString("token")
-            val ipsJson = json.getJSONArray("ips")
-            val desktopIps = (0 until ipsJson.length()).map { ipsJson.getString(it) }
-            val myIps = getAllDeviceIps()
-            val deviceName = Build.MODEL
+            is PairingParse.UnsupportedVersion ->
+                Toast.makeText(
+                    this,
+                    "This QR code comes from a different Telescope version. Update the " +
+                        "desktop app and this app to the same release, then try again.",
+                    Toast.LENGTH_LONG,
+                ).show()
+            is PairingParse.Ok -> startPairing(parsed.offer)
+        }
+    }
 
-            Thread {
-                var success = false
-                val errors = mutableListOf<String>()
-                for (ip in desktopIps) {
-                    try {
-                        val url = java.net.URL("http://$ip:$port/pair/$nonce")
-                        val conn = url.openConnection() as java.net.HttpURLConnection
-                        conn.requestMethod = "POST"
-                        conn.setRequestProperty("Content-Type", "application/json")
-                        conn.connectTimeout = 2000
-                        conn.readTimeout = 2000
-                        conn.doOutput = true
-                        val body = org.json.JSONObject().apply {
-                            put("name", deviceName)
-                            put("ips", org.json.JSONArray(myIps))
-                            // Echoed back so the desktop can confirm this POST actually
-                            // came from a phone that read the current QR code, on top
-                            // of the one-shot nonce already baked into the URL path.
-                            put("token", token)
-                        }.toString()
-                        conn.outputStream.write(body.toByteArray())
-                        if (conn.responseCode == 200) {
-                            success = true
-                            break
-                        } else {
-                            errors += "$ip: HTTP ${conn.responseCode}"
-                        }
-                    } catch (e: Exception) {
-                        errors += "$ip: ${e.javaClass.simpleName}: ${e.message}"
-                    }
+    /**
+     * Fires the pairing POST at each advertised desktop address in turn,
+     * stopping at the first one that answers.
+     *
+     * LAN addresses get a first pass bound to the phone's actual Wi-Fi
+     * network rather than whatever holds the default route, which is what
+     * makes pairing work with a VPN up: a VPN that permits local-network
+     * traffic still can't be relied on to *route* a LAN address, but the
+     * Wi-Fi interface underneath it can. Only this one request is bound -
+     * the process keeps using its normal default network for everything
+     * else, streaming included.
+     */
+    private fun startPairing(offer: PairingOffer) {
+        val wifi = wifiNetwork()
+        val routes = pairingRoutes(offer.candidates, hasWifi = wifi != null)
+        val myIps = getAllDeviceIps(wifi)
+        val deviceName = Build.MODEL
+
+        Thread {
+            val failures = mutableListOf<PairingAttemptFailure>()
+            var success = false
+            for (route in routes) {
+                val network = if (route.via == PairingRouteKind.WIFI) wifi else null
+                val problem = attemptPair(offer, route.candidate, network, deviceName, myIps)
+                if (problem == null) {
+                    success = true
+                    break
                 }
+                failures += PairingAttemptFailure(route.candidate.ip, route.via, problem)
+            }
+            if (success) {
+                // Becomes this phone's only accepted bearer token for /v1/* -
+                // replaces (revokes) whatever was paired before.
+                TokenStore.save(this, offer.token)
+            }
+            runOnUiThread {
+                // The running MjpegServer snapshots TokenStore at startup (see
+                // CameraStreamService.startServer()) - it keeps enforcing the
+                // old token until restarted, so re-pairing mid-stream would
+                // otherwise silently keep rejecting the desktop that just
+                // paired. Stopping (not restarting) leaves it to the user to
+                // start a fresh stream once they're ready.
                 if (success) {
-                    // Becomes this phone's only accepted bearer token for /v1/* -
-                    // replaces (revokes) whatever was paired before.
-                    TokenStore.save(this, token)
-                }
-                val msg = if (success)
-                    "Paired! Desktop will add this device."
-                else
-                    "Could not reach desktop.\nTried: ${errors.joinToString(", ")}"
-                runOnUiThread {
-                    // The running MjpegServer snapshots TokenStore at startup (see
-                    // CameraStreamService.startServer()) - it keeps enforcing the
-                    // old token until restarted, so re-pairing mid-stream would
-                    // otherwise silently keep rejecting the desktop that just
-                    // paired. Stopping (not restarting) leaves it to the user to
-                    // start a fresh stream once they're ready.
-                    if (success && service?.isStreaming == true) {
+                    if (service?.isStreaming == true) {
                         service?.stopStreaming()
                         if (bound) { unbindService(serviceConnection); bound = false; service = null }
                         updateStatusText()
                     }
-                    Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+                    Toast.makeText(
+                        this, "Paired! Desktop will add this device.", Toast.LENGTH_LONG,
+                    ).show()
+                } else {
+                    // Too long for a toast, and the whole point is that it's
+                    // readable: it names every address tried, how each failed,
+                    // and what to do about it.
+                    if (!isFinishing && !isDestroyed) {
+                        showPairingFailure(pairingFailureMessage(failures))
+                    }
                 }
-            }.start()
-        } catch (_: Exception) {
-            Toast.makeText(this, "Invalid QR code.", Toast.LENGTH_SHORT).show()
+            }
+        }.start()
+    }
+
+    /** Returns null on success, or a short description of what went wrong. */
+    private fun attemptPair(
+        offer: PairingOffer,
+        candidate: PairingCandidate,
+        network: android.net.Network?,
+        deviceName: String,
+        myIps: List<String>,
+    ): String? {
+        var conn: java.net.HttpURLConnection? = null
+        return try {
+            val url = java.net.URL("http://${candidate.ip}:${offer.port}/pair/${offer.nonce}")
+            // openConnection() on a specific Network pins this one request to
+            // that network's interface and DNS; url.openConnection() uses the
+            // process default (the VPN, when one is up).
+            val opened = network?.openConnection(url) ?: url.openConnection()
+            conn = (opened as java.net.HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("Content-Type", "application/json")
+                connectTimeout = PAIR_TIMEOUT_MS
+                readTimeout = PAIR_TIMEOUT_MS
+                doOutput = true
+            }
+            val body = org.json.JSONObject().apply {
+                put("name", deviceName)
+                put("ips", org.json.JSONArray(myIps))
+                // Echoed back so the desktop can confirm this POST actually
+                // came from a phone that read the current QR code, on top
+                // of the one-shot nonce already baked into the URL path.
+                put("token", offer.token)
+            }.toString()
+            conn.outputStream.use { it.write(body.toByteArray()) }
+            if (conn.responseCode == 200) null else "HTTP ${conn.responseCode}"
+        } catch (e: Exception) {
+            describeNetworkError(e)
+        } finally {
+            try { conn?.disconnect() } catch (_: Exception) {}
         }
     }
+
+    private fun showPairingFailure(message: String) {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Pairing failed")
+            .setMessage(message)
+            .setPositiveButton("OK", null)
+            .show()
+    }
+
+    /**
+     * The connected Wi-Fi network, or null if there isn't one.
+     *
+     * Deliberately not filtered on NET_CAPABILITY_VALIDATED or INTERNET: a
+     * router with no WAN uplink still carries pairing traffic perfectly
+     * well, and that's a case this is meant to support. NOT_VPN keeps a VPN
+     * that reports itself over Wi-Fi from being picked as the "real" one.
+     */
+    private fun wifiNetwork(): android.net.Network? = try {
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        @Suppress("DEPRECATION")  // no non-deprecated way to enumerate networks
+        cm.allNetworks.firstOrNull { network ->
+            val caps = cm.getNetworkCapabilities(network)
+            caps != null &&
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) &&
+                caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+        }
+    } catch (_: Exception) { null }
 
     /** A single tap used to instantly wipe the pairing token with no way back
      *  short of re-pairing from scratch - one stray touch on this button (it
@@ -567,8 +637,14 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(this, "Diagnostics copied to clipboard", Toast.LENGTH_SHORT).show()
     }
 
-    private fun getAllDeviceIps(): List<String> {
-        return try {
+    /**
+     * Every IPv4 address this phone has, with the ones belonging to [wifi]
+     * first: those are the addresses the desktop can actually stream from
+     * when a VPN is up on this phone, and the desktop tries them in the
+     * order they're reported here.
+     */
+    private fun getAllDeviceIps(wifi: android.net.Network? = wifiNetwork()): List<String> {
+        val all = try {
             java.net.NetworkInterface.getNetworkInterfaces()
                 ?.asSequence()
                 ?.filter { it.isUp && !it.isLoopback }
@@ -577,12 +653,27 @@ class MainActivity : AppCompatActivity() {
                 ?.mapNotNull { it.hostAddress }
                 ?.toList() ?: emptyList()
         } catch (_: Exception) { emptyList() }
+        return (wifiIps(wifi) + all).distinct()
+    }
+
+    private fun wifiIps(wifi: android.net.Network?): List<String> {
+        if (wifi == null) return emptyList()
+        return try {
+            val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            cm.getLinkProperties(wifi)?.linkAddresses.orEmpty()
+                .map { it.address }
+                .filter { it is java.net.Inet4Address && !it.isLoopbackAddress && !it.isLinkLocalAddress }
+                .mapNotNull { it.hostAddress }
+        } catch (_: Exception) { emptyList() }
     }
 
     private fun getDeviceIp(): String = getAllDeviceIps().firstOrNull() ?: "unknown"
 
     companion object {
         private const val RC_PERMS = 100
+        // Per attempt, and there can be several - short enough that walking
+        // the whole candidate list stays inside a user's patience.
+        private const val PAIR_TIMEOUT_MS = 2000
         // Lets the desktop app push a pairing payload straight over adb when
         // there's no camera-scannable QR code involved (USB pairing) - the
         // same JSON shape and handleQrScan() logic as the QR flow, just

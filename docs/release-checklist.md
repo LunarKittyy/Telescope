@@ -22,6 +22,20 @@ needs a real phone and a real desktop machine because it can't be.
 
 - [ ] QR pairing works end-to-end on at least one real device per platform (Linux + Windows desktop).
 - [ ] Re-pairing an already-paired phone rotates its token (old token stops working - verify with `curl` returning 401).
+
+### Pairing across networks and VPNs
+
+The QR code advertises the desktop's real interface addresses and the phone
+sends LAN attempts over its Wi-Fi interface specifically, so these need
+re-checking whenever either side of that changes:
+
+- [ ] Offline router (no WAN uplink at all): pairing still works, and the QR code lists the LAN address.
+- [ ] VPN on the desktop only, LAN access permitted: pairing works over the LAN address (the QR must still list it, not just the VPN's).
+- [ ] VPN on the phone only, LAN access permitted: pairing works - this is the case that depends on the Wi-Fi-bound first attempt.
+- [ ] VPN on both devices, LAN access permitted on both: pairing works.
+- [ ] Tailscale on both devices, no shared LAN: pairing works over the `100.64/10` candidate.
+- [ ] VPN configured to block local-network traffic: pairing fails with the "Tried: ... your VPN may be blocking local-network access" dialog listing each address, and the desktop dialog stays open showing what it advertised. USB pairing then works.
+- [ ] Desktop with Docker/libvirt/VirtualBox installed: the QR code does not advertise `docker0`/`virbr0`/`vboxnet0` addresses.
 - [ ] "Reset pairing" on the phone actually revokes access (further requests 401 until re-paired).
 - [ ] USB and Wi-Fi streaming both work, including switching between them without restarting the app.
 - [ ] Local-only mode actually blocks Wi-Fi access (verify from a second machine on the same network).

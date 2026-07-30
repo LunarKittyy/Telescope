@@ -87,6 +87,20 @@ Load/save of `telescope_config.json` with versioned schema (current: v2) and per
 - `send(action, **kwargs)` — fire-and-forget control command.
 - `get_state()` — fetch current camera state dict (lenses, ISO, shutter, WB, battery, etc.).
 
+### `ip_utils.py`
+Qt-free address helpers shared by the pairing flow and the device panel.
+- `PairingAddress(ip, interface, kind)` — one address the phone can try, `kind` being `"lan"` / `"tailscale"` / `"other"`.
+- `get_pairing_addresses()` — enumerates real adapters through `ifaddr` (never a route probe, which follows a VPN's default route), drops loopback/link-local/IPv6 and container/VM-only adapters, and returns candidates ordered LAN → Tailscale → other.
+- `classify_ip(ip)` / `is_virtual_interface(name)` / `looks_like_vpn_interface(name)` / `describe_address(addr)` — the pieces the above is built from; `describe_address` also formats the dialog's "waiting on" lines.
+- `MAX_PAIRING_CANDIDATES = 8` — cap on what goes into the QR code.
+- `rank_ip()` / `best_ip()` / `extract_ip()` / `valid_ipv4()` — used for the *phone's* reported addresses in the device panel, unrelated to desktop discovery.
+
+### `pairing.py`
+**PairingServer** — the Qt-free one-shot pairing handshake: bind a port, mint a nonce and bearer token, wait for the phone's `POST /pair/{nonce}` echoing the token back.
+- `start(advertise=None)` → `PairingOffer(payload, port, nonce, token, candidates)`, or `None` when there's no usable address. `advertise` overrides discovery — the USB path passes the loopback candidate reached through `adb reverse`.
+- `payload` is the version-2 QR JSON (`version`, `port`, `candidates[]`, `nonce`, `token`); `PAIRING_PROTOCOL_VERSION` is bumped in lockstep with the app's.
+- `PAIRING_PORT = 8765`, falling back to a random free port if it's taken.
+
 ---
 
 ## `telescope/widgets/`

@@ -5,11 +5,22 @@ import time
 
 import pytest
 
-from telescope.pairing import PairingResult, PairingServer
+from telescope.ip_utils import PairingAddress
+from telescope.pairing import PAIRING_PROTOCOL_VERSION, PairingResult, PairingServer
+
+_CANDIDATES = [
+    PairingAddress(ip="192.168.1.42", interface="Wi-Fi", kind="lan"),
+    PairingAddress(ip="100.90.12.34", interface="tailscale0", kind="tailscale"),
+]
 
 
 @pytest.fixture
-def pairing_server():
+def pairing_server(monkeypatch):
+    import telescope.pairing as pairing_module
+
+    monkeypatch.setattr(
+        pairing_module.ip_utils, "get_pairing_addresses", lambda: list(_CANDIDATES),
+    )
     paired = []
     server = PairingServer(on_paired=paired.append)
     offer = server.start()
@@ -33,7 +44,7 @@ def _post(port, path, body: bytes, headers=None):
 def test_start_returns_none_without_network_interfaces(monkeypatch):
     import telescope.pairing as pairing_module
 
-    monkeypatch.setattr(pairing_module.ip_utils, "get_local_ips", lambda: [])
+    monkeypatch.setattr(pairing_module.ip_utils, "get_pairing_addresses", lambda: [])
     server = PairingServer(on_paired=lambda r: None)
     assert server.start() is None
 
@@ -43,18 +54,39 @@ def test_start_is_idempotent(pairing_server):
     assert server.start() is offer
 
 
-def test_start_with_advertise_ips_skips_discovery(monkeypatch):
+def test_payload_is_version_2_with_every_candidate(pairing_server):
+    _server, offer, _paired = pairing_server
+    payload = json.loads(offer.payload)
+
+    assert payload["version"] == PAIRING_PROTOCOL_VERSION == 2
+    assert payload["port"] == offer.port
+    assert payload["nonce"] == offer.nonce
+    assert payload["token"] == offer.token
+    # LAN before Tailscale, each carrying the interface and kind the phone
+    # needs to decide which of its own networks to route the attempt over.
+    assert payload["candidates"] == [
+        {"ip": "192.168.1.42", "interface": "Wi-Fi", "kind": "lan"},
+        {"ip": "100.90.12.34", "interface": "tailscale0", "kind": "tailscale"},
+    ]
+    assert offer.candidates == _CANDIDATES
+
+
+def test_start_with_advertised_addresses_skips_discovery(monkeypatch):
     import telescope.pairing as pairing_module
 
     monkeypatch.setattr(
-        pairing_module.ip_utils, "get_local_ips",
-        lambda: (_ for _ in ()).throw(AssertionError("should not discover LAN ips")),
+        pairing_module.ip_utils, "get_pairing_addresses",
+        lambda: (_ for _ in ()).throw(AssertionError("should not enumerate interfaces")),
     )
     server = PairingServer(on_paired=lambda r: None)
     try:
-        offer = server.start(advertise_ips=["127.0.0.1"])
+        offer = server.start(
+            advertise=[PairingAddress(ip="127.0.0.1", interface="USB (adb)", kind="other")]
+        )
         assert offer is not None
-        assert json.loads(offer.payload)["ips"] == ["127.0.0.1"]
+        assert json.loads(offer.payload)["candidates"] == [
+            {"ip": "127.0.0.1", "interface": "USB (adb)", "kind": "other"},
+        ]
     finally:
         server.stop()
         time.sleep(0.2)

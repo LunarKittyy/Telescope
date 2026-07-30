@@ -46,5 +46,9 @@ pyvirtualcam (https://pypi.org/project/pyvirtualcam/)
 qrcode (https://pypi.org/project/qrcode/)
     License: BSD 3-Clause.
 
+ifaddr (https://pypi.org/project/ifaddr/)
+    Copyright (c) 2014 Stefan C. Mueller.
+    License: MIT.
+
 Exact installed versions for a given release are pinned in
 desktop/constraints.txt.
