@@ -21,7 +21,9 @@ a = Analysis(
     pathex=[],
     binaries=qt_bins,
     datas=qt_datas,
-    hiddenimports=qt_hidden + collect_submodules('telescope') + [
+    # ifaddr picks its platform backend behind an `os.name` check, so pull
+    # the whole package rather than relying on that branch being followed.
+    hiddenimports=qt_hidden + collect_submodules('telescope') + collect_submodules('ifaddr') + [
         'pyvirtualcam',
         'cv2',
         'numpy',

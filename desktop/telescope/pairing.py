@@ -17,8 +17,14 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Callable, List, Optional
 
 from telescope import ip_utils
+from telescope.ip_utils import PairingAddress
 
 PAIRING_PORT = 8765
+
+# Bumped when the QR payload's shape changes. The phone rejects anything it
+# doesn't recognise outright rather than guessing at a partial parse, so
+# desktop and app are expected to ship together.
+PAIRING_PROTOCOL_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -30,6 +36,7 @@ class PairingOffer:
     port: int
     nonce: str
     token: str
+    candidates: List[PairingAddress] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -37,6 +44,13 @@ class PairingResult:
     name: str
     ips: List[str] = field(default_factory=list)
     token: str = ""
+    # The address the pairing POST actually arrived from. By construction
+    # this is an address of the phone that can reach this desktop right now,
+    # over whichever path the phone found - so it's the one to stream to,
+    # rather than guessing from the reported list. Empty, or absent from
+    # [ips], when there's nothing useful to learn from it: USB pairing sees
+    # the loopback end of the adb tunnel, not a phone address.
+    source_ip: str = ""
 
 
 class PairingServer:
@@ -51,22 +65,22 @@ class PairingServer:
         self._server_thread: Optional[threading.Thread] = None
         self.offer: Optional[PairingOffer] = None
 
-    def start(self, advertise_ips: Optional[List[str]] = None) -> Optional[PairingOffer]:
+    def start(self, advertise: Optional[List[PairingAddress]] = None) -> Optional[PairingOffer]:
         """Binds the server and returns the offer to display as a QR code, or
         None if there's no network interface to pair over. Calling this
         again while already started is a no-op that returns the existing
         offer.
 
-        [advertise_ips], if given, is used verbatim instead of discovering
-        the machine's LAN IPs - the USB-pairing path passes ["127.0.0.1"]
-        here, since the phone reaches it through an adb reverse tunnel
-        rather than the LAN (which may not exist, or may be shadowed by a
-        VPN route, for a USB-only phone)."""
+        [advertise], if given, is used verbatim instead of enumerating the
+        machine's own interfaces - the USB-pairing path passes the loopback
+        address here, since the phone reaches it through an adb reverse
+        tunnel rather than the LAN (which may not exist, or may be shadowed
+        by a VPN route, for a USB-only phone)."""
         if self._server is not None:
             return self.offer
 
-        local_ips = advertise_ips if advertise_ips is not None else ip_utils.get_local_ips()
-        if not local_ips:
+        candidates = advertise if advertise is not None else ip_utils.get_pairing_addresses()
+        if not candidates:
             return None
 
         # Try to bind the fixed pairing port; fall back to random if in use.
@@ -123,7 +137,10 @@ class PairingServer:
                         raise ValueError("invalid pairing payload")
                     if not hmac.compare_digest(echoed_token, token):
                         raise ValueError("token mismatch")
-                    on_paired(PairingResult(name=name, ips=ips, token=token))
+                    source_ip = self.client_address[0] if self.client_address else ""
+                    on_paired(PairingResult(
+                        name=name, ips=ips, token=token, source_ip=source_ip,
+                    ))
                     self.send_response(200)
                     self.end_headers()
                     self.wfile.write(b"OK")
@@ -137,8 +154,23 @@ class PairingServer:
         self._server_thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._server_thread.start()
 
-        payload = json.dumps({"version": 1, "port": port, "ips": local_ips, "nonce": nonce, "token": token})
-        self.offer = PairingOffer(payload=payload, port=port, nonce=nonce, token=token)
+        payload = json.dumps({
+            "version": PAIRING_PROTOCOL_VERSION,
+            "port": port,
+            # Each candidate carries the interface it came from and what kind
+            # of network that is, so the phone can route a LAN attempt over
+            # its own Wi-Fi interface instead of whatever holds the default
+            # route (a VPN, typically), and so the dialog can show the user
+            # exactly which addresses it's waiting on.
+            "candidates": [
+                {"ip": c.ip, "interface": c.interface, "kind": c.kind} for c in candidates
+            ],
+            "nonce": nonce,
+            "token": token,
+        })
+        self.offer = PairingOffer(
+            payload=payload, port=port, nonce=nonce, token=token, candidates=list(candidates),
+        )
         return self.offer
 
     def stop(self):

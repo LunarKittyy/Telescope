@@ -13,6 +13,8 @@ try:    import numpy as np
 except ImportError: _missing.append("numpy")
 try:    import pyvirtualcam
 except ImportError: _missing.append("pyvirtualcam")
+try:    import ifaddr
+except ImportError: _missing.append("ifaddr")
 
 if _missing:
     print(f"Missing: pip install {' '.join(_missing)}", file=sys.stderr)

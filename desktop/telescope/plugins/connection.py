@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
 
 from telescope import ip_utils
 from telescope.config import load_config, save_config
+from telescope.ip_utils import PairingAddress
 from telescope.models import DeviceProfile
 from telescope.pairing import PairingServer
 from telescope.platform import (
@@ -55,7 +56,7 @@ USB_PROFILE_KEY = "__usb__"
 # conceptually belong, but existing code/tests reference them here, so
 # telescope/ip_utils.py is the actual implementation and this is a thin
 # compatibility alias.
-_get_local_ips = ip_utils.get_local_ips
+_get_pairing_addresses = ip_utils.get_pairing_addresses
 _rank_ip = ip_utils.rank_ip
 _best_ip = ip_utils.best_ip
 _extract_ip = ip_utils.extract_ip
@@ -299,8 +300,14 @@ class _QRCodeWidget(QWidget):
         painter.end()
 
 
+def _candidates_text(candidates: list) -> str:
+    """The "waiting for the phone on: ..." block under the QR code."""
+    lines = "\n".join(f"• {ip_utils.describe_address(c)}" for c in candidates)
+    return f"Waiting for the phone on:\n{lines}"
+
+
 class _PairingSignals(QObject):
-    paired = pyqtSignal(str, list, str)  # name, ips, token
+    paired = pyqtSignal(str, list, str, str)  # name, ips, token, source_ip
 
 
 class _PairStatusSignals(QObject):
@@ -349,6 +356,21 @@ class _PairingDialog(QDialog):
         self._qr_container.setContentsMargins(0, 0, 0, 12)
         lay.addLayout(self._qr_container, 1)
 
+        # Which addresses the QR code is actually advertising. Worth showing
+        # rather than hiding inside the code: when a phone can't reach any of
+        # them (client-isolated guest Wi-Fi, a VPN blocking LAN traffic),
+        # seeing the list is the first step in working out why - so this
+        # dialog deliberately stays open and keeps showing them instead of
+        # closing itself on a failed attempt.
+        self._candidates_lbl = QLabel("")
+        self._candidates_lbl.setObjectName("dim")
+        self._candidates_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._candidates_lbl.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        self._candidates_lbl.setVisible(False)
+        lay.addWidget(self._candidates_lbl)
+
         hint_text = (
             "Keep the Telescope app open on your phone, then click Pair via ADB below."
             if self._usb_serial is not None else
@@ -380,14 +402,18 @@ class _PairingDialog(QDialog):
             return  # already running - showEvent() can fire more than once
 
         signals = self._signals
-        server = PairingServer(on_paired=lambda r: signals.paired.emit(r.name, r.ips, r.token))
+        server = PairingServer(
+            on_paired=lambda r: signals.paired.emit(r.name, r.ips, r.token, r.source_ip)
+        )
 
         if self._usb_serial is not None:
             # Bind first so we know the actual port (it may have fallen back
             # off PAIRING_PORT), then tunnel that exact port over adb before
             # advertising it - a QR pointing at 127.0.0.1 only works once the
             # reverse tunnel is actually up.
-            offer = server.start(advertise_ips=["127.0.0.1"])
+            offer = server.start(
+                advertise=[PairingAddress(ip="127.0.0.1", interface="USB (adb)", kind="other")]
+            )
             if offer is not None:
                 ok, err = adb_reverse(offer.port, serial=self._usb_serial)
                 if not ok:
@@ -402,7 +428,10 @@ class _PairingDialog(QDialog):
 
         if offer is None:
             self._status_lbl.setObjectName("status_err")
-            self._status_lbl.setText("No network interfaces found.")
+            self._status_lbl.setText(
+                "No usable network address found. Connect this computer to the "
+                "same Wi-Fi as your phone, or pair over USB instead."
+            )
             self._status_lbl.setStyleSheet("")
             return
         self._pairing_server = server
@@ -437,6 +466,8 @@ class _PairingDialog(QDialog):
             if self.width() < required_width:
                 self.resize(required_width, self.height())
             self._status_lbl.setText("Scan with the Telescope app on your phone.")
+            self._candidates_lbl.setText(_candidates_text(offer.candidates))
+            self._candidates_lbl.setVisible(True)
 
     def _send_pair_broadcast(self):
         if self._pairing_server is None or self._pairing_server.offer is None:
@@ -481,7 +512,7 @@ class _PairingDialog(QDialog):
             adb_unreverse(self._reversed_port, serial=self._usb_serial)
             self._reversed_port = None
 
-    def _on_paired_signal(self, name: str, ips: list, token: str):
+    def _on_paired_signal(self, name: str, ips: list, token: str, source_ip: str = ""):
         if self._pair_timeout is not None:
             self._pair_timeout.stop()
             self._pair_timeout = None
@@ -499,7 +530,8 @@ class _PairingDialog(QDialog):
         self._qr_container.addStretch()
         self._status_lbl.setText("")
         self._hint_lbl.setVisible(False)
-        self._on_paired(name, ips, token)
+        self._candidates_lbl.setVisible(False)
+        self._on_paired(name, ips, token, source_ip)
 
 
 class ConnectionPlugin(TelescopePlugin):
@@ -1065,7 +1097,7 @@ class ConnectionPlugin(TelescopePlugin):
         if was_selected:
             self._activate_profile(self._profile_key)
 
-    def _on_device_paired(self, name: str, ips: list, token: str):
+    def _on_device_paired(self, name: str, ips: list, token: str, source_ip: str = ""):
         # A fresh pairing rotates the phone's bearer token (and, on the
         # phone side, kills its own stream, since the running MjpegServer
         # only checks the token it started with) - anything the desktop was
@@ -1082,6 +1114,17 @@ class ConnectionPlugin(TelescopePlugin):
                     break
         else:
             self._devices.append({"name": name, "ips": ips, "token": token})
+        # The phone reached us from [source_ip], so that address is - right
+        # now, over whatever path it found - a working way back to it. Pin it
+        # as this device's active address: the rank-based default prefers a
+        # Tailscale address over a LAN one, which is wrong whenever the phone
+        # is on a tailnet this desktop isn't, and a saved choice from an
+        # earlier pairing can be staler still. The rest stay in the dropdown
+        # to switch to by hand.
+        if source_ip and source_ip in ips:
+            cfg = load_config()
+            cfg.setdefault("devices", {}).setdefault(name, {})["active_ip"] = source_ip
+            save_config(cfg)
         self._refresh_device_combo(select_name=name)
         self._selected_device = name
         self._host.save_now()

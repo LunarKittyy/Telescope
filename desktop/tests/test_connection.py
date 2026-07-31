@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -66,47 +67,204 @@ def test_valid_ipv4(ip, valid):
     assert _valid_ipv4(ip) is valid
 
 
-def test_get_local_ips_deduplicates_filters_loopback_and_ranks(monkeypatch):
-    class DatagramSocket:
-        def __enter__(self):
-            return self
+def _fake_adapters(monkeypatch, adapters):
+    """Stand in for ifaddr.get_adapters() with (nice_name, [(ip, is_IPv4)])
+    pairs, in the order a real enumeration would report them."""
+    fake = [
+        SimpleNamespace(
+            name=name,
+            nice_name=name,
+            ips=[SimpleNamespace(ip=ip, is_IPv4=is_v4) for ip, is_v4 in ips],
+        )
+        for name, ips in adapters
+    ]
+    monkeypatch.setattr(ip_utils_module.ifaddr, "get_adapters", lambda: fake)
 
-        def __exit__(self, *_args):
-            pass
 
-        def connect(self, _address):
-            pass
+def test_pairing_addresses_order_lan_then_tailscale_then_other(monkeypatch):
+    _fake_adapters(monkeypatch, [
+        ("tailscale0", [("100.90.12.34", True)]),
+        ("eth9", [("203.0.113.7", True)]),
+        ("wlan0", [("192.168.1.42", True)]),
+        ("eth0", [("10.1.2.3", True)]),
+    ])
 
-        def getsockname(self):
-            return "100.64.0.9", 999
+    addresses = connection_module._get_pairing_addresses()
 
-    monkeypatch.setattr(ip_utils_module.socket, "gethostname", lambda: "host")
+    assert [(a.ip, a.interface, a.kind) for a in addresses] == [
+        # Physical LAN first, in enumeration order within the kind.
+        ("192.168.1.42", "wlan0", "lan"),
+        ("10.1.2.3", "eth0", "lan"),
+        ("100.90.12.34", "tailscale0", "tailscale"),
+        ("203.0.113.7", "eth9", "other"),
+    ]
+
+
+def test_pairing_addresses_put_a_vpn_tunnel_behind_the_real_lan(monkeypatch):
+    # A desktop VPN handing out an RFC 1918 address classifies as LAN like
+    # any other, but the phone can only reach the physical one - so it must
+    # not end up ahead of it in the QR code.
+    # Only tunnels whose adapter name gives them away get demoted; anything
+    # unrecognised keeps its enumeration position, which costs the phone a
+    # timeout at worst since it works through every candidate anyway.
+    _fake_adapters(monkeypatch, [
+        ("tun0", [("10.8.0.6", True)]),
+        ("wg0", [("10.2.0.2", True)]),
+        ("wlan0", [("192.168.1.42", True)]),
+    ])
+
+    addresses = ip_utils_module.get_pairing_addresses()
+
+    assert [a.ip for a in addresses] == ["192.168.1.42", "10.8.0.6", "10.2.0.2"]
+    # Still advertised, though: a tunnel is occasionally the only shared path.
+    assert all(a.kind == "lan" for a in addresses)
+
+
+@pytest.mark.parametrize("name,is_vpn", [
+    ("tun0", True),
+    ("wg0", True),
+    ("utun3", True),
+    ("NordLynx", True),
+    ("ProtonVPN", True),
+    ("Tailscale", True),
+    ("wlan0", False),
+    ("eth0", False),
+    ("Wi-Fi", False),
+    ("Ethernet 2", False),
+])
+def test_looks_like_vpn_interface(name, is_vpn):
+    assert ip_utils_module.looks_like_vpn_interface(name) is is_vpn
+
+
+def test_pairing_addresses_cover_every_private_range(monkeypatch):
+    _fake_adapters(monkeypatch, [
+        ("a", [("192.168.0.1", True)]),
+        ("b", [("10.255.255.254", True)]),
+        ("c", [("172.16.0.1", True)]),
+        ("d", [("172.31.255.254", True)]),
+        ("e", [("100.64.0.1", True)]),
+        ("f", [("100.127.255.254", True)]),
+    ])
+
+    kinds = {a.ip: a.kind for a in ip_utils_module.get_pairing_addresses()}
+
+    assert kinds == {
+        "192.168.0.1": "lan",
+        "10.255.255.254": "lan",
+        "172.16.0.1": "lan",
+        "172.31.255.254": "lan",
+        "100.64.0.1": "tailscale",
+        "100.127.255.254": "tailscale",
+    }
+
+
+def test_pairing_addresses_skip_loopback_link_local_ipv6_and_duplicates(monkeypatch):
+    _fake_adapters(monkeypatch, [
+        ("lo", [("127.0.0.1", True)]),
+        ("wlan0", [
+            ("169.254.10.11", True),          # link-local: no DHCP lease
+            (("fe80::1", 0, 0), False),       # ifaddr reports IPv6 as a tuple
+            ("192.168.1.42", True),
+        ]),
+        ("wlan0:1", [("192.168.1.42", True)]),  # same address, aliased adapter
+    ])
+
+    addresses = ip_utils_module.get_pairing_addresses()
+
+    assert [(a.ip, a.interface) for a in addresses] == [("192.168.1.42", "wlan0")]
+
+
+def test_pairing_addresses_skip_container_and_vm_only_adapters(monkeypatch):
+    _fake_adapters(monkeypatch, [
+        ("docker0", [("172.17.0.1", True)]),
+        ("br-1a2b3c", [("172.18.0.1", True)]),
+        ("veth3f9a", [("172.19.0.1", True)]),
+        ("virbr0", [("192.168.122.1", True)]),
+        ("vboxnet0", [("192.168.56.1", True)]),
+        ("VMware Network Adapter VMnet8", [("192.168.75.1", True)]),
+        ("VirtualBox Host-Only Network", [("192.168.99.1", True)]),
+        ("Wi-Fi", [("192.168.1.42", True)]),
+    ])
+
+    assert [a.ip for a in ip_utils_module.get_pairing_addresses()] == ["192.168.1.42"]
+
+
+def test_pairing_addresses_keeps_hyper_v_bridged_lan_adapter(monkeypatch):
+    # Windows bridges a Hyper-V host's real LAN connection through an adapter
+    # named "vEthernet (...)" - dropping those would strip the only address
+    # the phone can reach on such a machine.
+    _fake_adapters(monkeypatch, [("vEthernet (External)", [("192.168.1.42", True)])])
+
+    assert [a.ip for a in ip_utils_module.get_pairing_addresses()] == ["192.168.1.42"]
+
+
+def test_pairing_addresses_are_capped_and_keep_the_best_ones(monkeypatch):
+    # Everything here goes into a QR code the phone has to read off a screen.
+    _fake_adapters(monkeypatch, [
+        *[(f"tailscale{i}", [(f"100.64.0.{i}", True)]) for i in range(8)],
+        ("wlan0", [("192.168.1.42", True)]),
+    ])
+
+    addresses = ip_utils_module.get_pairing_addresses()
+
+    assert len(addresses) == ip_utils_module.MAX_PAIRING_CANDIDATES == 8
+    # The LAN address survives the cap even though it was enumerated last.
+    assert addresses[0].ip == "192.168.1.42"
+
+
+def test_pairing_addresses_trim_very_long_interface_names(monkeypatch):
+    _fake_adapters(monkeypatch, [("Intel(R) Wi-Fi 6E AX211 160MHz Adapter #2", [("192.168.1.42", True)])])
+
+    assert ip_utils_module.get_pairing_addresses()[0].interface == "Intel(R) Wi-Fi 6E AX211 160MHz A"
+
+
+def test_pairing_addresses_tolerate_enumeration_failure(monkeypatch):
     monkeypatch.setattr(
-        ip_utils_module.socket,
-        "getaddrinfo",
-        lambda *_args: [
-            (None, None, None, None, ("127.0.0.1", 0)),
-            (None, None, None, None, ("192.168.1.2", 0)),
-            (None, None, None, None, ("192.168.1.2", 0)),
-        ],
+        ip_utils_module.ifaddr,
+        "get_adapters",
+        lambda: (_ for _ in ()).throw(OSError()),
     )
-    monkeypatch.setattr(ip_utils_module.socket, "socket", lambda *_args: DatagramSocket())
-
-    assert connection_module._get_local_ips() == ["100.64.0.9", "192.168.1.2"]
+    assert connection_module._get_pairing_addresses() == []
 
 
-def test_get_local_ips_tolerates_both_discovery_failures(monkeypatch):
-    monkeypatch.setattr(
-        ip_utils_module.socket,
-        "getaddrinfo",
-        lambda *_args: (_ for _ in ()).throw(OSError()),
-    )
-    monkeypatch.setattr(
-        ip_utils_module.socket,
-        "socket",
-        lambda *_args: (_ for _ in ()).throw(OSError()),
-    )
-    assert connection_module._get_local_ips() == []
+@pytest.mark.parametrize("ip,kind", [
+    ("192.168.1.1", "lan"),
+    ("10.0.0.1", "lan"),
+    ("172.16.0.1", "lan"),
+    ("172.15.0.1", "other"),   # just below the RFC 1918 172.x range
+    ("172.32.0.1", "other"),   # just above it
+    ("100.64.0.1", "tailscale"),
+    ("100.63.255.255", "other"),  # just below the CGNAT block
+    ("100.128.0.0", "other"),     # just above it
+    ("8.8.8.8", "other"),
+    ("127.0.0.1", None),
+    ("169.254.1.1", None),
+    ("224.0.0.1", None),
+    ("0.0.0.0", None),
+    ("::1", None),
+    ("not-an-ip", None),
+])
+def test_classify_ip(ip, kind):
+    assert ip_utils_module.classify_ip(ip) == kind
+
+
+def test_describe_address_names_the_kind_and_interface():
+    describe = ip_utils_module.describe_address
+    make = ip_utils_module.PairingAddress
+    assert describe(make("192.168.1.42", "Wi-Fi", "lan")) == "192.168.1.42 · Wi-Fi/LAN"
+    assert describe(make("100.90.12.34", "tailscale0", "tailscale")) == "100.90.12.34 · Tailscale"
+    assert describe(make("203.0.113.7", "eth9", "other")) == "203.0.113.7 · eth9"
+
+
+def test_no_route_probe_towards_a_public_address_remains():
+    # A UDP "route probe" reports whichever interface owns the default route,
+    # which under a VPN is the VPN's - the exact failure this design replaced.
+    # encoding= is not optional here: the sources are UTF-8 and carry box
+    # drawing/middle-dot characters, but read_text() defaults to the locale
+    # encoding, which is cp1252 on a Windows CI runner.
+    sources = Path(ip_utils_module.__file__).resolve().parent.rglob("*.py")
+    offenders = [p.name for p in sources if "8.8.8.8" in p.read_text(encoding="utf-8")]
+    assert offenders == []
 
 
 def test_device_dialog_parses_urls_deduplicates_and_returns_device(qapp):
@@ -528,6 +686,73 @@ def test_pairing_adds_or_updates_device(connection_plugin):
     plugin._on_device_paired("Phone", ["100.64.0.1"], "tok-b")
     assert plugin._devices == [{"name": "Phone", "ips": ["100.64.0.1"], "token": "tok-b"}]
     assert host.saves == 2
+
+
+def test_pairing_activates_the_address_the_phone_reached_us_from(connection_plugin, config_home):
+    # A phone on a tailnet this desktop isn't on reports both its Wi-Fi and
+    # its Tailscale address. Rank order alone would pick the Tailscale one -
+    # unreachable from here - so the address the pairing POST actually
+    # arrived from wins instead, since that path is proven to work.
+    plugin, _host, _panel = connection_plugin
+    plugin._rb_wifi.setChecked(True)
+    plugin._rb_usb.setChecked(False)
+
+    plugin._on_device_paired(
+        "Phone", ["192.168.1.50", "100.90.12.34"], "tok-a", source_ip="192.168.1.50",
+    )
+
+    assert config_home.load_config()["devices"]["Phone"]["active_ip"] == "192.168.1.50"
+    assert plugin._current_device_ip() == "192.168.1.50"
+    # The other address stays selectable by hand.
+    items = [plugin._ip_combo.itemText(i) for i in range(plugin._ip_combo.count())]
+    assert sorted(items) == ["100.90.12.34", "192.168.1.50"]
+
+
+def test_pairing_activates_the_tailscale_address_when_that_is_the_working_path(
+    connection_plugin, config_home,
+):
+    # Mirror image: both devices on the tailnet with no shared LAN. The
+    # phone's Wi-Fi address is listed first and is useless from here.
+    plugin, _host, _panel = connection_plugin
+
+    plugin._on_device_paired(
+        "Phone", ["192.168.5.20", "100.90.12.34"], "tok-a", source_ip="100.90.12.34",
+    )
+
+    assert config_home.load_config()["devices"]["Phone"]["active_ip"] == "100.90.12.34"
+    assert plugin._current_device_ip() == "100.90.12.34"
+
+
+def test_pairing_overrides_a_stale_active_ip_from_an_earlier_pairing(connection_plugin, config_home):
+    plugin, _host, _panel = connection_plugin
+    plugin._on_device_paired(
+        "Phone", ["192.168.1.50", "100.90.12.34"], "tok-a", source_ip="100.90.12.34",
+    )
+    assert plugin._current_device_ip() == "100.90.12.34"
+
+    # Same phone, paired again from a network where the LAN path works.
+    plugin._on_device_paired(
+        "Phone", ["192.168.1.50", "100.90.12.34"], "tok-b", source_ip="192.168.1.50",
+    )
+
+    assert config_home.load_config()["devices"]["Phone"]["active_ip"] == "192.168.1.50"
+    assert plugin._current_device_ip() == "192.168.1.50"
+
+
+def test_pairing_falls_back_to_ranking_when_the_source_is_not_a_phone_address(
+    connection_plugin, config_home,
+):
+    # USB pairing arrives through the adb reverse tunnel, so the source is
+    # the desktop's own loopback - nothing to learn from, keep the old
+    # rank-based default rather than pinning a bogus address.
+    plugin, _host, _panel = connection_plugin
+
+    plugin._on_device_paired(
+        "Phone", ["192.168.1.50", "100.90.12.34"], "tok-a", source_ip="127.0.0.1",
+    )
+
+    assert "active_ip" not in config_home.load_config().get("devices", {}).get("Phone", {})
+    assert plugin._current_device_ip() == _best_ip(["192.168.1.50", "100.90.12.34"])
 
 
 def test_pairing_stops_an_active_stream(connection_plugin):

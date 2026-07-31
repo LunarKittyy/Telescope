@@ -190,6 +190,7 @@ telescope/
 |       |-- CameraCatalog.kt     # Enumerates cameras, incl. physical sub-cameras of logical multi-cams
 |       |-- StreamStateMachine.kt   # Idle/StartingServer/.../Streaming/Failed state + history
 |       |-- Protocol.kt          # kotlinx.serialization models for the v1 API
+|       |-- Pairing.kt           # QR payload (v2) parsing/validation, attempt ordering, failure text
 |       |-- MjpegServer.kt       # Authenticated HTTP: /v1/video  /v1/state  /v1/control
 |       |-- PingServer.kt        # Always-on pairing-status responder: GET /v1/ping (port 8766)
 |       +-- TokenStore.kt        # Persists the single active pairing bearer token
@@ -249,6 +250,8 @@ A separate, always-on HTTP responder (`PingServer`, port 8766) runs independentl
 The app enumerates **physical sub-cameras** of logical multi-camera groups via `CameraCharacteristics.physicalCameraIds` (API 28+). On many modern phones the logical back camera (ID `0`) hides individual wide/main/telephoto sensors behind it; this app surfaces all of them and lets you pick.
 
 A **scan button** in the top-right corner of the main screen opens a ZXing barcode scanner (portrait, via `journeyapps:zxing-android-embedded`). Scanning the QR code shown by the desktop app sends the phone's name and all its IPv4 addresses to the desktop over HTTP, which adds it as a named device automatically. The pairing POST requires `android:usesCleartextTraffic="true"` since the desktop's pairing server runs plain HTTP.
+
+The QR code carries a list of desktop address *candidates* (see [QR pairing payload](#qr-pairing-payload)), and the phone works through them in a deliberate order: LAN candidates first, sent over the phone's actual Wi-Fi network via `Network.openConnection()` rather than whatever holds the default route, then every candidate again over the default network. That first pass is what makes pairing work with a VPN running on the phone - a VPN owns the default route, so a LAN address goes nowhere through it, while the Wi-Fi interface underneath still reaches the desktop as long as the VPN permits local-network traffic. Only the pairing request is bound this way; the process is never pinned to Wi-Fi. Attempts are capped at 2s each and 12s in total, so a full candidate list can't leave the user watching nothing happen for half a minute; anything not reached by then is reported as untried rather than silently dropped. If nothing answers, a dialog lists each address tried and how it failed, and names the two situations the phone can't work around: a VPN that blocks LAN traffic outright, and client-isolated guest Wi-Fi - both of which leave USB pairing as the way through. Pairing logic that doesn't need Android (payload parsing/validation, attempt ordering, the failure text) lives in `Pairing.kt` and is unit-tested.
 
 In USB mode the desktop can pair without a QR scan at all: it pushes the same payload via `adb shell am broadcast` to a dedicated intent, registered exported but gated on the `DUMP` permission - held by `adb shell` by default, but not obtainable by ordinary third-party apps, so only adb (not another app on the phone) can trigger it. Either pairing path rotates the token, revoking whatever was paired before, and stops an in-progress stream rather than leaving it enforcing a token that's no longer valid. Unpairing from the phone now asks for confirmation first rather than clearing the token on a single tap.
 
@@ -361,6 +364,10 @@ The release zip bundles the UnityCapture DLLs already; the app registers them fr
 
 **Genuine-connection signal:** `EventBus.stream_connected` fires only when `StreamWorker` reports its first `"ok"` status (an actual frame decoded), not merely when a worker object exists. `ConnectionPlugin` uses it to tell "worker started" apart from "phone actually responded" for its pair-status indicator, so a stale token doesn't get shown as a healthy pairing while the worker silently retries forever.
 
+**Desktop address discovery:** `ip_utils.get_pairing_addresses()` enumerates the machine's real network adapters (via `ifaddr`) instead of asking the routing table where a public address would go. The old UDP "route probe" reported whichever interface owns the default route - which under a VPN is the VPN's, so the physical LAN address the phone can actually reach went missing from the QR code exactly when it mattered. Loopback, link-local (`169.254/16`) and IPv6 addresses are dropped, as are container/VM-only adapters (`docker*`, `br-*`, `veth<hex>`, `virbr*`, `vboxnet*`, `vmnet*`, VirtualBox/VMware host-only) - though Windows' `vEthernet (...)` is kept, since Hyper-V bridges the host's real LAN through it. What's left is classified `lan` (RFC 1918), `tailscale` (`100.64/10`) or `other`, and ordered that way: the physical LAN path first, Tailscale as the cross-network fallback. Recognisable tunnel adapters (`tun*`, `wg*`, `utun*`, …) are still advertised but sorted behind physical ones in the same class, so a desktop VPN handing out a `10.x` address doesn't push the real LAN address down the phone's list. The whole thing is capped at 8 candidates with interface names trimmed to 32 characters, since every byte adds modules to a code someone has to scan with a phone camera. The pairing dialog lists what it's advertising and stays open after a failed attempt so the list can be compared against the phone's.
+
+**Which phone address to stream to:** a phone reports every IPv4 address it has, and picking from that list by rank alone gets it wrong in both directions - a phone on a tailnet this desktop isn't on has its (unreachable) Tailscale address preferred over its Wi-Fi one, while two devices sharing only a tailnet need exactly the opposite. `PairingResult.source_ip` settles it without guessing: the address the pairing POST arrived from is one of the phone's *and* demonstrably reachable from here, right now, over whatever path the phone found. `_on_device_paired()` pins it as the device's `active_ip`, overriding both the rank-based default and a stale choice saved from an earlier pairing. It's ignored when it isn't one of the addresses the phone reported - USB pairing arrives through the `adb reverse` tunnel, so the source is this machine's own loopback - and the other addresses stay in the dropdown to switch to by hand.
+
 **Re-pair mid-stream:** pairing a device rotates its bearer token, which the phone's already-running server would otherwise keep rejecting since it read the old token once at startup. `_on_device_paired` stops an active desktop stream first when this happens (matched on the Android side: a successful re-pair also stops the phone's own running stream).
 
 **Control client:** `PhoneControlClient` sends `GET /control?...` in a daemon thread per request, fire-and-forget. Failures are silently dropped - a missed control command is non-critical.
@@ -435,6 +442,29 @@ All responses: `{"ok": true}` or `{"ok": false, "error": "..."}`.
 ### `GET /v1/ping`
 
 Served on a separate port, 8766, by an always-on responder independent of the streaming service - unlike the three endpoints above, it exists whether or not a stream is running. Same bearer-token auth. Returns `200` if the token matches, `401` if it doesn't, no body either way - used by the desktop to check pairing status before starting a stream.
+
+### QR pairing payload
+
+Generated by the desktop (`telescope/pairing.py`), rendered as the QR code, and pushed verbatim (base64-encoded) over `adb` for USB pairing. The desktop emits version `2` only, and the app accepts version `2` only - a mismatch is reported as "update both apps" rather than "invalid code", since desktop and APK ship together.
+
+```json
+{
+  "version": 2,
+  "port": 8765,
+  "candidates": [
+    { "ip": "192.168.1.42",  "interface": "Wi-Fi",      "kind": "lan" },
+    { "ip": "100.90.12.34",  "interface": "tailscale0", "kind": "tailscale" }
+  ],
+  "nonce": "...",
+  "token": "..."
+}
+```
+
+`kind` is one of `lan`, `tailscale`, `other`, and candidates are ordered best-first. The phone rejects the payload outright if any candidate carries a malformed IPv4 literal or an unrecognised `kind`, if the list is empty, or if the port/nonce/token are unusable. `interface` is the desktop-side adapter name, carried for diagnostics. USB pairing advertises a single candidate - `127.0.0.1`, kind `other` - reached through the `adb reverse` tunnel.
+
+The phone then `POST`s to `http://<ip>:<port>/pair/<nonce>` with `{"name": ..., "ips": [...], "token": ...}`; the echoed token confirms the request came from a device that actually read the current code, on top of the one-shot nonce in the path. Both are unchanged from version 1.
+
+The desktop also notes the source address that request arrived from. That address is, by construction, one of the phone's *and* reachable from this machine over whatever path the phone found, so it becomes the device's active address - see the implementation note below.
 
 ---
 
@@ -525,7 +555,8 @@ Run in both desktop CI workflows before assembling the bundle: constructs the fu
 | ISO/shutter change has no effect | Only one of the two was sent | Switch to Manual - desktop sends both simultaneously |
 | High latency over Wi-Fi | MJPEG is per-frame JPEG, higher bandwidth than H.264 | Use USB mode, lower JPEG quality, or reduce phone FPS |
 | Second launch does nothing | Single-instance enforcement | The existing window is brought to the front |
-| QR pairing fails ("Could not reach desktop") | Phone and desktop not on the same network, or desktop firewall blocking port 8765 | Make sure both are on the same Wi-Fi; the pairing server only runs while the QR dialog is open |
+| QR pairing fails ("Could not reach the desktop") | Phone and desktop not on the same network, or desktop firewall blocking port 8765 | The failure dialog on the phone lists every address it tried and how each failed; the desktop dialog stays open showing the addresses it's advertising, so the two lists can be compared. Make sure both are on the same Wi-Fi; the pairing server only runs while the QR dialog is open |
+| QR pairing fails on a guest/public Wi-Fi | Client isolation - the access point blocks device-to-device traffic entirely | Nothing on either device can work around this; use USB pairing, or a network you control |
 | "Pair via ADB" fails or times out | `adb` not on PATH, phone app not foregrounded, or the adb reverse tunnel didn't come up | Install adb (see step 2 above) and retry; make sure the Telescope app is open and in the foreground on the phone before clicking **Pair via ADB** |
-| QR pairing fails while a VPN is active | A VPN on the phone and/or desktop can route traffic off the local Wi-Fi network, or advertise an IP the other device can't actually reach | Temporarily disconnect the VPN on both devices while pairing, or pair first and reconnect the VPN afterward |
+| QR pairing fails while a VPN is active | The VPN is blocking local-network traffic outright. (A VPN that *allows* LAN access is handled: the desktop advertises its real interface addresses rather than whatever owns the default route, and the phone sends LAN attempts over its Wi-Fi interface rather than the tunnel) | Turn on the VPN's "allow local network access"/"LAN access" option, pause the VPN while pairing, or use USB pairing. Once paired, streaming has the same requirement |
 | QR scanner opens in landscape | Manifest override not applied | The app overrides ZXing's default orientation to portrait; rebuild if you see this on an old build |

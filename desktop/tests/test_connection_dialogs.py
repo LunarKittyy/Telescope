@@ -125,18 +125,20 @@ def test_pairing_dialog_reports_no_network_interfaces(monkeypatch, qapp):
     import telescope.pairing as pairing_module
 
     dialog = _PairingDialog(None, lambda *_args: None)
-    monkeypatch.setattr(pairing_module.ip_utils, "get_local_ips", lambda: [])
+    monkeypatch.setattr(pairing_module.ip_utils, "get_pairing_addresses", lambda: [])
     dialog._start_server()
     assert dialog._pairing_server is None
     assert dialog._status_lbl.objectName() == "status_err"
-    assert dialog._status_lbl.text() == "No network interfaces found."
+    assert "pair over USB" in dialog._status_lbl.text()
 
 
 def test_pairing_dialog_success_ui_and_callback(qapp):
     paired = []
-    dialog = _PairingDialog(None, lambda name, ips, token: paired.append((name, ips, token)))
-    dialog._on_paired_signal("Phone", ["10.0.0.1"], "tok-123")
-    assert paired == [("Phone", ["10.0.0.1"], "tok-123")]
+    dialog = _PairingDialog(
+        None, lambda name, ips, token, source: paired.append((name, ips, token, source)),
+    )
+    dialog._on_paired_signal("Phone", ["10.0.0.1"], "tok-123", "10.0.0.1")
+    assert paired == [("Phone", ["10.0.0.1"], "tok-123", "10.0.0.1")]
     assert dialog._status_lbl.text() == ""
     assert dialog._hint_lbl.isHidden()
     labels = [dialog._qr_container.itemAt(i).widget()
@@ -145,7 +147,17 @@ def test_pairing_dialog_success_ui_and_callback(qapp):
     assert any('"Phone" added.' in label.text() for label in labels)
 
 
-def test_pairing_dialog_renders_qr_after_start(qapp):
+def test_pairing_dialog_renders_qr_after_start(monkeypatch, qapp):
+    import telescope.pairing as pairing_module
+    from telescope.ip_utils import PairingAddress
+
+    monkeypatch.setattr(
+        pairing_module.ip_utils, "get_pairing_addresses",
+        lambda: [
+            PairingAddress(ip="192.168.1.42", interface="Wi-Fi", kind="lan"),
+            PairingAddress(ip="100.90.12.34", interface="tailscale0", kind="tailscale"),
+        ],
+    )
     dialog = _PairingDialog(None, lambda *_args: None)
     dialog._start_server()
     try:
@@ -155,6 +167,14 @@ def test_pairing_dialog_renders_qr_after_start(qapp):
                    if dialog._qr_container.itemAt(i).widget()]
         assert any(isinstance(w, _QRCodeWidget) for w in widgets)
         assert dialog._status_lbl.text() == "Scan with the Telescope app on your phone."
+        # The advertised addresses are spelled out, so a user whose phone
+        # can't reach any of them can see what was actually offered.
+        assert dialog._candidates_lbl.isVisibleTo(dialog)
+        assert dialog._candidates_lbl.text() == (
+            "Waiting for the phone on:\n"
+            "• 192.168.1.42 · Wi-Fi/LAN\n"
+            "• 100.90.12.34 · Tailscale"
+        )
     finally:
         dialog._stop_server()
 
