@@ -80,12 +80,12 @@ Load/save of `telescope_config.json` with versioned schema (current: v2) and per
 }
 ```
 
-`DEVICE_LOCAL_PLUGINS` frozenset marks which plugin names are per-device. Migration handles: v0 (original flat format with single `ip` field), v1 (Phase 3 flat `plugin_configs` dict), and v2 passthrough.
+`DEVICE_LOCAL_PLUGINS` frozenset marks which plugin names are per-device. No cross-version migration: a config below `CONFIG_VERSION`, or one that's unparseable/malformed at the top level, is backed up (`.invalid-<timestamp>`) and replaced with defaults. A current-version config instead has each top-level section (`plugin_configs`, `devices`, `selected_device`) validated independently, so one malformed section resets to its default without discarding the rest.
 
 ### `phone_client.py`
 **PhoneControlClient** — authenticated HTTP client for the phone app's `/v1/state` and `/v1/control` endpoints (bearer token on every request).
-- `send(action, **kwargs)` — fire-and-forget control command.
-- `get_state()` — fetch current camera state dict (lenses, ISO, shutter, WB, battery, etc.).
+- `send(action, **kwargs)` — queues a control command, POSTed as JSON by a single background worker thread in the order it was queued. Requests sharing an `action` are coalesced to the latest value while still queued (camera switches are sent individually and in order instead); a burst of slider drags can't have an older response land after a newer one. Failures are silently dropped.
+- `get_state()` — fetch current camera state dict (lenses, ISO, shutter, WB, focus, AE comp, NR/edge mode, battery, etc.).
 
 ### `ip_utils.py`
 Qt-free address helpers shared by the pairing flow and the device panel.
@@ -113,11 +113,12 @@ Reusable Qt widgets and helpers used across multiple panels:
 - `stretch_slider(slider, minimum)` — give a slider a minimum width and an Expanding policy so it fills its column instead of being pinned to a fixed track width.
 - `NoScrollComboBox`, `NoScrollSlider`, `NoScrollSpinBox`, `NoScrollDoubleSpinBox` — scroll-wheel suppressed variants.
 - `LogSliderRow` — slider + spinbox with logarithmic scaling (ISO, shutter speed).
-- `WbSliderRow` — white balance Kelvin slider with preset snapping.
 - `PanSliderRow` — bipolar slider (−1 … +1) with centre-reset button.
 - `create_separator()` — thin `QFrame` horizontal rule.
 - `create_vector_icon(name, color)` — paints an icon to a `QIcon` with `QPainter`, tinted per use. Set: `connection`, `camera`, `stream`, `gear`, `status`, `qr`, `usb`, `transforms`, `logo`, `play`, `stop`, `expand`, `reset`.
-- `ns_to_display(ns)`, `quality_label(q)`, `wb_name(k)` — display format helpers.
+- `ns_to_display(ns)`, `quality_label(q)` — display format helpers.
+
+Note: white balance (Kelvin + tint sliders) is built directly in `plugins/camera_control.py` rather than through a shared widget - there is no `WbSliderRow` and no preset snapping.
 
 ### `widgets/lens_panel.py`
 **LensPanel** — horizontal list of lens buttons populated from the phone's `/cameras` response. Emits `lens_selected(dict)` when the user switches lenses.
@@ -152,13 +153,14 @@ UnityCapture helpers: `uc_is_registered()`, `unitycapture_dir()`, `download_unit
 - `DEFAULT_PORT = 8080` defined here.
 
 ### `plugins/camera_control.py`
-**CameraControlPlugin** — lens selection, exposure, white balance, OIS. `panel_region = "right"`.
-- UI: `LensPanel` (horizontal lens buttons), camera capability info label, Exposure auto/manual + ISO + shutter sliders, White Balance auto/manual + Kelvin slider, OIS checkbox.
-- `on_stream_start`: stores ctrl, sets "Loading lenses..." placeholder.
-- `on_phone_state(state)`: loads cameras into `LensPanel`, syncs exp/wb/ois from phone state. Empty `state` dict (fetch failure) shows "Unavailable" on lens panel.
+**CameraControlPlugin** — lens selection, exposure, white balance, focus, OIS, and image tuning. `panel_region = "right"`.
+- UI: `LensPanel` (horizontal lens buttons), camera capability info label, Exposure auto/manual + ISO + shutter sliders + exposure-compensation slider, White Balance auto/manual + Kelvin/tint sliders, OIS checkbox, Focus auto/manual + distance slider, noise-reduction and sharpening (edge mode) combos, black-level-lock checkbox, torch button.
+- `derive_camera_control_view(state)` — pure function mapping a raw phone-state dict to a `CameraControlView` dataclass, independently testable without a `QApplication`.
+- `on_stream_start`: stores ctrl, sets "Loading lenses..." placeholder, re-pushes the desktop's already-restored widget state to the phone via `_push_settings_to_phone()` (the phone otherwise keeps whatever it booted with until a control is touched).
+- `on_phone_state(state)`: loads cameras into `LensPanel`, syncs exposure/WB/focus/OIS/AE-comp/NR/edge/black-level-lock/torch from phone state. Empty `state` dict (fetch failure) shows "Unavailable" on lens panel.
 - `on_stream_stop`: clears lens panel and info label.
-- `_update_camera_caps()`: disables manual exp or manual WB buttons when the selected lens doesn't support them.
-- Config keys: `exp_manual`, `iso`, `shutter_ns`, `ois`.
+- `_update_camera_caps()`: disables manual exposure, manual WB, manual focus, or torch controls when the selected lens doesn't report support for them.
+- Config keys: `exp_manual`, `iso`, `shutter_ns`, `ois`, `focus_manual`, `focus_diopters`, `wb_manual`, `wb_kelvin`, `wb_tint`, `ae_comp`, `nr_mode`, `edge_mode`, `bll`.
 
 ### `plugins/stream_output.py`
 **StreamOutputPlugin** — output resolution, frame rate, and encoding settings.
