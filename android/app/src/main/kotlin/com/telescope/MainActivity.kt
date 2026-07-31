@@ -243,10 +243,22 @@ class MainActivity : AppCompatActivity() {
 
         Thread {
             val failures = mutableListOf<PairingAttemptFailure>()
+            val startedAt = android.os.SystemClock.elapsedRealtime()
             var success = false
-            for (route in routes) {
+            var untried = 0
+            for ((index, route) in routes.withIndex()) {
+                // Every address gets a shot, but not at the cost of an
+                // unbounded wait: eight candidates over two passes would
+                // otherwise leave the user staring at nothing for half a
+                // minute before the explanation they need appears.
+                val timeout = attemptTimeoutMs(android.os.SystemClock.elapsedRealtime() - startedAt)
+                if (timeout == null) {
+                    untried = routes.size - index
+                    break
+                }
                 val network = if (route.via == PairingRouteKind.WIFI) wifi else null
-                val problem = attemptPair(offer, route.candidate, network, deviceName, myIps)
+                val problem =
+                    attemptPair(offer, route.candidate, network, deviceName, myIps, timeout)
                 if (problem == null) {
                     success = true
                     break
@@ -279,7 +291,7 @@ class MainActivity : AppCompatActivity() {
                     // readable: it names every address tried, how each failed,
                     // and what to do about it.
                     if (!isFinishing && !isDestroyed) {
-                        showPairingFailure(pairingFailureMessage(failures))
+                        showPairingFailure(pairingFailureMessage(failures, untried))
                     }
                 }
             }
@@ -293,6 +305,7 @@ class MainActivity : AppCompatActivity() {
         network: android.net.Network?,
         deviceName: String,
         myIps: List<String>,
+        timeoutMs: Int,
     ): String? {
         var conn: java.net.HttpURLConnection? = null
         return try {
@@ -304,8 +317,8 @@ class MainActivity : AppCompatActivity() {
             conn = (opened as java.net.HttpURLConnection).apply {
                 requestMethod = "POST"
                 setRequestProperty("Content-Type", "application/json")
-                connectTimeout = PAIR_TIMEOUT_MS
-                readTimeout = PAIR_TIMEOUT_MS
+                connectTimeout = timeoutMs
+                readTimeout = timeoutMs
                 doOutput = true
             }
             val body = org.json.JSONObject().apply {
@@ -671,9 +684,6 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val RC_PERMS = 100
-        // Per attempt, and there can be several - short enough that walking
-        // the whole candidate list stays inside a user's patience.
-        private const val PAIR_TIMEOUT_MS = 2000
         // Lets the desktop app push a pairing payload straight over adb when
         // there's no camera-scannable QR code involved (USB pairing) - the
         // same JSON shape and handleQrScan() logic as the QR flow, just

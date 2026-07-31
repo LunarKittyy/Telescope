@@ -99,6 +99,7 @@ Qt-free address helpers shared by the pairing flow and the device panel.
 **PairingServer** — the Qt-free one-shot pairing handshake: bind a port, mint a nonce and bearer token, wait for the phone's `POST /pair/{nonce}` echoing the token back.
 - `start(advertise=None)` → `PairingOffer(payload, port, nonce, token, candidates)`, or `None` when there's no usable address. `advertise` overrides discovery — the USB path passes the loopback candidate reached through `adb reverse`.
 - `payload` is the version-2 QR JSON (`version`, `port`, `candidates[]`, `nonce`, `token`); `PAIRING_PROTOCOL_VERSION` is bumped in lockstep with the app's.
+- `PairingResult(name, ips, token, source_ip)` — `source_ip` is where the POST came from, i.e. a phone address proven reachable from here; `ConnectionPlugin._on_device_paired()` pins it as the device's `active_ip`.
 - `PAIRING_PORT = 8765`, falling back to a random free port if it's taken.
 
 ---

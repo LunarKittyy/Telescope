@@ -44,6 +44,13 @@ class PairingResult:
     name: str
     ips: List[str] = field(default_factory=list)
     token: str = ""
+    # The address the pairing POST actually arrived from. By construction
+    # this is an address of the phone that can reach this desktop right now,
+    # over whichever path the phone found - so it's the one to stream to,
+    # rather than guessing from the reported list. Empty, or absent from
+    # [ips], when there's nothing useful to learn from it: USB pairing sees
+    # the loopback end of the adb tunnel, not a phone address.
+    source_ip: str = ""
 
 
 class PairingServer:
@@ -130,7 +137,10 @@ class PairingServer:
                         raise ValueError("invalid pairing payload")
                     if not hmac.compare_digest(echoed_token, token):
                         raise ValueError("token mismatch")
-                    on_paired(PairingResult(name=name, ips=ips, token=token))
+                    source_ip = self.client_address[0] if self.client_address else ""
+                    on_paired(PairingResult(
+                        name=name, ips=ips, token=token, source_ip=source_ip,
+                    ))
                     self.send_response(200)
                     self.end_headers()
                     self.wfile.write(b"OK")

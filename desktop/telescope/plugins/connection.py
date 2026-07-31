@@ -307,7 +307,7 @@ def _candidates_text(candidates: list) -> str:
 
 
 class _PairingSignals(QObject):
-    paired = pyqtSignal(str, list, str)  # name, ips, token
+    paired = pyqtSignal(str, list, str, str)  # name, ips, token, source_ip
 
 
 class _PairStatusSignals(QObject):
@@ -402,7 +402,9 @@ class _PairingDialog(QDialog):
             return  # already running - showEvent() can fire more than once
 
         signals = self._signals
-        server = PairingServer(on_paired=lambda r: signals.paired.emit(r.name, r.ips, r.token))
+        server = PairingServer(
+            on_paired=lambda r: signals.paired.emit(r.name, r.ips, r.token, r.source_ip)
+        )
 
         if self._usb_serial is not None:
             # Bind first so we know the actual port (it may have fallen back
@@ -510,7 +512,7 @@ class _PairingDialog(QDialog):
             adb_unreverse(self._reversed_port, serial=self._usb_serial)
             self._reversed_port = None
 
-    def _on_paired_signal(self, name: str, ips: list, token: str):
+    def _on_paired_signal(self, name: str, ips: list, token: str, source_ip: str = ""):
         if self._pair_timeout is not None:
             self._pair_timeout.stop()
             self._pair_timeout = None
@@ -529,7 +531,7 @@ class _PairingDialog(QDialog):
         self._status_lbl.setText("")
         self._hint_lbl.setVisible(False)
         self._candidates_lbl.setVisible(False)
-        self._on_paired(name, ips, token)
+        self._on_paired(name, ips, token, source_ip)
 
 
 class ConnectionPlugin(TelescopePlugin):
@@ -1095,7 +1097,7 @@ class ConnectionPlugin(TelescopePlugin):
         if was_selected:
             self._activate_profile(self._profile_key)
 
-    def _on_device_paired(self, name: str, ips: list, token: str):
+    def _on_device_paired(self, name: str, ips: list, token: str, source_ip: str = ""):
         # A fresh pairing rotates the phone's bearer token (and, on the
         # phone side, kills its own stream, since the running MjpegServer
         # only checks the token it started with) - anything the desktop was
@@ -1112,6 +1114,17 @@ class ConnectionPlugin(TelescopePlugin):
                     break
         else:
             self._devices.append({"name": name, "ips": ips, "token": token})
+        # The phone reached us from [source_ip], so that address is - right
+        # now, over whatever path it found - a working way back to it. Pin it
+        # as this device's active address: the rank-based default prefers a
+        # Tailscale address over a LAN one, which is wrong whenever the phone
+        # is on a tailnet this desktop isn't, and a saved choice from an
+        # earlier pairing can be staler still. The rest stay in the dropdown
+        # to switch to by hand.
+        if source_ip and source_ip in ips:
+            cfg = load_config()
+            cfg.setdefault("devices", {}).setdefault(name, {})["active_ip"] = source_ip
+            save_config(cfg)
         self._refresh_device_combo(select_name=name)
         self._selected_device = name
         self._host.save_now()

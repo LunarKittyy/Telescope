@@ -134,6 +134,29 @@ fun pairingRoutes(candidates: List<PairingCandidate>, hasWifi: Boolean): List<Pa
     return overWifi + candidates.map { PairingRoute(it, PairingRouteKind.DEFAULT) }
 }
 
+/** Connect/read timeout for a single attempt. */
+const val PAIR_ATTEMPT_TIMEOUT_MS = 2_000
+
+/** Ceiling on the whole run, however many candidates there are. Eight
+ *  candidates tried once over Wi-Fi and again over the default network is
+ *  half a minute of a progress-free wait otherwise - long past the point
+ *  where the answer is "this isn't going to work, read the message". */
+const val PAIR_TOTAL_BUDGET_MS = 12_000L
+
+/** Below this there isn't enough left for an attempt to mean anything. */
+private const val PAIR_MIN_ATTEMPT_MS = 500
+
+/**
+ * How long the next attempt may take, given [elapsedMs] spent so far, or
+ * null when the budget is spent and the remaining candidates should be
+ * abandoned.
+ */
+fun attemptTimeoutMs(elapsedMs: Long, budgetMs: Long = PAIR_TOTAL_BUDGET_MS): Int? {
+    val remaining = budgetMs - elapsedMs
+    if (remaining < PAIR_MIN_ATTEMPT_MS) return null
+    return minOf(PAIR_ATTEMPT_TIMEOUT_MS.toLong(), remaining).toInt()
+}
+
 /** Short, non-technical cause for the "Tried:" list in a failure report. */
 fun describeNetworkError(error: Throwable): String {
     val message = error.message.orEmpty().lowercase()
@@ -160,14 +183,19 @@ private fun PairingRouteKind.label(): String = when (this) {
  * that blocks local-network traffic outright, and client-isolated guest
  * Wi-Fi, both of which leave USB pairing as the way through.
  */
-fun pairingFailureMessage(failures: List<PairingAttemptFailure>): String {
+fun pairingFailureMessage(failures: List<PairingAttemptFailure>, untried: Int = 0): String {
     val tried = failures.joinToString("\n") { "• ${it.ip} over ${it.via.label()}: ${it.problem}" }
     return buildString {
         append("Could not reach the desktop.\n\n")
         if (failures.isEmpty()) {
             append("The QR code offered no address this phone could try.\n\n")
         } else {
-            append("Tried:\n").append(tried).append("\n\n")
+            append("Tried:\n").append(tried).append("\n")
+            if (untried > 0) {
+                append("• $untried more not tried - gave up after ")
+                append("${PAIR_TOTAL_BUDGET_MS / 1000} seconds\n")
+            }
+            append("\n")
         }
         append(
             "Your VPN may be blocking local-network access. Enable its LAN-access " +

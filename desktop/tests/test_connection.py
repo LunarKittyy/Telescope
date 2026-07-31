@@ -259,8 +259,11 @@ def test_describe_address_names_the_kind_and_interface():
 def test_no_route_probe_towards_a_public_address_remains():
     # A UDP "route probe" reports whichever interface owns the default route,
     # which under a VPN is the VPN's - the exact failure this design replaced.
+    # encoding= is not optional here: the sources are UTF-8 and carry box
+    # drawing/middle-dot characters, but read_text() defaults to the locale
+    # encoding, which is cp1252 on a Windows CI runner.
     sources = Path(ip_utils_module.__file__).resolve().parent.rglob("*.py")
-    offenders = [p.name for p in sources if "8.8.8.8" in p.read_text()]
+    offenders = [p.name for p in sources if "8.8.8.8" in p.read_text(encoding="utf-8")]
     assert offenders == []
 
 
@@ -683,6 +686,73 @@ def test_pairing_adds_or_updates_device(connection_plugin):
     plugin._on_device_paired("Phone", ["100.64.0.1"], "tok-b")
     assert plugin._devices == [{"name": "Phone", "ips": ["100.64.0.1"], "token": "tok-b"}]
     assert host.saves == 2
+
+
+def test_pairing_activates_the_address_the_phone_reached_us_from(connection_plugin, config_home):
+    # A phone on a tailnet this desktop isn't on reports both its Wi-Fi and
+    # its Tailscale address. Rank order alone would pick the Tailscale one -
+    # unreachable from here - so the address the pairing POST actually
+    # arrived from wins instead, since that path is proven to work.
+    plugin, _host, _panel = connection_plugin
+    plugin._rb_wifi.setChecked(True)
+    plugin._rb_usb.setChecked(False)
+
+    plugin._on_device_paired(
+        "Phone", ["192.168.1.50", "100.90.12.34"], "tok-a", source_ip="192.168.1.50",
+    )
+
+    assert config_home.load_config()["devices"]["Phone"]["active_ip"] == "192.168.1.50"
+    assert plugin._current_device_ip() == "192.168.1.50"
+    # The other address stays selectable by hand.
+    items = [plugin._ip_combo.itemText(i) for i in range(plugin._ip_combo.count())]
+    assert sorted(items) == ["100.90.12.34", "192.168.1.50"]
+
+
+def test_pairing_activates_the_tailscale_address_when_that_is_the_working_path(
+    connection_plugin, config_home,
+):
+    # Mirror image: both devices on the tailnet with no shared LAN. The
+    # phone's Wi-Fi address is listed first and is useless from here.
+    plugin, _host, _panel = connection_plugin
+
+    plugin._on_device_paired(
+        "Phone", ["192.168.5.20", "100.90.12.34"], "tok-a", source_ip="100.90.12.34",
+    )
+
+    assert config_home.load_config()["devices"]["Phone"]["active_ip"] == "100.90.12.34"
+    assert plugin._current_device_ip() == "100.90.12.34"
+
+
+def test_pairing_overrides_a_stale_active_ip_from_an_earlier_pairing(connection_plugin, config_home):
+    plugin, _host, _panel = connection_plugin
+    plugin._on_device_paired(
+        "Phone", ["192.168.1.50", "100.90.12.34"], "tok-a", source_ip="100.90.12.34",
+    )
+    assert plugin._current_device_ip() == "100.90.12.34"
+
+    # Same phone, paired again from a network where the LAN path works.
+    plugin._on_device_paired(
+        "Phone", ["192.168.1.50", "100.90.12.34"], "tok-b", source_ip="192.168.1.50",
+    )
+
+    assert config_home.load_config()["devices"]["Phone"]["active_ip"] == "192.168.1.50"
+    assert plugin._current_device_ip() == "192.168.1.50"
+
+
+def test_pairing_falls_back_to_ranking_when_the_source_is_not_a_phone_address(
+    connection_plugin, config_home,
+):
+    # USB pairing arrives through the adb reverse tunnel, so the source is
+    # the desktop's own loopback - nothing to learn from, keep the old
+    # rank-based default rather than pinning a bogus address.
+    plugin, _host, _panel = connection_plugin
+
+    plugin._on_device_paired(
+        "Phone", ["192.168.1.50", "100.90.12.34"], "tok-a", source_ip="127.0.0.1",
+    )
+
+    assert "active_ip" not in config_home.load_config().get("devices", {}).get("Phone", {})
+    assert plugin._current_device_ip() == _best_ip(["192.168.1.50", "100.90.12.34"])
 
 
 def test_pairing_stops_an_active_stream(connection_plugin):

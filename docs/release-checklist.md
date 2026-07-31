@@ -36,6 +36,7 @@ re-checking whenever either side of that changes:
 - [ ] Tailscale on both devices, no shared LAN: pairing works over the `100.64/10` candidate.
 - [ ] VPN configured to block local-network traffic: pairing fails with the "Tried: ... your VPN may be blocking local-network access" dialog listing each address, and the desktop dialog stays open showing what it advertised. USB pairing then works.
 - [ ] Desktop with Docker/libvirt/VirtualBox installed: the QR code does not advertise `docker0`/`virbr0`/`vboxnet0` addresses.
+- [ ] Phone on a tailnet the desktop is *not* on: after pairing over Wi-Fi, the address dropdown is left on the phone's Wi-Fi address, not its `100.64/10` one, and streaming starts without touching it.
 - [ ] "Reset pairing" on the phone actually revokes access (further requests 401 until re-paired).
 - [ ] USB and Wi-Fi streaming both work, including switching between them without restarting the app.
 - [ ] Local-only mode actually blocks Wi-Fi access (verify from a second machine on the same network).

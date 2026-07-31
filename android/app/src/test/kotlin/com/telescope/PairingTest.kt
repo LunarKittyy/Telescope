@@ -197,6 +197,38 @@ class PairingTest {
     }
 
     @Test
+    fun `failure message says how many addresses were abandoned`() {
+        val message = pairingFailureMessage(
+            listOf(PairingAttemptFailure("192.168.1.42", PairingRouteKind.WIFI, "timed out")),
+            untried = 3,
+        )
+
+        assertTrue(message.contains("• 3 more not tried - gave up after 12 seconds"), message)
+    }
+
+    // ── Attempt budget ────────────────────────────────────────────────────────
+
+    @Test
+    fun `each attempt gets the full per-attempt timeout while the budget lasts`() {
+        assertEquals(PAIR_ATTEMPT_TIMEOUT_MS, attemptTimeoutMs(0))
+        assertEquals(PAIR_ATTEMPT_TIMEOUT_MS, attemptTimeoutMs(PAIR_TOTAL_BUDGET_MS - 2_000))
+    }
+
+    @Test
+    fun `the last attempt is trimmed to whatever budget is left`() {
+        assertEquals(900, attemptTimeoutMs(PAIR_TOTAL_BUDGET_MS - 900))
+    }
+
+    @Test
+    fun `attempts stop once the budget is spent`() {
+        // Eight candidates over two passes at 2s each would be half a minute.
+        assertEquals(null, attemptTimeoutMs(PAIR_TOTAL_BUDGET_MS))
+        assertEquals(null, attemptTimeoutMs(PAIR_TOTAL_BUDGET_MS + 5_000))
+        // And a sliver of budget isn't worth an attempt that can't finish.
+        assertEquals(null, attemptTimeoutMs(PAIR_TOTAL_BUDGET_MS - 100))
+    }
+
+    @Test
     fun `failure message still explains itself with nothing to list`() {
         val message = pairingFailureMessage(emptyList())
         assertFalse(message.contains("Tried:"))

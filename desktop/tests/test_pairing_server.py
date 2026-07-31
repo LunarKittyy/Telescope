@@ -102,7 +102,9 @@ def test_empty_ips_in_payload_is_accepted(pairing_server):
         time.sleep(0.05)
         if paired:
             break
-    assert paired == [PairingResult(name="Phone", ips=[], token=offer.token)]
+    assert paired == [
+        PairingResult(name="Phone", ips=[], token=offer.token, source_ip="127.0.0.1"),
+    ]
 
 
 def test_wrong_nonce_is_rejected(pairing_server):
@@ -155,7 +157,14 @@ def test_valid_payload_pairs_and_invokes_callback(pairing_server):
         time.sleep(0.05)
         if paired:
             break
-    assert paired == [PairingResult(name="MyPhone", ips=["192.168.1.55"], token=offer.token)]
+    assert paired == [
+        PairingResult(
+            name="MyPhone", ips=["192.168.1.55"], token=offer.token,
+            # Where the POST actually came from - the desktop streams back
+            # to this address rather than guessing from the reported list.
+            source_ip="127.0.0.1",
+        ),
+    ]
 
 
 def test_stop_is_idempotent(pairing_server):
