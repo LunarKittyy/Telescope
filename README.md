@@ -79,8 +79,13 @@ The gear button next to the device selector opens the device list; its **Pair...
 **Camera control**
 - Lens picker: switches between wide, main, and telephoto sensors (physical sub-cameras, not digital zoom)
 - Manual ISO and shutter speed with log-scale sliders and direct numeric entry; range updates per-lens
-- Manual white balance (2000-8000 K slider) with named presets (Daylight, Incandescent, etc.) - *partially working: applies inconsistently depending on device/lens*
+- Exposure compensation slider (range and step size reported per-lens, typically ±8 EV in 1/6-EV steps)
+- Manual white balance: linear Kelvin slider (2000-10000 K) plus a green-magenta tint slider - *partially working: applies inconsistently depending on device/lens*
+- Manual focus: distance slider (diopters), range reported per-lens; greyed out on lenses that don't support it
 - OIS toggle
+- Noise reduction and sharpening (edge mode): Off / Fast / High Quality
+- Black level lock toggle
+- Torch/flash toggle, on lenses that report a flash unit
 - Controls are greyed out per-lens if the camera hardware reports it doesn't support them
 
 **Stream transforms** (applied on the desktop, no phone restart needed)
@@ -198,8 +203,10 @@ telescope/
 +-- desktop/
     |-- main.py                  # Entry point: registers plugins, restores config
     |-- requirements.txt         # Readable ">=" lower bounds
+    |-- requirements-dev.txt     # requirements.txt + pytest, used by CI
     |-- constraints.txt          # Exact pinned versions for CI/release installs
     |-- scripts/smoke_check.py   # Packaging smoke checks (see CI section below)
+    |-- tests/                   # pytest suite (desktop only; Android has its own JVM unit tests)
     |-- THIRD_PARTY_NOTICES.txt  # Bundled into both release archives
     |-- telescope.spec            # PyInstaller spec for Windows EXE
     |-- start.sh                 # Linux launcher (creates/reuses a Telescope-owned venv)
@@ -297,7 +304,7 @@ This is a debug build - self-signed, for personal/development use.
 | Component | Library |
 |---|---|
 | UI | PyQt6 |
-| MJPEG decode | opencv-python (`cv2.VideoCapture`) |
+| MJPEG decode | opencv-python (`cv2.imdecode`), read via `telescope/mjpeg_reader.py`'s authenticated reader - not `cv2.VideoCapture`, which has no way to attach the bearer token |
 | Virtual camera output | pyvirtualcam |
 | Frame processing | numpy |
 | QR code generation | qrcode (rendered via QPainter, no Pillow) |
@@ -370,11 +377,11 @@ The release zip bundles the UnityCapture DLLs already; the app registers them fr
 
 **Re-pair mid-stream:** pairing a device rotates its bearer token, which the phone's already-running server would otherwise keep rejecting since it read the old token once at startup. `_on_device_paired` stops an active desktop stream first when this happens (matched on the Android side: a successful re-pair also stops the phone's own running stream).
 
-**Control client:** `PhoneControlClient` sends `GET /control?...` in a daemon thread per request, fire-and-forget. Failures are silently dropped - a missed control command is non-critical.
+**Control client:** `PhoneControlClient` runs a single background worker thread that POSTs each command as a JSON body to `/control`, in the order it was queued. Requests that share the same `action` are coalesced to just the latest value while still waiting to be sent - a burst of slider drags can't have an older request's response arrive after a newer one - except camera switches, which are always sent individually and in order. Failures are silently dropped - a missed control command is non-critical.
 
 **ISO/shutter sliders:** Log scale over 2000 steps across the range the phone reports per camera. Range updates when switching lenses. Shutter spinbox shows milliseconds while the API uses nanoseconds.
 
-**White balance:** Linear Kelvin slider 2000-8000 K. Translates to `RggbChannelVector` using the Tanner Helland K->RGB algorithm and sets `COLOR_CORRECTION_GAINS`. Reverting to auto restores `CONTROL_AWB_MODE_AUTO`.
+**White balance:** Linear Kelvin slider 2000-10000 K plus a green-magenta tint slider (-150..+150). `_kelvin_to_rggb()` converts both to Camera2 RGGB channel gains with an exponential model centred at ~5500 K (not a lookup table), sent via the `wb_gains` action and applied with `COLOR_CORRECTION_MODE_TRANSFORM_MATRIX` / `COLOR_CORRECTION_GAINS`. Reverting to auto restores `CONTROL_AWB_MODE_AUTO`.
 
 **Per-device config:** All UI settings serialize to `telescope_config.json` with a 500ms debounce. The `devices` dict is keyed by device name; switching devices saves the current device's settings before loading the new one's. There is no cross-version migration - a config from an older format is backed up as `telescope_config.json.invalid-<timestamp>` and replaced with defaults on next load.
 
@@ -398,26 +405,47 @@ Server is on the phone at port 8080 for `/v1/video`, `/v1/state`, and `/v1/contr
       "logicalId": null,
       "label": "Back ~24mm OIS",
       "current": false,
+      "hasOis": true,
       "isoMin": 50,
       "isoMax": 12800,
       "shutterMinNs": 100000,
       "shutterMaxNs": 1000000000,
       "supportsManualSensor": true,
       "supportsManualWB": true,
-      "hasOis": true,
+      "supportsManualFocus": true,
+      "minFocusDistance": 8.3,
+      "aeCompMin": -8,
+      "aeCompMax": 8,
+      "aeCompStep": 0.167,
+      "supportsFlash": true,
       "hwLevel": "FULL"
     }
   ],
   "auto": true,
   "iso": null,
   "shutter_ns": null,
-  "wb_kelvin": null,
+  "wb_manual": false,
+  "wb_r": null,
+  "wb_ge": null,
+  "wb_go": null,
+  "wb_b": null,
   "ois": true,
+  "focus_mode": "continuous",
+  "focus_distance": 0.0,
+  "nr_mode": 1,
+  "edge_mode": 1,
+  "ae_comp": 0,
+  "black_level_lock": false,
+  "torch": false,
+  "jpeg_quality": 85,
+  "phone_fps": 30,
   "battery": 87,
   "charging": false,
   "battery_temp_c": 32.5
 }
 ```
+
+`minFocusDistance`, `aeCompMin`/`aeCompMax`/`aeCompStep` are per-lens, reported by Camera2 (`aeCompStep` is typically `0.167` = 1/6 EV). `wb_r`/`wb_ge`/`wb_go`/`wb_b` are the current RGGB channel gains when `wb_manual` is true, `null` otherwise.
 
 ### `POST /v1/control`
 
@@ -427,17 +455,24 @@ JSON body `{"action": "<action>", ...params}`.
 |---|---|---|
 | `camera` | `id=<id>` | Switch camera |
 | `auto` | - | Restore auto exposure |
-| `iso` | `value=<int>` | Set ISO; switches AE to OFF |
-| `shutter` | `value=<long ns>` | Set shutter in nanoseconds; switches AE to OFF |
+| `iso` | `value=<int>` | Set ISO; switches AE to OFF (once shutter is also set) |
+| `shutter` | `value=<long ns>` | Set shutter in nanoseconds; switches AE to OFF (once ISO is also set) |
 | `wb_auto` | - | Restore auto white balance |
-| `wb_kelvin` | `value=<int>` | Set color temperature via `COLOR_CORRECTION_GAINS` |
+| `wb_gains` | `r=<float> ge=<float> go=<float> b=<float>` | Set manual white balance via `COLOR_CORRECTION_GAINS` RGGB channel gains |
 | `ois` | `value=1\|0` | Toggle OIS |
-| `jpeg_quality` | `value=<int 50-100>` | Set JPEG quality on the phone |
-| `fps_target` | `value=<int 5-60>` | Set capture FPS on the phone |
+| `focus_mode` | `value=continuous\|manual` | Switch autofocus / manual focus |
+| `focus_distance` | `value=<float diopters>` | Set manual focus distance |
+| `ae_comp` | `value=<int steps>` | Set exposure compensation, in the lens's AE-compensation steps (see `aeCompStep`) |
+| `nr_mode` | `value=<int 0-4>` | Set noise reduction mode (desktop UI only offers 0/1/2 = Off/Fast/High Quality) |
+| `edge_mode` | `value=<int 0-3>` | Set sharpening/edge mode (desktop UI only offers 0/1/2 = Off/Fast/High Quality) |
+| `black_level_lock` | `value=1\|0` | Toggle black level lock |
+| `torch` | `value=1\|0` | Toggle flash/torch |
+| `jpeg_quality` | `value=<int 1-100>` | Set JPEG quality on the phone (desktop UI restricts to 50-100) |
+| `fps_target` | `value=<int 1-120>` | Set capture FPS on the phone (desktop UI restricts to 5-60) |
 
 All responses: `{"ok": true}` or `{"ok": false, "error": "..."}`.
 
-> **Manual exposure note:** `CONTROL_MODE_OFF` only activates when *both* ISO and shutter are set. The desktop app sends both simultaneously when switching to manual mode.
+> **Manual exposure note:** `CONTROL_AE_MODE_OFF` only activates when *both* ISO and shutter are set and the selected camera reports `supportsManualSensor` - `CONTROL_MODE` itself stays `CONTROL_MODE_AUTO` throughout, so autofocus keeps running independently of manual exposure. The desktop app sends both ISO and shutter simultaneously when switching to manual mode.
 
 ### `GET /v1/ping`
 
