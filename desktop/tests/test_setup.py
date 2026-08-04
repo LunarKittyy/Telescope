@@ -37,7 +37,14 @@ def test_guide_dialog_contains_documentation_and_close_button(qapp):
     dialog = _GuideDialog()
     browsers = dialog.findChildren(setup_mod.QTextBrowser)
     assert len(browsers) == 1
-    assert "Quick Start" in browsers[0].toPlainText()
+    text = browsers[0].toPlainText()
+    assert "Quick Start" in text
+    assert "Pair Device" in text
+    assert "Pair via ADB" in text
+    assert "You do not need to tap Start Streaming" in text
+    assert "bearer token" in text
+    assert "no authentication" not in text.lower()
+    assert "Add a device with that IP" not in text
     close = next(button for button in dialog.findChildren(setup_mod.QPushButton)
                  if button.text() == "Close")
     close.click()

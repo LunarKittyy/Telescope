@@ -20,7 +20,7 @@ needs a real phone and a real desktop machine because it can't be.
 
 ## Functional pass (see [device-compatibility.md](device-compatibility.md) for the per-device matrix)
 
-- [ ] QR pairing works end-to-end on at least one real device per platform (Linux + Windows desktop).
+- [ ] Wi-Fi QR pairing and USB **Pair via ADB** pairing work end-to-end on at least one real device per platform (Linux + Windows desktop).
 - [ ] Re-pairing an already-paired phone rotates its token (old token stops working - verify with `curl` returning 401).
 
 ### Pairing across networks and VPNs
@@ -39,6 +39,7 @@ re-checking whenever either side of that changes:
 - [ ] Phone on a tailnet the desktop is *not* on: after pairing over Wi-Fi, the address dropdown is left on the phone's Wi-Fi address, not its `100.64/10` one, and streaming starts without touching it.
 - [ ] "Reset pairing" on the phone actually revokes access (further requests 401 until re-paired).
 - [ ] USB and Wi-Fi streaming both work, including switching between them without restarting the app.
+- [ ] With the phone app in the foreground, desktop Start starts the phone camera and desktop Stop stops it; repeat after the phone screen goes dark while streaming.
 - [ ] Local-only mode actually blocks Wi-Fi access (verify from a second machine on the same network).
 - [ ] Camera controls (lens, exposure, WB, OIS) apply live and match what's shown on the desktop UI.
 - [ ] Stream transforms (flip, rotate, zoom/pan, resolution downscale) apply without a stream restart.

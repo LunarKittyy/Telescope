@@ -59,7 +59,8 @@ _GUIDE_HTML = """
 <h3>1. Install the Android app</h3>
 <p><b>Easiest:</b> connect your phone via USB with
 <a href="https://developer.android.com/studio/debug/dev-options">USB debugging</a> enabled, then click
-<b>Setup Drivers &amp; APK &rarr; Install</b>. It runs <code>adb install</code> automatically.</p>
+<b>Setup Drivers &amp; APK &rarr; Install APK</b>. It runs <code>adb install</code> automatically when
+<code>Telescope.apk</code> is next to the desktop app; otherwise choose the APK manually.</p>
 <p><b>Manually:</b> download <code>Telescope.apk</code> from the latest release and run
 <code>adb install Telescope.apk</code>, or sideload it from your phone's file manager
 with "Install unknown apps" enabled.</p>
@@ -70,36 +71,38 @@ with "Install unknown apps" enabled.</p>
 "Keep this config after reboot" toggle in that dialog can additionally write the same module
 config to <code>/etc/modprobe.d/</code> and <code>/etc/modules-load.d/</code> so it survives a
 reboot - this is opt-in and fully reversible from the same toggle.</p>
-<p>For USB mode you also need <code>adb</code> on your PATH and
-<a href="https://developer.android.com/studio/debug/dev-options">USB debugging</a>
-enabled on your phone.</p>
+<p>For USB mode you also need <a href="https://developer.android.com/studio/debug/dev-options">USB debugging</a>
+enabled on your phone. The Windows release includes <code>adb</code>; on Linux install Android
+platform-tools so <code>adb</code> is available on your PATH.</p>
 
 <h3>3. Connect your phone</h3>
 <p><b>Easiest - QR pairing (Wi-Fi mode):</b></p>
 <ol>
-  <li>On the desktop app, select <b>Wi-Fi</b> mode and click the QR button next to the device selector.</li>
+  <li>On the desktop app, select <b>Wi-Fi</b> mode and click <b>Pair Device</b> next to the device selector.</li>
   <li>A QR code appears. In the Telescope app on your phone, tap the scan button in the top-right corner and scan it.</li>
   <li>The phone is added to your device list automatically. Close the pairing dialog.</li>
 </ol>
-<p><b>Manually:</b></p>
+<p><b>USB pairing:</b></p>
 <ol>
-  <li>In the Telescope app on your phone, start streaming and note the Wi-Fi URL shown.</li>
-  <li>On the desktop app, click the gear button next to the device selector, then <b>Add</b> a device with that IP.</li>
+  <li>Select <b>USB (ADB)</b> mode and click <b>Pair Device</b>. Choose the phone if more than one ADB device is connected.</li>
+  <li>Keep Telescope open and in the foreground on the phone, then click <b>Pair via ADB</b>. No QR scan is needed.</li>
 </ol>
 <p><b>Then:</b></p>
 <ol>
-  <li>Open the Telescope app on your phone, pick a camera and resolution, tap <b>Start Streaming</b>.
+  <li>Open the Telescope app on your phone, leave it on screen, and pick a camera and resolution.
     <br>Android will prompt to disable battery optimization - allow it so the service isn't killed in the background.
-    <br>Once streaming, the status card shows your Wi-Fi and USB URLs. Tap either one to copy it.</li>
-  <li>On the desktop app, select your device and connection mode, then press <b>Start Streaming</b>.</li>
+    <br>You do not need to tap <b>Start Streaming</b> on the phone.</li>
+  <li>On the desktop app, select your device and connection mode, then press <b>Start Streaming</b>. It starts the phone's camera and connects to it.</li>
   <li>The camera control panel (lens picker, ISO, shutter, white balance, OIS) will populate within ~2 seconds of connecting.</li>
   <li>In OBS (or any other app), select <b>Phone Camera</b> (Linux) or <b>Unity Video Capture</b> (Windows) as your webcam source.</li>
 </ol>
+<p>Pressing <b>Stop Streaming</b> on the desktop stops the phone's camera too. Starting on the phone still works, and the desktop leaves an already-running stream alone. Remote start requires the Telescope app to be on screen, unless the phone is already streaming.</p>
 
-<p class="warn"><b>Note:</b> The MJPEG stream is served unencrypted on port 8080 with no authentication.
-Anyone on the same local network can view it. On public or shared networks, enable
-<b>Local only</b> in the Android app to bind the server to localhost - the stream will
-then only be reachable via USB.</p>
+<p class="warn"><b>Note:</b> The stream and control endpoints require a bearer token issued during pairing,
+but the HTTP connection is still unencrypted. The token blocks casual unauthorized access; it does not
+hide the stream from a network observer. On public or shared networks, enable
+<b>Local only - USB</b> in the Android app to bind the stream server to localhost - it will
+then be reachable through USB only.</p>
 """
 
 

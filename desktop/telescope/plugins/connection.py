@@ -727,8 +727,8 @@ class ConnectionPlugin(TelescopePlugin):
             QMessageBox.critical(
                 self._host, "Not paired",
                 "This device hasn't been paired yet.\n\n"
-                "Click the QR button next to the device selector and scan the "
-                "code with the Telescope app on your phone."
+                "Click Pair Device next to the device selector and follow the "
+                "Wi-Fi or USB pairing steps."
             )
             return None, None, False
 
@@ -737,8 +737,9 @@ class ConnectionPlugin(TelescopePlugin):
                 QMessageBox.critical(
                     self._host, "ADB not found",
                     "ADB is needed for USB mode but wasn't found.\n\n"
-                    "Click the Download ADB button in the Windows Setup section "
-                    "and try again, or switch to Wi-Fi mode."
+                    "Install Android platform-tools so adb is available, or use "
+                    "the bundled Windows release, then try again. You can also "
+                    "switch to Wi-Fi mode."
                 )
                 return None, None, False
             serial = self._resolve_adb_serial()
@@ -754,7 +755,7 @@ class ConnectionPlugin(TelescopePlugin):
         else:
             ip = self._current_device_ip()
             if not ip:
-                QMessageBox.critical(self._host, "No device", "Add a device in Wi-Fi mode first.")
+                QMessageBox.critical(self._host, "No device", "Pair a device in Wi-Fi mode first.")
                 return None, None, False
             self._forwarded_port = None
             return f"http://{ip}:{port}/v1/video", token, True
@@ -1195,8 +1196,9 @@ class ConnectionPlugin(TelescopePlugin):
                 QMessageBox.critical(
                     self._host, "ADB not found",
                     "ADB is needed to pair over USB but wasn't found.\n\n"
-                    "Click the Download ADB button in the Windows Setup section "
-                    "and try again, or switch to Wi-Fi mode to pair."
+                    "Install Android platform-tools so adb is available, or use "
+                    "the bundled Windows release, then try again. You can also "
+                    "switch to Wi-Fi mode to pair."
                 )
                 return
             usb_serial = self._resolve_adb_serial()

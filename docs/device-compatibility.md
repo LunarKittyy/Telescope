@@ -8,24 +8,25 @@ that only partially worked instead of just checking it off.
 Legend: `OK` tested and working · `PARTIAL` works with caveats (see notes) ·
 `FAIL` doesn't work · `-` not tested yet.
 
-| Device | Android version | App build | USB pairing | Wi-Fi pairing | Lens selection | Manual exposure | Manual WB | OIS toggle | Reconnect after drop | Battery/temp reporting | Stop/start | Notes |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Pixel-like (e.g. Pixel 6/7/8) | - | - | - | - | - | - | - | - | - | - | - | |
-| Samsung Galaxy S-series | - | - | - | - | - | - | - | - | - | - | - | |
-| Samsung Galaxy A-series | - | - | - | - | - | - | - | - | - | - | - | |
-| vivo V2413 | (see build) | b1819a6 | OK | OK | OK | OK | OK | OK | OK | - | OK | Two defects found on 56bdafe are fixed as of 448fa13/b1819a6: reconnect after drop now resends the last-applied control settings (exposure/WB/etc.) instead of leaving the phone on defaults, and the paired device now survives a desktop app restart while in USB mode instead of losing its selection. |
+| Device | Android version | App build | USB pairing | Wi-Fi pairing | Lens selection | Manual exposure | Manual WB | OIS toggle | Reconnect after drop | Battery/temp reporting | Stop/start | Remote start/stop | Notes |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Pixel-like (e.g. Pixel 6/7/8) | - | - | - | - | - | - | - | - | - | - | - | - | |
+| Samsung Galaxy S-series | - | - | - | - | - | - | - | - | - | - | - | - | |
+| Samsung Galaxy A-series | - | - | - | - | - | - | - | - | - | - | - | - | |
+| vivo V2413 | (see build) | b1819a6 | OK | OK | OK | OK | OK | OK | OK | - | OK | - | Two defects found on 56bdafe are fixed as of 448fa13/b1819a6: reconnect after drop now resends the last-applied control settings (exposure/WB/etc.) instead of leaving the phone on defaults, and the paired device now survives a desktop app restart while in USB mode instead of losing its selection. |
 
 ## What to check per row
 
-- **USB pairing**: QR pairing completes while the phone is connected via USB, even with no Wi-Fi/LAN path at all (tunneled over `adb reverse`); `adb forward` + authenticated stream works after.
+- **USB pairing**: the desktop's **Pair via ADB** flow completes while the phone is connected via USB, even with no Wi-Fi/LAN path at all (the pairing payload is delivered by `adb`, with the pairing server reached through `adb reverse`); `adb forward` + authenticated stream works after.
 - **Wi-Fi pairing**: QR pairing completes over Wi-Fi; authenticated stream works without USB connected.
 - **Lens selection**: all physical sub-cameras (wide/main/telephoto) enumerate and switching between them actually changes the video feed, not just digital zoom.
 - **Manual exposure**: ISO and shutter sliders actually change exposure on-device (not just greyed-in/out correctly).
 - **Manual WB**: Kelvin slider visibly shifts color temperature (README already notes this is inconsistent across devices/lenses - record exactly what happens, not just pass/fail).
 - **OIS toggle**: has a visible effect on lenses that report `hasOis: true`.
 - **Reconnect after drop**: kill Wi-Fi or unplug USB mid-stream, confirm the desktop app reconnects automatically within `RECONNECT_DELAY` once connectivity returns, without needing a full stream restart.
-- **Battery/temp reporting**: footer values update and alert thresholds fire correctly.
+- **Battery/temp reporting**: Monitoring-panel values update and alert thresholds fire correctly.
 - **Stop/start**: repeated stop/start cycles (at least 5 in a row) don't leave the phone's foreground service or the desktop's virtual camera in a broken state.
+- **Remote start/stop**: with the Telescope app in the foreground, desktop Start starts the phone camera and desktop Stop stops it; repeat after the phone screen goes dark while streaming.
 
 ## Process
 

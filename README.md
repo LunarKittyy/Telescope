@@ -8,7 +8,7 @@ Stream your Android phone's camera - including telephoto and wide-angle lenses -
 
 ### 1. Install the Android app
 
-**Easiest:** connect your phone via USB with [USB debugging enabled](https://developer.android.com/studio/debug/dev-options), set up the desktop app first (step 2), then click **Setup Drivers & APK -> Install**. It runs `adb install` for you automatically if `Telescope.apk` is next to the desktop app.
+**Easiest:** connect your phone via USB with [USB debugging enabled](https://developer.android.com/studio/debug/dev-options), set up the desktop app first (step 2), then click **Setup Drivers & APK -> Install APK**. It runs `adb install` for you automatically if `Telescope.apk` is next to the desktop app; otherwise choose the APK manually.
 
 **Manually:** download `Telescope.apk` from the [latest release](../../releases) and either:
 
@@ -48,17 +48,17 @@ Run `TelescopeDesktop.exe` directly. The app will detect and register the virtua
 
 **Wi-Fi mode - QR pairing:**
 
-1. On the desktop app, select **Wi-Fi** mode and click the Pair button next to the device selector.
+1. On the desktop app, select **Wi-Fi** mode and click **Pair Device** next to the device selector.
 2. A QR code appears. In the Telescope app on your phone, tap the scan button in the top-right corner and scan it.
 3. The phone is added to your device list automatically. Close the pairing dialog.
 
 **USB mode - Pair via ADB:**
 
-1. On the desktop app, select **USB** mode and click the Pair button next to the device selector (it switches to a USB icon and opens the same dialog).
+1. On the desktop app, select **USB (ADB)** mode and click **Pair Device** next to the device selector (it switches to a USB icon and opens the same dialog).
 2. Click **Pair via ADB** in the dialog. Instead of scanning a code, this pushes the pairing request to the phone over `adb shell am broadcast`.
 3. If the phone doesn't respond within 8 seconds, the dialog explains why and re-enables the button - make sure the Telescope app is open and in the foreground on the phone, then click **Pair via ADB** again.
 
-The gear button next to the device selector opens the device list; its **Pair...** button opens this same pairing dialog to add another device - there's no separate manual name/IP entry, since a device is only usable once it actually has a token. A status label next to the Pair button (**Paired** / **Not paired** / **Unreachable** / **Checking...**) shows whether the phone actually accepts the currently stored token right now, polling every few seconds, and pins to Paired once a stream is confirmed connected. Re-pairing a device rotates its token; if a stream is currently running against that device, re-pairing stops it rather than leaving it silently broken.
+The gear button next to the device selector opens the device list; its **Pair...** button opens this same pairing dialog to add another device - there's no separate manual name/IP entry, since a device is only usable once it actually has a token. A status label next to **Pair Device** (**Paired** / **Not paired** / **Unreachable** / **Checking...**) shows whether the phone actually accepts the currently stored token right now, polling every few seconds, and pins to Paired once a stream is confirmed connected. Re-pairing a device rotates its token; if a stream is currently running against that device, re-pairing stops it rather than leaving it silently broken.
 
 **Then:**
 
@@ -112,7 +112,7 @@ The phone's camera can only be started remotely while its app is on screen, or w
 
 **Monitoring**
 - Live FPS display in the footer while streaming
-- Battery level and phone temperature polled every 15 seconds, shown in the footer with color coding
+- Battery level and phone temperature polled every 15 seconds, shown in the Monitoring panel with color coding
 - Configurable battery alert threshold (default 20%) - fires a tray/desktop notification when discharging below it
 - Configurable temperature alert threshold (default 45 C) - fires a notification when exceeded
 
@@ -120,8 +120,8 @@ The phone's camera can only be started remotely while its app is on screen, or w
 - USB mode targets a specific ADB serial: if exactly one authorized device/emulator is connected it's picked automatically, if more than one is connected you're prompted to choose which one (avoids `adb: more than one device/emulator` failures on forward/install)
 - Named device list in Wi-Fi mode: add/remove/edit devices via the gear button popup; switch between them with a dropdown
 - Each device stores multiple IPs; a second dropdown selects the active IP. Tailscale IPs (100.64.0.0/10) are ranked first, LAN IPs second
-- Pairing: click the Pair button on the desktop to open the pairing dialog - a scannable QR code in Wi-Fi mode, or a "Pair via ADB" button in USB mode that pushes the request over adb instead. Either way the phone is registered automatically with all its IPs. A status label next to the Pair button shows live reachability (Paired / Not paired / Unreachable / Checking...), not just whether a token happens to be saved
-- All settings (resolution, fps, flip, rotation, exposure, zoom, quality, alert thresholds, canvas size, etc.) are saved per device to `telescope_config.json` and restored on next launch
+- Pairing: click **Pair Device** on the desktop to open the pairing dialog - a scannable QR code in Wi-Fi mode, or a **Pair via ADB** button in USB mode that pushes the request over adb instead. Either way the phone is registered automatically with all its IPs. A status label next to the Pair Device button shows live reachability (Paired / Not paired / Unreachable / Checking...), not just whether a token happens to be saved
+- Camera, stream-output, transform, and monitoring settings (resolution, FPS, flip, rotation, exposure, zoom, quality, alert thresholds, etc.) are saved per device to `telescope_config.json`; connection settings and the virtual-camera canvas are global
 - The config format is not migrated across versions: an unsupported or malformed config is backed up alongside the real one and replaced with defaults rather than carrying compatibility code for old formats. Each section (connection/plugin settings, per-device settings, selected device) is validated independently, so one malformed section resets to defaults without discarding the rest
 
 **Privacy**
@@ -206,10 +206,10 @@ telescope/
 |       |-- Pairing.kt           # QR payload (v2) parsing/validation, attempt ordering, failure text
 |       |-- MjpegServer.kt       # Authenticated HTTP: /v1/video  /v1/state  /v1/control
 |       |-- SessionServer.kt     # Out-of-band responder (port 8766): GET /v1/ping, POST /v1/session
-    |       |-- SessionEndpoint.kt   # Refcounted owner of SessionServer + the commands it runs
-    |       |-- StreamLauncher.kt    # Single place CameraStreamService is started from
-    |       |-- StreamPrefs.kt       # Last camera/resolution selection, for desktop-initiated starts
-    |       |-- HttpWire.kt          # The HTTP/1.1 subset MjpegServer and SessionServer share
+|       |-- SessionEndpoint.kt   # Refcounted owner of SessionServer + the commands it runs
+|       |-- StreamLauncher.kt    # Single place CameraStreamService is started from
+|       |-- StreamPrefs.kt       # Last camera/resolution selection, for desktop-initiated starts
+|       |-- HttpWire.kt          # The HTTP/1.1 subset MjpegServer and SessionServer share
 |       +-- TokenStore.kt        # Persists the single active pairing bearer token
 |
 +-- desktop/
@@ -398,7 +398,7 @@ The release zip bundles the UnityCapture DLLs already; the app registers them fr
 
 **White balance:** Linear Kelvin slider 2000-10000 K plus a green-magenta tint slider (-150..+150). `_kelvin_to_rggb()` converts both to Camera2 RGGB channel gains with an exponential model centred at ~5500 K (not a lookup table), sent via the `wb_gains` action and applied with `COLOR_CORRECTION_MODE_TRANSFORM_MATRIX` / `COLOR_CORRECTION_GAINS`. Reverting to auto restores `CONTROL_AWB_MODE_AUTO`.
 
-**Per-device config:** All UI settings serialize to `telescope_config.json` with a 500ms debounce. The `devices` dict is keyed by device name; switching devices saves the current device's settings before loading the new one's. There is no cross-version migration - a config from an older format is backed up as `telescope_config.json.invalid-<timestamp>` and replaced with defaults on next load.
+**Per-device config:** Camera, stream-output, transform, and monitoring settings serialize to `telescope_config.json` with a 500ms debounce. Connection settings and virtual-camera canvas settings are global. The `devices` dict is keyed by device name; switching devices saves the current device's settings before loading the new one's. There is no cross-version migration - a config from an older format is backed up as `telescope_config.json.invalid-<timestamp>` and replaced with defaults on next load.
 
 **Single-instance:** `acquire_single_instance()` tries to bind a local TCP socket on port 47823. If already bound, it signals the running instance to restore its window and exits.
 
@@ -580,7 +580,7 @@ See `desktop/platform-tools/NOTICE` and https://developer.android.com/studio/ter
 
 ## CI / GitHub Actions
 
-All three workflows publish to a rolling **`latest` release** on every push to `master`.
+All three workflows publish to a rolling **`latest` release** on qualifying pushes to `master`.
 
 ### `build-apk.yml` - triggered on changes to `android/**`
 
@@ -633,6 +633,6 @@ Run in both desktop CI workflows before assembling the bundle: constructs the fu
 | Second launch does nothing | Single-instance enforcement | The existing window is brought to the front |
 | QR pairing fails ("Could not reach the desktop") | Phone and desktop not on the same network, or desktop firewall blocking port 8765 | The failure dialog on the phone lists every address it tried and how each failed; the desktop dialog stays open showing the addresses it's advertising, so the two lists can be compared. Make sure both are on the same Wi-Fi; the pairing server only runs while the QR dialog is open |
 | QR pairing fails on a guest/public Wi-Fi | Client isolation - the access point blocks device-to-device traffic entirely | Nothing on either device can work around this; use USB pairing, or a network you control |
-| "Pair via ADB" fails or times out | `adb` not on PATH, phone app not foregrounded, or the adb reverse tunnel didn't come up | Install adb (see step 2 above) and retry; make sure the Telescope app is open and in the foreground on the phone before clicking **Pair via ADB** |
+| "Pair via ADB" fails or times out | `adb` unavailable, phone app not foregrounded, or the adb reverse tunnel didn't come up | Install Android platform-tools on Linux, or use the bundled Windows release, then retry; make sure the Telescope app is open and in the foreground on the phone before clicking **Pair via ADB** |
 | QR pairing fails while a VPN is active | The VPN is blocking local-network traffic outright. (A VPN that *allows* LAN access is handled: the desktop advertises its real interface addresses rather than whatever owns the default route, and the phone sends LAN attempts over its Wi-Fi interface rather than the tunnel) | Turn on the VPN's "allow local network access"/"LAN access" option, pause the VPN while pairing, or use USB pairing. Once paired, streaming has the same requirement |
 | QR scanner opens in landscape | Manifest override not applied | The app overrides ZXing's default orientation to portrait; rebuild if you see this on an old build |

@@ -24,7 +24,7 @@ import kotlin.concurrent.thread
  * [CameraStreamService.startServer] and destroyed in
  * [CameraStreamService.stopStreaming]. Stream *lifecycle* commands therefore
  * can't live here (there's no server to receive them when idle); they're on
- * [SessionServer]'s separate always-reachable port instead.
+ * [SessionServer]'s separate lifecycle-aware port instead.
  *
  * Status codes: `400` malformed request line/headers/body or wrong
  * Content-Type, `401` missing/mismatched token, `404` unknown path, `405`
