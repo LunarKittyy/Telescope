@@ -33,10 +33,14 @@ from telescope.plugins.setup import SetupPlugin
 from telescope.plugins.stream_output import StreamOutputPlugin
 from telescope.plugins.transforms import TransformsPlugin
 from telescope.theme import apply_theme
+from telescope.widgets.common import create_app_icon
 
 
 def main():
     app = QApplication(sys.argv)
+    # Also set at the QApplication level (not just on the window) so dialogs
+    # and the window pick the same mark before/without a window icon.
+    app.setWindowIcon(create_app_icon(64))
 
     srv = acquire_single_instance()
     if srv is None:

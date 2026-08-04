@@ -1,6 +1,6 @@
 import math
 
-from PyQt6.QtCore import QPoint, QRect, QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QPoint, QRect, QRectF, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import (
     QBrush, QColor, QFontMetrics, QIcon, QPainter, QPen, QPixmap,
 )
@@ -384,6 +384,33 @@ def create_separator() -> QFrame:
     return sep
 
 
+def create_app_icon(size: int = 32) -> QIcon:
+    """The Telescope mark: a solid accent-blue disc with a dark centre
+    punched out. This is the one icon asset the app has - used for the tray,
+    the window/taskbar icon, and the in-window header logo alike, so all
+    three render identically regardless of the size requested here.
+    """
+    pixmap = QPixmap(size, size)
+    pixmap.fill(Qt.GlobalColor.transparent)
+
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(Qt.PenStyle.NoPen)
+
+    margin = size / 22
+    outer_d = size - 2 * margin
+    painter.setBrush(QBrush(QColor("#518cc6")))
+    painter.drawEllipse(QRectF(margin, margin, outer_d, outer_d))
+
+    inner_margin = size * 7 / 22
+    inner_d = size * 8 / 22
+    painter.setBrush(QBrush(QColor("#1e222b")))
+    painter.drawEllipse(QRectF(inner_margin, inner_margin, inner_d, inner_d))
+
+    painter.end()
+    return QIcon(pixmap)
+
+
 def create_vector_icon(icon_name: str, color_hex: str) -> QIcon:
     pixmap = QPixmap(32, 32)
     pixmap.fill(Qt.GlobalColor.transparent)
@@ -453,13 +480,6 @@ def create_vector_icon(icon_name: str, color_hex: str) -> QIcon:
         painter.drawLine(20, 17, 24, 17)
         painter.drawLine(24, 17, 24, 7)
         painter.drawLine(24, 7, 28, 7)
-    elif icon_name == "logo":
-        # The app mark, matching the tray icon: an aperture ring with a
-        # filled centre.
-        painter.drawEllipse(4, 4, 24, 24)
-        painter.setBrush(QBrush(color))
-        painter.drawEllipse(12, 12, 8, 8)
-        painter.setBrush(QBrush(Qt.BrushStyle.NoBrush))
     elif icon_name == "play":
         painter.setBrush(QBrush(color))
         from PyQt6.QtGui import QPolygon

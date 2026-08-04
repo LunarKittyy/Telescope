@@ -7,9 +7,7 @@ import time
 from typing import Optional
 
 from PyQt6.QtCore import QPoint, QSize, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import (
-    QAction, QBrush, QColor, QIcon, QPainter, QPen, QPixmap,
-)
+from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QApplication, QFrame, QHBoxLayout, QLabel,
     QMainWindow, QMenu, QMessageBox, QPushButton, QScrollArea,
@@ -24,14 +22,12 @@ from telescope.platform import IS_LINUX, IS_WINDOWS
 from telescope.plugin import UNCHANGED, EventBus, TelescopePlugin
 from telescope.session import StreamSession
 from telescope.stream import StreamWorker
-from telescope.widgets.common import ElidingLabel, create_vector_icon
+from telescope.widgets.common import ElidingLabel, create_app_icon, create_vector_icon
 
 # ── Theme ─────────────────────────────────────────────────────────────────────
 # The palette and stylesheet live in telescope/theme.py; re-exported here so
 # existing callers (and plugins colouring labels inline) keep one import site.
 STATUS_COLORS = theme.STATUS_COLORS
-
-APP_VERSION = "1.0"
 
 # Below these widths the three-column layout stops fitting and the host folds
 # the rails together, then stacks everything into a single column.
@@ -133,6 +129,7 @@ class TelescopeWindow(QMainWindow):
 
         self._tray: Optional[QSystemTrayIcon] = None
 
+        self.setWindowIcon(create_app_icon(64))
         self._build_ui()
         self._setup_tray()
 
@@ -203,23 +200,6 @@ class TelescopeWindow(QMainWindow):
         lay.setContentsMargins(18, 10, 18, 10)
         lay.setSpacing(12)
 
-        logo = QLabel()
-        logo.setPixmap(create_vector_icon("logo", theme.ACCENT).pixmap(28, 28))
-        logo.setFixedSize(28, 28)
-        lay.addWidget(logo)
-
-        # Wordmark and version are the first things dropped when the window
-        # gets narrow - see _apply_header_density(). The logo stays, so the
-        # header still reads as this app's.
-        self._app_name_lbl = QLabel("Telescope")
-        self._app_name_lbl.setObjectName("app_name")
-        lay.addWidget(self._app_name_lbl)
-
-        self._app_version_lbl = QLabel(f"v{APP_VERSION}")
-        self._app_version_lbl.setObjectName("app_version")
-        lay.addWidget(self._app_version_lbl, 0, Qt.AlignmentFlag.AlignVCenter)
-        lay.addSpacing(8)
-
         # Plugins that contribute a header control (the device picker) land
         # here, in registration order.
         self._header_slot = QHBoxLayout()
@@ -261,17 +241,12 @@ class TelescopeWindow(QMainWindow):
         self._start_btn.setStyle(self._start_btn.style())
 
     def _apply_header_density(self):
-        """Shed header text as the window narrows.
+        """Shorten the start button to its verb once the window narrows.
 
         Everything in the header is fixed-size, so at 560px the row simply
         ran out of room and Qt crushed the device picker under the button.
-        Rather than let that happen, drop the parts that are decoration
-        first - the wordmark and version - and shorten the button to its
-        verb. The picker and the primary action survive at any width.
+        The picker and the primary action survive at any width.
         """
-        compact = self._layout_mode == "one"
-        self._app_name_lbl.setVisible(not compact)
-        self._app_version_lbl.setVisible(not compact)
         self._set_start_button(getattr(self, "_streaming_label", False))
 
     def _build_body(self) -> QWidget:
@@ -842,18 +817,7 @@ class TelescopeWindow(QMainWindow):
             self._tray = None
             return
 
-        px = QPixmap(22, 22)
-        px.fill(Qt.GlobalColor.transparent)
-        p = QPainter(px)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        p.setBrush(QBrush(QColor("#518cc6")))
-        p.setPen(Qt.PenStyle.NoPen)
-        p.drawEllipse(1, 1, 20, 20)
-        p.setBrush(QBrush(QColor("#1e222b")))
-        p.drawEllipse(7, 7, 8, 8)
-        p.end()
-
-        self._tray = QSystemTrayIcon(QIcon(px), self)
+        self._tray = QSystemTrayIcon(create_app_icon(22), self)
         self._tray.setToolTip("Telescope")
 
         menu = QMenu()

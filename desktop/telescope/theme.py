@@ -109,20 +109,6 @@ QWidget#footer_bar {{
     background-color: {CHROME};
     border-top: 1px solid {BORDER};
 }}
-QLabel#app_name {{
-    color: {TEXT};
-    font-size: 15pt;
-    font-weight: 700;
-    letter-spacing: 0.3px;
-}}
-QLabel#app_version {{
-    color: {TEXT_FAINT};
-    font-size: 8pt;
-    font-weight: 600;
-    /* Nudged down so it sits on the wordmark's baseline rather than its
-       centre. */
-    padding-top: 6px;
-}}
 QLabel#header_label {{
     color: {TEXT_FAINT};
     font-size: 8pt;
