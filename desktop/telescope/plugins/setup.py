@@ -47,62 +47,46 @@ _GUIDE_HTML = """
 <style>
   body { color: #e8eaed; font-family: sans-serif; font-size: 15px; }
   h2   { color: #ffffff; font-size: 22px; margin-bottom: 6px; font-family: sans-serif; }
-  h3   { color: #ffffff; font-size: 17px; margin-top: 18px; margin-bottom: 6px; font-family: sans-serif; }
+  h3   { color: #ffffff; font-size: 17px; margin-top: 20px; margin-bottom: 6px; font-family: sans-serif; }
   p, li { color: #e8eaed; line-height: 1.6; margin-bottom: 6px; }
   b    { color: #ffffff; }
   code { color: #b0bec5; font-size: 13px; }
   a    { color: #6ab0f5; }
-  .warn { color: #e8c97a; }
+  hr   { border: none; border-top: 1px solid #3a3d42; margin: 16px 0; }
+  .step { color: #6ab0f5; }
+  .note { background-color: #2a2c1f; border-left: 3px solid #e8c97a; padding: 8px 12px; color: #e8c97a; }
 </style>
 <h2>Quick Start</h2>
 
-<h3>1. Install the Android app</h3>
-<p><b>Easiest:</b> connect your phone via USB with
-<a href="https://developer.android.com/studio/debug/dev-options">USB debugging</a> enabled, then click
-<b>Setup Drivers &amp; APK &rarr; Install APK</b>. It runs <code>adb install</code> automatically when
-<code>Telescope.apk</code> is next to the desktop app; otherwise choose the APK manually.</p>
-<p><b>Manually:</b> download <code>Telescope.apk</code> from the latest release and run
-<code>adb install Telescope.apk</code>, or sideload it from your phone's file manager
-with "Install unknown apps" enabled.</p>
+<h3><span class="step">1.</span> Install the phone app</h3>
+<p>Download <code>Telescope.apk</code> from the latest release and run <code>adb install Telescope.apk</code>,
+or sideload it from your phone's file manager ("Install unknown apps"). Or skip this and let step 2's
+<b>Setup Drivers &amp; APK</b> install it for you over USB.</p>
 
-<h3>2. Set up the desktop app</h3>
-<p>On first launch, click <b>Setup Drivers &amp; APK</b> to load the v4l2loopback kernel module
-(Linux) or register the UnityCapture driver (Windows) if not already active. On Linux, the
-"Keep this config after reboot" toggle in that dialog can additionally write the same module
-config to <code>/etc/modprobe.d/</code> and <code>/etc/modules-load.d/</code> so it survives a
-reboot - this is opt-in and fully reversible from the same toggle.</p>
-<p>For USB mode you also need <a href="https://developer.android.com/studio/debug/dev-options">USB debugging</a>
-enabled on your phone. The Windows release includes <code>adb</code>; on Linux install Android
-platform-tools so <code>adb</code> is available on your PATH.</p>
+<hr>
 
-<h3>3. Connect your phone</h3>
-<p><b>Easiest - QR pairing (Wi-Fi mode):</b></p>
-<ol>
-  <li>On the desktop app, select <b>Wi-Fi</b> mode and click <b>Pair Device</b> next to the device selector.</li>
-  <li>A QR code appears. In the Telescope app on your phone, tap the scan button in the top-right corner and scan it.</li>
-  <li>The phone is added to your device list automatically. Close the pairing dialog.</li>
-</ol>
-<p><b>USB pairing:</b></p>
-<ol>
-  <li>Select <b>USB (ADB)</b> mode and click <b>Pair Device</b>. Choose the phone if more than one ADB device is connected.</li>
-  <li>Keep Telescope open and in the foreground on the phone, then click <b>Pair via ADB</b>. No QR scan is needed.</li>
-</ol>
-<p><b>Then:</b></p>
-<ol>
-  <li>Open the Telescope app on your phone, leave it on screen, and pick a camera and resolution.
-    <br>Android will prompt to disable battery optimization - allow it so the service isn't killed in the background.
-    <br>You do not need to tap <b>Start Streaming</b> on the phone.</li>
-  <li>On the desktop app, select your device and connection mode, then press <b>Start Streaming</b>. It starts the phone's camera and connects to it.</li>
-  <li>The camera control panel (lens picker, ISO, shutter, white balance, OIS) will populate within ~2 seconds of connecting.</li>
-  <li>In OBS (or any other app), select <b>Phone Camera</b> (Linux) or <b>Unity Video Capture</b> (Windows) as your webcam source.</li>
-</ol>
-<p>Pressing <b>Stop Streaming</b> on the desktop stops the phone's camera too. Starting on the phone still works, and the desktop leaves an already-running stream alone. Remote start requires the Telescope app to be on screen, unless the phone is already streaming.</p>
+<h3><span class="step">2.</span> Set up the desktop app</h3>
+<p>Click <b>Setup Drivers &amp; APK</b> to set up the virtual camera driver. USB features need
+<a href="https://developer.android.com/studio/debug/dev-options">USB debugging</a> enabled on your phone
+and <code>adb</code> on your PATH.</p>
 
-<p class="warn"><b>Note:</b> The stream and control endpoints require a bearer token issued during pairing,
-but the HTTP connection is still unencrypted. The token blocks casual unauthorized access; it does not
-hide the stream from a network observer. On public or shared networks, enable
-<b>Local only - USB</b> in the Android app to bind the stream server to localhost - it will
-then be reachable through USB only.</p>
+<hr>
+
+<h3><span class="step">3.</span> Pair your phone</h3>
+<p>Open Telescope on your phone and leave it on screen. On the desktop, click <b>Pair Device</b>, then pick one:</p>
+<ul>
+  <li><b>Wi-Fi:</b> scan the QR code with your phone's scan button.</li>
+  <li><b>USB:</b> click <b>Pair via ADB</b>.</li>
+</ul>
+
+<hr>
+
+<h3><span class="step">4.</span> Start streaming</h3>
+<p>Pick a camera and resolution on the phone, then hit <b>Start Streaming</b> on the desktop - it starts
+the phone's camera for you. In OBS (or anywhere else), select <b>Phone Camera</b> (Linux) or
+<b>Unity Video Capture</b> (Windows) as your webcam.</p>
+
+<p class="note"><b>Heads up:</b> use only on a trusted network, or enable <b>Local only - USB</b> in the Android app.</p>
 """
 
 

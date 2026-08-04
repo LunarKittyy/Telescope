@@ -6,75 +6,41 @@ Stream your Android phone's camera - including telephoto and wide-angle lenses -
 
 ## Quick Start
 
-### 1. Install the Android app
+You'll need an Android phone (with USB debugging enabled, if you plan to use USB) and a PC running Linux or Windows.
 
-**Easiest:** connect your phone via USB with [USB debugging enabled](https://developer.android.com/studio/debug/dev-options), set up the desktop app first (step 2), then click **Setup Drivers & APK -> Install APK**. It runs `adb install` for you automatically if `Telescope.apk` is next to the desktop app; otherwise choose the APK manually.
+### 1. Install the phone app
 
-**Manually:** download `Telescope.apk` from the [latest release](../../releases) and either:
+Download `Telescope.apk` from the [latest release](../../releases) and install it:
 
 ```bash
 adb install Telescope.apk
 ```
 
-Or sideload it from your phone's file manager with "Install unknown apps" enabled.
+No adb handy? Sideload the APK from your phone's file manager instead ("Install unknown apps"), or skip this and let the desktop app install it for you in step 2.
 
-### 2. Set up and run the desktop app
+### 2. Run the desktop app
 
-**Linux** - download `Telescope-linux.tar.gz` from the [latest release](../../releases), extract it, and run:
-```bash
-./start.sh
-```
+**Linux:** download `Telescope-linux.tar.gz`, extract it, and run `./start.sh`.
 
-The script installs Python dependencies automatically. On first launch, open **System Setup** to load the v4l2loopback kernel module if it isn't already active.
+**Windows:** download `Telescope-windows.zip`, extract it, and run `TelescopeDesktop.exe`.
 
-For USB mode you also need `adb` on your PATH (`sudo apt install adb`, `sudo dnf install android-tools`, or `sudo pacman -S android-tools`). **USB debugging must also be enabled** on your phone - see [Configure on-device developer options](https://developer.android.com/studio/debug/dev-options).
+On first launch, click **Setup Drivers & APK** to set up the virtual camera (and install the phone app, if you skipped step 1). USB pairing needs `adb` on your PATH - bundled on Windows, install it via your package manager on Linux (package is usually `adb` or `android-tools`).
 
-**Windows** - download `Telescope-windows.zip` from the [latest release](../../releases) and extract it anywhere:
+### 3. Pair your phone
 
-```
-Telescope-windows/
-  TelescopeDesktop.exe          <- self-contained, no Python needed
-  platform-tools/
-    adb.exe                    <- used automatically for USB mode
-    ...
-  unitycapture/
-    UnityCaptureFilter32.dll   <- registered as a virtual camera by the app
-    UnityCaptureFilter64.dll
-```
+Open Telescope on your phone and leave it on screen. On the desktop app, click **Pair Device**, then pick one:
 
-Run `TelescopeDesktop.exe` directly. The app will detect and register the virtual camera driver on first launch via the System Setup dialog.
+- **Wi-Fi:** scan the QR code with your phone's scan button.
+- **USB:** click **Pair via ADB**.
 
-### 3. Connect your phone
+### 4. Start streaming
 
-**Wi-Fi mode - QR pairing:**
+Pick a camera and resolution on the phone, then hit **Start Streaming** on the desktop - it starts the phone's camera for you. In OBS (or anywhere else), select **Phone Camera** (Linux) or **Unity Video Capture** (Windows) as your webcam.
 
-1. On the desktop app, select **Wi-Fi** mode and click **Pair Device** next to the device selector.
-2. A QR code appears. In the Telescope app on your phone, tap the scan button in the top-right corner and scan it.
-3. The phone is added to your device list automatically. Close the pairing dialog.
-
-**USB mode - Pair via ADB:**
-
-1. On the desktop app, select **USB (ADB)** mode and click **Pair Device** next to the device selector (it switches to a USB icon and opens the same dialog).
-2. Click **Pair via ADB** in the dialog. Instead of scanning a code, this pushes the pairing request to the phone over `adb shell am broadcast`.
-3. If the phone doesn't respond within 8 seconds, the dialog explains why and re-enables the button - make sure the Telescope app is open and in the foreground on the phone, then click **Pair via ADB** again.
-
-The gear button next to the device selector opens the device list; its **Pair...** button opens this same pairing dialog to add another device - there's no separate manual name/IP entry, since a device is only usable once it actually has a token. A status label next to **Pair Device** (**Paired** / **Not paired** / **Unreachable** / **Checking...**) shows whether the phone actually accepts the currently stored token right now, polling every few seconds, and pins to Paired once a stream is confirmed connected. Re-pairing a device rotates its token; if a stream is currently running against that device, re-pairing stops it rather than leaving it silently broken.
-
-**Then:**
-
-1. Open the Telescope app on your phone and leave it on screen. Pick a camera and resolution.
-   - Android will prompt to disable battery optimization if not already exempted. Allow it so the service isn't killed in the background.
-   - You do **not** need to tap Start Streaming here. The desktop does it for you.
-2. On the desktop app, select your device and connection mode, then press **Start Streaming**. It brings the phone's camera up, waits for it, and connects - one button, one device.
-3. The camera control panel (lens picker, ISO, shutter, white balance, OIS) will populate within ~2 seconds of connecting.
-4. In OBS (or any other app), select **Phone Camera** (Linux) or **Unity Video Capture** (Windows) as your webcam source.
-
-Pressing **Stop Streaming** on the desktop shuts the phone's camera down too, so nothing is left burning battery. If a session drops, Stop then Start on the desktop rebuilds it without touching the phone. Tapping **Start Streaming** on the phone still works and does the same thing; the desktop leaves a stream it finds already running alone.
-
-The phone's camera can only be started remotely while its app is on screen, or while it is already streaming - so a phone sitting backgrounded and idle in your pocket cannot have its camera opened from here.
+Camera controls, transforms, and monitoring are covered under [Features](#features) below.
 
 > [!NOTE]
-> Pairing is required before a remote stream can be used: the phone's `/v1/state`, `/v1/video`, `/v1/control`, `/v1/ping`, and `/v1/session` endpoints all require a bearer token that's only ever handed to a phone via a scanned QR code (Wi-Fi) or an adb broadcast restricted to the Telescope app (USB), so an unpaired device on the same network can't view the stream or send controls. The connection itself is still plain HTTP, not HTTPS - the token stops casual unauthorized access but doesn't provide confidentiality against a network observer. On public or shared networks, enable **Local only - USB** in the Android app to also bind the server to localhost only, so the stream and controls are reachable via USB alone.
+> Use only on a trusted network, or enable **Local only - USB** in the Android app.
 
 ---
 
