@@ -1,8 +1,8 @@
 import base64
+import contextlib
 import logging
 import threading
-import urllib.error
-import urllib.request
+import time
 from typing import Optional
 
 import qrcode
@@ -29,6 +29,9 @@ from telescope.platform.linux import (
     v4l2_devices_ready, v4l2_load, v4l2_module_loaded,
 )
 from telescope.plugin import TelescopePlugin
+from telescope.session_client import (
+    PING_PORT, START_POLL_INTERVAL, START_TIMEOUT, PhoneSessionClient,
+)
 from telescope import theme
 from telescope.widgets.common import (
     NoScrollComboBox, add_card_header, control_row as _row, create_card,
@@ -39,10 +42,11 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_PORT = 8080
 
-# The phone's always-on pairing-status responder (PingServer.kt) - separate
-# from DEFAULT_PORT, which only has anything listening while actively
-# streaming, so pairing status can't be checked through it beforehand.
-PING_PORT = 8766
+# PING_PORT (8766) is the phone's session responder (SessionServer.kt) -
+# separate from DEFAULT_PORT, which only has anything listening while actively
+# streaming, so neither pairing status nor a remote start can go through it.
+# Imported from session_client, which owns the port number along with the
+# protocol spoken over it.
 _PAIR_STATUS_POLL_MS = 3_000
 
 # Pseudo-device key used to give USB-only sessions their own persisted
@@ -785,10 +789,11 @@ class ConnectionPlugin(TelescopePlugin):
         self._check_pair_status()
 
     def _on_stream_connected(self):
-        # Actively streaming is its own proof of a working pairing - no need
-        # to keep polling PingServer, which (unlike the streaming server) is
-        # tied to MainActivity's foreground lifetime and would wrongly read
-        # "unreachable" the moment the phone's screen is minimized mid-stream.
+        # Decoding frames is its own proof of a working pairing, so the 3s
+        # probe has nothing left to establish and is retired for the duration.
+        # (It would now survive a phone screen going dark mid-stream, since
+        # CameraStreamService holds the session endpoint open too - but there
+        # is still no reason to keep asking.)
         self._stream_connected = True
         self._pair_status_timer.stop()
         self._set_pair_status("paired")
@@ -806,8 +811,8 @@ class ConnectionPlugin(TelescopePlugin):
             # Belt-and-suspenders for the same reason as _on_stream_connected:
             # any trigger firing while already streaming (the periodic timer
             # is stopped, but a mode switch mid-stream, say, still isn't
-            # impossible) shouldn't second-guess a connection already known
-            # to be good via a check that can't see it while minimized.
+            # impossible) shouldn't second-guess a connection already proven
+            # good by decoded frames.
             self._set_pair_status("paired")
             return
         token = self._current_device_token()
@@ -832,7 +837,8 @@ class ConnectionPlugin(TelescopePlugin):
         ).start()
 
     def _probe_pair_status(self, check_id: int, token: str, usb: bool):
-        result = self._probe_usb(token) if usb else self._probe_wifi(token)
+        with self.session_channel(token, usb=usb) as (client, unavailable):
+            result = client.ping().status if client else unavailable
         # A later check (mode switched again, re-paired) may have already
         # started and finished while this one was still in flight - don't
         # let a stale result clobber a fresher one.
@@ -846,39 +852,179 @@ class ConnectionPlugin(TelescopePlugin):
             # QObject is already gone, and there's nothing left to update.
             pass
 
-    def _probe_wifi(self, token: str) -> str:
-        ip = self._current_device_ip()
-        if not ip:
-            return "not_paired"
-        return self._probe_url(f"http://{ip}:{PING_PORT}/v1/ping", token)
+    # ── Session channel (phone port 8766) ────────────────────────────────────
 
-    def _probe_usb(self, token: str) -> str:
+    @contextlib.contextmanager
+    def session_channel(self, token: Optional[str] = None, usb: Optional[bool] = None):
+        """Yields ``(client, unavailable_status)`` for the phone's session port.
+
+        The two transports differ only in how the port is reached - a device
+        IP over Wi-Fi, ``localhost`` behind a short-lived ``adb forward`` over
+        USB - so both the pairing probe and the remote start/stop go through
+        here rather than each growing their own copy of that fork. The
+        forward is dedicated to this port and torn down on the way out: the
+        phone's SessionServer binds its own fixed port independently of
+        streaming, so it is normally not already forwarded.
+
+        ``client`` is None when there is nothing to talk to, in which case
+        ``unavailable_status`` says why in the panel's own vocabulary
+        (``not_paired`` / ``unknown`` / ``unreachable``).
+
+        Blocking network work - call from a background thread only.
+        """
+        if token is None:
+            token = self._current_device_token()
+        if usb is None:
+            usb = self._rb_usb.isChecked()
+        if not token:
+            yield None, "not_paired"
+            return
+
+        if not usb:
+            ip = self._current_device_ip()
+            if not ip:
+                yield None, "not_paired"
+                return
+            yield PhoneSessionClient(f"http://{ip}:{PING_PORT}", token), "unreachable"
+            return
+
         serials = adb_devices()
         if len(serials) != 1:
-            return "unknown"
+            yield None, "unknown"
+            return
         serial = serials[0]
-        # A short-lived forward dedicated to the ping port - separate from
-        # whatever port streaming forwards, since the phone's PingServer
-        # binds its own fixed port independent of streaming (see
-        # PingServer.kt) and is normally not already forwarded.
         ok, _err = adb_forward(PING_PORT, serial=serial)
         if not ok:
-            return "unreachable"
+            yield None, "unreachable"
+            return
         try:
-            return self._probe_url(f"http://localhost:{PING_PORT}/v1/ping", token)
+            yield PhoneSessionClient(f"http://localhost:{PING_PORT}", token), "unreachable"
         finally:
             adb_unforward(PING_PORT, serial=serial)
 
+    def ensure_phone_streaming(self) -> tuple[bool, str]:
+        """Bring the phone's camera up if it isn't already, so the desktop's
+        Start button is the only one anybody has to press.
+
+        Returns ``(ok, reason)``; ``reason`` is display text and only
+        meaningful when ``ok`` is False. Succeeds without doing anything when
+        the phone is already streaming, and - deliberately - when the phone is
+        too old to know this endpoint, so an APK/desktop mismatch degrades to
+        the previous connect-only behaviour instead of blocking the stream.
+
+        Blocking network work - call from a background thread only.
+        """
+        with self.session_channel() as (client, unavailable):
+            if client is None:
+                return False, self._unreachable_reason(unavailable)
+
+            ping = client.ping()
+            if ping.status == "not_paired":
+                return False, (
+                    "The phone no longer accepts this desktop's pairing token.\n\n"
+                    "Pair the device again."
+                )
+            if ping.status != "paired":
+                return False, self._unreachable_reason("unreachable")
+            if ping.streaming:
+                return True, ""
+            if not ping.knows_session:
+                # Older app: it can't be started from here, but it may well
+                # already be streaming - let the connection attempt decide.
+                return True, ""
+            if ping.local_only and not self._rb_usb.isChecked():
+                return False, (
+                    "The phone has \"Local only\" enabled, so its stream is reachable "
+                    "over USB but not over Wi-Fi.\n\n"
+                    "Switch this desktop to USB mode, or uncheck \"Local only\" on the phone."
+                )
+
+            if not ping.busy:
+                result = client.start()
+                if result.unsupported:
+                    return True, ""
+                if not result.ok:
+                    return False, self._start_refused_reason(result.error)
+
+            return self._await_streaming(client)
+
     @staticmethod
-    def _probe_url(url: str, token: str) -> str:
-        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
-        try:
-            with urllib.request.urlopen(req, timeout=3) as r:
-                return "paired" if r.status == 200 else "unreachable"
-        except urllib.error.HTTPError as exc:
-            return "not_paired" if exc.code == 401 else "unreachable"
-        except Exception:
-            return "unreachable"
+    def _await_streaming(client: PhoneSessionClient) -> tuple[bool, str]:
+        """Poll until the phone reports a live stream. The service answers the
+        start request as soon as it's accepted, well before the camera is open
+        and the capture session configured, so connecting immediately would
+        race a server that isn't listening yet.
+
+        Falling back to idle is how a failed start shows up (the service stops
+        itself), but only once it has actually got going: `startForegroundService`
+        is asynchronous, so the first poll or two can legitimately still read
+        idle before the service has run its first line.
+        """
+        deadline = time.monotonic() + START_TIMEOUT
+        started = False
+        while time.monotonic() < deadline:
+            time.sleep(START_POLL_INTERVAL)
+            ping = client.ping()
+            if ping.streaming:
+                return True, ""
+            if ping.status != "paired":
+                return False, "Lost contact with the phone while its camera was starting."
+            if ping.busy:
+                started = True
+            elif started:
+                return False, (
+                    "The phone's camera stopped before it finished starting.\n\n"
+                    "Check the phone for a permission prompt or an error."
+                )
+        return False, (
+            "The phone's camera did not finish starting in time.\n\n"
+            "Try again, or start the stream on the phone directly."
+        )
+
+    def stop_phone_streaming(self):
+        """Tell the phone to shut its camera down. Best effort: the desktop
+        has already torn down its own side by the time this runs, and a phone
+        that has gone away doesn't need telling.
+
+        Blocking network work - call from a background thread only.
+        """
+        with self.session_channel() as (client, _unavailable):
+            if client is not None:
+                client.stop()
+
+    def _unreachable_reason(self, status: str) -> str:
+        if status == "not_paired":
+            return (
+                "This device isn't paired yet.\n\nUse Pair Device to connect your phone."
+            )
+        if status == "unknown":
+            return (
+                "Couldn't tell which phone to talk to.\n\n"
+                "Connect exactly one device over USB, or switch to Wi-Fi mode."
+            )
+        return (
+            "Couldn't reach the phone.\n\n"
+            "Open the Telescope app on your phone and leave it on screen, then try again."
+        )
+
+    @staticmethod
+    def _start_refused_reason(error: Optional[str]) -> str:
+        return {
+            "no_camera_permission": (
+                "The phone hasn't granted Telescope camera access.\n\n"
+                "Open the app on your phone and allow the camera permission."
+            ),
+            "busy": (
+                "The phone is already busy starting or stopping a stream.\n\nTry again in a moment."
+            ),
+            "start_refused": (
+                "Android refused to start the camera in the background.\n\n"
+                "Bring the Telescope app to the foreground on your phone and try again."
+            ),
+            "not_paired": (
+                "The phone no longer accepts this desktop's pairing token.\n\nPair the device again."
+            ),
+        }.get(error or "", f"The phone refused to start streaming ({error or 'unknown error'}).")
 
     def _set_pair_status(self, state: str):
         color, text = {

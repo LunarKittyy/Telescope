@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import QMessageBox
 import telescope.ip_utils as ip_utils_module
 import telescope.plugins.connection as connection_module
 from telescope.plugin import EventBus
+from telescope.session_client import PingResult, SessionResult
 from telescope.plugins.connection import (
     ConnectionPlugin,
     USB_PROFILE_KEY,
@@ -786,10 +787,8 @@ def test_pair_status_keeps_probing_until_stream_actually_connects(connection_plu
 
 
 def test_pair_status_pins_to_paired_and_stops_polling_once_stream_connects(connection_plugin):
-    # PingServer only lives while MainActivity is foregrounded, unlike the
-    # streaming server - probing it mid-stream would wrongly flag a
-    # perfectly fine minimized session as unreachable, so once the stream is
-    # actually confirmed working, stop second-guessing it.
+    # Decoded frames settle the pairing question on their own, so the 3s
+    # probe has nothing left to establish and retires for the duration.
     plugin, _host, _panel = connection_plugin
     plugin.on_stream_start("http://localhost:8080/v1/video", object())
     plugin._bus.stream_connected.emit()
@@ -801,7 +800,7 @@ def test_pair_status_check_short_circuits_once_stream_connects(monkeypatch, conn
     plugin, _host, _panel = connection_plugin
     _arm_synchronous_pair_probe(monkeypatch)
     probed = []
-    monkeypatch.setattr(ConnectionPlugin, "_probe_url", staticmethod(lambda url, token: probed.append(url) or "not_paired"))
+    _stub_ping(monkeypatch, "not_paired", bases=probed)
     plugin._devices = [{"name": "Phone", "ips": ["10.0.0.1"], "token": "tok-a"}]
     plugin._selected_device = "Phone"
     plugin._rb_wifi.setChecked(True)
@@ -821,6 +820,22 @@ def test_pair_status_resumes_polling_on_stream_stop(connection_plugin):
     assert plugin._pair_status_timer.isActive()
 
 
+def _stub_ping(monkeypatch, status, bases=None, **fields):
+    """Stand in for the phone's GET /v1/ping.
+
+    Replaces the old _probe_url stub: the probe now goes through
+    PhoneSessionClient, which the remote start/stop share, so stubbing it
+    here exercises the same resolution path (device IP vs adb-forwarded
+    localhost) that a real check takes.
+    """
+    def ping(self):
+        if bases is not None:
+            bases.append(self.base)
+        return PingResult(status=status, **fields)
+
+    monkeypatch.setattr(connection_module.PhoneSessionClient, "ping", ping)
+
+
 def _arm_synchronous_pair_probe(monkeypatch):
     # The fixture silences _spawn_pair_probe (see connection_plugin) so
     # incidental checks from other tests can't leave a real background
@@ -836,7 +851,7 @@ def _arm_synchronous_pair_probe(monkeypatch):
 def test_pair_status_wifi_paired(monkeypatch, connection_plugin):
     plugin, _host, _panel = connection_plugin
     _arm_synchronous_pair_probe(monkeypatch)
-    monkeypatch.setattr(ConnectionPlugin, "_probe_url", staticmethod(lambda url, token: "paired"))
+    _stub_ping(monkeypatch, "paired")
     plugin._rb_wifi.setChecked(True)
     plugin._rb_usb.setChecked(False)
     plugin._on_device_paired("Phone", ["10.0.0.1"], "tok-a")
@@ -846,7 +861,7 @@ def test_pair_status_wifi_paired(monkeypatch, connection_plugin):
 def test_pair_status_wifi_stale_token(monkeypatch, connection_plugin):
     plugin, _host, _panel = connection_plugin
     _arm_synchronous_pair_probe(monkeypatch)
-    monkeypatch.setattr(ConnectionPlugin, "_probe_url", staticmethod(lambda url, token: "not_paired"))
+    _stub_ping(monkeypatch, "not_paired")
     plugin._rb_wifi.setChecked(True)
     plugin._rb_usb.setChecked(False)
     plugin._on_device_paired("Phone", ["10.0.0.1"], "tok-a")
@@ -857,7 +872,7 @@ def test_pair_status_wifi_without_an_ip_skips_probe(monkeypatch, connection_plug
     plugin, _host, _panel = connection_plugin
     _arm_synchronous_pair_probe(monkeypatch)
     probed = []
-    monkeypatch.setattr(ConnectionPlugin, "_probe_url", staticmethod(lambda url, token: probed.append(url) or "paired"))
+    _stub_ping(monkeypatch, "paired", bases=probed)
     plugin._rb_wifi.setChecked(True)
     plugin._rb_usb.setChecked(False)
     plugin._devices = [{"name": "Phone", "ips": [], "token": "tok-a"}]
@@ -874,7 +889,7 @@ def test_pair_status_usb_ambiguous_serial_shows_unknown(monkeypatch, connection_
     monkeypatch.setattr(connection_module, "adb_devices", lambda: ["a", "b"])
     forwards = []
     monkeypatch.setattr(connection_module, "adb_forward", lambda *a, **k: forwards.append((a, k)) or (True, "ok"))
-    monkeypatch.setattr(ConnectionPlugin, "_probe_url", staticmethod(lambda url, token: "paired"))
+    _stub_ping(monkeypatch, "paired")
     plugin._devices = [{"name": "Phone", "ips": ["10.0.0.1"], "token": "tok-a"}]
     plugin._selected_device = "Phone"
     plugin._rb_usb.setChecked(True)
@@ -891,7 +906,7 @@ def test_pair_status_usb_sets_up_and_tears_down_a_temporary_forward(monkeypatch,
     calls = []
     monkeypatch.setattr(connection_module, "adb_forward", lambda port, serial: calls.append(("forward", port, serial)) or (True, "ok"))
     monkeypatch.setattr(connection_module, "adb_unforward", lambda port, serial: calls.append(("unforward", port, serial)))
-    monkeypatch.setattr(ConnectionPlugin, "_probe_url", staticmethod(lambda url, token: "paired"))
+    _stub_ping(monkeypatch, "paired")
     plugin._rb_usb.setChecked(True)
     plugin._rb_wifi.setChecked(False)
     plugin._on_device_paired("Phone", ["10.0.0.1"], "tok-a")
@@ -1117,3 +1132,266 @@ def test_device_picker_exists_even_if_the_host_never_asks_for_a_header(connectio
     plugin.select_device("Phone")
 
     assert plugin._device_combo.currentText() == "Phone"
+
+
+# ── Remote start/stop over the session port ───────────────────────────────────
+
+def _wifi_device(plugin, token="tok-a", ip="10.0.0.1"):
+    plugin._devices = [{"name": "Phone", "ips": [ip], "token": token}]
+    plugin._selected_device = "Phone"
+    plugin._rb_wifi.setChecked(True)
+    plugin._rb_usb.setChecked(False)
+    # The address comes off the combo, not the device dict, so the roster has
+    # to actually reach the widgets before anything can resolve a URL.
+    plugin._refresh_device_combo(select_name="Phone")
+
+
+def _stub_session(monkeypatch, pings, start=None, stop=None):
+    """Drive PhoneSessionClient with a scripted sequence of ping results.
+
+    ensure_phone_streaming() polls until the phone reports a live stream, so
+    a test has to be able to say "not yet, not yet, now" rather than pin a
+    single answer.
+    """
+    calls = []
+    remaining = list(pings)
+
+    def ping(self):
+        calls.append("ping")
+        return remaining.pop(0) if len(remaining) > 1 else remaining[0]
+
+    monkeypatch.setattr(connection_module.PhoneSessionClient, "ping", ping)
+    monkeypatch.setattr(
+        connection_module.PhoneSessionClient, "start",
+        lambda self: calls.append("start") or (start or SessionResult(ok=True)),
+    )
+    monkeypatch.setattr(
+        connection_module.PhoneSessionClient, "stop",
+        lambda self: calls.append("stop") or (stop or SessionResult(ok=True)),
+    )
+    # The real poll sleeps between pings; tests shouldn't.
+    monkeypatch.setattr(connection_module.time, "sleep", lambda _s: None)
+    return calls
+
+
+def test_ensure_phone_streaming_is_a_no_op_when_already_streaming(monkeypatch, connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    _wifi_device(plugin)
+    calls = _stub_session(monkeypatch, [PingResult("paired", streaming=True, busy=False, local_only=False)])
+
+    assert plugin.ensure_phone_streaming() == (True, "")
+    # One ping, and crucially no start: a stream the user set up by hand must
+    # not get bounced by the desktop connecting to it.
+    assert calls == ["ping"]
+
+
+def test_ensure_phone_streaming_starts_then_waits_for_the_camera(monkeypatch, connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    _wifi_device(plugin)
+    calls = _stub_session(monkeypatch, [
+        PingResult("paired", streaming=False, busy=False, local_only=False),   # idle
+        PingResult("paired", streaming=False, busy=True, local_only=False),    # opening
+        PingResult("paired", streaming=True, busy=False, local_only=False),    # up
+    ])
+
+    assert plugin.ensure_phone_streaming() == (True, "")
+    assert calls == ["ping", "start", "ping", "ping"]
+
+
+def test_ensure_phone_streaming_reports_a_refused_start(monkeypatch, connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    _wifi_device(plugin)
+    _stub_session(
+        monkeypatch,
+        [PingResult("paired", streaming=False, busy=False, local_only=False)],
+        start=SessionResult(ok=False, error="no_camera_permission"),
+    )
+
+    ok, reason = plugin.ensure_phone_streaming()
+
+    assert ok is False
+    assert "camera permission" in reason
+
+
+def test_ensure_phone_streaming_gives_up_when_the_start_falls_back_to_idle(monkeypatch, connection_plugin):
+    # A failed start shows up as the service stopping itself. Idle only counts
+    # as failure once the start has actually got going - startForegroundService
+    # is async, so the first poll can legitimately still read idle.
+    plugin, _host, _panel = connection_plugin
+    _wifi_device(plugin)
+    _stub_session(monkeypatch, [
+        PingResult("paired", streaming=False, busy=False, local_only=False),
+        PingResult("paired", streaming=False, busy=True, local_only=False),
+        PingResult("paired", streaming=False, busy=False, local_only=False),
+    ])
+
+    ok, reason = plugin.ensure_phone_streaming()
+
+    assert ok is False
+    assert "stopped before it finished starting" in reason
+
+
+def test_ensure_phone_streaming_times_out_rather_than_hanging(monkeypatch, connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    _wifi_device(plugin)
+    _stub_session(monkeypatch, [PingResult("paired", streaming=False, busy=True, local_only=False)])
+    clock = iter([0, 0, 1, 999])
+    monkeypatch.setattr(connection_module.time, "monotonic", lambda: next(clock, 999))
+
+    ok, reason = plugin.ensure_phone_streaming()
+
+    assert ok is False
+    assert "did not finish starting in time" in reason
+
+
+def test_ensure_phone_streaming_names_a_local_only_mismatch(monkeypatch, connection_plugin):
+    # The phone's stream server is bound to 127.0.0.1, so over Wi-Fi there is
+    # nothing to connect to - say so instead of timing out on the connect.
+    plugin, _host, _panel = connection_plugin
+    _wifi_device(plugin)
+    calls = _stub_session(
+        monkeypatch,
+        [PingResult("paired", streaming=False, busy=False, local_only=True)],
+    )
+
+    ok, reason = plugin.ensure_phone_streaming()
+
+    assert ok is False
+    assert "Local only" in reason
+    assert "start" not in calls
+
+
+def test_ensure_phone_streaming_passes_through_for_an_app_that_predates_the_endpoint(monkeypatch, connection_plugin):
+    # An old APK answers ping without a body. It can't be started from here,
+    # but it may well already be streaming - fall back to today's behaviour
+    # rather than blocking the stream on a version mismatch.
+    plugin, _host, _panel = connection_plugin
+    _wifi_device(plugin)
+    calls = _stub_session(monkeypatch, [PingResult("paired")])
+
+    assert plugin.ensure_phone_streaming() == (True, "")
+    assert calls == ["ping"]
+
+
+def test_ensure_phone_streaming_treats_a_404_start_as_pass_through(monkeypatch, connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    _wifi_device(plugin)
+    _stub_session(
+        monkeypatch,
+        [PingResult("paired", streaming=False, busy=False, local_only=False)],
+        start=SessionResult(ok=False, unsupported=True),
+    )
+
+    assert plugin.ensure_phone_streaming() == (True, "")
+
+
+def test_ensure_phone_streaming_explains_an_unreachable_phone(monkeypatch, connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    _wifi_device(plugin)
+    _stub_session(monkeypatch, [PingResult("unreachable")])
+
+    ok, reason = plugin.ensure_phone_streaming()
+
+    assert ok is False
+    assert "Open the Telescope app on your phone" in reason
+
+
+def test_ensure_phone_streaming_explains_a_stale_token(monkeypatch, connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    _wifi_device(plugin)
+    _stub_session(monkeypatch, [PingResult("not_paired")])
+
+    ok, reason = plugin.ensure_phone_streaming()
+
+    assert ok is False
+    assert "Pair the device again" in reason
+
+
+def test_ensure_phone_streaming_without_a_paired_device_says_so(monkeypatch, connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    plugin._devices = []
+    plugin._selected_device = None
+    plugin._rb_wifi.setChecked(True)
+    plugin._rb_usb.setChecked(False)
+
+    ok, reason = plugin.ensure_phone_streaming()
+
+    assert ok is False
+    assert "isn't paired yet" in reason
+
+
+def test_stop_phone_streaming_posts_stop(monkeypatch, connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    _wifi_device(plugin)
+    calls = _stub_session(monkeypatch, [PingResult("paired", streaming=True, busy=False, local_only=False)])
+
+    plugin.stop_phone_streaming()
+
+    assert calls == ["stop"]
+
+
+def test_stop_phone_streaming_is_silent_without_a_reachable_device(connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    plugin._devices = []
+    plugin._selected_device = None
+    plugin._rb_wifi.setChecked(True)
+    plugin._rb_usb.setChecked(False)
+
+    plugin.stop_phone_streaming()  # must not raise
+
+
+def test_session_channel_over_usb_forwards_and_tears_down(monkeypatch, connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    monkeypatch.setattr(connection_module, "adb_devices", lambda: ["serial-1"])
+    calls = []
+    monkeypatch.setattr(
+        connection_module, "adb_forward",
+        lambda port, serial: calls.append(("forward", port, serial)) or (True, "ok"),
+    )
+    monkeypatch.setattr(
+        connection_module, "adb_unforward",
+        lambda port, serial: calls.append(("unforward", port, serial)),
+    )
+    plugin._devices = [{"name": USB_PROFILE_KEY, "ips": [], "token": "tok-a"}]
+    plugin._selected_device = USB_PROFILE_KEY
+    plugin._rb_usb.setChecked(True)
+    plugin._rb_wifi.setChecked(False)
+
+    with plugin.session_channel(token="tok-a", usb=True) as (client, _unavailable):
+        assert client.base == f"http://localhost:{connection_module.PING_PORT}"
+        assert calls == [("forward", connection_module.PING_PORT, "serial-1")]
+
+    # The forward is dedicated to this call and must not outlive it.
+    assert calls[-1] == ("unforward", connection_module.PING_PORT, "serial-1")
+
+
+def test_session_channel_over_usb_unforwards_even_when_the_body_raises(monkeypatch, connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    monkeypatch.setattr(connection_module, "adb_devices", lambda: ["serial-1"])
+    calls = []
+    monkeypatch.setattr(connection_module, "adb_forward", lambda port, serial: (True, "ok"))
+    monkeypatch.setattr(
+        connection_module, "adb_unforward",
+        lambda port, serial: calls.append(("unforward", port, serial)),
+    )
+
+    with pytest.raises(RuntimeError):
+        with plugin.session_channel(token="tok-a", usb=True):
+            raise RuntimeError("boom")
+
+    assert calls == [("unforward", connection_module.PING_PORT, "serial-1")]
+
+
+def test_session_channel_reports_an_ambiguous_usb_device(monkeypatch, connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    monkeypatch.setattr(connection_module, "adb_devices", lambda: ["a", "b"])
+    forwards = []
+    monkeypatch.setattr(
+        connection_module, "adb_forward",
+        lambda *a, **k: forwards.append(a) or (True, "ok"),
+    )
+
+    with plugin.session_channel(token="tok-a", usb=True) as (client, unavailable):
+        assert client is None
+        assert unavailable == "unknown"
+    assert forwards == []

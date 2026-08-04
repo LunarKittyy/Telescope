@@ -70,12 +70,20 @@ class _Plugin(TelescopePlugin):
 
 
 class _Connection(_Plugin):
-    def __init__(self, selected="Phone", stream_info=("http://phone/video", "tok", True)):
+    def __init__(
+        self,
+        selected="Phone",
+        stream_info=("http://phone/video", "tok", True),
+        wake=(True, ""),
+    ):
         super().__init__("connection", {"mode": "wifi"})
         self.selected_device = selected
         self.stream_info = stream_info
+        self.wake = wake
         self.selected = []
         self.synced = 0
+        self.wakes = 0
+        self.remote_stops = 0
 
     def get_stream_info(self):
         return self.stream_info
@@ -85,6 +93,13 @@ class _Connection(_Plugin):
 
     def sync_active_profile(self):
         self.synced += 1
+
+    def ensure_phone_streaming(self):
+        self.wakes += 1
+        return self.wake
+
+    def stop_phone_streaming(self):
+        self.remote_stops += 1
 
 
 class _StreamOutput(_Plugin):
@@ -111,6 +126,16 @@ def window(qapp, config_home, monkeypatch):
         lambda: False,
     )
     win = app_module.TelescopeWindow()
+    # Run the phone-wake step that now precedes every start on the calling
+    # thread instead of a spawned one, so _start() stays a single synchronous
+    # act for the tests that assert on what it built. A real background
+    # thread outliving the fixture would deliver its queued signal to an
+    # already-destroyed QObject, which PyQt turns into a hard abort. Tests of
+    # the async sequencing itself put the spawn back.
+    monkeypatch.setattr(
+        app_module.TelescopeWindow, "_spawn_wake",
+        lambda self, *a: self._wake_phone(*a),
+    )
     yield win
     # The window is never shown. Calling QWidget.close() here would route
     # through whichever closeEvent/worker doubles a test intentionally left
@@ -393,7 +418,7 @@ def test_switch_device_saves_old_profile_applies_new_and_restarts(window, config
     config_home.save_config(cfg)
     window._session = StreamSession(id=1, url="url", client=object(), worker=object())
     calls = []
-    monkeypatch.setattr(window, "_stop", lambda: calls.append("stop") or setattr(window, "_session", None))
+    monkeypatch.setattr(window, "_stop", lambda **_kw: calls.append("stop") or setattr(window, "_session", None))
     monkeypatch.setattr(window, "_start", lambda: calls.append("start"))
 
     window.switch_device("Old", "New")
@@ -407,7 +432,7 @@ def test_switch_device_saves_old_profile_applies_new_and_restarts(window, config
 
 def test_reconnect_stream_only_restarts_when_active(window, monkeypatch):
     calls = []
-    monkeypatch.setattr(window, "_stop", lambda: calls.append("stop"))
+    monkeypatch.setattr(window, "_stop", lambda **_kw: calls.append("stop"))
     monkeypatch.setattr(window, "_start", lambda: calls.append("start"))
     window.reconnect_stream()
     assert calls == []
@@ -435,7 +460,7 @@ def test_is_streaming_and_stop_stream_track_the_session(window, monkeypatch):
     assert window.is_streaming() is False
 
     stopped = []
-    monkeypatch.setattr(window, "_stop", lambda: stopped.append(True))
+    monkeypatch.setattr(window, "_stop", lambda **_kw: stopped.append(True))
     # stop_stream is a guarded no-op while idle - no spurious _stop().
     window.stop_stream()
     assert stopped == []
@@ -491,7 +516,7 @@ def test_stream_reconnected_is_noop_without_an_active_session(window):
 def test_toggle_routes_to_start_or_stop(window, monkeypatch):
     calls = []
     monkeypatch.setattr(window, "_start", lambda: calls.append("start"))
-    monkeypatch.setattr(window, "_stop", lambda: calls.append("stop"))
+    monkeypatch.setattr(window, "_stop", lambda **_kw: calls.append("stop"))
     window._toggle()
     window._session = StreamSession(id=1, url="url", client=object(), worker=object())
     window._toggle()
@@ -688,7 +713,7 @@ def test_restart_canvas_non_linux_waits_and_restarts_active_stream(window, monke
     monkeypatch.setattr(
         window,
         "_stop",
-        lambda: events.append("stop") or setattr(window, "_session", None),
+        lambda **_kw: events.append("stop") or setattr(window, "_session", None),
     )
     monkeypatch.setattr(window, "_start", lambda: events.append("start"))
 
@@ -887,7 +912,7 @@ def test_tray_show_quit_and_activation(window, monkeypatch):
     window._on_tray_activated(app_module.QSystemTrayIcon.ActivationReason.Trigger)
     assert calls[-3:] == ["show", "raise", "activate"]
 
-    monkeypatch.setattr(window, "_stop", lambda: calls.append("stop"))
+    monkeypatch.setattr(window, "_stop", lambda **_kw: calls.append("stop"))
     monkeypatch.setattr(app_module.QApplication, "quit", lambda: calls.append("quit"))
     window._tray_quit()
     assert window._tray_close_notified is True
@@ -911,8 +936,203 @@ def test_close_event_minimizes_active_stream_to_tray(window, monkeypatch):
 
 def test_close_event_stops_and_accepts_without_background_stream(window, monkeypatch):
     calls = []
-    monkeypatch.setattr(window, "_stop", lambda: calls.append("stop"))
+    monkeypatch.setattr(window, "_stop", lambda **_kw: calls.append("stop"))
     monkeypatch.setattr(app_module.QApplication, "quit", lambda: calls.append("quit"))
     event = SimpleNamespace(accept=lambda: calls.append("accept"))
     window.closeEvent(event)
     assert calls == ["stop", "accept", "quit"]
+
+
+# ── Remote phone wake / symmetric stop ────────────────────────────────────────
+
+def _real_spawn_wake(monkeypatch):
+    """Undo the fixture's synchronous-wake stub, capturing what _start()
+    would have spawned so a test can fire the completion by hand."""
+    spawned = []
+    monkeypatch.setattr(
+        app_module.TelescopeWindow, "_spawn_wake",
+        lambda self, *args: spawned.append(args),
+    )
+    return spawned
+
+
+def test_start_wakes_the_phone_before_building_a_worker(window, monkeypatch):
+    connection = _Connection()
+    window.register_plugin(connection)
+    built = []
+    monkeypatch.setattr(app_module, "PhoneControlClient", lambda _u, _t: object())
+    monkeypatch.setattr(
+        app_module, "StreamWorker",
+        lambda **kwargs: built.append(kwargs) or SimpleNamespace(
+            status=_Signal(), reconnected=_Signal(), start=lambda: None,
+        ),
+    )
+    monkeypatch.setattr(
+        app_module.threading, "Thread",
+        lambda **_kw: SimpleNamespace(start=lambda: None),
+    )
+
+    window._start()
+
+    assert connection.wakes == 1
+    assert built, "the stream was never built after a successful wake"
+
+
+def test_start_shows_the_reason_and_builds_nothing_when_the_wake_fails(window, monkeypatch):
+    window.register_plugin(_Connection(wake=(False, "Open the app on your phone.")))
+    monkeypatch.setattr(
+        app_module, "StreamWorker",
+        lambda **_kw: pytest.fail("no worker may be built when the phone never came up"),
+    )
+    warnings = []
+    monkeypatch.setattr(
+        app_module.QMessageBox, "warning",
+        lambda _parent, title, text: warnings.append((title, text)),
+    )
+
+    window._start()
+
+    assert window._worker is None
+    assert warnings[0][1] == "Open the app on your phone."
+    # The button has to come back, or the user can never retry.
+    assert window._start_btn.isEnabled()
+    assert window._start_btn.text() == "Start Streaming"
+
+
+def test_a_wake_that_lands_after_the_user_gave_up_is_discarded(window, monkeypatch):
+    connection = _Connection()
+    window.register_plugin(connection)
+    spawned = _real_spawn_wake(monkeypatch)
+    monkeypatch.setattr(
+        app_module, "StreamWorker",
+        lambda **_kw: pytest.fail("a cancelled start must not build a worker"),
+    )
+
+    window._start()
+    assert spawned, "the wake was never spawned"
+    wake_id, _conn, url, token = spawned[0]
+
+    window._stop()          # user hits Stop while the phone is still starting
+    window._on_wake_done(wake_id, True, "", url, token)
+
+    assert window._worker is None
+
+
+def test_stop_takes_the_phone_s_camera_down_with_it(window, monkeypatch):
+    connection = _Connection()
+    window.register_plugin(connection)
+    monkeypatch.setattr(
+        app_module.threading, "Thread",
+        lambda target, daemon=False: SimpleNamespace(start=target, is_alive=lambda: False),
+    )
+    window._session = StreamSession(id=1, url="url", client=None, worker=None)
+
+    window._stop()
+
+    assert connection.remote_stops == 1
+
+
+def test_stop_leaves_an_idle_phone_alone(window, monkeypatch):
+    connection = _Connection()
+    window.register_plugin(connection)
+    monkeypatch.setattr(
+        app_module.threading, "Thread",
+        lambda target, daemon=False: SimpleNamespace(start=target, is_alive=lambda: False),
+    )
+
+    window._stop()  # nothing was ever started
+
+    assert connection.remote_stops == 0
+
+
+def test_a_cancelled_wake_still_stops_a_phone_that_may_be_mid_start(window, monkeypatch):
+    connection = _Connection()
+    window.register_plugin(connection)
+    _real_spawn_wake(monkeypatch)
+    monkeypatch.setattr(
+        app_module.threading, "Thread",
+        lambda target, daemon=False: SimpleNamespace(start=target, is_alive=lambda: False),
+    )
+
+    window._start()   # wake in flight, no session yet
+    window._stop()
+
+    assert connection.remote_stops == 1
+
+
+def test_reconnect_and_canvas_reload_leave_the_phone_streaming(window, monkeypatch):
+    # These stop/start pairs are really a desktop-side reconnect. Bouncing the
+    # phone's camera through them would cost seconds and a lens re-open for
+    # no gain, since _start() sees a live stream and connects straight through.
+    connection = _Connection()
+    window.register_plugin(connection)
+    monkeypatch.setattr(
+        app_module.threading, "Thread",
+        lambda target, daemon=False: SimpleNamespace(start=target, is_alive=lambda: False),
+    )
+    monkeypatch.setattr(window, "_start", lambda: None)
+    window._session = StreamSession(
+        id=1, url="url", client=None,
+        worker=SimpleNamespace(
+            status=_Signal(), reconnected=_Signal(),
+            request_stop=lambda: None, wait=lambda _ms: True,
+        ),
+    )
+    window._session.worker.status.connect(window._on_worker_status)
+    window._session.worker.reconnected.connect(window._on_stream_reconnected)
+
+    window.reconnect_stream()
+
+    assert connection.remote_stops == 0
+
+
+def test_drain_phone_stops_is_bounded(window, monkeypatch):
+    # A phone that has already gone away must not be able to hold the app
+    # open on the way out.
+    joins = []
+
+    class SlowThread:
+        def __init__(self, target=None, daemon=False):
+            pass
+
+        def start(self):
+            pass
+
+        def is_alive(self):
+            return True
+
+        def join(self, timeout=None):
+            joins.append(timeout)
+
+    monkeypatch.setattr(app_module.threading, "Thread", SlowThread)
+    window.register_plugin(_Connection())
+    window._session = StreamSession(id=1, url="url", client=None, worker=None)
+    window._stop()
+
+    window._drain_phone_stops(timeout=1.5)
+
+    assert joins and joins[0] <= 1.5
+    assert window._stop_threads == []
+
+
+def test_stop_stream_cancels_a_wake_that_is_still_in_flight(window, monkeypatch):
+    # Re-pairing calls this, and it rotates the token the in-flight wake is
+    # about to hand to a new StreamWorker.
+    connection = _Connection()
+    window.register_plugin(connection)
+    spawned = _real_spawn_wake(monkeypatch)
+    monkeypatch.setattr(
+        app_module.threading, "Thread",
+        lambda target, daemon=False: SimpleNamespace(start=target, is_alive=lambda: False),
+    )
+    monkeypatch.setattr(
+        app_module, "StreamWorker",
+        lambda **_kw: pytest.fail("a cancelled start must not build a worker"),
+    )
+
+    window._start()
+    window.stop_stream()
+    wake_id, _conn, url, token = spawned[0]
+    window._on_wake_done(wake_id, True, "", url, token)
+
+    assert window._worker is None

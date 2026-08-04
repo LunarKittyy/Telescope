@@ -12,7 +12,7 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtWidgets import (
     QApplication, QFrame, QHBoxLayout, QLabel,
-    QMainWindow, QMenu, QPushButton, QScrollArea,
+    QMainWindow, QMenu, QMessageBox, QPushButton, QScrollArea,
     QSizePolicy, QSystemTrayIcon, QVBoxLayout, QWidget,
 )
 
@@ -88,6 +88,7 @@ class TelescopeWindow(QMainWindow):
     _sig_state = pyqtSignal(int, dict)
     _sig_raise = pyqtSignal()
     _sig_canvas_reload_done = pyqtSignal(bool, str, bool)  # ok, msg, restart_stream
+    _sig_wake_done = pyqtSignal(int, bool, str, str, str)  # wake_id, ok, reason, url, token
 
     def __init__(self):
         super().__init__()
@@ -115,6 +116,17 @@ class TelescopeWindow(QMainWindow):
         self._next_session_id = 1
         self._save_failure_notified = False
 
+        # Generation counter for the phone-wake step that now precedes every
+        # start. A wake takes seconds and runs off the UI thread, so the user
+        # can hit Stop, switch device, or quit while one is still in flight;
+        # bumping this makes any result that lands afterwards recognize itself
+        # as stale, the same way _session.id does for phone-state fetches.
+        self._wake_id = 0
+        self._waking = False
+        # Remote-stop requests, kept so the quit path can give them a moment
+        # to reach the phone instead of dying with the process.
+        self._stop_threads: list[threading.Thread] = []
+
         self._save_timer = QTimer(self)
         self._save_timer.setSingleShot(True)
         self._save_timer.timeout.connect(self.save_now)
@@ -127,6 +139,7 @@ class TelescopeWindow(QMainWindow):
         self._sig_state.connect(self._apply_state)
         self._sig_raise.connect(self._tray_show)
         self._sig_canvas_reload_done.connect(self._on_canvas_reload_done)
+        self._sig_wake_done.connect(self._on_wake_done)
 
     @property
     def _worker(self) -> Optional[StreamWorker]:
@@ -490,7 +503,7 @@ class TelescopeWindow(QMainWindow):
         changes while streaming."""
         if self._worker is None:
             return
-        self._stop()
+        self._stop(remote_stop=False)
         self._start()
 
     # ── Public stream controls (HostServices contract for plugins) ─────────────
@@ -501,8 +514,13 @@ class TelescopeWindow(QMainWindow):
 
     def stop_stream(self):
         """Stop the active stream. A no-op (safe) if nothing is streaming -
-        guarded so it doesn't emit a spurious stop / on_stream_stop when idle."""
-        if self._worker is not None:
+        guarded so it doesn't emit a spurious stop / on_stream_stop when idle.
+
+        A start that's still waking the phone counts as active: re-pairing is
+        the caller that matters here, and it rotates the token the in-flight
+        wake is about to hand to a new StreamWorker.
+        """
+        if self._worker is not None or self._waking:
             self._stop()
 
     def update_stream_output(self, width=UNCHANGED, height=UNCHANGED, fps=UNCHANGED):
@@ -555,10 +573,20 @@ class TelescopeWindow(QMainWindow):
     # ── Start / Stop ──────────────────────────────────────────────────────────
 
     def _toggle(self):
-        if self._worker: self._stop()
-        else:            self._start()
+        if self._worker or self._waking: self._stop()
+        else:                            self._start()
 
     def _start(self):
+        """Phase one of starting: make sure the phone's camera is actually
+        running before we try to read frames off it.
+
+        The phone used to have to be started by hand, which meant two taps on
+        two devices for one session. Now the desktop asks it over the session
+        port first (ConnectionPlugin.ensure_phone_streaming), which is a
+        network round trip plus however long the camera takes to open - far
+        too long to block the UI thread on, hence the split into
+        _on_wake_done/_begin_stream.
+        """
         conn = self._plugin("connection")
         if not conn:
             return
@@ -566,6 +594,51 @@ class TelescopeWindow(QMainWindow):
         if not ok:
             return
 
+        self._wake_id += 1
+        wake_id = self._wake_id
+        self._waking = True
+        self._set_start_button(streaming=True)
+        self._start_btn.setEnabled(False)
+        self._set_status("Waking phone camera...", "dim")
+
+        self._spawn_wake(wake_id, conn, url, token)
+
+    def _spawn_wake(self, wake_id: int, conn, url: str, token: str):
+        """Split out from _start() so tests can make this synchronous - same
+        reason ConnectionPlugin._spawn_pair_probe is split out, and with the
+        same hazard: a real background thread outliving its QObject is a hard
+        PyQt abort when the queued signal is finally delivered."""
+        threading.Thread(
+            target=self._wake_phone, args=(wake_id, conn, url, token), daemon=True,
+        ).start()
+
+    def _wake_phone(self, wake_id: int, conn, url: str, token: str):
+        try:
+            ok, reason = conn.ensure_phone_streaming()
+        except Exception:
+            logging.exception("Phone wake failed")
+            ok, reason = False, "Couldn't reach the phone."
+        try:
+            self._sig_wake_done.emit(wake_id, ok, reason, url, token)
+        except RuntimeError:
+            # The window went away mid-wake; nothing left to tell.
+            pass
+
+    def _on_wake_done(self, wake_id: int, ok: bool, reason: str, url: str, token: str):
+        # Stop/device switch/quit while the wake was in flight: whatever this
+        # says is about a session the user has already walked away from.
+        if wake_id != self._wake_id or not self._waking:
+            return
+        self._waking = False
+        self._start_btn.setEnabled(True)
+        if not ok:
+            self._set_start_button(streaming=False)
+            self._set_status("Idle - press Start Streaming", "dim")
+            QMessageBox.warning(self, "Couldn't start the phone's camera", reason)
+            return
+        self._begin_stream(url, token)
+
+    def _begin_stream(self, url: str, token: str):
         so = self._plugin("stream_output")
         w, h, fps = so.get_stream_params() if so else (None, None, 30)
 
@@ -598,7 +671,24 @@ class TelescopeWindow(QMainWindow):
         self._set_start_button(streaming=True)
         self._set_status("Connecting...", "dim")
 
-    def _stop(self):
+    def _stop(self, remote_stop: bool = True):
+        """Tear down this side of the stream, and by default the phone's side
+        with it.
+
+        ``remote_stop=False`` is for the internal stop/start pairs that are
+        really a reconnect (a changed address, a vcam canvas reload): the
+        phone's camera is fine and bouncing it would cost seconds and a
+        needless lens re-open. The _start() that follows pings, sees a stream
+        already up, and connects straight through.
+        """
+        # Invalidate any wake still in flight before touching anything else,
+        # so a phone that finishes starting a moment from now can't have its
+        # result build a stream the user has just cancelled.
+        self._wake_id += 1
+        was_waking = self._waking
+        self._waking = False
+        self._start_btn.setEnabled(True)
+
         # Captured before clearing self._session, which must happen first so
         # any in-flight async completion (_fetch_state_async/_apply_state)
         # sees "no active session" immediately, even while the teardown below
@@ -607,6 +697,13 @@ class TelescopeWindow(QMainWindow):
         self._session = None
         worker = session.worker if session else None
         ctrl = session.client if session else None
+
+        # Stop is symmetric with start: the desktop brought the phone's camera
+        # up, so it takes it back down rather than leaving it burning battery
+        # until someone walks over to the phone. Also covers a cancelled wake,
+        # where the phone may already be mid-start.
+        if remote_stop and (session or was_waking):
+            self._stop_phone_async()
 
         if worker:
             worker.status.disconnect(self._on_worker_status)
@@ -628,12 +725,48 @@ class TelescopeWindow(QMainWindow):
         for p in self._plugins:
             p.on_stream_stop()
 
+    def _stop_phone_async(self):
+        """Tell the phone to shut its camera down, off the UI thread.
+
+        Kept as a tracked thread rather than a fire-and-forget daemon so
+        _drain_phone_stops() can give it a moment on the way out - a daemon
+        thread dies with the interpreter, which on the quit path is usually
+        before the request has left the machine.
+        """
+        conn = self._plugin("connection")
+        if not conn:
+            return
+
+        def stop():
+            try:
+                conn.stop_phone_streaming()
+            except Exception:
+                logging.debug("Remote stop failed", exc_info=True)
+
+        t = threading.Thread(target=stop, daemon=True)
+        self._stop_threads = [x for x in self._stop_threads if x.is_alive()]
+        self._stop_threads.append(t)
+        t.start()
+
+    def _drain_phone_stops(self, timeout: float = 2.0):
+        """Bounded wait for outstanding remote stops before the process exits.
+        Bounded because a phone that has already gone away must not be able to
+        hold the app open."""
+        deadline = time.monotonic() + timeout
+        for t in self._stop_threads:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            t.join(remaining)
+        self._stop_threads.clear()
+
     def restart_vcam_canvas(self, w, h, on_done=None):
         """Stop stream, optionally reload the vcam driver, restart stream."""
         self._vcam_reload_callback = on_done
         was_streaming = self._worker is not None
         old_worker = self._worker  # capture before _stop() clears it
-        self._stop()
+        # Desktop-side driver reload only - the phone keeps streaming through it.
+        self._stop(remote_stop=False)
 
         if IS_LINUX:
             self._set_status("Reloading v4l2loopback…", "dim")
@@ -744,6 +877,7 @@ class TelescopeWindow(QMainWindow):
     def _tray_quit(self):
         self._tray_close_notified = True
         self._stop()
+        self._drain_phone_stops()
         QApplication.quit()
 
     def _on_tray_activated(self, reason):
@@ -800,5 +934,6 @@ class TelescopeWindow(QMainWindow):
                 )
         else:
             self._stop()
+            self._drain_phone_stops()
             event.accept()
             QApplication.quit()

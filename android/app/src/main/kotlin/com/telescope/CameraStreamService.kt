@@ -121,10 +121,26 @@ class CameraStreamService : Service() {
         const val EXTRA_HEIGHT     = "height"
         const val EXTRA_OIS        = "ois"
         const val EXTRA_LOCAL_ONLY = "local_only"
+        const val EXTRA_REMOTE     = "remote"
         const val CHANNEL_ID       = "telescope_stream"
         const val NOTIF_ID         = 1
         const val DEFAULT_PORT     = 8080
         private const val TAG      = "CameraStreamService"
+
+        /**
+         * The live service, or null when none is running.
+         *
+         * [MainActivity] binds with flags `0` (never `BIND_AUTO_CREATE`), so it
+         * has no handle at all until a service already exists - and
+         * [SessionServer] answers on a socket thread that has no binding of its
+         * own. Both need to read "is it streaming?" and one needs to stop it, so
+         * the service publishes itself here for the duration of its own
+         * lifetime. Cleared in [onDestroy], which the platform always calls, so
+         * this can't outlive the instance it points at.
+         */
+        @Volatile
+        var instance: CameraStreamService? = null
+            private set
     }
 
     inner class LocalBinder : Binder() {
@@ -148,6 +164,13 @@ class CameraStreamService : Service() {
     val state: StreamState get() = stateMachine.state
     val isStreaming: Boolean get() = stateMachine.isStreaming
     val port: Int get() = DEFAULT_PORT
+
+    /** True when this session was started by the desktop rather than by the
+     *  button on this phone. [MainActivity] uses it to tell the user where a
+     *  stream they did not start came from. */
+    @Volatile
+    var startedRemotely: Boolean = false
+        private set
 
     /** Records a state transition and logs it with structured context (camera
      *  id, generation, operation, sanitized exception details - class name and
@@ -224,7 +247,12 @@ class CameraStreamService : Service() {
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     override fun onBind(intent: Intent?): IBinder = binder
-    override fun onCreate() { super.onCreate(); createNotificationChannel() }
+
+    override fun onCreate() {
+        super.onCreate()
+        instance = this
+        createNotificationChannel()
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val cameraId  = intent?.getStringExtra(EXTRA_CAMERA_ID)  ?: "0"
@@ -234,11 +262,18 @@ class CameraStreamService : Service() {
         val initialOis = intent?.getBooleanExtra(EXTRA_OIS,        true)  ?: true
         val localOnly = intent?.getBooleanExtra(EXTRA_LOCAL_ONLY, false) ?: false
         bindAddr      = if (localOnly) "127.0.0.1" else "0.0.0.0"
+        startedRemotely = intent?.getBooleanExtra(EXTRA_REMOTE, false) ?: false
 
         // Must be called unconditionally and early, before any return below: this
         // service starts via startForegroundService(), and Android kills the app if
         // the promotion doesn't happen soon after, regardless of what fails below.
         startForegroundCompat()
+        // Keep the desktop's session channel reachable for as long as the camera
+        // is live, not just while MainActivity happens to be on screen - that's
+        // what lets the desktop stop and restart a stream after the phone's
+        // screen has gone to sleep mid-session. Idempotent: the refcount in
+        // SessionEndpoint absorbs a repeated onStartCommand.
+        SessionEndpoint.acquire(this, SessionEndpoint.OWNER_SERVICE)
         setState(StreamState.StartingServer, "onStartCommand")
 
         try {
@@ -273,7 +308,11 @@ class CameraStreamService : Service() {
         return START_NOT_STICKY
     }
 
-    override fun onDestroy() { stopStreaming(); super.onDestroy() }
+    override fun onDestroy() {
+        stopStreaming()
+        instance = null
+        super.onDestroy()
+    }
 
     // ── Camera enumeration ────────────────────────────────────────────────────
 
@@ -532,6 +571,10 @@ class CameraStreamService : Service() {
         wakeLock?.let { if (it.isHeld) it.release() }
         controller = null; server = null
         setState(StreamState.Idle, "stopStreaming")
+        // Hand the session channel back. If MainActivity is on screen it still
+        // holds its own reference and the endpoint stays bound; otherwise this
+        // is the last release and the port closes with the stream.
+        SessionEndpoint.release(SessionEndpoint.OWNER_SERVICE)
         stopForeground(STOP_FOREGROUND_REMOVE); stopSelf()
     }
 

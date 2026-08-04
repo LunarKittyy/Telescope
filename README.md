@@ -62,15 +62,19 @@ The gear button next to the device selector opens the device list; its **Pair...
 
 **Then:**
 
-1. Open the Telescope app on your phone, pick a camera and resolution, tap **Start Streaming**.
+1. Open the Telescope app on your phone and leave it on screen. Pick a camera and resolution.
    - Android will prompt to disable battery optimization if not already exempted. Allow it so the service isn't killed in the background.
-   - Once streaming, the status card shows your Wi-Fi and USB URLs. Tap either one to copy it.
-2. On the desktop app, select your device and connection mode, then press **Start Streaming**.
+   - You do **not** need to tap Start Streaming here. The desktop does it for you.
+2. On the desktop app, select your device and connection mode, then press **Start Streaming**. It brings the phone's camera up, waits for it, and connects - one button, one device.
 3. The camera control panel (lens picker, ISO, shutter, white balance, OIS) will populate within ~2 seconds of connecting.
 4. In OBS (or any other app), select **Phone Camera** (Linux) or **Unity Video Capture** (Windows) as your webcam source.
 
+Pressing **Stop Streaming** on the desktop shuts the phone's camera down too, so nothing is left burning battery. If a session drops, Stop then Start on the desktop rebuilds it without touching the phone. Tapping **Start Streaming** on the phone still works and does the same thing; the desktop leaves a stream it finds already running alone.
+
+The phone's camera can only be started remotely while its app is on screen, or while it is already streaming - so a phone sitting backgrounded and idle in your pocket cannot have its camera opened from here.
+
 > [!NOTE]
-> Pairing is required before a remote stream can be used: the phone's `/v1/state`, `/v1/video`, `/v1/control`, and `/v1/ping` endpoints all require a bearer token that's only ever handed to a phone via a scanned QR code (Wi-Fi) or an adb broadcast restricted to the Telescope app (USB), so an unpaired device on the same network can't view the stream or send controls. The connection itself is still plain HTTP, not HTTPS - the token stops casual unauthorized access but doesn't provide confidentiality against a network observer. On public or shared networks, enable **Local only - USB** in the Android app to also bind the server to localhost only, so the stream and controls are reachable via USB alone.
+> Pairing is required before a remote stream can be used: the phone's `/v1/state`, `/v1/video`, `/v1/control`, `/v1/ping`, and `/v1/session` endpoints all require a bearer token that's only ever handed to a phone via a scanned QR code (Wi-Fi) or an adb broadcast restricted to the Telescope app (USB), so an unpaired device on the same network can't view the stream or send controls. The connection itself is still plain HTTP, not HTTPS - the token stops casual unauthorized access but doesn't provide confidentiality against a network observer. On public or shared networks, enable **Local only - USB** in the Android app to also bind the server to localhost only, so the stream and controls are reachable via USB alone.
 
 ---
 
@@ -157,7 +161,7 @@ desktop/main.py  (Python, PyQt6)
       |
       +-- telescope/plugins/        one plugin per UI card
             setup                   driver setup, canvas settings
-            connection              device list, IP dropdown, pairing dialog (pairing.py, port 8765) + pair-status probe (port 8766)
+            connection              device list, IP dropdown, pairing dialog (pairing.py, port 8765) + session channel (port 8766): pair-status probe, remote start/stop
             camera_control          lens, ISO, shutter, WB, OIS
             stream_output           resolution, FPS, JPEG quality
             transforms              flip, rotation, zoom, pan
@@ -165,7 +169,11 @@ desktop/main.py  (Python, PyQt6)
             monitoring              battery, temperature alerts
 ```
 
-A second, always-on responder on the phone (`PingServer`, port 8766) answers `GET /v1/ping` independently of the streaming server, so the desktop can confirm pairing status without a stream running.
+A second responder on the phone (`SessionServer`, port 8766) runs independently of the streaming server, so the desktop can reach the phone in exactly the state the streaming server doesn't exist in: idle. It answers `GET /v1/ping` (pairing status plus what the phone is currently doing) and `POST /v1/session` (start or stop the camera from the desktop).
+
+That second endpoint is why the desktop's Start button is the only one anyone has to press. Hitting Start asks the phone to bring its camera up, waits for it, then connects; hitting Stop takes the phone's camera back down. Starting on the phone still works exactly as before, and the desktop leaves a stream it finds already running alone.
+
+`SessionServer` stays bound while **either** `MainActivity` is on screen **or** `CameraStreamService` is running (see `SessionEndpoint`'s refcount). Those two owners are the safety boundary: a fully backgrounded, non-streaming app cannot be told to open the camera - which is also what keeps the start legal, since Android 12+ blocks starting a `camera`-type foreground service from the background. Covering the streaming case as well is what lets you stop and restart a session from the desktop after the phone's screen has gone dark.
 
 On **Linux**, two `v4l2loopback` devices are created (`/dev/video10` and `/dev/video11`). Telescope writes to `video11`; `video10` is intentionally left free for other software (e.g. OBS Virtual Camera).
 
@@ -197,7 +205,11 @@ telescope/
 |       |-- Protocol.kt          # kotlinx.serialization models for the v1 API
 |       |-- Pairing.kt           # QR payload (v2) parsing/validation, attempt ordering, failure text
 |       |-- MjpegServer.kt       # Authenticated HTTP: /v1/video  /v1/state  /v1/control
-|       |-- PingServer.kt        # Always-on pairing-status responder: GET /v1/ping (port 8766)
+|       |-- SessionServer.kt     # Out-of-band responder (port 8766): GET /v1/ping, POST /v1/session
+    |       |-- SessionEndpoint.kt   # Refcounted owner of SessionServer + the commands it runs
+    |       |-- StreamLauncher.kt    # Single place CameraStreamService is started from
+    |       |-- StreamPrefs.kt       # Last camera/resolution selection, for desktop-initiated starts
+    |       |-- HttpWire.kt          # The HTTP/1.1 subset MjpegServer and SessionServer share
 |       +-- TokenStore.kt        # Persists the single active pairing bearer token
 |
 +-- desktop/
@@ -222,7 +234,8 @@ telescope/
         |-- plugin.py            # TelescopePlugin base class, EventBus, HostServices protocol
         |-- config.py            # Versioned JSON config (v2) with per-section validation
         |-- models.py            # Typed contracts: PhoneState, CameraCapabilities, DeviceProfile, StreamSettings
-        |-- phone_client.py      # Authenticated HTTP client for /v1/state and /v1/control
+        |-- phone_client.py      # Authenticated HTTP client for /v1/state and /v1/control (port 8080)
+        |-- session_client.py    # Authenticated HTTP client for /v1/ping and /v1/session (port 8766)
         |-- pairing.py           # PairingServer: Qt-free pairing HTTP handshake (nonce/token, no PyQt import)
         |-- platform/
         |   |-- linux.py         # v4l2loopback helpers (load, unload, reload)
@@ -252,7 +265,9 @@ Runs a **foreground service** (declared type `camera`, required on Android 14+) 
 - `GET /v1/state` - JSON of all detected cameras + current exposure/WB/battery state
 - `POST /v1/control` - live camera control, JSON body
 
-A separate, always-on HTTP responder (`PingServer`, port 8766) runs independently of the streaming service, tied to the main screen's own lifecycle rather than the foreground service - `GET /v1/ping` checks the request's bearer token against the currently stored pairing token and returns 200 or 401. This lets the desktop confirm the phone is reachable and correctly paired before a stream is ever started, not just whether a token happens to be saved locally.
+A separate HTTP responder (`SessionServer`, port 8766) runs independently of the streaming service. `GET /v1/ping` checks the request's bearer token against the currently stored pairing token, returning 200 or 401 plus a small JSON body saying whether the phone is streaming, mid-start, or bound local-only. `POST /v1/session` starts or stops the camera on the desktop's behalf, reproducing the camera and resolution last chosen on the phone (persisted by `StreamPrefs`, since the spinners may not exist when the request arrives).
+
+Its lifetime is refcounted by `SessionEndpoint` across two owners: `MainActivity` while it is started, and `CameraStreamService` while it is running. So the desktop can confirm pairing before any stream exists, start one, and stop or restart it later even if the phone's screen has since gone dark - but an app that is both backgrounded and idle is unreachable, and a remote start in that state is impossible by construction.
 
 The app enumerates **physical sub-cameras** of logical multi-camera groups via `CameraCharacteristics.physicalCameraIds` (API 28+). On many modern phones the logical back camera (ID `0`) hides individual wide/main/telephoto sensors behind it; this app surfaces all of them and lets you pick.
 
@@ -393,7 +408,7 @@ The release zip bundles the UnityCapture DLLs already; the app registers them fr
 
 ## Control API reference
 
-Server is on the phone at port 8080 for `/v1/video`, `/v1/state`, and `/v1/control` (all only exist while actively streaming); a separate always-on responder on port 8766 serves `/v1/ping`. Every request below requires an `Authorization: Bearer <token>` header carrying the token issued during pairing; missing or mismatched tokens get `401`.
+Server is on the phone at port 8080 for `/v1/video`, `/v1/state`, and `/v1/control` (all only exist while actively streaming); a separate responder on port 8766 serves `/v1/ping` and `/v1/session`. Every request below requires an `Authorization: Bearer <token>` header carrying the token issued during pairing; missing or mismatched tokens get `401`.
 
 ### `GET /v1/state`
 
@@ -476,7 +491,33 @@ All responses: `{"ok": true}` or `{"ok": false, "error": "..."}`.
 
 ### `GET /v1/ping`
 
-Served on a separate port, 8766, by an always-on responder independent of the streaming service - unlike the three endpoints above, it exists whether or not a stream is running. Same bearer-token auth. Returns `200` if the token matches, `401` if it doesn't, no body either way - used by the desktop to check pairing status before starting a stream.
+Served on a separate port, 8766, by `SessionServer` - unlike the three endpoints above, it exists whether or not a stream is running (while the app's main screen is up, or while the camera service is running, or both). Same bearer-token auth. Returns `200` if the token matches, `401` if it doesn't.
+
+```json
+{
+  "protocol": 1,
+  "streaming": false,
+  "busy": false,
+  "localOnly": true
+}
+```
+
+The status code alone still carries the pairing verdict, so a desktop that only reads it keeps working. The body tells a newer one what the phone is actually doing: `streaming` is a live stream, `busy` is a start in flight (camera opening, session configuring), and `localOnly` mirrors the app's **Local only - USB** setting, so the desktop can name that mismatch instead of timing out against an address nothing is listening on.
+
+### `POST /v1/session`
+
+Also on 8766. JSON body `{"action": "start"}` or `{"action": "stop"}`; same auth and the same `{"ok": true}` / `{"ok": false, "error": "..."}` responses as `/v1/control`. This is what makes the desktop's Start button sufficient on its own.
+
+| `action` | effect |
+|---|---|
+| `start` | Start the camera service, reproducing the camera/resolution/OIS selection last used on the phone. `{"ok": true}` if a stream is already running. |
+| `stop` | Stop the camera service. `{"ok": true}` if nothing was running. |
+
+Refusal reasons, all reported with HTTP `200` and `"ok": false` (the request was fine, the camera wouldn't open): `no_camera_permission`, `busy` (a start is already in flight), `start_refused` (Android declined the foreground-service start).
+
+A start is only accepted while `SessionServer` is bound at all, i.e. the app's main screen is up or the camera service is already running - so this cannot open the camera on a phone that is both backgrounded and idle.
+
+The desktop polls `/v1/ping` after a start until `streaming` goes true (12s budget), because the service answers as soon as the start is accepted, well before the capture session is configured. A `404` here means an APK predating this endpoint: the desktop falls back to connecting to a stream started by hand, exactly as it did before.
 
 ### QR pairing payload
 

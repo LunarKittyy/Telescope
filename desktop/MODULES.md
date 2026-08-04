@@ -24,8 +24,9 @@ Calls `win.apply_saved_config()` **after** all plugins are registered so every p
 - `_show_settings_menu()` — builds the header's gear menu fresh on each click from every plugin's `create_menu_actions()`.
 - Re-exports `STATUS_COLORS` from `theme.py`; `APP_VERSION` is the string shown next to the wordmark.
 - `apply_saved_config()` — call after all plugins are registered; restores config round-trip for each plugin.
-- `_start()` — calls `conn.get_stream_info()` for URL (validates ADB/v4l2, builds URL), queries `stream_output.get_stream_params()` for worker dimensions.
-- `_stop()` — tears down worker and ctrl; `on_stream_stop()` on each plugin (ConnectionPlugin unforwards ADB there).
+- **Two-phase start.** `_start()` calls `conn.get_stream_info()` for the URL (validates ADB/v4l2, builds URL), then hands off to `_spawn_wake()` — a background `conn.ensure_phone_streaming()` that brings the phone's camera up so the desktop's Start button is the only one anyone presses. `_on_wake_done()` (Qt slot) either runs `_begin_stream(url, token)`, which is the old synchronous body (worker, ctrl, pipeline, `on_stream_start()`), or re-enables the button and shows the reason. A `_wake_id` generation counter drops any result that lands after the user hit Stop, switched device, or quit. `_spawn_wake()` is split out for the same reason as `ConnectionPlugin._spawn_pair_probe()`: tests make it synchronous.
+- `_stop(remote_stop=True)` — tears down worker and ctrl; `on_stream_stop()` on each plugin (ConnectionPlugin unforwards ADB there); invalidates any in-flight wake; and takes the phone's camera down with it via `_stop_phone_async()`. `remote_stop=False` is for the internal stop/start pairs that are really a desktop-side reconnect (`reconnect_stream()`, `restart_vcam_canvas()`) — bouncing the phone there would cost seconds and a lens re-open for nothing.
+- `_stop_phone_async()` / `_drain_phone_stops(timeout=2.0)` — the remote stop runs off the UI thread but is tracked rather than fire-and-forget, so the quit paths (`closeEvent`, `_tray_quit`) can give it a bounded moment to actually leave the machine.
 - Implements the public **`HostServices`** contract plugins call on `host` (see `plugin.py`): `schedule_save()`, `save_now()`, `switch_device()`, `reconnect_stream()`, `send_notification()`, `is_streaming()`, `stop_stream()`, `update_stream_output()`, `restart_vcam_canvas()`. Plugins go through these public methods only — they never touch private (`_`-prefixed) window internals like `_worker`/`_stop()`.
 - `send_notification(title, body)` — uses `notify-send` on Linux, tray balloon on Windows.
 - `save_now()` — writes global plugin configs (connection, setup) and per-device configs (camera_control, stream_output, transforms, monitoring) under `devices[selected]`. `schedule_save()` is the debounced variant plugins call after a settings change.
@@ -95,6 +96,12 @@ Qt-free address helpers shared by the pairing flow and the device panel.
 - `MAX_PAIRING_CANDIDATES = 8` — cap on what goes into the QR code.
 - `rank_ip()` / `best_ip()` / `extract_ip()` / `valid_ipv4()` — used for the *phone's* reported addresses in the device panel, unrelated to desktop discovery.
 
+### `session_client.py`
+**PhoneSessionClient** — authenticated HTTP client for the phone's session port (8766), where `SessionServer` answers whether or not a stream is running. Qt-free, like `pairing.py` and `ip_utils.py`.
+- `ping()` → `PingResult(status, streaming, busy, local_only)` — `status` keeps the panel's existing `paired`/`not_paired`/`unreachable` vocabulary and the exact status-code mapping the old probe used. The state fields are `None` against an app predating the JSON body; `knows_session` is the flag for that.
+- `start()` / `stop()` → `SessionResult(ok, error, unsupported)` — `unsupported` is its own outcome, set on a `404`, so an old APK means "fall back to connect-only" rather than "error".
+- Owns `PING_PORT = 8766`, `REQUEST_TIMEOUT`, `START_TIMEOUT`, `START_POLL_INTERVAL`.
+
 ### `pairing.py`
 **PairingServer** — the Qt-free one-shot pairing handshake: bind a port, mint a nonce and bearer token, wait for the phone's `POST /pair/{nonce}` echoing the token back.
 - `start(advertise=None)` → `PairingOffer(payload, port, nonce, token, candidates)`, or `None` when there's no usable address. `advertise` overrides discovery — the USB path passes the loopback candidate reached through `adb reverse`.
@@ -145,9 +152,12 @@ UnityCapture helpers: `uc_is_registered()`, `unitycapture_dir()`, `download_unit
 - UI: Wi-Fi/USB segmented toggle, pairing status + Pair Device button, IP combo, port field.
 - `create_header_widget()` returns the device picker (combo + manage-devices gear) for the window header. Built eagerly in `create_panel()` via `_build_device_picker()`, so a host that never asks for a header still gets a working plugin — the combo is moved there, never duplicated.
 - `_set_wifi_rows_visible(v)` — flips the header picker and the panel's address row together, since both are Wi-Fi-only.
-- `get_stream_info()` → `(url, ok)` — validates port, checks v4l2loopback (Linux), ADB-forwards if USB mode; called by `app.py._start()`. Shows error dialogs on failure.
+- `get_stream_info()` → `(url, token, ok)` — validates port, checks v4l2loopback (Linux), ADB-forwards if USB mode; called by `app.py._start()`. Shows error dialogs on failure.
+- `session_channel(token=None, usb=None)` — context manager yielding `(PhoneSessionClient, unavailable_status)` for the phone's port 8766. Wi-Fi hits the device IP directly; USB sets up a short-lived `adb forward` dedicated to that port and tears it down on exit. The single path used by the pair-status probe *and* the remote start/stop, so the two can't drift.
+- `ensure_phone_streaming()` → `(ok, reason)` — brings the phone's camera up if it isn't already, then polls `/v1/ping` until it reports streaming (12s budget). Returns early when already streaming, and passes through (`True`) when the phone is too old to know `/v1/session`, so an APK mismatch degrades to connect-only rather than blocking. `reason` is display text. **Blocking — background thread only.**
+- `stop_phone_streaming()` — best-effort `POST /v1/session {"action":"stop"}`. **Blocking — background thread only.**
 - `on_stream_stop()` — unforwards ADB if a forward was established this session.
-- `_AddDeviceDialog` (module-private) — dialog for adding a named Wi-Fi device.
+- `_DeviceDialog` / `_DeviceManagerDialog` (module-private) — the add/edit dialog and the device-list manager behind the header's gear button.
 - Config keys: `mode`, `port`, `devices_list` (no `selected_device` — it lives at config top-level).
 - `select_device(name)` — called by host after `set_config()` to set the combo selection without triggering device-change logic.
 - `DEFAULT_PORT = 8080` defined here.
@@ -167,7 +177,7 @@ UnityCapture helpers: `uc_is_registered()`, `unitycapture_dir()`, `download_unit
 - UI: resolution combo (pass-through / 1080p / 720p / 480p / 360p), playback FPS spinbox, JPEG quality slider, phone FPS spinbox.
 - `get_stream_params()` → `(width, height, fps)` — called by `app.py._start()` to construct `StreamWorker`.
 - `on_stream_start`: stores ctrl, schedules `_push_initial_settings` via `QTimer.singleShot(1500)` to sync quality/fps to the phone after connect.
-- Resolution and FPS changes call `host._worker.update_output()` for hot-swap without stream restart.
+- Resolution and FPS changes go through the public `host.update_stream_output()` for hot-swap without stream restart.
 - Config keys: `resolution`, `fps`, `jpeg_quality`, `phone_fps`.
 
 ### `plugins/preview.py`

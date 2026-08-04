@@ -52,7 +52,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnCopyDiagnostics: MaterialButton
     private var _permissionsRequested = false
 
-    private val prefs by lazy { getSharedPreferences("telescope", MODE_PRIVATE) }
 
     private var service: CameraStreamService? = null
     private var bound = false
@@ -67,6 +66,7 @@ class MainActivity : AppCompatActivity() {
     private val uiHandler = Handler(Looper.getMainLooper())
     private val statusPoller = object : Runnable {
         override fun run() {
+            adoptRemoteStart()
             updateStatusText()
             uiHandler.postDelayed(this, 1000)
         }
@@ -108,9 +108,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Lets the desktop confirm pairing status before it has any stream
-    // running (MjpegServer only exists once one does) - see PingServer.
-    private val pingServer = PingServer(PingServer.DEFAULT_PORT) { TokenStore.get(this) }
+    // True once this screen has seen a stream it did not itself start, so the
+    // "started from your desktop" toast fires once per remote start rather
+    // than on every tick of statusPoller.
+    private var remoteStartAnnounced = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -133,9 +134,9 @@ class MainActivity : AppCompatActivity() {
         layoutPermissionsContainer = findViewById(R.id.layoutPermissionsContainer)
         btnCopyDiagnostics         = findViewById(R.id.btnCopyDiagnostics)
 
-        checkLocalOnly.isChecked = prefs.getBoolean("local_only", false)
+        checkLocalOnly.isChecked = StreamPrefs.localOnly(this)
         checkLocalOnly.setOnCheckedChangeListener { _, checked ->
-            prefs.edit().putBoolean("local_only", checked).apply()
+            StreamPrefs.setLocalOnly(this, checked)
             if (service?.isStreaming == true) {
                 service?.stopStreaming()
                 if (bound) { unbindService(serviceConnection); bound = false; service = null }
@@ -184,7 +185,10 @@ class MainActivity : AppCompatActivity() {
         super.onStart()
         bindService(Intent(this, CameraStreamService::class.java), serviceConnection, 0)
         uiHandler.post(statusPoller)
-        pingServer.start()
+        // Reachable while this screen is up; CameraStreamService holds its own
+        // reference while streaming, so the desktop keeps a channel even after
+        // the phone's screen goes dark mid-session - see SessionEndpoint.
+        SessionEndpoint.acquire(this, SessionEndpoint.OWNER_ACTIVITY)
         // RECEIVER_NOT_EXPORTED silently drops this broadcast entirely - "not
         // exported" means only senders sharing this app's own UID qualify,
         // and adb shell (uid 2000, "shell") doesn't. Exported is required for
@@ -202,7 +206,7 @@ class MainActivity : AppCompatActivity() {
         uiHandler.removeCallbacks(statusPoller)
         if (bound) { unbindService(serviceConnection); bound = false }
         unregisterReceiver(pairReceiver)
-        pingServer.stop()
+        SessionEndpoint.release(SessionEndpoint.OWNER_ACTIVITY)
         super.onStop()
     }
 
@@ -584,19 +588,49 @@ class MainActivity : AppCompatActivity() {
         val cam  = cameras[camIdx]
         val size = cam.supportedSizes.getOrNull(resIdx) ?: cam.supportedSizes.first()
 
-        val intent = Intent(this, CameraStreamService::class.java).apply {
-            putExtra(CameraStreamService.EXTRA_CAMERA_ID,   cam.id)
-            putExtra(CameraStreamService.EXTRA_LOGICAL_ID,  cam.logicalId ?: "")
-            putExtra(CameraStreamService.EXTRA_WIDTH,        size.width)
-            putExtra(CameraStreamService.EXTRA_HEIGHT,       size.height)
-            putExtra(CameraStreamService.EXTRA_OIS,          checkOis.isChecked && cam.hasOis)
-            putExtra(CameraStreamService.EXTRA_LOCAL_ONLY,   checkLocalOnly.isChecked)
-        }
-        ContextCompat.startForegroundService(this, intent)
+        val selection = StreamPrefs.Selection(
+            cameraId = cam.id,
+            logicalId = cam.logicalId ?: "",
+            width = size.width,
+            height = size.height,
+            ois = checkOis.isChecked && cam.hasOis,
+        )
+        // Remembered so a desktop-initiated start reproduces this exact
+        // selection - it has no spinners to read. Written before the launch so
+        // the record is in place even if the service start itself fails.
+        StreamPrefs.saveSelection(this, selection)
 
+        if (StreamLauncher.start(this, selection) !is StreamLauncher.Result.Started) return false
+
+        rebindToService()
+        return true
+    }
+
+    /**
+     * The desktop can start the stream through [SessionServer] while this
+     * screen is up. Nothing routes that back through [serviceConnection]:
+     * `bindService` with flags `0` against a service that did not exist at the
+     * time simply never connects, so without this the button would still read
+     * "Start Streaming" over a live stream. Cheap enough to check on the
+     * existing 1 s tick.
+     */
+    private fun adoptRemoteStart() {
+        val service = CameraStreamService.instance
+        if (service == null) {
+            // Nothing running; arm the announcement for the next remote start.
+            remoteStartAnnounced = false
+            return
+        }
+        if (!bound) rebindToService()
+        if (!remoteStartAnnounced && service.startedRemotely && service.isStreaming) {
+            remoteStartAnnounced = true
+            Toast.makeText(this, "Streaming started from your desktop", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun rebindToService() {
         if (bound) { unbindService(serviceConnection); bound = false }
         bindService(Intent(this, CameraStreamService::class.java), serviceConnection, 0)
-        return true
     }
 
     // ── Status ─────────────────────────────────────────────────────────────────
