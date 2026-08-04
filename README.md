@@ -16,7 +16,7 @@ Download `Telescope.apk` from the [latest release](../../releases) and install i
 adb install Telescope.apk
 ```
 
-No adb handy? Sideload the APK from your phone's file manager instead ("Install unknown apps"), or skip this and let the desktop app install it for you in step 2.
+No adb handy? Sideload the APK from your phone's file manager instead ("Install unknown apps"). The desktop app can also install it for you in step 2, but that route needs adb too - bundled on Windows, not on Linux (see below).
 
 ### 2. Run the desktop app
 
