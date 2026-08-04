@@ -58,6 +58,15 @@ class PairingServer:
     single phone's pairing POST against it."""
 
     _MAX_BODY_BYTES = 16 * 1024
+    # Cap on how much of an oversized body we'll drain before rejecting it.
+    # Closing a socket while the kernel still has unread bytes queued sends
+    # an abortive RST instead of a graceful close - Windows then discards
+    # the client's receive buffer on that RST, so the client never gets to
+    # read our 413 (ConnectionAbortedError / WinError 10053) even though we
+    # already wrote it. Draining avoids that for any reasonably-sized
+    # oversized body; a wildly large Content-Length just eats the RST, which
+    # is fine since that's already an abuse case, not a real client.
+    _DRAIN_LIMIT = 1024 * 1024
 
     def __init__(self, on_paired: Callable[[PairingResult], None]):
         self._on_paired = on_paired
@@ -105,6 +114,7 @@ class PairingServer:
         # current QR code.
         token = secrets.token_urlsafe(32)
         max_body = self._MAX_BODY_BYTES
+        drain_limit = self._DRAIN_LIMIT
         pair_path = f"/pair/{nonce}"
         on_paired = self._on_paired
 
@@ -123,6 +133,11 @@ class PairingServer:
                 except (TypeError, ValueError):
                     self.send_response(411); self.end_headers(); return
                 if length < 0 or length > max_body:
+                    if 0 <= length <= drain_limit:
+                        try:
+                            self.rfile.read(length)
+                        except Exception:
+                            pass
                     self.send_response(413); self.end_headers(); return
                 body = self.rfile.read(length)
                 try:
