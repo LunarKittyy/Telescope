@@ -66,7 +66,8 @@ instead? Skip this and use <b>Install APK</b> in step 2, which lets you pick tha
 <hr>
 
 <h3><span class="step">2.</span> Set up the desktop app</h3>
-<p>Click <b>Setup Drivers &amp; APK</b>. It sets up the virtual camera and can install the phone
+<p>Click the gear icon in the top right (next to <b>Start Streaming</b>) and choose
+<b>Setup Drivers &amp; APK</b>. It sets up the virtual camera and can install the phone
 app for you. You only need to open this once - if it already says everything's ready, there's
 nothing left to do here.</p>
 <p><b>Linux:</b> the <code>v4l2loopback</code> kernel module needs to be installed first via your

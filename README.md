@@ -39,7 +39,7 @@ Then run the `dnf install v4l2loopback` command above again.
 
 </details>
 
-**Both platforms:** on first launch, click **Setup Drivers & APK**. It sets up the virtual camera and can install the phone app for you (you'll be asked to pick the APK you downloaded). You only need to open this dialog once - if it already says everything's ready, there's nothing left to do here.
+**Both platforms:** on first launch, click the gear icon in the top right (next to the **Start Streaming** button) and choose **Setup Drivers & APK**. It sets up the virtual camera and can install the phone app for you (you'll be asked to pick the APK you downloaded). You only need to open this dialog once - if it already says everything's ready, there's nothing left to do here.
 
 ### 3. Pair your phone
 
