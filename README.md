@@ -12,8 +12,9 @@ You'll need an Android phone and a PC running Linux or Windows.
 
 Open the [latest release](../../releases) page, expand **Assets**, and tap `Telescope.apk`. (Assets is just a plain list of downloadable files - ignore everything else on that page.)
 
-- **Easiest:** open that link on your phone's own browser and tap the APK to install it. Your phone will ask to allow "install from this source" the first time - allow it.
-- **Downloaded it on your PC instead?** No problem - skip this step and use the **Install APK** button in step 2, which lets you pick that file.
+**Easiest:** open that link on your phone's own browser and tap the APK to install it. Your phone will ask to allow "install from this source" the first time - allow it.
+
+(Downloaded it on your PC instead of your phone? That's fine too - the desktop app you're about to install can put it on your phone for you.)
 
 ### 2. Run the desktop app
 
@@ -23,26 +24,27 @@ Download `Telescope-windows.zip` from the same [releases page](../../releases), 
 
 **Linux**
 
-1. Download `Telescope-linux.tar.gz` from the [releases page](../../releases), extract it, and run `./start.sh`.
-2. Install the `v4l2loopback` kernel module - it's what the virtual camera runs on, and Telescope can turn it on and off but not install it:
-   - **Debian/Ubuntu:** `sudo apt install v4l2loopback-dkms`
-   - **Fedora/Nobara:** `sudo dnf install v4l2loopback`
+Download `Telescope-linux.tar.gz` from the [releases page](../../releases), extract it, and run `./start.sh`. You'll also need a couple of things from your package manager:
 
-<details>
-<summary>Fedora says it can't find that package?</summary>
+- **`v4l2loopback`** - what the virtual camera runs on. Telescope can turn it on and off but not install it.
+  - Debian/Ubuntu: `sudo apt install v4l2loopback-dkms`
+  - Fedora/Nobara: `sudo dnf install v4l2loopback`
 
-You need [RPM Fusion](https://rpmfusion.org/) enabled first (most Fedora installs don't have it by default - Nobara already does):
-```bash
-sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
-```
-Then run the `dnf install v4l2loopback` command above again.
+  <details>
+  <summary>Fedora says it can't find that package?</summary>
 
-</details>
+  You need [RPM Fusion](https://rpmfusion.org/) enabled first (most Fedora installs don't have it by default - Nobara already does):
+  ```bash
+  sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
+  ```
+  Then run the `dnf install v4l2loopback` command above again.
 
-3. *(Optional)* Install `adb` - only needed if you'll pair over USB in step 3, or want the **Install APK** button below to install the phone app for you instead of doing it yourself in step 1:
-   - **Debian/Ubuntu:** `sudo apt install adb`
-   - **Fedora/Nobara:** `sudo dnf install android-tools`
-   - **Arch:** `sudo pacman -S android-tools`
+  </details>
+
+- **`adb`** *(optional)* - only needed for pairing your phone over USB, or if you want the desktop app to install the phone app for you instead of doing it on your phone yourself.
+  - Debian/Ubuntu: `sudo apt install adb`
+  - Fedora/Nobara: `sudo dnf install android-tools`
+  - Arch: `sudo pacman -S android-tools`
 
 **Both platforms:** on first launch, click the gear icon in the top right (next to the **Start Streaming** button) and choose **Setup Drivers & APK**. It sets up the virtual camera and can install the phone app for you (you'll be asked to pick the APK you downloaded). You only need to open this dialog once - if it already says everything's ready, there's nothing left to do here.
 
@@ -51,7 +53,7 @@ Then run the `dnf install v4l2loopback` command above again.
 Open Telescope on your phone and leave it on screen. On the desktop app, click **Pair Device**, then pick one:
 
 - **Wi-Fi:** scan the QR code with your phone's scan button.
-- **USB:** click **Pair via ADB** (needs `adb` on your PATH - bundled on Windows, see step 2 for Linux).
+- **USB:** click **Pair via ADB** (needs `adb` on your PATH - bundled on Windows; on Linux, install it via your package manager: `adb` on Debian/Ubuntu, `android-tools` on Fedora/Nobara and Arch).
 
 ### 4. Start streaming
 
