@@ -8,7 +8,7 @@ Stream your Android phone's camera - including telephoto and wide-angle lenses -
 
 You'll need an Android phone and a PC running Linux or Windows.
 
-### 1. Install the phone app
+### 1. 📱 Install the phone app
 
 Open the [latest release](../../releases) page, expand **Assets**, and tap `Telescope.apk`. (Assets is just a plain list of downloadable files - ignore everything else on that page.)
 
@@ -16,13 +16,13 @@ Open the [latest release](../../releases) page, expand **Assets**, and tap `Tele
 
 (Downloaded it on your PC instead of your phone? That's fine too - the desktop app you're about to install can put it on your phone for you.)
 
-### 2. Run the desktop app
+### 2. 🖥️ Run the desktop app
 
-**Windows**
+**🪟 Windows**
 
 Download `Telescope-windows.zip` from the same [releases page](../../releases), extract it, and run `TelescopeDesktop.exe`.
 
-**Linux**
+**🐧 Linux**
 
 Download `Telescope-linux.tar.gz` from the [releases page](../../releases), extract it, and run `./start.sh`. You'll also need a couple of things from your package manager:
 
@@ -31,7 +31,7 @@ Download `Telescope-linux.tar.gz` from the [releases page](../../releases), extr
   - Fedora/Nobara: `sudo dnf install v4l2loopback`
 
   <details>
-  <summary>Fedora says it can't find that package?</summary>
+  <summary>💡 Fedora says it can't find that package?</summary>
 
   You need [RPM Fusion](https://rpmfusion.org/) enabled first (most Fedora installs don't have it by default - Nobara already does):
   ```bash
@@ -41,21 +41,21 @@ Download `Telescope-linux.tar.gz` from the [releases page](../../releases), extr
 
   </details>
 
-- **`adb`** *(optional)* - only needed for pairing your phone over USB, or if you want the desktop app to install the phone app for you instead of doing it on your phone yourself.
+- 💡 **`adb`** *(optional)* - only needed for pairing your phone over USB, or if you want the desktop app to install the phone app for you instead of doing it on your phone yourself.
   - Debian/Ubuntu: `sudo apt install adb`
   - Fedora/Nobara: `sudo dnf install android-tools`
   - Arch: `sudo pacman -S android-tools`
 
 **Both platforms:** on first launch, click the gear icon in the top right (next to the **Start Streaming** button) and choose **Setup Drivers & APK**. It sets up the virtual camera and can install the phone app for you (you'll be asked to pick the APK you downloaded). You only need to open this dialog once - if it already says everything's ready, there's nothing left to do here.
 
-### 3. Pair your phone
+### 3. 🔗 Pair your phone
 
 Open Telescope on your phone and leave it on screen. On the desktop app, click **Pair Device**, then pick one:
 
 - **Wi-Fi:** scan the QR code with your phone's scan button.
 - **USB:** click **Pair via ADB** (needs `adb` on your PATH - bundled on Windows; on Linux, install it via your package manager: `adb` on Debian/Ubuntu, `android-tools` on Fedora/Nobara and Arch).
 
-### 4. Start streaming
+### 4. ▶️ Start streaming
 
 Pick a camera and resolution on the phone, then hit **Start Streaming** on the desktop - it starts the phone's camera for you. In OBS (or anywhere else), select **Phone Camera** (Linux) or **Unity Video Capture** (Windows) as your webcam.
 
@@ -67,7 +67,7 @@ Everything past this point is optional - detailed feature reference, how it work
 ---
 
 <details>
-<summary><b>Features</b></summary>
+<summary>🎛️ <b>Features</b></summary>
 
 ## Features
 
@@ -129,7 +129,7 @@ Everything past this point is optional - detailed feature reference, how it work
 </details>
 
 <details>
-<summary><b>Why</b></summary>
+<summary>💡 <b>Why</b></summary>
 
 ## Why
 
@@ -138,7 +138,7 @@ Most Android camera streaming solutions either lock you to a specific app ecosys
 </details>
 
 <details>
-<summary><b>Architecture</b></summary>
+<summary>🏗️ <b>Architecture</b></summary>
 
 ## Architecture
 
@@ -179,7 +179,7 @@ On **Windows**, the virtual camera is [UnityCapture](https://github.com/schellin
 </details>
 
 <details>
-<summary><b>Repository layout</b></summary>
+<summary>🗂️ <b>Repository layout</b></summary>
 
 ## Repository layout
 
@@ -256,7 +256,7 @@ telescope/
 </details>
 
 <details>
-<summary><b>Android app</b></summary>
+<summary>📱 <b>Android app</b></summary>
 
 ## Android app
 
@@ -316,7 +316,7 @@ This is a debug build - self-signed, for personal/development use.
 </details>
 
 <details>
-<summary><b>Desktop app</b></summary>
+<summary>🖥️ <b>Desktop app</b></summary>
 
 ## Desktop app
 
@@ -421,7 +421,7 @@ The release zip bundles the UnityCapture DLLs already; the app registers them fr
 </details>
 
 <details>
-<summary><b>Control API reference</b></summary>
+<summary>📡 <b>Control API reference</b></summary>
 
 ## Control API reference
 
@@ -562,7 +562,7 @@ The desktop also notes the source address that request arrived from. That addres
 </details>
 
 <details>
-<summary><b>License</b></summary>
+<summary>⚖️ <b>License</b></summary>
 
 ## License
 
@@ -599,7 +599,7 @@ See `desktop/platform-tools/NOTICE` and https://developer.android.com/studio/ter
 </details>
 
 <details>
-<summary><b>CI / GitHub Actions</b></summary>
+<summary>⚙️ <b>CI / GitHub Actions</b></summary>
 
 ## CI / GitHub Actions
 
@@ -640,7 +640,7 @@ Run in both desktop CI workflows before assembling the bundle: constructs the fu
 </details>
 
 <details>
-<summary><b>Troubleshooting</b></summary>
+<summary>🛠️ <b>Troubleshooting</b></summary>
 
 ## Troubleshooting
 

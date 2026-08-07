@@ -58,14 +58,15 @@ _GUIDE_HTML = """
 </style>
 <h2>Quick Start</h2>
 
-<h3><span class="step">1.</span> Install the phone app</h3>
+<h3><span class="step">1.</span> 📱 Install the phone app</h3>
 <p>Open the latest release on GitHub, find <code>Telescope.apk</code> under Assets, and tap it
-on your phone's own browser to install it directly - easiest option. Downloaded it on your PC
-instead? Skip this and use <b>Install APK</b> in step 2, which lets you pick that file.</p>
+on your phone's own browser to install it directly - easiest option.<br>
+(Downloaded it on your PC instead of your phone? That's fine too - the desktop app can put it
+on your phone for you.)</p>
 
 <hr>
 
-<h3><span class="step">2.</span> Set up the desktop app</h3>
+<h3><span class="step">2.</span> 🖥️ Set up the desktop app</h3>
 <p>Click the gear icon in the top right (next to <b>Start Streaming</b>) and choose
 <b>Setup Drivers &amp; APK</b>. It sets up the virtual camera and can install the phone
 app for you. You only need to open this once - if it already says everything's ready, there's
@@ -78,7 +79,7 @@ enabled on your phone and <code>adb</code> on your PATH.</p>
 
 <hr>
 
-<h3><span class="step">3.</span> Pair your phone</h3>
+<h3><span class="step">3.</span> 🔗 Pair your phone</h3>
 <p>Open Telescope on your phone and leave it on screen. On the desktop, click <b>Pair Device</b>, then pick one:</p>
 <ul>
   <li><b>Wi-Fi:</b> scan the QR code with your phone's scan button.</li>
@@ -87,7 +88,7 @@ enabled on your phone and <code>adb</code> on your PATH.</p>
 
 <hr>
 
-<h3><span class="step">4.</span> Start streaming</h3>
+<h3><span class="step">4.</span> ▶️ Start streaming</h3>
 <p>Pick a camera and resolution on the phone, then hit <b>Start Streaming</b> on the desktop - it starts
 the phone's camera for you. In OBS (or anywhere else), select <b>Phone Camera</b> (Linux) or
 <b>Unity Video Capture</b> (Windows) as your webcam.</p>
