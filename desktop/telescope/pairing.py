@@ -124,20 +124,31 @@ class PairingServer:
                 self.end_headers()
                 self.wfile.write(b"Telescope pairing server")
 
+            def _drain(self, length):
+                # See _DRAIN_LIMIT above: any response path that returns
+                # without reading a body the client already sent must drain
+                # it first, or the close races an unread-data RST on Windows
+                # that can wipe out the response we just wrote.
+                if length is not None and 0 <= length <= drain_limit:
+                    try:
+                        self.rfile.read(length)
+                    except Exception:
+                        pass
+
             def do_POST(self):
-                if self.path != pair_path:
-                    self.send_response(404); self.end_headers(); return
                 length_hdr = self.headers.get("Content-Length")
                 try:
                     length = int(length_hdr)
                 except (TypeError, ValueError):
+                    length = None
+
+                if self.path != pair_path:
+                    self._drain(length)
+                    self.send_response(404); self.end_headers(); return
+                if length is None:
                     self.send_response(411); self.end_headers(); return
                 if length < 0 or length > max_body:
-                    if 0 <= length <= drain_limit:
-                        try:
-                            self.rfile.read(length)
-                        except Exception:
-                            pass
+                    self._drain(length)
                     self.send_response(413); self.end_headers(); return
                 body = self.rfile.read(length)
                 try:
