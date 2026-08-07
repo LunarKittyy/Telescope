@@ -39,6 +39,11 @@ Then run the `dnf install v4l2loopback` command above again.
 
 </details>
 
+3. *(Optional)* Install `adb` - only needed if you'll pair over USB in step 3, or want the **Install APK** button below to install the phone app for you instead of doing it yourself in step 1:
+   - **Debian/Ubuntu:** `sudo apt install adb`
+   - **Fedora/Nobara:** `sudo dnf install android-tools`
+   - **Arch:** `sudo pacman -S android-tools`
+
 **Both platforms:** on first launch, click the gear icon in the top right (next to the **Start Streaming** button) and choose **Setup Drivers & APK**. It sets up the virtual camera and can install the phone app for you (you'll be asked to pick the APK you downloaded). You only need to open this dialog once - if it already says everything's ready, there's nothing left to do here.
 
 ### 3. Pair your phone
@@ -46,7 +51,7 @@ Then run the `dnf install v4l2loopback` command above again.
 Open Telescope on your phone and leave it on screen. On the desktop app, click **Pair Device**, then pick one:
 
 - **Wi-Fi:** scan the QR code with your phone's scan button.
-- **USB:** click **Pair via ADB** (needs `adb` on your PATH - bundled on Windows, install it via your package manager on Linux, package is usually `adb` or `android-tools`).
+- **USB:** click **Pair via ADB** (needs `adb` on your PATH - bundled on Windows, see step 2 for Linux).
 
 ### 4. Start streaming
 
