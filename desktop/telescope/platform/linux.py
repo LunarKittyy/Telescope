@@ -86,8 +86,15 @@ def v4l2_load() -> tuple:
         f"devices={p['devices']}", f"video_nr={p['video_nr']}",
         f"card_label={p['card_label']}",
         f"exclusive_caps={p['exclusive_caps']}"], timeout=60)
-    return (True, f"Loaded: {V4L2_PHONE_DEV} + {V4L2_OBS_DEV}") \
-        if rc == 0 else (False, err or "modprobe failed")
+    if rc == 0:
+        return True, f"Loaded: {V4L2_PHONE_DEV} + {V4L2_OBS_DEV}"
+    if "not found" in (err or "").lower():
+        return False, (
+            "v4l2loopback isn't installed. Install it via your package manager "
+            "(v4l2loopback-dkms on Debian/Ubuntu/Arch, v4l2loopback via RPM Fusion "
+            "on Fedora/Nobara), then try again."
+        )
+    return False, err or "modprobe failed"
 
 
 # ── Persistent config (opt-in) ───────────────────────────────────────────

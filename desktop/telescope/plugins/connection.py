@@ -701,8 +701,10 @@ class ConnectionPlugin(TelescopePlugin):
                 QMessageBox.warning(
                     self._host, "v4l2loopback conflict",
                     f"v4l2loopback is already loaded but {V4L2_PHONE_DEV} is not available.\n\n"
-                    "Another virtual camera setup is using the module. Telescope won't touch it.\n\n"
-                    "To use Telescope's setup instead, first run:\n"
+                    "Something else set it up first - another app's virtual camera (e.g. OBS's own), "
+                    "or a previous session - with different settings than Telescope needs. "
+                    "Telescope leaves it alone rather than risk breaking that.\n\n"
+                    "To free it up for Telescope, run:\n"
                     "    sudo modprobe -r v4l2loopback\n\n"
                     "Then click Start again."
                 )

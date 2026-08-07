@@ -6,43 +6,43 @@ Stream your Android phone's camera - including telephoto and wide-angle lenses -
 
 ## Quick Start
 
-You'll need an Android phone (with USB debugging enabled, if you plan to use USB) and a PC running Linux or Windows.
+You'll need an Android phone and a PC running Linux or Windows.
 
 ### 1. Install the phone app
 
-Download `Telescope.apk` from the [latest release](../../releases) and install it:
+Open the [latest release](../../releases) page, expand **Assets**, and tap `Telescope.apk`. (Assets is just a plain list of downloadable files - ignore everything else on that page.)
 
-```bash
-adb install Telescope.apk
-```
-
-No adb handy? Sideload the APK from your phone's file manager instead ("Install unknown apps"). The desktop app can also install it for you in step 2, but that route needs adb too - bundled on Windows, not on Linux (see below).
+- **Easiest:** open that link on your phone's own browser and tap the APK to install it. Your phone will ask to allow "install from this source" the first time - allow it.
+- **Downloaded it on your PC instead?** No problem - skip this step and use the **Install APK** button in step 2, which lets you pick that file.
 
 ### 2. Run the desktop app
 
-**Linux:** download `Telescope-linux.tar.gz`, extract it, and run `./start.sh`.
+**Linux:** download `Telescope-linux.tar.gz` from the same [releases page](../../releases), extract it, and run `./start.sh`. You'll also need the `v4l2loopback` kernel module installed - e.g. `sudo apt install v4l2loopback-dkms` on Debian/Ubuntu, or `sudo dnf install v4l2loopback` on Fedora/Nobara. (If `dnf` says it can't find that package, you need [RPM Fusion](https://rpmfusion.org/) enabled first: `sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm`, then try again.)
 
 **Windows:** download `Telescope-windows.zip`, extract it, and run `TelescopeDesktop.exe`.
 
-On first launch, click **Setup Drivers & APK** to set up the virtual camera (and install the phone app, if you skipped step 1). USB pairing needs `adb` on your PATH - bundled on Windows, install it via your package manager on Linux (package is usually `adb` or `android-tools`).
+On first launch, click **Setup Drivers & APK**. It sets up the virtual camera and can install the phone app for you (you'll be asked to pick the APK you downloaded). You only need to open this dialog once - if it already says everything's ready, there's nothing left to do here.
 
 ### 3. Pair your phone
 
 Open Telescope on your phone and leave it on screen. On the desktop app, click **Pair Device**, then pick one:
 
 - **Wi-Fi:** scan the QR code with your phone's scan button.
-- **USB:** click **Pair via ADB**.
+- **USB:** click **Pair via ADB** (needs `adb` on your PATH - bundled on Windows, install it via your package manager on Linux, package is usually `adb` or `android-tools`).
 
 ### 4. Start streaming
 
 Pick a camera and resolution on the phone, then hit **Start Streaming** on the desktop - it starts the phone's camera for you. In OBS (or anywhere else), select **Phone Camera** (Linux) or **Unity Video Capture** (Windows) as your webcam.
 
-Camera controls, transforms, and monitoring are covered under [Features](#features) below.
-
 > [!NOTE]
 > Use only on a trusted network, or enable **Local only - USB** in the Android app.
 
+Everything past this point is optional - detailed feature reference, how it works internally, and manual/advanced setup. Most people can stop here.
+
 ---
+
+<details>
+<summary><b>Features</b></summary>
 
 ## Features
 
@@ -101,13 +101,19 @@ Camera controls, transforms, and monitoring are covered under [Features](#featur
 - Launching a second instance brings the existing window to the front
 - Battery/temperature notifications use `notify-send` on Linux (if available) or the system tray on Windows
 
----
+</details>
+
+<details>
+<summary><b>Why</b></summary>
 
 ## Why
 
 Most Android camera streaming solutions either lock you to a specific app ecosystem, use ADB screen mirroring which blocks the back camera on some devices, or route through OBS to create the virtual camera - which is a problem if you need OBS free for its own output. Telescope runs as a self-contained foreground service that serves MJPEG directly and exposes camera controls as a simple REST API, leaving OBS (or any other capture tool) completely unencumbered.
 
----
+</details>
+
+<details>
+<summary><b>Architecture</b></summary>
 
 ## Architecture
 
@@ -145,7 +151,10 @@ On **Linux**, two `v4l2loopback` devices are created (`/dev/video10` and `/dev/v
 
 On **Windows**, the virtual camera is [UnityCapture](https://github.com/schellingb/UnityCapture) - a standalone DirectShow filter, no OBS required.
 
----
+</details>
+
+<details>
+<summary><b>Repository layout</b></summary>
 
 ## Repository layout
 
@@ -219,7 +228,10 @@ telescope/
             +-- lens_panel.py    # Lens picker widget
 ```
 
----
+</details>
+
+<details>
+<summary><b>Android app</b></summary>
 
 ## Android app
 
@@ -276,7 +288,10 @@ This is a debug build - self-signed, for personal/development use.
 | `ACCESS_NETWORK_STATE` | Show device IP in UI |
 | `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | Prompt to exempt app from battery restrictions on first launch |
 
----
+</details>
+
+<details>
+<summary><b>Desktop app</b></summary>
 
 ## Desktop app
 
@@ -294,7 +309,15 @@ This is a debug build - self-signed, for personal/development use.
 
 **Linux:**
 
-The `start.sh` script handles pip dependencies automatically. For the virtual camera driver, use the **System Setup** dialog's Load Module button, or run manually:
+First, install the `v4l2loopback` kernel module package through your distro's package manager - Telescope can load and unload the module, but it doesn't install it. It's usually called `v4l2loopback-dkms` (Debian/Ubuntu, Arch).
+
+On **Fedora/Nobara** it's `v4l2loopback` too - `sudo dnf install v4l2loopback` pulls in the actual kernel module (`akmod-v4l2loopback`) as a dependency automatically. It ships via [RPM Fusion](https://rpmfusion.org/), which plain Fedora installs don't have enabled out of the box (Nobara does):
+```bash
+sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
+sudo dnf install v4l2loopback
+```
+
+The `start.sh` script handles pip dependencies automatically. Once the package above is installed, use the **System Setup** dialog's Load Module button, or run manually:
 
 ```bash
 sudo modprobe v4l2loopback devices=2 video_nr=10,11 \
@@ -370,7 +393,10 @@ The release zip bundles the UnityCapture DLLs already; the app registers them fr
 
 **Battery/temperature polling:** A `QTimer` fires every 15 seconds while streaming. Notifications fire once per threshold crossing with 5-degree/5-percent hysteresis to avoid repeated alerts.
 
----
+</details>
+
+<details>
+<summary><b>Control API reference</b></summary>
 
 ## Control API reference
 
@@ -508,7 +534,10 @@ The phone then `POST`s to `http://<ip>:<port>/pair/<nonce>` with `{"name": ..., 
 
 The desktop also notes the source address that request arrived from. That address is, by construction, one of the phone's *and* reachable from this machine over whatever path the phone found, so it becomes the device's active address - see the implementation note below.
 
----
+</details>
+
+<details>
+<summary><b>License</b></summary>
 
 ## License
 
@@ -542,7 +571,10 @@ See `desktop/platform-tools/NOTICE` and https://developer.android.com/studio/ter
 
 **Python runtime dependencies** (PyQt6, opencv-python, numpy, pyvirtualcam, qrcode) - installed from PyPI; exact pinned versions are in `desktop/constraints.txt`. PyQt6 in particular is GPL v3-licensed (a commercial Riverbank Computing license also exists but isn't what this project uses).
 
----
+</details>
+
+<details>
+<summary><b>CI / GitHub Actions</b></summary>
 
 ## CI / GitHub Actions
 
@@ -580,7 +612,10 @@ No compiled build step - the Linux bundle is the Python source and launcher scri
 
 Run in both desktop CI workflows before assembling the bundle: constructs the full app and registers every plugin, exercises ADB discovery and virtual-camera-availability detection without crashing, and drives a real authenticated MJPEG round-trip (auth header, multipart framing, JPEG decode, and that an unauthenticated request is actually rejected) against a local test server. It isn't a substitute for testing against a real phone - see the manual [release checklist](docs/release-checklist.md) and [device-compatibility matrix](docs/device-compatibility.md) for that.
 
----
+</details>
+
+<details>
+<summary><b>Troubleshooting</b></summary>
 
 ## Troubleshooting
 
@@ -589,8 +624,9 @@ Run in both desktop CI workflows before assembling the bundle: constructs the fu
 | Only 2 cameras visible | Physical sub-cameras hidden behind logical camera | Already handled via `physicalCameraIds`; if still missing, device may restrict access |
 | Manual exposure greyed out | Camera doesn't report `MANUAL_SENSOR` capability | Some front cameras and telephoto lenses don't support it; use Auto |
 | `/dev/video11` gone after reboot | v4l2loopback not persistent | Follow the `dracut` / `modules-load.d` steps above |
-| pyvirtualcam fails to open (Linux) | Module not loaded | Click **Setup Drivers & APK** -> Load Module |
+| pyvirtualcam fails to open (Linux) | Module not loaded, or not installed | Click **Setup Drivers & APK** -> Load Module. If it says the module isn't installed, install `v4l2loopback-dkms` (Debian/Ubuntu/Arch) or `v4l2loopback` (Fedora/Nobara, via RPM Fusion) first |
 | pyvirtualcam fails to open (Windows) | UnityCapture not registered | Click **Setup Drivers & APK** -> Install Driver |
+| "v4l2loopback conflict" when starting | Some other app (OBS's own virtual camera, a previous session, etc.) already has the module loaded with different settings | Close that app, or run `sudo modprobe -r v4l2loopback` yourself, then click Start again |
 | Canvas restart fails with "module in use" | OBS or another app still holds the device | Close all apps using the virtual camera, then retry |
 | Camera control panel never appears | Phone HTTP server slow to start | App retries 3x over 6s; check USB debugging is active |
 | WB slider has no effect | Camera doesn't support `MANUAL_POST_PROCESSING` | Falls back gracefully; auto AWB still works |
@@ -602,3 +638,5 @@ Run in both desktop CI workflows before assembling the bundle: constructs the fu
 | "Pair via ADB" fails or times out | `adb` unavailable, phone app not foregrounded, or the adb reverse tunnel didn't come up | Install Android platform-tools on Linux, or use the bundled Windows release, then retry; make sure the Telescope app is open and in the foreground on the phone before clicking **Pair via ADB** |
 | QR pairing fails while a VPN is active | The VPN is blocking local-network traffic outright. (A VPN that *allows* LAN access is handled: the desktop advertises its real interface addresses rather than whatever owns the default route, and the phone sends LAN attempts over its Wi-Fi interface rather than the tunnel) | Turn on the VPN's "allow local network access"/"LAN access" option, pause the VPN while pairing, or use USB pairing. Once paired, streaming has the same requirement |
 | QR scanner opens in landscape | Manifest override not applied | The app overrides ZXing's default orientation to portrait; rebuild if you see this on an old build |
+
+</details>

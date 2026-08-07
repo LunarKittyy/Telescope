@@ -59,16 +59,21 @@ _GUIDE_HTML = """
 <h2>Quick Start</h2>
 
 <h3><span class="step">1.</span> Install the phone app</h3>
-<p>Download <code>Telescope.apk</code> from the latest release and run <code>adb install Telescope.apk</code>,
-or sideload it from your phone's file manager ("Install unknown apps"). Or skip this and let step 2's
-<b>Setup Drivers &amp; APK</b> install it for you over USB.</p>
+<p>Open the latest release on GitHub, find <code>Telescope.apk</code> under Assets, and tap it
+on your phone's own browser to install it directly - easiest option. Downloaded it on your PC
+instead? Skip this and use <b>Install APK</b> in step 2, which lets you pick that file.</p>
 
 <hr>
 
 <h3><span class="step">2.</span> Set up the desktop app</h3>
-<p>Click <b>Setup Drivers &amp; APK</b> to set up the virtual camera driver. USB features need
-<a href="https://developer.android.com/studio/debug/dev-options">USB debugging</a> enabled on your phone
-and <code>adb</code> on your PATH.</p>
+<p>Click <b>Setup Drivers &amp; APK</b>. It sets up the virtual camera and can install the phone
+app for you. You only need to open this once - if it already says everything's ready, there's
+nothing left to do here.</p>
+<p><b>Linux:</b> the <code>v4l2loopback</code> kernel module needs to be installed first via your
+package manager - <code>v4l2loopback-dkms</code> on Debian/Ubuntu/Arch, or <code>v4l2loopback</code>
+on Fedora/Nobara (via <a href="https://rpmfusion.org/">RPM Fusion</a>) - before this dialog can load it.<br>
+USB pairing needs <a href="https://developer.android.com/studio/debug/dev-options">USB debugging</a>
+enabled on your phone and <code>adb</code> on your PATH.</p>
 
 <hr>
 
@@ -194,6 +199,11 @@ class SetupDialog(QDialog):
             btn_row.addStretch()
             vc_lay.addLayout(btn_row)
 
+            v4l_hint = QLabel("Already says \"Ready\" above? You don't need to touch these - they're only for fixing a \"not ready\" status.")
+            v4l_hint.setObjectName("status_dim")
+            v4l_hint.setWordWrap(True)
+            vc_lay.addWidget(v4l_hint)
+
             persist_row = QHBoxLayout()
             self._persist_chk = QCheckBox("Keep this config after reboot")
             self._persist_chk.setToolTip(
@@ -244,7 +254,9 @@ class SetupDialog(QDialog):
 
         apk_gb = QGroupBox("Phone app")
         apk_gb.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
-        apk_lay = QHBoxLayout(apk_gb)
+        apk_outer_lay = QVBoxLayout(apk_gb)
+        apk_outer_lay.setSpacing(6)
+        apk_lay = QHBoxLayout()
         apk_lay.setSpacing(12)
         _apk = bundled_apk_path()
         self._apk_status_lbl = QLabel("Telescope.apk found" if _apk else "No APK found next to app")
@@ -256,6 +268,14 @@ class SetupDialog(QDialog):
         self._apk_btn.clicked.connect(self._install_apk)
         apk_lay.addWidget(self._apk_status_lbl, 1)
         apk_lay.addWidget(self._apk_btn)
+        apk_outer_lay.addLayout(apk_lay)
+        apk_hint = QLabel(
+            "This installs an APK you already have - it doesn't download one. "
+            "Grab Telescope.apk from the GitHub release first, then click above and pick it."
+        )
+        apk_hint.setObjectName("status_dim")
+        apk_hint.setWordWrap(True)
+        apk_outer_lay.addWidget(apk_hint)
         lay.addWidget(apk_gb)
 
         # ── Advanced ──────────────────────────────────────────────────────────
