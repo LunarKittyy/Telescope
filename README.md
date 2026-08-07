@@ -17,11 +17,29 @@ Open the [latest release](../../releases) page, expand **Assets**, and tap `Tele
 
 ### 2. Run the desktop app
 
-**Linux:** download `Telescope-linux.tar.gz` from the same [releases page](../../releases), extract it, and run `./start.sh`. You'll also need the `v4l2loopback` kernel module installed - e.g. `sudo apt install v4l2loopback-dkms` on Debian/Ubuntu, or `sudo dnf install v4l2loopback` on Fedora/Nobara. (If `dnf` says it can't find that package, you need [RPM Fusion](https://rpmfusion.org/) enabled first: `sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm`, then try again.)
+**Windows**
 
-**Windows:** download `Telescope-windows.zip`, extract it, and run `TelescopeDesktop.exe`.
+Download `Telescope-windows.zip` from the same [releases page](../../releases), extract it, and run `TelescopeDesktop.exe`.
 
-On first launch, click **Setup Drivers & APK**. It sets up the virtual camera and can install the phone app for you (you'll be asked to pick the APK you downloaded). You only need to open this dialog once - if it already says everything's ready, there's nothing left to do here.
+**Linux**
+
+1. Download `Telescope-linux.tar.gz` from the [releases page](../../releases), extract it, and run `./start.sh`.
+2. Install the `v4l2loopback` kernel module - it's what the virtual camera runs on, and Telescope can turn it on and off but not install it:
+   - **Debian/Ubuntu:** `sudo apt install v4l2loopback-dkms`
+   - **Fedora/Nobara:** `sudo dnf install v4l2loopback`
+
+<details>
+<summary>Fedora says it can't find that package?</summary>
+
+You need [RPM Fusion](https://rpmfusion.org/) enabled first (most Fedora installs don't have it by default - Nobara already does):
+```bash
+sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
+```
+Then run the `dnf install v4l2loopback` command above again.
+
+</details>
+
+**Both platforms:** on first launch, click **Setup Drivers & APK**. It sets up the virtual camera and can install the phone app for you (you'll be asked to pick the APK you downloaded). You only need to open this dialog once - if it already says everything's ready, there's nothing left to do here.
 
 ### 3. Pair your phone
 
