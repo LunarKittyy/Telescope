@@ -6,6 +6,7 @@ from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QWidget
 
 import telescope.app as app_module
+from telescope import theme
 from telescope.plugin import TelescopePlugin
 from telescope.session import StreamSession
 
@@ -94,8 +95,12 @@ class _Connection(_Plugin):
     def sync_active_profile(self):
         self.synced += 1
 
-    def ensure_phone_streaming(self):
+    def ensure_phone_streaming(self, on_progress=None):
         self.wakes += 1
+        self.progress_msgs = getattr(self, "progress_msgs", [])
+        if on_progress:
+            on_progress("waking...")
+            self.progress_msgs.append("waking...")
         return self.wake
 
     def stop_phone_streaming(self):
@@ -624,6 +629,35 @@ def test_start_builds_worker_pipeline_and_notifies_plugins(window, monkeypatch):
     assert threads[0][1] == (window._session.id,)
     assert threads[0][2] is True
     assert window._start_btn.text() == "Stop Streaming"
+    # ensure_phone_streaming's on_progress callback reached the connection
+    # plugin and round-tripped through the wake-progress signal - the fix
+    # for the "Start button looks frozen for up to 12s" complaint depends
+    # on this actually being wired up, not just present on the call.
+    assert connection.progress_msgs == ["waking..."]
+
+
+def test_wake_progress_updates_status_while_waking(window):
+    window._wake_id = 5
+    window._waking = True
+
+    window._on_wake_progress(5, "Phone's camera is opening... (3s)")
+
+    assert window._status_lbl.fullText() == "Phone's camera is opening... (3s)"
+
+
+def test_wake_progress_ignores_a_stale_or_cancelled_wake(window):
+    window._wake_id = 5
+    window._waking = True
+    window._on_worker_status("other", "sentinel")  # baseline status text
+
+    # A progress tick for an old wake_id (a newer start superseded it).
+    window._on_wake_progress(4, "stale tick")
+    assert window._status_lbl.fullText() == "sentinel"
+
+    # A progress tick after the wake was cancelled (stop/device switch).
+    window._waking = False
+    window._on_wake_progress(5, "too late")
+    assert window._status_lbl.fullText() == "sentinel"
 
 
 def test_start_uses_defaults_without_optional_plugins(window, monkeypatch):
@@ -870,6 +904,101 @@ def test_worker_fps_and_idle_status(window):
     assert window._worker is None
     assert window._session is None
     assert window._start_btn.text() == "Start Streaming"
+
+
+def test_reconnecting_status_is_warn_coloured_and_animates_dots(window):
+    window._on_worker_status("reconnecting", "Stream dropped - reconnecting")
+
+    assert window._status_lbl.fullText() == "Stream dropped - reconnecting."
+    assert f"color: {theme.WARN}" in window._status_lbl.styleSheet()
+
+    window._tick_reconnecting_animation()
+    assert window._status_lbl.fullText() == "Stream dropped - reconnecting.."
+    window._tick_reconnecting_animation()
+    assert window._status_lbl.fullText() == "Stream dropped - reconnecting..."
+    # Loops back to one dot rather than growing forever.
+    window._tick_reconnecting_animation()
+    assert window._status_lbl.fullText() == "Stream dropped - reconnecting."
+
+
+def test_reconnecting_animation_stops_when_another_status_arrives(window):
+    window._on_worker_status("reconnecting", "Stream dropped - reconnecting")
+    assert window._reconnecting_timer.isActive()
+
+    window._on_worker_status("ok", "Stream reconnected")
+
+    # Stopped, not just replaced - a stopped QTimer can't fire its timeout
+    # again on its own, which is what actually keeps a later real tick from
+    # ever overwriting the new status.
+    assert not window._reconnecting_timer.isActive()
+    assert window._status_lbl.fullText() == "Stream reconnected"
+    assert window._status_lbl.styleSheet() == ""
+
+
+def test_resolution_pending_shows_warn_color_until_confirmed(window):
+    """A resolution change closes and reopens the phone's camera, so it
+    doesn't take effect instantly - the live readout shows pending (amber)
+    rather than silently sitting on the old value until it's confirmed."""
+    window._on_resolution_pending(1280, 720)
+    assert f"color: {theme.WARN}" in window._fps_lbl.styleSheet()
+    assert window._pending_resolution == (1280, 720)
+
+    # A "fps" update reporting a size that doesn't match yet (still mid
+    # switch) must not clear the pending state early.
+    window._on_worker_status("fps", "29.9 fps  1920x1080")
+    assert f"color: {theme.WARN}" in window._fps_lbl.styleSheet()
+    assert window._pending_resolution == (1280, 720)
+
+    # The matching size arrives - back to the default (green/OK) style.
+    window._on_worker_status("fps", "29.9 fps  1280x720")
+    assert window._fps_lbl.styleSheet() == ""
+    assert window._pending_resolution is None
+
+
+def test_resolution_pending_times_out_to_error_then_self_clears(window, monkeypatch):
+    fired = {}
+
+    def fake_single_shot(ms, fn):
+        fired["ms"] = ms
+        fn()
+
+    monkeypatch.setattr(app_module.QTimer, "singleShot", staticmethod(fake_single_shot))
+
+    window._on_resolution_pending(1280, 720)
+    window._on_resolution_pending_timeout()
+
+    assert fired["ms"] == 4000
+    # The monkeypatched singleShot ran its callback immediately, so the
+    # error colour has already been cleared back to default by the time
+    # this assertion runs - confirming the auto-clear callback itself works,
+    # not just that it got scheduled.
+    assert window._fps_lbl.styleSheet() == ""
+    assert window._pending_resolution is None
+
+
+def test_resolution_pending_cleared_on_idle_status(window):
+    window._on_resolution_pending(1280, 720)
+
+    window._on_worker_status("idle", "Stopped.")
+
+    assert window._pending_resolution is None
+    assert window._fps_lbl.styleSheet() == ""
+
+
+def test_resolution_pending_replaced_by_a_second_request(window):
+    """Picking a different resolution again before the first change is
+    confirmed retargets the pending check rather than stacking two timers
+    that could clear each other's state."""
+    window._on_resolution_pending(1280, 720)
+    first_timer = window._pending_resolution_timer
+
+    window._on_resolution_pending(854, 480)
+
+    assert not first_timer.isActive()
+    assert window._pending_resolution == (854, 480)
+
+    window._on_worker_status("fps", "29.9 fps  854x480")
+    assert window._pending_resolution is None
 
 
 def test_send_notification_uses_notify_send_on_linux(window, monkeypatch):

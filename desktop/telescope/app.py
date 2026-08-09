@@ -85,6 +85,7 @@ class TelescopeWindow(QMainWindow):
     _sig_raise = pyqtSignal()
     _sig_canvas_reload_done = pyqtSignal(bool, str, bool)  # ok, msg, restart_stream
     _sig_wake_done = pyqtSignal(int, bool, str, str, str)  # wake_id, ok, reason, url, token
+    _sig_wake_progress = pyqtSignal(int, str)  # wake_id, status text
 
     def __init__(self):
         super().__init__()
@@ -93,6 +94,17 @@ class TelescopeWindow(QMainWindow):
         self.resize(1380, 900)
 
         self._bus     = EventBus()
+        self._bus.resolution_change_requested.connect(self._on_resolution_pending)
+        # (target_w, target_h) of an in-flight resolution change, or None.
+        # Set on request, cleared once the "fps" status text reports the
+        # matching size (confirmed) or the pending timer runs out (failed).
+        self._pending_resolution: Optional[tuple[int, int]] = None
+        self._pending_resolution_timer: Optional[QTimer] = None
+        # Animated "Stream dropped - reconnecting..." status - see
+        # _start_reconnecting_animation().
+        self._reconnecting_timer: Optional[QTimer] = None
+        self._reconnecting_base = ""
+        self._reconnecting_dots = 1
         self._plugins: list[TelescopePlugin] = []
         self._plugins_by_name: dict[str, TelescopePlugin] = {}
         # Captured once, right after each device-local plugin's UI is built
@@ -137,6 +149,7 @@ class TelescopeWindow(QMainWindow):
         self._sig_raise.connect(self._tray_show)
         self._sig_canvas_reload_done.connect(self._on_canvas_reload_done)
         self._sig_wake_done.connect(self._on_wake_done)
+        self._sig_wake_progress.connect(self._on_wake_progress)
 
     @property
     def _worker(self) -> Optional[StreamWorker]:
@@ -310,6 +323,21 @@ class TelescopeWindow(QMainWindow):
         self._fps_lbl.setObjectName("fps_lbl")
         self._fps_lbl.setMinimumWidth(72)
         lay.addWidget(self._fps_lbl)
+
+        divider2 = QFrame()
+        divider2.setObjectName("header_divider")
+        divider2.setFixedWidth(1)
+        divider2.setFixedHeight(22)
+        lay.addWidget(divider2)
+
+        net_cap = QLabel("LIVE THROUGHPUT")
+        net_cap.setObjectName("footer_label")
+        lay.addWidget(net_cap)
+
+        self._net_lbl = QLabel("—")
+        self._net_lbl.setObjectName("fps_lbl")
+        self._net_lbl.setMinimumWidth(80)
+        lay.addWidget(self._net_lbl)
 
         return bar
 
@@ -588,8 +616,14 @@ class TelescopeWindow(QMainWindow):
         ).start()
 
     def _wake_phone(self, wake_id: int, conn, url: str, token: str):
+        def on_progress(msg: str):
+            try:
+                self._sig_wake_progress.emit(wake_id, msg)
+            except RuntimeError:
+                pass  # window went away mid-wake
+
         try:
-            ok, reason = conn.ensure_phone_streaming()
+            ok, reason = conn.ensure_phone_streaming(on_progress=on_progress)
         except Exception:
             logging.exception("Phone wake failed")
             ok, reason = False, "Couldn't reach the phone."
@@ -598,6 +632,14 @@ class TelescopeWindow(QMainWindow):
         except RuntimeError:
             # The window went away mid-wake; nothing left to tell.
             pass
+
+    def _on_wake_progress(self, wake_id: int, msg: str):
+        # Same staleness guard as _on_wake_done: a progress tick for a wake
+        # the user has already cancelled (stop/device switch/quit) has
+        # nothing left to report to.
+        if wake_id != self._wake_id or not self._waking:
+            return
+        self._set_status(msg, "dim")
 
     def _on_wake_done(self, wake_id: int, ok: bool, reason: str, url: str, token: str):
         # Stop/device switch/quit while the wake was in flight: whatever this
@@ -693,7 +735,10 @@ class TelescopeWindow(QMainWindow):
         if ctrl:
             ctrl.close()
         self._set_start_button(streaming=False)
+        self._clear_pending_resolution()
         self._fps_lbl.setText("—")
+        self._net_lbl.setStyleSheet("")
+        self._net_lbl.setText("—")
         self._set_status("Stopped.", "dim")
 
         self._bus.stream_stopped.emit()
@@ -862,16 +907,94 @@ class TelescopeWindow(QMainWindow):
 
     # ── Worker status ─────────────────────────────────────────────────────────
 
+    def _on_resolution_pending(self, w: int, h: int):
+        """A resolution change was just sent to the phone - it has to close
+        and reopen its camera to honour it, so the live readout won't reflect
+        it for a second or two. Shown as pending (amber) rather than just
+        leaving the old value up, which reads as "did that even work?"."""
+        if self._pending_resolution_timer:
+            self._pending_resolution_timer.stop()
+        self._pending_resolution = (w, h)
+        self._fps_lbl.setStyleSheet(f"color: {theme.WARN};")
+        timer = QTimer(self)
+        timer.setSingleShot(True)
+        timer.timeout.connect(self._on_resolution_pending_timeout)
+        timer.start(8000)  # generous: camera reopen + a possible brief reconnect
+        self._pending_resolution_timer = timer
+
+    def _on_resolution_pending_timeout(self):
+        self._pending_resolution = None
+        self._pending_resolution_timer = None
+        self._fps_lbl.setStyleSheet(f"color: {theme.ERR};")
+        QTimer.singleShot(4000, lambda: self._fps_lbl.setStyleSheet(""))
+
+    def _clear_pending_resolution(self):
+        if self._pending_resolution_timer:
+            self._pending_resolution_timer.stop()
+            self._pending_resolution_timer = None
+        self._pending_resolution = None
+        self._fps_lbl.setStyleSheet("")
+
+    def _start_reconnecting_animation(self, base_msg: str):
+        """"Stream dropped - reconnecting" gets its own colour (warn/yellow,
+        distinct from the plain grey the other status text uses) and an
+        animated "." -> ".." -> "..." -> "." loop, 1 frame/second, so it
+        reads as actively retrying rather than a static, possibly-stuck
+        message. Any other status arriving (via _set_status) cancels it."""
+        self._reconnecting_base = base_msg
+        self._reconnecting_dots = 1
+        self._render_reconnecting_frame()
+        if self._reconnecting_timer is None:
+            timer = QTimer(self)
+            timer.timeout.connect(self._tick_reconnecting_animation)
+            self._reconnecting_timer = timer
+        self._reconnecting_timer.start(1000)
+
+    def _tick_reconnecting_animation(self):
+        self._reconnecting_dots = (self._reconnecting_dots % 3) + 1
+        self._render_reconnecting_frame()
+
+    def _render_reconnecting_frame(self):
+        # Deliberately bypasses _set_status - that stops this very timer as
+        # its first step, which would cancel the animation from inside its
+        # own tick.
+        self._status_lbl.setObjectName("status_warn")
+        self._status_lbl.setText(f"{self._reconnecting_base}{'.' * self._reconnecting_dots}")
+        self._status_lbl.setStyleSheet(f"color: {theme.WARN};")
+
+    def _stop_reconnecting_animation(self):
+        if self._reconnecting_timer:
+            self._reconnecting_timer.stop()
+
     def _on_worker_status(self, kind: str, msg: str):
         if kind == "fps":
             self._fps_lbl.setText(msg)
+            if self._pending_resolution is not None:
+                try:
+                    size_text = msg.rsplit(" ", 1)[-1]
+                    w_str, h_str = size_text.split("x")
+                    if (int(w_str), int(h_str)) == self._pending_resolution:
+                        self._clear_pending_resolution()
+                except ValueError:
+                    pass
+        elif kind == "net":
+            self._net_lbl.setStyleSheet("")
+            self._net_lbl.setText(msg)
+        elif kind == "net_warn":
+            self._net_lbl.setStyleSheet(f"color: {theme.WARN};")
+            self._net_lbl.setText(msg)
         elif kind == "ok":
             self._set_status(msg, "ok")
             self._bus.stream_connected.emit()
         elif kind == "warn":
             self._set_status(msg, "warn")
+        elif kind == "reconnecting":
+            self._start_reconnecting_animation(msg)
         elif kind == "idle":
+            self._clear_pending_resolution()
             self._fps_lbl.setText("—")
+            self._net_lbl.setStyleSheet("")
+            self._net_lbl.setText("—")
             self._set_status(msg, "dim")
             if self._session:
                 self._session = None
@@ -880,6 +1003,7 @@ class TelescopeWindow(QMainWindow):
             self._set_status(msg, "dim")
 
     def _set_status(self, msg: str, kind: str):
+        self._stop_reconnecting_animation()
         obj = {"ok": "status_ok", "warn": "status_warn",
                "err": "status_err", "dim": "status_dim"}.get(kind, "status_dim")
         self._status_lbl.setObjectName(obj)

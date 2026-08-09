@@ -117,3 +117,15 @@ class EventBus(QObject):
     stream_connected       = pyqtSignal()
     phone_state_updated    = pyqtSignal(dict)
     device_changed         = pyqtSignal(str)
+    camera_switched        = pyqtSignal(dict)
+    """A lens switch was sent to the phone. Carries the selected camera's raw
+    capability dict (same shape as one entry of a /v1/state 'cameras' list) -
+    plugins that cache per-camera capability data (e.g. supported capture
+    sizes) but don't otherwise get a fresh /v1/state on every lens switch can
+    use this to stay in sync without polling."""
+    resolution_change_requested = pyqtSignal(int, int)
+    """A resolution change was sent to the phone, carrying the requested
+    (width, height). The phone has to close and reopen its camera to honour
+    it, so this doesn't take effect instantly - the host uses this to show a
+    pending state on the live readout until the change is actually confirmed
+    (or times out) rather than leaving it looking unchanged/broken."""

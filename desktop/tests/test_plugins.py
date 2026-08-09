@@ -5,7 +5,7 @@ import pytest
 from telescope.plugin import UNCHANGED, EventBus
 from telescope.plugins.monitoring import MonitoringPlugin
 from telescope.plugins.setup import SetupDialog, SetupPlugin
-from telescope.plugins.stream_output import RESOLUTIONS, StreamOutputPlugin
+from telescope.plugins.stream_output import StreamOutputPlugin
 
 
 class _Ctrl:
@@ -73,52 +73,145 @@ def stream_output(qapp):
     return plugin, host, panel
 
 
-def test_stream_output_defaults_and_resolution_mapping(stream_output):
+def test_stream_output_defaults_and_resolution_placeholder(stream_output):
     plugin, _host, _panel = stream_output
+    # Resolution is now a phone-side capture control, not a post-decode
+    # resize - get_stream_params() always stays pass-through, and the combo
+    # starts disabled with nothing to select until the phone reports its
+    # actual supported sizes.
+    assert plugin.get_stream_params() == (None, None, 30)
+    assert plugin._res_combo.currentText() == "—"
+    assert not plugin._res_combo.isEnabled()
+
+
+def test_stream_output_resolution_populates_from_phone_state(stream_output):
+    plugin, _host, _panel = stream_output
+    plugin.on_phone_state({
+        "cameras": [{"id": "0", "current": True, "supportedSizes": [
+            {"width": 1920, "height": 1080},
+            {"width": 1280, "height": 720},
+            {"width": 854, "height": 480},
+        ]}],
+        "stream_width": 1280, "stream_height": 720,
+    })
+
+    assert plugin._res_combo.isEnabled()
+    assert plugin._res_combo.currentText() == "1280 x 720"
+    assert [plugin._res_combo.itemText(i) for i in range(plugin._res_combo.count())] == [
+        "1920 x 1080", "1280 x 720", "854 x 480",
+    ]
+    # Still pass-through - selecting a size now changes what the phone
+    # captures, there's nothing left for the desktop side to resize.
     assert plugin.get_stream_params() == (None, None, 30)
 
-    for label, dimensions in RESOLUTIONS.items():
-        plugin._res_combo.setCurrentText(label)
-        w, h, fps = plugin.get_stream_params()
-        assert (w, h) == (dimensions if dimensions else (None, None))
-        assert fps == 30
 
-
-def test_stream_output_hot_updates_worker(stream_output):
-    plugin, host, _panel = stream_output
-    host._worker = _Worker()
+def test_stream_output_resolution_selection_sends_control(stream_output):
+    plugin, _host, _panel = stream_output
+    ctrl = _Ctrl()
+    plugin.on_stream_start("url", ctrl)
+    plugin.on_phone_state({
+        "cameras": [{"id": "0", "current": True, "supportedSizes": [
+            {"width": 1920, "height": 1080},
+            {"width": 1280, "height": 720},
+        ]}],
+        "stream_width": 1920, "stream_height": 1080,
+    })
 
     plugin._res_combo.setCurrentText("1280 x 720")
-    plugin._fps_spin.setValue(60)
-    plugin._on_fps()
 
-    assert host._worker.updates[-2:] == [
-        {"width": 1280, "height": 720},
-        {"fps": 60},
-    ]
-    assert host.saves >= 2
+    assert {"action": "resolution", "width": 1280, "height": 720} in ctrl.sent
+    # Never a local worker resize - resolution changes go to the phone only.
+    assert plugin.get_stream_params() == (None, None, 30)
 
 
-def test_stream_output_pass_through_hot_update_uses_none(stream_output):
+def test_stream_output_camera_switch_carries_over_the_current_resolution(stream_output):
+    """A plain lens switch (switchCameraTo on the phone) reuses the existing
+    ImageReader unchanged - the live resolution doesn't actually change, so
+    the new lens's combo should keep showing the same size, not jump to its
+    largest option, as long as the new lens still supports it."""
+    plugin, _host, _panel = stream_output
+    plugin.on_phone_state({
+        "cameras": [{"id": "0", "current": True, "supportedSizes": [
+            {"width": 4032, "height": 3024},
+            {"width": 1920, "height": 1080},
+        ]}],
+        "stream_width": 1920, "stream_height": 1080,
+    })
+    plugin._res_combo.setCurrentText("1920 x 1080")
+
+    # A lens switch (camera_control.py) doesn't trigger a fresh /v1/state -
+    # it hands over the capability dict it already has cached.
+    plugin._on_camera_switched({"id": "1", "current": True, "supportedSizes": [
+        {"width": 4032, "height": 3024},
+        {"width": 1920, "height": 1080},
+    ]})
+
+    assert plugin._res_combo.currentText() == "1920 x 1080"
+
+
+def test_stream_output_camera_switch_falls_back_when_new_lens_lacks_the_size(stream_output):
+    plugin, _host, _panel = stream_output
+    plugin.on_phone_state({
+        "cameras": [{"id": "0", "current": True, "supportedSizes": [
+            {"width": 4032, "height": 3024},
+            {"width": 640, "height": 480},
+        ]}],
+        "stream_width": 640, "stream_height": 480,
+    })
+    plugin._res_combo.setCurrentText("640 x 480")
+
+    # The new lens doesn't support 640x480 at all - falls back to the first
+    # (largest) option rather than selecting nothing.
+    plugin._on_camera_switched({"id": "1", "current": True, "supportedSizes": [
+        {"width": 4032, "height": 3024},
+        {"width": 1920, "height": 1080},
+    ]})
+
+    assert plugin._res_combo.currentText() == "4032 x 3024"
+
+
+def test_stream_output_resolution_reset_on_stream_stop(stream_output):
+    plugin, _host, _panel = stream_output
+    plugin.on_phone_state({
+        "cameras": [{"id": "0", "current": True,
+                     "supportedSizes": [{"width": 1920, "height": 1080}]}],
+        "stream_width": 1920, "stream_height": 1080,
+    })
+
+    plugin.on_stream_stop()
+
+    assert plugin._res_combo.currentText() == "—"
+    assert not plugin._res_combo.isEnabled()
+
+
+def test_stream_output_fps_hot_updates_worker_and_phone_together(stream_output):
+    """FPS is a single control now - playback and phone capture rate were
+    merged, since the vcam can't show motion the phone never captured and
+    capturing faster than it's played back just wastes bandwidth/battery.
+    One change should hot-update the local StreamWorker AND, if a stream is
+    live, push fps_target to the phone."""
     plugin, host, _panel = stream_output
     host._worker = _Worker()
-    plugin._res_combo.setCurrentText("640 x 360")
+    ctrl = _Ctrl()
+    plugin.on_stream_start("url", ctrl)
 
-    plugin._res_combo.setCurrentText("Pass-through (auto)")
+    plugin._fps_spin.setValue(45)
+    plugin._on_fps()
 
-    assert host._worker.updates[-1] == {"width": None, "height": None}
+    assert host._worker.updates[-1] == {"fps": 45}
+    assert {"action": "fps_target", "value": 45} in ctrl.sent
+    assert host.saves >= 1
 
 
 def test_stream_output_phone_settings_lifecycle(stream_output):
     plugin, _host, _panel = stream_output
     ctrl = _Ctrl()
     plugin._quality_slider.setValue(92)
-    plugin._phone_fps_spin.setValue(25)
+    plugin._fps_spin.setValue(25)
 
     plugin.on_stream_start("url", ctrl)
     plugin._push_initial_settings()
     plugin._quality_slider.setValue(91)
-    plugin._on_phone_fps_changed()
 
     assert {"action": "jpeg_quality", "value": 92} in ctrl.sent
     assert {"action": "fps_target", "value": 25} in ctrl.sent
@@ -137,17 +230,52 @@ def test_stream_output_config_round_trip_and_invalid_resolution(stream_output):
         "resolution": "854 x 480",
         "fps": 48,
         "jpeg_quality": 77,
-        "phone_fps": 18,
     })
+    # No phone data yet - the resolution can't take effect until a real
+    # supported-sizes list arrives, so it's left out of get_config() rather
+    # than round-tripping a value the combo never actually applied.
     assert plugin.get_config() == {
-        "resolution": "854 x 480",
         "fps": 48,
         "jpeg_quality": 77,
-        "phone_fps": 18,
     }
 
-    plugin.set_config({"resolution": "not a real size"})
+    plugin.on_phone_state({
+        "cameras": [{"id": "0", "current": True, "supportedSizes": [
+            {"width": 1920, "height": 1080},
+            {"width": 854, "height": 480},
+        ]}],
+        "stream_width": 1920, "stream_height": 1080,
+    })
     assert plugin._res_combo.currentText() == "854 x 480"
+    assert plugin.get_config()["resolution"] == "854 x 480"
+
+
+def test_stream_output_config_falls_back_to_legacy_phone_fps(stream_output):
+    """A config saved before playback/phone fps were merged only has
+    "phone_fps" (no "fps" yet under the new single-control shape) - it
+    should still apply rather than silently resetting to the default."""
+    plugin, _host, _panel = stream_output
+    plugin.set_config({"phone_fps": 18})
+    assert plugin._fps_spin.value() == 18
+
+
+def test_stream_output_invalid_persisted_resolution_falls_back_to_first(stream_output):
+    plugin, _host, _panel = stream_output
+    plugin.set_config({"resolution": "not a real size"})
+
+    # Live size doesn't match anything in the list either, so this exercises
+    # the final fallback: neither the persisted text nor the phone's
+    # reported live size resolve to an option, so it lands on the first
+    # (largest) one instead of leaving the combo on a stale/invalid entry.
+    plugin.on_phone_state({
+        "cameras": [{"id": "0", "current": True, "supportedSizes": [
+            {"width": 1920, "height": 1080},
+            {"width": 854, "height": 480},
+        ]}],
+        "stream_width": 999, "stream_height": 999,
+    })
+
+    assert plugin._res_combo.currentText() == "1920 x 1080"
 
 
 @pytest.fixture

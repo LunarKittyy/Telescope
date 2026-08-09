@@ -10,16 +10,12 @@ from telescope.widgets.common import (
     quality_label, stretch_slider,
 )
 
-RESOLUTIONS = {
-    "Pass-through (auto)": None,
-    "1920 x 1080": (1920, 1080),
-    "1280 x 720":  (1280,  720),
-    "854 x 480":   ( 854,  480),
-    "640 x 360":   ( 640,  360),
-}
+_DEFAULT_QUALITY = 85
+_DEFAULT_FPS     = 30
 
-_DEFAULT_QUALITY   = 85
-_DEFAULT_PHONE_FPS = 30
+
+def _size_label(w: int, h: int) -> str:
+    return f"{w} x {h}"
 
 
 class StreamOutputPlugin(TelescopePlugin):
@@ -27,7 +23,17 @@ class StreamOutputPlugin(TelescopePlugin):
 
     def setup(self, host, bus):
         self._host = host
+        self._bus = bus
         self._ctrl = None
+        self._current_camera_id = None
+        # Set on set_config() before any phone data has arrived; applied the
+        # first time on_phone_state() has real sizes to match it against.
+        self._pending_resolution_text = None
+        # A lens switch (camera_control.py) doesn't trigger a fresh /v1/state
+        # fetch - it hands over the capability dict it already has cached, so
+        # this combo can be kept in sync with the new lens's supported sizes
+        # the same way camera_control.py refreshes its own ISO/shutter ranges.
+        bus.camera_switched.connect(self._on_camera_switched)
 
     def create_panel(self) -> QWidget:
         card = create_card()
@@ -37,30 +43,46 @@ class StreamOutputPlugin(TelescopePlugin):
         add_card_header(lay, "Stream Output", "stream")
 
         # ── Resolution ────────────────────────────────────────────────────────
+        # Populated from the phone's actual capture sizes for the current lens
+        # (on_phone_state), not a fixed list - unlike the old post-decode
+        # resize this used to drive, a selection here now changes what the
+        # phone captures at, so the option set has to match what that specific
+        # camera can actually do.
         add_section_heading(lay, "Output")
         self._res_combo = NoScrollComboBox()
-        self._res_combo.addItems(list(RESOLUTIONS.keys()))
-        self._res_combo.currentTextChanged.connect(self._on_resolution)
+        self._res_combo.addItem("—")
+        self._res_combo.setEnabled(False)
+        self._res_combo.currentIndexChanged.connect(self._on_resolution)
         lay.addLayout(_row("Resolution", self._res_combo, stretch=True))
 
-        # ── Playback FPS ──────────────────────────────────────────────────────
+        # ── FPS ───────────────────────────────────────────────────────────────
+        # One control, not separate "playback" and "phone" fps sliders - the
+        # desktop's virtual camera can't show motion the phone never captured,
+        # and capturing faster than it's played back just burns phone battery
+        # and Wi-Fi bandwidth for frames nothing ever displays. This drives
+        # both the phone's capture rate and the local vcam's pacing together.
         self._fps_spin = NoScrollSpinBox()
-        self._fps_spin.setRange(1, 120)
-        self._fps_spin.setValue(30)
+        self._fps_spin.setRange(5, 60)
+        self._fps_spin.setValue(_DEFAULT_FPS)
         self._fps_spin.setSuffix(" fps")
         self._fps_spin.setFixedWidth(90)
+        self._fps_spin.setToolTip("Both the phone's capture rate and the local virtual camera's "
+                                   "playback rate. Lower reduces bandwidth and phone battery use.")
         self._fps_spin.editingFinished.connect(self._on_fps)
-        lay.addLayout(_row("Playback FPS", self._fps_spin))
+        lay.addLayout(_row("FPS", self._fps_spin))
 
         lay.addWidget(create_separator())
 
         # ── JPEG Quality ──────────────────────────────────────────────────────
         add_section_heading(lay, "Phone stream")
         self._quality_slider = NoScrollSlider(Qt.Orientation.Horizontal)
-        self._quality_slider.setRange(50, 100)
+        self._quality_slider.setRange(1, 100)
         self._quality_slider.setValue(_DEFAULT_QUALITY)
         stretch_slider(self._quality_slider, 104)
-        self._quality_slider.setToolTip("Lower quality and FPS reduce bandwidth. Useful on slow Wi-Fi or USB 2.")
+        self._quality_slider.setToolTip(
+            "Lower quality and FPS reduce bandwidth. Useful on slow Wi-Fi or USB 2. "
+            "Very low values are a last resort - the image gets blocky fast."
+        )
         self._quality_val_lbl = QLabel(quality_label(_DEFAULT_QUALITY))
         self._quality_val_lbl.setObjectName("val")
         self._quality_val_lbl.setMinimumWidth(92)
@@ -72,23 +94,15 @@ class StreamOutputPlugin(TelescopePlugin):
         q_inner.addWidget(self._quality_val_lbl)
         lay.addLayout(_row("JPEG quality", q_inner, stretch=True))
 
-        # ── Phone FPS ─────────────────────────────────────────────────────────
-        self._phone_fps_spin = NoScrollSpinBox()
-        self._phone_fps_spin.setRange(5, 60)
-        self._phone_fps_spin.setValue(_DEFAULT_PHONE_FPS)
-        self._phone_fps_spin.setSuffix(" fps")
-        self._phone_fps_spin.setFixedWidth(90)
-        self._phone_fps_spin.setToolTip("Lower quality and FPS reduce bandwidth. Useful on slow Wi-Fi or USB 2.")
-        self._phone_fps_spin.editingFinished.connect(self._on_phone_fps_changed)
-        lay.addLayout(_row("Phone FPS", self._phone_fps_spin))
-
         return card
 
     def get_stream_params(self) -> tuple:
-        """Return (width, height, fps) for StreamWorker construction."""
-        res = RESOLUTIONS.get(self._res_combo.currentText())
-        w, h = res if res else (None, None)
-        return w, h, self._fps_spin.value()
+        """Return (width, height, fps) for StreamWorker construction.
+
+        Width/height are always pass-through (None) now - the Resolution
+        control below changes what the phone captures at, so there's nothing
+        left for the desktop side to resize post-decode."""
+        return None, None, self._fps_spin.value()
 
     def on_stream_start(self, stream_url: str, ctrl):
         self._ctrl = ctrl
@@ -96,24 +110,92 @@ class StreamOutputPlugin(TelescopePlugin):
 
     def on_stream_stop(self):
         self._ctrl = None
+        self._current_camera_id = None
+        self._res_combo.blockSignals(True)
+        self._res_combo.clear()
+        self._res_combo.addItem("—")
+        self._res_combo.setEnabled(False)
+        self._res_combo.blockSignals(False)
 
     def _push_initial_settings(self):
         if self._ctrl:
             self._ctrl.send(action="jpeg_quality", value=self._quality_slider.value())
-            self._ctrl.send(action="fps_target",   value=self._phone_fps_spin.value())
+            self._ctrl.send(action="fps_target",   value=self._fps_spin.value())
+
+    def on_phone_state(self, state: dict):
+        cams = state.get("cameras")
+        if not isinstance(cams, list):
+            return
+        cur = next((c for c in cams if c.get("current")), None)
+        if cur is None:
+            return
+        self._apply_camera(cur, state.get("stream_width"), state.get("stream_height"))
+
+    def _on_camera_switched(self, cam: dict):
+        # A plain lens switch (CameraSessionController.switchCameraTo) reuses
+        # the existing ImageReader unchanged - it never touches
+        # streamWidth/streamHeight, so the live resolution after the switch
+        # is just whatever it already was, not the new lens's largest size.
+        # No fresh /v1/state comes back on a lens switch to confirm that, so
+        # the desktop's own current selection (if the new lens still
+        # supports it) is the correct live value to carry over - not a
+        # guess, since that's genuinely what the phone does.
+        current = self._res_combo.currentData()
+        live_w, live_h = current if current else (None, None)
+        self._apply_camera(cam, live_w, live_h)
+
+    def _apply_camera(self, cam: dict, live_w, live_h):
+        sizes = cam.get("supportedSizes") or []
+        sizes = [(s["width"], s["height"]) for s in sizes
+                 if isinstance(s, dict) and "width" in s and "height" in s]
+        if not sizes:
+            return
+
+        # Only rebuild the item list when the lens actually changed - doing
+        # it on every state refresh would otherwise fight the user's
+        # in-progress selection.
+        if cam["id"] != self._current_camera_id:
+            self._current_camera_id = cam["id"]
+            self._res_combo.blockSignals(True)
+            self._res_combo.clear()
+            for w, h in sizes:
+                self._res_combo.addItem(_size_label(w, h), (w, h))
+            target_text = self._pending_resolution_text
+            idx = self._res_combo.findText(target_text) if target_text else -1
+            if idx < 0 and live_w and live_h:
+                idx = self._res_combo.findText(_size_label(live_w, live_h))
+            self._res_combo.setCurrentIndex(idx if idx >= 0 else 0)
+            self._res_combo.setEnabled(True)
+            self._res_combo.blockSignals(False)
+            self._pending_resolution_text = None
+        elif live_w and live_h:
+            # Same lens, but the phone's live size doesn't match our
+            # selection (e.g. a reconnect restored an older setting) -
+            # reflect reality without re-sending a control we didn't ask for.
+            live_text = _size_label(live_w, live_h)
+            if self._res_combo.currentText() != live_text:
+                idx = self._res_combo.findText(live_text)
+                if idx >= 0:
+                    self._res_combo.blockSignals(True)
+                    self._res_combo.setCurrentIndex(idx)
+                    self._res_combo.blockSignals(False)
 
     # ── Handlers ──────────────────────────────────────────────────────────────
 
     def _on_resolution(self):
-        res = RESOLUTIONS.get(self._res_combo.currentText())
-        w, h = res if res else (None, None)
-        # None width/height is meaningful here (pass-through / no resize);
-        # update_stream_output is a no-op when nothing is streaming.
-        self._host.update_stream_output(width=w, height=h)
+        size = self._res_combo.currentData()
+        if size is None or self._ctrl is None:
+            return
+        w, h = size
+        self._ctrl.send(action="resolution", width=w, height=h)
+        self._bus.resolution_change_requested.emit(w, h)
         self._host.schedule_save()
 
     def _on_fps(self):
-        self._host.update_stream_output(fps=self._fps_spin.value())
+        fps = self._fps_spin.value()
+        self._host.update_stream_output(fps=fps)
+        if self._ctrl:
+            self._ctrl.send(action="fps_target", value=fps)
         self._host.schedule_save()
 
     def _on_quality_changed(self, q: int):
@@ -122,30 +204,28 @@ class StreamOutputPlugin(TelescopePlugin):
             self._ctrl.send(action="jpeg_quality", value=q)
         self._host.schedule_save()
 
-    def _on_phone_fps_changed(self):
-        fps = self._phone_fps_spin.value()
-        if self._ctrl:
-            self._ctrl.send(action="fps_target", value=fps)
-        self._host.schedule_save()
-
     # ── Config ────────────────────────────────────────────────────────────────
 
     def get_config(self) -> dict:
-        return {
-            "resolution":   self._res_combo.currentText(),
+        cfg = {
             "fps":          self._fps_spin.value(),
             "jpeg_quality": self._quality_slider.value(),
-            "phone_fps":    self._phone_fps_spin.value(),
         }
+        if self._res_combo.currentData() is not None:
+            cfg["resolution"] = self._res_combo.currentText()
+        return cfg
 
     def set_config(self, cfg: dict):
         if res := cfg.get("resolution"):
-            idx = self._res_combo.findText(res)
-            if idx >= 0:
-                self._res_combo.setCurrentIndex(idx)
-        if fps := cfg.get("fps"):
+            # The combo isn't populated yet at load time (no phone data),
+            # so this is applied once on_phone_state() has real sizes.
+            self._pending_resolution_text = res
+        # "phone_fps" is read as a fallback for a config saved before
+        # playback/phone fps were merged into one control - "fps" (the old
+        # playback-only value) wins if both are present, matching what the
+        # combined spinner would already have shown for most users, since the
+        # two were rarely set to different values on purpose.
+        if fps := cfg.get("fps", cfg.get("phone_fps")):
             self._fps_spin.setValue(int(fps))
         if q := cfg.get("jpeg_quality"):
             self._quality_slider.setValue(int(q))
-        if pfps := cfg.get("phone_fps"):
-            self._phone_fps_spin.setValue(int(pfps))

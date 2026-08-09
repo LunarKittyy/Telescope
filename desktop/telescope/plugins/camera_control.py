@@ -137,6 +137,7 @@ class CameraControlPlugin(TelescopePlugin):
 
     def setup(self, host, bus):
         self._host              = host
+        self._bus               = bus
         self._ctrl              = None
         self._manual_exp        = False
         self._manual_wb         = False
@@ -571,6 +572,7 @@ class CameraControlPlugin(TelescopePlugin):
     def _on_lens_selected(self, cam: dict):
         if self._ctrl:
             self._ctrl.send(action="camera", id=cam["id"])
+            self._bus.camera_switched.emit(cam)
             self._iso_slider.set_range(cam.get("isoMin", 50), cam.get("isoMax", 6400))
             self._sht_slider.set_range(
                 cam.get("shutterMinNs", 100_000),

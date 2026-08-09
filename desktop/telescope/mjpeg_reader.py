@@ -29,6 +29,11 @@ class MjpegReader:
         self._response = None
         self._boundary: Optional[bytes] = None
         self._buf = b""
+        # Size in bytes of the JPEG payload from the most recent successful
+        # read() - the wire size, before decode. Read cross-thread by
+        # StreamWorker's vcam loop to compute a rolling throughput figure;
+        # a single int attribute is fine here (same pattern as _latest_rgb).
+        self.last_jpeg_size = 0
 
     def isOpened(self) -> bool:
         return self._response is not None
@@ -70,6 +75,7 @@ class MjpegReader:
         frame = cv2.imdecode(np.frombuffer(jpeg, dtype=np.uint8), cv2.IMREAD_COLOR)
         if frame is None:
             return False, None
+        self.last_jpeg_size = len(jpeg)
         return True, frame
 
     def release(self):

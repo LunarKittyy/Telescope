@@ -74,6 +74,25 @@ class StreamWorker(QThread):
         self._stop_flag    = False
         self._restart_vcam = threading.Event()
         self._latest_rgb   = None
+        # Cumulative wire bytes across the whole worker lifetime (including
+        # mid-stream reconnects, which _stream_reader handles internally
+        # without this counter resetting) - the run() vcam loop only ever
+        # reads deltas between its own 2s windows, so a running total is all
+        # that's needed here.
+        self._bytes_total  = 0
+        # Frames actually decoded off the wire (incremented in
+        # _stream_reader). Deliberately separate from the vcam send-loop's
+        # own fc/elapsed fps figure below: pyvirtualcam paces sends to its
+        # configured rate by resending the latest available frame whether or
+        # not a new one has arrived, so that send-loop fps stays pinned near
+        # target even when the network can't keep up - only counting actual
+        # new decodes reflects real throughput.
+        self._frames_received = 0
+        # Consecutive 2s windows where the real decode rate has trailed the
+        # target by a real margin - distinguishes "genuinely congested" from
+        # a single noisy window, so the throughput readout doesn't flicker
+        # warning colour on an ordinary blip.
+        self._weak_streak  = 0
 
     def _process(self, frame):
         for fn in self._pipeline:
@@ -110,7 +129,7 @@ class StreamWorker(QThread):
         return reader
 
     def _reconnect_cap(self, stop_event: threading.Event) -> Optional[object]:
-        self.status.emit("warn", "Stream dropped - reconnecting...")
+        self.status.emit("reconnecting", "Stream dropped - reconnecting")
         while not stop_event.is_set() and not self._stop_flag:
             for _ in range(RECONNECT_DELAY * 10):
                 if stop_event.is_set() or self._stop_flag:
@@ -141,6 +160,8 @@ class StreamWorker(QThread):
                 self.status.emit("ok", "Stream reconnected")
                 self.reconnected.emit()
                 continue
+            self._bytes_total += cap.last_jpeg_size
+            self._frames_received += 1
             try:
                 rw = self._width
                 rh = self._height
@@ -173,6 +194,8 @@ class StreamWorker(QThread):
                 self._restart_vcam.wait(timeout=RECONNECT_DELAY)
                 self._restart_vcam.clear()
                 continue
+            self._bytes_total += cap.last_jpeg_size
+            self._frames_received += 1
 
             if self._width or self._height:
                 rw = self._width  or frame.shape[1]
@@ -201,20 +224,50 @@ class StreamWorker(QThread):
                                          backend=VCAM_BACKEND,
                                          device=V4L2_PHONE_DEV if IS_LINUX else None) as cam:
                     self.status.emit("ok", f"Virtual camera: {cam.device}")
-                    fc, t0 = 0, time.time()
+                    fc, t0, bytes0, recv0 = 0, time.time(), self._bytes_total, self._frames_received
                     while not self._stop_flag and not self._restart_vcam.is_set():
-                        rgb = self._latest_rgb
-                        if rgb is not None:
+                        src = self._latest_rgb
+                        if src is not None:
                             # Adapt the (potentially resized / rotated /
                             # differently-shaped) frame to the fixed vcam
-                            # dimensions, preserving aspect ratio.
-                            rgb = _fit_frame(rgb, cam_w, cam_h)
-                            cam.send(rgb)
+                            # dimensions, preserving aspect ratio. cam_w/cam_h
+                            # are the vcam's own fixed output size and don't
+                            # change here - src's shape is read fresh below,
+                            # since a live resolution switch on the phone
+                            # changes it out from under this loop without a
+                            # vcam restart.
+                            cam.send(_fit_frame(src, cam_w, cam_h))
                         cam.sleep_until_next_frame()
                         fc += 1
                         if (elapsed := time.time() - t0) >= 2.0:
-                            self.status.emit("fps", f"{fc/elapsed:.1f} fps  {cam_w}x{cam_h}")
-                            fc, t0 = 0, time.time()
+                            src_now = self._latest_rgb
+                            if src_now is not None:
+                                src_h, src_w = src_now.shape[:2]
+                            else:
+                                src_w, src_h = cam_w, cam_h
+                            self.status.emit("fps", f"{fc/elapsed:.1f} fps  {src_w}x{src_h}")
+
+                            bytes_now = self._bytes_total
+                            mbps = (bytes_now - bytes0) * 8 / elapsed / 1_000_000
+
+                            # "Genuinely struggling" is the real decode rate
+                            # (frames actually arriving off the wire, not the
+                            # vcam send loop's own pace - pyvirtualcam resends
+                            # the latest available frame every tick regardless
+                            # of whether a new one has shown up, so its fps
+                            # stays pinned near target even when the network
+                            # can't keep up) trailing the configured target by
+                            # a real margin, sustained over a few windows -
+                            # not just "quality is set high and that's
+                            # working fine", which shouldn't warn.
+                            recv_now = self._frames_received
+                            decode_fps = (recv_now - recv0) / elapsed
+                            struggling = decode_fps < self._fps * 0.85
+                            self._weak_streak = self._weak_streak + 1 if struggling else 0
+                            net_kind = "net_warn" if self._weak_streak >= 2 else "net"
+                            self.status.emit(net_kind, f"{mbps:.1f} Mbps")
+
+                            fc, t0, bytes0, recv0 = 0, time.time(), bytes_now, recv_now
             except Exception as exc:
                 self.status.emit("warn", f"Virtual cam error: {exc}")
 
