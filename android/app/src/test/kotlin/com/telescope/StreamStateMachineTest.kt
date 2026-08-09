@@ -87,8 +87,7 @@ class StreamStateMachineTest {
         // State is unchanged: the stream is still considered live.
         assertEquals(StreamState.Streaming, m.state)
         assertTrue(m.isStreaming)
-        // Recorded as a self-transition with the sanitized error, so it shows up
-        // in the diagnostics history.
+        // Recorded as self-transition; shows in diagnostics history.
         assertEquals(StreamState.Streaming, r.from)
         assertEquals(StreamState.Streaming, r.to)
         assertEquals("applyExposure", r.op)

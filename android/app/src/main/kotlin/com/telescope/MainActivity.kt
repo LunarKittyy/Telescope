@@ -56,20 +56,10 @@ class MainActivity : AppCompatActivity() {
     private var service: CameraStreamService? = null
     private var bound = false
     private var cameras = listOf<CameraInfo>()
-    // Set the instant Start is tapped, before startForegroundService()/bindService()
-    // have had a chance to make service.state reflect anything but Idle - closes the
-    // window where a fast second tap would call startStream() again and race a second
-    // CameraSessionController against the first for the same camera id. Cleared once
-    // the real service connects and its own state takes over tracking "busy".
+    // Prevents double-start race; cleared once service connects.
     private var starting = false
 
-    // Named (not inline-anonymous) so syncLiveControlsToState() can detach it
-    // while driving spinnerCamera programmatically - Spinner.setSelection()'s
-    // selection-notify callback is not guaranteed synchronous (it can be
-    // posted rather than fired inline), so without detaching it here, a
-    // resolution correction applied right after setSelection() can end up
-    // running *before* this listener's own populateResolutionSpinner() call,
-    // which then clobbers it back to the 1080p/index-0 default.
+    // Named so it can be detached when driving spinnerCamera programmatically.
     private val cameraSpinnerListener = object : AdapterView.OnItemSelectedListener {
         override fun onItemSelected(p: AdapterView<*>?, v: android.view.View?, pos: Int, id: Long) {
             populateResolutionSpinner(pos)
@@ -106,15 +96,10 @@ class MainActivity : AppCompatActivity() {
         result.contents?.let { handleQrScan(it) }
     }
 
-    // Registered/unregistered with onStart()/onStop() rather than the manifest:
-    // only needs to work while this screen is actually in front (same
-    // requirement the QR flow already has - you have to be looking at the app
-    // to scan a code). Gated on the DUMP permission at registration (see
-    // onStart()) so it's reachable by adb but not by another app on the phone.
+    // Registered at runtime; gated on DUMP permission (adb-only, not other apps).
     private val pairReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            // Base64-encoded on the desktop side so the JSON's braces/quotes
-            // never have to survive adb shell's remote command-line parsing.
+            // Base64-encoded to survive adb shell command-line parsing.
             intent.getStringExtra(EXTRA_PAIR_PAYLOAD)?.let {
                 runCatching { String(android.util.Base64.decode(it, android.util.Base64.DEFAULT)) }
                     .getOrNull()
@@ -123,9 +108,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // True once this screen has seen a stream it did not itself start, so the
-    // "started from your desktop" toast fires once per remote start rather
-    // than on every tick of statusPoller.
+    // Toast "started from your desktop" only once per remote start.
     private var remoteStartAnnounced = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -261,10 +244,7 @@ class MainActivity : AppCompatActivity() {
             var success = false
             var untried = 0
             for ((index, route) in routes.withIndex()) {
-                // Every address gets a shot, but not at the cost of an
-                // unbounded wait: eight candidates over two passes would
-                // otherwise leave the user staring at nothing for half a
-                // minute before the explanation they need appears.
+                // Bound wait per candidate; many candidates can't cause long delays.
                 val timeout = attemptTimeoutMs(android.os.SystemClock.elapsedRealtime() - startedAt)
                 if (timeout == null) {
                     untried = routes.size - index
@@ -285,12 +265,7 @@ class MainActivity : AppCompatActivity() {
                 TokenStore.save(this, offer.token)
             }
             runOnUiThread {
-                // The running MjpegServer snapshots TokenStore at startup (see
-                // CameraStreamService.startServer()) - it keeps enforcing the
-                // old token until restarted, so re-pairing mid-stream would
-                // otherwise silently keep rejecting the desktop that just
-                // paired. Stopping (not restarting) leaves it to the user to
-                // start a fresh stream once they're ready.
+                // MjpegServer snapshots token at startup; stop to pick up new token.
                 if (success) {
                     if (service?.isStreaming == true) {
                         service?.stopStreaming()
@@ -301,9 +276,7 @@ class MainActivity : AppCompatActivity() {
                         this, "Paired! Desktop will add this device.", Toast.LENGTH_LONG,
                     ).show()
                 } else {
-                    // Too long for a toast, and the whole point is that it's
-                    // readable: it names every address tried, how each failed,
-                    // and what to do about it.
+                    // Show in dialog for readability (too long for toast).
                     if (!isFinishing && !isDestroyed) {
                         showPairingFailure(pairingFailureMessage(failures, untried))
                     }
@@ -324,9 +297,7 @@ class MainActivity : AppCompatActivity() {
         var conn: java.net.HttpURLConnection? = null
         return try {
             val url = java.net.URL("http://${candidate.ip}:${offer.port}/pair/${offer.nonce}")
-            // openConnection() on a specific Network pins this one request to
-            // that network's interface and DNS; url.openConnection() uses the
-            // process default (the VPN, when one is up).
+            // Pin to Wi-Fi network if available; default otherwise.
             val opened = network?.openConnection(url) ?: url.openConnection()
             conn = (opened as java.net.HttpURLConnection).apply {
                 requestMethod = "POST"
@@ -338,9 +309,7 @@ class MainActivity : AppCompatActivity() {
             val body = org.json.JSONObject().apply {
                 put("name", deviceName)
                 put("ips", org.json.JSONArray(myIps))
-                // Echoed back so the desktop can confirm this POST actually
-                // came from a phone that read the current QR code, on top
-                // of the one-shot nonce already baked into the URL path.
+                // Echoed back; defense-in-depth along with nonce in URL path.
                 put("token", offer.token)
             }.toString()
             conn.outputStream.use { it.write(body.toByteArray()) }
@@ -379,11 +348,7 @@ class MainActivity : AppCompatActivity() {
         }
     } catch (_: Exception) { null }
 
-    /** A single tap used to instantly wipe the pairing token with no way back
-     *  short of re-pairing from scratch - one stray touch on this button (it
-     *  sits right next to others on the same row) was enough to lock a user
-     *  out of their own desktop until they could get back on the same
-     *  network. Confirm first. */
+    /** Confirm before wiping pairing token (destructive, easy to tap accidentally). */
     private fun confirmResetPairing() {
         MaterialAlertDialogBuilder(this)
             .setTitle("Unpair this phone?")
@@ -585,10 +550,7 @@ class MainActivity : AppCompatActivity() {
             if (!spinnerCamera.isEnabled) {
                 spinnerCamera.isEnabled = true
                 spinnerResolution.isEnabled = true
-                // checkOis's enabled state depends on the selected camera's
-                // hasOis, same rule populateResolutionSpinner() already
-                // applies on every manual selection - re-derive it here too,
-                // since streaming just ended and nothing else will.
+                // Re-derive OIS enablement; streaming just ended.
                 cameras.getOrNull(spinnerCamera.selectedItemPosition)?.let {
                     checkOis.isEnabled = it.hasOis
                 }
@@ -605,10 +567,7 @@ class MainActivity : AppCompatActivity() {
         if (camIdx < 0) return
 
         if (spinnerCamera.selectedItemPosition != camIdx) {
-            // Detached so setSelection() can't fire onItemSelected on its own
-            // schedule - populateResolutionSpinner(camIdx) is called
-            // explicitly right after instead, guaranteeing it (and then the
-            // live-size correction below) run in this exact order.
+            // Detach listener so setSelection() doesn't trigger callback out of order.
             spinnerCamera.onItemSelectedListener = null
             spinnerCamera.setSelection(camIdx)
             spinnerCamera.onItemSelectedListener = cameraSpinnerListener
@@ -639,20 +598,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** True while a start is in flight but not yet either streaming or failed -
-     *  covers both the gap before the service binds (the [starting] flag) and,
-     *  once bound, every state between Idle and Streaming. Failed is excluded
-     *  so the button re-enables immediately for a retry rather than waiting on
-     *  the async unbind that follows the service's own stopSelf(). */
+    /** True while a start is in flight (includes [starting] flag and intermediate states). */
     private fun isBusy(): Boolean {
         if (starting) return true
         val state = service?.state ?: StreamState.Idle
         return state != StreamState.Idle && state != StreamState.Streaming && state != StreamState.Failed
     }
 
-    /** Returns true if a start was actually kicked off (and so [starting]
-     *  should hold the button disabled), false if it bailed out immediately
-     *  with nothing in flight. */
+    /** Returns true if a start was actually kicked off, false if bailed immediately. */
     private fun startStream(): Boolean {
         val camIdx = spinnerCamera.selectedItemPosition
         val resIdx = spinnerResolution.selectedItemPosition
@@ -667,9 +620,7 @@ class MainActivity : AppCompatActivity() {
             height = size.height,
             ois = checkOis.isChecked && cam.hasOis,
         )
-        // Remembered so a desktop-initiated start reproduces this exact
-        // selection - it has no spinners to read. Written before the launch so
-        // the record is in place even if the service start itself fails.
+        // Saved for desktop-initiated start (no spinners to read); persisted before launch.
         StreamPrefs.saveSelection(this, selection)
 
         if (StreamLauncher.start(this, selection) !is StreamLauncher.Result.Started) return false

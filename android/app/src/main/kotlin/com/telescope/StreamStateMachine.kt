@@ -30,10 +30,7 @@ class StreamStateMachine(private val now: () -> Long = System::currentTimeMillis
 
     val isStreaming: Boolean get() = state == StreamState.Streaming
 
-    // Transitions can come from either the service's Camera2 HandlerThread
-    // (async open/session callbacks) or the main thread (onStartCommand,
-    // stopStreaming called directly on a bound service) - guard the shared
-    // history buffer against concurrent mutation from both.
+    // Guard against concurrent mutation from Camera2 HandlerThread and main thread.
     private val history = ArrayDeque<StateTransition>()
     private val historyLock = Any()
 

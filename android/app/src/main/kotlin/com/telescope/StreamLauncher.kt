@@ -65,8 +65,7 @@ object StreamLauncher {
             ContextCompat.startForegroundService(context, intent)
             Result.Started
         } catch (e: Exception) {
-            // Most likely ForegroundServiceStartNotAllowedException, if the
-            // caller's assumption about being foregrounded turned out wrong.
+            // Likely ForegroundServiceStartNotAllowedException (foreground assumption failed).
             android.util.Log.w("StreamLauncher", "Could not start stream service", e)
             Result.Rejected("start_refused")
         }

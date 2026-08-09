@@ -129,9 +129,7 @@ class CameraStreamService : Service() {
         const val DEFAULT_PORT     = 8080
         private const val TAG      = "CameraStreamService"
 
-        // Stop on our own if nothing authorized has reached the phone in this long - the
-        // desktop's MonitoringPlugin polls /v1/state every 15s while a stream is active, so
-        // this only fires once the desktop is genuinely gone (crashed, network down, closed).
+        // Fires when desktop is genuinely gone (no authorized /v1/state polls in this interval).
         private const val IDLE_STOP_MS = 60_000L
         private const val IDLE_CHECK_INTERVAL_MS = 5_000L
 
@@ -282,15 +280,9 @@ class CameraStreamService : Service() {
         bindAddr      = if (localOnly) "127.0.0.1" else "0.0.0.0"
         startedRemotely = intent?.getBooleanExtra(EXTRA_REMOTE, false) ?: false
 
-        // Must be called unconditionally and early, before any return below: this
-        // service starts via startForegroundService(), and Android kills the app if
-        // the promotion doesn't happen soon after, regardless of what fails below.
+        // Must be called early: Android kills the app if foreground promotion doesn't happen soon.
         startForegroundCompat()
-        // Keep the desktop's session channel reachable for as long as the camera
-        // is live, not just while MainActivity happens to be on screen - that's
-        // what lets the desktop stop and restart a stream after the phone's
-        // screen has gone to sleep mid-session. Idempotent: the refcount in
-        // SessionEndpoint absorbs a repeated onStartCommand.
+        // Keep session reachable even after MainActivity loses focus (idempotent refcount).
         SessionEndpoint.acquire(this, SessionEndpoint.OWNER_SERVICE)
         setState(StreamState.StartingServer, "onStartCommand")
 
@@ -630,9 +622,7 @@ class CameraStreamService : Service() {
         wakeLock?.let { if (it.isHeld) it.release() }
         controller = null; server = null
         setState(StreamState.Idle, op)
-        // Hand the session channel back. If MainActivity is on screen it still
-        // holds its own reference and the endpoint stays bound; otherwise this
-        // is the last release and the port closes with the stream.
+        // Release session; endpoint stays bound if MainActivity holds a reference.
         SessionEndpoint.release(SessionEndpoint.OWNER_SERVICE)
         stopForeground(STOP_FOREGROUND_REMOVE); stopSelf()
     }
@@ -654,11 +644,7 @@ class CameraStreamService : Service() {
             .setColor(ContextCompat.getColor(this, R.color.colorPrimary))
             .setColorized(false)
             .setContentIntent(pi).setOngoing(true).build()
-        // FOREGROUND_SERVICE_TYPE_CAMERA is only documented from API 30 (R) on, even
-        // though the 3-arg startForeground(id, notification, type) overload itself
-        // exists since API 29 (Q) - passing it a level early is what lint flags.
-        // Below R, the manifest's android:foregroundServiceType attribute already
-        // declares "camera", so the 2-arg overload is sufficient.
+        // Type parameter only works on R+; pre-R relies on manifest declaration.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
             startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA)
         else

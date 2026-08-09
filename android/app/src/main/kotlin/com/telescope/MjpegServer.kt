@@ -45,24 +45,16 @@ class MjpegServer(
     private val clients = CopyOnWriteArrayList<MjpegClient>()
     private val running = AtomicBoolean(false)
 
-    // Bumped on every authorized request - feeds idleForMs() for the battery-saving watchdog.
+    // Updated on every authorized request; feeds battery-saving watchdog.
     @Volatile private var lastAuthorizedRequestAtMs: Long = System.currentTimeMillis()
 
-    // Bounds total connections being served at once (streaming + short-lived
-    // /v1/state and /v1/control requests) so a peer that opens many partial or
-    // slow connections can't exhaust a thread per connection indefinitely.
+    // Bounds total concurrent connections; prevents thread exhaustion from slow peers.
     private val clientSlots = Semaphore(MAX_CONCURRENT_CLIENTS)
 
     fun start() {
         running.set(true)
         lastAuthorizedRequestAtMs = System.currentTimeMillis()
-        // Bind via the no-arg constructor + explicit setReuseAddress(true) instead of
-        // the ServerSocket(port, backlog, addr) convenience constructor, which binds
-        // immediately and gives no chance to set SO_REUSEADDR first. Without it, a
-        // quick stop-then-start (the previous MjpegServer's socket just closed, or its
-        // last accepted /v1/video connection still winding down into TIME_WAIT) can hit
-        // EADDRINUSE on the same port - and since this used to be uncaught, it crashed
-        // the whole app instead of just failing this one restart.
+        // Set SO_REUSEADDR before binding to avoid EADDRINUSE on quick restart.
         serverSocket = ServerSocket().apply {
             reuseAddress = true
             bind(java.net.InetSocketAddress(java.net.InetAddress.getByName(bindAddr), port), 50)

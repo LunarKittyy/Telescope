@@ -91,10 +91,7 @@ private class ServiceSessionCommands(private val context: Context) : SessionComm
     override fun start(): ControlResult {
         val service = CameraStreamService.instance
         if (service?.isStreaming == true) return ControlResult(ok = true)
-        // A start already in flight: answering "ok" would have the desktop
-        // connect before the camera is up, and issuing a second start would
-        // race two sessions for the same camera - the same reason
-        // MainActivity.isBusy() guards the local button.
+        // Prevent race; same guard as MainActivity.isBusy().
         if (service != null && service.state != StreamState.Idle && service.state != StreamState.Failed) {
             return ControlResult(ok = false, error = "busy")
         }

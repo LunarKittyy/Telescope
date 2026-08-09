@@ -172,8 +172,7 @@ class SessionServerTest {
         )
         withServer(commands = commands) { port, _ ->
             val response = post(port, "/v1/session", "secret-token", "{\"action\":\"start\"}")
-            // Still HTTP 200: the request was well-formed and authorized, the
-            // camera just wouldn't open. The desktop reads the body.
+            // HTTP 200: request well-formed; camera startup failed (desktop reads body).
             assertEquals(200, response.status)
             assertTrue(response.body.contains("\"ok\":false"), response.body)
             assertTrue(response.body.contains("no_camera_permission"), response.body)
@@ -215,9 +214,7 @@ class SessionServerTest {
 
     @Test
     fun `the wrong method is rejected before the token is even consulted`() {
-        // A path/method mismatch is not an authorization question, and
-        // answering 405 without checking the token keeps the two concerns
-        // from having to agree about ordering.
+        // Check method before token; keeps concerns independent.
         withServer { port, _ ->
             assertEquals(405, get(port, "/v1/session", "wrong-token").status)
         }

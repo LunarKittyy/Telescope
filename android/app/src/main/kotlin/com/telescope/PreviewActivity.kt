@@ -43,8 +43,7 @@ import java.util.concurrent.Executor
  * output surface to the running CameraStreamService session (stream keeps running).
  * Otherwise it opens a short-lived standalone Camera2 session of its own.
  */
-    // Labels use the familiar landscape names ("16:9", "4:3") but the ratio values are
-    // portrait (9:16, 3:4) - this app only shows portrait crops.
+    // Labels landscape ("16:9", "4:3"), ratios portrait (9:16, 3:4).
     private enum class AspectOption(val label: String, val ratio: Float) {
         R16_9("16:9", 9f / 16f),
         R4_3("4:3", 3f / 4f),
@@ -64,19 +63,14 @@ class PreviewActivity : AppCompatActivity() {
     private var boundToRunningStream = false
     private var resolved = false
     private var pendingSurface: Surface? = null
-    // Guards tearDownPreview() so a second call (it can run from both onStop() and
-    // onSurfaceTextureDestroyed()) is a no-op instead of redundantly detaching/closing.
+    // Guards tearDownPreview() from redundant calls.
     private var tornDown = false
 
-    // True once the aspect-ratio crop layout has landed, not just requested.
-    // tryResolve() must wait: TextureView.onSizeChanged() resets the SurfaceTexture's
-    // default buffer size on every resize, so attaching before the resize lands can lock
-    // the session to the pre-crop size while the buffer is silently deformed.
+    // Waits for layout to settle before attaching; TextureView buffer size resets on resize.
     private var layoutSettled = false
     private var pendingAspectSize: Size? = null
 
-    // Remembered so the transform can be recomputed when the aspect ratio (and
-    // therefore the TextureView's on-screen size) changes, without re-deriving them.
+    // Cached so transform can be recomputed without re-deriving on aspect changes.
     private var lastCameraId: String? = null
     private var lastBufferSize: Size? = null
 
@@ -87,15 +81,10 @@ class PreviewActivity : AppCompatActivity() {
     private var captureSession: CameraCaptureSession? = null
     private var handlerThread: HandlerThread? = null
     private var handler: Handler? = null
-    // Bumped on every standalone camera-open attempt so a stale onOpened/onConfigured
-    // from a superseded lens switch can't clobber the camera that's actually current.
+    // Guards against stale callbacks from superseded camera opens.
     private var standaloneGeneration = 0
 
-    // Without a lock screen covering the activity, turning the display off only
-    // triggers onPause(), not onStop() — the camera session and TextureView are
-    // left alive but the surface stalls, so the preview comes back frozen until
-    // manually exited and reopened. Since there's no reason to keep this preview
-    // open with the screen off, just close it outright when that happens.
+    // Close on screen off to avoid frozen preview (onPause != onStop without lock screen).
     private val screenOffReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == Intent.ACTION_SCREEN_OFF) finish()
@@ -107,10 +96,7 @@ class PreviewActivity : AppCompatActivity() {
             service = (binder as CameraStreamService.LocalBinder).getService()
             bound = true
             if (service?.isStreaming == true) {
-                // A running stream's buffer is already fixed at streaming resolution, so
-                // the aspect picker (unlike standalone mode, which opens a new session per
-                // ratio) can't actually change what's captured - skip it and leave the
-                // TextureView full-screen, which also avoids a resize racing session creation.
+                // Running stream: buffer fixed at streaming resolution, picker irrelevant.
                 btnAspect.visibility = View.GONE
                 layoutSettled = true
             } else {
@@ -134,8 +120,7 @@ class PreviewActivity : AppCompatActivity() {
         lensContainer = findViewById(R.id.layoutLensPills)
         btnAspect     = findViewById(R.id.btnAspect)
 
-        // Hidden until onServiceConnected confirms we're in the standalone (not currently
-        // streaming) case, where picking a ratio actually changes what's captured.
+        // Hidden until onServiceConnected confirms standalone (not streaming) mode.
         btnAspect.visibility = View.GONE
         btnAspect.text = AspectOption.entries[aspectIndex].label
         btnAspect.setOnClickListener {
@@ -144,8 +129,7 @@ class PreviewActivity : AppCompatActivity() {
         }
 
         btnClose.setOnClickListener { finish() }
-        // Back should just leave this screen, same as the X button - it must never
-        // touch the stream (started independently by MainActivity via startForegroundService).
+        // Back must not touch the stream (started independently by MainActivity).
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { finish() }
         })
@@ -175,10 +159,7 @@ class PreviewActivity : AppCompatActivity() {
             finish()
             return
         }
-        // BIND_AUTO_CREATE so onServiceConnected always fires even when nothing is streaming;
-        // a plain flags=0 bind can return true and never connect, making "not streaming"
-        // indistinguishable from "still connecting". If nothing was running this only
-        // triggers the service's cheap onCreate(), and tryResolve() unbinds it immediately.
+        // BIND_AUTO_CREATE ensures onServiceConnected always fires; flags=0 can return true without connecting.
         bindService(Intent(this, CameraStreamService::class.java), serviceConnection, Context.BIND_AUTO_CREATE)
         registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
     }
@@ -190,9 +171,7 @@ class PreviewActivity : AppCompatActivity() {
         service = null
         resolved = false
         boundToRunningStream = false
-        // Back out to the main screen rather than leave a dead preview on screen-off or
-        // backgrounding. Only this activity's own camera/session was torn down above; a
-        // live stream is owned independently by CameraStreamService and keeps running.
+        // Exit; live stream owned independently by CameraStreamService.
         finish()
         super.onStop()
     }
@@ -201,8 +180,7 @@ class PreviewActivity : AppCompatActivity() {
 
     private fun tryResolve() {
         if (resolved) return
-        // Bound-to-stream case sets this immediately (no crop applied there); standalone
-        // case waits for its aspect-ratio crop layout to actually land - see onServiceConnected.
+        // Wait for layout to settle in standalone mode; bound mode doesn't need crop.
         if (!layoutSettled) return
         val surface = pendingSurface ?: return
 
@@ -233,8 +211,7 @@ class PreviewActivity : AppCompatActivity() {
         val surface = pendingSurface
         pendingSurface = null
         if (boundToRunningStream) {
-            // The service owns detaching the surface from its live session; only release
-            // the Surface itself once that's done (or immediately if it's already gone).
+            // Service detaches surface; release Surface after detach completes.
             val svc = service
             if (svc != null) svc.detachPreviewSurface { surface?.release() }
             else surface?.release()
@@ -338,8 +315,7 @@ class PreviewActivity : AppCompatActivity() {
     }
 
     private fun closeStandaloneCamera(keepThread: Boolean = false) {
-        // Invalidate any in-flight open/session-configure from a camera we're now
-        // abandoning so a late callback can't resurrect it after this returns.
+        // Invalidate in-flight callbacks so stale ones can't resurrect abandoned camera.
         standaloneGeneration++
         try { captureSession?.stopRepeating() } catch (_: Exception) {}
         try { captureSession?.close() } catch (_: Exception) {}
@@ -366,18 +342,14 @@ class PreviewActivity : AppCompatActivity() {
             val manager = getSystemService(CAMERA_SERVICE) as CameraManager
             val sensorOrientation = manager.getCameraCharacteristics(cameraId)
                 .get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
-            // TextureView already auto-rotates the buffer for sensor orientation, so no
-            // manual rotation is applied here (display rotation is always 0, app is
-            // portrait-locked) - only the resulting stretch needs a corrective scale.
+            // TextureView auto-rotates for sensor orientation; app is portrait-locked.
             val axesSwapped = sensorOrientation == 90 || sensorOrientation == 270
 
             val bufW = bufferSize.width.toFloat()
             val bufH = bufferSize.height.toFloat()
             val scaleX = if (axesSwapped) viewWidth  / bufH else viewWidth  / bufW
             val scaleY = if (axesSwapped) viewHeight / bufW else viewHeight / bufH
-            // Standalone mode already crops the view to the target aspect box, so "cover"
-            // (max) fills it with a near-zero mismatch. Bound mode has no crop box - full
-            // screen, arbitrary aspect - so "cover" would crop the stream; use "contain" (min).
+            // Standalone has crop box (use cover/max); bound mode (use contain/min) would crop stream.
             val finalScale = if (boundToRunningStream) minOf(scaleX, scaleY) else maxOf(scaleX, scaleY)
 
             val matrix = Matrix()
@@ -387,10 +359,9 @@ class PreviewActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.w(TAG, "Preview transform failed for camera $cameraId (attempt ${retryCount + 1})", e)
             if (retryCount < MAX_TRANSFORM_RETRIES) {
-                // Camera characteristics lookups can transiently fail during a lens switch
-                // or session reconfiguration; retry rather than leave the view stretched.
+                // Transient failures during lens switch; retry rather than show stretched view.
                 textureView.postDelayed({
-                    // Bail if a newer call has already superseded this one (e.g. another lens switch).
+                    // Bail if superseded by a newer call (e.g. another lens switch).
                     if (cameraId == lastCameraId && bufferSize == lastBufferSize) {
                         applyPreviewTransform(cameraId, bufferSize, retryCount + 1)
                     }
@@ -412,13 +383,9 @@ class PreviewActivity : AppCompatActivity() {
 
     // Only called for the standalone (not currently streaming) case - see onServiceConnected.
     private fun beginStandaloneAspectLayout() {
-        // Deferred until after layout so the TextureView's parent has a real size;
-        // calling this synchronously here would no-op against a still-zero-sized view.
+        // Deferred; calling synchronously would no-op against zero-sized view.
         textureView.post { applyAspectOption() }
-        // post{} alone isn't a sufficient barrier: requestLayout() only schedules a
-        // traversal for the next Choreographer frame. Wait for the TextureView's bounds
-        // to actually match the target size before letting tryResolve() open the camera,
-        // or its pending onSizeChanged could still overwrite the buffer size mid-session.
+        // post{} insufficient: wait for layout bounds to match before opening camera.
         textureView.addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
             override fun onLayoutChange(
                 v: View, left: Int, top: Int, right: Int, bottom: Int,

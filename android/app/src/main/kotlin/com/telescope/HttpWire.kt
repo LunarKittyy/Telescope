@@ -146,8 +146,7 @@ object HttpWire {
         )
     }
 
-    // Device-to-desktop only; there is no browser-origin caller to grant CORS
-    // access to, so no Access-Control-Allow-Origin header is sent.
+    // Device-to-desktop only; no CORS header needed.
     fun sendJson(out: OutputStream, json: String) {
         val body = json.toByteArray(Charsets.UTF_8)
         val hdr = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n" +

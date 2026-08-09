@@ -57,8 +57,7 @@ class PairingTest {
     @Test
     fun `rejects other protocol versions as unsupported, not invalid`() {
         assertEquals(PairingParse.UnsupportedVersion, parsePairingOffer(payload(version = 3)))
-        // A v1 payload has no "candidates" at all - still a version problem,
-        // and the user needs to hear "update", not "invalid QR code".
+        // V1 payloads lack "candidates"; report as version mismatch, not invalid.
         assertEquals(
             PairingParse.UnsupportedVersion,
             parsePairingOffer("""{"version":1,"port":8765,"ips":["192.168.1.42"],"nonce":"n","token":"t"}"""),
@@ -89,8 +88,7 @@ class PairingTest {
             """[{"ip":"01.2.3.4","interface":"Wi-Fi","kind":"lan"}]""",
             """[{"ip":"192.168.1","interface":"Wi-Fi","kind":"lan"}]""",
             """[{"ip":"fe80::1","interface":"Wi-Fi","kind":"lan"}]""",
-            // One bad entry poisons the batch rather than being skipped: the
-            // desktop that generated it isn't behaving, so don't half-trust it.
+            // One bad entry taints whole batch (don't half-trust misbehaving desktop).
             """[{"ip":"192.168.1.42","interface":"Wi-Fi","kind":"lan"},
                 {"ip":"nope","interface":"eth0","kind":"lan"}]""",
         ).forEach { assertEquals(PairingParse.Invalid, parsePairingOffer(payload(candidates = it)), "for: $it") }

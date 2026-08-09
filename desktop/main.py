@@ -38,8 +38,7 @@ from telescope.widgets.common import create_app_icon
 
 def main():
     app = QApplication(sys.argv)
-    # Also set at the QApplication level (not just on the window) so dialogs
-    # and the window pick the same mark before/without a window icon.
+    # Set at QApplication level so dialogs and window share icon.
     app.setWindowIcon(create_app_icon(64))
 
     srv = acquire_single_instance()

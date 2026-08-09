@@ -21,9 +21,7 @@ from telescope.ip_utils import PairingAddress
 
 PAIRING_PORT = 8765
 
-# Bumped when the QR payload's shape changes. The phone rejects anything it
-# doesn't recognise outright rather than guessing at a partial parse, so
-# desktop and app are expected to ship together.
+# Protocol version; desktop and app must ship together.
 PAIRING_PROTOCOL_VERSION = 2
 
 
@@ -44,12 +42,7 @@ class PairingResult:
     name: str
     ips: List[str] = field(default_factory=list)
     token: str = ""
-    # The address the pairing POST actually arrived from. By construction
-    # this is an address of the phone that can reach this desktop right now,
-    # over whichever path the phone found - so it's the one to stream to,
-    # rather than guessing from the reported list. Empty, or absent from
-    # [ips], when there's nothing useful to learn from it: USB pairing sees
-    # the loopback end of the adb tunnel, not a phone address.
+    # Source of successful pairing POST (preferred over reported IPs).
     source_ip: str = ""
 
 
@@ -58,14 +51,7 @@ class PairingServer:
     single phone's pairing POST against it."""
 
     _MAX_BODY_BYTES = 16 * 1024
-    # Cap on how much of an oversized body we'll drain before rejecting it.
-    # Closing a socket while the kernel still has unread bytes queued sends
-    # an abortive RST instead of a graceful close - Windows then discards
-    # the client's receive buffer on that RST, so the client never gets to
-    # read our 413 (ConnectionAbortedError / WinError 10053) even though we
-    # already wrote it. Draining avoids that for any reasonably-sized
-    # oversized body; a wildly large Content-Length just eats the RST, which
-    # is fine since that's already an abuse case, not a real client.
+    # Drain limit: avoid RST on Windows when closing with unread bytes.
     _DRAIN_LIMIT = 1024 * 1024
 
     def __init__(self, on_paired: Callable[[PairingResult], None]):

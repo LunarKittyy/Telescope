@@ -103,27 +103,16 @@ class CameraSessionController(
     // Stream quality
     @Volatile private var currentJpegQuality: Int = 85
     @Volatile private var currentPhoneFps:    Int = 30
-    // Capture/output size - mutable so switchResolution() can change it live;
-    // read by openCamera() (initial open) and switchResolutionInternal()
-    // (live change) when sizing the ImageReader.
+    // Mutable so switchResolution() can change live; sized by openCamera().
     @Volatile private var streamWidth:  Int = initialStreamWidth
     @Volatile private var streamHeight: Int = initialStreamHeight
 
     @Volatile private var currentCamera: CameraEntry? = null
 
-    // Bumped on every camera-open attempt. Async onOpened/onConfigured callbacks
-    // compare their captured generation against the current value and discard
-    // themselves if a newer open has superseded them, so a stale callback can't
-    // clobber the camera that's actually active.
+    // Guards against stale onOpened/onConfigured callbacks after a new open.
     @Volatile private var cameraGeneration = 0
 
-    // Bumped on every reconfigureSession() call (attach/detach preview surface),
-    // independent of cameraGeneration (which only changes on a full camera open/
-    // switch). Distinguishes "this is still the latest reconfigure attempt for the
-    // currently-open camera" from a rapid attach immediately followed by detach (or
-    // vice versa), where two createCaptureSession calls can be in flight at once and
-    // an older one's onConfigured could otherwise land after the newer one and
-    // clobber captureSession with a stale session.
+    // Guards against stale onConfigured callbacks from rapid reconfigureSession() calls.
     @Volatile private var sessionGeneration = 0
 
     fun getCurrentCameraId(): String? = currentCamera?.id
@@ -289,10 +278,7 @@ class CameraSessionController(
         onComplete: (() -> Unit)? = null,
     ) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) { createLegacySession(camera, generation, mySession, onComplete); return }
-        // A stop/teardown racing in between the generation check in the caller and
-        // this call can null out imageReader (and previewSurface) concurrently -
-        // re-check staleness and bail rather than asking Camera2 to configure a
-        // session with zero surfaces, which throws.
+        // Re-check staleness; surfaces may have been cleared concurrently.
         if (generation != cameraGeneration) { onComplete?.invoke(); return }
         val outCfgs = currentTargetSurfaces().map { surface ->
             OutputConfiguration(surface).also { it.setPhysicalCameraId(physId) }
@@ -417,8 +403,7 @@ class CameraSessionController(
                 set(CaptureRequest.SENSOR_FRAME_DURATION, targetFrameNs.coerceAtLeast(sht))
             } else {
                 set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
-                // Use the closest range Camera2 actually advertises; an unsupported
-                // range can make the capture request fail outright on some devices.
+                // Use advertised range; unsupported ranges can fail on some devices.
                 val range = CameraRequestSelection.pickAeFpsRange(cam?.aeFpsRanges ?: emptyList(), currentPhoneFps)
                 if (range != null) {
                     android.util.Log.d(TAG, "AE FPS range for ${cam?.id}: $range (target=$currentPhoneFps)")
@@ -457,8 +442,7 @@ class CameraSessionController(
                 if (currentOis && cam?.hasOis == true) CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_ON
                 else CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_OFF)
 
-            // Noise reduction and edge enhancement - set only when the camera advertises
-            // a usable mode; otherwise omit the key.
+            // NR/edge modes set only if camera advertises them; omit otherwise.
             CameraRequestSelection.pickNrMode(cam?.nrModes ?: emptySet(), currentNrMode)?.let {
                 set(CaptureRequest.NOISE_REDUCTION_MODE, it)
             }
@@ -501,22 +485,13 @@ class CameraSessionController(
         try {
             s.setRepeatingRequest(buildRequest(c), ccmCaptureCallback, handler)
         } catch (e: Exception) {
-            // The stream keeps running on the previous repeating request, so this
-            // is non-fatal - but the requested control change silently didn't take
-            // effect. Report it so the service records it in diagnostics and logs
-            // it (the service owns logging, same as the onStateChanged path -
-            // logging here too would double every warning in logcat).
+            // Non-fatal; stream continues on previous request but control change failed.
             onControlError("applyExposure", e)
         }
     }
 
     private fun switchCameraTo(entry: CameraEntry) {
-        // Drop manual/flash/focus state the new lens can't honor, so buildRequest()
-        // and snapshot() don't disagree on what's actually active.
-        //
-        // currentOis is deliberately NOT reset: buildRequest() only requests OIS-on
-        // when cam.hasOis is true, so leaving the toggle alone lets OIS resume
-        // automatically on switching back to an OIS-capable lens.
+        // Drop unsupported manual/flash/focus; preserve OIS toggle for auto-resume.
         if (!entry.supportsFlash) currentTorch = false
         if (!entry.supportsManualSensor) { currentIso = null; currentShutterNs = null }
         if (!entry.supportsManualFocus && currentFocusMode == "manual") currentFocusMode = "continuous"

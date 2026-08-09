@@ -25,12 +25,10 @@ from telescope.stream import StreamWorker
 from telescope.widgets.common import ElidingLabel, create_app_icon, create_vector_icon
 
 # ── Theme ─────────────────────────────────────────────────────────────────────
-# The palette and stylesheet live in telescope/theme.py; re-exported here so
-# existing callers (and plugins colouring labels inline) keep one import site.
+# Re-exported here so existing callers keep one import site.
 STATUS_COLORS = theme.STATUS_COLORS
 
-# Below these widths the three-column layout stops fitting and the host folds
-# the rails together, then stacks everything into a single column.
+# Breakpoints where layout folds from 3 to 2 to 1 column.
 _WIDTH_THREE_COL = 1300
 _WIDTH_TWO_COL   = 900
 
@@ -95,44 +93,27 @@ class TelescopeWindow(QMainWindow):
 
         self._bus     = EventBus()
         self._bus.resolution_change_requested.connect(self._on_resolution_pending)
-        # (target_w, target_h) of an in-flight resolution change, or None.
-        # Set on request, cleared once the "fps" status text reports the
-        # matching size (confirmed) or the pending timer runs out (failed).
+        # In-flight resolution change; cleared on confirm or timeout.
         self._pending_resolution: Optional[tuple[int, int]] = None
         self._pending_resolution_timer: Optional[QTimer] = None
-        # Animated "Stream dropped - reconnecting..." status - see
-        # _start_reconnecting_animation().
+        # Animated "Stream dropped - reconnecting..." status.
         self._reconnecting_timer: Optional[QTimer] = None
         self._reconnecting_base = ""
         self._reconnecting_dots = 1
         self._plugins: list[TelescopePlugin] = []
         self._plugins_by_name: dict[str, TelescopePlugin] = {}
-        # Captured once, right after each device-local plugin's UI is built
-        # and before any saved config is applied - lets us reset a plugin to
-        # a clean slate before layering a device's profile on top, so a
-        # profile that's missing a key doesn't inherit the previous device's
-        # value for it.
+        # Plugin defaults; lets us reset before applying device profile.
         self._plugin_defaults: dict[str, dict] = {}
 
-        # StreamSession owns the worker/client for the current connect-to-
-        # disconnect lifecycle; self._worker/self._ctrl below are read-only
-        # views onto it. Its id is captured by async completions (phone-
-        # state fetches) so a result that arrives after a device switch/stop
-        # can recognize itself as stale and get discarded instead of
-        # reaching plugins for the wrong phone.
+        # StreamSession owns current worker/client; id guards against stale async results.
         self._session: Optional[StreamSession] = None
         self._next_session_id = 1
         self._save_failure_notified = False
 
-        # Generation counter for the phone-wake step that now precedes every
-        # start. A wake takes seconds and runs off the UI thread, so the user
-        # can hit Stop, switch device, or quit while one is still in flight;
-        # bumping this makes any result that lands afterwards recognize itself
-        # as stale, the same way _session.id does for phone-state fetches.
+        # Generation counter for phone-wake; guards against stale async results.
         self._wake_id = 0
         self._waking = False
-        # Remote-stop requests, kept so the quit path can give them a moment
-        # to reach the phone instead of dying with the process.
+        # Remote-stop requests; quit path waits for these to complete.
         self._stop_threads: list[threading.Thread] = []
 
         self._save_timer = QTimer(self)
@@ -213,8 +194,7 @@ class TelescopeWindow(QMainWindow):
         lay.setContentsMargins(18, 10, 18, 10)
         lay.setSpacing(12)
 
-        # Plugins that contribute a header control (the device picker) land
-        # here, in registration order.
+        # Plugins land header controls here.
         self._header_slot = QHBoxLayout()
         self._header_slot.setContentsMargins(0, 0, 0, 0)
         self._header_slot.setSpacing(14)
@@ -243,8 +223,7 @@ class TelescopeWindow(QMainWindow):
         return bar
 
     def _set_start_button(self, streaming: bool):
-        """Keep the button's label, icon and colour saying the same thing -
-        a play triangle on a button that stops the stream is a small lie."""
+        """Keep label, icon, and color consistent."""
         self._streaming_label = streaming
         verb = "Stop" if streaming else "Start"
         self._start_btn.setText(verb if self._layout_mode == "one" else f"{verb} Streaming")
@@ -269,8 +248,7 @@ class TelescopeWindow(QMainWindow):
         self._body_lay.setContentsMargins(16, 16, 16, 16)
         self._body_lay.setSpacing(14)
 
-        # Three physical columns, populated differently per layout mode -
-        # in the narrower modes the trailing ones are simply hidden.
+        # Three columns; narrower modes hide trailing ones.
         self._columns: list[QScrollArea] = []
         self._column_layouts: list[QVBoxLayout] = []
         for _ in range(3):
@@ -281,8 +259,7 @@ class TelescopeWindow(QMainWindow):
             content = QWidget()
             content.setObjectName("rail_content")
             col_lay = QVBoxLayout(content)
-            # Right inset reserves room for the scrollbar so it never sits on
-            # top of a card's border.
+            # Right inset: scrollbar won't cover card border.
             col_lay.setContentsMargins(0, 0, 6, 0)
             col_lay.setSpacing(14)
             scroll.setWidget(content)
@@ -299,12 +276,7 @@ class TelescopeWindow(QMainWindow):
         lay.setContentsMargins(18, 8, 18, 8)
         lay.setSpacing(14)
 
-        # No caption here: the message already reads as a status ("Streaming
-        # to /dev/video11", "Stopped.") and is colour-coded. "LIVE FPS" below
-        # earns its caption because "30.0" on its own means nothing.
-        # Elides: worker messages can be long ("Virtual camera: /dev/video11"),
-        # and at the minimum window width a plain label would push the FPS
-        # readout off the end of the bar.
+        # No caption (already reads as status); elides long messages.
         self._status_lbl = ElidingLabel("Idle - press Start Streaming")
         self._status_lbl.setObjectName("status_dim")
         lay.addWidget(self._status_lbl, 1)
@@ -342,8 +314,7 @@ class TelescopeWindow(QMainWindow):
         return bar
 
     def _show_settings_menu(self):
-        """Built fresh on each click so it always reflects the plugins
-        currently registered (and whatever state their actions read)."""
+        """Built fresh to reflect current plugins."""
         menu = QMenu(self)
         for p in self._plugins:
             for action in p.create_menu_actions():
@@ -403,8 +374,7 @@ class TelescopeWindow(QMainWindow):
                 scroll.setFixedWidth(width)
                 scroll.setSizePolicy(QSizePolicy.Policy.Fixed,
                                      QSizePolicy.Policy.Expanding)
-            # Only the flexible column absorbs slack; without this a lone
-            # fixed-width column ends up floating in the middle of the window.
+            # Only flexible column absorbs slack.
             self._body_lay.setStretch(self._columns.index(scroll),
                                       1 if width is None else 0)
             has_center = False
@@ -413,8 +383,7 @@ class TelescopeWindow(QMainWindow):
                 has_center = has_center or bool(stretch)
                 col_lay.addWidget(panel, stretch)
                 panel.setVisible(True)
-            # A column of ordinary panels keeps them top-aligned; one holding
-            # the video stage lets that panel absorb the slack instead.
+            # Column with center panel absorbs slack.
             if not has_center:
                 col_lay.addStretch()
 
@@ -447,9 +416,7 @@ class TelescopeWindow(QMainWindow):
         if save_config(cfg):
             self._save_failure_notified = False
         elif not self._save_failure_notified:
-            # Only once per failure streak - the 500ms debounce would
-            # otherwise re-trigger this on every subsequent settings change
-            # while the underlying problem (e.g. a full disk) persists.
+            # Warn once per failure streak; debounce prevents repeat notifications.
             self._save_failure_notified = True
             logging.error("Failed to save settings")
             self.send_notification(
@@ -458,11 +425,7 @@ class TelescopeWindow(QMainWindow):
             )
 
     def _apply_device_profile(self, name: Optional[str]):
-        """Reset every device-local plugin to its captured defaults, then layer
-        the named device's saved settings on top (only the keys its profile
-        actually has - a key a profile doesn't have stays at its default
-        instead of inheriting whatever the previously-selected device left
-        behind)."""
+        """Reset device-local plugins to defaults, then apply device profile."""
         cfg = load_config()
         pcfg = cfg.get("devices", {}).get(name, {}).get("plugin_configs", {}) if name else {}
         for p in self._plugins:
@@ -472,15 +435,7 @@ class TelescopeWindow(QMainWindow):
                     p.set_config(pcfg[p.name])
 
     def switch_device(self, prev_name, new_name: Optional[str]):
-        """Switch the active device/connection profile.
-
-        Ordering matters here: the outgoing device's settings are saved
-        first, then (if a stream is running) it's stopped and its phone
-        control client torn down *before* the new profile is applied, so a
-        plugin's set_config() can't fire off a control request to the old
-        (soon to be wrong) phone. Only after the new profile is in place do
-        we persist the new selection and restart the stream.
-        """
+        """Switch device profile; save old before applying new."""
         cfg = load_config()
         if prev_name:
             prev_pcfg = cfg.setdefault("devices", {}).setdefault(prev_name, {}).setdefault("plugin_configs", {})
@@ -501,9 +456,7 @@ class TelescopeWindow(QMainWindow):
             self._start()
 
     def reconnect_stream(self):
-        """Stop and restart the stream (if one is active) so it picks up the
-        current connection settings - used after the active IP or port
-        changes while streaming."""
+        """Restart stream to pick up changed connection settings."""
         if self._worker is None:
             return
         self._stop(remote_stop=False)
@@ -516,20 +469,12 @@ class TelescopeWindow(QMainWindow):
         return self._worker is not None
 
     def stop_stream(self):
-        """Stop the active stream. A no-op (safe) if nothing is streaming -
-        guarded so it doesn't emit a spurious stop / on_stream_stop when idle.
-
-        A start that's still waking the phone counts as active: re-pairing is
-        the caller that matters here, and it rotates the token the in-flight
-        wake is about to hand to a new StreamWorker.
-        """
+        """Stop stream; safe no-op if idle. Waking counts as active."""
         if self._worker is not None or self._waking:
             self._stop()
 
     def update_stream_output(self, width=UNCHANGED, height=UNCHANGED, fps=UNCHANGED):
-        """Push new output geometry and/or fps to the running stream worker.
-        A no-op if nothing is streaming. A parameter left as UNCHANGED keeps
-        its current value; None is a real value (pass-through resolution)."""
+        """Push output geometry/fps to worker. No-op if not streaming."""
         worker = self._worker
         if worker is None:
             return
@@ -541,11 +486,7 @@ class TelescopeWindow(QMainWindow):
             worker.update_output(**kwargs)
 
     def _on_stream_reconnected(self):
-        """The stream worker dropped and reconnected on its own (stream.py's
-        _reconnect_cap reopens the video reader directly, without going
-        through _stop()/_start()) - the phone has no way to know its control
-        state might be stale, so each plugin resends its current settings
-        the same way it already does for the initial connect."""
+        """Stream reconnected; plugins resend settings to phone."""
         session = self._session
         if session is None:
             return
@@ -566,10 +507,7 @@ class TelescopeWindow(QMainWindow):
             if p.name in global_pcfg:
                 p.set_config(global_pcfg[p.name])
         self._apply_device_profile(selected)
-        # The connection plugin already restored its own roster selection
-        # from set_config() above (selected here would be the USB
-        # pseudo-key in USB mode, not a device name) - just sync its
-        # active-profile baseline now that _apply_device_profile() has run.
+        # Sync connection plugin profile after device profile applied.
         if conn:
             conn.sync_active_profile()
 

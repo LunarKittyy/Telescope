@@ -19,20 +19,10 @@ _PRIVATE_NETS = (
 
 AddressKind = Literal["lan", "tailscale", "other"]
 
-# Ordering the phone should try candidates in: a physical LAN path is the
-# fastest and the one most likely to survive a VPN that still permits
-# local-network traffic; Tailscale works across networks but only when both
-# ends are on the tailnet; anything else is a long shot we still advertise
-# rather than silently drop.
+# Candidate priority: LAN (fastest/VPN-resilient), Tailscale (cross-network), other.
 _KIND_ORDER: dict[str, int] = {"lan": 0, "tailscale": 1, "other": 2}
 
-# Adapters that exist only to talk to containers/VMs on this same machine.
-# A phone can never reach the desktop through one of these, so advertising
-# them just burns a connection timeout on the phone before it gets to a
-# candidate that can work. Matched case-insensitively against the adapter
-# name; deliberately narrow, because over-matching would drop a real LAN
-# address (Windows bridges a Hyper-V host's actual LAN through an adapter
-# named "vEthernet (...)", so that prefix is *not* in here).
+# Virtual adapters (containers/VMs); skip these (narrow match to avoid false positives).
 _VIRTUAL_PREFIXES = (
     "docker",
     "br-",
@@ -46,21 +36,11 @@ _VIRTUAL_SUBSTRINGS = (
     "vmware network adapter",
 )
 
-# Tunnel interfaces. Unlike the virtual adapters above these are kept - a
-# VPN's own address is occasionally the only path between two devices - but
-# they're tried after physical adapters in the same class, because a desktop
-# VPN handing out an RFC 1918 address (which classifies as "lan") otherwise
-# pushes the real LAN address down the phone's list and costs it a
-# connection timeout to find out.
+# Tunnel interfaces (VPN); kept but tried after physical adapters.
 _VPN_PREFIXES = ("tun", "tap", "wg", "utun", "ppp", "ipsec", "nordlynx")
 _VPN_SUBSTRINGS = ("vpn", "wireguard", "tailscale")
 
-# Everything here ends up inside a QR code the phone has to read with its
-# camera, and every extra byte adds modules to the matrix. A machine with a
-# dozen adapters would otherwise produce a code that's dense enough to be
-# hard to scan and a candidate list that takes the phone a connection
-# timeout each to work through - so keep the best few, with names trimmed to
-# something still recognisable in the dialog.
+# QR code size matters; keep candidate list small and names trimmed.
 MAX_PAIRING_CANDIDATES = 8
 _MAX_INTERFACE_NAME_LEN = 32
 
@@ -98,10 +78,7 @@ def classify_ip(ip: str) -> Optional[AddressKind]:
 def is_virtual_interface(name: str) -> bool:
     """True for adapters that only reach containers/VMs on this machine."""
     lowered = name.strip().lower()
-    # Windows names a Hyper-V/WSL virtual switch "vEthernet (...)", and the
-    # host's own LAN connection is bridged through one when Hyper-V is
-    # enabled - so despite sharing a prefix with Linux's container-side
-    # "veth<hex>" pipes, these are kept.
+    # vEthernet is a real interface (Hyper-V bridge), not a container adapter.
     if lowered.startswith("vethernet"):
         return False
     return (

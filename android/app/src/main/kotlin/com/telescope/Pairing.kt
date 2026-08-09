@@ -78,9 +78,7 @@ fun parsePairingOffer(raw: String): PairingParse {
     val offer = try {
         pairingJson.decodeFromString(PairingOffer.serializer(), raw)
     } catch (_: Exception) {
-        // A version-2-shaped payload with a bad enum/field fails here too,
-        // but so does a v1 payload (no "candidates" at all), so check the
-        // version separately before calling it invalid.
+        // Check version separately since v1 payloads also fail deserialization.
         return if (rawVersion(raw)?.let { it != PAIRING_PROTOCOL_VERSION } == true)
             PairingParse.UnsupportedVersion
         else
