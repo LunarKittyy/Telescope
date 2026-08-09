@@ -88,6 +88,7 @@ class StreamOutputPlugin(TelescopePlugin):
         self._ratios_sorted = []
         # Set on set_config() before phone data arrives; applied once on_phone_state() has real sizes.
         self._pending_resolution_text = None
+        self._had_saved_resolution = False  # True if this device has ever had a resolution saved.
         # Lens switch doesn't trigger fresh /v1/state fetch; use cached capabilities dict.
         bus.camera_switched.connect(self._on_camera_switched)
 
@@ -199,12 +200,18 @@ class StreamOutputPlugin(TelescopePlugin):
             return
 
         if cam["id"] != self._current_camera_id:  # Only rebuild on actual camera change; don't fight selection.
+            is_first_bind = self._current_camera_id is None  # The very first camera this stream session has seen.
             self._current_camera_id = cam["id"]
             self._rebuild_camera_sizes(sizes)
 
             target_text = self._pending_resolution_text
             target_wh = self._find_by_label(target_text) if target_text else None
-            if target_wh is None and live_w and live_h:  # Reflect known live state before inventing a default.
+            # A brand-new device with nothing saved: pick our own preferred default rather than
+            # trusting whatever the phone happened to already be at (its own unchecked guess).
+            # Only on the session's first camera - a mid-session lens switch still carries over
+            # live state below, same as a device that does have a saved preference.
+            fresh_device = is_first_bind and target_wh is None and not self._had_saved_resolution
+            if not fresh_device and target_wh is None and live_w and live_h:
                 target_wh = (live_w, live_h)
             force_default = target_wh is None  # No saved preference and no live state - apply our own default.
             if force_default:
@@ -342,6 +349,7 @@ class StreamOutputPlugin(TelescopePlugin):
     def set_config(self, cfg: dict):
         if res := cfg.get("resolution"):
             self._pending_resolution_text = res  # Combo unpopulated at load; apply when on_phone_state() arrives.
+            self._had_saved_resolution = True
         if fps := cfg.get("fps", cfg.get("phone_fps")):  # Fallback to legacy "phone_fps" if "fps" absent.
             self._fps_spin.setValue(int(fps))
         if q := cfg.get("jpeg_quality"):
