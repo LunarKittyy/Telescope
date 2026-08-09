@@ -25,7 +25,6 @@ import android.view.Surface
 import kotlin.math.sqrt
 import kotlinx.serialization.json.Json
 
-// ── Camera catalogue entry ────────────────────────────────────────────────────
 data class CameraEntry(
     val id: String,
     val logicalId: String?,
@@ -51,17 +50,9 @@ data class CameraEntry(
     val supportedSizes: List<android.util.Size> = emptyList(),
 )
 
-/**
- * Pure Camera2 request-parameter selection logic, kept free of any CameraDevice/Service
- * state so it can be unit tested on a plain JVM without camera hardware.
- */
+// Pure Camera2 request-parameter selection logic; no device/service state for JVM testability
 object CameraRequestSelection {
-    /**
-     * Picks the advertised AE target FPS range closest to [target].
-     * Preference order: (1) a range that contains target, highest lower-bound among those
-     * (reduces low-light FPS drop); (2) otherwise the range whose upper bound is nearest
-     * target. Returns null (omit the request key) if [available] is empty.
-     */
+    // Picks advertised FPS range closest to target; prefers ranges containing target
     fun pickAeFpsRange(available: List<Range<Int>>, target: Int): Range<Int>? {
         if (available.isEmpty()) return null
         val containing = available.filter { target in it.lower..it.upper }
@@ -69,12 +60,7 @@ object CameraRequestSelection {
         return available.minByOrNull { kotlin.math.abs(it.upper - target) }
     }
 
-    /**
-     * Chooses an AF mode from the camera's advertised modes. When [wantContinuousVideo] is
-     * true (i.e. not doing manual focus), prefers CONTINUOUS_VIDEO, then falls back through
-     * CONTINUOUS_PICTURE, AUTO, and finally OFF (always legal per the Camera2 contract) if
-     * none of the preferred modes are advertised.
-     */
+    // Chooses AF mode; prefers CONTINUOUS_VIDEO, falls back to PICTURE, AUTO, OFF
     fun pickAfMode(available: Set<Int>, wantContinuousVideo: Boolean): Int {
         if (wantContinuousVideo && CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO in available)
             return CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO
@@ -86,13 +72,11 @@ object CameraRequestSelection {
         }
     }
 
-    /** Returns [requested] if advertised, else a safe fallback, else null (omit the key). */
     fun pickNrMode(available: Set<Int>, requested: Int): Int? = pickMode(
         available, requested,
         listOf(CaptureRequest.NOISE_REDUCTION_MODE_FAST, CaptureRequest.NOISE_REDUCTION_MODE_OFF)
     )
 
-    /** Returns [requested] if advertised, else a safe fallback, else null (omit the key). */
     fun pickEdgeMode(available: Set<Int>, requested: Int): Int? = pickMode(
         available, requested,
         listOf(CaptureRequest.EDGE_MODE_FAST, CaptureRequest.EDGE_MODE_OFF)
@@ -133,17 +117,7 @@ class CameraStreamService : Service() {
         private const val IDLE_STOP_MS = 60_000L
         private const val IDLE_CHECK_INTERVAL_MS = 5_000L
 
-        /**
-         * The live service, or null when none is running.
-         *
-         * [MainActivity] binds with flags `0` (never `BIND_AUTO_CREATE`), so it
-         * has no handle at all until a service already exists - and
-         * [SessionServer] answers on a socket thread that has no binding of its
-         * own. Both need to read "is it streaming?" and one needs to stop it, so
-         * the service publishes itself here for the duration of its own
-         * lifetime. Cleared in [onDestroy], which the platform always calls, so
-         * this can't outlive the instance it points at.
-         */
+        // The live service, or null when none is running. Neither MainActivity (binds without BIND_AUTO_CREATE) nor SessionServer (unbound socket thread) has another way to reach it. Cleared in onDestroy, so this can't outlive the instance.
         @Volatile
         var instance: CameraStreamService? = null
             private set
@@ -174,17 +148,12 @@ class CameraStreamService : Service() {
     val isStreaming: Boolean get() = stateMachine.isStreaming
     val port: Int get() = DEFAULT_PORT
 
-    /** True when this session was started by the desktop rather than by the
-     *  button on this phone. [MainActivity] uses it to tell the user where a
-     *  stream they did not start came from. */
+    // True when this session was started by the desktop rather than the button on this phone; MainActivity uses it to tell the user where an unrequested stream came from.
     @Volatile
     var startedRemotely: Boolean = false
         private set
 
-    /** Records a state transition and logs it with structured context (camera
-     *  id, generation, operation, sanitized exception details - class name and
-     *  message only, never a raw stack trace or anything from request
-     *  headers/URLs). History for "Copy diagnostics" lives in [stateMachine]. */
+    // Records a state transition with sanitized context (class name + message only, never a stack trace or request data); history for "Copy diagnostics" lives in stateMachine.
     private fun setState(newState: StreamState, op: String, error: Throwable? = null) {
         val old = state
         val transition = stateMachine.transition(newState, op, error)
@@ -195,10 +164,7 @@ class CameraStreamService : Service() {
         )
     }
 
-    /** Records a non-fatal control-update failure (e.g. a live exposure/WB change
-     *  that couldn't be applied while the stream keeps running) into the same
-     *  sanitized history "Copy diagnostics" reads, without changing the current
-     *  state or tearing the session down. */
+    // Records a non-fatal control-update failure (e.g. a live exposure/WB change that failed) into the same sanitized history, without changing state or tearing the session down.
     private fun recordControlError(op: String, error: Throwable) {
         val transition = stateMachine.record(op, error)
         android.util.Log.w(
@@ -208,9 +174,7 @@ class CameraStreamService : Service() {
         )
     }
 
-    /** Sanitized diagnostics report for the "Copy diagnostics" action: app/device
-     *  info, current state, and recent transitions/errors. Never includes the
-     *  pairing token, any URL, or raw configuration. */
+    // Sanitized diagnostics report for "Copy diagnostics": app/device info, current state, recent transitions/errors. Never includes the pairing token, a URL, or raw config.
     fun buildDiagnosticsReport(): String {
         val sb = StringBuilder()
         sb.appendLine("Telescope diagnostics")
@@ -234,15 +198,10 @@ class CameraStreamService : Service() {
         return sb.toString()
     }
 
-    // ── Live preview (for PreviewActivity) ───────────────────────────────────
-
     fun getCameras(): List<CameraEntry> = allCameras
     fun getCurrentCameraId(): String? = controller?.getCurrentCameraId()
 
-    /** Live camera/OIS/resolution state, for MainActivity to mirror into its
-     *  own (disabled, read-only while streaming) spinners so the phone's
-     *  screen doesn't sit there showing a stale pre-stream selection while a
-     *  desktop-driven session has since switched lens/resolution/OIS. */
+    // Live camera/OIS/resolution state for MainActivity spinners to stay in sync
     fun getControlSnapshot(): CameraControlSnapshot? = controller?.snapshot()
     fun getStreamSize(): android.util.Size =
         controller?.getStreamSize() ?: android.util.Size(streamWidth, streamHeight)
@@ -259,8 +218,6 @@ class CameraStreamService : Service() {
     fun detachPreviewSurface(onDetached: (() -> Unit)? = null) {
         controller?.detachPreviewSurface(onDetached)
     }
-
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     override fun onBind(intent: Intent?): IBinder = binder
 
@@ -280,9 +237,9 @@ class CameraStreamService : Service() {
         bindAddr      = if (localOnly) "127.0.0.1" else "0.0.0.0"
         startedRemotely = intent?.getBooleanExtra(EXTRA_REMOTE, false) ?: false
 
-        // Must be called early: Android kills the app if foreground promotion doesn't happen soon.
+        // Must be called early: Android kills app if foreground promotion doesn't happen soon
         startForegroundCompat()
-        // Keep session reachable even after MainActivity loses focus (idempotent refcount).
+        // Keep session reachable after MainActivity loses focus (idempotent refcount)
         SessionEndpoint.acquire(this, SessionEndpoint.OWNER_SERVICE)
         setState(StreamState.StartingServer, "onStartCommand")
 
@@ -323,8 +280,6 @@ class CameraStreamService : Service() {
         instance = null
         super.onDestroy()
     }
-
-    // ── Camera enumeration ────────────────────────────────────────────────────
 
     private fun enumerateAllCameras() {
         val manager = getSystemService(CAMERA_SERVICE) as CameraManager
@@ -426,8 +381,6 @@ class CameraStreamService : Service() {
         allCameras = result
         startServer()
     }
-
-    // ── HTTP server ───────────────────────────────────────────────────────────
 
     private fun startServer() {
         server = MjpegServer(
@@ -626,8 +579,6 @@ class CameraStreamService : Service() {
         SessionEndpoint.release(SessionEndpoint.OWNER_SERVICE)
         stopForeground(STOP_FOREGROUND_REMOVE); stopSelf()
     }
-
-    // ── Notification ──────────────────────────────────────────────────────────
 
     private fun createNotificationChannel() {
         val ch = NotificationChannel(CHANNEL_ID, "Camera Stream", NotificationManager.IMPORTANCE_LOW)

@@ -24,14 +24,9 @@ from telescope.session import StreamSession
 from telescope.stream import StreamWorker
 from telescope.widgets.common import ElidingLabel, create_app_icon, create_vector_icon
 
-# ── Theme ─────────────────────────────────────────────────────────────────────
-# Re-exported here so existing callers keep one import site.
 STATUS_COLORS = theme.STATUS_COLORS
-
-# Breakpoints where layout folds from 3 to 2 to 1 column.
 _WIDTH_THREE_COL = 1300
 _WIDTH_TWO_COL   = 900
-
 _RAIL_WIDTH_LEFT  = 364
 _RAIL_WIDTH_RIGHT = 434
 
@@ -158,9 +153,7 @@ class TelescopeWindow(QMainWindow):
             self._plugin_defaults[plugin.name] = plugin.get_config()
 
     def _plugin(self, name: str) -> Optional[TelescopePlugin]:
-        """Look up a registered plugin by its declared name, or None. Central
-        accessor so the host isn't peppered with inline `next(p for p ...)`
-        name scans."""
+        """Look up a registered plugin by its declared name, or None."""
         return self._plugins_by_name.get(name)
 
     def apply_saved_config(self):
@@ -170,9 +163,7 @@ class TelescopeWindow(QMainWindow):
     # ── UI construction ───────────────────────────────────────────────────────
 
     def _build_ui(self):
-        # Panels are routed by the region a plugin asks for rather than being
-        # appended to one stack, so the window can rearrange them as it
-        # resizes without any plugin knowing.
+        # Regions allow rearrangement on resize without plugin awareness.
         self._panels: dict[str, list[QWidget]] = {"left": [], "center": [], "right": []}
         self._layout_mode: Optional[str] = None
 
@@ -194,7 +185,6 @@ class TelescopeWindow(QMainWindow):
         lay.setContentsMargins(18, 10, 18, 10)
         lay.setSpacing(12)
 
-        # Plugins land header controls here.
         self._header_slot = QHBoxLayout()
         self._header_slot.setContentsMargins(0, 0, 0, 0)
         self._header_slot.setSpacing(14)
@@ -233,12 +223,7 @@ class TelescopeWindow(QMainWindow):
         self._start_btn.setStyle(self._start_btn.style())
 
     def _apply_header_density(self):
-        """Shorten the start button to its verb once the window narrows.
-
-        Everything in the header is fixed-size, so at 560px the row simply
-        ran out of room and Qt crushed the device picker under the button.
-        The picker and the primary action survive at any width.
-        """
+        """Shorten the start button to its verb once the window narrows, since the fixed-size header row crushes the device picker below 560px otherwise."""
         self._set_start_button(getattr(self, "_streaming_label", False))
 
     def _build_body(self) -> QWidget:
@@ -248,7 +233,6 @@ class TelescopeWindow(QMainWindow):
         self._body_lay.setContentsMargins(16, 16, 16, 16)
         self._body_lay.setSpacing(14)
 
-        # Three columns; narrower modes hide trailing ones.
         self._columns: list[QScrollArea] = []
         self._column_layouts: list[QVBoxLayout] = []
         for _ in range(3):
@@ -314,7 +298,6 @@ class TelescopeWindow(QMainWindow):
         return bar
 
     def _show_settings_menu(self):
-        """Built fresh to reflect current plugins."""
         menu = QMenu(self)
         for p in self._plugins:
             for action in p.create_menu_actions():
@@ -324,8 +307,6 @@ class TelescopeWindow(QMainWindow):
             return
         menu.exec(self._menu_btn.mapToGlobal(
             self._menu_btn.rect().bottomLeft()) + QPoint(0, 6))
-
-    # ── Responsive layout ─────────────────────────────────────────────────────
 
     def _layout_mode_for(self, width: int) -> str:
         if width >= _WIDTH_THREE_COL:
@@ -345,8 +326,6 @@ class TelescopeWindow(QMainWindow):
             groups = [self._panels["left"], self._panels["center"], self._panels["right"]]
             widths = [_RAIL_WIDTH_LEFT, None, _RAIL_WIDTH_RIGHT]
         elif mode == "two":
-            # Rails fold together on the left; the video stage keeps a column
-            # of its own because it's the thing that actually needs the width.
             groups = [self._panels["left"] + self._panels["right"], self._panels["center"], []]
             widths = [_RAIL_WIDTH_RIGHT, None, None]
         else:
@@ -374,7 +353,6 @@ class TelescopeWindow(QMainWindow):
                 scroll.setFixedWidth(width)
                 scroll.setSizePolicy(QSizePolicy.Policy.Fixed,
                                      QSizePolicy.Policy.Expanding)
-            # Only flexible column absorbs slack.
             self._body_lay.setStretch(self._columns.index(scroll),
                                       1 if width is None else 0)
             has_center = False
@@ -383,7 +361,6 @@ class TelescopeWindow(QMainWindow):
                 has_center = has_center or bool(stretch)
                 col_lay.addWidget(panel, stretch)
                 panel.setVisible(True)
-            # Column with center panel absorbs slack.
             if not has_center:
                 col_lay.addStretch()
 
@@ -391,14 +368,11 @@ class TelescopeWindow(QMainWindow):
         super().resizeEvent(event)
         self._refresh_layout()
 
-    # ── Config persistence ────────────────────────────────────────────────────
-
     def schedule_save(self):
         self._save_timer.start(500)
 
     def save_now(self):
         cfg = load_config()
-        # Global plugin configs (connection, setup, etc.)
         global_pcfg = cfg.setdefault("plugin_configs", {})
         conn = self._plugin("connection")
         selected = conn.selected_device if conn else None
@@ -425,7 +399,6 @@ class TelescopeWindow(QMainWindow):
             )
 
     def _apply_device_profile(self, name: Optional[str]):
-        """Reset device-local plugins to defaults, then apply device profile."""
         cfg = load_config()
         pcfg = cfg.get("devices", {}).get(name, {}).get("plugin_configs", {}) if name else {}
         for p in self._plugins:
@@ -462,8 +435,6 @@ class TelescopeWindow(QMainWindow):
         self._stop(remote_stop=False)
         self._start()
 
-    # ── Public stream controls (HostServices contract for plugins) ─────────────
-
     def is_streaming(self) -> bool:
         """Whether a stream worker is currently active."""
         return self._worker is not None
@@ -486,7 +457,6 @@ class TelescopeWindow(QMainWindow):
             worker.update_output(**kwargs)
 
     def _on_stream_reconnected(self):
-        """Stream reconnected; plugins resend settings to phone."""
         session = self._session
         if session is None:
             return
@@ -511,23 +481,12 @@ class TelescopeWindow(QMainWindow):
         if conn:
             conn.sync_active_profile()
 
-    # ── Start / Stop ──────────────────────────────────────────────────────────
-
     def _toggle(self):
         if self._worker or self._waking: self._stop()
         else:                            self._start()
 
     def _start(self):
-        """Phase one of starting: make sure the phone's camera is actually
-        running before we try to read frames off it.
-
-        The phone used to have to be started by hand, which meant two taps on
-        two devices for one session. Now the desktop asks it over the session
-        port first (ConnectionPlugin.ensure_phone_streaming), which is a
-        network round trip plus however long the camera takes to open - far
-        too long to block the UI thread on, hence the split into
-        _on_wake_done/_begin_stream.
-        """
+        """Ensure phone camera is running before reading frames; wake happens off-thread to avoid blocking UI."""
         conn = self._plugin("connection")
         if not conn:
             return
@@ -545,10 +504,7 @@ class TelescopeWindow(QMainWindow):
         self._spawn_wake(wake_id, conn, url, token)
 
     def _spawn_wake(self, wake_id: int, conn, url: str, token: str):
-        """Split out from _start() so tests can make this synchronous - same
-        reason ConnectionPlugin._spawn_pair_probe is split out, and with the
-        same hazard: a real background thread outliving its QObject is a hard
-        PyQt abort when the queued signal is finally delivered."""
+        """Split from _start() to allow test synchronization; thread mustn't outlive QObject."""
         threading.Thread(
             target=self._wake_phone, args=(wake_id, conn, url, token), daemon=True,
         ).start()
@@ -558,7 +514,7 @@ class TelescopeWindow(QMainWindow):
             try:
                 self._sig_wake_progress.emit(wake_id, msg)
             except RuntimeError:
-                pass  # window went away mid-wake
+                pass
 
         try:
             ok, reason = conn.ensure_phone_streaming(on_progress=on_progress)
@@ -568,20 +524,14 @@ class TelescopeWindow(QMainWindow):
         try:
             self._sig_wake_done.emit(wake_id, ok, reason, url, token)
         except RuntimeError:
-            # The window went away mid-wake; nothing left to tell.
             pass
 
     def _on_wake_progress(self, wake_id: int, msg: str):
-        # Same staleness guard as _on_wake_done: a progress tick for a wake
-        # the user has already cancelled (stop/device switch/quit) has
-        # nothing left to report to.
         if wake_id != self._wake_id or not self._waking:
             return
         self._set_status(msg, "dim")
 
     def _on_wake_done(self, wake_id: int, ok: bool, reason: str, url: str, token: str):
-        # Stop/device switch/quit while the wake was in flight: whatever this
-        # says is about a session the user has already walked away from.
         if wake_id != self._wake_id or not self._waking:
             return
         self._waking = False
@@ -627,36 +577,18 @@ class TelescopeWindow(QMainWindow):
         self._set_status("Connecting...", "dim")
 
     def _stop(self, remote_stop: bool = True):
-        """Tear down this side of the stream, and by default the phone's side
-        with it.
-
-        ``remote_stop=False`` is for the internal stop/start pairs that are
-        really a reconnect (a changed address, a vcam canvas reload): the
-        phone's camera is fine and bouncing it would cost seconds and a
-        needless lens re-open. The _start() that follows pings, sees a stream
-        already up, and connects straight through.
-        """
-        # Invalidate any wake still in flight before touching anything else,
-        # so a phone that finishes starting a moment from now can't have its
-        # result build a stream the user has just cancelled.
+        """Tear down stream; remote_stop=False for reconnects (changed address/vcam reload)."""
         self._wake_id += 1
         was_waking = self._waking
         self._waking = False
         self._start_btn.setEnabled(True)
 
-        # Captured before clearing self._session, which must happen first so
-        # any in-flight async completion (_fetch_state_async/_apply_state)
-        # sees "no active session" immediately, even while the teardown below
-        # is still unwinding the actual worker/client synchronously.
+        # Clear self._session before the synchronous teardown below, so any in-flight async state fetch sees "no active session" immediately rather than racing the unwind.
         session = self._session
         self._session = None
         worker = session.worker if session else None
         ctrl = session.client if session else None
 
-        # Stop is symmetric with start: the desktop brought the phone's camera
-        # up, so it takes it back down rather than leaving it burning battery
-        # until someone walks over to the phone. Also covers a cancelled wake,
-        # where the phone may already be mid-start.
         if remote_stop and (session or was_waking):
             self._stop_phone_async()
 
@@ -664,10 +596,7 @@ class TelescopeWindow(QMainWindow):
             worker.status.disconnect(self._on_worker_status)
             worker.reconnected.disconnect(self._on_stream_reconnected)
             worker.request_stop()
-            # Bounded wait so a stalled read can't freeze the GUI. With the
-            # OpenCV open/read timeouts in _open_cap() this should normally
-            # finish well within this window; if it doesn't, let the worker
-            # keep unwinding in the background rather than force-killing it.
+            # Bounded wait so a stalled read can't freeze the UI; if it doesn't finish in time, let it keep unwinding in the background.
             if not worker.wait(5000):
                 logging.warning("Stream worker did not stop within 5s; abandoning it in the background")
         if ctrl:
@@ -684,13 +613,7 @@ class TelescopeWindow(QMainWindow):
             p.on_stream_stop()
 
     def _stop_phone_async(self):
-        """Tell the phone to shut its camera down, off the UI thread.
-
-        Kept as a tracked thread rather than a fire-and-forget daemon so
-        _drain_phone_stops() can give it a moment on the way out - a daemon
-        thread dies with the interpreter, which on the quit path is usually
-        before the request has left the machine.
-        """
+        """Tell phone to shut camera down; tracked thread lets quit path wait for it."""
         conn = self._plugin("connection")
         if not conn:
             return
@@ -707,9 +630,7 @@ class TelescopeWindow(QMainWindow):
         t.start()
 
     def _drain_phone_stops(self, timeout: float = 2.0):
-        """Bounded wait for outstanding remote stops before the process exits.
-        Bounded because a phone that has already gone away must not be able to
-        hold the app open."""
+        """Wait for remote stops to complete, but never block quit indefinitely."""
         deadline = time.monotonic() + timeout
         for t in self._stop_threads:
             remaining = deadline - time.monotonic()
@@ -792,8 +713,6 @@ class TelescopeWindow(QMainWindow):
         for p in self._plugins:
             p.on_phone_state(state)
 
-    # ── Tray ──────────────────────────────────────────────────────────────────
-
     def _setup_tray(self):
         self._tray_close_notified = False
         if not QSystemTrayIcon.isSystemTrayAvailable():
@@ -843,13 +762,8 @@ class TelescopeWindow(QMainWindow):
         elif self._tray:
             self._tray.showMessage(title, body, QSystemTrayIcon.MessageIcon.Warning, 0)
 
-    # ── Worker status ─────────────────────────────────────────────────────────
-
     def _on_resolution_pending(self, w: int, h: int):
-        """A resolution change was just sent to the phone - it has to close
-        and reopen its camera to honour it, so the live readout won't reflect
-        it for a second or two. Shown as pending (amber) rather than just
-        leaving the old value up, which reads as "did that even work?"."""
+        """Resolution change sent; phone must reopen camera, so show pending state."""
         if self._pending_resolution_timer:
             self._pending_resolution_timer.stop()
         self._pending_resolution = (w, h)
@@ -874,11 +788,7 @@ class TelescopeWindow(QMainWindow):
         self._fps_lbl.setStyleSheet("")
 
     def _start_reconnecting_animation(self, base_msg: str):
-        """"Stream dropped - reconnecting" gets its own colour (warn/yellow,
-        distinct from the plain grey the other status text uses) and an
-        animated "." -> ".." -> "..." -> "." loop, 1 frame/second, so it
-        reads as actively retrying rather than a static, possibly-stuck
-        message. Any other status arriving (via _set_status) cancels it."""
+        """Show animated reconnecting status with 1/second dot progression."""
         self._reconnecting_base = base_msg
         self._reconnecting_dots = 1
         self._render_reconnecting_frame()
@@ -893,9 +803,7 @@ class TelescopeWindow(QMainWindow):
         self._render_reconnecting_frame()
 
     def _render_reconnecting_frame(self):
-        # Deliberately bypasses _set_status - that stops this very timer as
-        # its first step, which would cancel the animation from inside its
-        # own tick.
+        # Deliberately bypasses _set_status(), which stops this animation's own timer as its first step.
         self._status_lbl.setObjectName("status_warn")
         self._status_lbl.setText(f"{self._reconnecting_base}{'.' * self._reconnecting_dots}")
         self._status_lbl.setStyleSheet(f"color: {theme.WARN};")

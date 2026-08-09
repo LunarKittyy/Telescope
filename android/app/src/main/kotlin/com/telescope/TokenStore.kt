@@ -2,7 +2,7 @@ package com.telescope
 
 import android.content.Context
 
-// Persists active pairing token (excluded from Auto Backup in backup_rules.xml and data_extraction_rules.xml).
+// Persists pairing token; excluded from Android backup and device-transfer rules.
 object TokenStore {
     private const val PREFS = "telescope_pairing"
     private const val KEY_TOKEN = "active_token"

@@ -2,7 +2,7 @@ package com.telescope
 
 import kotlinx.serialization.Serializable
 
-// v1 phone HTTP API serialization types with wire-format field names (unchanged field names for desktop compatibility).
+// Unchanged field names for desktop compatibility.
 
 @Serializable
 data class CameraSize(

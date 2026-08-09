@@ -10,30 +10,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
-/**
- * HTTP server that serves:
- *   GET  /v1/video    - MJPEG stream (multipart/x-mixed-replace)
- *   GET  /v1/state    - JSON list of all cameras + current state
- *   POST /v1/control  - Camera control commands (JSON body), returns JSON
- *
- * All three routes require a bearer token matching [token], checked with a
- * constant-time comparison ([java.security.MessageDigest.isEqual]). A null
- * [token] (nothing paired yet) rejects every request with 401.
- *
- * Lives only while a stream is running - it is created in
- * [CameraStreamService.startServer] and destroyed in
- * [CameraStreamService.stopStreaming]. Stream *lifecycle* commands therefore
- * can't live here (there's no server to receive them when idle); they're on
- * [SessionServer]'s separate lifecycle-aware port instead.
- *
- * Status codes: `400` malformed request line/headers/body or wrong
- * Content-Type, `401` missing/mismatched token, `404` unknown path, `405`
- * wrong method for a known path, `413` control body over
- * [HttpWire.MAX_BODY_BYTES], `431` headers over [HttpWire.MAX_HEADER_BYTES].
- * Every non-streaming response body, success or error, is JSON. The request
- * reading, token check and response writing are all [HttpWire], shared with
- * [SessionServer].
- */
+// Serves GET /v1/video (MJPEG), GET /v1/state, POST /v1/control; all require bearer token
 class MjpegServer(
     val port: Int,
     val getCamerasJson: () -> String,
@@ -100,8 +77,6 @@ class MjpegServer(
         }
     }
 
-    // ── HTTP dispatch ───────────────────────────────────────────────────────
-
     private fun dispatch(socket: Socket) {
         var streaming = false
         try {
@@ -159,8 +134,6 @@ class MjpegServer(
     companion object {
         private const val MAX_CONCURRENT_CLIENTS = 16
     }
-
-    // ── MJPEG client ────────────────────────────────────────────────────────
 
     inner class MjpegClient(private val socket: Socket) {
         private val queue = ArrayBlockingQueue<ByteArray>(2)

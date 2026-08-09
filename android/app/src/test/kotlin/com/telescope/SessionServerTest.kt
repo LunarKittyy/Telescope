@@ -12,9 +12,7 @@ class SessionServerTest {
 
     private data class Response(val status: Int, val body: String)
 
-    /** Records what the server asked it to do, and reports whatever state the
-     *  test wants, so the routes can be exercised without a Service, a
-     *  Context, or a camera. */
+    // Test double: records invocations, returns injected state; exercises routes without Service/Context/camera.
     private class FakeCommands(
         var snapshot: SessionSnapshot = SessionSnapshot(
             protocol = SessionServer.PROTOCOL_VERSION,
@@ -82,8 +80,6 @@ class SessionServerTest {
         }
     }
 
-    // ── Routing (pure, no socket) ────────────────────────────────────────────
-
     @Test
     fun `route maps the two known paths and rejects everything else`() {
         assertEquals(SessionServer.Route.Ping, SessionServer.route("GET", "/v1/ping"))
@@ -93,8 +89,6 @@ class SessionServerTest {
         assertEquals(SessionServer.Route.NotFound, SessionServer.route("GET", "/v1/video"))
         assertEquals(SessionServer.Route.NotFound, SessionServer.route("GET", "/"))
     }
-
-    // ── Auth ─────────────────────────────────────────────────────────────────
 
     @Test
     fun `ping reports the phone's state to a holder of the current token`() {
@@ -125,7 +119,6 @@ class SessionServerTest {
             assertEquals(401, get(port, "/v1/ping", null).status)
             assertEquals(401, post(port, "/v1/session", "wrong-token", "{\"action\":\"start\"}").status)
             assertEquals(401, post(port, "/v1/session", null, "{\"action\":\"start\"}").status)
-            // Nothing reached the camera lifecycle.
             assertFalse(commands.calls.contains("start"))
         }
     }
@@ -153,8 +146,6 @@ class SessionServerTest {
             server.stop()
         }
     }
-
-    // ── /v1/session ──────────────────────────────────────────────────────────
 
     @Test
     fun `start and stop reach the camera lifecycle and report its verdict`() {
@@ -200,8 +191,6 @@ class SessionServerTest {
             assertEquals(emptyList<String>(), commands.calls)
         }
     }
-
-    // ── Method/path handling ─────────────────────────────────────────────────
 
     @Test
     fun `unknown paths 404 and known paths reject the wrong method`() {

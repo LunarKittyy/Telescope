@@ -69,7 +69,7 @@ def test_valid_ipv4(ip, valid):
 
 
 def _fake_adapters(monkeypatch, adapters):
-    """Mock ifaddr.get_adapters() with adapter name and IP list pairs."""
+    # Mock ifaddr.get_adapters() with adapter name and IP list pairs.
     fake = [
         SimpleNamespace(
             name=name,
@@ -257,11 +257,7 @@ def test_describe_address_names_the_kind_and_interface():
 
 
 def test_no_route_probe_towards_a_public_address_remains():
-    # A UDP "route probe" reports whichever interface owns the default route,
-    # which under a VPN is the VPN's - the exact failure this design replaced.
-    # encoding= is not optional here: the sources are UTF-8 and carry box
-    # drawing/middle-dot characters, but read_text() defaults to the locale
-    # encoding, which is cp1252 on a Windows CI runner.
+    # Route probe reports default route's interface (wrong under VPN); this design avoids it. UTF-8 encoding needed for box-drawing chars.
     sources = Path(ip_utils_module.__file__).resolve().parent.rglob("*.py")
     offenders = [p.name for p in sources if "8.8.8.8" in p.read_text(encoding="utf-8")]
     assert offenders == []
@@ -331,13 +327,7 @@ class _ConnectionHost:
 
 @pytest.fixture
 def connection_plugin(qapp, config_home, monkeypatch):
-    # Real pair-status probes shell out to adb and/or make a network call
-    # with a multi-second timeout, from a background thread - fine in the
-    # running app, but a real thread that outlives this test's plugin/qapp
-    # teardown is a guaranteed PyQt abort (a queued cross-thread signal
-    # delivered to an already-destroyed receiver). set_config()/_on_mode()/
-    # _on_device_paired() all trigger a check incidentally, so silence it by
-    # default here; tests of the probe itself re-arm it explicitly below.
+    # Real pair-status probe threads outliving teardown cause PyQt abort; silence by default, re-arm for probe-specific tests.
     monkeypatch.setattr(ConnectionPlugin, "_spawn_pair_probe", lambda self, *a: None)
     host = _ConnectionHost()
     plugin = ConnectionPlugin()
@@ -1125,8 +1115,7 @@ def _wifi_device(plugin, token="tok-a", ip="10.0.0.1"):
     plugin._selected_device = "Phone"
     plugin._rb_wifi.setChecked(True)
     plugin._rb_usb.setChecked(False)
-    # The address comes off the combo, not the device dict, so the roster has
-    # to actually reach the widgets before anything can resolve a URL.
+    # Address comes from combo, not device dict, so must populate widgets first.
     plugin._refresh_device_combo(select_name="Phone")
 
 

@@ -37,14 +37,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import java.util.concurrent.Executor
 
-/**
- * Fullscreen, overlay-free live preview to help aim the phone's cameras without
- * looking at the desktop app. If a stream is already active, this attaches an extra
- * output surface to the running CameraStreamService session (stream keeps running).
- * Otherwise it opens a short-lived standalone Camera2 session of its own.
- */
-    // Labels landscape ("16:9", "4:3"), ratios portrait (9:16, 3:4).
-    private enum class AspectOption(val label: String, val ratio: Float) {
+// Fullscreen live preview; attaches to running stream or opens standalone Camera2 session
+private enum class AspectOption(val label: String, val ratio: Float) {
         R16_9("16:9", 9f / 16f),
         R4_3("4:3", 3f / 4f),
     }
@@ -176,8 +170,6 @@ class PreviewActivity : AppCompatActivity() {
         super.onStop()
     }
 
-    // ── Resolve bound-to-stream vs standalone ────────────────────────────────
-
     private fun tryResolve() {
         if (resolved) return
         // Wait for layout to settle in standalone mode; bound mode doesn't need crop.
@@ -191,10 +183,7 @@ class PreviewActivity : AppCompatActivity() {
         if (svc?.isStreaming == true) {
             boundToRunningStream = true
             val streamSize = svc.getStreamSize()
-            // Must be set before attaching: Camera2 needs the buffer size fixed to a
-            // supported size before the surface is used as a session output target.
-            // No crop is applied in this path (see onServiceConnected), so there's no
-            // pending resize that could overwrite it first.
+            // Must be set before attaching: Camera2 needs buffer size fixed to supported size
             textureView.surfaceTexture?.setDefaultBufferSize(streamSize.width, streamSize.height)
             svc.attachPreviewSurface(surface)
             setupLensPillsFromService(streamSize)
@@ -221,8 +210,6 @@ class PreviewActivity : AppCompatActivity() {
         }
     }
 
-    // ── Bound-to-running-stream lens switching ───────────────────────────────
-
     private fun setupLensPillsFromService(bufferSize: Size) {
         val svc = service ?: return
         currentCameraId = svc.getCurrentCameraId()
@@ -234,8 +221,6 @@ class PreviewActivity : AppCompatActivity() {
             refreshPillSelection()
         }
     }
-
-    // ── Standalone camera (no stream running) ────────────────────────────────
 
     private fun startStandalone(surface: Surface) {
         val manager = getSystemService(CAMERA_SERVICE) as CameraManager
@@ -329,8 +314,6 @@ class PreviewActivity : AppCompatActivity() {
         }
     }
 
-    // ── Preview scale correction ────────────────────────────────────────────
-
     private fun applyPreviewTransform(cameraId: String?, bufferSize: Size?, retryCount: Int = 0) {
         if (cameraId == null || bufferSize == null) return
         lastCameraId = cameraId
@@ -374,14 +357,6 @@ class PreviewActivity : AppCompatActivity() {
         }
     }
 
-    // ── Aspect ratio crop ────────────────────────────────────────────────────
-    //
-    // Resizes the TextureView to the largest box of the chosen ratio that fits the
-    // screen; applyPreviewTransform() then "cover"-fills that box, giving a true crop
-    // instead of guide lines. onSurfaceTextureSizeChanged reapplies the transform once
-    // the resize lands.
-
-    // Only called for the standalone (not currently streaming) case - see onServiceConnected.
     private fun beginStandaloneAspectLayout() {
         // Deferred; calling synchronously would no-op against zero-sized view.
         textureView.post { applyAspectOption() }
@@ -424,8 +399,6 @@ class PreviewActivity : AppCompatActivity() {
         lp.gravity = Gravity.CENTER
         textureView.layoutParams = lp
     }
-
-    // ── Lens pill UI ──────────────────────────────────────────────────────────
 
     private fun buildLensPills(entries: List<Pair<String, String>>, onSelect: (String) -> Unit) {
         lensContainer.removeAllViews()

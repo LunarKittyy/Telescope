@@ -1,6 +1,6 @@
 # Telescope Desktop - Module Reference
 
-Quick index of what lives where. Detailed behaviour is in the source; this is for navigation.
+Quick navigation index; see source code for detailed behavior.
 
 ---
 
@@ -19,24 +19,24 @@ Calls `win.apply_saved_config()` **after** all plugins are registered so every p
 **TelescopeWindow** - thin coordinator shell.
 - Owns the header bar (logo, plugin header widgets, settings menu, Start button), the three-column body, the footer (stream status, live FPS), and the tray icon.
 - Owns `EventBus` and `StreamWorker` lifecycle.
-- `register_plugin(p)` - calls `p.setup()`, routes `p.create_panel()` into the region `p.panel_region` names, appends `p.create_header_widget()` to the header slot.
-- `_refresh_layout(force=False)` - redistributes panels across the three physical columns for the current width. `three` (≥1300px): left rail | video stage | right rail. `two` (≥900px): rails merged on the left, stage on the right. `one`: a single column, stage first. Called on resize (only re-lays out when the mode actually changes) and forced on each registration.
+- `register_plugin(p)` - calls setup, routes panel to the named region, appends header widget.
+- `_refresh_layout(force=False)` - redistributes panels across columns by width: `three` (≥1300px) left/center/right, `two` (≥900px) left+right/center, `one` center-first. Triggered on resize (no-op if layout mode unchanged) and on registration.
 - `_show_settings_menu()` - builds the header's gear menu fresh on each click from every plugin's `create_menu_actions()`.
-- Re-exports `STATUS_COLORS` from `theme.py`; `APP_VERSION` is the string shown next to the wordmark.
+- Re-exports `STATUS_COLORS` from `theme.py`.
 - `apply_saved_config()` - call after all plugins are registered; restores config round-trip for each plugin.
-- **Two-phase start.** `_start()` calls `conn.get_stream_info()` for the URL (validates ADB/v4l2, builds URL), then hands off to `_spawn_wake()` - a background `conn.ensure_phone_streaming()` that brings the phone's camera up so the desktop's Start button is the only one anyone presses. `_on_wake_done()` (Qt slot) either runs `_begin_stream(url, token)`, which is the old synchronous body (worker, ctrl, pipeline, `on_stream_start()`), or re-enables the button and shows the reason. A `_wake_id` generation counter drops any result that lands after the user hit Stop, switched device, or quit. `_spawn_wake()` is split out for the same reason as `ConnectionPlugin._spawn_pair_probe()`: tests make it synchronous.
+- **Two-phase start.** `_start()` calls `conn.get_stream_info()` (validates ADB/v4l2, builds URL), then `_spawn_wake()` (background thread bringing phone camera up). `_on_wake_done()` either runs `_begin_stream()` (worker, ctrl, pipeline) or re-enables Start and shows the error. `_wake_id` counter drops stale results after user Stop/device switch/quit. Split for testability (tests call synchronously).
 - `_stop(remote_stop=True)` - tears down worker and ctrl; `on_stream_stop()` on each plugin (ConnectionPlugin unforwards ADB there); invalidates any in-flight wake; and takes the phone's camera down with it via `_stop_phone_async()`. `remote_stop=False` is for the internal stop/start pairs that are really a desktop-side reconnect (`reconnect_stream()`, `restart_vcam_canvas()`) - bouncing the phone there would cost seconds and a lens re-open for nothing.
 - `_stop_phone_async()` / `_drain_phone_stops(timeout=2.0)` - the remote stop runs off the UI thread but is tracked rather than fire-and-forget, so the quit paths (`closeEvent`, `_tray_quit`) can give it a bounded moment to actually leave the machine.
-- Implements the public **`HostServices`** contract plugins call on `host` (see `plugin.py`): `schedule_save()`, `save_now()`, `switch_device()`, `reconnect_stream()`, `send_notification()`, `is_streaming()`, `stop_stream()`, `update_stream_output()`, `restart_vcam_canvas()`. Plugins go through these public methods only - they never touch private (`_`-prefixed) window internals like `_worker`/`_stop()`.
+- Implements the public **`HostServices`** contract (see `plugin.py`): `schedule_save()`, `save_now()`, `switch_device()`, `reconnect_stream()`, `send_notification()`, `is_streaming()`, `stop_stream()`, `update_stream_output()`, `restart_vcam_canvas()`. Plugins only call these; private internals (`_worker`, `_stop()`) are hidden.
 - `send_notification(title, body)` - uses `notify-send` on Linux, tray balloon on Windows.
 - `save_now()` - writes global plugin configs (connection, setup) and per-device configs (camera_control, stream_output, transforms, monitoring) under `devices[selected]`. `schedule_save()` is the debounced variant plugins call after a settings change.
 - `switch_device(prev, new)` - saves `prev` device's per-device configs, restores `new` device's; called by `ConnectionPlugin._on_device_changed()`.
 - `is_streaming()` / `stop_stream()` / `update_stream_output(width, height, fps)` - public stream controls; `stop_stream()` is a guarded no-op when idle, and `update_stream_output()` forwards only the values a caller passes (`None` width/height means pass-through).
 - `_plugin(name)` - central typed lookup of a registered plugin by name (replaces scattered inline `next(p for p ...)` scans).
 - Footer "LIVE THROUGHPUT" (Mbps) readout, colored amber on sustained real decode-rate struggle; live FPS/resolution readout reflects the frame's actual current shape rather than the frozen stream-start size.
-- Pending-resolution tracking: `_on_resolution_pending()` (via `bus.resolution_change_requested`) marks a resolution change as in flight and starts an 8s timeout; the readout goes amber until the fps readout reports the matching size (`_clear_pending_resolution()`) or times out to an error color.
+- Pending-resolution tracking: `_on_resolution_pending()` marks changes in flight (8s timeout); readout amber until fps readout confirms new size or timeout fires error.
 - `_start_reconnecting_animation()` / `_tick_reconnecting_animation()` - animates the "Stream dropped - reconnecting" footer status (yellow, cycling "." → ".." → "..." once a second) instead of a static line.
-- `_apply_config(cfg)` - routes global plugin slices to `p.set_config()`, per-device slices for the selected device, then calls `conn.select_device()` to set the active device in the combo.
+- `_apply_config(cfg)` - routes global plugin slices to `p.set_config()`, per-device slices for the selected device, then calls `conn.sync_active_profile()` so the restored selection (which may be the USB pseudo-key, not a roster device) doesn't spuriously re-trigger a device switch.
 - Utility exports: `acquire_single_instance()`, `listen_for_raise()`.
 
 ### `theme.py`
@@ -87,8 +87,8 @@ Load/save of `telescope_config.json` with versioned schema (current: v2) and per
 `DEVICE_LOCAL_PLUGINS` frozenset marks which plugin names are per-device. No cross-version migration: a config below `CONFIG_VERSION`, or one that's unparseable/malformed at the top level, is backed up (`.invalid-<timestamp>`) and replaced with defaults. A current-version config instead has each top-level section (`plugin_configs`, `devices`, `selected_device`) validated independently, so one malformed section resets to its default without discarding the rest.
 
 ### `phone_client.py`
-**PhoneControlClient** - authenticated HTTP client for the phone app's `/v1/state` and `/v1/control` endpoints (bearer token on every request).
-- `send(action, **kwargs)` - queues a control command, POSTed as JSON by a single background worker thread in the order it was queued. Requests sharing an `action` are coalesced to the latest value while still queued (camera switches are sent individually and in order instead); a burst of slider drags can't have an older response land after a newer one. Failures are silently dropped.
+**PhoneControlClient** - authenticated HTTP client for phone's `/v1/state` and `/v1/control` endpoints (bearer token on each request).
+- `send(action, **kwargs)` - queues commands, coalesces repeated actions to latest value, sends in order via background thread. Camera switches always go individually; slider bursts stay ordered (no stale response overtakes newer ones). Failures silently dropped.
 - `get_state()` - fetch current camera state dict (lenses, ISO, shutter, WB, focus, AE comp, NR/edge mode, battery, etc.).
 
 ### `ip_utils.py`
@@ -128,7 +128,7 @@ Reusable Qt widgets and helpers used across multiple panels:
 - `create_vector_icon(name, color)` - paints an icon to a `QIcon` with `QPainter`, tinted per use. Set: `connection`, `camera`, `stream`, `gear`, `status`, `qr`, `usb`, `transforms`, `logo`, `play`, `stop`, `expand`, `reset`.
 - `ns_to_display(ns)`, `quality_label(q)` - display format helpers.
 
-Note: white balance (Kelvin + tint sliders) is built directly in `plugins/camera_control.py` rather than through a shared widget - there is no `WbSliderRow` and no preset snapping.
+Note: white balance sliders are built directly in `plugins/camera_control.py`, not as a shared widget here.
 
 ### `widgets/lens_panel.py`
 **LensPanel** - horizontal list of lens buttons populated from the phone's `/cameras` response. Emits `lens_selected(dict)` when the user switches lenses.
@@ -153,11 +153,11 @@ UnityCapture helpers: `uc_is_registered()`, `unitycapture_dir()`, `download_unit
 ### `plugins/connection.py`
 **ConnectionPlugin** - mode selection, device list, port, ADB lifecycle. Registered first.
 - UI: Wi-Fi/USB segmented toggle, pairing status + Pair Device button, IP combo, port field.
-- `create_header_widget()` returns the device picker (combo + manage-devices gear) for the window header. Built eagerly in `create_panel()` via `_build_device_picker()`, so a host that never asks for a header still gets a working plugin - the combo is moved there, never duplicated.
+- `create_header_widget()` returns the device picker (combo + gear). Built in `create_panel()` so it's available whether or not the host requests a header.
 - `_set_wifi_rows_visible(v)` - flips the header picker and the panel's address row together, since both are Wi-Fi-only.
-- `get_stream_info()` → `(url, token, ok)` - validates port, checks v4l2loopback (Linux), ADB-forwards if USB mode; called by `app.py._start()`. Shows error dialogs on failure.
+- `get_stream_info()` → `(url, token, ok)` - validates port, checks v4l2loopback (Linux), ADB-forwards on USB. Shows error dialogs on failure.
 - `session_channel(token=None, usb=None)` - context manager yielding `(PhoneSessionClient, unavailable_status)` for the phone's port 8766. Wi-Fi hits the device IP directly; USB sets up a short-lived `adb forward` dedicated to that port and tears it down on exit. The single path used by the pair-status probe *and* the remote start/stop, so the two can't drift.
-- `ensure_phone_streaming()` → `(ok, reason)` - brings the phone's camera up if it isn't already, then polls `/v1/ping` until it reports streaming (12s budget). Returns early when already streaming, and passes through (`True`) when the phone is too old to know `/v1/session`, so an APK mismatch degrades to connect-only rather than blocking. `reason` is display text. **Blocking - background thread only.**
+- `ensure_phone_streaming()` → `(ok, reason)` - brings phone camera up (if needed), polls `/v1/ping` until streaming (12s budget). Returns early if already streaming; degrades to connect-only (`True`) if phone is too old for `/v1/session`. `reason` is display text. **Blocking - background thread only.**
 - `stop_phone_streaming()` - best-effort `POST /v1/session {"action":"stop"}`. **Blocking - background thread only.**
 - `on_stream_stop()` - unforwards ADB if a forward was established this session.
 - `_DeviceDialog` / `_DeviceManagerDialog` (module-private) - device editing and the device-list manager behind the header's gear button; pairing is the only way to add a usable device.
@@ -169,7 +169,7 @@ UnityCapture helpers: `uc_is_registered()`, `unitycapture_dir()`, `download_unit
 **CameraControlPlugin** - lens selection, exposure, white balance, focus, OIS, and image tuning. `panel_region = "right"`.
 - UI: `LensPanel` (horizontal lens buttons), camera capability info label, Exposure auto/manual + ISO + shutter sliders + exposure-compensation slider, White Balance auto/manual + Kelvin/tint sliders, OIS checkbox, Focus auto/manual + distance slider, noise-reduction and sharpening (edge mode) combos, black-level-lock checkbox, torch button.
 - `derive_camera_control_view(state)` - pure function mapping a raw phone-state dict to a `CameraControlView` dataclass, independently testable without a `QApplication`.
-- `on_stream_start`: stores ctrl, sets "Loading lenses..." placeholder, re-pushes the desktop's already-restored widget state to the phone via `_push_settings_to_phone()` (the phone otherwise keeps whatever it booted with until a control is touched).
+- `on_stream_start`: stores ctrl, sets "Loading lenses..." placeholder, re-pushes desktop-restored state to phone (phone keeps boot defaults until user touches a control).
 - `on_phone_state(state)`: loads cameras into `LensPanel`, syncs exposure/WB/focus/OIS/AE-comp/NR/edge/black-level-lock/torch from phone state. Empty `state` dict (fetch failure) shows "Unavailable" on lens panel.
 - `on_stream_stop`: clears lens panel and info label.
 - `_update_camera_caps()`: disables manual exposure, manual WB, manual focus, or torch controls when the selected lens doesn't report support for them.
@@ -177,18 +177,18 @@ UnityCapture helpers: `uc_is_registered()`, `unitycapture_dir()`, `download_unit
 
 ### `plugins/stream_output.py`
 **StreamOutputPlugin** - capture resolution, frame rate, and encoding settings.
-- UI: resolution combo populated from the current lens's `supportedSizes` (not a fixed list) - picking one sends a live `resolution` control to the phone instead of resizing after decode. One FPS spinbox (5-60) drives both phone capture rate and virtual camera playback rate. JPEG quality slider.
-- `_apply_camera()` rebuilds the resolution combo on an actual lens change, carrying the current selection over on a lens switch (matching `switchCameraTo()`'s behavior of reusing the existing capture size) rather than resetting to the largest size; reflects the live stream size on reconnect if it differs from the combo's current value.
+- UI: resolution combo from current lens's `supportedSizes` (dynamic, not fixed) - sends live `resolution` control instead of post-decode resize. FPS spinbox (5-60) drives both phone capture and virtual-camera playback. JPEG quality slider.
+- `_apply_camera()` rebuilds resolution combo on lens change, carries current selection forward (reuses existing capture size) instead of resetting to largest; reflects live stream size on reconnect if it differs.
 - `get_stream_params()` → `(width, height, fps)` - width/height are always `None` (resolution is phone-controlled, not desktop-resized); called by `app.py._start()` to construct `StreamWorker`.
-- `on_stream_start`: stores ctrl, schedules `_push_initial_settings` via `QTimer.singleShot(1500)` to sync quality/fps to the phone after connect.
-- `_on_resolution()` sends the `resolution` control and emits `bus.resolution_change_requested`, which `app.py` uses to drive the pending/confirmed resolution readout in the footer. `_on_fps()` sends `fps_target` to the phone and calls the public `host.update_stream_output(fps=...)` for the virtual camera's hot-swap, no stream restart.
+- `on_stream_start`: stores ctrl, schedules `_push_initial_settings` (1500ms delay) to sync quality/fps after connect.
+- `_on_resolution()` sends `resolution` control and emits `bus.resolution_change_requested` (used by `app.py` for footer readout). `_on_fps()` sends `fps_target` and calls `host.update_stream_output()` for virtual-camera hot-swap (no stream restart).
 - Config keys: `resolution`, `fps` (falls back to reading legacy `phone_fps` if `fps` is absent), `jpeg_quality`.
 
 ### `plugins/preview.py`
 **PreviewPlugin** - the centre video stage and its pop-out. `panel_region = "center"`.
-- UI: a letterboxed frame surface with a "LIVE" badge and a resolution badge floating over it (positioned, not laid out, so they never shift the picture), and a toolbar below with the "Hide"/"Show" toggle and "Pop out".
+- UI: letterboxed frame with "LIVE" and resolution badges (positioned, not laid out), toolbar with Hide/Show toggle and Pop out.
 - Active by default - it's the centre of the window, not an opt-in card. The toggle remains as an escape hatch for anyone who'd rather not spend the decode.
-- `process_frame(frame)` - runs on the stream reader thread; records the pre-downscale size for the resolution badge, downscales to `_CARD_MAX_W` for the in-window view (full resolution for the pop-out), emits a cross-thread Qt signal rather than touching any `QWidget` directly, then returns the frame unmodified (preview-only, doesn't alter the pipeline).
+- `process_frame(frame)` - runs on stream-reader thread; records pre-downscale size, downscales to `_CARD_MAX_W` for in-window (full res for pop-out), emits cross-thread Qt signal, returns frame unmodified (preview-only).
 - Pop-out window auto-hides the in-card preview when opened, and closes/restores state when the main window is hidden (tray minimize).
 - No config keys - preview visibility isn't persisted across restarts.
 

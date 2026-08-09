@@ -66,9 +66,7 @@ def v4l2_reload() -> tuple:
 
 
 def v4l2_load() -> tuple:
-    """Load v4l2loopback with Telescope's parameters.
-    Never unloads an already-running module -- that could break other setups.
-    """
+    """Load v4l2loopback with Telescope's parameters; never unloads an already-running module, since that could break other setups."""
     if v4l2_module_loaded():
         return False, (
             f"v4l2loopback is loaded with a different config "
@@ -127,11 +125,7 @@ def _find_conflicting_confs() -> list:
 
 
 def v4l2_persist_enable() -> tuple:
-    """Write modprobe.d + modules-load.d files so v4l2loopback comes up
-    pre-configured with Telescope's params on every future boot/module load.
-    No-ops (returns success) if either file already exists, rather than
-    clobbering it.
-    """
+    """Write modprobe.d and modules-load.d files for v4l2loopback; no-ops if already persisted."""
     status = v4l2_persist_status()
     if status["modprobe_conf"] or status["modules_load_conf"]:
         return True, f"Already persisted: {V4L2_PERSIST_MODPROBE_CONF}"
@@ -155,8 +149,7 @@ def v4l2_persist_enable() -> tuple:
 
 
 def v4l2_persist_disable() -> tuple:
-    """Remove Telescope's persistence files, if present. Does not unload the
-    currently-running module."""
+    """Remove Telescope's persistence files; does not unload the running module."""
     existing = [p for p in (V4L2_PERSIST_MODPROBE_CONF, V4L2_PERSIST_MODULES_CONF)
                 if os.path.exists(p)]
     if not existing:

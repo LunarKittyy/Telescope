@@ -52,8 +52,7 @@ class TransformsPlugin(TelescopePlugin):
 
     def setup(self, host, bus):
         self._host = host
-        # Written by Qt thread; read atomically by process_frame on worker thread (GIL).
-        self.flip_h   = False
+        self.flip_h   = False  # Written by Qt thread; read by worker thread (GIL ensures atomicity).
         self.flip_v   = False
         self.rotation = None
         self.zoom     = 1.0
@@ -103,11 +102,11 @@ class TransformsPlugin(TelescopePlugin):
         # ── Pan ───────────────────────────────────────────────────────────────
         self._pan_x_slider = PanSliderRow(show_end_labels=False)
         self._pan_x_slider.value_changed.connect(self._on_pan_changed)
-        lay.addLayout(_row("Pan X (L–R)", self._pan_x_slider, stretch=True))
+        lay.addLayout(_row("Pan X (L-R)", self._pan_x_slider, stretch=True))
 
         self._pan_y_slider = PanSliderRow(show_end_labels=False)
         self._pan_y_slider.value_changed.connect(self._on_pan_changed)
-        lay.addLayout(_row("Pan Y (U–D)", self._pan_y_slider, stretch=True))
+        lay.addLayout(_row("Pan Y (U-D)", self._pan_y_slider, stretch=True))
 
         self._pan_x_slider.set_enabled(False)
         self._pan_y_slider.set_enabled(False)
@@ -125,7 +124,7 @@ class TransformsPlugin(TelescopePlugin):
         return card
 
     def _reset_all(self):
-        """Reset to untouched frame (handlers fire from widget changes, not repeated here)."""
+        """Reset to defaults; handlers fire from widget changes."""
         self._flip_h.setChecked(False)
         self._flip_v.setChecked(False)
         self._rot_combo.setCurrentIndex(0)

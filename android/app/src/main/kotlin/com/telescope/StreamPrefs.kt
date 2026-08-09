@@ -3,7 +3,7 @@ package com.telescope
 import android.content.Context
 import android.content.SharedPreferences
 
-// Persists stream settings so remote starts (via SessionServer) use the same defaults as local spinners.
+// Persists settings so remote/local starts use same defaults.
 object StreamPrefs {
     private const val FILE = "telescope"
 
@@ -14,7 +14,7 @@ object StreamPrefs {
     private const val KEY_HEIGHT = "last_height"
     private const val KEY_OIS = "last_ois"
 
-    /** One remembered "start the stream like this" selection. */
+    // One remembered stream selection.
     data class Selection(
         val cameraId: String,
         val logicalId: String,
@@ -43,7 +43,7 @@ object StreamPrefs {
             .apply()
     }
 
-    // Null until first stream start; callers fall back to CameraStreamService defaults.
+    // Null until first start; callers use CameraStreamService defaults.
     fun lastSelection(context: Context): Selection? {
         val p = of(context)
         val cameraId = p.getString(KEY_CAMERA_ID, null) ?: return null

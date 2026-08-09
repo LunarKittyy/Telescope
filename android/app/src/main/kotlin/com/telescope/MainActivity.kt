@@ -178,17 +178,9 @@ class MainActivity : AppCompatActivity() {
         super.onStart()
         bindService(Intent(this, CameraStreamService::class.java), serviceConnection, 0)
         uiHandler.post(statusPoller)
-        // Reachable while this screen is up; CameraStreamService holds its own
-        // reference while streaming, so the desktop keeps a channel even after
-        // the phone's screen goes dark mid-session - see SessionEndpoint.
+        // Reachable while screen is up; service holds reference after screen goes dark
         SessionEndpoint.acquire(this, SessionEndpoint.OWNER_ACTIVITY)
-        // RECEIVER_NOT_EXPORTED silently drops this broadcast entirely - "not
-        // exported" means only senders sharing this app's own UID qualify,
-        // and adb shell (uid 2000, "shell") doesn't. Exported is required for
-        // adb to reach it at all, so it's gated on the DUMP permission
-        // instead: shell holds it by default, but no ordinary third-party
-        // app can acquire it, so another app on the phone still can't
-        // trigger a silent re-pair.
+        // RECEIVER_EXPORTED is required for adb, but gated on DUMP permission (shell-only)
         ContextCompat.registerReceiver(
             this, pairReceiver, IntentFilter(ACTION_PAIR),
             Manifest.permission.DUMP, null, ContextCompat.RECEIVER_EXPORTED,
@@ -202,8 +194,6 @@ class MainActivity : AppCompatActivity() {
         SessionEndpoint.release(SessionEndpoint.OWNER_ACTIVITY)
         super.onStop()
     }
-
-    // ── QR pairing ────────────────────────────────────────────────────────────
 
     private fun handleQrScan(data: String) {
         when (val parsed = parsePairingOffer(data)) {
@@ -220,18 +210,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Fires the pairing POST at each advertised desktop address in turn,
-     * stopping at the first one that answers.
-     *
-     * LAN addresses get a first pass bound to the phone's actual Wi-Fi
-     * network rather than whatever holds the default route, which is what
-     * makes pairing work with a VPN up: a VPN that permits local-network
-     * traffic still can't be relied on to *route* a LAN address, but the
-     * Wi-Fi interface underneath it can. Only this one request is bound -
-     * the process keeps using its normal default network for everything
-     * else, streaming included.
-     */
+    // Tries pairing POST at each address; LAN tries first over Wi-Fi to work through VPNs
     private fun startPairing(offer: PairingOffer) {
         val wifi = wifiNetwork()
         val routes = pairingRoutes(offer.candidates, hasWifi = wifi != null)
@@ -329,14 +308,7 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    /**
-     * The connected Wi-Fi network, or null if there isn't one.
-     *
-     * Deliberately not filtered on NET_CAPABILITY_VALIDATED or INTERNET: a
-     * router with no WAN uplink still carries pairing traffic perfectly
-     * well, and that's a case this is meant to support. NOT_VPN keeps a VPN
-     * that reports itself over Wi-Fi from being picked as the "real" one.
-     */
+    // Connected Wi-Fi network (not validated/internet-filtered; uses NOT_VPN to exclude VPN)
     private fun wifiNetwork(): android.net.Network? = try {
         val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         @Suppress("DEPRECATION")  // no non-deprecated way to enumerate networks
@@ -358,9 +330,7 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    /** Clears the stored pairing token and, if currently streaming, restarts the
-     *  service so its MjpegServer picks up the cleared state - every further
-     *  request 401s until the phone is paired again. */
+    // Clears the stored pairing token and, if streaming, restarts the service so MjpegServer picks up the cleared state - every further request 401s until re-paired.
     private fun resetPairing() {
         TokenStore.clear(this)
         if (service?.isStreaming == true) {
@@ -371,8 +341,6 @@ class MainActivity : AppCompatActivity() {
         updateStatusText()
         Toast.makeText(this, "Pairing reset. Pair again from the desktop app to reconnect.", Toast.LENGTH_LONG).show()
     }
-
-    // ── Permissions ────────────────────────────────────────────────────────────
 
     private data class PermInfo(
         val permission: String?,   // null = battery optimization
@@ -495,8 +463,6 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == RC_PERMS) checkPermissions()
     }
 
-    // ── Camera enumeration ─────────────────────────────────────────────────────
-
     private fun loadCameras() {
         val manager = getSystemService(CAMERA_SERVICE) as CameraManager
         val sb      = StringBuilder()
@@ -528,22 +494,7 @@ class MainActivity : AppCompatActivity() {
         spinnerResolution.setSelection(if (default1080 >= 0) default1080 else 0)
     }
 
-    /**
-     * These spinners only ever fed [startStream] - selecting a value while a
-     * stream is already running (whether started here or, more often, by the
-     * desktop) never did anything to it, just quietly changed what a *future*
-     * local start would use. That's exactly what made them look "desynced":
-     * the desktop switches lens/resolution/OIS mid-stream and this screen,
-     * if anyone's looking at it, keeps showing whatever was picked before the
-     * stream started.
-     *
-     * While actually streaming, this instead makes them a live read-only
-     * mirror of [CameraStreamService]'s real control state - disabled (they
-     * still have no live effect - the phone doesn't get to fight the desktop
-     * for control mid-session) and kept in sync with whatever the desktop
-     * last set, once a second on the same tick as [updateStatusText]. Back to
-     * normal, editable pre-stream config the moment streaming stops.
-     */
+    // While streaming: spinners mirror service state (disabled, synced live); pre-stream: editable config
     private fun syncLiveControlsToState() {
         val svc = service
         if (svc == null || !svc.isStreaming) {
@@ -583,8 +534,6 @@ class MainActivity : AppCompatActivity() {
         val liveOis = snap.ois && cam.hasOis
         if (checkOis.isChecked != liveOis) checkOis.isChecked = liveOis
     }
-
-    // ── Controls ───────────────────────────────────────────────────────────────
 
     private fun onToggleClicked() {
         if (isBusy()) return
@@ -629,14 +578,7 @@ class MainActivity : AppCompatActivity() {
         return true
     }
 
-    /**
-     * The desktop can start the stream through [SessionServer] while this
-     * screen is up. Nothing routes that back through [serviceConnection]:
-     * `bindService` with flags `0` against a service that did not exist at the
-     * time simply never connects, so without this the button would still read
-     * "Start Streaming" over a live stream. Cheap enough to check on the
-     * existing 1 s tick.
-     */
+    // Desktop can start stream while screen is up; bindService(flags=0) doesn't connect retroactively
     private fun adoptRemoteStart() {
         val service = CameraStreamService.instance
         if (service == null) {
@@ -655,8 +597,6 @@ class MainActivity : AppCompatActivity() {
         if (bound) { unbindService(serviceConnection); bound = false }
         bindService(Intent(this, CameraStreamService::class.java), serviceConnection, 0)
     }
-
-    // ── Status ─────────────────────────────────────────────────────────────────
 
     private fun updateStatusText() {
         val streaming = service?.isStreaming == true
@@ -707,12 +647,7 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(this, "Diagnostics copied to clipboard", Toast.LENGTH_SHORT).show()
     }
 
-    /**
-     * Every IPv4 address this phone has, with the ones belonging to [wifi]
-     * first: those are the addresses the desktop can actually stream from
-     * when a VPN is up on this phone, and the desktop tries them in the
-     * order they're reported here.
-     */
+    // All IPv4 addresses with Wi-Fi ones first (reachable through VPN for desktop streaming)
     private fun getAllDeviceIps(wifi: android.net.Network? = wifiNetwork()): List<String> {
         val all = try {
             java.net.NetworkInterface.getNetworkInterfaces()

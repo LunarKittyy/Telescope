@@ -77,7 +77,6 @@ class MjpegReader:
     # ── Multipart parsing ────────────────────────────────────────────────
 
     def _fill(self, n: int) -> bool:
-        """Reads more from the connection until at least n bytes are buffered."""
         while len(self._buf) < n:
             chunk = self._response.read(_CHUNK)
             if not chunk:
@@ -86,6 +85,7 @@ class MjpegReader:
         return True
 
     def _read_line(self) -> Optional[bytes]:
+        """Read until line break, return None if header exceeded limit."""
         while b"\r\n" not in self._buf:
             if len(self._buf) > _MAX_PART_HEADER_BYTES:
                 return None
@@ -97,7 +97,6 @@ class MjpegReader:
         return line
 
     def _read_part(self) -> Optional[bytes]:
-        # Skip to and past the next boundary line.
         while True:
             line = self._read_line()
             if line is None:
@@ -105,7 +104,6 @@ class MjpegReader:
             stripped = line.strip()
             if stripped == self._boundary or stripped == self._boundary + b"--":
                 break
-        # Part headers, terminated by a blank line.
         content_length = None
         while True:
             line = self._read_line()
@@ -124,7 +122,6 @@ class MjpegReader:
             return None
         jpeg = self._buf[:content_length]
         self._buf = self._buf[content_length:]
-        # Consume the trailing CRLF after the JPEG bytes.
         if not self._fill(2):
             return None
         self._buf = self._buf[2:]

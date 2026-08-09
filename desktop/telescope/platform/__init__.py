@@ -74,10 +74,7 @@ def adb_unforward(port, serial=None):
 
 
 def adb_reverse(port, serial=None):
-    """Tunnel connections the phone makes to its own localhost:port back to
-    this machine's localhost:port - the mirror of adb_forward, used so a
-    USB-only phone (no LAN path, e.g. behind a VPN) can still reach the
-    desktop's QR-pairing HTTP server."""
+    """Tunnel the phone's own localhost:port to this machine's localhost:port - the mirror of adb_forward, so a USB-only phone can still reach the desktop's pairing server."""
     rc, _, err = _run(_with_serial([adb_exe(), "reverse", f"tcp:{port}", f"tcp:{port}"], serial))
     return (True, f"Port {port} reversed") if rc == 0 else (False, err)
 
@@ -93,18 +90,7 @@ PAIR_BROADCAST_PACKAGE = "com.telescope"
 
 
 def adb_broadcast_pair(payload_b64: str, serial=None):
-    """Delivers a base64-encoded QR-pairing payload straight to the phone's
-    pairing broadcast receiver over adb, skipping the camera/QR-scan step
-    entirely. Base64 (not the raw JSON) because adb shell reconstructs a
-    command line the phone's remote shell re-parses - the JSON's braces and
-    quotes would need escaping there, base64's alphabet doesn't. The
-    broadcast is restricted to the Telescope package (-p) - without it this
-    is an implicit broadcast, and any other app on the phone registered for
-    the same action would receive the pairing token right alongside (or
-    instead of) Telescope. Only reports whether the adb command itself
-    succeeded, not whether a foregrounded MainActivity was actually there to
-    receive it - the caller still needs a fallback (e.g. the QR code) for
-    that."""
+    """Broadcasts base64-encoded pairing payload via adb (avoiding shell escaping) and restricts to Telescope package; returns whether adb succeeded, not phone delivery."""
     rc, _, err = _run(_with_serial(
         [adb_exe(), "shell", "am", "broadcast", "-a", PAIR_BROADCAST_ACTION,
          "-p", PAIR_BROADCAST_PACKAGE, "--es", "payload", payload_b64],

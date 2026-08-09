@@ -34,7 +34,6 @@ class LensPanel(QWidget):
         self._ph.setObjectName("dim")
         outer.addWidget(self._ph)
 
-        # Placeholder is outside flow layout; flow layout wraps lens pill buttons.
         self._flow_host = QWidget()
         self._flow_host.setObjectName("lens_panel")
         self._layout = FlowLayout(self._flow_host, spacing=5, uniform=True)

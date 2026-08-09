@@ -131,20 +131,13 @@ def window(qapp, config_home, monkeypatch):
         lambda: False,
     )
     win = app_module.TelescopeWindow()
-    # Run the phone-wake step that now precedes every start on the calling
-    # thread instead of a spawned one, so _start() stays a single synchronous
-    # act for the tests that assert on what it built. A real background
-    # thread outliving the fixture would deliver its queued signal to an
-    # already-destroyed QObject, which PyQt turns into a hard abort. Tests of
-    # the async sequencing itself put the spawn back.
+    # Run phone-wake synchronously to keep _start() a single testable act; a real background thread would deliver queued signals to a destroyed QObject (PyQt hard abort).
     monkeypatch.setattr(
         app_module.TelescopeWindow, "_spawn_wake",
         lambda self, *a: self._wake_phone(*a),
     )
     yield win
-    # The window is never shown. Calling QWidget.close() here would route
-    # through whichever closeEvent/worker doubles a test intentionally left
-    # installed and can make Qt abort while unwinding the fixture.
+    # Don't call close(); a test's intentional closeEvent stub would abort Qt during fixture teardown.
     win._session = None
 
 
@@ -327,8 +320,7 @@ def test_narrow_layout_stacks_every_panel_into_one_visible_column(window):
     col = window._column_layouts[0]
     stacked = [col.itemAt(i).widget() for i in range(col.count())]
     stacked = [w for w in stacked if w is not None]
-    # Centre first, so the video is what you see without scrolling, then the
-    # left rail's panels, then the right rail's.
+    # Center first (video visible without scrolling), then left, then right panels.
     assert stacked == [window._panels["center"][0],
                        window._panels["left"][0],
                        window._panels["right"][0]]
@@ -629,10 +621,7 @@ def test_start_builds_worker_pipeline_and_notifies_plugins(window, monkeypatch):
     assert threads[0][1] == (window._session.id,)
     assert threads[0][2] is True
     assert window._start_btn.text() == "Stop Streaming"
-    # ensure_phone_streaming's on_progress callback reached the connection
-    # plugin and round-tripped through the wake-progress signal - the fix
-    # for the "Start button looks frozen for up to 12s" complaint depends
-    # on this actually being wired up, not just present on the call.
+    # on_progress callback must reach plugin and route through signal to fix "frozen button for 12s" complaint.
     assert connection.progress_msgs == ["waking..."]
 
 
@@ -816,15 +805,13 @@ def test_fetch_state_exits_if_session_is_removed(window, monkeypatch):
 
 
 def test_fetch_state_discards_result_from_a_superseded_session(window, monkeypatch):
-    """Fetch result from superseded device session must not reach plugins."""
     ctrl = SimpleNamespace(get_state=lambda: {**_VALID_STATE, "battery": 10})
     window._session = StreamSession(id=1, url="phoneA", client=ctrl, worker=object())
     emitted = []
     window._sig_state.connect(lambda sid, state: emitted.append((sid, state)))
 
     def sleep_and_switch(_seconds):
-        # By the time the (single) sleep in the fetch loop returns, the
-        # session has already moved on to a new device.
+        # Switch device while fetch sleeps, so old result is stale when it completes.
         window._session = StreamSession(id=2, url="phoneB", client=object(), worker=object())
 
     monkeypatch.setattr(app_module.time, "sleep", sleep_and_switch)
@@ -925,9 +912,7 @@ def test_reconnecting_animation_stops_when_another_status_arrives(window):
 
     window._on_worker_status("ok", "Stream reconnected")
 
-    # Stopped, not just replaced - a stopped QTimer can't fire its timeout
-    # again on its own, which is what actually keeps a later real tick from
-    # ever overwriting the new status.
+    # Timer must be stopped, not just replaced, so it can't fire and overwrite new status.
     assert not window._reconnecting_timer.isActive()
     assert window._status_lbl.fullText() == "Stream reconnected"
     assert window._status_lbl.styleSheet() == ""
@@ -964,10 +949,7 @@ def test_resolution_pending_times_out_to_error_then_self_clears(window, monkeypa
     window._on_resolution_pending_timeout()
 
     assert fired["ms"] == 4000
-    # The monkeypatched singleShot ran its callback immediately, so the
-    # error colour has already been cleared back to default by the time
-    # this assertion runs - confirming the auto-clear callback itself works,
-    # not just that it got scheduled.
+    # Monkeypatched singleShot ran callback immediately, so auto-clear already executed.
     assert window._fps_lbl.styleSheet() == ""
     assert window._pending_resolution is None
 
@@ -1069,7 +1051,7 @@ def test_close_event_stops_and_accepts_without_background_stream(window, monkeyp
 # ── Remote phone wake / symmetric stop ────────────────────────────────────────
 
 def _real_spawn_wake(monkeypatch):
-    """Capture _start() spawn call for manual completion in tests."""
+    # Capture spawn call to let test control when wake completes.
     spawned = []
     monkeypatch.setattr(
         app_module.TelescopeWindow, "_spawn_wake",
@@ -1116,7 +1098,7 @@ def test_start_shows_the_reason_and_builds_nothing_when_the_wake_fails(window, m
 
     assert window._worker is None
     assert warnings[0][1] == "Open the app on your phone."
-    # The button has to come back, or the user can never retry.
+    # Button must come back enabled so user can retry.
     assert window._start_btn.isEnabled()
     assert window._start_btn.text() == "Start Streaming"
 
@@ -1183,9 +1165,7 @@ def test_a_cancelled_wake_still_stops_a_phone_that_may_be_mid_start(window, monk
 
 
 def test_reconnect_and_canvas_reload_leave_the_phone_streaming(window, monkeypatch):
-    # These stop/start pairs are really a desktop-side reconnect. Bouncing the
-    # phone's camera through them would cost seconds and a lens re-open for
-    # no gain, since _start() sees a live stream and connects straight through.
+    # Desktop-side reconnect only; phone camera already live, so skip the re-open cost.
     connection = _Connection()
     window.register_plugin(connection)
     monkeypatch.setattr(
@@ -1209,8 +1189,7 @@ def test_reconnect_and_canvas_reload_leave_the_phone_streaming(window, monkeypat
 
 
 def test_drain_phone_stops_is_bounded(window, monkeypatch):
-    # A phone that has already gone away must not be able to hold the app
-    # open on the way out.
+    # Gone-away phone must not hold app open during shutdown.
     joins = []
 
     class SlowThread:

@@ -1,10 +1,6 @@
 package com.telescope
 
-/**
- * Phases of one streaming attempt. [Recovering] covers an in-flight lens
- * switch on an already-open camera - the one case today that tears down
- * and rebuilds a session without a full service restart.
- */
+// Phases of one stream attempt; Recovering is in-flight lens switch (session rebuild without service restart).
 enum class StreamState {
     Idle, StartingServer, OpeningCamera, ConfiguringSession, Streaming, Recovering, Failed, Stopping
 }
@@ -17,13 +13,7 @@ data class StateTransition(
     val error: String? = null,
 )
 
-/**
- * Pure state/history bookkeeping for [CameraStreamService]'s streaming
- * lifecycle, kept free of any CameraDevice/Service state (same rationale as
- * [CameraRequestSelection]) so it can be unit tested on a plain JVM. Callers
- * decide *when* to transition (from Camera2 callbacks, generation-guard
- * checks, etc.) - this class only records the result and bounds history.
- */
+// Pure state/history for streaming lifecycle (no Camera2/Service state for JVM testability); callers decide when to transition.
 class StreamStateMachine(private val now: () -> Long = System::currentTimeMillis) {
     @Volatile var state: StreamState = StreamState.Idle
         private set
@@ -34,9 +24,7 @@ class StreamStateMachine(private val now: () -> Long = System::currentTimeMillis
     private val history = ArrayDeque<StateTransition>()
     private val historyLock = Any()
 
-    /** Records the transition to [newState] and returns it. [error], if
-     *  given, is reduced to its class name + message - never a raw stack
-     *  trace or anything from request headers/URLs/tokens. */
+    // Records transition; error is reduced to class name + message (no stack trace/headers/URLs/tokens).
     fun transition(newState: StreamState, op: String, error: Throwable? = null): StateTransition {
         val old = state
         state = newState
@@ -49,11 +37,7 @@ class StreamStateMachine(private val now: () -> Long = System::currentTimeMillis
         return record
     }
 
-    /** Records a non-fatal event against the *current* state without changing
-     *  it - e.g. a live control-update that failed to apply while streaming
-     *  continues on the previous repeating request. Emitted as a self-transition
-     *  (from == to == current state) so it still surfaces in "Copy diagnostics"
-     *  and gets the same class-name+message error sanitization as [transition]. */
+    // Records non-fatal event (no state change); emitted as self-transition so it surfaces in diagnostics.
     fun record(op: String, error: Throwable? = null): StateTransition {
         val errMsg = error?.let { "${it.javaClass.simpleName}: ${it.message}" }
         val record = StateTransition(now(), state, state, op, errMsg)

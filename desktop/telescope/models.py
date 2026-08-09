@@ -5,7 +5,7 @@ from typing import Optional
 
 
 class PhoneStateError(ValueError):
-    """Raised on /v1/state payload shape mismatch (protocol error, not just missing data)."""
+    """Raised on /v1/state payload shape mismatch."""
 
 
 def _require(raw: dict, key: str, types: tuple, what: str):

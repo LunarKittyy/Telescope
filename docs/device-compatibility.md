@@ -1,9 +1,6 @@
 # Device compatibility matrix
 
-Manually maintained. Update a row after actually testing that device/build
-combination - don't assume a device works because a similar one does.
-"OK" means the feature worked as documented in the README; note anything
-that only partially worked instead of just checking it off.
+Manually maintained - update after testing that exact device/build combo. "OK" means the feature worked as documented in README; note caveats instead of just checking off.
 
 Legend: `OK` tested and working · `PARTIAL` works with caveats (see notes) ·
 `FAIL` doesn't work · `-` not tested yet.
@@ -17,20 +14,20 @@ Legend: `OK` tested and working · `PARTIAL` works with caveats (see notes) ·
 
 ## What to check per row
 
-- **USB pairing**: the desktop's **Pair via ADB** flow completes while the phone is connected via USB, even with no Wi-Fi/LAN path at all (the pairing payload is delivered by `adb`, with the pairing server reached through `adb reverse`); `adb forward` + authenticated stream works after.
-- **Wi-Fi pairing**: QR pairing completes over Wi-Fi; authenticated stream works without USB connected.
-- **Lens selection**: all physical sub-cameras (wide/main/telephoto) enumerate and switching between them actually changes the video feed, not just digital zoom.
-- **Manual exposure**: ISO and shutter sliders actually change exposure on-device (not just greyed-in/out correctly).
+- **USB pairing**: Pair via ADB completes with phone on USB only (no Wi-Fi/LAN), pairing server reached via `adb reverse`, then `adb forward` + authenticated stream works.
+- **Wi-Fi pairing**: QR code pairing works over Wi-Fi without USB.
+- **Lens selection**: all physical lenses (wide/main/telephoto) enumerate; switching changes video feed, not just digital zoom.
+- **Manual exposure**: ISO and shutter sliders change on-device exposure (not just toggle correctly).
 - **Manual WB**: Kelvin slider visibly shifts color temperature (README already notes this is inconsistent across devices/lenses - record exactly what happens, not just pass/fail).
-- **OIS toggle**: has a visible effect on lenses that report `hasOis: true`.
-- **Reconnect after drop**: kill Wi-Fi or unplug USB mid-stream, confirm the desktop app reconnects automatically within `RECONNECT_DELAY` once connectivity returns, without needing a full stream restart.
+- **OIS toggle**: visible effect on lenses reporting `hasOis: true`.
+- **Reconnect after drop**: kill Wi-Fi or unplug USB mid-stream; confirm auto-reconnect within `RECONNECT_DELAY` when connectivity returns (no full restart needed).
 - **Battery/temp reporting**: Monitoring-panel values update and alert thresholds fire correctly.
-- **Stop/start**: repeated stop/start cycles (at least 5 in a row) don't leave the phone's foreground service or the desktop's virtual camera in a broken state.
-- **Remote start/stop**: with the Telescope app in the foreground, desktop Start starts the phone camera and desktop Stop stops it; repeat after the phone screen goes dark while streaming.
+- **Stop/start**: 5+ stop/start cycles don't break phone foreground service or desktop virtual camera.
+- **Remote start/stop**: Telescope app foreground - desktop Start/Stop control phone camera; test with screen dark too.
 
 ## Process
 
-1. Install the release candidate APK and desktop bundle for the platform under test.
-2. Pair fresh (reset pairing on the phone first if it was previously paired to a different desktop build) via both USB and Wi-Fi.
-3. Work through each column, noting the exact app build/commit tested in the "App build" column.
-4. File an issue for any `FAIL` or notable `PARTIAL` before checking a release off in [release-checklist.md](release-checklist.md).
+1. Install release-candidate APK and desktop bundle.
+2. Pair fresh (reset phone pairing first if previously paired to different build) via USB and Wi-Fi.
+3. Work each column, note exact build/commit in "App build" column.
+4. File issue for any FAIL or notable PARTIAL before checking off in [release-checklist.md](release-checklist.md).

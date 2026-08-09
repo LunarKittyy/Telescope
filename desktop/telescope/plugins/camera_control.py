@@ -42,12 +42,7 @@ _WB_NEUTRAL  = 5500   # neutral point where R gain == B gain
 
 
 def _kelvin_to_rggb(kelvin: int, tint: float) -> tuple[float, float, float, float]:
-    """Convert Kelvin + tint to Camera2 RGGB channel gains.
-
-    Uses an exponential model centred at neutral (~5500K) so warm/cool shifts
-    are symmetric and the full slider range produces visually dramatic results.
-    tint: -150 (green) to +150 (magenta).
-    """
+    """Convert Kelvin + tint to Camera2 RGGB channel gains, using an exponential model centred at ~5500K so warm/cool shifts stay symmetric. tint: -150 (green) to +150 (magenta)."""
     t = max(-1.0, min(1.0, (kelvin - _WB_NEUTRAL) / float(_WB_NEUTRAL)))
     r = max(0.3, 2.0 * (2.0 **  t))   # high at high K = warm
     b = max(0.3, 2.0 * (2.0 ** -t))   # high at low K = cool
@@ -63,10 +58,7 @@ def _diopters_to_label(d: float) -> str:
 
 @dataclass(frozen=True)
 class CameraControlView:
-    """Everything on_phone_state needs to update the widgets, computed once
-    from a raw phone-state dict and kept separate from the Qt calls that
-    apply it - the state-to-values mapping is a pure function, independently
-    testable without a QApplication."""
+    """Everything on_phone_state needs to update the widgets, computed as a pure function from the raw phone-state dict so it's testable without a QApplication."""
 
     lenses: list
     current_camera: Optional[dict]
@@ -87,8 +79,7 @@ class CameraControlView:
 
 
 def derive_camera_control_view(state: dict) -> Optional[CameraControlView]:
-    """Pure state -> view mapping. Returns None for an empty/unavailable
-    state (the caller should show the "Unavailable" placeholder instead)."""
+    """Pure state -> view mapping. Returns None for an empty/unavailable state, so the caller shows the "Unavailable" placeholder instead."""
     if not state:
         return None
 
@@ -153,12 +144,11 @@ class CameraControlPlugin(TelescopePlugin):
         lay.setSpacing(10)
         add_card_header(lay, "Camera", "camera")
 
-        # ── Lens ──────────────────────────────────────────────────────────────
         self._lens_panel = LensPanel()
         self._lens_panel.lens_selected.connect(self._on_lens_selected)
         lay.addWidget(_row_widget("Lens", self._lens_panel, stretch=True))
 
-        # One quiet line summarizing hardware level (the only capability you can't infer from control state).
+        # Hardware level is the only capability not reflected in control state.
         self._cam_info_lbl = ElidingLabel("")
         self._cam_info_lbl.setObjectName("caps_line")
         self._cam_info_row = control_row_widget("", self._cam_info_lbl, stretch=True)
@@ -469,13 +459,13 @@ class CameraControlPlugin(TelescopePlugin):
         self._torch_btn.blockSignals(False)
 
     def _on_phone_state_from_bus(self, state: dict):
-        # Bus signal received but handled elsewhere (camera fetches go through app.py → on_phone_state).
+        # Phone state arrives on bus but this handler delegates to app.py's on_phone_state().
         pass
 
     # ── Camera capability gating ──────────────────────────────────────────────
 
     def _update_cam_info_lbl(self, cam: dict):
-        """Summarize lens capabilities in one line (unsupported ones are in tooltip to avoid clutter)."""
+        """Summarize capabilities in one line, with unsupported ones in tooltip."""
         supported = [(label, cam.get(key)) for key, label in _CAPABILITY_LABELS]
         hw_level  = _HW_LEVELS.get(cam.get("hwLevel", ""), cam.get("hwLevel", ""))
         have      = [l for l, ok in supported if ok]
@@ -533,8 +523,7 @@ class CameraControlPlugin(TelescopePlugin):
         else:
             self._torch_btn.setToolTip("")
 
-        # Greyed out but stays checked to preserve state across lens switches.
-        self._ois_cb.setEnabled(has_ois)
+        self._ois_cb.setEnabled(has_ois)  # Greyed out but stays checked across lens switches.
         self._ois_cb.setToolTip("" if has_ois else "This lens does not support optical image stabilization")
         self._sync_manual_control_visibility()
 

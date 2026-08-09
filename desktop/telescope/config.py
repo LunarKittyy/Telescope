@@ -81,8 +81,6 @@ def _backup_invalid_file(path: Path, original_text: str) -> None:
         logger.exception("Failed to back up invalid config to %s", backup_path)
 
 
-# ── Validation ───────────────────────────────────────────────────────────────
-
 def _empty() -> dict:
     return {"version": CONFIG_VERSION, "selected_device": None, "plugin_configs": {}, "devices": {}}
 
@@ -92,6 +90,7 @@ def _is_whole_config_valid(cfg) -> bool:
         return False
     version = cfg.get("version", 0)
     return isinstance(version, int) and not isinstance(version, bool) and version >= CONFIG_VERSION
+
 
 
 def _valid_device_settings_entry(v) -> bool:

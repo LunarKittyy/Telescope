@@ -7,18 +7,8 @@ import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 
-/**
- * The QR-code pairing payload and the logic for deciding how to reach the
- * desktop with it. Deliberately free of Android imports so all of it -
- * parsing, validation, attempt ordering, the failure explanation - is
- * covered by ordinary JVM unit tests; [MainActivity] supplies the actual
- * networking.
- */
-
-/** Bumped in lockstep with the desktop's PAIRING_PROTOCOL_VERSION. Only
- *  this exact version is accepted: desktop app and APK ship together, so a
- *  mismatch means one of them is stale, and guessing at a half-understood
- *  payload would fail later and more confusingly than saying so now. */
+// QR-code pairing payload and routing logic; Android-free for JVM unit testing
+// Version bumped in lockstep with desktop; mismatch means one is stale
 const val PAIRING_PROTOCOL_VERSION = 2
 
 @Serializable
@@ -68,12 +58,7 @@ data class PairingAttemptFailure(
 
 private val pairingJson = Json { ignoreUnknownKeys = true }
 
-/**
- * Parses a scanned (or adb-pushed) pairing payload, rejecting anything that
- * couldn't be acted on: wrong version, malformed JSON, an unusable port, a
- * missing nonce/token, or a candidate list that's empty or contains an
- * address that isn't a valid IPv4 literal.
- */
+// Parses a scanned (or adb-pushed) pairing payload, rejecting anything unusable: wrong version, malformed JSON, bad port, missing nonce/token, or an empty/invalid candidate list.
 fun parsePairingOffer(raw: String): PairingParse {
     val offer = try {
         pairingJson.decodeFromString(PairingOffer.serializer(), raw)
@@ -112,17 +97,7 @@ fun isValidIpv4(ip: String): Boolean {
     }
 }
 
-/**
- * The order to try candidates in.
- *
- * LAN candidates go first over the Wi-Fi network specifically, because when
- * a VPN owns the phone's default route a LAN address is exactly what won't
- * be reachable through it - but is still reachable on the Wi-Fi interface
- * itself, as long as the VPN permits local-network traffic. Everything is
- * then retried over whatever the default network is, which covers Tailscale
- * (where the tunnel *is* the right route), USB pairing over loopback, and
- * phones with no separate Wi-Fi network to force onto.
- */
+// Try LAN over Wi-Fi first (works through VPNs), then all over default network
 fun pairingRoutes(candidates: List<PairingCandidate>, hasWifi: Boolean): List<PairingRoute> {
     val overWifi =
         if (hasWifi)
@@ -135,20 +110,13 @@ fun pairingRoutes(candidates: List<PairingCandidate>, hasWifi: Boolean): List<Pa
 /** Connect/read timeout for a single attempt. */
 const val PAIR_ATTEMPT_TIMEOUT_MS = 2_000
 
-/** Ceiling on the whole run, however many candidates there are. Eight
- *  candidates tried once over Wi-Fi and again over the default network is
- *  half a minute of a progress-free wait otherwise - long past the point
- *  where the answer is "this isn't going to work, read the message". */
+// Ceiling on the whole run, however many candidates there are - otherwise eight candidates tried twice is half a minute of progress-free waiting.
 const val PAIR_TOTAL_BUDGET_MS = 12_000L
 
 /** Below this there isn't enough left for an attempt to mean anything. */
 private const val PAIR_MIN_ATTEMPT_MS = 500
 
-/**
- * How long the next attempt may take, given [elapsedMs] spent so far, or
- * null when the budget is spent and the remaining candidates should be
- * abandoned.
- */
+// How long the next attempt may take given elapsedMs so far, or null when the budget is spent and remaining candidates should be abandoned.
 fun attemptTimeoutMs(elapsedMs: Long, budgetMs: Long = PAIR_TOTAL_BUDGET_MS): Int? {
     val remaining = budgetMs - elapsedMs
     if (remaining < PAIR_MIN_ATTEMPT_MS) return null
@@ -174,13 +142,7 @@ private fun PairingRouteKind.label(): String = when (this) {
     PairingRouteKind.DEFAULT -> "the default network"
 }
 
-/**
- * The message shown when no candidate could be reached. Lists what was
- * actually tried and how it failed, then names the cause that this design
- * can't do anything about from the phone's side: a VPN (on either device)
- * that blocks local-network traffic outright, and client-isolated guest
- * Wi-Fi, both of which leave USB pairing as the way through.
- */
+// Failure message listing tried candidates and suggesting VPN/guest Wi-Fi/USB options
 fun pairingFailureMessage(failures: List<PairingAttemptFailure>, untried: Int = 0): String {
     val tried = failures.joinToString("\n") { "• ${it.ip} over ${it.via.label()}: ${it.problem}" }
     return buildString {

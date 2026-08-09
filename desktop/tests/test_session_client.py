@@ -65,9 +65,7 @@ def test_ping_parses_the_phone_state_body(monkeypatch, client):
 
 
 def test_ping_treats_a_bodyless_200_as_paired_but_unaware(monkeypatch, client):
-    # What an app predating /v1/session answers: a bare "OK". Still proof of
-    # a live pairing, just with nothing to say about the stream - which is
-    # what knows_session exists to signal.
+    # Bare OK from pre-/v1/session apps proves pairing but lacks session state (knows_session signals this).
     _stub_urlopen(monkeypatch, lambda _req: _Response(200, b"OK"))
 
     result = client.ping()
@@ -119,9 +117,7 @@ def test_stop_posts_the_stop_action(monkeypatch, client):
 
 
 def test_a_404_reports_unsupported_rather_than_an_error(monkeypatch, client):
-    # An APK predating this endpoint. The desktop's answer is to fall back to
-    # connecting to a hand-started stream, not to block the user, so this
-    # must be distinguishable from a real failure.
+    # Old APKs lack this endpoint; desktop falls back to hand-started stream (distinguish 404 from real failure).
     _stub_urlopen(monkeypatch, lambda _req: _http_error(404))
 
     result = client.start()

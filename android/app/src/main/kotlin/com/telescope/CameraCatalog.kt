@@ -7,7 +7,7 @@ import android.os.Build
 import android.util.Size
 import kotlin.math.sqrt
 
-// logicalId: if non-null, open logicalId and route surface via OutputConfiguration.setPhysicalCameraId(id).
+// logicalId: if non-null, open it and route via OutputConfiguration.setPhysicalCameraId(id)
 data class CameraInfo(
     val id: String,
     val logicalId: String?,

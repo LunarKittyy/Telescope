@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 import kotlinx.serialization.json.Json
 
-// Out-of-band session channel (always reachable, unlike MjpegServer). Routes: GET /v1/ping (status) and POST /v1/session (start/stop).
+// Out-of-band channel: always reachable (unlike MjpegServer). Routes: /v1/ping, /v1/session
 class SessionServer(
     private val port: Int,
     private val tokenProvider: () -> String?,
@@ -103,7 +103,6 @@ class SessionServer(
 
         private const val TAG = "SessionServer"
 
-        // Extracted for testability without a socket.
         fun route(method: String, path: String): Route = when (path) {
             "/v1/ping" -> if (method == "GET") Route.Ping else Route.MethodNotAllowed
             "/v1/session" -> if (method == "POST") Route.Session else Route.MethodNotAllowed

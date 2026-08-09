@@ -33,7 +33,6 @@ def _fit_frame(frame, target_w, target_h):
     new_w = int(fw * scale)
     new_h = int(fh * scale)
 
-    # Same aspect ratio — plain resize, no bars needed.
     if new_w == target_w and new_h == target_h:
         return cv2.resize(frame, (target_w, target_h),
                           interpolation=cv2.INTER_LINEAR)

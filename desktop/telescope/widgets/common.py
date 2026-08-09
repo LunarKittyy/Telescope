@@ -335,11 +335,7 @@ def create_separator() -> QFrame:
 
 
 def create_app_icon(size: int = 32) -> QIcon:
-    """The Telescope mark: a solid accent-blue disc with a dark centre
-    punched out. This is the one icon asset the app has - used for the tray,
-    the window/taskbar icon, and the in-window header logo alike, so all
-    three render identically regardless of the size requested here.
-    """
+    """Telescope mark: accent-blue disc with dark centre punched out; only app icon asset, used everywhere for consistency."""
     pixmap = QPixmap(size, size)
     pixmap.fill(Qt.GlobalColor.transparent)
 
@@ -465,11 +461,7 @@ def create_vector_icon(icon_name: str, color_hex: str) -> QIcon:
 # ── Log-scale slider row ──────────────────────────────────────────────────────
 
 class LogSliderRow(QWidget):
-    """Horizontal slider on log scale with spinbox for direct entry.
-
-    spinbox_scale: multiply internal value by this for spinbox display.
-    e.g. spinbox_scale=1e-6 shows nanoseconds as milliseconds.
-    """
+    """Horizontal log-scale slider with spinbox; spinbox_scale multiplies display (e.g., 1e-6 shows nanoseconds as milliseconds)."""
     value_changed = pyqtSignal(float)
     STEPS = 2000
 
@@ -573,8 +565,6 @@ class LogSliderRow(QWidget):
         self._slider.setEnabled(enabled)
         self._spin.setEnabled(enabled)
 
-
-# ── WB slider row ─────────────────────────────────────────────────────────────
 
 # ── Pan slider row ────────────────────────────────────────────────────────────
 

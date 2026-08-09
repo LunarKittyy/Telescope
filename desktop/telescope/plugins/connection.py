@@ -131,12 +131,7 @@ class _DeviceDialog(QDialog):
 
 
 class _DeviceManagerDialog(QDialog):
-    """Device list management popup — pair, edit, remove.
-
-    A device only ever becomes usable by pairing (it needs a bearer token
-    the phone issues, nothing here can fabricate one) - "Add" hands off to
-    that flow instead of a bare name/IP form, which used to produce
-    entries that could never actually connect."""
+    """Device list management popup. Add delegates to pairing (only the phone issues tokens)."""
 
     def __init__(self, parent, devices: list, on_add, on_edit, on_remove):
         super().__init__(parent)
@@ -144,8 +139,7 @@ class _DeviceManagerDialog(QDialog):
         self.setMinimumWidth(360)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self._devices = devices
-        # on_add starts pairing flow asynchronously; result comes via _on_device_paired().
-        self._on_add_cb    = on_add
+        self._on_add_cb    = on_add  # Starts pairing asynchronously; result via _on_device_paired().
         self._on_edit_cb   = on_edit
         self._on_remove_cb = on_remove
         self._active_dlg = None
@@ -254,7 +248,7 @@ class _DeviceManagerDialog(QDialog):
 
 
 class _QRCodeWidget(QWidget):
-    """Renders a QR code matrix using QPainter — no Pillow needed."""
+    """Renders a QR code matrix using QPainter - no Pillow needed."""
 
     # qrcode's border param doesn't affect .modules matrix; explicit margin ensures quiet zone for phone cameras.
     _QUIET_ZONE_PX = 24
@@ -306,8 +300,7 @@ class _PairStatusSignals(QObject):
 
 
 class _PairingDialog(QDialog):
-    """Runs a pairing HTTP server while open, and shows either a QR code
-    (Wi-Fi) or a "Pair via ADB" button (USB) to complete it."""
+    """Runs a pairing HTTP server while open, and shows either a QR code (Wi-Fi) or a "Pair via ADB" button (USB) to complete it."""
 
     def __init__(self, parent, on_paired, usb_serial: Optional[str] = None):
         super().__init__(parent)
@@ -485,7 +478,6 @@ class _PairingDialog(QDialog):
         if self._pair_timeout is not None:
             self._pair_timeout.stop()
             self._pair_timeout = None
-        # Replace the QR code/pair button with a big success message
         while self._qr_container.count():
             item = self._qr_container.takeAt(0)
             if item.widget():
@@ -511,8 +503,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._bus               = bus
         self._devices: list    = []
         self._selected_device: Optional[str] = None
-        # Active profile key; kept separate from _selected_device to avoid spurious save/reconnect cycles.
-        self._active_key: Optional[str] = None
+        self._active_key: Optional[str] = None  # Separate from _selected_device to avoid spurious save/reconnect.
         self._switching_device = False
         self._forwarded_port: Optional[int] = None
         self._adb_serial: Optional[str] = None
@@ -522,8 +513,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._pair_status_signals = _PairStatusSignals()
         self._pair_status_signals.result.connect(self._set_pair_status)
         self._pair_status_check_id = 0
-        # True only once stream produces a frame (not just having a saved token or worker object).
-        self._stream_connected = False
+        self._stream_connected = False  # True only once stream produces a frame.
         self._bus.stream_connected.connect(self._on_stream_connected)
 
     def create_panel(self) -> QWidget:
@@ -557,7 +547,6 @@ class ConnectionPlugin(TelescopePlugin):
         self._update_pair_button()
         lay.addLayout(_row("", self._qr_btn, stretch=True))
 
-        # ── Device address (Wi-Fi only; hidden wholesale in USB mode) ────────
         self._device_row_w = QWidget()
         self._device_row_w.setObjectName("ip_row_container")
         device_v = QVBoxLayout(self._device_row_w)
@@ -571,8 +560,7 @@ class ConnectionPlugin(TelescopePlugin):
         lay.addWidget(self._device_row_w)
         self._device_row_w.setVisible(False)
 
-        # Build here so picker exists even if header widget is never used.
-        self._build_device_picker()
+        self._build_device_picker()  # Build early so picker exists even if header widget unused.
 
         # ── Port ──────────────────────────────────────────────────────────────
         self._port_field = QLineEdit(str(DEFAULT_PORT))
@@ -581,8 +569,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._port_field.editingFinished.connect(self._on_port_changed)
         lay.addLayout(_row("Port", self._port_field))
 
-        # Periodic backstop; catches phones coming online between triggers. Stopped during streaming.
-        self._pair_status_timer = QTimer(card)
+        self._pair_status_timer = QTimer(card)  # Periodic backstop; stopped during streaming.
         self._pair_status_timer.timeout.connect(self._check_pair_status)
         self._pair_status_timer.start(_PAIR_STATUS_POLL_MS)
 
@@ -705,10 +692,7 @@ class ConnectionPlugin(TelescopePlugin):
             return f"http://{ip}:{port}/v1/video", token, True
 
     def _current_device_token(self) -> Optional[str]:
-        """The stored pairing token for the profile currently in play (the
-        selected Wi-Fi device, or whichever device was last selected before
-        switching to USB mode - USB streaming still authenticates with a
-        paired device's token, it just reaches it via adb forward)."""
+        """Stored pairing token for current profile (selected Wi-Fi device or USB device)."""
         name = self._selected_device
         if not name:
             return None
@@ -718,8 +702,7 @@ class ConnectionPlugin(TelescopePlugin):
         return None
 
     def on_stream_start(self, stream_url: str, ctrl):
-        # Keep probing until _on_stream_connected confirms actual frame delivery.
-        self._stream_connected = False
+        self._stream_connected = False  # Keep probing until _on_stream_connected confirms frames.
         self._check_pair_status()
 
     def on_stream_stop(self):
@@ -732,8 +715,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._check_pair_status()
 
     def _on_stream_connected(self):
-        # Decoding frames proves working pairing; retire probe (no need to keep asking).
-        self._stream_connected = True
+        self._stream_connected = True  # Decoded frames prove working pairing.
         self._pair_status_timer.stop()
         self._set_pair_status("paired")
 
@@ -742,8 +724,7 @@ class ConnectionPlugin(TelescopePlugin):
     def _check_pair_status(self):
         """Background probe of whether stored token is still accepted (tokens can be stale)."""
         if self._stream_connected:
-            # Already proven good by decoded frames; don't second-guess.
-            self._set_pair_status("paired")
+            self._set_pair_status("paired")  # Decoded frames prove pairing is good.
             return
         token = self._current_device_token()
         if token is None:
@@ -764,8 +745,7 @@ class ConnectionPlugin(TelescopePlugin):
     def _probe_pair_status(self, check_id: int, token: str, usb: bool):
         with self.session_channel(token, usb=usb) as (client, unavailable):
             result = client.ping().status if client else unavailable
-        # Don't let stale result clobber a fresher one (later check may have already finished).
-        if check_id != self._pair_status_check_id:
+        if check_id != self._pair_status_check_id:  # Discard stale results from earlier checks.
             return
         try:
             self._pair_status_signals.result.emit(result)
@@ -862,8 +842,7 @@ class ConnectionPlugin(TelescopePlugin):
                 # Real state change (not network blip); don't tolerate.
                 return False, "Lost contact with the phone while its camera was starting."
             if ping.status != "paired":
-                # Tolerate brief unreachable (camera startup is heavy); only bail on sustained failure.
-                unreachable_streak += 1
+                unreachable_streak += 1  # Tolerate brief unreachable; bail on sustained failure.
                 if unreachable_streak >= _UNREACHABLE_STREAK_LIMIT:
                     return False, "Lost contact with the phone while its camera was starting."
                 if on_progress:
@@ -886,7 +865,7 @@ class ConnectionPlugin(TelescopePlugin):
         )
 
     def stop_phone_streaming(self):
-        """Tell phone to shut camera down (best effort; desktop side already torn down)."""
+        """Tell phone to shut camera down (best effort only)."""
         with self.session_channel() as (client, _unavailable):
             if client is not None:
                 client.stop()
@@ -1116,9 +1095,7 @@ class ConnectionPlugin(TelescopePlugin):
             save_config(cfg)
             if self._selected_device == old_name:
                 self._selected_device = new_name
-                # Same device, only the label changed - update tracking
-                # without a reset/reconnect (settings weren't moved elsewhere).
-                self._active_key = new_name
+                self._active_key = new_name  # Label changed, update tracking without reconnect.
         self._refresh_device_combo(select_name=self._selected_device)
         self._host.save_now()
 
@@ -1130,20 +1107,12 @@ class ConnectionPlugin(TelescopePlugin):
         if was_selected:
             self._selected_device = self._devices[0]["name"] if self._devices else None
         self._refresh_device_combo(select_name=self._selected_device)
-        # Persist the mutated devices_list too, or the removed device reappears
-        # on next launch (set_config() repopulates from the stale saved list).
-        self._host.save_now()
+        self._host.save_now()  # Persist the mutated list or device reappears on next launch.
         if was_selected:
             self._activate_profile(self._profile_key)
 
     def _on_device_paired(self, name: str, ips: list, token: str, source_ip: str = ""):
-        # A fresh pairing rotates the phone's bearer token (and, on the
-        # phone side, kills its own stream, since the running MjpegServer
-        # only checks the token it started with) - anything the desktop was
-        # mid-stream to is about to be rejected either way, so stop cleanly
-        # now instead of leaving it to error out on the next request.
-        # stop_stream() is a safe no-op when nothing is streaming.
-        self._host.stop_stream()
+        self._host.stop_stream()  # Fresh pairing rotates token; stop cleanly to avoid mid-stream error.
         existing_names = [d["name"] for d in self._devices]
         if name in existing_names:
             for d in self._devices:
@@ -1153,14 +1122,7 @@ class ConnectionPlugin(TelescopePlugin):
                     break
         else:
             self._devices.append({"name": name, "ips": ips, "token": token})
-        # The phone reached us from [source_ip], so that address is - right
-        # now, over whatever path it found - a working way back to it. Pin it
-        # as this device's active address: the rank-based default prefers a
-        # Tailscale address over a LAN one, which is wrong whenever the phone
-        # is on a tailnet this desktop isn't, and a saved choice from an
-        # earlier pairing can be staler still. The rest stay in the dropdown
-        # to switch to by hand.
-        if source_ip and source_ip in ips:
+        if source_ip and source_ip in ips:  # Pin the address the pairing POST actually arrived from - proven reachable, unlike a rank-based guess (e.g. a Tailscale IP the desktop doesn't share a tailnet with).
             cfg = load_config()
             cfg.setdefault("devices", {}).setdefault(name, {})["active_ip"] = source_ip
             save_config(cfg)
@@ -1169,16 +1131,12 @@ class ConnectionPlugin(TelescopePlugin):
         self._host.save_now()
         self._activate_profile(self._profile_key)
         self._check_pair_status()
-        # Pairing can now be triggered from inside the device manager
-        # ("Pair..." opens this same flow) - if it's open, its list is
-        # showing a now-stale snapshot of self._devices until told to redraw.
         if self._device_dlg is not None and self._device_dlg.isVisible():
-            self._device_dlg._refresh_list()
+            self._device_dlg._refresh_list()  # Device manager's list is stale until redraw.
 
     @property
     def selected_device(self) -> Optional[str]:
-        """The profile key currently persisted/restored by the host - the
-        selected Wi-Fi device's name, or the USB pseudo-key in USB mode."""
+        """The profile key currently persisted/restored by the host - the selected Wi-Fi device's name, or the USB pseudo-key in USB mode."""
         return self._profile_key
 
     # ── Config ────────────────────────────────────────────────────────────────
@@ -1188,11 +1146,7 @@ class ConnectionPlugin(TelescopePlugin):
             "mode":                 "wifi" if self._rb_wifi.isChecked() else "usb",
             "port":                 self._port_field.text(),
             "devices_list":         self._devices,
-            # Persisted separately from the app-level "selected device" (which
-            # in USB mode is the USB_PROFILE_KEY pseudo-key, not a roster
-            # name) so the actually-paired device stays selected across a
-            # restart regardless of which mode was active when it saved.
-            "selected_device_name": self._selected_device,
+            "selected_device_name": self._selected_device,  # Separate from app-level profile_key (USB uses pseudo-key).
         }
 
     def set_config(self, cfg: dict):
@@ -1238,11 +1192,5 @@ class ConnectionPlugin(TelescopePlugin):
         self._active_key = self._profile_key
 
     def sync_active_profile(self):
-        """Record _active_key after the host's _apply_device_profile() has
-        already applied the right device-local plugin settings at startup,
-        so a later _activate_profile() doesn't spuriously re-trigger a
-        switch. Deliberately doesn't touch _selected_device/the combo box -
-        set_config()'s own selected_device_name already restored those; the
-        app-level profile key this syncs against can be the USB pseudo-key,
-        which isn't a roster device name select_device() could use."""
+        """Record _active_key after startup so _activate_profile() doesn't spuriously re-trigger."""
         self._active_key = self._profile_key

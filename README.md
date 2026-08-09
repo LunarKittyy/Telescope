@@ -10,7 +10,7 @@ You'll need an Android phone and a PC running Linux or Windows.
 
 ### 1. 📱 Install the phone app
 
-Open the [latest release](../../releases) page, expand **Assets**, and tap `Telescope.apk`. (Assets is just a plain list of downloadable files - ignore everything else on that page.)
+Open the [latest release](../../releases) page, expand **Assets**, and tap `Telescope.apk`. (Assets is just downloadable files - ignore the rest of the page.)
 
 **Easiest:** open that link on your phone's own browser and tap the APK to install it. Your phone will ask to allow "install from this source" the first time - allow it.
 
@@ -41,12 +41,12 @@ Download `Telescope-linux.tar.gz` from the [releases page](../../releases), extr
 
   </details>
 
-- 💡 **`adb`** *(optional)* - only needed for pairing your phone over USB, or if you want the desktop app to install the phone app for you instead of doing it on your phone yourself.
+- 💡 **`adb`** *(optional)* - only needed for pairing your phone over USB, or if you want the desktop app to install the phone app for you.
   - Debian/Ubuntu: `sudo apt install adb`
   - Fedora/Nobara: `sudo dnf install android-tools`
   - Arch: `sudo pacman -S android-tools`
 
-**Both platforms:** on first launch, click the gear icon in the top right (next to the **Start Streaming** button) and choose **Setup Drivers & APK**. It sets up the virtual camera and can install the phone app for you (you'll be asked to pick the APK you downloaded). You only need to open this dialog once - if it already says everything's ready, there's nothing left to do here.
+**Both platforms:** on first launch, click the gear icon in the top right (next to the **Start Streaming** button) and choose **Setup Drivers & APK**. It sets up the virtual camera and can install the phone app for you (you'll be asked to pick the APK you downloaded). You only need to open this dialog once - if it already says everything's ready, you're done.
 
 ### 3. 🔗 Pair your phone
 
@@ -100,11 +100,10 @@ Everything past this point is optional - detailed feature reference, how it work
 - One FPS spinner (5-60) drives both the phone's capture rate and the virtual camera's playback rate - there's no separate "phone" and "playback" rate to keep in sync
 
 **Bandwidth controls**
-- JPEG quality slider (50-100%) - controls compression on the phone
-- Both take effect immediately without restarting the stream
+- JPEG quality slider (50-100%) - controls compression on the phone, takes effect immediately without restarting the stream
 
 **Monitoring**
-- Live FPS and a "LIVE THROUGHPUT" Mbps readout in the footer while streaming, colored amber if the real decode rate is sustained-struggling against the target
+- Live FPS and a "LIVE THROUGHPUT" Mbps readout in the footer while streaming, colored amber if the real decode rate falls behind the target for a sustained stretch
 - A dropped stream shows an animated "Stream dropped - reconnecting..." status instead of a static line
 - Battery level and phone temperature polled every 15 seconds, shown in the Monitoring panel with color coding
 - Configurable battery alert threshold (default 20%) - fires a tray/desktop notification when discharging below it

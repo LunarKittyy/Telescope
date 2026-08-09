@@ -43,14 +43,11 @@ class HostServices(Protocol):
     def update_stream_output(
         self, width=UNCHANGED, height=UNCHANGED, fps=UNCHANGED,
     ) -> None:
-        """Push new output geometry and/or fps to the running stream worker.
-        A no-op if nothing is streaming. A parameter left as UNCHANGED keeps
-        its current value; None is a real value (pass-through resolution)."""
+        """Push new output geometry and/or fps to the running stream worker; a no-op if nothing is streaming. UNCHANGED keeps the current value, None is a real value (pass-through resolution)."""
         ...
 
     def restart_vcam_canvas(self, width: int, height: int, on_done=None) -> None:
-        """Recreate the virtual camera at a new canvas size, restarting the
-        stream around it."""
+        """Recreate the virtual camera and stream at a new canvas size."""
         ...
 
 

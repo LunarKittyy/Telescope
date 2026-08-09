@@ -110,9 +110,8 @@ class PreviewPlugin(TelescopePlugin):
         self._preview_lbl.setObjectName("preview_surface")
         self._preview_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._preview_lbl.setMinimumHeight(240)
-        # Ignored (not Expanding) since QLabel reports pixmap size as minimum hint; frames are scaled on arrival.
         self._preview_lbl.setSizePolicy(
-            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)  # QLabel min hint ignored; frames scaled on arrival.
         self._preview_lbl.setMinimumWidth(1)
         self._preview_lbl.setText(_IDLE_TEXT)
         lay.addWidget(self._preview_lbl, 1)

@@ -1,7 +1,4 @@
-"""Pure IP-address helpers used by device-profile/pairing logic, kept free
-of Qt and socket-server code so they're isolated from the connection
-plugin's panel/dialog and QR-pairing-server responsibilities.
-"""
+"""Pure IP-address helpers used by device-profile/pairing logic, kept free of Qt and socket-server code."""
 
 import ipaddress
 from dataclasses import dataclass
@@ -47,9 +44,7 @@ _MAX_INTERFACE_NAME_LEN = 32
 
 @dataclass(frozen=True)
 class PairingAddress:
-    """One address the phone can try to reach this desktop on, with enough
-    context to explain it in the pairing dialog and to let the phone decide
-    which network to route the attempt over."""
+    """One address the phone can try to reach this desktop on, with enough context to explain it in the pairing dialog and let the phone pick a route."""
 
     ip: str
     interface: str
@@ -57,9 +52,7 @@ class PairingAddress:
 
 
 def classify_ip(ip: str) -> Optional[AddressKind]:
-    """The kind of pairing candidate [ip] is, or None if it's an address no
-    phone could usefully pair over (loopback, link-local, multicast, IPv6,
-    or malformed)."""
+    """The kind of pairing candidate [ip] is, or None if no phone could usefully pair over it (loopback, link-local, multicast, IPv6, malformed)."""
     try:
         addr = ipaddress.ip_address(ip)
     except ValueError:
@@ -76,7 +69,6 @@ def classify_ip(ip: str) -> Optional[AddressKind]:
 
 
 def is_virtual_interface(name: str) -> bool:
-    """True for adapters that only reach containers/VMs on this machine."""
     lowered = name.strip().lower()
     # vEthernet is a real interface (Hyper-V bridge), not a container adapter.
     if lowered.startswith("vethernet"):
@@ -88,8 +80,7 @@ def is_virtual_interface(name: str) -> bool:
 
 
 def looks_like_vpn_interface(name: str) -> bool:
-    """True for tunnel adapters - kept as candidates, but tried last within
-    their class."""
+    """True for tunnel adapters - kept as candidates, but tried last within their class."""
     lowered = name.strip().lower()
     return (
         lowered.startswith(_VPN_PREFIXES)
@@ -98,18 +89,7 @@ def looks_like_vpn_interface(name: str) -> bool:
 
 
 def get_pairing_addresses() -> list[PairingAddress]:
-    """Every address the phone could plausibly reach this desktop on, best
-    candidate first.
-
-    Enumerates the machine's actual network adapters rather than asking the
-    routing table where a public IP would go: a UDP "route probe" towards a
-    well-known public DNS resolver reports whichever interface currently
-    owns the default route, which under a VPN is the VPN's - so the one
-    address the phone can really reach (the physical LAN one) would be
-    missing from the QR code exactly when it's needed most. Hostname
-    resolution has the mirror-image problem: it reports whatever /etc/hosts
-    or DNS says, which may be nothing, or stale, on a network with no
-    internet at all."""
+    """Every address the phone could plausibly reach this desktop on, best candidate first. Enumerates real network adapters rather than a UDP route probe or hostname lookup, both of which report the VPN/DNS-stale address instead of the physical LAN one the phone actually needs."""
     candidates: list[PairingAddress] = []
     seen: set[str] = set()
     try:
@@ -142,7 +122,6 @@ def get_pairing_addresses() -> list[PairingAddress]:
 
 
 def describe_address(addr: PairingAddress) -> str:
-    """One line for the pairing dialog's "waiting for the phone on" list."""
     if addr.kind == "tailscale":
         return f"{addr.ip} · Tailscale"
     if addr.kind == "lan":
@@ -151,6 +130,7 @@ def describe_address(addr: PairingAddress) -> str:
 
 
 def rank_ip(ip: str) -> int:
+    """Rank IPs for preference: Tailscale < LAN < other."""
     parts = ip.split(".")
     if len(parts) == 4:
         try:

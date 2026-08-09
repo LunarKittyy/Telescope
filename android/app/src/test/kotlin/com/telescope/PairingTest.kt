@@ -24,8 +24,6 @@ class PairingTest {
         return (parsed as PairingParse.Ok).offer
     }
 
-    // ── Parsing ───────────────────────────────────────────────────────────────
-
     @Test
     fun `parses a version 2 payload with lan and tailscale candidates`() {
         val offer = ok(payload(candidates = """[
@@ -57,7 +55,7 @@ class PairingTest {
     @Test
     fun `rejects other protocol versions as unsupported, not invalid`() {
         assertEquals(PairingParse.UnsupportedVersion, parsePairingOffer(payload(version = 3)))
-        // V1 payloads lack "candidates"; report as version mismatch, not invalid.
+        // V1 lacks "candidates"; distinguish from parse error.
         assertEquals(
             PairingParse.UnsupportedVersion,
             parsePairingOffer("""{"version":1,"port":8765,"ips":["192.168.1.42"],"nonce":"n","token":"t"}"""),
@@ -131,8 +129,6 @@ class PairingTest {
             .forEach { assertFalse(isValidIpv4(it), it) }
     }
 
-    // ── Attempt ordering ──────────────────────────────────────────────────────
-
     private val lan = PairingCandidate("192.168.1.42", "Wi-Fi", PairingKind.LAN)
     private val lan2 = PairingCandidate("10.1.2.3", "eth0", PairingKind.LAN)
     private val ts = PairingCandidate("100.90.12.34", "tailscale0", PairingKind.TAILSCALE)
@@ -153,8 +149,7 @@ class PairingTest {
 
     @Test
     fun `never binds a non-LAN candidate to Wi-Fi`() {
-        // Tailscale's route is the tunnel itself, and USB pairing goes to
-        // loopback - forcing either onto the Wi-Fi interface would break it.
+        // Tailscale tunnels and USB loopback must use the default network interface.
         val usb = PairingCandidate("127.0.0.1", "USB (adb)", PairingKind.OTHER)
         val routes = pairingRoutes(listOf(ts, usb), hasWifi = true)
         assertTrue(routes.all { it.via == PairingRouteKind.DEFAULT })
@@ -170,8 +165,6 @@ class PairingTest {
             pairingRoutes(listOf(lan, ts), hasWifi = false),
         )
     }
-
-    // ── Failure reporting ─────────────────────────────────────────────────────
 
     @Test
     fun `failure message names every attempt and points at the VPN and USB`() {
@@ -203,8 +196,6 @@ class PairingTest {
 
         assertTrue(message.contains("• 3 more not tried - gave up after 12 seconds"), message)
     }
-
-    // ── Attempt budget ────────────────────────────────────────────────────────
 
     @Test
     fun `each attempt gets the full per-attempt timeout while the budget lasts`() {

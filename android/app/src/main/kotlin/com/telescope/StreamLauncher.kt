@@ -5,39 +5,17 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
 
-/**
- * The single place [CameraStreamService] is started from, so the local path
- * ([MainActivity.startStream], driven by the spinners) and the remote path
- * ([SessionServer], driven by [StreamPrefs]) can't drift apart in what extras
- * they pass.
- *
- * Nothing here is allowed to assume an Activity: the remote path runs on a
- * socket thread inside whichever component happens to be holding the session
- * endpoint open.
- */
+// Single start point for CameraStreamService: local (MainActivity spinners) and remote (SessionServer/StreamPrefs) stay in sync.
 object StreamLauncher {
 
     sealed interface Result {
         object Started : Result
         object AlreadyStreaming : Result
-        /** [reason] is a stable machine-readable token, not display text - the
-         *  desktop maps it to a message. */
+        // Reason is machine-readable token, not display text; desktop maps to UI message.
         data class Rejected(val reason: String) : Result
     }
 
-    /**
-     * Starts a stream using [selection], or - when it is null, i.e. nothing has
-     * ever been started on this phone - with no camera/size extras at all, so
-     * [CameraStreamService.onStartCommand]'s own defaults apply.
-     *
-     * Callers on the remote path must only reach this while [MainActivity] is
-     * visible or the service is already running (both are what keeps
-     * [SessionServer] bound at all). That is also what makes the
-     * `startForegroundService` below legal: Android 12+ blocks starting a
-     * `camera`-type foreground service from the background, and the
-     * service-already-running case returns [Result.AlreadyStreaming] before
-     * getting here.
-     */
+    // Remote path must only call while MainActivity visible or service running (needed for startForegroundService on Android 12+).
     fun start(
         context: Context,
         selection: StreamPrefs.Selection?,
@@ -65,13 +43,12 @@ object StreamLauncher {
             ContextCompat.startForegroundService(context, intent)
             Result.Started
         } catch (e: Exception) {
-            // Likely ForegroundServiceStartNotAllowedException (foreground assumption failed).
             android.util.Log.w("StreamLauncher", "Could not start stream service", e)
             Result.Rejected("start_refused")
         }
     }
 
-    /** Remote-start convenience: reproduce the last local selection. */
+    // Convenience: remote start using last local selection.
     fun startFromPrefs(context: Context): Result =
         start(context, StreamPrefs.lastSelection(context), remote = true)
 }

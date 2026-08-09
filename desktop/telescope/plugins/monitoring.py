@@ -151,8 +151,7 @@ class MonitoringPlugin(TelescopePlugin):
         batt_thresh = self._batt_alert_spin.value()
         temp_thresh = self._temp_alert_spin.value()
 
-        # Wonky charger may not keep up; treat falling level same as being on battery.
-        falling = (not charging) or (self._last_level is not None and level < self._last_level)
+        falling = (not charging) or (self._last_level is not None and level < self._last_level)  # Wonky charger may not keep up.
         self._last_level = level
 
         if falling and level <= batt_thresh and not self._battery_notified:

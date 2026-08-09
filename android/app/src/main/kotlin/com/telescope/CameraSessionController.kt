@@ -14,9 +14,7 @@ import android.os.HandlerThread
 import android.view.Surface
 import java.util.concurrent.Executor
 
-/** Read-only snapshot of the current camera-session control state, for
- *  building the /v1/state JSON response without exposing the controller's
- *  mutable fields directly. */
+// Read-only snapshot of control state for /v1/state JSON response without exposing mutable fields
 data class CameraControlSnapshot(
     val currentCamera:   CameraEntry?,
     val iso:              Int?,
@@ -37,32 +35,7 @@ data class CameraControlSnapshot(
     val streamHeight:      Int,
 )
 
-/**
- * Owns the live Camera2 session: the open [CameraDevice]/[CameraCaptureSession]/
- * [ImageReader], the generation-guard counters that protect them from stale
- * async callbacks, and the control-state fields that shape each capture
- * request. [CameraStreamService] owns everything else - foreground-service
- * lifecycle, the HTTP server, the camera catalogue, and translating HTTP
- * actions into calls here.
- *
- * [onFrame] receives each JPEG frame, [onStateChanged] mirrors every
- * [StreamState] transition this controller makes (the service still owns
- * the actual [StreamStateMachine] and diagnostics history), and
- * [onFatalError] is invoked wherever the original in-service code called
- * `stopSelf()` on an unrecoverable open/configure failure. [switchTo]'s own
- * open-failure callback deliberately skips it, matching the original
- * behavior of leaving the service running (just in a Failed state) if a
- * mid-stream camera switch fails to open the new camera - but a session-
- * configuration or repeating-request failure downstream of that open
- * (shared with [openCamera] via [createPhysicalSession]/
- * [createLegacySession]/[startRepeating]) still calls it either way.
- *
- * [onControlError] reports a *non-fatal* failure: a live control update that
- * couldn't be applied even though the existing stream keeps running on the
- * previous repeating request. It carries the failing operation and the
- * sanitized cause so the service can surface it in diagnostics without tearing
- * the session down.
- */
+// Owns the Camera2 session lifecycle (device/session/reader) and control state; CameraStreamService owns the HTTP server, notification, and everything outside the camera itself. onFatalError tears the whole session down (camera/session lost); onControlError reports a single failed control change (e.g. exposure) while the stream keeps running on its previous request.
 class CameraSessionController(
     private val context: Context,
     initialStreamWidth: Int,
@@ -83,24 +56,19 @@ class CameraSessionController(
     private var handler: Handler? = null
     @Volatile private var previewSurface: Surface? = null
 
-    // Exposure state - null ISO/shutter = auto AE
-    @Volatile private var currentIso:       Int?  = null
-    @Volatile private var currentShutterNs: Long? = null
+    @Volatile private var currentIso:       Int?  = null  // null = auto AE
+    @Volatile private var currentShutterNs: Long? = null  // null = auto AE
     @Volatile private var currentOis:       Boolean = true
-    // WB state - null gains = auto AWB
-    @Volatile private var currentWbGains: RggbChannelVector? = null
+    @Volatile private var currentWbGains: RggbChannelVector? = null  // null = auto AWB
     @Volatile private var lastCCM:        ColorSpaceTransform? = null
     @Volatile private var lastMeasuredGains: RggbChannelVector? = null
-    // Focus state
-    @Volatile private var currentFocusMode:     String = "continuous"  // "continuous" | "manual"
-    @Volatile private var currentFocusDistance: Float  = 0f            // diopters; 0 = infinity
-    // Image quality controls
+    @Volatile private var currentFocusMode:     String = "continuous"
+    @Volatile private var currentFocusDistance: Float  = 0f  // diopters; 0 = infinity
     @Volatile private var currentNrMode:         Int     = CaptureRequest.NOISE_REDUCTION_MODE_FAST
     @Volatile private var currentEdgeMode:       Int     = CaptureRequest.EDGE_MODE_FAST
     @Volatile private var currentAeComp:         Int     = 0
     @Volatile private var currentBlackLevelLock: Boolean = false
     @Volatile private var currentTorch:          Boolean = false
-    // Stream quality
     @Volatile private var currentJpegQuality: Int = 85
     @Volatile private var currentPhoneFps:    Int = 30
     // Mutable so switchResolution() can change live; sized by openCamera().
@@ -145,8 +113,6 @@ class CameraSessionController(
         streamHeight    = streamHeight,
     )
 
-    // ── Control setters (values already validated/clamped by the caller) ────
-
     fun setIso(iso: Int)                    { currentIso = iso;                 handler?.post { applyExposure() } }
     fun setShutter(ns: Long)                { currentShutterNs = ns;            handler?.post { applyExposure() } }
     fun setAuto()                           { currentIso = null; currentShutterNs = null; handler?.post { applyExposure() } }
@@ -163,11 +129,6 @@ class CameraSessionController(
     fun setBlackLevelLock(on: Boolean)      { currentBlackLevelLock = on;       handler?.post { applyExposure() } }
     fun setTorch(on: Boolean)               { currentTorch = on;                handler?.post { applyExposure() } }
 
-    // ── Open / switch / preview ──────────────────────────────────────────
-
-    /** Opens [cameraId] (or its [physicalCameraId] sub-camera) for the first time
-     *  this session. [initialEntry]/[initialOis] seed [currentCamera]/[currentOis]
-     *  before the async open begins. */
     fun open(cameraId: String, physicalCameraId: String?, initialEntry: CameraEntry, initialOis: Boolean) {
         currentCamera = initialEntry
         currentOis = initialOis
@@ -178,14 +139,12 @@ class CameraSessionController(
         handler?.post { switchCameraTo(entry) }
     }
 
-    /** Adds an extra output surface to the running capture session so a live preview
-     *  can be shown without interrupting the MJPEG stream. */
+    // Adds extra output surface for live preview without interrupting MJPEG stream
     fun attachPreviewSurface(surface: Surface) {
         handler?.post { previewSurface = surface; reconfigureSession() }
     }
 
-    /** [onDetached] runs after the surface has been dropped from the capture session and
-     *  the session rebuilt without it - the caller can safely release the Surface then. */
+    // onDetached fires after surface is dropped and session rebuilt
     fun detachPreviewSurface(onDetached: (() -> Unit)? = null) {
         handler?.post {
             previewSurface = null
@@ -193,14 +152,9 @@ class CameraSessionController(
         }
     }
 
-    /** Tears down the open camera/session/reader and stops the camera handler thread.
-     *  Does not touch the HTTP server or any service-level state - the caller
-     *  (CameraStreamService.stopStreaming) handles that. */
+    // Tears down camera/session/reader; caller handles service-level cleanup
     fun stop() {
-        // Invalidates any open/session-configure callback already in flight (e.g. a
-        // start immediately followed by a stop, before onOpened fired), so it can't
-        // resurrect cameraDevice/captureSession using surfaces this call is about to
-        // null out and hand Camera2 an empty or torn-down surface set.
+        // Invalidate in-flight callbacks so they can't resurrect stale camera/session with dead surfaces
         cameraGeneration++
         try { captureSession?.stopRepeating() } catch (_: Exception) {}
         try { captureSession?.close()         } catch (_: Exception) {}
@@ -210,9 +164,7 @@ class CameraSessionController(
         captureSession = null; cameraDevice = null; imageReader = null
     }
 
-    /** Builds a fresh [ImageReader] at the current [streamWidth]x[streamHeight] and wires
-     *  its frame callback - shared by the initial [openCamera] open and a live
-     *  [switchResolutionInternal], which must recreate the reader at the new size. */
+    // Builds ImageReader at current stream size; shared by open and resolution changes
     private fun buildImageReader(): ImageReader {
         val reader = ImageReader.newInstance(streamWidth, streamHeight, ImageFormat.JPEG, 3)
         reader.setOnImageAvailableListener({ r ->
@@ -349,11 +301,7 @@ class CameraSessionController(
         }
     }
 
-    /** Tears down and rebuilds the capture session on the already-open camera device,
-     *  e.g. when a preview surface is attached/detached. Does not reopen the device.
-     *  [onComplete], if given, fires once this specific reconfigure attempt reaches a
-     *  terminal state (configured, failed, or superseded) - not immediately after this
-     *  call returns, since the rebuild itself is asynchronous. */
+    // Rebuilds capture session without reopening device; onComplete fires when terminal state reached
     private fun reconfigureSession(onComplete: (() -> Unit)? = null) {
         val camera = cameraDevice ?: run { onComplete?.invoke(); return }
         try { captureSession?.stopRepeating() } catch (_: Exception) {}
@@ -372,9 +320,7 @@ class CameraSessionController(
     private fun startRepeating(camera: CameraDevice, session: CameraCaptureSession) {
         try {
             session.setRepeatingRequest(buildRequest(camera), ccmCaptureCallback, handler)
-            // Only now - after Camera2 has actually accepted a repeating capture
-            // request, not merely after the session finished configuring - is a
-            // frame actually guaranteed to be on its way to sendFrame().
+            // Only after Camera2 accepts the repeating request are frames guaranteed en route
             onStateChanged(StreamState.Streaming, "startRepeating", null)
         } catch (e: CameraAccessException) {
             onStateChanged(StreamState.Failed, "startRepeating", e)
@@ -389,8 +335,7 @@ class CameraSessionController(
 
             val cam = currentCamera
 
-            // Exposure and FPS
-            // Use CONTROL_MODE_AUTO even in manual AE so that AF keeps running independently.
+            // Use CONTROL_MODE_AUTO even in manual AE so AF keeps running independently
             set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
             if (currentIso != null && currentShutterNs != null && cam != null && cam.supportsManualSensor) {
                 val iso = CameraRequestSelection.clamp(currentIso!!, cam.isoMin, cam.isoMax)
@@ -398,12 +343,11 @@ class CameraSessionController(
                 set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
                 set(CaptureRequest.SENSOR_SENSITIVITY,   iso)
                 set(CaptureRequest.SENSOR_EXPOSURE_TIME, sht)
-                // Enforce FPS via frame duration
                 val targetFrameNs = 1_000_000_000L / currentPhoneFps
                 set(CaptureRequest.SENSOR_FRAME_DURATION, targetFrameNs.coerceAtLeast(sht))
             } else {
                 set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
-                // Use advertised range; unsupported ranges can fail on some devices.
+                // Unsupported ranges can fail on some devices; use advertised range
                 val range = CameraRequestSelection.pickAeFpsRange(cam?.aeFpsRanges ?: emptyList(), currentPhoneFps)
                 if (range != null) {
                     android.util.Log.d(TAG, "AE FPS range for ${cam?.id}: $range (target=$currentPhoneFps)")
@@ -411,7 +355,6 @@ class CameraSessionController(
                 }
             }
 
-            // Focus
             if (currentFocusMode == "manual" && cam != null && cam.supportsManualFocus) {
                 set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
                 set(CaptureRequest.LENS_FOCUS_DISTANCE,
@@ -421,7 +364,6 @@ class CameraSessionController(
                     CameraRequestSelection.pickAfMode(cam?.afModes ?: emptySet(), wantContinuousVideo = true))
             }
 
-            // JPEG quality
             set(CaptureRequest.JPEG_QUALITY, currentJpegQuality.toByte())
 
             // White balance - desktop sends pre-computed RGGB gains
@@ -457,7 +399,6 @@ class CameraSessionController(
                 set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, comp)
             }
 
-            // Black level lock
             set(CaptureRequest.BLACK_LEVEL_LOCK, currentBlackLevelLock)
 
             // Torch - only if this camera actually has a flash unit.
@@ -537,11 +478,7 @@ class CameraSessionController(
         }
     }
 
-    /** Live output-size change on the current camera: unlike [switchTo], the lens stays the
-     *  same but the [ImageReader] must be rebuilt at the new dimensions, which means closing
-     *  and reopening the camera device (a size can't be changed on a running session/reader).
-     *  Reuses the same [StreamState.Recovering] transition as a camera switch - the brief
-     *  stutter this causes is expected and acceptable for a deliberate user action. */
+    // Live size change: lens stays same but ImageReader must be rebuilt (requires device reopen)
     fun switchResolution(width: Int, height: Int) {
         handler?.post { switchResolutionInternal(width, height) }
     }

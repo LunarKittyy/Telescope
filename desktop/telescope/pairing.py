@@ -1,11 +1,4 @@
-"""Qt-free QR pairing HTTP server.
-
-Runs the one-shot, nonce-gated pairing handshake used by the "Pair via QR
-code" dialog: bind a port, mint a nonce and bearer token, wait for the phone's
-POST at /pair/{nonce} echoing the token back, and hand the caller a
-PairingResult. No PyQt import here - the dialog layer (plugins/connection.py)
-owns rendering the QR code and bridging the result onto a Qt signal.
-"""
+"""Qt-free QR pairing HTTP server: binds a port, mints a nonce and bearer token, waits for the phone's POST at /pair/{nonce} echoing the token back, and hands the caller a PairingResult. No PyQt import - the dialog layer (plugins/connection.py) owns rendering and bridging the result onto a Qt signal."""
 
 import hmac
 import json
@@ -27,8 +20,7 @@ PAIRING_PROTOCOL_VERSION = 2
 
 @dataclass(frozen=True)
 class PairingOffer:
-    """What to render as a QR code, plus the values needed to validate the
-    phone's pairing POST against this specific session."""
+    """What to render as a QR code, plus the values needed to validate the phone's pairing POST against this specific session."""
 
     payload: str
     port: int
@@ -47,8 +39,7 @@ class PairingResult:
 
 
 class PairingServer:
-    """Binds the pairing HTTP server for one dialog session and validates a
-    single phone's pairing POST against it."""
+    """Binds the pairing HTTP server for one dialog session and validates a single phone's pairing POST against it."""
 
     _MAX_BODY_BYTES = 16 * 1024
     # Drain limit: avoid RST on Windows when closing with unread bytes.
@@ -61,16 +52,7 @@ class PairingServer:
         self.offer: Optional[PairingOffer] = None
 
     def start(self, advertise: Optional[List[PairingAddress]] = None) -> Optional[PairingOffer]:
-        """Binds the server and returns the offer to display as a QR code, or
-        None if there's no network interface to pair over. Calling this
-        again while already started is a no-op that returns the existing
-        offer.
-
-        [advertise], if given, is used verbatim instead of enumerating the
-        machine's own interfaces - the USB-pairing path passes the loopback
-        address here, since the phone reaches it through an adb reverse
-        tunnel rather than the LAN (which may not exist, or may be shadowed
-        by a VPN route, for a USB-only phone)."""
+        """Binds the server and returns the offer to display as a QR code, or None if there's no network interface to pair over; already-started calls are a no-op returning the existing offer. [advertise], if given, replaces interface enumeration - the USB path passes the loopback address, reached via adb reverse rather than a LAN that may not exist for a USB-only phone."""
         if self._server is not None:
             return self.offer
 
@@ -110,11 +92,8 @@ class PairingServer:
                 self.end_headers()
                 self.wfile.write(b"Telescope pairing server")
 
+            # Must read the body before closing an error response - Windows can RST a socket that still has unread received bytes, dropping the response the client was reading.
             def _drain(self, length):
-                # See _DRAIN_LIMIT above: any response path that returns
-                # without reading a body the client already sent must drain
-                # it first, or the close races an unread-data RST on Windows
-                # that can wipe out the response we just wrote.
                 if length is not None and 0 <= length <= drain_limit:
                     try:
                         self.rfile.read(length)
@@ -142,9 +121,6 @@ class PairingServer:
                     name = str(data.get("name", "Phone")).strip()
                     ips = list(dict.fromkeys(str(x).strip() for x in data.get("ips", [])))
                     echoed_token = str(data.get("token", ""))
-                    # ips may legitimately be empty for a USB-only phone with
-                    # no Wi-Fi at all - only reject if something reported is
-                    # actually malformed.
                     if not name or not all(ip_utils.valid_ipv4(ip) for ip in ips):
                         raise ValueError("invalid pairing payload")
                     if not hmac.compare_digest(echoed_token, token):
@@ -169,11 +145,6 @@ class PairingServer:
         payload = json.dumps({
             "version": PAIRING_PROTOCOL_VERSION,
             "port": port,
-            # Each candidate carries the interface it came from and what kind
-            # of network that is, so the phone can route a LAN attempt over
-            # its own Wi-Fi interface instead of whatever holds the default
-            # route (a VPN, typically), and so the dialog can show the user
-            # exactly which addresses it's waiting on.
             "candidates": [
                 {"ip": c.ip, "interface": c.interface, "kind": c.kind} for c in candidates
             ],

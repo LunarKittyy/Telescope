@@ -39,7 +39,6 @@ class StreamOutputPlugin(TelescopePlugin):
         add_card_header(lay, "Stream Output", "stream")
 
         # ── Resolution ────────────────────────────────────────────────────────
-        # Populated from phone's actual capture sizes (not fixed list); selection changes what phone captures.
         add_section_heading(lay, "Output")
         self._res_combo = NoScrollComboBox()
         self._res_combo.addItem("—")
@@ -48,8 +47,7 @@ class StreamOutputPlugin(TelescopePlugin):
         lay.addLayout(_row("Resolution", self._res_combo, stretch=True))
 
         # ── FPS ───────────────────────────────────────────────────────────────
-        # One control: captures faster than playback just wastes phone battery and bandwidth.
-        self._fps_spin = NoScrollSpinBox()
+        self._fps_spin = NoScrollSpinBox()  # Capture and playback rate; faster just wastes power.
         self._fps_spin.setRange(5, 60)
         self._fps_spin.setValue(_DEFAULT_FPS)
         self._fps_spin.setSuffix(" fps")
@@ -116,8 +114,7 @@ class StreamOutputPlugin(TelescopePlugin):
         self._apply_camera(cur, state.get("stream_width"), state.get("stream_height"))
 
     def _on_camera_switched(self, cam: dict):
-        # Lens switch reuses existing ImageReader; live resolution carries over from previous selection.
-        current = self._res_combo.currentData()
+        current = self._res_combo.currentData()  # Lens switch reuses ImageReader; resolution carries over.
         live_w, live_h = current if current else (None, None)
         self._apply_camera(cam, live_w, live_h)
 
@@ -128,8 +125,7 @@ class StreamOutputPlugin(TelescopePlugin):
         if not sizes:
             return
 
-        # Only rebuild item list on actual camera change (don't fight user's in-progress selection).
-        if cam["id"] != self._current_camera_id:
+        if cam["id"] != self._current_camera_id:  # Only rebuild on actual camera change; don't fight selection.
             self._current_camera_id = cam["id"]
             self._res_combo.blockSignals(True)
             self._res_combo.clear()
@@ -144,8 +140,7 @@ class StreamOutputPlugin(TelescopePlugin):
             self._res_combo.blockSignals(False)
             self._pending_resolution_text = None
         elif live_w and live_h:
-            # Same lens; reflect live size if it changed (e.g. reconnect restored older setting).
-            live_text = _size_label(live_w, live_h)
+            live_text = _size_label(live_w, live_h)  # Same lens; reflect live size if changed.
             if self._res_combo.currentText() != live_text:
                 idx = self._res_combo.findText(live_text)
                 if idx >= 0:
@@ -190,10 +185,8 @@ class StreamOutputPlugin(TelescopePlugin):
 
     def set_config(self, cfg: dict):
         if res := cfg.get("resolution"):
-            # Combo not populated at load time; apply once on_phone_state() has real sizes.
-            self._pending_resolution_text = res
-        # Read "phone_fps" fallback (legacy); "fps" wins if both present (they were rarely different).
-        if fps := cfg.get("fps", cfg.get("phone_fps")):
+            self._pending_resolution_text = res  # Combo unpopulated at load; apply when on_phone_state() arrives.
+        if fps := cfg.get("fps", cfg.get("phone_fps")):  # Fallback to legacy "phone_fps" if "fps" absent.
             self._fps_spin.setValue(int(fps))
         if q := cfg.get("jpeg_quality"):
             self._quality_slider.setValue(int(q))

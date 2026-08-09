@@ -11,7 +11,7 @@ import pytest
 
 @pytest.fixture
 def config_home(tmp_path, monkeypatch):
-    """Isolate config paths and reload module to pick up fake HOME."""
+    """Reload module to pick up monkeypatched env vars instead of using real home."""
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
     monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
     monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
