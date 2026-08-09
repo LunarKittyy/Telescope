@@ -12,6 +12,12 @@ import kotlinx.serialization.Serializable
  */
 
 @Serializable
+data class CameraSize(
+    val width: Int,
+    val height: Int,
+)
+
+@Serializable
 data class CameraCapability(
     val id: String,
     val logicalId: String? = null,
@@ -31,6 +37,7 @@ data class CameraCapability(
     val aeCompStep: Float,
     val supportsFlash: Boolean,
     val hwLevel: String,
+    val supportedSizes: List<CameraSize> = emptyList(),
 )
 
 @Serializable
@@ -54,6 +61,8 @@ data class V1State(
     val torch: Boolean,
     val jpeg_quality: Int,
     val phone_fps: Int,
+    val stream_width: Int,
+    val stream_height: Int,
     val battery: Int,
     val charging: Boolean,
     val battery_temp_c: Double,

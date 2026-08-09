@@ -63,11 +63,26 @@ class MainActivity : AppCompatActivity() {
     // the real service connects and its own state takes over tracking "busy".
     private var starting = false
 
+    // Named (not inline-anonymous) so syncLiveControlsToState() can detach it
+    // while driving spinnerCamera programmatically - Spinner.setSelection()'s
+    // selection-notify callback is not guaranteed synchronous (it can be
+    // posted rather than fired inline), so without detaching it here, a
+    // resolution correction applied right after setSelection() can end up
+    // running *before* this listener's own populateResolutionSpinner() call,
+    // which then clobbers it back to the 1080p/index-0 default.
+    private val cameraSpinnerListener = object : AdapterView.OnItemSelectedListener {
+        override fun onItemSelected(p: AdapterView<*>?, v: android.view.View?, pos: Int, id: Long) {
+            populateResolutionSpinner(pos)
+        }
+        override fun onNothingSelected(p: AdapterView<*>?) {}
+    }
+
     private val uiHandler = Handler(Looper.getMainLooper())
     private val statusPoller = object : Runnable {
         override fun run() {
             adoptRemoteStart()
             updateStatusText()
+            syncLiveControlsToState()
             uiHandler.postDelayed(this, 1000)
         }
     }
@@ -166,12 +181,7 @@ class MainActivity : AppCompatActivity() {
         btnResetPairing.setOnClickListener { confirmResetPairing() }
         btnCopyDiagnostics.setOnClickListener { copyDiagnostics() }
 
-        spinnerCamera.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(p: AdapterView<*>?, v: android.view.View?, pos: Int, id: Long) {
-                populateResolutionSpinner(pos)
-            }
-            override fun onNothingSelected(p: AdapterView<*>?) {}
-        }
+        spinnerCamera.onItemSelectedListener = cameraSpinnerListener
 
         checkPermissions()
     }
@@ -551,6 +561,68 @@ class MainActivity : AppCompatActivity() {
 
         val default1080 = cam.supportedSizes.indexOfFirst { it.width == 1920 && it.height == 1080 }
         spinnerResolution.setSelection(if (default1080 >= 0) default1080 else 0)
+    }
+
+    /**
+     * These spinners only ever fed [startStream] - selecting a value while a
+     * stream is already running (whether started here or, more often, by the
+     * desktop) never did anything to it, just quietly changed what a *future*
+     * local start would use. That's exactly what made them look "desynced":
+     * the desktop switches lens/resolution/OIS mid-stream and this screen,
+     * if anyone's looking at it, keeps showing whatever was picked before the
+     * stream started.
+     *
+     * While actually streaming, this instead makes them a live read-only
+     * mirror of [CameraStreamService]'s real control state - disabled (they
+     * still have no live effect - the phone doesn't get to fight the desktop
+     * for control mid-session) and kept in sync with whatever the desktop
+     * last set, once a second on the same tick as [updateStatusText]. Back to
+     * normal, editable pre-stream config the moment streaming stops.
+     */
+    private fun syncLiveControlsToState() {
+        val svc = service
+        if (svc == null || !svc.isStreaming) {
+            if (!spinnerCamera.isEnabled) {
+                spinnerCamera.isEnabled = true
+                spinnerResolution.isEnabled = true
+                // checkOis's enabled state depends on the selected camera's
+                // hasOis, same rule populateResolutionSpinner() already
+                // applies on every manual selection - re-derive it here too,
+                // since streaming just ended and nothing else will.
+                cameras.getOrNull(spinnerCamera.selectedItemPosition)?.let {
+                    checkOis.isEnabled = it.hasOis
+                }
+            }
+            return
+        }
+        spinnerCamera.isEnabled = false
+        spinnerResolution.isEnabled = false
+        checkOis.isEnabled = false
+
+        val snap = svc.getControlSnapshot() ?: return
+        val camId = snap.currentCamera?.id ?: return
+        val camIdx = cameras.indexOfFirst { it.id == camId }
+        if (camIdx < 0) return
+
+        if (spinnerCamera.selectedItemPosition != camIdx) {
+            // Detached so setSelection() can't fire onItemSelected on its own
+            // schedule - populateResolutionSpinner(camIdx) is called
+            // explicitly right after instead, guaranteeing it (and then the
+            // live-size correction below) run in this exact order.
+            spinnerCamera.onItemSelectedListener = null
+            spinnerCamera.setSelection(camIdx)
+            spinnerCamera.onItemSelectedListener = cameraSpinnerListener
+            populateResolutionSpinner(camIdx)
+        }
+        val cam = cameras[camIdx]
+        val resIdx = cam.supportedSizes.indexOfFirst {
+            it.width == snap.streamWidth && it.height == snap.streamHeight
+        }
+        if (resIdx >= 0 && spinnerResolution.selectedItemPosition != resIdx) {
+            spinnerResolution.setSelection(resIdx)
+        }
+        val liveOis = snap.ois && cam.hasOis
+        if (checkOis.isChecked != liveOis) checkOis.isChecked = liveOis
     }
 
     // ── Controls ───────────────────────────────────────────────────────────────

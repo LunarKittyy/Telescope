@@ -45,6 +45,9 @@ class MjpegServer(
     private val clients = CopyOnWriteArrayList<MjpegClient>()
     private val running = AtomicBoolean(false)
 
+    // Bumped on every authorized request - feeds idleForMs() for the battery-saving watchdog.
+    @Volatile private var lastAuthorizedRequestAtMs: Long = System.currentTimeMillis()
+
     // Bounds total connections being served at once (streaming + short-lived
     // /v1/state and /v1/control requests) so a peer that opens many partial or
     // slow connections can't exhaust a thread per connection indefinitely.
@@ -52,6 +55,7 @@ class MjpegServer(
 
     fun start() {
         running.set(true)
+        lastAuthorizedRequestAtMs = System.currentTimeMillis()
         // Bind via the no-arg constructor + explicit setReuseAddress(true) instead of
         // the ServerSocket(port, backlog, addr) convenience constructor, which binds
         // immediately and gives no chance to set SO_REUSEADDR first. Without it, a
@@ -151,8 +155,14 @@ class MjpegServer(
         }
     }
 
-    private fun isAuthorized(request: HttpWire.Request): Boolean =
-        HttpWire.bearerMatches(token, request)
+    private fun isAuthorized(request: HttpWire.Request): Boolean {
+        val ok = HttpWire.bearerMatches(token, request)
+        if (ok) lastAuthorizedRequestAtMs = System.currentTimeMillis()
+        return ok
+    }
+
+    /** Milliseconds since the last request that passed token auth. */
+    fun idleForMs(): Long = System.currentTimeMillis() - lastAuthorizedRequestAtMs
 
     companion object {
         private const val MAX_CONCURRENT_CLIENTS = 16

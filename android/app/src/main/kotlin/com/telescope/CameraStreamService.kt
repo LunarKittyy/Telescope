@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
+import android.graphics.ImageFormat
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
@@ -47,6 +48,7 @@ data class CameraEntry(
     val afModes: Set<Int> = emptySet(),
     val nrModes: Set<Int> = emptySet(),
     val edgeModes: Set<Int> = emptySet(),
+    val supportedSizes: List<android.util.Size> = emptyList(),
 )
 
 /**
@@ -127,6 +129,12 @@ class CameraStreamService : Service() {
         const val DEFAULT_PORT     = 8080
         private const val TAG      = "CameraStreamService"
 
+        // Stop on our own if nothing authorized has reached the phone in this long - the
+        // desktop's MonitoringPlugin polls /v1/state every 15s while a stream is active, so
+        // this only fires once the desktop is genuinely gone (crashed, network down, closed).
+        private const val IDLE_STOP_MS = 60_000L
+        private const val IDLE_CHECK_INTERVAL_MS = 5_000L
+
         /**
          * The live service, or null when none is running.
          *
@@ -151,6 +159,9 @@ class CameraStreamService : Service() {
     private var controller: CameraSessionController? = null
     private var server: MjpegServer? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    private var idleWatchdogThread: Thread? = null
+    private val idleWatchdogRunning = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
     // Stream config
     private var streamWidth  = 1920
@@ -229,7 +240,14 @@ class CameraStreamService : Service() {
 
     fun getCameras(): List<CameraEntry> = allCameras
     fun getCurrentCameraId(): String? = controller?.getCurrentCameraId()
-    fun getStreamSize(): android.util.Size = android.util.Size(streamWidth, streamHeight)
+
+    /** Live camera/OIS/resolution state, for MainActivity to mirror into its
+     *  own (disabled, read-only while streaming) spinners so the phone's
+     *  screen doesn't sit there showing a stale pre-stream selection while a
+     *  desktop-driven session has since switched lens/resolution/OIS. */
+    fun getControlSnapshot(): CameraControlSnapshot? = controller?.snapshot()
+    fun getStreamSize(): android.util.Size =
+        controller?.getStreamSize() ?: android.util.Size(streamWidth, streamHeight)
 
     fun switchCamera(id: String) {
         val entry = allCameras.find { it.id == id } ?: return
@@ -294,9 +312,9 @@ class CameraStreamService : Service() {
                            initialOis, 50, 3200, 100_000L, 1_000_000_000L)
 
         controller = CameraSessionController(
-            context        = this,
-            streamWidth    = streamWidth,
-            streamHeight   = streamHeight,
+            context             = this,
+            initialStreamWidth  = streamWidth,
+            initialStreamHeight = streamHeight,
             onFrame        = { bytes -> server?.sendFrame(bytes) },
             onStateChanged = { newState, op, error -> setState(newState, op, error) },
             onFatalError   = { stopSelf() },
@@ -370,6 +388,13 @@ class CameraStreamService : Service() {
                 ?.toSet() ?: emptySet()
             val edgeModes = chars.get(CameraCharacteristics.EDGE_AVAILABLE_EDGE_MODES)?.toSet() ?: emptySet()
 
+            val streamMap = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+            val supportedSizes = streamMap?.getOutputSizes(ImageFormat.JPEG)
+                ?.sortedByDescending { it.width * it.height }
+                ?.takeIf { it.isNotEmpty() }
+                ?.toList()
+                ?: listOf(android.util.Size(1920, 1080), android.util.Size(1280, 720))
+
             val hwLevel = when (chars.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL)) {
                 CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY   -> "LEGACY"
                 CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED  -> "LIMITED"
@@ -386,7 +411,7 @@ class CameraStreamService : Service() {
                         isoMin, isoMax, shtMinNs, shtMaxNs,
                         supportsManualSensor, supportsManualWB, supportsManualFocus, minFocusDist, hwLevel,
                         aeCompMin, aeCompMax, aeCompStep, supportsFlash,
-                        aeFpsRanges, afModes, nrModes, edgeModes)
+                        aeFpsRanges, afModes, nrModes, edgeModes, supportedSizes)
         }.getOrNull()
 
         manager.cameraIdList.forEach { id ->
@@ -420,6 +445,28 @@ class CameraStreamService : Service() {
             bindAddr       = bindAddr,
             token          = TokenStore.get(this),
         ).also { it.start() }
+        startIdleWatchdog()
+    }
+
+    private fun startIdleWatchdog() {
+        idleWatchdogRunning.set(true)
+        idleWatchdogThread = kotlin.concurrent.thread(name = "idle-watchdog", isDaemon = true) {
+            while (idleWatchdogRunning.get()) {
+                Thread.sleep(IDLE_CHECK_INTERVAL_MS)
+                if (!idleWatchdogRunning.get()) break
+                val srv = server ?: continue
+                val watchedLocally = controller?.hasPreviewSurface() == true
+                if (!watchedLocally && srv.idleForMs() >= IDLE_STOP_MS) {
+                    android.util.Log.i(TAG, "No desktop activity for ${IDLE_STOP_MS / 1000}s - stopping to save battery")
+                    mainHandler.post { stopStreaming("idleWatchdog") }
+                    break
+                }
+            }
+        }
+    }
+
+    private fun stopIdleWatchdog() {
+        idleWatchdogRunning.set(false)
     }
 
     private fun getBatteryInfo(): Triple<Int, Boolean, Double> {
@@ -444,9 +491,11 @@ class CameraStreamService : Service() {
                 supportsManualFocus = e.supportsManualFocus, minFocusDistance = e.minFocusDistance,
                 aeCompMin = e.aeCompMin, aeCompMax = e.aeCompMax, aeCompStep = e.aeCompStep,
                 supportsFlash = e.supportsFlash, hwLevel = e.hwLevel,
+                supportedSizes = e.supportedSizes.map { CameraSize(it.width, it.height) },
             )
         }
         val (battLevel, battCharging, battTempC) = getBatteryInfo()
+        val liveSize = controller?.getStreamSize() ?: android.util.Size(streamWidth, streamHeight)
         val state = V1State(
             cameras = cams,
             auto = snap?.iso == null,
@@ -465,6 +514,8 @@ class CameraStreamService : Service() {
             torch = snap?.torch ?: false,
             jpeg_quality = snap?.jpegQuality ?: 85,
             phone_fps = snap?.phoneFps ?: 30,
+            stream_width = liveSize.width,
+            stream_height = liveSize.height,
             battery = battLevel,
             charging = battCharging,
             battery_temp_c = battTempC,
@@ -480,6 +531,13 @@ class CameraStreamService : Service() {
                     val id    = params["id"] ?: return err("no id")
                     val entry = allCameras.find { it.id == id } ?: return err("unknown id $id")
                     ctrl.switchTo(entry)
+                    ok()
+                }
+                "resolution" -> {
+                    val w = params["width"]?.toIntOrNull()  ?: return err("bad width")
+                    val h = params["height"]?.toIntOrNull() ?: return err("bad height")
+                    if (w <= 0 || h <= 0) return err("bad size")
+                    ctrl.switchResolution(w, h)
                     ok()
                 }
                 "iso" -> {
@@ -564,13 +622,14 @@ class CameraStreamService : Service() {
     private fun ok()             = Json.encodeToString(ControlResult.serializer(), ControlResult(ok = true))
     private fun err(msg: String) = Json.encodeToString(ControlResult.serializer(), ControlResult(ok = false, error = msg))
 
-    fun stopStreaming() {
-        setState(StreamState.Stopping, "stopStreaming")
+    fun stopStreaming(op: String = "stopStreaming") {
+        stopIdleWatchdog()
+        setState(StreamState.Stopping, op)
         controller?.stop()
         server?.stop()
         wakeLock?.let { if (it.isHeld) it.release() }
         controller = null; server = null
-        setState(StreamState.Idle, "stopStreaming")
+        setState(StreamState.Idle, op)
         // Hand the session channel back. If MainActivity is on screen it still
         // holds its own reference and the endpoint stays bound; otherwise this
         // is the last release and the port closes with the stream.

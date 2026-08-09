@@ -33,6 +33,8 @@ data class CameraControlSnapshot(
     val torch:             Boolean,
     val jpegQuality:       Int,
     val phoneFps:          Int,
+    val streamWidth:       Int,
+    val streamHeight:      Int,
 )
 
 /**
@@ -63,8 +65,8 @@ data class CameraControlSnapshot(
  */
 class CameraSessionController(
     private val context: Context,
-    private val streamWidth: Int,
-    private val streamHeight: Int,
+    initialStreamWidth: Int,
+    initialStreamHeight: Int,
     private val onFrame: (ByteArray) -> Unit,
     private val onStateChanged: (StreamState, String, Throwable?) -> Unit,
     private val onFatalError: () -> Unit,
@@ -101,6 +103,11 @@ class CameraSessionController(
     // Stream quality
     @Volatile private var currentJpegQuality: Int = 85
     @Volatile private var currentPhoneFps:    Int = 30
+    // Capture/output size - mutable so switchResolution() can change it live;
+    // read by openCamera() (initial open) and switchResolutionInternal()
+    // (live change) when sizing the ImageReader.
+    @Volatile private var streamWidth:  Int = initialStreamWidth
+    @Volatile private var streamHeight: Int = initialStreamHeight
 
     @Volatile private var currentCamera: CameraEntry? = null
 
@@ -120,6 +127,10 @@ class CameraSessionController(
     @Volatile private var sessionGeneration = 0
 
     fun getCurrentCameraId(): String? = currentCamera?.id
+    fun getStreamSize(): android.util.Size = android.util.Size(streamWidth, streamHeight)
+
+    // True while PreviewActivity has a surface attached - the idle watchdog must not stop this.
+    fun hasPreviewSurface(): Boolean = previewSurface != null
 
     /** For diagnostics/logging only - the service logs this alongside every
      *  state transition it's told about via [onStateChanged]. */
@@ -141,6 +152,8 @@ class CameraSessionController(
         torch           = currentTorch,
         jpegQuality     = currentJpegQuality,
         phoneFps        = currentPhoneFps,
+        streamWidth     = streamWidth,
+        streamHeight    = streamHeight,
     )
 
     // ── Control setters (values already validated/clamped by the caller) ────
@@ -208,13 +221,13 @@ class CameraSessionController(
         captureSession = null; cameraDevice = null; imageReader = null
     }
 
-    private fun openCamera(openCameraId: String, physicalCameraId: String?) {
-        handlerThread = HandlerThread("CamThread").also { it.start() }
-        handler       = Handler(handlerThread!!.looper)
-
-        imageReader = ImageReader.newInstance(streamWidth, streamHeight, ImageFormat.JPEG, 3)
-        imageReader!!.setOnImageAvailableListener({ reader ->
-            val image = reader.acquireLatestImage() ?: return@setOnImageAvailableListener
+    /** Builds a fresh [ImageReader] at the current [streamWidth]x[streamHeight] and wires
+     *  its frame callback - shared by the initial [openCamera] open and a live
+     *  [switchResolutionInternal], which must recreate the reader at the new size. */
+    private fun buildImageReader(): ImageReader {
+        val reader = ImageReader.newInstance(streamWidth, streamHeight, ImageFormat.JPEG, 3)
+        reader.setOnImageAvailableListener({ r ->
+            val image = r.acquireLatestImage() ?: return@setOnImageAvailableListener
             try {
                 val buf   = image.planes[0].buffer
                 val bytes = ByteArray(buf.remaining())
@@ -222,6 +235,14 @@ class CameraSessionController(
                 onFrame(bytes)
             } finally { image.close() }
         }, handler)
+        return reader
+    }
+
+    private fun openCamera(openCameraId: String, physicalCameraId: String?) {
+        handlerThread = HandlerThread("CamThread").also { it.start() }
+        handler       = Handler(handlerThread!!.looper)
+
+        imageReader = buildImageReader()
 
         val myGeneration = ++cameraGeneration
         val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
@@ -538,6 +559,67 @@ class CameraSessionController(
             }, handler)
         } catch (e: Exception) {
             onStateChanged(StreamState.Failed, "switchCameraTo", e)
+        }
+    }
+
+    /** Live output-size change on the current camera: unlike [switchTo], the lens stays the
+     *  same but the [ImageReader] must be rebuilt at the new dimensions, which means closing
+     *  and reopening the camera device (a size can't be changed on a running session/reader).
+     *  Reuses the same [StreamState.Recovering] transition as a camera switch - the brief
+     *  stutter this causes is expected and acceptable for a deliberate user action. */
+    fun switchResolution(width: Int, height: Int) {
+        handler?.post { switchResolutionInternal(width, height) }
+    }
+
+    private fun switchResolutionInternal(width: Int, height: Int) {
+        if (width == streamWidth && height == streamHeight) return
+        streamWidth = width
+        streamHeight = height
+        onStateChanged(StreamState.Recovering, "switchResolution", null)
+
+        val myGeneration = ++cameraGeneration
+        try { captureSession?.stopRepeating() } catch (_: Exception) {}
+        try { captureSession?.close() } catch (_: Exception) {}
+        try { cameraDevice?.close()   } catch (_: Exception) {}
+        try { imageReader?.close()    } catch (_: Exception) {}
+        captureSession = null; cameraDevice = null; imageReader = null
+
+        val cam = currentCamera ?: run {
+            onStateChanged(StreamState.Failed, "switchResolution", IllegalStateException("no current camera"))
+            return
+        }
+        val openId = cam.logicalId ?: cam.id
+        val physId = if (cam.logicalId != null) cam.id else null
+        val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        try {
+            @Suppress("MissingPermission")
+            manager.openCamera(openId, object : CameraDevice.StateCallback() {
+                override fun onOpened(camera: CameraDevice) {
+                    if (myGeneration != cameraGeneration) { camera.close(); return }
+                    cameraDevice = camera
+                    imageReader = buildImageReader()
+                    if (physId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+                        createPhysicalSession(camera, physId, myGeneration)
+                    else
+                        createLegacySession(camera, myGeneration)
+                }
+                override fun onDisconnected(camera: CameraDevice) {
+                    camera.close()
+                    if (myGeneration == cameraGeneration) {
+                        cameraDevice = null
+                        onStateChanged(StreamState.Failed, "switchResolution.onDisconnected", null)
+                    }
+                }
+                override fun onError(camera: CameraDevice, error: Int) {
+                    camera.close()
+                    if (myGeneration == cameraGeneration) {
+                        cameraDevice = null
+                        onStateChanged(StreamState.Failed, "switchResolution.onError", RuntimeException("Camera2 error code $error"))
+                    }
+                }
+            }, handler)
+        } catch (e: Exception) {
+            onStateChanged(StreamState.Failed, "switchResolution", e)
         }
     }
 }

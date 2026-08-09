@@ -294,6 +294,34 @@ class MjpegServerTest {
         }
     }
 
+    @Test
+    fun `idleForMs grows while nothing authorized arrives and resets on the next authorized request`() {
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", token = "secret-token")
+        server.start()
+        try {
+            Thread.sleep(60)
+            assertTrue(server.idleForMs() >= 60)
+
+            authGet(actualPort(server), "/v1/state", "secret-token")
+            assertTrue(server.idleForMs() < 60)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `idleForMs does not reset on an unauthorized request`() {
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", token = "secret-token")
+        server.start()
+        try {
+            Thread.sleep(60)
+            authGet(actualPort(server), "/v1/state", "wrong-token")
+            assertTrue(server.idleForMs() >= 60)
+        } finally {
+            server.stop()
+        }
+    }
+
     private fun readUntil(input: java.io.InputStream, marker: ByteArray): ByteArray {
         val out = ByteArrayOutputStream()
         while (true) {
