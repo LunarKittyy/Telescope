@@ -301,6 +301,21 @@ class NoScrollComboBox(QComboBox):
     def wheelEvent(self, event):
         event.ignore()
 
+    def showPopup(self):
+        # Qt sizes/positions the popup before it can know it overshoots the screen -
+        # a long list flipped upward routinely pokes above the top edge. Clamp after the fact.
+        super().showPopup()
+        popup = self.view().window()
+        screen = self.screen()
+        if popup is None or screen is None:
+            return
+        avail = screen.availableGeometry()
+        margin = 8
+        top = max(popup.y(), avail.y() + margin)
+        bottom = min(popup.y() + popup.height(), avail.y() + avail.height() - margin)
+        if top != popup.y() or bottom != popup.y() + popup.height():
+            popup.setGeometry(popup.x(), top, popup.width(), max(bottom - top, 50))
+
 
 class NoScrollSlider(QSlider):
     def wheelEvent(self, event):
