@@ -42,31 +42,17 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_PORT = 8080
 
-# PING_PORT (8766) is the phone's session responder (SessionServer.kt) -
-# separate from DEFAULT_PORT, which only has anything listening while actively
-# streaming, so neither pairing status nor a remote start can go through it.
-# Imported from session_client, which owns the port number along with the
-# protocol spoken over it.
+# PING_PORT (8766) is always-on; DEFAULT_PORT (8080) only listens during streaming.
 _PAIR_STATUS_POLL_MS = 3_000
 
-# Pseudo-device key used to give USB-only sessions their own persisted
-# device-local plugin profile (camera settings, transforms, etc.), same as
-# named Wi-Fi devices get. Never shown in the device list/management UI.
+# Pseudo-device key for USB sessions to persist their own device-local profile (camera settings, etc.).
 USB_PROFILE_KEY = "__usb__"
 
-# How many consecutive "unreachable" pings _await_streaming() tolerates
-# before giving up. Opening the camera and configuring a capture session is
-# heavy enough work on the phone's side that it can briefly starve its own
-# HTTP server for a poll or two - a single dropped/timed-out ping there is
-# common and not actually loss of contact.
+# Tolerated unreachable pings; camera startup is heavy and can starve the HTTP server briefly.
 _UNREACHABLE_STREAK_LIMIT = 3
 
 
-# Re-exported under their historical private names: this module (panel/
-# dialog UI + QR-pairing HTTP server) is not where these pure functions
-# conceptually belong, but existing code/tests reference them here, so
-# telescope/ip_utils.py is the actual implementation and this is a thin
-# compatibility alias.
+# Re-exported compatibility aliases; actual implementation is in telescope/ip_utils.py.
 _get_pairing_addresses = ip_utils.get_pairing_addresses
 _rank_ip = ip_utils.rank_ip
 _best_ip = ip_utils.best_ip
@@ -81,8 +67,7 @@ class _DeviceDialog(QDialog):
         super().__init__(parent)
         self._existing = existing_names or []
         self._edit_name = device["name"] if device else None
-        # Kept so result_device() can preserve fields this dialog doesn't
-        # edit (e.g. a pairing token) instead of dropping them on save.
+        # Keep original so fields like pairing tokens aren't lost on save.
         self._original_device = device
         self.setWindowTitle("Edit Device" if device else "Add Device")
         self.setMinimumWidth(340)
@@ -159,8 +144,7 @@ class _DeviceManagerDialog(QDialog):
         self.setMinimumWidth(360)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self._devices = devices
-        # on_add takes no arguments - it just starts the pairing flow, which
-        # reports its own result asynchronously via _on_device_paired().
+        # on_add starts pairing flow asynchronously; result comes via _on_device_paired().
         self._on_add_cb    = on_add
         self._on_edit_cb   = on_edit
         self._on_remove_cb = on_remove
@@ -272,11 +256,7 @@ class _DeviceManagerDialog(QDialog):
 class _QRCodeWidget(QWidget):
     """Renders a QR code matrix using QPainter — no Pillow needed."""
 
-    # qrcode's own `border` param only affects make_image(), not the raw
-    # .modules matrix this paints from directly - without an explicit margin
-    # here the code has no quiet zone at all beyond the widget's own edge,
-    # which some phone cameras struggle to autofocus/read against a dialog
-    # background that isn't already white.
+    # qrcode's border param doesn't affect .modules matrix; explicit margin ensures quiet zone for phone cameras.
     _QUIET_ZONE_PX = 24
 
     def __init__(self, data: str, parent=None):
@@ -333,15 +313,10 @@ class _PairingDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Pair with Phone")
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
-        # The QR payload length controls the matrix size.  Keep the dialog
-        # resizable and give the default layout enough room for the normal
-        # pairing code plus its quiet zone and dialog margins.
+        # QR payload controls matrix size; size dialog for typical pairing code plus margins.
         self.setMinimumWidth(420)
         self._on_paired = on_paired
-        # If set, pairing tunnels through this adb-attached phone instead of
-        # the LAN - the phone reaches the pairing server via an adb reverse
-        # tunnel to its own localhost, so it works even with no Wi-Fi at all
-        # (or a VPN shadowing the desktop's real LAN address).
+        # If set, pairing uses adb reverse tunnel to localhost (works without Wi-Fi or with VPN).
         self._usb_serial = usb_serial
         self._pairing_server: Optional[PairingServer] = None
         self._reversed_port: Optional[int] = None
@@ -367,12 +342,7 @@ class _PairingDialog(QDialog):
         self._qr_container.setContentsMargins(0, 0, 0, 12)
         lay.addLayout(self._qr_container, 1)
 
-        # Which addresses the QR code is actually advertising. Worth showing
-        # rather than hiding inside the code: when a phone can't reach any of
-        # them (client-isolated guest Wi-Fi, a VPN blocking LAN traffic),
-        # seeing the list is the first step in working out why - so this
-        # dialog deliberately stays open and keeps showing them instead of
-        # closing itself on a failed attempt.
+        # Show addresses QR code advertises; visible list helps debug unreachable phones (guest Wi-Fi, VPN).
         self._candidates_lbl = QLabel("")
         self._candidates_lbl.setObjectName("dim")
         self._candidates_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -418,10 +388,7 @@ class _PairingDialog(QDialog):
         )
 
         if self._usb_serial is not None:
-            # Bind first so we know the actual port (it may have fallen back
-            # off PAIRING_PORT), then tunnel that exact port over adb before
-            # advertising it - a QR pointing at 127.0.0.1 only works once the
-            # reverse tunnel is actually up.
+            # Bind first to learn actual port, then tunnel it over adb; QR at 127.0.0.1 needs the tunnel up.
             offer = server.start(
                 advertise=[PairingAddress(ip="127.0.0.1", interface="USB (adb)", kind="other")]
             )
@@ -455,14 +422,7 @@ class _PairingDialog(QDialog):
         self._status_lbl.setObjectName("status_dim")
         self._status_lbl.setStyleSheet("")
         if self._usb_serial is not None:
-            # No camera-scan step over USB: a button pushes the same payload
-            # a QR code would encode straight to the phone's pairing
-            # broadcast receiver over adb. Explicit and re-triggerable rather
-            # than firing automatically the moment this dialog opens - the
-            # phone's receiver only exists while its MainActivity is actually
-            # foregrounded, and there's no way to confirm that from here
-            # before sending, so a silent auto-fire had no way to tell the
-            # user it needs a retry.
+            # USB uses explicit button (not automatic scan) since MainActivity foreground is not verifiable from here.
             self._pair_btn = QPushButton("Pair via ADB")
             self._pair_btn.clicked.connect(self._send_pair_broadcast)
             self._qr_container.addWidget(self._pair_btn)
@@ -470,9 +430,7 @@ class _PairingDialog(QDialog):
         else:
             qr_widget = _QRCodeWidget(offer.payload)
             self._qr_container.addWidget(qr_widget)
-            # A device name or a larger IP list can add QR modules.  Size the
-            # dialog from the actual rendered code instead of clipping it to a
-            # hard-coded window width.
+            # Size dialog from rendered code, not hard-coded width (device name/IP list affect QR size).
             required_width = qr_widget.width() + 48
             if self.width() < required_width:
                 self.resize(required_width, self.height())
@@ -553,10 +511,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._bus               = bus
         self._devices: list    = []
         self._selected_device: Optional[str] = None
-        # The profile key (device name, or USB_PROFILE_KEY) that's actually
-        # been applied/reconnected via the host - kept separate from
-        # _selected_device so mode toggles and device switches only trigger a
-        # save+reset+reconnect when the *effective* profile actually changes.
+        # Active profile key; kept separate from _selected_device to avoid spurious save/reconnect cycles.
         self._active_key: Optional[str] = None
         self._switching_device = False
         self._forwarded_port: Optional[int] = None
@@ -567,11 +522,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._pair_status_signals = _PairStatusSignals()
         self._pair_status_signals.result.connect(self._set_pair_status)
         self._pair_status_check_id = 0
-        # True only once the current stream has actually produced a frame
-        # (StreamWorker's first "ok" status) - a saved token or a worker
-        # object existing is not proof the phone accepted it; a stale token
-        # would otherwise pin "Paired" while StreamWorker silently retries
-        # forever.
+        # True only once stream produces a frame (not just having a saved token or worker object).
         self._stream_connected = False
         self._bus.stream_connected.connect(self._on_stream_connected)
 
@@ -620,9 +571,7 @@ class ConnectionPlugin(TelescopePlugin):
         lay.addWidget(self._device_row_w)
         self._device_row_w.setVisible(False)
 
-        # Built here, not in create_header_widget(), so the picker exists as
-        # soon as the panel does - a host that never asks for a header widget
-        # still gets a working plugin, it just doesn't show the picker.
+        # Build here so picker exists even if header widget is never used.
         self._build_device_picker()
 
         # ── Port ──────────────────────────────────────────────────────────────
@@ -632,12 +581,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._port_field.editingFinished.connect(self._on_port_changed)
         lay.addLayout(_row("Port", self._port_field))
 
-        # Backstop for the trigger-based checks above: catches a phone that
-        # comes online (app opened, adb plugged in) between triggers,
-        # without needing the user to touch anything. Cheap enough to run
-        # often - one tiny HTTP round-trip (plus an adb forward/unforward in
-        # USB mode) every few seconds, dwarfed by the video stream itself.
-        # Stopped while actually streaming - see on_stream_start/_stop.
+        # Periodic backstop; catches phones coming online between triggers. Stopped during streaming.
         self._pair_status_timer = QTimer(card)
         self._pair_status_timer.timeout.connect(self._check_pair_status)
         self._pair_status_timer.start(_PAIR_STATUS_POLL_MS)
@@ -645,14 +589,7 @@ class ConnectionPlugin(TelescopePlugin):
         return card
 
     def create_header_widget(self) -> QWidget:
-        """The device picker, lifted into the window header.
-
-        Which phone you're pointing at is the one setting worth reaching
-        without scanning a panel, and it frames everything else on screen -
-        so it sits next to the Start button rather than inside the
-        Connection card. It's the same combo either way: moved, not
-        duplicated, so there's no second source of truth to keep in sync.
-        """
+        """Return device picker (moved to header, not duplicated)."""
         return self._header_device_w
 
     def _build_device_picker(self):
@@ -687,9 +624,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._header_device_w.setVisible(self._rb_wifi.isChecked())
 
     def _set_wifi_rows_visible(self, visible: bool):
-        """Show or hide everything that only means something over Wi-Fi. The
-        device picker lives in the header and the address row in the panel,
-        so both need flipping together."""
+        """Show/hide Wi-Fi-only rows (header picker and panel address row)."""
         self._device_row_w.setVisible(visible)
         if hasattr(self, "_header_device_w"):
             self._header_device_w.setVisible(visible)
@@ -783,9 +718,7 @@ class ConnectionPlugin(TelescopePlugin):
         return None
 
     def on_stream_start(self, stream_url: str, ctrl):
-        # A worker existing isn't proof the phone accepted it yet - keep
-        # probing (an unconfirmed connection can't rely on "is streaming" as
-        # a pinned-good signal) until _on_stream_connected fires.
+        # Keep probing until _on_stream_connected confirms actual frame delivery.
         self._stream_connected = False
         self._check_pair_status()
 
@@ -799,11 +732,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._check_pair_status()
 
     def _on_stream_connected(self):
-        # Decoding frames is its own proof of a working pairing, so the 3s
-        # probe has nothing left to establish and is retired for the duration.
-        # (It would now survive a phone screen going dark mid-stream, since
-        # CameraStreamService holds the session endpoint open too - but there
-        # is still no reason to keep asking.)
+        # Decoding frames proves working pairing; retire probe (no need to keep asking).
         self._stream_connected = True
         self._pair_status_timer.stop()
         self._set_pair_status("paired")
@@ -811,18 +740,9 @@ class ConnectionPlugin(TelescopePlugin):
     # ── Pair status ──────────────────────────────────────────────────────────
 
     def _check_pair_status(self):
-        """Kicks off a background probe of whether the current profile's
-        stored token is actually still accepted by the phone right now, not
-        just whether one happens to be saved locally - a saved token can be
-        stale (the phone was reset, or paired to a different desktop since).
-        Runs off the UI thread since it may make a network call (and, in USB
-        mode, shell out to adb); the result comes back via a Qt signal."""
+        """Background probe of whether stored token is still accepted (tokens can be stale)."""
         if self._stream_connected:
-            # Belt-and-suspenders for the same reason as _on_stream_connected:
-            # any trigger firing while already streaming (the periodic timer
-            # is stopped, but a mode switch mid-stream, say, still isn't
-            # impossible) shouldn't second-guess a connection already proven
-            # good by decoded frames.
+            # Already proven good by decoded frames; don't second-guess.
             self._set_pair_status("paired")
             return
         token = self._current_device_token()
@@ -836,12 +756,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._spawn_pair_probe(check_id, token, usb)
 
     def _spawn_pair_probe(self, check_id: int, token: str, usb: bool):
-        """Split out from _check_pair_status() so tests can make this
-        synchronous - a real background thread that outlives its QObject
-        (e.g. the widgets/plugin it was fired from getting torn down at the
-        end of a test, while its 3s network timeout is still pending) is a
-        real crash: PyQt aborts hard when a queued cross-thread signal is
-        finally delivered to an already-destroyed receiver."""
+        """Spawns background thread (split out so tests can make synchronous to avoid signal-on-destroyed-receiver crash)."""
         threading.Thread(
             target=self._probe_pair_status, args=(check_id, token, usb), daemon=True,
         ).start()
@@ -849,39 +764,20 @@ class ConnectionPlugin(TelescopePlugin):
     def _probe_pair_status(self, check_id: int, token: str, usb: bool):
         with self.session_channel(token, usb=usb) as (client, unavailable):
             result = client.ping().status if client else unavailable
-        # A later check (mode switched again, re-paired) may have already
-        # started and finished while this one was still in flight - don't
-        # let a stale result clobber a fresher one.
+        # Don't let stale result clobber a fresher one (later check may have already finished).
         if check_id != self._pair_status_check_id:
             return
         try:
             self._pair_status_signals.result.emit(result)
         except RuntimeError:
-            # The app quit (or, in tests, the plugin/qapp was torn down)
-            # while this network call was still in flight - the receiving
-            # QObject is already gone, and there's nothing left to update.
+            # App quit or plugin destroyed; QObject already gone.
             pass
 
     # ── Session channel (phone port 8766) ────────────────────────────────────
 
     @contextlib.contextmanager
     def session_channel(self, token: Optional[str] = None, usb: Optional[bool] = None):
-        """Yields ``(client, unavailable_status)`` for the phone's session port.
-
-        The two transports differ only in how the port is reached - a device
-        IP over Wi-Fi, ``localhost`` behind a short-lived ``adb forward`` over
-        USB - so both the pairing probe and the remote start/stop go through
-        here rather than each growing their own copy of that fork. The
-        forward is dedicated to this port and torn down on the way out: the
-        phone's SessionServer binds its own fixed port independently of
-        streaming, so it is normally not already forwarded.
-
-        ``client`` is None when there is nothing to talk to, in which case
-        ``unavailable_status`` says why in the panel's own vocabulary
-        (``not_paired`` / ``unknown`` / ``unreachable``).
-
-        Blocking network work - call from a background thread only.
-        """
+        """Yields (client, unavailable_status) for phone's session port (Wi-Fi IP or USB adb forward)."""
         if token is None:
             token = self._current_device_token()
         if usb is None:
@@ -913,27 +809,7 @@ class ConnectionPlugin(TelescopePlugin):
             adb_unforward(PING_PORT, serial=serial)
 
     def ensure_phone_streaming(self, on_progress=None) -> tuple[bool, str]:
-        """Bring the phone's camera up if it isn't already, so the desktop's
-        Start button is the only one anybody has to press.
-
-        Returns ``(ok, reason)``; ``reason`` is display text and only
-        meaningful when ``ok`` is False. Succeeds without doing anything when
-        the phone is already streaming, and - deliberately - when the phone is
-        too old to know this endpoint, so an APK/desktop mismatch degrades to
-        the previous connect-only behaviour instead of blocking the stream.
-
-        ``on_progress``, if given, is called with a short human-readable
-        status string as the wait progresses - opening the camera can
-        legitimately take several seconds (longer still if it's reopening
-        right after a stop: CameraDevice.close() is asynchronous on Android,
-        so the camera HAL can still be releasing the previous session), and
-        with nothing else visible changing in that window a static "Waking
-        phone camera..." reads as frozen rather than working. Called from
-        whatever thread this method runs on - the caller is responsible for
-        marshalling it back to the UI thread if needed.
-
-        Blocking network work - call from a background thread only.
-        """
+        """Start phone's camera if not already streaming. Returns (ok, reason). Calls on_progress with status updates."""
         with self.session_channel() as (client, unavailable):
             if client is None:
                 return False, self._unreachable_reason(unavailable)
@@ -949,8 +825,7 @@ class ConnectionPlugin(TelescopePlugin):
             if ping.streaming:
                 return True, ""
             if not ping.knows_session:
-                # Older app: it can't be started from here, but it may well
-                # already be streaming - let the connection attempt decide.
+                # Older app; can't start from here but may already be streaming.
                 return True, ""
             if ping.local_only and not self._rb_usb.isChecked():
                 return False, (
@@ -972,16 +847,7 @@ class ConnectionPlugin(TelescopePlugin):
 
     @staticmethod
     def _await_streaming(client: PhoneSessionClient, on_progress=None) -> tuple[bool, str]:
-        """Poll until the phone reports a live stream. The service answers the
-        start request as soon as it's accepted, well before the camera is open
-        and the capture session configured, so connecting immediately would
-        race a server that isn't listening yet.
-
-        Falling back to idle is how a failed start shows up (the service stops
-        itself), but only once it has actually got going: `startForegroundService`
-        is asynchronous, so the first poll or two can legitimately still read
-        idle before the service has run its first line.
-        """
+        """Poll until phone reports live stream (service answers immediately but camera startup is async)."""
         deadline = time.monotonic() + START_TIMEOUT
         wait_start = time.monotonic()
         started = False
@@ -993,14 +859,10 @@ class ConnectionPlugin(TelescopePlugin):
             if ping.streaming:
                 return True, ""
             if ping.status == "not_paired":
-                # A real state change (token revoked/re-paired elsewhere),
-                # not a network blip - no point tolerating this one.
+                # Real state change (not network blip); don't tolerate.
                 return False, "Lost contact with the phone while its camera was starting."
             if ping.status != "paired":
-                # "unreachable" covers a dropped connection, a timeout, or
-                # any other request failure - opening the camera is heavy
-                # enough on the phone that one poll landing in that window
-                # is common. Only bail once it's sustained.
+                # Tolerate brief unreachable (camera startup is heavy); only bail on sustained failure.
                 unreachable_streak += 1
                 if unreachable_streak >= _UNREACHABLE_STREAK_LIMIT:
                     return False, "Lost contact with the phone while its camera was starting."
@@ -1024,12 +886,7 @@ class ConnectionPlugin(TelescopePlugin):
         )
 
     def stop_phone_streaming(self):
-        """Tell the phone to shut its camera down. Best effort: the desktop
-        has already torn down its own side by the time this runs, and a phone
-        that has gone away doesn't need telling.
-
-        Blocking network work - call from a background thread only.
-        """
+        """Tell phone to shut camera down (best effort; desktop side already torn down)."""
         with self.session_channel() as (client, _unavailable):
             if client is not None:
                 client.stop()
@@ -1080,7 +937,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._pair_status_lbl.setStyleSheet(f"color: {color};" if color else "")
 
     def _resolve_adb_serial(self) -> Optional[str]:
-        """Return the adb serial to target, prompting if more than one device is attached."""
+        """Return adb serial to target (prompt if multiple devices attached)."""
         serials = adb_devices()
         if not serials:
             QMessageBox.critical(
@@ -1103,18 +960,13 @@ class ConnectionPlugin(TelescopePlugin):
 
     @property
     def _profile_key(self) -> Optional[str]:
-        """The device-local-plugin profile key for the current mode: the
-        selected Wi-Fi device's name, or a fixed pseudo-key for USB so USB
-        sessions get their own persisted camera/transform/monitoring
-        settings instead of silently not saving them."""
+        """Profile key for current mode (Wi-Fi device name or USB_PROFILE_KEY)."""
         if self._rb_usb.isChecked():
             return USB_PROFILE_KEY
         return self._selected_device
 
     def _activate_profile(self, new_key: Optional[str]):
-        """Switch the effective device-local profile via the host, but only
-        if it actually changed - avoids a spurious save/reset/reconnect
-        cycle from signals fired while combo boxes are being repopulated."""
+        """Switch profile via host if actually changed (avoids spurious save/reconnect from combo repopulation)."""
         if new_key == self._active_key:
             return
         prev_key = self._active_key
@@ -1129,9 +981,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._activate_profile(self._profile_key)
 
     def _update_pair_button(self):
-        """The Pair button opens different flows depending on mode (a QR
-        scan over Wi-Fi, an adb-pushed pairing broadcast over USB) - its
-        icon/tooltip should say which."""
+        """Update Pair button icon/tooltip to match mode (QR vs ADB)."""
         if self._rb_usb.isChecked():
             self._qr_btn.setIcon(create_vector_icon("usb", "#c8d0da"))
             self._qr_btn.setToolTip("Pair via ADB")

@@ -125,10 +125,7 @@ class TransformsPlugin(TelescopePlugin):
         return card
 
     def _reset_all(self):
-        """Back to an untouched frame. Each setter fires its own handler, so
-        the pipeline attrs, the pan enable/disable rule and the debounced
-        save all follow from the widget changes rather than being repeated
-        here."""
+        """Reset to untouched frame (handlers fire from widget changes, not repeated here)."""
         self._flip_h.setChecked(False)
         self._flip_v.setChecked(False)
         self._rot_combo.setCurrentIndex(0)

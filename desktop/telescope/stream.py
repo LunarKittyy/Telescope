@@ -19,18 +19,12 @@ VCAM_BACKEND   = "v4l2loopback" if IS_LINUX else "unitycapture"
 V4L2_PHONE_DEV = "/dev/video11"
 RECONNECT_DELAY = 3
 
-# Sentinel for "leave this parameter unchanged" (distinct from None which
-# means "pass-through / no resize").
+# Sentinel: "leave unchanged" (distinct from None = pass-through).
 _UNCHANGED = object()
 
 
 def _fit_frame(frame, target_w, target_h):
-    """Resize *frame* to exactly target_w × target_h, preserving aspect ratio.
-
-    Black bars (letterbox / pillarbox) are added when the aspect ratios
-    differ.  When the frame already matches the target, it is returned
-    as-is (zero-copy).
-    """
+    """Resize frame preserving aspect (black bars as needed; zero-copy if already matches)."""
     fh, fw = frame.shape[:2]
     if fw == target_w and fh == target_h:
         return frame
@@ -74,24 +68,11 @@ class StreamWorker(QThread):
         self._stop_flag    = False
         self._restart_vcam = threading.Event()
         self._latest_rgb   = None
-        # Cumulative wire bytes across the whole worker lifetime (including
-        # mid-stream reconnects, which _stream_reader handles internally
-        # without this counter resetting) - the run() vcam loop only ever
-        # reads deltas between its own 2s windows, so a running total is all
-        # that's needed here.
+        # Cumulative wire bytes; vcam loop reads deltas, not resets on mid-stream reconnect.
         self._bytes_total  = 0
-        # Frames actually decoded off the wire (incremented in
-        # _stream_reader). Deliberately separate from the vcam send-loop's
-        # own fc/elapsed fps figure below: pyvirtualcam paces sends to its
-        # configured rate by resending the latest available frame whether or
-        # not a new one has arrived, so that send-loop fps stays pinned near
-        # target even when the network can't keep up - only counting actual
-        # new decodes reflects real throughput.
+        # Actual decodes off wire; separate from vcam send-loop fps (pyvirtualcam resends latest frame regardless).
         self._frames_received = 0
-        # Consecutive 2s windows where the real decode rate has trailed the
-        # target by a real margin - distinguishes "genuinely congested" from
-        # a single noisy window, so the throughput readout doesn't flicker
-        # warning colour on an ordinary blip.
+        # Consecutive 2s windows with sustained low decode rate (distinguishes congestion from blips).
         self._weak_streak  = 0
 
     def _process(self, frame):
@@ -100,16 +81,7 @@ class StreamWorker(QThread):
         return frame
 
     def update_output(self, width=_UNCHANGED, height=_UNCHANGED, fps=_UNCHANGED):
-        """Update stream processing parameters live.
-
-        Pass *None* for width/height to enable pass-through (no resize).
-        Omit a parameter (or don't pass it) to leave it as-is.
-
-        Resolution and rotation changes take effect immediately — the reader
-        thread picks up the new values and ``_fit_frame`` adapts the output.
-        Only *fps* changes trigger a virtual-camera restart (the
-        ``pyvirtualcam.Camera`` object is bound to a fixed fps).
-        """
+        """Update stream parameters live (None = pass-through; omit to leave unchanged; fps changes restart vcam)."""
         if width  is not _UNCHANGED: self._width  = width
         if height is not _UNCHANGED: self._height = height
         if fps is not _UNCHANGED:
@@ -121,9 +93,7 @@ class StreamWorker(QThread):
         self._restart_vcam.set()
 
     def _open_cap(self):
-        # cv2.VideoCapture's FFmpeg backend has no way to attach the bearer
-        # header the phone's /v1/video now requires, so the stream is read
-        # and multipart-parsed directly instead of handing the URL to OpenCV.
+        # FFmpeg backend can't attach bearer header; parse multipart directly.
         reader = MjpegReader(self.url, self.token)
         reader.open()
         return reader
@@ -144,12 +114,7 @@ class StreamWorker(QThread):
         return None
 
     def _stream_reader(self, cap, stop_event: threading.Event):
-        """Read frames from the capture device, resize, process, and store.
-
-        Reads ``self._width`` / ``self._height`` on every iteration so
-        mid-stream resolution changes take effect immediately without
-        restarting the reader or the stream connection.
-        """
+        """Read frames from device; check width/height each iteration for live resolution changes."""
         while not stop_event.is_set() and not self._stop_flag:
             ret, raw = cap.read()
             if not ret or raw is None:
@@ -202,8 +167,7 @@ class StreamWorker(QThread):
                 rh = self._height or frame.shape[0]
                 frame = cv2.resize(frame, (rw, rh))
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            # Run the first frame through the pipeline so the vcam dimensions
-            # account for any active transforms (e.g. 90° rotation swaps W↔H).
+            # Run first frame through pipeline so vcam dimensions account for transforms (e.g. 90° rotation swaps W↔H).
             frame_rgb = self._process(frame_rgb)
             self._latest_rgb = frame_rgb
             cam_w = self._canvas_w or frame_rgb.shape[1]
@@ -228,14 +192,7 @@ class StreamWorker(QThread):
                     while not self._stop_flag and not self._restart_vcam.is_set():
                         src = self._latest_rgb
                         if src is not None:
-                            # Adapt the (potentially resized / rotated /
-                            # differently-shaped) frame to the fixed vcam
-                            # dimensions, preserving aspect ratio. cam_w/cam_h
-                            # are the vcam's own fixed output size and don't
-                            # change here - src's shape is read fresh below,
-                            # since a live resolution switch on the phone
-                            # changes it out from under this loop without a
-                            # vcam restart.
+                            # Adapt frame to fixed vcam dimensions (src shape read fresh for live resolution switches).
                             cam.send(_fit_frame(src, cam_w, cam_h))
                         cam.sleep_until_next_frame()
                         fc += 1
@@ -250,16 +207,7 @@ class StreamWorker(QThread):
                             bytes_now = self._bytes_total
                             mbps = (bytes_now - bytes0) * 8 / elapsed / 1_000_000
 
-                            # "Genuinely struggling" is the real decode rate
-                            # (frames actually arriving off the wire, not the
-                            # vcam send loop's own pace - pyvirtualcam resends
-                            # the latest available frame every tick regardless
-                            # of whether a new one has shown up, so its fps
-                            # stays pinned near target even when the network
-                            # can't keep up) trailing the configured target by
-                            # a real margin, sustained over a few windows -
-                            # not just "quality is set high and that's
-                            # working fine", which shouldn't warn.
+                            # Warn only if sustained decode rate trails target significantly (not just high quality).
                             recv_now = self._frames_received
                             decode_fps = (recv_now - recv0) / elapsed
                             struggling = decode_fps < self._fps * 0.85

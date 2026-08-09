@@ -12,15 +12,7 @@ _MAX_PART_HEADER_BYTES = 4096
 
 
 class MjpegReader:
-    """Reads an authenticated multipart/x-mixed-replace MJPEG stream and
-    decodes each part to a BGR numpy frame.
-
-    Mirrors the small subset of cv2.VideoCapture's interface (isOpened,
-    read, release) that StreamWorker already drives, so it drops in without
-    changing the reconnect/reader control flow. Needed because the phone's
-    MJPEG endpoint now requires a bearer token, which cv2.VideoCapture's
-    opaque FFmpeg-backed HTTP client has no way to send.
-    """
+    """Authenticated multipart/x-mixed-replace MJPEG reader (mirrors cv2.VideoCapture interface; handles bearer token)."""
 
     def __init__(self, url: str, token: str, timeout: float = 3.0):
         self.url = url
@@ -29,10 +21,7 @@ class MjpegReader:
         self._response = None
         self._boundary: Optional[bytes] = None
         self._buf = b""
-        # Size in bytes of the JPEG payload from the most recent successful
-        # read() - the wire size, before decode. Read cross-thread by
-        # StreamWorker's vcam loop to compute a rolling throughput figure;
-        # a single int attribute is fine here (same pattern as _latest_rgb).
+        # JPEG wire size from most recent read (read cross-thread by vcam loop for throughput).
         self.last_jpeg_size = 0
 
     def isOpened(self) -> bool:
@@ -53,10 +42,7 @@ class MjpegReader:
             except Exception:
                 pass
             return False
-        # The server's boundary parameter already includes its own leading
-        # "--" (matches exactly what appears on each part's delimiter line -
-        # see MjpegServer.kt's MjpegClient.stream()), so it's used as-is
-        # rather than re-prefixed per the general multipart RFC convention.
+        # Server boundary parameter includes leading "--" (use as-is, not re-prefixed).
         boundary = content_type.split("boundary=", 1)[1].strip().strip('"')
         self._boundary = boundary.encode("utf-8")
         self._response = resp

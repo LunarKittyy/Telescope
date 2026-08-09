@@ -26,13 +26,9 @@ class StreamOutputPlugin(TelescopePlugin):
         self._bus = bus
         self._ctrl = None
         self._current_camera_id = None
-        # Set on set_config() before any phone data has arrived; applied the
-        # first time on_phone_state() has real sizes to match it against.
+        # Set on set_config() before phone data arrives; applied once on_phone_state() has real sizes.
         self._pending_resolution_text = None
-        # A lens switch (camera_control.py) doesn't trigger a fresh /v1/state
-        # fetch - it hands over the capability dict it already has cached, so
-        # this combo can be kept in sync with the new lens's supported sizes
-        # the same way camera_control.py refreshes its own ISO/shutter ranges.
+        # Lens switch doesn't trigger fresh /v1/state fetch; use cached capabilities dict.
         bus.camera_switched.connect(self._on_camera_switched)
 
     def create_panel(self) -> QWidget:
@@ -43,11 +39,7 @@ class StreamOutputPlugin(TelescopePlugin):
         add_card_header(lay, "Stream Output", "stream")
 
         # ── Resolution ────────────────────────────────────────────────────────
-        # Populated from the phone's actual capture sizes for the current lens
-        # (on_phone_state), not a fixed list - unlike the old post-decode
-        # resize this used to drive, a selection here now changes what the
-        # phone captures at, so the option set has to match what that specific
-        # camera can actually do.
+        # Populated from phone's actual capture sizes (not fixed list); selection changes what phone captures.
         add_section_heading(lay, "Output")
         self._res_combo = NoScrollComboBox()
         self._res_combo.addItem("—")
@@ -56,11 +48,7 @@ class StreamOutputPlugin(TelescopePlugin):
         lay.addLayout(_row("Resolution", self._res_combo, stretch=True))
 
         # ── FPS ───────────────────────────────────────────────────────────────
-        # One control, not separate "playback" and "phone" fps sliders - the
-        # desktop's virtual camera can't show motion the phone never captured,
-        # and capturing faster than it's played back just burns phone battery
-        # and Wi-Fi bandwidth for frames nothing ever displays. This drives
-        # both the phone's capture rate and the local vcam's pacing together.
+        # One control: captures faster than playback just wastes phone battery and bandwidth.
         self._fps_spin = NoScrollSpinBox()
         self._fps_spin.setRange(5, 60)
         self._fps_spin.setValue(_DEFAULT_FPS)
@@ -97,11 +85,7 @@ class StreamOutputPlugin(TelescopePlugin):
         return card
 
     def get_stream_params(self) -> tuple:
-        """Return (width, height, fps) for StreamWorker construction.
-
-        Width/height are always pass-through (None) now - the Resolution
-        control below changes what the phone captures at, so there's nothing
-        left for the desktop side to resize post-decode."""
+        """Return (width, height, fps) for StreamWorker (width/height always None; resolution controlled by phone)."""
         return None, None, self._fps_spin.value()
 
     def on_stream_start(self, stream_url: str, ctrl):
@@ -132,14 +116,7 @@ class StreamOutputPlugin(TelescopePlugin):
         self._apply_camera(cur, state.get("stream_width"), state.get("stream_height"))
 
     def _on_camera_switched(self, cam: dict):
-        # A plain lens switch (CameraSessionController.switchCameraTo) reuses
-        # the existing ImageReader unchanged - it never touches
-        # streamWidth/streamHeight, so the live resolution after the switch
-        # is just whatever it already was, not the new lens's largest size.
-        # No fresh /v1/state comes back on a lens switch to confirm that, so
-        # the desktop's own current selection (if the new lens still
-        # supports it) is the correct live value to carry over - not a
-        # guess, since that's genuinely what the phone does.
+        # Lens switch reuses existing ImageReader; live resolution carries over from previous selection.
         current = self._res_combo.currentData()
         live_w, live_h = current if current else (None, None)
         self._apply_camera(cam, live_w, live_h)
@@ -151,9 +128,7 @@ class StreamOutputPlugin(TelescopePlugin):
         if not sizes:
             return
 
-        # Only rebuild the item list when the lens actually changed - doing
-        # it on every state refresh would otherwise fight the user's
-        # in-progress selection.
+        # Only rebuild item list on actual camera change (don't fight user's in-progress selection).
         if cam["id"] != self._current_camera_id:
             self._current_camera_id = cam["id"]
             self._res_combo.blockSignals(True)
@@ -169,9 +144,7 @@ class StreamOutputPlugin(TelescopePlugin):
             self._res_combo.blockSignals(False)
             self._pending_resolution_text = None
         elif live_w and live_h:
-            # Same lens, but the phone's live size doesn't match our
-            # selection (e.g. a reconnect restored an older setting) -
-            # reflect reality without re-sending a control we didn't ask for.
+            # Same lens; reflect live size if it changed (e.g. reconnect restored older setting).
             live_text = _size_label(live_w, live_h)
             if self._res_combo.currentText() != live_text:
                 idx = self._res_combo.findText(live_text)
@@ -217,14 +190,9 @@ class StreamOutputPlugin(TelescopePlugin):
 
     def set_config(self, cfg: dict):
         if res := cfg.get("resolution"):
-            # The combo isn't populated yet at load time (no phone data),
-            # so this is applied once on_phone_state() has real sizes.
+            # Combo not populated at load time; apply once on_phone_state() has real sizes.
             self._pending_resolution_text = res
-        # "phone_fps" is read as a fallback for a config saved before
-        # playback/phone fps were merged into one control - "fps" (the old
-        # playback-only value) wins if both are present, matching what the
-        # combined spinner would already have shown for most users, since the
-        # two were rarely set to different values on purpose.
+        # Read "phone_fps" fallback (legacy); "fps" wins if both present (they were rarely different).
         if fps := cfg.get("fps", cfg.get("phone_fps")):
             self._fps_spin.setValue(int(fps))
         if q := cfg.get("jpeg_quality"):

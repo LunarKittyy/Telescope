@@ -14,9 +14,7 @@ from telescope.widgets.common import (
     create_card, create_separator,
 )
 
-# Set inline via setStyleSheet rather than an object name, because these
-# readouts change colour with the live value; sourced from the theme so
-# there's still only one place the semantic colours are defined.
+# Inline colors (change with live values) sourced from theme for one semantic color definition.
 _STATUS_COLORS = {
     "ok":   theme.OK,
     "warn": theme.WARN,
@@ -153,10 +151,7 @@ class MonitoringPlugin(TelescopePlugin):
         batt_thresh = self._batt_alert_spin.value()
         temp_thresh = self._temp_alert_spin.value()
 
-        # A wonky/underpowered charger can leave `charging` true while the level
-        # still falls, so treat an actual drop the same as being on battery -
-        # comparing consecutive readings catches this even on batteries big
-        # enough to plateau for a while in either direction.
+        # Wonky charger may not keep up; treat falling level same as being on battery.
         falling = (not charging) or (self._last_level is not None and level < self._last_level)
         self._last_level = level
 

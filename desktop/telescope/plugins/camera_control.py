@@ -125,8 +125,7 @@ def derive_camera_control_view(state: dict) -> Optional[CameraControlView]:
     )
 
 
-# The shared row helpers under their long-standing local names - this module
-# has ~20 call sites and they read better short.
+# Local shorthand for ~20 call sites in this module.
 _row        = control_row
 _row_widget = control_row_widget
 
@@ -159,11 +158,7 @@ class CameraControlPlugin(TelescopePlugin):
         self._lens_panel.lens_selected.connect(self._on_lens_selected)
         lay.addWidget(_row_widget("Lens", self._lens_panel, stretch=True))
 
-        # One quiet line under the picker, elided, with the full detail in
-        # its tooltip. It was a block of chips, but a chip per capability
-        # wrapped into a ragged two-line pile that said little the controls
-        # underneath don't already say by being enabled or greyed out - the
-        # hardware level is the only part you can't read off the panel.
+        # One quiet line summarizing hardware level (the only capability you can't infer from control state).
         self._cam_info_lbl = ElidingLabel("")
         self._cam_info_lbl.setObjectName("caps_line")
         self._cam_info_row = control_row_widget("", self._cam_info_lbl, stretch=True)
@@ -368,12 +363,7 @@ class CameraControlPlugin(TelescopePlugin):
         self._push_settings_to_phone()
 
     def _push_settings_to_phone(self):
-        """Re-applies the widget state (already restored from the device's saved
-        config by _apply_device_profile(), which runs independently of and before
-        this) to the phone - on_stream_start() only wires up self._ctrl, it
-        doesn't by itself make the phone match what the desktop already has
-        loaded. Without this, the phone keeps whatever settings it booted with
-        until the user touches a control again."""
+        """Re-applies widget state to the phone (wiring up self._ctrl alone doesn't sync the existing config)."""
         if self._manual_exp:
             self._ctrl.send(action="iso",     value=int(self._iso_slider.get_value()))
             self._ctrl.send(action="shutter", value=int(self._sht_slider.get_value()))
@@ -479,22 +469,13 @@ class CameraControlPlugin(TelescopePlugin):
         self._torch_btn.blockSignals(False)
 
     def _on_phone_state_from_bus(self, state: dict):
-        # Called via bus signal — only update if we're mid-stream and this is
-        # a monitoring poll result (has battery key), not a camera fetch.
-        # Camera fetches are routed through app.py → on_phone_state directly.
+        # Bus signal received but handled elsewhere (camera fetches go through app.py → on_phone_state).
         pass
 
     # ── Camera capability gating ──────────────────────────────────────────────
 
     def _update_cam_info_lbl(self, cam: dict):
-        """Summarise the selected lens in one line.
-
-        Only supported capabilities are named. An unsupported one is already
-        visible as a greyed-out control directly below, so spelling out
-        "manual focus ✗" spends space saying what the panel has already
-        said - and buries the ones you can use among the ones you can't.
-        The full picture, including what's missing, is in the tooltip.
-        """
+        """Summarize lens capabilities in one line (unsupported ones are in tooltip to avoid clutter)."""
         supported = [(label, cam.get(key)) for key, label in _CAPABILITY_LABELS]
         hw_level  = _HW_LEVELS.get(cam.get("hwLevel", ""), cam.get("hwLevel", ""))
         have      = [l for l, ok in supported if ok]
@@ -552,9 +533,7 @@ class CameraControlPlugin(TelescopePlugin):
         else:
             self._torch_btn.setToolTip("")
 
-        # Greyed out (but left checked) on a lens without OIS: the phone still
-        # remembers "OIS desired" and applies it as soon as an OIS-capable lens is
-        # selected again, without needing to be re-toggled here.
+        # Greyed out but stays checked to preserve state across lens switches.
         self._ois_cb.setEnabled(has_ois)
         self._ois_cb.setToolTip("" if has_ois else "This lens does not support optical image stabilization")
         self._sync_manual_control_visibility()

@@ -79,22 +79,15 @@ class PreviewPlugin(TelescopePlugin):
     name = "preview"
     panel_region = "center"
 
-    # Max width sent across thread for the in-window preview. The stage is
-    # the widest thing on screen now, so this is larger than it was when the
-    # preview was a ~400px card.
+    # Max width for in-window preview sent across thread (stage is now the widest element).
     _CARD_MAX_W = 960
 
     def setup(self, host, bus):
         self._host   = host
-        # On by default: the preview is the centre of the window now, not an
-        # opt-in extra. The toggle stays as an escape hatch for anyone who'd
-        # rather not spend the decode.
+        # On by default (toggle is escape hatch for decode savings).
         self._active = True
         self._popout: _PopoutWindow | None = None
-        # Plain flag mirroring "popout is open", updated only from GUI-thread
-        # slots. process_frame() runs on the stream reader thread and must
-        # never touch self._popout (a QWidget) directly - Qt widgets are not
-        # thread-safe, and the popout can also be closed between reads.
+        # Flag; process_frame() runs on stream thread and must never touch self._popout (not thread-safe).
         self._popout_active = False
         self._busy   = False
         self._sig    = _Sig()
@@ -105,11 +98,7 @@ class PreviewPlugin(TelescopePlugin):
         host.installEventFilter(self._host_filter)
 
     def create_panel(self) -> QWidget:
-        """The video stage: a letterboxed frame area with a toolbar beneath.
-        It's the centre column, so unlike the rail panels it carries no card
-        header, no badges and no chrome competing with the picture - what
-        the stream is doing is already said by the Stop button and the
-        footer."""
+        """Video stage: letterboxed frame area with toolbar beneath (centre column, no chrome)."""
         stage = QFrame()
         stage.setObjectName("preview_stage")
         stage.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -121,11 +110,7 @@ class PreviewPlugin(TelescopePlugin):
         self._preview_lbl.setObjectName("preview_surface")
         self._preview_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._preview_lbl.setMinimumHeight(240)
-        # Ignored, not Expanding: a QLabel holding a pixmap reports that
-        # pixmap's size as its minimum size hint, so once a 1920px-wide frame
-        # had arrived the column could never be made narrow again and the
-        # window started scrolling sideways. Every frame is scaled to fit on
-        # arrival, so the label has no width requirement of its own.
+        # Ignored (not Expanding) since QLabel reports pixmap size as minimum hint; frames are scaled on arrival.
         self._preview_lbl.setSizePolicy(
             QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
         self._preview_lbl.setMinimumWidth(1)

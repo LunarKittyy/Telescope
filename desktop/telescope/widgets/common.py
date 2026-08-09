@@ -17,22 +17,16 @@ from telescope import theme
 FORM_LABEL_WIDTH = 104
 
 VALUE_COL_WIDTH = 62
-"""Width of the numeric readout beside a slider. Fixed and right-aligned so
-readouts line up down a panel instead of drifting with their text."""
+"""Width of numeric readout (fixed, right-aligned so readouts line up)."""
 
 SPIN_COL_WIDTH = 88
 """Width of the direct-entry spinbox beside a slider."""
 
 SPIN_COL_GUTTER = SPIN_COL_WIDTH + 8
-"""What a slider row without a spinbox reserves on its right, so its track
-ends on the same line as the rows that have one."""
+"""Space slider rows reserve for alignment with spinbox rows."""
 
 SLIDER_TRACK_WIDTH = 104
-"""Minimum width for a slider track, not a fixed one.
-
-Panels live in resizable columns now, so sliders stretch to whatever their
-row has left over and this is only the floor below which the track stops
-being usefully draggable. Apply it with `stretch_slider()`."""
+"""Minimum width for slider track (floor for draggability; apply via stretch_slider())."""
 
 
 def stretch_slider(slider: QWidget, minimum: int = SLIDER_TRACK_WIDTH) -> QWidget:
@@ -43,13 +37,7 @@ def stretch_slider(slider: QWidget, minimum: int = SLIDER_TRACK_WIDTH) -> QWidge
 
 
 class ElidingLabel(QLabel):
-    """A label that shortens its text with an ellipsis instead of forcing
-    its row wider.
-
-    Plain QLabel reports its full text width as a minimum, so one long
-    status message or capability list can stop a whole column from ever
-    being narrowed again. This keeps the full text available as a tooltip.
-    """
+    """Label that elides text instead of forcing row wider (full text in tooltip)."""
 
     def __init__(self, text: str = "", parent=None,
                  mode: Qt.TextElideMode = Qt.TextElideMode.ElideRight):
@@ -79,24 +67,13 @@ class ElidingLabel(QLabel):
 
 
 class FlowLayout(QLayout):
-    """Lays widgets out left to right, wrapping to a new line when the row
-    runs out of width.
-
-    Qt ships nothing like this. A grid with a fixed column count can't cope
-    with items whose natural widths differ (lens names run from "~15mm" to
-    "~22mm OIS"), so it either truncates the long ones or forces the whole
-    column wider than the rail. Wrapping sizes each item to its content and
-    lets the count per row fall out of the space available.
-    """
+    """Wrapping flow layout that sizes items to content and adapts column count to available space."""
 
     def __init__(self, parent=None, spacing: int = 6, uniform: bool = False):
         super().__init__(parent)
         self._items: list = []
         self._spacing = spacing
-        # uniform: give every item the same width and divide each row evenly,
-        # so the rows end flush instead of trailing off wherever the last
-        # item happened to finish. Reads as a grid whose column count adapts,
-        # rather than a pile of differently-sized pills.
+        # uniform: equal-width items, rows end flush (grid-like, not pill pile).
         self._uniform = uniform
         self.setContentsMargins(0, 0, 0, 0)
 
@@ -123,8 +100,7 @@ class FlowLayout(QLayout):
         return size + QSize(m.left() + m.right(), m.top() + m.bottom())
 
     def _layout(self, rect: QRect, apply: bool) -> int:
-        """Place every item and return the total height used. With
-        apply=False this is the heightForWidth measurement pass."""
+        """Place items and return total height (measurement pass when apply=False)."""
         if not self._items:
             return 0
 
@@ -174,16 +150,7 @@ def set_ui_role(widget: QWidget, role: str):
 
 
 def make_segmented(*buttons: QWidget):
-    """Style a run of radio buttons or checkboxes as one joined pill strip.
-
-    Purely presentational - the widgets stay exactly what they were, so
-    QButtonGroup exclusivity and every existing signal connection are
-    untouched. Each button gets a `segPos` so the stylesheet knows which
-    corners to round and which inner borders to drop.
-
-    Callers are expected to lay the buttons out with zero spacing, otherwise
-    the segments read as separate pills with gaps between them.
-    """
+    """Style button run as segmented pill strip (purely presentational; signals untouched)."""
     last = len(buttons) - 1
     for i, btn in enumerate(buttons):
         if len(buttons) == 1:  pos = "only"
@@ -199,12 +166,7 @@ def make_segmented(*buttons: QWidget):
 
 
 def segmented_row(*buttons: QWidget) -> QHBoxLayout:
-    """A zero-spacing layout holding a segmented run.
-
-    No trailing stretch: the enclosing `control_row` decides whether the
-    strip fills the row or sits flush right, and a spacer in here would
-    override that.
-    """
+    """Zero-spacing layout for segmented run (stretch decided by enclosing control_row)."""
     make_segmented(*buttons)
     lay = QHBoxLayout()
     lay.setContentsMargins(0, 0, 0, 0)
@@ -266,19 +228,7 @@ def form_label(text: str, width: int = FORM_LABEL_WIDTH) -> QLabel:
 
 def control_row(label: str, widget, label_width: int = FORM_LABEL_WIDTH,
                 stretch: bool = False) -> QHBoxLayout:
-    """The standard settings row: a dim label on the left, the control on
-    the right.
-
-    Both edges of the row are anchored, which is what keeps a panel from
-    looking ragged: `stretch=True` grows the control to the card's right
-    edge (sliders, combos), `stretch=False` pushes a naturally-sized
-    control flush against it (spinboxes, segmented strips). Nothing floats
-    in the middle with dead space either side of it.
-
-    `widget` may be a widget or a layout. An empty label still reserves the
-    label column, so a control can hang under the one above it without
-    breaking the alignment grid.
-    """
+    """Settings row: dim label left, control right (both anchored for clean alignment)."""
     lay = QHBoxLayout()
     lay.setContentsMargins(0, 0, 0, 0)
     lay.setSpacing(8)
