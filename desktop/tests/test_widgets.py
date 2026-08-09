@@ -209,8 +209,7 @@ def test_stretch_slider_sets_a_floor_not_a_fixed_width(qapp):
 def test_control_row_anchors_the_control_to_the_right_edge(qapp):
     control = QLabel("x")
     tight = control_row("Label", control)
-    # Without stretch the spacer goes *before* the control, so it sits flush
-    # right rather than floating next to its label.
+    # Without stretch, spacer goes before control, sitting flush right.
     assert tight.count() == 3
     assert tight.itemAt(1).widget() is None
     assert tight.itemAt(2).widget() is control
@@ -262,8 +261,7 @@ def test_uniform_flow_divides_each_row_evenly(qapp):
     qapp.processEvents()
 
     widths = [flow.itemAt(i).geometry().width() for i in range(3)]
-    # Every pill the same width, and the row ends flush with the container
-    # rather than trailing off wherever the last one happened to finish.
+    # Pills same width; row ends flush with container, not trailing.
     assert len(set(widths)) == 1
     assert flow.itemAt(2).geometry().right() + 1 == 320
 

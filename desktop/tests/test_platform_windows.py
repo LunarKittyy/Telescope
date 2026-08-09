@@ -15,8 +15,7 @@ def test_unitycapture_dir_frozen_and_source(monkeypatch, tmp_path):
     assert windows.unitycapture_dir() == tmp_path / "unitycapture"
 
     monkeypatch.delattr(windows.sys, "frozen", raising=False)
-    # Anchored on this test file's own location (desktop/tests/..) rather than
-    # a literal "desktop" name, so it holds regardless of the checkout's folder name.
+    # Anchored to test file location, not literal "desktop", to work with any checkout folder name.
     desktop_root = Path(__file__).resolve().parent.parent
     assert windows.unitycapture_dir() == desktop_root / "unitycapture"
 

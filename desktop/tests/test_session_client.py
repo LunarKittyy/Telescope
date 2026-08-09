@@ -24,8 +24,7 @@ class _Response:
 
 
 def _stub_urlopen(monkeypatch, handler):
-    """Replace urlopen with `handler(request) -> response`, recording the
-    requests so tests can assert on URL, method, headers and body."""
+    """Mock urlopen with handler; record requests for assertions."""
     seen = []
 
     def urlopen(req, timeout=None):

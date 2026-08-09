@@ -44,8 +44,7 @@ def test_device_manager_add_button_starts_pairing_flow(qapp):
     dialog, _devices, events, _parent = _manager(qapp)
     dialog._on_add()
     assert events == [("add",)]
-    # Nothing local was mutated - a device only appears once pairing reports
-    # back through _on_device_paired(), outside this dialog entirely.
+    # Device appears only after pairing confirms via _on_device_paired(), not here.
     assert dialog._active_dlg is None
 
 
@@ -167,8 +166,7 @@ def test_pairing_dialog_renders_qr_after_start(monkeypatch, qapp):
                    if dialog._qr_container.itemAt(i).widget()]
         assert any(isinstance(w, _QRCodeWidget) for w in widgets)
         assert dialog._status_lbl.text() == "Scan with the Telescope app on your phone."
-        # The advertised addresses are spelled out, so a user whose phone
-        # can't reach any of them can see what was actually offered.
+        # Advertised addresses shown so user can debug if phone can't reach them.
         assert dialog._candidates_lbl.isVisibleTo(dialog)
         assert dialog._candidates_lbl.text() == (
             "Waiting for the phone on:\n"
@@ -196,8 +194,7 @@ def test_pairing_dialog_usb_mode_reverses_port_and_shows_pair_button(monkeypatch
         assert calls[0][0] == "reverse"
         assert calls[0][2] == "phone-1"
         assert dialog._reversed_port == calls[0][1]
-        # Reaching the phone is a deliberate, re-triggerable click, not
-        # something that fires the instant the dialog opens.
+        # Reaching phone is deliberate click, not automatic on dialog open.
         assert broadcasts == []
         assert dialog._pair_btn is not None
         assert dialog._status_lbl.text() == "Ready to pair."

@@ -6,23 +6,11 @@ from PyQt6.QtWidgets import QWidget
 
 
 UNCHANGED = object()
-"""Sentinel for :meth:`HostServices.update_stream_output`. A parameter left as
-UNCHANGED keeps its current value; passing None is a real value (e.g. None
-width/height means pass-through / no resize)."""
+"""Sentinel for update_stream_output; UNCHANGED keeps current, None is a real value."""
 
 
 class HostServices(Protocol):
-    """The public contract a plugin may call on its `host` handle.
-
-    Structural typing only (Protocol, not a base class) - TelescopeWindow
-    doesn't need to inherit from this, it just needs to already implement these
-    methods, which it does. Exists so a plugin's `self._host` can be annotated
-    with something narrower than the full window class.
-
-    Every operation here is deliberately public: plugins go through this
-    contract instead of reaching into private (`_`-prefixed) window methods or
-    attributes like the stream worker. That keeps the host free to change its
-    internals as long as this surface is preserved."""
+    """Public contract for plugin-to-host calls (structural typing); plugins use this instead of reaching into private methods."""
 
     def schedule_save(self) -> None:
         """Persist all plugin config soon, coalescing rapid successive calls."""
@@ -70,35 +58,17 @@ class TelescopePlugin:
     name: str = ""
 
     panel_region: str = "left"
-    """Which region of the window this plugin's panel belongs in.
-
-    The host routes panels rather than hardcoding a layout per plugin name, so
-    a plugin decides its own placement:
-
-    - ``"left"``   - left rail: connection, output, monitoring (the setup half)
-    - ``"right"``  - right rail: camera and image controls (the live half)
-    - ``"center"`` - the video stage between the rails; at most one plugin
-
-    When the window is too narrow for three columns the host collapses the
-    rails together and then, narrower still, stacks everything in one column -
-    the region is a preference, not a guarantee of a physical column."""
+    """Panel placement: "left" (connection/output), "right" (camera/image), or "center" (video stage)."""
 
     def setup(self, host: HostServices, bus: "EventBus"): ...
     def create_panel(self) -> Optional[QWidget]: return None
 
     def create_header_widget(self) -> Optional[QWidget]:
-        """A compact widget for the window's header bar, or None.
-
-        Returned widgets are laid out left of the header's action buttons in
-        plugin registration order. Meant for the one or two controls that are
-        worth reaching without hunting through a panel (the device picker),
-        not as a second home for panel content."""
+        """Compact header bar widget (e.g. device picker), not panel content."""
         return None
 
     def create_menu_actions(self) -> list:
-        """QActions to contribute to the header's settings menu, or an empty
-        list. Lets a plugin that is only an entry point into dialogs skip
-        having a panel at all."""
+        """QActions for settings menu (lets dialog-only plugins skip panel)."""
         return []
     def on_stream_start(self, stream_url: str, ctrl): ...
     def on_stream_stop(self): ...
@@ -118,14 +88,6 @@ class EventBus(QObject):
     phone_state_updated    = pyqtSignal(dict)
     device_changed         = pyqtSignal(str)
     camera_switched        = pyqtSignal(dict)
-    """A lens switch was sent to the phone. Carries the selected camera's raw
-    capability dict (same shape as one entry of a /v1/state 'cameras' list) -
-    plugins that cache per-camera capability data (e.g. supported capture
-    sizes) but don't otherwise get a fresh /v1/state on every lens switch can
-    use this to stay in sync without polling."""
+    """Lens switch sent to phone; carries selected camera capability dict."""
     resolution_change_requested = pyqtSignal(int, int)
-    """A resolution change was sent to the phone, carrying the requested
-    (width, height). The phone has to close and reopen its camera to honour
-    it, so this doesn't take effect instantly - the host uses this to show a
-    pending state on the live readout until the change is actually confirmed
-    (or times out) rather than leaving it looking unchanged/broken."""
+    """Resolution change sent to phone; host shows pending state until confirmed."""

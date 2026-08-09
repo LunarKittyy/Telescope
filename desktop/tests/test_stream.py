@@ -10,9 +10,7 @@ class _Capture:
         self.frames = list(frames)
         self.opened = opened
         self.released = False
-        # Mirrors MjpegReader.last_jpeg_size - the wire size of whatever
-        # frame the most recent read() returned. StreamWorker reads this
-        # after every successful read() to accumulate throughput.
+        # Mirrors MjpegReader.last_jpeg_size; StreamWorker reads after read() to accumulate throughput.
         self.last_jpeg_size = last_jpeg_size
 
     def isOpened(self):
@@ -165,7 +163,7 @@ def test_stream_reader_resizes_converts_colour_and_runs_pipeline():
     cap = _Capture([(True, raw)])
     worker = stream.StreamWorker("url", 4, 3, 30, [lambda frame: frame + 1])
 
-    # The second read fails and reconnect exits because this flag is set there.
+    # Second read fails and reconnect exits due to _stop_flag.
     def no_reconnect(_stop):
         worker._stop_flag = True
         return None
@@ -205,7 +203,7 @@ def test_stream_reader_drops_pipeline_errors_and_releases_capture():
     def stop_after_error():
         worker._stop_flag = True
 
-    # The capture's next failed read invokes reconnect; use that boundary to stop.
+    # Next failed read invokes reconnect; use that to stop.
     worker._reconnect_cap = lambda _event: stop_after_error()
     worker._stream_reader(cap, threading.Event())
 

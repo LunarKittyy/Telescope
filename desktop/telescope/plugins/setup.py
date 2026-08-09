@@ -643,10 +643,7 @@ class SetupPlugin(TelescopePlugin):
         return val
 
     def create_panel(self) -> Optional[QWidget]:
-        """No panel. Setup is a pair of entry points into dialogs, not
-        something you adjust while streaming, so it lives in the header's
-        settings menu instead of occupying a rail slot - see
-        create_menu_actions()."""
+        """No panel; setup is dialog-only (see create_menu_actions)."""
         return None
 
     def create_menu_actions(self) -> list:

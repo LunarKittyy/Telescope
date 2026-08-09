@@ -7,8 +7,7 @@ from telescope.plugins.preview import PreviewPlugin, _HostFilter, _PopoutWindow
 
 
 class _Host(QWidget):
-    """A window stand-in - the preview asks the host whether a stream is
-    running to pick its placeholder text."""
+    """Window stand-in; preview checks is_streaming() for placeholder text."""
 
     streaming = False
 
@@ -187,9 +186,7 @@ def test_popout_set_frame_and_resize_guards(qapp):
 
 
 def test_a_large_frame_does_not_pin_the_column_open(qapp):
-    """Regression: a QLabel reports its pixmap's size as its minimum, so
-    once a 1080p frame had arrived the window could no longer be narrowed
-    and started scrolling sideways."""
+    """Large pixmap doesn't pin preview column width open (QLabel minimum size issue)."""
     plugin, _host, panel = _plugin(qapp)
     plugin._preview_lbl.resize(900, 500)
 

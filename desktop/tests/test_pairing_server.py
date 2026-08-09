@@ -62,8 +62,7 @@ def test_payload_is_version_2_with_every_candidate(pairing_server):
     assert payload["port"] == offer.port
     assert payload["nonce"] == offer.nonce
     assert payload["token"] == offer.token
-    # LAN before Tailscale, each carrying the interface and kind the phone
-    # needs to decide which of its own networks to route the attempt over.
+    # LAN before Tailscale, with interface and kind for phone routing decision.
     assert payload["candidates"] == [
         {"ip": "192.168.1.42", "interface": "Wi-Fi", "kind": "lan"},
         {"ip": "100.90.12.34", "interface": "tailscale0", "kind": "tailscale"},
@@ -93,8 +92,7 @@ def test_start_with_advertised_addresses_skips_discovery(monkeypatch):
 
 
 def test_empty_ips_in_payload_is_accepted(pairing_server):
-    # A USB-only phone with no Wi-Fi at all has nothing to report here - only
-    # malformed (non-empty-but-invalid) entries should be rejected.
+    # USB-only phone with no Wi-Fi reports empty IPs; only malformed entries rejected.
     server, offer, paired = pairing_server
     body = json.dumps({"name": "Phone", "ips": [], "token": offer.token}).encode()
     assert _post(offer.port, f"/pair/{offer.nonce}", body) == 200
@@ -160,8 +158,7 @@ def test_valid_payload_pairs_and_invokes_callback(pairing_server):
     assert paired == [
         PairingResult(
             name="MyPhone", ips=["192.168.1.55"], token=offer.token,
-            # Where the POST actually came from - the desktop streams back
-            # to this address rather than guessing from the reported list.
+            # Source IP of actual POST; desktop streams back to this instead of guessing.
             source_ip="127.0.0.1",
         ),
     ]

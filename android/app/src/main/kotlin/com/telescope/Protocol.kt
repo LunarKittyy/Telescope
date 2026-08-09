@@ -2,14 +2,7 @@ package com.telescope
 
 import kotlinx.serialization.Serializable
 
-/**
- * Typed shapes for the v1 phone HTTP API, encoded/decoded through
- * kotlinx.serialization rather than hand-built JSON strings. Field names
- * mirror the wire format exactly (snake_case for the historically
- * snake_case top-level state fields, camelCase for camera capability
- * fields) so the desktop client, which is untouched here, keeps working
- * unchanged.
- */
+// v1 phone HTTP API serialization types with wire-format field names (unchanged field names for desktop compatibility).
 
 @Serializable
 data class CameraSize(

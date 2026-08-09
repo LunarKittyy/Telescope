@@ -67,9 +67,7 @@ def test_dialog_preset_visibility_and_apply_callback(qapp):
 
 @pytest.fixture
 def linux_dialog(monkeypatch, qapp):
-    # These widgets/handlers only exist on the IS_LINUX branch of _build_ui,
-    # so force it regardless of the OS actually running the test (CI also
-    # runs this suite on Windows).
+    # Force IS_LINUX to test Linux widgets on any OS (CI runs on Windows too).
     monkeypatch.setattr(setup_mod, "IS_LINUX", True)
     monkeypatch.setattr(setup_mod, "IS_WINDOWS", False)
     return SetupDialog()
@@ -384,8 +382,7 @@ def test_setup_contributes_menu_actions_instead_of_a_panel(monkeypatch, qapp):
     plugin = SetupPlugin()
     plugin.setup(host, EventBus())
 
-    # Setup is entry points into dialogs, so it takes a menu slot rather than
-    # a rail slot.
+    # Setup takes menu slot (entry points to dialogs), not rail slot.
     assert plugin.create_panel() is None
 
     actions = plugin.create_menu_actions()

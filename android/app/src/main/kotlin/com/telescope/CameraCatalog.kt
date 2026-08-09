@@ -7,10 +7,7 @@ import android.os.Build
 import android.util.Size
 import kotlin.math.sqrt
 
-/**
- * logicalId: if non-null, this camera is a physical sub-camera of the given logical camera ID.
- * We must open logicalId and route the surface via OutputConfiguration.setPhysicalCameraId(id).
- */
+// logicalId: if non-null, open logicalId and route surface via OutputConfiguration.setPhysicalCameraId(id).
 data class CameraInfo(
     val id: String,
     val logicalId: String?,

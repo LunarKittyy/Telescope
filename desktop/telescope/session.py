@@ -8,15 +8,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class StreamSession:
-    """Owns the worker/client for one connect-to-disconnect stream lifecycle.
-
-    Its `id` is threaded through async completions (phone-state fetches) so
-    a result that arrives after the session has moved on (device switch,
-    stop) can be recognized as stale and discarded instead of silently
-    reaching plugins for the wrong device. Frozen: a device switch or stop
-    always creates a fresh session (or clears it to None) rather than
-    mutating this one in place.
-    """
+    """Owns worker/client for one stream lifecycle; id discards stale async results."""
 
     id: int
     url: str

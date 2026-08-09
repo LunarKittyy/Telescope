@@ -1,14 +1,4 @@
-"""Client for the phone's session port (8766).
-
-Separate from :mod:`telescope.phone_client`, which talks to the streaming
-server on 8080 and therefore only exists while a stream is already running.
-This one reaches the phone's ``SessionServer``, which stays bound while the
-phone app is on screen *or* its camera service is live - the two states from
-which the desktop needs to ask "are we still paired?" and "start the camera".
-
-Qt-free, like :mod:`telescope.pairing` and :mod:`telescope.ip_utils`, so it can
-be exercised without a ``QApplication``.
-"""
+"""Client for phone's session port (8766), always reachable unlike streaming server."""
 
 import json
 import logging
@@ -21,29 +11,14 @@ logger = logging.getLogger(__name__)
 
 PING_PORT = 8766
 
-#: Ping/probe budget. Matches the timeout the pair-status probe has always
-#: used; long enough for a phone on a slow Wi-Fi link, short enough that a
-#: 3s poll can't pile up.
-REQUEST_TIMEOUT = 3
-
-#: How long to wait for the phone's camera to actually come up after a start
-#: is accepted. Opening a camera and configuring a capture session takes a
-#: couple of seconds on most phones, and rather more on a cold app.
-START_TIMEOUT = 12
-
-#: Gap between "is it streaming yet?" polls while waiting out START_TIMEOUT.
-START_POLL_INTERVAL = 0.5
+REQUEST_TIMEOUT = 3  # Ping timeout; long enough for slow Wi-Fi, short enough for polling.
+START_TIMEOUT = 12   # Wait for camera to come up after accepting start.
+START_POLL_INTERVAL = 0.5  # Poll interval while waiting for camera startup.
 
 
 @dataclass(frozen=True)
 class PingResult:
-    """Outcome of ``GET /v1/ping``.
-
-    ``status`` keeps the exact vocabulary the connection panel has always
-    displayed: ``paired`` / ``not_paired`` / ``unreachable``. The rest is the
-    phone's reported state, absent (``None``) when talking to an app old
-    enough to answer ping with a bare body.
-    """
+    """Outcome of GET /v1/ping; status: paired/not_paired/unreachable."""
 
     status: str
     streaming: Optional[bool] = None
@@ -56,19 +31,13 @@ class PingResult:
 
     @property
     def knows_session(self) -> bool:
-        """True when the phone reported a state, i.e. it is new enough to
-        support remote start."""
+        """True when phone reported state (new enough to support remote start)."""
         return self.streaming is not None
 
 
 @dataclass(frozen=True)
 class SessionResult:
-    """Outcome of ``POST /v1/session``.
-
-    ``unsupported`` is its own outcome rather than an error: an app predating
-    this endpoint 404s, and the desktop's answer to that is to fall back to
-    connecting to a stream the user started by hand, not to complain.
-    """
+    """Outcome of POST /v1/session; unsupported (404) triggers fallback to manual start."""
 
     ok: bool
     error: Optional[str] = None
@@ -76,12 +45,7 @@ class SessionResult:
 
 
 class PhoneSessionClient:
-    """Speaks the two session-port routes against one already-resolved base URL.
-
-    The caller resolves the base (a device IP over Wi-Fi, ``localhost`` behind
-    an ``adb forward`` over USB) and owns the lifetime of any tunnel it sits
-    on; see ``ConnectionPlugin.session_channel``.
-    """
+    """Talks to resolved base URL (device IP or localhost via adb forward)."""
 
     def __init__(self, base_url: str, token: str):
         self.base = base_url.rstrip("/")
@@ -94,11 +58,7 @@ class PhoneSessionClient:
         return headers
 
     def ping(self) -> PingResult:
-        """Ask whether this token is still the paired one, and what the phone
-        is doing. Status-code mapping is unchanged from the probe this
-        replaces: 200 is paired, 401 means the phone has since paired with
-        someone else (or been reset), anything else is a reachability
-        problem."""
+        """Check if token is still paired and phone status (200=paired, 401=unpaired, other=unreachable)."""
         req = urllib.request.Request(f"{self.base}/v1/ping", headers=self._headers())
         try:
             with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as r:
@@ -112,9 +72,7 @@ class PhoneSessionClient:
 
     @staticmethod
     def _parse_ping_body(raw: bytes) -> PingResult:
-        # An older app answers 200 with the bare string "OK". That is still a
-        # valid "yes, paired" - it just can't tell us anything more, and the
-        # caller falls back to connect-only behaviour.
+        # Older apps respond with bare "OK"; still means paired but no state details.
         try:
             body = json.loads(raw.decode())
             if not isinstance(body, dict):

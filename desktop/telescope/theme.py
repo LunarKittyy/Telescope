@@ -1,15 +1,4 @@
-"""Telescope's visual theme.
-
-Everything the app looks like lives here: the palette tokens, the QSS that
-consumes them, and `apply_theme()` which installs both onto a QApplication.
-
-Telescope used to sit on top of qt-material's `dark_blue.xml` and then
-override most of it from a second stylesheet. That left the real appearance
-split across two sources, and every custom control meant fighting a theme
-we weren't otherwise using. This module is the whole thing instead: Fusion
-as a predictable base style, a dark QPalette so native-drawn chrome (menus,
-tooltips, message boxes) matches, and one stylesheet on top.
-"""
+"""Telescope's visual theme: palette tokens, QSS stylesheet, and theme application."""
 
 from PyQt6.QtGui import QColor, QPalette
 
@@ -59,8 +48,7 @@ FONT_STACK = (
 
 
 def _palette() -> QPalette:
-    """Dark QPalette so Qt-drawn chrome we don't fully style (native menus,
-    message-box icons, text selection) doesn't flash light-mode defaults."""
+    """Dark QPalette for native chrome (menus, message-box icons, text selection)."""
     p = QPalette()
     c = QColor
     p.setColor(QPalette.ColorRole.Window,          c(BG))
@@ -652,7 +640,7 @@ QScrollBar::add-page, QScrollBar::sub-page {{
 
 
 def apply_theme(app):
-    """Install Telescope's look onto a QApplication."""
+    """Install theme onto QApplication."""
     app.setStyle("Fusion")
     app.setPalette(_palette())
     app.setStyleSheet(QSS)

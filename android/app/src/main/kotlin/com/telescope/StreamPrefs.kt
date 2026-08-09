@@ -3,19 +3,7 @@ package com.telescope
 import android.content.Context
 import android.content.SharedPreferences
 
-/**
- * The stream settings that have to outlive [MainActivity]'s spinners.
- *
- * A desktop-initiated start (see [SessionServer]) can arrive while the
- * activity is gone, so it has no spinner selection to read. Rather than give
- * the remote path its own defaults that would silently diverge from what the
- * user last chose on the phone, [MainActivity.startStream] records the
- * selection here on every local start and both paths launch from the same
- * record.
- *
- * Shares the existing `telescope` preferences file, which already held
- * [KEY_LOCAL_ONLY].
- */
+// Persists stream settings so remote starts (via SessionServer) use the same defaults as local spinners.
 object StreamPrefs {
     private const val FILE = "telescope"
 
@@ -55,9 +43,7 @@ object StreamPrefs {
             .apply()
     }
 
-    /** Null until the user has started a stream at least once on this phone;
-     *  callers then fall back to [CameraStreamService]'s own extra defaults
-     *  rather than guessing a camera id here. */
+    // Null until first stream start; callers fall back to CameraStreamService defaults.
     fun lastSelection(context: Context): Selection? {
         val p = of(context)
         val cameraId = p.getString(KEY_CAMERA_ID, null) ?: return null

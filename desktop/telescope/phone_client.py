@@ -9,17 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class PhoneControlClient:
-    """Sends authenticated camera-control requests to the phone.
-
-    A single background worker thread sends queued requests in order, so a
-    burst of slider drags can never have an older request's response arrive
-    after a newer one (each call previously spawned its own daemon thread,
-    with no guarantee they'd complete in the order they were sent). Requests
-    that share the same ``action`` are coalesced to just the latest value
-    while they're still waiting to be sent; actions in ``_NON_COALESCING``
-    (currently just camera switches) are always sent individually and in
-    order instead.
-    """
+    """Sends authenticated camera-control requests via queued background worker; coalesces requests by action."""
 
     _NON_COALESCING = frozenset({"camera"})
 
@@ -58,13 +48,7 @@ class PhoneControlClient:
                     self._queue.put(action)
 
     def close(self):
-        """Stop accepting new requests and cancel any still waiting to be sent.
-
-        A device switch calls this to tear down the outgoing phone's client -
-        anything still queued (e.g. a slider drag still coalescing) must be
-        cancelled here, not sent, or it lands on the phone that's no longer
-        active.
-        """
+        """Stop accepting requests and cancel queued ones (device switch cleanup)."""
         if self._closed:
             return
         self._closed = True

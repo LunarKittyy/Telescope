@@ -4,19 +4,12 @@ from PyQt6.QtWidgets import QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidg
 
 from telescope.widgets.common import FlowLayout
 
-# Past this, a lens name is elided and the full text moves to the tooltip.
-# Phones report anything from "~15mm" to "Back Ultra Wide [phys] OIS", and one
-# long name must not be able to widen the whole rail.
+# Max label width before eliding; full text goes to tooltip.
 _MAX_LABEL_W = 122
 
 
 def shorten_lens_label(raw: str) -> str:
-    """Trim the boilerplate Android puts in camera names.
-
-    Every lens on a phone is a camera on the same phone, so "Back"/"[phys]"
-    carry no information once you're looking at a list of them; the focal
-    length and the front/back distinction do.
-    """
+    """Strip Android boilerplate ("Back", "[phys]") from camera names."""
     return (raw.replace(" [phys]", "")
                .replace("Back ", "")
                .replace("Front ", "F/")
@@ -41,6 +34,7 @@ class LensPanel(QWidget):
         self._ph.setObjectName("dim")
         outer.addWidget(self._ph)
 
+        # Placeholder is outside flow layout; flow layout wraps lens pill buttons.
         self._flow_host = QWidget()
         self._flow_host.setObjectName("lens_panel")
         self._layout = FlowLayout(self._flow_host, spacing=5, uniform=True)

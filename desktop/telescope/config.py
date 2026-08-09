@@ -16,8 +16,7 @@ DEVICE_LOCAL_PLUGINS = frozenset({"camera_control", "stream_output", "transforms
 
 
 def config_path() -> Path:
-    """Stable per-user config file location, independent of where the
-    executable/script happens to run from."""
+    """Stable per-user config file location (XDG_CONFIG_HOME or ~/.config)."""
     if sys.platform == "win32":
         base = os.environ.get("APPDATA") or str(Path.home())
         return Path(base) / _APP_NAME / _CONFIG_FILENAME
@@ -54,8 +53,7 @@ def load_config() -> dict:
 
 
 def save_config(cfg: dict) -> bool:
-    """Write *cfg* atomically. Returns True on success so the caller can
-    surface a persistence failure instead of silently losing settings."""
+    """Write cfg atomically; return True on success so failures can be surfaced."""
     path = config_path()
     cfg["version"] = CONFIG_VERSION
     try:
@@ -73,9 +71,7 @@ def save_config(cfg: dict) -> bool:
 
 
 def _backup_invalid_file(path: Path, original_text: str) -> None:
-    """Preserves a config file that's about to be discarded (unparseable,
-    wrong shape, or an unsupported older version) as a timestamped sibling,
-    so a save-over-with-defaults doesn't just lose whatever was there."""
+    """Preserve discarded config (unparseable, wrong shape, unsupported version) as timestamped backup."""
     timestamp = datetime.now().strftime("%Y%m%dT%H%M%S")
     backup_path = path.with_name(f"{path.name}.invalid-{timestamp}")
     try:
@@ -99,9 +95,7 @@ def _is_whole_config_valid(cfg) -> bool:
 
 
 def _valid_device_settings_entry(v) -> bool:
-    """Validates one entry of the top-level `devices` dict: per-device
-    settings (active IP + device-local plugin configs), not to be confused
-    with a connection-plugin device *roster* entry (name/ips/token)."""
+    """Validate per-device settings (active IP + plugin configs), distinct from roster entry."""
     if not isinstance(v, dict):
         return False
     active_ip = v.get("active_ip")
@@ -113,11 +107,7 @@ def _valid_device_settings_entry(v) -> bool:
 
 
 def _validate_sections(cfg: dict) -> dict:
-    """Validates each top-level section independently. A current-version
-    config no longer gets an all-or-nothing pass: a malformed section resets
-    to its default while the rest of the config (and any valid sections) is
-    retained, instead of the whole config being discarded over one bad
-    section."""
+    """Validate each section independently; bad sections reset to defaults, rest retained."""
     result = dict(cfg)
 
     if not isinstance(result.get("plugin_configs"), dict):
@@ -145,11 +135,7 @@ def _validate_sections(cfg: dict) -> dict:
 
 
 def _migrate(cfg: dict) -> dict:
-    """No compatibility path for configs older than CONFIG_VERSION: this is a
-    single-user, manually-updated app, so an out-of-date config is just
-    discarded in favor of a fresh one rather than carrying per-version
-    migration code. A current-version config has its sections validated
-    independently instead - see _validate_sections."""
+    """No per-version migration: old configs discarded for fresh ones (single-user app)."""
     if not _is_whole_config_valid(cfg):
         return _empty()
     return _validate_sections(cfg)

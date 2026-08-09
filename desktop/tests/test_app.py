@@ -816,9 +816,7 @@ def test_fetch_state_exits_if_session_is_removed(window, monkeypatch):
 
 
 def test_fetch_state_discards_result_from_a_superseded_session(window, monkeypatch):
-    """Simulates the switch-device race: phone A's fetch was already in
-    flight when the session moved on to phone B - its eventual result must
-    never reach plugins."""
+    """Fetch result from superseded device session must not reach plugins."""
     ctrl = SimpleNamespace(get_state=lambda: {**_VALID_STATE, "battery": 10})
     window._session = StreamSession(id=1, url="phoneA", client=ctrl, worker=object())
     emitted = []
@@ -936,9 +934,7 @@ def test_reconnecting_animation_stops_when_another_status_arrives(window):
 
 
 def test_resolution_pending_shows_warn_color_until_confirmed(window):
-    """A resolution change closes and reopens the phone's camera, so it
-    doesn't take effect instantly - the live readout shows pending (amber)
-    rather than silently sitting on the old value until it's confirmed."""
+    """Pending resolution shows as warn (amber) until confirmed."""
     window._on_resolution_pending(1280, 720)
     assert f"color: {theme.WARN}" in window._fps_lbl.styleSheet()
     assert window._pending_resolution == (1280, 720)
@@ -986,9 +982,7 @@ def test_resolution_pending_cleared_on_idle_status(window):
 
 
 def test_resolution_pending_replaced_by_a_second_request(window):
-    """Picking a different resolution again before the first change is
-    confirmed retargets the pending check rather than stacking two timers
-    that could clear each other's state."""
+    """Second resolution request cancels first pending timer."""
     window._on_resolution_pending(1280, 720)
     first_timer = window._pending_resolution_timer
 
@@ -1075,8 +1069,7 @@ def test_close_event_stops_and_accepts_without_background_stream(window, monkeyp
 # ── Remote phone wake / symmetric stop ────────────────────────────────────────
 
 def _real_spawn_wake(monkeypatch):
-    """Undo the fixture's synchronous-wake stub, capturing what _start()
-    would have spawned so a test can fire the completion by hand."""
+    """Capture _start() spawn call for manual completion in tests."""
     spawned = []
     monkeypatch.setattr(
         app_module.TelescopeWindow, "_spawn_wake",

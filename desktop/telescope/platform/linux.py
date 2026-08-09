@@ -7,9 +7,7 @@ from telescope.platform import _run
 V4L2_PHONE_DEV = "/dev/video11"
 V4L2_OBS_DEV   = "/dev/video10"
 
-# Shared v4l2loopback module parameters. Both the runtime load/reload path
-# and the persistent on-disk config writer build their strings from this so
-# they can never drift apart.
+# v4l2loopback params used by runtime load and persistent config (single source of truth).
 V4L2_PARAMS = {
     "devices": "2",
     "video_nr": "10,11",
@@ -98,10 +96,7 @@ def v4l2_load() -> tuple:
 
 
 # ── Persistent config (opt-in) ───────────────────────────────────────────
-#
-# v4l2_load()/v4l2_reload() above only configure the module for the current
-# boot. These functions let the user additionally write that same config to
-# disk so it survives a reboot, without touching any other app's config.
+# v4l2_load()/v4l2_reload() configure for current boot only; these persist to disk.
 
 def v4l2_persist_status() -> dict:
     """Whether Telescope's own persistence files currently exist."""

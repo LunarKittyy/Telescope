@@ -11,9 +11,7 @@ import pytest
 
 @pytest.fixture
 def config_home(tmp_path, monkeypatch):
-    """Point telescope.config at an isolated XDG_CONFIG_HOME/APPDATA for the
-    duration of a test, and reload the module so its cached legacy-path
-    constant is rebuilt against the fake HOME too."""
+    """Isolate config paths and reload module to pick up fake HOME."""
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
     monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
     monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")

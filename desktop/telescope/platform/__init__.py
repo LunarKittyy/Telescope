@@ -22,7 +22,7 @@ def _run(cmd, timeout=10):
 def platform_tools_dir() -> Path:
     if getattr(sys, "frozen", False):
         return Path(sys.executable).parent / "platform-tools"
-    # __file__ is desktop/telescope/platform/__init__.py → go up 3 levels to desktop/
+    # __file__: desktop/telescope/platform/__init__.py, go up 3 levels to desktop/.
     return Path(__file__).parent.parent.parent / "platform-tools"
 
 

@@ -93,9 +93,7 @@ def test_close_cancels_queued_and_pending_requests(monkeypatch):
     sent = []
     monkeypatch.setattr(client, "_send_now", sent.append)
 
-    # A coalescing action (sits in _pending) and a non-coalescing one (sits
-    # directly in _queue) - both must be cancelled by close(), not merely
-    # drained-and-sent before the shutdown sentinel.
+    # Both coalescing and non-coalescing actions must be cancelled by close().
     client.send(action="iso", value=100)
     client.send(action="camera", id="cam0")
     client.close()

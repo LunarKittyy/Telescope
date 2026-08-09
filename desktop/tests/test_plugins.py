@@ -125,10 +125,7 @@ def test_stream_output_resolution_selection_sends_control(stream_output):
 
 
 def test_stream_output_camera_switch_carries_over_the_current_resolution(stream_output):
-    """A plain lens switch (switchCameraTo on the phone) reuses the existing
-    ImageReader unchanged - the live resolution doesn't actually change, so
-    the new lens's combo should keep showing the same size, not jump to its
-    largest option, as long as the new lens still supports it."""
+    """Lens switch preserves selected resolution if new lens supports it."""
     plugin, _host, _panel = stream_output
     plugin.on_phone_state({
         "cameras": [{"id": "0", "current": True, "supportedSizes": [
@@ -139,8 +136,7 @@ def test_stream_output_camera_switch_carries_over_the_current_resolution(stream_
     })
     plugin._res_combo.setCurrentText("1920 x 1080")
 
-    # A lens switch (camera_control.py) doesn't trigger a fresh /v1/state -
-    # it hands over the capability dict it already has cached.
+    # Lens switch reuses cached capability dict, no fresh /v1/state.
     plugin._on_camera_switched({"id": "1", "current": True, "supportedSizes": [
         {"width": 4032, "height": 3024},
         {"width": 1920, "height": 1080},
@@ -185,11 +181,7 @@ def test_stream_output_resolution_reset_on_stream_stop(stream_output):
 
 
 def test_stream_output_fps_hot_updates_worker_and_phone_together(stream_output):
-    """FPS is a single control now - playback and phone capture rate were
-    merged, since the vcam can't show motion the phone never captured and
-    capturing faster than it's played back just wastes bandwidth/battery.
-    One change should hot-update the local StreamWorker AND, if a stream is
-    live, push fps_target to the phone."""
+    """FPS change updates StreamWorker and pushes fps_target to phone if live."""
     plugin, host, _panel = stream_output
     host._worker = _Worker()
     ctrl = _Ctrl()
@@ -251,9 +243,7 @@ def test_stream_output_config_round_trip_and_invalid_resolution(stream_output):
 
 
 def test_stream_output_config_falls_back_to_legacy_phone_fps(stream_output):
-    """A config saved before playback/phone fps were merged only has
-    "phone_fps" (no "fps" yet under the new single-control shape) - it
-    should still apply rather than silently resetting to the default."""
+    """Legacy config with "phone_fps" key should apply, not reset to default."""
     plugin, _host, _panel = stream_output
     plugin.set_config({"phone_fps": 18})
     assert plugin._fps_spin.value() == 18
@@ -263,10 +253,7 @@ def test_stream_output_invalid_persisted_resolution_falls_back_to_first(stream_o
     plugin, _host, _panel = stream_output
     plugin.set_config({"resolution": "not a real size"})
 
-    # Live size doesn't match anything in the list either, so this exercises
-    # the final fallback: neither the persisted text nor the phone's
-    # reported live size resolve to an option, so it lands on the first
-    # (largest) one instead of leaving the combo on a stale/invalid entry.
+    # Falls back to first (largest) option when persisted and live sizes are invalid.
     plugin.on_phone_state({
         "cameras": [{"id": "0", "current": True, "supportedSizes": [
             {"width": 1920, "height": 1080},

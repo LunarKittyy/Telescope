@@ -69,8 +69,7 @@ def test_valid_ipv4(ip, valid):
 
 
 def _fake_adapters(monkeypatch, adapters):
-    """Stand in for ifaddr.get_adapters() with (nice_name, [(ip, is_IPv4)])
-    pairs, in the order a real enumeration would report them."""
+    """Mock ifaddr.get_adapters() with adapter name and IP list pairs."""
     fake = [
         SimpleNamespace(
             name=name,
@@ -821,13 +820,7 @@ def test_pair_status_resumes_polling_on_stream_stop(connection_plugin):
 
 
 def _stub_ping(monkeypatch, status, bases=None, **fields):
-    """Stand in for the phone's GET /v1/ping.
-
-    Replaces the old _probe_url stub: the probe now goes through
-    PhoneSessionClient, which the remote start/stop share, so stubbing it
-    here exercises the same resolution path (device IP vs adb-forwarded
-    localhost) that a real check takes.
-    """
+    """Stub phone's GET /v1/ping via PhoneSessionClient."""
     def ping(self):
         if bases is not None:
             bases.append(self.base)
@@ -837,11 +830,7 @@ def _stub_ping(monkeypatch, status, bases=None, **fields):
 
 
 def _arm_synchronous_pair_probe(monkeypatch):
-    # The fixture silences _spawn_pair_probe (see connection_plugin) so
-    # incidental checks from other tests can't leave a real background
-    # thread in flight. Tests of the probe itself put it back, but
-    # synchronous - same call, just on the calling thread instead of a
-    # spawned one - so results land immediately and deterministically.
+    # Undo fixture's _spawn_pair_probe silencing; run synchronously on calling thread.
     monkeypatch.setattr(
         ConnectionPlugin, "_spawn_pair_probe",
         lambda self, *a: self._probe_pair_status(*a),
@@ -991,12 +980,7 @@ def test_usb_only_session_gets_its_own_persisted_profile(window_with_plugins):
 
 
 def test_paired_device_survives_restart_while_in_usb_mode(window_with_plugins):
-    """A device paired over Wi-Fi, then left selected while the app is
-    switched to USB mode, must still resolve to the same roster device (and
-    its token) after a restart - the app-level persisted "selected device"
-    is the USB pseudo-key in that mode, not a roster name, so restoring the
-    roster selection from it directly used to silently fall back to
-    whichever device sorts first and had no token."""
+    """Wi-Fi device selected in USB mode resolves to correct token after restart."""
     from telescope.app import TelescopeWindow
     from telescope.plugins.camera_control import CameraControlPlugin
     from telescope.plugins.connection import ConnectionPlugin
@@ -1147,12 +1131,7 @@ def _wifi_device(plugin, token="tok-a", ip="10.0.0.1"):
 
 
 def _stub_session(monkeypatch, pings, start=None, stop=None):
-    """Drive PhoneSessionClient with a scripted sequence of ping results.
-
-    ensure_phone_streaming() polls until the phone reports a live stream, so
-    a test has to be able to say "not yet, not yet, now" rather than pin a
-    single answer.
-    """
+    """Mock PhoneSessionClient.ping() with a sequence of results."""
     calls = []
     remaining = list(pings)
 
@@ -1232,10 +1211,7 @@ def test_ensure_phone_streaming_gives_up_when_the_start_falls_back_to_idle(monke
 
 
 def test_ensure_phone_streaming_tolerates_a_transient_ping_blip(monkeypatch, connection_plugin):
-    """A single dropped/timed-out ping while the camera is opening must not
-    abort the whole start sequence - opening the camera and configuring a
-    capture session is heavy enough on the phone's side that it can briefly
-    starve its own HTTP server, and the very next poll routinely succeeds."""
+    """Transient ping timeout during camera open doesn't abort start sequence."""
     plugin, _host, _panel = connection_plugin
     _wifi_device(plugin)
     calls = _stub_session(monkeypatch, [
@@ -1266,9 +1242,7 @@ def test_ensure_phone_streaming_gives_up_after_sustained_unreachable(monkeypatch
 
 
 def test_ensure_phone_streaming_treats_a_stale_token_mid_start_as_fatal(monkeypatch, connection_plugin):
-    """Unlike a transient network blip, a 401 mid-poll is a real state change
-    (re-paired elsewhere / token revoked) - it should not wait out the streak
-    tolerance before giving up."""
+    """401 mid-poll (re-paired/revoked token) is fatal, don't wait for tolerance."""
     plugin, _host, _panel = connection_plugin
     _wifi_device(plugin)
     calls = _stub_session(monkeypatch, [
@@ -1284,10 +1258,7 @@ def test_ensure_phone_streaming_treats_a_stale_token_mid_start_as_fatal(monkeypa
 
 
 def test_ensure_phone_streaming_reports_progress_while_waiting(monkeypatch, connection_plugin):
-    """The wait can legitimately take several seconds (camera open/session
-    configure, or a HAL still releasing a just-stopped session), and with
-    nothing else visible changing that reads as a frozen button - on_progress
-    is what lets the caller show it's still actively working."""
+    """Verify on_progress callback signals caller that app is still working."""
     plugin, _host, _panel = connection_plugin
     _wifi_device(plugin)
     _stub_session(monkeypatch, [

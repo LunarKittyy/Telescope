@@ -6,9 +6,7 @@ from pathlib import Path
 
 from telescope.platform import _run
 
-# Pinned to a specific commit (not the mutable master branch) and verified by
-# hash below, so a compromised or rewritten upstream branch can't silently
-# swap in a different binary before it's registered with admin rights.
+# Pinned commit with hash verification to prevent tampering before registration.
 _UNITYCAPTURE_COMMIT = "3ed54c325e0ad71afcf4f246c07e5e17b3d7f2d2"
 UNITYCAPTURE_URL_BASE = f"https://raw.githubusercontent.com/schellingb/UnityCapture/{_UNITYCAPTURE_COMMIT}/Install"
 

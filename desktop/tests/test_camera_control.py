@@ -309,8 +309,7 @@ def test_capability_line_elides_instead_of_widening_its_column(camera_plugin, qa
         "supportsManualWB": True, "supportsManualFocus": True, "hasOis": True,
     })
 
-    # An explicit minimum of 1 is what stops the full text from pinning the
-    # column's width open.
+    # Minimum width 1 prevents full text from pinning column open.
     assert plugin._cam_info_lbl.minimumWidth() == 1
 
     host = QWidget()

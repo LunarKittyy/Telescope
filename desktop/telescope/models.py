@@ -1,24 +1,15 @@
-"""Typed contracts at desktop boundaries: decoding untrusted phone JSON and
-config-sourced device dicts into validated values, instead of passing raw
-dicts around indefinitely. Introduced incrementally - plugins that still
-consume the raw dict shape keep doing so (see PhoneState.raw) rather than
-being rewritten wholesale in the same pass.
-"""
+"""Typed contracts for desktop boundaries: validated phone state and device dicts."""
 
 from dataclasses import dataclass, field
 from typing import Optional
 
 
 class PhoneStateError(ValueError):
-    """Raised when a non-empty /v1/state payload doesn't match the expected
-    shape - a protocol mismatch worth surfacing, distinct from the phone
-    simply having no data yet (see PhoneState.empty())."""
+    """Raised on /v1/state payload shape mismatch (protocol error, not just missing data)."""
 
 
 def _require(raw: dict, key: str, types: tuple, what: str):
-    """Type-checks raw[key] against types, treating bool as distinct from
-    int even though bool is technically an int subclass (so a stray True/
-    False can't silently pass as an ISO value, for example)."""
+    """Type-check raw[key]; bool is distinct from int (prevent True/False as int)."""
     if key not in raw:
         raise PhoneStateError(f"{what}: missing '{key}'")
     value = raw[key]
@@ -118,9 +109,7 @@ class CameraCapabilities:
 
 @dataclass(frozen=True)
 class PhoneState:
-    """Decoded /v1/state response. `raw` is kept so plugins that still take
-    a dict (on_phone_state(state: dict)) keep working unchanged - only the
-    validation gate in front of them is new."""
+    """Decoded /v1/state response; raw dict kept for backward-compat with dict-consuming plugins."""
 
     cameras: tuple = field(default_factory=tuple)
     auto: bool = True
@@ -150,11 +139,7 @@ class PhoneState:
 
     @classmethod
     def from_dict(cls, raw: dict) -> "PhoneState":
-        """Decodes a /v1/state response. An empty dict (the phone-client's
-        "gave up after retries" sentinel) is a legitimate "no data yet"
-        state, not an error. Anything else must match the full shape, or a
-        PhoneStateError is raised so the caller can treat it as a visible
-        protocol error instead of partially applying it."""
+        """Decode /v1/state response; empty dict means no data (not error); shape mismatches raise PhoneStateError."""
         if not raw:
             return cls.empty()
         if not isinstance(raw, dict):
@@ -195,9 +180,7 @@ class StreamSettings:
 
 @dataclass(frozen=True)
 class DeviceProfile:
-    """A paired phone: name, its known IPs, and the bearer token issued the
-    last time it was QR-paired (None if it was only ever added manually via
-    the gear-icon dialog and has never actually been paired)."""
+    """Paired phone: name, known IPs, and QR-pairing bearer token (None if manually added only)."""
 
     name: str
     ips: tuple = field(default_factory=tuple)
