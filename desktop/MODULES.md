@@ -33,6 +33,9 @@ Calls `win.apply_saved_config()` **after** all plugins are registered so every p
 - `switch_device(prev, new)` - saves `prev` device's per-device configs, restores `new` device's; called by `ConnectionPlugin._on_device_changed()`.
 - `is_streaming()` / `stop_stream()` / `update_stream_output(width, height, fps)` - public stream controls; `stop_stream()` is a guarded no-op when idle, and `update_stream_output()` forwards only the values a caller passes (`None` width/height means pass-through).
 - `_plugin(name)` - central typed lookup of a registered plugin by name (replaces scattered inline `next(p for p ...)` scans).
+- Footer "LIVE THROUGHPUT" (Mbps) readout, colored amber on sustained real decode-rate struggle; live FPS/resolution readout reflects the frame's actual current shape rather than the frozen stream-start size.
+- Pending-resolution tracking: `_on_resolution_pending()` (via `bus.resolution_change_requested`) marks a resolution change as in flight and starts an 8s timeout; the readout goes amber until the fps readout reports the matching size (`_clear_pending_resolution()`) or times out to an error color.
+- `_start_reconnecting_animation()` / `_tick_reconnecting_animation()` - animates the "Stream dropped - reconnecting" footer status (yellow, cycling "." → ".." → "..." once a second) instead of a static line.
 - `_apply_config(cfg)` - routes global plugin slices to `p.set_config()`, per-device slices for the selected device, then calls `conn.select_device()` to set the active device in the combo.
 - Utility exports: `acquire_single_instance()`, `listen_for_raise()`.
 
@@ -173,12 +176,13 @@ UnityCapture helpers: `uc_is_registered()`, `unitycapture_dir()`, `download_unit
 - Config keys: `exp_manual`, `iso`, `shutter_ns`, `ois`, `focus_manual`, `focus_diopters`, `wb_manual`, `wb_kelvin`, `wb_tint`, `ae_comp`, `nr_mode`, `edge_mode`, `bll`.
 
 ### `plugins/stream_output.py`
-**StreamOutputPlugin** - output resolution, frame rate, and encoding settings.
-- UI: resolution combo (pass-through / 1080p / 720p / 480p / 360p), playback FPS spinbox, JPEG quality slider, phone FPS spinbox.
-- `get_stream_params()` → `(width, height, fps)` - called by `app.py._start()` to construct `StreamWorker`.
+**StreamOutputPlugin** - capture resolution, frame rate, and encoding settings.
+- UI: resolution combo populated from the current lens's `supportedSizes` (not a fixed list) - picking one sends a live `resolution` control to the phone instead of resizing after decode. One FPS spinbox (5-60) drives both phone capture rate and virtual camera playback rate. JPEG quality slider.
+- `_apply_camera()` rebuilds the resolution combo on an actual lens change, carrying the current selection over on a lens switch (matching `switchCameraTo()`'s behavior of reusing the existing capture size) rather than resetting to the largest size; reflects the live stream size on reconnect if it differs from the combo's current value.
+- `get_stream_params()` → `(width, height, fps)` - width/height are always `None` (resolution is phone-controlled, not desktop-resized); called by `app.py._start()` to construct `StreamWorker`.
 - `on_stream_start`: stores ctrl, schedules `_push_initial_settings` via `QTimer.singleShot(1500)` to sync quality/fps to the phone after connect.
-- Resolution and FPS changes go through the public `host.update_stream_output()` for hot-swap without stream restart.
-- Config keys: `resolution`, `fps`, `jpeg_quality`, `phone_fps`.
+- `_on_resolution()` sends the `resolution` control and emits `bus.resolution_change_requested`, which `app.py` uses to drive the pending/confirmed resolution readout in the footer. `_on_fps()` sends `fps_target` to the phone and calls the public `host.update_stream_output(fps=...)` for the virtual camera's hot-swap, no stream restart.
+- Config keys: `resolution`, `fps` (falls back to reading legacy `phone_fps` if `fps` is absent), `jpeg_quality`.
 
 ### `plugins/preview.py`
 **PreviewPlugin** - the centre video stage and its pop-out. `panel_region = "center"`.

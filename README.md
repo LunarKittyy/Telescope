@@ -87,8 +87,6 @@ Everything past this point is optional - detailed feature reference, how it work
 - Horizontal and vertical flip
 - Rotation: 90 CW, 180, 90 CCW
 - Software zoom 1-5x with pan X/Y sliders (center crop + resize)
-- Output resolution downscale: pass-through, 1080p, 720p, 480p, 360p
-- Virtual camera FPS (1-120)
 
 **Canvas size control** (Advanced, in System Setup)
 - Set the virtual camera canvas independently of the phone feed resolution
@@ -96,13 +94,18 @@ Everything past this point is optional - detailed feature reference, how it work
 - On Linux: reloads v4l2loopback in a single elevated prompt (close OBS first); stream restarts automatically
 - On Windows: stops and restarts the stream with the new canvas size
 
+**Resolution and FPS**
+- Resolution dropdown is populated from the current lens's actual supported capture sizes (read from the phone), not a fixed list - picking one sends a live `resolution` control to the phone instead of resizing after decode
+- The readout goes amber while a resolution change is in flight and clears once the stream confirms the new size, or turns red if it never does
+- One FPS spinner (5-60) drives both the phone's capture rate and the virtual camera's playback rate - there's no separate "phone" and "playback" rate to keep in sync
+
 **Bandwidth controls**
 - JPEG quality slider (50-100%) - controls compression on the phone
-- Phone FPS target (5-60 fps) - controls capture rate on the phone
 - Both take effect immediately without restarting the stream
 
 **Monitoring**
-- Live FPS display in the footer while streaming
+- Live FPS and a "LIVE THROUGHPUT" Mbps readout in the footer while streaming, colored amber if the real decode rate is sustained-struggling against the target
+- A dropped stream shows an animated "Stream dropped - reconnecting..." status instead of a static line
 - Battery level and phone temperature polled every 15 seconds, shown in the Monitoring panel with color coding
 - Configurable battery alert threshold (default 20%) - fires a tray/desktop notification when discharging below it
 - Configurable temperature alert threshold (default 45 C) - fires a notification when exceeded
@@ -273,6 +276,8 @@ Runs a **foreground service** (declared type `camera`, required on Android 14+) 
 A separate HTTP responder (`SessionServer`, port 8766) runs independently of the streaming service. `GET /v1/ping` checks the request's bearer token against the currently stored pairing token, returning 200 or 401 plus a small JSON body saying whether the phone is streaming, mid-start, or bound local-only. `POST /v1/session` starts or stops the camera on the desktop's behalf, reproducing the camera and resolution last chosen on the phone (persisted by `StreamPrefs`, since the spinners may not exist when the request arrives).
 
 Its lifetime is refcounted by `SessionEndpoint` across two owners: `MainActivity` while it is started, and `CameraStreamService` while it is running. So the desktop can confirm pairing before any stream exists, start one, and stop or restart it later even if the phone's screen has since gone dark - but an app that is both backgrounded and idle is unreachable, and a remote start in that state is impossible by construction.
+
+`CameraStreamService` stops itself after 60 seconds with no authorized request from the desktop (a state poll, a control command, or a fresh `/v1/video` connection), so a crashed or disconnected desktop doesn't leave the camera running and draining the battery. The desktop already polls `/v1/state` every 15 seconds while streaming, well inside that margin. The watchdog is exempted while `PreviewActivity`'s local preview surface is attached, since that path never touches HTTP. The desktop can also drive the phone's capture resolution live (the `resolution` control), and `MainActivity` mirrors whatever camera/resolution/OIS selection is actually live into its own spinners while streaming, so they don't fall out of sync with a desktop-initiated change.
 
 The app enumerates **physical sub-cameras** of logical multi-camera groups via `CameraCharacteristics.physicalCameraIds` (API 28+). On many modern phones the logical back camera (ID `0`) hides individual wide/main/telephoto sensors behind it; this app surfaces all of them and lets you pick.
 
@@ -452,7 +457,11 @@ Server is on the phone at port 8080 for `/v1/video`, `/v1/state`, and `/v1/contr
       "aeCompMax": 8,
       "aeCompStep": 0.167,
       "supportsFlash": true,
-      "hwLevel": "FULL"
+      "hwLevel": "FULL",
+      "supportedSizes": [
+        { "width": 4032, "height": 3024 },
+        { "width": 1920, "height": 1080 }
+      ]
     }
   ],
   "auto": true,
@@ -473,13 +482,15 @@ Server is on the phone at port 8080 for `/v1/video`, `/v1/state`, and `/v1/contr
   "torch": false,
   "jpeg_quality": 85,
   "phone_fps": 30,
+  "stream_width": 1920,
+  "stream_height": 1080,
   "battery": 87,
   "charging": false,
   "battery_temp_c": 32.5
 }
 ```
 
-`minFocusDistance`, `aeCompMin`/`aeCompMax`/`aeCompStep` are per-lens, reported by Camera2 (`aeCompStep` is typically `0.167` = 1/6 EV). `wb_r`/`wb_ge`/`wb_go`/`wb_b` are the current RGGB channel gains when `wb_manual` is true, `null` otherwise.
+`minFocusDistance`, `aeCompMin`/`aeCompMax`/`aeCompStep` are per-lens, reported by Camera2 (`aeCompStep` is typically `0.167` = 1/6 EV). `wb_r`/`wb_ge`/`wb_go`/`wb_b` are the current RGGB channel gains when `wb_manual` is true, `null` otherwise. `supportedSizes` is the lens's actual list of capture sizes, which the desktop uses to populate its resolution dropdown instead of a fixed list. `stream_width`/`stream_height` are the current lens's live capture size.
 
 ### `POST /v1/control`
 
@@ -488,6 +499,7 @@ JSON body `{"action": "<action>", ...params}`.
 | `action` | extra params | effect |
 |---|---|---|
 | `camera` | `id=<id>` | Switch camera |
+| `resolution` | `width=<int> height=<int>` | Set the capture resolution to one of the lens's reported supported sizes |
 | `auto` | - | Restore auto exposure |
 | `iso` | `value=<int>` | Set ISO; switches AE to OFF (once shutter is also set) |
 | `shutter` | `value=<long ns>` | Set shutter in nanoseconds; switches AE to OFF (once ISO is also set) |
