@@ -8,7 +8,7 @@ _missing = []
 try:    from PyQt6.QtCore import Qt
 except ImportError: _missing.append("PyQt6")
 try:    import cv2
-except ImportError: _missing.append("opencv-python")
+except ImportError: _missing.append("opencv-python-headless")
 try:    import numpy as np
 except ImportError: _missing.append("numpy")
 try:    import pyvirtualcam
