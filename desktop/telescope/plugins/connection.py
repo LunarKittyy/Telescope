@@ -54,6 +54,13 @@ _PAIR_STATUS_POLL_MS = 3_000
 # named Wi-Fi devices get. Never shown in the device list/management UI.
 USB_PROFILE_KEY = "__usb__"
 
+# How many consecutive "unreachable" pings _await_streaming() tolerates
+# before giving up. Opening the camera and configuring a capture session is
+# heavy enough work on the phone's side that it can briefly starve its own
+# HTTP server for a poll or two - a single dropped/timed-out ping there is
+# common and not actually loss of contact.
+_UNREACHABLE_STREAK_LIMIT = 3
+
 
 # Re-exported under their historical private names: this module (panel/
 # dialog UI + QR-pairing HTTP server) is not where these pure functions
@@ -905,7 +912,7 @@ class ConnectionPlugin(TelescopePlugin):
         finally:
             adb_unforward(PING_PORT, serial=serial)
 
-    def ensure_phone_streaming(self) -> tuple[bool, str]:
+    def ensure_phone_streaming(self, on_progress=None) -> tuple[bool, str]:
         """Bring the phone's camera up if it isn't already, so the desktop's
         Start button is the only one anybody has to press.
 
@@ -914,6 +921,16 @@ class ConnectionPlugin(TelescopePlugin):
         the phone is already streaming, and - deliberately - when the phone is
         too old to know this endpoint, so an APK/desktop mismatch degrades to
         the previous connect-only behaviour instead of blocking the stream.
+
+        ``on_progress``, if given, is called with a short human-readable
+        status string as the wait progresses - opening the camera can
+        legitimately take several seconds (longer still if it's reopening
+        right after a stop: CameraDevice.close() is asynchronous on Android,
+        so the camera HAL can still be releasing the previous session), and
+        with nothing else visible changing in that window a static "Waking
+        phone camera..." reads as frozen rather than working. Called from
+        whatever thread this method runs on - the caller is responsible for
+        marshalling it back to the UI thread if needed.
 
         Blocking network work - call from a background thread only.
         """
@@ -943,16 +960,18 @@ class ConnectionPlugin(TelescopePlugin):
                 )
 
             if not ping.busy:
+                if on_progress:
+                    on_progress("Sending start request to phone...")
                 result = client.start()
                 if result.unsupported:
                     return True, ""
                 if not result.ok:
                     return False, self._start_refused_reason(result.error)
 
-            return self._await_streaming(client)
+            return self._await_streaming(client, on_progress)
 
     @staticmethod
-    def _await_streaming(client: PhoneSessionClient) -> tuple[bool, str]:
+    def _await_streaming(client: PhoneSessionClient, on_progress=None) -> tuple[bool, str]:
         """Poll until the phone reports a live stream. The service answers the
         start request as soon as it's accepted, well before the camera is open
         and the capture session configured, so connecting immediately would
@@ -964,14 +983,31 @@ class ConnectionPlugin(TelescopePlugin):
         idle before the service has run its first line.
         """
         deadline = time.monotonic() + START_TIMEOUT
+        wait_start = time.monotonic()
         started = False
+        unreachable_streak = 0
         while time.monotonic() < deadline:
             time.sleep(START_POLL_INTERVAL)
             ping = client.ping()
+            elapsed = time.monotonic() - wait_start
             if ping.streaming:
                 return True, ""
-            if ping.status != "paired":
+            if ping.status == "not_paired":
+                # A real state change (token revoked/re-paired elsewhere),
+                # not a network blip - no point tolerating this one.
                 return False, "Lost contact with the phone while its camera was starting."
+            if ping.status != "paired":
+                # "unreachable" covers a dropped connection, a timeout, or
+                # any other request failure - opening the camera is heavy
+                # enough on the phone that one poll landing in that window
+                # is common. Only bail once it's sustained.
+                unreachable_streak += 1
+                if unreachable_streak >= _UNREACHABLE_STREAK_LIMIT:
+                    return False, "Lost contact with the phone while its camera was starting."
+                if on_progress:
+                    on_progress(f"Phone went quiet for a moment, still waiting... ({elapsed:.0f}s)")
+                continue
+            unreachable_streak = 0
             if ping.busy:
                 started = True
             elif started:
@@ -979,6 +1015,9 @@ class ConnectionPlugin(TelescopePlugin):
                     "The phone's camera stopped before it finished starting.\n\n"
                     "Check the phone for a permission prompt or an error."
                 )
+            if on_progress:
+                phase = "Phone's camera is opening" if started else "Waiting for the phone's camera"
+                on_progress(f"{phase}... ({elapsed:.0f}s)")
         return False, (
             "The phone's camera did not finish starting in time.\n\n"
             "Try again, or start the stream on the phone directly."

@@ -1231,6 +1231,81 @@ def test_ensure_phone_streaming_gives_up_when_the_start_falls_back_to_idle(monke
     assert "stopped before it finished starting" in reason
 
 
+def test_ensure_phone_streaming_tolerates_a_transient_ping_blip(monkeypatch, connection_plugin):
+    """A single dropped/timed-out ping while the camera is opening must not
+    abort the whole start sequence - opening the camera and configuring a
+    capture session is heavy enough on the phone's side that it can briefly
+    starve its own HTTP server, and the very next poll routinely succeeds."""
+    plugin, _host, _panel = connection_plugin
+    _wifi_device(plugin)
+    calls = _stub_session(monkeypatch, [
+        PingResult("paired", streaming=False, busy=False, local_only=False),   # idle
+        PingResult("unreachable"),                                             # transient blip
+        PingResult("paired", streaming=False, busy=True, local_only=False),    # opening
+        PingResult("paired", streaming=True, busy=False, local_only=False),    # up
+    ])
+
+    assert plugin.ensure_phone_streaming() == (True, "")
+    assert calls == ["ping", "start", "ping", "ping", "ping"]
+
+
+def test_ensure_phone_streaming_gives_up_after_sustained_unreachable(monkeypatch, connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    _wifi_device(plugin)
+    _stub_session(monkeypatch, [
+        PingResult("paired", streaming=False, busy=False, local_only=False),
+        PingResult("unreachable"),
+        PingResult("unreachable"),
+        PingResult("unreachable"),
+    ])
+
+    ok, reason = plugin.ensure_phone_streaming()
+
+    assert ok is False
+    assert "Lost contact" in reason
+
+
+def test_ensure_phone_streaming_treats_a_stale_token_mid_start_as_fatal(monkeypatch, connection_plugin):
+    """Unlike a transient network blip, a 401 mid-poll is a real state change
+    (re-paired elsewhere / token revoked) - it should not wait out the streak
+    tolerance before giving up."""
+    plugin, _host, _panel = connection_plugin
+    _wifi_device(plugin)
+    calls = _stub_session(monkeypatch, [
+        PingResult("paired", streaming=False, busy=False, local_only=False),
+        PingResult("not_paired"),
+    ])
+
+    ok, reason = plugin.ensure_phone_streaming()
+
+    assert ok is False
+    assert "Lost contact" in reason
+    assert calls == ["ping", "start", "ping"]
+
+
+def test_ensure_phone_streaming_reports_progress_while_waiting(monkeypatch, connection_plugin):
+    """The wait can legitimately take several seconds (camera open/session
+    configure, or a HAL still releasing a just-stopped session), and with
+    nothing else visible changing that reads as a frozen button - on_progress
+    is what lets the caller show it's still actively working."""
+    plugin, _host, _panel = connection_plugin
+    _wifi_device(plugin)
+    _stub_session(monkeypatch, [
+        PingResult("paired", streaming=False, busy=False, local_only=False),  # pre-start ping
+        PingResult("paired", streaming=False, busy=False, local_only=False),  # poll: not started yet
+        PingResult("paired", streaming=False, busy=True,  local_only=False),  # poll: opening
+        PingResult("paired", streaming=True,  busy=False, local_only=False),  # poll: up
+    ])
+    messages = []
+
+    ok, reason = plugin.ensure_phone_streaming(on_progress=messages.append)
+
+    assert ok is True
+    assert messages[0] == "Sending start request to phone..."
+    assert any("Waiting for the phone's camera" in m for m in messages)
+    assert any("camera is opening" in m for m in messages)
+
+
 def test_ensure_phone_streaming_times_out_rather_than_hanging(monkeypatch, connection_plugin):
     plugin, _host, _panel = connection_plugin
     _wifi_device(plugin)
