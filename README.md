@@ -60,7 +60,7 @@ Open Telescope on your phone and leave it on screen. On the desktop app, click *
 Pick a camera and resolution on the phone, then hit **Start Streaming** on the desktop - it starts the phone's camera for you. In OBS (or anywhere else), select **Phone Camera** (Linux) or **Unity Video Capture** (Windows) as your webcam.
 
 > [!NOTE]
-> Use only on a trusted network, or enable **Local only - USB** in the Android app.
+> Use only on a trusted network, or enable **Local only - USB** in the Android app. See **Privacy** under Features for the full security model.
 
 Everything past this point is optional - detailed feature reference, how it works internally, and manual/advanced setup. Most people can stop here.
 
@@ -116,6 +116,8 @@ Everything past this point is optional - detailed feature reference, how it work
 - The config format is not migrated across versions: an unsupported or malformed config is backed up alongside the real one and replaced with defaults rather than carrying compatibility code for old formats. Each section (connection/plugin settings, per-device settings, selected device) is validated independently, so one malformed section resets to defaults without discarding the rest
 
 **Privacy**
+- Network authentication is meant to stop accidental or opportunistic access from other devices on the LAN, not an active attacker or network observer: traffic is unencrypted, and possession/interception of the bearer token is enough for access
+- For an actual security boundary, use **Local only - USB**, which keeps the camera service off the network entirely
 - Local only mode: binds the server to `127.0.0.1` so the stream is unreachable from the network; only USB works in this mode
 - Toggle in the Android app restarts the stream automatically to apply the change
 - Switching between USB and Wi-Fi mode on the desktop also restarts the stream automatically
