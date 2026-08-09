@@ -63,6 +63,11 @@ def _size_label(w: int, h: int) -> str:
 
 
 def _aspect_ratio(w: int, h: int) -> tuple:
+    """Exact reduction, snapped to a common ratio if within rounding distance (e.g. 854x480 -> 16:9)."""
+    ratio = w / h
+    for common in _COMMON_ASPECT_RATIOS:
+        if abs(ratio - common[0] / common[1]) < 0.02:
+            return common
     g = math.gcd(w, h)
     return (w // g, h // g)
 
@@ -199,11 +204,11 @@ class StreamOutputPlugin(TelescopePlugin):
 
             target_text = self._pending_resolution_text
             target_wh = self._find_by_label(target_text) if target_text else None
-            force_default = target_wh is None  # No saved preference for this camera - apply our own default.
+            if target_wh is None and live_w and live_h:  # Reflect known live state before inventing a default.
+                target_wh = (live_w, live_h)
+            force_default = target_wh is None  # No saved preference and no live state - apply our own default.
             if force_default:
                 target_wh = self._default_resolution()
-            if target_wh is None and live_w and live_h:
-                target_wh = (live_w, live_h)
             self._select_resolution(target_wh)
             if force_default:
                 final_wh = self._res_combo.currentData()  # Whatever _select_resolution actually landed on.
