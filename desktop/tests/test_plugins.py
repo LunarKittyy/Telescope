@@ -82,6 +82,7 @@ def test_stream_output_defaults_and_resolution_placeholder(stream_output):
 
 
 def test_stream_output_resolution_populates_from_phone_state(stream_output):
+    """A fresh device (no saved preference) gets our preferred default, not the phone's live guess."""
     plugin, _host, _panel = stream_output
     plugin.on_phone_state({
         "cameras": [{"id": "0", "current": True, "supportedSizes": [
@@ -93,12 +94,27 @@ def test_stream_output_resolution_populates_from_phone_state(stream_output):
     })
 
     assert plugin._res_combo.isEnabled()
-    assert plugin._res_combo.currentText() == "1280 x 720"
+    assert plugin._res_combo.currentText() == "1920 x 1080"
     assert [plugin._res_combo.itemText(i) for i in range(plugin._res_combo.count())] == [
         "1920 x 1080", "1280 x 720", "854 x 480",
     ]
     # Still pass-through - selecting size changes phone capture, nothing left for desktop to resize.
     assert plugin.get_stream_params() == (None, None, 30)
+
+
+def test_stream_output_saved_resolution_wins_over_default_and_live(stream_output):
+    """A device with a saved preference gets that preference, not our default or the phone's live guess."""
+    plugin, _host, _panel = stream_output
+    plugin.set_config({"resolution": "1280 x 720"})
+    plugin.on_phone_state({
+        "cameras": [{"id": "0", "current": True, "supportedSizes": [
+            {"width": 1920, "height": 1080},
+            {"width": 1280, "height": 720},
+        ]}],
+        "stream_width": 1920, "stream_height": 1080,
+    })
+
+    assert plugin._res_combo.currentText() == "1280 x 720"
 
 
 def test_stream_output_resolution_selection_sends_control(stream_output):
