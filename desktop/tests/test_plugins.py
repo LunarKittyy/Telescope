@@ -417,14 +417,11 @@ def test_monitoring_fetch_emits_only_valid_battery_state(monitoring):
     plugin, _host, _bus, _panel = monitoring
     seen = []
     plugin._sig.state_ready.connect(seen.append)
-    plugin._ctrl = _Ctrl({"battery": 80})
-    plugin._fetch()
+    plugin._fetch(_Ctrl({"battery": 80}))
     assert seen == [{"battery": 80}]
 
-    plugin._ctrl = _Ctrl({"cameras": []})
-    plugin._fetch()
-    plugin._ctrl = None
-    plugin._fetch()
+    plugin._fetch(_Ctrl({"cameras": []}))
+    plugin._fetch(_Ctrl(None))
     assert seen == [{"battery": 80}]
 
 
@@ -434,15 +431,15 @@ def test_monitoring_poll_starts_daemon_fetch_thread(monkeypatch, monitoring):
     started = []
 
     class FakeThread:
-        def __init__(self, target, daemon):
-            started.append((target, daemon))
+        def __init__(self, target, args, daemon):
+            started.append((target, args, daemon))
 
         def start(self):
             started.append("started")
 
     monkeypatch.setattr(threading, "Thread", FakeThread)
     plugin._poll()
-    assert started[0] == (plugin._fetch, True)
+    assert started[0] == (plugin._fetch, (plugin._ctrl,), True)
     assert started[1] == "started"
 
     plugin._ctrl = None
@@ -529,4 +526,4 @@ def test_setup_dialog_canvas_dimension_selection_and_result_messages(qapp):
     dialog.set_canvas_apply_result(False, "permission denied")
     assert dialog._canvas_status_lbl.text() == "Failed: permission denied"
     dialog.set_canvas_apply_result(True, "ok")
-    assert "successfully" in dialog._canvas_status_lbl.text()
+    assert "Done" in dialog._canvas_status_lbl.text()

@@ -108,12 +108,10 @@ class MonitoringPlugin(TelescopePlugin):
     def _poll(self):
         if not self._ctrl:
             return
-        threading.Thread(target=self._fetch, daemon=True).start()
+        threading.Thread(target=self._fetch, args=(self._ctrl,), daemon=True).start()
 
-    def _fetch(self):
-        if not self._ctrl:
-            return
-        state = self._ctrl.get_state()
+    def _fetch(self, ctrl):
+        state = ctrl.get_state()
         if state and "battery" in state:
             self._sig.state_ready.emit(state)
 

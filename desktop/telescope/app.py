@@ -667,13 +667,13 @@ class TelescopeWindow(QMainWindow):
             def worker():
                 if old_worker:
                     old_worker.wait(5000)
-                self._sig_canvas_reload_done.emit(True, "canvas updated", was_streaming)
+                self._sig_canvas_reload_done.emit(True, "", was_streaming)
 
             threading.Thread(target=worker, daemon=True).start()
 
     def _on_canvas_reload_done(self, ok: bool, msg: str, restart_stream: bool):
         if ok:
-            self._set_status(f"Loopback reloaded: {msg}", "ok")
+            self._set_status(f"Loopback reloaded: {msg}" if IS_LINUX else "Canvas updated", "ok")
             if restart_stream:
                 self._start()
         else:
@@ -686,9 +686,10 @@ class TelescopeWindow(QMainWindow):
     def _fetch_state_async(self, session_id: int):
         time.sleep(1.5)
         for _ in range(3):
-            if self._session is None or self._session.id != session_id or not self._ctrl:
+            session = self._session  # one read: _stop() can clear it between checks on the GUI thread
+            if session is None or session.id != session_id:
                 return
-            state = self._ctrl.get_state()
+            state = session.client.get_state()
             if state:
                 self._sig_state.emit(session_id, state)
                 return
@@ -756,10 +757,10 @@ class TelescopeWindow(QMainWindow):
             else:
                 self._tray_show()
 
-    def send_notification(self, title: str, body: str):
+    def send_notification(self, title: str, body: str, urgent: bool = True):
         if IS_LINUX and shutil.which("notify-send"):
             subprocess.Popen(
-                ["notify-send", "-a", "Telescope", "-u", "critical", title, body],
+                ["notify-send", "-a", "Telescope", "-u", "critical" if urgent else "normal", title, body],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
         elif self._tray:
@@ -866,6 +867,7 @@ class TelescopeWindow(QMainWindow):
                 self.send_notification(
                     "Telescope is still running",
                     "Streaming continues in the background. Right-click the tray icon to quit.",
+                    urgent=False,
                 )
         else:
             self._stop()

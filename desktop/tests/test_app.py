@@ -751,7 +751,7 @@ def test_restart_canvas_non_linux_waits_and_restarts_active_stream(window, monke
     done = []
     window.restart_vcam_canvas(1920, 1080, on_done=lambda *args: done.append(args))
     assert events == ["stop", ("wait", 5000), "start"]
-    assert done == [(True, "canvas updated")]
+    assert done == [(True, "")]
 
 
 def test_canvas_reload_failure_reports_error_and_clears_callback(window, monkeypatch):
@@ -1045,12 +1045,13 @@ def test_close_event_minimizes_active_stream_to_tray(window, monkeypatch):
     window._session = StreamSession(id=1, url="url", client=object(), worker=object())
     notifications = []
     monkeypatch.setattr(window, "hide", lambda: None)
-    monkeypatch.setattr(window, "send_notification", lambda *args: notifications.append(args))
+    monkeypatch.setattr(window, "send_notification", lambda *args, **kw: notifications.append((args, kw)))
 
     event = SimpleNamespace(ignore=lambda: setattr(event, "ignored", True))
     window.closeEvent(event)
     assert event.ignored is True
     assert len(notifications) == 1
+    assert notifications[0][1] == {"urgent": False}  # informational, shouldn't pin itself on screen
     window.closeEvent(event)
     assert len(notifications) == 1
 

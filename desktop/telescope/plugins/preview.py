@@ -67,11 +67,13 @@ class _PopoutWindow(QWidget):
 
 class _HostFilter(QObject):
     """Event filter installed on the main window to detect hide/show."""
-    hidden = pyqtSignal()
+    visibility_changed = pyqtSignal(bool)
 
     def eventFilter(self, obj, event):
         if event.type() == QEvent.Type.Hide:
-            self.hidden.emit()
+            self.visibility_changed.emit(False)
+        elif event.type() == QEvent.Type.Show:
+            self.visibility_changed.emit(True)
         return False
 
 
@@ -90,11 +92,13 @@ class PreviewPlugin(TelescopePlugin):
         # Flag; process_frame() runs on stream thread and must never touch self._popout (not thread-safe).
         self._popout_active = False
         self._busy   = False
+        # Skip decoding for the card while the window is in the tray, without flipping the user's Hide/Show choice.
+        self._host_visible = True
         self._sig    = _Sig()
         self._sig.frame.connect(self._on_frame)
 
         self._host_filter = _HostFilter()
-        self._host_filter.hidden.connect(self._on_host_hidden)
+        self._host_filter.visibility_changed.connect(self._on_host_visibility)
         host.installEventFilter(self._host_filter)
 
     def create_panel(self) -> QWidget:
@@ -184,15 +188,15 @@ class PreviewPlugin(TelescopePlugin):
         self._popout_active = False
         self._toggle_btn.setEnabled(True)
 
-    def _on_host_hidden(self):
-        if self._active:
-            self._toggle()
+    def _on_host_visibility(self, visible: bool):
+        self._host_visible = visible
 
     # ── Worker thread ─────────────────────────────────────────────────────────
 
     def process_frame(self, frame: np.ndarray) -> np.ndarray:
         popout_open = self._popout_active
-        if not (self._active or popout_open) or self._busy:
+        card_wanted = self._active and self._host_visible
+        if not (card_wanted or popout_open) or self._busy:
             return frame
         self._busy = True
         h, w = frame.shape[:2]

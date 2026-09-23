@@ -690,7 +690,7 @@ class ConnectionPlugin(TelescopePlugin):
             QMessageBox.critical(
                 self._host, "Not paired",
                 "This device hasn't been paired yet.\n\n"
-                "Click Pair Device next to the device selector and follow the "
+                "Click Pair Device in the Connection panel and follow the "
                 "Wi-Fi or USB pairing steps."
             )
             return None, None, False

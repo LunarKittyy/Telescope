@@ -28,8 +28,8 @@ class HostServices(Protocol):
         """Restart the stream, if one is active, to pick up new settings."""
         ...
 
-    def send_notification(self, title: str, body: str) -> None:
-        """Show a desktop/tray notification."""
+    def send_notification(self, title: str, body: str, urgent: bool = True) -> None:
+        """Show a desktop/tray notification; urgent ones stay on screen until dismissed (Linux)."""
         ...
 
     def is_streaming(self) -> bool:
@@ -76,9 +76,6 @@ class TelescopePlugin:
 
 
 class EventBus(QObject):
-    frame_ready            = pyqtSignal(object)
-    stream_start_requested = pyqtSignal(str)
-    stream_stop_requested  = pyqtSignal()
     stream_started         = pyqtSignal(str)
     stream_stopped         = pyqtSignal()
     stream_connected       = pyqtSignal()

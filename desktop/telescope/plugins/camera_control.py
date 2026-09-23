@@ -135,7 +135,6 @@ class CameraControlPlugin(TelescopePlugin):
         self._focus_max_diopters: float = 10.0
         self._ae_comp_step: float = 0.167
         self._torch_on: bool = False
-        bus.phone_state_updated.connect(self._on_phone_state_from_bus)
 
     def create_panel(self) -> QWidget:
         card = create_card()
@@ -457,10 +456,6 @@ class CameraControlPlugin(TelescopePlugin):
         self._torch_btn.setText("On" if view.torch else "Off")
         self._torch_on = view.torch
         self._torch_btn.blockSignals(False)
-
-    def _on_phone_state_from_bus(self, state: dict):
-        # Phone state arrives on bus but this handler delegates to app.py's on_phone_state().
-        pass
 
     # ── Camera capability gating ──────────────────────────────────────────────
 

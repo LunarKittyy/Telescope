@@ -23,15 +23,14 @@ def _plugin(qapp):
     return plugin, host, panel
 
 
-def test_host_filter_emits_on_hide_only(qapp):
+def test_host_filter_reports_hide_and_show(qapp):
     filt = _HostFilter()
     seen = []
-    filt.hidden.connect(lambda: seen.append(True))
+    filt.visibility_changed.connect(seen.append)
 
-    assert filt.eventFilter(None, QEvent(QEvent.Type.Show)) is False
-    assert seen == []
     assert filt.eventFilter(None, QEvent(QEvent.Type.Hide)) is False
-    assert seen == [True]
+    assert filt.eventFilter(None, QEvent(QEvent.Type.Show)) is False
+    assert seen == [False, True]
 
 
 def test_preview_starts_active_and_toggles_off_and_back_on(qapp):
@@ -148,11 +147,22 @@ def test_second_popout_request_reuses_visible_window(qapp, monkeypatch):
     existing.close()
 
 
-def test_host_hide_closes_embedded_preview(qapp):
+def test_host_hide_pauses_the_card_without_turning_it_off(qapp):
+    # Hiding to the tray used to flip the preview to "hidden" for good.
     plugin, _host, _panel = _plugin(qapp)
-    plugin._toggle()
-    plugin._on_host_hidden()
-    assert plugin._active is False
+    assert plugin._active is True
+    sent = []
+    plugin._sig.frame.connect(sent.append)
+    frame = np.zeros((4, 4, 3), dtype=np.uint8)
+
+    plugin._on_host_visibility(False)
+    plugin.process_frame(frame)
+    assert sent == []
+    assert plugin._active is True
+
+    plugin._on_host_visibility(True)
+    plugin.process_frame(frame)
+    assert len(sent) == 1
 
 
 def test_on_frame_updates_card_pixmap_and_clears_busy(qapp):

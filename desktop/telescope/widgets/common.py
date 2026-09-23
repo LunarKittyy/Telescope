@@ -257,17 +257,6 @@ def control_row_widget(label: str, widget, label_width: int = FORM_LABEL_WIDTH,
     return container
 
 
-def add_form_row(layout: QVBoxLayout, text: str, control: QWidget,
-                 label_width: int = FORM_LABEL_WIDTH):
-    """Add a consistently aligned label/control row to a card."""
-    row = QHBoxLayout()
-    row.setContentsMargins(0, 0, 0, 0)
-    row.setSpacing(10)
-    row.addWidget(form_label(text, label_width))
-    row.addWidget(control, 1)
-    layout.addLayout(row)
-    return row
-
 # ── Pure display helpers ──────────────────────────────────────────────────────
 
 
@@ -545,7 +534,7 @@ class LogSliderRow(QWidget):
         self._spin.blockSignals(True)
         self._spin.setValue(self._to_spin(val))
         self._spin.blockSignals(False)
-        self._schedule_emit(val)
+        self.value_changed.emit(val)
 
     def _on_spin(self):
         val = float(self._spin.value()) / self._spin_scale
@@ -555,9 +544,6 @@ class LogSliderRow(QWidget):
         self._slider.blockSignals(False)
         display_val = val if self._is_double_spin else round(val)
         self._val_lbl.setText(self.display_fn(display_val))
-        self._schedule_emit(val)
-
-    def _schedule_emit(self, val: float):
         self.value_changed.emit(val)
 
     def set_range(self, v_min: float, v_max: float):

@@ -84,7 +84,7 @@ class LensPanel(QWidget):
             self._layout.removeWidget(b)
             b.deleteLater()
         self._btns.clear()
-        self._cameras.clear()
+        self._cameras = []
         self._flow_host.hide()
         self._ph.setText("Start streaming to load lenses")
         self._ph.show()

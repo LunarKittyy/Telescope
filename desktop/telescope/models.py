@@ -171,14 +171,6 @@ class PhoneState:
 
 
 @dataclass(frozen=True)
-class StreamSettings:
-    resolution: str = "Pass-through"
-    fps: int = 30
-    jpeg_quality: int = 85
-    phone_fps: int = 30
-
-
-@dataclass(frozen=True)
 class DeviceProfile:
     """Paired phone: name, known IPs, and QR-pairing bearer token (None if manually added only)."""
 

@@ -397,7 +397,7 @@ class SetupDialog(QDialog):
         w, h = self._get_selected_dims()
         self._canvas_apply_btn.setEnabled(False)
         set_status_kind(self._canvas_status_lbl, "status_dim")
-        self._canvas_status_lbl.setText("Reloading loopback...")
+        self._canvas_status_lbl.setText("Reloading loopback..." if IS_LINUX else "Restarting stream...")
         self._canvas_status_lbl.setVisible(True)
         if self._on_apply_canvas:
             self._on_apply_canvas(w, h)
@@ -407,7 +407,8 @@ class SetupDialog(QDialog):
         self._canvas_apply_btn.setEnabled(True)
         if ok:
             set_status_kind(self._canvas_status_lbl, "status_ok")
-            self._canvas_status_lbl.setText("Done - loopback reloaded successfully.")
+            self._canvas_status_lbl.setText(
+                "Done - loopback reloaded." if IS_LINUX else "Done - canvas updated.")
         else:
             set_status_kind(self._canvas_status_lbl, "status_err")
             if "in use" in msg.lower():
