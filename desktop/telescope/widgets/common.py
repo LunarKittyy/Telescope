@@ -14,7 +14,7 @@ from telescope import theme
 
 # ── Shared desktop UI primitives ─────────────────────────────────────────────
 
-FORM_LABEL_WIDTH = 104
+FORM_LABEL_WIDTH = 112
 
 VALUE_COL_WIDTH = 62
 """Width of numeric readout (fixed, right-aligned so readouts line up)."""
@@ -191,21 +191,27 @@ def create_card(parent=None) -> QFrame:
     return card
 
 
+def card_layout(card: QFrame) -> QVBoxLayout:
+    """The standard padded column every main-window card uses."""
+    lay = QVBoxLayout(card)
+    lay.setContentsMargins(18, 16, 18, 18)
+    lay.setSpacing(8)
+    return lay
+
+
 def add_card_header(layout: QVBoxLayout, title: str, icon_name: str,
                     subtitle: str = "") -> QHBoxLayout:
     """Add the standard icon/title header used by every main-window card."""
     header = QHBoxLayout()
-    header.setContentsMargins(0, 0, 0, 4)
-    header.setSpacing(9)
+    header.setContentsMargins(0, 0, 0, 2)
+    header.setSpacing(10)
 
     icon = QLabel()
-    icon.setPixmap(create_vector_icon(icon_name, theme.ACCENT).pixmap(18, 18))
-    icon.setFixedSize(18, 18)
+    icon.setPixmap(create_vector_icon(icon_name, theme.ACCENT).pixmap(20, 20))
+    icon.setFixedSize(20, 20)
     header.addWidget(icon)
 
-    # Uppercased here rather than at each call site so panel titles read as
-    # section headers without every plugin having to shout in its source.
-    title_label = QLabel(title.upper())
+    title_label = QLabel(title)
     title_label.setObjectName("card_title")
     header.addWidget(title_label)
 
@@ -220,7 +226,8 @@ def add_card_header(layout: QVBoxLayout, title: str, icon_name: str,
 
 
 def add_section_heading(layout: QVBoxLayout, text: str):
-    heading = QLabel(text)
+    """Quiet small-caps divider between groups of rows; spacing, not a rule, does the separating."""
+    heading = QLabel(text.upper())
     heading.setObjectName("section_title")
     layout.addWidget(heading)
     return heading
@@ -236,15 +243,15 @@ def form_label(text: str, width: int = FORM_LABEL_WIDTH) -> QLabel:
 
 def control_row(label: str, widget, label_width: int = FORM_LABEL_WIDTH,
                 stretch: bool = False) -> QHBoxLayout:
-    """Settings row: dim label left, control right (both anchored for clean alignment)."""
+    """Settings row: dim label, then the control starting at a shared column so label and value sit side by side."""
     lay = QHBoxLayout()
     lay.setContentsMargins(0, 0, 0, 0)
-    lay.setSpacing(8)
+    lay.setSpacing(10)
     lay.addWidget(form_label(label, label_width))
-    if not stretch:
-        lay.addStretch(1)
     if isinstance(widget, QLayout): lay.addLayout(widget, 1 if stretch else 0)
     else:                           lay.addWidget(widget, 1 if stretch else 0)
+    if not stretch:
+        lay.addStretch(1)
     return lay
 
 
@@ -357,12 +364,12 @@ def create_app_icon(size: int = 32) -> QIcon:
 
     margin = size / 22
     outer_d = size - 2 * margin
-    painter.setBrush(QBrush(QColor("#518cc6")))
+    painter.setBrush(QBrush(QColor(theme.ACCENT)))
     painter.drawEllipse(QRectF(margin, margin, outer_d, outer_d))
 
     inner_margin = size * 7 / 22
     inner_d = size * 8 / 22
-    painter.setBrush(QBrush(QColor("#1e222b")))
+    painter.setBrush(QBrush(QColor(theme.BG)))
     painter.drawEllipse(QRectF(inner_margin, inner_margin, inner_d, inner_d))
 
     painter.end()

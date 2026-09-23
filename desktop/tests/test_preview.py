@@ -3,7 +3,7 @@ from PyQt6.QtCore import QEvent
 from PyQt6.QtWidgets import QSizePolicy, QWidget
 
 from telescope.plugin import EventBus
-from telescope.plugins.preview import PreviewPlugin, _HostFilter, _PopoutWindow
+from telescope.plugins.preview import _IDLE_TEXT, PreviewPlugin, _HostFilter, _PopoutWindow
 
 
 class _Host(QWidget):
@@ -48,7 +48,7 @@ def test_preview_starts_active_and_toggles_off_and_back_on(qapp):
     plugin._toggle()
     assert plugin._active is True
     assert plugin._toggle_btn.text() == "Hide"
-    assert plugin._preview_lbl.text() == "Not streaming"
+    assert plugin._preview_lbl.text() == _IDLE_TEXT
 
 
 def test_preview_placeholder_says_waiting_while_a_stream_is_up(qapp):
@@ -68,7 +68,7 @@ def test_stream_start_and_stop_swap_the_placeholder(qapp):
     assert plugin._preview_lbl.text() == "Waiting for the first frame…"
 
     plugin.on_stream_stop()
-    assert plugin._preview_lbl.text() == "Not streaming"
+    assert plugin._preview_lbl.text() == _IDLE_TEXT
     assert plugin._preview_lbl.pixmap().isNull()
 
 

@@ -761,7 +761,7 @@ def test_pairing_does_not_stop_when_nothing_is_streaming(connection_plugin):
 def test_pair_status_shows_not_paired_without_a_token(connection_plugin):
     plugin, _host, _panel = connection_plugin
     plugin._check_pair_status()
-    assert plugin._pair_status_lbl.text() == "○ Not paired"
+    assert plugin._pair_status_lbl.fullText() == "○ Not paired"
 
 
 def test_pair_status_keeps_probing_until_stream_actually_connects(connection_plugin):
@@ -771,7 +771,7 @@ def test_pair_status_keeps_probing_until_stream_actually_connects(connection_plu
     plugin, _host, _panel = connection_plugin
     assert plugin._pair_status_timer.isActive()
     plugin.on_stream_start("http://localhost:8080/v1/video", object())
-    assert plugin._pair_status_lbl.text() != "● Paired"
+    assert plugin._pair_status_lbl.fullText() != "● Paired"
     assert plugin._pair_status_timer.isActive()
 
 
@@ -781,7 +781,7 @@ def test_pair_status_pins_to_paired_and_stops_polling_once_stream_connects(conne
     plugin, _host, _panel = connection_plugin
     plugin.on_stream_start("http://localhost:8080/v1/video", object())
     plugin._bus.stream_connected.emit()
-    assert plugin._pair_status_lbl.text() == "● Paired"
+    assert plugin._pair_status_lbl.fullText() == "● Paired"
     assert not plugin._pair_status_timer.isActive()
 
 
@@ -796,7 +796,7 @@ def test_pair_status_check_short_circuits_once_stream_connects(monkeypatch, conn
     plugin._rb_usb.setChecked(False)
     plugin._on_stream_connected()
     plugin._check_pair_status()
-    assert plugin._pair_status_lbl.text() == "● Paired"
+    assert plugin._pair_status_lbl.fullText() == "● Paired"
     assert probed == []
 
 
@@ -834,7 +834,7 @@ def test_pair_status_wifi_paired(monkeypatch, connection_plugin):
     plugin._rb_wifi.setChecked(True)
     plugin._rb_usb.setChecked(False)
     plugin._on_device_paired("Phone", ["10.0.0.1"], "tok-a")
-    assert plugin._pair_status_lbl.text() == "● Paired"
+    assert plugin._pair_status_lbl.fullText() == "● Paired"
 
 
 def test_pair_status_wifi_stale_token(monkeypatch, connection_plugin):
@@ -844,7 +844,7 @@ def test_pair_status_wifi_stale_token(monkeypatch, connection_plugin):
     plugin._rb_wifi.setChecked(True)
     plugin._rb_usb.setChecked(False)
     plugin._on_device_paired("Phone", ["10.0.0.1"], "tok-a")
-    assert plugin._pair_status_lbl.text() == "○ Not paired"
+    assert plugin._pair_status_lbl.fullText() == "○ Not paired"
 
 
 def test_pair_status_wifi_without_an_ip_skips_probe(monkeypatch, connection_plugin):
@@ -859,7 +859,7 @@ def test_pair_status_wifi_without_an_ip_skips_probe(monkeypatch, connection_plug
     plugin._refresh_device_combo(select_name="Phone")
     plugin._check_pair_status()
     assert probed == []
-    assert plugin._pair_status_lbl.text() == "○ Not paired"
+    assert plugin._pair_status_lbl.fullText() == "○ Not paired"
 
 
 def test_pair_status_usb_ambiguous_serial_shows_unknown(monkeypatch, connection_plugin):
@@ -874,8 +874,12 @@ def test_pair_status_usb_ambiguous_serial_shows_unknown(monkeypatch, connection_
     plugin._rb_usb.setChecked(True)
     plugin._rb_wifi.setChecked(False)
     plugin._check_pair_status()
-    assert plugin._pair_status_lbl.text() == ""
+    assert plugin._pair_status_lbl.fullText() == "○ Several USB devices"
     assert forwards == []
+
+    monkeypatch.setattr(connection_module, "adb_devices", lambda: [])
+    plugin._check_pair_status()
+    assert plugin._pair_status_lbl.fullText() == "○ No USB phone"
 
 
 def test_pair_status_usb_sets_up_and_tears_down_a_temporary_forward(monkeypatch, connection_plugin):
@@ -889,7 +893,7 @@ def test_pair_status_usb_sets_up_and_tears_down_a_temporary_forward(monkeypatch,
     plugin._rb_usb.setChecked(True)
     plugin._rb_wifi.setChecked(False)
     plugin._on_device_paired("Phone", ["10.0.0.1"], "tok-a")
-    assert plugin._pair_status_lbl.text() == "● Paired"
+    assert plugin._pair_status_lbl.fullText() == "● Paired"
     assert calls == [
         ("forward", connection_module.PING_PORT, "serial-1"),
         ("unforward", connection_module.PING_PORT, "serial-1"),
@@ -907,7 +911,7 @@ def test_pair_status_stale_result_is_discarded(monkeypatch, connection_plugin):
     # a newer one has already started (_pair_status_check_id is now 5) -
     # its result must not clobber whatever the newer check already showed.
     plugin._probe_pair_status(1, "tok-a", usb=False)
-    assert plugin._pair_status_lbl.text() == ""
+    assert plugin._pair_status_lbl.fullText() == ""
 
 
 def test_pairing_refreshes_an_open_device_manager_list(connection_plugin):

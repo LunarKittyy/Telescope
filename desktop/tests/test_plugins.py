@@ -2,6 +2,7 @@ import threading
 
 import pytest
 
+from telescope import theme
 from telescope.plugin import UNCHANGED, EventBus
 from telescope.plugins.monitoring import MonitoringPlugin
 from telescope.plugins.setup import SetupDialog, SetupPlugin
@@ -345,10 +346,10 @@ def test_monitoring_ignores_state_without_battery(monitoring):
 @pytest.mark.parametrize(
     "level,charging,temp,batt_colour,temp_colour",
     [
-        (10, False, 50, "#ef5350", "#ef5350"),
-        (25, False, 42, "#ffa726", "#ffa726"),
-        (80, False, 30, "#66bb6a", "#66bb6a"),
-        (10, True, 30, "#66bb6a", "#66bb6a"),
+        (10, False, 50, theme.ERR, theme.ERR),
+        (25, False, 42, theme.WARN, theme.WARN),
+        (80, False, 30, theme.OK, theme.OK),
+        (10, True, 30, theme.OK, theme.OK),
     ],
 )
 def test_monitoring_display_colours(

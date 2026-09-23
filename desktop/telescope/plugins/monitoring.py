@@ -11,7 +11,7 @@ from telescope.platform import IS_LINUX
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
     NoScrollSpinBox, add_card_header, add_section_heading, control_row as _row,
-    create_card, create_separator, set_status_kind,
+    card_layout, create_card, create_separator, set_status_kind,
 )
 
 # Inline colors (change with live values) sourced from theme for one semantic color definition.
@@ -48,9 +48,7 @@ class MonitoringPlugin(TelescopePlugin):
 
     def create_panel(self) -> QWidget:
         card = create_card()
-        lay = QVBoxLayout(card)
-        lay.setContentsMargins(16, 15, 16, 15)
-        lay.setSpacing(10)
+        lay = card_layout(card)
         add_card_header(lay, "Monitoring", "status")
 
         # ── Live readouts ─────────────────────────────────────────────────────
@@ -62,8 +60,6 @@ class MonitoringPlugin(TelescopePlugin):
         self._temp_lbl = QLabel("—")
         set_status_kind(self._temp_lbl, "status_dim")
         lay.addLayout(_row("Temperature", self._temp_lbl, stretch=True))
-
-        lay.addWidget(create_separator())
 
         # ── Alert thresholds ──────────────────────────────────────────────────
         add_section_heading(lay, "Alert thresholds")

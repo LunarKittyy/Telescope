@@ -6,31 +6,32 @@ from PyQt6.QtGui import QColor, QPalette
 # Surfaces run darkest-to-lightest: the window canvas sits *behind* the
 # panels, so panels read as raised rather than cut out of the background.
 
-BG            = "#0e1319"   # window canvas, gutters between panels
-SURFACE       = "#151b23"   # panel/card fill
-SURFACE_RAISE = "#1a212a"   # inputs, subsections, inset wells
-SURFACE_SUNK  = "#0a0e13"   # preview letterbox, anything that reads as a hole
-CHROME        = "#11161d"   # header bar, footer bar
+BG            = "#0f1216"   # window canvas, gutters between panels
+SURFACE       = "#161a20"   # panel/card fill
+SURFACE_RAISE = "#1d222a"   # inputs, subsections, inset wells
+SURFACE_HOVER = "#242a33"   # hover fill for raised controls
+SURFACE_SUNK  = "#0a0c0f"   # preview letterbox, anything that reads as a hole
+CHROME        = "#121519"   # header bar, footer bar
 
-BORDER        = "#28323e"
-BORDER_STRONG = "#3a4654"
-BORDER_HOVER  = "#52657a"
+BORDER        = "#232932"
+BORDER_STRONG = "#2f3641"
+BORDER_HOVER  = "#4a5462"
 
-TEXT          = "#e8edf4"
-TEXT_DIM      = "#94a4b6"
-TEXT_FAINT    = "#7f8d9e"
-TEXT_DISABLED = "#5e6b79"
+TEXT          = "#e7eaef"
+TEXT_DIM      = "#a1abb8"
+TEXT_FAINT    = "#7a8491"
+TEXT_DISABLED = "#525b67"
 
-ACCENT        = "#6aa9ed"   # icons, headings, slider fill, focus rings
-ACCENT_SOFT   = "#8bbcf2"   # value readouts
-FILL          = "#2f6fd0"   # filled/primary buttons, selected segments
-FILL_HOVER    = "#3d82ea"
-FILL_PRESS    = "#2860b4"
+ACCENT        = "#86a8f0"   # icons, slider fill, focus rings
+ACCENT_SOFT   = "#b3c7f5"   # value readouts
+FILL          = "#3f6ed0"   # filled/primary buttons, selected segments
+FILL_HOVER    = "#4b7bdd"
+FILL_PRESS    = "#355fb4"
 
-OK            = "#66bb6a"
-WARN          = "#ffa726"
-ERR           = "#ef5350"
-DIM           = "#78909c"
+OK            = "#5fc98c"
+WARN          = "#f0b65c"
+ERR           = "#ef6f6b"
+DIM           = "#8792a0"
 
 # Kept as a dict because app.py maps a status "kind" onto an object name and
 # monitoring.py reaches for the raw hex to colour its readouts inline.
@@ -100,8 +101,7 @@ QWidget#footer_bar {{
 QLabel#header_label {{
     color: {TEXT_FAINT};
     font-size: 8pt;
-    font-weight: 700;
-    letter-spacing: 0.7px;
+    font-weight: 600;
 }}
 QLabel#header_value {{
     color: {TEXT};
@@ -115,16 +115,40 @@ QFrame#header_divider {{
 }}
 QLabel#footer_label {{
     color: {TEXT_FAINT};
-    font-size: 8pt;
-    font-weight: 700;
-    letter-spacing: 0.7px;
+    font-size: 9pt;
+}}
+/* Header state pill: one glance says idle / starting / live. */
+QLabel#state_chip {{
+    padding: 0 12px;
+    min-height: 26px;
+    border-radius: 13px;
+    font-size: 9pt;
+    font-weight: 600;
+    background-color: {SURFACE_RAISE};
+    border: 1px solid {BORDER_STRONG};
+    color: {TEXT_DIM};
+}}
+QLabel#state_chip[state="busy"] {{
+    color: {WARN};
+    border-color: #5a4a2c;
+    background-color: #221d15;
+}}
+QLabel#state_chip[state="live"] {{
+    color: {OK};
+    border-color: #2a5a40;
+    background-color: #142019;
+}}
+QLabel#state_chip[state="error"] {{
+    color: {ERR};
+    border-color: #5e3131;
+    background-color: #221516;
 }}
 
 /* ── Panels ─────────────────────────────────────────────────────────────── */
 QFrame#card {{
     background-color: {SURFACE};
     border: 1px solid {BORDER};
-    border-radius: 12px;
+    border-radius: 14px;
 }}
 QFrame#separator {{
     background-color: {BORDER};
@@ -132,22 +156,21 @@ QFrame#separator {{
     border: none;
 }}
 QLabel#card_title {{
-    font-size: 9pt;
-    font-weight: 700;
+    font-size: 11pt;
+    font-weight: 600;
     color: {TEXT};
-    letter-spacing: 1.1px;
 }}
 QLabel#card_subtitle {{
     color: {TEXT_FAINT};
     font-size: 9pt;
 }}
 QLabel#section_title {{
-    color: {ACCENT};
-    font-size: 8pt;
+    color: {TEXT_FAINT};
+    font-size: 7.5pt;
     font-weight: 700;
-    letter-spacing: 0.7px;
-    margin-top: 4px;
-    margin-bottom: 1px;
+    letter-spacing: 1px;
+    margin-top: 10px;
+    margin-bottom: 0px;
 }}
 QFrame#subsection {{
     background-color: {SURFACE_RAISE};
@@ -168,7 +191,6 @@ QLabel {{
 QLabel#form_label, QLabel#dim {{
     color: {TEXT_DIM};
     font-size: 9pt;
-    font-weight: 500;
 }}
 QLabel#val {{
     color: {ACCENT_SOFT};
@@ -180,10 +202,10 @@ QLabel#status_warn {{ color: {WARN}; }}
 QLabel#status_err  {{ color: {ERR}; }}
 QLabel#status_dim  {{ color: {DIM}; }}
 QLabel#fps_lbl {{
-    color: {OK};
+    color: {TEXT};
     font-family: monospace;
-    font-size: 13pt;
-    font-weight: 700;
+    font-size: 10pt;
+    font-weight: 600;
 }}
 QLabel#dialog_title {{
     color: {TEXT};
@@ -294,7 +316,7 @@ QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {{
     background-color: {BG};
 }}
 QCheckBox::indicator:checked:disabled, QRadioButton::indicator:checked:disabled {{
-    background-color: #37474f;
+    background-color: {BORDER_HOVER};
 }}
 
 /* Segmented toggles: a radio/checkbox row styled as one joined pill strip.
@@ -333,7 +355,7 @@ QRadioButton[segPos="only"], QCheckBox[segPos="only"] {{
     border-radius: 7px;
 }}
 QRadioButton[segmented="true"]:hover, QCheckBox[segmented="true"]:hover {{
-    background-color: #212a35;
+    background-color: {SURFACE_HOVER};
     color: {TEXT};
 }}
 QRadioButton[segmented="true"]:checked, QCheckBox[segmented="true"]:checked {{
@@ -357,7 +379,7 @@ QSlider {{
 QSlider::groove:horizontal {{
     border: none;
     height: 4px;
-    background: #2b3540;
+    background: {BORDER_STRONG};
     border-radius: 2px;
     margin-left: 7px;
     margin-right: 7px;
@@ -375,22 +397,22 @@ QSlider::handle:horizontal {{
     border-radius: 7px;
 }}
 QSlider::handle:horizontal:hover {{
-    background: #9ccbff;
+    background: {ACCENT_SOFT};
 }}
 QSlider::handle:horizontal:disabled {{
-    background: #4c5c6b;
+    background: {TEXT_DISABLED};
 }}
 QSlider::groove:horizontal:disabled {{
-    background: #18202a;
+    background: {SURFACE_RAISE};
 }}
 QSlider::sub-page:horizontal:disabled {{
-    background: #37474f;
+    background: {BORDER_HOVER};
 }}
 
 /* ── Buttons ────────────────────────────────────────────────────────────── */
 QPushButton {{
     min-height: 30px;
-    background-color: #2a3542;
+    background-color: {SURFACE_HOVER};
     border: 1px solid {BORDER_STRONG};
     border-radius: 7px;
     padding: 0 13px;
@@ -398,11 +420,11 @@ QPushButton {{
     font-weight: 600;
 }}
 QPushButton:hover {{
-    background-color: #35424f;
+    background-color: #2c333e;
     border-color: {BORDER_HOVER};
 }}
 QPushButton:pressed {{
-    background-color: #222c37;
+    background-color: {SURFACE_RAISE};
 }}
 QPushButton:disabled {{
     background-color: {BG};
@@ -430,20 +452,20 @@ QPushButton[uiRole="primary"]:pressed {{
     background-color: {FILL_PRESS};
 }}
 QPushButton[uiRole="success"] {{
-    background-color: #2f6a4c;
-    border-color: #3b7f5c;
+    background-color: #2c6b4a;
+    border-color: #377e59;
     color: #ffffff;
 }}
 QPushButton[uiRole="success"]:hover {{
-    background-color: #3b8460;
+    background-color: #358259;
 }}
 QPushButton[uiRole="danger"] {{
-    background-color: #6d3a3e;
-    border-color: #8a4b50;
+    background-color: #6b3638;
+    border-color: #874648;
     color: #ffffff;
 }}
 QPushButton[uiRole="danger"]:hover {{
-    background-color: #87484d;
+    background-color: #824244;
 }}
 QPushButton[uiRole="quiet"] {{
     background-color: transparent;
@@ -458,11 +480,11 @@ QPushButton[uiRole="quiet"]:hover {{
 QPushButton#lens_button {{
     background-color: {SURFACE_RAISE};
     border: 1px solid {BORDER_STRONG};
-    color: #c8d5e3;
+    color: {TEXT};
     text-align: center;
 }}
 QPushButton#lens_button:hover {{
-    background-color: #212c38;
+    background-color: {SURFACE_HOVER};
     border-color: {BORDER_HOVER};
 }}
 QPushButton#lens_button:checked {{
@@ -485,11 +507,11 @@ QPushButton#start_btn:hover {{
     border-color: {FILL_HOVER};
 }}
 QPushButton#start_btn[streaming=true] {{
-    background-color: #a94742;
-    border-color: #c75c54;
+    background-color: #b04a46;
+    border-color: #c45a55;
 }}
 QPushButton#start_btn[streaming=true]:hover {{
-    background-color: #c75c54;
+    background-color: #c45a55;
 }}
 QPushButton#icon_btn {{
     background-color: transparent;
@@ -505,7 +527,7 @@ QToolButton#section_toggle {{
     padding: 0 4px;
     border: none;
     background-color: transparent;
-    color: #b8c5d3;
+    color: {TEXT_DIM};
     font-size: 10pt;
     font-weight: 600;
     text-align: left;
@@ -572,7 +594,7 @@ QListWidget::item:selected {{
     color: #ffffff;
 }}
 QListWidget::item:hover:!selected {{
-    background-color: #212a35;
+    background-color: {SURFACE_HOVER};
 }}
 QMenu {{
     background-color: {SURFACE_RAISE};
@@ -607,12 +629,12 @@ QScrollBar:vertical {{
     margin: 0;
 }}
 QScrollBar::handle:vertical {{
-    background: #2d3845;
+    background: {BORDER_STRONG};
     border-radius: 5px;
     min-height: 32px;
 }}
 QScrollBar::handle:vertical:hover {{
-    background: #3c4a59;
+    background: {BORDER_HOVER};
 }}
 QScrollBar:horizontal {{
     background: transparent;
@@ -620,12 +642,12 @@ QScrollBar:horizontal {{
     margin: 0;
 }}
 QScrollBar::handle:horizontal {{
-    background: #2d3845;
+    background: {BORDER_STRONG};
     border-radius: 5px;
     min-width: 32px;
 }}
 QScrollBar::handle:horizontal:hover {{
-    background: #3c4a59;
+    background: {BORDER_HOVER};
 }}
 QScrollBar::add-line, QScrollBar::sub-line {{
     width: 0;

@@ -11,7 +11,7 @@ from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import create_vector_icon, set_ui_role
 
 
-_IDLE_TEXT    = "Not streaming"
+_IDLE_TEXT    = "Not streaming\n\nPress Start Streaming and the phone's camera comes up on its own."
 _WAITING_TEXT = "Waiting for the first frame\u2026"
 
 

@@ -11,7 +11,7 @@ from telescope.plugin import TelescopePlugin
 from telescope.theme import OK, WARN
 from telescope.widgets.common import (
     NoScrollComboBox, NoScrollSlider, NoScrollSpinBox, add_card_header,
-    add_section_heading, control_row as _row, create_card, create_separator,
+    add_section_heading, control_row as _row, card_layout, create_card, create_separator,
     quality_label, stretch_slider,
 )
 
@@ -96,10 +96,8 @@ class StreamOutputPlugin(TelescopePlugin):
 
     def create_panel(self) -> QWidget:
         card = create_card()
-        lay = QVBoxLayout(card)
-        lay.setContentsMargins(16, 15, 16, 15)
-        lay.setSpacing(10)
-        add_card_header(lay, "Stream Output", "stream")
+        lay = card_layout(card)
+        add_card_header(lay, "Stream output", "stream")
 
         # ── Resolution ────────────────────────────────────────────────────────
         add_section_heading(lay, "Output")
@@ -129,8 +127,6 @@ class StreamOutputPlugin(TelescopePlugin):
                                    "playback rate. Lower reduces bandwidth and phone battery use.")
         self._fps_spin.editingFinished.connect(self._on_fps)
         lay.addLayout(_row("FPS", self._fps_spin))
-
-        lay.addWidget(create_separator())
 
         # ── JPEG Quality ──────────────────────────────────────────────────────
         add_section_heading(lay, "Phone stream")

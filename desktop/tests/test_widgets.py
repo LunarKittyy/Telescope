@@ -206,13 +206,13 @@ def test_stretch_slider_sets_a_floor_not_a_fixed_width(qapp):
     assert slider.sizePolicy().horizontalPolicy() == QSizePolicy.Policy.Expanding
 
 
-def test_control_row_anchors_the_control_to_the_right_edge(qapp):
+def test_control_row_starts_the_control_at_the_label_column(qapp):
     control = QLabel("x")
     tight = control_row("Label", control)
-    # Without stretch, spacer goes before control, sitting flush right.
+    # Without stretch, control sits right after the label and the spacer takes the rest.
     assert tight.count() == 3
-    assert tight.itemAt(1).widget() is None
-    assert tight.itemAt(2).widget() is control
+    assert tight.itemAt(1).widget() is control
+    assert tight.itemAt(2).widget() is None
 
     wide = control_row("Label", QLabel("x"), stretch=True)
     assert wide.count() == 2

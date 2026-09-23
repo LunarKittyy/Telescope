@@ -35,7 +35,7 @@ from telescope.session_client import (
 )
 from telescope import theme
 from telescope.widgets.common import (
-    NoScrollComboBox, add_card_header, control_row as _row, create_card,
+    ElidingLabel, NoScrollComboBox, add_card_header, control_row as _row, card_layout, create_card,
     create_vector_icon, segmented_row, set_status_kind, set_ui_role,
 )
 
@@ -333,7 +333,7 @@ class _PairingSignals(QObject):
 
 
 class _PairStatusSignals(QObject):
-    result = pyqtSignal(str)  # "paired" | "not_paired" | "unreachable" | "unknown"
+    result = pyqtSignal(str)  # "paired" | "not_paired" | "unreachable" | "no_usb" | "unknown"
 
 
 class _PairingDialog(QDialog):
@@ -516,7 +516,7 @@ class _PairingDialog(QDialog):
                 item.widget().deleteLater()
         success_lbl = QLabel(f'Paired!\n"{name}" added.')
         success_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        success_lbl.setStyleSheet("color: #4db87a; font-size: 16px; font-weight: bold;")
+        success_lbl.setStyleSheet(f"color: {theme.OK}; font-size: 16px; font-weight: bold;")
         self._qr_container.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._qr_container.addStretch()
         self._qr_container.addWidget(success_lbl)
@@ -550,9 +550,7 @@ class ConnectionPlugin(TelescopePlugin):
 
     def create_panel(self) -> QWidget:
         card = create_card()
-        lay = QVBoxLayout(card)
-        lay.setContentsMargins(16, 15, 16, 15)
-        lay.setSpacing(10)
+        lay = card_layout(card)
         add_card_header(lay, "Connection", "connection")
 
         # ── Mode ──────────────────────────────────────────────────────────────
@@ -569,15 +567,18 @@ class ConnectionPlugin(TelescopePlugin):
 
         # ── Pairing (always available - a USB-only phone still needs to be
         #     paired, it just gets there via adb reverse instead of the LAN) ──
-        self._pair_status_lbl = QLabel("")
-        lay.addLayout(_row("Status", self._pair_status_lbl, stretch=True))
-
+        self._pair_status_lbl = ElidingLabel("")  # may shrink so the Pair button never gets pushed out of the card
         self._qr_btn = QPushButton("Pair Device")
         self._qr_btn.setIconSize(QSize(16, 16))
         set_ui_role(self._qr_btn, "quiet")
         self._qr_btn.clicked.connect(self._on_pair_qr)
         self._update_pair_button()
-        lay.addLayout(_row("", self._qr_btn, stretch=True))
+        status_inner = QHBoxLayout()
+        status_inner.setContentsMargins(0, 0, 0, 0)
+        status_inner.setSpacing(8)
+        status_inner.addWidget(self._pair_status_lbl, 1)
+        status_inner.addWidget(self._qr_btn)
+        lay.addLayout(_row("Status", status_inner, stretch=True))
 
         self._device_row_w = QWidget()
         self._device_row_w.setObjectName("ip_row_container")
@@ -818,7 +819,7 @@ class ConnectionPlugin(TelescopePlugin):
 
         serials = adb_devices()
         if len(serials) != 1:
-            yield None, "unknown"
+            yield None, "no_usb" if not serials else "unknown"
             return
         serial = serials[0]
         if not _acquire_ping_forward(serial):
@@ -923,6 +924,11 @@ class ConnectionPlugin(TelescopePlugin):
             return (
                 "This device isn't paired yet.\n\nUse Pair Device to connect your phone."
             )
+        if status == "no_usb":
+            return (
+                "No phone found over USB.\n\n"
+                "Plug it in, turn on USB debugging, and accept the debugging prompt on the phone."
+            )
         if status == "unknown":
             return (
                 "Couldn't tell which phone to talk to.\n\n"
@@ -954,11 +960,12 @@ class ConnectionPlugin(TelescopePlugin):
 
     def _set_pair_status(self, state: str):
         color, text = {
-            "paired":      ("#4db87a", "● Paired"),
-            "not_paired":  ("#e57373", "○ Not paired"),
-            "unreachable": ("#e0a030", "○ Unreachable"),
-            "checking":    ("#78909c", "Checking..."),
-            "unknown":     ("", ""),
+            "paired":      (theme.OK,   "● Paired"),
+            "not_paired":  (theme.ERR,  "○ Not paired"),
+            "unreachable": (theme.WARN, "○ Unreachable"),
+            "checking":    (theme.DIM,  "Checking…"),
+            "no_usb":      (theme.DIM,  "○ No USB phone"),
+            "unknown":     (theme.DIM,  "○ Several USB devices"),
         }.get(state, ("", ""))
         self._pair_status_lbl.setText(text)
         self._pair_status_lbl.setStyleSheet(f"color: {color};" if color else "")
@@ -1010,10 +1017,10 @@ class ConnectionPlugin(TelescopePlugin):
     def _update_pair_button(self):
         """Update Pair button icon/tooltip to match mode (QR vs ADB)."""
         if self._rb_usb.isChecked():
-            self._qr_btn.setIcon(create_vector_icon("usb", "#c8d0da"))
+            self._qr_btn.setIcon(create_vector_icon("usb", theme.TEXT_DIM))
             self._qr_btn.setToolTip("Pair via ADB")
         else:
-            self._qr_btn.setIcon(create_vector_icon("qr", "#c8d0da"))
+            self._qr_btn.setIcon(create_vector_icon("qr", theme.TEXT_DIM))
             self._qr_btn.setToolTip("Pair via QR code")
 
     def _current_device_name(self) -> Optional[str]:

@@ -10,7 +10,7 @@ from telescope import theme
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
     NoScrollComboBox, NoScrollSlider, PanSliderRow, add_card_header,
-    add_section_heading, control_row as _row, create_card, create_separator,
+    add_section_heading, control_row as _row, card_layout, create_card, create_separator,
     create_vector_icon, segmented_row, set_ui_role, stretch_slider,
 )
 
@@ -61,9 +61,7 @@ class TransformsPlugin(TelescopePlugin):
 
     def create_panel(self) -> QWidget:
         card = create_card()
-        lay = QVBoxLayout(card)
-        lay.setContentsMargins(16, 15, 16, 15)
-        lay.setSpacing(10)
+        lay = card_layout(card)
         add_card_header(lay, "Transforms", "transforms")
 
         # ── Flip ─────────────────────────────────────────────────────────────
@@ -79,8 +77,6 @@ class TransformsPlugin(TelescopePlugin):
         self._rot_combo.addItems(list(ROTATIONS.keys()))
         self._rot_combo.currentTextChanged.connect(self._on_rotate)
         lay.addLayout(_row("Rotation", self._rot_combo, stretch=True))
-
-        lay.addWidget(create_separator())
 
         # ── Zoom ──────────────────────────────────────────────────────────────
         add_section_heading(lay, "Framing")
@@ -111,8 +107,7 @@ class TransformsPlugin(TelescopePlugin):
         self._pan_x_slider.set_enabled(False)
         self._pan_y_slider.set_enabled(False)
 
-        lay.addWidget(create_separator())
-
+        lay.addSpacing(6)
         reset_btn = QPushButton("  Reset transforms")
         reset_btn.setIcon(create_vector_icon("reset", theme.TEXT_DIM))
         reset_btn.setIconSize(QSize(14, 14))
