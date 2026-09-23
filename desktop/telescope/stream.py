@@ -188,11 +188,15 @@ class StreamWorker(QThread):
                                          device=V4L2_PHONE_DEV if IS_LINUX else None) as cam:
                     self.status.emit("ok", f"Virtual camera: {cam.device}")
                     fc, t0, bytes0, recv0 = 0, time.time(), self._bytes_total, self._frames_received
+                    last_src = fitted = None
                     while not self._stop_flag and not self._restart_vcam.is_set():
                         src = self._latest_rgb
                         if src is not None:
-                            # Adapt frame to fixed vcam dimensions (src shape read fresh for live resolution switches).
-                            cam.send(_fit_frame(src, cam_w, cam_h))
+                            # Adapt frame to fixed vcam dimensions (src shape read fresh for live resolution switches);
+                            # a frame re-sent because the phone hasn't delivered a new one reuses its fitted copy.
+                            if src is not last_src:
+                                last_src, fitted = src, _fit_frame(src, cam_w, cam_h)
+                            cam.send(fitted)
                         cam.sleep_until_next_frame()
                         fc += 1
                         if (elapsed := time.time() - t0) >= 2.0:

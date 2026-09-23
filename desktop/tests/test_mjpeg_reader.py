@@ -118,3 +118,43 @@ def test_read_before_open_returns_false():
     ok, frame = reader.read()
     assert ok is False
     assert frame is None
+
+
+class _HoldingHandler(http.server.BaseHTTPRequestHandler):
+    """Sends one frame, then keeps the connection open like a phone between frames."""
+    release = threading.Event()
+
+    def do_GET(self):
+        jpeg = _make_frame_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=--mjpegframe")
+        self.end_headers()
+        self.wfile.write(b"--mjpegframe\r\nContent-Type: image/jpeg\r\n")
+        self.wfile.write(f"Content-Length: {len(jpeg)}\r\n\r\n".encode() + jpeg + b"\r\n")
+        self.wfile.flush()
+        self.release.wait(5)
+
+    def log_message(self, *args):
+        pass
+
+
+def test_returns_a_frame_without_waiting_for_the_next_one():
+    import time
+    _HoldingHandler.release.clear()
+    server = http.server.HTTPServer(("127.0.0.1", 0), _HoldingHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        reader = MjpegReader(f"http://127.0.0.1:{server.server_address[1]}/v1/video", "t")
+        assert reader.open()
+        t0 = time.monotonic()
+        ok, frame = reader.read()
+        elapsed = time.monotonic() - t0
+        assert ok and frame.shape == (2, 2, 3)
+        # Blocking on a full-size chunk read here stalls every frame until the next one arrives.
+        assert elapsed < 1.0
+        reader.release()
+    finally:
+        _HoldingHandler.release.set()
+        server.shutdown()
+        thread.join(timeout=2)
