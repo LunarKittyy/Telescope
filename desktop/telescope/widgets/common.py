@@ -1,6 +1,7 @@
 import math
+import threading
 
-from PyQt6.QtCore import QByteArray, QPoint, QRect, QRectF, QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QByteArray, QCoreApplication, QEventLoop, QMetaObject, QThread, QPoint, QRect, QRectF, QSize, Qt, pyqtSignal
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtGui import (
     QBrush, QColor, QFontMetrics, QIcon, QPainter, QPixmap,
@@ -340,6 +341,37 @@ def control_row_widget(label: str, widget, label_width: int = FORM_LABEL_WIDTH,
     container.setObjectName("form_row")
     container.setLayout(control_row(label, widget, label_width, stretch))
     return container
+
+
+def run_off_ui_thread(fn, *args, **kwargs):
+    """Run a blocking call (adb, mostly) on a worker thread and return its result, repainting meanwhile.
+
+    User input is held back until it returns, so nothing can re-enter the caller mid-call. Off the
+    GUI thread, or with no QApplication, it just calls fn.
+    """
+    app = QCoreApplication.instance()
+    if app is None or QThread.currentThread() is not app.thread():
+        return fn(*args, **kwargs)
+    loop = QEventLoop()
+    done = threading.Event()
+    outcome = {}
+
+    def work():
+        try:
+            outcome["value"] = fn(*args, **kwargs)
+        except BaseException as exc:
+            outcome["error"] = exc
+        finally:
+            done.set()
+            # Queued: if it lands before exec() starts it's still delivered by exec(), so no lost wakeup.
+            QMetaObject.invokeMethod(loop, "quit", Qt.ConnectionType.QueuedConnection)
+
+    threading.Thread(target=work, daemon=True).start()
+    if not done.is_set():
+        loop.exec(QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents)
+    if "error" in outcome:
+        raise outcome["error"]
+    return outcome.get("value")
 
 
 # ── Pure display helpers ──────────────────────────────────────────────────────

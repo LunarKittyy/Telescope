@@ -21,7 +21,7 @@ from telescope.platform.windows import (
 )
 from telescope.plugin import TelescopePlugin
 from telescope import theme
-from telescope.widgets.common import NoScrollComboBox, set_status_kind, set_ui_role
+from telescope.widgets.common import NoScrollComboBox, run_off_ui_thread, set_status_kind, set_ui_role
 
 # (width, height) tuples for canvas presets; None = auto from first frame
 CANVAS_PRESETS: list[tuple[str, tuple[int, int] | None]] = [
@@ -572,7 +572,7 @@ class SetupDialog(QDialog):
         else:
             path = str(apk)
 
-        serials = adb_devices()
+        serials = run_off_ui_thread(adb_devices)
         if not serials:
             set_status_kind(self._apk_status_lbl, "status_err")
             self._apk_status_lbl.setText("No authorized ADB device found")

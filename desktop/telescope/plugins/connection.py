@@ -35,7 +35,7 @@ from telescope.session_client import (
 )
 from telescope import theme
 from telescope.widgets.common import (
-    ElidingLabel, NoScrollComboBox, SegmentButton, card_action, add_card_header, control_row as _row, card_layout, create_card,
+    ElidingLabel, NoScrollComboBox, SegmentButton, card_action, run_off_ui_thread, add_card_header, control_row as _row, card_layout, create_card,
     create_vector_icon, segmented_row, set_status_kind, set_ui_role,
 )
 
@@ -423,7 +423,7 @@ class _PairingDialog(QDialog):
                 advertise=[PairingAddress(ip="127.0.0.1", interface="USB (adb)", kind="other")]
             )
             if offer is not None:
-                ok, err = adb_reverse(offer.port, serial=self._usb_serial)
+                ok, err = run_off_ui_thread(adb_reverse, offer.port, serial=self._usb_serial)
                 if not ok:
                     server.stop()
                     set_status_kind(self._status_lbl, "status_err")
@@ -472,7 +472,7 @@ class _PairingDialog(QDialog):
         set_status_kind(self._status_lbl, "status_dim")
         self._status_lbl.setText("Sending pairing request to phone...")
         payload_b64 = base64.b64encode(self._pairing_server.offer.payload.encode()).decode()
-        ok, err = adb_broadcast_pair(payload_b64, serial=self._usb_serial)
+        ok, err = run_off_ui_thread(adb_broadcast_pair, payload_b64, serial=self._usb_serial)
         if not ok:
             set_status_kind(self._status_lbl, "status_err")
             self._status_lbl.setText(f"Broadcast failed: {err}")
@@ -503,7 +503,7 @@ class _PairingDialog(QDialog):
         self._pairing_server.stop()
         self._pairing_server = None
         if self._reversed_port is not None:
-            adb_unreverse(self._reversed_port, serial=self._usb_serial)
+            run_off_ui_thread(adb_unreverse, self._reversed_port, serial=self._usb_serial)
             self._reversed_port = None
 
     def _on_paired_signal(self, name: str, ips: list, token: str, source_ip: str = ""):
@@ -695,7 +695,7 @@ class ConnectionPlugin(TelescopePlugin):
             serial = self._resolve_adb_serial()
             if serial is None:
                 return None, None, False
-            ok, msg = adb_forward(port, serial=serial)
+            ok, msg = run_off_ui_thread(adb_forward, port, serial=serial)
             if not ok:
                 QMessageBox.critical(self._host, "ADB forward failed", msg)
                 return None, None, False
@@ -726,7 +726,7 @@ class ConnectionPlugin(TelescopePlugin):
 
     def on_stream_stop(self):
         if self._forwarded_port is not None:
-            adb_unforward(self._forwarded_port, serial=self._adb_serial)
+            run_off_ui_thread(adb_unforward, self._forwarded_port, serial=self._adb_serial)
             self._forwarded_port = None
             self._adb_serial = None
         self._stream_connected = False
@@ -958,7 +958,7 @@ class ConnectionPlugin(TelescopePlugin):
 
     def _resolve_adb_serial(self) -> Optional[str]:
         """Return adb serial to target (prompt if multiple devices attached)."""
-        serials = adb_devices()
+        serials = run_off_ui_thread(adb_devices)
         if not serials:
             QMessageBox.critical(
                 self._host, "No ADB device",

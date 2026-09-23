@@ -288,3 +288,33 @@ def test_eliding_label_keeps_its_full_text_available(qapp):
 def test_lens_labels_keep_the_zoom_factor_when_shortened():
     from telescope.widgets.lens_panel import shorten_lens_label
     assert shorten_lens_label("Back Telephoto 3x [phys]") == "Tele 3x"
+
+
+def test_run_off_ui_thread_returns_the_result_from_a_worker_thread(qapp):
+    import threading
+    from telescope.widgets.common import run_off_ui_thread
+    seen = []
+    assert run_off_ui_thread(lambda x: seen.append(threading.current_thread()) or x * 2, 21) == 42
+    assert seen[0] is not threading.main_thread()
+
+
+def test_run_off_ui_thread_reraises(qapp):
+    from telescope.widgets.common import run_off_ui_thread
+
+    def boom():
+        raise ValueError("adb died")
+    with pytest.raises(ValueError, match="adb died"):
+        run_off_ui_thread(boom)
+
+
+def test_run_off_ui_thread_keeps_the_event_loop_turning(qapp):
+    import time
+    from PyQt6.QtCore import QTimer
+    from telescope.widgets.common import run_off_ui_thread
+    ticks = []
+    timer = QTimer()
+    timer.timeout.connect(lambda: ticks.append(1))
+    timer.start(20)
+    run_off_ui_thread(time.sleep, 0.3)  # an adb call that hangs for a while
+    timer.stop()
+    assert len(ticks) >= 5
