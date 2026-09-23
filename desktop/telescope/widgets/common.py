@@ -1,6 +1,7 @@
 import math
 
-from PyQt6.QtCore import QPoint, QRect, QRectF, QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QByteArray, QPoint, QRect, QRectF, QSize, Qt, pyqtSignal
+from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtGui import (
     QBrush, QColor, QFontMetrics, QIcon, QPainter, QPen, QPixmap,
 )
@@ -16,16 +17,19 @@ from telescope import theme
 
 FORM_LABEL_WIDTH = 112
 
-VALUE_COL_WIDTH = 62
+ROW_HEIGHT = 32
+"""Minimum height of a settings row; matches the input controls."""
+
+VALUE_COL_WIDTH = 56
 """Width of numeric readout (fixed, right-aligned so readouts line up)."""
 
-SPIN_COL_WIDTH = 88
+SPIN_COL_WIDTH = 78
 """Width of the direct-entry spinbox beside a slider."""
 
 SPIN_COL_GUTTER = SPIN_COL_WIDTH + 8
 """Space slider rows reserve for alignment with spinbox rows."""
 
-SLIDER_TRACK_WIDTH = 104
+SLIDER_TRACK_WIDTH = 84
 """Minimum width for slider track (floor for draggability; apply via stretch_slider())."""
 
 
@@ -237,6 +241,7 @@ def form_label(text: str, width: int = FORM_LABEL_WIDTH) -> QLabel:
     label = QLabel(text)
     label.setObjectName("form_label")
     label.setFixedWidth(width)
+    label.setMinimumHeight(ROW_HEIGHT)  # every row, text-only or not, keeps the same rhythm
     label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
     return label
 
@@ -247,7 +252,8 @@ def control_row(label: str, widget, label_width: int = FORM_LABEL_WIDTH,
     lay = QHBoxLayout()
     lay.setContentsMargins(0, 0, 0, 0)
     lay.setSpacing(10)
-    lay.addWidget(form_label(label, label_width))
+    # Top-anchored: when the control wraps (lens pills) the label lines up with its first line, not the block's middle.
+    lay.addWidget(form_label(label, label_width), 0, Qt.AlignmentFlag.AlignTop)
     if isinstance(widget, QLayout): lay.addLayout(widget, 1 if stretch else 0)
     else:                           lay.addWidget(widget, 1 if stretch else 0)
     if not stretch:
@@ -376,103 +382,52 @@ def create_app_icon(size: int = 32) -> QIcon:
     return QIcon(pixmap)
 
 
-def create_vector_icon(icon_name: str, color_hex: str) -> QIcon:
-    pixmap = QPixmap(32, 32)
-    pixmap.fill(Qt.GlobalColor.transparent)
+# Icon artwork: 24-unit grid, rounded 2.2 strokes, and a soft 25% fill on each
+# icon's main shape so the set has some body at 16-20 px. "{c}" is the colour.
+_SOFT = 'fill="{c}" fill-opacity="0.25"'
+_ICON_SVG = {
+    "connection": '''<path d="M10 14a4.2 4.2 0 0 0 6 0l3-3a4.2 4.2 0 0 0-6-6l-1.2 1.2"/>
+        <path d="M14 10a4.2 4.2 0 0 0-6 0l-3 3a4.2 4.2 0 0 0 6 6l1.2-1.2"/>''',
+    "usb": f'''<rect x="8" y="2.5" width="8" height="6" rx="1.5" {_SOFT}/>
+        <path d="M6.5 8.5h11v4.5a5.5 5.5 0 0 1-11 0z"/><path d="M12 18.5v3"/>''',
+    "camera": f'''<path d="M4.5 7.5h2.8l1.8-2.6h5.8l1.8 2.6h2.8a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18V9a1.5 1.5 0 0 1 1.5-1.5z" {_SOFT}/>
+        <circle cx="12" cy="13.2" r="3.4"/>''',
+    "stream": f'''<rect x="3" y="4" width="18" height="12.5" rx="2.2" {_SOFT}/>
+        <path d="M8.5 20.5h7M12 16.5v4"/>''',
+    "gear": f'''<path d="M4 7h9M19 7h1M4 17h3M13 17h7"/>
+        <circle cx="16" cy="7" r="2.6" {_SOFT}/><circle cx="10" cy="17" r="2.6" {_SOFT}/>''',
+    "status": f'''<rect x="3" y="3" width="18" height="18" rx="4.5" {_SOFT} stroke="none"/>
+        <path d="M5.5 12.5h3l2-4.5 3 8.5 2-4h3"/>''',
+    "qr": f'''<rect x="3.5" y="3.5" width="7" height="7" rx="1.6" {_SOFT}/>
+        <rect x="13.5" y="3.5" width="7" height="7" rx="1.6" {_SOFT}/>
+        <rect x="3.5" y="13.5" width="7" height="7" rx="1.6" {_SOFT}/>
+        <path d="M14 14h2.5v2.5M20.5 14v.01M14 20.5h6.5v-3.5"/>''',
+    "play": '''<path d="M8 5.8v12.4a1.2 1.2 0 0 0 1.8 1l9.6-6.2a1.2 1.2 0 0 0 0-2l-9.6-6.2A1.2 1.2 0 0 0 8 5.8z" fill="{c}"/>''',
+    "stop": '''<rect x="6" y="6" width="12" height="12" rx="2.6" fill="{c}"/>''',
+    "expand": f'''<rect x="3" y="7" width="14" height="14" rx="2.2" {_SOFT}/>
+        <path d="M13.5 3h7.5v7.5M21 3l-8.5 8.5"/>''',
+    "reset": '''<path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1L3.5 8.5"/><path d="M3.5 3.5v5h5"/>''',
+    "transforms": f'''<path d="M12 3v2.5M12 9.5v5M12 18.5V21"/>
+        <path d="M9 6.5L3.5 17.5H9z" {_SOFT}/><path d="M15 6.5l5.5 11H15z"/>''',
+    "devices": f'''<rect x="3.5" y="4" width="10" height="17" rx="2.2" {_SOFT}/>
+        <path d="M7.5 17.5h2"/><path d="M16.5 7.5h2.5a1.5 1.5 0 0 1 1.5 1.5v9.5a1.5 1.5 0 0 1-1.5 1.5h-2.5"/>''',
+}
 
+_ICON_RENDER_PX = 64  # rendered once, large; QIcon scales down smoothly for every use
+
+
+def create_vector_icon(icon_name: str, color_hex: str) -> QIcon:
+    body = _ICON_SVG.get(icon_name, "").replace("{c}", color_hex)  # unknown name: blank icon, not a crash
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+        f'stroke="{color_hex}" stroke-width="2.2" stroke-linecap="round" '
+        f'stroke-linejoin="round">{body}</svg>'
+    )
+    pixmap = QPixmap(_ICON_RENDER_PX, _ICON_RENDER_PX)
+    pixmap.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-    color = QColor(color_hex)
-    pen = QPen(color)
-    pen.setWidth(2)
-    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-    painter.setPen(pen)
-    painter.setBrush(QBrush(Qt.BrushStyle.NoBrush))
-
-    if icon_name == "connection":
-        painter.drawRoundedRect(11, 10, 10, 12, 2, 2)
-        painter.drawLine(5, 13, 11, 13)
-        painter.drawLine(5, 19, 11, 19)
-        painter.drawLine(21, 16, 27, 16)
-    elif icon_name == "camera":
-        painter.drawRoundedRect(6, 11, 20, 13, 2, 2)
-        painter.drawEllipse(12, 13, 8, 8)
-        painter.drawRect(10, 8, 5, 3)
-    elif icon_name == "stream":
-        painter.drawRoundedRect(5, 8, 22, 14, 2, 2)
-        painter.drawLine(16, 22, 16, 26)
-        painter.drawLine(11, 26, 21, 26)
-    elif icon_name == "gear":
-        # Outer ring + teeth, larger to fill 32x32 canvas
-        painter.drawEllipse(8, 8, 16, 16)
-        painter.drawEllipse(12, 12, 8, 8)
-        for i in range(8):
-            painter.save()
-            painter.translate(16, 16)
-            painter.rotate(i * 45)
-            painter.drawLine(0, -7, 0, -11)
-            painter.restore()
-    elif icon_name == "status":
-        painter.drawEllipse(7, 7, 18, 18)
-        pen_dot = QPen(color)
-        pen_dot.setWidth(3)
-        painter.setPen(pen_dot)
-        painter.drawPoint(16, 12)
-        painter.setPen(pen)
-        painter.drawLine(16, 15, 16, 20)
-    elif icon_name == "qr":
-        brush = QBrush(color)
-        # corner brackets
-        painter.drawLine(4, 4, 4, 11)
-        painter.drawLine(4, 4, 11, 4)
-        painter.drawLine(28, 4, 21, 4)
-        painter.drawLine(28, 4, 28, 11)
-        painter.drawLine(4, 28, 4, 21)
-        painter.drawLine(4, 28, 11, 28)
-        painter.drawLine(28, 28, 21, 28)
-        painter.drawLine(28, 28, 28, 21)
-        # three small finder squares
-        for ox, oy in [(8, 8), (18, 8), (8, 18)]:
-            painter.drawRect(ox, oy, 6, 6)
-            painter.fillRect(ox + 2, oy + 2, 2, 2, brush)
-    elif icon_name == "usb":
-        # connector body with two contacts on the left, cable to the right
-        painter.drawRoundedRect(6, 13, 14, 8, 1, 1)
-        painter.drawLine(6, 15, 3, 15)
-        painter.drawLine(6, 19, 3, 19)
-        painter.drawLine(20, 17, 24, 17)
-        painter.drawLine(24, 17, 24, 7)
-        painter.drawLine(24, 7, 28, 7)
-    elif icon_name == "play":
-        painter.setBrush(QBrush(color))
-        from PyQt6.QtGui import QPolygon
-        from PyQt6.QtCore import QPoint
-        painter.drawPolygon(QPolygon([QPoint(10, 7), QPoint(25, 16), QPoint(10, 25)]))
-        painter.setBrush(QBrush(Qt.BrushStyle.NoBrush))
-    elif icon_name == "stop":
-        painter.setBrush(QBrush(color))
-        painter.drawRoundedRect(9, 9, 14, 14, 2, 2)
-        painter.setBrush(QBrush(Qt.BrushStyle.NoBrush))
-    elif icon_name == "expand":
-        for x1, y1, x2, y2 in ((6, 12, 6, 6), (6, 6, 12, 6), (26, 12, 26, 6),
-                               (26, 6, 20, 6), (6, 20, 6, 26), (6, 26, 12, 26),
-                               (26, 20, 26, 26), (26, 26, 20, 26)):
-            painter.drawLine(x1, y1, x2, y2)
-    elif icon_name == "reset":
-        # Circular arrow: an arc left open at the top right, with a head.
-        painter.drawArc(8, 8, 16, 16, 60 * 16, 280 * 16)
-        painter.drawLine(24, 12, 24, 6)
-        painter.drawLine(24, 12, 18, 12)
-    elif icon_name == "transforms":
-        painter.drawLine(7, 11, 25, 11)
-        painter.drawLine(7, 21, 25, 21)
-        painter.drawLine(20, 7, 25, 11)
-        painter.drawLine(20, 15, 25, 11)
-        painter.drawLine(12, 17, 7, 21)
-        painter.drawLine(12, 25, 7, 21)
-
+    QSvgRenderer(QByteArray(svg.encode())).render(painter)
     painter.end()
     return QIcon(pixmap)
 

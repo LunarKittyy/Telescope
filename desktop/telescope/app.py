@@ -29,8 +29,9 @@ from telescope.widgets.common import (
 STATUS_COLORS = theme.STATUS_COLORS
 _WIDTH_THREE_COL = 1300
 _WIDTH_TWO_COL   = 900
-_RAIL_WIDTH_LEFT  = 396
-_RAIL_WIDTH_RIGHT = 434
+# Both rails share one width so the preview sits on the window's centre line.
+_RAIL_WIDTH       = 412
+_RAIL_WIDTH_SOLO  = 440  # two-column mode: the one rail holding every card
 
 
 # ── Single-instance enforcement ───────────────────────────────────────────────
@@ -184,7 +185,8 @@ class TelescopeWindow(QMainWindow):
         bar = QWidget()
         bar.setObjectName("header_bar")
         lay = QHBoxLayout(bar)
-        lay.setContentsMargins(18, 10, 18, 10)
+        # Same side margin as the body, so header content lines up with the rails below it.
+        lay.setContentsMargins(16, 10, 16, 10)
         lay.setSpacing(12)
 
         self._header_slot = QHBoxLayout()
@@ -193,12 +195,6 @@ class TelescopeWindow(QMainWindow):
         lay.addLayout(self._header_slot)
 
         lay.addStretch()
-
-        self._state_chip = QLabel()
-        self._state_chip.setObjectName("state_chip")
-        self._state_chip.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._set_state_chip("idle")
-        lay.addWidget(self._state_chip)
 
         self._menu_btn = QPushButton()
         self._menu_btn.setObjectName("icon_btn")
@@ -219,22 +215,6 @@ class TelescopeWindow(QMainWindow):
         lay.addWidget(self._start_btn)
 
         return bar
-
-    _STATE_CHIP = {
-        "idle":         ("",      "● Idle"),
-        "starting":     ("busy",  "● Starting"),
-        "live":         ("live",  "● Live"),
-        "reconnecting": ("busy",  "● Reconnecting"),
-    }
-
-    def _set_state_chip(self, state: str):
-        """Header pill: the one-glance answer to "is the camera going out right now?"."""
-        role, text = self._STATE_CHIP[state]
-        self._state_chip.setText(text)
-        self._state_chip.setProperty("state", role)
-        style = self._state_chip.style()
-        style.unpolish(self._state_chip)
-        style.polish(self._state_chip)
 
     def _set_start_button(self, streaming: bool):
         """Keep label, icon, and color consistent."""
@@ -281,7 +261,7 @@ class TelescopeWindow(QMainWindow):
         bar = QWidget()
         bar.setObjectName("footer_bar")
         lay = QHBoxLayout(bar)
-        lay.setContentsMargins(18, 8, 18, 8)
+        lay.setContentsMargins(16, 8, 16, 8)
         lay.setSpacing(14)
 
         # No caption (already reads as status); elides long messages.
@@ -348,10 +328,10 @@ class TelescopeWindow(QMainWindow):
 
         if mode == "three":
             groups = [self._panels["left"], self._panels["center"], self._panels["right"]]
-            widths = [_RAIL_WIDTH_LEFT, None, _RAIL_WIDTH_RIGHT]
+            widths = [_RAIL_WIDTH, None, _RAIL_WIDTH]
         elif mode == "two":
             groups = [self._panels["left"] + self._panels["right"], self._panels["center"], []]
-            widths = [_RAIL_WIDTH_RIGHT, None, None]
+            widths = [_RAIL_WIDTH_SOLO, None, None]
         else:
             groups = [self._panels["center"] + self._panels["left"] + self._panels["right"], [], []]
             widths = [None, None, None]
@@ -524,7 +504,6 @@ class TelescopeWindow(QMainWindow):
         self._set_start_button(streaming=True)
         self._start_btn.setEnabled(False)
         self._set_status("Waking phone camera...", "dim")
-        self._set_state_chip("starting")
 
         self._spawn_wake(wake_id, conn, url, token, conn.session_target())
 
@@ -563,7 +542,6 @@ class TelescopeWindow(QMainWindow):
         self._start_btn.setEnabled(True)
         if not ok:
             self._set_start_button(streaming=False)
-            self._set_state_chip("idle")
             self._set_status("Idle - press Start Streaming", "dim")
             QMessageBox.warning(self, "Couldn't start the phone's camera", reason)
             return
@@ -633,7 +611,6 @@ class TelescopeWindow(QMainWindow):
         self._net_lbl.setStyleSheet("")
         self._net_lbl.setText("—")
         self._set_status("Stopped.", "dim")
-        self._set_state_chip("idle")
 
         self._bus.stream_stopped.emit()
         for p in self._plugins:
@@ -859,13 +836,11 @@ class TelescopeWindow(QMainWindow):
             self._net_lbl.setText(msg)
         elif kind == "ok":
             self._set_status(msg, "ok")
-            self._set_state_chip("live")
             self._bus.stream_connected.emit()
         elif kind == "warn":
             self._set_status(msg, "warn")
         elif kind == "reconnecting":
             self._start_reconnecting_animation(msg)
-            self._set_state_chip("reconnecting")
         elif kind == "idle":
             self._clear_pending_resolution()
             self._fps_lbl.setText("—")
@@ -875,7 +850,6 @@ class TelescopeWindow(QMainWindow):
             if self._session:
                 self._session = None
                 self._set_start_button(streaming=False)
-            self._set_state_chip("idle")
         else:
             self._set_status(msg, "dim")
 

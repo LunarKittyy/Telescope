@@ -22,11 +22,11 @@ TEXT_DIM      = "#a1abb8"
 TEXT_FAINT    = "#7a8491"
 TEXT_DISABLED = "#525b67"
 
-ACCENT        = "#86a8f0"   # icons, slider fill, focus rings
-ACCENT_SOFT   = "#b3c7f5"   # value readouts
-FILL          = "#3f6ed0"   # filled/primary buttons, selected segments
-FILL_HOVER    = "#4b7bdd"
-FILL_PRESS    = "#355fb4"
+ACCENT        = "#aa9cf5"   # icons, slider fill, focus rings (pastel lavender)
+ACCENT_SOFT   = "#cdc4fa"   # value readouts
+FILL          = "#6a58cf"   # filled/primary buttons, selected segments; white text stays >4.5:1
+FILL_HOVER    = "#7867dc"
+FILL_PRESS    = "#5b4bb8"
 
 OK            = "#5fc98c"
 WARN          = "#f0b65c"
@@ -117,33 +117,6 @@ QLabel#footer_label {{
     color: {TEXT_FAINT};
     font-size: 9pt;
 }}
-/* Header state pill: one glance says idle / starting / live. */
-QLabel#state_chip {{
-    padding: 0 12px;
-    min-height: 26px;
-    border-radius: 13px;
-    font-size: 9pt;
-    font-weight: 600;
-    background-color: {SURFACE_RAISE};
-    border: 1px solid {BORDER_STRONG};
-    color: {TEXT_DIM};
-}}
-QLabel#state_chip[state="busy"] {{
-    color: {WARN};
-    border-color: #5a4a2c;
-    background-color: #221d15;
-}}
-QLabel#state_chip[state="live"] {{
-    color: {OK};
-    border-color: #2a5a40;
-    background-color: #142019;
-}}
-QLabel#state_chip[state="error"] {{
-    color: {ERR};
-    border-color: #5e3131;
-    background-color: #221516;
-}}
-
 /* ── Panels ─────────────────────────────────────────────────────────────── */
 QFrame#card {{
     background-color: {SURFACE};

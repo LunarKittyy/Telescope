@@ -1079,24 +1079,26 @@ def test_ip_change_persists_active_ip_per_device(window_with_plugins):
     assert cfg["devices"]["PhoneA"]["active_ip"] == "192.168.1.10"
 
 
-def test_header_widget_hosts_the_device_picker_and_follows_the_mode(connection_plugin):
+def test_header_widget_hosts_the_route_and_device_picker_in_both_modes(connection_plugin):
     plugin, _host, _panel = connection_plugin
 
     header = plugin.create_header_widget()
+    header.show()
 
-    # The picker is moved into the header, not duplicated - the panel's own
-    # device rows must not hold a second combo.
+    # Moved into the header, not duplicated.
     assert header.isAncestorOf(plugin._device_combo)
+    assert header.isAncestorOf(plugin._rb_usb)
     assert not plugin._device_row_w.isAncestorOf(plugin._device_combo)
 
     plugin.set_config({"mode": "wifi", "port": 8080, "devices_list": []})
-    assert not header.isHidden()
+    assert plugin._device_combo.isVisible()
     assert not plugin._device_row_w.isHidden()
 
-    # USB has no roster or address to pick, so both fold away together.
+    # USB still needs to know which phone's token to use; only the IP row folds away.
     plugin.set_config({"mode": "usb", "port": 8080, "devices_list": []})
-    assert header.isHidden()
+    assert plugin._device_combo.isVisible()
     assert plugin._device_row_w.isHidden()
+    header.hide()
 
 
 def test_device_picker_exists_even_if_the_host_never_asks_for_a_header(connection_plugin):

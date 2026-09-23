@@ -563,7 +563,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._conn_grp.addButton(self._rb_wifi)
         self._rb_usb.setChecked(True)
         self._conn_grp.buttonClicked.connect(lambda _: self._on_mode())
-        lay.addLayout(_row("Mode", segmented_row(self._rb_wifi, self._rb_usb)))
+        # The mode switch itself lives in the header, next to the device it picks a route to.
 
         # ── Pairing (always available - a USB-only phone still needs to be
         #     paired, it just gets there via adb reverse instead of the LAN) ──
@@ -613,41 +613,35 @@ class ConnectionPlugin(TelescopePlugin):
         return self._header_device_w
 
     def _build_device_picker(self):
+        """Header group: route (Wi-Fi/USB) + which phone. Shown in both modes, since USB also needs the phone's token."""
         self._header_device_w = QWidget()
         self._header_device_w.setObjectName("card_body")
         lay = QHBoxLayout(self._header_device_w)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(8)
 
-        col = QVBoxLayout()
-        col.setContentsMargins(0, 0, 0, 0)
-        col.setSpacing(1)
-        cap = QLabel("DEVICE")
-        cap.setObjectName("header_label")
-        col.addWidget(cap)
+        lay.addLayout(segmented_row(self._rb_wifi, self._rb_usb))
+        lay.addSpacing(6)
 
         self._device_combo = NoScrollComboBox()
-        self._device_combo.setMinimumWidth(196)
+        self._device_combo.setMinimumWidth(180)
+        self._device_combo.setPlaceholderText("No paired phone")
+        self._device_combo.setToolTip("Which paired phone to stream from")
         self._device_combo.currentIndexChanged.connect(self._on_device_changed)
-        col.addWidget(self._device_combo)
-        lay.addLayout(col)
+        lay.addWidget(self._device_combo)
 
         self._gear_btn = QPushButton()
         self._gear_btn.setObjectName("icon_btn")
-        self._gear_btn.setFixedSize(30, 30)
-        self._gear_btn.setIcon(create_vector_icon("gear", theme.TEXT_DIM))
-        self._gear_btn.setIconSize(QSize(16, 16))
-        self._gear_btn.setToolTip("Manage devices")
+        self._gear_btn.setFixedSize(34, 34)
+        self._gear_btn.setIcon(create_vector_icon("devices", theme.TEXT_DIM))
+        self._gear_btn.setIconSize(QSize(18, 18))
+        self._gear_btn.setToolTip("Manage paired phones")
         self._gear_btn.clicked.connect(self._on_manage_devices)
-        lay.addWidget(self._gear_btn, 0, Qt.AlignmentFlag.AlignBottom)
-
-        self._header_device_w.setVisible(self._rb_wifi.isChecked())
+        lay.addWidget(self._gear_btn)
 
     def _set_wifi_rows_visible(self, visible: bool):
-        """Show/hide Wi-Fi-only rows (header picker and panel address row)."""
+        """Show/hide the Wi-Fi-only address row."""
         self._device_row_w.setVisible(visible)
-        if hasattr(self, "_header_device_w"):
-            self._header_device_w.setVisible(visible)
 
     # ── Stream lifecycle ──────────────────────────────────────────────────────
 
@@ -1078,6 +1072,7 @@ class ConnectionPlugin(TelescopePlugin):
             self._selected_device = name
             self._update_ip_combo()
             self._activate_profile(self._profile_key)
+            self._check_pair_status()  # a different phone means a different token
 
     def _on_ip_changed(self, ip: str):
         if self._switching_device or not ip:

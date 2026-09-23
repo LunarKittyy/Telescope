@@ -29,6 +29,7 @@ class _Signals(QObject):
 
 class MonitoringPlugin(TelescopePlugin):
     name = "monitoring"
+    panel_region = "right"  # the phone's own health, beside its camera
 
     def setup(self, host, bus):
         self._bus  = bus

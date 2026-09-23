@@ -48,7 +48,7 @@ def _transform_frame(frame, flip_h: bool, flip_v: bool, rotation):
 
 class TransformsPlugin(TelescopePlugin):
     name = "transforms"
-    panel_region = "right"
+    panel_region = "left"   # desktop-side processing, with the output settings
 
     def setup(self, host, bus):
         self._host = host

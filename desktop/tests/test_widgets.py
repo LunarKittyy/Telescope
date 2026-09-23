@@ -76,8 +76,12 @@ def test_log_scale_round_trip_is_close_across_range():
 
 def test_separator_and_all_known_vector_icons_are_constructible(qapp):
     assert create_separator().objectName() == "separator"
-    for name in ("connection", "camera", "stream", "gear", "status", "qr", "unknown"):
+    from telescope.widgets.common import _ICON_SVG
+    for name in (*_ICON_SVG, "unknown"):
         assert not create_vector_icon(name, "#518cc6").isNull()
+    for name in _ICON_SVG:
+        img = create_vector_icon(name, "#518cc6").pixmap(24, 24).toImage()
+        assert any(img.pixelColor(x, y).alpha() for x in range(24) for y in range(24)), name
 
 
 def test_integer_log_slider_syncs_slider_spin_and_signal(qapp):
