@@ -95,7 +95,10 @@ class _Connection(_Plugin):
     def sync_active_profile(self):
         self.synced += 1
 
-    def ensure_phone_streaming(self, on_progress=None):
+    def session_target(self):
+        return None
+
+    def ensure_phone_streaming(self, on_progress=None, target=None):
         self.wakes += 1
         self.progress_msgs = getattr(self, "progress_msgs", [])
         if on_progress:
@@ -103,7 +106,7 @@ class _Connection(_Plugin):
             self.progress_msgs.append("waking...")
         return self.wake
 
-    def stop_phone_streaming(self):
+    def stop_phone_streaming(self, target=None):
         self.remote_stops += 1
 
 
@@ -1127,7 +1130,7 @@ def test_a_wake_that_lands_after_the_user_gave_up_is_discarded(window, monkeypat
 
     window._start()
     assert spawned, "the wake was never spawned"
-    wake_id, _conn, url, token = spawned[0]
+    wake_id, _conn, url, token, _target = spawned[0]
 
     window._stop()          # user hits Stop while the phone is still starting
     window._on_wake_done(wake_id, True, "", url, token)
@@ -1246,7 +1249,7 @@ def test_stop_stream_cancels_a_wake_that_is_still_in_flight(window, monkeypatch)
 
     window._start()
     window.stop_stream()
-    wake_id, _conn, url, token = spawned[0]
+    wake_id, _conn, url, token, _target = spawned[0]
     window._on_wake_done(wake_id, True, "", url, token)
 
     assert window._worker is None

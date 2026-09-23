@@ -3,6 +3,7 @@ import contextlib
 import logging
 import threading
 import time
+from dataclasses import dataclass
 from typing import Optional
 
 import qrcode
@@ -50,6 +51,42 @@ USB_PROFILE_KEY = "__usb__"
 
 # Tolerated unreachable pings; camera startup is heavy and can starve the HTTP server briefly.
 _UNREACHABLE_STREAK_LIMIT = 3
+
+
+@dataclass(frozen=True)
+class SessionTarget:
+    """Where the session port lives, read off the widgets on the GUI thread so worker threads never touch Qt."""
+
+    token: Optional[str]
+    usb: bool
+    ip: Optional[str]
+
+
+# The pair-status probe, the wake thread and the remote stop can all hold the USB
+# forward of PING_PORT at once; refcount it so one finishing doesn't pull the
+# tunnel out from under another that's still polling.
+_ping_forward_lock = threading.Lock()
+_ping_forward_refs: dict[str, int] = {}
+
+
+def _acquire_ping_forward(serial: str) -> bool:
+    with _ping_forward_lock:
+        if _ping_forward_refs.get(serial, 0) == 0:
+            ok, _err = adb_forward(PING_PORT, serial=serial)
+            if not ok:
+                return False
+        _ping_forward_refs[serial] = _ping_forward_refs.get(serial, 0) + 1
+        return True
+
+
+def _release_ping_forward(serial: str):
+    with _ping_forward_lock:
+        remaining = _ping_forward_refs.get(serial, 0) - 1
+        if remaining > 0:
+            _ping_forward_refs[serial] = remaining
+            return
+        _ping_forward_refs.pop(serial, None)
+        adb_unforward(PING_PORT, serial=serial)
 
 
 # Re-exported compatibility aliases; actual implementation is in telescope/ip_utils.py.
@@ -729,16 +766,16 @@ class ConnectionPlugin(TelescopePlugin):
         self._pair_status_check_id += 1
         check_id = self._pair_status_check_id
         usb = self._rb_usb.isChecked()
-        self._spawn_pair_probe(check_id, token, usb)
+        self._spawn_pair_probe(check_id, token, usb, self._current_device_ip())
 
-    def _spawn_pair_probe(self, check_id: int, token: str, usb: bool):
+    def _spawn_pair_probe(self, check_id: int, token: str, usb: bool, ip: Optional[str] = None):
         """Spawns background thread (split out so tests can make synchronous to avoid signal-on-destroyed-receiver crash)."""
         threading.Thread(
-            target=self._probe_pair_status, args=(check_id, token, usb), daemon=True,
+            target=self._probe_pair_status, args=(check_id, token, usb, ip), daemon=True,
         ).start()
 
-    def _probe_pair_status(self, check_id: int, token: str, usb: bool):
-        with self.session_channel(token, usb=usb) as (client, unavailable):
+    def _probe_pair_status(self, check_id: int, token: str, usb: bool, ip: Optional[str] = None):
+        with self.session_channel(token, usb=usb, ip=ip) as (client, unavailable):
             result = client.ping().status if client else unavailable
         if check_id != self._pair_status_check_id:  # Discard stale results from earlier checks.
             return
@@ -750,9 +787,18 @@ class ConnectionPlugin(TelescopePlugin):
 
     # ── Session channel (phone port 8766) ────────────────────────────────────
 
+    def session_target(self) -> SessionTarget:
+        """Snapshot of the current device's session-port address; call on the GUI thread and hand the result to worker threads."""
+        return SessionTarget(
+            token=self._current_device_token(),
+            usb=self._rb_usb.isChecked(),
+            ip=self._current_device_ip(),
+        )
+
     @contextlib.contextmanager
-    def session_channel(self, token: Optional[str] = None, usb: Optional[bool] = None):
-        """Yields (client, unavailable_status) for phone's session port (Wi-Fi IP or USB adb forward)."""
+    def session_channel(self, token: Optional[str] = None, usb: Optional[bool] = None,
+                        ip: Optional[str] = None):
+        """Yields (client, unavailable_status) for phone's session port (Wi-Fi IP or USB adb forward). Unset arguments are read from the widgets, so off the GUI thread pass all three (see session_target())."""
         if token is None:
             token = self._current_device_token()
         if usb is None:
@@ -762,7 +808,8 @@ class ConnectionPlugin(TelescopePlugin):
             return
 
         if not usb:
-            ip = self._current_device_ip()
+            if ip is None:
+                ip = self._current_device_ip()
             if not ip:
                 yield None, "not_paired"
                 return
@@ -774,18 +821,24 @@ class ConnectionPlugin(TelescopePlugin):
             yield None, "unknown"
             return
         serial = serials[0]
-        ok, _err = adb_forward(PING_PORT, serial=serial)
-        if not ok:
+        if not _acquire_ping_forward(serial):
             yield None, "unreachable"
             return
         try:
             yield PhoneSessionClient(f"http://localhost:{PING_PORT}", token), "unreachable"
         finally:
-            adb_unforward(PING_PORT, serial=serial)
+            _release_ping_forward(serial)
 
-    def ensure_phone_streaming(self, on_progress=None) -> tuple[bool, str]:
-        """Start phone's camera if not already streaming. Returns (ok, reason). Calls on_progress with status updates."""
-        with self.session_channel() as (client, unavailable):
+    def _open_channel(self, target: Optional[SessionTarget]):
+        if target is None:
+            return self.session_channel()
+        return self.session_channel(target.token, usb=target.usb, ip=target.ip)
+
+    def ensure_phone_streaming(self, on_progress=None,
+                               target: Optional[SessionTarget] = None) -> tuple[bool, str]:
+        """Start phone's camera if not already streaming. Returns (ok, reason). Calls on_progress with status updates. Worker threads must pass target (see session_target())."""
+        usb = target.usb if target is not None else self._rb_usb.isChecked()
+        with self._open_channel(target) as (client, unavailable):
             if client is None:
                 return False, self._unreachable_reason(unavailable)
 
@@ -802,7 +855,7 @@ class ConnectionPlugin(TelescopePlugin):
             if not ping.knows_session:
                 # Older app; can't start from here but may already be streaming.
                 return True, ""
-            if ping.local_only and not self._rb_usb.isChecked():
+            if ping.local_only and not usb:
                 return False, (
                     "The phone has \"Local only\" enabled, so its stream is reachable "
                     "over USB but not over Wi-Fi.\n\n"
@@ -859,9 +912,9 @@ class ConnectionPlugin(TelescopePlugin):
             "Try again, or start the stream on the phone directly."
         )
 
-    def stop_phone_streaming(self):
-        """Tell phone to shut camera down (best effort only)."""
-        with self.session_channel() as (client, _unavailable):
+    def stop_phone_streaming(self, target: Optional[SessionTarget] = None):
+        """Tell phone to shut camera down (best effort only). Worker threads must pass target."""
+        with self._open_channel(target) as (client, _unavailable):
             if client is not None:
                 client.stop()
 

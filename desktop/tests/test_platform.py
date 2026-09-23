@@ -177,3 +177,11 @@ def test_adb_broadcast_pair_surfaces_error(monkeypatch):
     monkeypatch.setattr(platform_api, "_run", lambda cmd: (1, "", "device offline"))
 
     assert platform_api.adb_broadcast_pair("cGF5bG9hZA==") == (False, "device offline")
+
+
+def test_adb_helpers_degrade_when_adb_is_missing(monkeypatch):
+    # No adb on PATH: USB-mode status probes call these every few seconds and must not raise.
+    monkeypatch.setattr(platform_api, "adb_exe", lambda: None)
+    assert platform_api.adb_devices() == []
+    ok, err = platform_api.adb_forward(8766)
+    assert not ok and "adb" in err

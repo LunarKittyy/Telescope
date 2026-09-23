@@ -1417,6 +1417,33 @@ def test_session_channel_over_usb_unforwards_even_when_the_body_raises(monkeypat
     assert calls == [("unforward", connection_module.PING_PORT, "serial-1")]
 
 
+def test_overlapping_usb_channels_share_one_forward(monkeypatch, connection_plugin):
+    # The 3s pair-status probe used to unforward 8766 while the wake thread was still polling through it.
+    plugin, _host, _panel = connection_plugin
+    monkeypatch.setattr(connection_module, "adb_devices", lambda: ["serial-1"])
+    calls = []
+    monkeypatch.setattr(
+        connection_module, "adb_forward",
+        lambda port, serial: calls.append("forward") or (True, "ok"),
+    )
+    monkeypatch.setattr(
+        connection_module, "adb_unforward", lambda port, serial: calls.append("unforward"),
+    )
+
+    with plugin.session_channel(token="tok-a", usb=True):
+        with plugin.session_channel(token="tok-a", usb=True):
+            pass
+        assert calls == ["forward"]  # inner channel closing must not tear down the outer one's tunnel
+    assert calls == ["forward", "unforward"]
+
+
+def test_session_channel_uses_passed_ip_without_reading_widgets(monkeypatch, connection_plugin):
+    plugin, _host, _panel = connection_plugin
+    monkeypatch.setattr(plugin, "_current_device_ip", lambda: pytest.fail("read a widget off-thread"))
+    with plugin.session_channel(token="tok-a", usb=False, ip="10.0.0.7") as (client, _unavailable):
+        assert client.base == f"http://10.0.0.7:{connection_module.PING_PORT}"
+
+
 def test_session_channel_reports_an_ambiguous_usb_device(monkeypatch, connection_plugin):
     plugin, _host, _panel = connection_plugin
     monkeypatch.setattr(connection_module, "adb_devices", lambda: ["a", "b"])

@@ -12,6 +12,8 @@ IS_WINDOWS = platform.system() == "Windows"
 
 
 def _run(cmd, timeout=10):
+    if cmd[0] is None:  # adb_exe() found nothing; subprocess would raise TypeError, not FileNotFoundError.
+        return -1, "", "adb not found"
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
         return r.returncode, r.stdout, r.stderr

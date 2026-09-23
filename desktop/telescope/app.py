@@ -503,15 +503,15 @@ class TelescopeWindow(QMainWindow):
         self._start_btn.setEnabled(False)
         self._set_status("Waking phone camera...", "dim")
 
-        self._spawn_wake(wake_id, conn, url, token)
+        self._spawn_wake(wake_id, conn, url, token, conn.session_target())
 
-    def _spawn_wake(self, wake_id: int, conn, url: str, token: str):
+    def _spawn_wake(self, wake_id: int, conn, url: str, token: str, target=None):
         """Split from _start() to allow test synchronization; thread mustn't outlive QObject."""
         threading.Thread(
-            target=self._wake_phone, args=(wake_id, conn, url, token), daemon=True,
+            target=self._wake_phone, args=(wake_id, conn, url, token, target), daemon=True,
         ).start()
 
-    def _wake_phone(self, wake_id: int, conn, url: str, token: str):
+    def _wake_phone(self, wake_id: int, conn, url: str, token: str, target=None):
         def on_progress(msg: str):
             try:
                 self._sig_wake_progress.emit(wake_id, msg)
@@ -519,7 +519,7 @@ class TelescopeWindow(QMainWindow):
                 pass
 
         try:
-            ok, reason = conn.ensure_phone_streaming(on_progress=on_progress)
+            ok, reason = conn.ensure_phone_streaming(on_progress=on_progress, target=target)
         except Exception:
             logging.exception("Phone wake failed")
             ok, reason = False, "Couldn't reach the phone."
@@ -619,10 +619,11 @@ class TelescopeWindow(QMainWindow):
         conn = self._plugin("connection")
         if not conn:
             return
+        target = conn.session_target()
 
         def stop():
             try:
-                conn.stop_phone_streaming()
+                conn.stop_phone_streaming(target=target)
             except Exception:
                 logging.debug("Remote stop failed", exc_info=True)
 
