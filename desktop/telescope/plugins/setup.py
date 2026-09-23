@@ -4,8 +4,8 @@ from typing import Optional
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
-    QCheckBox, QDialog, QFrame, QGroupBox, QHBoxLayout, QInputDialog, QLabel,
-    QPushButton, QSpinBox, QSizePolicy, QTextBrowser, QToolButton, QVBoxLayout, QWidget,
+    QCheckBox, QDialog, QHBoxLayout, QInputDialog, QLabel, QPushButton, QTextBrowser,
+    QToolButton, QWidget,
 )
 
 from telescope.platform import (
@@ -21,7 +21,11 @@ from telescope.platform.windows import (
 )
 from telescope.plugin import TelescopePlugin
 from telescope import theme
-from telescope.widgets.common import NoScrollComboBox, run_off_ui_thread, set_status_kind, set_ui_role
+from telescope.widgets.common import (
+    NoScrollComboBox, NoScrollSpinBox, action_button, add_card_header, button_row, card_layout,
+    control_row, create_card, dialog_buttons, dialog_header, dialog_layout, run_off_ui_thread,
+    set_status_kind, set_ui_role, wrapped_note,
+)
 
 # (width, height) tuples for canvas presets; None = auto from first frame
 CANVAS_PRESETS: list[tuple[str, tuple[int, int] | None]] = [
@@ -43,57 +47,46 @@ _PRESET_VALUES = {label: val for label, val in CANVAS_PRESETS}
 _SUDO_HINT = "This will prompt for your password (via pkexec/sudo) to make a system-level change."
 
 
-_GUIDE_HTML = """
+_GUIDE_HTML = f"""
 <style>
-  body { color: #e8eaed; font-family: sans-serif; font-size: 15px; }
-  h2   { color: #ffffff; font-size: 22px; margin-bottom: 6px; font-family: sans-serif; }
-  h3   { color: #ffffff; font-size: 17px; margin-top: 20px; margin-bottom: 6px; font-family: sans-serif; }
-  p, li { color: #e8eaed; line-height: 1.6; margin-bottom: 6px; }
-  b    { color: #ffffff; }
-  code { color: #b0bec5; font-size: 13px; }
-  a    { color: #6ab0f5; }
-  hr   { border: none; border-top: 1px solid #3a3d42; margin: 16px 0; }
-  .step { color: #6ab0f5; }
-  .note { background-color: #2a2c1f; border-left: 3px solid #e8c97a; padding: 8px 12px; color: #e8c97a; }
+  body {{ color: {theme.TEXT}; }}
+  h3   {{ color: {theme.TEXT}; font-size: 11pt; font-weight: 600; margin-top: 18px; margin-bottom: 4px; }}
+  p, li {{ color: {theme.TEXT_DIM}; line-height: 150%; margin-bottom: 4px; }}
+  b    {{ color: {theme.TEXT}; }}
+  code {{ color: {theme.ACCENT_SOFT}; }}
+  a    {{ color: {theme.ACCENT}; }}
+  .n   {{ color: {theme.ACCENT}; }}
+  .note {{ color: {theme.WARN}; }}
 </style>
-<h2>Quick Start</h2>
-
-<h3><span class="step">1.</span> 📱 Install the phone app</h3>
+<h3><span class="n">1</span>&nbsp;&nbsp;📱 Install the phone app</h3>
 <p>Open the latest release on GitHub, find <code>Telescope.apk</code> under Assets, and tap it
-on your phone's own browser to install it directly - easiest option.<br>
-(Downloaded it on your PC instead of your phone? That's fine too - the desktop app can put it
-on your phone for you.)</p>
+in your phone's own browser to install it. That's the easiest way.<br>
+Downloaded it on your PC instead? That's fine too: the desktop app can put it on your phone for you.</p>
 
-<hr>
-
-<h3><span class="step">2.</span> 🖥️ Set up the desktop app</h3>
-<p>Click the gear icon in the top right (next to <b>Start Streaming</b>) and choose
-<b>Setup Drivers &amp; APK</b>. It sets up the virtual camera and can install the phone
-app for you. You only need to open this once - if it already says everything's ready, there's
-nothing left to do here.</p>
-<p><b>Linux:</b> the <code>v4l2loopback</code> kernel module needs to be installed first via your
-package manager - <code>v4l2loopback-dkms</code> on Debian/Ubuntu/Arch, or <code>v4l2loopback</code>
-on Fedora/Nobara (via <a href="https://rpmfusion.org/">RPM Fusion</a>) - before this dialog can load it.<br>
+<h3><span class="n">2</span>&nbsp;&nbsp;🖥️ Set up the desktop app</h3>
+<p>Click the settings button (the sliders icon, next to <b>Start Streaming</b>) and choose
+<b>Setup Drivers &amp; APK</b>. It sets up the virtual camera and can install the phone app for
+you. You only need it once; if it already says everything is ready, you're done.</p>
+<p><b>Linux:</b> install the <code>v4l2loopback</code> kernel module with your package manager
+first (<code>v4l2loopback-dkms</code> on Debian/Ubuntu/Arch, <code>v4l2loopback</code> on
+Fedora/Nobara via <a href="https://rpmfusion.org/">RPM Fusion</a>) so the dialog can load it.
 USB pairing needs <a href="https://developer.android.com/studio/debug/dev-options">USB debugging</a>
-enabled on your phone and <code>adb</code> on your PATH.</p>
+on your phone and <code>adb</code> on your PATH.</p>
 
-<hr>
-
-<h3><span class="step">3.</span> 🔗 Pair your phone</h3>
-<p>Open Telescope on your phone and leave it on screen. On the desktop, click <b>Pair Device</b>, then pick one:</p>
+<h3><span class="n">3</span>&nbsp;&nbsp;🔗 Pair your phone</h3>
+<p>Open Telescope on your phone and leave it on screen. On the desktop, pick <b>Wi-Fi</b> or
+<b>USB</b> at the top left, then click <b>Pair</b> on the Connection panel:</p>
 <ul>
-  <li><b>Wi-Fi:</b> scan the QR code with your phone's scan button.</li>
+  <li><b>Wi-Fi:</b> scan the QR code with the phone's scan button.</li>
   <li><b>USB:</b> click <b>Pair via ADB</b>.</li>
 </ul>
 
-<hr>
+<h3><span class="n">4</span>&nbsp;&nbsp;▶️ Start streaming</h3>
+<p>Hit <b>Start Streaming</b>. It starts the phone's camera for you. In OBS or any other app,
+pick <b>Phone Camera</b> (Linux) or <b>Unity Video Capture</b> (Windows) as the webcam.</p>
 
-<h3><span class="step">4.</span> ▶️ Start streaming</h3>
-<p>Pick a camera and resolution on the phone, then hit <b>Start Streaming</b> on the desktop - it starts
-the phone's camera for you. In OBS (or anywhere else), select <b>Phone Camera</b> (Linux) or
-<b>Unity Video Capture</b> (Windows) as your webcam.</p>
-
-<p class="note"><b>Heads up:</b> use only on a trusted network, or enable <b>Local only - USB</b> in the Android app.</p>
+<p class="note">Use this only on a network you trust, or turn on <b>Local only - USB</b> in the
+phone app.</p>
 """
 
 
@@ -101,27 +94,22 @@ class _GuideDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Quick Start Guide")
-        self.setMinimumSize(680, 680)
+        self.setMinimumSize(600, 640)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
-        lay = QVBoxLayout(self)
+        lay = dialog_layout(self)
+        dialog_header(lay, "Quick Start", "Four steps from nothing to a working webcam.")
+        card = create_card()
+        card_lay = card_layout(card)
         browser = QTextBrowser()
-        browser.setStyleSheet(
-            f"QTextBrowser {{ background-color: {theme.SURFACE}; "
-            f"color: {theme.TEXT}; border: none; font-size: 15px; }}"
-        )
-        from PyQt6.QtGui import QFont
-        f = QFont("sans-serif", 12)
-        browser.setFont(f)
+        browser.setObjectName("guide_body")
         browser.setHtml(_GUIDE_HTML)
         browser.setOpenExternalLinks(True)
         browser.setReadOnly(True)
-        lay.addWidget(browser)
-        close_row = QHBoxLayout()
-        close_row.addStretch()
+        card_lay.addWidget(browser)
+        lay.addWidget(card, 1)
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.accept)
-        close_row.addWidget(close_btn)
-        lay.addLayout(close_row)
+        dialog_buttons(lay, close_btn)
 
 
 class SetupDialog(QDialog):
@@ -137,7 +125,6 @@ class SetupDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("System Setup")
         self.setMinimumWidth(560)
-        self.resize(600, 560)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self._on_apply_canvas = on_apply_canvas
         self._build_ui()
@@ -159,126 +146,81 @@ class SetupDialog(QDialog):
             threading.Thread(target=self._check_win_setup, daemon=True).start()
 
     def _build_ui(self):
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(20, 18, 20, 18)
-        lay.setSpacing(12)
+        lay = dialog_layout(self)
+        dialog_header(lay, "System Setup", "Prepare the virtual camera and install the phone app.")
 
-        title = QLabel("System Setup")
-        title.setObjectName("dialog_title")
-        title.setFixedHeight(30)
-        lay.addWidget(title)
-        subtitle = QLabel("Prepare the virtual camera and install the phone app.")
-        subtitle.setObjectName("dialog_subtitle")
-        subtitle.setFixedHeight(22)
-        lay.addWidget(subtitle)
-
+        # ── Virtual camera ────────────────────────────────────────────────────
+        vc_card = create_card()
+        vc_lay = card_layout(vc_card)
+        add_card_header(vc_lay, "Virtual camera", "stream")
         if IS_LINUX:
-            vc_gb = QGroupBox("Virtual camera")
-            vc_gb.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
-            vc_lay = QVBoxLayout(vc_gb)
-            vc_lay.setSpacing(9)
             self._v4l_lbl = QLabel("Checking...")
             set_status_kind(self._v4l_lbl, "status_dim")
             self._v4l_lbl.setWordWrap(True)
             self._v4l_lbl.setToolTip(
                 f"Virtual camera mapping:\n  Phone Feed: {V4L2_PHONE_DEV}\n  OBS Loopback: {V4L2_OBS_DEV}"
             )
-            vc_lay.addWidget(self._v4l_lbl)
-            btn_row = QHBoxLayout()
-            chk_btn   = QPushButton("Check Status")
-            load_btn  = QPushButton("Load Module")
-            unload_btn = QPushButton("Unload Module")
-            set_ui_role(load_btn, "success")
-            set_ui_role(unload_btn, "danger")
+            vc_lay.addLayout(control_row("Status", self._v4l_lbl, stretch=True))
+            chk_btn    = QPushButton("Check")
+            load_btn   = QPushButton("Load")
+            unload_btn = QPushButton("Unload")
             load_btn.setToolTip(_SUDO_HINT)
             unload_btn.setToolTip(_SUDO_HINT)
             chk_btn.clicked.connect(self._v4l_check)
             load_btn.clicked.connect(self._v4l_load)
             unload_btn.clicked.connect(self._v4l_unload)
-            btn_row.addWidget(chk_btn)
-            btn_row.addWidget(load_btn)
-            btn_row.addWidget(unload_btn)
-            btn_row.addStretch()
-            vc_lay.addLayout(btn_row)
+            vc_lay.addLayout(control_row("Module", button_row(chk_btn, load_btn, unload_btn), stretch=True))
+            vc_lay.addLayout(control_row("", wrapped_note(
+                "Already says Ready? Leave these alone; they're only for fixing a \"not ready\" status."),
+                stretch=True))
 
-            v4l_hint = QLabel("Already says \"Ready\" above? You don't need to touch these - they're only for fixing a \"not ready\" status.")
-            set_status_kind(v4l_hint, "status_dim")
-            v4l_hint.setWordWrap(True)
-            vc_lay.addWidget(v4l_hint)
-
-            persist_row = QHBoxLayout()
-            self._persist_chk = QCheckBox("Keep this config after reboot")
+            self._persist_chk = QCheckBox("On")
             self._persist_chk.setToolTip(
                 "Writes the same module config to /etc/modprobe.d/ and "
                 "/etc/modules-load.d/ so it survives a reboot.\n\n" + _SUDO_HINT
             )
             self._persist_chk.toggled.connect(self._on_persist_toggled)
-            persist_row.addWidget(self._persist_chk)
-            persist_row.addStretch()
-            vc_lay.addLayout(persist_row)
+            vc_lay.addLayout(control_row("Load at boot", self._persist_chk))
 
-            self._persist_status_lbl = QLabel("")
+            self._persist_status_lbl = wrapped_note("")
             set_status_kind(self._persist_status_lbl, "status_dim")
-            self._persist_status_lbl.setWordWrap(True)
             self._persist_status_lbl.setTextInteractionFlags(
                 Qt.TextInteractionFlag.TextSelectableByMouse
             )
-            self._persist_status_lbl.setVisible(False)
-            vc_lay.addWidget(self._persist_status_lbl)
-
-            lay.addWidget(vc_gb)
+            self._persist_row = QWidget()
+            self._persist_row.setObjectName("form_row")
+            self._persist_row.setLayout(control_row("", self._persist_status_lbl, stretch=True))
+            self._persist_row.setVisible(False)
+            vc_lay.addWidget(self._persist_row)
         else:
-            vc_gb = QGroupBox("Virtual camera")
-            vc_gb.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
-            vc_lay = QVBoxLayout(vc_gb)
-            vc_lay.setSpacing(9)
-            uc_row = QHBoxLayout()
             self._uc_status_lbl = QLabel("Checking...")
             set_status_kind(self._uc_status_lbl, "status_dim")
-            self._uc_btn = QPushButton("Install Driver")
-            self._uc_btn.setMinimumWidth(170)
-            set_ui_role(self._uc_btn, "success")
+            vc_lay.addLayout(control_row("Driver", self._uc_status_lbl, stretch=True))
+            self._uc_btn = action_button("Install driver")
             self._uc_btn.clicked.connect(self._install_uc)
-            uc_row.addWidget(self._uc_status_lbl, 1)
-            uc_row.addWidget(self._uc_btn)
-            vc_lay.addLayout(uc_row)
+            vc_lay.addLayout(control_row("", self._uc_btn))
 
-            adb_row = QHBoxLayout()
-            adb_label = QLabel("ADB availability")
-            adb_label.setObjectName("form_label")
-            adb_label.setFixedWidth(112)
             self._adb_status_lbl = QLabel("Checking...")
             set_status_kind(self._adb_status_lbl, "status_dim")
-            adb_row.addWidget(adb_label)
-            adb_row.addWidget(self._adb_status_lbl, 1)
-            vc_lay.addLayout(adb_row)
-            lay.addWidget(vc_gb)
+            vc_lay.addLayout(control_row("ADB", self._adb_status_lbl, stretch=True))
+        lay.addWidget(vc_card)
 
-        apk_gb = QGroupBox("Phone app")
-        apk_gb.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
-        apk_outer_lay = QVBoxLayout(apk_gb)
-        apk_outer_lay.setSpacing(6)
-        apk_lay = QHBoxLayout()
-        apk_lay.setSpacing(12)
+        # ── Phone app ─────────────────────────────────────────────────────────
+        apk_card = create_card()
+        apk_lay = card_layout(apk_card)
+        add_card_header(apk_lay, "Phone app", "devices")
         _apk = bundled_apk_path()
         self._apk_status_lbl = QLabel("Telescope.apk found" if _apk else "No APK found next to app")
         set_status_kind(self._apk_status_lbl, "status_ok" if _apk else "status_dim")
         self._apk_status_lbl.setWordWrap(True)
-        self._apk_btn = QPushButton("Install APK" if _apk else "Choose APK...")
-        self._apk_btn.setMinimumWidth(150)
-        set_ui_role(self._apk_btn, "primary")
+        apk_lay.addLayout(control_row("APK", self._apk_status_lbl, stretch=True))
+        self._apk_btn = action_button("Install APK" if _apk else "Choose APK...", "primary")
         self._apk_btn.clicked.connect(self._install_apk)
-        apk_lay.addWidget(self._apk_status_lbl, 1)
-        apk_lay.addWidget(self._apk_btn)
-        apk_outer_lay.addLayout(apk_lay)
-        apk_hint = QLabel(
-            "This installs an APK you already have - it doesn't download one. "
-            "Grab Telescope.apk from the GitHub release first, then click above and pick it."
-        )
-        set_status_kind(apk_hint, "status_dim")
-        apk_hint.setWordWrap(True)
-        apk_outer_lay.addWidget(apk_hint)
-        lay.addWidget(apk_gb)
+        apk_lay.addLayout(control_row("", self._apk_btn))
+        apk_lay.addLayout(control_row("", wrapped_note(
+            "This installs an APK you already have; it doesn't download one. "
+            "Grab Telescope.apk from the GitHub release first, then pick it here."), stretch=True))
+        lay.addWidget(apk_card)
 
         # ── Advanced ──────────────────────────────────────────────────────────
         self._advanced_toggle = QToolButton()
@@ -291,102 +233,79 @@ class SetupDialog(QDialog):
         self._advanced_toggle.toggled.connect(self._toggle_advanced)
         lay.addWidget(self._advanced_toggle)
 
-        adv_gb = QFrame()
-        adv_gb.setObjectName("subsection")
-        self._advanced_content = adv_gb
-        adv_lay = QVBoxLayout(adv_gb)
-        adv_lay.setContentsMargins(14, 14, 14, 14)
-        adv_lay.setSpacing(8)
+        adv_card = create_card()
+        self._advanced_content = adv_card
+        adv_lay = card_layout(adv_card)
+        add_card_header(adv_lay, "Virtual camera canvas", "expand")
 
-        canvas_row = QHBoxLayout()
-        canvas_lbl = QLabel("Virtual Camera Canvas")
-        canvas_lbl.setObjectName("dim")
-        canvas_row.addWidget(canvas_lbl)
         self._canvas_combo = NoScrollComboBox()
         self._canvas_combo.addItems(_PRESET_LABELS)
-        self._canvas_combo.setMinimumWidth(280)
         self._canvas_combo.currentTextChanged.connect(self._on_preset_changed)
-        canvas_row.addWidget(self._canvas_combo)
-        canvas_row.addStretch()
-        adv_lay.addLayout(canvas_row)
+        adv_lay.addLayout(control_row("Canvas", self._canvas_combo, stretch=True))
 
         # Custom W x H spinboxes (hidden unless "Custom..." selected)
-        self._custom_widget = QWidget()
-        custom_lay = QHBoxLayout(self._custom_widget)
-        custom_lay.setContentsMargins(0, 0, 0, 0)
-        custom_lay.setSpacing(6)
-        custom_lay.addWidget(QLabel("Width"))
-        self._custom_w = QSpinBox()
+        self._custom_w = NoScrollSpinBox()
         self._custom_w.setRange(64, 7680)
         self._custom_w.setValue(1920)
         self._custom_w.setSuffix(" px")
-        self._custom_w.setFixedWidth(100)
-        custom_lay.addWidget(self._custom_w)
-        custom_lay.addWidget(QLabel("Height"))
-        self._custom_h = QSpinBox()
+        self._custom_h = NoScrollSpinBox()
         self._custom_h.setRange(64, 4320)
         self._custom_h.setValue(1080)
         self._custom_h.setSuffix(" px")
-        self._custom_h.setFixedWidth(100)
-        custom_lay.addWidget(self._custom_h)
-        custom_lay.addStretch()
+        size_lay = QHBoxLayout()
+        size_lay.setContentsMargins(0, 0, 0, 0)
+        size_lay.setSpacing(8)
+        size_lay.addWidget(self._custom_w, 1)
+        times = QLabel("×")
+        times.setObjectName("dim")
+        size_lay.addWidget(times)
+        size_lay.addWidget(self._custom_h, 1)
+        self._custom_widget = QWidget()
+        self._custom_widget.setObjectName("form_row")
+        self._custom_widget.setLayout(control_row("Size", size_lay, stretch=True))
         self._custom_widget.setVisible(False)
         adv_lay.addWidget(self._custom_widget)
 
         if IS_LINUX:
-            warn_lbl = QLabel(
-                "Applying a new canvas will stop the stream, unload v4l2loopback, "
-                "and reload it. Close OBS and any other app using the virtual camera first."
-            )
-            set_status_kind(warn_lbl, "status_warn")
-            warn_lbl.setWordWrap(True)
-            adv_lay.addWidget(warn_lbl)
-            apply_label = "Apply && Restart Loopback"
+            adv_lay.addLayout(control_row("", wrapped_note(
+                "Applying stops the stream, unloads v4l2loopback and loads it again. "
+                "Close OBS and anything else using the virtual camera first.", "status_warn"),
+                stretch=True))
+            apply_label = "Apply and reload"
             apply_tooltip = _SUDO_HINT
         else:
-            note_lbl = QLabel(
-                "Applying will stop and restart the stream with the new canvas size. "
-                "If OBS loses the source, remove and re-add it after applying."
-            )
-            set_status_kind(note_lbl, "status_dim")
-            note_lbl.setWordWrap(True)
-            adv_lay.addWidget(note_lbl)
-            apply_label = "Apply Canvas"
+            adv_lay.addLayout(control_row("", wrapped_note(
+                "Applying restarts the stream at the new size. "
+                "If OBS loses the source, remove it and add it again."), stretch=True))
+            apply_label = "Apply"
             apply_tooltip = None
 
-        apply_row = QHBoxLayout()
-        self._canvas_apply_btn = QPushButton(apply_label)
-        set_ui_role(self._canvas_apply_btn, "primary")
-        if apply_tooltip:
-            self._canvas_apply_btn.setToolTip(apply_tooltip)
+        self._canvas_apply_btn = action_button(apply_label, tooltip=apply_tooltip or "")
         self._canvas_apply_btn.clicked.connect(self._apply_canvas)
-        apply_row.addWidget(self._canvas_apply_btn)
-        apply_row.addStretch()
-        adv_lay.addLayout(apply_row)
+        adv_lay.addLayout(control_row("", self._canvas_apply_btn))
 
-        self._canvas_status_lbl = QLabel("")
+        self._canvas_status_lbl = wrapped_note("")
         set_status_kind(self._canvas_status_lbl, "status_dim")
-        self._canvas_status_lbl.setWordWrap(True)
-        self._canvas_status_lbl.setVisible(False)
-        adv_lay.addWidget(self._canvas_status_lbl)
+        self._canvas_status_row = QWidget()
+        self._canvas_status_row.setObjectName("form_row")
+        self._canvas_status_row.setLayout(control_row("", self._canvas_status_lbl, stretch=True))
+        self._canvas_status_row.setVisible(False)
+        adv_lay.addWidget(self._canvas_status_row)
 
-        adv_gb.setVisible(False)
-        lay.addWidget(adv_gb)
+        adv_card.setVisible(False)
+        lay.addWidget(adv_card)
+        lay.addStretch(1)
 
-        close_row = QHBoxLayout()
-        close_row.addStretch()
         close_btn = QPushButton("Close")
-        set_ui_role(close_btn, "quiet")
         close_btn.clicked.connect(self.accept)
-        close_row.addWidget(close_btn)
-        lay.addLayout(close_row)
+        dialog_buttons(lay, close_btn)
 
     def _toggle_advanced(self, expanded: bool):
         self._advanced_toggle.setArrowType(
             Qt.ArrowType.DownArrow if expanded else Qt.ArrowType.RightArrow
         )
         self._advanced_content.setVisible(expanded)
-        self.resize(self.width(), 700 if expanded else 560)
+        self.adjustSize()
 
     def _on_preset_changed(self, label: str):
         self._custom_widget.setVisible(label == "Custom...")
@@ -398,7 +317,7 @@ class SetupDialog(QDialog):
         self._canvas_apply_btn.setEnabled(False)
         set_status_kind(self._canvas_status_lbl, "status_dim")
         self._canvas_status_lbl.setText("Reloading loopback..." if IS_LINUX else "Restarting stream...")
-        self._canvas_status_lbl.setVisible(True)
+        self._canvas_status_row.setVisible(True)
         if self._on_apply_canvas:
             self._on_apply_canvas(w, h)
 
@@ -418,7 +337,7 @@ class SetupDialog(QDialog):
                 )
             else:
                 self._canvas_status_lbl.setText(f"Failed: {msg}")
-        self._canvas_status_lbl.setVisible(True)
+        self._canvas_status_row.setVisible(True)
 
     def _get_selected_dims(self) -> tuple[int | None, int | None]:
         label = self._canvas_combo.currentText()
@@ -485,8 +404,7 @@ class SetupDialog(QDialog):
         self._persist_chk.setEnabled(False)
         set_status_kind(self._persist_status_lbl, "status_dim")
         self._persist_status_lbl.setText("Working...")
-        self._persist_status_lbl.setStyleSheet("padding-bottom: 4px;")
-        self._persist_status_lbl.setVisible(True)
+        self._persist_row.setVisible(True)
         self.adjustSize()
         action = v4l2_persist_enable if checked else v4l2_persist_disable
         threading.Thread(target=lambda: self._sig_persist_result.emit(*action()), daemon=True).start()
@@ -500,8 +418,7 @@ class SetupDialog(QDialog):
             self._persist_chk.blockSignals(False)
         set_status_kind(self._persist_status_lbl, "status_ok" if ok else "status_err")
         self._persist_status_lbl.setText(msg)
-        self._persist_status_lbl.setStyleSheet("padding-bottom: 4px;")
-        self._persist_status_lbl.setVisible(True)
+        self._persist_row.setVisible(True)
         self.adjustSize()
 
     # ── Windows ───────────────────────────────────────────────────────────────
@@ -514,11 +431,14 @@ class SetupDialog(QDialog):
             set_status_kind(self._uc_status_lbl, "status_ok")
             self._uc_status_lbl.setText("Ready")
             self._uc_btn.setText("Reinstall")
+            set_ui_role(self._uc_btn, "")
         else:
             set_status_kind(self._uc_status_lbl, "status_err")
-            self._uc_status_lbl.setText("Not installed")
             dlls = (unitycapture_dir() / "UnityCaptureFilter64.dll").exists()
-            self._uc_btn.setText("Install" if dlls else "Download and Install")
+            self._uc_status_lbl.setText(
+                "Not installed" if dlls else "Not installed (Install downloads the driver first)")
+            self._uc_btn.setText("Install driver")
+            set_ui_role(self._uc_btn, "primary")
         if adb_ok:
             set_status_kind(self._adb_status_lbl, "status_ok")
             self._adb_status_lbl.setText("Ready")

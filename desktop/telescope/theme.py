@@ -178,13 +178,11 @@ QLabel#fps_lbl {{
 }}
 QLabel#dialog_title {{
     color: {TEXT};
-    font-size: 15pt;
+    font-size: 14pt;
     font-weight: 600;
 }}
 QLabel#dialog_subtitle {{
-    color: {TEXT_FAINT};
-    font-size: 9pt;
-    margin-bottom: 3px;
+    color: {TEXT_DIM};
 }}
 QLabel:disabled {{
     color: {TEXT_DISABLED};
@@ -555,6 +553,11 @@ QGroupBox::title {{
     padding: 0 6px;
     color: {TEXT_DIM};
     background-color: {BG};
+}}
+QTextBrowser#guide_body {{
+    background-color: transparent;
+    border: none;
+    padding: 0;
 }}
 QListWidget, QTextBrowser {{
     background-color: {SURFACE_RAISE};

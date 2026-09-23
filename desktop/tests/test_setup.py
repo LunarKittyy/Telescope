@@ -38,10 +38,9 @@ def test_guide_dialog_contains_documentation_and_close_button(qapp):
     browsers = dialog.findChildren(setup_mod.QTextBrowser)
     assert len(browsers) == 1
     text = browsers[0].toPlainText()
-    assert "Quick Start" in text
-    assert "Pair Device" in text
+    assert "click Pair on the Connection panel" in text  # matches where the button now lives
     assert "Pair via ADB" in text
-    assert "it starts the phone's camera for you" in text
+    assert "starts the phone's camera for you" in text
     assert "no authentication" not in text.lower()
     assert "Add a device with that IP" not in text
     close = next(button for button in dialog.findChildren(setup_mod.QPushButton)
@@ -162,7 +161,7 @@ def windows_dialog(monkeypatch, qapp):
     "uc_ok,adb_ok,uc_text,uc_button,adb_text",
     [
         (True, True, "Ready", "Reinstall", "Ready"),
-        (False, False, "Not installed", "Install", "Not found - USB mode unavailable"),
+        (False, False, "Not installed", "Install driver", "Not found - USB mode unavailable"),
     ],
 )
 def test_windows_setup_status(
@@ -180,7 +179,8 @@ def test_windows_setup_status(
 def test_windows_status_offers_download_when_dll_missing(monkeypatch, windows_dialog, tmp_path):
     monkeypatch.setattr(setup_mod, "unitycapture_dir", lambda: tmp_path)
     windows_dialog._on_win_checks(False, True)
-    assert windows_dialog._uc_btn.text() == "Download and Install"
+    assert windows_dialog._uc_btn.text() == "Install driver"
+    assert "downloads" in windows_dialog._uc_status_lbl.text()
 
 
 def test_windows_background_check_emits_current_status(monkeypatch, windows_dialog):

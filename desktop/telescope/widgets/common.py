@@ -16,7 +16,8 @@ from telescope import theme
 
 # ── Shared desktop UI primitives ─────────────────────────────────────────────
 # Layout rules every card follows (keep new controls inside them):
-#   - Type: one family. 11pt card titles, 9.5pt everything else, 7.5pt caps section headings.
+#   - Type: one family. 14pt dialog titles, 11pt card titles, 9.5pt everything else, 7.5pt caps
+#     section headings.
 #   - Row: [label column, top-anchored][control column]; rows are at least ROW_HEIGHT tall.
 #   - Text, number and select inputs fill the control column (control_row(..., stretch=True)).
 #   - Segmented toggles (SegmentButton) fill the control column in equal shares, like the inputs
@@ -26,11 +27,21 @@ from telescope import theme
 #     direct-entry spinbox, every slider row reserves that column (gutter=True) so tracks end together.
 #   - Card-level actions (Pair, Reset) go in the card header, not in a row.
 #   - On/off settings are checkboxes labelled "On".
+#   - Buttons: one primary per view (the thing you came to do), "danger" only for destructive
+#     actions, everything else default. A lone action button is BUTTON_WIDTH wide; buttons sharing
+#     a row split it equally (button_row). Dialogs: dialog_header() on top, sections are cards,
+#     dialog_buttons() bottom-right.
 
 FORM_LABEL_WIDTH = 112
 
 SEGMENT_WIDTH = 78
 """Width of one segment where a toggle has no control column to fill (the header)."""
+
+BUTTON_WIDTH = 160
+"""Width of a lone action button; its text has to fit, not the other way round."""
+
+DIALOG_BUTTON_WIDTH = 96
+"""Width of the Close / OK / Cancel buttons in a dialog's bottom bar."""
 
 ROW_HEIGHT = 32
 """Minimum height of a settings row; matches the input controls."""
@@ -245,10 +256,11 @@ def add_card_header(layout: QVBoxLayout, title: str, icon_name: str,
     header.setContentsMargins(0, 0, 0, 2)
     header.setSpacing(10)
 
-    icon = QLabel()
-    icon.setPixmap(create_vector_icon(icon_name, theme.ACCENT).pixmap(20, 20))
-    icon.setFixedSize(20, 20)
-    header.addWidget(icon)
+    if icon_name:
+        icon = QLabel()
+        icon.setPixmap(create_vector_icon(icon_name, theme.ACCENT).pixmap(20, 20))
+        icon.setFixedSize(20, 20)
+        header.addWidget(icon)
 
     title_label = QLabel(title)
     title_label.setObjectName("card_title")
@@ -266,6 +278,99 @@ def add_card_header(layout: QVBoxLayout, title: str, icon_name: str,
         header.addWidget(action)
     layout.addLayout(header)
     return header
+
+
+def action_button(text: str, role: str = "", tooltip: str = "") -> QPushButton:
+    """A lone action button at the standard width; role is "", "primary" or "danger"."""
+    btn = QPushButton(text)
+    btn.setFixedWidth(BUTTON_WIDTH)
+    if role:
+        set_ui_role(btn, role)
+    if tooltip:
+        btn.setToolTip(tooltip)
+    return btn
+
+
+def button_row(*buttons: QPushButton) -> QHBoxLayout:
+    """Buttons that share a row split it into equal widths."""
+    lay = QHBoxLayout()
+    lay.setContentsMargins(0, 0, 0, 0)
+    lay.setSpacing(8)
+    for btn in buttons:
+        btn.setMinimumWidth(1)
+        btn.setMaximumWidth(16777215)
+        btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        lay.addWidget(btn, 1)
+    return lay
+
+
+def dialog_layout(dialog: QWidget) -> QVBoxLayout:
+    lay = QVBoxLayout(dialog)
+    lay.setContentsMargins(20, 18, 20, 18)
+    lay.setSpacing(14)
+    return lay
+
+
+def dialog_header(layout: QVBoxLayout, title: str, subtitle: str = "") -> QLabel:
+    """Title plus one line of context; returns the subtitle label so callers can update it."""
+    box = QVBoxLayout()
+    box.setContentsMargins(0, 0, 0, 0)
+    box.setSpacing(2)
+    title_lbl = QLabel(title)
+    title_lbl.setObjectName("dialog_title")
+    box.addWidget(title_lbl)
+    sub = WrapLabel(subtitle)
+    sub.setObjectName("dialog_subtitle")
+    sub.setVisible(bool(subtitle))
+    box.addWidget(sub)
+    layout.addLayout(box)
+    return sub
+
+
+def dialog_buttons(layout: QVBoxLayout, *buttons: QPushButton) -> QHBoxLayout:
+    """Bottom-right button bar; pass the primary last so it sits at the corner."""
+    bar = QHBoxLayout()
+    bar.setContentsMargins(0, 4, 0, 0)
+    bar.setSpacing(8)
+    bar.addStretch(1)
+    for btn in buttons:
+        btn.setFixedWidth(DIALOG_BUTTON_WIDTH)
+        bar.addWidget(btn)
+    layout.addLayout(bar)
+    return bar
+
+
+class WrapLabel(QLabel):
+    """Word-wrapped label that reserves the height its current width needs.
+
+    Plain wrapped QLabels report a one-line minimum to box layouts, so dialogs sized before the text
+    wrapped clipped it. Re-pinning the minimum on every resize makes the layout (and the window) grow.
+    """
+
+    def __init__(self, text: str = "", parent=None):
+        super().__init__(text, parent)
+        self.setWordWrap(True)
+
+    def _fit(self):
+        if self.width() > 1:
+            need = self.heightForWidth(self.width())
+            if need > 0 and need != self.minimumHeight():
+                self.setMinimumHeight(need)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._fit()
+
+    def setText(self, text: str):
+        super().setText(text)
+        self._fit()
+
+
+def wrapped_note(text: str, kind: str = "dim") -> QLabel:
+    """Explanatory text that sits in a card's control column."""
+    lbl = WrapLabel(text)
+    lbl.setObjectName(kind)
+    return lbl
 
 
 def card_action(text: str, icon_name: str, tooltip: str = "") -> QPushButton:

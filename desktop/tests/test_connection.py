@@ -928,7 +928,7 @@ def test_pairing_refreshes_an_open_device_manager_list(connection_plugin):
     plugin._on_device_paired("Phone", ["10.0.0.1"], "tok-a")
 
     assert dlg._list.count() == 1
-    assert dlg._list.item(0).text().startswith("Phone  -")
+    assert dlg._list.item(0).text().startswith("Phone  ·")
     dlg.close()
 
 

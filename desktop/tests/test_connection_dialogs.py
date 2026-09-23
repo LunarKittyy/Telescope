@@ -29,7 +29,7 @@ def _manager(qapp, devices=None):
 def test_device_manager_renders_selection_and_truncated_ips(qapp):
     dialog, _devices, _events, _parent = _manager(qapp)
     assert dialog._list.count() == 1
-    assert dialog._list.item(0).text() == "Phone  -  10.0.0.1, 100.64.0.1..."
+    assert dialog._list.item(0).text() == "Phone  ·  10.0.0.1, 100.64.0.1, …"
     assert not dialog._edit_btn.isEnabled()
     assert not dialog._remove_btn.isEnabled()
 
@@ -55,7 +55,7 @@ def test_device_manager_finish_edit_updates_shared_list(qapp):
     dialog._finish_edit(0, edit)
     assert devices == [{"name": "B", "ips": ["4.3.2.1"]}]
     assert events[-1] == ("edit", "A", devices[0])
-    assert dialog._list.item(0).text().startswith("B  -")
+    assert dialog._list.item(0).text().startswith("B  ·")
 
 
 def test_device_manager_remove_cancel_and_confirm(monkeypatch, qapp):
@@ -110,7 +110,7 @@ def test_device_manager_edit_opens_dialog_and_replaces_a_prior_one(qapp):
 def test_qr_widget_builds_matrix_and_renders(qapp):
     widget = _QRCodeWidget('{"port":8765}')
     assert len(widget._matrix) > 0
-    assert widget.width() == len(widget._matrix) * 8 + widget._QUIET_ZONE_PX * 2
+    assert widget.width() == len(widget._matrix) * 6 + widget._QUIET_ZONE_PX * 2
     image = widget.grab().toImage()
     assert not image.isNull()
 
@@ -139,7 +139,7 @@ def test_pairing_dialog_success_ui_and_callback(qapp):
     dialog._on_paired_signal("Phone", ["10.0.0.1"], "tok-123", "10.0.0.1")
     assert paired == [("Phone", ["10.0.0.1"], "tok-123", "10.0.0.1")]
     assert dialog._status_lbl.text() == ""
-    assert dialog._hint_lbl.isHidden()
+    assert dialog._candidates_row.isHidden()
     labels = [dialog._qr_container.itemAt(i).widget()
               for i in range(dialog._qr_container.count())
               if dialog._qr_container.itemAt(i).widget()]
@@ -169,9 +169,8 @@ def test_pairing_dialog_renders_qr_after_start(monkeypatch, qapp):
         # Advertised addresses shown so user can debug if phone can't reach them.
         assert dialog._candidates_lbl.isVisibleTo(dialog)
         assert dialog._candidates_lbl.text() == (
-            "Waiting for the phone on:\n"
-            "• 192.168.1.42 · Wi-Fi/LAN\n"
-            "• 100.90.12.34 · Tailscale"
+            "192.168.1.42 · Wi-Fi/LAN\n"
+            "100.90.12.34 · Tailscale"
         )
     finally:
         dialog._stop_server()

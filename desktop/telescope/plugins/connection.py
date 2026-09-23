@@ -10,9 +10,8 @@ import qrcode
 from PyQt6.QtCore import Qt, pyqtSignal, QObject, QSize, QTimer
 from PyQt6.QtGui import QColor, QIntValidator, QPainter, QBrush
 from PyQt6.QtWidgets import (
-    QButtonGroup, QDialog, QDialogButtonBox, QFormLayout, QGroupBox,
-    QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget, QMessageBox,
-    QPushButton, QTextEdit, QVBoxLayout,
+    QButtonGroup, QDialog, QHBoxLayout, QInputDialog, QLabel,
+    QLineEdit, QListWidget, QMessageBox, QPushButton, QTextEdit, QVBoxLayout,
     QWidget,
 )
 
@@ -35,7 +34,8 @@ from telescope.session_client import (
 )
 from telescope import theme
 from telescope.widgets.common import (
-    ElidingLabel, NoScrollComboBox, SegmentButton, card_action, run_off_ui_thread, add_card_header, control_row as _row, card_layout, create_card,
+    ElidingLabel, NoScrollComboBox, SegmentButton, control_row_widget, action_button, button_row, card_action,
+    dialog_buttons, dialog_header, dialog_layout, run_off_ui_thread, wrapped_note, add_card_header, control_row as _row, card_layout, create_card,
     create_vector_icon, segmented_row, set_status_kind, set_ui_role,
 )
 
@@ -110,7 +110,9 @@ class _DeviceDialog(QDialog):
         self.setMinimumWidth(340)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
 
-        form = QFormLayout()
+        lay = dialog_layout(self)
+        dialog_header(lay, "Edit phone" if device else "Add phone",
+                      "The name is just for you. The phone is reached on the first address that answers.")
         self._name_edit = QLineEdit(device["name"] if device else "")
         self._name_edit.setPlaceholderText("e.g. Phone1")
         self._ips_edit = QTextEdit()
@@ -118,25 +120,20 @@ class _DeviceDialog(QDialog):
         self._ips_edit.setFixedHeight(80)
         if device:
             self._ips_edit.setPlainText("\n".join(device.get("ips", [])))
-        form.addRow("Name", self._name_edit)
-        form.addRow("IP addresses", self._ips_edit)
+        lay.addLayout(_row("Name", self._name_edit, stretch=True))
+        lay.addLayout(_row("IP addresses", self._ips_edit, stretch=True))
 
-        self._err_lbl = QLabel("")
+        self._err_lbl = wrapped_note("")
         set_status_kind(self._err_lbl, "status_err")
-        self._err_lbl.setWordWrap(True)
+        lay.addLayout(_row("", self._err_lbl, stretch=True))
 
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        buttons.accepted.connect(self._on_accept)
-        buttons.rejected.connect(self.reject)
-        set_ui_role(buttons.button(QDialogButtonBox.StandardButton.Ok), "success")
-        set_ui_role(buttons.button(QDialogButtonBox.StandardButton.Cancel), "quiet")
-
-        lay = QVBoxLayout(self)
-        lay.addLayout(form)
-        lay.addWidget(self._err_lbl)
-        lay.addWidget(buttons)
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.reject)
+        save_btn = QPushButton("Save")
+        set_ui_role(save_btn, "primary")
+        save_btn.setDefault(True)
+        save_btn.clicked.connect(self._on_accept)
+        dialog_buttons(lay, cancel_btn, save_btn)
 
     def _parse_ips(self) -> list[str]:
         return [_extract_ip(l) for l in self._ips_edit.toPlainText().splitlines()
@@ -173,7 +170,8 @@ class _DeviceManagerDialog(QDialog):
     def __init__(self, parent, devices: list, on_add, on_edit, on_remove):
         super().__init__(parent)
         self.setWindowTitle("Devices")
-        self.setMinimumWidth(360)
+        self.setMinimumWidth(420)
+        self.setMinimumHeight(360)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self._devices = devices
         self._on_add_cb    = on_add  # Starts pairing asynchronously; result via _on_device_paired().
@@ -183,46 +181,29 @@ class _DeviceManagerDialog(QDialog):
         self._build_ui()
 
     def _build_ui(self):
-        lay = QVBoxLayout(self)
-        lay.setSpacing(12)
-
-        gb = QGroupBox("Registered Devices")
-        gb_lay = QVBoxLayout(gb)
+        lay = dialog_layout(self)
+        dialog_header(lay, "Paired phones",
+                      "Pair adds a phone. Edit renames one or changes its addresses.")
 
         self._list = QListWidget()
-        self._list.setAlternatingRowColors(False)
         self._list.currentRowChanged.connect(self._on_selection)
-        gb_lay.addWidget(self._list)
+        lay.addWidget(self._list, 1)
 
-        btn_row = QHBoxLayout()
         self._add_btn    = QPushButton("Pair...")
         self._edit_btn   = QPushButton("Edit")
         self._remove_btn = QPushButton("Remove")
-        set_ui_role(self._add_btn, "success")
-        set_ui_role(self._edit_btn, "quiet")
+        set_ui_role(self._add_btn, "primary")
         set_ui_role(self._remove_btn, "danger")
-        for btn in (self._add_btn, self._edit_btn, self._remove_btn):
-            btn.setFixedWidth(90)
-            btn.setFixedHeight(30)
         self._edit_btn.setEnabled(False)
         self._remove_btn.setEnabled(False)
         self._add_btn.clicked.connect(self._on_add)
         self._edit_btn.clicked.connect(self._on_edit)
         self._remove_btn.clicked.connect(self._on_remove)
-        btn_row.addWidget(self._add_btn)
-        btn_row.addWidget(self._edit_btn)
-        btn_row.addWidget(self._remove_btn)
-        btn_row.addStretch()
-        gb_lay.addLayout(btn_row)
+        lay.addLayout(button_row(self._add_btn, self._edit_btn, self._remove_btn))
 
-        lay.addWidget(gb)
-
-        close_row = QHBoxLayout()
-        close_row.addStretch()
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.accept)
-        close_row.addWidget(close_btn)
-        lay.addLayout(close_row)
+        dialog_buttons(lay, close_btn)
 
         self._refresh_list()
 
@@ -230,7 +211,7 @@ class _DeviceManagerDialog(QDialog):
         self._list.clear()
         for d in self._devices:
             ips = d.get("ips", [])
-            label = f"{d['name']}  -  {', '.join(ips[:2])}{'...' if len(ips) > 2 else ''}"
+            label = f"{d['name']}  ·  {', '.join(ips[:2])}{', …' if len(ips) > 2 else ''}"
             self._list.addItem(label)
 
     def _on_selection(self, idx: int):
@@ -301,7 +282,7 @@ class _QRCodeWidget(QWidget):
         qr.make(fit=True)
         self._matrix = qr.modules
         n = len(self._matrix)
-        self._code_size = n * 8
+        self._code_size = n * 6
         self.setFixedSize(
             self._code_size + self._QUIET_ZONE_PX * 2,
             self._code_size + self._QUIET_ZONE_PX * 2,
@@ -323,9 +304,8 @@ class _QRCodeWidget(QWidget):
 
 
 def _candidates_text(candidates: list) -> str:
-    """The "waiting for the phone on: ..." block under the QR code."""
-    lines = "\n".join(f"• {ip_utils.describe_address(c)}" for c in candidates)
-    return f"Waiting for the phone on:\n{lines}"
+    """The addresses under the QR code, one per line."""
+    return "\n".join(ip_utils.describe_address(c) for c in candidates)
 
 
 class _PairingSignals(QObject):
@@ -357,48 +337,36 @@ class _PairingDialog(QDialog):
         self._build_ui()
 
     def _build_ui(self):
-        lay = QVBoxLayout(self)
-        lay.setSpacing(12)
-        lay.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        lay = dialog_layout(self)
+        usb = self._usb_serial is not None
+        dialog_header(lay, "Pair over USB" if usb else "Pair over Wi-Fi", (
+            "Keep the Telescope app open on your phone, then click Pair via ADB."
+            if usb else
+            "Open Telescope on your phone and tap the scan button in the top-right corner."
+        ))
 
-        self._status_lbl = QLabel("Starting pairing server...")
-        set_status_kind(self._status_lbl, "status_dim")
-        self._status_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._status_lbl.setWordWrap(True)
-        lay.addWidget(self._status_lbl)
-
+        # QR code (Wi-Fi) or the Pair via ADB button (USB), swapped in once the server is up.
         self._qr_container = QVBoxLayout()
         self._qr_container.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        self._qr_container.setContentsMargins(0, 0, 0, 12)
+        self._qr_container.setContentsMargins(0, 0, 0, 0)
         lay.addLayout(self._qr_container, 1)
 
-        # Show addresses QR code advertises; visible list helps debug unreachable phones (guest Wi-Fi, VPN).
-        self._candidates_lbl = QLabel("")
-        self._candidates_lbl.setObjectName("dim")
-        self._candidates_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._candidates_lbl.setTextInteractionFlags(
-            Qt.TextInteractionFlag.TextSelectableByMouse
-        )
-        self._candidates_lbl.setVisible(False)
-        lay.addWidget(self._candidates_lbl)
+        self._status_lbl = wrapped_note("Starting pairing server...")
+        set_status_kind(self._status_lbl, "status_dim")
+        lay.addLayout(_row("Status", self._status_lbl, stretch=True))
 
-        hint_text = (
-            "Keep the Telescope app open on your phone, then click Pair via ADB below."
-            if self._usb_serial is not None else
-            "Open Telescope on your phone and tap the scan button in the top-right corner."
-        )
-        self._hint_lbl = QLabel(hint_text)
-        self._hint_lbl.setObjectName("dim")
-        self._hint_lbl.setWordWrap(True)
-        self._hint_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lay.addWidget(self._hint_lbl)
+        # Addresses the QR code advertises; seeing them helps debug an unreachable phone (guest Wi-Fi, VPN).
+        self._candidates_lbl = wrapped_note("")
+        self._candidates_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self._candidates_row = QWidget()
+        self._candidates_row.setObjectName("form_row")
+        self._candidates_row.setLayout(_row("Listening on", self._candidates_lbl, stretch=True))
+        self._candidates_row.setVisible(False)
+        lay.addWidget(self._candidates_row)
 
-        close_row = QHBoxLayout()
-        close_row.addStretch()
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.reject)
-        close_row.addWidget(close_btn)
-        lay.addLayout(close_row)
+        dialog_buttons(lay, close_btn)
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -450,20 +418,21 @@ class _PairingDialog(QDialog):
         set_status_kind(self._status_lbl, "status_dim")
         if self._usb_serial is not None:
             # USB uses explicit button (not automatic scan) since MainActivity foreground is not verifiable from here.
-            self._pair_btn = QPushButton("Pair via ADB")
+            self._pair_btn = action_button("Pair via ADB", "primary")
             self._pair_btn.clicked.connect(self._send_pair_broadcast)
-            self._qr_container.addWidget(self._pair_btn)
+            # On the control column like every other row; the QR code (Wi-Fi) is the only centred element.
+            self._qr_container.addWidget(control_row_widget("", self._pair_btn))
             self._status_lbl.setText("Ready to pair.")
         else:
             qr_widget = _QRCodeWidget(offer.payload)
             self._qr_container.addWidget(qr_widget)
             # Size dialog from rendered code, not hard-coded width (device name/IP list affect QR size).
-            required_width = qr_widget.width() + 48
+            required_width = qr_widget.width() + 40
             if self.width() < required_width:
                 self.resize(required_width, self.height())
             self._status_lbl.setText("Scan with the Telescope app on your phone.")
             self._candidates_lbl.setText(_candidates_text(offer.candidates))
-            self._candidates_lbl.setVisible(True)
+            self._candidates_row.setVisible(True)
 
     def _send_pair_broadcast(self):
         if self._pairing_server is None or self._pairing_server.offer is None:
@@ -522,8 +491,7 @@ class _PairingDialog(QDialog):
         self._qr_container.addWidget(success_lbl)
         self._qr_container.addStretch()
         self._status_lbl.setText("")
-        self._hint_lbl.setVisible(False)
-        self._candidates_lbl.setVisible(False)
+        self._candidates_row.setVisible(False)
         self._on_paired(name, ips, token, source_ip)
 
 
