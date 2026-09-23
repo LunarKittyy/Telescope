@@ -584,7 +584,7 @@ class ConnectionPlugin(TelescopePlugin):
         lay.addSpacing(6)
 
         self._device_combo = NoScrollComboBox()
-        self._device_combo.setMinimumWidth(180)
+        self._device_combo.setMinimumWidth(150)
         self._device_combo.setPlaceholderText("No paired phone")
         self._device_combo.setToolTip("Which paired phone to stream from")
         self._device_combo.currentIndexChanged.connect(self._on_device_changed)
