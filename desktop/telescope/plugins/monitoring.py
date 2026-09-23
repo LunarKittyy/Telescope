@@ -76,6 +76,7 @@ class MonitoringPlugin(TelescopePlugin):
             "Alert when battery drops below this level - including while charging, "
             "if the level keeps falling anyway"
         )
+        self._batt_alert_spin.valueChanged.connect(self._host.schedule_save)
         lay.addLayout(_row("Battery", self._batt_alert_spin))
 
         self._temp_alert_spin = NoScrollSpinBox()
@@ -84,6 +85,7 @@ class MonitoringPlugin(TelescopePlugin):
         self._temp_alert_spin.setSuffix(" °C")
         self._temp_alert_spin.setFixedWidth(90)
         self._temp_alert_spin.setToolTip("Alert when phone temperature exceeds this")
+        self._temp_alert_spin.valueChanged.connect(self._host.schedule_save)
         lay.addLayout(_row("Temperature", self._temp_alert_spin))
 
         return card

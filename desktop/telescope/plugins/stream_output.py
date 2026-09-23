@@ -89,6 +89,8 @@ class StreamOutputPlugin(TelescopePlugin):
         # Set on set_config() before phone data arrives; applied once on_phone_state() has real sizes.
         self._pending_resolution_text = None
         self._had_saved_resolution = False  # True if this device has ever had a resolution saved.
+        # Last resolution this device used; survives stream stop, which clears the combos.
+        self._saved_resolution_text = None
         # Lens switch doesn't trigger fresh /v1/state fetch; use cached capabilities dict.
         bus.camera_switched.connect(self._on_camera_switched)
 
@@ -162,6 +164,8 @@ class StreamOutputPlugin(TelescopePlugin):
         QTimer.singleShot(1500, self._push_initial_settings)
 
     def on_stream_stop(self):
+        if self._res_combo.currentData() is not None:
+            self._saved_resolution_text = self._res_combo.currentText()
         self._ctrl = None
         self._current_camera_id = None
         self._sizes_by_ratio = {}
@@ -343,13 +347,17 @@ class StreamOutputPlugin(TelescopePlugin):
             "jpeg_quality": self._quality_slider.value(),
         }
         if self._res_combo.currentData() is not None:
-            cfg["resolution"] = self._res_combo.currentText()
+            self._saved_resolution_text = self._res_combo.currentText()
+        if self._saved_resolution_text:
+            cfg["resolution"] = self._saved_resolution_text
         return cfg
 
     def set_config(self, cfg: dict):
-        if res := cfg.get("resolution"):
-            self._pending_resolution_text = res  # Combo unpopulated at load; apply when on_phone_state() arrives.
-            self._had_saved_resolution = True
+        # Always overwrite: the host applies defaults before each device's own config.
+        res = cfg.get("resolution") or None
+        self._pending_resolution_text = res  # Combo unpopulated at load; apply when on_phone_state() arrives.
+        self._saved_resolution_text = res
+        self._had_saved_resolution = res is not None
         if fps := cfg.get("fps", cfg.get("phone_fps")):  # Fallback to legacy "phone_fps" if "fps" absent.
             self._fps_spin.setValue(int(fps))
         if q := cfg.get("jpeg_quality"):

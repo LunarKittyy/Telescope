@@ -234,10 +234,11 @@ def test_stream_output_config_round_trip_and_invalid_resolution(stream_output):
         "fps": 48,
         "jpeg_quality": 77,
     })
-    # Resolution omitted from config until phone reports sizes (can't apply without valid options).
+    # Saved resolution survives a save made before the phone reports sizes.
     assert plugin.get_config() == {
         "fps": 48,
         "jpeg_quality": 77,
+        "resolution": "854 x 480",
     }
 
     plugin.on_phone_state({
@@ -272,6 +273,39 @@ def test_stream_output_invalid_persisted_resolution_falls_back_to_first(stream_o
     })
 
     assert plugin._res_combo.currentText() == "1920 x 1080"
+
+
+def test_stream_output_keeps_the_saved_resolution_through_an_idle_save(stream_output):
+    # Stopping clears the combos; a save while idle (any setting change, a device switch) used to drop it.
+    plugin, _host, _panel = stream_output
+    plugin.on_stream_start("url", _Ctrl())
+    plugin.on_phone_state({
+        "cameras": [{"id": "0", "current": True, "supportedSizes": [
+            {"width": 1920, "height": 1080}, {"width": 1280, "height": 720},
+        ]}],
+        "stream_width": 1920, "stream_height": 1080,
+    })
+    plugin._res_combo.setCurrentIndex(plugin._res_combo.findText("1280 x 720"))
+    plugin.on_stream_stop()
+
+    assert plugin.get_config()["resolution"] == "1280 x 720"
+
+
+def test_stream_output_saved_resolution_does_not_leak_into_the_next_device(stream_output):
+    plugin, _host, _panel = stream_output
+    plugin.set_config({"resolution": "1280 x 720"})
+    plugin.set_config({"fps": 30, "jpeg_quality": 85})  # host resets to defaults on device switch
+
+    assert "resolution" not in plugin.get_config()
+    assert plugin._pending_resolution_text is None
+
+
+def test_monitoring_threshold_changes_are_saved(monitoring):
+    plugin, host, _bus, _panel = monitoring
+    before = host.saves
+    plugin._batt_alert_spin.setValue(30)
+    plugin._temp_alert_spin.setValue(50)
+    assert host.saves == before + 2
 
 
 @pytest.fixture
