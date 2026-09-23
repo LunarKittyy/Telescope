@@ -11,7 +11,7 @@ from telescope.platform import IS_LINUX
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
     NoScrollSpinBox, add_card_header, add_section_heading, control_row as _row,
-    create_card, create_separator,
+    create_card, create_separator, set_status_kind,
 )
 
 # Inline colors (change with live values) sourced from theme for one semantic color definition.
@@ -56,11 +56,11 @@ class MonitoringPlugin(TelescopePlugin):
         # ── Live readouts ─────────────────────────────────────────────────────
         add_section_heading(lay, "Live status")
         self._battery_lbl = QLabel("—")
-        self._battery_lbl.setObjectName("status_dim")
+        set_status_kind(self._battery_lbl, "status_dim")
         lay.addLayout(_row("Battery", self._battery_lbl, stretch=True))
 
         self._temp_lbl = QLabel("—")
-        self._temp_lbl.setObjectName("status_dim")
+        set_status_kind(self._temp_lbl, "status_dim")
         lay.addLayout(_row("Temperature", self._temp_lbl, stretch=True))
 
         lay.addWidget(create_separator())

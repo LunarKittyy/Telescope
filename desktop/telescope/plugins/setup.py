@@ -21,7 +21,7 @@ from telescope.platform.windows import (
 )
 from telescope.plugin import TelescopePlugin
 from telescope import theme
-from telescope.widgets.common import NoScrollComboBox, set_ui_role
+from telescope.widgets.common import NoScrollComboBox, set_status_kind, set_ui_role
 
 # (width, height) tuples for canvas presets; None = auto from first frame
 CANVAS_PRESETS: list[tuple[str, tuple[int, int] | None]] = [
@@ -178,7 +178,7 @@ class SetupDialog(QDialog):
             vc_lay = QVBoxLayout(vc_gb)
             vc_lay.setSpacing(9)
             self._v4l_lbl = QLabel("Checking...")
-            self._v4l_lbl.setObjectName("status_dim")
+            set_status_kind(self._v4l_lbl, "status_dim")
             self._v4l_lbl.setWordWrap(True)
             self._v4l_lbl.setToolTip(
                 f"Virtual camera mapping:\n  Phone Feed: {V4L2_PHONE_DEV}\n  OBS Loopback: {V4L2_OBS_DEV}"
@@ -202,7 +202,7 @@ class SetupDialog(QDialog):
             vc_lay.addLayout(btn_row)
 
             v4l_hint = QLabel("Already says \"Ready\" above? You don't need to touch these - they're only for fixing a \"not ready\" status.")
-            v4l_hint.setObjectName("status_dim")
+            set_status_kind(v4l_hint, "status_dim")
             v4l_hint.setWordWrap(True)
             vc_lay.addWidget(v4l_hint)
 
@@ -218,7 +218,7 @@ class SetupDialog(QDialog):
             vc_lay.addLayout(persist_row)
 
             self._persist_status_lbl = QLabel("")
-            self._persist_status_lbl.setObjectName("status_dim")
+            set_status_kind(self._persist_status_lbl, "status_dim")
             self._persist_status_lbl.setWordWrap(True)
             self._persist_status_lbl.setTextInteractionFlags(
                 Qt.TextInteractionFlag.TextSelectableByMouse
@@ -234,7 +234,7 @@ class SetupDialog(QDialog):
             vc_lay.setSpacing(9)
             uc_row = QHBoxLayout()
             self._uc_status_lbl = QLabel("Checking...")
-            self._uc_status_lbl.setObjectName("status_dim")
+            set_status_kind(self._uc_status_lbl, "status_dim")
             self._uc_btn = QPushButton("Install Driver")
             self._uc_btn.setMinimumWidth(170)
             set_ui_role(self._uc_btn, "success")
@@ -248,7 +248,7 @@ class SetupDialog(QDialog):
             adb_label.setObjectName("form_label")
             adb_label.setFixedWidth(112)
             self._adb_status_lbl = QLabel("Checking...")
-            self._adb_status_lbl.setObjectName("status_dim")
+            set_status_kind(self._adb_status_lbl, "status_dim")
             adb_row.addWidget(adb_label)
             adb_row.addWidget(self._adb_status_lbl, 1)
             vc_lay.addLayout(adb_row)
@@ -262,7 +262,7 @@ class SetupDialog(QDialog):
         apk_lay.setSpacing(12)
         _apk = bundled_apk_path()
         self._apk_status_lbl = QLabel("Telescope.apk found" if _apk else "No APK found next to app")
-        self._apk_status_lbl.setObjectName("status_ok" if _apk else "status_dim")
+        set_status_kind(self._apk_status_lbl, "status_ok" if _apk else "status_dim")
         self._apk_status_lbl.setWordWrap(True)
         self._apk_btn = QPushButton("Install APK" if _apk else "Choose APK...")
         self._apk_btn.setMinimumWidth(150)
@@ -275,7 +275,7 @@ class SetupDialog(QDialog):
             "This installs an APK you already have - it doesn't download one. "
             "Grab Telescope.apk from the GitHub release first, then click above and pick it."
         )
-        apk_hint.setObjectName("status_dim")
+        set_status_kind(apk_hint, "status_dim")
         apk_hint.setWordWrap(True)
         apk_outer_lay.addWidget(apk_hint)
         lay.addWidget(apk_gb)
@@ -338,7 +338,7 @@ class SetupDialog(QDialog):
                 "Applying a new canvas will stop the stream, unload v4l2loopback, "
                 "and reload it. Close OBS and any other app using the virtual camera first."
             )
-            warn_lbl.setObjectName("status_warn")
+            set_status_kind(warn_lbl, "status_warn")
             warn_lbl.setWordWrap(True)
             adv_lay.addWidget(warn_lbl)
             apply_label = "Apply && Restart Loopback"
@@ -348,7 +348,7 @@ class SetupDialog(QDialog):
                 "Applying will stop and restart the stream with the new canvas size. "
                 "If OBS loses the source, remove and re-add it after applying."
             )
-            note_lbl.setObjectName("status_dim")
+            set_status_kind(note_lbl, "status_dim")
             note_lbl.setWordWrap(True)
             adv_lay.addWidget(note_lbl)
             apply_label = "Apply Canvas"
@@ -365,7 +365,7 @@ class SetupDialog(QDialog):
         adv_lay.addLayout(apply_row)
 
         self._canvas_status_lbl = QLabel("")
-        self._canvas_status_lbl.setObjectName("status_dim")
+        set_status_kind(self._canvas_status_lbl, "status_dim")
         self._canvas_status_lbl.setWordWrap(True)
         self._canvas_status_lbl.setVisible(False)
         adv_lay.addWidget(self._canvas_status_lbl)
@@ -396,9 +396,8 @@ class SetupDialog(QDialog):
             self._advanced_toggle.setChecked(True)
         w, h = self._get_selected_dims()
         self._canvas_apply_btn.setEnabled(False)
-        self._canvas_status_lbl.setObjectName("status_dim")
+        set_status_kind(self._canvas_status_lbl, "status_dim")
         self._canvas_status_lbl.setText("Reloading loopback...")
-        self._canvas_status_lbl.setStyleSheet("")
         self._canvas_status_lbl.setVisible(True)
         if self._on_apply_canvas:
             self._on_apply_canvas(w, h)
@@ -407,10 +406,10 @@ class SetupDialog(QDialog):
         """Called from SetupPlugin once the reload completes."""
         self._canvas_apply_btn.setEnabled(True)
         if ok:
-            self._canvas_status_lbl.setObjectName("status_ok")
+            set_status_kind(self._canvas_status_lbl, "status_ok")
             self._canvas_status_lbl.setText("Done - loopback reloaded successfully.")
         else:
-            self._canvas_status_lbl.setObjectName("status_err")
+            set_status_kind(self._canvas_status_lbl, "status_err")
             if "in use" in msg.lower():
                 self._canvas_status_lbl.setText(
                     "Failed: module is still in use. Close OBS and any other app "
@@ -418,7 +417,6 @@ class SetupDialog(QDialog):
                 )
             else:
                 self._canvas_status_lbl.setText(f"Failed: {msg}")
-        self._canvas_status_lbl.setStyleSheet("")
         self._canvas_status_lbl.setVisible(True)
 
     def _get_selected_dims(self) -> tuple[int | None, int | None]:
@@ -446,37 +444,32 @@ class SetupDialog(QDialog):
 
     def _v4l_check(self):
         if v4l2_devices_ready():
-            self._v4l_lbl.setObjectName("status_ok")
+            set_status_kind(self._v4l_lbl, "status_ok")
             self._v4l_lbl.setText(f"Ready: {V4L2_PHONE_DEV} + {V4L2_OBS_DEV}")
         elif v4l2_module_loaded():
-            self._v4l_lbl.setObjectName("status_warn")
+            set_status_kind(self._v4l_lbl, "status_warn")
             self._v4l_lbl.setText(f"Module loaded but {V4L2_PHONE_DEV} not found - another config active")
         else:
-            self._v4l_lbl.setObjectName("status_err")
+            set_status_kind(self._v4l_lbl, "status_err")
             self._v4l_lbl.setText("Not loaded - click Load Module")
-        self._v4l_lbl.setStyleSheet("")
 
     def _v4l_load(self):
-        self._v4l_lbl.setObjectName("status_dim")
+        set_status_kind(self._v4l_lbl, "status_dim")
         self._v4l_lbl.setText("Loading...")
-        self._v4l_lbl.setStyleSheet("")
         threading.Thread(target=lambda: self._sig_v4l_result.emit(*v4l2_load()), daemon=True).start()
 
     def _v4l_unload(self):
-        self._v4l_lbl.setObjectName("status_dim")
+        set_status_kind(self._v4l_lbl, "status_dim")
         self._v4l_lbl.setText("Unloading...")
-        self._v4l_lbl.setStyleSheet("")
         threading.Thread(target=lambda: self._sig_v4l_unload.emit(*v4l2_unload()), daemon=True).start()
 
     def _on_v4l_result(self, ok: bool, msg: str):
         self._v4l_lbl.setText(("Loaded - " if ok else "Failed - ") + msg)
-        self._v4l_lbl.setObjectName("status_ok" if ok else "status_err")
-        self._v4l_lbl.setStyleSheet("")
+        set_status_kind(self._v4l_lbl, "status_ok" if ok else "status_err")
 
     def _on_v4l_unload_result(self, ok: bool, msg: str):
         self._v4l_lbl.setText(("Unloaded - " if ok else "Failed - ") + msg)
-        self._v4l_lbl.setObjectName("status_ok" if ok else "status_err")
-        self._v4l_lbl.setStyleSheet("")
+        set_status_kind(self._v4l_lbl, "status_ok" if ok else "status_err")
 
     # ── v4l2 persistence ─────────────────────────────────────────────────────
 
@@ -489,7 +482,7 @@ class SetupDialog(QDialog):
 
     def _on_persist_toggled(self, checked: bool):
         self._persist_chk.setEnabled(False)
-        self._persist_status_lbl.setObjectName("status_dim")
+        set_status_kind(self._persist_status_lbl, "status_dim")
         self._persist_status_lbl.setText("Working...")
         self._persist_status_lbl.setStyleSheet("padding-bottom: 4px;")
         self._persist_status_lbl.setVisible(True)
@@ -504,7 +497,7 @@ class SetupDialog(QDialog):
             self._persist_chk.blockSignals(True)
             self._persist_chk.setChecked(not self._persist_chk.isChecked())
             self._persist_chk.blockSignals(False)
-        self._persist_status_lbl.setObjectName("status_ok" if ok else "status_err")
+        set_status_kind(self._persist_status_lbl, "status_ok" if ok else "status_err")
         self._persist_status_lbl.setText(msg)
         self._persist_status_lbl.setStyleSheet("padding-bottom: 4px;")
         self._persist_status_lbl.setVisible(True)
@@ -517,27 +510,24 @@ class SetupDialog(QDialog):
 
     def _on_win_checks(self, uc_ok: bool, adb_ok: bool):
         if uc_ok:
-            self._uc_status_lbl.setObjectName("status_ok")
+            set_status_kind(self._uc_status_lbl, "status_ok")
             self._uc_status_lbl.setText("Ready")
             self._uc_btn.setText("Reinstall")
         else:
-            self._uc_status_lbl.setObjectName("status_err")
+            set_status_kind(self._uc_status_lbl, "status_err")
             self._uc_status_lbl.setText("Not installed")
             dlls = (unitycapture_dir() / "UnityCaptureFilter64.dll").exists()
             self._uc_btn.setText("Install" if dlls else "Download and Install")
-        self._uc_status_lbl.setStyleSheet("")
         if adb_ok:
-            self._adb_status_lbl.setObjectName("status_ok")
+            set_status_kind(self._adb_status_lbl, "status_ok")
             self._adb_status_lbl.setText("Ready")
         else:
-            self._adb_status_lbl.setObjectName("status_err")
+            set_status_kind(self._adb_status_lbl, "status_err")
             self._adb_status_lbl.setText("Not found - USB mode unavailable")
-        self._adb_status_lbl.setStyleSheet("")
 
     def _install_uc(self):
         self._uc_btn.setEnabled(False)
-        self._uc_status_lbl.setObjectName("status_dim")
-        self._uc_status_lbl.setStyleSheet("")
+        set_status_kind(self._uc_status_lbl, "status_dim")
 
         def worker():
             if not (unitycapture_dir() / "UnityCaptureFilter64.dll").exists():
@@ -555,22 +545,20 @@ class SetupDialog(QDialog):
     def _on_uc_done(self, ok: bool, msg: str):
         self._uc_btn.setEnabled(True)
         if ok:
-            self._uc_status_lbl.setObjectName("status_ok")
+            set_status_kind(self._uc_status_lbl, "status_ok")
             self._uc_status_lbl.setText("Ready")
             self._uc_btn.setText("Reinstall")
         else:
-            self._uc_status_lbl.setObjectName("status_err")
+            set_status_kind(self._uc_status_lbl, "status_err")
             self._uc_status_lbl.setText(f"Failed: {msg}")
             self._uc_btn.setText("Retry")
-        self._uc_status_lbl.setStyleSheet("")
 
     # ── APK ───────────────────────────────────────────────────────────────────
 
     def _install_apk(self):
         if not adb_available():
-            self._apk_status_lbl.setObjectName("status_err")
+            set_status_kind(self._apk_status_lbl, "status_err")
             self._apk_status_lbl.setText("adb not found - install Android platform-tools first")
-            self._apk_status_lbl.setStyleSheet("")
             return
 
         apk = bundled_apk_path()
@@ -585,9 +573,8 @@ class SetupDialog(QDialog):
 
         serials = adb_devices()
         if not serials:
-            self._apk_status_lbl.setObjectName("status_err")
+            set_status_kind(self._apk_status_lbl, "status_err")
             self._apk_status_lbl.setText("No authorized ADB device found")
-            self._apk_status_lbl.setStyleSheet("")
             return
         serial = serials[0]
         if len(serials) > 1:
@@ -600,9 +587,8 @@ class SetupDialog(QDialog):
                 return
 
         self._apk_btn.setEnabled(False)
-        self._apk_status_lbl.setObjectName("status_dim")
+        set_status_kind(self._apk_status_lbl, "status_dim")
         self._apk_status_lbl.setText("Installing...")
-        self._apk_status_lbl.setStyleSheet("")
 
         def worker():
             rc, out, err = _run([adb_exe(), "-s", serial, "install", "-r", path], timeout=60)
@@ -617,9 +603,8 @@ class SetupDialog(QDialog):
 
     def _on_apk_done(self, ok: bool, msg: str):
         self._apk_btn.setEnabled(True)
-        self._apk_status_lbl.setObjectName("status_ok" if ok else "status_err")
+        set_status_kind(self._apk_status_lbl, "status_ok" if ok else "status_err")
         self._apk_status_lbl.setText(msg)
-        self._apk_status_lbl.setStyleSheet("")
 
 
 class SetupPlugin(TelescopePlugin):

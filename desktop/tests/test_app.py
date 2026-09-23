@@ -895,7 +895,7 @@ def test_reconnecting_status_is_warn_coloured_and_animates_dots(window):
     window._on_worker_status("reconnecting", "Stream dropped - reconnecting")
 
     assert window._status_lbl.fullText() == "Stream dropped - reconnecting."
-    assert f"color: {theme.WARN}" in window._status_lbl.styleSheet()
+    assert window._status_lbl.objectName() == "status_warn"
 
     window._tick_reconnecting_animation()
     assert window._status_lbl.fullText() == "Stream dropped - reconnecting.."
@@ -915,7 +915,20 @@ def test_reconnecting_animation_stops_when_another_status_arrives(window):
     # Timer must be stopped, not just replaced, so it can't fire and overwrite new status.
     assert not window._reconnecting_timer.isActive()
     assert window._status_lbl.fullText() == "Stream reconnected"
-    assert window._status_lbl.styleSheet() == ""
+    assert window._status_lbl.objectName() == "status_ok"
+
+
+def test_status_colour_actually_changes_with_kind(qapp):
+    # Swapping objectName alone leaves the QSS colour stale; set_status_kind must re-polish.
+    from PyQt6.QtWidgets import QLabel
+    from telescope.theme import apply_theme
+    from telescope.widgets.common import set_status_kind
+    apply_theme(qapp)
+    lbl = QLabel("x")
+    set_status_kind(lbl, "status_dim")
+    lbl.ensurePolished()
+    set_status_kind(lbl, "status_err")
+    assert lbl.palette().color(lbl.foregroundRole()).name() == theme.ERR.lower()
 
 
 def test_resolution_pending_shows_warn_color_until_confirmed(window):

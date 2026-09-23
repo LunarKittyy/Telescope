@@ -35,7 +35,7 @@ from telescope.session_client import (
 from telescope import theme
 from telescope.widgets.common import (
     NoScrollComboBox, add_card_header, control_row as _row, create_card,
-    create_vector_icon, segmented_row, set_ui_role,
+    create_vector_icon, segmented_row, set_status_kind, set_ui_role,
 )
 
 logger = logging.getLogger(__name__)
@@ -85,7 +85,7 @@ class _DeviceDialog(QDialog):
         form.addRow("IP addresses", self._ips_edit)
 
         self._err_lbl = QLabel("")
-        self._err_lbl.setObjectName("status_err")
+        set_status_kind(self._err_lbl, "status_err")
         self._err_lbl.setWordWrap(True)
 
         buttons = QDialogButtonBox(
@@ -325,7 +325,7 @@ class _PairingDialog(QDialog):
         lay.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
         self._status_lbl = QLabel("Starting pairing server...")
-        self._status_lbl.setObjectName("status_dim")
+        set_status_kind(self._status_lbl, "status_dim")
         self._status_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._status_lbl.setWordWrap(True)
         lay.addWidget(self._status_lbl)
@@ -389,21 +389,19 @@ class _PairingDialog(QDialog):
                 ok, err = adb_reverse(offer.port, serial=self._usb_serial)
                 if not ok:
                     server.stop()
-                    self._status_lbl.setObjectName("status_err")
+                    set_status_kind(self._status_lbl, "status_err")
                     self._status_lbl.setText(f"adb reverse failed: {err}")
-                    self._status_lbl.setStyleSheet("")
                     return
                 self._reversed_port = offer.port
         else:
             offer = server.start()
 
         if offer is None:
-            self._status_lbl.setObjectName("status_err")
+            set_status_kind(self._status_lbl, "status_err")
             self._status_lbl.setText(
                 "No usable network address found. Connect this computer to the "
                 "same Wi-Fi as your phone, or pair over USB instead."
             )
-            self._status_lbl.setStyleSheet("")
             return
         self._pairing_server = server
 
@@ -412,8 +410,7 @@ class _PairingDialog(QDialog):
             if item.widget():
                 item.widget().deleteLater()
 
-        self._status_lbl.setObjectName("status_dim")
-        self._status_lbl.setStyleSheet("")
+        set_status_kind(self._status_lbl, "status_dim")
         if self._usb_serial is not None:
             # USB uses explicit button (not automatic scan) since MainActivity foreground is not verifiable from here.
             self._pair_btn = QPushButton("Pair via ADB")
@@ -435,13 +432,12 @@ class _PairingDialog(QDialog):
         if self._pairing_server is None or self._pairing_server.offer is None:
             return
         self._pair_btn.setEnabled(False)
-        self._status_lbl.setObjectName("status_dim")
-        self._status_lbl.setStyleSheet("")
+        set_status_kind(self._status_lbl, "status_dim")
         self._status_lbl.setText("Sending pairing request to phone...")
         payload_b64 = base64.b64encode(self._pairing_server.offer.payload.encode()).decode()
         ok, err = adb_broadcast_pair(payload_b64, serial=self._usb_serial)
         if not ok:
-            self._status_lbl.setObjectName("status_err")
+            set_status_kind(self._status_lbl, "status_err")
             self._status_lbl.setText(f"Broadcast failed: {err}")
             self._pair_btn.setEnabled(True)
             return
@@ -453,8 +449,7 @@ class _PairingDialog(QDialog):
 
     def _on_pair_timeout(self):
         self._pair_timeout = None
-        self._status_lbl.setObjectName("status_err")
-        self._status_lbl.setStyleSheet("")
+        set_status_kind(self._status_lbl, "status_err")
         self._status_lbl.setText(
             "No response after 8s. Make sure Telescope is open and in the "
             "foreground on your phone, then click Pair via ADB again."

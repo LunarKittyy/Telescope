@@ -22,7 +22,9 @@ from telescope.platform import IS_LINUX, IS_WINDOWS
 from telescope.plugin import UNCHANGED, EventBus, TelescopePlugin
 from telescope.session import StreamSession
 from telescope.stream import StreamWorker
-from telescope.widgets.common import ElidingLabel, create_app_icon, create_vector_icon
+from telescope.widgets.common import (
+    ElidingLabel, create_app_icon, create_vector_icon, set_status_kind,
+)
 
 STATUS_COLORS = theme.STATUS_COLORS
 _WIDTH_THREE_COL = 1300
@@ -262,7 +264,7 @@ class TelescopeWindow(QMainWindow):
 
         # No caption (already reads as status); elides long messages.
         self._status_lbl = ElidingLabel("Idle - press Start Streaming")
-        self._status_lbl.setObjectName("status_dim")
+        set_status_kind(self._status_lbl, "status_dim")
         lay.addWidget(self._status_lbl, 1)
 
         divider = QFrame()
@@ -804,9 +806,8 @@ class TelescopeWindow(QMainWindow):
 
     def _render_reconnecting_frame(self):
         # Deliberately bypasses _set_status(), which stops this animation's own timer as its first step.
-        self._status_lbl.setObjectName("status_warn")
+        set_status_kind(self._status_lbl, "status_warn")
         self._status_lbl.setText(f"{self._reconnecting_base}{'.' * self._reconnecting_dots}")
-        self._status_lbl.setStyleSheet(f"color: {theme.WARN};")
 
     def _stop_reconnecting_animation(self):
         if self._reconnecting_timer:
@@ -852,9 +853,8 @@ class TelescopeWindow(QMainWindow):
         self._stop_reconnecting_animation()
         obj = {"ok": "status_ok", "warn": "status_warn",
                "err": "status_err", "dim": "status_dim"}.get(kind, "status_dim")
-        self._status_lbl.setObjectName(obj)
+        set_status_kind(self._status_lbl, obj)
         self._status_lbl.setText(msg)
-        self._status_lbl.setStyleSheet("")
 
     def closeEvent(self, event):
         if self._tray and self._worker is not None:

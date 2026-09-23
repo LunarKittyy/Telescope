@@ -149,6 +149,14 @@ def set_ui_role(widget: QWidget, role: str):
     style.polish(widget)
 
 
+def set_status_kind(label: QWidget, kind: str):
+    """Switch a label between the status_* QSS roles; a bare setObjectName() doesn't re-apply the stylesheet."""
+    label.setObjectName(kind)
+    style = label.style()
+    style.unpolish(label)
+    style.polish(label)
+
+
 def make_segmented(*buttons: QWidget):
     """Style button run as segmented pill strip (purely presentational; signals untouched)."""
     last = len(buttons) - 1
