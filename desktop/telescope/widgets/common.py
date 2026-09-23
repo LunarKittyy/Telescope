@@ -3,10 +3,10 @@ import math
 from PyQt6.QtCore import QByteArray, QPoint, QRect, QRectF, QSize, Qt, pyqtSignal
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtGui import (
-    QBrush, QColor, QFontMetrics, QIcon, QPainter, QPen, QPixmap,
+    QBrush, QColor, QFontMetrics, QIcon, QPainter, QPixmap,
 )
 from PyQt6.QtWidgets import (
-    QComboBox, QDoubleSpinBox, QFrame, QHBoxLayout, QLabel, QLayout,
+    QComboBox, QDoubleSpinBox, QFrame, QHBoxLayout, QLabel, QLayout, QPushButton,
     QSlider, QSpinBox, QSizePolicy, QVBoxLayout, QWidget,
 )
 
@@ -14,8 +14,22 @@ from telescope import theme
 
 
 # ── Shared desktop UI primitives ─────────────────────────────────────────────
+# Layout rules every card follows (keep new controls inside them):
+#   - Type: one family. 11pt card titles, 9.5pt everything else, 7.5pt caps section headings.
+#   - Row: [label column, top-anchored][control column]; rows are at least ROW_HEIGHT tall.
+#   - Text, number and select inputs fill the control column (control_row(..., stretch=True)).
+#   - Segmented toggles (SegmentButton) fill the control column in equal shares, like the inputs
+#     around them; outside a card they use SEGMENT_WIDTH per segment. Text fits the segment, not
+#     the other way round. Checkboxes keep their natural width at the column start.
+#   - Slider rows are slider_row(): [slider][value column]; in a card where any slider row has a
+#     direct-entry spinbox, every slider row reserves that column (gutter=True) so tracks end together.
+#   - Card-level actions (Pair, Reset) go in the card header, not in a row.
+#   - On/off settings are checkboxes labelled "On".
 
 FORM_LABEL_WIDTH = 112
+
+SEGMENT_WIDTH = 78
+"""Width of one segment where a toggle has no control column to fill (the header)."""
 
 ROW_HEIGHT = 32
 """Minimum height of a settings row; matches the input controls."""
@@ -73,12 +87,14 @@ class ElidingLabel(QLabel):
 class FlowLayout(QLayout):
     """Wrapping flow layout that sizes items to content and adapts column count to available space."""
 
-    def __init__(self, parent=None, spacing: int = 6, uniform: bool = False):
+    def __init__(self, parent=None, spacing: int = 6, uniform: bool = False, columns: int = 0):
         super().__init__(parent)
         self._items: list = []
         self._spacing = spacing
         # uniform: equal-width items, rows end flush (grid-like, not pill pile).
         self._uniform = uniform
+        # columns > 0 fixes the grid instead of deriving it from the widest item's text.
+        self._columns = columns
         self.setContentsMargins(0, 0, 0, 0)
 
     def addItem(self, item):        self._items.append(item)
@@ -116,8 +132,11 @@ class FlowLayout(QLayout):
         if self._uniform:
             widest = max(i.sizeHint().width() for i in self._items)
             height = max(i.sizeHint().height() for i in self._items)
-            per_row = max(1, min(len(self._items),
-                                 (avail + self._spacing) // (widest + self._spacing)))
+            if self._columns:
+                per_row = self._columns
+            else:
+                per_row = max(1, min(len(self._items),
+                                     (avail + self._spacing) // (widest + self._spacing)))
             width = (avail - (per_row - 1) * self._spacing) // per_row
             for index, item in enumerate(self._items):
                 row, col = divmod(index, per_row)
@@ -177,14 +196,29 @@ def make_segmented(*buttons: QWidget):
     return buttons
 
 
-def segmented_row(*buttons: QWidget) -> QHBoxLayout:
-    """Zero-spacing layout for segmented run (stretch decided by enclosing control_row)."""
+class SegmentButton(QPushButton):
+    """One checkable segment of a segmented toggle; exclusivity comes from the QButtonGroup it's added to."""
+
+    def __init__(self, text: str = "", parent=None):
+        super().__init__(text, parent)
+        self.setCheckable(True)
+        self.setAutoExclusive(False)
+
+
+def segmented_row(*buttons: QWidget, fill: bool = True) -> QHBoxLayout:
+    """Zero-gap run of segments, all the same width: equal shares of the row when fill, else SEGMENT_WIDTH each."""
     make_segmented(*buttons)
     lay = QHBoxLayout()
     lay.setContentsMargins(0, 0, 0, 0)
     lay.setSpacing(0)
     for btn in buttons:
-        lay.addWidget(btn)
+        if fill:
+            btn.setMinimumWidth(1)
+            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            lay.addWidget(btn, 1)
+        else:
+            btn.setFixedWidth(SEGMENT_WIDTH)
+            lay.addWidget(btn)
     return lay
 
 
@@ -204,8 +238,8 @@ def card_layout(card: QFrame) -> QVBoxLayout:
 
 
 def add_card_header(layout: QVBoxLayout, title: str, icon_name: str,
-                    subtitle: str = "") -> QHBoxLayout:
-    """Add the standard icon/title header used by every main-window card."""
+                    subtitle: str = "", action: QWidget = None) -> QHBoxLayout:
+    """Add the standard icon/title header used by every main-window card; action is the card's one button, top right."""
     header = QHBoxLayout()
     header.setContentsMargins(0, 0, 0, 2)
     header.setSpacing(10)
@@ -217,6 +251,8 @@ def add_card_header(layout: QVBoxLayout, title: str, icon_name: str,
 
     title_label = QLabel(title)
     title_label.setObjectName("card_title")
+    # Fixed height whether or not the card has a header action, so titles line up across cards.
+    title_label.setFixedHeight(30)
     header.addWidget(title_label)
 
     if subtitle:
@@ -225,13 +261,49 @@ def add_card_header(layout: QVBoxLayout, title: str, icon_name: str,
         header.addWidget(subtitle_label)
 
     header.addStretch()
+    if action is not None:
+        header.addWidget(action)
     layout.addLayout(header)
     return header
+
+
+def card_action(text: str, icon_name: str, tooltip: str = "") -> QPushButton:
+    """The small quiet button a card header carries."""
+    btn = QPushButton(text)
+    btn.setObjectName("card_action")
+    btn.setIcon(create_vector_icon(icon_name, theme.TEXT_DIM))
+    btn.setIconSize(QSize(15, 15))
+    if tooltip:
+        btn.setToolTip(tooltip)
+    return btn
+
+
+def value_label(text: str = "") -> QLabel:
+    """Fixed-width, right-aligned readout that sits after a slider."""
+    lbl = QLabel(text)
+    lbl.setObjectName("val")
+    lbl.setFixedWidth(VALUE_COL_WIDTH)
+    lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+    return lbl
+
+
+def slider_row(slider: QWidget, readout: QLabel, gutter: bool = False) -> QHBoxLayout:
+    """[slider][value column], plus the spinbox column's width when the card has direct-entry rows."""
+    stretch_slider(slider)
+    lay = QHBoxLayout()
+    lay.setContentsMargins(0, 0, 0, 0)
+    lay.setSpacing(8)
+    lay.addWidget(slider, 1)
+    lay.addWidget(readout)
+    if gutter:
+        lay.addSpacing(SPIN_COL_GUTTER)
+    return lay
 
 
 def add_section_heading(layout: QVBoxLayout, text: str):
     """Quiet small-caps divider between groups of rows; spacing, not a rule, does the separating."""
     heading = QLabel(text.upper())
+    heading.setIndent(0)  # QSS margins switch on QLabel's auto-indent, which pushed headings ~4px right of the row labels
     heading.setObjectName("section_title")
     layout.addWidget(heading)
     return heading
@@ -283,10 +355,10 @@ def ns_to_display(ns: int) -> str:
 
 
 def quality_label(q: int) -> str:
-    if q >= 95: return f"{q}%  High"
-    if q >= 80: return f"{q}%  Balanced"
-    if q >= 60: return f"{q}%  Low"
-    return f"{q}%  Very low"
+    if q >= 95: return f"{q}%: High"
+    if q >= 80: return f"{q}%: Balanced"
+    if q >= 60: return f"{q}%: Low"
+    return f"{q}%: Very low"
 
 
 # ── Log-scale math ────────────────────────────────────────────────────────────

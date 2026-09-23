@@ -48,7 +48,7 @@ def test_ns_to_display(value, expected):
      (79, "Low"), (60, "Low"), (59, "Very low")],
 )
 def test_quality_label_boundaries(quality, suffix):
-    assert quality_label(quality) == f"{quality}%  {suffix}"
+    assert quality_label(quality) == f"{quality}%: {suffix}"
 
 
 def test_log_scale_endpoints_midpoint_and_clamping():
@@ -283,3 +283,8 @@ def test_eliding_label_keeps_its_full_text_available(qapp):
     assert label.text() != label.fullText()
     assert label.toolTip() == label.fullText()
     assert label.minimumWidth() == 1
+
+
+def test_lens_labels_keep_the_zoom_factor_when_shortened():
+    from telescope.widgets.lens_panel import shorten_lens_label
+    assert shorten_lens_label("Back Telephoto 3x [phys]") == "Tele 3x"

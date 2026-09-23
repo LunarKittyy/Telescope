@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
 )
 
 from telescope.platform import (
-    IS_LINUX, IS_WINDOWS, _run, adb_available, adb_devices, adb_exe, bundled_apk_path,
+    IS_LINUX, _run, adb_available, adb_devices, adb_exe, bundled_apk_path,
 )
 from telescope.platform.linux import (
     V4L2_OBS_DEV, V4L2_PHONE_DEV,

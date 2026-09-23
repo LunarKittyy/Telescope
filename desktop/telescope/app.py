@@ -18,7 +18,7 @@ from telescope import theme
 from telescope.config import DEVICE_LOCAL_PLUGINS, load_config, save_config
 from telescope.models import PhoneState, PhoneStateError
 from telescope.phone_client import PhoneControlClient
-from telescope.platform import IS_LINUX, IS_WINDOWS
+from telescope.platform import IS_LINUX
 from telescope.plugin import UNCHANGED, EventBus, TelescopePlugin
 from telescope.session import StreamSession
 from telescope.stream import StreamWorker

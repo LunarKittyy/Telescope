@@ -10,10 +10,10 @@ import qrcode
 from PyQt6.QtCore import Qt, pyqtSignal, QObject, QSize, QTimer
 from PyQt6.QtGui import QColor, QIntValidator, QPainter, QBrush
 from PyQt6.QtWidgets import (
-    QButtonGroup, QDialog, QDialogButtonBox, QFormLayout, QFrame,
-    QGroupBox, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget,
-    QMessageBox, QPushButton, QRadioButton,
-    QTextEdit, QVBoxLayout, QWidget,
+    QButtonGroup, QDialog, QDialogButtonBox, QFormLayout, QGroupBox,
+    QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget, QMessageBox,
+    QPushButton, QTextEdit, QVBoxLayout,
+    QWidget,
 )
 
 from telescope import ip_utils
@@ -35,7 +35,7 @@ from telescope.session_client import (
 )
 from telescope import theme
 from telescope.widgets.common import (
-    ElidingLabel, NoScrollComboBox, add_card_header, control_row as _row, card_layout, create_card,
+    ElidingLabel, NoScrollComboBox, SegmentButton, card_action, add_card_header, control_row as _row, card_layout, create_card,
     create_vector_icon, segmented_row, set_status_kind, set_ui_role,
 )
 
@@ -551,13 +551,15 @@ class ConnectionPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, "Connection", "connection")
+        self._qr_btn = card_action("Pair", "qr")
+        self._qr_btn.clicked.connect(self._on_pair_qr)
+        add_card_header(lay, "Connection", "connection", action=self._qr_btn)
 
         # ── Mode ──────────────────────────────────────────────────────────────
-        self._rb_wifi = QRadioButton("Wi-Fi")
-        self._rb_usb  = QRadioButton("USB (ADB)")
-        for rb in (self._rb_wifi, self._rb_usb):
-            rb.setAutoExclusive(False)
+        self._rb_wifi = SegmentButton("Wi-Fi")
+        self._rb_usb  = SegmentButton("USB")
+        self._rb_usb.setToolTip("Over a USB cable, through adb")
+        self._rb_wifi.setToolTip("Over the local network")
         self._conn_grp = QButtonGroup(card)
         self._conn_grp.addButton(self._rb_usb)
         self._conn_grp.addButton(self._rb_wifi)
@@ -567,18 +569,9 @@ class ConnectionPlugin(TelescopePlugin):
 
         # ── Pairing (always available - a USB-only phone still needs to be
         #     paired, it just gets there via adb reverse instead of the LAN) ──
-        self._pair_status_lbl = ElidingLabel("")  # may shrink so the Pair button never gets pushed out of the card
-        self._qr_btn = QPushButton("Pair Device")
-        self._qr_btn.setIconSize(QSize(16, 16))
-        set_ui_role(self._qr_btn, "quiet")
-        self._qr_btn.clicked.connect(self._on_pair_qr)
+        self._pair_status_lbl = ElidingLabel("")
         self._update_pair_button()
-        status_inner = QHBoxLayout()
-        status_inner.setContentsMargins(0, 0, 0, 0)
-        status_inner.setSpacing(8)
-        status_inner.addWidget(self._pair_status_lbl, 1)
-        status_inner.addWidget(self._qr_btn)
-        lay.addLayout(_row("Status", status_inner, stretch=True))
+        lay.addLayout(_row("Status", self._pair_status_lbl, stretch=True))
 
         self._device_row_w = QWidget()
         self._device_row_w.setObjectName("ip_row_container")
@@ -598,9 +591,8 @@ class ConnectionPlugin(TelescopePlugin):
         # ── Port ──────────────────────────────────────────────────────────────
         self._port_field = QLineEdit(str(DEFAULT_PORT))
         self._port_field.setValidator(QIntValidator(1, 65535))
-        self._port_field.setMaximumWidth(96)
         self._port_field.editingFinished.connect(self._on_port_changed)
-        lay.addLayout(_row("Port", self._port_field))
+        lay.addLayout(_row("Port", self._port_field, stretch=True))
 
         self._pair_status_timer = QTimer(card)  # Periodic backstop; stopped during streaming.
         self._pair_status_timer.timeout.connect(self._check_pair_status)
@@ -620,7 +612,7 @@ class ConnectionPlugin(TelescopePlugin):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(8)
 
-        lay.addLayout(segmented_row(self._rb_wifi, self._rb_usb))
+        lay.addLayout(segmented_row(self._rb_wifi, self._rb_usb, fill=False))
         lay.addSpacing(6)
 
         self._device_combo = NoScrollComboBox()

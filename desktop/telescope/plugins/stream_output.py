@@ -3,16 +3,15 @@ import math
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QBrush, QColor
 from PyQt6.QtWidgets import (
-    QApplication, QComboBox, QFrame, QHBoxLayout, QLabel, QStyle, QStyledItemDelegate,
-    QStyleOptionViewItem, QVBoxLayout, QWidget,
+    QApplication, QComboBox, QStyle, QStyledItemDelegate, QStyleOptionViewItem, QWidget,
 )
 
 from telescope.plugin import TelescopePlugin
 from telescope.theme import OK, WARN
 from telescope.widgets.common import (
     NoScrollComboBox, NoScrollSlider, NoScrollSpinBox, add_card_header,
-    add_section_heading, control_row as _row, card_layout, create_card, create_separator,
-    quality_label, stretch_slider,
+    add_section_heading, control_row as _row, card_layout, create_card, quality_label,
+    slider_row, value_label,
 )
 
 _DEFAULT_QUALITY = 85
@@ -122,32 +121,21 @@ class StreamOutputPlugin(TelescopePlugin):
         self._fps_spin.setRange(5, 60)
         self._fps_spin.setValue(_DEFAULT_FPS)
         self._fps_spin.setSuffix(" fps")
-        self._fps_spin.setFixedWidth(90)
         self._fps_spin.setToolTip("Both the phone's capture rate and the local virtual camera's "
                                    "playback rate. Lower reduces bandwidth and phone battery use.")
         self._fps_spin.editingFinished.connect(self._on_fps)
-        lay.addLayout(_row("FPS", self._fps_spin))
+        lay.addLayout(_row("FPS", self._fps_spin, stretch=True))
 
         # ── JPEG Quality ──────────────────────────────────────────────────────
         add_section_heading(lay, "Phone stream")
         self._quality_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._quality_slider.setRange(1, 100)
         self._quality_slider.setValue(_DEFAULT_QUALITY)
-        stretch_slider(self._quality_slider, 104)
-        self._quality_slider.setToolTip(
-            "Lower quality and FPS reduce bandwidth. Useful on slow Wi-Fi or USB 2. "
-            "Very low values are a last resort - the image gets blocky fast."
-        )
-        self._quality_val_lbl = QLabel(quality_label(_DEFAULT_QUALITY))
-        self._quality_val_lbl.setObjectName("val")
-        self._quality_val_lbl.setMinimumWidth(92)
+        self._quality_val_lbl = value_label()
+        self._show_quality(_DEFAULT_QUALITY)
         self._quality_slider.valueChanged.connect(self._on_quality_changed)
-        q_inner = QHBoxLayout()
-        q_inner.setContentsMargins(0, 0, 0, 0)
-        q_inner.setSpacing(8)
-        q_inner.addWidget(self._quality_slider, 1)
-        q_inner.addWidget(self._quality_val_lbl)
-        lay.addLayout(_row("JPEG quality", q_inner, stretch=True))
+        lay.addLayout(_row("JPEG quality", slider_row(self._quality_slider, self._quality_val_lbl),
+                           stretch=True))
 
         return card
 
@@ -329,8 +317,15 @@ class StreamOutputPlugin(TelescopePlugin):
             self._ctrl.send(action="fps_target", value=fps)
         self._host.schedule_save()
 
+    def _show_quality(self, q: int):
+        self._quality_val_lbl.setText(f"{q}%")
+        tip = (f"{quality_label(q)}. Lower quality and FPS reduce bandwidth, which helps on slow "
+               "Wi-Fi or USB 2. Very low values are a last resort: the image gets blocky fast.")
+        self._quality_slider.setToolTip(tip)
+        self._quality_val_lbl.setToolTip(tip)
+
     def _on_quality_changed(self, q: int):
-        self._quality_val_lbl.setText(quality_label(q))
+        self._show_quality(q)
         if self._ctrl:
             self._ctrl.send(action="jpeg_quality", value=q)
         self._host.schedule_save()

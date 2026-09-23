@@ -1,17 +1,14 @@
-import shutil
-import subprocess
 import threading
 from typing import Optional
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
-from PyQt6.QtWidgets import QFrame, QLabel, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QLabel, QWidget
 
 from telescope import theme
-from telescope.platform import IS_LINUX
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
     NoScrollSpinBox, add_card_header, add_section_heading, control_row as _row,
-    card_layout, create_card, create_separator, set_status_kind,
+    card_layout, create_card, set_status_kind,
 )
 
 # Inline colors (change with live values) sourced from theme for one semantic color definition.
@@ -68,22 +65,20 @@ class MonitoringPlugin(TelescopePlugin):
         self._batt_alert_spin.setRange(5, 95)
         self._batt_alert_spin.setValue(20)
         self._batt_alert_spin.setSuffix("%")
-        self._batt_alert_spin.setFixedWidth(90)
         self._batt_alert_spin.setToolTip(
             "Alert when battery drops below this level - including while charging, "
             "if the level keeps falling anyway"
         )
         self._batt_alert_spin.valueChanged.connect(self._host.schedule_save)
-        lay.addLayout(_row("Battery", self._batt_alert_spin))
+        lay.addLayout(_row("Battery", self._batt_alert_spin, stretch=True))
 
         self._temp_alert_spin = NoScrollSpinBox()
         self._temp_alert_spin.setRange(35, 65)
         self._temp_alert_spin.setValue(45)
         self._temp_alert_spin.setSuffix(" °C")
-        self._temp_alert_spin.setFixedWidth(90)
         self._temp_alert_spin.setToolTip("Alert when phone temperature exceeds this")
         self._temp_alert_spin.valueChanged.connect(self._host.schedule_save)
-        lay.addLayout(_row("Temperature", self._temp_alert_spin))
+        lay.addLayout(_row("Temperature", self._temp_alert_spin, stretch=True))
 
         return card
 

@@ -220,7 +220,8 @@ def test_stream_output_phone_settings_lifecycle(stream_output):
     assert {"action": "jpeg_quality", "value": 92} in ctrl.sent
     assert {"action": "fps_target", "value": 25} in ctrl.sent
     assert {"action": "jpeg_quality", "value": 91} in ctrl.sent
-    assert plugin._quality_val_lbl.text() == "91%  Balanced"
+    assert plugin._quality_val_lbl.text() == "91%"
+    assert "Balanced" in plugin._quality_val_lbl.toolTip()
 
     plugin.on_stream_stop()
     before = list(ctrl.sent)

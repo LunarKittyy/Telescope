@@ -75,6 +75,7 @@ def _palette() -> QPalette:
 QSS = f"""
 * {{
     font-family: {FONT_STACK};
+    font-size: 9.5pt;
 }}
 
 /* ── Shell ──────────────────────────────────────────────────────────────── */
@@ -115,7 +116,6 @@ QFrame#header_divider {{
 }}
 QLabel#footer_label {{
     color: {TEXT_FAINT};
-    font-size: 9pt;
 }}
 /* ── Panels ─────────────────────────────────────────────────────────────── */
 QFrame#card {{
@@ -163,12 +163,10 @@ QLabel {{
 }}
 QLabel#form_label, QLabel#dim {{
     color: {TEXT_DIM};
-    font-size: 9pt;
 }}
 QLabel#val {{
     color: {ACCENT_SOFT};
-    font-family: monospace;
-    font-size: 9pt;
+    font-weight: 600;
 }}
 QLabel#status_ok   {{ color: {OK}; }}
 QLabel#status_warn {{ color: {WARN}; }}
@@ -176,8 +174,6 @@ QLabel#status_err  {{ color: {ERR}; }}
 QLabel#status_dim  {{ color: {DIM}; }}
 QLabel#fps_lbl {{
     color: {TEXT};
-    font-family: monospace;
-    font-size: 10pt;
     font-weight: 600;
 }}
 QLabel#dialog_title {{
@@ -292,51 +288,47 @@ QCheckBox::indicator:checked:disabled, QRadioButton::indicator:checked:disabled 
     background-color: {BORDER_HOVER};
 }}
 
-/* Segmented toggles: a radio/checkbox row styled as one joined pill strip.
-   Purely visual - the widgets stay ordinary radios in a QButtonGroup, so
-   exclusivity and existing signal wiring are untouched. */
-QRadioButton[segmented="true"], QCheckBox[segmented="true"] {{
+/* Segmented toggles: checkable SegmentButtons in a zero-gap row. Segment
+   widths come from the layout (equal shares of the row), never from their text. */
+QPushButton[segmented="true"] {{
     background-color: {SURFACE_RAISE};
     border: 1px solid {BORDER_STRONG};
+    border-radius: 0;
     color: {TEXT_DIM};
     font-weight: 600;
-    font-size: 9pt;
-    min-height: 28px;
-    padding: 0 14px;
-    margin: 0;
-    spacing: 0;
-}}
-QRadioButton[segmented="true"]::indicator, QCheckBox[segmented="true"]::indicator {{
-    width: 0;
-    height: 0;
-    border: none;
+    min-height: 30px;
+    padding: 0 8px;
     margin: 0;
 }}
-QRadioButton[segPos="first"], QCheckBox[segPos="first"] {{
+QPushButton[segPos="first"] {{
     border-top-left-radius: 7px;
     border-bottom-left-radius: 7px;
 }}
-QRadioButton[segPos="last"], QCheckBox[segPos="last"] {{
+QPushButton[segPos="last"] {{
     border-top-right-radius: 7px;
     border-bottom-right-radius: 7px;
     border-left: none;
 }}
-QRadioButton[segPos="mid"], QCheckBox[segPos="mid"] {{
+QPushButton[segPos="mid"] {{
     border-left: none;
 }}
-QRadioButton[segPos="only"], QCheckBox[segPos="only"] {{
+QPushButton[segPos="only"] {{
     border-radius: 7px;
 }}
-QRadioButton[segmented="true"]:hover, QCheckBox[segmented="true"]:hover {{
+QPushButton[segmented="true"]:hover {{
     background-color: {SURFACE_HOVER};
+    border-color: {BORDER_STRONG};
     color: {TEXT};
 }}
-QRadioButton[segmented="true"]:checked, QCheckBox[segmented="true"]:checked {{
+QPushButton[segmented="true"]:checked {{
     background-color: {FILL};
     border-color: {FILL};
     color: #ffffff;
 }}
-QRadioButton[segmented="true"]:disabled, QCheckBox[segmented="true"]:disabled {{
+QPushButton[segmented="true"]:checked:hover {{
+    background-color: {FILL_HOVER};
+}}
+QPushButton[segmented="true"]:disabled {{
     background-color: {BG};
     border-color: {BORDER};
     color: {TEXT_DISABLED};
@@ -485,6 +477,19 @@ QPushButton#start_btn[streaming=true] {{
 }}
 QPushButton#start_btn[streaming=true]:hover {{
     background-color: #c45a55;
+}}
+QPushButton#card_action {{
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: 7px;
+    background-color: transparent;
+    border: 1px solid {BORDER};
+    color: {TEXT_DIM};
+}}
+QPushButton#card_action:hover {{
+    background-color: {SURFACE_RAISE};
+    border-color: {BORDER_HOVER};
+    color: {TEXT};
 }}
 QPushButton#icon_btn {{
     background-color: transparent;

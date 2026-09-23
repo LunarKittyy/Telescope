@@ -69,7 +69,6 @@ def test_dialog_preset_visibility_and_apply_callback(qapp):
 def linux_dialog(monkeypatch, qapp):
     # Force IS_LINUX to test Linux widgets on any OS (CI runs on Windows too).
     monkeypatch.setattr(setup_mod, "IS_LINUX", True)
-    monkeypatch.setattr(setup_mod, "IS_WINDOWS", False)
     return SetupDialog()
 
 
@@ -155,7 +154,6 @@ def test_failed_persist_action_reverts_checkbox(linux_dialog):
 @pytest.fixture
 def windows_dialog(monkeypatch, qapp):
     monkeypatch.setattr(setup_mod, "IS_LINUX", False)
-    monkeypatch.setattr(setup_mod, "IS_WINDOWS", True)
     dialog = SetupDialog()
     return dialog
 
