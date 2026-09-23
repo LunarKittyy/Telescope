@@ -279,3 +279,49 @@ def test_run_streams_a_frame_and_stops_cleanly(monkeypatch):
     assert cameras[0].sent[0].shape == (4, 4, 3)
     assert any(kind == "ok" and "fake-vcam" in msg for kind, msg in statuses)
     assert statuses[-1] == ("idle", "Stopped.")
+
+
+def test_fps_change_rebuilds_the_vcam_without_reopening_the_phone_stream(monkeypatch):
+    frame = np.full((2, 4, 3), [10, 20, 30], dtype=np.uint8)
+    feed = threading.Event()
+
+    class _EndlessCapture(_Capture):
+        def read(self):
+            feed.wait(0.01)
+            return True, frame
+
+    opened = []
+    worker = stream.StreamWorker("url", None, None, 24, canvas_width=4, canvas_height=4)
+    monkeypatch.setattr(worker, "_open_cap", lambda: opened.append(1) or _EndlessCapture())
+
+    cameras = []
+
+    class FakeCamera:
+        device = "fake-vcam"
+
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+            self.ticks = 0
+            cameras.append(self)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def send(self, rgb):
+            pass
+
+        def sleep_until_next_frame(self):
+            self.ticks += 1
+            if len(cameras) == 1 and self.ticks == 2:
+                worker.update_output(fps=15)
+            elif len(cameras) == 2:
+                worker.request_stop()
+
+    monkeypatch.setattr(stream.pyvirtualcam, "Camera", FakeCamera)
+    worker.run()
+
+    assert [c.kwargs["fps"] for c in cameras] == [24, 15]
+    assert len(opened) == 1  # same phone connection throughout
