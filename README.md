@@ -46,11 +46,11 @@ Download `Telescope-linux.tar.gz` from the [releases page](../../releases), extr
   - Fedora/Nobara: `sudo dnf install android-tools`
   - Arch: `sudo pacman -S android-tools`
 
-**Both platforms:** on first launch, click the gear icon in the top right (next to the **Start Streaming** button) and choose **Setup Drivers & APK**. It sets up the virtual camera and can install the phone app for you (you'll be asked to pick the APK you downloaded). You only need to open this dialog once - if it already says everything's ready, you're done.
+**Both platforms:** on first launch, click the settings button in the top right (the sliders icon next to **Start Streaming**) and choose **Setup Drivers & APK**. It sets up the virtual camera and can install the phone app for you (you'll be asked to pick the APK you downloaded). You only need to open this dialog once - if it already says everything's ready, you're done.
 
 ### 3. 🔗 Pair your phone
 
-Open Telescope on your phone and leave it on screen. On the desktop app, click **Pair Device**, then pick one:
+Open Telescope on your phone and leave it on screen. On the desktop app, pick **Wi-Fi** or **USB** at the top left, then click **Pair** on the Connection panel:
 
 - **Wi-Fi:** scan the QR code with your phone's scan button.
 - **USB:** click **Pair via ADB** (needs `adb` on your PATH - bundled on Windows; on Linux, install it via your package manager: `adb` on Debian/Ubuntu, `android-tools` on Fedora/Nobara and Arch).
@@ -100,10 +100,10 @@ Everything past this point is optional - detailed feature reference, how it work
 - One FPS spinner (5-60) drives both the phone's capture rate and the virtual camera's playback rate - there's no separate "phone" and "playback" rate to keep in sync
 
 **Bandwidth controls**
-- JPEG quality slider (50-100%) - controls compression on the phone, takes effect immediately without restarting the stream
+- JPEG quality slider (1-100%) - controls compression on the phone, takes effect immediately without restarting the stream
 
 **Monitoring**
-- Live FPS and a "LIVE THROUGHPUT" Mbps readout in the footer while streaming, colored amber if the real decode rate falls behind the target for a sustained stretch
+- FPS and throughput (Mbps) readouts in the footer while streaming; throughput turns amber if the real decode rate falls behind the target for a sustained stretch
 - A dropped stream shows an animated "Stream dropped - reconnecting..." status instead of a static line
 - Battery level and phone temperature polled every 15 seconds, shown in the Monitoring panel with color coding
 - Configurable battery alert threshold (default 20%) - fires a tray/desktop notification when discharging below it
@@ -111,9 +111,9 @@ Everything past this point is optional - detailed feature reference, how it work
 
 **Multi-device and config persistence**
 - USB mode targets a specific ADB serial: if exactly one authorized device/emulator is connected it's picked automatically, if more than one is connected you're prompted to choose which one (avoids `adb: more than one device/emulator` failures on forward/install)
-- Named device list in Wi-Fi mode: add/remove/edit devices via the gear button popup; switch between them with a dropdown
+- Named device list: switch phones with the dropdown at the top left, and edit or remove them with the button next to it. The dropdown shows in USB mode too, since USB still uses the chosen phone's pairing token
 - Each device stores multiple IPs; a second dropdown selects the active IP. Tailscale IPs (100.64.0.0/10) are ranked first, LAN IPs second
-- Pairing: click **Pair Device** on the desktop to open the pairing dialog - a scannable QR code in Wi-Fi mode, or a **Pair via ADB** button in USB mode that pushes the request over adb instead. Either way the phone is registered automatically with all its IPs. A status label next to the Pair Device button shows live reachability (Paired / Not paired / Unreachable / Checking...), not just whether a token happens to be saved
+- Pairing: click **Pair** on the Connection panel to open the pairing dialog - a scannable QR code in Wi-Fi mode, or a **Pair via ADB** button in USB mode that pushes the request over adb instead. Either way the phone is registered automatically with all its IPs. The panel's Status row shows live reachability (Paired / Not paired / Unreachable / No USB phone / Checking...), not just whether a token happens to be saved
 - Camera, stream-output, transform, and monitoring settings (resolution, FPS, flip, rotation, exposure, zoom, quality, alert thresholds, etc.) are saved per device to `telescope_config.json`; connection settings and the virtual-camera canvas are global
 - The config format is not migrated across versions: an unsupported or malformed config is backed up alongside the real one and replaced with defaults rather than carrying compatibility code for old formats. Each section (connection/plugin settings, per-device settings, selected device) is validated independently, so one malformed section resets to defaults without discarding the rest
 
@@ -384,7 +384,7 @@ The release zip bundles the UnityCapture DLLs already; the app registers them fr
 
 **Plugin system:** The app is built around `TelescopePlugin` - a base class with hooks for `setup()`, `create_panel()`, `process_frame()`, `on_stream_start/stop()`, `on_phone_state()`, and `get/set_config()`. Plugins are registered in `main.py` in order; each creates one UI card. An `EventBus` (QObject with Qt signals) handles cross-plugin communication.
 
-**Window layout:** A plugin declares a `panel_region` (`"left"`, `"right"` or `"center"`) and the window routes its panel there, so no plugin knows where it physically lands. Wide windows get three columns - setup rails either side of the video stage; below ~1300px the rails fold together, and below ~900px everything stacks into one scrolling column. A plugin can also contribute a header control via `create_header_widget()` (the Connection plugin puts the device picker there) or entries in the header's settings menu via `create_menu_actions()` (how System Setup and the Quick Start Guide are reached, since neither is something you adjust mid-stream).
+**Window layout:** A plugin declares a `panel_region` (`"left"`, `"right"` or `"center"`) and the window routes its panel there, so no plugin knows where it physically lands. Wide windows get three columns - the desktop-side cards (connection, output, transforms) on the left and the phone-side cards (camera, monitoring) on the right, both the same width so the video stage stays centred; below ~1300px the rails fold together, and below ~900px everything stacks into one scrolling column. A plugin can also contribute a header control via `create_header_widget()` (the Connection plugin puts the Wi-Fi/USB switch and device picker there) or entries in the header's settings menu via `create_menu_actions()` (how System Setup and the Quick Start Guide are reached, since neither is something you adjust mid-stream).
 
 **Theming:** `telescope/theme.py` owns the entire look - palette constants, a dark `QPalette` so Qt-drawn chrome matches, and one stylesheet, applied over Fusion by `apply_theme()`. There are no image assets: icons are drawn procedurally with `QPainter` (`create_vector_icon`), and segmented toggles are ordinary radios/checkboxes carrying a `segmented` property the stylesheet picks up, so exclusivity and signal wiring stay plain Qt.
 
@@ -398,7 +398,7 @@ The release zip bundles the UnityCapture DLLs already; the app registers them fr
 
 **Live transform:** Plugin attributes like `flip_h`, `rotation`, `zoom` are plain Python instance attributes updated by the UI thread and read each frame by the worker thread. Python's GIL makes bool/float writes atomic at this granularity, so no lock is needed.
 
-**Live FPS change:** Changing FPS requires recreating the `pyvirtualcam.Camera` context (constructed with fixed fps). The worker holds a `threading.Event` (`_restart_vcam`). When set, the inner vcam loop breaks, the context closes, and the outer loop re-enters with new parameters.
+**Live FPS change:** Changing FPS requires recreating the `pyvirtualcam.Camera` context (constructed with fixed fps). The worker holds a `threading.Event` (`_restart_vcam`). When set, the vcam loop breaks, the context closes, and `_run_vcam()` opens a new one at the new rate. The phone connection and reader thread stay up throughout.
 
 **Live resolution change:** Unlike FPS, mid-stream resolution changes don't require a vcam restart. The reader thread reads `self._width`/`self._height` dynamically each frame, and `_fit_frame()` adapts the output to the fixed canvas dimensions.
 
@@ -512,7 +512,7 @@ JSON body `{"action": "<action>", ...params}`.
 | `edge_mode` | `value=<int 0-3>` | Set sharpening/edge mode (desktop UI only offers 0/1/2 = Off/Fast/High Quality) |
 | `black_level_lock` | `value=1\|0` | Toggle black level lock |
 | `torch` | `value=1\|0` | Toggle flash/torch |
-| `jpeg_quality` | `value=<int 1-100>` | Set JPEG quality on the phone (desktop UI restricts to 50-100) |
+| `jpeg_quality` | `value=<int 1-100>` | Set JPEG quality on the phone |
 | `fps_target` | `value=<int 1-120>` | Set capture FPS on the phone (desktop UI restricts to 5-60) |
 
 All responses: `{"ok": true}` or `{"ok": false, "error": "..."}`.

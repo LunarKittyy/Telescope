@@ -371,7 +371,7 @@ class SetupDialog(QDialog):
             self._v4l_lbl.setText(f"Module loaded but {V4L2_PHONE_DEV} not found - another config active")
         else:
             set_status_kind(self._v4l_lbl, "status_err")
-            self._v4l_lbl.setText("Not loaded - click Load Module")
+            self._v4l_lbl.setText("Not loaded - click Load")
 
     def _v4l_load(self):
         set_status_kind(self._v4l_lbl, "status_dim")

@@ -164,7 +164,7 @@ class MonitoringPlugin(TelescopePlugin):
             self._temp_notified = True
             self._host.send_notification(
                 "Telescope - Phone Running Hot",
-                f"Temperature is {temp_c:.1f} C. Consider stopping charging or closing other apps.",
+                f"Temperature is {temp_c:.1f} °C. Consider stopping charging or closing other apps.",
             )
         elif temp_c < temp_thresh - 5:
             self._temp_notified = False

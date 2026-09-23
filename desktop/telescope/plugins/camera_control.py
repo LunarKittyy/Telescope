@@ -420,7 +420,7 @@ class CameraControlPlugin(TelescopePlugin):
             self._manual_exp = False
             self._iso_slider.set_enabled(False)
             self._sht_slider.set_enabled(False)
-            self._rb_exp_manual.setToolTip("This camera does not support MANUAL_SENSOR")
+            self._rb_exp_manual.setToolTip("This lens doesn't allow manual exposure (no MANUAL_SENSOR capability)")
         else:
             self._rb_exp_manual.setToolTip("")
 
@@ -433,7 +433,7 @@ class CameraControlPlugin(TelescopePlugin):
             self._wb_k_lbl.setEnabled(False)
             self._tint_slider.setEnabled(False)
             self._tint_lbl.setEnabled(False)
-            self._rb_wb_manual.setToolTip("This camera does not support MANUAL_POST_PROCESSING")
+            self._rb_wb_manual.setToolTip("This lens doesn't allow manual white balance (no MANUAL_POST_PROCESSING capability)")
         else:
             self._rb_wb_manual.setToolTip("")
 
@@ -444,13 +444,13 @@ class CameraControlPlugin(TelescopePlugin):
             self._rb_focus_manual.setChecked(False)
             self._manual_focus = False
             self._focus_slider.setEnabled(False)
-            self._rb_focus_manual.setToolTip("This camera does not support manual focus")
+            self._rb_focus_manual.setToolTip("This lens doesn't allow manual focus")
         else:
             self._rb_focus_manual.setToolTip("")
 
         self._torch_btn.setEnabled(supports_flash)
         if not supports_flash:
-            self._torch_btn.setToolTip("This camera does not have a flash/torch")
+            self._torch_btn.setToolTip("This lens has no flash to use as a torch")
         else:
             self._torch_btn.setToolTip("")
 

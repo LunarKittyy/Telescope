@@ -645,7 +645,7 @@ class ConnectionPlugin(TelescopePlugin):
             QMessageBox.critical(
                 self._host, "Not paired",
                 "This device hasn't been paired yet.\n\n"
-                "Click Pair Device in the Connection panel and follow the "
+                "Click Pair on the Connection panel and follow the "
                 "Wi-Fi or USB pairing steps."
             )
             return None, None, False
@@ -673,7 +673,10 @@ class ConnectionPlugin(TelescopePlugin):
         else:
             ip = self._current_device_ip()
             if not ip:
-                QMessageBox.critical(self._host, "No device", "Pair a device in Wi-Fi mode first.")
+                QMessageBox.critical(
+                    self._host, "No address",
+                    "This phone has no saved IP address. Pair it over Wi-Fi, or add one with the "
+                    "manage-phones button next to the device list.")
                 return None, None, False
             self._forwarded_port = None
             return f"http://{ip}:{port}/v1/video", token, True
