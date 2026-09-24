@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Same rules as the desktop app (desktop/telescope/widgets/common.py): one type scale (styles.xml),
+     sentence-case card titles with an accent icon, labels above fields on a phone, one primary button,
+     on/off settings as switches, 12dp field and button radius, 16dp cards. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -9,55 +12,54 @@
     <!-- Header bar -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="56dp"
         android:orientation="horizontal"
         android:background="@color/colorHeader"
         android:paddingStart="16dp"
-        android:paddingEnd="8dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp"
+        android:paddingEnd="4dp"
         android:gravity="center_vertical">
 
         <ImageView
-            android:layout_width="32dp"
-            android:layout_height="32dp"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
             android:src="@drawable/ic_launcher_foreground"
             android:layout_marginEnd="12dp"
-            android:scaleType="fitCenter" />
+            android:scaleType="fitCenter"
+            android:importantForAccessibility="no" />
 
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Telescope"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:textColor="@color/colorOnSurface"
-            android:letterSpacing="0.02" />
+            android:textAppearance="@style/TextAppearance.Telescope.AppTitle" />
 
         <ImageButton
             android:id="@+id/btnPreview"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:src="@drawable/ic_preview"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_preview_open"
+            app:tint="@color/colorOnSurfaceDim"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="Open camera preview"
-            android:padding="10dp" />
+            android:padding="12dp" />
 
         <ImageButton
             android:id="@+id/btnScanQr"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:src="@drawable/ic_qr_scan"
+            app:tint="@color/colorOnSurfaceDim"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="Scan QR code to pair with desktop"
-            android:padding="10dp" />
+            android:padding="12dp" />
 
         <ImageButton
             android:id="@+id/btnResetPairing"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:src="@drawable/ic_close"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_unpair"
+            app:tint="@color/colorOnSurfaceDim"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="Reset pairing"
             android:padding="12dp" />
@@ -77,32 +79,39 @@
             android:padding="16dp"
             android:paddingBottom="24dp">
 
-            <!-- Permissions warning card — shown only when something is missing -->
-            <androidx.cardview.widget.CardView
+            <!-- Permissions: shown only when something is missing -->
+            <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardPermissions"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
-                android:visibility="gone"
-                app:cardCornerRadius="10dp"
-                app:cardElevation="0dp"
-                app:cardBackgroundColor="@color/colorSurface">
+                android:visibility="gone">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="16dp">
+                    android:padding="18dp">
 
-                    <TextView
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="PERMISSIONS NEEDED"
-                        android:textSize="11sp"
-                        android:textColor="@color/colorError"
-                        android:textStyle="bold"
-                        android:letterSpacing="0.12"
-                        android:layout_marginBottom="10dp" />
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="14dp">
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_info"
+                            app:tint="@color/colorError"
+                            android:importantForAccessibility="no" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:text="Permissions needed"
+                            android:textAppearance="@style/TextAppearance.Telescope.CardTitle" />
+                    </LinearLayout>
 
                     <LinearLayout
                         android:id="@+id/layoutPermissionsContainer"
@@ -111,127 +120,156 @@
                         android:orientation="vertical" />
 
                 </LinearLayout>
-            </androidx.cardview.widget.CardView>
+            </com.google.android.material.card.MaterialCardView>
 
-            <!-- Camera settings card -->
-            <androidx.cardview.widget.CardView
+            <!-- Camera -->
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                app:cardCornerRadius="10dp"
-                app:cardElevation="0dp"
-                app:cardBackgroundColor="@color/colorSurface">
+                android:layout_marginBottom="12dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="16dp">
+                    android:padding="18dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="14dp">
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_camera"
+                            app:tint="@color/colorAccent"
+                            android:importantForAccessibility="no" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:text="Camera"
+                            android:textAppearance="@style/TextAppearance.Telescope.CardTitle" />
+                    </LinearLayout>
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="CAMERA"
-                        android:textSize="11sp"
-                        android:textColor="@color/colorPrimary"
-                        android:textStyle="bold"
-                        android:letterSpacing="0.12"
-                        android:layout_marginBottom="8dp" />
+                        android:layout_marginBottom="6dp"
+                        android:text="Lens"
+                        android:textAppearance="@style/TextAppearance.Telescope.Label" />
 
                     <Spinner
                         android:id="@+id/spinnerCamera"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="16dp"
+                        android:layout_marginBottom="14dp"
                         android:background="@drawable/spinner_bg"
                         android:popupBackground="@color/colorSurfaceRaised" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="RESOLUTION"
-                        android:textSize="11sp"
-                        android:textColor="@color/colorPrimary"
-                        android:textStyle="bold"
-                        android:letterSpacing="0.12"
-                        android:layout_marginBottom="8dp" />
+                        android:layout_marginBottom="6dp"
+                        android:text="Resolution"
+                        android:textAppearance="@style/TextAppearance.Telescope.Label" />
 
                     <Spinner
                         android:id="@+id/spinnerResolution"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="12dp"
+                        android:layout_marginBottom="8dp"
                         android:background="@drawable/spinner_bg"
                         android:popupBackground="@color/colorSurfaceRaised" />
 
-                    <CheckBox
+                    <com.google.android.material.switchmaterial.SwitchMaterial
                         android:id="@+id/checkOis"
-                        android:layout_width="wrap_content"
+                        style="@style/Widget.Telescope.Switch"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Optical Image Stabilization (OIS)"
-                        android:textSize="14sp"
-                        android:textColor="@color/colorOnSurface"
-                        android:buttonTint="@color/colorPrimary"
-                        android:layout_marginBottom="4dp" />
+                        android:text="Stabilization (OIS)" />
 
-                    <CheckBox
+                    <com.google.android.material.switchmaterial.SwitchMaterial
                         android:id="@+id/checkLocalOnly"
-                        android:layout_width="wrap_content"
+                        style="@style/Widget.Telescope.Switch"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Local only - USB (disables Wi-Fi access)"
-                        android:textSize="14sp"
-                        android:textColor="@color/colorOnSurface"
-                        android:buttonTint="@color/colorPrimary" />
+                        android:text="Local only - USB" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Keeps the camera off the network, so only a USB connection can reach it."
+                        android:textAppearance="@style/TextAppearance.Telescope.Hint" />
 
                 </LinearLayout>
-            </androidx.cardview.widget.CardView>
+            </com.google.android.material.card.MaterialCardView>
 
-            <!-- Stream button -->
+            <!-- The one primary action -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnToggle"
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
+                android:layout_height="56dp"
                 android:layout_marginBottom="12dp"
-                android:text="Start Streaming"
-                android:textSize="15sp"
-                android:letterSpacing="0.04"
-                android:textColor="@color/colorOnPrimary"
-                app:backgroundTint="@color/colorPrimary"
-                app:cornerRadius="10dp" />
+                android:text="Start Streaming" />
 
-            <!-- Status card -->
-            <androidx.cardview.widget.CardView
+            <!-- Status -->
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                app:cardCornerRadius="10dp"
-                app:cardElevation="0dp"
-                app:cardBackgroundColor="@color/colorSurface">
+                android:layout_marginBottom="12dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="16dp">
+                    android:padding="18dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="14dp">
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_status"
+                            app:tint="@color/colorAccent"
+                            android:importantForAccessibility="no" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:text="Status"
+                            android:textAppearance="@style/TextAppearance.Telescope.CardTitle" />
+                    </LinearLayout>
 
                     <TextView
                         android:id="@+id/tvStatus"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="○ Not streaming"
-                        android:textSize="13sp"
-                        android:textColor="@color/colorOnSurfaceDim"
-                        android:fontFamily="monospace"
-                        android:layout_marginBottom="0dp" />
+                        android:textAppearance="@style/TextAppearance.Telescope.Body"
+                        android:textColor="@color/colorOnSurfaceDim" />
 
-                    <!-- Link pills — hidden when not streaming -->
+                    <!-- Stream addresses, only while streaming. Tap one to copy it. -->
                     <LinearLayout
                         android:id="@+id/layoutLinks"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
                         android:visibility="gone"
-                        android:layout_marginTop="12dp">
+                        android:layout_marginTop="14dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="6dp"
+                            android:text="Stream address (tap to copy)"
+                            android:textAppearance="@style/TextAppearance.Telescope.Label" />
 
                         <TextView
                             android:id="@+id/tvLinkWifi"
@@ -241,11 +279,10 @@
                             android:background="@drawable/pill_link"
                             android:paddingStart="14dp"
                             android:paddingEnd="14dp"
-                            android:paddingTop="10dp"
-                            android:paddingBottom="10dp"
-                            android:textSize="12sp"
-                            android:fontFamily="monospace"
-                            android:textColor="@color/colorOnSurface"
+                            android:paddingTop="12dp"
+                            android:paddingBottom="12dp"
+                            android:textAppearance="@style/TextAppearance.Telescope.Body"
+                            android:textSize="13sp"
                             android:clickable="true"
                             android:focusable="true" />
 
@@ -256,62 +293,65 @@
                             android:background="@drawable/pill_link"
                             android:paddingStart="14dp"
                             android:paddingEnd="14dp"
-                            android:paddingTop="10dp"
-                            android:paddingBottom="10dp"
-                            android:textSize="12sp"
-                            android:fontFamily="monospace"
-                            android:textColor="@color/colorOnSurface"
+                            android:paddingTop="12dp"
+                            android:paddingBottom="12dp"
+                            android:textAppearance="@style/TextAppearance.Telescope.Body"
+                            android:textSize="13sp"
                             android:clickable="true"
                             android:focusable="true" />
 
                     </LinearLayout>
                 </LinearLayout>
-            </androidx.cardview.widget.CardView>
+            </com.google.android.material.card.MaterialCardView>
 
-            <!-- Camera debug card -->
-            <androidx.cardview.widget.CardView
+            <!-- Detected cameras (diagnostics) -->
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:cardCornerRadius="10dp"
-                app:cardElevation="0dp"
-                app:cardBackgroundColor="@color/colorSurface">
+                android:layout_height="wrap_content">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="16dp">
+                    android:padding="18dp">
 
-                    <TextView
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="DETECTED CAMERAS"
-                        android:textSize="11sp"
-                        android:textColor="@color/colorPrimary"
-                        android:textStyle="bold"
-                        android:letterSpacing="0.12"
-                        android:layout_marginBottom="8dp" />
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="14dp">
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_info"
+                            app:tint="@color/colorAccent"
+                            android:importantForAccessibility="no" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:text="Detected cameras"
+                            android:textAppearance="@style/TextAppearance.Telescope.CardTitle" />
+                    </LinearLayout>
 
                     <TextView
                         android:id="@+id/tvCameraList"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:textSize="11sp"
-                        android:fontFamily="monospace"
-                        android:lineSpacingMultiplier="1.4"
-                        android:textColor="@color/colorOnSurfaceDim" />
+                        android:lineSpacingMultiplier="1.35"
+                        android:textAppearance="@style/TextAppearance.Telescope.Hint" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnCopyDiagnostics"
                         style="?attr/materialButtonOutlinedStyle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:text="Copy Diagnostics"
-                        android:textSize="12sp" />
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="14dp"
+                        android:text="Copy diagnostics" />
 
                 </LinearLayout>
-            </androidx.cardview.widget.CardView>
+            </com.google.android.material.card.MaterialCardView>
 
         </LinearLayout>
     </ScrollView>

@@ -37,8 +37,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var spinnerCamera: Spinner
     private lateinit var spinnerResolution: Spinner
     private lateinit var btnToggle: MaterialButton
-    private lateinit var checkOis: CheckBox
-    private lateinit var checkLocalOnly: CheckBox
+    private lateinit var checkOis: CompoundButton
+    private lateinit var checkLocalOnly: CompoundButton
     private lateinit var tvStatus: TextView
     private lateinit var tvCameraList: TextView
     private lateinit var layoutLinks: View
@@ -398,7 +398,7 @@ class MainActivity : AppCompatActivity() {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = android.view.Gravity.CENTER_VERTICAL
-            setPadding(0, 0, 0, 16)
+            setPadding(0, 0, 0, dp(14))
         }
 
         val textBlock = LinearLayout(this).apply {
@@ -408,15 +408,13 @@ class MainActivity : AppCompatActivity() {
         }
         TextView(this).apply {
             text = info.label
-            textSize = 13f
-            setTextColor(resources.getColor(R.color.colorOnSurface, theme))
+            setTextAppearance(R.style.TextAppearance_Telescope_Body)
             setTypeface(null, android.graphics.Typeface.BOLD)
             textBlock.addView(this)
         }
         TextView(this).apply {
             text = info.reason
-            textSize = 12f
-            setTextColor(resources.getColor(R.color.colorOnSurfaceDim, theme))
+            setTextAppearance(R.style.TextAppearance_Telescope_Hint)
             textBlock.addView(this)
         }
         row.addView(textBlock)
@@ -445,11 +443,13 @@ class MainActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { marginStart = 12 }
+            ).apply { marginStart = dp(12) }
         }
         row.addView(btn)
         return row
     }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private fun openAppSettings() {
         startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
@@ -604,15 +604,16 @@ class MainActivity : AppCompatActivity() {
         btnToggle.isEnabled = !busy
         btnToggle.text = if (streaming) "Stop Streaming" else if (busy) "Starting..." else "Start Streaming"
         btnToggle.backgroundTintList = ColorStateList.valueOf(
-            resources.getColor(if (streaming) R.color.colorError else R.color.colorPrimary, theme)
+            resources.getColor(if (streaming) R.color.colorStop else R.color.colorPrimary, theme)
         )
         if (streaming) {
             val ip   = getDeviceIp()
             val port = service?.port ?: CameraStreamService.DEFAULT_PORT
             tvStatus.text = "● Streaming"
             tvStatus.setTextColor(resources.getColor(R.color.colorStreamingText, theme))
-            tvLinkWifi.text = "WiFi  http://$ip:$port/video"
-            tvLinkUsb.text  = "USB   http://localhost:$port/video"
+            // MjpegServer only answers /v1/video; the old /video links 404'd.
+            tvLinkWifi.text = "Wi-Fi  http://$ip:$port/v1/video"
+            tvLinkUsb.text  = "USB  http://localhost:$port/v1/video"
             tvLinkWifi.visibility = if (checkLocalOnly.isChecked) View.GONE else View.VISIBLE
             layoutLinks.visibility = View.VISIBLE
         } else {
@@ -624,7 +625,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun copyLink(pill: TextView) {
-        val url = pill.text.toString().substringAfter("  ")
+        val url = pill.text.toString().let { it.substring(it.indexOf("http")) }
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(ClipData.newPlainText("Telescope URL", url))
 

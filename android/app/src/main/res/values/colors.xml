@@ -1,16 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Desktop app palette -->
-    <color name="colorBackground">#1e222b</color>
-    <color name="colorSurface">#282c34</color>
-    <color name="colorSurfaceRaised">#2e3340</color>
-    <color name="colorPrimary">#518cc6</color>
-    <color name="colorPrimaryDark">#3a6fa0</color>
+    <!-- Same tokens as the desktop theme (desktop/telescope/theme.py); keep the two in step. -->
+    <color name="colorBackground">#0f1216</color>
+    <color name="colorHeader">#121519</color>
+    <color name="colorSurface">#161a20</color>
+    <color name="colorSurfaceRaised">#1d222a</color>
+    <color name="colorBorder">#232932</color>
+    <color name="colorOutline">#2f3641</color>
+
+    <color name="colorOnSurface">#e7eaef</color>
+    <color name="colorOnSurfaceDim">#a1abb8</color>
+    <color name="colorOnSurfaceFaint">#7a8491</color>
+
+    <color name="colorAccent">#aa9cf5</color>       <!-- icons, switches, links -->
+    <color name="colorPrimary">#6a58cf</color>      <!-- filled buttons -->
+    <color name="colorPrimaryDark">#5b4bb8</color>
     <color name="colorOnPrimary">#ffffff</color>
-    <color name="colorOnSurface">#e0e0e0</color>
-    <color name="colorOnSurfaceDim">#78909c</color>
-    <color name="colorOutline">#3a3f4b</color>
-    <color name="colorStreamingText">#66bb6a</color>
-    <color name="colorHeader">#121419</color>
-    <color name="colorError">#e57373</color>
+    <color name="colorPrimarySoft">#266a58cf</color> <!-- 15% primary, e.g. the "copied" pill -->
+
+    <color name="colorStreamingText">#5fc98c</color>
+    <color name="colorWarn">#f0b65c</color>
+    <color name="colorError">#ef6f6b</color>
+    <color name="colorStop">#b04a46</color>         <!-- Stop Streaming, same as the desktop's -->
+    <color name="colorOverlay">#b3121519</color>    <!-- chips over the camera preview -->
 </resources>
