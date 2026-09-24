@@ -44,8 +44,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var layoutLinks: View
     private lateinit var tvLinkWifi: TextView
     private lateinit var tvLinkUsb: TextView
-    private lateinit var btnScanQr: ImageButton
-    private lateinit var btnResetPairing: ImageButton
+    private lateinit var btnScanPair: com.google.android.material.button.MaterialButton
+    private lateinit var tvPairingTitle: TextView
+    private lateinit var tvPairingHint: TextView
+    private lateinit var layoutComputers: LinearLayout
     private lateinit var btnPreview: ImageButton
     private lateinit var cardPermissions: CardView
     private lateinit var layoutPermissionsContainer: LinearLayout
@@ -125,8 +127,10 @@ class MainActivity : AppCompatActivity() {
         tvLinkWifi        = findViewById(R.id.tvLinkWifi)
         tvLinkUsb         = findViewById(R.id.tvLinkUsb)
         checkLocalOnly             = findViewById(R.id.checkLocalOnly)
-        btnScanQr                  = findViewById(R.id.btnScanQr)
-        btnResetPairing            = findViewById(R.id.btnResetPairing)
+        btnScanPair                = findViewById(R.id.btnScanPair)
+        tvPairingTitle             = findViewById(R.id.tvPairingTitle)
+        tvPairingHint              = findViewById(R.id.tvPairingHint)
+        layoutComputers            = findViewById(R.id.layoutComputers)
         btnPreview                 = findViewById(R.id.btnPreview)
         cardPermissions            = findViewById(R.id.cardPermissions)
         layoutPermissionsContainer = findViewById(R.id.layoutPermissionsContainer)
@@ -135,6 +139,7 @@ class MainActivity : AppCompatActivity() {
         checkLocalOnly.isChecked = StreamPrefs.localOnly(this)
         checkLocalOnly.setOnCheckedChangeListener { _, checked ->
             StreamPrefs.setLocalOnly(this, checked)
+            SessionEndpoint.refreshAnnouncement()
             if (service?.isStreaming == true) {
                 service?.stopStreaming()
                 if (bound) { unbindService(serviceConnection); bound = false; service = null }
@@ -147,12 +152,7 @@ class MainActivity : AppCompatActivity() {
 
         btnToggle.setOnClickListener { onToggleClicked() }
         btnPreview.setOnClickListener { startActivity(Intent(this, PreviewActivity::class.java)) }
-        btnScanQr.setOnClickListener {
-            if (service?.isStreaming == true) {
-                service?.stopStreaming()
-                if (bound) { unbindService(serviceConnection); bound = false; service = null }
-                updateStatusText()
-            }
+        btnScanPair.setOnClickListener {
             val opts = ScanOptions().apply {
                 setPrompt("Scan the Telescope QR code on your desktop")
                 setBeepEnabled(false)
@@ -161,7 +161,6 @@ class MainActivity : AppCompatActivity() {
             }
             scanLauncher.launch(opts)
         }
-        btnResetPairing.setOnClickListener { confirmResetPairing() }
         btnCopyDiagnostics.setOnClickListener { copyDiagnostics() }
 
         spinnerCamera.onItemSelectedListener = cameraSpinnerListener
@@ -178,6 +177,8 @@ class MainActivity : AppCompatActivity() {
         super.onStart()
         bindService(Intent(this, CameraStreamService::class.java), serviceConnection, 0)
         uiHandler.post(statusPoller)
+        PairedComputers.addListener(pairingListener)
+        renderPairing()
         // Reachable while screen is up; service holds reference after screen goes dark
         SessionEndpoint.acquire(this, SessionEndpoint.OWNER_ACTIVITY)
         // RECEIVER_EXPORTED is required for adb, but gated on DUMP permission (shell-only)
@@ -189,6 +190,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         uiHandler.removeCallbacks(statusPoller)
+        PairedComputers.removeListener(pairingListener)
         if (bound) { unbindService(serviceConnection); bound = false }
         unregisterReceiver(pairReceiver)
         SessionEndpoint.release(SessionEndpoint.OWNER_ACTIVITY)
@@ -215,7 +217,8 @@ class MainActivity : AppCompatActivity() {
         val wifi = wifiNetwork()
         val routes = pairingRoutes(offer.candidates, hasWifi = wifi != null)
         val myIps = getAllDeviceIps(wifi)
-        val deviceName = Build.MODEL
+        val deviceName = PairedComputers.phoneName(this)
+        val phoneId = PairedComputers.phoneId(this)
 
         Thread {
             val failures = mutableListOf<PairingAttemptFailure>()
@@ -231,7 +234,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 val network = if (route.via == PairingRouteKind.WIFI) wifi else null
                 val problem =
-                    attemptPair(offer, route.candidate, network, deviceName, myIps, timeout)
+                    attemptPair(offer, route.candidate, network, deviceName, phoneId, myIps, timeout)
                 if (problem == null) {
                     success = true
                     break
@@ -239,20 +242,20 @@ class MainActivity : AppCompatActivity() {
                 failures += PairingAttemptFailure(route.candidate.ip, route.via, problem)
             }
             if (success) {
-                // Becomes this phone's only accepted bearer token for /v1/* -
-                // replaces (revokes) whatever was paired before.
-                TokenStore.save(this, offer.token)
+                // One token per computer: pairing this one leaves every other paired computer working.
+                // Servers read the list per request, so a running stream doesn't need restarting.
+                PairedComputers.add(this, PairedComputer(
+                    id = offer.computerId,
+                    name = offer.computerName.ifBlank { "Computer" },
+                    token = offer.token,
+                    pairedAtMs = System.currentTimeMillis(),
+                ))
             }
             runOnUiThread {
-                // MjpegServer snapshots token at startup; stop to pick up new token.
                 if (success) {
-                    if (service?.isStreaming == true) {
-                        service?.stopStreaming()
-                        if (bound) { unbindService(serviceConnection); bound = false; service = null }
-                        updateStatusText()
-                    }
                     Toast.makeText(
-                        this, "Paired! Desktop will add this device.", Toast.LENGTH_LONG,
+                        this, "Paired with ${offer.computerName.ifBlank { "your computer" }}.",
+                        Toast.LENGTH_LONG,
                     ).show()
                 } else {
                     // Show in dialog for readability (too long for toast).
@@ -270,6 +273,7 @@ class MainActivity : AppCompatActivity() {
         candidate: PairingCandidate,
         network: android.net.Network?,
         deviceName: String,
+        phoneId: String,
         myIps: List<String>,
         timeoutMs: Int,
     ): String? {
@@ -287,6 +291,7 @@ class MainActivity : AppCompatActivity() {
             }
             val body = org.json.JSONObject().apply {
                 put("name", deviceName)
+                put("phone_id", phoneId)
                 put("ips", org.json.JSONArray(myIps))
                 // Echoed back; defense-in-depth along with nonce in URL path.
                 put("token", offer.token)
@@ -320,26 +325,74 @@ class MainActivity : AppCompatActivity() {
         }
     } catch (_: Exception) { null }
 
-    /** Confirm before wiping pairing token (destructive, easy to tap accidentally). */
-    private fun confirmResetPairing() {
-        MaterialAlertDialogBuilder(this)
-            .setTitle("Unpair this phone?")
-            .setMessage("The desktop app will need to pair again (QR code or USB) before it can reconnect.")
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Unpair") { _, _ -> resetPairing() }
-            .show()
+    private val pairingListener: () -> Unit = { runOnUiThread { renderPairing() } }
+
+    // The pairing card: how to pair when nothing is paired, otherwise the list of computers.
+    private fun renderPairing() {
+        val computers = PairedComputers.list(this).computers
+        layoutComputers.removeAllViews()
+        if (computers.isEmpty()) {
+            tvPairingTitle.text = "Pair with your computer"
+            tvPairingHint.visibility = View.VISIBLE
+            btnScanPair.text = "Scan pairing code"
+            styleScanButton(primary = true)
+            return
+        }
+        tvPairingTitle.text = if (computers.size == 1) "Paired computer" else "Paired computers"
+        tvPairingHint.visibility = View.GONE
+        computers.sortedBy { it.pairedAtMs }.forEach { layoutComputers.addView(buildComputerRow(it)) }
+        btnScanPair.text = "Pair another computer"
+        styleScanButton(primary = false)
     }
 
-    // Clears the stored pairing token and, if streaming, restarts the service so MjpegServer picks up the cleared state - every further request 401s until re-paired.
-    private fun resetPairing() {
-        TokenStore.clear(this)
-        if (service?.isStreaming == true) {
-            service?.stopStreaming()
-            if (bound) { unbindService(serviceConnection); bound = false; service = null }
-            startStream()
+    private fun styleScanButton(primary: Boolean) {
+        val fill = if (primary) R.color.colorPrimary else android.R.color.transparent
+        val text = if (primary) R.color.colorOnPrimary else R.color.colorOnSurface
+        btnScanPair.backgroundTintList = ColorStateList.valueOf(resources.getColor(fill, theme))
+        btnScanPair.setTextColor(resources.getColor(text, theme))
+        btnScanPair.iconTint = ColorStateList.valueOf(resources.getColor(text, theme))
+        btnScanPair.strokeColor = ColorStateList.valueOf(resources.getColor(R.color.colorOutline, theme))
+        btnScanPair.strokeWidth = if (primary) 0 else dp(1)
+    }
+
+    private fun buildComputerRow(computer: PairedComputer): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, dp(12))
         }
-        updateStatusText()
-        Toast.makeText(this, "Pairing reset. Pair again from the desktop app to reconnect.", Toast.LENGTH_LONG).show()
+        val textBlock = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        textBlock.addView(TextView(this).apply {
+            text = computer.name
+            setTextAppearance(R.style.TextAppearance_Telescope_Body)
+        })
+        textBlock.addView(TextView(this).apply {
+            val date = java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM)
+                .format(java.util.Date(computer.pairedAtMs))
+            text = "Paired $date"
+            setTextAppearance(R.style.TextAppearance_Telescope_Hint)
+        })
+        row.addView(textBlock)
+        row.addView(com.google.android.material.button.MaterialButton(
+            this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle,
+        ).apply {
+            text = "Remove"
+            setOnClickListener { confirmRemoveComputer(computer) }
+        })
+        return row
+    }
+
+    // Removing a computer revokes only its token; the others keep working.
+    private fun confirmRemoveComputer(computer: PairedComputer) {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Remove ${computer.name}?")
+            .setMessage("It won't be able to use this phone's camera until you pair it again.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Remove") { _, _ -> PairedComputers.remove(this, computer.id) }
+            .show()
     }
 
     private data class PermInfo(

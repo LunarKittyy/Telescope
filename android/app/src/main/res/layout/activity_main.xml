@@ -44,25 +44,6 @@
             android:contentDescription="Open camera preview"
             android:padding="12dp" />
 
-        <ImageButton
-            android:id="@+id/btnScanQr"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:src="@drawable/ic_qr_scan"
-            app:tint="@color/colorOnSurfaceDim"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Scan QR code to pair with desktop"
-            android:padding="12dp" />
-
-        <ImageButton
-            android:id="@+id/btnResetPairing"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:src="@drawable/ic_unpair"
-            app:tint="@color/colorOnSurfaceDim"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Reset pairing"
-            android:padding="12dp" />
 
     </LinearLayout>
 
@@ -118,6 +99,64 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Pairing: what this phone is paired with, or how to pair it -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="10dp">
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_link"
+                            app:tint="@color/colorAccent"
+                            android:importantForAccessibility="no" />
+                        <TextView
+                            android:id="@+id/tvPairingTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:text="Pair with your computer"
+                            android:textAppearance="@style/TextAppearance.Telescope.CardTitle" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvPairingHint"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="14dp"
+                        android:text="On your computer, open Telescope and click Add phone. Then tap the button below and point the camera at the code it shows. If the phone is plugged in over USB, it pairs without scanning."
+                        android:textAppearance="@style/TextAppearance.Telescope.Label" />
+
+                    <LinearLayout
+                        android:id="@+id/layoutComputers"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnScanPair"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:text="Scan pairing code"
+                        app:icon="@drawable/ic_qr_scan"
+                        app:iconGravity="textStart" />
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

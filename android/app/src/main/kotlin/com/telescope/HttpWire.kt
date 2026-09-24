@@ -105,16 +105,21 @@ object HttpWire {
         }
     }
 
-    // Constant-time bearer-token check; null expected always fails closed
-    fun bearerMatches(expected: String?, request: Request): Boolean {
-        val want = expected ?: return false
-        val header = request.headers["authorization"] ?: return false
-        if (!header.startsWith(BEARER_PREFIX)) return false
-        val provided = header.substring(BEARER_PREFIX.length)
-        return MessageDigest.isEqual(
-            want.toByteArray(Charsets.UTF_8),
-            provided.toByteArray(Charsets.UTF_8),
-        )
+    // The bearer token a request carries, or null when it has none.
+    fun bearerToken(request: Request): String? {
+        val header = request.headers["authorization"] ?: return null
+        if (!header.startsWith(BEARER_PREFIX)) return null
+        return header.substring(BEARER_PREFIX.length)
+    }
+
+    // Constant-time check against every paired computer's token; an empty list fails closed.
+    fun bearerMatchesAny(tokens: List<String>, request: Request): Boolean {
+        val provided = bearerToken(request)?.toByteArray(Charsets.UTF_8) ?: return false
+        var ok = false
+        for (token in tokens) {
+            if (MessageDigest.isEqual(token.toByteArray(Charsets.UTF_8), provided)) ok = true
+        }
+        return ok
     }
 
     // Device-to-desktop only; no CORS header needed.

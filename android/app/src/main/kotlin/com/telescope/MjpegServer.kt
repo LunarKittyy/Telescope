@@ -16,7 +16,8 @@ class MjpegServer(
     val getCamerasJson: () -> String,
     val handleControl: (Map<String, String>) -> String,
     val bindAddr: String = "0.0.0.0",
-    val token: String?,
+    // Read on every request, so pairing or unpairing a computer applies without restarting the stream.
+    val tokens: () -> List<String>,
 ) {
     private var serverSocket: ServerSocket? = null
     private val clients = CopyOnWriteArrayList<MjpegClient>()
@@ -123,7 +124,7 @@ class MjpegServer(
     }
 
     private fun isAuthorized(request: HttpWire.Request): Boolean {
-        val ok = HttpWire.bearerMatches(token, request)
+        val ok = HttpWire.bearerMatchesAny(tokens(), request)
         if (ok) lastAuthorizedRequestAtMs = System.currentTimeMillis()
         return ok
     }

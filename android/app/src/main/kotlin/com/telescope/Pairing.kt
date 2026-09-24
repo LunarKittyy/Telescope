@@ -8,8 +8,9 @@ import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 
 // QR-code pairing payload and routing logic; Android-free for JVM unit testing
-// Version bumped in lockstep with desktop; mismatch means one is stale
-const val PAIRING_PROTOCOL_VERSION = 2
+// Version bumped in lockstep with desktop; mismatch means one is stale.
+// 3: the offer names the computer (computer_id/computer_name) so the phone can keep one token per computer.
+const val PAIRING_PROTOCOL_VERSION = 3
 
 @Serializable
 enum class PairingKind {
@@ -35,6 +36,8 @@ data class PairingOffer(
     val candidates: List<PairingCandidate>,
     val nonce: String,
     val token: String,
+    @SerialName("computer_id") val computerId: String,
+    @SerialName("computer_name") val computerName: String,
 )
 
 sealed interface PairingParse {
@@ -71,7 +74,7 @@ fun parsePairingOffer(raw: String): PairingParse {
     }
     if (offer.version != PAIRING_PROTOCOL_VERSION) return PairingParse.UnsupportedVersion
     if (offer.port !in 1..65535) return PairingParse.Invalid
-    if (offer.nonce.isBlank() || offer.token.isBlank()) return PairingParse.Invalid
+    if (offer.nonce.isBlank() || offer.token.isBlank() || offer.computerId.isBlank()) return PairingParse.Invalid
     if (offer.candidates.isEmpty()) return PairingParse.Invalid
     if (offer.candidates.any { !isValidIpv4(it.ip) }) return PairingParse.Invalid
     return PairingParse.Ok(offer)

@@ -388,7 +388,7 @@ class CameraStreamService : Service() {
             getCamerasJson = ::buildCamerasJson,
             handleControl  = ::handleControlCommand,
             bindAddr       = bindAddr,
-            token          = TokenStore.get(this),
+            tokens         = { PairedComputers.tokens(this) },
         ).also { it.start() }
         startIdleWatchdog()
     }
