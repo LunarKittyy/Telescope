@@ -34,10 +34,9 @@ def test_setup_dialog_button_text_fits(qapp, monkeypatch, linux):
     monkeypatch.setattr(setup_plugin_module, "v4l2_devices_ready", lambda: True)
     monkeypatch.setattr(setup_plugin_module, "v4l2_persist_status",
                         lambda: {"modprobe_conf": False, "modules_load_conf": False})
-    dialog = setup_plugin_module.SetupDialog()
+    dialog = setup_plugin_module.AdvancedDialog()
     if not linux:
         dialog._on_win_checks(False, True)
-    dialog._advanced_toggle.setChecked(True)
     dialog.show()
     qapp.processEvents()
     assert _clipped_buttons(dialog) == []
@@ -45,6 +44,7 @@ def test_setup_dialog_button_text_fits(qapp, monkeypatch, linux):
 
 
 class _FakePhonesPlugin:
+    computer_name = "Desk"
     phones = [Phone("id-1", "Pixel", "tok")]
 
     def phone(self, pid):

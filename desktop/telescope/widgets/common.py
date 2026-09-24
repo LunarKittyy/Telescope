@@ -352,10 +352,17 @@ class WrapLabel(QLabel):
         self.setWordWrap(True)
 
     def _fit(self):
-        if self.width() > 1:
-            need = self.heightForWidth(self.width())
-            if need > 0 and need != self.minimumHeight():
-                self.setMinimumHeight(need)
+        # Measured from the text itself: heightForWidth() never reports less than the pinned minimum,
+        # so a label pinned while narrow would keep that height after widening.
+        width = self.contentsRect().width()
+        if width <= 1:
+            return
+        m = self.contentsMargins()
+        need = self.fontMetrics().boundingRect(
+            0, 0, width, 100_000, int(Qt.TextFlag.TextWordWrap | self.alignment().value), self.text(),
+        ).height() + m.top() + m.bottom()
+        if need != self.minimumHeight():
+            self.setMinimumHeight(need)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -618,6 +625,7 @@ _ICON_SVG = {
     "reset": '''<path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1L3.5 8.5"/><path d="M3.5 3.5v5h5"/>''',
     "transforms": f'''<path d="M12 3v2.5M12 9.5v5M12 18.5V21"/>
         <path d="M9 6.5L3.5 17.5H9z" {_SOFT}/><path d="M15 6.5l5.5 11H15z"/>''',
+    "check": f'''<circle cx="12" cy="12" r="8.8" {_SOFT}/><path d="M8 12.3l2.8 2.8 5.2-5.6"/>''',
     "devices": f'''<rect x="3.5" y="4" width="10" height="17" rx="2.2" {_SOFT}/>
         <path d="M7.5 17.5h2"/><path d="M16.5 7.5h2.5a1.5 1.5 0 0 1 1.5 1.5v9.5a1.5 1.5 0 0 1-1.5 1.5h-2.5"/>''',
 }

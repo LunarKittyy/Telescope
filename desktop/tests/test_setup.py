@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import QDialog, QFileDialog, QWidget
 
 import telescope.plugins.setup as setup_mod
 from telescope.plugin import EventBus
-from telescope.plugins.setup import SetupDialog, SetupPlugin, _GuideDialog
+from telescope.plugins.setup import AdvancedDialog, SetupPlugin
 
 
 class _ImmediateThread:
@@ -33,32 +33,14 @@ class _Host(QWidget):
             on_done(True, "ok")
 
 
-def test_guide_dialog_contains_documentation_and_close_button(qapp):
-    dialog = _GuideDialog()
-    browsers = dialog.findChildren(setup_mod.QTextBrowser)
-    assert len(browsers) == 1
-    text = browsers[0].toPlainText()
-    assert "click Pair on the Connection panel" in text  # matches where the button now lives
-    assert "Pair via ADB" in text
-    assert "starts the phone's camera for you" in text
-    assert "no authentication" not in text.lower()
-    assert "Add a device with that IP" not in text
-    close = next(button for button in dialog.findChildren(setup_mod.QPushButton)
-                 if button.text() == "Close")
-    close.click()
-    assert dialog.result() == QDialog.DialogCode.Accepted
-
-
 def test_dialog_preset_visibility_and_apply_callback(qapp):
     applied = []
-    dialog = SetupDialog(on_apply_canvas=lambda w, h: applied.append((w, h)))
+    dialog = AdvancedDialog(on_apply_canvas=lambda w, h: applied.append((w, h)))
     dialog.show()
-    assert dialog._advanced_content.isHidden()
     dialog.set_canvas_preset("Custom...", 1000, 700)
     assert not dialog._custom_widget.isHidden()
     dialog._apply_canvas()
     assert applied == [(1000, 700)]
-    assert dialog._advanced_content.isVisible()
     assert not dialog._canvas_apply_btn.isEnabled()
     assert dialog._canvas_status_lbl.isVisible()
     dialog.hide()
@@ -68,7 +50,7 @@ def test_dialog_preset_visibility_and_apply_callback(qapp):
 def linux_dialog(monkeypatch, qapp):
     # Force IS_LINUX to test Linux widgets on any OS (CI runs on Windows too).
     monkeypatch.setattr(setup_mod, "IS_LINUX", True)
-    return SetupDialog()
+    return AdvancedDialog()
 
 
 @pytest.mark.parametrize(
@@ -153,7 +135,7 @@ def test_failed_persist_action_reverts_checkbox(linux_dialog):
 @pytest.fixture
 def windows_dialog(monkeypatch, qapp):
     monkeypatch.setattr(setup_mod, "IS_LINUX", False)
-    dialog = SetupDialog()
+    dialog = AdvancedDialog()
     return dialog
 
 
@@ -244,7 +226,7 @@ def test_install_unitycapture_skips_download_when_dll_exists(monkeypatch, window
 
 
 def test_apk_install_rejects_missing_adb_or_device(monkeypatch, qapp, tmp_path):
-    dialog = SetupDialog()
+    dialog = AdvancedDialog()
     monkeypatch.setattr(setup_mod, "adb_available", lambda: False)
     dialog._install_apk()
     assert "adb not found" in dialog._apk_status_lbl.text()
@@ -259,7 +241,7 @@ def test_apk_install_rejects_missing_adb_or_device(monkeypatch, qapp, tmp_path):
 
 
 def test_apk_install_uses_selected_device_and_reports_success(monkeypatch, qapp, tmp_path):
-    dialog = SetupDialog()
+    dialog = AdvancedDialog()
     apk = tmp_path / "Telescope.apk"
     apk.write_bytes(b"apk")
     monkeypatch.setattr(setup_mod, "adb_available", lambda: True)
@@ -283,7 +265,7 @@ def test_apk_install_uses_selected_device_and_reports_success(monkeypatch, qapp,
 
 
 def test_apk_install_cancel_and_failure_detail(monkeypatch, qapp, tmp_path):
-    dialog = SetupDialog()
+    dialog = AdvancedDialog()
     apk = tmp_path / "Telescope.apk"
     apk.write_bytes(b"apk")
     monkeypatch.setattr(setup_mod, "adb_available", lambda: True)
@@ -307,7 +289,7 @@ def test_apk_install_cancel_and_failure_detail(monkeypatch, qapp, tmp_path):
 
 
 def test_apk_picker_cancel_and_selected_file(monkeypatch, qapp, tmp_path):
-    dialog = SetupDialog()
+    dialog = AdvancedDialog()
     initial_status = dialog._apk_status_lbl.text()
     monkeypatch.setattr(setup_mod, "adb_available", lambda: True)
     monkeypatch.setattr(setup_mod, "bundled_apk_path", lambda: None)
@@ -352,12 +334,6 @@ def test_setup_plugin_opens_reuses_dialogs_and_syncs_config(monkeypatch, qapp):
     assert plugin._dlg is first
     first.hide()
 
-    plugin._open_guide()
-    guide = plugin._guide_dlg
-    plugin._open_guide()
-    assert plugin._guide_dlg is guide
-    guide.hide()
-
 
 def test_show_event_refreshes_platform_specific_status(monkeypatch, linux_dialog):
     dialog = linux_dialog
@@ -368,7 +344,7 @@ def test_show_event_refreshes_platform_specific_status(monkeypatch, linux_dialog
     assert calls == ["check", "persist"]
 
     monkeypatch.setattr(setup_mod, "IS_LINUX", False)
-    windows = SetupDialog()
+    windows = AdvancedDialog()
     monkeypatch.setattr(setup_mod.threading, "Thread", _ImmediateThread)
     monkeypatch.setattr(windows, "_check_win_setup", lambda: calls.append("windows"))
     windows.showEvent(QShowEvent())
@@ -384,11 +360,8 @@ def test_setup_contributes_menu_actions_instead_of_a_panel(monkeypatch, qapp):
     assert plugin.create_panel() is None
 
     actions = plugin.create_menu_actions()
-    assert [a.text() for a in actions] == ["Setup Drivers && APK…", "Quick Start Guide…"]
+    assert [a.text() for a in actions] == ["Advanced…"]
 
     actions[0].trigger()
     assert plugin._dlg is not None
     plugin._dlg.hide()
-    actions[1].trigger()
-    assert plugin._guide_dlg is not None
-    plugin._guide_dlg.hide()

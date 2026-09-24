@@ -16,9 +16,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Optional
 
-import qrcode
 from PyQt6.QtCore import QObject, QSize, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QBrush, QColor, QPainter
 from PyQt6.QtWidgets import (
     QDialog, QHBoxLayout, QInputDialog, QLabel, QListWidget, QListWidgetItem,
     QMessageBox, QPushButton, QVBoxLayout, QWidget,
@@ -48,6 +46,7 @@ from telescope.widgets.common import (
     dialog_buttons, dialog_header, dialog_layout, run_off_ui_thread, set_status_kind, set_ui_role,
     wrapped_note,
 )
+from telescope.widgets.qr import QRCodeWidget
 
 logger = logging.getLogger(__name__)
 
@@ -110,40 +109,6 @@ def route_text(route: Optional[Route]) -> str:
 
 
 _ROUTE_CHOICES = ((ROUTE_AUTO, "Automatic"), (ROUTE_USB, "USB only"), (ROUTE_WIFI, "Wi-Fi only"))
-
-
-# ── QR code ───────────────────────────────────────────────────────────────────
-
-class _QRCodeWidget(QWidget):
-    """Renders a QR code matrix using QPainter - no Pillow needed."""
-
-    # qrcode's border param doesn't affect .modules matrix; explicit margin ensures quiet zone for phone cameras.
-    _QUIET_ZONE_PX = 24
-
-    def __init__(self, data: str, parent=None):
-        super().__init__(parent)
-        qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=1, border=0)
-        qr.add_data(data)
-        qr.make(fit=True)
-        self._matrix = qr.modules
-        n = len(self._matrix)
-        self._code_size = n * 6
-        self.setFixedSize(self._code_size + self._QUIET_ZONE_PX * 2,
-                          self._code_size + self._QUIET_ZONE_PX * 2)
-
-    def paintEvent(self, event):
-        n = len(self._matrix)
-        cell = self._code_size // n
-        margin = self._QUIET_ZONE_PX
-        painter = QPainter(self)
-        painter.fillRect(self.rect(), QColor("white"))
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QBrush(QColor("black")))
-        for row in range(n):
-            for col in range(n):
-                if self._matrix[row][col]:
-                    painter.drawRect(margin + col * cell, margin + row * cell, cell, cell)
-        painter.end()
 
 
 # ── Add phone ─────────────────────────────────────────────────────────────────
@@ -220,7 +185,7 @@ class AddPhoneDialog(QDialog):
         )
         offer = self._server.start()
         if offer.candidates:
-            self._qr_container.addWidget(_QRCodeWidget(offer.payload))
+            self._qr_container.addWidget(QRCodeWidget(offer.payload))
             self._wifi_lbl.setText("On the phone, tap Scan pairing code and point it at this code.")
         else:
             self._wifi_lbl.setText("This computer isn't on a network right now, so pair over USB.")
@@ -330,12 +295,22 @@ class PhonesDialog(QDialog):
         self._rename_btn.clicked.connect(self._rename)
         self._remove_btn.clicked.connect(self._remove)
         lay.addLayout(button_row(self._add_btn, self._rename_btn, self._remove_btn))
+        self._computer_lbl = ElidingLabel("")
+        rename_computer = action_button("Change name", tooltip="The name your phones show for this computer")
+        rename_computer.clicked.connect(self._rename_computer)
+        computer_row = QHBoxLayout()
+        computer_row.setContentsMargins(0, 0, 0, 0)
+        computer_row.setSpacing(8)
+        computer_row.addWidget(self._computer_lbl, 1)
+        computer_row.addWidget(rename_computer)
+        lay.addLayout(_row("This computer", computer_row, stretch=True))
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.accept)
         dialog_buttons(lay, close_btn)
         self.refresh()
 
     def refresh(self):
+        self._computer_lbl.setText(self._plugin.computer_name)
         self._list.clear()
         for phone in self._plugin.phones:
             item = QListWidgetItem(phone.name)
@@ -360,6 +335,14 @@ class PhonesDialog(QDialog):
         name, ok = QInputDialog.getText(self, "Rename phone", "Name", text=phone.name)
         if ok and name.strip():
             self._plugin.rename_phone(pid, name.strip())
+            self.refresh()
+
+    def _rename_computer(self):
+        name, ok = QInputDialog.getText(self, "Rename this computer",
+                                        "Name your phones show (applies to phones you pair from now on)",
+                                        text=self._plugin.computer_name)
+        if ok and name.strip():
+            self._plugin.set_computer_name(name.strip())
             self.refresh()
 
     def _remove(self):
@@ -420,6 +403,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._signals.resolved.connect(self._on_resolved)
         self._signals.usb_available.connect(self._on_usb_available)
         bus.stream_connected.connect(self._on_stream_connected)
+        bus.add_phone_requested.connect(self.open_add_phone)
 
     # ── Model ─────────────────────────────────────────────────────────────
 
@@ -437,6 +421,14 @@ class ConnectionPlugin(TelescopePlugin):
     def selected_device(self) -> Optional[str]:
         """Key the host stores per-phone settings under: the selected phone's id."""
         return self._selected_id
+
+    @property
+    def computer_name(self) -> str:
+        return self._computer_name
+
+    def set_computer_name(self, name: str):
+        self._computer_name = name
+        self._host.save_now()
 
     @property
     def resolution(self) -> Optional[Resolution]:
@@ -522,6 +514,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._phone_combo.setCurrentIndex(self._phone_combo.findData(self._selected_id))
         self._phone_combo.blockSignals(False)
         self._switching = False
+        self._bus.phones_changed.emit(len(self._phones))
 
     def _render(self):
         """Card rows from the current phone + latest resolution."""

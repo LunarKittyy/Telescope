@@ -4,8 +4,7 @@ from typing import Optional
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
-    QCheckBox, QDialog, QHBoxLayout, QInputDialog, QLabel, QPushButton, QTextBrowser,
-    QToolButton, QWidget,
+    QCheckBox, QDialog, QHBoxLayout, QInputDialog, QLabel, QPushButton, QWidget,
 )
 
 from telescope.platform import (
@@ -20,7 +19,6 @@ from telescope.platform.windows import (
     download_unitycapture, register_unitycapture, uc_is_registered, unitycapture_dir,
 )
 from telescope.plugin import TelescopePlugin
-from telescope import theme
 from telescope.widgets.common import (
     NoScrollComboBox, NoScrollSpinBox, action_button, add_card_header, button_row, card_layout,
     control_row, create_card, dialog_buttons, dialog_header, dialog_layout, run_off_ui_thread,
@@ -47,72 +45,9 @@ _PRESET_VALUES = {label: val for label, val in CANVAS_PRESETS}
 _SUDO_HINT = "This will prompt for your password (via pkexec/sudo) to make a system-level change."
 
 
-_GUIDE_HTML = f"""
-<style>
-  body {{ color: {theme.TEXT}; }}
-  h3   {{ color: {theme.TEXT}; font-size: 11pt; font-weight: 600; margin-top: 18px; margin-bottom: 4px; }}
-  p, li {{ color: {theme.TEXT_DIM}; line-height: 150%; margin-bottom: 4px; }}
-  b    {{ color: {theme.TEXT}; }}
-  code {{ color: {theme.ACCENT_SOFT}; }}
-  a    {{ color: {theme.ACCENT}; }}
-  .n   {{ color: {theme.ACCENT}; }}
-  .note {{ color: {theme.WARN}; }}
-</style>
-<h3><span class="n">1</span>&nbsp;&nbsp;📱 Install the phone app</h3>
-<p>Open the latest release on GitHub, find <code>Telescope.apk</code> under Assets, and tap it
-in your phone's own browser to install it. That's the easiest way.<br>
-Downloaded it on your PC instead? That's fine too: the desktop app can put it on your phone for you.</p>
+class AdvancedDialog(QDialog):
+    """Rarely needed controls. First-run setup lives in the onboarding checklist instead."""
 
-<h3><span class="n">2</span>&nbsp;&nbsp;🖥️ Set up the desktop app</h3>
-<p>Click the settings button (the sliders icon, next to <b>Start Streaming</b>) and choose
-<b>Setup Drivers &amp; APK</b>. It sets up the virtual camera and can install the phone app for
-you. You only need it once; if it already says everything is ready, you're done.</p>
-<p><b>Linux:</b> install the <code>v4l2loopback</code> kernel module with your package manager
-first (<code>v4l2loopback-dkms</code> on Debian/Ubuntu/Arch, <code>v4l2loopback</code> on
-Fedora/Nobara via <a href="https://rpmfusion.org/">RPM Fusion</a>) so the dialog can load it.
-USB pairing needs <a href="https://developer.android.com/studio/debug/dev-options">USB debugging</a>
-on your phone and <code>adb</code> on your PATH.</p>
-
-<h3><span class="n">3</span>&nbsp;&nbsp;🔗 Pair your phone</h3>
-<p>Open Telescope on your phone and leave it on screen. On the desktop, pick <b>Wi-Fi</b> or
-<b>USB</b> at the top left, then click <b>Pair</b> on the Connection panel:</p>
-<ul>
-  <li><b>Wi-Fi:</b> scan the QR code with the phone's scan button.</li>
-  <li><b>USB:</b> click <b>Pair via ADB</b>.</li>
-</ul>
-
-<h3><span class="n">4</span>&nbsp;&nbsp;▶️ Start streaming</h3>
-<p>Hit <b>Start Streaming</b>. It starts the phone's camera for you. In OBS or any other app,
-pick <b>Phone Camera</b> (Linux) or <b>Unity Video Capture</b> (Windows) as the webcam.</p>
-
-<p class="note">Use this only on a network you trust, or turn on <b>Local only - USB</b> in the
-phone app.</p>
-"""
-
-
-class _GuideDialog(QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Quick Start Guide")
-        self.setMinimumSize(600, 640)
-        self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
-        lay = dialog_layout(self)
-        dialog_header(lay, "Quick Start", "Four steps from nothing to a working webcam.")
-        card = create_card()
-        card_lay = card_layout(card)
-        browser = QTextBrowser()
-        browser.setObjectName("guide_body")
-        browser.setHtml(_GUIDE_HTML)
-        browser.setOpenExternalLinks(True)
-        browser.setReadOnly(True)
-        card_lay.addWidget(browser)
-        lay.addWidget(card, 1)
-        close_btn = QPushButton("Close")
-        close_btn.clicked.connect(self.accept)
-        dialog_buttons(lay, close_btn)
-
-
-class SetupDialog(QDialog):
     _sig_v4l_result   = pyqtSignal(bool, str)
     _sig_v4l_unload   = pyqtSignal(bool, str)
     _sig_persist_result = pyqtSignal(bool, str)
@@ -123,7 +58,7 @@ class SetupDialog(QDialog):
 
     def __init__(self, parent=None, on_apply_canvas=None):
         super().__init__(parent)
-        self.setWindowTitle("System Setup")
+        self.setWindowTitle("Advanced")
         self.setMinimumWidth(560)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self._on_apply_canvas = on_apply_canvas
@@ -147,7 +82,7 @@ class SetupDialog(QDialog):
 
     def _build_ui(self):
         lay = dialog_layout(self)
-        dialog_header(lay, "System Setup", "Prepare the virtual camera and install the phone app.")
+        dialog_header(lay, "Advanced", "Virtual camera module, output canvas, and installing the phone app over USB.")
 
         # ── Virtual camera ────────────────────────────────────────────────────
         vc_card = create_card()
@@ -218,21 +153,11 @@ class SetupDialog(QDialog):
         self._apk_btn.clicked.connect(self._install_apk)
         apk_lay.addLayout(control_row("", self._apk_btn))
         apk_lay.addLayout(control_row("", wrapped_note(
-            "This installs an APK you already have; it doesn't download one. "
-            "Grab Telescope.apk from the GitHub release first, then pick it here."), stretch=True))
+            "Installs the Telescope.apk that came with this app, or one you pick, on a phone plugged "
+            "in over USB."), stretch=True))
         lay.addWidget(apk_card)
 
-        # ── Advanced ──────────────────────────────────────────────────────────
-        self._advanced_toggle = QToolButton()
-        self._advanced_toggle.setText("Advanced")
-        self._advanced_toggle.setCheckable(True)
-        self._advanced_toggle.setChecked(False)
-        self._advanced_toggle.setArrowType(Qt.ArrowType.RightArrow)
-        self._advanced_toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self._advanced_toggle.setObjectName("section_toggle")
-        self._advanced_toggle.toggled.connect(self._toggle_advanced)
-        lay.addWidget(self._advanced_toggle)
-
+        # ── Canvas ──────────────────────────────────────────────────────────
         adv_card = create_card()
         self._advanced_content = adv_card
         adv_lay = card_layout(adv_card)
@@ -292,7 +217,6 @@ class SetupDialog(QDialog):
         self._canvas_status_row.setVisible(False)
         adv_lay.addWidget(self._canvas_status_row)
 
-        adv_card.setVisible(False)
         lay.addWidget(adv_card)
         lay.addStretch(1)
 
@@ -300,19 +224,10 @@ class SetupDialog(QDialog):
         close_btn.clicked.connect(self.accept)
         dialog_buttons(lay, close_btn)
 
-    def _toggle_advanced(self, expanded: bool):
-        self._advanced_toggle.setArrowType(
-            Qt.ArrowType.DownArrow if expanded else Qt.ArrowType.RightArrow
-        )
-        self._advanced_content.setVisible(expanded)
-        self.adjustSize()
-
     def _on_preset_changed(self, label: str):
         self._custom_widget.setVisible(label == "Custom...")
 
     def _apply_canvas(self):
-        if not self._advanced_toggle.isChecked():
-            self._advanced_toggle.setChecked(True)
         w, h = self._get_selected_dims()
         self._canvas_apply_btn.setEnabled(False)
         set_status_kind(self._canvas_status_lbl, "status_dim")
@@ -533,8 +448,7 @@ class SetupPlugin(TelescopePlugin):
 
     def setup(self, host, bus):
         self._host = host
-        self._dlg: Optional[SetupDialog] = None
-        self._guide_dlg: Optional[_GuideDialog] = None
+        self._dlg: Optional[AdvancedDialog] = None
         self._canvas_preset = "Auto (from first frame)"
         self._custom_w = 1920
         self._custom_h = 1080
@@ -553,23 +467,13 @@ class SetupPlugin(TelescopePlugin):
         return None
 
     def create_menu_actions(self) -> list:
-        setup_action = QAction("Setup Drivers && APK…", None)
-        setup_action.triggered.connect(self._open)
-        guide_action = QAction("Quick Start Guide…", None)
-        guide_action.triggered.connect(self._open_guide)
-        return [setup_action, guide_action]
-
-    def _open_guide(self):
-        if self._guide_dlg is None or not self._guide_dlg.isVisible():
-            self._guide_dlg = _GuideDialog(self._host)
-            self._guide_dlg.setWindowModality(Qt.WindowModality.NonModal)
-        self._guide_dlg.show()
-        self._guide_dlg.raise_()
-        self._guide_dlg.activateWindow()
+        action = QAction("Advanced…", None)
+        action.triggered.connect(self._open)
+        return [action]
 
     def _open(self):
         if self._dlg is None:
-            self._dlg = SetupDialog(self._host, on_apply_canvas=self._on_apply_canvas)
+            self._dlg = AdvancedDialog(self._host, on_apply_canvas=self._on_apply_canvas)
         self._dlg.set_canvas_preset(self._canvas_preset, self._custom_w, self._custom_h)
         self._dlg.show()
         self._dlg.raise_()

@@ -184,6 +184,25 @@ QLabel#dialog_title {{
 QLabel#dialog_subtitle {{
     color: {TEXT_DIM};
 }}
+QLabel#step_badge, QLabel#step_badge_done {{
+    min-width: 26px; max-width: 26px; min-height: 26px; max-height: 26px;
+    border-radius: 13px;
+    font-weight: 700;
+    qproperty-alignment: AlignCenter;
+}}
+QLabel#step_badge {{
+    background-color: {SURFACE_RAISE};
+    border: 1px solid {BORDER_STRONG};
+    color: {ACCENT_SOFT};
+}}
+QLabel#step_badge_done {{
+    background-color: {FILL};
+    border: 1px solid {FILL};
+    color: white;
+}}
+QLabel#step_title {{
+    font-weight: 600;
+}}
 QLabel:disabled {{
     color: {TEXT_DISABLED};
 }}

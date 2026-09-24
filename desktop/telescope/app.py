@@ -336,6 +336,9 @@ class TelescopeWindow(QMainWindow):
             groups = [self._panels["center"] + self._panels["left"] + self._panels["right"], [], []]
             widths = [None, None, None]
 
+        # Panels a plugin hid on purpose stay hidden; only placement changes here.
+        hidden = {id(p) for ps in self._panels.values() for p in ps
+                  if p.parentWidget() is not None and p.isHidden()}
         for col_lay in self._column_layouts:
             while col_lay.count():
                 item = col_lay.takeAt(0)
@@ -364,7 +367,7 @@ class TelescopeWindow(QMainWindow):
                 stretch = 1 if id(panel) in center_panels else 0
                 has_center = has_center or bool(stretch)
                 col_lay.addWidget(panel, stretch)
-                panel.setVisible(True)
+                panel.setVisible(id(panel) not in hidden)
             if not has_center:
                 col_lay.addStretch()
 

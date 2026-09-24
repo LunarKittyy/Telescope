@@ -619,3 +619,40 @@ def test_removing_a_phone_deletes_its_stored_settings(window_with_plugins, confi
     assert "id-b" in config_home.load_config()["devices"]
     conn.forget_phone("id-b")
     assert "id-b" not in config_home.load_config()["devices"]
+
+
+def test_phone_count_is_announced_on_the_bus(plugin_env):
+    plugin, _host, _panel = plugin_env
+    counts = []
+    plugin._bus.phones_changed.connect(counts.append)
+    _add(plugin)
+    plugin.forget_phone("id-a")
+    assert counts[-1] == 0 and 1 in counts
+
+
+def test_add_phone_request_on_the_bus_opens_pairing(plugin_env, monkeypatch):
+    plugin, _host, _panel = plugin_env
+    opened = []
+
+    class _FakeDialog:
+        def __init__(self, parent, computer_id, computer_name, on_paired):
+            opened.append(computer_name)
+
+        def setWindowModality(self, _m):
+            pass
+
+        def show(self):
+            pass
+
+    monkeypatch.setattr(connection_module, "AddPhoneDialog", _FakeDialog)
+    plugin._bus.add_phone_requested.emit()
+    assert opened == [plugin.computer_name]
+
+
+def test_computer_name_can_be_renamed_from_the_phones_dialog(plugin_env, monkeypatch):
+    plugin, _host, _panel = plugin_env
+    dialog = connection_module.PhonesDialog(plugin)
+    monkeypatch.setattr(connection_module.QInputDialog, "getText", lambda *a, **k: ("Studio PC", True))
+    dialog._rename_computer()
+    assert plugin.get_config()["computer_name"] == "Studio PC"
+    assert dialog._computer_lbl.text() == "Studio PC"

@@ -87,6 +87,11 @@ class EventBus(QObject):
     stream_connected       = pyqtSignal()
     phone_state_updated    = pyqtSignal(dict)
     device_changed         = pyqtSignal(str)
+    phones_changed         = pyqtSignal(int)
+    """Number of paired phones, emitted whenever the list changes."""
+    add_phone_requested    = pyqtSignal()
+    setup_needed           = pyqtSignal(bool)
+    """First-run checklist is showing (True) or done/hidden (False); the video stage makes room for it."""
     camera_switched        = pyqtSignal(dict)
     """Lens switch sent to phone; carries selected camera capability dict."""
     resolution_change_requested = pyqtSignal(int, int)

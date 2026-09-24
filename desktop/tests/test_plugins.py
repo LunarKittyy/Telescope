@@ -5,7 +5,7 @@ import pytest
 from telescope import theme
 from telescope.plugin import UNCHANGED, EventBus
 from telescope.plugins.monitoring import MonitoringPlugin
-from telescope.plugins.setup import SetupDialog, SetupPlugin
+from telescope.plugins.setup import AdvancedDialog, SetupPlugin
 from telescope.plugins.stream_output import StreamOutputPlugin
 
 
@@ -514,7 +514,7 @@ def test_setup_plugin_apply_canvas_persists_and_reports_result(setup_plugin):
 
 
 def test_setup_dialog_canvas_dimension_selection_and_result_messages(qapp):
-    dialog = SetupDialog()
+    dialog = AdvancedDialog()
     dialog.set_canvas_preset("Custom...", 1234, 567)
     assert dialog._get_selected_dims() == (1234, 567)
     assert dialog.get_canvas_preset_label() == "Custom..."

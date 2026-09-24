@@ -33,6 +33,16 @@ def v4l2_module_loaded() -> bool:
     return rc == 0 and "v4l2loopback" in out
 
 
+def v4l2_module_installed() -> bool:
+    """Whether the v4l2loopback package is installed (loadable), loaded or not."""
+    if v4l2_module_loaded():
+        return True
+    rc, _, _ = _run(["modinfo", "v4l2loopback"])
+    if rc == -1:  # no modinfo on PATH: can't tell, so don't claim it's missing
+        return True
+    return rc == 0
+
+
 def v4l2_devices_ready() -> bool:
     return os.path.exists(V4L2_PHONE_DEV)
 

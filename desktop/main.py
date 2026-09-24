@@ -30,6 +30,7 @@ from telescope.app import (
 from telescope.plugins.camera_control import CameraControlPlugin
 from telescope.plugins.connection import ConnectionPlugin
 from telescope.plugins.monitoring import MonitoringPlugin
+from telescope.plugins.onboarding import OnboardingPlugin
 from telescope.plugins.preview import PreviewPlugin
 from telescope.plugins.setup import SetupPlugin
 from telescope.plugins.stream_output import StreamOutputPlugin
@@ -56,6 +57,7 @@ def main():
     win.register_plugin(StreamOutputPlugin())
     win.register_plugin(TransformsPlugin())
     win.register_plugin(PreviewPlugin())
+    win.register_plugin(OnboardingPlugin())  # after Preview: the stage listens for setup_needed
     win.register_plugin(MonitoringPlugin())
     win.apply_saved_config()
     win.show()

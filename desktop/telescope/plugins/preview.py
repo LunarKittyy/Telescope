@@ -100,6 +100,7 @@ class PreviewPlugin(TelescopePlugin):
         self._host_filter = _HostFilter()
         self._host_filter.visibility_changed.connect(self._on_host_visibility)
         host.installEventFilter(self._host_filter)
+        bus.setup_needed.connect(self._on_setup_needed)
 
     def create_panel(self) -> QWidget:
         """Video stage: letterboxed frame area with toolbar beneath (centre column, no chrome)."""
@@ -148,7 +149,12 @@ class PreviewPlugin(TelescopePlugin):
 
         lay.addWidget(toolbar)
 
+        self._stage = stage
         return stage
+
+    def _on_setup_needed(self, needed: bool):
+        # The first-run checklist takes the stage; there's nothing to preview before setup anyway.
+        self._stage.setVisible(not needed)
 
     def _toggle(self):
         self._active = not self._active

@@ -8,7 +8,8 @@ import telescope.pairing as pairing_module
 import telescope.plugins.connection as connection_module
 from telescope.ip_utils import PairingAddress
 from telescope.pairing import PairingResult
-from telescope.plugins.connection import AddPhoneDialog, _QRCodeWidget
+from telescope.plugins.connection import AddPhoneDialog
+from telescope.widgets.qr import QRCodeWidget
 
 
 class _SyncThread:
@@ -54,12 +55,12 @@ def _open(qapp, paired=None):
 
 
 def _qr_shown(dialog):
-    return any(isinstance(dialog._qr_container.itemAt(i).widget(), _QRCodeWidget)
+    return any(isinstance(dialog._qr_container.itemAt(i).widget(), QRCodeWidget)
                for i in range(dialog._qr_container.count()))
 
 
 def test_qr_widget_builds_matrix_and_renders(qapp):
-    widget = _QRCodeWidget("hello")
+    widget = QRCodeWidget("hello")
     assert widget.width() == widget.height() > 0
     widget.grab()
 
