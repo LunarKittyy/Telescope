@@ -286,7 +286,7 @@ The QR code carries a list of desktop address *candidates* (see [QR pairing payl
 
 In USB mode the desktop can pair without a QR scan at all: it pushes the same payload via `adb shell am broadcast` to a dedicated intent, registered exported but gated on the `DUMP` permission - held by `adb shell` by default, but not obtainable by ordinary third-party apps, so only adb (not another app on the phone) can trigger it. Either pairing path rotates the token, revoking whatever was paired before, and stops an in-progress stream rather than leaving it enforcing a token that's no longer valid. Unpairing from the phone now asks for confirmation first rather than clearing the token on a single tap.
 
-A **Copy Diagnostics** button copies app version, device info, current stream state, and recent state transitions/errors to the clipboard, for pasting into a bug report. Never includes the pairing token, a URL, or raw config.
+A **Copy diagnostics** button copies app version, device info, current stream state, and recent state transitions/errors to the clipboard, for pasting into a bug report. Never includes the pairing token, a URL, or raw config.
 
 ### Build locally
 
