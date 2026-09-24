@@ -352,8 +352,8 @@ class PhonesDialog(QDialog):
             return
         r = QMessageBox.question(
             self, "Remove phone",
-            f'Remove "{phone.name}"? Its camera settings on this computer are deleted, and it is '
-            "unpaired on the phone too if the phone can be reached.",
+            f'Remove "{phone.name}"? This deletes its camera settings on this computer, and unpairs it '
+            "on the phone too if Telescope can reach it.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -385,6 +385,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._check_id = 0
         self._watch_id = 0
         self._streaming = False
+        self._connected = False  # first frame arrived (EventBus.stream_connected)
         self._stream_route: Optional[Route] = None
         self._stream_forward_serial: Optional[str] = None
         self._switching = False
@@ -530,7 +531,7 @@ class ConnectionPlugin(TelescopePlugin):
         res = self._resolution
         kind, text = status_line(res)
         if self._streaming:
-            kind, text = "status_ok", "● Streaming"
+            kind, text = ("status_ok", "● Streaming") if self._connected else ("status_dim", "Connecting…")
         set_status_kind(self._status_lbl, kind)
         self._status_lbl.setText(text)
         self._using_row.setVisible(True)
@@ -760,6 +761,8 @@ class ConnectionPlugin(TelescopePlugin):
         }.get(error or "", f"The phone refused to start streaming ({error or 'unknown error'}).")
 
     def on_stream_start(self, stream_url: str, ctrl):
+        if not self._streaming:  # also called after an auto-reconnect; that isn't a fresh start
+            self._connected = False
         self._streaming = True
         self._switch_usb_row.setVisible(False)
         if (self._stream_route is not None and self._stream_route.kind == "wifi"
@@ -780,6 +783,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._check_status()
 
     def _on_stream_connected(self):
+        self._connected = True
         self._render()
 
     # ── Plugged in while streaming over Wi-Fi ─────────────────────────────
@@ -836,6 +840,8 @@ class ConnectionPlugin(TelescopePlugin):
             existing.token = result.token  # re-pairing replaced this computer's token on the phone
             existing.ips = list(result.ips)
             existing.active_ip = active
+            if self._streaming and existing.id == self._selected_id:
+                self._host.reconnect_stream()  # the running stream still holds the old token
         else:
             self._phones.append(Phone(result.phone_id, result.name, result.token, list(result.ips), active))
         self._select(result.phone_id, force=True)

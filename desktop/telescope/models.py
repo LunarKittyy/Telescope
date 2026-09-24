@@ -168,33 +168,3 @@ class PhoneState:
             battery_temp_c=_require_number(raw, "battery_temp_c", w),
             raw=raw,
         )
-
-
-@dataclass(frozen=True)
-class DeviceProfile:
-    """Paired phone: name, known IPs, and QR-pairing bearer token (None if manually added only)."""
-
-    name: str
-    ips: tuple = field(default_factory=tuple)
-    token: Optional[str] = None
-
-    @classmethod
-    def from_dict(cls, raw: dict) -> "DeviceProfile":
-        if not isinstance(raw, dict):
-            raise ValueError(f"device entry is not an object ({type(raw).__name__})")
-        name = raw.get("name")
-        if not isinstance(name, str) or not name.strip():
-            raise ValueError("device entry: missing or empty 'name'")
-        ips_raw = raw.get("ips", [])
-        if not isinstance(ips_raw, list) or not all(isinstance(ip, str) for ip in ips_raw):
-            raise ValueError("device entry: 'ips' must be a list of strings")
-        token = raw.get("token")
-        if token is not None and not isinstance(token, str):
-            raise ValueError("device entry: 'token' must be a string")
-        return cls(name=name, ips=tuple(ips_raw), token=token)
-
-    def to_dict(self) -> dict:
-        d = {"name": self.name, "ips": list(self.ips)}
-        if self.token is not None:
-            d["token"] = self.token
-        return d

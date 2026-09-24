@@ -50,5 +50,10 @@ ifaddr (https://pypi.org/project/ifaddr/)
     Copyright (c) 2014 Stefan C. Mueller.
     License: MIT.
 
+zeroconf (https://pypi.org/project/zeroconf/)
+    Copyright (c) Paul Scott-Murphy, William McBrine, Jakub Stasiak and
+    python-zeroconf contributors.
+    License: GNU Lesser General Public License v2.1 or later.
+
 Exact installed versions for a given release are pinned in
 desktop/constraints.txt.

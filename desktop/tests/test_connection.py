@@ -656,3 +656,23 @@ def test_computer_name_can_be_renamed_from_the_phones_dialog(plugin_env, monkeyp
     dialog._rename_computer()
     assert plugin.get_config()["computer_name"] == "Studio PC"
     assert dialog._computer_lbl.text() == "Studio PC"
+
+
+def test_re_pairing_the_streaming_phone_reconnects_with_the_new_token(plugin_env):
+    plugin, host, _panel = plugin_env
+    _add(plugin, token="old")
+    plugin._streaming = True
+    _add(plugin, token="new")
+    assert host.reconnects == 1
+    _add(plugin, pid="id-b", name="Other")  # pairing a different phone doesn't touch the stream
+    assert host.reconnects == 1
+
+
+def test_card_says_connecting_until_the_first_frame(plugin_env):
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    plugin._stream_route = WIFI
+    plugin.on_stream_start("url", None)
+    assert plugin._status_lbl.text() == "Connecting…"
+    plugin._bus.stream_connected.emit()
+    assert plugin._status_lbl.text() == "● Streaming"

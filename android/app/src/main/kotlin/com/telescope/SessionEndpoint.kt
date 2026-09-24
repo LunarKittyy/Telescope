@@ -3,7 +3,7 @@ package com.telescope
 import android.content.Context
 import kotlinx.serialization.Serializable
 
-// What `GET /v1/ping` answers with; the 200/401 status alone still tells an older desktop the pairing verdict, this body adds what the phone is actually doing.
+// What `GET /v1/ping` answers with: the 200/401 status is the pairing verdict, this body is what the phone is doing.
 @Serializable
 data class SessionSnapshot(
     val protocol: Int,
