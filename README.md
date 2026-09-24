@@ -40,17 +40,18 @@ Download `Telescope-linux.tar.gz` from the [releases page](../../releases), extr
 
 ### 2. ✅ Follow the checklist
 
-Until your first phone is paired, the middle of the window is a three-step checklist:
+On first launch, the middle of the window is a checklist:
 
-1. **Virtual camera** - ticked once the driver is there. On Windows it's one click; on Linux it tells you if the package above is missing.
+1. **Virtual camera** - on Windows, click **Install driver**. On Linux it checks for the package above and names it if it's missing.
 2. **Phone app** - scan the code with your phone's camera to download `Telescope.apk`, then open it to install. (Your phone asks to allow "install from this source" the first time.)
-3. **Add your phone** - open Telescope on the phone, click **Add phone**, then either tap **Scan pairing code** on the phone or plug it in over USB. Over USB it pairs by itself once you allow USB debugging.
+3. **Add your phone** - open Telescope on the phone and click **Add phone**. Then tap **Scan pairing code** on the phone, or plug it in over USB and allow USB debugging when the phone asks.
+4. **Start streaming** - click **Start Streaming** in the top right corner. The phone's camera starts by itself.
 
-When all three are ticked, the checklist makes way for the video.
+After the first stream, the checklist is replaced by the video.
 
-### 3. ▶️ Start streaming
+### 3. ▶️ Use it as a webcam
 
-Hit **Start Streaming** - it starts the phone's camera for you. In OBS (or anywhere else), pick **Phone Camera** (Linux) or **Unity Video Capture** (Windows) as your webcam.
+In OBS (or anywhere else), pick **Phone Camera** (Linux) or **Unity Video Capture** (Windows) as your webcam.
 
 Telescope uses USB whenever the phone is plugged in and answering, and Wi-Fi otherwise. The Connection panel shows which one it's using, and if a cable is plugged in but not used, it says why. **Connect via** forces one or the other.
 

@@ -143,7 +143,7 @@ def windows_dialog(monkeypatch, qapp):
     "uc_ok,adb_ok,uc_text,uc_button,adb_text",
     [
         (True, True, "Ready", "Reinstall", "Ready"),
-        (False, False, "Not installed", "Install driver", "Not found - USB mode unavailable"),
+        (False, False, "Not installed", "Install driver", "Not found. Pairing and installing over USB won't work."),
     ],
 )
 def test_windows_setup_status(
@@ -237,7 +237,7 @@ def test_apk_install_rejects_missing_adb_or_device(monkeypatch, qapp, tmp_path):
     monkeypatch.setattr(setup_mod, "bundled_apk_path", lambda: apk)
     monkeypatch.setattr(setup_mod, "adb_devices", lambda: [])
     dialog._install_apk()
-    assert "No authorized" in dialog._apk_status_lbl.text()
+    assert "No phone found over USB" in dialog._apk_status_lbl.text()
 
 
 def test_apk_install_uses_selected_device_and_reports_success(monkeypatch, qapp, tmp_path):
@@ -260,7 +260,7 @@ def test_apk_install_uses_selected_device_and_reports_success(monkeypatch, qapp,
     dialog._install_apk()
 
     assert calls == [(["adb", "-s", "b", "install", "-r", str(apk)], 60)]
-    assert dialog._apk_status_lbl.text() == "Installed successfully"
+    assert dialog._apk_status_lbl.text() == "Installed"
     assert dialog._apk_status_lbl.objectName() == "status_ok"
 
 

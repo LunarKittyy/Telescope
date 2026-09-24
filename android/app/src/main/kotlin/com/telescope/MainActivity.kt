@@ -154,7 +154,7 @@ class MainActivity : AppCompatActivity() {
         btnPreview.setOnClickListener { startActivity(Intent(this, PreviewActivity::class.java)) }
         btnScanPair.setOnClickListener {
             val opts = ScanOptions().apply {
-                setPrompt("Scan the Telescope QR code on your desktop")
+                setPrompt("Point the camera at the pairing code on your computer")
                 setBeepEnabled(false)
                 setOrientationLocked(false)
                 setBarcodeImageEnabled(false)
@@ -200,12 +200,12 @@ class MainActivity : AppCompatActivity() {
     private fun handleQrScan(data: String) {
         when (val parsed = parsePairingOffer(data)) {
             is PairingParse.Invalid ->
-                Toast.makeText(this, "Invalid QR code.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "That's not a Telescope pairing code.", Toast.LENGTH_SHORT).show()
             is PairingParse.UnsupportedVersion ->
                 Toast.makeText(
                     this,
-                    "This QR code comes from a different Telescope version. Update the " +
-                        "desktop app and this app to the same release, then try again.",
+                    "This code is from a different Telescope version. Update the app on your " +
+                        "computer and this app to the same version, then try again.",
                     Toast.LENGTH_LONG,
                 ).show()
             is PairingParse.Ok -> startPairing(parsed.offer)
@@ -642,7 +642,7 @@ class MainActivity : AppCompatActivity() {
         if (!bound) rebindToService()
         if (!remoteStartAnnounced && service.startedRemotely && service.isStreaming) {
             remoteStartAnnounced = true
-            Toast.makeText(this, "Streaming started from your desktop", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Streaming started from your computer", Toast.LENGTH_SHORT).show()
         }
     }
 

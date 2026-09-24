@@ -17,6 +17,7 @@ IS_LINUX = platform.system() == "Linux"
 
 VCAM_BACKEND   = "v4l2loopback" if IS_LINUX else "unitycapture"
 V4L2_PHONE_DEV = "/dev/video11"
+V4L2_PHONE_LABEL = "Phone Camera"  # its card_label, which is how other apps list it
 RECONNECT_DELAY = 3
 
 # Sentinel: "leave unchanged" (distinct from None = pass-through).
@@ -146,7 +147,7 @@ class StreamWorker(QThread):
             cap = self._open_cap()
             if not cap.isOpened():
                 cap.release()
-                self.status.emit("warn", f"Cannot open stream - retry in {RECONNECT_DELAY}s...")
+                self.status.emit("warn", f"Can't reach the phone's stream. Trying again in {RECONNECT_DELAY} s…")
                 self._restart_vcam.wait(timeout=RECONNECT_DELAY)
                 self._restart_vcam.clear()
                 continue
@@ -154,7 +155,7 @@ class StreamWorker(QThread):
             ret, frame = cap.read()
             if not ret or frame is None:
                 cap.release()
-                self.status.emit("warn", "Empty first frame - retrying...")
+                self.status.emit("warn", "Waiting for the first frame…")
                 self._restart_vcam.wait(timeout=RECONNECT_DELAY)
                 self._restart_vcam.clear()
                 continue
@@ -190,19 +191,21 @@ class StreamWorker(QThread):
             reader_stop.set()
             reader.join(timeout=3)
 
-        self.status.emit("idle", "Stopped.")
+        self.status.emit("idle", "Not streaming")
 
     def _run_vcam(self):
         """Open the virtual camera at the current size/fps and feed it until stop or a restart request."""
         src0 = self._latest_rgb
         cam_w = self._canvas_w or src0.shape[1]
         cam_h = self._canvas_h or src0.shape[0]
-        self.status.emit("ok", f"Stream {cam_w}x{cam_h} @ {self._fps} fps -> {VCAM_BACKEND}")
+        self.status.emit("ok", f"Streaming {cam_w}x{cam_h} at {self._fps} fps")
         try:
             with pyvirtualcam.Camera(width=cam_w, height=cam_h, fps=self._fps,
                                      backend=VCAM_BACKEND,
                                      device=V4L2_PHONE_DEV if IS_LINUX else None) as cam:
-                self.status.emit("ok", f"Virtual camera: {cam.device}")
+                # Name the camera the way other apps list it (the v4l2loopback card label on Linux).
+                shown_as = V4L2_PHONE_LABEL if IS_LINUX else cam.device
+                self.status.emit("ok", f"Streaming {cam_w}x{cam_h} at {self._fps} fps to {shown_as}")
                 fc, t0, bytes0, recv0 = 0, time.time(), self._bytes_total, self._frames_received
                 last_src = fitted = None
                 while not self._stop_flag and not self._restart_vcam.is_set():
@@ -236,4 +239,4 @@ class StreamWorker(QThread):
 
                         fc, t0, bytes0, recv0 = 0, time.time(), bytes_now, recv_now
         except Exception as exc:
-            self.status.emit("warn", f"Virtual cam error: {exc}")
+            self.status.emit("warn", f"Virtual camera error: {exc}")

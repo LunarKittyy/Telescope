@@ -15,6 +15,9 @@ class _Host:
     def is_streaming(self):
         return False
 
+    def schedule_save(self):
+        pass
+
 
 @pytest.fixture
 def env(qapp, monkeypatch):
@@ -64,14 +67,29 @@ def test_add_phone_goes_through_the_bus(env):
     assert asked == [True]
 
 
-def test_checklist_steps_aside_once_a_phone_is_paired_and_the_camera_works(env):
+def test_checklist_steps_aside_after_the_first_stream(env):
     plugin, bus, card, needed = env
     plugin._on_vcam(True, "")
-    assert not card.isHidden()
     bus.phones_changed.emit(1)
+    assert not card.isHidden()  # paired and ready, but step 4 still points at Start Streaming
+    assert plugin._pair.badge.text() == "✓"
+    assert "top right" in plugin._start.text.text()
+    bus.stream_started.emit("url")
+    bus.stream_connected.emit()
+    bus.stream_stopped.emit()
     assert card.isHidden()
     assert needed[-1] is False
-    assert plugin._pair.badge.text() == "✓"
+    assert plugin.get_config() == {"streamed": True}
+
+
+def test_a_saved_first_stream_keeps_the_checklist_away(env):
+    plugin, bus, card, _needed = env
+    plugin.set_config({"streamed": True})
+    plugin._on_vcam(True, "")
+    bus.phones_changed.emit(1)
+    assert card.isHidden()
+    bus.phones_changed.emit(0)  # every phone removed: back to the checklist
+    assert not card.isHidden()
 
 
 def test_a_paired_phone_alone_is_not_enough_without_the_camera(env):

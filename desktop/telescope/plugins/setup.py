@@ -145,7 +145,7 @@ class AdvancedDialog(QDialog):
         apk_lay = card_layout(apk_card)
         add_card_header(apk_lay, "Phone app", "devices")
         _apk = bundled_apk_path()
-        self._apk_status_lbl = QLabel("Telescope.apk found" if _apk else "No APK found next to app")
+        self._apk_status_lbl = QLabel("Telescope.apk found" if _apk else "No Telescope.apk came with this app")
         set_status_kind(self._apk_status_lbl, "status_ok" if _apk else "status_dim")
         self._apk_status_lbl.setWordWrap(True)
         apk_lay.addLayout(control_row("APK", self._apk_status_lbl, stretch=True))
@@ -359,7 +359,7 @@ class AdvancedDialog(QDialog):
             self._adb_status_lbl.setText("Ready")
         else:
             set_status_kind(self._adb_status_lbl, "status_err")
-            self._adb_status_lbl.setText("Not found - USB mode unavailable")
+            self._adb_status_lbl.setText("Not found. Pairing and installing over USB won't work.")
 
     def _install_uc(self):
         self._uc_btn.setEnabled(False)
@@ -410,13 +410,13 @@ class AdvancedDialog(QDialog):
         serials = run_off_ui_thread(adb_devices)
         if not serials:
             set_status_kind(self._apk_status_lbl, "status_err")
-            self._apk_status_lbl.setText("No authorized ADB device found")
+            self._apk_status_lbl.setText("No phone found over USB. Plug it in and allow USB debugging when the phone asks.")
             return
         serial = serials[0]
         if len(serials) > 1:
             serial, ok = QInputDialog.getItem(
                 self, "Select device",
-                "Multiple ADB devices/emulators are connected.\nChoose which one to install to:",
+                "More than one phone is plugged in. Which one should get the app?",
                 serials, 0, False,
             )
             if not ok:
@@ -430,7 +430,7 @@ class AdvancedDialog(QDialog):
             rc, out, err = _run([adb_exe(), "-s", serial, "install", "-r", path], timeout=60)
             output = (out + err).strip()
             if rc == 0 and "Success" in output:
-                self._sig_apk_done.emit(True, "Installed successfully")
+                self._sig_apk_done.emit(True, "Installed")
             else:
                 detail = output.splitlines()[-1] if output else "unknown error"
                 self._sig_apk_done.emit(False, detail)

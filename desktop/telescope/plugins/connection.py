@@ -142,7 +142,7 @@ class AddPhoneDialog(QDialog):
     def _build_ui(self):
         lay = dialog_layout(self)
         self._subtitle = dialog_header(lay, "Add a phone",
-                                       "Open Telescope on the phone, then use either way below.")
+                                       "Open Telescope on the phone first.")
 
         self._qr_container = QVBoxLayout()
         self._qr_container.setAlignment(Qt.AlignmentFlag.AlignHCenter)
@@ -261,7 +261,7 @@ class AddPhoneDialog(QDialog):
                 item.widget().deleteLater()
         self._wifi_row.setVisible(False)
         self._usb_row.setVisible(False)
-        self._subtitle.setText("It's ready to use. Pick it at the top of the window any time.")
+        self._subtitle.setText("You can start streaming now.")
         self._result_lbl.setText(f"Paired with {result.name}")
         self._result_lbl.setVisible(True)
         self._close_btn.setText("Done")
@@ -454,8 +454,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._route_combo = NoScrollComboBox()
         for key, label in _ROUTE_CHOICES:
             self._route_combo.addItem(label, key)
-        self._route_combo.setToolTip("Automatic uses USB whenever this phone answers over a cable, "
-                                     "and Wi-Fi otherwise. Checked again on every connect.")
+        self._route_combo.setToolTip("Automatic uses USB when the phone is plugged in and Wi-Fi otherwise.")
         self._route_combo.currentIndexChanged.connect(
             lambda i: self.set_route_preference(self._route_combo.itemData(i)))
         self._route_row = control_row_widget("Connect via", self._route_combo, stretch=True)
@@ -525,7 +524,7 @@ class ConnectionPlugin(TelescopePlugin):
             self._status_lbl.setText("No phone yet")
             self._using_row.setVisible(False)
             self._route_row.setVisible(False)
-            self._note_lbl.setText("Click Add phone to pair one. It takes a scan, or just a USB cable.")
+            self._note_lbl.setText("Click Add phone to pair one.")
             self._note_row.setVisible(True)
             return
         res = self._resolution
@@ -652,8 +651,7 @@ class ConnectionPlugin(TelescopePlugin):
             return False
         r = QMessageBox.question(
             self._host, "Set up the virtual camera",
-            "Telescope needs to load its virtual camera (v4l2loopback) first. This asks for your "
-            f"password.\n\nIt creates {V4L2_PHONE_DEV} for the phone and {V4L2_OBS_DEV} for OBS.",
+            "Telescope needs to switch on its virtual camera first. This asks for your password.",
             QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
             QMessageBox.StandardButton.Ok)
         if r != QMessageBox.StandardButton.Ok:

@@ -201,7 +201,7 @@ class TelescopeWindow(QMainWindow):
         self._menu_btn.setFixedSize(36, 36)
         self._menu_btn.setIcon(create_vector_icon("gear", theme.TEXT_DIM))
         self._menu_btn.setIconSize(QSize(19, 19))
-        self._menu_btn.setToolTip("Setup and tools")
+        self._menu_btn.setToolTip("Settings")
         self._menu_btn.clicked.connect(self._show_settings_menu)
         lay.addWidget(self._menu_btn)
 
@@ -265,7 +265,7 @@ class TelescopeWindow(QMainWindow):
         lay.setSpacing(14)
 
         # No caption (already reads as status); elides long messages.
-        self._status_lbl = ElidingLabel("Idle - press Start Streaming")
+        self._status_lbl = ElidingLabel("Not streaming")
         set_status_kind(self._status_lbl, "status_dim")
         lay.addWidget(self._status_lbl, 1)
 
@@ -519,7 +519,7 @@ class TelescopeWindow(QMainWindow):
         self._waking = True
         self._set_start_button(streaming=True)
         self._start_btn.setEnabled(False)
-        self._set_status("Waking phone camera...", "dim")
+        self._set_status("Starting the phone's camera…", "dim")
 
         self._spawn_wake(wake_id, conn, url, token, conn.session_target())
 
@@ -558,7 +558,7 @@ class TelescopeWindow(QMainWindow):
         self._start_btn.setEnabled(True)
         if not ok:
             self._set_start_button(streaming=False)
-            self._set_status("Idle - press Start Streaming", "dim")
+            self._set_status("Not streaming", "dim")
             QMessageBox.warning(self, "Couldn't start the phone's camera", reason)
             return
         self._begin_stream(url, token)
@@ -626,7 +626,7 @@ class TelescopeWindow(QMainWindow):
         self._fps_lbl.setText("—")
         self._net_lbl.setStyleSheet("")
         self._net_lbl.setText("—")
-        self._set_status("Stopped.", "dim")
+        self._set_status("Not streaming", "dim")
 
         self._bus.stream_stopped.emit()
         for p in self._plugins:
@@ -726,7 +726,7 @@ class TelescopeWindow(QMainWindow):
             PhoneState.from_dict(state)
         except PhoneStateError:
             logging.exception("Phone sent a malformed /v1/state response - not applying it")
-            self._set_status("Protocol error: phone sent malformed state", "err")
+            self._set_status("The phone sent data this version can't read. Update both apps to the same version.", "err")
             return
         # Decoded successfully - forwarded as the original dict rather than
         # the typed PhoneState so existing plugins keep consuming the shape

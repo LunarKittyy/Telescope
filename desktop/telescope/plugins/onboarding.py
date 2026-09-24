@@ -1,6 +1,6 @@
-"""First-run checklist on the video stage: virtual camera, phone app, add a phone.
+"""First-run checklist on the video stage: virtual camera, phone app, add a phone, start streaming.
 
-It shows until a phone is paired and the virtual camera can work, then gets out of the way for good.
+It shows until the first stream has delivered frames, then gets out of the way for good.
 The other plugins are reached only through the EventBus: phones_changed tells it when a phone is
 paired, add_phone_requested opens pairing, and setup_needed lets the video stage make room.
 """
@@ -85,12 +85,14 @@ class OnboardingPlugin(TelescopePlugin):
         self._vcam_checked = False
         self._streaming = False
         self._busy = False
+        self._streamed = False  # a stream has delivered frames at least once; persisted
         self._signals = _Signals()
         self._signals.vcam.connect(self._on_vcam)
         self._signals.apk.connect(self._on_apk)
         bus.phones_changed.connect(self._on_phones)
         bus.stream_started.connect(lambda _url: self._set_streaming(True))
         bus.stream_stopped.connect(lambda: self._set_streaming(False))
+        bus.stream_connected.connect(self._on_stream_connected)
 
     # ── UI ────────────────────────────────────────────────────────────────
 
@@ -98,12 +100,9 @@ class OnboardingPlugin(TelescopePlugin):
         self._card = create_card()
         lay = card_layout(self._card)
         add_card_header(lay, "Get set up", "check")
-        intro = WrapLabel("Three steps, once. After that it's just Start Streaming.")
-        intro.setObjectName("dim")
-        lay.addWidget(intro)
 
         grid = QGridLayout()
-        grid.setContentsMargins(0, 8, 0, 0)
+        grid.setContentsMargins(0, 4, 0, 0)
         grid.setHorizontalSpacing(14)
         grid.setVerticalSpacing(22)
         grid.setColumnStretch(1, 1)
@@ -118,6 +117,7 @@ class OnboardingPlugin(TelescopePlugin):
         self._app.body.addWidget(self._qr_row)
         self._pair = _Step(grid, 2, 3, "Add your phone")
         self._pair.button.clicked.connect(self._bus.add_phone_requested.emit)
+        self._start = _Step(grid, 3, 4, "Start streaming")
         lay.addLayout(grid)
         lay.addStretch(1)
 
@@ -131,15 +131,15 @@ class OnboardingPlugin(TelescopePlugin):
             vcam.set(False, "Checking…")
             vcam.action(None)
         elif self._vcam_ready:
-            vcam.set(True, "Installed. Telescope switches it on when you start streaming."
+            vcam.set(True, "Installed. Starting a stream may ask for your password to switch it on."
                      if IS_LINUX else "Installed.")
             vcam.action(None)
         elif IS_LINUX:
             vcam.set(False, _LINUX_INSTALL_HINT, "status_warn")
             vcam.action("Check again")
         else:
-            vcam.set(False, "Telescope shows up in other apps through a small camera driver. "
-                            "Installing it asks for admin access.")
+            vcam.set(False, "Other apps see Telescope as a webcam through this driver. "
+                            "Installing it needs admin access.")
             vcam.action("Install driver", primary=True)
 
         paired = self._phones > 0
@@ -160,10 +160,16 @@ class OnboardingPlugin(TelescopePlugin):
             self._pair.set(False, "Open Telescope on the phone, then click Add phone. "
                                   "Scan the code it shows, or plug the phone in over USB.")
             self._pair.action("Add phone", primary=True)
+
+        if self._streamed:
+            self._start.set(True, "Done.")
+        else:
+            # Points at the real button rather than duplicating it, so people learn where it lives.
+            self._start.set(False, "Click Start Streaming in the top right corner of this window.")
         self._update_visibility()
 
     def _update_visibility(self):
-        needed = not self._streaming and not (self._phones > 0 and self._vcam_ready)
+        needed = not self._streaming and not (self._phones > 0 and self._vcam_ready and self._streamed)
         if self._card.isHidden() != (not needed):
             self._card.setVisible(needed)
         self._bus.setup_needed.emit(needed)
@@ -173,6 +179,12 @@ class OnboardingPlugin(TelescopePlugin):
     def _on_phones(self, count: int):
         self._phones = count
         self._render()
+
+    def _on_stream_connected(self):
+        if not self._streamed:
+            self._streamed = True
+            self._host.schedule_save()
+            self._render()
 
     def _set_streaming(self, streaming: bool):
         self._streaming = streaming
@@ -250,3 +262,9 @@ class OnboardingPlugin(TelescopePlugin):
         else:
             self._app.set(False, detail, "status_err")
 
+    def get_config(self) -> dict:
+        return {"streamed": self._streamed}
+
+    def set_config(self, cfg: dict):
+        self._streamed = cfg.get("streamed") is True
+        self._render()

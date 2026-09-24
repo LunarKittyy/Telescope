@@ -730,7 +730,7 @@ def test_stop_requests_worker_closes_client_and_notifies_plugins(window):
 
 def test_stop_is_safe_when_already_stopped(window):
     window._stop()
-    assert window._status_lbl.fullText() == "Stopped."
+    assert window._status_lbl.fullText() == "Not streaming"
 
 
 def test_restart_canvas_non_linux_waits_and_restarts_active_stream(window, monkeypatch):
@@ -864,7 +864,7 @@ def test_apply_state_rejects_malformed_non_empty_state(window):
 
     assert bus == []
     assert plugin.states == []
-    assert "Protocol error" in window._status_lbl.fullText()
+    assert "can't read" in window._status_lbl.fullText()
 
 
 def test_apply_state_accepts_empty_state(window):
@@ -894,7 +894,7 @@ def test_worker_fps_and_idle_status(window):
     window._on_worker_status("fps", "29.9 fps")
     assert window._fps_lbl.text() == "29.9 fps"
     window._session = StreamSession(id=1, url="url", client=object(), worker=object())
-    window._on_worker_status("idle", "Stopped.")
+    window._on_worker_status("idle", "Not streaming")
     assert window._fps_lbl.text() == "—"
     assert window._worker is None
     assert window._session is None
@@ -980,7 +980,7 @@ def test_resolution_pending_times_out_to_error_then_self_clears(window, monkeypa
 def test_resolution_pending_cleared_on_idle_status(window):
     window._on_resolution_pending(1280, 720)
 
-    window._on_worker_status("idle", "Stopped.")
+    window._on_worker_status("idle", "Not streaming")
 
     assert window._pending_resolution is None
     assert window._fps_lbl.styleSheet() == ""

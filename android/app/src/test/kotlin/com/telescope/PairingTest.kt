@@ -178,13 +178,13 @@ class PairingTest {
 
         assertEquals(
             """
-            Could not reach the desktop.
+            Couldn't reach your computer.
 
             Tried:
             • 192.168.1.42 over Wi-Fi: timed out
             • 100.90.12.34 over the default network: unreachable
 
-            Your VPN may be blocking local-network access. Enable its LAN-access option, pause the VPN temporarily, or use USB pairing.
+            Check that the phone and computer are on the same Wi-Fi. If a VPN is on, it may be blocking local network access: turn on its LAN access option or pause it. Or plug the phone in over USB, and it pairs without scanning.
             """.trimIndent(),
             message,
         )
@@ -224,7 +224,7 @@ class PairingTest {
     fun `failure message still explains itself with nothing to list`() {
         val message = pairingFailureMessage(emptyList())
         assertFalse(message.contains("Tried:"))
-        assertTrue(message.contains("USB pairing"))
+        assertTrue(message.contains("plug the phone in over USB"))
     }
 
     @Test

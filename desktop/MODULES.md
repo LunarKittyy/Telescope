@@ -228,9 +228,10 @@ UnityCapture helpers: `uc_is_registered()`, `unitycapture_dir()`, `download_unit
 
 ### `plugins/onboarding.py`
 **OnboardingPlugin** - the first-run checklist. `panel_region = "center"`.
-- Three steps: virtual camera (`v4l2_module_installed()` on Linux, with the package names if it's missing; one-click UnityCapture install on Windows), phone app (QR to `APK_URL`, or install over USB when a bundled APK and adb are present), Add phone (emits `bus.add_phone_requested`).
-- Shown while not streaming and until a phone is paired and the virtual camera can work; announces that with `bus.setup_needed`.
-- No config keys: its state is derived, never stored.
+- Four steps: virtual camera (`v4l2_module_installed()` on Linux, with the package names if it's missing; one-click UnityCapture install on Windows), phone app (QR to `APK_URL`, or install over USB when a bundled APK and adb are present), Add phone (emits `bus.add_phone_requested`), and Start streaming, which points at the header's Start button and ticks on the first `bus.stream_connected`.
+- Shown while not streaming until a phone is paired, the virtual camera can work and a stream has delivered frames once (`streamed`, persisted).
+- Announces whether it's showing with `bus.setup_needed`.
+- Config key: `streamed`.
 
 ### `plugins/transforms.py`
 **TransformsPlugin** - software frame transforms applied in the stream pipeline. `panel_region = "left"` (desktop-side processing, next to the output settings).

@@ -581,8 +581,8 @@ class CameraStreamService : Service() {
     }
 
     private fun createNotificationChannel() {
-        val ch = NotificationChannel(CHANNEL_ID, "Camera Stream", NotificationManager.IMPORTANCE_LOW)
-            .apply { description = "Telescope MJPEG stream" }
+        val ch = NotificationChannel(CHANNEL_ID, "Streaming", NotificationManager.IMPORTANCE_LOW)
+            .apply { description = "Shown while the camera is streaming to your computer" }
         (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(ch)
     }
 
@@ -590,7 +590,7 @@ class CameraStreamService : Service() {
         val pi = PendingIntent.getActivity(this, 0,
             Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val n = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Telescope").setContentText("Streaming :$DEFAULT_PORT")
+            .setContentTitle("Telescope").setContentText("Camera is streaming")
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(ContextCompat.getColor(this, R.color.colorPrimary))
             .setColorized(false)

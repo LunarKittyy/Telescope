@@ -149,9 +149,9 @@ private fun PairingRouteKind.label(): String = when (this) {
 fun pairingFailureMessage(failures: List<PairingAttemptFailure>, untried: Int = 0): String {
     val tried = failures.joinToString("\n") { "• ${it.ip} over ${it.via.label()}: ${it.problem}" }
     return buildString {
-        append("Could not reach the desktop.\n\n")
+        append("Couldn't reach your computer.\n\n")
         if (failures.isEmpty()) {
-            append("The QR code offered no address this phone could try.\n\n")
+            append("The code has no address this phone could try.\n\n")
         } else {
             append("Tried:\n").append(tried).append("\n")
             if (untried > 0) {
@@ -161,8 +161,9 @@ fun pairingFailureMessage(failures: List<PairingAttemptFailure>, untried: Int = 
             append("\n")
         }
         append(
-            "Your VPN may be blocking local-network access. Enable its LAN-access " +
-                "option, pause the VPN temporarily, or use USB pairing."
+            "Check that the phone and computer are on the same Wi-Fi. If a VPN is on, it may " +
+                "be blocking local network access: turn on its LAN access option or pause it. " +
+                "Or plug the phone in over USB, and it pairs without scanning."
         )
     }
 }

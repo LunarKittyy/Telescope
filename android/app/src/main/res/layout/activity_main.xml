@@ -141,7 +141,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="14dp"
-                        android:text="On your computer, open Telescope and click Add phone. Then tap the button below and point the camera at the code it shows. If the phone is plugged in over USB, it pairs without scanning."
+                        android:text="On your computer, open Telescope and click Add phone. Tap Scan pairing code and point the camera at the code it shows. Over USB, the phone pairs without scanning."
                         android:textAppearance="@style/TextAppearance.Telescope.Label" />
 
                     <LinearLayout

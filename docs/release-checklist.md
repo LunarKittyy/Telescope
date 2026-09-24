@@ -18,7 +18,7 @@ Run before tagging. CI covers pytest, Android unit tests, and packaging smoke ch
 
 ## Functional pass (see [device-compatibility.md](device-compatibility.md) for the per-device matrix)
 
-- [ ] Fresh install: the checklist shows, each step ticks as it's done, and the video stage returns once a phone is paired.
+- [ ] Fresh install: the checklist shows, each step ticks as it's done, and the video stage replaces it after the first stream.
 - [ ] Add phone works by QR over Wi-Fi and by plugging in over USB (no scan), on at least one device per platform (Linux + Windows).
 - [ ] USB with the debugging prompt not yet accepted: Add phone says to allow it, and pairs once it's accepted.
 - [ ] Re-pairing from the same computer replaces its token (old token gets 401; verify with curl) and doesn't add a second entry on the phone.
