@@ -26,7 +26,7 @@ from telescope.widgets.qr import QRCodeWidget
 APK_URL = "https://github.com/LunarKittyy/Telescope/releases/download/nightly/Telescope.apk"
 
 _LINUX_INSTALL_HINT = (
-    "Install the v4l2loopback package, then click Check again. Fedora and Nobara: "
+    "Install the v4l2loopback package. Fedora and Nobara: "
     "v4l2loopback (from RPM Fusion). Debian, Ubuntu and Arch: v4l2loopback-dkms."
 )
 
@@ -157,8 +157,7 @@ class OnboardingPlugin(TelescopePlugin):
             self._pair.set(True, "Paired.")
             self._pair.action(None)
         else:
-            self._pair.set(False, "Open Telescope on the phone, then click Add phone. "
-                                  "Scan the code it shows, or plug the phone in over USB.")
+            self._pair.set(False, "Open Telescope on the phone first.")
             self._pair.action("Add phone", primary=True)
 
         if self._streamed:

@@ -524,8 +524,8 @@ class ConnectionPlugin(TelescopePlugin):
             self._status_lbl.setText("No phone yet")
             self._using_row.setVisible(False)
             self._route_row.setVisible(False)
-            self._note_lbl.setText("Click Add phone to pair one.")
-            self._note_row.setVisible(True)
+            self._note_lbl.setText("")
+            self._note_row.setVisible(False)
             return
         res = self._resolution
         kind, text = status_line(res)

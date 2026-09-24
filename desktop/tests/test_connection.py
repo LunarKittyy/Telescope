@@ -175,10 +175,10 @@ def test_set_config_discards_malformed_phones_and_bad_values(plugin_env):
     assert plugin.get_config()["computer_name"]
 
 
-def test_empty_state_points_at_add_phone(plugin_env):
+def test_empty_state_is_just_the_status(plugin_env):
     plugin, _host, _panel = plugin_env
     assert plugin._status_lbl.text() == "No phone yet"
-    assert "Add phone" in plugin._note_lbl.text()
+    assert plugin._note_row.isHidden()  # the Add phone button in the card header says the rest
     assert plugin._route_row.isHidden()
 
 
