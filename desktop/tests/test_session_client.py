@@ -59,20 +59,13 @@ def test_ping_parses_the_phone_state_body(monkeypatch, client):
 
     assert result == PingResult("paired", streaming=True, busy=False, local_only=True)
     assert result.paired is True
-    assert result.knows_session is True
     assert seen[0].full_url == "http://phone:8766/v1/ping"
     assert seen[0].get_header("Authorization") == "Bearer tok"
 
 
-def test_ping_treats_a_bodyless_200_as_paired_but_unaware(monkeypatch, client):
-    # Bare OK from pre-/v1/session apps proves pairing but lacks session state (knows_session signals this).
+def test_ping_treats_a_body_that_is_not_telescope_as_unreachable(monkeypatch, client):
     _stub_urlopen(monkeypatch, lambda _req: _Response(200, b"OK"))
-
-    result = client.ping()
-
-    assert result.status == "paired"
-    assert result.knows_session is False
-    assert result.streaming is None
+    assert client.ping().status == "unreachable"
 
 
 def test_ping_maps_401_to_not_paired_and_other_failures_to_unreachable(monkeypatch, client):
@@ -89,10 +82,7 @@ def test_ping_maps_401_to_not_paired_and_other_failures_to_unreachable(monkeypat
 def test_ping_survives_a_body_that_is_valid_json_but_not_an_object(monkeypatch, client):
     _stub_urlopen(monkeypatch, lambda _req: _Response(200, b"[1, 2, 3]"))
 
-    result = client.ping()
-
-    assert result.status == "paired"
-    assert result.knows_session is False
+    assert client.ping().status == "unreachable"
 
 
 # ── /v1/session ───────────────────────────────────────────────────────────────
@@ -116,15 +106,10 @@ def test_stop_posts_the_stop_action(monkeypatch, client):
     assert json.loads(seen[0].data.decode()) == {"action": "stop"}
 
 
-def test_a_404_reports_unsupported_rather_than_an_error(monkeypatch, client):
-    # Old APKs lack this endpoint; desktop falls back to hand-started stream (distinguish 404 from real failure).
+def test_an_http_error_is_reported_with_its_code(monkeypatch, client):
     _stub_urlopen(monkeypatch, lambda _req: _http_error(404))
 
-    result = client.start()
-
-    assert result.unsupported is True
-    assert result.ok is False
-    assert result.error is None
+    assert client.start() == SessionResult(ok=False, error="http_404")
 
 
 def test_a_refusal_body_carries_the_phone_s_reason_through(monkeypatch, client):

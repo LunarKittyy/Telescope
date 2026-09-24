@@ -257,4 +257,15 @@ class SessionServerTest {
             assertTrue(body.contains("\"phoneName\":\"Test phone\""), body)
         }
     }
+
+    @Test
+    fun `hello names the phone without a token and reveals nothing else`() {
+        withServer { port, commands ->
+            val response = get(port, "/v1/hello", null)
+            assertEquals(200, response.status)
+            assertTrue(response.body.contains("\"phoneId\":\"phone-1\""), response.body)
+            assertFalse(response.body.contains("streaming"), response.body)
+            assertFalse(commands.calls.contains("start"))
+        }
+    }
 }

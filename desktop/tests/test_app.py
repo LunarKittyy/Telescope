@@ -2,6 +2,7 @@ from types import SimpleNamespace
 import socket
 
 import pytest
+from PyQt6.QtCore import QCoreApplication, QEvent
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QWidget
 
@@ -142,6 +143,11 @@ def window(qapp, config_home, monkeypatch):
     yield win
     # Don't call close(); a test's intentional closeEvent stub would abort Qt during fixture teardown.
     win._session = None
+    win._tray = None
+    # Destroy it now: windows left alive get restyled by a later apply_theme(), after their tests
+    # swapped attributes out from under them, and that crashes Qt.
+    win.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
 
 def test_register_plugin_initializes_panel_and_captures_device_defaults(window):

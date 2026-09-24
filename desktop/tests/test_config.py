@@ -3,9 +3,9 @@ import json
 import pytest
 
 
-def test_fresh_config_is_empty_v2(config_home):
+def test_fresh_config_is_empty_current_version(config_home):
     cfg = config_home.load_config()
-    assert cfg == {"version": 2, "selected_device": None, "plugin_configs": {}, "devices": {}}
+    assert cfg == {"version": 3, "selected_device": None, "plugin_configs": {}, "devices": {}}
 
 
 def test_save_and_reload_roundtrip(config_home):
@@ -31,7 +31,7 @@ def test_malformed_json_falls_back_to_empty(config_home):
     path.write_text("not valid json", encoding="utf-8")
 
     cfg = config_home.load_config()
-    assert cfg["version"] == 2
+    assert cfg["version"] == 3
 
 
 def test_malformed_json_is_backed_up_before_reset(config_home):
@@ -72,7 +72,7 @@ def test_invalid_top_level_config_shapes_fall_back_to_empty(config_home, raw):
 
 
 def test_current_version_config_keeps_custom_keys_and_fills_in_missing_sections(config_home):
-    current = {"version": 2, "custom": True}
+    current = {"version": 3, "custom": True}
     result = config_home._migrate(current)
     assert result["custom"] is True
     assert result["plugin_configs"] == {}
@@ -133,7 +133,7 @@ def test_malformed_legacy_device_entry_does_not_crash_and_resets_to_empty(config
 
 def test_malformed_plugin_configs_section_resets_alone(config_home):
     cfg = {
-        "version": 2,
+        "version": 3,
         "plugin_configs": ["not", "a", "dict"],
         "devices": {"Phone": {"active_ip": "1.2.3.4"}},
         "selected_device": "Phone",
@@ -146,7 +146,7 @@ def test_malformed_plugin_configs_section_resets_alone(config_home):
 
 def test_malformed_devices_section_resets_alone(config_home):
     cfg = {
-        "version": 2,
+        "version": 3,
         "plugin_configs": {"connection": {"mode": "wifi"}},
         "devices": {"Phone": {"active_ip": 12345}},  # active_ip must be a string
         "selected_device": "Phone",
@@ -158,14 +158,14 @@ def test_malformed_devices_section_resets_alone(config_home):
 
 
 def test_devices_section_with_non_dict_entry_resets_alone(config_home):
-    cfg = {"version": 2, "devices": {"Phone": "not-a-dict"}}
+    cfg = {"version": 3, "devices": {"Phone": "not-a-dict"}}
     result = config_home._migrate(cfg)
     assert result["devices"] == {}
 
 
 def test_malformed_selected_device_resets_alone(config_home):
     cfg = {
-        "version": 2,
+        "version": 3,
         "plugin_configs": {"connection": {"mode": "wifi"}},
         "devices": {},
         "selected_device": 42,
@@ -177,7 +177,7 @@ def test_malformed_selected_device_resets_alone(config_home):
 
 def test_valid_current_version_config_round_trips_through_migrate(config_home):
     cfg = {
-        "version": 2,
+        "version": 3,
         "plugin_configs": {"connection": {"mode": "usb"}},
         "devices": {"Phone": {"active_ip": "10.0.0.1", "plugin_configs": {"transforms": {"zoom": 2}}}},
         "selected_device": "Phone",
@@ -190,3 +190,18 @@ def test_save_failure_returns_false_and_sets_version(config_home, monkeypatch):
     monkeypatch.setattr(config_home.os, "replace", lambda *_args: (_ for _ in ()).throw(OSError("no space")))
     assert config_home.save_config(cfg) is False
     assert cfg["version"] == config_home.CONFIG_VERSION
+
+
+def test_v2_config_keeps_global_settings_but_drops_pairing_and_per_phone_settings(config_home):
+    config_home.config_path().parent.mkdir(parents=True, exist_ok=True)
+    config_home.config_path().write_text(json.dumps({
+        "version": 2,
+        "selected_device": "Pixel",
+        "plugin_configs": {"connection": {"devices": [{"name": "Pixel"}]}, "setup": {"canvas": [1920, 1080]}},
+        "devices": {"Pixel": {"plugin_configs": {"camera_control": {"iso": 100}}}},
+    }))
+    cfg = config_home.load_config()
+    assert cfg["version"] == 3
+    assert cfg["plugin_configs"] == {"setup": {"canvas": [1920, 1080]}}
+    assert cfg["devices"] == {}
+    assert cfg["selected_device"] is None

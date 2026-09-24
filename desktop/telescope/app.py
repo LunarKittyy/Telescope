@@ -432,6 +432,19 @@ class TelescopeWindow(QMainWindow):
         if was_streaming:
             self._start()
 
+    def forget_device_settings(self, name: str):
+        """Drop a removed phone's per-device settings from the config."""
+        cfg = load_config()
+        if cfg.get("devices", {}).pop(name, None) is not None:
+            save_config(cfg)
+
+    def _shutdown_plugins(self):
+        for p in self._plugins:
+            try:
+                p.shutdown()
+            except Exception:
+                logging.exception("Plugin %s failed to shut down", p.name)
+
     def reconnect_stream(self):
         """Restart stream to pick up changed connection settings."""
         if self._worker is None:
@@ -470,7 +483,7 @@ class TelescopeWindow(QMainWindow):
     def _apply_config(self, cfg: dict):
         if not cfg:
             return
-        # config.py's load_config() already ran migration; cfg is always v2 here
+        # config.py's load_config() already ran migration; cfg is always current here
         selected    = cfg.get("selected_device")
         global_pcfg = cfg.get("plugin_configs", {})
 
@@ -750,6 +763,7 @@ class TelescopeWindow(QMainWindow):
         self._tray_close_notified = True
         self._stop()
         self._drain_phone_stops()
+        self._shutdown_plugins()
         QApplication.quit()
 
     def _on_tray_activated(self, reason):
@@ -874,5 +888,6 @@ class TelescopeWindow(QMainWindow):
         else:
             self._stop()
             self._drain_phone_stops()
+            self._shutdown_plugins()
             event.accept()
             QApplication.quit()

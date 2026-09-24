@@ -24,6 +24,10 @@ class HostServices(Protocol):
         """Switch the active device/connection profile."""
         ...
 
+    def forget_device_settings(self, name: str) -> None:
+        """Delete the stored per-device settings for a removed device."""
+        ...
+
     def reconnect_stream(self) -> None:
         """Restart the stream, if one is active, to pick up new settings."""
         ...
@@ -73,6 +77,8 @@ class TelescopePlugin:
     def process_frame(self, frame: np.ndarray) -> np.ndarray: return frame
     def get_config(self) -> dict: return {}
     def set_config(self, cfg: dict): ...
+    def shutdown(self):
+        """App is quitting: stop background services the plugin started."""
 
 
 class EventBus(QObject):

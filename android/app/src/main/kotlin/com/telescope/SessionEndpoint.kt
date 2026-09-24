@@ -17,6 +17,9 @@ data class SessionSnapshot(
     val phoneName: String,
 )
 
+@Serializable
+data class Hello(val protocol: Int, val phoneId: String, val phoneName: String)
+
 // Narrow interface: server owns HTTP, this owns camera lifecycle - they don't cross.
 interface SessionCommands {
     fun start(): ControlResult

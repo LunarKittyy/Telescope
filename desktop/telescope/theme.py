@@ -643,7 +643,9 @@ QScrollBar::add-page, QScrollBar::sub-page {{
 
 
 def apply_theme(app):
-    """Install theme onto QApplication."""
+    """Install theme onto QApplication. A no-op once installed: re-applying repolishes every live widget."""
+    if app.styleSheet() == QSS:
+        return
     app.setStyle("Fusion")
     app.setPalette(_palette())
     app.setStyleSheet(QSS)

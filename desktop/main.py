@@ -15,6 +15,8 @@ try:    import pyvirtualcam
 except ImportError: _missing.append("pyvirtualcam")
 try:    import ifaddr
 except ImportError: _missing.append("ifaddr")
+try:    import zeroconf
+except ImportError: _missing.append("zeroconf")
 
 if _missing:
     print(f"Missing: pip install {' '.join(_missing)}", file=sys.stderr)

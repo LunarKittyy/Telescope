@@ -49,17 +49,22 @@ def adb_available() -> bool:
     return adb_exe() is not None
 
 
-def adb_devices() -> list:
-    """Return serials of currently connected & authorized devices/emulators."""
+def adb_device_states() -> list:
+    """(serial, state) for everything adb sees: "device" (usable), "unauthorized" (debugging prompt not accepted yet), "offline", ..."""
     rc, out, _ = _run([adb_exe(), "devices"])
     if rc != 0:
         return []
-    serials = []
+    found = []
     for line in out.splitlines()[1:]:
         parts = line.strip().split("\t")
-        if len(parts) == 2 and parts[1] == "device":
-            serials.append(parts[0])
-    return serials
+        if len(parts) == 2:
+            found.append((parts[0], parts[1]))
+    return found
+
+
+def adb_devices() -> list:
+    """Return serials of currently connected & authorized devices/emulators."""
+    return [serial for serial, state in adb_device_states() if state == "device"]
 
 
 def _with_serial(cmd, serial):
@@ -69,6 +74,17 @@ def _with_serial(cmd, serial):
 def adb_forward(port, serial=None):
     rc, _, err = _run(_with_serial([adb_exe(), "forward", f"tcp:{port}", f"tcp:{port}"], serial))
     return (True, f"Port {port} forwarded") if rc == 0 else (False, err)
+
+
+def adb_forward_auto(remote_port, serial=None):
+    """Forward a free local port (adb picks it) to the phone's remote_port; returns the local port or None."""
+    rc, out, _ = _run(_with_serial([adb_exe(), "forward", "tcp:0", f"tcp:{remote_port}"], serial))
+    if rc != 0:
+        return None
+    try:
+        return int(out.strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        return None
 
 
 def adb_unforward(port, serial=None):
