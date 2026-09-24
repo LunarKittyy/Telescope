@@ -309,13 +309,12 @@ def test_run_off_ui_thread_reraises(qapp):
 
 
 def test_run_off_ui_thread_keeps_the_event_loop_turning(qapp):
-    import time
+    # The blocking call only returns once a timer has fired on the GUI thread, which can only happen
+    # if the GUI keeps processing events meanwhile. Checked by outcome, not by counting ticks, so a
+    # slow CI machine can't fail it.
+    import threading
     from PyQt6.QtCore import QTimer
     from telescope.widgets.common import run_off_ui_thread
-    ticks = []
-    timer = QTimer()
-    timer.timeout.connect(lambda: ticks.append(1))
-    timer.start(20)
-    run_off_ui_thread(time.sleep, 0.3)  # an adb call that hangs for a while
-    timer.stop()
-    assert len(ticks) >= 5
+    gui_ran = threading.Event()
+    QTimer.singleShot(20, gui_ran.set)
+    assert run_off_ui_thread(gui_ran.wait, 10) is True
