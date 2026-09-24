@@ -310,7 +310,8 @@ def test_register_plugin_routes_unknown_region_to_the_left_rail(window):
     (899, "one"),    (600, "one"),
 ])
 def test_layout_mode_follows_window_width(window, width, mode):
-    assert window._layout_mode_for(width) == mode
+    # Breakpoints are design pixels, scaled with the UI font like every other width.
+    assert window._layout_mode_for(app_module.ui_px(width)) == mode
 
 
 def test_narrow_layout_stacks_every_panel_into_one_visible_column(window):

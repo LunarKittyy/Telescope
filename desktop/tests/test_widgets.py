@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
 )
 
 from telescope.widgets.common import (
+    ui_px,
     FlowLayout,
     LogSliderRow,
     NoScrollSlider,
@@ -205,8 +206,8 @@ def test_stretch_slider_sets_a_floor_not_a_fixed_width(qapp):
 
     stretch_slider(slider, 90)
 
-    assert slider.minimumWidth() == 90
-    assert slider.maximumWidth() > 90
+    assert slider.minimumWidth() == ui_px(90)
+    assert slider.maximumWidth() > ui_px(90)
     assert slider.sizePolicy().horizontalPolicy() == QSizePolicy.Policy.Expanding
 
 
