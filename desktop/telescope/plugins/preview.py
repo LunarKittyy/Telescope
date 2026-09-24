@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
 
 from telescope import theme
 from telescope.plugin import TelescopePlugin
-from telescope.widgets.common import create_vector_icon, set_ui_role
+from telescope.widgets.common import create_vector_icon, set_ui_role, ui_px
 
 
 _IDLE_TEXT    = "Not streaming\n\nPress Start Streaming and the phone's camera comes up on its own."
@@ -128,7 +128,7 @@ class PreviewPlugin(TelescopePlugin):
         tb_lay.setSpacing(8)
 
         self._toggle_btn = QPushButton("Hide")
-        self._toggle_btn.setMinimumWidth(78)
+        self._toggle_btn.setMinimumWidth(ui_px(78))
         set_ui_role(self._toggle_btn, "quiet")
         self._toggle_btn.setToolTip(
             "Stop decoding frames for this view. The virtual camera output is "
@@ -140,7 +140,7 @@ class PreviewPlugin(TelescopePlugin):
         tb_lay.addStretch()
 
         self._popout_btn = QPushButton("  Pop out")
-        self._popout_btn.setMinimumWidth(92)
+        self._popout_btn.setMinimumWidth(ui_px(92))
         set_ui_role(self._popout_btn, "quiet")
         self._popout_btn.setIcon(create_vector_icon("expand", theme.TEXT_DIM))
         self._popout_btn.setIconSize(QSize(14, 14))

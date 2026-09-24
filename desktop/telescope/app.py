@@ -23,7 +23,7 @@ from telescope.plugin import UNCHANGED, EventBus, TelescopePlugin
 from telescope.session import StreamSession
 from telescope.stream import StreamWorker
 from telescope.widgets.common import (
-    ElidingLabel, create_app_icon, create_vector_icon, set_status_kind,
+    ElidingLabel, create_app_icon, create_vector_icon, set_status_kind, ui_px,
 )
 
 STATUS_COLORS = theme.STATUS_COLORS
@@ -86,8 +86,8 @@ class TelescopeWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Telescope")
-        self.setMinimumSize(560, 520)
-        self.resize(1380, 900)
+        self.setMinimumSize(ui_px(560), ui_px(520))
+        self.resize(ui_px(1380), ui_px(900))
 
         self._bus     = EventBus()
         self._bus.resolution_change_requested.connect(self._on_resolution_pending)
@@ -281,7 +281,7 @@ class TelescopeWindow(QMainWindow):
 
         self._fps_lbl = QLabel("—")
         self._fps_lbl.setObjectName("fps_lbl")
-        self._fps_lbl.setMinimumWidth(72)
+        self._fps_lbl.setMinimumWidth(ui_px(72))
         lay.addWidget(self._fps_lbl)
 
         divider2 = QFrame()
@@ -296,7 +296,7 @@ class TelescopeWindow(QMainWindow):
 
         self._net_lbl = QLabel("—")
         self._net_lbl.setObjectName("fps_lbl")
-        self._net_lbl.setMinimumWidth(80)
+        self._net_lbl.setMinimumWidth(ui_px(80))
         lay.addWidget(self._net_lbl)
 
         return bar
@@ -313,9 +313,9 @@ class TelescopeWindow(QMainWindow):
             self._menu_btn.rect().bottomLeft()) + QPoint(0, 6))
 
     def _layout_mode_for(self, width: int) -> str:
-        if width >= _WIDTH_THREE_COL:
+        if width >= ui_px(_WIDTH_THREE_COL):
             return "three"
-        if width >= _WIDTH_TWO_COL:
+        if width >= ui_px(_WIDTH_TWO_COL):
             return "two"
         return "one"
 
@@ -328,10 +328,10 @@ class TelescopeWindow(QMainWindow):
 
         if mode == "three":
             groups = [self._panels["left"], self._panels["center"], self._panels["right"]]
-            widths = [_RAIL_WIDTH, None, _RAIL_WIDTH]
+            widths = [ui_px(_RAIL_WIDTH), None, ui_px(_RAIL_WIDTH)]
         elif mode == "two":
             groups = [self._panels["left"] + self._panels["right"], self._panels["center"], []]
-            widths = [_RAIL_WIDTH_SOLO, None, None]
+            widths = [ui_px(_RAIL_WIDTH_SOLO), None, None]
         else:
             groups = [self._panels["center"] + self._panels["left"] + self._panels["right"], [], []]
             widths = [None, None, None]

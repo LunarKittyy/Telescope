@@ -22,7 +22,7 @@ from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
     NoScrollComboBox, NoScrollSpinBox, action_button, add_card_header, button_row, card_layout,
     control_row, create_card, dialog_buttons, dialog_header, dialog_layout, run_off_ui_thread,
-    set_status_kind, set_ui_role, wrapped_note,
+    set_status_kind, set_ui_role, ui_px, wrapped_note,
 )
 
 # (width, height) tuples for canvas presets; None = auto from first frame
@@ -59,7 +59,7 @@ class AdvancedDialog(QDialog):
     def __init__(self, parent=None, on_apply_canvas=None):
         super().__init__(parent)
         self.setWindowTitle("Advanced")
-        self.setMinimumWidth(560)
+        self.setMinimumWidth(ui_px(560))
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self._on_apply_canvas = on_apply_canvas
         self._build_ui()

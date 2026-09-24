@@ -7,7 +7,7 @@ from PyQt6.QtGui import (
     QBrush, QColor, QFontMetrics, QIcon, QPainter, QPixmap,
 )
 from PyQt6.QtWidgets import (
-    QComboBox, QDoubleSpinBox, QFrame, QHBoxLayout, QLabel, QLayout, QPushButton,
+    QApplication, QComboBox, QDoubleSpinBox, QFrame, QHBoxLayout, QLabel, QLayout, QPushButton,
     QSlider, QSpinBox, QSizePolicy, QVBoxLayout, QWidget,
 )
 
@@ -31,6 +31,10 @@ from telescope import theme
 #     actions, everything else default. A lone action button is BUTTON_WIDTH wide; buttons sharing
 #     a row split it equally (button_row). Dialogs: dialog_header() on top, sections are cards,
 #     dialog_buttons() bottom-right.
+
+#   - Every width and height constant below is in design pixels, measured against the Inter UI
+#     font. Pass them through ui_px(), which scales them up when the font the user actually gets
+#     is wider (another fallback font, larger system text, a different DPI), so text keeps fitting.
 
 FORM_LABEL_WIDTH = 112
 
@@ -58,10 +62,37 @@ SPIN_COL_GUTTER = SPIN_COL_WIDTH + 8
 SLIDER_TRACK_WIDTH = 84
 """Minimum width for slider track (floor for draggability; apply via stretch_slider())."""
 
+_SCALE_PROBE = "Apply and reload"
+_SCALE_PROBE_PX = 125  # its advance in the button font at the design size (Inter 9.5pt, 96 dpi)
+_scale_cache: dict = {}
+
+
+def _probe_advance() -> float:
+    probe = QPushButton(_SCALE_PROBE)
+    probe.ensurePolished()
+    return probe.fontMetrics().horizontalAdvance(_SCALE_PROBE)
+
+
+def ui_scale() -> float:
+    """How much wider the real UI font is than the design font; never below 1."""
+    app = QApplication.instance()
+    if app is None:
+        return 1.0
+    screen = app.primaryScreen()
+    key = (len(app.styleSheet()), app.font().key(), screen.logicalDotsPerInch() if screen else 96)
+    if key not in _scale_cache:
+        _scale_cache[key] = max(1.0, _probe_advance() / _SCALE_PROBE_PX)
+    return _scale_cache[key]
+
+
+def ui_px(design_px: int) -> int:
+    """A design-pixel size scaled to the font actually in use (see ui_scale())."""
+    return round(design_px * ui_scale())
+
 
 def stretch_slider(slider: QWidget, minimum: int = SLIDER_TRACK_WIDTH) -> QWidget:
     """Let a slider grow with its column while keeping a draggable minimum."""
-    slider.setMinimumWidth(minimum)
+    slider.setMinimumWidth(ui_px(minimum))
     slider.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
     return slider
 
@@ -229,7 +260,7 @@ def segmented_row(*buttons: QWidget, fill: bool = True) -> QHBoxLayout:
             btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             lay.addWidget(btn, 1)
         else:
-            btn.setFixedWidth(SEGMENT_WIDTH)
+            btn.setFixedWidth(ui_px(SEGMENT_WIDTH))
             lay.addWidget(btn)
     return lay
 
@@ -283,7 +314,7 @@ def add_card_header(layout: QVBoxLayout, title: str, icon_name: str,
 def action_button(text: str, role: str = "", tooltip: str = "") -> QPushButton:
     """A lone action button at the standard width; role is "", "primary" or "danger"."""
     btn = QPushButton(text)
-    btn.setFixedWidth(BUTTON_WIDTH)
+    btn.setFixedWidth(ui_px(BUTTON_WIDTH))
     if role:
         set_ui_role(btn, role)
     if tooltip:
@@ -334,7 +365,7 @@ def dialog_buttons(layout: QVBoxLayout, *buttons: QPushButton) -> QHBoxLayout:
     bar.setSpacing(8)
     bar.addStretch(1)
     for btn in buttons:
-        btn.setFixedWidth(DIALOG_BUTTON_WIDTH)
+        btn.setFixedWidth(ui_px(DIALOG_BUTTON_WIDTH))
         bar.addWidget(btn)
     layout.addLayout(bar)
     return bar
@@ -395,7 +426,7 @@ def value_label(text: str = "") -> QLabel:
     """Fixed-width, right-aligned readout that sits after a slider."""
     lbl = QLabel(text)
     lbl.setObjectName("val")
-    lbl.setFixedWidth(VALUE_COL_WIDTH)
+    lbl.setFixedWidth(ui_px(VALUE_COL_WIDTH))
     lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
     return lbl
 
@@ -409,7 +440,7 @@ def slider_row(slider: QWidget, readout: QLabel, gutter: bool = False) -> QHBoxL
     lay.addWidget(slider, 1)
     lay.addWidget(readout)
     if gutter:
-        lay.addSpacing(SPIN_COL_GUTTER)
+        lay.addSpacing(ui_px(SPIN_COL_GUTTER))
     return lay
 
 
@@ -425,8 +456,8 @@ def add_section_heading(layout: QVBoxLayout, text: str):
 def form_label(text: str, width: int = FORM_LABEL_WIDTH) -> QLabel:
     label = QLabel(text)
     label.setObjectName("form_label")
-    label.setFixedWidth(width)
-    label.setMinimumHeight(ROW_HEIGHT)  # every row, text-only or not, keeps the same rhythm
+    label.setFixedWidth(ui_px(width))
+    label.setMinimumHeight(ui_px(ROW_HEIGHT))  # every row, text-only or not, keeps the same rhythm
     label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
     return label
 
@@ -680,7 +711,7 @@ class LogSliderRow(QWidget):
 
         self._val_lbl = QLabel(display_fn(v_min) if display_fn else str(v_min))
         self._val_lbl.setObjectName("val")
-        self._val_lbl.setFixedWidth(VALUE_COL_WIDTH)
+        self._val_lbl.setFixedWidth(ui_px(VALUE_COL_WIDTH))
         self._val_lbl.setAlignment(
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         lay.addWidget(self._val_lbl)
@@ -695,7 +726,7 @@ class LogSliderRow(QWidget):
             spin = NoScrollSpinBox()
             spin.setRange(int(v_min * spinbox_scale), int(v_max * spinbox_scale))
         spin.setSuffix(spinbox_suffix)
-        spin.setFixedWidth(SPIN_COL_WIDTH)
+        spin.setFixedWidth(ui_px(SPIN_COL_WIDTH))
         self._spin = spin
         lay.addWidget(self._spin)
 
@@ -785,7 +816,7 @@ class PanSliderRow(QWidget):
             pos_lbl.setObjectName("dim")
             lay.addWidget(pos_lbl)
         else:
-            self.setMinimumWidth(SLIDER_TRACK_WIDTH)
+            self.setMinimumWidth(ui_px(SLIDER_TRACK_WIDTH))
 
         self._slider.valueChanged.connect(self._on_slider)
 

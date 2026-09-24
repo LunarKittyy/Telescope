@@ -44,7 +44,7 @@ from telescope.widgets.common import (
     ElidingLabel, NoScrollComboBox, action_button, add_card_header, button_row, card_action,
     card_layout, control_row as _row, control_row_widget, create_card, create_vector_icon,
     dialog_buttons, dialog_header, dialog_layout, run_off_ui_thread, set_status_kind, set_ui_role,
-    wrapped_note,
+    ui_px, wrapped_note,
 )
 from telescope.widgets.qr import QRCodeWidget
 
@@ -125,7 +125,7 @@ class AddPhoneDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Add phone")
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
-        self.setMinimumWidth(460)
+        self.setMinimumWidth(ui_px(460))
         self._on_paired = on_paired
         self._computer = (computer_id, computer_name)
         self._server: Optional[PairingServer] = None
@@ -279,7 +279,7 @@ class PhonesDialog(QDialog):
         self._plugin = plugin
         self.setWindowTitle("Your phones")
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
-        self.setMinimumSize(440, 360)
+        self.setMinimumSize(ui_px(440), ui_px(360))
         lay = dialog_layout(self)
         dialog_header(lay, "Your phones",
                       "Each phone keeps its own camera settings. Removing one also unpairs it on the phone.")
@@ -492,7 +492,7 @@ class ConnectionPlugin(TelescopePlugin):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(8)
         self._phone_combo = NoScrollComboBox()
-        self._phone_combo.setMinimumWidth(180)
+        self._phone_combo.setMinimumWidth(ui_px(180))
         self._phone_combo.setPlaceholderText("No phone yet")
         self._phone_combo.setToolTip("Which phone to stream from")
         self._phone_combo.currentIndexChanged.connect(self._on_combo_changed)
