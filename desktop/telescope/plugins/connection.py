@@ -659,6 +659,9 @@ class ConnectionPlugin(TelescopePlugin):
         if check_id != self._check_id or phone_id != self._selected_id:
             return  # stale: a newer check, or the user switched phones meanwhile
         self._apply_resolution(res)
+        if not self._streaming:
+            # Only from the idle check, never from Start's own resolve, which would start it again.
+            self._bus.phone_ready.emit(phone_id, res.status == READY)
 
     def _apply_resolution(self, res: Resolution):
         if self._update_note is not None and res.status not in (PHONE_OUTDATED, UNREACHABLE):
@@ -686,8 +689,8 @@ class ConnectionPlugin(TelescopePlugin):
 
     # ── Stream lifecycle (called by the host) ─────────────────────────────
 
-    def get_stream_info(self) -> tuple:
-        if IS_LINUX and not self._ensure_virtual_camera():
+    def get_stream_info(self, interactive: bool = True) -> tuple:
+        if IS_LINUX and not self._ensure_virtual_camera(interactive):
             return None, None, False
         phone = self._selected_phone()
         if phone is None:
@@ -737,7 +740,7 @@ class ConnectionPlugin(TelescopePlugin):
         self.set_route_preference(ROUTE_AUTO)
         self._host.start_stream()
 
-    def _ensure_virtual_camera(self) -> bool:
+    def _ensure_virtual_camera(self, interactive: bool = True) -> bool:
         if v4l2_devices_ready():
             return True
         if v4l2_module_loaded():
@@ -747,6 +750,12 @@ class ConnectionPlugin(TelescopePlugin):
                 f"v4l2loopback is loaded, but without {V4L2_PHONE_DEV}: another app set it up with other "
                 "settings. Close that app and run this to hand it over to Telescope:",
                 [copy_action(command)], details=command))
+            return False
+        if not interactive:
+            # Started by itself (nobody at the keyboard asked): no password prompt out of nowhere.
+            self._host.show_issue("start", Issue(
+                "The virtual camera is off", "Switching it on asks for your password.",
+                [BannerAction("Switch on", self._host.start_stream)], kind="warn"))
             return False
         persist = self._ask_virtual_camera()
         if persist is None:

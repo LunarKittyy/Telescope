@@ -129,6 +129,7 @@ class TelescopeWindow(QMainWindow):
         self._save_timer.timeout.connect(self.save_now)
 
         self._tray: Optional[QSystemTrayIcon] = None
+        self._keep_in_tray = False
 
         self.setWindowIcon(create_app_icon(64))
         self._build_ui()
@@ -523,13 +524,13 @@ class TelescopeWindow(QMainWindow):
         if self._worker or self._waking: self._stop()
         else:                            self._start()
 
-    def _start(self):
+    def _start(self, interactive: bool = True):
         """Ensure phone camera is running before reading frames; wake happens off-thread to avoid blocking UI."""
         conn = self._plugin("connection")
         if not conn:
             return
         self.clear_issue("start")
-        url, token, ok = conn.get_stream_info()
+        url, token, ok = conn.get_stream_info(interactive=interactive)
         if not ok:
             return
 
@@ -786,12 +787,20 @@ class TelescopeWindow(QMainWindow):
         self.raise_()
         self.activateWindow()
 
+    def start_hidden(self):
+        """For --minimized: live in the tray, or minimized where there's no tray."""
+        if self._tray is None:
+            self.showMinimized()
+
     def quit_app(self):
         self._tray_quit()
 
-    def start_stream(self):
+    def start_stream(self, interactive: bool = True):
         if self._worker is None and not self._waking:
-            self._start()
+            self._start(interactive)
+
+    def set_keep_in_tray(self, keep: bool):
+        self._keep_in_tray = keep
 
     def show_issue(self, key: str, issue: Issue):
         self._banners.show_issue(key, issue)
@@ -916,14 +925,16 @@ class TelescopeWindow(QMainWindow):
         self._status_lbl.setText(msg)
 
     def closeEvent(self, event):
-        if self._tray and self._worker is not None:
+        if self._tray and (self._worker is not None or self._keep_in_tray):
             event.ignore()
             self.hide()
             if not self._tray_close_notified:
                 self._tray_close_notified = True
                 self.send_notification(
                     "Telescope is still running",
-                    "Streaming continues in the background. Right-click the tray icon to quit.",
+                    ("Streaming continues in the background." if self._worker is not None else
+                     "It starts streaming when the phone is ready.")
+                    + " Right-click the tray icon to quit.",
                     urgent=False,
                 )
         else:

@@ -129,7 +129,9 @@ Everything past this point is optional - detailed feature reference, how it work
 - When the phone app is older than the desktop, the Connection panel says so, and offers **Update over USB** when the phone is plugged in and the desktop bundle carries a newer APK
 
 **System integration**
-- Minimizes to system tray on close only when streaming; otherwise quits
+- **Start streaming when the phone is ready** (settings menu): starts by itself each time the phone becomes reachable. After you press Stop it stays stopped until the phone goes away and comes back. It never asks for a password on its own; if the Linux virtual camera is off, a banner offers to switch it on
+- **Open Telescope when I sign in** (settings menu): an autostart entry (`~/.config/autostart/telescope.desktop` on Linux, the per-user Run key on Windows) that starts it in the tray with `--minimized`
+- Minimizes to system tray on close while streaming, or while waiting to start by itself; otherwise quits
 - Right-click the tray icon to quit, or click it to show/hide the window
 - Launching a second instance brings the existing window to the front
 - When Start can't go ahead, a banner at the top of the window says why, with the button that fixes it (Try again, Add phone, Switch to Automatic, Copy command). It clears on the next working stream
@@ -263,6 +265,7 @@ telescope/
         |-- discovery.py         # Finds phones on the LAN via mDNS (zeroconf)
         |-- ip_utils.py          # Desktop address discovery for the pairing code, address ranking
         |-- platform/
+        |   |-- autostart.py     # Open at sign-in (XDG autostart / HKCU Run)
         |   |-- linux.py         # v4l2loopback helpers (load, unload, reload)
         |   +-- windows.py       # UnityCapture helpers
         |-- plugins/
@@ -274,6 +277,7 @@ telescope/
         |   |-- preview.py
         |   |-- onboarding.py    # First-run checklist
         |   |-- updates.py       # Update button and dialog
+        |   |-- startup.py       # Stream when the phone is ready; open at sign-in
         |   +-- monitoring.py
         +-- widgets/
             |-- banner.py        # In-window problem banners

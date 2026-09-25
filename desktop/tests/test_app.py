@@ -87,7 +87,7 @@ class _Connection(_Plugin):
         self.wakes = 0
         self.remote_stops = 0
 
-    def get_stream_info(self):
+    def get_stream_info(self, interactive=True):
         return self.stream_info
 
     def select_device(self, name):
@@ -1287,3 +1287,35 @@ def test_a_start_problem_banner_clears_on_the_next_start_and_on_a_working_stream
     assert window._banners.issue("start").text == "still closed"  # replaced, not stacked
     window._on_worker_status("ok", "Streaming")
     assert window._banners.keys() == []
+
+
+def test_waiting_to_start_by_itself_keeps_running_in_the_tray(window, monkeypatch):
+    window._tray = object()
+    window.set_keep_in_tray(True)
+    notes = []
+    monkeypatch.setattr(window, "hide", lambda: None)
+    monkeypatch.setattr(window, "send_notification", lambda title, body, **kw: notes.append(body))
+    event = SimpleNamespace(ignore=lambda: setattr(event, "ignored", True))
+    window.closeEvent(event)
+    assert event.ignored is True
+    assert "when the phone is ready" in notes[0]
+
+
+def test_start_hidden_minimizes_without_a_tray(window, monkeypatch):
+    calls = []
+    monkeypatch.setattr(window, "showMinimized", lambda: calls.append("min"))
+    window._tray = object()
+    window.start_hidden()
+    assert calls == []
+    window._tray = None
+    window.start_hidden()
+    assert calls == ["min"]
+
+
+def test_start_stream_passes_on_that_nobody_asked(window):
+    conn = _Connection(wake=(False, "x"))
+    seen = []
+    conn.get_stream_info = lambda interactive=True: seen.append(interactive) or (None, None, False)
+    window.register_plugin(conn)
+    window.start_stream(interactive=False)
+    assert seen == [False]

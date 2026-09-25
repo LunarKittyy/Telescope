@@ -34,6 +34,7 @@ from telescope.plugins.monitoring import MonitoringPlugin
 from telescope.plugins.onboarding import OnboardingPlugin
 from telescope.plugins.preview import PreviewPlugin
 from telescope.plugins.setup import SetupPlugin
+from telescope.plugins.startup import StartupPlugin
 from telescope.plugins.stream_output import StreamOutputPlugin
 from telescope.plugins.transforms import TransformsPlugin
 from telescope.plugins.updates import UpdatesPlugin
@@ -47,6 +48,8 @@ def parse_args(argv):
     parser = argparse.ArgumentParser(prog="telescope", add_help=False)
     parser.add_argument("--after-update", action="store_true",
                         help="started by the updater: wait for the old copy to exit, then tidy up")
+    parser.add_argument("--minimized", action="store_true",
+                        help="start in the tray (used when opening at sign-in)")
     return parser.parse_known_args(argv)
 
 
@@ -74,8 +77,12 @@ def main():
     win.register_plugin(OnboardingPlugin())  # after Preview: the stage listens for setup_needed
     win.register_plugin(MonitoringPlugin())
     win.register_plugin(UpdatesPlugin())
+    win.register_plugin(StartupPlugin())
     win.apply_saved_config()
-    win.show()
+    if args.minimized:
+        win.start_hidden()
+    else:
+        win.show()
 
     threading.Thread(
         target=listen_for_raise,

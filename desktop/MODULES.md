@@ -8,8 +8,8 @@ Quick navigation index; see source code for detailed behavior.
 
 ### `main.py`
 Dependency check, Qt app setup, `apply_theme()`, single-instance guard, plugin registration, config restore, event loop.
-Registration order: `SetupPlugin → ConnectionPlugin → CameraControlPlugin → StreamOutputPlugin → TransformsPlugin → PreviewPlugin → OnboardingPlugin → MonitoringPlugin → UpdatesPlugin`. Preview comes before Onboarding so the stage is listening when the checklist first says whether it needs the space.
-`--after-update` (passed by the updater when it relaunches) waits up to 15 s for the old copy to exit and then runs `updates.clean_up_after_update()`. Arguments it doesn't know go to Qt.
+Registration order: `SetupPlugin → ConnectionPlugin → CameraControlPlugin → StreamOutputPlugin → TransformsPlugin → PreviewPlugin → OnboardingPlugin → MonitoringPlugin → UpdatesPlugin → StartupPlugin`. Preview comes before Onboarding so the stage is listening when the checklist first says whether it needs the space.
+`--after-update` (passed by the updater when it relaunches) waits up to 15 s for the old copy to exit and then runs `updates.clean_up_after_update()`. `--minimized` (the sign-in entry) starts in the tray via `win.start_hidden()`. Arguments it doesn't know go to Qt.
 Calls `win.apply_saved_config()` **after** all plugins are registered so every plugin's `set_config()` is available.
 
 ---
@@ -28,7 +28,7 @@ Calls `win.apply_saved_config()` **after** all plugins are registered so every p
 - **Two-phase start.** `_start()` calls `conn.get_stream_info()` (validates ADB/v4l2, builds URL), snapshots `conn.session_target()` on the GUI thread, then `_spawn_wake()` (background thread bringing phone camera up). `_on_wake_done()` either runs `_begin_stream()` (worker, ctrl, pipeline) or re-enables Start and shows the error. `_wake_id` counter drops stale results after user Stop/device switch/quit. Split for testability (tests call synchronously).
 - `_stop(remote_stop=True)` - tears down worker and ctrl; `on_stream_stop()` on each plugin (ConnectionPlugin releases its USB forward there); invalidates any in-flight wake; and takes the phone's camera down with it via `_stop_phone_async()`. `remote_stop=False` is for the internal stop/start pairs that are really a desktop-side reconnect (`reconnect_stream()`, `restart_vcam_canvas()`) - bouncing the phone there would cost seconds and a lens re-open for nothing.
 - `_stop_phone_async()` / `_drain_phone_stops(timeout=2.0)` - the remote stop runs off the UI thread but is tracked rather than fire-and-forget, so the quit paths (`closeEvent`, `_tray_quit`) can give it a bounded moment to actually leave the machine. Both quit paths then call every plugin's `shutdown()`.
-- Implements the public **`HostServices`** contract (see `plugin.py`): `schedule_save()`, `save_now()`, `switch_device()`, `forget_device_settings()`, `reconnect_stream()`, `send_notification()`, `is_streaming()`, `stop_stream()`, `update_stream_output()`, `restart_vcam_canvas()`, `quit_app()` (really quits, tray or not), `start_stream()`, `show_issue(key, Issue)` / `clear_issue(key=None)` (problem banners above the body; every banner clears when a stream connects). Plugins only call these; private internals (`_worker`, `_stop()`) are hidden.
+- Implements the public **`HostServices`** contract (see `plugin.py`): `schedule_save()`, `save_now()`, `switch_device()`, `forget_device_settings()`, `reconnect_stream()`, `send_notification()`, `is_streaming()`, `stop_stream()`, `update_stream_output()`, `restart_vcam_canvas()`, `quit_app()` (really quits, tray or not), `start_stream(interactive=True)` (False: no password prompt, problems go to a banner), `set_keep_in_tray(keep)` (close hides to the tray even when idle), `show_issue(key, Issue)` / `clear_issue(key=None)` (problem banners above the body; every banner clears when a stream connects). Plugins only call these; private internals (`_worker`, `_stop()`) are hidden.
 - `send_notification(title, body, urgent=True)` - uses `notify-send` on Linux (critical urgency only when `urgent`), tray balloon on Windows.
 - `save_now()` - writes global plugin configs (connection, setup) and per-device configs (camera_control, stream_output, transforms, monitoring) under `devices[selected]`. `schedule_save()` is the debounced variant plugins call after a settings change.
 - `switch_device(prev, new)` - saves `prev` phone's per-device configs, restores `new` phone's; called by `ConnectionPlugin._activate_profile()`. Keys are phone ids.
@@ -49,13 +49,13 @@ The app's entire visual definition: palette constants (`BG`, `SURFACE`, `ACCENT`
 
 ### `plugin.py`
 **TelescopePlugin** base class + **HostServices** contract + **EventBus**.
-- `HostServices` (typing.Protocol): the public surface a plugin may call on its `host` handle - `schedule_save`, `save_now`, `switch_device`, `forget_device_settings`, `reconnect_stream`, `send_notification`, `is_streaming`, `stop_stream`, `update_stream_output`, `restart_vcam_canvas`, `quit_app`, `start_stream`, `show_issue`, `clear_issue`. Structural typing only (`TelescopeWindow` implements it without inheriting). Keeps plugins off private window internals.
+- `HostServices` (typing.Protocol): the public surface a plugin may call on its `host` handle - `schedule_save`, `save_now`, `switch_device`, `forget_device_settings`, `reconnect_stream`, `send_notification`, `is_streaming`, `stop_stream`, `update_stream_output`, `restart_vcam_canvas`, `quit_app`, `start_stream(interactive)`, `set_keep_in_tray`, `show_issue`, `clear_issue`. Structural typing only (`TelescopeWindow` implements it without inheriting). Keeps plugins off private window internals.
 - `UNCHANGED`: sentinel for `update_stream_output` so `None` can be passed as a real value (pass-through resolution) distinct from "leave as-is".
 - `TelescopePlugin`: override `setup`, `create_panel`, `on_stream_start`, `on_stream_stop`, `on_phone_state`, `process_frame`, `get_config`, `set_config`, `shutdown`.
   - `panel_region` (class attr): `"left"` / `"right"` / `"center"` - which region the host puts the panel in. A preference, not a guarantee: narrow windows merge regions.
   - `create_header_widget()` → a compact widget for the window header, or `None`. `header_side` (`"left"` / `"right"`) picks where it goes.
   - `create_menu_actions()` → `QAction`s for the header's settings menu, or `[]`. Lets a dialogs-only plugin skip having a panel.
-- `EventBus(QObject)`: signals - `stream_started`, `stream_stopped`, `stream_connected`, `phone_state_updated`, `device_changed`, `phones_changed(int)`, `add_phone_requested`, `setup_needed(bool)`, `camera_switched`, `resolution_change_requested`, `update_requested` (the phone app is newer; opens the update dialog). `phones_changed`, `add_phone_requested` and `setup_needed` are how the checklist, Connection and Preview cooperate without calling each other.
+- `EventBus(QObject)`: signals - `stream_started`, `stream_stopped`, `stream_connected`, `phone_state_updated`, `device_changed`, `phones_changed(int)`, `add_phone_requested`, `setup_needed(bool)`, `camera_switched`, `resolution_change_requested`, `update_requested` (the phone app is newer; opens the update dialog), `phone_ready(phone_id, ready)` (from Connection's idle status checks only, never from Start's own resolve). `phones_changed`, `add_phone_requested` and `setup_needed` are how the checklist, Connection and Preview cooperate without calling each other.
 
 ### `stream.py`
 **StreamWorker(QThread)** - video capture and virtual camera output.
@@ -183,6 +183,9 @@ Note: white balance sliders are built directly in `plugins/camera_control.py`, n
 ### `platform/__init__.py`
 Cross-platform constants and helpers: `IS_LINUX`, `IS_WINDOWS`, `adb_available()`, `adb_device_states()` (serial + state, including `unauthorized`), `adb_devices()`, `adb_forward(port)`, `adb_forward_auto(remote_port, serial)` (adb picks the local port), `adb_unforward(port)`, `adb_reverse(port)`, `adb_unreverse(port)`, `adb_broadcast_pair(payload)`, `adb_install(serial, apk, timeout)` → `(ok, detail)` with plain-language failures (different signing key, downgrade), `adb_exe()`, `bundled_apk_path()`, `_run(cmd)`. `_run()` returns an error tuple instead of raising when adb isn't installed.
 
+### `platform/autostart.py`
+`launch_command()` (the exe, else `start.sh`, else `python main.py`, plus `--minimized`), `enable(command)`, `disable()`, `is_enabled()`. Linux writes `$XDG_CONFIG_HOME/autostart/telescope.desktop` (Exec quoted per the desktop entry spec); Windows sets `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Telescope`. Paths and `winreg` are injectable for tests.
+
 ### `platform/linux.py`
 v4l2loopback helpers. Root work goes through `_privileged(steps)`: one `pkexec sh -c`, else `sudo -n`, else a `PrivResult(False, NO_PROMPT, command)` whose `command` is the same steps as pasteable `sudo` lines. `PrivResult` is an `(ok, message)` tuple with `.command`; `as_text()` folds the command into a label's text. `v4l2_setup(persist)` loads the module and, with persist, writes the boot config in the same prompt (skipped when another file already configures v4l2loopback). `v4l2_module_installed()`, `v4l2_load()`, `v4l2_unload()`, `v4l2_module_loaded()`, `v4l2_devices_ready()`, and the load-at-boot trio `v4l2_persist_status/enable/disable()`. Device constants: `V4L2_PHONE_DEV = /dev/video11`, `V4L2_OBS_DEV = /dev/video10`.
 
@@ -266,6 +269,9 @@ UnityCapture helpers: `uc_registered_name()` (the name apps list it under, read 
 - `UpdatesDialog`: this version, channel (Stable / Nightly), Check daily, what's new, and **Update and restart** (disabled while streaming, or **Open download page** when `self_update_blocker()` says so).
 - Download and install run in a thread; on success it relaunches (`--after-update`) and calls `host.quit_app()`.
 - Config keys: `channel`, `auto_check`, `last_check`.
+
+### `plugins/startup.py`
+**StartupPlugin** - two checkable settings-menu entries. **Start streaming when the phone is ready** listens to `bus.phone_ready` and calls `host.start_stream(interactive=False)` once per arrival: a Stop or an attempt holds it until the phone reports not ready (or another phone is selected). It also keeps the window in the tray on close. **Open Telescope when I sign in** calls `platform/autostart.py`. Config key: `auto_stream` (global).
 
 ### `plugins/setup.py`
 **SetupPlugin** - the **Advanced** dialog, reached from the header's settings menu (`create_menu_actions()`); no panel, since nothing in it is adjusted mid-stream.

@@ -61,8 +61,13 @@ class HostServices(Protocol):
         """Stop streaming, shut every plugin down and quit (the tray's Quit)."""
         ...
 
-    def start_stream(self) -> None:
-        """Start streaming, as the Start button does; a no-op if already streaming or starting."""
+    def start_stream(self, interactive: bool = True) -> None:
+        """Start streaming, as the Start button does; a no-op if already streaming or starting.
+        interactive=False never asks anything (no password prompt): problems go to a banner."""
+        ...
+
+    def set_keep_in_tray(self, keep: bool) -> None:
+        """Closing the window hides it to the tray even when idle (something is waiting to start)."""
         ...
 
     def show_issue(self, key: str, issue: "Issue") -> None:
@@ -118,5 +123,7 @@ class EventBus(QObject):
     """Lens switch sent to phone; carries selected camera capability dict."""
     resolution_change_requested = pyqtSignal(int, int)
     """Resolution change sent to phone; host shows pending state until confirmed."""
+    phone_ready            = pyqtSignal(str, bool)
+    """The selected phone's id and whether Start would work right now (idle status checks only)."""
     update_requested       = pyqtSignal()
     """Show the desktop app's update dialog (e.g. the phone app turned out to be newer)."""

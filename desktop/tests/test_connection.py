@@ -803,3 +803,30 @@ def test_card_says_connecting_until_the_first_frame(plugin_env):
     assert plugin._status_lbl.text() == "Connecting…"
     plugin._bus.stream_connected.emit()
     assert plugin._status_lbl.text() == "● Streaming"
+
+
+def test_idle_checks_tell_whether_the_phone_is_ready(plugin_env):
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    seen = []
+    plugin._bus.phone_ready.connect(lambda pid, ready: seen.append(ready))
+    pid = plugin._selected_id
+    plugin._on_resolved(plugin._check_id, pid, Resolution(READY, WIFI))
+    plugin._on_resolved(plugin._check_id, pid, Resolution(UNREACHABLE))
+    assert seen == [True, False]
+    plugin._resolver.result = Resolution(READY, WIFI)
+    plugin.get_stream_info()  # Start's own resolve must not announce it (it would start again)
+    assert seen == [True, False]
+
+
+def test_a_start_nobody_asked_for_never_prompts_for_a_password(plugin_env, monkeypatch):
+    plugin, host, _panel = plugin_env
+    monkeypatch.setattr(connection_module, "IS_LINUX", True)
+    monkeypatch.setattr(connection_module, "v4l2_devices_ready", lambda: False)
+    monkeypatch.setattr(connection_module, "v4l2_module_loaded", lambda: False)
+    monkeypatch.setattr(ConnectionPlugin, "_ask_virtual_camera", lambda self: pytest.fail("no prompt"))
+    assert plugin.get_stream_info(interactive=False) == (None, None, False)
+    issue = host.issues["start"]
+    assert issue.title == "The virtual camera is off"
+    issue.actions[0].callback()
+    assert host.starts == 1
