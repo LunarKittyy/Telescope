@@ -58,6 +58,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnUpdate: MaterialButton
     private lateinit var switchNightly: CompoundButton
     private lateinit var tvAppVersion: TextView
+    private lateinit var btnCheckUpdates: com.google.android.material.button.MaterialButton
     // An update waiting for "Allow from this source" to be switched on in Settings.
     private var pendingUpdate: UpdateManifest? = null
 
@@ -176,7 +177,9 @@ class MainActivity : AppCompatActivity() {
         btnUpdate     = findViewById(R.id.btnUpdate)
         switchNightly = findViewById(R.id.switchNightly)
         tvAppVersion  = findViewById(R.id.tvAppVersion)
+        btnCheckUpdates = findViewById(R.id.btnCheckUpdates)
         btnUpdate.setOnClickListener { startUpdate() }
+        btnCheckUpdates.setOnClickListener { Updater.check(this) }
         if (Updater.canUpdate()) {
             switchNightly.isChecked = Updater.channel(this) == UpdateLogic.NIGHTLY
             switchNightly.setOnCheckedChangeListener { _, checked ->
@@ -185,6 +188,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             switchNightly.visibility = View.GONE
             findViewById<View>(R.id.tvNightlyHint).visibility = View.GONE
+            btnCheckUpdates.visibility = View.GONE
         }
 
         spinnerCamera.onItemSelectedListener = cameraSpinnerListener
@@ -371,8 +375,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun renderUpdate() {
         val state = Updater.state
-        val upToDate = if (state is Updater.State.UpToDate) " · up to date" else ""
-        tvAppVersion.text = "Telescope ${BuildConfig.VERSION_NAME}$upToDate"
+        val suffix = when (state) {
+            is Updater.State.UpToDate -> " · up to date"
+            is Updater.State.Checking -> " · checking…"
+            is Updater.State.CheckFailed -> " · couldn't check for updates"
+            else -> ""
+        }
+        tvAppVersion.text = "Telescope ${BuildConfig.VERSION_NAME}$suffix"
+        btnCheckUpdates.isEnabled = state !is Updater.State.Checking &&
+            state !is Updater.State.Downloading && state !is Updater.State.Installing
         val streaming = service?.isStreaming == true || isBusy()
         val manifest = when (state) {
             is Updater.State.Available -> state.manifest

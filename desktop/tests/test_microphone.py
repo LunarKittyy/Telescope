@@ -58,7 +58,7 @@ _PANELS = []
 
 def _plugin(backend):
     _Worker.made = []
-    p = MicrophonePlugin(backend=backend, worker_cls=_Worker)
+    p = MicrophonePlugin(backend=backend, worker_cls=_Worker, run_job=lambda fn: fn())
     p.setup(_Host(), EventBus())
     _PANELS.append(p.create_panel())
     return p
@@ -124,3 +124,39 @@ def test_shutdown_stops_and_tears_down(qapp):
     p.on_stream_start("url", _Ctrl())
     p.shutdown()
     assert _Worker.made[-1].stopped and backend.torn_down == 1
+
+
+def test_setup_runs_off_the_ui_thread_and_a_late_result_is_ignored(qapp):
+    jobs = []
+    backend = _Backend()
+    _Worker.made = []
+    p = MicrophonePlugin(backend=backend, worker_cls=_Worker, run_job=jobs.append)
+    p.setup(_Host(), EventBus())
+    _PANELS.append(p.create_panel())
+    p.set_config({"enabled": True})
+    p.on_stream_start("url", _Ctrl())
+    assert backend.prepared == 0 and p._status.text() == "Setting up…"  # queued, not run here
+    p.on_stream_stop()  # the stream ends before setup finishes
+    jobs.pop(0)()  # setup finishes late
+    assert _Worker.made == [] and backend.prepared == 1
+    p.on_stream_start("url", _Ctrl())
+    jobs.pop(0)()
+    assert _Worker.made[-1].started
+
+
+def test_switching_off_queues_teardown_after_the_stop(qapp):
+    jobs = []
+    backend = _Backend()
+    _Worker.made = []
+    p = MicrophonePlugin(backend=backend, worker_cls=_Worker, run_job=jobs.append)
+    p.setup(_Host(), EventBus())
+    _PANELS.append(p.create_panel())
+    p.on_stream_start("url", _Ctrl())
+    p._toggle.setChecked(True)
+    jobs.pop(0)()
+    w = _Worker.made[-1]
+    p._toggle.setChecked(False)
+    assert not w.stopped and backend.torn_down == 0  # nothing ran on the UI thread
+    for job in jobs:
+        job()
+    assert w.stopped and backend.torn_down == 1
