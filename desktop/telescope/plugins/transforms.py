@@ -15,6 +15,7 @@ from telescope.widgets.common import (
     add_section_heading, control_row as _row, card_layout, create_card, card_action,
     segmented_row, slider_row, value_label,
 )
+from telescope.widgets.lens_panel import shorten_lens_label
 
 ROTATIONS = {
     "None":   None,
@@ -47,6 +48,10 @@ def _zoom_origin(w: int, h: int, zoom: float, pan_x: float, pan_y: float) -> tup
 # ── Zoom: the phone crops what it can, this computer the rest ────────────────
 # Cropping on the phone cuts from the full-resolution sensor (and lets a multi-lens camera switch to
 # its telephoto); cropping here enlarges the already scaled-down stream. Framing is the same either way.
+# The phone's zoom ratio only ever steps between its lenses: phones animate ratio changes, so a ratio
+# that followed the pan made the picture breathe in and out. Pan moves the crop, which doesn't animate.
+
+_LENS_MARGIN = 1.05  # a lens is taken only once the window sits this far inside its view (no flip-flopping)
 
 @dataclass(frozen=True)
 class PhoneZoomCaps:
@@ -54,14 +59,17 @@ class PhoneZoomCaps:
     ratio_max: float = 1.0  # CONTROL_ZOOM_RATIO: always centred; a multi-lens camera picks its lens by it
     crop_max: float = 1.0   # SCALER_CROP_REGION, on top of the ratio
     freeform: bool = False  # the crop can sit off-centre
+    lens_zooms: tuple = ()  # the ratios where a multi-lens camera's longer lenses take over, ascending
 
     @classmethod
     def from_camera(cls, cam: Optional[dict]) -> Optional["PhoneZoomCaps"]:
         """None when the lens can't zoom itself (or the phone app predates phone-side zoom)."""
         if not cam:
             return None
-        caps = cls(max(1.0, cam.get("zoomRatioMax") or 1.0), max(1.0, cam.get("cropZoomMax") or 1.0),
-                   cam.get("freeformCrop", False) is True)
+        ratio_max = max(1.0, cam.get("zoomRatioMax") or 1.0)
+        lenses = tuple(sorted(z for z in cam.get("lensZooms") or () if 1.0 < z <= ratio_max))
+        caps = cls(ratio_max, max(1.0, cam.get("cropZoomMax") or 1.0), cam.get("freeformCrop", False) is True,
+                   lenses)
         return caps if caps.ratio_max > 1.0 or caps.crop_max > 1.0 else None
 
 
@@ -91,12 +99,27 @@ def _pan_within(centre: float, view_centre: float, view: float, size: float) -> 
     return 0.0 if slack < 1e-6 else min(max((centre - view_centre) / slack, -1.0), 1.0)
 
 
-def split_zoom(zoom: float, pan_x: float, pan_y: float, caps: Optional[PhoneZoomCaps]) -> ZoomSplit:
+def _lens_ratio(fit: float, caps: PhoneZoomCaps, current_ratio: float) -> float:
+    """The longest lens whose (centred) view still holds the window; 1 = the main lens.
+
+    `fit` is the largest centred zoom the window fits in. Moving onto a lens needs a margin, staying on
+    the current one doesn't, so the lens doesn't flip back and forth at the edge of its view.
+    """
+    ratio = 1.0
+    for lens in caps.lens_zooms:
+        on_it = abs(lens - current_ratio) < 1e-3
+        if fit >= (lens if on_it else lens * _LENS_MARGIN):
+            ratio = lens
+    return ratio
+
+
+def split_zoom(zoom: float, pan_x: float, pan_y: float, caps: Optional[PhoneZoomCaps],
+               current_ratio: float = 1.0) -> ZoomSplit:
     """The framing asked for, as the phone's share plus what's left for this computer.
 
-    The phone's ratio is the largest centred zoom the window still fits in: centred, that's all of it
-    (and the telephoto comes in); panned to an edge, it falls back towards 1. A freeform crop then cuts
-    the window itself; a centred one only as far as the window still fits.
+    The phone's ratio picks the lens (see _lens_ratio; `current_ratio` is the one it's on now). A
+    freeform crop then cuts the window itself out of that lens's view; with a centre-only crop the
+    phone stops at the lens, so its share doesn't change with the pan, and this computer does the rest.
     """
     if caps is None:
         return ZoomSplit(None, (zoom, pan_x, pan_y))
@@ -104,8 +127,8 @@ def split_zoom(zoom: float, pan_x: float, pan_y: float, caps: Optional[PhoneZoom
     size = 1.0 / zoom
     centre = (_window_centre(zoom, pan_x), _window_centre(zoom, pan_y))
     fit = 1.0 / (2.0 * max(abs(c - 0.5) for c in centre) + size)
-    ratio = max(1.0, min(fit, caps.ratio_max))
-    total = max(ratio, min(zoom if caps.freeform else fit, ratio * caps.crop_max))
+    ratio = _lens_ratio(fit, caps, current_ratio)
+    total = max(ratio, min(zoom, ratio * caps.crop_max)) if caps.freeform else ratio
     view = 1.0 / total
     room = (1.0 / ratio - view) / 2.0 if caps.freeform else 0.0  # how far the crop can move off-centre
     vx, vy = (min(max(c, 0.5 - room), 0.5 + room) for c in centre)
@@ -165,6 +188,8 @@ class TransformsPlugin(TelescopePlugin):
         self._ctrl = None
         self._zoom_caps: Optional[PhoneZoomCaps] = None
         self._sent_zoom: Optional[PhoneZoom] = None
+        self._zoom_where = ""  # the tooltip's first line: where the zoom happens (from the last split)
+        self._live_lens = ""   # the lens a multi-lens camera streams from right now, as the lens picker names it
         self._bus = bus
         bus.focus_point_picked.connect(self._on_point_picked)
         bus.camera_switched.connect(self._on_camera_caps)
@@ -241,10 +266,15 @@ class TransformsPlugin(TelescopePlugin):
     def on_stream_stop(self):
         self._ctrl = None
         self._zoom_caps = None
+        self._live_lens = ""
         self._sync_zoom()
 
     def on_phone_state(self, state: dict):
-        self._on_camera_caps(next((c for c in state.get("cameras", []) if c.get("current")), None))
+        cameras = state.get("cameras", [])
+        live = next((c for c in cameras if c.get("id") == state.get("active_lens")), None)
+        self._live_lens = shorten_lens_label(live.get("label", "")) if live else ""
+        self._on_camera_caps(next((c for c in cameras if c.get("current")), None))
+        self._show_zoom_where()
 
     def _on_camera_caps(self, cam: Optional[dict]):
         caps = PhoneZoomCaps.from_camera(cam)
@@ -254,18 +284,29 @@ class TransformsPlugin(TelescopePlugin):
 
     def _sync_zoom(self):
         """Split the framing between phone and desktop; the phone only hears about changes."""
-        split = split_zoom(self.zoom, self.pan_x, self.pan_y, self._zoom_caps if self._ctrl else None)
+        current = self._sent_zoom.ratio if self._sent_zoom else 1.0
+        split = split_zoom(self.zoom, self.pan_x, self.pan_y, self._zoom_caps if self._ctrl else None, current)
         self._desktop_crop = split.desktop
         if split.phone is not None and split.phone != self._sent_zoom:
             self._sent_zoom = split.phone
             self._ctrl.send(action="zoom", **asdict(split.phone))
         if split.phone is None:
-            where = "Zoomed on this computer" + (": this lens can't zoom itself" if self._ctrl else "")
+            self._zoom_where = "Zoomed on this computer" + (": this lens can't zoom itself" if self._ctrl else "")
         elif split.desktop[0] > 1.0:
-            where = "Zoomed on the phone's sensor as far as this lens allows, the rest on this computer"
+            self._zoom_where = "Zoomed on the phone's sensor as far as this lens allows, the rest on this computer"
         else:
-            where = "Zoomed on the phone's sensor"
-        self._zoom_val_lbl.setToolTip(where)
+            self._zoom_where = "Zoomed on the phone's sensor"
+        self._show_zoom_where()
+
+    def _show_zoom_where(self):
+        lines = [self._zoom_where]
+        if self._live_lens:
+            lines.append(f"Live lens: {self._live_lens}")
+        if self._zoom_caps is not None and self._zoom_caps.lens_zooms and self._ctrl:
+            lines.append("(yes, it can be a bit wobbly when it switches lens, just let it settle)")
+        tip = "\n".join(line for line in lines if line)
+        self._zoom_slider.setToolTip(tip)
+        self._zoom_val_lbl.setToolTip(tip)
 
     # ── Handlers (Qt thread) ──────────────────────────────────────────────────
 

@@ -47,6 +47,15 @@ def _optional_number(raw: dict, key: str) -> Optional[float]:
     return float(value)
 
 
+def _optional_numbers(raw: dict, key: str) -> tuple:
+    value = raw.get(key)
+    if value is None:
+        return ()
+    if not isinstance(value, list) or any(not isinstance(v, (int, float)) or isinstance(v, bool) for v in value):
+        raise PhoneStateError(f"'{key}' must be a list of numbers")
+    return tuple(float(v) for v in value)
+
+
 def _optional_int(raw: dict, key: str) -> Optional[int]:
     value = raw.get(key)
     if value is None:
@@ -80,6 +89,7 @@ class CameraCapabilities:
     zoom_ratio_max: float = 1.0   # newer phone apps only: how far the lens zooms itself (CONTROL_ZOOM_RATIO)
     crop_zoom_max: float = 1.0    # ... and crops on top of that (SCALER_CROP_REGION)
     freeform_crop: bool = False   # ... and whether that crop can sit off-centre
+    lens_zooms: tuple = ()        # ... and the zoom ratios where its longer lenses take over
 
     @classmethod
     def from_dict(cls, raw: dict) -> "CameraCapabilities":
@@ -112,6 +122,7 @@ class CameraCapabilities:
             zoom_ratio_max=_optional_number(raw, "zoomRatioMax") or 1.0,
             crop_zoom_max=_optional_number(raw, "cropZoomMax") or 1.0,
             freeform_crop=raw.get("freeformCrop", False) is True,
+            lens_zooms=_optional_numbers(raw, "lensZooms"),
         )
 
 

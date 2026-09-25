@@ -211,3 +211,26 @@ class CropRectTest {
         org.junit.jupiter.api.Assertions.assertEquals(SensorBox(0, 1500, 2000, 1125), crop(2f, -3f, 5f))
     }
 }
+
+class LensZoomsTest {
+    @org.junit.jupiter.api.Test
+    fun `lens zooms keep the longer lenses in reach, sorted`() {
+        // main 23 mm, ultra-wide 15 mm, tele 85 mm, periscope 230 mm with a 10x ratio cap
+        org.junit.jupiter.api.Assertions.assertEquals(listOf(85f / 23f),
+            CameraRequestSelection.lensZooms(23f, listOf(15f, 23f, 230f, 85f), 5f))  // the periscope is past the cap
+        org.junit.jupiter.api.Assertions.assertEquals(listOf(85f / 23f, 10f),
+            CameraRequestSelection.lensZooms(23f, listOf(230f, 15f, 85f, 23f), 10f))
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `unknown focal lengths give no lens zooms`() {
+        org.junit.jupiter.api.Assertions.assertEquals(emptyList<Float>(), CameraRequestSelection.lensZooms(0f, listOf(85f), 10f))
+        org.junit.jupiter.api.Assertions.assertEquals(0f, CameraRequestSelection.equivalentFocal(0f, 6f, 4f))
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `equivalent focal uses the sensor diagonal`() {
+        // a full-frame diagonal (36 x 24) is 43.27 mm, so the real focal length comes back unchanged
+        org.junit.jupiter.api.Assertions.assertEquals(50f, CameraRequestSelection.equivalentFocal(50f, 36f, 24f), 0.1f)
+    }
+}

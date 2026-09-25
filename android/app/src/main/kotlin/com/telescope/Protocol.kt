@@ -35,6 +35,7 @@ data class CameraCapability(
     val zoomRatioMax: Float = 1f,
     val cropZoomMax: Float = 1f,
     val freeformCrop: Boolean = false,
+    val lensZooms: List<Float> = emptyList(),
 )
 
 @Serializable
@@ -62,6 +63,7 @@ data class V1State(
     val codec: String = "mjpeg",
     val bitrate: Int = 0,
     val codec_error: String? = null,
+    val active_lens: String? = null,  // the lens a multi-lens camera is streaming from right now
     val stream_width: Int,
     val stream_height: Int,
     val battery: Int,
