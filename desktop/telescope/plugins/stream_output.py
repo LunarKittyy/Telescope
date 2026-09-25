@@ -343,6 +343,20 @@ class StreamOutputPlugin(TelescopePlugin):
             cfg["resolution"] = self._saved_resolution_text
         return cfg
 
+    def apply_preset(self, cfg: dict):
+        """Load a preset's settings and, while streaming, send them."""
+        self.set_config(cfg)
+        if not self._ctrl:
+            return
+        self._push_initial_settings()
+        self._host.update_stream_output(fps=self._fps_spin.value())
+        wh = self._find_by_label(self._pending_resolution_text) if self._pending_resolution_text else None
+        if wh and wh != self._res_combo.currentData():
+            self._select_resolution(wh)
+            self._on_resolution()
+        if wh:
+            self._pending_resolution_text = None
+
     def set_config(self, cfg: dict):
         # Always overwrite: the host applies defaults before each device's own config.
         res = cfg.get("resolution") or None

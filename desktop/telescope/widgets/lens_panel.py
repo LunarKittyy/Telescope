@@ -89,6 +89,15 @@ class LensPanel(QWidget):
         clicked_btn.setChecked(True)
         self.lens_selected.emit(cam)
 
+    def select_id(self, cam_id: str):
+        """Check the lens with this id without emitting; returns its dict, or None if this phone has none."""
+        for cam, btn in zip(self._cameras, self._btns):
+            if cam.get("id") == cam_id:
+                for b in self._btns:
+                    b.setChecked(b is btn)
+                return cam
+        return None
+
     def set_placeholder(self, text: str):
         self._ph.setText(text)
         if not self._btns:

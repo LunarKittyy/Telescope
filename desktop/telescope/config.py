@@ -12,7 +12,7 @@ _APP_NAME = "Telescope"
 _CONFIG_FILENAME = "telescope_config.json"
 
 # Plugin configs that are stored per-device rather than globally
-DEVICE_LOCAL_PLUGINS = frozenset({"camera_control", "stream_output", "transforms", "monitoring"})
+DEVICE_LOCAL_PLUGINS = frozenset({"camera_control", "stream_output", "transforms", "monitoring", "presets"})
 
 
 def config_path() -> Path:

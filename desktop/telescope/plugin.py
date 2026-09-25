@@ -78,6 +78,14 @@ class HostServices(Protocol):
         """Remove one banner, or all of them."""
         ...
 
+    def plugin_config(self, name: str) -> Optional[dict]:
+        """Another plugin's current get_config(), or None if it isn't registered."""
+        ...
+
+    def apply_preset(self, name: str, cfg: dict) -> None:
+        """Hand a saved config to another plugin's apply_preset(); unknown names are ignored."""
+        ...
+
 
 class TelescopePlugin:
     name: str = ""
@@ -104,6 +112,9 @@ class TelescopePlugin:
     def process_frame(self, frame: np.ndarray) -> np.ndarray: return frame
     def get_config(self) -> dict: return {}
     def set_config(self, cfg: dict): ...
+    def apply_preset(self, cfg: dict):
+        """Load settings from a preset; plugins that drive the phone also send them while streaming."""
+        self.set_config(cfg)
     def shutdown(self):
         """App is quitting: stop background services the plugin started."""
 

@@ -28,9 +28,9 @@ Calls `win.apply_saved_config()` **after** all plugins are registered so every p
 - **Two-phase start.** `_start()` calls `conn.get_stream_info()` (validates ADB/v4l2, builds URL), snapshots `conn.session_target()` on the GUI thread, then `_spawn_wake()` (background thread bringing phone camera up). `_on_wake_done()` either runs `_begin_stream()` (worker, ctrl, pipeline) or re-enables Start and shows the error. `_wake_id` counter drops stale results after user Stop/device switch/quit. Split for testability (tests call synchronously).
 - `_stop(remote_stop=True)` - tears down worker and ctrl; `on_stream_stop()` on each plugin (ConnectionPlugin releases its USB forward there); invalidates any in-flight wake; and takes the phone's camera down with it via `_stop_phone_async()`. `remote_stop=False` is for the internal stop/start pairs that are really a desktop-side reconnect (`reconnect_stream()`, `restart_vcam_canvas()`) - bouncing the phone there would cost seconds and a lens re-open for nothing.
 - `_stop_phone_async()` / `_drain_phone_stops(timeout=2.0)` - the remote stop runs off the UI thread but is tracked rather than fire-and-forget, so the quit paths (`closeEvent`, `_tray_quit`) can give it a bounded moment to actually leave the machine. Both quit paths then call every plugin's `shutdown()`.
-- Implements the public **`HostServices`** contract (see `plugin.py`): `schedule_save()`, `save_now()`, `switch_device()`, `forget_device_settings()`, `reconnect_stream()`, `send_notification()`, `is_streaming()`, `stop_stream()`, `update_stream_output()`, `restart_vcam_canvas()`, `quit_app()` (really quits, tray or not), `start_stream(interactive=True)` (False: no password prompt, problems go to a banner), `set_keep_in_tray(keep)` (close hides to the tray even when idle), `show_issue(key, Issue)` / `clear_issue(key=None)` (problem banners above the body; every banner clears when a stream connects). Plugins only call these; private internals (`_worker`, `_stop()`) are hidden.
+- Implements the public **`HostServices`** contract (see `plugin.py`): `schedule_save()`, `save_now()`, `switch_device()`, `forget_device_settings()`, `reconnect_stream()`, `send_notification()`, `is_streaming()`, `stop_stream()`, `update_stream_output()`, `restart_vcam_canvas()`, `quit_app()` (really quits, tray or not), `start_stream(interactive=True)` (False: no password prompt, problems go to a banner), `set_keep_in_tray(keep)` (close hides to the tray even when idle), `show_issue(key, Issue)` / `clear_issue(key=None)` (problem banners above the body; every banner clears when a stream connects), `plugin_config(name)` / `apply_preset(name, cfg)` (another plugin's config, and handing it one to apply; used by Presets). Plugins only call these; private internals (`_worker`, `_stop()`) are hidden.
 - `send_notification(title, body, urgent=True)` - uses `notify-send` on Linux (critical urgency only when `urgent`), tray balloon on Windows.
-- `save_now()` - writes global plugin configs (connection, setup) and per-device configs (camera_control, stream_output, transforms, monitoring) under `devices[selected]`. `schedule_save()` is the debounced variant plugins call after a settings change.
+- `save_now()` - writes global plugin configs (connection, setup) and per-device configs (camera_control, stream_output, transforms, monitoring, presets) under `devices[selected]`. `schedule_save()` is the debounced variant plugins call after a settings change.
 - `switch_device(prev, new)` - saves `prev` phone's per-device configs, restores `new` phone's; called by `ConnectionPlugin._activate_profile()`. Keys are phone ids.
 - `forget_device_settings(id)` - deletes a removed phone's stored settings.
 - `is_streaming()` / `stop_stream()` / `update_stream_output(width, height, fps)` - public stream controls; `stop_stream()` is a guarded no-op when idle, and `update_stream_output()` forwards only the values a caller passes (`None` width/height means pass-through).
@@ -49,9 +49,10 @@ The app's entire visual definition: palette constants (`BG`, `SURFACE`, `ACCENT`
 
 ### `plugin.py`
 **TelescopePlugin** base class + **HostServices** contract + **EventBus**.
-- `HostServices` (typing.Protocol): the public surface a plugin may call on its `host` handle - `schedule_save`, `save_now`, `switch_device`, `forget_device_settings`, `reconnect_stream`, `send_notification`, `is_streaming`, `stop_stream`, `update_stream_output`, `restart_vcam_canvas`, `quit_app`, `start_stream(interactive)`, `set_keep_in_tray`, `show_issue`, `clear_issue`. Structural typing only (`TelescopeWindow` implements it without inheriting). Keeps plugins off private window internals.
+- `HostServices` (typing.Protocol): the public surface a plugin may call on its `host` handle - `schedule_save`, `save_now`, `switch_device`, `forget_device_settings`, `reconnect_stream`, `send_notification`, `is_streaming`, `stop_stream`, `update_stream_output`, `restart_vcam_canvas`, `quit_app`, `start_stream(interactive)`, `set_keep_in_tray`, `show_issue`, `clear_issue`, `plugin_config`, `apply_preset`. Structural typing only (`TelescopeWindow` implements it without inheriting). Keeps plugins off private window internals.
 - `UNCHANGED`: sentinel for `update_stream_output` so `None` can be passed as a real value (pass-through resolution) distinct from "leave as-is".
-- `TelescopePlugin`: override `setup`, `create_panel`, `on_stream_start`, `on_stream_stop`, `on_phone_state`, `process_frame`, `get_config`, `set_config`, `shutdown`.
+- `TelescopePlugin`: override `setup`, `create_panel`, `on_stream_start`, `on_stream_stop`, `on_phone_state`, `process_frame`, `get_config`, `set_config`, `apply_preset`, `shutdown`.
+  - `apply_preset(cfg)` loads a saved config; the default is `set_config`. Camera control and Stream output also send it to the phone while streaming.
   - `panel_region` (class attr): `"left"` / `"right"` / `"center"` - which region the host puts the panel in. A preference, not a guarantee: narrow windows merge regions.
   - `create_header_widget()` → a compact widget for the window header, or `None`. `header_side` (`"left"` / `"right"`) picks where it goes.
   - `create_menu_actions()` → `QAction`s for the header's settings menu, or `[]`. Lets a dialogs-only plugin skip having a panel.
@@ -86,7 +87,8 @@ Load/save of `telescope_config.json` with versioned schema (current: v3) and per
         "camera_control": {...},
         "stream_output":  {...},
         "transforms":     {...},
-        "monitoring":     {...}
+        "monitoring":     {...},
+        "presets":        {"presets": [{"name": ..., "camera": {...}, "stream": {...}, "transforms": {...}}]}
       }
     }
   }
@@ -223,7 +225,8 @@ UnityCapture helpers: `uc_registered_name()` (the name apps list it under, read 
 - `on_stream_stop`: clears lens panel and info label.
 - `_update_camera_caps()`: disables manual exposure, manual WB, manual focus, or torch controls when the selected lens doesn't report support for them.
 - Point focus: `bus.focus_point(x, y)` sends `focus_point` when the lens reports `supportsFocusPoint`; the Point button picks the centre of the preview. Point isn't saved: the next stream starts on Auto.
-- Config keys: `exp_manual`, `iso`, `shutter_ns`, `ois`, `focus_manual`, `focus_diopters`, `wb_manual`, `wb_kelvin`, `wb_tint`, `ae_comp`, `nr_mode`, `edge_mode`, `bll`.
+- Config keys: `exp_manual`, `iso`, `shutter_ns`, `ois`, `focus_manual`, `focus_diopters`, `wb_manual`, `wb_kelvin`, `wb_tint`, `ae_comp`, `nr_mode`, `edge_mode`, `bll`, `lens` (the lens id; only a preset switches to it).
+- `apply_preset(cfg)`: `set_config`, then while streaming switches to the saved lens (if this phone has it and it isn't live) and resends everything through `_push_settings_to_phone()`.
 
 ### `plugins/stream_output.py`
 **StreamOutputPlugin** - capture resolution, frame rate, and encoding settings.
@@ -234,6 +237,7 @@ UnityCapture helpers: `uc_registered_name()` (the name apps list it under, read 
 - `on_stream_start`: stores ctrl, schedules `_push_initial_settings` (1500ms delay) to sync quality/fps after connect.
 - `_on_resolution()` sends `resolution` control and emits `bus.resolution_change_requested` (used by `app.py` for footer readout). `_on_fps()` sends `fps_target` and calls `host.update_stream_output()` for virtual-camera hot-swap (no stream restart).
 - Config keys: `resolution`, `fps` (falls back to reading legacy `phone_fps` if `fps` is absent), `jpeg_quality`.
+- `apply_preset(cfg)`: `set_config`, then while streaming sends fps and quality and, if the current lens has the saved size, the resolution.
 
 ### `plugins/preview.py`
 **PreviewPlugin** - the centre video stage and its pop-out. `panel_region = "center"`.
@@ -272,6 +276,12 @@ UnityCapture helpers: `uc_registered_name()` (the name apps list it under, read 
 - `UpdatesDialog`: this version, channel (Stable / Nightly), Check daily, what's new, and **Update and restart** (disabled while streaming, or **Open download page** when `self_update_blocker()` says so).
 - Download and install run in a thread; on success it relaunches (`--after-update`) and calls `host.quit_app()`.
 - Config keys: `channel`, `auto_check`, `last_check`.
+
+### `plugins/presets.py`
+**PresetsPlugin** - a **Presets** button in the header (left, after the phone picker) with a menu: the saved presets (click applies), **Save current as…**, **Rename**, **Delete**. Per phone (in `DEVICE_LOCAL_PLUGINS`), since lens ids and sizes differ between phones.
+- A preset is `{name, camera, stream, transforms}`, snapshotted with `host.plugin_config()` and applied section by section through `host.apply_preset()`, camera first so the lens switch goes out before Stream output looks up its sizes. Saving under an existing name replaces it.
+- `clean_presets(raw)` drops malformed entries and duplicate names on load.
+- Config key: `presets`.
 
 ### `plugins/startup.py`
 **StartupPlugin** - two checkable settings-menu entries. **Start streaming when the phone is ready** listens to `bus.phone_ready` and calls `host.start_stream(interactive=False)` once per arrival: a Stop or an attempt holds it until the phone reports not ready (or another phone is selected). It also keeps the window in the tray on close. **Open Telescope when I sign in** calls `platform/autostart.py`. Config key: `auto_stream` (global).

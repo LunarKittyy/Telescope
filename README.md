@@ -85,6 +85,10 @@ Everything past this point is optional - detailed feature reference, how it work
 - Rotation: 90 CW, 180, 90 CCW
 - Software zoom 1-5x with pan X/Y sliders (center crop + resize)
 
+**Presets** (the Presets button in the header)
+- Save the camera, output and transform settings under a name and switch back with one click, lens included
+- Kept per phone
+
 **Canvas size control** (in Advanced, from the settings menu)
 - Set the virtual camera canvas independently of the phone feed resolution
 - Presets: 720p/1080p/4K in 16:9 landscape and portrait, XGA and UXGA in 4:3, or fully custom
@@ -275,6 +279,7 @@ telescope/
         |   |-- camera_control.py
         |   |-- stream_output.py
         |   |-- transforms.py
+        |   |-- presets.py       # Saved camera/output/transform settings
         |   |-- preview.py
         |   |-- onboarding.py    # First-run checklist
         |   |-- updates.py       # Update button and dialog

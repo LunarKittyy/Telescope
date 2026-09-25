@@ -808,6 +808,15 @@ class TelescopeWindow(QMainWindow):
     def clear_issue(self, key: Optional[str] = None):
         self._banners.clear_issue(key)
 
+    def plugin_config(self, name: str) -> Optional[dict]:
+        plugin = self._plugin(name)
+        return plugin.get_config() if plugin else None
+
+    def apply_preset(self, name: str, cfg: dict):
+        plugin = self._plugin(name)
+        if plugin:
+            plugin.apply_preset(cfg)
+
     def _tray_quit(self):
         self._tray_close_notified = True
         self._stop()
