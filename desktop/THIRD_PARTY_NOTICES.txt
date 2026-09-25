@@ -58,6 +58,13 @@ av (PyAV, https://pypi.org/project/av/)
     https://ffmpeg.org/download.html; PyAV's build scripts name the exact
     versions (https://github.com/PyAV-Org/pyav-ffmpeg).
 
+sounddevice (https://pypi.org/project/sounddevice/, Windows only)
+    Plays the phone's microphone into VB-Cable. License: MIT.
+    Its Windows wheel bundles PortAudio (http://www.portaudio.com/), MIT-style license.
+
+VB-Audio Virtual Cable is not distributed with Telescope; users install it
+themselves from https://vb-audio.com/Cable/ under VB-Audio's own terms.
+
 zeroconf (https://pypi.org/project/zeroconf/)
     Copyright (c) Paul Scott-Murphy, William McBrine, Jakub Stasiak and
     python-zeroconf contributors.

@@ -72,6 +72,9 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 - [ ] Presets: switching between two presets while streaming changes lens, exposure, WB, zoom and fps together. A second phone doesn't see the first one's presets.
 - [ ] H.264: on a real phone, switching Format to H.264 reconnects and streams on Wi-Fi and USB. Compare latency (a clock on screen) and the Mbps readout with MJPEG at the same size. A 30-minute run stays smooth, a reconnect (unplug, Wi-Fi off and on) recovers, and changing resolution or lens mid-stream keeps working.
 - [ ] H.264 fallback: forcing an encoder failure (a size the encoder refuses) returns to MJPEG with the banner.
+- [ ] Microphone, Linux (Fedora/Nobara, PipeWire): switching it on while streaming makes "Telescope Microphone" appear; Audacity or a call records the phone; switching off or quitting removes it. Lip-sync looks right by eye. A 30-minute run doesn't drift, and unplugging and replugging recovers.
+- [ ] Microphone, Windows: without VB-Cable the card says so and links it; with it, apps record from CABLE Output.
+- [ ] Microphone permission: the first request makes the phone's Get set up card show Microphone; allowing it there starts the audio within a few seconds, without restarting the stream. Recording keeps going with the phone's screen off.
 - [ ] Canvas size change (Linux and Windows) restarts cleanly.
 - [ ] Linux, module not loaded: Start asks once, with the startup box ticked; after a reboot Start doesn't ask. Unticked: it asks again after a reboot.
 - [ ] Linux without pkexec (or with no polkit agent): Start shows the command banner, Copy command works, and running it then Start streams.

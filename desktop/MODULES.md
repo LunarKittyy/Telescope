@@ -30,7 +30,7 @@ Calls `win.apply_saved_config()` **after** all plugins are registered so every p
 - `_stop_phone_async()` / `_drain_phone_stops(timeout=2.0)` - the remote stop runs off the UI thread but is tracked rather than fire-and-forget, so the quit paths (`closeEvent`, `_tray_quit`) can give it a bounded moment to actually leave the machine. Both quit paths then call every plugin's `shutdown()`.
 - Implements the public **`HostServices`** contract (see `plugin.py`): `schedule_save()`, `save_now()`, `switch_device()`, `forget_device_settings()`, `reconnect_stream()`, `send_notification()`, `is_streaming()`, `stop_stream()`, `update_stream_output()`, `restart_vcam_canvas()`, `quit_app()` (really quits, tray or not), `start_stream(interactive=True)` (False: no password prompt, problems go to a banner), `set_keep_in_tray(keep)` (close hides to the tray even when idle), `show_issue(key, Issue)` / `clear_issue(key=None)` (problem banners above the body; every banner clears when a stream connects), `plugin_config(name)` / `apply_preset(name, cfg)` (another plugin's config, and handing it one to apply; used by Presets). Plugins only call these; private internals (`_worker`, `_stop()`) are hidden.
 - `send_notification(title, body, urgent=True)` - uses `notify-send` on Linux (critical urgency only when `urgent`), tray balloon on Windows.
-- `save_now()` - writes global plugin configs (connection, setup) and per-device configs (camera_control, stream_output, transforms, monitoring, presets) under `devices[selected]`. `schedule_save()` is the debounced variant plugins call after a settings change.
+- `save_now()` - writes global plugin configs (connection, setup) and per-device configs (camera_control, stream_output, transforms, monitoring, presets, microphone) under `devices[selected]`. `schedule_save()` is the debounced variant plugins call after a settings change.
 - `switch_device(prev, new)` - saves `prev` phone's per-device configs, restores `new` phone's; called by `ConnectionPlugin._activate_profile()`. Keys are phone ids.
 - `forget_device_settings(id)` - deletes a removed phone's stored settings.
 - `is_streaming()` / `stop_stream()` / `update_stream_output(width, height, fps)` - public stream controls; `stop_stream()` is a guarded no-op when idle, and `update_stream_output()` forwards only the values a caller passes (`None` width/height means pass-through).
@@ -69,6 +69,12 @@ The app's entire visual definition: palette constants (`BG`, `SURFACE`, `ACCENT`
 ### `h264_reader.py`
 **H264Reader** - the `/v1/video.h264` counterpart of `MjpegReader`: `open()` checks the `video/h264` response, `read()` returns the newest frame completed by the next data that finishes one (older frames in the same data are dropped). `new_decoder()` / `decode_newest(codec, data)` are the pure decode steps (PyAV, low-delay, 2 threads). PyAV is optional: `available()` is False without it, and the desktop then offers only MJPEG.
 
+### `audio.py`
+The phone's mic into the virtual mic. `JitterBuffer` (pure): silence until `TARGET_MS` (60) has built up, silence-padding on a gap, and dropping the oldest audio back to the target past `MAX_MS` (150), which absorbs clock drift. `AudioWorker`: a reader thread (`/v1/audio` with the bearer token; on a refusal it reports the phone's `error` and retries every 3 s, so allowing the mic on the phone just starts it) and a writer thread that drains 10 ms at a time into a sink at the sink's pace. Sinks: `PacatSink` (Linux) and `SoundDeviceSink` (Windows). `on_status(kind, text)` comes from the worker threads.
+
+### `platform/virtual_mic.py`
+Linux: `linux_setup()` loads `module-null-sink` (`telescope_mic_sink`) and `module-remap-source` (`telescope_mic`, "Telescope Microphone") with `pactl`, reusing an existing source and unloading half a setup on failure; `linux_teardown(ids)`; `pacat_command()`. Windows: `find_vb_cable(devices)` finds CABLE Input in `sounddevice.query_devices()`. Runners are injectable for tests.
+
 ### `config.py`
 Load/save of `telescope_config.json` with versioned schema (current: v3) and per-section validation.
 
@@ -91,7 +97,8 @@ Load/save of `telescope_config.json` with versioned schema (current: v3) and per
         "stream_output":  {...},
         "transforms":     {...},
         "monitoring":     {...},
-        "presets":        {"presets": [{"name": ..., "camera": {...}, "stream": {...}, "transforms": {...}}]}
+        "presets":        {"presets": [{"name": ..., "camera": {...}, "stream": {...}, "transforms": {...}}]},
+        "microphone":     {"enabled": false}
       }
     }
   }
@@ -286,6 +293,9 @@ UnityCapture helpers: `uc_registered_name()` (the name apps list it under, read 
 - A preset is `{name, camera, stream, transforms}`, snapshotted with `host.plugin_config()` and applied section by section through `host.apply_preset()`, camera first so the lens switch goes out before Stream output looks up its sizes. Saving under an existing name replaces it.
 - `clean_presets(raw)` drops malformed entries and duplicate names on load.
 - Config key: `presets`.
+
+### `plugins/microphone.py`
+**MicrophonePlugin** - the Microphone card (left): an On switch, a status line, and a button when something's missing (Get VB-Cable). Per phone (`DEVICE_LOCAL_PLUGINS`). While on, it follows the stream: `on_stream_start` prepares the virtual mic and starts an `AudioWorker` on `{ctrl.base}/audio`; `on_stream_stop` stops it; switching off also removes the Linux virtual mic, as does `shutdown()`. `LinuxMic` / `WindowsMic` hold the per-OS parts (`problem()`, `prepare()`, `open_sink()`, `teardown()`, `pick_name`); the backend and worker class are injectable. Config key: `enabled`.
 
 ### `plugins/startup.py`
 **StartupPlugin** - two checkable settings-menu entries. **Start streaming when the phone is ready** listens to `bus.phone_ready` and calls `host.start_stream(interactive=False)` once per arrival: a Stop or an attempt holds it until the phone reports not ready (or another phone is selected). It also keeps the window in the tray on close. **Open Telescope when I sign in** calls `platform/autostart.py`. Config key: `auto_stream` (global).

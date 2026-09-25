@@ -22,11 +22,16 @@ class MjpegServer(
     // A viewer connected to the route for this codec (H264Stream.CODEC_*).
     val onVideoClient: (codec: String) -> Unit = {},
     val requestKeyFrame: () -> Unit = {},
+    // The first listener to /v1/audio: start the mic, or say why not. The last one leaving: stop it.
+    val startAudio: () -> String? = { "No microphone" },
+    val stopAudio: () -> Unit = {},
 ) {
     private var serverSocket: ServerSocket? = null
     private val clients = CopyOnWriteArrayList<MjpegClient>()
     private val h264Clients = CopyOnWriteArrayList<H264Client>()
     @Volatile private var h264Config: ByteArray? = null
+    private val audioClients = CopyOnWriteArrayList<AudioClient>()
+    private val audioLock = Any()
     private val running = AtomicBoolean(false)
 
     // Updated on every authorized request; feeds battery-saving watchdog.
@@ -80,6 +85,10 @@ class MjpegServer(
         if (wantKey) requestKeyFrame()
     }
 
+    fun sendAudio(chunk: ByteArray) {
+        for (c in audioClients) c.queue.offer(chunk)
+    }
+
     /** Drop H.264 viewers (the encoder is gone); their readers see the end of the stream. */
     fun closeH264Clients() {
         h264Clients.forEach { it.close() }
@@ -92,6 +101,8 @@ class MjpegServer(
         clients.forEach { it.close() }
         clients.clear()
         closeH264Clients()
+        audioClients.forEach { it.close() }
+        audioClients.clear()
         try { serverSocket?.close() } catch (_: Exception) {}
     }
 
@@ -152,6 +163,24 @@ class MjpegServer(
                     requestKeyFrame()        // a decoder can only start at one
                     client.stream()
                     h264Clients.remove(client)
+                }
+                "/v1/audio" -> {
+                    if (request.method != "GET") { HttpWire.sendError(socket.getOutputStream(), 405, "Method Not Allowed"); return }
+                    if (!isAuthorized(request)) { HttpWire.sendError(socket.getOutputStream(), 401, "Unauthorized"); return }
+                    val client = AudioClient(socket)
+                    val problem = synchronized(audioLock) {
+                        (if (audioClients.isEmpty()) startAudio() else null).also { if (it == null) audioClients.add(client) }
+                    }
+                    if (problem != null) { HttpWire.sendError(socket.getOutputStream(), 403, problem); return }
+                    streaming = true
+                    try {
+                        client.stream()
+                    } finally {
+                        synchronized(audioLock) {
+                            audioClients.remove(client)
+                            if (audioClients.isEmpty()) stopAudio()
+                        }
+                    }
                 }
                 else -> HttpWire.sendError(socket.getOutputStream(), 404, "Not Found")
             }
@@ -227,6 +256,29 @@ class MjpegServer(
                 while (alive.get()) {
                     val packet = queue.poll(2_000L) ?: continue
                     out.write(packet)
+                    out.flush()
+                }
+            } catch (_: Exception) {}
+            finally { alive.set(false); try { socket.close() } catch (_: Exception) {} }
+        }
+
+        fun close() { alive.set(false); try { socket.close() } catch (_: Exception) {} }
+    }
+
+    inner class AudioClient(private val socket: Socket) {
+        val queue = PcmClientQueue()
+        private val alive = AtomicBoolean(true)
+
+        fun stream() {
+            try {
+                socket.soTimeout = 0
+                val out = socket.getOutputStream()
+                out.write(("HTTP/1.1 200 OK\r\nContent-Type: ${AudioStream.CONTENT_TYPE}\r\n" +
+                    "Cache-Control: no-cache\r\nConnection: close\r\n\r\n").toByteArray(Charsets.UTF_8))
+                out.flush()
+                while (alive.get()) {
+                    val chunk = queue.poll(2_000L) ?: continue
+                    out.write(chunk)
                     out.flush()
                 }
             } catch (_: Exception) {}

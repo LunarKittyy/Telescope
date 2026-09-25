@@ -42,6 +42,7 @@ def check_app_construction():
     from telescope.app import TelescopeWindow
     from telescope.plugins.camera_control import CameraControlPlugin
     from telescope.plugins.connection import ConnectionPlugin
+    from telescope.plugins.microphone import MicrophonePlugin
     from telescope.plugins.monitoring import MonitoringPlugin
     from telescope.plugins.presets import PresetsPlugin
     from telescope.plugins.preview import PreviewPlugin
@@ -55,7 +56,7 @@ def check_app_construction():
     win = TelescopeWindow()
     for plugin_cls in (
         SetupPlugin, ConnectionPlugin, CameraControlPlugin, StreamOutputPlugin,
-        TransformsPlugin, PresetsPlugin, PreviewPlugin, MonitoringPlugin, UpdatesPlugin, StartupPlugin,
+        TransformsPlugin, MicrophonePlugin, PresetsPlugin, PreviewPlugin, MonitoringPlugin, UpdatesPlugin, StartupPlugin,
     ):
         win.register_plugin(plugin_cls())
     win.apply_saved_config()

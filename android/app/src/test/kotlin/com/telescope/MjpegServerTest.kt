@@ -381,4 +381,52 @@ class MjpegServerTest {
             server.stop()
         }
     }
+
+    @Test
+    fun `audio route refuses with the reason when the mic can't start`() {
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") },
+            startAudio = { "Allow the microphone in Telescope on the phone" })
+        server.start()
+        try {
+            val response = authGet(actualPort(server), "/v1/audio", "t")
+            assertEquals(403, response.status)
+            assertTrue(response.body.toString(StandardCharsets.UTF_8).contains("Allow the microphone"))
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `audio route streams pcm while listened to and stops the mic after`() {
+        val starts = java.util.concurrent.atomic.AtomicInteger()
+        val stops = java.util.concurrent.atomic.AtomicInteger()
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") },
+            startAudio = { starts.incrementAndGet(); null }, stopAudio = { stops.incrementAndGet() })
+        server.start()
+        try {
+            Socket("127.0.0.1", actualPort(server)).use { socket ->
+                socket.soTimeout = 2_000
+                socket.getOutputStream().write("GET /v1/audio HTTP/1.1\r\nAuthorization: Bearer t\r\n\r\n"
+                    .toByteArray(StandardCharsets.ISO_8859_1))
+                val input = socket.getInputStream()
+                val head = StringBuilder()
+                while (!head.endsWith("\r\n\r\n")) head.append(input.read().toChar())
+                assertTrue(head.contains("Content-Type: ${AudioStream.CONTENT_TYPE}"))
+                assertEquals(1, starts.get())
+                server.sendAudio(byteArrayOf(1, 2, 3, 4))
+                val got = ByteArray(4)
+                var n = 0
+                while (n < 4) n += input.read(got, n, 4 - n)
+                assertArrayEquals(byteArrayOf(1, 2, 3, 4), got)
+            }
+            val deadline = System.currentTimeMillis() + 5_000
+            while (stops.get() == 0 && System.currentTimeMillis() < deadline) {
+                server.sendAudio(byteArrayOf(0))  // the write to the closed socket ends the listener
+                Thread.sleep(20)
+            }
+            assertEquals(1, stops.get())
+        } finally {
+            server.stop()
+        }
+    }
 }

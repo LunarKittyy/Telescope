@@ -141,6 +141,9 @@ class CameraStreamService : Service() {
         const val NOTIF_ID         = 1
         const val DEFAULT_PORT     = 8080
         private const val TAG      = "CameraStreamService"
+        // Set once the desktop asked for the mic without permission; the phone's setup card then offers it.
+        const val PREFS_SETUP      = "setup"
+        const val KEY_MIC_WANTED   = "mic_wanted"
 
         // Fires when desktop is genuinely gone (no authorized /v1/state polls in this interval).
         private const val IDLE_STOP_MS = 60_000L
@@ -159,6 +162,8 @@ class CameraStreamService : Service() {
 
     private var controller: CameraSessionController? = null
     private var server: MjpegServer? = null
+    private var audio: AudioStreamer? = null
+    @Volatile private var micForeground = false
     private var wakeLock: PowerManager.WakeLock? = null
     private var idleWatchdogThread: Thread? = null
     private val idleWatchdogRunning = java.util.concurrent.atomic.AtomicBoolean(false)
@@ -428,8 +433,27 @@ class CameraStreamService : Service() {
             tokens         = { PairedComputers.tokens(this) },
             onVideoClient  = ::onVideoClient,
             requestKeyFrame = { controller?.requestKeyFrame() },
+            startAudio     = ::startAudio,
+            stopAudio      = { audio?.stop() },
         ).also { it.start() }
         startIdleWatchdog()
+    }
+
+    // Null when the mic is recording; otherwise the reason the desktop shows.
+    private fun startAudio(): String? {
+        val mic = audio ?: AudioStreamer(this) { chunk -> server?.sendAudio(chunk) }.also { audio = it }
+        if (!mic.permitted()) {
+            // The setup card on the phone offers it from now on.
+            getSharedPreferences(PREFS_SETUP, MODE_PRIVATE).edit().putBoolean(KEY_MIC_WANTED, true).apply()
+            return "Allow the microphone in Telescope on the phone"
+        }
+        if (!micForeground) {
+            // Recording in the background needs the microphone service type, added now the permission is there.
+            try { startForegroundCompat(withMic = true) } catch (_: Exception) {
+                return "Open Telescope on the phone once, then try again"
+            }
+        }
+        return if (mic.start()) null else "The phone's microphone is in use"
     }
 
     // The newest viewer's route picks the codec; viewers of the other one lose their stream.
@@ -641,6 +665,7 @@ class CameraStreamService : Service() {
         setState(StreamState.Stopping, op)
         controller?.stop()
         server?.stop()
+        audio?.stop()
         wakeLock?.let { if (it.isHeld) it.release() }
         controller = null; server = null
         setState(StreamState.Idle, op)
@@ -655,7 +680,7 @@ class CameraStreamService : Service() {
         (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(ch)
     }
 
-    private fun startForegroundCompat() {
+    private fun startForegroundCompat(withMic: Boolean = AudioStreamer.permitted(this)) {
         val pi = PendingIntent.getActivity(this, 0,
             Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val n = NotificationCompat.Builder(this, CHANNEL_ID)
@@ -665,10 +690,15 @@ class CameraStreamService : Service() {
             .setColorized(false)
             .setContentIntent(pi).setOngoing(true).build()
         // Type parameter only works on R+; pre-R relies on manifest declaration.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
-            startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA)
-        else
+        // Microphone only once it's allowed: Android refuses a type whose permission is missing.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val types = ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA or
+                (if (withMic) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0)
+            startForeground(NOTIF_ID, n, types)
+        } else {
             startForeground(NOTIF_ID, n)
+        }
+        micForeground = withMic || Build.VERSION.SDK_INT < Build.VERSION_CODES.R
     }
 
     private fun acquireWakeLock() {

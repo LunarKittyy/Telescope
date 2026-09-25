@@ -406,8 +406,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun canInstallUpdates(): Boolean =
-        Build.VERSION.SDK_INT < Build.VERSION_CODES.O || packageManager.canRequestPackageInstalls()
+    private fun canInstallUpdates(): Boolean = packageManager.canRequestPackageInstalls()
 
     private fun startUpdate() {
         val manifest = when (val state = Updater.state) {
@@ -522,6 +521,11 @@ class MainActivity : AppCompatActivity() {
                 "Shows when the camera is streaming, and stops it from there.",
                 ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
                     PackageManager.PERMISSION_GRANTED)
+        }
+        if (getSharedPreferences(PREFS_SETUP, MODE_PRIVATE).getBoolean(CameraStreamService.KEY_MIC_WANTED, false)) {
+            steps += SetupStep(Manifest.permission.RECORD_AUDIO, "Microphone",
+                "For the Telescope microphone on your computer.",
+                AudioStreamer.permitted(this))
         }
         val pm = getSystemService(POWER_SERVICE) as PowerManager
         steps += SetupStep(null, "Battery", "Keeps Android from stopping the stream when the screen is off.",

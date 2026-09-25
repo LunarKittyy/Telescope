@@ -105,6 +105,13 @@ Everything past this point is optional - detailed feature reference, how it work
 - MJPEG: JPEG quality slider (1-100%), applied on the phone without restarting the stream
 - H.264: bitrate slider, Auto (about 8 Mbps for 1080p30, scaled by size and fps) or 1-30 Mbps, applied live
 
+**Microphone** (its own card, per phone)
+- The phone's microphone as a microphone on the computer, while streaming. The phone only records while the desktop listens, with its noise suppression and gain control when it has them
+- Linux: Telescope creates **Telescope Microphone** through PulseAudio or PipeWire (`pactl` and `pacat`, from pulseaudio-utils) and removes it when the mic is switched off or the app quits. Nothing to install on most desktops
+- Windows: needs [VB-Audio Virtual Cable](https://vb-audio.com/Cable/) (free). Telescope plays into CABLE Input; pick **CABLE Output** as the microphone in other apps. The card links to it if it's missing
+- The first time, the phone asks for microphone access: its Get set up card gains a Microphone step once the desktop has asked
+- About 60 ms of buffering; the phone's and the computer's clocks drift apart, so it drops or pads audio to stay there
+
 **Monitoring**
 - FPS and throughput (Mbps) readouts in the footer while streaming; throughput turns amber if the real decode rate falls behind the target for a sustained stretch
 - A dropped stream shows an animated "Stream dropped - reconnecting..." status instead of a static line
@@ -233,6 +240,8 @@ telescope/
 |       |-- MjpegServer.kt       # Authenticated HTTP: /v1/video(.h264)  /v1/state  /v1/control
 |       |-- H264Encoder.kt       # MediaCodec H.264 from the camera Surface
 |       |-- H264Stream.kt        # Per-viewer H.264 queue, bitrate defaults
+|       |-- AudioStreamer.kt     # Microphone recording while someone listens
+|       |-- AudioStream.kt       # PCM format, per-listener queue
 |       |-- SessionServer.kt     # Out-of-band responder (port 8766): /v1/hello, /v1/ping, /v1/session, /v1/unpair
 |       |-- SessionEndpoint.kt   # Refcounted owner of SessionServer + the commands it runs
 |       |-- StreamLauncher.kt    # Single place CameraStreamService is started from
@@ -264,6 +273,7 @@ telescope/
         |-- stream.py            # StreamWorker: MJPEG -> pipeline -> pyvirtualcam
         |-- mjpeg_reader.py      # Authenticated multipart-MJPEG reader (replaces cv2.VideoCapture)
         |-- h264_reader.py       # Authenticated H.264 reader (PyAV), same interface
+        |-- audio.py             # Phone mic -> jitter buffer -> virtual mic
         |-- session.py           # StreamSession: owns worker/client for one connect-to-disconnect lifecycle
         |-- plugin.py            # TelescopePlugin base class, EventBus, HostServices protocol
         |-- config.py            # Versioned JSON config (v3) with per-section validation
@@ -285,6 +295,7 @@ telescope/
         |   |-- stream_output.py
         |   |-- transforms.py
         |   |-- presets.py       # Saved camera/output/transform settings
+        |   |-- microphone.py    # The Microphone card
         |   |-- preview.py
         |   |-- onboarding.py    # First-run checklist
         |   |-- updates.py       # Update button and dialog
@@ -306,12 +317,13 @@ telescope/
 
 ### What it does
 
-On first launch the top card is **Get set up**: camera access, notifications and the battery exemption, in that order, each with its reason and an Allow button. The app asks for nothing on its own, and the card goes once all three are allowed. If Android stops showing a permission prompt (denied twice), the button becomes Open settings.
+On first launch the top card is **Get set up**: camera access, notifications and the battery exemption, in that order, each with its reason and an Allow button (plus Microphone, once a desktop has asked for it). The app asks for nothing on its own, and the card goes once everything is allowed. If Android stops showing a permission prompt (denied twice), the button becomes Open settings.
 
-Runs a **foreground service** (declared type `camera`, required on Android 14+) that owns a Camera2 session and an HTTP server on port 8080. Three endpoints, all requiring a bearer token issued during pairing:
+Runs a **foreground service** (type `camera`, required on Android 14+, plus `microphone` once that's allowed) that owns a Camera2 session and an HTTP server on port 8080. All endpoints require a bearer token issued during pairing:
 
 - `GET /v1/video` - MJPEG stream (`multipart/x-mixed-replace`)
 - `GET /v1/video.h264` - H.264 stream (`video/h264`: Annex-B, Baseline, a keyframe every second). A new viewer starts with the codec config and the next keyframe. Each frame is followed by an access unit delimiter, so a decoder can show it without waiting for the next one. `ffplay` plays it given the bearer header. Opening either video route switches the phone to that format.
+- `GET /v1/audio` - the microphone, raw PCM (`audio/pcm; rate=48000; channels=1; format=s16le`, 10 ms chunks). Recording starts with the first listener and stops with the last. `403` with the reason in `error` when it can't record (no permission yet, or the mic is busy)
 - `GET /v1/state` - JSON of all detected cameras + current exposure/WB/battery state
 - `POST /v1/control` - live camera control, JSON body
 
@@ -360,6 +372,8 @@ This is a debug build - self-signed, for personal/development use.
 | `CAMERA` | Open Camera2 device |
 | `FOREGROUND_SERVICE` | Run foreground service |
 | `FOREGROUND_SERVICE_CAMERA` | Required on Android 14+ for camera-type service |
+| `RECORD_AUDIO` | The desktop's microphone option; asked for only after a desktop wants it |
+| `FOREGROUND_SERVICE_MICROPHONE` | Recording the mic while the screen is off |
 | `INTERNET` | HTTP server on 0.0.0.0:8080 |
 | `WAKE_LOCK` | Keep CPU active with screen off |
 | `POST_NOTIFICATIONS` | Persistent streaming notification |
