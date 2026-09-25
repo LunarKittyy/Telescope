@@ -25,8 +25,9 @@ class _LensButton(QPushButton):
 
 
 def shorten_lens_label(raw: str) -> str:
-    """Strip Android boilerplate ("Back", "[phys]") from camera names."""
+    """Strip Android boilerplate ("Back", "[phys]") from camera names; "[auto]" marks a multi-lens camera."""
     return (raw.replace(" [phys]", "")
+               .replace(" [auto]", " Auto")
                .replace("Back ", "")
                .replace("Front ", "F/")
                .replace("Telephoto", "Tele")  # keeps the zoom factor ("Tele 3x") inside a grid cell

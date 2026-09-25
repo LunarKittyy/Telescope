@@ -289,6 +289,7 @@ def test_eliding_label_keeps_its_full_text_available(qapp):
 def test_lens_labels_keep_the_zoom_factor_when_shortened():
     from telescope.widgets.lens_panel import shorten_lens_label
     assert shorten_lens_label("Back Telephoto 3x [phys]") == "Tele 3x"
+    assert shorten_lens_label("Back ~24mm OIS [auto]") == "~24mm OIS Auto"
 
 
 def test_run_off_ui_thread_returns_the_result_from_a_worker_thread(qapp):

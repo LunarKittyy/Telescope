@@ -32,6 +32,9 @@ data class CameraCapability(
     val hwLevel: String,
     val supportedSizes: List<CameraSize> = emptyList(),
     val supportsFocusPoint: Boolean = false,
+    val zoomRatioMax: Float = 1f,
+    val cropZoomMax: Float = 1f,
+    val freeformCrop: Boolean = false,
 )
 
 @Serializable

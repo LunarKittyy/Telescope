@@ -51,6 +51,9 @@ data class CameraEntry(
     val maxAfRegions: Int = 0,
     val maxAeRegions: Int = 0,
     val activeArray: SensorBox? = null,
+    val zoomRatioMax: Float = 1f,     // CONTROL_ZOOM_RATIO's upper end; 1 = can't (Android 10-, physical lenses)
+    val cropZoomMax: Float = 1f,      // SCALER_CROP_REGION's max zoom; 1 = the crop can't be set on this camera
+    val freeformCrop: Boolean = false, // the crop can sit off-centre
 )
 
 // The sensor's active pixel array (SENSOR_INFO_ACTIVE_ARRAY_SIZE), kept free of android.graphics.Rect so
@@ -96,18 +99,11 @@ object CameraRequestSelection {
     }
 
     // The metering region for a point picked in the stream frame (x, y in 0..1), as left, top, width,
-    // height in active-array pixels. The stream is the array's centre crop to the stream's aspect ratio
-    // (no JPEG rotation is applied), so points map through that crop. size is the square's side as a
-    // fraction of the visible frame's shorter side.
-    fun meteringRect(x: Float, y: Float, size: Float, array: SensorBox, streamW: Int, streamH: Int): IntArray {
-        val arrayAspect = array.width.toFloat() / array.height
-        val streamAspect = if (streamW > 0 && streamH > 0) streamW.toFloat() / streamH else arrayAspect
-        val visW: Float
-        val visH: Float
-        if (streamAspect > arrayAspect) { visW = array.width.toFloat(); visH = visW / streamAspect }
-        else { visH = array.height.toFloat(); visW = visH * streamAspect }
-        val visLeft = array.left + (array.width - visW) / 2f
-        val visTop = array.top + (array.height - visH) / 2f
+    // height in request coordinates. The stream is the centre crop of `area` (the active array, or the
+    // zoom crop) to the stream's aspect ratio (no JPEG rotation is applied), so points map through that
+    // crop. size is the square's side as a fraction of the visible frame's shorter side.
+    fun meteringRect(x: Float, y: Float, size: Float, area: SensorBox, streamW: Int, streamH: Int): IntArray {
+        val (visLeft, visTop, visW, visH) = visibleFrame(area, streamW, streamH)
         val cx = visLeft + x.coerceIn(0f, 1f) * visW
         val cy = visTop + y.coerceIn(0f, 1f) * visH
         val side = (size.coerceIn(0.02f, 1f) * minOf(visW, visH)).coerceAtLeast(1f)
@@ -115,6 +111,28 @@ object CameraRequestSelection {
         val left = (cx - side / 2f).coerceIn(visLeft, visLeft + visW - side)
         val top = (cy - side / 2f).coerceIn(visTop, visTop + visH - side)
         return intArrayOf(left.toInt(), top.toInt(), side.toInt(), side.toInt())
+    }
+
+    // SCALER_CROP_REGION for phone-side zoom: 1/crop of the visible frame, centred on (cx, cy) in 0..1 of
+    // it and kept inside it. Stream-shaped, so the camera crops nothing more to fit the output.
+    fun cropRect(area: SensorBox, crop: Float, cx: Float, cy: Float, streamW: Int, streamH: Int): SensorBox {
+        val (visLeft, visTop, visW, visH) = visibleFrame(area, streamW, streamH)
+        val w = visW / crop.coerceAtLeast(1f)
+        val h = visH / crop.coerceAtLeast(1f)
+        val left = (visLeft + cx * visW - w / 2f).coerceIn(visLeft, visLeft + visW - w)
+        val top = (visTop + cy * visH - h / 2f).coerceIn(visTop, visTop + visH - h)
+        return SensorBox(left.toInt(), top.toInt(), w.toInt(), h.toInt())
+    }
+
+    // The centre crop of `area` to the stream's aspect ratio: left, top, width, height.
+    private fun visibleFrame(area: SensorBox, streamW: Int, streamH: Int): FloatArray {
+        val areaAspect = area.width.toFloat() / area.height
+        val streamAspect = if (streamW > 0 && streamH > 0) streamW.toFloat() / streamH else areaAspect
+        val visW: Float
+        val visH: Float
+        if (streamAspect > areaAspect) { visW = area.width.toFloat(); visH = visW / streamAspect }
+        else { visH = area.height.toFloat(); visW = visH * streamAspect }
+        return floatArrayOf(area.left + (area.width - visW) / 2f, area.top + (area.height - visH) / 2f, visW, visH)
     }
 
     fun clamp(value: Int, min: Int, max: Int): Int =
@@ -376,6 +394,20 @@ class CameraStreamService : Service() {
             val activeArray = chars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
                 ?.let { SensorBox(it.left, it.top, it.width(), it.height()) }
 
+            // Phone-side zoom. A physical lens goes through its logical parent's request, which sets its
+            // crop only if the parent says so, and has no zoom ratio of its own.
+            val zoomRatioMax = if (logicalParent == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+                chars.get(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE)?.upper ?: 1f else 1f
+            val cropSettable = logicalParent == null || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+                manager.getCameraCharacteristics(logicalParent).availablePhysicalCameraRequestKeys
+                    ?.contains(CaptureRequest.SCALER_CROP_REGION) == true)
+            val cropZoomMax = if (cropSettable && activeArray != null)
+                chars.get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM) ?: 1f else 1f
+            val freeformCrop = chars.get(CameraCharacteristics.SCALER_CROPPING_TYPE) ==
+                CameraCharacteristics.SCALER_CROPPING_TYPE_FREEFORM
+            val multiLens = caps?.contains(
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA) == true
+
             val streamMap = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
             val supportedSizes = streamMap?.getOutputSizes(ImageFormat.JPEG)
                 ?.sortedByDescending { it.width * it.height }
@@ -394,13 +426,14 @@ class CameraStreamService : Service() {
 
             val fStr = if (focalEq > 0) "~${focalEq}mm" else "?"
             val oStr = if (hasOis) " OIS" else ""
-            val pStr = if (logicalParent != null) " [phys]" else ""
+            val pStr = if (logicalParent != null) " [phys]" else if (multiLens) " [auto]" else ""
             CameraEntry(id, logicalParent, "$facing $fStr$oStr$pStr", hasOis,
                         isoMin, isoMax, shtMinNs, shtMaxNs,
                         supportsManualSensor, supportsManualWB, supportsManualFocus, minFocusDist, hwLevel,
                         aeCompMin, aeCompMax, aeCompStep, supportsFlash,
                         aeFpsRanges, afModes, nrModes, edgeModes, supportedSizes,
-                        maxAfRegions, maxAeRegions, activeArray)
+                        maxAfRegions, maxAeRegions, activeArray,
+                        zoomRatioMax.coerceAtLeast(1f), cropZoomMax.coerceAtLeast(1f), freeformCrop)
         }.getOrNull()
 
         manager.cameraIdList.forEach { id ->
@@ -511,6 +544,7 @@ class CameraStreamService : Service() {
                 supportedSizes = e.supportedSizes.map { CameraSize(it.width, it.height) },
                 supportsFocusPoint = e.maxAfRegions > 0 && e.activeArray != null &&
                     CaptureRequest.CONTROL_AF_MODE_AUTO in e.afModes,
+                zoomRatioMax = e.zoomRatioMax, cropZoomMax = e.cropZoomMax, freeformCrop = e.freeformCrop,
             )
         }
         val (battLevel, battCharging, battTempC) = getBatteryInfo()
@@ -616,6 +650,16 @@ class CameraStreamService : Service() {
                     val y = params["y"]?.toFloatOrNull() ?: return err("bad y")
                     val size = params["size"]?.toFloatOrNull() ?: 0.1f
                     if (!ctrl.setFocusPoint(x, y, size)) return err("this lens can't focus on a point")
+                    ok()
+                }
+                "zoom" -> {
+                    // ratio: centred zoom; crop: extra zoom inside that; x, y: the crop's centre, 0..1 of the view
+                    val ratio = params["ratio"]?.toFloatOrNull() ?: return err("bad ratio")
+                    val crop  = params["crop"]?.toFloatOrNull()  ?: return err("bad crop")
+                    val x     = params["x"]?.toFloatOrNull()     ?: return err("bad x")
+                    val y     = params["y"]?.toFloatOrNull()     ?: return err("bad y")
+                    ctrl.setZoom(ZoomRequest(ratio.coerceAtLeast(1f), crop.coerceAtLeast(1f),
+                                             x.coerceIn(0f, 1f), y.coerceIn(0f, 1f)))
                     ok()
                 }
                 "focus_mode" -> {

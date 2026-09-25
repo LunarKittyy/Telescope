@@ -77,6 +77,9 @@ class CameraCapabilities:
     supports_flash: bool
     hw_level: str
     supports_focus_point: bool = False
+    zoom_ratio_max: float = 1.0   # newer phone apps only: how far the lens zooms itself (CONTROL_ZOOM_RATIO)
+    crop_zoom_max: float = 1.0    # ... and crops on top of that (SCALER_CROP_REGION)
+    freeform_crop: bool = False   # ... and whether that crop can sit off-centre
 
     @classmethod
     def from_dict(cls, raw: dict) -> "CameraCapabilities":
@@ -106,6 +109,9 @@ class CameraCapabilities:
             supports_flash=_require_bool(raw, "supportsFlash", w),
             hw_level=_require_str(raw, "hwLevel", w),
             supports_focus_point=raw.get("supportsFocusPoint", False) is True,  # newer phone apps only
+            zoom_ratio_max=_optional_number(raw, "zoomRatioMax") or 1.0,
+            crop_zoom_max=_optional_number(raw, "cropZoomMax") or 1.0,
+            freeform_crop=raw.get("freeformCrop", False) is True,
         )
 
 

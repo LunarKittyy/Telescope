@@ -181,4 +181,33 @@ class MeteringRectTest {
         val out = rect(-1f, 2f, 1440, 1080, a = offset)
         org.junit.jupiter.api.Assertions.assertEquals(8, out[0])
     }
+
+    @org.junit.jupiter.api.Test
+    fun `metering inside a zoom crop maps through the crop`() {
+        val crop = CameraRequestSelection.cropRect(array, 2f, 0.5f, 0.5f, 1440, 1080)
+        org.junit.jupiter.api.Assertions.assertEquals(listOf(1925, 1425, 150, 150), rect(0.5f, 0.5f, 1440, 1080, a = crop))
+    }
+}
+
+class CropRectTest {
+    private val array = SensorBox(0, 0, 4000, 3000)  // 4:3 sensor
+
+    private fun crop(zoom: Float, x: Float, y: Float, w: Int = 1920, h: Int = 1080) =
+        CameraRequestSelection.cropRect(array, zoom, x, y, w, h)
+
+    @org.junit.jupiter.api.Test
+    fun `no zoom is the stream-shaped centre of the array`() {
+        org.junit.jupiter.api.Assertions.assertEquals(SensorBox(0, 375, 4000, 2250), crop(1f, 0.5f, 0.5f))
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `a centred zoom halves each side around the middle`() {
+        org.junit.jupiter.api.Assertions.assertEquals(SensorBox(1000, 937, 2000, 1125), crop(2f, 0.5f, 0.5f))
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `an off-centre crop moves and stays inside the visible frame`() {
+        org.junit.jupiter.api.Assertions.assertEquals(SensorBox(2000, 375, 2000, 1125), crop(2f, 1f, 0f))
+        org.junit.jupiter.api.Assertions.assertEquals(SensorBox(0, 1500, 2000, 1125), crop(2f, -3f, 5f))
+    }
 }
