@@ -288,6 +288,6 @@ UnityCapture helpers: `uc_registered_name()` (the name apps list it under, read 
 
 ### `plugins/setup.py`
 **SetupPlugin** - the **Advanced** dialog, reached from the header's settings menu (`create_menu_actions()`); no panel, since nothing in it is adjusted mid-stream.
-- `AdvancedDialog`: v4l2loopback status, load/unload and load at boot (Linux), UnityCapture status and reinstall (or Rename to Telescope for an older registration) plus adb status (Windows), installing an APK over USB, and the virtual camera canvas (presets or custom, applied through `host.restart_vcam_canvas()`).
+- `AdvancedDialog`: v4l2loopback status, load/unload and load at boot (Linux), UnityCapture status and reinstall (or **Rename**, to Telescope, for an older registration) plus adb status (Windows), installing an APK over USB, and the virtual camera canvas (presets or custom, applied through `host.restart_vcam_canvas()`).
 - `get_canvas_dims()` → `(w, h)` or `(None, None)` for auto; read by `app.py` at stream start.
 - Config keys: `canvas_preset`, `custom_canvas_w`, `custom_canvas_h`.

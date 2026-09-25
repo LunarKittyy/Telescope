@@ -21,7 +21,7 @@ The APK signing key lives in the repository secrets (see the README's CI section
 ## Packaging
 
 - [ ] Windows: `TelescopeDesktop.exe` launches, the first-run checklist's Install driver registers UnityCapture, bundled `adb.exe` works for USB.
-- [ ] Windows: OBS and Zoom list the camera as **Telescope**. On a machine registered by an older version, Advanced offers Rename to Telescope, and streaming works before and after.
+- [ ] Windows: OBS and Zoom list the camera as **Telescope**. On a machine registered by an older version, Advanced offers Rename, and streaming works before and after.
 - [ ] Linux: `start.sh` creates venv at `$XDG_DATA_HOME/Telescope/venv` on clean machine/account and launches successfully.
 - [ ] Both bundles contain `THIRD_PARTY_NOTICES.txt` and `Telescope.apk`.
 - [ ] `manifest.json` checksums match the downloaded files (`sha256sum`).

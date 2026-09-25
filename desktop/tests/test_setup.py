@@ -175,7 +175,7 @@ def test_windows_background_check_emits_current_status(monkeypatch, windows_dial
 
 def test_an_old_registration_offers_the_rename(windows_dialog):
     windows_dialog._on_win_checks("Unity Video Capture", True)
-    assert windows_dialog._uc_btn.text() == "Rename to Telescope"
+    assert windows_dialog._uc_btn.text() == "Rename"
     assert "Unity Video Capture" in windows_dialog._uc_status_lbl.text()
 
 

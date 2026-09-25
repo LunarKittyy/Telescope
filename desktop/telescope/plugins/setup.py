@@ -353,12 +353,14 @@ class AdvancedDialog(QDialog):
             set_status_kind(self._uc_status_lbl, "status_ok")
             self._uc_status_lbl.setText("Ready")
             self._uc_btn.setText("Reinstall")
+            self._uc_btn.setToolTip("")
             set_ui_role(self._uc_btn, "")
         elif uc_name:
             # Registered by an older Telescope under UnityCapture's own name. Works, just harder to find.
             set_status_kind(self._uc_status_lbl, "status_warn")
             self._uc_status_lbl.setText(f"Apps list it as \u201c{uc_name}\u201d")
-            self._uc_btn.setText(f"Rename to {UC_NAME}")
+            self._uc_btn.setText("Rename")
+            self._uc_btn.setToolTip(f"Register it again as \u201c{UC_NAME}\u201d")
             set_ui_role(self._uc_btn, "primary")
         else:
             set_status_kind(self._uc_status_lbl, "status_err")
@@ -366,6 +368,7 @@ class AdvancedDialog(QDialog):
             self._uc_status_lbl.setText(
                 "Not installed" if dlls else "Not installed (Install downloads the driver first)")
             self._uc_btn.setText("Install driver")
+            self._uc_btn.setToolTip("")
             set_ui_role(self._uc_btn, "primary")
         if adb_ok:
             set_status_kind(self._adb_status_lbl, "status_ok")
