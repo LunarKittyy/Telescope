@@ -2,10 +2,14 @@
 
 Per phone. While it's on, it follows the stream: it starts with it and stops with it. The phone only
 records while something is listening.
+
+Setting up and removing the virtual mic, and stopping the audio worker, all wait on other processes
+or threads, so they run in order on one background thread and the window never waits on them.
 """
 
 import logging
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 from PyQt6.QtCore import QObject, QUrl, pyqtSignal
@@ -87,16 +91,18 @@ def default_backend():
 
 
 class _Signals(QObject):
-    status = pyqtSignal(str, str)  # from the worker's threads
+    status = pyqtSignal(str, str)    # from the worker's threads
+    prepared = pyqtSignal(int, str)  # start generation, error text ("" when ready)
 
 
 class MicrophonePlugin(TelescopePlugin):
     name = "microphone"
     panel_region = "left"
 
-    def __init__(self, backend=None, worker_cls=audio.AudioWorker):
+    def __init__(self, backend=None, worker_cls=audio.AudioWorker, run_job=None):
         self._backend = backend
         self._worker_cls = worker_cls
+        self._run_job = run_job  # runs a callable off the UI thread; tests pass one that runs it inline
 
     def setup(self, host, bus):
         self._host = host
@@ -107,6 +113,13 @@ class MicrophonePlugin(TelescopePlugin):
         self._backend = self._backend or default_backend()
         self._sig = _Signals()
         self._sig.status.connect(self._on_worker_status)
+        self._sig.prepared.connect(self._on_prepared)
+        self._gen = 0  # bumped by every start and stop, so a late setup result can't revive a stopped mic
+        self._preparing = False
+        self._jobs = None
+        if self._run_job is None:
+            self._jobs = ThreadPoolExecutor(max_workers=1, thread_name_prefix="mic-setup")
+            self._run_job = self._jobs.submit
 
     def create_panel(self) -> QWidget:
         card = create_card()
@@ -144,7 +157,7 @@ class MicrophonePlugin(TelescopePlugin):
         problem = self._backend.problem()
         if problem:
             self._show(problem[0], "warn", problem[1])
-        elif self._worker is None:
+        elif self._worker is None and not self._preparing:
             self._show("Starts with the stream.")
 
     def _on_toggled(self, on: bool):
@@ -157,17 +170,40 @@ class MicrophonePlugin(TelescopePlugin):
             self._start_worker()
         else:
             self._stop_worker()
-            self._backend.teardown()
+            self._run_job(self._backend.teardown)
             self._refresh()
 
     def _start_worker(self):
-        if self._worker is not None or self._ctrl is None or not self._enabled:
+        if self._worker is not None or self._preparing or self._ctrl is None or not self._enabled:
             return
         if self._backend.problem():
             return
-        err = self._backend.prepare()
+        self._gen += 1
+        self._preparing = True
+        self._show("Setting up…")
+        gen, signals, backend = self._gen, self._sig, self._backend
+
+        def prepare():
+            try:
+                err = backend.prepare()
+            except Exception as e:
+                logger.exception("Microphone setup failed")
+                err = f"Couldn't create the virtual microphone: {e}"
+            try:
+                signals.prepared.emit(gen, err)
+            except RuntimeError:
+                pass  # the window is gone
+        self._run_job(prepare)
+
+    def _on_prepared(self, gen: int, err: str):
+        if gen != self._gen:
+            return  # stopped or restarted meanwhile
+        self._preparing = False
         if err:
             self._show(err, "err")
+            return
+        if self._ctrl is None or not self._enabled:
+            self._refresh()
             return
         self._show("Connecting…")
         self._worker = self._worker_cls(f"{self._ctrl.base}/audio", self._ctrl.token,
@@ -175,9 +211,11 @@ class MicrophonePlugin(TelescopePlugin):
         self._worker.start()
 
     def _stop_worker(self):
+        self._gen += 1
+        self._preparing = False
         worker, self._worker = self._worker, None
         if worker is not None:
-            worker.stop()
+            self._run_job(worker.stop)
 
     def _on_worker_status(self, kind: str, text: str):
         if self._worker is None:
@@ -203,7 +241,13 @@ class MicrophonePlugin(TelescopePlugin):
         self._refresh()
 
     def shutdown(self):
-        self._stop_worker()
+        # Quitting may wait: the virtual mic has to be gone before the app is.
+        self._gen += 1
+        worker, self._worker = self._worker, None
+        if self._jobs is not None:
+            self._jobs.shutdown(wait=True)
+        if worker is not None:
+            worker.stop()
         self._backend.teardown()
 
     def get_config(self) -> dict:

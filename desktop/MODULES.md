@@ -285,7 +285,7 @@ UnityCapture helpers: `uc_registered_name()` (the name apps list it under, read 
 
 ### `plugins/updates.py`
 **UpdatesPlugin** - a green **Update** button in the header (right side, hidden until there's an update) and the **Updates…** dialog in the settings menu.
-- Checks 8 s after launch, then daily (an hourly timer checks whether a day has passed). Background failures stay quiet; **Check now** says what went wrong.
+- Checks 8 s after every launch, then daily (an hourly timer checks whether a day has passed; a background check that failed is retried on the next tick). Background failures stay quiet; **Check now** says what went wrong.
 - `UpdatesDialog`: this version, channel (Stable / Nightly), Check daily, what's new, and **Update and restart** (disabled while streaming, or **Open download page** when `self_update_blocker()` says so).
 - Download and install run in a thread; on success it relaunches (`--after-update`) and calls `host.quit_app()`.
 - Config keys: `channel`, `auto_check`, `last_check`.
@@ -297,7 +297,7 @@ UnityCapture helpers: `uc_registered_name()` (the name apps list it under, read 
 - Config key: `presets`.
 
 ### `plugins/microphone.py`
-**MicrophonePlugin** - the Microphone card (left): an On switch, a status line, and a button when something's missing (Get VB-Cable). Per phone (`DEVICE_LOCAL_PLUGINS`). While on, it follows the stream: `on_stream_start` prepares the virtual mic and starts an `AudioWorker` on `{ctrl.base}/audio`; `on_stream_stop` stops it; switching off also removes the Linux virtual mic, as does `shutdown()`. `LinuxMic` / `WindowsMic` hold the per-OS parts (`problem()`, `prepare()`, `open_sink()`, `teardown()`, `pick_name`); the backend and worker class are injectable. Config key: `enabled`.
+**MicrophonePlugin** - the Microphone card (left): an On switch, a status line, and a button when something's missing (Get VB-Cable). Per phone (`DEVICE_LOCAL_PLUGINS`). While on, it follows the stream: `on_stream_start` prepares the virtual mic and starts an `AudioWorker` on `{ctrl.base}/audio`; `on_stream_stop` stops it; switching off also removes the Linux virtual mic, as does `shutdown()`. `LinuxMic` / `WindowsMic` hold the per-OS parts (`problem()`, `prepare()`, `open_sink()`, `teardown()`, `pick_name`); `prepare()`, the worker's `stop()` and `teardown()` wait on pactl or threads, so they run in order on one background thread (`run_job`, injectable like the backend and worker class); a generation counter drops a setup result that arrives after the stream stopped. `shutdown()` waits for them, since the mic has to be gone before the app is. Config key: `enabled`.
 
 ### `plugins/startup.py`
 **StartupPlugin** - two checkable settings-menu entries. **Start streaming when the phone is ready** listens to `bus.phone_ready` and calls `host.start_stream(interactive=False)` once per arrival: a Stop or an attempt holds it until the phone reports not ready (or another phone is selected). It also keeps the window in the tray on close. **Open Telescope when I sign in** calls `platform/autostart.py`. Config key: `auto_stream` (global).

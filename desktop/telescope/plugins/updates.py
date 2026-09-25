@@ -234,8 +234,10 @@ class UpdatesPlugin(TelescopePlugin):
     # ── Checking ──────────────────────────────────────────────────────────
 
     def _maybe_auto_check(self):
-        if (self.auto_check and version.CHANNEL != "dev" and not self.busy
-                and time.time() - self._last_check >= _CHECK_INTERVAL_S):
+        """Once each launch, then daily while Telescope stays open."""
+        if not self.auto_check or version.CHANNEL == "dev" or self.busy:
+            return
+        if not self._checked or time.time() - self._last_check >= _CHECK_INTERVAL_S:
             self.check(manual=False)
 
     def check(self, manual: bool = False):

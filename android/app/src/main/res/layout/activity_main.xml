@@ -455,6 +455,14 @@
                         android:text="Built from every change: fixes arrive sooner, with less testing."
                         android:textAppearance="@style/TextAppearance.Telescope.Hint" />
 
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCheckUpdates"
+                        style="?attr/materialButtonOutlinedStyle"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="10dp"
+                        android:text="Check for updates" />
+
                     <TextView
                         android:id="@+id/tvAppVersion"
                         android:layout_width="match_parent"

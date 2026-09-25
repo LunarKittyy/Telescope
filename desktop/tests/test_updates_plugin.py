@@ -1,3 +1,4 @@
+import time
 """The update button, dialog and flow on top of telescope/updates.py."""
 
 import pytest
@@ -80,6 +81,15 @@ def test_the_daily_check_waits_a_day_and_skips_source_checkouts(env, monkeypatch
     monkeypatch.setattr(version, "CHANNEL", "dev")
     plugin._maybe_auto_check()
     assert len(fetched["channels"]) == 1
+
+
+def test_each_launch_checks_even_if_the_last_check_was_recent(env):
+    plugin, _host, _bus, _button, fetched = env
+    plugin.set_config({"last_check": time.time() - 60})  # saved by the previous run
+    plugin._maybe_auto_check()
+    assert fetched["channels"] == ["nightly"]
+    plugin._maybe_auto_check()
+    assert len(fetched["channels"]) == 1  # then daily
 
 
 def test_background_failures_stay_quiet_but_a_manual_check_explains(env):

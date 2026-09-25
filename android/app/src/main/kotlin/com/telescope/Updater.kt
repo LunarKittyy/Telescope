@@ -25,6 +25,7 @@ object Updater {
         object Idle : State()
         object Checking : State()
         object UpToDate : State()
+        object CheckFailed : State()  // offline, or GitHub didn't answer
         data class Available(val manifest: UpdateManifest) : State()
         data class Downloading(val manifest: UpdateManifest, val percent: Int) : State()
         data class Installing(val manifest: UpdateManifest) : State()
@@ -39,6 +40,7 @@ object Updater {
 
     @Volatile var state: State = State.Idle
         private set
+    @Volatile private var checkedThisRun = false
     private val listeners = CopyOnWriteArraySet<() -> Unit>()
     private val main = Handler(Looper.getMainLooper())
 
@@ -61,23 +63,25 @@ object Updater {
     // Local builds ("dev") are signed with a debug key, so no release could install over them anyway.
     fun canUpdate(): Boolean = BuildConfig.CHANNEL != "dev"
 
+    // Once each time the app starts, then daily while it stays open.
     fun maybeCheck(context: Context) {
-        if (!canUpdate() || state !is State.Idle && state !is State.UpToDate) return
-        if (UpdateLogic.checkDue(prefs(context).getLong(KEY_LAST_CHECK, 0), System.currentTimeMillis())) {
-            check(context)
-        }
+        if (!canUpdate()) return
+        if (state !is State.Idle && state !is State.UpToDate && state !is State.CheckFailed) return
+        val last = prefs(context).getLong(KEY_LAST_CHECK, 0)
+        if (!checkedThisRun || UpdateLogic.checkDue(last, System.currentTimeMillis())) check(context)
     }
 
     fun check(context: Context) {
         if (state is State.Checking || state is State.Downloading || state is State.Installing) return
         val app = context.applicationContext
         val channel = channel(app)
+        checkedThisRun = true
         set(State.Checking)
         Thread {
             val manifest = try {
                 fetchManifest(channel)
             } catch (e: Exception) {
-                set(State.Idle)  // offline is normal; try again next launch
+                set(State.CheckFailed)  // offline is normal; the next launch or Check tries again
                 return@Thread
             }
             prefs(app).edit().putLong(KEY_LAST_CHECK, System.currentTimeMillis()).apply()
