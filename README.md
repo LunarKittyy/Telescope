@@ -122,6 +122,12 @@ Everything past this point is optional - detailed feature reference, how it work
 - Changing **Connect via** on the desktop reconnects a running stream over the new route
 - Local only also stops the phone announcing itself on the LAN
 
+**Updates**
+- Both apps check for a newer build once a day, on the channel you pick: **Stable** (tagged releases) or **Nightly** (every change to `master`). Nightly builds follow nightly by default, everything else follows stable
+- Desktop: an **Update** button appears in the header. The update downloads, checks its SHA-256, replaces the app and restarts it. Not while streaming. A source checkout or a folder the app can't write to only links to the release
+- Phone: the update card at the top downloads the APK, checks its checksum and signing key, and hands it to Android's installer. The first time, Android asks to allow installs from Telescope
+- When the phone app is older than the desktop, the Connection panel says so, and offers **Update over USB** when the phone is plugged in and the desktop bundle carries a newer APK
+
 **System integration**
 - Minimizes to system tray on close only when streaming; otherwise quits
 - Right-click the tray icon to quit, or click it to show/hide the window
@@ -218,6 +224,8 @@ telescope/
 |       |-- SessionEndpoint.kt   # Refcounted owner of SessionServer + the commands it runs
 |       |-- StreamLauncher.kt    # Single place CameraStreamService is started from
 |       |-- StreamPrefs.kt       # Last camera/resolution selection, for desktop-initiated starts
+|       |-- Updater.kt           # Self-update: manifest check, download, verify, PackageInstaller
+|       |-- UpdateLogic.kt       # Manifest parsing and version rules (JVM-tested)
 |       |-- LanAnnouncer.kt      # mDNS announcement (_telescope._tcp) so desktops find the phone's address
 |       +-- HttpWire.kt          # The HTTP/1.1 subset MjpegServer and SessionServer share
 |
@@ -237,6 +245,7 @@ telescope/
     |-- unitycapture/            # Bundled UnityCapture DLLs (MIT)
     +-- telescope/
         |-- version.py           # This build's version, build number and channel
+        |-- updates.py           # Qt-free update check, download, verify and install
         |-- app.py               # TelescopeWindow: plugin host, responsive shell, stream lifecycle
         |-- theme.py             # Palette tokens + the app stylesheet
         |-- stream.py            # StreamWorker: MJPEG -> pipeline -> pyvirtualcam
@@ -262,6 +271,7 @@ telescope/
         |   |-- transforms.py
         |   |-- preview.py
         |   |-- onboarding.py    # First-run checklist
+        |   |-- updates.py       # Update button and dialog
         |   +-- monitoring.py
         +-- widgets/
             |-- common.py        # NoScroll*, LogSliderRow, rows, segmented toggles, icons
@@ -334,6 +344,7 @@ This is a debug build - self-signed, for personal/development use.
 | `POST_NOTIFICATIONS` | Persistent streaming notification |
 | `ACCESS_NETWORK_STATE` | Show device IP in UI |
 | `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | Prompt to exempt app from battery restrictions on first launch |
+| `REQUEST_INSTALL_PACKAGES` | Installing its own updates; Android asks the first time |
 
 </details>
 
@@ -665,7 +676,7 @@ Builds everything from one commit, then publishes it together:
 - a push to `master` replaces the rolling **`nightly`** pre-release (deleted and recreated, so it stays at the top of the Releases page)
 - a tag `vX.Y.Z` creates the stable release `Telescope X.Y.Z`; the tag must match `VERSION`
 
-Each release holds `Telescope.apk`, `Telescope-windows.zip`, `Telescope-linux.tar.gz` (both desktop bundles include the APK, for Install over USB) and `manifest.json`: version, build number, channel, commit, session protocol, and each file's URL, size and SHA-256. The apps' update check reads the manifest.
+Each release holds `Telescope.apk`, `Telescope-windows.zip`, `Telescope-linux.tar.gz` (both desktop bundles include the APK, for Install over USB) and `manifest.json`: version, build number, channel, commit, session protocol, and each file's URL, size and SHA-256. The apps' update check reads the manifest: the phone compares `android.versionCode` with its own, the desktop compares `build`.
 
 The APK is signed with the release key from the repository secrets `TELESCOPE_KEYSTORE` (the keystore, base64), `TELESCOPE_KEYSTORE_PASSWORD`, `TELESCOPE_KEY_ALIAS` and `TELESCOPE_KEY_PASSWORD`. A release fails rather than publish an APK signed with a debug key, because Android only installs an update signed with the same key as the installed app.
 

@@ -115,3 +115,17 @@ def adb_broadcast_pair(payload_b64: str, serial=None):
         serial,
     ))
     return (True, "Broadcast sent") if rc == 0 else (False, err)
+
+
+def adb_install(serial: str, apk_path, timeout: int = 120) -> tuple:
+    """`adb install -r` onto one phone; (ok, what to tell the user when it failed)."""
+    rc, out, err = _run([adb_exe(), "-s", serial, "install", "-r", str(apk_path)], timeout=timeout)
+    output = (out + err).strip()
+    if rc == 0 and "Success" in output:
+        return True, ""
+    if "INSTALL_FAILED_UPDATE_INCOMPATIBLE" in output:
+        # The installed app was signed with another key (the debug builds from before release signing).
+        return False, "The Telescope app on the phone was signed differently. Uninstall it on the phone, then try again."
+    if "INSTALL_FAILED_VERSION_DOWNGRADE" in output:
+        return False, "The phone already has a newer Telescope app."
+    return False, output.splitlines()[-1] if output else "adb install failed"

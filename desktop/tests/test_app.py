@@ -194,7 +194,25 @@ def test_acquire_single_instance_notifies_existing_process(monkeypatch):
     monkeypatch.setattr(app_module.socket, "socket", lambda *_args: next(sockets))
     assert app_module.acquire_single_instance() is None
     assert ("send", b"raise") in events
-    assert events[-1] == "server-close"
+    assert events[0] == "server-close"
+
+
+def test_acquire_single_instance_waits_for_the_old_copy_after_an_update(monkeypatch):
+    attempts = []
+
+    class Socket:
+        def setsockopt(self, *_args): pass
+        def bind(self, _address):
+            attempts.append(1)
+            if len(attempts) < 3:
+                raise OSError("still running")
+        def listen(self, _count): pass
+        def close(self): pass
+
+    monkeypatch.setattr(app_module.socket, "socket", lambda *_args: Socket())
+    monkeypatch.setattr(app_module.time, "sleep", lambda _s: None)
+    assert app_module.acquire_single_instance(wait=5) is not None
+    assert len(attempts) == 3
 
 
 def test_acquire_single_instance_tolerates_stale_listener(monkeypatch):

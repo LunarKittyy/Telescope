@@ -52,7 +52,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var cardPermissions: CardView
     private lateinit var layoutPermissionsContainer: LinearLayout
     private lateinit var btnCopyDiagnostics: MaterialButton
+    private lateinit var cardUpdate: View
+    private lateinit var tvUpdateTitle: TextView
+    private lateinit var tvUpdateText: TextView
+    private lateinit var btnUpdate: MaterialButton
+    private lateinit var switchNightly: CompoundButton
+    private lateinit var tvAppVersion: TextView
     private var _permissionsRequested = false
+    // An update waiting for "Allow from this source" to be switched on in Settings.
+    private var pendingUpdate: UpdateManifest? = null
 
 
     private var service: CameraStreamService? = null
@@ -162,7 +170,23 @@ class MainActivity : AppCompatActivity() {
             scanLauncher.launch(opts)
         }
         btnCopyDiagnostics.setOnClickListener { copyDiagnostics() }
-        findViewById<TextView>(R.id.tvAppVersion).text = "Telescope ${BuildConfig.VERSION_NAME}"
+
+        cardUpdate    = findViewById(R.id.cardUpdate)
+        tvUpdateTitle = findViewById(R.id.tvUpdateTitle)
+        tvUpdateText  = findViewById(R.id.tvUpdateText)
+        btnUpdate     = findViewById(R.id.btnUpdate)
+        switchNightly = findViewById(R.id.switchNightly)
+        tvAppVersion  = findViewById(R.id.tvAppVersion)
+        btnUpdate.setOnClickListener { startUpdate() }
+        if (Updater.canUpdate()) {
+            switchNightly.isChecked = Updater.channel(this) == UpdateLogic.NIGHTLY
+            switchNightly.setOnCheckedChangeListener { _, checked ->
+                Updater.setChannel(this, if (checked) UpdateLogic.NIGHTLY else UpdateLogic.STABLE)
+            }
+        } else {
+            switchNightly.visibility = View.GONE
+            findViewById<View>(R.id.tvNightlyHint).visibility = View.GONE
+        }
 
         spinnerCamera.onItemSelectedListener = cameraSpinnerListener
 
@@ -172,6 +196,12 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         checkPermissions()
+        Updater.maybeCheck(this)
+        val waiting = pendingUpdate
+        if (waiting != null && canInstallUpdates()) {
+            pendingUpdate = null
+            Updater.downloadAndInstall(this, waiting)
+        }
     }
 
     override fun onStart() {
@@ -179,7 +209,9 @@ class MainActivity : AppCompatActivity() {
         bindService(Intent(this, CameraStreamService::class.java), serviceConnection, 0)
         uiHandler.post(statusPoller)
         PairedComputers.addListener(pairingListener)
+        Updater.addListener(updateListener)
         renderPairing()
+        renderUpdate()
         // Reachable while screen is up; service holds reference after screen goes dark
         SessionEndpoint.acquire(this, SessionEndpoint.OWNER_ACTIVITY)
         // RECEIVER_EXPORTED is required for adb, but gated on DUMP permission (shell-only)
@@ -192,6 +224,7 @@ class MainActivity : AppCompatActivity() {
     override fun onStop() {
         uiHandler.removeCallbacks(statusPoller)
         PairedComputers.removeListener(pairingListener)
+        Updater.removeListener(updateListener)
         if (bound) { unbindService(serviceConnection); bound = false }
         unregisterReceiver(pairReceiver)
         SessionEndpoint.release(SessionEndpoint.OWNER_ACTIVITY)
@@ -327,6 +360,79 @@ class MainActivity : AppCompatActivity() {
     } catch (_: Exception) { null }
 
     private val pairingListener: () -> Unit = { runOnUiThread { renderPairing() } }
+    private val updateListener: () -> Unit = { runOnUiThread { renderUpdate() } }
+
+    // ── Updates ──────────────────────────────────────────────────────────
+
+    private fun renderUpdate() {
+        val state = Updater.state
+        val upToDate = if (state is Updater.State.UpToDate) " · up to date" else ""
+        tvAppVersion.text = "Telescope ${BuildConfig.VERSION_NAME}$upToDate"
+        val streaming = service?.isStreaming == true || isBusy()
+        val manifest = when (state) {
+            is Updater.State.Available -> state.manifest
+            is Updater.State.Downloading -> state.manifest
+            is Updater.State.Installing -> state.manifest
+            is Updater.State.Failed -> state.manifest
+            else -> null
+        }
+        if (manifest == null) {
+            cardUpdate.visibility = View.GONE
+            return
+        }
+        cardUpdate.visibility = View.VISIBLE
+        val version = "Telescope ${UpdateLogic.displayVersion(manifest)}"
+        tvUpdateTitle.text = if (state is Updater.State.Failed) "Update didn't finish" else "Update available"
+        when (state) {
+            is Updater.State.Downloading -> {
+                tvUpdateText.text = "$version · downloading ${state.percent}%"
+                btnUpdate.text = "Updating…"
+                btnUpdate.isEnabled = false
+            }
+            is Updater.State.Installing -> {
+                tvUpdateText.text = "$version · installing"
+                btnUpdate.text = "Updating…"
+                btnUpdate.isEnabled = false
+            }
+            is Updater.State.Failed -> {
+                tvUpdateText.text = state.message
+                btnUpdate.text = "Try again"
+                btnUpdate.isEnabled = !streaming
+            }
+            else -> {
+                tvUpdateText.text = if (streaming) "$version. Stop streaming to update." else version
+                btnUpdate.text = "Update"
+                btnUpdate.isEnabled = !streaming
+            }
+        }
+    }
+
+    private fun canInstallUpdates(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.O || packageManager.canRequestPackageInstalls()
+
+    private fun startUpdate() {
+        val manifest = when (val state = Updater.state) {
+            is Updater.State.Available -> state.manifest
+            is Updater.State.Failed -> state.manifest
+            else -> null
+        } ?: return
+        if (service?.isStreaming == true || isBusy()) return
+        if (!canInstallUpdates()) {
+            // Android asks once per app; after that, each update is a single confirm.
+            pendingUpdate = manifest
+            MaterialAlertDialogBuilder(this)
+                .setTitle("Allow Telescope to install updates")
+                .setMessage("In the next screen, turn on Allow from this source, then come back.")
+                .setNegativeButton("Cancel") { _, _ -> pendingUpdate = null }
+                .setPositiveButton("Open settings") { _, _ ->
+                    startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:$packageName")))
+                }
+                .show()
+            return
+        }
+        Updater.downloadAndInstall(this, manifest)
+    }
 
     // The pairing card: how to pair when nothing is paired, otherwise the list of computers.
     private fun renderPairing() {
@@ -676,6 +782,7 @@ class MainActivity : AppCompatActivity() {
             tvLinkWifi.visibility = View.VISIBLE
             layoutLinks.visibility = View.GONE
         }
+        if (::cardUpdate.isInitialized && cardUpdate.visibility == View.VISIBLE) renderUpdate()
     }
 
     private fun copyLink(pill: TextView) {

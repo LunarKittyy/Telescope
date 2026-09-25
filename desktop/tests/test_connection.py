@@ -1,5 +1,7 @@
 """Connection plugin: phone list, route display, stream setup, and per-phone settings."""
 
+from types import SimpleNamespace
+
 import pytest
 from PyQt6.QtWidgets import QMessageBox
 
@@ -284,6 +286,61 @@ def test_a_cable_that_is_not_used_gets_explained(plugin_env):
     _add(plugin)
     plugin._apply_resolution(Resolution(READY, WIFI, usb_note=USB_APP_CLOSED))
     assert plugin._note_lbl.text() == "Not using USB: phone plugged in, but Telescope isn't open on it."
+
+
+class _InlineThread:
+    def __init__(self, target, args=(), kwargs=None, daemon=None):
+        self._run = lambda: target(*args, **(kwargs or {}))
+
+    def start(self):
+        self._run()
+
+
+def test_an_outdated_phone_on_usb_can_be_updated_from_here(plugin_env, monkeypatch, tmp_path):
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    apk = tmp_path / "Telescope.apk"
+    apk.write_bytes(b"apk")
+    monkeypatch.setattr(connection_module, "bundled_apk_path", lambda: apk)
+    monkeypatch.setattr(connection_module, "adb_available", lambda: True)
+    monkeypatch.setattr(connection_module, "threading", SimpleNamespace(Thread=_InlineThread))
+    installs = []
+    monkeypatch.setattr(connection_module, "adb_install",
+                        lambda serial, path: installs.append((serial, path)) or (True, ""))
+
+    plugin._apply_resolution(Resolution(PHONE_OUTDATED, WIFI))
+    assert plugin._update_row.isHidden()  # over Wi-Fi the phone updates itself
+    plugin._apply_resolution(Resolution(PHONE_OUTDATED, USB))
+    assert not plugin._update_row.isHidden() and plugin._update_btn.text() == "Update over USB"
+    plugin._update_btn.click()
+    assert installs == [("serial-1", apk)]
+    assert plugin._note_lbl.text() == "Phone app updated. Open Telescope on the phone."
+    plugin._apply_resolution(Resolution(READY, USB))
+    assert plugin._update_row.isHidden() and plugin._note_row.isHidden()
+
+
+def test_a_failed_phone_update_says_why(plugin_env, monkeypatch, tmp_path):
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    monkeypatch.setattr(connection_module, "bundled_apk_path", lambda: tmp_path / "Telescope.apk")
+    monkeypatch.setattr(connection_module, "adb_available", lambda: True)
+    monkeypatch.setattr(connection_module, "threading", SimpleNamespace(Thread=_InlineThread))
+    monkeypatch.setattr(connection_module, "adb_install", lambda *_a: (False, "signed differently"))
+    plugin._apply_resolution(Resolution(PHONE_OUTDATED, USB))
+    plugin._update_btn.click()
+    assert plugin._note_lbl.text() == "signed differently"
+    assert plugin._note_lbl.objectName() == "status_err"
+
+
+def test_a_newer_phone_app_points_at_this_app_s_update(plugin_env):
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    asked = []
+    plugin._bus.update_requested.connect(lambda: asked.append(True))
+    plugin._apply_resolution(Resolution(DESKTOP_OUTDATED, WIFI))
+    assert plugin._update_btn.text() == "Update this app"
+    plugin._update_btn.click()
+    assert asked == [True]
 
 
 def test_stale_resolutions_are_ignored(plugin_env):

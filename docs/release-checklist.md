@@ -28,6 +28,14 @@ The APK signing key lives in the repository secrets (see the README's CI section
 - [ ] Advanced (desktop) and the diagnostics card (phone) show the release's version.
 - [ ] APK installs via `adb install`, via the checklist's QR link, and via Install over USB (checklist and Advanced).
 
+## Updates
+
+- [ ] Desktop on the previous nightly (Windows and Linux): the Update button appears, Update and restart replaces the app, and it comes back on the new version with the stream working.
+- [ ] Update is refused while streaming, on both apps.
+- [ ] Phone on the previous nightly: the update card offers the new build, asks once to allow installs from Telescope, and the installed app shows the new version.
+- [ ] Phone app older than the desktop, plugged in: the Connection panel says so and Update over USB installs the bundled APK.
+- [ ] Switching the channel to Stable on a nightly build doesn't offer a downgrade.
+
 ## Functional pass (see [device-compatibility.md](device-compatibility.md) for the per-device matrix)
 
 - [ ] Fresh install: the checklist shows, each step ticks as it's done, and the video stage replaces it after the first stream.

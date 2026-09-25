@@ -54,6 +54,10 @@ class HostServices(Protocol):
         """Recreate the virtual camera and stream at a new canvas size."""
         ...
 
+    def quit_app(self) -> None:
+        """Stop streaming, shut every plugin down and quit (the tray's Quit)."""
+        ...
+
 
 class TelescopePlugin:
     name: str = ""
@@ -63,6 +67,9 @@ class TelescopePlugin:
 
     def setup(self, host: HostServices, bus: "EventBus"): ...
     def create_panel(self) -> Optional[QWidget]: return None
+
+    header_side: str = "left"
+    """Where the header widget goes: "left" (with the phone picker) or "right" (beside the settings button)."""
 
     def create_header_widget(self) -> Optional[QWidget]:
         """Compact header bar widget (e.g. device picker), not panel content."""
@@ -96,3 +103,5 @@ class EventBus(QObject):
     """Lens switch sent to phone; carries selected camera capability dict."""
     resolution_change_requested = pyqtSignal(int, int)
     """Resolution change sent to phone; host shows pending state until confirmed."""
+    update_requested       = pyqtSignal()
+    """Show the desktop app's update dialog (e.g. the phone app turned out to be newer)."""

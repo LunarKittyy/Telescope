@@ -657,6 +657,7 @@ _ICON_SVG = {
     "transforms": f'''<path d="M12 3v2.5M12 9.5v5M12 18.5V21"/>
         <path d="M9 6.5L3.5 17.5H9z" {_SOFT}/><path d="M15 6.5l5.5 11H15z"/>''',
     "check": f'''<circle cx="12" cy="12" r="8.8" {_SOFT}/><path d="M8 12.3l2.8 2.8 5.2-5.6"/>''',
+    "update": f'''<circle cx="12" cy="12" r="8.8" {_SOFT}/><path d="M12 7.5v8.5M8.3 12.6l3.7 3.7 3.7-3.7"/>''',
     "devices": f'''<rect x="3.5" y="4" width="10" height="17" rx="2.2" {_SOFT}/>
         <path d="M7.5 17.5h2"/><path d="M16.5 7.5h2.5a1.5 1.5 0 0 1 1.5 1.5v9.5a1.5 1.5 0 0 1-1.5 1.5h-2.5"/>''',
 }

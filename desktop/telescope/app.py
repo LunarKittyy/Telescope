@@ -38,25 +38,34 @@ _RAIL_WIDTH_SOLO  = 440  # two-column mode: the one rail holding every card
 _INSTANCE_PORT = 47823
 
 
-def acquire_single_instance() -> Optional[socket.socket]:
-    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 0)
-    try:
-        srv.bind(("127.0.0.1", _INSTANCE_PORT))
-        srv.listen(1)
-        return srv
-    except OSError:
-        c = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+def acquire_single_instance(wait: float = 0.0) -> Optional[socket.socket]:
+    """The single-instance socket, or None after asking the running copy to show itself.
+
+    wait: keep retrying this long first, for a relaunch after an update while the old copy exits.
+    """
+    deadline = time.monotonic() + wait
+    while True:
+        srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 0)
         try:
-            c.settimeout(1)
-            c.connect(("127.0.0.1", _INSTANCE_PORT))
-            c.sendall(b"raise")
-        except Exception:
-            pass
-        finally:
-            c.close()
-        srv.close()
-        return None
+            srv.bind(("127.0.0.1", _INSTANCE_PORT))
+            srv.listen(1)
+            return srv
+        except OSError:
+            srv.close()
+            if time.monotonic() >= deadline:
+                break
+            time.sleep(0.25)
+    c = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        c.settimeout(1)
+        c.connect(("127.0.0.1", _INSTANCE_PORT))
+        c.sendall(b"raise")
+    except Exception:
+        pass
+    finally:
+        c.close()
+    return None
 
 
 def listen_for_raise(srv: socket.socket, raise_cb):
@@ -148,7 +157,8 @@ class TelescopeWindow(QMainWindow):
             self._refresh_layout(force=True)
         header_widget = plugin.create_header_widget()
         if header_widget:
-            self._header_slot.addWidget(header_widget)
+            slot = self._header_right_slot if plugin.header_side == "right" else self._header_slot
+            slot.addWidget(header_widget)
         self._plugins.append(plugin)
         if plugin.name:
             self._plugins_by_name[plugin.name] = plugin
@@ -195,6 +205,11 @@ class TelescopeWindow(QMainWindow):
         lay.addLayout(self._header_slot)
 
         lay.addStretch()
+
+        self._header_right_slot = QHBoxLayout()
+        self._header_right_slot.setContentsMargins(0, 0, 0, 0)
+        self._header_right_slot.setSpacing(8)
+        lay.addLayout(self._header_right_slot)
 
         self._menu_btn = QPushButton()
         self._menu_btn.setObjectName("icon_btn")
@@ -761,6 +776,9 @@ class TelescopeWindow(QMainWindow):
         self.showNormal()
         self.raise_()
         self.activateWindow()
+
+    def quit_app(self):
+        self._tray_quit()
 
     def _tray_quit(self):
         self._tray_close_notified = True

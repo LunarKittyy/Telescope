@@ -8,7 +8,8 @@ Quick navigation index; see source code for detailed behavior.
 
 ### `main.py`
 Dependency check, Qt app setup, `apply_theme()`, single-instance guard, plugin registration, config restore, event loop.
-Registration order: `SetupPlugin → ConnectionPlugin → CameraControlPlugin → StreamOutputPlugin → TransformsPlugin → PreviewPlugin → OnboardingPlugin → MonitoringPlugin`. Preview comes before Onboarding so the stage is listening when the checklist first says whether it needs the space.
+Registration order: `SetupPlugin → ConnectionPlugin → CameraControlPlugin → StreamOutputPlugin → TransformsPlugin → PreviewPlugin → OnboardingPlugin → MonitoringPlugin → UpdatesPlugin`. Preview comes before Onboarding so the stage is listening when the checklist first says whether it needs the space.
+`--after-update` (passed by the updater when it relaunches) waits up to 15 s for the old copy to exit and then runs `updates.clean_up_after_update()`. Arguments it doesn't know go to Qt.
 Calls `win.apply_saved_config()` **after** all plugins are registered so every plugin's `set_config()` is available.
 
 ---
@@ -17,7 +18,7 @@ Calls `win.apply_saved_config()` **after** all plugins are registered so every p
 
 ### `app.py`
 **TelescopeWindow** - thin coordinator shell.
-- Owns the header bar (plugin header widgets on the left, settings menu and Start button on the right), the column body, the footer (stream status, FPS, throughput), and the tray icon.
+- Owns the header bar (plugin header widgets on the left, or just left of the settings menu for a plugin whose `header_side` is `"right"`; settings menu and Start button on the right), the column body, the footer (stream status, FPS, throughput), and the tray icon.
 - Owns `EventBus` and `StreamWorker` lifecycle.
 - `register_plugin(p)` - calls setup, routes panel to the named region, appends header widget.
 - `_refresh_layout(force=False)` - redistributes panels across columns by width (a panel its plugin has hidden stays hidden): `three` (≥1300px) left/center/right, `two` (≥900px) left+right/center, `one` center-first. Both rails are `_RAIL_WIDTH` wide so the preview sits centred. Triggered on resize (no-op if layout mode unchanged) and on registration.
@@ -27,7 +28,7 @@ Calls `win.apply_saved_config()` **after** all plugins are registered so every p
 - **Two-phase start.** `_start()` calls `conn.get_stream_info()` (validates ADB/v4l2, builds URL), snapshots `conn.session_target()` on the GUI thread, then `_spawn_wake()` (background thread bringing phone camera up). `_on_wake_done()` either runs `_begin_stream()` (worker, ctrl, pipeline) or re-enables Start and shows the error. `_wake_id` counter drops stale results after user Stop/device switch/quit. Split for testability (tests call synchronously).
 - `_stop(remote_stop=True)` - tears down worker and ctrl; `on_stream_stop()` on each plugin (ConnectionPlugin releases its USB forward there); invalidates any in-flight wake; and takes the phone's camera down with it via `_stop_phone_async()`. `remote_stop=False` is for the internal stop/start pairs that are really a desktop-side reconnect (`reconnect_stream()`, `restart_vcam_canvas()`) - bouncing the phone there would cost seconds and a lens re-open for nothing.
 - `_stop_phone_async()` / `_drain_phone_stops(timeout=2.0)` - the remote stop runs off the UI thread but is tracked rather than fire-and-forget, so the quit paths (`closeEvent`, `_tray_quit`) can give it a bounded moment to actually leave the machine. Both quit paths then call every plugin's `shutdown()`.
-- Implements the public **`HostServices`** contract (see `plugin.py`): `schedule_save()`, `save_now()`, `switch_device()`, `forget_device_settings()`, `reconnect_stream()`, `send_notification()`, `is_streaming()`, `stop_stream()`, `update_stream_output()`, `restart_vcam_canvas()`. Plugins only call these; private internals (`_worker`, `_stop()`) are hidden.
+- Implements the public **`HostServices`** contract (see `plugin.py`): `schedule_save()`, `save_now()`, `switch_device()`, `forget_device_settings()`, `reconnect_stream()`, `send_notification()`, `is_streaming()`, `stop_stream()`, `update_stream_output()`, `restart_vcam_canvas()`, `quit_app()` (really quits, tray or not). Plugins only call these; private internals (`_worker`, `_stop()`) are hidden.
 - `send_notification(title, body, urgent=True)` - uses `notify-send` on Linux (critical urgency only when `urgent`), tray balloon on Windows.
 - `save_now()` - writes global plugin configs (connection, setup) and per-device configs (camera_control, stream_output, transforms, monitoring) under `devices[selected]`. `schedule_save()` is the debounced variant plugins call after a settings change.
 - `switch_device(prev, new)` - saves `prev` phone's per-device configs, restores `new` phone's; called by `ConnectionPlugin._activate_profile()`. Keys are phone ids.
@@ -48,13 +49,13 @@ The app's entire visual definition: palette constants (`BG`, `SURFACE`, `ACCENT`
 
 ### `plugin.py`
 **TelescopePlugin** base class + **HostServices** contract + **EventBus**.
-- `HostServices` (typing.Protocol): the public surface a plugin may call on its `host` handle - `schedule_save`, `save_now`, `switch_device`, `forget_device_settings`, `reconnect_stream`, `send_notification`, `is_streaming`, `stop_stream`, `update_stream_output`, `restart_vcam_canvas`. Structural typing only (`TelescopeWindow` implements it without inheriting). Keeps plugins off private window internals.
+- `HostServices` (typing.Protocol): the public surface a plugin may call on its `host` handle - `schedule_save`, `save_now`, `switch_device`, `forget_device_settings`, `reconnect_stream`, `send_notification`, `is_streaming`, `stop_stream`, `update_stream_output`, `restart_vcam_canvas`, `quit_app`. Structural typing only (`TelescopeWindow` implements it without inheriting). Keeps plugins off private window internals.
 - `UNCHANGED`: sentinel for `update_stream_output` so `None` can be passed as a real value (pass-through resolution) distinct from "leave as-is".
 - `TelescopePlugin`: override `setup`, `create_panel`, `on_stream_start`, `on_stream_stop`, `on_phone_state`, `process_frame`, `get_config`, `set_config`, `shutdown`.
   - `panel_region` (class attr): `"left"` / `"right"` / `"center"` - which region the host puts the panel in. A preference, not a guarantee: narrow windows merge regions.
-  - `create_header_widget()` → a compact widget for the window header, or `None`.
+  - `create_header_widget()` → a compact widget for the window header, or `None`. `header_side` (`"left"` / `"right"`) picks where it goes.
   - `create_menu_actions()` → `QAction`s for the header's settings menu, or `[]`. Lets a dialogs-only plugin skip having a panel.
-- `EventBus(QObject)`: signals - `stream_started`, `stream_stopped`, `stream_connected`, `phone_state_updated`, `device_changed`, `phones_changed(int)`, `add_phone_requested`, `setup_needed(bool)`, `camera_switched`, `resolution_change_requested`. `phones_changed`, `add_phone_requested` and `setup_needed` are how the checklist, Connection and Preview cooperate without calling each other.
+- `EventBus(QObject)`: signals - `stream_started`, `stream_stopped`, `stream_connected`, `phone_state_updated`, `device_changed`, `phones_changed(int)`, `add_phone_requested`, `setup_needed(bool)`, `camera_switched`, `resolution_change_requested`, `update_requested` (the phone app is newer; opens the update dialog). `phones_changed`, `add_phone_requested` and `setup_needed` are how the checklist, Connection and Preview cooperate without calling each other.
 
 ### `stream.py`
 **StreamWorker(QThread)** - video capture and virtual camera output.
@@ -126,6 +127,12 @@ Qt-free model of paired phones and how to reach them; adb, the session client an
 ### `version.py`
 `VERSION`, `BUILD`, `CHANNEL` (`stable` / `nightly` / `dev`) and `COMMIT` of this build. Release builds read `telescope/_build.py`, which CI writes with `scripts/write_build_info.py`; a source checkout reads the repo's `VERSION` file and is `dev`. `display_version()` is what the UI shows; `release_asset_url(name)` links a file from this build's release (nightly for dev builds).
 
+### `updates.py`
+Qt-free update logic, everything injectable for tests. `fetch_manifest(channel)` reads the channel's `manifest.json` (stable: the latest release, nightly: the `nightly` tag); `None` when the channel has no release. `is_newer(manifest, build)` compares build numbers (never true for a dev build). `platform_asset()` picks the zip or tarball. `self_update_blocker()` says why this copy can only link to the release (source checkout, dev build, folder not writable). `download(asset, dest, progress, cancelled)` streams to a `.part` file and checks size and SHA-256. `install(archive)` extracts to a staging folder next to the app (refusing paths that escape it) and then:
+- Windows: renames the running `TelescopeDesktop.exe` to `TelescopeDesktop.old.exe`, moves the new one in, and replaces other files whose hash changed; a locked file (UnityCapture held by OBS) is skipped and reported.
+- Linux: moves each replaced top-level entry to `.previous/` and the new one in, rolling back if a move fails.
+Returns `InstallResult(relaunch, skipped)`. `clean_up_after_update()` deletes the leftovers on the next start.
+
 ### `discovery.py`
 **LanDiscovery** - browses `_telescope._tcp` with `zeroconf` and maps the TXT `id` to current IPv4 addresses. `lookup(phone_id)` never blocks; without zeroconf or multicast it returns nothing and stored addresses are used.
 
@@ -171,7 +178,7 @@ Note: white balance sliders are built directly in `plugins/camera_control.py`, n
 ## `telescope/platform/`
 
 ### `platform/__init__.py`
-Cross-platform constants and helpers: `IS_LINUX`, `IS_WINDOWS`, `adb_available()`, `adb_device_states()` (serial + state, including `unauthorized`), `adb_devices()`, `adb_forward(port)`, `adb_forward_auto(remote_port, serial)` (adb picks the local port), `adb_unforward(port)`, `adb_reverse(port)`, `adb_unreverse(port)`, `adb_broadcast_pair(payload)`, `adb_exe()`, `bundled_apk_path()`, `_run(cmd)`. `_run()` returns an error tuple instead of raising when adb isn't installed.
+Cross-platform constants and helpers: `IS_LINUX`, `IS_WINDOWS`, `adb_available()`, `adb_device_states()` (serial + state, including `unauthorized`), `adb_devices()`, `adb_forward(port)`, `adb_forward_auto(remote_port, serial)` (adb picks the local port), `adb_unforward(port)`, `adb_reverse(port)`, `adb_unreverse(port)`, `adb_broadcast_pair(payload)`, `adb_install(serial, apk, timeout)` → `(ok, detail)` with plain-language failures (different signing key, downgrade), `adb_exe()`, `bundled_apk_path()`, `_run(cmd)`. `_run()` returns an error tuple instead of raising when adb isn't installed.
 
 ### `platform/linux.py`
 v4l2loopback helpers: `v4l2_module_installed()`, `v4l2_load()`, `v4l2_unload()`, `v4l2_module_loaded()`, `v4l2_devices_ready()`, and the load-at-boot trio `v4l2_persist_status/enable/disable()`. Device constants: `V4L2_PHONE_DEV = /dev/video11`, `V4L2_OBS_DEV = /dev/video10`.
@@ -196,6 +203,7 @@ UnityCapture helpers: `uc_is_registered()`, `unitycapture_dir()`, `download_unit
 - `stop_phone_streaming(target=None)` - best-effort `POST /v1/session {"action":"stop"}`. **Blocking.**
 - `AddPhoneDialog` - QR for Wi-Fi when there's a network; polls `adb devices` every 2 s and re-sends the USB offer (`adb reverse` + broadcast) every 4 s to each usable device; says so when a device is waiting on the USB debugging prompt.
 - `PhonesDialog` - list with Add phone / Rename / Remove, plus this computer's name as phones see it. Remove calls `forget_phone()`: unpairs on the phone when reachable (`/v1/unpair`) and deletes the phone's stored settings.
+- `PHONE_OUTDATED` with the phone on a cable, a bundled APK and adb: **Update over USB** (`adb_install` in a thread). `DESKTOP_OUTDATED`: **Update this app**, which emits `bus.update_requested`.
 - Re-pairing the phone that's streaming reconnects the stream with the new token.
 - Emits `bus.phones_changed` on every list change and opens Add phone on `bus.add_phone_requested`.
 - Config keys: `computer_id`, `computer_name`, `route`, `phones`, `selected_phone`.
@@ -248,6 +256,13 @@ UnityCapture helpers: `uc_is_registered()`, `unitycapture_dir()`, `download_unit
 - Subscribes to `bus.phone_state_updated`; also polls independently every 15 s via a daemon thread + `_Signals` inner class for thread-safe emit.
 - Calls `host.send_notification()` for battery-low and overheating alerts (once per threshold crossing).
 - Config keys: `battery_alert`, `temp_alert`.
+
+### `plugins/updates.py`
+**UpdatesPlugin** - a green **Update** button in the header (right side, hidden until there's an update) and the **Updates…** dialog in the settings menu.
+- Checks 8 s after launch, then daily (an hourly timer checks whether a day has passed). Background failures stay quiet; **Check now** says what went wrong.
+- `UpdatesDialog`: this version, channel (Stable / Nightly), Check daily, what's new, and **Update and restart** (disabled while streaming, or **Open download page** when `self_update_blocker()` says so).
+- Download and install run in a thread; on success it relaunches (`--after-update`) and calls `host.quit_app()`.
+- Config keys: `channel`, `auto_check`, `last_check`.
 
 ### `plugins/setup.py`
 **SetupPlugin** - the **Advanced** dialog, reached from the header's settings menu (`create_menu_actions()`); no panel, since nothing in it is adjusted mid-stream.

@@ -7,9 +7,7 @@ from PyQt6.QtWidgets import (
     QCheckBox, QDialog, QHBoxLayout, QInputDialog, QLabel, QPushButton, QWidget,
 )
 
-from telescope.platform import (
-    IS_LINUX, _run, adb_available, adb_devices, adb_exe, bundled_apk_path,
-)
+from telescope.platform import IS_LINUX, adb_available, adb_devices, adb_install, bundled_apk_path
 from telescope.platform.linux import (
     V4L2_OBS_DEV, V4L2_PHONE_DEV,
     v4l2_devices_ready, v4l2_load, v4l2_module_loaded, v4l2_unload,
@@ -433,13 +431,8 @@ class AdvancedDialog(QDialog):
         self._apk_status_lbl.setText("Installing...")
 
         def worker():
-            rc, out, err = _run([adb_exe(), "-s", serial, "install", "-r", path], timeout=60)
-            output = (out + err).strip()
-            if rc == 0 and "Success" in output:
-                self._sig_apk_done.emit(True, "Installed")
-            else:
-                detail = output.splitlines()[-1] if output else "unknown error"
-                self._sig_apk_done.emit(False, detail)
+            ok, detail = adb_install(serial, path)
+            self._sig_apk_done.emit(ok, "Installed" if ok else detail)
 
         threading.Thread(target=worker, daemon=True).start()
 

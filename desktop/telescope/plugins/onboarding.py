@@ -11,7 +11,7 @@ from typing import Optional
 from PyQt6.QtCore import QObject, Qt, pyqtSignal
 from PyQt6.QtWidgets import QGridLayout, QLabel, QVBoxLayout, QWidget
 
-from telescope.platform import IS_LINUX, _run, adb_available, adb_devices, adb_exe, bundled_apk_path
+from telescope.platform import IS_LINUX, adb_available, adb_devices, adb_install, bundled_apk_path
 from telescope.platform.linux import v4l2_module_installed
 from telescope.platform.windows import (
     download_unitycapture, register_unitycapture, uc_is_registered, unitycapture_dir,
@@ -245,12 +245,7 @@ class OnboardingPlugin(TelescopePlugin):
                 signals.apk.emit(False, "No phone found over USB. Plug it in and allow USB debugging "
                                         "when the phone asks.")
                 return
-            rc, out, err = _run([adb_exe(), "-s", serials[0], "install", "-r", str(apk)], timeout=120)
-            output = (out + err).strip()
-            if rc == 0 and "Success" in output:
-                signals.apk.emit(True, "")
-            else:
-                signals.apk.emit(False, output.splitlines()[-1] if output else "adb install failed")
+            signals.apk.emit(*adb_install(serials[0], apk))
         threading.Thread(target=work, daemon=True).start()
 
     def _on_apk(self, ok: bool, detail: str):

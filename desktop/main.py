@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Telescope Desktop — entry point."""
 
+import argparse
 import sys
 import threading
 
@@ -35,18 +36,31 @@ from telescope.plugins.preview import PreviewPlugin
 from telescope.plugins.setup import SetupPlugin
 from telescope.plugins.stream_output import StreamOutputPlugin
 from telescope.plugins.transforms import TransformsPlugin
+from telescope.plugins.updates import UpdatesPlugin
 from telescope.theme import apply_theme
+from telescope.updates import clean_up_after_update
 from telescope.widgets.common import create_app_icon
 
 
+def parse_args(argv):
+    """Telescope's own options; everything else (Qt's -style, -platform, ...) goes to Qt."""
+    parser = argparse.ArgumentParser(prog="telescope", add_help=False)
+    parser.add_argument("--after-update", action="store_true",
+                        help="started by the updater: wait for the old copy to exit, then tidy up")
+    return parser.parse_known_args(argv)
+
+
 def main():
-    app = QApplication(sys.argv)
+    args, qt_argv = parse_args(sys.argv[1:])
+    app = QApplication([sys.argv[0]] + qt_argv)
     # Set at QApplication level so dialogs and window share icon.
     app.setWindowIcon(create_app_icon(64))
 
-    srv = acquire_single_instance()
+    srv = acquire_single_instance(wait=15 if args.after_update else 0)
     if srv is None:
         sys.exit(0)
+    if args.after_update:
+        clean_up_after_update()
 
     apply_theme(app)
 
@@ -59,6 +73,7 @@ def main():
     win.register_plugin(PreviewPlugin())
     win.register_plugin(OnboardingPlugin())  # after Preview: the stage listens for setup_needed
     win.register_plugin(MonitoringPlugin())
+    win.register_plugin(UpdatesPlugin())
     win.apply_saved_config()
     win.show()
 

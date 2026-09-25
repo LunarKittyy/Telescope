@@ -30,8 +30,8 @@ from telescope.phones import (
     USB_NEEDS_ATTENTION, USB_NO_ADB, USB_NO_CABLE, Phone, Resolution, Route, RouteResolver, UsbTunnels, usb_note_text,
 )
 from telescope.platform import (
-    IS_LINUX, adb_available, adb_broadcast_pair, adb_device_states, adb_forward_auto,
-    adb_reverse, adb_unforward, adb_unreverse,
+    IS_LINUX, adb_available, adb_broadcast_pair, adb_device_states, adb_forward_auto, adb_install,
+    adb_reverse, adb_unforward, adb_unreverse, bundled_apk_path,
 )
 from telescope.platform.linux import (
     V4L2_OBS_DEV, V4L2_PHONE_DEV, v4l2_devices_ready, v4l2_load, v4l2_module_loaded,
@@ -373,6 +373,7 @@ class PhonesDialog(QDialog):
 class _Signals(QObject):
     resolved = pyqtSignal(int, object, object)   # check id, phone id, Resolution
     usb_available = pyqtSignal(int, bool)        # watch id, our phone answers over USB
+    phone_updated = pyqtSignal(bool, str)        # ok, what went wrong
 
 
 class ConnectionPlugin(TelescopePlugin):
@@ -409,6 +410,9 @@ class ConnectionPlugin(TelescopePlugin):
         self._signals = _Signals()
         self._signals.resolved.connect(self._on_resolved)
         self._signals.usb_available.connect(self._on_usb_available)
+        self._signals.phone_updated.connect(self._on_phone_updated)
+        self._updating_phone = False
+        self._update_note: Optional[tuple] = None  # (kind, text) from the last phone update
         bus.stream_connected.connect(self._on_stream_connected)
         bus.add_phone_requested.connect(self.open_add_phone)
 
@@ -477,6 +481,12 @@ class ConnectionPlugin(TelescopePlugin):
         self._switch_usb_row.setVisible(False)
         lay.addWidget(self._switch_usb_row)
 
+        self._update_btn = action_button("Update over USB", "primary")
+        self._update_btn.clicked.connect(self._update_action)
+        self._update_row = control_row_widget("", self._update_btn)
+        self._update_row.setVisible(False)
+        lay.addWidget(self._update_row)
+
         self._build_header()
 
         self._status_timer = QTimer(card)
@@ -532,6 +542,7 @@ class ConnectionPlugin(TelescopePlugin):
             self._route_row.setVisible(False)
             self._note_lbl.setText("")
             self._note_row.setVisible(False)
+            self._update_row.setVisible(False)
             return
         res = self._resolution
         kind, text = status_line(res)
@@ -553,8 +564,66 @@ class ConnectionPlugin(TelescopePlugin):
                 # A cable is in but not used: exactly when "why isn't it on USB?" needs an answer.
                 reason = usb_note_text(res.usb_note)
                 note = f"Not using USB: {reason}."
+        note_kind = "status_dim"
+        if self._update_note is not None:
+            note_kind, note = self._update_note
+        elif self._updating_phone:
+            note = "Updating the phone app over USB…"
+        set_status_kind(self._note_lbl, note_kind)
         self._note_lbl.setText(note)
         self._note_row.setVisible(bool(note))
+        action = None if self._streaming else self._outdated_action(res)
+        if action == "Update over USB" and self._update_note is None and not self._updating_phone:
+            note = f"The Telescope app on {phone.name} is older than this one."  # the button is the how
+            self._note_lbl.setText(note)
+        self._update_row.setVisible(action is not None)
+        if action is not None:
+            self._update_btn.setText(action)
+            self._update_btn.setEnabled(not self._updating_phone)
+
+    @staticmethod
+    def _outdated_action(res: Optional[Resolution]) -> Optional[str]:
+        """The button an app-version mismatch gets, if there's something to press."""
+        if res is None:
+            return None
+        if res.status == DESKTOP_OUTDATED:
+            return "Update this app"
+        if (res.status == PHONE_OUTDATED and res.route is not None and res.route.kind == "usb"
+                and bundled_apk_path() is not None and adb_available()):
+            return "Update over USB"
+        return None
+
+    # ── App versions ──────────────────────────────────────────────────────
+
+    def _update_action(self):
+        res = self._resolution
+        if res is None:
+            return
+        if res.status == DESKTOP_OUTDATED:
+            self._bus.update_requested.emit()
+            return
+        apk = bundled_apk_path()
+        if res.status != PHONE_OUTDATED or res.route is None or res.route.kind != "usb" or apk is None:
+            return
+        self._updating_phone = True
+        self._update_note = None
+        self._render()
+        signals, serial = self._signals, res.route.serial
+
+        def work():
+            ok, detail = adb_install(serial, apk)
+            try:
+                signals.phone_updated.emit(ok, detail)
+            except RuntimeError:
+                pass
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_phone_updated(self, ok: bool, detail: str):
+        self._updating_phone = False
+        self._update_note = ("status_ok", "Phone app updated. Open Telescope on the phone.") if ok \
+            else ("status_err", detail)
+        self._render()
+        self._check_status()
 
     # ── Status checks ─────────────────────────────────────────────────────
 
@@ -591,6 +660,8 @@ class ConnectionPlugin(TelescopePlugin):
         self._apply_resolution(res)
 
     def _apply_resolution(self, res: Resolution):
+        if self._update_note is not None and res.status not in (PHONE_OUTDATED, UNREACHABLE):
+            self._update_note = None  # the phone moved on from the update; its note is stale
         self._resolution = res
         phone = self._selected_phone()
         if phone and res.route is not None and res.route.kind == "wifi" and phone.active_ip != res.route.host:
@@ -895,6 +966,7 @@ class ConnectionPlugin(TelescopePlugin):
             self._host.stop_stream()
         self._selected_id = pid
         self._resolution = None
+        self._update_note = None
         self._refresh_combo()
         self._activate_profile(pid)
         self._render()
