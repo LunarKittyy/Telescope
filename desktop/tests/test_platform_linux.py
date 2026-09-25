@@ -156,8 +156,8 @@ def test_setup_with_persist_writes_the_boot_config_in_the_same_prompt(monkeypatc
 
     # The script writes exactly the options line (checked by running it against a temp dir).
     import subprocess
-    local = script.replace("/etc/modprobe.d/", f"{tmp_path}/a-").replace("/etc/modules-load.d/", f"{tmp_path}/b-")
-    subprocess.run(["sh", "-c", local.split(" && modprobe")[0]], check=True)
+    local = script.replace("/etc/modprobe.d/", "a-").replace("/etc/modules-load.d/", "b-")
+    subprocess.run(["sh", "-c", local.split(" && modprobe")[0]], check=True, cwd=tmp_path)
     assert (tmp_path / "a-99-telescope-v4l2loopback.conf").read_text() == linux._v4l2_options_line()
     assert (tmp_path / "b-99-telescope-v4l2loopback.conf").read_text() == "v4l2loopback\n"
 
