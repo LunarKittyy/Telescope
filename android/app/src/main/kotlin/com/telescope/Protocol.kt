@@ -31,6 +31,7 @@ data class CameraCapability(
     val supportsFlash: Boolean,
     val hwLevel: String,
     val supportedSizes: List<CameraSize> = emptyList(),
+    val supportsFocusPoint: Boolean = false,
 )
 
 @Serializable

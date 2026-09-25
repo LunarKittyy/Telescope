@@ -73,6 +73,7 @@ Everything past this point is optional - detailed feature reference, how it work
 - Exposure compensation slider (range and step size reported per-lens, typically ±8 EV in 1/6-EV steps)
 - Manual white balance: linear Kelvin slider (2000-10000 K) plus a green-magenta tint slider - *partially working: applies inconsistently depending on device/lens*
 - Manual focus: distance slider (diopters), range reported per-lens; greyed out on lenses that don't support it
+- Point focus: click the preview (or pop-out) to focus there; exposure meters on that spot too while it's automatic. The click goes back through flip, rotation and zoom to the right spot on the sensor. **Auto** returns to continuous autofocus
 - OIS toggle
 - Noise reduction and sharpening (edge mode): Off / Fast / High Quality
 - Black level lock toggle
@@ -489,6 +490,7 @@ Server is on the phone at port 8080 for `/v1/video`, `/v1/state`, and `/v1/contr
       "supportsManualSensor": true,
       "supportsManualWB": true,
       "supportsManualFocus": true,
+      "supportsFocusPoint": true,
       "minFocusDistance": 8.3,
       "aeCompMin": -8,
       "aeCompMax": 8,
@@ -543,7 +545,8 @@ JSON body `{"action": "<action>", ...params}`.
 | `wb_auto` | - | Restore auto white balance |
 | `wb_gains` | `r=<float> ge=<float> go=<float> b=<float>` | Set manual white balance via `COLOR_CORRECTION_GAINS` RGGB channel gains |
 | `ois` | `value=1\|0` | Toggle OIS |
-| `focus_mode` | `value=continuous\|manual` | Switch autofocus / manual focus |
+| `focus_mode` | `value=continuous\|manual` | Switch autofocus / manual focus (also ends point focus) |
+| `focus_point` | `x=<0..1> y=<0..1> [size=<0..1>]` | Focus on a point of the stream frame, and meter exposure there while it's automatic. `size` is the region's side as a fraction of the frame's shorter side (default 0.1). Refused on a lens without `supportsFocusPoint`. `/v1/state` then reports `focus_mode: "point"` |
 | `focus_distance` | `value=<float diopters>` | Set manual focus distance |
 | `ae_comp` | `value=<int steps>` | Set exposure compensation, in the lens's AE-compensation steps (see `aeCompStep`) |
 | `nr_mode` | `value=<int 0-4>` | Set noise reduction mode (desktop UI only offers 0/1/2 = Off/Fast/High Quality) |

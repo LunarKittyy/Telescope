@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.ImageFormat
 import android.hardware.camera2.*
 import android.hardware.camera2.params.ColorSpaceTransform
+import android.hardware.camera2.params.MeteringRectangle
 import android.hardware.camera2.params.OutputConfiguration
 import android.hardware.camera2.params.RggbChannelVector
 import android.hardware.camera2.params.SessionConfiguration
@@ -64,6 +65,8 @@ class CameraSessionController(
     @Volatile private var lastMeasuredGains: RggbChannelVector? = null
     @Volatile private var currentFocusMode:     String = "continuous"
     @Volatile private var currentFocusDistance: Float  = 0f  // diopters; 0 = infinity
+    // Set in "point" mode: the AF (and AE) region, as left/top/width/height in active-array pixels.
+    @Volatile private var focusRegion: IntArray? = null
     @Volatile private var currentNrMode:         Int     = CaptureRequest.NOISE_REDUCTION_MODE_FAST
     @Volatile private var currentEdgeMode:       Int     = CaptureRequest.EDGE_MODE_FAST
     @Volatile private var currentAeComp:         Int     = 0
@@ -121,7 +124,48 @@ class CameraSessionController(
     fun setWbAuto()                         { currentWbGains = null;            handler?.post { applyExposure() } }
     fun setJpegQuality(q: Int)              { currentJpegQuality = q;           handler?.post { applyExposure() } }
     fun setFpsTarget(fps: Int)              { currentPhoneFps = fps;            handler?.post { applyExposure() } }
-    fun setFocusMode(mode: String)          { currentFocusMode = mode;          handler?.post { applyExposure() } }
+    fun setFocusMode(mode: String)          { currentFocusMode = mode; focusRegion = null; handler?.post { applyExposure() } }
+
+    // Focus (and meter, when exposure is automatic) on a point of the stream frame. False if this lens
+    // can't: no AF regions, no single-shot AF, or no known active array.
+    fun setFocusPoint(x: Float, y: Float, size: Float): Boolean {
+        val cam = currentCamera ?: return false
+        val array = cam.activeArray ?: return false
+        if (cam.maxAfRegions <= 0 || CaptureRequest.CONTROL_AF_MODE_AUTO !in cam.afModes) return false
+        focusRegion = CameraRequestSelection.meteringRect(x, y, size, array, streamWidth, streamHeight)
+        currentFocusMode = "point"
+        handler?.post { triggerFocus() }
+        return true
+    }
+
+    // AUTO mode holds focus once it locks, so the repeating request keeps it; the trigger starts the sweep.
+    private fun triggerFocus() {
+        val s = captureSession ?: return
+        val c = cameraDevice ?: return
+        try {
+            s.setRepeatingRequest(buildRequest(c), ccmCaptureCallback, handler)
+            val trigger = c.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
+                addTarget(imageReader!!.surface)
+                previewSurface?.let { addTarget(it) }
+                applyFocusRegion(this)
+                set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START)
+            }.build()
+            s.capture(trigger, null, handler)
+        } catch (e: Exception) {
+            onControlError("triggerFocus", e)
+        }
+    }
+
+    private fun applyFocusRegion(builder: CaptureRequest.Builder): Boolean {
+        val region = focusRegion ?: return false
+        val cam = currentCamera ?: return false
+        val rect = MeteringRectangle(region[0], region[1], region[2], region[3], MeteringRectangle.METERING_WEIGHT_MAX)
+        builder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
+        builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO)
+        builder.set(CaptureRequest.CONTROL_AF_REGIONS, arrayOf(rect))
+        if (cam.maxAeRegions > 0 && currentIso == null) builder.set(CaptureRequest.CONTROL_AE_REGIONS, arrayOf(rect))
+        return true
+    }
     fun setFocusDistance(d: Float)          { currentFocusDistance = d;         handler?.post { applyExposure() } }
     fun setNrMode(m: Int)                   { currentNrMode = m;                handler?.post { applyExposure() } }
     fun setEdgeMode(m: Int)                 { currentEdgeMode = m;              handler?.post { applyExposure() } }
@@ -355,7 +399,9 @@ class CameraSessionController(
                 }
             }
 
-            if (currentFocusMode == "manual" && cam != null && cam.supportsManualFocus) {
+            if (currentFocusMode == "point" && applyFocusRegion(this)) {
+                // AF_MODE_AUTO with the picked region; set by applyFocusRegion
+            } else if (currentFocusMode == "manual" && cam != null && cam.supportsManualFocus) {
                 set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
                 set(CaptureRequest.LENS_FOCUS_DISTANCE,
                     CameraRequestSelection.clamp(currentFocusDistance, 0f, cam.minFocusDistance))
@@ -436,6 +482,7 @@ class CameraSessionController(
         if (!entry.supportsFlash) currentTorch = false
         if (!entry.supportsManualSensor) { currentIso = null; currentShutterNs = null }
         if (!entry.supportsManualFocus && currentFocusMode == "manual") currentFocusMode = "continuous"
+        if (currentFocusMode == "point") { currentFocusMode = "continuous"; focusRegion = null }  // another sensor
         currentCamera = entry
         onStateChanged(StreamState.Recovering, "switchCameraTo", null)
 

@@ -55,7 +55,7 @@ The app's entire visual definition: palette constants (`BG`, `SURFACE`, `ACCENT`
   - `panel_region` (class attr): `"left"` / `"right"` / `"center"` - which region the host puts the panel in. A preference, not a guarantee: narrow windows merge regions.
   - `create_header_widget()` → a compact widget for the window header, or `None`. `header_side` (`"left"` / `"right"`) picks where it goes.
   - `create_menu_actions()` → `QAction`s for the header's settings menu, or `[]`. Lets a dialogs-only plugin skip having a panel.
-- `EventBus(QObject)`: signals - `stream_started`, `stream_stopped`, `stream_connected`, `phone_state_updated`, `device_changed`, `phones_changed(int)`, `add_phone_requested`, `setup_needed(bool)`, `camera_switched`, `resolution_change_requested`, `update_requested` (the phone app is newer; opens the update dialog), `phone_ready(phone_id, ready)` (from Connection's idle status checks only, never from Start's own resolve). `phones_changed`, `add_phone_requested` and `setup_needed` are how the checklist, Connection and Preview cooperate without calling each other.
+- `EventBus(QObject)`: signals - `stream_started`, `stream_stopped`, `stream_connected`, `phone_state_updated`, `device_changed`, `phones_changed(int)`, `add_phone_requested`, `setup_needed(bool)`, `camera_switched`, `resolution_change_requested`, `update_requested` (the phone app is newer; opens the update dialog), `focus_point_picked(u, v)` (preview click, in the frame as shown) → Transforms → `focus_point(x, y)` (in the phone's frame) → Camera control sends `focus_point`, `focus_point_available(bool)` (Camera control → Preview's crosshair), `phone_ready(phone_id, ready)` (from Connection's idle status checks only, never from Start's own resolve). `phones_changed`, `add_phone_requested` and `setup_needed` are how the checklist, Connection and Preview cooperate without calling each other.
 
 ### `stream.py`
 **StreamWorker(QThread)** - video capture and virtual camera output.
@@ -216,12 +216,13 @@ UnityCapture helpers: `uc_registered_name()` (the name apps list it under, read 
 
 ### `plugins/camera_control.py`
 **CameraControlPlugin** - lens selection, exposure, white balance, focus, OIS, and image tuning. `panel_region = "right"`.
-- UI: `LensPanel`, camera capability info label, then sections: Exposure (auto/manual, ISO, shutter, compensation), White balance (auto/manual, Kelvin, tint), Focus (auto/manual, distance), Image (OIS, noise reduction, sharpening, black-level lock, torch).
+- UI: `LensPanel`, camera capability info label, then sections: Exposure (auto/manual, ISO, shutter, compensation), White balance (auto/manual, Kelvin, tint), Focus (Auto / Point / Manual, distance), Image (OIS, noise reduction, sharpening, black-level lock, torch).
 - `derive_camera_control_view(state)` - pure function mapping a raw phone-state dict to a `CameraControlView` dataclass, independently testable without a `QApplication`.
 - `on_stream_start`: stores ctrl, sets "Loading lenses..." placeholder, re-pushes desktop-restored state to phone (phone keeps boot defaults until user touches a control).
 - `on_phone_state(state)`: loads cameras into `LensPanel`, syncs exposure/WB/focus/OIS/AE-comp/NR/edge/black-level-lock/torch from phone state. Empty `state` dict (fetch failure) shows "Unavailable" on lens panel.
 - `on_stream_stop`: clears lens panel and info label.
 - `_update_camera_caps()`: disables manual exposure, manual WB, manual focus, or torch controls when the selected lens doesn't report support for them.
+- Point focus: `bus.focus_point(x, y)` sends `focus_point` when the lens reports `supportsFocusPoint`; the Point button picks the centre of the preview. Point isn't saved: the next stream starts on Auto.
 - Config keys: `exp_manual`, `iso`, `shutter_ns`, `ois`, `focus_manual`, `focus_diopters`, `wb_manual`, `wb_kelvin`, `wb_tint`, `ae_comp`, `nr_mode`, `edge_mode`, `bll`.
 
 ### `plugins/stream_output.py`
@@ -240,6 +241,7 @@ UnityCapture helpers: `uc_registered_name()` (the name apps list it under, read 
 - Active by default - it's the centre of the window, not an opt-in card. The toggle remains as an escape hatch for anyone who'd rather not spend the decode.
 - `process_frame(frame)` - runs on stream-reader thread; records pre-downscale size, downscales to `_CARD_MAX_W` for in-window (full res for pop-out), emits cross-thread Qt signal, returns frame unmodified (preview-only).
 - Pop-out window auto-hides the in-card preview when opened. While the main window is hidden (tray) the card stops decoding without changing its Hide/Show setting.
+- `FrameLabel` (card and pop-out): knows where the letterboxed frame sits, so a click becomes a point in it (bars ignored). With `bus.focus_point_available` it shows a crosshair, draws a square for a second where you clicked, and emits `bus.focus_point_picked`.
 - Hides the whole stage while `bus.setup_needed` is true, giving the column to the first-run checklist.
 - No config keys - preview visibility isn't persisted across restarts.
 
@@ -253,6 +255,7 @@ UnityCapture helpers: `uc_registered_name()` (the name apps list it under, read 
 ### `plugins/transforms.py`
 **TransformsPlugin** - software frame transforms applied in the stream pipeline. `panel_region = "left"` (desktop-side processing, next to the output settings).
 - UI: flip (H/V segmented), rotation (None / 90 CW / 180 / 90 CCW), zoom slider (1×-5×), pan left/right and up/down (enabled only when zoomed), and a Reset action in the card header that drives the widgets so the handlers do the rest.
+- `inverse_map(u, v, w, h, zoom, pan_x, pan_y, flip_h, flip_v, rotation)` - pure: a point in the transformed frame back to the phone's frame (undoes rotate, flip, then zoom). The plugin maps `bus.focus_point_picked` with it, using the last frame's size, and emits `bus.focus_point`.
 - `process_frame(frame)` - applies zoom crop then flip/rotate; runs on the worker thread. Reads plain Python attrs (`flip_h`, `flip_v`, `rotation`, `zoom`, `pan_x`, `pan_y`) written by the Qt thread; GIL makes these reads atomic.
 - Config keys: `flip_h`, `flip_v`, `rotation`, `zoom`, `pan_x`, `pan_y`.
 

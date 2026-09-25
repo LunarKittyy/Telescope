@@ -445,3 +445,49 @@ def test_default_config_resets_boolean_camera_settings(camera_plugin):
     assert cfg["focus_manual"] is False
     assert cfg["wb_manual"] is False
     assert cfg["bll"] is False
+
+
+def _point_state(focus_mode="continuous", supports=True):
+    return {
+        "cameras": [{"id": "0", "label": "Main", "current": True, "supportsManualSensor": True,
+                     "supportsManualWB": True, "supportsManualFocus": True, "minFocusDistance": 10.0,
+                     "supportsFocusPoint": supports}],
+        "auto": True, "focus_mode": focus_mode,
+    }
+
+
+def test_focus_on_a_point_from_the_preview_or_the_point_button(camera_plugin):
+    plugin, _host, bus, _panel = camera_plugin
+    ctrl = _Ctrl()
+    available = []
+    bus.focus_point_available.connect(available.append)
+    plugin.on_stream_start("url", ctrl)
+    plugin.on_phone_state(_point_state())
+    assert plugin._rb_focus_point.isEnabled() and available[-1] is True
+
+    ctrl.sent.clear()
+    bus.focus_point.emit(0.25, 0.75)
+    assert ctrl.sent == [{"action": "focus_point", "x": 0.25, "y": 0.75}]
+    assert plugin._rb_focus_point.isChecked()
+
+    picked = []
+    bus.focus_point_picked.connect(lambda u, v: picked.append((u, v)))
+    plugin._rb_focus_auto.click()
+    assert ctrl.sent[-1] == {"action": "focus_mode", "value": "continuous"}
+    plugin._rb_focus_point.click()
+    assert picked == [(0.5, 0.5)]  # the centre of what's shown, mapped by transforms like a click
+
+
+def test_point_focus_follows_the_phone_and_the_lens(camera_plugin):
+    plugin, _host, bus, _panel = camera_plugin
+    plugin.on_stream_start("url", _Ctrl())
+    plugin.on_phone_state(_point_state(focus_mode="point"))
+    assert plugin._rb_focus_point.isChecked()
+    plugin.on_phone_state(_point_state(supports=False))
+    assert not plugin._rb_focus_point.isEnabled() and plugin._rb_focus_auto.isChecked()
+    ctrl = _Ctrl()
+    plugin._ctrl = ctrl
+    bus.focus_point.emit(0.5, 0.5)
+    assert ctrl.sent == []  # this lens can't
+    plugin.on_stream_stop()
+    assert not plugin._rb_focus_point.isEnabled()

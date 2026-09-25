@@ -207,3 +207,32 @@ def test_a_large_frame_does_not_pin_the_column_open(qapp):
     assert plugin._preview_lbl.sizePolicy().horizontalPolicy() == \
         QSizePolicy.Policy.Ignored
     assert panel.minimumSizeHint().width() < 400
+
+
+def test_a_click_on_the_frame_is_a_point_in_it_and_the_bars_are_ignored(qapp):
+    from PyQt6.QtCore import QPoint, QPointF, Qt
+    from PyQt6.QtGui import QMouseEvent, QPixmap
+    plugin, _host, _panel = _plugin(qapp)
+    picked = []
+    plugin._bus.focus_point_picked.connect(lambda u, v: picked.append((round(u, 2), round(v, 2))))
+    lbl = plugin._preview_lbl
+    lbl.resize(400, 300)
+    pm = QPixmap(400, 200)  # letterboxed: 50 px bars above and below
+    lbl.setPixmap(pm)
+    assert lbl.frame_point(QPoint(100, 150)) == (0.25, 0.5)
+    assert lbl.frame_point(QPoint(100, 20)) is None
+
+    def click(x, y):
+        pos = QPointF(x, y)
+        lbl.mousePressEvent(QMouseEvent(QEvent.Type.MouseButtonPress, pos, lbl.mapToGlobal(pos),
+                                        Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton,
+                                        Qt.KeyboardModifier.NoModifier))
+
+    click(100, 150)
+    assert picked == []  # not while the lens can't focus on a point
+    plugin._bus.focus_point_available.emit(True)
+    assert lbl.cursor().shape() == Qt.CursorShape.CrossCursor
+    click(100, 150)
+    click(100, 20)
+    assert picked == [(0.25, 0.5)]
+    assert not lbl._marker.isHidden()

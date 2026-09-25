@@ -508,6 +508,11 @@ QPushButton#card_action:hover {{
     border-color: {BORDER_HOVER};
     color: {TEXT};
 }}
+QFrame#focus_marker {{
+    background: transparent;
+    border: 2px solid {ACCENT_SOFT};
+    border-radius: 6px;
+}}
 QFrame#banner {{
     background-color: #2a1d20;
     border: 1px solid #5a3134;

@@ -141,3 +141,44 @@ class CameraRequestSelectionTest {
         assertEquals(25f, CameraRequestSelection.clamp(25f, 20f, 10f))
     }
 }
+
+class MeteringRectTest {
+    private val array = SensorBox(0, 0, 4000, 3000)  // 4:3 sensor
+
+    private fun rect(x: Float, y: Float, w: Int, h: Int, size: Float = 0.1f, a: SensorBox = array) =
+        CameraRequestSelection.meteringRect(x, y, size, a, w, h).toList()
+
+    @org.junit.jupiter.api.Test
+    fun `a same-aspect stream maps straight onto the array`() {
+        // centre, 10% of 3000 = 300 px square
+        org.junit.jupiter.api.Assertions.assertEquals(listOf(1850, 1350, 300, 300), rect(0.5f, 0.5f, 1440, 1080))
+        org.junit.jupiter.api.Assertions.assertEquals(listOf(850, 600, 300, 300), rect(0.25f, 0.25f, 1440, 1080))
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `a wider stream is the array's centre band, so y goes through the crop`() {
+        // 16:9 of a 4000-wide array is 2250 tall, starting 375 down
+        val top = rect(0.5f, 0f, 1920, 1080)
+        org.junit.jupiter.api.Assertions.assertEquals(375, top[1])  // clamped into the visible band, not just the array
+        val mid = rect(0.5f, 0.5f, 1920, 1080)
+        org.junit.jupiter.api.Assertions.assertTrue(kotlin.math.abs(mid[1] + mid[3] / 2 - 1500) <= 1)
+        org.junit.jupiter.api.Assertions.assertEquals(225, mid[2])  // 10% of the visible 2250
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `a narrower stream crops the sides`() {
+        // 1:1 of a 4000x3000 array is 3000x3000 starting 500 in
+        val left = rect(0f, 0.5f, 1080, 1080)
+        org.junit.jupiter.api.Assertions.assertEquals(500, left[0])
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `corners stay inside the array and its offset is kept`() {
+        val offset = SensorBox(8, 8, 4000, 3000)
+        val r = rect(1f, 1f, 1440, 1080, a = offset)
+        org.junit.jupiter.api.Assertions.assertEquals(8 + 4000 - 300, r[0])
+        org.junit.jupiter.api.Assertions.assertEquals(8 + 3000 - 300, r[1])
+        val out = rect(-1f, 2f, 1440, 1080, a = offset)
+        org.junit.jupiter.api.Assertions.assertEquals(8, out[0])
+    }
+}

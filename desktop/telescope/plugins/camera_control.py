@@ -21,6 +21,7 @@ _CAPABILITY_LABELS = [
     ("supportsManualSensor", "Manual exposure"),
     ("supportsManualWB",     "Manual WB"),
     ("supportsManualFocus",  "Manual focus"),
+    ("supportsFocusPoint",   "Point focus"),
     ("hasOis",               "OIS"),
 ]
 
@@ -66,6 +67,7 @@ class CameraControlView:
     ois: bool
     manual_focus: bool
     focus_distance: float
+    point_focus: bool
     ae_comp: int
     ae_comp_step: float
     ae_comp_range: tuple
@@ -103,6 +105,7 @@ def derive_camera_control_view(state: dict) -> Optional[CameraControlView]:
         ois=bool(state.get("ois", True)),
         manual_focus=state.get("focus_mode", "continuous") == "manual",
         focus_distance=float(state.get("focus_distance", 0.0)),
+        point_focus=state.get("focus_mode") == "point",
         ae_comp=int(state.get("ae_comp", 0)),
         ae_comp_step=ae_step,
         ae_comp_range=(ae_min, ae_max),
@@ -129,6 +132,8 @@ class CameraControlPlugin(TelescopePlugin):
         self._manual_exp        = False
         self._manual_wb         = False
         self._manual_focus      = False
+        self._point_focus       = False
+        bus.focus_point.connect(self._on_focus_point)
         self._focus_max_diopters: float = 10.0
         self._ae_comp_step: float = 0.167
         self._torch_on: bool = False
@@ -227,14 +232,18 @@ class CameraControlPlugin(TelescopePlugin):
         # ── Focus ─────────────────────────────────────────────────────────────
         add_section_heading(lay, "Focus")
         self._rb_focus_auto   = SegmentButton("Auto")
+        self._rb_focus_point  = SegmentButton("Point")
+        self._rb_focus_point.setEnabled(False)
         self._rb_focus_manual = SegmentButton("Manual")
         self._focus_grp = QButtonGroup(card)
         self._focus_grp.addButton(self._rb_focus_auto)
+        self._focus_grp.addButton(self._rb_focus_point)
         self._focus_grp.addButton(self._rb_focus_manual)
         self._rb_focus_auto.setChecked(True)
         self._focus_grp.buttonClicked.connect(lambda _: self._on_focus_mode())
         lay.addWidget(_row_widget(
-            "Mode", segmented_row(self._rb_focus_auto, self._rb_focus_manual), stretch=True))
+            "Mode", segmented_row(self._rb_focus_auto, self._rb_focus_point, self._rb_focus_manual),
+            stretch=True))
 
         self._focus_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._focus_slider.setRange(0, _FOCUS_STEPS)
@@ -313,6 +322,10 @@ class CameraControlPlugin(TelescopePlugin):
 
     def on_stream_stop(self):
         self._ctrl = None
+        self._set_point_available(False)
+        if self._point_focus:  # the point was for that session; the next one starts continuous
+            self._point_focus = False
+            self._rb_focus_auto.setChecked(True)
         self._lens_panel.clear()
         self._cam_info_lbl.setText("")
         self._cam_info_row.setVisible(False)
@@ -345,6 +358,7 @@ class CameraControlPlugin(TelescopePlugin):
                 cur.get("supportsFlash", False),
                 cur.get("hasOis", True),
             )
+            self._set_point_available(cur.get("supportsFocusPoint", False) is True)
 
         self._rb_exp_auto.setChecked(not view.manual_exposure)
         self._rb_exp_manual.setChecked(view.manual_exposure)
@@ -364,9 +378,11 @@ class CameraControlPlugin(TelescopePlugin):
 
         self._ois_cb.setChecked(view.ois)
 
-        self._rb_focus_auto.setChecked(not view.manual_focus)
+        self._rb_focus_auto.setChecked(not view.manual_focus and not view.point_focus)
+        self._rb_focus_point.setChecked(view.point_focus)
         self._rb_focus_manual.setChecked(view.manual_focus)
         self._manual_focus = view.manual_focus
+        self._point_focus = view.point_focus
         self._focus_slider.setEnabled(view.manual_focus)
         self._set_focus_slider_value(view.focus_distance)
         self._sync_manual_control_visibility()
@@ -555,7 +571,31 @@ class CameraControlPlugin(TelescopePlugin):
             self._ctrl.send(action="ois", value="1" if checked else "0")
         self._host.schedule_save()
 
+    def _set_point_available(self, available: bool):
+        self._rb_focus_point.setEnabled(available)
+        self._rb_focus_point.setToolTip("Click the preview to focus there" if available else
+                                        "This lens can't focus on a point" if self._ctrl else "")
+        if not available and self._point_focus:
+            self._point_focus = False
+            self._rb_focus_auto.setChecked(True)
+        self._bus.focus_point_available.emit(available and self._ctrl is not None)
+
+    def _on_focus_point(self, x: float, y: float):
+        """A point in the phone's frame, picked on the preview (or the centre, from the Point button)."""
+        if not self._ctrl or not self._rb_focus_point.isEnabled():
+            return
+        self._ctrl.send(action="focus_point", x=round(x, 4), y=round(y, 4))
+        self._point_focus, self._manual_focus = True, False
+        self._rb_focus_point.setChecked(True)
+        self._focus_slider.setEnabled(False)
+        self._sync_manual_control_visibility()
+
     def _on_focus_mode(self):
+        if self._rb_focus_point.isChecked():
+            if not self._point_focus:
+                self._bus.focus_point_picked.emit(0.5, 0.5)  # the middle of what the preview shows
+            return
+        self._point_focus = False
         manual = self._rb_focus_manual.isChecked()
         self._manual_focus = manual
         self._focus_slider.setEnabled(manual)

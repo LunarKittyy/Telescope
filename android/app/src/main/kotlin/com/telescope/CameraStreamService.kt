@@ -48,7 +48,14 @@ data class CameraEntry(
     val nrModes: Set<Int> = emptySet(),
     val edgeModes: Set<Int> = emptySet(),
     val supportedSizes: List<android.util.Size> = emptyList(),
+    val maxAfRegions: Int = 0,
+    val maxAeRegions: Int = 0,
+    val activeArray: SensorBox? = null,
 )
+
+// The sensor's active pixel array (SENSOR_INFO_ACTIVE_ARRAY_SIZE), kept free of android.graphics.Rect so
+// the metering math runs in JVM tests.
+data class SensorBox(val left: Int, val top: Int, val width: Int, val height: Int)
 
 // Pure Camera2 request-parameter selection logic; no device/service state for JVM testability
 object CameraRequestSelection {
@@ -86,6 +93,28 @@ object CameraRequestSelection {
         if (available.isEmpty()) return null
         if (requested in available) return requested
         return fallbacks.firstOrNull { it in available }
+    }
+
+    // The metering region for a point picked in the stream frame (x, y in 0..1), as left, top, width,
+    // height in active-array pixels. The stream is the array's centre crop to the stream's aspect ratio
+    // (no JPEG rotation is applied), so points map through that crop. size is the square's side as a
+    // fraction of the visible frame's shorter side.
+    fun meteringRect(x: Float, y: Float, size: Float, array: SensorBox, streamW: Int, streamH: Int): IntArray {
+        val arrayAspect = array.width.toFloat() / array.height
+        val streamAspect = if (streamW > 0 && streamH > 0) streamW.toFloat() / streamH else arrayAspect
+        val visW: Float
+        val visH: Float
+        if (streamAspect > arrayAspect) { visW = array.width.toFloat(); visH = visW / streamAspect }
+        else { visH = array.height.toFloat(); visW = visH * streamAspect }
+        val visLeft = array.left + (array.width - visW) / 2f
+        val visTop = array.top + (array.height - visH) / 2f
+        val cx = visLeft + x.coerceIn(0f, 1f) * visW
+        val cy = visTop + y.coerceIn(0f, 1f) * visH
+        val side = (size.coerceIn(0.02f, 1f) * minOf(visW, visH)).coerceAtLeast(1f)
+        // Kept inside what the stream shows, which is inside the array.
+        val left = (cx - side / 2f).coerceIn(visLeft, visLeft + visW - side)
+        val top = (cy - side / 2f).coerceIn(visTop, visTop + visH - side)
+        return intArrayOf(left.toInt(), top.toInt(), side.toInt(), side.toInt())
     }
 
     fun clamp(value: Int, min: Int, max: Int): Int =
@@ -333,6 +362,10 @@ class CameraStreamService : Service() {
             val nrModes   = chars.get(CameraCharacteristics.NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES)
                 ?.toSet() ?: emptySet()
             val edgeModes = chars.get(CameraCharacteristics.EDGE_AVAILABLE_EDGE_MODES)?.toSet() ?: emptySet()
+            val maxAfRegions = chars.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AF) ?: 0
+            val maxAeRegions = chars.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AE) ?: 0
+            val activeArray = chars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
+                ?.let { SensorBox(it.left, it.top, it.width(), it.height()) }
 
             val streamMap = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
             val supportedSizes = streamMap?.getOutputSizes(ImageFormat.JPEG)
@@ -357,7 +390,8 @@ class CameraStreamService : Service() {
                         isoMin, isoMax, shtMinNs, shtMaxNs,
                         supportsManualSensor, supportsManualWB, supportsManualFocus, minFocusDist, hwLevel,
                         aeCompMin, aeCompMax, aeCompStep, supportsFlash,
-                        aeFpsRanges, afModes, nrModes, edgeModes, supportedSizes)
+                        aeFpsRanges, afModes, nrModes, edgeModes, supportedSizes,
+                        maxAfRegions, maxAeRegions, activeArray)
         }.getOrNull()
 
         manager.cameraIdList.forEach { id ->
@@ -436,6 +470,8 @@ class CameraStreamService : Service() {
                 aeCompMin = e.aeCompMin, aeCompMax = e.aeCompMax, aeCompStep = e.aeCompStep,
                 supportsFlash = e.supportsFlash, hwLevel = e.hwLevel,
                 supportedSizes = e.supportedSizes.map { CameraSize(it.width, it.height) },
+                supportsFocusPoint = e.maxAfRegions > 0 && e.activeArray != null &&
+                    CaptureRequest.CONTROL_AF_MODE_AUTO in e.afModes,
             )
         }
         val (battLevel, battCharging, battTempC) = getBatteryInfo()
@@ -522,6 +558,14 @@ class CameraStreamService : Service() {
                 "fps_target" -> {
                     val fps = params["value"]?.toIntOrNull() ?: return err("bad value")
                     ctrl.setFpsTarget(fps.coerceIn(1, 120))
+                    ok()
+                }
+                "focus_point" -> {
+                    // x, y: 0..1 in the stream frame as the phone sends it; size: fraction of its shorter side
+                    val x = params["x"]?.toFloatOrNull() ?: return err("bad x")
+                    val y = params["y"]?.toFloatOrNull() ?: return err("bad y")
+                    val size = params["size"]?.toFloatOrNull() ?: 0.1f
+                    if (!ctrl.setFocusPoint(x, y, size)) return err("this lens can't focus on a point")
                     ok()
                 }
                 "focus_mode" -> {

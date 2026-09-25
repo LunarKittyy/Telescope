@@ -123,6 +123,12 @@ class EventBus(QObject):
     """Lens switch sent to phone; carries selected camera capability dict."""
     resolution_change_requested = pyqtSignal(int, int)
     """Resolution change sent to phone; host shows pending state until confirmed."""
+    focus_point_picked     = pyqtSignal(float, float)
+    """A point picked on the preview, 0..1 in the frame as shown (after transforms)."""
+    focus_point            = pyqtSignal(float, float)
+    """The same point, 0..1 in the phone's own frame (transforms undone); camera control sends it."""
+    focus_point_available  = pyqtSignal(bool)
+    """Whether the current lens can focus on a point (and a stream is running to send it to)."""
     phone_ready            = pyqtSignal(str, bool)
     """The selected phone's id and whether Start would work right now (idle status checks only)."""
     update_requested       = pyqtSignal()
