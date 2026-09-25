@@ -4,10 +4,17 @@
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorOnPrimary">@color/colorOnPrimary</item>
+        <!-- Switch thumbs and other "secondary" accents use the lavender. -->
+        <item name="colorSecondary">@color/colorAccent</item>
+        <item name="colorOnSecondary">@color/colorBackground</item>
+        <item name="colorControlActivated">@color/colorAccent</item>
         <item name="android:windowBackground">@color/colorBackground</item>
         <item name="android:statusBarColor">@color/colorHeader</item>
         <item name="android:navigationBarColor">@color/colorHeader</item>
         <item name="android:textColorPrimary">@color/colorOnSurface</item>
         <item name="android:textColorSecondary">@color/colorOnSurfaceDim</item>
+        <item name="materialButtonStyle">@style/Widget.Telescope.Button</item>
+        <item name="materialButtonOutlinedStyle">@style/Widget.Telescope.Button.Outlined</item>
+        <item name="materialCardViewStyle">@style/Widget.Telescope.Card</item>
     </style>
 </resources>

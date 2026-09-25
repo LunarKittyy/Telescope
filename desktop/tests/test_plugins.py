@@ -2,9 +2,10 @@ import threading
 
 import pytest
 
+from telescope import theme
 from telescope.plugin import UNCHANGED, EventBus
 from telescope.plugins.monitoring import MonitoringPlugin
-from telescope.plugins.setup import SetupDialog, SetupPlugin
+from telescope.plugins.setup import AdvancedDialog, SetupPlugin
 from telescope.plugins.stream_output import StreamOutputPlugin
 
 
@@ -219,7 +220,8 @@ def test_stream_output_phone_settings_lifecycle(stream_output):
     assert {"action": "jpeg_quality", "value": 92} in ctrl.sent
     assert {"action": "fps_target", "value": 25} in ctrl.sent
     assert {"action": "jpeg_quality", "value": 91} in ctrl.sent
-    assert plugin._quality_val_lbl.text() == "91%  Balanced"
+    assert plugin._quality_val_lbl.text() == "91%"
+    assert "Balanced" in plugin._quality_val_lbl.toolTip()
 
     plugin.on_stream_stop()
     before = list(ctrl.sent)
@@ -234,10 +236,11 @@ def test_stream_output_config_round_trip_and_invalid_resolution(stream_output):
         "fps": 48,
         "jpeg_quality": 77,
     })
-    # Resolution omitted from config until phone reports sizes (can't apply without valid options).
+    # Saved resolution survives a save made before the phone reports sizes.
     assert plugin.get_config() == {
         "fps": 48,
         "jpeg_quality": 77,
+        "resolution": "854 x 480",
     }
 
     plugin.on_phone_state({
@@ -272,6 +275,39 @@ def test_stream_output_invalid_persisted_resolution_falls_back_to_first(stream_o
     })
 
     assert plugin._res_combo.currentText() == "1920 x 1080"
+
+
+def test_stream_output_keeps_the_saved_resolution_through_an_idle_save(stream_output):
+    # Stopping clears the combos; a save while idle (any setting change, a device switch) used to drop it.
+    plugin, _host, _panel = stream_output
+    plugin.on_stream_start("url", _Ctrl())
+    plugin.on_phone_state({
+        "cameras": [{"id": "0", "current": True, "supportedSizes": [
+            {"width": 1920, "height": 1080}, {"width": 1280, "height": 720},
+        ]}],
+        "stream_width": 1920, "stream_height": 1080,
+    })
+    plugin._res_combo.setCurrentIndex(plugin._res_combo.findText("1280 x 720"))
+    plugin.on_stream_stop()
+
+    assert plugin.get_config()["resolution"] == "1280 x 720"
+
+
+def test_stream_output_saved_resolution_does_not_leak_into_the_next_device(stream_output):
+    plugin, _host, _panel = stream_output
+    plugin.set_config({"resolution": "1280 x 720"})
+    plugin.set_config({"fps": 30, "jpeg_quality": 85})  # host resets to defaults on device switch
+
+    assert "resolution" not in plugin.get_config()
+    assert plugin._pending_resolution_text is None
+
+
+def test_monitoring_threshold_changes_are_saved(monitoring):
+    plugin, host, _bus, _panel = monitoring
+    before = host.saves
+    plugin._batt_alert_spin.setValue(30)
+    plugin._temp_alert_spin.setValue(50)
+    assert host.saves == before + 2
 
 
 @pytest.fixture
@@ -311,10 +347,10 @@ def test_monitoring_ignores_state_without_battery(monitoring):
 @pytest.mark.parametrize(
     "level,charging,temp,batt_colour,temp_colour",
     [
-        (10, False, 50, "#ef5350", "#ef5350"),
-        (25, False, 42, "#ffa726", "#ffa726"),
-        (80, False, 30, "#66bb6a", "#66bb6a"),
-        (10, True, 30, "#66bb6a", "#66bb6a"),
+        (10, False, 50, theme.ERR, theme.ERR),
+        (25, False, 42, theme.WARN, theme.WARN),
+        (80, False, 30, theme.OK, theme.OK),
+        (10, True, 30, theme.OK, theme.OK),
     ],
 )
 def test_monitoring_display_colours(
@@ -383,14 +419,11 @@ def test_monitoring_fetch_emits_only_valid_battery_state(monitoring):
     plugin, _host, _bus, _panel = monitoring
     seen = []
     plugin._sig.state_ready.connect(seen.append)
-    plugin._ctrl = _Ctrl({"battery": 80})
-    plugin._fetch()
+    plugin._fetch(_Ctrl({"battery": 80}))
     assert seen == [{"battery": 80}]
 
-    plugin._ctrl = _Ctrl({"cameras": []})
-    plugin._fetch()
-    plugin._ctrl = None
-    plugin._fetch()
+    plugin._fetch(_Ctrl({"cameras": []}))
+    plugin._fetch(_Ctrl(None))
     assert seen == [{"battery": 80}]
 
 
@@ -400,15 +433,15 @@ def test_monitoring_poll_starts_daemon_fetch_thread(monkeypatch, monitoring):
     started = []
 
     class FakeThread:
-        def __init__(self, target, daemon):
-            started.append((target, daemon))
+        def __init__(self, target, args, daemon):
+            started.append((target, args, daemon))
 
         def start(self):
             started.append("started")
 
     monkeypatch.setattr(threading, "Thread", FakeThread)
     plugin._poll()
-    assert started[0] == (plugin._fetch, True)
+    assert started[0] == (plugin._fetch, (plugin._ctrl,), True)
     assert started[1] == "started"
 
     plugin._ctrl = None
@@ -481,7 +514,7 @@ def test_setup_plugin_apply_canvas_persists_and_reports_result(setup_plugin):
 
 
 def test_setup_dialog_canvas_dimension_selection_and_result_messages(qapp):
-    dialog = SetupDialog()
+    dialog = AdvancedDialog()
     dialog.set_canvas_preset("Custom...", 1234, 567)
     assert dialog._get_selected_dims() == (1234, 567)
     assert dialog.get_canvas_preset_label() == "Custom..."
@@ -495,4 +528,4 @@ def test_setup_dialog_canvas_dimension_selection_and_result_messages(qapp):
     dialog.set_canvas_apply_result(False, "permission denied")
     assert dialog._canvas_status_lbl.text() == "Failed: permission denied"
     dialog.set_canvas_apply_result(True, "ok")
-    assert "successfully" in dialog._canvas_status_lbl.text()
+    assert "Done" in dialog._canvas_status_lbl.text()

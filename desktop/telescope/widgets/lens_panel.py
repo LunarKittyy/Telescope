@@ -1,11 +1,27 @@
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFontMetrics
 from PyQt6.QtWidgets import QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
 from telescope.widgets.common import FlowLayout
 
-# Max label width before eliding; full text goes to tooltip.
-_MAX_LABEL_W = 122
+_TEXT_PAD = 30  # the lens_button QSS padding + border, both sides
+
+
+class _LensButton(QPushButton):
+    """Lens pill whose label elides to the width the grid gives it, re-fitting on every resize."""
+
+    def __init__(self, label: str):
+        super().__init__()
+        self._label = label
+
+    def label(self) -> str:
+        return self._label
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        fitted = self.fontMetrics().elidedText(
+            self._label, Qt.TextElideMode.ElideRight, max(self.width() - _TEXT_PAD, 1))
+        self.setText(fitted)
+        self.setToolTip(self._label if fitted != self._label else "")
 
 
 def shorten_lens_label(raw: str) -> str:
@@ -13,6 +29,7 @@ def shorten_lens_label(raw: str) -> str:
     return (raw.replace(" [phys]", "")
                .replace("Back ", "")
                .replace("Front ", "F/")
+               .replace("Telephoto", "Tele")  # keeps the zoom factor ("Tele 3x") inside a grid cell
                .strip())
 
 
@@ -36,7 +53,8 @@ class LensPanel(QWidget):
 
         self._flow_host = QWidget()
         self._flow_host.setObjectName("lens_panel")
-        self._layout = FlowLayout(self._flow_host, spacing=5, uniform=True)
+        # Two fixed columns: the grid comes from the layout, and long lens names elide to fit it.
+        self._layout = FlowLayout(self._flow_host, spacing=6, uniform=True, columns=2)
         outer.addWidget(self._flow_host)
         self._flow_host.hide()
 
@@ -54,15 +72,13 @@ class LensPanel(QWidget):
 
         for cam in cameras:
             label = shorten_lens_label(cam["label"])
-            btn = QPushButton()
+            btn = _LensButton(label)
             btn.setObjectName("lens_button")
             btn.setMinimumHeight(30)
+            btn.setMinimumWidth(1)
             btn.setCheckable(True)
             btn.setChecked(cam.get("current", False))
-            metrics = QFontMetrics(btn.font())
-            btn.setText(metrics.elidedText(label, Qt.TextElideMode.ElideRight, _MAX_LABEL_W))
-            if btn.text() != label:
-                btn.setToolTip(label)
+            btn.setText(label)
             btn.clicked.connect(lambda _, c=cam, b=btn: self._select(c, b))
             self._layout.addWidget(btn)
             self._btns.append(btn)
@@ -84,7 +100,7 @@ class LensPanel(QWidget):
             self._layout.removeWidget(b)
             b.deleteLater()
         self._btns.clear()
-        self._cameras.clear()
+        self._cameras = []
         self._flow_host.hide()
         self._ph.setText("Start streaming to load lenses")
         self._ph.show()

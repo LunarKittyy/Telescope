@@ -16,7 +16,10 @@ class PairingTest {
         candidates: String = """[{"ip":"192.168.1.42","interface":"Wi-Fi","kind":"lan"}]""",
         nonce: String = "nonce-abc",
         token: String = "token-xyz",
-    ) = """{"version":$version,"port":$port,"candidates":$candidates,"nonce":"$nonce","token":"$token"}"""
+        computerId: String = "pc-1",
+        computerName: String = "Luna's desktop",
+    ) = """{"version":$version,"port":$port,"candidates":$candidates,"nonce":"$nonce","token":"$token",""" +
+        """"computer_id":"$computerId","computer_name":"$computerName"}"""
 
     private fun ok(raw: String): PairingOffer {
         val parsed = parsePairingOffer(raw)
@@ -25,14 +28,14 @@ class PairingTest {
     }
 
     @Test
-    fun `parses a version 2 payload with lan and tailscale candidates`() {
+    fun `parses a current-version payload with lan and tailscale candidates`() {
         val offer = ok(payload(candidates = """[
             {"ip":"192.168.1.42","interface":"Wi-Fi","kind":"lan"},
             {"ip":"100.90.12.34","interface":"tailscale0","kind":"tailscale"},
             {"ip":"203.0.113.7","interface":"eth9","kind":"other"}
         ]"""))
 
-        assertEquals(2, offer.version)
+        assertEquals(PAIRING_PROTOCOL_VERSION, offer.version)
         assertEquals(8765, offer.port)
         assertEquals("nonce-abc", offer.nonce)
         assertEquals("token-xyz", offer.token)
@@ -54,7 +57,7 @@ class PairingTest {
 
     @Test
     fun `rejects other protocol versions as unsupported, not invalid`() {
-        assertEquals(PairingParse.UnsupportedVersion, parsePairingOffer(payload(version = 3)))
+        assertEquals(PairingParse.UnsupportedVersion, parsePairingOffer(payload(version = PAIRING_PROTOCOL_VERSION + 1)))
         // V1 lacks "candidates"; distinguish from parse error.
         assertEquals(
             PairingParse.UnsupportedVersion,
@@ -68,7 +71,7 @@ class PairingTest {
             "",
             "not json",
             "{}",
-            """{"version":2}""",
+            """{"version":$PAIRING_PROTOCOL_VERSION}""",
             "https://example.com",
         ).forEach { assertEquals(PairingParse.Invalid, parsePairingOffer(it), "for: $it") }
     }
@@ -175,13 +178,13 @@ class PairingTest {
 
         assertEquals(
             """
-            Could not reach the desktop.
+            Couldn't reach your computer.
 
             Tried:
             • 192.168.1.42 over Wi-Fi: timed out
             • 100.90.12.34 over the default network: unreachable
 
-            Your VPN may be blocking local-network access. Enable its LAN-access option, pause the VPN temporarily, or use USB pairing.
+            Check that the phone and computer are on the same Wi-Fi. If a VPN is on, it may be blocking local network access: turn on its LAN access option or pause it. Or plug the phone in over USB, and it pairs without scanning.
             """.trimIndent(),
             message,
         )
@@ -221,7 +224,7 @@ class PairingTest {
     fun `failure message still explains itself with nothing to list`() {
         val message = pairingFailureMessage(emptyList())
         assertFalse(message.contains("Tried:"))
-        assertTrue(message.contains("USB pairing"))
+        assertTrue(message.contains("plug the phone in over USB"))
     }
 
     @Test
@@ -231,5 +234,22 @@ class PairingTest {
         assertEquals("connection refused", describeNetworkError(ConnectException("Connection refused")))
         assertEquals("unreachable", describeNetworkError(ConnectException("Network is unreachable")))
         assertEquals("IllegalStateException", describeNetworkError(IllegalStateException()))
+    }
+
+    @Test
+    fun `v3 offers carry the computer's id and name`() {
+        val offer = ok(payload())
+        assertEquals("pc-1", offer.computerId)
+        assertEquals("Luna's desktop", offer.computerName)
+    }
+
+    @Test
+    fun `an offer without a computer id is rejected, since the phone keys pairings by it`() {
+        assertEquals(PairingParse.Invalid, parsePairingOffer(payload(computerId = "")))
+    }
+
+    @Test
+    fun `a v2 code from an older desktop asks for an update rather than failing oddly`() {
+        assertEquals(PairingParse.UnsupportedVersion, parsePairingOffer(payload(version = 2)))
     }
 }

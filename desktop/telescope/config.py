@@ -7,7 +7,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-CONFIG_VERSION = 2
+CONFIG_VERSION = 3
 _APP_NAME = "Telescope"
 _CONFIG_FILENAME = "telescope_config.json"
 
@@ -41,6 +41,7 @@ def load_config() -> dict:
         _backup_invalid_file(path, text)
         return _empty()
 
+    raw = _upgrade_from_v2(raw)
     if not _is_whole_config_valid(raw):
         logger.warning(
             "Config at %s is missing, malformed, or an unsupported older version - "
@@ -83,6 +84,21 @@ def _backup_invalid_file(path: Path, original_text: str) -> None:
 
 def _empty() -> dict:
     return {"version": CONFIG_VERSION, "selected_device": None, "plugin_configs": {}, "devices": {}}
+
+
+def _upgrade_from_v2(cfg):
+    """v2 -> v3: phones are now keyed by id and paired per computer, so the old pairing and the
+    per-device settings keyed by phone name are dropped. Global settings carry over."""
+    if isinstance(cfg, dict) and cfg.get("version") == 2:
+        cfg = dict(cfg)
+        pcfg = cfg.get("plugin_configs")
+        if isinstance(pcfg, dict):
+            cfg["plugin_configs"] = {k: v for k, v in pcfg.items() if k != "connection"}
+        cfg["devices"] = {}
+        cfg["selected_device"] = None
+        cfg["version"] = CONFIG_VERSION
+        logger.info("Migrated config from version 2; phones need pairing again")
+    return cfg
 
 
 def _is_whole_config_valid(cfg) -> bool:
@@ -134,7 +150,8 @@ def _validate_sections(cfg: dict) -> dict:
 
 
 def _migrate(cfg: dict) -> dict:
-    """No per-version migration: old configs discarded for fresh ones (single-user app)."""
+    """Only v2 is upgraded; anything older is discarded for a fresh config."""
+    cfg = _upgrade_from_v2(cfg)
     if not _is_whole_config_valid(cfg):
         return _empty()
     return _validate_sections(cfg)

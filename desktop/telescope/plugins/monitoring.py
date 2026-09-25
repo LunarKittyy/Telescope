@@ -1,17 +1,14 @@
-import shutil
-import subprocess
 import threading
 from typing import Optional
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
-from PyQt6.QtWidgets import QFrame, QLabel, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QLabel, QWidget
 
 from telescope import theme
-from telescope.platform import IS_LINUX
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
     NoScrollSpinBox, add_card_header, add_section_heading, control_row as _row,
-    create_card, create_separator,
+    card_layout, create_card, set_status_kind,
 )
 
 # Inline colors (change with live values) sourced from theme for one semantic color definition.
@@ -29,6 +26,7 @@ class _Signals(QObject):
 
 class MonitoringPlugin(TelescopePlugin):
     name = "monitoring"
+    panel_region = "right"  # the phone's own health, beside its camera
 
     def setup(self, host, bus):
         self._bus  = bus
@@ -48,22 +46,18 @@ class MonitoringPlugin(TelescopePlugin):
 
     def create_panel(self) -> QWidget:
         card = create_card()
-        lay = QVBoxLayout(card)
-        lay.setContentsMargins(16, 15, 16, 15)
-        lay.setSpacing(10)
+        lay = card_layout(card)
         add_card_header(lay, "Monitoring", "status")
 
         # ── Live readouts ─────────────────────────────────────────────────────
         add_section_heading(lay, "Live status")
         self._battery_lbl = QLabel("—")
-        self._battery_lbl.setObjectName("status_dim")
+        set_status_kind(self._battery_lbl, "status_dim")
         lay.addLayout(_row("Battery", self._battery_lbl, stretch=True))
 
         self._temp_lbl = QLabel("—")
-        self._temp_lbl.setObjectName("status_dim")
+        set_status_kind(self._temp_lbl, "status_dim")
         lay.addLayout(_row("Temperature", self._temp_lbl, stretch=True))
-
-        lay.addWidget(create_separator())
 
         # ── Alert thresholds ──────────────────────────────────────────────────
         add_section_heading(lay, "Alert thresholds")
@@ -71,20 +65,20 @@ class MonitoringPlugin(TelescopePlugin):
         self._batt_alert_spin.setRange(5, 95)
         self._batt_alert_spin.setValue(20)
         self._batt_alert_spin.setSuffix("%")
-        self._batt_alert_spin.setFixedWidth(90)
         self._batt_alert_spin.setToolTip(
             "Alert when battery drops below this level - including while charging, "
             "if the level keeps falling anyway"
         )
-        lay.addLayout(_row("Battery", self._batt_alert_spin))
+        self._batt_alert_spin.valueChanged.connect(self._host.schedule_save)
+        lay.addLayout(_row("Battery", self._batt_alert_spin, stretch=True))
 
         self._temp_alert_spin = NoScrollSpinBox()
         self._temp_alert_spin.setRange(35, 65)
         self._temp_alert_spin.setValue(45)
         self._temp_alert_spin.setSuffix(" °C")
-        self._temp_alert_spin.setFixedWidth(90)
         self._temp_alert_spin.setToolTip("Alert when phone temperature exceeds this")
-        lay.addLayout(_row("Temperature", self._temp_alert_spin))
+        self._temp_alert_spin.valueChanged.connect(self._host.schedule_save)
+        lay.addLayout(_row("Temperature", self._temp_alert_spin, stretch=True))
 
         return card
 
@@ -106,12 +100,10 @@ class MonitoringPlugin(TelescopePlugin):
     def _poll(self):
         if not self._ctrl:
             return
-        threading.Thread(target=self._fetch, daemon=True).start()
+        threading.Thread(target=self._fetch, args=(self._ctrl,), daemon=True).start()
 
-    def _fetch(self):
-        if not self._ctrl:
-            return
-        state = self._ctrl.get_state()
+    def _fetch(self, ctrl):
+        state = ctrl.get_state()
         if state and "battery" in state:
             self._sig.state_ready.emit(state)
 
@@ -172,7 +164,7 @@ class MonitoringPlugin(TelescopePlugin):
             self._temp_notified = True
             self._host.send_notification(
                 "Telescope - Phone Running Hot",
-                f"Temperature is {temp_c:.1f} C. Consider stopping charging or closing other apps.",
+                f"Temperature is {temp_c:.1f} °C. Consider stopping charging or closing other apps.",
             )
         elif temp_c < temp_thresh - 5:
             self._temp_notified = False

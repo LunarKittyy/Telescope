@@ -1,11 +1,13 @@
 import math
+import threading
 
-from PyQt6.QtCore import QPoint, QRect, QRectF, QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QByteArray, QCoreApplication, QEventLoop, QMetaObject, QThread, QPoint, QRect, QRectF, QSize, Qt, pyqtSignal
+from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtGui import (
-    QBrush, QColor, QFontMetrics, QIcon, QPainter, QPen, QPixmap,
+    QBrush, QColor, QFontMetrics, QIcon, QPainter, QPixmap,
 )
 from PyQt6.QtWidgets import (
-    QComboBox, QDoubleSpinBox, QFrame, QHBoxLayout, QLabel, QLayout,
+    QApplication, QComboBox, QDoubleSpinBox, QFrame, QHBoxLayout, QLabel, QLayout, QPushButton,
     QSlider, QSpinBox, QSizePolicy, QVBoxLayout, QWidget,
 )
 
@@ -13,25 +15,84 @@ from telescope import theme
 
 
 # ── Shared desktop UI primitives ─────────────────────────────────────────────
+# Layout rules every card follows (keep new controls inside them):
+#   - Type: one family. 14pt dialog titles, 11pt card titles, 9.5pt everything else, 7.5pt caps
+#     section headings.
+#   - Row: [label column, top-anchored][control column]; rows are at least ROW_HEIGHT tall.
+#   - Text, number and select inputs fill the control column (control_row(..., stretch=True)).
+#   - Segmented toggles (SegmentButton) fill the control column in equal shares, like the inputs
+#     around them; outside a card they use SEGMENT_WIDTH per segment. Text fits the segment, not
+#     the other way round. Checkboxes keep their natural width at the column start.
+#   - Slider rows are slider_row(): [slider][value column]; in a card where any slider row has a
+#     direct-entry spinbox, every slider row reserves that column (gutter=True) so tracks end together.
+#   - Card-level actions (Pair, Reset) go in the card header, not in a row.
+#   - On/off settings are checkboxes labelled "On".
+#   - Buttons: one primary per view (the thing you came to do), "danger" only for destructive
+#     actions, everything else default. A lone action button is BUTTON_WIDTH wide; buttons sharing
+#     a row split it equally (button_row). Dialogs: dialog_header() on top, sections are cards,
+#     dialog_buttons() bottom-right.
 
-FORM_LABEL_WIDTH = 104
+#   - Every width and height constant below is in design pixels, measured against the Inter UI
+#     font. Pass them through ui_px(), which scales them up when the font the user actually gets
+#     is wider (another fallback font, larger system text, a different DPI), so text keeps fitting.
 
-VALUE_COL_WIDTH = 62
+FORM_LABEL_WIDTH = 112
+
+SEGMENT_WIDTH = 78
+"""Width of one segment where a toggle has no control column to fill (the header)."""
+
+BUTTON_WIDTH = 160
+"""Width of a lone action button; its text has to fit, not the other way round."""
+
+DIALOG_BUTTON_WIDTH = 96
+"""Width of the Close / OK / Cancel buttons in a dialog's bottom bar."""
+
+ROW_HEIGHT = 32
+"""Minimum height of a settings row; matches the input controls."""
+
+VALUE_COL_WIDTH = 56
 """Width of numeric readout (fixed, right-aligned so readouts line up)."""
 
-SPIN_COL_WIDTH = 88
+SPIN_COL_WIDTH = 78
 """Width of the direct-entry spinbox beside a slider."""
 
 SPIN_COL_GUTTER = SPIN_COL_WIDTH + 8
 """Space slider rows reserve for alignment with spinbox rows."""
 
-SLIDER_TRACK_WIDTH = 104
+SLIDER_TRACK_WIDTH = 84
 """Minimum width for slider track (floor for draggability; apply via stretch_slider())."""
+
+_SCALE_PROBE = "Apply and reload"
+_SCALE_PROBE_PX = 125  # its advance in the button font at the design size (Inter 9.5pt, 96 dpi)
+_scale_cache: dict = {}
+
+
+def _probe_advance() -> float:
+    probe = QPushButton(_SCALE_PROBE)
+    probe.ensurePolished()
+    return probe.fontMetrics().horizontalAdvance(_SCALE_PROBE)
+
+
+def ui_scale() -> float:
+    """How much wider the real UI font is than the design font; never below 1."""
+    app = QApplication.instance()
+    if app is None:
+        return 1.0
+    screen = app.primaryScreen()
+    key = (len(app.styleSheet()), app.font().key(), screen.logicalDotsPerInch() if screen else 96)
+    if key not in _scale_cache:
+        _scale_cache[key] = max(1.0, _probe_advance() / _SCALE_PROBE_PX)
+    return _scale_cache[key]
+
+
+def ui_px(design_px: int) -> int:
+    """A design-pixel size scaled to the font actually in use (see ui_scale())."""
+    return round(design_px * ui_scale())
 
 
 def stretch_slider(slider: QWidget, minimum: int = SLIDER_TRACK_WIDTH) -> QWidget:
     """Let a slider grow with its column while keeping a draggable minimum."""
-    slider.setMinimumWidth(minimum)
+    slider.setMinimumWidth(ui_px(minimum))
     slider.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
     return slider
 
@@ -69,12 +130,14 @@ class ElidingLabel(QLabel):
 class FlowLayout(QLayout):
     """Wrapping flow layout that sizes items to content and adapts column count to available space."""
 
-    def __init__(self, parent=None, spacing: int = 6, uniform: bool = False):
+    def __init__(self, parent=None, spacing: int = 6, uniform: bool = False, columns: int = 0):
         super().__init__(parent)
         self._items: list = []
         self._spacing = spacing
         # uniform: equal-width items, rows end flush (grid-like, not pill pile).
         self._uniform = uniform
+        # columns > 0 fixes the grid instead of deriving it from the widest item's text.
+        self._columns = columns
         self.setContentsMargins(0, 0, 0, 0)
 
     def addItem(self, item):        self._items.append(item)
@@ -112,8 +175,11 @@ class FlowLayout(QLayout):
         if self._uniform:
             widest = max(i.sizeHint().width() for i in self._items)
             height = max(i.sizeHint().height() for i in self._items)
-            per_row = max(1, min(len(self._items),
-                                 (avail + self._spacing) // (widest + self._spacing)))
+            if self._columns:
+                per_row = self._columns
+            else:
+                per_row = max(1, min(len(self._items),
+                                     (avail + self._spacing) // (widest + self._spacing)))
             width = (avail - (per_row - 1) * self._spacing) // per_row
             for index, item in enumerate(self._items):
                 row, col = divmod(index, per_row)
@@ -149,6 +215,14 @@ def set_ui_role(widget: QWidget, role: str):
     style.polish(widget)
 
 
+def set_status_kind(label: QWidget, kind: str):
+    """Switch a label between the status_* QSS roles; a bare setObjectName() doesn't re-apply the stylesheet."""
+    label.setObjectName(kind)
+    style = label.style()
+    style.unpolish(label)
+    style.polish(label)
+
+
 def make_segmented(*buttons: QWidget):
     """Style button run as segmented pill strip (purely presentational; signals untouched)."""
     last = len(buttons) - 1
@@ -165,14 +239,29 @@ def make_segmented(*buttons: QWidget):
     return buttons
 
 
-def segmented_row(*buttons: QWidget) -> QHBoxLayout:
-    """Zero-spacing layout for segmented run (stretch decided by enclosing control_row)."""
+class SegmentButton(QPushButton):
+    """One checkable segment of a segmented toggle; exclusivity comes from the QButtonGroup it's added to."""
+
+    def __init__(self, text: str = "", parent=None):
+        super().__init__(text, parent)
+        self.setCheckable(True)
+        self.setAutoExclusive(False)
+
+
+def segmented_row(*buttons: QWidget, fill: bool = True) -> QHBoxLayout:
+    """Zero-gap run of segments, all the same width: equal shares of the row when fill, else SEGMENT_WIDTH each."""
     make_segmented(*buttons)
     lay = QHBoxLayout()
     lay.setContentsMargins(0, 0, 0, 0)
     lay.setSpacing(0)
     for btn in buttons:
-        lay.addWidget(btn)
+        if fill:
+            btn.setMinimumWidth(1)
+            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            lay.addWidget(btn, 1)
+        else:
+            btn.setFixedWidth(ui_px(SEGMENT_WIDTH))
+            lay.addWidget(btn)
     return lay
 
 
@@ -183,22 +272,31 @@ def create_card(parent=None) -> QFrame:
     return card
 
 
+def card_layout(card: QFrame) -> QVBoxLayout:
+    """The standard padded column every main-window card uses."""
+    lay = QVBoxLayout(card)
+    lay.setContentsMargins(18, 16, 18, 18)
+    lay.setSpacing(8)
+    return lay
+
+
 def add_card_header(layout: QVBoxLayout, title: str, icon_name: str,
-                    subtitle: str = "") -> QHBoxLayout:
-    """Add the standard icon/title header used by every main-window card."""
+                    subtitle: str = "", action: QWidget = None) -> QHBoxLayout:
+    """Add the standard icon/title header used by every main-window card; action is the card's one button, top right."""
     header = QHBoxLayout()
-    header.setContentsMargins(0, 0, 0, 4)
-    header.setSpacing(9)
+    header.setContentsMargins(0, 0, 0, 2)
+    header.setSpacing(10)
 
-    icon = QLabel()
-    icon.setPixmap(create_vector_icon(icon_name, theme.ACCENT).pixmap(18, 18))
-    icon.setFixedSize(18, 18)
-    header.addWidget(icon)
+    if icon_name:
+        icon = QLabel()
+        icon.setPixmap(create_vector_icon(icon_name, theme.ACCENT).pixmap(20, 20))
+        icon.setFixedSize(20, 20)
+        header.addWidget(icon)
 
-    # Uppercased here rather than at each call site so panel titles read as
-    # section headers without every plugin having to shout in its source.
-    title_label = QLabel(title.upper())
+    title_label = QLabel(title)
     title_label.setObjectName("card_title")
+    # Fixed height whether or not the card has a header action, so titles line up across cards.
+    title_label.setFixedHeight(30)
     header.addWidget(title_label)
 
     if subtitle:
@@ -207,12 +305,149 @@ def add_card_header(layout: QVBoxLayout, title: str, icon_name: str,
         header.addWidget(subtitle_label)
 
     header.addStretch()
+    if action is not None:
+        header.addWidget(action)
     layout.addLayout(header)
     return header
 
 
+def action_button(text: str, role: str = "", tooltip: str = "") -> QPushButton:
+    """A lone action button at the standard width; role is "", "primary" or "danger"."""
+    btn = QPushButton(text)
+    btn.setFixedWidth(ui_px(BUTTON_WIDTH))
+    if role:
+        set_ui_role(btn, role)
+    if tooltip:
+        btn.setToolTip(tooltip)
+    return btn
+
+
+def button_row(*buttons: QPushButton) -> QHBoxLayout:
+    """Buttons that share a row split it into equal widths."""
+    lay = QHBoxLayout()
+    lay.setContentsMargins(0, 0, 0, 0)
+    lay.setSpacing(8)
+    for btn in buttons:
+        btn.setMinimumWidth(1)
+        btn.setMaximumWidth(16777215)
+        btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        lay.addWidget(btn, 1)
+    return lay
+
+
+def dialog_layout(dialog: QWidget) -> QVBoxLayout:
+    lay = QVBoxLayout(dialog)
+    lay.setContentsMargins(20, 18, 20, 18)
+    lay.setSpacing(14)
+    return lay
+
+
+def dialog_header(layout: QVBoxLayout, title: str, subtitle: str = "") -> QLabel:
+    """Title plus one line of context; returns the subtitle label so callers can update it."""
+    box = QVBoxLayout()
+    box.setContentsMargins(0, 0, 0, 0)
+    box.setSpacing(2)
+    title_lbl = QLabel(title)
+    title_lbl.setObjectName("dialog_title")
+    box.addWidget(title_lbl)
+    sub = WrapLabel(subtitle)
+    sub.setObjectName("dialog_subtitle")
+    sub.setVisible(bool(subtitle))
+    box.addWidget(sub)
+    layout.addLayout(box)
+    return sub
+
+
+def dialog_buttons(layout: QVBoxLayout, *buttons: QPushButton) -> QHBoxLayout:
+    """Bottom-right button bar; pass the primary last so it sits at the corner."""
+    bar = QHBoxLayout()
+    bar.setContentsMargins(0, 4, 0, 0)
+    bar.setSpacing(8)
+    bar.addStretch(1)
+    for btn in buttons:
+        btn.setFixedWidth(ui_px(DIALOG_BUTTON_WIDTH))
+        bar.addWidget(btn)
+    layout.addLayout(bar)
+    return bar
+
+
+class WrapLabel(QLabel):
+    """Word-wrapped label that reserves the height its current width needs.
+
+    Plain wrapped QLabels report a one-line minimum to box layouts, so dialogs sized before the text
+    wrapped clipped it. Re-pinning the minimum on every resize makes the layout (and the window) grow.
+    """
+
+    def __init__(self, text: str = "", parent=None):
+        super().__init__(text, parent)
+        self.setWordWrap(True)
+
+    def _fit(self):
+        # Measured from the text itself: heightForWidth() never reports less than the pinned minimum,
+        # so a label pinned while narrow would keep that height after widening.
+        width = self.contentsRect().width()
+        if width <= 1:
+            return
+        m = self.contentsMargins()
+        need = self.fontMetrics().boundingRect(
+            0, 0, width, 100_000, int(Qt.TextFlag.TextWordWrap | self.alignment().value), self.text(),
+        ).height() + m.top() + m.bottom()
+        if need != self.minimumHeight():
+            self.setMinimumHeight(need)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._fit()
+
+    def setText(self, text: str):
+        super().setText(text)
+        self._fit()
+
+
+def wrapped_note(text: str, kind: str = "dim") -> QLabel:
+    """Explanatory text that sits in a card's control column."""
+    lbl = WrapLabel(text)
+    lbl.setObjectName(kind)
+    return lbl
+
+
+def card_action(text: str, icon_name: str, tooltip: str = "") -> QPushButton:
+    """The small quiet button a card header carries."""
+    btn = QPushButton(text)
+    btn.setObjectName("card_action")
+    btn.setIcon(create_vector_icon(icon_name, theme.TEXT_DIM))
+    btn.setIconSize(QSize(15, 15))
+    if tooltip:
+        btn.setToolTip(tooltip)
+    return btn
+
+
+def value_label(text: str = "") -> QLabel:
+    """Fixed-width, right-aligned readout that sits after a slider."""
+    lbl = QLabel(text)
+    lbl.setObjectName("val")
+    lbl.setFixedWidth(ui_px(VALUE_COL_WIDTH))
+    lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+    return lbl
+
+
+def slider_row(slider: QWidget, readout: QLabel, gutter: bool = False) -> QHBoxLayout:
+    """[slider][value column], plus the spinbox column's width when the card has direct-entry rows."""
+    stretch_slider(slider)
+    lay = QHBoxLayout()
+    lay.setContentsMargins(0, 0, 0, 0)
+    lay.setSpacing(8)
+    lay.addWidget(slider, 1)
+    lay.addWidget(readout)
+    if gutter:
+        lay.addSpacing(ui_px(SPIN_COL_GUTTER))
+    return lay
+
+
 def add_section_heading(layout: QVBoxLayout, text: str):
-    heading = QLabel(text)
+    """Quiet small-caps divider between groups of rows; spacing, not a rule, does the separating."""
+    heading = QLabel(text.upper())
+    heading.setIndent(0)  # QSS margins switch on QLabel's auto-indent, which pushed headings ~4px right of the row labels
     heading.setObjectName("section_title")
     layout.addWidget(heading)
     return heading
@@ -221,22 +456,24 @@ def add_section_heading(layout: QVBoxLayout, text: str):
 def form_label(text: str, width: int = FORM_LABEL_WIDTH) -> QLabel:
     label = QLabel(text)
     label.setObjectName("form_label")
-    label.setFixedWidth(width)
+    label.setFixedWidth(ui_px(width))
+    label.setMinimumHeight(ui_px(ROW_HEIGHT))  # every row, text-only or not, keeps the same rhythm
     label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
     return label
 
 
 def control_row(label: str, widget, label_width: int = FORM_LABEL_WIDTH,
                 stretch: bool = False) -> QHBoxLayout:
-    """Settings row: dim label left, control right (both anchored for clean alignment)."""
+    """Settings row: dim label, then the control starting at a shared column so label and value sit side by side."""
     lay = QHBoxLayout()
     lay.setContentsMargins(0, 0, 0, 0)
-    lay.setSpacing(8)
-    lay.addWidget(form_label(label, label_width))
-    if not stretch:
-        lay.addStretch(1)
+    lay.setSpacing(10)
+    # Top-anchored: when the control wraps (lens pills) the label lines up with its first line, not the block's middle.
+    lay.addWidget(form_label(label, label_width), 0, Qt.AlignmentFlag.AlignTop)
     if isinstance(widget, QLayout): lay.addLayout(widget, 1 if stretch else 0)
     else:                           lay.addWidget(widget, 1 if stretch else 0)
+    if not stretch:
+        lay.addStretch(1)
     return lay
 
 
@@ -249,16 +486,36 @@ def control_row_widget(label: str, widget, label_width: int = FORM_LABEL_WIDTH,
     return container
 
 
-def add_form_row(layout: QVBoxLayout, text: str, control: QWidget,
-                 label_width: int = FORM_LABEL_WIDTH):
-    """Add a consistently aligned label/control row to a card."""
-    row = QHBoxLayout()
-    row.setContentsMargins(0, 0, 0, 0)
-    row.setSpacing(10)
-    row.addWidget(form_label(text, label_width))
-    row.addWidget(control, 1)
-    layout.addLayout(row)
-    return row
+def run_off_ui_thread(fn, *args, **kwargs):
+    """Run a blocking call (adb, mostly) on a worker thread and return its result, repainting meanwhile.
+
+    User input is held back until it returns, so nothing can re-enter the caller mid-call. Off the
+    GUI thread, or with no QApplication, it just calls fn.
+    """
+    app = QCoreApplication.instance()
+    if app is None or QThread.currentThread() is not app.thread():
+        return fn(*args, **kwargs)
+    loop = QEventLoop()
+    done = threading.Event()
+    outcome = {}
+
+    def work():
+        try:
+            outcome["value"] = fn(*args, **kwargs)
+        except BaseException as exc:
+            outcome["error"] = exc
+        finally:
+            done.set()
+            # Queued: if it lands before exec() starts it's still delivered by exec(), so no lost wakeup.
+            QMetaObject.invokeMethod(loop, "quit", Qt.ConnectionType.QueuedConnection)
+
+    threading.Thread(target=work, daemon=True).start()
+    if not done.is_set():
+        loop.exec(QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents)
+    if "error" in outcome:
+        raise outcome["error"]
+    return outcome.get("value")
+
 
 # ── Pure display helpers ──────────────────────────────────────────────────────
 
@@ -273,10 +530,10 @@ def ns_to_display(ns: int) -> str:
 
 
 def quality_label(q: int) -> str:
-    if q >= 95: return f"{q}%  High"
-    if q >= 80: return f"{q}%  Balanced"
-    if q >= 60: return f"{q}%  Low"
-    return f"{q}%  Very low"
+    if q >= 95: return f"{q}%: High"
+    if q >= 80: return f"{q}%: Balanced"
+    if q >= 60: return f"{q}%: Low"
+    return f"{q}%: Very low"
 
 
 # ── Log-scale math ────────────────────────────────────────────────────────────
@@ -360,115 +617,65 @@ def create_app_icon(size: int = 32) -> QIcon:
 
     margin = size / 22
     outer_d = size - 2 * margin
-    painter.setBrush(QBrush(QColor("#518cc6")))
+    painter.setBrush(QBrush(QColor(theme.ACCENT)))
     painter.drawEllipse(QRectF(margin, margin, outer_d, outer_d))
 
     inner_margin = size * 7 / 22
     inner_d = size * 8 / 22
-    painter.setBrush(QBrush(QColor("#1e222b")))
+    painter.setBrush(QBrush(QColor(theme.BG)))
     painter.drawEllipse(QRectF(inner_margin, inner_margin, inner_d, inner_d))
 
     painter.end()
     return QIcon(pixmap)
 
 
-def create_vector_icon(icon_name: str, color_hex: str) -> QIcon:
-    pixmap = QPixmap(32, 32)
-    pixmap.fill(Qt.GlobalColor.transparent)
+# Icon artwork: 24-unit grid, rounded 2.2 strokes, and a soft 25% fill on each
+# icon's main shape so the set has some body at 16-20 px. "{c}" is the colour.
+_SOFT = 'fill="{c}" fill-opacity="0.25"'
+_ICON_SVG = {
+    "connection": '''<path d="M10 14a4.2 4.2 0 0 0 6 0l3-3a4.2 4.2 0 0 0-6-6l-1.2 1.2"/>
+        <path d="M14 10a4.2 4.2 0 0 0-6 0l-3 3a4.2 4.2 0 0 0 6 6l1.2-1.2"/>''',
+    "usb": f'''<rect x="8" y="2.5" width="8" height="6" rx="1.5" {_SOFT}/>
+        <path d="M6.5 8.5h11v4.5a5.5 5.5 0 0 1-11 0z"/><path d="M12 18.5v3"/>''',
+    "camera": f'''<path d="M4.5 7.5h2.8l1.8-2.6h5.8l1.8 2.6h2.8a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18V9a1.5 1.5 0 0 1 1.5-1.5z" {_SOFT}/>
+        <circle cx="12" cy="13.2" r="3.4"/>''',
+    "stream": f'''<rect x="3" y="4" width="18" height="12.5" rx="2.2" {_SOFT}/>
+        <path d="M8.5 20.5h7M12 16.5v4"/>''',
+    "gear": f'''<path d="M4 7h9M19 7h1M4 17h3M13 17h7"/>
+        <circle cx="16" cy="7" r="2.6" {_SOFT}/><circle cx="10" cy="17" r="2.6" {_SOFT}/>''',
+    "status": f'''<rect x="3" y="3" width="18" height="18" rx="4.5" {_SOFT} stroke="none"/>
+        <path d="M5.5 12.5h3l2-4.5 3 8.5 2-4h3"/>''',
+    "qr": f'''<rect x="3.5" y="3.5" width="7" height="7" rx="1.6" {_SOFT}/>
+        <rect x="13.5" y="3.5" width="7" height="7" rx="1.6" {_SOFT}/>
+        <rect x="3.5" y="13.5" width="7" height="7" rx="1.6" {_SOFT}/>
+        <path d="M14 14h2.5v2.5M20.5 14v.01M14 20.5h6.5v-3.5"/>''',
+    "play": '''<path d="M8 5.8v12.4a1.2 1.2 0 0 0 1.8 1l9.6-6.2a1.2 1.2 0 0 0 0-2l-9.6-6.2A1.2 1.2 0 0 0 8 5.8z" fill="{c}"/>''',
+    "stop": '''<rect x="6" y="6" width="12" height="12" rx="2.6" fill="{c}"/>''',
+    "expand": f'''<rect x="3" y="7" width="14" height="14" rx="2.2" {_SOFT}/>
+        <path d="M13.5 3h7.5v7.5M21 3l-8.5 8.5"/>''',
+    "reset": '''<path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1L3.5 8.5"/><path d="M3.5 3.5v5h5"/>''',
+    "transforms": f'''<path d="M12 3v2.5M12 9.5v5M12 18.5V21"/>
+        <path d="M9 6.5L3.5 17.5H9z" {_SOFT}/><path d="M15 6.5l5.5 11H15z"/>''',
+    "check": f'''<circle cx="12" cy="12" r="8.8" {_SOFT}/><path d="M8 12.3l2.8 2.8 5.2-5.6"/>''',
+    "devices": f'''<rect x="3.5" y="4" width="10" height="17" rx="2.2" {_SOFT}/>
+        <path d="M7.5 17.5h2"/><path d="M16.5 7.5h2.5a1.5 1.5 0 0 1 1.5 1.5v9.5a1.5 1.5 0 0 1-1.5 1.5h-2.5"/>''',
+}
 
+_ICON_RENDER_PX = 64  # rendered once, large; QIcon scales down smoothly for every use
+
+
+def create_vector_icon(icon_name: str, color_hex: str) -> QIcon:
+    body = _ICON_SVG.get(icon_name, "").replace("{c}", color_hex)  # unknown name: blank icon, not a crash
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+        f'stroke="{color_hex}" stroke-width="2.2" stroke-linecap="round" '
+        f'stroke-linejoin="round">{body}</svg>'
+    )
+    pixmap = QPixmap(_ICON_RENDER_PX, _ICON_RENDER_PX)
+    pixmap.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-    color = QColor(color_hex)
-    pen = QPen(color)
-    pen.setWidth(2)
-    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-    painter.setPen(pen)
-    painter.setBrush(QBrush(Qt.BrushStyle.NoBrush))
-
-    if icon_name == "connection":
-        painter.drawRoundedRect(11, 10, 10, 12, 2, 2)
-        painter.drawLine(5, 13, 11, 13)
-        painter.drawLine(5, 19, 11, 19)
-        painter.drawLine(21, 16, 27, 16)
-    elif icon_name == "camera":
-        painter.drawRoundedRect(6, 11, 20, 13, 2, 2)
-        painter.drawEllipse(12, 13, 8, 8)
-        painter.drawRect(10, 8, 5, 3)
-    elif icon_name == "stream":
-        painter.drawRoundedRect(5, 8, 22, 14, 2, 2)
-        painter.drawLine(16, 22, 16, 26)
-        painter.drawLine(11, 26, 21, 26)
-    elif icon_name == "gear":
-        # Outer ring + teeth, larger to fill 32x32 canvas
-        painter.drawEllipse(8, 8, 16, 16)
-        painter.drawEllipse(12, 12, 8, 8)
-        for i in range(8):
-            painter.save()
-            painter.translate(16, 16)
-            painter.rotate(i * 45)
-            painter.drawLine(0, -7, 0, -11)
-            painter.restore()
-    elif icon_name == "status":
-        painter.drawEllipse(7, 7, 18, 18)
-        pen_dot = QPen(color)
-        pen_dot.setWidth(3)
-        painter.setPen(pen_dot)
-        painter.drawPoint(16, 12)
-        painter.setPen(pen)
-        painter.drawLine(16, 15, 16, 20)
-    elif icon_name == "qr":
-        brush = QBrush(color)
-        # corner brackets
-        painter.drawLine(4, 4, 4, 11)
-        painter.drawLine(4, 4, 11, 4)
-        painter.drawLine(28, 4, 21, 4)
-        painter.drawLine(28, 4, 28, 11)
-        painter.drawLine(4, 28, 4, 21)
-        painter.drawLine(4, 28, 11, 28)
-        painter.drawLine(28, 28, 21, 28)
-        painter.drawLine(28, 28, 28, 21)
-        # three small finder squares
-        for ox, oy in [(8, 8), (18, 8), (8, 18)]:
-            painter.drawRect(ox, oy, 6, 6)
-            painter.fillRect(ox + 2, oy + 2, 2, 2, brush)
-    elif icon_name == "usb":
-        # connector body with two contacts on the left, cable to the right
-        painter.drawRoundedRect(6, 13, 14, 8, 1, 1)
-        painter.drawLine(6, 15, 3, 15)
-        painter.drawLine(6, 19, 3, 19)
-        painter.drawLine(20, 17, 24, 17)
-        painter.drawLine(24, 17, 24, 7)
-        painter.drawLine(24, 7, 28, 7)
-    elif icon_name == "play":
-        painter.setBrush(QBrush(color))
-        from PyQt6.QtGui import QPolygon
-        from PyQt6.QtCore import QPoint
-        painter.drawPolygon(QPolygon([QPoint(10, 7), QPoint(25, 16), QPoint(10, 25)]))
-        painter.setBrush(QBrush(Qt.BrushStyle.NoBrush))
-    elif icon_name == "stop":
-        painter.setBrush(QBrush(color))
-        painter.drawRoundedRect(9, 9, 14, 14, 2, 2)
-        painter.setBrush(QBrush(Qt.BrushStyle.NoBrush))
-    elif icon_name == "expand":
-        for x1, y1, x2, y2 in ((6, 12, 6, 6), (6, 6, 12, 6), (26, 12, 26, 6),
-                               (26, 6, 20, 6), (6, 20, 6, 26), (6, 26, 12, 26),
-                               (26, 20, 26, 26), (26, 26, 20, 26)):
-            painter.drawLine(x1, y1, x2, y2)
-    elif icon_name == "reset":
-        # Circular arrow: an arc left open at the top right, with a head.
-        painter.drawArc(8, 8, 16, 16, 60 * 16, 280 * 16)
-        painter.drawLine(24, 12, 24, 6)
-        painter.drawLine(24, 12, 18, 12)
-    elif icon_name == "transforms":
-        painter.drawLine(7, 11, 25, 11)
-        painter.drawLine(7, 21, 25, 21)
-        painter.drawLine(20, 7, 25, 11)
-        painter.drawLine(20, 15, 25, 11)
-        painter.drawLine(12, 17, 7, 21)
-        painter.drawLine(12, 25, 7, 21)
-
+    QSvgRenderer(QByteArray(svg.encode())).render(painter)
     painter.end()
     return QIcon(pixmap)
 
@@ -504,7 +711,7 @@ class LogSliderRow(QWidget):
 
         self._val_lbl = QLabel(display_fn(v_min) if display_fn else str(v_min))
         self._val_lbl.setObjectName("val")
-        self._val_lbl.setFixedWidth(VALUE_COL_WIDTH)
+        self._val_lbl.setFixedWidth(ui_px(VALUE_COL_WIDTH))
         self._val_lbl.setAlignment(
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         lay.addWidget(self._val_lbl)
@@ -519,7 +726,7 @@ class LogSliderRow(QWidget):
             spin = NoScrollSpinBox()
             spin.setRange(int(v_min * spinbox_scale), int(v_max * spinbox_scale))
         spin.setSuffix(spinbox_suffix)
-        spin.setFixedWidth(SPIN_COL_WIDTH)
+        spin.setFixedWidth(ui_px(SPIN_COL_WIDTH))
         self._spin = spin
         lay.addWidget(self._spin)
 
@@ -537,7 +744,7 @@ class LogSliderRow(QWidget):
         self._spin.blockSignals(True)
         self._spin.setValue(self._to_spin(val))
         self._spin.blockSignals(False)
-        self._schedule_emit(val)
+        self.value_changed.emit(val)
 
     def _on_spin(self):
         val = float(self._spin.value()) / self._spin_scale
@@ -547,9 +754,6 @@ class LogSliderRow(QWidget):
         self._slider.blockSignals(False)
         display_val = val if self._is_double_spin else round(val)
         self._val_lbl.setText(self.display_fn(display_val))
-        self._schedule_emit(val)
-
-    def _schedule_emit(self, val: float):
         self.value_changed.emit(val)
 
     def set_range(self, v_min: float, v_max: float):
@@ -612,7 +816,7 @@ class PanSliderRow(QWidget):
             pos_lbl.setObjectName("dim")
             lay.addWidget(pos_lbl)
         else:
-            self.setMinimumWidth(SLIDER_TRACK_WIDTH)
+            self.setMinimumWidth(ui_px(SLIDER_TRACK_WIDTH))
 
         self._slider.valueChanged.connect(self._on_slider)
 

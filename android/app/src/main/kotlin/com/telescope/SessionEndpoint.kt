@@ -3,7 +3,7 @@ package com.telescope
 import android.content.Context
 import kotlinx.serialization.Serializable
 
-// What `GET /v1/ping` answers with; the 200/401 status alone still tells an older desktop the pairing verdict, this body adds what the phone is actually doing.
+// What `GET /v1/ping` answers with: the 200/401 status is the pairing verdict, this body is what the phone is doing.
 @Serializable
 data class SessionSnapshot(
     val protocol: Int,
@@ -12,13 +12,20 @@ data class SessionSnapshot(
     val busy: Boolean,
     // Local only: binds 127.0.0.1, reachable via adb not Wi-Fi (prevents desktop timeout).
     val localOnly: Boolean,
+    // Stable per install; lets the desktop tell which paired phone answered, e.g. over a USB forward.
+    val phoneId: String,
+    val phoneName: String,
 )
+
+@Serializable
+data class Hello(val protocol: Int, val phoneId: String, val phoneName: String)
 
 // Narrow interface: server owns HTTP, this owns camera lifecycle - they don't cross.
 interface SessionCommands {
     fun start(): ControlResult
     fun stop(): ControlResult
     fun snapshot(): SessionSnapshot
+    fun unpair(computer: PairedComputer)
 }
 
 // Refcount design: Activity and Service hold tags; first acquire binds port, last release closes; survives screen sleep.
@@ -28,6 +35,7 @@ object SessionEndpoint {
 
     private val owners = mutableSetOf<String>()
     private var server: SessionServer? = null
+    private var announcer: LanAnnouncer? = null
 
     @Synchronized
     fun acquire(context: Context, owner: String) {
@@ -36,9 +44,18 @@ object SessionEndpoint {
         if (server != null) return
         server = SessionServer(
             port = SessionServer.DEFAULT_PORT,
-            tokenProvider = { TokenStore.get(app) },
+            computers = { PairedComputers.list(app) },
             commands = ServiceSessionCommands(app),
         ).also { it.start() }
+        announcer = LanAnnouncer(app).also { it.start(SessionServer.DEFAULT_PORT) }
+    }
+
+    // Local only was toggled: announce or go quiet to match.
+    @Synchronized
+    fun refreshAnnouncement() {
+        val a = announcer ?: return
+        a.stop()
+        a.start(SessionServer.DEFAULT_PORT)
     }
 
     @Synchronized
@@ -47,6 +64,8 @@ object SessionEndpoint {
         if (owners.isNotEmpty()) return
         server?.stop()
         server = null
+        announcer?.stop()
+        announcer = null
     }
 
     // Test seam: drive refcount without binding port.
@@ -86,6 +105,12 @@ private class ServiceSessionCommands(private val context: Context) : SessionComm
                 state != StreamState.Streaming &&
                 state != StreamState.Failed,
             localOnly = StreamPrefs.localOnly(context),
+            phoneId = PairedComputers.phoneId(context),
+            phoneName = PairedComputers.phoneName(context),
         )
+    }
+
+    override fun unpair(computer: PairedComputer) {
+        PairedComputers.remove(context, computer.id)
     }
 }

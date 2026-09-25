@@ -3,16 +3,15 @@ import math
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QBrush, QColor
 from PyQt6.QtWidgets import (
-    QApplication, QComboBox, QFrame, QHBoxLayout, QLabel, QStyle, QStyledItemDelegate,
-    QStyleOptionViewItem, QVBoxLayout, QWidget,
+    QApplication, QComboBox, QStyle, QStyledItemDelegate, QStyleOptionViewItem, QWidget,
 )
 
 from telescope.plugin import TelescopePlugin
 from telescope.theme import OK, WARN
 from telescope.widgets.common import (
     NoScrollComboBox, NoScrollSlider, NoScrollSpinBox, add_card_header,
-    add_section_heading, control_row as _row, create_card, create_separator,
-    quality_label, stretch_slider,
+    add_section_heading, control_row as _row, card_layout, create_card, quality_label,
+    slider_row, value_label,
 )
 
 _DEFAULT_QUALITY = 85
@@ -89,15 +88,15 @@ class StreamOutputPlugin(TelescopePlugin):
         # Set on set_config() before phone data arrives; applied once on_phone_state() has real sizes.
         self._pending_resolution_text = None
         self._had_saved_resolution = False  # True if this device has ever had a resolution saved.
+        # Last resolution this device used; survives stream stop, which clears the combos.
+        self._saved_resolution_text = None
         # Lens switch doesn't trigger fresh /v1/state fetch; use cached capabilities dict.
         bus.camera_switched.connect(self._on_camera_switched)
 
     def create_panel(self) -> QWidget:
         card = create_card()
-        lay = QVBoxLayout(card)
-        lay.setContentsMargins(16, 15, 16, 15)
-        lay.setSpacing(10)
-        add_card_header(lay, "Stream Output", "stream")
+        lay = card_layout(card)
+        add_card_header(lay, "Stream output", "stream")
 
         # ── Resolution ────────────────────────────────────────────────────────
         add_section_heading(lay, "Output")
@@ -122,34 +121,21 @@ class StreamOutputPlugin(TelescopePlugin):
         self._fps_spin.setRange(5, 60)
         self._fps_spin.setValue(_DEFAULT_FPS)
         self._fps_spin.setSuffix(" fps")
-        self._fps_spin.setFixedWidth(90)
         self._fps_spin.setToolTip("Both the phone's capture rate and the local virtual camera's "
                                    "playback rate. Lower reduces bandwidth and phone battery use.")
         self._fps_spin.editingFinished.connect(self._on_fps)
-        lay.addLayout(_row("FPS", self._fps_spin))
-
-        lay.addWidget(create_separator())
+        lay.addLayout(_row("FPS", self._fps_spin, stretch=True))
 
         # ── JPEG Quality ──────────────────────────────────────────────────────
         add_section_heading(lay, "Phone stream")
         self._quality_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._quality_slider.setRange(1, 100)
         self._quality_slider.setValue(_DEFAULT_QUALITY)
-        stretch_slider(self._quality_slider, 104)
-        self._quality_slider.setToolTip(
-            "Lower quality and FPS reduce bandwidth. Useful on slow Wi-Fi or USB 2. "
-            "Very low values are a last resort - the image gets blocky fast."
-        )
-        self._quality_val_lbl = QLabel(quality_label(_DEFAULT_QUALITY))
-        self._quality_val_lbl.setObjectName("val")
-        self._quality_val_lbl.setMinimumWidth(92)
+        self._quality_val_lbl = value_label()
+        self._show_quality(_DEFAULT_QUALITY)
         self._quality_slider.valueChanged.connect(self._on_quality_changed)
-        q_inner = QHBoxLayout()
-        q_inner.setContentsMargins(0, 0, 0, 0)
-        q_inner.setSpacing(8)
-        q_inner.addWidget(self._quality_slider, 1)
-        q_inner.addWidget(self._quality_val_lbl)
-        lay.addLayout(_row("JPEG quality", q_inner, stretch=True))
+        lay.addLayout(_row("JPEG quality", slider_row(self._quality_slider, self._quality_val_lbl),
+                           stretch=True))
 
         return card
 
@@ -162,6 +148,8 @@ class StreamOutputPlugin(TelescopePlugin):
         QTimer.singleShot(1500, self._push_initial_settings)
 
     def on_stream_stop(self):
+        if self._res_combo.currentData() is not None:
+            self._saved_resolution_text = self._res_combo.currentText()
         self._ctrl = None
         self._current_camera_id = None
         self._sizes_by_ratio = {}
@@ -329,8 +317,15 @@ class StreamOutputPlugin(TelescopePlugin):
             self._ctrl.send(action="fps_target", value=fps)
         self._host.schedule_save()
 
+    def _show_quality(self, q: int):
+        self._quality_val_lbl.setText(f"{q}%")
+        tip = (f"{quality_label(q)}. Lower quality and FPS reduce bandwidth, which helps on slow "
+               "Wi-Fi or USB 2. Very low values are a last resort: the image gets blocky fast.")
+        self._quality_slider.setToolTip(tip)
+        self._quality_val_lbl.setToolTip(tip)
+
     def _on_quality_changed(self, q: int):
-        self._quality_val_lbl.setText(quality_label(q))
+        self._show_quality(q)
         if self._ctrl:
             self._ctrl.send(action="jpeg_quality", value=q)
         self._host.schedule_save()
@@ -343,13 +338,17 @@ class StreamOutputPlugin(TelescopePlugin):
             "jpeg_quality": self._quality_slider.value(),
         }
         if self._res_combo.currentData() is not None:
-            cfg["resolution"] = self._res_combo.currentText()
+            self._saved_resolution_text = self._res_combo.currentText()
+        if self._saved_resolution_text:
+            cfg["resolution"] = self._saved_resolution_text
         return cfg
 
     def set_config(self, cfg: dict):
-        if res := cfg.get("resolution"):
-            self._pending_resolution_text = res  # Combo unpopulated at load; apply when on_phone_state() arrives.
-            self._had_saved_resolution = True
+        # Always overwrite: the host applies defaults before each device's own config.
+        res = cfg.get("resolution") or None
+        self._pending_resolution_text = res  # Combo unpopulated at load; apply when on_phone_state() arrives.
+        self._saved_resolution_text = res
+        self._had_saved_resolution = res is not None
         if fps := cfg.get("fps", cfg.get("phone_fps")):  # Fallback to legacy "phone_fps" if "fps" absent.
             self._fps_spin.setValue(int(fps))
         if q := cfg.get("jpeg_quality"):

@@ -18,17 +18,20 @@ from telescope import theme
 from telescope.config import DEVICE_LOCAL_PLUGINS, load_config, save_config
 from telescope.models import PhoneState, PhoneStateError
 from telescope.phone_client import PhoneControlClient
-from telescope.platform import IS_LINUX, IS_WINDOWS
+from telescope.platform import IS_LINUX
 from telescope.plugin import UNCHANGED, EventBus, TelescopePlugin
 from telescope.session import StreamSession
 from telescope.stream import StreamWorker
-from telescope.widgets.common import ElidingLabel, create_app_icon, create_vector_icon
+from telescope.widgets.common import (
+    ElidingLabel, create_app_icon, create_vector_icon, set_status_kind, ui_px,
+)
 
 STATUS_COLORS = theme.STATUS_COLORS
 _WIDTH_THREE_COL = 1300
 _WIDTH_TWO_COL   = 900
-_RAIL_WIDTH_LEFT  = 364
-_RAIL_WIDTH_RIGHT = 434
+# Both rails share one width so the preview sits on the window's centre line.
+_RAIL_WIDTH       = 412
+_RAIL_WIDTH_SOLO  = 440  # two-column mode: the one rail holding every card
 
 
 # ── Single-instance enforcement ───────────────────────────────────────────────
@@ -83,8 +86,8 @@ class TelescopeWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Telescope")
-        self.setMinimumSize(560, 520)
-        self.resize(1380, 900)
+        self.setMinimumSize(ui_px(560), ui_px(520))
+        self.resize(ui_px(1380), ui_px(900))
 
         self._bus     = EventBus()
         self._bus.resolution_change_requested.connect(self._on_resolution_pending)
@@ -182,7 +185,8 @@ class TelescopeWindow(QMainWindow):
         bar = QWidget()
         bar.setObjectName("header_bar")
         lay = QHBoxLayout(bar)
-        lay.setContentsMargins(18, 10, 18, 10)
+        # Same side margin as the body, so header content lines up with the rails below it.
+        lay.setContentsMargins(16, 10, 16, 10)
         lay.setSpacing(12)
 
         self._header_slot = QHBoxLayout()
@@ -197,7 +201,7 @@ class TelescopeWindow(QMainWindow):
         self._menu_btn.setFixedSize(36, 36)
         self._menu_btn.setIcon(create_vector_icon("gear", theme.TEXT_DIM))
         self._menu_btn.setIconSize(QSize(19, 19))
-        self._menu_btn.setToolTip("Setup and tools")
+        self._menu_btn.setToolTip("Settings")
         self._menu_btn.clicked.connect(self._show_settings_menu)
         lay.addWidget(self._menu_btn)
 
@@ -257,12 +261,12 @@ class TelescopeWindow(QMainWindow):
         bar = QWidget()
         bar.setObjectName("footer_bar")
         lay = QHBoxLayout(bar)
-        lay.setContentsMargins(18, 8, 18, 8)
+        lay.setContentsMargins(16, 8, 16, 8)
         lay.setSpacing(14)
 
         # No caption (already reads as status); elides long messages.
-        self._status_lbl = ElidingLabel("Idle - press Start Streaming")
-        self._status_lbl.setObjectName("status_dim")
+        self._status_lbl = ElidingLabel("Not streaming")
+        set_status_kind(self._status_lbl, "status_dim")
         lay.addWidget(self._status_lbl, 1)
 
         divider = QFrame()
@@ -271,13 +275,13 @@ class TelescopeWindow(QMainWindow):
         divider.setFixedHeight(22)
         lay.addWidget(divider)
 
-        fps_cap = QLabel("LIVE FPS")
+        fps_cap = QLabel("FPS")
         fps_cap.setObjectName("footer_label")
         lay.addWidget(fps_cap)
 
         self._fps_lbl = QLabel("—")
         self._fps_lbl.setObjectName("fps_lbl")
-        self._fps_lbl.setMinimumWidth(72)
+        self._fps_lbl.setMinimumWidth(ui_px(72))
         lay.addWidget(self._fps_lbl)
 
         divider2 = QFrame()
@@ -286,13 +290,13 @@ class TelescopeWindow(QMainWindow):
         divider2.setFixedHeight(22)
         lay.addWidget(divider2)
 
-        net_cap = QLabel("LIVE THROUGHPUT")
+        net_cap = QLabel("Throughput")
         net_cap.setObjectName("footer_label")
         lay.addWidget(net_cap)
 
         self._net_lbl = QLabel("—")
         self._net_lbl.setObjectName("fps_lbl")
-        self._net_lbl.setMinimumWidth(80)
+        self._net_lbl.setMinimumWidth(ui_px(80))
         lay.addWidget(self._net_lbl)
 
         return bar
@@ -309,9 +313,9 @@ class TelescopeWindow(QMainWindow):
             self._menu_btn.rect().bottomLeft()) + QPoint(0, 6))
 
     def _layout_mode_for(self, width: int) -> str:
-        if width >= _WIDTH_THREE_COL:
+        if width >= ui_px(_WIDTH_THREE_COL):
             return "three"
-        if width >= _WIDTH_TWO_COL:
+        if width >= ui_px(_WIDTH_TWO_COL):
             return "two"
         return "one"
 
@@ -324,14 +328,17 @@ class TelescopeWindow(QMainWindow):
 
         if mode == "three":
             groups = [self._panels["left"], self._panels["center"], self._panels["right"]]
-            widths = [_RAIL_WIDTH_LEFT, None, _RAIL_WIDTH_RIGHT]
+            widths = [ui_px(_RAIL_WIDTH), None, ui_px(_RAIL_WIDTH)]
         elif mode == "two":
             groups = [self._panels["left"] + self._panels["right"], self._panels["center"], []]
-            widths = [_RAIL_WIDTH_RIGHT, None, None]
+            widths = [ui_px(_RAIL_WIDTH_SOLO), None, None]
         else:
             groups = [self._panels["center"] + self._panels["left"] + self._panels["right"], [], []]
             widths = [None, None, None]
 
+        # Panels a plugin hid on purpose stay hidden; only placement changes here.
+        hidden = {id(p) for ps in self._panels.values() for p in ps
+                  if p.parentWidget() is not None and p.isHidden()}
         for col_lay in self._column_layouts:
             while col_lay.count():
                 item = col_lay.takeAt(0)
@@ -360,7 +367,7 @@ class TelescopeWindow(QMainWindow):
                 stretch = 1 if id(panel) in center_panels else 0
                 has_center = has_center or bool(stretch)
                 col_lay.addWidget(panel, stretch)
-                panel.setVisible(True)
+                panel.setVisible(id(panel) not in hidden)
             if not has_center:
                 col_lay.addStretch()
 
@@ -428,6 +435,19 @@ class TelescopeWindow(QMainWindow):
         if was_streaming:
             self._start()
 
+    def forget_device_settings(self, name: str):
+        """Drop a removed phone's per-device settings from the config."""
+        cfg = load_config()
+        if cfg.get("devices", {}).pop(name, None) is not None:
+            save_config(cfg)
+
+    def _shutdown_plugins(self):
+        for p in self._plugins:
+            try:
+                p.shutdown()
+            except Exception:
+                logging.exception("Plugin %s failed to shut down", p.name)
+
     def reconnect_stream(self):
         """Restart stream to pick up changed connection settings."""
         if self._worker is None:
@@ -466,7 +486,7 @@ class TelescopeWindow(QMainWindow):
     def _apply_config(self, cfg: dict):
         if not cfg:
             return
-        # config.py's load_config() already ran migration; cfg is always v2 here
+        # config.py's load_config() already ran migration; cfg is always current here
         selected    = cfg.get("selected_device")
         global_pcfg = cfg.get("plugin_configs", {})
 
@@ -499,17 +519,17 @@ class TelescopeWindow(QMainWindow):
         self._waking = True
         self._set_start_button(streaming=True)
         self._start_btn.setEnabled(False)
-        self._set_status("Waking phone camera...", "dim")
+        self._set_status("Starting the phone's camera…", "dim")
 
-        self._spawn_wake(wake_id, conn, url, token)
+        self._spawn_wake(wake_id, conn, url, token, conn.session_target())
 
-    def _spawn_wake(self, wake_id: int, conn, url: str, token: str):
+    def _spawn_wake(self, wake_id: int, conn, url: str, token: str, target=None):
         """Split from _start() to allow test synchronization; thread mustn't outlive QObject."""
         threading.Thread(
-            target=self._wake_phone, args=(wake_id, conn, url, token), daemon=True,
+            target=self._wake_phone, args=(wake_id, conn, url, token, target), daemon=True,
         ).start()
 
-    def _wake_phone(self, wake_id: int, conn, url: str, token: str):
+    def _wake_phone(self, wake_id: int, conn, url: str, token: str, target=None):
         def on_progress(msg: str):
             try:
                 self._sig_wake_progress.emit(wake_id, msg)
@@ -517,7 +537,7 @@ class TelescopeWindow(QMainWindow):
                 pass
 
         try:
-            ok, reason = conn.ensure_phone_streaming(on_progress=on_progress)
+            ok, reason = conn.ensure_phone_streaming(on_progress=on_progress, target=target)
         except Exception:
             logging.exception("Phone wake failed")
             ok, reason = False, "Couldn't reach the phone."
@@ -538,7 +558,7 @@ class TelescopeWindow(QMainWindow):
         self._start_btn.setEnabled(True)
         if not ok:
             self._set_start_button(streaming=False)
-            self._set_status("Idle - press Start Streaming", "dim")
+            self._set_status("Not streaming", "dim")
             QMessageBox.warning(self, "Couldn't start the phone's camera", reason)
             return
         self._begin_stream(url, token)
@@ -606,7 +626,7 @@ class TelescopeWindow(QMainWindow):
         self._fps_lbl.setText("—")
         self._net_lbl.setStyleSheet("")
         self._net_lbl.setText("—")
-        self._set_status("Stopped.", "dim")
+        self._set_status("Not streaming", "dim")
 
         self._bus.stream_stopped.emit()
         for p in self._plugins:
@@ -617,10 +637,11 @@ class TelescopeWindow(QMainWindow):
         conn = self._plugin("connection")
         if not conn:
             return
+        target = conn.session_target()
 
         def stop():
             try:
-                conn.stop_phone_streaming()
+                conn.stop_phone_streaming(target=target)
             except Exception:
                 logging.debug("Remote stop failed", exc_info=True)
 
@@ -664,13 +685,13 @@ class TelescopeWindow(QMainWindow):
             def worker():
                 if old_worker:
                     old_worker.wait(5000)
-                self._sig_canvas_reload_done.emit(True, "canvas updated", was_streaming)
+                self._sig_canvas_reload_done.emit(True, "", was_streaming)
 
             threading.Thread(target=worker, daemon=True).start()
 
     def _on_canvas_reload_done(self, ok: bool, msg: str, restart_stream: bool):
         if ok:
-            self._set_status(f"Loopback reloaded: {msg}", "ok")
+            self._set_status(f"Loopback reloaded: {msg}" if IS_LINUX else "Canvas updated", "ok")
             if restart_stream:
                 self._start()
         else:
@@ -683,9 +704,10 @@ class TelescopeWindow(QMainWindow):
     def _fetch_state_async(self, session_id: int):
         time.sleep(1.5)
         for _ in range(3):
-            if self._session is None or self._session.id != session_id or not self._ctrl:
+            session = self._session  # one read: _stop() can clear it between checks on the GUI thread
+            if session is None or session.id != session_id:
                 return
-            state = self._ctrl.get_state()
+            state = session.client.get_state()
             if state:
                 self._sig_state.emit(session_id, state)
                 return
@@ -704,7 +726,7 @@ class TelescopeWindow(QMainWindow):
             PhoneState.from_dict(state)
         except PhoneStateError:
             logging.exception("Phone sent a malformed /v1/state response - not applying it")
-            self._set_status("Protocol error: phone sent malformed state", "err")
+            self._set_status("The phone sent data this version can't read. Update both apps to the same version.", "err")
             return
         # Decoded successfully - forwarded as the original dict rather than
         # the typed PhoneState so existing plugins keep consuming the shape
@@ -744,6 +766,7 @@ class TelescopeWindow(QMainWindow):
         self._tray_close_notified = True
         self._stop()
         self._drain_phone_stops()
+        self._shutdown_plugins()
         QApplication.quit()
 
     def _on_tray_activated(self, reason):
@@ -753,10 +776,10 @@ class TelescopeWindow(QMainWindow):
             else:
                 self._tray_show()
 
-    def send_notification(self, title: str, body: str):
+    def send_notification(self, title: str, body: str, urgent: bool = True):
         if IS_LINUX and shutil.which("notify-send"):
             subprocess.Popen(
-                ["notify-send", "-a", "Telescope", "-u", "critical", title, body],
+                ["notify-send", "-a", "Telescope", "-u", "critical" if urgent else "normal", title, body],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
         elif self._tray:
@@ -804,9 +827,8 @@ class TelescopeWindow(QMainWindow):
 
     def _render_reconnecting_frame(self):
         # Deliberately bypasses _set_status(), which stops this animation's own timer as its first step.
-        self._status_lbl.setObjectName("status_warn")
+        set_status_kind(self._status_lbl, "status_warn")
         self._status_lbl.setText(f"{self._reconnecting_base}{'.' * self._reconnecting_dots}")
-        self._status_lbl.setStyleSheet(f"color: {theme.WARN};")
 
     def _stop_reconnecting_animation(self):
         if self._reconnecting_timer:
@@ -852,9 +874,8 @@ class TelescopeWindow(QMainWindow):
         self._stop_reconnecting_animation()
         obj = {"ok": "status_ok", "warn": "status_warn",
                "err": "status_err", "dim": "status_dim"}.get(kind, "status_dim")
-        self._status_lbl.setObjectName(obj)
+        set_status_kind(self._status_lbl, obj)
         self._status_lbl.setText(msg)
-        self._status_lbl.setStyleSheet("")
 
     def closeEvent(self, event):
         if self._tray and self._worker is not None:
@@ -865,9 +886,11 @@ class TelescopeWindow(QMainWindow):
                 self.send_notification(
                     "Telescope is still running",
                     "Streaming continues in the background. Right-click the tray icon to quit.",
+                    urgent=False,
                 )
         else:
             self._stop()
             self._drain_phone_stops()
+            self._shutdown_plugins()
             event.accept()
             QApplication.quit()

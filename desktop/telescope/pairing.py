@@ -15,7 +15,8 @@ from telescope.ip_utils import PairingAddress
 PAIRING_PORT = 8765
 
 # Protocol version; desktop and app must ship together.
-PAIRING_PROTOCOL_VERSION = 2
+# 3: the offer names this computer (computer_id/computer_name), the phone answers with its phone_id.
+PAIRING_PROTOCOL_VERSION = 3
 
 
 @dataclass(frozen=True)
@@ -27,6 +28,8 @@ class PairingOffer:
     nonce: str
     token: str
     candidates: List[PairingAddress] = field(default_factory=list)
+    # Same session, advertising only 127.0.0.1: what the adb broadcast carries (reached via adb reverse).
+    usb_payload: str = ""
 
 
 @dataclass(frozen=True)
@@ -36,6 +39,7 @@ class PairingResult:
     token: str = ""
     # Source of successful pairing POST (preferred over reported IPs).
     source_ip: str = ""
+    phone_id: str = ""
 
 
 class PairingServer:
@@ -45,20 +49,23 @@ class PairingServer:
     # Drain limit: avoid RST on Windows when closing with unread bytes.
     _DRAIN_LIMIT = 1024 * 1024
 
-    def __init__(self, on_paired: Callable[[PairingResult], None]):
+    def __init__(self, on_paired: Callable[[PairingResult], None],
+                 computer_id: str = "", computer_name: str = ""):
         self._on_paired = on_paired
+        self._computer_id = computer_id
+        self._computer_name = computer_name
         self._server: Optional[HTTPServer] = None
         self._server_thread: Optional[threading.Thread] = None
         self.offer: Optional[PairingOffer] = None
 
-    def start(self, advertise: Optional[List[PairingAddress]] = None) -> Optional[PairingOffer]:
-        """Binds the server and returns the offer to display as a QR code, or None if there's no network interface to pair over; already-started calls are a no-op returning the existing offer. [advertise], if given, replaces interface enumeration - the USB path passes the loopback address, reached via adb reverse rather than a LAN that may not exist for a USB-only phone."""
+    def start(self, advertise: Optional[List[PairingAddress]] = None) -> PairingOffer:
+        """Binds the server and returns the offer (idempotent). candidates is empty when this computer has
+        no usable network; usb_payload still works then, over adb reverse. [advertise] replaces interface
+        enumeration (tests)."""
         if self._server is not None:
             return self.offer
 
         candidates = advertise if advertise is not None else ip_utils.get_pairing_addresses()
-        if not candidates:
-            return None
 
         # Try to bind the fixed pairing port; fall back to random if in use.
         port = PAIRING_PORT
@@ -119,15 +126,16 @@ class PairingServer:
                 try:
                     data = json.loads(body)
                     name = str(data.get("name", "Phone")).strip()
+                    phone_id = str(data.get("phone_id", "")).strip()
                     ips = list(dict.fromkeys(str(x).strip() for x in data.get("ips", [])))
                     echoed_token = str(data.get("token", ""))
-                    if not name or not all(ip_utils.valid_ipv4(ip) for ip in ips):
+                    if not name or not phone_id or not all(ip_utils.valid_ipv4(ip) for ip in ips):
                         raise ValueError("invalid pairing payload")
                     if not hmac.compare_digest(echoed_token, token):
                         raise ValueError("token mismatch")
                     source_ip = self.client_address[0] if self.client_address else ""
                     on_paired(PairingResult(
-                        name=name, ips=ips, token=token, source_ip=source_ip,
+                        name=name, ips=ips, token=token, source_ip=source_ip, phone_id=phone_id,
                     ))
                     self.send_response(200)
                     self.end_headers()
@@ -142,17 +150,21 @@ class PairingServer:
         self._server_thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._server_thread.start()
 
-        payload = json.dumps({
-            "version": PAIRING_PROTOCOL_VERSION,
-            "port": port,
-            "candidates": [
-                {"ip": c.ip, "interface": c.interface, "kind": c.kind} for c in candidates
-            ],
-            "nonce": nonce,
-            "token": token,
-        })
+        def payload_for(addrs):
+            return json.dumps({
+                "version": PAIRING_PROTOCOL_VERSION,
+                "port": port,
+                "candidates": [{"ip": c.ip, "interface": c.interface, "kind": c.kind} for c in addrs],
+                "nonce": nonce,
+                "token": token,
+                "computer_id": self._computer_id,
+                "computer_name": self._computer_name,
+            })
+
         self.offer = PairingOffer(
-            payload=payload, port=port, nonce=nonce, token=token, candidates=list(candidates),
+            payload=payload_for(candidates), port=port, nonce=nonce, token=token,
+            candidates=list(candidates),
+            usb_payload=payload_for([PairingAddress(ip="127.0.0.1", interface="USB (adb)", kind="other")]),
         )
         return self.offer
 

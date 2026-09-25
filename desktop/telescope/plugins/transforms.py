@@ -1,17 +1,16 @@
 import cv2
 import numpy as np
 
-from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QCheckBox, QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget,
+    QWidget,
 )
 
-from telescope import theme
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
-    NoScrollComboBox, NoScrollSlider, PanSliderRow, add_card_header,
-    add_section_heading, control_row as _row, create_card, create_separator,
-    create_vector_icon, segmented_row, set_ui_role, stretch_slider,
+    NoScrollComboBox, NoScrollSlider, PanSliderRow, SegmentButton, add_card_header,
+    add_section_heading, control_row as _row, card_layout, create_card, card_action,
+    segmented_row, slider_row, value_label,
 )
 
 ROTATIONS = {
@@ -48,7 +47,7 @@ def _transform_frame(frame, flip_h: bool, flip_v: bool, rotation):
 
 class TransformsPlugin(TelescopePlugin):
     name = "transforms"
-    panel_region = "right"
+    panel_region = "left"   # desktop-side processing, with the output settings
 
     def setup(self, host, bus):
         self._host = host
@@ -61,18 +60,18 @@ class TransformsPlugin(TelescopePlugin):
 
     def create_panel(self) -> QWidget:
         card = create_card()
-        lay = QVBoxLayout(card)
-        lay.setContentsMargins(16, 15, 16, 15)
-        lay.setSpacing(10)
-        add_card_header(lay, "Transforms", "transforms")
+        lay = card_layout(card)
+        reset_btn = card_action("Reset", "reset", "Clear flip, rotation, zoom and pan back to defaults")
+        reset_btn.clicked.connect(self._reset_all)
+        add_card_header(lay, "Transforms", "transforms", action=reset_btn)
 
         # ── Flip ─────────────────────────────────────────────────────────────
         add_section_heading(lay, "Orientation")
-        self._flip_h = QCheckBox("Horizontal")
-        self._flip_v = QCheckBox("Vertical")
+        self._flip_h = SegmentButton("Horizontal")
+        self._flip_v = SegmentButton("Vertical")
         self._flip_h.toggled.connect(self._on_flip)
         self._flip_v.toggled.connect(self._on_flip)
-        lay.addLayout(_row("Flip", segmented_row(self._flip_h, self._flip_v)))
+        lay.addLayout(_row("Flip", segmented_row(self._flip_h, self._flip_v), stretch=True))
 
         # ── Rotation ──────────────────────────────────────────────────────────
         self._rot_combo = NoScrollComboBox()
@@ -80,46 +79,29 @@ class TransformsPlugin(TelescopePlugin):
         self._rot_combo.currentTextChanged.connect(self._on_rotate)
         lay.addLayout(_row("Rotation", self._rot_combo, stretch=True))
 
-        lay.addWidget(create_separator())
-
         # ── Zoom ──────────────────────────────────────────────────────────────
         add_section_heading(lay, "Framing")
         self._zoom_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._zoom_slider.setRange(100, 500)
         self._zoom_slider.setValue(100)
-        stretch_slider(self._zoom_slider)
-        self._zoom_val_lbl = QLabel("1.0×")
-        self._zoom_val_lbl.setObjectName("val")
-        self._zoom_val_lbl.setMinimumWidth(40)
+        self._zoom_val_lbl = value_label("1.0×")
         self._zoom_slider.valueChanged.connect(self._on_zoom_changed)
-        zoom_inner = QHBoxLayout()
-        zoom_inner.setContentsMargins(0, 0, 0, 0)
-        zoom_inner.setSpacing(8)
-        zoom_inner.addWidget(self._zoom_slider, 1)
-        zoom_inner.addWidget(self._zoom_val_lbl)
-        lay.addLayout(_row("Zoom", zoom_inner, stretch=True))
+        lay.addLayout(_row("Zoom", slider_row(self._zoom_slider, self._zoom_val_lbl), stretch=True))
 
         # ── Pan ───────────────────────────────────────────────────────────────
         self._pan_x_slider = PanSliderRow(show_end_labels=False)
         self._pan_x_slider.value_changed.connect(self._on_pan_changed)
-        lay.addLayout(_row("Pan X (L-R)", self._pan_x_slider, stretch=True))
+        self._pan_x_lbl = value_label()
+        lay.addLayout(_row("Pan left/right", slider_row(self._pan_x_slider, self._pan_x_lbl), stretch=True))
 
         self._pan_y_slider = PanSliderRow(show_end_labels=False)
         self._pan_y_slider.value_changed.connect(self._on_pan_changed)
-        lay.addLayout(_row("Pan Y (U-D)", self._pan_y_slider, stretch=True))
+        self._pan_y_lbl = value_label()
+        lay.addLayout(_row("Pan up/down", slider_row(self._pan_y_slider, self._pan_y_lbl), stretch=True))
 
         self._pan_x_slider.set_enabled(False)
         self._pan_y_slider.set_enabled(False)
-
-        lay.addWidget(create_separator())
-
-        reset_btn = QPushButton("  Reset transforms")
-        reset_btn.setIcon(create_vector_icon("reset", theme.TEXT_DIM))
-        reset_btn.setIconSize(QSize(14, 14))
-        set_ui_role(reset_btn, "quiet")
-        reset_btn.setToolTip("Clear flip, rotation, zoom and pan back to defaults")
-        reset_btn.clicked.connect(self._reset_all)
-        lay.addWidget(reset_btn)
+        self._show_pan()
 
         return card
 
@@ -154,6 +136,7 @@ class TransformsPlugin(TelescopePlugin):
         pan_active = self.zoom > 1.0
         self._pan_x_slider.set_enabled(pan_active)
         self._pan_y_slider.set_enabled(pan_active)
+        self._show_pan()
         if not pan_active:
             self._pan_x_slider.reset()
             self._pan_y_slider.reset()
@@ -162,12 +145,20 @@ class TransformsPlugin(TelescopePlugin):
         else:
             self.pan_x = self._pan_x_slider.get_value()
             self.pan_y = self._pan_y_slider.get_value()
+        self._show_pan()
         self._host.schedule_save()
 
     def _on_pan_changed(self, _val: float):
         self.pan_x = self._pan_x_slider.get_value()
         self.pan_y = self._pan_y_slider.get_value()
+        self._show_pan()
         self._host.schedule_save()
+
+    def _show_pan(self):
+        for lbl, slider in ((self._pan_x_lbl, self._pan_x_slider), (self._pan_y_lbl, self._pan_y_slider)):
+            pct = round(slider.get_value() * 100)
+            lbl.setText(f"{pct:+d}%" if pct else "0%")
+            lbl.setEnabled(slider._slider.isEnabled())
 
     # ── Config ────────────────────────────────────────────────────────────────
 
@@ -197,3 +188,4 @@ class TransformsPlugin(TelescopePlugin):
         self._pan_y_slider.set_value(self.pan_y)
         self._pan_x_slider.set_enabled(pan_active)
         self._pan_y_slider.set_enabled(pan_active)
+        self._show_pan()

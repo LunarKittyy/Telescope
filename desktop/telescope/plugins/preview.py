@@ -8,10 +8,10 @@ from PyQt6.QtWidgets import (
 
 from telescope import theme
 from telescope.plugin import TelescopePlugin
-from telescope.widgets.common import create_vector_icon, set_ui_role
+from telescope.widgets.common import create_vector_icon, set_ui_role, ui_px
 
 
-_IDLE_TEXT    = "Not streaming"
+_IDLE_TEXT    = "Not streaming\n\nPress Start Streaming and the phone's camera comes up on its own."
 _WAITING_TEXT = "Waiting for the first frame\u2026"
 
 
@@ -67,11 +67,13 @@ class _PopoutWindow(QWidget):
 
 class _HostFilter(QObject):
     """Event filter installed on the main window to detect hide/show."""
-    hidden = pyqtSignal()
+    visibility_changed = pyqtSignal(bool)
 
     def eventFilter(self, obj, event):
         if event.type() == QEvent.Type.Hide:
-            self.hidden.emit()
+            self.visibility_changed.emit(False)
+        elif event.type() == QEvent.Type.Show:
+            self.visibility_changed.emit(True)
         return False
 
 
@@ -90,12 +92,15 @@ class PreviewPlugin(TelescopePlugin):
         # Flag; process_frame() runs on stream thread and must never touch self._popout (not thread-safe).
         self._popout_active = False
         self._busy   = False
+        # Skip decoding for the card while the window is in the tray, without flipping the user's Hide/Show choice.
+        self._host_visible = True
         self._sig    = _Sig()
         self._sig.frame.connect(self._on_frame)
 
         self._host_filter = _HostFilter()
-        self._host_filter.hidden.connect(self._on_host_hidden)
+        self._host_filter.visibility_changed.connect(self._on_host_visibility)
         host.installEventFilter(self._host_filter)
+        bus.setup_needed.connect(self._on_setup_needed)
 
     def create_panel(self) -> QWidget:
         """Video stage: letterboxed frame area with toolbar beneath (centre column, no chrome)."""
@@ -123,7 +128,7 @@ class PreviewPlugin(TelescopePlugin):
         tb_lay.setSpacing(8)
 
         self._toggle_btn = QPushButton("Hide")
-        self._toggle_btn.setMinimumWidth(78)
+        self._toggle_btn.setMinimumWidth(ui_px(78))
         set_ui_role(self._toggle_btn, "quiet")
         self._toggle_btn.setToolTip(
             "Stop decoding frames for this view. The virtual camera output is "
@@ -135,7 +140,7 @@ class PreviewPlugin(TelescopePlugin):
         tb_lay.addStretch()
 
         self._popout_btn = QPushButton("  Pop out")
-        self._popout_btn.setMinimumWidth(92)
+        self._popout_btn.setMinimumWidth(ui_px(92))
         set_ui_role(self._popout_btn, "quiet")
         self._popout_btn.setIcon(create_vector_icon("expand", theme.TEXT_DIM))
         self._popout_btn.setIconSize(QSize(14, 14))
@@ -144,7 +149,12 @@ class PreviewPlugin(TelescopePlugin):
 
         lay.addWidget(toolbar)
 
+        self._stage = stage
         return stage
+
+    def _on_setup_needed(self, needed: bool):
+        # The first-run checklist takes the stage; there's nothing to preview before setup anyway.
+        self._stage.setVisible(not needed)
 
     def _toggle(self):
         self._active = not self._active
@@ -184,15 +194,15 @@ class PreviewPlugin(TelescopePlugin):
         self._popout_active = False
         self._toggle_btn.setEnabled(True)
 
-    def _on_host_hidden(self):
-        if self._active:
-            self._toggle()
+    def _on_host_visibility(self, visible: bool):
+        self._host_visible = visible
 
     # ── Worker thread ─────────────────────────────────────────────────────────
 
     def process_frame(self, frame: np.ndarray) -> np.ndarray:
         popout_open = self._popout_active
-        if not (self._active or popout_open) or self._busy:
+        card_wanted = self._active and self._host_visible
+        if not (card_wanted or popout_open) or self._busy:
             return frame
         self._busy = True
         h, w = frame.shape[:2]

@@ -1,6 +1,6 @@
 import pytest
 
-from telescope.models import CameraCapabilities, DeviceProfile, PhoneState, PhoneStateError
+from telescope.models import CameraCapabilities, PhoneState, PhoneStateError
 
 _VALID_CAMERA = {
     "id": "0", "logicalId": None, "label": "Back", "current": True,
@@ -94,29 +94,3 @@ def test_phone_state_optional_iso_and_shutter_default_to_none():
     state2 = PhoneState.from_dict(with_manual)
     assert state2.iso == 400
     assert state2.shutter_ns == 8_000_000
-
-
-def test_device_profile_round_trips_through_dict():
-    profile = DeviceProfile(name="Phone", ips=("10.0.0.1", "100.64.0.1"), token="tok-123")
-    d = profile.to_dict()
-    assert d == {"name": "Phone", "ips": ["10.0.0.1", "100.64.0.1"], "token": "tok-123"}
-    assert DeviceProfile.from_dict(d) == profile
-
-
-def test_device_profile_token_is_optional_and_omitted_from_dict():
-    profile = DeviceProfile.from_dict({"name": "Phone", "ips": ["10.0.0.1"]})
-    assert profile.token is None
-    assert "token" not in profile.to_dict()
-
-
-@pytest.mark.parametrize("raw,reason", [
-    ({}, "missing name"),
-    ({"name": ""}, "empty name"),
-    ({"name": "Phone", "ips": "not-a-list"}, "ips not a list"),
-    ({"name": "Phone", "ips": [1, 2]}, "ips not strings"),
-    ({"name": "Phone", "ips": ["1.2.3.4"], "token": 42}, "token not a string"),
-    ("not-a-dict", "not a dict"),
-])
-def test_device_profile_rejects_malformed_entries(raw, reason):
-    with pytest.raises(ValueError):
-        DeviceProfile.from_dict(raw)

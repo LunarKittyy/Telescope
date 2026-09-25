@@ -28,3 +28,4 @@ pytest==9.1.1
 pyvirtualcam==0.15.0
 qrcode==8.2
 setuptools==83.0.0
+zeroconf==0.151.3

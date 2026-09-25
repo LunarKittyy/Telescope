@@ -20,7 +20,7 @@ class MjpegReader:
         self.timeout = timeout
         self._response = None
         self._boundary: Optional[bytes] = None
-        self._buf = b""
+        self._buf = bytearray()
         # JPEG wire size from most recent read (read cross-thread by vcam loop for throughput).
         self.last_jpeg_size = 0
 
@@ -46,7 +46,7 @@ class MjpegReader:
         boundary = content_type.split("boundary=", 1)[1].strip().strip('"')
         self._boundary = boundary.encode("utf-8")
         self._response = resp
-        self._buf = b""
+        self._buf = bytearray()
         return True
 
     def read(self):
@@ -71,29 +71,34 @@ class MjpegReader:
             except Exception:
                 pass
         self._response = None
-        self._buf = b""
+        self._buf = bytearray()
         self._boundary = None
 
     # ── Multipart parsing ────────────────────────────────────────────────
 
+    def _recv(self, n: int) -> bool:
+        # read1() hands back whatever has arrived; read(n) would block until n bytes, i.e. until the next frame starts.
+        chunk = self._response.read1(n)
+        if not chunk:
+            return False
+        self._buf += chunk
+        return True
+
     def _fill(self, n: int) -> bool:
         while len(self._buf) < n:
-            chunk = self._response.read(_CHUNK)
-            if not chunk:
+            if not self._recv(max(n - len(self._buf), _CHUNK)):
                 return False
-            self._buf += chunk
         return True
 
     def _read_line(self) -> Optional[bytes]:
         """Read until line break, return None if header exceeded limit."""
-        while b"\r\n" not in self._buf:
+        while (idx := self._buf.find(b"\r\n")) < 0:
             if len(self._buf) > _MAX_PART_HEADER_BYTES:
                 return None
-            chunk = self._response.read(_CHUNK)
-            if not chunk:
+            if not self._recv(_CHUNK):
                 return None
-            self._buf += chunk
-        line, self._buf = self._buf.split(b"\r\n", 1)
+        line = bytes(self._buf[:idx])
+        del self._buf[:idx + 2]
         return line
 
     def _read_part(self) -> Optional[bytes]:
@@ -120,9 +125,7 @@ class MjpegReader:
             return None
         if not self._fill(content_length):
             return None
-        jpeg = self._buf[:content_length]
-        self._buf = self._buf[content_length:]
-        if not self._fill(2):
-            return None
-        self._buf = self._buf[2:]
+        jpeg = bytes(self._buf[:content_length])
+        del self._buf[:content_length]
+        # The part's trailing CRLF is left for the next boundary scan, which skips it as an empty line.
         return jpeg

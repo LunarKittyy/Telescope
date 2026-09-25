@@ -14,7 +14,7 @@ Legend: `OK` tested and working · `PARTIAL` works with caveats (see notes) ·
 
 ## What to check per row
 
-- **USB pairing**: Pair via ADB completes with phone on USB only (no Wi-Fi/LAN), pairing server reached via `adb reverse`, then `adb forward` + authenticated stream works.
+- **USB pairing**: with Add phone open, plugging in pairs the phone on USB only (no Wi-Fi/LAN), pairing server reached via `adb reverse`, then `adb forward` + authenticated stream works.
 - **Wi-Fi pairing**: QR code pairing works over Wi-Fi without USB.
 - **Lens selection**: all physical lenses (wide/main/telephoto) enumerate; switching changes video feed, not just digital zoom.
 - **Manual exposure**: ISO and shutter sliders change on-device exposure (not just toggle correctly).

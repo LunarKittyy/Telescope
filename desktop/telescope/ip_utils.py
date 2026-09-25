@@ -121,12 +121,6 @@ def get_pairing_addresses() -> list[PairingAddress]:
     return candidates[:MAX_PAIRING_CANDIDATES]
 
 
-def describe_address(addr: PairingAddress) -> str:
-    if addr.kind == "tailscale":
-        return f"{addr.ip} · Tailscale"
-    if addr.kind == "lan":
-        return f"{addr.ip} · {addr.interface}/LAN"
-    return f"{addr.ip} · {addr.interface}"
 
 
 def rank_ip(ip: str) -> int:
@@ -146,20 +140,8 @@ def rank_ip(ip: str) -> int:
     return 2
 
 
-def best_ip(ips: list[str]) -> Optional[str]:
-    if not ips:
-        return None
-    return min(ips, key=rank_ip)
 
 
-def extract_ip(s: str) -> str:
-    """Strip protocol/port/path so 'http://1.2.3.4:8080/video' -> '1.2.3.4'."""
-    s = s.strip()
-    if "://" in s:
-        s = s.split("://", 1)[1]
-    s = s.split("/")[0]
-    s = s.split(":")[0]
-    return s.strip()
 
 
 def valid_ipv4(ip: str) -> bool:

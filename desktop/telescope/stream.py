@@ -17,6 +17,7 @@ IS_LINUX = platform.system() == "Linux"
 
 VCAM_BACKEND   = "v4l2loopback" if IS_LINUX else "unitycapture"
 V4L2_PHONE_DEV = "/dev/video11"
+V4L2_PHONE_LABEL = "Phone Camera"  # its card_label, which is how other apps list it
 RECONNECT_DELAY = 3
 
 # Sentinel: "leave unchanged" (distinct from None = pass-through).
@@ -146,7 +147,7 @@ class StreamWorker(QThread):
             cap = self._open_cap()
             if not cap.isOpened():
                 cap.release()
-                self.status.emit("warn", f"Cannot open stream - retry in {RECONNECT_DELAY}s...")
+                self.status.emit("warn", f"Can't reach the phone's stream. Trying again in {RECONNECT_DELAY} s…")
                 self._restart_vcam.wait(timeout=RECONNECT_DELAY)
                 self._restart_vcam.clear()
                 continue
@@ -154,7 +155,7 @@ class StreamWorker(QThread):
             ret, frame = cap.read()
             if not ret or frame is None:
                 cap.release()
-                self.status.emit("warn", "Empty first frame - retrying...")
+                self.status.emit("warn", "Waiting for the first frame…")
                 self._restart_vcam.wait(timeout=RECONNECT_DELAY)
                 self._restart_vcam.clear()
                 continue
@@ -167,13 +168,9 @@ class StreamWorker(QThread):
                 frame = cv2.resize(frame, (rw, rh))
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             # Run first frame through pipeline so vcam dimensions account for transforms (e.g. 90° rotation swaps W↔H).
-            frame_rgb = self._process(frame_rgb)
-            self._latest_rgb = frame_rgb
-            cam_w = self._canvas_w or frame_rgb.shape[1]
-            cam_h = self._canvas_h or frame_rgb.shape[0]
-            self._restart_vcam.clear()
-            self.status.emit("ok", f"Stream {cam_w}x{cam_h} @ {self._fps} fps -> {VCAM_BACKEND}")
+            self._latest_rgb = self._process(frame_rgb)
 
+            # The reader (and its phone connection) outlives vcam restarts: an FPS change only rebuilds the vcam.
             reader_stop = threading.Event()
             reader = threading.Thread(
                 target=self._stream_reader,
@@ -182,49 +179,64 @@ class StreamWorker(QThread):
             )
             reader.start()
 
-            try:
-                with pyvirtualcam.Camera(width=cam_w, height=cam_h, fps=self._fps,
-                                         backend=VCAM_BACKEND,
-                                         device=V4L2_PHONE_DEV if IS_LINUX else None) as cam:
-                    self.status.emit("ok", f"Virtual camera: {cam.device}")
-                    fc, t0, bytes0, recv0 = 0, time.time(), self._bytes_total, self._frames_received
-                    while not self._stop_flag and not self._restart_vcam.is_set():
-                        src = self._latest_rgb
-                        if src is not None:
-                            # Adapt frame to fixed vcam dimensions (src shape read fresh for live resolution switches).
-                            cam.send(_fit_frame(src, cam_w, cam_h))
-                        cam.sleep_until_next_frame()
-                        fc += 1
-                        if (elapsed := time.time() - t0) >= 2.0:
-                            src_now = self._latest_rgb
-                            if src_now is not None:
-                                src_h, src_w = src_now.shape[:2]
-                            else:
-                                src_w, src_h = cam_w, cam_h
-                            self.status.emit("fps", f"{fc/elapsed:.1f} fps  {src_w}x{src_h}")
-
-                            bytes_now = self._bytes_total
-                            mbps = (bytes_now - bytes0) * 8 / elapsed / 1_000_000
-
-                            # Warn only if sustained decode rate trails target significantly (not just high quality).
-                            recv_now = self._frames_received
-                            decode_fps = (recv_now - recv0) / elapsed
-                            struggling = decode_fps < self._fps * 0.85
-                            self._weak_streak = self._weak_streak + 1 if struggling else 0
-                            net_kind = "net_warn" if self._weak_streak >= 2 else "net"
-                            self.status.emit(net_kind, f"{mbps:.1f} Mbps")
-
-                            fc, t0, bytes0, recv0 = 0, time.time(), bytes_now, recv_now
-            except Exception as exc:
-                self.status.emit("warn", f"Virtual cam error: {exc}")
+            while not self._stop_flag and reader.is_alive():
+                self._restart_vcam.clear()
+                self._run_vcam()
+                if self._stop_flag:
+                    break
+                if not self._restart_vcam.is_set():
+                    # vcam failed rather than being asked to restart; back off before reopening it.
+                    self._restart_vcam.wait(timeout=RECONNECT_DELAY)
 
             reader_stop.set()
             reader.join(timeout=3)
 
-            if self._stop_flag:
-                break
-            if not self._restart_vcam.is_set():
-                self._restart_vcam.wait(timeout=RECONNECT_DELAY)
-            self._restart_vcam.clear()
+        self.status.emit("idle", "Not streaming")
 
-        self.status.emit("idle", "Stopped.")
+    def _run_vcam(self):
+        """Open the virtual camera at the current size/fps and feed it until stop or a restart request."""
+        src0 = self._latest_rgb
+        cam_w = self._canvas_w or src0.shape[1]
+        cam_h = self._canvas_h or src0.shape[0]
+        self.status.emit("ok", f"Streaming {cam_w}x{cam_h} at {self._fps} fps")
+        try:
+            with pyvirtualcam.Camera(width=cam_w, height=cam_h, fps=self._fps,
+                                     backend=VCAM_BACKEND,
+                                     device=V4L2_PHONE_DEV if IS_LINUX else None) as cam:
+                # Name the camera the way other apps list it (the v4l2loopback card label on Linux).
+                shown_as = V4L2_PHONE_LABEL if IS_LINUX else cam.device
+                self.status.emit("ok", f"Streaming {cam_w}x{cam_h} at {self._fps} fps to {shown_as}")
+                fc, t0, bytes0, recv0 = 0, time.time(), self._bytes_total, self._frames_received
+                last_src = fitted = None
+                while not self._stop_flag and not self._restart_vcam.is_set():
+                    src = self._latest_rgb
+                    if src is not None:
+                        # Adapt frame to fixed vcam dimensions (src shape read fresh for live resolution switches);
+                        # a frame re-sent because the phone hasn't delivered a new one reuses its fitted copy.
+                        if src is not last_src:
+                            last_src, fitted = src, _fit_frame(src, cam_w, cam_h)
+                        cam.send(fitted)
+                    cam.sleep_until_next_frame()
+                    fc += 1
+                    if (elapsed := time.time() - t0) >= 2.0:
+                        src_now = self._latest_rgb
+                        if src_now is not None:
+                            src_h, src_w = src_now.shape[:2]
+                        else:
+                            src_w, src_h = cam_w, cam_h
+                        self.status.emit("fps", f"{fc/elapsed:.1f} fps  {src_w}x{src_h}")
+
+                        bytes_now = self._bytes_total
+                        mbps = (bytes_now - bytes0) * 8 / elapsed / 1_000_000
+
+                        # Warn only if sustained decode rate trails target significantly (not just high quality).
+                        recv_now = self._frames_received
+                        decode_fps = (recv_now - recv0) / elapsed
+                        struggling = decode_fps < self._fps * 0.85
+                        self._weak_streak = self._weak_streak + 1 if struggling else 0
+                        net_kind = "net_warn" if self._weak_streak >= 2 else "net"
+                        self.status.emit(net_kind, f"{mbps:.1f} Mbps")
+
+                        fc, t0, bytes0, recv0 = 0, time.time(), bytes_now, recv_now
+        except Exception as exc:
+            self.status.emit("warn", f"Virtual camera error: {exc}")

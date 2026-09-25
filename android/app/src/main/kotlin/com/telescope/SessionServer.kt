@@ -8,10 +8,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 import kotlinx.serialization.json.Json
 
-// Out-of-band channel: always reachable (unlike MjpegServer). Routes: /v1/ping, /v1/session
+// Out-of-band channel: always reachable (unlike MjpegServer). Routes: /v1/hello, /v1/ping, /v1/session, /v1/unpair
 class SessionServer(
     private val port: Int,
-    private val tokenProvider: () -> String?,
+    private val computers: () -> PairedComputerList,
     private val commands: SessionCommands,
 ) {
     private var serverSocket: ServerSocket? = null
@@ -57,8 +57,16 @@ class SessionServer(
                 Route.NotFound -> HttpWire.sendError(out, 404, "Not Found")
                 Route.MethodNotAllowed -> HttpWire.sendError(out, 405, "Method Not Allowed")
 
+                // Unauthenticated identity only (what the LAN announcement already broadcasts): lets a desktop
+                // tell "a different phone is plugged in" from "your phone no longer recognizes this computer".
+                Route.Hello -> {
+                    val snap = commands.snapshot()
+                    HttpWire.sendJson(out, Json.encodeToString(
+                        Hello.serializer(), Hello(PROTOCOL_VERSION, snap.phoneId, snap.phoneName)))
+                }
+
                 Route.Ping -> {
-                    if (!HttpWire.bearerMatches(tokenProvider(), request)) {
+                    if (computers().matchToken(HttpWire.bearerToken(request)) == null) {
                         HttpWire.sendError(out, 401, "Unauthorized"); return
                     }
                     HttpWire.sendJson(
@@ -67,8 +75,18 @@ class SessionServer(
                     )
                 }
 
+                Route.Unpair -> {
+                    // A computer can only revoke its own pairing: the token it authenticates with.
+                    val computer = computers().matchToken(HttpWire.bearerToken(request))
+                    if (computer == null) {
+                        HttpWire.sendError(out, 401, "Unauthorized"); return
+                    }
+                    commands.unpair(computer)
+                    HttpWire.sendJson(out, Json.encodeToString(ControlResult.serializer(), ControlResult(ok = true)))
+                }
+
                 Route.Session -> {
-                    if (!HttpWire.bearerMatches(tokenProvider(), request)) {
+                    if (computers().matchToken(HttpWire.bearerToken(request)) == null) {
                         HttpWire.sendError(out, 401, "Unauthorized"); return
                     }
                     if (!HttpWire.isJsonBody(request)) {
@@ -93,19 +111,21 @@ class SessionServer(
         }
     }
 
-    enum class Route { Ping, Session, NotFound, MethodNotAllowed }
+    enum class Route { Hello, Ping, Session, Unpair, NotFound, MethodNotAllowed }
 
     companion object {
         const val DEFAULT_PORT = 8766
 
-        // Bumped on shape changes; 404 /v1/session signals desktop to fall back.
-        const val PROTOCOL_VERSION = 1
+        // Bumped on shape changes. 2: /v1/hello, ping carries phoneId/phoneName, /v1/unpair.
+        const val PROTOCOL_VERSION = 2
 
         private const val TAG = "SessionServer"
 
         fun route(method: String, path: String): Route = when (path) {
+            "/v1/hello" -> if (method == "GET") Route.Hello else Route.MethodNotAllowed
             "/v1/ping" -> if (method == "GET") Route.Ping else Route.MethodNotAllowed
             "/v1/session" -> if (method == "POST") Route.Session else Route.MethodNotAllowed
+            "/v1/unpair" -> if (method == "POST") Route.Unpair else Route.MethodNotAllowed
             else -> Route.NotFound
         }
     }

@@ -8,8 +8,9 @@ import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 
 // QR-code pairing payload and routing logic; Android-free for JVM unit testing
-// Version bumped in lockstep with desktop; mismatch means one is stale
-const val PAIRING_PROTOCOL_VERSION = 2
+// Version bumped in lockstep with desktop; mismatch means one is stale.
+// 3: the offer names the computer (computer_id/computer_name) so the phone can keep one token per computer.
+const val PAIRING_PROTOCOL_VERSION = 3
 
 @Serializable
 enum class PairingKind {
@@ -35,6 +36,8 @@ data class PairingOffer(
     val candidates: List<PairingCandidate>,
     val nonce: String,
     val token: String,
+    @SerialName("computer_id") val computerId: String,
+    @SerialName("computer_name") val computerName: String,
 )
 
 sealed interface PairingParse {
@@ -71,7 +74,7 @@ fun parsePairingOffer(raw: String): PairingParse {
     }
     if (offer.version != PAIRING_PROTOCOL_VERSION) return PairingParse.UnsupportedVersion
     if (offer.port !in 1..65535) return PairingParse.Invalid
-    if (offer.nonce.isBlank() || offer.token.isBlank()) return PairingParse.Invalid
+    if (offer.nonce.isBlank() || offer.token.isBlank() || offer.computerId.isBlank()) return PairingParse.Invalid
     if (offer.candidates.isEmpty()) return PairingParse.Invalid
     if (offer.candidates.any { !isValidIpv4(it.ip) }) return PairingParse.Invalid
     return PairingParse.Ok(offer)
@@ -146,9 +149,9 @@ private fun PairingRouteKind.label(): String = when (this) {
 fun pairingFailureMessage(failures: List<PairingAttemptFailure>, untried: Int = 0): String {
     val tried = failures.joinToString("\n") { "• ${it.ip} over ${it.via.label()}: ${it.problem}" }
     return buildString {
-        append("Could not reach the desktop.\n\n")
+        append("Couldn't reach your computer.\n\n")
         if (failures.isEmpty()) {
-            append("The QR code offered no address this phone could try.\n\n")
+            append("The code has no address this phone could try.\n\n")
         } else {
             append("Tried:\n").append(tried).append("\n")
             if (untried > 0) {
@@ -158,8 +161,9 @@ fun pairingFailureMessage(failures: List<PairingAttemptFailure>, untried: Int = 
             append("\n")
         }
         append(
-            "Your VPN may be blocking local-network access. Enable its LAN-access " +
-                "option, pause the VPN temporarily, or use USB pairing."
+            "Check that the phone and computer are on the same Wi-Fi. If a VPN is on, it may " +
+                "be blocking local network access: turn on its LAN access option or pause it. " +
+                "Or plug the phone in over USB, and it pairs without scanning."
         )
     }
 }

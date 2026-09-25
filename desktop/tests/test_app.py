@@ -2,6 +2,7 @@ from types import SimpleNamespace
 import socket
 
 import pytest
+from PyQt6.QtCore import QCoreApplication, QEvent
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QWidget
 
@@ -95,7 +96,10 @@ class _Connection(_Plugin):
     def sync_active_profile(self):
         self.synced += 1
 
-    def ensure_phone_streaming(self, on_progress=None):
+    def session_target(self):
+        return None
+
+    def ensure_phone_streaming(self, on_progress=None, target=None):
         self.wakes += 1
         self.progress_msgs = getattr(self, "progress_msgs", [])
         if on_progress:
@@ -103,7 +107,7 @@ class _Connection(_Plugin):
             self.progress_msgs.append("waking...")
         return self.wake
 
-    def stop_phone_streaming(self):
+    def stop_phone_streaming(self, target=None):
         self.remote_stops += 1
 
 
@@ -139,6 +143,11 @@ def window(qapp, config_home, monkeypatch):
     yield win
     # Don't call close(); a test's intentional closeEvent stub would abort Qt during fixture teardown.
     win._session = None
+    win._tray = None
+    # Destroy it now: windows left alive get restyled by a later apply_theme(), after their tests
+    # swapped attributes out from under them, and that crashes Qt.
+    win.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
 
 def test_register_plugin_initializes_panel_and_captures_device_defaults(window):
@@ -301,7 +310,8 @@ def test_register_plugin_routes_unknown_region_to_the_left_rail(window):
     (899, "one"),    (600, "one"),
 ])
 def test_layout_mode_follows_window_width(window, width, mode):
-    assert window._layout_mode_for(width) == mode
+    # Breakpoints are design pixels, scaled with the UI font like every other width.
+    assert window._layout_mode_for(app_module.ui_px(width)) == mode
 
 
 def test_narrow_layout_stacks_every_panel_into_one_visible_column(window):
@@ -720,7 +730,7 @@ def test_stop_requests_worker_closes_client_and_notifies_plugins(window):
 
 def test_stop_is_safe_when_already_stopped(window):
     window._stop()
-    assert window._status_lbl.fullText() == "Stopped."
+    assert window._status_lbl.fullText() == "Not streaming"
 
 
 def test_restart_canvas_non_linux_waits_and_restarts_active_stream(window, monkeypatch):
@@ -748,7 +758,7 @@ def test_restart_canvas_non_linux_waits_and_restarts_active_stream(window, monke
     done = []
     window.restart_vcam_canvas(1920, 1080, on_done=lambda *args: done.append(args))
     assert events == ["stop", ("wait", 5000), "start"]
-    assert done == [(True, "canvas updated")]
+    assert done == [(True, "")]
 
 
 def test_canvas_reload_failure_reports_error_and_clears_callback(window, monkeypatch):
@@ -854,7 +864,7 @@ def test_apply_state_rejects_malformed_non_empty_state(window):
 
     assert bus == []
     assert plugin.states == []
-    assert "Protocol error" in window._status_lbl.fullText()
+    assert "can't read" in window._status_lbl.fullText()
 
 
 def test_apply_state_accepts_empty_state(window):
@@ -884,7 +894,7 @@ def test_worker_fps_and_idle_status(window):
     window._on_worker_status("fps", "29.9 fps")
     assert window._fps_lbl.text() == "29.9 fps"
     window._session = StreamSession(id=1, url="url", client=object(), worker=object())
-    window._on_worker_status("idle", "Stopped.")
+    window._on_worker_status("idle", "Not streaming")
     assert window._fps_lbl.text() == "—"
     assert window._worker is None
     assert window._session is None
@@ -895,7 +905,7 @@ def test_reconnecting_status_is_warn_coloured_and_animates_dots(window):
     window._on_worker_status("reconnecting", "Stream dropped - reconnecting")
 
     assert window._status_lbl.fullText() == "Stream dropped - reconnecting."
-    assert f"color: {theme.WARN}" in window._status_lbl.styleSheet()
+    assert window._status_lbl.objectName() == "status_warn"
 
     window._tick_reconnecting_animation()
     assert window._status_lbl.fullText() == "Stream dropped - reconnecting.."
@@ -915,7 +925,20 @@ def test_reconnecting_animation_stops_when_another_status_arrives(window):
     # Timer must be stopped, not just replaced, so it can't fire and overwrite new status.
     assert not window._reconnecting_timer.isActive()
     assert window._status_lbl.fullText() == "Stream reconnected"
-    assert window._status_lbl.styleSheet() == ""
+    assert window._status_lbl.objectName() == "status_ok"
+
+
+def test_status_colour_actually_changes_with_kind(qapp):
+    # Swapping objectName alone leaves the QSS colour stale; set_status_kind must re-polish.
+    from PyQt6.QtWidgets import QLabel
+    from telescope.theme import apply_theme
+    from telescope.widgets.common import set_status_kind
+    apply_theme(qapp)
+    lbl = QLabel("x")
+    set_status_kind(lbl, "status_dim")
+    lbl.ensurePolished()
+    set_status_kind(lbl, "status_err")
+    assert lbl.palette().color(lbl.foregroundRole()).name() == theme.ERR.lower()
 
 
 def test_resolution_pending_shows_warn_color_until_confirmed(window):
@@ -957,7 +980,7 @@ def test_resolution_pending_times_out_to_error_then_self_clears(window, monkeypa
 def test_resolution_pending_cleared_on_idle_status(window):
     window._on_resolution_pending(1280, 720)
 
-    window._on_worker_status("idle", "Stopped.")
+    window._on_worker_status("idle", "Not streaming")
 
     assert window._pending_resolution is None
     assert window._fps_lbl.styleSheet() == ""
@@ -1029,12 +1052,13 @@ def test_close_event_minimizes_active_stream_to_tray(window, monkeypatch):
     window._session = StreamSession(id=1, url="url", client=object(), worker=object())
     notifications = []
     monkeypatch.setattr(window, "hide", lambda: None)
-    monkeypatch.setattr(window, "send_notification", lambda *args: notifications.append(args))
+    monkeypatch.setattr(window, "send_notification", lambda *args, **kw: notifications.append((args, kw)))
 
     event = SimpleNamespace(ignore=lambda: setattr(event, "ignored", True))
     window.closeEvent(event)
     assert event.ignored is True
     assert len(notifications) == 1
+    assert notifications[0][1] == {"urgent": False}  # informational, shouldn't pin itself on screen
     window.closeEvent(event)
     assert len(notifications) == 1
 
@@ -1114,7 +1138,7 @@ def test_a_wake_that_lands_after_the_user_gave_up_is_discarded(window, monkeypat
 
     window._start()
     assert spawned, "the wake was never spawned"
-    wake_id, _conn, url, token = spawned[0]
+    wake_id, _conn, url, token, _target = spawned[0]
 
     window._stop()          # user hits Stop while the phone is still starting
     window._on_wake_done(wake_id, True, "", url, token)
@@ -1233,7 +1257,7 @@ def test_stop_stream_cancels_a_wake_that_is_still_in_flight(window, monkeypatch)
 
     window._start()
     window.stop_stream()
-    wake_id, _conn, url, token = spawned[0]
+    wake_id, _conn, url, token, _target = spawned[0]
     window._on_wake_done(wake_id, True, "", url, token)
 
     assert window._worker is None

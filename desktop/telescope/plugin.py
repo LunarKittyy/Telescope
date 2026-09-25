@@ -24,12 +24,16 @@ class HostServices(Protocol):
         """Switch the active device/connection profile."""
         ...
 
+    def forget_device_settings(self, name: str) -> None:
+        """Delete the stored per-device settings for a removed device."""
+        ...
+
     def reconnect_stream(self) -> None:
         """Restart the stream, if one is active, to pick up new settings."""
         ...
 
-    def send_notification(self, title: str, body: str) -> None:
-        """Show a desktop/tray notification."""
+    def send_notification(self, title: str, body: str, urgent: bool = True) -> None:
+        """Show a desktop/tray notification; urgent ones stay on screen until dismissed (Linux)."""
         ...
 
     def is_streaming(self) -> bool:
@@ -73,17 +77,21 @@ class TelescopePlugin:
     def process_frame(self, frame: np.ndarray) -> np.ndarray: return frame
     def get_config(self) -> dict: return {}
     def set_config(self, cfg: dict): ...
+    def shutdown(self):
+        """App is quitting: stop background services the plugin started."""
 
 
 class EventBus(QObject):
-    frame_ready            = pyqtSignal(object)
-    stream_start_requested = pyqtSignal(str)
-    stream_stop_requested  = pyqtSignal()
     stream_started         = pyqtSignal(str)
     stream_stopped         = pyqtSignal()
     stream_connected       = pyqtSignal()
     phone_state_updated    = pyqtSignal(dict)
     device_changed         = pyqtSignal(str)
+    phones_changed         = pyqtSignal(int)
+    """Number of paired phones, emitted whenever the list changes."""
+    add_phone_requested    = pyqtSignal()
+    setup_needed           = pyqtSignal(bool)
+    """First-run checklist is showing (True) or done/hidden (False); the video stage makes room for it."""
     camera_switched        = pyqtSignal(dict)
     """Lens switch sent to phone; carries selected camera capability dict."""
     resolution_change_requested = pyqtSignal(int, int)

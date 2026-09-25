@@ -41,12 +41,20 @@ def _post(port, path, body: bytes, headers=None):
     return status
 
 
-def test_start_returns_none_without_network_interfaces(monkeypatch):
+def test_start_without_network_still_offers_usb_pairing(monkeypatch):
     import telescope.pairing as pairing_module
 
     monkeypatch.setattr(pairing_module.ip_utils, "get_pairing_addresses", lambda: [])
     server = PairingServer(on_paired=lambda r: None)
-    assert server.start() is None
+    offer = server.start()
+    try:
+        # No LAN address means no QR code, but a USB-only machine can still pair through adb reverse.
+        assert offer.candidates == []
+        assert json.loads(offer.usb_payload)["candidates"] == [
+            {"ip": "127.0.0.1", "interface": "USB (adb)", "kind": "other"},
+        ]
+    finally:
+        server.stop()
 
 
 def test_start_is_idempotent(pairing_server):
@@ -54,11 +62,12 @@ def test_start_is_idempotent(pairing_server):
     assert server.start() is offer
 
 
-def test_payload_is_version_2_with_every_candidate(pairing_server):
+def test_payload_is_version_3_with_every_candidate(pairing_server):
     _server, offer, _paired = pairing_server
     payload = json.loads(offer.payload)
 
-    assert payload["version"] == PAIRING_PROTOCOL_VERSION == 2
+    assert payload["version"] == PAIRING_PROTOCOL_VERSION == 3
+    assert "computer_id" in payload and "computer_name" in payload
     assert payload["port"] == offer.port
     assert payload["nonce"] == offer.nonce
     assert payload["token"] == offer.token
@@ -94,14 +103,14 @@ def test_start_with_advertised_addresses_skips_discovery(monkeypatch):
 def test_empty_ips_in_payload_is_accepted(pairing_server):
     # USB-only phone with no Wi-Fi reports empty IPs; only malformed entries rejected.
     server, offer, paired = pairing_server
-    body = json.dumps({"name": "Phone", "ips": [], "token": offer.token}).encode()
+    body = json.dumps({"name": "Phone", "ips": [], "token": offer.token, "phone_id": "ph-1"}).encode()
     assert _post(offer.port, f"/pair/{offer.nonce}", body) == 200
     for _ in range(20):
         time.sleep(0.05)
         if paired:
             break
     assert paired == [
-        PairingResult(name="Phone", ips=[], token=offer.token, source_ip="127.0.0.1"),
+        PairingResult(name="Phone", ips=[], token=offer.token, source_ip="127.0.0.1", phone_id="ph-1"),
     ]
 
 
@@ -147,7 +156,7 @@ def test_missing_token_is_rejected(pairing_server):
 
 def test_valid_payload_pairs_and_invokes_callback(pairing_server):
     server, offer, paired = pairing_server
-    body = json.dumps({"name": "MyPhone", "ips": ["192.168.1.55"], "token": offer.token}).encode()
+    body = json.dumps({"name": "MyPhone", "ips": ["192.168.1.55"], "token": offer.token, "phone_id": "ph-1"}).encode()
 
     assert _post(offer.port, f"/pair/{offer.nonce}", body) == 200
 
@@ -159,9 +168,29 @@ def test_valid_payload_pairs_and_invokes_callback(pairing_server):
         PairingResult(
             name="MyPhone", ips=["192.168.1.55"], token=offer.token,
             # Source IP of actual POST; desktop streams back to this instead of guessing.
-            source_ip="127.0.0.1",
+            source_ip="127.0.0.1", phone_id="ph-1",
         ),
     ]
+
+
+def test_pairing_without_a_phone_id_is_rejected(pairing_server):
+    # v3 phones always send it; without it the desktop couldn't tell phones apart.
+    _server, offer, paired = pairing_server
+    body = json.dumps({"name": "Phone", "ips": [], "token": offer.token}).encode()
+    assert _post(offer.port, f"/pair/{offer.nonce}", body) == 400
+    assert paired == []
+
+
+def test_offer_names_this_computer():
+    server = PairingServer(on_paired=lambda r: None, computer_id="pc-9", computer_name="Desk")
+    offer = server.start(advertise=_CANDIDATES)
+    try:
+        for raw in (offer.payload, offer.usb_payload):
+            data = json.loads(raw)
+            assert (data["computer_id"], data["computer_name"]) == ("pc-9", "Desk")
+            assert data["nonce"] == offer.nonce and data["token"] == offer.token
+    finally:
+        server.stop()
 
 
 def test_stop_is_idempotent(pairing_server):

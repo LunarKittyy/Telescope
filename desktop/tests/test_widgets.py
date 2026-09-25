@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
 )
 
 from telescope.widgets.common import (
+    ui_px,
     FlowLayout,
     LogSliderRow,
     NoScrollSlider,
@@ -48,7 +49,7 @@ def test_ns_to_display(value, expected):
      (79, "Low"), (60, "Low"), (59, "Very low")],
 )
 def test_quality_label_boundaries(quality, suffix):
-    assert quality_label(quality) == f"{quality}%  {suffix}"
+    assert quality_label(quality) == f"{quality}%: {suffix}"
 
 
 def test_log_scale_endpoints_midpoint_and_clamping():
@@ -76,8 +77,12 @@ def test_log_scale_round_trip_is_close_across_range():
 
 def test_separator_and_all_known_vector_icons_are_constructible(qapp):
     assert create_separator().objectName() == "separator"
-    for name in ("connection", "camera", "stream", "gear", "status", "qr", "unknown"):
+    from telescope.widgets.common import _ICON_SVG
+    for name in (*_ICON_SVG, "unknown"):
         assert not create_vector_icon(name, "#518cc6").isNull()
+    for name in _ICON_SVG:
+        img = create_vector_icon(name, "#518cc6").pixmap(24, 24).toImage()
+        assert any(img.pixelColor(x, y).alpha() for x in range(24) for y in range(24)), name
 
 
 def test_integer_log_slider_syncs_slider_spin_and_signal(qapp):
@@ -201,18 +206,18 @@ def test_stretch_slider_sets_a_floor_not_a_fixed_width(qapp):
 
     stretch_slider(slider, 90)
 
-    assert slider.minimumWidth() == 90
-    assert slider.maximumWidth() > 90
+    assert slider.minimumWidth() == ui_px(90)
+    assert slider.maximumWidth() > ui_px(90)
     assert slider.sizePolicy().horizontalPolicy() == QSizePolicy.Policy.Expanding
 
 
-def test_control_row_anchors_the_control_to_the_right_edge(qapp):
+def test_control_row_starts_the_control_at_the_label_column(qapp):
     control = QLabel("x")
     tight = control_row("Label", control)
-    # Without stretch, spacer goes before control, sitting flush right.
+    # Without stretch, control sits right after the label and the spacer takes the rest.
     assert tight.count() == 3
-    assert tight.itemAt(1).widget() is None
-    assert tight.itemAt(2).widget() is control
+    assert tight.itemAt(1).widget() is control
+    assert tight.itemAt(2).widget() is None
 
     wide = control_row("Label", QLabel("x"), stretch=True)
     assert wide.count() == 2
@@ -279,3 +284,37 @@ def test_eliding_label_keeps_its_full_text_available(qapp):
     assert label.text() != label.fullText()
     assert label.toolTip() == label.fullText()
     assert label.minimumWidth() == 1
+
+
+def test_lens_labels_keep_the_zoom_factor_when_shortened():
+    from telescope.widgets.lens_panel import shorten_lens_label
+    assert shorten_lens_label("Back Telephoto 3x [phys]") == "Tele 3x"
+
+
+def test_run_off_ui_thread_returns_the_result_from_a_worker_thread(qapp):
+    import threading
+    from telescope.widgets.common import run_off_ui_thread
+    seen = []
+    assert run_off_ui_thread(lambda x: seen.append(threading.current_thread()) or x * 2, 21) == 42
+    assert seen[0] is not threading.main_thread()
+
+
+def test_run_off_ui_thread_reraises(qapp):
+    from telescope.widgets.common import run_off_ui_thread
+
+    def boom():
+        raise ValueError("adb died")
+    with pytest.raises(ValueError, match="adb died"):
+        run_off_ui_thread(boom)
+
+
+def test_run_off_ui_thread_keeps_the_event_loop_turning(qapp):
+    # The blocking call only returns once a timer has fired on the GUI thread, which can only happen
+    # if the GUI keeps processing events meanwhile. Checked by outcome, not by counting ticks, so a
+    # slow CI machine can't fail it.
+    import threading
+    from PyQt6.QtCore import QTimer
+    from telescope.widgets.common import run_off_ui_thread
+    gui_ran = threading.Event()
+    QTimer.singleShot(20, gui_ran.set)
+    assert run_off_ui_thread(gui_ran.wait, 10) is True

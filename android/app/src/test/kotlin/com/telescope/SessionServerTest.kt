@@ -19,6 +19,8 @@ class SessionServerTest {
             streaming = false,
             busy = false,
             localOnly = false,
+            phoneId = "phone-1",
+            phoneName = "Test phone",
         ),
         var startResult: ControlResult = ControlResult(ok = true),
         var stopResult: ControlResult = ControlResult(ok = true),
@@ -27,7 +29,13 @@ class SessionServerTest {
         override fun start(): ControlResult { calls += "start"; return startResult }
         override fun stop(): ControlResult { calls += "stop"; return stopResult }
         override fun snapshot(): SessionSnapshot { calls += "snapshot"; return snapshot }
+        val unpaired = mutableListOf<String>()
+        override fun unpair(computer: PairedComputer) { unpaired += computer.id }
     }
+
+    private fun computersOf(vararg tokens: String?) = PairedComputerList(
+        tokens.filterNotNull().mapIndexed { i, t -> PairedComputer("pc-$i", "PC $i", t, 0L) }
+    )
 
     private fun actualPort(server: SessionServer): Int {
         val field = SessionServer::class.java.getDeclaredField("serverSocket")
@@ -71,7 +79,7 @@ class SessionServerTest {
         commands: FakeCommands = FakeCommands(),
         block: (port: Int, commands: FakeCommands) -> Unit,
     ) {
-        val server = SessionServer(0, { token }, commands)
+        val server = SessionServer(0, { computersOf(token) }, commands)
         server.start()
         try {
             block(actualPort(server), commands)
@@ -98,6 +106,8 @@ class SessionServerTest {
                 streaming = true,
                 busy = false,
                 localOnly = true,
+                phoneId = "phone-1",
+                phoneName = "Test phone",
             ),
         )
         withServer(commands = commands) { port, _ ->
@@ -134,7 +144,7 @@ class SessionServerTest {
     @Test
     fun `the token is re-read per request so a re-pair takes effect immediately`() {
         var token: String? = "first-token"
-        val server = SessionServer(0, { token }, FakeCommands())
+        val server = SessionServer(0, { computersOf(token) }, FakeCommands())
         server.start()
         try {
             val port = actualPort(server)
@@ -206,6 +216,56 @@ class SessionServerTest {
         // Check method before token; keeps concerns independent.
         withServer { port, _ ->
             assertEquals(405, get(port, "/v1/session", "wrong-token").status)
+        }
+    }
+
+    @Test
+    fun `every paired computer's token is accepted`() {
+        val server = SessionServer(0, { computersOf("desk-token", "laptop-token") }, FakeCommands())
+        server.start()
+        try {
+            val port = actualPort(server)
+            assertEquals(200, get(port, "/v1/ping", "desk-token").status)
+            assertEquals(200, get(port, "/v1/ping", "laptop-token").status)
+            assertEquals(401, get(port, "/v1/ping", "someone-else").status)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `unpair revokes only the computer that asks`() {
+        val commands = FakeCommands()
+        val server = SessionServer(0, { computersOf("desk-token", "laptop-token") }, commands)
+        server.start()
+        try {
+            val port = actualPort(server)
+            assertEquals(200, post(port, "/v1/unpair", "laptop-token", "{}").status)
+            assertEquals(listOf("pc-1"), commands.unpaired)
+            assertEquals(401, post(port, "/v1/unpair", "unknown", "{}").status)
+            assertEquals(listOf("pc-1"), commands.unpaired)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `ping tells the desktop which phone answered`() {
+        withServer { port, _ ->
+            val body = get(port, "/v1/ping", "secret-token").body
+            assertTrue(body.contains("\"phoneId\":\"phone-1\""), body)
+            assertTrue(body.contains("\"phoneName\":\"Test phone\""), body)
+        }
+    }
+
+    @Test
+    fun `hello names the phone without a token and reveals nothing else`() {
+        withServer { port, commands ->
+            val response = get(port, "/v1/hello", null)
+            assertEquals(200, response.status)
+            assertTrue(response.body.contains("\"phoneId\":\"phone-1\""), response.body)
+            assertFalse(response.body.contains("streaming"), response.body)
+            assertFalse(commands.calls.contains("start"))
         }
     }
 }

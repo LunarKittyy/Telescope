@@ -1,833 +1,715 @@
+"""Paired phones, how to reach them, and pairing new ones.
+
+The user-facing model: you add phones (one dialog: scan a code, or just plug in over USB), pick which
+one to use, and press Start. How it's reached is decided per connection by phones.RouteResolver:
+USB whenever this phone answers over a cable, Wi-Fi otherwise, with the reason shown next to the
+route and a one-click override. Tokens, ports and adb forwards never reach the UI.
+"""
+
 import base64
 import contextlib
 import logging
+import socket
 import threading
 import time
+import uuid
+from dataclasses import dataclass
 from typing import Optional
 
-import qrcode
-from PyQt6.QtCore import Qt, pyqtSignal, QObject, QSize, QTimer
-from PyQt6.QtGui import QColor, QIntValidator, QPainter, QBrush
+from PyQt6.QtCore import QObject, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
-    QButtonGroup, QDialog, QDialogButtonBox, QFormLayout, QFrame,
-    QGroupBox, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget,
-    QMessageBox, QPushButton, QRadioButton,
-    QTextEdit, QVBoxLayout, QWidget,
+    QDialog, QHBoxLayout, QInputDialog, QLabel, QListWidget, QListWidgetItem,
+    QMessageBox, QPushButton, QVBoxLayout, QWidget,
 )
 
-from telescope import ip_utils
-from telescope.config import load_config, save_config
-from telescope.ip_utils import PairingAddress
-from telescope.models import DeviceProfile
+from telescope import theme
+from telescope.discovery import LanDiscovery
 from telescope.pairing import PairingServer
+from telescope.phones import (
+    LOCAL_ONLY, NOT_PAIRED, READY, ROUTE_AUTO, ROUTE_USB, ROUTE_WIFI, STREAM_PORT, UNREACHABLE,
+    USB_NEEDS_ATTENTION, USB_NO_ADB, USB_NO_CABLE, Phone, Resolution, Route, RouteResolver, UsbTunnels, usb_note_text,
+)
 from telescope.platform import (
-    IS_LINUX, adb_available, adb_broadcast_pair, adb_devices, adb_forward,
+    IS_LINUX, adb_available, adb_broadcast_pair, adb_device_states, adb_forward_auto,
     adb_reverse, adb_unforward, adb_unreverse,
 )
 from telescope.platform.linux import (
-    V4L2_OBS_DEV, V4L2_PHONE_DEV,
-    v4l2_devices_ready, v4l2_load, v4l2_module_loaded,
+    V4L2_OBS_DEV, V4L2_PHONE_DEV, v4l2_devices_ready, v4l2_load, v4l2_module_loaded,
 )
 from telescope.plugin import TelescopePlugin
 from telescope.session_client import (
     PING_PORT, START_POLL_INTERVAL, START_TIMEOUT, PhoneSessionClient,
 )
-from telescope import theme
 from telescope.widgets.common import (
-    NoScrollComboBox, add_card_header, control_row as _row, create_card,
-    create_vector_icon, segmented_row, set_ui_role,
+    ElidingLabel, NoScrollComboBox, action_button, add_card_header, button_row, card_action,
+    card_layout, control_row as _row, control_row_widget, create_card, create_vector_icon,
+    dialog_buttons, dialog_header, dialog_layout, run_off_ui_thread, set_status_kind, set_ui_role,
+    ui_px, wrapped_note,
 )
+from telescope.widgets.qr import QRCodeWidget
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_PORT = 8080
+_STATUS_POLL_MS = 3_000     # idle re-check of the selected phone
+_USB_WATCH_MS = 5_000       # while streaming over Wi-Fi: has the phone been plugged in?
+_PAIR_USB_POLL_MS = 2_000   # Add phone dialog: look for a phone on USB to pair with
 
-# PING_PORT (8766) is always-on; DEFAULT_PORT (8080) only listens during streaming.
-_PAIR_STATUS_POLL_MS = 3_000
-
-# Pseudo-device key for USB sessions to persist their own device-local profile (camera settings, etc.).
-USB_PROFILE_KEY = "__usb__"
-
-# Tolerated unreachable pings; camera startup is heavy and can starve the HTTP server briefly.
+# Tolerated unreachable pings while the camera starts; startup can briefly starve the phone's HTTP server.
 _UNREACHABLE_STREAK_LIMIT = 3
 
 
-# Re-exported compatibility aliases; actual implementation is in telescope/ip_utils.py.
-_get_pairing_addresses = ip_utils.get_pairing_addresses
-_rank_ip = ip_utils.rank_ip
-_best_ip = ip_utils.best_ip
-_extract_ip = ip_utils.extract_ip
-_valid_ipv4 = ip_utils.valid_ipv4
+def default_computer_name() -> str:
+    name = socket.gethostname().split(".")[0].strip()
+    return name or "Computer"
 
 
-class _DeviceDialog(QDialog):
-    """Add or edit a device. In edit mode pass the existing device dict."""
+@dataclass(frozen=True)
+class SessionTarget:
+    """What worker threads need to talk to the phone, snapshotted on the GUI thread."""
+    token: Optional[str]
+    route: Optional[Route]
 
-    def __init__(self, parent=None, existing_names: list = None, device: dict = None):
+
+# ── Status text ───────────────────────────────────────────────────────────────
+
+def status_line(res: Optional[Resolution]) -> tuple:
+    """(status kind, short text) for the Connection card's Phone row."""
+    if res is None:
+        return "status_dim", "Checking…"
+    return {
+        READY: ("status_ok", "● Ready"),
+        UNREACHABLE: ("status_warn", "○ Can't reach the phone"),
+        NOT_PAIRED: ("status_err", "○ Needs pairing again"),
+        LOCAL_ONLY: ("status_warn", "○ Phone accepts USB only"),
+        USB_NEEDS_ATTENTION: ("status_warn", "○ USB not available"),
+    }.get(res.status, ("status_dim", ""))
+
+
+def problem_text(res: Resolution, phone_name: str, preference: str) -> str:
+    """What's wrong and what to do about it, for the card note and for Start failures."""
+    if res.status == UNREACHABLE:
+        return (f"Open Telescope on {phone_name} and keep it on screen. It needs to be on the same "
+                "network as this computer, or plugged in with a USB cable.")
+    if res.status == NOT_PAIRED:
+        return (f"{phone_name} doesn't recognise this computer anymore (it was removed on the phone, "
+                "or the app was reinstalled). Click Add phone to pair it again.")
+    if res.status == LOCAL_ONLY:
+        return (f"Local only is on in the phone app, so {phone_name} only accepts USB. Plug it in "
+                "with a cable, or turn Local only off on the phone.")
+    if res.status == USB_NEEDS_ATTENTION:
+        why = usb_note_text(res.usb_note) or "the phone isn't answering over USB"
+        return f"The connection is set to USB, but {why}. Switch to Automatic to use Wi-Fi instead."
+    return ""
+
+
+def route_text(route: Optional[Route]) -> str:
+    if route is None:
+        return "—"
+    return "USB cable" if route.kind == "usb" else f"Wi-Fi · {route.host}"
+
+
+_ROUTE_CHOICES = ((ROUTE_AUTO, "Automatic"), (ROUTE_USB, "USB only"), (ROUTE_WIFI, "Wi-Fi only"))
+
+
+# ── Add phone ─────────────────────────────────────────────────────────────────
+
+class _PairSignals(QObject):
+    paired = pyqtSignal(object)        # PairingResult
+    usb_state = pyqtSignal(object)     # list of (serial, state) from adb
+
+
+class AddPhoneDialog(QDialog):
+    """One way in: scan the code over Wi-Fi, or plug the phone in and it pairs over USB by itself."""
+
+    def __init__(self, parent, computer_id: str, computer_name: str, on_paired):
         super().__init__(parent)
-        self._existing = existing_names or []
-        self._edit_name = device["name"] if device else None
-        # Keep original so fields like pairing tokens aren't lost on save.
-        self._original_device = device
-        self.setWindowTitle("Edit Device" if device else "Add Device")
-        self.setMinimumWidth(340)
+        self.setWindowTitle("Add phone")
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
-
-        form = QFormLayout()
-        self._name_edit = QLineEdit(device["name"] if device else "")
-        self._name_edit.setPlaceholderText("e.g. Phone1")
-        self._ips_edit = QTextEdit()
-        self._ips_edit.setPlaceholderText("One IP per line\ne.g. 192.168.1.100\n100.64.0.5")
-        self._ips_edit.setFixedHeight(80)
-        if device:
-            self._ips_edit.setPlainText("\n".join(device.get("ips", [])))
-        form.addRow("Name", self._name_edit)
-        form.addRow("IP addresses", self._ips_edit)
-
-        self._err_lbl = QLabel("")
-        self._err_lbl.setObjectName("status_err")
-        self._err_lbl.setWordWrap(True)
-
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        buttons.accepted.connect(self._on_accept)
-        buttons.rejected.connect(self.reject)
-        set_ui_role(buttons.button(QDialogButtonBox.StandardButton.Ok), "success")
-        set_ui_role(buttons.button(QDialogButtonBox.StandardButton.Cancel), "quiet")
-
-        lay = QVBoxLayout(self)
-        lay.addLayout(form)
-        lay.addWidget(self._err_lbl)
-        lay.addWidget(buttons)
-
-    def _parse_ips(self) -> list[str]:
-        return [_extract_ip(l) for l in self._ips_edit.toPlainText().splitlines()
-                if l.strip()]
-
-    def _on_accept(self):
-        name = self._name_edit.text().strip()
-        ips = self._parse_ips()
-        if not name:
-            self._err_lbl.setText("Name cannot be empty."); return
-        if name != self._edit_name and name in self._existing:
-            self._err_lbl.setText(f'"{name}" already exists.'); return
-        if not ips:
-            self._err_lbl.setText("Add at least one IP address."); return
-        invalid = [ip for ip in ips if not _valid_ipv4(ip)]
-        if invalid:
-            self._err_lbl.setText(f"Invalid IP(s): {', '.join(invalid)}"); return
-        seen: set[str] = set()
-        dupes = [ip for ip in ips if ip in seen or seen.add(ip)]  # type: ignore[func-returns-value]
-        if dupes:
-            self._err_lbl.setText(f"Duplicate IP(s): {', '.join(dupes)}"); return
-        self.accept()
-
-    def result_device(self) -> dict:
-        device = dict(self._original_device) if self._original_device else {}
-        device["name"] = self._name_edit.text().strip()
-        device["ips"] = self._parse_ips()
-        return device
-
-
-class _DeviceManagerDialog(QDialog):
-    """Device list management popup. Add delegates to pairing (only the phone issues tokens)."""
-
-    def __init__(self, parent, devices: list, on_add, on_edit, on_remove):
-        super().__init__(parent)
-        self.setWindowTitle("Devices")
-        self.setMinimumWidth(360)
-        self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
-        self._devices = devices
-        self._on_add_cb    = on_add  # Starts pairing asynchronously; result via _on_device_paired().
-        self._on_edit_cb   = on_edit
-        self._on_remove_cb = on_remove
-        self._active_dlg = None
-        self._build_ui()
-
-    def _build_ui(self):
-        lay = QVBoxLayout(self)
-        lay.setSpacing(12)
-
-        gb = QGroupBox("Registered Devices")
-        gb_lay = QVBoxLayout(gb)
-
-        self._list = QListWidget()
-        self._list.setAlternatingRowColors(False)
-        self._list.currentRowChanged.connect(self._on_selection)
-        gb_lay.addWidget(self._list)
-
-        btn_row = QHBoxLayout()
-        self._add_btn    = QPushButton("Pair...")
-        self._edit_btn   = QPushButton("Edit")
-        self._remove_btn = QPushButton("Remove")
-        set_ui_role(self._add_btn, "success")
-        set_ui_role(self._edit_btn, "quiet")
-        set_ui_role(self._remove_btn, "danger")
-        for btn in (self._add_btn, self._edit_btn, self._remove_btn):
-            btn.setFixedWidth(90)
-            btn.setFixedHeight(30)
-        self._edit_btn.setEnabled(False)
-        self._remove_btn.setEnabled(False)
-        self._add_btn.clicked.connect(self._on_add)
-        self._edit_btn.clicked.connect(self._on_edit)
-        self._remove_btn.clicked.connect(self._on_remove)
-        btn_row.addWidget(self._add_btn)
-        btn_row.addWidget(self._edit_btn)
-        btn_row.addWidget(self._remove_btn)
-        btn_row.addStretch()
-        gb_lay.addLayout(btn_row)
-
-        lay.addWidget(gb)
-
-        close_row = QHBoxLayout()
-        close_row.addStretch()
-        close_btn = QPushButton("Close")
-        close_btn.clicked.connect(self.accept)
-        close_row.addWidget(close_btn)
-        lay.addLayout(close_row)
-
-        self._refresh_list()
-
-    def _refresh_list(self):
-        self._list.clear()
-        for d in self._devices:
-            ips = d.get("ips", [])
-            label = f"{d['name']}  -  {', '.join(ips[:2])}{'...' if len(ips) > 2 else ''}"
-            self._list.addItem(label)
-
-    def _on_selection(self, idx: int):
-        ok = 0 <= idx < len(self._devices)
-        self._edit_btn.setEnabled(ok)
-        self._remove_btn.setEnabled(ok)
-
-    def _open_device_dlg(self, dlg: "_DeviceDialog"):
-        if self._active_dlg and self._active_dlg.isVisible():
-            self._active_dlg.close()
-        self._active_dlg = dlg
-        dlg.setWindowModality(Qt.WindowModality.NonModal)
-        dlg.show()
-        dlg.raise_()
-        dlg.activateWindow()
-
-    def _on_add(self):
-        self._on_add_cb()
-
-    def _on_edit(self):
-        idx = self._list.currentRow()
-        if idx < 0 or idx >= len(self._devices):
-            return
-        existing = [d["name"] for i, d in enumerate(self._devices) if i != idx]
-        dlg = _DeviceDialog(self, existing_names=existing, device=self._devices[idx])
-        dlg.accepted.connect(lambda: self._finish_edit(idx, dlg))
-        self._open_device_dlg(dlg)
-
-    def _finish_edit(self, idx: int, dlg: "_DeviceDialog"):
-        old_name = self._devices[idx]["name"]
-        new_device = dlg.result_device()
-        self._devices[idx] = new_device
-        self._refresh_list()
-        self._on_edit_cb(old_name, new_device)
-
-    def _on_remove(self):
-        idx = self._list.currentRow()
-        if idx < 0 or idx >= len(self._devices):
-            return
-        name = self._devices[idx]["name"]
-        r = QMessageBox.question(
-            self, "Remove device",
-            f'Remove "{name}"? Its saved settings will be deleted.',
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        if r != QMessageBox.StandardButton.Yes:
-            return
-        self._devices.pop(idx)
-        self._refresh_list()
-        self._on_remove_cb(name)
-
-
-class _QRCodeWidget(QWidget):
-    """Renders a QR code matrix using QPainter - no Pillow needed."""
-
-    # qrcode's border param doesn't affect .modules matrix; explicit margin ensures quiet zone for phone cameras.
-    _QUIET_ZONE_PX = 24
-
-    def __init__(self, data: str, parent=None):
-        super().__init__(parent)
-        qr = qrcode.QRCode(
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=1,
-            border=0,
-        )
-        qr.add_data(data)
-        qr.make(fit=True)
-        self._matrix = qr.modules
-        n = len(self._matrix)
-        self._code_size = n * 8
-        self.setFixedSize(
-            self._code_size + self._QUIET_ZONE_PX * 2,
-            self._code_size + self._QUIET_ZONE_PX * 2,
-        )
-
-    def paintEvent(self, event):
-        n = len(self._matrix)
-        cell = self._code_size // n
-        margin = self._QUIET_ZONE_PX
-        painter = QPainter(self)
-        painter.fillRect(self.rect(), QColor("white"))
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QBrush(QColor("black")))
-        for row in range(n):
-            for col in range(n):
-                if self._matrix[row][col]:
-                    painter.drawRect(margin + col * cell, margin + row * cell, cell, cell)
-        painter.end()
-
-
-def _candidates_text(candidates: list) -> str:
-    """The "waiting for the phone on: ..." block under the QR code."""
-    lines = "\n".join(f"• {ip_utils.describe_address(c)}" for c in candidates)
-    return f"Waiting for the phone on:\n{lines}"
-
-
-class _PairingSignals(QObject):
-    paired = pyqtSignal(str, list, str, str)  # name, ips, token, source_ip
-
-
-class _PairStatusSignals(QObject):
-    result = pyqtSignal(str)  # "paired" | "not_paired" | "unreachable" | "unknown"
-
-
-class _PairingDialog(QDialog):
-    """Runs a pairing HTTP server while open, and shows either a QR code (Wi-Fi) or a "Pair via ADB" button (USB) to complete it."""
-
-    def __init__(self, parent, on_paired, usb_serial: Optional[str] = None):
-        super().__init__(parent)
-        self.setWindowTitle("Pair with Phone")
-        self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
-        # QR payload controls matrix size; size dialog for typical pairing code plus margins.
-        self.setMinimumWidth(420)
+        self.setMinimumWidth(ui_px(460))
         self._on_paired = on_paired
-        # If set, pairing uses adb reverse tunnel to localhost (works without Wi-Fi or with VPN).
-        self._usb_serial = usb_serial
-        self._pairing_server: Optional[PairingServer] = None
-        self._reversed_port: Optional[int] = None
-        self._pair_btn: Optional[QPushButton] = None
-        self._pair_timeout: Optional[QTimer] = None
-        self._signals = _PairingSignals()
+        self._computer = (computer_id, computer_name)
+        self._server: Optional[PairingServer] = None
+        self._reversed: set = set()          # serials with an adb reverse to the pairing server
+        self._last_broadcast: dict = {}      # serial -> monotonic time of last pairing broadcast
+        self._done = False
+        self._signals = _PairSignals()
         self._signals.paired.connect(self._on_paired_signal)
+        self._signals.usb_state.connect(self._on_usb_state)
+        self._usb_timer = QTimer(self)
+        self._usb_timer.timeout.connect(self._poll_usb)
         self._build_ui()
 
     def _build_ui(self):
-        lay = QVBoxLayout(self)
-        lay.setSpacing(12)
-        lay.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-
-        self._status_lbl = QLabel("Starting pairing server...")
-        self._status_lbl.setObjectName("status_dim")
-        self._status_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._status_lbl.setWordWrap(True)
-        lay.addWidget(self._status_lbl)
+        lay = dialog_layout(self)
+        self._subtitle = dialog_header(lay, "Add a phone",
+                                       "Open Telescope on the phone first.")
 
         self._qr_container = QVBoxLayout()
         self._qr_container.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        self._qr_container.setContentsMargins(0, 0, 0, 12)
-        lay.addLayout(self._qr_container, 1)
+        lay.addLayout(self._qr_container)
 
-        # Show addresses QR code advertises; visible list helps debug unreachable phones (guest Wi-Fi, VPN).
-        self._candidates_lbl = QLabel("")
-        self._candidates_lbl.setObjectName("dim")
-        self._candidates_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._candidates_lbl.setTextInteractionFlags(
-            Qt.TextInteractionFlag.TextSelectableByMouse
-        )
-        self._candidates_lbl.setVisible(False)
-        lay.addWidget(self._candidates_lbl)
+        self._wifi_lbl = wrapped_note("Starting…")
+        self._wifi_row = control_row_widget("Wi-Fi", self._wifi_lbl, stretch=True)
+        lay.addWidget(self._wifi_row)
 
-        hint_text = (
-            "Keep the Telescope app open on your phone, then click Pair via ADB below."
-            if self._usb_serial is not None else
-            "Open Telescope on your phone and tap the scan button in the top-right corner."
-        )
-        self._hint_lbl = QLabel(hint_text)
-        self._hint_lbl.setObjectName("dim")
-        self._hint_lbl.setWordWrap(True)
-        self._hint_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lay.addWidget(self._hint_lbl)
+        self._usb_lbl = wrapped_note("")
+        set_status_kind(self._usb_lbl, "status_dim")
+        self._usb_row = control_row_widget("USB", self._usb_lbl, stretch=True)
+        lay.addWidget(self._usb_row)
 
-        close_row = QHBoxLayout()
-        close_row.addStretch()
-        close_btn = QPushButton("Close")
-        close_btn.clicked.connect(self.reject)
-        close_row.addWidget(close_btn)
-        lay.addLayout(close_row)
+        self._result_lbl = QLabel("")
+        self._result_lbl.setObjectName("dialog_title")
+        self._result_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._result_lbl.setVisible(False)
+        lay.addWidget(self._result_lbl)
+
+        self._close_btn = QPushButton("Cancel")
+        self._close_btn.clicked.connect(self.reject)
+        dialog_buttons(lay, self._close_btn)
 
     def showEvent(self, event):
         super().showEvent(event)
-        self._start_server()
+        self._start()
 
-    def closeEvent(self, event):
-        self._stop_server()
-        super().closeEvent(event)
+    def done(self, result):
+        self._stop()
+        super().done(result)
 
-    def _start_server(self):
-        if self._pairing_server is not None:
-            return  # already running - showEvent() can fire more than once
-
+    def _start(self):
+        if self._server is not None or self._done:
+            return
         signals = self._signals
-        server = PairingServer(
-            on_paired=lambda r: signals.paired.emit(r.name, r.ips, r.token, r.source_ip)
+        self._server = PairingServer(
+            on_paired=lambda r: signals.paired.emit(r),
+            computer_id=self._computer[0], computer_name=self._computer[1],
         )
-
-        if self._usb_serial is not None:
-            # Bind first to learn actual port, then tunnel it over adb; QR at 127.0.0.1 needs the tunnel up.
-            offer = server.start(
-                advertise=[PairingAddress(ip="127.0.0.1", interface="USB (adb)", kind="other")]
-            )
-            if offer is not None:
-                ok, err = adb_reverse(offer.port, serial=self._usb_serial)
-                if not ok:
-                    server.stop()
-                    self._status_lbl.setObjectName("status_err")
-                    self._status_lbl.setText(f"adb reverse failed: {err}")
-                    self._status_lbl.setStyleSheet("")
-                    return
-                self._reversed_port = offer.port
+        offer = self._server.start()
+        if offer.candidates:
+            self._qr_container.addWidget(QRCodeWidget(offer.payload))
+            self._wifi_lbl.setText("On the phone, tap Scan pairing code and point it at this code.")
         else:
-            offer = server.start()
+            self._wifi_lbl.setText("This computer isn't on a network right now, so pair over USB.")
+        if adb_available():
+            self._usb_lbl.setText("Plug the phone in with a USB cable and it pairs by itself.")
+            self._usb_timer.start(_PAIR_USB_POLL_MS)
+            self._poll_usb()
+        else:
+            self._usb_lbl.setText("Needs adb, which isn't installed. Wi-Fi works without it.")
 
-        if offer is None:
-            self._status_lbl.setObjectName("status_err")
-            self._status_lbl.setText(
-                "No usable network address found. Connect this computer to the "
-                "same Wi-Fi as your phone, or pair over USB instead."
-            )
-            self._status_lbl.setStyleSheet("")
+    def _stop(self):
+        self._usb_timer.stop()
+        server, self._server = self._server, None
+        if server is not None:
+            port = server.offer.port if server.offer else None
+            server.stop()
+            if port is not None:
+                for serial in list(self._reversed):
+                    threading.Thread(target=adb_unreverse, args=(port,), kwargs={"serial": serial},
+                                     daemon=True).start()
+        self._reversed.clear()
+
+    def _poll_usb(self):
+        signals = self._signals
+
+        def work():
+            try:
+                signals.usb_state.emit(adb_device_states())
+            except RuntimeError:
+                pass
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_usb_state(self, states: list):
+        if self._server is None or self._server.offer is None or self._done:
             return
-        self._pairing_server = server
+        usable = [s for s, state in states if state == "device"]
+        if not usable:
+            if any(state == "unauthorized" for _s, state in states):
+                self._set_usb("Phone plugged in. Allow USB debugging in the prompt on the phone.", "status_warn")
+            else:
+                self._set_usb("Plug the phone in with a USB cable and it pairs by itself.", "status_dim")
+            return
+        self._set_usb("Phone plugged in. Keep Telescope open on it; pairing…", "status_dim")
+        offer = self._server.offer
+        payload_b64 = base64.b64encode(offer.usb_payload.encode()).decode()
+        now = time.monotonic()
+        for serial in usable:
+            # Re-sent every few seconds: the broadcast only lands while the app is on screen.
+            if now - self._last_broadcast.get(serial, 0) < 4:
+                continue
+            self._last_broadcast[serial] = now
+            first = serial not in self._reversed
+            self._reversed.add(serial)
 
+            def send(serial=serial, first=first):
+                if first:
+                    adb_reverse(offer.port, serial=serial)
+                adb_broadcast_pair(payload_b64, serial=serial)
+            threading.Thread(target=send, daemon=True).start()
+
+    def _set_usb(self, text: str, kind: str):
+        self._usb_lbl.setText(text)
+        set_status_kind(self._usb_lbl, kind)
+
+    def _on_paired_signal(self, result):
+        if self._done:
+            return
+        self._done = True
+        self._stop()
         while self._qr_container.count():
             item = self._qr_container.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+        self._wifi_row.setVisible(False)
+        self._usb_row.setVisible(False)
+        self._subtitle.setText("You can start streaming now.")
+        self._result_lbl.setText(f"Paired with {result.name}")
+        self._result_lbl.setVisible(True)
+        self._close_btn.setText("Done")
+        set_ui_role(self._close_btn, "primary")
+        self._close_btn.clicked.disconnect()
+        self._close_btn.clicked.connect(self.accept)
+        self._on_paired(result)
 
-        self._status_lbl.setObjectName("status_dim")
-        self._status_lbl.setStyleSheet("")
-        if self._usb_serial is not None:
-            # USB uses explicit button (not automatic scan) since MainActivity foreground is not verifiable from here.
-            self._pair_btn = QPushButton("Pair via ADB")
-            self._pair_btn.clicked.connect(self._send_pair_broadcast)
-            self._qr_container.addWidget(self._pair_btn)
-            self._status_lbl.setText("Ready to pair.")
-        else:
-            qr_widget = _QRCodeWidget(offer.payload)
-            self._qr_container.addWidget(qr_widget)
-            # Size dialog from rendered code, not hard-coded width (device name/IP list affect QR size).
-            required_width = qr_widget.width() + 48
-            if self.width() < required_width:
-                self.resize(required_width, self.height())
-            self._status_lbl.setText("Scan with the Telescope app on your phone.")
-            self._candidates_lbl.setText(_candidates_text(offer.candidates))
-            self._candidates_lbl.setVisible(True)
 
-    def _send_pair_broadcast(self):
-        if self._pairing_server is None or self._pairing_server.offer is None:
+# ── Phones list ───────────────────────────────────────────────────────────────
+
+class PhonesDialog(QDialog):
+    def __init__(self, plugin: "ConnectionPlugin", parent=None):
+        super().__init__(parent)
+        self._plugin = plugin
+        self.setWindowTitle("Your phones")
+        self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
+        self.setMinimumSize(ui_px(440), ui_px(360))
+        lay = dialog_layout(self)
+        dialog_header(lay, "Your phones",
+                      "Each phone keeps its own camera settings. Removing one also unpairs it on the phone.")
+        self._list = QListWidget()
+        self._list.currentRowChanged.connect(self._on_selection)
+        lay.addWidget(self._list, 1)
+        self._add_btn = QPushButton("Add phone")
+        self._rename_btn = QPushButton("Rename")
+        self._remove_btn = QPushButton("Remove")
+        set_ui_role(self._add_btn, "primary")
+        set_ui_role(self._remove_btn, "danger")
+        self._add_btn.clicked.connect(plugin.open_add_phone)
+        self._rename_btn.clicked.connect(self._rename)
+        self._remove_btn.clicked.connect(self._remove)
+        lay.addLayout(button_row(self._add_btn, self._rename_btn, self._remove_btn))
+        self._computer_lbl = ElidingLabel("")
+        rename_computer = action_button("Change name", tooltip="The name your phones show for this computer")
+        rename_computer.clicked.connect(self._rename_computer)
+        computer_row = QHBoxLayout()
+        computer_row.setContentsMargins(0, 0, 0, 0)
+        computer_row.setSpacing(8)
+        computer_row.addWidget(self._computer_lbl, 1)
+        computer_row.addWidget(rename_computer)
+        lay.addLayout(_row("This computer", computer_row, stretch=True))
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        dialog_buttons(lay, close_btn)
+        self.refresh()
+
+    def refresh(self):
+        self._computer_lbl.setText(self._plugin.computer_name)
+        self._list.clear()
+        for phone in self._plugin.phones:
+            item = QListWidgetItem(phone.name)
+            item.setData(Qt.ItemDataRole.UserRole, phone.id)
+            self._list.addItem(item)
+        self._on_selection(self._list.currentRow())
+
+    def _current_id(self) -> Optional[str]:
+        item = self._list.currentItem()
+        return item.data(Qt.ItemDataRole.UserRole) if item else None
+
+    def _on_selection(self, _row: int):
+        ok = self._current_id() is not None
+        self._rename_btn.setEnabled(ok)
+        self._remove_btn.setEnabled(ok)
+
+    def _rename(self):
+        pid = self._current_id()
+        phone = self._plugin.phone(pid)
+        if phone is None:
             return
-        self._pair_btn.setEnabled(False)
-        self._status_lbl.setObjectName("status_dim")
-        self._status_lbl.setStyleSheet("")
-        self._status_lbl.setText("Sending pairing request to phone...")
-        payload_b64 = base64.b64encode(self._pairing_server.offer.payload.encode()).decode()
-        ok, err = adb_broadcast_pair(payload_b64, serial=self._usb_serial)
-        if not ok:
-            self._status_lbl.setObjectName("status_err")
-            self._status_lbl.setText(f"Broadcast failed: {err}")
-            self._pair_btn.setEnabled(True)
-            return
-        self._status_lbl.setText("Broadcast sent - waiting for the phone to respond...")
-        self._pair_timeout = QTimer(self)
-        self._pair_timeout.setSingleShot(True)
-        self._pair_timeout.timeout.connect(self._on_pair_timeout)
-        self._pair_timeout.start(8000)
+        name, ok = QInputDialog.getText(self, "Rename phone", "Name", text=phone.name)
+        if ok and name.strip():
+            self._plugin.rename_phone(pid, name.strip())
+            self.refresh()
 
-    def _on_pair_timeout(self):
-        self._pair_timeout = None
-        self._status_lbl.setObjectName("status_err")
-        self._status_lbl.setStyleSheet("")
-        self._status_lbl.setText(
-            "No response after 8s. Make sure Telescope is open and in the "
-            "foreground on your phone, then click Pair via ADB again."
+    def _rename_computer(self):
+        name, ok = QInputDialog.getText(self, "Rename this computer",
+                                        "Name your phones show (applies to phones you pair from now on)",
+                                        text=self._plugin.computer_name)
+        if ok and name.strip():
+            self._plugin.set_computer_name(name.strip())
+            self.refresh()
+
+    def _remove(self):
+        pid = self._current_id()
+        phone = self._plugin.phone(pid)
+        if phone is None:
+            return
+        r = QMessageBox.question(
+            self, "Remove phone",
+            f'Remove "{phone.name}"? This deletes its camera settings on this computer, and unpairs it '
+            "on the phone too if Telescope can reach it.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
         )
-        if self._pair_btn is not None:
-            self._pair_btn.setEnabled(True)
+        if r == QMessageBox.StandardButton.Yes:
+            self._plugin.forget_phone(pid)
+            self.refresh()
 
-    def _stop_server(self):
-        if self._pairing_server is None:
-            return
-        if self._pair_timeout is not None:
-            self._pair_timeout.stop()
-            self._pair_timeout = None
-        self._pairing_server.stop()
-        self._pairing_server = None
-        if self._reversed_port is not None:
-            adb_unreverse(self._reversed_port, serial=self._usb_serial)
-            self._reversed_port = None
 
-    def _on_paired_signal(self, name: str, ips: list, token: str, source_ip: str = ""):
-        if self._pair_timeout is not None:
-            self._pair_timeout.stop()
-            self._pair_timeout = None
-        while self._qr_container.count():
-            item = self._qr_container.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-        success_lbl = QLabel(f'Paired!\n"{name}" added.')
-        success_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        success_lbl.setStyleSheet("color: #4db87a; font-size: 16px; font-weight: bold;")
-        self._qr_container.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._qr_container.addStretch()
-        self._qr_container.addWidget(success_lbl)
-        self._qr_container.addStretch()
-        self._status_lbl.setText("")
-        self._hint_lbl.setVisible(False)
-        self._candidates_lbl.setVisible(False)
-        self._on_paired(name, ips, token, source_ip)
+# ── Plugin ────────────────────────────────────────────────────────────────────
+
+class _Signals(QObject):
+    resolved = pyqtSignal(int, object, object)   # check id, phone id, Resolution
+    usb_available = pyqtSignal(int, bool)        # watch id, our phone answers over USB
 
 
 class ConnectionPlugin(TelescopePlugin):
     name = "connection"
 
     def setup(self, host, bus):
-        self._host             = host
-        self._bus               = bus
-        self._devices: list    = []
-        self._selected_device: Optional[str] = None
-        self._active_key: Optional[str] = None  # Separate from _selected_device to avoid spurious save/reconnect.
-        self._switching_device = False
-        self._forwarded_port: Optional[int] = None
-        self._adb_serial: Optional[str] = None
-        self._device_dlg: Optional[QDialog] = None
-        self._pairing_dlg: Optional[QDialog] = None
-        self._last_port: str = str(DEFAULT_PORT)
-        self._pair_status_signals = _PairStatusSignals()
-        self._pair_status_signals.result.connect(self._set_pair_status)
-        self._pair_status_check_id = 0
-        self._stream_connected = False  # True only once stream produces a frame.
-        self._bus.stream_connected.connect(self._on_stream_connected)
+        self._host = host
+        self._bus = bus
+        self._phones: list = []
+        self._selected_id: Optional[str] = None
+        self._active_key: Optional[str] = None
+        self._route_pref = ROUTE_AUTO
+        self._computer_id = uuid.uuid4().hex
+        self._computer_name = default_computer_name()
+        self._resolution: Optional[Resolution] = None
+        self._check_id = 0
+        self._watch_id = 0
+        self._streaming = False
+        self._connected = False  # first frame arrived (EventBus.stream_connected)
+        self._stream_route: Optional[Route] = None
+        self._stream_forward_serial: Optional[str] = None
+        self._switching = False
+        self._add_dlg: Optional[AddPhoneDialog] = None
+        self._phones_dlg: Optional[PhonesDialog] = None
+        self._discovery = LanDiscovery()
+        self._tunnels = UsbTunnels(
+            forward=lambda serial, remote: adb_forward_auto(remote, serial=serial),
+            unforward=lambda serial, local: adb_unforward(local, serial=serial),
+        )
+        self._resolver = RouteResolver(
+            adb_available=adb_available, adb_device_states=adb_device_states,
+            tunnels=self._tunnels, discover=self._discovery.lookup,
+        )
+        self._signals = _Signals()
+        self._signals.resolved.connect(self._on_resolved)
+        self._signals.usb_available.connect(self._on_usb_available)
+        bus.stream_connected.connect(self._on_stream_connected)
+        bus.add_phone_requested.connect(self.open_add_phone)
+
+    # ── Model ─────────────────────────────────────────────────────────────
+
+    @property
+    def phones(self) -> list:
+        return list(self._phones)
+
+    def phone(self, pid: Optional[str]) -> Optional[Phone]:
+        return next((p for p in self._phones if p.id == pid), None)
+
+    def _selected_phone(self) -> Optional[Phone]:
+        return self.phone(self._selected_id)
+
+    @property
+    def selected_device(self) -> Optional[str]:
+        """Key the host stores per-phone settings under: the selected phone's id."""
+        return self._selected_id
+
+    @property
+    def computer_name(self) -> str:
+        return self._computer_name
+
+    def set_computer_name(self, name: str):
+        self._computer_name = name
+        self._host.save_now()
+
+    @property
+    def resolution(self) -> Optional[Resolution]:
+        return self._resolution
+
+    # ── UI ────────────────────────────────────────────────────────────────
 
     def create_panel(self) -> QWidget:
         card = create_card()
-        lay = QVBoxLayout(card)
-        lay.setContentsMargins(16, 15, 16, 15)
-        lay.setSpacing(10)
-        add_card_header(lay, "Connection", "connection")
+        lay = card_layout(card)
+        self._add_btn = card_action("Add phone", "qr", "Pair a phone over Wi-Fi or USB")
+        self._add_btn.clicked.connect(self.open_add_phone)
+        add_card_header(lay, "Connection", "connection", action=self._add_btn)
 
-        # ── Mode ──────────────────────────────────────────────────────────────
-        self._rb_wifi = QRadioButton("Wi-Fi")
-        self._rb_usb  = QRadioButton("USB (ADB)")
-        for rb in (self._rb_wifi, self._rb_usb):
-            rb.setAutoExclusive(False)
-        self._conn_grp = QButtonGroup(card)
-        self._conn_grp.addButton(self._rb_usb)
-        self._conn_grp.addButton(self._rb_wifi)
-        self._rb_usb.setChecked(True)
-        self._conn_grp.buttonClicked.connect(lambda _: self._on_mode())
-        lay.addLayout(_row("Mode", segmented_row(self._rb_wifi, self._rb_usb)))
+        self._status_lbl = ElidingLabel("")
+        lay.addLayout(_row("Phone", self._status_lbl, stretch=True))
 
-        # ── Pairing (always available - a USB-only phone still needs to be
-        #     paired, it just gets there via adb reverse instead of the LAN) ──
-        self._pair_status_lbl = QLabel("")
-        lay.addLayout(_row("Status", self._pair_status_lbl, stretch=True))
+        self._using_lbl = ElidingLabel("—")
+        self._using_row = control_row_widget("Using", self._using_lbl, stretch=True)
+        lay.addWidget(self._using_row)
 
-        self._qr_btn = QPushButton("Pair Device")
-        self._qr_btn.setIconSize(QSize(16, 16))
-        set_ui_role(self._qr_btn, "quiet")
-        self._qr_btn.clicked.connect(self._on_pair_qr)
-        self._update_pair_button()
-        lay.addLayout(_row("", self._qr_btn, stretch=True))
+        self._route_combo = NoScrollComboBox()
+        for key, label in _ROUTE_CHOICES:
+            self._route_combo.addItem(label, key)
+        self._route_combo.setToolTip("Automatic uses USB when the phone is plugged in and Wi-Fi otherwise.")
+        self._route_combo.currentIndexChanged.connect(
+            lambda i: self.set_route_preference(self._route_combo.itemData(i)))
+        self._route_row = control_row_widget("Connect via", self._route_combo, stretch=True)
+        lay.addWidget(self._route_row)
 
-        self._device_row_w = QWidget()
-        self._device_row_w.setObjectName("ip_row_container")
-        device_v = QVBoxLayout(self._device_row_w)
-        device_v.setContentsMargins(0, 0, 0, 0)
-        device_v.setSpacing(4)
+        self._note_lbl = wrapped_note("")
+        self._note_row = control_row_widget("", self._note_lbl, stretch=True)
+        lay.addWidget(self._note_row)
 
-        self._ip_combo = NoScrollComboBox()
-        self._ip_combo.currentTextChanged.connect(self._on_ip_changed)
-        device_v.addLayout(_row("IP address", self._ip_combo, stretch=True))
+        self._switch_usb_btn = action_button("Switch to USB", "primary",
+                                             "The phone was plugged in; reconnect over the cable")
+        self._switch_usb_btn.clicked.connect(self._switch_to_usb)
+        self._switch_usb_row = control_row_widget("", self._switch_usb_btn)
+        self._switch_usb_row.setVisible(False)
+        lay.addWidget(self._switch_usb_row)
 
-        lay.addWidget(self._device_row_w)
-        self._device_row_w.setVisible(False)
+        self._build_header()
 
-        self._build_device_picker()  # Build early so picker exists even if header widget unused.
-
-        # ── Port ──────────────────────────────────────────────────────────────
-        self._port_field = QLineEdit(str(DEFAULT_PORT))
-        self._port_field.setValidator(QIntValidator(1, 65535))
-        self._port_field.setMaximumWidth(96)
-        self._port_field.editingFinished.connect(self._on_port_changed)
-        lay.addLayout(_row("Port", self._port_field))
-
-        self._pair_status_timer = QTimer(card)  # Periodic backstop; stopped during streaming.
-        self._pair_status_timer.timeout.connect(self._check_pair_status)
-        self._pair_status_timer.start(_PAIR_STATUS_POLL_MS)
-
+        self._status_timer = QTimer(card)
+        self._status_timer.timeout.connect(self._check_status)
+        self._status_timer.start(_STATUS_POLL_MS)
+        self._usb_watch_timer = QTimer(card)
+        self._usb_watch_timer.timeout.connect(self._watch_usb)
+        self._render()
         return card
 
     def create_header_widget(self) -> QWidget:
-        """Return device picker (moved to header, not duplicated)."""
-        return self._header_device_w
+        return self._header_w
 
-    def _build_device_picker(self):
-        self._header_device_w = QWidget()
-        self._header_device_w.setObjectName("card_body")
-        lay = QHBoxLayout(self._header_device_w)
+    def _build_header(self):
+        self._header_w = QWidget()
+        self._header_w.setObjectName("card_body")
+        lay = QHBoxLayout(self._header_w)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(8)
+        self._phone_combo = NoScrollComboBox()
+        self._phone_combo.setMinimumWidth(ui_px(180))
+        self._phone_combo.setPlaceholderText("No phone yet")
+        self._phone_combo.setToolTip("Which phone to stream from")
+        self._phone_combo.currentIndexChanged.connect(self._on_combo_changed)
+        lay.addWidget(self._phone_combo)
+        self._manage_btn = QPushButton()
+        self._manage_btn.setObjectName("icon_btn")
+        self._manage_btn.setFixedSize(34, 34)
+        self._manage_btn.setIcon(create_vector_icon("devices", theme.TEXT_DIM))
+        self._manage_btn.setIconSize(QSize(18, 18))
+        self._manage_btn.setToolTip("Your phones: add, rename, remove")
+        self._manage_btn.clicked.connect(self.open_phones)
+        lay.addWidget(self._manage_btn)
 
-        col = QVBoxLayout()
-        col.setContentsMargins(0, 0, 0, 0)
-        col.setSpacing(1)
-        cap = QLabel("DEVICE")
-        cap.setObjectName("header_label")
-        col.addWidget(cap)
+    def _refresh_combo(self):
+        self._switching = True
+        self._phone_combo.blockSignals(True)
+        self._phone_combo.clear()
+        for p in self._phones:
+            self._phone_combo.addItem(p.name, p.id)
+        self._phone_combo.setCurrentIndex(self._phone_combo.findData(self._selected_id))
+        self._phone_combo.blockSignals(False)
+        self._switching = False
+        self._bus.phones_changed.emit(len(self._phones))
 
-        self._device_combo = NoScrollComboBox()
-        self._device_combo.setMinimumWidth(196)
-        self._device_combo.currentIndexChanged.connect(self._on_device_changed)
-        col.addWidget(self._device_combo)
-        lay.addLayout(col)
+    def _render(self):
+        """Card rows from the current phone + latest resolution."""
+        phone = self._selected_phone()
+        if phone is None:
+            set_status_kind(self._status_lbl, "status_dim")
+            self._status_lbl.setText("No phone yet")
+            self._using_row.setVisible(False)
+            self._route_row.setVisible(False)
+            self._note_lbl.setText("")
+            self._note_row.setVisible(False)
+            return
+        res = self._resolution
+        kind, text = status_line(res)
+        if self._streaming:
+            kind, text = ("status_ok", "● Streaming") if self._connected else ("status_dim", "Connecting…")
+        set_status_kind(self._status_lbl, kind)
+        self._status_lbl.setText(text)
+        self._using_row.setVisible(True)
+        self._route_row.setVisible(True)
+        self._using_lbl.setText(route_text(self._stream_route if self._streaming else (res.route if res else None)))
+        self._route_combo.blockSignals(True)
+        self._route_combo.setCurrentIndex(self._route_combo.findData(self._route_pref))
+        self._route_combo.blockSignals(False)
+        note = ""
+        if res is not None and not self._streaming:
+            note = problem_text(res, phone.name, self._route_pref)
+            if (not note and res.route is not None and res.route.kind == "wifi"
+                    and res.usb_note not in (None, USB_NO_CABLE, USB_NO_ADB)):
+                # A cable is in but not used: exactly when "why isn't it on USB?" needs an answer.
+                reason = usb_note_text(res.usb_note)
+                note = f"Not using USB: {reason}."
+        self._note_lbl.setText(note)
+        self._note_row.setVisible(bool(note))
 
-        self._gear_btn = QPushButton()
-        self._gear_btn.setObjectName("icon_btn")
-        self._gear_btn.setFixedSize(30, 30)
-        self._gear_btn.setIcon(create_vector_icon("gear", theme.TEXT_DIM))
-        self._gear_btn.setIconSize(QSize(16, 16))
-        self._gear_btn.setToolTip("Manage devices")
-        self._gear_btn.clicked.connect(self._on_manage_devices)
-        lay.addWidget(self._gear_btn, 0, Qt.AlignmentFlag.AlignBottom)
+    # ── Status checks ─────────────────────────────────────────────────────
 
-        self._header_device_w.setVisible(self._rb_wifi.isChecked())
+    def _check_status(self):
+        if self._streaming:
+            return
+        phone = self._selected_phone()
+        if phone is None:
+            self._render()
+            return
+        self._discovery.start()
+        self._check_id += 1
+        self._spawn_resolve(self._check_id, Phone(**phone.to_dict()), self._route_pref)
 
-    def _set_wifi_rows_visible(self, visible: bool):
-        """Show/hide Wi-Fi-only rows (header picker and panel address row)."""
-        self._device_row_w.setVisible(visible)
-        if hasattr(self, "_header_device_w"):
-            self._header_device_w.setVisible(visible)
+    def _spawn_resolve(self, check_id: int, phone: Phone, preference: str):
+        """Background resolve (split out so tests can run it synchronously)."""
+        signals, resolver = self._signals, self._resolver
 
-    # ── Stream lifecycle ──────────────────────────────────────────────────────
+        def work():
+            try:
+                res = resolver.resolve(phone, preference)
+            except Exception:
+                logger.exception("Route resolve failed")
+                res = Resolution(UNREACHABLE)
+            try:
+                signals.resolved.emit(check_id, phone.id, res)
+            except RuntimeError:
+                pass
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_resolved(self, check_id: int, phone_id: str, res: Resolution):
+        if check_id != self._check_id or phone_id != self._selected_id:
+            return  # stale: a newer check, or the user switched phones meanwhile
+        self._apply_resolution(res)
+
+    def _apply_resolution(self, res: Resolution):
+        self._resolution = res
+        phone = self._selected_phone()
+        if phone and res.route is not None and res.route.kind == "wifi" and phone.active_ip != res.route.host:
+            phone.active_ip = res.route.host  # remember the address that answered (e.g. after DHCP moved it)
+            if res.route.host not in phone.ips:
+                phone.ips.append(res.route.host)
+            self._host.schedule_save()
+        self._render()
+
+    def set_route_preference(self, preference: str):
+        if preference == self._route_pref:
+            return
+        self._route_pref = preference
+        self._resolution = None
+        self._host.schedule_save()
+        self._render()
+        if self._streaming:
+            self._host.reconnect_stream()
+        else:
+            self._check_status()
+
+    # ── Stream lifecycle (called by the host) ─────────────────────────────
 
     def get_stream_info(self) -> tuple:
-        try:
-            port = int(self._port_field.text())
-        except ValueError:
-            QMessageBox.critical(self._host, "Bad port", "Port must be a number.")
+        if IS_LINUX and not self._ensure_virtual_camera():
             return None, None, False
-
-        if IS_LINUX and not v4l2_devices_ready():
-            if v4l2_module_loaded():
-                QMessageBox.warning(
-                    self._host, "v4l2loopback conflict",
-                    f"v4l2loopback is already loaded but {V4L2_PHONE_DEV} is not available.\n\n"
-                    "Something else set it up first - another app's virtual camera (e.g. OBS's own), "
-                    "or a previous session - with different settings than Telescope needs. "
-                    "Telescope leaves it alone rather than risk breaking that.\n\n"
-                    "To free it up for Telescope, run:\n"
-                    "    sudo modprobe -r v4l2loopback\n\n"
-                    "Then click Start again."
-                )
-                return None, None, False
-            r = QMessageBox.question(
-                self._host, "Virtual camera not ready",
-                f"The virtual camera module (v4l2loopback) is not loaded.\n\n"
-                f"Telescope will load it now. This needs admin access and may ask for your password.\n\n"
-                f"Devices: {V4L2_PHONE_DEV} (phone), {V4L2_OBS_DEV} (OBS)",
-                QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
-                QMessageBox.StandardButton.Ok,
-            )
-            if r != QMessageBox.StandardButton.Ok:
-                return None, None, False
-            ok, msg = v4l2_load()
-            if not ok:
-                QMessageBox.critical(self._host, "Load failed", msg)
-                return None, None, False
-
-        token = self._current_device_token()
-        if token is None:
-            QMessageBox.critical(
-                self._host, "Not paired",
-                "This device hasn't been paired yet.\n\n"
-                "Click Pair Device next to the device selector and follow the "
-                "Wi-Fi or USB pairing steps."
-            )
+        phone = self._selected_phone()
+        if phone is None:
+            QMessageBox.information(self._host, "No phone yet",
+                                    "Add a phone first: click Add phone on the Connection panel.")
             return None, None, False
-
-        if self._rb_usb.isChecked():
-            if not adb_available():
-                QMessageBox.critical(
-                    self._host, "ADB not found",
-                    "ADB is needed for USB mode but wasn't found.\n\n"
-                    "Install Android platform-tools so adb is available, or use "
-                    "the bundled Windows release, then try again. You can also "
-                    "switch to Wi-Fi mode."
-                )
+        res = run_off_ui_thread(self._resolver.resolve, Phone(**phone.to_dict()), self._route_pref)
+        self._check_id += 1  # anything in flight is older than this
+        self._apply_resolution(res)
+        if res.status != READY:
+            QMessageBox.warning(self._host, "Can't connect to the phone",
+                                problem_text(res, phone.name, self._route_pref))
+            return None, None, False
+        route = res.route
+        if route.kind == "usb":
+            local = run_off_ui_thread(self._tunnels.acquire, route.serial, STREAM_PORT)
+            if local is None:
+                QMessageBox.warning(self._host, "Can't connect to the phone",
+                                    "adb couldn't open a connection to the phone. Unplug it, plug it "
+                                    "back in and try again.")
                 return None, None, False
-            serial = self._resolve_adb_serial()
-            if serial is None:
-                return None, None, False
-            ok, msg = adb_forward(port, serial=serial)
-            if not ok:
-                QMessageBox.critical(self._host, "ADB forward failed", msg)
-                return None, None, False
-            self._forwarded_port = port
-            self._adb_serial = serial
-            return f"http://localhost:{port}/v1/video", token, True
+            self._stream_forward_serial = route.serial
+            url = f"http://127.0.0.1:{local}/v1/video"
         else:
-            ip = self._current_device_ip()
-            if not ip:
-                QMessageBox.critical(self._host, "No device", "Pair a device in Wi-Fi mode first.")
-                return None, None, False
-            self._forwarded_port = None
-            return f"http://{ip}:{port}/v1/video", token, True
+            url = f"http://{route.host}:{STREAM_PORT}/v1/video"
+        self._stream_route = route
+        return url, phone.token, True
 
-    def _current_device_token(self) -> Optional[str]:
-        """Stored pairing token for current profile (selected Wi-Fi device or USB device)."""
-        name = self._selected_device
-        if not name:
-            return None
-        for d in self._devices:
-            if d["name"] == name:
-                return d.get("token")
-        return None
+    def _ensure_virtual_camera(self) -> bool:
+        if v4l2_devices_ready():
+            return True
+        if v4l2_module_loaded():
+            QMessageBox.warning(
+                self._host, "Virtual camera is set up differently",
+                f"v4l2loopback is already loaded, but without {V4L2_PHONE_DEV}. Another app set it up "
+                "with different settings, and Telescope leaves that alone rather than break it.\n\n"
+                "To hand it over to Telescope, close the other app and run:\n"
+                "    sudo modprobe -r v4l2loopback\n\nThen click Start again.")
+            return False
+        r = QMessageBox.question(
+            self._host, "Set up the virtual camera",
+            "Telescope needs to switch on its virtual camera first. This asks for your password.",
+            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Ok)
+        if r != QMessageBox.StandardButton.Ok:
+            return False
+        ok, msg = run_off_ui_thread(v4l2_load)
+        if not ok:
+            QMessageBox.critical(self._host, "Couldn't set up the virtual camera", msg)
+        return ok
 
-    def on_stream_start(self, stream_url: str, ctrl):
-        self._stream_connected = False  # Keep probing until _on_stream_connected confirms frames.
-        self._check_pair_status()
-
-    def on_stream_stop(self):
-        if self._forwarded_port is not None:
-            adb_unforward(self._forwarded_port, serial=self._adb_serial)
-            self._forwarded_port = None
-            self._adb_serial = None
-        self._stream_connected = False
-        self._pair_status_timer.start(_PAIR_STATUS_POLL_MS)
-        self._check_pair_status()
-
-    def _on_stream_connected(self):
-        self._stream_connected = True  # Decoded frames prove working pairing.
-        self._pair_status_timer.stop()
-        self._set_pair_status("paired")
-
-    # ── Pair status ──────────────────────────────────────────────────────────
-
-    def _check_pair_status(self):
-        """Background probe of whether stored token is still accepted (tokens can be stale)."""
-        if self._stream_connected:
-            self._set_pair_status("paired")  # Decoded frames prove pairing is good.
-            return
-        token = self._current_device_token()
-        if token is None:
-            self._set_pair_status("not_paired")
-            return
-        self._set_pair_status("checking")
-        self._pair_status_check_id += 1
-        check_id = self._pair_status_check_id
-        usb = self._rb_usb.isChecked()
-        self._spawn_pair_probe(check_id, token, usb)
-
-    def _spawn_pair_probe(self, check_id: int, token: str, usb: bool):
-        """Spawns background thread (split out so tests can make synchronous to avoid signal-on-destroyed-receiver crash)."""
-        threading.Thread(
-            target=self._probe_pair_status, args=(check_id, token, usb), daemon=True,
-        ).start()
-
-    def _probe_pair_status(self, check_id: int, token: str, usb: bool):
-        with self.session_channel(token, usb=usb) as (client, unavailable):
-            result = client.ping().status if client else unavailable
-        if check_id != self._pair_status_check_id:  # Discard stale results from earlier checks.
-            return
-        try:
-            self._pair_status_signals.result.emit(result)
-        except RuntimeError:
-            # App quit or plugin destroyed; QObject already gone.
-            pass
-
-    # ── Session channel (phone port 8766) ────────────────────────────────────
+    def session_target(self) -> SessionTarget:
+        phone = self._selected_phone()
+        route = self._stream_route or (self._resolution.route if self._resolution else None)
+        return SessionTarget(phone.token if phone else None, route)
 
     @contextlib.contextmanager
-    def session_channel(self, token: Optional[str] = None, usb: Optional[bool] = None):
-        """Yields (client, unavailable_status) for phone's session port (Wi-Fi IP or USB adb forward)."""
-        if token is None:
-            token = self._current_device_token()
-        if usb is None:
-            usb = self._rb_usb.isChecked()
-        if not token:
-            yield None, "not_paired"
+    def session_channel(self, target: SessionTarget):
+        """Yields a client for the phone's session port along target.route, or None if there's no route."""
+        route = target.route
+        if not target.token or route is None:
+            yield None
             return
-
-        if not usb:
-            ip = self._current_device_ip()
-            if not ip:
-                yield None, "not_paired"
-                return
-            yield PhoneSessionClient(f"http://{ip}:{PING_PORT}", token), "unreachable"
+        if route.kind == "wifi":
+            yield PhoneSessionClient(f"http://{route.host}:{PING_PORT}", target.token)
             return
-
-        serials = adb_devices()
-        if len(serials) != 1:
-            yield None, "unknown"
-            return
-        serial = serials[0]
-        ok, _err = adb_forward(PING_PORT, serial=serial)
-        if not ok:
-            yield None, "unreachable"
+        local = self._tunnels.acquire(route.serial, PING_PORT)
+        if local is None:
+            yield None
             return
         try:
-            yield PhoneSessionClient(f"http://localhost:{PING_PORT}", token), "unreachable"
+            yield PhoneSessionClient(f"http://127.0.0.1:{local}", target.token)
         finally:
-            adb_unforward(PING_PORT, serial=serial)
+            self._tunnels.release(route.serial, PING_PORT)
 
-    def ensure_phone_streaming(self, on_progress=None) -> tuple[bool, str]:
-        """Start phone's camera if not already streaming. Returns (ok, reason). Calls on_progress with status updates."""
-        with self.session_channel() as (client, unavailable):
+    def ensure_phone_streaming(self, on_progress=None, target: Optional[SessionTarget] = None) -> tuple:
+        """Start the phone's camera if it isn't running; blocking, worker threads only."""
+        target = target or self.session_target()
+        with self.session_channel(target) as client:
             if client is None:
-                return False, self._unreachable_reason(unavailable)
-
+                return False, "Lost the connection to the phone. Try again."
             ping = client.ping()
             if ping.status == "not_paired":
-                return False, (
-                    "The phone no longer accepts this desktop's pairing token.\n\n"
-                    "Pair the device again."
-                )
+                return False, ("The phone doesn't recognise this computer anymore.\n\n"
+                               "Click Add phone to pair it again.")
             if ping.status != "paired":
-                return False, self._unreachable_reason("unreachable")
+                return False, "Couldn't reach the phone. Open Telescope on it and try again."
             if ping.streaming:
                 return True, ""
-            if not ping.knows_session:
-                # Older app; can't start from here but may already be streaming.
-                return True, ""
-            if ping.local_only and not self._rb_usb.isChecked():
-                return False, (
-                    "The phone has \"Local only\" enabled, so its stream is reachable "
-                    "over USB but not over Wi-Fi.\n\n"
-                    "Switch this desktop to USB mode, or uncheck \"Local only\" on the phone."
-                )
-
             if not ping.busy:
                 if on_progress:
-                    on_progress("Sending start request to phone...")
+                    on_progress("Starting the phone's camera...")
                 result = client.start()
-                if result.unsupported:
-                    return True, ""
                 if not result.ok:
                     return False, self._start_refused_reason(result.error)
-
             return self._await_streaming(client, on_progress)
 
     @staticmethod
-    def _await_streaming(client: PhoneSessionClient, on_progress=None) -> tuple[bool, str]:
-        """Poll until phone reports live stream (service answers immediately but camera startup is async)."""
+    def _await_streaming(client: PhoneSessionClient, on_progress=None) -> tuple:
+        """Poll until the phone reports a live stream (the start request returns before the camera is up)."""
         deadline = time.monotonic() + START_TIMEOUT
         wait_start = time.monotonic()
         started = False
@@ -839,10 +721,9 @@ class ConnectionPlugin(TelescopePlugin):
             if ping.streaming:
                 return True, ""
             if ping.status == "not_paired":
-                # Real state change (not network blip); don't tolerate.
                 return False, "Lost contact with the phone while its camera was starting."
             if ping.status != "paired":
-                unreachable_streak += 1  # Tolerate brief unreachable; bail on sustained failure.
+                unreachable_streak += 1  # tolerate brief blips; bail on sustained failure
                 if unreachable_streak >= _UNREACHABLE_STREAK_LIMIT:
                     return False, "Lost contact with the phone while its camera was starting."
                 if on_progress:
@@ -852,345 +733,218 @@ class ConnectionPlugin(TelescopePlugin):
             if ping.busy:
                 started = True
             elif started:
-                return False, (
-                    "The phone's camera stopped before it finished starting.\n\n"
-                    "Check the phone for a permission prompt or an error."
-                )
+                return False, ("The phone's camera stopped before it finished starting.\n\n"
+                               "Check the phone for a permission prompt or an error.")
             if on_progress:
                 phase = "Phone's camera is opening" if started else "Waiting for the phone's camera"
                 on_progress(f"{phase}... ({elapsed:.0f}s)")
-        return False, (
-            "The phone's camera did not finish starting in time.\n\n"
-            "Try again, or start the stream on the phone directly."
-        )
+        return False, ("The phone's camera didn't finish starting in time.\n\n"
+                       "Try again, or start the stream on the phone.")
 
-    def stop_phone_streaming(self):
-        """Tell phone to shut camera down (best effort only)."""
-        with self.session_channel() as (client, _unavailable):
+    def stop_phone_streaming(self, target: Optional[SessionTarget] = None):
+        """Tell the phone to stop its camera (best effort); blocking, worker threads only."""
+        with self.session_channel(target or self.session_target()) as client:
             if client is not None:
                 client.stop()
-
-    def _unreachable_reason(self, status: str) -> str:
-        if status == "not_paired":
-            return (
-                "This device isn't paired yet.\n\nUse Pair Device to connect your phone."
-            )
-        if status == "unknown":
-            return (
-                "Couldn't tell which phone to talk to.\n\n"
-                "Connect exactly one device over USB, or switch to Wi-Fi mode."
-            )
-        return (
-            "Couldn't reach the phone.\n\n"
-            "Open the Telescope app on your phone and leave it on screen, then try again."
-        )
 
     @staticmethod
     def _start_refused_reason(error: Optional[str]) -> str:
         return {
-            "no_camera_permission": (
-                "The phone hasn't granted Telescope camera access.\n\n"
-                "Open the app on your phone and allow the camera permission."
-            ),
-            "busy": (
-                "The phone is already busy starting or stopping a stream.\n\nTry again in a moment."
-            ),
-            "start_refused": (
-                "Android refused to start the camera in the background.\n\n"
-                "Bring the Telescope app to the foreground on your phone and try again."
-            ),
-            "not_paired": (
-                "The phone no longer accepts this desktop's pairing token.\n\nPair the device again."
-            ),
+            "no_camera_permission": ("The phone hasn't given Telescope camera access.\n\n"
+                                     "Open the app on the phone and allow the camera permission."),
+            "busy": "The phone is busy starting or stopping a stream.\n\nTry again in a moment.",
+            "start_refused": ("Android didn't let the camera start in the background.\n\n"
+                              "Bring Telescope to the front on the phone and try again."),
+            "not_paired": "The phone doesn't recognise this computer anymore.\n\nClick Add phone to pair it again.",
         }.get(error or "", f"The phone refused to start streaming ({error or 'unknown error'}).")
 
-    def _set_pair_status(self, state: str):
-        color, text = {
-            "paired":      ("#4db87a", "● Paired"),
-            "not_paired":  ("#e57373", "○ Not paired"),
-            "unreachable": ("#e0a030", "○ Unreachable"),
-            "checking":    ("#78909c", "Checking..."),
-            "unknown":     ("", ""),
-        }.get(state, ("", ""))
-        self._pair_status_lbl.setText(text)
-        self._pair_status_lbl.setStyleSheet(f"color: {color};" if color else "")
+    def on_stream_start(self, stream_url: str, ctrl):
+        if not self._streaming:  # also called after an auto-reconnect; that isn't a fresh start
+            self._connected = False
+        self._streaming = True
+        self._switch_usb_row.setVisible(False)
+        if (self._stream_route is not None and self._stream_route.kind == "wifi"
+                and self._route_pref == ROUTE_AUTO):
+            self._usb_watch_timer.start(_USB_WATCH_MS)
+        self._render()
 
-    def _resolve_adb_serial(self) -> Optional[str]:
-        """Return adb serial to target (prompt if multiple devices attached)."""
-        serials = adb_devices()
-        if not serials:
-            QMessageBox.critical(
-                self._host, "No ADB device",
-                "No authorized ADB device or emulator was found.\n\n"
-                "Make sure your phone is plugged in, USB debugging is enabled, "
-                "and you've accepted the debugging prompt on the phone."
-            )
-            return None
-        if len(serials) == 1:
-            return serials[0]
-        serial, ok = QInputDialog.getItem(
-            self._host, "Select device",
-            "Multiple ADB devices/emulators are connected.\nChoose which one to use:",
-            serials, 0, False,
-        )
-        return serial if ok else None
+    def on_stream_stop(self):
+        self._streaming = False
+        self._usb_watch_timer.stop()
+        self._watch_id += 1
+        self._switch_usb_row.setVisible(False)
+        if self._stream_forward_serial is not None:
+            serial, self._stream_forward_serial = self._stream_forward_serial, None
+            run_off_ui_thread(self._tunnels.release, serial, STREAM_PORT)
+        self._stream_route = None
+        self._render()
+        self._check_status()
 
-    # ── Mode / device handlers ────────────────────────────────────────────────
+    def _on_stream_connected(self):
+        self._connected = True
+        self._render()
 
-    @property
-    def _profile_key(self) -> Optional[str]:
-        """Profile key for current mode (Wi-Fi device name or USB_PROFILE_KEY)."""
-        if self._rb_usb.isChecked():
-            return USB_PROFILE_KEY
-        return self._selected_device
+    # ── Plugged in while streaming over Wi-Fi ─────────────────────────────
+
+    def _watch_usb(self):
+        phone = self._selected_phone()
+        if phone is None or not self._streaming:
+            return
+        self._watch_id += 1
+        watch_id, signals, resolver = self._watch_id, self._signals, self._resolver
+        probe = Phone(**phone.to_dict())
+
+        def work():
+            ok = resolver.resolve(probe, ROUTE_USB).status == READY
+            try:
+                signals.usb_available.emit(watch_id, ok)
+            except RuntimeError:
+                pass
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_usb_available(self, watch_id: int, ok: bool):
+        if watch_id != self._watch_id or not self._streaming:
+            return
+        self._switch_usb_row.setVisible(ok)
+
+    def _switch_to_usb(self):
+        self._switch_usb_row.setVisible(False)
+        self._host.reconnect_stream()  # automatic routing picks USB now that it answers
+
+    # ── Phones ────────────────────────────────────────────────────────────
+
+    def open_add_phone(self):
+        if self._add_dlg is not None and self._add_dlg.isVisible():
+            self._add_dlg.raise_()
+            self._add_dlg.activateWindow()
+            return
+        self._add_dlg = AddPhoneDialog(self._host, self._computer_id, self._computer_name,
+                                       self._on_phone_paired)
+        self._add_dlg.setWindowModality(Qt.WindowModality.NonModal)
+        self._add_dlg.show()
+
+    def open_phones(self):
+        if self._phones_dlg is None or not self._phones_dlg.isVisible():
+            self._phones_dlg = PhonesDialog(self, self._host)
+            self._phones_dlg.setWindowModality(Qt.WindowModality.NonModal)
+        self._phones_dlg.refresh()
+        self._phones_dlg.show()
+        self._phones_dlg.raise_()
+
+    def _on_phone_paired(self, result):
+        existing = self.phone(result.phone_id)
+        active = result.source_ip if result.source_ip in result.ips else None
+        if existing:
+            existing.token = result.token  # re-pairing replaced this computer's token on the phone
+            existing.ips = list(result.ips)
+            existing.active_ip = active
+            if self._streaming and existing.id == self._selected_id:
+                self._host.reconnect_stream()  # the running stream still holds the old token
+        else:
+            self._phones.append(Phone(result.phone_id, result.name, result.token, list(result.ips), active))
+        self._select(result.phone_id, force=True)
+        self._host.save_now()
+        if self._phones_dlg is not None and self._phones_dlg.isVisible():
+            self._phones_dlg.refresh()
+
+    def rename_phone(self, pid: str, name: str):
+        phone = self.phone(pid)
+        if phone:
+            phone.name = name
+            self._refresh_combo()
+            self._host.save_now()
+            self._render()
+
+    def forget_phone(self, pid: str):
+        phone = self.phone(pid)
+        if phone is None:
+            return
+        self._spawn_revoke(Phone(**phone.to_dict()))
+        self._phones = [p for p in self._phones if p.id != pid]
+        if pid == self._selected_id:
+            self._active_key = None  # nothing to save back: its settings are being deleted
+            self._select(self._phones[0].id if self._phones else None)
+        else:
+            self._refresh_combo()
+        self._host.forget_device_settings(pid)
+        self._host.save_now()
+
+    def _spawn_revoke(self, phone: Phone):
+        """Unpair on the phone too when it's reachable, so it stops accepting a forgotten computer."""
+        resolver = self._resolver
+
+        def revoke():
+            res = resolver.resolve(phone, ROUTE_AUTO)
+            if res.route is None:
+                return
+            with self.session_channel(SessionTarget(phone.token, res.route)) as client:
+                if client is not None:
+                    client.unpair()
+        threading.Thread(target=revoke, daemon=True).start()
+
+    def _select(self, pid: Optional[str], force: bool = False):
+        if pid == self._selected_id and not force:
+            return
+        if self._streaming and pid != self._selected_id:
+            self._host.stop_stream()
+        self._selected_id = pid
+        self._resolution = None
+        self._refresh_combo()
+        self._activate_profile(pid)
+        self._render()
+        self._check_status()
+
+    def _on_combo_changed(self, idx: int):
+        if self._switching:
+            return
+        pid = self._phone_combo.itemData(idx)
+        if pid:
+            self._select(pid)
 
     def _activate_profile(self, new_key: Optional[str]):
-        """Switch profile via host if actually changed (avoids spurious save/reconnect from combo repopulation)."""
+        """Swap per-phone settings via the host, only when the phone actually changed."""
         if new_key == self._active_key:
             return
-        prev_key = self._active_key
-        self._active_key = new_key
-        self._host.switch_device(prev_key, new_key)
+        prev, self._active_key = self._active_key, new_key
+        self._host.switch_device(prev, new_key)
 
-    def _on_mode(self):
-        self._set_wifi_rows_visible(self._rb_wifi.isChecked())
-        self._update_pair_button()
-        self._check_pair_status()
-        self._host.schedule_save()
-        self._activate_profile(self._profile_key)
+    def sync_active_profile(self):
+        """Record the restored selection so the first real change is the one that switches profiles."""
+        self._active_key = self._selected_id
 
-    def _update_pair_button(self):
-        """Update Pair button icon/tooltip to match mode (QR vs ADB)."""
-        if self._rb_usb.isChecked():
-            self._qr_btn.setIcon(create_vector_icon("usb", "#c8d0da"))
-            self._qr_btn.setToolTip("Pair via ADB")
-        else:
-            self._qr_btn.setIcon(create_vector_icon("qr", "#c8d0da"))
-            self._qr_btn.setToolTip("Pair via QR code")
-
-    def _current_device_name(self) -> Optional[str]:
-        idx = self._device_combo.currentIndex()
-        if idx < 0 or idx >= len(self._devices):
-            return None
-        return self._devices[idx]["name"]
-
-    def _current_device_ip(self) -> Optional[str]:
-        ip = self._ip_combo.currentText().strip()
-        return ip if ip else None
-
-    def _refresh_device_combo(self, select_name: Optional[str] = None):
-        self._switching_device = True
-        self._device_combo.blockSignals(True)
-        self._device_combo.clear()
-        for d in self._devices:
-            self._device_combo.addItem(d["name"])
-        idx = 0
-        if select_name:
-            for i, d in enumerate(self._devices):
-                if d["name"] == select_name:
-                    idx = i
-                    break
-        if self._devices:
-            self._device_combo.setCurrentIndex(idx)
-        self._device_combo.blockSignals(False)
-        self._switching_device = False
-        self._update_ip_combo()
-
-    def _update_ip_combo(self):
-        idx = self._device_combo.currentIndex()
-        self._ip_combo.blockSignals(True)
-        self._ip_combo.clear()
-        active_ip = None
-        if 0 <= idx < len(self._devices):
-            device = self._devices[idx]
-            ips = list(dict.fromkeys(device.get("ips", [])))  # deduplicate, preserve order
-            for ip in sorted(ips, key=_rank_ip):
-                self._ip_combo.addItem(ip)
-            cfg = load_config()
-            saved_ip = cfg.get("devices", {}).get(device["name"], {}).get("active_ip")
-            active_ip = saved_ip if saved_ip in ips else _best_ip(ips)
-        if active_ip:
-            found = self._ip_combo.findText(active_ip)
-            if found >= 0:
-                self._ip_combo.setCurrentIndex(found)
-        self._ip_combo.blockSignals(False)
-
-    def _on_device_changed(self, idx: int):
-        if self._switching_device:
-            return
-        name = self._devices[idx]["name"] if 0 <= idx < len(self._devices) else None
-        if name and name != self._selected_device:
-            self._selected_device = name
-            self._update_ip_combo()
-            self._activate_profile(self._profile_key)
-
-    def _on_ip_changed(self, ip: str):
-        if self._switching_device or not ip:
-            return
-        name = self._current_device_name()
-        if not name:
-            return
-        cfg = load_config()
-        dev = cfg.setdefault("devices", {}).setdefault(name, {})
-        if dev.get("active_ip") == ip:
-            return
-        dev["active_ip"] = ip
-        save_config(cfg)
-        self._host.reconnect_stream()
-
-    def _on_port_changed(self):
-        self._host.schedule_save()
-        new_port = self._port_field.text()
-        if new_port != self._last_port:
-            self._last_port = new_port
-            self._host.reconnect_stream()
-
-    def _on_manage_devices(self):
-        if self._device_dlg is None or not self._device_dlg.isVisible():
-            self._device_dlg = _DeviceManagerDialog(
-                self._host, self._devices,
-                on_add=self._on_pair_qr,
-                on_edit=self._on_device_edited,
-                on_remove=self._on_device_removed,
-            )
-            self._device_dlg.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
-            self._device_dlg.setWindowModality(Qt.WindowModality.NonModal)
-        self._device_dlg.show()
-        self._device_dlg.raise_()
-        self._device_dlg.activateWindow()
-
-    def _on_pair_qr(self):
-        usb_serial = None
-        if self._rb_usb.isChecked():
-            if not adb_available():
-                QMessageBox.critical(
-                    self._host, "ADB not found",
-                    "ADB is needed to pair over USB but wasn't found.\n\n"
-                    "Install Android platform-tools so adb is available, or use "
-                    "the bundled Windows release, then try again. You can also "
-                    "switch to Wi-Fi mode to pair."
-                )
-                return
-            usb_serial = self._resolve_adb_serial()
-            if usb_serial is None:
-                return
-
-        if self._pairing_dlg is None or not self._pairing_dlg.isVisible():
-            self._pairing_dlg = _PairingDialog(self._host, self._on_device_paired, usb_serial=usb_serial)
-            self._pairing_dlg.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
-            self._pairing_dlg.setWindowModality(Qt.WindowModality.NonModal)
-        self._pairing_dlg.show()
-        self._pairing_dlg.raise_()
-        self._pairing_dlg.activateWindow()
-
-    def _on_device_edited(self, old_name: str, new_device: dict):
-        new_name = new_device["name"]
-        if new_name != old_name:
-            cfg = load_config()
-            devices_cfg = cfg.setdefault("devices", {})
-            if old_name in devices_cfg:
-                devices_cfg[new_name] = devices_cfg.pop(old_name)
-            if cfg.get("selected_device") == old_name:
-                cfg["selected_device"] = new_name
-            save_config(cfg)
-            if self._selected_device == old_name:
-                self._selected_device = new_name
-                self._active_key = new_name  # Label changed, update tracking without reconnect.
-        self._refresh_device_combo(select_name=self._selected_device)
-        self._host.save_now()
-
-    def _on_device_removed(self, name: str):
-        cfg = load_config()
-        cfg.get("devices", {}).pop(name, None)
-        save_config(cfg)
-        was_selected = self._selected_device == name
-        if was_selected:
-            self._selected_device = self._devices[0]["name"] if self._devices else None
-        self._refresh_device_combo(select_name=self._selected_device)
-        self._host.save_now()  # Persist the mutated list or device reappears on next launch.
-        if was_selected:
-            self._activate_profile(self._profile_key)
-
-    def _on_device_paired(self, name: str, ips: list, token: str, source_ip: str = ""):
-        self._host.stop_stream()  # Fresh pairing rotates token; stop cleanly to avoid mid-stream error.
-        existing_names = [d["name"] for d in self._devices]
-        if name in existing_names:
-            for d in self._devices:
-                if d["name"] == name:
-                    d["ips"] = ips
-                    d["token"] = token
-                    break
-        else:
-            self._devices.append({"name": name, "ips": ips, "token": token})
-        if source_ip and source_ip in ips:  # Pin the address the pairing POST actually arrived from - proven reachable, unlike a rank-based guess (e.g. a Tailscale IP the desktop doesn't share a tailnet with).
-            cfg = load_config()
-            cfg.setdefault("devices", {}).setdefault(name, {})["active_ip"] = source_ip
-            save_config(cfg)
-        self._refresh_device_combo(select_name=name)
-        self._selected_device = name
-        self._host.save_now()
-        self._activate_profile(self._profile_key)
-        self._check_pair_status()
-        if self._device_dlg is not None and self._device_dlg.isVisible():
-            self._device_dlg._refresh_list()  # Device manager's list is stale until redraw.
-
-    @property
-    def selected_device(self) -> Optional[str]:
-        """The profile key currently persisted/restored by the host - the selected Wi-Fi device's name, or the USB pseudo-key in USB mode."""
-        return self._profile_key
-
-    # ── Config ────────────────────────────────────────────────────────────────
+    # ── Config ────────────────────────────────────────────────────────────
 
     def get_config(self) -> dict:
         return {
-            "mode":                 "wifi" if self._rb_wifi.isChecked() else "usb",
-            "port":                 self._port_field.text(),
-            "devices_list":         self._devices,
-            "selected_device_name": self._selected_device,  # Separate from app-level profile_key (USB uses pseudo-key).
+            "computer_id": self._computer_id,
+            "computer_name": self._computer_name,
+            "route": self._route_pref,
+            "phones": [p.to_dict() for p in self._phones],
+            "selected_phone": self._selected_id,
         }
 
     def set_config(self, cfg: dict):
-        if cfg.get("mode") == "wifi":
-            self._rb_wifi.setChecked(True)
-            self._rb_usb.setChecked(False)
-            self._set_wifi_rows_visible(True)
-        else:
-            self._rb_usb.setChecked(True)
-            self._rb_wifi.setChecked(False)
-            self._set_wifi_rows_visible(False)
-        self._update_pair_button()
-        if port := cfg.get("port"):
-            self._port_field.setText(str(port))
-            self._last_port = str(port)
-        raw = cfg.get("devices_list", [])
-        if not isinstance(raw, list):
-            raw = []
-        self._devices = []
-        for d in raw:
-            # Migrate old format {"name": str, "ip": str} -> {"name": str, "ips": [str]}
-            if isinstance(d, dict) and "ip" in d and "ips" not in d:
-                d = {"name": d.get("name"), "ips": [d["ip"]]}
+        cid = cfg.get("computer_id")
+        if isinstance(cid, str) and cid:
+            self._computer_id = cid
+        name = cfg.get("computer_name")
+        if isinstance(name, str) and name.strip():
+            self._computer_name = name.strip()
+        route = cfg.get("route")
+        self._route_pref = route if route in (ROUTE_AUTO, ROUTE_USB, ROUTE_WIFI) else ROUTE_AUTO
+        self._phones = []
+        raw_phones = cfg.get("phones")
+        for raw in raw_phones if isinstance(raw_phones, list) else []:
             try:
-                profile = DeviceProfile.from_dict(d)
+                self._phones.append(Phone.from_dict(raw))
             except ValueError:
-                logger.warning("Discarding malformed device entry in config: %r", d)
-                continue
-            self._devices.append(profile.to_dict())
+                logger.warning("Discarding malformed phone entry in config: %r", raw)
+        sel = cfg.get("selected_phone")
+        self._selected_id = sel if self.phone(sel) else (self._phones[0].id if self._phones else None)
+        self._resolution = None
+        self._refresh_combo()
+        self._render()
+        self._check_status()
 
-        name = cfg.get("selected_device_name")
-        if not isinstance(name, str) or not any(d["name"] == name for d in self._devices):
-            name = self._devices[0]["name"] if self._devices else None
-        self._selected_device = name
-        self._refresh_device_combo(select_name=name)
-        self._check_pair_status()
-
-    def select_device(self, name: Optional[str]):
-        if not name and self._devices:
-            name = self._devices[0]["name"]
-        self._selected_device = name
-        self._refresh_device_combo(select_name=name)
-        self._active_key = self._profile_key
-
-    def sync_active_profile(self):
-        """Record _active_key after startup so _activate_profile() doesn't spuriously re-trigger."""
-        self._active_key = self._profile_key
+    def shutdown(self):
+        self._discovery.stop()
