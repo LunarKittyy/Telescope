@@ -22,7 +22,7 @@ class MjpegReader:
         self._boundary: Optional[bytes] = None
         self._buf = bytearray()
         # JPEG wire size from most recent read (read cross-thread by vcam loop for throughput).
-        self.last_jpeg_size = 0
+        self.last_frame_bytes = 0
 
     def isOpened(self) -> bool:
         return self._response is not None
@@ -61,7 +61,7 @@ class MjpegReader:
         frame = cv2.imdecode(np.frombuffer(jpeg, dtype=np.uint8), cv2.IMREAD_COLOR)
         if frame is None:
             return False, None
-        self.last_jpeg_size = len(jpeg)
+        self.last_frame_bytes = len(jpeg)
         return True, frame
 
     def release(self):

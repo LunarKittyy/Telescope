@@ -2,17 +2,22 @@ import pytest
 
 from telescope import phones
 from telescope.phones import (
-    LOCAL_ONLY, NOT_PAIRED, READY, ROUTE_USB, ROUTE_WIFI, UNREACHABLE, USB_APP_CLOSED,
+    DESKTOP_OUTDATED, LOCAL_ONLY, NOT_PAIRED, PHONE_OUTDATED, READY, ROUTE_USB, ROUTE_WIFI, UNREACHABLE, USB_APP_CLOSED,
     USB_NEEDS_ATTENTION, USB_NO_ADB, USB_NO_CABLE, USB_OTHER_PHONE, USB_UNAUTHORIZED,
     Phone, RouteResolver, UsbTunnels,
 )
-from telescope.session_client import PingResult
+from telescope.session_client import (
+    HELLO_MISSING, HELLO_NONE, HELLO_OK, SESSION_PROTOCOL, Hello, PingResult,
+)
 
 PHONE = Phone(id="ph-1", name="Pixel", token="tok", ips=["192.168.1.40"])
 
 
+OLD_APP = "old app"  # answers on the session port, but from before /v1/hello
+
+
 class FakeNet:
-    """Who answers at which base URL: {base: (phone_id, ping_status, local_only)}."""
+    """Who answers at which base URL: {base: (phone_id, ping_status, local_only[, protocol])} or OLD_APP."""
 
     def __init__(self, answers):
         self.answers = answers
@@ -27,12 +32,17 @@ class FakeNet:
 
             def hello(self, timeout=None):
                 a = net.answers.get(base)
-                return (a[0], "Phone") if a else None
+                if a == OLD_APP:
+                    return Hello(HELLO_MISSING)
+                if not a:
+                    return Hello(HELLO_NONE)
+                protocol = a[3] if len(a) > 3 else SESSION_PROTOCOL
+                return Hello(HELLO_OK, a[0], "Phone", protocol, "1.0", 7)
 
             def ping(self):
                 net.pinged.append(base)
                 a = net.answers.get(base)
-                if not a:
+                if not a or a == OLD_APP:
                     return PingResult("unreachable")
                 return PingResult(a[1], streaming=False, busy=False, local_only=a[2], phone_id=a[0])
         return Client()
@@ -126,6 +136,37 @@ def test_local_only_phone_reachable_on_wifi_asks_for_usb():
 def test_nothing_answering_is_unreachable():
     resolver, _ = _resolver(FakeNet({}))
     assert resolver.resolve(PHONE).status == UNREACHABLE
+
+
+def test_an_older_phone_app_is_named_instead_of_unreachable():
+    net = FakeNet({"http://192.168.1.40:8766": ("ph-1", "paired", False, SESSION_PROTOCOL - 1)})
+    resolver, _ = _resolver(net)
+    res = resolver.resolve(PHONE)
+    assert res.status == PHONE_OUTDATED and res.phone_version == "1.0"
+    assert net.pinged == []  # an older protocol's ping may not even parse
+
+
+def test_a_newer_phone_app_asks_for_a_desktop_update():
+    net = FakeNet({"http://192.168.1.40:8766": ("ph-1", "paired", False, SESSION_PROTOCOL + 1)})
+    resolver, _ = _resolver(net)
+    assert resolver.resolve(PHONE).status == DESKTOP_OUTDATED
+
+
+def test_an_app_from_before_hello_counts_as_outdated_and_keeps_its_usb_serial():
+    net = FakeNet({"http://127.0.0.1:40000": OLD_APP})
+    resolver, _ = _resolver(net, states=[("SER", "device")])
+    res = resolver.resolve(PHONE)
+    assert res.status == PHONE_OUTDATED and res.route.serial == "SER"
+    net = FakeNet({"http://192.168.1.40:8766": OLD_APP})
+    resolver, _ = _resolver(net)
+    assert resolver.resolve(PHONE).status == PHONE_OUTDATED
+
+
+def test_a_working_address_beats_an_outdated_answer_elsewhere():
+    net = FakeNet({"http://192.168.1.40:8766": OLD_APP, "http://192.168.1.77:8766": ("ph-1", "paired", False)})
+    resolver, _ = _resolver(net, discovered=["192.168.1.77"])
+    res = resolver.resolve(PHONE)
+    assert res.status == READY and res.phone_version == "1.0"
 
 
 def test_usb_tunnels_are_shared_and_released_last():

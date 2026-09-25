@@ -12,7 +12,9 @@ from dataclasses import dataclass, field, replace
 from typing import Callable, Optional
 
 from telescope import ip_utils
-from telescope.session_client import PING_PORT, PhoneSessionClient
+from telescope.session_client import (
+    HELLO_MISSING, PING_PORT, SESSION_PROTOCOL, Hello, PhoneSessionClient,
+)
 
 STREAM_PORT = 8080  # the phone's MJPEG server; fixed on the phone, so not a setting here
 
@@ -31,6 +33,8 @@ UNREACHABLE = "unreachable"            # the app isn't open, or the phone isn't 
 NOT_PAIRED = "not_paired"              # the phone answered but no longer accepts this computer
 LOCAL_ONLY = "local_only"              # found over Wi-Fi, but the phone only allows USB
 USB_NEEDS_ATTENTION = "usb_attention"  # USB forced and not usable; usb_note says why
+PHONE_OUTDATED = "phone_outdated"      # the phone app is older than this one and can't talk to it
+DESKTOP_OUTDATED = "desktop_outdated"  # the phone app is newer than this one
 
 
 @dataclass
@@ -73,6 +77,15 @@ class Resolution:
     usb_note: Optional[str] = None  # set whenever the route isn't USB (or USB failed)
     streaming: bool = False
     busy: bool = False
+    phone_version: str = ""  # the phone app's version, when it told us
+
+
+def _version_mismatch(hello: Hello, route: Route) -> Optional[Resolution]:
+    """A phone that speaks another session protocol: say which side needs the update."""
+    if hello.protocol == SESSION_PROTOCOL:
+        return None
+    status = PHONE_OUTDATED if hello.protocol < SESSION_PROTOCOL else DESKTOP_OUTDATED
+    return Resolution(status, route, phone_version=hello.app_version)
 
 
 class UsbTunnels:
@@ -147,6 +160,7 @@ class RouteResolver:
             return None, USB_NO_CABLE
         note = USB_UNAUTHORIZED if any(state == "unauthorized" for _s, state in states) else None
         saw_other = False
+        old_app_serial = None
         for serial, state in states:
             if state != "device":
                 continue
@@ -154,21 +168,30 @@ class RouteResolver:
             if local is None:
                 continue
             try:
+                route = Route("usb", "127.0.0.1", serial)
                 client = self._client(f"http://127.0.0.1:{local}", phone.token)
                 hello = client.hello()
-                if hello is None:
+                if hello.status == HELLO_MISSING:
+                    old_app_serial = old_app_serial or serial  # too old to say who it is
                     continue
-                if hello[0] != phone.id:
+                if not hello.ok:
+                    continue
+                if hello.phone_id != phone.id:
                     saw_other = True
                     continue
+                mismatch = _version_mismatch(hello, route)
+                if mismatch is not None:
+                    return mismatch, None
                 ping = client.ping()
                 if ping.status == "not_paired":
                     return Resolution(NOT_PAIRED), None
                 if ping.status == "paired":
-                    return Resolution(READY, Route("usb", "127.0.0.1", serial),
-                                      streaming=bool(ping.streaming), busy=bool(ping.busy)), None
+                    return Resolution(READY, route, streaming=bool(ping.streaming), busy=bool(ping.busy),
+                                      phone_version=hello.app_version), None
             finally:
                 self._tunnels.release(serial, PING_PORT)
+        if old_app_serial is not None:
+            return Resolution(PHONE_OUTDATED, Route("usb", "127.0.0.1", old_app_serial)), None
         if note:
             return None, note
         return None, USB_OTHER_PHONE if saw_other else USB_APP_CLOSED
@@ -187,9 +210,15 @@ class RouteResolver:
 
     def _probe_wifi(self, phone: Phone, ip: str) -> Optional[Resolution]:
         client = self._client(f"http://{ip}:{PING_PORT}", phone.token)
+        route = Route("wifi", ip)
         hello = client.hello(timeout=self._wifi_timeout)
-        if hello is None or hello[0] != phone.id:
+        if hello.status == HELLO_MISSING:
+            return Resolution(PHONE_OUTDATED, route)
+        if not hello.ok or hello.phone_id != phone.id:
             return None
+        mismatch = _version_mismatch(hello, route)
+        if mismatch is not None:
+            return mismatch
         ping = client.ping()
         if ping.status == "not_paired":
             return Resolution(NOT_PAIRED)
@@ -197,7 +226,8 @@ class RouteResolver:
             return None
         if ping.local_only:
             return Resolution(LOCAL_ONLY)
-        return Resolution(READY, Route("wifi", ip), streaming=bool(ping.streaming), busy=bool(ping.busy))
+        return Resolution(READY, route, streaming=bool(ping.streaming), busy=bool(ping.busy),
+                          phone_version=hello.app_version)
 
     def _try_wifi(self, phone: Phone) -> Resolution:
         candidates = self._wifi_candidates(phone)
@@ -213,7 +243,7 @@ class RouteResolver:
                     results[futures[fut]] = None
         # Candidate order decides between several answers (discovered address first).
         answers = [results[ip] for ip in candidates if results.get(ip) is not None]
-        for wanted in (READY, LOCAL_ONLY, NOT_PAIRED):
+        for wanted in (READY, LOCAL_ONLY, NOT_PAIRED, PHONE_OUTDATED, DESKTOP_OUTDATED):
             for answer in answers:
                 if answer.status == wanted:
                     return answer

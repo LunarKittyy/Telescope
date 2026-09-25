@@ -31,6 +31,7 @@ data class CameraCapability(
     val supportsFlash: Boolean,
     val hwLevel: String,
     val supportedSizes: List<CameraSize> = emptyList(),
+    val supportsFocusPoint: Boolean = false,
 )
 
 @Serializable
@@ -54,6 +55,10 @@ data class V1State(
     val torch: Boolean,
     val jpeg_quality: Int,
     val phone_fps: Int,
+    val codecs: List<String> = listOf("mjpeg"),
+    val codec: String = "mjpeg",
+    val bitrate: Int = 0,
+    val codec_error: String? = null,
     val stream_width: Int,
     val stream_height: Int,
     val battery: Int,

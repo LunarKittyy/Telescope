@@ -6,12 +6,12 @@ import telescope.stream as stream
 
 
 class _Capture:
-    def __init__(self, frames=(), opened=True, last_jpeg_size=0):
+    def __init__(self, frames=(), opened=True, last_frame_bytes=0):
         self.frames = list(frames)
         self.opened = opened
         self.released = False
-        # Mirrors MjpegReader.last_jpeg_size; StreamWorker reads after read() to accumulate throughput.
-        self.last_jpeg_size = last_jpeg_size
+        # Mirrors MjpegReader.last_frame_bytes; StreamWorker reads after read() to accumulate throughput.
+        self.last_frame_bytes = last_frame_bytes
 
     def isOpened(self):
         return self.opened
@@ -178,7 +178,7 @@ def test_stream_reader_resizes_converts_colour_and_runs_pipeline():
 
 def test_stream_reader_accumulates_bytes_from_successful_reads():
     raw = np.zeros((2, 2, 3), dtype=np.uint8)
-    cap = _Capture([(True, raw), (True, raw)], last_jpeg_size=12_345)
+    cap = _Capture([(True, raw), (True, raw)], last_frame_bytes=12_345)
     worker = stream.StreamWorker("url", None, None, 30)
 
     def no_reconnect(_stop):
@@ -327,3 +327,22 @@ def test_fps_change_rebuilds_the_vcam_without_reopening_the_phone_stream(monkeyp
 
     assert [c.kwargs["fps"] for c in cameras] == [24, 15]
     assert len(opened) == 1  # same phone connection throughout
+
+
+def test_windows_opens_the_camera_named_telescope_or_any_older_registration(monkeypatch):
+    monkeypatch.setattr(stream, "IS_LINUX", False)
+    opened = []
+
+    def camera(**kwargs):
+        opened.append(kwargs["device"])
+        if kwargs["device"] == stream.UC_NAME and len(opened) == 1:
+            raise RuntimeError("No camera registered with this name.")
+        return kwargs["device"]
+    monkeypatch.setattr(stream.pyvirtualcam, "Camera", camera)
+    worker = stream.StreamWorker("url", None, None, 30)
+    assert worker._open_vcam(4, 4) is None
+    assert opened == ["Telescope", None]
+    assert worker._open_vcam(4, 4) == "Telescope"
+
+    monkeypatch.setattr(stream, "IS_LINUX", True)
+    assert worker._open_vcam(4, 4) == stream.V4L2_PHONE_DEV

@@ -50,6 +50,21 @@ ifaddr (https://pypi.org/project/ifaddr/)
     Copyright (c) 2014 Stefan C. Mueller.
     License: MIT.
 
+av (PyAV, https://pypi.org/project/av/)
+    Decodes the phone's H.264 stream. License: BSD 3-Clause.
+    Its wheels bundle FFmpeg (https://ffmpeg.org/), built with GPL components
+    including x264, so the bundled FFmpeg is under the GNU GPL v2 or later.
+    That is compatible with Telescope's AGPL-3.0. FFmpeg's source is at
+    https://ffmpeg.org/download.html; PyAV's build scripts name the exact
+    versions (https://github.com/PyAV-Org/pyav-ffmpeg).
+
+sounddevice (https://pypi.org/project/sounddevice/, Windows only)
+    Plays the phone's microphone into VB-Cable. License: MIT.
+    Its Windows wheel bundles PortAudio (http://www.portaudio.com/), MIT-style license.
+
+VB-Audio Virtual Cable is not distributed with Telescope; users install it
+themselves from https://vb-audio.com/Cable/ under VB-Audio's own terms.
+
 zeroconf (https://pypi.org/project/zeroconf/)
     Copyright (c) Paul Scott-Murphy, William McBrine, Jakub Stasiak and
     python-zeroconf contributors.

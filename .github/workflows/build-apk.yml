@@ -1,29 +1,24 @@
 name: Build APK
 
+# Checks pull requests; release.yml calls it with a build number and channel to make the signed APK.
 on:
-  push:
-    branches: [master]
-    paths: [android/**]
   pull_request:
-    paths: [android/**]
+    paths: [android/**, VERSION]
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      build:
+        type: string
+        required: true
+      channel:
+        type: string
+        required: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    concurrency:
-      group: ${{ github.ref == 'refs/heads/master' && 'nightly-release' || format('build-apk-{0}', github.run_id) }}
-      cancel-in-progress: false
-      # Let master-branch runs queue instead of a new push canceling whatever
-      # publisher run was already pending in this shared group.
-      queue: max
-
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -52,16 +47,46 @@ jobs:
         working-directory: android
         run: ./gradlew lintDebug testDebugUnitTest --no-daemon
 
-      - name: Build debug APK
+      # Release runs only: every published APK carries the same signature, so each one installs as
+      # an update over the last. A missing secret fails the release instead of shipping a debug key.
+      - name: Decode the signing key
+        if: inputs.channel
+        env:
+          KEYSTORE_B64: ${{ secrets.TELESCOPE_KEYSTORE }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::The TELESCOPE_KEYSTORE secret isn't set"
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_B64" | tr -d '\r\n ' | base64 -d > "$RUNNER_TEMP/telescope-release.jks"
+          echo "TELESCOPE_KEYSTORE_FILE=$RUNNER_TEMP/telescope-release.jks" >> "$GITHUB_ENV"
+
+      - name: Build release APK
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+        env:
+          TELESCOPE_KEYSTORE_PASSWORD: ${{ secrets.TELESCOPE_KEYSTORE_PASSWORD }}
+          TELESCOPE_KEY_ALIAS: ${{ secrets.TELESCOPE_KEY_ALIAS }}
+          TELESCOPE_KEY_PASSWORD: ${{ secrets.TELESCOPE_KEY_PASSWORD }}
+        run: >-
+          ./gradlew assembleRelease --no-daemon
+          -PbuildNumber=${{ inputs.build || '1' }}
+          -Pchannel=${{ inputs.channel || 'dev' }}
 
       - name: Rename APK
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk Telescope.apk
+        run: cp android/app/build/outputs/apk/release/app-release.apk Telescope.apk
 
-      - name: Recreate rolling pre-release
-        if: github.ref == 'refs/heads/master'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: .github/recreate-nightly.sh Telescope.apk
+      - name: Check the signature
+        if: inputs.channel
+        run: |
+          certs=$("$ANDROID_SDK_ROOT/build-tools/34.0.0/apksigner" verify --print-certs Telescope.apk)
+          echo "$certs"
+          if echo "$certs" | grep -q "CN=Android Debug"; then
+            echo "::error::The APK is signed with the debug key"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: Telescope.apk
+          retention-days: 7

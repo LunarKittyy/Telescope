@@ -657,8 +657,15 @@ _ICON_SVG = {
     "transforms": f'''<path d="M12 3v2.5M12 9.5v5M12 18.5V21"/>
         <path d="M9 6.5L3.5 17.5H9z" {_SOFT}/><path d="M15 6.5l5.5 11H15z"/>''',
     "check": f'''<circle cx="12" cy="12" r="8.8" {_SOFT}/><path d="M8 12.3l2.8 2.8 5.2-5.6"/>''',
+    "update": f'''<circle cx="12" cy="12" r="8.8" {_SOFT}/><path d="M12 7.5v8.5M8.3 12.6l3.7 3.7 3.7-3.7"/>''',
     "devices": f'''<rect x="3.5" y="4" width="10" height="17" rx="2.2" {_SOFT}/>
         <path d="M7.5 17.5h2"/><path d="M16.5 7.5h2.5a1.5 1.5 0 0 1 1.5 1.5v9.5a1.5 1.5 0 0 1-1.5 1.5h-2.5"/>''',
+    "alert": f'''<path d="M10.3 4.2a2 2 0 0 1 3.4 0l7.4 12.8a2 2 0 0 1-1.7 3H4.6a2 2 0 0 1-1.7-3z" {_SOFT}/>
+        <path d="M12 9.5v4"/><path d="M12 16.8v.2"/>''',
+    "preset": f'''<path d="M6.5 3.5h11a1 1 0 0 1 1 1v16l-6.5-4.2-6.5 4.2v-16a1 1 0 0 1 1-1z" {_SOFT}/>''',
+    "mic": f'''<rect x="8.5" y="3" width="7" height="11.5" rx="3.5" {_SOFT}/>
+        <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"/>''',
+    "close": '''<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>''',
 }
 
 _ICON_RENDER_PX = 64  # rendered once, large; QIcon scales down smoothly for every use

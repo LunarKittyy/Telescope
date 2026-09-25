@@ -508,6 +508,53 @@ QPushButton#card_action:hover {{
     border-color: {BORDER_HOVER};
     color: {TEXT};
 }}
+QFrame#focus_marker {{
+    background: transparent;
+    border: 2px solid {ACCENT_SOFT};
+    border-radius: 6px;
+}}
+QFrame#banner {{
+    background-color: #2a1d20;
+    border: 1px solid #5a3134;
+    border-radius: 12px;
+}}
+QFrame#banner[kind="warn"] {{
+    background-color: #2a2419;
+    border-color: #5c4a2a;
+}}
+QLabel#banner_title {{
+    font-weight: 600;
+    color: {TEXT};
+}}
+QLabel#banner_text {{
+    color: {TEXT_DIM};
+}}
+QLabel#banner_details {{
+    color: {TEXT};
+    font-family: 'JetBrains Mono', 'Cascadia Mono', 'DejaVu Sans Mono', monospace;
+    background-color: rgba(0, 0, 0, 0.25);
+    border-radius: 6px;
+    padding: 6px 8px;
+}}
+QPushButton#banner_action {{
+    min-height: 30px;
+    padding: 0 12px;
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: {TEXT};
+}}
+QPushButton#banner_action:hover {{
+    background-color: rgba(255, 255, 255, 0.12);
+}}
+QPushButton#banner_close {{
+    background-color: transparent;
+    border: none;
+    border-radius: 6px;
+}}
+QPushButton#banner_close:hover {{
+    background-color: rgba(255, 255, 255, 0.08);
+}}
 QPushButton#icon_btn {{
     background-color: transparent;
     border: 1px solid {BORDER};

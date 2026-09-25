@@ -185,3 +185,22 @@ def test_adb_helpers_degrade_when_adb_is_missing(monkeypatch):
     assert platform_api.adb_devices() == []
     ok, err = platform_api.adb_forward(8766)
     assert not ok and "adb" in err
+
+
+@pytest.mark.parametrize(
+    "result,expected",
+    [
+        ((0, "Performing Streamed Install\nSuccess\n", ""), (True, "")),
+        ((1, "", "adb: failed to install x.apk: Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: ...]"),
+         (False, "The Telescope app on the phone was signed differently. Uninstall it on the phone, then try again.")),
+        ((1, "", "Failure [INSTALL_FAILED_VERSION_DOWNGRADE]"), (False, "The phone already has a newer Telescope app.")),
+        ((1, "one\n", "Failure [bad apk]\n"), (False, "Failure [bad apk]")),
+        ((1, "", ""), (False, "adb install failed")),
+    ],
+)
+def test_adb_install_explains_the_common_failures(monkeypatch, result, expected):
+    calls = []
+    monkeypatch.setattr(platform_api, "adb_exe", lambda: "adb")
+    monkeypatch.setattr(platform_api, "_run", lambda cmd, timeout: calls.append(cmd) or result)
+    assert platform_api.adb_install("SER", Path("x.apk")) == expected
+    assert calls == [["adb", "-s", "SER", "install", "-r", "x.apk"]]

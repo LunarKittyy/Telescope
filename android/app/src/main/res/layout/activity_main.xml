@@ -60,7 +60,58 @@
             android:padding="16dp"
             android:paddingBottom="24dp">
 
-            <!-- Permissions: shown only when something is missing -->
+            <!-- Update: shown only when a newer app is available (Updater) -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardUpdate"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="6dp">
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_update"
+                            app:tint="@color/colorStreamingText"
+                            android:importantForAccessibility="no" />
+                        <TextView
+                            android:id="@+id/tvUpdateTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:text="Update available"
+                            android:textAppearance="@style/TextAppearance.Telescope.CardTitle" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvUpdateText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="@style/TextAppearance.Telescope.Hint" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnUpdate"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="14dp"
+                        android:text="Update" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- First-run setup: the permissions, in order, each with its reason. Gone once all are allowed. -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardPermissions"
                 android:layout_width="match_parent"
@@ -83,14 +134,14 @@
                         <ImageView
                             android:layout_width="20dp"
                             android:layout_height="20dp"
-                            android:src="@drawable/ic_info"
-                            app:tint="@color/colorError"
+                            android:src="@drawable/ic_check"
+                            app:tint="@color/colorAccent"
                             android:importantForAccessibility="no" />
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="10dp"
-                            android:text="Permissions needed"
+                            android:text="Get set up"
                             android:textAppearance="@style/TextAppearance.Telescope.CardTitle" />
                     </LinearLayout>
 
@@ -370,7 +421,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="10dp"
-                            android:text="Detected cameras"
+                            android:text="About"
                             android:textAppearance="@style/TextAppearance.Telescope.CardTitle" />
                     </LinearLayout>
 
@@ -388,6 +439,29 @@
                         android:layout_height="48dp"
                         android:layout_marginTop="14dp"
                         android:text="Copy diagnostics" />
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/switchNightly"
+                        style="@style/Widget.Telescope.Switch"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Nightly updates" />
+
+                    <TextView
+                        android:id="@+id/tvNightlyHint"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Built from every change: fixes arrive sooner, with less testing."
+                        android:textAppearance="@style/TextAppearance.Telescope.Hint" />
+
+                    <TextView
+                        android:id="@+id/tvAppVersion"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:gravity="center_horizontal"
+                        android:textAppearance="@style/TextAppearance.Telescope.Hint" />
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

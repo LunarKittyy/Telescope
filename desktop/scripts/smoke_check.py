@@ -42,17 +42,21 @@ def check_app_construction():
     from telescope.app import TelescopeWindow
     from telescope.plugins.camera_control import CameraControlPlugin
     from telescope.plugins.connection import ConnectionPlugin
+    from telescope.plugins.microphone import MicrophonePlugin
     from telescope.plugins.monitoring import MonitoringPlugin
+    from telescope.plugins.presets import PresetsPlugin
     from telescope.plugins.preview import PreviewPlugin
     from telescope.plugins.setup import SetupPlugin
     from telescope.plugins.stream_output import StreamOutputPlugin
     from telescope.plugins.transforms import TransformsPlugin
+    from telescope.plugins.startup import StartupPlugin
+    from telescope.plugins.updates import UpdatesPlugin
 
     app = QApplication.instance() or QApplication([])
     win = TelescopeWindow()
     for plugin_cls in (
         SetupPlugin, ConnectionPlugin, CameraControlPlugin, StreamOutputPlugin,
-        TransformsPlugin, PreviewPlugin, MonitoringPlugin,
+        TransformsPlugin, MicrophonePlugin, PresetsPlugin, PreviewPlugin, MonitoringPlugin, UpdatesPlugin, StartupPlugin,
     ):
         win.register_plugin(plugin_cls())
     win.apply_saved_config()

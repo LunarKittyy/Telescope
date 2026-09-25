@@ -76,6 +76,7 @@ class CameraCapabilities:
     ae_comp_step: float
     supports_flash: bool
     hw_level: str
+    supports_focus_point: bool = False
 
     @classmethod
     def from_dict(cls, raw: dict) -> "CameraCapabilities":
@@ -104,6 +105,7 @@ class CameraCapabilities:
             ae_comp_step=_require_number(raw, "aeCompStep", w),
             supports_flash=_require_bool(raw, "supportsFlash", w),
             hw_level=_require_str(raw, "hwLevel", w),
+            supports_focus_point=raw.get("supportsFocusPoint", False) is True,  # newer phone apps only
         )
 
 

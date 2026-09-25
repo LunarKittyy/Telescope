@@ -9,6 +9,7 @@ import numpy as np
 import pyvirtualcam
 from PyQt6.QtCore import QThread, pyqtSignal
 
+from telescope.h264_reader import H264Reader
 from telescope.mjpeg_reader import MjpegReader
 
 logger = logging.getLogger(__name__)
@@ -18,6 +19,7 @@ IS_LINUX = platform.system() == "Linux"
 VCAM_BACKEND   = "v4l2loopback" if IS_LINUX else "unitycapture"
 V4L2_PHONE_DEV = "/dev/video11"
 V4L2_PHONE_LABEL = "Phone Camera"  # its card_label, which is how other apps list it
+UC_NAME = "Telescope"  # the name UnityCapture is registered under (platform/windows.py)
 RECONNECT_DELAY = 3
 
 # Sentinel: "leave unchanged" (distinct from None = pass-through).
@@ -93,8 +95,9 @@ class StreamWorker(QThread):
         self._restart_vcam.set()
 
     def _open_cap(self):
-        # FFmpeg backend can't attach bearer header; parse multipart directly.
-        reader = MjpegReader(self.url, self.token)
+        # Our own readers, since cv2's FFmpeg backend can't attach the bearer header. The route says which.
+        reader_cls = H264Reader if self.url.endswith(".h264") else MjpegReader
+        reader = reader_cls(self.url, self.token)
         reader.open()
         return reader
 
@@ -125,7 +128,7 @@ class StreamWorker(QThread):
                 self.status.emit("ok", "Stream reconnected")
                 self.reconnected.emit()
                 continue
-            self._bytes_total += cap.last_jpeg_size
+            self._bytes_total += cap.last_frame_bytes
             self._frames_received += 1
             try:
                 rw = self._width
@@ -159,7 +162,7 @@ class StreamWorker(QThread):
                 self._restart_vcam.wait(timeout=RECONNECT_DELAY)
                 self._restart_vcam.clear()
                 continue
-            self._bytes_total += cap.last_jpeg_size
+            self._bytes_total += cap.last_frame_bytes
             self._frames_received += 1
 
             if self._width or self._height:
@@ -193,6 +196,18 @@ class StreamWorker(QThread):
 
         self.status.emit("idle", "Not streaming")
 
+    def _open_vcam(self, cam_w: int, cam_h: int):
+        def open_(device):
+            return pyvirtualcam.Camera(width=cam_w, height=cam_h, fps=self._fps,
+                                       backend=VCAM_BACKEND, device=device)
+        if IS_LINUX:
+            return open_(V4L2_PHONE_DEV)
+        try:
+            return open_(UC_NAME)
+        except RuntimeError:
+            # Registered before it was named Telescope ("Unity Video Capture"): any free one will do.
+            return open_(None)
+
     def _run_vcam(self):
         """Open the virtual camera at the current size/fps and feed it until stop or a restart request."""
         src0 = self._latest_rgb
@@ -200,9 +215,7 @@ class StreamWorker(QThread):
         cam_h = self._canvas_h or src0.shape[0]
         self.status.emit("ok", f"Streaming {cam_w}x{cam_h} at {self._fps} fps")
         try:
-            with pyvirtualcam.Camera(width=cam_w, height=cam_h, fps=self._fps,
-                                     backend=VCAM_BACKEND,
-                                     device=V4L2_PHONE_DEV if IS_LINUX else None) as cam:
+            with self._open_vcam(cam_w, cam_h) as cam:
                 # Name the camera the way other apps list it (the v4l2loopback card label on Linux).
                 shown_as = V4L2_PHONE_LABEL if IS_LINUX else cam.device
                 self.status.emit("ok", f"Streaming {cam_w}x{cam_h} at {self._fps} fps to {shown_as}")

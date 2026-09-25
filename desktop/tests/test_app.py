@@ -87,7 +87,7 @@ class _Connection(_Plugin):
         self.wakes = 0
         self.remote_stops = 0
 
-    def get_stream_info(self):
+    def get_stream_info(self, interactive=True):
         return self.stream_info
 
     def select_device(self, name):
@@ -194,7 +194,25 @@ def test_acquire_single_instance_notifies_existing_process(monkeypatch):
     monkeypatch.setattr(app_module.socket, "socket", lambda *_args: next(sockets))
     assert app_module.acquire_single_instance() is None
     assert ("send", b"raise") in events
-    assert events[-1] == "server-close"
+    assert events[0] == "server-close"
+
+
+def test_acquire_single_instance_waits_for_the_old_copy_after_an_update(monkeypatch):
+    attempts = []
+
+    class Socket:
+        def setsockopt(self, *_args): pass
+        def bind(self, _address):
+            attempts.append(1)
+            if len(attempts) < 3:
+                raise OSError("still running")
+        def listen(self, _count): pass
+        def close(self): pass
+
+    monkeypatch.setattr(app_module.socket, "socket", lambda *_args: Socket())
+    monkeypatch.setattr(app_module.time, "sleep", lambda _s: None)
+    assert app_module.acquire_single_instance(wait=5) is not None
+    assert len(attempts) == 3
 
 
 def test_acquire_single_instance_tolerates_stale_listener(monkeypatch):
@@ -1112,16 +1130,13 @@ def test_start_shows_the_reason_and_builds_nothing_when_the_wake_fails(window, m
         app_module, "StreamWorker",
         lambda **_kw: pytest.fail("no worker may be built when the phone never came up"),
     )
-    warnings = []
-    monkeypatch.setattr(
-        app_module.QMessageBox, "warning",
-        lambda _parent, title, text: warnings.append((title, text)),
-    )
-
     window._start()
 
     assert window._worker is None
-    assert warnings[0][1] == "Open the app on your phone."
+    issue = window._banners.issue("start")
+    assert issue.title == "Couldn't start the phone's camera"
+    assert issue.text == "Open the app on your phone."
+    assert [a.label for a in issue.actions] == ["Try again"]
     # Button must come back enabled so user can retry.
     assert window._start_btn.isEnabled()
     assert window._start_btn.text() == "Start Streaming"
@@ -1261,3 +1276,46 @@ def test_stop_stream_cancels_a_wake_that_is_still_in_flight(window, monkeypatch)
     window._on_wake_done(wake_id, True, "", url, token)
 
     assert window._worker is None
+
+
+def test_a_start_problem_banner_clears_on_the_next_start_and_on_a_working_stream(window):
+    from telescope.widgets.banner import Issue
+    window.show_issue("start", Issue("Can't connect"))
+    window.show_issue("vcam", Issue("Resize"))
+    window.register_plugin(_Connection(wake=(False, "still closed")))
+    window._start()
+    assert window._banners.issue("start").text == "still closed"  # replaced, not stacked
+    window._on_worker_status("ok", "Streaming")
+    assert window._banners.keys() == []
+
+
+def test_waiting_to_start_by_itself_keeps_running_in_the_tray(window, monkeypatch):
+    window._tray = object()
+    window.set_keep_in_tray(True)
+    notes = []
+    monkeypatch.setattr(window, "hide", lambda: None)
+    monkeypatch.setattr(window, "send_notification", lambda title, body, **kw: notes.append(body))
+    event = SimpleNamespace(ignore=lambda: setattr(event, "ignored", True))
+    window.closeEvent(event)
+    assert event.ignored is True
+    assert "when the phone is ready" in notes[0]
+
+
+def test_start_hidden_minimizes_without_a_tray(window, monkeypatch):
+    calls = []
+    monkeypatch.setattr(window, "showMinimized", lambda: calls.append("min"))
+    window._tray = object()
+    window.start_hidden()
+    assert calls == []
+    window._tray = None
+    window.start_hidden()
+    assert calls == ["min"]
+
+
+def test_start_stream_passes_on_that_nobody_asked(window):
+    conn = _Connection(wake=(False, "x"))
+    seen = []
+    conn.get_stream_info = lambda interactive=True: seen.append(interactive) or (None, None, False)
+    window.register_plugin(conn)
+    window.start_stream(interactive=False)
+    assert seen == [False]

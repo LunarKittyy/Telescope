@@ -1,28 +1,22 @@
 name: Build Linux bundle
 
+# Checks pull requests; release.yml calls it with a build number and channel to make the release bundle.
 on:
-  push:
-    branches: [master]
-    paths: [desktop/**]
   pull_request:
-    paths: [desktop/**]
+    paths: [desktop/**, VERSION]
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      build:
+        type: string
+        required: true
+      channel:
+        type: string
+        required: true
 
 jobs:
   bundle:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    # Recreating the nightly release (see step below) races with the other
-    # nightly-publishing workflows if they run at the same time, so serialize
-    # just the master-branch runs that actually touch it.
-    concurrency:
-      group: ${{ github.ref == 'refs/heads/master' && 'nightly-release' || format('build-linux-{0}', github.run_id) }}
-      cancel-in-progress: false
-      # Let master-branch runs queue instead of a new push canceling whatever
-      # publisher run was already pending in this shared group.
-      queue: max
-
     steps:
       - uses: actions/checkout@v4
 
@@ -43,26 +37,26 @@ jobs:
         working-directory: desktop
         run: python -m pytest -q
 
+      - name: Stamp the version
+        if: inputs.channel
+        working-directory: desktop
+        run: python scripts/write_build_info.py --build "${{ inputs.build }}" --channel "${{ inputs.channel }}" --commit "$GITHUB_SHA"
+
       - name: Packaging smoke checks
         working-directory: desktop
         run: python3 scripts/smoke_check.py
 
+      # release.yml adds Telescope.apk and packs this into Telescope-linux.tar.gz.
       - name: Assemble release bundle
         run: |
           mkdir bundle
-          cp desktop/main.py bundle/
-          cp desktop/requirements.txt bundle/
-          cp desktop/constraints.txt bundle/
-          cp desktop/start.sh bundle/
-          chmod +x bundle/start.sh
-          cp -r desktop/telescope bundle/telescope
+          cp desktop/main.py desktop/requirements.txt desktop/constraints.txt desktop/start.sh bundle/
           cp desktop/THIRD_PARTY_NOTICES.txt bundle/
-          tar -czf Telescope-linux.tar.gz -C bundle .
+          cp -r desktop/telescope bundle/telescope
+          find bundle -name __pycache__ -type d -prune -exec rm -rf {} +
 
-      - name: Recreate rolling pre-release
-        if: github.ref == 'refs/heads/master'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: .github/recreate-nightly.sh Telescope-linux.tar.gz
-
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-bundle
+          path: bundle/
+          retention-days: 7

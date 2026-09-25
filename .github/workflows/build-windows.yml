@@ -1,25 +1,22 @@
 name: Build Windows EXE
 
+# Checks pull requests; release.yml calls it with a build number and channel to make the release bundle.
 on:
-  push:
-    branches: [master]
-    paths: [desktop/**]
   pull_request:
-    paths: [desktop/**]
+    paths: [desktop/**, VERSION]
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      build:
+        type: string
+        required: true
+      channel:
+        type: string
+        required: true
 
 jobs:
   build:
     runs-on: windows-latest
-    permissions:
-      contents: write
-    concurrency:
-      group: ${{ github.ref == 'refs/heads/master' && 'nightly-release' || format('build-windows-{0}', github.run_id) }}
-      cancel-in-progress: false
-      # Let master-branch runs queue instead of a new push canceling whatever
-      # publisher run was already pending in this shared group.
-      queue: max
-
     steps:
       - uses: actions/checkout@v4
 
@@ -41,14 +38,29 @@ jobs:
         working-directory: desktop
         run: pip install -r requirements.txt pyinstaller -c constraints.txt
 
+      - name: Stamp the version
+        if: inputs.channel
+        working-directory: desktop
+        run: python scripts/write_build_info.py --build "${{ inputs.build }}" --channel "${{ inputs.channel }}" --commit "${{ github.sha }}"
+
       - name: Packaging smoke checks
         working-directory: desktop
         run: python scripts/smoke_check.py
+
+      # Runners are admin, so this does what the first-run checklist's Install driver does, then checks
+      # apps would list the camera as "Telescope" and pyvirtualcam opens it by that name.
+      - name: Register the virtual camera as Telescope
+        working-directory: desktop
+        run: |
+          python -c "from telescope.platform.windows import register_unitycapture as r; ok, msg = r(); print(ok, msg); assert ok, msg"
+          python -c "from telescope.platform.windows import uc_registered_name as n; name = n(); print(name); assert name == 'Telescope', name"
+          python -c "import pyvirtualcam; cam = pyvirtualcam.Camera(width=640, height=480, fps=30, backend='unitycapture', device='Telescope'); print(cam.device); cam.close()"
 
       - name: Build EXE
         working-directory: desktop
         run: pyinstaller telescope.spec
 
+      # release.yml adds Telescope.apk and packs this into Telescope-windows.zip.
       - name: Assemble release bundle
         shell: pwsh
         run: |
@@ -57,7 +69,6 @@ jobs:
           Copy-Item desktop/THIRD_PARTY_NOTICES.txt bundle/
           Copy-Item -Recurse desktop/platform-tools bundle/platform-tools
           Copy-Item -Recurse desktop/unitycapture bundle/unitycapture
-          Compress-Archive -Path bundle/* -DestinationPath Telescope-windows.zip
 
       - name: Verify release bundle
         shell: pwsh
@@ -75,9 +86,8 @@ jobs:
           }
           Write-Host "Release bundle verified."
 
-      - name: Recreate rolling pre-release
-        if: github.ref == 'refs/heads/master'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: .github/recreate-nightly.sh Telescope-windows.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-bundle
+          path: bundle/
+          retention-days: 7

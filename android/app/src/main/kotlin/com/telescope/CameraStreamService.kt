@@ -48,7 +48,14 @@ data class CameraEntry(
     val nrModes: Set<Int> = emptySet(),
     val edgeModes: Set<Int> = emptySet(),
     val supportedSizes: List<android.util.Size> = emptyList(),
+    val maxAfRegions: Int = 0,
+    val maxAeRegions: Int = 0,
+    val activeArray: SensorBox? = null,
 )
+
+// The sensor's active pixel array (SENSOR_INFO_ACTIVE_ARRAY_SIZE), kept free of android.graphics.Rect so
+// the metering math runs in JVM tests.
+data class SensorBox(val left: Int, val top: Int, val width: Int, val height: Int)
 
 // Pure Camera2 request-parameter selection logic; no device/service state for JVM testability
 object CameraRequestSelection {
@@ -88,6 +95,28 @@ object CameraRequestSelection {
         return fallbacks.firstOrNull { it in available }
     }
 
+    // The metering region for a point picked in the stream frame (x, y in 0..1), as left, top, width,
+    // height in active-array pixels. The stream is the array's centre crop to the stream's aspect ratio
+    // (no JPEG rotation is applied), so points map through that crop. size is the square's side as a
+    // fraction of the visible frame's shorter side.
+    fun meteringRect(x: Float, y: Float, size: Float, array: SensorBox, streamW: Int, streamH: Int): IntArray {
+        val arrayAspect = array.width.toFloat() / array.height
+        val streamAspect = if (streamW > 0 && streamH > 0) streamW.toFloat() / streamH else arrayAspect
+        val visW: Float
+        val visH: Float
+        if (streamAspect > arrayAspect) { visW = array.width.toFloat(); visH = visW / streamAspect }
+        else { visH = array.height.toFloat(); visW = visH * streamAspect }
+        val visLeft = array.left + (array.width - visW) / 2f
+        val visTop = array.top + (array.height - visH) / 2f
+        val cx = visLeft + x.coerceIn(0f, 1f) * visW
+        val cy = visTop + y.coerceIn(0f, 1f) * visH
+        val side = (size.coerceIn(0.02f, 1f) * minOf(visW, visH)).coerceAtLeast(1f)
+        // Kept inside what the stream shows, which is inside the array.
+        val left = (cx - side / 2f).coerceIn(visLeft, visLeft + visW - side)
+        val top = (cy - side / 2f).coerceIn(visTop, visTop + visH - side)
+        return intArrayOf(left.toInt(), top.toInt(), side.toInt(), side.toInt())
+    }
+
     fun clamp(value: Int, min: Int, max: Int): Int =
         if (min > max) value else value.coerceIn(min, max)
 
@@ -112,6 +141,9 @@ class CameraStreamService : Service() {
         const val NOTIF_ID         = 1
         const val DEFAULT_PORT     = 8080
         private const val TAG      = "CameraStreamService"
+        // Set once the desktop asked for the mic without permission; the phone's setup card then offers it.
+        const val PREFS_SETUP      = "setup"
+        const val KEY_MIC_WANTED   = "mic_wanted"
 
         // Fires when desktop is genuinely gone (no authorized /v1/state polls in this interval).
         private const val IDLE_STOP_MS = 60_000L
@@ -130,6 +162,8 @@ class CameraStreamService : Service() {
 
     private var controller: CameraSessionController? = null
     private var server: MjpegServer? = null
+    private var audio: AudioStreamer? = null
+    @Volatile private var micForeground = false
     private var wakeLock: PowerManager.WakeLock? = null
     private var idleWatchdogThread: Thread? = null
     private val idleWatchdogRunning = java.util.concurrent.atomic.AtomicBoolean(false)
@@ -142,6 +176,8 @@ class CameraStreamService : Service() {
 
     // Camera catalogue
     private var allCameras: List<CameraEntry> = emptyList()
+    // Checked once: whether this phone has a hardware H.264 encoder at all.
+    private val h264Available: Boolean by lazy { H264Encoder.isAvailable() }
 
     private val stateMachine = StreamStateMachine()
     val state: StreamState get() = stateMachine.state
@@ -178,8 +214,7 @@ class CameraStreamService : Service() {
     fun buildDiagnosticsReport(): String {
         val sb = StringBuilder()
         sb.appendLine("Telescope diagnostics")
-        val versionName = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "unknown"
-        sb.appendLine("App version: $versionName")
+        sb.appendLine("App version: ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})")
         sb.appendLine("Device: ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})")
         sb.appendLine("Current state: $state")
         val cur = controller?.snapshot()?.currentCamera
@@ -268,6 +303,8 @@ class CameraStreamService : Service() {
             onStateChanged = { newState, op, error -> setState(newState, op, error) },
             onFatalError   = { stopSelf() },
             onControlError = { op, error -> recordControlError(op, error) },
+            onH264         = { bytes, key, config -> server?.sendH264(bytes, key, config) },
+            onCodecFailed  = { server?.closeH264Clients() },
         )
 
         setState(StreamState.OpeningCamera, "onStartCommand")
@@ -334,6 +371,10 @@ class CameraStreamService : Service() {
             val nrModes   = chars.get(CameraCharacteristics.NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES)
                 ?.toSet() ?: emptySet()
             val edgeModes = chars.get(CameraCharacteristics.EDGE_AVAILABLE_EDGE_MODES)?.toSet() ?: emptySet()
+            val maxAfRegions = chars.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AF) ?: 0
+            val maxAeRegions = chars.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AE) ?: 0
+            val activeArray = chars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
+                ?.let { SensorBox(it.left, it.top, it.width(), it.height()) }
 
             val streamMap = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
             val supportedSizes = streamMap?.getOutputSizes(ImageFormat.JPEG)
@@ -358,7 +399,8 @@ class CameraStreamService : Service() {
                         isoMin, isoMax, shtMinNs, shtMaxNs,
                         supportsManualSensor, supportsManualWB, supportsManualFocus, minFocusDist, hwLevel,
                         aeCompMin, aeCompMax, aeCompStep, supportsFlash,
-                        aeFpsRanges, afModes, nrModes, edgeModes, supportedSizes)
+                        aeFpsRanges, afModes, nrModes, edgeModes, supportedSizes,
+                        maxAfRegions, maxAeRegions, activeArray)
         }.getOrNull()
 
         manager.cameraIdList.forEach { id ->
@@ -389,8 +431,38 @@ class CameraStreamService : Service() {
             handleControl  = ::handleControlCommand,
             bindAddr       = bindAddr,
             tokens         = { PairedComputers.tokens(this) },
+            onVideoClient  = ::onVideoClient,
+            requestKeyFrame = { controller?.requestKeyFrame() },
+            startAudio     = ::startAudio,
+            stopAudio      = { audio?.stop() },
         ).also { it.start() }
         startIdleWatchdog()
+    }
+
+    // Null when the mic is recording; otherwise the reason the desktop shows.
+    private fun startAudio(): String? {
+        val mic = audio ?: AudioStreamer(this) { chunk -> server?.sendAudio(chunk) }.also { audio = it }
+        if (!mic.permitted()) {
+            // The setup card on the phone offers it from now on.
+            getSharedPreferences(PREFS_SETUP, MODE_PRIVATE).edit().putBoolean(KEY_MIC_WANTED, true).apply()
+            return "Allow the microphone in Telescope on the phone"
+        }
+        if (!micForeground) {
+            // Recording in the background needs the microphone service type, added now the permission is there.
+            try { startForegroundCompat(withMic = true) } catch (_: Exception) {
+                return "Open Telescope on the phone once, then try again"
+            }
+        }
+        return if (mic.start()) null else "The phone's microphone is in use"
+    }
+
+    // The newest viewer's route picks the codec; viewers of the other one lose their stream.
+    private fun onVideoClient(codec: String) {
+        val ctrl = controller ?: return
+        if (codec == H264Stream.CODEC_H264 && !h264Available) return  // the reader sees no data and gives up
+        if (ctrl.snapshot().codec == codec) return
+        if (codec == H264Stream.CODEC_MJPEG) server?.closeH264Clients()
+        ctrl.setCodec(codec)
     }
 
     private fun startIdleWatchdog() {
@@ -437,6 +509,8 @@ class CameraStreamService : Service() {
                 aeCompMin = e.aeCompMin, aeCompMax = e.aeCompMax, aeCompStep = e.aeCompStep,
                 supportsFlash = e.supportsFlash, hwLevel = e.hwLevel,
                 supportedSizes = e.supportedSizes.map { CameraSize(it.width, it.height) },
+                supportsFocusPoint = e.maxAfRegions > 0 && e.activeArray != null &&
+                    CaptureRequest.CONTROL_AF_MODE_AUTO in e.afModes,
             )
         }
         val (battLevel, battCharging, battTempC) = getBatteryInfo()
@@ -459,6 +533,11 @@ class CameraStreamService : Service() {
             torch = snap?.torch ?: false,
             jpeg_quality = snap?.jpegQuality ?: 85,
             phone_fps = snap?.phoneFps ?: 30,
+            codecs = if (h264Available) listOf(H264Stream.CODEC_MJPEG, H264Stream.CODEC_H264)
+                     else listOf(H264Stream.CODEC_MJPEG),
+            codec = snap?.codec ?: H264Stream.CODEC_MJPEG,
+            bitrate = snap?.bitrate ?: 0,
+            codec_error = snap?.codecError,
             stream_width = liveSize.width,
             stream_height = liveSize.height,
             battery = battLevel,
@@ -525,6 +604,20 @@ class CameraStreamService : Service() {
                     ctrl.setFpsTarget(fps.coerceIn(1, 120))
                     ok()
                 }
+                "bitrate" -> {
+                    // bits per second; 0 sizes it from the resolution and fps
+                    val bps = params["value"]?.toIntOrNull() ?: return err("bad value")
+                    ctrl.setBitrate(bps.coerceAtLeast(0))
+                    ok()
+                }
+                "focus_point" -> {
+                    // x, y: 0..1 in the stream frame as the phone sends it; size: fraction of its shorter side
+                    val x = params["x"]?.toFloatOrNull() ?: return err("bad x")
+                    val y = params["y"]?.toFloatOrNull() ?: return err("bad y")
+                    val size = params["size"]?.toFloatOrNull() ?: 0.1f
+                    if (!ctrl.setFocusPoint(x, y, size)) return err("this lens can't focus on a point")
+                    ok()
+                }
                 "focus_mode" -> {
                     val mode = params["value"] ?: return err("no value")
                     if (mode != "continuous" && mode != "manual") return err("bad mode")
@@ -572,6 +665,7 @@ class CameraStreamService : Service() {
         setState(StreamState.Stopping, op)
         controller?.stop()
         server?.stop()
+        audio?.stop()
         wakeLock?.let { if (it.isHeld) it.release() }
         controller = null; server = null
         setState(StreamState.Idle, op)
@@ -586,7 +680,7 @@ class CameraStreamService : Service() {
         (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(ch)
     }
 
-    private fun startForegroundCompat() {
+    private fun startForegroundCompat(withMic: Boolean = AudioStreamer.permitted(this)) {
         val pi = PendingIntent.getActivity(this, 0,
             Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val n = NotificationCompat.Builder(this, CHANNEL_ID)
@@ -596,10 +690,15 @@ class CameraStreamService : Service() {
             .setColorized(false)
             .setContentIntent(pi).setOngoing(true).build()
         // Type parameter only works on R+; pre-R relies on manifest declaration.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
-            startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA)
-        else
+        // Microphone only once it's allowed: Android refuses a type whose permission is missing.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val types = ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA or
+                (if (withMic) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0)
+            startForeground(NOTIF_ID, n, types)
+        } else {
             startForeground(NOTIF_ID, n)
+        }
+        micForeground = withMic || Build.VERSION.SDK_INT < Build.VERSION_CODES.R
     }
 
     private fun acquireWakeLock() {

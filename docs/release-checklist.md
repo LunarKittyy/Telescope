@@ -2,6 +2,15 @@
 
 Run before tagging. CI covers pytest, Android unit tests, and packaging smoke checks; everything here needs a real phone and desktop.
 
+## Cutting a stable release
+
+1. Set `VERSION` to the new version (e.g. `0.6.0`) and merge that to `master`.
+2. Run through this checklist against that commit's nightly build.
+3. Tag it and push the tag: `git tag v0.6.0 <commit> && git push origin v0.6.0`.
+4. `release.yml` builds everything and publishes the release. It refuses a tag that doesn't match `VERSION`.
+
+The APK signing key lives in the repository secrets (see the README's CI section). Keep a backup of the keystore outside GitHub: without it, no future APK can install as an update over the current one.
+
 ## Before starting
 
 - [ ] `desktop` pytest suite passes locally and in CI for the release commit.
@@ -12,12 +21,25 @@ Run before tagging. CI covers pytest, Android unit tests, and packaging smoke ch
 ## Packaging
 
 - [ ] Windows: `TelescopeDesktop.exe` launches, the first-run checklist's Install driver registers UnityCapture, bundled `adb.exe` works for USB.
+- [ ] Windows: OBS and Zoom list the camera as **Telescope**. On a machine registered by an older version, Advanced offers Rename, and streaming works before and after.
 - [ ] Linux: `start.sh` creates venv at `$XDG_DATA_HOME/Telescope/venv` on clean machine/account and launches successfully.
-- [ ] Both bundles contain `THIRD_PARTY_NOTICES.txt`.
+- [ ] Both bundles contain `THIRD_PARTY_NOTICES.txt` and `Telescope.apk`.
+- [ ] `manifest.json` checksums match the downloaded files (`sha256sum`).
+- [ ] The new APK installs over the previous release's APK with `adb install -r` (same signing key).
+- [ ] Advanced (desktop) and the diagnostics card (phone) show the release's version.
 - [ ] APK installs via `adb install`, via the checklist's QR link, and via Install over USB (checklist and Advanced).
+
+## Updates
+
+- [ ] Desktop on the previous nightly (Windows and Linux): the Update button appears, Update and restart replaces the app, and it comes back on the new version with the stream working.
+- [ ] Update is refused while streaming, on both apps.
+- [ ] Phone on the previous nightly: the update card offers the new build, asks once to allow installs from Telescope, and the installed app shows the new version.
+- [ ] Phone app older than the desktop, plugged in: the Connection panel says so and Update over USB installs the bundled APK.
+- [ ] Switching the channel to Stable on a nightly build doesn't offer a downgrade.
 
 ## Functional pass (see [device-compatibility.md](device-compatibility.md) for the per-device matrix)
 
+- [ ] Phone fresh install: nothing is asked on launch; Get set up allows camera, notifications and battery in order; the card goes when all are allowed. Deny camera twice: its button becomes Open settings.
 - [ ] Fresh install: the checklist shows, each step ticks as it's done, and the video stage replaces it after the first stream.
 - [ ] Add phone works by QR over Wi-Fi and by plugging in over USB (no scan), on at least one device per platform (Linux + Windows).
 - [ ] USB with the debugging prompt not yet accepted: Add phone says to allow it, and pairs once it's accepted.
@@ -46,14 +68,26 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 - [ ] Local-only mode blocks Wi-Fi access (verify from second machine on network).
 - [ ] Camera controls (lens, exposure, WB, OIS) apply live and match what's shown on the desktop UI.
 - [ ] Stream transforms (flip, rotate, zoom/pan) apply without restart.
+- [ ] Point focus: clicking a near and a far object in the preview focuses each (with and without zoom, flip and rotation), exposure follows the point in auto, and Auto returns to continuous. The pop-out works the same.
+- [ ] Presets: switching between two presets while streaming changes lens, exposure, WB, zoom and fps together. A second phone doesn't see the first one's presets.
+- [ ] H.264: on a real phone, switching Format to H.264 reconnects and streams on Wi-Fi and USB. Compare latency (a clock on screen) and the Mbps readout with MJPEG at the same size. A 30-minute run stays smooth, a reconnect (unplug, Wi-Fi off and on) recovers, and changing resolution or lens mid-stream keeps working.
+- [ ] H.264 fallback: forcing an encoder failure (a size the encoder refuses) returns to MJPEG with the banner.
+- [ ] Microphone, Linux (Fedora/Nobara, PipeWire): switching it on while streaming makes "Telescope Microphone" appear; Audacity or a call records the phone; switching off or quitting removes it. Lip-sync looks right by eye. A 30-minute run doesn't drift, and unplugging and replugging recovers.
+- [ ] Microphone, Windows: without VB-Cable the card says so and links it; with it, apps record from CABLE Output.
+- [ ] Microphone permission: the first request makes the phone's Get set up card show Microphone; allowing it there starts the audio within a few seconds, without restarting the stream. Recording keeps going with the phone's screen off.
 - [ ] Canvas size change (Linux and Windows) restarts cleanly.
+- [ ] Linux, module not loaded: Start asks once, with the startup box ticked; after a reboot Start doesn't ask. Unticked: it asks again after a reboot.
+- [ ] Linux without pkexec (or with no polkit agent): Start shows the command banner, Copy command works, and running it then Start streams.
+- [ ] Each Start failure shows a banner with a working button: no phone (Add phone), phone app closed (Try again), USB only without a cable (Switch to Automatic), app versions differ (Update).
 - [ ] Battery/temp alerts fire once per threshold cross, not repeatedly.
 - [ ] Config persists across app restart, including per-phone settings after switching. A config from the previous version keeps global settings and asks to pair again.
 - [ ] Corrupted `telescope_config.json` backs up (`.invalid-<timestamp>`) and app starts with defaults.
 - [ ] Tray minimize/restore and single-instance behavior both work.
+- [ ] Start streaming when the phone is ready: opening the phone app (or plugging it in) starts the stream; Stop keeps it stopped until the phone leaves and comes back; closing the window keeps it in the tray.
+- [ ] Open Telescope when I sign in (Linux and Windows): after signing out and in, Telescope is in the tray; unticking removes the entry.
 
 ## Sign-off
 
 - [ ] Device-compatibility matrix updated with test results.
 - [ ] CHANGELOG/release notes drafted.
-- [ ] Tag pushed; CI publishes assets.
+- [ ] Tag pushed; the Release workflow published the assets.

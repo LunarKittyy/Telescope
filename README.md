@@ -51,7 +51,7 @@ After the first stream, the checklist is replaced by the video.
 
 ### 3. ▶️ Use it as a webcam
 
-In OBS (or anywhere else), pick **Phone Camera** (Linux) or **Unity Video Capture** (Windows) as your webcam.
+In OBS (or anywhere else), pick **Phone Camera** (Linux) or **Telescope** (Windows) as your webcam. Installed the Windows driver with an older Telescope? It's still called **Unity Video Capture** until you click **Rename** in Advanced.
 
 Telescope uses USB whenever the phone is plugged in and answering, and Wi-Fi otherwise. The Connection panel shows which one it's using, and if a cable is plugged in but not used, it says why. **Connect via** forces one or the other.
 
@@ -73,6 +73,7 @@ Everything past this point is optional - detailed feature reference, how it work
 - Exposure compensation slider (range and step size reported per-lens, typically ±8 EV in 1/6-EV steps)
 - Manual white balance: linear Kelvin slider (2000-10000 K) plus a green-magenta tint slider - *partially working: applies inconsistently depending on device/lens*
 - Manual focus: distance slider (diopters), range reported per-lens; greyed out on lenses that don't support it
+- Point focus: click the preview (or pop-out) to focus there; exposure meters on that spot too while it's automatic. The click goes back through flip, rotation and zoom to the right spot on the sensor. **Auto** returns to continuous autofocus
 - OIS toggle
 - Noise reduction and sharpening (edge mode): Off / Fast / High Quality
 - Black level lock toggle
@@ -83,6 +84,10 @@ Everything past this point is optional - detailed feature reference, how it work
 - Horizontal and vertical flip
 - Rotation: 90 CW, 180, 90 CCW
 - Software zoom 1-5x with pan X/Y sliders (center crop + resize)
+
+**Presets** (the Presets button in the header)
+- Save the camera, output and transform settings under a name and switch back with one click, lens included
+- Kept per phone
 
 **Canvas size control** (in Advanced, from the settings menu)
 - Set the virtual camera canvas independently of the phone feed resolution
@@ -96,7 +101,16 @@ Everything past this point is optional - detailed feature reference, how it work
 - One FPS spinner (5-60) drives both the phone's capture rate and the virtual camera's playback rate - there's no separate "phone" and "playback" rate to keep in sync
 
 **Bandwidth controls**
-- JPEG quality slider (1-100%) - controls compression on the phone, takes effect immediately without restarting the stream
+- Format: MJPEG (default) or H.264. H.264 comes from the phone's hardware encoder and needs a fraction of MJPEG's bandwidth at the same quality. It's offered once the phone reports an encoder, and switching reconnects the stream. If the encoder fails, the stream goes back to MJPEG and says so
+- MJPEG: JPEG quality slider (1-100%), applied on the phone without restarting the stream
+- H.264: bitrate slider, Auto (about 8 Mbps for 1080p30, scaled by size and fps) or 1-30 Mbps, applied live
+
+**Microphone** (its own card, per phone)
+- The phone's microphone as a microphone on the computer, while streaming. The phone only records while the desktop listens, with its noise suppression and gain control when it has them
+- Linux: Telescope creates **Telescope Microphone** through PulseAudio or PipeWire (`pactl` and `pacat`, from pulseaudio-utils) and removes it when the mic is switched off or the app quits. Nothing to install on most desktops
+- Windows: needs [VB-Audio Virtual Cable](https://vb-audio.com/Cable/) (free). Telescope plays into CABLE Input; pick **CABLE Output** as the microphone in other apps. The card links to it if it's missing
+- The first time, the phone asks for microphone access: its Get set up card gains a Microphone step once the desktop has asked
+- About 60 ms of buffering; the phone's and the computer's clocks drift apart, so it drops or pads audio to stay there
 
 **Monitoring**
 - FPS and throughput (Mbps) readouts in the footer while streaming; throughput turns amber if the real decode rate falls behind the target for a sustained stretch
@@ -122,10 +136,19 @@ Everything past this point is optional - detailed feature reference, how it work
 - Changing **Connect via** on the desktop reconnects a running stream over the new route
 - Local only also stops the phone announcing itself on the LAN
 
+**Updates**
+- Both apps check for a newer build once a day, on the channel you pick: **Stable** (tagged releases) or **Nightly** (every change to `master`). Nightly builds follow nightly by default, everything else follows stable
+- Desktop: an **Update** button appears in the header. The update downloads, checks its SHA-256, replaces the app and restarts it. Not while streaming. A source checkout or a folder the app can't write to only links to the release
+- Phone: the update card at the top downloads the APK, checks its checksum and signing key, and hands it to Android's installer. The first time, Android asks to allow installs from Telescope
+- When the phone app is older than the desktop, the Connection panel says so, and offers **Update over USB** when the phone is plugged in and the desktop bundle carries a newer APK
+
 **System integration**
-- Minimizes to system tray on close only when streaming; otherwise quits
+- **Start streaming when the phone is ready** (settings menu): starts by itself each time the phone becomes reachable. After you press Stop it stays stopped until the phone goes away and comes back. It never asks for a password on its own; if the Linux virtual camera is off, a banner offers to switch it on
+- **Open Telescope when I sign in** (settings menu): an autostart entry (`~/.config/autostart/telescope.desktop` on Linux, the per-user Run key on Windows) that starts it in the tray with `--minimized`
+- Minimizes to system tray on close while streaming, or while waiting to start by itself; otherwise quits
 - Right-click the tray icon to quit, or click it to show/hide the window
 - Launching a second instance brings the existing window to the front
+- When Start can't go ahead, a banner at the top of the window says why, with the button that fixes it (Try again, Add phone, Switch to Automatic, Copy command). It clears on the next working stream
 - Battery/temperature notifications use `notify-send` on Linux (if available) or the system tray on Windows
 
 </details>
@@ -189,10 +212,14 @@ On **Windows**, the virtual camera is [UnityCapture](https://github.com/schellin
 
 ```
 telescope/
-|-- .github/workflows/
-|   |-- build-apk.yml            # CI: debug APK on ubuntu-latest
-|   |-- build-windows.yml        # CI: Windows bundle (EXE + adb + UnityCapture)
-|   +-- build-linux.yml          # CI: Linux bundle (source + start.sh)
+|-- VERSION                    # The version both apps ship as
+|-- .github/
+|   |-- write_manifest.py        # Writes a release's manifest.json
+|   +-- workflows/
+|       |-- release.yml          # Builds all three and publishes nightly or a stable release
+|       |-- build-apk.yml        # APK (signed with the release key in a release)
+|       |-- build-windows.yml    # Windows bundle (EXE + adb + UnityCapture)
+|       +-- build-linux.yml      # Linux bundle (source + start.sh)
 |
 |-- docs/
 |   |-- device-compatibility.md  # Manually maintained per-device test matrix
@@ -207,13 +234,20 @@ telescope/
 |       |-- CameraCatalog.kt     # Enumerates cameras, incl. physical sub-cameras of logical multi-cams
 |       |-- StreamStateMachine.kt   # Idle/StartingServer/.../Streaming/Failed state + history
 |       |-- Protocol.kt          # kotlinx.serialization models for the v1 API
+|       |-- SetupSteps.kt       # Get set up card rules: ask, or send to settings (JVM-tested)
 |       |-- Pairing.kt           # QR payload (v3) parsing/validation, attempt ordering, failure text
 |       |-- PairedComputers.kt   # Paired computers (one token each), this phone's id and name
-|       |-- MjpegServer.kt       # Authenticated HTTP: /v1/video  /v1/state  /v1/control
+|       |-- MjpegServer.kt       # Authenticated HTTP: /v1/video(.h264)  /v1/state  /v1/control
+|       |-- H264Encoder.kt       # MediaCodec H.264 from the camera Surface
+|       |-- H264Stream.kt        # Per-viewer H.264 queue, bitrate defaults
+|       |-- AudioStreamer.kt     # Microphone recording while someone listens
+|       |-- AudioStream.kt       # PCM format, per-listener queue
 |       |-- SessionServer.kt     # Out-of-band responder (port 8766): /v1/hello, /v1/ping, /v1/session, /v1/unpair
 |       |-- SessionEndpoint.kt   # Refcounted owner of SessionServer + the commands it runs
 |       |-- StreamLauncher.kt    # Single place CameraStreamService is started from
 |       |-- StreamPrefs.kt       # Last camera/resolution selection, for desktop-initiated starts
+|       |-- Updater.kt           # Self-update: manifest check, download, verify, PackageInstaller
+|       |-- UpdateLogic.kt       # Manifest parsing and version rules (JVM-tested)
 |       |-- LanAnnouncer.kt      # mDNS announcement (_telescope._tcp) so desktops find the phone's address
 |       +-- HttpWire.kt          # The HTTP/1.1 subset MjpegServer and SessionServer share
 |
@@ -223,6 +257,7 @@ telescope/
     |-- requirements-dev.txt     # requirements.txt + pytest, used by CI
     |-- constraints.txt          # Exact pinned versions for CI/release installs
     |-- scripts/smoke_check.py   # Packaging smoke checks (see CI section below)
+    |-- scripts/write_build_info.py  # Stamps a release build's version into telescope/_build.py
     |-- tests/                   # pytest suite (desktop only; Android has its own JVM unit tests)
     |-- THIRD_PARTY_NOTICES.txt  # Bundled into both release archives
     |-- telescope.spec            # PyInstaller spec for Windows EXE
@@ -231,10 +266,14 @@ telescope/
     |-- platform-tools/          # Bundled adb for Windows
     |-- unitycapture/            # Bundled UnityCapture DLLs (MIT)
     +-- telescope/
+        |-- version.py           # This build's version, build number and channel
+        |-- updates.py           # Qt-free update check, download, verify and install
         |-- app.py               # TelescopeWindow: plugin host, responsive shell, stream lifecycle
         |-- theme.py             # Palette tokens + the app stylesheet
         |-- stream.py            # StreamWorker: MJPEG -> pipeline -> pyvirtualcam
         |-- mjpeg_reader.py      # Authenticated multipart-MJPEG reader (replaces cv2.VideoCapture)
+        |-- h264_reader.py       # Authenticated H.264 reader (PyAV), same interface
+        |-- audio.py             # Phone mic -> jitter buffer -> virtual mic
         |-- session.py           # StreamSession: owns worker/client for one connect-to-disconnect lifecycle
         |-- plugin.py            # TelescopePlugin base class, EventBus, HostServices protocol
         |-- config.py            # Versioned JSON config (v3) with per-section validation
@@ -246,6 +285,7 @@ telescope/
         |-- discovery.py         # Finds phones on the LAN via mDNS (zeroconf)
         |-- ip_utils.py          # Desktop address discovery for the pairing code, address ranking
         |-- platform/
+        |   |-- autostart.py     # Open at sign-in (XDG autostart / HKCU Run)
         |   |-- linux.py         # v4l2loopback helpers (load, unload, reload)
         |   +-- windows.py       # UnityCapture helpers
         |-- plugins/
@@ -254,10 +294,15 @@ telescope/
         |   |-- camera_control.py
         |   |-- stream_output.py
         |   |-- transforms.py
+        |   |-- presets.py       # Saved camera/output/transform settings
+        |   |-- microphone.py    # The Microphone card
         |   |-- preview.py
         |   |-- onboarding.py    # First-run checklist
+        |   |-- updates.py       # Update button and dialog
+        |   |-- startup.py       # Stream when the phone is ready; open at sign-in
         |   +-- monitoring.py
         +-- widgets/
+            |-- banner.py        # In-window problem banners
             |-- common.py        # NoScroll*, LogSliderRow, rows, segmented toggles, icons
             |-- qr.py            # QR code widget
             +-- lens_panel.py    # Lens picker widget
@@ -272,9 +317,13 @@ telescope/
 
 ### What it does
 
-Runs a **foreground service** (declared type `camera`, required on Android 14+) that owns a Camera2 session and an HTTP server on port 8080. Three endpoints, all requiring a bearer token issued during pairing:
+On first launch the top card is **Get set up**: camera access, notifications and the battery exemption, in that order, each with its reason and an Allow button (plus Microphone, once a desktop has asked for it). The app asks for nothing on its own, and the card goes once everything is allowed. If Android stops showing a permission prompt (denied twice), the button becomes Open settings.
+
+Runs a **foreground service** (type `camera`, required on Android 14+, plus `microphone` once that's allowed) that owns a Camera2 session and an HTTP server on port 8080. All endpoints require a bearer token issued during pairing:
 
 - `GET /v1/video` - MJPEG stream (`multipart/x-mixed-replace`)
+- `GET /v1/video.h264` - H.264 stream (`video/h264`: Annex-B, Baseline, a keyframe every second). A new viewer starts with the codec config and the next keyframe. Each frame is followed by an access unit delimiter, so a decoder can show it without waiting for the next one. `ffplay` plays it given the bearer header. Opening either video route switches the phone to that format.
+- `GET /v1/audio` - the microphone, raw PCM (`audio/pcm; rate=48000; channels=1; format=s16le`, 10 ms chunks). Recording starts with the first listener and stops with the last. `403` with the reason in `error` when it can't record (no permission yet, or the mic is busy)
 - `GET /v1/state` - JSON of all detected cameras + current exposure/WB/battery state
 - `POST /v1/control` - live camera control, JSON body
 
@@ -323,11 +372,14 @@ This is a debug build - self-signed, for personal/development use.
 | `CAMERA` | Open Camera2 device |
 | `FOREGROUND_SERVICE` | Run foreground service |
 | `FOREGROUND_SERVICE_CAMERA` | Required on Android 14+ for camera-type service |
+| `RECORD_AUDIO` | The desktop's microphone option; asked for only after a desktop wants it |
+| `FOREGROUND_SERVICE_MICROPHONE` | Recording the mic while the screen is off |
 | `INTERNET` | HTTP server on 0.0.0.0:8080 |
 | `WAKE_LOCK` | Keep CPU active with screen off |
 | `POST_NOTIFICATIONS` | Persistent streaming notification |
 | `ACCESS_NETWORK_STATE` | Show device IP in UI |
-| `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | Prompt to exempt app from battery restrictions on first launch |
+| `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | The Battery step of Get set up (exempts the app from battery restrictions) |
+| `REQUEST_INSTALL_PACKAGES` | Installing its own updates; Android asks the first time |
 
 </details>
 
@@ -342,6 +394,7 @@ This is a debug build - self-signed, for personal/development use.
 |---|---|
 | UI | PyQt6 |
 | MJPEG decode | opencv-python (`cv2.imdecode`), read via `telescope/mjpeg_reader.py`'s authenticated reader - not `cv2.VideoCapture`, which has no way to attach the bearer token |
+| H.264 decode | PyAV (`av`, bundling FFmpeg), via `telescope/h264_reader.py`. Optional: without it only MJPEG is offered |
 | Virtual camera output | pyvirtualcam |
 | Frame processing | numpy |
 | QR code generation | qrcode (rendered via QPainter, no Pillow) |
@@ -358,7 +411,7 @@ sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-releas
 sudo dnf install v4l2loopback
 ```
 
-The `start.sh` script handles pip dependencies automatically. Once the package above is installed, Telescope loads the module when you start streaming (asking for your password). **Advanced** in the settings menu can load and unload it too, or run it manually:
+The `start.sh` script handles pip dependencies automatically. Once the package above is installed, Telescope loads the module when you start streaming. It asks for your password once, with **Also switch it on at every startup** ticked, so later boots don't ask again. Without a graphical password prompt (no pkexec or no polkit agent), it shows the command to run in a terminal instead, with a Copy button. **Advanced** in the settings menu can load and unload it too, or run it manually:
 
 ```bash
 sudo modprobe v4l2loopback devices=2 video_nr=10,11 \
@@ -404,7 +457,7 @@ The release zip bundles the UnityCapture DLLs already; the first-run checklist r
 
 **Clean stop/restart:** `_stop()` disconnects the worker's status signal before requesting stop, preventing the old worker's eventual `"idle"` emission from clobbering the new worker's state after a canvas restart. Both Linux and Windows `restart_vcam_canvas()` wait for the old `QThread` to fully exit (via `QThread.wait()`) before starting the new one, avoiding pyvirtualcam slot conflicts.
 
-**Linux loopback reload:** `v4l2_reload()` runs `modprobe -r v4l2loopback && sleep 0.5 && modprobe v4l2loopback ...` as a single `pkexec sh -c "..."` invocation so there is only one password prompt for the full unload+reload cycle.
+**Linux root commands:** every v4l2loopback operation (load, load-and-persist, unload, reload, the boot config) is one `pkexec sh -c "..."` call, so one password prompt. If pkexec is missing or has no agent, `sudo -n` covers cached credentials; `sudo` is never run where it could wait for a password, since a GUI app has no terminal to type it in. Otherwise the same steps come back as a pasteable `sudo` / `sudo tee` command.
 
 **Live transform:** Plugin attributes like `flip_h`, `rotation`, `zoom` are plain Python instance attributes updated by the UI thread and read each frame by the worker thread. Python's GIL makes bool/float writes atomic at this granularity, so no lock is needed.
 
@@ -463,6 +516,7 @@ Server is on the phone at port 8080 for `/v1/video`, `/v1/state`, and `/v1/contr
       "supportsManualSensor": true,
       "supportsManualWB": true,
       "supportsManualFocus": true,
+      "supportsFocusPoint": true,
       "minFocusDistance": 8.3,
       "aeCompMin": -8,
       "aeCompMax": 8,
@@ -493,6 +547,9 @@ Server is on the phone at port 8080 for `/v1/video`, `/v1/state`, and `/v1/contr
   "torch": false,
   "jpeg_quality": 85,
   "phone_fps": 30,
+  "codecs": ["mjpeg", "h264"],
+  "codec": "mjpeg",
+  "bitrate": 8087040,
   "stream_width": 1920,
   "stream_height": 1080,
   "battery": 87,
@@ -501,7 +558,7 @@ Server is on the phone at port 8080 for `/v1/video`, `/v1/state`, and `/v1/contr
 }
 ```
 
-`minFocusDistance`, `aeCompMin`/`aeCompMax`/`aeCompStep` are per-lens, reported by Camera2 (`aeCompStep` is typically `0.167` = 1/6 EV). `wb_r`/`wb_ge`/`wb_go`/`wb_b` are the current RGGB channel gains when `wb_manual` is true, `null` otherwise. `supportedSizes` is the lens's actual list of capture sizes, which the desktop uses to populate its resolution dropdown instead of a fixed list. `stream_width`/`stream_height` are the current lens's live capture size.
+`minFocusDistance`, `aeCompMin`/`aeCompMax`/`aeCompStep` are per-lens, reported by Camera2 (`aeCompStep` is typically `0.167` = 1/6 EV). `wb_r`/`wb_ge`/`wb_go`/`wb_b` are the current RGGB channel gains when `wb_manual` is true, `null` otherwise. `supportedSizes` is the lens's actual list of capture sizes, which the desktop uses to populate its resolution dropdown instead of a fixed list. `stream_width`/`stream_height` are the current lens's live capture size. `codecs` lists what the phone can send (`h264` only with a hardware encoder), `codec` is what it's sending, and `bitrate` is the H.264 target in bits per second. `codec_error` appears when H.264 failed and the phone went back to MJPEG. Fields at their default value are left out, so read them with a default.
 
 ### `POST /v1/control`
 
@@ -517,7 +574,8 @@ JSON body `{"action": "<action>", ...params}`.
 | `wb_auto` | - | Restore auto white balance |
 | `wb_gains` | `r=<float> ge=<float> go=<float> b=<float>` | Set manual white balance via `COLOR_CORRECTION_GAINS` RGGB channel gains |
 | `ois` | `value=1\|0` | Toggle OIS |
-| `focus_mode` | `value=continuous\|manual` | Switch autofocus / manual focus |
+| `focus_mode` | `value=continuous\|manual` | Switch autofocus / manual focus (also ends point focus) |
+| `focus_point` | `x=<0..1> y=<0..1> [size=<0..1>]` | Focus on a point of the stream frame, and meter exposure there while it's automatic. `size` is the region's side as a fraction of the frame's shorter side (default 0.1). Refused on a lens without `supportsFocusPoint`. `/v1/state` then reports `focus_mode: "point"` |
 | `focus_distance` | `value=<float diopters>` | Set manual focus distance |
 | `ae_comp` | `value=<int steps>` | Set exposure compensation, in the lens's AE-compensation steps (see `aeCompStep`) |
 | `nr_mode` | `value=<int 0-4>` | Set noise reduction mode (desktop UI only offers 0/1/2 = Off/Fast/High Quality) |
@@ -525,6 +583,7 @@ JSON body `{"action": "<action>", ...params}`.
 | `black_level_lock` | `value=1\|0` | Toggle black level lock |
 | `torch` | `value=1\|0` | Toggle flash/torch |
 | `jpeg_quality` | `value=<int 1-100>` | Set JPEG quality on the phone |
+| `bitrate` | `value=<int bits/s>` | Set the H.264 bitrate (clamped to 1-30 Mbps); `0` sizes it from resolution and fps |
 | `fps_target` | `value=<int 1-120>` | Set capture FPS on the phone (desktop UI restricts to 5-60) |
 
 All responses: `{"ok": true}` or `{"ok": false, "error": "..."}`.
@@ -648,33 +707,48 @@ See `desktop/platform-tools/NOTICE` and https://developer.android.com/studio/ter
 
 ## CI / GitHub Actions
 
-All three workflows publish to a rolling **`nightly` pre-release** on qualifying pushes to `master` (`.github/recreate-nightly.sh` recreates it so it stays at the top of the Releases page).
+### Versions
 
-### `build-apk.yml` - triggered on changes to `android/**`
+Both apps share one version, the `VERSION` file at the repo root. The build number is the commit count on `master`, so it only grows; it's the Android `versionCode` and what the update check compares. A build is stable (`0.5.0`), nightly (`0.5.0-nightly.123`) or a source checkout (`0.5.0 dev`). The version shows at the bottom of the Advanced dialog on the desktop and under Copy diagnostics on the phone.
+
+### `release.yml` - every push to `master`, and every `v*` tag
+
+Builds everything from one commit, then publishes it together:
+
+- a push to `master` replaces the rolling **`nightly`** pre-release (deleted and recreated, so it stays at the top of the Releases page)
+- a tag `vX.Y.Z` creates the stable release `Telescope X.Y.Z`; the tag must match `VERSION`
+
+Each release holds `Telescope.apk`, `Telescope-windows.zip`, `Telescope-linux.tar.gz` (both desktop bundles include the APK, for Install over USB) and `manifest.json`: version, build number, channel, commit, session protocol, and each file's URL, size and SHA-256. The apps' update check reads the manifest: the phone compares `android.versionCode` with its own, the desktop compares `build`.
+
+The APK is signed with the release key from the repository secrets `TELESCOPE_KEYSTORE` (the keystore, base64), `TELESCOPE_KEYSTORE_PASSWORD`, `TELESCOPE_KEY_ALIAS` and `TELESCOPE_KEY_PASSWORD`. A release fails rather than publish an APK signed with a debug key, because Android only installs an update signed with the same key as the installed app.
+
+The three build workflows below also run on pull requests, without publishing.
+
+### `build-apk.yml` - pull requests touching `android/**`
 
 1. JDK 21 (Temurin) + Gradle cache
 2. Android SDK (android-34, build-tools;34.0.0)
-3. `./gradlew lintDebug testDebugUnitTest --no-daemon`, then `./gradlew assembleDebug --no-daemon`
-4. Publishes `Telescope.apk` to the `nightly` pre-release
+3. `./gradlew lintDebug testDebugUnitTest`, then `./gradlew assembleRelease -PbuildNumber=N -Pchannel=nightly|stable` (debug-signed on pull requests)
+4. In a release: checks the APK isn't debug-signed
 
-### `build-windows.yml` - triggered on changes to `desktop/**`
+### `build-windows.yml` - pull requests touching `desktop/**`
 
 1. Python 3.11 + pip cache
 2. `pip install -r requirements-dev.txt -c constraints.txt`; runs `pytest`
 3. `pip install -r requirements.txt pyinstaller -c constraints.txt`
-4. `python scripts/smoke_check.py` - packaging smoke checks (see below)
-5. `pyinstaller telescope.spec`
-6. Assembles `Telescope-windows.zip`: EXE + `THIRD_PARTY_NOTICES.txt` + `platform-tools/` + `unitycapture/`, then verifies the bundle contains all required files before publishing
-7. Publishes the zip to the `nightly` pre-release
+4. In a release: `scripts/write_build_info.py` stamps the version into `telescope/_build.py`
+5. `python scripts/smoke_check.py` - packaging smoke checks (see below)
+6. `pyinstaller telescope.spec`
+7. Assembles the bundle: EXE + `THIRD_PARTY_NOTICES.txt` + `platform-tools/` + `unitycapture/`, and checks nothing is missing
 
 `telescope.spec` uses `collect_all('PyQt6')` to include Qt platform plugins that PyInstaller's default analysis misses. Expected EXE size: 60-80 MB.
 
-### `build-linux.yml` - triggered on changes to `desktop/**`
+### `build-linux.yml` - pull requests touching `desktop/**`
 
 1. Python 3.11 + pip cache; apt-installs `libegl1 libgl1 libxkbcommon0 libdbus-1-3` (PyQt6 needs these even in headless/offscreen test mode); installs `requirements-dev.txt` via `constraints.txt`; runs `pytest`
-2. `python3 scripts/smoke_check.py` - packaging smoke checks
-3. Assembles `Telescope-linux.tar.gz`: `main.py` + `telescope/` package + `requirements.txt` + `constraints.txt` + `start.sh` + `THIRD_PARTY_NOTICES.txt`
-4. Publishes the tarball to the `nightly` pre-release
+2. In a release: stamps the version
+3. `python3 scripts/smoke_check.py` - packaging smoke checks
+4. Assembles the bundle: `main.py` + `telescope/` package + `requirements.txt` + `constraints.txt` + `start.sh` + `THIRD_PARTY_NOTICES.txt`
 
 No compiled build step - the Linux bundle is the Python source and launcher script, which creates its own venv on first run (see `start.sh`).
 
@@ -693,15 +767,15 @@ Run in both desktop CI workflows before assembling the bundle: constructs the fu
 |---|---|---|
 | Only 2 cameras visible | Physical sub-cameras hidden behind logical camera | Already handled via `physicalCameraIds`; if still missing, device may restrict access |
 | Manual exposure greyed out | Camera doesn't report `MANUAL_SENSOR` capability | Some front cameras and telephoto lenses don't support it; use Auto |
-| `/dev/video11` gone after reboot | v4l2loopback isn't loaded at boot | Nothing to do: Start Streaming loads it (with a password prompt). To skip the prompt, tick **Load at boot** in Advanced |
+| `/dev/video11` gone after reboot | v4l2loopback isn't loaded at boot | Start Streaming loads it. Leave **Also switch it on at every startup** ticked (or tick **Load at boot** in Advanced) and it won't ask again |
 | pyvirtualcam fails to open (Linux) | Module not loaded, or not installed | Install `v4l2loopback-dkms` (Debian/Ubuntu/Arch) or `v4l2loopback` (Fedora/Nobara, via RPM Fusion), then click Start again. **Advanced** can load it by hand |
 | pyvirtualcam fails to open (Windows) | UnityCapture not registered | Open **Advanced** from the settings menu and reinstall the driver |
-| "Virtual camera is set up differently" when starting | Some other app (OBS's own virtual camera, a previous session, etc.) already has the module loaded with different settings | Close that app, or run `sudo modprobe -r v4l2loopback` yourself, then click Start again |
+| "Virtual camera is set up differently" banner when starting | Some other app (OBS's own virtual camera, a previous session, etc.) already has the module loaded with different settings | Close that app, or run `sudo modprobe -r v4l2loopback` yourself, then click Start again |
 | Canvas restart fails with "module in use" | OBS or another app still holds the device | Close all apps using the virtual camera, then retry |
 | Camera control panel never appears | Phone HTTP server slow to start | App retries 3x over 6s; check the phone still shows the stream running |
 | WB slider has no effect | Camera doesn't support `MANUAL_POST_PROCESSING` | Falls back gracefully; auto AWB still works |
 | ISO/shutter change has no effect | Only one of the two was sent | Switch to Manual - desktop sends both simultaneously |
-| High latency over Wi-Fi | MJPEG is per-frame JPEG, higher bandwidth than H.264 | Use USB mode, lower JPEG quality, or reduce phone FPS |
+| High latency over Wi-Fi | MJPEG is per-frame JPEG, higher bandwidth than H.264 | Switch Format to H.264, use USB mode, lower JPEG quality, or reduce phone FPS |
 | Second launch does nothing | Single-instance enforcement | The existing window is brought to the front |
 | QR pairing fails ("Could not reach the desktop") | Phone and desktop not on the same network, or desktop firewall blocking port 8765 | The failure dialog on the phone lists every address it tried and how each failed. Make sure both are on the same Wi-Fi and the Add phone dialog is still open (the pairing server only runs while it is), or plug the phone in and pair over USB |
 | QR pairing fails on a guest/public Wi-Fi | Client isolation - the access point blocks device-to-device traffic entirely | Nothing on either device can work around this; use USB pairing, or a network you control |

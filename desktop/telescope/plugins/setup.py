@@ -7,18 +7,17 @@ from PyQt6.QtWidgets import (
     QCheckBox, QDialog, QHBoxLayout, QInputDialog, QLabel, QPushButton, QWidget,
 )
 
-from telescope.platform import (
-    IS_LINUX, _run, adb_available, adb_devices, adb_exe, bundled_apk_path,
-)
+from telescope.platform import IS_LINUX, adb_available, adb_devices, adb_install, bundled_apk_path
 from telescope.platform.linux import (
-    V4L2_OBS_DEV, V4L2_PHONE_DEV,
+    V4L2_OBS_DEV, V4L2_PHONE_DEV, as_text,
     v4l2_devices_ready, v4l2_load, v4l2_module_loaded, v4l2_unload,
     v4l2_persist_disable, v4l2_persist_enable, v4l2_persist_status,
 )
 from telescope.platform.windows import (
-    download_unitycapture, register_unitycapture, uc_is_registered, unitycapture_dir,
+    UC_NAME, download_unitycapture, register_unitycapture, uc_registered_name, unitycapture_dir,
 )
 from telescope.plugin import TelescopePlugin
+from telescope.version import display_version
 from telescope.widgets.common import (
     NoScrollComboBox, NoScrollSpinBox, action_button, add_card_header, button_row, card_layout,
     control_row, create_card, dialog_buttons, dialog_header, dialog_layout, run_off_ui_thread,
@@ -51,7 +50,7 @@ class AdvancedDialog(QDialog):
     _sig_v4l_result   = pyqtSignal(bool, str)
     _sig_v4l_unload   = pyqtSignal(bool, str)
     _sig_persist_result = pyqtSignal(bool, str)
-    _sig_win_checks   = pyqtSignal(bool, bool)
+    _sig_win_checks   = pyqtSignal(str, bool)  # registered camera name ("" if none), adb found
     _sig_uc_done      = pyqtSignal(bool, str)
     _sig_uc_msg       = pyqtSignal(str)
     _sig_apk_done     = pyqtSignal(bool, str)
@@ -90,6 +89,8 @@ class AdvancedDialog(QDialog):
         add_card_header(vc_lay, "Virtual camera", "stream")
         if IS_LINUX:
             self._v4l_lbl = QLabel("Checking...")
+            self._v4l_lbl.setWordWrap(True)
+            self._v4l_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             set_status_kind(self._v4l_lbl, "status_dim")
             self._v4l_lbl.setWordWrap(True)
             self._v4l_lbl.setToolTip(
@@ -118,6 +119,7 @@ class AdvancedDialog(QDialog):
             vc_lay.addLayout(control_row("Load at boot", self._persist_chk))
 
             self._persist_status_lbl = wrapped_note("")
+            self._persist_status_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             set_status_kind(self._persist_status_lbl, "status_dim")
             self._persist_status_lbl.setTextInteractionFlags(
                 Qt.TextInteractionFlag.TextSelectableByMouse
@@ -220,6 +222,11 @@ class AdvancedDialog(QDialog):
         lay.addWidget(adv_card)
         lay.addStretch(1)
 
+        version_lbl = QLabel(f"Telescope {display_version()}")
+        version_lbl.setObjectName("dim")
+        version_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        lay.addWidget(version_lbl)
+
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.accept)
         dialog_buttons(lay, close_btn)
@@ -291,12 +298,12 @@ class AdvancedDialog(QDialog):
     def _v4l_load(self):
         set_status_kind(self._v4l_lbl, "status_dim")
         self._v4l_lbl.setText("Loading...")
-        threading.Thread(target=lambda: self._sig_v4l_result.emit(*v4l2_load()), daemon=True).start()
+        threading.Thread(target=lambda: self._sig_v4l_result.emit(*as_text(v4l2_load())), daemon=True).start()
 
     def _v4l_unload(self):
         set_status_kind(self._v4l_lbl, "status_dim")
         self._v4l_lbl.setText("Unloading...")
-        threading.Thread(target=lambda: self._sig_v4l_unload.emit(*v4l2_unload()), daemon=True).start()
+        threading.Thread(target=lambda: self._sig_v4l_unload.emit(*as_text(v4l2_unload())), daemon=True).start()
 
     def _on_v4l_result(self, ok: bool, msg: str):
         self._v4l_lbl.setText(("Loaded - " if ok else "Failed - ") + msg)
@@ -322,7 +329,7 @@ class AdvancedDialog(QDialog):
         self._persist_row.setVisible(True)
         self.adjustSize()
         action = v4l2_persist_enable if checked else v4l2_persist_disable
-        threading.Thread(target=lambda: self._sig_persist_result.emit(*action()), daemon=True).start()
+        threading.Thread(target=lambda: self._sig_persist_result.emit(*as_text(action())), daemon=True).start()
 
     def _on_persist_result(self, ok: bool, msg: str):
         self._persist_chk.setEnabled(True)
@@ -339,20 +346,29 @@ class AdvancedDialog(QDialog):
     # ── Windows ───────────────────────────────────────────────────────────────
 
     def _check_win_setup(self):
-        self._sig_win_checks.emit(uc_is_registered(), adb_available())
+        self._sig_win_checks.emit(uc_registered_name() or "", adb_available())
 
-    def _on_win_checks(self, uc_ok: bool, adb_ok: bool):
-        if uc_ok:
+    def _on_win_checks(self, uc_name: str, adb_ok: bool):
+        if uc_name == UC_NAME:
             set_status_kind(self._uc_status_lbl, "status_ok")
             self._uc_status_lbl.setText("Ready")
             self._uc_btn.setText("Reinstall")
+            self._uc_btn.setToolTip("")
             set_ui_role(self._uc_btn, "")
+        elif uc_name:
+            # Registered by an older Telescope under UnityCapture's own name. Works, just harder to find.
+            set_status_kind(self._uc_status_lbl, "status_warn")
+            self._uc_status_lbl.setText(f"Apps list it as \u201c{uc_name}\u201d")
+            self._uc_btn.setText("Rename")
+            self._uc_btn.setToolTip(f"Register it again as \u201c{UC_NAME}\u201d")
+            set_ui_role(self._uc_btn, "primary")
         else:
             set_status_kind(self._uc_status_lbl, "status_err")
             dlls = (unitycapture_dir() / "UnityCaptureFilter64.dll").exists()
             self._uc_status_lbl.setText(
                 "Not installed" if dlls else "Not installed (Install downloads the driver first)")
             self._uc_btn.setText("Install driver")
+            self._uc_btn.setToolTip("")
             set_ui_role(self._uc_btn, "primary")
         if adb_ok:
             set_status_kind(self._adb_status_lbl, "status_ok")
@@ -427,13 +443,8 @@ class AdvancedDialog(QDialog):
         self._apk_status_lbl.setText("Installing...")
 
         def worker():
-            rc, out, err = _run([adb_exe(), "-s", serial, "install", "-r", path], timeout=60)
-            output = (out + err).strip()
-            if rc == 0 and "Success" in output:
-                self._sig_apk_done.emit(True, "Installed")
-            else:
-                detail = output.splitlines()[-1] if output else "unknown error"
-                self._sig_apk_done.emit(False, detail)
+            ok, detail = adb_install(serial, path)
+            self._sig_apk_done.emit(ok, "Installed" if ok else detail)
 
         threading.Thread(target=worker, daemon=True).start()
 

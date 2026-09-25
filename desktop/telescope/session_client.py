@@ -11,6 +11,9 @@ logger = logging.getLogger(__name__)
 
 PING_PORT = 8766
 
+# Shape of the phone's session API (the phone's SessionServer.PROTOCOL_VERSION). Both apps must match.
+SESSION_PROTOCOL = 2
+
 REQUEST_TIMEOUT = 3  # Ping timeout; long enough for slow Wi-Fi, short enough for polling.
 START_TIMEOUT = 12   # Wait for camera to come up after accepting start.
 START_POLL_INTERVAL = 0.5  # Poll interval while waiting for camera startup.
@@ -31,6 +34,27 @@ class PingResult:
     @property
     def paired(self) -> bool:
         return self.status == "paired"
+
+
+HELLO_OK = "ok"            # a Telescope app answered with its identity
+HELLO_MISSING = "missing"  # something answered on the session port but has no /v1/hello: an app too old
+HELLO_NONE = "none"        # nothing answered
+
+
+@dataclass(frozen=True)
+class Hello:
+    """Outcome of GET /v1/hello."""
+
+    status: str
+    phone_id: str = ""
+    phone_name: str = ""
+    protocol: int = 0
+    app_version: str = ""
+    build: int = 0
+
+    @property
+    def ok(self) -> bool:
+        return self.status == HELLO_OK
 
 
 @dataclass(frozen=True)
@@ -54,18 +78,27 @@ class PhoneSessionClient:
             headers["Content-Type"] = "application/json"
         return headers
 
-    def hello(self, timeout: float = REQUEST_TIMEOUT) -> Optional[tuple]:
-        """(phone_id, phone_name) from the unauthenticated /v1/hello, or None if nothing Telescope answered."""
+    def hello(self, timeout: float = REQUEST_TIMEOUT) -> Hello:
+        """Who answers on the session port (unauthenticated /v1/hello)."""
         try:
             with urllib.request.urlopen(f"{self.base}/v1/hello", timeout=timeout) as r:
                 body = json.loads(r.read().decode())
-            phone_id = body.get("phoneId")
-            if not isinstance(phone_id, str) or not phone_id:
-                return None
-            name = body.get("phoneName")
-            return phone_id, name if isinstance(name, str) else ""
+        except urllib.error.HTTPError as exc:
+            # The session server answers 404 for routes it doesn't know: an app from before /v1/hello.
+            return Hello(HELLO_MISSING if exc.code == 404 else HELLO_NONE)
         except Exception:
-            return None
+            return Hello(HELLO_NONE)
+        if not isinstance(body, dict):
+            return Hello(HELLO_NONE)
+        phone_id = body.get("phoneId")
+        if not isinstance(phone_id, str) or not phone_id:
+            return Hello(HELLO_NONE)
+
+        def field(key, kind, default):
+            value = body.get(key)
+            return value if isinstance(value, kind) and not isinstance(value, bool) else default
+        return Hello(HELLO_OK, phone_id, field("phoneName", str, ""), field("protocol", int, 0),
+                     field("appVersion", str, ""), field("build", int, 0))
 
     def ping(self) -> PingResult:
         """Check if token is still paired and phone status (200=paired, 401=unpaired, other=unreachable)."""

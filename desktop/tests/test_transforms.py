@@ -144,3 +144,40 @@ def test_saved_pan_config_updates_runtime_processing_state(transforms_plugin):
 
     assert plugin.pan_x == pytest.approx(0.75)
     assert plugin.pan_y == pytest.approx(-0.5)
+
+
+# ── Mapping a preview click back onto the phone's frame ──────────────────────
+
+from telescope.plugins.transforms import inverse_map  # noqa: E402
+
+
+@pytest.mark.parametrize("rotation", list(ROTATIONS.values()))
+@pytest.mark.parametrize("flip_h,flip_v", [(False, False), (True, False), (False, True), (True, True)])
+@pytest.mark.parametrize("zoom,pan", [(1.0, (0, 0)), (2.0, (0.0, 0.0)), (2.5, (0.6, -0.4))])
+def test_inverse_map_undoes_what_the_preview_shows(rotation, flip_h, flip_v, zoom, pan):
+    """Mark one pixel, run the real transforms, then map the marked pixel's spot back."""
+    w, h = 160, 90
+    src = (97, 41)
+    frame = np.zeros((h, w, 3), np.uint8)
+    frame[src[1], src[0]] = 255
+    out = _transform_frame(_apply_zoom(frame, zoom, *pan), flip_h, flip_v, rotation)
+    ys, xs = np.nonzero(out[:, :, 0] > 20)
+    oh, ow = out.shape[:2]
+    u, v = (xs.mean() + 0.5) / ow, (ys.mean() + 0.5) / oh
+    x, y = inverse_map(u, v, w, h, zoom, pan[0], pan[1], flip_h, flip_v, rotation)
+    assert abs(x * w - (src[0] + 0.5)) < 1.5
+    assert abs(y * h - (src[1] + 0.5)) < 1.5
+
+
+def test_inverse_map_clamps_and_survives_an_unknown_frame_size():
+    assert inverse_map(1.2, -0.1, 0, 0, zoom=2.0) == (1.0, 0.0)
+
+
+def test_a_picked_point_goes_out_in_phone_frame_coordinates(transforms_plugin):
+    plugin, _host, _panel = transforms_plugin
+    seen = []
+    plugin._bus.focus_point.connect(lambda x, y: seen.append((round(x, 3), round(y, 3))))
+    plugin.process_frame(np.zeros((90, 160, 3), np.uint8))
+    plugin.flip_h = True
+    plugin._bus.focus_point_picked.emit(0.25, 0.5)
+    assert seen == [(0.75, 0.5)]

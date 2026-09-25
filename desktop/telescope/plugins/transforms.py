@@ -25,16 +25,43 @@ def _apply_zoom(frame, zoom: float, pan_x: float, pan_y: float):
     if zoom <= 1.0:
         return frame
     h, w = frame.shape[:2]
+    x0, y0, crop_w, crop_h = _zoom_origin(w, h, zoom, pan_x, pan_y)
+    return cv2.resize(frame[y0:y0 + crop_h, x0:x0 + crop_w], (w, h),
+                      interpolation=cv2.INTER_LINEAR)
+
+
+def _zoom_origin(w: int, h: int, zoom: float, pan_x: float, pan_y: float) -> tuple:
+    """The crop _apply_zoom takes: (x0, y0, crop_w, crop_h) in source pixels."""
     crop_w = int(w / zoom)
     crop_h = int(h / zoom)
     max_dx = (w - crop_w) // 2
     max_dy = (h - crop_h) // 2
     cx = max_dx + int(pan_x * max_dx)
     cy = max_dy + int(pan_y * max_dy)
-    x0 = max(0, min(cx, w - crop_w))
-    y0 = max(0, min(cy, h - crop_h))
-    return cv2.resize(frame[y0:y0 + crop_h, x0:x0 + crop_w], (w, h),
-                      interpolation=cv2.INTER_LINEAR)
+    return max(0, min(cx, w - crop_w)), max(0, min(cy, h - crop_h)), crop_w, crop_h
+
+
+def inverse_map(u: float, v: float, w: int, h: int, zoom: float = 1.0, pan_x: float = 0.0,
+                pan_y: float = 0.0, flip_h: bool = False, flip_v: bool = False, rotation=None) -> tuple:
+    """A point in the transformed frame (u, v in 0..1) back to the phone's frame (w x h before transforms).
+
+    Undoes process_frame in reverse: rotation, then flip, then zoom/pan.
+    """
+    if rotation == cv2.ROTATE_90_CLOCKWISE:
+        u, v = v, 1.0 - u
+    elif rotation == cv2.ROTATE_180:
+        u, v = 1.0 - u, 1.0 - v
+    elif rotation == cv2.ROTATE_90_COUNTERCLOCKWISE:
+        u, v = 1.0 - v, u
+    if flip_h:
+        u = 1.0 - u
+    if flip_v:
+        v = 1.0 - v
+    if zoom > 1.0 and w > 0 and h > 0:
+        x0, y0, crop_w, crop_h = _zoom_origin(w, h, zoom, pan_x, pan_y)
+        u = (x0 + u * crop_w) / w
+        v = (y0 + v * crop_h) / h
+    return min(max(u, 0.0), 1.0), min(max(v, 0.0), 1.0)
 
 
 def _transform_frame(frame, flip_h: bool, flip_v: bool, rotation):
@@ -57,6 +84,9 @@ class TransformsPlugin(TelescopePlugin):
         self.zoom     = 1.0
         self.pan_x    = 0.0
         self.pan_y    = 0.0
+        self._frame_size = (0, 0)  # the phone's frame, for mapping preview clicks back onto it
+        self._bus = bus
+        bus.focus_point_picked.connect(self._on_point_picked)
 
     def create_panel(self) -> QWidget:
         card = create_card()
@@ -116,10 +146,16 @@ class TransformsPlugin(TelescopePlugin):
         self._on_pan_changed(0.0)
 
     def process_frame(self, frame: np.ndarray) -> np.ndarray:
+        self._frame_size = (frame.shape[1], frame.shape[0])
         frame = _apply_zoom(frame, self.zoom, self.pan_x, self.pan_y)
         return _transform_frame(frame, self.flip_h, self.flip_v, self.rotation)
 
     # ── Handlers (Qt thread) ──────────────────────────────────────────────────
+
+    def _on_point_picked(self, u: float, v: float):
+        w, h = self._frame_size
+        self._bus.focus_point.emit(*inverse_map(u, v, w, h, self.zoom, self.pan_x, self.pan_y,
+                                                self.flip_h, self.flip_v, self.rotation))
 
     def _on_flip(self):
         self.flip_h = self._flip_h.isChecked()

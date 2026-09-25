@@ -18,23 +18,23 @@ from typing import Optional
 
 from PyQt6.QtCore import QObject, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
-    QDialog, QHBoxLayout, QInputDialog, QLabel, QListWidget, QListWidgetItem,
+    QCheckBox, QDialog, QHBoxLayout, QInputDialog, QLabel, QListWidget, QListWidgetItem,
     QMessageBox, QPushButton, QVBoxLayout, QWidget,
 )
 
-from telescope import theme
+from telescope import h264_reader, theme
 from telescope.discovery import LanDiscovery
 from telescope.pairing import PairingServer
 from telescope.phones import (
-    LOCAL_ONLY, NOT_PAIRED, READY, ROUTE_AUTO, ROUTE_USB, ROUTE_WIFI, STREAM_PORT, UNREACHABLE,
+    DESKTOP_OUTDATED, LOCAL_ONLY, NOT_PAIRED, PHONE_OUTDATED, READY, ROUTE_AUTO, ROUTE_USB, ROUTE_WIFI, STREAM_PORT, UNREACHABLE,
     USB_NEEDS_ATTENTION, USB_NO_ADB, USB_NO_CABLE, Phone, Resolution, Route, RouteResolver, UsbTunnels, usb_note_text,
 )
 from telescope.platform import (
-    IS_LINUX, adb_available, adb_broadcast_pair, adb_device_states, adb_forward_auto,
-    adb_reverse, adb_unforward, adb_unreverse,
+    IS_LINUX, adb_available, adb_broadcast_pair, adb_device_states, adb_forward_auto, adb_install,
+    adb_reverse, adb_unforward, adb_unreverse, bundled_apk_path,
 )
 from telescope.platform.linux import (
-    V4L2_OBS_DEV, V4L2_PHONE_DEV, v4l2_devices_ready, v4l2_load, v4l2_module_loaded,
+    CANCELLED, V4L2_PHONE_DEV, v4l2_devices_ready, v4l2_module_loaded, v4l2_setup,
 )
 from telescope.plugin import TelescopePlugin
 from telescope.session_client import (
@@ -46,6 +46,7 @@ from telescope.widgets.common import (
     dialog_buttons, dialog_header, dialog_layout, run_off_ui_thread, set_status_kind, set_ui_role,
     ui_px, wrapped_note,
 )
+from telescope.widgets.banner import BannerAction, Issue, copy_action
 from telescope.widgets.qr import QRCodeWidget
 
 logger = logging.getLogger(__name__)
@@ -82,6 +83,8 @@ def status_line(res: Optional[Resolution]) -> tuple:
         NOT_PAIRED: ("status_err", "○ Needs pairing again"),
         LOCAL_ONLY: ("status_warn", "○ Phone accepts USB only"),
         USB_NEEDS_ATTENTION: ("status_warn", "○ USB not available"),
+        PHONE_OUTDATED: ("status_warn", "○ Phone app needs an update"),
+        DESKTOP_OUTDATED: ("status_warn", "○ This app needs an update"),
     }.get(res.status, ("status_dim", ""))
 
 
@@ -99,6 +102,10 @@ def problem_text(res: Resolution, phone_name: str, preference: str) -> str:
     if res.status == USB_NEEDS_ATTENTION:
         why = usb_note_text(res.usb_note) or "the phone isn't answering over USB"
         return f"The connection is set to USB, but {why}. Switch to Automatic to use Wi-Fi instead."
+    if res.status == PHONE_OUTDATED:
+        return f"The Telescope app on {phone_name} is older than this one. Update it on the phone."
+    if res.status == DESKTOP_OUTDATED:
+        return f"The Telescope app on {phone_name} is newer than this one. Update Telescope on this computer."
     return ""
 
 
@@ -367,6 +374,7 @@ class PhonesDialog(QDialog):
 class _Signals(QObject):
     resolved = pyqtSignal(int, object, object)   # check id, phone id, Resolution
     usb_available = pyqtSignal(int, bool)        # watch id, our phone answers over USB
+    phone_updated = pyqtSignal(bool, str)        # ok, what went wrong
 
 
 class ConnectionPlugin(TelescopePlugin):
@@ -403,6 +411,9 @@ class ConnectionPlugin(TelescopePlugin):
         self._signals = _Signals()
         self._signals.resolved.connect(self._on_resolved)
         self._signals.usb_available.connect(self._on_usb_available)
+        self._signals.phone_updated.connect(self._on_phone_updated)
+        self._updating_phone = False
+        self._update_note: Optional[tuple] = None  # (kind, text) from the last phone update
         bus.stream_connected.connect(self._on_stream_connected)
         bus.add_phone_requested.connect(self.open_add_phone)
 
@@ -471,6 +482,12 @@ class ConnectionPlugin(TelescopePlugin):
         self._switch_usb_row.setVisible(False)
         lay.addWidget(self._switch_usb_row)
 
+        self._update_btn = action_button("Update over USB", "primary")
+        self._update_btn.clicked.connect(self._update_action)
+        self._update_row = control_row_widget("", self._update_btn)
+        self._update_row.setVisible(False)
+        lay.addWidget(self._update_row)
+
         self._build_header()
 
         self._status_timer = QTimer(card)
@@ -526,6 +543,7 @@ class ConnectionPlugin(TelescopePlugin):
             self._route_row.setVisible(False)
             self._note_lbl.setText("")
             self._note_row.setVisible(False)
+            self._update_row.setVisible(False)
             return
         res = self._resolution
         kind, text = status_line(res)
@@ -547,8 +565,66 @@ class ConnectionPlugin(TelescopePlugin):
                 # A cable is in but not used: exactly when "why isn't it on USB?" needs an answer.
                 reason = usb_note_text(res.usb_note)
                 note = f"Not using USB: {reason}."
+        note_kind = "status_dim"
+        if self._update_note is not None:
+            note_kind, note = self._update_note
+        elif self._updating_phone:
+            note = "Updating the phone app over USB…"
+        set_status_kind(self._note_lbl, note_kind)
         self._note_lbl.setText(note)
         self._note_row.setVisible(bool(note))
+        action = None if self._streaming else self._outdated_action(res)
+        if action == "Update over USB" and self._update_note is None and not self._updating_phone:
+            note = f"The Telescope app on {phone.name} is older than this one."  # the button is the how
+            self._note_lbl.setText(note)
+        self._update_row.setVisible(action is not None)
+        if action is not None:
+            self._update_btn.setText(action)
+            self._update_btn.setEnabled(not self._updating_phone)
+
+    @staticmethod
+    def _outdated_action(res: Optional[Resolution]) -> Optional[str]:
+        """The button an app-version mismatch gets, if there's something to press."""
+        if res is None:
+            return None
+        if res.status == DESKTOP_OUTDATED:
+            return "Update this app"
+        if (res.status == PHONE_OUTDATED and res.route is not None and res.route.kind == "usb"
+                and bundled_apk_path() is not None and adb_available()):
+            return "Update over USB"
+        return None
+
+    # ── App versions ──────────────────────────────────────────────────────
+
+    def _update_action(self):
+        res = self._resolution
+        if res is None:
+            return
+        if res.status == DESKTOP_OUTDATED:
+            self._bus.update_requested.emit()
+            return
+        apk = bundled_apk_path()
+        if res.status != PHONE_OUTDATED or res.route is None or res.route.kind != "usb" or apk is None:
+            return
+        self._updating_phone = True
+        self._update_note = None
+        self._render()
+        signals, serial = self._signals, res.route.serial
+
+        def work():
+            ok, detail = adb_install(serial, apk)
+            try:
+                signals.phone_updated.emit(ok, detail)
+            except RuntimeError:
+                pass
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_phone_updated(self, ok: bool, detail: str):
+        self._updating_phone = False
+        self._update_note = ("status_ok", "Phone app updated. Open Telescope on the phone.") if ok \
+            else ("status_err", detail)
+        self._render()
+        self._check_status()
 
     # ── Status checks ─────────────────────────────────────────────────────
 
@@ -583,8 +659,13 @@ class ConnectionPlugin(TelescopePlugin):
         if check_id != self._check_id or phone_id != self._selected_id:
             return  # stale: a newer check, or the user switched phones meanwhile
         self._apply_resolution(res)
+        if not self._streaming:
+            # Only from the idle check, never from Start's own resolve, which would start it again.
+            self._bus.phone_ready.emit(phone_id, res.status == READY)
 
     def _apply_resolution(self, res: Resolution):
+        if self._update_note is not None and res.status not in (PHONE_OUTDATED, UNREACHABLE):
+            self._update_note = None  # the phone moved on from the update; its note is stale
         self._resolution = res
         phone = self._selected_phone()
         if phone and res.route is not None and res.route.kind == "wifi" and phone.active_ip != res.route.host:
@@ -608,58 +689,107 @@ class ConnectionPlugin(TelescopePlugin):
 
     # ── Stream lifecycle (called by the host) ─────────────────────────────
 
-    def get_stream_info(self) -> tuple:
-        if IS_LINUX and not self._ensure_virtual_camera():
+    def get_stream_info(self, interactive: bool = True) -> tuple:
+        if IS_LINUX and not self._ensure_virtual_camera(interactive):
             return None, None, False
         phone = self._selected_phone()
         if phone is None:
-            QMessageBox.information(self._host, "No phone yet",
-                                    "Add a phone first: click Add phone on the Connection panel.")
+            self._host.show_issue("start", Issue(
+                "No phone yet", "Add a phone to stream from.",
+                [BannerAction("Add phone", self.open_add_phone)], kind="warn"))
             return None, None, False
         res = run_off_ui_thread(self._resolver.resolve, Phone(**phone.to_dict()), self._route_pref)
         self._check_id += 1  # anything in flight is older than this
         self._apply_resolution(res)
         if res.status != READY:
-            QMessageBox.warning(self._host, "Can't connect to the phone",
-                                problem_text(res, phone.name, self._route_pref))
+            self._host.show_issue("start", Issue(
+                "Can't connect to the phone", problem_text(res, phone.name, self._route_pref),
+                self._fix_actions(res)))
             return None, None, False
         route = res.route
         if route.kind == "usb":
             local = run_off_ui_thread(self._tunnels.acquire, route.serial, STREAM_PORT)
             if local is None:
-                QMessageBox.warning(self._host, "Can't connect to the phone",
-                                    "adb couldn't open a connection to the phone. Unplug it, plug it "
-                                    "back in and try again.")
+                self._host.show_issue("start", Issue(
+                    "Can't connect to the phone",
+                    "adb couldn't open a connection to the phone. Unplug it, plug it back in and try again.",
+                    [BannerAction("Try again", self._host.start_stream)]))
                 return None, None, False
             self._stream_forward_serial = route.serial
-            url = f"http://127.0.0.1:{local}/v1/video"
+            url = f"http://127.0.0.1:{local}{self._video_path()}"
         else:
-            url = f"http://{route.host}:{STREAM_PORT}/v1/video"
+            url = f"http://{route.host}:{STREAM_PORT}{self._video_path()}"
         self._stream_route = route
         return url, phone.token, True
 
-    def _ensure_virtual_camera(self) -> bool:
+    def _video_path(self) -> str:
+        """The phone serves each format on its own route, and runs whichever one was opened last."""
+        out = self._host.plugin_config("stream_output") or {}
+        return "/v1/video.h264" if out.get("format") == "h264" and h264_reader.available() else "/v1/video"
+
+    def _fix_actions(self, res: Resolution) -> list:
+        """The banner buttons for a phone Start couldn't reach."""
+        if res.status == NOT_PAIRED:
+            return [BannerAction("Add phone", self.open_add_phone)]
+        update = self._outdated_action(res)
+        if update is not None:
+            return [BannerAction(update, self._update_action)]
+        actions = []
+        if res.status == USB_NEEDS_ATTENTION or (self._route_pref != ROUTE_AUTO and res.status == UNREACHABLE):
+            actions.append(BannerAction("Switch to Automatic", self._switch_to_automatic))
+        if res.status in (UNREACHABLE, LOCAL_ONLY, USB_NEEDS_ATTENTION):
+            actions.append(BannerAction("Try again", self._host.start_stream))
+        return actions
+
+    def _switch_to_automatic(self):
+        self.set_route_preference(ROUTE_AUTO)
+        self._host.start_stream()
+
+    def _ensure_virtual_camera(self, interactive: bool = True) -> bool:
         if v4l2_devices_ready():
             return True
         if v4l2_module_loaded():
-            QMessageBox.warning(
-                self._host, "Virtual camera is set up differently",
-                f"v4l2loopback is already loaded, but without {V4L2_PHONE_DEV}. Another app set it up "
-                "with different settings, and Telescope leaves that alone rather than break it.\n\n"
-                "To hand it over to Telescope, close the other app and run:\n"
-                "    sudo modprobe -r v4l2loopback\n\nThen click Start again.")
+            command = "sudo modprobe -r v4l2loopback"
+            self._host.show_issue("start", Issue(
+                "Virtual camera is set up differently",
+                f"v4l2loopback is loaded, but without {V4L2_PHONE_DEV}: another app set it up with other "
+                "settings. Close that app and run this to hand it over to Telescope:",
+                [copy_action(command)], details=command))
             return False
-        r = QMessageBox.question(
-            self._host, "Set up the virtual camera",
-            "Telescope needs to switch on its virtual camera first. This asks for your password.",
-            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
-            QMessageBox.StandardButton.Ok)
-        if r != QMessageBox.StandardButton.Ok:
+        if not interactive:
+            # Started by itself (nobody at the keyboard asked): no password prompt out of nowhere.
+            self._host.show_issue("start", Issue(
+                "The virtual camera is off", "Switching it on asks for your password.",
+                [BannerAction("Switch on", self._host.start_stream)], kind="warn"))
             return False
-        ok, msg = run_off_ui_thread(v4l2_load)
-        if not ok:
-            QMessageBox.critical(self._host, "Couldn't set up the virtual camera", msg)
-        return ok
+        persist = self._ask_virtual_camera()
+        if persist is None:
+            return False
+        result = run_off_ui_thread(v4l2_setup, persist)
+        if result.ok:
+            return True
+        if result.command:
+            self._host.show_issue("start", Issue(
+                "Set up the virtual camera", result.message,
+                [copy_action(result.command)], kind="warn", details=result.command))
+        elif result.message != CANCELLED:
+            self._host.show_issue("start", Issue("Couldn't set up the virtual camera", result.message,
+                                                 [BannerAction("Try again", self._host.start_stream)]))
+        return False
+
+    def _ask_virtual_camera(self) -> Optional[bool]:
+        """Consent to the password prompt. True/False: also switch it on at startup; None: cancelled."""
+        box = QMessageBox(self._host)
+        box.setWindowTitle("Set up the virtual camera")
+        box.setText("Telescope needs to switch on its virtual camera first. This asks for your password.")
+        check = QCheckBox("Also switch it on at every startup")
+        check.setChecked(True)
+        box.setCheckBox(check)
+        box.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
+        box.setDefaultButton(QMessageBox.StandardButton.Ok)
+        if box.exec() != QMessageBox.StandardButton.Ok:
+            return None
+        return check.isChecked()
 
     def session_target(self) -> SessionTarget:
         phone = self._selected_phone()
@@ -889,6 +1019,7 @@ class ConnectionPlugin(TelescopePlugin):
             self._host.stop_stream()
         self._selected_id = pid
         self._resolution = None
+        self._update_note = None
         self._refresh_combo()
         self._activate_profile(pid)
         self._render()

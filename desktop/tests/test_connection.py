@@ -1,14 +1,17 @@
 """Connection plugin: phone list, route display, stream setup, and per-phone settings."""
 
+from types import SimpleNamespace
+
 import pytest
 from PyQt6.QtWidgets import QMessageBox
 
 import telescope.plugins.connection as connection_module
 from telescope.pairing import PairingResult
 from telescope.phones import (
-    LOCAL_ONLY, NOT_PAIRED, READY, ROUTE_AUTO, ROUTE_USB, ROUTE_WIFI, UNREACHABLE,
+    DESKTOP_OUTDATED, LOCAL_ONLY, PHONE_OUTDATED, NOT_PAIRED, READY, ROUTE_AUTO, ROUTE_USB, ROUTE_WIFI, UNREACHABLE,
     USB_APP_CLOSED, USB_NEEDS_ATTENTION, USB_NO_CABLE, Resolution, Route,
 )
+from telescope.platform.linux import CANCELLED, PrivResult
 from telescope.plugin import EventBus
 from telescope.plugins.connection import (
     ConnectionPlugin, SessionTarget, problem_text, route_text, status_line,
@@ -27,6 +30,24 @@ class _Host:
         self.stops = 0
         self.forgotten = []
         self.streaming = False
+        self.issues = {}
+        self.starts = 0
+        self.configs = {}
+
+    def plugin_config(self, name):
+        return self.configs.get(name)
+
+    def show_issue(self, key, issue):
+        self.issues[key] = issue
+
+    def clear_issue(self, key=None):
+        if key is None:
+            self.issues.clear()
+        else:
+            self.issues.pop(key, None)
+
+    def start_stream(self):
+        self.starts += 1
 
     def schedule_save(self):
         self.saves += 1
@@ -121,7 +142,7 @@ def _add(plugin, pid="id-a", name="Pixel", token="tok-a", ips=("10.0.0.5",)):
 def test_status_line_covers_every_state():
     assert status_line(None) == ("status_dim", "Checking…")
     assert status_line(Resolution(READY, WIFI))[0] == "status_ok"
-    for status in (UNREACHABLE, LOCAL_ONLY, USB_NEEDS_ATTENTION):
+    for status in (UNREACHABLE, LOCAL_ONLY, USB_NEEDS_ATTENTION, PHONE_OUTDATED, DESKTOP_OUTDATED):
         assert status_line(Resolution(status))[0] == "status_warn"
     assert status_line(Resolution(NOT_PAIRED))[0] == "status_err"
 
@@ -138,6 +159,8 @@ def test_problem_text_says_what_to_do():
     assert "Local only" in problem_text(Resolution(LOCAL_ONLY), "Pixel", ROUTE_AUTO)
     forced = problem_text(Resolution(USB_NEEDS_ATTENTION, usb_note=USB_APP_CLOSED), "Pixel", ROUTE_USB)
     assert "isn't open" in forced and "Automatic" in forced
+    assert "Update it on the phone" in problem_text(Resolution(PHONE_OUTDATED), "Pixel", ROUTE_AUTO)
+    assert "on this computer" in problem_text(Resolution(DESKTOP_OUTDATED), "Pixel", ROUTE_AUTO)
     assert problem_text(Resolution(READY, WIFI), "Pixel", ROUTE_AUTO) == ""
 
 
@@ -284,6 +307,61 @@ def test_a_cable_that_is_not_used_gets_explained(plugin_env):
     assert plugin._note_lbl.text() == "Not using USB: phone plugged in, but Telescope isn't open on it."
 
 
+class _InlineThread:
+    def __init__(self, target, args=(), kwargs=None, daemon=None):
+        self._run = lambda: target(*args, **(kwargs or {}))
+
+    def start(self):
+        self._run()
+
+
+def test_an_outdated_phone_on_usb_can_be_updated_from_here(plugin_env, monkeypatch, tmp_path):
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    apk = tmp_path / "Telescope.apk"
+    apk.write_bytes(b"apk")
+    monkeypatch.setattr(connection_module, "bundled_apk_path", lambda: apk)
+    monkeypatch.setattr(connection_module, "adb_available", lambda: True)
+    monkeypatch.setattr(connection_module, "threading", SimpleNamespace(Thread=_InlineThread))
+    installs = []
+    monkeypatch.setattr(connection_module, "adb_install",
+                        lambda serial, path: installs.append((serial, path)) or (True, ""))
+
+    plugin._apply_resolution(Resolution(PHONE_OUTDATED, WIFI))
+    assert plugin._update_row.isHidden()  # over Wi-Fi the phone updates itself
+    plugin._apply_resolution(Resolution(PHONE_OUTDATED, USB))
+    assert not plugin._update_row.isHidden() and plugin._update_btn.text() == "Update over USB"
+    plugin._update_btn.click()
+    assert installs == [("serial-1", apk)]
+    assert plugin._note_lbl.text() == "Phone app updated. Open Telescope on the phone."
+    plugin._apply_resolution(Resolution(READY, USB))
+    assert plugin._update_row.isHidden() and plugin._note_row.isHidden()
+
+
+def test_a_failed_phone_update_says_why(plugin_env, monkeypatch, tmp_path):
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    monkeypatch.setattr(connection_module, "bundled_apk_path", lambda: tmp_path / "Telescope.apk")
+    monkeypatch.setattr(connection_module, "adb_available", lambda: True)
+    monkeypatch.setattr(connection_module, "threading", SimpleNamespace(Thread=_InlineThread))
+    monkeypatch.setattr(connection_module, "adb_install", lambda *_a: (False, "signed differently"))
+    plugin._apply_resolution(Resolution(PHONE_OUTDATED, USB))
+    plugin._update_btn.click()
+    assert plugin._note_lbl.text() == "signed differently"
+    assert plugin._note_lbl.objectName() == "status_err"
+
+
+def test_a_newer_phone_app_points_at_this_app_s_update(plugin_env):
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    asked = []
+    plugin._bus.update_requested.connect(lambda: asked.append(True))
+    plugin._apply_resolution(Resolution(DESKTOP_OUTDATED, WIFI))
+    assert plugin._update_btn.text() == "Update this app"
+    plugin._update_btn.click()
+    assert asked == [True]
+
+
 def test_stale_resolutions_are_ignored(plugin_env):
     plugin, _host, _panel = plugin_env
     _add(plugin)
@@ -315,20 +393,45 @@ def test_changing_the_route_saves_and_reconnects_a_live_stream(plugin_env):
 # ── Starting a stream ─────────────────────────────────────────────────────────
 
 def test_start_without_a_phone_explains_and_refuses(plugin_env, monkeypatch):
-    plugin, _host, _panel = plugin_env
-    shown = []
-    monkeypatch.setattr(connection_module.QMessageBox, "information", lambda *a: shown.append(a[1]))
+    plugin, host, _panel = plugin_env
+    opened = []
+    monkeypatch.setattr(ConnectionPlugin, "open_add_phone", lambda self: opened.append(True))
     assert plugin.get_stream_info() == (None, None, False)
-    assert shown == ["No phone yet"]
+    issue = host.issues["start"]
+    assert issue.title == "No phone yet"
+    issue.actions[0].callback()
+    assert opened == [True]
 
 
-def test_start_on_an_unreachable_phone_shows_the_fix(plugin_env, monkeypatch):
-    plugin, _host, _panel = plugin_env
+def test_start_on_an_unreachable_phone_shows_the_fix(plugin_env):
+    plugin, host, _panel = plugin_env
     _add(plugin)
-    shown = []
-    monkeypatch.setattr(connection_module.QMessageBox, "warning", lambda *a: shown.append(a[2]))
     assert plugin.get_stream_info() == (None, None, False)
-    assert "Open Telescope on Pixel" in shown[0]
+    issue = host.issues["start"]
+    assert "Open Telescope on Pixel" in issue.text
+    assert [a.label for a in issue.actions] == ["Try again"]
+    issue.actions[0].callback()
+    assert host.starts == 1
+
+
+def test_start_failures_offer_the_matching_fix(plugin_env, monkeypatch):
+    plugin, host, _panel = plugin_env
+    _add(plugin)
+    plugin._resolver.result = Resolution(NOT_PAIRED)
+    plugin.get_stream_info()
+    assert [a.label for a in host.issues["start"].actions] == ["Add phone"]
+
+    plugin._route_pref = ROUTE_USB
+    plugin._resolver.result = Resolution(USB_NEEDS_ATTENTION)
+    plugin.get_stream_info()
+    actions = host.issues["start"].actions
+    assert [a.label for a in actions] == ["Switch to Automatic", "Try again"]
+    actions[0].callback()
+    assert plugin._route_pref == ROUTE_AUTO and host.starts == 1
+
+    plugin._resolver.result = Resolution(DESKTOP_OUTDATED)
+    plugin.get_stream_info()
+    assert [a.label for a in host.issues["start"].actions] == ["Update this app"]
 
 
 def test_start_over_wifi_uses_the_resolved_address(plugin_env):
@@ -350,50 +453,89 @@ def test_start_over_usb_holds_a_forward_until_the_stream_stops(plugin_env):
     assert plugin._tunnels.held == {}
 
 
-def test_start_over_usb_reports_a_failed_forward(plugin_env, monkeypatch):
-    plugin, _host, _panel = plugin_env
+def test_start_uses_the_h264_route_only_when_chosen_and_decodable(plugin_env, monkeypatch):
+    plugin, host, _panel = plugin_env
+    _add(plugin, token="tok")
+    plugin._resolver.result = Resolution(READY, WIFI)
+    host.configs["stream_output"] = {"format": "h264"}
+    monkeypatch.setattr(connection_module.h264_reader, "available", lambda: True)
+    assert plugin.get_stream_info()[0] == "http://10.0.0.5:8080/v1/video.h264"
+    monkeypatch.setattr(connection_module.h264_reader, "available", lambda: False)
+    assert plugin.get_stream_info()[0] == "http://10.0.0.5:8080/v1/video"
+
+
+def test_start_over_usb_reports_a_failed_forward(plugin_env):
+    plugin, host, _panel = plugin_env
     _add(plugin)
     plugin._resolver.result = Resolution(READY, USB)
     plugin._tunnels.local = None
-    shown = []
-    monkeypatch.setattr(connection_module.QMessageBox, "warning", lambda *a: shown.append(a[2]))
     assert plugin.get_stream_info() == (None, None, False)
-    assert "adb" in shown[0]
+    assert "adb" in host.issues["start"].text
 
 
 def test_linux_virtual_camera_conflict_and_cancel(plugin_env, monkeypatch):
-    plugin, _host, _panel = plugin_env
+    plugin, host, _panel = plugin_env
     monkeypatch.setattr(connection_module, "IS_LINUX", True)
     monkeypatch.setattr(connection_module, "v4l2_devices_ready", lambda: False)
     monkeypatch.setattr(connection_module, "v4l2_module_loaded", lambda: True)
-    warnings = []
-    monkeypatch.setattr(connection_module.QMessageBox, "warning", lambda *a: warnings.append(a[1]))
     assert plugin.get_stream_info() == (None, None, False)
-    assert warnings == ["Virtual camera is set up differently"]
+    issue = host.issues["start"]
+    assert issue.title == "Virtual camera is set up differently"
+    assert issue.details == "sudo modprobe -r v4l2loopback"
+    assert issue.actions[0].label == "Copy command"
 
+    host.issues.clear()
     monkeypatch.setattr(connection_module, "v4l2_module_loaded", lambda: False)
-    monkeypatch.setattr(connection_module.QMessageBox, "question",
-                        lambda *a: QMessageBox.StandardButton.Cancel)
+    monkeypatch.setattr(ConnectionPlugin, "_ask_virtual_camera", lambda self: None)
+    monkeypatch.setattr(connection_module, "v4l2_setup",
+                        lambda persist: pytest.fail("no password prompt after Cancel"))
     assert plugin.get_stream_info() == (None, None, False)
+    assert host.issues == {}
 
 
-def test_linux_virtual_camera_load_failure_and_success(plugin_env, monkeypatch):
-    plugin, _host, _panel = plugin_env
+def test_linux_virtual_camera_one_prompt_with_the_startup_choice(plugin_env, monkeypatch):
+    plugin, host, _panel = plugin_env
     monkeypatch.setattr(connection_module, "IS_LINUX", True)
     monkeypatch.setattr(connection_module, "v4l2_devices_ready", lambda: False)
     monkeypatch.setattr(connection_module, "v4l2_module_loaded", lambda: False)
-    monkeypatch.setattr(connection_module.QMessageBox, "question",
-                        lambda *a: QMessageBox.StandardButton.Ok)
-    errors = []
-    monkeypatch.setattr(connection_module.QMessageBox, "critical", lambda *a: errors.append(a[1]))
-    monkeypatch.setattr(connection_module, "v4l2_load", lambda: (False, "denied"))
-    assert plugin.get_stream_info() == (None, None, False)
-    assert errors == ["Couldn't set up the virtual camera"]
+    choice = {"persist": True}
+    monkeypatch.setattr(ConnectionPlugin, "_ask_virtual_camera", lambda self: choice["persist"])
+    calls = []
 
+    def setup(persist):
+        calls.append(persist)
+        return PrivResult(False, "denied")
+    monkeypatch.setattr(connection_module, "v4l2_setup", setup)
+    assert plugin.get_stream_info() == (None, None, False)
+    assert calls == [True]
+    assert host.issues["start"].title == "Couldn't set up the virtual camera"
+
+    host.issues.clear()
+    monkeypatch.setattr(connection_module, "v4l2_setup", lambda persist: PrivResult(False, CANCELLED))
+    plugin.get_stream_info()
+    assert host.issues == {}  # the person said no; nothing to explain
+
+    choice["persist"] = False
+    monkeypatch.setattr(connection_module, "v4l2_setup", setup)
     _add(plugin)
     plugin._resolver.result = Resolution(READY, WIFI)
-    monkeypatch.setattr(connection_module, "v4l2_load", lambda: (True, "ok"))
+    monkeypatch.setattr(connection_module, "v4l2_setup", lambda persist: calls.append(persist) or PrivResult(True, "ok"))
     assert plugin.get_stream_info()[2] is True
+    assert calls[-1] is False
+
+
+def test_linux_virtual_camera_without_a_password_prompt_shows_the_command(plugin_env, monkeypatch):
+    plugin, host, _panel = plugin_env
+    monkeypatch.setattr(connection_module, "IS_LINUX", True)
+    monkeypatch.setattr(connection_module, "v4l2_devices_ready", lambda: False)
+    monkeypatch.setattr(connection_module, "v4l2_module_loaded", lambda: False)
+    monkeypatch.setattr(ConnectionPlugin, "_ask_virtual_camera", lambda self: True)
+    monkeypatch.setattr(connection_module, "v4l2_setup",
+                        lambda persist: PrivResult(False, "no prompt", "sudo modprobe v4l2loopback"))
+    plugin.get_stream_info()
+    issue = host.issues["start"]
+    assert issue.details == "sudo modprobe v4l2loopback"
+    assert [a.label for a in issue.actions] == ["Copy command"]
 
 
 # ── Plugged in mid-stream ─────────────────────────────────────────────────────
@@ -676,3 +818,30 @@ def test_card_says_connecting_until_the_first_frame(plugin_env):
     assert plugin._status_lbl.text() == "Connecting…"
     plugin._bus.stream_connected.emit()
     assert plugin._status_lbl.text() == "● Streaming"
+
+
+def test_idle_checks_tell_whether_the_phone_is_ready(plugin_env):
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    seen = []
+    plugin._bus.phone_ready.connect(lambda pid, ready: seen.append(ready))
+    pid = plugin._selected_id
+    plugin._on_resolved(plugin._check_id, pid, Resolution(READY, WIFI))
+    plugin._on_resolved(plugin._check_id, pid, Resolution(UNREACHABLE))
+    assert seen == [True, False]
+    plugin._resolver.result = Resolution(READY, WIFI)
+    plugin.get_stream_info()  # Start's own resolve must not announce it (it would start again)
+    assert seen == [True, False]
+
+
+def test_a_start_nobody_asked_for_never_prompts_for_a_password(plugin_env, monkeypatch):
+    plugin, host, _panel = plugin_env
+    monkeypatch.setattr(connection_module, "IS_LINUX", True)
+    monkeypatch.setattr(connection_module, "v4l2_devices_ready", lambda: False)
+    monkeypatch.setattr(connection_module, "v4l2_module_loaded", lambda: False)
+    monkeypatch.setattr(ConnectionPlugin, "_ask_virtual_camera", lambda self: pytest.fail("no prompt"))
+    assert plugin.get_stream_info(interactive=False) == (None, None, False)
+    issue = host.issues["start"]
+    assert issue.title == "The virtual camera is off"
+    issue.actions[0].callback()
+    assert host.starts == 1

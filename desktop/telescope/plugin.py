@@ -1,8 +1,11 @@
-from typing import Optional, Protocol
+from typing import TYPE_CHECKING, Optional, Protocol
 
 import numpy as np
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtWidgets import QWidget
+
+if TYPE_CHECKING:
+    from telescope.widgets.banner import Issue
 
 
 UNCHANGED = object()
@@ -54,6 +57,35 @@ class HostServices(Protocol):
         """Recreate the virtual camera and stream at a new canvas size."""
         ...
 
+    def quit_app(self) -> None:
+        """Stop streaming, shut every plugin down and quit (the tray's Quit)."""
+        ...
+
+    def start_stream(self, interactive: bool = True) -> None:
+        """Start streaming, as the Start button does; a no-op if already streaming or starting.
+        interactive=False never asks anything (no password prompt): problems go to a banner."""
+        ...
+
+    def set_keep_in_tray(self, keep: bool) -> None:
+        """Closing the window hides it to the tray even when idle (something is waiting to start)."""
+        ...
+
+    def show_issue(self, key: str, issue: "Issue") -> None:
+        """Show a problem banner above the body (telescope.widgets.banner.Issue); the same key replaces it."""
+        ...
+
+    def clear_issue(self, key: Optional[str] = None) -> None:
+        """Remove one banner, or all of them."""
+        ...
+
+    def plugin_config(self, name: str) -> Optional[dict]:
+        """Another plugin's current get_config(), or None if it isn't registered."""
+        ...
+
+    def apply_preset(self, name: str, cfg: dict) -> None:
+        """Hand a saved config to another plugin's apply_preset(); unknown names are ignored."""
+        ...
+
 
 class TelescopePlugin:
     name: str = ""
@@ -63,6 +95,9 @@ class TelescopePlugin:
 
     def setup(self, host: HostServices, bus: "EventBus"): ...
     def create_panel(self) -> Optional[QWidget]: return None
+
+    header_side: str = "left"
+    """Where the header widget goes: "left" (with the phone picker) or "right" (beside the settings button)."""
 
     def create_header_widget(self) -> Optional[QWidget]:
         """Compact header bar widget (e.g. device picker), not panel content."""
@@ -77,6 +112,9 @@ class TelescopePlugin:
     def process_frame(self, frame: np.ndarray) -> np.ndarray: return frame
     def get_config(self) -> dict: return {}
     def set_config(self, cfg: dict): ...
+    def apply_preset(self, cfg: dict):
+        """Load settings from a preset; plugins that drive the phone also send them while streaming."""
+        self.set_config(cfg)
     def shutdown(self):
         """App is quitting: stop background services the plugin started."""
 
@@ -96,3 +134,13 @@ class EventBus(QObject):
     """Lens switch sent to phone; carries selected camera capability dict."""
     resolution_change_requested = pyqtSignal(int, int)
     """Resolution change sent to phone; host shows pending state until confirmed."""
+    focus_point_picked     = pyqtSignal(float, float)
+    """A point picked on the preview, 0..1 in the frame as shown (after transforms)."""
+    focus_point            = pyqtSignal(float, float)
+    """The same point, 0..1 in the phone's own frame (transforms undone); camera control sends it."""
+    focus_point_available  = pyqtSignal(bool)
+    """Whether the current lens can focus on a point (and a stream is running to send it to)."""
+    phone_ready            = pyqtSignal(str, bool)
+    """The selected phone's id and whether Start would work right now (idle status checks only)."""
+    update_requested       = pyqtSignal()
+    """Show the desktop app's update dialog (e.g. the phone app turned out to be newer)."""

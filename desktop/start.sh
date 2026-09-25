@@ -41,4 +41,4 @@ fi
 "$VENV_DIR/bin/python3" -m pip install --quiet "${PIP_ARGS[@]}"
 
 echo "Launching..."
-"$VENV_DIR/bin/python3" main.py
+exec "$VENV_DIR/bin/python3" main.py "$@"

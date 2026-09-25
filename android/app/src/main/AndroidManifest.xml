@@ -6,10 +6,14 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- The phone app installs its own updates (Updater.kt); Android still asks the user each time. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <uses-feature android:name="android.hardware.camera.any" android:required="true" />
 
@@ -35,9 +39,13 @@
             </intent-filter>
         </activity>
 
+        <receiver
+            android:name=".UpdateInstallReceiver"
+            android:exported="false" />
+
         <service
             android:name=".CameraStreamService"
-            android:foregroundServiceType="camera"
+            android:foregroundServiceType="camera|microphone"
             android:exported="false" />
 
         <activity

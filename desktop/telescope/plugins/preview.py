@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from PyQt6.QtCore import Qt, QEvent, QObject, QSize, pyqtSignal
+from PyQt6.QtCore import Qt, QEvent, QObject, QPoint, QSize, QTimer, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget,
@@ -19,6 +19,55 @@ class _Sig(QObject):
     frame = pyqtSignal(object)
 
 
+_MARKER = 44  # the square drawn where you clicked, in px
+
+
+class FrameLabel(QLabel):
+    """A QLabel showing a letterboxed frame that reports clicks as a point in the frame (0..1)."""
+
+    picked = pyqtSignal(float, float)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._pickable = False
+        self._marker = QFrame(self)
+        self._marker.setObjectName("focus_marker")
+        self._marker.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self._marker.resize(_MARKER, _MARKER)
+        self._marker.hide()
+        self._marker_timer = QTimer(self)
+        self._marker_timer.setSingleShot(True)
+        self._marker_timer.timeout.connect(self._marker.hide)
+
+    def set_pickable(self, on: bool):
+        self._pickable = on
+        self.setCursor(Qt.CursorShape.CrossCursor if on else Qt.CursorShape.ArrowCursor)
+
+    def frame_point(self, pos: QPoint):
+        """Where pos falls in the shown frame, as (u, v) in 0..1, or None in the letterbox bars."""
+        pm = self.pixmap()
+        if pm is None or pm.isNull():
+            return None
+        pw, ph = pm.width() / pm.devicePixelRatio(), pm.height() / pm.devicePixelRatio()
+        x0, y0 = (self.width() - pw) / 2, (self.height() - ph) / 2
+        u, v = (pos.x() - x0) / pw, (pos.y() - y0) / ph
+        if not (0.0 <= u <= 1.0 and 0.0 <= v <= 1.0):
+            return None
+        return u, v
+
+    def mousePressEvent(self, event):
+        point = self.frame_point(event.position().toPoint()) if self._pickable else None
+        if point is None or event.button() != Qt.MouseButton.LeftButton:
+            super().mousePressEvent(event)
+            return
+        pos = event.position().toPoint()
+        self._marker.move(pos.x() - _MARKER // 2, pos.y() - _MARKER // 2)
+        self._marker.show()
+        self._marker.raise_()
+        self._marker_timer.start(1000)
+        self.picked.emit(*point)
+
+
 class _PopoutWindow(QWidget):
     """Floating preview window that enforces the stream's aspect ratio on resize."""
 
@@ -31,7 +80,7 @@ class _PopoutWindow(QWidget):
         self._aspect: float = 16 / 9
         self._adjusting = False
 
-        self._lbl = QLabel()
+        self._lbl = FrameLabel()
         self._lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self._lbl.setStyleSheet("background: #000;")
@@ -101,6 +150,9 @@ class PreviewPlugin(TelescopePlugin):
         self._host_filter.visibility_changed.connect(self._on_host_visibility)
         host.installEventFilter(self._host_filter)
         bus.setup_needed.connect(self._on_setup_needed)
+        self._bus = bus
+        self._pickable = False
+        bus.focus_point_available.connect(self._on_focus_point_available)
 
     def create_panel(self) -> QWidget:
         """Video stage: letterboxed frame area with toolbar beneath (centre column, no chrome)."""
@@ -111,7 +163,8 @@ class PreviewPlugin(TelescopePlugin):
         lay.setContentsMargins(1, 1, 1, 1)
         lay.setSpacing(0)
 
-        self._preview_lbl = QLabel()
+        self._preview_lbl = FrameLabel()
+        self._preview_lbl.picked.connect(self._bus.focus_point_picked.emit)
         self._preview_lbl.setObjectName("preview_surface")
         self._preview_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._preview_lbl.setMinimumHeight(240)
@@ -185,6 +238,8 @@ class PreviewPlugin(TelescopePlugin):
 
         self._popout = _PopoutWindow(None)
         self._popout.closed.connect(self._on_popout_closed)
+        self._popout._lbl.picked.connect(self._bus.focus_point_picked.emit)
+        self._popout._lbl.set_pickable(self._pickable)
         self._popout.resize(640, 360)
         self._popout.show()
         self._popout_active = True
@@ -193,6 +248,12 @@ class PreviewPlugin(TelescopePlugin):
         self._popout = None
         self._popout_active = False
         self._toggle_btn.setEnabled(True)
+
+    def _on_focus_point_available(self, available: bool):
+        self._pickable = available
+        self._preview_lbl.set_pickable(available)
+        if self._popout is not None:
+            self._popout._lbl.set_pickable(available)
 
     def _on_host_visibility(self, visible: bool):
         self._host_visible = visible

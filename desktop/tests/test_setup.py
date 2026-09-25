@@ -142,8 +142,8 @@ def windows_dialog(monkeypatch, qapp):
 @pytest.mark.parametrize(
     "uc_ok,adb_ok,uc_text,uc_button,adb_text",
     [
-        (True, True, "Ready", "Reinstall", "Ready"),
-        (False, False, "Not installed", "Install driver", "Not found. Pairing and installing over USB won't work."),
+        ("Telescope", True, "Ready", "Reinstall", "Ready"),
+        ("", False, "Not installed", "Install driver", "Not found. Pairing and installing over USB won't work."),
     ],
 )
 def test_windows_setup_status(
@@ -160,17 +160,23 @@ def test_windows_setup_status(
 
 def test_windows_status_offers_download_when_dll_missing(monkeypatch, windows_dialog, tmp_path):
     monkeypatch.setattr(setup_mod, "unitycapture_dir", lambda: tmp_path)
-    windows_dialog._on_win_checks(False, True)
+    windows_dialog._on_win_checks("", True)
     assert windows_dialog._uc_btn.text() == "Install driver"
     assert "downloads" in windows_dialog._uc_status_lbl.text()
 
 
 def test_windows_background_check_emits_current_status(monkeypatch, windows_dialog):
-    monkeypatch.setattr(setup_mod, "uc_is_registered", lambda: True)
+    monkeypatch.setattr(setup_mod, "uc_registered_name", lambda: "Telescope")
     monkeypatch.setattr(setup_mod, "adb_available", lambda: False)
     windows_dialog._check_win_setup()
     assert windows_dialog._uc_status_lbl.text() == "Ready"
     assert "Not found" in windows_dialog._adb_status_lbl.text()
+
+
+def test_an_old_registration_offers_the_rename(windows_dialog):
+    windows_dialog._on_win_checks("Unity Video Capture", True)
+    assert windows_dialog._uc_btn.text() == "Rename"
+    assert "Unity Video Capture" in windows_dialog._uc_status_lbl.text()
 
 
 def test_install_unitycapture_downloads_then_registers(monkeypatch, windows_dialog, tmp_path):
@@ -247,19 +253,14 @@ def test_apk_install_uses_selected_device_and_reports_success(monkeypatch, qapp,
     monkeypatch.setattr(setup_mod, "adb_available", lambda: True)
     monkeypatch.setattr(setup_mod, "bundled_apk_path", lambda: apk)
     monkeypatch.setattr(setup_mod, "adb_devices", lambda: ["a", "b"])
-    monkeypatch.setattr(setup_mod, "adb_exe", lambda: "adb")
     monkeypatch.setattr(setup_mod.QInputDialog, "getItem", lambda *_args: ("b", True))
     monkeypatch.setattr(setup_mod.threading, "Thread", _ImmediateThread)
     calls = []
-    monkeypatch.setattr(
-        setup_mod,
-        "_run",
-        lambda cmd, timeout: calls.append((cmd, timeout)) or (0, "Success\n", ""),
-    )
+    monkeypatch.setattr(setup_mod, "adb_install", lambda serial, path: calls.append((serial, path)) or (True, ""))
 
     dialog._install_apk()
 
-    assert calls == [(["adb", "-s", "b", "install", "-r", str(apk)], 60)]
+    assert calls == [("b", str(apk))]
     assert dialog._apk_status_lbl.text() == "Installed"
     assert dialog._apk_status_lbl.objectName() == "status_ok"
 
@@ -276,13 +277,8 @@ def test_apk_install_cancel_and_failure_detail(monkeypatch, qapp, tmp_path):
     assert dialog._apk_btn.isEnabled()
 
     monkeypatch.setattr(setup_mod, "adb_devices", lambda: ["a"])
-    monkeypatch.setattr(setup_mod, "adb_exe", lambda: "adb")
     monkeypatch.setattr(setup_mod.threading, "Thread", _ImmediateThread)
-    monkeypatch.setattr(
-        setup_mod,
-        "_run",
-        lambda *_args, **_kwargs: (1, "line one\n", "Failure [bad apk]\n"),
-    )
+    monkeypatch.setattr(setup_mod, "adb_install", lambda *_args: (False, "Failure [bad apk]"))
     dialog._install_apk()
     assert dialog._apk_status_lbl.text() == "Failure [bad apk]"
     assert dialog._apk_status_lbl.objectName() == "status_err"
@@ -308,11 +304,13 @@ def test_apk_picker_cancel_and_selected_file(monkeypatch, qapp, tmp_path):
         lambda *_args: (str(chosen), "Android Package (*.apk)"),
     )
     monkeypatch.setattr(setup_mod, "adb_devices", lambda: ["phone"])
-    monkeypatch.setattr(setup_mod, "adb_exe", lambda: "adb")
     monkeypatch.setattr(setup_mod.threading, "Thread", _ImmediateThread)
-    monkeypatch.setattr(setup_mod, "_run", lambda *_args, **_kwargs: (1, "", ""))
+    installed = []
+    monkeypatch.setattr(setup_mod, "adb_install",
+                        lambda serial, path: installed.append(path) or (False, "adb install failed"))
     dialog._install_apk()
-    assert dialog._apk_status_lbl.text() == "unknown error"
+    assert installed == [str(chosen)]
+    assert dialog._apk_status_lbl.text() == "adb install failed"
 
 
 def test_setup_plugin_opens_reuses_dialogs_and_syncs_config(monkeypatch, qapp):
