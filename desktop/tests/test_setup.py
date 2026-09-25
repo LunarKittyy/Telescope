@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from PyQt6.QtGui import QShowEvent
+from PyQt6.QtGui import QGuiApplication, QShowEvent
 from PyQt6.QtWidgets import QDialog, QFileDialog, QWidget
 
 import telescope.plugins.setup as setup_mod
@@ -31,6 +31,9 @@ class _Host(QWidget):
         self.restarts.append((w, h))
         if on_done:
             on_done(True, "ok")
+
+    def diagnostics_report(self):
+        return "Telescope test report"
 
 
 def test_dialog_preset_visibility_and_apply_callback(qapp):
@@ -330,6 +333,10 @@ def test_setup_plugin_opens_reuses_dialogs_and_syncs_config(monkeypatch, qapp):
     assert first._custom_w.value() == 900
     plugin._open()
     assert plugin._dlg is first
+    assert first._diag_btn.isVisibleTo(first)
+    first._diag_btn.click()
+    assert QGuiApplication.clipboard().text() == "Telescope test report"
+    assert first._diag_btn.text() == "Copied"
     first.hide()
 
 

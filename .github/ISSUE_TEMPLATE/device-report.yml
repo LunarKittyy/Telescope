@@ -1,0 +1,56 @@
+name: Device report
+description: Tried Telescope on a phone? Tell us what worked, so it can go in the compatibility list
+title: "[Device] "
+labels: [device-report]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This fills a row in [the device compatibility list](https://github.com/LunarKittyy/Telescope/blob/master/docs/device-compatibility.md). Anything you didn't try, leave as `-`. If something is broken, a separate bug report with the details is even better.
+
+  - type: textarea
+    id: phone-diagnostics
+    attributes:
+      label: Phone diagnostics
+      description: In the Telescope app on the phone, open About and tap **Copy diagnostics**, then paste here. Or just write the phone model, Android version and app version.
+      render: text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: desktop-os
+    attributes:
+      label: Computer
+      options:
+        - Windows
+        - Linux
+    validations:
+      required: true
+
+  - type: textarea
+    id: results
+    attributes:
+      label: What worked
+      description: "`OK` worked, `PARTIAL` worked with caveats (add a note), `FAIL` didn't work, `-` didn't try."
+      value: |
+        USB pairing: -
+        Wi-Fi pairing: -
+        Lens selection (all lenses show up, switching changes the picture): -
+        Zoom on the Auto lens (switches to telephoto when zoomed in): -
+        Manual ISO / shutter: -
+        Manual white balance: -
+        Manual focus / click to focus: -
+        OIS toggle: -
+        H.264: -
+        Microphone: -
+        Reconnect after unplugging or dropping Wi-Fi: -
+        Battery / temperature readouts: -
+        Start and stop from the desktop: -
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Optional. Anything odd, or details on a PARTIAL.

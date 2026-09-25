@@ -1319,3 +1319,26 @@ def test_start_stream_passes_on_that_nobody_asked(window):
     window.register_plugin(conn)
     window.start_stream(interactive=False)
     assert seen == [False]
+
+
+def test_diagnostics_report_gathers_plugins_and_recent_status(window, monkeypatch):
+    from telescope import diagnostics
+    monkeypatch.setattr(diagnostics, "events", diagnostics.EventLog())
+
+    class Reports(_Plugin):
+        def diagnostics(self):
+            return {"Connection": "usb"}
+
+    class Broken(_Plugin):
+        def diagnostics(self):
+            raise KeyError("gone")
+
+    window.register_plugin(Reports("connection", {}))
+    window.register_plugin(Broken("broken", {}))
+    window._set_status("Can't reach the phone", "err")
+
+    lines = window.diagnostics_report().splitlines()
+    assert "Streaming: no" in lines
+    assert "Connection: usb" in lines
+    assert "broken: couldn't read (KeyError)" in lines
+    assert any(line.endswith("NOTE Status: Can't reach the phone") for line in lines)

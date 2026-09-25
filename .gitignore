@@ -38,3 +38,6 @@ Thumbs.db
 
 # Written by CI (desktop/scripts/write_build_info.py)
 desktop/telescope/_build.py
+
+# Link to the log in the temp folder (desktop/telescope/diagnostics.py)
+desktop/telescope.log

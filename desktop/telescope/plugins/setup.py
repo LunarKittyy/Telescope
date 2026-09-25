@@ -1,12 +1,13 @@
 import threading
 from typing import Optional
 
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QAction
+from PyQt6.QtCore import Qt, QTimer, QUrl, pyqtSignal
+from PyQt6.QtGui import QAction, QDesktopServices, QGuiApplication
 from PyQt6.QtWidgets import (
     QCheckBox, QDialog, QHBoxLayout, QInputDialog, QLabel, QPushButton, QWidget,
 )
 
+from telescope import diagnostics
 from telescope.platform import IS_LINUX, adb_available, adb_devices, adb_install, bundled_apk_path
 from telescope.platform.linux import (
     V4L2_OBS_DEV, V4L2_PHONE_DEV, as_text,
@@ -58,8 +59,9 @@ class AdvancedDialog(QDialog):
     _sig_uc_msg       = pyqtSignal(str)
     _sig_apk_done     = pyqtSignal(bool, str)
 
-    def __init__(self, parent=None, on_apply_canvas=None, on_max_zoom=None):
+    def __init__(self, parent=None, on_apply_canvas=None, report=None, on_max_zoom=None):
         super().__init__(parent)
+        self._report = report
         self.setWindowTitle("Advanced")
         self.setMinimumWidth(ui_px(560))
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
@@ -246,11 +248,34 @@ class AdvancedDialog(QDialog):
         version_lbl = QLabel(f"Telescope {display_version()}")
         version_lbl.setObjectName("dim")
         version_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        lay.addWidget(version_lbl)
+        self._diag_btn = QPushButton("Copy diagnostics")
+        self._diag_btn.setToolTip("Copies the version, system, connection and the end of the log, for a bug report.\n"
+                                  "Never includes pairing tokens, addresses or file paths.")
+        self._diag_btn.clicked.connect(self._copy_diagnostics)
+        self._diag_btn.setVisible(self._report is not None)
+        version_row = QHBoxLayout()
+        version_row.addWidget(version_lbl)
+        version_row.addStretch(1)
+        self._log_btn = QPushButton("Open log")
+        self._log_btn.setToolTip("The full log. It lives in the temp folder, so the system clears it.")
+        self._log_btn.clicked.connect(self._open_log)
+        self._log_btn.setVisible(self._report is not None and diagnostics.events.path is not None)
+        version_row.addWidget(self._log_btn)
+        version_row.addWidget(self._diag_btn)
+        lay.addLayout(version_row)
 
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.accept)
         dialog_buttons(lay, close_btn)
+
+    def _copy_diagnostics(self):
+        QGuiApplication.clipboard().setText(self._report())
+        self._diag_btn.setText("Copied")
+        QTimer.singleShot(2000, lambda: self._diag_btn.setText("Copy diagnostics"))
+
+    def _open_log(self):
+        if diagnostics.events.path is not None:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(diagnostics.events.path)))
 
     def _on_preset_changed(self, label: str):
         self._custom_widget.setVisible(label == "Custom...")
@@ -513,6 +538,7 @@ class SetupPlugin(TelescopePlugin):
     def _open(self):
         if self._dlg is None:
             self._dlg = AdvancedDialog(self._host, on_apply_canvas=self._on_apply_canvas,
+                                       report=self._host.diagnostics_report,
                                        on_max_zoom=self._on_max_zoom)
         self._dlg.set_canvas_preset(self._canvas_preset, self._custom_w, self._custom_h)
         self._dlg.set_max_zoom(self._max_zoom)

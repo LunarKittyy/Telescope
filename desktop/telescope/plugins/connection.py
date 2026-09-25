@@ -1049,6 +1049,21 @@ class ConnectionPlugin(TelescopePlugin):
 
     # ── Config ────────────────────────────────────────────────────────────
 
+    def diagnostics(self) -> dict:
+        res = self._resolution
+        route = self._stream_route if self._streaming else (res.route if res else None)
+        out = {
+            "Paired phones": str(len(self._phones)),
+            "Connect via": self._route_pref,
+            "Connection": route.kind if route else "none",
+            "Phone status": res.status if res else "not checked",
+        }
+        if res and res.usb_note:
+            out["USB"] = res.usb_note
+        if res and res.phone_version:
+            out["Phone app"] = res.phone_version
+        return out
+
     def get_config(self) -> dict:
         return {
             "computer_id": self._computer_id,

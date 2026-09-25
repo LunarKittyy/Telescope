@@ -1,0 +1,25 @@
+name: Suggestion
+description: An idea for something new, or a change to how something works
+title: "[Suggestion] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The situation you're in and what gets in the way. This matters more than the solution, there might be a simpler one.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help?
+      description: Optional. How you picture it working. If another app already does this well, name it.
+
+  - type: input
+    id: phone
+    attributes:
+      label: Phone
+      description: Optional, but useful for anything camera related, since lenses and features differ a lot between phones.
+      placeholder: Galaxy S25 Ultra, Android 16

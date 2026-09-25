@@ -250,6 +250,11 @@ class MicrophonePlugin(TelescopePlugin):
             worker.stop()
         self._backend.teardown()
 
+    def diagnostics(self) -> dict:
+        if not self._enabled:
+            return {"Microphone": "off"}
+        return {"Microphone": "on, " + ("running" if self._worker is not None else "not running")}
+
     def get_config(self) -> dict:
         return {"enabled": self._enabled}
 

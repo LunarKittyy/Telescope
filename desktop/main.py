@@ -4,6 +4,7 @@
 import argparse
 import sys
 import threading
+from pathlib import Path
 
 _missing = []
 try:    from PyQt6.QtCore import Qt
@@ -25,6 +26,7 @@ if _missing:
 
 from PyQt6.QtWidgets import QApplication
 
+from telescope import diagnostics
 from telescope.app import (
     TelescopeWindow, acquire_single_instance, listen_for_raise,
 )
@@ -57,6 +59,8 @@ def parse_args(argv):
 
 def main():
     args, qt_argv = parse_args(sys.argv[1:])
+    app_dir = Path(sys.executable if getattr(sys, "frozen", False) else __file__).resolve().parent
+    diagnostics.install(app_dir)
     app = QApplication([sys.argv[0]] + qt_argv)
     # Set at QApplication level so dialogs and window share icon.
     app.setWindowIcon(create_app_icon(64))
