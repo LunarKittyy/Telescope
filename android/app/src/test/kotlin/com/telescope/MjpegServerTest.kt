@@ -2,6 +2,7 @@ package com.telescope
 
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayOutputStream
@@ -288,6 +289,29 @@ class MjpegServerTest {
                     .contains("Content-Length: ${jpeg.size}"))
                 val received = input.readNBytes(jpeg.size)
                 assertArrayEquals(jpeg, received)
+            }
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `a video viewer counts as active only while it takes frames`() {
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("secret-token") })
+        server.start()
+        try {
+            assertFalse(server.hasActiveViewer())
+            Socket("127.0.0.1", actualPort(server)).use { socket ->
+                socket.soTimeout = 2_000
+                socket.getOutputStream().apply {
+                    write("GET /v1/video HTTP/1.1\r\nAuthorization: Bearer secret-token\r\n\r\n".toByteArray())
+                    flush()
+                }
+                readUntil(socket.getInputStream(), "\r\n\r\n".toByteArray())
+                assertTrue(server.hasActiveViewer())
+                // Nothing written for longer than the stale window: a link that went quiet.
+                val later = System.currentTimeMillis() + MjpegServer.VIEWER_STALE_MS + 1_000
+                assertFalse(server.hasActiveViewer(later))
             }
         } finally {
             server.stop()

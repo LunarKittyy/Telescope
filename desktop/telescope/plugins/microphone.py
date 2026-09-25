@@ -232,7 +232,10 @@ class MicrophonePlugin(TelescopePlugin):
     # ── Plugin hooks ──────────────────────────────────────────────────────────
 
     def on_stream_start(self, stream_url: str, ctrl):
+        moved = self._ctrl is not None and ctrl is not None and self._ctrl.base != ctrl.base
         self._ctrl = ctrl
+        if moved:
+            self._stop_worker()  # the stream came back over another route; its audio lives there too
         self._start_worker()
 
     def on_stream_stop(self):

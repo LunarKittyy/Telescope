@@ -581,6 +581,70 @@ def test_a_usb_answer_after_the_stream_stopped_is_ignored(plugin_env):
     assert plugin._switch_usb_row.isHidden()
 
 
+# ── A dropped stream ──────────────────────────────────────────────────────────
+
+def _streaming_over(plugin, route):
+    plugin._resolver.result = Resolution(READY, route)
+    url, _token, ok = plugin.get_stream_info()
+    assert ok
+    plugin.on_stream_start(url, None)
+    plugin._on_stream_connected()
+
+
+def test_a_lost_stream_says_reconnecting_until_frames_return(plugin_env):
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    _streaming_over(plugin, WIFI)
+    assert plugin._status_lbl.fullText() == "● Streaming"
+
+    plugin._on_stream_lost()
+    assert plugin._status_lbl.fullText() == "Reconnecting…"
+    assert not plugin._usb_watch_timer.isActive()  # recovery picks USB up by itself
+
+    plugin._on_stream_connected()
+    assert plugin._status_lbl.fullText() == "● Streaming"
+
+
+def test_recovery_moves_a_usb_stream_to_wifi_and_lets_go_of_the_forward(plugin_env):
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    _streaming_over(plugin, USB)
+    assert plugin._tunnels.held == {("serial-1", 8080): 1}
+
+    assert plugin.adopt_stream_route(WIFI) == "http://10.0.0.5:8080/v1/video"
+    assert plugin._tunnels.held == {}
+    assert plugin._using_lbl.fullText() == "Wi-Fi · 10.0.0.5"
+    plugin.on_stream_stop()
+    assert plugin._tunnels.held == {}
+
+
+def test_recovery_over_the_same_cable_opens_a_fresh_forward(plugin_env):
+    # adb drops forwards when the cable goes; the one held from before is dead after a replug.
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    _streaming_over(plugin, USB)
+
+    assert plugin.adopt_stream_route(USB) == "http://127.0.0.1:41000/v1/video"
+    assert plugin._tunnels.acquires == 2
+    assert plugin._tunnels.held == {("serial-1", 8080): 1}
+
+
+def test_recovery_probe_resolves_with_the_chosen_route(plugin_env):
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    plugin._route_pref = ROUTE_WIFI
+    plugin._resolver.result = Resolution(READY, WIFI, streaming=True)
+
+    assert plugin.recovery_probe()() == Resolution(READY, WIFI, streaming=True)
+    assert plugin._resolver.calls == [("id-a", ROUTE_WIFI)]
+
+
+def test_no_route_is_adopted_once_the_stream_stopped(plugin_env):
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    assert plugin.adopt_stream_route(WIFI) is None
+
+
 # ── Session channel and waking the phone ──────────────────────────────────────
 
 def test_session_channel_over_usb_releases_its_forward_even_on_error(plugin_env):

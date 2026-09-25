@@ -148,6 +148,21 @@ def test_reconnect_returns_first_capture_with_a_readable_frame(monkeypatch):
     assert good.released is False
 
 
+def test_retarget_reconnects_to_the_new_url_without_waiting_out_the_delay(monkeypatch):
+    good = _Capture([(True, np.zeros((1, 1, 3), dtype=np.uint8))])
+    worker = stream.StreamWorker("http://127.0.0.1:41000/v1/video", None, None, 30)
+    opened = []
+    monkeypatch.setattr(worker, "_open_cap", lambda: opened.append(worker.url) or good)
+    slept = []
+    monkeypatch.setattr(stream.time, "sleep", slept.append)
+
+    worker.retarget("http://10.0.0.5:8080/v1/video")
+
+    assert worker._reconnect_cap(threading.Event()) is good
+    assert opened == ["http://10.0.0.5:8080/v1/video"]
+    assert slept == []
+
+
 def test_reconnect_stops_without_opening_when_cancelled(monkeypatch):
     worker = stream.StreamWorker("url", None, None, 30)
     stop = threading.Event()

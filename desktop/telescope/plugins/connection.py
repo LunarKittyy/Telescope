@@ -398,6 +398,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._watch_id = 0
         self._streaming = False
         self._connected = False  # first frame arrived (EventBus.stream_connected)
+        self._lost = False       # frames stopped; the host is reconnecting (EventBus.stream_lost)
         self._stream_route: Optional[Route] = None
         self._stream_forward_serial: Optional[str] = None
         self._switching = False
@@ -419,6 +420,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._updating_phone = False
         self._update_note: Optional[tuple] = None  # (kind, text) from the last phone update
         bus.stream_connected.connect(self._on_stream_connected)
+        bus.stream_lost.connect(self._on_stream_lost)
         bus.add_phone_requested.connect(self.open_add_phone)
 
     # ── Model ─────────────────────────────────────────────────────────────
@@ -552,7 +554,12 @@ class ConnectionPlugin(TelescopePlugin):
         res = self._resolution
         kind, text = status_line(res)
         if self._streaming:
-            kind, text = ("status_ok", "● Streaming") if self._connected else ("status_dim", "Connecting…")
+            if self._lost:
+                kind, text = "status_warn", "Reconnecting…"
+            elif self._connected:
+                kind, text = "status_ok", "● Streaming"
+            else:
+                kind, text = "status_dim", "Connecting…"
         set_status_kind(self._status_lbl, kind)
         self._status_lbl.setText(text)
         self._using_row.setVisible(True)
@@ -710,21 +717,56 @@ class ConnectionPlugin(TelescopePlugin):
                 "Can't connect to the phone", problem_text(res, phone.name, self._route_pref),
                 self._fix_actions(res)))
             return None, None, False
-        route = res.route
+        url = self._hold_stream_route(res.route)
+        if url is None:
+            self._host.show_issue("start", Issue(
+                "Can't connect to the phone",
+                "adb couldn't open a connection to the phone. Unplug it, plug it back in and try again.",
+                [BannerAction("Try again", self._host.start_stream)]))
+            return None, None, False
+        return url, phone.token, True
+
+    def _hold_stream_route(self, route: Route) -> Optional[str]:
+        """Make route the stream's, letting go of the previous one's USB forward. The video URL, or None."""
+        self._release_stream_forward()
+        self._stream_route = None
         if route.kind == "usb":
+            # Always a fresh forward: adb drops them when the cable goes, even if it comes back.
             local = run_off_ui_thread(self._tunnels.acquire, route.serial, STREAM_PORT)
             if local is None:
-                self._host.show_issue("start", Issue(
-                    "Can't connect to the phone",
-                    "adb couldn't open a connection to the phone. Unplug it, plug it back in and try again.",
-                    [BannerAction("Try again", self._host.start_stream)]))
-                return None, None, False
+                return None
             self._stream_forward_serial = route.serial
             url = f"http://127.0.0.1:{local}{self._video_path()}"
         else:
             url = f"http://{route.host}:{STREAM_PORT}{self._video_path()}"
         self._stream_route = route
-        return url, phone.token, True
+        return url
+
+    def _release_stream_forward(self):
+        if self._stream_forward_serial is not None:
+            serial, self._stream_forward_serial = self._stream_forward_serial, None
+            run_off_ui_thread(self._tunnels.release, serial, STREAM_PORT)
+
+    # ── Getting a dropped stream back ─────────────────────────────────────
+
+    def recovery_probe(self):
+        """A blocking job for a worker thread: how the phone can be reached right now, as a Resolution.
+
+        Snapshots the phone and preference here, on the GUI thread, since the job runs off it.
+        """
+        phone = self._selected_phone()
+        if phone is None:
+            return lambda: Resolution(UNREACHABLE)
+        probe, preference, resolver = Phone(**phone.to_dict()), self._route_pref, self._resolver
+        return lambda: resolver.resolve(probe, preference)
+
+    def adopt_stream_route(self, route: Route) -> Optional[str]:
+        """Move the running stream onto route (a recovery_probe answer). The new video URL, or None."""
+        if not self._streaming:
+            return None
+        url = self._hold_stream_route(route)
+        self._render()
+        return url
 
     def _video_path(self) -> str:
         """The phone serves each format on its own route, and runs whichever one was opened last."""
@@ -896,7 +938,9 @@ class ConnectionPlugin(TelescopePlugin):
         if not self._streaming:  # also called after an auto-reconnect; that isn't a fresh start
             self._connected = False
         self._streaming = True
+        self._lost = False
         self._switch_usb_row.setVisible(False)
+        self._usb_watch_timer.stop()
         if (self._stream_route is not None and self._stream_route.kind == "wifi"
                 and self._route_pref == ROUTE_AUTO):
             self._usb_watch_timer.start(_USB_WATCH_MS)
@@ -907,15 +951,23 @@ class ConnectionPlugin(TelescopePlugin):
         self._usb_watch_timer.stop()
         self._watch_id += 1
         self._switch_usb_row.setVisible(False)
-        if self._stream_forward_serial is not None:
-            serial, self._stream_forward_serial = self._stream_forward_serial, None
-            run_off_ui_thread(self._tunnels.release, serial, STREAM_PORT)
+        self._release_stream_forward()
         self._stream_route = None
+        self._lost = False
         self._render()
         self._check_status()
 
     def _on_stream_connected(self):
         self._connected = True
+        self._lost = False
+        self._render()
+
+    def _on_stream_lost(self):
+        self._lost = True
+        # Recovery picks USB by itself when the phone answers on it, so no Switch to USB meanwhile.
+        self._usb_watch_timer.stop()
+        self._watch_id += 1
+        self._switch_usb_row.setVisible(False)
         self._render()
 
     # ── Plugged in while streaming over Wi-Fi ─────────────────────────────

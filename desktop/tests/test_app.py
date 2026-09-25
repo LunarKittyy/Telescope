@@ -1342,3 +1342,144 @@ def test_diagnostics_report_gathers_plugins_and_recent_status(window, monkeypatc
     assert "Connection: usb" in lines
     assert "broken: couldn't read (KeyError)" in lines
     assert any(line.endswith("NOTE Status: Can't reach the phone") for line in lines)
+
+
+# ── A dropped stream finding its way back ────────────────────────────────────
+
+class _RecoveringConnection(_Connection):
+    """Answers recovery probes from a queue; hands out one URL per route."""
+
+    def __init__(self, answers):
+        super().__init__()
+        self.answers = list(answers)
+        self.adopted = []
+
+    def recovery_probe(self):
+        answer = self.answers.pop(0) if self.answers else None
+        return lambda: answer
+
+    def adopt_stream_route(self, route):
+        self.adopted.append(route)
+        return f"http://{route.host}:8080/v1/video"
+
+
+class _RetargetWorker:
+    def __init__(self):
+        self.status, self.reconnected = _Signal(), _Signal()
+        self.token = "tok"
+        self.urls = []
+
+    def retarget(self, url):
+        self.urls.append(url)
+
+    def request_stop(self):
+        pass
+
+    def wait(self, _ms):
+        return True
+
+
+class _Client:
+    def __init__(self):
+        self.closed = False
+
+    def close(self):
+        self.closed = True
+
+
+def _dropped_stream(window, monkeypatch, answers, url="http://127.0.0.1:40001/v1/video"):
+    conn = _RecoveringConnection(answers)
+    window.register_plugin(conn)
+    monkeypatch.setattr(app_module.TelescopeWindow, "_spawn_recovery_probe",
+                        lambda self, sid, gen, job: self._on_recovery_probed(sid, gen, job()))
+    monkeypatch.setattr(app_module, "PhoneControlClient", lambda url, token: SimpleNamespace(
+        base=url, token=token, close=lambda: None))
+    worker, client = _RetargetWorker(), _Client()
+    window._session = StreamSession(id=1, url=url, client=client, worker=worker)
+    worker.status.connect(window._on_worker_status)
+    worker.reconnected.connect(window._on_stream_reconnected)
+    lost = []
+    window._bus.stream_lost.connect(lambda: lost.append(True))
+    worker.status.emit("reconnecting", "Stream dropped - reconnecting")
+    return conn, worker, client, lost
+
+
+def test_a_dropped_usb_stream_moves_to_wifi_when_the_cable_is_pulled(window, monkeypatch):
+    from telescope.phones import READY, Resolution, Route
+    wifi = Route("wifi", "192.168.1.20")
+    conn, worker, client, lost = _dropped_stream(
+        window, monkeypatch, [Resolution(READY, wifi, streaming=True)])
+
+    assert lost == [True]
+    assert conn.adopted == [wifi]
+    assert worker.urls == ["http://192.168.1.20:8080/v1/video"]
+    assert window._session.url == "http://192.168.1.20:8080/v1/video"
+    assert window._session.client.base == "http://192.168.1.20:8080/v1/video"
+    assert client.closed
+    assert window._recovery_timer.isActive()  # until frames actually come back
+
+
+def test_recovery_keeps_looking_while_the_phone_is_unreachable(window, monkeypatch):
+    from telescope.phones import READY, UNREACHABLE, Resolution, Route
+    usb = Route("usb", "127.0.0.1", "SER")
+    conn, worker, _client, _lost = _dropped_stream(
+        window, monkeypatch, [Resolution(UNREACHABLE), None, Resolution(READY, usb, streaming=True)])
+
+    assert conn.adopted == [] and window._recovery_timer.isActive()
+    window._probe_recovery()  # the probe itself failed
+    assert conn.adopted == []
+    window._probe_recovery()  # plugged back in: a fresh forward
+    assert conn.adopted == [usb]
+    assert worker.urls == ["http://127.0.0.1:8080/v1/video"]
+
+
+def test_recovery_moves_the_stream_once_per_route(window, monkeypatch):
+    from telescope.phones import READY, Resolution, Route
+    wifi = Route("wifi", "192.168.1.20")
+    conn, worker, _client, _lost = _dropped_stream(
+        window, monkeypatch, [Resolution(READY, wifi, streaming=True)] * 2)
+
+    window._probe_recovery()
+
+    assert conn.adopted == [wifi]  # the worker keeps retrying it on its own
+
+
+def test_recovery_ends_when_frames_come_back(window, monkeypatch):
+    conn, worker, _client, _lost = _dropped_stream(window, monkeypatch, [None])
+
+    window._on_stream_reconnected()
+
+    assert not window._recovering and not window._recovery_timer.isActive()
+    window._probe_recovery()
+    assert conn.adopted == []
+
+
+def test_a_probe_from_before_the_stream_came_back_is_dropped(window, monkeypatch):
+    from telescope.phones import READY, Resolution, Route
+    conn, worker, _client, _lost = _dropped_stream(window, monkeypatch, [None])
+    gen = window._recovery_gen
+    window._on_stream_reconnected()
+
+    window._on_recovery_probed(1, gen, Resolution(READY, Route("wifi", "10.0.0.2"), streaming=True))
+
+    assert conn.adopted == [] and worker.urls == []
+
+
+def test_recovery_stops_the_stream_when_the_phone_stopped_streaming(window, monkeypatch):
+    from telescope.phones import READY, Resolution, Route
+    conn, _worker, _client, _lost = _dropped_stream(
+        window, monkeypatch, [Resolution(READY, Route("wifi", "192.168.1.20"), streaming=False)])
+
+    assert window._session is None
+    assert conn.remote_stops == 0
+    assert not window._recovering
+    assert window._banners.issue("start").title == "The phone stopped streaming"
+
+
+def test_recovery_waits_while_the_phone_is_mid_start(window, monkeypatch):
+    from telescope.phones import READY, Resolution, Route
+    conn, _worker, _client, _lost = _dropped_stream(
+        window, monkeypatch, [Resolution(READY, Route("wifi", "192.168.1.20"), busy=True)])
+
+    assert window._session is not None and conn.adopted == []
+    assert window._recovery_timer.isActive()
