@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
     QSizePolicy, QSystemTrayIcon, QVBoxLayout, QWidget,
 )
 
-from telescope import theme
+from telescope import diagnostics, theme
 from telescope.config import DEVICE_LOCAL_PLUGINS, load_config, save_config
 from telescope.models import PhoneState, PhoneStateError
 from telescope.phone_client import PhoneControlClient
@@ -803,10 +803,20 @@ class TelescopeWindow(QMainWindow):
         self._keep_in_tray = keep
 
     def show_issue(self, key: str, issue: Issue):
+        diagnostics.events.note(f"Banner: {issue.title}. {issue.text}" if issue.text else f"Banner: {issue.title}")
         self._banners.show_issue(key, issue)
 
     def clear_issue(self, key: Optional[str] = None):
         self._banners.clear_issue(key)
+
+    def diagnostics_report(self) -> str:
+        state = {"Streaming": "yes" if self.is_streaming() else "no"}
+        for plugin in self._plugins:
+            try:
+                state.update(plugin.diagnostics())
+            except Exception as exc:
+                state[plugin.name] = f"couldn't read ({type(exc).__name__})"
+        return diagnostics.report(state, QApplication.platformName())
 
     def plugin_config(self, name: str) -> Optional[dict]:
         plugin = self._plugin(name)
@@ -867,6 +877,7 @@ class TelescopeWindow(QMainWindow):
 
     def _start_reconnecting_animation(self, base_msg: str):
         """Show animated reconnecting status with 1/second dot progression."""
+        diagnostics.events.note(f"Status: {base_msg}")
         self._reconnecting_base = base_msg
         self._reconnecting_dots = 1
         self._render_reconnecting_frame()
@@ -927,6 +938,7 @@ class TelescopeWindow(QMainWindow):
             self._set_status(msg, "dim")
 
     def _set_status(self, msg: str, kind: str):
+        diagnostics.events.note(f"Status: {msg}")
         self._stop_reconnecting_animation()
         obj = {"ok": "status_ok", "warn": "status_warn",
                "err": "status_err", "dim": "status_dim"}.get(kind, "status_dim")
