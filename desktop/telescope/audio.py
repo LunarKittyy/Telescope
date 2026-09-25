@@ -68,17 +68,23 @@ class FifoSink:
     PIPE_BYTES = 4096  # about 40 ms; Linux won't go below a page
     _F_SETPIPE_SZ = 1031
 
-    def __init__(self, path: str, clock: Callable = time.monotonic, sleep: Callable = time.sleep):
-        # Non-blocking open fails at once if nothing holds the read end, instead of hanging.
-        self._fd = os.open(path, os.O_WRONLY | os.O_NONBLOCK)
-        os.set_blocking(self._fd, True)
-        try:
-            import fcntl
-            fcntl.fcntl(self._fd, self._F_SETPIPE_SZ, self.PIPE_BYTES)
-        except (ImportError, OSError):
-            pass
+    def __init__(self, path: str, clock: Callable = time.monotonic, sleep: Callable = time.sleep,
+                 open_fd: Optional[Callable] = None):
+        self._fd = (open_fd or self._open_fifo)(path)
         self._clock, self._sleep = clock, sleep
         self._due: Optional[float] = None
+
+    @classmethod
+    def _open_fifo(cls, path: str) -> int:
+        # Non-blocking open fails at once if nothing holds the read end, instead of hanging.
+        fd = os.open(path, os.O_WRONLY | getattr(os, "O_NONBLOCK", 0))
+        os.set_blocking(fd, True)
+        try:
+            import fcntl
+            fcntl.fcntl(fd, cls._F_SETPIPE_SZ, cls.PIPE_BYTES)
+        except (ImportError, OSError):
+            pass
+        return fd
 
     def write(self, data: bytes):
         now = self._clock()

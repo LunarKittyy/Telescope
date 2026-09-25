@@ -191,10 +191,8 @@ def test_linux_needs_only_pactl():
     assert virtual_mic.linux_tools_missing(lambda t: "/usr/bin/" + t) == []
 
 
-def test_fifo_sink_writes_everything_at_real_time_pace(tmp_path):
-    path = str(tmp_path / "f")
-    os.mkfifo(path)
-    reader = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
+def test_fifo_sink_writes_everything_at_real_time_pace():
+    read_end, write_end = os.pipe()
     clock = [100.0]
     sleeps = []
 
@@ -202,24 +200,27 @@ def test_fifo_sink_writes_everything_at_real_time_pace(tmp_path):
         sleeps.append(round(s, 4))
         clock[0] += s
 
-    sink = FifoSink(path, clock=lambda: clock[0], sleep=sleep)
+    sink = FifoSink("unused", clock=lambda: clock[0], sleep=sleep, open_fd=lambda _path: write_end)
     ten_ms = bytes(960)
     for _ in range(3):
         sink.write(ten_ms)
-    assert os.read(reader, 10_000) == ten_ms * 3
+    assert os.read(read_end, 10_000) == ten_ms * 3
     assert sleeps == [0.01, 0.01]  # the first write goes at once, then one every 10 ms
     clock[0] += 1.0  # a long stall: start over rather than burst to catch up
     sink.write(ten_ms)
     assert sleeps == [0.01, 0.01]
     sink.close()
-    os.close(reader)
+    os.close(read_end)
 
 
-def test_fifo_sink_fails_fast_without_a_reader(tmp_path):
-    path = str(tmp_path / "f")
-    os.mkfifo(path)
+def test_fifo_sink_fails_fast_when_the_source_is_gone(tmp_path):
     with pytest.raises(OSError):
-        FifoSink(path)
+        FifoSink(str(tmp_path / "missing"))
+    if hasattr(os, "mkfifo"):  # a FIFO nobody reads: the open must fail rather than hang
+        path = str(tmp_path / "f")
+        os.mkfifo(path)
+        with pytest.raises(OSError):
+            FifoSink(path)
 
 
 def test_vb_cable_is_found_by_its_playback_end():
