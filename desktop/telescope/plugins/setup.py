@@ -42,6 +42,9 @@ CANVAS_PRESETS: list[tuple[str, tuple[int, int] | None]] = [
 _PRESET_LABELS = [label for label, _ in CANVAS_PRESETS]
 _PRESET_VALUES = {label: val for label, val in CANVAS_PRESETS}
 
+DEFAULT_MAX_ZOOM = 10
+MAX_ZOOM_RANGE = (2, 30)
+
 _SUDO_HINT = "This will prompt for your password (via pkexec/sudo) to make a system-level change."
 
 
@@ -56,13 +59,14 @@ class AdvancedDialog(QDialog):
     _sig_uc_msg       = pyqtSignal(str)
     _sig_apk_done     = pyqtSignal(bool, str)
 
-    def __init__(self, parent=None, on_apply_canvas=None, report=None):
+    def __init__(self, parent=None, on_apply_canvas=None, report=None, on_max_zoom=None):
         super().__init__(parent)
         self._report = report
         self.setWindowTitle("Advanced")
         self.setMinimumWidth(ui_px(560))
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self._on_apply_canvas = on_apply_canvas
+        self._on_max_zoom = on_max_zoom
         self._build_ui()
         self._sig_v4l_result.connect(self._on_v4l_result)
         self._sig_v4l_unload.connect(self._on_v4l_unload_result)
@@ -83,7 +87,8 @@ class AdvancedDialog(QDialog):
 
     def _build_ui(self):
         lay = dialog_layout(self)
-        dialog_header(lay, "Advanced", "Virtual camera module, output canvas, and installing the phone app over USB.")
+        dialog_header(lay, "Advanced", "Virtual camera module, output canvas, zoom range, and installing the phone "
+                                   "app over USB.")
 
         # ── Virtual camera ────────────────────────────────────────────────────
         vc_card = create_card()
@@ -160,6 +165,22 @@ class AdvancedDialog(QDialog):
             "Installs the Telescope.apk that came with this app, or one you pick, on a phone plugged "
             "in over USB."), stretch=True))
         lay.addWidget(apk_card)
+
+        # ── Zoom ──────────────────────────────────────────────────────────────
+        zoom_card = create_card()
+        zoom_lay = card_layout(zoom_card)
+        add_card_header(zoom_lay, "Zoom", "transforms")
+        self._max_zoom_spin = NoScrollSpinBox()
+        self._max_zoom_spin.setRange(*MAX_ZOOM_RANGE)
+        self._max_zoom_spin.setValue(DEFAULT_MAX_ZOOM)
+        self._max_zoom_spin.setSuffix("×")
+        self._max_zoom_spin.valueChanged.connect(
+            lambda value: self._on_max_zoom(value) if self._on_max_zoom else None)
+        zoom_lay.addLayout(control_row("Max zoom", self._max_zoom_spin))
+        zoom_lay.addLayout(control_row("", wrapped_note(
+            "How far the Zoom slider goes. Past what the phone can zoom itself, the rest is cropped on "
+            "this computer."), stretch=True))
+        lay.addWidget(zoom_card)
 
         # ── Canvas ──────────────────────────────────────────────────────────
         adv_card = create_card()
@@ -306,6 +327,11 @@ class AdvancedDialog(QDialog):
 
     def get_canvas_preset_label(self) -> str:
         return self._canvas_combo.currentText()
+
+    def set_max_zoom(self, value: int):
+        self._max_zoom_spin.blockSignals(True)  # syncing the stored value isn't a change
+        self._max_zoom_spin.setValue(value)
+        self._max_zoom_spin.blockSignals(False)
 
     # ── v4l2 ─────────────────────────────────────────────────────────────────
 
@@ -484,7 +510,9 @@ class SetupPlugin(TelescopePlugin):
 
     def setup(self, host, bus):
         self._host = host
+        self._bus = bus
         self._dlg: Optional[AdvancedDialog] = None
+        self._max_zoom = DEFAULT_MAX_ZOOM
         self._canvas_preset = "Auto (from first frame)"
         self._custom_w = 1920
         self._custom_h = 1080
@@ -510,8 +538,10 @@ class SetupPlugin(TelescopePlugin):
     def _open(self):
         if self._dlg is None:
             self._dlg = AdvancedDialog(self._host, on_apply_canvas=self._on_apply_canvas,
-                                       report=self._host.diagnostics_report)
+                                       report=self._host.diagnostics_report,
+                                       on_max_zoom=self._on_max_zoom)
         self._dlg.set_canvas_preset(self._canvas_preset, self._custom_w, self._custom_h)
+        self._dlg.set_max_zoom(self._max_zoom)
         self._dlg.show()
         self._dlg.raise_()
         self._dlg.activateWindow()
@@ -529,14 +559,25 @@ class SetupPlugin(TelescopePlugin):
                 self._dlg.set_canvas_apply_result(ok, msg)
         self._host.restart_vcam_canvas(w, h, on_done=on_done)
 
+    def _on_max_zoom(self, value: int):
+        self._max_zoom = value
+        self._bus.max_zoom_changed.emit(value)
+        self._host.schedule_save()
+
     def get_config(self) -> dict:
         return {
             "canvas_preset":   self._canvas_preset,
             "custom_canvas_w": self._custom_w,
             "custom_canvas_h": self._custom_h,
+            "max_zoom":        self._max_zoom,
         }
 
     def set_config(self, cfg: dict):
         self._canvas_preset = cfg.get("canvas_preset", "Auto (from first frame)")
         self._custom_w = cfg.get("custom_canvas_w", 1920)
         self._custom_h = cfg.get("custom_canvas_h", 1080)
+        max_zoom = cfg.get("max_zoom", DEFAULT_MAX_ZOOM)
+        valid = isinstance(max_zoom, int) and not isinstance(max_zoom, bool) and \
+            MAX_ZOOM_RANGE[0] <= max_zoom <= MAX_ZOOM_RANGE[1]
+        self._max_zoom = max_zoom if valid else DEFAULT_MAX_ZOOM
+        self._bus.max_zoom_changed.emit(self._max_zoom)
