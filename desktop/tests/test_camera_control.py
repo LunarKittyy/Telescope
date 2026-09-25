@@ -283,7 +283,7 @@ def test_capability_line_names_only_what_the_lens_supports(camera_plugin):
 
     assert plugin._cam_info_lbl.fullText() == "Level 3  ·  Manual exposure  ·  Manual focus"
     # What's missing is still recoverable, just not spending space on it.
-    assert "Not supported: Manual WB, OIS" in plugin._cam_info_row.toolTip()
+    assert "Not supported: Manual WB, Point focus, OIS" in plugin._cam_info_row.toolTip()
 
 
 def test_capability_line_is_rebuilt_not_appended(camera_plugin):
