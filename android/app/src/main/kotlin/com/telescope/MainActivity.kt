@@ -233,7 +233,13 @@ class MainActivity : AppCompatActivity() {
     private fun handleQrScan(data: String) {
         when (val parsed = parsePairingOffer(data)) {
             is PairingParse.Invalid ->
-                Toast.makeText(this, "That's not a Telescope pairing code.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this,
+                    if (isDownloadLink(data))
+                        "That code downloads the app. Scan the one under Add phone on the computer."
+                    else "That's not a Telescope pairing code.",
+                    Toast.LENGTH_LONG,
+                ).show()
             is PairingParse.UnsupportedVersion ->
                 Toast.makeText(
                     this,

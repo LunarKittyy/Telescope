@@ -252,4 +252,14 @@ class PairingTest {
     fun `a v2 code from an older desktop asks for an update rather than failing oddly`() {
         assertEquals(PairingParse.UnsupportedVersion, parsePairingOffer(payload(version = 2)))
     }
+
+    @Test
+    fun `the desktop's APK download QR is told apart from junk`() {
+        assertTrue(isDownloadLink("https://github.com/LunarKittyy/Telescope/releases/download/nightly/Telescope.apk"))
+        assertFalse(isDownloadLink("https://example.com/"))
+        assertEquals(
+            PairingParse.Invalid,
+            parsePairingOffer("https://github.com/LunarKittyy/Telescope/releases/download/nightly/Telescope.apk"),
+        )
+    }
 }

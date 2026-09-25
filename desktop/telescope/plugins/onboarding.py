@@ -148,8 +148,9 @@ class OnboardingPlugin(TelescopePlugin):
             self._app.set(True, "Installed.")
             self._app.action(None)
         elif not self._busy:
-            self._app.set(False, "Scan this with the phone's camera to download Telescope.apk, "
-                                 "then open it to install.")
+            self._app.set(False, "Scan this with the phone's camera app to download Telescope.apk, "
+                                 "then open it to install. It's a download link, not the "
+                                 "pairing code.")
             usb = bundled_apk_path() is not None and adb_available()
             self._app.action("Install over USB" if usb else None)
         self._qr_row.setVisible(not paired)
