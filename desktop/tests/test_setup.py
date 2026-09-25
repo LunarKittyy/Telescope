@@ -363,3 +363,31 @@ def test_setup_contributes_menu_actions_instead_of_a_panel(monkeypatch, qapp):
     actions[0].trigger()
     assert plugin._dlg is not None
     plugin._dlg.hide()
+
+
+@pytest.mark.parametrize("stored,expected", [(None, 10), (15, 15), (1, 10), (99, 10), ("8", 10), (True, 10)])
+def test_max_zoom_loads_with_a_safe_fallback_and_is_announced(qapp, stored, expected):
+    bus = EventBus()
+    seen = []
+    bus.max_zoom_changed.connect(seen.append)
+    plugin = SetupPlugin()
+    plugin.setup(_Host(), bus)
+    plugin.set_config({} if stored is None else {"max_zoom": stored})
+    assert plugin.get_config()["max_zoom"] == expected
+    assert seen == [expected]
+
+
+def test_max_zoom_spinbox_applies_straight_away(qapp):
+    host, bus = _Host(), EventBus()
+    seen = []
+    bus.max_zoom_changed.connect(seen.append)
+    plugin = SetupPlugin()
+    plugin.setup(host, bus)
+    plugin.set_config({"max_zoom": 12})
+    plugin._open()
+    assert plugin._dlg._max_zoom_spin.value() == 12
+    plugin._dlg._max_zoom_spin.setValue(20)
+    assert seen == [12, 20]
+    assert plugin.get_config()["max_zoom"] == 20
+    assert host.saves >= 1
+    plugin._dlg.hide()

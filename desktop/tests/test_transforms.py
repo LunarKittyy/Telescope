@@ -185,7 +185,7 @@ def test_a_picked_point_goes_out_in_phone_frame_coordinates(transforms_plugin):
 
 # ── Splitting zoom between the phone and this computer ───────────────────────
 
-from telescope.plugins.transforms import PhoneZoom, PhoneZoomCaps, split_zoom  # noqa: E402
+from telescope.plugins.transforms import PhoneZoom, PhoneZoomCaps, lens_note, split_zoom  # noqa: E402
 
 _TELE = PhoneZoomCaps(ratio_max=10.0, crop_max=4.0, freeform=True, lens_zooms=(3.7,))
 _CENTRE_ONLY = PhoneZoomCaps(ratio_max=10.0, crop_max=4.0, freeform=False, lens_zooms=(3.7,))
@@ -256,9 +256,16 @@ def test_a_pan_sweep_switches_the_ratio_at_most_at_the_lens_edges(caps, zoom):
 
 
 def test_the_lens_doesnt_flip_back_and_forth_at_its_edge():
-    fits_just_inside = 3.7 * 1.02  # inside the telephoto's view, but short of the margin to switch to it
-    assert split_zoom(fits_just_inside, 0, 0, _TELE, current_ratio=1.0).phone.ratio == 1.0
-    assert split_zoom(fits_just_inside, 0, 0, _TELE, current_ratio=3.7).phone.ratio == 3.7
+    pan = 0.0526  # at 4.5x the window then fits a 3.8x view: inside the telephoto's, short of the margin
+    assert split_zoom(4.5, pan, 0, _TELE, current_ratio=1.0).phone.ratio == 1.0
+    assert split_zoom(4.5, pan, 0, _TELE, current_ratio=3.7).phone.ratio == 3.7
+
+
+def test_a_centred_window_just_past_a_lens_gets_back_onto_it():
+    """3.8x is inside the margin, so panning out and back used to leave it stuck on the main camera."""
+    out = split_zoom(3.8, 1, 0, _TELE, current_ratio=3.7).phone.ratio
+    back = split_zoom(3.8, 0, 0, _TELE, current_ratio=out).phone.ratio
+    assert (out, back) == (1.0, 3.7)
 
 
 def test_a_centre_only_phones_share_doesnt_change_with_the_pan():
@@ -333,14 +340,55 @@ def test_a_picked_point_only_undoes_the_desktop_share_of_the_zoom(transforms_plu
     assert seen == [(0.25, 0.5)]  # the phone zoomed, so the point is already in its stream frame
 
 
-def test_the_zoom_tooltip_names_the_live_lens(transforms_plugin):
+def test_lens_note_says_nothing_on_the_default_camera():
+    assert lens_note(2.0, 1.0, _TELE, "~24mm OIS", "~24mm OIS", "") == ""
+    assert lens_note(3.0, 1.0, None, "", "", "") == ""
+
+
+def test_lens_note_says_when_the_phone_switched():
+    note = lens_note(4.0, 3.7, _TELE, "Tele ~85mm", "~24mm OIS", "Tele ~85mm")
+    assert note.startswith("Switched to Tele ~85mm")
+    assert "let it settle" in note
+
+
+def test_lens_note_says_when_panning_fell_back_to_the_main_camera():
+    note = lens_note(4.0, 1.0, _TELE, "~24mm OIS", "~24mm OIS", "Tele ~85mm")
+    assert "Panned past what Tele ~85mm can see, so it's using ~24mm OIS for now" in note
+    assert "the telephoto can see" in lens_note(4.0, 1.0, _TELE, "", "", "")
+
+
+def _lens_state(active):
+    state = _state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True, lensZooms=[3.7])
+    state["cameras"] += [{"id": "2", "current": False, "label": "Back ~24mm OIS [phys]"},
+                         {"id": "4", "current": False, "label": "Back Telephoto ~85mm OIS [phys]"}]
+    state["active_lens"] = active
+    return state
+
+
+def test_the_lens_dot_shows_only_when_the_phone_switched_or_fell_back(transforms_plugin):
     plugin, _host, _panel = transforms_plugin
     plugin.on_stream_start("http://phone/v1/video", _Ctrl())
-    state = _state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True, lensZooms=[3.7])
-    state["cameras"].append({"id": "4", "current": False, "label": "Back Telephoto ~85mm OIS [phys]"})
-    state["active_lens"] = "4"
-    plugin.on_phone_state(state)
-    tip = plugin._zoom_slider.toolTip()
-    assert "Live lens: Tele ~85mm OIS" in tip
-    assert "let it settle" in tip
-    assert plugin._zoom_val_lbl.toolTip() == tip
+    plugin.on_phone_state(_lens_state("2"))  # unzoomed: learns the default camera
+    assert plugin._lens_dot.isHidden()
+    plugin._zoom_slider.setValue(400)
+    plugin.on_phone_state(_lens_state("4"))
+    assert not plugin._lens_dot.isHidden()
+    assert plugin._lens_dot.toolTip().startswith("Switched to Tele ~85mm OIS")
+    plugin._pan_x_slider._slider.setValue(plugin._pan_x_slider._slider.maximum())
+    plugin.on_phone_state(_lens_state("2"))
+    assert "Panned past what Tele ~85mm OIS can see" in plugin._lens_dot.toolTip()
+    plugin._zoom_slider.setValue(200)
+    assert plugin._lens_dot.isHidden()
+    assert plugin._zoom_slider.toolTip() == "Zoomed on the phone's sensor"
+
+
+def test_the_zoom_slider_follows_max_zoom(transforms_plugin):
+    plugin, _host, _panel = transforms_plugin
+    assert plugin._zoom_slider.maximum() == 1000  # 10x by default
+    plugin._zoom_slider.setValue(800)
+    plugin._bus.max_zoom_changed.emit(5)
+    assert plugin._zoom_slider.maximum() == 500
+    assert plugin.zoom == 5.0  # clamped, through the normal handler
+    plugin._bus.max_zoom_changed.emit(20)
+    plugin._zoom_slider.setValue(2000)
+    assert plugin.zoom == 20.0

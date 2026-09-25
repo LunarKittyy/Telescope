@@ -142,5 +142,7 @@ class EventBus(QObject):
     """Whether the current lens can focus on a point (and a stream is running to send it to)."""
     phone_ready            = pyqtSignal(str, bool)
     """The selected phone's id and whether Start would work right now (idle status checks only)."""
+    max_zoom_changed       = pyqtSignal(int)
+    """How far the Zoom slider goes (Advanced); Setup emits it on change and when its config loads."""
     update_requested       = pyqtSignal()
     """Show the desktop app's update dialog (e.g. the phone app turned out to be newer)."""
