@@ -115,8 +115,10 @@ def test_link_log(tmp_path):
     if not link.is_symlink():
         pytest.skip("no symlink rights here")
     assert link.resolve() == target.resolve()
-    link_log(link, tmp_path / "elsewhere.log")  # the temp folder moved: repoint
-    assert link.is_symlink() and os.readlink(link) == str(tmp_path / "elsewhere.log")
+    elsewhere = tmp_path / "elsewhere.log"
+    elsewhere.write_text("")
+    link_log(link, elsewhere)  # the temp folder moved: repoint
+    assert link.is_symlink() and link.resolve() == elsewhere.resolve()
 
 
 def test_link_log_leaves_a_real_file_alone(tmp_path):

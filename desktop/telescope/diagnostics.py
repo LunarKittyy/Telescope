@@ -162,7 +162,8 @@ def link_log(link: Path, target: Path):
     symlink rights, a read-only folder) or where a real file has that name."""
     try:
         if link.is_symlink():
-            if Path(os.readlink(link)) == target:
+            current = os.readlink(link)
+            if Path(current.removeprefix("\\\\?\\")) == target:  # Windows prefixes \\?\
                 return
             link.unlink()
         elif link.exists():
