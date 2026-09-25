@@ -50,6 +50,19 @@ def test_camera_capabilities_rejects_bool_where_int_expected():
         CameraCapabilities.from_dict(bad)
 
 
+def test_camera_capabilities_reads_phone_zoom_fields_and_defaults_them():
+    cam = CameraCapabilities.from_dict({**_VALID_CAMERA, "zoomRatioMax": 10.0, "cropZoomMax": 4,
+                                        "freeformCrop": True, "lensZooms": [3.7]})
+    assert (cam.zoom_ratio_max, cam.crop_zoom_max, cam.freeform_crop, cam.lens_zooms) == (10.0, 4.0, True, (3.7,))
+    old = CameraCapabilities.from_dict(_VALID_CAMERA)  # an older phone app
+    assert (old.zoom_ratio_max, old.crop_zoom_max, old.freeform_crop, old.lens_zooms) == (1.0, 1.0, False, ())
+
+
+def test_camera_capabilities_rejects_lens_zooms_that_arent_numbers():
+    with pytest.raises(PhoneStateError):
+        CameraCapabilities.from_dict({**_VALID_CAMERA, "lensZooms": ["3.7"]})
+
+
 def test_phone_state_empty_dict_is_not_an_error():
     state = PhoneState.from_dict({})
     assert state.is_empty is True

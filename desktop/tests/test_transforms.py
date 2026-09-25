@@ -187,9 +187,10 @@ def test_a_picked_point_goes_out_in_phone_frame_coordinates(transforms_plugin):
 
 from telescope.plugins.transforms import PhoneZoom, PhoneZoomCaps, split_zoom  # noqa: E402
 
-_TELE = PhoneZoomCaps(ratio_max=10.0, crop_max=4.0, freeform=True)
-_CENTRE_ONLY = PhoneZoomCaps(ratio_max=10.0, crop_max=4.0, freeform=False)
+_TELE = PhoneZoomCaps(ratio_max=10.0, crop_max=4.0, freeform=True, lens_zooms=(3.7,))
+_CENTRE_ONLY = PhoneZoomCaps(ratio_max=10.0, crop_max=4.0, freeform=False, lens_zooms=(3.7,))
 _CROP_ONLY = PhoneZoomCaps(ratio_max=1.0, crop_max=2.0, freeform=True)
+_ONE_LENS = PhoneZoomCaps(ratio_max=10.0, crop_max=4.0, freeform=True)
 
 
 def _framing(split):
@@ -203,10 +204,12 @@ def _framing(split):
     return view / zoom, vx + pan_x * step, vy + pan_y * step
 
 
-@pytest.mark.parametrize("caps", [None, _TELE, _CENTRE_ONLY, _CROP_ONLY, PhoneZoomCaps(1.5, 1.0, False)])
-@pytest.mark.parametrize("zoom,pan", [(1.0, (0, 0)), (2.0, (0, 0)), (3.0, (1, 0)), (5.0, (-0.4, 0.8)), (2.5, (1, -1))])
-def test_split_zoom_always_frames_what_was_asked(caps, zoom, pan):
-    size, cx, cy = _framing(split_zoom(zoom, *pan, caps))
+@pytest.mark.parametrize("caps", [None, _TELE, _CENTRE_ONLY, _CROP_ONLY, _ONE_LENS, PhoneZoomCaps(1.5, 1.0, False)])
+@pytest.mark.parametrize("zoom,pan", [(1.0, (0, 0)), (2.0, (0, 0)), (3.0, (1, 0)), (5.0, (-0.4, 0.8)), (2.5, (1, -1)),
+                                      (4.5, (0, 0)), (5.0, (0.3, -0.2))])
+@pytest.mark.parametrize("current", [1.0, 3.7])
+def test_split_zoom_always_frames_what_was_asked(caps, zoom, pan, current):
+    size, cx, cy = _framing(split_zoom(zoom, *pan, caps, current))
     assert size == pytest.approx(1.0 / zoom, abs=1e-3)
     assert cx == pytest.approx(0.5 + pan[0] * (1 - 1 / zoom) / 2, abs=1e-3)
     assert cy == pytest.approx(0.5 + pan[1] * (1 - 1 / zoom) / 2, abs=1e-3)
@@ -218,26 +221,50 @@ def test_a_lens_that_cant_zoom_leaves_it_all_to_the_desktop():
     assert split.desktop == (2.5, 0.3, -0.2)
 
 
-def test_centred_zoom_goes_all_to_the_phone_ratio():
-    for caps in (_TELE, _CENTRE_ONLY):
-        split = split_zoom(3.0, 0, 0, caps)
-        assert split.phone == PhoneZoom(3.0, 1.0, 0.5, 0.5)
-        assert split.desktop == (1.0, 0.0, 0.0)
-
-
-def test_panning_to_the_edge_backs_the_ratio_off_and_crops_off_centre():
-    split = split_zoom(3.0, 1, 0, _TELE)
-    assert split.phone.ratio == pytest.approx(1.0)
-    assert split.phone.crop == pytest.approx(3.0)
-    assert split.phone.x > 0.5
+def test_below_the_telephoto_the_crop_zooms_and_the_ratio_stays_on_the_main_lens():
+    split = split_zoom(3.0, 0, 0, _TELE)
+    assert split.phone == PhoneZoom(1.0, 3.0, 0.5, 0.5)
     assert split.desktop == (1.0, 0.0, 0.0)
 
 
-def test_a_centre_only_phone_zooms_as_far_as_the_window_fits_and_the_desktop_pans():
-    split = split_zoom(4.0, 0.5, 0, _CENTRE_ONLY)
-    assert (split.phone.x, split.phone.y) == (0.5, 0.5)
-    assert 1.0 < split.phone.ratio < 4.0
-    assert split.desktop[0] > 1.0 and split.desktop[1] == pytest.approx(1.0)
+def test_past_the_telephoto_the_ratio_switches_lens_and_the_crop_does_the_rest():
+    split = split_zoom(5.0, 0, 0, _TELE)
+    assert split.phone.ratio == 3.7
+    assert split.phone.crop == pytest.approx(5.0 / 3.7, abs=1e-3)
+    assert split.desktop == (1.0, 0.0, 0.0)
+
+
+def test_panning_out_of_the_telephotos_view_goes_back_to_the_main_lens():
+    split = split_zoom(5.0, 1, 0, _TELE, current_ratio=3.7)
+    assert split.phone.ratio == 1.0
+    assert split.phone.crop == pytest.approx(4.0)  # as far as the crop goes; this computer does the rest
+    assert split.phone.x > 0.5
+
+
+@pytest.mark.parametrize("caps", [_TELE, _CENTRE_ONLY, _ONE_LENS])
+@pytest.mark.parametrize("zoom", [2.0, 3.0, 4.5])
+def test_a_pan_sweep_switches_the_ratio_at_most_at_the_lens_edges(caps, zoom):
+    """The wobble: a ratio that follows the pan makes the phone animate zoom on every step."""
+    ratios, current = [], 1.0
+    for step in range(-20, 21):
+        split = split_zoom(zoom, step / 20, step / 40, caps, current)
+        current = split.phone.ratio
+        ratios.append(current)
+    changes = sum(a != b for a, b in zip(ratios, ratios[1:]))
+    assert set(ratios) <= {1.0, *caps.lens_zooms}
+    assert changes <= 2  # into the telephoto's view and back out, nothing in between
+
+
+def test_the_lens_doesnt_flip_back_and_forth_at_its_edge():
+    fits_just_inside = 3.7 * 1.02  # inside the telephoto's view, but short of the margin to switch to it
+    assert split_zoom(fits_just_inside, 0, 0, _TELE, current_ratio=1.0).phone.ratio == 1.0
+    assert split_zoom(fits_just_inside, 0, 0, _TELE, current_ratio=3.7).phone.ratio == 3.7
+
+
+def test_a_centre_only_phones_share_doesnt_change_with_the_pan():
+    shares = {split_zoom(3.0, step / 10, 0, _CENTRE_ONLY).phone for step in range(-10, 11)}
+    assert shares == {PhoneZoom(1.0, 1.0, 0.5, 0.5)}
+    assert split_zoom(4.5, 0, 0, _CENTRE_ONLY).phone == PhoneZoom(3.7, 1.0, 0.5, 0.5)
 
 
 def test_zoom_past_what_the_phone_allows_is_finished_on_the_desktop():
@@ -252,6 +279,7 @@ def test_caps_come_from_the_current_camera_entry():
     assert PhoneZoomCaps.from_camera({"zoomRatioMax": None, "cropZoomMax": None}) is None
     assert PhoneZoomCaps.from_camera({"zoomRatioMax": 8.0, "cropZoomMax": 1.0, "freeformCrop": True}) == \
         PhoneZoomCaps(8.0, 1.0, True)
+    assert PhoneZoomCaps.from_camera({"zoomRatioMax": 5.0, "lensZooms": [9.0, 3.7, 0.6]}).lens_zooms == (3.7,)
 
 
 class _Ctrl:
@@ -275,7 +303,7 @@ def test_plugin_tells_the_phone_only_when_its_share_changes(transforms_plugin):
     plugin.on_phone_state(_state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True))
     plugin._zoom_slider.setValue(300)
     assert ctrl.sent == [{"action": "zoom", "ratio": 1.0, "crop": 1.0, "x": 0.5, "y": 0.5},
-                         {"action": "zoom", "ratio": 3.0, "crop": 1.0, "x": 0.5, "y": 0.5}]
+                         {"action": "zoom", "ratio": 1.0, "crop": 3.0, "x": 0.5, "y": 0.5}]
     assert plugin._desktop_crop == (1.0, 0.0, 0.0)
 
 
@@ -290,7 +318,7 @@ def test_plugin_crops_everything_itself_without_a_phone_that_zooms(transforms_pl
     plugin.on_stream_start("http://phone/v1/video", ctrl)
     plugin._bus.camera_switched.emit({"id": "2"})  # a lens that can't zoom itself
     assert plugin._desktop_crop == (2.0, 0.0, 0.0)
-    assert [p["ratio"] for p in ctrl.sent] == [1.0, 2.0]  # nothing new for the lens that can't zoom
+    assert ctrl.sent == [{"action": "zoom", "ratio": 1.0, "crop": 1.0, "x": 0.5, "y": 0.5}]  # a ratio alone picks no lens
 
 
 def test_a_picked_point_only_undoes_the_desktop_share_of_the_zoom(transforms_plugin):
@@ -298,8 +326,21 @@ def test_a_picked_point_only_undoes_the_desktop_share_of_the_zoom(transforms_plu
     seen = []
     plugin._bus.focus_point.connect(lambda x, y: seen.append((round(x, 3), round(y, 3))))
     plugin.on_stream_start("http://phone/v1/video", _Ctrl())
-    plugin.on_phone_state(_state(zoomRatioMax=10.0))
+    plugin.on_phone_state(_state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True))
     plugin._zoom_slider.setValue(200)
     plugin.process_frame(np.zeros((90, 160, 3), np.uint8))
     plugin._bus.focus_point_picked.emit(0.25, 0.5)
     assert seen == [(0.25, 0.5)]  # the phone zoomed, so the point is already in its stream frame
+
+
+def test_the_zoom_tooltip_names_the_live_lens(transforms_plugin):
+    plugin, _host, _panel = transforms_plugin
+    plugin.on_stream_start("http://phone/v1/video", _Ctrl())
+    state = _state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True, lensZooms=[3.7])
+    state["cameras"].append({"id": "4", "current": False, "label": "Back Telephoto ~85mm OIS [phys]"})
+    state["active_lens"] = "4"
+    plugin.on_phone_state(state)
+    tip = plugin._zoom_slider.toolTip()
+    assert "Live lens: Tele ~85mm OIS" in tip
+    assert "let it settle" in tip
+    assert plugin._zoom_val_lbl.toolTip() == tip

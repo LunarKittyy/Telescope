@@ -83,7 +83,7 @@ Everything past this point is optional - detailed feature reference, how it work
 **Stream transforms** (no phone restart needed)
 - Horizontal and vertical flip
 - Rotation: 90 CW, 180, 90 CCW
-- Zoom 1-5x with pan X/Y sliders. The phone does as much of the crop as its lens allows, straight from the full-resolution sensor (and on the **Auto** lens, switching to the telephoto when the framing fits in it); the desktop crops whatever is left. The framing is the same either way, only sharper. Hover the zoom value to see where it's happening
+- Zoom 1-5x with pan X/Y sliders. The phone does as much of the crop as its lens allows, straight from the full-resolution sensor (and on the **Auto** lens, switching to the telephoto when the framing fits in it); the desktop crops whatever is left. The framing is the same either way. It gets noticeably sharper mainly once the telephoto takes over (zoomed in far enough and not panned out of its view). Hover the zoom slider to see where the zoom happens and which lens is live
 
 **Presets** (the Presets button in the header)
 - Save the camera, output and transform settings under a name and switch back with one click, lens included

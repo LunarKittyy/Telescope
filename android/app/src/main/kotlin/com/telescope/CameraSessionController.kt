@@ -38,6 +38,7 @@ data class CameraControlSnapshot(
     val codec:             String,
     val bitrate:           Int,
     val codecError:        String?,
+    val activeLens:        String?,
 )
 
 // Phone-side zoom, as the desktop splits it: a centred CONTROL_ZOOM_RATIO, then a 1/crop SCALER_CROP_REGION
@@ -75,6 +76,7 @@ class CameraSessionController(
     @Volatile private var currentWbGains: RggbChannelVector? = null  // null = auto AWB
     @Volatile private var lastCCM:        ColorSpaceTransform? = null
     @Volatile private var lastMeasuredGains: RggbChannelVector? = null
+    @Volatile private var activeLens: String? = null  // which lens a multi-lens camera is using (capture results)
     @Volatile private var currentFocusMode:     String = "continuous"
     @Volatile private var currentFocusDistance: Float  = 0f  // diopters; 0 = infinity
     // Set in "point" mode: x, y and size in the stream frame; mapped onto the sensor per request, through the zoom.
@@ -133,6 +135,7 @@ class CameraSessionController(
         codec           = codec,
         bitrate         = currentBitrate(),
         codecError      = codecError,
+        activeLens      = activeLens,
     )
 
     private fun currentBitrate(): Int =
@@ -564,6 +567,8 @@ class CameraSessionController(
         ) {
             result.get(CaptureResult.COLOR_CORRECTION_TRANSFORM)?.let { lastCCM = it }
             result.get(CaptureResult.COLOR_CORRECTION_GAINS)?.let { lastMeasuredGains = it }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+                activeLens = result.get(CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID)
         }
     }
 

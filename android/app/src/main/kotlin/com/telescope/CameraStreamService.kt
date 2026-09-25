@@ -54,6 +54,7 @@ data class CameraEntry(
     val zoomRatioMax: Float = 1f,     // CONTROL_ZOOM_RATIO's upper end; 1 = can't (Android 10-, physical lenses)
     val cropZoomMax: Float = 1f,      // SCALER_CROP_REGION's max zoom; 1 = the crop can't be set on this camera
     val freeformCrop: Boolean = false, // the crop can sit off-centre
+    val lensZooms: List<Float> = emptyList(), // a multi-lens camera's zoom ratios where another lens takes over
 )
 
 // The sensor's active pixel array (SENSOR_INFO_ACTIVE_ARRAY_SIZE), kept free of android.graphics.Rect so
@@ -133,6 +134,19 @@ object CameraRequestSelection {
         if (streamAspect > areaAspect) { visW = area.width.toFloat(); visH = visW / streamAspect }
         else { visH = area.height.toFloat(); visW = visH * streamAspect }
         return floatArrayOf(area.left + (area.width - visW) / 2f, area.top + (area.height - visH) / 2f, visW, visH)
+    }
+
+    // 35 mm-equivalent focal length from the real one and the sensor's size (mm); 0 when unknown.
+    fun equivalentFocal(focalMm: Float, sensorW: Float, sensorH: Float): Float {
+        val diag = sqrt(sensorW * sensorW + sensorH * sensorH)
+        return if (focalMm > 0f && diag > 0f) focalMm * 43.27f / diag else 0f
+    }
+
+    // The zoom ratios at which a multi-lens camera's other lenses take over: each lens's equivalent focal
+    // length over the camera's own, above 1 (not the main lens or the ultra-wide) and reachable, sorted.
+    fun lensZooms(ownFocal: Float, lensFocals: List<Float>, zoomRatioMax: Float): List<Float> {
+        if (ownFocal <= 0f) return emptyList()
+        return lensFocals.map { it / ownFocal }.filter { it > 1.05f && it <= zoomRatioMax }.distinct().sorted()
     }
 
     fun clamp(value: Int, min: Int, max: Int): Int =
@@ -336,6 +350,12 @@ class CameraStreamService : Service() {
         super.onDestroy()
     }
 
+    private fun equivalentFocal(chars: CameraCharacteristics): Float {
+        val focal = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)?.firstOrNull() ?: 0f
+        val sensor = chars.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE) ?: return 0f
+        return CameraRequestSelection.equivalentFocal(focal, sensor.width, sensor.height)
+    }
+
     private fun enumerateAllCameras() {
         val manager = getSystemService(CAMERA_SERVICE) as CameraManager
         val result  = mutableListOf<CameraEntry>()
@@ -347,12 +367,7 @@ class CameraStreamService : Service() {
                 CameraCharacteristics.LENS_FACING_FRONT -> "Front"
                 else -> "Ext"
             }
-            val focalRaw = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)?.firstOrNull() ?: 0f
-            val sensor   = chars.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE)
-            val focalEq  = if (sensor != null && focalRaw > 0f) {
-                val diag = sqrt((sensor.width * sensor.width + sensor.height * sensor.height).toDouble()).toFloat()
-                (focalRaw * 43.27f / diag).toInt()
-            } else 0
+            val focalEq  = equivalentFocal(chars).toInt()
 
             val oisModes = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION)
             val hasOis   = oisModes?.contains(1) == true
@@ -407,6 +422,11 @@ class CameraStreamService : Service() {
                 CameraCharacteristics.SCALER_CROPPING_TYPE_FREEFORM
             val multiLens = caps?.contains(
                 CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA) == true
+            val lensZooms = if (multiLens && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+                CameraRequestSelection.lensZooms(equivalentFocal(chars),
+                    chars.physicalCameraIds.map { equivalentFocal(manager.getCameraCharacteristics(it)) },
+                    zoomRatioMax)
+            else emptyList()
 
             val streamMap = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
             val supportedSizes = streamMap?.getOutputSizes(ImageFormat.JPEG)
@@ -433,7 +453,7 @@ class CameraStreamService : Service() {
                         aeCompMin, aeCompMax, aeCompStep, supportsFlash,
                         aeFpsRanges, afModes, nrModes, edgeModes, supportedSizes,
                         maxAfRegions, maxAeRegions, activeArray,
-                        zoomRatioMax.coerceAtLeast(1f), cropZoomMax.coerceAtLeast(1f), freeformCrop)
+                        zoomRatioMax.coerceAtLeast(1f), cropZoomMax.coerceAtLeast(1f), freeformCrop, lensZooms)
         }.getOrNull()
 
         manager.cameraIdList.forEach { id ->
@@ -545,6 +565,7 @@ class CameraStreamService : Service() {
                 supportsFocusPoint = e.maxAfRegions > 0 && e.activeArray != null &&
                     CaptureRequest.CONTROL_AF_MODE_AUTO in e.afModes,
                 zoomRatioMax = e.zoomRatioMax, cropZoomMax = e.cropZoomMax, freeformCrop = e.freeformCrop,
+                lensZooms = e.lensZooms,
             )
         }
         val (battLevel, battCharging, battTempC) = getBatteryInfo()
@@ -572,6 +593,7 @@ class CameraStreamService : Service() {
             codec = snap?.codec ?: H264Stream.CODEC_MJPEG,
             bitrate = snap?.bitrate ?: 0,
             codec_error = snap?.codecError,
+            active_lens = snap?.activeLens,
             stream_width = liveSize.width,
             stream_height = liveSize.height,
             battery = battLevel,
