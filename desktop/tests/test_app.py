@@ -1130,16 +1130,13 @@ def test_start_shows_the_reason_and_builds_nothing_when_the_wake_fails(window, m
         app_module, "StreamWorker",
         lambda **_kw: pytest.fail("no worker may be built when the phone never came up"),
     )
-    warnings = []
-    monkeypatch.setattr(
-        app_module.QMessageBox, "warning",
-        lambda _parent, title, text: warnings.append((title, text)),
-    )
-
     window._start()
 
     assert window._worker is None
-    assert warnings[0][1] == "Open the app on your phone."
+    issue = window._banners.issue("start")
+    assert issue.title == "Couldn't start the phone's camera"
+    assert issue.text == "Open the app on your phone."
+    assert [a.label for a in issue.actions] == ["Try again"]
     # Button must come back enabled so user can retry.
     assert window._start_btn.isEnabled()
     assert window._start_btn.text() == "Start Streaming"
@@ -1279,3 +1276,14 @@ def test_stop_stream_cancels_a_wake_that_is_still_in_flight(window, monkeypatch)
     window._on_wake_done(wake_id, True, "", url, token)
 
     assert window._worker is None
+
+
+def test_a_start_problem_banner_clears_on_the_next_start_and_on_a_working_stream(window):
+    from telescope.widgets.banner import Issue
+    window.show_issue("start", Issue("Can't connect"))
+    window.show_issue("vcam", Issue("Resize"))
+    window.register_plugin(_Connection(wake=(False, "still closed")))
+    window._start()
+    assert window._banners.issue("start").text == "still closed"  # replaced, not stacked
+    window._on_worker_status("ok", "Streaming")
+    assert window._banners.keys() == []

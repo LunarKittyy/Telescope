@@ -18,7 +18,7 @@ from typing import Optional
 
 from PyQt6.QtCore import QObject, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
-    QDialog, QHBoxLayout, QInputDialog, QLabel, QListWidget, QListWidgetItem,
+    QCheckBox, QDialog, QHBoxLayout, QInputDialog, QLabel, QListWidget, QListWidgetItem,
     QMessageBox, QPushButton, QVBoxLayout, QWidget,
 )
 
@@ -34,7 +34,7 @@ from telescope.platform import (
     adb_reverse, adb_unforward, adb_unreverse, bundled_apk_path,
 )
 from telescope.platform.linux import (
-    V4L2_OBS_DEV, V4L2_PHONE_DEV, v4l2_devices_ready, v4l2_load, v4l2_module_loaded,
+    CANCELLED, V4L2_PHONE_DEV, v4l2_devices_ready, v4l2_module_loaded, v4l2_setup,
 )
 from telescope.plugin import TelescopePlugin
 from telescope.session_client import (
@@ -46,6 +46,7 @@ from telescope.widgets.common import (
     dialog_buttons, dialog_header, dialog_layout, run_off_ui_thread, set_status_kind, set_ui_role,
     ui_px, wrapped_note,
 )
+from telescope.widgets.banner import BannerAction, Issue, copy_action
 from telescope.widgets.qr import QRCodeWidget
 
 logger = logging.getLogger(__name__)
@@ -690,23 +691,26 @@ class ConnectionPlugin(TelescopePlugin):
             return None, None, False
         phone = self._selected_phone()
         if phone is None:
-            QMessageBox.information(self._host, "No phone yet",
-                                    "Add a phone first: click Add phone on the Connection panel.")
+            self._host.show_issue("start", Issue(
+                "No phone yet", "Add a phone to stream from.",
+                [BannerAction("Add phone", self.open_add_phone)], kind="warn"))
             return None, None, False
         res = run_off_ui_thread(self._resolver.resolve, Phone(**phone.to_dict()), self._route_pref)
         self._check_id += 1  # anything in flight is older than this
         self._apply_resolution(res)
         if res.status != READY:
-            QMessageBox.warning(self._host, "Can't connect to the phone",
-                                problem_text(res, phone.name, self._route_pref))
+            self._host.show_issue("start", Issue(
+                "Can't connect to the phone", problem_text(res, phone.name, self._route_pref),
+                self._fix_actions(res)))
             return None, None, False
         route = res.route
         if route.kind == "usb":
             local = run_off_ui_thread(self._tunnels.acquire, route.serial, STREAM_PORT)
             if local is None:
-                QMessageBox.warning(self._host, "Can't connect to the phone",
-                                    "adb couldn't open a connection to the phone. Unplug it, plug it "
-                                    "back in and try again.")
+                self._host.show_issue("start", Issue(
+                    "Can't connect to the phone",
+                    "adb couldn't open a connection to the phone. Unplug it, plug it back in and try again.",
+                    [BannerAction("Try again", self._host.start_stream)]))
                 return None, None, False
             self._stream_forward_serial = route.serial
             url = f"http://127.0.0.1:{local}/v1/video"
@@ -715,28 +719,63 @@ class ConnectionPlugin(TelescopePlugin):
         self._stream_route = route
         return url, phone.token, True
 
+    def _fix_actions(self, res: Resolution) -> list:
+        """The banner buttons for a phone Start couldn't reach."""
+        if res.status == NOT_PAIRED:
+            return [BannerAction("Add phone", self.open_add_phone)]
+        update = self._outdated_action(res)
+        if update is not None:
+            return [BannerAction(update, self._update_action)]
+        actions = []
+        if res.status == USB_NEEDS_ATTENTION or (self._route_pref != ROUTE_AUTO and res.status == UNREACHABLE):
+            actions.append(BannerAction("Switch to Automatic", self._switch_to_automatic))
+        if res.status in (UNREACHABLE, LOCAL_ONLY, USB_NEEDS_ATTENTION):
+            actions.append(BannerAction("Try again", self._host.start_stream))
+        return actions
+
+    def _switch_to_automatic(self):
+        self.set_route_preference(ROUTE_AUTO)
+        self._host.start_stream()
+
     def _ensure_virtual_camera(self) -> bool:
         if v4l2_devices_ready():
             return True
         if v4l2_module_loaded():
-            QMessageBox.warning(
-                self._host, "Virtual camera is set up differently",
-                f"v4l2loopback is already loaded, but without {V4L2_PHONE_DEV}. Another app set it up "
-                "with different settings, and Telescope leaves that alone rather than break it.\n\n"
-                "To hand it over to Telescope, close the other app and run:\n"
-                "    sudo modprobe -r v4l2loopback\n\nThen click Start again.")
+            command = "sudo modprobe -r v4l2loopback"
+            self._host.show_issue("start", Issue(
+                "Virtual camera is set up differently",
+                f"v4l2loopback is loaded, but without {V4L2_PHONE_DEV}: another app set it up with other "
+                "settings. Close that app and run this to hand it over to Telescope:",
+                [copy_action(command)], details=command))
             return False
-        r = QMessageBox.question(
-            self._host, "Set up the virtual camera",
-            "Telescope needs to switch on its virtual camera first. This asks for your password.",
-            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
-            QMessageBox.StandardButton.Ok)
-        if r != QMessageBox.StandardButton.Ok:
+        persist = self._ask_virtual_camera()
+        if persist is None:
             return False
-        ok, msg = run_off_ui_thread(v4l2_load)
-        if not ok:
-            QMessageBox.critical(self._host, "Couldn't set up the virtual camera", msg)
-        return ok
+        result = run_off_ui_thread(v4l2_setup, persist)
+        if result.ok:
+            return True
+        if result.command:
+            self._host.show_issue("start", Issue(
+                "Set up the virtual camera", result.message,
+                [copy_action(result.command)], kind="warn", details=result.command))
+        elif result.message != CANCELLED:
+            self._host.show_issue("start", Issue("Couldn't set up the virtual camera", result.message,
+                                                 [BannerAction("Try again", self._host.start_stream)]))
+        return False
+
+    def _ask_virtual_camera(self) -> Optional[bool]:
+        """Consent to the password prompt. True/False: also switch it on at startup; None: cancelled."""
+        box = QMessageBox(self._host)
+        box.setWindowTitle("Set up the virtual camera")
+        box.setText("Telescope needs to switch on its virtual camera first. This asks for your password.")
+        check = QCheckBox("Also switch it on at every startup")
+        check.setChecked(True)
+        box.setCheckBox(check)
+        box.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
+        box.setDefaultButton(QMessageBox.StandardButton.Ok)
+        if box.exec() != QMessageBox.StandardButton.Ok:
+            return None
+        return check.isChecked()
 
     def session_target(self) -> SessionTarget:
         phone = self._selected_phone()

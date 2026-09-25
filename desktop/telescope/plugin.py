@@ -1,8 +1,11 @@
-from typing import Optional, Protocol
+from typing import TYPE_CHECKING, Optional, Protocol
 
 import numpy as np
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtWidgets import QWidget
+
+if TYPE_CHECKING:
+    from telescope.widgets.banner import Issue
 
 
 UNCHANGED = object()
@@ -56,6 +59,18 @@ class HostServices(Protocol):
 
     def quit_app(self) -> None:
         """Stop streaming, shut every plugin down and quit (the tray's Quit)."""
+        ...
+
+    def start_stream(self) -> None:
+        """Start streaming, as the Start button does; a no-op if already streaming or starting."""
+        ...
+
+    def show_issue(self, key: str, issue: "Issue") -> None:
+        """Show a problem banner above the body (telescope.widgets.banner.Issue); the same key replaces it."""
+        ...
+
+    def clear_issue(self, key: Optional[str] = None) -> None:
+        """Remove one banner, or all of them."""
         ...
 
 

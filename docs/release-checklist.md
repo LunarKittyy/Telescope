@@ -67,6 +67,9 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 - [ ] Camera controls (lens, exposure, WB, OIS) apply live and match what's shown on the desktop UI.
 - [ ] Stream transforms (flip, rotate, zoom/pan) apply without restart.
 - [ ] Canvas size change (Linux and Windows) restarts cleanly.
+- [ ] Linux, module not loaded: Start asks once, with the startup box ticked; after a reboot Start doesn't ask. Unticked: it asks again after a reboot.
+- [ ] Linux without pkexec (or with no polkit agent): Start shows the command banner, Copy command works, and running it then Start streams.
+- [ ] Each Start failure shows a banner with a working button: no phone (Add phone), phone app closed (Try again), USB only without a cable (Switch to Automatic), app versions differ (Update).
 - [ ] Battery/temp alerts fire once per threshold cross, not repeatedly.
 - [ ] Config persists across app restart, including per-phone settings after switching. A config from the previous version keeps global settings and asks to pair again.
 - [ ] Corrupted `telescope_config.json` backs up (`.invalid-<timestamp>`) and app starts with defaults.

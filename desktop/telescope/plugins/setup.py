@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
 
 from telescope.platform import IS_LINUX, adb_available, adb_devices, adb_install, bundled_apk_path
 from telescope.platform.linux import (
-    V4L2_OBS_DEV, V4L2_PHONE_DEV,
+    V4L2_OBS_DEV, V4L2_PHONE_DEV, as_text,
     v4l2_devices_ready, v4l2_load, v4l2_module_loaded, v4l2_unload,
     v4l2_persist_disable, v4l2_persist_enable, v4l2_persist_status,
 )
@@ -89,6 +89,8 @@ class AdvancedDialog(QDialog):
         add_card_header(vc_lay, "Virtual camera", "stream")
         if IS_LINUX:
             self._v4l_lbl = QLabel("Checking...")
+            self._v4l_lbl.setWordWrap(True)
+            self._v4l_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             set_status_kind(self._v4l_lbl, "status_dim")
             self._v4l_lbl.setWordWrap(True)
             self._v4l_lbl.setToolTip(
@@ -117,6 +119,7 @@ class AdvancedDialog(QDialog):
             vc_lay.addLayout(control_row("Load at boot", self._persist_chk))
 
             self._persist_status_lbl = wrapped_note("")
+            self._persist_status_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             set_status_kind(self._persist_status_lbl, "status_dim")
             self._persist_status_lbl.setTextInteractionFlags(
                 Qt.TextInteractionFlag.TextSelectableByMouse
@@ -295,12 +298,12 @@ class AdvancedDialog(QDialog):
     def _v4l_load(self):
         set_status_kind(self._v4l_lbl, "status_dim")
         self._v4l_lbl.setText("Loading...")
-        threading.Thread(target=lambda: self._sig_v4l_result.emit(*v4l2_load()), daemon=True).start()
+        threading.Thread(target=lambda: self._sig_v4l_result.emit(*as_text(v4l2_load())), daemon=True).start()
 
     def _v4l_unload(self):
         set_status_kind(self._v4l_lbl, "status_dim")
         self._v4l_lbl.setText("Unloading...")
-        threading.Thread(target=lambda: self._sig_v4l_unload.emit(*v4l2_unload()), daemon=True).start()
+        threading.Thread(target=lambda: self._sig_v4l_unload.emit(*as_text(v4l2_unload())), daemon=True).start()
 
     def _on_v4l_result(self, ok: bool, msg: str):
         self._v4l_lbl.setText(("Loaded - " if ok else "Failed - ") + msg)
@@ -326,7 +329,7 @@ class AdvancedDialog(QDialog):
         self._persist_row.setVisible(True)
         self.adjustSize()
         action = v4l2_persist_enable if checked else v4l2_persist_disable
-        threading.Thread(target=lambda: self._sig_persist_result.emit(*action()), daemon=True).start()
+        threading.Thread(target=lambda: self._sig_persist_result.emit(*as_text(action())), daemon=True).start()
 
     def _on_persist_result(self, ok: bool, msg: str):
         self._persist_chk.setEnabled(True)

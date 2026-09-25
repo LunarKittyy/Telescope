@@ -132,6 +132,7 @@ Everything past this point is optional - detailed feature reference, how it work
 - Minimizes to system tray on close only when streaming; otherwise quits
 - Right-click the tray icon to quit, or click it to show/hide the window
 - Launching a second instance brings the existing window to the front
+- When Start can't go ahead, a banner at the top of the window says why, with the button that fixes it (Try again, Add phone, Switch to Automatic, Copy command). It clears on the next working stream
 - Battery/temperature notifications use `notify-send` on Linux (if available) or the system tray on Windows
 
 </details>
@@ -274,6 +275,7 @@ telescope/
         |   |-- updates.py       # Update button and dialog
         |   +-- monitoring.py
         +-- widgets/
+            |-- banner.py        # In-window problem banners
             |-- common.py        # NoScroll*, LogSliderRow, rows, segmented toggles, icons
             |-- qr.py            # QR code widget
             +-- lens_panel.py    # Lens picker widget
@@ -375,7 +377,7 @@ sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-releas
 sudo dnf install v4l2loopback
 ```
 
-The `start.sh` script handles pip dependencies automatically. Once the package above is installed, Telescope loads the module when you start streaming (asking for your password). **Advanced** in the settings menu can load and unload it too, or run it manually:
+The `start.sh` script handles pip dependencies automatically. Once the package above is installed, Telescope loads the module when you start streaming. It asks for your password once, with **Also switch it on at every startup** ticked, so later boots don't ask again. Without a graphical password prompt (no pkexec or no polkit agent), it shows the command to run in a terminal instead, with a Copy button. **Advanced** in the settings menu can load and unload it too, or run it manually:
 
 ```bash
 sudo modprobe v4l2loopback devices=2 video_nr=10,11 \
@@ -421,7 +423,7 @@ The release zip bundles the UnityCapture DLLs already; the first-run checklist r
 
 **Clean stop/restart:** `_stop()` disconnects the worker's status signal before requesting stop, preventing the old worker's eventual `"idle"` emission from clobbering the new worker's state after a canvas restart. Both Linux and Windows `restart_vcam_canvas()` wait for the old `QThread` to fully exit (via `QThread.wait()`) before starting the new one, avoiding pyvirtualcam slot conflicts.
 
-**Linux loopback reload:** `v4l2_reload()` runs `modprobe -r v4l2loopback && sleep 0.5 && modprobe v4l2loopback ...` as a single `pkexec sh -c "..."` invocation so there is only one password prompt for the full unload+reload cycle.
+**Linux root commands:** every v4l2loopback operation (load, load-and-persist, unload, reload, the boot config) is one `pkexec sh -c "..."` call, so one password prompt. If pkexec is missing or has no agent, `sudo -n` covers cached credentials; `sudo` is never run where it could wait for a password, since a GUI app has no terminal to type it in. Otherwise the same steps come back as a pasteable `sudo` / `sudo tee` command.
 
 **Live transform:** Plugin attributes like `flip_h`, `rotation`, `zoom` are plain Python instance attributes updated by the UI thread and read each frame by the worker thread. Python's GIL makes bool/float writes atomic at this granularity, so no lock is needed.
 
@@ -725,10 +727,10 @@ Run in both desktop CI workflows before assembling the bundle: constructs the fu
 |---|---|---|
 | Only 2 cameras visible | Physical sub-cameras hidden behind logical camera | Already handled via `physicalCameraIds`; if still missing, device may restrict access |
 | Manual exposure greyed out | Camera doesn't report `MANUAL_SENSOR` capability | Some front cameras and telephoto lenses don't support it; use Auto |
-| `/dev/video11` gone after reboot | v4l2loopback isn't loaded at boot | Nothing to do: Start Streaming loads it (with a password prompt). To skip the prompt, tick **Load at boot** in Advanced |
+| `/dev/video11` gone after reboot | v4l2loopback isn't loaded at boot | Start Streaming loads it. Leave **Also switch it on at every startup** ticked (or tick **Load at boot** in Advanced) and it won't ask again |
 | pyvirtualcam fails to open (Linux) | Module not loaded, or not installed | Install `v4l2loopback-dkms` (Debian/Ubuntu/Arch) or `v4l2loopback` (Fedora/Nobara, via RPM Fusion), then click Start again. **Advanced** can load it by hand |
 | pyvirtualcam fails to open (Windows) | UnityCapture not registered | Open **Advanced** from the settings menu and reinstall the driver |
-| "Virtual camera is set up differently" when starting | Some other app (OBS's own virtual camera, a previous session, etc.) already has the module loaded with different settings | Close that app, or run `sudo modprobe -r v4l2loopback` yourself, then click Start again |
+| "Virtual camera is set up differently" banner when starting | Some other app (OBS's own virtual camera, a previous session, etc.) already has the module loaded with different settings | Close that app, or run `sudo modprobe -r v4l2loopback` yourself, then click Start again |
 | Canvas restart fails with "module in use" | OBS or another app still holds the device | Close all apps using the virtual camera, then retry |
 | Camera control panel never appears | Phone HTTP server slow to start | App retries 3x over 6s; check the phone still shows the stream running |
 | WB slider has no effect | Camera doesn't support `MANUAL_POST_PROCESSING` | Falls back gracefully; auto AWB still works |

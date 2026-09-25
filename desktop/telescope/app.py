@@ -10,7 +10,7 @@ from PyQt6.QtCore import QPoint, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QApplication, QFrame, QHBoxLayout, QLabel,
-    QMainWindow, QMenu, QMessageBox, QPushButton, QScrollArea,
+    QMainWindow, QMenu, QPushButton, QScrollArea,
     QSizePolicy, QSystemTrayIcon, QVBoxLayout, QWidget,
 )
 
@@ -22,6 +22,7 @@ from telescope.platform import IS_LINUX
 from telescope.plugin import UNCHANGED, EventBus, TelescopePlugin
 from telescope.session import StreamSession
 from telescope.stream import StreamWorker
+from telescope.widgets.banner import BannerAction, BannerArea, Issue, copy_action
 from telescope.widgets.common import (
     ElidingLabel, create_app_icon, create_vector_icon, set_status_kind, ui_px,
 )
@@ -88,7 +89,7 @@ def listen_for_raise(srv: socket.socket, raise_cb):
 class TelescopeWindow(QMainWindow):
     _sig_state = pyqtSignal(int, dict)
     _sig_raise = pyqtSignal()
-    _sig_canvas_reload_done = pyqtSignal(bool, str, bool)  # ok, msg, restart_stream
+    _sig_canvas_reload_done = pyqtSignal(bool, str, bool, str)  # ok, msg, restart_stream, command to run by hand
     _sig_wake_done = pyqtSignal(int, bool, str, str, str)  # wake_id, ok, reason, url, token
     _sig_wake_progress = pyqtSignal(int, str)  # wake_id, status text
 
@@ -188,6 +189,8 @@ class TelescopeWindow(QMainWindow):
         root_lay.setSpacing(0)
 
         root_lay.addWidget(self._build_header())
+        self._banners = BannerArea()
+        root_lay.addWidget(self._banners)
         root_lay.addWidget(self._build_body(), 1)
         root_lay.addWidget(self._build_footer())
 
@@ -525,6 +528,7 @@ class TelescopeWindow(QMainWindow):
         conn = self._plugin("connection")
         if not conn:
             return
+        self.clear_issue("start")
         url, token, ok = conn.get_stream_info()
         if not ok:
             return
@@ -574,7 +578,8 @@ class TelescopeWindow(QMainWindow):
         if not ok:
             self._set_start_button(streaming=False)
             self._set_status("Not streaming", "dim")
-            QMessageBox.warning(self, "Couldn't start the phone's camera", reason)
+            self.show_issue("start", Issue("Couldn't start the phone's camera", reason,
+                                           [BannerAction("Try again", self.start_stream)]))
             return
         self._begin_stream(url, token)
 
@@ -690,8 +695,9 @@ class TelescopeWindow(QMainWindow):
                 if old_worker:
                     old_worker.wait(5000)
                 from telescope.platform.linux import v4l2_reload
-                ok, msg = v4l2_reload()
-                self._sig_canvas_reload_done.emit(ok, msg, was_streaming)
+                result = v4l2_reload()
+                self._sig_canvas_reload_done.emit(result.ok, result.message, was_streaming,
+                                                  result.command or "")
 
             threading.Thread(target=worker, daemon=True).start()
         else:
@@ -700,17 +706,20 @@ class TelescopeWindow(QMainWindow):
             def worker():
                 if old_worker:
                     old_worker.wait(5000)
-                self._sig_canvas_reload_done.emit(True, "", was_streaming)
+                self._sig_canvas_reload_done.emit(True, "", was_streaming, "")
 
             threading.Thread(target=worker, daemon=True).start()
 
-    def _on_canvas_reload_done(self, ok: bool, msg: str, restart_stream: bool):
+    def _on_canvas_reload_done(self, ok: bool, msg: str, restart_stream: bool, command: str = ""):
         if ok:
             self._set_status(f"Loopback reloaded: {msg}" if IS_LINUX else "Canvas updated", "ok")
             if restart_stream:
                 self._start()
         else:
-            self._set_status(f"Reload failed: {msg}", "err")
+            self._set_status("Not streaming" if command else f"Reload failed: {msg}", "dim" if command else "err")
+            if command:
+                self.show_issue("vcam", Issue("Resize the virtual camera", msg, [copy_action(command)],
+                                              kind="warn", details=command))
         cb = getattr(self, "_vcam_reload_callback", None)
         if cb:
             cb(ok, msg)
@@ -779,6 +788,16 @@ class TelescopeWindow(QMainWindow):
 
     def quit_app(self):
         self._tray_quit()
+
+    def start_stream(self):
+        if self._worker is None and not self._waking:
+            self._start()
+
+    def show_issue(self, key: str, issue: Issue):
+        self._banners.show_issue(key, issue)
+
+    def clear_issue(self, key: Optional[str] = None):
+        self._banners.clear_issue(key)
 
     def _tray_quit(self):
         self._tray_close_notified = True
@@ -871,6 +890,7 @@ class TelescopeWindow(QMainWindow):
             self._net_lbl.setText(msg)
         elif kind == "ok":
             self._set_status(msg, "ok")
+            self._banners.clear_issue()  # whatever stopped the last Start is fixed now
             self._bus.stream_connected.emit()
         elif kind == "warn":
             self._set_status(msg, "warn")

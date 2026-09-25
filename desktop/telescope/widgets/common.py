@@ -660,6 +660,9 @@ _ICON_SVG = {
     "update": f'''<circle cx="12" cy="12" r="8.8" {_SOFT}/><path d="M12 7.5v8.5M8.3 12.6l3.7 3.7 3.7-3.7"/>''',
     "devices": f'''<rect x="3.5" y="4" width="10" height="17" rx="2.2" {_SOFT}/>
         <path d="M7.5 17.5h2"/><path d="M16.5 7.5h2.5a1.5 1.5 0 0 1 1.5 1.5v9.5a1.5 1.5 0 0 1-1.5 1.5h-2.5"/>''',
+    "alert": f'''<path d="M10.3 4.2a2 2 0 0 1 3.4 0l7.4 12.8a2 2 0 0 1-1.7 3H4.6a2 2 0 0 1-1.7-3z" {_SOFT}/>
+        <path d="M12 9.5v4"/><path d="M12 16.8v.2"/>''',
+    "close": '''<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>''',
 }
 
 _ICON_RENDER_PX = 64  # rendered once, large; QIcon scales down smoothly for every use

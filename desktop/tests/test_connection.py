@@ -11,6 +11,7 @@ from telescope.phones import (
     DESKTOP_OUTDATED, LOCAL_ONLY, PHONE_OUTDATED, NOT_PAIRED, READY, ROUTE_AUTO, ROUTE_USB, ROUTE_WIFI, UNREACHABLE,
     USB_APP_CLOSED, USB_NEEDS_ATTENTION, USB_NO_CABLE, Resolution, Route,
 )
+from telescope.platform.linux import CANCELLED, PrivResult
 from telescope.plugin import EventBus
 from telescope.plugins.connection import (
     ConnectionPlugin, SessionTarget, problem_text, route_text, status_line,
@@ -29,6 +30,20 @@ class _Host:
         self.stops = 0
         self.forgotten = []
         self.streaming = False
+        self.issues = {}
+        self.starts = 0
+
+    def show_issue(self, key, issue):
+        self.issues[key] = issue
+
+    def clear_issue(self, key=None):
+        if key is None:
+            self.issues.clear()
+        else:
+            self.issues.pop(key, None)
+
+    def start_stream(self):
+        self.starts += 1
 
     def schedule_save(self):
         self.saves += 1
@@ -374,20 +389,45 @@ def test_changing_the_route_saves_and_reconnects_a_live_stream(plugin_env):
 # ── Starting a stream ─────────────────────────────────────────────────────────
 
 def test_start_without_a_phone_explains_and_refuses(plugin_env, monkeypatch):
-    plugin, _host, _panel = plugin_env
-    shown = []
-    monkeypatch.setattr(connection_module.QMessageBox, "information", lambda *a: shown.append(a[1]))
+    plugin, host, _panel = plugin_env
+    opened = []
+    monkeypatch.setattr(ConnectionPlugin, "open_add_phone", lambda self: opened.append(True))
     assert plugin.get_stream_info() == (None, None, False)
-    assert shown == ["No phone yet"]
+    issue = host.issues["start"]
+    assert issue.title == "No phone yet"
+    issue.actions[0].callback()
+    assert opened == [True]
 
 
-def test_start_on_an_unreachable_phone_shows_the_fix(plugin_env, monkeypatch):
-    plugin, _host, _panel = plugin_env
+def test_start_on_an_unreachable_phone_shows_the_fix(plugin_env):
+    plugin, host, _panel = plugin_env
     _add(plugin)
-    shown = []
-    monkeypatch.setattr(connection_module.QMessageBox, "warning", lambda *a: shown.append(a[2]))
     assert plugin.get_stream_info() == (None, None, False)
-    assert "Open Telescope on Pixel" in shown[0]
+    issue = host.issues["start"]
+    assert "Open Telescope on Pixel" in issue.text
+    assert [a.label for a in issue.actions] == ["Try again"]
+    issue.actions[0].callback()
+    assert host.starts == 1
+
+
+def test_start_failures_offer_the_matching_fix(plugin_env, monkeypatch):
+    plugin, host, _panel = plugin_env
+    _add(plugin)
+    plugin._resolver.result = Resolution(NOT_PAIRED)
+    plugin.get_stream_info()
+    assert [a.label for a in host.issues["start"].actions] == ["Add phone"]
+
+    plugin._route_pref = ROUTE_USB
+    plugin._resolver.result = Resolution(USB_NEEDS_ATTENTION)
+    plugin.get_stream_info()
+    actions = host.issues["start"].actions
+    assert [a.label for a in actions] == ["Switch to Automatic", "Try again"]
+    actions[0].callback()
+    assert plugin._route_pref == ROUTE_AUTO and host.starts == 1
+
+    plugin._resolver.result = Resolution(DESKTOP_OUTDATED)
+    plugin.get_stream_info()
+    assert [a.label for a in host.issues["start"].actions] == ["Update this app"]
 
 
 def test_start_over_wifi_uses_the_resolved_address(plugin_env):
@@ -409,50 +449,78 @@ def test_start_over_usb_holds_a_forward_until_the_stream_stops(plugin_env):
     assert plugin._tunnels.held == {}
 
 
-def test_start_over_usb_reports_a_failed_forward(plugin_env, monkeypatch):
-    plugin, _host, _panel = plugin_env
+def test_start_over_usb_reports_a_failed_forward(plugin_env):
+    plugin, host, _panel = plugin_env
     _add(plugin)
     plugin._resolver.result = Resolution(READY, USB)
     plugin._tunnels.local = None
-    shown = []
-    monkeypatch.setattr(connection_module.QMessageBox, "warning", lambda *a: shown.append(a[2]))
     assert plugin.get_stream_info() == (None, None, False)
-    assert "adb" in shown[0]
+    assert "adb" in host.issues["start"].text
 
 
 def test_linux_virtual_camera_conflict_and_cancel(plugin_env, monkeypatch):
-    plugin, _host, _panel = plugin_env
+    plugin, host, _panel = plugin_env
     monkeypatch.setattr(connection_module, "IS_LINUX", True)
     monkeypatch.setattr(connection_module, "v4l2_devices_ready", lambda: False)
     monkeypatch.setattr(connection_module, "v4l2_module_loaded", lambda: True)
-    warnings = []
-    monkeypatch.setattr(connection_module.QMessageBox, "warning", lambda *a: warnings.append(a[1]))
     assert plugin.get_stream_info() == (None, None, False)
-    assert warnings == ["Virtual camera is set up differently"]
+    issue = host.issues["start"]
+    assert issue.title == "Virtual camera is set up differently"
+    assert issue.details == "sudo modprobe -r v4l2loopback"
+    assert issue.actions[0].label == "Copy command"
 
+    host.issues.clear()
     monkeypatch.setattr(connection_module, "v4l2_module_loaded", lambda: False)
-    monkeypatch.setattr(connection_module.QMessageBox, "question",
-                        lambda *a: QMessageBox.StandardButton.Cancel)
+    monkeypatch.setattr(ConnectionPlugin, "_ask_virtual_camera", lambda self: None)
+    monkeypatch.setattr(connection_module, "v4l2_setup",
+                        lambda persist: pytest.fail("no password prompt after Cancel"))
     assert plugin.get_stream_info() == (None, None, False)
+    assert host.issues == {}
 
 
-def test_linux_virtual_camera_load_failure_and_success(plugin_env, monkeypatch):
-    plugin, _host, _panel = plugin_env
+def test_linux_virtual_camera_one_prompt_with_the_startup_choice(plugin_env, monkeypatch):
+    plugin, host, _panel = plugin_env
     monkeypatch.setattr(connection_module, "IS_LINUX", True)
     monkeypatch.setattr(connection_module, "v4l2_devices_ready", lambda: False)
     monkeypatch.setattr(connection_module, "v4l2_module_loaded", lambda: False)
-    monkeypatch.setattr(connection_module.QMessageBox, "question",
-                        lambda *a: QMessageBox.StandardButton.Ok)
-    errors = []
-    monkeypatch.setattr(connection_module.QMessageBox, "critical", lambda *a: errors.append(a[1]))
-    monkeypatch.setattr(connection_module, "v4l2_load", lambda: (False, "denied"))
-    assert plugin.get_stream_info() == (None, None, False)
-    assert errors == ["Couldn't set up the virtual camera"]
+    choice = {"persist": True}
+    monkeypatch.setattr(ConnectionPlugin, "_ask_virtual_camera", lambda self: choice["persist"])
+    calls = []
 
+    def setup(persist):
+        calls.append(persist)
+        return PrivResult(False, "denied")
+    monkeypatch.setattr(connection_module, "v4l2_setup", setup)
+    assert plugin.get_stream_info() == (None, None, False)
+    assert calls == [True]
+    assert host.issues["start"].title == "Couldn't set up the virtual camera"
+
+    host.issues.clear()
+    monkeypatch.setattr(connection_module, "v4l2_setup", lambda persist: PrivResult(False, CANCELLED))
+    plugin.get_stream_info()
+    assert host.issues == {}  # the person said no; nothing to explain
+
+    choice["persist"] = False
+    monkeypatch.setattr(connection_module, "v4l2_setup", setup)
     _add(plugin)
     plugin._resolver.result = Resolution(READY, WIFI)
-    monkeypatch.setattr(connection_module, "v4l2_load", lambda: (True, "ok"))
+    monkeypatch.setattr(connection_module, "v4l2_setup", lambda persist: calls.append(persist) or PrivResult(True, "ok"))
     assert plugin.get_stream_info()[2] is True
+    assert calls[-1] is False
+
+
+def test_linux_virtual_camera_without_a_password_prompt_shows_the_command(plugin_env, monkeypatch):
+    plugin, host, _panel = plugin_env
+    monkeypatch.setattr(connection_module, "IS_LINUX", True)
+    monkeypatch.setattr(connection_module, "v4l2_devices_ready", lambda: False)
+    monkeypatch.setattr(connection_module, "v4l2_module_loaded", lambda: False)
+    monkeypatch.setattr(ConnectionPlugin, "_ask_virtual_camera", lambda self: True)
+    monkeypatch.setattr(connection_module, "v4l2_setup",
+                        lambda persist: PrivResult(False, "no prompt", "sudo modprobe v4l2loopback"))
+    plugin.get_stream_info()
+    issue = host.issues["start"]
+    assert issue.details == "sudo modprobe v4l2loopback"
+    assert [a.label for a in issue.actions] == ["Copy command"]
 
 
 # ── Plugged in mid-stream ─────────────────────────────────────────────────────

@@ -28,7 +28,7 @@ Calls `win.apply_saved_config()` **after** all plugins are registered so every p
 - **Two-phase start.** `_start()` calls `conn.get_stream_info()` (validates ADB/v4l2, builds URL), snapshots `conn.session_target()` on the GUI thread, then `_spawn_wake()` (background thread bringing phone camera up). `_on_wake_done()` either runs `_begin_stream()` (worker, ctrl, pipeline) or re-enables Start and shows the error. `_wake_id` counter drops stale results after user Stop/device switch/quit. Split for testability (tests call synchronously).
 - `_stop(remote_stop=True)` - tears down worker and ctrl; `on_stream_stop()` on each plugin (ConnectionPlugin releases its USB forward there); invalidates any in-flight wake; and takes the phone's camera down with it via `_stop_phone_async()`. `remote_stop=False` is for the internal stop/start pairs that are really a desktop-side reconnect (`reconnect_stream()`, `restart_vcam_canvas()`) - bouncing the phone there would cost seconds and a lens re-open for nothing.
 - `_stop_phone_async()` / `_drain_phone_stops(timeout=2.0)` - the remote stop runs off the UI thread but is tracked rather than fire-and-forget, so the quit paths (`closeEvent`, `_tray_quit`) can give it a bounded moment to actually leave the machine. Both quit paths then call every plugin's `shutdown()`.
-- Implements the public **`HostServices`** contract (see `plugin.py`): `schedule_save()`, `save_now()`, `switch_device()`, `forget_device_settings()`, `reconnect_stream()`, `send_notification()`, `is_streaming()`, `stop_stream()`, `update_stream_output()`, `restart_vcam_canvas()`, `quit_app()` (really quits, tray or not). Plugins only call these; private internals (`_worker`, `_stop()`) are hidden.
+- Implements the public **`HostServices`** contract (see `plugin.py`): `schedule_save()`, `save_now()`, `switch_device()`, `forget_device_settings()`, `reconnect_stream()`, `send_notification()`, `is_streaming()`, `stop_stream()`, `update_stream_output()`, `restart_vcam_canvas()`, `quit_app()` (really quits, tray or not), `start_stream()`, `show_issue(key, Issue)` / `clear_issue(key=None)` (problem banners above the body; every banner clears when a stream connects). Plugins only call these; private internals (`_worker`, `_stop()`) are hidden.
 - `send_notification(title, body, urgent=True)` - uses `notify-send` on Linux (critical urgency only when `urgent`), tray balloon on Windows.
 - `save_now()` - writes global plugin configs (connection, setup) and per-device configs (camera_control, stream_output, transforms, monitoring) under `devices[selected]`. `schedule_save()` is the debounced variant plugins call after a settings change.
 - `switch_device(prev, new)` - saves `prev` phone's per-device configs, restores `new` phone's; called by `ConnectionPlugin._activate_profile()`. Keys are phone ids.
@@ -49,7 +49,7 @@ The app's entire visual definition: palette constants (`BG`, `SURFACE`, `ACCENT`
 
 ### `plugin.py`
 **TelescopePlugin** base class + **HostServices** contract + **EventBus**.
-- `HostServices` (typing.Protocol): the public surface a plugin may call on its `host` handle - `schedule_save`, `save_now`, `switch_device`, `forget_device_settings`, `reconnect_stream`, `send_notification`, `is_streaming`, `stop_stream`, `update_stream_output`, `restart_vcam_canvas`, `quit_app`. Structural typing only (`TelescopeWindow` implements it without inheriting). Keeps plugins off private window internals.
+- `HostServices` (typing.Protocol): the public surface a plugin may call on its `host` handle - `schedule_save`, `save_now`, `switch_device`, `forget_device_settings`, `reconnect_stream`, `send_notification`, `is_streaming`, `stop_stream`, `update_stream_output`, `restart_vcam_canvas`, `quit_app`, `start_stream`, `show_issue`, `clear_issue`. Structural typing only (`TelescopeWindow` implements it without inheriting). Keeps plugins off private window internals.
 - `UNCHANGED`: sentinel for `update_stream_output` so `None` can be passed as a real value (pass-through resolution) distinct from "leave as-is".
 - `TelescopePlugin`: override `setup`, `create_panel`, `on_stream_start`, `on_stream_stop`, `on_phone_state`, `process_frame`, `get_config`, `set_config`, `shutdown`.
   - `panel_region` (class attr): `"left"` / `"right"` / `"center"` - which region the host puts the panel in. A preference, not a guarantee: narrow windows merge regions.
@@ -167,6 +167,9 @@ Reusable Qt widgets and helpers used across multiple panels:
 
 Note: white balance sliders are built directly in `plugins/camera_control.py`, not as a shared widget here.
 
+### `widgets/banner.py`
+`Issue(title, text, actions, kind="err"|"warn", details)` and `BannerAction(label, callback, keeps_banner)`. `copy_action(text)` copies to the clipboard and keeps the banner. `BannerArea` holds keyed banners (showing a key again replaces it); an action or the close button removes its banner. Start problems use key `"start"`, a failed canvas reload `"vcam"`. Errors that need no decision go here rather than in a popup.
+
 ### `widgets/qr.py`
 **QRCodeWidget(data, module_px)** - QR code painted with QPainter, white quiet zone included. Used by Add phone and the checklist's APK link.
 
@@ -181,7 +184,7 @@ Note: white balance sliders are built directly in `plugins/camera_control.py`, n
 Cross-platform constants and helpers: `IS_LINUX`, `IS_WINDOWS`, `adb_available()`, `adb_device_states()` (serial + state, including `unauthorized`), `adb_devices()`, `adb_forward(port)`, `adb_forward_auto(remote_port, serial)` (adb picks the local port), `adb_unforward(port)`, `adb_reverse(port)`, `adb_unreverse(port)`, `adb_broadcast_pair(payload)`, `adb_install(serial, apk, timeout)` → `(ok, detail)` with plain-language failures (different signing key, downgrade), `adb_exe()`, `bundled_apk_path()`, `_run(cmd)`. `_run()` returns an error tuple instead of raising when adb isn't installed.
 
 ### `platform/linux.py`
-v4l2loopback helpers: `v4l2_module_installed()`, `v4l2_load()`, `v4l2_unload()`, `v4l2_module_loaded()`, `v4l2_devices_ready()`, and the load-at-boot trio `v4l2_persist_status/enable/disable()`. Device constants: `V4L2_PHONE_DEV = /dev/video11`, `V4L2_OBS_DEV = /dev/video10`.
+v4l2loopback helpers. Root work goes through `_privileged(steps)`: one `pkexec sh -c`, else `sudo -n`, else a `PrivResult(False, NO_PROMPT, command)` whose `command` is the same steps as pasteable `sudo` lines. `PrivResult` is an `(ok, message)` tuple with `.command`; `as_text()` folds the command into a label's text. `v4l2_setup(persist)` loads the module and, with persist, writes the boot config in the same prompt (skipped when another file already configures v4l2loopback). `v4l2_module_installed()`, `v4l2_load()`, `v4l2_unload()`, `v4l2_module_loaded()`, `v4l2_devices_ready()`, and the load-at-boot trio `v4l2_persist_status/enable/disable()`. Device constants: `V4L2_PHONE_DEV = /dev/video11`, `V4L2_OBS_DEV = /dev/video10`.
 
 ### `platform/windows.py`
 UnityCapture helpers: `uc_is_registered()`, `unitycapture_dir()`, `download_unitycapture()`, `register_unitycapture()`.
@@ -196,7 +199,7 @@ UnityCapture helpers: `uc_is_registered()`, `unitycapture_dir()`, `download_unit
 - `create_header_widget()` returns the phone picker and the Your phones button.
 - `status_line()`, `problem_text()`, `route_text()` - module-level text for each state, shared by the card and Start failures.
 - `_check_status()` every 3 s while idle resolves the selected phone in a background thread (`_spawn_resolve`); results carry a check id and are dropped when stale. A Wi-Fi address that answers is remembered as the phone's `active_ip`.
-- `get_stream_info()` → `(url, token, ok)` - makes sure the virtual camera is loaded (Linux), resolves the route, and for USB holds a `UsbTunnels` forward to 8080 until `on_stream_stop()`.
+- `get_stream_info()` → `(url, token, ok)` - makes sure the virtual camera is loaded (Linux: one consent prompt with **Also switch it on at every startup**, then `v4l2_setup`), resolves the route, and for USB holds a `UsbTunnels` forward to 8080 until `on_stream_stop()`. Each failure becomes a `"start"` banner with its fix (`_fix_actions`).
 - `session_target()` → `SessionTarget(token, route)` - read on the GUI thread and handed to worker threads.
 - `session_channel(target)` - context manager yielding a `PhoneSessionClient` on the target's route (USB through a refcounted forward), or `None`.
 - `ensure_phone_streaming(on_progress=None, target=None)` → `(ok, reason)` - starts the phone's camera if needed and polls `/v1/ping` until it streams (12 s budget). **Blocking - background thread only.**
