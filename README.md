@@ -218,6 +218,7 @@ telescope/
 |       |-- CameraCatalog.kt     # Enumerates cameras, incl. physical sub-cameras of logical multi-cams
 |       |-- StreamStateMachine.kt   # Idle/StartingServer/.../Streaming/Failed state + history
 |       |-- Protocol.kt          # kotlinx.serialization models for the v1 API
+|       |-- SetupSteps.kt       # Get set up card rules: ask, or send to settings (JVM-tested)
 |       |-- Pairing.kt           # QR payload (v3) parsing/validation, attempt ordering, failure text
 |       |-- PairedComputers.kt   # Paired computers (one token each), this phone's id and name
 |       |-- MjpegServer.kt       # Authenticated HTTP: /v1/video  /v1/state  /v1/control
@@ -290,6 +291,8 @@ telescope/
 
 ### What it does
 
+On first launch the top card is **Get set up**: camera access, notifications and the battery exemption, in that order, each with its reason and an Allow button. The app asks for nothing on its own, and the card goes once all three are allowed. If Android stops showing a permission prompt (denied twice), the button becomes Open settings.
+
 Runs a **foreground service** (declared type `camera`, required on Android 14+) that owns a Camera2 session and an HTTP server on port 8080. Three endpoints, all requiring a bearer token issued during pairing:
 
 - `GET /v1/video` - MJPEG stream (`multipart/x-mixed-replace`)
@@ -345,7 +348,7 @@ This is a debug build - self-signed, for personal/development use.
 | `WAKE_LOCK` | Keep CPU active with screen off |
 | `POST_NOTIFICATIONS` | Persistent streaming notification |
 | `ACCESS_NETWORK_STATE` | Show device IP in UI |
-| `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | Prompt to exempt app from battery restrictions on first launch |
+| `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | The Battery step of Get set up (exempts the app from battery restrictions) |
 | `REQUEST_INSTALL_PACKAGES` | Installing its own updates; Android asks the first time |
 
 </details>

@@ -111,7 +111,7 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Permissions: shown only when something is missing -->
+            <!-- First-run setup: the permissions, in order, each with its reason. Gone once all are allowed. -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardPermissions"
                 android:layout_width="match_parent"
@@ -134,14 +134,14 @@
                         <ImageView
                             android:layout_width="20dp"
                             android:layout_height="20dp"
-                            android:src="@drawable/ic_info"
-                            app:tint="@color/colorError"
+                            android:src="@drawable/ic_check"
+                            app:tint="@color/colorAccent"
                             android:importantForAccessibility="no" />
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="10dp"
-                            android:text="Permissions needed"
+                            android:text="Get set up"
                             android:textAppearance="@style/TextAppearance.Telescope.CardTitle" />
                     </LinearLayout>
 

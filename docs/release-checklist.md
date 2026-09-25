@@ -39,6 +39,7 @@ The APK signing key lives in the repository secrets (see the README's CI section
 
 ## Functional pass (see [device-compatibility.md](device-compatibility.md) for the per-device matrix)
 
+- [ ] Phone fresh install: nothing is asked on launch; Get set up allows camera, notifications and battery in order; the card goes when all are allowed. Deny camera twice: its button becomes Open settings.
 - [ ] Fresh install: the checklist shows, each step ticks as it's done, and the video stage replaces it after the first stream.
 - [ ] Add phone works by QR over Wi-Fi and by plugging in over USB (no scan), on at least one device per platform (Linux + Windows).
 - [ ] USB with the debugging prompt not yet accepted: Add phone says to allow it, and pairs once it's accepted.

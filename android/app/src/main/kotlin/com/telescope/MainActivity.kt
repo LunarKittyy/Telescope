@@ -58,7 +58,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnUpdate: MaterialButton
     private lateinit var switchNightly: CompoundButton
     private lateinit var tvAppVersion: TextView
-    private var _permissionsRequested = false
     // An update waiting for "Allow from this source" to be switched on in Settings.
     private var pendingUpdate: UpdateManifest? = null
 
@@ -502,103 +501,122 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    private data class PermInfo(
-        val permission: String?,   // null = battery optimization
+    // One step of the setup card. permission == null is the battery exemption, which has no prompt of
+    // its own, only a system screen.
+    private data class SetupStep(
+        val permission: String?,
         val label: String,
-        val reason: String
+        val reason: String,
+        val done: Boolean,
     )
 
-    private fun checkPermissions() {
-        val missing = mutableListOf<PermInfo>()
+    private fun cameraGranted(): Boolean =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-                != PackageManager.PERMISSION_GRANTED)
-            missing += PermInfo(Manifest.permission.CAMERA, "Camera",
-                "Required to access your phone's cameras.")
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-                != PackageManager.PERMISSION_GRANTED)
-            missing += PermInfo(Manifest.permission.POST_NOTIFICATIONS, "Notifications",
-                "Required to show the persistent streaming notification.")
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val pm = getSystemService(POWER_SERVICE) as PowerManager
-            if (!pm.isIgnoringBatteryOptimizations(packageName))
-                missing += PermInfo(null, "Battery optimization",
-                    "Disable battery restrictions so the stream isn't killed in the background.")
+    private fun setupSteps(): List<SetupStep> {
+        val steps = mutableListOf(
+            SetupStep(Manifest.permission.CAMERA, "Camera", "To stream from this phone's cameras.", cameraGranted()),
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            steps += SetupStep(Manifest.permission.POST_NOTIFICATIONS, "Notifications",
+                "Shows when the camera is streaming, and stops it from there.",
+                ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+                    PackageManager.PERMISSION_GRANTED)
         }
-
-        val cameraGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
-                PackageManager.PERMISSION_GRANTED
-
-        layoutPermissionsContainer.removeAllViews()
-        if (missing.isEmpty()) {
-            cardPermissions.visibility = android.view.View.GONE
-        } else {
-            // On first call, proactively request runtime permissions via system dialog.
-            // Battery optimization has no requestPermissions() path - stays as a manual button.
-            if (!_permissionsRequested) {
-                _permissionsRequested = true
-                val requestable = missing.mapNotNull { it.permission }
-                if (requestable.isNotEmpty()) {
-                    ActivityCompat.requestPermissions(this, requestable.toTypedArray(), RC_PERMS)
-                    return
-                }
-            }
-            cardPermissions.visibility = android.view.View.VISIBLE
-            missing.forEach { info -> layoutPermissionsContainer.addView(buildPermRow(info)) }
-        }
-
-        // Camera permission is the only hard requirement to use the app.
-        if (cameraGranted && cameras.isEmpty()) loadCameras()
+        val pm = getSystemService(POWER_SERVICE) as PowerManager
+        steps += SetupStep(null, "Battery", "Keeps Android from stopping the stream when the screen is off.",
+            pm.isIgnoringBatteryOptimizations(packageName))
+        return steps
     }
 
-    private fun buildPermRow(info: PermInfo): android.view.View {
+    // Nothing is asked for on its own: each step waits for its button, in order, with its reason next to it.
+    private fun checkPermissions() {
+        val steps = setupSteps()
+        val current = SetupSteps.current(steps.map { it.done })
+        layoutPermissionsContainer.removeAllViews()
+        if (current < 0) {
+            cardPermissions.visibility = View.GONE
+        } else {
+            cardPermissions.visibility = View.VISIBLE
+            steps.forEachIndexed { i, step ->
+                layoutPermissionsContainer.addView(buildStepRow(step, primary = i == current, last = i == steps.lastIndex))
+            }
+        }
+
+        val camera = cameraGranted()
+        if (camera && cameras.isEmpty()) loadCameras()
+        if (!camera) {
+            spinnerCamera.isEnabled = false
+            spinnerResolution.isEnabled = false
+        }
+        updateStatusText()
+    }
+
+    private fun askedBefore(permission: String): Boolean =
+        getSharedPreferences(PREFS_SETUP, MODE_PRIVATE).getBoolean(permission, false)
+
+    private fun ask(permission: String) {
+        getSharedPreferences(PREFS_SETUP, MODE_PRIVATE).edit().putBoolean(permission, true).apply()
+        ActivityCompat.requestPermissions(this, arrayOf(permission), RC_PERMS)
+    }
+
+    private fun buildStepRow(step: SetupStep, primary: Boolean, last: Boolean): View {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = android.view.Gravity.CENTER_VERTICAL
-            setPadding(0, 0, 0, dp(14))
+            setPadding(0, 0, 0, if (last) 0 else dp(14))
         }
 
         val textBlock = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0,
-                LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
         TextView(this).apply {
-            text = info.label
+            text = step.label
             setTextAppearance(R.style.TextAppearance_Telescope_Body)
             setTypeface(null, android.graphics.Typeface.BOLD)
+            if (step.done) setTextColor(resources.getColor(R.color.colorOnSurfaceDim, theme))
             textBlock.addView(this)
         }
-        TextView(this).apply {
-            text = info.reason
-            setTextAppearance(R.style.TextAppearance_Telescope_Hint)
-            textBlock.addView(this)
+        if (!step.done) {
+            TextView(this).apply {
+                text = step.reason
+                setTextAppearance(R.style.TextAppearance_Telescope_Hint)
+                textBlock.addView(this)
+            }
         }
         row.addView(textBlock)
 
-        val btn = com.google.android.material.button.MaterialButton(
-            this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle
-        ).apply {
-            val perm = info.permission
-            if (perm == null) {
-                // Battery optimization
-                text = "Allow"
-                setOnClickListener {
-                    startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+        if (step.done) {
+            row.addView(android.widget.ImageView(this).apply {
+                setImageResource(R.drawable.ic_check)
+                imageTintList = ColorStateList.valueOf(resources.getColor(R.color.colorStreamingText, theme))
+                contentDescription = "Allowed"
+                layoutParams = LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginStart = dp(12) }
+            })
+            return row
+        }
+
+        val perm = step.permission
+        val action = if (perm == null) SetupSteps.Action.ASK else SetupSteps.action(
+            granted = false,
+            askedBefore = askedBefore(perm),
+            showRationale = ActivityCompat.shouldShowRequestPermissionRationale(this, perm),
+        )
+        val btn = if (primary) {
+            MaterialButton(this)
+        } else {
+            MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle)
+        }
+        btn.apply {
+            text = if (action == SetupSteps.Action.SETTINGS) "Open settings" else "Allow"
+            setOnClickListener {
+                when {
+                    perm == null -> startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
                         .apply { data = Uri.parse("package:$packageName") })
+                    action == SetupSteps.Action.SETTINGS -> openAppSettings()
+                    else -> ask(perm)
                 }
-            } else if (ActivityCompat.shouldShowRequestPermissionRationale(this@MainActivity, perm)) {
-                text = "Grant"
-                setOnClickListener {
-                    ActivityCompat.requestPermissions(this@MainActivity,
-                        arrayOf(perm), RC_PERMS)
-                }
-            } else {
-                text = "Open Settings"
-                setOnClickListener { openAppSettings() }
             }
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -658,7 +676,7 @@ class MainActivity : AppCompatActivity() {
     private fun syncLiveControlsToState() {
         val svc = service
         if (svc == null || !svc.isStreaming) {
-            if (!spinnerCamera.isEnabled) {
+            if (!spinnerCamera.isEnabled && cameraGranted()) {
                 spinnerCamera.isEnabled = true
                 spinnerResolution.isEnabled = true
                 // Re-derive OIS enablement; streaming just ended.
@@ -761,7 +779,8 @@ class MainActivity : AppCompatActivity() {
     private fun updateStatusText() {
         val streaming = service?.isStreaming == true
         val busy = isBusy()
-        btnToggle.isEnabled = !busy
+        // Without camera access there's nothing to stream; the setup card above says so.
+        btnToggle.isEnabled = !busy && (streaming || cameraGranted())
         btnToggle.text = if (streaming) "Stop Streaming" else if (busy) "Starting..." else "Start Streaming"
         btnToggle.backgroundTintList = ColorStateList.valueOf(
             resources.getColor(if (streaming) R.color.colorStop else R.color.colorPrimary, theme)
@@ -838,6 +857,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val RC_PERMS = 100
+        private const val PREFS_SETUP = "setup"  // permission -> asked once already
         // Lets the desktop app push a pairing payload straight over adb when
         // there's no camera-scannable QR code involved (USB pairing) - the
         // same JSON shape and handleQrScan() logic as the QR flow, just
