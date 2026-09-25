@@ -1,0 +1,80 @@
+name: Bug
+description: Something doesn't work, or works wrong
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what you got instead. Screenshots and screen recordings help a lot, drag them in here.
+    validations:
+      required: true
+
+  - type: input
+    id: desktop-version
+    attributes:
+      label: Desktop app version
+      description: At the bottom of the Advanced dialog (gear icon, then Advanced). Looks like `0.5.0` or `0.5.0-nightly.123`.
+      placeholder: 0.5.0-nightly.123
+    validations:
+      required: true
+
+  - type: dropdown
+    id: desktop-os
+    attributes:
+      label: Computer
+      options:
+        - Windows 11
+        - Windows 10
+        - Linux
+    validations:
+      required: true
+
+  - type: input
+    id: distro
+    attributes:
+      label: Linux distro and desktop
+      description: Only on Linux. If you're on Wayland or X11, say which.
+      placeholder: Fedora 42, KDE Plasma, Wayland
+
+  - type: textarea
+    id: phone-diagnostics
+    attributes:
+      label: Phone diagnostics
+      description: |
+        In the Telescope app on the phone, open About and tap **Copy diagnostics**, then paste here. It has the app version, phone model, Android version and recent errors, and never includes your pairing token or addresses.
+        Can't get to it? Just write your phone model and Android version.
+      render: text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: connection
+    attributes:
+      label: Connection
+      description: The Connection panel shows which one is in use.
+      options:
+        - USB
+        - Wi-Fi
+        - Both / switches between them
+        - Not sure
+        - Doesn't get that far
+
+  - type: dropdown
+    id: format
+    attributes:
+      label: Stream format
+      description: Under Stream output.
+      options:
+        - MJPEG
+        - H.264
+        - Not sure
+        - Doesn't get that far
+
+  - type: textarea
+    id: desktop-log
+    attributes:
+      label: Terminal output
+      description: Optional. On Linux, if you started Telescope with `./start.sh` from a terminal, anything it printed around the problem.
+      render: text
