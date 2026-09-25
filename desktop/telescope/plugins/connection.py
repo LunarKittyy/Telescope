@@ -22,7 +22,7 @@ from PyQt6.QtWidgets import (
     QMessageBox, QPushButton, QVBoxLayout, QWidget,
 )
 
-from telescope import theme
+from telescope import h264_reader, theme
 from telescope.discovery import LanDiscovery
 from telescope.pairing import PairingServer
 from telescope.phones import (
@@ -716,11 +716,16 @@ class ConnectionPlugin(TelescopePlugin):
                     [BannerAction("Try again", self._host.start_stream)]))
                 return None, None, False
             self._stream_forward_serial = route.serial
-            url = f"http://127.0.0.1:{local}/v1/video"
+            url = f"http://127.0.0.1:{local}{self._video_path()}"
         else:
-            url = f"http://{route.host}:{STREAM_PORT}/v1/video"
+            url = f"http://{route.host}:{STREAM_PORT}{self._video_path()}"
         self._stream_route = route
         return url, phone.token, True
+
+    def _video_path(self) -> str:
+        """The phone serves each format on its own route, and runs whichever one was opened last."""
+        out = self._host.plugin_config("stream_output") or {}
+        return "/v1/video.h264" if out.get("format") == "h264" and h264_reader.available() else "/v1/video"
 
     def _fix_actions(self, res: Resolution) -> list:
         """The banner buttons for a phone Start couldn't reach."""

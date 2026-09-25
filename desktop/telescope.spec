@@ -2,7 +2,7 @@
 #
 # PyInstaller spec for Telescope Desktop (Windows).
 # Build: pyinstaller telescope.spec
-# Output: dist/TelescopeDesktop.exe  (~60-80 MB onefile)
+# Output: dist/TelescopeDesktop.exe  (~90-110 MB onefile; PyAV's FFmpeg is about 30 MB of it)
 #
 # Notes:
 #   - pyvirtualcam's unitycapture backend calls into a system-installed
@@ -23,7 +23,7 @@ a = Analysis(
     datas=qt_datas,
     # ifaddr picks its platform backend behind an `os.name` check, so pull
     # the whole package rather than relying on that branch being followed.
-    hiddenimports=qt_hidden + collect_submodules('telescope') + collect_submodules('ifaddr') + collect_submodules('zeroconf') + [
+    hiddenimports=qt_hidden + collect_submodules('telescope') + collect_submodules('ifaddr') + collect_submodules('zeroconf') + collect_submodules('av') + [
         'pyvirtualcam',
         'cv2',
         'numpy',

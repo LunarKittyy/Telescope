@@ -171,6 +171,8 @@ class CameraStreamService : Service() {
 
     // Camera catalogue
     private var allCameras: List<CameraEntry> = emptyList()
+    // Checked once: whether this phone has a hardware H.264 encoder at all.
+    private val h264Available: Boolean by lazy { H264Encoder.isAvailable() }
 
     private val stateMachine = StreamStateMachine()
     val state: StreamState get() = stateMachine.state
@@ -296,6 +298,8 @@ class CameraStreamService : Service() {
             onStateChanged = { newState, op, error -> setState(newState, op, error) },
             onFatalError   = { stopSelf() },
             onControlError = { op, error -> recordControlError(op, error) },
+            onH264         = { bytes, key, config -> server?.sendH264(bytes, key, config) },
+            onCodecFailed  = { server?.closeH264Clients() },
         )
 
         setState(StreamState.OpeningCamera, "onStartCommand")
@@ -422,8 +426,19 @@ class CameraStreamService : Service() {
             handleControl  = ::handleControlCommand,
             bindAddr       = bindAddr,
             tokens         = { PairedComputers.tokens(this) },
+            onVideoClient  = ::onVideoClient,
+            requestKeyFrame = { controller?.requestKeyFrame() },
         ).also { it.start() }
         startIdleWatchdog()
+    }
+
+    // The newest viewer's route picks the codec; viewers of the other one lose their stream.
+    private fun onVideoClient(codec: String) {
+        val ctrl = controller ?: return
+        if (codec == H264Stream.CODEC_H264 && !h264Available) return  // the reader sees no data and gives up
+        if (ctrl.snapshot().codec == codec) return
+        if (codec == H264Stream.CODEC_MJPEG) server?.closeH264Clients()
+        ctrl.setCodec(codec)
     }
 
     private fun startIdleWatchdog() {
@@ -494,6 +509,11 @@ class CameraStreamService : Service() {
             torch = snap?.torch ?: false,
             jpeg_quality = snap?.jpegQuality ?: 85,
             phone_fps = snap?.phoneFps ?: 30,
+            codecs = if (h264Available) listOf(H264Stream.CODEC_MJPEG, H264Stream.CODEC_H264)
+                     else listOf(H264Stream.CODEC_MJPEG),
+            codec = snap?.codec ?: H264Stream.CODEC_MJPEG,
+            bitrate = snap?.bitrate ?: 0,
+            codec_error = snap?.codecError,
             stream_width = liveSize.width,
             stream_height = liveSize.height,
             battery = battLevel,
@@ -558,6 +578,12 @@ class CameraStreamService : Service() {
                 "fps_target" -> {
                     val fps = params["value"]?.toIntOrNull() ?: return err("bad value")
                     ctrl.setFpsTarget(fps.coerceIn(1, 120))
+                    ok()
+                }
+                "bitrate" -> {
+                    // bits per second; 0 sizes it from the resolution and fps
+                    val bps = params["value"]?.toIntOrNull() ?: return err("bad value")
+                    ctrl.setBitrate(bps.coerceAtLeast(0))
                     ok()
                 }
                 "focus_point" -> {

@@ -335,4 +335,50 @@ class MjpegServerTest {
             }
         }
     }
+
+    @Test
+    fun `h264 route picks the codec, asks for a keyframe and streams config then packets`() {
+        val codecs = java.util.concurrent.CopyOnWriteArrayList<String>()
+        val keyRequests = java.util.concurrent.atomic.AtomicInteger()
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") },
+            onVideoClient = { codecs.add(it) }, requestKeyFrame = { keyRequests.incrementAndGet() })
+        server.start()
+        try {
+            server.sendH264(byteArrayOf(0, 0, 0, 1, 0x67), key = false, config = true)
+            Socket("127.0.0.1", actualPort(server)).use { socket ->
+                socket.soTimeout = 2_000
+                socket.getOutputStream().write("GET /v1/video.h264 HTTP/1.1\r\nAuthorization: Bearer t\r\n\r\n"
+                    .toByteArray(StandardCharsets.ISO_8859_1))
+                val input = socket.getInputStream()
+                val head = StringBuilder()
+                while (!head.endsWith("\r\n\r\n")) head.append(input.read().toChar())
+                assertTrue(head.startsWith("HTTP/1.1 200"))
+                assertTrue(head.contains("Content-Type: video/h264"))
+                val deadline = System.currentTimeMillis() + 2_000
+                while (codecs.isEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(10)
+                assertEquals(listOf(H264Stream.CODEC_H264), codecs.toList())
+                assertTrue(keyRequests.get() >= 1)
+                server.sendH264(byteArrayOf(9), key = false, config = false)  // dropped: not a keyframe
+                server.sendH264(byteArrayOf(0, 0, 0, 1, 0x65), key = true, config = false)
+                val want = byteArrayOf(0, 0, 0, 1, 0x67, 0, 0, 0, 1, 0x65) + H264Stream.AUD
+                val got = ByteArray(want.size)
+                var n = 0
+                while (n < got.size) n += input.read(got, n, got.size - n)
+                assertArrayEquals(want, got)
+            }
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `h264 route requires the token`() {
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") })
+        server.start()
+        try {
+            assertEquals(401, authGet(actualPort(server), "/v1/video.h264", null).status)
+        } finally {
+            server.stop()
+        }
+    }
 }

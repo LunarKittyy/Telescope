@@ -32,6 +32,10 @@ class _Host:
         self.streaming = False
         self.issues = {}
         self.starts = 0
+        self.configs = {}
+
+    def plugin_config(self, name):
+        return self.configs.get(name)
 
     def show_issue(self, key, issue):
         self.issues[key] = issue
@@ -447,6 +451,17 @@ def test_start_over_usb_holds_a_forward_until_the_stream_stops(plugin_env):
     plugin.on_stream_start("url", None)
     plugin.on_stream_stop()
     assert plugin._tunnels.held == {}
+
+
+def test_start_uses_the_h264_route_only_when_chosen_and_decodable(plugin_env, monkeypatch):
+    plugin, host, _panel = plugin_env
+    _add(plugin, token="tok")
+    plugin._resolver.result = Resolution(READY, WIFI)
+    host.configs["stream_output"] = {"format": "h264"}
+    monkeypatch.setattr(connection_module.h264_reader, "available", lambda: True)
+    assert plugin.get_stream_info()[0] == "http://10.0.0.5:8080/v1/video.h264"
+    monkeypatch.setattr(connection_module.h264_reader, "available", lambda: False)
+    assert plugin.get_stream_info()[0] == "http://10.0.0.5:8080/v1/video"
 
 
 def test_start_over_usb_reports_a_failed_forward(plugin_env):

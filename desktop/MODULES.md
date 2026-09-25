@@ -60,11 +60,14 @@ The app's entire visual definition: palette constants (`BG`, `SURFACE`, `ACCENT`
 
 ### `stream.py`
 **StreamWorker(QThread)** - video capture and virtual camera output.
-- Reads the authenticated MJPEG stream via `telescope/mjpeg_reader.py`'s `MjpegReader` (bearer token in the request header), writes to `pyvirtualcam`.
+- Reads the authenticated stream with `MjpegReader` (`mjpeg_reader.py`) or, for a URL ending `.h264`, `H264Reader` (`h264_reader.py`); both send the bearer token and report `last_frame_bytes` for the throughput readout. Writes to `pyvirtualcam`.
 - `frame_pipeline: list[Callable]` - each callable receives an RGB numpy array and returns one; applied in order after resize.
 - `update_output(width, height, fps)` - hot-swap output resolution/FPS without stopping the worker. An FPS change reopens only the virtual camera (`_run_vcam()`); the phone connection and reader thread stay up.
 - Emits `status(kind, msg)` for the footer: `"ok"`, `"warn"`, `"fps"`, `"net"`, `"net_warn"`, `"reconnecting"`, `"idle"`.
 - Auto-reconnects on stream drop (`RECONNECT_DELAY = 3s`).
+
+### `h264_reader.py`
+**H264Reader** - the `/v1/video.h264` counterpart of `MjpegReader`: `open()` checks the `video/h264` response, `read()` returns the newest frame completed by the next data that finishes one (older frames in the same data are dropped). `new_decoder()` / `decode_newest(codec, data)` are the pure decode steps (PyAV, low-delay, 2 threads). PyAV is optional: `available()` is False without it, and the desktop then offers only MJPEG.
 
 ### `config.py`
 Load/save of `telescope_config.json` with versioned schema (current: v3) and per-section validation.
@@ -230,13 +233,14 @@ UnityCapture helpers: `uc_registered_name()` (the name apps list it under, read 
 
 ### `plugins/stream_output.py`
 **StreamOutputPlugin** - capture resolution, frame rate, and encoding settings.
-- UI: aspect-ratio and resolution combos from the current lens's `supportedSizes` (dynamic, not fixed) - sends a live `resolution` control instead of a post-decode resize. FPS spinbox (5-60) drives both phone capture and virtual-camera playback. JPEG quality slider (1-100%; the High/Balanced/Low wording is in its tooltip).
+- UI: aspect-ratio and resolution combos from the current lens's `supportedSizes` (dynamic, not fixed) - sends a live `resolution` control instead of a post-decode resize. FPS spinbox (5-60) drives both phone capture and virtual-camera playback. Format (MJPEG / H.264; H.264 enabled once the phone lists `h264` in `codecs` and PyAV is installed), then JPEG quality (1-100%; the High/Balanced/Low wording is in its tooltip) or, in H.264, Bitrate (Auto or 1-30 Mbps, sent as `bitrate` in bits/s).
+- Switching format calls `host.reconnect_stream()`: the route decides the phone's codec, and Connection's `_video_path()` reads `format` through `host.plugin_config()`. A `codec_error` in phone state while on H.264 switches back to MJPEG with a warn banner.
 - Keeps the last resolution the device used, so saves made while idle (combos cleared) or during a device switch don't drop it.
 - `_apply_camera()` rebuilds resolution combo on lens change, carries current selection forward (reuses existing capture size) instead of resetting to largest; reflects live stream size on reconnect if it differs.
 - `get_stream_params()` → `(width, height, fps)` - width/height are always `None` (resolution is phone-controlled, not desktop-resized); called by `app.py._start()` to construct `StreamWorker`.
 - `on_stream_start`: stores ctrl, schedules `_push_initial_settings` (1500ms delay) to sync quality/fps after connect.
 - `_on_resolution()` sends `resolution` control and emits `bus.resolution_change_requested` (used by `app.py` for footer readout). `_on_fps()` sends `fps_target` and calls `host.update_stream_output()` for virtual-camera hot-swap (no stream restart).
-- Config keys: `resolution`, `fps` (falls back to reading legacy `phone_fps` if `fps` is absent), `jpeg_quality`.
+- Config keys: `resolution`, `fps` (falls back to reading legacy `phone_fps` if `fps` is absent), `jpeg_quality`, `format`, `bitrate_mbps`.
 - `apply_preset(cfg)`: `set_config`, then while streaming sends fps and quality and, if the current lens has the saved size, the resolution.
 
 ### `plugins/preview.py`

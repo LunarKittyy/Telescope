@@ -9,6 +9,7 @@ import numpy as np
 import pyvirtualcam
 from PyQt6.QtCore import QThread, pyqtSignal
 
+from telescope.h264_reader import H264Reader
 from telescope.mjpeg_reader import MjpegReader
 
 logger = logging.getLogger(__name__)
@@ -94,8 +95,9 @@ class StreamWorker(QThread):
         self._restart_vcam.set()
 
     def _open_cap(self):
-        # FFmpeg backend can't attach bearer header; parse multipart directly.
-        reader = MjpegReader(self.url, self.token)
+        # Our own readers, since cv2's FFmpeg backend can't attach the bearer header. The route says which.
+        reader_cls = H264Reader if self.url.endswith(".h264") else MjpegReader
+        reader = reader_cls(self.url, self.token)
         reader.open()
         return reader
 
@@ -126,7 +128,7 @@ class StreamWorker(QThread):
                 self.status.emit("ok", "Stream reconnected")
                 self.reconnected.emit()
                 continue
-            self._bytes_total += cap.last_jpeg_size
+            self._bytes_total += cap.last_frame_bytes
             self._frames_received += 1
             try:
                 rw = self._width
@@ -160,7 +162,7 @@ class StreamWorker(QThread):
                 self._restart_vcam.wait(timeout=RECONNECT_DELAY)
                 self._restart_vcam.clear()
                 continue
-            self._bytes_total += cap.last_jpeg_size
+            self._bytes_total += cap.last_frame_bytes
             self._frames_received += 1
 
             if self._width or self._height:

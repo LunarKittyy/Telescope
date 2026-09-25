@@ -34,6 +34,9 @@ data class CameraControlSnapshot(
     val phoneFps:          Int,
     val streamWidth:       Int,
     val streamHeight:      Int,
+    val codec:             String,
+    val bitrate:           Int,
+    val codecError:        String?,
 )
 
 // Owns the Camera2 session lifecycle (device/session/reader) and control state; CameraStreamService owns the HTTP server, notification, and everything outside the camera itself. onFatalError tears the whole session down (camera/session lost); onControlError reports a single failed control change (e.g. exposure) while the stream keeps running on its previous request.
@@ -45,6 +48,9 @@ class CameraSessionController(
     private val onStateChanged: (StreamState, String, Throwable?) -> Unit,
     private val onFatalError: () -> Unit,
     private val onControlError: (String, Throwable) -> Unit = { _, _ -> },
+    private val onH264: (bytes: ByteArray, key: Boolean, config: Boolean) -> Unit = { _, _, _ -> },
+    // The encoder failed and the stream went back to MJPEG; the message says why.
+    private val onCodecFailed: (String) -> Unit = {},
 ) {
     companion object {
         private const val TAG = "CameraSessionController"
@@ -53,6 +59,7 @@ class CameraSessionController(
     private var cameraDevice: CameraDevice? = null
     private var captureSession: CameraCaptureSession? = null
     private var imageReader: ImageReader? = null
+    private var encoder: H264Encoder? = null
     private var handlerThread: HandlerThread? = null
     private var handler: Handler? = null
     @Volatile private var previewSurface: Surface? = null
@@ -77,6 +84,9 @@ class CameraSessionController(
     // Mutable so switchResolution() can change live; sized by openCamera().
     @Volatile private var streamWidth:  Int = initialStreamWidth
     @Volatile private var streamHeight: Int = initialStreamHeight
+    @Volatile private var codec: String = H264Stream.CODEC_MJPEG
+    @Volatile private var requestedBitrate: Int = 0  // 0 = sized from resolution and fps
+    @Volatile private var codecError: String? = null
 
     @Volatile private var currentCamera: CameraEntry? = null
 
@@ -114,7 +124,30 @@ class CameraSessionController(
         phoneFps        = currentPhoneFps,
         streamWidth     = streamWidth,
         streamHeight    = streamHeight,
+        codec           = codec,
+        bitrate         = currentBitrate(),
+        codecError      = codecError,
     )
+
+    private fun currentBitrate(): Int =
+        H264Stream.bitrateFor(requestedBitrate, streamWidth, streamHeight, currentPhoneFps)
+
+    // Which route the viewer connected to decides the codec; switching rebuilds the output (a reopen).
+    fun setCodec(value: String) {
+        handler?.post {
+            if (value == codec) return@post
+            codec = value
+            codecError = null
+            reopen("setCodec")
+        }
+    }
+
+    fun setBitrate(bps: Int) {
+        requestedBitrate = bps
+        handler?.post { encoder?.setBitrate(currentBitrate()) }
+    }
+
+    fun requestKeyFrame() { encoder?.requestKeyFrame() }
 
     fun setIso(iso: Int)                    { currentIso = iso;                 handler?.post { applyExposure() } }
     fun setShutter(ns: Long)                { currentShutterNs = ns;            handler?.post { applyExposure() } }
@@ -123,7 +156,7 @@ class CameraSessionController(
     fun setWbGains(gains: RggbChannelVector) { currentWbGains = gains;          handler?.post { applyExposure() } }
     fun setWbAuto()                         { currentWbGains = null;            handler?.post { applyExposure() } }
     fun setJpegQuality(q: Int)              { currentJpegQuality = q;           handler?.post { applyExposure() } }
-    fun setFpsTarget(fps: Int)              { currentPhoneFps = fps;            handler?.post { applyExposure() } }
+    fun setFpsTarget(fps: Int)              { currentPhoneFps = fps;            handler?.post { applyExposure(); encoder?.setBitrate(currentBitrate()) } }
     fun setFocusMode(mode: String)          { currentFocusMode = mode; focusRegion = null; handler?.post { applyExposure() } }
 
     // Focus (and meter, when exposure is automatic) on a point of the stream frame. False if this lens
@@ -145,7 +178,7 @@ class CameraSessionController(
         try {
             s.setRepeatingRequest(buildRequest(c), ccmCaptureCallback, handler)
             val trigger = c.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
-                addTarget(imageReader!!.surface)
+                addTarget(outputSurface()!!)
                 previewSurface?.let { addTarget(it) }
                 applyFocusRegion(this)
                 set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START)
@@ -203,12 +236,46 @@ class CameraSessionController(
         try { captureSession?.stopRepeating() } catch (_: Exception) {}
         try { captureSession?.close()         } catch (_: Exception) {}
         try { cameraDevice?.close()           } catch (_: Exception) {}
-        try { imageReader?.close()            } catch (_: Exception) {}
+        releaseOutputs()
         handlerThread?.quitSafely()
-        captureSession = null; cameraDevice = null; imageReader = null
+        captureSession = null; cameraDevice = null
     }
 
-    // Builds ImageReader at current stream size; shared by open and resolution changes
+    // The camera's stream output at the current size: the JPEG reader, or the H.264 encoder's
+    // Surface. An encoder that won't start falls back to JPEG and reports it.
+    private fun buildOutputs() {
+        if (codec == H264Stream.CODEC_H264) {
+            try {
+                encoder = H264Encoder(streamWidth, streamHeight, currentPhoneFps, currentBitrate(),
+                    onPacket = onH264, onError = { e -> handler?.post { encoderFailed(e) } })
+                return
+            } catch (e: Exception) {
+                codec = H264Stream.CODEC_MJPEG
+                codecError = "H.264 isn't available at ${streamWidth}x$streamHeight on this phone"
+                onControlError("h264Encoder", e)
+                onCodecFailed(codecError!!)
+            }
+        }
+        imageReader = buildImageReader()
+    }
+
+    private fun encoderFailed(e: Throwable) {
+        if (codec != H264Stream.CODEC_H264) return
+        codec = H264Stream.CODEC_MJPEG
+        codecError = "The phone's H.264 encoder stopped"
+        onControlError("h264Encoder", e)
+        onCodecFailed(codecError!!)
+        reopen("encoderFailed")
+    }
+
+    private fun releaseOutputs() {
+        try { imageReader?.close() } catch (_: Exception) {}
+        encoder?.release()
+        imageReader = null; encoder = null
+    }
+
+    private fun outputSurface(): Surface? = encoder?.inputSurface ?: imageReader?.surface
+
     private fun buildImageReader(): ImageReader {
         val reader = ImageReader.newInstance(streamWidth, streamHeight, ImageFormat.JPEG, 3)
         reader.setOnImageAvailableListener({ r ->
@@ -227,7 +294,7 @@ class CameraSessionController(
         handlerThread = HandlerThread("CamThread").also { it.start() }
         handler       = Handler(handlerThread!!.looper)
 
-        imageReader = buildImageReader()
+        buildOutputs()
 
         val myGeneration = ++cameraGeneration
         val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
@@ -265,7 +332,7 @@ class CameraSessionController(
         }
     }
 
-    private fun currentTargetSurfaces(): List<Surface> = listOfNotNull(imageReader?.surface, previewSurface)
+    private fun currentTargetSurfaces(): List<Surface> = listOfNotNull(outputSurface(), previewSurface)
 
     private fun createPhysicalSession(
         camera: CameraDevice, physId: String,
@@ -374,7 +441,7 @@ class CameraSessionController(
 
     private fun buildRequest(camera: CameraDevice = cameraDevice!!): CaptureRequest {
         return camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
-            addTarget(imageReader!!.surface)
+            addTarget(outputSurface()!!)
             previewSurface?.let { addTarget(it) }
 
             val cam = currentCamera
@@ -534,17 +601,22 @@ class CameraSessionController(
         if (width == streamWidth && height == streamHeight) return
         streamWidth = width
         streamHeight = height
-        onStateChanged(StreamState.Recovering, "switchResolution", null)
+        reopen("switchResolution")
+    }
+
+    // Same lens, new output (size or codec): the reader or encoder is rebuilt, which needs a reopen.
+    private fun reopen(op: String) {
+        onStateChanged(StreamState.Recovering, op, null)
 
         val myGeneration = ++cameraGeneration
         try { captureSession?.stopRepeating() } catch (_: Exception) {}
         try { captureSession?.close() } catch (_: Exception) {}
         try { cameraDevice?.close()   } catch (_: Exception) {}
-        try { imageReader?.close()    } catch (_: Exception) {}
-        captureSession = null; cameraDevice = null; imageReader = null
+        releaseOutputs()
+        captureSession = null; cameraDevice = null
 
         val cam = currentCamera ?: run {
-            onStateChanged(StreamState.Failed, "switchResolution", IllegalStateException("no current camera"))
+            onStateChanged(StreamState.Failed, op, IllegalStateException("no current camera"))
             return
         }
         val openId = cam.logicalId ?: cam.id
@@ -556,7 +628,7 @@ class CameraSessionController(
                 override fun onOpened(camera: CameraDevice) {
                     if (myGeneration != cameraGeneration) { camera.close(); return }
                     cameraDevice = camera
-                    imageReader = buildImageReader()
+                    buildOutputs()
                     if (physId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
                         createPhysicalSession(camera, physId, myGeneration)
                     else
@@ -566,19 +638,19 @@ class CameraSessionController(
                     camera.close()
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
-                        onStateChanged(StreamState.Failed, "switchResolution.onDisconnected", null)
+                        onStateChanged(StreamState.Failed, "$op.onDisconnected", null)
                     }
                 }
                 override fun onError(camera: CameraDevice, error: Int) {
                     camera.close()
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
-                        onStateChanged(StreamState.Failed, "switchResolution.onError", RuntimeException("Camera2 error code $error"))
+                        onStateChanged(StreamState.Failed, "$op.onError", RuntimeException("Camera2 error code $error"))
                     }
                 }
             }, handler)
         } catch (e: Exception) {
-            onStateChanged(StreamState.Failed, "switchResolution", e)
+            onStateChanged(StreamState.Failed, op, e)
         }
     }
 }

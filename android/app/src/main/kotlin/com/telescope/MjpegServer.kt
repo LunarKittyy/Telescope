@@ -10,7 +10,8 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
-// Serves GET /v1/video (MJPEG), GET /v1/state, POST /v1/control; all require bearer token
+// Serves GET /v1/video (MJPEG), GET /v1/video.h264 (Annex-B), GET /v1/state, POST /v1/control;
+// all require bearer token. Opening a video route tells the service which codec to run.
 class MjpegServer(
     val port: Int,
     val getCamerasJson: () -> String,
@@ -18,9 +19,14 @@ class MjpegServer(
     val bindAddr: String = "0.0.0.0",
     // Read on every request, so pairing or unpairing a computer applies without restarting the stream.
     val tokens: () -> List<String>,
+    // A viewer connected to the route for this codec (H264Stream.CODEC_*).
+    val onVideoClient: (codec: String) -> Unit = {},
+    val requestKeyFrame: () -> Unit = {},
 ) {
     private var serverSocket: ServerSocket? = null
     private val clients = CopyOnWriteArrayList<MjpegClient>()
+    private val h264Clients = CopyOnWriteArrayList<H264Client>()
+    @Volatile private var h264Config: ByteArray? = null
     private val running = AtomicBoolean(false)
 
     // Updated on every authorized request; feeds battery-saving watchdog.
@@ -61,10 +67,31 @@ class MjpegServer(
         if (dead.isNotEmpty()) clients.removeAll(dead.toSet())
     }
 
+    fun sendH264(packet: ByteArray, key: Boolean, config: Boolean) {
+        if (config) {
+            h264Config = packet
+            h264Clients.forEach { it.queue.offerConfig(packet) }
+            return
+        }
+        if (h264Clients.isEmpty()) return
+        val framed = H264Stream.withDelimiter(packet)
+        var wantKey = false
+        for (c in h264Clients) { if (c.queue.offer(framed, key)) wantKey = true }
+        if (wantKey) requestKeyFrame()
+    }
+
+    /** Drop H.264 viewers (the encoder is gone); their readers see the end of the stream. */
+    fun closeH264Clients() {
+        h264Clients.forEach { it.close() }
+        h264Clients.clear()
+        h264Config = null
+    }
+
     fun stop() {
         running.set(false)
         clients.forEach { it.close() }
         clients.clear()
+        closeH264Clients()
         try { serverSocket?.close() } catch (_: Exception) {}
     }
 
@@ -110,8 +137,21 @@ class MjpegServer(
                     streaming = true
                     val client = MjpegClient(socket)
                     clients.add(client)
+                    onVideoClient(H264Stream.CODEC_MJPEG)
                     client.stream()          // blocks until disconnected
                     clients.remove(client)
+                }
+                "/v1/video.h264" -> {
+                    if (request.method != "GET") { HttpWire.sendError(socket.getOutputStream(), 405, "Method Not Allowed"); return }
+                    if (!isAuthorized(request)) { HttpWire.sendError(socket.getOutputStream(), 401, "Unauthorized"); return }
+                    streaming = true
+                    val client = H264Client(socket)
+                    h264Config?.let { client.queue.offerConfig(it) }
+                    h264Clients.add(client)
+                    onVideoClient(H264Stream.CODEC_H264)
+                    requestKeyFrame()        // a decoder can only start at one
+                    client.stream()
+                    h264Clients.remove(client)
                 }
                 else -> HttpWire.sendError(socket.getOutputStream(), 404, "Not Found")
             }
@@ -168,6 +208,29 @@ class MjpegServer(
             queue.poll()   // drop oldest to keep latency low
             queue.offer(jpeg)
             return true
+        }
+
+        fun close() { alive.set(false); try { socket.close() } catch (_: Exception) {} }
+    }
+
+    inner class H264Client(private val socket: Socket) {
+        val queue = H264ClientQueue()
+        private val alive = AtomicBoolean(true)
+
+        fun stream() {
+            try {
+                socket.soTimeout = 0
+                val out = socket.getOutputStream()
+                out.write(("HTTP/1.1 200 OK\r\nContent-Type: video/h264\r\n" +
+                    "Cache-Control: no-cache\r\nConnection: close\r\n\r\n").toByteArray(Charsets.UTF_8))
+                out.flush()
+                while (alive.get()) {
+                    val packet = queue.poll(2_000L) ?: continue
+                    out.write(packet)
+                    out.flush()
+                }
+            } catch (_: Exception) {}
+            finally { alive.set(false); try { socket.close() } catch (_: Exception) {} }
         }
 
         fun close() { alive.set(false); try { socket.close() } catch (_: Exception) {} }

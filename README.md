@@ -101,7 +101,9 @@ Everything past this point is optional - detailed feature reference, how it work
 - One FPS spinner (5-60) drives both the phone's capture rate and the virtual camera's playback rate - there's no separate "phone" and "playback" rate to keep in sync
 
 **Bandwidth controls**
-- JPEG quality slider (1-100%) - controls compression on the phone, takes effect immediately without restarting the stream
+- Format: MJPEG (default) or H.264. H.264 comes from the phone's hardware encoder and needs a fraction of MJPEG's bandwidth at the same quality. It's offered once the phone reports an encoder, and switching reconnects the stream. If the encoder fails, the stream goes back to MJPEG and says so
+- MJPEG: JPEG quality slider (1-100%), applied on the phone without restarting the stream
+- H.264: bitrate slider, Auto (about 8 Mbps for 1080p30, scaled by size and fps) or 1-30 Mbps, applied live
 
 **Monitoring**
 - FPS and throughput (Mbps) readouts in the footer while streaming; throughput turns amber if the real decode rate falls behind the target for a sustained stretch
@@ -228,7 +230,9 @@ telescope/
 |       |-- SetupSteps.kt       # Get set up card rules: ask, or send to settings (JVM-tested)
 |       |-- Pairing.kt           # QR payload (v3) parsing/validation, attempt ordering, failure text
 |       |-- PairedComputers.kt   # Paired computers (one token each), this phone's id and name
-|       |-- MjpegServer.kt       # Authenticated HTTP: /v1/video  /v1/state  /v1/control
+|       |-- MjpegServer.kt       # Authenticated HTTP: /v1/video(.h264)  /v1/state  /v1/control
+|       |-- H264Encoder.kt       # MediaCodec H.264 from the camera Surface
+|       |-- H264Stream.kt        # Per-viewer H.264 queue, bitrate defaults
 |       |-- SessionServer.kt     # Out-of-band responder (port 8766): /v1/hello, /v1/ping, /v1/session, /v1/unpair
 |       |-- SessionEndpoint.kt   # Refcounted owner of SessionServer + the commands it runs
 |       |-- StreamLauncher.kt    # Single place CameraStreamService is started from
@@ -259,6 +263,7 @@ telescope/
         |-- theme.py             # Palette tokens + the app stylesheet
         |-- stream.py            # StreamWorker: MJPEG -> pipeline -> pyvirtualcam
         |-- mjpeg_reader.py      # Authenticated multipart-MJPEG reader (replaces cv2.VideoCapture)
+        |-- h264_reader.py       # Authenticated H.264 reader (PyAV), same interface
         |-- session.py           # StreamSession: owns worker/client for one connect-to-disconnect lifecycle
         |-- plugin.py            # TelescopePlugin base class, EventBus, HostServices protocol
         |-- config.py            # Versioned JSON config (v3) with per-section validation
@@ -306,6 +311,7 @@ On first launch the top card is **Get set up**: camera access, notifications and
 Runs a **foreground service** (declared type `camera`, required on Android 14+) that owns a Camera2 session and an HTTP server on port 8080. Three endpoints, all requiring a bearer token issued during pairing:
 
 - `GET /v1/video` - MJPEG stream (`multipart/x-mixed-replace`)
+- `GET /v1/video.h264` - H.264 stream (`video/h264`: Annex-B, Baseline, a keyframe every second). A new viewer starts with the codec config and the next keyframe. Each frame is followed by an access unit delimiter, so a decoder can show it without waiting for the next one. `ffplay` plays it given the bearer header. Opening either video route switches the phone to that format.
 - `GET /v1/state` - JSON of all detected cameras + current exposure/WB/battery state
 - `POST /v1/control` - live camera control, JSON body
 
@@ -374,6 +380,7 @@ This is a debug build - self-signed, for personal/development use.
 |---|---|
 | UI | PyQt6 |
 | MJPEG decode | opencv-python (`cv2.imdecode`), read via `telescope/mjpeg_reader.py`'s authenticated reader - not `cv2.VideoCapture`, which has no way to attach the bearer token |
+| H.264 decode | PyAV (`av`, bundling FFmpeg), via `telescope/h264_reader.py`. Optional: without it only MJPEG is offered |
 | Virtual camera output | pyvirtualcam |
 | Frame processing | numpy |
 | QR code generation | qrcode (rendered via QPainter, no Pillow) |
@@ -526,6 +533,9 @@ Server is on the phone at port 8080 for `/v1/video`, `/v1/state`, and `/v1/contr
   "torch": false,
   "jpeg_quality": 85,
   "phone_fps": 30,
+  "codecs": ["mjpeg", "h264"],
+  "codec": "mjpeg",
+  "bitrate": 8087040,
   "stream_width": 1920,
   "stream_height": 1080,
   "battery": 87,
@@ -534,7 +544,7 @@ Server is on the phone at port 8080 for `/v1/video`, `/v1/state`, and `/v1/contr
 }
 ```
 
-`minFocusDistance`, `aeCompMin`/`aeCompMax`/`aeCompStep` are per-lens, reported by Camera2 (`aeCompStep` is typically `0.167` = 1/6 EV). `wb_r`/`wb_ge`/`wb_go`/`wb_b` are the current RGGB channel gains when `wb_manual` is true, `null` otherwise. `supportedSizes` is the lens's actual list of capture sizes, which the desktop uses to populate its resolution dropdown instead of a fixed list. `stream_width`/`stream_height` are the current lens's live capture size.
+`minFocusDistance`, `aeCompMin`/`aeCompMax`/`aeCompStep` are per-lens, reported by Camera2 (`aeCompStep` is typically `0.167` = 1/6 EV). `wb_r`/`wb_ge`/`wb_go`/`wb_b` are the current RGGB channel gains when `wb_manual` is true, `null` otherwise. `supportedSizes` is the lens's actual list of capture sizes, which the desktop uses to populate its resolution dropdown instead of a fixed list. `stream_width`/`stream_height` are the current lens's live capture size. `codecs` lists what the phone can send (`h264` only with a hardware encoder), `codec` is what it's sending, and `bitrate` is the H.264 target in bits per second. `codec_error` appears when H.264 failed and the phone went back to MJPEG. Fields at their default value are left out, so read them with a default.
 
 ### `POST /v1/control`
 
@@ -559,6 +569,7 @@ JSON body `{"action": "<action>", ...params}`.
 | `black_level_lock` | `value=1\|0` | Toggle black level lock |
 | `torch` | `value=1\|0` | Toggle flash/torch |
 | `jpeg_quality` | `value=<int 1-100>` | Set JPEG quality on the phone |
+| `bitrate` | `value=<int bits/s>` | Set the H.264 bitrate (clamped to 1-30 Mbps); `0` sizes it from resolution and fps |
 | `fps_target` | `value=<int 1-120>` | Set capture FPS on the phone (desktop UI restricts to 5-60) |
 
 All responses: `{"ok": true}` or `{"ok": false, "error": "..."}`.
@@ -750,7 +761,7 @@ Run in both desktop CI workflows before assembling the bundle: constructs the fu
 | Camera control panel never appears | Phone HTTP server slow to start | App retries 3x over 6s; check the phone still shows the stream running |
 | WB slider has no effect | Camera doesn't support `MANUAL_POST_PROCESSING` | Falls back gracefully; auto AWB still works |
 | ISO/shutter change has no effect | Only one of the two was sent | Switch to Manual - desktop sends both simultaneously |
-| High latency over Wi-Fi | MJPEG is per-frame JPEG, higher bandwidth than H.264 | Use USB mode, lower JPEG quality, or reduce phone FPS |
+| High latency over Wi-Fi | MJPEG is per-frame JPEG, higher bandwidth than H.264 | Switch Format to H.264, use USB mode, lower JPEG quality, or reduce phone FPS |
 | Second launch does nothing | Single-instance enforcement | The existing window is brought to the front |
 | QR pairing fails ("Could not reach the desktop") | Phone and desktop not on the same network, or desktop firewall blocking port 8765 | The failure dialog on the phone lists every address it tried and how each failed. Make sure both are on the same Wi-Fi and the Add phone dialog is still open (the pairing server only runs while it is), or plug the phone in and pair over USB |
 | QR pairing fails on a guest/public Wi-Fi | Client isolation - the access point blocks device-to-device traffic entirely | Nothing on either device can work around this; use USB pairing, or a network you control |

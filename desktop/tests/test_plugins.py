@@ -240,6 +240,8 @@ def test_stream_output_config_round_trip_and_invalid_resolution(stream_output):
     assert plugin.get_config() == {
         "fps": 48,
         "jpeg_quality": 77,
+        "format": "mjpeg",
+        "bitrate_mbps": 0,
         "resolution": "854 x 480",
     }
 
@@ -529,3 +531,68 @@ def test_setup_dialog_canvas_dimension_selection_and_result_messages(qapp):
     assert dialog._canvas_status_lbl.text() == "Failed: permission denied"
     dialog.set_canvas_apply_result(True, "ok")
     assert "Done" in dialog._canvas_status_lbl.text()
+
+
+def _stream_output_with(stream_output, monkeypatch, decodable=True):
+    import telescope.plugins.stream_output as so
+    monkeypatch.setattr(so.h264_reader, "available", lambda: decodable)
+    plugin, host, panel = stream_output
+    host.reconnects = 0
+    host.issues = {}
+    host.reconnect_stream = lambda: setattr(host, "reconnects", host.reconnects + 1)
+    host.show_issue = lambda key, issue: host.issues.__setitem__(key, issue)
+    host.clear_issue = lambda key=None: host.issues.pop(key, None)
+    return plugin, host
+
+
+def test_h264_is_offered_once_the_phone_says_it_can(stream_output, monkeypatch):
+    plugin, host = _stream_output_with(stream_output, monkeypatch)
+    plugin._show_format()
+    assert not plugin._fmt_h264.isEnabled()
+    plugin.on_phone_state({"codecs": ["mjpeg", "h264"]})
+    assert plugin._fmt_h264.isEnabled()
+
+    plugin._fmt_h264.click()
+    assert plugin.stream_format() == "h264"
+    assert host.reconnects == 1
+    assert plugin._bitrate_row.isHidden() is False and plugin._quality_row.isHidden()
+    assert plugin.get_config()["format"] == "h264"
+
+    plugin._fmt_mjpeg.click()
+    assert plugin.stream_format() == "mjpeg" and host.reconnects == 2
+
+
+def test_h264_needs_a_decoder_here(stream_output, monkeypatch):
+    plugin, _host = _stream_output_with(stream_output, monkeypatch, decodable=False)
+    plugin.on_phone_state({"codecs": ["mjpeg", "h264"]})
+    assert not plugin._fmt_h264.isEnabled()
+    assert "PyAV" in plugin._fmt_h264.toolTip()
+    plugin.set_config({"format": "h264"})
+    assert plugin.stream_format() == "mjpeg"
+
+
+def test_an_encoder_failure_goes_back_to_mjpeg_with_a_banner(stream_output, monkeypatch):
+    plugin, host = _stream_output_with(stream_output, monkeypatch)
+    plugin.set_config({"format": "h264"})
+    plugin.on_phone_state({"codecs": ["mjpeg", "h264"], "codec": "mjpeg",
+                           "codec_error": "The phone's H.264 encoder stopped"})
+    assert plugin.stream_format() == "mjpeg"
+    assert host.reconnects == 1
+    assert "encoder stopped" in host.issues["h264"].text
+
+
+def test_bitrate_is_sent_in_bits_per_second(stream_output, monkeypatch):
+    plugin, _host = _stream_output_with(stream_output, monkeypatch)
+
+    class _Ctrl:
+        sent = []
+
+        def send(self, **kw):
+            self.sent.append(kw)
+
+    plugin._ctrl = _Ctrl()
+    plugin._bitrate_slider.setValue(12)
+    assert plugin._ctrl.sent[-1] == {"action": "bitrate", "value": 12_000_000}
+    assert plugin._bitrate_val_lbl.text() == "12 Mbps"
+    plugin._bitrate_slider.setValue(0)
+    assert plugin._bitrate_val_lbl.text() == "Auto"
