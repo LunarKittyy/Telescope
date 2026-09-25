@@ -42,7 +42,7 @@ class LinuxMic:
         return err
 
     def open_sink(self):
-        return audio.PacatSink(virtual_mic.pacat_command())
+        return audio.FifoSink(virtual_mic.fifo_path())
 
     def teardown(self):
         virtual_mic.linux_teardown(self._modules)

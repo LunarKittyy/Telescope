@@ -7,8 +7,9 @@ the output's own pace, padding with silence on a gap and dropping audio when the
 
 import json
 import logging
-import subprocess
+import os
 import threading
+import time
 import urllib.error
 import urllib.request
 from typing import Callable, Optional
@@ -60,27 +61,41 @@ class JitterBuffer:
             return len(self._buf) // BYTES_PER_MS
 
 
-class PacatSink:
-    """Linux: pacat into the virtual mic's sink."""
+class FifoSink:
+    """Linux: the virtual mic's FIFO. The pipe source reads whatever arrives, so this paces itself
+    to real time, and the pipe is shrunk to one page so a stalled reader can't queue up delay."""
 
-    def __init__(self, command: list):
-        self._proc = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
-                                      stderr=subprocess.DEVNULL)
+    PIPE_BYTES = 4096  # about 40 ms; Linux won't go below a page
+    _F_SETPIPE_SZ = 1031
+
+    def __init__(self, path: str, clock: Callable = time.monotonic, sleep: Callable = time.sleep):
+        # Non-blocking open fails at once if nothing holds the read end, instead of hanging.
+        self._fd = os.open(path, os.O_WRONLY | os.O_NONBLOCK)
+        os.set_blocking(self._fd, True)
+        try:
+            import fcntl
+            fcntl.fcntl(self._fd, self._F_SETPIPE_SZ, self.PIPE_BYTES)
+        except (ImportError, OSError):
+            pass
+        self._clock, self._sleep = clock, sleep
+        self._due: Optional[float] = None
 
     def write(self, data: bytes):
-        self._proc.stdin.write(data)
-        self._proc.stdin.flush()
+        now = self._clock()
+        if self._due is None or now - self._due > 0.05:
+            self._due = now  # first write, or so far behind that catching up would only burst
+        elif self._due > now:
+            self._sleep(self._due - now)
+        view = memoryview(data)
+        while view:
+            view = view[os.write(self._fd, view):]
+        self._due += len(data) / (RATE * 2)
 
     def close(self):
         try:
-            self._proc.stdin.close()
-        except Exception:
+            os.close(self._fd)
+        except OSError:
             pass
-        self._proc.terminate()
-        try:
-            self._proc.wait(timeout=2)
-        except subprocess.TimeoutExpired:
-            self._proc.kill()
 
 
 class SoundDeviceSink:
