@@ -107,7 +107,7 @@ Everything past this point is optional - detailed feature reference, how it work
 
 **Microphone** (its own card, per phone)
 - The phone's microphone as a microphone on the computer, while streaming. The phone only records while the desktop listens, with its noise suppression and gain control when it has them
-- Linux: Telescope creates **Telescope Microphone** through PulseAudio or PipeWire (`pactl` and `pacat`, from pulseaudio-utils) and removes it when the mic is switched off or the app quits. Nothing to install on most desktops
+- Linux: Telescope creates **Telescope Microphone**, an input only, through PulseAudio or PipeWire (`pactl`, from pulseaudio-utils) and removes it when the mic is switched off or the app quits. Nothing to install on most desktops
 - Windows: needs [VB-Audio Virtual Cable](https://vb-audio.com/Cable/) (free). Telescope plays into CABLE Input; pick **CABLE Output** as the microphone in other apps. The card links to it if it's missing
 - The first time, the phone asks for microphone access: its Get set up card gains a Microphone step once the desktop has asked
 - About 60 ms of buffering; the phone's and the computer's clocks drift apart, so it drops or pads audio to stay there

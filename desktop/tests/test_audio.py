@@ -1,11 +1,14 @@
 import io
+import os
 import json
 import time
 import urllib.error
 
+import pytest
+
 
 from telescope import audio
-from telescope.audio import BYTES_PER_MS, AudioWorker, JitterBuffer
+from telescope.audio import BYTES_PER_MS, AudioWorker, FifoSink, JitterBuffer
 from telescope.platform import virtual_mic
 
 
@@ -115,65 +118,109 @@ def test_worker_reports_an_output_that_wont_open():
     statuses = []
 
     def bad_sink():
-        raise OSError("pacat: not found")
+        raise OSError("no reader")
 
     w = AudioWorker("http://p/v1/audio", "t", bad_sink, lambda k, t: statuses.append((k, t)), opener=opener)
     w.start()
-    assert _until(lambda: any(k == "err" and "pacat" in t for k, t in statuses))
+    assert _until(lambda: any(k == "err" and "no reader" in t for k, t in statuses))
     w.stop()
 
 
 # ── Virtual mic plumbing ──────────────────────────────────────────────────────
 
 class _Pactl:
-    def __init__(self, sources="", fail_on=None):
-        self.sources = sources
-        self.fail_on = fail_on
+    def __init__(self, modules="", fail=False):
+        self.modules = modules
+        self.fail = fail
         self.calls = []
         self.next_id = 40
 
     def __call__(self, cmd, timeout=5):
         self.calls.append(cmd)
         if cmd[1:3] == ["list", "short"]:
-            return True, self.sources
+            return True, self.modules
         if cmd[1] == "load-module":
-            if self.fail_on and self.fail_on in cmd[2]:
+            if self.fail:
                 return False, "Module initialization failed"
             self.next_id += 1
             return True, str(self.next_id)
         return True, ""
 
 
-def test_linux_setup_creates_sink_then_named_source():
+def test_linux_setup_creates_an_input_only_source(tmp_path):
     pactl = _Pactl()
-    ids, err = virtual_mic.linux_setup(pactl)
-    assert err == "" and ids == [41, 42]
-    null, remap = pactl.calls[1], pactl.calls[2]
-    assert null[2] == "module-null-sink" and "sink_name=telescope_mic_sink" in null
-    assert remap[2] == "module-remap-source"
-    assert "master=telescope_mic_sink.monitor" in remap
-    assert 'source_properties=device.description="Telescope Microphone"' in remap
+    fifo = str(tmp_path / "mic.fifo")
+    ids, err = virtual_mic.linux_setup(pactl, fifo)
+    assert err == "" and ids == [41]
+    load = pactl.calls[1]
+    assert load[2] == "module-pipe-source"
+    assert "source_name=telescope_mic" in load and f"file={fifo}" in load
+    assert {"format=s16le", "rate=48000", "channels=1"} <= set(load)
+    assert "source_properties=\"device.description='Telescope Microphone'\"" in load
+    assert not any("sink" in arg for arg in load)  # nothing that shows up as a speaker
     virtual_mic.linux_teardown(ids, pactl)
-    assert pactl.calls[-2:] == [["pactl", "unload-module", "42"], ["pactl", "unload-module", "41"]]
-
-
-def test_linux_setup_reuses_an_existing_source():
-    pactl = _Pactl(sources="3\ttelescope_mic\tmodule-remap-source.c\ts16le 1ch 48000Hz\tIDLE")
-    assert virtual_mic.linux_setup(pactl) == ([], "")
-    assert len(pactl.calls) == 1
-
-
-def test_linux_setup_undoes_half_a_setup():
-    pactl = _Pactl(fail_on="remap")
-    ids, err = virtual_mic.linux_setup(pactl)
-    assert ids == [] and "Module initialization failed" in err
     assert pactl.calls[-1] == ["pactl", "unload-module", "41"]
 
 
-def test_linux_tools_and_pacat_target_the_sink():
-    assert virtual_mic.linux_tools_missing(lambda t: None if t == "pacat" else "/usr/bin/" + t) == ["pacat"]
-    cmd = virtual_mic.pacat_command()
-    assert cmd[0] == "pacat" and "--device=telescope_mic_sink" in cmd and "--rate=48000" in cmd
+def test_linux_setup_clears_what_an_earlier_run_left_loaded(tmp_path):
+    modules = "\n".join([
+        "7\tmodule-null-sink\tsink_name=telescope_mic_sink sink_properties=...",
+        "8\tmodule-remap-source\tmaster=telescope_mic_sink.monitor source_name=telescope_mic",
+        "9\tmodule-alsa-card\tdevice_id=0",
+    ])
+    pactl = _Pactl(modules)
+    stale = tmp_path / "mic.fifo"
+    stale.write_text("left over")
+    ids, err = virtual_mic.linux_setup(pactl, str(stale))
+    assert err == "" and ids == [41]
+    assert ["pactl", "unload-module", "8"] in pactl.calls and ["pactl", "unload-module", "7"] in pactl.calls
+    assert ["pactl", "unload-module", "9"] not in pactl.calls
+    assert not stale.exists()  # the module makes a fresh FIFO
+
+
+def test_linux_setup_reports_a_failed_load(tmp_path):
+    pactl = _Pactl(fail=True)
+    ids, err = virtual_mic.linux_setup(pactl, str(tmp_path / "f"))
+    assert ids == [] and "Module initialization failed" in err
+    loads = [c for c in pactl.calls if c[1] == "load-module"]
+    assert len(loads) == 2 and not any("source_properties" in a for a in loads[1])  # retried plain
+
+
+def test_linux_needs_only_pactl():
+    assert virtual_mic.linux_tools_missing(lambda t: None) == ["pactl"]
+    assert virtual_mic.linux_tools_missing(lambda t: "/usr/bin/" + t) == []
+
+
+def test_fifo_sink_writes_everything_at_real_time_pace():
+    read_end, write_end = os.pipe()
+    clock = [100.0]
+    sleeps = []
+
+    def sleep(s):
+        sleeps.append(round(s, 4))
+        clock[0] += s
+
+    sink = FifoSink("unused", clock=lambda: clock[0], sleep=sleep, open_fd=lambda _path: write_end)
+    ten_ms = bytes(960)
+    for _ in range(3):
+        sink.write(ten_ms)
+    assert os.read(read_end, 10_000) == ten_ms * 3
+    assert sleeps == [0.01, 0.01]  # the first write goes at once, then one every 10 ms
+    clock[0] += 1.0  # a long stall: start over rather than burst to catch up
+    sink.write(ten_ms)
+    assert sleeps == [0.01, 0.01]
+    sink.close()
+    os.close(read_end)
+
+
+def test_fifo_sink_fails_fast_when_the_source_is_gone(tmp_path):
+    with pytest.raises(OSError):
+        FifoSink(str(tmp_path / "missing"))
+    if hasattr(os, "mkfifo"):  # a FIFO nobody reads: the open must fail rather than hang
+        path = str(tmp_path / "f")
+        os.mkfifo(path)
+        with pytest.raises(OSError):
+            FifoSink(path)
 
 
 def test_vb_cable_is_found_by_its_playback_end():
