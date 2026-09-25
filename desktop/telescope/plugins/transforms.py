@@ -4,7 +4,8 @@ from typing import Optional
 import cv2
 import numpy as np
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QEvent, QRectF, Qt
+from PyQt6.QtGui import QColor, QPainter
 from PyQt6.QtWidgets import (
     QLabel, QWidget,
 )
@@ -13,9 +14,10 @@ from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
     NoScrollComboBox, NoScrollSlider, PanSliderRow, SegmentButton, add_card_header,
     add_section_heading, control_row as _row, card_layout, create_card, card_action,
-    segmented_row, set_status_kind, slider_row, value_label,
+    segmented_row, slider_row, ui_px, value_label,
 )
 from telescope.widgets.lens_panel import shorten_lens_label
+from telescope.theme import ERR
 
 ROTATIONS = {
     "None":   None,
@@ -192,6 +194,48 @@ def _transform_frame(frame, flip_h: bool, flip_v: bool, rotation):
     return frame
 
 
+class _LensDot(QWidget):
+    """A small painted dot just left of a value label's text, level with the middle of its digits.
+
+    Painted rather than a "●" glyph, whose height inside the line differs from font to font. It's a
+    child of the label, outside any layout, so showing it never moves anything.
+    """
+
+    _DIAMETER = 6
+    _GAP = 4
+
+    def __init__(self, label: QLabel):
+        super().__init__(label)
+        self._d = ui_px(self._DIAMETER)
+        self.setFixedSize(self._d + 4, self._d + 4)  # a bit of slack around it makes it easier to hover
+        label.installEventFilter(self)
+        self.place()
+
+    def eventFilter(self, obj, event):
+        if event.type() in (QEvent.Type.Resize, QEvent.Type.FontChange, QEvent.Type.StyleChange):
+            self.place()
+        return False
+
+    def place(self):
+        """Follow the label's text, which is right-aligned and vertically centred."""
+        lbl = self.parentWidget()
+        fm = lbl.fontMetrics()
+        rect = lbl.contentsRect()
+        baseline = rect.top() + (rect.height() - fm.height()) / 2 + fm.ascent()
+        middle = baseline - fm.capHeight() / 2
+        text_left = rect.right() + 1 - fm.horizontalAdvance(lbl.text())
+        x = text_left - ui_px(self._GAP) - (self.width() + self._d) / 2
+        self.move(max(0, round(x)), round(middle - self.height() / 2))
+
+    def paintEvent(self, _event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor(ERR))
+        off = (self.width() - self._d) / 2
+        p.drawEllipse(QRectF(off, off, self._d, self._d))
+
+
 class TransformsPlugin(TelescopePlugin):
     name = "transforms"
     panel_region = "left"   # desktop-side processing, with the output settings
@@ -247,12 +291,8 @@ class TransformsPlugin(TelescopePlugin):
         self._zoom_val_lbl = value_label("1.0×")
         self._zoom_slider.valueChanged.connect(self._on_zoom_changed)
         lay.addLayout(_row("Zoom", slider_row(self._zoom_slider, self._zoom_val_lbl), stretch=True))
-        # Only there when the phone switched lens (or panning made it switch back); details on hover. It
-        # sits in the value column's free left side, outside any layout, so it never moves the sliders.
-        self._lens_dot = QLabel("●", self._zoom_val_lbl)
-        set_status_kind(self._lens_dot, "status_err")
-        self._lens_dot.adjustSize()
-        self._lens_dot.move(0, (self._zoom_val_lbl.sizeHint().height() - self._lens_dot.height()) // 2)
+        # Only there when the phone switched lens (or panning made it switch back); details on hover.
+        self._lens_dot = _LensDot(self._zoom_val_lbl)
         self._lens_dot.setVisible(False)
 
         # ── Pan ───────────────────────────────────────────────────────────────
@@ -367,6 +407,7 @@ class TransformsPlugin(TelescopePlugin):
     def _on_zoom_changed(self, val: int):
         self.zoom = val / 100.0
         self._zoom_val_lbl.setText(f"{self.zoom:.1f}×")
+        self._lens_dot.place()
         pan_active = self.zoom > 1.0
         self._pan_x_slider.set_enabled(pan_active)
         self._pan_y_slider.set_enabled(pan_active)
