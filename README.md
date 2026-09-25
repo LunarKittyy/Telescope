@@ -68,7 +68,7 @@ Everything past this point is optional - detailed feature reference, how it work
 ## Features
 
 **Camera control**
-- Lens picker: switches between wide, main, and telephoto sensors (physical sub-cameras, not digital zoom)
+- Lens picker: switches between wide, main, and telephoto sensors (physical sub-cameras, not digital zoom). **Auto** is the phone's multi-lens camera: it switches lenses by itself as you zoom
 - Manual ISO and shutter speed with log-scale sliders and direct numeric entry; range updates per-lens
 - Exposure compensation slider (range and step size reported per-lens, typically ±8 EV in 1/6-EV steps)
 - Manual white balance: linear Kelvin slider (2000-10000 K) plus a green-magenta tint slider - *partially working: applies inconsistently depending on device/lens*
@@ -80,10 +80,10 @@ Everything past this point is optional - detailed feature reference, how it work
 - Torch/flash toggle, on lenses that report a flash unit
 - Controls are greyed out per-lens if the camera hardware reports it doesn't support them
 
-**Stream transforms** (applied on the desktop, no phone restart needed)
+**Stream transforms** (no phone restart needed)
 - Horizontal and vertical flip
 - Rotation: 90 CW, 180, 90 CCW
-- Software zoom 1-5x with pan X/Y sliders (center crop + resize)
+- Zoom 1-5x with pan X/Y sliders. The phone does as much of the crop as its lens allows, straight from the full-resolution sensor (and on the **Auto** lens, switching to the telephoto when the framing fits in it); the desktop crops whatever is left. The framing is the same either way, only sharper. Hover the zoom value to see where it's happening
 
 **Presets** (the Presets button in the header)
 - Save the camera, output and transform settings under a name and switch back with one click, lens included

@@ -181,3 +181,125 @@ def test_a_picked_point_goes_out_in_phone_frame_coordinates(transforms_plugin):
     plugin.flip_h = True
     plugin._bus.focus_point_picked.emit(0.25, 0.5)
     assert seen == [(0.75, 0.5)]
+
+
+# ── Splitting zoom between the phone and this computer ───────────────────────
+
+from telescope.plugins.transforms import PhoneZoom, PhoneZoomCaps, split_zoom  # noqa: E402
+
+_TELE = PhoneZoomCaps(ratio_max=10.0, crop_max=4.0, freeform=True)
+_CENTRE_ONLY = PhoneZoomCaps(ratio_max=10.0, crop_max=4.0, freeform=False)
+_CROP_ONLY = PhoneZoomCaps(ratio_max=1.0, crop_max=2.0, freeform=True)
+
+
+def _framing(split):
+    """(size, centre_x, centre_y) the phone's crop and the desktop's remainder end up showing, 0..1."""
+    phone = split.phone or PhoneZoom()
+    view = 1.0 / (phone.ratio * phone.crop)
+    vx = 0.5 + (phone.x - 0.5) / phone.ratio
+    vy = 0.5 + (phone.y - 0.5) / phone.ratio
+    zoom, pan_x, pan_y = split.desktop
+    step = view * (1.0 - 1.0 / zoom) / 2.0
+    return view / zoom, vx + pan_x * step, vy + pan_y * step
+
+
+@pytest.mark.parametrize("caps", [None, _TELE, _CENTRE_ONLY, _CROP_ONLY, PhoneZoomCaps(1.5, 1.0, False)])
+@pytest.mark.parametrize("zoom,pan", [(1.0, (0, 0)), (2.0, (0, 0)), (3.0, (1, 0)), (5.0, (-0.4, 0.8)), (2.5, (1, -1))])
+def test_split_zoom_always_frames_what_was_asked(caps, zoom, pan):
+    size, cx, cy = _framing(split_zoom(zoom, *pan, caps))
+    assert size == pytest.approx(1.0 / zoom, abs=1e-3)
+    assert cx == pytest.approx(0.5 + pan[0] * (1 - 1 / zoom) / 2, abs=1e-3)
+    assert cy == pytest.approx(0.5 + pan[1] * (1 - 1 / zoom) / 2, abs=1e-3)
+
+
+def test_a_lens_that_cant_zoom_leaves_it_all_to_the_desktop():
+    split = split_zoom(2.5, 0.3, -0.2, None)
+    assert split.phone is None
+    assert split.desktop == (2.5, 0.3, -0.2)
+
+
+def test_centred_zoom_goes_all_to_the_phone_ratio():
+    for caps in (_TELE, _CENTRE_ONLY):
+        split = split_zoom(3.0, 0, 0, caps)
+        assert split.phone == PhoneZoom(3.0, 1.0, 0.5, 0.5)
+        assert split.desktop == (1.0, 0.0, 0.0)
+
+
+def test_panning_to_the_edge_backs_the_ratio_off_and_crops_off_centre():
+    split = split_zoom(3.0, 1, 0, _TELE)
+    assert split.phone.ratio == pytest.approx(1.0)
+    assert split.phone.crop == pytest.approx(3.0)
+    assert split.phone.x > 0.5
+    assert split.desktop == (1.0, 0.0, 0.0)
+
+
+def test_a_centre_only_phone_zooms_as_far_as_the_window_fits_and_the_desktop_pans():
+    split = split_zoom(4.0, 0.5, 0, _CENTRE_ONLY)
+    assert (split.phone.x, split.phone.y) == (0.5, 0.5)
+    assert 1.0 < split.phone.ratio < 4.0
+    assert split.desktop[0] > 1.0 and split.desktop[1] == pytest.approx(1.0)
+
+
+def test_zoom_past_what_the_phone_allows_is_finished_on_the_desktop():
+    split = split_zoom(5.0, 0, 0, _CROP_ONLY)
+    assert split.phone == PhoneZoom(1.0, 2.0, 0.5, 0.5)
+    assert split.desktop[0] == pytest.approx(2.5)
+
+
+def test_caps_come_from_the_current_camera_entry():
+    assert PhoneZoomCaps.from_camera(None) is None
+    assert PhoneZoomCaps.from_camera({"id": "0"}) is None  # an older phone app
+    assert PhoneZoomCaps.from_camera({"zoomRatioMax": None, "cropZoomMax": None}) is None
+    assert PhoneZoomCaps.from_camera({"zoomRatioMax": 8.0, "cropZoomMax": 1.0, "freeformCrop": True}) == \
+        PhoneZoomCaps(8.0, 1.0, True)
+
+
+class _Ctrl:
+    def __init__(self):
+        self.sent = []
+
+    def send(self, **params):
+        self.sent.append(params)
+
+
+def _state(**caps):
+    return {"cameras": [{"id": "1", "current": False}, {"id": "0", "current": True, **caps}]}
+
+
+def test_plugin_tells_the_phone_only_when_its_share_changes(transforms_plugin):
+    plugin, _host, _panel = transforms_plugin
+    ctrl = _Ctrl()
+    plugin.on_stream_start("http://phone/v1/video", ctrl)
+    assert ctrl.sent == []  # no caps yet: nothing to tell it
+    plugin.on_phone_state(_state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True))
+    plugin.on_phone_state(_state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True))
+    plugin._zoom_slider.setValue(300)
+    assert ctrl.sent == [{"action": "zoom", "ratio": 1.0, "crop": 1.0, "x": 0.5, "y": 0.5},
+                         {"action": "zoom", "ratio": 3.0, "crop": 1.0, "x": 0.5, "y": 0.5}]
+    assert plugin._desktop_crop == (1.0, 0.0, 0.0)
+
+
+def test_plugin_crops_everything_itself_without_a_phone_that_zooms(transforms_plugin):
+    plugin, _host, _panel = transforms_plugin
+    ctrl = _Ctrl()
+    plugin.on_stream_start("http://phone/v1/video", ctrl)
+    plugin.on_phone_state(_state(zoomRatioMax=4.0))
+    plugin._zoom_slider.setValue(200)
+    plugin.on_stream_stop()
+    assert plugin._desktop_crop == (2.0, 0.0, 0.0)
+    plugin.on_stream_start("http://phone/v1/video", ctrl)
+    plugin._bus.camera_switched.emit({"id": "2"})  # a lens that can't zoom itself
+    assert plugin._desktop_crop == (2.0, 0.0, 0.0)
+    assert [p["ratio"] for p in ctrl.sent] == [1.0, 2.0]  # nothing new for the lens that can't zoom
+
+
+def test_a_picked_point_only_undoes_the_desktop_share_of_the_zoom(transforms_plugin):
+    plugin, _host, _panel = transforms_plugin
+    seen = []
+    plugin._bus.focus_point.connect(lambda x, y: seen.append((round(x, 3), round(y, 3))))
+    plugin.on_stream_start("http://phone/v1/video", _Ctrl())
+    plugin.on_phone_state(_state(zoomRatioMax=10.0))
+    plugin._zoom_slider.setValue(200)
+    plugin.process_frame(np.zeros((90, 160, 3), np.uint8))
+    plugin._bus.focus_point_picked.emit(0.25, 0.5)
+    assert seen == [(0.25, 0.5)]  # the phone zoomed, so the point is already in its stream frame

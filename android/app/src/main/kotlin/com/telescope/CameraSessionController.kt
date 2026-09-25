@@ -2,6 +2,7 @@ package com.telescope
 
 import android.content.Context
 import android.graphics.ImageFormat
+import android.graphics.Rect
 import android.hardware.camera2.*
 import android.hardware.camera2.params.ColorSpaceTransform
 import android.hardware.camera2.params.MeteringRectangle
@@ -39,6 +40,10 @@ data class CameraControlSnapshot(
     val codecError:        String?,
 )
 
+// Phone-side zoom, as the desktop splits it: a centred CONTROL_ZOOM_RATIO, then a 1/crop SCALER_CROP_REGION
+// around (x, y) in 0..1 of that view. Kept normalized, so it carries over a lens switch, clamped to the new lens.
+data class ZoomRequest(val ratio: Float = 1f, val crop: Float = 1f, val x: Float = 0.5f, val y: Float = 0.5f)
+
 // Owns the Camera2 session lifecycle (device/session/reader) and control state; CameraStreamService owns the HTTP server, notification, and everything outside the camera itself. onFatalError tears the whole session down (camera/session lost); onControlError reports a single failed control change (e.g. exposure) while the stream keeps running on its previous request.
 class CameraSessionController(
     private val context: Context,
@@ -72,8 +77,9 @@ class CameraSessionController(
     @Volatile private var lastMeasuredGains: RggbChannelVector? = null
     @Volatile private var currentFocusMode:     String = "continuous"
     @Volatile private var currentFocusDistance: Float  = 0f  // diopters; 0 = infinity
-    // Set in "point" mode: the AF (and AE) region, as left/top/width/height in active-array pixels.
-    @Volatile private var focusRegion: IntArray? = null
+    // Set in "point" mode: x, y and size in the stream frame; mapped onto the sensor per request, through the zoom.
+    @Volatile private var focusPoint: FloatArray? = null
+    @Volatile private var zoom = ZoomRequest()
     @Volatile private var currentNrMode:         Int     = CaptureRequest.NOISE_REDUCTION_MODE_FAST
     @Volatile private var currentEdgeMode:       Int     = CaptureRequest.EDGE_MODE_FAST
     @Volatile private var currentAeComp:         Int     = 0
@@ -157,15 +163,16 @@ class CameraSessionController(
     fun setWbAuto()                         { currentWbGains = null;            handler?.post { applyExposure() } }
     fun setJpegQuality(q: Int)              { currentJpegQuality = q;           handler?.post { applyExposure() } }
     fun setFpsTarget(fps: Int)              { currentPhoneFps = fps;            handler?.post { applyExposure(); encoder?.setBitrate(currentBitrate()) } }
-    fun setFocusMode(mode: String)          { currentFocusMode = mode; focusRegion = null; handler?.post { applyExposure() } }
+    fun setFocusMode(mode: String)          { currentFocusMode = mode; focusPoint = null; handler?.post { applyExposure() } }
+    fun setZoom(z: ZoomRequest)             { zoom = z;                         handler?.post { applyExposure() } }
 
     // Focus (and meter, when exposure is automatic) on a point of the stream frame. False if this lens
     // can't: no AF regions, no single-shot AF, or no known active array.
     fun setFocusPoint(x: Float, y: Float, size: Float): Boolean {
         val cam = currentCamera ?: return false
-        val array = cam.activeArray ?: return false
+        if (cam.activeArray == null) return false
         if (cam.maxAfRegions <= 0 || CaptureRequest.CONTROL_AF_MODE_AUTO !in cam.afModes) return false
-        focusRegion = CameraRequestSelection.meteringRect(x, y, size, array, streamWidth, streamHeight)
+        focusPoint = floatArrayOf(x, y, size)
         currentFocusMode = "point"
         handler?.post { triggerFocus() }
         return true
@@ -180,6 +187,7 @@ class CameraSessionController(
             val trigger = c.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
                 addTarget(outputSurface()!!)
                 previewSurface?.let { addTarget(it) }
+                currentCamera?.let { applyZoom(this, it) }  // this frame reaches the stream too
                 applyFocusRegion(this)
                 set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START)
             }.build()
@@ -190,8 +198,10 @@ class CameraSessionController(
     }
 
     private fun applyFocusRegion(builder: CaptureRequest.Builder): Boolean {
-        val region = focusRegion ?: return false
+        val point = focusPoint ?: return false
         val cam = currentCamera ?: return false
+        val area = zoomCrop(cam) ?: cam.activeArray ?: return false
+        val region = CameraRequestSelection.meteringRect(point[0], point[1], point[2], area, streamWidth, streamHeight)
         val rect = MeteringRectangle(region[0], region[1], region[2], region[3], MeteringRectangle.METERING_WEIGHT_MAX)
         builder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
         builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO)
@@ -439,12 +449,36 @@ class CameraSessionController(
         }
     }
 
+    // What the stream shows under the current zoom, in request coordinates; null = the whole frame. With a
+    // zoom ratio set, Android measures crop and metering regions in the zoomed view, so both use the array.
+    private fun zoomCrop(cam: CameraEntry): SensorBox? {
+        val array = cam.activeArray ?: return null
+        val z = zoom
+        val crop = CameraRequestSelection.clamp(z.crop, 1f, cam.cropZoomMax)
+        if (crop <= 1f) return null
+        val (x, y) = if (cam.freeformCrop) z.x to z.y else 0.5f to 0.5f
+        return CameraRequestSelection.cropRect(array, crop, x, y, streamWidth, streamHeight)
+    }
+
+    private fun applyZoom(builder: CaptureRequest.Builder, cam: CameraEntry) {
+        val ratio = CameraRequestSelection.clamp(zoom.ratio, 1f, cam.zoomRatioMax)
+        if (ratio > 1f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+            builder.set(CaptureRequest.CONTROL_ZOOM_RATIO, ratio)
+        val box = zoomCrop(cam) ?: return
+        val rect = Rect(box.left, box.top, box.left + box.width, box.top + box.height)
+        if (cam.logicalId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+            builder.setPhysicalCameraKey(CaptureRequest.SCALER_CROP_REGION, rect, cam.id)  // a lens of a logical camera
+        else
+            builder.set(CaptureRequest.SCALER_CROP_REGION, rect)
+    }
+
     private fun buildRequest(camera: CameraDevice = cameraDevice!!): CaptureRequest {
         return camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
             addTarget(outputSurface()!!)
             previewSurface?.let { addTarget(it) }
 
             val cam = currentCamera
+            if (cam != null) applyZoom(this, cam)
 
             // Use CONTROL_MODE_AUTO even in manual AE so AF keeps running independently
             set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
@@ -549,7 +583,7 @@ class CameraSessionController(
         if (!entry.supportsFlash) currentTorch = false
         if (!entry.supportsManualSensor) { currentIso = null; currentShutterNs = null }
         if (!entry.supportsManualFocus && currentFocusMode == "manual") currentFocusMode = "continuous"
-        if (currentFocusMode == "point") { currentFocusMode = "continuous"; focusRegion = null }  // another sensor
+        if (currentFocusMode == "point") { currentFocusMode = "continuous"; focusPoint = null }  // another sensor
         currentCamera = entry
         onStateChanged(StreamState.Recovering, "switchCameraTo", null)
 
