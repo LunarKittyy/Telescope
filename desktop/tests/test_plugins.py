@@ -491,6 +491,7 @@ def test_setup_plugin_config_round_trip(setup_plugin):
         "canvas_preset": "Custom...",
         "custom_canvas_w": 2048,
         "custom_canvas_h": 1536,
+        "max_zoom": 15,
     }
     plugin.set_config(cfg)
     assert plugin.get_config() == cfg

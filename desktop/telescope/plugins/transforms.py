@@ -4,18 +4,20 @@ from typing import Optional
 import cv2
 import numpy as np
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QEvent, QRectF, Qt
+from PyQt6.QtGui import QColor, QPainter
 from PyQt6.QtWidgets import (
-    QWidget,
+    QLabel, QWidget,
 )
 
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
     NoScrollComboBox, NoScrollSlider, PanSliderRow, SegmentButton, add_card_header,
     add_section_heading, control_row as _row, card_layout, create_card, card_action,
-    segmented_row, slider_row, value_label,
+    segmented_row, slider_row, ui_px, value_label,
 )
 from telescope.widgets.lens_panel import shorten_lens_label
+from telescope.theme import ERR
 
 ROTATIONS = {
     "None":   None,
@@ -99,16 +101,17 @@ def _pan_within(centre: float, view_centre: float, view: float, size: float) -> 
     return 0.0 if slack < 1e-6 else min(max((centre - view_centre) / slack, -1.0), 1.0)
 
 
-def _lens_ratio(fit: float, caps: PhoneZoomCaps, current_ratio: float) -> float:
+def _lens_ratio(fit: float, caps: PhoneZoomCaps, current_ratio: float, zoom: float) -> float:
     """The longest lens whose (centred) view still holds the window; 1 = the main lens.
 
     `fit` is the largest centred zoom the window fits in. Moving onto a lens needs a margin, staying on
-    the current one doesn't, so the lens doesn't flip back and forth at the edge of its view.
+    the current one doesn't, so the lens doesn't flip back and forth at the edge of its view. A centred
+    window (fit == zoom) always gets its lens, or zooms just past a lens could never get back onto it.
     """
     ratio = 1.0
     for lens in caps.lens_zooms:
         on_it = abs(lens - current_ratio) < 1e-3
-        if fit >= (lens if on_it else lens * _LENS_MARGIN):
+        if fit >= (lens if on_it else max(lens, min(lens * _LENS_MARGIN, zoom))):
             ratio = lens
     return ratio
 
@@ -127,7 +130,7 @@ def split_zoom(zoom: float, pan_x: float, pan_y: float, caps: Optional[PhoneZoom
     size = 1.0 / zoom
     centre = (_window_centre(zoom, pan_x), _window_centre(zoom, pan_y))
     fit = 1.0 / (2.0 * max(abs(c - 0.5) for c in centre) + size)
-    ratio = _lens_ratio(fit, caps, current_ratio)
+    ratio = _lens_ratio(fit, caps, current_ratio, zoom)
     total = max(ratio, min(zoom, ratio * caps.crop_max)) if caps.freeform else ratio
     view = 1.0 / total
     room = (1.0 / ratio - view) / 2.0 if caps.freeform else 0.0  # how far the crop can move off-centre
@@ -138,6 +141,26 @@ def split_zoom(zoom: float, pan_x: float, pan_y: float, caps: Optional[PhoneZoom
     if rest < 1.0 + 1e-3:
         return ZoomSplit(phone, (1.0, 0.0, 0.0))
     return ZoomSplit(phone, (rest, _pan_within(centre[0], vx, view, size), _pan_within(centre[1], vy, view, size)))
+
+
+def lens_note(zoom: float, sent_ratio: float, caps: Optional[PhoneZoomCaps], live: str, default: str,
+              tele: str) -> str:
+    """What the lens dot says on hover; "" = nothing worth saying, so no dot.
+
+    live/default/tele are lens names: the one streaming now, the one used unzoomed, and the last longer
+    lens seen live. "Switched" goes by what the phone reports, not by what it was asked for.
+    """
+    lines = []
+    if live and default and live != default:
+        lines.append(f"Switched to {live}")
+    if caps is not None and caps.lens_zooms:
+        centred = max((lens for lens in caps.lens_zooms if zoom >= lens), default=1.0)
+        if centred > sent_ratio + 1e-3:
+            lines.append(f"Panned past what {tele or 'the telephoto'} can see, so it's using "
+                         f"{live or 'the main camera'} for now. Pan back towards the middle to switch again.")
+    if lines:
+        lines.append("(it can be a bit wobbly while it switches, just let it settle)")
+    return "\n".join(lines)
 
 
 def inverse_map(u: float, v: float, w: int, h: int, zoom: float = 1.0, pan_x: float = 0.0,
@@ -171,6 +194,48 @@ def _transform_frame(frame, flip_h: bool, flip_v: bool, rotation):
     return frame
 
 
+class _LensDot(QWidget):
+    """A small painted dot just left of a value label's text, level with the middle of its digits.
+
+    Painted rather than a "●" glyph, whose height inside the line differs from font to font. It's a
+    child of the label, outside any layout, so showing it never moves anything.
+    """
+
+    _DIAMETER = 6
+    _GAP = 4
+
+    def __init__(self, label: QLabel):
+        super().__init__(label)
+        self._d = ui_px(self._DIAMETER)
+        self.setFixedSize(self._d + 4, self._d + 4)  # a bit of slack around it makes it easier to hover
+        label.installEventFilter(self)
+        self.place()
+
+    def eventFilter(self, obj, event):
+        if event.type() in (QEvent.Type.Resize, QEvent.Type.FontChange, QEvent.Type.StyleChange):
+            self.place()
+        return False
+
+    def place(self):
+        """Follow the label's text, which is right-aligned and vertically centred."""
+        lbl = self.parentWidget()
+        fm = lbl.fontMetrics()
+        rect = lbl.contentsRect()
+        baseline = rect.top() + (rect.height() - fm.height()) / 2 + fm.ascent()
+        middle = baseline - fm.capHeight() / 2
+        text_left = rect.right() + 1 - fm.horizontalAdvance(lbl.text())
+        x = text_left - ui_px(self._GAP) - (self.width() + self._d) / 2
+        self.move(max(0, round(x)), round(middle - self.height() / 2))
+
+    def paintEvent(self, _event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor(ERR))
+        off = (self.width() - self._d) / 2
+        p.drawEllipse(QRectF(off, off, self._d, self._d))
+
+
 class TransformsPlugin(TelescopePlugin):
     name = "transforms"
     panel_region = "left"   # desktop-side processing, with the output settings
@@ -190,9 +255,12 @@ class TransformsPlugin(TelescopePlugin):
         self._sent_zoom: Optional[PhoneZoom] = None
         self._zoom_where = ""  # the tooltip's first line: where the zoom happens (from the last split)
         self._live_lens = ""   # the lens a multi-lens camera streams from right now, as the lens picker names it
+        self._default_lens = ""  # the lens it streams from unzoomed (seen live while the ratio was 1)
+        self._tele_lens = ""     # the last longer lens seen live, to name it once it's out of view
         self._bus = bus
         bus.focus_point_picked.connect(self._on_point_picked)
         bus.camera_switched.connect(self._on_camera_caps)
+        bus.max_zoom_changed.connect(self._on_max_zoom)
 
     def create_panel(self) -> QWidget:
         card = create_card()
@@ -218,11 +286,14 @@ class TransformsPlugin(TelescopePlugin):
         # ── Zoom ──────────────────────────────────────────────────────────────
         add_section_heading(lay, "Framing")
         self._zoom_slider = NoScrollSlider(Qt.Orientation.Horizontal)
-        self._zoom_slider.setRange(100, 500)
+        self._zoom_slider.setRange(100, 1000)  # up to Max zoom in Advanced (max_zoom_changed)
         self._zoom_slider.setValue(100)
         self._zoom_val_lbl = value_label("1.0×")
         self._zoom_slider.valueChanged.connect(self._on_zoom_changed)
         lay.addLayout(_row("Zoom", slider_row(self._zoom_slider, self._zoom_val_lbl), stretch=True))
+        # Only there when the phone switched lens (or panning made it switch back); details on hover.
+        self._lens_dot = _LensDot(self._zoom_val_lbl)
+        self._lens_dot.setVisible(False)
 
         # ── Pan ───────────────────────────────────────────────────────────────
         self._pan_x_slider = PanSliderRow(show_end_labels=False)
@@ -274,12 +345,18 @@ class TransformsPlugin(TelescopePlugin):
         live = next((c for c in cameras if c.get("id") == state.get("active_lens")), None)
         self._live_lens = shorten_lens_label(live.get("label", "")) if live else ""
         self._on_camera_caps(next((c for c in cameras if c.get("current")), None))
+        if self._live_lens:
+            if self._sent_zoom is None or self._sent_zoom.ratio <= 1.0:
+                self._default_lens = self._live_lens
+            elif self._live_lens != self._default_lens:
+                self._tele_lens = self._live_lens
         self._show_zoom_where()
 
     def _on_camera_caps(self, cam: Optional[dict]):
         caps = PhoneZoomCaps.from_camera(cam)
         if caps != self._zoom_caps:
             self._zoom_caps = caps
+            self._default_lens = self._tele_lens = ""  # another camera: its lenses are learnt afresh
             self._sync_zoom()
 
     def _sync_zoom(self):
@@ -299,16 +376,19 @@ class TransformsPlugin(TelescopePlugin):
         self._show_zoom_where()
 
     def _show_zoom_where(self):
-        lines = [self._zoom_where]
-        if self._live_lens:
-            lines.append(f"Live lens: {self._live_lens}")
-        if self._zoom_caps is not None and self._zoom_caps.lens_zooms and self._ctrl:
-            lines.append("(yes, it can be a bit wobbly when it switches lens, just let it settle)")
-        tip = "\n".join(line for line in lines if line)
-        self._zoom_slider.setToolTip(tip)
-        self._zoom_val_lbl.setToolTip(tip)
+        self._zoom_slider.setToolTip(self._zoom_where)
+        self._zoom_val_lbl.setToolTip(self._zoom_where)
+        streaming = self._ctrl is not None
+        note = lens_note(self.zoom, self._sent_zoom.ratio if self._sent_zoom else 1.0,
+                         self._zoom_caps if streaming else None, self._live_lens if streaming else "",
+                         self._default_lens, self._tele_lens)
+        self._lens_dot.setToolTip(note)
+        self._lens_dot.setVisible(bool(note))
 
     # ── Handlers (Qt thread) ──────────────────────────────────────────────────
+
+    def _on_max_zoom(self, max_zoom: int):
+        self._zoom_slider.setMaximum(max_zoom * 100)  # a zoom past it is clamped, through _on_zoom_changed
 
     def _on_point_picked(self, u: float, v: float):
         w, h = self._frame_size
@@ -327,6 +407,7 @@ class TransformsPlugin(TelescopePlugin):
     def _on_zoom_changed(self, val: int):
         self.zoom = val / 100.0
         self._zoom_val_lbl.setText(f"{self.zoom:.1f}×")
+        self._lens_dot.place()
         pan_active = self.zoom > 1.0
         self._pan_x_slider.set_enabled(pan_active)
         self._pan_y_slider.set_enabled(pan_active)
