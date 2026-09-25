@@ -1323,7 +1323,7 @@ def test_start_stream_passes_on_that_nobody_asked(window):
 
 def test_diagnostics_report_gathers_plugins_and_recent_status(window, monkeypatch):
     from telescope import diagnostics
-    monkeypatch.setattr(diagnostics, "events", diagnostics.RecentEvents())
+    monkeypatch.setattr(diagnostics, "events", diagnostics.EventLog())
 
     class Reports(_Plugin):
         def diagnostics(self):

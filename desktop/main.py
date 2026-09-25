@@ -4,6 +4,7 @@
 import argparse
 import sys
 import threading
+from pathlib import Path
 
 _missing = []
 try:    from PyQt6.QtCore import Qt
@@ -58,7 +59,8 @@ def parse_args(argv):
 
 def main():
     args, qt_argv = parse_args(sys.argv[1:])
-    diagnostics.install()
+    app_dir = Path(sys.executable if getattr(sys, "frozen", False) else __file__).resolve().parent
+    diagnostics.install(app_dir)
     app = QApplication([sys.argv[0]] + qt_argv)
     # Set at QApplication level so dialogs and window share icon.
     app.setWindowIcon(create_app_icon(64))
