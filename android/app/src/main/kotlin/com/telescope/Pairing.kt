@@ -80,6 +80,12 @@ fun parsePairingOffer(raw: String): PairingParse {
     return PairingParse.Ok(offer)
 }
 
+// The desktop's setup checklist shows a QR of the APK download; people scan it with this app too.
+fun isDownloadLink(raw: String): Boolean {
+    val text = raw.trim()
+    return text.startsWith("https://github.com/") && text.endsWith("/Telescope.apk")
+}
+
 private fun rawVersion(raw: String): Int? = try {
     Json.parseToJsonElement(raw)
         .let { it as? kotlinx.serialization.json.JsonObject }

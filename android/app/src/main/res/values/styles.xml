@@ -40,6 +40,10 @@
         <item name="cornerRadius">12dp</item>
         <item name="backgroundTint">@color/colorPrimary</item>
         <item name="android:textColor">@color/colorOnPrimary</item>
+        <!-- Flat like the cards. The raised shadow also showed through as a lighter box when
+             a button is restyled with a transparent fill (Pair another computer). -->
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:elevation">0dp</item>
     </style>
     <style name="Widget.Telescope.Button.Outlined" parent="Widget.MaterialComponents.Button.OutlinedButton">
         <item name="android:textAllCaps">false</item>

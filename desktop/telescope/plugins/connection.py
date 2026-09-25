@@ -174,9 +174,12 @@ class AddPhoneDialog(QDialog):
         self._close_btn.clicked.connect(self.reject)
         dialog_buttons(lay, self._close_btn)
 
-    def showEvent(self, event):
-        super().showEvent(event)
-        self._start()
+    def setVisible(self, visible):
+        # The code goes in before the first show, so the window opens at the size that fits it.
+        if visible:
+            self._start()
+            self.adjustSize()
+        super().setVisible(visible)
 
     def done(self, result):
         self._stop()
@@ -275,6 +278,7 @@ class AddPhoneDialog(QDialog):
         set_ui_role(self._close_btn, "primary")
         self._close_btn.clicked.disconnect()
         self._close_btn.clicked.connect(self.accept)
+        self.adjustSize()
         self._on_paired(result)
 
 
