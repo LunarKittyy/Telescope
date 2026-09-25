@@ -118,6 +118,7 @@ Everything past this point is optional - detailed feature reference, how it work
 - Battery level and phone temperature polled every 15 seconds, shown in the Monitoring panel with color coding
 - Configurable battery alert threshold (default 20%) - fires a tray/desktop notification when discharging below it
 - Configurable temperature alert threshold (default 45 C) - fires a notification when exceeded
+- **Copy diagnostics** at the bottom of Advanced copies the version, system, connection and stream settings, and the last 50 warnings, errors and statuses, for a bug report. They're only kept in memory, and addresses, tokens and file paths are stripped out
 
 **Phones, pairing and connection**
 - Pairing is one dialog, **Add phone**: scan its code with the phone, or plug the phone in over USB and it pairs by itself (it tells you if USB debugging still needs allowing on the phone). Telescope stores each phone by the id it reports, so a new name or a new address doesn't matter
@@ -267,6 +268,7 @@ telescope/
     |-- unitycapture/            # Bundled UnityCapture DLLs (MIT)
     +-- telescope/
         |-- version.py           # This build's version, build number and channel
+        |-- diagnostics.py       # Copy diagnostics: recent warnings in memory, sanitized report
         |-- updates.py           # Qt-free update check, download, verify and install
         |-- app.py               # TelescopeWindow: plugin host, responsive shell, stream lifecycle
         |-- theme.py             # Palette tokens + the app stylesheet
@@ -709,7 +711,7 @@ See `desktop/platform-tools/NOTICE` and https://developer.android.com/studio/ter
 
 ### Versions
 
-Both apps share one version, the `VERSION` file at the repo root. The build number is the commit count on `master`, so it only grows; it's the Android `versionCode` and what the update check compares. A build is stable (`0.5.0`), nightly (`0.5.0-nightly.123`) or a source checkout (`0.5.0 dev`). The version shows at the bottom of the Advanced dialog on the desktop and under Copy diagnostics on the phone.
+Both apps share one version, the `VERSION` file at the repo root. The build number is the commit count on `master`, so it only grows; it's the Android `versionCode` and what the update check compares. A build is stable (`0.5.0`), nightly (`0.5.0-nightly.123`) or a source checkout (`0.5.0 dev`). The version shows at the bottom of the Advanced dialog on the desktop and under Copy diagnostics on the phone, and both apps' Copy diagnostics include it.
 
 ### `release.yml` - every push to `master`, and every `v*` tag
 

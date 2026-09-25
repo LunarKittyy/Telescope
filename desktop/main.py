@@ -25,6 +25,7 @@ if _missing:
 
 from PyQt6.QtWidgets import QApplication
 
+from telescope import diagnostics
 from telescope.app import (
     TelescopeWindow, acquire_single_instance, listen_for_raise,
 )
@@ -57,6 +58,7 @@ def parse_args(argv):
 
 def main():
     args, qt_argv = parse_args(sys.argv[1:])
+    diagnostics.install()
     app = QApplication([sys.argv[0]] + qt_argv)
     # Set at QApplication level so dialogs and window share icon.
     app.setWindowIcon(create_app_icon(64))

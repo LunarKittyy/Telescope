@@ -78,6 +78,10 @@ class HostServices(Protocol):
         """Remove one banner, or all of them."""
         ...
 
+    def diagnostics_report(self) -> str:
+        """The Copy diagnostics text: version, system, each plugin's diagnostics() and recent events."""
+        ...
+
     def plugin_config(self, name: str) -> Optional[dict]:
         """Another plugin's current get_config(), or None if it isn't registered."""
         ...
@@ -111,6 +115,9 @@ class TelescopePlugin:
     def on_phone_state(self, state: dict): ...
     def process_frame(self, frame: np.ndarray) -> np.ndarray: return frame
     def get_config(self) -> dict: return {}
+    def diagnostics(self) -> dict:
+        """A few "Label": "value" lines for Copy diagnostics. No tokens, addresses or names."""
+        return {}
     def set_config(self, cfg: dict): ...
     def apply_preset(self, cfg: dict):
         """Load settings from a preset; plugins that drive the phone also send them while streaming."""

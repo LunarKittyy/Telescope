@@ -11,12 +11,14 @@ body:
     validations:
       required: true
 
-  - type: input
-    id: desktop-version
+  - type: textarea
+    id: desktop-diagnostics
     attributes:
-      label: Desktop app version
-      description: At the bottom of the Advanced dialog (gear icon, then Advanced). Looks like `0.5.0` or `0.5.0-nightly.123`.
-      placeholder: 0.5.0-nightly.123
+      label: Desktop diagnostics
+      description: |
+        In the desktop app, open the gear menu, then Advanced, and click **Copy diagnostics** at the bottom, then paste here. It has the version, your system, the connection and recent errors, with addresses and tokens stripped out.
+        On an older version without that button, write the version shown at the bottom of Advanced instead.
+      render: text
     validations:
       required: true
 
@@ -31,13 +33,6 @@ body:
     validations:
       required: true
 
-  - type: input
-    id: distro
-    attributes:
-      label: Linux distro and desktop
-      description: Only on Linux. If you're on Wayland or X11, say which.
-      placeholder: Fedora 42, KDE Plasma, Wayland
-
   - type: textarea
     id: phone-diagnostics
     attributes:
@@ -48,33 +43,3 @@ body:
       render: text
     validations:
       required: true
-
-  - type: dropdown
-    id: connection
-    attributes:
-      label: Connection
-      description: The Connection panel shows which one is in use.
-      options:
-        - USB
-        - Wi-Fi
-        - Both / switches between them
-        - Not sure
-        - Doesn't get that far
-
-  - type: dropdown
-    id: format
-    attributes:
-      label: Stream format
-      description: Under Stream output.
-      options:
-        - MJPEG
-        - H.264
-        - Not sure
-        - Doesn't get that far
-
-  - type: textarea
-    id: desktop-log
-    attributes:
-      label: Terminal output
-      description: Optional. On Linux, if you started Telescope with `./start.sh` from a terminal, anything it printed around the problem.
-      render: text

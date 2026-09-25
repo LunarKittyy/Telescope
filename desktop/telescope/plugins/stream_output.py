@@ -428,6 +428,14 @@ class StreamOutputPlugin(TelescopePlugin):
 
     # ── Config ────────────────────────────────────────────────────────────────
 
+    def diagnostics(self) -> dict:
+        return {
+            "Format": self.stream_format() + (" (H.264 chosen)" if self._format != self.stream_format() else ""),
+            "Phone codecs": ", ".join(self._phone_codecs) or "unknown",
+            "Resolution": self._res_combo.currentText() or "auto",
+            "FPS": str(self._fps_spin.value()),
+        }
+
     def get_config(self) -> dict:
         cfg = {
             "fps":          self._fps_spin.value(),

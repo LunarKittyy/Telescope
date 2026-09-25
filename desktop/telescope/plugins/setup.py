@@ -1,8 +1,8 @@
 import threading
 from typing import Optional
 
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QAction
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QAction, QGuiApplication
 from PyQt6.QtWidgets import (
     QCheckBox, QDialog, QHBoxLayout, QInputDialog, QLabel, QPushButton, QWidget,
 )
@@ -55,8 +55,9 @@ class AdvancedDialog(QDialog):
     _sig_uc_msg       = pyqtSignal(str)
     _sig_apk_done     = pyqtSignal(bool, str)
 
-    def __init__(self, parent=None, on_apply_canvas=None):
+    def __init__(self, parent=None, on_apply_canvas=None, diagnostics=None):
         super().__init__(parent)
+        self._diagnostics = diagnostics
         self.setWindowTitle("Advanced")
         self.setMinimumWidth(ui_px(560))
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
@@ -225,11 +226,25 @@ class AdvancedDialog(QDialog):
         version_lbl = QLabel(f"Telescope {display_version()}")
         version_lbl.setObjectName("dim")
         version_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        lay.addWidget(version_lbl)
+        self._diag_btn = QPushButton("Copy diagnostics")
+        self._diag_btn.setToolTip("Copies the version, system, connection and recent events, for a bug report.\n"
+                                  "Never includes pairing tokens, addresses or file paths.")
+        self._diag_btn.clicked.connect(self._copy_diagnostics)
+        self._diag_btn.setVisible(self._diagnostics is not None)
+        version_row = QHBoxLayout()
+        version_row.addWidget(version_lbl)
+        version_row.addStretch(1)
+        version_row.addWidget(self._diag_btn)
+        lay.addLayout(version_row)
 
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.accept)
         dialog_buttons(lay, close_btn)
+
+    def _copy_diagnostics(self):
+        QGuiApplication.clipboard().setText(self._diagnostics())
+        self._diag_btn.setText("Copied")
+        QTimer.singleShot(2000, lambda: self._diag_btn.setText("Copy diagnostics"))
 
     def _on_preset_changed(self, label: str):
         self._custom_widget.setVisible(label == "Custom...")
@@ -484,7 +499,8 @@ class SetupPlugin(TelescopePlugin):
 
     def _open(self):
         if self._dlg is None:
-            self._dlg = AdvancedDialog(self._host, on_apply_canvas=self._on_apply_canvas)
+            self._dlg = AdvancedDialog(self._host, on_apply_canvas=self._on_apply_canvas,
+                                       diagnostics=self._host.diagnostics_report)
         self._dlg.set_canvas_preset(self._canvas_preset, self._custom_w, self._custom_h)
         self._dlg.show()
         self._dlg.raise_()
