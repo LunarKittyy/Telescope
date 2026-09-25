@@ -26,7 +26,7 @@ from telescope import theme
 from telescope.discovery import LanDiscovery
 from telescope.pairing import PairingServer
 from telescope.phones import (
-    LOCAL_ONLY, NOT_PAIRED, READY, ROUTE_AUTO, ROUTE_USB, ROUTE_WIFI, STREAM_PORT, UNREACHABLE,
+    DESKTOP_OUTDATED, LOCAL_ONLY, NOT_PAIRED, PHONE_OUTDATED, READY, ROUTE_AUTO, ROUTE_USB, ROUTE_WIFI, STREAM_PORT, UNREACHABLE,
     USB_NEEDS_ATTENTION, USB_NO_ADB, USB_NO_CABLE, Phone, Resolution, Route, RouteResolver, UsbTunnels, usb_note_text,
 )
 from telescope.platform import (
@@ -82,6 +82,8 @@ def status_line(res: Optional[Resolution]) -> tuple:
         NOT_PAIRED: ("status_err", "○ Needs pairing again"),
         LOCAL_ONLY: ("status_warn", "○ Phone accepts USB only"),
         USB_NEEDS_ATTENTION: ("status_warn", "○ USB not available"),
+        PHONE_OUTDATED: ("status_warn", "○ Phone app needs an update"),
+        DESKTOP_OUTDATED: ("status_warn", "○ This app needs an update"),
     }.get(res.status, ("status_dim", ""))
 
 
@@ -99,6 +101,10 @@ def problem_text(res: Resolution, phone_name: str, preference: str) -> str:
     if res.status == USB_NEEDS_ATTENTION:
         why = usb_note_text(res.usb_note) or "the phone isn't answering over USB"
         return f"The connection is set to USB, but {why}. Switch to Automatic to use Wi-Fi instead."
+    if res.status == PHONE_OUTDATED:
+        return f"The Telescope app on {phone_name} is older than this one. Update it on the phone."
+    if res.status == DESKTOP_OUTDATED:
+        return f"The Telescope app on {phone_name} is newer than this one. Update Telescope on this computer."
     return ""
 
 

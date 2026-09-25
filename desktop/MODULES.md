@@ -109,19 +109,22 @@ Qt-free address helpers for pairing and routing.
 
 ### `session_client.py`
 **PhoneSessionClient** - HTTP client for the phone's session port (8766), where `SessionServer` answers whether or not a stream is running. Qt-free.
-- `hello(timeout)` → `(phone_id, phone_name)` or `None` - unauthenticated; which phone is on the other end.
+- `hello(timeout)` → `Hello(status, phone_id, phone_name, protocol, app_version, build)` - unauthenticated; which phone is on the other end and which app version. `status` is `HELLO_OK`, `HELLO_MISSING` (the port answered 404: an app from before `/v1/hello`) or `HELLO_NONE`.
 - `ping()` → `PingResult(status, streaming, busy, local_only, phone_id, phone_name)` - `status` is `paired` / `not_paired` (401) / `unreachable` (anything else, including a body that isn't Telescope's JSON).
 - `start()` / `stop()` → `SessionResult(ok, error)`.
 - `unpair()` - asks the phone to forget this computer (best effort).
-- Owns `PING_PORT = 8766`, `REQUEST_TIMEOUT`, `START_TIMEOUT`, `START_POLL_INTERVAL`.
+- Owns `SESSION_PROTOCOL` (must equal the phone's `SessionServer.PROTOCOL_VERSION`; the release workflow checks), `PING_PORT = 8766`, `REQUEST_TIMEOUT`, `START_TIMEOUT`, `START_POLL_INTERVAL`.
 
 ### `phones.py`
 Qt-free model of paired phones and how to reach them; adb, the session client and discovery are injected, so it's tested without any of them.
 - `Phone(id, name, token, ips, active_ip)` with `to_dict()` / `from_dict()`.
-- `Route(kind, host, serial)`, `Resolution(status, route, usb_note, streaming, busy)`; statuses `READY`, `UNREACHABLE`, `NOT_PAIRED`, `LOCAL_ONLY`, `USB_NEEDS_ATTENTION`; USB reasons `USB_NO_ADB`, `USB_NO_CABLE`, `USB_UNAUTHORIZED`, `USB_OTHER_PHONE`, `USB_APP_CLOSED` (`usb_note_text()` words them for the UI).
+- `Route(kind, host, serial)`, `Resolution(status, route, usb_note, streaming, busy, phone_version)`; statuses `READY`, `UNREACHABLE`, `NOT_PAIRED`, `LOCAL_ONLY`, `USB_NEEDS_ATTENTION`, `PHONE_OUTDATED` / `DESKTOP_OUTDATED` (the phone speaks an older/newer session protocol, or has no `/v1/hello` at all; the route is kept so the phone can be updated over it); USB reasons `USB_NO_ADB`, `USB_NO_CABLE`, `USB_UNAUTHORIZED`, `USB_OTHER_PHONE`, `USB_APP_CLOSED` (`usb_note_text()` words them for the UI).
 - `RouteResolver.resolve(phone, preference)` - USB first (each usable adb device, verified by `/v1/hello` id, then `/v1/ping`), then Wi-Fi probed in parallel over mDNS-discovered, last-good and stored addresses. Blocking.
 - `UsbTunnels` - refcounted `adb forward tcp:0` per (serial, remote port).
 - `STREAM_PORT = 8080`, `ROUTE_AUTO` / `ROUTE_USB` / `ROUTE_WIFI`.
+
+### `version.py`
+`VERSION`, `BUILD`, `CHANNEL` (`stable` / `nightly` / `dev`) and `COMMIT` of this build. Release builds read `telescope/_build.py`, which CI writes with `scripts/write_build_info.py`; a source checkout reads the repo's `VERSION` file and is `dev`. `display_version()` is what the UI shows; `release_asset_url(name)` links a file from this build's release (nightly for dev builds).
 
 ### `discovery.py`
 **LanDiscovery** - browses `_telescope._tcp` with `zeroconf` and maps the TXT `id` to current IPv4 addresses. `lookup(phone_id)` never blocks; without zeroconf or multicast it returns nothing and stored addresses are used.

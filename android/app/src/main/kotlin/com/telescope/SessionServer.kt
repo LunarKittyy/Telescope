@@ -13,6 +13,8 @@ class SessionServer(
     private val port: Int,
     private val computers: () -> PairedComputerList,
     private val commands: SessionCommands,
+    private val appVersion: String = BuildConfig.VERSION_NAME,
+    private val appBuild: Int = BuildConfig.VERSION_CODE,
 ) {
     private var serverSocket: ServerSocket? = null
     private val running = AtomicBoolean(false)
@@ -62,7 +64,7 @@ class SessionServer(
                 Route.Hello -> {
                     val snap = commands.snapshot()
                     HttpWire.sendJson(out, Json.encodeToString(
-                        Hello.serializer(), Hello(PROTOCOL_VERSION, snap.phoneId, snap.phoneName)))
+                        Hello.serializer(), Hello(PROTOCOL_VERSION, snap.phoneId, snap.phoneName, appVersion, appBuild)))
                 }
 
                 Route.Ping -> {

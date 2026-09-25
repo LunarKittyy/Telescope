@@ -4,6 +4,18 @@ plugins {
     id 'org.jetbrains.kotlin.plugin.serialization'
 }
 
+// One version for both apps: the repo's VERSION file. CI passes the build number (commit count on master,
+// so it only grows) and the channel; local builds are "dev" with build 1.
+def appVersion = rootProject.file('../VERSION').text.trim()
+def buildNumber = (project.findProperty('buildNumber') ?: '1').toString().toInteger()
+def channel = (project.findProperty('channel') ?: 'dev').toString()
+def appVersionName = channel == 'stable' ? appVersion : "${appVersion}-${channel}.${buildNumber}"
+
+// Release signing comes from the environment (CI decodes the keystore secret to a file). Without it,
+// release builds fall back to the debug key so forks and local builds still work.
+def keystoreFile = System.getenv('TELESCOPE_KEYSTORE_FILE')
+def hasReleaseKey = keystoreFile && file(keystoreFile).exists()
+
 android {
     namespace 'com.telescope'
     compileSdk 34
@@ -12,8 +24,24 @@ android {
         applicationId "com.telescope"
         minSdk 26
         targetSdk 34
-        versionCode 1
-        versionName "1.0"
+        versionCode buildNumber
+        versionName appVersionName
+        buildConfigField 'String', 'CHANNEL', "\"${channel}\""
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    signingConfigs {
+        if (hasReleaseKey) {
+            release {
+                storeFile file(keystoreFile)
+                storePassword System.getenv('TELESCOPE_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('TELESCOPE_KEY_ALIAS')
+                keyPassword System.getenv('TELESCOPE_KEY_PASSWORD')
+            }
+        }
     }
 
     buildTypes {
@@ -22,6 +50,7 @@ android {
         }
         release {
             minifyEnabled false
+            signingConfig hasReleaseKey ? signingConfigs.release : signingConfigs.debug
         }
     }
 

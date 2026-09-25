@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import QMessageBox
 import telescope.plugins.connection as connection_module
 from telescope.pairing import PairingResult
 from telescope.phones import (
-    LOCAL_ONLY, NOT_PAIRED, READY, ROUTE_AUTO, ROUTE_USB, ROUTE_WIFI, UNREACHABLE,
+    DESKTOP_OUTDATED, LOCAL_ONLY, PHONE_OUTDATED, NOT_PAIRED, READY, ROUTE_AUTO, ROUTE_USB, ROUTE_WIFI, UNREACHABLE,
     USB_APP_CLOSED, USB_NEEDS_ATTENTION, USB_NO_CABLE, Resolution, Route,
 )
 from telescope.plugin import EventBus
@@ -121,7 +121,7 @@ def _add(plugin, pid="id-a", name="Pixel", token="tok-a", ips=("10.0.0.5",)):
 def test_status_line_covers_every_state():
     assert status_line(None) == ("status_dim", "Checking…")
     assert status_line(Resolution(READY, WIFI))[0] == "status_ok"
-    for status in (UNREACHABLE, LOCAL_ONLY, USB_NEEDS_ATTENTION):
+    for status in (UNREACHABLE, LOCAL_ONLY, USB_NEEDS_ATTENTION, PHONE_OUTDATED, DESKTOP_OUTDATED):
         assert status_line(Resolution(status))[0] == "status_warn"
     assert status_line(Resolution(NOT_PAIRED))[0] == "status_err"
 
@@ -138,6 +138,8 @@ def test_problem_text_says_what_to_do():
     assert "Local only" in problem_text(Resolution(LOCAL_ONLY), "Pixel", ROUTE_AUTO)
     forced = problem_text(Resolution(USB_NEEDS_ATTENTION, usb_note=USB_APP_CLOSED), "Pixel", ROUTE_USB)
     assert "isn't open" in forced and "Automatic" in forced
+    assert "Update it on the phone" in problem_text(Resolution(PHONE_OUTDATED), "Pixel", ROUTE_AUTO)
+    assert "on this computer" in problem_text(Resolution(DESKTOP_OUTDATED), "Pixel", ROUTE_AUTO)
     assert problem_text(Resolution(READY, WIFI), "Pixel", ROUTE_AUTO) == ""
 
 

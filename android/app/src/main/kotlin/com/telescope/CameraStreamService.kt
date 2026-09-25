@@ -178,8 +178,7 @@ class CameraStreamService : Service() {
     fun buildDiagnosticsReport(): String {
         val sb = StringBuilder()
         sb.appendLine("Telescope diagnostics")
-        val versionName = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "unknown"
-        sb.appendLine("App version: $versionName")
+        sb.appendLine("App version: ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})")
         sb.appendLine("Device: ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})")
         sb.appendLine("Current state: $state")
         val cur = controller?.snapshot()?.currentCamera

@@ -35,3 +35,6 @@ temp/
 *.ipr
 .DS_Store
 Thumbs.db
+
+# Written by CI (desktop/scripts/write_build_info.py)
+desktop/telescope/_build.py

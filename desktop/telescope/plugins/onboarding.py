@@ -17,13 +17,14 @@ from telescope.platform.windows import (
     download_unitycapture, register_unitycapture, uc_is_registered, unitycapture_dir,
 )
 from telescope.plugin import TelescopePlugin
+from telescope.version import release_asset_url
 from telescope.widgets.common import (
     WrapLabel, action_button, add_card_header, card_layout, create_card, set_status_kind,
     set_ui_role,
 )
 from telescope.widgets.qr import QRCodeWidget
 
-APK_URL = "https://github.com/LunarKittyy/Telescope/releases/download/nightly/Telescope.apk"
+APK_URL = release_asset_url("Telescope.apk")
 
 _LINUX_INSTALL_HINT = (
     "Install the v4l2loopback package. Fedora and Nobara: "

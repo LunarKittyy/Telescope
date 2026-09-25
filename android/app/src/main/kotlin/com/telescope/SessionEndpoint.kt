@@ -17,8 +17,15 @@ data class SessionSnapshot(
     val phoneName: String,
 )
 
+// appVersion/build: lets the desktop say which app needs updating instead of just "unreachable".
 @Serializable
-data class Hello(val protocol: Int, val phoneId: String, val phoneName: String)
+data class Hello(
+    val protocol: Int,
+    val phoneId: String,
+    val phoneName: String,
+    val appVersion: String = "",
+    val build: Int = 0,
+)
 
 // Narrow interface: server owns HTTP, this owns camera lifecycle - they don't cross.
 interface SessionCommands {

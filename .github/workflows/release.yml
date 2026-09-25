@@ -1,0 +1,132 @@
+name: Release
+
+# One pipeline for both channels, so every release holds an APK, two desktop bundles and a
+# manifest.json from the same commit:
+#   push to master  -> the rolling "nightly" pre-release
+#   push a v* tag   -> a stable release (the tag must match the VERSION file)
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  meta:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      build: ${{ steps.meta.outputs.build }}
+      channel: ${{ steps.meta.outputs.channel }}
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # the build number is the commit count
+
+      - id: meta
+        run: |
+          version=$(tr -d '[:space:]' < VERSION)
+          build=$(git rev-list --count HEAD)
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            channel=stable
+            tag="$GITHUB_REF_NAME"
+            if [ "$tag" != "v$version" ]; then
+              echo "::error::Tag $tag doesn't match VERSION ($version)"
+              exit 1
+            fi
+          else
+            channel=nightly
+            tag=nightly
+          fi
+          {
+            echo "version=$version"
+            echo "build=$build"
+            echo "channel=$channel"
+            echo "tag=$tag"
+          } >> "$GITHUB_OUTPUT"
+          echo "Telescope $version, $channel build $build"
+
+  apk:
+    needs: meta
+    uses: ./.github/workflows/build-apk.yml
+    with:
+      build: ${{ needs.meta.outputs.build }}
+      channel: ${{ needs.meta.outputs.channel }}
+    secrets: inherit
+
+  windows:
+    needs: meta
+    uses: ./.github/workflows/build-windows.yml
+    with:
+      build: ${{ needs.meta.outputs.build }}
+      channel: ${{ needs.meta.outputs.channel }}
+
+  linux:
+    needs: meta
+    uses: ./.github/workflows/build-linux.yml
+    with:
+      build: ${{ needs.meta.outputs.build }}
+      channel: ${{ needs.meta.outputs.channel }}
+
+  publish:
+    needs: [meta, apk, windows, linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      BUILD: ${{ needs.meta.outputs.build }}
+      CHANNEL: ${{ needs.meta.outputs.channel }}
+      TAG: ${{ needs.meta.outputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      # The APK rides along in both desktop bundles, so "Install over USB" works without a download.
+      - name: Pack the bundles
+        run: |
+          mkdir out
+          cp dist/apk/Telescope.apk out/
+          cp dist/apk/Telescope.apk dist/windows-bundle/
+          (cd dist/windows-bundle && zip -qr ../../out/Telescope-windows.zip .)
+          cp dist/apk/Telescope.apk dist/linux-bundle/
+          chmod +x dist/linux-bundle/start.sh  # artifacts don't keep file modes
+          tar -czf out/Telescope-linux.tar.gz -C dist/linux-bundle .
+
+      - name: Write manifest.json
+        run: >-
+          python3 .github/write_manifest.py
+          --version "$VERSION" --build "$BUILD" --channel "$CHANNEL" --commit "$GITHUB_SHA"
+          --tag "$TAG" --repo "$GITHUB_REPOSITORY" --out out/manifest.json
+          out/Telescope.apk out/Telescope-windows.zip out/Telescope-linux.tar.gz
+
+      - name: Publish the stable release
+        if: needs.meta.outputs.channel == 'stable'
+        run: |
+          gh release create "$TAG" out/* --verify-tag --latest \
+            --title "Telescope $VERSION" --generate-notes
+
+      # Deleted and recreated rather than edited: GitHub sorts releases by creation time, so this
+      # keeps nightly at the top of the Releases page.
+      - name: Publish nightly
+        if: needs.meta.outputs.channel == 'nightly'
+        run: |
+          {
+            echo "Telescope $VERSION nightly $BUILD, built from \`${GITHUB_SHA::7}\`."
+            echo
+            cat .github/NIGHTLY_NOTES.md
+          } > notes.md
+          gh release delete nightly --yes --cleanup-tag || true
+          gh release create nightly out/* --prerelease --latest=false \
+            --title "Nightly" --notes-file notes.md --target "$GITHUB_SHA"

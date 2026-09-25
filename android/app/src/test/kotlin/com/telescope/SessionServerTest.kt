@@ -79,7 +79,7 @@ class SessionServerTest {
         commands: FakeCommands = FakeCommands(),
         block: (port: Int, commands: FakeCommands) -> Unit,
     ) {
-        val server = SessionServer(0, { computersOf(token) }, commands)
+        val server = SessionServer(0, { computersOf(token) }, commands, appVersion = "1.2.3", appBuild = 42)
         server.start()
         try {
             block(actualPort(server), commands)
@@ -264,6 +264,8 @@ class SessionServerTest {
             val response = get(port, "/v1/hello", null)
             assertEquals(200, response.status)
             assertTrue(response.body.contains("\"phoneId\":\"phone-1\""), response.body)
+            assertTrue(response.body.contains("\"appVersion\":\"1.2.3\""), response.body)
+            assertTrue(response.body.contains("\"build\":42"), response.body)
             assertFalse(response.body.contains("streaming"), response.body)
             assertFalse(commands.calls.contains("start"))
         }

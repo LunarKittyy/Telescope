@@ -5,7 +5,9 @@ import urllib.request
 import pytest
 
 import telescope.session_client as session_client_module
-from telescope.session_client import PhoneSessionClient, PingResult, SessionResult
+from telescope.session_client import (
+    HELLO_MISSING, HELLO_NONE, HELLO_OK, Hello, PhoneSessionClient, PingResult, SessionResult,
+)
 
 
 class _Response:
@@ -148,3 +150,28 @@ def test_a_base_url_with_a_trailing_slash_does_not_double_up(monkeypatch):
     client.ping()
 
     assert seen[0].full_url == "http://phone:8766/v1/ping"
+
+
+# ── hello ─────────────────────────────────────────────────────────────────────
+
+def test_hello_reads_identity_and_version(monkeypatch, client):
+    body = json.dumps({"protocol": 2, "phoneId": "p1", "phoneName": "Pixel",
+                       "appVersion": "0.5.0", "build": 60}).encode()
+    _stub_urlopen(monkeypatch, lambda _req: _Response(200, body))
+    assert client.hello() == Hello(HELLO_OK, "p1", "Pixel", 2, "0.5.0", 60)
+
+
+def test_hello_from_an_app_without_version_fields_still_identifies_it(monkeypatch, client):
+    body = json.dumps({"protocol": 2, "phoneId": "p1", "phoneName": "Pixel"}).encode()
+    _stub_urlopen(monkeypatch, lambda _req: _Response(200, body))
+    hello = client.hello()
+    assert hello.ok and hello.phone_id == "p1" and hello.app_version == "" and hello.build == 0
+
+
+def test_hello_tells_an_old_app_from_nothing_at_all(monkeypatch, client):
+    _stub_urlopen(monkeypatch, lambda _req: _http_error(404))
+    assert client.hello().status == HELLO_MISSING
+    _stub_urlopen(monkeypatch, lambda _req: urllib.error.URLError("refused"))
+    assert client.hello().status == HELLO_NONE
+    _stub_urlopen(monkeypatch, lambda _req: _Response(200, b"[1]"))
+    assert client.hello().status == HELLO_NONE

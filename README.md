@@ -189,10 +189,14 @@ On **Windows**, the virtual camera is [UnityCapture](https://github.com/schellin
 
 ```
 telescope/
-|-- .github/workflows/
-|   |-- build-apk.yml            # CI: debug APK on ubuntu-latest
-|   |-- build-windows.yml        # CI: Windows bundle (EXE + adb + UnityCapture)
-|   +-- build-linux.yml          # CI: Linux bundle (source + start.sh)
+|-- VERSION                    # The version both apps ship as
+|-- .github/
+|   |-- write_manifest.py        # Writes a release's manifest.json
+|   +-- workflows/
+|       |-- release.yml          # Builds all three and publishes nightly or a stable release
+|       |-- build-apk.yml        # APK (signed with the release key in a release)
+|       |-- build-windows.yml    # Windows bundle (EXE + adb + UnityCapture)
+|       +-- build-linux.yml      # Linux bundle (source + start.sh)
 |
 |-- docs/
 |   |-- device-compatibility.md  # Manually maintained per-device test matrix
@@ -223,6 +227,7 @@ telescope/
     |-- requirements-dev.txt     # requirements.txt + pytest, used by CI
     |-- constraints.txt          # Exact pinned versions for CI/release installs
     |-- scripts/smoke_check.py   # Packaging smoke checks (see CI section below)
+    |-- scripts/write_build_info.py  # Stamps a release build's version into telescope/_build.py
     |-- tests/                   # pytest suite (desktop only; Android has its own JVM unit tests)
     |-- THIRD_PARTY_NOTICES.txt  # Bundled into both release archives
     |-- telescope.spec            # PyInstaller spec for Windows EXE
@@ -231,6 +236,7 @@ telescope/
     |-- platform-tools/          # Bundled adb for Windows
     |-- unitycapture/            # Bundled UnityCapture DLLs (MIT)
     +-- telescope/
+        |-- version.py           # This build's version, build number and channel
         |-- app.py               # TelescopeWindow: plugin host, responsive shell, stream lifecycle
         |-- theme.py             # Palette tokens + the app stylesheet
         |-- stream.py            # StreamWorker: MJPEG -> pipeline -> pyvirtualcam
@@ -648,33 +654,48 @@ See `desktop/platform-tools/NOTICE` and https://developer.android.com/studio/ter
 
 ## CI / GitHub Actions
 
-All three workflows publish to a rolling **`nightly` pre-release** on qualifying pushes to `master` (`.github/recreate-nightly.sh` recreates it so it stays at the top of the Releases page).
+### Versions
 
-### `build-apk.yml` - triggered on changes to `android/**`
+Both apps share one version, the `VERSION` file at the repo root. The build number is the commit count on `master`, so it only grows; it's the Android `versionCode` and what the update check compares. A build is stable (`0.5.0`), nightly (`0.5.0-nightly.123`) or a source checkout (`0.5.0 dev`). The version shows at the bottom of the Advanced dialog on the desktop and under Copy diagnostics on the phone.
+
+### `release.yml` - every push to `master`, and every `v*` tag
+
+Builds everything from one commit, then publishes it together:
+
+- a push to `master` replaces the rolling **`nightly`** pre-release (deleted and recreated, so it stays at the top of the Releases page)
+- a tag `vX.Y.Z` creates the stable release `Telescope X.Y.Z`; the tag must match `VERSION`
+
+Each release holds `Telescope.apk`, `Telescope-windows.zip`, `Telescope-linux.tar.gz` (both desktop bundles include the APK, for Install over USB) and `manifest.json`: version, build number, channel, commit, session protocol, and each file's URL, size and SHA-256. The apps' update check reads the manifest.
+
+The APK is signed with the release key from the repository secrets `TELESCOPE_KEYSTORE` (the keystore, base64), `TELESCOPE_KEYSTORE_PASSWORD`, `TELESCOPE_KEY_ALIAS` and `TELESCOPE_KEY_PASSWORD`. A release fails rather than publish an APK signed with a debug key, because Android only installs an update signed with the same key as the installed app.
+
+The three build workflows below also run on pull requests, without publishing.
+
+### `build-apk.yml` - pull requests touching `android/**`
 
 1. JDK 21 (Temurin) + Gradle cache
 2. Android SDK (android-34, build-tools;34.0.0)
-3. `./gradlew lintDebug testDebugUnitTest --no-daemon`, then `./gradlew assembleDebug --no-daemon`
-4. Publishes `Telescope.apk` to the `nightly` pre-release
+3. `./gradlew lintDebug testDebugUnitTest`, then `./gradlew assembleRelease -PbuildNumber=N -Pchannel=nightly|stable` (debug-signed on pull requests)
+4. In a release: checks the APK isn't debug-signed
 
-### `build-windows.yml` - triggered on changes to `desktop/**`
+### `build-windows.yml` - pull requests touching `desktop/**`
 
 1. Python 3.11 + pip cache
 2. `pip install -r requirements-dev.txt -c constraints.txt`; runs `pytest`
 3. `pip install -r requirements.txt pyinstaller -c constraints.txt`
-4. `python scripts/smoke_check.py` - packaging smoke checks (see below)
-5. `pyinstaller telescope.spec`
-6. Assembles `Telescope-windows.zip`: EXE + `THIRD_PARTY_NOTICES.txt` + `platform-tools/` + `unitycapture/`, then verifies the bundle contains all required files before publishing
-7. Publishes the zip to the `nightly` pre-release
+4. In a release: `scripts/write_build_info.py` stamps the version into `telescope/_build.py`
+5. `python scripts/smoke_check.py` - packaging smoke checks (see below)
+6. `pyinstaller telescope.spec`
+7. Assembles the bundle: EXE + `THIRD_PARTY_NOTICES.txt` + `platform-tools/` + `unitycapture/`, and checks nothing is missing
 
 `telescope.spec` uses `collect_all('PyQt6')` to include Qt platform plugins that PyInstaller's default analysis misses. Expected EXE size: 60-80 MB.
 
-### `build-linux.yml` - triggered on changes to `desktop/**`
+### `build-linux.yml` - pull requests touching `desktop/**`
 
 1. Python 3.11 + pip cache; apt-installs `libegl1 libgl1 libxkbcommon0 libdbus-1-3` (PyQt6 needs these even in headless/offscreen test mode); installs `requirements-dev.txt` via `constraints.txt`; runs `pytest`
-2. `python3 scripts/smoke_check.py` - packaging smoke checks
-3. Assembles `Telescope-linux.tar.gz`: `main.py` + `telescope/` package + `requirements.txt` + `constraints.txt` + `start.sh` + `THIRD_PARTY_NOTICES.txt`
-4. Publishes the tarball to the `nightly` pre-release
+2. In a release: stamps the version
+3. `python3 scripts/smoke_check.py` - packaging smoke checks
+4. Assembles the bundle: `main.py` + `telescope/` package + `requirements.txt` + `constraints.txt` + `start.sh` + `THIRD_PARTY_NOTICES.txt`
 
 No compiled build step - the Linux bundle is the Python source and launcher script, which creates its own venv on first run (see `start.sh`).
 

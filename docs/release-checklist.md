@@ -2,6 +2,15 @@
 
 Run before tagging. CI covers pytest, Android unit tests, and packaging smoke checks; everything here needs a real phone and desktop.
 
+## Cutting a stable release
+
+1. Set `VERSION` to the new version (e.g. `0.6.0`) and merge that to `master`.
+2. Run through this checklist against that commit's nightly build.
+3. Tag it and push the tag: `git tag v0.6.0 <commit> && git push origin v0.6.0`.
+4. `release.yml` builds everything and publishes the release. It refuses a tag that doesn't match `VERSION`.
+
+The APK signing key lives in the repository secrets (see the README's CI section). Keep a backup of the keystore outside GitHub: without it, no future APK can install as an update over the current one.
+
 ## Before starting
 
 - [ ] `desktop` pytest suite passes locally and in CI for the release commit.
@@ -13,7 +22,10 @@ Run before tagging. CI covers pytest, Android unit tests, and packaging smoke ch
 
 - [ ] Windows: `TelescopeDesktop.exe` launches, the first-run checklist's Install driver registers UnityCapture, bundled `adb.exe` works for USB.
 - [ ] Linux: `start.sh` creates venv at `$XDG_DATA_HOME/Telescope/venv` on clean machine/account and launches successfully.
-- [ ] Both bundles contain `THIRD_PARTY_NOTICES.txt`.
+- [ ] Both bundles contain `THIRD_PARTY_NOTICES.txt` and `Telescope.apk`.
+- [ ] `manifest.json` checksums match the downloaded files (`sha256sum`).
+- [ ] The new APK installs over the previous release's APK with `adb install -r` (same signing key).
+- [ ] Advanced (desktop) and the diagnostics card (phone) show the release's version.
 - [ ] APK installs via `adb install`, via the checklist's QR link, and via Install over USB (checklist and Advanced).
 
 ## Functional pass (see [device-compatibility.md](device-compatibility.md) for the per-device matrix)
@@ -56,4 +68,4 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 
 - [ ] Device-compatibility matrix updated with test results.
 - [ ] CHANGELOG/release notes drafted.
-- [ ] Tag pushed; CI publishes assets.
+- [ ] Tag pushed; the Release workflow published the assets.

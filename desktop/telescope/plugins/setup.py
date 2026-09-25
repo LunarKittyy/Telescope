@@ -19,6 +19,7 @@ from telescope.platform.windows import (
     download_unitycapture, register_unitycapture, uc_is_registered, unitycapture_dir,
 )
 from telescope.plugin import TelescopePlugin
+from telescope.version import display_version
 from telescope.widgets.common import (
     NoScrollComboBox, NoScrollSpinBox, action_button, add_card_header, button_row, card_layout,
     control_row, create_card, dialog_buttons, dialog_header, dialog_layout, run_off_ui_thread,
@@ -219,6 +220,11 @@ class AdvancedDialog(QDialog):
 
         lay.addWidget(adv_card)
         lay.addStretch(1)
+
+        version_lbl = QLabel(f"Telescope {display_version()}")
+        version_lbl.setObjectName("dim")
+        version_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        lay.addWidget(version_lbl)
 
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.accept)

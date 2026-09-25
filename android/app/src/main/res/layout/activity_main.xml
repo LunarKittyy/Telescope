@@ -389,6 +389,14 @@
                         android:layout_marginTop="14dp"
                         android:text="Copy diagnostics" />
 
+                    <TextView
+                        android:id="@+id/tvAppVersion"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:gravity="center_horizontal"
+                        android:textAppearance="@style/TextAppearance.Telescope.Hint" />
+
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 

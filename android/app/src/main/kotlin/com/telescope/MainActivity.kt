@@ -162,6 +162,7 @@ class MainActivity : AppCompatActivity() {
             scanLauncher.launch(opts)
         }
         btnCopyDiagnostics.setOnClickListener { copyDiagnostics() }
+        findViewById<TextView>(R.id.tvAppVersion).text = "Telescope ${BuildConfig.VERSION_NAME}"
 
         spinnerCamera.onItemSelectedListener = cameraSpinnerListener
 
