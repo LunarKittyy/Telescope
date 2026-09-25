@@ -35,8 +35,11 @@ def test_setup_dialog_button_text_fits(qapp, monkeypatch, linux):
     monkeypatch.setattr(setup_plugin_module, "v4l2_persist_status",
                         lambda: {"modprobe_conf": False, "modules_load_conf": False})
     dialog = setup_plugin_module.AdvancedDialog()
-    if not linux:
-        dialog._on_win_checks(False, True)
+    for name in ([] if linux else ["", "Unity Video Capture"]):
+        dialog._on_win_checks(name, True)
+        dialog.show()
+        qapp.processEvents()
+        assert _clipped_buttons(dialog) == []
     dialog.show()
     qapp.processEvents()
     assert _clipped_buttons(dialog) == []
@@ -100,7 +103,7 @@ def test_text_still_fits_with_larger_text(larger_text, qapp, monkeypatch, linux)
                         lambda: [PairingAddress("192.168.1.2", "wlan0", "lan")])
     dialog = setup_plugin_module.AdvancedDialog()
     if not linux:
-        dialog._on_win_checks(False, True)
+        dialog._on_win_checks("", True)
     for d in (dialog, connection_module.AddPhoneDialog(None, "cid", "Desk", lambda *a: None),
               connection_module.PhonesDialog(_FakePhonesPlugin())):
         d.show()

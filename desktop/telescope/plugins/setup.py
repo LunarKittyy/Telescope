@@ -14,7 +14,7 @@ from telescope.platform.linux import (
     v4l2_persist_disable, v4l2_persist_enable, v4l2_persist_status,
 )
 from telescope.platform.windows import (
-    download_unitycapture, register_unitycapture, uc_is_registered, unitycapture_dir,
+    UC_NAME, download_unitycapture, register_unitycapture, uc_registered_name, unitycapture_dir,
 )
 from telescope.plugin import TelescopePlugin
 from telescope.version import display_version
@@ -50,7 +50,7 @@ class AdvancedDialog(QDialog):
     _sig_v4l_result   = pyqtSignal(bool, str)
     _sig_v4l_unload   = pyqtSignal(bool, str)
     _sig_persist_result = pyqtSignal(bool, str)
-    _sig_win_checks   = pyqtSignal(bool, bool)
+    _sig_win_checks   = pyqtSignal(str, bool)  # registered camera name ("" if none), adb found
     _sig_uc_done      = pyqtSignal(bool, str)
     _sig_uc_msg       = pyqtSignal(str)
     _sig_apk_done     = pyqtSignal(bool, str)
@@ -346,14 +346,20 @@ class AdvancedDialog(QDialog):
     # ── Windows ───────────────────────────────────────────────────────────────
 
     def _check_win_setup(self):
-        self._sig_win_checks.emit(uc_is_registered(), adb_available())
+        self._sig_win_checks.emit(uc_registered_name() or "", adb_available())
 
-    def _on_win_checks(self, uc_ok: bool, adb_ok: bool):
-        if uc_ok:
+    def _on_win_checks(self, uc_name: str, adb_ok: bool):
+        if uc_name == UC_NAME:
             set_status_kind(self._uc_status_lbl, "status_ok")
             self._uc_status_lbl.setText("Ready")
             self._uc_btn.setText("Reinstall")
             set_ui_role(self._uc_btn, "")
+        elif uc_name:
+            # Registered by an older Telescope under UnityCapture's own name. Works, just harder to find.
+            set_status_kind(self._uc_status_lbl, "status_warn")
+            self._uc_status_lbl.setText(f"Apps list it as \u201c{uc_name}\u201d")
+            self._uc_btn.setText(f"Rename to {UC_NAME}")
+            set_ui_role(self._uc_btn, "primary")
         else:
             set_status_kind(self._uc_status_lbl, "status_err")
             dlls = (unitycapture_dir() / "UnityCaptureFilter64.dll").exists()

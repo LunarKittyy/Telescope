@@ -3,12 +3,17 @@ import subprocess
 import sys
 import urllib.request
 from pathlib import Path
+from typing import Optional
 
 from telescope.platform import _run
 
 # Pinned commit with hash verification to prevent tampering before registration.
 _UNITYCAPTURE_COMMIT = "3ed54c325e0ad71afcf4f246c07e5e17b3d7f2d2"
 UNITYCAPTURE_URL_BASE = f"https://raw.githubusercontent.com/schellingb/UnityCapture/{_UNITYCAPTURE_COMMIT}/Install"
+
+# What apps list the camera as. UnityCapture takes it at registration (its InstallCustomName.bat).
+UC_NAME = "Telescope"
+UC_DEFAULT_NAME = "Unity Video Capture"
 
 _EXPECTED_SHA256 = {
     "UnityCaptureFilter32.dll": "aa3ebdf03dea7f3aab3dd7b724751f49ed71672256b57c6a19aa6809cabf30ba",
@@ -60,7 +65,8 @@ def register_unitycapture() -> tuple:
     dll64 = str(d / "UnityCaptureFilter64.dll")
     ps = (
         'Start-Process cmd.exe '
-        f'-ArgumentList \'/c regsvr32 /s "{dll32}" && regsvr32 /s "{dll64}"\' '
+        f'-ArgumentList \'/c regsvr32 /s "/i:UnityCaptureName={UC_NAME}" "{dll32}" && '
+        f'regsvr32 /s "/i:UnityCaptureName={UC_NAME}" "{dll64}"\' '
         '-Verb RunAs -Wait -WindowStyle Hidden'
     )
     try:
@@ -77,7 +83,8 @@ def register_unitycapture() -> tuple:
         return False, str(e)
 
 
-def uc_is_registered() -> bool:
+def uc_registered_name() -> Optional[str]:
+    """The name Telescope's UnityCapture filter is registered under, or None if it isn't registered."""
     try:
         import winreg
         dll = str(unitycapture_dir() / "UnityCaptureFilter64.dll").lower()
@@ -89,8 +96,15 @@ def uc_is_registered() -> bool:
                     try:
                         with winreg.OpenKey(clsid_root, f"{clsid}\\InprocServer32") as k:
                             val, _ = winreg.QueryValueEx(k, "")
-                            if val.lower() == dll:
-                                return True
+                        if val.lower() == dll:
+                            # The filter's own key carries its display name as the default value.
+                            try:
+                                with winreg.OpenKey(clsid_root, clsid) as k:
+                                    name, _ = winreg.QueryValueEx(k, "")
+                            except OSError:
+                                name = ""
+                            if not name.endswith(" Configuration"):  # the property page shares the DLL
+                                return name or UC_DEFAULT_NAME
                     except OSError:
                         pass
                     i += 1
@@ -98,4 +112,8 @@ def uc_is_registered() -> bool:
                     break
     except Exception:
         pass
-    return False
+    return None
+
+
+def uc_is_registered() -> bool:
+    return uc_registered_name() is not None

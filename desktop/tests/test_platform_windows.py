@@ -97,6 +97,7 @@ def test_register_invokes_elevated_powershell(monkeypatch, tmp_path):
     assert windows.register_unitycapture() == (True, "Installed")
     assert calls[0][0][:3] == ["powershell", "-NoProfile", "-Command"]
     assert "regsvr32" in calls[0][0][-1]
+    assert calls[0][0][-1].count('"/i:UnityCaptureName=Telescope"') == 2
     assert calls[0][1]["timeout"] == 60
 
 
@@ -151,3 +152,40 @@ def test_uc_is_registered_scans_registry_and_handles_absence(monkeypatch, tmp_pa
 
     fake.OpenKey = lambda *_args: (_ for _ in ()).throw(OSError("no registry"))
     assert windows.uc_is_registered() is False
+
+
+def test_registered_name_reads_the_filter_key_and_skips_the_property_page(monkeypatch, tmp_path):
+    dll = str(tmp_path / "UnityCaptureFilter64.dll")
+    monkeypatch.setattr(windows, "unitycapture_dir", lambda: tmp_path)
+    registry = {
+        "{props}\\InprocServer32": dll, "{props}": "Unity Video Capture Configuration",
+        "{filter}\\InprocServer32": dll, "{filter}": "Telescope",
+    }
+
+    class Key:
+        def __init__(self, path):
+            self.path = path
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            pass
+
+    keys = ["{other}", "{props}", "{filter}"]
+    fake = types.SimpleNamespace(HKEY_CLASSES_ROOT="HKCR")
+
+    def open_key(_root, path):
+        if path != "CLSID" and path not in registry:
+            raise OSError(path)
+        return Key(path)
+    fake.OpenKey = open_key
+    fake.EnumKey = lambda _root, idx: keys[idx] if idx < len(keys) else (_ for _ in ()).throw(OSError())
+    fake.QueryValueEx = lambda key, _name: (registry[key.path], 1)
+    monkeypatch.setitem(sys.modules, "winreg", fake)
+    assert windows.uc_registered_name() == "Telescope"
+
+    registry["{filter}"] = "Unity Video Capture"
+    assert windows.uc_registered_name() == "Unity Video Capture"
+    del registry["{filter}"]  # no name stored: UnityCapture's default
+    assert windows.uc_registered_name() == windows.UC_DEFAULT_NAME

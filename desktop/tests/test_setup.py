@@ -142,8 +142,8 @@ def windows_dialog(monkeypatch, qapp):
 @pytest.mark.parametrize(
     "uc_ok,adb_ok,uc_text,uc_button,adb_text",
     [
-        (True, True, "Ready", "Reinstall", "Ready"),
-        (False, False, "Not installed", "Install driver", "Not found. Pairing and installing over USB won't work."),
+        ("Telescope", True, "Ready", "Reinstall", "Ready"),
+        ("", False, "Not installed", "Install driver", "Not found. Pairing and installing over USB won't work."),
     ],
 )
 def test_windows_setup_status(
@@ -160,17 +160,23 @@ def test_windows_setup_status(
 
 def test_windows_status_offers_download_when_dll_missing(monkeypatch, windows_dialog, tmp_path):
     monkeypatch.setattr(setup_mod, "unitycapture_dir", lambda: tmp_path)
-    windows_dialog._on_win_checks(False, True)
+    windows_dialog._on_win_checks("", True)
     assert windows_dialog._uc_btn.text() == "Install driver"
     assert "downloads" in windows_dialog._uc_status_lbl.text()
 
 
 def test_windows_background_check_emits_current_status(monkeypatch, windows_dialog):
-    monkeypatch.setattr(setup_mod, "uc_is_registered", lambda: True)
+    monkeypatch.setattr(setup_mod, "uc_registered_name", lambda: "Telescope")
     monkeypatch.setattr(setup_mod, "adb_available", lambda: False)
     windows_dialog._check_win_setup()
     assert windows_dialog._uc_status_lbl.text() == "Ready"
     assert "Not found" in windows_dialog._adb_status_lbl.text()
+
+
+def test_an_old_registration_offers_the_rename(windows_dialog):
+    windows_dialog._on_win_checks("Unity Video Capture", True)
+    assert windows_dialog._uc_btn.text() == "Rename to Telescope"
+    assert "Unity Video Capture" in windows_dialog._uc_status_lbl.text()
 
 
 def test_install_unitycapture_downloads_then_registers(monkeypatch, windows_dialog, tmp_path):

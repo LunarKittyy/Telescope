@@ -187,7 +187,7 @@ Cross-platform constants and helpers: `IS_LINUX`, `IS_WINDOWS`, `adb_available()
 v4l2loopback helpers. Root work goes through `_privileged(steps)`: one `pkexec sh -c`, else `sudo -n`, else a `PrivResult(False, NO_PROMPT, command)` whose `command` is the same steps as pasteable `sudo` lines. `PrivResult` is an `(ok, message)` tuple with `.command`; `as_text()` folds the command into a label's text. `v4l2_setup(persist)` loads the module and, with persist, writes the boot config in the same prompt (skipped when another file already configures v4l2loopback). `v4l2_module_installed()`, `v4l2_load()`, `v4l2_unload()`, `v4l2_module_loaded()`, `v4l2_devices_ready()`, and the load-at-boot trio `v4l2_persist_status/enable/disable()`. Device constants: `V4L2_PHONE_DEV = /dev/video11`, `V4L2_OBS_DEV = /dev/video10`.
 
 ### `platform/windows.py`
-UnityCapture helpers: `uc_is_registered()`, `unitycapture_dir()`, `download_unitycapture()`, `register_unitycapture()`.
+UnityCapture helpers: `uc_registered_name()` (the name apps list it under, read from the filter's CLSID key; `None` if not registered), `uc_is_registered()`, `unitycapture_dir()`, `download_unitycapture()`, `register_unitycapture()` (registers both DLLs as `UC_NAME` = "Telescope" via `/i:UnityCaptureName=`). `stream.py` opens the camera by that name and falls back to any free UnityCapture device for older registrations.
 
 ---
 
@@ -269,6 +269,6 @@ UnityCapture helpers: `uc_is_registered()`, `unitycapture_dir()`, `download_unit
 
 ### `plugins/setup.py`
 **SetupPlugin** - the **Advanced** dialog, reached from the header's settings menu (`create_menu_actions()`); no panel, since nothing in it is adjusted mid-stream.
-- `AdvancedDialog`: v4l2loopback status, load/unload and load at boot (Linux), UnityCapture status and reinstall plus adb status (Windows), installing an APK over USB, and the virtual camera canvas (presets or custom, applied through `host.restart_vcam_canvas()`).
+- `AdvancedDialog`: v4l2loopback status, load/unload and load at boot (Linux), UnityCapture status and reinstall (or Rename to Telescope for an older registration) plus adb status (Windows), installing an APK over USB, and the virtual camera canvas (presets or custom, applied through `host.restart_vcam_canvas()`).
 - `get_canvas_dims()` → `(w, h)` or `(None, None)` for auto; read by `app.py` at stream start.
 - Config keys: `canvas_preset`, `custom_canvas_w`, `custom_canvas_h`.

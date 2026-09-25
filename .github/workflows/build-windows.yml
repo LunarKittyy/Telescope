@@ -47,6 +47,15 @@ jobs:
         working-directory: desktop
         run: python scripts/smoke_check.py
 
+      # Runners are admin, so this does what the first-run checklist's Install driver does, then checks
+      # apps would list the camera as "Telescope" and pyvirtualcam opens it by that name.
+      - name: Register the virtual camera as Telescope
+        working-directory: desktop
+        run: |
+          python -c "from telescope.platform.windows import register_unitycapture as r; ok, msg = r(); print(ok, msg); assert ok, msg"
+          python -c "from telescope.platform.windows import uc_registered_name as n; name = n(); print(name); assert name == 'Telescope', name"
+          python -c "import pyvirtualcam; cam = pyvirtualcam.Camera(width=640, height=480, fps=30, backend='unitycapture', device='Telescope'); print(cam.device); cam.close()"
+
       - name: Build EXE
         working-directory: desktop
         run: pyinstaller telescope.spec

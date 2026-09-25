@@ -51,7 +51,7 @@ After the first stream, the checklist is replaced by the video.
 
 ### 3. ▶️ Use it as a webcam
 
-In OBS (or anywhere else), pick **Phone Camera** (Linux) or **Unity Video Capture** (Windows) as your webcam.
+In OBS (or anywhere else), pick **Phone Camera** (Linux) or **Telescope** (Windows) as your webcam. Installed the Windows driver with an older Telescope? It's still called **Unity Video Capture** until you click **Rename to Telescope** in Advanced.
 
 Telescope uses USB whenever the phone is plugged in and answering, and Wi-Fi otherwise. The Connection panel shows which one it's using, and if a cable is plugged in but not used, it says why. **Connect via** forces one or the other.
 
