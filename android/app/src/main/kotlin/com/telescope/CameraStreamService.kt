@@ -186,16 +186,163 @@ class CameraStreamService : Service() {
         var instance: CameraStreamService? = null
             private set
 
-        // The last session's report, kept after the service is gone so Copy diagnostics still has
-        // something to say about a stream that stopped or dropped. Lost when the app process dies.
-        @Volatile
-        var lastReport: String? = null
-            private set
-
         fun reportHeader(): String =
             "Telescope diagnostics\n" +
             "App version: ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})\n" +
             "Device: ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})\n"
+
+        // One line per camera: what the hardware says it can do, for bug reports about a specific phone.
+        fun cameraReport(cameras: List<CameraEntry>): String = buildString {
+            appendLine("Cameras:")
+            if (cameras.isEmpty()) appendLine("  (none found)")
+            for (c in cameras) {
+                append("  ${c.id}")
+                c.logicalId?.let { append(" (in $it)") }
+                append(" ${c.label}: ${c.hwLevel}, ISO ${c.isoMin}-${c.isoMax}")
+                c.supportedSizes.firstOrNull()?.let { append(", max ${it.width}x${it.height}") }
+                if (c.aeFpsRanges.isNotEmpty())
+                    append(", fps ${c.aeFpsRanges.joinToString(" ") { "${it.lower}-${it.upper}" }}")
+                if (c.zoomRatioMax > 1f) append(", zoom to ${"%.1f".format(c.zoomRatioMax)}x")
+                if (c.cropZoomMax > 1f)
+                    append(", crop to ${"%.1f".format(c.cropZoomMax)}x ${if (c.freeformCrop) "freeform" else "centred"}")
+                if (c.lensZooms.isNotEmpty())
+                    append(", lenses at ${c.lensZooms.joinToString { "%.1f".format(it) + "x" }}")
+                val manual = listOfNotNull(
+                    "exposure".takeIf { c.supportsManualSensor }, "WB".takeIf { c.supportsManualWB },
+                    "focus".takeIf { c.supportsManualFocus })
+                if (manual.isNotEmpty()) append(", manual ${manual.joinToString("/")}")
+                if (c.maxAfRegions > 0) append(", AF regions ${c.maxAfRegions}")
+                if (c.supportsFlash) append(", flash")
+                appendLine()
+            }
+        }
+
+        fun equivalentFocal(chars: CameraCharacteristics): Float {
+            val focal = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)?.firstOrNull() ?: 0f
+            val sensor = chars.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE) ?: return 0f
+            return CameraRequestSelection.equivalentFocal(focal, sensor.width, sensor.height)
+        }
+
+        // Every camera and physical lens the phone exposes, with what each can do. Used for streaming and for
+        // Copy diagnostics, so it takes the CameraManager rather than reaching into a service.
+        fun enumerateCameras(manager: CameraManager): List<CameraEntry> {
+            val result  = mutableListOf<CameraEntry>()
+
+            fun buildEntry(id: String, logicalParent: String?): CameraEntry? = runCatching {
+                val chars  = manager.getCameraCharacteristics(id)
+                val facing = when (chars.get(CameraCharacteristics.LENS_FACING)) {
+                    CameraCharacteristics.LENS_FACING_BACK  -> "Back"
+                    CameraCharacteristics.LENS_FACING_FRONT -> "Front"
+                    else -> "Ext"
+                }
+                val focalEq  = equivalentFocal(chars).toInt()
+
+                val oisModes = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION)
+                val hasOis   = oisModes?.contains(1) == true
+
+                val isoRange = chars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE)
+                val isoMin   = isoRange?.lower ?: 50
+                val isoMax   = isoRange?.upper ?: 3200
+
+                val shtRange = chars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE)
+                val shtMinNs = shtRange?.lower ?: 100_000L
+                val shtMaxNs = shtRange?.upper ?: 1_000_000_000L
+
+                val caps = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)
+                val supportsManualSensor = caps?.contains(
+                    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR) == true
+                val supportsManualWB = caps?.contains(
+                    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_POST_PROCESSING) == true
+                // Manual focus: needs MANUAL_SENSOR and a non-zero minimum focus distance
+                val minFocusDist = chars.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE) ?: 0f
+                val supportsManualFocus = supportsManualSensor && minFocusDist > 0f
+
+                val aeCompRange = chars.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE)
+                val aeCompMin   = aeCompRange?.lower ?: -8
+                val aeCompMax   = aeCompRange?.upper ?: 8
+                val aeStepR     = chars.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_STEP)
+                val aeCompStep  = if (aeStepR != null && aeStepR.denominator != 0)
+                                      aeStepR.numerator.toFloat() / aeStepR.denominator.toFloat()
+                                  else 0.167f
+                val supportsFlash = chars.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+
+                val aeFpsRanges = chars.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)
+                    ?.toList() ?: emptyList()
+                val afModes   = chars.get(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES)?.toSet() ?: emptySet()
+                val nrModes   = chars.get(CameraCharacteristics.NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES)
+                    ?.toSet() ?: emptySet()
+                val edgeModes = chars.get(CameraCharacteristics.EDGE_AVAILABLE_EDGE_MODES)?.toSet() ?: emptySet()
+                val maxAfRegions = chars.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AF) ?: 0
+                val maxAeRegions = chars.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AE) ?: 0
+                val activeArray = chars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
+                    ?.let { SensorBox(it.left, it.top, it.width(), it.height()) }
+
+                // Phone-side zoom. A physical lens goes through its logical parent's request, which sets its
+                // crop only if the parent says so, and has no zoom ratio of its own.
+                val zoomRatioMax = if (logicalParent == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+                    chars.get(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE)?.upper ?: 1f else 1f
+                val cropSettable = logicalParent == null || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+                    manager.getCameraCharacteristics(logicalParent).availablePhysicalCameraRequestKeys
+                        ?.contains(CaptureRequest.SCALER_CROP_REGION) == true)
+                val cropZoomMax = if (cropSettable && activeArray != null)
+                    chars.get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM) ?: 1f else 1f
+                val freeformCrop = chars.get(CameraCharacteristics.SCALER_CROPPING_TYPE) ==
+                    CameraCharacteristics.SCALER_CROPPING_TYPE_FREEFORM
+                val multiLens = caps?.contains(
+                    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA) == true
+                val lensZooms = if (multiLens && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+                    CameraRequestSelection.lensZooms(equivalentFocal(chars),
+                        chars.physicalCameraIds.map { equivalentFocal(manager.getCameraCharacteristics(it)) },
+                        zoomRatioMax)
+                else emptyList()
+
+                val streamMap = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                val supportedSizes = streamMap?.getOutputSizes(ImageFormat.JPEG)
+                    ?.sortedByDescending { it.width * it.height }
+                    ?.takeIf { it.isNotEmpty() }
+                    ?.toList()
+                    ?: listOf(android.util.Size(1920, 1080), android.util.Size(1280, 720))
+
+                val hwLevel = when (chars.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL)) {
+                    CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY   -> "LEGACY"
+                    CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED  -> "LIMITED"
+                    CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_FULL     -> "FULL"
+                    CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_3        -> "LEVEL_3"
+                    CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL -> "EXTERNAL"
+                    else -> "UNKNOWN"
+                }
+
+                val fStr = if (focalEq > 0) "~${focalEq}mm" else "?"
+                val oStr = if (hasOis) " OIS" else ""
+                val pStr = if (logicalParent != null) " [phys]" else if (multiLens) " [auto]" else ""
+                CameraEntry(id, logicalParent, "$facing $fStr$oStr$pStr", hasOis,
+                            isoMin, isoMax, shtMinNs, shtMaxNs,
+                            supportsManualSensor, supportsManualWB, supportsManualFocus, minFocusDist, hwLevel,
+                            aeCompMin, aeCompMax, aeCompStep, supportsFlash,
+                            aeFpsRanges, afModes, nrModes, edgeModes, supportedSizes,
+                            maxAfRegions, maxAeRegions, activeArray,
+                            zoomRatioMax.coerceAtLeast(1f), cropZoomMax.coerceAtLeast(1f), freeformCrop, lensZooms)
+            }.getOrNull()
+
+            manager.cameraIdList.forEach { id ->
+                buildEntry(id, null)?.let { result += it }
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                manager.cameraIdList.forEach { logId ->
+                    runCatching {
+                        val chars = manager.getCameraCharacteristics(logId)
+                        val caps  = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)
+                        if (caps?.contains(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA) == true) {
+                            chars.physicalCameraIds.forEach { physId ->
+                                if (result.none { it.id == physId })
+                                    buildEntry(physId, logId)?.let { result += it }
+                            }
+                        }
+                    }
+                }
+            }
+            return result
+        }
     }
 
     inner class LocalBinder : Binder() {
@@ -219,6 +366,7 @@ class CameraStreamService : Service() {
 
     // Camera catalogue
     private var allCameras: List<CameraEntry> = emptyList()
+    private val startedAt = System.currentTimeMillis()
     // Checked once: whether this phone has a hardware H.264 encoder at all.
     private val h264Available: Boolean by lazy { H264Encoder.isAvailable() }
 
@@ -255,11 +403,16 @@ class CameraStreamService : Service() {
         )
     }
 
-    // Sanitized diagnostics report for "Copy diagnostics": app/device info, current state, recent transitions/errors. Never includes the pairing token, a URL, or raw config.
-    fun buildDiagnosticsReport(): String {
+    // Sanitized diagnostics report for "Copy diagnostics": app/device info, current state, cameras, recent transitions/errors. Never includes the pairing token, a URL, or raw config.
+    fun buildDiagnosticsReport(): String = reportHeader() + buildRunReport()
+
+    // This stream on its own, without the app/device header: what RecentRuns keeps.
+    private fun buildRunReport(): String {
         val sb = StringBuilder()
-        sb.append(reportHeader())
+        sb.appendLine("Stream started: ${timeText(startedAt)}")
         sb.appendLine("Current state: $state")
+        val size = getStreamSize()
+        sb.appendLine("Stream: ${size.width}x${size.height}")
         val cur = controller?.snapshot()?.currentCamera
         sb.appendLine("Current camera: ${cur?.id ?: "none"} (${cur?.label ?: "-"})")
         sb.appendLine("Recent transitions:")
@@ -273,8 +426,12 @@ class CameraStreamService : Service() {
                 sb.appendLine()
             }
         }
+        sb.append(cameraReport(allCameras))
         return sb.toString()
     }
+
+    private fun timeText(ms: Long): String =
+        java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.ROOT).format(java.util.Date(ms))
 
     fun getCameras(): List<CameraEntry> = allCameras
     fun getCurrentCameraId(): String? = controller?.getCurrentCameraId()
@@ -357,135 +514,13 @@ class CameraStreamService : Service() {
 
     override fun onDestroy() {
         stopStreaming()
-        lastReport = buildDiagnosticsReport()
+        RecentRuns.save(this, "Stream ended: ${timeText(System.currentTimeMillis())}\n" + buildRunReport())
         instance = null
         super.onDestroy()
     }
 
-    private fun equivalentFocal(chars: CameraCharacteristics): Float {
-        val focal = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)?.firstOrNull() ?: 0f
-        val sensor = chars.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE) ?: return 0f
-        return CameraRequestSelection.equivalentFocal(focal, sensor.width, sensor.height)
-    }
-
     private fun enumerateAllCameras() {
-        val manager = getSystemService(CAMERA_SERVICE) as CameraManager
-        val result  = mutableListOf<CameraEntry>()
-
-        fun buildEntry(id: String, logicalParent: String?): CameraEntry? = runCatching {
-            val chars  = manager.getCameraCharacteristics(id)
-            val facing = when (chars.get(CameraCharacteristics.LENS_FACING)) {
-                CameraCharacteristics.LENS_FACING_BACK  -> "Back"
-                CameraCharacteristics.LENS_FACING_FRONT -> "Front"
-                else -> "Ext"
-            }
-            val focalEq  = equivalentFocal(chars).toInt()
-
-            val oisModes = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION)
-            val hasOis   = oisModes?.contains(1) == true
-
-            val isoRange = chars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE)
-            val isoMin   = isoRange?.lower ?: 50
-            val isoMax   = isoRange?.upper ?: 3200
-
-            val shtRange = chars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE)
-            val shtMinNs = shtRange?.lower ?: 100_000L
-            val shtMaxNs = shtRange?.upper ?: 1_000_000_000L
-
-            val caps = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)
-            val supportsManualSensor = caps?.contains(
-                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR) == true
-            val supportsManualWB = caps?.contains(
-                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_POST_PROCESSING) == true
-            // Manual focus: needs MANUAL_SENSOR and a non-zero minimum focus distance
-            val minFocusDist = chars.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE) ?: 0f
-            val supportsManualFocus = supportsManualSensor && minFocusDist > 0f
-
-            val aeCompRange = chars.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE)
-            val aeCompMin   = aeCompRange?.lower ?: -8
-            val aeCompMax   = aeCompRange?.upper ?: 8
-            val aeStepR     = chars.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_STEP)
-            val aeCompStep  = if (aeStepR != null && aeStepR.denominator != 0)
-                                  aeStepR.numerator.toFloat() / aeStepR.denominator.toFloat()
-                              else 0.167f
-            val supportsFlash = chars.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
-
-            val aeFpsRanges = chars.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)
-                ?.toList() ?: emptyList()
-            val afModes   = chars.get(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES)?.toSet() ?: emptySet()
-            val nrModes   = chars.get(CameraCharacteristics.NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES)
-                ?.toSet() ?: emptySet()
-            val edgeModes = chars.get(CameraCharacteristics.EDGE_AVAILABLE_EDGE_MODES)?.toSet() ?: emptySet()
-            val maxAfRegions = chars.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AF) ?: 0
-            val maxAeRegions = chars.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AE) ?: 0
-            val activeArray = chars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
-                ?.let { SensorBox(it.left, it.top, it.width(), it.height()) }
-
-            // Phone-side zoom. A physical lens goes through its logical parent's request, which sets its
-            // crop only if the parent says so, and has no zoom ratio of its own.
-            val zoomRatioMax = if (logicalParent == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
-                chars.get(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE)?.upper ?: 1f else 1f
-            val cropSettable = logicalParent == null || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
-                manager.getCameraCharacteristics(logicalParent).availablePhysicalCameraRequestKeys
-                    ?.contains(CaptureRequest.SCALER_CROP_REGION) == true)
-            val cropZoomMax = if (cropSettable && activeArray != null)
-                chars.get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM) ?: 1f else 1f
-            val freeformCrop = chars.get(CameraCharacteristics.SCALER_CROPPING_TYPE) ==
-                CameraCharacteristics.SCALER_CROPPING_TYPE_FREEFORM
-            val multiLens = caps?.contains(
-                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA) == true
-            val lensZooms = if (multiLens && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
-                CameraRequestSelection.lensZooms(equivalentFocal(chars),
-                    chars.physicalCameraIds.map { equivalentFocal(manager.getCameraCharacteristics(it)) },
-                    zoomRatioMax)
-            else emptyList()
-
-            val streamMap = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-            val supportedSizes = streamMap?.getOutputSizes(ImageFormat.JPEG)
-                ?.sortedByDescending { it.width * it.height }
-                ?.takeIf { it.isNotEmpty() }
-                ?.toList()
-                ?: listOf(android.util.Size(1920, 1080), android.util.Size(1280, 720))
-
-            val hwLevel = when (chars.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL)) {
-                CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY   -> "LEGACY"
-                CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED  -> "LIMITED"
-                CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_FULL     -> "FULL"
-                CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_3        -> "LEVEL_3"
-                CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL -> "EXTERNAL"
-                else -> "UNKNOWN"
-            }
-
-            val fStr = if (focalEq > 0) "~${focalEq}mm" else "?"
-            val oStr = if (hasOis) " OIS" else ""
-            val pStr = if (logicalParent != null) " [phys]" else if (multiLens) " [auto]" else ""
-            CameraEntry(id, logicalParent, "$facing $fStr$oStr$pStr", hasOis,
-                        isoMin, isoMax, shtMinNs, shtMaxNs,
-                        supportsManualSensor, supportsManualWB, supportsManualFocus, minFocusDist, hwLevel,
-                        aeCompMin, aeCompMax, aeCompStep, supportsFlash,
-                        aeFpsRanges, afModes, nrModes, edgeModes, supportedSizes,
-                        maxAfRegions, maxAeRegions, activeArray,
-                        zoomRatioMax.coerceAtLeast(1f), cropZoomMax.coerceAtLeast(1f), freeformCrop, lensZooms)
-        }.getOrNull()
-
-        manager.cameraIdList.forEach { id ->
-            buildEntry(id, null)?.let { result += it }
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            manager.cameraIdList.forEach { logId ->
-                runCatching {
-                    val chars = manager.getCameraCharacteristics(logId)
-                    val caps  = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)
-                    if (caps?.contains(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA) == true) {
-                        chars.physicalCameraIds.forEach { physId ->
-                            if (result.none { it.id == physId })
-                                buildEntry(physId, logId)?.let { result += it }
-                        }
-                    }
-                }
-            }
-        }
-        allCameras = result
+        allCameras = enumerateCameras(getSystemService(CAMERA_SERVICE) as CameraManager)
         startServer()
     }
 
