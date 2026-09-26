@@ -197,28 +197,87 @@ def _fit_image(img, width: int, height: int) -> np.ndarray:
 
 
 def _default_screen(width: int, height: int) -> np.ndarray:
-    # Placeholder look; a designed default screen comes later.
-    from PyQt6.QtCore import QRect, Qt
-    from PyQt6.QtGui import QColor, QFont, QImage, QPainter
-    from telescope.theme import SURFACE_SUNK, TEXT, TEXT_DIM
+    """The lens from the project banner, centred (calls crop tiles to squares and circles), with the name under it."""
+    from PyQt6.QtCore import QPointF, QRectF, Qt
+    from PyQt6.QtGui import QBrush, QColor, QFont, QImage, QPainter, QPen, QRadialGradient
+    from telescope.theme import ACCENT, ACCENT_SOFT, BG, SURFACE, SURFACE_SUNK, TEXT, TEXT_DIM
+
+    def colour(hex_: str, alpha: float = 1.0) -> QColor:
+        c = QColor(hex_)
+        c.setAlphaF(alpha)
+        return c
+
+    def radial(centre: QPointF, radius: float, stops) -> QBrush:
+        g = QRadialGradient(centre, radius)
+        for at, c in stops:
+            g.setColorAt(at, c)
+        return QBrush(g)
 
     canvas = QImage(width, height, QImage.Format.Format_RGB888)
-    canvas.fill(QColor(SURFACE_SUNK))
+    canvas.fill(QColor(BG))
     p = QPainter(canvas)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
     p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
-    unit = min(width, height)
-    title, note = QFont(), QFont()
-    title.setPixelSize(max(12, unit // 10))
-    title.setWeight(QFont.Weight.DemiBold)
-    note.setPixelSize(max(8, unit // 28))
-    mid = height // 2
-    p.setFont(title)
+    # Banner units to pixels: the ticks span 500 units and the text 114 more under them, dropped when too small to read.
+    fit = lambda group_h: min(width * 0.8 / 500, height * 0.82 / group_h)  # noqa: E731
+    k = fit(654)
+    with_text = 56 * k >= 14
+    if not with_text:
+        k = fit(500)
+    group_h = (654 if with_text else 500) * k
+    c = QPointF(width / 2, (height - group_h) / 2 + 250 * k)
+
+    p.setPen(Qt.PenStyle.NoPen)
+    p.setBrush(radial(c, 420 * k, [(0, colour("#6a58cf", 0.34)), (0.55, colour("#6a58cf", 0.08)),
+                                   (1, colour("#6a58cf", 0))]))
+    p.drawRect(0, 0, width, height)
+
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    for r, a in ((300, 0.10), (372, 0.06), (452, 0.035)):
+        p.setPen(QPen(colour(ACCENT, a), max(1.0, 1.5 * k)))
+        p.drawEllipse(c, r * k, r * k)
+
+    for i in range(120):
+        major = i % 10 == 0
+        angle = math.radians(i * 3)
+        inner, outer = 232 * k, (250 if major else 241) * k
+        p.setPen(QPen(colour(ACCENT, 0.55 if major else 0.22), max(1.0, (2 if major else 1.4) * k),
+                      cap=Qt.PenCapStyle.RoundCap))
+        dx, dy = math.cos(angle), math.sin(angle)
+        p.drawLine(QPointF(c.x() + dx * inner, c.y() + dy * inner), QPointF(c.x() + dx * outer, c.y() + dy * outer))
+
+    p.setPen(Qt.PenStyle.NoPen)
+    p.setBrush(radial(c + QPointF(-60 * k, -70 * k), 260 * k, [(0, QColor(ACCENT_SOFT)), (1, QColor(ACCENT))]))
+    p.drawEllipse(c, 190 * k, 190 * k)
+    p.setBrush(radial(c + QPointF(18 * k, 22 * k), 110 * k, [(0, QColor(SURFACE)), (1, QColor(SURFACE_SUNK))]))
+    p.drawEllipse(c, 86 * k, 86 * k)
+    p.setBrush(colour("#ffffff", 0.16))
+    p.save()
+    p.translate(c + QPointF(-28 * k, -30 * k))
+    p.rotate(-35)
+    p.drawEllipse(QPointF(0, 0), 20 * k, 13 * k)
+    p.restore()
+    p.setBrush(colour("#ffffff", 0.10))
+    p.drawEllipse(c + QPointF(26 * k, 30 * k), 5 * k, 5 * k)
+
+    if not with_text:
+        p.end()
+        return _to_rgb(canvas)
+    name, note = QFont(), QFont()
+    name.setFamilies(["Inter Display", "Inter", "Segoe UI", "sans-serif"])
+    name.setPixelSize(round(56 * k))
+    name.setWeight(QFont.Weight.Bold)
+    name.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, -1.5 * k)
+    note.setFamilies(["Inter", "Segoe UI", "sans-serif"])
+    note.setPixelSize(max(9, round(22 * k)))
+    top = c.y() + 290 * k
+    p.setFont(name)
     p.setPen(QColor(TEXT))
-    p.drawText(QRect(0, 0, width, mid), Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom, "Telescope")
+    p.drawText(QRectF(0, top, width, 70 * k), Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop, "Telescope")
     p.setFont(note)
     p.setPen(QColor(TEXT_DIM))
-    p.drawText(QRect(0, mid + unit // 40, width, mid), Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
-               "The camera will be here in a moment")
+    p.drawText(QRectF(0, top + 74 * k, width, 40 * k), Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
+               "Waiting for camera")
     p.end()
     return _to_rgb(canvas)
 
