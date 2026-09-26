@@ -37,6 +37,9 @@ _HW_LEVELS = {
 _WB_MIN_K    = 2000
 _WB_MAX_K    = 10000
 _WB_NEUTRAL  = 5500   # neutral point where R gain == B gain
+# The standard stops the Temperature slider sticks to: tungsten, daylight, overcast. Only a few: the slider
+# is ~90 px wide, and closer stops would leave hardly any of it free to set by hand.
+_WB_STOPS    = (3200, _WB_NEUTRAL, 6500)
 
 
 def _kelvin_to_rggb(kelvin: int, tint: float) -> tuple[float, float, float, float]:
@@ -192,6 +195,8 @@ class CameraControlPlugin(TelescopePlugin):
         self._ae_comp_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._ae_comp_slider.setRange(-8, 8)
         self._ae_comp_slider.setValue(0)
+        self._ae_comp_slider.set_snaps([0])
+        self._ae_comp_slider.set_default(0)
         self._ae_comp_lbl = value_label("0.0 EV")
         self._ae_comp_slider.valueChanged.connect(self._on_ae_comp_changed)
         lay.addWidget(_row_widget("Compensation", slider_row(self._ae_comp_slider, self._ae_comp_lbl, gutter=True), stretch=True))
@@ -212,6 +217,8 @@ class CameraControlPlugin(TelescopePlugin):
         self._wb_slider.setRange(_WB_MIN_K, _WB_MAX_K)
         self._wb_slider.setValue(_WB_NEUTRAL)
         self._wb_slider.setSingleStep(100)
+        self._wb_slider.set_snaps(_WB_STOPS)
+        self._wb_slider.set_default(_WB_NEUTRAL)
         self._wb_k_lbl = value_label(f"{_WB_NEUTRAL} K")
         self._wb_slider.valueChanged.connect(self._on_wb_changed)
         self._temperature_row = _row_widget("Temperature", slider_row(self._wb_slider, self._wb_k_lbl, gutter=True), stretch=True)
@@ -222,6 +229,8 @@ class CameraControlPlugin(TelescopePlugin):
         self._tint_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._tint_slider.setRange(-150, 150)
         self._tint_slider.setValue(0)
+        self._tint_slider.set_snaps([0])
+        self._tint_slider.set_default(0)
         self._tint_lbl = value_label("+0")
         self._tint_slider.valueChanged.connect(self._on_tint_changed)
         self._tint_row = _row_widget("Tint G–M", slider_row(self._tint_slider, self._tint_lbl, gutter=True), stretch=True)
