@@ -114,6 +114,11 @@ class StartupPlugin(TelescopePlugin):
 
     def _on_stream_stopped(self):
         self._held = True
+        if self._host.is_restarting():
+            # The same stream back in a moment (a reconnect or camera resize): still one it may stop.
+            self._starting_for_watch = self._starting_for_watch or self._started_for_watch
+            self._started_for_watch = False
+            return
         self._forget_own_stream()
         if self._watched:
             self._watch_held = True  # stopped while an app reads the camera: wait for it to let go

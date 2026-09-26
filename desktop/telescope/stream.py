@@ -207,6 +207,8 @@ class StreamWorker(QThread):
         src0 = self._latest_rgb
         cam_w = self._canvas_w or src0.shape[1]
         cam_h = self._canvas_h or src0.shape[0]
+        # An app already reading the camera (the wait screen's) keeps it at that size; frames are fitted to it.
+        cam_w, cam_h = vcam.locked_size() or (cam_w, cam_h)
         self.status.emit("ok", f"Streaming {cam_w}x{cam_h} at {self._fps} fps")
         try:
             with self._open_vcam(cam_w, cam_h) as cam:

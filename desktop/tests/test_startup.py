@@ -16,6 +16,7 @@ class _Host:
     def __init__(self):
         self.streaming = False
         self.starting = False
+        self.restarting = False
         self.starts = []
         self.stops = 0
         self.keep = None
@@ -27,6 +28,9 @@ class _Host:
 
     def is_starting(self):
         return self.starting
+
+    def is_restarting(self):
+        return self.restarting
 
     def start_stream(self, interactive=True):
         self.starts.append(interactive)
@@ -217,6 +221,19 @@ def test_stop_sticks_until_the_app_lets_go(watching):
     bus.camera_watched.emit(False)
     bus.camera_watched.emit(True)  # a new call
     assert host.starts == [False, False]
+
+
+def test_a_reconnect_keeps_the_stream_its_own(watching):
+    plugin, host, bus = watching
+    bus.camera_watched.emit(True)
+    _stream_runs(host, bus)
+    host.restarting = True    # a reconnect or camera resize
+    _stream_ends(host, bus)
+    host.restarting = False
+    _stream_runs(host, bus)
+    bus.camera_watched.emit(False)
+    plugin._watch_stop.timeout.emit()
+    assert host.starts == [False] and host.stops == 1
 
 
 def test_an_app_leaving_while_the_phone_wakes_still_stops_it(watching):

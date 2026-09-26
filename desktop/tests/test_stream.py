@@ -299,6 +299,42 @@ def test_run_streams_a_frame_and_stops_cleanly(monkeypatch):
     assert statuses[-1] == ("idle", "Not streaming")
 
 
+def test_run_opens_at_the_size_a_reader_holds_the_camera_at(monkeypatch):
+    frame = np.full((2, 4, 3), 200, dtype=np.uint8)
+    cap = _Capture([(True, frame)] * 20)
+    worker = stream.StreamWorker("url", None, None, 24, canvas_width=4, canvas_height=4)
+    monkeypatch.setattr(worker, "_open_cap", lambda: cap)
+    monkeypatch.setattr(vcam, "locked_size", lambda: (6, 6))
+    cameras = []
+
+    class FakeCamera:
+        device = "fake-vcam"
+
+        def __init__(self, **kwargs):
+            self.kwargs, self.sent = kwargs, []
+            cameras.append(self)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def send(self, rgb):
+            self.sent.append(rgb.copy())
+
+        def sleep_until_next_frame(self):
+            worker.request_stop()
+
+    monkeypatch.setattr(vcam.pyvirtualcam, "Camera", FakeCamera)
+    opened = []
+    worker.vcam_opened.connect(lambda w, h: opened.append((w, h)))
+    worker.run()
+
+    assert (cameras[0].kwargs["width"], cameras[0].kwargs["height"]) == (6, 6)
+    assert cameras[0].sent[0].shape == (6, 6, 3) and opened == [(6, 6)]
+
+
 def test_fps_change_rebuilds_the_vcam_without_reopening_the_phone_stream(monkeypatch):
     frame = np.full((2, 4, 3), [10, 20, 30], dtype=np.uint8)
     feed = threading.Event()
