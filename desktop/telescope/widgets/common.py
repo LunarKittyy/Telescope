@@ -712,6 +712,8 @@ _ICON_SVG = {
     "stop": '''<rect x="6" y="6" width="12" height="12" rx="2.6" fill="{c}"/>''',
     "expand": f'''<rect x="3" y="7" width="14" height="14" rx="2.2" {_SOFT}/>
         <path d="M13.5 3h7.5v7.5M21 3l-8.5 8.5"/>''',
+    "lenses": f'''<rect x="3" y="5" width="18" height="14" rx="2.2" {_SOFT}/>
+        <rect x="8.5" y="9" width="7" height="6" rx="1.2"/>''',
     "reset": '''<path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1L3.5 8.5"/><path d="M3.5 3.5v5h5"/>''',
     "transforms": f'''<path d="M12 3v2.5M12 9.5v5M12 18.5V21"/>
         <path d="M9 6.5L3.5 17.5H9z" {_SOFT}/><path d="M15 6.5l5.5 11H15z"/>''',

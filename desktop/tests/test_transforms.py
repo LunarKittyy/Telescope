@@ -459,3 +459,122 @@ def test_the_zoom_slider_follows_max_zoom(transforms_plugin):
     plugin._bus.max_zoom_changed.emit(20)
     plugin._zoom_slider.setValue(2000)
     assert plugin.zoom == 20.0
+
+
+# ── Dragging and scrolling the preview, lens boxes ───────────────────────────
+
+from telescope.plugins.transforms import (  # noqa: E402
+    lens_boxes, pan_for, shown_to_view, view_to_shown, zoom_detent,
+)
+
+_ALL_TRANSFORMS = [(fh, fv, rot) for fh in (False, True) for fv in (False, True) for rot in ROTATIONS.values()]
+
+
+@pytest.mark.parametrize("flip_h,flip_v,rotation", _ALL_TRANSFORMS)
+def test_shown_and_view_points_map_both_ways_and_agree_with_focus(flip_h, flip_v, rotation):
+    for u, v in ((0.1, 0.2), (0.5, 0.5), (0.9, 0.35), (-0.2, 1.3)):
+        x, y = shown_to_view(u, v, 2.5, 0.4, -0.7, flip_h, flip_v, rotation)
+        assert view_to_shown(x, y, 2.5, 0.4, -0.7, flip_h, flip_v, rotation) == pytest.approx((u, v))
+    x, y = shown_to_view(0.3, 0.6, 2.0, 0.5, -0.5, flip_h, flip_v, rotation)
+    assert (x, y) == pytest.approx(inverse_map(0.3, 0.6, 4000, 3000, 2.0, 0.5, -0.5, flip_h, flip_v, rotation),
+                                   abs=1e-3)
+
+
+def test_pan_for_is_the_inverse_of_the_window_centre_and_clamps():
+    assert pan_for(0.5, 2.0) == 0.0
+    assert pan_for(0.75, 2.0) == 1.0
+    assert pan_for(0.9, 2.0) == 1.0
+    assert pan_for(0.6, 1.0) == 0.0  # nothing to pan at 1x
+
+
+def test_a_scroll_step_stops_on_the_first_lens_it_crosses():
+    assert zoom_detent(290, 320, [300, 700]) == 300
+    assert zoom_detent(300, 330, [300, 700]) == 330  # from the mark, it goes on
+    assert zoom_detent(800, 650, [300, 700]) == 700
+    assert zoom_detent(700, 640, [300, 700]) == 640
+    assert zoom_detent(150, 170, [300]) == 170
+
+
+def test_a_lens_box_is_the_centred_part_of_the_view_that_lens_sees():
+    assert lens_boxes(None, 1.0, 0.0, 0.0) == []
+    (label, *box), = lens_boxes(_TELE, 1.0, 0.0, 0.0)
+    assert label == "3.7×"
+    assert box == pytest.approx([0.5 - 0.5 / 3.7, 0.5 - 0.5 / 3.7, 0.5 + 0.5 / 3.7, 0.5 + 0.5 / 3.7])
+    # zoomed 2x and panned fully right: the window is the right half, so the box shifts left and doubles
+    (_, x0, _, x1, _), = lens_boxes(_TELE, 2.0, 1.0, 0.0)
+    assert (x0, x1) == pytest.approx(((0.5 - 0.5 / 3.7 - 0.5) * 2, (0.5 + 0.5 / 3.7 - 0.5) * 2))
+    # rotated a quarter turn, the box's sides swap axes
+    (_, x0, y0, x1, y1), = lens_boxes(_TELE, 2.0, 1.0, 0.0, rotation=cv2.ROTATE_90_CLOCKWISE)
+    assert (y0, y1) == pytest.approx(((0.5 - 0.5 / 3.7 - 0.5) * 2, (0.5 + 0.5 / 3.7 - 0.5) * 2))
+
+
+def _drag_setup(transforms_plugin, rot="None", flip_h=False):
+    plugin, host, _panel = transforms_plugin
+    plugin._flip_h.setChecked(flip_h)
+    plugin._rot_combo.setCurrentText(rot)
+    plugin._zoom_slider.setValue(250)
+    return plugin, host
+
+
+@pytest.mark.parametrize("rot,flip_h", [("None", False), ("90 CW", False), ("180", True), ("90 CCW", True)])
+def test_dragging_the_preview_moves_the_picture_with_the_mouse(transforms_plugin, rot, flip_h):
+    plugin, host = _drag_setup(transforms_plugin, rot, flip_h)
+    t = lambda: (plugin.zoom, plugin.pan_x, plugin.pan_y, plugin.flip_h, plugin.flip_v, plugin.rotation)  # noqa: E731
+    spot = shown_to_view(0.4, 0.55, *t())  # what's under the mouse when the drag starts
+    plugin._bus.view_dragged.emit(0.1, -0.05)
+    assert view_to_shown(*spot, *t()) == pytest.approx((0.5, 0.5))  # it moved along with the mouse
+    assert host.saves >= 1
+    assert plugin.get_config()["pan_x"] == plugin.pan_x  # kept finer than the slider's steps
+
+
+def test_dragging_stops_at_the_edge_and_does_nothing_unzoomed(transforms_plugin):
+    plugin, _host = _drag_setup(transforms_plugin)
+    plugin._bus.view_dragged.emit(-5.0, 0.0)
+    assert plugin.pan_x == 1.0
+    assert plugin._pan_x_lbl.text() == "+100%"
+    plugin._zoom_slider.setValue(100)
+    plugin._bus.view_dragged.emit(0.3, 0.3)
+    assert (plugin.pan_x, plugin.pan_y) == (0.0, 0.0)
+
+
+@pytest.mark.parametrize("rot", ["None", "90 CW"])
+def test_scrolling_zooms_around_the_mouse(transforms_plugin, rot):
+    plugin, _host = _drag_setup(transforms_plugin, rot)
+    t = lambda: (plugin.zoom, plugin.pan_x, plugin.pan_y, plugin.flip_h, plugin.flip_v, plugin.rotation)  # noqa: E731
+    spot = shown_to_view(0.6, 0.45, *t())
+    plugin._bus.view_scrolled.emit(1.1, 0.6, 0.45)
+    assert plugin.zoom == 2.75
+    assert view_to_shown(*spot, *t()) == pytest.approx((0.6, 0.45), abs=0.01)  # the slider's 0.01x steps
+    plugin._bus.view_scrolled.emit(1 / 1.1 ** 20, 0.6, 0.45)
+    assert plugin.zoom == 1.0 and plugin.pan_x == 0.0
+    for _ in range(40):
+        plugin._bus.view_scrolled.emit(1.1, 0.5, 0.5)
+    assert plugin.zoom == 10.0
+
+
+def test_small_scrolls_add_up_and_stop_on_a_lens(transforms_plugin):
+    plugin, _host, _panel = transforms_plugin
+    plugin.on_stream_start("http://phone/v1/video", _Ctrl())
+    plugin.on_phone_state(_lens_state("2"))  # a lens at 3.7x
+    plugin._zoom_slider.setValue(350)
+    for _ in range(10):
+        plugin._bus.view_scrolled.emit(1.002, 0.5, 0.5)  # a trackpad: well under a slider step each
+    assert plugin.zoom > 3.5
+    plugin._bus.view_scrolled.emit(1.1, 0.5, 0.5)
+    assert plugin.zoom == 3.7  # stopped on the lens
+    plugin._bus.view_scrolled.emit(1.1, 0.5, 0.5)
+    assert plugin.zoom > 3.7
+
+
+def test_the_preview_hears_about_the_lens_boxes_and_the_pan(transforms_plugin):
+    plugin, _host, _panel = transforms_plugin
+    boxes, pannable = [], []
+    plugin._bus.lens_boxes.connect(lambda b, moved: boxes.append((b, moved)))
+    plugin._bus.view_pannable.connect(pannable.append)
+    plugin.on_stream_start("http://phone/v1/video", _Ctrl())
+    plugin.on_phone_state(_lens_state("2"))
+    assert boxes[-1][0][0][0] == "3.7×" and boxes[-1][1] is False  # new lens data: no flash
+    plugin._zoom_slider.setValue(200)
+    assert boxes[-1][1] is True and pannable[-1] is True
+    plugin.on_stream_stop()
+    assert boxes[-1] == ([], False)
