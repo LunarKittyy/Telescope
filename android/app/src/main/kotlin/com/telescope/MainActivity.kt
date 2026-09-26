@@ -846,9 +846,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun copyDiagnostics() {
-        val report = service?.buildDiagnosticsReport()
-            ?: CameraStreamService.lastReport?.let { "$it(not streaming now; this is from the last stream)\n" }
-            ?: (CameraStreamService.reportHeader() + "(no stream since the app started)\n")
+        val live = service?.buildDiagnosticsReport()
+            ?: (CameraStreamService.reportHeader() + "Not streaming\n" + CameraStreamService.cameraReport(
+                runCatching { CameraStreamService.enumerateCameras(getSystemService(CAMERA_SERVICE) as CameraManager) }
+                    .getOrDefault(emptyList())))
+        val previous = RecentRuns.load(this)
+        val report = if (previous.isEmpty()) live
+            else live + "\nPrevious streams, newest first:\n\n" + previous.joinToString("\n\n") + "\n"
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(ClipData.newPlainText("Telescope diagnostics", report))
         Toast.makeText(this, "Diagnostics copied to clipboard", Toast.LENGTH_SHORT).show()

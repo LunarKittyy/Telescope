@@ -349,7 +349,7 @@ Each paired computer has its own token, stored by the id the desktop sends in th
 
 While its session port is up (and **Local only** is off), the app announces itself on the LAN as `_telescope._tcp` with its phone id in the TXT record, via `NsdManager`. The desktop uses that to find the phone's current address; the announcement proves nothing by itself, since every connection still authenticates.
 
-A **Copy diagnostics** button copies app version, device info, current stream state, and recent state transitions/errors to the clipboard, for pasting into a bug report. After a stream stops it still has the last stream's report, until the app is closed. Never includes the pairing token, a URL, or raw config.
+A **Copy diagnostics** button copies app version, device info, current stream state, recent state transitions/errors and what each camera's hardware supports to the clipboard, for pasting into a bug report. It also includes the last 3 streams' reports, kept in a small file so they survive the app being closed. Never includes the pairing token, a URL, or raw config.
 
 ### Build locally
 
