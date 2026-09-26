@@ -25,13 +25,19 @@ class _LensButton(QPushButton):
 
 
 def shorten_lens_label(raw: str) -> str:
-    """Strip Android boilerplate ("Back", "[phys]") from camera names; "[auto]" marks a multi-lens camera."""
-    return (raw.replace(" [phys]", "")
-               .replace(" [auto]", " Auto")
+    """Strip Android boilerplate ("Back", "[phys]") from camera names; "[auto]" marks a multi-lens camera.
+
+    "Auto" goes first: the pill elides from the right, and it's what tells the multi-lens camera apart
+    from the physical lens it's named after ("~22mm OIS" and "~22mm OIS Auto" both cut to "~22mm OIS...").
+    """
+    auto = " [auto]" in raw
+    label = (raw.replace(" [phys]", "")
+               .replace(" [auto]", "")
                .replace("Back ", "")
                .replace("Front ", "F/")
                .replace("Telephoto", "Tele")  # keeps the zoom factor ("Tele 3x") inside a grid cell
                .strip())
+    return f"Auto {label}" if auto else label
 
 
 class LensPanel(QWidget):
