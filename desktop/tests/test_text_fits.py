@@ -79,16 +79,19 @@ def larger_text(qapp):
     from telescope.theme import QSS
     from telescope.widgets import common
     apply_theme(qapp)
+    common._scale_cache.clear()
+    base = common._probe_advance()  # this machine's own UI font, which may be narrower than the design one
     qapp.setStyleSheet(QSS + "\nQWidget { font-size: 16pt; }")
     common._scale_cache.clear()
-    yield
+    yield base
     qapp.setStyleSheet(QSS)
     common._scale_cache.clear()
 
 
 def test_layout_widths_grow_with_the_font(larger_text, monkeypatch):
     from telescope.widgets import common
-    assert common.ui_scale() > 1.5
+    assert common._probe_advance() > 1.5 * larger_text
+    assert common.ui_scale() > 1
     assert common.action_button("x").width() > common.BUTTON_WIDTH
 
 
