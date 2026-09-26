@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
 
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
-    NoScrollComboBox, PanSliderRow, ZoomSlider, SegmentButton, add_card_header,
+    NoScrollComboBox, NoScrollSlider, PanSliderRow, SegmentButton, add_card_header,
     add_section_heading, control_row as _row, card_layout, create_card, card_action,
     segmented_row, slider_row, ui_px, value_label,
 )
@@ -55,7 +55,7 @@ def _zoom_origin(w: int, h: int, zoom: float, pan_x: float, pan_y: float) -> tup
 # The phone's zoom ratio only ever steps between its lenses: phones animate ratio changes, so a ratio
 # that followed the pan made the picture breathe in and out. Pan moves the crop, which doesn't animate.
 
-_LENS_SNAP = 10  # Zoom slider steps (0.1x) within which dragging sticks to a lens
+_PAN_SNAP = 0.02  # a preview drag sticks at the centre within this much of the frame, on each axis
 _LENS_SETTLE_S = 2.0  # how long the phone gets to take a new ratio before the dot says it didn't
 _LENS_MARGIN = 1.05  # a lens is taken only once the window sits this far inside its view (no flip-flopping)
 
@@ -115,7 +115,8 @@ def _lens_ratio(fit: float, caps: PhoneZoomCaps, current_ratio: float, zoom: flo
     ratio = 1.0
     for lens in caps.lens_zooms:
         on_it = abs(lens - current_ratio) < 1e-3
-        if fit >= (lens if on_it else max(lens, min(lens * _LENS_MARGIN, zoom))):
+        # 1/(1/z) can land a hair under z: without the slack, a zoom right on a lens mark wouldn't get the lens
+        if fit * (1 + 1e-9) >= (lens if on_it else max(lens, min(lens * _LENS_MARGIN, zoom))):
             ratio = lens
     return ratio
 
@@ -368,6 +369,7 @@ class TransformsPlugin(TelescopePlugin):
         bus.max_zoom_changed.connect(self._on_max_zoom)
         bus.view_dragged.connect(self._on_view_dragged)
         bus.view_scrolled.connect(self._on_view_scrolled)
+        self._raw_pan = None  # a preview drag's pan before the centre snap (see _on_view_dragged)
         self._wheel_zoom = 1.0  # the scroll wheel's zoom, finer than the slider's 0.01 steps (trackpads)
 
     def create_panel(self) -> QWidget:
@@ -393,9 +395,10 @@ class TransformsPlugin(TelescopePlugin):
 
         # ── Zoom ──────────────────────────────────────────────────────────────
         add_section_heading(lay, "Framing")
-        self._zoom_slider = ZoomSlider(Qt.Orientation.Horizontal)
+        self._zoom_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._zoom_slider.setRange(100, 1000)  # up to Max zoom in Advanced (max_zoom_changed)
         self._zoom_slider.setValue(100)
+        self._zoom_slider.set_default(100)
         self._zoom_val_lbl = value_label("1.0×")
         self._zoom_slider.valueChanged.connect(self._on_zoom_changed)
         lay.addLayout(_row("Zoom", slider_row(self._zoom_slider, self._zoom_val_lbl), stretch=True))
@@ -451,7 +454,7 @@ class TransformsPlugin(TelescopePlugin):
         self._ctrl = None
         self._zoom_caps = None
         self._live_lens = ""
-        self._zoom_slider.set_marks([])
+        self._zoom_slider.set_snaps([])
         self._sync_zoom()
         self._emit_lens_boxes(False)
 
@@ -472,7 +475,8 @@ class TransformsPlugin(TelescopePlugin):
         if caps != self._zoom_caps:
             self._zoom_caps = caps
             self._default_lens = self._tele_lens = ""  # another camera: its lenses are learnt afresh
-            self._zoom_slider.set_marks([lens_step(z) for z in caps.lens_zooms] if caps else [])
+            # Dragging sticks to them: a lens's own ratio is the sharpest view it has.
+            self._zoom_slider.set_snaps([lens_step(z) for z in caps.lens_zooms] if caps else [])
             self._sync_zoom()
             self._emit_lens_boxes(False)
 
@@ -497,7 +501,7 @@ class TransformsPlugin(TelescopePlugin):
 
     def _show_zoom_where(self):
         where = self._zoom_where
-        if self._zoom_slider.marks():
+        if self._zoom_slider.snaps():
             where += "\nDots mark where the phone switches to another lens"
         self._zoom_slider.setToolTip(where)
         self._zoom_val_lbl.setToolTip(where)
@@ -531,13 +535,6 @@ class TransformsPlugin(TelescopePlugin):
         self._host.schedule_save()
 
     def _on_zoom_changed(self, val: int):
-        # Dragging the handle sticks to a lens within 0.1x of it: that's the sharpest view that lens has.
-        # Only while dragging, so the arrow keys can still step off a mark.
-        if self._zoom_slider.isSliderDown():
-            mark = min(self._zoom_slider.marks(), key=lambda m: abs(m - val), default=None)
-            if mark is not None and mark != val and abs(mark - val) <= _LENS_SNAP:
-                self._zoom_slider.setValue(mark)  # comes back through here with the mark
-                return
         self.zoom = val / 100.0
         self._zoom_val_lbl.setText(f"{self.zoom:.1f}×")
         self._lens_dot.place()
@@ -554,12 +551,19 @@ class TransformsPlugin(TelescopePlugin):
         """The preview was dragged by (du, dv) of the frame as shown: the picture follows the mouse."""
         if self.zoom <= 1.0:
             return
-        t = (self.zoom, self.pan_x, self.pan_y, self.flip_h, self.flip_v, self.rotation)
+        # Where the drag alone would put the pan; what's shown sticks at the centre near it (_PAN_SNAP), and
+        # dragging on past that lets go without a jump, since this keeps counting underneath.
+        raw_x, raw_y = self._raw_pan or (self.pan_x, self.pan_y)
+        t = (self.zoom, raw_x, raw_y, self.flip_h, self.flip_v, self.rotation)
         x0, y0 = shown_to_view(0.5, 0.5, *t)
         x1, y1 = shown_to_view(0.5 + du, 0.5 + dv, *t)
-        self.pan_x = pan_for(_window_centre(self.zoom, self.pan_x) - (x1 - x0), self.zoom)
-        self.pan_y = pan_for(_window_centre(self.zoom, self.pan_y) - (y1 - y0), self.zoom)
-        self._framing_changed()
+        raw_x = pan_for(_window_centre(self.zoom, raw_x) - (x1 - x0), self.zoom)
+        raw_y = pan_for(_window_centre(self.zoom, raw_y) - (y1 - y0), self.zoom)
+        off_centre = (self.zoom - 1.0) / 2  # a pan of 1, in frames as shown
+        self.pan_x = 0.0 if abs(raw_x) * off_centre <= _PAN_SNAP else raw_x
+        self.pan_y = 0.0 if abs(raw_y) * off_centre <= _PAN_SNAP else raw_y
+        self._framing_changed(keep_raw=True)
+        self._raw_pan = (raw_x, raw_y)
 
     def _on_view_scrolled(self, factor: float, u: float, v: float):
         """Zoom by `factor`, keeping the point under the mouse ((u, v) of the frame as shown) where it is."""
@@ -568,7 +572,7 @@ class TransformsPlugin(TelescopePlugin):
         if abs(self._wheel_zoom * 100 - old) >= 1:
             self._wheel_zoom = old / 100.0  # moved some other way since the last scroll
         target = min(max(self._wheel_zoom * factor, 1.0), slider.maximum() / 100.0)
-        new = zoom_detent(old, round(target * 100), slider.marks())
+        new = zoom_detent(old, round(target * 100), slider.snaps())
         self._wheel_zoom = new / 100.0 if new != round(target * 100) else target
         if new == old:
             return
@@ -582,8 +586,10 @@ class TransformsPlugin(TelescopePlugin):
         self.pan_y = pan_for(py - (py - y0) / h * size + size / 2, zoom)
         slider.setValue(new)  # the zoom path does the rest, with the pan set above
 
-    def _framing_changed(self):
+    def _framing_changed(self, keep_raw: bool = False):
         """Zoom or pan changed: sliders follow, the phone hears, the preview's lens boxes move."""
+        if not keep_raw:
+            self._raw_pan = None  # moved some other way: a drag starts from where the picture is
         pan_active = self.zoom > 1.0
         for slider, pan in ((self._pan_x_slider, self.pan_x), (self._pan_y_slider, self.pan_y)):
             slider.set_enabled(pan_active)

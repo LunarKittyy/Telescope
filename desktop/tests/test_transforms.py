@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import pytest
+from PyQt6.QtCore import Qt
 
 from telescope.plugin import EventBus
 import telescope.plugins.transforms as transforms_mod
@@ -429,24 +430,58 @@ def test_the_zoom_slider_marks_each_lens(transforms_plugin):
     plugin, _host, _panel = transforms_plugin
     plugin.on_stream_start("http://phone/v1/video", _Ctrl())
     plugin.on_phone_state(_lens_state("2"))
-    assert plugin._zoom_slider.marks() == [370]
+    assert plugin._zoom_slider.snaps() == [370]
     plugin.on_stream_stop()
-    assert plugin._zoom_slider.marks() == []
+    assert plugin._zoom_slider.snaps() == []
+
+
+def _drag_slider(slider, *values):
+    """Press the handle and drag it with the mouse to where each value sits; the values it passed through."""
+    from PyQt6.QtCore import QPoint
+    from PyQt6.QtTest import QTest
+    y = slider.height() // 2
+    seen = []
+    slider.valueChanged.connect(seen.append)
+    QTest.mousePress(slider, Qt.MouseButton.LeftButton, pos=QPoint(round(slider.mark_x(slider.value())), y))
+    for v in values:
+        QTest.mouseMove(slider, QPoint(round(slider.mark_x(v)), y))
+    QTest.mouseRelease(slider, Qt.MouseButton.LeftButton, pos=QPoint(round(slider.mark_x(values[-1])), y))
+    slider.valueChanged.disconnect()
+    return seen
 
 
 def test_dragging_the_zoom_sticks_to_a_lens_but_keys_dont(transforms_plugin):
-    plugin, _host, _panel = transforms_plugin
+    plugin, _host, panel = transforms_plugin
+    panel.resize(420, panel.sizeHint().height())
+    panel.show()
     plugin.on_stream_start("http://phone/v1/video", _Ctrl())
-    plugin.on_phone_state(_lens_state("2"))
+    plugin.on_phone_state(_lens_state("2"))  # a lens at 3.7x
     slider = plugin._zoom_slider
-    slider.setValue(362)
-    assert plugin.zoom == 3.62  # not dragging
-    slider.setSliderDown(True)
-    slider.setValue(363)
+    step_px = (slider.mark_x(1000) - slider.mark_x(100)) / 900
+    near = 370 - int(3 / step_px)  # 3 px short of the mark
+    _drag_slider(slider, near)
     assert slider.value() == 370 and plugin.zoom == 3.7
-    slider.setValue(381)
-    assert slider.value() == 381  # far enough to leave it
-    slider.setSliderDown(False)
+    far = 370 - int(12 / step_px) - 1
+    _drag_slider(slider, far)
+    assert slider.value() != 370  # far enough to leave it
+    slider.setValue(370)
+    slider.setFocus()
+    from PyQt6.QtTest import QTest
+    QTest.keyClick(slider, Qt.Key.Key_Left)
+    assert slider.value() == 369  # keys step off it freely
+
+
+def test_a_double_click_resets_zoom_and_pan(transforms_plugin):
+    from PyQt6.QtTest import QTest
+    plugin, _host, panel = transforms_plugin
+    panel.show()
+    plugin._zoom_slider.setValue(420)
+    plugin._pan_x_slider._slider.setValue(120)
+    QTest.mouseDClick(plugin._pan_x_slider._slider, Qt.MouseButton.LeftButton)
+    assert plugin.pan_x == 0.0 and plugin.zoom == 4.2
+    plugin._pan_x_slider._slider.setValue(120)
+    QTest.mouseDClick(plugin._zoom_slider, Qt.MouseButton.LeftButton)
+    assert plugin.zoom == 1.0 and plugin.pan_x == 0.0
 
 
 def test_the_zoom_slider_follows_max_zoom(transforms_plugin):
@@ -578,3 +613,29 @@ def test_the_preview_hears_about_the_lens_boxes_and_the_pan(transforms_plugin):
     assert boxes[-1][1] is True and pannable[-1] is True
     plugin.on_stream_stop()
     assert boxes[-1] == ([], False)
+
+
+@pytest.mark.parametrize("lens", [1.51, 2.0, 3.7, 3.9, 5.0, 6.3])
+def test_a_zoom_right_on_a_lens_mark_gets_that_lens(lens):
+    caps = PhoneZoomCaps(ratio_max=10.0, crop_max=4.0, freeform=True, lens_zooms=(lens,))
+    zoom = lens_step(lens) / 100  # where the slider's mark (and its snap) puts it
+    assert split_zoom(zoom, 0.0, 0.0, caps).phone.ratio == lens
+    # and so the dot doesn't claim it fell back (it did at 3.9x: 1/(1/3.9) is a hair under 3.9)
+    assert lens_note(zoom, lens, caps, "Tele", "Main", "Tele")[0] == "on"
+
+
+def test_dragging_the_preview_sticks_at_the_centre_then_lets_go(transforms_plugin):
+    plugin, _host = _drag_setup(transforms_plugin)  # 2.5x: a pan of 1 is 0.75 frames off centre
+    plugin._bus.view_dragged.emit(-0.3, 0.0)
+    assert plugin.pan_x == pytest.approx(0.4)
+    seen = []
+    for _ in range(60):  # back towards the centre and past it, 0.65% of the frame at a time
+        plugin._bus.view_dragged.emit(0.0065, 0.0)
+        seen.append(plugin.pan_x)
+    stuck = [i + 1 for i, pan in enumerate(seen) if pan == 0.0]
+    assert stuck == list(range(44, 50))  # 0.3 - 0.0065k within 2% of the frame either side of the centre
+    assert seen[50 - 1] == pytest.approx(-0.025 / 0.75)  # lets go right where the drag is, no jump
+    assert plugin.pan_y == 0.0
+    plugin._pan_x_slider._slider.setValue(100)  # moved another way: the next drag starts from there
+    plugin._bus.view_dragged.emit(-0.001, 0.0)
+    assert plugin.pan_x > 0.5

@@ -575,25 +575,62 @@ class NoScrollComboBox(QComboBox):
 
 
 class NoScrollSlider(QSlider):
-    def wheelEvent(self, event):
-        event.ignore()
+    """A slider the scroll wheel leaves alone, with optional snap points and a default.
 
-
-class ZoomSlider(NoScrollSlider):
-    """The Zoom slider, with a dot on the groove at each value in set_marks (where a longer lens takes over)."""
+    Snap points (set_snaps) are drawn as dots on the groove, and dragging the handle sticks to one while
+    the mouse is within SNAP_PX of it; moving further away lets go. Only a drag snaps: the arrow keys and
+    clicks on the groove step freely. A double-click puts the slider back on its default (set_default).
+    """
 
     _MARK = 5  # dot diameter, px; a bit wider than the 4px groove so it shows on the filled part too
+    SNAP_PX = 5  # how close (design px) a dragged handle has to come to a snap point to stick to it
+    RESET_HINT = "Double-click to reset"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._marks: list = []
+        self._default = None
+        self._tip = ""
+        self.actionTriggered.connect(self._snap)
 
-    def set_marks(self, values):
+    def wheelEvent(self, event):
+        event.ignore()
+
+    def set_snaps(self, values):
         self._marks = sorted(values)
         self.update()
 
-    def marks(self) -> list:
+    def snaps(self) -> list:
         return list(self._marks)
+
+    def set_default(self, value):
+        self._default = value
+        self.setToolTip(self._tip)
+
+    def setToolTip(self, text: str):
+        self._tip = text
+        hint = self.RESET_HINT if self._default is not None else ""
+        super().setToolTip("\n".join(t for t in (text, hint) if t))
+
+    def mouseDoubleClickEvent(self, event):
+        if self._default is None or event.button() != Qt.MouseButton.LeftButton:
+            super().mouseDoubleClickEvent(event)
+            return
+        self.setValue(self._default)
+
+    def _snap(self, action: int):
+        # Runs after a drag moved sliderPosition but before the value follows, so listeners only ever see
+        # the snapped value.
+        if action != QSlider.SliderAction.SliderMove.value or not self._marks:
+            return
+        pos = self.sliderPosition()
+        x = self.mark_x(pos)
+        near = min(self._marks, key=lambda m: abs(self.mark_x(m) - x))
+        # Close neighbours each get at most a third of the gap, so there's always room between them.
+        gaps = [abs(self.mark_x(m) - self.mark_x(near)) for m in self._marks if m != near]
+        reach = min([ui_px(self.SNAP_PX)] + [g / 3 for g in gaps])
+        if near != pos and abs(self.mark_x(near) - x) <= reach:
+            self.setSliderPosition(near)
 
     def mark_x(self, value: int) -> float:
         """Where the handle's centre sits at `value`, in widget px (asked of the style, margins and all)."""
@@ -611,7 +648,7 @@ class ZoomSlider(NoScrollSlider):
 
     def paintEvent(self, event):
         super().paintEvent(event)
-        marks = [m for m in self._marks if self.minimum() < m <= self.maximum()]
+        marks = [m for m in self._marks if self.minimum() < m < self.maximum()]
         if not marks:
             return
         opt = QStyleOptionSlider()
@@ -632,7 +669,7 @@ class ZoomSlider(NoScrollSlider):
         d = ui_px(self._MARK)
         y = groove.center().y()
         on_groove = QColor(theme.TEXT_DIM if self.isEnabled() else theme.TEXT_DISABLED)
-        on_fill = QColor(theme.TEXT)  # lighter on the lavender part left of the handle
+        on_fill = QColor(theme.TEXT if self.isEnabled() else theme.TEXT_DISABLED)  # lighter on the lavender fill
         for m in marks:
             p.setBrush(on_fill if m < self.value() else on_groove)
             p.drawEllipse(QRectF(self.mark_x(m) - d / 2, y - d / 2, d, d))
@@ -856,7 +893,7 @@ class LogSliderRow(QWidget):
 # ── Pan slider row ────────────────────────────────────────────────────────────
 
 class PanSliderRow(QWidget):
-    """Linear slider -1.0 to 1.0 with a centered zero tick."""
+    """Linear slider -1.0 to 1.0 with a centre mark it snaps to (and resets to on a double-click)."""
     value_changed = pyqtSignal(float)
     STEPS = 200
 
@@ -876,6 +913,8 @@ class PanSliderRow(QWidget):
         self._slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._slider.setRange(-self.STEPS, self.STEPS)
         self._slider.setValue(0)
+        self._slider.set_snaps([0])
+        self._slider.set_default(0)
         stretch_slider(self._slider)
         lay.addWidget(self._slider, 1)
 

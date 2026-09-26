@@ -13,7 +13,6 @@ from telescope.widgets.common import (
     FlowLayout,
     LogSliderRow,
     NoScrollSlider,
-    ZoomSlider,
     PanSliderRow,
     control_row,
     control_row_widget,
@@ -324,11 +323,11 @@ def test_run_off_ui_thread_keeps_the_event_loop_turning(qapp):
 
 
 def test_zoom_slider_marks_sit_where_the_handle_would(qapp):
-    slider = ZoomSlider(Qt.Orientation.Horizontal)
+    slider = NoScrollSlider(Qt.Orientation.Horizontal)
     slider.setRange(100, 1000)
     slider.resize(200, 20)
-    slider.set_marks([700, 300])
-    assert slider.marks() == [300, 700]
+    slider.set_snaps([700, 300])
+    assert slider.snaps() == [300, 700]
     for value in (100, 300, 1000):
         slider.setValue(value)
         opt = QStyleOptionSlider()

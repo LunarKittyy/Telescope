@@ -491,3 +491,26 @@ def test_point_focus_follows_the_phone_and_the_lens(camera_plugin):
     assert ctrl.sent == []  # this lens can't
     plugin.on_stream_stop()
     assert not plugin._rb_focus_point.isEnabled()
+
+
+def test_exposure_and_white_balance_snap_to_neutral_and_reset_on_a_double_click(camera_plugin):
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtTest import QTest
+    plugin, _host, _bus, panel = camera_plugin
+    ctrl = _Ctrl()
+    plugin._ctrl = ctrl
+    assert plugin._ae_comp_slider.snaps() == [0]
+    assert plugin._tint_slider.snaps() == [0]
+    assert plugin._wb_slider.snaps() == [3200, 5500, 6500]
+    panel.show()
+    for slider in (plugin._ae_comp_slider, plugin._wb_slider, plugin._tint_slider):
+        slider.setEnabled(True)
+    plugin._ae_comp_slider.setValue(3)
+    plugin._tint_slider.setValue(40)
+    plugin._wb_slider.setValue(3300)
+    ctrl.sent.clear()
+    for slider in (plugin._ae_comp_slider, plugin._wb_slider, plugin._tint_slider):
+        QTest.mouseDClick(slider, Qt.MouseButton.LeftButton)
+    assert (plugin._ae_comp_slider.value(), plugin._wb_slider.value(), plugin._tint_slider.value()) == (0, 5500, 0)
+    assert {"action": "ae_comp", "value": 0} in ctrl.sent  # through the normal handlers
+    assert plugin._wb_slider.toolTip().endswith("Double-click to reset")
