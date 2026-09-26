@@ -203,6 +203,85 @@ def inverse_map(u: float, v: float, w: int, h: int, zoom: float = 1.0, pan_x: fl
     return min(max(u, 0.0), 1.0), min(max(v, 0.0), 1.0)
 
 
+def _window(zoom: float, pan: float) -> tuple:
+    """The output's window along one axis of the full view: (left edge, size), both 0..1."""
+    zoom = max(zoom, 1.0)
+    return _window_centre(zoom, pan) - 0.5 / zoom, 1.0 / zoom
+
+
+def shown_to_view(u: float, v: float, zoom: float, pan_x: float, pan_y: float, flip_h: bool = False,
+                  flip_v: bool = False, rotation=None) -> tuple:
+    """A point in the frame as shown (after crop, flip and rotation) to the full view of the main lens.
+
+    Continuous and unclamped (a drag can leave the frame), and by the zoom asked for: how the phone and
+    this computer share it doesn't change where things are. inverse_map is the pixel-exact one for focus.
+    """
+    if rotation == cv2.ROTATE_90_CLOCKWISE:
+        u, v = v, 1.0 - u
+    elif rotation == cv2.ROTATE_180:
+        u, v = 1.0 - u, 1.0 - v
+    elif rotation == cv2.ROTATE_90_COUNTERCLOCKWISE:
+        u, v = 1.0 - v, u
+    if flip_h:
+        u = 1.0 - u
+    if flip_v:
+        v = 1.0 - v
+    (x0, w), (y0, h) = _window(zoom, pan_x), _window(zoom, pan_y)
+    return x0 + u * w, y0 + v * h
+
+
+def view_to_shown(x: float, y: float, zoom: float, pan_x: float, pan_y: float, flip_h: bool = False,
+                  flip_v: bool = False, rotation=None) -> tuple:
+    """The reverse of shown_to_view."""
+    (x0, w), (y0, h) = _window(zoom, pan_x), _window(zoom, pan_y)
+    u, v = (x - x0) / w, (y - y0) / h
+    if flip_h:
+        u = 1.0 - u
+    if flip_v:
+        v = 1.0 - v
+    if rotation == cv2.ROTATE_90_CLOCKWISE:
+        u, v = 1.0 - v, u
+    elif rotation == cv2.ROTATE_180:
+        u, v = 1.0 - u, 1.0 - v
+    elif rotation == cv2.ROTATE_90_COUNTERCLOCKWISE:
+        u, v = v, 1.0 - u
+    return u, v
+
+
+def pan_for(centre: float, zoom: float) -> float:
+    """The pan that puts the window's centre at `centre` (0..1 of the full view), clamped to -1..1."""
+    slack = 1.0 - 1.0 / max(zoom, 1.0)
+    if slack < 1e-9:
+        return 0.0
+    return min(max((centre - 0.5) * 2.0 / slack, -1.0), 1.0)
+
+
+def zoom_detent(old: int, new: int, marks) -> int:
+    """A zoom step (slider values) that stops on the first lens mark it crosses; the next one goes past."""
+    if new > old:
+        return min((m for m in marks if old < m <= new), default=new)
+    if new < old:
+        return max((m for m in marks if new <= m < old), default=new)
+    return new
+
+
+def lens_boxes(caps: Optional[PhoneZoomCaps], zoom: float, pan_x: float, pan_y: float, flip_h: bool = False,
+               flip_v: bool = False, rotation=None) -> list:
+    """What each longer lens sees, as (label, x0, y0, x1, y1) in the frame as shown (may run off it).
+
+    A lens at ratio r sees the centred 1/r of the main lens's view. Nominal: the lenses sit a few mm
+    apart, so the real telephoto view is shifted a little, more so up close.
+    """
+    boxes = []
+    for lens in caps.lens_zooms if caps else ():
+        half = 0.5 / lens
+        corners = [view_to_shown(x, y, zoom, pan_x, pan_y, flip_h, flip_v, rotation)
+                   for x in (0.5 - half, 0.5 + half) for y in (0.5 - half, 0.5 + half)]
+        xs, ys = [c[0] for c in corners], [c[1] for c in corners]
+        boxes.append((f"{round(lens, 1):g}×", min(xs), min(ys), max(xs), max(ys)))
+    return boxes
+
+
 def _transform_frame(frame, flip_h: bool, flip_v: bool, rotation):
     if flip_h and flip_v: frame = cv2.flip(frame, -1)
     elif flip_h:          frame = cv2.flip(frame,  1)
@@ -287,6 +366,9 @@ class TransformsPlugin(TelescopePlugin):
         bus.focus_point_picked.connect(self._on_point_picked)
         bus.camera_switched.connect(self._on_camera_caps)
         bus.max_zoom_changed.connect(self._on_max_zoom)
+        bus.view_dragged.connect(self._on_view_dragged)
+        bus.view_scrolled.connect(self._on_view_scrolled)
+        self._wheel_zoom = 1.0  # the scroll wheel's zoom, finer than the slider's 0.01 steps (trackpads)
 
     def create_panel(self) -> QWidget:
         card = create_card()
@@ -371,6 +453,7 @@ class TransformsPlugin(TelescopePlugin):
         self._live_lens = ""
         self._zoom_slider.set_marks([])
         self._sync_zoom()
+        self._emit_lens_boxes(False)
 
     def on_phone_state(self, state: dict):
         cameras = state.get("cameras", [])
@@ -391,6 +474,7 @@ class TransformsPlugin(TelescopePlugin):
             self._default_lens = self._tele_lens = ""  # another camera: its lenses are learnt afresh
             self._zoom_slider.set_marks([lens_step(z) for z in caps.lens_zooms] if caps else [])
             self._sync_zoom()
+            self._emit_lens_boxes(False)
 
     def _sync_zoom(self):
         """Split the framing between phone and desktop; the phone only hears about changes."""
@@ -438,10 +522,12 @@ class TransformsPlugin(TelescopePlugin):
     def _on_flip(self):
         self.flip_h = self._flip_h.isChecked()
         self.flip_v = self._flip_v.isChecked()
+        self._emit_lens_boxes(False)
         self._host.schedule_save()
 
     def _on_rotate(self):
         self.rotation = ROTATIONS.get(self._rot_combo.currentText())
+        self._emit_lens_boxes(False)
         self._host.schedule_save()
 
     def _on_zoom_changed(self, val: int):
@@ -455,32 +541,68 @@ class TransformsPlugin(TelescopePlugin):
         self.zoom = val / 100.0
         self._zoom_val_lbl.setText(f"{self.zoom:.1f}×")
         self._lens_dot.place()
-        pan_active = self.zoom > 1.0
-        self._pan_x_slider.set_enabled(pan_active)
-        self._pan_y_slider.set_enabled(pan_active)
-        self._show_pan()
-        if not pan_active:
-            self._pan_x_slider.reset()
-            self._pan_y_slider.reset()
-            self.pan_x = 0.0
-            self.pan_y = 0.0
-        else:
-            self.pan_x = self._pan_x_slider.get_value()
-            self.pan_y = self._pan_y_slider.get_value()
-        self._show_pan()
-        self._sync_zoom()
-        self._host.schedule_save()
+        if self.zoom <= 1.0:
+            self.pan_x = self.pan_y = 0.0
+        self._framing_changed()
 
     def _on_pan_changed(self, _val: float):
         self.pan_x = self._pan_x_slider.get_value()
         self.pan_y = self._pan_y_slider.get_value()
+        self._framing_changed()
+
+    def _on_view_dragged(self, du: float, dv: float):
+        """The preview was dragged by (du, dv) of the frame as shown: the picture follows the mouse."""
+        if self.zoom <= 1.0:
+            return
+        t = (self.zoom, self.pan_x, self.pan_y, self.flip_h, self.flip_v, self.rotation)
+        x0, y0 = shown_to_view(0.5, 0.5, *t)
+        x1, y1 = shown_to_view(0.5 + du, 0.5 + dv, *t)
+        self.pan_x = pan_for(_window_centre(self.zoom, self.pan_x) - (x1 - x0), self.zoom)
+        self.pan_y = pan_for(_window_centre(self.zoom, self.pan_y) - (y1 - y0), self.zoom)
+        self._framing_changed()
+
+    def _on_view_scrolled(self, factor: float, u: float, v: float):
+        """Zoom by `factor`, keeping the point under the mouse ((u, v) of the frame as shown) where it is."""
+        slider = self._zoom_slider
+        old = slider.value()
+        if abs(self._wheel_zoom * 100 - old) >= 1:
+            self._wheel_zoom = old / 100.0  # moved some other way since the last scroll
+        target = min(max(self._wheel_zoom * factor, 1.0), slider.maximum() / 100.0)
+        new = zoom_detent(old, round(target * 100), slider.marks())
+        self._wheel_zoom = new / 100.0 if new != round(target * 100) else target
+        if new == old:
+            return
+        # Where the point sits inside the window stays the same, so it stays under the mouse.
+        t = (self.flip_h, self.flip_v, self.rotation)
+        px, py = shown_to_view(u, v, self.zoom, self.pan_x, self.pan_y, *t)
+        (x0, w), (y0, h) = _window(self.zoom, self.pan_x), _window(self.zoom, self.pan_y)
+        zoom = new / 100.0
+        size = 1.0 / zoom
+        self.pan_x = pan_for(px - (px - x0) / w * size + size / 2, zoom)
+        self.pan_y = pan_for(py - (py - y0) / h * size + size / 2, zoom)
+        slider.setValue(new)  # the zoom path does the rest, with the pan set above
+
+    def _framing_changed(self):
+        """Zoom or pan changed: sliders follow, the phone hears, the preview's lens boxes move."""
+        pan_active = self.zoom > 1.0
+        for slider, pan in ((self._pan_x_slider, self.pan_x), (self._pan_y_slider, self.pan_y)):
+            slider.set_enabled(pan_active)
+            slider.set_value(pan)
         self._show_pan()
         self._sync_zoom()
+        self._bus.view_pannable.emit(pan_active)
+        self._emit_lens_boxes(True)
         self._host.schedule_save()
 
+    def _emit_lens_boxes(self, moved: bool):
+        caps = self._zoom_caps if self._ctrl else None
+        self._bus.lens_boxes.emit(lens_boxes(caps, self.zoom, self.pan_x, self.pan_y, self.flip_h, self.flip_v,
+                                             self.rotation), moved)
+
     def _show_pan(self):
-        for lbl, slider in ((self._pan_x_lbl, self._pan_x_slider), (self._pan_y_lbl, self._pan_y_slider)):
-            pct = round(slider.get_value() * 100)
+        for lbl, slider, pan in ((self._pan_x_lbl, self._pan_x_slider, self.pan_x),
+                                 (self._pan_y_lbl, self._pan_y_slider, self.pan_y)):
+            pct = round(pan * 100)
             lbl.setText(f"{pct:+d}%" if pct else "0%")
             lbl.setEnabled(slider._slider.isEnabled())
 
@@ -492,8 +614,8 @@ class TransformsPlugin(TelescopePlugin):
             "flip_v":    self._flip_v.isChecked(),
             "rotation":  self._rot_combo.currentText(),
             "zoom":      self._zoom_slider.value() / 100.0,
-            "pan_x":     self._pan_x_slider.get_value(),
-            "pan_y":     self._pan_y_slider.get_value(),
+            "pan_x":     self.pan_x,  # finer than the sliders: dragging the preview sets it directly
+            "pan_y":     self.pan_y,
         }
 
     def set_config(self, cfg: dict):
@@ -508,9 +630,4 @@ class TransformsPlugin(TelescopePlugin):
         pan_active = zoom > 1.0
         self.pan_x = cfg.get("pan_x", 0.0) if pan_active else 0.0
         self.pan_y = cfg.get("pan_y", 0.0) if pan_active else 0.0
-        self._pan_x_slider.set_value(self.pan_x)
-        self._pan_y_slider.set_value(self.pan_y)
-        self._pan_x_slider.set_enabled(pan_active)
-        self._pan_y_slider.set_enabled(pan_active)
-        self._show_pan()
-        self._sync_zoom()
+        self._framing_changed()

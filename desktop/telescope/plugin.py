@@ -151,6 +151,15 @@ class EventBus(QObject):
     """Whether the current lens can focus on a point (and a stream is running to send it to)."""
     phone_ready            = pyqtSignal(str, bool)
     """The selected phone's id and whether Start would work right now (idle status checks only)."""
+    view_dragged           = pyqtSignal(float, float)
+    """The preview was dragged by (du, dv), as fractions of the frame as shown; transforms pans."""
+    view_scrolled          = pyqtSignal(float, float, float)
+    """Scrolled over the preview: a zoom factor and the (u, v) under the mouse; transforms zooms around it."""
+    view_pannable          = pyqtSignal(bool)
+    """Whether dragging the preview pans (zoomed in); the preview shows a hand cursor."""
+    lens_boxes             = pyqtSignal(list, bool)
+    """What each longer lens sees, [(label, x0, y0, x1, y1)] in the frame as shown, and whether the
+    user just moved the framing (the preview shows them for a moment)."""
     max_zoom_changed       = pyqtSignal(int)
     """How far the Zoom slider goes (Advanced); Setup emits it on change and when its config loads."""
     update_requested       = pyqtSignal()
