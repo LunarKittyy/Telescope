@@ -4,11 +4,11 @@ import threading
 from PyQt6.QtCore import QByteArray, QCoreApplication, QEventLoop, QMetaObject, QThread, QPoint, QRect, QRectF, QSize, Qt, pyqtSignal
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtGui import (
-    QBrush, QColor, QFontMetrics, QIcon, QPainter, QPixmap,
+    QBrush, QColor, QFontMetrics, QIcon, QPainter, QPainterPath, QPixmap,
 )
 from PyQt6.QtWidgets import (
     QApplication, QComboBox, QDoubleSpinBox, QFrame, QHBoxLayout, QLabel, QLayout, QPushButton,
-    QSlider, QSpinBox, QSizePolicy, QVBoxLayout, QWidget,
+    QSlider, QSpinBox, QSizePolicy, QStyle, QStyleOptionSlider, QVBoxLayout, QWidget,
 )
 
 from telescope import theme
@@ -577,6 +577,65 @@ class NoScrollComboBox(QComboBox):
 class NoScrollSlider(QSlider):
     def wheelEvent(self, event):
         event.ignore()
+
+
+class ZoomSlider(NoScrollSlider):
+    """The Zoom slider, with a dot on the groove at each value in set_marks (where a longer lens takes over)."""
+
+    _MARK = 5  # dot diameter, px; a bit wider than the 4px groove so it shows on the filled part too
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._marks: list = []
+
+    def set_marks(self, values):
+        self._marks = sorted(values)
+        self.update()
+
+    def marks(self) -> list:
+        return list(self._marks)
+
+    def mark_x(self, value: int) -> float:
+        """Where the handle's centre sits at `value`, in widget px (asked of the style, margins and all)."""
+        def centre(pos):
+            opt = QStyleOptionSlider()
+            self.initStyleOption(opt)
+            opt.sliderPosition = opt.sliderValue = pos
+            return QRectF(self.style().subControlRect(QStyle.ComplexControl.CC_Slider, opt,
+                                                      QStyle.SubControl.SC_SliderHandle, self)).center().x()
+        lo, hi = self.minimum(), self.maximum()
+        if hi <= lo:
+            return centre(lo)
+        a, b = centre(lo), centre(hi)
+        return a + (b - a) * (value - lo) / (hi - lo)
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        marks = [m for m in self._marks if self.minimum() < m <= self.maximum()]
+        if not marks:
+            return
+        opt = QStyleOptionSlider()
+        self.initStyleOption(opt)
+        handle = QRectF(self.style().subControlRect(QStyle.ComplexControl.CC_Slider, opt,
+                                                    QStyle.SubControl.SC_SliderHandle, self))
+        groove = QRectF(self.style().subControlRect(QStyle.ComplexControl.CC_Slider, opt,
+                                                    QStyle.SubControl.SC_SliderGroove, self))
+        # On top of the fill, but cut around the (round) handle so a mark never sits over it.
+        clip = QPainterPath()
+        clip.addRect(QRectF(self.rect()))
+        knob = QPainterPath()
+        knob.addEllipse(handle)
+        p = QPainter(self)
+        p.setClipPath(clip.subtracted(knob))
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setPen(Qt.PenStyle.NoPen)
+        d = ui_px(self._MARK)
+        y = groove.center().y()
+        on_groove = QColor(theme.TEXT_DIM if self.isEnabled() else theme.TEXT_DISABLED)
+        on_fill = QColor(theme.TEXT)  # lighter on the lavender part left of the handle
+        for m in marks:
+            p.setBrush(on_fill if m < self.value() else on_groove)
+            p.drawEllipse(QRectF(self.mark_x(m) - d / 2, y - d / 2, d, d))
 
 
 class NoScrollSpinBox(QSpinBox):
