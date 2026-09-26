@@ -459,6 +459,16 @@ QPushButton[uiRole="quiet"]:hover {{
     border-color: {BORDER_HOVER};
     color: {TEXT};
 }}
+QPushButton[uiRole="quiet"]:disabled {{
+    background-color: transparent;
+    border-color: {BORDER};
+    color: {TEXT_DISABLED};
+}}
+QPushButton[uiRole="quiet"]:checked {{
+    background-color: {SURFACE_RAISE};
+    border-color: {ACCENT};
+    color: {ACCENT_SOFT};
+}}
 QPushButton#lens_button {{
     background-color: {SURFACE_RAISE};
     border: 1px solid {BORDER_STRONG};

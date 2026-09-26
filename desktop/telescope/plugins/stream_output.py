@@ -140,6 +140,7 @@ class StreamOutputPlugin(TelescopePlugin):
         self._quality_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._quality_slider.setRange(1, 100)
         self._quality_slider.setValue(_DEFAULT_QUALITY)
+        self._quality_slider.set_default(_DEFAULT_QUALITY)
         self._quality_val_lbl = value_label()
         self._show_quality(_DEFAULT_QUALITY)
         self._quality_slider.valueChanged.connect(self._on_quality_changed)
@@ -150,6 +151,7 @@ class StreamOutputPlugin(TelescopePlugin):
         self._bitrate_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._bitrate_slider.setRange(0, _MAX_BITRATE_MBPS)
         self._bitrate_slider.setValue(0)
+        self._bitrate_slider.set_default(0)  # Auto
         self._bitrate_val_lbl = value_label()
         self._bitrate_slider.setToolTip("Auto picks about 8 Mbps for 1080p at 30 fps, less for smaller sizes.")
         self._show_bitrate(0)

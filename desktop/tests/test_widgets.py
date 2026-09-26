@@ -1,8 +1,9 @@
 import math
 
 import pytest
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QRectF, Qt
 from PyQt6.QtWidgets import (
+    QStyle, QStyleOptionSlider,
     QCheckBox, QDoubleSpinBox, QLabel, QRadioButton, QSizePolicy, QSpinBox,
     QWidget,
 )
@@ -319,3 +320,19 @@ def test_run_off_ui_thread_keeps_the_event_loop_turning(qapp):
     gui_ran = threading.Event()
     QTimer.singleShot(20, gui_ran.set)
     assert run_off_ui_thread(gui_ran.wait, 10) is True
+
+
+def test_zoom_slider_marks_sit_where_the_handle_would(qapp):
+    slider = NoScrollSlider(Qt.Orientation.Horizontal)
+    slider.setRange(100, 1000)
+    slider.resize(200, 20)
+    slider.set_snaps([700, 300])
+    assert slider.snaps() == [300, 700]
+    for value in (100, 300, 1000):
+        slider.setValue(value)
+        opt = QStyleOptionSlider()
+        slider.initStyleOption(opt)
+        handle = QRectF(slider.style().subControlRect(QStyle.ComplexControl.CC_Slider, opt,
+                                                      QStyle.SubControl.SC_SliderHandle, slider))
+        assert abs(slider.mark_x(value) - handle.center().x()) <= 1
+    slider.grab()  # paints with marks on both sides of the handle

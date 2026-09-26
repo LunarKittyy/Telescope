@@ -73,7 +73,7 @@ Everything past this point is optional - detailed feature reference, how it work
 - Exposure compensation slider (range and step size reported per-lens, typically ±8 EV in 1/6-EV steps)
 - Manual white balance: linear Kelvin slider (2000-10000 K) plus a green-magenta tint slider - *partially working: applies inconsistently depending on device/lens*
 - Manual focus: distance slider (diopters), range reported per-lens; greyed out on lenses that don't support it
-- Point focus: click the preview (or pop-out) to focus there; exposure meters on that spot too while it's automatic. The click goes back through flip, rotation and zoom to the right spot on the sensor. **Auto** returns to continuous autofocus
+- Point focus: click the preview (or pop-out) to focus there (a drag pans instead); exposure meters on that spot too while it's automatic. The click goes back through flip, rotation and zoom to the right spot on the sensor. **Auto** returns to continuous autofocus
 - OIS toggle
 - Noise reduction and sharpening (edge mode): Off / Fast / High Quality
 - Black level lock toggle
@@ -83,7 +83,7 @@ Everything past this point is optional - detailed feature reference, how it work
 **Stream transforms** (no phone restart needed)
 - Horizontal and vertical flip
 - Rotation: 90 CW, 180, 90 CCW
-- Zoom 1-10x (the maximum is in Advanced) with pan X/Y sliders. The phone does as much of the crop as its lens allows, straight from the full-resolution sensor (and on the **Auto** lens, switching to the telephoto when the framing fits in it); the desktop crops whatever is left. The framing is the same either way. It gets noticeably sharper mainly once the telephoto takes over (zoomed in far enough and not panned out of its view). Hover the zoom slider to see where the zoom happens. A red dot next to the zoom value appears when the phone has switched to another lens, or has fallen back to the main one because you panned past what the telephoto sees; hover it for the details
+- Zoom 1-10x (the maximum is in Advanced) with pan X/Y sliders, or scroll over the preview to zoom around the mouse and drag it to pan. While you zoom or pan, the preview briefly outlines what each longer lens sees, so you can see where panning would leave the telephoto (the lens outline button next to **Pop out** keeps them on; they're only in the preview, never in the camera output, and approximate, since the lenses sit a little apart). The phone does as much of the crop as its lens allows, straight from the full-resolution sensor (and on the **Auto** lens, switching to the telephoto when the framing fits in it); the desktop crops whatever is left. The framing is the same either way. It gets noticeably sharper mainly once the telephoto takes over (zoomed in far enough and not panned out of its view). Hover the zoom slider to see where the zoom happens. Small dots on the zoom slider mark where the phone switches to a longer lens, and dragging the slider sticks to them, since that's the sharpest view that lens gets. The pan sliders stick at the centre the same way, and so does dragging the preview. Other sliders stick to their neutral spots (Compensation and Tint at 0, Temperature at 3200, 5500 and 6500 K). The sticking is only a few pixels wide, so you can still set anything in between, and the arrow keys never stick. Double-click a slider to put it back to its default. A dot next to the zoom value shows which lens you're on: lavender when the phone switched to a longer lens, red when it's on the main one although the zoom would get the telephoto (you panned past what the telephoto sees, or the phone stayed on the main lens itself, usually in low light or up close); hover it for the details
 
 **Presets** (the Presets button in the header)
 - Save the camera, output and transform settings under a name and switch back with one click, lens included
@@ -354,7 +354,7 @@ Each paired computer has its own token, stored by the id the desktop sends in th
 
 While its session port is up (and **Local only** is off), the app announces itself on the LAN as `_telescope._tcp` with its phone id in the TXT record, via `NsdManager`. The desktop uses that to find the phone's current address; the announcement proves nothing by itself, since every connection still authenticates.
 
-A **Copy diagnostics** button copies app version, device info, current stream state, and recent state transitions/errors to the clipboard, for pasting into a bug report. Never includes the pairing token, a URL, or raw config.
+A **Copy diagnostics** button copies app version, device info, current stream state, recent state transitions/errors and what each camera's hardware supports to the clipboard, for pasting into a bug report. It also includes the last 3 streams' reports, kept in a small file so they survive the app being closed. Never includes the pairing token, a URL, or raw config.
 
 ### Build locally
 

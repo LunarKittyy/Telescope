@@ -13,6 +13,15 @@ def test_run_returns_process_result(monkeypatch):
     assert platform_api._run(["tool"], timeout=2) == (7, "out", "err")
 
 
+def test_run_hides_the_console_window_on_windows(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(platform_api, "NO_WINDOW", {"creationflags": 0x08000000})
+    monkeypatch.setattr(platform_api.subprocess, "run",
+                        lambda *args, **kwargs: seen.update(kwargs) or subprocess.CompletedProcess([], 0, "", ""))
+    platform_api._run(["adb", "devices"])
+    assert seen["creationflags"] == 0x08000000
+
+
 @pytest.mark.parametrize(
     "exc,expected",
     [
@@ -204,3 +213,72 @@ def test_adb_install_explains_the_common_failures(monkeypatch, result, expected)
     monkeypatch.setattr(platform_api, "_run", lambda cmd, timeout: calls.append(cmd) or result)
     assert platform_api.adb_install("SER", Path("x.apk")) == expected
     assert calls == [["adb", "-s", "SER", "install", "-r", "x.apk"]]
+
+
+class _FakeServer:
+    def __init__(self):
+        self.alive, self.terminated = True, False
+
+    def poll(self):
+        return None if self.alive else 0
+
+    def terminate(self):
+        self.terminated, self.alive = True, False
+
+    def wait(self, timeout=None):
+        return 0
+
+
+@pytest.fixture
+def own_server(monkeypatch):
+    monkeypatch.setattr(platform_api, "OWN_ADB_SERVER", True)
+    monkeypatch.setattr(platform_api, "_adb_server", None)
+    monkeypatch.setattr(platform_api, "adb_exe", lambda: "C:/Telescope/platform-tools/adb.exe")
+
+
+def test_telescope_starts_adbs_server_as_its_own_child_once(own_server):
+    started, tied, up = [], [], [False]
+
+    def popen(cmd, **kwargs):
+        started.append(cmd)
+        up[0] = True
+        return _FakeServer()
+
+    for _ in range(3):
+        platform_api.ensure_adb_server(running=lambda: up[0], popen=popen, tie=tied.append, sleep=lambda _s: None)
+    assert started == [["C:/Telescope/platform-tools/adb.exe", "nodaemon", "server"]]
+    assert len(tied) == 1
+
+    server = tied[0]
+    platform_api.stop_adb_server()
+    assert server.terminated
+
+
+def test_a_server_someone_else_runs_is_left_alone(own_server):
+    started = []
+    platform_api.ensure_adb_server(running=lambda: True, popen=lambda *a, **k: started.append(a),
+                                   tie=lambda _p: None)
+    assert started == []
+    platform_api.stop_adb_server()  # nothing of ours to stop
+
+
+def test_off_windows_adb_runs_its_own_server(monkeypatch):
+    monkeypatch.setattr(platform_api, "OWN_ADB_SERVER", False)
+    platform_api.ensure_adb_server(running=lambda: False, popen=lambda *a, **k: pytest.fail("started a server"))
+
+
+def test_adb_commands_make_sure_the_server_is_up_first(monkeypatch):
+    calls = []
+    monkeypatch.setattr(platform_api, "ensure_adb_server", lambda: calls.append("server"))
+    monkeypatch.setattr(platform_api.subprocess, "run",
+                        lambda *a, **k: calls.append("run") or subprocess.CompletedProcess([], 0, "", ""))
+    platform_api._run(["C:/pt/adb.exe", "devices"])
+    platform_api._run(["lsmod"])
+    assert calls == ["server", "run", "run"]
+
+
+def test_the_windows_job_fails_softly_elsewhere():
+    from telescope.platform import winjob
+    if platform_api.IS_WINDOWS:
+        pytest.skip("real job objects on Windows")
+    assert winjob.kill_with_us(_FakeServer()) is False

@@ -179,3 +179,11 @@ def test_a_newer_phone_app_opens_the_dialog(env):
     bus.update_requested.emit()
     assert plugin._dlg is not None and plugin._dlg.isVisible()
     plugin._dlg.close()
+
+
+def test_the_relaunched_app_unpacks_its_own_copy():
+    launched = []
+    UpdatesPlugin._relaunch(["Telescope.exe", "--after-update"], popen=lambda argv, **kw: launched.append((argv, kw)))
+    (argv, kwargs), = launched
+    assert argv == ["Telescope.exe", "--after-update"]
+    assert kwargs["env"]["PYINSTALLER_RESET_ENVIRONMENT"] == "1"

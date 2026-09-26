@@ -231,6 +231,11 @@ def system_lines() -> list[str]:
         session = os.environ.get("XDG_SESSION_TYPE", "?")
         desktop = os.environ.get("XDG_CURRENT_DESKTOP", "?")
         return [f"OS: {os_name} ({platform.release()})", f"Desktop: {desktop}, {session}"]
+    if sys.platform == "win32":
+        # Windows 11 still reports itself as release "10"; only the build number tells them apart.
+        build = sys.getwindowsversion().build
+        release = "11" if platform.release() == "10" and build >= 22000 else platform.release()
+        return [f"OS: Windows {release} ({platform.version()})"]
     return [f"OS: {platform.system()} {platform.release()} ({platform.version()})"]
 
 

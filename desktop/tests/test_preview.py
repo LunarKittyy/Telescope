@@ -224,9 +224,10 @@ def test_a_click_on_the_frame_is_a_point_in_it_and_the_bars_are_ignored(qapp):
 
     def click(x, y):
         pos = QPointF(x, y)
-        lbl.mousePressEvent(QMouseEvent(QEvent.Type.MouseButtonPress, pos, lbl.mapToGlobal(pos),
-                                        Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton,
-                                        Qt.KeyboardModifier.NoModifier))
+        for kind, handler in ((QEvent.Type.MouseButtonPress, lbl.mousePressEvent),
+                              (QEvent.Type.MouseButtonRelease, lbl.mouseReleaseEvent)):
+            handler(QMouseEvent(kind, pos, lbl.mapToGlobal(pos), Qt.MouseButton.LeftButton,
+                                Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier))
 
     click(100, 150)
     assert picked == []  # not while the lens can't focus on a point
@@ -236,3 +237,109 @@ def test_a_click_on_the_frame_is_a_point_in_it_and_the_bars_are_ignored(qapp):
     click(100, 20)
     assert picked == [(0.25, 0.5)]
     assert not lbl._marker.isHidden()
+
+
+def _mouse(lbl, kind, x, y):
+    from PyQt6.QtCore import QPointF, Qt
+    from PyQt6.QtGui import QMouseEvent
+    pos = QPointF(x, y)
+    buttons = Qt.MouseButton.NoButton if kind == QEvent.Type.MouseButtonRelease else Qt.MouseButton.LeftButton
+    event = QMouseEvent(kind, pos, lbl.mapToGlobal(pos), Qt.MouseButton.LeftButton, buttons,
+                        Qt.KeyboardModifier.NoModifier)
+    {QEvent.Type.MouseButtonPress: lbl.mousePressEvent, QEvent.Type.MouseMove: lbl.mouseMoveEvent,
+     QEvent.Type.MouseButtonRelease: lbl.mouseReleaseEvent}[kind](event)
+
+
+def _framed(qapp):
+    from PyQt6.QtGui import QPixmap
+    plugin, host, panel = _plugin(qapp)
+    lbl = plugin._preview_lbl
+    lbl.resize(400, 300)
+    lbl.setPixmap(QPixmap(400, 200))  # 50 px bars above and below
+    return plugin, lbl
+
+
+def test_dragging_the_preview_pans_instead_of_focusing(qapp):
+    from PyQt6.QtCore import Qt
+    plugin, lbl = _framed(qapp)
+    picked, dragged = [], []
+    plugin._bus.focus_point_picked.connect(lambda u, v: picked.append((u, v)))
+    plugin._bus.view_dragged.connect(lambda du, dv: dragged.append((round(du, 3), round(dv, 3))))
+    plugin._bus.focus_point_available.emit(True)
+    plugin._bus.view_pannable.emit(True)
+    assert lbl.cursor().shape() == Qt.CursorShape.OpenHandCursor
+
+    _mouse(lbl, QEvent.Type.MouseButtonPress, 100, 150)
+    _mouse(lbl, QEvent.Type.MouseMove, 102, 150)  # a wobble, still a click
+    assert dragged == []
+    _mouse(lbl, QEvent.Type.MouseMove, 140, 170)
+    assert lbl.cursor().shape() == Qt.CursorShape.ClosedHandCursor
+    _mouse(lbl, QEvent.Type.MouseMove, 180, 170)
+    _mouse(lbl, QEvent.Type.MouseButtonRelease, 180, 170)
+    assert dragged == [(0.1, 0.1), (0.1, 0.0)]  # from the press, as fractions of the 400x200 frame
+    assert picked == []
+    assert lbl.cursor().shape() == Qt.CursorShape.OpenHandCursor
+
+    _mouse(lbl, QEvent.Type.MouseButtonPress, 100, 150)
+    _mouse(lbl, QEvent.Type.MouseButtonRelease, 101, 150)
+    assert picked == [(0.25, 0.5)]  # a click still focuses, where it was pressed
+
+
+def test_the_wheel_over_the_frame_zooms_around_the_mouse(qapp):
+    from PyQt6.QtCore import QPoint, QPointF, Qt
+    from PyQt6.QtGui import QWheelEvent
+    plugin, lbl = _framed(qapp)
+    seen = []
+    plugin._bus.view_scrolled.connect(lambda f, u, v: seen.append((round(f, 4), u, v)))
+
+    def wheel(x, y, dy):
+        pos = QPointF(x, y)
+        lbl.wheelEvent(QWheelEvent(pos, lbl.mapToGlobal(pos), QPoint(), QPoint(0, dy), Qt.MouseButton.NoButton,
+                                   Qt.KeyboardModifier.NoModifier, Qt.ScrollPhase.NoScrollPhase, False))
+
+    wheel(100, 150, 120)
+    wheel(100, 150, -240)
+    wheel(100, 20, 120)  # in the bars: nothing
+    assert seen == [(1.1, 0.25, 0.5), (round(1 / 1.21, 4), 0.25, 0.5)]
+
+
+def test_lens_boxes_show_for_a_moment_after_a_move_then_fade(qapp):
+    plugin, lbl = _framed(qapp)
+    boxes = [("3×", 0.33, 0.33, 0.67, 0.67)]
+    plugin._bus.lens_boxes.emit(boxes, False)
+    assert lbl._boxes == boxes and lbl._boxes_opacity == 0.0  # known, but nothing moved
+    assert plugin._lenses_btn.isEnabled()
+    plugin._bus.lens_boxes.emit(boxes, True)
+    assert lbl._boxes_opacity == 1.0
+    lbl.grab()  # paints them
+    plugin._boxes_hold.timeout.emit()
+    plugin._boxes_fade.setCurrentTime(plugin._boxes_fade.duration())
+    assert lbl._boxes_opacity == 0.0
+
+    plugin._lenses_btn.setChecked(True)
+    assert lbl._boxes_opacity == 1.0  # always on
+    assert plugin.get_config() == {"lens_boxes": True}
+    plugin.set_config({"lens_boxes": False})
+    assert not plugin._lenses_btn.isChecked() and lbl._boxes_opacity == 0.0
+
+    plugin._bus.lens_boxes.emit([], False)
+    assert not plugin._lenses_btn.isEnabled()
+    # icon only at a fixed width: whatever the style, it can't widen the stage (the narrowest column)
+    assert plugin._lenses_btn.minimumWidth() == plugin._lenses_btn.maximumWidth()
+
+
+def test_the_popout_pans_zooms_and_shows_boxes_too(qapp):
+    plugin, lbl = _framed(qapp)
+    boxes = [("3×", 0.33, 0.33, 0.67, 0.67)]
+    plugin._bus.view_pannable.emit(True)
+    plugin._bus.lens_boxes.emit(boxes, True)
+    plugin._open_popout()
+    try:
+        pop = plugin._popout._lbl
+        assert pop._pannable and pop._boxes == boxes and pop._boxes_opacity == 1.0
+        dragged = []
+        plugin._bus.view_dragged.connect(lambda du, dv: dragged.append(du))
+        pop.dragged.emit(0.2, 0.0)
+        assert dragged == [0.2]
+    finally:
+        plugin._popout.close()

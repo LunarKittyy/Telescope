@@ -597,3 +597,16 @@ def test_bitrate_is_sent_in_bits_per_second(stream_output, monkeypatch):
     assert plugin._bitrate_val_lbl.text() == "12 Mbps"
     plugin._bitrate_slider.setValue(0)
     assert plugin._bitrate_val_lbl.text() == "Auto"
+
+
+def test_stream_quality_and_bitrate_reset_on_a_double_click(stream_output):
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtTest import QTest
+    plugin, _host, panel = stream_output
+    panel.show()
+    plugin._quality_slider.setValue(40)
+    plugin._bitrate_slider.setValue(12)
+    QTest.mouseDClick(plugin._quality_slider, Qt.MouseButton.LeftButton)
+    QTest.mouseDClick(plugin._bitrate_slider, Qt.MouseButton.LeftButton)
+    assert (plugin._quality_slider.value(), plugin._bitrate_slider.value()) == (85, 0)  # 0 is Auto
+    assert plugin._bitrate_slider.toolTip().startswith("Auto picks about 8 Mbps")  # its own tip stays

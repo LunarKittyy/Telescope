@@ -31,7 +31,7 @@ from telescope.phones import (
 )
 from telescope.platform import (
     IS_LINUX, adb_available, adb_broadcast_pair, adb_device_states, adb_forward_auto, adb_install,
-    adb_reverse, adb_unforward, adb_unreverse, bundled_apk_path,
+    adb_reverse, adb_unforward, adb_unreverse, bundled_apk_path, stop_adb_server,
 )
 from telescope.platform.linux import (
     CANCELLED, V4L2_PHONE_DEV, v4l2_devices_ready, v4l2_module_loaded, v4l2_setup,
@@ -101,7 +101,7 @@ def problem_text(res: Resolution, phone_name: str, preference: str) -> str:
                 "with a cable, or turn Local only off on the phone.")
     if res.status == USB_NEEDS_ATTENTION:
         why = usb_note_text(res.usb_note) or "the phone isn't answering over USB"
-        return f"The connection is set to USB, but {why}. Switch to Automatic to use Wi-Fi instead."
+        return f"The connection is set to USB only: {why}. Switch to Automatic to use Wi-Fi instead."
     if res.status == PHONE_OUTDATED:
         return f"The Telescope app on {phone_name} is older than this one. Update it on the phone."
     if res.status == DESKTOP_OUTDATED:
@@ -1150,3 +1150,4 @@ class ConnectionPlugin(TelescopePlugin):
 
     def shutdown(self):
         self._discovery.stop()
+        stop_adb_server()

@@ -1,8 +1,11 @@
 import cv2
 import numpy as np
 import pytest
+from PyQt6.QtCore import Qt
 
 from telescope.plugin import EventBus
+import telescope.plugins.transforms as transforms_mod
+from telescope.theme import ACCENT, ERR
 from telescope.plugins.transforms import (
     ROTATIONS,
     TransformsPlugin,
@@ -185,7 +188,9 @@ def test_a_picked_point_goes_out_in_phone_frame_coordinates(transforms_plugin):
 
 # ── Splitting zoom between the phone and this computer ───────────────────────
 
-from telescope.plugins.transforms import PhoneZoom, PhoneZoomCaps, lens_note, split_zoom  # noqa: E402
+from telescope.plugins.transforms import (  # noqa: E402
+    PhoneZoom, PhoneZoomCaps, lens_note, lens_step, split_zoom,
+)
 
 _TELE = PhoneZoomCaps(ratio_max=10.0, crop_max=4.0, freeform=True, lens_zooms=(3.7,))
 _CENTRE_ONLY = PhoneZoomCaps(ratio_max=10.0, crop_max=4.0, freeform=False, lens_zooms=(3.7,))
@@ -341,20 +346,42 @@ def test_a_picked_point_only_undoes_the_desktop_share_of_the_zoom(transforms_plu
 
 
 def test_lens_note_says_nothing_on_the_default_camera():
-    assert lens_note(2.0, 1.0, _TELE, "~24mm OIS", "~24mm OIS", "") == ""
-    assert lens_note(3.0, 1.0, None, "", "", "") == ""
+    assert lens_note(2.0, 1.0, _TELE, "~24mm OIS", "~24mm OIS", "") == ("", "")
+    assert lens_note(3.0, 1.0, None, "", "", "") == ("", "")
 
 
 def test_lens_note_says_when_the_phone_switched():
-    note = lens_note(4.0, 3.7, _TELE, "Tele ~85mm", "~24mm OIS", "Tele ~85mm")
+    level, note = lens_note(4.0, 3.7, _TELE, "Tele ~85mm", "~24mm OIS", "Tele ~85mm")
+    assert level == "on"
     assert note.startswith("Switched to Tele ~85mm")
     assert "let it settle" in note
 
 
 def test_lens_note_says_when_panning_fell_back_to_the_main_camera():
-    note = lens_note(4.0, 1.0, _TELE, "~24mm OIS", "~24mm OIS", "Tele ~85mm")
+    level, note = lens_note(4.0, 1.0, _TELE, "~24mm OIS", "~24mm OIS", "Tele ~85mm")
+    assert level == "off"
     assert "Panned past what Tele ~85mm can see, so it's using ~24mm OIS for now" in note
-    assert "the telephoto can see" in lens_note(4.0, 1.0, _TELE, "", "", "")
+    assert "the telephoto can see" in lens_note(4.0, 1.0, _TELE, "", "", "")[1]
+
+
+def test_lens_note_says_when_the_phone_stayed_on_the_main_camera_by_itself():
+    level, note = lens_note(4.0, 3.7, _TELE, "~24mm OIS", "~24mm OIS", "Tele ~85mm")
+    assert level == "off"
+    assert "The phone stayed on ~24mm OIS by itself" in note
+    # not while a switch may still be under way, nor when the phone doesn't say which lens it's on
+    assert lens_note(4.0, 3.7, _TELE, "~24mm OIS", "~24mm OIS", "", settled=False) == ("", "")
+    assert lens_note(4.0, 3.7, _TELE, "", "", "") == ("", "")
+
+
+def test_red_wins_when_the_phone_is_off_the_lens_after_switching():
+    level, _note = lens_note(4.0, 1.0, _TELE, "Tele ~85mm", "~24mm OIS", "Tele ~85mm")
+    assert level == "off"  # still on the tele, but the pan already asked for the main camera
+
+
+def test_a_lens_step_never_lands_under_the_lens():
+    assert lens_step(3.0) == 300
+    assert lens_step(3.004) == 301
+    assert lens_step(3.7) == 370
 
 
 def _lens_state(active):
@@ -373,13 +400,87 @@ def test_the_lens_dot_shows_only_when_the_phone_switched_or_fell_back(transforms
     plugin._zoom_slider.setValue(400)
     plugin.on_phone_state(_lens_state("4"))
     assert not plugin._lens_dot.isHidden()
+    assert plugin._lens_dot._color.name() == ACCENT
     assert plugin._lens_dot.toolTip().startswith("Switched to Tele ~85mm OIS")
     plugin._pan_x_slider._slider.setValue(plugin._pan_x_slider._slider.maximum())
     plugin.on_phone_state(_lens_state("2"))
     assert "Panned past what Tele ~85mm OIS can see" in plugin._lens_dot.toolTip()
+    assert plugin._lens_dot._color.name() == ERR
     plugin._zoom_slider.setValue(200)
     assert plugin._lens_dot.isHidden()
-    assert plugin._zoom_slider.toolTip() == "Zoomed on the phone's sensor"
+    assert plugin._zoom_slider.toolTip().startswith("Zoomed on the phone's sensor\nDots mark")
+
+
+def test_the_dot_goes_red_once_the_phone_had_time_to_switch_and_didnt(transforms_plugin, monkeypatch):
+    plugin, _host, _panel = transforms_plugin
+    now = [100.0]
+    monkeypatch.setattr(transforms_mod.time, "monotonic", lambda: now[0])
+    plugin.on_stream_start("http://phone/v1/video", _Ctrl())
+    plugin.on_phone_state(_lens_state("2"))
+    plugin._zoom_slider.setValue(400)
+    plugin.on_phone_state(_lens_state("2"))
+    assert plugin._lens_dot.isHidden()  # just asked: give it a moment
+    now[0] += 3.0
+    plugin._settle_timer.timeout.emit()
+    assert not plugin._lens_dot.isHidden()
+    assert "stayed on ~24mm OIS by itself" in plugin._lens_dot.toolTip()
+
+
+def test_the_zoom_slider_marks_each_lens(transforms_plugin):
+    plugin, _host, _panel = transforms_plugin
+    plugin.on_stream_start("http://phone/v1/video", _Ctrl())
+    plugin.on_phone_state(_lens_state("2"))
+    assert plugin._zoom_slider.snaps() == [370]
+    plugin.on_stream_stop()
+    assert plugin._zoom_slider.snaps() == []
+
+
+def _drag_slider(slider, *values):
+    """Press the handle and drag it with the mouse to where each value sits; the values it passed through."""
+    from PyQt6.QtCore import QPoint
+    from PyQt6.QtTest import QTest
+    y = slider.height() // 2
+    seen = []
+    slider.valueChanged.connect(seen.append)
+    QTest.mousePress(slider, Qt.MouseButton.LeftButton, pos=QPoint(round(slider.mark_x(slider.value())), y))
+    for v in values:
+        QTest.mouseMove(slider, QPoint(round(slider.mark_x(v)), y))
+    QTest.mouseRelease(slider, Qt.MouseButton.LeftButton, pos=QPoint(round(slider.mark_x(values[-1])), y))
+    slider.valueChanged.disconnect()
+    return seen
+
+
+def test_dragging_the_zoom_sticks_to_a_lens_but_keys_dont(transforms_plugin):
+    plugin, _host, panel = transforms_plugin
+    panel.resize(420, panel.sizeHint().height())
+    panel.show()
+    plugin.on_stream_start("http://phone/v1/video", _Ctrl())
+    plugin.on_phone_state(_lens_state("2"))  # a lens at 3.7x
+    slider = plugin._zoom_slider
+    step_px = (slider.mark_x(1000) - slider.mark_x(100)) / 900
+    near = 370 - int(3 / step_px)  # 3 px short of the mark
+    _drag_slider(slider, near)
+    assert slider.value() == 370 and plugin.zoom == 3.7
+    _drag_slider(slider, 200)  # well clear: a themed handle can trail the mouse a little on a narrow slider
+    assert slider.value() < 300
+    slider.setValue(370)
+    slider.setFocus()
+    from PyQt6.QtTest import QTest
+    QTest.keyClick(slider, Qt.Key.Key_Left)
+    assert slider.value() == 369  # keys step off it freely
+
+
+def test_a_double_click_resets_zoom_and_pan(transforms_plugin):
+    from PyQt6.QtTest import QTest
+    plugin, _host, panel = transforms_plugin
+    panel.show()
+    plugin._zoom_slider.setValue(420)
+    plugin._pan_x_slider._slider.setValue(120)
+    QTest.mouseDClick(plugin._pan_x_slider._slider, Qt.MouseButton.LeftButton)
+    assert plugin.pan_x == 0.0 and plugin.zoom == 4.2
+    plugin._pan_x_slider._slider.setValue(120)
+    QTest.mouseDClick(plugin._zoom_slider, Qt.MouseButton.LeftButton)
+    assert plugin.zoom == 1.0 and plugin.pan_x == 0.0
 
 
 def test_the_zoom_slider_follows_max_zoom(transforms_plugin):
@@ -392,3 +493,148 @@ def test_the_zoom_slider_follows_max_zoom(transforms_plugin):
     plugin._bus.max_zoom_changed.emit(20)
     plugin._zoom_slider.setValue(2000)
     assert plugin.zoom == 20.0
+
+
+# ── Dragging and scrolling the preview, lens boxes ───────────────────────────
+
+from telescope.plugins.transforms import (  # noqa: E402
+    lens_boxes, pan_for, shown_to_view, view_to_shown, zoom_detent,
+)
+
+_ALL_TRANSFORMS = [(fh, fv, rot) for fh in (False, True) for fv in (False, True) for rot in ROTATIONS.values()]
+
+
+@pytest.mark.parametrize("flip_h,flip_v,rotation", _ALL_TRANSFORMS)
+def test_shown_and_view_points_map_both_ways_and_agree_with_focus(flip_h, flip_v, rotation):
+    for u, v in ((0.1, 0.2), (0.5, 0.5), (0.9, 0.35), (-0.2, 1.3)):
+        x, y = shown_to_view(u, v, 2.5, 0.4, -0.7, flip_h, flip_v, rotation)
+        assert view_to_shown(x, y, 2.5, 0.4, -0.7, flip_h, flip_v, rotation) == pytest.approx((u, v))
+    x, y = shown_to_view(0.3, 0.6, 2.0, 0.5, -0.5, flip_h, flip_v, rotation)
+    assert (x, y) == pytest.approx(inverse_map(0.3, 0.6, 4000, 3000, 2.0, 0.5, -0.5, flip_h, flip_v, rotation),
+                                   abs=1e-3)
+
+
+def test_pan_for_is_the_inverse_of_the_window_centre_and_clamps():
+    assert pan_for(0.5, 2.0) == 0.0
+    assert pan_for(0.75, 2.0) == 1.0
+    assert pan_for(0.9, 2.0) == 1.0
+    assert pan_for(0.6, 1.0) == 0.0  # nothing to pan at 1x
+
+
+def test_a_scroll_step_stops_on_the_first_lens_it_crosses():
+    assert zoom_detent(290, 320, [300, 700]) == 300
+    assert zoom_detent(300, 330, [300, 700]) == 330  # from the mark, it goes on
+    assert zoom_detent(800, 650, [300, 700]) == 700
+    assert zoom_detent(700, 640, [300, 700]) == 640
+    assert zoom_detent(150, 170, [300]) == 170
+
+
+def test_a_lens_box_is_the_centred_part_of_the_view_that_lens_sees():
+    assert lens_boxes(None, 1.0, 0.0, 0.0) == []
+    (label, *box), = lens_boxes(_TELE, 1.0, 0.0, 0.0)
+    assert label == "3.7×"
+    assert box == pytest.approx([0.5 - 0.5 / 3.7, 0.5 - 0.5 / 3.7, 0.5 + 0.5 / 3.7, 0.5 + 0.5 / 3.7])
+    # zoomed 2x and panned fully right: the window is the right half, so the box shifts left and doubles
+    (_, x0, _, x1, _), = lens_boxes(_TELE, 2.0, 1.0, 0.0)
+    assert (x0, x1) == pytest.approx(((0.5 - 0.5 / 3.7 - 0.5) * 2, (0.5 + 0.5 / 3.7 - 0.5) * 2))
+    # rotated a quarter turn, the box's sides swap axes
+    (_, x0, y0, x1, y1), = lens_boxes(_TELE, 2.0, 1.0, 0.0, rotation=cv2.ROTATE_90_CLOCKWISE)
+    assert (y0, y1) == pytest.approx(((0.5 - 0.5 / 3.7 - 0.5) * 2, (0.5 + 0.5 / 3.7 - 0.5) * 2))
+
+
+def _drag_setup(transforms_plugin, rot="None", flip_h=False):
+    plugin, host, _panel = transforms_plugin
+    plugin._flip_h.setChecked(flip_h)
+    plugin._rot_combo.setCurrentText(rot)
+    plugin._zoom_slider.setValue(250)
+    return plugin, host
+
+
+@pytest.mark.parametrize("rot,flip_h", [("None", False), ("90 CW", False), ("180", True), ("90 CCW", True)])
+def test_dragging_the_preview_moves_the_picture_with_the_mouse(transforms_plugin, rot, flip_h):
+    plugin, host = _drag_setup(transforms_plugin, rot, flip_h)
+    t = lambda: (plugin.zoom, plugin.pan_x, plugin.pan_y, plugin.flip_h, plugin.flip_v, plugin.rotation)  # noqa: E731
+    spot = shown_to_view(0.4, 0.55, *t())  # what's under the mouse when the drag starts
+    plugin._bus.view_dragged.emit(0.1, -0.05)
+    assert view_to_shown(*spot, *t()) == pytest.approx((0.5, 0.5))  # it moved along with the mouse
+    assert host.saves >= 1
+    assert plugin.get_config()["pan_x"] == plugin.pan_x  # kept finer than the slider's steps
+
+
+def test_dragging_stops_at_the_edge_and_does_nothing_unzoomed(transforms_plugin):
+    plugin, _host = _drag_setup(transforms_plugin)
+    plugin._bus.view_dragged.emit(-5.0, 0.0)
+    assert plugin.pan_x == 1.0
+    assert plugin._pan_x_lbl.text() == "+100%"
+    plugin._zoom_slider.setValue(100)
+    plugin._bus.view_dragged.emit(0.3, 0.3)
+    assert (plugin.pan_x, plugin.pan_y) == (0.0, 0.0)
+
+
+@pytest.mark.parametrize("rot", ["None", "90 CW"])
+def test_scrolling_zooms_around_the_mouse(transforms_plugin, rot):
+    plugin, _host = _drag_setup(transforms_plugin, rot)
+    t = lambda: (plugin.zoom, plugin.pan_x, plugin.pan_y, plugin.flip_h, plugin.flip_v, plugin.rotation)  # noqa: E731
+    spot = shown_to_view(0.6, 0.45, *t())
+    plugin._bus.view_scrolled.emit(1.1, 0.6, 0.45)
+    assert plugin.zoom == 2.75
+    assert view_to_shown(*spot, *t()) == pytest.approx((0.6, 0.45), abs=0.01)  # the slider's 0.01x steps
+    plugin._bus.view_scrolled.emit(1 / 1.1 ** 20, 0.6, 0.45)
+    assert plugin.zoom == 1.0 and plugin.pan_x == 0.0
+    for _ in range(40):
+        plugin._bus.view_scrolled.emit(1.1, 0.5, 0.5)
+    assert plugin.zoom == 10.0
+
+
+def test_small_scrolls_add_up_and_stop_on_a_lens(transforms_plugin):
+    plugin, _host, _panel = transforms_plugin
+    plugin.on_stream_start("http://phone/v1/video", _Ctrl())
+    plugin.on_phone_state(_lens_state("2"))  # a lens at 3.7x
+    plugin._zoom_slider.setValue(350)
+    for _ in range(10):
+        plugin._bus.view_scrolled.emit(1.002, 0.5, 0.5)  # a trackpad: well under a slider step each
+    assert plugin.zoom > 3.5
+    plugin._bus.view_scrolled.emit(1.1, 0.5, 0.5)
+    assert plugin.zoom == 3.7  # stopped on the lens
+    plugin._bus.view_scrolled.emit(1.1, 0.5, 0.5)
+    assert plugin.zoom > 3.7
+
+
+def test_the_preview_hears_about_the_lens_boxes_and_the_pan(transforms_plugin):
+    plugin, _host, _panel = transforms_plugin
+    boxes, pannable = [], []
+    plugin._bus.lens_boxes.connect(lambda b, moved: boxes.append((b, moved)))
+    plugin._bus.view_pannable.connect(pannable.append)
+    plugin.on_stream_start("http://phone/v1/video", _Ctrl())
+    plugin.on_phone_state(_lens_state("2"))
+    assert boxes[-1][0][0][0] == "3.7×" and boxes[-1][1] is False  # new lens data: no flash
+    plugin._zoom_slider.setValue(200)
+    assert boxes[-1][1] is True and pannable[-1] is True
+    plugin.on_stream_stop()
+    assert boxes[-1] == ([], False)
+
+
+@pytest.mark.parametrize("lens", [1.51, 2.0, 3.7, 3.9, 5.0, 6.3])
+def test_a_zoom_right_on_a_lens_mark_gets_that_lens(lens):
+    caps = PhoneZoomCaps(ratio_max=10.0, crop_max=4.0, freeform=True, lens_zooms=(lens,))
+    zoom = lens_step(lens) / 100  # where the slider's mark (and its snap) puts it
+    assert split_zoom(zoom, 0.0, 0.0, caps).phone.ratio == lens
+    # and so the dot doesn't claim it fell back (it did at 3.9x: 1/(1/3.9) is a hair under 3.9)
+    assert lens_note(zoom, lens, caps, "Tele", "Main", "Tele")[0] == "on"
+
+
+def test_dragging_the_preview_sticks_at_the_centre_then_lets_go(transforms_plugin):
+    plugin, _host = _drag_setup(transforms_plugin)  # 2.5x: a pan of 1 is 0.75 frames off centre
+    plugin._bus.view_dragged.emit(-0.3, 0.0)
+    assert plugin.pan_x == pytest.approx(0.4)
+    seen = []
+    for _ in range(60):  # back towards the centre and past it, 0.65% of the frame at a time
+        plugin._bus.view_dragged.emit(0.0065, 0.0)
+        seen.append(plugin.pan_x)
+    stuck = [i + 1 for i, pan in enumerate(seen) if pan == 0.0]
+    assert stuck == list(range(44, 50))  # 0.3 - 0.0065k within 2% of the frame either side of the centre
+    assert seen[50 - 1] == pytest.approx(-0.025 / 0.75)  # lets go right where the drag is, no jump
+    assert plugin.pan_y == 0.0
+    plugin._pan_x_slider._slider.setValue(100)  # moved another way: the next drag starts from there
+    plugin._bus.view_dragged.emit(-0.001, 0.0)
+    assert plugin.pan_x > 0.5
