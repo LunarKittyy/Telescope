@@ -608,6 +608,7 @@ def test_start_builds_worker_pipeline_and_notifies_plugins(window, monkeypatch):
             self.kwargs = kwargs
             self.status = _Signal()
             self.reconnected = _Signal()
+            self.vcam_opened = _Signal()
             self.started = False
             workers.append(self)
 
@@ -686,6 +687,7 @@ def test_start_uses_defaults_without_optional_plugins(window, monkeypatch):
             captured.append(kwargs)
             self.status = _Signal()
             self.reconnected = _Signal()
+            self.vcam_opened = _Signal()
 
         def start(self):
             pass
@@ -715,7 +717,9 @@ def test_stop_requests_worker_closes_client_and_notifies_plugins(window):
             self.status = _Signal()
             self.status.connect(window._on_worker_status)
             self.reconnected = _Signal()
+            self.vcam_opened = _Signal()
             self.reconnected.connect(window._on_stream_reconnected)
+            self.vcam_opened.connect(window._bus.vcam_opened)
             self.stop_requested = False
 
         def request_stop(self):
@@ -1110,7 +1114,7 @@ def test_start_wakes_the_phone_before_building_a_worker(window, monkeypatch):
     monkeypatch.setattr(
         app_module, "StreamWorker",
         lambda **kwargs: built.append(kwargs) or SimpleNamespace(
-            status=_Signal(), reconnected=_Signal(), start=lambda: None,
+            status=_Signal(), reconnected=_Signal(), vcam_opened=_Signal(), start=lambda: None,
         ),
     )
     monkeypatch.setattr(
@@ -1215,12 +1219,13 @@ def test_reconnect_and_canvas_reload_leave_the_phone_streaming(window, monkeypat
     window._session = StreamSession(
         id=1, url="url", client=None,
         worker=SimpleNamespace(
-            status=_Signal(), reconnected=_Signal(),
+            status=_Signal(), reconnected=_Signal(), vcam_opened=_Signal(),
             request_stop=lambda: None, wait=lambda _ms: True,
         ),
     )
     window._session.worker.status.connect(window._on_worker_status)
     window._session.worker.reconnected.connect(window._on_stream_reconnected)
+    window._session.worker.vcam_opened.connect(window._bus.vcam_opened)
 
     window.reconnect_stream()
 
@@ -1365,7 +1370,7 @@ class _RecoveringConnection(_Connection):
 
 class _RetargetWorker:
     def __init__(self):
-        self.status, self.reconnected = _Signal(), _Signal()
+        self.status, self.reconnected, self.vcam_opened = _Signal(), _Signal(), _Signal()
         self.token = "tok"
         self.urls = []
 
@@ -1398,6 +1403,7 @@ def _dropped_stream(window, monkeypatch, answers, url="http://127.0.0.1:40001/v1
     window._session = StreamSession(id=1, url=url, client=client, worker=worker)
     worker.status.connect(window._on_worker_status)
     worker.reconnected.connect(window._on_stream_reconnected)
+    worker.vcam_opened.connect(window._bus.vcam_opened)
     lost = []
     window._bus.stream_lost.connect(lambda: lost.append(True))
     worker.status.emit("reconnecting", "Stream dropped - reconnecting")

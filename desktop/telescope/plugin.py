@@ -43,6 +43,10 @@ class HostServices(Protocol):
         """Whether a stream worker is currently active."""
         ...
 
+    def is_starting(self) -> bool:
+        """Whether a start is still waking the phone (is_streaming() turns true once it's through)."""
+        ...
+
     def stop_stream(self) -> None:
         """Stop the active stream. A no-op if nothing is streaming."""
         ...
@@ -110,6 +114,8 @@ class TelescopePlugin:
     def create_menu_actions(self) -> list:
         """QActions for settings menu (lets dialog-only plugins skip panel)."""
         return []
+    def on_stream_starting(self):
+        """A stream is about to open the virtual camera; anything holding it while idle lets go now."""
     def on_stream_start(self, stream_url: str, ctrl): ...
     def on_stream_stop(self): ...
     def on_phone_state(self, state: dict): ...
@@ -164,3 +170,7 @@ class EventBus(QObject):
     """How far the Zoom slider goes (Advanced); Setup emits it on change and when its config loads."""
     update_requested       = pyqtSignal()
     """Show the desktop app's update dialog (e.g. the phone app turned out to be newer)."""
+    vcam_opened            = pyqtSignal(int, int)
+    """The stream opened the virtual camera at this width and height."""
+    camera_watched         = pyqtSignal(bool)
+    """Whether an app is reading the virtual camera (Wait screen watches it)."""

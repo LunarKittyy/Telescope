@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
     QSizePolicy, QSystemTrayIcon, QVBoxLayout, QWidget,
 )
 
-from telescope import diagnostics, theme
+from telescope import diagnostics, theme, vcam
 from telescope.config import DEVICE_LOCAL_PLUGINS, load_config, save_config
 from telescope.models import PhoneState, PhoneStateError
 from telescope.phone_client import PhoneControlClient
@@ -490,6 +490,9 @@ class TelescopeWindow(QMainWindow):
         """Whether a stream worker is currently active."""
         return self._worker is not None
 
+    def is_starting(self) -> bool:
+        return self._waking
+
     def stop_stream(self):
         """Stop stream; safe no-op if idle. Waking counts as active."""
         if self._worker is not None or self._waking:
@@ -605,6 +608,8 @@ class TelescopeWindow(QMainWindow):
         canvas_w, canvas_h = setup.get_canvas_dims() if setup else (None, None)
 
         pipeline = [p.process_frame for p in self._plugins]
+        for p in self._plugins:
+            p.on_stream_starting()
 
         ctrl = PhoneControlClient(url, token)
         worker = StreamWorker(
@@ -619,6 +624,7 @@ class TelescopeWindow(QMainWindow):
 
         worker.status.connect(self._on_worker_status)
         worker.reconnected.connect(self._on_stream_reconnected)
+        worker.vcam_opened.connect(self._bus.vcam_opened)
         worker.start()
 
         self._bus.stream_started.emit(url)
@@ -650,6 +656,7 @@ class TelescopeWindow(QMainWindow):
         if worker:
             worker.status.disconnect(self._on_worker_status)
             worker.reconnected.disconnect(self._on_stream_reconnected)
+            worker.vcam_opened.disconnect(self._bus.vcam_opened)
             worker.request_stop()
             # Bounded wait so a stalled read can't freeze the UI; if it doesn't finish in time, let it keep unwinding in the background.
             if not worker.wait(5000):
@@ -777,7 +784,8 @@ class TelescopeWindow(QMainWindow):
                 if old_worker:
                     old_worker.wait(5000)
                 from telescope.platform.linux import v4l2_reload
-                result = v4l2_reload()
+                with vcam.device_released():
+                    result = v4l2_reload()
                 self._sig_canvas_reload_done.emit(result.ok, result.message, was_streaming,
                                                   result.command or "")
 

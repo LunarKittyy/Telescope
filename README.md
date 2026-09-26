@@ -147,6 +147,8 @@ Everything past this point is optional - detailed feature reference, how it work
 
 **System integration**
 - **Start streaming when the phone is ready** (settings menu): starts by itself each time the phone becomes reachable. After you press Stop it stays stopped until the phone goes away and comes back. It never asks for a password on its own; if the Linux virtual camera is off, a banner offers to switch it on
+- **Stream only while an app is using the camera** (settings menu, off by default): starts when a call or OBS starts reading the camera, and stops 15 seconds after the last one lets go, so the phone isn't streaming for nothing. Only stops streams it started itself
+- **Wait screen…** (settings menu): what apps see on the camera while the phone isn't streaming, instead of the driver's own "no signal" picture. The default screen, or an image or GIF of your own
 - **Open Telescope when I sign in** (settings menu): an autostart entry (`~/.config/autostart/telescope.desktop` on Linux, the per-user Run key on Windows) that starts it in the tray with `--minimized`
 - Minimizes to system tray on close while streaming, or while waiting to start by itself; otherwise quits
 - Right-click the tray icon to quit, or click it to show/hide the window
@@ -194,6 +196,7 @@ desktop/main.py  (Python, PyQt6)
             transforms              flip, rotation, zoom, pan
             preview                 in-card and pop-out video preview
             monitoring              battery, temperature alerts
+            wait_screen             holds the camera while idle (vcam.py), notices apps reading it
 ```
 
 A second responder on the phone (`SessionServer`, port 8766) runs independently of the streaming server, so the desktop can reach the phone in exactly the state the streaming server doesn't exist in: idle. It answers `GET /v1/hello` (which phone this is, no auth), `GET /v1/ping` (pairing status plus what the phone is currently doing), `POST /v1/session` (start or stop the camera from the desktop) and `POST /v1/unpair` (forget the calling computer).
@@ -279,6 +282,7 @@ telescope/
         |-- h264_reader.py       # Authenticated H.264 reader (PyAV), same interface
         |-- audio.py             # Phone mic -> jitter buffer -> virtual mic
         |-- session.py           # StreamSession: owns worker/client for one connect-to-disconnect lifecycle
+        |-- vcam.py              # Opens the virtual camera, wait screen, whether an app reads it
         |-- plugin.py            # TelescopePlugin base class, EventBus, HostServices protocol
         |-- config.py            # Versioned JSON config (v3) with per-section validation
         |-- models.py            # Typed contracts: PhoneState, CameraCapabilities (parsed from /v1/state)
@@ -303,7 +307,8 @@ telescope/
         |   |-- preview.py
         |   |-- onboarding.py    # First-run checklist
         |   |-- updates.py       # Update button and dialog
-        |   |-- startup.py       # Stream when the phone is ready; open at sign-in
+        |   |-- startup.py       # Stream when the phone is ready or an app watches; open at sign-in
+        |   |-- wait_screen.py   # Wait screen and its dialog
         |   +-- monitoring.py
         +-- widgets/
             |-- banner.py        # In-window problem banners

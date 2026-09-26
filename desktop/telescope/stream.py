@@ -1,25 +1,18 @@
 import logging
-import platform
 import threading
 import time
 from typing import Optional
 
 import cv2
 import numpy as np
-import pyvirtualcam
 from PyQt6.QtCore import QThread, pyqtSignal
 
+from telescope import vcam
 from telescope.h264_reader import H264Reader
 from telescope.mjpeg_reader import MjpegReader
 
 logger = logging.getLogger(__name__)
 
-IS_LINUX = platform.system() == "Linux"
-
-VCAM_BACKEND   = "v4l2loopback" if IS_LINUX else "unitycapture"
-V4L2_PHONE_DEV = "/dev/video11"
-V4L2_PHONE_LABEL = "Phone Camera"  # its card_label, which is how other apps list it
-UC_NAME = "Telescope"  # the name UnityCapture is registered under (platform/windows.py)
 RECONNECT_DELAY = 3
 
 # Sentinel: "leave unchanged" (distinct from None = pass-through).
@@ -52,6 +45,7 @@ def _fit_frame(frame, target_w, target_h):
 class StreamWorker(QThread):
     status      = pyqtSignal(str, str)   # (kind, msg): info/ok/warn/fps/idle
     reconnected = pyqtSignal()           # mid-stream reconnect succeeded (not the initial connect)
+    vcam_opened = pyqtSignal(int, int)   # the virtual camera opened at this width, height
 
     def __init__(self, url: str, width: Optional[int], height: Optional[int],
                  fps: int, frame_pipeline: list = None,
@@ -206,16 +200,7 @@ class StreamWorker(QThread):
         self.status.emit("idle", "Not streaming")
 
     def _open_vcam(self, cam_w: int, cam_h: int):
-        def open_(device):
-            return pyvirtualcam.Camera(width=cam_w, height=cam_h, fps=self._fps,
-                                       backend=VCAM_BACKEND, device=device)
-        if IS_LINUX:
-            return open_(V4L2_PHONE_DEV)
-        try:
-            return open_(UC_NAME)
-        except RuntimeError:
-            # Registered before it was named Telescope ("Unity Video Capture"): any free one will do.
-            return open_(None)
+        return vcam.open_camera(cam_w, cam_h, self._fps)
 
     def _run_vcam(self):
         """Open the virtual camera at the current size/fps and feed it until stop or a restart request."""
@@ -226,7 +211,8 @@ class StreamWorker(QThread):
         try:
             with self._open_vcam(cam_w, cam_h) as cam:
                 # Name the camera the way other apps list it (the v4l2loopback card label on Linux).
-                shown_as = V4L2_PHONE_LABEL if IS_LINUX else cam.device
+                shown_as = vcam.V4L2_PHONE_LABEL if vcam.IS_LINUX else cam.device
+                self.vcam_opened.emit(cam_w, cam_h)
                 self.status.emit("ok", f"Streaming {cam_w}x{cam_h} at {self._fps} fps to {shown_as}")
                 fc, t0, bytes0, recv0 = 0, time.time(), self._bytes_total, self._frames_received
                 last_src = fitted = None

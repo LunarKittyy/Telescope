@@ -3,6 +3,7 @@ import threading
 import numpy as np
 
 import telescope.stream as stream
+import telescope.vcam as vcam
 
 
 class _Capture:
@@ -282,7 +283,7 @@ def test_run_streams_a_frame_and_stops_cleanly(monkeypatch):
         def sleep_until_next_frame(self):
             worker.request_stop()
 
-    monkeypatch.setattr(stream.pyvirtualcam, "Camera", FakeCamera)
+    monkeypatch.setattr(vcam.pyvirtualcam, "Camera", FakeCamera)
     statuses = []
     worker.status.connect(lambda kind, msg: statuses.append((kind, msg)))
 
@@ -293,7 +294,7 @@ def test_run_streams_a_frame_and_stops_cleanly(monkeypatch):
     assert cameras[0].kwargs["fps"] == 24
     assert cameras[0].sent[0].shape == (4, 4, 3)
     # Names the camera as other apps list it: the card label on Linux, the device name elsewhere.
-    shown_as = stream.V4L2_PHONE_LABEL if stream.IS_LINUX else "fake-vcam"
+    shown_as = vcam.V4L2_PHONE_LABEL if vcam.IS_LINUX else "fake-vcam"
     assert any(kind == "ok" and msg.endswith(f"fps to {shown_as}") for kind, msg in statuses)
     assert statuses[-1] == ("idle", "Not streaming")
 
@@ -337,7 +338,7 @@ def test_fps_change_rebuilds_the_vcam_without_reopening_the_phone_stream(monkeyp
             elif len(cameras) == 2:
                 worker.request_stop()
 
-    monkeypatch.setattr(stream.pyvirtualcam, "Camera", FakeCamera)
+    monkeypatch.setattr(vcam.pyvirtualcam, "Camera", FakeCamera)
     worker.run()
 
     assert [c.kwargs["fps"] for c in cameras] == [24, 15]
@@ -345,19 +346,19 @@ def test_fps_change_rebuilds_the_vcam_without_reopening_the_phone_stream(monkeyp
 
 
 def test_windows_opens_the_camera_named_telescope_or_any_older_registration(monkeypatch):
-    monkeypatch.setattr(stream, "IS_LINUX", False)
+    monkeypatch.setattr(vcam, "IS_LINUX", False)
     opened = []
 
     def camera(**kwargs):
         opened.append(kwargs["device"])
-        if kwargs["device"] == stream.UC_NAME and len(opened) == 1:
+        if kwargs["device"] == vcam.UC_NAME and len(opened) == 1:
             raise RuntimeError("No camera registered with this name.")
         return kwargs["device"]
-    monkeypatch.setattr(stream.pyvirtualcam, "Camera", camera)
+    monkeypatch.setattr(vcam.pyvirtualcam, "Camera", camera)
     worker = stream.StreamWorker("url", None, None, 30)
     assert worker._open_vcam(4, 4) is None
     assert opened == ["Telescope", None]
     assert worker._open_vcam(4, 4) == "Telescope"
 
-    monkeypatch.setattr(stream, "IS_LINUX", True)
-    assert worker._open_vcam(4, 4) == stream.V4L2_PHONE_DEV
+    monkeypatch.setattr(vcam, "IS_LINUX", True)
+    assert worker._open_vcam(4, 4) == vcam.V4L2_PHONE_DEV
