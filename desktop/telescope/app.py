@@ -4,6 +4,7 @@ import socket
 import subprocess
 import threading
 import time
+from dataclasses import replace
 from typing import Optional
 
 from PyQt6.QtCore import QPoint, QSize, Qt, QTimer, pyqtSignal
@@ -18,6 +19,7 @@ from telescope import diagnostics, theme
 from telescope.config import DEVICE_LOCAL_PLUGINS, load_config, save_config
 from telescope.models import PhoneState, PhoneStateError
 from telescope.phone_client import PhoneControlClient
+from telescope.phones import READY
 from telescope.platform import IS_LINUX
 from telescope.plugin import UNCHANGED, EventBus, TelescopePlugin
 from telescope.session import StreamSession
@@ -33,6 +35,7 @@ _WIDTH_TWO_COL   = 900
 # Both rails share one width so the preview sits on the window's centre line.
 _RAIL_WIDTH       = 412
 _RAIL_WIDTH_SOLO  = 440  # two-column mode: the one rail holding every card
+_RECOVER_RETRY_MS = 3000  # a dropped stream: how often to look for a route back to the phone
 
 
 # ── Single-instance enforcement ───────────────────────────────────────────────
@@ -92,6 +95,7 @@ class TelescopeWindow(QMainWindow):
     _sig_canvas_reload_done = pyqtSignal(bool, str, bool, str)  # ok, msg, restart_stream, command to run by hand
     _sig_wake_done = pyqtSignal(int, bool, str, str, str)  # wake_id, ok, reason, url, token
     _sig_wake_progress = pyqtSignal(int, str)  # wake_id, status text
+    _sig_recovery_probed = pyqtSignal(int, int, object)  # session id, recovery generation, Resolution
 
     def __init__(self):
         super().__init__()
@@ -121,6 +125,13 @@ class TelescopeWindow(QMainWindow):
         # Generation counter for phone-wake; guards against stale async results.
         self._wake_id = 0
         self._waking = False
+        # A dropped stream looking for its way back; the generation drops probes from an earlier drop.
+        self._recovering = False
+        self._recovery_gen = 0
+        self._recovery_route = None  # the route recovery last moved the stream to
+        self._recovery_timer = QTimer(self)
+        self._recovery_timer.setSingleShot(True)
+        self._recovery_timer.timeout.connect(self._probe_recovery)
         # Remote-stop requests; quit path waits for these to complete.
         self._stop_threads: list[threading.Thread] = []
 
@@ -140,6 +151,7 @@ class TelescopeWindow(QMainWindow):
         self._sig_canvas_reload_done.connect(self._on_canvas_reload_done)
         self._sig_wake_done.connect(self._on_wake_done)
         self._sig_wake_progress.connect(self._on_wake_progress)
+        self._sig_recovery_probed.connect(self._on_recovery_probed)
 
     @property
     def _worker(self) -> Optional[StreamWorker]:
@@ -496,6 +508,7 @@ class TelescopeWindow(QMainWindow):
             worker.update_output(**kwargs)
 
     def _on_stream_reconnected(self):
+        self._end_recovery()
         session = self._session
         if session is None:
             return
@@ -620,6 +633,7 @@ class TelescopeWindow(QMainWindow):
     def _stop(self, remote_stop: bool = True):
         """Tear down stream; remote_stop=False for reconnects (changed address/vcam reload)."""
         self._wake_id += 1
+        self._end_recovery()
         was_waking = self._waking
         self._waking = False
         self._start_btn.setEnabled(True)
@@ -652,6 +666,73 @@ class TelescopeWindow(QMainWindow):
         self._bus.stream_stopped.emit()
         for p in self._plugins:
             p.on_stream_stop()
+
+    # ── A dropped stream ──────────────────────────────────────────────────
+    # The worker keeps retrying its URL, which is enough when Wi-Fi blips. But the phone may only be
+    # reachable another way now (cable pulled: Wi-Fi; plugged back in: a fresh adb forward), so keep
+    # asking Connection how to reach it and point the worker there.
+
+    def _begin_recovery(self):
+        if self._session is None or self._recovering:
+            return
+        self._recovering = True
+        self._recovery_route = None
+        self._bus.stream_lost.emit()
+        self._probe_recovery()
+
+    def _end_recovery(self):
+        self._recovering = False
+        self._recovery_gen += 1
+        self._recovery_timer.stop()
+
+    def _probe_recovery(self):
+        session, conn = self._session, self._plugin("connection")
+        if session is None or conn is None or not self._recovering:
+            return
+        gen, job = self._recovery_gen, conn.recovery_probe()
+        self._spawn_recovery_probe(session.id, gen, job)
+
+    def _spawn_recovery_probe(self, session_id: int, gen: int, job):
+        """Split out so tests can run it synchronously."""
+        def work():
+            try:
+                res = job()
+            except Exception:
+                logging.exception("Looking for the phone again failed")
+                res = None
+            try:
+                self._sig_recovery_probed.emit(session_id, gen, res)
+            except RuntimeError:
+                pass
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_recovery_probed(self, session_id: int, gen: int, res):
+        session = self._session
+        if not self._recovering or gen != self._recovery_gen or session is None or session.id != session_id:
+            return
+        if res is not None and res.status == READY:
+            if not res.streaming and not res.busy:
+                # Stopped on the phone, or by its idle watchdog while we couldn't reach it.
+                self._stop(remote_stop=False)
+                self.show_issue("start", Issue(
+                    "The phone stopped streaming", "Start again when you're ready.",
+                    [BannerAction("Start", self.start_stream)], kind="warn"))
+                return
+            if res.streaming and res.route != self._recovery_route:
+                self._move_stream(session, res.route)
+        self._recovery_timer.start(_RECOVER_RETRY_MS)
+
+    def _move_stream(self, session: StreamSession, route):
+        conn = self._plugin("connection")
+        url = conn.adopt_stream_route(route) if conn else None
+        if url is None or self._session is not session:
+            return
+        self._recovery_route = route
+        if url != session.url:
+            session.client.close()
+            session = replace(session, url=url, client=PhoneControlClient(url, session.worker.token))
+            self._session = session
+        session.worker.retarget(url)
 
     def _stop_phone_async(self):
         """Tell phone to shut camera down; tracked thread lets quit path wait for it."""
@@ -925,6 +1006,7 @@ class TelescopeWindow(QMainWindow):
             self._set_status(msg, "warn")
         elif kind == "reconnecting":
             self._start_reconnecting_animation(msg)
+            self._begin_recovery()
         elif kind == "idle":
             self._clear_pending_resolution()
             self._fps_lbl.setText("—")

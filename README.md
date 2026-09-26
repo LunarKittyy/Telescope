@@ -114,7 +114,8 @@ Everything past this point is optional - detailed feature reference, how it work
 
 **Monitoring**
 - FPS and throughput (Mbps) readouts in the footer while streaming; throughput turns amber if the real decode rate falls behind the target for a sustained stretch
-- A dropped stream shows an animated "Stream dropped - reconnecting..." status instead of a static line
+- A dropped stream shows an animated "Stream dropped - reconnecting..." status instead of a static line, and the desktop keeps looking for the phone on every route: pull the cable and it carries on over Wi-Fi, plug it back in and it can use USB again. If the phone answers but stopped streaming, the desktop stops too and offers **Start**
+- The phone's status reads "Waiting for the computer" while its camera is on but no computer is taking the video
 - Battery level and phone temperature polled every 15 seconds, shown in the Monitoring panel with color coding
 - Configurable battery alert threshold (default 20%) - fires a tray/desktop notification when discharging below it
 - Configurable temperature alert threshold (default 45 C) - fires a notification when exceeded
@@ -468,7 +469,7 @@ The release zip bundles the UnityCapture DLLs already; the first-run checklist r
 
 **Live resolution change:** Unlike FPS, mid-stream resolution changes don't require a vcam restart. The reader thread reads `self._width`/`self._height` dynamically each frame, and `_fit_frame()` adapts the output to the fixed canvas dimensions.
 
-**Auto-reconnect:** If `cap.read()` fails, the stream reader calls `_reconnect_cap()`, which loops with a 3-second delay until the stream comes back. The pyvirtualcam context stays open during reconnect so the virtual camera doesn't disappear from OBS. Every plugin's current settings (ISO, WB, JPEG quality, etc.) are resent to the phone right after a successful reconnect, since the phone has no way to know its control state might be stale.
+**Auto-reconnect:** If `cap.read()` fails, the stream reader calls `_reconnect_cap()`, which loops with a 3-second delay until the stream comes back. Meanwhile the window resolves the route again every 3 seconds and, when the phone answers another way (Wi-Fi after the cable was pulled, or a fresh adb forward after it's plugged back in), points the reader there. The pyvirtualcam context stays open during reconnect so the virtual camera doesn't disappear from OBS. Every plugin's current settings (ISO, WB, JPEG quality, etc.) are resent to the phone right after a successful reconnect, since the phone has no way to know its control state might be stale.
 
 **Genuine-connection signal:** `EventBus.stream_connected` fires only when `StreamWorker` reports its first `"ok"` status (an actual frame decoded), not merely when a worker object exists. The Connection card shows **Connecting…** until it fires, so a worker quietly retrying against a phone that isn't answering never reads as a healthy stream.
 

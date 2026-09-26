@@ -69,6 +69,7 @@ class StreamWorker(QThread):
         self._canvas_h = canvas_height
         self._stop_flag    = False
         self._restart_vcam = threading.Event()
+        self._retry_now    = threading.Event()  # retarget(): skip the rest of the reconnect wait
         self._latest_rgb   = None
         # Cumulative wire bytes; vcam loop reads deltas, not resets on mid-stream reconnect.
         self._bytes_total  = 0
@@ -94,6 +95,11 @@ class StreamWorker(QThread):
         self._stop_flag = True
         self._restart_vcam.set()
 
+    def retarget(self, url: str):
+        """Reconnect to url from the next attempt on (the phone moved to another route), and try now."""
+        self.url = url
+        self._retry_now.set()
+
     def _open_cap(self):
         # Our own readers, since cv2's FFmpeg backend can't attach the bearer header. The route says which.
         reader_cls = H264Reader if self.url.endswith(".h264") else MjpegReader
@@ -107,7 +113,10 @@ class StreamWorker(QThread):
             for _ in range(RECONNECT_DELAY * 10):
                 if stop_event.is_set() or self._stop_flag:
                     return None
+                if self._retry_now.is_set():
+                    break
                 time.sleep(0.1)
+            self._retry_now.clear()
             cap = self._open_cap()
             if cap.isOpened():
                 ret, _ = cap.read()

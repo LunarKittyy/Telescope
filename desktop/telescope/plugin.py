@@ -130,6 +130,8 @@ class EventBus(QObject):
     stream_started         = pyqtSignal(str)
     stream_stopped         = pyqtSignal()
     stream_connected       = pyqtSignal()
+    stream_lost            = pyqtSignal()
+    """Frames stopped mid-stream; the host is looking for a route back (stream_connected ends it)."""
     phone_state_updated    = pyqtSignal(dict)
     device_changed         = pyqtSignal(str)
     phones_changed         = pyqtSignal(int)

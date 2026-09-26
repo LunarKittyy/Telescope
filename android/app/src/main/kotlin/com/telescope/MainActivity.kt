@@ -809,8 +809,11 @@ class MainActivity : AppCompatActivity() {
         if (streaming) {
             val ip   = getDeviceIp()
             val port = service?.port ?: CameraStreamService.DEFAULT_PORT
-            tvStatus.text = "● Streaming"
-            tvStatus.setTextColor(resources.getColor(R.color.colorStreamingText, theme))
+            // The camera stays on while the computer reconnects; say so rather than claim it's getting video.
+            val viewed = service?.hasViewer == true
+            tvStatus.text = if (viewed) "● Streaming" else "● Waiting for the computer"
+            tvStatus.setTextColor(resources.getColor(
+                if (viewed) R.color.colorStreamingText else R.color.colorWarn, theme))
             // MjpegServer only answers /v1/video; the old /video links 404'd.
             tvLinkWifi.text = "Wi-Fi  http://$ip:$port/v1/video"
             tvLinkUsb.text  = "USB  http://localhost:$port/v1/video"

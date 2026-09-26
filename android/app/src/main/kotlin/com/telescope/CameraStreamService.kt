@@ -214,6 +214,8 @@ class CameraStreamService : Service() {
     private val stateMachine = StreamStateMachine()
     val state: StreamState get() = stateMachine.state
     val isStreaming: Boolean get() = stateMachine.isStreaming
+    // A computer is taking the video (not just the camera being on).
+    val hasViewer: Boolean get() = server?.hasActiveViewer() == true
     val port: Int get() = DEFAULT_PORT
 
     // True when this session was started by the desktop rather than the button on this phone; MainActivity uses it to tell the user where an unrequested stream came from.

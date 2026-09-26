@@ -201,13 +201,24 @@ class MjpegServer(
     /** Milliseconds since the last request that passed token auth. */
     fun idleForMs(): Long = System.currentTimeMillis() - lastAuthorizedRequestAtMs
 
+    /**
+     * Whether a computer is taking the video right now. A pulled cable or a dropped Wi-Fi link can
+     * leave a connection open for minutes, so only a viewer that took a write recently counts.
+     */
+    fun hasActiveViewer(now: Long = System.currentTimeMillis()): Boolean =
+        clients.any { now - it.lastWriteAtMs < VIEWER_STALE_MS } ||
+            h264Clients.any { now - it.lastWriteAtMs < VIEWER_STALE_MS }
+
     companion object {
         private const val MAX_CONCURRENT_CLIENTS = 16
+        const val VIEWER_STALE_MS = 5_000L
     }
 
     inner class MjpegClient(private val socket: Socket) {
         private val queue = ArrayBlockingQueue<ByteArray>(2)
         private val alive = AtomicBoolean(true)
+        @Volatile var lastWriteAtMs: Long = System.currentTimeMillis()
+            private set
 
         fun stream() {
             try {
@@ -227,6 +238,7 @@ class MjpegServer(
                     out.write(frame)
                     out.write("\r\n".toByteArray(Charsets.UTF_8))
                     out.flush()
+                    lastWriteAtMs = System.currentTimeMillis()
                 }
             } catch (_: Exception) {}
             finally { alive.set(false); try { socket.close() } catch (_: Exception) {} }
@@ -245,6 +257,8 @@ class MjpegServer(
     inner class H264Client(private val socket: Socket) {
         val queue = H264ClientQueue()
         private val alive = AtomicBoolean(true)
+        @Volatile var lastWriteAtMs: Long = System.currentTimeMillis()
+            private set
 
         fun stream() {
             try {
@@ -257,6 +271,7 @@ class MjpegServer(
                     val packet = queue.poll(2_000L) ?: continue
                     out.write(packet)
                     out.flush()
+                    lastWriteAtMs = System.currentTimeMillis()
                 }
             } catch (_: Exception) {}
             finally { alive.set(false); try { socket.close() } catch (_: Exception) {} }
