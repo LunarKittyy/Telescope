@@ -5,7 +5,7 @@ import urllib.request
 from pathlib import Path
 from typing import Optional
 
-from telescope.platform import _run
+from telescope.platform import NO_WINDOW, _run
 
 # Pinned commit with hash verification to prevent tampering before registration.
 _UNITYCAPTURE_COMMIT = "3ed54c325e0ad71afcf4f246c07e5e17b3d7f2d2"
@@ -72,7 +72,7 @@ def register_unitycapture() -> tuple:
     try:
         r = subprocess.run(
             ["powershell", "-NoProfile", "-Command", ps],
-            capture_output=True, timeout=60,
+            capture_output=True, timeout=60, **NO_WINDOW,
         )
         if r.returncode == 0:
             return True, "Installed"

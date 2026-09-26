@@ -210,3 +210,14 @@ def test_report(monkeypatch):
 def test_report_without_problems(monkeypatch):
     monkeypatch.setattr(diagnostics, "events", EventLog())
     assert diagnostics.report({}).splitlines()[-1] == "Log: empty"
+
+
+@pytest.mark.parametrize("release,build,shown", [("10", 26200, "Windows 11"), ("10", 19045, "Windows 10"),
+                                                 ("11", 26200, "Windows 11")])
+def test_windows_11_is_named_from_the_build_number(monkeypatch, release, build, shown):
+    import types
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(sys, "getwindowsversion", lambda: types.SimpleNamespace(build=build), raising=False)
+    monkeypatch.setattr(diagnostics.platform, "release", lambda: release)
+    monkeypatch.setattr(diagnostics.platform, "version", lambda: f"10.0.{build}")
+    assert diagnostics.system_lines() == [f"OS: {shown} (10.0.{build})"]

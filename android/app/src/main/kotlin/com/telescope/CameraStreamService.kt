@@ -185,6 +185,17 @@ class CameraStreamService : Service() {
         @Volatile
         var instance: CameraStreamService? = null
             private set
+
+        // The last session's report, kept after the service is gone so Copy diagnostics still has
+        // something to say about a stream that stopped or dropped. Lost when the app process dies.
+        @Volatile
+        var lastReport: String? = null
+            private set
+
+        fun reportHeader(): String =
+            "Telescope diagnostics\n" +
+            "App version: ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})\n" +
+            "Device: ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})\n"
     }
 
     inner class LocalBinder : Binder() {
@@ -247,9 +258,7 @@ class CameraStreamService : Service() {
     // Sanitized diagnostics report for "Copy diagnostics": app/device info, current state, recent transitions/errors. Never includes the pairing token, a URL, or raw config.
     fun buildDiagnosticsReport(): String {
         val sb = StringBuilder()
-        sb.appendLine("Telescope diagnostics")
-        sb.appendLine("App version: ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})")
-        sb.appendLine("Device: ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})")
+        sb.append(reportHeader())
         sb.appendLine("Current state: $state")
         val cur = controller?.snapshot()?.currentCamera
         sb.appendLine("Current camera: ${cur?.id ?: "none"} (${cur?.label ?: "-"})")
@@ -348,6 +357,7 @@ class CameraStreamService : Service() {
 
     override fun onDestroy() {
         stopStreaming()
+        lastReport = buildDiagnosticsReport()
         instance = null
         super.onDestroy()
     }

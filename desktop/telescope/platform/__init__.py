@@ -10,12 +10,16 @@ from typing import Optional
 IS_LINUX   = platform.system() == "Linux"
 IS_WINDOWS = platform.system() == "Windows"
 
+# The packaged Windows app has no console, so Windows gives each console program it runs (adb, powershell)
+# a window of its own, flashing up on every status check. This keeps them hidden.
+NO_WINDOW = {"creationflags": subprocess.CREATE_NO_WINDOW} if IS_WINDOWS else {}
+
 
 def _run(cmd, timeout=10):
     if cmd[0] is None:  # adb_exe() found nothing; subprocess would raise TypeError, not FileNotFoundError.
         return -1, "", "adb not found"
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, **NO_WINDOW)
         return r.returncode, r.stdout, r.stderr
     except FileNotFoundError:         return -1, "", f"Not found: {cmd[0]}"
     except subprocess.TimeoutExpired: return -2, "", "Timed out"
