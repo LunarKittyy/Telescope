@@ -13,6 +13,15 @@ def test_run_returns_process_result(monkeypatch):
     assert platform_api._run(["tool"], timeout=2) == (7, "out", "err")
 
 
+def test_run_hides_the_console_window_on_windows(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(platform_api, "NO_WINDOW", {"creationflags": 0x08000000})
+    monkeypatch.setattr(platform_api.subprocess, "run",
+                        lambda *args, **kwargs: seen.update(kwargs) or subprocess.CompletedProcess([], 0, "", ""))
+    platform_api._run(["adb", "devices"])
+    assert seen["creationflags"] == 0x08000000
+
+
 @pytest.mark.parametrize(
     "exc,expected",
     [
