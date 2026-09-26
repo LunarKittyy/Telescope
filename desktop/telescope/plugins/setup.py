@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QCheckBox, QDialog, QHBoxLayout, QInputDialog, QLabel, QPushButton, QWidget,
 )
 
-from telescope import diagnostics
+from telescope import diagnostics, vcam
 from telescope.platform import IS_LINUX, adb_available, adb_devices, adb_install, bundled_apk_path
 from telescope.platform.linux import (
     V4L2_OBS_DEV, V4L2_PHONE_DEV, as_text,
@@ -41,6 +41,18 @@ CANVAS_PRESETS: list[tuple[str, tuple[int, int] | None]] = [
 
 _PRESET_LABELS = [label for label, _ in CANVAS_PRESETS]
 _PRESET_VALUES = {label: val for label, val in CANVAS_PRESETS}
+
+
+
+def canvas_dims(cfg: dict) -> tuple[int | None, int | None]:
+    """The canvas a Setup config asks for, or (None, None) for auto."""
+    val = _PRESET_VALUES.get(cfg.get("canvas_preset"))
+    if val is None:
+        return None, None
+    if val == "custom":
+        return cfg.get("custom_canvas_w", 1920), cfg.get("custom_canvas_h", 1080)
+    return val
+
 
 DEFAULT_MAX_ZOOM = 10
 MAX_ZOOM_RANGE = (2, 30)
@@ -354,7 +366,11 @@ class AdvancedDialog(QDialog):
     def _v4l_unload(self):
         set_status_kind(self._v4l_lbl, "status_dim")
         self._v4l_lbl.setText("Unloading...")
-        threading.Thread(target=lambda: self._sig_v4l_unload.emit(*as_text(v4l2_unload())), daemon=True).start()
+        def unload():
+            with vcam.device_released():
+                result = v4l2_unload()
+            self._sig_v4l_unload.emit(*as_text(result))
+        threading.Thread(target=unload, daemon=True).start()
 
     def _on_v4l_result(self, ok: bool, msg: str):
         self._v4l_lbl.setText(("Loaded - " if ok else "Failed - ") + msg)
@@ -519,12 +535,7 @@ class SetupPlugin(TelescopePlugin):
 
     def get_canvas_dims(self) -> tuple[int | None, int | None]:
         """Return (canvas_w, canvas_h) for StreamWorker, or (None, None) for auto."""
-        val = _PRESET_VALUES.get(self._canvas_preset)
-        if val is None:
-            return None, None
-        if val == "custom":
-            return self._custom_w, self._custom_h
-        return val
+        return canvas_dims(self.get_config())
 
     def create_panel(self) -> Optional[QWidget]:
         """No panel; setup is dialog-only (see create_menu_actions)."""

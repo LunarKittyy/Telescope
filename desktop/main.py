@@ -39,6 +39,7 @@ from telescope.plugins.presets import PresetsPlugin
 from telescope.plugins.preview import PreviewPlugin
 from telescope.plugins.setup import SetupPlugin
 from telescope.plugins.startup import StartupPlugin
+from telescope.plugins.wait_screen import WaitScreenPlugin
 from telescope.plugins.stream_output import StreamOutputPlugin
 from telescope.plugins.transforms import TransformsPlugin
 from telescope.plugins.updates import UpdatesPlugin
@@ -86,6 +87,7 @@ def main():
     win.register_plugin(MonitoringPlugin())
     win.register_plugin(UpdatesPlugin())
     win.register_plugin(StartupPlugin())
+    win.register_plugin(WaitScreenPlugin())  # after Startup: its menu entry goes under Startup's
     win.apply_saved_config()
     if args.minimized:
         win.start_hidden()

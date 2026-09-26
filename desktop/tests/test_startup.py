@@ -15,7 +15,9 @@ from telescope.plugins.startup import StartupPlugin
 class _Host:
     def __init__(self):
         self.streaming = False
+        self.starting = False
         self.starts = []
+        self.stops = 0
         self.keep = None
         self.saves = 0
         self.issues = {}
@@ -23,8 +25,14 @@ class _Host:
     def is_streaming(self):
         return self.streaming
 
+    def is_starting(self):
+        return self.starting
+
     def start_stream(self, interactive=True):
         self.starts.append(interactive)
+
+    def stop_stream(self):
+        self.stops += 1
 
     def set_keep_in_tray(self, keep):
         self.keep = keep
@@ -95,9 +103,11 @@ def test_not_while_streaming(env):
 def test_config_round_trip(env):
     plugin, host, _bus = env
     plugin.set_config({"auto_stream": True})
-    assert plugin.get_config() == {"auto_stream": True} and host.keep is True
-    plugin.set_config({"auto_stream": "yes"})
-    assert plugin.auto_stream is False
+    assert plugin.get_config() == {"auto_stream": True, "watch_stream": False} and host.keep is True
+    plugin.set_config({"auto_stream": "yes", "watch_stream": True})
+    assert plugin.auto_stream is False and plugin.watch_stream is True and host.keep is True
+    plugin.set_config({})
+    assert host.keep is False
 
 
 def test_menu_actions_reflect_and_change_the_settings(env, monkeypatch):
@@ -106,15 +116,125 @@ def test_menu_actions_reflect_and_change_the_settings(env, monkeypatch):
     monkeypatch.setattr(startup_module.autostart, "is_enabled", lambda: False)
     monkeypatch.setattr(startup_module.autostart, "enable", lambda: calls.append("on") or (True, ""))
     monkeypatch.setattr(startup_module.autostart, "disable", lambda: calls.append("off") or (False, "denied"))
-    divider, stream, sign_in = plugin.create_menu_actions()
+    divider, stream, sign_in, watch = plugin.create_menu_actions()
     assert divider.isSeparator()
-    assert not stream.isChecked() and not sign_in.isChecked()
+    assert not stream.isChecked() and not sign_in.isChecked() and not watch.isChecked()
+    watch.setChecked(True)
+    assert plugin.watch_stream is True and host.keep is True
     stream.setChecked(True)
     assert plugin.auto_stream is True
     sign_in.setChecked(True)
     sign_in.setChecked(False)
     assert calls == ["on", "off"]
     assert host.issues["startup"].title == "denied"
+
+
+# ── Streaming while an app uses the camera ─────────────────────────────────────
+
+@pytest.fixture
+def watching(env):
+    plugin, host, bus = env
+    plugin.set_watch_stream(True)
+    bus.phone_ready.emit("p1", True)
+    return plugin, host, bus
+
+
+def _stream_runs(host, bus):
+    host.streaming = True
+    bus.stream_started.emit("url")
+
+
+def _stream_ends(host, bus):
+    host.streaming = False
+    bus.stream_stopped.emit()
+
+
+def test_watching_is_off_by_default(env):
+    plugin, host, bus = env
+    bus.phone_ready.emit("p1", True)
+    bus.camera_watched.emit(True)
+    assert host.starts == []
+
+
+def test_starts_when_an_app_reads_the_camera_and_stops_after_it_lets_go(watching):
+    plugin, host, bus = watching
+    assert host.starts == []
+    bus.camera_watched.emit(True)
+    assert host.starts == [False]
+    _stream_runs(host, bus)
+    bus.camera_watched.emit(False)
+    assert plugin._watch_stop.isActive() and host.stops == 0  # not straight away
+    plugin._watch_stop.timeout.emit()
+    assert host.stops == 1
+
+
+def test_an_app_coming_back_in_time_keeps_the_stream(watching):
+    plugin, host, bus = watching
+    bus.camera_watched.emit(True)
+    _stream_runs(host, bus)
+    bus.camera_watched.emit(False)
+    bus.camera_watched.emit(True)
+    assert not plugin._watch_stop.isActive()
+    assert host.starts == [False]
+
+
+def test_waits_for_the_phone_when_an_app_reads_first(env):
+    plugin, host, bus = env
+    plugin.set_watch_stream(True)
+    bus.camera_watched.emit(True)
+    assert host.starts == []
+    bus.phone_ready.emit("p1", True)
+    bus.phone_ready.emit("p1", True)  # every idle check; a failed start isn't retried
+    assert host.starts == [False]
+
+
+def test_never_stops_a_stream_it_did_not_start(watching):
+    plugin, host, bus = watching
+    _stream_runs(host, bus)   # the user pressed Start
+    bus.camera_watched.emit(True)
+    bus.camera_watched.emit(False)
+    assert not plugin._watch_stop.isActive()
+    assert host.starts == [] and host.stops == 0
+
+
+def test_a_start_already_waking_is_not_claimed(watching):
+    plugin, host, bus = watching
+    host.starting = True      # the user pressed Start and the phone is waking
+    bus.camera_watched.emit(True)
+    host.starting = False
+    _stream_runs(host, bus)
+    bus.camera_watched.emit(False)
+    assert host.starts == [] and not plugin._watch_stop.isActive()
+
+
+def test_stop_sticks_until_the_app_lets_go(watching):
+    plugin, host, bus = watching
+    bus.camera_watched.emit(True)
+    _stream_runs(host, bus)
+    _stream_ends(host, bus)   # the user pressed Stop mid-call
+    bus.phone_ready.emit("p1", True)
+    assert host.starts == [False]
+    bus.camera_watched.emit(False)
+    bus.camera_watched.emit(True)  # a new call
+    assert host.starts == [False, False]
+
+
+def test_an_app_leaving_while_the_phone_wakes_still_stops_it(watching):
+    plugin, host, bus = watching
+    bus.camera_watched.emit(True)
+    bus.camera_watched.emit(False)  # left before the stream got going
+    assert plugin._watch_stop.isActive()
+    plugin._watch_stop.timeout.emit()
+    assert host.stops == 1
+
+
+def test_switching_it_off_hands_the_stream_to_the_user(watching):
+    plugin, host, bus = watching
+    bus.camera_watched.emit(True)
+    _stream_runs(host, bus)
+    plugin.set_watch_stream(False)
+    bus.camera_watched.emit(False)
+    assert not plugin._watch_stop.isActive() and host.stops == 0
 
 
 # ── platform/autostart.py ─────────────────────────────────────────────────────
