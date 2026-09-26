@@ -3,6 +3,8 @@ import numpy as np
 import pytest
 
 from telescope.plugin import EventBus
+import telescope.plugins.transforms as transforms_mod
+from telescope.theme import ACCENT, ERR
 from telescope.plugins.transforms import (
     ROTATIONS,
     TransformsPlugin,
@@ -185,7 +187,9 @@ def test_a_picked_point_goes_out_in_phone_frame_coordinates(transforms_plugin):
 
 # ── Splitting zoom between the phone and this computer ───────────────────────
 
-from telescope.plugins.transforms import PhoneZoom, PhoneZoomCaps, lens_note, split_zoom  # noqa: E402
+from telescope.plugins.transforms import (  # noqa: E402
+    PhoneZoom, PhoneZoomCaps, lens_note, lens_step, split_zoom,
+)
 
 _TELE = PhoneZoomCaps(ratio_max=10.0, crop_max=4.0, freeform=True, lens_zooms=(3.7,))
 _CENTRE_ONLY = PhoneZoomCaps(ratio_max=10.0, crop_max=4.0, freeform=False, lens_zooms=(3.7,))
@@ -341,20 +345,42 @@ def test_a_picked_point_only_undoes_the_desktop_share_of_the_zoom(transforms_plu
 
 
 def test_lens_note_says_nothing_on_the_default_camera():
-    assert lens_note(2.0, 1.0, _TELE, "~24mm OIS", "~24mm OIS", "") == ""
-    assert lens_note(3.0, 1.0, None, "", "", "") == ""
+    assert lens_note(2.0, 1.0, _TELE, "~24mm OIS", "~24mm OIS", "") == ("", "")
+    assert lens_note(3.0, 1.0, None, "", "", "") == ("", "")
 
 
 def test_lens_note_says_when_the_phone_switched():
-    note = lens_note(4.0, 3.7, _TELE, "Tele ~85mm", "~24mm OIS", "Tele ~85mm")
+    level, note = lens_note(4.0, 3.7, _TELE, "Tele ~85mm", "~24mm OIS", "Tele ~85mm")
+    assert level == "on"
     assert note.startswith("Switched to Tele ~85mm")
     assert "let it settle" in note
 
 
 def test_lens_note_says_when_panning_fell_back_to_the_main_camera():
-    note = lens_note(4.0, 1.0, _TELE, "~24mm OIS", "~24mm OIS", "Tele ~85mm")
+    level, note = lens_note(4.0, 1.0, _TELE, "~24mm OIS", "~24mm OIS", "Tele ~85mm")
+    assert level == "off"
     assert "Panned past what Tele ~85mm can see, so it's using ~24mm OIS for now" in note
-    assert "the telephoto can see" in lens_note(4.0, 1.0, _TELE, "", "", "")
+    assert "the telephoto can see" in lens_note(4.0, 1.0, _TELE, "", "", "")[1]
+
+
+def test_lens_note_says_when_the_phone_stayed_on_the_main_camera_by_itself():
+    level, note = lens_note(4.0, 3.7, _TELE, "~24mm OIS", "~24mm OIS", "Tele ~85mm")
+    assert level == "off"
+    assert "The phone stayed on ~24mm OIS by itself" in note
+    # not while a switch may still be under way, nor when the phone doesn't say which lens it's on
+    assert lens_note(4.0, 3.7, _TELE, "~24mm OIS", "~24mm OIS", "", settled=False) == ("", "")
+    assert lens_note(4.0, 3.7, _TELE, "", "", "") == ("", "")
+
+
+def test_red_wins_when_the_phone_is_off_the_lens_after_switching():
+    level, _note = lens_note(4.0, 1.0, _TELE, "Tele ~85mm", "~24mm OIS", "Tele ~85mm")
+    assert level == "off"  # still on the tele, but the pan already asked for the main camera
+
+
+def test_a_lens_step_never_lands_under_the_lens():
+    assert lens_step(3.0) == 300
+    assert lens_step(3.004) == 301
+    assert lens_step(3.7) == 370
 
 
 def _lens_state(active):
@@ -373,13 +399,54 @@ def test_the_lens_dot_shows_only_when_the_phone_switched_or_fell_back(transforms
     plugin._zoom_slider.setValue(400)
     plugin.on_phone_state(_lens_state("4"))
     assert not plugin._lens_dot.isHidden()
+    assert plugin._lens_dot._color.name() == ACCENT
     assert plugin._lens_dot.toolTip().startswith("Switched to Tele ~85mm OIS")
     plugin._pan_x_slider._slider.setValue(plugin._pan_x_slider._slider.maximum())
     plugin.on_phone_state(_lens_state("2"))
     assert "Panned past what Tele ~85mm OIS can see" in plugin._lens_dot.toolTip()
+    assert plugin._lens_dot._color.name() == ERR
     plugin._zoom_slider.setValue(200)
     assert plugin._lens_dot.isHidden()
-    assert plugin._zoom_slider.toolTip() == "Zoomed on the phone's sensor"
+    assert plugin._zoom_slider.toolTip().startswith("Zoomed on the phone's sensor\nDots mark")
+
+
+def test_the_dot_goes_red_once_the_phone_had_time_to_switch_and_didnt(transforms_plugin, monkeypatch):
+    plugin, _host, _panel = transforms_plugin
+    now = [100.0]
+    monkeypatch.setattr(transforms_mod.time, "monotonic", lambda: now[0])
+    plugin.on_stream_start("http://phone/v1/video", _Ctrl())
+    plugin.on_phone_state(_lens_state("2"))
+    plugin._zoom_slider.setValue(400)
+    plugin.on_phone_state(_lens_state("2"))
+    assert plugin._lens_dot.isHidden()  # just asked: give it a moment
+    now[0] += 3.0
+    plugin._settle_timer.timeout.emit()
+    assert not plugin._lens_dot.isHidden()
+    assert "stayed on ~24mm OIS by itself" in plugin._lens_dot.toolTip()
+
+
+def test_the_zoom_slider_marks_each_lens(transforms_plugin):
+    plugin, _host, _panel = transforms_plugin
+    plugin.on_stream_start("http://phone/v1/video", _Ctrl())
+    plugin.on_phone_state(_lens_state("2"))
+    assert plugin._zoom_slider.marks() == [370]
+    plugin.on_stream_stop()
+    assert plugin._zoom_slider.marks() == []
+
+
+def test_dragging_the_zoom_sticks_to_a_lens_but_keys_dont(transforms_plugin):
+    plugin, _host, _panel = transforms_plugin
+    plugin.on_stream_start("http://phone/v1/video", _Ctrl())
+    plugin.on_phone_state(_lens_state("2"))
+    slider = plugin._zoom_slider
+    slider.setValue(362)
+    assert plugin.zoom == 3.62  # not dragging
+    slider.setSliderDown(True)
+    slider.setValue(363)
+    assert slider.value() == 370 and plugin.zoom == 3.7
+    slider.setValue(381)
+    assert slider.value() == 381  # far enough to leave it
+    slider.setSliderDown(False)
 
 
 def test_the_zoom_slider_follows_max_zoom(transforms_plugin):
