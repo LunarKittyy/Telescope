@@ -2,8 +2,11 @@
 
 import platform
 import shutil
+import socket
 import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -18,11 +21,78 @@ NO_WINDOW = {"creationflags": subprocess.CREATE_NO_WINDOW} if IS_WINDOWS else {}
 def _run(cmd, timeout=10):
     if cmd[0] is None:  # adb_exe() found nothing; subprocess would raise TypeError, not FileNotFoundError.
         return -1, "", "adb not found"
+    if Path(cmd[0]).stem.lower() == "adb":
+        ensure_adb_server()
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, **NO_WINDOW)
         return r.returncode, r.stdout, r.stderr
     except FileNotFoundError:         return -1, "", f"Not found: {cmd[0]}"
     except subprocess.TimeoutExpired: return -2, "", "Timed out"
+
+
+# ── adb's server ──────────────────────────────────────────────────────────────
+# adb's first command starts a background server that outlives whoever ran it. On Windows a running adb.exe
+# locks its folder, so Telescope couldn't be deleted or fully updated after quitting. So on Windows Telescope
+# starts the server itself, as its own child in a job that dies with it (winjob.py). A server another program
+# already runs is left alone and simply used.
+ADB_PORT = 5037
+OWN_ADB_SERVER = IS_WINDOWS
+_adb_server: Optional[subprocess.Popen] = None
+_adb_server_lock = threading.Lock()
+
+
+def adb_server_running(port: int = ADB_PORT) -> bool:
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=0.3):
+            return True
+    except OSError:
+        return False
+
+
+def _tie_to_telescope(proc) -> None:
+    from telescope.platform.winjob import kill_with_us
+    kill_with_us(proc)
+
+
+def ensure_adb_server(running=adb_server_running, popen=subprocess.Popen, tie=_tie_to_telescope,
+                      sleep=time.sleep) -> None:
+    """Windows: start adb's server as Telescope's child unless one is already up."""
+    global _adb_server
+    if not OWN_ADB_SERVER:
+        return
+    with _adb_server_lock:
+        if _adb_server is not None and _adb_server.poll() is None:
+            return
+        _adb_server = None
+        exe = adb_exe()
+        if exe is None or running():
+            return
+        try:
+            # "nodaemon" keeps the server in this process instead of the detached copy adb forks by default.
+            proc = popen([exe, "nodaemon", "server"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, **NO_WINDOW)
+        except OSError:
+            return
+        tie(proc)
+        _adb_server = proc
+        for _ in range(30):  # it listens within a second or so; the adb command after this would start its own
+            if running() or proc.poll() is not None:
+                return
+            sleep(0.1)
+
+
+def stop_adb_server() -> None:
+    """Stop the server Telescope started (at quit, and before an update replaces platform-tools)."""
+    global _adb_server
+    with _adb_server_lock:
+        proc, _adb_server = _adb_server, None
+    if proc is None or proc.poll() is not None:
+        return
+    proc.terminate()
+    try:
+        proc.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        proc.kill()
 
 
 def platform_tools_dir() -> Path:
