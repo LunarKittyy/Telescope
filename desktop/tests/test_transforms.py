@@ -437,15 +437,24 @@ def test_the_zoom_slider_marks_each_lens(transforms_plugin):
 
 def _drag_slider(slider, *values):
     """Press the handle and drag it with the mouse to where each value sits; the values it passed through."""
-    from PyQt6.QtCore import QPoint
-    from PyQt6.QtTest import QTest
-    y = slider.height() // 2
+    # Sends the events straight to the slider: QTest.mouseMove can go through the real cursor on Windows.
+    from PyQt6.QtCore import QEvent, QPointF
+    from PyQt6.QtGui import QMouseEvent
+    from PyQt6.QtWidgets import QApplication
+    left, none = Qt.MouseButton.LeftButton, Qt.MouseButton.NoButton
+    y = slider.height() / 2
+
+    def send(kind, value, button, buttons):
+        pos = QPointF(round(slider.mark_x(value)), y)
+        QApplication.sendEvent(slider, QMouseEvent(kind, pos, slider.mapToGlobal(pos), button, buttons,
+                                                   Qt.KeyboardModifier.NoModifier))
+
     seen = []
     slider.valueChanged.connect(seen.append)
-    QTest.mousePress(slider, Qt.MouseButton.LeftButton, pos=QPoint(round(slider.mark_x(slider.value())), y))
+    send(QEvent.Type.MouseButtonPress, slider.value(), left, left)
     for v in values:
-        QTest.mouseMove(slider, QPoint(round(slider.mark_x(v)), y))
-    QTest.mouseRelease(slider, Qt.MouseButton.LeftButton, pos=QPoint(round(slider.mark_x(values[-1])), y))
+        send(QEvent.Type.MouseMove, v, none, left)
+    send(QEvent.Type.MouseButtonRelease, values[-1], left, none)
     slider.valueChanged.disconnect()
     return seen
 
