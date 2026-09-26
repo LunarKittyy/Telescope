@@ -461,7 +461,9 @@ def test_dragging_the_zoom_sticks_to_a_lens_but_keys_dont(transforms_plugin):
     near = 370 - int(3 / step_px)  # 3 px short of the mark
     _drag_slider(slider, near)
     assert slider.value() == 370 and plugin.zoom == 3.7
-    far = 370 - int(12 / step_px) - 1
+    from telescope.widgets.common import ui_px
+    reach = ui_px(slider.SNAP_PX)  # scales with the font, so wider on some platforms
+    far = 370 - int((reach + 4) / step_px) - 1
     _drag_slider(slider, far)
     assert slider.value() != 370  # far enough to leave it
     slider.setValue(370)
