@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 from PyQt6.QtCore import Qt, QEvent, QObject, QPoint, QRectF, QSize, QTimer, QVariantAnimation, pyqtSignal
-from PyQt6.QtGui import QColor, QFont, QFontMetricsF, QImage, QPainter, QPen, QPixmap
+from PyQt6.QtGui import QColor, QFont, QFontMetricsF, QIcon, QImage, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget,
 )
@@ -323,16 +323,25 @@ class PreviewPlugin(TelescopePlugin):
 
         tb_lay.addStretch()
 
-        self._lenses_btn = QPushButton("  Lenses")
-        self._lenses_btn.setMinimumWidth(ui_px(92))
+        # Icon only, at a fixed width: the stage is the narrowest column, and no style may widen it.
+        self._lenses_btn = QPushButton()
+        self._lenses_btn.setFixedWidth(ui_px(36))
+        self._lenses_btn.setAccessibleName("Lens outlines")
         set_ui_role(self._lenses_btn, "quiet")
-        self._lenses_btn.setIcon(create_vector_icon("lenses", theme.TEXT_DIM))
-        self._lenses_btn.setIconSize(QSize(14, 14))
+        # With no text, the icon alone has to show whether it's on, off or unavailable.
+        icon = QIcon()
+        for color, mode, state in ((theme.TEXT_DIM, QIcon.Mode.Normal, QIcon.State.Off),
+                                   (theme.ACCENT_SOFT, QIcon.Mode.Normal, QIcon.State.On),
+                                   (theme.TEXT_DISABLED, QIcon.Mode.Disabled, QIcon.State.Off),
+                                   (theme.TEXT_DISABLED, QIcon.Mode.Disabled, QIcon.State.On)):
+            icon.addPixmap(create_vector_icon("lenses", color).pixmap(QSize(32, 32)), mode, state)
+        self._lenses_btn.setIcon(icon)
+        self._lenses_btn.setIconSize(QSize(16, 16))
         self._lenses_btn.setCheckable(True)
         self._lenses_btn.setEnabled(False)
         self._lenses_btn.setToolTip(
-            "Keep showing what each of the phone's longer lenses sees. They also show for a moment "
-            "whenever you zoom or pan. Only here, never in the camera output."
+            "Lens outlines: keep showing what each of the phone's longer lenses sees. They also show "
+            "for a moment whenever you zoom or pan. Only here, never in the camera output."
         )
         self._lenses_btn.toggled.connect(self._push_boxes)
         tb_lay.addWidget(self._lenses_btn)

@@ -324,6 +324,8 @@ def test_lens_boxes_show_for_a_moment_after_a_move_then_fade(qapp):
 
     plugin._bus.lens_boxes.emit([], False)
     assert not plugin._lenses_btn.isEnabled()
+    # icon only at a fixed width: whatever the style, it can't widen the stage (the narrowest column)
+    assert plugin._lenses_btn.minimumWidth() == plugin._lenses_btn.maximumWidth()
 
 
 def test_the_popout_pans_zooms_and_shows_boxes_too(qapp):

@@ -258,12 +258,12 @@ UnityCapture helpers: `uc_registered_name()` (the name apps list it under, read 
 
 ### `plugins/preview.py`
 **PreviewPlugin** - the centre video stage and its pop-out. `panel_region = "center"`.
-- UI: letterboxed frame and a toolbar with Hide/Show toggle, Lenses (keep the lens boxes on; enabled only while the camera has longer lenses) and Pop out.
+- UI: letterboxed frame and a toolbar with Hide/Show toggle, an icon-only lens outline toggle (fixed width, so the stage stays narrow; keeps the lens boxes on; enabled only while the camera has longer lenses) and Pop out.
 - Active by default - it's the centre of the window, not an opt-in card. The toggle remains as an escape hatch for anyone who'd rather not spend the decode.
 - `process_frame(frame)` - runs on stream-reader thread; records pre-downscale size, downscales to `_CARD_MAX_W` for in-window (full res for pop-out), emits cross-thread Qt signal, returns frame unmodified (preview-only).
 - Pop-out window auto-hides the in-card preview when opened. While the main window is hidden (tray) the card stops decoding without changing its Hide/Show setting.
 - `FrameLabel` (card and pop-out): knows where the letterboxed frame sits (`frame_rect`), so a click becomes a point in it (bars ignored). With `bus.focus_point_available` it shows a crosshair, draws a square for a second where you clicked, and emits `bus.focus_point_picked` on release. When pannable (open-hand cursor) a press that moves more than a few px is a drag instead: `dragged(du, dv)` in fractions of the frame. The wheel emits `scrolled(1.1^notches, u, v)`. `paintEvent` draws the lens boxes over the frame, edges on whole pixels, white over a dark halo, labelled in the corner that's in view (skipped for a box around the whole frame, label skipped on a sliver).
-- Lens boxes: every `lens_boxes(..., moved=True)` shows them at full opacity, holds `_BOXES_HOLD_MS`, then fades over `_BOXES_FADE_MS`; the Lenses button keeps them at full.
+- Lens boxes: every `lens_boxes(..., moved=True)` shows them at full opacity, holds `_BOXES_HOLD_MS`, then fades over `_BOXES_FADE_MS`; the lens outline toggle keeps them at full.
 - Hides the whole stage while `bus.setup_needed` is true, giving the column to the first-run checklist.
 - Config keys: `lens_boxes` (the Lenses button). Preview visibility isn't persisted across restarts.
 
