@@ -31,7 +31,7 @@ from telescope.phones import (
 )
 from telescope.platform import (
     IS_LINUX, adb_available, adb_broadcast_pair, adb_device_states, adb_forward_auto, adb_install,
-    adb_reverse, adb_unforward, adb_unreverse, bundled_apk_path,
+    adb_reverse, adb_unforward, adb_unreverse, bundled_apk_path, stop_adb_server,
 )
 from telescope.platform.linux import (
     CANCELLED, V4L2_PHONE_DEV, v4l2_devices_ready, v4l2_module_loaded, v4l2_setup,
@@ -1150,3 +1150,4 @@ class ConnectionPlugin(TelescopePlugin):
 
     def shutdown(self):
         self._discovery.stop()
+        stop_adb_server()

@@ -20,6 +20,7 @@ from PyQt6.QtGui import QAction, QDesktopServices
 from PyQt6.QtWidgets import QCheckBox, QDialog, QPushButton, QWidget
 
 from telescope import updates, version
+from telescope.platform import stop_adb_server
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
     NoScrollComboBox, add_card_header, button_row, card_action, card_layout, control_row,
@@ -316,6 +317,7 @@ class UpdatesPlugin(TelescopePlugin):
                     asset, Path(tempfile.gettempdir()) / "telescope-update",
                     progress=lambda d, t: signals.progress.emit(d, t), cancelled=cancel.is_set)
                 signals.progress.emit(-1, -1)  # downloaded: now installing
+                stop_adb_server()  # a running adb.exe would keep platform-tools on its old version
                 result, error = updates.install(archive), ""
                 archive.unlink(missing_ok=True)
             except updates.UpdateError as exc:
