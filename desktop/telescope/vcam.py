@@ -26,7 +26,7 @@ V4L2_PHONE_DEV   = "/dev/video11"
 V4L2_PHONE_LABEL = "Phone Camera"  # its card_label, which is how other apps list it
 UC_NAME          = "Telescope"     # the name UnityCapture is registered under (platform/windows.py)
 
-DEFAULT_SIZE   = (1280, 720)   # before any stream has said how big the camera is
+DEFAULT_SIZE   = (1920, 1080)  # before any stream has said how big the camera is (most phones stream 1080p)
 IDLE_PERIOD    = 1.0           # seconds between wait-screen frames while nobody is reading
 STILL_PERIOD   = 0.2           # a still image while someone reads: enough to look alive, near-free to send
 MIN_GIF_PERIOD = 1 / 15        # fastest an animation plays
@@ -48,6 +48,23 @@ def open_camera(width: int, height: int, fps: float, fmt=pyvirtualcam.PixelForma
     except RuntimeError:
         # Registered before it was named Telescope ("Unity Video Capture"): any free one will do.
         return open_(None)
+
+
+def locked_size() -> Optional[tuple]:
+    """Linux: the size the camera is stuck at while an app still reads it, else None.
+
+    v4l2loopback keeps its format while any reader holds buffers, and silently ignores a new writer asking for another
+    size, so whoever opens the camera next has to use this size or the reader sees garbage.
+    """
+    if not IS_LINUX:
+        return None
+    try:
+        with open(f"/sys/class/video4linux/{os.path.basename(V4L2_PHONE_DEV)}/format") as f:
+            fmt = f.read().strip()  # "YU12:1280x720@30", or empty once nothing holds the device
+        w, h = fmt.split(":", 1)[1].split("@", 1)[0].split("x")
+        return int(w), int(h)
+    except (OSError, IndexError, ValueError):
+        return None
 
 
 # ── Letting go for a driver reload (modprobe -r fails while anything holds the device) ──
@@ -297,10 +314,12 @@ class WaitScreen(_Held):
     they're prepared in the camera's own format (I420), so a send is a plain write with no conversion.
     """
 
-    def __init__(self, open_camera: Callable = open_camera, loader: Callable = load_frames):
+    def __init__(self, open_camera: Callable = open_camera, loader: Callable = load_frames,
+                 locked: Callable = locked_size):
         super().__init__()
         self._open_camera = open_camera
         self._loader = loader
+        self._locked = locked
         self._size = DEFAULT_SIZE
         self._path: Optional[str] = None
         self._watched = False
@@ -333,16 +352,20 @@ class WaitScreen(_Held):
         return pyvirtualcam.PixelFormat.RGB, self._loader(self._path, width, height)
 
     def _target(self, stop: threading.Event):
-        width, height = self._size
-        try:
-            fmt, frames = self._prepare(width, height)
-        except Exception:
-            logger.exception("Preparing the wait screen failed")
-            return
+        prepared = None
         complained = False
         while not stop.is_set():
+            # An app still reading what the stream sent keeps the camera at that size, so show the screen at it.
+            size = self._locked() or self._size
+            if prepared is None or prepared[0] != size:
+                try:
+                    prepared = (size, *self._prepare(*size))
+                except Exception:
+                    logger.exception("Preparing the wait screen failed")
+                    return
+            _, fmt, frames = prepared
             try:
-                cam = self._open_camera(width, height, 30, fmt)
+                cam = self._open_camera(*size, 30, fmt)
             except Exception as exc:
                 if not complained:
                     logger.info("Wait screen can't open the virtual camera yet: %s", exc)

@@ -36,3 +36,10 @@ def qapp():
     from PyQt6.QtWidgets import QApplication
     app = QApplication.instance() or QApplication([])
     yield app
+
+
+@pytest.fixture(autouse=True)
+def _no_locked_camera(monkeypatch):
+    """Whatever the real virtual camera is doing on this machine stays out of the tests."""
+    import telescope.vcam as vcam
+    monkeypatch.setattr(vcam, "locked_size", lambda: None)

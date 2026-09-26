@@ -12,6 +12,8 @@ import pytest
 
 import telescope.vcam as vcam
 
+_locked_size = vcam.locked_size  # conftest stubs it out for every test
+
 # 8x4, three frames: red 100 ms, blue 300 ms, green 50 ms.
 _GIF = base64.b64decode(
     "R0lGODlhCAAEAIEAAP8AAAAAAAAAAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh+QQACgAAACwAAAAACAAEAAAIDAABCBxIsKDBgwQDAgAh+QQBHgABA"
@@ -89,7 +91,7 @@ class _Camera:
         self.sent.append(frame)
 
 
-def _screen(loader=None, fail=0):
+def _screen(loader=None, fail=0, locked=lambda: None):
     cams, attempts = [], []
 
     def open_camera(w, h, fps, fmt):
@@ -99,7 +101,7 @@ def _screen(loader=None, fail=0):
         return _Camera(cams, w, h, fps, fmt)
     loader = loader or (lambda path, w, h, convert=None: [((convert or (lambda f: f))(
         np.zeros((h, w, 3), np.uint8)), vcam.STILL_PERIOD)])
-    return vcam.WaitScreen(open_camera=open_camera, loader=loader), cams, attempts
+    return vcam.WaitScreen(open_camera=open_camera, loader=loader, locked=locked), cams, attempts
 
 
 def test_holds_the_camera_until_stopped(qapp):
@@ -109,6 +111,35 @@ def test_holds_the_camera_until_stopped(qapp):
     assert cams[0].size == (64, 36) and screen.running
     screen.stop()
     assert cams[0].closed and not screen.running
+
+
+def test_opens_at_the_size_a_reader_holds_the_camera_at(qapp):
+    locked = [(640, 480)]
+    screen, cams, _ = _screen(locked=lambda: locked[0])
+    screen.show((64, 36), None)
+    _wait_for(lambda: cams and cams[0].sent)
+    screen.stop()
+    assert cams[0].size == (640, 480) and cams[0].sent[0].shape[1] == 640
+
+
+@pytest.mark.parametrize("text, size", [
+    ("YU12:1280x720@30\n", (1280, 720)),
+    ("", None),
+    ("garbage", None),
+])
+def test_locked_size_reads_the_drivers_format(monkeypatch, tmp_path, text, size):
+    monkeypatch.setattr(vcam, "IS_LINUX", True)
+    fmt = tmp_path / "format"
+    fmt.write_text(text)
+    real_open = open
+    monkeypatch.setattr("builtins.open", lambda path, *a, **k: real_open(
+        fmt if str(path).startswith("/sys/class/video4linux/") else path, *a, **k))
+    assert _locked_size() == size
+
+
+def test_locked_size_is_linux_only(monkeypatch):
+    monkeypatch.setattr(vcam, "IS_LINUX", False)
+    assert _locked_size() is None
 
 
 def test_linux_sends_the_cameras_own_format_prepared_once(qapp, monkeypatch):

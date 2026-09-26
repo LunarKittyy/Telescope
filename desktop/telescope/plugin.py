@@ -47,6 +47,10 @@ class HostServices(Protocol):
         """Whether a start is still waking the phone (is_streaming() turns true once it's through)."""
         ...
 
+    def is_restarting(self) -> bool:
+        """Whether the stream stopping now starts again right after (a reconnect or virtual camera resize)."""
+        ...
+
     def stop_stream(self) -> None:
         """Stop the active stream. A no-op if nothing is streaming."""
         ...

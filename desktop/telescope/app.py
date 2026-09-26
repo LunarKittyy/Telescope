@@ -125,6 +125,7 @@ class TelescopeWindow(QMainWindow):
         # Generation counter for phone-wake; guards against stale async results.
         self._wake_id = 0
         self._waking = False
+        self._restarting = False  # stopping only to start again (reconnect, virtual camera resize)
         # A dropped stream looking for its way back; the generation drops probes from an earlier drop.
         self._recovering = False
         self._recovery_gen = 0
@@ -483,8 +484,19 @@ class TelescopeWindow(QMainWindow):
         """Restart stream to pick up changed connection settings."""
         if self._worker is None:
             return
-        self._stop(remote_stop=False)
+        self._stop_for_restart()
         self._start()
+
+    def _stop_for_restart(self):
+        """Stop a stream that starts again right after; stream_stopped handlers can tell with is_restarting()."""
+        self._restarting = True
+        try:
+            self._stop(remote_stop=False)
+        finally:
+            self._restarting = False
+
+    def is_restarting(self) -> bool:
+        return self._restarting
 
     def is_streaming(self) -> bool:
         """Whether a stream worker is currently active."""
@@ -775,7 +787,10 @@ class TelescopeWindow(QMainWindow):
         was_streaming = self._worker is not None
         old_worker = self._worker  # capture before _stop() clears it
         # Desktop-side driver reload only - the phone keeps streaming through it.
-        self._stop(remote_stop=False)
+        if was_streaming:
+            self._stop_for_restart()
+        else:
+            self._stop(remote_stop=False)
 
         if IS_LINUX:
             self._set_status("Reloading v4l2loopback…", "dim")
