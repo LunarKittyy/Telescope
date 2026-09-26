@@ -7,6 +7,7 @@ checkout, a read-only folder) gets a link to the release page instead.
 """
 
 import logging
+import os
 import subprocess
 import sys
 import tempfile
@@ -350,13 +351,17 @@ class UpdatesPlugin(TelescopePlugin):
         self._host.quit_app()
 
     @staticmethod
-    def _relaunch(argv: list):
-        kwargs = {"close_fds": True}
+    def _relaunch(argv: list, popen=subprocess.Popen):
+        # The packaged app unpacks itself into a temp folder and passes it to child copies of itself, so the
+        # relaunched app would run from ours, which is deleted as we exit ("Failed to remove temporary
+        # directory", then a half-working app). This makes it unpack its own.
+        env = dict(os.environ, PYINSTALLER_RESET_ENVIRONMENT="1")
+        kwargs = {"close_fds": True, "env": env}
         if sys.platform == "win32":
             kwargs["creationflags"] = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
         else:
             kwargs["start_new_session"] = True
-        subprocess.Popen(argv, **kwargs)
+        popen(argv, **kwargs)
 
     def shutdown(self):
         self._cancel.set()
