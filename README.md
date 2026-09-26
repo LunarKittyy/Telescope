@@ -149,6 +149,7 @@ Everything past this point is optional - detailed feature reference, how it work
 - **Start streaming when the phone is ready** (settings menu): starts by itself each time the phone becomes reachable. After you press Stop it stays stopped until the phone goes away and comes back. It never asks for a password on its own; if the Linux virtual camera is off, a banner offers to switch it on
 - **Stream only while an app is using the camera** (settings menu, off by default): starts when a call or OBS starts reading the camera, and stops 15 seconds after the last one lets go, so the phone isn't streaming for nothing. Only stops streams it started itself
 - **Wait screen…** (settings menu): what apps see on the camera while the phone isn't streaming, instead of the driver's own "no signal" picture. The default screen, or an image or GIF of your own
+- On Linux, Telescope adds itself to the app menu on first launch (`~/.local/share/applications/telescope.desktop`), and fixes the entry up if you move the folder
 - **Open Telescope when I sign in** (settings menu): an autostart entry (`~/.config/autostart/telescope.desktop` on Linux, the per-user Run key on Windows) that starts it in the tray with `--minimized`
 - Minimizes to system tray on close while streaming, or while waiting to start by itself; otherwise quits
 - Right-click the tray icon to quit, or click it to show/hide the window

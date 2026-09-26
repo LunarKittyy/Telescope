@@ -30,6 +30,7 @@ from telescope import diagnostics
 from telescope.app import (
     TelescopeWindow, acquire_single_instance, listen_for_raise,
 )
+from telescope.platform import IS_LINUX, autostart
 from telescope.plugins.camera_control import CameraControlPlugin
 from telescope.plugins.connection import ConnectionPlugin
 from telescope.plugins.microphone import MicrophonePlugin
@@ -65,6 +66,9 @@ def main():
     app = QApplication([sys.argv[0]] + qt_argv)
     # Set at QApplication level so dialogs and window share icon.
     app.setWindowIcon(create_app_icon(64))
+    app.setDesktopFileName(autostart.APP_ID)  # docks match the window to the menu entry and its icon
+    if IS_LINUX and not autostart.is_dev_checkout():
+        autostart.update_menu_entry(lambda path: create_app_icon(256).pixmap(256, 256).save(str(path), "PNG"))
 
     srv = acquire_single_instance(wait=15 if args.after_update else 0)
     if srv is None:

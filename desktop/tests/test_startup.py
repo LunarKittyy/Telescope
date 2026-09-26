@@ -268,6 +268,39 @@ def test_launch_command_prefers_start_sh_on_linux(monkeypatch, tmp_path):
     assert autostart.launch_command(tmp_path) == [str(Path(sys.executable).resolve()), "--minimized"]
 
 
+def test_menu_entry_follows_this_copy_and_only_writes_on_change(tmp_path):
+    icons = []
+    save_icon = lambda path: icons.append(path) or path.write_bytes(b"png")  # noqa: E731
+    command = ["/home/luna/My Apps/Telescope/start.sh"]
+    assert autostart.update_menu_entry(save_icon, command, tmp_path) is True
+    text = (tmp_path / "applications" / "telescope.desktop").read_text()
+    assert 'Exec="/home/luna/My Apps/Telescope/start.sh"\n' in text
+    assert "Icon=telescope\n" in text and "Categories=" in text and "Autostart" not in text
+    assert icons == [tmp_path / "icons" / "hicolor" / "256x256" / "apps" / "telescope.png"]
+
+    assert autostart.update_menu_entry(save_icon, command, tmp_path) is False  # nothing changed
+    assert autostart.update_menu_entry(save_icon, ["/elsewhere/start.sh"], tmp_path) is True  # the folder moved
+    assert "Exec=/elsewhere/start.sh\n" in (tmp_path / "applications" / "telescope.desktop").read_text()
+    assert len(icons) == 1
+
+
+def test_menu_entry_opens_the_window_and_skips_dev_checkouts(monkeypatch, tmp_path):
+    monkeypatch.setattr(autostart, "IS_WINDOWS", False)
+    monkeypatch.delattr(sys, "frozen", raising=False)
+    (tmp_path / "start.sh").write_text("#!/bin/sh\n")
+    assert autostart.launch_command(tmp_path, minimized=False) == [str(tmp_path / "start.sh")]
+    app = tmp_path / "desktop"
+    app.mkdir()
+    assert not autostart.is_dev_checkout(app)
+    (tmp_path / ".git").mkdir()
+    assert autostart.is_dev_checkout(app)
+
+
+def test_menu_entry_trouble_is_not_fatal(tmp_path):
+    (tmp_path / "applications").write_text("a file where the folder should be")
+    assert autostart.update_menu_entry(lambda p: True, ["/x/start.sh"], tmp_path) is False
+
+
 def test_windows_run_key_round_trip(monkeypatch):
     monkeypatch.setattr(autostart, "IS_WINDOWS", True)
     values = {}
