@@ -473,8 +473,9 @@ def test_dragging_the_zoom_sticks_to_a_lens_but_keys_dont(transforms_plugin):
     from telescope.widgets.common import ui_px
     reach = ui_px(slider.SNAP_PX)  # scales with the font, so wider on some platforms
     far = 370 - int((reach + 4) / step_px) - 1
-    _drag_slider(slider, far)
-    assert slider.value() != 370  # far enough to leave it
+    seen = _drag_slider(slider, far)
+    assert slider.value() != 370, (seen, far, reach, step_px, slider.width(), slider.mark_x(far), slider.mark_x(370),
+                                   slider.style().objectName(), slider.minimum(), slider.maximum())
     slider.setValue(370)
     slider.setFocus()
     from PyQt6.QtTest import QTest
