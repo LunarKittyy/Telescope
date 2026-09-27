@@ -436,8 +436,6 @@ class CameraStreamService : Service() {
     fun getCameras(): List<CameraEntry> = allCameras
     fun getCurrentCameraId(): String? = controller?.getCurrentCameraId()
 
-    // Live camera/OIS/resolution state for MainActivity spinners to stay in sync
-    fun getControlSnapshot(): CameraControlSnapshot? = controller?.snapshot()
     fun getStreamSize(): android.util.Size =
         controller?.getStreamSize() ?: android.util.Size(streamWidth, streamHeight)
 

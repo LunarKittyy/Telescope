@@ -69,6 +69,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 - [ ] Connect via USB only / Wi-Fi only is honoured, including reporting a missing cable instead of falling back.
 - [ ] Phone gets a new IP from the router: the desktop finds it again (mDNS) without re-pairing.
 - [ ] Phone foreground: desktop Start/Stop controls camera; test with screen dark too.
+- [ ] A lens, size and OIS setting picked on the desktop come back after Stop and Start. The phone shows Stop Streaming only while streaming, and it stops the stream.
 - [ ] Local-only mode blocks Wi-Fi access (verify from second machine on network).
 - [ ] Camera controls (lens, exposure, WB, OIS) apply live and match what's shown on the desktop UI.
 - [ ] Stream transforms (flip, rotate, zoom/pan) apply without restart.
