@@ -25,7 +25,7 @@ REPO = "LunarKittyy/Telescope"
 
 
 def display_version() -> str:
-    """What the UI shows: "0.5.0", "0.5.0 nightly 123" or "0.5.0 dev"."""
+    """What the UI shows: "3.0.0", "3.0.0 nightly 123" or "3.0.0 dev"."""
     if CHANNEL == "stable":
         return VERSION
     if CHANNEL == "dev":
