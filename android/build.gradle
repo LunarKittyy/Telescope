@@ -1,6 +1,18 @@
 // Top-level build file
+// Lifts vulnerable libraries AGP pulls into the build classpath to their patched releases
+buildscript {
+    dependencies {
+        constraints {
+            classpath 'org.bouncycastle:bcprov-jdk18on:1.85'
+            classpath 'org.bouncycastle:bcpkix-jdk18on:1.85'
+            classpath 'org.bouncycastle:bcutil-jdk18on:1.85'
+            classpath 'org.bitbucket.b_c:jose4j:0.9.6'
+            classpath 'org.jdom:jdom2:2.0.6.1'
+        }
+    }
+}
+
 plugins {
-    id 'com.android.application' version '8.7.3' apply false
-    id 'org.jetbrains.kotlin.android' version '2.0.21' apply false
-    id 'org.jetbrains.kotlin.plugin.serialization' version '2.0.21' apply false
+    id 'com.android.application' version '9.4.1' apply false
+    id 'org.jetbrains.kotlin.plugin.serialization' version '2.4.20' apply false
 }
