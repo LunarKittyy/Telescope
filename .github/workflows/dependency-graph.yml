@@ -1,0 +1,57 @@
+name: Dependency graph
+
+# Sends the resolved Gradle tree and the pinned Python versions to GitHub so Dependabot alerts cover them.
+on:
+  push:
+    branches: [master]
+    paths:
+      - android/**
+      - desktop/requirements*.txt
+      - desktop/constraints.txt
+      - .github/python_dependency_snapshot.py
+      - .github/workflows/dependency-graph.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  gradle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: >-
+            platform-tools
+            platforms;android-34
+            build-tools;34.0.0
+
+      - name: Write local.properties
+        working-directory: android
+        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+
+      - name: Submit Gradle dependencies
+        uses: gradle/actions/dependency-submission@v6
+        with:
+          build-root-directory: android
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Submit Python dependencies
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 .github/python_dependency_snapshot.py --sha "$GITHUB_SHA" --ref "$GITHUB_REF" --job "$GITHUB_RUN_ID" > snapshot.json
+          gh api -X POST "repos/$GITHUB_REPOSITORY/dependency-graph/snapshots" --input snapshot.json
