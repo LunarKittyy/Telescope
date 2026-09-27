@@ -5,21 +5,25 @@ Manually maintained - update after testing that exact device/build combo. "OK" m
 Legend: `OK` tested and working · `PARTIAL` works with caveats (see notes) ·
 `FAIL` doesn't work · `-` not tested yet.
 
-| Device | Android version | App build | USB pairing | Wi-Fi pairing | Lens selection | Manual exposure | Manual WB | OIS toggle | Reconnect after drop | Battery/temp reporting | Stop/start | Remote start/stop | Notes |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Pixel-like (e.g. Pixel 6/7/8) | - | - | - | - | - | - | - | - | - | - | - | - | |
-| Samsung Galaxy S-series | - | - | - | - | - | - | - | - | - | - | - | - | |
-| Samsung Galaxy A-series | - | - | - | - | - | - | - | - | - | - | - | - | |
-| vivo V2413 | (see build) | b1819a6 | OK | OK | OK | OK | OK | OK | OK | - | OK | - | Two defects found on 56bdafe are fixed as of 448fa13/b1819a6: reconnect after drop now resends the last-applied control settings (exposure/WB/etc.) instead of leaving the phone on defaults, and the paired device now survives a desktop app restart while in USB mode instead of losing its selection. |
+| Device | Android version | App build | USB pairing | Wi-Fi pairing | Lens selection | Zoom on Auto | Manual exposure | Manual WB | Focus | OIS toggle | H.264 | Microphone | Reconnect after drop | Battery/temp reporting | Stop/start | Remote start/stop | Notes |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Pixel-like (e.g. Pixel 6/7/8) | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | |
+| Samsung Galaxy S-series | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | |
+| Samsung Galaxy A-series | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | |
+| vivo V2413 | (see build) | b1819a6 | OK | OK | OK | - | OK | OK | - | OK | - | - | OK | - | OK | - | Two defects found on 56bdafe are fixed as of 448fa13/b1819a6: reconnect after drop now resends the last-applied control settings (exposure/WB/etc.) instead of leaving the phone on defaults, and the paired device now survives a desktop app restart while in USB mode instead of losing its selection. |
 
 ## What to check per row
 
 - **USB pairing**: with Add phone open, plugging in pairs the phone on USB only (no Wi-Fi/LAN), pairing server reached via `adb reverse`, then `adb forward` + authenticated stream works.
 - **Wi-Fi pairing**: QR code pairing works over Wi-Fi without USB.
 - **Lens selection**: all physical lenses (wide/main/telephoto) enumerate; switching changes video feed, not just digital zoom.
+- **Zoom on Auto**: on the Auto lens, zooming in past the lens marks switches to the telephoto (the dot next to the zoom turns lavender) and the picture gets sharper.
 - **Manual exposure**: ISO and shutter sliders change on-device exposure (not just toggle correctly).
 - **Manual WB**: Kelvin slider visibly shifts color temperature (README already notes this is inconsistent across devices/lenses - record exactly what happens, not just pass/fail).
+- **Focus**: manual focus distance and clicking the preview to focus both change what's sharp.
 - **OIS toggle**: visible effect on lenses reporting `hasOis: true`.
+- **H.264**: switching Format to H.264 streams, and the Mbps readout drops compared to MJPEG.
+- **Microphone**: with the Microphone card on, other apps record the phone's mic.
 - **Reconnect after drop**: kill Wi-Fi or unplug USB mid-stream; confirm auto-reconnect within `RECONNECT_DELAY` when connectivity returns (no full restart needed).
 - **Battery/temp reporting**: Monitoring-panel values update and alert thresholds fire correctly.
 - **Stop/start**: 5+ stop/start cycles don't break phone foreground service or desktop virtual camera.

@@ -26,7 +26,7 @@ Python runtime dependencies
 
 These are installed from PyPI at setup time (desktop/requirements.txt) - on
 Linux by start.sh into a Telescope-owned virtual environment, on Windows
-they are compiled into TelescopeDesktop.exe by PyInstaller. Each project's
+they are bundled into the TelescopeDesktop app folder by PyInstaller. Each project's
 own repository/PyPI page has the authoritative license text.
 
 PyQt6 (https://pypi.org/project/PyQt6/)
@@ -34,7 +34,7 @@ PyQt6 (https://pypi.org/project/PyQt6/)
     License: GPL v3 (a commercial license is also available from Riverbank
     Computing; this project uses the GPL-licensed distribution).
 
-opencv-python (https://pypi.org/project/opencv-python/)
+opencv-python-headless (https://pypi.org/project/opencv-python-headless/)
     License: Apache License 2.0.
 
 numpy (https://pypi.org/project/numpy/)
