@@ -7,6 +7,8 @@ bundled FFmpeg; without PyAV installed, available() is False and the desktop onl
 import logging
 import urllib.request
 
+from telescope.pinned_https import PhoneAuth
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -24,9 +26,9 @@ def available() -> bool:
 
 
 class H264Reader:
-    def __init__(self, url: str, token: str, timeout: float = 3.0):
+    def __init__(self, url: str, auth: PhoneAuth, timeout: float = 3.0):
         self.url = url
-        self.token = token
+        self.auth = auth
         self.timeout = timeout
         self._response = None
         self._codec = None
@@ -41,8 +43,8 @@ class H264Reader:
         if av is None:
             return False
         try:
-            req = urllib.request.Request(self.url, headers={"Authorization": f"Bearer {self.token}"})
-            resp = urllib.request.urlopen(req, timeout=self.timeout)
+            req = urllib.request.Request(self.url, headers=self.auth.headers())
+            resp = self.auth.open(req, timeout=self.timeout)
         except Exception:
             return False
         if "video/h264" not in resp.headers.get("Content-Type", ""):

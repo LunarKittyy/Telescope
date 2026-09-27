@@ -17,6 +17,8 @@ class SessionServer(
     private val appBuild: Int = BuildConfig.VERSION_CODE,
     private val requestDeadlineMs: Int = HttpWire.REQUEST_DEADLINE_MS,
     private val pending: PendingLimiter = PendingLimiter(),
+    // TLS in the app (PhoneTls); plain sockets only in tests.
+    private val socketFactory: javax.net.ServerSocketFactory = javax.net.ServerSocketFactory.getDefault(),
 ) {
     private var serverSocket: ServerSocket? = null
     private val running = AtomicBoolean(false)
@@ -25,7 +27,7 @@ class SessionServer(
     fun start() {
         try {
             running.set(true)
-            serverSocket = ServerSocket().apply {
+            serverSocket = socketFactory.createServerSocket().apply {
                 reuseAddress = true
                 bind(InetSocketAddress(InetAddress.getByName("0.0.0.0"), port), 10)
             }
@@ -126,8 +128,8 @@ class SessionServer(
     companion object {
         const val DEFAULT_PORT = 8766
 
-        // Bumped on shape changes. 2: /v1/hello, ping carries phoneId/phoneName, /v1/unpair.
-        const val PROTOCOL_VERSION = 2
+        // Bumped on shape changes. 2: /v1/hello, ping carries phoneId/phoneName, /v1/unpair. 3: TLS, pinned at pairing.
+        const val PROTOCOL_VERSION = 3
 
         private const val TAG = "SessionServer"
 

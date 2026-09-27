@@ -16,6 +16,7 @@ Usage: python scripts/smoke_check.py
 
 import http.server
 import os
+import ssl
 import sys
 import threading
 from pathlib import Path
@@ -88,6 +89,7 @@ def check_authenticated_stream_round_trip():
     import numpy as np
 
     from telescope.mjpeg_reader import MjpegReader
+    from telescope.pinned_https import PhoneAuth, fingerprint
 
     frame = np.zeros((2, 2, 3), dtype=np.uint8)
     ok, buf = cv2.imencode(".jpg", frame)
@@ -113,24 +115,33 @@ def check_authenticated_stream_round_trip():
         def log_message(self, *args):
             pass
 
+    fixtures = Path(__file__).resolve().parent.parent / "tests" / "fixtures"
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    ctx.load_cert_chain(fixtures / "test_phone.crt", fixtures / "test_phone.key")
+    pin = fingerprint(ssl.PEM_cert_to_DER_cert((fixtures / "test_phone.crt").read_text()))
+    wrong_pin = fingerprint(ssl.PEM_cert_to_DER_cert((fixtures / "test_impostor.crt").read_text()))
+
     server = http.server.HTTPServer(("127.0.0.1", 0), _Handler)
+    server.handle_error = lambda *_args: None  # the wrong-certificate client hangs up mid-handshake on purpose
+    server.socket = ctx.wrap_socket(server.socket, server_side=True)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        port = server.server_address[1]
-        reader = MjpegReader(f"http://127.0.0.1:{port}/v1/video", token)
+        url = f"https://127.0.0.1:{server.server_address[1]}/v1/video"
+        reader = MjpegReader(url, PhoneAuth(token, pin))
         assert reader.open(), "authenticated open() failed"
         ok, decoded = reader.read()
         assert ok and decoded is not None, "failed to read/decode the streamed frame"
         reader.release()
 
-        # An unauthenticated request must be rejected, not silently accepted.
-        unauth = MjpegReader(f"http://127.0.0.1:{port}/v1/video", "wrong-token")
-        assert not unauth.open(), "unauthenticated request was accepted"
+        # A wrong token, or the right token to a certificate that isn't the paired one, must fail.
+        assert not MjpegReader(url, PhoneAuth("wrong-token", pin)).open(), "unauthenticated request was accepted"
+        assert not MjpegReader(url, PhoneAuth(token, wrong_pin)).open(), "an unpinned certificate was accepted"
     finally:
         server.shutdown()
         thread.join(timeout=2)
-    return "authenticated frame round-tripped, unauthenticated request rejected"
+    return "pinned TLS frame round-tripped; wrong token and wrong certificate rejected"
 
 
 def main() -> int:

@@ -132,8 +132,9 @@ Everything past this point is optional - detailed feature reference, how it work
 - Config from the previous version keeps its global settings; pairings and per-phone settings are dropped, since phones are now stored differently. Telescope backs up anything older or malformed next to the real file and starts from defaults. Each section is validated on its own, so one bad section resets without discarding the rest
 
 **Privacy**
-- Network authentication is meant to stop accidental or opportunistic access from other devices on the LAN, not an active attacker or network observer: traffic is unencrypted, and possession/interception of the bearer token is enough for access
-- For an actual security boundary, use **Local only - USB**, which keeps the camera service off the network entirely
+- Everything between the phone and the desktop is TLS. The phone makes its own certificate on first run, and the desktop learns its fingerprint at pairing and refuses any other, so a device pretending to be your phone never gets the token and can't feed the desktop its own video
+- The pairing token only travels in the QR code (or over adb) and inside that TLS connection. The pairing request itself proves the phone read the code with an HMAC of the token instead of sending it
+- A device on the network can still see that a stream is running and roughly how much data it moves, and can refuse to forward it. For the tightest setup, use **Local only - USB**, which keeps the camera service off the network entirely
 - Local only mode: binds the server to `127.0.0.1` so the stream is unreachable from the network; only USB works in this mode
 - Toggle in the Android app restarts the stream automatically to apply the change
 - Changing **Connect via** on the desktop reconnects a running stream over the new route
@@ -251,12 +252,15 @@ telescope/
 |       |-- SetupSteps.kt       # Get set up card rules: ask, or send to settings (JVM-tested)
 |       |-- Pairing.kt           # QR payload (v3) parsing/validation, attempt ordering, failure text
 |       |-- PairedComputers.kt   # Paired computers (one token each), this phone's id and name
-|       |-- MjpegServer.kt       # Authenticated HTTP: /v1/video(.h264)  /v1/state  /v1/control
+|       |-- MjpegServer.kt       # Authenticated HTTPS: /v1/video(.h264)  /v1/state  /v1/control
 |       |-- H264Encoder.kt       # MediaCodec H.264 from the camera Surface
 |       |-- H264Stream.kt        # Per-viewer H.264 queue, bitrate defaults
 |       |-- AudioStreamer.kt     # Microphone recording while someone listens
 |       |-- AudioStream.kt       # PCM format, per-listener queue
 |       |-- SessionServer.kt     # Out-of-band responder (port 8766): /v1/hello, /v1/ping, /v1/session, /v1/unpair
+|       |-- TlsIdentity.kt       # The phone's TLS key and self-signed certificate, and its fingerprint
+|       |-- PhoneTls.kt          # Makes and keeps the TLS identity in no-backup storage
+|       |-- PendingLimiter.kt    # Caps connections still sending their request, per address and in total
 |       |-- SessionEndpoint.kt   # Refcounted owner of SessionServer + the commands it runs
 |       |-- StreamLauncher.kt    # Single place CameraStreamService is started from
 |       |-- StreamPrefs.kt       # Last camera/resolution selection, for desktop-initiated starts
@@ -298,8 +302,9 @@ telescope/
         |-- config.py            # Versioned JSON config (v3) with per-section validation
         |-- models.py            # Typed contracts: PhoneState, CameraCapabilities (parsed from /v1/state)
         |-- phone_client.py      # Authenticated HTTP client for /v1/state and /v1/control (port 8080)
-        |-- session_client.py    # HTTP client for /v1/hello, /v1/ping, /v1/session, /v1/unpair (port 8766)
-        |-- pairing.py           # PairingServer: Qt-free pairing HTTP handshake (nonce/token, no PyQt import)
+        |-- session_client.py    # HTTPS client for /v1/hello, /v1/ping, /v1/session, /v1/unpair (port 8766)
+        |-- pinned_https.py      # PhoneAuth: HTTPS pinned to the phone's certificate fingerprint
+        |-- pairing.py           # PairingServer: Qt-free pairing HTTP handshake (nonce, token proof, certificate pin)
         |-- phones.py            # Phone model, RouteResolver (USB or Wi-Fi, and why), refcounted adb forwards
         |-- discovery.py         # Finds phones on the LAN via mDNS (zeroconf)
         |-- ip_utils.py          # Desktop address discovery for the pairing code, address ranking
@@ -341,7 +346,7 @@ telescope/
 
 On first launch the top card is **Get set up**: camera access, notifications and the battery exemption, in that order, each with its reason and an Allow button (plus Microphone, once a desktop has asked for it). The app asks for nothing on its own, and the card goes once everything is allowed. If Android stops showing a permission prompt (denied twice), the button becomes Open settings.
 
-Runs a **foreground service** (type `camera`, required on Android 14+, plus `microphone` once that's allowed) that owns a Camera2 session and an HTTP server on port 8080. All endpoints require a bearer token issued during pairing:
+Runs a **foreground service** (type `camera`, required on Android 14+, plus `microphone` once that's allowed) that owns a Camera2 session and an HTTPS server on port 8080 (TLS 1.2 or 1.3, with the certificate from `PhoneTls`). All endpoints require a bearer token issued during pairing:
 
 - `GET /v1/video` - MJPEG stream (`multipart/x-mixed-replace`)
 - `GET /v1/video.h264` - H.264 stream (`video/h264`: Annex-B, Baseline, a keyframe every second). A new viewer starts with the codec config and the next keyframe. Each frame is followed by an access unit delimiter, so a decoder can show it without waiting for the next one. `ffplay` plays it given the bearer header. Opening either video route switches the phone to that format.
@@ -349,7 +354,7 @@ Runs a **foreground service** (type `camera`, required on Android 14+, plus `mic
 - `GET /v1/state` - JSON of all detected cameras + current exposure/WB/battery state
 - `POST /v1/control` - live camera control, JSON body
 
-A separate HTTP responder (`SessionServer`, port 8766) runs independently of the streaming service. `GET /v1/hello` says which phone this is, without auth, so the desktop can tell its phone from any other one on a USB cable. `GET /v1/ping` checks the request's bearer token against the paired computers' tokens, returning 200 or 401 plus a small JSON body saying whether the phone is streaming, mid-start, or bound local-only. `POST /v1/unpair` removes the calling computer. `POST /v1/session` starts or stops the camera on the desktop's behalf, reproducing the camera and resolution last chosen on the phone (persisted by `StreamPrefs`, since the spinners may not exist when the request arrives).
+A separate HTTPS responder (`SessionServer`, port 8766, same certificate) runs independently of the streaming service. `GET /v1/hello` says which phone this is, without auth, so the desktop can tell its phone from any other one on a USB cable. `GET /v1/ping` checks the request's bearer token against the paired computers' tokens, returning 200 or 401 plus a small JSON body saying whether the phone is streaming, mid-start, or bound local-only. `POST /v1/unpair` removes the calling computer. `POST /v1/session` starts or stops the camera on the desktop's behalf, reproducing the camera and resolution last chosen on the phone (persisted by `StreamPrefs`, since the spinners may not exist when the request arrives).
 
 Its lifetime is refcounted by `SessionEndpoint` across two owners: `MainActivity` while it is started, and `CameraStreamService` while it is running. So the desktop can confirm pairing before any stream exists, start one, and stop or restart it later even if the phone's screen has since gone dark - but an app that is both backgrounded and idle is unreachable, and a remote start in that state is impossible by construction.
 
@@ -357,7 +362,9 @@ Its lifetime is refcounted by `SessionEndpoint` across two owners: `MainActivity
 
 The app enumerates **physical sub-cameras** of logical multi-camera groups via `CameraCharacteristics.physicalCameraIds` (API 28+). On many modern phones the logical back camera (ID `0`) hides individual wide/main/telephoto sensors behind it; this app surfaces all of them and lets you pick.
 
-The main screen's pairing card lists the computers this phone is paired with (each with a **Remove** that asks first) and has a **Scan pairing code** button that opens a ZXing barcode scanner (portrait, via `journeyapps:zxing-android-embedded`). Scanning the code in the desktop's Add phone dialog sends the phone's id, name and IPv4 addresses to the desktop over HTTP. The pairing POST requires `android:usesCleartextTraffic="true"` since the desktop's pairing server runs plain HTTP.
+The main screen's pairing card lists the computers this phone is paired with (each with a **Remove** that asks first) and has a **Scan pairing code** button that opens a ZXing barcode scanner (portrait, via `journeyapps:zxing-android-embedded`). Scanning the code in the desktop's Add phone dialog sends the phone's id, name, IPv4 addresses and certificate fingerprint to the desktop over HTTP, with a proof that it read the code. The pairing POST requires `android:usesCleartextTraffic="true"` since the desktop's pairing server runs plain HTTP; nothing in it is secret.
+
+Both of the phone's servers speak TLS with a self-signed P-256 certificate the app makes on first run (`TlsIdentity`, `PhoneTls`) and keeps in no-backup storage, so a restored or reinstalled phone gets a new one and pairs again. Each server lets at most 4 connections per address, and 32 in total, sit sending their request, and a request has 5 seconds in total to arrive, so a device on the LAN can't tie the servers up.
 
 The QR code carries a list of desktop address *candidates* (see [QR pairing payload](#qr-pairing-payload)), and the phone works through them in a deliberate order: LAN candidates first, sent over the phone's actual Wi-Fi network via `Network.openConnection()` rather than whatever holds the default route, then every candidate again over the default network. That first pass is what makes pairing work with a VPN running on the phone - a VPN owns the default route, so a LAN address goes nowhere through it, while the Wi-Fi interface underneath still reaches the desktop as long as the VPN permits local-network traffic. Only the pairing request is bound this way; the process is never pinned to Wi-Fi. Attempts are capped at 2s each and 12s in total, so a full candidate list can't leave the user watching nothing happen for half a minute; anything not reached by then is reported as untried rather than silently dropped. If nothing answers, a dialog lists each address tried and how it failed, and names the two situations the phone can't work around: a VPN that blocks LAN traffic outright, and client-isolated guest Wi-Fi - both of which leave USB pairing as the way through. Pairing logic that doesn't need Android (payload parsing/validation, attempt ordering, the failure text) lives in `Pairing.kt` and is unit-tested.
 
@@ -668,11 +675,11 @@ Also on 8766, body `{}`. Removes the computer whose token made the request, and 
 
 ### QR pairing payload
 
-Generated by the desktop (`telescope/pairing.py`), rendered as the QR code, and pushed verbatim (base64-encoded) over `adb` for USB pairing. Both sides speak version `3` only; a mismatch is reported as "update both apps" rather than "invalid code", since desktop and APK ship together.
+Generated by the desktop (`telescope/pairing.py`), rendered as the QR code, and pushed verbatim (base64-encoded) over `adb` for USB pairing. Both sides speak version `4` only; a mismatch is reported as "update both apps" rather than "invalid code", since desktop and APK ship together.
 
 ```json
 {
-  "version": 3,
+  "version": 4,
   "port": 8765,
   "candidates": [
     { "ip": "192.168.1.42",  "interface": "Wi-Fi",      "kind": "lan" },
@@ -689,7 +696,7 @@ Generated by the desktop (`telescope/pairing.py`), rendered as the QR code, and 
 
 `computer_id` is made once per desktop install and is what the phone files the token under, so pairing again from the same computer replaces its token instead of adding a second entry. `computer_name` is what the phone's list shows (the desktop's host name unless renamed in **Your phones**).
 
-The phone then `POST`s to `http://<ip>:<port>/pair/<nonce>` with `{"name": ..., "phone_id": ..., "ips": [...], "token": ...}`; the echoed token confirms the request came from a device that actually read the current code, on top of the one-shot nonce in the path.
+The phone then `POST`s to `http://<ip>:<port>/pair/<nonce>` with `{"name": ..., "phone_id": ..., "ips": [...], "cert_sha256": ..., "proof": ...}`. `cert_sha256` is the SHA-256 of the phone's TLS certificate, which the desktop pins from then on. `proof` is HMAC-SHA256 keyed with the token over `telescope-pair-v4\n<nonce>\n<phone_id>\n<cert_sha256>`, in lowercase hex: it shows the phone read the current code without sending the token, and ties the fingerprint to it, so someone watching the network can neither reuse the token nor swap in their own certificate.
 
 The desktop also notes the source address that request arrived from. That address is, by construction, one of the phone's *and* reachable from this machine over whatever path the phone found, so it becomes the phone's first active address.
 

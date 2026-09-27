@@ -36,8 +36,8 @@ class _Backend:
 class _Worker:
     made = []
 
-    def __init__(self, url, token, open_sink, on_status):
-        self.url, self.token, self.on_status = url, token, on_status
+    def __init__(self, url, auth, open_sink, on_status):
+        self.url, self.auth, self.on_status = url, auth, on_status
         self.started = self.stopped = False
         _Worker.made.append(self)
 
@@ -50,7 +50,7 @@ class _Worker:
 
 class _Ctrl:
     base = "http://10.0.0.5:8080/v1"
-    token = "tok"
+    auth = "tok"
 
 
 _PANELS = []
@@ -71,7 +71,7 @@ def test_on_follows_the_stream(qapp):
     assert p._status.text() == "Starts with the stream."
     p.on_stream_start("url", _Ctrl())
     w = _Worker.made[-1]
-    assert w.started and w.url == "http://10.0.0.5:8080/v1/audio" and w.token == "tok"
+    assert w.started and w.url == "http://10.0.0.5:8080/v1/audio" and w.auth == "tok"
     w.on_status("ok", "")
     p._on_worker_status("ok", "")
     assert "Telescope Microphone" in p._status.text()

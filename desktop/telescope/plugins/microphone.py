@@ -206,7 +206,7 @@ class MicrophonePlugin(TelescopePlugin):
             self._refresh()
             return
         self._show("Connecting…")
-        self._worker = self._worker_cls(f"{self._ctrl.base}/audio", self._ctrl.token,
+        self._worker = self._worker_cls(f"{self._ctrl.base}/audio", self._ctrl.auth,
                                         self._backend.open_sink, self._sig.status.emit)
         self._worker.start()
 

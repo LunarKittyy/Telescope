@@ -94,7 +94,7 @@ class TelescopeWindow(QMainWindow):
     _sig_state = pyqtSignal(int, dict)
     _sig_raise = pyqtSignal()
     _sig_canvas_reload_done = pyqtSignal(bool, str, bool, str)  # ok, msg, restart_stream, command to run by hand
-    _sig_wake_done = pyqtSignal(int, bool, str, str, str)  # wake_id, ok, reason, url, token
+    _sig_wake_done = pyqtSignal(int, bool, str, str, object)  # wake_id, ok, reason, url, PhoneAuth
     _sig_wake_progress = pyqtSignal(int, str)  # wake_id, status text
     _sig_recovery_probed = pyqtSignal(int, int, object)  # session id, recovery generation, Resolution
 
@@ -559,7 +559,7 @@ class TelescopeWindow(QMainWindow):
         if not conn:
             return
         self.clear_issue("start")
-        url, token, ok = conn.get_stream_info(interactive=interactive)
+        url, auth, ok = conn.get_stream_info(interactive=interactive)
         if not ok:
             return
 
@@ -570,15 +570,15 @@ class TelescopeWindow(QMainWindow):
         self._start_btn.setEnabled(False)
         self._set_status("Starting the phone's camera…", "dim")
 
-        self._spawn_wake(wake_id, conn, url, token, conn.session_target())
+        self._spawn_wake(wake_id, conn, url, auth, conn.session_target())
 
-    def _spawn_wake(self, wake_id: int, conn, url: str, token: str, target=None):
+    def _spawn_wake(self, wake_id: int, conn, url: str, auth, target=None):
         """Split from _start() to allow test synchronization; thread mustn't outlive QObject."""
         threading.Thread(
-            target=self._wake_phone, args=(wake_id, conn, url, token, target), daemon=True,
+            target=self._wake_phone, args=(wake_id, conn, url, auth, target), daemon=True,
         ).start()
 
-    def _wake_phone(self, wake_id: int, conn, url: str, token: str, target=None):
+    def _wake_phone(self, wake_id: int, conn, url: str, auth, target=None):
         def on_progress(msg: str):
             try:
                 self._sig_wake_progress.emit(wake_id, msg)
@@ -591,7 +591,7 @@ class TelescopeWindow(QMainWindow):
             logging.exception("Phone wake failed")
             ok, reason = False, "Couldn't reach the phone."
         try:
-            self._sig_wake_done.emit(wake_id, ok, reason, url, token)
+            self._sig_wake_done.emit(wake_id, ok, reason, url, auth)
         except RuntimeError:
             pass
 
@@ -600,7 +600,7 @@ class TelescopeWindow(QMainWindow):
             return
         self._set_status(msg, "dim")
 
-    def _on_wake_done(self, wake_id: int, ok: bool, reason: str, url: str, token: str):
+    def _on_wake_done(self, wake_id: int, ok: bool, reason: str, url: str, auth):
         if wake_id != self._wake_id or not self._waking:
             return
         self._waking = False
@@ -611,9 +611,9 @@ class TelescopeWindow(QMainWindow):
             self.show_issue("start", Issue("Couldn't start the phone's camera", reason,
                                            [BannerAction("Try again", self.start_stream)]))
             return
-        self._begin_stream(url, token)
+        self._begin_stream(url, auth)
 
-    def _begin_stream(self, url: str, token: str):
+    def _begin_stream(self, url: str, auth):
         so = self._plugin("stream_output")
         w, h, fps = so.get_stream_params() if so else (None, None, 30)
 
@@ -624,12 +624,12 @@ class TelescopeWindow(QMainWindow):
         for p in self._plugins:
             p.on_stream_starting()
 
-        ctrl = PhoneControlClient(url, token)
+        ctrl = PhoneControlClient(url, auth)
         worker = StreamWorker(
             url=url, width=w, height=h, fps=fps,
             frame_pipeline=pipeline,
             canvas_width=canvas_w, canvas_height=canvas_h,
-            token=token,
+            auth=auth,
         )
         session_id = self._next_session_id
         self._next_session_id += 1
@@ -750,7 +750,7 @@ class TelescopeWindow(QMainWindow):
         self._recovery_route = route
         if url != session.url:
             session.client.close()
-            session = replace(session, url=url, client=PhoneControlClient(url, session.worker.token))
+            session = replace(session, url=url, client=PhoneControlClient(url, session.worker.auth))
             self._session = session
         session.worker.retarget(url)
 

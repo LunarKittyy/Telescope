@@ -53,6 +53,7 @@ object SessionEndpoint {
             port = SessionServer.DEFAULT_PORT,
             computers = { PairedComputers.list(app) },
             commands = ServiceSessionCommands(app),
+            socketFactory = PhoneTls.identity(app).serverSocketFactory(),
         ).also { it.start() }
         announcer = LanAnnouncer(app).also { it.start(SessionServer.DEFAULT_PORT) }
     }

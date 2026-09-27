@@ -119,8 +119,8 @@ def test_open_cap_constructs_authenticated_reader_and_opens(monkeypatch):
     calls = []
 
     class _FakeReader:
-        def __init__(self, url, token):
-            calls.append((url, token))
+        def __init__(self, url, auth):
+            calls.append((url, auth))
             self.opened = False
 
         def open(self):
@@ -131,7 +131,7 @@ def test_open_cap_constructs_authenticated_reader_and_opens(monkeypatch):
             return self.opened
 
     monkeypatch.setattr(stream, "MjpegReader", _FakeReader)
-    worker = stream.StreamWorker("http://phone/v1/video", None, None, 30, token="tok123")
+    worker = stream.StreamWorker("http://phone/v1/video", None, None, 30, auth="tok123")
 
     reader = worker._open_cap()
 

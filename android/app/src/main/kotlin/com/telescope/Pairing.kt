@@ -10,7 +10,8 @@ import java.net.UnknownHostException
 // QR-code pairing payload and routing logic; Android-free for JVM unit testing
 // Version bumped in lockstep with desktop; mismatch means one is stale.
 // 3: the offer names the computer (computer_id/computer_name) so the phone can keep one token per computer.
-const val PAIRING_PROTOCOL_VERSION = 3
+// 4: the phone answers with its TLS certificate's fingerprint and a proof of the token, never the token itself.
+const val PAIRING_PROTOCOL_VERSION = 4
 
 @Serializable
 enum class PairingKind {
@@ -78,6 +79,14 @@ fun parsePairingOffer(raw: String): PairingParse {
     if (offer.candidates.isEmpty()) return PairingParse.Invalid
     if (offer.candidates.any { !isValidIpv4(it.ip) }) return PairingParse.Invalid
     return PairingParse.Ok(offer)
+}
+
+// HMAC-SHA256 under the QR's token over what the phone claims: proves it read the QR without sending the token.
+fun pairingProof(token: String, nonce: String, phoneId: String, certSha256: String): String {
+    val mac = javax.crypto.Mac.getInstance("HmacSHA256")
+    mac.init(javax.crypto.spec.SecretKeySpec(token.toByteArray(Charsets.UTF_8), "HmacSHA256"))
+    val message = "telescope-pair-v4\n$nonce\n$phoneId\n$certSha256"
+    return mac.doFinal(message.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
 }
 
 // The desktop's setup checklist shows a QR of the APK download; people scan it with this app too.

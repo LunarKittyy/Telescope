@@ -13,6 +13,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 from telescope import vcam
 from telescope.h264_reader import H264Reader
 from telescope.mjpeg_reader import MjpegReader
+from telescope.pinned_https import PhoneAuth
 
 logger = logging.getLogger(__name__)
 
@@ -80,10 +81,10 @@ class StreamWorker(QThread):
                  fps: int, frame_pipeline: list = None,
                  canvas_width: Optional[int] = None,
                  canvas_height: Optional[int] = None,
-                 token: Optional[str] = None):
+                 auth: Optional[PhoneAuth] = None):
         super().__init__()
         self.url       = url
-        self.token     = token
+        self.auth      = auth
         self._width    = width
         self._height   = height
         self._fps      = fps
@@ -133,7 +134,7 @@ class StreamWorker(QThread):
     def _open_cap(self):
         # Our own readers, since cv2's FFmpeg backend can't attach the bearer header. The route says which.
         reader_cls = H264Reader if self.url.endswith(".h264") else MjpegReader
-        reader = reader_cls(self.url, self.token)
+        reader = reader_cls(self.url, self.auth)
         reader.open()
         return reader
 

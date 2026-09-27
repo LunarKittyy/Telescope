@@ -6,6 +6,7 @@ import pytest
 from PyQt6.QtWidgets import QMessageBox
 
 import telescope.plugins.connection as connection_module
+from telescope.pinned_https import PhoneAuth
 from telescope.pairing import PairingResult
 from telescope.phones import (
     DESKTOP_OUTDATED, LOCAL_ONLY, PHONE_OUTDATED, NOT_PAIRED, READY, ROUTE_AUTO, ROUTE_USB, ROUTE_WIFI, UNREACHABLE,
@@ -132,9 +133,12 @@ def plugin_env(qapp, config_home, monkeypatch):
     return plugin, host, panel
 
 
+PIN = "ab" * 32
+
+
 def _add(plugin, pid="id-a", name="Pixel", token="tok-a", ips=("10.0.0.5",)):
     plugin._on_phone_paired(PairingResult(name=name, ips=list(ips), token=token,
-                                          source_ip=ips[0] if ips else None, phone_id=pid))
+                                          source_ip=ips[0] if ips else None, phone_id=pid, cert_sha256=PIN))
 
 
 # ── Text ──────────────────────────────────────────────────────────────────────
@@ -438,15 +442,15 @@ def test_start_over_wifi_uses_the_resolved_address(plugin_env):
     plugin, _host, _panel = plugin_env
     _add(plugin, token="tok")
     plugin._resolver.result = Resolution(READY, WIFI)
-    assert plugin.get_stream_info() == ("http://10.0.0.5:8080/v1/video", "tok", True)
-    assert plugin.session_target() == SessionTarget("tok", WIFI)
+    assert plugin.get_stream_info() == ("https://10.0.0.5:8080/v1/video", PhoneAuth("tok", PIN), True)
+    assert plugin.session_target() == SessionTarget(PhoneAuth("tok", PIN), WIFI)
 
 
 def test_start_over_usb_holds_a_forward_until_the_stream_stops(plugin_env):
     plugin, _host, _panel = plugin_env
     _add(plugin, token="tok")
     plugin._resolver.result = Resolution(READY, USB)
-    assert plugin.get_stream_info() == ("http://127.0.0.1:41000/v1/video", "tok", True)
+    assert plugin.get_stream_info() == ("https://127.0.0.1:41000/v1/video", PhoneAuth("tok", PIN), True)
     assert plugin._tunnels.held == {("serial-1", 8080): 1}
     plugin.on_stream_start("url", None)
     plugin.on_stream_stop()
@@ -459,9 +463,9 @@ def test_start_uses_the_h264_route_only_when_chosen_and_decodable(plugin_env, mo
     plugin._resolver.result = Resolution(READY, WIFI)
     host.configs["stream_output"] = {"format": "h264"}
     monkeypatch.setattr(connection_module.h264_reader, "available", lambda: True)
-    assert plugin.get_stream_info()[0] == "http://10.0.0.5:8080/v1/video.h264"
+    assert plugin.get_stream_info()[0] == "https://10.0.0.5:8080/v1/video.h264"
     monkeypatch.setattr(connection_module.h264_reader, "available", lambda: False)
-    assert plugin.get_stream_info()[0] == "http://10.0.0.5:8080/v1/video"
+    assert plugin.get_stream_info()[0] == "https://10.0.0.5:8080/v1/video"
 
 
 def test_start_over_usb_reports_a_failed_forward(plugin_env):
@@ -611,7 +615,7 @@ def test_recovery_moves_a_usb_stream_to_wifi_and_lets_go_of_the_forward(plugin_e
     _streaming_over(plugin, USB)
     assert plugin._tunnels.held == {("serial-1", 8080): 1}
 
-    assert plugin.adopt_stream_route(WIFI) == "http://10.0.0.5:8080/v1/video"
+    assert plugin.adopt_stream_route(WIFI) == "https://10.0.0.5:8080/v1/video"
     assert plugin._tunnels.held == {}
     assert plugin._using_lbl.fullText() == "Wi-Fi · 10.0.0.5"
     plugin.on_stream_stop()
@@ -624,7 +628,7 @@ def test_recovery_over_the_same_cable_opens_a_fresh_forward(plugin_env):
     _add(plugin)
     _streaming_over(plugin, USB)
 
-    assert plugin.adopt_stream_route(USB) == "http://127.0.0.1:41000/v1/video"
+    assert plugin.adopt_stream_route(USB) == "https://127.0.0.1:41000/v1/video"
     assert plugin._tunnels.acquires == 2
     assert plugin._tunnels.held == {("serial-1", 8080): 1}
 
@@ -651,7 +655,7 @@ def test_session_channel_over_usb_releases_its_forward_even_on_error(plugin_env)
     plugin, _host, _panel = plugin_env
     with pytest.raises(RuntimeError):
         with plugin.session_channel(SessionTarget("tok", USB)) as client:
-            assert client.base == "http://127.0.0.1:41000"
+            assert client.base == "https://127.0.0.1:41000"
             raise RuntimeError
     assert plugin._tunnels.held == {}
 

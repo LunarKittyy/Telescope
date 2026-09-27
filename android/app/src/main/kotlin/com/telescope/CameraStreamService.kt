@@ -535,6 +535,7 @@ class CameraStreamService : Service() {
             requestKeyFrame = { controller?.requestKeyFrame() },
             startAudio     = ::startAudio,
             stopAudio      = { audio?.stop() },
+            socketFactory  = PhoneTls.identity(this).serverSocketFactory(),
         ).also { it.start() }
         startIdleWatchdog()
     }

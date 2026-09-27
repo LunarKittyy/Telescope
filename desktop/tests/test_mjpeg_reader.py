@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import pytest
 
+from telescope.pinned_https import PhoneAuth
 from telescope.mjpeg_reader import MjpegReader
 
 
@@ -56,7 +57,7 @@ def test_reads_authenticated_frames_in_order_then_reports_eof(mjpeg_server):
     _MjpegHandler.require_token = "secret"
     port = mjpeg_server.server_address[1]
 
-    reader = MjpegReader(f"http://127.0.0.1:{port}/v1/video", "secret")
+    reader = MjpegReader(f"http://127.0.0.1:{port}/v1/video", PhoneAuth("secret"))
     assert reader.open() is True
     assert reader.isOpened() is True
 
@@ -80,7 +81,7 @@ def test_rejects_when_unauthorized(mjpeg_server):
     _MjpegHandler.require_token = "secret"
     port = mjpeg_server.server_address[1]
 
-    reader = MjpegReader(f"http://127.0.0.1:{port}/v1/video", "wrong-token")
+    reader = MjpegReader(f"http://127.0.0.1:{port}/v1/video", PhoneAuth("wrong-token"))
     assert reader.open() is False
     assert reader.isOpened() is False
 
@@ -101,7 +102,7 @@ def test_rejects_non_multipart_response():
     thread.start()
     try:
         port = server.server_address[1]
-        reader = MjpegReader(f"http://127.0.0.1:{port}/v1/video", "tok")
+        reader = MjpegReader(f"http://127.0.0.1:{port}/v1/video", PhoneAuth("tok"))
         assert reader.open() is False
     finally:
         server.shutdown()
@@ -109,12 +110,12 @@ def test_rejects_non_multipart_response():
 
 
 def test_open_returns_false_on_connection_failure():
-    reader = MjpegReader("http://127.0.0.1:1/v1/video", "tok", timeout=0.5)
+    reader = MjpegReader("http://127.0.0.1:1/v1/video", PhoneAuth("tok"), timeout=0.5)
     assert reader.open() is False
 
 
 def test_read_before_open_returns_false():
-    reader = MjpegReader("http://127.0.0.1:1/v1/video", "tok")
+    reader = MjpegReader("http://127.0.0.1:1/v1/video", PhoneAuth("tok"))
     ok, frame = reader.read()
     assert ok is False
     assert frame is None
@@ -145,7 +146,7 @@ def test_returns_a_frame_without_waiting_for_the_next_one():
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        reader = MjpegReader(f"http://127.0.0.1:{server.server_address[1]}/v1/video", "t")
+        reader = MjpegReader(f"http://127.0.0.1:{server.server_address[1]}/v1/video", PhoneAuth("t"))
         assert reader.open()
         t0 = time.monotonic()
         ok, frame = reader.read()
@@ -175,7 +176,7 @@ class _Feed:
 
 
 def _reader_on(data: bytes) -> MjpegReader:
-    reader = MjpegReader("http://127.0.0.1:1/v1/video", "t")
+    reader = MjpegReader("http://127.0.0.1:1/v1/video", PhoneAuth("t"))
     reader._boundary = b"--mjpegframe"
     reader._response = _Feed(data)
     return reader

@@ -262,4 +262,22 @@ class PairingTest {
             parsePairingOffer("https://github.com/LunarKittyy/Telescope/releases/download/nightly/Telescope.apk"),
         )
     }
+
+    @Test
+    fun `the pairing proof matches the desktop's computation`() {
+        // Same vector as the desktop's test_pairing_server.py.
+        assertEquals(
+            "fabf87423641e2c832e78a0385ce388ccadc57e896fe2b028586b22c2873d915",
+            pairingProof("tok-123", "nonce-abc", "phone-1", "ab".repeat(32)),
+        )
+    }
+
+    @Test
+    fun `the proof changes with every input it covers`() {
+        val base = pairingProof("t", "n", "p", "c")
+        assertTrue(base != pairingProof("t2", "n", "p", "c"))
+        assertTrue(base != pairingProof("t", "n2", "p", "c"))
+        assertTrue(base != pairingProof("t", "n", "p2", "c"))
+        assertTrue(base != pairingProof("t", "n", "p", "c2"))
+    }
 }

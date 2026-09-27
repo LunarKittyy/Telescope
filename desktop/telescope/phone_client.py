@@ -5,6 +5,7 @@ import threading
 import urllib.request
 from typing import Optional
 
+from telescope.pinned_https import PhoneAuth
 from telescope.session_client import read_capped
 
 logger = logging.getLogger(__name__)
@@ -15,9 +16,9 @@ class PhoneControlClient:
 
     _NON_COALESCING = frozenset({"camera"})
 
-    def __init__(self, stream_url: str, token: str):
+    def __init__(self, stream_url: str, auth: PhoneAuth):
         self.base = stream_url.rsplit("/video", 1)[0]
-        self.token = token
+        self.auth = auth
         self._queue: "queue.Queue" = queue.Queue()
         self._pending: dict = {}
         self._lock = threading.Lock()
@@ -26,12 +27,12 @@ class PhoneControlClient:
         self._thread.start()
 
     def _auth_headers(self) -> dict:
-        return {"Authorization": f"Bearer {self.token}"}
+        return self.auth.headers()
 
     def get_state(self) -> Optional[dict]:
         try:
             req = urllib.request.Request(f"{self.base}/state", headers=self._auth_headers())
-            with urllib.request.urlopen(req, timeout=4) as r:
+            with self.auth.open(req, timeout=4) as r:
                 return json.loads(read_capped(r).decode())
         except Exception:
             return None
@@ -82,7 +83,7 @@ class PhoneControlClient:
         headers = {**self._auth_headers(), "Content-Type": "application/json"}
         req = urllib.request.Request(f"{self.base}/control", data=body, method="POST", headers=headers)
         try:
-            with urllib.request.urlopen(req, timeout=3) as r:
+            with self.auth.open(req, timeout=3) as r:
                 r.read()
         except Exception as exc:
             logger.debug("Control request failed: %s", exc)

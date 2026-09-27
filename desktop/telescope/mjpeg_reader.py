@@ -5,6 +5,8 @@ from typing import Optional
 import cv2
 import numpy as np
 
+from telescope.pinned_https import PhoneAuth
+
 logger = logging.getLogger(__name__)
 
 _CHUNK = 4096
@@ -16,9 +18,9 @@ _MAX_FRAME_BYTES = 32 * 1024 * 1024
 class MjpegReader:
     """Authenticated multipart/x-mixed-replace MJPEG reader (mirrors cv2.VideoCapture interface; handles bearer token)."""
 
-    def __init__(self, url: str, token: str, timeout: float = 3.0):
+    def __init__(self, url: str, auth: PhoneAuth, timeout: float = 3.0):
         self.url = url
-        self.token = token
+        self.auth = auth
         self.timeout = timeout
         self._response = None
         self._boundary: Optional[bytes] = None
@@ -31,10 +33,8 @@ class MjpegReader:
 
     def open(self) -> bool:
         try:
-            req = urllib.request.Request(
-                self.url, headers={"Authorization": f"Bearer {self.token}"}
-            )
-            resp = urllib.request.urlopen(req, timeout=self.timeout)
+            req = urllib.request.Request(self.url, headers=self.auth.headers())
+            resp = self.auth.open(req, timeout=self.timeout)
         except Exception:
             return False
         content_type = resp.headers.get("Content-Type", "")

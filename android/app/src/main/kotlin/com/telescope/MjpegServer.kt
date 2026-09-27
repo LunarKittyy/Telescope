@@ -27,6 +27,8 @@ class MjpegServer(
     val stopAudio: () -> Unit = {},
     private val requestDeadlineMs: Int = HttpWire.REQUEST_DEADLINE_MS,
     private val pending: PendingLimiter = PendingLimiter(),
+    // TLS in the app (PhoneTls); plain sockets only in tests.
+    private val socketFactory: javax.net.ServerSocketFactory = javax.net.ServerSocketFactory.getDefault(),
 ) {
     private var serverSocket: ServerSocket? = null
     private val clients = CopyOnWriteArrayList<MjpegClient>()
@@ -46,7 +48,7 @@ class MjpegServer(
         running.set(true)
         lastAuthorizedRequestAtMs = System.currentTimeMillis()
         // Set SO_REUSEADDR before binding to avoid EADDRINUSE on quick restart.
-        serverSocket = ServerSocket().apply {
+        serverSocket = socketFactory.createServerSocket().apply {
             reuseAddress = true
             bind(java.net.InetSocketAddress(java.net.InetAddress.getByName(bindAddr), port), 50)
         }
