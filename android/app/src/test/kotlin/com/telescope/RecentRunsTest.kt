@@ -21,4 +21,22 @@ class RecentRunsTest {
     fun `an empty or missing file is no runs`() {
         assertEquals(emptyList<String>(), RecentRuns.decode(""))
     }
+
+    @Test
+    fun `a camera list the same as the one above it is shortened, a changed one is kept`() {
+        val cams = "Cameras:\n  0 Back: LEVEL_3\n  1 Front: FULL\n"
+        val fewer = "Cameras:\n  0 Back: LEVEL_3\n"
+        val live = "Current state: Streaming\n$cams"
+        val report = RecentRuns.report(live, listOf("Stream ended: a\n$cams".trimEnd(),
+            "Stream ended: b\n$fewer".trimEnd(), "Stream ended: c\n$cams".trimEnd()))
+        assertEquals(live + "\nPrevious streams, newest first:\n\n" +
+            "Stream ended: a\nCameras: same as above\n\n" +
+            "Stream ended: b\n${fewer.trimEnd()}\n\n" +
+            "Stream ended: c\n${cams.trimEnd()}\n", report)
+    }
+
+    @Test
+    fun `no previous runs is just the live report`() {
+        assertEquals("live\n", RecentRuns.report("live\n", emptyList()))
+    }
 }
