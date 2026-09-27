@@ -311,6 +311,7 @@ class UpdatesPlugin(TelescopePlugin):
 
     def _spawn_install(self, asset):
         signals, cancel = self._signals, self._cancel
+        build = self.available.build if self.available else 0
 
         def work():
             try:
@@ -319,7 +320,7 @@ class UpdatesPlugin(TelescopePlugin):
                     progress=lambda d, t: signals.progress.emit(d, t), cancelled=cancel.is_set)
                 signals.progress.emit(-1, -1)  # downloaded: now installing
                 stop_adb_server()  # a running adb.exe would keep platform-tools on its old version
-                result, error = updates.install(archive), ""
+                result, error = updates.install(archive, build=build), ""
                 archive.unlink(missing_ok=True)
             except updates.UpdateError as exc:
                 result, error = None, str(exc)

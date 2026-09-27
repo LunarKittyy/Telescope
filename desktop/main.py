@@ -6,6 +6,21 @@ import sys
 import threading
 from pathlib import Path
 
+import update_guard
+
+APP_DIR = Path(sys.executable if getattr(sys, "frozen", False) else __file__).resolve().parent
+# Before anything else is imported: an update that was cut short may leave files that don't import together.
+_right_version = update_guard.recover(APP_DIR, wait=15 if "--after-update" in sys.argv[1:] else 0)
+if _right_version is not None:
+    try:
+        update_guard.launch(_right_version)
+    except OSError:
+        pass  # nothing more this copy can do; starting Telescope again runs whatever version is in place
+    sys.exit(0)
+
+# The new version has started fine this long after its window came up (or once it's closed normally).
+_STARTED_FINE_MS = 3000
+
 _missing = []
 try:    from PyQt6.QtCore import Qt
 except ImportError: _missing.append("PyQt6")
@@ -24,6 +39,7 @@ if _missing:
     print(f"Missing: pip install {' '.join(_missing)}", file=sys.stderr)
     sys.exit(1)
 
+from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QApplication
 
 from telescope import diagnostics
@@ -61,8 +77,7 @@ def parse_args(argv):
 
 def main():
     args, qt_argv = parse_args(sys.argv[1:])
-    app_dir = Path(sys.executable if getattr(sys, "frozen", False) else __file__).resolve().parent
-    diagnostics.install(app_dir)
+    diagnostics.install(APP_DIR)
     app = QApplication([sys.argv[0]] + qt_argv)
     # Set at QApplication level so dialogs and window share icon.
     app.setWindowIcon(create_app_icon(64))
@@ -73,9 +88,6 @@ def main():
     srv = acquire_single_instance(wait=15 if args.after_update else 0)
     if srv is None:
         sys.exit(0)
-    # Every start, not just after an update: an old version's files can still be locked the first time.
-    clean_up_after_update()
-
     apply_theme(app)
 
     win = TelescopeWindow()
@@ -103,6 +115,16 @@ def main():
         args=(srv, win._sig_raise.emit),
         daemon=True,
     ).start()
+
+    def started_fine():
+        if not started_fine.done:
+            started_fine.done = True
+            update_guard.confirm(APP_DIR)
+            # Every start, not just after an update: an old version's files can still be locked the first time.
+            clean_up_after_update()
+    started_fine.done = False
+    QTimer.singleShot(_STARTED_FINE_MS, started_fine)
+    app.aboutToQuit.connect(started_fine)
 
     ret = app.exec()
     srv.close()

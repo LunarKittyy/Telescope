@@ -4,17 +4,20 @@ Each GitHub release carries a manifest.json (written by .github/write_manifest.p
 the build number and every file's SHA-256. Builds are compared by build number: the commit count on
 master, so stable and nightly numbers are comparable and switching channel never downgrades.
 
-Installing replaces the app's files in place and hands back the command that starts the new version:
+Installing replaces the app's files in place and hands back the command that starts the new version. The swap
+itself is update_guard's, journaled so a start after it was cut short finishes it, and the old version is kept
+until the new one has started once:
 - Windows (the PyInstaller folder build): a running exe can be renamed but not overwritten, so the old one
-  becomes TelescopeDesktop.old.exe and is deleted on the next start. Its libraries can't be moved either
-  while loaded, so each build keeps them in its own lib-<build> folder and the old one goes the same way.
-- Linux (the source tarball): each top-level entry is swapped, the old ones kept in .previous/ until
-  the swap completes; start.sh then installs any new Python requirements.
+  becomes TelescopeDesktop.old.exe. Its libraries can't be moved either while loaded, so each build keeps
+  them in its own lib-<build> folder.
+- Linux (the source tarball): each top-level entry is swapped, the old ones kept in .previous/; start.sh
+  then installs any new Python requirements.
 A source checkout (a .git folder) or a folder this user can't write to is never touched.
 """
 
 import hashlib
 import json
+import logging
 import os
 import shutil
 import sys
@@ -26,8 +29,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
 
+import update_guard
+from update_guard import EXE_NAME, LIB_PREFIX, OLD_EXE_NAME, PREVIOUS_DIR, STAGING_DIR
 from telescope import version
 from telescope.platform import IS_WINDOWS
+
+logger = logging.getLogger(__name__)
 
 CHANNELS = ("stable", "nightly")
 MANIFEST_URLS = {
@@ -36,11 +43,6 @@ MANIFEST_URLS = {
 }
 WINDOWS_ASSET = "Telescope-windows.zip"
 LINUX_ASSET = "Telescope-linux.tar.gz"
-EXE_NAME = "TelescopeDesktop.exe"
-OLD_EXE_NAME = "TelescopeDesktop.old.exe"
-LIB_PREFIX = "lib-"  # + the build number: the folder the exe's libraries are in (telescope.spec)
-STAGING_DIR = ".update-staging"
-PREVIOUS_DIR = ".previous"
 REQUEST_TIMEOUT = 15
 MAX_MANIFEST_BYTES = 256 * 1024
 
@@ -116,9 +118,12 @@ def fetch_manifest(channel: str, opener: Callable = _open) -> Optional[Manifest]
     return parse_manifest(raw)
 
 
-def is_newer(manifest: Optional[Manifest], build: Optional[int] = None) -> bool:
+def is_newer(manifest: Optional[Manifest], build: Optional[int] = None, directory: Optional[Path] = None) -> bool:
+    """Whether manifest is an update to offer: newer, and not the build that was rolled back for not starting."""
     current = version.BUILD if build is None else build
-    return manifest is not None and current > 0 and manifest.build > current
+    if manifest is None or current <= 0 or manifest.build <= current:
+        return False
+    return manifest.build != update_guard.failed_build(directory or install_dir())
 
 
 def platform_asset(manifest: Manifest) -> Optional[Asset]:
@@ -218,98 +223,51 @@ def _extract(archive_path: Path, staging: Path):
         raise UpdateError("The download couldn't be unpacked.") from exc
 
 
-def _file_hash(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 @dataclass
 class InstallResult:
     relaunch: list        # argv that starts the new version
     skipped: list = field(default_factory=list)  # files in use that kept their old version
 
 
-def install_windows(archive: Path, directory: Path) -> InstallResult:
+def _swap(directory: Path, journal: dict) -> list:
+    """Journal the swap, then do it (see update_guard). A failure puts the old version back and raises UpdateError."""
+    update_guard.write_journal(directory, dict(journal, state="swapping", from_build=version.BUILD))
+    skipped = []
+    try:
+        update_guard.finish_swap(directory, journal, skipped)
+    except OSError as exc:
+        try:
+            update_guard.roll_back(directory, journal, remember=False)
+        except OSError:
+            logger.exception("Putting the old version back failed; the next start tries again")
+        raise UpdateError(f"Couldn't replace Telescope's files: {exc.strerror or exc}") from exc
+    # The old version stays until the new one has started once (update_guard.confirm()).
+    update_guard.write_journal(directory, dict(journal, state="trial", started=False))
+    return skipped
+
+
+def install_windows(archive: Path, directory: Path, build: int = 0) -> InstallResult:
     staging = directory / STAGING_DIR
     _extract(archive, staging)
-    new_exe = staging / EXE_NAME
-    if not new_exe.is_file():
+    if not (staging / EXE_NAME).is_file():
         shutil.rmtree(staging, ignore_errors=True)
         raise UpdateError("The download doesn't contain Telescope, so it wasn't installed.")
-
-    # The new build's libraries first, each folder in one rename: a new name, so nothing holds it, and an
-    # update cut short never leaves the new exe next to a half-copied one.
-    for lib in sorted(p for p in staging.iterdir() if p.is_dir() and p.name.startswith(LIB_PREFIX)):
-        if not (directory / lib.name).exists():
-            try:
-                os.replace(lib, directory / lib.name)
-            except OSError as exc:
-                shutil.rmtree(staging, ignore_errors=True)
-                raise UpdateError(f"Couldn't move the new version in: {exc.strerror or exc}") from exc
-
-    current = directory / EXE_NAME
-    old = directory / OLD_EXE_NAME
-    try:
-        old.unlink(missing_ok=True)
-        if current.exists():
-            os.replace(current, old)  # allowed while it runs; overwriting isn't
-        try:
-            os.replace(new_exe, current)
-        except OSError:
-            if old.exists():
-                os.replace(old, current)
-            raise
-    except OSError as exc:
-        shutil.rmtree(staging, ignore_errors=True)
-        raise UpdateError(f"Couldn't replace {EXE_NAME}: {exc.strerror or exc}") from exc
-
-    skipped = []
-    for src in sorted(p for p in staging.rglob("*") if p.is_file()):
-        rel = src.relative_to(staging)
-        dst = directory / rel
-        if dst.exists() and _file_hash(dst) == _file_hash(src):
-            continue
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            os.replace(src, dst)
-        except OSError:
-            # e.g. a UnityCapture DLL loaded by OBS right now; it keeps working, just unchanged.
-            skipped.append(str(rel))
-    shutil.rmtree(staging, ignore_errors=True)
-    return InstallResult([str(current), "--after-update"], skipped)
+    skipped = _swap(directory, {"platform": "windows", "to_build": build})
+    return InstallResult([str(directory / EXE_NAME), "--after-update"], skipped)
 
 
-def install_linux(archive: Path, directory: Path) -> InstallResult:
+def install_linux(archive: Path, directory: Path, build: int = 0) -> InstallResult:
     staging = directory / STAGING_DIR
     _extract(archive, staging)
     entries = sorted(p.name for p in staging.iterdir())
     if "main.py" not in entries or "telescope" not in entries:
         shutil.rmtree(staging, ignore_errors=True)
         raise UpdateError("The download doesn't contain Telescope, so it wasn't installed.")
-
     previous = directory / PREVIOUS_DIR
     if previous.exists():
         shutil.rmtree(previous)
-    previous.mkdir()
-    moved_old, moved_new = [], []
-    try:
-        for name in entries:
-            if (directory / name).exists():
-                os.replace(directory / name, previous / name)
-                moved_old.append(name)
-            os.replace(staging / name, directory / name)
-            moved_new.append(name)
-    except OSError as exc:
-        for name in moved_new:  # put everything back the way it was
-            _remove(directory / name)
-        for name in moved_old:
-            os.replace(previous / name, directory / name)
-        raise UpdateError(f"Couldn't replace Telescope's files: {exc.strerror or exc}") from exc
-    finally:
-        shutil.rmtree(staging, ignore_errors=True)
+    added = [name for name in entries if not (directory / name).exists()]
+    _swap(directory, {"platform": "linux", "to_build": build, "entries": entries, "added": added})
 
     start = directory / "start.sh"
     if start.exists():
@@ -318,16 +276,10 @@ def install_linux(archive: Path, directory: Path) -> InstallResult:
     return InstallResult([sys.executable, str(directory / "main.py"), "--after-update"])
 
 
-def _remove(path: Path):
-    if path.is_dir() and not path.is_symlink():
-        shutil.rmtree(path)
-    else:
-        path.unlink(missing_ok=True)
-
-
-def install(archive: Path, directory: Optional[Path] = None) -> InstallResult:
+def install(archive: Path, directory: Optional[Path] = None, build: int = 0) -> InstallResult:
+    """build: the one being installed, so a roll-back knows not to offer it again."""
     directory = directory or install_dir()
-    return install_windows(archive, directory) if IS_WINDOWS else install_linux(archive, directory)
+    return (install_windows if IS_WINDOWS else install_linux)(archive, directory, build)
 
 
 def clean_up_after_update(directory: Optional[Path] = None, running_lib: Optional[str] = None):
@@ -335,13 +287,16 @@ def clean_up_after_update(directory: Optional[Path] = None, running_lib: Optiona
     running_lib (this copy's, found by itself when it's the packaged app). Best effort: the old exe may still be
     exiting, and what it holds is tried again on the next start."""
     directory = directory or install_dir()
+    if update_guard.read_journal(directory) is not None:
+        return  # an update isn't confirmed yet: these are what it would roll back to
     if running_lib is None and getattr(sys, "frozen", False):
         running_lib = Path(getattr(sys, "_MEIPASS", "")).name
-    leftovers = [directory / OLD_EXE_NAME, directory / STAGING_DIR]
+    leftovers = [directory / OLD_EXE_NAME, directory / update_guard.FAILED_EXE_NAME, directory / STAGING_DIR,
+                 directory / PREVIOUS_DIR]
     if running_lib and running_lib.startswith(LIB_PREFIX):
         leftovers += [p for p in directory.glob(LIB_PREFIX + "*") if p.is_dir() and p.name != running_lib]
     for leftover in leftovers:
         try:
-            _remove(leftover)
+            update_guard.remove(leftover)
         except OSError:
             pass

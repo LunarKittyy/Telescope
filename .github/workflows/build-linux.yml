@@ -50,7 +50,7 @@ jobs:
       - name: Assemble release bundle
         run: |
           mkdir bundle
-          cp desktop/main.py desktop/requirements.txt desktop/constraints.txt desktop/start.sh bundle/
+          cp desktop/main.py desktop/update_guard.py desktop/requirements.txt desktop/constraints.txt desktop/start.sh bundle/
           cp desktop/THIRD_PARTY_NOTICES.txt bundle/
           cp -r desktop/telescope bundle/telescope
           find bundle -name __pycache__ -type d -prune -exec rm -rf {} +
