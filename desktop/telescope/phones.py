@@ -88,6 +88,7 @@ class Resolution:
     streaming: bool = False
     busy: bool = False
     phone_version: str = ""  # the phone app's version, when it told us
+    # LEGACY MIGRATION PATH: pairings saved before TLS; remove with the check in resolve() and connection.problem_text().
     before_tls: bool = False  # NOT_PAIRED because this pairing predates TLS, not because the phone dropped it
 
 
@@ -151,6 +152,7 @@ class RouteResolver:
         self._wifi_timeout = wifi_timeout
 
     def resolve(self, phone: Phone, preference: str = ROUTE_AUTO) -> Resolution:
+        # LEGACY MIGRATION PATH: a phone paired before TLS has no pin to check.
         if not is_fingerprint(phone.cert_sha256):
             return Resolution(NOT_PAIRED, before_tls=True)
         usb_note = None

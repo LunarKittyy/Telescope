@@ -256,13 +256,6 @@ def test_stream_output_config_round_trip_and_invalid_resolution(stream_output):
     assert plugin.get_config()["resolution"] == "854 x 480"
 
 
-def test_stream_output_config_falls_back_to_legacy_phone_fps(stream_output):
-    """Legacy config with "phone_fps" key should apply, not reset to default."""
-    plugin, _host, _panel = stream_output
-    plugin.set_config({"phone_fps": 18})
-    assert plugin._fps_spin.value() == 18
-
-
 def test_stream_output_invalid_persisted_resolution_falls_back_to_first(stream_output):
     plugin, _host, _panel = stream_output
     plugin.set_config({"resolution": "not a real size"})

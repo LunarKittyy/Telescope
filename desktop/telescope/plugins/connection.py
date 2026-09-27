@@ -94,7 +94,7 @@ def problem_text(res: Resolution, phone_name: str, preference: str) -> str:
     if res.status == UNREACHABLE:
         return (f"Open Telescope on {phone_name} and keep it on screen. It needs to be on the same "
                 "network as this computer, or plugged in with a USB cable.")
-    if res.status == NOT_PAIRED and res.before_tls:
+    if res.status == NOT_PAIRED and res.before_tls:  # LEGACY MIGRATION PATH
         return (f"This version of Telescope encrypts the connection to {phone_name}, which needs a new "
                 "pairing. Click Add phone and scan the code again.")
     if res.status == NOT_PAIRED:

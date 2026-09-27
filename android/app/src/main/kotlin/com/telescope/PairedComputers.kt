@@ -60,6 +60,7 @@ object PairedComputers {
     private const val PREFS = "telescope_pairing"
     private const val KEY_COMPUTERS = "computers"
     private const val KEY_PHONE_ID = "phone_id"
+    // LEGACY MIGRATION PATH: remove with the line in list() once the next stable release has been out a while.
     // Single-token storage from pairing protocol v2. Dropped on first read: v3 pairings carry a
     // computer id/name, so the old token can't be carried over and the phone is paired again once.
     private const val KEY_LEGACY_TOKEN = "active_token"
@@ -71,6 +72,7 @@ object PairedComputers {
     fun list(context: Context): PairedComputerList {
         cache?.let { return it }
         val prefs = prefs(context)
+        // LEGACY MIGRATION PATH
         if (prefs.contains(KEY_LEGACY_TOKEN)) prefs.edit().remove(KEY_LEGACY_TOKEN).apply()
         return PairedComputerList.decode(prefs.getString(KEY_COMPUTERS, null)).also { cache = it }
     }

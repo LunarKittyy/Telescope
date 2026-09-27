@@ -111,6 +111,7 @@ class PhoneSessionClient:
             return Hello(HELLO_MISSING if exc.code == 404 else HELLO_NONE)
         except Exception as exc:
             # Only a listener that took the connection but not TLS is worth a plain look; nobody there, or the wrong certificate, is just not our phone.
+            # LEGACY MIGRATION PATH: a phone app from before TLS.
             if handshake_failed(exc) and self._answers_plain_http(timeout):
                 return Hello(HELLO_MISSING)
             return Hello(HELLO_NONE)
@@ -126,6 +127,7 @@ class PhoneSessionClient:
         return Hello(HELLO_OK, phone_id, clean_name(field("phoneName", str, "")), field("protocol", int, 0),
                      field("appVersion", str, ""), field("build", int, 0))
 
+    # LEGACY MIGRATION PATH: remove with its caller in hello() once no phone runs an app from before TLS.
     def _answers_plain_http(self, timeout: float) -> bool:
         """Whether an app from before TLS answers here: plain HTTP, no token, nothing sent that matters."""
         if not self.base.startswith("https://"):
