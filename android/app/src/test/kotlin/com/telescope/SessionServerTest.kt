@@ -77,9 +77,11 @@ class SessionServerTest {
     private fun withServer(
         token: String? = "secret-token",
         commands: FakeCommands = FakeCommands(),
+        requestDeadlineMs: Int = HttpWire.REQUEST_DEADLINE_MS,
         block: (port: Int, commands: FakeCommands) -> Unit,
     ) {
-        val server = SessionServer(0, { computersOf(token) }, commands, appVersion = "1.2.3", appBuild = 42)
+        val server = SessionServer(0, { computersOf(token) }, commands, appVersion = "1.2.3", appBuild = 42,
+            requestDeadlineMs = requestDeadlineMs)
         server.start()
         try {
             block(actualPort(server), commands)
@@ -268,6 +270,37 @@ class SessionServerTest {
             assertTrue(response.body.contains("\"build\":42"), response.body)
             assertFalse(response.body.contains("streaming"), response.body)
             assertFalse(commands.calls.contains("start"))
+        }
+    }
+
+    @Test
+    fun `a peer trickling its request a byte at a time is cut off at the deadline`() = withServer(requestDeadlineMs = 300) { port, commands ->
+        Socket("127.0.0.1", port).use { socket ->
+            socket.soTimeout = 3_000
+            val out = socket.getOutputStream()
+            val started = System.currentTimeMillis()
+            val closed = runCatching {
+                for (b in "GET /v1/hello HTTP/1.1\r\nX-Slow: ".toByteArray()) {
+                    out.write(b.toInt()); out.flush()
+                    Thread.sleep(50)
+                }
+                repeat(40) { out.write('a'.code); out.flush(); Thread.sleep(50) }
+            }.isFailure || socket.getInputStream().read() == -1
+            assertTrue(closed)
+            assertTrue(System.currentTimeMillis() - started < 2_500)
+        }
+        assertTrue(commands.calls.isEmpty())
+    }
+
+    @Test
+    fun `idle connections from one address don't lock out another`() = withServer(requestDeadlineMs = 5_000) { port, _ ->
+        val idle = (1..PendingLimiter.MAX_PER_ADDRESS + 2).map {
+            Socket().apply { bind(java.net.InetSocketAddress("127.0.0.2", 0)); connect(java.net.InetSocketAddress("127.0.0.1", port)) }
+        }
+        try {
+            assertEquals(200, get(port, "/v1/hello", null).status)
+        } finally {
+            idle.forEach { it.close() }
         }
     }
 }

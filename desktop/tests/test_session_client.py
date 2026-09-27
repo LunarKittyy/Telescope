@@ -15,8 +15,8 @@ class _Response:
         self.status = status
         self._body = body
 
-    def read(self):
-        return self._body
+    def read(self, n=-1):
+        return self._body if n < 0 else self._body[:n]
 
     def __enter__(self):
         return self
@@ -175,3 +175,11 @@ def test_hello_tells_an_old_app_from_nothing_at_all(monkeypatch, client):
     assert client.hello().status == HELLO_NONE
     _stub_urlopen(monkeypatch, lambda _req: _Response(200, b"[1]"))
     assert client.hello().status == HELLO_NONE
+
+
+def test_an_oversized_reply_is_treated_as_no_phone(monkeypatch, client):
+    huge = b'{"phoneId": "p1", "pad": "' + b"x" * (session_client_module.MAX_REPLY_BYTES + 10) + b'"}'
+    _stub_urlopen(monkeypatch, lambda _req: _Response(200, huge))
+    assert client.hello().status == HELLO_NONE
+    assert client.ping().status == "unreachable"
+    assert client.start() == SessionResult(ok=False, error="unreachable")

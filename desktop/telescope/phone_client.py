@@ -5,6 +5,8 @@ import threading
 import urllib.request
 from typing import Optional
 
+from telescope.session_client import read_capped
+
 logger = logging.getLogger(__name__)
 
 
@@ -30,7 +32,7 @@ class PhoneControlClient:
         try:
             req = urllib.request.Request(f"{self.base}/state", headers=self._auth_headers())
             with urllib.request.urlopen(req, timeout=4) as r:
-                return json.loads(r.read().decode())
+                return json.loads(read_capped(r).decode())
         except Exception:
             return None
 

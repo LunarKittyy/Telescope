@@ -9,6 +9,8 @@ logger = logging.getLogger(__name__)
 
 _CHUNK = 4096
 _MAX_PART_HEADER_BYTES = 4096
+# Far above any real JPEG from the phone; a part claiming more ends the stream instead of filling memory.
+_MAX_FRAME_BYTES = 32 * 1024 * 1024
 
 
 class MjpegReader:
@@ -134,7 +136,7 @@ class MjpegReader:
                     content_length = int(line.split(b":", 1)[1].strip())
                 except ValueError:
                     content_length = None
-        if content_length is None:
+        if content_length is None or not 0 < content_length <= _MAX_FRAME_BYTES:
             return None
         if not self._fill(content_length):
             return None

@@ -15,6 +15,8 @@ except ImportError:  # optional: MJPEG works without it
     av = None
 
 _CHUNK = 64 * 1024
+# Data with no finished frame after this much isn't a stream the phone sent; stop instead of buffering on.
+_MAX_BYTES_WITHOUT_FRAME = 32 * 1024 * 1024
 
 
 def available() -> bool:
@@ -74,6 +76,8 @@ class H264Reader:
                 if not chunk:
                     return False, None
                 self._pending_bytes += len(chunk)
+                if self._pending_bytes > _MAX_BYTES_WITHOUT_FRAME:
+                    return False, None
                 frame = decode_newest(self._codec, chunk)
                 if frame is not None:
                     self.last_frame_bytes, self._pending_bytes = self._pending_bytes, 0
