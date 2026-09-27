@@ -7,6 +7,7 @@ import pytest
 
 av = pytest.importorskip("av")
 
+from telescope.pinned_https import PhoneAuth
 from telescope import h264_reader  # noqa: E402
 from telescope.h264_reader import H264Reader, decode_newest, new_decoder  # noqa: E402
 
@@ -84,8 +85,8 @@ def test_reader_reads_authenticated_frames_then_reports_eof(server):
     _Handler.content_type = "video/h264"
     url = f"http://127.0.0.1:{server.server_address[1]}/v1/video.h264"
 
-    assert H264Reader(url, "wrong").open() is False
-    reader = H264Reader(url, "secret")
+    assert H264Reader(url, PhoneAuth("wrong")).open() is False
+    reader = H264Reader(url, PhoneAuth("secret"))
     assert reader.open() is True and reader.isOpened()
     frames, total = [], 0
     while True:
@@ -103,14 +104,14 @@ def test_reader_reads_authenticated_frames_then_reports_eof(server):
 def test_reader_refuses_a_non_h264_response(server):
     _Handler.body = b"hi"
     _Handler.content_type = "text/plain"
-    reader = H264Reader(f"http://127.0.0.1:{server.server_address[1]}/v1/video.h264", "secret")
+    reader = H264Reader(f"http://127.0.0.1:{server.server_address[1]}/v1/video.h264", PhoneAuth("secret"))
     assert reader.open() is False
 
 
 def test_without_pyav_the_reader_never_opens(monkeypatch):
     monkeypatch.setattr(h264_reader, "av", None)
     assert h264_reader.available() is False
-    assert H264Reader("http://127.0.0.1:1/v1/video.h264", "t").open() is False
+    assert H264Reader("http://127.0.0.1:1/v1/video.h264", PhoneAuth("t")).open() is False
 
 
 class _Endless:
@@ -125,7 +126,7 @@ class _Endless:
 
 def test_data_that_never_makes_a_frame_ends_the_stream(monkeypatch):
     monkeypatch.setattr(h264_reader, "_MAX_BYTES_WITHOUT_FRAME", 1024 * 1024)
-    reader = H264Reader("http://127.0.0.1:1/v1/video.h264", "t")
+    reader = H264Reader("http://127.0.0.1:1/v1/video.h264", PhoneAuth("t"))
     reader._codec = h264_reader.new_decoder()
     reader._response = _Endless()
     assert reader.read() == (False, None)

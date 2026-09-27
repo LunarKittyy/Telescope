@@ -10,7 +10,7 @@ from telescope.session_client import (
     HELLO_MISSING, HELLO_NONE, HELLO_OK, SESSION_PROTOCOL, Hello, PingResult,
 )
 
-PHONE = Phone(id="ph-1", name="Pixel", token="tok", ips=["192.168.1.40"])
+PHONE = Phone(id="ph-1", name="Pixel", token="tok", ips=["192.168.1.40"], cert_sha256="ab" * 32)
 
 
 OLD_APP = "old app"  # answers on the session port, but from before /v1/hello
@@ -23,8 +23,9 @@ class FakeNet:
         self.answers = answers
         self.pinged = []
 
-    def factory(self, base, token):
+    def factory(self, base, auth):
         net = self
+        net.auths = getattr(net, "auths", []) + [auth]
 
         class Client:
             def __init__(self):
@@ -62,8 +63,8 @@ def _resolver(net, states=(), adb=True, discovered=()):
 
 
 def test_usb_wins_whenever_this_phone_answers_over_the_cable():
-    net = FakeNet({"http://127.0.0.1:40000": ("ph-1", "paired", False),
-                   "http://192.168.1.40:8766": ("ph-1", "paired", False)})
+    net = FakeNet({"https://127.0.0.1:40000": ("ph-1", "paired", False),
+                   "https://192.168.1.40:8766": ("ph-1", "paired", False)})
     resolver, _ = _resolver(net, states=[("SER", "device")])
     res = resolver.resolve(PHONE)
     assert res.status == READY and res.route.kind == "usb" and res.route.serial == "SER"
@@ -71,7 +72,7 @@ def test_usb_wins_whenever_this_phone_answers_over_the_cable():
 
 
 def test_falls_back_to_wifi_and_says_why():
-    net = FakeNet({"http://192.168.1.40:8766": ("ph-1", "paired", False)})
+    net = FakeNet({"https://192.168.1.40:8766": ("ph-1", "paired", False)})
     for states, adb, note in (
         ([], True, USB_NO_CABLE),
         ([("SER", "unauthorized")], True, USB_UNAUTHORIZED),
@@ -84,51 +85,51 @@ def test_falls_back_to_wifi_and_says_why():
 
 
 def test_a_different_phone_on_usb_is_not_mistaken_for_ours():
-    net = FakeNet({"http://127.0.0.1:40000": ("someone-else", "paired", False),
-                   "http://192.168.1.40:8766": ("ph-1", "paired", False)})
+    net = FakeNet({"https://127.0.0.1:40000": ("someone-else", "paired", False),
+                   "https://192.168.1.40:8766": ("ph-1", "paired", False)})
     resolver, _ = _resolver(net, states=[("OTHER", "device")])
     res = resolver.resolve(PHONE)
     assert res.route.kind == "wifi" and res.usb_note == USB_OTHER_PHONE
 
 
 def test_picks_our_phone_out_of_several_plugged_in():
-    net = FakeNet({"http://127.0.0.1:40000": ("someone-else", "paired", False),
-                   "http://127.0.0.1:40001": ("ph-1", "paired", False)})
+    net = FakeNet({"https://127.0.0.1:40000": ("someone-else", "paired", False),
+                   "https://127.0.0.1:40001": ("ph-1", "paired", False)})
     resolver, _ = _resolver(net, states=[("A", "device"), ("B", "device")])
     res = resolver.resolve(PHONE)
     assert res.route.kind == "usb" and res.route.serial == "B"
 
 
 def test_forced_usb_never_silently_uses_wifi():
-    net = FakeNet({"http://192.168.1.40:8766": ("ph-1", "paired", False)})
+    net = FakeNet({"https://192.168.1.40:8766": ("ph-1", "paired", False)})
     resolver, _ = _resolver(net, states=[("SER", "unauthorized")])
     res = resolver.resolve(PHONE, ROUTE_USB)
     assert res.status == USB_NEEDS_ATTENTION and res.route is None and res.usb_note == USB_UNAUTHORIZED
 
 
 def test_forced_wifi_skips_usb():
-    net = FakeNet({"http://127.0.0.1:40000": ("ph-1", "paired", False),
-                   "http://192.168.1.40:8766": ("ph-1", "paired", False)})
+    net = FakeNet({"https://127.0.0.1:40000": ("ph-1", "paired", False),
+                   "https://192.168.1.40:8766": ("ph-1", "paired", False)})
     resolver, ports = _resolver(net, states=[("SER", "device")])
     res = resolver.resolve(PHONE, ROUTE_WIFI)
     assert res.route.kind == "wifi" and ports == {}
 
 
 def test_discovered_address_is_tried_so_a_new_dhcp_lease_still_works():
-    net = FakeNet({"http://192.168.1.77:8766": ("ph-1", "paired", False)})
+    net = FakeNet({"https://192.168.1.77:8766": ("ph-1", "paired", False)})
     resolver, _ = _resolver(net, discovered=["192.168.1.77"])
     res = resolver.resolve(PHONE)
     assert res.route == phones.Route("wifi", "192.168.1.77")
 
 
 def test_phone_that_forgot_this_computer_says_so():
-    net = FakeNet({"http://192.168.1.40:8766": ("ph-1", "not_paired", False)})
+    net = FakeNet({"https://192.168.1.40:8766": ("ph-1", "not_paired", False)})
     resolver, _ = _resolver(net)
     assert resolver.resolve(PHONE).status == NOT_PAIRED
 
 
 def test_local_only_phone_reachable_on_wifi_asks_for_usb():
-    net = FakeNet({"http://192.168.1.40:8766": ("ph-1", "paired", True)})
+    net = FakeNet({"https://192.168.1.40:8766": ("ph-1", "paired", True)})
     resolver, _ = _resolver(net)
     assert resolver.resolve(PHONE).status == LOCAL_ONLY
 
@@ -139,7 +140,7 @@ def test_nothing_answering_is_unreachable():
 
 
 def test_an_older_phone_app_is_named_instead_of_unreachable():
-    net = FakeNet({"http://192.168.1.40:8766": ("ph-1", "paired", False, SESSION_PROTOCOL - 1)})
+    net = FakeNet({"https://192.168.1.40:8766": ("ph-1", "paired", False, SESSION_PROTOCOL - 1)})
     resolver, _ = _resolver(net)
     res = resolver.resolve(PHONE)
     assert res.status == PHONE_OUTDATED and res.phone_version == "1.0"
@@ -147,23 +148,23 @@ def test_an_older_phone_app_is_named_instead_of_unreachable():
 
 
 def test_a_newer_phone_app_asks_for_a_desktop_update():
-    net = FakeNet({"http://192.168.1.40:8766": ("ph-1", "paired", False, SESSION_PROTOCOL + 1)})
+    net = FakeNet({"https://192.168.1.40:8766": ("ph-1", "paired", False, SESSION_PROTOCOL + 1)})
     resolver, _ = _resolver(net)
     assert resolver.resolve(PHONE).status == DESKTOP_OUTDATED
 
 
 def test_an_app_from_before_hello_counts_as_outdated_and_keeps_its_usb_serial():
-    net = FakeNet({"http://127.0.0.1:40000": OLD_APP})
+    net = FakeNet({"https://127.0.0.1:40000": OLD_APP})
     resolver, _ = _resolver(net, states=[("SER", "device")])
     res = resolver.resolve(PHONE)
     assert res.status == PHONE_OUTDATED and res.route.serial == "SER"
-    net = FakeNet({"http://192.168.1.40:8766": OLD_APP})
+    net = FakeNet({"https://192.168.1.40:8766": OLD_APP})
     resolver, _ = _resolver(net)
     assert resolver.resolve(PHONE).status == PHONE_OUTDATED
 
 
 def test_a_working_address_beats_an_outdated_answer_elsewhere():
-    net = FakeNet({"http://192.168.1.40:8766": OLD_APP, "http://192.168.1.77:8766": ("ph-1", "paired", False)})
+    net = FakeNet({"https://192.168.1.40:8766": OLD_APP, "https://192.168.1.77:8766": ("ph-1", "paired", False)})
     resolver, _ = _resolver(net, discovered=["192.168.1.77"])
     res = resolver.resolve(PHONE)
     assert res.status == READY and res.phone_version == "1.0"
@@ -185,3 +186,23 @@ def test_phone_round_trips_and_rejects_incomplete_entries():
     assert Phone.from_dict(PHONE.to_dict()) == PHONE
     with pytest.raises(ValueError):
         Phone.from_dict({"id": "x", "name": "y"})
+
+
+def test_a_phone_paired_before_tls_has_to_pair_again_and_is_never_contacted():
+    net = FakeNet({"https://192.168.1.40:8766": ("ph-1", "paired", False)})
+    old = Phone(id="ph-1", name="Pixel", token="tok", ips=["192.168.1.40"])
+    res = _resolver(net)[0].resolve(old)
+    assert res.status == NOT_PAIRED and res.before_tls
+    assert net.pinged == [] and not getattr(net, "auths", [])
+
+
+def test_every_probe_carries_the_paired_certificate_pin():
+    net = FakeNet({"https://192.168.1.40:8766": ("ph-1", "paired", False)})
+    assert _resolver(net)[0].resolve(PHONE).status == READY
+    assert net.auths and all(a.pin == "ab" * 32 and a.token == "tok" for a in net.auths)
+
+
+def test_the_pin_round_trips_through_the_saved_phone_list():
+    assert Phone.from_dict(PHONE.to_dict()) == PHONE
+    raw = dict(PHONE.to_dict(), cert_sha256="garbage")
+    assert Phone.from_dict(raw).cert_sha256 == ""

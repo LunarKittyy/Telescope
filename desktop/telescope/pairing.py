@@ -1,5 +1,6 @@
-"""Qt-free QR pairing HTTP server: binds a port, mints a nonce and bearer token, waits for the phone's POST at /pair/{nonce} echoing the token back, and hands the caller a PairingResult. No PyQt import - the dialog layer (plugins/connection.py) owns rendering and bridging the result onto a Qt signal."""
+"""Qt-free QR pairing HTTP server: binds a port, mints a nonce and bearer token, waits for the phone's POST at /pair/{nonce} proving it read the token, and hands the caller a PairingResult. No PyQt import - the dialog layer (plugins/connection.py) owns rendering and bridging the result onto a Qt signal."""
 
+import hashlib
 import hmac
 import json
 import secrets
@@ -11,12 +12,20 @@ from typing import Callable, List, Optional
 
 from telescope import ip_utils
 from telescope.ip_utils import PairingAddress
+from telescope.pinned_https import is_fingerprint
 
 PAIRING_PORT = 8765
 
 # Protocol version; desktop and app must ship together.
 # 3: the offer names this computer (computer_id/computer_name), the phone answers with its phone_id.
-PAIRING_PROTOCOL_VERSION = 3
+# 4: the phone answers with its TLS certificate's fingerprint and a proof of the token, never the token itself.
+PAIRING_PROTOCOL_VERSION = 4
+
+
+def pairing_proof(token: str, nonce: str, phone_id: str, cert_sha256: str) -> str:
+    """HMAC-SHA256 under the token over what the phone claims; the phone's pairingProof() must match."""
+    message = f"telescope-pair-v4\n{nonce}\n{phone_id}\n{cert_sha256}".encode()
+    return hmac.new(token.encode(), message, hashlib.sha256).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -40,6 +49,8 @@ class PairingResult:
     # Source of successful pairing POST (preferred over reported IPs).
     source_ip: str = ""
     phone_id: str = ""
+    # The phone's TLS certificate fingerprint; every later connection must present this certificate.
+    cert_sha256: str = ""
 
 
 class PairingServer:
@@ -82,11 +93,7 @@ class PairingServer:
         # so a LAN peer that doesn't already know it (i.e. hasn't scanned the
         # current QR code) can't add itself as a paired device.
         nonce = secrets.token_urlsafe(16)
-        # The bearer token the phone will require on every /v1/* request once
-        # paired. Embedded in the QR code and echoed back in the pairing POST
-        # body as a second, defense-in-depth confirmation (on top of the
-        # nonce) that this POST came from a phone that actually read the
-        # current QR code.
+        # The bearer token the phone will require on every /v1/* request once paired; it only travels in the QR code and over pinned TLS.
         token = secrets.token_urlsafe(32)
         max_body = self._MAX_BODY_BYTES
         drain_limit = self._DRAIN_LIMIT
@@ -128,14 +135,18 @@ class PairingServer:
                     name = str(data.get("name", "Phone")).strip()
                     phone_id = str(data.get("phone_id", "")).strip()
                     ips = list(dict.fromkeys(str(x).strip() for x in data.get("ips", [])))
-                    echoed_token = str(data.get("token", ""))
+                    cert_sha256 = str(data.get("cert_sha256", ""))
+                    proof = str(data.get("proof", ""))
                     if not name or not phone_id or not all(ip_utils.valid_ipv4(ip) for ip in ips):
                         raise ValueError("invalid pairing payload")
-                    if not hmac.compare_digest(echoed_token, token):
-                        raise ValueError("token mismatch")
+                    if not is_fingerprint(cert_sha256):
+                        raise ValueError("no certificate fingerprint")
+                    if not hmac.compare_digest(proof, pairing_proof(token, nonce, phone_id, cert_sha256)):
+                        raise ValueError("proof mismatch")
                     source_ip = self.client_address[0] if self.client_address else ""
                     on_paired(PairingResult(
                         name=name, ips=ips, token=token, source_ip=source_ip, phone_id=phone_id,
+                        cert_sha256=cert_sha256,
                     ))
                     self.send_response(200)
                     self.end_headers()

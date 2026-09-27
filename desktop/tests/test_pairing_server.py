@@ -6,7 +6,7 @@ import time
 import pytest
 
 from telescope.ip_utils import PairingAddress
-from telescope.pairing import PAIRING_PROTOCOL_VERSION, PairingResult, PairingServer
+from telescope.pairing import PAIRING_PROTOCOL_VERSION, PairingResult, PairingServer, pairing_proof
 
 _CANDIDATES = [
     PairingAddress(ip="192.168.1.42", interface="Wi-Fi", kind="lan"),
@@ -62,11 +62,11 @@ def test_start_is_idempotent(pairing_server):
     assert server.start() is offer
 
 
-def test_payload_is_version_3_with_every_candidate(pairing_server):
+def test_payload_is_version_4_with_every_candidate(pairing_server):
     _server, offer, _paired = pairing_server
     payload = json.loads(offer.payload)
 
-    assert payload["version"] == PAIRING_PROTOCOL_VERSION == 3
+    assert payload["version"] == PAIRING_PROTOCOL_VERSION == 4
     assert "computer_id" in payload and "computer_name" in payload
     assert payload["port"] == offer.port
     assert payload["nonce"] == offer.nonce
@@ -100,17 +100,30 @@ def test_start_with_advertised_addresses_skips_discovery(monkeypatch):
         time.sleep(0.2)
 
 
-def test_empty_ips_in_payload_is_accepted(pairing_server):
-    # USB-only phone with no Wi-Fi reports empty IPs; only malformed entries rejected.
-    server, offer, paired = pairing_server
-    body = json.dumps({"name": "Phone", "ips": [], "token": offer.token, "phone_id": "ph-1"}).encode()
-    assert _post(offer.port, f"/pair/{offer.nonce}", body) == 200
+PIN = "ab" * 32
+
+
+def _pair_body(offer, name="Phone", ips=(), phone_id="ph-1", cert=PIN, proof=None, **extra) -> bytes:
+    data = {"name": name, "ips": list(ips), "phone_id": phone_id, "cert_sha256": cert,
+            "proof": proof if proof is not None else pairing_proof(offer.token, offer.nonce, phone_id, cert)}
+    data.update(extra)
+    return json.dumps(data).encode()
+
+
+def _wait_for(paired):
     for _ in range(20):
         time.sleep(0.05)
         if paired:
             break
+
+
+def test_empty_ips_in_payload_is_accepted(pairing_server):
+    # USB-only phone with no Wi-Fi reports empty IPs; only malformed entries rejected.
+    server, offer, paired = pairing_server
+    assert _post(offer.port, f"/pair/{offer.nonce}", _pair_body(offer)) == 200
+    _wait_for(paired)
     assert paired == [
-        PairingResult(name="Phone", ips=[], token=offer.token, source_ip="127.0.0.1", phone_id="ph-1"),
+        PairingResult(name="Phone", ips=[], token=offer.token, source_ip="127.0.0.1", phone_id="ph-1", cert_sha256=PIN),
     ]
 
 
@@ -136,49 +149,62 @@ def test_missing_content_length_is_rejected(pairing_server):
 
 def test_invalid_ip_in_payload_is_rejected(pairing_server):
     server, offer, _paired = pairing_server
-    body = json.dumps({"name": "Phone", "ips": ["not-an-ip"], "token": offer.token}).encode()
-    assert _post(offer.port, f"/pair/{offer.nonce}", body) == 400
+    assert _post(offer.port, f"/pair/{offer.nonce}", _pair_body(offer, ips=["not-an-ip"])) == 400
 
 
-def test_wrong_echoed_token_is_rejected(pairing_server):
+def test_a_proof_made_with_another_token_is_rejected(pairing_server):
     server, offer, paired = pairing_server
-    body = json.dumps({"name": "Phone", "ips": ["192.168.1.55"], "token": "wrong-token"}).encode()
+    forged = pairing_proof("wrong-token", offer.nonce, "ph-1", PIN)
+    assert _post(offer.port, f"/pair/{offer.nonce}", _pair_body(offer, proof=forged)) == 400
+    assert paired == []
+
+
+def test_the_proof_covers_the_fingerprint(pairing_server):
+    # Someone who saw a real phone's POST can't swap in their own certificate.
+    server, offer, paired = pairing_server
+    real = pairing_proof(offer.token, offer.nonce, "ph-1", PIN)
+    assert _post(offer.port, f"/pair/{offer.nonce}", _pair_body(offer, cert="cd" * 32, proof=real)) == 400
+    assert paired == []
+
+
+def test_a_phone_from_before_tls_is_rejected(pairing_server):
+    # A v3 phone echoes the token and sends no fingerprint.
+    server, offer, paired = pairing_server
+    body = json.dumps({"name": "Phone", "ips": [], "phone_id": "ph-1", "token": offer.token}).encode()
     assert _post(offer.port, f"/pair/{offer.nonce}", body) == 400
     assert paired == []
 
 
-def test_missing_token_is_rejected(pairing_server):
+def test_a_malformed_fingerprint_is_rejected(pairing_server):
     server, offer, paired = pairing_server
-    body = json.dumps({"name": "Phone", "ips": ["192.168.1.55"]}).encode()
-    assert _post(offer.port, f"/pair/{offer.nonce}", body) == 400
+    assert _post(offer.port, f"/pair/{offer.nonce}", _pair_body(offer, cert="not-hex")) == 400
     assert paired == []
 
 
 def test_valid_payload_pairs_and_invokes_callback(pairing_server):
     server, offer, paired = pairing_server
-    body = json.dumps({"name": "MyPhone", "ips": ["192.168.1.55"], "token": offer.token, "phone_id": "ph-1"}).encode()
-
-    assert _post(offer.port, f"/pair/{offer.nonce}", body) == 200
-
-    for _ in range(20):
-        time.sleep(0.05)
-        if paired:
-            break
+    assert _post(offer.port, f"/pair/{offer.nonce}", _pair_body(offer, name="MyPhone", ips=["192.168.1.55"])) == 200
+    _wait_for(paired)
     assert paired == [
         PairingResult(
             name="MyPhone", ips=["192.168.1.55"], token=offer.token,
             # Source IP of actual POST; desktop streams back to this instead of guessing.
-            source_ip="127.0.0.1", phone_id="ph-1",
+            source_ip="127.0.0.1", phone_id="ph-1", cert_sha256=PIN,
         ),
     ]
 
 
 def test_pairing_without_a_phone_id_is_rejected(pairing_server):
-    # v3 phones always send it; without it the desktop couldn't tell phones apart.
+    # Without it the desktop couldn't tell phones apart.
     _server, offer, paired = pairing_server
-    body = json.dumps({"name": "Phone", "ips": [], "token": offer.token}).encode()
-    assert _post(offer.port, f"/pair/{offer.nonce}", body) == 400
+    assert _post(offer.port, f"/pair/{offer.nonce}", _pair_body(offer, phone_id="")) == 400
     assert paired == []
+
+
+def test_the_proof_matches_the_phone_app():
+    # Same vector as the phone's PairingTest.kt.
+    assert pairing_proof("tok-123", "nonce-abc", "phone-1", "ab" * 32) == \
+        "fabf87423641e2c832e78a0385ce388ccadc57e896fe2b028586b22c2873d915"
 
 
 def test_offer_names_this_computer():

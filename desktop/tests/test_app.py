@@ -637,7 +637,7 @@ def test_start_builds_worker_pipeline_and_notifies_plugins(window, monkeypatch):
     assert workers[0].kwargs["fps"] == 25
     assert workers[0].kwargs["canvas_width"] == 1920
     assert workers[0].kwargs["canvas_height"] == 1080
-    assert workers[0].kwargs["token"] == "tok"
+    assert workers[0].kwargs["auth"] == "tok"
     assert workers[0].kwargs["frame_pipeline"] == [p.process_frame for p in window._plugins]
     assert workers[0].started is True
     assert bus_urls == ["http://phone/video"]
@@ -1371,7 +1371,7 @@ class _RecoveringConnection(_Connection):
 class _RetargetWorker:
     def __init__(self):
         self.status, self.reconnected, self.vcam_opened = _Signal(), _Signal(), _Signal()
-        self.token = "tok"
+        self.auth = "tok"
         self.urls = []
 
     def retarget(self, url):

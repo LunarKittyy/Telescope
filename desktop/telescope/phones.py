@@ -12,6 +12,7 @@ from dataclasses import dataclass, field, replace
 from typing import Callable, Optional
 
 from telescope import ip_utils
+from telescope.pinned_https import PhoneAuth, is_fingerprint
 from telescope.session_client import (
     HELLO_MISSING, PING_PORT, SESSION_PROTOCOL, Hello, PhoneSessionClient,
 )
@@ -44,10 +45,16 @@ class Phone:
     token: str
     ips: list = field(default_factory=list)
     active_ip: Optional[str] = None
+    # TLS certificate fingerprint from pairing; empty for a phone paired before TLS, which must pair again.
+    cert_sha256: str = ""
+
+    @property
+    def auth(self) -> PhoneAuth:
+        return PhoneAuth(self.token, self.cert_sha256)
 
     def to_dict(self) -> dict:
         return {"id": self.id, "name": self.name, "token": self.token,
-                "ips": list(self.ips), "active_ip": self.active_ip}
+                "ips": list(self.ips), "active_ip": self.active_ip, "cert_sha256": self.cert_sha256}
 
     @classmethod
     def from_dict(cls, raw) -> "Phone":
@@ -60,7 +67,9 @@ class Phone:
         if not isinstance(ips, list) or not all(isinstance(ip, str) for ip in ips):
             raise ValueError("phone entry 'ips' must be a list of strings")
         active = raw.get("active_ip")
-        return cls(pid, name, token, ips, active if isinstance(active, str) else None)
+        pin = raw.get("cert_sha256")
+        return cls(pid, name, token, ips, active if isinstance(active, str) else None,
+                   pin if is_fingerprint(pin) else "")
 
 
 @dataclass(frozen=True)
@@ -78,6 +87,7 @@ class Resolution:
     streaming: bool = False
     busy: bool = False
     phone_version: str = ""  # the phone app's version, when it told us
+    before_tls: bool = False  # NOT_PAIRED because this pairing predates TLS, not because the phone dropped it
 
 
 def _version_mismatch(hello: Hello, route: Route) -> Optional[Resolution]:
@@ -140,6 +150,8 @@ class RouteResolver:
         self._wifi_timeout = wifi_timeout
 
     def resolve(self, phone: Phone, preference: str = ROUTE_AUTO) -> Resolution:
+        if not is_fingerprint(phone.cert_sha256):
+            return Resolution(NOT_PAIRED, before_tls=True)
         usb_note = None
         if preference in (ROUTE_AUTO, ROUTE_USB):
             usb, usb_note = self._try_usb(phone)
@@ -169,7 +181,7 @@ class RouteResolver:
                 continue
             try:
                 route = Route("usb", "127.0.0.1", serial)
-                client = self._client(f"http://127.0.0.1:{local}", phone.token)
+                client = self._client(f"https://127.0.0.1:{local}", phone.auth)
                 hello = client.hello()
                 if hello.status == HELLO_MISSING:
                     old_app_serial = old_app_serial or serial  # too old to say who it is
@@ -209,7 +221,7 @@ class RouteResolver:
         return out
 
     def _probe_wifi(self, phone: Phone, ip: str) -> Optional[Resolution]:
-        client = self._client(f"http://{ip}:{PING_PORT}", phone.token)
+        client = self._client(f"https://{ip}:{PING_PORT}", phone.auth)
         route = Route("wifi", ip)
         hello = client.hello(timeout=self._wifi_timeout)
         if hello.status == HELLO_MISSING:

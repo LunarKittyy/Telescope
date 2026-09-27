@@ -332,12 +332,13 @@ class MainActivity : AppCompatActivity() {
                 readTimeout = timeoutMs
                 doOutput = true
             }
+            val certSha256 = PhoneTls.identity(this).fingerprint
             val body = org.json.JSONObject().apply {
                 put("name", deviceName)
                 put("phone_id", phoneId)
                 put("ips", org.json.JSONArray(myIps))
-                // Echoed back; defense-in-depth along with nonce in URL path.
-                put("token", offer.token)
+                put("cert_sha256", certSha256)
+                put("proof", pairingProof(offer.token, offer.nonce, phoneId, certSha256))
             }.toString()
             conn.outputStream.use { it.write(body.toByteArray()) }
             if (conn.responseCode == 200) null else "HTTP ${conn.responseCode}"

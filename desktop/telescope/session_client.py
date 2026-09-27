@@ -1,18 +1,23 @@
 """Client for phone's session port (8766), always reachable unlike streaming server."""
 
+import errno
 import json
 import logging
+import socket
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from typing import Optional
+
+from telescope.pinned_https import PhoneAuth, pin_rejected
 
 logger = logging.getLogger(__name__)
 
 PING_PORT = 8766
 
 # Shape of the phone's session API (the phone's SessionServer.PROTOCOL_VERSION). Both apps must match.
-SESSION_PROTOCOL = 2
+# 3: TLS on both of the phone's ports, pinned to the certificate fingerprint it gave at pairing.
+SESSION_PROTOCOL = 3
 
 REQUEST_TIMEOUT = 3  # Ping timeout; long enough for slow Wi-Fi, short enough for polling.
 START_TIMEOUT = 12   # Wait for camera to come up after accepting start.
@@ -75,29 +80,37 @@ class SessionResult:
     error: Optional[str] = None
 
 
+def _nobody_listening(exc: BaseException) -> bool:
+    reason = getattr(exc, "reason", exc)
+    return isinstance(reason, ConnectionRefusedError) or (
+        isinstance(reason, OSError) and reason.errno in (errno.EHOSTUNREACH, errno.ENETUNREACH))
+
+
 class PhoneSessionClient:
     """Talks to resolved base URL (device IP or localhost via adb forward)."""
 
-    def __init__(self, base_url: str, token: str):
+    def __init__(self, base_url: str, auth: PhoneAuth):
         self.base = base_url.rstrip("/")
-        self.token = token
+        self.auth = auth
 
     def _headers(self, json_body: bool = False) -> dict:
-        headers = {"Authorization": f"Bearer {self.token}"}
+        headers = self.auth.headers()
         if json_body:
             headers["Content-Type"] = "application/json"
         return headers
 
     def hello(self, timeout: float = REQUEST_TIMEOUT) -> Hello:
-        """Who answers on the session port (unauthenticated /v1/hello)."""
+        """Who answers on the session port (/v1/hello, no token sent)."""
         try:
-            with urllib.request.urlopen(f"{self.base}/v1/hello", timeout=timeout) as r:
+            with self.auth.open(f"{self.base}/v1/hello", timeout=timeout) as r:
                 body = json.loads(read_capped(r).decode())
         except urllib.error.HTTPError as exc:
             # The session server answers 404 for routes it doesn't know: an app from before /v1/hello.
             return Hello(HELLO_MISSING if exc.code == 404 else HELLO_NONE)
-        except Exception:
-            return Hello(HELLO_NONE)
+        except Exception as exc:
+            if pin_rejected(exc) or _nobody_listening(exc):
+                return Hello(HELLO_NONE)  # a pin failure means something answered, but not the phone that paired
+            return Hello(HELLO_MISSING) if self._answers_plain_http(timeout) else Hello(HELLO_NONE)
         if not isinstance(body, dict):
             return Hello(HELLO_NONE)
         phone_id = body.get("phoneId")
@@ -110,11 +123,24 @@ class PhoneSessionClient:
         return Hello(HELLO_OK, phone_id, field("phoneName", str, ""), field("protocol", int, 0),
                      field("appVersion", str, ""), field("build", int, 0))
 
+    def _answers_plain_http(self, timeout: float) -> bool:
+        """Whether an app from before TLS answers here: plain HTTP, no token, nothing sent that matters."""
+        if not self.base.startswith("https://"):
+            return False
+        try:
+            with urllib.request.urlopen("http://" + self.base[len("https://"):] + "/v1/hello", timeout=timeout) as r:
+                read_capped(r)
+            return True
+        except urllib.error.HTTPError:
+            return True
+        except (OSError, ValueError, socket.timeout):
+            return False
+
     def ping(self) -> PingResult:
         """Check if token is still paired and phone status (200=paired, 401=unpaired, other=unreachable)."""
         req = urllib.request.Request(f"{self.base}/v1/ping", headers=self._headers())
         try:
-            with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as r:
+            with self.auth.open(req, timeout=REQUEST_TIMEOUT) as r:
                 if r.status != 200:
                     return PingResult("unreachable")
                 return self._parse_ping_body(read_capped(r))
@@ -153,7 +179,7 @@ class PhoneSessionClient:
             f"{self.base}/v1/unpair", data=b"{}", headers=self._headers(json_body=True), method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as r:
+            with self.auth.open(req, timeout=REQUEST_TIMEOUT) as r:
                 return r.status == 200
         except Exception:
             logger.debug("unpair failed", exc_info=True)
@@ -168,7 +194,7 @@ class PhoneSessionClient:
             method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as r:
+            with self.auth.open(req, timeout=REQUEST_TIMEOUT) as r:
                 body = json.loads(read_capped(r).decode())
             if body.get("ok"):
                 return SessionResult(ok=True)

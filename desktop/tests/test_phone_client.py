@@ -5,6 +5,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
+from telescope.pinned_https import PhoneAuth
 from telescope.phone_client import PhoneControlClient
 import telescope.phone_client as phone_client_module
 
@@ -37,7 +38,7 @@ def recording_server():
 
 def test_rapid_updates_coalesce_to_latest_value(recording_server):
     port = recording_server.server_address[1]
-    client = PhoneControlClient(f"http://127.0.0.1:{port}/video", "tok")
+    client = PhoneControlClient(f"http://127.0.0.1:{port}/video", PhoneAuth("tok"))
 
     client.send(action="iso", value=100)
     client.send(action="iso", value=200)
@@ -53,7 +54,7 @@ def test_rapid_updates_coalesce_to_latest_value(recording_server):
 
 def test_non_coalescing_actions_preserve_order(recording_server):
     port = recording_server.server_address[1]
-    client = PhoneControlClient(f"http://127.0.0.1:{port}/video", "tok")
+    client = PhoneControlClient(f"http://127.0.0.1:{port}/video", PhoneAuth("tok"))
 
     client.send(action="iso", value=100)
     client.send(action="camera", id="cam0")
@@ -68,7 +69,7 @@ def test_non_coalescing_actions_preserve_order(recording_server):
 
 def test_requests_carry_bearer_token(recording_server):
     port = recording_server.server_address[1]
-    client = PhoneControlClient(f"http://127.0.0.1:{port}/video", "secret-tok")
+    client = PhoneControlClient(f"http://127.0.0.1:{port}/video", PhoneAuth("secret-tok"))
 
     client.send(action="iso", value=100)
     time.sleep(0.3)
@@ -79,7 +80,7 @@ def test_requests_carry_bearer_token(recording_server):
 
 def test_close_stops_accepting_new_requests(recording_server):
     port = recording_server.server_address[1]
-    client = PhoneControlClient(f"http://127.0.0.1:{port}/video", "tok")
+    client = PhoneControlClient(f"http://127.0.0.1:{port}/video", PhoneAuth("tok"))
     client.close()
     client.send(action="iso", value=1)
 
@@ -89,7 +90,7 @@ def test_close_stops_accepting_new_requests(recording_server):
 
 def test_close_cancels_queued_and_pending_requests(monkeypatch):
     monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
-    client = PhoneControlClient("http://phone/video", "tok")
+    client = PhoneControlClient("http://phone/video", PhoneAuth("tok"))
     sent = []
     monkeypatch.setattr(client, "_send_now", sent.append)
 
@@ -120,15 +121,15 @@ class _Response:
 
 def test_base_url_strips_only_trailing_video_component(monkeypatch):
     monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
-    client = PhoneControlClient("http://phone/video", "tok")
+    client = PhoneControlClient("http://phone/video", PhoneAuth("tok"))
     assert client.base == "http://phone"
-    nested = PhoneControlClient("http://video-host/path/video", "tok")
+    nested = PhoneControlClient("http://video-host/path/video", PhoneAuth("tok"))
     assert nested.base == "http://video-host/path"
 
 
 def test_get_state_decodes_json_and_sends_auth_header(monkeypatch):
     monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
-    client = PhoneControlClient("http://phone/video", "tok123")
+    client = PhoneControlClient("http://phone/video", PhoneAuth("tok123"))
     calls = []
     response = _Response(b'{"battery": 81}')
     monkeypatch.setattr(
@@ -145,7 +146,7 @@ def test_get_state_decodes_json_and_sends_auth_header(monkeypatch):
 @pytest.mark.parametrize("effect", [OSError("offline"), ValueError("bad json")])
 def test_get_state_returns_none_on_transport_or_json_error(monkeypatch, effect):
     monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
-    client = PhoneControlClient("http://phone/video", "tok")
+    client = PhoneControlClient("http://phone/video", PhoneAuth("tok"))
 
     def open_url(*_args, **_kwargs):
         if isinstance(effect, OSError):
@@ -158,7 +159,7 @@ def test_get_state_returns_none_on_transport_or_json_error(monkeypatch, effect):
 
 def test_send_now_posts_json_body_with_auth_header(monkeypatch):
     monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
-    client = PhoneControlClient("http://phone/video", "tok123")
+    client = PhoneControlClient("http://phone/video", PhoneAuth("tok123"))
     calls = []
     response = _Response(b"ok")
     monkeypatch.setattr(
@@ -182,7 +183,7 @@ def test_send_now_posts_json_body_with_auth_header(monkeypatch):
 
 def test_send_now_swallows_transport_errors(monkeypatch):
     monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
-    client = PhoneControlClient("http://phone/video", "tok")
+    client = PhoneControlClient("http://phone/video", PhoneAuth("tok"))
     monkeypatch.setattr(
         phone_client_module.urllib.request,
         "urlopen",
@@ -193,7 +194,7 @@ def test_send_now_swallows_transport_errors(monkeypatch):
 
 def test_close_is_idempotent(monkeypatch):
     monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
-    client = PhoneControlClient("http://phone/video", "tok")
+    client = PhoneControlClient("http://phone/video", PhoneAuth("tok"))
     client.close()
     client.close()
     assert client._closed is True
@@ -202,7 +203,7 @@ def test_close_is_idempotent(monkeypatch):
 
 def test_worker_skips_stale_pending_key(monkeypatch):
     monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
-    client = PhoneControlClient("http://phone/video", "tok")
+    client = PhoneControlClient("http://phone/video", PhoneAuth("tok"))
     sent = []
     monkeypatch.setattr(client, "_send_now", sent.append)
     client._queue.put("iso")

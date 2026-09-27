@@ -120,7 +120,7 @@ Load/save of `telescope_config.json` with versioned schema (current: v3) and per
 `DEVICE_LOCAL_PLUGINS` frozenset marks which plugin names are per phone. `_upgrade_from_v2()` turns a v2 file into v3 by dropping the connection section, `devices` and `selected_device` (phones were keyed by name then) and keeping everything else. Anything older, or unparseable/malformed at the top level, is backed up (`.invalid-<timestamp>`) and replaced with defaults. A current config has each top-level section (`plugin_configs`, `devices`, `selected_device`) validated independently, so one malformed section resets to its default without discarding the rest.
 
 ### `phone_client.py`
-**PhoneControlClient** - authenticated HTTP client for phone's `/v1/state` and `/v1/control` endpoints (bearer token on each request).
+**PhoneControlClient** - authenticated HTTPS client for phone's `/v1/state` and `/v1/control` endpoints, through the phone's `PhoneAuth` (pinned certificate, bearer token on each request).
 - `send(action=..., **params)` - queues commands, coalesces repeated actions to latest value, sends in order via background thread. Camera switches always go individually; slider bursts stay ordered (no stale response overtakes newer ones). Failures silently dropped.
 - `get_state()` - fetch current camera state dict (lenses, ISO, shutter, WB, focus, AE comp, NR/edge mode, battery, etc.).
 
@@ -132,9 +132,15 @@ Qt-free address helpers for pairing and routing.
 - `MAX_PAIRING_CANDIDATES = 8` - cap on what goes into the QR code.
 - `rank_ip()` / `valid_ipv4()` - used on the *phone's* reported addresses when choosing which to probe.
 
+### `pinned_https.py`
+HTTPS to a paired phone, trusting only the certificate fingerprint it gave at pairing. Qt-free.
+- `PhoneAuth(token, pin)` - `headers()` for the bearer header, `open(req, timeout)` like `urlopen`. An `https://` URL needs a pin, and the certificate is checked right after the handshake, before any request byte goes out. No redirects, no proxies. Plain `http://` only works with no pin at all (tests' local servers), so a paired phone's token never goes out unencrypted.
+- `fingerprint(der)`, `is_fingerprint(value)`, `pin_rejected(exc)` (the failure was the pin check: something answered, but not the paired phone).
+
 ### `session_client.py`
-**PhoneSessionClient** - HTTP client for the phone's session port (8766), where `SessionServer` answers whether or not a stream is running. Qt-free.
-- `hello(timeout)` → `Hello(status, phone_id, phone_name, protocol, app_version, build)` - unauthenticated; which phone is on the other end and which app version. `status` is `HELLO_OK`, `HELLO_MISSING` (the port answered 404: an app from before `/v1/hello`) or `HELLO_NONE`.
+**PhoneSessionClient(base_url, auth)** - HTTPS client for the phone's session port (8766), where `SessionServer` answers whether or not a stream is running. Qt-free.
+- `hello(timeout)` → `Hello(status, phone_id, phone_name, protocol, app_version, build)` - no token sent; which phone is on the other end and which app version. `status` is `HELLO_OK`, `HELLO_MISSING` (an app too old: one without `/v1/hello`, or one from before TLS, found by a plain `/v1/hello` with no token when the handshake fails) or `HELLO_NONE` (nothing there, or a certificate that isn't the pinned one).
+- `read_capped(response)` - every reply is read through this, capped at `MAX_REPLY_BYTES` (256 KB), since whatever answers may not be the phone.
 - `ping()` → `PingResult(status, streaming, busy, local_only, phone_id, phone_name)` - `status` is `paired` / `not_paired` (401) / `unreachable` (anything else, including a body that isn't Telescope's JSON).
 - `start()` / `stop()` → `SessionResult(ok, error)`.
 - `unpair()` - asks the phone to forget this computer (best effort).
@@ -142,8 +148,8 @@ Qt-free address helpers for pairing and routing.
 
 ### `phones.py`
 Qt-free model of paired phones and how to reach them; adb, the session client and discovery are injected, so it's tested without any of them.
-- `Phone(id, name, token, ips, active_ip)` with `to_dict()` / `from_dict()`.
-- `Route(kind, host, serial)`, `Resolution(status, route, usb_note, streaming, busy, phone_version)`; statuses `READY`, `UNREACHABLE`, `NOT_PAIRED`, `LOCAL_ONLY`, `USB_NEEDS_ATTENTION`, `PHONE_OUTDATED` / `DESKTOP_OUTDATED` (the phone speaks an older/newer session protocol, or has no `/v1/hello` at all; the route is kept so the phone can be updated over it); USB reasons `USB_NO_ADB`, `USB_NO_CABLE`, `USB_UNAUTHORIZED`, `USB_OTHER_PHONE`, `USB_APP_CLOSED` (`usb_note_text()` words them for the UI).
+- `Phone(id, name, token, ips, active_ip, cert_sha256)` with `to_dict()` / `from_dict()`; `phone.auth` is its `PhoneAuth`. A phone paired before TLS has no `cert_sha256` and resolves straight to `NOT_PAIRED` with `before_tls`, without contacting it.
+- `Route(kind, host, serial)`, `Resolution(status, route, usb_note, streaming, busy, phone_version, before_tls)`; statuses `READY`, `UNREACHABLE`, `NOT_PAIRED`, `LOCAL_ONLY`, `USB_NEEDS_ATTENTION`, `PHONE_OUTDATED` / `DESKTOP_OUTDATED` (the phone speaks an older/newer session protocol, or has no `/v1/hello` at all; the route is kept so the phone can be updated over it); USB reasons `USB_NO_ADB`, `USB_NO_CABLE`, `USB_UNAUTHORIZED`, `USB_OTHER_PHONE`, `USB_APP_CLOSED` (`usb_note_text()` words them for the UI).
 - `RouteResolver.resolve(phone, preference)` - USB first (each usable adb device, verified by `/v1/hello` id, then `/v1/ping`), then Wi-Fi probed in parallel over mDNS-discovered, last-good and stored addresses. Blocking.
 - `UsbTunnels` - refcounted `adb forward tcp:0` per (serial, remote port).
 - `STREAM_PORT = 8080`, `ROUTE_AUTO` / `ROUTE_USB` / `ROUTE_WIFI`.

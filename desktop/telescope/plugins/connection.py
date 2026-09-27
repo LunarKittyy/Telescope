@@ -25,6 +25,7 @@ from PyQt6.QtWidgets import (
 from telescope import h264_reader, theme
 from telescope.discovery import LanDiscovery
 from telescope.pairing import PairingServer
+from telescope.pinned_https import PhoneAuth
 from telescope.phones import (
     DESKTOP_OUTDATED, LOCAL_ONLY, NOT_PAIRED, PHONE_OUTDATED, READY, ROUTE_AUTO, ROUTE_USB, ROUTE_WIFI, STREAM_PORT, UNREACHABLE,
     USB_NEEDS_ATTENTION, USB_NO_ADB, USB_NO_CABLE, Phone, Resolution, Route, RouteResolver, UsbTunnels, usb_note_text,
@@ -67,7 +68,7 @@ def default_computer_name() -> str:
 @dataclass(frozen=True)
 class SessionTarget:
     """What worker threads need to talk to the phone, snapshotted on the GUI thread."""
-    token: Optional[str]
+    auth: Optional[PhoneAuth]
     route: Optional[Route]
 
 
@@ -93,6 +94,9 @@ def problem_text(res: Resolution, phone_name: str, preference: str) -> str:
     if res.status == UNREACHABLE:
         return (f"Open Telescope on {phone_name} and keep it on screen. It needs to be on the same "
                 "network as this computer, or plugged in with a USB cable.")
+    if res.status == NOT_PAIRED and res.before_tls:
+        return (f"This version of Telescope encrypts the connection to {phone_name}, which needs a new "
+                "pairing. Click Add phone and scan the code again.")
     if res.status == NOT_PAIRED:
         return (f"{phone_name} doesn't recognise this computer anymore (it was removed on the phone, "
                 "or the app was reinstalled). Click Add phone to pair it again.")
@@ -724,7 +728,7 @@ class ConnectionPlugin(TelescopePlugin):
                 "adb couldn't open a connection to the phone. Unplug it, plug it back in and try again.",
                 [BannerAction("Try again", self._host.start_stream)]))
             return None, None, False
-        return url, phone.token, True
+        return url, phone.auth, True
 
     def _hold_stream_route(self, route: Route) -> Optional[str]:
         """Make route the stream's, letting go of the previous one's USB forward. The video URL, or None."""
@@ -736,9 +740,9 @@ class ConnectionPlugin(TelescopePlugin):
             if local is None:
                 return None
             self._stream_forward_serial = route.serial
-            url = f"http://127.0.0.1:{local}{self._video_path()}"
+            url = f"https://127.0.0.1:{local}{self._video_path()}"
         else:
-            url = f"http://{route.host}:{STREAM_PORT}{self._video_path()}"
+            url = f"https://{route.host}:{STREAM_PORT}{self._video_path()}"
         self._stream_route = route
         return url
 
@@ -840,24 +844,24 @@ class ConnectionPlugin(TelescopePlugin):
     def session_target(self) -> SessionTarget:
         phone = self._selected_phone()
         route = self._stream_route or (self._resolution.route if self._resolution else None)
-        return SessionTarget(phone.token if phone else None, route)
+        return SessionTarget(phone.auth if phone else None, route)
 
     @contextlib.contextmanager
     def session_channel(self, target: SessionTarget):
         """Yields a client for the phone's session port along target.route, or None if there's no route."""
         route = target.route
-        if not target.token or route is None:
+        if target.auth is None or route is None:
             yield None
             return
         if route.kind == "wifi":
-            yield PhoneSessionClient(f"http://{route.host}:{PING_PORT}", target.token)
+            yield PhoneSessionClient(f"https://{route.host}:{PING_PORT}", target.auth)
             return
         local = self._tunnels.acquire(route.serial, PING_PORT)
         if local is None:
             yield None
             return
         try:
-            yield PhoneSessionClient(f"http://127.0.0.1:{local}", target.token)
+            yield PhoneSessionClient(f"https://127.0.0.1:{local}", target.auth)
         finally:
             self._tunnels.release(route.serial, PING_PORT)
 
@@ -1022,12 +1026,14 @@ class ConnectionPlugin(TelescopePlugin):
         active = result.source_ip if result.source_ip in result.ips else None
         if existing:
             existing.token = result.token  # re-pairing replaced this computer's token on the phone
+            existing.cert_sha256 = result.cert_sha256
             existing.ips = list(result.ips)
             existing.active_ip = active
             if self._streaming and existing.id == self._selected_id:
                 self._host.reconnect_stream()  # the running stream still holds the old token
         else:
-            self._phones.append(Phone(result.phone_id, result.name, result.token, list(result.ips), active))
+            self._phones.append(Phone(result.phone_id, result.name, result.token, list(result.ips), active,
+                                      result.cert_sha256))
         self._select(result.phone_id, force=True)
         self._host.save_now()
         if self._phones_dlg is not None and self._phones_dlg.isVisible():
@@ -1063,7 +1069,7 @@ class ConnectionPlugin(TelescopePlugin):
             res = resolver.resolve(phone, ROUTE_AUTO)
             if res.route is None:
                 return
-            with self.session_channel(SessionTarget(phone.token, res.route)) as client:
+            with self.session_channel(SessionTarget(phone.auth, res.route)) as client:
                 if client is not None:
                     client.unpair()
         threading.Thread(target=revoke, daemon=True).start()

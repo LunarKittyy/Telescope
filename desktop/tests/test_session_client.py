@@ -5,6 +5,7 @@ import urllib.request
 import pytest
 
 import telescope.session_client as session_client_module
+from telescope.pinned_https import PhoneAuth
 from telescope.session_client import (
     HELLO_MISSING, HELLO_NONE, HELLO_OK, Hello, PhoneSessionClient, PingResult, SessionResult,
 )
@@ -46,7 +47,7 @@ def _http_error(code):
 
 @pytest.fixture
 def client():
-    return PhoneSessionClient("http://phone:8766", "tok")
+    return PhoneSessionClient("http://phone:8766", PhoneAuth("tok"))
 
 
 # ── ping ──────────────────────────────────────────────────────────────────────
@@ -144,7 +145,7 @@ def test_an_ok_false_body_without_a_reason_still_fails_closed(monkeypatch, clien
 
 
 def test_a_base_url_with_a_trailing_slash_does_not_double_up(monkeypatch):
-    client = PhoneSessionClient("http://phone:8766/", "tok")
+    client = PhoneSessionClient("http://phone:8766/", PhoneAuth("tok"))
     seen = _stub_urlopen(monkeypatch, lambda _req: _Response(200, b"OK"))
 
     client.ping()

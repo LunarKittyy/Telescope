@@ -7,6 +7,7 @@ import urllib.error
 import pytest
 
 
+from telescope.pinned_https import PhoneAuth
 from telescope import audio
 from telescope.audio import BYTES_PER_MS, AudioWorker, FifoSink, JitterBuffer
 from telescope.platform import virtual_mic
@@ -65,7 +66,7 @@ class _Sink:
 
 def _worker(opener, sink):
     statuses = []
-    w = AudioWorker("http://phone/v1/audio", "tok", lambda: sink, lambda k, t: statuses.append((k, t)),
+    w = AudioWorker("http://phone/v1/audio", PhoneAuth("tok"), lambda: sink, lambda k, t: statuses.append((k, t)),
                     opener=opener)
     return w, statuses
 
@@ -120,7 +121,7 @@ def test_worker_reports_an_output_that_wont_open():
     def bad_sink():
         raise OSError("no reader")
 
-    w = AudioWorker("http://p/v1/audio", "t", bad_sink, lambda k, t: statuses.append((k, t)), opener=opener)
+    w = AudioWorker("http://p/v1/audio", PhoneAuth("t"), bad_sink, lambda k, t: statuses.append((k, t)), opener=opener)
     w.start()
     assert _until(lambda: any(k == "err" and "no reader" in t for k, t in statuses))
     w.stop()

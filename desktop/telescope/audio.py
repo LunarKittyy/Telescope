@@ -14,6 +14,8 @@ import urllib.error
 import urllib.request
 from typing import Callable, Optional
 
+from telescope.pinned_https import PhoneAuth
+
 logger = logging.getLogger(__name__)
 
 RATE = 48_000
@@ -127,12 +129,12 @@ class AudioWorker:
     """on_status(kind, text) is called from the worker's threads: "ok" once audio flows, "err" with
     the phone's reason (it retries every few seconds, so allowing the mic on the phone just works)."""
 
-    def __init__(self, url: str, token: str, open_sink: Callable, on_status: Callable,
-                 opener: Callable = urllib.request.urlopen):
-        self.url, self.token = url, token
+    def __init__(self, url: str, auth: PhoneAuth, open_sink: Callable, on_status: Callable,
+                 opener: Optional[Callable] = None):
+        self.url, self.auth = url, auth
         self._open_sink = open_sink
         self._on_status = on_status
-        self._opener = opener
+        self._opener = opener or auth.open
         self._stop = threading.Event()
         self._buffer = JitterBuffer()
         self._response = None
@@ -166,7 +168,7 @@ class AudioWorker:
             self._stop.wait(RETRY_S)
 
     def _read_once(self) -> Optional[str]:
-        req = urllib.request.Request(self.url, headers={"Authorization": f"Bearer {self.token}"})
+        req = urllib.request.Request(self.url, headers=self.auth.headers())
         try:
             resp = self._opener(req, timeout=5)
         except urllib.error.HTTPError as e:
