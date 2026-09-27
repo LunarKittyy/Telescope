@@ -41,9 +41,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var checkLocalOnly: CompoundButton
     private lateinit var tvStatus: TextView
     private lateinit var tvCameraList: TextView
-    private lateinit var layoutLinks: View
-    private lateinit var tvLinkWifi: TextView
-    private lateinit var tvLinkUsb: TextView
     private lateinit var btnScanPair: com.google.android.material.button.MaterialButton
     private lateinit var tvPairingTitle: TextView
     private lateinit var tvPairingHint: TextView
@@ -131,9 +128,6 @@ class MainActivity : AppCompatActivity() {
         checkOis          = findViewById(R.id.checkOis)
         tvStatus          = findViewById(R.id.tvStatus)
         tvCameraList      = findViewById(R.id.tvCameraList)
-        layoutLinks       = findViewById(R.id.layoutLinks)
-        tvLinkWifi        = findViewById(R.id.tvLinkWifi)
-        tvLinkUsb         = findViewById(R.id.tvLinkUsb)
         checkLocalOnly             = findViewById(R.id.checkLocalOnly)
         btnScanPair                = findViewById(R.id.btnScanPair)
         tvPairingTitle             = findViewById(R.id.tvPairingTitle)
@@ -155,8 +149,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        tvLinkWifi.setOnClickListener { copyLink(tvLinkWifi) }
-        tvLinkUsb.setOnClickListener  { copyLink(tvLinkUsb) }
 
         btnToggle.setOnClickListener { onToggleClicked() }
         btnPreview.setOnClickListener { startActivity(Intent(this, PreviewActivity::class.java)) }
@@ -808,42 +800,16 @@ class MainActivity : AppCompatActivity() {
             resources.getColor(if (streaming) R.color.colorStop else R.color.colorPrimary, theme)
         )
         if (streaming) {
-            val ip   = getDeviceIp()
-            val port = service?.port ?: CameraStreamService.DEFAULT_PORT
             // The camera stays on while the computer reconnects; say so rather than claim it's getting video.
             val viewed = service?.hasViewer == true
             tvStatus.text = if (viewed) "● Streaming" else "● Waiting for the computer"
             tvStatus.setTextColor(resources.getColor(
                 if (viewed) R.color.colorStreamingText else R.color.colorWarn, theme))
-            // MjpegServer only answers /v1/video; the old /video links 404'd.
-            tvLinkWifi.text = "Wi-Fi  http://$ip:$port/v1/video"
-            tvLinkUsb.text  = "USB  http://localhost:$port/v1/video"
-            tvLinkWifi.visibility = if (checkLocalOnly.isChecked) View.GONE else View.VISIBLE
-            layoutLinks.visibility = View.VISIBLE
         } else {
             tvStatus.text = "○ Not streaming"
             tvStatus.setTextColor(resources.getColor(R.color.colorOnSurfaceDim, theme))
-            tvLinkWifi.visibility = View.VISIBLE
-            layoutLinks.visibility = View.GONE
         }
         if (::cardUpdate.isInitialized && cardUpdate.visibility == View.VISIBLE) renderUpdate()
-    }
-
-    private fun copyLink(pill: TextView) {
-        val url = pill.text.toString().let { it.substring(it.indexOf("http")) }
-        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("Telescope URL", url))
-
-        val original = pill.text
-        pill.text = "✓ Copied"
-        pill.setBackgroundResource(R.drawable.pill_link_copied)
-        pill.setTextColor(resources.getColor(R.color.colorPrimary, theme))
-
-        uiHandler.postDelayed({
-            pill.text = original
-            pill.setBackgroundResource(R.drawable.pill_link)
-            pill.setTextColor(resources.getColor(R.color.colorOnSurface, theme))
-        }, 1200)
     }
 
     private fun copyDiagnostics() {
@@ -882,7 +848,6 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) { emptyList() }
     }
 
-    private fun getDeviceIp(): String = getAllDeviceIps().firstOrNull() ?: "unknown"
 
     companion object {
         private const val RC_PERMS = 100
