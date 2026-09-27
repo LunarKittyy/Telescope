@@ -20,13 +20,15 @@ The APK signing key lives in the repository secrets (see the README's CI section
 
 ## Packaging
 
-- [ ] Windows: `TelescopeDesktop.exe` launches, the first-run checklist's Install driver registers UnityCapture, bundled `adb.exe` works for USB.
+- [ ] Windows: `TelescopeDesktop.exe` launches with the Telescope icon, the first-run checklist's Install driver registers UnityCapture, bundled `adb.exe` works for USB, and no `adb.exe` is left running after quitting.
+- [ ] Windows: opening `TelescopeDesktop.exe` from inside the zip without extracting says to extract it first.
+- [ ] Linux: Telescope shows up in the app menu after the first launch, and still opens after moving the folder and launching once from the new place.
 - [ ] Windows: OBS and Zoom list the camera as **Telescope**. On a machine registered by an older version, Advanced offers Rename, and streaming works before and after.
 - [ ] Linux: `start.sh` creates venv at `$XDG_DATA_HOME/Telescope/venv` on clean machine/account and launches successfully.
 - [ ] Both bundles contain `THIRD_PARTY_NOTICES.txt` and `Telescope.apk`.
 - [ ] `manifest.json` checksums match the downloaded files (`sha256sum`).
 - [ ] The new APK installs over the previous release's APK with `adb install -r` (same signing key).
-- [ ] Advanced (desktop) and the diagnostics card (phone) show the release's version.
+- [ ] Advanced (desktop) and the About card (phone) show the release's version. Copy diagnostics works on both.
 - [ ] APK installs via `adb install`, via the checklist's QR link, and via Install over USB (checklist and Advanced).
 
 ## Updates
@@ -36,6 +38,7 @@ The APK signing key lives in the repository secrets (see the README's CI section
 - [ ] Phone on the previous nightly: the update card offers the new build, asks once to allow installs from Telescope, and the installed app shows the new version.
 - [ ] Phone app older than the desktop, plugged in: the Connection panel says so and Update over USB installs the bundled APK.
 - [ ] Switching the channel to Stable on a nightly build doesn't offer a downgrade.
+- [ ] Desktop update cut short (kill the app mid-install): the next launch finishes it, or comes back on the old version.
 
 ## Functional pass (see [device-compatibility.md](device-compatibility.md) for the per-device matrix)
 
@@ -62,12 +65,15 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 - [ ] Removing the computer on the phone revokes access (requests get 401; desktop shows Needs pairing again).
 - [ ] Automatic route: plugged in uses USB, unplugged uses Wi-Fi. Plugged in with the app closed, or with a different phone on the cable, uses Wi-Fi and the card says why.
 - [ ] Plugging in mid-stream over Wi-Fi shows Switch to USB, and it switches without restarting the phone's camera.
+- [ ] Pulling the cable mid-stream on USB carries on over Wi-Fi; plugging it back in can use USB again.
 - [ ] Connect via USB only / Wi-Fi only is honoured, including reporting a missing cable instead of falling back.
 - [ ] Phone gets a new IP from the router: the desktop finds it again (mDNS) without re-pairing.
 - [ ] Phone foreground: desktop Start/Stop controls camera; test with screen dark too.
 - [ ] Local-only mode blocks Wi-Fi access (verify from second machine on network).
 - [ ] Camera controls (lens, exposure, WB, OIS) apply live and match what's shown on the desktop UI.
 - [ ] Stream transforms (flip, rotate, zoom/pan) apply without restart.
+- [ ] Zoom on the Auto lens: the lens marks on the zoom slider switch to the telephoto (the dot turns lavender); panning out of its view falls back (red dot). Scrolling the preview zooms around the mouse, dragging pans, and the lens outlines show and fade.
+- [ ] Sliders stick at their neutral spots and marks when dragged, never with the arrow keys, and a double-click resets them.
 - [ ] Point focus: clicking a near and a far object in the preview focuses each (with and without zoom, flip and rotation), exposure follows the point in auto, and Auto returns to continuous. The pop-out works the same.
 - [ ] Presets: switching between two presets while streaming changes lens, exposure, WB, zoom and fps together. A second phone doesn't see the first one's presets.
 - [ ] H.264: on a real phone, switching Format to H.264 reconnects and streams on Wi-Fi and USB. Compare latency (a clock on screen) and the Mbps readout with MJPEG at the same size. A 30-minute run stays smooth, a reconnect (unplug, Wi-Fi off and on) recovers, and changing resolution or lens mid-stream keeps working.
@@ -85,6 +91,8 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 - [ ] Tray minimize/restore and single-instance behavior both work.
 - [ ] Start streaming when the phone is ready: opening the phone app (or plugging it in) starts the stream; Stop keeps it stopped until the phone leaves and comes back; closing the window keeps it in the tray.
 - [ ] Open Telescope when I sign in (Linux and Windows): after signing out and in, Telescope is in the tray; unticking removes the entry.
+- [ ] Stream only while an app is using the camera (Linux and Windows): opening the camera in OBS or a call starts the stream, closing it stops 15 s later. Ticking it unticks Start streaming when the phone is ready, and the other way round.
+- [ ] Wait screen: with nothing streaming, apps see the default screen, then a chosen image and a GIF; Mirror flips it. Starting and stopping a stream while a call has the camera open keeps the picture in the call.
 
 ## Sign-off
 
