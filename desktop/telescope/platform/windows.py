@@ -1,4 +1,5 @@
 import hashlib
+import re
 import subprocess
 import sys
 import urllib.request
@@ -117,3 +118,23 @@ def uc_registered_name() -> Optional[str]:
 
 def uc_is_registered() -> bool:
     return uc_registered_name() is not None
+
+
+# The temp folders zip tools run a file from: Explorer's Temp1_<name>.zip, 7-Zip's 7zO..., WinRAR's Rar$EX...
+_ARCHIVE_TEMP = re.compile(r"(temp\d+_.*\.zip|7zo\w+|rar\$ex\w*\..*)$", re.I)
+
+
+def running_from_archive(app_dir: Path, temp_dir: Path) -> bool:
+    """Whether Telescope was opened from inside a zip, so it runs from a copy in the temp folder that goes away."""
+    try:
+        rel = Path(app_dir).resolve().relative_to(Path(temp_dir).resolve())
+    except ValueError:
+        return False
+    return any(_ARCHIVE_TEMP.match(part) for part in rel.parts)
+
+
+def warn_running_from_archive():
+    import ctypes
+    text = ("Telescope is running from inside the zip, so it can't keep its files or update itself.\n\n"
+            "Right-click the zip, choose Extract All, and open Telescope from the extracted folder.")
+    ctypes.windll.user32.MessageBoxW(None, text, "Extract Telescope first", 0x30)  # MB_ICONWARNING
