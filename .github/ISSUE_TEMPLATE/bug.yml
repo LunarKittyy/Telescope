@@ -7,7 +7,7 @@ body:
     id: what
     attributes:
       label: What happened?
-      description: What you did, what you expected, and what you got instead. Screenshots and screen recordings help a lot, drag them in here.
+      description: What you did, what you expected, and what you got instead. Screenshots and screen recordings help a lot, drag them in here. One problem per issue, please, so each can be closed on its own.
     validations:
       required: true
 
@@ -17,19 +17,8 @@ body:
       label: Desktop diagnostics
       description: |
         In the desktop app, open the gear menu, then Advanced, and click **Copy diagnostics** at the bottom, then paste here. It has the version, your system, the connection and recent errors, with addresses and tokens stripped out.
-        On an older version without that button, write the version shown at the bottom of Advanced instead.
+        On an older version without that button, write the version and your OS (Windows 10, 11 or Linux) instead.
       render: text
-    validations:
-      required: true
-
-  - type: dropdown
-    id: desktop-os
-    attributes:
-      label: Computer
-      options:
-        - Windows 11
-        - Windows 10
-        - Linux
     validations:
       required: true
 
@@ -39,7 +28,5 @@ body:
       label: Phone diagnostics
       description: |
         In the Telescope app on the phone, open About and tap **Copy diagnostics**, then paste here. It has the app version, phone model, Android version and recent errors, and never includes your pairing token or addresses.
-        Can't get to it? Just write your phone model and Android version.
+        Can't get to it? Just write your phone model and Android version. Skip this if the problem is only on the computer.
       render: text
-    validations:
-      required: true
