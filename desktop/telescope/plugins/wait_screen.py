@@ -9,9 +9,9 @@ import shutil
 from pathlib import Path
 from typing import Optional
 
-from PyQt6.QtCore import QObject, QSize, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QObject, QSignalBlocker, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction, QImage, QImageReader, QMovie, QPixmap
-from PyQt6.QtWidgets import QDialog, QFileDialog, QLabel, QPushButton
+from PyQt6.QtWidgets import QCheckBox, QDialog, QFileDialog, QLabel, QPushButton
 
 from telescope import vcam
 from telescope.config import config_path
@@ -35,6 +35,7 @@ class WaitScreenPlugin(TelescopePlugin):
 
     def __init__(self, screen: vcam.WaitScreen = None, watch_cls=vcam.CameraWatch):
         self.image_path: Optional[str] = None
+        self.mirror = False
         self.last_size: Optional[tuple] = None
         self._screen = screen or vcam.WaitScreen()
         self._watch_cls = watch_cls
@@ -63,7 +64,7 @@ class WaitScreenPlugin(TelescopePlugin):
     def _show(self):
         if self._shut or self._host.is_streaming():
             return
-        self._screen.show(self.size(), self.image_path)
+        self._screen.show(self.size(), self.image_path, self.mirror)
 
     def on_stream_starting(self):
         self._screen.stop()
@@ -99,6 +100,11 @@ class WaitScreenPlugin(TelescopePlugin):
         self._host.schedule_save()
         self._show()
 
+    def set_mirror(self, on: bool):
+        self.mirror = on
+        self._host.schedule_save()
+        self._show()
+
     # ── Menu and dialog ───────────────────────────────────────────────────
 
     def create_menu_actions(self) -> list:
@@ -117,11 +123,13 @@ class WaitScreenPlugin(TelescopePlugin):
     # ── Config ────────────────────────────────────────────────────────────
 
     def get_config(self) -> dict:
-        return {"image": self.image_path, "last_size": list(self.last_size) if self.last_size else None}
+        return {"image": self.image_path, "mirror": self.mirror,
+                "last_size": list(self.last_size) if self.last_size else None}
 
     def set_config(self, cfg: dict):
         image = cfg.get("image")
         self.image_path = image if isinstance(image, str) and image else None
+        self.mirror = cfg.get("mirror") is True
         size = cfg.get("last_size")
         valid = isinstance(size, list) and len(size) == 2 and all(
             isinstance(v, int) and not isinstance(v, bool) and 16 <= v <= 8192 for v in size)
@@ -161,6 +169,9 @@ class WaitScreenDialog(QDialog):
         self._default_btn = action_button("Use default")
         self._default_btn.clicked.connect(lambda: self._set(None))
         lay.addLayout(button_row(self._choose_btn, self._default_btn))
+        self._mirror_box = QCheckBox("Mirror it, for apps that flip the camera")
+        self._mirror_box.toggled.connect(self._plugin.set_mirror)
+        lay.addWidget(self._mirror_box)
 
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.accept)
@@ -195,6 +206,8 @@ class WaitScreenDialog(QDialog):
         self._note.setText(f"Shown at {w} × {h}, the size the stream opens the camera at. "
                            "Still images and GIFs work; transparent parts show the dark background.")
         self._default_btn.setEnabled(bool(path))
+        with QSignalBlocker(self._mirror_box):
+            self._mirror_box.setChecked(self._plugin.mirror)
 
     def _choose(self):
         formats = " ".join(f"*.{bytes(f).decode()}" for f in QImageReader.supportedImageFormats())

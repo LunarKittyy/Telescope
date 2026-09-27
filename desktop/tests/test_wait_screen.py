@@ -29,9 +29,11 @@ class _Screen:
         self.shown = []
         self.stops = 0
         self.watched = []
+        self.mirrored = []
 
-    def show(self, size, path):
+    def show(self, size, path, mirror=False):
         self.shown.append((size, path))
+        self.mirrored.append(mirror)
 
     def stop(self):
         self.stops += 1
@@ -133,13 +135,28 @@ def test_config_round_trip_rejects_odd_sizes(env, size, kept):
     plugin = env[0]
     plugin.set_config({"image": "/x/wait_screen.png", "last_size": size})
     assert plugin.last_size == kept
-    assert plugin.get_config() == {"image": "/x/wait_screen.png", "last_size": list(kept) if kept else None}
+    assert plugin.get_config() == {"image": "/x/wait_screen.png", "mirror": False,
+                                   "last_size": list(kept) if kept else None}
 
 
 def test_config_rejects_a_bad_image(env):
     plugin = env[0]
     plugin.set_config({"image": 5})
     assert plugin.image_path is None
+
+
+@pytest.mark.parametrize("value, mirror", [(True, True), (False, False), ("yes", False), (None, False)])
+def test_config_keeps_mirror_only_when_it_is_really_on(env, value, mirror):
+    plugin = env[0]
+    plugin.set_config({"mirror": value})
+    assert plugin.mirror is mirror and plugin.get_config()["mirror"] is mirror
+
+
+def test_mirror_is_off_by_default_and_reshows_when_toggled(env):
+    plugin, host, _bus, screen = env
+    assert screen.mirrored == [False]
+    plugin.set_mirror(True)
+    assert screen.mirrored[-1] is True and host.saves == 1
 
 
 def test_shutdown_lets_go_for_good(env):
@@ -159,4 +176,7 @@ def test_menu_opens_the_dialog(env):
     assert isinstance(dlg, WaitScreenDialog) and dlg.isVisible()
     assert not dlg._default_btn.isEnabled()
     assert dlg._preview.pixmap() is not None and not dlg._preview.pixmap().isNull()
+    assert not dlg._mirror_box.isChecked()
+    dlg._mirror_box.setChecked(True)
+    assert plugin.mirror
     dlg.close()
