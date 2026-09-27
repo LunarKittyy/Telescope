@@ -56,7 +56,7 @@ jobs:
           python -c "from telescope.platform.windows import uc_registered_name as n; name = n(); print(name); assert name == 'Telescope', name"
           python -c "import pyvirtualcam; cam = pyvirtualcam.Camera(width=640, height=480, fps=30, backend='unitycapture', device='Telescope'); print(cam.device); cam.close()"
 
-      - name: Build EXE
+      - name: Build the app folder
         working-directory: desktop
         run: pyinstaller telescope.spec
 
@@ -65,7 +65,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path bundle
-          Copy-Item desktop/dist/TelescopeDesktop.exe bundle/
+          Copy-Item -Recurse desktop/dist/TelescopeDesktop/* bundle/
           Copy-Item desktop/THIRD_PARTY_NOTICES.txt bundle/
           Copy-Item -Recurse desktop/platform-tools bundle/platform-tools
           Copy-Item -Recurse desktop/unitycapture bundle/unitycapture
@@ -79,7 +79,17 @@ jobs:
             "bundle/platform-tools",
             "bundle/unitycapture"
           )
-          $missing = $required | Where-Object { -not (Test-Path $_) }
+          $missing = @($required | Where-Object { -not (Test-Path $_) })
+          # The app's libraries, and the Qt plugins it can't start or draw without (tests run from source,
+          # so only this notices one PyInstaller left out): the window, SVG icons, GIF wait screens.
+          $lib = Get-ChildItem bundle -Directory -Filter "lib-*" | Select-Object -First 1
+          if (-not $lib) { $missing += "bundle/lib-<build>" }
+          else {
+            foreach ($plugin in "platforms/qwindows.dll", "iconengines/qsvgicon.dll",
+                                "imageformats/qsvg.dll", "imageformats/qgif.dll") {
+              if (-not (Test-Path "$($lib.FullName)/PyQt6/Qt6/plugins/$plugin")) { $missing += $plugin }
+            }
+          }
           if ($missing) {
             Write-Error "Release bundle is missing: $($missing -join ', ')"
             exit 1

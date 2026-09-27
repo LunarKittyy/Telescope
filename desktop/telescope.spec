@@ -2,28 +2,35 @@
 #
 # PyInstaller spec for Telescope Desktop (Windows).
 # Build: pyinstaller telescope.spec
-# Output: dist/TelescopeDesktop.exe  (~90-110 MB onefile; PyAV's FFmpeg is about 30 MB of it)
+# Output: dist/TelescopeDesktop/  (a folder: TelescopeDesktop.exe next to lib-<build>/)
 #
 # Notes:
+#   - A folder build, not onefile: onefile unpacks everything to %TEMP% (and past the virus scanner) on every
+#     launch. The libraries go in lib-<build>, a new folder per build, so an update can move the next build's
+#     in while this one's are still loaded; updates.clean_up_after_update() deletes the old one.
+#   - Qt comes in through PyInstaller's own hooks, which take only the modules Telescope imports (Core, Gui,
+#     Widgets, Svg) and their plugins, not all of PyQt6.
+#   - No UPX: compressed DLLs have to be unpacked again on every load, and virus scanners look harder at them.
 #   - pyvirtualcam's unitycapture backend calls into a system-installed
 #     DirectShow COM filter (UnityCapture), so no DLLs need bundling.
 #   - cv2 wheels ship their own DLLs; PyInstaller's cv2 hook handles collection.
-#   - collect_all results are passed into Analysis directly; in PyInstaller 6.x
-#     appending them to a.datas/a.binaries after the fact causes a 2-vs-3-tuple
-#     mismatch in normalize_toc.
 
-from PyInstaller.utils.hooks import collect_all, collect_submodules
+import sys
 
-qt_datas, qt_bins, qt_hidden = collect_all('PyQt6')
+from PyInstaller.utils.hooks import collect_submodules
+
+sys.path.insert(0, SPECPATH)
+from telescope.updates import LIB_PREFIX  # noqa: E402
+from telescope.version import BUILD  # noqa: E402
 
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=qt_bins,
-    datas=qt_datas,
+    binaries=[],
+    datas=[],
     # ifaddr picks its platform backend behind an `os.name` check, so pull
     # the whole package rather than relying on that branch being followed.
-    hiddenimports=qt_hidden + collect_submodules('telescope') + collect_submodules('ifaddr') + collect_submodules('zeroconf') + collect_submodules('av') + [
+    hiddenimports=collect_submodules('telescope') + collect_submodules('ifaddr') + collect_submodules('zeroconf') + collect_submodules('av') + [
         'sounddevice',  # hooks-contrib's hook collects its PortAudio DLL
         'pyvirtualcam',
         'cv2',
@@ -49,16 +56,13 @@ pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.datas,
     [],
+    exclude_binaries=True,
     name='TelescopeDesktop',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
-    upx_exclude=[],
-    runtime_tmpdir=None,
+    upx=False,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -66,4 +70,14 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon=None,
+    contents_directory=f'{LIB_PREFIX}{BUILD}',
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=False,
+    name='TelescopeDesktop',
 )

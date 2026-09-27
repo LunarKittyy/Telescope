@@ -152,9 +152,9 @@ The log and Copy diagnostics. `install(app_dir)` (from `main.py`) opens `events`
 
 ### `updates.py`
 Qt-free update logic, everything injectable for tests. `fetch_manifest(channel)` reads the channel's `manifest.json` (stable: the latest release, nightly: the `nightly` tag); `None` when the channel has no release. `is_newer(manifest, build)` compares build numbers (never true for a dev build). `platform_asset()` picks the zip or tarball. `self_update_blocker()` says why this copy can only link to the release (source checkout, dev build, folder not writable). `download(asset, dest, progress, cancelled)` streams to a `.part` file and checks size and SHA-256. `install(archive)` extracts to a staging folder next to the app (refusing paths that escape it) and then:
-- Windows: renames the running `TelescopeDesktop.exe` to `TelescopeDesktop.old.exe`, moves the new one in, and replaces other files whose hash changed; a locked file (UnityCapture held by OBS) is skipped and reported.
+- Windows: the app is a PyInstaller folder build whose libraries sit in `lib-<build>` (`LIB_PREFIX`), a new folder per build. Moves the new build's lib folder in with one rename, then renames the running `TelescopeDesktop.exe` to `TelescopeDesktop.old.exe` and moves the new one in, then replaces other files whose hash changed; a locked file (UnityCapture held by OBS) is skipped and reported.
 - Linux: moves each replaced top-level entry to `.previous/` and the new one in, rolling back if a move fails.
-Returns `InstallResult(relaunch, skipped)`. `clean_up_after_update()` deletes the leftovers on the next start.
+Returns `InstallResult(relaunch, skipped)`. `clean_up_after_update()` runs on every start and deletes the leftovers: the old exe, the staging folder, and every `lib-*` folder but the running one (only when it knows which that is).
 
 ### `discovery.py`
 **LanDiscovery** - browses `_telescope._tcp` with `zeroconf` and maps the TXT `id` to current IPv4 addresses. `lookup(phone_id)` never blocks; without zeroconf or multicast it returns nothing and stored addresses are used.

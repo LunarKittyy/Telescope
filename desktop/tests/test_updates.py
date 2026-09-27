@@ -154,6 +154,75 @@ def test_windows_install_renames_the_running_exe_and_replaces_changed_files(tmp_
     assert not (app / "TelescopeDesktop.old.exe").exists()
 
 
+def test_the_first_folder_build_installs_over_the_single_exe(tmp_path):
+    # What the updater in today's single-exe release does with a folder-build zip.
+    app = tmp_path / "app"
+    app.mkdir()
+    (app / "TelescopeDesktop.exe").write_bytes(b"onefile exe")
+    archive = _zip(tmp_path / "Telescope-windows.zip", {
+        "TelescopeDesktop.exe": b"folder exe", "lib-130/python311.dll": b"py", "lib-130/PyQt6/Qt6/x.dll": b"qt",
+    })
+    updates.install_windows(archive, app)
+    assert (app / "TelescopeDesktop.exe").read_bytes() == b"folder exe"
+    assert (app / "lib-130" / "PyQt6" / "Qt6" / "x.dll").read_bytes() == b"qt"
+
+    updates.clean_up_after_update(app, running_lib="lib-130")
+    assert not (app / "TelescopeDesktop.old.exe").exists()
+    assert (app / "lib-130").is_dir()
+
+
+def test_a_folder_build_update_adds_its_own_libs_and_the_old_ones_go_on_the_next_start(tmp_path):
+    app = tmp_path / "app"
+    (app / "lib-130").mkdir(parents=True)
+    (app / "lib-130" / "python311.dll").write_bytes(b"old py")  # loaded by the running copy: never touched
+    (app / "TelescopeDesktop.exe").write_bytes(b"exe 130")
+    (app / "platform-tools").mkdir()
+    (app / "platform-tools" / "adb.exe").write_bytes(b"adb")
+    archive = _zip(tmp_path / "Telescope-windows.zip", {
+        "TelescopeDesktop.exe": b"exe 131", "lib-131/python311.dll": b"new py", "platform-tools/adb.exe": b"adb",
+    })
+    result = updates.install_windows(archive, app)
+    assert result.skipped == []
+    assert (app / "lib-130" / "python311.dll").read_bytes() == b"old py"
+    assert (app / "lib-131" / "python311.dll").read_bytes() == b"new py"
+
+    updates.clean_up_after_update(app, running_lib="lib-131")
+    assert not (app / "lib-130").exists()
+    assert (app / "lib-131").is_dir()
+    assert (app / "platform-tools" / "adb.exe").exists()
+
+
+def test_the_new_lib_folder_is_in_place_before_the_exe_is_swapped(tmp_path, monkeypatch):
+    app = tmp_path / "app"
+    app.mkdir()
+    (app / "TelescopeDesktop.exe").write_bytes(b"exe 130")
+    archive = _zip(tmp_path / "Telescope-windows.zip", {
+        "TelescopeDesktop.exe": b"exe 131", "lib-131/a.dll": b"a", "lib-131/sub/b.dll": b"b",
+    })
+    seen = []
+    real_replace = os.replace
+
+    def replace(src, dst):
+        if str(dst).endswith("TelescopeDesktop.exe") and "131" in open(src, "rb").read().decode():
+            seen.append(sorted(p.name for p in (app / "lib-131").rglob("*")))
+        return real_replace(src, dst)
+    monkeypatch.setattr(updates.os, "replace", replace)
+
+    updates.install_windows(archive, app)
+    assert seen == [["a.dll", "b.dll", "sub"]]
+
+
+def test_clean_up_leaves_lib_folders_alone_without_knowing_which_one_is_running(tmp_path):
+    app = tmp_path / "app"
+    (app / "lib-130").mkdir(parents=True)
+    (app / "lib-131").mkdir()
+
+    updates.clean_up_after_update(app)  # a source checkout: no running_lib
+    updates.clean_up_after_update(app, running_lib="_internal")
+
+    assert (app / "lib-130").is_dir() and (app / "lib-131").is_dir()
+
+
 def test_windows_install_refuses_an_archive_without_the_app(tmp_path):
     app = tmp_path / "app"
     app.mkdir()
