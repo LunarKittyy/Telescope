@@ -141,6 +141,7 @@ HTTPS to a paired phone, trusting only the certificate fingerprint it gave at pa
 **PhoneSessionClient(base_url, auth)** - HTTPS client for the phone's session port (8766), where `SessionServer` answers whether or not a stream is running. Qt-free.
 - `hello(timeout)` → `Hello(status, phone_id, phone_name, protocol, app_version, build)` - no token sent; which phone is on the other end and which app version. `status` is `HELLO_OK`, `HELLO_MISSING` (an app too old: one without `/v1/hello`, or one from before TLS, found by a plain `/v1/hello` with no token when the handshake fails) or `HELLO_NONE` (nothing there, or a certificate that isn't the pinned one).
 - `read_capped(response)` - every reply is read through this, capped at `MAX_REPLY_BYTES` (256 KB), since whatever answers may not be the phone.
+- `clean_name(raw)` - a phone's name as plain display text: no control characters, no `<` or `>` (Qt would render it as HTML), at most 64 characters. Every name from pairing, the phone or the config goes through it.
 - `ping()` → `PingResult(status, streaming, busy, local_only, phone_id, phone_name)` - `status` is `paired` / `not_paired` (401) / `unreachable` (anything else, including a body that isn't Telescope's JSON).
 - `start()` / `stop()` → `SessionResult(ok, error)`.
 - `unpair()` - asks the phone to forget this computer (best effort).

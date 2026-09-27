@@ -39,7 +39,7 @@ from telescope.platform.linux import (
 )
 from telescope.plugin import TelescopePlugin
 from telescope.session_client import (
-    PING_PORT, START_POLL_INTERVAL, START_TIMEOUT, PhoneSessionClient,
+    PING_PORT, START_POLL_INTERVAL, START_TIMEOUT, PhoneSessionClient, clean_name,
 )
 from telescope.widgets.common import (
     ElidingLabel, NoScrollComboBox, action_button, add_card_header, button_row, card_action,
@@ -1042,7 +1042,7 @@ class ConnectionPlugin(TelescopePlugin):
     def rename_phone(self, pid: str, name: str):
         phone = self.phone(pid)
         if phone:
-            phone.name = name
+            phone.name = clean_name(name) or phone.name
             self._refresh_combo()
             self._host.save_now()
             self._render()

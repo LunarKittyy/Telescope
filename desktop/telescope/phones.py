@@ -14,7 +14,7 @@ from typing import Callable, Optional
 from telescope import ip_utils
 from telescope.pinned_https import PhoneAuth, is_fingerprint
 from telescope.session_client import (
-    HELLO_MISSING, PING_PORT, SESSION_PROTOCOL, Hello, PhoneSessionClient,
+    HELLO_MISSING, PING_PORT, SESSION_PROTOCOL, Hello, PhoneSessionClient, clean_name,
 )
 
 STREAM_PORT = 8080  # the phone's MJPEG server; fixed on the phone, so not a setting here
@@ -63,6 +63,7 @@ class Phone:
         pid, name, token = raw.get("id"), raw.get("name"), raw.get("token")
         if not all(isinstance(v, str) and v for v in (pid, name, token)):
             raise ValueError("phone entry needs id, name and token")
+        name = clean_name(name) or "Phone"
         ips = raw.get("ips", [])
         if not isinstance(ips, list) or not all(isinstance(ip, str) for ip in ips):
             raise ValueError("phone entry 'ips' must be a list of strings")

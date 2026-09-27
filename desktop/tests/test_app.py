@@ -1031,8 +1031,9 @@ def test_send_notification_uses_notify_send_on_linux(window, monkeypatch):
         "Popen",
         lambda *args, **kwargs: popen_calls.append((args, kwargs)),
     )
-    window.send_notification("Title", "Body")
-    assert popen_calls[0][0][0][-2:] == ["Title", "Body"]
+    window.send_notification("-Title", "--Body")
+    # "--" ends notify-send's options, so text starting with a dash can't be read as one.
+    assert popen_calls[0][0][0][-3:] == ["--", "-Title", "--Body"]
 
 
 def test_send_notification_falls_back_to_tray(window, monkeypatch):
