@@ -31,6 +31,7 @@ IDLE_PERIOD    = 1.0           # seconds between wait-screen frames while nobody
 STILL_PERIOD   = 0.2           # a still image while someone reads: enough to look alive, near-free to send
 MIN_GIF_PERIOD = 1 / 15        # fastest an animation plays
 FRAME_BUDGET   = 64 * 1024 * 1024  # bytes of prepared animation frames kept in memory
+FILTER_POLL    = 0.05          # Windows: how often to look for an app's filter while nothing receives the frames
 RETRY_OPEN     = 3.0           # seconds before trying a camera that wouldn't open again
 PROC_SCAN_PERIOD = 5.0         # old-driver fallback: how often to look for readers in /proc
 WATCH_LINGER   = 3.0           # Windows: a reader counts as gone once it hasn't asked for a frame this long
@@ -315,11 +316,12 @@ class WaitScreen(_Held):
     """
 
     def __init__(self, open_camera: Callable = open_camera, loader: Callable = load_frames,
-                 locked: Callable = locked_size):
+                 locked: Callable = locked_size, filter_probe: Optional[Callable] = None):
         super().__init__()
         self._open_camera = open_camera
         self._loader = loader
         self._locked = locked
+        self._filter_probe = filter_probe or (None if IS_LINUX else _uc_filter_probe)
         self._size = DEFAULT_SIZE
         self._path: Optional[str] = None
         self._watched = False
@@ -381,6 +383,12 @@ class WaitScreen(_Held):
                 stop.wait(RETRY_OPEN)
 
     def _feed(self, cam, frames: list, stop: threading.Event):
+        filter_open = None
+        if self._filter_probe is not None:
+            try:
+                filter_open = self._filter_probe()
+            except Exception:
+                logger.exception("Can't look for the camera's filter; sending at the idle pace")
         i = 0
         while not stop.is_set():
             frame, seconds = frames[i]
@@ -388,10 +396,15 @@ class WaitScreen(_Held):
             cam.send(frame)
             if self._watched:
                 i = (i + 1) % len(frames)
-                wait = seconds
+                self._nudge.wait(seconds)
+            elif filter_open is not None and not filter_open():
+                # Until an app opens the camera there's nowhere to send, and it shows its own screen until our first
+                # frame lands: send the moment it's there (and at the idle pace regardless, should the probe be wrong).
+                until = time.monotonic() + IDLE_PERIOD
+                while not self._nudge.wait(FILTER_POLL) and not filter_open() and time.monotonic() < until:
+                    pass
             else:
-                wait = IDLE_PERIOD
-            self._nudge.wait(wait)
+                self._nudge.wait(IDLE_PERIOD)
 
 
 # ── Whether an app is reading the camera ──────────────────────────────────
@@ -427,9 +440,10 @@ def camera_holders(device: str, own_pid: int = None) -> list:
     return found
 
 
-def _uc_want_event_name(name: str = UC_NAME) -> str:
-    """The event the UnityCapture filter in an app sets each time it wants a frame, for the camera called name
-    (or the first registered one, as open_camera falls back to). Mirrors pyvirtualcam's numbering."""
+def _uc_object_name(kind: str, name: str = UC_NAME) -> str:
+    """A UnityCapture shared object's name ("Want": the event an app's filter sets each time it wants a frame; "Data":
+    the shared image), for the camera called name (or the first registered one, as open_camera falls back to). Mirrors
+    pyvirtualcam's numbering."""
     import sys
     import winreg
     offset = 0x10 if sys.maxsize > 2**32 else 0x20
@@ -447,7 +461,26 @@ def _uc_want_event_name(name: str = UC_NAME) -> str:
             first = num
             break
     num = first or 0
-    return "UnityCapture_Want" + (chr(ord("0") + num) if num else "")
+    return f"UnityCapture_{kind}" + (chr(ord("0") + num) if num else "")
+
+
+def _uc_filter_probe() -> Callable[[], bool]:
+    """Windows: a check for whether the camera's shared image exists yet. An app's filter creates it when it opens the
+    camera, and until then every send goes nowhere; a sender that has sent once keeps it alive."""
+    import ctypes
+    from ctypes import wintypes
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.OpenFileMappingW.restype = wintypes.HANDLE
+    k32.OpenFileMappingW.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR)
+    k32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    file_map_read, name = 0x0004, _uc_object_name("Data")
+
+    def exists() -> bool:
+        handle = k32.OpenFileMappingW(file_map_read, False, name)
+        if handle:
+            k32.CloseHandle(handle)
+        return bool(handle)
+    return exists
 
 
 class CameraWatch(_Held):
@@ -537,7 +570,7 @@ class CameraWatch(_Held):
         k32.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
         k32.CloseHandle.argtypes = (wintypes.HANDLE,)
         synchronize, wait_object_0 = 0x00100000, 0
-        name = _uc_want_event_name()
+        name = _uc_object_name("Want")
         handle, last_seen = None, 0.0
         try:
             while not stop.is_set():
