@@ -3,7 +3,7 @@ package com.telescope
 import android.content.Context
 import android.content.SharedPreferences
 
-// Persists settings so remote/local starts use same defaults.
+// Persists settings; the lens, size and OIS the computer last picked are what the next stream opens with.
 object StreamPrefs {
     private const val FILE = "telescope"
 
@@ -43,7 +43,13 @@ object StreamPrefs {
             .apply()
     }
 
-    // Null until first start; callers use CameraStreamService defaults.
+    // Applies one change from the computer to the remembered selection, starting from the service defaults.
+    fun updateSelection(context: Context, change: (Selection) -> Selection) {
+        val current = lastSelection(context) ?: Selection("0", "", 1920, 1080, true)
+        saveSelection(context, change(current))
+    }
+
+    // Null until the computer first picks something; callers use CameraStreamService defaults.
     fun lastSelection(context: Context): Selection? {
         val p = of(context)
         val cameraId = p.getString(KEY_CAMERA_ID, null) ?: return null
