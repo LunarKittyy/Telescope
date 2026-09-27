@@ -949,7 +949,7 @@ class TelescopeWindow(QMainWindow):
     def send_notification(self, title: str, body: str, urgent: bool = True):
         if IS_LINUX and shutil.which("notify-send"):
             subprocess.Popen(
-                ["notify-send", "-a", "Telescope", "-u", "critical" if urgent else "normal", title, body],
+                ["notify-send", "-a", "Telescope", "-u", "critical" if urgent else "normal", "--", title, body],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
         elif self._tray:

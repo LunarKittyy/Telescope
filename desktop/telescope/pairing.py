@@ -13,6 +13,7 @@ from typing import Callable, List, Optional
 from telescope import ip_utils
 from telescope.ip_utils import PairingAddress
 from telescope.pinned_https import is_fingerprint
+from telescope.session_client import clean_name
 
 PAIRING_PORT = 8765
 
@@ -132,7 +133,7 @@ class PairingServer:
                 body = self.rfile.read(length)
                 try:
                     data = json.loads(body)
-                    name = str(data.get("name", "Phone")).strip()
+                    name = clean_name(data.get("name", "Phone"))
                     phone_id = str(data.get("phone_id", "")).strip()
                     ips = list(dict.fromkeys(str(x).strip() for x in data.get("ips", [])))
                     cert_sha256 = str(data.get("cert_sha256", ""))

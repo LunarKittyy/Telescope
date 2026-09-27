@@ -34,6 +34,15 @@ def read_capped(response, limit: int = MAX_REPLY_BYTES) -> bytes:
     return raw
 
 
+MAX_NAME_CHARS = 64
+
+
+def clean_name(raw) -> str:
+    """A phone's name as safe display text: no control characters, no < or > (Qt would render it as HTML), capped."""
+    text = "".join(" " if c.isspace() else c for c in str(raw) if (c.isprintable() or c.isspace()) and c not in "<>")
+    return " ".join(text.split())[:MAX_NAME_CHARS]
+
+
 @dataclass(frozen=True)
 class PingResult:
     """Outcome of GET /v1/ping; status: paired/not_paired/unreachable."""
@@ -120,7 +129,7 @@ class PhoneSessionClient:
         def field(key, kind, default):
             value = body.get(key)
             return value if isinstance(value, kind) and not isinstance(value, bool) else default
-        return Hello(HELLO_OK, phone_id, field("phoneName", str, ""), field("protocol", int, 0),
+        return Hello(HELLO_OK, phone_id, clean_name(field("phoneName", str, "")), field("protocol", int, 0),
                      field("appVersion", str, ""), field("build", int, 0))
 
     def _answers_plain_http(self, timeout: float) -> bool:
@@ -164,7 +173,7 @@ class PhoneSessionClient:
             busy=bool(body.get("busy", False)),
             local_only=bool(body.get("localOnly", False)),
             phone_id=body.get("phoneId") if isinstance(body.get("phoneId"), str) else None,
-            phone_name=body.get("phoneName") if isinstance(body.get("phoneName"), str) else None,
+            phone_name=clean_name(body["phoneName"]) if isinstance(body.get("phoneName"), str) else None,
         )
 
     def start(self) -> SessionResult:

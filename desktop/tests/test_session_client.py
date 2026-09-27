@@ -184,3 +184,17 @@ def test_an_oversized_reply_is_treated_as_no_phone(monkeypatch, client):
     assert client.hello().status == HELLO_NONE
     assert client.ping().status == "unreachable"
     assert client.start() == SessionResult(ok=False, error="unreachable")
+
+
+def test_phone_names_are_cleaned_into_plain_display_text():
+    from telescope.session_client import MAX_NAME_CHARS, clean_name
+    assert clean_name("Luna's Pixel") == "Luna's Pixel"
+    assert clean_name("<b>Your bank</b>\n\x07phone") == "bYour bank/b phone"
+    assert len(clean_name("x" * 500)) == MAX_NAME_CHARS
+    assert clean_name("  \t ") == ""
+
+
+def test_a_name_from_the_phone_arrives_cleaned(monkeypatch, client):
+    body = json.dumps({"protocol": 3, "phoneId": "p1", "phoneName": "<img src=x>Pixel"}).encode()
+    _stub_urlopen(monkeypatch, lambda _req: _Response(200, body))
+    assert client.hello().phone_name == "img src=xPixel"
