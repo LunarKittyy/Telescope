@@ -26,6 +26,7 @@ _IPV4 = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?\b")
 _IPV6 = re.compile(r"(?<![\w:])(?:(?:[0-9a-f]{1,4}:){7}[0-9a-f]{1,4}|[0-9a-f:]*::[0-9a-f:]*)(?![\w:])", re.I)
 _BEARER = re.compile(r"(bearer|token|nonce|secret)([\"'=: ]+)[^\s\"',}]+", re.I)
 _LONG_SECRET = re.compile(r"\b[A-Za-z0-9_\-+/]{24,}={0,2}")
+_SECONDS_COUNTER = re.compile(r"\s*\(\d+s\)$")  # "Waiting... (12s)" ticks once a second
 
 
 def sanitize(text: str) -> str:
@@ -89,7 +90,8 @@ class EventLog(logging.Handler):
 
     def note(self, text: str):
         """Something the user saw (a status or banner), not a log record."""
-        self.add("NOTE", text)
+        # Drop the seconds counter and unify the ellipsis so ticking statuses collapse into one count.
+        self.add("NOTE", _SECONDS_COUNTER.sub("", text.replace("\u2026", "...")))
 
     def add(self, level: str, text: str, when: Optional[float] = None):
         text = sanitize(text)[:MAX_LINE]
