@@ -76,6 +76,12 @@ def parse_args(argv):
 
 
 def main():
+    if getattr(sys, "frozen", False) and not IS_LINUX:
+        import tempfile
+        from telescope.platform import windows
+        if windows.running_from_archive(APP_DIR, Path(tempfile.gettempdir())):
+            windows.warn_running_from_archive()
+            sys.exit(1)
     args, qt_argv = parse_args(sys.argv[1:])
     diagnostics.install(APP_DIR)
     app = QApplication([sys.argv[0]] + qt_argv)

@@ -189,3 +189,22 @@ def test_registered_name_reads_the_filter_key_and_skips_the_property_page(monkey
     assert windows.uc_registered_name() == "Unity Video Capture"
     del registry["{filter}"]  # no name stored: UnityCapture's default
     assert windows.uc_registered_name() == windows.UC_DEFAULT_NAME
+
+
+@pytest.mark.parametrize("inside, archived", [
+    ("Temp1_Telescope-windows.zip/Telescope", True),       # Explorer's Run from the zip
+    ("7zO4A8C1B2E", True),                                 # 7-Zip
+    ("Rar$EXa1234.5678/Telescope", True),                  # WinRAR
+    ("Telescope", False),                                  # extracted into temp on purpose
+    ("_MEI12345", False),                                  # PyInstaller's own unpack folder
+])
+def test_running_from_archive_spots_zip_tools_temp_folders(tmp_path, inside, archived):
+    app = tmp_path / inside
+    app.mkdir(parents=True)
+    assert windows.running_from_archive(app, tmp_path) is archived
+
+
+def test_running_from_archive_ignores_folders_outside_temp(tmp_path):
+    app = tmp_path / "Downloads" / "Temp1_Telescope-windows.zip"
+    app.mkdir(parents=True)
+    assert not windows.running_from_archive(app, tmp_path / "Temp")
