@@ -1,6 +1,5 @@
 """Client for phone's session port (8766), always reachable unlike streaming server."""
 
-import errno
 import json
 import logging
 import socket
@@ -9,7 +8,7 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Optional
 
-from telescope.pinned_https import PhoneAuth, pin_rejected
+from telescope.pinned_https import PhoneAuth, handshake_failed, pin_rejected
 
 logger = logging.getLogger(__name__)
 
@@ -89,12 +88,6 @@ class SessionResult:
     error: Optional[str] = None
 
 
-def _nobody_listening(exc: BaseException) -> bool:
-    reason = getattr(exc, "reason", exc)
-    return isinstance(reason, ConnectionRefusedError) or (
-        isinstance(reason, OSError) and reason.errno in (errno.EHOSTUNREACH, errno.ENETUNREACH))
-
-
 class PhoneSessionClient:
     """Talks to resolved base URL (device IP or localhost via adb forward)."""
 
@@ -117,9 +110,10 @@ class PhoneSessionClient:
             # The session server answers 404 for routes it doesn't know: an app from before /v1/hello.
             return Hello(HELLO_MISSING if exc.code == 404 else HELLO_NONE)
         except Exception as exc:
-            if pin_rejected(exc) or _nobody_listening(exc):
-                return Hello(HELLO_NONE)  # a pin failure means something answered, but not the phone that paired
-            return Hello(HELLO_MISSING) if self._answers_plain_http(timeout) else Hello(HELLO_NONE)
+            # Only a listener that took the connection but not TLS is worth a plain look; nobody there, or the wrong certificate, is just not our phone.
+            if handshake_failed(exc) and self._answers_plain_http(timeout):
+                return Hello(HELLO_MISSING)
+            return Hello(HELLO_NONE)
         if not isinstance(body, dict):
             return Hello(HELLO_NONE)
         phone_id = body.get("phoneId")

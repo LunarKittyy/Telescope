@@ -198,3 +198,20 @@ def test_a_name_from_the_phone_arrives_cleaned(monkeypatch, client):
     body = json.dumps({"protocol": 3, "phoneId": "p1", "phoneName": "<img src=x>Pixel"}).encode()
     _stub_urlopen(monkeypatch, lambda _req: _Response(200, body))
     assert client.hello().phone_name == "img src=xPixel"
+
+
+def test_an_address_nobody_answers_on_costs_one_timeout_not_two(monkeypatch):
+    # The plain-HTTP look for an old app only follows a failed TLS handshake, never a dead address.
+    from telescope.pinned_https import HandshakeFailed, PhoneAuth
+    probes = []
+    client = PhoneSessionClient("https://10.0.0.9:8766", PhoneAuth("tok", "ab" * 32))
+    monkeypatch.setattr(client, "_answers_plain_http", lambda timeout: probes.append(timeout) or True)
+    for failure, expect_probe in ((TimeoutError("timed out"), False), (ConnectionRefusedError(), False),
+                                  (HandshakeFailed("not TLS"), True)):
+        def fail(*_args, _failure=failure, **_kwargs):
+            raise urllib.error.URLError(_failure)
+        monkeypatch.setattr(client.auth, "open", fail)
+        probes.clear()
+        status = client.hello(timeout=0.1).status
+        assert bool(probes) == expect_probe
+        assert status == (HELLO_MISSING if expect_probe else HELLO_NONE)
