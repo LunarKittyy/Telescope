@@ -242,7 +242,7 @@ telescope/
 |
 |-- android/                     # Gradle project
 |   +-- app/src/main/kotlin/com/telescope/
-|       |-- MainActivity.kt      # UI: enumerate cameras, start/stop service, diagnostics, pairing
+|       |-- MainActivity.kt      # UI: setup, pairing, Local only, Stop while streaming, diagnostics, updates
 |       |-- PreviewActivity.kt   # Fullscreen live preview, standalone or attached to a running stream
 |       |-- CameraStreamService.kt  # Foreground service: Camera2 + HTTP control
 |       |-- CameraSessionController.kt  # Owns the live Camera2 session and capture-request state
