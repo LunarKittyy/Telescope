@@ -26,6 +26,27 @@ _BOXES_HOLD_MS = 1000  # the lens boxes stay this long after the framing last mo
 _BOXES_FADE_MS = 300
 
 
+def _fit_within(frame: np.ndarray, size) -> np.ndarray:
+    """frame scaled to fit inside size (w, h), keeping its shape; always a new array, since it crosses threads."""
+    h, w = frame.shape[:2]
+    if size is None:
+        return frame.copy()
+    scale = min(size[0] / w, size[1] / h)
+    new_w, new_h = max(1, round(w * scale)), max(1, round(h * scale))
+    if (new_w, new_h) == (w, h):
+        return frame.copy()
+    return cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA if scale < 1 else cv2.INTER_LINEAR)
+
+
+def _show(lbl: QLabel, pixmap: QPixmap):
+    """Put pixmap on lbl, letterboxed. The worker already sized it for lbl; only a resize since then needs a scale."""
+    w, h = lbl.width(), lbl.height()
+    pw, ph = pixmap.width(), pixmap.height()
+    if not (pw <= w and ph <= h and (w - pw <= 1 or h - ph <= 1)):
+        pixmap = pixmap.scaled(w, h, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+    lbl.setPixmap(pixmap)
+
+
 class FrameLabel(QLabel):
     """A QLabel showing a letterboxed frame. Reports clicks as a point in the frame (0..1), drags and
     wheel turns for panning and zooming, and draws the lens boxes over the frame (never into it)."""
@@ -207,13 +228,7 @@ class _PopoutWindow(QWidget):
 
     def set_frame(self, pixmap: QPixmap, aspect: float):
         self._aspect = aspect
-        self._lbl.setPixmap(
-            pixmap.scaled(
-                self._lbl.width(), self._lbl.height(),
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-        )
+        _show(self._lbl, pixmap)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -246,7 +261,7 @@ class PreviewPlugin(TelescopePlugin):
     name = "preview"
     panel_region = "center"
 
-    # Max width for in-window preview sent across thread (stage is now the widest element).
+    # Max width for in-window preview sent across thread, until the stage's size is known.
     _CARD_MAX_W = 960
 
     def setup(self, host, bus):
@@ -257,6 +272,10 @@ class PreviewPlugin(TelescopePlugin):
         # Flag; process_frame() runs on stream thread and must never touch self._popout (not thread-safe).
         self._popout_active = False
         self._busy   = False
+        # Where each view last showed a frame, in px (UI thread writes, stream thread reads): frames are scaled to it
+        # on the stream thread, so the UI thread only has to put them up.
+        self._card_size: tuple | None = None
+        self._popout_size: tuple | None = None
         # Skip decoding for the card while the window is in the tray, without flipping the user's Hide/Show choice.
         self._host_visible = True
         self._sig    = _Sig()
@@ -398,6 +417,7 @@ class PreviewPlugin(TelescopePlugin):
         self._push_boxes()
         self._popout.resize(640, 360)
         self._popout.show()
+        self._popout_size = None
         self._popout_active = True
 
     def _on_popout_closed(self):
@@ -459,35 +479,26 @@ class PreviewPlugin(TelescopePlugin):
         if not (card_wanted or popout_open) or self._busy:
             return frame
         self._busy = True
-        h, w = frame.shape[:2]
         if popout_open:
-            # Full resolution for pop-out - it can be any size
-            self._sig.frame.emit(frame.copy())
+            size = self._popout_size
         else:
-            # Downscale to card label size to keep cross-thread copy cheap
-            if w > self._CARD_MAX_W:
-                small = cv2.resize(frame, (self._CARD_MAX_W, int(h * self._CARD_MAX_W / w)),
-                                   interpolation=cv2.INTER_AREA)
-            else:
-                small = frame.copy()
-            self._sig.frame.emit(small)
+            h, w = frame.shape[:2]
+            size = self._card_size or (min(w, self._CARD_MAX_W), h)
+        self._sig.frame.emit(_fit_within(frame, size))
         return frame
 
     # ── UI thread ─────────────────────────────────────────────────────────────
 
     def _on_frame(self, frame: np.ndarray):
         h, w = frame.shape[:2]
-        img = QImage(frame.data, w, h, w * 3, QImage.Format.Format_RGB888).copy()
+        img = QImage(frame.data, w, h, w * 3, QImage.Format.Format_BGR888).copy()
         px = QPixmap.fromImage(img)
 
         if self._popout and self._popout.isVisible():
             self._popout.set_frame(px, w / h)
+            lbl = self._popout._lbl
+            self._popout_size = (lbl.width(), lbl.height())
         elif self._active:
-            self._preview_lbl.setPixmap(
-                px.scaled(
-                    self._preview_lbl.width(), self._preview_lbl.height(),
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                )
-            )
+            _show(self._preview_lbl, px)
+            self._card_size = (self._preview_lbl.width(), self._preview_lbl.height())
         self._busy = False

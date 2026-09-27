@@ -22,6 +22,13 @@ class _Capture:
             return self.frames.pop(0)
         return False, None
 
+    def read_packet(self):
+        return self.read()
+
+    @staticmethod
+    def decode(frame):
+        return frame
+
     def release(self):
         self.released = True
 
@@ -173,8 +180,8 @@ def test_reconnect_stops_without_opening_when_cancelled(monkeypatch):
     assert worker._reconnect_cap(stop) is None
 
 
-def test_stream_reader_resizes_converts_colour_and_runs_pipeline():
-    # BGR [1, 2, 3] must become RGB [3, 2, 1].
+def test_stream_reader_resizes_and_runs_pipeline_keeping_bgr():
+    # The virtual camera takes BGR, so the decoder's order goes through untouched.
     raw = np.tile(np.array([[[1, 2, 3]]], dtype=np.uint8), (2, 2, 1))
     cap = _Capture([(True, raw)])
     worker = stream.StreamWorker("url", 4, 3, 30, [lambda frame: frame + 1])
@@ -188,8 +195,8 @@ def test_stream_reader_resizes_converts_colour_and_runs_pipeline():
     worker._stream_reader(cap, threading.Event())
 
     assert cap.released is True
-    assert worker._latest_rgb.shape == (3, 4, 3)
-    assert worker._latest_rgb[0, 0].tolist() == [4, 3, 2]
+    assert worker._latest.shape == (3, 4, 3)
+    assert worker._latest[0, 0].tolist() == [2, 3, 4]
 
 
 def test_stream_reader_accumulates_bytes_from_successful_reads():
@@ -223,7 +230,7 @@ def test_stream_reader_drops_pipeline_errors_and_releases_capture():
     worker._reconnect_cap = lambda _event: stop_after_error()
     worker._stream_reader(cap, threading.Event())
 
-    assert worker._latest_rgb is None
+    assert worker._latest is None
     assert cap.released is True
 
 
@@ -277,10 +284,8 @@ def test_run_streams_a_frame_and_stops_cleanly(monkeypatch):
         def __exit__(self, *_args):
             return False
 
-        def send(self, rgb):
-            self.sent.append(rgb.copy())
-
-        def sleep_until_next_frame(self):
+        def send(self, frame):
+            self.sent.append(frame.copy())
             worker.request_stop()
 
     monkeypatch.setattr(vcam.pyvirtualcam, "Camera", FakeCamera)
@@ -320,10 +325,8 @@ def test_run_opens_at_the_size_a_reader_holds_the_camera_at(monkeypatch):
         def __exit__(self, *_args):
             return False
 
-        def send(self, rgb):
-            self.sent.append(rgb.copy())
-
-        def sleep_until_next_frame(self):
+        def send(self, frame):
+            self.sent.append(frame.copy())
             worker.request_stop()
 
     monkeypatch.setattr(vcam.pyvirtualcam, "Camera", FakeCamera)
@@ -364,10 +367,7 @@ def test_fps_change_rebuilds_the_vcam_without_reopening_the_phone_stream(monkeyp
         def __exit__(self, *_args):
             return False
 
-        def send(self, rgb):
-            pass
-
-        def sleep_until_next_frame(self):
+        def send(self, frame):
             self.ticks += 1
             if len(cameras) == 1 and self.ticks == 2:
                 worker.update_output(fps=15)
@@ -398,3 +398,97 @@ def test_windows_opens_the_camera_named_telescope_or_any_older_registration(monk
 
     monkeypatch.setattr(vcam, "IS_LINUX", True)
     assert worker._open_vcam(4, 4) == vcam.V4L2_PHONE_DEV
+
+
+def test_newest_hands_over_only_the_latest_item():
+    newest, done = stream._Newest(), threading.Event()
+    newest.put("old")
+    newest.put("new")
+    done.set()
+
+    assert newest.take(done) == "new"
+    assert newest.take(done) is None
+
+
+def test_a_frame_that_finishes_after_a_newer_one_is_dropped():
+    worker = stream.StreamWorker("url", None, None, 30)
+    newer = np.full((1, 1, 3), 2, dtype=np.uint8)
+
+    worker._publish(5, newer)
+    worker._publish(4, np.full((1, 1, 3), 1, dtype=np.uint8))
+
+    assert worker._latest is newer
+    assert worker._frames_received == 1
+
+
+def test_a_slow_decoder_skips_to_the_newest_packet(monkeypatch):
+    import time
+    packets = [np.full((1, 1, 3), i, dtype=np.uint8) for i in range(1, 6)]
+
+    class _SlowCapture(_Capture):
+        parallel_decode = True
+
+        @staticmethod
+        def decode(frame):
+            time.sleep(0.1)
+            return frame
+
+    cap = _SlowCapture([(True, p) for p in packets])
+    worker = stream.StreamWorker("url", None, None, 30)
+
+    def no_reconnect(_stop):
+        worker._stop_flag = True
+        return None
+
+    worker._reconnect_cap = no_reconnect
+    worker._stream_reader(cap, threading.Event())
+
+    assert worker._latest[0, 0, 0] == 5
+    assert worker._frames_received < 5
+
+
+def test_a_new_frame_goes_to_the_camera_without_waiting_for_the_next_tick(monkeypatch):
+    import time
+    worker = stream.StreamWorker("url", None, None, 2)  # a tick every 0.5 s would be far too late
+    worker._latest = np.zeros((2, 2, 3), dtype=np.uint8)
+    sent = []
+
+    class FakeCamera:
+        device = "fake-vcam"
+
+        def __init__(self, **_kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def send(self, frame):
+            sent.append((time.monotonic(), frame[0, 0, 0]))
+
+    monkeypatch.setattr(vcam.pyvirtualcam, "Camera", FakeCamera)
+    monkeypatch.setattr(vcam, "locked_size", lambda: None)
+    feeder = threading.Thread(target=worker._run_vcam)
+    feeder.start()
+    try:
+        time.sleep(0.3)  # past the burst pacing (half a period) after the first send
+        published_at = time.monotonic()
+        worker._publish(next(worker._seq), np.full((2, 2, 3), 7, dtype=np.uint8))
+        deadline = published_at + 0.5
+        while time.monotonic() < deadline and not any(v == 7 for _, v in sent):
+            time.sleep(0.01)
+    finally:
+        worker.request_stop()
+        feeder.join(timeout=3)
+
+    assert any(v == 7 and t - published_at < 0.1 for t, v in sent)
+
+
+def test_the_virtual_camera_opens_in_bgr(monkeypatch):
+    opened = []
+    monkeypatch.setattr(vcam.pyvirtualcam, "Camera", lambda **kwargs: opened.append(kwargs["fmt"]))
+    stream.StreamWorker("url", None, None, 30)._open_vcam(4, 4)
+
+    assert opened == [vcam.pyvirtualcam.PixelFormat.BGR]

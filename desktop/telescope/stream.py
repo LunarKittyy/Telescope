@@ -1,10 +1,13 @@
+import itertools
 import logging
+import os
 import threading
 import time
 from typing import Optional
 
 import cv2
 import numpy as np
+import pyvirtualcam
 from PyQt6.QtCore import QThread, pyqtSignal
 
 from telescope import vcam
@@ -14,6 +17,8 @@ from telescope.mjpeg_reader import MjpegReader
 logger = logging.getLogger(__name__)
 
 RECONNECT_DELAY = 3
+# JPEG decoders running side by side: at 4K one decode takes longer than a frame lasts.
+MJPEG_DECODERS = max(1, min(2, (os.cpu_count() or 1) - 1))
 
 # Sentinel: "leave unchanged" (distinct from None = pass-through).
 _UNCHANGED = object()
@@ -42,6 +47,30 @@ def _fit_frame(frame, target_w, target_h):
     return canvas
 
 
+class _Newest:
+    """Hands the newest packet from the reader to the decoders; one nobody took in time is dropped, so a slow decoder
+    skips frames instead of letting them queue up (in here or in the TCP buffers) as lag."""
+
+    def __init__(self):
+        self._cond = threading.Condition()
+        self._item = None
+
+    def put(self, item):
+        with self._cond:
+            self._item = item
+            self._cond.notify()
+
+    def take(self, done: threading.Event):
+        """The newest item, waiting for one; None once done is set and nothing is left."""
+        with self._cond:
+            while self._item is None:
+                if done.is_set():
+                    return None
+                self._cond.wait(0.1)
+            item, self._item = self._item, None
+            return item
+
+
 class StreamWorker(QThread):
     status      = pyqtSignal(str, str)   # (kind, msg): info/ok/warn/fps/idle
     reconnected = pyqtSignal()           # mid-stream reconnect succeeded (not the initial connect)
@@ -64,10 +93,15 @@ class StreamWorker(QThread):
         self._stop_flag    = False
         self._restart_vcam = threading.Event()
         self._retry_now    = threading.Event()  # retarget(): skip the rest of the reconnect wait
-        self._latest_rgb   = None
+        # The newest processed frame (BGR, as the decoders give it and the virtual camera takes it).
+        self._latest       = None
+        self._frame_ready  = threading.Event()  # set when _latest changes, so the vcam sends it at once
+        self._seq          = itertools.count(1)
+        self._shown_seq    = 0  # the newest packet that made it to _latest; an older one finishing later is dropped
+        self._publish_lock = threading.Lock()
         # Cumulative wire bytes; vcam loop reads deltas, not resets on mid-stream reconnect.
         self._bytes_total  = 0
-        # Actual decodes off wire; separate from vcam send-loop fps (pyvirtualcam resends latest frame regardless).
+        # Frames decoded and shown; separate from the vcam send rate (which resends the latest frame regardless).
         self._frames_received = 0
         # Consecutive 2s windows with sustained low decode rate (distinguishes congestion from blips).
         self._weak_streak  = 0
@@ -84,10 +118,12 @@ class StreamWorker(QThread):
         if fps is not _UNCHANGED:
             self._fps = fps
             self._restart_vcam.set()
+            self._frame_ready.set()
 
     def request_stop(self):
         self._stop_flag = True
         self._restart_vcam.set()
+        self._frame_ready.set()
 
     def retarget(self, url: str):
         """Reconnect to url from the next attempt on (the phone moved to another route), and try now."""
@@ -120,32 +156,65 @@ class StreamWorker(QThread):
         return None
 
     def _stream_reader(self, cap, stop_event: threading.Event):
-        """Read frames from device; check width/height each iteration for live resolution changes."""
-        while not stop_event.is_set() and not self._stop_flag:
-            ret, raw = cap.read()
-            if not ret or raw is None:
+        """Pull packets off the wire as fast as they come and hand the newest to the decoder threads, reconnecting
+        when the stream drops. Returns once the decoders have finished what they were given."""
+        newest, done = _Newest(), threading.Event()
+        count = MJPEG_DECODERS if getattr(cap, "parallel_decode", False) else 1
+        decoders = [threading.Thread(target=self._decode_loop, args=(newest, done), daemon=True,
+                                     name=f"stream-decode-{i}") for i in range(count)]
+        for d in decoders:
+            d.start()
+        try:
+            while not stop_event.is_set() and not self._stop_flag:
+                ret, packet = cap.read_packet()
+                if not ret or packet is None:
+                    cap.release()
+                    cap = self._reconnect_cap(stop_event)
+                    if cap is None:
+                        return
+                    self.status.emit("ok", "Stream reconnected")
+                    self.reconnected.emit()
+                    continue
+                self._bytes_total += cap.last_frame_bytes
+                newest.put((next(self._seq), cap.decode, packet))
+            if cap is not None:
                 cap.release()
-                cap = self._reconnect_cap(stop_event)
-                if cap is None:
-                    return
-                self.status.emit("ok", "Stream reconnected")
-                self.reconnected.emit()
-                continue
-            self._bytes_total += cap.last_frame_bytes
-            self._frames_received += 1
+        finally:
+            done.set()
+            for d in decoders:
+                d.join(timeout=3)
+
+    def _decode_loop(self, newest: _Newest, done: threading.Event):
+        while (item := newest.take(done)) is not None:
+            seq, decode, packet = item
             try:
-                rw = self._width
-                rh = self._height
-                if rw or rh:
-                    rw = rw or raw.shape[1]
-                    rh = rh or raw.shape[0]
-                    raw = cv2.resize(raw, (rw, rh))
-                raw_rgb = cv2.cvtColor(raw, cv2.COLOR_BGR2RGB)
-                self._latest_rgb = self._process(raw_rgb)
+                raw = decode(packet)
+            except Exception:
+                logger.exception("Frame decode failed; dropping this frame")
+                continue
+            if raw is not None:
+                self._publish(seq, raw)
+
+    def _publish(self, seq: int, raw):
+        """Resize and run the plugin pipeline on raw, then make it the frame the vcam sends. One frame at a time (the
+        plugins aren't thread-safe), and never one older than what's already out."""
+        with self._publish_lock:
+            if seq <= self._shown_seq:
+                return
+            try:
+                self._latest = self._prepare(raw)
             except Exception:
                 logger.exception("Frame processing failed; dropping this frame")
-        if cap is not None:
-            cap.release()
+                return
+            self._shown_seq = seq
+            self._frames_received += 1
+        self._frame_ready.set()
+
+    def _prepare(self, raw):
+        rw, rh = self._width, self._height
+        if rw or rh:
+            raw = cv2.resize(raw, (rw or raw.shape[1], rh or raw.shape[0]))
+        return self._process(raw)
 
     def run(self):
         self.status.emit("info", f"Connecting to {self.url}...")
@@ -166,15 +235,14 @@ class StreamWorker(QThread):
                 self._restart_vcam.clear()
                 continue
             self._bytes_total += cap.last_frame_bytes
-            self._frames_received += 1
-
-            if self._width or self._height:
-                rw = self._width  or frame.shape[1]
-                rh = self._height or frame.shape[0]
-                frame = cv2.resize(frame, (rw, rh))
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             # Run first frame through pipeline so vcam dimensions account for transforms (e.g. 90° rotation swaps W↔H).
-            self._latest_rgb = self._process(frame_rgb)
+            self._latest = None
+            self._publish(next(self._seq), frame)
+            if self._latest is None:
+                cap.release()
+                self._restart_vcam.wait(timeout=RECONNECT_DELAY)
+                self._restart_vcam.clear()
+                continue
 
             # The reader (and its phone connection) outlives vcam restarts: an FPS change only rebuilds the vcam.
             reader_stop = threading.Event()
@@ -200,11 +268,11 @@ class StreamWorker(QThread):
         self.status.emit("idle", "Not streaming")
 
     def _open_vcam(self, cam_w: int, cam_h: int):
-        return vcam.open_camera(cam_w, cam_h, self._fps)
+        return vcam.open_camera(cam_w, cam_h, self._fps, pyvirtualcam.PixelFormat.BGR)
 
     def _run_vcam(self):
         """Open the virtual camera at the current size/fps and feed it until stop or a restart request."""
-        src0 = self._latest_rgb
+        src0 = self._latest
         cam_w = self._canvas_w or src0.shape[1]
         cam_h = self._canvas_h or src0.shape[0]
         # An app already reading the camera (the wait screen's) keeps it at that size; frames are fitted to it.
@@ -217,19 +285,28 @@ class StreamWorker(QThread):
                 self.vcam_opened.emit(cam_w, cam_h)
                 self.status.emit("ok", f"Streaming {cam_w}x{cam_h} at {self._fps} fps to {shown_as}")
                 fc, t0, bytes0, recv0 = 0, time.time(), self._bytes_total, self._frames_received
+                period = 1 / self._fps
                 last_src = fitted = None
+                last_sent = 0.0
                 while not self._stop_flag and not self._restart_vcam.is_set():
-                    src = self._latest_rgb
+                    # A new frame goes out as soon as it's ready. The last one is resent only after two periods
+                    # without one, so a frame that's a little late isn't held back behind a resend.
+                    self._frame_ready.wait(max(0.0, last_sent + 2 * period - time.monotonic()))
+                    self._frame_ready.clear()
+                    # A burst from the phone is paced to at most twice the camera's rate.
+                    if (wait := last_sent + period / 2 - time.monotonic()) > 0:
+                        self._restart_vcam.wait(wait)
+                    src = self._latest
                     if src is not None:
                         # Adapt frame to fixed vcam dimensions (src shape read fresh for live resolution switches);
                         # a frame re-sent because the phone hasn't delivered a new one reuses its fitted copy.
                         if src is not last_src:
                             last_src, fitted = src, _fit_frame(src, cam_w, cam_h)
                         cam.send(fitted)
-                    cam.sleep_until_next_frame()
+                        last_sent = time.monotonic()
                     fc += 1
                     if (elapsed := time.time() - t0) >= 2.0:
-                        src_now = self._latest_rgb
+                        src_now = self._latest
                         if src_now is not None:
                             src_h, src_w = src_now.shape[:2]
                         else:

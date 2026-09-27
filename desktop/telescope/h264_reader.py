@@ -54,6 +54,16 @@ class H264Reader:
         self._pending_bytes = 0
         return True
 
+    # Each frame refers to the ones before it, so read_packet() decodes in order and decode() has nothing left to do.
+    parallel_decode = False
+
+    def read_packet(self):
+        return self.read()
+
+    @staticmethod
+    def decode(frame):
+        return frame
+
     def read(self):
         """(True, BGR frame) for the newest frame decoded from the next data that has any, else (False, None)."""
         if self._response is None:

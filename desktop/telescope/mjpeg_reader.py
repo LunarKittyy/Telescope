@@ -49,7 +49,18 @@ class MjpegReader:
         self._buf = bytearray()
         return True
 
+    # Decoding a JPEG needs nothing from the ones before it, so StreamWorker may run several decode() at once.
+    parallel_decode = True
+
     def read(self):
+        ok, jpeg = self.read_packet()
+        if not ok:
+            return False, None
+        frame = self.decode(jpeg)
+        return (True, frame) if frame is not None else (False, None)
+
+    def read_packet(self):
+        """(True, JPEG bytes) for the next part, else (False, None). Cheap: decode() does the heavy part."""
         if self._response is None:
             return False, None
         try:
@@ -58,11 +69,13 @@ class MjpegReader:
             return False, None
         if jpeg is None:
             return False, None
-        frame = cv2.imdecode(np.frombuffer(jpeg, dtype=np.uint8), cv2.IMREAD_COLOR)
-        if frame is None:
-            return False, None
         self.last_frame_bytes = len(jpeg)
-        return True, frame
+        return True, jpeg
+
+    @staticmethod
+    def decode(jpeg: bytes):
+        """The BGR frame in jpeg, or None if it doesn't decode."""
+        return cv2.imdecode(np.frombuffer(jpeg, dtype=np.uint8), cv2.IMREAD_COLOR)
 
     def release(self):
         if self._response is not None:
