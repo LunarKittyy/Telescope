@@ -16,7 +16,6 @@
     <color name="colorPrimary">#6a58cf</color>      <!-- filled buttons -->
     <color name="colorPrimaryDark">#5b4bb8</color>
     <color name="colorOnPrimary">#ffffff</color>
-    <color name="colorPrimarySoft">#266a58cf</color> <!-- 15% primary, e.g. the "copied" pill -->
 
     <color name="colorStreamingText">#5fc98c</color>
     <color name="colorWarn">#f0b65c</color>
