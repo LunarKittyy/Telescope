@@ -470,11 +470,19 @@ class CameraStreamService : Service() {
         bindAddr      = if (localOnly) "127.0.0.1" else "0.0.0.0"
         startedRemotely = intent?.getBooleanExtra(EXTRA_REMOTE, false) ?: false
 
-        // Must be called early: Android kills app if foreground promotion doesn't happen soon
-        startForegroundCompat()
+        // Busy before promoting, so a computer waiting on the start sees it fail straight away rather than time out.
+        setState(StreamState.StartingServer, "onStartCommand")
+        try {
+            // Must be called early: Android kills app if foreground promotion doesn't happen soon
+            startForegroundCompat()
+        } catch (e: Exception) {
+            // Android 14+ refuses the camera to a service started while the app is in the background.
+            setState(StreamState.Failed, "startForeground", e)
+            stopSelf()
+            return START_NOT_STICKY
+        }
         // Keep session reachable after MainActivity loses focus (idempotent refcount)
         SessionEndpoint.acquire(this, SessionEndpoint.OWNER_SERVICE)
-        setState(StreamState.StartingServer, "onStartCommand")
 
         try {
             enumerateAllCameras()

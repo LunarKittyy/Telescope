@@ -257,6 +257,20 @@
                         android:text="Keeps the camera off the network, so only a USB connection can reach it."
                         android:textAppearance="@style/TextAppearance.Telescope.Hint" />
 
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/checkWaitForComputer"
+                        style="@style/Widget.Telescope.Switch"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="Wait for my computer" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Keeps Telescope running while the screen is off, so a paired computer can start the camera."
+                        android:textAppearance="@style/TextAppearance.Telescope.Hint" />
+
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 

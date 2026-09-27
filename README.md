@@ -140,6 +140,7 @@ Everything past this point is optional - detailed feature reference, how it work
 - Toggle in the Android app restarts the stream automatically to apply the change
 - Changing **Connect via** on the desktop reconnects a running stream over the new route
 - Local only also stops the phone announcing itself on the LAN
+- A stream only starts while Telescope is open on the phone or already streaming. **Wait for my computer** (under Local only, off by default) keeps the phone reachable while the screen is off or the app is closed, so a paired computer can start the camera. The camera and mic stay off while it waits, and a start still needs that computer's token over TLS. A "Waiting for your computer" notification shows while it's on, and its **Stop waiting** button turns it off. If Android stops it anyway, it comes back the next time you open the app, never on its own at boot
 
 **Updates**
 - Both apps check for a newer build at every launch and then daily, on the channel you pick: **Stable** (tagged releases) or **Nightly** (every change to `master`). Nightly builds follow nightly by default, everything else follows stable
@@ -245,9 +246,10 @@ telescope/
 |
 |-- android/                     # Gradle project
 |   +-- app/src/main/kotlin/com/telescope/
-|       |-- MainActivity.kt      # UI: setup, pairing, Local only, Stop while streaming, diagnostics, updates
+|       |-- MainActivity.kt      # UI: setup, pairing, Local only, Wait for my computer, Stop while streaming, diagnostics, updates
 |       |-- PreviewActivity.kt   # Fullscreen live preview, standalone or attached to a running stream
 |       |-- CameraStreamService.kt  # Foreground service: Camera2 + HTTP control
+|       |-- WaitingService.kt    # "Wait for my computer": keeps the session port up, no camera or mic
 |       |-- CameraSessionController.kt  # Owns the live Camera2 session and capture-request state
 |       |-- CameraCatalog.kt     # Enumerates cameras, incl. physical sub-cameras of logical multi-cams
 |       |-- StreamStateMachine.kt   # Idle/StartingServer/.../Streaming/Failed state + history
@@ -359,7 +361,7 @@ Runs a **foreground service** (type `camera`, required on Android 14+, plus `mic
 
 A separate HTTPS responder (`SessionServer`, port 8766, same certificate) runs independently of the streaming service. `GET /v1/hello` says which phone this is, without auth, so the desktop can tell its phone from any other one on a USB cable. `GET /v1/ping` checks the request's bearer token against the paired computers' tokens, returning 200 or 401 plus a small JSON body saying whether the phone is streaming, mid-start, or bound local-only. `POST /v1/unpair` removes the calling computer. `POST /v1/session` starts or stops the camera on the desktop's behalf, opening the lens, resolution and OIS the desktop last chose (the service saves each `camera`, `resolution` and `ois` control to `StreamPrefs`).
 
-Its lifetime is refcounted by `SessionEndpoint` across two owners: `MainActivity` while it is started, and `CameraStreamService` while it is running. So the desktop can confirm pairing before any stream exists, start one, and stop or restart it later even if the phone's screen has since gone dark - but an app that is both backgrounded and idle is unreachable, and a remote start in that state is impossible by construction.
+Its lifetime is refcounted by `SessionEndpoint` across three owners: `MainActivity` while it is started, `CameraStreamService` while it is running, and `WaitingService` while **Wait for my computer** is on. So the desktop can confirm pairing before any stream exists, start one, and stop or restart it later even if the phone's screen has since gone dark - but with Wait for my computer off (the default), an app that is both backgrounded and idle is unreachable, and a remote start in that state is impossible by construction. `WaitingService` is a `specialUse` foreground service that holds nothing but that port; it's only started from a visible `MainActivity` and isn't sticky. A start that arrives while waiting goes through `StreamLauncher` as usual. If Android refuses the camera to a service started from the background, `CameraStreamService` marks the start failed and stops, so the desktop reports it straight away instead of waiting out its timeout.
 
 `CameraStreamService` stops itself after 60 seconds with no authorized request from the desktop (a state poll, a control command, or a fresh `/v1/video` connection), so a crashed or disconnected desktop doesn't leave the camera running and draining the battery. The desktop already polls `/v1/state` every 15 seconds while streaming, well inside that margin. The watchdog is exempted while `PreviewActivity`'s local preview surface is attached, since that path never touches HTTP. The desktop drives the lens, capture resolution and OIS live; the phone app has no pickers of its own, only a Stop button while streaming, Local only, and the preview.
 
@@ -406,6 +408,7 @@ This is a debug build - self-signed, for personal/development use.
 | `FOREGROUND_SERVICE_CAMERA` | Required on Android 14+ for camera-type service |
 | `RECORD_AUDIO` | The desktop's microphone option; asked for only after a desktop wants it |
 | `FOREGROUND_SERVICE_MICROPHONE` | Recording the mic while the screen is off |
+| `FOREGROUND_SERVICE_SPECIAL_USE` | **Wait for my computer**: keeping the connection to paired computers open while the screen is off (no camera or mic) |
 | `INTERNET` | HTTP server on 0.0.0.0:8080 |
 | `WAKE_LOCK` | Keep CPU active with screen off |
 | `POST_NOTIFICATIONS` | Persistent streaming notification |

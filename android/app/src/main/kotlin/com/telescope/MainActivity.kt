@@ -36,6 +36,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var btnToggle: MaterialButton
     private lateinit var checkLocalOnly: CompoundButton
+    private lateinit var checkWaitForComputer: CompoundButton
     private lateinit var tvStatus: TextView
     private lateinit var btnScanPair: com.google.android.material.button.MaterialButton
     private lateinit var tvPairingTitle: TextView
@@ -111,6 +112,7 @@ class MainActivity : AppCompatActivity() {
         btnToggle         = findViewById<MaterialButton>(R.id.btnToggle)
         tvStatus          = findViewById(R.id.tvStatus)
         checkLocalOnly             = findViewById(R.id.checkLocalOnly)
+        checkWaitForComputer       = findViewById(R.id.checkWaitForComputer)
         btnScanPair                = findViewById(R.id.btnScanPair)
         tvPairingTitle             = findViewById(R.id.tvPairingTitle)
         tvPairingHint              = findViewById(R.id.tvPairingHint)
@@ -132,6 +134,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+
+        checkWaitForComputer.setOnCheckedChangeListener(waitListener)
 
         btnToggle.setOnClickListener { onToggleClicked() }
         btnPreview.setOnClickListener { startActivity(Intent(this, PreviewActivity::class.java)) }
@@ -190,11 +194,29 @@ class MainActivity : AppCompatActivity() {
         renderUpdate()
         // Reachable while screen is up; service holds reference after screen goes dark
         SessionEndpoint.acquire(this, SessionEndpoint.OWNER_ACTIVITY)
+        syncWaitForComputer()
         // RECEIVER_EXPORTED is required for adb, but gated on DUMP permission (shell-only)
         ContextCompat.registerReceiver(
             this, pairReceiver, IntentFilter(ACTION_PAIR),
             Manifest.permission.DUMP, null, ContextCompat.RECEIVER_EXPORTED,
         )
+    }
+
+    // The notification's "Stop waiting" may have switched it off; if it's on, (re)start the service, which Android
+    // may have stopped. Only here, with the activity visible, so waiting never starts from the background.
+    private fun syncWaitForComputer() {
+        val on = StreamPrefs.waitForComputer(this)
+        if (checkWaitForComputer.isChecked != on) {
+            checkWaitForComputer.setOnCheckedChangeListener(null)  // only showing the saved value
+            checkWaitForComputer.isChecked = on
+            checkWaitForComputer.setOnCheckedChangeListener(waitListener)
+        }
+        if (on) WaitingService.start(this)
+    }
+
+    private val waitListener = CompoundButton.OnCheckedChangeListener { _, checked ->
+        StreamPrefs.setWaitForComputer(this, checked)
+        if (checked) WaitingService.start(this) else WaitingService.stop(this)
     }
 
     override fun onStop() {

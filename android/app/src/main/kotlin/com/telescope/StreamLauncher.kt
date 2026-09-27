@@ -15,7 +15,8 @@ object StreamLauncher {
         data class Rejected(val reason: String) : Result
     }
 
-    // Remote path must only call while MainActivity visible or service running (needed for startForegroundService on Android 12+).
+    // Remote path: reachable only while MainActivity is visible, a stream runs, or WaitingService waits. From the
+    // background Android may refuse the start (Rejected) or the camera (the service then fails and stops itself).
     fun start(
         context: Context,
         selection: StreamPrefs.Selection?,
