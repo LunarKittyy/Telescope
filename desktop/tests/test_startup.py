@@ -110,8 +110,23 @@ def test_config_round_trip(env):
     assert plugin.get_config() == {"auto_stream": True, "watch_stream": False} and host.keep is True
     plugin.set_config({"auto_stream": "yes", "watch_stream": True})
     assert plugin.auto_stream is False and plugin.watch_stream is True and host.keep is True
+    plugin.set_config({"auto_stream": True, "watch_stream": True})
+    assert plugin.auto_stream is False and plugin.watch_stream is True  # both on from before: watching wins
     plugin.set_config({})
     assert host.keep is False
+
+
+def test_diagnostics_say_which_start_is_on_and_who_owns_the_stream(env):
+    plugin, _host, bus = env
+    plugin.set_watch_stream(True)
+    bus.phone_ready.emit("p1", True)
+    bus.camera_watched.emit(True)
+    bus.stream_started.emit("u")
+    assert plugin.diagnostics() == {
+        "Start streaming when the phone is ready": "off",
+        "Stream only while an app is using the camera": "on",
+        "Stream started for an app": "yes",
+    }
 
 
 def test_menu_actions_reflect_and_change_the_settings(env, monkeypatch):
@@ -127,6 +142,9 @@ def test_menu_actions_reflect_and_change_the_settings(env, monkeypatch):
     assert plugin.watch_stream is True and host.keep is True
     stream.setChecked(True)
     assert plugin.auto_stream is True
+    assert plugin.watch_stream is False and not watch.isChecked()  # the two exclude each other
+    watch.setChecked(True)
+    assert plugin.auto_stream is False and not stream.isChecked()
     sign_in.setChecked(True)
     sign_in.setChecked(False)
     assert calls == ["on", "off"]
