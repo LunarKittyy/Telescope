@@ -48,6 +48,19 @@ def test_repeats_collapse_into_a_count():
     assert lines[2].endswith("NOTE Status: Streaming")
 
 
+def test_ticking_status_collapses_into_a_count():
+    events = EventLog()
+    events.note("Status: Starting the phone's camera\u2026")
+    events.note("Status: Starting the phone's camera...")
+    for i in range(1, 13):
+        events.note(f"Status: Waiting for the phone's camera... ({i}s)")
+    lines = events.lines()
+    assert len(lines) == 4
+    assert lines[0].endswith("NOTE Status: Starting the phone's camera...")
+    assert lines[1] == "    (repeated 1 more times)"
+    assert lines[2].endswith("NOTE Status: Waiting for the phone's camera...")
+
+
 def test_writes_to_the_file_and_reads_it_back_after_a_restart(tmp_path):
     path = tmp_path / "logs" / "telescope.log"
     first = EventLog(path)
