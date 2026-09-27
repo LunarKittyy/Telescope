@@ -117,6 +117,7 @@ def check_authenticated_stream_round_trip():
 
     fixtures = Path(__file__).resolve().parent.parent / "tests" / "fixtures"
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
     ctx.load_cert_chain(fixtures / "test_phone.crt", fixtures / "test_phone.key")
     pin = fingerprint(ssl.PEM_cert_to_DER_cert((fixtures / "test_phone.crt").read_text()))
     wrong_pin = fingerprint(ssl.PEM_cert_to_DER_cert((fixtures / "test_impostor.crt").read_text()))

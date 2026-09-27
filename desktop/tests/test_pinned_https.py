@@ -46,6 +46,7 @@ def tls_server(request):
     _Handler.seen_auth = []
     server = http.server.HTTPServer(("127.0.0.1", 0), _Handler)
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
     ctx.load_cert_chain(FIXTURES / f"test_{name}.crt", FIXTURES / f"test_{name}.key")
     server.socket = ctx.wrap_socket(server.socket, server_side=True)
     threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -123,6 +124,7 @@ def _serve(handler, cert=None):
     server = _QuietServer(("127.0.0.1", 0), handler)
     if cert:
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
         ctx.load_cert_chain(FIXTURES / f"test_{cert}.crt", FIXTURES / f"test_{cert}.key")
         server.socket = ctx.wrap_socket(server.socket, server_side=True)
     threading.Thread(target=server.serve_forever, daemon=True).start()
