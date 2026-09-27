@@ -343,3 +343,34 @@ def test_the_popout_pans_zooms_and_shows_boxes_too(qapp):
         assert dragged == [0.2]
     finally:
         plugin._popout.close()
+
+
+def test_frames_are_scaled_to_the_view_on_the_stream_thread(qapp):
+    plugin, _host, _panel = _plugin(qapp)
+    seen = []
+    plugin._sig.frame.connect(seen.append)
+    plugin._card_size = (400, 400)
+    plugin.process_frame(np.zeros((1080, 1920, 3), dtype=np.uint8))
+    assert seen[-1].shape == (225, 400, 3)
+
+    plugin._busy = False
+    plugin._active = False
+    plugin._popout_active = True
+    plugin._popout_size = (800, 600)
+    plugin.process_frame(np.zeros((1080, 1920, 3), dtype=np.uint8))
+    assert seen[-1].shape == (450, 800, 3)
+
+
+def test_a_frame_sized_for_the_view_goes_up_unscaled_and_keeps_its_colours(qapp):
+    plugin, _host, panel = _plugin(qapp)
+    panel.resize(500, 300)
+    plugin._preview_lbl.resize(320, 240)
+    frame = np.zeros((180, 320, 3), dtype=np.uint8)
+    frame[..., 0] = 255  # blue, in BGR
+
+    plugin._on_frame(frame)
+
+    pm = plugin._preview_lbl.pixmap()
+    assert (pm.width(), pm.height()) == (320, 180)
+    assert pm.toImage().pixelColor(0, 0).getRgb()[:3] == (0, 0, 255)
+    assert plugin._card_size == (320, 240)

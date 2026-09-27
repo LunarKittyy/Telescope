@@ -461,7 +461,7 @@ The release zip bundles the UnityCapture DLLs already; the first-run checklist r
 
 **Theming:** `telescope/theme.py` owns the entire look - palette constants, a dark `QPalette` so Qt-drawn chrome matches, and one stylesheet, applied over Fusion by `apply_theme()`. There are no image assets: icons are drawn procedurally with `QPainter` (`create_vector_icon`), and segmented toggles are ordinary radios/checkboxes carrying a `segmented` property the stylesheet picks up, so exclusivity and signal wiring stay plain Qt.
 
-**Frame pipeline:** `StreamWorker` holds a list of `process_frame` callables (one per plugin). Each frame passes through the full pipeline on the reader thread. `_fit_frame()` then letterboxes/pillarboxes the result to the fixed vcam canvas size, preserving aspect ratio with black bars.
+**Frame pipeline:** `StreamWorker` holds a list of `process_frame` callables (one per plugin). Each frame passes through the full pipeline on a decoder thread, in BGR. `_fit_frame()` then letterboxes/pillarboxes the result to the fixed vcam canvas size, preserving aspect ratio with black bars.
 
 **Canvas size:** The vcam canvas (`pyvirtualcam.Camera` dimensions) is set at stream start from `SetupPlugin.get_canvas_dims()`. It's independent of the phone feed decode resolution. Changing it requires restarting the stream (and reloading v4l2loopback on Linux). `_fit_frame()` handles any mismatch between the processed frame size and the canvas.
 
