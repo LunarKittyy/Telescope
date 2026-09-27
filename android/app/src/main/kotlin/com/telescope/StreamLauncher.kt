@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
 
-// Single start point for CameraStreamService: local (MainActivity spinners) and remote (SessionServer/StreamPrefs) stay in sync.
+// Single start point for CameraStreamService, opening with the selection the computer last picked.
 object StreamLauncher {
 
     sealed interface Result {
@@ -48,7 +48,7 @@ object StreamLauncher {
         }
     }
 
-    // Convenience: remote start using last local selection.
+    // Remote start using the remembered selection.
     fun startFromPrefs(context: Context): Result =
         start(context, StreamPrefs.lastSelection(context), remote = true)
 }

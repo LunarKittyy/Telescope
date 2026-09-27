@@ -34,13 +34,9 @@ import com.journeyapps.barcodescanner.ScanOptions
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var spinnerCamera: Spinner
-    private lateinit var spinnerResolution: Spinner
     private lateinit var btnToggle: MaterialButton
-    private lateinit var checkOis: CompoundButton
     private lateinit var checkLocalOnly: CompoundButton
     private lateinit var tvStatus: TextView
-    private lateinit var tvCameraList: TextView
     private lateinit var btnScanPair: com.google.android.material.button.MaterialButton
     private lateinit var tvPairingTitle: TextView
     private lateinit var tvPairingHint: TextView
@@ -62,24 +58,14 @@ class MainActivity : AppCompatActivity() {
 
     private var service: CameraStreamService? = null
     private var bound = false
-    private var cameras = listOf<CameraInfo>()
     // Prevents double-start race; cleared once service connects.
     private var starting = false
-
-    // Named so it can be detached when driving spinnerCamera programmatically.
-    private val cameraSpinnerListener = object : AdapterView.OnItemSelectedListener {
-        override fun onItemSelected(p: AdapterView<*>?, v: android.view.View?, pos: Int, id: Long) {
-            populateResolutionSpinner(pos)
-        }
-        override fun onNothingSelected(p: AdapterView<*>?) {}
-    }
 
     private val uiHandler = Handler(Looper.getMainLooper())
     private val statusPoller = object : Runnable {
         override fun run() {
             adoptRemoteStart()
             updateStatusText()
-            syncLiveControlsToState()
             uiHandler.postDelayed(this, 1000)
         }
     }
@@ -122,12 +108,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        spinnerCamera     = findViewById(R.id.spinnerCamera)
-        spinnerResolution = findViewById(R.id.spinnerResolution)
         btnToggle         = findViewById<MaterialButton>(R.id.btnToggle)
-        checkOis          = findViewById(R.id.checkOis)
         tvStatus          = findViewById(R.id.tvStatus)
-        tvCameraList      = findViewById(R.id.tvCameraList)
         checkLocalOnly             = findViewById(R.id.checkLocalOnly)
         btnScanPair                = findViewById(R.id.btnScanPair)
         tvPairingTitle             = findViewById(R.id.tvPairingTitle)
@@ -145,7 +127,8 @@ class MainActivity : AppCompatActivity() {
             if (service?.isStreaming == true) {
                 service?.stopStreaming()
                 if (bound) { unbindService(serviceConnection); bound = false; service = null }
-                startStream()
+                starting = restartStream()
+                updateStatusText()
             }
         }
 
@@ -182,8 +165,6 @@ class MainActivity : AppCompatActivity() {
             findViewById<View>(R.id.tvNightlyHint).visibility = View.GONE
             btnCheckUpdates.visibility = View.GONE
         }
-
-        spinnerCamera.onItemSelectedListener = cameraSpinnerListener
 
         checkPermissions()
     }
@@ -557,12 +538,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        val camera = cameraGranted()
-        if (camera && cameras.isEmpty()) loadCameras()
-        if (!camera) {
-            spinnerCamera.isEnabled = false
-            spinnerResolution.isEnabled = false
-        }
         updateStatusText()
     }
 
@@ -655,88 +630,12 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == RC_PERMS) checkPermissions()
     }
 
-    private fun loadCameras() {
-        val manager = getSystemService(CAMERA_SERVICE) as CameraManager
-        val sb      = StringBuilder()
-
-        cameras = CameraCatalog.enumerate(manager, sb)
-        tvCameraList.text = sb.toString().trimEnd()
-
-        val adapter = ArrayAdapter(this,
-            R.layout.spinner_item, cameras.map { it.label }
-        ).also { it.setDropDownViewResource(R.layout.spinner_dropdown_item) }
-        spinnerCamera.adapter = adapter
-
-        if (cameras.isNotEmpty()) populateResolutionSpinner(0)
-    }
-
-    private fun populateResolutionSpinner(cameraIndex: Int) {
-        if (cameraIndex < 0 || cameraIndex >= cameras.size) return
-        val cam = cameras[cameraIndex]
-        checkOis.isEnabled = cam.hasOis
-        checkOis.isChecked = cam.hasOis
-
-        val labels = cam.supportedSizes.map { "${it.width} x ${it.height}" }
-        val adapter = ArrayAdapter(this,
-            R.layout.spinner_item, labels
-        ).also { it.setDropDownViewResource(R.layout.spinner_dropdown_item) }
-        spinnerResolution.adapter = adapter
-
-        val default1080 = cam.supportedSizes.indexOfFirst { it.width == 1920 && it.height == 1080 }
-        spinnerResolution.setSelection(if (default1080 >= 0) default1080 else 0)
-    }
-
-    // While streaming: spinners mirror service state (disabled, synced live); pre-stream: editable config
-    private fun syncLiveControlsToState() {
-        val svc = service
-        if (svc == null || !svc.isStreaming) {
-            if (!spinnerCamera.isEnabled && cameraGranted()) {
-                spinnerCamera.isEnabled = true
-                spinnerResolution.isEnabled = true
-                // Re-derive OIS enablement; streaming just ended.
-                cameras.getOrNull(spinnerCamera.selectedItemPosition)?.let {
-                    checkOis.isEnabled = it.hasOis
-                }
-            }
-            return
-        }
-        spinnerCamera.isEnabled = false
-        spinnerResolution.isEnabled = false
-        checkOis.isEnabled = false
-
-        val snap = svc.getControlSnapshot() ?: return
-        val camId = snap.currentCamera?.id ?: return
-        val camIdx = cameras.indexOfFirst { it.id == camId }
-        if (camIdx < 0) return
-
-        if (spinnerCamera.selectedItemPosition != camIdx) {
-            // Detach listener so setSelection() doesn't trigger callback out of order.
-            spinnerCamera.onItemSelectedListener = null
-            spinnerCamera.setSelection(camIdx)
-            spinnerCamera.onItemSelectedListener = cameraSpinnerListener
-            populateResolutionSpinner(camIdx)
-        }
-        val cam = cameras[camIdx]
-        val resIdx = cam.supportedSizes.indexOfFirst {
-            it.width == snap.streamWidth && it.height == snap.streamHeight
-        }
-        if (resIdx >= 0 && spinnerResolution.selectedItemPosition != resIdx) {
-            spinnerResolution.setSelection(resIdx)
-        }
-        val liveOis = snap.ois && cam.hasOis
-        if (checkOis.isChecked != liveOis) checkOis.isChecked = liveOis
-    }
-
+    // The computer starts streams; the phone can only stop one.
     private fun onToggleClicked() {
-        if (isBusy()) return
-        if (service?.isStreaming == true) {
-            service?.stopStreaming()
-            if (bound) { unbindService(serviceConnection); bound = false; service = null }
-            updateStatusText()
-        } else {
-            starting = startStream()
-            updateStatusText()
-        }
+        if (isBusy() || service?.isStreaming != true) return
+        service?.stopStreaming()
+        if (bound) { unbindService(serviceConnection); bound = false; service = null }
+        updateStatusText()
     }
 
     /** True while a start is in flight (includes [starting] flag and intermediate states). */
@@ -746,26 +645,9 @@ class MainActivity : AppCompatActivity() {
         return state != StreamState.Idle && state != StreamState.Streaming && state != StreamState.Failed
     }
 
-    /** Returns true if a start was actually kicked off, false if bailed immediately. */
-    private fun startStream(): Boolean {
-        val camIdx = spinnerCamera.selectedItemPosition
-        val resIdx = spinnerResolution.selectedItemPosition
-        if (cameras.isEmpty() || camIdx < 0 || camIdx >= cameras.size) return false
-        val cam  = cameras[camIdx]
-        val size = cam.supportedSizes.getOrNull(resIdx) ?: cam.supportedSizes.first()
-
-        val selection = StreamPrefs.Selection(
-            cameraId = cam.id,
-            logicalId = cam.logicalId ?: "",
-            width = size.width,
-            height = size.height,
-            ois = checkOis.isChecked && cam.hasOis,
-        )
-        // Saved for desktop-initiated start (no spinners to read); persisted before launch.
-        StreamPrefs.saveSelection(this, selection)
-
-        if (StreamLauncher.start(this, selection) !is StreamLauncher.Result.Started) return false
-
+    // Reopens the stream after Local only changes, with what the computer last picked.
+    private fun restartStream(): Boolean {
+        if (StreamLauncher.start(this, StreamPrefs.lastSelection(this)) !is StreamLauncher.Result.Started) return false
         rebindToService()
         return true
     }
@@ -793,12 +675,9 @@ class MainActivity : AppCompatActivity() {
     private fun updateStatusText() {
         val streaming = service?.isStreaming == true
         val busy = isBusy()
-        // Without camera access there's nothing to stream; the setup card above says so.
-        btnToggle.isEnabled = !busy && (streaming || cameraGranted())
-        btnToggle.text = if (streaming) "Stop Streaming" else if (busy) "Starting..." else "Start Streaming"
-        btnToggle.backgroundTintList = ColorStateList.valueOf(
-            resources.getColor(if (streaming) R.color.colorStop else R.color.colorPrimary, theme)
-        )
+        btnToggle.visibility = if (streaming || busy) View.VISIBLE else View.GONE
+        btnToggle.isEnabled = streaming && !busy
+        btnToggle.text = if (busy) "Starting..." else "Stop Streaming"
         if (streaming) {
             // The camera stays on while the computer reconnects; say so rather than claim it's getting video.
             val viewed = service?.hasViewer == true

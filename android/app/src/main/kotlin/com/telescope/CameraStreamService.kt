@@ -659,6 +659,7 @@ class CameraStreamService : Service() {
                     val id    = params["id"] ?: return err("no id")
                     val entry = allCameras.find { it.id == id } ?: return err("unknown id $id")
                     ctrl.switchTo(entry)
+                    StreamPrefs.updateSelection(this) { it.copy(cameraId = entry.id, logicalId = entry.logicalId ?: "") }
                     ok()
                 }
                 "resolution" -> {
@@ -666,6 +667,7 @@ class CameraStreamService : Service() {
                     val h = params["height"]?.toIntOrNull() ?: return err("bad height")
                     if (w <= 0 || h <= 0) return err("bad size")
                     ctrl.switchResolution(w, h)
+                    StreamPrefs.updateSelection(this) { it.copy(width = w, height = h) }
                     ok()
                 }
                 "iso" -> {
@@ -684,6 +686,7 @@ class CameraStreamService : Service() {
                 }
                 "ois" -> {
                     ctrl.setOis(params["value"] == "1")
+                    StreamPrefs.updateSelection(this) { it.copy(ois = params["value"] == "1") }
                     ok()
                 }
                 "wb_gains" -> {
