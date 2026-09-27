@@ -115,6 +115,21 @@ def test_holds_the_camera_until_stopped(qapp):
     assert cams[0].closed and not screen.running
 
 
+@pytest.mark.parametrize("linux", [True, False])
+def test_mirror_flips_the_screen_left_to_right(qapp, monkeypatch, linux):
+    monkeypatch.setattr(vcam, "IS_LINUX", linux)
+    image = np.zeros((36, 64, 3), np.uint8)
+    image[:, :32] = 255  # left half white
+    loader = lambda path, w, h, convert=None: [((convert or (lambda f: f))(image), vcam.STILL_PERIOD)]  # noqa: E731
+    screen, cams, _ = _screen(loader=loader)
+    screen.show((64, 36), None, mirror=True)
+    _wait_for(lambda: cams and cams[0].sent)
+    screen.stop()
+    frame = cams[0].sent[0]
+    left, right = (frame[:, :32], frame[:, 32:]) if not linux else (frame[:36, :32], frame[:36, 32:])
+    assert left.mean() < right.mean()  # the white half is on the right now
+
+
 def test_opens_at_the_size_a_reader_holds_the_camera_at(qapp):
     locked = [(640, 480)]
     screen, cams, _ = _screen(locked=lambda: locked[0])

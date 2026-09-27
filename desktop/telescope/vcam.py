@@ -324,17 +324,19 @@ class WaitScreen(_Held):
         self._filter_probe = filter_probe or (None if IS_LINUX else _uc_filter_probe)
         self._size = DEFAULT_SIZE
         self._path: Optional[str] = None
+        self._mirror = False
         self._watched = False
         self._nudge = threading.Event()
 
-    def show(self, size: tuple, path: Optional[str]):
-        """Hold the camera at size (width, height) showing path (None: the default screen); restarts if either
-        changed."""
+    def show(self, size: tuple, path: Optional[str], mirror: bool = False):
+        """Hold the camera at size (width, height) showing path (None: the default screen), flipped left to right if
+        mirror (for apps that mirror the camera); restarts if any of them changed."""
         with self._lock:
-            if self._wanted and self._thread is not None and (size, path) == (self._size, self._path):
+            same = (size, path, mirror) == (self._size, self._path, self._mirror)
+            if self._wanted and self._thread is not None and same:
                 return
             self._join()
-            self._size, self._path = size, path
+            self._size, self._path, self._mirror = size, path, mirror
             self._wanted = True
             self._spawn()
 
@@ -347,11 +349,12 @@ class WaitScreen(_Held):
         self._nudge.set()
 
     def _prepare(self, width: int, height: int):
+        flip = (lambda f: np.ascontiguousarray(f[:, ::-1])) if self._mirror else (lambda f: f)  # noqa: E731
         if IS_LINUX and width % 2 == 0 and height % 2 == 0:
             import cv2
-            to_i420 = lambda f: cv2.cvtColor(f, cv2.COLOR_RGB2YUV_I420)  # noqa: E731
+            to_i420 = lambda f: cv2.cvtColor(flip(f), cv2.COLOR_RGB2YUV_I420)  # noqa: E731
             return pyvirtualcam.PixelFormat.I420, self._loader(self._path, width, height, to_i420)
-        return pyvirtualcam.PixelFormat.RGB, self._loader(self._path, width, height)
+        return pyvirtualcam.PixelFormat.RGB, self._loader(self._path, width, height, flip)
 
     def _target(self, stop: threading.Event):
         prepared = None
