@@ -91,7 +91,7 @@ class _Camera:
         self.sent.append(frame)
 
 
-def _screen(loader=None, fail=0, locked=lambda: None):
+def _screen(loader=None, fail=0, locked=lambda: None, filter_open=lambda: True):
     cams, attempts = [], []
 
     def open_camera(w, h, fps, fmt):
@@ -101,7 +101,9 @@ def _screen(loader=None, fail=0, locked=lambda: None):
         return _Camera(cams, w, h, fps, fmt)
     loader = loader or (lambda path, w, h, convert=None: [((convert or (lambda f: f))(
         np.zeros((h, w, 3), np.uint8)), vcam.STILL_PERIOD)])
-    return vcam.WaitScreen(open_camera=open_camera, loader=loader, locked=locked), cams, attempts
+    screen = vcam.WaitScreen(open_camera=open_camera, loader=loader, locked=locked,
+                             filter_probe=lambda: filter_open)
+    return screen, cams, attempts
 
 
 def test_holds_the_camera_until_stopped(qapp):
@@ -170,6 +172,18 @@ def test_sends_rarely_until_someone_watches(qapp, monkeypatch):
     assert len(cams[0].sent) == 1
     screen.set_watched(True)  # sends straight away, then at the still rate
     _wait_for(lambda: len(cams[0].sent) >= 3, timeout=1.0)
+    screen.stop()
+
+
+def test_windows_sends_the_moment_an_app_opens_the_camera(qapp, monkeypatch):
+    monkeypatch.setattr(vcam, "IDLE_PERIOD", 5.0)
+    monkeypatch.setattr(vcam, "FILTER_POLL", 0.01)
+    polls = []
+    screen, cams, _ = _screen(filter_open=lambda: polls.append(1) or len(polls) > 5)
+    screen.show((8, 8), None)
+    _wait_for(lambda: cams and len(cams[0].sent) >= 2, timeout=1.0)  # not the 5 s idle pace
+    time.sleep(0.1)
+    assert len(cams[0].sent) == 2 and len(polls) == 7  # then one look per idle send, not every 10 ms
     screen.stop()
 
 
@@ -270,10 +284,10 @@ def test_unitycapture_event_follows_the_camera_number(monkeypatch):
     )
     monkeypatch.setitem(sys.modules, "winreg", fake)
     monkeypatch.setattr(sys, "maxsize", 2**63 - 1)
-    assert vcam._uc_want_event_name("Telescope") == "UnityCapture_Want1"
-    assert vcam._uc_want_event_name("Something else") == "UnityCapture_Want"
+    assert vcam._uc_object_name("Want", "Telescope") == "UnityCapture_Want1"
+    assert vcam._uc_object_name("Data", "Something else") == "UnityCapture_Data"
     names.pop(0x10)
-    assert vcam._uc_want_event_name("Something else") == "UnityCapture_Want1"
+    assert vcam._uc_object_name("Want", "Something else") == "UnityCapture_Want1"
 
 
 @pytest.mark.skipif(not vcam.IS_LINUX, reason="v4l2loopback")
