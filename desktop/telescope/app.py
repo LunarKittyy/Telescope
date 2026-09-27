@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (
     QSizePolicy, QSystemTrayIcon, QVBoxLayout, QWidget,
 )
 
+import update_guard
 from telescope import diagnostics, theme, vcam
 from telescope.config import DEVICE_LOCAL_PLUGINS, load_config, save_config
 from telescope.models import PhoneState, PhoneStateError
@@ -39,7 +40,7 @@ _RECOVER_RETRY_MS = 3000  # a dropped stream: how often to look for a route back
 
 
 # ── Single-instance enforcement ───────────────────────────────────────────────
-_INSTANCE_PORT = 47823
+_INSTANCE_PORT = update_guard.INSTANCE_PORT  # the guard checks it before an update's roll-back
 
 
 def acquire_single_instance(wait: float = 0.0) -> Optional[socket.socket]:

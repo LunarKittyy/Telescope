@@ -10,6 +10,7 @@ import zipfile
 
 import pytest
 
+import update_guard
 from telescope import updates, version
 from telescope.updates import Asset, UpdateError
 
@@ -150,6 +151,8 @@ def test_windows_install_renames_the_running_exe_and_replaces_changed_files(tmp_
     assert result.relaunch == [str(app / "TelescopeDesktop.exe"), "--after-update"]
     assert not (app / updates.STAGING_DIR).exists()
 
+    assert (app / "TelescopeDesktop.old.exe").exists()  # kept until the new version has started once
+    update_guard.confirm(app)
     updates.clean_up_after_update(app)
     assert not (app / "TelescopeDesktop.old.exe").exists()
 
@@ -166,6 +169,7 @@ def test_the_first_folder_build_installs_over_the_single_exe(tmp_path):
     assert (app / "TelescopeDesktop.exe").read_bytes() == b"folder exe"
     assert (app / "lib-130" / "PyQt6" / "Qt6" / "x.dll").read_bytes() == b"qt"
 
+    update_guard.confirm(app)
     updates.clean_up_after_update(app, running_lib="lib-130")
     assert not (app / "TelescopeDesktop.old.exe").exists()
     assert (app / "lib-130").is_dir()
@@ -186,6 +190,9 @@ def test_a_folder_build_update_adds_its_own_libs_and_the_old_ones_go_on_the_next
     assert (app / "lib-130" / "python311.dll").read_bytes() == b"old py"
     assert (app / "lib-131" / "python311.dll").read_bytes() == b"new py"
 
+    updates.clean_up_after_update(app, running_lib="lib-131")
+    assert (app / "lib-130").exists()  # kept until the new version has started once
+    update_guard.confirm(app)
     updates.clean_up_after_update(app, running_lib="lib-131")
     assert not (app / "lib-130").exists()
     assert (app / "lib-131").is_dir()
