@@ -214,6 +214,6 @@ class AudioWorker:
 
 def _phone_reason(err: urllib.error.HTTPError) -> str:
     try:
-        return json.loads(err.read().decode("utf-8")).get("error") or f"HTTP {err.code}"
+        return json.loads(err.read(4096).decode("utf-8")).get("error") or f"HTTP {err.code}"
     except Exception:
         return f"The phone refused the microphone (HTTP {err.code})."

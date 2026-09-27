@@ -113,9 +113,9 @@ class _Response:
     def __exit__(self, *_args):
         pass
 
-    def read(self):
+    def read(self, n=-1):
         self.read_count += 1
-        return self.body
+        return self.body if n < 0 else self.body[:n]
 
 
 def test_base_url_strips_only_trailing_video_component(monkeypatch):

@@ -453,4 +453,51 @@ class MjpegServerTest {
             server.stop()
         }
     }
+
+    @Test
+    fun `strangers holding connections open don't use up the stream slots`() {
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") })
+        server.start()
+        val port = actualPort(server)
+        val idle = (1..PendingLimiter.MAX_PER_ADDRESS + 20).map {
+            runCatching {
+                Socket().apply { bind(java.net.InetSocketAddress("127.0.0.2", 0)); connect(java.net.InetSocketAddress("127.0.0.1", port)) }
+            }.getOrNull()
+        }
+        try {
+            assertEquals(200, authGet(port, "/v1/state", "t").status)
+            Socket("127.0.0.1", port).use { socket ->
+                socket.soTimeout = 2_000
+                socket.getOutputStream().write("GET /v1/video HTTP/1.1\r\nAuthorization: Bearer t\r\n\r\n"
+                    .toByteArray(StandardCharsets.ISO_8859_1))
+                val head = StringBuilder()
+                val input = socket.getInputStream()
+                while (!head.endsWith("\r\n\r\n")) head.append(input.read().toChar())
+                assertTrue(head.startsWith("HTTP/1.1 200"))
+            }
+        } finally {
+            idle.forEach { it?.close() }
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `a request still arriving after the deadline is dropped`() {
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") }, requestDeadlineMs = 300)
+        server.start()
+        try {
+            Socket("127.0.0.1", actualPort(server)).use { socket ->
+                socket.soTimeout = 3_000
+                val out = socket.getOutputStream()
+                val started = System.currentTimeMillis()
+                val closed = runCatching {
+                    repeat(60) { out.write('a'.code); out.flush(); Thread.sleep(50) }
+                }.isFailure || socket.getInputStream().read() == -1
+                assertTrue(closed)
+                assertTrue(System.currentTimeMillis() - started < 3_500)
+            }
+        } finally {
+            server.stop()
+        }
+    }
 }

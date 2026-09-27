@@ -158,3 +158,35 @@ def test_returns_a_frame_without_waiting_for_the_next_one():
         _HoldingHandler.release.set()
         server.shutdown()
         thread.join(timeout=2)
+
+
+class _Feed:
+    """read1() hands out the given bytes, then end of stream."""
+
+    def __init__(self, data: bytes):
+        self._data = data
+
+    def read1(self, n):
+        chunk, self._data = self._data[:n], self._data[n:]
+        return chunk
+
+    def close(self):
+        pass
+
+
+def _reader_on(data: bytes) -> MjpegReader:
+    reader = MjpegReader("http://127.0.0.1:1/v1/video", "t")
+    reader._boundary = b"--mjpegframe"
+    reader._response = _Feed(data)
+    return reader
+
+
+def test_a_part_claiming_a_huge_length_ends_the_stream_instead_of_buffering():
+    head = b"--mjpegframe\r\nContent-Type: image/jpeg\r\nContent-Length: 4000000000\r\n\r\n"
+    assert _reader_on(head + b"\xff" * 1024).read_packet() == (False, None)
+
+
+def test_a_negative_or_zero_length_part_ends_the_stream():
+    for length in (b"-5", b"0"):
+        head = b"--mjpegframe\r\nContent-Length: " + length + b"\r\n\r\n"
+        assert _reader_on(head + b"\xff" * 16).read_packet() == (False, None)

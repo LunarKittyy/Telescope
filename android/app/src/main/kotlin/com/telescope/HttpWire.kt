@@ -11,7 +11,8 @@ import kotlinx.serialization.json.jsonPrimitive
 object HttpWire {
     const val MAX_HEADER_BYTES = 16 * 1024
     const val MAX_BODY_BYTES = 4 * 1024
-    const val READ_TIMEOUT_MS = 5_000
+    // The whole request, not each read: a peer trickling a byte at a time still gets cut off.
+    const val REQUEST_DEADLINE_MS = 5_000
     private const val BEARER_PREFIX = "Bearer "
 
     data class Request(
@@ -20,10 +21,12 @@ object HttpWire {
         val query: String,
         val headers: Map<String, String>,
         val leftoverBody: ByteArray,
+        val deadlineAtMs: Long = Long.MAX_VALUE,
     )
 
     // Reads and parses request line/headers, bounded by MAX_HEADER_BYTES; returns null on error. The buffered read can overshoot into the body, so leftoverBody carries those bytes forward for readBody() to prepend.
-    fun readRequest(socket: Socket): Request? {
+    fun readRequest(socket: Socket, deadlineMs: Int = REQUEST_DEADLINE_MS): Request? {
+        val deadlineAtMs = System.currentTimeMillis() + deadlineMs
         val inp = socket.getInputStream()
         val buf = ByteArray(4096)
         val sb = StringBuilder()
@@ -33,6 +36,7 @@ object HttpWire {
                 socket.close()
                 return null
             }
+            if (!armTimeout(socket, deadlineAtMs)) { socket.close(); return null }
             val n = inp.read(buf)
             if (n <= 0) { socket.close(); return null }
             sb.append(String(buf, 0, n, Charsets.ISO_8859_1))
@@ -64,7 +68,15 @@ object HttpWire {
             headers[line.substring(0, idx).trim().lowercase()] = line.substring(idx + 1).trim()
         }
 
-        return Request(method, path, query, headers, leftover.toByteArray(Charsets.ISO_8859_1))
+        return Request(method, path, query, headers, leftover.toByteArray(Charsets.ISO_8859_1), deadlineAtMs)
+    }
+
+    // Sets the socket timeout to what's left before the deadline; false once it has passed.
+    private fun armTimeout(socket: Socket, deadlineAtMs: Long): Boolean {
+        val remaining = deadlineAtMs - System.currentTimeMillis()
+        if (remaining <= 0) return false
+        socket.soTimeout = minOf(remaining, Int.MAX_VALUE.toLong()).toInt()
+        return true
     }
 
     // Reads Content-Length bytes bounded by MAX_BODY_BYTES; null on error (response already sent)
@@ -84,6 +96,7 @@ object HttpWire {
         var read = fromLeftover
         val inp = socket.getInputStream()
         while (read < length) {
+            if (!armTimeout(socket, request.deadlineAtMs)) { sendError(socket.getOutputStream(), 408, "Request Timeout"); return null }
             val n = inp.read(out, read, length - read)
             if (n <= 0) { sendError(socket.getOutputStream(), 400, "Bad Request"); return null }
             read += n

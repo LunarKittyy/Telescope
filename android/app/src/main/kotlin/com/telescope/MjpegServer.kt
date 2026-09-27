@@ -25,6 +25,8 @@ class MjpegServer(
     // The first listener to /v1/audio: start the mic, or say why not. The last one leaving: stop it.
     val startAudio: () -> String? = { "No microphone" },
     val stopAudio: () -> Unit = {},
+    private val requestDeadlineMs: Int = HttpWire.REQUEST_DEADLINE_MS,
+    private val pending: PendingLimiter = PendingLimiter(),
 ) {
     private var serverSocket: ServerSocket? = null
     private val clients = CopyOnWriteArrayList<MjpegClient>()
@@ -37,8 +39,8 @@ class MjpegServer(
     // Updated on every authorized request; feeds battery-saving watchdog.
     @Volatile private var lastAuthorizedRequestAtMs: Long = System.currentTimeMillis()
 
-    // Bounds total concurrent connections; prevents thread exhaustion from slow peers.
-    private val clientSlots = Semaphore(MAX_CONCURRENT_CLIENTS)
+    // Bounds concurrent authorized streams; taken only after the token check, so strangers can't fill it.
+    private val streamSlots = Semaphore(MAX_CONCURRENT_STREAMS)
 
     fun start() {
         running.set(true)
@@ -52,13 +54,12 @@ class MjpegServer(
             while (running.get()) {
                 try {
                     val socket = serverSocket?.accept() ?: break
-                    if (!clientSlots.tryAcquire()) {
-                        thread(name = "mjpeg-reject", isDaemon = true) { rejectBusy(socket) }
+                    val address = socket.inetAddress?.hostAddress.orEmpty()
+                    if (!pending.tryAcquire(address)) {
+                        try { socket.close() } catch (_: Exception) {}
                         continue
                     }
-                    thread(name = "mjpeg-client", isDaemon = true) {
-                        try { dispatch(socket) } finally { clientSlots.release() }
-                    }
+                    thread(name = "mjpeg-client", isDaemon = true) { dispatch(socket, address) }
                 } catch (e: Exception) {
                     if (running.get()) android.util.Log.e("MjpegServer", "Accept error", e)
                 }
@@ -106,21 +107,19 @@ class MjpegServer(
         try { serverSocket?.close() } catch (_: Exception) {}
     }
 
-    private fun rejectBusy(socket: Socket) {
-        try {
-            socket.soTimeout = HttpWire.READ_TIMEOUT_MS
-            HttpWire.sendError(socket.getOutputStream(), 503, "Service Unavailable")
-        } catch (_: Exception) {
-        } finally {
-            try { socket.close() } catch (_: Exception) {}
-        }
-    }
-
-    private fun dispatch(socket: Socket) {
+    private fun dispatch(socket: Socket, address: String) {
         var streaming = false
+        var pendingHeld = true
+        fun releasePending() { if (pendingHeld) { pendingHeld = false; pending.release(address) } }
+        // Leaves the pending pool for a stream slot; false (503 sent) when every slot is taken.
+        fun takeStreamSlot(): Boolean {
+            releasePending()
+            if (streamSlots.tryAcquire()) return true
+            HttpWire.sendError(socket.getOutputStream(), 503, "Service Unavailable")
+            return false
+        }
         try {
-            socket.soTimeout = HttpWire.READ_TIMEOUT_MS
-            val request = HttpWire.readRequest(socket) ?: return  // already responded/closed on error
+            val request = HttpWire.readRequest(socket, requestDeadlineMs) ?: return  // already responded/closed on error
 
             when (request.path) {
                 "/v1/state" -> {
@@ -145,42 +144,51 @@ class MjpegServer(
                 "/v1/video" -> {
                     if (request.method != "GET") { HttpWire.sendError(socket.getOutputStream(), 405, "Method Not Allowed"); return }
                     if (!isAuthorized(request)) { HttpWire.sendError(socket.getOutputStream(), 401, "Unauthorized"); return }
+                    if (!takeStreamSlot()) return
                     streaming = true
-                    val client = MjpegClient(socket)
-                    clients.add(client)
-                    onVideoClient(H264Stream.CODEC_MJPEG)
-                    client.stream()          // blocks until disconnected
-                    clients.remove(client)
+                    try {
+                        val client = MjpegClient(socket)
+                        clients.add(client)
+                        onVideoClient(H264Stream.CODEC_MJPEG)
+                        client.stream()          // blocks until disconnected
+                        clients.remove(client)
+                    } finally { streamSlots.release() }
                 }
                 "/v1/video.h264" -> {
                     if (request.method != "GET") { HttpWire.sendError(socket.getOutputStream(), 405, "Method Not Allowed"); return }
                     if (!isAuthorized(request)) { HttpWire.sendError(socket.getOutputStream(), 401, "Unauthorized"); return }
+                    if (!takeStreamSlot()) return
                     streaming = true
-                    val client = H264Client(socket)
-                    h264Config?.let { client.queue.offerConfig(it) }
-                    h264Clients.add(client)
-                    onVideoClient(H264Stream.CODEC_H264)
-                    requestKeyFrame()        // a decoder can only start at one
-                    client.stream()
-                    h264Clients.remove(client)
+                    try {
+                        val client = H264Client(socket)
+                        h264Config?.let { client.queue.offerConfig(it) }
+                        h264Clients.add(client)
+                        onVideoClient(H264Stream.CODEC_H264)
+                        requestKeyFrame()        // a decoder can only start at one
+                        client.stream()
+                        h264Clients.remove(client)
+                    } finally { streamSlots.release() }
                 }
                 "/v1/audio" -> {
                     if (request.method != "GET") { HttpWire.sendError(socket.getOutputStream(), 405, "Method Not Allowed"); return }
                     if (!isAuthorized(request)) { HttpWire.sendError(socket.getOutputStream(), 401, "Unauthorized"); return }
-                    val client = AudioClient(socket)
-                    val problem = synchronized(audioLock) {
-                        (if (audioClients.isEmpty()) startAudio() else null).also { if (it == null) audioClients.add(client) }
-                    }
-                    if (problem != null) { HttpWire.sendError(socket.getOutputStream(), 403, problem); return }
-                    streaming = true
+                    if (!takeStreamSlot()) return
                     try {
-                        client.stream()
-                    } finally {
-                        synchronized(audioLock) {
-                            audioClients.remove(client)
-                            if (audioClients.isEmpty()) stopAudio()
+                        val client = AudioClient(socket)
+                        val problem = synchronized(audioLock) {
+                            (if (audioClients.isEmpty()) startAudio() else null).also { if (it == null) audioClients.add(client) }
                         }
-                    }
+                        if (problem != null) { HttpWire.sendError(socket.getOutputStream(), 403, problem); return }
+                        streaming = true
+                        try {
+                            client.stream()
+                        } finally {
+                            synchronized(audioLock) {
+                                audioClients.remove(client)
+                                if (audioClients.isEmpty()) stopAudio()
+                            }
+                        }
+                    } finally { streamSlots.release() }
                 }
                 else -> HttpWire.sendError(socket.getOutputStream(), 404, "Not Found")
             }
@@ -188,6 +196,7 @@ class MjpegServer(
             // Client opened a connection but never finished sending a request.
         } catch (_: Exception) {
         } finally {
+            releasePending()
             if (!streaming) try { socket.close() } catch (_: Exception) {}
         }
     }
@@ -218,7 +227,7 @@ class MjpegServer(
     }
 
     companion object {
-        private const val MAX_CONCURRENT_CLIENTS = 16
+        private const val MAX_CONCURRENT_STREAMS = 16
         const val VIEWER_STALE_MS = 5_000L
     }
 

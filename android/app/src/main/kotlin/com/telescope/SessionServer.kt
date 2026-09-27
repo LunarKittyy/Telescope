@@ -15,6 +15,8 @@ class SessionServer(
     private val commands: SessionCommands,
     private val appVersion: String = BuildConfig.VERSION_NAME,
     private val appBuild: Int = BuildConfig.VERSION_CODE,
+    private val requestDeadlineMs: Int = HttpWire.REQUEST_DEADLINE_MS,
+    private val pending: PendingLimiter = PendingLimiter(),
 ) {
     private var serverSocket: ServerSocket? = null
     private val running = AtomicBoolean(false)
@@ -36,7 +38,14 @@ class SessionServer(
             while (running.get()) {
                 try {
                     val socket = serverSocket?.accept() ?: break
-                    thread(name = "session-client", isDaemon = true) { handle(socket) }
+                    val address = socket.inetAddress?.hostAddress.orEmpty()
+                    if (!pending.tryAcquire(address)) {
+                        try { socket.close() } catch (_: Exception) {}
+                        continue
+                    }
+                    thread(name = "session-client", isDaemon = true) {
+                        try { handle(socket) } finally { pending.release(address) }
+                    }
                 } catch (e: Exception) {
                     if (running.get()) android.util.Log.e(TAG, "Accept error", e)
                 }
@@ -51,8 +60,7 @@ class SessionServer(
 
     private fun handle(socket: Socket) {
         try {
-            socket.soTimeout = HttpWire.READ_TIMEOUT_MS
-            val request = HttpWire.readRequest(socket) ?: return  // already responded/closed
+            val request = HttpWire.readRequest(socket, requestDeadlineMs) ?: return  // already responded/closed
             val out = socket.getOutputStream()
 
             when (route(request.method, request.path)) {

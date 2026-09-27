@@ -17,6 +17,16 @@ SESSION_PROTOCOL = 2
 REQUEST_TIMEOUT = 3  # Ping timeout; long enough for slow Wi-Fi, short enough for polling.
 START_TIMEOUT = 12   # Wait for camera to come up after accepting start.
 START_POLL_INTERVAL = 0.5  # Poll interval while waiting for camera startup.
+# Largest JSON reply taken from anything answering on a phone's ports; whoever answers may not be the phone.
+MAX_REPLY_BYTES = 256 * 1024
+
+
+def read_capped(response, limit: int = MAX_REPLY_BYTES) -> bytes:
+    """The response body, or ValueError when it's over limit."""
+    raw = response.read(limit + 1)
+    if len(raw) > limit:
+        raise ValueError(f"reply over {limit} bytes")
+    return raw
 
 
 @dataclass(frozen=True)
@@ -82,7 +92,7 @@ class PhoneSessionClient:
         """Who answers on the session port (unauthenticated /v1/hello)."""
         try:
             with urllib.request.urlopen(f"{self.base}/v1/hello", timeout=timeout) as r:
-                body = json.loads(r.read().decode())
+                body = json.loads(read_capped(r).decode())
         except urllib.error.HTTPError as exc:
             # The session server answers 404 for routes it doesn't know: an app from before /v1/hello.
             return Hello(HELLO_MISSING if exc.code == 404 else HELLO_NONE)
@@ -107,7 +117,7 @@ class PhoneSessionClient:
             with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as r:
                 if r.status != 200:
                     return PingResult("unreachable")
-                return self._parse_ping_body(r.read())
+                return self._parse_ping_body(read_capped(r))
         except urllib.error.HTTPError as exc:
             return PingResult("not_paired" if exc.code == 401 else "unreachable")
         except Exception:
@@ -159,7 +169,7 @@ class PhoneSessionClient:
         )
         try:
             with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as r:
-                body = json.loads(r.read().decode())
+                body = json.loads(read_capped(r).decode())
             if body.get("ok"):
                 return SessionResult(ok=True)
             return SessionResult(ok=False, error=body.get("error") or "refused")
