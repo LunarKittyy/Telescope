@@ -399,8 +399,9 @@ class WaitScreen(_Held):
                 self._nudge.wait(seconds)
             elif filter_open is not None and not filter_open():
                 # Until an app opens the camera there's nowhere to send, and it shows its own screen until our first
-                # frame lands: send the moment it's there.
-                while not self._nudge.wait(FILTER_POLL) and not filter_open():
+                # frame lands: send the moment it's there (and at the idle pace regardless, should the probe be wrong).
+                until = time.monotonic() + IDLE_PERIOD
+                while not self._nudge.wait(FILTER_POLL) and not filter_open() and time.monotonic() < until:
                     pass
             else:
                 self._nudge.wait(IDLE_PERIOD)

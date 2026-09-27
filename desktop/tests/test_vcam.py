@@ -187,6 +187,15 @@ def test_windows_sends_the_moment_an_app_opens_the_camera(qapp, monkeypatch):
     screen.stop()
 
 
+def test_a_filter_never_found_still_gets_the_idle_pace(qapp, monkeypatch):
+    monkeypatch.setattr(vcam, "IDLE_PERIOD", 0.1)
+    monkeypatch.setattr(vcam, "FILTER_POLL", 0.01)
+    screen, cams, _ = _screen(filter_open=lambda: False)
+    screen.show((8, 8), None)
+    _wait_for(lambda: cams and len(cams[0].sent) >= 3, timeout=1.0)
+    screen.stop()
+
+
 def test_a_camera_that_wont_open_is_tried_again(qapp, monkeypatch):
     monkeypatch.setattr(vcam, "RETRY_OPEN", 0.01)
     screen, cams, attempts = _screen(fail=2)
