@@ -209,6 +209,14 @@ class MjpegServer(
         clients.any { now - it.lastWriteAtMs < VIEWER_STALE_MS } ||
             h264Clients.any { now - it.lastWriteAtMs < VIEWER_STALE_MS }
 
+    // A long-lived stream socket. Nagle off: otherwise the last piece of each frame can sit waiting for the
+    // computer's ACK, which Windows delays by up to 200 ms.
+    private fun openStream(socket: Socket): java.io.OutputStream {
+        socket.soTimeout = 0
+        socket.tcpNoDelay = true
+        return socket.getOutputStream()
+    }
+
     companion object {
         private const val MAX_CONCURRENT_CLIENTS = 16
         const val VIEWER_STALE_MS = 5_000L
@@ -222,22 +230,28 @@ class MjpegServer(
 
         fun stream() {
             try {
-                socket.soTimeout = 0  // streaming connections are long-lived by design
-                val out = socket.getOutputStream()
+                val out = openStream(socket)
                 val hdr = "HTTP/1.1 200 OK\r\n" +
                     "Content-Type: multipart/x-mixed-replace; boundary=--mjpegframe\r\n" +
                     "Cache-Control: no-cache\r\nConnection: keep-alive\r\n\r\n"
                 out.write(hdr.toByteArray(Charsets.UTF_8))
                 out.flush()
 
+                // Each part goes out in one write, so no small piece of it waits on its own packet. The CRLF that
+                // ends a part leads the next one's header instead, which puts the same bytes on the wire.
+                var wire = ByteArray(0)
+                var first = true
                 while (alive.get()) {
                     val frame = queue.poll(2_000L, TimeUnit.MILLISECONDS) ?: continue
-                    val partHdr = "--mjpegframe\r\nContent-Type: image/jpeg\r\n" +
-                                  "Content-Length: ${frame.size}\r\n\r\n"
-                    out.write(partHdr.toByteArray(Charsets.UTF_8))
-                    out.write(frame)
-                    out.write("\r\n".toByteArray(Charsets.UTF_8))
+                    val partHdr = ((if (first) "" else "\r\n") + "--mjpegframe\r\nContent-Type: image/jpeg\r\n" +
+                                   "Content-Length: ${frame.size}\r\n\r\n").toByteArray(Charsets.UTF_8)
+                    val total = partHdr.size + frame.size
+                    if (wire.size < total) wire = ByteArray(total + total / 4)
+                    System.arraycopy(partHdr, 0, wire, 0, partHdr.size)
+                    System.arraycopy(frame, 0, wire, partHdr.size, frame.size)
+                    out.write(wire, 0, total)
                     out.flush()
+                    first = false
                     lastWriteAtMs = System.currentTimeMillis()
                 }
             } catch (_: Exception) {}
@@ -262,8 +276,7 @@ class MjpegServer(
 
         fun stream() {
             try {
-                socket.soTimeout = 0
-                val out = socket.getOutputStream()
+                val out = openStream(socket)
                 out.write(("HTTP/1.1 200 OK\r\nContent-Type: video/h264\r\n" +
                     "Cache-Control: no-cache\r\nConnection: close\r\n\r\n").toByteArray(Charsets.UTF_8))
                 out.flush()
@@ -286,8 +299,7 @@ class MjpegServer(
 
         fun stream() {
             try {
-                socket.soTimeout = 0
-                val out = socket.getOutputStream()
+                val out = openStream(socket)
                 out.write(("HTTP/1.1 200 OK\r\nContent-Type: ${AudioStream.CONTENT_TYPE}\r\n" +
                     "Cache-Control: no-cache\r\nConnection: close\r\n\r\n").toByteArray(Charsets.UTF_8))
                 out.flush()
