@@ -205,7 +205,7 @@ def _tarball(path):
 
 
 def _tree(app):
-    return {str(p.relative_to(app)): p.read_text() for p in sorted(app.rglob("*"))
+    return {p.relative_to(app).as_posix(): p.read_text() for p in sorted(app.rglob("*"))
             if p.is_file() and not any(part.startswith((".update", ".previous")) for part in p.relative_to(app).parts)}
 
 
