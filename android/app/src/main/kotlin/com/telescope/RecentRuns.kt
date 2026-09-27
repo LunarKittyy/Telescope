@@ -19,6 +19,27 @@ object RecentRuns {
     fun decode(text: String): List<String> =
         text.split(SEPARATOR).map { it.trimEnd() }.filter { it.isNotBlank() }
 
+    // Copy diagnostics: the live report, then the previous runs; a camera list the same as the one above it is one line.
+    fun report(live: String, previous: List<String>): String {
+        if (previous.isEmpty()) return live
+        var above = cameraBlock(live)
+        val runs = previous.map { run ->
+            val block = cameraBlock(run)
+            val shown = if (block != null && block == above) run.replace(block, "Cameras: same as above") else run
+            above = block ?: above
+            shown
+        }
+        return live + "\nPrevious streams, newest first:\n\n" + runs.joinToString("\n\n") + "\n"
+    }
+
+    private fun cameraBlock(report: String): String? {
+        val lines = report.lines()
+        val start = lines.indexOf("Cameras:")
+        if (start < 0) return null
+        val end = (start + 1 until lines.size).firstOrNull { !lines[it].startsWith("  ") } ?: lines.size
+        return lines.subList(start, end).joinToString("\n")
+    }
+
     @Synchronized
     fun load(context: Context): List<String> =
         runCatching { decode(File(context.filesDir, FILE).readText()) }.getOrDefault(emptyList())
