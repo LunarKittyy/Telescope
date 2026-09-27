@@ -475,7 +475,7 @@ class StreamOutputPlugin(TelescopePlugin):
         self._pending_resolution_text = res  # Combo unpopulated at load; apply when on_phone_state() arrives.
         self._saved_resolution_text = res
         self._had_saved_resolution = res is not None
-        if fps := cfg.get("fps", cfg.get("phone_fps")):  # Fallback to legacy "phone_fps" if "fps" absent.
+        if fps := cfg.get("fps"):
             self._fps_spin.setValue(int(fps))
         if q := cfg.get("jpeg_quality"):
             self._quality_slider.setValue(int(q))

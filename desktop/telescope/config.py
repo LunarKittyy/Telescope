@@ -86,6 +86,7 @@ def _empty() -> dict:
     return {"version": CONFIG_VERSION, "selected_device": None, "plugin_configs": {}, "devices": {}}
 
 
+# LEGACY MIGRATION PATH: configs from v2.3 and earlier; remove once the next stable release has been out a while.
 def _upgrade_from_v2(cfg):
     """v2 -> v3: phones are now keyed by id and paired per computer, so the old pairing and the
     per-device settings keyed by phone name are dropped. Global settings carry over."""
@@ -151,7 +152,7 @@ def _validate_sections(cfg: dict) -> dict:
 
 def _migrate(cfg: dict) -> dict:
     """Only v2 is upgraded; anything older is discarded for a fresh config."""
-    cfg = _upgrade_from_v2(cfg)
+    cfg = _upgrade_from_v2(cfg)  # LEGACY MIGRATION PATH
     if not _is_whole_config_valid(cfg):
         return _empty()
     return _validate_sections(cfg)

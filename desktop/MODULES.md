@@ -272,7 +272,7 @@ UnityCapture helpers: `uc_registered_name()` (the name apps list it under, read 
 - `get_stream_params()` → `(width, height, fps)` - width/height are always `None` (resolution is phone-controlled, not desktop-resized); called by `app.py._start()` to construct `StreamWorker`.
 - `on_stream_start`: stores ctrl, schedules `_push_initial_settings` (1500ms delay) to sync quality/fps after connect.
 - `_on_resolution()` sends `resolution` control and emits `bus.resolution_change_requested` (used by `app.py` for footer readout). `_on_fps()` sends `fps_target` and calls `host.update_stream_output()` for virtual-camera hot-swap (no stream restart).
-- Config keys: `resolution`, `fps` (falls back to reading legacy `phone_fps` if `fps` is absent), `jpeg_quality`, `format`, `bitrate_mbps`.
+- Config keys: `resolution`, `fps`, `jpeg_quality`, `format`, `bitrate_mbps`.
 - `apply_preset(cfg)`: `set_config`, then while streaming sends fps and quality and, if the current lens has the saved size, the resolution.
 
 ### `plugins/preview.py`
