@@ -399,6 +399,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._computer_name = default_computer_name()
         self._resolution: Optional[Resolution] = None
         self._check_id = 0
+        self._running_check: Optional[int] = None  # the idle check still resolving; the poll waits for it
         self._watch_id = 0
         self._streaming = False
         self._connected = False  # first frame arrived (EventBus.stream_connected)
@@ -650,8 +651,11 @@ class ConnectionPlugin(TelescopePlugin):
         if phone is None:
             self._render()
             return
+        if self._running_check == self._check_id:
+            return  # a slow check would only be made stale by a new one, and then nothing ever lands
         self._discovery.start()
         self._check_id += 1
+        self._running_check = self._check_id
         self._spawn_resolve(self._check_id, Phone(**phone.to_dict()), self._route_pref)
 
     def _spawn_resolve(self, check_id: int, phone: Phone, preference: str):
@@ -671,6 +675,8 @@ class ConnectionPlugin(TelescopePlugin):
         threading.Thread(target=work, daemon=True).start()
 
     def _on_resolved(self, check_id: int, phone_id: str, res: Resolution):
+        if check_id == self._running_check:
+            self._running_check = None
         if check_id != self._check_id or phone_id != self._selected_id:
             return  # stale: a newer check, or the user switched phones meanwhile
         self._apply_resolution(res)

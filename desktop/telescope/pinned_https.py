@@ -15,6 +15,10 @@ class PinMismatch(ssl.SSLError):
     """Whatever answered isn't the phone that paired: its certificate has another fingerprint."""
 
 
+class HandshakeFailed(OSError):
+    """The TCP connection opened but TLS didn't: something is listening that doesn't speak it, like an app from before TLS."""
+
+
 def fingerprint(der: bytes) -> str:
     return hashlib.sha256(der).hexdigest()
 
@@ -38,7 +42,13 @@ class _PinnedConnection(http.client.HTTPSConnection):
         self._pin = pin
 
     def connect(self):
-        super().connect()
+        http.client.HTTPConnection.connect(self)  # plain TCP first, so a failed handshake can be told from nobody there
+        try:
+            self.sock = self._context.wrap_socket(self.sock, server_hostname=self.host)
+        except OSError as exc:
+            self.sock.close()
+            self.sock = None
+            raise HandshakeFailed(f"TLS handshake failed: {exc}") from exc
         der = self.sock.getpeercert(binary_form=True) or b""
         if not hmac.compare_digest(fingerprint(der), self._pin):
             self.sock.close()
@@ -88,6 +98,11 @@ class PhoneAuth:
             self._opener = urllib.request.build_opener(
                 urllib.request.ProxyHandler({}), _NoRedirects(), _PinnedHandler(self.pin))
         return self._opener
+
+
+def handshake_failed(exc: BaseException) -> bool:
+    """Whether a failed open reached a listener that doesn't speak TLS."""
+    return isinstance(exc, HandshakeFailed) or isinstance(getattr(exc, "reason", None), HandshakeFailed)
 
 
 def pin_rejected(exc: BaseException) -> bool:

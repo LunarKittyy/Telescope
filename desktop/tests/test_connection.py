@@ -375,6 +375,21 @@ def test_stale_resolutions_are_ignored(plugin_env):
     assert plugin.resolution is None
 
 
+def test_a_check_slower_than_the_poll_still_lands(plugin_env):
+    # The poll used to start a new check every tick, making a slow one stale before it could finish.
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    plugin._check_status()
+    first = plugin._check_id
+    plugin._check_status()
+    plugin._check_status()
+    assert plugin._check_id == first
+    plugin._on_resolved(first, "id-a", Resolution(READY, WIFI))
+    assert plugin.resolution.status == READY
+    plugin._check_status()
+    assert plugin._check_id == first + 1
+
+
 def test_a_problem_shows_its_fix_on_the_card(plugin_env):
     plugin, _host, _panel = plugin_env
     _add(plugin)
