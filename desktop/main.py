@@ -73,8 +73,8 @@ def main():
     srv = acquire_single_instance(wait=15 if args.after_update else 0)
     if srv is None:
         sys.exit(0)
-    if args.after_update:
-        clean_up_after_update()
+    # Every start, not just after an update: an old version's files can still be locked the first time.
+    clean_up_after_update()
 
     apply_theme(app)
 

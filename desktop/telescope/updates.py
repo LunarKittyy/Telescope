@@ -5,8 +5,9 @@ the build number and every file's SHA-256. Builds are compared by build number: 
 master, so stable and nightly numbers are comparable and switching channel never downgrades.
 
 Installing replaces the app's files in place and hands back the command that starts the new version:
-- Windows (the PyInstaller bundle): a running exe can be renamed but not overwritten, so the old one
-  becomes TelescopeDesktop.old.exe and is deleted on the next start.
+- Windows (the PyInstaller folder build): a running exe can be renamed but not overwritten, so the old one
+  becomes TelescopeDesktop.old.exe and is deleted on the next start. Its libraries can't be moved either
+  while loaded, so each build keeps them in its own lib-<build> folder and the old one goes the same way.
 - Linux (the source tarball): each top-level entry is swapped, the old ones kept in .previous/ until
   the swap completes; start.sh then installs any new Python requirements.
 A source checkout (a .git folder) or a folder this user can't write to is never touched.
@@ -37,6 +38,7 @@ WINDOWS_ASSET = "Telescope-windows.zip"
 LINUX_ASSET = "Telescope-linux.tar.gz"
 EXE_NAME = "TelescopeDesktop.exe"
 OLD_EXE_NAME = "TelescopeDesktop.old.exe"
+LIB_PREFIX = "lib-"  # + the build number: the folder the exe's libraries are in (telescope.spec)
 STAGING_DIR = ".update-staging"
 PREVIOUS_DIR = ".previous"
 REQUEST_TIMEOUT = 15
@@ -238,6 +240,16 @@ def install_windows(archive: Path, directory: Path) -> InstallResult:
         shutil.rmtree(staging, ignore_errors=True)
         raise UpdateError("The download doesn't contain Telescope, so it wasn't installed.")
 
+    # The new build's libraries first, each folder in one rename: a new name, so nothing holds it, and an
+    # update cut short never leaves the new exe next to a half-copied one.
+    for lib in sorted(p for p in staging.iterdir() if p.is_dir() and p.name.startswith(LIB_PREFIX)):
+        if not (directory / lib.name).exists():
+            try:
+                os.replace(lib, directory / lib.name)
+            except OSError as exc:
+                shutil.rmtree(staging, ignore_errors=True)
+                raise UpdateError(f"Couldn't move the new version in: {exc.strerror or exc}") from exc
+
     current = directory / EXE_NAME
     old = directory / OLD_EXE_NAME
     try:
@@ -318,10 +330,17 @@ def install(archive: Path, directory: Optional[Path] = None) -> InstallResult:
     return install_windows(archive, directory) if IS_WINDOWS else install_linux(archive, directory)
 
 
-def clean_up_after_update(directory: Optional[Path] = None):
-    """Delete what the previous version left behind. Best effort: the old exe may still be exiting."""
+def clean_up_after_update(directory: Optional[Path] = None, running_lib: Optional[str] = None):
+    """Delete what earlier versions left behind: the old exe, the staging folder and any lib-<build> folder but
+    running_lib (this copy's, found by itself when it's the packaged app). Best effort: the old exe may still be
+    exiting, and what it holds is tried again on the next start."""
     directory = directory or install_dir()
-    for leftover in (directory / OLD_EXE_NAME, directory / STAGING_DIR):
+    if running_lib is None and getattr(sys, "frozen", False):
+        running_lib = Path(getattr(sys, "_MEIPASS", "")).name
+    leftovers = [directory / OLD_EXE_NAME, directory / STAGING_DIR]
+    if running_lib and running_lib.startswith(LIB_PREFIX):
+        leftovers += [p for p in directory.glob(LIB_PREFIX + "*") if p.is_dir() and p.name != running_lib]
+    for leftover in leftovers:
         try:
             _remove(leftover)
         except OSError:

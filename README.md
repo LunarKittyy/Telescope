@@ -12,7 +12,7 @@ You'll need an Android phone and a PC running Linux or Windows.
 
 **🪟 Windows**
 
-Download `Telescope-windows.zip` from the [releases page](../../releases), extract it, and run `TelescopeDesktop.exe`.
+Download `Telescope-windows.zip` from the [releases page](../../releases), extract it, and run `TelescopeDesktop.exe` (keep it in its folder: the `lib-...` folder next to it is part of the app).
 
 **🐧 Linux**
 
