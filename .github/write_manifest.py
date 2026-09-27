@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Write manifest.json for a release: what the apps' updaters read to decide whether to update.
 
-Usage: write_manifest.py --version 0.5.0 --build 123 --channel nightly --commit <sha> --tag nightly
+Usage: write_manifest.py --version 3.0.0 --build 123 --channel nightly --commit <sha> --tag nightly
                          --repo owner/name --out out/manifest.json out/Telescope.apk out/Telescope-windows.zip ...
 """
 

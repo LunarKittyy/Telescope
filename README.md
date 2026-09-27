@@ -632,7 +632,7 @@ All responses: `{"ok": true}` or `{"ok": false, "error": "..."}`.
 On port 8766, and the one request without auth: it only says which phone this is, so the desktop can tell its phone from any other one before trusting a USB forward or an address.
 
 ```json
-{ "protocol": 2, "phoneId": "3f9c…", "phoneName": "Pixel 8 Pro", "appVersion": "0.5.0", "build": 236 }
+{ "protocol": 2, "phoneId": "3f9c…", "phoneName": "Pixel 8 Pro", "appVersion": "3.0.0", "build": 236 }
 ```
 
 `phoneId` is random, made once per install, and is what the desktop stores the phone by. `appVersion` and `build` let the desktop say which app is out of date when the protocols differ.
@@ -746,7 +746,7 @@ See `desktop/platform-tools/NOTICE` and https://developer.android.com/studio/ter
 
 ### Versions
 
-Both apps share one version, the `VERSION` file at the repo root. The build number is the commit count on `master`, so it only grows; it's the Android `versionCode` and what the update check compares. A build is stable (`0.5.0`), nightly (`0.5.0-nightly.123`) or a source checkout (`0.5.0 dev`). The version shows at the bottom of the Advanced dialog on the desktop and under Copy diagnostics on the phone, and both apps' Copy diagnostics include it.
+Both apps share one version, the `VERSION` file at the repo root. The build number is the commit count on `master`, so it only grows; it's the Android `versionCode` and what the update check compares. A build is stable (`3.0.0`), nightly (`3.0.0-nightly.123`) or a source checkout (`3.0.0 dev`). The version shows at the bottom of the Advanced dialog on the desktop and under Copy diagnostics on the phone, and both apps' Copy diagnostics include it.
 
 ### `release.yml` - every push to `master`, and every `v*` tag
 

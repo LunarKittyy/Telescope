@@ -114,8 +114,10 @@ jobs:
       - name: Publish the stable release
         if: needs.meta.outputs.channel == 'stable'
         run: |
+          notes=".github/release-notes/$VERSION.md"
+          if [ -f "$notes" ]; then notes_args=(--notes-file "$notes"); else notes_args=(--generate-notes); fi
           gh release create "$TAG" out/* --verify-tag --latest \
-            --title "Telescope $VERSION" --generate-notes
+            --title "Telescope $VERSION" "${notes_args[@]}"
 
       # Deleted and recreated rather than edited: GitHub sorts releases by creation time, so this
       # keeps nightly at the top of the Releases page.
