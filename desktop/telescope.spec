@@ -14,7 +14,10 @@
 #   - pyvirtualcam's unitycapture backend calls into a system-installed
 #     DirectShow COM filter (UnityCapture), so no DLLs need bundling.
 #   - cv2 wheels ship their own DLLs; PyInstaller's cv2 hook handles collection.
+#   - The exe's icon is resources/telescope.ico, the app icon (create_app_icon); scripts/write_icon.py
+#     writes it again if the icon changes.
 
+import os
 import sys
 
 from PyInstaller.utils.hooks import collect_submodules
@@ -69,7 +72,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,
+    icon=os.path.join(SPECPATH, 'resources', 'telescope.ico'),
     contents_directory=f'{LIB_PREFIX}{BUILD}',
 )
 
