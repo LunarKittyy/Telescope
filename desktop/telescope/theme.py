@@ -664,9 +664,19 @@ QMenu::item {{
     padding: 7px 22px 7px 14px;
     border-radius: 5px;
 }}
+QMenu::item:disabled {{
+    color: {TEXT_DISABLED};
+}}
 QMenu::item:selected {{
     background-color: {FILL};
     color: #ffffff;
+}}
+QLabel#menu_section {{
+    color: {TEXT_FAINT};
+    font-size: 7.5pt;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 8px 22px 3px 25px;
 }}
 QMenu::separator {{
     height: 1px;

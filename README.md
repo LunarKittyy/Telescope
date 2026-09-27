@@ -117,8 +117,9 @@ Everything past this point is optional - detailed feature reference, how it work
 - A dropped stream shows an animated "Stream dropped - reconnecting..." status instead of a static line, and the desktop keeps looking for the phone on every route: pull the cable and it carries on over Wi-Fi, plug it back in and it can use USB again. If the phone answers but stopped streaming, the desktop stops too and offers **Start**
 - The phone's status reads "Waiting for the computer" while its camera is on but no computer is taking the video
 - Battery level and phone temperature polled every 15 seconds, shown in the Monitoring panel with color coding
-- Configurable battery alert threshold (default 20%) - fires a tray/desktop notification when it drops below it, including while plugged into a charger that can't keep up
-- Configurable temperature alert threshold (default 45 C) - fires a notification when exceeded
+- Configurable battery alert threshold (default 20%) - counts as low when the level drops to it, including while plugged into a charger that can't keep up
+- Configurable temperature alert threshold (default 45 C)
+- Each threshold has its own **Notify** (on by default: a tray/desktop notification) and **Stop streaming** (off by default). Stop streaming stops the stream on every reading past the threshold, so a stream started again while the phone is still low or hot stops again at its first reading
 - A log of warnings, errors, crashes and status changes, in the temp folder so the system clears it (`/tmp/telescope-<user>/` on Linux, `%TEMP%\Telescope\` on Windows). It's capped at about 1 MB plus the one before it, and a repeated line is counted instead of written again. Addresses, tokens and your home folder are stripped before anything is written. On Linux, `telescope.log` next to `start.sh` links to it
 - **Open log** and **Copy diagnostics** at the bottom of Advanced. Copy diagnostics copies the version, system, connection and stream settings plus the last 200 log lines, for a bug report
 
@@ -148,8 +149,10 @@ Everything past this point is optional - detailed feature reference, how it work
 - When the phone app is older than the desktop, the Connection panel says so, and offers **Update over USB** when the phone is plugged in and the desktop bundle carries a newer APK
 
 **System integration**
-- **Start streaming when the phone is ready** (settings menu): starts by itself each time the phone becomes reachable. After you press Stop it stays stopped until the phone goes away and comes back. It never asks for a password on its own; if the Linux virtual camera is off, a banner offers to switch it on
-- **Stream only while an app is using the camera** (settings menu, off by default): starts when a call or OBS starts reading the camera, and stops 15 seconds after the last one lets go, so the phone isn't streaming for nothing. Only stops streams it started itself. Only one of these two can be on at a time, since the first would keep streaming after the app lets go
+- **Automatic streaming** (settings menu, all off by default), in two parts:
+  - **Start:** only when you press Start, **when the phone is ready** (each time it becomes reachable; after you press Stop it stays stopped until the phone goes away and comes back), or **when an app opens the camera** (a call or OBS starts reading it; after Stop it waits until that app lets go). It never asks for a password on its own; if the Linux virtual camera is off, a banner offers to switch it on
+  - **Stop:** only when you press Stop, **when no app uses the camera, if it started the stream**, or **when no app uses the camera, even if you started it**. Either one stops the stream once no app has read the camera for **Wait before stopping** (15 seconds by default, anything from 10 seconds to 60 minutes). Telescope's own preview doesn't count as an app. **Tell me when it stops a stream** shows a notification each time it does
+  - A stream it stops isn't started again by "when the phone is ready" until the phone goes away and comes back, and a battery or heat stop from Monitoring holds the same way as pressing Stop
 - **Wait screen…** (settings menu): what apps see on the camera while the phone isn't streaming, instead of the driver's own "no signal" picture. The default screen, or an image or GIF of your own, with a **Mirror** option for apps that flip the camera
 - On Linux, if an app already has the camera open at some size, the stream and the wait screen open at that size too, so the call doesn't lose the picture
 - On Linux, Telescope adds itself to the app menu on first launch (`~/.local/share/applications/telescope.desktop`), and fixes the entry up if you move the folder
@@ -325,7 +328,7 @@ telescope/
         |   |-- preview.py
         |   |-- onboarding.py    # First-run checklist
         |   |-- updates.py       # Update button and dialog
-        |   |-- startup.py       # Stream when the phone is ready or an app watches; open at sign-in
+        |   |-- startup.py       # Automatic streaming (start and stop), open at sign-in
         |   |-- wait_screen.py   # Wait screen and its dialog
         |   +-- monitoring.py
         +-- widgets/
@@ -518,7 +521,7 @@ The release zip bundles the UnityCapture DLLs already; the first-run checklist r
 
 **Single-instance:** `acquire_single_instance()` tries to bind a local TCP socket on port 47823. If already bound, it signals the running instance to restore its window and exits.
 
-**Battery/temperature polling:** A `QTimer` fires every 15 seconds while streaming. Notifications fire once per threshold crossing with 5-degree/5-percent hysteresis to avoid repeated alerts.
+**Battery/temperature polling:** A `QTimer` fires every 15 seconds while streaming. Notifications fire once per threshold crossing with 5-degree/5-percent hysteresis to avoid repeated alerts; a threshold's Stop streaming acts on every reading past it. A reading that arrives after its stream stopped is dropped.
 
 </details>
 

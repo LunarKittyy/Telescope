@@ -108,8 +108,8 @@ def main():
     win.register_plugin(OnboardingPlugin())  # after Preview: the stage listens for setup_needed
     win.register_plugin(MonitoringPlugin())
     win.register_plugin(UpdatesPlugin())
+    win.register_plugin(WaitScreenPlugin())  # before Startup: dialogs head the settings menu, toggles follow
     win.register_plugin(StartupPlugin())
-    win.register_plugin(WaitScreenPlugin())  # after Startup: its menu entry goes under Startup's
     win.apply_saved_config()
     if args.minimized:
         win.start_hidden()

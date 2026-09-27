@@ -1,8 +1,9 @@
+import logging
 import threading
 from typing import Optional
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
-from PyQt6.QtWidgets import QLabel, QWidget
+from PyQt6.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QWidget
 
 from telescope import theme
 from telescope.plugin import TelescopePlugin
@@ -10,6 +11,8 @@ from telescope.widgets.common import (
     NoScrollSpinBox, add_card_header, add_section_heading, control_row as _row,
     card_layout, create_card, set_status_kind,
 )
+
+logger = logging.getLogger(__name__)
 
 # Inline colors (change with live values) sourced from theme for one semantic color definition.
 _STATUS_COLORS = {
@@ -21,7 +24,7 @@ _STATUS_COLORS = {
 
 
 class _Signals(QObject):
-    state_ready = pyqtSignal(dict)
+    state_ready = pyqtSignal(object, dict)  # the stream's control client it was read through, and the state
 
 
 class MonitoringPlugin(TelescopePlugin):
@@ -36,7 +39,7 @@ class MonitoringPlugin(TelescopePlugin):
         self._temp_notified    = False
         self._last_level: Optional[int] = None
         self._sig = _Signals()
-        self._sig.state_ready.connect(self._on_state)
+        self._sig.state_ready.connect(self._on_polled)
 
         self._timer = QTimer()
         self._timer.setInterval(15_000)
@@ -66,21 +69,40 @@ class MonitoringPlugin(TelescopePlugin):
         self._batt_alert_spin.setValue(20)
         self._batt_alert_spin.setSuffix("%")
         self._batt_alert_spin.setToolTip(
-            "Alert when battery drops below this level - including while charging, "
+            "The level that counts as low - including while charging, "
             "if the level keeps falling anyway"
         )
         self._batt_alert_spin.valueChanged.connect(self._host.schedule_save)
         lay.addLayout(_row("Battery", self._batt_alert_spin, stretch=True))
+        self._batt_notify, self._batt_stop = self._alert_choices(lay, "battery runs low")
 
         self._temp_alert_spin = NoScrollSpinBox()
         self._temp_alert_spin.setRange(35, 65)
         self._temp_alert_spin.setValue(45)
         self._temp_alert_spin.setSuffix(" °C")
-        self._temp_alert_spin.setToolTip("Alert when phone temperature exceeds this")
+        self._temp_alert_spin.setToolTip("The temperature that counts as too hot")
         self._temp_alert_spin.valueChanged.connect(self._host.schedule_save)
         lay.addLayout(_row("Temperature", self._temp_alert_spin, stretch=True))
+        self._temp_notify, self._temp_stop = self._alert_choices(lay, "phone gets too hot")
 
         return card
+
+    def _alert_choices(self, lay, what: str) -> tuple:
+        """The Notify and Stop streaming checkboxes under a threshold, in its control column."""
+        notify = QCheckBox("Notify")
+        notify.setChecked(True)
+        notify.setToolTip(f"Show a notification when the {what}")
+        stop = QCheckBox("Stop streaming")
+        stop.setToolTip(f"Stop the stream when the {what}, and again on every restart until it recovers")
+        for box in (notify, stop):
+            box.toggled.connect(self._host.schedule_save)
+        boxes = QHBoxLayout()
+        boxes.setContentsMargins(0, 0, 0, 0)
+        boxes.setSpacing(16)
+        boxes.addWidget(notify)
+        boxes.addWidget(stop)
+        lay.addLayout(_row("", boxes))
+        return notify, stop
 
     def on_stream_start(self, stream_url: str, ctrl):
         self._ctrl = ctrl
@@ -105,7 +127,11 @@ class MonitoringPlugin(TelescopePlugin):
     def _fetch(self, ctrl):
         state = ctrl.get_state()
         if state and "battery" in state:
-            self._sig.state_ready.emit(state)
+            self._sig.state_ready.emit(ctrl, state)
+
+    def _on_polled(self, ctrl, state: dict):
+        if ctrl is self._ctrl:  # a reading from a stream that has since stopped (or been replaced) is dropped
+            self._on_state(state)
 
     def _on_state(self, state: dict):
         if "battery" not in state:
@@ -140,39 +166,52 @@ class MonitoringPlugin(TelescopePlugin):
         self._temp_lbl.setStyleSheet(f"color: {temp_color};")
 
     def _check_alerts(self, level: int, charging: bool, temp_c: float):
+        """Notify once per crossing of a threshold; stop on every reading past one whose Stop streaming is on."""
         batt_thresh = self._batt_alert_spin.value()
         temp_thresh = self._temp_alert_spin.value()
 
         falling = (not charging) or (self._last_level is not None and level < self._last_level)  # Wonky charger may not keep up.
         self._last_level = level
+        low = falling and level <= batt_thresh
+        hot = temp_c >= temp_thresh
+        streaming = self._host.is_streaming()
+        stop_low = low and streaming and self._batt_stop.isChecked()
+        stop_hot = hot and streaming and self._temp_stop.isChecked()
 
-        if falling and level <= batt_thresh and not self._battery_notified:
+        notes = []
+        if low and (stop_low or not self._battery_notified):
             self._battery_notified = True
-            if charging:
-                self._host.send_notification(
-                    "Telescope - Low Battery",
-                    f"Phone battery is at {level}% and still dropping despite being "
-                    "plugged in - the charger may not be keeping up.",
-                )
-            else:
-                self._host.send_notification("Telescope - Low Battery",
-                                             f"Phone battery is at {level}%.")
+            if self._batt_notify.isChecked():
+                text = (f"Phone battery is at {level}% and still dropping despite being "
+                        "plugged in - the charger may not be keeping up." if charging else
+                        f"Phone battery is at {level}%.")
+                notes.append(("Telescope - Low Battery", text + (" Stopped streaming." if stop_low else "")))
         elif level > batt_thresh + 5:
             self._battery_notified = False
 
-        if temp_c >= temp_thresh and not self._temp_notified:
+        if hot and (stop_hot or not self._temp_notified):
             self._temp_notified = True
-            self._host.send_notification(
-                "Telescope - Phone Running Hot",
-                f"Temperature is {temp_c:.1f} °C. Consider stopping charging or closing other apps.",
-            )
+            if self._temp_notify.isChecked():
+                text = (f"Temperature is {temp_c:.1f} °C. Stopped streaming to let it cool down." if stop_hot else
+                        f"Temperature is {temp_c:.1f} °C. Consider stopping charging or closing other apps.")
+                notes.append(("Telescope - Phone Running Hot", text))
         elif temp_c < temp_thresh - 5:
             self._temp_notified = False
 
+        for title, text in notes:
+            self._host.send_notification(title, text)
+        if stop_low or stop_hot:
+            logger.info("Stopping the stream: phone %s", "battery low" if stop_low else "too hot")
+            self._host.stop_stream()  # last: it runs on_stream_stop, which clears the stream's state here
+
     def get_config(self) -> dict:
         return {
-            "battery_alert": self._batt_alert_spin.value(),
-            "temp_alert":    self._temp_alert_spin.value(),
+            "battery_alert":  self._batt_alert_spin.value(),
+            "temp_alert":     self._temp_alert_spin.value(),
+            "battery_notify": self._batt_notify.isChecked(),
+            "battery_stop":   self._batt_stop.isChecked(),
+            "temp_notify":    self._temp_notify.isChecked(),
+            "temp_stop":      self._temp_stop.isChecked(),
         }
 
     def set_config(self, cfg: dict):
@@ -180,3 +219,8 @@ class MonitoringPlugin(TelescopePlugin):
             self._batt_alert_spin.setValue(int(ba))
         if ta := cfg.get("temp_alert"):
             self._temp_alert_spin.setValue(int(ta))
+        # Notifying is on unless switched off; stopping is off unless switched on.
+        self._batt_notify.setChecked(cfg.get("battery_notify") is not False)
+        self._temp_notify.setChecked(cfg.get("temp_notify") is not False)
+        self._batt_stop.setChecked(cfg.get("battery_stop") is True)
+        self._temp_stop.setChecked(cfg.get("temp_stop") is True)
