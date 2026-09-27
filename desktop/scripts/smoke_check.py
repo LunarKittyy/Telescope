@@ -123,6 +123,7 @@ def check_authenticated_stream_round_trip():
     wrong_pin = fingerprint(ssl.PEM_cert_to_DER_cert((fixtures / "test_impostor.crt").read_text()))
 
     server = http.server.HTTPServer(("127.0.0.1", 0), _Handler)
+    server.handle_error = lambda *_args: None  # the wrong-certificate client hangs up mid-handshake on purpose
     server.socket = ctx.wrap_socket(server.socket, server_side=True)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
