@@ -8,6 +8,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -47,6 +48,16 @@
             android:name=".CameraStreamService"
             android:foregroundServiceType="camera|microphone"
             android:exported="false" />
+
+        <!-- "Wait for my computer": keeps the session port up, never the camera or mic (WaitingService.kt) -->
+        <service
+            android:name=".WaitingService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the connection to a paired computer open while the screen is off, so that computer can start the camera stream. The camera and microphone stay off until it does." />
+        </service>
 
         <activity
             android:name=".PreviewActivity"

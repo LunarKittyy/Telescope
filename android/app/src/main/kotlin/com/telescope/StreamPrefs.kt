@@ -8,6 +8,7 @@ object StreamPrefs {
     private const val FILE = "telescope"
 
     const val KEY_LOCAL_ONLY = "local_only"
+    private const val KEY_WAIT_FOR_COMPUTER = "wait_for_computer"
     private const val KEY_CAMERA_ID = "last_camera_id"
     private const val KEY_LOGICAL_ID = "last_logical_id"
     private const val KEY_WIDTH = "last_width"
@@ -31,6 +32,14 @@ object StreamPrefs {
 
     fun setLocalOnly(context: Context, value: Boolean) {
         of(context).edit().putBoolean(KEY_LOCAL_ONLY, value).apply()
+    }
+
+    // Off by default: a stream only ever starts while the app is on screen unless this is switched on.
+    fun waitForComputer(context: Context): Boolean =
+        of(context).getBoolean(KEY_WAIT_FOR_COMPUTER, false)
+
+    fun setWaitForComputer(context: Context, value: Boolean) {
+        of(context).edit().putBoolean(KEY_WAIT_FOR_COMPUTER, value).apply()
     }
 
     fun saveSelection(context: Context, selection: Selection) {

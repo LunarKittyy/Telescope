@@ -35,10 +35,11 @@ interface SessionCommands {
     fun unpair(computer: PairedComputer)
 }
 
-// Refcount design: Activity and Service hold tags; first acquire binds port, last release closes; survives screen sleep.
+// Refcount design: Activity, stream service and waiting service hold tags; first acquire binds port, last release closes.
 object SessionEndpoint {
     const val OWNER_ACTIVITY = "activity"
     const val OWNER_SERVICE = "service"
+    const val OWNER_WAITING = "waiting"  // WaitingService, while "Wait for my computer" is on
 
     private val owners = mutableSetOf<String>()
     private var server: SessionServer? = null
