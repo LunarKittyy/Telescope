@@ -4,7 +4,7 @@ import socket
 import pytest
 from PyQt6.QtCore import QCoreApplication, QEvent
 from PyQt6.QtGui import QAction
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import QMenu, QWidget
 
 import telescope.app as app_module
 from telescope import theme
@@ -364,6 +364,23 @@ def test_settings_menu_collects_actions_from_every_plugin(window, qapp):
         == ["Do a thing"]
 
 
+def test_settings_menu_takes_a_submenu_and_owns_it(window, qapp, monkeypatch):
+    plugin = _Plugin("with_submenu")
+    sub = QMenu("More")
+    sub.addAction("Inside")
+    plugin.menu_actions = [QAction("Before", None), sub]
+    window.register_plugin(plugin)
+    shown = []
+    monkeypatch.setattr(QMenu, "exec", lambda self, *_a: shown.append(self))
+
+    window._show_settings_menu()
+
+    (menu,) = shown
+    before, more = menu.actions()
+    assert before.text() == "Before" and more.menu() is sub
+    assert sub.parent() is menu and sub.isWindow()  # still a popup, and freed with the menu
+
+
 def test_save_config_separates_global_and_device_local_plugins(window, config_home):
     connection = _Connection(selected="PhoneA")
     global_plugin = _Plugin("setup", {"canvas": "auto"})
@@ -574,11 +591,14 @@ def test_apply_config_empty_is_noop(window):
 
 
 def test_start_without_connection_or_invalid_stream_is_noop(window):
+    failed = []
+    window._bus.stream_start_failed.connect(lambda: failed.append(1))
     window._start()
     assert window._worker is None
     window.register_plugin(_Connection(stream_info=(None, None, False)))
     window._start()
     assert window._worker is None
+    assert failed == [1]  # the Start that got as far as asking for the stream says it ended
 
 
 def test_start_builds_worker_pipeline_and_notifies_plugins(window, monkeypatch):
@@ -1135,9 +1155,12 @@ def test_start_shows_the_reason_and_builds_nothing_when_the_wake_fails(window, m
         app_module, "StreamWorker",
         lambda **_kw: pytest.fail("no worker may be built when the phone never came up"),
     )
+    failed = []
+    window._bus.stream_start_failed.connect(lambda: failed.append(1))
     window._start()
 
     assert window._worker is None
+    assert failed == [1]
     issue = window._banners.issue("start")
     assert issue.title == "Couldn't start the phone's camera"
     assert issue.text == "Open the app on your phone."
@@ -1304,7 +1327,7 @@ def test_waiting_to_start_by_itself_keeps_running_in_the_tray(window, monkeypatc
     event = SimpleNamespace(ignore=lambda: setattr(event, "ignored", True))
     window.closeEvent(event)
     assert event.ignored is True
-    assert "when the phone is ready" in notes[0]
+    assert "starts streaming by itself" in notes[0]
 
 
 def test_start_hidden_minimizes_without_a_tray(window, monkeypatch):

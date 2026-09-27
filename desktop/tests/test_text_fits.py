@@ -113,3 +113,49 @@ def test_text_still_fits_with_larger_text(larger_text, qapp, monkeypatch, linux)
         qapp.processEvents()
         assert _clipped_buttons(d) == [], type(d).__name__
         d.close()
+
+
+def test_stop_delay_dialog_fields_fit(qapp):
+    from telescope.plugins.startup import StartupPlugin, StopDelayDialog
+    apply_theme(qapp)
+
+    class _Host:
+        def schedule_save(self): ...
+        def set_keep_in_tray(self, keep): ...
+
+    plugin = StartupPlugin()
+    plugin._host = _Host()
+    dialog = StopDelayDialog(plugin)
+    dialog.refresh()
+    dialog.show()
+    qapp.processEvents()
+    for combo_index in range(dialog._unit.count()):
+        dialog._unit.setCurrentIndex(combo_index)
+        qapp.processEvents()
+        assert dialog._unit.width() >= dialog._unit.sizeHint().width()  # the longest unit fits
+        assert dialog._value.width() >= dialog._value.sizeHint().width()
+    assert _clipped_buttons(dialog) == []
+    dialog.close()
+
+
+def test_monitoring_alert_checkboxes_fit_the_rail(qapp):
+    from PyQt6.QtWidgets import QCheckBox
+    from telescope.app import _RAIL_WIDTH
+    from telescope.plugin import EventBus
+    from telescope.plugins.monitoring import MonitoringPlugin
+    from telescope.widgets.common import ui_px
+    apply_theme(qapp)
+
+    class _Host:
+        def schedule_save(self): ...
+
+    plugin = MonitoringPlugin()
+    plugin.setup(_Host(), EventBus())
+    card = plugin.create_panel()
+    card.setFixedWidth(ui_px(_RAIL_WIDTH))
+    card.show()
+    qapp.processEvents()
+    for box in card.findChildren(QCheckBox):
+        assert box.width() >= box.sizeHint().width(), box.text()
+        assert box.geometry().right() < card.width(), box.text()
+    card.close()

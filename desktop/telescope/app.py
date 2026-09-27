@@ -337,13 +337,19 @@ class TelescopeWindow(QMainWindow):
     def _show_settings_menu(self):
         menu = QMenu(self)
         for p in self._plugins:
-            for action in p.create_menu_actions():
-                action.setParent(menu)
-                menu.addAction(action)
+            for entry in p.create_menu_actions():
+                if isinstance(entry, QMenu):
+                    entry.setParent(menu, entry.windowFlags())  # keeps it a popup, owned by this menu
+                    menu.addMenu(entry)
+                else:
+                    entry.setParent(menu)
+                    menu.addAction(entry)
         if menu.isEmpty():
+            menu.deleteLater()
             return
         menu.exec(self._menu_btn.mapToGlobal(
             self._menu_btn.rect().bottomLeft()) + QPoint(0, 6))
+        menu.deleteLater()  # rebuilt on every click; without this each one stays alive under the window
 
     def _layout_mode_for(self, width: int) -> str:
         if width >= ui_px(_WIDTH_THREE_COL):
@@ -561,6 +567,7 @@ class TelescopeWindow(QMainWindow):
         self.clear_issue("start")
         url, auth, ok = conn.get_stream_info(interactive=interactive)
         if not ok:
+            self._bus.stream_start_failed.emit()
             return
 
         self._wake_id += 1
@@ -610,6 +617,7 @@ class TelescopeWindow(QMainWindow):
             self._set_status("Not streaming", "dim")
             self.show_issue("start", Issue("Couldn't start the phone's camera", reason,
                                            [BannerAction("Try again", self.start_stream)]))
+            self._bus.stream_start_failed.emit()
             return
         self._begin_stream(url, auth)
 
@@ -1060,7 +1068,7 @@ class TelescopeWindow(QMainWindow):
                 self.send_notification(
                     "Telescope is still running",
                     ("Streaming continues in the background." if self._worker is not None else
-                     "It starts streaming when the phone is ready.")
+                     "It starts streaming by itself when it needs to.")
                     + " Right-click the tray icon to quit.",
                     urgent=False,
                 )

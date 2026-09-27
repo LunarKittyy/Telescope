@@ -116,7 +116,7 @@ class TelescopePlugin:
         return None
 
     def create_menu_actions(self) -> list:
-        """QActions for settings menu (lets dialog-only plugins skip panel)."""
+        """QActions (or a QMenu, shown as a submenu) for the settings menu; lets dialog-only plugins skip a panel."""
         return []
     def on_stream_starting(self):
         """A stream is about to open the virtual camera; anything holding it while idle lets go now."""
@@ -139,6 +139,8 @@ class TelescopePlugin:
 class EventBus(QObject):
     stream_started         = pyqtSignal(str)
     stream_stopped         = pyqtSignal()
+    stream_start_failed    = pyqtSignal()
+    """A Start ended without a stream (the phone couldn't be reached or woken); no stream_started follows."""
     stream_connected       = pyqtSignal()
     stream_lost            = pyqtSignal()
     """Frames stopped mid-stream; the host is looking for a route back (stream_connected ends it)."""

@@ -413,13 +413,95 @@ def test_monitoring_charging_plateau_does_not_alert(monitoring):
 def test_monitoring_fetch_emits_only_valid_battery_state(monitoring):
     plugin, _host, _bus, _panel = monitoring
     seen = []
-    plugin._sig.state_ready.connect(seen.append)
+    plugin._sig.state_ready.connect(lambda ctrl, state: seen.append(state))
     plugin._fetch(_Ctrl({"battery": 80}))
     assert seen == [{"battery": 80}]
 
     plugin._fetch(_Ctrl({"cameras": []}))
     plugin._fetch(_Ctrl(None))
     assert seen == [{"battery": 80}]
+
+
+def test_monitoring_drops_a_reading_from_a_stream_that_ended(monitoring):
+    plugin, host, _bus, _panel = monitoring
+    old, new = _Ctrl(), _Ctrl()
+    plugin.on_stream_start("url", new)
+    plugin._on_polled(old, {"battery": 3, "charging": False})  # read before the restart, landed after
+    assert plugin._battery_lbl.text() == "—" and host.notifications == []
+    plugin._on_polled(new, {"battery": 60, "charging": False})
+    assert plugin._battery_lbl.text() == "60%"
+
+
+def _streaming(host):
+    host._worker = object()
+
+
+def test_monitoring_stops_for_low_battery_only_when_asked(monitoring):
+    plugin, host, _bus, _panel = monitoring
+    _streaming(host)
+    plugin._check_alerts(10, False, 30)
+    assert host.is_streaming() and len(host.notifications) == 1  # the alert, no stop
+    plugin._batt_stop.setChecked(True)
+    plugin._check_alerts(10, False, 30)
+    assert not host.is_streaming()
+    assert host.notifications[-1] == ("Telescope - Low Battery", "Phone battery is at 10%. Stopped streaming.")
+
+
+def test_monitoring_stops_for_heat_only_when_asked(monitoring):
+    plugin, host, _bus, _panel = monitoring
+    _streaming(host)
+    plugin._batt_stop.setChecked(True)   # battery is fine, so this stays out of it
+    plugin._check_alerts(80, False, 50)
+    assert host.is_streaming()
+    plugin._temp_stop.setChecked(True)
+    plugin._check_alerts(80, False, 50)
+    assert not host.is_streaming()
+    assert "Stopped streaming" in host.notifications[-1][1]
+
+
+def test_monitoring_stops_again_after_a_restart_past_the_limit(monitoring):
+    plugin, host, _bus, _panel = monitoring
+    plugin._temp_stop.setChecked(True)
+    for _ in range(2):
+        _streaming(host)
+        plugin.on_stream_start("url", _Ctrl())
+        plugin._check_alerts(80, False, 50)
+        assert not host.is_streaming()
+        plugin.on_stream_stop()
+
+
+def test_monitoring_stops_quietly_with_notify_off(monitoring):
+    plugin, host, _bus, _panel = monitoring
+    _streaming(host)
+    plugin._batt_notify.setChecked(False)
+    plugin._temp_notify.setChecked(False)
+    plugin._batt_stop.setChecked(True)
+    plugin._check_alerts(10, False, 50)
+    assert not host.is_streaming() and host.notifications == []
+
+
+def test_monitoring_charging_and_rising_never_stops(monitoring):
+    plugin, host, _bus, _panel = monitoring
+    _streaming(host)
+    plugin._batt_stop.setChecked(True)
+    plugin._check_alerts(10, True, 30)
+    plugin._check_alerts(12, True, 30)
+    assert host.is_streaming()
+    plugin._check_alerts(11, True, 30)  # still dropping on the charger
+    assert not host.is_streaming()
+
+
+def test_monitoring_alert_settings_round_trip_and_defaults(monitoring):
+    plugin, host, _bus, _panel = monitoring
+    assert plugin.get_config() == {"battery_alert": 20, "temp_alert": 45, "battery_notify": True,
+                                   "battery_stop": False, "temp_notify": True, "temp_stop": False}
+    cfg = {"battery_alert": 30, "temp_alert": 50, "battery_notify": False,
+           "battery_stop": True, "temp_notify": False, "temp_stop": True}
+    before = host.saves
+    plugin.set_config(cfg)
+    assert plugin.get_config() == cfg and host.saves > before
+    plugin.set_config({"battery_alert": 30, "temp_alert": 50, "battery_stop": "yes", "temp_notify": 0})
+    assert plugin.get_config()["battery_stop"] is False and plugin.get_config()["temp_notify"] is True
 
 
 def test_monitoring_poll_starts_daemon_fetch_thread(monkeypatch, monitoring):
@@ -447,7 +529,7 @@ def test_monitoring_poll_starts_daemon_fetch_thread(monkeypatch, monitoring):
 def test_monitoring_bus_subscription_and_config(monitoring):
     plugin, _host, bus, _panel = monitoring
     plugin.set_config({"battery_alert": 30, "temp_alert": 50})
-    assert plugin.get_config() == {"battery_alert": 30, "temp_alert": 50}
+    assert plugin.get_config()["battery_alert"] == 30 and plugin.get_config()["temp_alert"] == 50
 
     bus.phone_state_updated.emit({"battery": 29, "charging": False, "battery_temp_c": 49})
     assert plugin._battery_lbl.text() == "29%"
