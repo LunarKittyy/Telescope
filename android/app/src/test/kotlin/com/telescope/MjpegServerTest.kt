@@ -581,6 +581,52 @@ class MjpegServerTest {
     }
 
     @Test
+    fun `removing a computer cuts off the video and mic it was already taking, not another computer's`() {
+        val paired = AtomicReference(listOf("removed", "kept"))
+        val stops = java.util.concurrent.atomic.AtomicInteger()
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { paired.get() },
+            startAudio = { null }, stopAudio = { stops.incrementAndGet() })
+        server.start()
+        val sending = java.util.concurrent.atomic.AtomicBoolean(true)
+        val sender = Thread {
+            while (sending.get()) { server.sendFrame(byteArrayOf(1, 2, 3)); server.sendAudio(byteArrayOf(0, 0)); Thread.sleep(20) }
+        }
+        fun open(path: String, token: String): Socket = Socket("127.0.0.1", actualPort(server)).apply {
+            soTimeout = 5_000
+            getOutputStream().write("GET $path HTTP/1.1\r\nAuthorization: Bearer $token\r\n\r\n"
+                .toByteArray(StandardCharsets.ISO_8859_1))
+            readUntil(getInputStream(), "\r\n\r\n".toByteArray())
+        }
+        fun ends(socket: Socket): Boolean {
+            val buf = ByteArray(4096)
+            val deadline = System.currentTimeMillis() + 5_000
+            while (System.currentTimeMillis() < deadline) {
+                if (try { socket.getInputStream().read(buf) < 0 } catch (_: java.io.IOException) { true }) return true
+            }
+            return false
+        }
+        try {
+            val video = open("/v1/video", "removed")
+            val mic = open("/v1/audio", "removed")
+            val other = open("/v1/video", "kept")
+            sender.start()
+            paired.set(listOf("kept"))
+            assertTrue(ends(video), "the removed computer's video should end")
+            assertTrue(ends(mic), "the removed computer's mic should end")
+            val deadline = System.currentTimeMillis() + 2_000
+            while (stops.get() == 0 && System.currentTimeMillis() < deadline) Thread.sleep(20)
+            assertEquals(1, stops.get())
+            other.soTimeout = 1_000
+            assertTrue(other.getInputStream().read(ByteArray(64)) > 0)
+            listOf(video, mic, other).forEach { it.close() }
+        } finally {
+            sending.set(false)
+            sender.join(2_000)
+            server.stop()
+        }
+    }
+
+    @Test
     fun `strangers holding connections open don't use up the stream slots`() {
         val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") })
         server.start()

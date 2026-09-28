@@ -171,7 +171,7 @@ class MjpegServer(
                     if (!takeStreamSlot()) return
                     streaming = true
                     try {
-                        val client = MjpegClient(socket)
+                        val client = MjpegClient(socket, request)
                         clients.add(client)
                         onVideoClient(H264Stream.CODEC_MJPEG)
                         client.stream()          // blocks until disconnected
@@ -184,7 +184,7 @@ class MjpegServer(
                     if (!takeStreamSlot()) return
                     streaming = true
                     try {
-                        val client = H264Client(socket)
+                        val client = H264Client(socket, request)
                         h264Config?.let { client.queue.offerConfig(it) }
                         h264Clients.add(client)
                         onVideoClient(H264Stream.CODEC_H264)
@@ -198,7 +198,7 @@ class MjpegServer(
                     if (!isAuthorized(request)) { HttpWire.sendError(socket.getOutputStream(), 401, "Unauthorized"); return }
                     if (!takeStreamSlot()) return
                     try {
-                        val client = AudioClient(socket)
+                        val client = AudioClient(socket, request)
                         val problem = synchronized(audioLock) {
                             if (!running.get()) "Not streaming"
                             else (if (audioClients.isEmpty()) startAudio() else null).also { if (it == null) audioClients.add(client) }
@@ -245,6 +245,9 @@ class MjpegServer(
 
     private fun pollMs(): Long = minOf(2_000L, viewerGiveUpMs)
 
+    // Checked again while a viewer streams, so removing its computer on the phone cuts off video and mic it already has
+    private fun stillPaired(request: HttpWire.Request): Boolean = HttpWire.bearerMatchesAny(tokens(), request)
+
     // Also checked by the senders: a viewer whose write is blocked on a dead link never polls, and closing unblocks it
     private fun givenUp(lastWriteAtMs: Long): Boolean = System.currentTimeMillis() - lastWriteAtMs >= viewerGiveUpMs
 
@@ -263,7 +266,7 @@ class MjpegServer(
         const val ACCEPT_RETRY_MS = 200L
     }
 
-    inner class MjpegClient(private val socket: Socket) {
+    inner class MjpegClient(private val socket: Socket, private val request: HttpWire.Request) {
         private val queue = ArrayBlockingQueue<ByteArray>(2)
         private val alive = AtomicBoolean(true)
         @Volatile var lastWriteAtMs: Long = System.currentTimeMillis()
@@ -282,7 +285,7 @@ class MjpegServer(
                 // ends a part leads the next one's header instead, which puts the same bytes on the wire.
                 var wire = ByteArray(0)
                 var first = true
-                while (alive.get()) {
+                while (alive.get() && stillPaired(request)) {
                     val frame = queue.poll(pollMs(), TimeUnit.MILLISECONDS) ?: if (givenUp(lastWriteAtMs)) break else continue
                     val partHdr = ((if (first) "" else "\r\n") + "--mjpegframe\r\nContent-Type: image/jpeg\r\n" +
                                    "Content-Length: ${frame.size}\r\n\r\n").toByteArray(Charsets.UTF_8)
@@ -309,7 +312,7 @@ class MjpegServer(
         fun close() { alive.set(false); try { socket.close() } catch (_: Exception) {} }
     }
 
-    inner class H264Client(private val socket: Socket) {
+    inner class H264Client(private val socket: Socket, private val request: HttpWire.Request) {
         val queue = H264ClientQueue()
         private val alive = AtomicBoolean(true)
         @Volatile var lastWriteAtMs: Long = System.currentTimeMillis()
@@ -321,7 +324,7 @@ class MjpegServer(
                 out.write(("HTTP/1.1 200 OK\r\nContent-Type: video/h264\r\n" +
                     "Cache-Control: no-cache\r\nConnection: close\r\n\r\n").toByteArray(Charsets.UTF_8))
                 out.flush()
-                while (alive.get()) {
+                while (alive.get() && stillPaired(request)) {
                     val packet = queue.poll(pollMs()) ?: if (givenUp(lastWriteAtMs)) break else continue
                     out.write(packet)
                     out.flush()
@@ -334,7 +337,7 @@ class MjpegServer(
         fun close() { alive.set(false); try { socket.close() } catch (_: Exception) {} }
     }
 
-    inner class AudioClient(private val socket: Socket) {
+    inner class AudioClient(private val socket: Socket, private val request: HttpWire.Request) {
         val queue = PcmClientQueue()
         private val alive = AtomicBoolean(true)
         @Volatile var lastWriteAtMs: Long = System.currentTimeMillis()
@@ -346,7 +349,7 @@ class MjpegServer(
                 out.write(("HTTP/1.1 200 OK\r\nContent-Type: ${AudioStream.CONTENT_TYPE}\r\n" +
                     "Cache-Control: no-cache\r\nConnection: close\r\n\r\n").toByteArray(Charsets.UTF_8))
                 out.flush()
-                while (alive.get()) {
+                while (alive.get() && stillPaired(request)) {
                     val chunk = queue.poll(pollMs()) ?: if (givenUp(lastWriteAtMs)) break else continue
                     out.write(chunk)
                     out.flush()
