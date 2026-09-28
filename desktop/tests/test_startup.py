@@ -538,6 +538,16 @@ def test_linux_desktop_entry_round_trip(monkeypatch, tmp_path):
     assert autostart.disable(tmp_path) == (True, "")  # already off
 
 
+def test_the_sign_in_entry_follows_this_copy_when_it_is_on(monkeypatch, tmp_path):
+    monkeypatch.setattr(autostart, "IS_WINDOWS", False)
+    assert autostart.refresh(["/new/start.sh", "--minimized"], tmp_path) is False  # off stays off
+    assert not autostart.is_enabled(tmp_path)
+    autostart.enable(["/old/start.sh", "--minimized"], tmp_path)
+    assert autostart.refresh(["/new/start.sh", "--minimized"], tmp_path) is True
+    assert "Exec=/new/start.sh --minimized\n" in (tmp_path / "autostart" / "telescope.desktop").read_text()
+    assert autostart.refresh(["/new/start.sh", "--minimized"], tmp_path) is False  # already current
+
+
 def test_exec_quoting_follows_the_desktop_entry_rules():
     assert autostart._exec_arg("/usr/bin/python3") == "/usr/bin/python3"
     assert autostart._exec_arg('/a b/"x"$y') == '"/a b/\\"x\\"\\$y"'
@@ -621,3 +631,7 @@ def test_windows_run_key_round_trip(monkeypatch):
     assert autostart.disable(winreg=fake) == (True, "")
     assert autostart.disable(winreg=fake) == (True, "")
     assert autostart.is_enabled(winreg=fake) is False
+    assert autostart.refresh([r"C:\New\TelescopeDesktop.exe"], winreg=fake) is False  # off stays off
+    autostart.enable([r"C:\Old\TelescopeDesktop.exe"], winreg=fake)
+    assert autostart.refresh([r"C:\New\TelescopeDesktop.exe"], winreg=fake) is True
+    assert values["Telescope"] == r"C:\New\TelescopeDesktop.exe"

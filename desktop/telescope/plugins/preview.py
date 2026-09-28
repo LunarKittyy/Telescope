@@ -271,6 +271,8 @@ class PreviewPlugin(TelescopePlugin):
         self._popout: _PopoutWindow | None = None
         # Flag; process_frame() runs on stream thread and must never touch self._popout (not thread-safe).
         self._popout_active = False
+        self._hid_for_popout = False  # opening the popout hid the card, so closing it shows the card again
+        self._streaming = False  # a frame queued just before Stop arrives after it and is dropped
         self._busy   = False
         # Where each view last showed a frame, in px (UI thread writes, stream thread reads): frames are scaled to it
         # on the stream thread, so the UI thread only has to put them up.
@@ -393,10 +395,14 @@ class PreviewPlugin(TelescopePlugin):
                 _WAITING_TEXT if self._host.is_streaming() else _IDLE_TEXT)
 
     def on_stream_start(self, stream_url: str, ctrl):
+        self._streaming = True
         if self._active and self._preview_lbl.pixmap().isNull():
             self._preview_lbl.setText(_WAITING_TEXT)
 
     def on_stream_stop(self):
+        self._streaming = False
+        if self._popout is not None:
+            self._popout._lbl.setPixmap(QPixmap())
         self._preview_lbl.setPixmap(QPixmap())
         self._preview_lbl.setText(_IDLE_TEXT if self._active else "Preview hidden")
 
@@ -407,6 +413,7 @@ class PreviewPlugin(TelescopePlugin):
             return
         if self._active:
             self._toggle()
+            self._hid_for_popout = True
         self._toggle_btn.setEnabled(False)
 
         self._popout = _PopoutWindow(None)
@@ -424,6 +431,9 @@ class PreviewPlugin(TelescopePlugin):
         self._popout = None
         self._popout_active = False
         self._toggle_btn.setEnabled(True)
+        if self._hid_for_popout and not self._active:
+            self._toggle()
+        self._hid_for_popout = False
 
     def _on_focus_point_available(self, available: bool):
         self._pickable = available
@@ -490,6 +500,9 @@ class PreviewPlugin(TelescopePlugin):
     # ── UI thread ─────────────────────────────────────────────────────────────
 
     def _on_frame(self, frame: np.ndarray):
+        if not self._streaming:
+            self._busy = False
+            return
         h, w = frame.shape[:2]
         img = QImage(frame.data, w, h, w * 3, QImage.Format.Format_BGR888).copy()
         px = QPixmap.fromImage(img)

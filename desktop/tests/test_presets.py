@@ -220,6 +220,45 @@ def test_camera_preset_while_idle_only_loads(qapp):
     assert cam.get_config()["lens"] == "2"
 
 
+def test_a_lens_from_a_preset_applied_while_idle_goes_out_when_the_stream_starts(qapp):
+    host, bus = _Host(), EventBus()
+    cam = _camera(host, bus)
+    cam.apply_preset(dict(cam.get_config(), lens="2"))
+    ctrl = _Ctrl()
+
+    cam.on_stream_start("url", ctrl)
+    cam.on_phone_state({"cameras": _CAMS, "auto": True})
+    cam.on_phone_state({"cameras": _CAMS, "auto": True})  # a later state from the old lens doesn't switch again
+
+    assert [m for m in ctrl.sent if m["action"] == "camera"] == [{"action": "camera", "id": "2"}]
+
+
+def test_save_suggests_a_name_no_preset_has(qapp):
+    host = _Host()
+    plugin = _presets(host)
+    plugin.save("Preset 2")
+    assert plugin.unused_name() == "Preset 3"
+    plugin.save("Preset 3")
+    plugin.delete("Preset 2")
+    assert plugin.unused_name() == "Preset 2"
+
+
+def test_saving_or_renaming_onto_another_preset_asks_first(qapp, monkeypatch):
+    from PyQt6.QtWidgets import QMessageBox
+    host = _Host()
+    plugin = _presets(host)
+    plugin._btn = QPushButton()
+    plugin.save("Desk")
+    plugin.save("Night")
+    asked = []
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: asked.append(a[2]) or QMessageBox.StandardButton.No)
+
+    assert plugin._may_replace("Night ") is False
+    assert plugin._may_replace("Night", keep="Night") is True  # renaming to its own name
+    assert plugin._may_replace("Sofa") is True
+    assert len(asked) == 1
+
+
 def test_stream_output_preset_sends_fps_quality_and_resolution(qapp):
     host, bus = _Host(), EventBus()
     out = _stream(host, bus)

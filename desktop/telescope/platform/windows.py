@@ -1,5 +1,6 @@
 import hashlib
 import re
+import shutil
 import subprocess
 import sys
 import urllib.request
@@ -46,7 +47,8 @@ def download_unitycapture(progress_cb=None) -> tuple:
         try:
             if progress_cb:
                 progress_cb(f"Downloading {name}...")
-            urllib.request.urlretrieve(url, dest)
+            with urllib.request.urlopen(url, timeout=30) as r, open(dest, "wb") as f:  # urlretrieve never times out
+                shutil.copyfileobj(r, f)
         except Exception as e:
             return False, f"Download failed: {e}"
         digest = _sha256(dest)
@@ -64,12 +66,10 @@ def register_unitycapture() -> tuple:
             return False, f"{name} failed checksum verification - not registering"
     dll32 = str(d / "UnityCaptureFilter32.dll")
     dll64 = str(d / "UnityCaptureFilter64.dll")
-    ps = (
-        'Start-Process cmd.exe '
-        f'-ArgumentList \'/c regsvr32 /s "/i:UnityCaptureName={UC_NAME}" "{dll32}" && '
-        f'regsvr32 /s "/i:UnityCaptureName={UC_NAME}" "{dll64}"\' '
-        '-Verb RunAs -Wait -WindowStyle Hidden'
-    )
+    args = (f'/c regsvr32 /s "/i:UnityCaptureName={UC_NAME}" "{dll32}" && '
+            f'regsvr32 /s "/i:UnityCaptureName={UC_NAME}" "{dll64}"')
+    quoted = args.replace("'", "''")  # a PowerShell single-quoted string; an apostrophe in the user's folder doubles
+    ps = f"Start-Process cmd.exe -ArgumentList '{quoted}' -Verb RunAs -Wait -WindowStyle Hidden"
     try:
         r = subprocess.run(
             ["powershell", "-NoProfile", "-Command", ps],

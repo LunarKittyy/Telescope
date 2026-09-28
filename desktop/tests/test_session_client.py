@@ -215,3 +215,33 @@ def test_an_address_nobody_answers_on_costs_one_timeout_not_two(monkeypatch):
         status = client.hello(timeout=0.1).status
         assert bool(probes) == expect_probe
         assert status == (HELLO_MISSING if expect_probe else HELLO_NONE)
+
+
+def test_the_look_for_an_old_app_skips_a_configured_proxy(monkeypatch):
+    # A proxy answering 502 for a closed phone app would read as "an old app is here".
+    import socket
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    class Proxy(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(502)
+            self.end_headers()
+
+        def log_message(self, *_a):
+            pass
+
+    proxy = HTTPServer(("127.0.0.1", 0), Proxy)
+    threading.Thread(target=proxy.serve_forever, daemon=True).start()
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        closed_port = s.getsockname()[1]
+    monkeypatch.setenv("http_proxy", f"http://127.0.0.1:{proxy.server_address[1]}")
+    monkeypatch.delenv("no_proxy", raising=False)
+    monkeypatch.delenv("NO_PROXY", raising=False)
+    try:
+        client = PhoneSessionClient(f"https://127.0.0.1:{closed_port}", PhoneAuth("tok", "ab" * 32))
+        assert client._answers_plain_http(1.0) is False
+    finally:
+        proxy.shutdown()
+        proxy.server_close()

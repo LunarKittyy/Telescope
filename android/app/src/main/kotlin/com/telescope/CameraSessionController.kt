@@ -98,6 +98,9 @@ class CameraSessionController(
 
     @Volatile private var currentCamera: CameraEntry? = null
 
+    // Set by stop(): work already queued on the camera thread (a switch, a reopen) must not reopen the camera.
+    @Volatile private var stopped = false
+
     // Guards against stale onOpened/onConfigured callbacks after a new open.
     @Volatile private var cameraGeneration = 0
 
@@ -143,7 +146,7 @@ class CameraSessionController(
 
     // Which route the viewer connected to decides the codec; switching rebuilds the output (a reopen).
     fun setCodec(value: String) {
-        handler?.post {
+        post {
             if (value == codec) return@post
             codec = value
             codecError = null
@@ -153,21 +156,21 @@ class CameraSessionController(
 
     fun setBitrate(bps: Int) {
         requestedBitrate = bps
-        handler?.post { encoder?.setBitrate(currentBitrate()) }
+        post { encoder?.setBitrate(currentBitrate()) }
     }
 
     fun requestKeyFrame() { encoder?.requestKeyFrame() }
 
-    fun setIso(iso: Int)                    { currentIso = iso;                 handler?.post { applyExposure() } }
-    fun setShutter(ns: Long)                { currentShutterNs = ns;            handler?.post { applyExposure() } }
-    fun setAuto()                           { currentIso = null; currentShutterNs = null; handler?.post { applyExposure() } }
-    fun setOis(on: Boolean)                 { currentOis = on;                  handler?.post { applyExposure() } }
-    fun setWbGains(gains: RggbChannelVector) { currentWbGains = gains;          handler?.post { applyExposure() } }
-    fun setWbAuto()                         { currentWbGains = null;            handler?.post { applyExposure() } }
-    fun setJpegQuality(q: Int)              { currentJpegQuality = q;           handler?.post { applyExposure() } }
-    fun setFpsTarget(fps: Int)              { currentPhoneFps = fps;            handler?.post { applyExposure(); encoder?.setBitrate(currentBitrate()) } }
-    fun setFocusMode(mode: String)          { currentFocusMode = mode; focusPoint = null; handler?.post { applyExposure() } }
-    fun setZoom(z: ZoomRequest)             { zoom = z;                         handler?.post { applyExposure() } }
+    fun setIso(iso: Int)                    { currentIso = iso;                 post { applyExposure() } }
+    fun setShutter(ns: Long)                { currentShutterNs = ns;            post { applyExposure() } }
+    fun setAuto()                           { currentIso = null; currentShutterNs = null; post { applyExposure() } }
+    fun setOis(on: Boolean)                 { currentOis = on;                  post { applyExposure() } }
+    fun setWbGains(gains: RggbChannelVector) { currentWbGains = gains;          post { applyExposure() } }
+    fun setWbAuto()                         { currentWbGains = null;            post { applyExposure() } }
+    fun setJpegQuality(q: Int)              { currentJpegQuality = q;           post { applyExposure() } }
+    fun setFpsTarget(fps: Int)              { currentPhoneFps = fps;            post { applyExposure(); encoder?.setBitrate(currentBitrate()) } }
+    fun setFocusMode(mode: String)          { currentFocusMode = mode; focusPoint = null; post { applyExposure() } }
+    fun setZoom(z: ZoomRequest)             { zoom = z;                         post { applyExposure() } }
 
     // Focus (and meter, when exposure is automatic) on a point of the stream frame. False if this lens
     // can't: no AF regions, no single-shot AF, or no known active array.
@@ -177,7 +180,7 @@ class CameraSessionController(
         if (cam.maxAfRegions <= 0 || CaptureRequest.CONTROL_AF_MODE_AUTO !in cam.afModes) return false
         focusPoint = floatArrayOf(x, y, size)
         currentFocusMode = "point"
-        handler?.post { triggerFocus() }
+        post { triggerFocus() }
         return true
     }
 
@@ -212,12 +215,12 @@ class CameraSessionController(
         if (cam.maxAeRegions > 0 && currentIso == null) builder.set(CaptureRequest.CONTROL_AE_REGIONS, arrayOf(rect))
         return true
     }
-    fun setFocusDistance(d: Float)          { currentFocusDistance = d;         handler?.post { applyExposure() } }
-    fun setNrMode(m: Int)                   { currentNrMode = m;                handler?.post { applyExposure() } }
-    fun setEdgeMode(m: Int)                 { currentEdgeMode = m;              handler?.post { applyExposure() } }
-    fun setAeComp(v: Int)                   { currentAeComp = v;                handler?.post { applyExposure() } }
-    fun setBlackLevelLock(on: Boolean)      { currentBlackLevelLock = on;       handler?.post { applyExposure() } }
-    fun setTorch(on: Boolean)               { currentTorch = on;                handler?.post { applyExposure() } }
+    fun setFocusDistance(d: Float)          { currentFocusDistance = d;         post { applyExposure() } }
+    fun setNrMode(m: Int)                   { currentNrMode = m;                post { applyExposure() } }
+    fun setEdgeMode(m: Int)                 { currentEdgeMode = m;              post { applyExposure() } }
+    fun setAeComp(v: Int)                   { currentAeComp = v;                post { applyExposure() } }
+    fun setBlackLevelLock(on: Boolean)      { currentBlackLevelLock = on;       post { applyExposure() } }
+    fun setTorch(on: Boolean)               { currentTorch = on;                post { applyExposure() } }
 
     fun open(cameraId: String, physicalCameraId: String?, initialEntry: CameraEntry, initialOis: Boolean) {
         currentCamera = initialEntry
@@ -226,31 +229,43 @@ class CameraSessionController(
     }
 
     fun switchTo(entry: CameraEntry) {
-        handler?.post { switchCameraTo(entry) }
+        post { switchCameraTo(entry) }
     }
 
     // Adds extra output surface for live preview without interrupting MJPEG stream
     fun attachPreviewSurface(surface: Surface) {
-        handler?.post { previewSurface = surface; reconfigureSession() }
+        post { previewSurface = surface; reconfigureSession() }
     }
 
     // onDetached fires after surface is dropped and session rebuilt
     fun detachPreviewSurface(onDetached: (() -> Unit)? = null) {
-        handler?.post {
+        val h = handler
+        val posted = !stopped && h != null && h.post {
             previewSurface = null
-            reconfigureSession(onDetached)
+            if (stopped) onDetached?.invoke() else reconfigureSession(onDetached)
         }
+        if (!posted) { previewSurface = null; onDetached?.invoke() }
     }
 
-    // Tears down camera/session/reader; caller handles service-level cleanup
+    // Runs block on the camera thread unless stop() came first.
+    private fun post(block: () -> Unit) {
+        handler?.post { if (!stopped) block() }
+    }
+
+    // Tears down camera/session/reader on the camera thread, after any frame it is copying; caller handles service-level cleanup
     fun stop() {
+        stopped = true
+        val h = handler
+        if (h == null || !h.post { teardown(); handlerThread?.quitSafely() }) teardown()
+    }
+
+    private fun teardown() {
         // Invalidate in-flight callbacks so they can't resurrect stale camera/session with dead surfaces
         cameraGeneration++
         try { captureSession?.stopRepeating() } catch (_: Exception) {}
         try { captureSession?.close()         } catch (_: Exception) {}
         try { cameraDevice?.close()           } catch (_: Exception) {}
         releaseOutputs()
-        handlerThread?.quitSafely()
         captureSession = null; cameraDevice = null
     }
 
@@ -260,7 +275,7 @@ class CameraSessionController(
         if (codec == H264Stream.CODEC_H264) {
             try {
                 encoder = H264Encoder(streamWidth, streamHeight, currentPhoneFps, currentBitrate(),
-                    onPacket = onH264, onError = { e -> handler?.post { encoderFailed(e) } })
+                    onPacket = onH264, onError = { e -> post { encoderFailed(e) } })
                 return
             } catch (e: Exception) {
                 codec = H264Stream.CODEC_MJPEG
@@ -298,6 +313,8 @@ class CameraSessionController(
                 val bytes = ByteArray(buf.remaining())
                 buf.get(bytes)
                 onFrame(bytes)
+            } catch (e: Exception) {
+                if (!stopped) onControlError("frame", e)  // one frame lost; the reader is being rebuilt or closed
             } finally { image.close() }
         }, handler)
         return reader
@@ -328,6 +345,7 @@ class CameraSessionController(
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
                         onStateChanged(StreamState.Failed, "openCamera.onDisconnected", null)
+                        onFatalError()
                     }
                 }
                 override fun onError(camera: CameraDevice, error: Int) {
@@ -446,7 +464,8 @@ class CameraSessionController(
             session.setRepeatingRequest(buildRequest(camera), ccmCaptureCallback, handler)
             // Only after Camera2 accepts the repeating request are frames guaranteed en route
             onStateChanged(StreamState.Streaming, "startRepeating", null)
-        } catch (e: CameraAccessException) {
+        } catch (e: Exception) {  // also IllegalStateException for a session closed meanwhile
+            if (stopped) return
             onStateChanged(StreamState.Failed, "startRepeating", e)
             onFatalError()
         }
@@ -616,6 +635,7 @@ class CameraSessionController(
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
                         onStateChanged(StreamState.Failed, "switchCameraTo.onDisconnected", null)
+                        onFatalError()
                     }
                 }
                 override fun onError(camera: CameraDevice, error: Int) {
@@ -623,17 +643,19 @@ class CameraSessionController(
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
                         onStateChanged(StreamState.Failed, "switchCameraTo.onError", RuntimeException("Camera2 error code $error"))
+                        onFatalError()
                     }
                 }
             }, handler)
         } catch (e: Exception) {
             onStateChanged(StreamState.Failed, "switchCameraTo", e)
+            onFatalError()
         }
     }
 
     // Live size change: lens stays same but ImageReader must be rebuilt (requires device reopen)
     fun switchResolution(width: Int, height: Int) {
-        handler?.post { switchResolutionInternal(width, height) }
+        post { switchResolutionInternal(width, height) }
     }
 
     private fun switchResolutionInternal(width: Int, height: Int) {
@@ -656,6 +678,7 @@ class CameraSessionController(
 
         val cam = currentCamera ?: run {
             onStateChanged(StreamState.Failed, op, IllegalStateException("no current camera"))
+            onFatalError()
             return
         }
         val openId = cam.logicalId ?: cam.id
@@ -678,6 +701,7 @@ class CameraSessionController(
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
                         onStateChanged(StreamState.Failed, "$op.onDisconnected", null)
+                        onFatalError()
                     }
                 }
                 override fun onError(camera: CameraDevice, error: Int) {
@@ -685,11 +709,13 @@ class CameraSessionController(
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
                         onStateChanged(StreamState.Failed, "$op.onError", RuntimeException("Camera2 error code $error"))
+                        onFatalError()
                     }
                 }
             }, handler)
         } catch (e: Exception) {
             onStateChanged(StreamState.Failed, op, e)
+            onFatalError()
         }
     }
 }

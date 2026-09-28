@@ -1,3 +1,4 @@
+import time
 from types import SimpleNamespace
 import socket
 
@@ -322,6 +323,37 @@ def test_a_silent_connection_does_not_stop_later_raises():
         srv.close()
 
 
+def test_a_reset_connection_does_not_stop_later_raises():
+    import struct
+    import threading
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(4)
+    raised = threading.Event()
+    listener = threading.Thread(target=app_module.listen_for_raise, args=(srv, raised.set), daemon=True)
+    listener.start()
+    port = srv.getsockname()[1]
+    try:
+        rude = socket.create_connection(("127.0.0.1", port))
+        rude.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+        time.sleep(0.2)  # the listener is waiting in recv
+        rude.close()  # sends RST
+        time.sleep(0.2)
+        with socket.create_connection(("127.0.0.1", port)) as c:
+            c.sendall(b"raise")
+        assert raised.wait(5)
+    finally:
+        srv.close()
+
+
+def test_a_canvas_reload_does_not_start_over_a_stream_started_meanwhile(window, monkeypatch):
+    starts = []
+    monkeypatch.setattr(window, "_start", lambda *_a: starts.append(True))
+    window._session = StreamSession(id=1, url="url", client=object(), worker=object())
+    window._on_canvas_reload_done(True, "", True)
+    assert starts == []
+
+
 def test_register_headless_global_plugin_does_not_add_panel(window):
     plugin = _Plugin("global", panel=False)
     window.register_plugin(plugin)
@@ -483,6 +515,7 @@ def test_switch_device_saves_old_profile_applies_new_and_restarts(window, config
     calls = []
     monkeypatch.setattr(window, "_stop", lambda **_kw: calls.append("stop") or setattr(window, "_session", None))
     monkeypatch.setattr(window, "_start", lambda: calls.append("start"))
+    window._bus.device_changed.connect(lambda name: calls.append(f"changed {name}"))
 
     window.switch_device("Old", "New")
 
@@ -490,7 +523,7 @@ def test_switch_device_saves_old_profile_applies_new_and_restarts(window, config
     assert cfg["devices"]["Old"]["plugin_configs"]["transforms"] == {"zoom": 2}
     assert cfg["selected_device"] == "New"
     assert plugin.config["zoom"] == 4
-    assert calls == ["stop", "start"]
+    assert calls == ["stop", "changed New", "start"]
 
 
 def test_reconnect_stream_only_restarts_when_active(window, monkeypatch):
@@ -842,7 +875,7 @@ def test_restart_canvas_non_linux_waits_and_restarts_active_stream(window, monke
         "_stop",
         lambda **_kw: events.append("stop") or setattr(window, "_session", None),
     )
-    monkeypatch.setattr(window, "_start", lambda: events.append("start"))
+    monkeypatch.setattr(window, "_start", lambda *_a: events.append("start"))
 
     class ImmediateThread:
         def __init__(self, target, daemon): self.target = target
@@ -1434,6 +1467,10 @@ class _RecoveringConnection(_Connection):
         super().__init__()
         self.answers = list(answers)
         self.adopted = []
+        self.problems = []
+
+    def show_problem(self, res):
+        self.problems.append(res.status)
 
     def recovery_probe(self):
         answer = self.answers.pop(0) if self.answers else None
@@ -1556,6 +1593,35 @@ def test_recovery_stops_the_stream_when_the_phone_stopped_streaming(window, monk
     assert conn.remote_stops == 0
     assert not window._recovering
     assert window._banners.issue("start").title == "The phone stopped streaming"
+
+
+@pytest.mark.parametrize("status", ["NOT_PAIRED", "LOCAL_ONLY", "PHONE_OUTDATED", "DESKTOP_OUTDATED"])
+def test_recovery_stops_and_says_why_when_the_phone_wont_take_the_stream_back(window, monkeypatch, status):
+    import telescope.phones as phones
+    conn, _worker, _client, _lost = _dropped_stream(window, monkeypatch, [phones.Resolution(getattr(phones, status))])
+
+    assert conn.problems == [getattr(phones, status)]
+    assert window._session is None and not window._recovering
+    assert not window._recovery_timer.isActive()
+
+
+def test_a_stream_that_never_got_its_first_frame_looks_for_the_phone_too(window, monkeypatch):
+    from telescope.phones import READY, Resolution, Route
+    wifi = Route("wifi", "192.168.1.20")
+    conn = _RecoveringConnection([Resolution(READY, wifi, streaming=True)])
+    window.register_plugin(conn)
+    monkeypatch.setattr(app_module.TelescopeWindow, "_spawn_recovery_probe",
+                        lambda self, sid, gen, job: self._on_recovery_probed(sid, gen, job()))
+    monkeypatch.setattr(app_module, "PhoneControlClient", lambda url, token: SimpleNamespace(
+        base=url, token=token, close=lambda: None))
+    worker = _RetargetWorker()
+    window._session = StreamSession(id=1, url="http://127.0.0.1:40001/v1/video", client=_Client(), worker=worker)
+    worker.status.connect(window._on_worker_status)
+
+    worker.status.emit("waiting", "Can't reach the phone's stream. Trying again in 3 s…")
+
+    assert conn.adopted == [wifi]
+    assert worker.urls == ["http://192.168.1.20:8080/v1/video"]
 
 
 def test_recovery_waits_while_the_phone_is_mid_start(window, monkeypatch):

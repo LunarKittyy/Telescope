@@ -219,11 +219,13 @@ class StreamWorker(QThread):
 
     def run(self):
         self.status.emit("info", f"Connecting to {self.url}...")
+        failed = False  # the phone may be reachable another way by now, so the host looks for it (see "waiting")
         while not self._stop_flag:
             cap = self._open_cap()
             if not cap.isOpened():
                 cap.release()
-                self.status.emit("warn", f"Can't reach the phone's stream. Trying again in {RECONNECT_DELAY} s…")
+                failed = True
+                self.status.emit("waiting", f"Can't reach the phone's stream. Trying again in {RECONNECT_DELAY} s…")
                 self._restart_vcam.wait(timeout=RECONNECT_DELAY)
                 self._restart_vcam.clear()
                 continue
@@ -231,7 +233,8 @@ class StreamWorker(QThread):
             ret, frame = cap.read()
             if not ret or frame is None:
                 cap.release()
-                self.status.emit("warn", "Waiting for the first frame…")
+                failed = True
+                self.status.emit("waiting", "Waiting for the first frame…")
                 self._restart_vcam.wait(timeout=RECONNECT_DELAY)
                 self._restart_vcam.clear()
                 continue
@@ -244,6 +247,9 @@ class StreamWorker(QThread):
                 self._restart_vcam.wait(timeout=RECONNECT_DELAY)
                 self._restart_vcam.clear()
                 continue
+            if failed:
+                failed = False
+                self.reconnected.emit()
 
             # The reader (and its phone connection) outlives vcam restarts: an FPS change only rebuilds the vcam.
             reader_stop = threading.Event()

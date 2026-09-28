@@ -132,7 +132,7 @@ def enable(command: Optional[list] = None, config_home: Optional[Path] = None, w
     try:
         if IS_WINDOWS:
             winreg = winreg or _winreg()
-            line = " ".join(f'"{a}"' if " " in a else a for a in command)
+            line = _run_line(command)
             with winreg.CreateKey(winreg.HKEY_CURRENT_USER, _RUN_KEY) as key:
                 winreg.SetValueEx(key, _VALUE, 0, winreg.REG_SZ, line)
         else:
@@ -142,6 +142,29 @@ def enable(command: Optional[list] = None, config_home: Optional[Path] = None, w
     except OSError as exc:
         return False, f"Couldn't set Telescope to open at sign-in: {exc}"
     return True, ""
+
+
+def _run_line(command: list) -> str:
+    return " ".join(f'"{a}"' if " " in a else a for a in command)
+
+
+def refresh(command: Optional[list] = None, config_home: Optional[Path] = None, winreg=None) -> bool:
+    """If opening at sign-in is on but points at another copy (the folder moved), point it at this one."""
+    command = command or launch_command()
+    try:
+        if IS_WINDOWS:
+            winreg = winreg or _winreg()
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _RUN_KEY) as key:
+                current = winreg.QueryValueEx(key, _VALUE)[0]
+            if current == _run_line(command):
+                return False
+        else:
+            path = desktop_file(config_home)
+            if not path.exists() or path.read_text() == desktop_entry(command):
+                return False
+    except OSError:
+        return False  # off, or unreadable: leave it
+    return enable(command, config_home, winreg)[0]
 
 
 def disable(config_home: Optional[Path] = None, winreg=None) -> tuple:

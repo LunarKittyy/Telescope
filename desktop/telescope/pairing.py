@@ -4,7 +4,7 @@ import hashlib
 import hmac
 import json
 import secrets
-import socket
+import sys
 import threading
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -21,6 +21,10 @@ PAIRING_PORT = 8765
 # 3: the offer names this computer (computer_id/computer_name), the phone answers with its phone_id.
 # 4: the phone answers with its TLS certificate's fingerprint and a proof of the token, never the token itself.
 PAIRING_PROTOCOL_VERSION = 4
+
+
+class _Server(ThreadingHTTPServer):
+    allow_reuse_address = sys.platform != "win32"  # on Windows it would let two servers share the port
 
 
 def pairing_proof(token: str, nonce: str, phone_id: str, cert_sha256: str) -> str:
@@ -80,17 +84,6 @@ class PairingServer:
             return self.offer
 
         candidates = advertise if advertise is not None else ip_utils.get_pairing_addresses()
-
-        # Try to bind the fixed pairing port; fall back to random if in use.
-        port = PAIRING_PORT
-        try:
-            test = socket.socket()
-            test.bind(("", port))
-            test.close()
-        except OSError:
-            with socket.socket() as s:
-                s.bind(("", 0))
-                port = s.getsockname()[1]
 
         # A fresh nonce per pairing session - the POST path must include it,
         # so a LAN peer that doesn't already know it (i.e. hasn't scanned the
@@ -173,7 +166,12 @@ class PairingServer:
                 pass
 
         # Threaded, so one stalled connection doesn't hold up the phone that's really pairing.
-        self._server = ThreadingHTTPServer(("", port), _Handler)
+        # The fixed port (reused straight after the last pairing, which leaves it in TIME_WAIT), else any free one.
+        try:
+            self._server = _Server(("", PAIRING_PORT), _Handler)
+        except OSError:
+            self._server = _Server(("", 0), _Handler)
+        port = self._server.server_address[1]
         self._server_thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._server_thread.start()
 

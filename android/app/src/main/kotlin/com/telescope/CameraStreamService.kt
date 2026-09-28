@@ -363,6 +363,7 @@ class CameraStreamService : Service() {
     private var idleWatchdogThread: Thread? = null
     private val idleWatchdogRunning = java.util.concurrent.atomic.AtomicBoolean(false)
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var started = false
 
     // Stream config
     private var streamWidth  = 1920
@@ -455,7 +456,7 @@ class CameraStreamService : Service() {
     }
 
     fun detachPreviewSurface(onDetached: (() -> Unit)? = null) {
-        controller?.detachPreviewSurface(onDetached)
+        controller?.detachPreviewSurface(onDetached) ?: onDetached?.invoke()
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
@@ -467,6 +468,7 @@ class CameraStreamService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        started = true
         val cameraId  = intent?.getStringExtra(EXTRA_CAMERA_ID)  ?: "0"
         val logicalId = intent?.getStringExtra(EXTRA_LOGICAL_ID) ?: ""
         streamWidth   = intent?.getIntExtra(EXTRA_WIDTH,  1920)  ?: 1920
@@ -514,17 +516,20 @@ class CameraStreamService : Service() {
             ?: CameraEntry(cameraId, logicalId.ifEmpty { null }, "ID $cameraId",
                            initialOis, 50, 3200, 100_000L, 1_000_000_000L)
 
-        controller = CameraSessionController(
+        lateinit var ctrl: CameraSessionController
+        ctrl = CameraSessionController(
             context             = this,
             initialStreamWidth  = streamWidth,
             initialStreamHeight = streamHeight,
             onFrame        = { bytes -> server?.sendFrame(bytes) },
             onStateChanged = { newState, op, error -> setState(newState, op, error) },
-            onFatalError   = { stopSelf() },
+            // A full stop: stopSelf() alone leaves the server, wake lock and notification up while MainActivity is bound.
+            onFatalError   = { mainHandler.post { if (controller === ctrl) stopStreaming("cameraLost") } },
             onControlError = { op, error -> recordControlError(op, error) },
             onH264         = { bytes, key, config -> server?.sendH264(bytes, key, config) },
             onCodecFailed  = { server?.closeH264Clients() },
         )
+        controller = ctrl
 
         setState(StreamState.OpeningCamera, "onStartCommand")
         controller!!.open(openId, physId, initialEntry, initialOis)
@@ -532,8 +537,10 @@ class CameraStreamService : Service() {
     }
 
     override fun onDestroy() {
-        stopStreaming()
-        RecentRuns.save(this, "Stream ended: ${timeText(System.currentTimeMillis())}\n" + buildRunReport())
+        if (started) {  // not for an instance Preview's bind created just to look for a stream
+            stopStreaming()
+            RecentRuns.save(this, "Stream ended: ${timeText(System.currentTimeMillis())}\n" + buildRunReport())
+        }
         instance = null
         super.onDestroy()
     }
@@ -596,8 +603,9 @@ class CameraStreamService : Service() {
                 Thread.sleep(IDLE_CHECK_INTERVAL_MS)
                 if (!idleWatchdogRunning.get()) break
                 val srv = server ?: continue
-                val watchedLocally = controller?.hasPreviewSurface() == true
-                if (!watchedLocally && srv.idleForMs() >= IDLE_STOP_MS) {
+                // A computer taking the video counts too: its status polls can go missing on a weak Wi-Fi link.
+                val watched = controller?.hasPreviewSurface() == true || srv.hasActiveViewer()
+                if (!watched && srv.idleForMs() >= IDLE_STOP_MS) {
                     android.util.Log.i(TAG, "No desktop activity for ${IDLE_STOP_MS / 1000}s - stopping to save battery")
                     mainHandler.post { stopStreaming("idleWatchdog") }
                     break

@@ -42,6 +42,10 @@ def clean_name(raw) -> str:
     return " ".join(text.split())[:MAX_NAME_CHARS]
 
 
+# The phone is on this network or behind an adb forward; a configured proxy would answer for it instead.
+_NO_PROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
 @dataclass(frozen=True)
 class PingResult:
     """Outcome of GET /v1/ping; status: paired/not_paired/unreachable."""
@@ -133,7 +137,7 @@ class PhoneSessionClient:
         if not self.base.startswith("https://"):
             return False
         try:
-            with urllib.request.urlopen("http://" + self.base[len("https://"):] + "/v1/hello", timeout=timeout) as r:
+            with _NO_PROXY.open("http://" + self.base[len("https://"):] + "/v1/hello", timeout=timeout) as r:
                 read_capped(r)
             return True
         except urllib.error.HTTPError:

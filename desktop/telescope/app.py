@@ -20,7 +20,7 @@ from telescope import diagnostics, theme, vcam
 from telescope.config import DEVICE_LOCAL_PLUGINS, load_config, save_config
 from telescope.models import PhoneState, PhoneStateError
 from telescope.phone_client import PhoneControlClient
-from telescope.phones import READY
+from telescope.phones import DESKTOP_OUTDATED, LOCAL_ONLY, NOT_PAIRED, PHONE_OUTDATED, READY
 from telescope.platform import IS_LINUX
 from telescope.plugin import UNCHANGED, EventBus, TelescopePlugin
 from telescope.session import StreamSession
@@ -78,16 +78,18 @@ def listen_for_raise(srv: socket.socket, raise_cb):
     while True:
         try:
             conn, _ = srv.accept()
-            try:
-                conn.settimeout(1.0)  # something that connects and says nothing mustn't stop every later raise
-                if conn.recv(16) == b"raise":
-                    raise_cb()
-            finally:
-                conn.close()
         except socket.timeout:
             continue
-        except Exception:
-            break
+        except OSError:
+            break  # closed on quit
+        try:
+            conn.settimeout(1.0)
+            if conn.recv(16) == b"raise":
+                raise_cb()
+        except OSError:
+            pass  # a connection that says nothing or resets mustn't stop every later raise
+        finally:
+            conn.close()
 
 
 # ── Main window ───────────────────────────────────────────────────────────────
@@ -479,6 +481,7 @@ class TelescopeWindow(QMainWindow):
         cfg["selected_device"] = new_name
         save_config(cfg)
         self._apply_device_profile(new_name)
+        self._bus.device_changed.emit(new_name or "")
 
         if was_streaming:
             self._start()
@@ -747,6 +750,13 @@ class TelescopeWindow(QMainWindow):
         session = self._session
         if not self._recovering or gen != self._recovery_gen or session is None or session.id != session_id:
             return
+        if res is not None and res.status in (NOT_PAIRED, LOCAL_ONLY, PHONE_OUTDATED, DESKTOP_OUTDATED):
+            # The phone answers but won't take the stream back: say why instead of retrying forever.
+            self._stop(remote_stop=False)
+            conn = self._plugin("connection")
+            if conn:
+                conn.show_problem(res)
+            return
         if res is not None and res.status == READY:
             if not res.streaming and not res.busy:
                 # Stopped on the phone, or by its idle watchdog while we couldn't reach it.
@@ -837,7 +847,7 @@ class TelescopeWindow(QMainWindow):
         if ok:
             self._set_status(f"Loopback reloaded: {msg}" if IS_LINUX else "Canvas updated", "ok")
             if restart_stream:
-                self._start()
+                self.start_stream()  # not over a stream started while the reload ran
         else:
             self._set_status("Not streaming" if command else f"Reload failed: {msg}", "dim" if command else "err")
             if command:
@@ -1045,6 +1055,9 @@ class TelescopeWindow(QMainWindow):
             self._bus.stream_connected.emit()
         elif kind == "warn":
             self._set_status(msg, "warn")
+        elif kind == "waiting":  # no first frame yet: maybe the route died between waking the phone and now
+            self._set_status(msg, "warn")
+            self._begin_recovery()
         elif kind == "reconnecting":
             self._start_reconnecting_animation(msg)
             self._begin_recovery()

@@ -29,6 +29,8 @@ class MjpegServer(
     private val pending: PendingLimiter = PendingLimiter(),
     // TLS in the app (PhoneTls); plain sockets only in tests.
     private val socketFactory: javax.net.ServerSocketFactory = javax.net.ServerSocketFactory.getDefault(),
+    // A viewer sent nothing for this long is dropped: with nothing to write it would never notice the computer left.
+    private val viewerGiveUpMs: Long = VIEWER_GIVE_UP_MS,
 ) {
     private var serverSocket: ServerSocket? = null
     private val clients = CopyOnWriteArrayList<MjpegClient>()
@@ -109,8 +111,10 @@ class MjpegServer(
         running.set(false)
         closeMjpegClients()
         closeH264Clients()
-        audioClients.forEach { it.close() }
-        audioClients.clear()
+        synchronized(audioLock) {  // so a /v1/audio request finishing now can't start the mic after this
+            audioClients.forEach { it.close() }
+            audioClients.clear()
+        }
         try { serverSocket?.close() } catch (_: Exception) {}
     }
 
@@ -127,6 +131,7 @@ class MjpegServer(
         }
         try {
             val request = HttpWire.readRequest(socket, requestDeadlineMs) ?: return  // already responded/closed on error
+            if (!running.get()) return  // stopped while this request was coming in
 
             when (request.path) {
                 "/v1/state" -> {
@@ -183,7 +188,8 @@ class MjpegServer(
                     try {
                         val client = AudioClient(socket)
                         val problem = synchronized(audioLock) {
-                            (if (audioClients.isEmpty()) startAudio() else null).also { if (it == null) audioClients.add(client) }
+                            if (!running.get()) "Not streaming"
+                            else (if (audioClients.isEmpty()) startAudio() else null).also { if (it == null) audioClients.add(client) }
                         }
                         if (problem != null) { HttpWire.sendError(socket.getOutputStream(), 403, problem); return }
                         streaming = true
@@ -225,6 +231,10 @@ class MjpegServer(
         clients.any { now - it.lastWriteAtMs < VIEWER_STALE_MS } ||
             h264Clients.any { now - it.lastWriteAtMs < VIEWER_STALE_MS }
 
+    private fun pollMs(): Long = minOf(2_000L, viewerGiveUpMs)
+
+    private fun givenUp(lastWriteAtMs: Long): Boolean = System.currentTimeMillis() - lastWriteAtMs >= viewerGiveUpMs
+
     // A long-lived stream socket. Nagle off: otherwise the last piece of each frame can sit waiting for the
     // computer's ACK, which Windows delays by up to 200 ms.
     private fun openStream(socket: Socket): java.io.OutputStream {
@@ -236,6 +246,7 @@ class MjpegServer(
     companion object {
         private const val MAX_CONCURRENT_STREAMS = 16
         const val VIEWER_STALE_MS = 5_000L
+        const val VIEWER_GIVE_UP_MS = 10_000L
     }
 
     inner class MjpegClient(private val socket: Socket) {
@@ -258,7 +269,7 @@ class MjpegServer(
                 var wire = ByteArray(0)
                 var first = true
                 while (alive.get()) {
-                    val frame = queue.poll(2_000L, TimeUnit.MILLISECONDS) ?: continue
+                    val frame = queue.poll(pollMs(), TimeUnit.MILLISECONDS) ?: if (givenUp(lastWriteAtMs)) break else continue
                     val partHdr = ((if (first) "" else "\r\n") + "--mjpegframe\r\nContent-Type: image/jpeg\r\n" +
                                    "Content-Length: ${frame.size}\r\n\r\n").toByteArray(Charsets.UTF_8)
                     val total = partHdr.size + frame.size
@@ -297,7 +308,7 @@ class MjpegServer(
                     "Cache-Control: no-cache\r\nConnection: close\r\n\r\n").toByteArray(Charsets.UTF_8))
                 out.flush()
                 while (alive.get()) {
-                    val packet = queue.poll(2_000L) ?: continue
+                    val packet = queue.poll(pollMs()) ?: if (givenUp(lastWriteAtMs)) break else continue
                     out.write(packet)
                     out.flush()
                     lastWriteAtMs = System.currentTimeMillis()
@@ -312,6 +323,7 @@ class MjpegServer(
     inner class AudioClient(private val socket: Socket) {
         val queue = PcmClientQueue()
         private val alive = AtomicBoolean(true)
+        private var lastWriteAtMs = System.currentTimeMillis()
 
         fun stream() {
             try {
@@ -320,9 +332,10 @@ class MjpegServer(
                     "Cache-Control: no-cache\r\nConnection: close\r\n\r\n").toByteArray(Charsets.UTF_8))
                 out.flush()
                 while (alive.get()) {
-                    val chunk = queue.poll(2_000L) ?: continue
+                    val chunk = queue.poll(pollMs()) ?: if (givenUp(lastWriteAtMs)) break else continue
                     out.write(chunk)
                     out.flush()
+                    lastWriteAtMs = System.currentTimeMillis()
                 }
             } catch (_: Exception) {}
             finally { alive.set(false); try { socket.close() } catch (_: Exception) {} }

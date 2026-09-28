@@ -514,3 +514,27 @@ def test_exposure_and_white_balance_snap_to_neutral_and_reset_on_a_double_click(
     assert (plugin._ae_comp_slider.value(), plugin._wb_slider.value(), plugin._tint_slider.value()) == (0, 5500, 0)
     assert {"action": "ae_comp", "value": 0} in ctrl.sent  # through the normal handlers
     assert plugin._wb_slider.toolTip().endswith("Double-click to reset")
+
+
+def test_a_lens_switch_keeps_iso_and_shutter_clamped_to_the_new_lens(camera_plugin):
+    plugin, _host, _bus, _panel = camera_plugin
+    plugin._ctrl = _Ctrl()
+    plugin._on_lens_selected({"id": "0", "label": "Main", "isoMin": 50, "isoMax": 6400,
+                              "shutterMinNs": 100_000, "shutterMaxNs": 1_000_000_000})
+    plugin._iso_slider.set_value(400)
+    plugin._sht_slider.set_value(16_666_667)
+
+    plugin._on_lens_selected({"id": "2", "label": "Wide", "isoMin": 100, "isoMax": 3200,
+                              "shutterMinNs": 20_000, "shutterMaxNs": 10_000_000})
+
+    assert plugin._iso_slider.get_value() == pytest.approx(400, rel=0.02)
+    assert plugin._iso_slider._spin.value() == 400
+    assert plugin._sht_slider.get_value() == pytest.approx(10_000_000, rel=0.02)  # past the new maximum
+
+
+def test_manual_focus_at_infinity_loads_from_a_preset(camera_plugin):
+    plugin, _host, _bus, _panel = camera_plugin
+    plugin._focus_max_diopters = 10
+    plugin.set_config({"focus_manual": True, "focus_diopters": 2.0})
+    plugin.set_config({"focus_manual": True, "focus_diopters": 0.0})
+    assert plugin._focus_slider.value() == 0

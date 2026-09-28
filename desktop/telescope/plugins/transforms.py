@@ -632,7 +632,7 @@ class TransformsPlugin(TelescopePlugin):
             if idx >= 0:
                 self._rot_combo.setCurrentIndex(idx)
         zoom = cfg.get("zoom", 1.0)
-        self._zoom_slider.setValue(int(zoom * 100))
+        self._zoom_slider.setValue(round(zoom * 100))
         pan_active = zoom > 1.0
         self.pan_x = cfg.get("pan_x", 0.0) if pan_active else 0.0
         self.pan_y = cfg.get("pan_y", 0.0) if pan_active else 0.0

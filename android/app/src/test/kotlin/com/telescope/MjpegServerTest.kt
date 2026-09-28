@@ -320,6 +320,75 @@ class MjpegServerTest {
     }
 
     @Test
+    fun `a viewer with nothing to watch is dropped and frees its slot`() {
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("secret-token") },
+            viewerGiveUpMs = 200)
+        server.start()
+        try {
+            Socket("127.0.0.1", actualPort(server)).use { socket ->
+                socket.soTimeout = 3_000
+                socket.getOutputStream().write("GET /v1/video.h264 HTTP/1.1\r\nAuthorization: Bearer secret-token\r\n\r\n"
+                    .toByteArray(StandardCharsets.ISO_8859_1))
+                val input = socket.getInputStream()
+                readUntil(input, "\r\n\r\n".toByteArray())
+                // No frames flow (the camera stalled, or the computer left): the phone ends it instead of holding the slot.
+                assertEquals(-1, input.read())
+            }
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `a request that finishes after stop does not start the mic`() {
+        val started = java.util.concurrent.atomic.AtomicInteger()
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") },
+            startAudio = { started.incrementAndGet(); null })
+        server.start()
+        Socket("127.0.0.1", actualPort(server)).use { socket ->
+            socket.soTimeout = 2_000
+            val out = socket.getOutputStream()
+            out.write("GET /v1/audio HTTP/1.1\r\n".toByteArray(StandardCharsets.ISO_8859_1))
+            out.flush()
+            Thread.sleep(100)
+            server.stop()
+            out.write("Authorization: Bearer t\r\n\r\n".toByteArray(StandardCharsets.ISO_8859_1))
+            out.flush()
+            try { socket.getInputStream().readBytes() } catch (_: Exception) {}
+        }
+        assertEquals(0, started.get())
+    }
+
+    @Test
+    fun `a TLS handshake trickled a byte at a time is cut off at the request deadline`() {
+        val identity = TlsIdentity.generate()
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") },
+            requestDeadlineMs = 300, socketFactory = identity.serverSocketFactory())
+        server.start()
+        try {
+            Socket("127.0.0.1", actualPort(server)).use { socket ->
+                socket.soTimeout = 3_000
+                val out = socket.getOutputStream()
+                // A TLS record header promising 16 KB, then the rest far too slowly.
+                out.write(byteArrayOf(0x16, 0x03, 0x01, 0x40, 0x00))
+                out.flush()
+                val started = System.currentTimeMillis()
+                var closed = false
+                while (System.currentTimeMillis() - started < 3_000) {
+                    try {
+                        out.write(0)
+                        out.flush()
+                    } catch (_: Exception) { closed = true; break }
+                    Thread.sleep(100)
+                }
+                assertTrue(closed)
+            }
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
     fun `a video viewer counts as active only while it takes frames`() {
         val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("secret-token") })
         server.start()
