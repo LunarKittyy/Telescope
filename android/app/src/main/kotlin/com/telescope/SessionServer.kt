@@ -27,10 +27,15 @@ class SessionServer(
     fun start() {
         try {
             running.set(true)
-            serverSocket = socketFactory.createServerSocket().apply {
-                reuseAddress = true
-                bind(InetSocketAddress(InetAddress.getByName("0.0.0.0"), port), 10)
+            val socket = socketFactory.createServerSocket()
+            try {
+                socket.reuseAddress = true
+                socket.bind(InetSocketAddress(InetAddress.getByName("0.0.0.0"), port), 10)
+            } catch (e: Exception) {
+                socket.close()  // retried on every acquire while the port is busy, so don't leak one each time
+                throw e
             }
+            serverSocket = socket
         } catch (e: Exception) {
             android.util.Log.w(TAG, "Could not bind port $port", e)
             running.set(false)

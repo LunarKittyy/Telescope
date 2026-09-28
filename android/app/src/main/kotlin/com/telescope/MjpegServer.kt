@@ -50,10 +50,16 @@ class MjpegServer(
         running.set(true)
         lastAuthorizedRequestAtMs = System.currentTimeMillis()
         // Set SO_REUSEADDR before binding to avoid EADDRINUSE on quick restart.
-        serverSocket = socketFactory.createServerSocket().apply {
-            reuseAddress = true
-            bind(java.net.InetSocketAddress(java.net.InetAddress.getByName(bindAddr), port), 50)
+        val socket = socketFactory.createServerSocket()
+        try {
+            socket.reuseAddress = true
+            socket.bind(java.net.InetSocketAddress(java.net.InetAddress.getByName(bindAddr), port), 50)
+        } catch (e: Exception) {
+            socket.close()
+            running.set(false)
+            throw e
         }
+        serverSocket = socket
         thread(name = "mjpeg-accept", isDaemon = true) {
             while (running.get()) {
                 try {
@@ -76,7 +82,7 @@ class MjpegServer(
 
     fun sendFrame(jpeg: ByteArray) {
         val dead = mutableListOf<MjpegClient>()
-        for (c in clients) { if (!c.enqueue(jpeg)) dead.add(c) }
+        for (c in clients) { if (!c.enqueue(jpeg)) dead.add(c) else if (givenUp(c.lastWriteAtMs)) { c.close(); dead.add(c) } }
         if (dead.isNotEmpty()) clients.removeAll(dead.toSet())
     }
 
@@ -89,12 +95,15 @@ class MjpegServer(
         if (h264Clients.isEmpty()) return
         val framed = H264Stream.withDelimiter(packet)
         var wantKey = false
-        for (c in h264Clients) { if (c.queue.offer(framed, key)) wantKey = true }
+        for (c in h264Clients) {
+            if (givenUp(c.lastWriteAtMs)) { c.close(); continue }
+            if (c.queue.offer(framed, key)) wantKey = true
+        }
         if (wantKey) requestKeyFrame()
     }
 
     fun sendAudio(chunk: ByteArray) {
-        for (c in audioClients) c.queue.offer(chunk)
+        for (c in audioClients) { if (givenUp(c.lastWriteAtMs)) c.close() else c.queue.offer(chunk) }
     }
 
     // Drop MJPEG viewers (the stream moved to H.264): with no frames to write they'd never notice a closed socket and keep their slot.
@@ -236,6 +245,7 @@ class MjpegServer(
 
     private fun pollMs(): Long = minOf(2_000L, viewerGiveUpMs)
 
+    // Also checked by the senders: a viewer whose write is blocked on a dead link never polls, and closing unblocks it
     private fun givenUp(lastWriteAtMs: Long): Boolean = System.currentTimeMillis() - lastWriteAtMs >= viewerGiveUpMs
 
     // A long-lived stream socket. Nagle off: otherwise the last piece of each frame can sit waiting for the
@@ -327,7 +337,8 @@ class MjpegServer(
     inner class AudioClient(private val socket: Socket) {
         val queue = PcmClientQueue()
         private val alive = AtomicBoolean(true)
-        private var lastWriteAtMs = System.currentTimeMillis()
+        @Volatile var lastWriteAtMs: Long = System.currentTimeMillis()
+            private set
 
         fun stream() {
             try {

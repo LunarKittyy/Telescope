@@ -44,12 +44,14 @@ object StreamLauncher {
                 putExtra(CameraStreamService.EXTRA_OIS, selection.ois)
             }
         }
+        // Opened before the start, or a service that settles first would have its settle() undone
+        SessionStartWindow.begin()
         return try {
             // A plain start is allowed: the waiting service already keeps the app in the foreground.
             if (covered) context.startService(intent) else ContextCompat.startForegroundService(context, intent)
-            SessionStartWindow.begin()
             Result.Started
         } catch (e: Exception) {
+            SessionStartWindow.cancel()
             android.util.Log.w("StreamLauncher", "Could not start stream service", e)
             Result.Rejected("start_refused")
         }

@@ -59,6 +59,7 @@ class MainActivity : AppCompatActivity() {
 
     private var service: CameraStreamService? = null
     private var bound = false
+    private var bindRequested = false
     // Prevents double-start race; cleared once service connects.
     private var starting = false
 
@@ -131,7 +132,7 @@ class MainActivity : AppCompatActivity() {
             SessionEndpoint.refreshAnnouncement()
             if (service?.isStreaming == true) {
                 service?.stopStreaming()
-                if (bound) { unbindService(serviceConnection); bound = false; service = null }
+                unbind(); service = null
                 starting = restartStream()
                 updateStatusText()
             }
@@ -189,7 +190,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        bindService(Intent(this, CameraStreamService::class.java), serviceConnection, 0)
+        bindToService()
         uiHandler.post(statusPoller)
         PairedComputers.addListener(pairingListener)
         Updater.addListener(updateListener)
@@ -226,7 +227,7 @@ class MainActivity : AppCompatActivity() {
         uiHandler.removeCallbacks(statusPoller)
         PairedComputers.removeListener(pairingListener)
         Updater.removeListener(updateListener)
-        if (bound) { unbindService(serviceConnection); bound = false }
+        unbind()
         unregisterReceiver(pairReceiver)
         SessionEndpoint.release(SessionEndpoint.OWNER_ACTIVITY)
         super.onStop()
@@ -538,7 +539,7 @@ class MainActivity : AppCompatActivity() {
                 ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
                     PackageManager.PERMISSION_GRANTED)
         }
-        if (getSharedPreferences(PREFS_SETUP, MODE_PRIVATE).getBoolean(CameraStreamService.KEY_MIC_WANTED, false)) {
+        if (getSharedPreferences(CameraStreamService.PREFS_SETUP, MODE_PRIVATE).getBoolean(CameraStreamService.KEY_MIC_WANTED, false)) {
             steps += SetupStep(Manifest.permission.RECORD_AUDIO, "Microphone",
                 "For the Telescope microphone on your computer.",
                 AudioStreamer.permitted(this))
@@ -567,10 +568,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun askedBefore(permission: String): Boolean =
-        getSharedPreferences(PREFS_SETUP, MODE_PRIVATE).getBoolean(permission, false)
+        getSharedPreferences(CameraStreamService.PREFS_SETUP, MODE_PRIVATE).getBoolean(permission, false)
 
     private fun ask(permission: String) {
-        getSharedPreferences(PREFS_SETUP, MODE_PRIVATE).edit().putBoolean(permission, true).apply()
+        getSharedPreferences(CameraStreamService.PREFS_SETUP, MODE_PRIVATE).edit().putBoolean(permission, true).apply()
         ActivityCompat.requestPermissions(this, arrayOf(permission), RC_PERMS)
     }
 
@@ -661,7 +662,7 @@ class MainActivity : AppCompatActivity() {
         if (!svc.isStreaming && !isBusy()) return
         starting = false
         svc.stopStreaming(if (svc.isStreaming) "stopButton" else "cancelButton")
-        if (bound) { unbindService(serviceConnection); bound = false; service = null }
+        unbind(); service = null
         updateStatusText()
     }
 
@@ -694,9 +695,22 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun rebindToService() {
-        if (bound) { unbindService(serviceConnection); bound = false }
+    // Registered even when nothing is running to connect to, so unbind by what was asked, not by `bound`
+    private fun bindToService() {
+        bindRequested = true
         bindService(Intent(this, CameraStreamService::class.java), serviceConnection, 0)
+    }
+
+    private fun unbind() {
+        if (!bindRequested) return
+        bindRequested = false
+        bound = false
+        try { unbindService(serviceConnection) } catch (_: IllegalArgumentException) {}
+    }
+
+    private fun rebindToService() {
+        unbind()
+        bindToService()
     }
 
     private fun updateStatusText() {
@@ -757,7 +771,6 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val RC_PERMS = 100
-        private const val PREFS_SETUP = "setup"  // permission -> asked once already
         // Lets the desktop app push a pairing payload straight over adb when
         // there's no camera-scannable QR code involved (USB pairing) - the
         // same JSON shape and handleQrScan() logic as the QR flow, just

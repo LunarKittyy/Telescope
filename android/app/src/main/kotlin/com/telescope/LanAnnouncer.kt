@@ -26,6 +26,7 @@ class LanAnnouncer(private val context: Context) {
             override fun onServiceRegistered(info: NsdServiceInfo) {}
             override fun onRegistrationFailed(info: NsdServiceInfo, code: Int) {
                 android.util.Log.w(TAG, "NSD registration failed: $code")
+                forget(this)  // so the next start() tries again instead of thinking it's announced
             }
             override fun onServiceUnregistered(info: NsdServiceInfo) {}
             override fun onUnregistrationFailed(info: NsdServiceInfo, code: Int) {}
@@ -36,6 +37,11 @@ class LanAnnouncer(private val context: Context) {
         } catch (e: Exception) {
             android.util.Log.w(TAG, "NSD registration threw", e)
         }
+    }
+
+    @Synchronized
+    private fun forget(l: NsdManager.RegistrationListener) {
+        if (listener === l) listener = null
     }
 
     @Synchronized

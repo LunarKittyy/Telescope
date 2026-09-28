@@ -72,4 +72,9 @@ object UpdateLogic {
     fun checkDue(lastCheckMs: Long, nowMs: Long): Boolean = nowMs - lastCheckMs >= DAY_MS
 
     const val DAY_MS = 24L * 60 * 60 * 1000
+
+    // The installer reports nothing if its confirm screen is left with Home; after this long the update is offered again
+    fun installStuck(sinceMs: Long, nowMs: Long): Boolean = nowMs - sinceMs >= INSTALL_STUCK_MS
+
+    const val INSTALL_STUCK_MS = 60_000L
 }

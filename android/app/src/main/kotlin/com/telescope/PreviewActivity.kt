@@ -54,6 +54,8 @@ class PreviewActivity : AppCompatActivity() {
 
     private var service: CameraStreamService? = null
     private var bound = false
+    private var bindRequested = false  // unbind by this: onStop can come before onServiceConnected
+    private var receiverRegistered = false
     private var boundToRunningStream = false
     private var resolved = false
     private var pendingSurface: Surface? = null
@@ -154,20 +156,30 @@ class PreviewActivity : AppCompatActivity() {
             return
         }
         // BIND_AUTO_CREATE ensures onServiceConnected always fires; flags=0 can return true without connecting.
+        bindRequested = true
         bindService(Intent(this, CameraStreamService::class.java), serviceConnection, Context.BIND_AUTO_CREATE)
         registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
+        receiverRegistered = true
     }
 
     override fun onStop() {
-        unregisterReceiver(screenOffReceiver)
+        // onStart can finish early (no camera permission) before registering or binding
+        if (receiverRegistered) { unregisterReceiver(screenOffReceiver); receiverRegistered = false }
         tearDownPreview()
-        if (bound) { unbindService(serviceConnection); bound = false }
+        unbind()
         service = null
         resolved = false
         boundToRunningStream = false
         // Exit; live stream owned independently by CameraStreamService.
         finish()
         super.onStop()
+    }
+
+    private fun unbind() {
+        if (!bindRequested) return
+        bindRequested = false
+        bound = false
+        try { unbindService(serviceConnection) } catch (_: IllegalArgumentException) {}
     }
 
     private fun tryResolve() {
@@ -195,8 +207,7 @@ class PreviewActivity : AppCompatActivity() {
             svc.attachPreviewSurface(surface)
             setupLensPillsFromService(streamSize)
         } else {
-            unbindService(serviceConnection)
-            bound = false
+            unbind()
             startStandalone(surface)
         }
     }

@@ -340,6 +340,39 @@ class MjpegServerTest {
     }
 
     @Test
+    fun `a viewer stuck in a blocked write is dropped while frames keep flowing`() {
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("secret-token") },
+            viewerGiveUpMs = 300)
+        server.start()
+        val sending = java.util.concurrent.atomic.AtomicBoolean(true)
+        val frame = ByteArray(256 * 1024)
+        val sender = Thread { while (sending.get()) { server.sendFrame(frame); Thread.sleep(20) } }
+        try {
+            Socket().use { socket ->
+                socket.receiveBufferSize = 4096
+                socket.connect(java.net.InetSocketAddress("127.0.0.1", actualPort(server)))
+                socket.getOutputStream().write("GET /v1/video HTTP/1.1\r\nAuthorization: Bearer secret-token\r\n\r\n"
+                    .toByteArray(StandardCharsets.ISO_8859_1))
+                sender.start()
+                Thread.sleep(1_500)  // not reading: the phone's write blocks, as on a link that died without a FIN
+                socket.soTimeout = 3_000
+                val input = socket.getInputStream()
+                val buf = ByteArray(64 * 1024)
+                val deadline = System.currentTimeMillis() + 3_000
+                var ended = false
+                while (!ended && System.currentTimeMillis() < deadline) {
+                    ended = try { input.read(buf) < 0 } catch (_: java.io.IOException) { true }
+                }
+                assertTrue(ended, "the stalled viewer should have been closed")
+            }
+        } finally {
+            sending.set(false)
+            sender.join(2_000)
+            server.stop()
+        }
+    }
+
+    @Test
     fun `a request that finishes after stop does not start the mic`() {
         val started = java.util.concurrent.atomic.AtomicInteger()
         val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") },

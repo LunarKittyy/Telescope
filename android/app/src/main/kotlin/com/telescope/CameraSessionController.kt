@@ -392,6 +392,28 @@ class CameraSessionController(
         }
     }
 
+    // Returns true when it has taken over (onComplete is then someone else's to call)
+    private fun sessionFailed(op: String, e: Throwable?, onComplete: (() -> Unit)?): Boolean {
+        if (retryWithoutPreview(op, e, onComplete)) return true
+        if (codec == H264Stream.CODEC_H264) {
+            // The camera can't feed the encoder at this size: MJPEG instead, and codecError stops the desktop retrying
+            encoderFailed(e ?: IllegalStateException("$op: configure failed"))
+            return false
+        }
+        onStateChanged(StreamState.Failed, op, e)
+        onFatalError()
+        return false
+    }
+
+    // A session without the stream's output would sit in Recovering until the watchdog; fail it now instead
+    private fun noOutput(op: String, onComplete: (() -> Unit)?): Boolean {
+        if (outputSurface() != null) return false
+        onStateChanged(StreamState.Failed, op, IllegalStateException("no stream output"))
+        onFatalError()
+        onComplete?.invoke()
+        return true
+    }
+
     private fun currentTargetSurfaces(): List<Surface> = listOfNotNull(outputSurface(), previewSurface)
 
     private fun createPhysicalSession(
@@ -405,10 +427,10 @@ class CameraSessionController(
         if (generation != cameraGeneration) { onComplete?.invoke(); return }
         val exec   = Executor { cmd -> handler?.post(cmd) }
         try {
+            if (noOutput("createPhysicalSession", onComplete)) return
             val outCfgs = currentTargetSurfaces().map { surface ->
                 OutputConfiguration(surface).also { it.setPhysicalCameraId(physId) }
             }
-            if (outCfgs.isEmpty()) { onComplete?.invoke(); return }
             camera.createCaptureSession(SessionConfiguration(
                 SessionConfiguration.SESSION_REGULAR, outCfgs, exec,
                 object : CameraCaptureSession.StateCallback() {
@@ -420,9 +442,7 @@ class CameraSessionController(
                     }
                     override fun onConfigureFailed(s: CameraCaptureSession) {
                         if (generation == cameraGeneration) {
-                            if (retryWithoutPreview("createPhysicalSession", null, onComplete)) return
-                            onStateChanged(StreamState.Failed, "createPhysicalSession.onConfigureFailed", null)
-                            onFatalError()
+                            if (sessionFailed("createPhysicalSession.onConfigureFailed", null, onComplete)) return
                         }
                         onComplete?.invoke()
                     }
@@ -430,9 +450,7 @@ class CameraSessionController(
             ))
         } catch (e: Exception) {
             if (generation == cameraGeneration) {
-                if (retryWithoutPreview("createPhysicalSession", e, onComplete)) return
-                onStateChanged(StreamState.Failed, "createPhysicalSession", e)
-                onFatalError()
+                if (sessionFailed("createPhysicalSession", e, onComplete)) return
             }
             onComplete?.invoke()
         }
@@ -446,8 +464,8 @@ class CameraSessionController(
         onComplete: (() -> Unit)? = null,
     ) {
         if (generation != cameraGeneration) { onComplete?.invoke(); return }
+        if (noOutput("createLegacySession", onComplete)) return
         val targets = currentTargetSurfaces()
-        if (targets.isEmpty()) { onComplete?.invoke(); return }
         try {
             camera.createCaptureSession(targets,
                 object : CameraCaptureSession.StateCallback() {
@@ -459,18 +477,14 @@ class CameraSessionController(
                     }
                     override fun onConfigureFailed(s: CameraCaptureSession) {
                         if (generation == cameraGeneration) {
-                            if (retryWithoutPreview("createLegacySession", null, onComplete)) return
-                            onStateChanged(StreamState.Failed, "createLegacySession.onConfigureFailed", null)
-                            onFatalError()
+                            if (sessionFailed("createLegacySession.onConfigureFailed", null, onComplete)) return
                         }
                         onComplete?.invoke()
                     }
                 }, handler)
         } catch (e: Exception) {
             if (generation == cameraGeneration) {
-                if (retryWithoutPreview("createLegacySession", e, onComplete)) return
-                onStateChanged(StreamState.Failed, "createLegacySession", e)
-                onFatalError()
+                if (sessionFailed("createLegacySession", e, onComplete)) return
             }
             onComplete?.invoke()
         }
@@ -658,6 +672,7 @@ class CameraSessionController(
                 override fun onOpened(camera: CameraDevice) {
                     if (myGeneration != cameraGeneration) { camera.close(); return }
                     cameraDevice = camera
+                    if (outputSurface() == null) buildOutputs()  // a reopen this switch overtook had released them
                     if (physId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
                         createPhysicalSession(camera, physId, myGeneration)
                     else

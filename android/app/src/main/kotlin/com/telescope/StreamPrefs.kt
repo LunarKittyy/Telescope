@@ -53,6 +53,7 @@ object StreamPrefs {
     }
 
     // Applies one change from the computer to the remembered selection, starting from the service defaults.
+    @Synchronized  // server threads and the camera thread both update it
     fun updateSelection(context: Context, change: (Selection) -> Selection) {
         val current = lastSelection(context) ?: Selection("0", "", 1920, 1080, true)
         saveSelection(context, change(current))
