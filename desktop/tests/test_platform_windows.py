@@ -1,3 +1,4 @@
+import io
 import hashlib
 import subprocess
 import sys
@@ -38,11 +39,11 @@ def test_download_unitycapture_verifies_both_files(monkeypatch, tmp_path):
          for bits, data in payloads.items()},
     )
 
-    def retrieve(url, dest):
-        bits = "32" if "32.dll" in url else "64"
-        Path(dest).write_bytes(payloads[bits])
+    def fetch(url, timeout):
+        assert timeout
+        return io.BytesIO(payloads["32" if "32.dll" in url else "64"])
 
-    monkeypatch.setattr(windows.urllib.request, "urlretrieve", retrieve)
+    monkeypatch.setattr(windows.urllib.request, "urlopen", fetch)
 
     assert windows.download_unitycapture(progress.append) == (True, "Downloaded")
     assert progress == [
@@ -55,8 +56,8 @@ def test_download_unitycapture_handles_network_and_checksum_failures(monkeypatch
     monkeypatch.setattr(windows, "unitycapture_dir", lambda: tmp_path)
     monkeypatch.setattr(
         windows.urllib.request,
-        "urlretrieve",
-        lambda *_args: (_ for _ in ()).throw(OSError("offline")),
+        "urlopen",
+        lambda *_args, **_kw: (_ for _ in ()).throw(OSError("offline")),
     )
     ok, msg = windows.download_unitycapture()
     assert ok is False
@@ -64,8 +65,8 @@ def test_download_unitycapture_handles_network_and_checksum_failures(monkeypatch
 
     monkeypatch.setattr(
         windows.urllib.request,
-        "urlretrieve",
-        lambda _url, dest: Path(dest).write_bytes(b"wrong"),
+        "urlopen",
+        lambda _url, timeout: io.BytesIO(b"wrong"),
     )
     ok, msg = windows.download_unitycapture()
     assert ok is False
@@ -99,6 +100,26 @@ def test_register_invokes_elevated_powershell(monkeypatch, tmp_path):
     assert "regsvr32" in calls[0][0][-1]
     assert calls[0][0][-1].count('"/i:UnityCaptureName=Telescope"') == 2
     assert calls[0][1]["timeout"] == 60
+
+
+def test_register_unitycapture_survives_an_apostrophe_in_the_folder(monkeypatch, tmp_path):
+    folder = tmp_path / "O'Brien"
+    folder.mkdir()
+    payloads = {name: name.encode() for name in windows._EXPECTED_SHA256}
+    for name, data in payloads.items():
+        (folder / name).write_bytes(data)
+    monkeypatch.setattr(windows, "unitycapture_dir", lambda: folder)
+    monkeypatch.setattr(windows, "_EXPECTED_SHA256",
+                        {name: hashlib.sha256(data).hexdigest() for name, data in payloads.items()})
+    calls = []
+    monkeypatch.setattr(windows.subprocess, "run",
+                        lambda cmd, **kwargs: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+
+    windows.register_unitycapture()
+
+    ps = calls[0][-1]
+    quoted = ps[ps.index("-ArgumentList '") + len("-ArgumentList '"):ps.rindex("' -Verb")]
+    assert "O''Brien" in quoted and "'" not in quoted.replace("''", "")
 
 
 @pytest.mark.parametrize(

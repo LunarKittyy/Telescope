@@ -9,7 +9,7 @@ from typing import Optional
 
 from PyQt6.QtCore import QPoint, QSize
 from PyQt6.QtGui import QAction
-from PyQt6.QtWidgets import QInputDialog, QLineEdit, QMenu, QPushButton, QWidget
+from PyQt6.QtWidgets import QInputDialog, QLineEdit, QMenu, QMessageBox, QPushButton, QWidget
 
 from telescope import theme
 from telescope.plugin import TelescopePlugin
@@ -146,13 +146,28 @@ class PresetsPlugin(TelescopePlugin):
         menu = self.build_menu(self._btn)
         menu.exec(self._btn.mapToGlobal(self._btn.rect().bottomLeft()) + QPoint(0, 6))
 
+    def unused_name(self) -> str:
+        n = len(self._presets) + 1
+        while self.find(f"Preset {n}") is not None:
+            n += 1
+        return f"Preset {n}"
+
+    def _may_replace(self, name: str, keep: Optional[str] = None) -> bool:
+        """Whether saving as name may go ahead: yes when no other preset has it, else ask first."""
+        name = name.strip()[:_MAX_NAME]
+        if not name or name == keep or self.find(name) is None:
+            return True
+        answer = QMessageBox.question(self._btn.window(), "Replace preset",
+                                      f"There's already a preset called \"{name}\". Replace it?")
+        return answer == QMessageBox.StandardButton.Yes
+
     def _ask_save(self):
         name, ok = QInputDialog.getText(self._btn.window(), "Save preset", "Name:", QLineEdit.EchoMode.Normal,
-                                        f"Preset {len(self._presets) + 1}")
-        if ok:
+                                        self.unused_name())
+        if ok and self._may_replace(name):
             self.save(name)
 
     def _ask_rename(self, old: str):
         name, ok = QInputDialog.getText(self._btn.window(), "Rename preset", "Name:", QLineEdit.EchoMode.Normal, old)
-        if ok:
+        if ok and self._may_replace(name, keep=old):
             self.rename(old, name)

@@ -27,7 +27,7 @@ def config_path() -> Path:
 def load_config() -> dict:
     path = config_path()
     try:
-        text = path.read_text(encoding="utf-8")
+        data = path.read_bytes()
     except FileNotFoundError:
         return _empty()
     except OSError:
@@ -35,10 +35,10 @@ def load_config() -> dict:
         return _empty()
 
     try:
-        raw = json.loads(text)
-    except json.JSONDecodeError:
+        raw = json.loads(data.decode("utf-8-sig"))  # -sig: Notepad saves a byte order mark
+    except ValueError:  # not JSON, not UTF-8, or a number too long to read
         logger.exception("Config at %s is not valid JSON - backing up and starting fresh", path)
-        _backup_invalid_file(path, text)
+        _backup_invalid_file(path, data)
         return _empty()
 
     raw = _upgrade_from_v2(raw)
@@ -47,7 +47,7 @@ def load_config() -> dict:
             "Config at %s is missing, malformed, or an unsupported older version - "
             "backing up and starting fresh", path,
         )
-        _backup_invalid_file(path, text)
+        _backup_invalid_file(path, data)
         return _empty()
 
     return _validate_sections(raw)
@@ -71,12 +71,12 @@ def save_config(cfg: dict) -> bool:
         return False
 
 
-def _backup_invalid_file(path: Path, original_text: str) -> None:
+def _backup_invalid_file(path: Path, original: bytes) -> None:
     """Preserve discarded config (unparseable, wrong shape, unsupported version) as timestamped backup."""
     timestamp = datetime.now().strftime("%Y%m%dT%H%M%S")
     backup_path = path.with_name(f"{path.name}.invalid-{timestamp}")
     try:
-        backup_path.write_text(original_text, encoding="utf-8")
+        backup_path.write_bytes(original)
         logger.info("Backed up invalid config to %s", backup_path)
     except OSError:
         logger.exception("Failed to back up invalid config to %s", backup_path)

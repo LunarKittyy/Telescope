@@ -16,6 +16,7 @@ A source checkout (a .git folder) or a folder this user can't write to is never 
 """
 
 import hashlib
+import http.client
 import json
 import logging
 import os
@@ -179,7 +180,7 @@ def download(asset: Asset, dest_dir: Path, progress: Optional[Callable[[int, int
     except UpdateError:
         partial.unlink(missing_ok=True)
         raise
-    except OSError as exc:
+    except (OSError, http.client.HTTPException) as exc:  # HTTPException: cut off part way (IncompleteRead)
         partial.unlink(missing_ok=True)
         raise UpdateError("The download failed. Check the internet connection and try again.") from exc
     if done != asset.size or digest.hexdigest() != asset.sha256:

@@ -140,6 +140,13 @@ def test_config_round_trip_updates_widgets(transforms_plugin):
     assert plugin._pan_x_slider._slider.isEnabled()
 
 
+@pytest.mark.parametrize("zoom", [1.15, 2.03, 2.3, 4.1])
+def test_a_saved_zoom_loads_exactly(transforms_plugin, zoom):
+    plugin, _host, _panel = transforms_plugin
+    plugin.set_config({"zoom": zoom})
+    assert plugin.get_config()["zoom"] == pytest.approx(zoom)
+
+
 def test_saved_pan_config_updates_runtime_processing_state(transforms_plugin):
     plugin, _host, _panel = transforms_plugin
 

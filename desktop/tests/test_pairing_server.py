@@ -246,3 +246,22 @@ def test_stop_is_idempotent(pairing_server):
     server, _offer, _paired = pairing_server
     server.stop()
     server.stop()  # must not raise
+
+
+def test_pairing_again_straight_away_keeps_the_fixed_port(monkeypatch):
+    import telescope.pairing as pairing_module
+    monkeypatch.setattr(pairing_module, "PAIRING_PORT", 38765)
+    first = PairingServer(on_paired=lambda _r: None)
+    port = first.start(advertise=[]).port
+    conn = http.client.HTTPConnection("127.0.0.1", port, timeout=2)
+    conn.request("GET", "/")
+    conn.getresponse().read()
+    conn.close()
+    first.stop()  # the server closed its side first, so the port sits in TIME_WAIT
+    time.sleep(1)  # stop() lets go of the port in the background
+
+    second = PairingServer(on_paired=lambda _r: None)
+    try:
+        assert second.start(advertise=[]).port == 38765
+    finally:
+        second.stop()

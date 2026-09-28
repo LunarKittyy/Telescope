@@ -137,6 +137,7 @@ class CameraControlPlugin(TelescopePlugin):
         self._manual_focus      = False
         self._point_focus       = False
         self._lens_id: Optional[str] = None
+        self._pending_lens: Optional[str] = None  # a preset's lens, applied while idle, for the next stream
         bus.focus_point.connect(self._on_focus_point)
         self._focus_max_diopters: float = 10.0
         self._ae_comp_step: float = 0.167
@@ -349,6 +350,13 @@ class CameraControlPlugin(TelescopePlugin):
         self._lens_panel.load(view.lenses)
 
         cur = view.current_camera
+        lens, self._pending_lens = self._pending_lens, None
+        cam = self._lens_panel.select_id(lens) if lens and cur and lens != cur.get("id") else None
+        if cam and self._ctrl:
+            self._on_lens_selected(cam)
+            self._set_point_available(cam.get("supportsFocusPoint", False) is True)
+            self._push_settings_to_phone()
+            return  # the widgets already hold the preset; the phone's next state comes from the new lens
         if cur:
             self._lens_id = cur.get("id")
             self._iso_slider.set_range(cur.get("isoMin", 50), cur.get("isoMax", 6400))
@@ -703,7 +711,7 @@ class CameraControlPlugin(TelescopePlugin):
         self._rb_focus_auto.setChecked(not manual_focus)
         self._manual_focus = manual_focus
         self._focus_slider.setEnabled(manual_focus)
-        if d := cfg.get("focus_diopters"):
+        if (d := cfg.get("focus_diopters")) is not None:  # 0 is infinity
             self._set_focus_slider_value(float(d))
         manual_wb = bool(cfg.get("wb_manual", False))
         self._rb_wb_manual.setChecked(manual_wb)
@@ -733,6 +741,7 @@ class CameraControlPlugin(TelescopePlugin):
             self._edge_combo.setCurrentIndex(idx)
         self._bll_cb.setChecked(bool(cfg.get("bll", False)))
         self._lens_id = cfg.get("lens")
+        self._pending_lens = None
 
     def apply_preset(self, cfg: dict):
         """Load a preset's settings and, while streaming, send all of them (lens first)."""
@@ -740,6 +749,7 @@ class CameraControlPlugin(TelescopePlugin):
         self.set_config(cfg)
         self._point_focus = False
         if not self._ctrl:
+            self._pending_lens = cfg.get("lens")
             return
         self._lens_id = live_lens  # until the switch below goes out
         lens = cfg.get("lens")

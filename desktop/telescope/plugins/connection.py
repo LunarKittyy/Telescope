@@ -726,9 +726,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._check_id += 1  # anything in flight is older than this
         self._apply_resolution(res)
         if res.status != READY:
-            self._host.show_issue("start", Issue(
-                "Can't connect to the phone", problem_text(res, phone.name, self._route_pref),
-                self._fix_actions(res)))
+            self._show_start_problem(res, phone)
             return None, None, False
         url = self._hold_stream_route(res.route)
         if url is None:
@@ -738,6 +736,19 @@ class ConnectionPlugin(TelescopePlugin):
                 [BannerAction("Try again", self._host.start_stream)]))
             return None, None, False
         return url, phone.auth, True
+
+    def show_problem(self, res: Resolution):
+        """Say why the phone won't stream (a dropped stream it won't take back), as a failed Start would."""
+        phone = self._selected_phone()
+        if phone is None:
+            return
+        self._check_id += 1
+        self._apply_resolution(res)
+        self._show_start_problem(res, phone)
+
+    def _show_start_problem(self, res: Resolution, phone):
+        self._host.show_issue("start", Issue(
+            "Can't connect to the phone", problem_text(res, phone.name, self._route_pref), self._fix_actions(res)))
 
     def _hold_stream_route(self, route: Route) -> Optional[str]:
         """Make route the stream's, letting go of the previous one's USB forward. The video URL, or None."""

@@ -863,14 +863,12 @@ class LogSliderRow(QWidget):
         self.value_changed.emit(val)
 
     def set_range(self, v_min: float, v_max: float):
+        cur = self.get_value()  # keeps the value, not the slider position, clamped to the new range
         self.v_min = v_min
         self.v_max = v_max
         lo, hi = self._to_spin(v_min), self._to_spin(v_max)
         self._spin.setRange(lo, hi)
-        cur_pos = self._slider.value()
-        val = log_pos_to_val(cur_pos, self.STEPS, v_min, v_max)
-        display_val = val if self._is_double_spin else round(val)
-        self._val_lbl.setText(self.display_fn(display_val))
+        self.set_value(min(max(cur, v_min), max(v_min, v_max)))
 
     def get_value(self) -> float:
         return log_pos_to_val(self._slider.value(), self.STEPS, self.v_min, self.v_max)

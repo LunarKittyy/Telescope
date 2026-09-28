@@ -46,6 +46,23 @@ def test_malformed_json_is_backed_up_before_reset(config_home):
     assert backups[0].read_text(encoding="utf-8") == "not valid json"
 
 
+def test_a_config_that_is_not_utf8_is_backed_up_not_fatal(config_home):
+    path = config_home.config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    raw = '{"version": 3, "selected_device": "Café"}'.encode("latin-1")
+    path.write_bytes(raw)
+
+    assert config_home.load_config()["selected_device"] is None
+    assert next(path.parent.glob(f"{path.name}.invalid-*")).read_bytes() == raw
+
+
+def test_a_config_saved_with_a_byte_order_mark_still_loads(config_home):
+    path = config_home.config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"\xef\xbb\xbf" + json.dumps({"version": 3, "selected_device": "Pixel"}).encode())
+    assert config_home.load_config()["selected_device"] == "Pixel"
+
+
 def test_stale_version_config_is_backed_up_before_reset(config_home):
     path = config_home.config_path()
     path.parent.mkdir(parents=True, exist_ok=True)

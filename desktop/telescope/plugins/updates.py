@@ -8,6 +8,7 @@ checkout, a read-only folder) gets a link to the release page instead.
 
 import logging
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -314,19 +315,22 @@ class UpdatesPlugin(TelescopePlugin):
         build = self.available.build if self.available else 0
 
         def work():
+            folder = None
             try:
+                folder = Path(tempfile.mkdtemp(prefix="telescope-update-"))  # our own, not a shared /tmp path
                 archive = updates.download(
-                    asset, Path(tempfile.gettempdir()) / "telescope-update",
-                    progress=lambda d, t: signals.progress.emit(d, t), cancelled=cancel.is_set)
+                    asset, folder, progress=lambda d, t: signals.progress.emit(d, t), cancelled=cancel.is_set)
                 signals.progress.emit(-1, -1)  # downloaded: now installing
                 stop_adb_server()  # a running adb.exe would keep platform-tools on its old version
                 result, error = updates.install(archive, build=build), ""
-                archive.unlink(missing_ok=True)
             except updates.UpdateError as exc:
                 result, error = None, str(exc)
             except Exception:
                 logger.exception("Update failed")
                 result, error = None, "The update failed."
+            finally:
+                if folder is not None:
+                    shutil.rmtree(folder, ignore_errors=True)
             try:
                 signals.installed.emit(result, error)
             except RuntimeError:

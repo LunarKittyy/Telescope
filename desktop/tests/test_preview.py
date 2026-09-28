@@ -130,6 +130,31 @@ def test_open_and_close_popout_disables_then_restores_toggle(qapp):
     assert plugin._popout is None
     assert plugin._popout_active is False
     assert plugin._toggle_btn.isEnabled()
+    assert plugin._active is True  # the card it hid comes back
+
+
+def test_a_popout_opened_with_the_card_hidden_leaves_it_hidden(qapp):
+    plugin, _host, _panel = _plugin(qapp)
+    plugin._toggle()
+    plugin._open_popout()
+    plugin._popout.close()
+    qapp.processEvents()
+    assert plugin._active is False
+
+
+def test_a_frame_that_arrives_after_stop_does_not_cover_the_idle_text(qapp):
+    plugin, _host, panel = _plugin(qapp)
+    panel.resize(500, 300)
+    plugin._preview_lbl.resize(480, 180)
+    plugin.on_stream_start("http://phone/", None)
+    plugin._busy = True
+
+    plugin.on_stream_stop()
+    plugin._on_frame(np.full((90, 160, 3), 128, dtype=np.uint8))
+
+    assert plugin._preview_lbl.pixmap().isNull()
+    assert plugin._preview_lbl.text() == _IDLE_TEXT
+    assert plugin._busy is False
 
 
 def test_second_popout_request_reuses_visible_window(qapp, monkeypatch):
@@ -171,6 +196,7 @@ def test_on_frame_updates_card_pixmap_and_clears_busy(qapp):
     plugin._active = True
     plugin._preview_lbl.resize(480, 180)
     plugin._busy = True
+    plugin.on_stream_start("http://phone/", None)
 
     plugin._on_frame(np.full((90, 160, 3), 128, dtype=np.uint8))
 
@@ -367,6 +393,7 @@ def test_a_frame_sized_for_the_view_goes_up_unscaled_and_keeps_its_colours(qapp)
     plugin._preview_lbl.resize(320, 240)
     frame = np.zeros((180, 320, 3), dtype=np.uint8)
     frame[..., 0] = 255  # blue, in BGR
+    plugin.on_stream_start("http://phone/", None)
 
     plugin._on_frame(frame)
 
