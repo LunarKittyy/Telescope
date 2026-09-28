@@ -1,6 +1,6 @@
 # Device compatibility matrix
 
-Manually maintained - update after testing that exact device/build combo. "OK" means the feature worked as documented in README; note caveats instead of just checking off.
+Manually maintained - update after testing that exact device/build combo. "OK" means the feature worked as documented in [features.md](features.md); note caveats instead of just checking off.
 
 Legend: `OK` tested and working · `PARTIAL` works with caveats (see notes) ·
 `FAIL` doesn't work · `-` not tested yet.
@@ -19,7 +19,7 @@ Legend: `OK` tested and working · `PARTIAL` works with caveats (see notes) ·
 - **Lens selection**: all physical lenses (wide/main/telephoto) enumerate; switching changes video feed, not just digital zoom.
 - **Zoom on Auto**: on the Auto lens, zooming in past the lens marks switches to the telephoto (the dot next to the zoom turns lavender) and the picture gets sharper.
 - **Manual exposure**: ISO and shutter sliders change on-device exposure (not just toggle correctly).
-- **Manual WB**: Kelvin slider visibly shifts color temperature (README already notes this is inconsistent across devices/lenses - record exactly what happens, not just pass/fail).
+- **Manual WB**: Kelvin slider visibly shifts color temperature (features.md already notes this is inconsistent across devices/lenses - record exactly what happens, not just pass/fail).
 - **Focus**: manual focus distance and clicking the preview to focus both change what's sharp.
 - **OIS toggle**: visible effect on lenses reporting `hasOis: true`.
 - **H.264**: switching Format to H.264 streams, and the Mbps readout drops compared to MJPEG.

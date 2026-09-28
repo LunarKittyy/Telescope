@@ -1,0 +1,25 @@
+# Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| Only 2 cameras visible | Physical sub-cameras hidden behind logical camera | Already handled via `physicalCameraIds`; if still missing, device may restrict access |
+| Manual exposure greyed out | Camera doesn't report `MANUAL_SENSOR` capability | Some front cameras and telephoto lenses don't support it; use Auto |
+| `/dev/video11` gone after reboot | v4l2loopback isn't loaded at boot | Start Streaming loads it. Leave **Also switch it on at every startup** ticked (or tick **Load at boot** in Advanced) and it won't ask again |
+| pyvirtualcam fails to open (Linux) | Module not loaded, or not installed | Install `v4l2loopback-dkms` (Debian/Ubuntu/Arch) or `v4l2loopback` (Fedora/Nobara, via RPM Fusion), then click Start again. **Advanced** can load it by hand |
+| pyvirtualcam fails to open (Windows) | UnityCapture not registered | Open **Advanced** from the settings menu and reinstall the driver |
+| "Virtual camera is set up differently" banner when starting | Some other app (OBS's own virtual camera, a previous session, etc.) already has the module loaded with different settings | Close that app, or run `sudo modprobe -r v4l2loopback` yourself, then click Start again |
+| Canvas restart fails with "module in use" | OBS or another app still holds the device | Close all apps using the virtual camera, then retry |
+| Camera control panel never appears | Phone HTTP server slow to start | App retries 3x over 6s; check the phone still shows the stream running |
+| WB slider has no effect | Camera doesn't support `MANUAL_POST_PROCESSING` | Falls back gracefully; auto AWB still works |
+| ISO/shutter change has no effect | Only one of the two was sent | Switch to Manual - desktop sends both simultaneously |
+| High latency over Wi-Fi | MJPEG is per-frame JPEG, higher bandwidth than H.264 | Switch Format to H.264, use USB mode, lower JPEG quality, or reduce phone FPS |
+| Second launch does nothing | Single-instance enforcement | The existing window is brought to the front |
+| QR pairing fails ("Could not reach the desktop") | Phone and desktop not on the same network, or desktop firewall blocking port 8765 | The failure dialog on the phone lists every address it tried and how each failed. Make sure both are on the same Wi-Fi and the Add phone dialog is still open (the pairing server only runs while it is), or plug the phone in and pair over USB |
+| QR pairing fails on a guest/public Wi-Fi | Client isolation - the access point blocks device-to-device traffic entirely | Nothing on either device can work around this; use USB pairing, or a network you control |
+| Plugged in, but USB pairing doesn't happen | The Add phone dialog's USB line says which: adb isn't installed, USB debugging hasn't been allowed on the phone, or the app isn't on screen | Install `adb` (Linux; it's bundled on Windows), accept the USB debugging prompt on the phone, and keep Telescope open on it - the offer is re-sent every few seconds |
+| Streams over Wi-Fi although the phone is plugged in | The Connection panel says why under **Using**: Telescope isn't open on the phone, USB debugging isn't allowed yet, or the cable has a different phone on it | Fix what it names and the next connect uses USB (mid-stream, **Switch to USB** appears). To never use Wi-Fi, set **Connect via** to USB only |
+| "Can't reach the phone" | The app isn't open on the phone, or the phone is on another network and not plugged in | Open Telescope on the phone and keep it on screen; the status updates by itself |
+| "Needs pairing again" | The phone removed this computer | Click **Add phone** and pair it again; its settings on this computer are kept |
+| "Can't reach the phone" after reinstalling the phone app | A reinstalled app is a new phone to Telescope | Click **Add phone** and pair it (it starts with default settings), then remove the old entry |
+| QR pairing fails while a VPN is active | The VPN is blocking local-network traffic outright. (A VPN that *allows* LAN access is handled: the desktop advertises its real interface addresses rather than whatever owns the default route, and the phone sends LAN attempts over its Wi-Fi interface rather than the tunnel) | Turn on the VPN's "allow local network access"/"LAN access" option, pause the VPN while pairing, or use USB pairing. Once paired, streaming has the same requirement |
+| QR scanner opens in landscape | Manifest override not applied | The app overrides ZXing's default orientation to portrait; rebuild if you see this on an old build |
