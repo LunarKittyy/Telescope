@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -26,13 +27,18 @@ def config_path() -> Path:
 
 def load_config() -> dict:
     path = config_path()
-    try:
-        data = path.read_bytes()
-    except FileNotFoundError:
-        return _empty()
-    except OSError:
-        logger.exception("Failed to read config from %s - starting fresh", path)
-        return _empty()
+    for attempt in range(3):
+        try:
+            data = path.read_bytes()
+            break
+        except FileNotFoundError:
+            return _empty()
+        except OSError:
+            # Often brief (a virus scanner or sync app holding the file); starting fresh would save over it later
+            if attempt == 2:
+                logger.exception("Failed to read config from %s - starting fresh", path)
+                return _empty()
+            time.sleep(0.2)
 
     try:
         raw = json.loads(data.decode("utf-8-sig"))  # -sig: Notepad saves a byte order mark
@@ -58,10 +64,15 @@ def save_config(cfg: dict) -> bool:
     path = config_path()
     cfg["version"] = CONFIG_VERSION
     try:
+        text = json.dumps(cfg, indent=2, default=_plain)  # before opening, so a bad value can't leave a half-written file
+    except (TypeError, ValueError):
+        logger.exception("Config has a value that can't be saved; keeping the last saved config")
+        return False
+    try:
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp_path = path.with_suffix(path.suffix + ".tmp")
         with open(tmp_path, "w", encoding="utf-8") as f:
-            f.write(json.dumps(cfg, indent=2))
+            f.write(text)
             f.flush()
             os.fsync(f.fileno())
         os.replace(tmp_path, path)
@@ -69,6 +80,13 @@ def save_config(cfg: dict) -> bool:
     except OSError:
         logger.exception("Failed to save config to %s", path)
         return False
+
+
+def _plain(value):
+    # A plugin handing back a numpy number or array is saved as the plain value it stands for
+    if hasattr(value, "tolist"):
+        return value.tolist()
+    raise TypeError(f"{type(value).__name__} can't be saved in the config")
 
 
 def _backup_invalid_file(path: Path, original: bytes) -> None:

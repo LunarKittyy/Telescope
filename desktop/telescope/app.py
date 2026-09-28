@@ -24,7 +24,7 @@ from telescope.phones import DESKTOP_OUTDATED, LOCAL_ONLY, NOT_PAIRED, PHONE_OUT
 from telescope.platform import IS_LINUX
 from telescope.plugin import UNCHANGED, EventBus, TelescopePlugin
 from telescope.session import StreamSession
-from telescope.stream import StreamWorker
+from telescope.stream import StreamWorker, guarded_step
 from telescope.widgets.banner import BannerAction, BannerArea, Issue, copy_action
 from telescope.widgets.common import (
     ElidingLabel, create_app_icon, create_vector_icon, set_status_kind, ui_px,
@@ -50,8 +50,7 @@ def acquire_single_instance(wait: float = 0.0) -> Optional[socket.socket]:
     """
     deadline = time.monotonic() + wait
     while True:
-        srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 0)
+        srv = update_guard.instance_socket()
         try:
             srv.bind(("127.0.0.1", _INSTANCE_PORT))
             srv.listen(1)
@@ -129,6 +128,8 @@ class TelescopeWindow(QMainWindow):
         # Generation counter for phone-wake; guards against stale async results.
         self._wake_id = 0
         self._waking = False
+        self._preparing = False  # _start is finding the phone; timers still fire meanwhile, so it must not start again
+        self._orphans: set = set()  # workers that outlived Stop's wait, kept referenced until they finish
         self._restarting = False  # stopping only to start again (reconnect, virtual camera resize)
         # A dropped stream looking for its way back; the generation drops probes from an earlier drop.
         self._recovering = False
@@ -420,6 +421,23 @@ class TelescopeWindow(QMainWindow):
     def schedule_save(self):
         self._save_timer.start(500)
 
+    def _each_plugin(self, hook: str, *args):
+        """Call a hook on every plugin; one that raises is logged and the others still hear about it."""
+        for p in self._plugins:
+            try:
+                getattr(p, hook)(*args)
+            except Exception:
+                logging.exception("Plugin %s failed in %s", p.name, hook)
+
+    @staticmethod
+    def _config_of(plugin: TelescopePlugin, saved):
+        """plugin.get_config(), or what was saved before if it raises (so one plugin can't stop every save)."""
+        try:
+            return plugin.get_config()
+        except Exception:
+            logging.exception("Plugin %s couldn't report its settings; keeping the saved ones", plugin.name)
+            return saved
+
     def save_now(self):
         cfg = load_config()
         global_pcfg = cfg.setdefault("plugin_configs", {})
@@ -428,14 +446,16 @@ class TelescopeWindow(QMainWindow):
         cfg["selected_device"] = selected
         for p in self._plugins:
             if p.name and p.name not in DEVICE_LOCAL_PLUGINS:
-                global_pcfg[p.name] = p.get_config()
+                if (c := self._config_of(p, global_pcfg.get(p.name))) is not None:
+                    global_pcfg[p.name] = c
         # Per-device plugin configs
         if selected:
             dev = cfg.setdefault("devices", {}).setdefault(selected, {})
             dev_pcfg = dev.setdefault("plugin_configs", {})
             for p in self._plugins:
                 if p.name and p.name in DEVICE_LOCAL_PLUGINS:
-                    dev_pcfg[p.name] = p.get_config()
+                    if (c := self._config_of(p, dev_pcfg.get(p.name))) is not None:
+                        dev_pcfg[p.name] = c
         if save_config(cfg):
             self._save_failure_notified = False
         elif not self._save_failure_notified:
@@ -471,10 +491,11 @@ class TelescopeWindow(QMainWindow):
             prev_pcfg = cfg.setdefault("devices", {}).setdefault(prev_name, {}).setdefault("plugin_configs", {})
             for p in self._plugins:
                 if p.name and p.name in DEVICE_LOCAL_PLUGINS:
-                    prev_pcfg[p.name] = p.get_config()
+                    if (c := self._config_of(p, prev_pcfg.get(p.name))) is not None:
+                        prev_pcfg[p.name] = c
         save_config(cfg)
 
-        was_streaming = self._worker is not None
+        was_streaming = self._worker is not None or self._waking  # a start still waking would stream the old phone
         if was_streaming:
             self._stop()
 
@@ -501,7 +522,7 @@ class TelescopeWindow(QMainWindow):
 
     def reconnect_stream(self):
         """Restart stream to pick up changed connection settings."""
-        if self._worker is None:
+        if self._worker is None and not self._waking:  # a start still waking would use the old settings
             return
         self._stop_for_restart()
         self._start()
@@ -522,7 +543,7 @@ class TelescopeWindow(QMainWindow):
         return self._worker is not None
 
     def is_starting(self) -> bool:
-        return self._waking
+        return self._waking or self._preparing
 
     def stop_stream(self):
         """Stop stream; safe no-op if idle. Waking counts as active."""
@@ -546,8 +567,7 @@ class TelescopeWindow(QMainWindow):
         session = self._session
         if session is None:
             return
-        for p in self._plugins:
-            p.on_stream_start(session.url, session.client)
+        self._each_plugin("on_stream_start", session.url, session.client)
 
     def _apply_config(self, cfg: dict):
         if not cfg:
@@ -568,6 +588,7 @@ class TelescopeWindow(QMainWindow):
             conn.sync_active_profile()
 
     def _toggle(self):
+        if self._preparing:              return
         if self._worker or self._waking: self._stop()
         else:                            self._start()
 
@@ -577,7 +598,16 @@ class TelescopeWindow(QMainWindow):
         if not conn:
             return
         self.clear_issue("start")
-        url, auth, ok = conn.get_stream_info(interactive=interactive)
+        self._preparing = True
+        try:
+            url, auth, ok = conn.get_stream_info(interactive=interactive)
+        except Exception:
+            logging.exception("Getting ready to stream failed")
+            self.show_issue("start", Issue("Couldn't start streaming", "Something went wrong. Copy diagnostics has the details.",
+                                           [BannerAction("Try again", self.start_stream)]))
+            url, auth, ok = None, None, False
+        finally:
+            self._preparing = False
         if not ok:
             self._bus.stream_start_failed.emit()
             return
@@ -640,9 +670,9 @@ class TelescopeWindow(QMainWindow):
         setup = self._plugin("setup")
         canvas_w, canvas_h = setup.get_canvas_dims() if setup else (None, None)
 
-        pipeline = [p.process_frame for p in self._plugins]
-        for p in self._plugins:
-            p.on_stream_starting()
+        pipeline = [guarded_step(p.name or type(p).__name__, p.process_frame) for p in self._plugins
+                    if type(p).process_frame is not TelescopePlugin.process_frame]
+        self._each_plugin("on_stream_starting")
 
         ctrl = PhoneControlClient(url, auth)
         worker = StreamWorker(
@@ -661,8 +691,7 @@ class TelescopeWindow(QMainWindow):
         worker.start()
 
         self._bus.stream_started.emit(url)
-        for p in self._plugins:
-            p.on_stream_start(url, ctrl)
+        self._each_plugin("on_stream_start", url, ctrl)
 
         threading.Thread(target=self._fetch_state_async, args=(session_id,), daemon=True).start()
 
@@ -687,13 +716,20 @@ class TelescopeWindow(QMainWindow):
             self._stop_phone_async()
 
         if worker:
-            worker.status.disconnect(self._on_worker_status)
-            worker.reconnected.disconnect(self._on_stream_reconnected)
-            worker.vcam_opened.disconnect(self._bus.vcam_opened)
+            for signal, slot in ((worker.status, self._on_worker_status),
+                                 (worker.reconnected, self._on_stream_reconnected),
+                                 (worker.vcam_opened, self._bus.vcam_opened)):
+                try:
+                    signal.disconnect(slot)
+                except (TypeError, RuntimeError, ValueError):
+                    pass  # already disconnected
             worker.request_stop()
             # Bounded wait so a stalled read can't freeze the UI; if it doesn't finish in time, let it keep unwinding in the background.
             if not worker.wait(5000):
                 logging.warning("Stream worker did not stop within 5s; abandoning it in the background")
+                # Dropping the last reference to a running QThread aborts the app, so hold it until it ends.
+                self._orphans.add(worker)
+                worker.finished.connect(lambda w=worker: self._orphans.discard(w))
         if ctrl:
             ctrl.close()
         self._set_start_button(streaming=False)
@@ -704,8 +740,7 @@ class TelescopeWindow(QMainWindow):
         self._set_status("Not streaming", "dim")
 
         self._bus.stream_stopped.emit()
-        for p in self._plugins:
-            p.on_stream_stop()
+        self._each_plugin("on_stream_stop")
 
     # ── A dropped stream ──────────────────────────────────────────────────
     # The worker keeps retrying its URL, which is enough when Wi-Fi blips. But the phone may only be
@@ -827,8 +862,13 @@ class TelescopeWindow(QMainWindow):
                 if old_worker:
                     old_worker.wait(5000)
                 from telescope.platform.linux import v4l2_reload
-                with vcam.device_released():
-                    result = v4l2_reload()
+                try:
+                    with vcam.device_released():
+                        result = v4l2_reload()
+                except Exception as exc:  # still report back, so the stream restarts and the dialog frees up
+                    logging.exception("Loopback reload failed")
+                    self._sig_canvas_reload_done.emit(False, str(exc), was_streaming, "")
+                    return
                 self._sig_canvas_reload_done.emit(result.ok, result.message, was_streaming,
                                                   result.command or "")
 
@@ -889,8 +929,9 @@ class TelescopeWindow(QMainWindow):
         # the typed PhoneState so existing plugins keep consuming the shape
         # they already expect; the validation above is the new behavior.
         self._bus.phone_state_updated.emit(state)
-        for p in self._plugins:
-            p.on_phone_state(state)
+        if self._session is None or self._session.id != session_id:
+            return  # something listening (Monitoring, too hot) stopped the stream just now
+        self._each_plugin("on_phone_state", state)
 
     def _setup_tray(self):
         self._tray_close_notified = False
@@ -928,7 +969,7 @@ class TelescopeWindow(QMainWindow):
         self._tray_quit()
 
     def start_stream(self, interactive: bool = True):
-        if self._worker is None and not self._waking:
+        if self._worker is None and not self._waking and not self._preparing:
             self._start(interactive)
 
     def set_keep_in_tray(self, keep: bool):
@@ -961,10 +1002,21 @@ class TelescopeWindow(QMainWindow):
 
     def _tray_quit(self):
         self._tray_close_notified = True
-        self._stop()
-        self._drain_phone_stops()
-        self._shutdown_plugins()
+        self._shut_down()
         QApplication.quit()
+
+    def _flush_save(self):
+        if self._save_timer.isActive():  # a setting changed just before quitting
+            self._save_timer.stop()
+            self.save_now()
+
+    def _shut_down(self):
+        """Everything quitting does, each step on its own, so one that fails can't keep the app from closing."""
+        for step in (self._stop, self._flush_save, self._drain_phone_stops, self._shutdown_plugins):
+            try:
+                step()
+            except Exception:
+                logging.exception("Quitting: %s failed", step.__name__)
 
     def _on_tray_activated(self, reason):
         if reason == QSystemTrayIcon.ActivationReason.Trigger:
@@ -1068,8 +1120,11 @@ class TelescopeWindow(QMainWindow):
             self._net_lbl.setText("—")
             self._set_status(msg, "dim")
             if self._session:
-                self._session = None
-                self._set_start_button(streaming=False)
+                # Stop disconnects the worker first, so this is a worker that ended by itself: tidy up like a Stop.
+                logging.warning("The stream worker ended by itself")
+                self._stop()
+                self.show_issue("start", Issue("The stream stopped unexpectedly", "Copy diagnostics has the details.",
+                                               [BannerAction("Start", self.start_stream)], kind="warn"))
         else:
             self._set_status(msg, "dim")
 
@@ -1095,8 +1150,6 @@ class TelescopeWindow(QMainWindow):
                     urgent=False,
                 )
         else:
-            self._stop()
-            self._drain_phone_stops()
-            self._shutdown_plugins()
+            self._shut_down()
             event.accept()
             QApplication.quit()

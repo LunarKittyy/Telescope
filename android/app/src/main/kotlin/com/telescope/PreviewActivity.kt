@@ -253,7 +253,8 @@ class PreviewActivity : AppCompatActivity() {
     }
 
     private fun openStandaloneCamera(cam: CameraInfo, surface: Surface) {
-        val size = cam.supportedSizes.firstOrNull { it.width <= 1920 } ?: cam.supportedSizes.first()
+        val size = cam.supportedSizes.firstOrNull { it.width <= 1920 } ?: cam.supportedSizes.firstOrNull()
+            ?: run { finish(); return }
         textureView.surfaceTexture?.setDefaultBufferSize(size.width, size.height)
         applyPreviewTransform(cam.id, size)
 
@@ -267,7 +268,8 @@ class PreviewActivity : AppCompatActivity() {
                 override fun onOpened(camera: CameraDevice) {
                     if (myGeneration != standaloneGeneration) { camera.close(); return }
                     cameraDevice = camera
-                    openStandaloneSession(camera, surface, physId, myGeneration)
+                    // The camera can be taken back (a stream starting) between here and the session: close, don't crash.
+                    try { openStandaloneSession(camera, surface, physId, myGeneration) } catch (e: Exception) { lostCamera(e) }
                 }
                 override fun onDisconnected(camera: CameraDevice) {
                     camera.close()
@@ -286,12 +288,14 @@ class PreviewActivity : AppCompatActivity() {
             override fun onConfigured(s: CameraCaptureSession) {
                 if (generation != standaloneGeneration) { s.close(); return }
                 captureSession = s
-                val request = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
-                    addTarget(surface)
-                    set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
-                    set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
-                }.build()
-                try { s.setRepeatingRequest(request, null, handler) } catch (_: Exception) {}
+                try {
+                    val request = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
+                        addTarget(surface)
+                        set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+                        set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+                    }.build()
+                    s.setRepeatingRequest(request, null, handler)
+                } catch (e: Exception) { lostCamera(e) }
             }
             override fun onConfigureFailed(s: CameraCaptureSession) {}
         }
@@ -304,6 +308,11 @@ class PreviewActivity : AppCompatActivity() {
             @Suppress("DEPRECATION")
             camera.createCaptureSession(listOf(surface), callback, handler)
         }
+    }
+
+    private fun lostCamera(e: Exception) {
+        android.util.Log.w(TAG, "Preview lost the camera", e)
+        runOnUiThread { finish() }
     }
 
     private fun closeStandaloneCamera(keepThread: Boolean = false) {

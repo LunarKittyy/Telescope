@@ -65,7 +65,10 @@ class MjpegServer(
                     }
                     thread(name = "mjpeg-client", isDaemon = true) { dispatch(socket, address) }
                 } catch (e: Exception) {
-                    if (running.get()) android.util.Log.e("MjpegServer", "Accept error", e)
+                    if (!running.get()) break
+                    android.util.Log.e("MjpegServer", "Accept error", e)
+                    if (serverSocket?.isClosed != false) break
+                    Thread.sleep(ACCEPT_RETRY_MS)  // out of files, say: don't spin
                 }
             }
         }
@@ -247,6 +250,7 @@ class MjpegServer(
         private const val MAX_CONCURRENT_STREAMS = 16
         const val VIEWER_STALE_MS = 5_000L
         const val VIEWER_GIVE_UP_MS = 10_000L
+        const val ACCEPT_RETRY_MS = 200L
     }
 
     inner class MjpegClient(private val socket: Socket) {

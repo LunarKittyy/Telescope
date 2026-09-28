@@ -13,6 +13,15 @@ def test_run_returns_process_result(monkeypatch):
     assert platform_api._run(["tool"], timeout=2) == (7, "out", "err")
 
 
+@pytest.mark.parametrize("exc", [PermissionError("not executable"), UnicodeDecodeError("utf-8", b"", 0, 1, "bad")])
+def test_run_reports_a_command_that_cant_run_as_a_failure(monkeypatch, exc):
+    def boom(*_args, **_kwargs):
+        raise exc
+    monkeypatch.setattr(platform_api.subprocess, "run", boom)
+
+    assert platform_api._run(["tool"], timeout=2)[0] == -1
+
+
 def test_run_hides_the_console_window_on_windows(monkeypatch):
     seen = {}
     monkeypatch.setattr(platform_api, "NO_WINDOW", {"creationflags": 0x08000000})

@@ -126,6 +126,21 @@ def test_updating_downloads_installs_relaunches_and_quits(env, monkeypatch, tmp_
     assert host.quits == 1
 
 
+def test_an_update_that_cant_restart_stays_open_and_says_so(env, monkeypatch):
+    plugin, host, _bus, _button, _fetched = env
+    plugin.check()
+
+    def cant_start(_argv):
+        raise PermissionError("blocked")
+
+    monkeypatch.setattr(UpdatesPlugin, "_relaunch", staticmethod(cant_start))
+    monkeypatch.setattr(UpdatesPlugin, "_spawn_install",
+                        lambda self, asset: self._on_installed(InstallResult(["start.sh"]), ""))
+    plugin.update_now()
+    assert host.quits == 0 and not plugin.busy
+    assert "reopen Telescope" in plugin.status_text()[0]
+
+
 def test_no_update_while_streaming(env, monkeypatch):
     plugin, host, bus, _button, _fetched = env
     plugin.check()

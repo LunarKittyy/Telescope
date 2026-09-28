@@ -352,7 +352,15 @@ class UpdatesPlugin(TelescopePlugin):
             return
         if result.skipped:
             logger.warning("Files in use kept their old version: %s", ", ".join(result.skipped))
-        self._relaunch(result.relaunch)
+        try:
+            self._relaunch(result.relaunch)
+        except (OSError, ValueError):
+            # The new version is in place; staying open beats quitting with nothing to replace us
+            logger.exception("Couldn't restart after the update")
+            self._phase = ""
+            self._error = "Updated. Close and reopen Telescope to finish."
+            self._refresh()
+            return
         self._host.quit_app()
 
     @staticmethod

@@ -222,3 +222,32 @@ def test_v2_config_keeps_global_settings_but_drops_pairing_and_per_phone_setting
     assert cfg["plugin_configs"] == {"setup": {"canvas": [1920, 1080]}}
     assert cfg["devices"] == {}
     assert cfg["selected_device"] is None
+
+
+def test_a_numpy_value_saves_as_plain_and_a_bad_one_keeps_the_saved_file(config_home):
+    import numpy as np
+    cfg = config_home.load_config()
+    cfg["plugin_configs"]["x"] = {"zoom": np.float32(1.5), "pan": np.array([0, 1])}
+    assert config_home.save_config(cfg) is True
+    assert config_home.load_config()["plugin_configs"]["x"] == {"zoom": 1.5, "pan": [0, 1]}
+
+    cfg["plugin_configs"]["x"] = {"bad": object()}
+    assert config_home.save_config(cfg) is False
+    assert config_home.load_config()["plugin_configs"]["x"] == {"zoom": 1.5, "pan": [0, 1]}
+
+
+def test_a_briefly_locked_config_is_read_again_not_reset(config_home, monkeypatch):
+    cfg = config_home.load_config()
+    cfg["selected_device"] = "Phone1"
+    config_home.save_config(cfg)
+    real, calls = config_home.Path.read_bytes, []
+
+    def flaky(self):
+        calls.append(1)
+        if len(calls) == 1:
+            raise PermissionError("locked")
+        return real(self)
+
+    monkeypatch.setattr(config_home.Path, "read_bytes", flaky)
+    monkeypatch.setattr(config_home.time, "sleep", lambda _s: None)
+    assert config_home.load_config()["selected_device"] == "Phone1"

@@ -27,6 +27,7 @@ class WaitingService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        RecentRuns.recordCrashes(this)
         val ch = NotificationChannel(CHANNEL_ID, "Waiting for the computer", NotificationManager.IMPORTANCE_LOW)
             .apply { description = "Shown while Telescope keeps waiting for a paired computer to start the camera" }
         (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(ch)

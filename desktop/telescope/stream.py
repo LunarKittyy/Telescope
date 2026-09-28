@@ -21,6 +21,35 @@ RECONNECT_DELAY = 3
 # JPEG decoders running side by side: at 4K one decode takes longer than a frame lasts.
 MJPEG_DECODERS = max(1, min(2, (os.cpu_count() or 1) - 1))
 
+# A plugin step that fails this many frames in a row is skipped until the next stream.
+STEP_FAILS_BEFORE_SKIP = 30
+
+
+def guarded_step(name: str, process):
+    """A plugin's frame step that can't take the stream down: a frame it fails on or mangles goes through unchanged."""
+    fails = 0
+
+    def step(frame):
+        nonlocal fails
+        if fails >= STEP_FAILS_BEFORE_SKIP:
+            return frame
+        try:
+            out = process(frame)
+            if not (isinstance(out, np.ndarray) and out.ndim == 3 and out.shape[2] == 3 and out.dtype == np.uint8
+                    and out.size):
+                raise ValueError(f"returned {getattr(out, 'shape', type(out).__name__)} instead of a BGR frame")
+        except Exception:
+            fails += 1
+            if fails == 1:
+                logger.exception("Plugin %s failed on a frame; passing it through unchanged", name)
+            elif fails == STEP_FAILS_BEFORE_SKIP:
+                logger.error("Plugin %s failed on %d frames in a row; skipping it until the stream restarts", name, fails)
+            return frame
+        fails = 0
+        return out
+    return step
+
+
 # Sentinel: "leave unchanged" (distinct from None = pass-through).
 _UNCHANGED = object()
 
@@ -156,9 +185,20 @@ class StreamWorker(QThread):
             cap.release()
         return None
 
-    def _stream_reader(self, cap, stop_event: threading.Event):
+    def _stream_reader(self, cap, stop_event: threading.Event, finished: threading.Event):
         """Pull packets off the wire as fast as they come and hand the newest to the decoder threads, reconnecting
         when the stream drops. Returns once the decoders have finished what they were given."""
+        try:
+            self._read_packets(cap, stop_event)
+        except Exception:
+            logger.exception("Stream reader crashed; reconnecting")
+        finally:
+            # Wake the vcam loop so a reader that died doesn't leave the last frame frozen on the camera
+            finished.set()
+            self._restart_vcam.set()
+            self._frame_ready.set()
+
+    def _read_packets(self, cap, stop_event: threading.Event):
         newest, done = _Newest(), threading.Event()
         count = MJPEG_DECODERS if getattr(cap, "parallel_decode", False) else 1
         decoders = [threading.Thread(target=self._decode_loop, args=(newest, done), daemon=True,
@@ -178,9 +218,9 @@ class StreamWorker(QThread):
                     continue
                 self._bytes_total += cap.last_frame_bytes
                 newest.put((next(self._seq), cap.decode, packet))
+        finally:
             if cap is not None:
                 cap.release()
-        finally:
             done.set()
             for d in decoders:
                 d.join(timeout=3)
@@ -218,6 +258,16 @@ class StreamWorker(QThread):
         return self._process(raw)
 
     def run(self):
+        try:
+            self._run()
+        except Exception as exc:
+            # A bug here must end the stream visibly, not leave a thread the app thinks is still streaming
+            logger.exception("Stream worker crashed")
+            self.status.emit("error", f"Stream error: {exc}")
+        finally:
+            self.status.emit("idle", "Not streaming")
+
+    def _run(self):
         self.status.emit("info", f"Connecting to {self.url}...")
         failed = False  # the phone may be reachable another way by now, so the host looks for it (see "waiting")
         while not self._stop_flag:
@@ -252,15 +302,15 @@ class StreamWorker(QThread):
                 self.reconnected.emit()
 
             # The reader (and its phone connection) outlives vcam restarts: an FPS change only rebuilds the vcam.
-            reader_stop = threading.Event()
+            reader_stop, reader_done = threading.Event(), threading.Event()
             reader = threading.Thread(
                 target=self._stream_reader,
-                args=(cap, reader_stop),
+                args=(cap, reader_stop, reader_done),
                 daemon=True,
             )
             reader.start()
 
-            while not self._stop_flag and reader.is_alive():
+            while not self._stop_flag and not reader_done.is_set():
                 self._restart_vcam.clear()
                 self._run_vcam()
                 if self._stop_flag:
@@ -272,8 +322,6 @@ class StreamWorker(QThread):
             reader_stop.set()
             reader.join(timeout=3)
 
-        self.status.emit("idle", "Not streaming")
-
     def _open_vcam(self, cam_w: int, cam_h: int):
         return vcam.open_camera(cam_w, cam_h, self._fps, pyvirtualcam.PixelFormat.BGR)
 
@@ -284,14 +332,13 @@ class StreamWorker(QThread):
         cam_h = self._canvas_h or src0.shape[0]
         # An app already reading the camera (the wait screen's) keeps it at that size; frames are fitted to it.
         cam_w, cam_h = vcam.locked_size() or (cam_w, cam_h)
-        self.status.emit("ok", f"Streaming {cam_w}x{cam_h} at {self._fps} fps")
         try:
             with self._open_vcam(cam_w, cam_h) as cam:
                 # Name the camera the way other apps list it (the v4l2loopback card label on Linux).
                 shown_as = vcam.V4L2_PHONE_LABEL if vcam.IS_LINUX else cam.device
                 self.vcam_opened.emit(cam_w, cam_h)
                 self.status.emit("ok", f"Streaming {cam_w}x{cam_h} at {self._fps} fps to {shown_as}")
-                fc, t0, bytes0, recv0 = 0, time.time(), self._bytes_total, self._frames_received
+                fc, t0, bytes0, recv0 = 0, time.monotonic(), self._bytes_total, self._frames_received
                 period = 1 / self._fps
                 last_src = fitted = None
                 last_sent = 0.0
@@ -312,7 +359,7 @@ class StreamWorker(QThread):
                         cam.send(fitted)
                         last_sent = time.monotonic()
                     fc += 1
-                    if (elapsed := time.time() - t0) >= 2.0:
+                    if (elapsed := time.monotonic() - t0) >= 2.0:
                         src_now = self._latest
                         if src_now is not None:
                             src_h, src_w = src_now.shape[:2]
@@ -331,6 +378,6 @@ class StreamWorker(QThread):
                         net_kind = "net_warn" if self._weak_streak >= 2 else "net"
                         self.status.emit(net_kind, f"{mbps:.1f} Mbps")
 
-                        fc, t0, bytes0, recv0 = 0, time.time(), bytes_now, recv_now
+                        fc, t0, bytes0, recv0 = 0, time.monotonic(), bytes_now, recv_now
         except Exception as exc:
             self.status.emit("warn", f"Virtual camera error: {exc}")

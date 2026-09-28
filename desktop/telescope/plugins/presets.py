@@ -5,6 +5,7 @@ configs. Applying one hands each section to its plugin's apply_preset(), which a
 phone while streaming.
 """
 
+import logging
 from typing import Optional
 
 from PyQt6.QtCore import QPoint, QSize
@@ -14,6 +15,8 @@ from PyQt6.QtWidgets import QInputDialog, QLineEdit, QMenu, QMessageBox, QPushBu
 from telescope import theme
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import create_vector_icon
+
+logger = logging.getLogger(__name__)
 
 # Applied in this order: the lens switch goes out before stream output looks up its sizes.
 SECTIONS = ("camera_control", "stream_output", "transforms")
@@ -85,7 +88,10 @@ class PresetsPlugin(TelescopePlugin):
         for section in SECTIONS:
             cfg = preset.get(_KEYS[section])
             if cfg is not None:
-                self._host.apply_preset(section, cfg)
+                try:
+                    self._host.apply_preset(section, cfg)
+                except Exception:  # one section that won't apply still leaves the others applied
+                    logger.exception("Couldn't apply the %s part of preset %r", section, name)
         self._host.schedule_save()
 
     def rename(self, old: str, new: str):

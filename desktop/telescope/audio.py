@@ -197,21 +197,35 @@ class AudioWorker:
         return None
 
     def _write_loop(self):
+        # The output is reopened after a failure (a restarted sound server, a reader that went away)
+        failed = False
+        while not self._stop.is_set():
+            problem = self._write_once(failed)
+            if problem is None or self._stop.is_set():
+                break
+            failed = True
+            self._on_status("err", problem)
+            self._stop.wait(RETRY_S)
+
+    def _write_once(self, recovering: bool) -> Optional[str]:
         try:
             sink = self._open_sink()
         except Exception as e:
-            logger.exception("Couldn't open the microphone output")
-            self._on_status("err", f"Couldn't open the virtual microphone: {e}")
-            return
+            if not recovering:
+                logger.exception("Couldn't open the microphone output")
+            return f"Couldn't open the virtual microphone: {e}"
         try:
+            if recovering:
+                self._on_status("ok", "")
             while not self._stop.is_set():
                 sink.write(self._buffer.pop(CHUNK))  # blocks at the output's pace
         except Exception:
             if not self._stop.is_set():
                 logger.exception("Microphone output failed")
-                self._on_status("err", "The virtual microphone stopped taking audio.")
+                return "The virtual microphone stopped taking audio."
         finally:
             sink.close()
+        return None
 
 
 def _phone_reason(err: urllib.error.HTTPError) -> str:

@@ -22,6 +22,8 @@ import android.util.Range
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import android.view.Surface
+import kotlin.math.abs
+import kotlin.math.ln
 import kotlin.math.sqrt
 import kotlinx.serialization.json.Json
 
@@ -157,6 +159,16 @@ object CameraRequestSelection {
 
     fun clamp(value: Float, min: Float, max: Float): Float =
         if (min > max) value else value.coerceIn(min, max)
+
+    // The listed size nearest w x h, shape first and then pixel count; w x h itself when listed or nothing is listed.
+    fun closestSize(w: Int, h: Int, sizes: List<Pair<Int, Int>>): Pair<Int, Int> {
+        if (sizes.isEmpty() || (w to h) in sizes || w <= 0 || h <= 0) return w to h
+        val aspect = w.toDouble() / h
+        val pixels = w.toDouble() * h
+        return sizes.filter { it.first > 0 && it.second > 0 }.minByOrNull { (sw, sh) ->
+            abs(ln(sw.toDouble() / sh / aspect)) * 4 + abs(ln(sw.toDouble() * sh / pixels))
+        } ?: (w to h)
+    }
 }
 
 class CameraStreamService : Service() {
@@ -182,6 +194,11 @@ class CameraStreamService : Service() {
         // Fires when desktop is genuinely gone (no authorized /v1/state polls in this interval).
         private const val IDLE_STOP_MS = 60_000L
         private const val IDLE_CHECK_INTERVAL_MS = 5_000L
+        // Opening or switching the camera takes a second or two; one that never answers mustn't leave the phone stuck.
+        private const val BUSY_STUCK_MS = 20_000L
+        private const val WAKE_LOCK_MS = 12 * 60 * 60 * 1000L
+        private val BUSY_STATES = setOf(
+            StreamState.StartingServer, StreamState.OpeningCamera, StreamState.ConfiguringSession, StreamState.Recovering)
 
         // The live service, or null when none is running. Neither MainActivity (binds without BIND_AUTO_CREATE) nor SessionServer (unbound socket thread) has another way to reach it. Cleared in onDestroy, so this can't outlive the instance.
         @Volatile
@@ -352,7 +369,7 @@ class CameraStreamService : Service() {
     }
     private val binder = LocalBinder()
 
-    private var controller: CameraSessionController? = null
+    @Volatile private var controller: CameraSessionController? = null
     private var server: MjpegServer? = null
     private var audio: AudioStreamer? = null
     @Volatile private var micForeground = false
@@ -364,6 +381,7 @@ class CameraStreamService : Service() {
     private val idleWatchdogRunning = java.util.concurrent.atomic.AtomicBoolean(false)
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var started = false
+    @Volatile private var busySinceMs = 0L
 
     // Stream config
     private var streamWidth  = 1920
@@ -391,6 +409,8 @@ class CameraStreamService : Service() {
     // Records a state transition with sanitized context (class name + message only, never a stack trace or request data); history for "Copy diagnostics" lives in stateMachine.
     private fun setState(newState: StreamState, op: String, error: Throwable? = null) {
         val old = state
+        if (newState !in BUSY_STATES) busySinceMs = 0L
+        else if (old != newState) busySinceMs = System.currentTimeMillis()
         val transition = stateMachine.transition(newState, op, error)
         if (old == StreamState.StartingServer && newState != StreamState.StartingServer) SessionStartWindow.settle()
         android.util.Log.i(
@@ -463,11 +483,18 @@ class CameraStreamService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        RecentRuns.recordCrashes(this)
         instance = this
         createNotificationChannel()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (controller != null) {
+            // A second start raced the first: keep the running stream rather than rebind its port and fail both.
+            if (inForeground) try { startForegroundCompat() } catch (_: Exception) {}
+            stateMachine.record("duplicateStart")
+            return START_NOT_STICKY
+        }
         started = true
         val cameraId  = intent?.getStringExtra(EXTRA_CAMERA_ID)  ?: "0"
         val logicalId = intent?.getStringExtra(EXTRA_LOGICAL_ID) ?: ""
@@ -510,11 +537,22 @@ class CameraStreamService : Service() {
         }
         acquireWakeLock()
 
-        val physId = if (logicalId.isNotEmpty()) cameraId else null
-        val openId = if (logicalId.isNotEmpty()) logicalId else cameraId
-        val initialEntry = allCameras.find { it.id == cameraId }
+        // A saved lens that's gone (unplugged, renumbered by an update) or a size it doesn't list would fail every start.
+        val found = allCameras.find { it.id == cameraId }
+        val initialEntry = found ?: allCameras.firstOrNull()
             ?: CameraEntry(cameraId, logicalId.ifEmpty { null }, "ID $cameraId",
                            initialOis, 50, 3200, 100_000L, 1_000_000_000L)
+        val (fitW, fitH) = fitSize(initialEntry, streamWidth, streamHeight)
+        if ((found == null && allCameras.isNotEmpty()) || fitW != streamWidth || fitH != streamHeight) {
+            stateMachine.record("selectionReset", IllegalStateException(
+                "camera $cameraId at ${streamWidth}x$streamHeight unavailable, using ${initialEntry.id} at ${fitW}x$fitH"))
+            streamWidth = fitW; streamHeight = fitH
+            StreamPrefs.updateSelection(this) {
+                it.copy(cameraId = initialEntry.id, logicalId = initialEntry.logicalId ?: "", width = fitW, height = fitH)
+            }
+        }
+        val physId = if (initialEntry.logicalId != null) initialEntry.id else null
+        val openId = initialEntry.logicalId ?: initialEntry.id
 
         lateinit var ctrl: CameraSessionController
         ctrl = CameraSessionController(
@@ -522,7 +560,10 @@ class CameraStreamService : Service() {
             initialStreamWidth  = streamWidth,
             initialStreamHeight = streamHeight,
             onFrame        = { bytes -> server?.sendFrame(bytes) },
-            onStateChanged = { newState, op, error -> setState(newState, op, error) },
+            // A callback from a controller that's been replaced or stopped only goes in the history.
+            onStateChanged = { newState, op, error ->
+                if (controller === ctrl) setState(newState, op, error) else stateMachine.record(op, error)
+            },
             // A full stop: stopSelf() alone leaves the server, wake lock and notification up while MainActivity is bound.
             onFatalError   = { mainHandler.post { if (controller === ctrl) stopStreaming("cameraLost") } },
             onControlError = { op, error -> recordControlError(op, error) },
@@ -541,9 +582,12 @@ class CameraStreamService : Service() {
             stopStreaming()
             RecentRuns.save(this, "Stream ended: ${timeText(System.currentTimeMillis())}\n" + buildRunReport())
         }
-        instance = null
+        if (instance === this) instance = null
         super.onDestroy()
     }
+
+    private fun fitSize(entry: CameraEntry, w: Int, h: Int): Pair<Int, Int> =
+        CameraRequestSelection.closestSize(w, h, entry.supportedSizes.map { it.width to it.height })
 
     private fun enumerateAllCameras() {
         allCameras = enumerateCameras(getSystemService(CAMERA_SERVICE) as CameraManager)
@@ -591,6 +635,8 @@ class CameraStreamService : Service() {
     private fun onVideoClient(codec: String) {
         val ctrl = controller ?: return
         if (codec == H264Stream.CODEC_H264 && !h264Available) return  // the reader sees no data and gives up
+        // Failed once this stream: stay on MJPEG rather than reopen, fail and reopen as the reader reconnects.
+        if (codec == H264Stream.CODEC_H264 && ctrl.snapshot().codecError != null) return
         if (ctrl.snapshot().codec == codec) return
         if (codec == H264Stream.CODEC_MJPEG) server?.closeH264Clients() else server?.closeMjpegClients()
         ctrl.setCodec(codec)
@@ -603,6 +649,17 @@ class CameraStreamService : Service() {
                 Thread.sleep(IDLE_CHECK_INTERVAL_MS)
                 if (!idleWatchdogRunning.get()) break
                 val srv = server ?: continue
+                val since = busySinceMs
+                if (since != 0L && System.currentTimeMillis() - since >= BUSY_STUCK_MS) {
+                    mainHandler.post {
+                        if (state in BUSY_STATES) {
+                            setState(StreamState.Failed, "busyTimeout", java.util.concurrent.TimeoutException("stuck in $state"))
+                            stopStreaming("busyTimeout")
+                        }
+                    }
+                    break
+                }
+                wakeLock?.let { if (!it.isHeld) it.acquire(WAKE_LOCK_MS) }  // it lapses after 12 h on a long stream
                 // A computer taking the video counts too: its status polls can go missing on a weak Wi-Fi link.
                 val watched = controller?.hasPreviewSurface() == true || srv.hasActiveViewer()
                 if (!watched && srv.idleForMs() >= IDLE_STOP_MS) {
@@ -689,8 +746,13 @@ class CameraStreamService : Service() {
                 "camera" -> {
                     val id    = params["id"] ?: return err("no id")
                     val entry = allCameras.find { it.id == id } ?: return err("unknown id $id")
+                    val size = ctrl.getStreamSize()
+                    val (w, h) = fitSize(entry, size.width, size.height)
                     ctrl.switchTo(entry)
-                    StreamPrefs.updateSelection(this) { it.copy(cameraId = entry.id, logicalId = entry.logicalId ?: "") }
+                    if (w != size.width || h != size.height) ctrl.switchResolution(w, h)  // this lens doesn't list the current size
+                    StreamPrefs.updateSelection(this) {
+                        it.copy(cameraId = entry.id, logicalId = entry.logicalId ?: "", width = w, height = h)
+                    }
                     ok()
                 }
                 "resolution" -> {
@@ -869,6 +931,6 @@ class CameraStreamService : Service() {
     private fun acquireWakeLock() {
         val pm = getSystemService(POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "telescope::stream")
-        wakeLock?.acquire(12 * 60 * 60 * 1000L)
+        wakeLock?.acquire(WAKE_LOCK_MS)
     }
 }

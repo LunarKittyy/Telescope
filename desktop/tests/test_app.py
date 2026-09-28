@@ -1,3 +1,4 @@
+import numpy as np
 import time
 from types import SimpleNamespace
 import socket
@@ -352,6 +353,20 @@ def test_a_canvas_reload_does_not_start_over_a_stream_started_meanwhile(window, 
     window._session = StreamSession(id=1, url="url", client=object(), worker=object())
     window._on_canvas_reload_done(True, "", True)
     assert starts == []
+
+
+def test_a_loopback_reload_that_raises_still_reports_back(window, monkeypatch, qapp):
+    import telescope.app as app_module
+    import telescope.platform.linux as linux
+    done = []
+    monkeypatch.setattr(app_module, "IS_LINUX", True)
+    monkeypatch.setattr(linux, "v4l2_reload", lambda: (_ for _ in ()).throw(RuntimeError("modprobe gone")))
+    window.restart_vcam_canvas(1280, 720, on_done=lambda *a: done.append(a))
+    deadline = time.monotonic() + 3
+    while not done and time.monotonic() < deadline:
+        qapp.processEvents()
+        time.sleep(0.01)
+    assert done
 
 
 def test_register_headless_global_plugin_does_not_add_panel(window):
@@ -743,7 +758,10 @@ def test_start_builds_worker_pipeline_and_notifies_plugins(window, monkeypatch):
     assert workers[0].kwargs["canvas_width"] == 1920
     assert workers[0].kwargs["canvas_height"] == 1080
     assert workers[0].kwargs["auth"] == "tok"
-    assert workers[0].kwargs["frame_pipeline"] == [p.process_frame for p in window._plugins]
+    frame = np.zeros((2, 2, 3), np.uint8)
+    steps = workers[0].kwargs["frame_pipeline"]
+    assert len(steps) == len(window._plugins)  # every fake here has its own process_frame
+    assert all(step(frame) is frame for step in steps)
     assert workers[0].started is True
     assert bus_urls == ["http://phone/video"]
     assert all(plugin.started for plugin in window._plugins)
@@ -1020,12 +1038,52 @@ def test_worker_status_updates_status_label(window, kind, object_name):
 def test_worker_fps_and_idle_status(window):
     window._on_worker_status("fps", "29.9 fps")
     assert window._fps_lbl.text() == "29.9 fps"
-    window._session = StreamSession(id=1, url="url", client=object(), worker=object())
-    window._on_worker_status("idle", "Not streaming")
+    stopped = []
+    window._bus.stream_stopped.connect(lambda: stopped.append(True))
+    worker = _RetargetWorker()
+    window._session = StreamSession(id=1, url="url", client=_Client(), worker=worker)
+    worker.status.connect(window._on_worker_status)
+    window._on_worker_status("idle", "Not streaming")  # the worker ended by itself: tidied up like a Stop
     assert window._fps_lbl.text() == "—"
     assert window._worker is None
     assert window._session is None
     assert window._start_btn.text() == "Start Streaming"
+    assert stopped == [True]
+    assert window._banners.issue("start").title == "The stream stopped unexpectedly"
+
+
+def test_a_start_is_not_started_again_while_it_finds_the_phone(window):
+    starts = []
+
+    class Conn(_Connection):
+        def get_stream_info(self, interactive=True):
+            window.start_stream()  # an auto-start timer firing inside the nested event loop
+            starts.append(True)
+            return None, None, False
+
+    window.register_plugin(Conn())
+    window._start()
+    assert starts == [True]
+
+
+def test_a_start_that_raises_says_so(window):
+    class Conn(_Connection):
+        def get_stream_info(self, interactive=True):
+            raise RuntimeError("boom")
+
+    window.register_plugin(Conn())
+    window._start()
+    assert window._banners.issue("start").title == "Couldn't start streaming"
+    assert not window.is_starting()
+
+
+def test_a_setting_changed_just_before_quit_is_saved(window, config_home):
+    plugin = _Plugin("global", {"a": 1})
+    window.register_plugin(plugin)
+    plugin.config["a"] = 2
+    window.schedule_save()
+    window._shut_down()
+    assert config_home.load_config()["plugin_configs"]["global"] == {"a": 2}
 
 
 def test_reconnecting_status_is_warn_coloured_and_animates_dots(window):
@@ -1631,3 +1689,44 @@ def test_recovery_waits_while_the_phone_is_mid_start(window, monkeypatch):
 
     assert window._session is not None and conn.adopted == []
     assert window._recovery_timer.isActive()
+
+
+def test_a_plugin_hook_that_raises_does_not_stop_the_others(window):
+    class Broken(_Plugin):
+        def on_stream_stop(self):
+            raise RuntimeError("boom")
+
+        broken_config = False
+
+        def get_config(self):
+            if self.broken_config:
+                raise RuntimeError("boom")
+            return {}
+
+    heard = []
+    first, last = Broken("first", {}), _Plugin("last", {})
+    last.on_stream_stop = lambda: heard.append("last")
+    window.register_plugin(first)
+    window.register_plugin(last)
+    first.broken_config = True
+
+    window._each_plugin("on_stream_stop")
+    window.save_now()  # the broken plugin's get_config doesn't stop the save
+
+    assert heard == ["last"]
+
+
+def test_a_frame_step_that_keeps_failing_is_passed_through_then_skipped():
+    from telescope.stream import STEP_FAILS_BEFORE_SKIP, guarded_step
+    calls = []
+
+    def broken(frame):
+        calls.append(1)
+        raise RuntimeError("boom")
+
+    step = guarded_step("broken", broken)
+    frame = np.zeros((4, 4, 3), np.uint8)
+    for _ in range(STEP_FAILS_BEFORE_SKIP + 10):
+        assert step(frame) is frame
+    assert len(calls) == STEP_FAILS_BEFORE_SKIP
+    assert guarded_step("gray", lambda f: f[..., 0])(frame) is frame  # a mangled frame doesn't go on

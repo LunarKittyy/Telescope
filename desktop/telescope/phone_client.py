@@ -33,9 +33,10 @@ class PhoneControlClient:
         try:
             req = urllib.request.Request(f"{self.base}/state", headers=self._auth_headers())
             with self.auth.open(req, timeout=4) as r:
-                return json.loads(read_capped(r).decode())
+                state = json.loads(read_capped(r).decode())
         except Exception:
             return None
+        return state if isinstance(state, dict) else None  # every caller reads it with .get
 
     def send(self, **params):
         if self._closed:

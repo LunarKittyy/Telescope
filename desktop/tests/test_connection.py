@@ -401,6 +401,16 @@ def test_a_check_slower_than_the_poll_still_lands(plugin_env):
     assert plugin._check_id == first + 1
 
 
+def test_a_check_that_never_answers_gives_way_to_a_new_one(plugin_env):
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    plugin._check_status()
+    first = plugin._check_id
+    plugin._check_started -= 61
+    plugin._check_status()
+    assert plugin._check_id == first + 1
+
+
 def test_a_problem_shows_its_fix_on_the_card(plugin_env):
     plugin, _host, _panel = plugin_env
     _add(plugin)

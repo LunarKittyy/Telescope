@@ -396,6 +396,7 @@ class PreviewPlugin(TelescopePlugin):
 
     def on_stream_start(self, stream_url: str, ctrl):
         self._streaming = True
+        self._busy = False  # a frame lost on its way to the UI mustn't freeze the preview for good
         if self._active and self._preview_lbl.pixmap().isNull():
             self._preview_lbl.setText(_WAITING_TEXT)
 
@@ -489,20 +490,28 @@ class PreviewPlugin(TelescopePlugin):
         if not (card_wanted or popout_open) or self._busy:
             return frame
         self._busy = True
-        if popout_open:
-            size = self._popout_size
-        else:
-            h, w = frame.shape[:2]
-            size = self._card_size or (min(w, self._CARD_MAX_W), h)
-        self._sig.frame.emit(_fit_within(frame, size))
+        try:
+            if popout_open:
+                size = self._popout_size
+            else:
+                h, w = frame.shape[:2]
+                size = self._card_size or (min(w, self._CARD_MAX_W), h)
+            self._sig.frame.emit(_fit_within(frame, size))
+        except Exception:
+            self._busy = False
+            raise
         return frame
 
     # ── UI thread ─────────────────────────────────────────────────────────────
 
     def _on_frame(self, frame: np.ndarray):
-        if not self._streaming:
+        try:
+            if self._streaming:
+                self._show_frame(frame)
+        finally:
             self._busy = False
-            return
+
+    def _show_frame(self, frame: np.ndarray):
         h, w = frame.shape[:2]
         img = QImage(frame.data, w, h, w * 3, QImage.Format.Format_BGR888).copy()
         px = QPixmap.fromImage(img)
@@ -514,4 +523,3 @@ class PreviewPlugin(TelescopePlugin):
         elif self._active:
             _show(self._preview_lbl, px)
             self._card_size = (self._preview_lbl.width(), self._preview_lbl.height())
-        self._busy = False

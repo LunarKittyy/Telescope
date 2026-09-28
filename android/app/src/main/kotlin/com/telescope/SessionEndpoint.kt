@@ -48,14 +48,22 @@ object SessionEndpoint {
     @Synchronized
     fun acquire(context: Context, owner: String) {
         val app = context.applicationContext
-        if (!owners.add(owner)) return
-        if (server != null) return
-        server = SessionServer(
-            port = SessionServer.DEFAULT_PORT,
-            computers = { PairedComputers.list(app) },
-            commands = ServiceSessionCommands(app),
-            socketFactory = PhoneTls.identity(app).serverSocketFactory(),
-        ).also { it.start() }
+        owners.add(owner)
+        // A server whose bind failed or whose accept loop died is replaced on the next acquire, not kept forever.
+        if (server?.listening == true) return
+        server?.stop()
+        announcer?.stop()
+        server = try {
+            SessionServer(
+                port = SessionServer.DEFAULT_PORT,
+                computers = { PairedComputers.list(app) },
+                commands = ServiceSessionCommands(app),
+                socketFactory = PhoneTls.identity(app).serverSocketFactory(),
+            ).also { it.start() }
+        } catch (e: Exception) {
+            android.util.Log.e("SessionEndpoint", "Could not start the session server", e)  // storage full saving the identity, say
+            null
+        }
         announcer = LanAnnouncer(app).also { it.start(SessionServer.DEFAULT_PORT) }
     }
 
@@ -121,8 +129,9 @@ private class ServiceSessionCommands(private val context: Context) : SessionComm
     }
 
     override fun stop(): ControlResult {
-        val service = CameraStreamService.instance ?: return ControlResult(ok = true)
-        service.stopStreaming()
+        if (CameraStreamService.instance == null) return ControlResult(ok = true)
+        // On the main thread like every other stop, not this socket thread racing them.
+        android.os.Handler(android.os.Looper.getMainLooper()).post { CameraStreamService.instance?.stopStreaming("remoteStop") }
         return ControlResult(ok = true)
     }
 
