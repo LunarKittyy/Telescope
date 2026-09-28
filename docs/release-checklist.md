@@ -9,7 +9,7 @@ Run before tagging. CI covers pytest, Android unit tests, and packaging smoke ch
 3. Tag it and push the tag: `git tag v3.1.0 <commit> && git push origin v3.1.0`.
 4. `release.yml` builds everything and publishes the release. It refuses a tag that doesn't match `VERSION`.
 
-The APK signing key lives in the repository secrets (see the README's CI section). Keep a backup of the keystore outside GitHub: without it, no future APK can install as an update over the current one.
+The APK signing key lives in the repository secrets (see [Building and CI](building.md#ci--github-actions)). Keep a backup of the keystore outside GitHub: without it, no future APK can install as an update over the current one.
 
 ## Before starting
 

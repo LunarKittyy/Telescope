@@ -1,6 +1,6 @@
 # Telescope
 
-Android app (`android/`, Kotlin) streams the phone camera to a Python/PyQt6 desktop app (`desktop/`) that feeds a virtual webcam. README.md is the user and protocol doc; `desktop/MODULES.md` describes each desktop module.
+Android app (`android/`, Kotlin) streams the phone camera to a Python/PyQt6 desktop app (`desktop/`) that feeds a virtual webcam. README.md is the landing page and Quick Start; everything else for users and contributors (features, troubleshooting, protocol, architecture, CI) is in `docs/`, indexed by `docs/README.md`; `desktop/MODULES.md` describes each desktop module.
 
 ## Checks
 - Desktop: `python -m pytest -q` and `python scripts/smoke_check.py` in `desktop/`
@@ -17,7 +17,7 @@ Every PR and commit gets read by a person. Write them to be skimmed, not to prov
 - "Still needs a check on a real device": concrete things to try by hand, or "nothing".
 - No section headers beyond the template's, no restating the diff, no background essay. If it runs past about 20 lines, cut it.
 
-Plain, casual English. No em dashes. For PR descriptions, release notes, README edits and other prose people will read, use the `slopbeth` skill if it can be found locally.
+Plain, casual English. No em dashes. For PR descriptions, release notes, README and `docs/` edits and other prose people will read, use the `slopbeth` skill if it can be found locally.
 
 ## Watching PRs
 React to what GitHub sends (CI results, review comments), but don't schedule recurring check-ins just to look at a PR. At most one check-in about 10 minutes after pushing, to see whether it's green and ready to merge.
