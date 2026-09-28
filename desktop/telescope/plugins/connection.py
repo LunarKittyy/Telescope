@@ -925,7 +925,7 @@ class ConnectionPlugin(TelescopePlugin):
                 phase = "Phone's camera is opening" if started else "Waiting for the phone's camera"
                 on_progress(f"{phase}... ({elapsed:.0f}s)")
         return False, ("The phone's camera didn't finish starting in time.\n\n"
-                       "Try again, or start the stream on the phone.")
+                       "Try again. If it keeps happening, open Telescope on the phone.")
 
     def stop_phone_streaming(self, target: Optional[SessionTarget] = None):
         """Tell the phone to stop its camera (best effort); blocking, worker threads only."""

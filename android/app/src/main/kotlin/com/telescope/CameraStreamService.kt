@@ -169,6 +169,8 @@ class CameraStreamService : Service() {
         const val EXTRA_OIS        = "ois"
         const val EXTRA_LOCAL_ONLY = "local_only"
         const val EXTRA_REMOTE     = "remote"
+        // Started as a plain service under WaitingService's foreground service (see StreamLauncher).
+        const val EXTRA_COVERED    = "covered"
         const val CHANNEL_ID       = "telescope_stream"
         const val NOTIF_ID         = 1
         const val DEFAULT_PORT     = 8080
@@ -354,6 +356,9 @@ class CameraStreamService : Service() {
     private var server: MjpegServer? = null
     private var audio: AudioStreamer? = null
     @Volatile private var micForeground = false
+    // In the foreground on its own; false while running under WaitingService.
+    private var inForeground = false
+    @Volatile private var covered = false
     private var wakeLock: PowerManager.WakeLock? = null
     private var idleWatchdogThread: Thread? = null
     private val idleWatchdogRunning = java.util.concurrent.atomic.AtomicBoolean(false)
@@ -386,6 +391,7 @@ class CameraStreamService : Service() {
     private fun setState(newState: StreamState, op: String, error: Throwable? = null) {
         val old = state
         val transition = stateMachine.transition(newState, op, error)
+        if (old == StreamState.StartingServer && newState != StreamState.StartingServer) SessionStartWindow.settle()
         android.util.Log.i(
             TAG,
             "StreamState $old -> $newState (op=$op, camera=${controller?.getCurrentCameraId()}, " +
@@ -469,12 +475,19 @@ class CameraStreamService : Service() {
         val localOnly = intent?.getBooleanExtra(EXTRA_LOCAL_ONLY, false) ?: false
         bindAddr      = if (localOnly) "127.0.0.1" else "0.0.0.0"
         startedRemotely = intent?.getBooleanExtra(EXTRA_REMOTE, false) ?: false
+        covered = (intent?.getBooleanExtra(EXTRA_COVERED, false) ?: false) && WaitingService.covering
 
         // Busy before promoting, so a computer waiting on the start sees it fail straight away rather than time out.
         setState(StreamState.StartingServer, "onStartCommand")
         try {
-            // Must be called early: Android kills app if foreground promotion doesn't happen soon
-            startForegroundCompat()
+            if (covered) {
+                // WaitingService's foreground service already gives this app the camera (and the mic, if allowed).
+                micForeground = WaitingService.hasMic
+                WaitingService.showStreaming(this, true)
+            } else {
+                // Must be called early: Android kills app if foreground promotion doesn't happen soon
+                startForegroundCompat()
+            }
         } catch (e: Exception) {
             // Android 14+ refuses the camera to a service started while the app is in the background.
             setState(StreamState.Failed, "startForeground", e)
@@ -556,7 +569,11 @@ class CameraStreamService : Service() {
         }
         if (!micForeground) {
             // Recording in the background needs the microphone service type, added now the permission is there.
-            try { startForegroundCompat(withMic = true) } catch (_: Exception) {
+            // Under WaitingService it can't be added from here; it picks the mic up the next time the app opens.
+            try {
+                if (covered) error("waiting without the microphone type")
+                startForegroundCompat(withMic = true)
+            } catch (_: Exception) {
                 return "Open Telescope on the phone once, then try again"
             }
         }
@@ -794,7 +811,23 @@ class CameraStreamService : Service() {
         setState(StreamState.Idle, op)
         // Release session; endpoint stays bound if MainActivity holds a reference.
         SessionEndpoint.release(SessionEndpoint.OWNER_SERVICE)
-        stopForeground(STOP_FOREGROUND_REMOVE); stopSelf()
+        if (inForeground) { stopForeground(STOP_FOREGROUND_REMOVE); inForeground = false }
+        if (covered) WaitingService.showStreaming(this, false)
+        stopSelf()
+    }
+
+    // WaitingService is going away. A stream running under it needs its own foreground service now, which Android only
+    // allows while the app is on screen; otherwise it stops cleanly instead of losing the camera mid-stream.
+    fun onCoverLost() {
+        if (!covered) return
+        covered = false
+        if (state == StreamState.Idle || state == StreamState.Stopping) return
+        try {
+            startForegroundCompat()
+        } catch (e: Exception) {
+            android.util.Log.i(TAG, "Waiting stopped mid-stream and the app isn't on screen, stopping", e)
+            stopStreaming("waitingStopped")
+        }
     }
 
     private fun createNotificationChannel() {
@@ -822,6 +855,7 @@ class CameraStreamService : Service() {
             startForeground(NOTIF_ID, n)
         }
         micForeground = withMic || Build.VERSION.SDK_INT < Build.VERSION_CODES.R
+        inForeground = true
     }
 
     private fun acquireWakeLock() {
