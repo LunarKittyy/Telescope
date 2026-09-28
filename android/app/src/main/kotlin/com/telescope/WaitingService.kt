@@ -1,5 +1,6 @@
 package com.telescope
 
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -13,9 +14,11 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 
 // "Wait for my computer": keeps the session port up while the screen is off or the app is closed, so a paired computer
-// can still start the camera. Holds no camera, microphone or wake lock itself; a start from the computer goes through
-// StreamLauncher like any other. Opt-in and off by default, and only ever started while MainActivity is visible, never
-// from the background or at boot. Not sticky: if Android kills it, it comes back the next time the app is opened.
+// can still start the camera. Android 14+ only lets a camera or microphone foreground service start while the app is on
+// screen, so this one takes those types then and the stream runs under it (StreamLauncher starts CameraStreamService as
+// a plain service). It never opens the camera or mic itself and holds no wake lock. Opt-in and off by default, and only
+// ever started while MainActivity is visible, never from the background or at boot. Not sticky: if Android kills it, it
+// comes back the next time the app is opened.
 class WaitingService : Service() {
 
     private var holdsEndpoint = false
@@ -41,6 +44,7 @@ class WaitingService : Service() {
             startForegroundCompat()
         } catch (e: Exception) {
             android.util.Log.w(TAG, "Could not start waiting in the foreground", e)
+            covering = false
             stopSelf()
             return START_NOT_STICKY
         }
@@ -52,6 +56,10 @@ class WaitingService : Service() {
     }
 
     override fun onDestroy() {
+        covering = false
+        hasMic = false
+        // A stream running under this service loses its camera access with it.
+        CameraStreamService.instance?.onCoverLost()
         if (holdsEndpoint) {
             SessionEndpoint.release(SessionEndpoint.OWNER_WAITING)
             holdsEndpoint = false
@@ -60,25 +68,19 @@ class WaitingService : Service() {
     }
 
     private fun startForegroundCompat() {
-        val open = PendingIntent.getActivity(this, 0,
-            Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
-        val stop = PendingIntent.getService(this, 0,
-            Intent(this, WaitingService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE)
-        val n = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Telescope")
-            .setContentText("Waiting for your computer")
-            .setSmallIcon(R.drawable.ic_notification)
-            .setColor(ContextCompat.getColor(this, R.color.colorPrimary))
-            .setContentIntent(open)
-            .addAction(0, "Stop waiting", stop)
-            .setOngoing(true)
-            .build()
-        // The special-use type exists from Android 14; older versions take the type from the manifest.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        val withMic = AudioStreamer.permitted(this)
+        val n = buildNotification(this, streaming = CameraStreamService.instance?.isStreaming == true)
+        // Camera, and the mic once it's allowed (Android refuses a type whose permission is missing). Before Android 11
+        // the manifest types apply and a background service may use the camera anyway.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val types = ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA or
+                (if (withMic) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0)
+            startForeground(NOTIF_ID, n, types)
         } else {
             startForeground(NOTIF_ID, n)
         }
+        hasMic = withMic || Build.VERSION.SDK_INT < Build.VERSION_CODES.R
+        covering = true
     }
 
     companion object {
@@ -86,6 +88,42 @@ class WaitingService : Service() {
         private const val CHANNEL_ID = "telescope_waiting"
         private const val NOTIF_ID = 2  // CameraStreamService uses 1; both can show at once
         private const val ACTION_STOP = "com.telescope.action.STOP_WAITING"
+
+        // True while this runs in the foreground with the camera type: a stream can then run under it.
+        @Volatile
+        var covering = false
+            private set
+
+        // Whether that includes the microphone type.
+        @Volatile
+        var hasMic = false
+            private set
+
+        private fun buildNotification(context: Context, streaming: Boolean): android.app.Notification {
+            val open = PendingIntent.getActivity(context, 0,
+                Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
+            val stop = PendingIntent.getService(context, 0,
+                Intent(context, WaitingService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE)
+            return NotificationCompat.Builder(context, CHANNEL_ID)
+                .setContentTitle("Telescope")
+                .setContentText(if (streaming) "Camera is streaming" else "Waiting for your computer")
+                .setSmallIcon(R.drawable.ic_notification)
+                .setColor(ContextCompat.getColor(context, R.color.colorPrimary))
+                .setContentIntent(open)
+                .addAction(0, "Stop waiting", stop)
+                .setOngoing(true)
+                .build()
+        }
+
+        // A stream under this service shows here instead of its own notification. Only a notify: calling
+        // startForeground again from the background would be refused. Without the notification permission the
+        // foreground notification is hidden anyway, so a refused notify changes nothing.
+        @SuppressLint("MissingPermission")
+        fun showStreaming(context: Context, streaming: Boolean) {
+            if (!covering) return
+            (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+                .notify(NOTIF_ID, buildNotification(context, streaming))
+        }
 
         // Only from a visible activity: starting a foreground service from the background is refused.
         fun start(context: Context) {

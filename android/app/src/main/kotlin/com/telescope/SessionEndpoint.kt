@@ -82,6 +82,27 @@ object SessionEndpoint {
     fun isBound(): Boolean = server != null
 }
 
+// Busy from an accepted start until the service has had a moment to report on it. A start can fail within milliseconds
+// (Android refusing the camera, say), before the computer's first poll; without this the computer never sees busy and
+// waits out its whole timeout instead of saying the camera stopped before it finished starting.
+open class StartWindow(private val clock: () -> Long) {
+    @Volatile private var until = 0L
+
+    fun begin() { until = clock() + PENDING_MS }
+
+    // The service left StartingServer: stay busy just long enough for one poll to see it, then report its own state.
+    fun settle() { until = minOf(until, clock() + SETTLE_MS) }
+
+    fun open(): Boolean = clock() < until
+
+    companion object {
+        const val PENDING_MS = 5_000L  // the service never got to onStartCommand
+        const val SETTLE_MS = 1_500L   // three of the computer's 0.5 s polls
+    }
+}
+
+object SessionStartWindow : StartWindow({ android.os.SystemClock.elapsedRealtime() })
+
 // Holds app Context only: socket thread may outlive component that acquired endpoint.
 private class ServiceSessionCommands(private val context: Context) : SessionCommands {
 
@@ -110,9 +131,11 @@ private class ServiceSessionCommands(private val context: Context) : SessionComm
         return SessionSnapshot(
             protocol = SessionServer.PROTOCOL_VERSION,
             streaming = state == StreamState.Streaming,
-            busy = state != StreamState.Idle &&
-                state != StreamState.Streaming &&
-                state != StreamState.Failed,
+            busy = SessionStartWindow.open() || (
+                state != StreamState.Idle &&
+                    state != StreamState.Streaming &&
+                    state != StreamState.Failed
+                ),
             localOnly = StreamPrefs.localOnly(context),
             phoneId = PairedComputers.phoneId(context),
             phoneName = PairedComputers.phoneName(context),

@@ -15,8 +15,10 @@ object StreamLauncher {
         data class Rejected(val reason: String) : Result
     }
 
-    // Remote path: reachable only while MainActivity is visible, a stream runs, or WaitingService waits. From the
-    // background Android may refuse the start (Rejected) or the camera (the service then fails and stops itself).
+    // Remote path: reachable only while MainActivity is visible, a stream runs, or WaitingService waits. While it waits,
+    // the stream runs under its foreground service: Android 14+ refuses a new camera foreground service started from the
+    // background. Otherwise Android may still refuse the start (Rejected) or the camera (the service then fails and stops
+    // itself).
     fun start(
         context: Context,
         selection: StreamPrefs.Selection?,
@@ -29,9 +31,11 @@ object StreamLauncher {
             return Result.Rejected("no_camera_permission")
         }
 
+        val covered = WaitingService.covering
         val intent = Intent(context, CameraStreamService::class.java).apply {
             putExtra(CameraStreamService.EXTRA_LOCAL_ONLY, StreamPrefs.localOnly(context))
             putExtra(CameraStreamService.EXTRA_REMOTE, remote)
+            putExtra(CameraStreamService.EXTRA_COVERED, covered)
             if (selection != null) {
                 putExtra(CameraStreamService.EXTRA_CAMERA_ID, selection.cameraId)
                 putExtra(CameraStreamService.EXTRA_LOGICAL_ID, selection.logicalId)
@@ -41,7 +45,9 @@ object StreamLauncher {
             }
         }
         return try {
-            ContextCompat.startForegroundService(context, intent)
+            // A plain start is allowed: the waiting service already keeps the app in the foreground.
+            if (covered) context.startService(intent) else ContextCompat.startForegroundService(context, intent)
+            SessionStartWindow.begin()
             Result.Started
         } catch (e: Exception) {
             android.util.Log.w("StreamLauncher", "Could not start stream service", e)
