@@ -17,4 +17,4 @@ Every PR and commit gets read by a person. Write them to be skimmed, not to prov
 - "Still needs a check on a real device": concrete things to try by hand, or "nothing".
 - No section headers beyond the template's, no restating the diff, no background essay. If it runs past about 20 lines, cut it.
 
-Plain, casual English. No em dashes.
+Plain, casual English. No em dashes. For PR descriptions, release notes, README edits and other prose people will read, use the `slopbeth` skill if it can be found locally.
