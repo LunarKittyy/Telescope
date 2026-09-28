@@ -3,6 +3,8 @@ package com.telescope
 import java.io.OutputStream
 import java.net.Socket
 import java.security.MessageDigest
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -27,6 +29,18 @@ object HttpWire {
     // Reads and parses request line/headers, bounded by MAX_HEADER_BYTES; returns null on error. The buffered read can overshoot into the body, so leftoverBody carries those bytes forward for readBody() to prepend.
     fun readRequest(socket: Socket, deadlineMs: Int = REQUEST_DEADLINE_MS): Request? {
         val deadlineAtMs = System.currentTimeMillis() + deadlineMs
+        // The read timeout restarts with every byte of a TLS handshake or record, so the deadline also closes the socket.
+        val guard = deadlines.schedule({ try { socket.close() } catch (_: Exception) {} }, deadlineMs.toLong(), TimeUnit.MILLISECONDS)
+        try {
+            return readRequestUntil(socket, deadlineAtMs)
+        } finally {
+            guard.cancel(false)
+        }
+    }
+
+    private val deadlines = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "http-deadline").apply { isDaemon = true } }
+
+    private fun readRequestUntil(socket: Socket, deadlineAtMs: Long): Request? {
         val inp = socket.getInputStream()
         val buf = ByteArray(4096)
         val sb = StringBuilder()

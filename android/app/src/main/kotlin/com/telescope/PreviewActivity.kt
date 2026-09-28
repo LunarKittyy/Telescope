@@ -180,7 +180,14 @@ class PreviewActivity : AppCompatActivity() {
 
         val svc = service
         resolved = true
-        if (svc?.isStreaming == true) {
+        if (svc?.state == StreamState.StartingServer) {
+            // Its camera is about to open; a camera of our own would take it away from the stream.
+            Toast.makeText(this, "The stream is starting. Try again in a moment.", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
+        // Also while the stream's camera is opening or switching: its session picks the preview up when it's built.
+        if (svc != null && svc.state in ATTACHABLE) {
             boundToRunningStream = true
             val streamSize = svc.getStreamSize()
             // Must be set before attaching: Camera2 needs buffer size fixed to supported size
@@ -439,5 +446,7 @@ class PreviewActivity : AppCompatActivity() {
         private const val TAG = "PreviewActivity"
         private const val MAX_TRANSFORM_RETRIES = 3
         private const val TRANSFORM_RETRY_DELAY_MS = 150L
+        private val ATTACHABLE = setOf(
+            StreamState.OpeningCamera, StreamState.ConfiguringSession, StreamState.Streaming, StreamState.Recovering)
     }
 }
