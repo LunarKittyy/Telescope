@@ -1,4 +1,5 @@
 import hashlib
+import os
 import re
 import shutil
 import subprocess
@@ -37,24 +38,38 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def unitycapture_downloaded(d: Path) -> bool:
+    # Both, since a bad one is deleted on its own: checking one would skip a download the other still needs
+    return all((d / name).exists() for name in _EXPECTED_SHA256)
+
+
 def download_unitycapture(progress_cb=None) -> tuple:
     d = unitycapture_dir()
-    d.mkdir(parents=True, exist_ok=True)
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        return False, f"Couldn't create {d}: {e}"
     for bits in ("32", "64"):
         name = f"UnityCaptureFilter{bits}.dll"
         url  = f"{UNITYCAPTURE_URL_BASE}/{name}"
         dest = d / name
+        part = d / (name + ".part")  # a cut-off download never sits where the callers look for a finished one
         try:
             if progress_cb:
                 progress_cb(f"Downloading {name}...")
-            with urllib.request.urlopen(url, timeout=30) as r, open(dest, "wb") as f:  # urlretrieve never times out
+            with urllib.request.urlopen(url, timeout=30) as r, open(part, "wb") as f:  # urlretrieve never times out
                 shutil.copyfileobj(r, f)
+            digest = _sha256(part)
+            if digest != _EXPECTED_SHA256[name]:
+                return False, f"{name} failed checksum verification (got {digest[:12]}...) - not registering"
+            os.replace(part, dest)
         except Exception as e:
             return False, f"Download failed: {e}"
-        digest = _sha256(dest)
-        if digest != _EXPECTED_SHA256[name]:
-            dest.unlink(missing_ok=True)
-            return False, f"{name} failed checksum verification (got {digest[:12]}...) - not registering"
+        finally:
+            try:
+                part.unlink(missing_ok=True)
+            except OSError:
+                pass
     return True, "Downloaded"
 
 
@@ -63,6 +78,10 @@ def register_unitycapture() -> tuple:
     for name, expected in _EXPECTED_SHA256.items():
         path = d / name
         if not path.exists() or _sha256(path) != expected:
+            try:
+                path.unlink(missing_ok=True)  # so "Try again" downloads it afresh instead of failing the same way
+            except OSError:
+                pass
             return False, f"{name} failed checksum verification - not registering"
     dll32 = str(d / "UnityCaptureFilter32.dll")
     dll64 = str(d / "UnityCaptureFilter64.dll")

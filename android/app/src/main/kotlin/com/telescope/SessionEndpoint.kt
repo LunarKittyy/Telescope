@@ -50,7 +50,10 @@ object SessionEndpoint {
         val app = context.applicationContext
         owners.add(owner)
         // A server whose bind failed or whose accept loop died is replaced on the next acquire, not kept forever.
-        if (server?.listening == true) return
+        if (server?.listening == true) {
+            announcer?.start(SessionServer.DEFAULT_PORT)  // retries an announcement that failed; a no-op otherwise
+            return
+        }
         server?.stop()
         announcer?.stop()
         server = try {
@@ -102,6 +105,8 @@ open class StartWindow(private val clock: () -> Long) {
     fun settle() { until = minOf(until, clock() + SETTLE_MS) }
 
     fun open(): Boolean = clock() < until
+
+    fun cancel() { until = 0L }
 
     companion object {
         const val PENDING_MS = 5_000L  // the service never got to onStartCommand

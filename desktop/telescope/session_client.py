@@ -1,8 +1,8 @@
 """Client for phone's session port (8766), always reachable unlike streaming server."""
 
+import http.client
 import json
 import logging
-import socket
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -142,7 +142,7 @@ class PhoneSessionClient:
             return True
         except urllib.error.HTTPError:
             return True
-        except (OSError, ValueError, socket.timeout):
+        except (OSError, ValueError, http.client.HTTPException):  # HTTPException: something there that isn't HTTP
             return False
 
     def ping(self) -> PingResult:

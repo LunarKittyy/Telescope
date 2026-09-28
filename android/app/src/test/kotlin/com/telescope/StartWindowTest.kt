@@ -34,6 +34,13 @@ class StartWindowTest {
     }
 
     @Test
+    fun `a start that couldn't be made closes the window`() {
+        window.begin()
+        window.cancel()
+        assertFalse(window.open())
+    }
+
+    @Test
     fun `settling never makes the window longer`() {
         window.begin()
         now += StartWindow.PENDING_MS - 100

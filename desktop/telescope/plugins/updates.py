@@ -2,8 +2,9 @@
 
 Checks a few seconds after launch and then once a day, silently: a newer build shows an "Update"
 button beside the settings button, nothing more. Updating downloads, verifies, replaces the app's
-files and restarts it; it waits while a stream is running. A copy that can't replace itself (a source
-checkout, a read-only folder) gets a link to the release page instead.
+files and restarts it; it waits while a stream is running, and one that finishes during a stream
+restarts when it stops. A copy that can't replace itself (a source checkout, a read-only folder)
+gets a link to the release page instead.
 """
 
 import logging
@@ -131,7 +132,8 @@ class UpdatesPlugin(TelescopePlugin):
         self._check_id = 0
         self._checking = False
         self._manual = False
-        self._phase = ""          # "", "downloading", "installing"
+        self._phase = ""          # "", "downloading", "installing", "restart_pending" (installed during a stream)
+        self._relaunch_argv: Optional[list] = None
         self._progress = (0, 0)
         self._cancel = threading.Event()
         self._dlg: Optional[UpdatesDialog] = None
@@ -141,7 +143,7 @@ class UpdatesPlugin(TelescopePlugin):
         self._signals.installed.connect(self._on_installed)
         bus.update_requested.connect(self.open_dialog)
         bus.stream_started.connect(lambda _url: self._refresh())
-        bus.stream_stopped.connect(self._refresh)
+        bus.stream_stopped.connect(self._on_stream_stopped)
 
         self._timer = QTimer()
         self._timer.timeout.connect(self._maybe_auto_check)
@@ -198,6 +200,8 @@ class UpdatesPlugin(TelescopePlugin):
             return f"Downloading{pct}…", "status_dim"
         if self._phase == "installing":
             return "Installing…", "status_dim"
+        if self._phase == "restart_pending":
+            return "Updated. Telescope restarts when you stop streaming.", "status_ok"
         if self._checking:
             return "Checking…", "status_dim"
         if self._error:
@@ -311,7 +315,7 @@ class UpdatesPlugin(TelescopePlugin):
         self._spawn_install(asset)
 
     def _spawn_install(self, asset):
-        signals, cancel = self._signals, self._cancel
+        signals, cancel, host = self._signals, self._cancel, self._host
         build = self.available.build if self.available else 0
 
         def work():
@@ -321,7 +325,8 @@ class UpdatesPlugin(TelescopePlugin):
                 archive = updates.download(
                     asset, folder, progress=lambda d, t: signals.progress.emit(d, t), cancelled=cancel.is_set)
                 signals.progress.emit(-1, -1)  # downloaded: now installing
-                stop_adb_server()  # a running adb.exe would keep platform-tools on its old version
+                if not host.is_streaming():  # a stream started meanwhile may run over USB; platform-tools can wait
+                    stop_adb_server()  # a running adb.exe would keep platform-tools on its old version
                 result, error = updates.install(archive, build=build), ""
             except updates.UpdateError as exc:
                 result, error = None, str(exc)
@@ -352,8 +357,26 @@ class UpdatesPlugin(TelescopePlugin):
             return
         if result.skipped:
             logger.warning("Files in use kept their old version: %s", ", ".join(result.skipped))
+        if self._host.is_streaming():
+            # Started (say, by an app opening the camera) while it downloaded: don't cut the stream off
+            self._phase = "restart_pending"
+            self._relaunch_argv = result.relaunch
+            self._refresh()
+            return
+        self._restart_into(result.relaunch)
+
+    def _on_stream_stopped(self):
+        restarting = getattr(self._host, "is_restarting", lambda: False)()
+        if self._phase == "restart_pending" and self._relaunch_argv and not restarting and not self._host.is_streaming():
+            argv, self._relaunch_argv = self._relaunch_argv, None  # once: quitting stops again and re-emits this
+            self._phase = "installing"
+            QTimer.singleShot(0, lambda: self._restart_into(argv))  # after the stop that emitted this has finished
+            return
+        self._refresh()
+
+    def _restart_into(self, argv: list):
         try:
-            self._relaunch(result.relaunch)
+            self._relaunch(argv)
         except (OSError, ValueError):
             # The new version is in place; staying open beats quitting with nothing to replace us
             logger.exception("Couldn't restart after the update")

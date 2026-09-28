@@ -153,6 +153,7 @@ def test_windows_setup_status(
     monkeypatch, windows_dialog, tmp_path, uc_ok, adb_ok, uc_text, uc_button, adb_text
 ):
     dialog = windows_dialog
+    (tmp_path / "UnityCaptureFilter32.dll").write_bytes(b"dll")
     (tmp_path / "UnityCaptureFilter64.dll").write_bytes(b"dll")
     monkeypatch.setattr(setup_mod, "unitycapture_dir", lambda: tmp_path)
     dialog._on_win_checks(uc_ok, adb_ok)
@@ -221,6 +222,7 @@ def test_install_unitycapture_stops_after_download_error(monkeypatch, windows_di
 
 
 def test_install_unitycapture_skips_download_when_dll_exists(monkeypatch, windows_dialog, tmp_path):
+    (tmp_path / "UnityCaptureFilter32.dll").write_bytes(b"dll")
     (tmp_path / "UnityCaptureFilter64.dll").write_bytes(b"dll")
     monkeypatch.setattr(setup_mod.threading, "Thread", _ImmediateThread)
     monkeypatch.setattr(setup_mod, "unitycapture_dir", lambda: tmp_path)
@@ -398,3 +400,13 @@ def test_max_zoom_spinbox_applies_straight_away(qapp):
     assert plugin.get_config()["max_zoom"] == 20
     assert host.saves >= 1
     plugin._dlg.hide()
+
+
+def test_a_driver_install_that_crashes_still_frees_the_button(monkeypatch, windows_dialog, tmp_path):
+    monkeypatch.setattr(setup_mod.threading, "Thread", _ImmediateThread)
+    monkeypatch.setattr(setup_mod, "unitycapture_dir", lambda: tmp_path)
+    monkeypatch.setattr(setup_mod, "download_unitycapture",
+                        lambda: (_ for _ in ()).throw(PermissionError("read-only folder")))
+    windows_dialog._install_uc()
+    assert windows_dialog._uc_btn.isEnabled()
+    assert "read-only folder" in windows_dialog._uc_status_lbl.text()

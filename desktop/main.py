@@ -37,6 +37,11 @@ except ImportError: _missing.append("zeroconf")
 
 if _missing:
     print(f"Missing: pip install {' '.join(_missing)}", file=sys.stderr)
+    # start.sh installs only when this stamp is out of date; dropping it makes the next launch install again
+    try:
+        Path(sys.prefix, ".telescope-requirements").unlink(missing_ok=True)
+    except OSError:
+        pass
     sys.exit(1)
 
 from PyQt6.QtCore import QTimer

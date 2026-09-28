@@ -249,6 +249,17 @@ def test_switching_phones_mid_stream_stops_the_stream(plugin_env):
     assert host.stops == 1
 
 
+def test_forgetting_the_phone_being_streamed_stops_it_while_it_can_still_be_reached(plugin_env):
+    plugin, host, _panel = plugin_env
+    _add(plugin, pid="id-a", name="A")
+    plugin._streaming = True
+    host.streaming = True
+    seen = []
+    host.stop_stream = lambda: seen.append(plugin.session_target().auth is not None)
+    plugin.forget_phone("id-a")
+    assert seen and seen[0] is True
+
+
 def test_forgetting_a_phone_revokes_it_and_drops_its_settings(plugin_env):
     plugin, host, _panel = plugin_env
     _add(plugin, pid="id-a", name="A")
@@ -399,6 +410,17 @@ def test_a_check_slower_than_the_poll_still_lands(plugin_env):
     assert plugin.resolution.status == READY
     plugin._check_status()
     assert plugin._check_id == first + 1
+
+
+def test_changing_the_route_while_a_check_runs_checks_the_new_route_and_ignores_the_old(plugin_env):
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    plugin._check_status()
+    old = plugin._check_id
+    plugin.set_route_preference(connection_module.ROUTE_USB)
+    assert plugin._check_id == old + 1
+    plugin._on_resolved(old, "id-a", Resolution(READY, WIFI))
+    assert plugin.resolution is None
 
 
 def test_a_check_that_never_answers_gives_way_to_a_new_one(plugin_env):

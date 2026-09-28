@@ -253,6 +253,13 @@ def install_windows(archive: Path, directory: Path, build: int = 0) -> InstallRe
     if not (staging / EXE_NAME).is_file():
         shutil.rmtree(staging, ignore_errors=True)
         raise UpdateError("The download doesn't contain Telescope, so it wasn't installed.")
+    # A roll-back puts back whatever old exe it finds, so one left from an earlier update must go first
+    for leftover in (update_guard.OLD_EXE_NAME, update_guard.FAILED_EXE_NAME):
+        try:
+            (directory / leftover).unlink(missing_ok=True)
+        except OSError:
+            shutil.rmtree(staging, ignore_errors=True)
+            raise UpdateError(f"{leftover} is in use, so the update wasn't installed. Try again after a restart.")
     skipped = _swap(directory, {"platform": "windows", "to_build": build})
     return InstallResult([str(directory / EXE_NAME), "--after-update"], skipped)
 

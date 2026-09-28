@@ -249,10 +249,11 @@ class StreamOutputPlugin(TelescopePlugin):
             if force_default:
                 target_wh = self._default_resolution()
             self._select_resolution(target_wh)
-            if force_default:
-                final_wh = self._res_combo.currentData()  # Whatever _select_resolution actually landed on.
-                if final_wh is not None and final_wh != (live_w, live_h):
-                    self._on_resolution()  # Actually push the default to the phone, not just show it.
+            final_wh = self._res_combo.currentData()  # Whatever _select_resolution actually landed on.
+            # Push it whenever it isn't what the phone runs at (a default, or a lens without the old size),
+            # or the box would show and save a size the phone never got.
+            if final_wh is not None and final_wh != (live_w, live_h) and (force_default or (live_w and live_h)):
+                self._on_resolution()
 
             self._ar_combo.setEnabled(True)
             self._res_combo.setEnabled(True)

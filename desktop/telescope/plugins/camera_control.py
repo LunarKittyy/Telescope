@@ -472,7 +472,9 @@ class CameraControlPlugin(TelescopePlugin):
         else:
             self._rb_wb_manual.setToolTip("")
 
+        focus = self._slider_to_diopters(self._focus_slider.value())
         self._focus_max_diopters = min_focus_distance if min_focus_distance > 0 else 10.0
+        self._set_focus_slider_value(min(focus, self._focus_max_diopters))  # same distance on the new scale
         self._rb_focus_manual.setEnabled(supports_manual_focus)
         if not supports_manual_focus:
             self._rb_focus_auto.setChecked(True)
@@ -746,15 +748,19 @@ class CameraControlPlugin(TelescopePlugin):
     def apply_preset(self, cfg: dict):
         """Load a preset's settings and, while streaming, send all of them (lens first)."""
         live_lens = self._lens_id
+        cam = None
+        if self._ctrl:
+            # The lens first: it sets the slider ranges, so the preset's values aren't clamped to the old lens's
+            lens = cfg.get("lens")
+            cam = self._lens_panel.select_id(lens) if lens and lens != live_lens else None
+            if cam:
+                self._on_lens_selected(cam)
         self.set_config(cfg)
         self._point_focus = False
         if not self._ctrl:
             self._pending_lens = cfg.get("lens")
             return
-        self._lens_id = live_lens  # until the switch below goes out
-        lens = cfg.get("lens")
-        cam = self._lens_panel.select_id(lens) if lens and lens != live_lens else None
-        if cam:
-            self._on_lens_selected(cam)
+        if cam is None:
+            self._lens_id = live_lens  # the preset's lens isn't on this phone (or is the live one)
         self._push_settings_to_phone()
 

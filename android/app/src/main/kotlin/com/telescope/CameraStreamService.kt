@@ -187,7 +187,7 @@ class CameraStreamService : Service() {
         const val NOTIF_ID         = 1
         const val DEFAULT_PORT     = 8080
         private const val TAG      = "CameraStreamService"
-        // Set once the desktop asked for the mic without permission; the phone's setup card then offers it.
+        // Permission -> asked once already; also mic_wanted, set once the desktop asked for the mic without permission
         const val PREFS_SETUP      = "setup"
         const val KEY_MIC_WANTED   = "mic_wanted"
 
@@ -378,7 +378,8 @@ class CameraStreamService : Service() {
     @Volatile private var covered = false
     private var wakeLock: PowerManager.WakeLock? = null
     private var idleWatchdogThread: Thread? = null
-    private val idleWatchdogRunning = java.util.concurrent.atomic.AtomicBoolean(false)
+    // One flag per watchdog thread, so a quick stop and start can't revive the old thread beside the new one
+    private var idleWatchdogRunning = java.util.concurrent.atomic.AtomicBoolean(false)
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var started = false
     @Volatile private var busySinceMs = 0L
@@ -413,6 +414,7 @@ class CameraStreamService : Service() {
         else if (old != newState) busySinceMs = System.currentTimeMillis()
         val transition = stateMachine.transition(newState, op, error)
         if (old == StreamState.StartingServer && newState != StreamState.StartingServer) SessionStartWindow.settle()
+        if (newState == StreamState.Streaming) rememberSelection()
         android.util.Log.i(
             TAG,
             "StreamState $old -> $newState (op=$op, camera=${controller?.getCurrentCameraId()}, " +
@@ -468,7 +470,25 @@ class CameraStreamService : Service() {
 
     fun switchCamera(id: String) {
         val entry = allCameras.find { it.id == id } ?: return
-        controller?.switchTo(entry)
+        controller?.let { selectCamera(it, entry) }
+    }
+
+    // A lens that doesn't list the current size gets the closest one it does, or its session would fail
+    private fun selectCamera(ctrl: CameraSessionController, entry: CameraEntry) {
+        val size = ctrl.getStreamSize()
+        val (w, h) = fitSize(entry, size.width, size.height)
+        ctrl.switchTo(entry)
+        if (w != size.width || h != size.height) ctrl.switchResolution(w, h)
+    }
+
+    // Saved only once it streams, so a lens or size that can't work isn't reopened on every later start
+    private fun rememberSelection() {
+        val ctrl = controller ?: return
+        val cam = ctrl.snapshot().currentCamera ?: return
+        val size = ctrl.getStreamSize()
+        StreamPrefs.updateSelection(this) {
+            it.copy(cameraId = cam.id, logicalId = cam.logicalId ?: "", width = size.width, height = size.height)
+        }
     }
 
     fun attachPreviewSurface(surface: Surface) {
@@ -586,6 +606,9 @@ class CameraStreamService : Service() {
         super.onDestroy()
     }
 
+    // NaN and infinity parse as floats but slip through every clamp
+    private fun String?.finite(): Float? = this?.toFloatOrNull()?.takeIf { it.isFinite() }
+
     private fun fitSize(entry: CameraEntry, w: Int, h: Int): Pair<Int, Int> =
         CameraRequestSelection.closestSize(w, h, entry.supportedSizes.map { it.width to it.height })
 
@@ -643,11 +666,13 @@ class CameraStreamService : Service() {
     }
 
     private fun startIdleWatchdog() {
-        idleWatchdogRunning.set(true)
+        idleWatchdogRunning.set(false)
+        val running = java.util.concurrent.atomic.AtomicBoolean(true)
+        idleWatchdogRunning = running
         idleWatchdogThread = kotlin.concurrent.thread(name = "idle-watchdog", isDaemon = true) {
-            while (idleWatchdogRunning.get()) {
+            while (running.get()) {
                 Thread.sleep(IDLE_CHECK_INTERVAL_MS)
-                if (!idleWatchdogRunning.get()) break
+                if (!running.get()) break
                 val srv = server ?: continue
                 val since = busySinceMs
                 if (since != 0L && System.currentTimeMillis() - since >= BUSY_STUCK_MS) {
@@ -657,9 +682,10 @@ class CameraStreamService : Service() {
                             stopStreaming("busyTimeout")
                         }
                     }
-                    break
+                    continue  // if it settled before the post ran, keep watching; a stop ends this loop
                 }
-                wakeLock?.let { if (!it.isHeld) it.acquire(WAKE_LOCK_MS) }  // it lapses after 12 h on a long stream
+                // It lapses after 12 h on a long stream; on the main thread so it can't race stopStreaming's release
+                mainHandler.post { if (running.get()) wakeLock?.let { if (!it.isHeld) it.acquire(WAKE_LOCK_MS) } }
                 // A computer taking the video counts too: its status polls can go missing on a weak Wi-Fi link.
                 val watched = controller?.hasPreviewSurface() == true || srv.hasActiveViewer()
                 if (!watched && srv.idleForMs() >= IDLE_STOP_MS) {
@@ -746,21 +772,16 @@ class CameraStreamService : Service() {
                 "camera" -> {
                     val id    = params["id"] ?: return err("no id")
                     val entry = allCameras.find { it.id == id } ?: return err("unknown id $id")
-                    val size = ctrl.getStreamSize()
-                    val (w, h) = fitSize(entry, size.width, size.height)
-                    ctrl.switchTo(entry)
-                    if (w != size.width || h != size.height) ctrl.switchResolution(w, h)  // this lens doesn't list the current size
-                    StreamPrefs.updateSelection(this) {
-                        it.copy(cameraId = entry.id, logicalId = entry.logicalId ?: "", width = w, height = h)
-                    }
+                    selectCamera(ctrl, entry)
                     ok()
                 }
                 "resolution" -> {
                     val w = params["width"]?.toIntOrNull()  ?: return err("bad width")
                     val h = params["height"]?.toIntOrNull() ?: return err("bad height")
                     if (w <= 0 || h <= 0) return err("bad size")
-                    ctrl.switchResolution(w, h)
-                    StreamPrefs.updateSelection(this) { it.copy(width = w, height = h) }
+                    val cam = ctrl.snapshot().currentCamera ?: return err("camera not ready")
+                    val (fw, fh) = fitSize(cam, w, h)  // a size from another lens's list would fail the session
+                    ctrl.switchResolution(fw, fh)
                     ok()
                 }
                 "iso" -> {
@@ -783,10 +804,10 @@ class CameraStreamService : Service() {
                     ok()
                 }
                 "wb_gains" -> {
-                    val r  = params["r"]?.toFloatOrNull()  ?: return err("bad r")
-                    val ge = params["ge"]?.toFloatOrNull() ?: return err("bad ge")
-                    val go = params["go"]?.toFloatOrNull() ?: return err("bad go")
-                    val b  = params["b"]?.toFloatOrNull()  ?: return err("bad b")
+                    val r  = params["r"].finite()  ?: return err("bad r")
+                    val ge = params["ge"].finite() ?: return err("bad ge")
+                    val go = params["go"].finite() ?: return err("bad go")
+                    val b  = params["b"].finite()  ?: return err("bad b")
                     ctrl.setWbGains(RggbChannelVector(r, ge, go, b))
                     ok()
                 }
@@ -812,18 +833,18 @@ class CameraStreamService : Service() {
                 }
                 "focus_point" -> {
                     // x, y: 0..1 in the stream frame as the phone sends it; size: fraction of its shorter side
-                    val x = params["x"]?.toFloatOrNull() ?: return err("bad x")
-                    val y = params["y"]?.toFloatOrNull() ?: return err("bad y")
-                    val size = params["size"]?.toFloatOrNull() ?: 0.1f
+                    val x = params["x"].finite() ?: return err("bad x")
+                    val y = params["y"].finite() ?: return err("bad y")
+                    val size = params["size"].finite() ?: 0.1f
                     if (!ctrl.setFocusPoint(x, y, size)) return err("this lens can't focus on a point")
                     ok()
                 }
                 "zoom" -> {
                     // ratio: centred zoom; crop: extra zoom inside that; x, y: the crop's centre, 0..1 of the view
-                    val ratio = params["ratio"]?.toFloatOrNull() ?: return err("bad ratio")
-                    val crop  = params["crop"]?.toFloatOrNull()  ?: return err("bad crop")
-                    val x     = params["x"]?.toFloatOrNull()     ?: return err("bad x")
-                    val y     = params["y"]?.toFloatOrNull()     ?: return err("bad y")
+                    val ratio = params["ratio"].finite() ?: return err("bad ratio")
+                    val crop  = params["crop"].finite()  ?: return err("bad crop")
+                    val x     = params["x"].finite()     ?: return err("bad x")
+                    val y     = params["y"].finite()     ?: return err("bad y")
                     ctrl.setZoom(ZoomRequest(ratio.coerceAtLeast(1f), crop.coerceAtLeast(1f),
                                              x.coerceIn(0f, 1f), y.coerceIn(0f, 1f)))
                     ok()
@@ -835,7 +856,7 @@ class CameraStreamService : Service() {
                     ok()
                 }
                 "focus_distance" -> {
-                    val d = params["value"]?.toFloatOrNull() ?: return err("bad distance")
+                    val d = params["value"].finite() ?: return err("bad distance")
                     ctrl.setFocusDistance(d.coerceAtLeast(0f))
                     ok()
                 }

@@ -145,7 +145,7 @@ class StreamWorker(QThread):
         """Update stream parameters live (None = pass-through; omit to leave unchanged; fps changes restart vcam)."""
         if width  is not _UNCHANGED: self._width  = width
         if height is not _UNCHANGED: self._height = height
-        if fps is not _UNCHANGED:
+        if fps is not _UNCHANGED and fps != self._fps:  # the same fps again (a box losing focus) would still flicker the camera
             self._fps = fps
             self._restart_vcam.set()
             self._frame_ready.set()

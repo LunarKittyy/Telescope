@@ -28,7 +28,7 @@ object Updater {
         object CheckFailed : State()  // offline, or GitHub didn't answer
         data class Available(val manifest: UpdateManifest) : State()
         data class Downloading(val manifest: UpdateManifest, val percent: Int) : State()
-        data class Installing(val manifest: UpdateManifest) : State()
+        data class Installing(val manifest: UpdateManifest, val sinceMs: Long = System.currentTimeMillis()) : State()
         data class Failed(val message: String, val manifest: UpdateManifest?) : State()
     }
 
@@ -66,6 +66,7 @@ object Updater {
     // Once each time the app starts, then daily while it stays open.
     fun maybeCheck(context: Context) {
         if (!canUpdate()) return
+        (state as? State.Installing)?.let { if (UpdateLogic.installStuck(it.sinceMs, System.currentTimeMillis())) installCancelled() }
         if (state !is State.Idle && state !is State.UpToDate && state !is State.CheckFailed) return
         val last = prefs(context).getLong(KEY_LAST_CHECK, 0)
         if (!checkedThisRun || UpdateLogic.checkDue(last, System.currentTimeMillis())) check(context)

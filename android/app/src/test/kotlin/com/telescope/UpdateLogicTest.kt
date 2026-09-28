@@ -66,4 +66,10 @@ class UpdateLogicTest {
         assertTrue(UpdateLogic.checkDue(0, UpdateLogic.DAY_MS))
         assertFalse(UpdateLogic.checkDue(1000, 1000 + UpdateLogic.DAY_MS - 1))
     }
+
+    @Test
+    fun `an install with no word from the installer is given up on after a minute`() {
+        assertFalse(UpdateLogic.installStuck(1000, 1000 + UpdateLogic.INSTALL_STUCK_MS - 1))
+        assertTrue(UpdateLogic.installStuck(1000, 1000 + UpdateLogic.INSTALL_STUCK_MS))
+    }
 }
