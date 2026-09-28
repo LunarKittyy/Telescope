@@ -344,3 +344,21 @@ def test_zoom_slider_marks_sit_where_the_handle_would(qapp):
                                                       QStyle.SubControl.SC_SliderHandle, slider))
         assert abs(slider.mark_x(value) - handle.center().x()) <= 1
     slider.grab()  # paints with marks on both sides of the handle
+
+
+def test_slider_fill_doesnt_stick_out_past_the_handle_at_zero(qapp):
+    from PyQt6.QtGui import QColor
+    from telescope import theme
+    from telescope.theme import apply_theme
+    apply_theme(qapp)
+    slider = NoScrollSlider(Qt.Orientation.Horizontal)
+    slider.setRange(0, 100)
+    slider.setValue(0)
+    slider.resize(200, 20)
+    img = slider.grab().toImage()
+    opt = QStyleOptionSlider()
+    slider.initStyleOption(opt)
+    handle = slider.style().subControlRect(QStyle.ComplexControl.CC_Slider, opt, QStyle.SubControl.SC_SliderHandle, slider)
+    accent = QColor(theme.ACCENT)
+    y = handle.center().y()
+    assert all(QColor(img.pixel(x, y)) != accent for x in range(handle.left()))  # at 0 the handle is the leftmost fill
