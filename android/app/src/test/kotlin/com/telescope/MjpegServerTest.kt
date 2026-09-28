@@ -296,6 +296,30 @@ class MjpegServerTest {
     }
 
     @Test
+    fun `closing the MJPEG viewers ends their stream and frees their slot`() {
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("secret-token") })
+        server.start()
+        try {
+            Socket("127.0.0.1", actualPort(server)).use { socket ->
+                socket.soTimeout = 2_000
+                socket.getOutputStream().apply {
+                    write("GET /v1/video HTTP/1.1\r\nAuthorization: Bearer secret-token\r\n\r\n".toByteArray())
+                    flush()
+                }
+                val input = socket.getInputStream()
+                readUntil(input, "\r\n\r\n".toByteArray())
+                assertTrue(server.hasActiveViewer())
+                server.closeMjpegClients()
+                // The viewer sees the end of the stream instead of waiting on frames that never come.
+                assertEquals(-1, input.read())
+                assertFalse(server.hasActiveViewer())
+            }
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
     fun `a video viewer counts as active only while it takes frames`() {
         val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("secret-token") })
         server.start()

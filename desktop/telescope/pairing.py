@@ -7,7 +7,7 @@ import secrets
 import socket
 import threading
 from dataclasses import dataclass, field
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Callable, List, Optional
 
 from telescope import ip_utils
@@ -58,6 +58,8 @@ class PairingServer:
     """Binds the pairing HTTP server for one dialog session and validates a single phone's pairing POST against it."""
 
     _MAX_BODY_BYTES = 16 * 1024
+    # A connection that stalls (a phone dropping off Wi-Fi mid-request, a port scanner) is cut off after this.
+    _REQUEST_TIMEOUT_S = 10
     # Drain limit: avoid RST on Windows when closing with unread bytes.
     _DRAIN_LIMIT = 1024 * 1024
 
@@ -66,7 +68,7 @@ class PairingServer:
         self._on_paired = on_paired
         self._computer_id = computer_id
         self._computer_name = computer_name
-        self._server: Optional[HTTPServer] = None
+        self._server: Optional[ThreadingHTTPServer] = None
         self._server_thread: Optional[threading.Thread] = None
         self.offer: Optional[PairingOffer] = None
 
@@ -98,10 +100,16 @@ class PairingServer:
         token = secrets.token_urlsafe(32)
         max_body = self._MAX_BODY_BYTES
         drain_limit = self._DRAIN_LIMIT
+        request_timeout = self._REQUEST_TIMEOUT_S
         pair_path = f"/pair/{nonce}"
         on_paired = self._on_paired
+        # One offer pairs one phone; a second (two plugged in, both sent the USB offer) is refused, not told it paired.
+        claim = threading.Lock()
+        claimed = []
 
         class _Handler(BaseHTTPRequestHandler):
+            timeout = request_timeout
+
             def do_GET(self):
                 self.send_response(200)
                 self.end_headers()
@@ -144,6 +152,12 @@ class PairingServer:
                         raise ValueError("no certificate fingerprint")
                     if not hmac.compare_digest(proof, pairing_proof(token, nonce, phone_id, cert_sha256)):
                         raise ValueError("proof mismatch")
+                    with claim:
+                        taken = bool(claimed) and claimed[0] != phone_id
+                        if not claimed:
+                            claimed.append(phone_id)
+                    if taken:
+                        self.send_response(409); self.end_headers(); return
                     source_ip = self.client_address[0] if self.client_address else ""
                     on_paired(PairingResult(
                         name=name, ips=ips, token=token, source_ip=source_ip, phone_id=phone_id,
@@ -158,7 +172,8 @@ class PairingServer:
             def log_message(self, *args):
                 pass
 
-        self._server = HTTPServer(("", port), _Handler)
+        # Threaded, so one stalled connection doesn't hold up the phone that's really pairing.
+        self._server = ThreadingHTTPServer(("", port), _Handler)
         self._server_thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._server_thread.start()
 

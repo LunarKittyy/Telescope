@@ -266,6 +266,7 @@ def test_listen_for_raise_invokes_callback_and_closes_connection():
     events = []
 
     class Conn:
+        def settimeout(self, timeout): events.append(("conn timeout", timeout))
         def recv(self, _size): return b"raise"
         def close(self): events.append("closed")
 
@@ -278,13 +279,14 @@ def test_listen_for_raise_invokes_callback_and_closes_connection():
             return Conn(), ("127.0.0.1", 1)
 
     app_module.listen_for_raise(Server(), lambda: events.append("raised"))
-    assert events == [("timeout", 1.0), "accepted", "raised", "closed"]
+    assert events == [("timeout", 1.0), "accepted", ("conn timeout", 1.0), "raised", "closed"]
 
 
 def test_listen_for_raise_ignores_wrong_message_and_timeouts(monkeypatch):
     events = []
 
     class Conn:
+        def settimeout(self, _timeout): pass
         def recv(self, _size): return b"other"
         def close(self): events.append("closed")
 
@@ -299,6 +301,25 @@ def test_listen_for_raise_ignores_wrong_message_and_timeouts(monkeypatch):
 
     app_module.listen_for_raise(Server(), lambda: events.append("raised"))
     assert events == ["closed"]
+
+
+def test_a_silent_connection_does_not_stop_later_raises():
+    # Anything on this machine that connects and says nothing used to block the listener for good.
+    import threading
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(4)
+    raised = threading.Event()
+    threading.Thread(target=app_module.listen_for_raise, args=(srv, raised.set), daemon=True).start()
+    port = srv.getsockname()[1]
+    silent = socket.create_connection(("127.0.0.1", port))
+    try:
+        with socket.create_connection(("127.0.0.1", port)) as c:
+            c.sendall(b"raise")
+        assert raised.wait(5)
+    finally:
+        silent.close()
+        srv.close()
 
 
 def test_register_headless_global_plugin_does_not_add_panel(window):
@@ -584,6 +605,37 @@ def test_apply_config_routes_global_and_selected_device_config(window, monkeypat
     assert local.applied == []
     assert seen == ["PhoneB"]
     assert connection.synced == 1
+
+
+class _Picky(_Plugin):
+    """Rejects a saved value it can't use, the way a real plugin's spin box does."""
+
+    def set_config(self, cfg):
+        if cfg.get("zoom") == "junk":
+            raise TypeError("bad zoom")
+        super().set_config(cfg)
+
+
+def test_a_saved_config_that_wont_load_falls_back_to_defaults(window, config_home):
+    # One bad value (a hand edit, another version's shape) used to stop the app from starting at all.
+    connection = _Connection(selected="PhoneA")
+    setup = _Picky("setup", {"zoom": 1})
+    local = _Picky("transforms", {"zoom": 1})
+    for plugin in (connection, setup, local):
+        window.register_plugin(plugin)
+
+    window._apply_config({
+        "selected_device": "PhoneA",
+        "plugin_configs": {"setup": "not a dict"},
+    })
+    config_home.save_config({
+        "selected_device": "PhoneA", "plugin_configs": {},
+        "devices": {"PhoneA": {"plugin_configs": {"transforms": {"zoom": "junk"}}}},
+    })
+    window._apply_device_profile("PhoneA")
+
+    assert setup.config == {"zoom": 1}
+    assert local.config == {"zoom": 1}
 
 
 def test_apply_config_empty_is_noop(window):

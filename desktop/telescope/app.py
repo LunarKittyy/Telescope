@@ -79,6 +79,7 @@ def listen_for_raise(srv: socket.socket, raise_cb):
         try:
             conn, _ = srv.accept()
             try:
+                conn.settimeout(1.0)  # something that connects and says nothing mustn't stop every later raise
                 if conn.recv(16) == b"raise":
                     raise_cb()
             finally:
@@ -178,7 +179,7 @@ class TelescopeWindow(QMainWindow):
         self._plugins.append(plugin)
         if plugin.name:
             self._plugins_by_name[plugin.name] = plugin
-        if plugin.name in DEVICE_LOCAL_PLUGINS:
+        if plugin.name:
             self._plugin_defaults[plugin.name] = plugin.get_config()
 
     def _plugin(self, name: str) -> Optional[TelescopePlugin]:
@@ -451,7 +452,15 @@ class TelescopeWindow(QMainWindow):
             if p.name and p.name in DEVICE_LOCAL_PLUGINS:
                 p.set_config(self._plugin_defaults.get(p.name, {}))
                 if p.name in pcfg:
-                    p.set_config(pcfg[p.name])
+                    self._set_plugin_config(p, pcfg[p.name])
+
+    def _set_plugin_config(self, plugin: TelescopePlugin, cfg):
+        """Load a saved config; one that won't load (hand-edited, another version's) leaves the plugin on its defaults."""
+        try:
+            plugin.set_config(cfg)
+        except Exception:
+            logging.exception("Saved settings for %s couldn't be loaded; using the defaults", plugin.name)
+            plugin.set_config(self._plugin_defaults.get(plugin.name, {}))
 
     def switch_device(self, prev_name, new_name: Optional[str]):
         """Switch device profile; save old before applying new."""
@@ -549,7 +558,7 @@ class TelescopeWindow(QMainWindow):
             if not p.name or p.name in DEVICE_LOCAL_PLUGINS:
                 continue
             if p.name in global_pcfg:
-                p.set_config(global_pcfg[p.name])
+                self._set_plugin_config(p, global_pcfg[p.name])
         self._apply_device_profile(selected)
         # Sync connection plugin profile after device profile applied.
         if conn:

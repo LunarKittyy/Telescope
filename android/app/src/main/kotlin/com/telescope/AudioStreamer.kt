@@ -15,8 +15,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 // Records the microphone only while at least one listener is connected, and hands each 10 ms chunk
 // to [onChunk]. start() is idempotent; stop() ends recording.
 class AudioStreamer(private val context: Context, private val onChunk: (ByteArray) -> Unit) {
-    private val running = AtomicBoolean(false)
-    private var thread: Thread? = null
+    // One flag per recording: a stop() then quick start() mustn't let the old thread (mid-read) carry on beside the new one.
+    private var running: AtomicBoolean? = null
 
     companion object {
         fun permitted(context: Context): Boolean =
@@ -30,7 +30,7 @@ class AudioStreamer(private val context: Context, private val onChunk: (ByteArra
     @SuppressLint("MissingPermission")  // checked by permitted()
     @Synchronized
     fun start(): Boolean {
-        if (running.get()) return true
+        if (running?.get() == true) return true
         if (!permitted()) return false
         val minBuf = AudioRecord.getMinBufferSize(AudioStream.SAMPLE_RATE,
             AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
@@ -51,15 +51,15 @@ class AudioStreamer(private val context: Context, private val onChunk: (ByteArra
             record.release()
             return false
         }
-        running.set(true)
-        thread = Thread({
+        val active = AtomicBoolean(true).also { running = it }
+        Thread({
             try {
-                while (running.get()) {
+                while (active.get()) {
                     val chunk = ByteArray(AudioStream.CHUNK_BYTES)
                     var n = 0
-                    while (n < chunk.size && running.get()) {
+                    while (n < chunk.size && active.get()) {
                         val r = record.read(chunk, n, chunk.size - n)
-                        if (r < 0) { running.set(false); break }
+                        if (r < 0) { active.set(false); break }
                         n += r
                     }
                     if (n == chunk.size) onChunk(chunk)
@@ -69,13 +69,13 @@ class AudioStreamer(private val context: Context, private val onChunk: (ByteArra
                 effects.forEach { it.release() }
                 record.release()
             }
-        }, "mic-record").also { it.start() }
+        }, "mic-record").start()
         return true
     }
 
     @Synchronized
     fun stop() {
-        running.set(false)
-        thread = null
+        running?.set(false)
+        running = null
     }
 }

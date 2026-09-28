@@ -304,6 +304,17 @@ def test_resolution_updates_the_card_and_remembers_the_address_that_answered(plu
     assert host.saves > saves
 
 
+def test_addresses_from_old_networks_drop_off(plugin_env):
+    # Each status check probes every remembered address, so the list can't grow with every network the phone visits.
+    plugin, _host, _panel = plugin_env
+    _add(plugin, ips=("10.0.0.5",))
+    for n in range(1, 13):
+        plugin._apply_resolution(Resolution(READY, Route("wifi", f"10.0.1.{n}")))
+    ips = plugin.phone("id-a").ips
+    assert len(ips) == 8
+    assert ips[-1] == "10.0.1.12" and "10.0.0.5" not in ips
+
+
 def test_a_cable_that_is_not_used_gets_explained(plugin_env):
     plugin, _host, _panel = plugin_env
     _add(plugin)

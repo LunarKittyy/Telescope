@@ -540,13 +540,14 @@ def quality_label(q: int) -> str:
 
 def log_pos_to_val(pos: int, steps: int, v_min: float, v_max: float) -> float:
     if v_min <= 0: v_min = 1
+    if v_max <= v_min: return v_min  # a range of one value (or none), as some cameras report
     t = pos / max(steps, 1)
     val = math.exp(math.log(v_min) + t * (math.log(v_max) - math.log(v_min)))
     return max(v_min, min(v_max, val))
 
 
 def val_to_log_pos(val: float, steps: int, v_min: float, v_max: float) -> int:
-    if val <= 0 or v_min <= 0: return 0
+    if val <= 0 or v_min <= 0 or v_max <= v_min: return 0
     val = max(v_min, min(v_max, val))
     t   = (math.log(val) - math.log(v_min)) / (math.log(v_max) - math.log(v_min))
     return round(t * steps)

@@ -194,6 +194,29 @@ def test_valid_payload_pairs_and_invokes_callback(pairing_server):
     ]
 
 
+def test_a_stalled_connection_does_not_block_the_phone_pairing(pairing_server):
+    # A phone that dropped off Wi-Fi mid-request (or a port scanner) used to hold the only handler thread.
+    _server, offer, paired = pairing_server
+    stalled = socket.create_connection(("127.0.0.1", offer.port), timeout=2)
+    try:
+        assert _post(offer.port, f"/pair/{offer.nonce}", _pair_body(offer)) == 200
+        _wait_for(paired)
+        assert len(paired) == 1
+    finally:
+        stalled.close()
+
+
+def test_a_second_phone_is_refused_once_one_paired(pairing_server):
+    # Both got the offer (two phones plugged in); only the first is kept, so the second mustn't think it paired.
+    _server, offer, paired = pairing_server
+    assert _post(offer.port, f"/pair/{offer.nonce}", _pair_body(offer, phone_id="ph-1")) == 200
+    assert _post(offer.port, f"/pair/{offer.nonce}", _pair_body(offer, phone_id="ph-2")) == 409
+    # The first phone retrying (its answer got lost) still gets through.
+    assert _post(offer.port, f"/pair/{offer.nonce}", _pair_body(offer, phone_id="ph-1")) == 200
+    _wait_for(paired)
+    assert {r.phone_id for r in paired} == {"ph-1"}
+
+
 def test_pairing_without_a_phone_id_is_rejected(pairing_server):
     # Without it the desktop couldn't tell phones apart.
     _server, offer, paired = pairing_server

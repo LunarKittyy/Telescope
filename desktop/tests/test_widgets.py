@@ -70,6 +70,14 @@ def test_value_to_log_position_endpoints_and_invalid_values():
     assert val_to_log_pos(50, 100, 0, 1000) == 0
 
 
+def test_log_scale_survives_a_camera_reporting_an_empty_or_single_value_range():
+    # A camera that reports ISO 0-0 or a fixed shutter used to raise here and stop the panel updating.
+    assert log_pos_to_val(50, 100, 50, 0) == 50
+    assert log_pos_to_val(50, 100, 100, 100) == 100
+    assert val_to_log_pos(100, 100, 100, 100) == 0
+    assert val_to_log_pos(100, 100, 50, 0) == 0
+
+
 def test_log_scale_round_trip_is_close_across_range():
     for value in (50, 100, 400, 1600, 6400):
         pos = val_to_log_pos(value, 2000, 50, 6400)
