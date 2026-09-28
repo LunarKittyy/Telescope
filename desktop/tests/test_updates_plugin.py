@@ -141,6 +141,25 @@ def test_an_update_that_cant_restart_stays_open_and_says_so(env, monkeypatch):
     assert "reopen Telescope" in plugin.status_text()[0]
 
 
+def test_an_update_that_lands_during_a_stream_restarts_only_once_it_stops(env, monkeypatch, qapp):
+    plugin, host, bus, _button, _fetched = env
+    plugin.check()
+    relaunched = []
+    monkeypatch.setattr(UpdatesPlugin, "_relaunch", staticmethod(relaunched.append))
+    monkeypatch.setattr(UpdatesPlugin, "_spawn_install", lambda self, asset: None)  # still downloading
+    plugin.update_now()
+    host.streaming = True  # an app opened the camera while it downloaded
+    plugin._on_installed(InstallResult(["start.sh"]), "")
+    assert relaunched == [] and host.quits == 0
+    assert "when you stop streaming" in plugin.status_text()[0]
+
+    host.streaming = False
+    bus.stream_stopped.emit()
+    bus.stream_stopped.emit()  # quitting stops again
+    qapp.processEvents()
+    assert relaunched == [["start.sh"]] and host.quits == 1
+
+
 def test_no_update_while_streaming(env, monkeypatch):
     plugin, host, bus, _button, _fetched = env
     plugin.check()

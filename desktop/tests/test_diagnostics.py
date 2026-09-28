@@ -91,6 +91,20 @@ def test_rotates_and_keeps_one_previous_file(tmp_path):
     reread.close()
 
 
+def test_a_log_that_cant_be_rotated_keeps_being_written(tmp_path, monkeypatch):
+    path = tmp_path / "telescope.log"
+    events = EventLog(path, max_bytes=200)
+
+    def locked(*_a):
+        raise PermissionError("open in another process")
+
+    monkeypatch.setattr(diagnostics.os, "replace", locked)
+    for i in range(20):
+        events.note(f"event {i}")
+    events.close()
+    assert "event 19" in path.read_text()
+
+
 def test_report_is_bounded(tmp_path):
     events = EventLog(tmp_path / "telescope.log")
     for i in range(1000):

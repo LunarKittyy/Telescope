@@ -34,6 +34,7 @@ OLD_EXE_NAME = "TelescopeDesktop.old.exe"
 FAILED_EXE_NAME = "TelescopeDesktop.failed.exe"
 LIB_PREFIX = "lib-"            # + the build number: the folder the exe's libraries are in (telescope.spec)
 INSTANCE_PORT = 47823          # telescope.app's single-instance port
+TRIAL_GRACE_S = 30             # a new version's first start may take this long to bind the port
 
 
 # ── The journal ───────────────────────────────────────────────────────────────
@@ -161,11 +162,16 @@ def roll_back(directory: Path, journal: dict, remember: bool = True):
     if journal.get("platform") == "windows":
         current, old = directory / EXE_NAME, directory / OLD_EXE_NAME
         if old.exists():
+            failed = directory / FAILED_EXE_NAME
             if current.exists():
-                failed = directory / FAILED_EXE_NAME
                 failed.unlink(missing_ok=True)
                 os.replace(current, failed)  # may be the running copy: renaming is allowed
-            os.replace(old, current)
+            try:
+                os.replace(old, current)
+            except OSError:
+                if failed.exists() and not current.exists():
+                    os.replace(failed, current)  # never leave no exe at all: nothing could start to retry this
+                raise
         # The new lib folder may be the running one; the old version's clean-up deletes it.
     else:
         previous = directory / PREVIOUS_DIR
@@ -225,14 +231,28 @@ def recover(directory: Path, wait: float = 0.0, running_elsewhere=another_copy_r
             write_journal(directory, dict(journal, state="trial", started=False))
             # Windows: a copy that just renamed itself out of the way is the old version, so start the new one.
             return relaunch_command(directory, after_update=True) if swapped else None
+        if state == "trial" and journal.get("started") and _first_start_still_loading(journal, running_elsewhere):
+            return None  # a second launch while the new version was still starting up: that one binds the port
         if state == "rolling_back" or (state == "trial" and journal.get("started")):
             roll_back(directory, journal)
             return relaunch_command(directory)
         if state == "trial":
-            write_journal(directory, dict(journal, started=True))
+            write_journal(directory, dict(journal, started=True, started_at=time.time()))
     except OSError:
         pass  # can't fix it from here: start what's there, and try again next time
     return None
+
+
+def _first_start_still_loading(journal: dict, running_elsewhere) -> bool:
+    # A started trial with no running copy usually means it crashed, unless it's still importing before it binds
+    started_at = journal.get("started_at")
+    if not isinstance(started_at, (int, float)):
+        return False
+    while time.time() - started_at < TRIAL_GRACE_S:
+        if running_elsewhere():
+            return True
+        time.sleep(0.25)
+    return running_elsewhere()
 
 
 def confirm(directory: Path):

@@ -623,6 +623,8 @@ class ConnectionPlugin(TelescopePlugin):
         if res.status == DESKTOP_OUTDATED:
             self._bus.update_requested.emit()
             return
+        if self._updating_phone:
+            return  # the Start banner offers this too, while the card's own install is still running
         apk = bundled_apk_path()
         if res.status != PHONE_OUTDATED or res.route is None or res.route.kind != "usb" or apk is None:
             return
@@ -632,7 +634,11 @@ class ConnectionPlugin(TelescopePlugin):
         signals, serial = self._signals, res.route.serial
 
         def work():
-            ok, detail = adb_install(serial, apk)
+            try:
+                ok, detail = adb_install(serial, apk)
+            except Exception as exc:  # always report back, or the card stays on "Updating…" for good
+                logger.exception("Phone app install failed")
+                ok, detail = False, f"Couldn't update the phone app: {exc}"
             try:
                 signals.phone_updated.emit(ok, detail)
             except RuntimeError:
@@ -712,6 +718,7 @@ class ConnectionPlugin(TelescopePlugin):
         if self._streaming:
             self._host.reconnect_stream()
         else:
+            self._running_check = None  # a check for the old route mustn't hold this one back, then land as current
             self._check_status()
 
     # ── Stream lifecycle (called by the host) ─────────────────────────────
@@ -1074,6 +1081,8 @@ class ConnectionPlugin(TelescopePlugin):
         phone = self.phone(pid)
         if phone is None:
             return
+        if pid == self._selected_id and self._streaming:
+            self._host.stop_stream()  # while it's still paired, so the stop can reach the phone's camera
         self._spawn_revoke(Phone(**phone.to_dict()))
         self._phones = [p for p in self._phones if p.id != pid]
         if pid == self._selected_id:
@@ -1108,6 +1117,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._refresh_combo()
         self._activate_profile(pid)
         self._render()
+        self._running_check = None  # the other phone's check is stale now; don't wait for it
         self._check_status()
 
     def _on_combo_changed(self, idx: int):

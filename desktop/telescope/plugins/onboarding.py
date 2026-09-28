@@ -5,6 +5,7 @@ The other plugins are reached only through the EventBus: phones_changed tells it
 paired, add_phone_requested opens pairing, and setup_needed lets the video stage make room.
 """
 
+import logging
 import threading
 from typing import Optional
 
@@ -14,7 +15,7 @@ from PyQt6.QtWidgets import QGridLayout, QLabel, QVBoxLayout, QWidget
 from telescope.platform import IS_LINUX, adb_available, adb_devices, adb_install, bundled_apk_path
 from telescope.platform.linux import v4l2_module_installed
 from telescope.platform.windows import (
-    download_unitycapture, register_unitycapture, uc_is_registered, unitycapture_dir,
+    download_unitycapture, register_unitycapture, uc_is_registered, unitycapture_dir, unitycapture_downloaded,
 )
 from telescope.plugin import TelescopePlugin
 from telescope.version import release_asset_url
@@ -30,6 +31,8 @@ _LINUX_INSTALL_HINT = (
     "Install the v4l2loopback package. Fedora and Nobara: "
     "v4l2loopback (from RPM Fusion). Debian, Ubuntu and Arch: v4l2loopback-dkms."
 )
+
+logger = logging.getLogger(__name__)
 
 
 class _Signals(QObject):
@@ -212,12 +215,17 @@ class OnboardingPlugin(TelescopePlugin):
         signals = self._signals
 
         def work():
-            ok, msg = True, ""
-            if not (unitycapture_dir() / "UnityCaptureFilter64.dll").exists():
-                ok, msg = download_unitycapture()
-            if ok:
-                ok, msg = register_unitycapture()
-            signals.vcam.emit(ok and uc_is_registered(), "" if ok else msg)
+            try:
+                ok, msg = True, ""
+                if not unitycapture_downloaded(unitycapture_dir()):
+                    ok, msg = download_unitycapture()
+                if ok:
+                    ok, msg = register_unitycapture()
+                ready = ok and uc_is_registered()
+            except Exception as exc:  # always report back, or the step stays on "Installing…" with its button off
+                logger.exception("Virtual camera install failed")
+                ready, ok, msg = False, False, str(exc)
+            signals.vcam.emit(ready, "" if ok else msg)
         threading.Thread(target=work, daemon=True).start()
 
     def _on_vcam(self, ready: bool, detail: str):

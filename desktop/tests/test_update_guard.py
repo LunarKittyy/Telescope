@@ -2,6 +2,7 @@
 
 import io
 import os
+from pathlib import Path
 import tarfile
 import zipfile
 
@@ -107,7 +108,8 @@ def test_a_windows_update_that_never_confirms_rolls_back_and_isnt_offered_again(
 
     assert update_guard.recover(app, running_elsewhere=_no_one_else) is None  # first start of the new version
     assert update_guard.read_journal(app)["started"] is True
-    # It crashed before confirming, so the next start goes back.
+    # It crashed before confirming, so the next start goes back (once it's had its time to start up).
+    monkeypatch.setattr(update_guard, "TRIAL_GRACE_S", 0)
     relaunch = update_guard.recover(app, running_elsewhere=_no_one_else)
 
     assert relaunch is not None and "--after-update" not in relaunch
@@ -122,6 +124,24 @@ def test_a_windows_update_that_never_confirms_rolls_back_and_isnt_offered_again(
     # The old version's clean-up takes the failed one's leftovers.
     updates.clean_up_after_update(app, running_lib="lib-130")
     assert not (app / "TelescopeDesktop.failed.exe").exists() and not (app / "lib-131").exists()
+
+
+def test_an_old_exe_left_from_an_earlier_update_is_never_rolled_back_to(tmp_path, monkeypatch):
+    app = _windows_app(tmp_path)
+    (app / "TelescopeDesktop.old.exe").write_bytes(b"exe stale")  # its lib folder is long gone
+    real = os.replace
+
+    def lib_move_fails(src, dst):
+        if Path(src).name.startswith("lib-"):
+            raise OSError("in use")
+        return real(src, dst)
+
+    monkeypatch.setattr(os, "replace", lib_move_fails)
+    with pytest.raises(updates.UpdateError):
+        updates.install_windows(_windows_zip(tmp_path), app, 131)
+    monkeypatch.setattr(os, "replace", real)
+
+    assert (app / "TelescopeDesktop.exe").read_bytes() == b"exe 130"
 
 
 def test_a_confirmed_update_stays_and_its_leftovers_go(tmp_path):
@@ -144,6 +164,18 @@ def test_a_second_copy_starting_leaves_the_update_to_the_running_one(tmp_path):
 
     assert update_guard.recover(app, running_elsewhere=lambda: True) is None
     assert (app / "TelescopeDesktop.exe").read_bytes() == b"exe 131"  # not rolled back under the running copy
+
+
+def test_a_second_launch_while_the_new_version_is_still_loading_leaves_it_alone(tmp_path, monkeypatch):
+    app = _windows_app(tmp_path)
+    updates.install_windows(_windows_zip(tmp_path), app, 131)
+    assert update_guard.recover(app, running_elsewhere=_no_one_else) is None  # the new version starts importing
+    monkeypatch.setattr(update_guard.time, "sleep", lambda _s: None)
+    bound_yet = iter([False, False, True])  # the double-click lands before it binds the port
+
+    assert update_guard.recover(app, running_elsewhere=lambda: next(bound_yet)) is None
+    assert (app / "TelescopeDesktop.exe").read_bytes() == b"exe 131"
+    assert update_guard.failed_build(app) is None
 
 
 def test_after_an_update_the_new_copy_waits_for_the_old_one_to_exit(tmp_path):
@@ -242,11 +274,12 @@ def test_a_linux_install_cut_short_anywhere_is_finished_by_the_next_start(tmp_pa
         assert _tree(app) == (NEW_TREE if began else OLD_TREE), k
 
 
-def test_a_linux_update_that_never_confirms_rolls_back(tmp_path):
+def test_a_linux_update_that_never_confirms_rolls_back(tmp_path, monkeypatch):
     app = _linux_app(tmp_path)
     updates.install_linux(_tarball(tmp_path / "u.tar.gz"), app, 131)
     assert update_guard.recover(app, running_elsewhere=_no_one_else) is None
     assert _tree(app) == NEW_TREE
+    monkeypatch.setattr(update_guard, "TRIAL_GRACE_S", 0)
 
     relaunch = update_guard.recover(app, running_elsewhere=_no_one_else)
 

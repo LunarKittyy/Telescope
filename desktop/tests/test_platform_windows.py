@@ -74,6 +74,26 @@ def test_download_unitycapture_handles_network_and_checksum_failures(monkeypatch
     assert not (tmp_path / "UnityCaptureFilter32.dll").exists()
 
 
+def test_a_cut_off_download_leaves_nothing_for_the_next_try_to_trip_over(monkeypatch, tmp_path):
+    monkeypatch.setattr(windows, "unitycapture_dir", lambda: tmp_path)
+
+    class Cut(io.BytesIO):
+        def read(self, *_a):
+            raise OSError("connection reset")
+
+    monkeypatch.setattr(windows.urllib.request, "urlopen", lambda _url, timeout: Cut())
+    ok, _msg = windows.download_unitycapture()
+    assert ok is False
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_register_drops_a_tampered_file_so_a_retry_downloads_it_again(monkeypatch, tmp_path):
+    monkeypatch.setattr(windows, "unitycapture_dir", lambda: tmp_path)
+    (tmp_path / "UnityCaptureFilter32.dll").write_bytes(b"half")
+    assert windows.register_unitycapture()[0] is False
+    assert not (tmp_path / "UnityCaptureFilter32.dll").exists()
+
+
 def test_register_refuses_missing_or_tampered_files(monkeypatch, tmp_path):
     monkeypatch.setattr(windows, "unitycapture_dir", lambda: tmp_path)
     ok, msg = windows.register_unitycapture()

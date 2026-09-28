@@ -178,6 +178,24 @@ def test_stream_output_camera_switch_falls_back_when_new_lens_lacks_the_size(str
     assert plugin._res_combo.currentText() == "4032 x 3024"
 
 
+def test_a_lens_without_the_live_size_sends_the_size_it_falls_back_to(stream_output):
+    plugin, _host, _panel = stream_output
+    ctrl = _Ctrl()
+    plugin.on_stream_start("url", ctrl)
+    plugin.on_phone_state({
+        "cameras": [{"id": "0", "current": True, "supportedSizes": [{"width": 1920, "height": 1080}]}],
+        "stream_width": 1920, "stream_height": 1080,
+    })
+    ctrl.sent.clear()
+
+    plugin._on_camera_switched({"id": "1", "current": True, "supportedSizes": [
+        {"width": 1280, "height": 720}, {"width": 1024, "height": 768},
+    ]})
+
+    shown = plugin._res_combo.currentData()
+    assert {"action": "resolution", "width": shown[0], "height": shown[1]} in ctrl.sent
+
+
 def test_stream_output_resolution_reset_on_stream_stop(stream_output):
     plugin, _host, _panel = stream_output
     plugin.on_phone_state({
@@ -568,6 +586,8 @@ def setup_plugin(qapp):
         ({"canvas_preset": "1280 x 720"}, (None, None)),
         ({"canvas_preset": "720p 16:9 - 1280 x 720"}, (1280, 720)),
         ({"canvas_preset": "Custom...", "custom_canvas_w": 1111, "custom_canvas_h": 777}, (1111, 777)),
+        ({"canvas_preset": "Custom...", "custom_canvas_w": "1920", "custom_canvas_h": 1080}, (1920, 1080)),
+        ({"canvas_preset": "Custom...", "custom_canvas_w": 0, "custom_canvas_h": 720}, (1920, 1080)),
     ],
 )
 def test_setup_plugin_canvas_config(setup_plugin, config, expected):

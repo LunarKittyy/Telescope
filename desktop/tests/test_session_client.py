@@ -245,3 +245,24 @@ def test_the_look_for_an_old_app_skips_a_configured_proxy(monkeypatch):
     finally:
         proxy.shutdown()
         proxy.server_close()
+
+
+def test_a_listener_that_answers_with_something_other_than_http_is_not_a_phone():
+    import socket
+    import threading
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(1)
+
+    def answer():
+        conn, _ = srv.accept()
+        conn.recv(4096)
+        conn.sendall(b"\x15\x03\x03\x00\x02\x02\x28")  # a TLS alert, not a status line
+        conn.close()
+
+    threading.Thread(target=answer, daemon=True).start()
+    try:
+        client = PhoneSessionClient(f"https://127.0.0.1:{srv.getsockname()[1]}", PhoneAuth("tok", "ab" * 32))
+        assert client._answers_plain_http(2.0) is False
+    finally:
+        srv.close()

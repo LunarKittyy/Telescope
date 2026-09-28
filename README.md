@@ -447,7 +447,7 @@ sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-releas
 sudo dnf install v4l2loopback
 ```
 
-The `start.sh` script handles pip dependencies automatically. Once the package above is installed, Telescope loads the module when you start streaming. It asks for your password once, with **Also switch it on at every startup** ticked, so later boots don't ask again. Without a graphical password prompt (no pkexec or no polkit agent), it shows the command to run in a terminal instead, with a Copy button. **Advanced** in the settings menu can load and unload it too, or run it manually:
+The `start.sh` script handles pip dependencies automatically, and only goes online for them when they change (first run, or an update). Once the package above is installed, Telescope loads the module when you start streaming. It asks for your password once, with **Also switch it on at every startup** ticked, so later boots don't ask again. Without a graphical password prompt (no pkexec or no polkit agent), it shows the command to run in a terminal instead, with a Copy button. **Advanced** in the settings menu can load and unload it too, or run it manually:
 
 ```bash
 sudo modprobe v4l2loopback devices=2 video_nr=10,11 \

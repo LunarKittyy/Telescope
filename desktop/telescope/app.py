@@ -127,6 +127,8 @@ class TelescopeWindow(QMainWindow):
 
         # Generation counter for phone-wake; guards against stale async results.
         self._wake_id = 0
+        self._wake_target = None  # where the latest wake went, to stop it if it finishes after a stop
+        self._stop_late_wake = False
         self._waking = False
         self._preparing = False  # _start is finding the phone; timers still fire meanwhile, so it must not start again
         self._orphans: set = set()  # workers that outlived Stop's wait, kept referenced until they finish
@@ -438,8 +440,19 @@ class TelescopeWindow(QMainWindow):
             logging.exception("Plugin %s couldn't report its settings; keeping the saved ones", plugin.name)
             return saved
 
+    def _config_to_update(self) -> Optional[dict]:
+        # None when the saved file is there but unreadable right now: saving over it would lose every other phone's settings
+        try:
+            return load_config(strict=True)
+        except OSError:
+            logging.exception("Couldn't read the settings file; not saving over it")
+            return None
+
     def save_now(self):
-        cfg = load_config()
+        cfg = self._config_to_update()
+        if cfg is None:
+            self.schedule_save()  # tries again shortly
+            return
         global_pcfg = cfg.setdefault("plugin_configs", {})
         conn = self._plugin("connection")
         selected = conn.selected_device if conn else None
@@ -486,21 +499,23 @@ class TelescopeWindow(QMainWindow):
 
     def switch_device(self, prev_name, new_name: Optional[str]):
         """Switch device profile; save old before applying new."""
-        cfg = load_config()
-        if prev_name:
+        cfg = self._config_to_update()
+        if cfg is not None and prev_name:
             prev_pcfg = cfg.setdefault("devices", {}).setdefault(prev_name, {}).setdefault("plugin_configs", {})
             for p in self._plugins:
                 if p.name and p.name in DEVICE_LOCAL_PLUGINS:
                     if (c := self._config_of(p, prev_pcfg.get(p.name))) is not None:
                         prev_pcfg[p.name] = c
-        save_config(cfg)
+        if cfg is not None:
+            save_config(cfg)
 
         was_streaming = self._worker is not None or self._waking  # a start still waking would stream the old phone
         if was_streaming:
             self._stop()
 
-        cfg["selected_device"] = new_name
-        save_config(cfg)
+        if cfg is not None:
+            cfg["selected_device"] = new_name
+            save_config(cfg)
         self._apply_device_profile(new_name)
         self._bus.device_changed.emit(new_name or "")
 
@@ -509,8 +524,8 @@ class TelescopeWindow(QMainWindow):
 
     def forget_device_settings(self, name: str):
         """Drop a removed phone's per-device settings from the config."""
-        cfg = load_config()
-        if cfg.get("devices", {}).pop(name, None) is not None:
+        cfg = self._config_to_update()
+        if cfg is not None and cfg.get("devices", {}).pop(name, None) is not None:
             save_config(cfg)
 
     def _shutdown_plugins(self):
@@ -619,7 +634,9 @@ class TelescopeWindow(QMainWindow):
         self._start_btn.setEnabled(False)
         self._set_status("Starting the phone's camera…", "dim")
 
-        self._spawn_wake(wake_id, conn, url, auth, conn.session_target())
+        self._wake_target = conn.session_target()
+        self._stop_late_wake = True
+        self._spawn_wake(wake_id, conn, url, auth, self._wake_target)
 
     def _spawn_wake(self, wake_id: int, conn, url: str, auth, target=None):
         """Split from _start() to allow test synchronization; thread mustn't outlive QObject."""
@@ -651,6 +668,9 @@ class TelescopeWindow(QMainWindow):
 
     def _on_wake_done(self, wake_id: int, ok: bool, reason: str, url: str, auth):
         if wake_id != self._wake_id or not self._waking:
+            if ok and self._stop_late_wake and not self._waking and self._session is None:
+                # Stopped while it woke: the stop may have reached the phone first, leaving its camera on
+                self._stop_phone_async(self._wake_target)
             return
         self._waking = False
         self._start_btn.setEnabled(True)
@@ -701,6 +721,8 @@ class TelescopeWindow(QMainWindow):
     def _stop(self, remote_stop: bool = True):
         """Tear down stream; remote_stop=False for reconnects (changed address/vcam reload)."""
         self._wake_id += 1
+        if not remote_stop:
+            self._stop_late_wake = False  # the phone is meant to keep going, so a wake landing late isn't stopped either
         self._end_recovery()
         was_waking = self._waking
         self._waking = False
@@ -816,12 +838,12 @@ class TelescopeWindow(QMainWindow):
             self._session = session
         session.worker.retarget(url)
 
-    def _stop_phone_async(self):
+    def _stop_phone_async(self, target=None):
         """Tell phone to shut camera down; tracked thread lets quit path wait for it."""
         conn = self._plugin("connection")
         if not conn:
             return
-        target = conn.session_target()
+        target = target or conn.session_target()
 
         def stop():
             try:
@@ -847,13 +869,12 @@ class TelescopeWindow(QMainWindow):
     def restart_vcam_canvas(self, w, h, on_done=None):
         """Stop stream, optionally reload the vcam driver, restart stream."""
         self._vcam_reload_callback = on_done
-        was_streaming = self._worker is not None
+        was_streaming = self._worker is not None or self._waking  # a start still waking restarts after it too
         old_worker = self._worker  # capture before _stop() clears it
         # Desktop-side driver reload only - the phone keeps streaming through it.
         if was_streaming:
             self._stop_for_restart()
-        else:
-            self._stop(remote_stop=False)
+        # Idle: nothing to stop, and a stream_stopped now would tell Startup the user stopped one
 
         if IS_LINUX:
             self._set_status("Reloading v4l2loopback…", "dim")
@@ -1103,7 +1124,9 @@ class TelescopeWindow(QMainWindow):
             self._net_lbl.setText(msg)
         elif kind == "ok":
             self._set_status(msg, "ok")
-            self._banners.clear_issue()  # whatever stopped the last Start is fixed now
+            for key in self._banners.keys():  # whatever stopped the last Start is fixed now
+                if key != "h264":  # says why this very stream is MJPEG, and comes just before its reconnect
+                    self._banners.clear_issue(key)
             self._bus.stream_connected.emit()
         elif kind == "warn":
             self._set_status(msg, "warn")

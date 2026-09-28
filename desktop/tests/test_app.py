@@ -369,6 +369,41 @@ def test_a_loopback_reload_that_raises_still_reports_back(window, monkeypatch, q
     assert done
 
 
+def test_a_canvas_change_while_idle_does_not_announce_a_stop(window, monkeypatch, qapp):
+    import telescope.app as app_module
+    monkeypatch.setattr(app_module, "IS_LINUX", False)
+    stopped = []
+    window._bus.stream_stopped.connect(lambda: stopped.append(True))
+    done = []
+    window.restart_vcam_canvas(1280, 720, on_done=lambda *a: done.append(a))
+    deadline = time.monotonic() + 3
+    while not done and time.monotonic() < deadline:
+        qapp.processEvents()
+        time.sleep(0.01)
+    assert done and stopped == []
+
+
+def test_a_canvas_change_while_the_phone_wakes_starts_it_again_without_stopping_it(window, monkeypatch, qapp):
+    import telescope.app as app_module
+    monkeypatch.setattr(app_module, "IS_LINUX", False)
+    connection = _Connection()
+    window.register_plugin(connection)
+    spawned = _real_spawn_wake(monkeypatch)
+    window._start()
+    wake_id, _conn, url, token, _target = spawned[0]
+    starts = []
+    monkeypatch.setattr(window, "start_stream", lambda *a, **k: starts.append(True))
+    done = []
+    window.restart_vcam_canvas(1280, 720, on_done=lambda *a: done.append(a))
+    window._on_wake_done(wake_id, True, "", url, token)  # the first wake lands during the reload
+    deadline = time.monotonic() + 3
+    while not done and time.monotonic() < deadline:
+        qapp.processEvents()
+        time.sleep(0.01)
+    window._drain_phone_stops()
+    assert starts == [True] and connection.remote_stops == 0
+
+
 def test_register_headless_global_plugin_does_not_add_panel(window):
     plugin = _Plugin("global", panel=False)
     window.register_plugin(plugin)
@@ -467,6 +502,29 @@ def test_save_config_separates_global_and_device_local_plugins(window, config_ho
     assert cfg["devices"]["PhoneA"]["plugin_configs"] == {
         "transforms": {"zoom": 2}
     }
+
+
+def test_a_settings_file_that_cant_be_read_is_not_saved_over(window, config_home, monkeypatch):
+    cfg = config_home.load_config()
+    cfg["devices"] = {"PhoneB": {"plugin_configs": {"transforms": {"zoom": 3}}}}
+    config_home.save_config(cfg)
+    window.register_plugin(_Connection(selected="PhoneA"))
+    window.register_plugin(_Plugin("transforms", {"zoom": 2}))
+    from pathlib import Path
+    real = Path.read_bytes
+
+    def locked(self):
+        if self.name == "telescope_config.json":
+            raise PermissionError("held by a sync app")
+        return real(self)
+
+    monkeypatch.setattr(Path, "read_bytes", locked)
+    monkeypatch.setattr(config_home.time, "sleep", lambda _s: None)
+    window.save_now()
+    monkeypatch.setattr(Path, "read_bytes", real)
+
+    assert config_home.load_config()["devices"]["PhoneB"]["plugin_configs"] == {"transforms": {"zoom": 3}}
+    assert window._save_timer.isActive()  # and it tries again
 
 
 def test_save_config_without_connection_skips_device_profile(window, config_home):
@@ -1332,6 +1390,20 @@ def test_a_wake_that_lands_after_the_user_gave_up_is_discarded(window, monkeypat
     assert window._worker is None
 
 
+def test_a_wake_that_finishes_after_stop_stops_the_phone_again(window, monkeypatch):
+    connection = _Connection()
+    window.register_plugin(connection)
+    spawned = _real_spawn_wake(monkeypatch)
+    window._start()
+    wake_id, _conn, url, token, _target = spawned[0]
+
+    window._stop()  # its stop can reach the phone before the wake's start does
+    window._on_wake_done(wake_id, True, "", url, token)
+    window._drain_phone_stops()
+
+    assert connection.remote_stops == 2
+
+
 def test_stop_takes_the_phone_s_camera_down_with_it(window, monkeypatch):
     connection = _Connection()
     window.register_plugin(connection)
@@ -1459,6 +1531,13 @@ def test_a_start_problem_banner_clears_on_the_next_start_and_on_a_working_stream
     assert window._banners.issue("start").text == "still closed"  # replaced, not stacked
     window._on_worker_status("ok", "Streaming")
     assert window._banners.keys() == []
+
+
+def test_a_working_stream_keeps_the_note_on_why_it_fell_back_to_mjpeg(window):
+    from telescope.widgets.banner import Issue
+    window.show_issue("h264", Issue("Back to MJPEG", "The phone's H.264 encoder stopped."))
+    window._on_worker_status("ok", "Streaming")
+    assert window._banners.issue("h264") is not None
 
 
 def test_waiting_to_start_by_itself_keeps_running_in_the_tray(window, monkeypatch):

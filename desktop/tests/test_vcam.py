@@ -115,6 +115,23 @@ def test_holds_the_camera_until_stopped(qapp):
     assert cams[0].closed and not screen.running
 
 
+def test_a_wait_screen_that_failed_to_prepare_starts_again_when_asked(qapp):
+    calls = []
+
+    def loader(path, w, h, convert=None):
+        calls.append(1)
+        if len(calls) == 1:
+            raise OSError("image unreadable for a moment")
+        return [((convert or (lambda f: f))(np.zeros((h, w, 3), np.uint8)), vcam.STILL_PERIOD)]
+
+    screen, cams, _ = _screen(loader=loader)
+    screen.show((64, 36), None)
+    _wait_for(lambda: not screen.running)
+    screen.show((64, 36), None)
+    _wait_for(lambda: cams and cams[0].sent)
+    screen.stop()
+
+
 @pytest.mark.parametrize("linux", [True, False])
 def test_mirror_flips_the_screen_left_to_right(qapp, monkeypatch, linux):
     monkeypatch.setattr(vcam, "IS_LINUX", linux)

@@ -116,8 +116,12 @@ class _Held:
 
     def _target(self, stop: threading.Event): ...
 
+    def _alive(self) -> bool:
+        # A thread that ended by itself (a failed prepare, a crash) counts as not running, so asking again restarts it
+        return self._thread is not None and self._thread.is_alive()
+
     def _spawn(self):
-        if self._thread is not None or _is_released():
+        if self._alive() or _is_released():
             return
         stop = self._stop = threading.Event()
         self._thread = threading.Thread(target=self._target, args=(stop,), daemon=True)
@@ -146,7 +150,7 @@ class _Held:
 
     @property
     def running(self) -> bool:
-        return self._thread is not None
+        return self._alive()
 
     def _suspend(self):
         with self._lock:
@@ -333,7 +337,7 @@ class WaitScreen(_Held):
         mirror (for apps that mirror the camera); restarts if any of them changed."""
         with self._lock:
             same = (size, path, mirror) == (self._size, self._path, self._mirror)
-            if self._wanted and self._thread is not None and same:
+            if self._wanted and self._alive() and same:
                 return
             self._join()
             self._size, self._path, self._mirror = size, path, mirror

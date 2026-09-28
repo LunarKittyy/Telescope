@@ -124,8 +124,11 @@ class EventLog(logging.Handler):
         try:
             if self._file.tell() > self._max_bytes:
                 self._file.close()
-                os.replace(self.path, self.previous_path)
-                self._file = open(self.path, "w", encoding="utf-8")
+                try:
+                    os.replace(self.path, self.previous_path)
+                except OSError:
+                    pass  # another process has it open (Windows): keep writing, and rotate on a later line
+                self._file = open(self.path, "a", encoding="utf-8")
             self._file.write(line + "\n")
             self._file.flush()
         except OSError:

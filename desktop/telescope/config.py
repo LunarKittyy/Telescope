@@ -25,7 +25,8 @@ def config_path() -> Path:
     return Path(base) / _APP_NAME.lower() / _CONFIG_FILENAME
 
 
-def load_config() -> dict:
+def load_config(strict: bool = False) -> dict:
+    """strict: raise OSError when the file is there but can't be read, for callers about to save over it."""
     path = config_path()
     for attempt in range(3):
         try:
@@ -36,6 +37,8 @@ def load_config() -> dict:
         except OSError:
             # Often brief (a virus scanner or sync app holding the file); starting fresh would save over it later
             if attempt == 2:
+                if strict:
+                    raise
                 logger.exception("Failed to read config from %s - starting fresh", path)
                 return _empty()
             time.sleep(0.2)

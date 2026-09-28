@@ -214,6 +214,42 @@ def test_camera_saves_the_lens_and_applying_switches_it_before_sending_settings(
     assert cam._rb_exp_manual.isChecked()
 
 
+_WIDE_RANGE_CAMS = [
+    {"id": "0", "label": "Back camera", "current": True, "supportsManualFocus": True, "minFocusDistance": 5.0,
+     "aeCompMin": -8, "aeCompMax": 8, "supportedSizes": [{"width": 1920, "height": 1080}]},
+    {"id": "2", "label": "Back camera (macro)", "current": False, "supportsManualFocus": True,
+     "minFocusDistance": 10.0, "aeCompMin": -12, "aeCompMax": 12,
+     "supportedSizes": [{"width": 1920, "height": 1080}]},
+]
+
+
+def test_a_preset_for_another_lens_sends_its_own_values_not_the_live_lens_limits(qapp):
+    host, bus = _Host(), EventBus()
+    cam = _camera(host, bus)
+    ctrl = _Ctrl()
+    cam.on_stream_start("url", ctrl)
+    cam.on_phone_state({"cameras": _WIDE_RANGE_CAMS, "auto": True})
+    ctrl.sent.clear()
+
+    cam.apply_preset(dict(cam.get_config(), lens="2", focus_manual=True, focus_diopters=8.0, ae_comp=12))
+
+    focus = [m["value"] for m in ctrl.sent if m["action"] == "focus_distance"]
+    ae = [m["value"] for m in ctrl.sent if m["action"] == "ae_comp"]
+    assert focus[-1] == pytest.approx(8.0, abs=0.05) and ae[-1] == 12
+
+
+def test_switching_lens_keeps_the_manual_focus_distance(qapp):
+    host, bus = _Host(), EventBus()
+    cam = _camera(host, bus)
+    cam.on_stream_start("url", _Ctrl())
+    cam.on_phone_state({"cameras": _WIDE_RANGE_CAMS, "auto": True})
+    cam.set_config(dict(cam.get_config(), focus_manual=True, focus_diopters=2.0))
+
+    cam._on_lens_selected(_WIDE_RANGE_CAMS[1])
+
+    assert cam.get_config()["focus_diopters"] == pytest.approx(2.0, abs=0.05)
+
+
 def test_camera_preset_for_the_live_lens_sends_no_switch(qapp):
     host, bus = _Host(), EventBus()
     cam = _camera(host, bus)

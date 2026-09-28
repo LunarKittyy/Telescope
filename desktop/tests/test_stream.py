@@ -106,6 +106,12 @@ def test_update_output_distinguishes_omitted_from_pass_through():
     assert worker._restart_vcam.is_set()
 
 
+def test_the_same_fps_again_does_not_reopen_the_virtual_camera():
+    worker = stream.StreamWorker("url", 1280, 720, 30)
+    worker.update_output(fps=30)
+    assert not worker._restart_vcam.is_set()
+
+
 def test_request_stop_sets_both_stop_signals():
     worker = stream.StreamWorker("url", None, None, 30)
 

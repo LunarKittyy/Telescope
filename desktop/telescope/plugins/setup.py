@@ -1,3 +1,4 @@
+import logging
 import threading
 from typing import Optional
 
@@ -16,6 +17,7 @@ from telescope.platform.linux import (
 )
 from telescope.platform.windows import (
     UC_NAME, download_unitycapture, register_unitycapture, uc_registered_name, unitycapture_dir,
+    unitycapture_downloaded,
 )
 from telescope.plugin import TelescopePlugin
 from telescope.version import display_version
@@ -42,6 +44,7 @@ CANVAS_PRESETS: list[tuple[str, tuple[int, int] | None]] = [
 _PRESET_LABELS = [label for label, _ in CANVAS_PRESETS]
 _PRESET_VALUES = {label: val for label, val in CANVAS_PRESETS}
 
+logger = logging.getLogger(__name__)
 
 
 def canvas_dims(cfg: dict) -> tuple[int | None, int | None]:
@@ -50,8 +53,15 @@ def canvas_dims(cfg: dict) -> tuple[int | None, int | None]:
     if val is None:
         return None, None
     if val == "custom":
-        return cfg.get("custom_canvas_w", 1920), cfg.get("custom_canvas_h", 1080)
+        return _custom_size(cfg)
     return val
+
+
+def _custom_size(cfg: dict) -> tuple[int, int]:
+    # A hand-edited value outside the dialog's own ranges would stop the dialog opening, the one place to fix it
+    w, h = cfg.get("custom_canvas_w"), cfg.get("custom_canvas_h")
+    ok = all(isinstance(v, int) and not isinstance(v, bool) for v in (w, h)) and 64 <= w <= 7680 and 64 <= h <= 4320
+    return (w, h) if ok else (1920, 1080)
 
 
 DEFAULT_MAX_ZOOM = 10
@@ -74,6 +84,7 @@ class AdvancedDialog(QDialog):
     def __init__(self, parent=None, on_apply_canvas=None, report=None, on_max_zoom=None):
         super().__init__(parent)
         self._report = report
+        self._uc_installing = False
         self.setWindowTitle("Advanced")
         self.setMinimumWidth(ui_px(560))
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
@@ -416,6 +427,7 @@ class AdvancedDialog(QDialog):
         self._sig_win_checks.emit(uc_registered_name() or "", adb_available())
 
     def _on_win_checks(self, uc_name: str, adb_ok: bool):
+        self._uc_btn.setEnabled(not self._uc_installing)
         if uc_name == UC_NAME:
             set_status_kind(self._uc_status_lbl, "status_ok")
             self._uc_status_lbl.setText("Ready")
@@ -431,7 +443,7 @@ class AdvancedDialog(QDialog):
             set_ui_role(self._uc_btn, "primary")
         else:
             set_status_kind(self._uc_status_lbl, "status_err")
-            dlls = (unitycapture_dir() / "UnityCaptureFilter64.dll").exists()
+            dlls = unitycapture_downloaded(unitycapture_dir())
             self._uc_status_lbl.setText(
                 "Not installed" if dlls else "Not installed (Install downloads the driver first)")
             self._uc_btn.setText("Install driver")
@@ -445,23 +457,29 @@ class AdvancedDialog(QDialog):
             self._adb_status_lbl.setText("Not found. Pairing and installing over USB won't work.")
 
     def _install_uc(self):
+        self._uc_installing = True
         self._uc_btn.setEnabled(False)
         set_status_kind(self._uc_status_lbl, "status_dim")
 
         def worker():
-            if not (unitycapture_dir() / "UnityCaptureFilter64.dll").exists():
-                self._sig_uc_msg.emit("Downloading driver files...")
-                ok, msg = download_unitycapture()
-                if not ok:
-                    self._sig_uc_done.emit(False, msg)
-                    return
-            self._sig_uc_msg.emit("Registering (admin access required)...")
-            ok, msg = register_unitycapture()
+            try:
+                if not unitycapture_downloaded(unitycapture_dir()):
+                    self._sig_uc_msg.emit("Downloading driver files...")
+                    ok, msg = download_unitycapture()
+                    if not ok:
+                        self._sig_uc_done.emit(False, msg)
+                        return
+                self._sig_uc_msg.emit("Registering (admin access required)...")
+                ok, msg = register_unitycapture()
+            except Exception as exc:  # always report back, or the button stays off until a restart
+                logger.exception("Driver install failed")
+                ok, msg = False, str(exc)
             self._sig_uc_done.emit(ok, msg)
 
         threading.Thread(target=worker, daemon=True).start()
 
     def _on_uc_done(self, ok: bool, msg: str):
+        self._uc_installing = False
         self._uc_btn.setEnabled(True)
         if ok:
             set_status_kind(self._uc_status_lbl, "status_ok")
@@ -585,8 +603,7 @@ class SetupPlugin(TelescopePlugin):
 
     def set_config(self, cfg: dict):
         self._canvas_preset = cfg.get("canvas_preset", "Auto (from first frame)")
-        self._custom_w = cfg.get("custom_canvas_w", 1920)
-        self._custom_h = cfg.get("custom_canvas_h", 1080)
+        self._custom_w, self._custom_h = _custom_size(cfg)
         max_zoom = cfg.get("max_zoom", DEFAULT_MAX_ZOOM)
         valid = isinstance(max_zoom, int) and not isinstance(max_zoom, bool) and \
             MAX_ZOOM_RANGE[0] <= max_zoom <= MAX_ZOOM_RANGE[1]
