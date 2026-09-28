@@ -12,7 +12,7 @@ until the new one has started once:
   them in its own lib-<build> folder.
 - Linux (the source tarball): each top-level entry is swapped, the old ones kept in .previous/; start.sh
   then installs any new Python requirements.
-A source checkout (a .git folder) or a folder this user can't write to is never touched.
+A source checkout (no CI build info, channel "dev") or a folder this user can't write to is never touched.
 """
 
 import hashlib
@@ -143,7 +143,7 @@ def install_dir() -> Path:
 def self_update_blocker(directory: Optional[Path] = None) -> Optional[str]:
     """Why this copy can't replace itself (the UI then offers the release page), or None."""
     directory = directory or install_dir()
-    if version.CHANNEL == "dev" or (directory / ".git").exists() or (directory.parent / ".git").exists():
+    if version.CHANNEL == "dev":  # not a .git check: a release unpacked inside a git-tracked folder is still a release
         return "This is a source checkout. Update it with git."
     if IS_WINDOWS and not getattr(sys, "frozen", False):
         return "Only the packaged app can update itself."

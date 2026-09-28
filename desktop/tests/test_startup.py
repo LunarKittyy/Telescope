@@ -585,11 +585,11 @@ def test_menu_entry_opens_the_window_and_skips_dev_checkouts(monkeypatch, tmp_pa
     monkeypatch.delattr(sys, "frozen", raising=False)
     (tmp_path / "start.sh").write_text("#!/bin/sh\n")
     assert autostart.launch_command(tmp_path, minimized=False) == [str(tmp_path / "start.sh")]
-    app = tmp_path / "desktop"
-    app.mkdir()
-    assert not autostart.is_dev_checkout(app)
-    (tmp_path / ".git").mkdir()
-    assert autostart.is_dev_checkout(app)
+    (tmp_path / ".git").mkdir()  # a release unpacked inside a git-tracked folder is still a release
+    monkeypatch.setattr(autostart.version, "CHANNEL", "nightly")
+    assert not autostart.is_dev_checkout()
+    monkeypatch.setattr(autostart.version, "CHANNEL", "dev")
+    assert autostart.is_dev_checkout()
 
 
 def test_menu_entry_trouble_is_not_fatal(tmp_path):
