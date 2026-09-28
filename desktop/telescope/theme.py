@@ -369,6 +369,7 @@ QSlider::groove:horizontal {{
 QSlider::sub-page:horizontal {{
     background: {ACCENT};
     border-radius: 2px;
+    margin-left: 7px;  /* Qt doesn't apply the groove's margin to the fill, which then stuck out left of the handle at 0 */
 }}
 QSlider::handle:horizontal {{
     background: {ACCENT};
