@@ -527,11 +527,11 @@ def test_an_outside_stop_while_an_app_reads_holds_the_watch_start(watching):
 
 def test_linux_desktop_entry_round_trip(monkeypatch, tmp_path):
     monkeypatch.setattr(autostart, "IS_WINDOWS", False)
-    command = ["/home/luna/My Apps/Telescope/start.sh", "--minimized"]
+    command = ["/home/someone/My Apps/Telescope/start.sh", "--minimized"]
     assert autostart.is_enabled(tmp_path) is False
     assert autostart.enable(command, tmp_path) == (True, "")
     text = (tmp_path / "autostart" / "telescope.desktop").read_text()
-    assert 'Exec="/home/luna/My Apps/Telescope/start.sh" --minimized\n' in text
+    assert 'Exec="/home/someone/My Apps/Telescope/start.sh" --minimized\n' in text
     assert autostart.is_enabled(tmp_path) is True
     assert autostart.disable(tmp_path) == (True, "")
     assert autostart.is_enabled(tmp_path) is False
@@ -567,10 +567,10 @@ def test_launch_command_prefers_start_sh_on_linux(monkeypatch, tmp_path):
 def test_menu_entry_follows_this_copy_and_only_writes_on_change(tmp_path):
     icons = []
     save_icon = lambda path: icons.append(path) or path.write_bytes(b"png")  # noqa: E731
-    command = ["/home/luna/My Apps/Telescope/start.sh"]
+    command = ["/home/someone/My Apps/Telescope/start.sh"]
     assert autostart.update_menu_entry(save_icon, command, tmp_path) is True
     text = (tmp_path / "applications" / "telescope.desktop").read_text()
-    assert 'Exec="/home/luna/My Apps/Telescope/start.sh"\n' in text
+    assert 'Exec="/home/someone/My Apps/Telescope/start.sh"\n' in text
     assert "Icon=telescope\n" in text and "Categories=" in text and "Autostart" not in text
     assert icons == [tmp_path / "icons" / "hicolor" / "256x256" / "apps" / "telescope.png"]
 

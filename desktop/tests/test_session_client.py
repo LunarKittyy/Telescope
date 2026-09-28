@@ -188,7 +188,7 @@ def test_an_oversized_reply_is_treated_as_no_phone(monkeypatch, client):
 
 def test_phone_names_are_cleaned_into_plain_display_text():
     from telescope.session_client import MAX_NAME_CHARS, clean_name
-    assert clean_name("Luna's Pixel") == "Luna's Pixel"
+    assert clean_name("Sam's Pixel") == "Sam's Pixel"
     assert clean_name("<b>Your bank</b>\n\x07phone") == "bYour bank/b phone"
     assert len(clean_name("x" * 500)) == MAX_NAME_CHARS
     assert clean_name("  \t ") == ""

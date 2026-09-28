@@ -106,7 +106,7 @@ object PairedComputers {
         return id
     }
 
-    // The name the user gave the phone in Android settings ("Luna's Pixel"), else the model.
+    // The name the user gave the phone in Android settings ("Pixel 8 Pro"), else the model.
     fun phoneName(context: Context): String =
         Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME)
             ?.takeIf { it.isNotBlank() } ?: Build.MODEL

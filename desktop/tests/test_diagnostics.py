@@ -29,7 +29,7 @@ def test_sanitize_keeps_ordinary_text():
 
 
 def test_sanitize_hides_home(monkeypatch, tmp_path):
-    home = tmp_path / "luna"
+    home = tmp_path / "someone"
     monkeypatch.setattr(diagnostics.Path, "home", lambda: home)
     assert sanitize(f"can't read {home}/.config/telescope/config.json") == \
         "can't read ~/.config/telescope/config.json"

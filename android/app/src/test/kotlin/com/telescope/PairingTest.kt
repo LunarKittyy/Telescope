@@ -17,7 +17,7 @@ class PairingTest {
         nonce: String = "nonce-abc",
         token: String = "token-xyz",
         computerId: String = "pc-1",
-        computerName: String = "Luna's desktop",
+        computerName: String = "Home desktop",
     ) = """{"version":$version,"port":$port,"candidates":$candidates,"nonce":"$nonce","token":"$token",""" +
         """"computer_id":"$computerId","computer_name":"$computerName"}"""
 
@@ -240,7 +240,7 @@ class PairingTest {
     fun `v3 offers carry the computer's id and name`() {
         val offer = ok(payload())
         assertEquals("pc-1", offer.computerId)
-        assertEquals("Luna's desktop", offer.computerName)
+        assertEquals("Home desktop", offer.computerName)
     }
 
     @Test

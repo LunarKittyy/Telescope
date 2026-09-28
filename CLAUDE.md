@@ -7,7 +7,7 @@ Android app (`android/`, Kotlin) streams the phone camera to a Python/PyQt6 desk
 - Android: `./gradlew lintDebug testDebugUnitTest` in `android/`
 
 ## Commits and PRs
-Luna reads every PR and commit. Write them to be skimmed, not to prove effort.
+Every PR and commit gets read by a person. Write them to be skimmed, not to prove effort.
 
 **Commit messages:** a subject line saying what changed, in plain words. Body only when the why isn't obvious from the diff, at most 3 short lines. No bullet list of every file touched.
 
