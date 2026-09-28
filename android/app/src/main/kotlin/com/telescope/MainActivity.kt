@@ -65,6 +65,8 @@ class MainActivity : AppCompatActivity() {
     private val uiHandler = Handler(Looper.getMainLooper())
     private val statusPoller = object : Runnable {
         override fun run() {
+            // The restarted service died before it connected: nothing is starting any more.
+            if (starting && CameraStreamService.instance == null && !SessionStartWindow.open()) starting = false
             adoptRemoteStart()
             updateStatusText()
             uiHandler.postDelayed(this, 1000)
@@ -107,6 +109,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        RecentRuns.recordCrashes(this)
         setContentView(R.layout.activity_main)
 
         btnToggle         = findViewById<MaterialButton>(R.id.btnToggle)
@@ -652,10 +655,12 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == RC_PERMS) checkPermissions()
     }
 
-    // The computer starts streams; the phone can only stop one.
+    // The computer starts streams; the phone can only stop one, or cancel one that's starting.
     private fun onToggleClicked() {
-        if (isBusy() || service?.isStreaming != true) return
-        service?.stopStreaming()
+        val svc = service ?: return
+        if (!svc.isStreaming && !isBusy()) return
+        starting = false
+        svc.stopStreaming(if (svc.isStreaming) "stopButton" else "cancelButton")
         if (bound) { unbindService(serviceConnection); bound = false; service = null }
         updateStatusText()
     }
@@ -698,8 +703,8 @@ class MainActivity : AppCompatActivity() {
         val streaming = service?.isStreaming == true
         val busy = isBusy()
         btnToggle.visibility = if (streaming || busy) View.VISIBLE else View.GONE
-        btnToggle.isEnabled = streaming && !busy
-        btnToggle.text = if (busy) "Starting..." else "Stop Streaming"
+        btnToggle.isEnabled = streaming || (busy && service != null)
+        btnToggle.text = if (busy) "Cancel" else "Stop Streaming"
         if (streaming) {
             // The camera stays on while the computer reconnects; say so rather than claim it's getting video.
             val viewed = service?.hasViewer == true
@@ -707,7 +712,7 @@ class MainActivity : AppCompatActivity() {
             tvStatus.setTextColor(resources.getColor(
                 if (viewed) R.color.colorStreamingText else R.color.colorWarn, theme))
         } else {
-            tvStatus.text = "○ Not streaming"
+            tvStatus.text = if (busy) "○ Starting…" else "○ Not streaming"
             tvStatus.setTextColor(resources.getColor(R.color.colorOnSurfaceDim, theme))
         }
         if (::cardUpdate.isInitialized && cardUpdate.visibility == View.VISIBLE) renderUpdate()

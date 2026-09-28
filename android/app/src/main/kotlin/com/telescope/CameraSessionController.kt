@@ -13,6 +13,8 @@ import android.media.ImageReader
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.Looper
+import android.os.Message
 import android.view.Surface
 import java.util.concurrent.Executor
 
@@ -228,8 +230,13 @@ class CameraSessionController(
         openCamera(cameraId, physicalCameraId)
     }
 
+    // Only the newest of a burst of lens or size changes runs: each one is a full close and reopen of the camera.
+    @Volatile private var wantedLens: CameraEntry? = null
+    @Volatile private var wantedSize: Pair<Int, Int>? = null
+
     fun switchTo(entry: CameraEntry) {
-        post { switchCameraTo(entry) }
+        wantedLens = entry
+        post { if (wantedLens === entry) switchCameraTo(entry) }
     }
 
     // Adds extra output surface for live preview without interrupting MJPEG stream
@@ -245,6 +252,28 @@ class CameraSessionController(
             if (stopped) onDetached?.invoke() else reconfigureSession(onDetached)
         }
         if (!posted) { previewSurface = null; onDetached?.invoke() }
+    }
+
+    // Everything on the camera thread runs through here: an uncaught throw ends the stream, recorded, not the whole app.
+    private inner class SafeHandler(looper: Looper) : Handler(looper) {
+        override fun dispatchMessage(msg: Message) {
+            try {
+                super.dispatchMessage(msg)
+            } catch (e: Exception) {
+                if (stopped) return
+                onStateChanged(StreamState.Failed, "cameraThread", e)
+                onFatalError()
+            }
+        }
+    }
+
+    // A dead preview surface (Preview closing as the session is rebuilt) mustn't end the stream: rebuild once without it.
+    private fun retryWithoutPreview(op: String, e: Throwable?, onComplete: (() -> Unit)?): Boolean {
+        if (previewSurface == null) return false
+        previewSurface = null
+        onControlError("$op.previewDropped", e ?: IllegalStateException("configure failed"))
+        reconfigureSession(onComplete)
+        return true
     }
 
     // Runs block on the camera thread unless stop() came first.
@@ -322,7 +351,7 @@ class CameraSessionController(
 
     private fun openCamera(openCameraId: String, physicalCameraId: String?) {
         handlerThread = HandlerThread("CamThread").also { it.start() }
-        handler       = Handler(handlerThread!!.looper)
+        handler       = SafeHandler(handlerThread!!.looper)
 
         buildOutputs()
 
@@ -374,12 +403,12 @@ class CameraSessionController(
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) { createLegacySession(camera, generation, mySession, onComplete); return }
         // Re-check staleness; surfaces may have been cleared concurrently.
         if (generation != cameraGeneration) { onComplete?.invoke(); return }
-        val outCfgs = currentTargetSurfaces().map { surface ->
-            OutputConfiguration(surface).also { it.setPhysicalCameraId(physId) }
-        }
-        if (outCfgs.isEmpty()) { onComplete?.invoke(); return }
         val exec   = Executor { cmd -> handler?.post(cmd) }
         try {
+            val outCfgs = currentTargetSurfaces().map { surface ->
+                OutputConfiguration(surface).also { it.setPhysicalCameraId(physId) }
+            }
+            if (outCfgs.isEmpty()) { onComplete?.invoke(); return }
             camera.createCaptureSession(SessionConfiguration(
                 SessionConfiguration.SESSION_REGULAR, outCfgs, exec,
                 object : CameraCaptureSession.StateCallback() {
@@ -391,6 +420,7 @@ class CameraSessionController(
                     }
                     override fun onConfigureFailed(s: CameraCaptureSession) {
                         if (generation == cameraGeneration) {
+                            if (retryWithoutPreview("createPhysicalSession", null, onComplete)) return
                             onStateChanged(StreamState.Failed, "createPhysicalSession.onConfigureFailed", null)
                             onFatalError()
                         }
@@ -400,6 +430,7 @@ class CameraSessionController(
             ))
         } catch (e: Exception) {
             if (generation == cameraGeneration) {
+                if (retryWithoutPreview("createPhysicalSession", e, onComplete)) return
                 onStateChanged(StreamState.Failed, "createPhysicalSession", e)
                 onFatalError()
             }
@@ -428,6 +459,7 @@ class CameraSessionController(
                     }
                     override fun onConfigureFailed(s: CameraCaptureSession) {
                         if (generation == cameraGeneration) {
+                            if (retryWithoutPreview("createLegacySession", null, onComplete)) return
                             onStateChanged(StreamState.Failed, "createLegacySession.onConfigureFailed", null)
                             onFatalError()
                         }
@@ -436,6 +468,7 @@ class CameraSessionController(
                 }, handler)
         } catch (e: Exception) {
             if (generation == cameraGeneration) {
+                if (retryWithoutPreview("createLegacySession", e, onComplete)) return
                 onStateChanged(StreamState.Failed, "createLegacySession", e)
                 onFatalError()
             }
@@ -655,7 +688,9 @@ class CameraSessionController(
 
     // Live size change: lens stays same but ImageReader must be rebuilt (requires device reopen)
     fun switchResolution(width: Int, height: Int) {
-        post { switchResolutionInternal(width, height) }
+        val size = width to height
+        wantedSize = size
+        post { if (wantedSize === size) switchResolutionInternal(width, height) }
     }
 
     private fun switchResolutionInternal(width: Int, height: Int) {

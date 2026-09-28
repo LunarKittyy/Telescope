@@ -40,6 +40,24 @@ object RecentRuns {
         return lines.subList(start, end).joinToString("\n")
     }
 
+    // A crash on any thread lands in Copy diagnostics too; Android's own handler still runs after, so nothing is hidden.
+    fun recordCrashes(context: Context) {
+        val app = context.applicationContext
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        if (previous is CrashRecorder) return
+        Thread.setDefaultUncaughtExceptionHandler(CrashRecorder(app, previous))
+    }
+
+    private class CrashRecorder(
+        private val context: Context,
+        private val previous: Thread.UncaughtExceptionHandler?,
+    ) : Thread.UncaughtExceptionHandler {
+        override fun uncaughtException(t: Thread, e: Throwable) {
+            runCatching { save(context, "Crashed on ${t.name}: ${e.javaClass.simpleName}: ${e.message}") }
+            previous?.uncaughtException(t, e)
+        }
+    }
+
     @Synchronized
     fun load(context: Context): List<String> =
         runCatching { decode(File(context.filesDir, FILE).readText()) }.getOrDefault(emptyList())

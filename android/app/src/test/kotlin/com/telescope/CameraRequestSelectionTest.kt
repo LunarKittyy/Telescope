@@ -233,4 +233,13 @@ class LensZoomsTest {
         // a full-frame diagonal (36 x 24) is 43.27 mm, so the real focal length comes back unchanged
         org.junit.jupiter.api.Assertions.assertEquals(50f, CameraRequestSelection.equivalentFocal(50f, 36f, 24f), 0.1f)
     }
+
+    @Test
+    fun `a size the lens lists is kept and one it doesn't becomes the nearest of the same shape`() {
+        val sizes = listOf(4000 to 3000, 1920 to 1080, 1280 to 720, 640 to 480)
+        assertEquals(1280 to 720, CameraRequestSelection.closestSize(1280, 720, sizes))
+        assertEquals(1920 to 1080, CameraRequestSelection.closestSize(2560, 1440, sizes))  // 16:9 before a closer pixel count
+        assertEquals(640 to 480, CameraRequestSelection.closestSize(800, 600, sizes))
+        assertEquals(1234 to 567, CameraRequestSelection.closestSize(1234, 567, emptyList()))  // nothing listed: trust it
+    }
 }

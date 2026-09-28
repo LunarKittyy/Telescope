@@ -49,11 +49,18 @@ class SessionServer(
                         try { handle(socket) } finally { pending.release(address) }
                     }
                 } catch (e: Exception) {
-                    if (running.get()) android.util.Log.e(TAG, "Accept error", e)
+                    if (!running.get()) break
+                    android.util.Log.e(TAG, "Accept error", e)
+                    // The socket went away underneath us: stop, so the next acquire binds again. Else (out of files, say) back off.
+                    if (serverSocket?.isClosed != false) { running.set(false); break }
+                    Thread.sleep(ACCEPT_RETRY_MS)
                 }
             }
         }
     }
+
+    // Bound and accepting; false after a failed bind or a dead accept loop.
+    val listening: Boolean get() = running.get()
 
     fun stop() {
         running.set(false)
@@ -127,6 +134,7 @@ class SessionServer(
 
     companion object {
         const val DEFAULT_PORT = 8766
+        const val ACCEPT_RETRY_MS = 200L
 
         // Bumped on shape changes. 2: /v1/hello, ping carries phoneId/phoneName, /v1/unpair. 3: TLS, pinned at pairing.
         const val PROTOCOL_VERSION = 3
