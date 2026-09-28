@@ -297,6 +297,10 @@ def clean_up_after_update(directory: Optional[Path] = None, running_lib: Optiona
     directory = directory or install_dir()
     if update_guard.read_journal(directory) is not None:
         return  # an update isn't confirmed yet: these are what it would roll back to
+    if version.BUILD and update_guard.failed_build(directory) == version.BUILD:
+        # This copy was rolled back while it was still starting (a second launch gave up waiting for it): the exe in
+        # place is the old version again, and these include its libraries.
+        return
     if running_lib is None and getattr(sys, "frozen", False):
         running_lib = Path(getattr(sys, "_MEIPASS", "")).name
     leftovers = [directory / OLD_EXE_NAME, directory / update_guard.FAILED_EXE_NAME, directory / STAGING_DIR,

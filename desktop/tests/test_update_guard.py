@@ -178,6 +178,21 @@ def test_a_second_launch_while_the_new_version_is_still_loading_leaves_it_alone(
     assert update_guard.failed_build(app) is None
 
 
+def test_a_first_start_rolled_back_underneath_it_leaves_the_old_version_whole(tmp_path, monkeypatch):
+    app = _windows_app(tmp_path)
+    updates.install_windows(_windows_zip(tmp_path), app, 131)
+    assert update_guard.recover(app, running_elsewhere=_no_one_else) is None  # the new version starts, slowly
+    # A second launch gives up waiting for it to bind the port, and puts the old version back.
+    monkeypatch.setattr(update_guard, "TRIAL_GRACE_S", 0)
+    assert update_guard.recover(app, running_elsewhere=_no_one_else) is not None
+    assert (app / "TelescopeDesktop.exe").read_bytes() == b"exe 130"
+
+    # The slow first start carries on regardless (renamed, still 131) and gets as far as its clean-up.
+    monkeypatch.setattr(updates.version, "BUILD", 131)
+    updates.clean_up_after_update(app, running_lib="lib-131")
+    assert (app / "lib-130" / "python311.dll").read_bytes() == b"py 130"  # the exe in place still starts
+
+
 def test_after_an_update_the_new_copy_waits_for_the_old_one_to_exit(tmp_path):
     app = _windows_app(tmp_path)
     updates.install_windows(_windows_zip(tmp_path), app, 131)
