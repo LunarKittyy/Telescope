@@ -333,6 +333,22 @@ def test_monitoring_stream_lifecycle(monitoring):
     assert plugin._temp_lbl.text() == "—"
 
 
+def test_monitoring_does_not_warn_again_when_the_same_stream_reconnects(monitoring):
+    plugin, host, _bus, _panel = monitoring
+    ctrl = _Ctrl()
+    plugin.on_stream_start("url", ctrl)
+    plugin._check_alerts(10, False, 30)
+    plugin.on_stream_start("url", ctrl)
+    plugin._check_alerts(10, False, 30)
+    assert len(host.notifications) == 1
+
+
+def test_monitoring_skips_a_reading_it_cant_read(monitoring):
+    plugin, _host, _bus, _panel = monitoring
+    plugin._on_state({"battery": "full", "battery_temp_c": None})
+    assert plugin._battery_lbl.text() == "—"
+
+
 def test_monitoring_ignores_state_without_battery(monitoring):
     plugin, _host, _bus, _panel = monitoring
     plugin._on_state({"battery_temp_c": 99})

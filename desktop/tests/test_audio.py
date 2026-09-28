@@ -127,6 +127,29 @@ def test_worker_reports_an_output_that_wont_open():
     w.stop()
 
 
+def test_worker_reopens_an_output_that_stopped_taking_audio(monkeypatch):
+    monkeypatch.setattr(audio, "RETRY_S", 0.05)
+
+    class Dying(_Sink):
+        def write(self, b):
+            raise OSError("reader gone")
+
+    sinks = [Dying(), _Sink()]
+    opened = []
+
+    def open_sink():
+        opened.append(sinks[min(len(opened), 1)])
+        return opened[-1]
+
+    statuses = []
+    w = AudioWorker("http://p/v1/audio", PhoneAuth("t"), open_sink, lambda k, t: statuses.append((k, t)),
+                    opener=lambda req, timeout: _Resp(b"\x10\x00" * 4000))
+    w.start()
+    assert _until(lambda: len(sinks[1].data) > 0)
+    w.stop()
+    assert sinks[0].closed and ("err", "The virtual microphone stopped taking audio.") in statuses
+
+
 # ── Virtual mic plumbing ──────────────────────────────────────────────────────
 
 class _Pactl:

@@ -28,6 +28,8 @@ def _run(cmd, timeout=10):
         return r.returncode, r.stdout, r.stderr
     except FileNotFoundError:         return -1, "", f"Not found: {cmd[0]}"
     except subprocess.TimeoutExpired: return -2, "", "Timed out"
+    except (OSError, ValueError) as exc:  # not executable, or output that isn't text: a failed command, not a crash
+        return -1, "", str(exc)
 
 
 # ── adb's server ──────────────────────────────────────────────────────────────

@@ -29,6 +29,15 @@ ROTATIONS = {
 }
 
 
+def _number(value, default: float, lo: float, hi: float) -> float:
+    # A hand-edited or damaged config value becomes the default instead of breaking every frame
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return default
+    return min(hi, max(lo, value)) if math.isfinite(value) else default
+
+
 def _apply_zoom(frame, zoom: float, pan_x: float, pan_y: float):
     if zoom <= 1.0:
         return frame
@@ -631,9 +640,9 @@ class TransformsPlugin(TelescopePlugin):
             idx = self._rot_combo.findText(rot)
             if idx >= 0:
                 self._rot_combo.setCurrentIndex(idx)
-        zoom = cfg.get("zoom", 1.0)
+        zoom = _number(cfg.get("zoom", 1.0), 1.0, 1.0, 30.0)  # the slider holds it to Max zoom
         self._zoom_slider.setValue(round(zoom * 100))
         pan_active = zoom > 1.0
-        self.pan_x = cfg.get("pan_x", 0.0) if pan_active else 0.0
-        self.pan_y = cfg.get("pan_y", 0.0) if pan_active else 0.0
+        self.pan_x = _number(cfg.get("pan_x", 0.0), 0.0, -1.0, 1.0) if pan_active else 0.0
+        self.pan_y = _number(cfg.get("pan_y", 0.0), 0.0, -1.0, 1.0) if pan_active else 0.0
         self._framing_changed()

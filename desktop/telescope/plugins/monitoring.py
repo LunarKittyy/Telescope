@@ -105,6 +105,8 @@ class MonitoringPlugin(TelescopePlugin):
         return notify, stop
 
     def on_stream_start(self, stream_url: str, ctrl):
+        if ctrl is not None and ctrl is self._ctrl:
+            return  # a reconnect of the same stream: keep the reading shown and don't warn about it again
         self._ctrl = ctrl
         self._battery_notified = False
         self._temp_notified    = False
@@ -136,9 +138,12 @@ class MonitoringPlugin(TelescopePlugin):
     def _on_state(self, state: dict):
         if "battery" not in state:
             return
-        level    = int(state["battery"])
-        charging = bool(state.get("charging", True))
-        temp_c   = float(state.get("battery_temp_c", 0.0))
+        try:
+            level    = int(state["battery"])
+            charging = bool(state.get("charging", True))
+            temp_c   = float(state.get("battery_temp_c", 0.0))
+        except (TypeError, ValueError):
+            return  # a reading we can't make sense of is skipped; the next poll tries again
         self._update_display(level, charging, temp_c)
         self._check_alerts(level, charging, temp_c)
 

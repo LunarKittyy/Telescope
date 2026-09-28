@@ -401,3 +401,23 @@ def test_a_frame_sized_for_the_view_goes_up_unscaled_and_keeps_its_colours(qapp)
     assert (pm.width(), pm.height()) == (320, 180)
     assert pm.toImage().pixelColor(0, 0).getRgb()[:3] == (0, 0, 255)
     assert plugin._card_size == (320, 240)
+
+
+def test_a_frame_that_fails_to_show_still_frees_the_preview(qapp):
+    plugin, _host, _panel = _plugin(qapp)
+    plugin.on_stream_start("http://phone/", None)
+    plugin._busy = True
+
+    try:
+        plugin._on_frame(np.zeros((4,), dtype=np.uint8))  # wrong shape: fails before it's shown
+    except Exception:
+        pass
+
+    assert plugin._busy is False
+
+
+def test_a_new_stream_frees_a_preview_stuck_waiting_for_a_lost_frame(qapp):
+    plugin, _host, _panel = _plugin(qapp)
+    plugin._busy = True
+    plugin.on_stream_start("http://phone/", None)
+    assert plugin._busy is False

@@ -157,6 +157,13 @@ def test_get_state_returns_none_on_transport_or_json_error(monkeypatch, effect):
     assert client.get_state() is None
 
 
+def test_get_state_returns_none_for_json_that_is_not_an_object(monkeypatch):
+    monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
+    client = PhoneControlClient("http://phone/video", PhoneAuth("tok"))
+    monkeypatch.setattr(phone_client_module.urllib.request, "urlopen", lambda *_a, **_k: _Response(b"[1, 2]"))
+    assert client.get_state() is None
+
+
 def test_send_now_posts_json_body_with_auth_header(monkeypatch):
     monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
     client = PhoneControlClient("http://phone/video", PhoneAuth("tok123"))

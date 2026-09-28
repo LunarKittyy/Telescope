@@ -185,9 +185,15 @@ def roll_back(directory: Path, journal: dict, remember: bool = True):
 
 # ── At start ──────────────────────────────────────────────────────────────────
 
-def another_copy_running() -> bool:
+def instance_socket() -> socket.socket:
+    # Off Windows, reuse only skips the TIME_WAIT a "raise" leaves; on Windows it would let two copies share the port.
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 0)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 0 if sys.platform == "win32" else 1)
+    return s
+
+
+def another_copy_running() -> bool:
+    s = instance_socket()
     try:
         s.bind(("127.0.0.1", INSTANCE_PORT))
         return False

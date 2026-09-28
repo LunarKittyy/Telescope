@@ -177,6 +177,23 @@ def _stream(host, bus):
     return plugin
 
 
+def test_a_section_that_fails_to_apply_leaves_the_rest_applied(qapp):
+    class Broken(_Stub):
+        def set_config(self, cfg):
+            raise ValueError("bad")
+
+    host = _Host()
+    stubs = {"camera_control": Broken("camera_control", {}), "transforms": _Stub("transforms", {})}
+    host.plugins = stubs
+    plugin = _presets(host)
+    plugin.set_config({"presets": [{"name": "A", "camera": {"iso": 1}, "transforms": {"zoom": 3.0}}]})
+
+    plugin.apply("A")
+
+    assert stubs["transforms"].cfg == {"zoom": 3.0}
+    assert host.saves == 1
+
+
 def test_camera_saves_the_lens_and_applying_switches_it_before_sending_settings(qapp):
     host, bus = _Host(), EventBus()
     cam = _camera(host, bus)

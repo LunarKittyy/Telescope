@@ -53,6 +53,7 @@ from telescope.widgets.qr import QRCodeWidget
 logger = logging.getLogger(__name__)
 
 _STATUS_POLL_MS = 3_000     # idle re-check of the selected phone
+_CHECK_GIVE_UP_S = 60       # an idle check that never answers stops blocking new ones
 _USB_WATCH_MS = 5_000       # while streaming over Wi-Fi: has the phone been plugged in?
 _PAIR_USB_POLL_MS = 2_000   # Add phone dialog: look for a phone on USB to pair with
 
@@ -402,6 +403,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._resolution: Optional[Resolution] = None
         self._check_id = 0
         self._running_check: Optional[int] = None  # the idle check still resolving; the poll waits for it
+        self._check_started = 0.0
         self._watch_id = 0
         self._streaming = False
         self._connected = False  # first frame arrived (EventBus.stream_connected)
@@ -653,11 +655,12 @@ class ConnectionPlugin(TelescopePlugin):
         if phone is None:
             self._render()
             return
-        if self._running_check == self._check_id:
+        if self._running_check == self._check_id and time.monotonic() - self._check_started < _CHECK_GIVE_UP_S:
             return  # a slow check would only be made stale by a new one, and then nothing ever lands
         self._discovery.start()
         self._check_id += 1
         self._running_check = self._check_id
+        self._check_started = time.monotonic()
         self._spawn_resolve(self._check_id, Phone(**phone.to_dict()), self._route_pref)
 
     def _spawn_resolve(self, check_id: int, phone: Phone, preference: str):

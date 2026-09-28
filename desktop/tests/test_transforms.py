@@ -645,3 +645,13 @@ def test_dragging_the_preview_sticks_at_the_centre_then_lets_go(transforms_plugi
     plugin._pan_x_slider._slider.setValue(100)  # moved another way: the next drag starts from there
     plugin._bus.view_dragged.emit(-0.001, 0.0)
     assert plugin.pan_x > 0.5
+
+
+def test_a_damaged_saved_zoom_or_pan_falls_back_instead_of_breaking_frames(transforms_plugin):
+    plugin, _host, _panel = transforms_plugin
+    plugin.set_config({"zoom": 2.0, "pan_x": float("nan"), "pan_y": 7})
+    assert (plugin.pan_x, plugin.pan_y) == (0.0, 1.0)
+
+    plugin.set_config({"zoom": "big"})
+    assert plugin.get_config()["zoom"] == 1.0
+    assert plugin.process_frame(_grid()).shape == (4, 6, 3)

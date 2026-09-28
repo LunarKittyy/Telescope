@@ -192,7 +192,7 @@ def test_stream_reader_resizes_and_runs_pipeline_keeping_bgr():
         return None
 
     worker._reconnect_cap = no_reconnect
-    worker._stream_reader(cap, threading.Event())
+    worker._stream_reader(cap, threading.Event(), threading.Event())
 
     assert cap.released is True
     assert worker._latest.shape == (3, 4, 3)
@@ -209,7 +209,7 @@ def test_stream_reader_accumulates_bytes_from_successful_reads():
         return None
 
     worker._reconnect_cap = no_reconnect
-    worker._stream_reader(cap, threading.Event())
+    worker._stream_reader(cap, threading.Event(), threading.Event())
 
     assert worker._bytes_total == 2 * 12_345
 
@@ -228,7 +228,7 @@ def test_stream_reader_drops_pipeline_errors_and_releases_capture():
 
     # Next failed read invokes reconnect; use that to stop.
     worker._reconnect_cap = lambda _event: stop_after_error()
-    worker._stream_reader(cap, threading.Event())
+    worker._stream_reader(cap, threading.Event(), threading.Event())
 
     assert worker._latest is None
     assert cap.released is True
@@ -252,7 +252,7 @@ def test_stream_reader_emits_reconnected_signal_on_successful_reconnect():
         return None
 
     worker._reconnect_cap = fake_reconnect
-    worker._stream_reader(first_cap, threading.Event())
+    worker._stream_reader(first_cap, threading.Event(), threading.Event())
 
     assert reconnected == [True]
     assert first_cap.released is True
@@ -441,7 +441,7 @@ def test_a_slow_decoder_skips_to_the_newest_packet(monkeypatch):
         return None
 
     worker._reconnect_cap = no_reconnect
-    worker._stream_reader(cap, threading.Event())
+    worker._stream_reader(cap, threading.Event(), threading.Event())
 
     assert worker._latest[0, 0, 0] == 5
     assert worker._frames_received < 5
@@ -492,3 +492,28 @@ def test_the_virtual_camera_opens_in_bgr(monkeypatch):
     stream.StreamWorker("url", None, None, 30)._open_vcam(4, 4)
 
     assert opened == [vcam.pyvirtualcam.PixelFormat.BGR]
+
+
+def test_a_crashing_reader_wakes_the_vcam_instead_of_freezing_it():
+    class Broken(_Capture):
+        def read_packet(self):
+            raise RuntimeError("bad packet")
+
+    worker = stream.StreamWorker("url", None, None, 30)
+    cap, done = Broken(), threading.Event()
+    worker._stream_reader(cap, threading.Event(), done)
+
+    assert done.is_set() and cap.released
+    assert worker._restart_vcam.is_set() and worker._frame_ready.is_set()
+
+
+def test_a_crash_in_the_worker_ends_with_an_error_and_idle(monkeypatch):
+    worker = stream.StreamWorker("url", None, None, 30)
+    monkeypatch.setattr(worker, "_open_cap", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
+    statuses = []
+    worker.status.connect(lambda kind, msg: statuses.append((kind, msg)))
+
+    worker.run()
+
+    assert ("error", "Stream error: boom") in statuses
+    assert statuses[-1] == ("idle", "Not streaming")
