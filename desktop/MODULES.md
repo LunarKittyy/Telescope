@@ -178,6 +178,7 @@ Returns `InstallResult(relaunch, skipped)`. `clean_up_after_update()` runs on ev
 - `PairingServer(on_paired, computer_id, computer_name)`; `start()` → `PairingOffer(payload, port, nonce, token, candidates, usb_payload)`. `candidates` may be empty (no network); `usb_payload` advertises only `127.0.0.1`, reached through `adb reverse`.
 - `payload` is the version-3 JSON (`version`, `port`, `candidates[]`, `nonce`, `token`, `computer_id`, `computer_name`); `PAIRING_PROTOCOL_VERSION` moves in lockstep with the app's.
 - `PairingResult(name, ips, token, source_ip, phone_id)` - a POST without `phone_id` is rejected. `source_ip` is where the POST came from, i.e. a phone address proven reachable from here, and becomes the phone's first `active_ip`.
+- One phone per offer: after a phone pairs, a different `phone_id` gets `409`. Threaded, with a 10 s read timeout, so a stalled connection can't hold up the phone that's pairing.
 - `PAIRING_PORT = 8765`, falling back to a random free port if it's taken.
 
 ---

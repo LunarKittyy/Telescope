@@ -585,7 +585,7 @@ class CameraStreamService : Service() {
         val ctrl = controller ?: return
         if (codec == H264Stream.CODEC_H264 && !h264Available) return  // the reader sees no data and gives up
         if (ctrl.snapshot().codec == codec) return
-        if (codec == H264Stream.CODEC_MJPEG) server?.closeH264Clients()
+        if (codec == H264Stream.CODEC_MJPEG) server?.closeH264Clients() else server?.closeMjpegClients()
         ctrl.setCodec(codec)
     }
 

@@ -21,6 +21,11 @@ _KEYS = {"camera_control": "camera", "stream_output": "stream", "transforms": "t
 _MAX_NAME = 40
 
 
+def _menu_text(name: str) -> str:
+    """A preset name as menu text: a menu reads "&" as a shortcut marker, so "Desk & window" would lose it."""
+    return name.replace("&", "&&")
+
+
 def clean_presets(raw) -> list:
     """Keep well-formed entries with a unique non-empty name, in order."""
     out, seen = [], set()
@@ -120,7 +125,7 @@ class PresetsPlugin(TelescopePlugin):
     def build_menu(self, parent=None) -> QMenu:
         menu = QMenu(parent)
         for name in self.names():
-            action = QAction(name, menu)
+            action = QAction(_menu_text(name), menu)
             action.triggered.connect(lambda _=False, n=name: self.apply(n))
             menu.addAction(action)
         if self._presets:
@@ -132,7 +137,7 @@ class PresetsPlugin(TelescopePlugin):
             sub = menu.addMenu(label)
             sub.setEnabled(bool(self._presets))
             for name in self.names():
-                action = QAction(name, sub)
+                action = QAction(_menu_text(name), sub)
                 action.triggered.connect(lambda _=False, n=name, h=handler: h(n))
                 sub.addAction(action)
         return menu

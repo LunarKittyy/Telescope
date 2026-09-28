@@ -92,6 +92,12 @@ class MjpegServer(
         for (c in audioClients) c.queue.offer(chunk)
     }
 
+    // Drop MJPEG viewers (the stream moved to H.264): with no frames to write they'd never notice a closed socket and keep their slot.
+    fun closeMjpegClients() {
+        clients.forEach { it.close() }
+        clients.clear()
+    }
+
     /** Drop H.264 viewers (the encoder is gone); their readers see the end of the stream. */
     fun closeH264Clients() {
         h264Clients.forEach { it.close() }
@@ -101,8 +107,7 @@ class MjpegServer(
 
     fun stop() {
         running.set(false)
-        clients.forEach { it.close() }
-        clients.clear()
+        closeMjpegClients()
         closeH264Clients()
         audioClients.forEach { it.close() }
         audioClients.clear()

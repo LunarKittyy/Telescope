@@ -56,6 +56,8 @@ _STATUS_POLL_MS = 3_000     # idle re-check of the selected phone
 _USB_WATCH_MS = 5_000       # while streaming over Wi-Fi: has the phone been plugged in?
 _PAIR_USB_POLL_MS = 2_000   # Add phone dialog: look for a phone on USB to pair with
 
+_MAX_REMEMBERED_IPS = 8     # a phone's addresses kept for Wi-Fi probes, newest last
+
 # Tolerated unreachable pings while the camera starts; startup can briefly starve the phone's HTTP server.
 _UNREACHABLE_STREAK_LIMIT = 3
 
@@ -692,7 +694,8 @@ class ConnectionPlugin(TelescopePlugin):
         if phone and res.route is not None and res.route.kind == "wifi" and phone.active_ip != res.route.host:
             phone.active_ip = res.route.host  # remember the address that answered (e.g. after DHCP moved it)
             if res.route.host not in phone.ips:
-                phone.ips.append(res.route.host)
+                # Every status check probes each one, so addresses from networks long gone drop off the front.
+                phone.ips = (phone.ips + [res.route.host])[-_MAX_REMEMBERED_IPS:]
             self._host.schedule_save()
         self._render()
 

@@ -149,6 +149,15 @@ def test_menu_lists_presets_then_save_rename_delete(qapp):
     assert isinstance(plugin._btn, QPushButton)
 
 
+def test_an_ampersand_in_a_name_shows_in_the_menu(qapp):
+    # A menu reads "&" as a shortcut marker, which would drop it from the name.
+    plugin = _presets(_Host())
+    plugin.create_header_widget()
+    plugin.set_config({"presets": [{"name": "Desk & window"}]})
+    menu = plugin.build_menu()
+    assert menu.actions()[0].iconText() == "Desk & window"
+
+
 _PANELS = []  # the panels own the widgets; keep them alive for the test
 
 

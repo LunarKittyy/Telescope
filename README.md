@@ -705,6 +705,8 @@ The phone then `POST`s to `http://<ip>:<port>/pair/<nonce>` with `{"name": ..., 
 
 The desktop also notes the source address that request arrived from. That address is, by construction, one of the phone's *and* reachable from this machine over whatever path the phone found, so it becomes the phone's first active address.
 
+One code pairs one phone: once a phone has paired from it, a POST from a different `phone_id` gets `409` (the same phone retrying still gets `200`).
+
 </details>
 
 <details>
