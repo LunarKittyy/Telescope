@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 from typing import Callable, Optional
 
+from telescope import version
 from telescope.platform import IS_WINDOWS
 
 logger = logging.getLogger(__name__)
@@ -88,8 +89,8 @@ def icon_file(data_home: Optional[Path] = None) -> Path:
     return _data_home(data_home) / "icons" / "hicolor" / "256x256" / "apps" / f"{APP_ID}.png"
 
 
-def is_dev_checkout(directory: Optional[Path] = None) -> bool:
-    return ((directory or app_dir()).parent / ".git").exists()
+def is_dev_checkout() -> bool:
+    return version.CHANNEL == "dev"
 
 
 def update_menu_entry(save_icon: Callable[[Path], bool], command: Optional[list] = None,

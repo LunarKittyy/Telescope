@@ -308,10 +308,8 @@ def test_a_source_checkout_or_read_only_folder_only_gets_a_link(tmp_path, monkey
     monkeypatch.setattr(updates, "IS_WINDOWS", False)
     app = tmp_path / "app"
     app.mkdir()
+    (tmp_path / ".git").mkdir()  # a release unpacked inside a git-tracked folder
     assert updates.self_update_blocker(app) is None
-    (tmp_path / ".git").mkdir()
-    assert "git" in updates.self_update_blocker(app)
-    (tmp_path / ".git").rmdir()
     monkeypatch.setattr(updates.os, "access", lambda *_a: False)
     assert "writable" in updates.self_update_blocker(app)
     monkeypatch.setattr(version, "CHANNEL", "dev")
