@@ -722,6 +722,40 @@ def test_an_encoder_failure_goes_back_to_mjpeg_with_a_banner(stream_output, monk
     assert "encoder stopped" in host.issues["h264"].text
 
 
+def test_falling_behind_on_heavy_suggests_light_with_a_button(stream_output, monkeypatch):
+    plugin, host = _stream_output_with(stream_output, monkeypatch)
+    plugin.set_config({"format": "mjpeg"})
+    host.issues["h264"] = object()  # an earlier "Switched to Heavy"
+    plugin._bus.stream_behind.emit(True)
+    issue = host.issues["behind"]
+    assert (issue.title, issue.text, issue.kind) == ("Can't keep up", "Try Light or lower quality.", "warn")
+    assert [a.label for a in issue.actions] == ["Switch to Light"]
+
+    issue.actions[0].callback()
+    assert plugin.stream_format() == "h264" and plugin.get_config()["format"] == "h264"
+    assert plugin._fmt_h264.isChecked() and host.reconnects == 1
+    assert "h264" not in host.issues  # Light again, so that note is out of date
+
+    plugin._bus.stream_behind.emit(False)
+    assert "behind" not in host.issues
+
+
+@pytest.mark.parametrize("fmt,decodable,codecs", [
+    ("h264", True, ["mjpeg", "h264"]),   # already on Light
+    ("mjpeg", False, ["mjpeg", "h264"]),  # no PyAV here
+    ("mjpeg", True, ["mjpeg"]),           # the phone has no encoder
+])
+def test_falling_behind_without_light_to_offer_has_no_button(stream_output, monkeypatch, fmt, decodable, codecs):
+    plugin, host = _stream_output_with(stream_output, monkeypatch, decodable=decodable)
+    plugin.set_config({"format": fmt})
+    plugin.on_phone_state({"cameras": [], "codecs": codecs})
+    reconnects = host.reconnects
+    plugin._bus.stream_behind.emit(True)
+    issue = host.issues["behind"]
+    assert issue.text == "Try lower quality." and issue.actions == []
+    assert host.reconnects == reconnects
+
+
 def test_bitrate_is_sent_in_bits_per_second(stream_output, monkeypatch):
     plugin, _host = _stream_output_with(stream_output, monkeypatch)
 

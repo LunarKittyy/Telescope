@@ -180,3 +180,6 @@ class EventBus(QObject):
     """The stream opened the virtual camera at this width and height."""
     camera_watched         = pyqtSignal(bool)
     """Whether an app is reading the virtual camera (Wait screen watches it)."""
+    stream_behind          = pyqtSignal(bool)
+    """The stream fell behind its frame rate (the throughput readout went amber), or caught up again. Only on a
+    change, and never for a dropped stream: that's stream_lost."""

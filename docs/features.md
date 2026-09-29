@@ -58,7 +58,7 @@ Its own card, per phone.
 - About 60 ms of buffering; the phone's and the computer's clocks drift apart, so it drops or pads audio to stay there
 
 ## Monitoring
-- FPS and throughput (Mbps) readouts in the footer while streaming; throughput turns amber if the real decode rate falls behind the target for a sustained stretch
+- FPS and throughput (Mbps) readouts in the footer while streaming; throughput turns amber if the real decode rate falls behind the target for a sustained stretch. A "Can't keep up" note then suggests Light or lower quality, with a **Switch to Light** button when you're on Heavy, and goes away once the stream keeps up again. A dropped stream doesn't count
 - A dropped stream shows an animated "Stream dropped - reconnecting..." status instead of a static line, and the desktop keeps looking for the phone on every route: pull the cable and it carries on over Wi-Fi, plug it back in and it can use USB again. If the phone answers but stopped streaming, the desktop stops too and offers **Start**. If it answers but won't take this computer back (unpaired, Local only, or a version mismatch), the desktop stops and shows the same banner a failed Start would
 - The phone's status reads "Waiting for the computer" while its camera is on but no computer is taking the video
 - Battery level and phone temperature polled every 15 seconds, shown in the Monitoring panel with color coding
