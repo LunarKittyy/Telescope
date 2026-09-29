@@ -24,4 +24,4 @@
 | QR pairing fails while a VPN is active | The VPN is blocking local-network traffic outright. (A VPN that *allows* LAN access is handled: the desktop advertises its real interface addresses rather than whatever owns the default route, and the phone sends LAN attempts over its Wi-Fi interface rather than the tunnel) | Turn on the VPN's "allow local network access"/"LAN access" option, pause the VPN while pairing, or use USB pairing. Once paired, streaming has the same requirement |
 | QR scanner opens in landscape | Manifest override not applied | The app overrides ZXing's default orientation to portrait; rebuild if you see this on an old build |
 
-Not listed here? Ask in [Q&A](https://github.com/LunarKittyy/Telescope/discussions/categories/q-a). If something's broken, open an [issue](https://github.com/LunarKittyy/Telescope/issues) with your **Copy diagnostics** report.
+Not listed here? Ask in [Q&A](https://github.com/LunarKittyy/Telescope/discussions/categories/q-a). If something's broken, open an [issue](https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml) with your **Copy diagnostics** report.

@@ -51,7 +51,7 @@ telescope/
 |-- .github/
 |   |-- write_manifest.py        # Writes a release's manifest.json
 |   |-- NIGHTLY_NOTES.md         # Body of the nightly release
-|   |-- ISSUE_TEMPLATE/          # Bug, suggestion and device report forms
+|   |-- ISSUE_TEMPLATE/          # Bug and device report forms, links to Discussions
 |   +-- workflows/
 |       |-- release.yml          # Builds all three and publishes nightly or a stable release
 |       |-- build-apk.yml        # APK (signed with the release key in a release)

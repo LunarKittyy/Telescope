@@ -5,7 +5,7 @@ New to Telescope? Start with the [Quick Start](../README.md#quick-start). It's a
 ## Getting help
 
 - Questions go in [Q&A](https://github.com/LunarKittyy/Telescope/discussions/categories/q-a), and ideas in [Ideas](https://github.com/LunarKittyy/Telescope/discussions/categories/ideas)
-- Bugs and crashes go in [Issues](https://github.com/LunarKittyy/Telescope/issues), with your **Copy diagnostics** report
+- Bugs and crashes go in an [issue](https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml), with your **Copy diagnostics** report
 
 ## Using Telescope
 
