@@ -87,7 +87,11 @@ class MjpegServer(
         }
     }
 
+    // Frames the camera made for the stream lately, either codec: the computer compares what arrived with it.
+    val frameRate = FrameRate()
+
     fun sendFrame(jpeg: ByteArray) {
+        frameRate.tick()
         val dead = mutableListOf<MjpegClient>()
         for (c in clients) { if (!c.enqueue(jpeg)) dead.add(c) else if (givenUp(c.lastWriteAtMs)) { c.close(); dead.add(c) } }
         if (dead.isNotEmpty()) clients.removeAll(dead.toSet())
@@ -99,6 +103,7 @@ class MjpegServer(
             h264Clients.forEach { it.queue.offerConfig(packet) }
             return
         }
+        frameRate.tick()
         if (h264Clients.isEmpty()) return
         val framed = H264Stream.withDelimiter(packet)
         var wantKey = false
