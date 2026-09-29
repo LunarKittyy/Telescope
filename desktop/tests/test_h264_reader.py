@@ -101,6 +101,23 @@ def test_reader_reads_authenticated_frames_then_reports_eof(server):
     assert reader.isOpened() is False
 
 
+def test_a_burst_shows_its_newest_frame_but_counts_every_frame_that_arrived(server):
+    # Frames that come in together (after a moment of backlog) are all decoded; only the newest is shown, to stay
+    # live, but each counts as arrived, or the stream would look like it's falling behind.
+    _Handler.body = _encode([30, 60, 90, 120, 150, 180])
+    reader = H264Reader(f"http://127.0.0.1:{server.server_address[1]}/v1/video.h264", PhoneAuth("secret"))
+    assert reader.open()
+    shown, arrived = 0, 0
+    while True:
+        ok, _frame = reader.read()
+        if not ok:
+            break
+        shown += 1
+        arrived += reader.last_frame_count
+    reader.release()
+    assert arrived == 6 and shown < arrived
+
+
 def test_reader_refuses_a_non_h264_response(server):
     _Handler.body = b"hi"
     _Handler.content_type = "text/plain"

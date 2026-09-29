@@ -133,6 +133,8 @@ class StreamWorker(QThread):
         self._bytes_total  = 0
         # Frames decoded and shown; separate from the vcam send rate (which resends the latest frame regardless).
         self._frames_received = 0
+        # Frames that arrived from the phone, the ones skipped to stay live included: whether the link keeps up.
+        self._frames_arrived = 0
         # Consecutive 2s windows with sustained low decode rate (distinguishes congestion from blips).
         self._weak_streak  = 0
 
@@ -217,6 +219,7 @@ class StreamWorker(QThread):
                     self.reconnected.emit()
                     continue
                 self._bytes_total += cap.last_frame_bytes
+                self._frames_arrived += getattr(cap, "last_frame_count", 1)
                 newest.put((next(self._seq), cap.decode, packet))
         finally:
             if cap is not None:
@@ -289,6 +292,7 @@ class StreamWorker(QThread):
                 self._restart_vcam.clear()
                 continue
             self._bytes_total += cap.last_frame_bytes
+            self._frames_arrived += getattr(cap, "last_frame_count", 1)
             # Run first frame through pipeline so vcam dimensions account for transforms (e.g. 90° rotation swaps W↔H).
             self._latest = None
             self._publish(next(self._seq), frame)
@@ -338,7 +342,7 @@ class StreamWorker(QThread):
                 shown_as = vcam.V4L2_PHONE_LABEL if vcam.IS_LINUX else cam.device
                 self.vcam_opened.emit(cam_w, cam_h)
                 self.status.emit("ok", f"Streaming {cam_w}x{cam_h} at {self._fps} fps to {shown_as}")
-                fc, t0, bytes0, recv0 = 0, time.monotonic(), self._bytes_total, self._frames_received
+                fc, t0, bytes0, recv0 = 0, time.monotonic(), self._bytes_total, self._frames_arrived
                 period = 1 / self._fps
                 last_src = fitted = None
                 last_sent = 0.0
@@ -370,10 +374,11 @@ class StreamWorker(QThread):
                         bytes_now = self._bytes_total
                         mbps = (bytes_now - bytes0) * 8 / elapsed / 1_000_000
 
-                        # Warn only if sustained decode rate trails target significantly (not just high quality).
-                        recv_now = self._frames_received
-                        decode_fps = (recv_now - recv0) / elapsed
-                        struggling = decode_fps < self._fps * 0.85
+                        # Warn only if frames sustainedly arrive well under the target rate. Arrive, not shown: frames
+                        # that come in a burst are all counted, though only the newest is shown to stay live.
+                        recv_now = self._frames_arrived
+                        arrival_fps = (recv_now - recv0) / elapsed
+                        struggling = arrival_fps < self._fps * 0.85
                         self._weak_streak = self._weak_streak + 1 if struggling else 0
                         net_kind = "net_warn" if self._weak_streak >= 2 else "net"
                         self.status.emit(net_kind, f"{mbps:.1f} Mbps")

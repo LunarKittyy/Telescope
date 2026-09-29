@@ -53,6 +53,7 @@ class MjpegReader:
 
     # Decoding a JPEG needs nothing from the ones before it, so StreamWorker may run several decode() at once.
     parallel_decode = True
+    last_frame_count = 1  # frames behind each packet (H264Reader's can be more)
 
     def read(self):
         ok, jpeg = self.read_packet()
