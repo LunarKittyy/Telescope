@@ -30,7 +30,7 @@ _FORMAT_NOTES = {
     FORMAT_MJPEG: "Needs USB or strong Wi-Fi.",
 }
 # Tooltips carry the technical side; the note under the buttons is the plain one.
-_LIGHT_TIP = "H.264 from the phone's hardware encoder. About 8 Mbps at 1080p 30 fps."
+_LIGHT_TIP = "H.264, the same kind of compression video calls use. The phone's hardware encoder does it."
 _HEAVY_TIP = "MJPEG: every frame is a full JPEG, several times the data of Light. Sharper in fast motion."
 
 # "1080p" etc. names a height, not one exact WxH - matching by height catches every ratio's version.
