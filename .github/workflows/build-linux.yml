@@ -3,7 +3,7 @@ name: Build Linux bundle
 # Checks pull requests; release.yml calls it with a build number and channel to make the release bundle.
 on:
   pull_request:
-    paths: [desktop/**, VERSION]
+    paths: [desktop/**, VERSION, .github/workflows/build-linux.yml]
   workflow_dispatch:
   workflow_call:
     inputs:
@@ -20,6 +20,10 @@ permissions:
 jobs:
   bundle:
     runs-on: ubuntu-latest
+    # A new push to a pull request cancels the check still running for the old one.
+    concurrency:
+      group: linux-${{ github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v7
 
