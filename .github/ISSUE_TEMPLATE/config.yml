@@ -2,4 +2,10 @@ blank_issues_enabled: false
 contact_links:
   - name: Setup help
     url: https://github.com/LunarKittyy/Telescope#quick-start
-    about: Stuck installing or pairing? The Quick Start covers most of it. If it's still not working, open a bug.
+    about: Stuck installing or pairing? The Quick Start covers most of it.
+  - name: Question
+    url: https://github.com/LunarKittyy/Telescope/discussions/categories/q-a
+    about: Not sure how something works, or whether it's a bug? Ask in Q&A.
+  - name: Idea
+    url: https://github.com/LunarKittyy/Telescope/discussions/categories/ideas
+    about: Something you'd like Telescope to do. Post it in Ideas.

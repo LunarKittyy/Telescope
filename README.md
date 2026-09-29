@@ -66,6 +66,8 @@ Telescope uses USB whenever the phone is plugged in and answering, and Wi-Fi oth
 
 That's all most people need. The full feature list, troubleshooting and everything else is in [the docs](docs/README.md).
 
+Stuck, or have an idea? Ask in [Discussions](../../discussions). Found a bug? Open an [issue](https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml) with your **Copy diagnostics** report.
+
 ---
 
 ## Why
