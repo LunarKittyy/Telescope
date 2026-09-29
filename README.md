@@ -55,7 +55,7 @@ On first launch, the middle of the window is a checklist:
 
 After the first stream, the checklist is replaced by the video.
 
-### 3. ▶️ Use it as a webcam
+### 3. 📷 Use it as a webcam
 
 In OBS (or anywhere else), pick **Phone Camera** (Linux) or **Telescope** (Windows) as your webcam. Installed the Windows driver with an older Telescope? It's still called **Unity Video Capture** until you click **Rename** in Advanced.
 
