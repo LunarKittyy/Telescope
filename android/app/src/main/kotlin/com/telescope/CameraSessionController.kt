@@ -63,6 +63,8 @@ class CameraSessionController(
 ) {
     companion object {
         private const val TAG = "CameraSessionController"
+        private const val REOPEN_TRIES = 8        // after the camera failed: up to about 4 s for it to come back
+        private const val REOPEN_RETRY_MS = 500L
     }
 
     private var cameraDevice: CameraDevice? = null
@@ -340,15 +342,17 @@ class CameraSessionController(
         imageReader = buildImageReader()
     }
 
-    // unsupported: it can't do this size or rate here (so trying again won't help), rather than a crash
-    private fun encoderFailed(e: Throwable, reason: String = "The phone's H.264 encoder stopped", unsupported: Boolean = false) {
+    // unsupported: it can't do this size or rate here (so trying again won't help), rather than a crash.
+    // reopenTries: after the camera itself failed, it can take a moment before it can be opened again.
+    private fun encoderFailed(e: Throwable, reason: String = "The phone's H.264 encoder stopped",
+                              unsupported: Boolean = false, reopenTries: Int = 0) {
         if (codec != H264Stream.CODEC_H264) return
         codec = H264Stream.CODEC_MJPEG
         codecError = reason
         codecUnsupported = unsupported
         onControlError("h264Encoder", e)
         onCodecFailed(codecError!!)
-        reopen("encoderFailed")
+        reopen("encoderFailed", reopenTries)
     }
 
     private fun releaseOutputs() {
@@ -743,7 +747,8 @@ class CameraSessionController(
     }
 
     // Same lens, new output (size or codec): the reader or encoder is rebuilt, which needs a reopen.
-    private fun reopen(op: String) {
+    // tries: how many more times to try, REOPEN_RETRY_MS apart, while the camera can't be opened yet.
+    private fun reopen(op: String, tries: Int = 0) {
         onStateChanged(StreamState.Recovering, op, null)
 
         val myGeneration = ++cameraGeneration
@@ -787,18 +792,29 @@ class CameraSessionController(
                         cameraDevice = null
                         val e = RuntimeException("Camera2 error code $error")
                         if (codec == H264Stream.CODEC_H264 && error == CameraDevice.StateCallback.ERROR_CAMERA_DEVICE) {
-                            // The camera gave up feeding the encoder (a size or rate it can't): MJPEG, not the end
-                            encoderFailed(e, "H.264 at ${streamWidth}x$streamHeight stopped the camera on this phone", unsupported = true)
+                            // The camera gave up feeding the encoder (a size or rate it can't): MJPEG, not the end.
+                            // The camera service restarts it first, so opening it again waits a little.
+                            encoderFailed(e, "H.264 at ${streamWidth}x$streamHeight stopped the camera on this phone",
+                                unsupported = true, reopenTries = REOPEN_TRIES)
                             return
                         }
+                        if (tries > 0 && retryReopen(op, tries, myGeneration)) return
                         onStateChanged(StreamState.Failed, "$op.onError", e)
                         onFatalError()
                     }
                 }
             }, handler)
         } catch (e: Exception) {
+            // Right after the camera failed it can be briefly unknown ("Unable to retrieve camera characteristics")
+            if (tries > 0 && retryReopen(op, tries, myGeneration)) return
             onStateChanged(StreamState.Failed, op, e)
             onFatalError()
         }
+    }
+
+    private fun retryReopen(op: String, tries: Int, generation: Int): Boolean {
+        val h = handler ?: return false
+        h.postDelayed({ if (!stopped && generation == cameraGeneration) reopen(op, tries - 1) }, REOPEN_RETRY_MS)
+        return true
     }
 }

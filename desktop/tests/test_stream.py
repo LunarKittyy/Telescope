@@ -453,6 +453,25 @@ def test_a_slow_decoder_skips_to_the_newest_packet(monkeypatch):
     assert worker._frames_received < 5
 
 
+def test_frames_that_arrived_together_all_count_as_arrived():
+    packets = [np.full((1, 1, 3), i, dtype=np.uint8) for i in range(1, 4)]
+
+    class _BurstCapture(_Capture):
+        last_frame_count = 3  # each read took in three frames and kept the newest
+
+    cap = _BurstCapture([(True, p) for p in packets])
+    worker = stream.StreamWorker("url", None, None, 30)
+
+    def no_reconnect(_stop):
+        worker._stop_flag = True
+        return None
+
+    worker._reconnect_cap = no_reconnect
+    worker._stream_reader(cap, threading.Event(), threading.Event())
+
+    assert worker._frames_arrived == 9 and worker._frames_received <= 3
+
+
 def test_a_new_frame_goes_to_the_camera_without_waiting_for_the_next_tick(monkeypatch):
     import time
     worker = stream.StreamWorker("url", None, None, 2)  # a tick every 0.5 s would be far too late

@@ -35,6 +35,9 @@ class H264Reader:
         self._pending_bytes = 0
         # Wire bytes behind the most recent frame read() returned (StreamWorker's throughput).
         self.last_frame_bytes = 0
+        # Frames that arrived for it, the ones skipped to keep up included (StreamWorker's "keeping up").
+        self.last_frame_count = 0
+        self._pending_frames = 0
 
     def isOpened(self) -> bool:
         return self._response is not None
@@ -56,6 +59,7 @@ class H264Reader:
         self._codec = new_decoder()
         self._response = resp
         self._pending_bytes = 0
+        self._pending_frames = 0
         return True
 
     # Each frame refers to the ones before it, so read_packet() decodes in order and decode() has nothing left to do.
@@ -80,9 +84,11 @@ class H264Reader:
                 self._pending_bytes += len(chunk)
                 if self._pending_bytes > _MAX_BYTES_WITHOUT_FRAME:
                     return False, None
-                frame = decode_newest(self._codec, chunk)
+                frame, count = _decode(self._codec, chunk)
+                self._pending_frames += count
                 if frame is not None:
                     self.last_frame_bytes, self._pending_bytes = self._pending_bytes, 0
+                    self.last_frame_count, self._pending_frames = self._pending_frames, 0
                     return True, frame
         except Exception:
             return False, None
@@ -108,7 +114,12 @@ def new_decoder():
 def decode_newest(codec, data: bytes):
     """Feed Annex-B bytes to the decoder; the newest frame they completed (BGR ndarray), or None.
     Older frames from the same data are dropped, which keeps latency down after a stall."""
-    newest = None
+    return _decode(codec, data)[0]
+
+
+def _decode(codec, data: bytes):
+    """decode_newest(), and how many frames the data completed (the dropped ones too)."""
+    newest, count = None, 0
     for packet in codec.parse(data):
         try:
             frames = codec.decode(packet)
@@ -116,4 +127,5 @@ def decode_newest(codec, data: bytes):
             continue  # e.g. joined mid-GOP: skip until a keyframe
         if frames:
             newest = frames[-1]
-    return newest.to_ndarray(format="bgr24") if newest is not None else None
+            count += len(frames)
+    return (newest.to_ndarray(format="bgr24") if newest is not None else None), count
