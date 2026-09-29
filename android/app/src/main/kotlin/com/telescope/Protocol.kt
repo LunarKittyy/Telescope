@@ -59,6 +59,7 @@ data class V1State(
     val torch: Boolean,
     val jpeg_quality: Int,
     val phone_fps: Int,
+    val camera_fps: Double = 0.0,  // frames the phone actually made per second lately; 0 = not known
     val codecs: List<String> = listOf("mjpeg"),
     val codec: String = "mjpeg",
     val bitrate: Int = 0,

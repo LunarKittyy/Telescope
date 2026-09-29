@@ -1760,10 +1760,97 @@ def test_a_dropped_stream_asks_the_phone_why_quietly(window, monkeypatch):
     assert lost == [True] and window.state_fetches == [1]  # H.264 it can't do: its state says so
     emitted = []
     window._sig_state.connect(lambda sid, state: emitted.append(state))
-    window._session = replace(window._session, client=SimpleNamespace(get_state=lambda: None))
-    monkeypatch.setattr(app_module.time, "sleep", lambda _s: None)
-    window._fetch_state_async(1, report_failure=False)
-    assert emitted == []  # got nothing: mid-stream that's no news, not an empty state
+    answers = [None, {**_VALID_STATE, "codec": "h264"}, {**_VALID_STATE, "codec_error": "Too big"}]
+    window._session = replace(window._session, client=SimpleNamespace(get_state=lambda: answers.pop(0)))
+    window._poll_codec_state(1)  # got nothing: mid-stream that's no news, not an empty state
+    window._poll_codec_state(1)  # nothing about why it stopped: plugins keep what they have
+    assert emitted == []
+    window._poll_codec_state(1)
+    assert len(emitted) == 1 and emitted[0]["codec_error"] == "Too big"
+    assert window._state_poll_busy is False
+
+
+def test_a_dropped_stream_keeps_asking_the_phone_why(window, monkeypatch):
+    # The camera can take seconds to give up on a size it can't do, after the stream already stopped.
+    _dropped_stream(window, monkeypatch, [None, None])
+    window._recovery_timer.stop()
+    window._probe_recovery()
+    assert window.state_fetches == [1, 1]
+    window._on_stream_reconnected()
+    window._probe_recovery()
+    assert window.state_fetches == [1, 1]  # back: nothing more to ask
+
+
+def _slow_stream(window, monkeypatch, camera_fps, arrival=46.8):
+    """A stream whose frames arrive under the target, and a phone that answers with its camera's rate."""
+    asked = []
+
+    def get_state():
+        asked.append(True)
+        return None if camera_fps is None else {**_VALID_STATE, "camera_fps": camera_fps}
+
+    worker = _RetargetWorker()
+    worker.last_arrival_fps = arrival
+    window._session = StreamSession(id=1, url="http://127.0.0.1:40001/v1/video",
+                                    client=SimpleNamespace(get_state=get_state, close=lambda: None), worker=worker)
+    monkeypatch.setattr(app_module.TelescopeWindow, "_spawn_camera_check",
+                        lambda self, sid, fps: self._check_camera_rate(sid, fps))
+    return asked
+
+
+def test_a_camera_making_fewer_frames_is_not_called_a_slow_link(window, monkeypatch):
+    events = _behind_events(window)
+    asked = _slow_stream(window, monkeypatch, camera_fps=47.1)  # 1080p60 asked, dim desk: the camera does 47
+    window._on_worker_status("net_warn", "0.9 Mbps")
+    window._on_worker_status("net_warn", "0.9 Mbps")
+    assert events == [] and window._net_lbl.styleSheet() == ""
+    assert "Dim light" in window._fps_lbl.toolTip()
+    assert asked == [True]  # the answer holds for a while
+    window._on_worker_status("net", "0.9 Mbps")
+    assert window._fps_lbl.toolTip() == ""
+    window._session.worker.last_arrival_fps = 30.0  # the link got worse too: the camera's rate still holds, but
+    window._on_worker_status("net_warn", "0.9 Mbps")  # frames go missing on the way now
+    assert events == [True] and asked == [True]
+
+
+def test_frames_lost_between_camera_and_computer_are_a_slow_link(window, monkeypatch):
+    events = _behind_events(window)
+    _slow_stream(window, monkeypatch, camera_fps=60.0)
+    window._on_worker_status("net_warn", "40.0 Mbps")
+    assert events == [True] and window._net_lbl.styleSheet() == f"color: {theme.WARN};"
+    assert window._fps_lbl.toolTip() == ""
+
+
+@pytest.mark.parametrize("camera_fps", [None, 0.0])  # no answer, or a phone too old to say
+def test_without_the_camera_rate_a_slow_stream_is_behind_as_before(window, monkeypatch, camera_fps):
+    events = _behind_events(window)
+    _slow_stream(window, monkeypatch, camera_fps=camera_fps)
+    window._on_worker_status("net_warn", "40.0 Mbps")
+    assert events == [True]
+
+
+def test_the_camera_rate_answer_expires(window, monkeypatch):
+    asked = _slow_stream(window, monkeypatch, camera_fps=47.1)
+    window._on_worker_status("net_warn", "0.9 Mbps")
+    window._camera_fps_until = 0.0
+    window._on_worker_status("net_warn", "0.9 Mbps")
+    assert asked == [True, True]
+
+
+def test_a_slow_stream_waits_for_the_phone_and_a_late_answer_after_it_caught_up_says_nothing(window, monkeypatch):
+    events = _behind_events(window)
+    _slow_stream(window, monkeypatch, camera_fps=60.0)
+    checks = []
+    monkeypatch.setattr(app_module.TelescopeWindow, "_spawn_camera_check",
+                        lambda self, sid, fps: checks.append((sid, fps)))
+    window._on_worker_status("net_warn", "40.0 Mbps")
+    window._on_worker_status("net_warn", "40.0 Mbps")
+    assert checks == [(1, 46.8)] and events == []  # asked once, nothing said yet
+    window._on_worker_status("net", "40.0 Mbps")
+    window._on_camera_rate(1, 46.8, 60.0)
+    assert events == []
+    window._on_worker_status("net_warn", "40.0 Mbps")  # the answer is in: no need to ask again
+    assert checks == [(1, 46.8)] and events == [True]
 
 
 def test_h264_too_much_for_the_phone_stops_the_stream_with_a_note_that_stays(window, monkeypatch):

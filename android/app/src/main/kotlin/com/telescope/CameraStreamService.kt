@@ -751,6 +751,7 @@ class CameraStreamService : Service() {
             torch = snap?.torch ?: false,
             jpeg_quality = snap?.jpegQuality ?: 85,
             phone_fps = snap?.phoneFps ?: 30,
+            camera_fps = server?.frameRate?.fps() ?: 0.0,
             codecs = if (h264Available) listOf(H264Stream.CODEC_MJPEG, H264Stream.CODEC_H264)
                      else listOf(H264Stream.CODEC_MJPEG),
             codec = snap?.codec ?: H264Stream.CODEC_MJPEG,

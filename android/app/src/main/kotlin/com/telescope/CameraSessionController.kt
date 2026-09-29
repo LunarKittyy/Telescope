@@ -260,6 +260,8 @@ class CameraSessionController(
     @Volatile private var wantedSize: Pair<Int, Int>? = null
 
     fun switchTo(entry: CameraEntry) {
+        // Asked again for the lens it's on or going to (the computer resends when a bad link lost the reply): no reopen
+        if ((wantedLens ?: currentCamera) == entry) return
         wantedLens = entry
         post { if (wantedLens === entry) switchCameraTo(entry) }
     }
