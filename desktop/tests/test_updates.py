@@ -1,11 +1,17 @@
 """Update check, download and install, with a fake network and temporary install folders."""
 
+import contextlib
 import hashlib
 import io
 import json
 import os
+import socket
+import struct
 import tarfile
+import threading
+import time
 import urllib.error
+import urllib.request
 import zipfile
 
 import pytest
@@ -123,6 +129,97 @@ def test_download_refuses_what_doesnt_match(tmp_path, served, asset_payload, siz
 def test_download_can_be_cancelled(tmp_path):
     with pytest.raises(UpdateError, match="Cancelled"):
         updates.download(_asset_for(b"abc"), tmp_path, cancelled=lambda: True, opener=_opener(b"abc"))
+
+
+# ── Offline ──────────────────────────────────────────────────────────────────
+# A wifi can reach the phone and nothing else. Every way a connection with no internet behind it fails has to
+# end in an UpdateError the UI can show, quickly, with nothing left behind.
+
+def _no_answer(conn):
+    time.sleep(5)
+
+
+def _stalls_mid_body(conn):
+    conn.recv(4096)
+    conn.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: 1000\r\n\r\n{")
+    time.sleep(5)
+
+
+def _cut_off(conn):
+    conn.recv(4096)
+    conn.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: 1000\r\n\r\n{")
+
+
+def _not_http(conn):
+    conn.recv(4096)
+    conn.sendall(b"hello\r\n\r\n")
+
+
+def _reset(conn):
+    conn.recv(4096)
+    conn.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+
+
+def _login_page(conn):
+    conn.recv(4096)
+    body = b"<html>Log in to use this wifi</html>"
+    conn.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\n%s" % (len(body), body))
+
+
+@pytest.fixture
+def offline(monkeypatch):
+    """A URL that behaves like a network without internet, and an opener for it."""
+    monkeypatch.setattr(updates, "REQUEST_TIMEOUT", 0.5)
+    sockets = []
+
+    def make(behaviour):
+        if behaviour == "refused":
+            s = socket.socket()
+            s.bind(("127.0.0.1", 0))
+            url = f"http://127.0.0.1:{s.getsockname()[1]}/x"
+            s.close()
+        elif behaviour == "no dns":
+            url = "http://telescope-update-test.invalid/x"
+        else:
+            s = socket.socket()
+            s.bind(("127.0.0.1", 0))
+            s.listen()
+            sockets.append(s)
+
+            def serve():
+                with contextlib.suppress(OSError):
+                    while True:
+                        conn, _ = s.accept()
+                        with conn:
+                            behaviour(conn)
+            threading.Thread(target=serve, daemon=True).start()
+            url = f"http://127.0.0.1:{s.getsockname()[1]}/x"
+        return lambda _url, timeout: urllib.request.urlopen(url, timeout=timeout)
+    yield make
+    for s in sockets:
+        s.close()
+
+
+_OFFLINE = ["refused", "no dns", _no_answer, _stalls_mid_body, _cut_off, _not_http, _reset, _login_page]
+
+
+@pytest.mark.parametrize("behaviour", _OFFLINE)
+def test_a_check_without_internet_fails_with_a_message(offline, behaviour):
+    started = time.monotonic()
+    with pytest.raises(UpdateError):
+        updates.fetch_manifest("stable", offline(behaviour))
+    assert time.monotonic() - started < 3
+
+
+@pytest.mark.parametrize("behaviour", _OFFLINE)
+def test_a_download_without_internet_fails_and_leaves_nothing(offline, behaviour, tmp_path):
+    started = time.monotonic()
+    with pytest.raises(UpdateError) as err:
+        updates.download(_asset_for(b"z" * 1000), tmp_path, opener=offline(behaviour))
+    assert time.monotonic() - started < 3
+    assert list(tmp_path.iterdir()) == []
+    if behaviour is not _login_page:
+        assert "internet connection" in str(err.value)
 
 
 # ── Install: Windows ─────────────────────────────────────────────────────────
