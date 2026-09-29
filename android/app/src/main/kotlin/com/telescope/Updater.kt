@@ -11,9 +11,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import java.io.File
-import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
 import java.util.concurrent.CopyOnWriteArraySet
 
 // The phone app's own updates: check the channel's manifest.json, download the APK, verify its checksum
@@ -35,8 +32,7 @@ object Updater {
     private const val PREFS = "updates"
     private const val KEY_CHANNEL = "channel"
     private const val KEY_LAST_CHECK = "last_check_ms"
-    private const val TIMEOUT_MS = 15_000
-    private const val MAX_MANIFEST_BYTES = 256 * 1024
+    private val http = UpdateHttp("Telescope-Android/${BuildConfig.VERSION_NAME}")
 
     @Volatile var state: State = State.Idle
         private set
@@ -80,7 +76,7 @@ object Updater {
         set(State.Checking)
         Thread {
             val manifest = try {
-                fetchManifest(channel)
+                http.fetchManifest(UpdateLogic.manifestUrl(channel))
             } catch (e: Exception) {
                 set(State.CheckFailed)  // offline is normal; the next launch or Check tries again
                 return@Thread
@@ -96,20 +92,6 @@ object Updater {
         }.start()
     }
 
-    // Null when the channel has no release yet (404) or the manifest isn't one to trust.
-    private fun fetchManifest(channel: String): UpdateManifest? {
-        val conn = open(UpdateLogic.manifestUrl(channel))
-        try {
-            if (conn.responseCode == 404) return null
-            if (conn.responseCode != 200) throw IOException("HTTP ${conn.responseCode}")
-            val bytes = conn.inputStream.use { it.readNBytesCompat(MAX_MANIFEST_BYTES + 1) }
-            if (bytes.size > MAX_MANIFEST_BYTES) return null
-            return UpdateLogic.parse(String(bytes, Charsets.UTF_8))
-        } finally {
-            conn.disconnect()
-        }
-    }
-
     // Downloads, verifies and installs. The caller has already made sure installs are allowed.
     fun downloadAndInstall(context: Context, manifest: UpdateManifest) {
         val app = context.applicationContext
@@ -117,7 +99,7 @@ object Updater {
         set(State.Downloading(manifest, 0))
         Thread {
             val apk = File(File(app.cacheDir, "updates").apply { mkdirs() }, "Telescope.apk")
-            val problem = download(asset, apk) { pct -> set(State.Downloading(manifest, pct)) }
+            val problem = http.download(asset, apk) { pct -> set(State.Downloading(manifest, pct)) }
                 ?: verifyApk(app, apk, manifest)
             if (problem != null) {
                 apk.delete()
@@ -131,45 +113,6 @@ object Updater {
                 set(State.Failed("Android couldn't start the install.", manifest))
             }
         }.start()
-    }
-
-    private fun download(asset: ManifestAsset, dest: File, progress: (Int) -> Unit): String? {
-        val partial = File(dest.path + ".part")
-        return try {
-            val conn = open(asset.url)
-            try {
-                if (conn.responseCode != 200) return "The download failed (HTTP ${conn.responseCode})."
-                var done = 0L
-                var lastPct = -1
-                conn.inputStream.use { input ->
-                    partial.outputStream().use { out ->
-                        val buf = ByteArray(64 * 1024)
-                        while (true) {
-                            val n = input.read(buf)
-                            if (n < 0) break
-                            done += n
-                            if (done > asset.size) return "The download is bigger than it should be."
-                            out.write(buf, 0, n)
-                            val pct = (done * 100 / asset.size).toInt()
-                            if (pct != lastPct) { lastPct = pct; progress(pct) }
-                        }
-                    }
-                }
-                if (done != asset.size) return "The download was cut short. Try again."
-            } finally {
-                conn.disconnect()
-            }
-            val hash = partial.inputStream().use { UpdateLogic.sha256Hex(it) }
-            if (!hash.equals(asset.sha256, ignoreCase = true)) {
-                return "The download didn't match its checksum, so it wasn't installed."
-            }
-            if (!partial.renameTo(dest)) return "Couldn't save the download."
-            null
-        } catch (e: IOException) {
-            "The download failed. Check the internet connection and try again."
-        } finally {
-            partial.delete()
-        }
     }
 
     // A clear message instead of the installer's vague "App not installed" when the key differs.
@@ -230,26 +173,7 @@ object Updater {
         set(State.Available(manifest))
     }
 
-    private fun open(url: String): HttpURLConnection =
-        (URL(url).openConnection() as HttpURLConnection).apply {
-            connectTimeout = TIMEOUT_MS
-            readTimeout = TIMEOUT_MS
-            instanceFollowRedirects = true  // GitHub release downloads redirect to its file host
-            setRequestProperty("User-Agent", "Telescope-Android/${BuildConfig.VERSION_NAME}")
-        }
-
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-
-    private fun java.io.InputStream.readNBytesCompat(limit: Int): ByteArray {
-        val out = java.io.ByteArrayOutputStream()
-        val buf = ByteArray(8 * 1024)
-        while (out.size() < limit) {
-            val n = read(buf, 0, minOf(buf.size, limit - out.size()))
-            if (n < 0) break
-            out.write(buf, 0, n)
-        }
-        return out.toByteArray()
-    }
 }
 
 // Where Android reports on the install session. Needs to launch the confirm screen itself.
