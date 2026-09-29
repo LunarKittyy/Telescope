@@ -6,7 +6,7 @@ Telescope turns your Android phone into a webcam for your Linux or Windows compu
 - Pick the lens, and set exposure, focus and white balance from the computer
 - Connects over USB or Wi-Fi, encrypted either way
 - Can start streaming by itself when an app opens the camera, and stop once nothing's using it
-- A built-in updater lets you install new versions in one click, whenever you want
+- A built-in updater lets you install new versions in one click
 
 ---
 
