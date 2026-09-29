@@ -1,12 +1,12 @@
 # Telescope
 
-Stream your Android phone's camera - including telephoto and wide-angle lenses - to a virtual webcam on Linux or Windows. Camera controls (ISO, shutter, white balance, lens selection) are exposed over a local HTTP API so the desktop app can drive them live.
+Telescope turns your Android phone into a webcam for your Linux or Windows computer, and lets you use any of its lenses, telephoto and ultra-wide included.
 
-- Any of the phone's lenses, with manual exposure, focus and white balance from the desktop
-- Zoom and pan on the phone's sensor, presets, and a light stream format that keeps up even on slower Wi-Fi
-- The phone's microphone as a microphone on the computer
-- Streams by itself when a call or OBS opens the camera, and shows apps a wait screen while it isn't streaming
-- USB or Wi-Fi, encrypted, and both apps update themselves
+- Shows up as a normal webcam in Discord, Zoom, OBS and anything else, and the phone's mic can be your microphone too
+- Pick the lens, and set exposure, focus and white balance from the computer
+- Connects over USB or Wi-Fi, encrypted either way
+- Can start streaming by itself when an app opens the camera, and stop once nothing's using it
+- A built-in updater lets you install new versions in one click
 
 ---
 
