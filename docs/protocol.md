@@ -55,6 +55,7 @@ Server is on the phone at port 8080 for `/v1/video`, `/v1/video.h264`, `/v1/audi
   "torch": false,
   "jpeg_quality": 85,
   "phone_fps": 30,
+  "camera_fps": 29.8,
   "codecs": ["mjpeg", "h264"],
   "codec": "mjpeg",
   "bitrate": 8087040,
@@ -67,7 +68,7 @@ Server is on the phone at port 8080 for `/v1/video`, `/v1/video.h264`, `/v1/audi
 }
 ```
 
-`minFocusDistance`, `aeCompMin`/`aeCompMax`/`aeCompStep` are per-lens, reported by Camera2 (`aeCompStep` is typically `0.167` = 1/6 EV). `wb_r`/`wb_ge`/`wb_go`/`wb_b` are the current RGGB channel gains when `wb_manual` is true, `null` otherwise. `supportedSizes` is the lens's actual list of capture sizes, which the desktop uses to populate its resolution dropdown instead of a fixed list. `stream_width`/`stream_height` are the current lens's live capture size. `codecs` lists what the phone can send (`h264` only with a hardware encoder), `codec` is what it's sending, and `bitrate` is the H.264 target in bits per second (on Dynamic, where it is right now). `dynamic_bitrate` is true when the phone takes `bitrate` `-1`. `codec_error` appears when H.264 failed and the phone went back to MJPEG, and `codec_unsupported` is true when that's because it can't do H.264 at this size or rate (not a crash), which the desktop asks about instead of switching to Heavy. `zoomRatioMax` is how far the lens zooms on the sensor (1 = it can't), `cropZoomMax` how far the crop can go, `freeformCrop` whether the crop can sit off-centre, and `lensZooms` the ratios where a multi-lens camera switches to a longer lens. `active_lens` is the physical lens a multi-lens camera is streaming from right now. Fields at their default value are left out, so read them with a default.
+`minFocusDistance`, `aeCompMin`/`aeCompMax`/`aeCompStep` are per-lens, reported by Camera2 (`aeCompStep` is typically `0.167` = 1/6 EV). `wb_r`/`wb_ge`/`wb_go`/`wb_b` are the current RGGB channel gains when `wb_manual` is true, `null` otherwise. `supportedSizes` is the lens's actual list of capture sizes, which the desktop uses to populate its resolution dropdown instead of a fixed list. `stream_width`/`stream_height` are the current lens's live capture size. `codecs` lists what the phone can send (`h264` only with a hardware encoder), `codec` is what it's sending, and `bitrate` is the H.264 target in bits per second (on Dynamic, where it is right now). `dynamic_bitrate` is true when the phone takes `bitrate` `-1`. `codec_error` appears when H.264 failed and the phone went back to MJPEG, and `codec_unsupported` is true when that's because it can't do H.264 at this size or rate (not a crash), which the desktop asks about instead of switching to Heavy. `zoomRatioMax` is how far the lens zooms on the sensor (1 = it can't), `cropZoomMax` how far the crop can go, `freeformCrop` whether the crop can sit off-centre, and `lensZooms` the ratios where a multi-lens camera switches to a longer lens. `camera_fps` is how many frames per second the phone actually made for the stream over the last couple of seconds (under `phone_fps` in dim light), which the desktop compares with what arrives before calling the connection slow. `active_lens` is the physical lens a multi-lens camera is streaming from right now. Fields at their default value are left out, so read them with a default.
 
 ## `POST /v1/control`
 
