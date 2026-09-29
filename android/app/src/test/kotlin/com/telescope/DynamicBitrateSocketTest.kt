@@ -39,7 +39,7 @@ class DynamicBitrateSocketTest {
     /** Streams for [seconds] over the scheduled link: Dynamic, or Auto's fixed bitrate. */
     private fun run(dynamic: Boolean, seconds: Int): Run {
         val auto = H264Stream.defaultBitrate(1920, 1080, 30)
-        val controller = DynamicBitrate(auto)
+        val controller = DynamicBitrate(auto, H264Stream.dynamicCeiling(1920, 1080, 30))
         val rate = java.util.concurrent.atomic.AtomicInteger(controller.bitrate)
         val keyWanted = AtomicBoolean(true)
         val samples = CopyOnWriteArrayList<DynamicBitrate.Sample>()

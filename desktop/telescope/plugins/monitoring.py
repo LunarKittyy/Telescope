@@ -69,8 +69,7 @@ class MonitoringPlugin(TelescopePlugin):
         self._batt_alert_spin.setValue(20)
         self._batt_alert_spin.setSuffix("%")
         self._batt_alert_spin.setToolTip(
-            "The level that counts as low - including while charging, "
-            "if the level keeps falling anyway"
+            "Counts as low at this level, even while charging if it keeps dropping"
         )
         self._batt_alert_spin.valueChanged.connect(self._host.schedule_save)
         lay.addLayout(_row("Battery", self._batt_alert_spin, stretch=True))
@@ -93,7 +92,7 @@ class MonitoringPlugin(TelescopePlugin):
         notify.setChecked(True)
         notify.setToolTip(f"Show a notification when the {what}")
         stop = QCheckBox("Stop streaming")
-        stop.setToolTip(f"Stop the stream when the {what}, and again on every restart until it recovers")
+        stop.setToolTip(f"Stop the stream when the {what}, and at every restart until it's fine again")
         for box in (notify, stop):
             box.toggled.connect(self._host.schedule_save)
         boxes = QHBoxLayout()

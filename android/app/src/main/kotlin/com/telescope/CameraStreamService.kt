@@ -757,6 +757,7 @@ class CameraStreamService : Service() {
             bitrate = snap?.bitrate ?: 0,
             dynamic_bitrate = h264Available,
             codec_error = snap?.codecError,
+            codec_unsupported = snap?.codecUnsupported ?: false,
             active_lens = snap?.activeLens,
             stream_width = liveSize.width,
             stream_height = liveSize.height,

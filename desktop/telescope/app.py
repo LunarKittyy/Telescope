@@ -782,7 +782,13 @@ class TelescopeWindow(QMainWindow):
         self._recovery_route = None
         self._set_behind(False)
         self._bus.stream_lost.emit()
+        # The phone may have dropped the stream on purpose (H.264 it can't do at this size): its state says why.
+        self._spawn_state_fetch(self._session.id)
         self._probe_recovery()
+
+    def _spawn_state_fetch(self, session_id: int):
+        """Split out so tests can leave the thread out."""
+        threading.Thread(target=self._fetch_state_async, args=(session_id, False), daemon=True).start()
 
     def _end_recovery(self):
         self._recovering = False
@@ -926,7 +932,8 @@ class TelescopeWindow(QMainWindow):
             cb(ok, msg)
             self._vcam_reload_callback = None
 
-    def _fetch_state_async(self, session_id: int):
+    def _fetch_state_async(self, session_id: int, report_failure: bool = True):
+        """The phone's state to the plugins; report_failure=False keeps a fetch that got nothing quiet (mid-stream)."""
         time.sleep(1.5)
         for _ in range(3):
             session = self._session  # one read: _stop() can clear it between checks on the GUI thread
@@ -937,7 +944,7 @@ class TelescopeWindow(QMainWindow):
                 self._sig_state.emit(session_id, state)
                 return
             time.sleep(2)
-        if self._session is not None and self._session.id == session_id:
+        if report_failure and self._session is not None and self._session.id == session_id:
             self._sig_state.emit(session_id, {})
 
     def _apply_state(self, session_id: int, state: dict):

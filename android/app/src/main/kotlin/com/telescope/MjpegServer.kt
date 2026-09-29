@@ -296,7 +296,7 @@ class MjpegServer(
         const val WRITE_CHUNK = 16 * 1024  // a TLS record's worth
         const val DYNAMIC_MAX_WAIT_MS = 1_000L
         // About 100 ms of video once the kernel doubles it: enough for Wi-Fi's round trips, little to hide in.
-        fun dynamicSendBuffer(bps: Double): Int = (bps / 8 * 0.05).toInt().coerceIn(8 * 1024, 128 * 1024)
+        fun dynamicSendBuffer(bps: Double): Int = (bps / 8 * 0.05).toInt().coerceIn(8 * 1024, 640 * 1024)
         const val UNLIMITED_SEND_BUFFER = 1 shl 20    // back from Dynamic; the kernel caps it at its own maximum
     }
 

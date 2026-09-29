@@ -67,7 +67,7 @@ def _custom_size(cfg: dict) -> tuple[int, int]:
 DEFAULT_MAX_ZOOM = 10
 MAX_ZOOM_RANGE = (2, 30)
 
-_SUDO_HINT = "This will prompt for your password (via pkexec/sudo) to make a system-level change."
+_SUDO_HINT = "Asks for your password (pkexec or sudo): this changes system settings."
 
 
 class AdvancedDialog(QDialog):
@@ -142,8 +142,7 @@ class AdvancedDialog(QDialog):
 
             self._persist_chk = QCheckBox("On")
             self._persist_chk.setToolTip(
-                "Writes the same module config to /etc/modprobe.d/ and "
-                "/etc/modules-load.d/ so it survives a reboot.\n\n" + _SUDO_HINT
+                "Also writes it to /etc/modprobe.d/ and /etc/modules-load.d/, so it survives a reboot.\n" + _SUDO_HINT
             )
             self._persist_chk.toggled.connect(self._on_persist_toggled)
             vc_lay.addLayout(control_row("Load at boot", self._persist_chk))
@@ -272,15 +271,15 @@ class AdvancedDialog(QDialog):
         version_lbl.setObjectName("dim")
         version_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self._diag_btn = QPushButton("Copy diagnostics")
-        self._diag_btn.setToolTip("Copies the version, system, connection and the end of the log, for a bug report.\n"
-                                  "Never includes pairing tokens, addresses or file paths.")
+        self._diag_btn.setToolTip("For a bug report: version, system, connection and the end of the log. "
+                                  "No pairing tokens, addresses or file paths.")
         self._diag_btn.clicked.connect(self._copy_diagnostics)
         self._diag_btn.setVisible(self._report is not None)
         version_row = QHBoxLayout()
         version_row.addWidget(version_lbl)
         version_row.addStretch(1)
         self._log_btn = QPushButton("Open log")
-        self._log_btn.setToolTip("The full log. It lives in the temp folder, so the system clears it.")
+        self._log_btn.setToolTip("The full log, in the temp folder (the system clears it).")
         self._log_btn.clicked.connect(self._open_log)
         self._log_btn.setVisible(self._report is not None and diagnostics.events.path is not None)
         version_row.addWidget(self._log_btn)

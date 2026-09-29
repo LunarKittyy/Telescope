@@ -64,6 +64,7 @@ data class V1State(
     val bitrate: Int = 0,
     val dynamic_bitrate: Boolean = false,  // takes bitrate -1 (Dynamic); older phones treat it as 0 (Auto)
     val codec_error: String? = null,
+    val codec_unsupported: Boolean = false,  // codec_error is H.264 not doing this size or rate here, not a crash
     val active_lens: String? = null,  // the lens a multi-lens camera is streaming from right now
     val stream_width: Int,
     val stream_height: Int,

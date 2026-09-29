@@ -361,13 +361,13 @@ def test_lens_note_says_when_the_phone_switched():
     level, note = lens_note(4.0, 3.7, _TELE, "Tele ~85mm", "~24mm OIS", "Tele ~85mm")
     assert level == "on"
     assert note.startswith("Switched to Tele ~85mm")
-    assert "let it settle" in note
+    assert "wobble for a moment" in note
 
 
 def test_lens_note_says_when_panning_fell_back_to_the_main_camera():
     level, note = lens_note(4.0, 1.0, _TELE, "~24mm OIS", "~24mm OIS", "Tele ~85mm")
     assert level == "off"
-    assert "Panned past what Tele ~85mm can see, so it's using ~24mm OIS for now" in note
+    assert "Panned past what Tele ~85mm can see, so it's on ~24mm OIS" in note
     assert "the telephoto can see" in lens_note(4.0, 1.0, _TELE, "", "", "")[1]
 
 

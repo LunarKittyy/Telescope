@@ -11,13 +11,21 @@ object H264Stream {
     const val CODEC_H264 = "h264"
 
     const val MIN_BPS = 1_000_000
-    const val MAX_BPS = 30_000_000
+    const val MAX_BPS = 100_000_000       // what the desktop's slider goes up to
+    const val AUTO_MAX_BPS = 30_000_000   // Auto stays at most this, as it always has
     const val DYNAMIC = -1  // the bitrate control's value for DynamicBitrate
 
     // Roughly 8 Mbps for 1080p30, scaled by pixels per second.
-    fun defaultBitrate(width: Int, height: Int, fps: Int): Int {
-        val bps = width.toLong() * height * fps.coerceAtLeast(1) * 13 / 100
-        return bps.coerceIn(MIN_BPS.toLong(), MAX_BPS.toLong()).toInt()
+    private fun sized(width: Int, height: Int, fps: Int): Long = width.toLong() * height * fps.coerceAtLeast(1) * 13 / 100
+
+    fun defaultBitrate(width: Int, height: Int, fps: Int): Int =
+        sized(width, height, fps).coerceIn(MIN_BPS.toLong(), AUTO_MAX_BPS.toLong()).toInt()
+
+    /** Most Dynamic sends at this size and rate: past about 2.5 times Auto's sizing the extra data doesn't show.
+     *  [encoderMax] is what this phone's encoder takes. Whole 0.1 Mbps, like the bitrates Dynamic picks. */
+    fun dynamicCeiling(width: Int, height: Int, fps: Int, encoderMax: Int = MAX_BPS): Int {
+        val top = minOf(MAX_BPS, encoderMax).coerceAtLeast(MIN_BPS).toLong()
+        return (sized(width, height, fps) * 5 / 2 / 100_000 * 100_000).coerceIn(MIN_BPS.toLong(), top).toInt()
     }
 
     // An access unit delimiter. Sent after each frame's packet: a decoder only knows a frame has

@@ -455,7 +455,7 @@ class CameraControlPlugin(TelescopePlugin):
             self._manual_exp = False
             self._iso_slider.set_enabled(False)
             self._sht_slider.set_enabled(False)
-            self._rb_exp_manual.setToolTip("This lens doesn't allow manual exposure (no MANUAL_SENSOR capability)")
+            self._rb_exp_manual.setToolTip("This lens has no manual exposure")
         else:
             self._rb_exp_manual.setToolTip("")
 
@@ -468,7 +468,7 @@ class CameraControlPlugin(TelescopePlugin):
             self._wb_k_lbl.setEnabled(False)
             self._tint_slider.setEnabled(False)
             self._tint_lbl.setEnabled(False)
-            self._rb_wb_manual.setToolTip("This lens doesn't allow manual white balance (no MANUAL_POST_PROCESSING capability)")
+            self._rb_wb_manual.setToolTip("This lens has no manual white balance")
         else:
             self._rb_wb_manual.setToolTip("")
 
@@ -481,7 +481,7 @@ class CameraControlPlugin(TelescopePlugin):
             self._rb_focus_manual.setChecked(False)
             self._manual_focus = False
             self._focus_slider.setEnabled(False)
-            self._rb_focus_manual.setToolTip("This lens doesn't allow manual focus")
+            self._rb_focus_manual.setToolTip("This lens has no manual focus")
         else:
             self._rb_focus_manual.setToolTip("")
 
@@ -492,7 +492,7 @@ class CameraControlPlugin(TelescopePlugin):
             self._torch_btn.setToolTip("")
 
         self._ois_cb.setEnabled(has_ois)  # Greyed out but stays checked across lens switches.
-        self._ois_cb.setToolTip("" if has_ois else "This lens does not support optical image stabilization")
+        self._ois_cb.setToolTip("" if has_ois else "This lens has no optical stabilization")
         self._sync_manual_control_visibility()
 
     def _sync_manual_control_visibility(self):

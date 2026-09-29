@@ -45,8 +45,9 @@ In Advanced, from the settings menu.
 ## Bandwidth controls
 - Format: **Light** (H.264, the default) or **Heavy** (MJPEG). Light comes from the phone's hardware encoder and needs a fraction of Heavy's bandwidth, about 8 Mbps at 1080p30, so it keeps up even on slower Wi-Fi. Heavy sends every frame as a full JPEG: sharper in fast motion, but it needs USB or strong Wi-Fi. A phone without an H.264 encoder uses Heavy by itself, and if the encoder fails mid-stream the stream goes back to Heavy and says so. Switching reconnects the stream
 - Heavy: JPEG quality slider (1-95%, with a dot at the recommended 85%; higher barely looks different but sends a lot more data), applied on the phone without restarting the stream
-- Light: bitrate slider, Auto (about 8 Mbps for 1080p30, scaled by size and fps) or 1-30 Mbps, applied live
-- All the way right is Dynamic: the phone sends as much as the connection carries, up to about 2.5 times Auto, and lowers it within a second or two when the connection can't keep up, before the video starts to lag. A short Wi-Fi hiccup doesn't count as a slow connection. It climbs back on its own, quickly at first, then carefully near where it last ran into trouble, so it settles instead of bouncing. Needs a phone app with Dynamic; an older one uses Auto
+- Light: bitrate slider, Auto (about 8 Mbps for 1080p30, scaled by size and fps) or 1-100 Mbps, applied live (Auto stays at most 30 Mbps, and the phone's encoder may cap it lower)
+- All the way right is Dynamic: the phone sends as much as the connection carries, up to about 2.5 times what Auto's sizing gives (20 Mbps at 1080p30, 80 at 4K30, the 100 Mbps top at 4K60), and lowers it within a second or two when the connection can't keep up, before the video starts to lag. A short Wi-Fi hiccup doesn't count as a slow connection. It climbs back on its own, quickly at first, then carefully near where it last ran into trouble, so it settles instead of bouncing. Needs a phone app with Dynamic; an older one uses Auto
+- A size the phone's H.264 encoder can't do (4:3 4K is past most of them) stops the stream with a note to try a lower resolution or FPS, or **Switch to Heavy**. It doesn't switch to Heavy by itself: at that size Heavy can be hundreds of Mbps
 
 ## Microphone
 

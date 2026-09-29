@@ -791,10 +791,10 @@ def test_dynamic_is_the_bitrate_slider_all_the_way_right(stream_output, monkeypa
     assert plugin._bitrate_val_lbl.text() == "Auto"
     plugin.set_config({"bitrate_mbps": -1})
     assert plugin._bitrate_val_lbl.text() == "Dynamic" and plugin._bitrate_bps() == -1
-    plugin.set_config({"bitrate_mbps": 99})  # out of range: the top fixed rate, not Dynamic
-    assert plugin._bitrate_val_lbl.text() == "30 Mbps"
+    plugin.set_config({"bitrate_mbps": 999})  # out of range: the top fixed rate, not Dynamic
+    assert plugin._bitrate_val_lbl.text() == "100 Mbps"
     plugin._push_initial_settings()
-    assert {"action": "bitrate", "value": 30_000_000} in plugin._ctrl.sent
+    assert {"action": "bitrate", "value": 100_000_000} in plugin._ctrl.sent
 
 
 def test_a_phone_too_old_for_dynamic_says_so(stream_output, monkeypatch):
@@ -814,7 +814,39 @@ def test_a_phone_too_old_for_dynamic_says_so(stream_output, monkeypatch):
 def test_dynamic_is_no_wider_than_the_readouts_already_there(stream_output):
     plugin, _host, _panel = stream_output
     metrics = plugin._bitrate_val_lbl.fontMetrics()
-    assert metrics.horizontalAdvance("Dynamic") <= metrics.horizontalAdvance("30 Mbps") * 1.1
+    assert metrics.horizontalAdvance("Dynamic") <= metrics.horizontalAdvance("100 Mbps")
+
+
+def test_h264_too_much_for_the_encoder_stops_and_offers_heavy(stream_output, monkeypatch):
+    from PyQt6.QtCore import QCoreApplication
+    plugin, host = _stream_output_with(stream_output, monkeypatch)
+    host.stops = host.starts = 0
+    host.stop_stream = lambda: setattr(host, "stops", host.stops + 1)
+    host.start_stream = lambda: setattr(host, "starts", host.starts + 1)
+    plugin.on_phone_state({"cameras": [], "codecs": ["mjpeg", "h264"], "codec": "mjpeg",
+                           "codec_error": "H.264 isn't available at 4096x3072 on this phone", "codec_unsupported": True})
+    QCoreApplication.processEvents()
+    assert host.stops == 1 and host.reconnects == 0
+    assert plugin.stream_format() == "h264"  # still Light: switching is the user's call
+    issue = host.issues["encoder"]
+    assert issue.title == "Too much for the phone's H.264 encoder"
+    assert issue.text.startswith("H.264 isn't available at 4096x3072") and "lower resolution or FPS" in issue.text
+    assert [a.label for a in issue.actions] == ["Switch to Heavy"]
+
+    issue.actions[0].callback()
+    assert plugin.stream_format() == "mjpeg" and plugin.get_config()["format"] == "mjpeg"
+    assert host.starts == 1
+
+
+def test_bitrate_goes_up_to_100_mbps(stream_output, monkeypatch):
+    plugin, _host = _stream_output_with(stream_output, monkeypatch)
+    plugin._ctrl = _Ctrl()
+    plugin._bitrate_slider.setValue(100)
+    assert plugin._ctrl.sent[-1] == {"action": "bitrate", "value": 100_000_000}
+    assert plugin._bitrate_val_lbl.text() == "100 Mbps"
+    assert plugin._bitrate_slider.maximum() == 101  # then Dynamic
+    plugin.set_config({"bitrate_mbps": 80})
+    assert plugin._bitrate_val_lbl.text() == "80 Mbps"
 
 
 def test_bitrate_is_sent_in_bits_per_second(stream_output, monkeypatch):
@@ -844,7 +876,7 @@ def test_stream_quality_and_bitrate_reset_on_a_double_click(stream_output):
     QTest.mouseDClick(plugin._quality_slider, Qt.MouseButton.LeftButton)
     QTest.mouseDClick(plugin._bitrate_slider, Qt.MouseButton.LeftButton)
     assert (plugin._quality_slider.value(), plugin._bitrate_slider.value()) == (85, 0)  # 0 is Auto
-    assert plugin._bitrate_slider.toolTip().startswith("Auto picks about 8 Mbps")  # its own tip stays
+    assert plugin._bitrate_slider.toolTip().startswith("Auto: about 8 Mbps")  # its own tip stays
 
 
 def test_jpeg_quality_stops_at_95_and_marks_the_recommended_spot(stream_output):

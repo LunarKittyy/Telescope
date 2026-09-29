@@ -15,7 +15,7 @@ package com.telescope
  *
  * [update] runs on the encoder's thread, [rebound] on whichever changes the size or rate; [bitrate] reads anywhere.
  */
-class DynamicBitrate(defaultBps: Int) {
+class DynamicBitrate(startBps: Int, ceilingBps: Int) {
 
     /** What happened on the link since the last update. */
     data class Sample(
@@ -41,17 +41,13 @@ class DynamicBitrate(defaultBps: Int) {
         const val PROBE_MS = 10_000L     // after a cut, stays under where it filled up this long before looking higher,
         const val PROBE_MAX_MS = 20_000L // and longer each time looking higher only found the same wall
         private const val MIN_CHANGE = 0.05  // smaller changes aren't worth reconfiguring the encoder
-
-        /** Most a stream of this size and rate gets: past this the extra data doesn't show. */
-        fun ceiling(defaultBps: Int): Int =
-            (defaultBps * 5L / 2 / 100_000 * 100_000).coerceIn(H264Stream.MIN_BPS.toLong(), H264Stream.MAX_BPS.toLong()).toInt()
     }
 
     private var floor = H264Stream.MIN_BPS
-    private var ceiling = ceiling(defaultBps)
+    private var ceiling = ceilingBps.coerceAtLeast(floor)  // H264Stream.dynamicCeiling
 
     /** The bitrate the encoder should run at. */
-    @Volatile var bitrate: Int = defaultBps.coerceIn(floor, ceiling)
+    @Volatile var bitrate: Int = startBps.coerceIn(floor, ceiling)
         private set
 
     private var target = bitrate.toDouble()
@@ -68,10 +64,10 @@ class DynamicBitrate(defaultBps: Int) {
     private val window = ArrayDeque<Sample>()
     private val stalled = ArrayDeque<Boolean>()  // alongside window: nothing went out in that sample
 
-    /** A new size or frame rate: same link, other bounds. */
+    /** A new size or frame rate: same link, another ceiling. */
     @Synchronized
-    fun rebound(defaultBps: Int) {
-        val newCeiling = ceiling(defaultBps)
+    fun rebound(ceilingBps: Int) {
+        val newCeiling = ceilingBps.coerceAtLeast(floor)
         if (newCeiling == ceiling) return
         ceiling = newCeiling
         target = target.coerceIn(floor.toDouble(), ceiling.toDouble())

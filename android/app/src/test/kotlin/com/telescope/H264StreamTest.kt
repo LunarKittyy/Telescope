@@ -15,13 +15,15 @@ class H264StreamTest {
     fun `default bitrate is about 8 Mbps at 1080p30 and clamped`() {
         assertEquals(8_087_040, H264Stream.defaultBitrate(1920, 1080, 30))
         assertEquals(1_000_000, H264Stream.defaultBitrate(320, 240, 5))
-        assertEquals(30_000_000, H264Stream.defaultBitrate(3840, 2160, 60))
+        assertEquals(30_000_000, H264Stream.defaultBitrate(3840, 2160, 60))  // Auto stays at most 30
     }
 
     @Test
     fun `a requested bitrate wins over the default and is clamped`() {
         assertEquals(5_000_000, H264Stream.bitrateFor(5_000_000, 1920, 1080, 30))
         assertEquals(1_000_000, H264Stream.bitrateFor(10, 1920, 1080, 30))
+        assertEquals(80_000_000, H264Stream.bitrateFor(80_000_000, 3840, 2160, 30))
+        assertEquals(100_000_000, H264Stream.bitrateFor(500_000_000, 3840, 2160, 30))
         assertEquals(H264Stream.defaultBitrate(1280, 720, 30), H264Stream.bitrateFor(0, 1280, 720, 30))
     }
 
