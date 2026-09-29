@@ -3,7 +3,7 @@
 Stream your Android phone's camera - including telephoto and wide-angle lenses - to a virtual webcam on Linux or Windows. Camera controls (ISO, shutter, white balance, lens selection) are exposed over a local HTTP API so the desktop app can drive them live.
 
 - Any of the phone's lenses, with manual exposure, focus and white balance from the desktop
-- Zoom and pan on the phone's sensor, presets, and H.264 or MJPEG
+- Zoom and pan on the phone's sensor, presets, and a light stream format that keeps up even over mobile data
 - The phone's microphone as a microphone on the computer
 - Streams by itself when a call or OBS opens the camera, and shows apps a wait screen while it isn't streaming
 - USB or Wi-Fi, encrypted, and both apps update themselves

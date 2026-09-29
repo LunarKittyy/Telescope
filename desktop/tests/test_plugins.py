@@ -39,6 +39,9 @@ class _Host:
     def schedule_save(self):
         self.saves += 1
 
+    def reconnect_stream(self):
+        pass
+
     def is_streaming(self):
         return self._worker is not None
 
@@ -258,7 +261,7 @@ def test_stream_output_config_round_trip_and_invalid_resolution(stream_output):
     assert plugin.get_config() == {
         "fps": 48,
         "jpeg_quality": 77,
-        "format": "mjpeg",
+        "format": "h264",  # Light is the default
         "bitrate_mbps": 0,
         "resolution": "854 x 480",
     }
@@ -657,30 +660,56 @@ def _stream_output_with(stream_output, monkeypatch, decodable=True):
     return plugin, host
 
 
-def test_h264_is_offered_once_the_phone_says_it_can(stream_output, monkeypatch):
+def test_light_is_the_default_and_switching_reconnects(stream_output, monkeypatch):
     plugin, host = _stream_output_with(stream_output, monkeypatch)
     plugin._show_format()
-    assert not plugin._fmt_h264.isEnabled()
-    plugin.on_phone_state({"codecs": ["mjpeg", "h264"]})
-    assert plugin._fmt_h264.isEnabled()
-
-    plugin._fmt_h264.click()
     assert plugin.stream_format() == "h264"
-    assert host.reconnects == 1
+    assert plugin._fmt_h264.isChecked() and plugin._fmt_h264.isEnabled()  # offered before the phone has reported
+    assert plugin._fmt_h264.text() == "Light" and "H.264" in plugin._fmt_h264.toolTip()
+    assert plugin._fmt_mjpeg.text() == "Heavy" and "MJPEG" in plugin._fmt_mjpeg.toolTip()
+    assert "any network" in plugin._fmt_note.text()
     assert plugin._bitrate_row.isHidden() is False and plugin._quality_row.isHidden()
-    assert plugin.get_config()["format"] == "h264"
+
+    plugin.on_phone_state({"cameras": [], "codecs": ["mjpeg", "h264"]})
+    assert plugin.stream_format() == "h264" and host.reconnects == 0
 
     plugin._fmt_mjpeg.click()
-    assert plugin.stream_format() == "mjpeg" and host.reconnects == 2
+    assert plugin.stream_format() == "mjpeg" and host.reconnects == 1
+    assert plugin.get_config()["format"] == "mjpeg"
+    assert "USB" in plugin._fmt_note.text()
+    assert plugin._quality_row.isHidden() is False and plugin._bitrate_row.isHidden()
+
+    plugin._fmt_h264.click()
+    assert plugin.stream_format() == "h264" and host.reconnects == 2
+
+
+def test_a_phone_without_an_encoder_quietly_gets_heavy(stream_output, monkeypatch):
+    plugin, host = _stream_output_with(stream_output, monkeypatch)
+    plugin.on_phone_state({})  # the state fetch failed: says nothing about the phone
+    assert plugin.stream_format() == "h264" and host.reconnects == 0
+    plugin.on_phone_state({"cameras": []})  # a phone leaves codecs out when it only has MJPEG
+    assert plugin.stream_format() == "mjpeg" and host.reconnects == 1
+    assert plugin.get_config()["format"] == "mjpeg"
+    assert not plugin._fmt_h264.isEnabled() and plugin._fmt_mjpeg.isChecked()
+    assert "no H.264 encoder" in plugin._fmt_h264.toolTip()
+    assert host.issues == {}  # no banner: nothing went wrong
+
+
+def test_switching_away_from_a_phone_without_an_encoder_keeps_the_next_ones_light(stream_output, monkeypatch):
+    plugin, _host = _stream_output_with(stream_output, monkeypatch)
+    plugin.on_phone_state({"cameras": []})  # this phone only has MJPEG
+    assert plugin.stream_format() == "mjpeg"
+    plugin.set_config({"format": "h264"})  # the next phone's config loads before device_changed
+    plugin._on_device_changed("second")
+    assert plugin.stream_format() == "h264" and plugin.get_config()["format"] == "h264"
 
 
 def test_h264_needs_a_decoder_here(stream_output, monkeypatch):
     plugin, _host = _stream_output_with(stream_output, monkeypatch, decodable=False)
-    plugin.on_phone_state({"codecs": ["mjpeg", "h264"]})
+    plugin.on_phone_state({"cameras": [], "codecs": ["mjpeg", "h264"]})
     assert not plugin._fmt_h264.isEnabled()
     assert "PyAV" in plugin._fmt_h264.toolTip()
-    plugin.set_config({"format": "h264"})
-    assert plugin.stream_format() == "mjpeg"
+    assert plugin.stream_format() == "mjpeg" and plugin._fmt_mjpeg.isChecked()
 
 
 def test_an_encoder_failure_goes_back_to_mjpeg_with_a_banner(stream_output, monkeypatch):
