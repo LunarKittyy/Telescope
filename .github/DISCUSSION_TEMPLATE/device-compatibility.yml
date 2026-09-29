@@ -1,12 +1,10 @@
-name: Device report
-description: Tried Telescope on a phone? Tell us what worked, so it can go in the compatibility list
 title: "[Device] "
 labels: [device-report]
 body:
   - type: markdown
     attributes:
       value: |
-        This fills a row in [the device compatibility list](https://github.com/LunarKittyy/Telescope/blob/master/docs/device-compatibility.md). Anything you didn't try, leave as `-`. If something is broken, a separate bug report with the details is even better.
+        This fills a row in [the device compatibility list](https://github.com/LunarKittyy/Telescope/blob/master/docs/device-compatibility.md). Anything you didn't try, leave as `-`. If something is broken, a separate [bug report](https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml) with the details is even better.
 
   - type: textarea
     id: phone-diagnostics

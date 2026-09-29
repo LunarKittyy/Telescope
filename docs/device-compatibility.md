@@ -2,6 +2,8 @@
 
 Manually maintained - update after testing that exact device/build combo. "OK" means the feature worked as documented in [features.md](features.md); note caveats instead of just checking off.
 
+Tried Telescope on a phone? Share how it went in [Device compatibility](https://github.com/LunarKittyy/Telescope/discussions/new?category=device-compatibility).
+
 Legend: `OK` tested and working · `PARTIAL` works with caveats (see notes) ·
 `FAIL` doesn't work · `-` not tested yet.
 

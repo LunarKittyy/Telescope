@@ -6,6 +6,9 @@ contact_links:
   - name: Question
     url: https://github.com/LunarKittyy/Telescope/discussions/categories/q-a
     about: Not sure how something works, or whether it's a bug? Ask in Q&A.
+  - name: Device report
+    url: https://github.com/LunarKittyy/Telescope/discussions/new?category=device-compatibility
+    about: Tried Telescope on a phone? Share what worked in Device compatibility.
   - name: Idea
     url: https://github.com/LunarKittyy/Telescope/discussions/categories/ideas
     about: Something you'd like Telescope to do. Post it in Ideas.
