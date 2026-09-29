@@ -196,7 +196,7 @@ def test_send_now_swallows_transport_errors(monkeypatch):
         "urlopen",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("offline")),
     )
-    client._send_now({"action": "iso", "value": 100})
+    assert client._send_now({"action": "iso", "value": 100}) is False
 
 
 def test_close_is_idempotent(monkeypatch):
@@ -217,3 +217,87 @@ def test_worker_skips_stale_pending_key(monkeypatch):
     client._queue.put(None)
     client._worker()
     assert sent == []
+
+
+def _flaky_client(monkeypatch, outcomes):
+    """A client whose sends go by a script: True got there, False was lost on the way."""
+    monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
+    monkeypatch.setattr(phone_client_module, "_RETRY_FIRST_WAIT_S", 0.01)
+    monkeypatch.setattr(phone_client_module, "_RETRY_MAX_WAIT_S", 0.02)
+    client = PhoneControlClient("http://phone/video", PhoneAuth("tok"))
+    tries = []
+
+    def send_now(params):
+        tries.append(params)
+        return outcomes.pop(0) if outcomes else False
+    monkeypatch.setattr(client, "_send_now", send_now)
+    return client, tries
+
+
+def test_a_request_lost_on_a_stalling_link_is_sent_again_until_it_gets_through(monkeypatch):
+    client, tries = _flaky_client(monkeypatch, [False, False, True])
+    client._deliver({"action": "iso", "value": 100})
+    assert tries == [{"action": "iso", "value": 100}] * 3
+
+
+def test_a_lost_request_gives_way_to_a_newer_value(monkeypatch):
+    client, tries = _flaky_client(monkeypatch, [False])
+    client.send(action="iso", value=200)  # the newer value is already waiting its turn
+    client._deliver({"action": "iso", "value": 100})
+    assert tries == [{"action": "iso", "value": 100}]
+
+
+def test_a_lost_request_gives_up_in_the_end(monkeypatch):
+    client, tries = _flaky_client(monkeypatch, [])
+    monkeypatch.setattr(phone_client_module, "_RETRY_FOR_S", 0.1)
+    client._deliver({"action": "iso", "value": 100})
+    assert 2 <= len(tries) < 20
+
+
+def test_close_ends_the_retries(monkeypatch):
+    client, tries = _flaky_client(monkeypatch, [])
+    monkeypatch.setattr(phone_client_module, "_RETRY_FIRST_WAIT_S", 5.0)
+    lost = client._send_now
+
+    def send_then_close(params):
+        client.close()  # e.g. Stop, while the first try hangs on a stalled link
+        return lost(params)
+    client._send_now = send_then_close
+    started = time.monotonic()
+    client._deliver({"action": "camera", "id": "0"})
+    assert len(tries) == 1 and time.monotonic() - started < 1.0
+
+
+def test_a_request_the_phone_refused_is_not_sent_again(monkeypatch):
+    import urllib.error
+    monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
+    client = PhoneControlClient("http://phone/video", PhoneAuth("tok"))
+    calls = []
+
+    def refuse(req, timeout):
+        calls.append(req)
+        raise urllib.error.HTTPError(req.full_url, 400, "bad value", {}, None)
+    monkeypatch.setattr(phone_client_module.urllib.request, "urlopen", refuse)
+    client._deliver({"action": "iso", "value": -5})
+    assert len(calls) == 1
+
+
+def test_a_stalled_link_still_delivers_the_setting(recording_server):
+    # The first try's connection is refused, like a link mid-stall; the retry reaches the phone.
+    port = recording_server.server_address[1]
+    client = PhoneControlClient(f"http://127.0.0.1:{port}/video", PhoneAuth("tok"))
+    real = client._send_now
+    first = []
+
+    def send_now(params):
+        if not first:
+            first.append(True)
+            return False
+        return real(params)
+    client._send_now = send_now
+    client.send(action="iso", value=100)
+    deadline = time.monotonic() + 3
+    while not recording_server.received and time.monotonic() < deadline:
+        time.sleep(0.02)
+    client.close()
+    assert recording_server.received == [{"action": "iso", "value": 100}]

@@ -2,6 +2,8 @@ import json
 import logging
 import queue
 import threading
+import time
+import urllib.error
 import urllib.request
 from typing import Optional
 
@@ -9,6 +11,12 @@ from telescope.pinned_https import PhoneAuth
 from telescope.session_client import read_capped
 
 logger = logging.getLogger(__name__)
+
+# A request lost on a stalling link is sent again, a little later each time, for this long. Every action sets a value,
+# so one that did arrive and only lost its reply does no harm arriving twice.
+_RETRY_FOR_S = 15.0
+_RETRY_FIRST_WAIT_S = 0.25
+_RETRY_MAX_WAIT_S = 2.0
 
 
 class PhoneControlClient:
@@ -23,6 +31,7 @@ class PhoneControlClient:
         self._pending: dict = {}
         self._lock = threading.Lock()
         self._closed = False
+        self._wake = threading.Event()  # set by close(), to end a wait between tries
         self._thread = threading.Thread(target=self._worker, daemon=True)
         self._thread.start()
 
@@ -56,6 +65,7 @@ class PhoneControlClient:
         if self._closed:
             return
         self._closed = True
+        self._wake.set()
         with self._lock:
             self._pending.clear()
         try:
@@ -77,14 +87,36 @@ class PhoneControlClient:
                     params = self._pending.pop(item, None)
                 if params is None:
                     continue
-            self._send_now(params)
+            self._deliver(params)
 
-    def _send_now(self, params: dict):
+    def _deliver(self, params: dict):
+        """Sends until it gets through, the phone refuses it, a newer value for the same action is waiting, or time's up."""
+        action = params.get("action")
+        deadline = time.monotonic() + _RETRY_FOR_S
+        wait = _RETRY_FIRST_WAIT_S
+        while not self._send_now(params):
+            with self._lock:
+                superseded = action in self._pending
+            if self._closed or superseded:
+                return
+            if time.monotonic() + wait > deadline:
+                logger.warning("Gave up sending %s to the phone", action)
+                return
+            if self._wake.wait(wait):
+                return  # closed: this phone, or this session with it, is done
+            wait = min(wait * 2, _RETRY_MAX_WAIT_S)
+
+    def _send_now(self, params: dict) -> bool:
+        """False when it may not have got there, so it's worth sending again."""
         body = json.dumps(params).encode("utf-8")
         headers = {**self._auth_headers(), "Content-Type": "application/json"}
         req = urllib.request.Request(f"{self.base}/control", data=body, method="POST", headers=headers)
         try:
             with self.auth.open(req, timeout=3) as r:
                 r.read()
+        except urllib.error.HTTPError as exc:
+            logger.debug("The phone refused a control request: %s", exc)  # it got there: again won't change that
         except Exception as exc:
             logger.debug("Control request failed: %s", exc)
+            return False
+        return True
