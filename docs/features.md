@@ -38,7 +38,7 @@ In Advanced, from the settings menu.
 - On Windows: stops and restarts the stream with the new canvas size
 
 ## Resolution and FPS
-- Resolution dropdown is populated from the current lens's actual supported capture sizes (read from the phone), not a fixed list - picking one sends a live `resolution` control to the phone instead of resizing after decode
+- Resolution dropdown is populated from the current lens's actual supported capture sizes (read from the phone), not a fixed list - picking one sends a live `resolution` control to the phone instead of resizing after decode. After a stream stops the sizes stay, so you can pick another before starting again, and Start opens the phone at that size and FPS
 - The readout goes amber while a resolution change is in flight and clears once the stream confirms the new size, or turns red if it never does
 - One FPS spinner (5-60) drives both the phone's capture rate and the virtual camera's playback rate - there's no separate "phone" and "playback" rate to keep in sync
 
@@ -47,7 +47,7 @@ In Advanced, from the settings menu.
 - Heavy: JPEG quality slider (1-95%, with a dot at the recommended 85%; higher barely looks different but sends a lot more data), applied on the phone without restarting the stream
 - Light: bitrate slider, Auto (about 8 Mbps for 1080p30, scaled by size and fps) or 1-100 Mbps, applied live (Auto stays at most 30 Mbps, and the phone's encoder may cap it lower)
 - All the way right is Dynamic: the phone sends as much as the connection carries, up to about 2.5 times what Auto's sizing gives (20 Mbps at 1080p30, 80 at 4K30, the 100 Mbps top at 4K60), and lowers it within a second or two when the connection can't keep up, before the video starts to lag. A short Wi-Fi hiccup doesn't count as a slow connection. It climbs back on its own, quickly at first, then carefully near where it last ran into trouble, so it settles instead of bouncing. Needs a phone app with Dynamic; an older one uses Auto
-- A size the phone's H.264 encoder can't do (4:3 4K is past most of them) stops the stream with a note to try a lower resolution or FPS, or **Switch to Heavy**. It doesn't switch to Heavy by itself: at that size Heavy can be hundreds of Mbps
+- A size the phone's H.264 encoder can't do (4:3 4K is past most of them) stops the stream with a note to try a lower resolution or FPS (pick one and start again), or **Switch to Heavy**. It doesn't switch to Heavy by itself: at that size Heavy can be hundreds of Mbps
 
 ## Microphone
 

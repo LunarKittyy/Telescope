@@ -102,7 +102,8 @@ class _Connection(_Plugin):
     def session_target(self):
         return None
 
-    def ensure_phone_streaming(self, on_progress=None, target=None):
+    def ensure_phone_streaming(self, on_progress=None, target=None, opening=None):
+        self.opening = opening
         self.wakes += 1
         self.progress_msgs = getattr(self, "progress_msgs", [])
         if on_progress:
@@ -395,7 +396,7 @@ def test_a_canvas_change_while_the_phone_wakes_starts_it_again_without_stopping_
     window.register_plugin(connection)
     spawned = _real_spawn_wake(monkeypatch)
     window._start()
-    wake_id, _conn, url, token, _target = spawned[0]
+    wake_id, _conn, url, token, _target, _opening = spawned[0]
     starts = []
     monkeypatch.setattr(window, "start_stream", lambda *a, **k: starts.append(True))
     done = []
@@ -1355,6 +1356,22 @@ def test_start_wakes_the_phone_before_building_a_worker(window, monkeypatch):
     assert built, "the stream was never built after a successful wake"
 
 
+def test_start_asks_the_phone_to_open_at_the_size_picked(window, monkeypatch):
+    # After a size too much for the encoder, the phone would otherwise open at it again.
+    connection = _Connection()
+    window.register_plugin(connection)
+    output = _Plugin("stream_output")
+    output.opening = lambda: {"width": 1920, "height": 1080, "fps": 60}
+    window.register_plugin(output)
+    spawned = _real_spawn_wake(monkeypatch)
+    window._start()
+    *_rest, opening = spawned[0]
+    assert opening == {"width": 1920, "height": 1080, "fps": 60}
+    window._sig_wake_done.disconnect()  # only the wake itself: no stream to build here
+    window._wake_phone(*spawned[0])
+    assert connection.opening == opening
+
+
 def test_start_shows_the_reason_and_builds_nothing_when_the_wake_fails(window, monkeypatch):
     window.register_plugin(_Connection(wake=(False, "Open the app on your phone.")))
     monkeypatch.setattr(
@@ -1387,7 +1404,7 @@ def test_a_wake_that_lands_after_the_user_gave_up_is_discarded(window, monkeypat
 
     window._start()
     assert spawned, "the wake was never spawned"
-    wake_id, _conn, url, token, _target = spawned[0]
+    wake_id, _conn, url, token, _target, _opening = spawned[0]
 
     window._stop()          # user hits Stop while the phone is still starting
     window._on_wake_done(wake_id, True, "", url, token)
@@ -1400,7 +1417,7 @@ def test_a_wake_that_finishes_after_stop_stops_the_phone_again(window, monkeypat
     window.register_plugin(connection)
     spawned = _real_spawn_wake(monkeypatch)
     window._start()
-    wake_id, _conn, url, token, _target = spawned[0]
+    wake_id, _conn, url, token, _target, _opening = spawned[0]
 
     window._stop()  # its stop can reach the phone before the wake's start does
     window._on_wake_done(wake_id, True, "", url, token)
@@ -1521,7 +1538,7 @@ def test_stop_stream_cancels_a_wake_that_is_still_in_flight(window, monkeypatch)
 
     window._start()
     window.stop_stream()
-    wake_id, _conn, url, token, _target = spawned[0]
+    wake_id, _conn, url, token, _target, _opening = spawned[0]
     window._on_wake_done(wake_id, True, "", url, token)
 
     assert window._worker is None

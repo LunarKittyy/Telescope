@@ -84,6 +84,15 @@ def _size_label(w: int, h: int) -> str:
     return f"{w} x {h}"
 
 
+def _parse_size_label(text):
+    """(w, h) from a _size_label, or None."""
+    try:
+        w, h = (int(part) for part in str(text).split(" x "))
+    except (TypeError, ValueError):
+        return None
+    return (w, h) if w > 0 and h > 0 else None
+
+
 def _aspect_ratio(w: int, h: int) -> tuple:
     """Exact reduction, snapped to a common ratio if within rounding distance (e.g. 854x480 -> 16:9)."""
     ratio = w / h
@@ -111,7 +120,7 @@ class StreamOutputPlugin(TelescopePlugin):
         # Set on set_config() before phone data arrives; applied once on_phone_state() has real sizes.
         self._pending_resolution_text = None
         self._had_saved_resolution = False  # True if this device has ever had a resolution saved.
-        # Last resolution this device used; survives stream stop, which clears the combos.
+        # Last resolution this device used or picked; survives stream stop and device switches.
         self._saved_resolution_text = None
         self._format = FORMAT_H264
         self._phone_codecs: tuple = ()  # what the phone reported; () until it has
@@ -207,8 +216,14 @@ class StreamOutputPlugin(TelescopePlugin):
     def on_stream_stop(self):
         if self._res_combo.currentData() is not None:
             self._saved_resolution_text = self._res_combo.currentText()
+            # The lens's sizes stay up, so a size can be picked before starting again (say, after one was too much for
+            # the encoder); the next start opens at it, and the phone's state fills the lists in afresh.
+            self._pending_resolution_text = self._saved_resolution_text
         self._ctrl = None
         self._current_camera_id = None
+
+    def _forget_sizes(self):
+        """Another phone: this one's sizes mean nothing there."""
         self._sizes_by_ratio = {}
         self._ratios_sorted = []
         for combo in (self._ar_combo, self._res_combo):
@@ -385,9 +400,21 @@ class StreamOutputPlugin(TelescopePlugin):
         self._rebuild_resolution_combo(ratio)  # Defaults to the group's largest size.
         self._on_resolution()  # Switching AR is itself a resolution change; notify like any other.
 
+    def opening(self) -> dict:
+        """What the phone should open at when a stream starts: the size picked here (if known) and the FPS."""
+        out = {"fps": self._fps_spin.value()}
+        wh = _parse_size_label(self._pending_resolution_text or self._saved_resolution_text)
+        if wh:
+            out["width"], out["height"] = wh
+        return out
+
     def _on_resolution(self):
         size = self._res_combo.currentData()
-        if size is None or self._ctrl is None:
+        if size is None:
+            return
+        if self._ctrl is None:  # picked while stopped: the next start opens at it
+            self._saved_resolution_text = self._pending_resolution_text = self._res_combo.currentText()
+            self._host.schedule_save()
             return
         w, h = size
         self._ctrl.send(action="resolution", width=w, height=h)
@@ -401,6 +428,7 @@ class StreamOutputPlugin(TelescopePlugin):
         return FORMAT_H264 if self._format == FORMAT_H264 and h264_reader.available() else FORMAT_MJPEG
 
     def _on_device_changed(self, _name: str):
+        self._forget_sizes()
         self._phone_codecs = ()  # another phone: unknown until it reports
         self._phone_dynamic = None
         self._show_format()
@@ -523,8 +551,8 @@ class StreamOutputPlugin(TelescopePlugin):
             "format":       self._format,
             "bitrate_mbps": _DYNAMIC if self._dynamic() else self._bitrate_slider.value(),
         }
-        if self._res_combo.currentData() is not None:
-            self._saved_resolution_text = self._res_combo.currentText()
+        if self._ctrl is not None and self._res_combo.currentData() is not None:
+            self._saved_resolution_text = self._res_combo.currentText()  # stopped, a pick or preset already set it
         if self._saved_resolution_text:
             cfg["resolution"] = self._saved_resolution_text
         return cfg
@@ -537,6 +565,9 @@ class StreamOutputPlugin(TelescopePlugin):
             self._format = FORMAT_MJPEG  # a preset without a format can't ask this phone for Light
             self._show_format()
         if not self._ctrl:
+            wh = self._find_by_label(self._pending_resolution_text) if self._pending_resolution_text else None
+            if wh:
+                self._select_resolution(wh)  # the sizes still up from the last stream show it
             return
         if self.stream_format() != old_format:
             self._host.reconnect_stream()  # the new stream picks everything up as it starts

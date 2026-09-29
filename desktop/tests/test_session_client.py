@@ -102,6 +102,12 @@ def test_start_posts_the_action_as_json(monkeypatch, client):
     assert json.loads(req.data.decode()) == {"action": "start"}
 
 
+def test_start_can_say_what_to_open_at(monkeypatch, client):
+    seen = _stub_urlopen(monkeypatch, lambda _req: _Response(200, b'{"ok": true}'))
+    client.start({"width": 1280, "height": 720, "fps": 60})
+    assert json.loads(seen[0].data.decode()) == {"action": "start", "width": 1280, "height": 720, "fps": 60}
+
+
 def test_stop_posts_the_stop_action(monkeypatch, client):
     seen = _stub_urlopen(monkeypatch, lambda _req: _Response(200, b'{"ok": true}'))
 

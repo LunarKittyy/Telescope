@@ -15,6 +15,8 @@ object StreamPrefs {
     private const val KEY_HEIGHT = "last_height"
     private const val KEY_OIS = "last_ois"
 
+    val DEFAULT_SELECTION = Selection("0", "", 1920, 1080, true)
+
     // One remembered stream selection.
     data class Selection(
         val cameraId: String,
@@ -55,7 +57,7 @@ object StreamPrefs {
     // Applies one change from the computer to the remembered selection, starting from the service defaults.
     @Synchronized  // server threads and the camera thread both update it
     fun updateSelection(context: Context, change: (Selection) -> Selection) {
-        val current = lastSelection(context) ?: Selection("0", "", 1920, 1080, true)
+        val current = lastSelection(context) ?: DEFAULT_SELECTION
         saveSelection(context, change(current))
     }
 

@@ -199,18 +199,67 @@ def test_a_lens_without_the_live_size_sends_the_size_it_falls_back_to(stream_out
     assert {"action": "resolution", "width": shown[0], "height": shown[1]} in ctrl.sent
 
 
-def test_stream_output_resolution_reset_on_stream_stop(stream_output):
-    plugin, _host, _panel = stream_output
-    plugin.on_phone_state({
-        "cameras": [{"id": "0", "current": True,
-                     "supportedSizes": [{"width": 1920, "height": 1080}]}],
-        "stream_width": 1920, "stream_height": 1080,
-    })
+_TWO_SIZES = {
+    "cameras": [{"id": "0", "current": True, "supportedSizes": [
+        {"width": 4096, "height": 3072}, {"width": 1920, "height": 1080}, {"width": 1280, "height": 720}]}],
+    "stream_width": 4096, "stream_height": 3072,
+}
 
+
+def _stopped_after(plugin, state):
+    ctrl = _Ctrl()
+    plugin.on_stream_start("url", ctrl)
+    plugin.on_phone_state(state)
     plugin.on_stream_stop()
+    return ctrl
 
+
+def test_a_size_can_be_picked_while_stopped_and_the_next_start_opens_at_it(stream_output):
+    # 4K was too much for the encoder and the stream stopped: the sizes stay up to pick a smaller one.
+    plugin, host, _panel = stream_output
+    plugin.set_config({"resolution": "4096 x 3072", "fps": 60})
+    ctrl = _stopped_after(plugin, _TWO_SIZES)
+    assert plugin._res_combo.isEnabled() and plugin._res_combo.currentText() == "4096 x 3072"
+    assert plugin.opening() == {"width": 4096, "height": 3072, "fps": 60}
+
+    ctrl.sent.clear()
+    plugin._ar_combo.setCurrentIndex(plugin._ratios_sorted.index((16, 9)))  # the largest 16:9 comes up first
+    plugin._res_combo.setCurrentIndex(plugin._res_combo.findText("1280 x 720"))
+    assert ctrl.sent == []  # nothing to send it to
+    assert plugin.opening() == {"width": 1280, "height": 720, "fps": 60}
+    assert plugin.get_config()["resolution"] == "1280 x 720" and host.saves >= 1
+
+    next_ctrl = _Ctrl()
+    plugin.on_stream_start("url", next_ctrl)
+    plugin.on_phone_state({**_TWO_SIZES, "stream_width": 1280, "stream_height": 720})  # it opened at the pick
+    assert plugin._res_combo.currentText() == "1280 x 720"
+    assert not [m for m in next_ctrl.sent if m["action"] == "resolution"]
+
+
+def test_without_a_known_size_the_start_leaves_it_to_the_phone(stream_output):
+    plugin, _host, _panel = stream_output
+    plugin.set_config({"fps": 30})
+    assert plugin.opening() == {"fps": 30}
+    plugin.set_config({"resolution": "1920 x 1080", "fps": 30})  # saved from an earlier run: known before any state
+    assert plugin.opening() == {"width": 1920, "height": 1080, "fps": 30}
+
+
+def test_another_phone_does_not_keep_this_one_s_sizes(stream_output):
+    plugin, _host, _panel = stream_output
+    _stopped_after(plugin, _TWO_SIZES)
+    plugin._on_device_changed("other phone")
     assert plugin._res_combo.currentText() == "—"
     assert not plugin._res_combo.isEnabled()
+
+
+def test_a_preset_applied_while_stopped_is_what_the_next_start_opens_at(stream_output):
+    plugin, _host, _panel = stream_output
+    plugin.set_config({"resolution": "4096 x 3072"})
+    _stopped_after(plugin, _TWO_SIZES)
+    plugin.apply_preset({"resolution": "1920 x 1080", "fps": 30})
+    assert plugin._res_combo.currentText() == "1920 x 1080"
+    assert plugin.opening() == {"width": 1920, "height": 1080, "fps": 30}
+    assert plugin.get_config()["resolution"] == "1920 x 1080"
 
 
 def test_stream_output_fps_hot_updates_worker_and_phone_together(stream_output):
