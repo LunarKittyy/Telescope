@@ -22,6 +22,8 @@ class MjpegServer(
     // A viewer connected to the route for this codec (H264Stream.CODEC_*).
     val onVideoClient: (codec: String) -> Unit = {},
     val requestKeyFrame: () -> Unit = {},
+    // Every LINK_SAMPLE_MS while H.264 goes out: how the link to the slowest viewer is doing (DynamicBitrate).
+    val onH264Link: (DynamicBitrate.Sample) -> Unit = {},
     // The first listener to /v1/audio: start the mic, or say why not. The last one leaving: stop it.
     val startAudio: () -> String? = { "No microphone" },
     val stopAudio: () -> Unit = {},
@@ -36,6 +38,11 @@ class MjpegServer(
     private val clients = CopyOnWriteArrayList<MjpegClient>()
     private val h264Clients = CopyOnWriteArrayList<H264Client>()
     @Volatile private var h264Config: ByteArray? = null
+    // Dynamic bitrate: short socket buffers and a short backlog, so a full link shows up as a queue here right away.
+    @Volatile var dynamicH264 = false
+    private var encodedBytes = 0L         // since the last link sample; the encoder's thread only
+    private var encodedBps = 0.0          // smoothed, for sizing Dynamic's socket buffers
+    private var lastLinkSampleMs = 0L
     private val audioClients = CopyOnWriteArrayList<AudioClient>()
     private val audioLock = Any()
     private val running = AtomicBoolean(false)
@@ -100,6 +107,27 @@ class MjpegServer(
             if (c.queue.offer(framed, key)) wantKey = true
         }
         if (wantKey) requestKeyFrame()
+        encodedBytes += framed.size
+        sampleH264Link()
+    }
+
+    private fun sampleH264Link() {
+        val now = System.currentTimeMillis()
+        if (now - lastLinkSampleMs < LINK_SAMPLE_MS) return
+        val first = lastLinkSampleMs == 0L
+        if (!first) encodedBps = 0.8 * encodedBps + 0.2 * encodedBytes * 8_000.0 / (now - lastLinkSampleMs)
+        lastLinkSampleMs = now
+        var queueMs = 0L
+        var sent = Long.MAX_VALUE
+        for (c in h264Clients) {
+            c.limitBuffers(if (dynamicH264) dynamicSendBuffer(encodedBps) else 0)
+            queueMs = maxOf(queueMs, c.queue.takeQueueMs())
+            sent = minOf(sent, c.queue.takeSentBytes())
+        }
+        val encoded = encodedBytes
+        encodedBytes = 0
+        if (sent == Long.MAX_VALUE || first) return  // the first one only starts the count
+        onH264Link(DynamicBitrate.Sample(now, queueMs, sent, encoded))
     }
 
     fun sendAudio(chunk: ByteArray) {
@@ -264,6 +292,12 @@ class MjpegServer(
         const val VIEWER_STALE_MS = 5_000L
         const val VIEWER_GIVE_UP_MS = 10_000L
         const val ACCEPT_RETRY_MS = 200L
+        const val LINK_SAMPLE_MS = 250L
+        const val WRITE_CHUNK = 16 * 1024  // a TLS record's worth
+        const val DYNAMIC_MAX_WAIT_MS = 1_000L
+        // About 100 ms of video once the kernel doubles it: enough for Wi-Fi's round trips, little to hide in.
+        fun dynamicSendBuffer(bps: Double): Int = (bps / 8 * 0.05).toInt().coerceIn(8 * 1024, 128 * 1024)
+        const val UNLIMITED_SEND_BUFFER = 1 shl 20    // back from Dynamic; the kernel caps it at its own maximum
     }
 
     inner class MjpegClient(private val socket: Socket, private val request: HttpWire.Request) {
@@ -326,12 +360,29 @@ class MjpegServer(
                 out.flush()
                 while (alive.get() && stillPaired(request)) {
                     val packet = queue.poll(pollMs()) ?: if (givenUp(lastWriteAtMs)) break else continue
-                    out.write(packet)
+                    // In pieces, so a big keyframe on a slow link still shows as bytes going out, not as a stall.
+                    var off = 0
+                    while (off < packet.size) {
+                        val n = minOf(WRITE_CHUNK, packet.size - off)
+                        out.write(packet, off, n)
+                        off += n
+                        queue.written(n, done = off == packet.size)
+                    }
                     out.flush()
                     lastWriteAtMs = System.currentTimeMillis()
                 }
             } catch (_: Exception) {}
             finally { alive.set(false); try { socket.close() } catch (_: Exception) {} }
+        }
+
+        // The kernel's send buffer would otherwise grow to seconds of video before a write ever waits. 0 = no limit.
+        private var sendBuffer = 0
+        fun limitBuffers(bytes: Int) {
+            // Resized only on a real change: a keyframe's worth of rate shouldn't mean a syscall every sample.
+            if (bytes == sendBuffer || (bytes > 0 && sendBuffer > 0 && bytes in sendBuffer * 4 / 5..sendBuffer * 5 / 4)) return
+            sendBuffer = bytes
+            queue.maxWaitMs = if (bytes > 0) DYNAMIC_MAX_WAIT_MS else Long.MAX_VALUE
+            try { socket.sendBufferSize = if (bytes > 0) bytes else UNLIMITED_SEND_BUFFER } catch (_: Exception) {}
         }
 
         fun close() { alive.set(false); try { socket.close() } catch (_: Exception) {} }

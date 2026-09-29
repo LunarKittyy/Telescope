@@ -95,7 +95,8 @@ class CameraSessionController(
     @Volatile private var streamWidth:  Int = initialStreamWidth
     @Volatile private var streamHeight: Int = initialStreamHeight
     @Volatile private var codec: String = H264Stream.CODEC_MJPEG
-    @Volatile private var requestedBitrate: Int = 0  // 0 = sized from resolution and fps
+    @Volatile private var requestedBitrate: Int = 0  // 0 = sized from resolution and fps, H264Stream.DYNAMIC = dynamic
+    @Volatile private var dynamic: DynamicBitrate? = null
     @Volatile private var codecError: String? = null
 
     @Volatile private var currentCamera: CameraEntry? = null
@@ -143,8 +144,15 @@ class CameraSessionController(
         activeLens      = activeLens,
     )
 
-    private fun currentBitrate(): Int =
-        H264Stream.bitrateFor(requestedBitrate, streamWidth, streamHeight, currentPhoneFps)
+    private fun currentBitrate(): Int {
+        if (requestedBitrate != H264Stream.DYNAMIC) {
+            return H264Stream.bitrateFor(requestedBitrate, streamWidth, streamHeight, currentPhoneFps)
+        }
+        val default = H264Stream.defaultBitrate(streamWidth, streamHeight, currentPhoneFps)
+        // Kept across a new size or rate: the link is the same one.
+        val d = dynamic?.also { it.rebound(default) } ?: DynamicBitrate(default).also { dynamic = it }
+        return d.bitrate
+    }
 
     // Which route the viewer connected to decides the codec; switching rebuilds the output (a reopen).
     fun setCodec(value: String) {
@@ -157,8 +165,17 @@ class CameraSessionController(
     }
 
     fun setBitrate(bps: Int) {
+        if (bps == requestedBitrate) return
+        if (bps == H264Stream.DYNAMIC) dynamic = null  // starts again from the default, like a new stream
         requestedBitrate = bps
         post { encoder?.setBitrate(currentBitrate()) }
+    }
+
+    /** How the link did lately (MjpegServer, on the encoder's thread); Dynamic moves the bitrate to match. */
+    fun onLinkSample(sample: DynamicBitrate.Sample) {
+        if (requestedBitrate != H264Stream.DYNAMIC) return
+        val next = dynamic?.update(sample) ?: return
+        encoder?.setBitrate(next)
     }
 
     fun requestKeyFrame() { encoder?.requestKeyFrame() }

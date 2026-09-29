@@ -76,7 +76,8 @@ telescope/
 |       |-- PairedComputers.kt   # Paired computers (one token each), this phone's id and name
 |       |-- MjpegServer.kt       # Authenticated HTTPS: /v1/video(.h264)  /v1/state  /v1/control
 |       |-- H264Encoder.kt       # MediaCodec H.264 from the camera Surface
-|       |-- H264Stream.kt        # Per-viewer H.264 queue, bitrate defaults
+|       |-- H264Stream.kt        # Per-viewer H.264 queue (and its link measurements), bitrate defaults
+|       |-- DynamicBitrate.kt    # Dynamic bitrate: follows the link from the queue's measurements (JVM-tested)
 |       |-- AudioStreamer.kt     # Microphone recording while someone listens
 |       |-- AudioStream.kt       # PCM format, per-listener queue
 |       |-- SessionServer.kt     # Out-of-band responder (port 8766): /v1/hello, /v1/ping, /v1/session, /v1/unpair

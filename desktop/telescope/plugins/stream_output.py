@@ -20,6 +20,13 @@ _DEFAULT_QUALITY = 85  # the recommended spot, marked on the slider
 _MAX_QUALITY     = 95  # past about 92 a JPEG roughly doubles in size for no difference anyone sees
 _DEFAULT_FPS     = 30
 _MAX_BITRATE_MBPS = 30  # the phone clamps to the same range; 0 lets it size the bitrate itself
+# One past the top of the slider: Dynamic, as much as the connection carries. -1 in the config and to the phone, which
+# an older desktop reads as Auto and an older phone treats as Auto.
+_DYNAMIC_POS = _MAX_BITRATE_MBPS + 1
+_DYNAMIC = -1
+_BITRATE_TIP = ("Auto picks about 8 Mbps for 1080p at 30 fps, less for smaller sizes. All the way right is Dynamic: "
+                "as much as the connection carries, lowered by itself before the video starts to lag.")
+_NO_DYNAMIC_TIP = " This phone's Telescope app is too old for Dynamic, so it uses Auto. Update it to get Dynamic."
 
 FORMAT_MJPEG = "mjpeg"
 FORMAT_H264  = "h264"
@@ -108,6 +115,7 @@ class StreamOutputPlugin(TelescopePlugin):
         self._saved_resolution_text = None
         self._format = FORMAT_H264
         self._phone_codecs: tuple = ()  # what the phone reported; () until it has
+        self._phone_dynamic = None  # whether the phone takes Dynamic; None until it has reported
         # Lens switch doesn't trigger fresh /v1/state fetch; use cached capabilities dict.
         bus.camera_switched.connect(self._on_camera_switched)
         bus.device_changed.connect(self._on_device_changed)
@@ -161,12 +169,12 @@ class StreamOutputPlugin(TelescopePlugin):
         lay.addWidget(self._quality_row)
 
         self._bitrate_slider = NoScrollSlider(Qt.Orientation.Horizontal)
-        self._bitrate_slider.setRange(0, _MAX_BITRATE_MBPS)
+        self._bitrate_slider.setRange(0, _DYNAMIC_POS)
         self._bitrate_slider.setValue(0)
         self._bitrate_slider.set_default(0)  # Auto
         self._bitrate_val_lbl = value_label()
-        self._bitrate_slider.setToolTip("Auto picks about 8 Mbps for 1080p at 30 fps, less for smaller sizes.")
-        self._show_bitrate(0)
+        self._bitrate_slider.setToolTip(_BITRATE_TIP)
+        self._show_bitrate()
         self._bitrate_slider.valueChanged.connect(self._on_bitrate_changed)
         self._bitrate_row = control_row_widget(
             "Bitrate", slider_row(self._bitrate_slider, self._bitrate_val_lbl), stretch=True)
@@ -214,7 +222,7 @@ class StreamOutputPlugin(TelescopePlugin):
     def _push_initial_settings(self):
         if self._ctrl:
             self._ctrl.send(action="jpeg_quality", value=self._quality_slider.value())
-            self._ctrl.send(action="bitrate", value=self._bitrate_slider.value() * 1_000_000)
+            self._ctrl.send(action="bitrate", value=self._bitrate_bps())
             self._ctrl.send(action="fps_target",   value=self._fps_spin.value())
 
     def on_phone_state(self, state: dict):
@@ -223,6 +231,9 @@ class StreamOutputPlugin(TelescopePlugin):
         if codecs and codecs != self._phone_codecs:
             self._phone_codecs = codecs
             self._show_format()
+        if "cameras" in state:
+            self._phone_dynamic = bool(state.get("dynamic_bitrate"))
+            self._show_bitrate()
         if self._format == FORMAT_H264 and codecs and FORMAT_H264 not in codecs:
             # Light is the default, and a phone without an encoder sends nothing on its route: Heavy for this phone.
             self._set_format(FORMAT_MJPEG)
@@ -383,7 +394,9 @@ class StreamOutputPlugin(TelescopePlugin):
 
     def _on_device_changed(self, _name: str):
         self._phone_codecs = ()  # another phone: unknown until it reports
+        self._phone_dynamic = None
         self._show_format()
+        self._show_bitrate()
 
     def _h264_offered(self) -> bool:
         """Until the phone has reported, assume it can: nearly every phone has an encoder, and one without falls back."""
@@ -424,22 +437,39 @@ class StreamOutputPlugin(TelescopePlugin):
         if not behind:
             self._host.clear_issue("behind")
             return
-        light = self.stream_format() != FORMAT_H264 and self._h264_offered()
-        self._host.show_issue("behind", Issue(
-            "Can't keep up", "Try Light or lower quality." if light else "Try lower quality.",
-            [BannerAction("Switch to Light", self._switch_to_light)] if light else [], kind="warn"))
+        on_light = self.stream_format() == FORMAT_H264
+        if not on_light and self._h264_offered():
+            text, action = "Try Light or lower quality.", BannerAction("Switch to Light", self._switch_to_light)
+        elif on_light and self._dynamic():
+            text, action = "Try a lower resolution or FPS.", None  # Dynamic already lowered what it could
+        elif on_light and self._phone_dynamic is not False:
+            text, action = "Try Dynamic or lower quality.", BannerAction("Switch to Dynamic", self._switch_to_dynamic)
+        else:
+            text, action = "Try lower quality.", None
+        self._host.show_issue("behind", Issue("Can't keep up", text, [action] if action else [], kind="warn"))
 
     def _switch_to_light(self):
         self._host.clear_issue("h264")
         self._set_format(FORMAT_H264)
 
-    def _show_bitrate(self, mbps: int):
-        self._bitrate_val_lbl.setText(f"{mbps} Mbps" if mbps else "Auto")
+    def _switch_to_dynamic(self):
+        self._bitrate_slider.setValue(_DYNAMIC_POS)  # sends it and saves, as moving the slider there would
 
-    def _on_bitrate_changed(self, mbps: int):
-        self._show_bitrate(mbps)
+    def _dynamic(self) -> bool:
+        return self._bitrate_slider.value() == _DYNAMIC_POS
+
+    def _bitrate_bps(self) -> int:
+        return _DYNAMIC if self._dynamic() else self._bitrate_slider.value() * 1_000_000
+
+    def _show_bitrate(self):
+        mbps = self._bitrate_slider.value()
+        self._bitrate_val_lbl.setText("Dynamic" if self._dynamic() else f"{mbps} Mbps" if mbps else "Auto")
+        self._bitrate_slider.setToolTip(_BITRATE_TIP + (_NO_DYNAMIC_TIP if self._phone_dynamic is False else ""))
+
+    def _on_bitrate_changed(self, _value: int):
+        self._show_bitrate()
         if self._ctrl:
-            self._ctrl.send(action="bitrate", value=mbps * 1_000_000)
+            self._ctrl.send(action="bitrate", value=self._bitrate_bps())
         self._host.schedule_save()
 
     def _on_fps(self):
@@ -471,6 +501,8 @@ class StreamOutputPlugin(TelescopePlugin):
             "Phone codecs": ", ".join(self._phone_codecs) or "unknown",
             "Resolution": self._res_combo.currentText() or "auto",
             "FPS": str(self._fps_spin.value()),
+            "Bitrate": self._bitrate_val_lbl.text() + (" (phone uses Auto)" if self._dynamic() and
+                                                       self._phone_dynamic is False else ""),
         }
 
     def get_config(self) -> dict:
@@ -478,7 +510,7 @@ class StreamOutputPlugin(TelescopePlugin):
             "fps":          self._fps_spin.value(),
             "jpeg_quality": self._quality_slider.value(),
             "format":       self._format,
-            "bitrate_mbps": self._bitrate_slider.value(),
+            "bitrate_mbps": _DYNAMIC if self._dynamic() else self._bitrate_slider.value(),
         }
         if self._res_combo.currentData() is not None:
             self._saved_resolution_text = self._res_combo.currentText()
@@ -519,7 +551,8 @@ class StreamOutputPlugin(TelescopePlugin):
             self._quality_slider.setValue(int(q))
         self._format = FORMAT_MJPEG if cfg.get("format") == FORMAT_MJPEG else FORMAT_H264
         self._bitrate_slider.blockSignals(True)
-        self._bitrate_slider.setValue(max(0, min(_MAX_BITRATE_MBPS, int(cfg.get("bitrate_mbps", 0) or 0))))
+        mbps = int(cfg.get("bitrate_mbps", 0) or 0)
+        self._bitrate_slider.setValue(_DYNAMIC_POS if mbps == _DYNAMIC else max(0, min(_MAX_BITRATE_MBPS, mbps)))
         self._bitrate_slider.blockSignals(False)
-        self._show_bitrate(self._bitrate_slider.value())
+        self._show_bitrate()
         self._show_format()

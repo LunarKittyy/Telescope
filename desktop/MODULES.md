@@ -270,15 +270,15 @@ UnityCapture helpers: `uc_registered_name()` (the name apps list it under, read 
 
 ### `plugins/stream_output.py`
 **StreamOutputPlugin** - capture resolution, frame rate, and encoding settings.
-- UI: aspect-ratio and resolution combos from the current lens's `supportedSizes` (dynamic, not fixed) - sends a live `resolution` control instead of a post-decode resize. FPS spinbox (5-60) drives both phone capture and virtual-camera playback. Format (MJPEG / H.264; H.264 enabled once the phone lists `h264` in `codecs` and PyAV is installed), then JPEG quality (1-100%; the High/Balanced/Low wording is in its tooltip) or, in H.264, Bitrate (Auto or 1-30 Mbps, sent as `bitrate` in bits/s). A double-click resets quality to 85 and bitrate to Auto.
-- `bus.stream_behind(True)` shows a "Can't keep up" warn banner (key `behind`), with a **Switch to Light** action only on Heavy when Light is offered; `False` clears it.
+- UI: aspect-ratio and resolution combos from the current lens's `supportedSizes` (dynamic, not fixed) - sends a live `resolution` control instead of a post-decode resize. FPS spinbox (5-60) drives both phone capture and virtual-camera playback. Format (MJPEG / H.264; H.264 enabled once the phone lists `h264` in `codecs` and PyAV is installed), then JPEG quality (1-100%; the High/Balanced/Low wording is in its tooltip) or, in H.264, Bitrate (Auto, 1-30 Mbps, or all the way right Dynamic; sent as `bitrate` in bits/s, `-1` for Dynamic). A double-click resets quality to 85 and bitrate to Auto. A phone whose state lacks `dynamic_bitrate` runs Dynamic as Auto, and the slider's tooltip says so.
+- `bus.stream_behind(True)` shows a "Can't keep up" warn banner (key `behind`): **Switch to Light** on Heavy when Light is offered, **Switch to Dynamic** on Light unless the phone can't do it, and on Dynamic just a lower resolution or FPS; `False` clears it.
 - Switching format calls `host.reconnect_stream()`: the route decides the phone's codec, and Connection's `_video_path()` reads `format` through `host.plugin_config()`. A `codec_error` in phone state while on H.264 switches back to MJPEG with a warn banner.
 - Keeps the last resolution the device used, so saves made while idle (combos cleared) or during a device switch don't drop it.
 - `_apply_camera()` rebuilds resolution combo on lens change, carries current selection forward (reuses existing capture size) instead of resetting to largest; reflects live stream size on reconnect if it differs.
 - `get_stream_params()` → `(width, height, fps)` - width/height are always `None` (resolution is phone-controlled, not desktop-resized); called by `app.py._start()` to construct `StreamWorker`.
 - `on_stream_start`: stores ctrl, schedules `_push_initial_settings` (1500ms delay) to sync quality/fps after connect.
 - `_on_resolution()` sends `resolution` control and emits `bus.resolution_change_requested` (used by `app.py` for footer readout). `_on_fps()` sends `fps_target` and calls `host.update_stream_output()` for virtual-camera hot-swap (no stream restart).
-- Config keys: `resolution`, `fps`, `jpeg_quality`, `format`, `bitrate_mbps`.
+- Config keys: `resolution`, `fps`, `jpeg_quality`, `format`, `bitrate_mbps` (`-1` is Dynamic, which an older desktop reads as Auto).
 - `apply_preset(cfg)`: `set_config`, then while streaming sends fps and quality and, if the current lens has the saved size, the resolution.
 
 ### `plugins/preview.py`

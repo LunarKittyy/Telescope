@@ -626,6 +626,7 @@ class CameraStreamService : Service() {
             tokens         = { PairedComputers.tokens(this) },
             onVideoClient  = ::onVideoClient,
             requestKeyFrame = { controller?.requestKeyFrame() },
+            onH264Link     = { controller?.onLinkSample(it) },
             startAudio     = ::startAudio,
             stopAudio      = { audio?.stop() },
             socketFactory  = PhoneTls.identity(this).serverSocketFactory(),
@@ -754,6 +755,7 @@ class CameraStreamService : Service() {
                      else listOf(H264Stream.CODEC_MJPEG),
             codec = snap?.codec ?: H264Stream.CODEC_MJPEG,
             bitrate = snap?.bitrate ?: 0,
+            dynamic_bitrate = h264Available,
             codec_error = snap?.codecError,
             active_lens = snap?.activeLens,
             stream_width = liveSize.width,
@@ -826,9 +828,11 @@ class CameraStreamService : Service() {
                     ok()
                 }
                 "bitrate" -> {
-                    // bits per second; 0 sizes it from the resolution and fps
+                    // bits per second; 0 sizes it from the resolution and fps, -1 is Dynamic
                     val bps = params["value"]?.toIntOrNull() ?: return err("bad value")
-                    ctrl.setBitrate(bps.coerceAtLeast(0))
+                    val dynamic = bps == H264Stream.DYNAMIC
+                    ctrl.setBitrate(if (dynamic) bps else bps.coerceAtLeast(0))
+                    server?.dynamicH264 = dynamic
                     ok()
                 }
                 "focus_point" -> {

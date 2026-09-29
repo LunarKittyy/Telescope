@@ -10,8 +10,9 @@ object H264Stream {
     const val CODEC_MJPEG = "mjpeg"
     const val CODEC_H264 = "h264"
 
-    private const val MIN_BPS = 1_000_000
-    private const val MAX_BPS = 30_000_000
+    const val MIN_BPS = 1_000_000
+    const val MAX_BPS = 30_000_000
+    const val DYNAMIC = -1  // the bitrate control's value for DynamicBitrate
 
     // Roughly 8 Mbps for 1080p30, scaled by pixels per second.
     fun defaultBitrate(width: Int, height: Int, fps: Int): Int {
@@ -34,32 +35,45 @@ object H264Stream {
  * One viewer's backlog of Annex-B packets. A decoder can only start at a keyframe, and after the
  * backlog overflows it has to start over at one too, so non-key packets are dropped until the next
  * keyframe arrives. [offer] returns true when the encoder should be asked for a keyframe.
+ *
+ * It also measures the link for [DynamicBitrate]: how long packets wait to go out ([takeQueueMs]) and how much
+ * the socket took ([takeSentBytes]); the sender reports what it writes with [written].
  */
-class H264ClientQueue(private val capacity: Int = 90) {
+class H264ClientQueue(
+    private val capacity: Int = 90,
+    private val clock: () -> Long = System::currentTimeMillis,
+) {
     private val lock = ReentrantLock()
     private val ready = lock.newCondition()
     private val packets = ArrayDeque<ByteArray>()
+    private val queuedAt = ArrayDeque<Long>()
     private var config: ByteArray? = null
     private var waitingForKey = true
+
+    /** A backlog whose oldest packet waited longer than this also overflows (Dynamic skips ahead rather than lag). */
+    @Volatile var maxWaitMs: Long = Long.MAX_VALUE
+
+    private var shortestWaitMs = -1L  // since the last takeQueueMs(); -1 = nothing went out
+    private var writingSinceMs = -1L  // a packet handed to the sender and not yet written
+    private var sentBytes = 0L
 
     /** Codec config (SPS/PPS): sent ahead of the next keyframe. A new one replaces what's queued. */
     fun offerConfig(bytes: ByteArray) = lock.withLock {
         config = bytes
-        packets.clear()
-        waitingForKey = true
+        clear()
     }
 
     fun offer(packet: ByteArray, key: Boolean): Boolean = lock.withLock {
+        val now = clock()
         if (waitingForKey) {
             if (!key) return false
             waitingForKey = false
-            config?.let { packets.add(it) }
-        } else if (packets.size >= capacity) {
-            packets.clear()
-            waitingForKey = true
+            config?.let { add(it, now) }
+        } else if (packets.size >= capacity || (queuedAt.isNotEmpty() && now - queuedAt.first() > maxWaitMs)) {
+            clear()
             return true
         }
-        packets.add(packet)
+        add(packet, now)
         ready.signal()
         false
     }
@@ -70,8 +84,44 @@ class H264ClientQueue(private val capacity: Int = 90) {
             if (waitNs <= 0) return null
             waitNs = ready.awaitNanos(waitNs)
         }
+        val now = clock()
+        val waited = now - queuedAt.poll()
+        if (shortestWaitMs < 0 || waited < shortestWaitMs) shortestWaitMs = waited
+        writingSinceMs = now
         packets.poll()
     }
 
+    /** [bytes] more of the packet poll() last returned went into the socket; [done] once all of it has. */
+    fun written(bytes: Int, done: Boolean) = lock.withLock {
+        if (done) writingSinceMs = -1
+        sentBytes += bytes
+    }
+
+    /**
+     * The shortest wait a packet had since the last call: a queue that stays, not a keyframe's burst that clears.
+     * When nothing went out at all, how long the oldest is waiting, or the write in progress has taken.
+     */
+    fun takeQueueMs(): Long = lock.withLock {
+        val now = clock()
+        val shortest = shortestWaitMs
+        shortestWaitMs = -1
+        if (shortest >= 0) return shortest
+        maxOf(queuedAt.peek()?.let { now - it } ?: 0L, if (writingSinceMs >= 0) now - writingSinceMs else 0L)
+    }
+
+    /** Bytes written since the last call. */
+    fun takeSentBytes(): Long = lock.withLock { sentBytes.also { sentBytes = 0 } }
+
     fun size(): Int = lock.withLock { packets.size }
+
+    private fun add(packet: ByteArray, now: Long) {
+        packets.add(packet)
+        queuedAt.add(now)
+    }
+
+    private fun clear() {
+        packets.clear()
+        queuedAt.clear()
+        waitingForKey = true
+    }
 }

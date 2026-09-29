@@ -68,4 +68,52 @@ class H264StreamTest {
         assertArrayEquals(p(8), q.poll(0))
         assertArrayEquals(p(3), q.poll(0))
     }
+
+    @Test
+    fun `the queue measures the shortest wait, not a burst that clears`() {
+        var now = 0L
+        val q = H264ClientQueue(clock = { now })
+        q.offer(p(1), key = true)
+        q.offer(p(2), key = false)
+        now = 100
+        q.poll(0); q.written(1, done = true)  // waited 100 ms: a keyframe's burst
+        q.offer(p(3), key = false)
+        now = 105
+        q.poll(0); q.written(1, done = true)  // waited 105
+        q.poll(0); q.written(1, done = true)  // waited 5: the queue emptied
+        assertEquals(5, q.takeQueueMs())
+        assertEquals(3, q.takeSentBytes())
+        assertEquals(0, q.takeSentBytes())
+    }
+
+    @Test
+    fun `with nothing going out the wait is the oldest packet's or the stuck write's`() {
+        var now = 0L
+        val q = H264ClientQueue(clock = { now })
+        assertEquals(0, q.takeQueueMs())  // idle
+        q.offer(p(1), key = true)
+        q.poll(0)
+        q.written(1, done = false)  // part of it went out, then the write got stuck
+        q.offer(p(2), key = false)
+        now = 50
+        q.takeQueueMs()             // the poll above counts once
+        now = 300
+        assertEquals(300, q.takeQueueMs())
+        q.written(0, done = true)
+        q.poll(0); q.written(1, done = true)
+        now = 400
+        assertEquals(300, q.takeQueueMs())  // p(2) waited 300 before going out
+    }
+
+    @Test
+    fun `a backlog older than its limit overflows like a full one`() {
+        var now = 0L
+        val q = H264ClientQueue(clock = { now })
+        q.offer(p(1), key = true)
+        now = 1_500
+        assertFalse(q.offer(p(2), key = false))  // no limit: kept
+        q.maxWaitMs = 1_000
+        assertTrue(q.offer(p(3), key = false))   // over it: dropped, and a keyframe asked for
+        assertEquals(0, q.size())
+    }
 }
