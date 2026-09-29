@@ -15,15 +15,14 @@ body:
     validations:
       required: true
 
-  - type: dropdown
+  - type: checkboxes
     id: desktop-os
     attributes:
       label: Computer
+      description: The ones you tested with.
       options:
-        - Windows
-        - Linux
-    validations:
-      required: true
+        - label: Windows
+        - label: Linux
 
   - type: textarea
     id: results
