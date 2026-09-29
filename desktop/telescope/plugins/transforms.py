@@ -173,15 +173,15 @@ def lens_note(zoom: float, sent_ratio: float, caps: Optional[PhoneZoomCaps], liv
     if caps is not None and caps.lens_zooms:
         centred = max((lens for lens in caps.lens_zooms if zoom >= lens), default=1.0)
         if centred > sent_ratio + 1e-3:
-            lines.append(f"Panned past what {tele or 'the telephoto'} can see, so it's using "
-                         f"{live or 'the main camera'} for now. Pan back towards the middle to switch again.")
+            lines.append(f"Panned past what {tele or 'the telephoto'} can see, so it's on "
+                         f"{live or 'the main camera'}. Pan back to switch again.")
             level = "off"
         elif sent_ratio > 1.0 + 1e-3 and settled and live and live == default:
-            lines.append(f"The phone stayed on {live} by itself, usually because it's too dark or too close "
-                         f"for {tele or 'the telephoto'}. It switches over once it can.")
+            lines.append(f"The phone stayed on {live} by itself, most likely too dark or too close "
+                         f"for {tele or 'the telephoto'}. It switches once it can.")
             level = "off"
     if lines:
-        lines.append("(it can be a bit wobbly while it switches, just let it settle)")
+        lines.append("It can wobble for a moment while it switches.")
     return level, "\n".join(lines)
 
 

@@ -1,8 +1,8 @@
 """Telescope's visual theme: palette tokens, QSS stylesheet, and theme application."""
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor, QPalette
-from PyQt6.QtWidgets import QMenu, QProxyStyle, QWidget
+from PyQt6.QtCore import QEvent, QObject, Qt
+from PyQt6.QtGui import QColor, QCursor, QPalette
+from PyQt6.QtWidgets import QApplication, QMenu, QProxyStyle, QStyle, QWidget
 
 # ── Palette ───────────────────────────────────────────────────────────────────
 # Surfaces run darkest-to-lightest: the window canvas sits *behind* the
@@ -731,8 +731,64 @@ QScrollBar::add-page, QScrollBar::sub-page {{
 """
 
 
+TIP_WAKE_MS = 250     # hover this long before a tooltip shows (Qt's own is 700)
+TIP_LINE_CHARS = 64   # a longer tooltip wraps at about this many characters
+
+
+def _tip_owner(widget):
+    """The widget whose tooltip shows over `widget`: itself, or the nearest parent with one."""
+    while widget is not None and not widget.toolTip():
+        widget = widget.parentWidget()
+    return widget
+
+
+class _TipFilter(QObject):
+    """On Qt's one tooltip window only: wraps long text instead of one line across the screen, and keeps the tip up
+    while the mouse is still on what it's about (Qt hides it after a few seconds regardless)."""
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self._owner = None
+        self._wrapping = False
+
+    def eventFilter(self, tip, event):
+        kind = event.type()
+        if kind == QEvent.Type.Show or (kind == QEvent.Type.Resize and tip.isVisible() and not self._wrapping):
+            # Resize too: moving to another control reuses the window without showing it again
+            self._owner = _tip_owner(QApplication.widgetAt(QCursor.pos()))
+            self._wrap(tip)
+        elif kind == QEvent.Type.Resize and not self._wrapping:
+            self._wrap(tip)
+        elif kind == QEvent.Type.Timer and self._owner is not None and tip.isVisible():
+            # Qt's timers only hide the tip: one while the mouse is still on its control is Qt's time limit
+            if _tip_owner(QApplication.widgetAt(QCursor.pos())) is self._owner:
+                return True
+        return False
+
+    def _wrap(self, tip):
+        limit = tip.fontMetrics().averageCharWidth() * TIP_LINE_CHARS
+        margins = tip.contentsMargins()
+        width = limit + margins.left() + margins.right()
+        # Already wrapping means it's ours (Qt turns it off for every plain tip), and Qt may have sized it narrower
+        if tip.width() <= width and not (tip.wordWrap() and tip.width() != width):
+            return
+        self._wrapping = True
+        try:
+            tip.setWordWrap(True)
+            height = tip.heightForWidth(width)
+            if height > 0:
+                tip.resize(width, height)
+        finally:
+            self._wrapping = False
+
+
 class _PopupStyle(QProxyStyle):
-    """Fusion, but menus and tooltips get a see-through window, so the stylesheet's rounded border isn't drawn over square corners."""
+    """Fusion, but menus and tooltips get a see-through window, so the stylesheet's rounded border isn't drawn over
+    square corners. Tooltips also show sooner, wrap, and stay while hovered (_TipFilter)."""
+
+    def __init__(self, base):
+        super().__init__(base)
+        self._tip_filter = _TipFilter(self)
 
     def polish(self, arg):
         # Runs once per widget as it's set up, unlike an app-wide event filter that Python sees every event through
@@ -741,13 +797,25 @@ class _PopupStyle(QProxyStyle):
             arg.setWindowFlags(arg.windowFlags() | Qt.WindowType.FramelessWindowHint
                                | Qt.WindowType.NoDropShadowWindowHint)
             arg.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+            if arg.inherits("QTipLabel"):
+                arg.installEventFilter(self._tip_filter)  # the one tooltip window Qt reuses for every tip
         return super().polish(arg)
+
+    def styleHint(self, hint, option=None, widget=None, returnData=None):
+        if hint == QStyle.StyleHint.SH_ToolTip_WakeUpDelay:
+            return TIP_WAKE_MS
+        return super().styleHint(hint, option, widget, returnData)
+
+
+_style = None
 
 
 def apply_theme(app):
     """Install theme onto QApplication. A no-op once installed: re-applying repolishes every live widget."""
     if app.styleSheet() == QSS:
         return
-    app.setStyle(_PopupStyle("Fusion"))
+    global _style
+    _style = _PopupStyle("Fusion")  # kept here too: app.style() hands back a plain QStyle wrapper
+    app.setStyle(_style)
     app.setPalette(_palette())
     app.setStyleSheet(QSS)

@@ -52,6 +52,7 @@ The header's settings menu stays in one shape as options are added: entries that
 ### `theme.py`
 The app's entire visual definition: palette constants (`BG`, `SURFACE`, `ACCENT`, `FILL`, the `OK`/`WARN`/`ERR`/`DIM` status set, `STATUS_COLORS`), a dark `QPalette`, and the stylesheet built from those tokens.
 - `apply_theme(app)` - sets Fusion as the base style, installs the palette, applies the QSS. A no-op once installed, since re-applying repolishes every live widget.
+- Tooltips: show after `TIP_WAKE_MS` (250 ms, Qt's is 700), wrap at about `TIP_LINE_CHARS` (64) characters, and stay up while the mouse is still on their control. `_PopupStyle` does it with a style hint and one event filter on Qt's single tooltip window (`_TipFilter`), not an app-wide filter.
 - No image files and no third-party theme: icons are inline SVG rendered by `create_vector_icon()`, and controls that need a custom look (segmented toggles, card actions, the preview stage) are targeted by object name or property selector.
 - The layout rules every panel and dialog follows (type scale, control column, button roles) are written at the top of `widgets/common.py`.
 

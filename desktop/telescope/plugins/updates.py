@@ -67,7 +67,7 @@ class UpdatesDialog(QDialog):
         self._channel = NoScrollComboBox()
         for key, label in _CHANNEL_LABELS:
             self._channel.addItem(label, key)
-        self._channel.setToolTip("Nightly is built from every change and gets fixes first, with less testing.")
+        self._channel.setToolTip("Nightly: built from every change. Fixes first, less tested.")
         self._channel.currentIndexChanged.connect(
             lambda i: plugin.set_channel(self._channel.itemData(i)))
         c.addLayout(control_row("Channel", self._channel, stretch=True))

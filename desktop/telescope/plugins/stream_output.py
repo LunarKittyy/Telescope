@@ -24,9 +24,9 @@ _MAX_BITRATE_MBPS = 100  # the phone clamps to the same range, and to what its e
 # an older desktop reads as Auto and an older phone treats as Auto.
 _DYNAMIC_POS = _MAX_BITRATE_MBPS + 1
 _DYNAMIC = -1
-_BITRATE_TIP = ("Auto picks about 8 Mbps for 1080p at 30 fps, less for smaller sizes. All the way right is Dynamic: "
-                "as much as the connection carries, lowered by itself before the video starts to lag.")
-_NO_DYNAMIC_TIP = " This phone's Telescope app is too old for Dynamic, so it uses Auto. Update it to get Dynamic."
+_BITRATE_TIP = ("Auto: about 8 Mbps at 1080p30. All the way right is Dynamic: as much as the connection carries, "
+                "lowered before it lags.")
+_NO_DYNAMIC_TIP = " This phone's app is too old for Dynamic and uses Auto until it's updated."
 
 FORMAT_MJPEG = "mjpeg"
 FORMAT_H264  = "h264"
@@ -37,8 +37,8 @@ _FORMAT_NOTES = {
     FORMAT_MJPEG: "Needs USB or strong Wi-Fi.",
 }
 # Tooltips carry the technical side; the note under the buttons is the plain one.
-_LIGHT_TIP = "H.264, the same kind of compression video calls use. Using the phone's hardware encoder."
-_HEAVY_TIP = "MJPEG: every frame is a full JPEG, several times the data of Light. Sharper in fast motion."
+_LIGHT_TIP = "H.264 from the phone's hardware encoder, like video calls use."
+_HEAVY_TIP = "MJPEG: every frame a full JPEG. Several times Light's data, sharper in fast motion."
 
 # "1080p" etc. names a height, not one exact WxH - matching by height catches every ratio's version.
 _COMMON_HEIGHTS = {2160, 1440, 1080, 720, 480, 360}  # 4K, 1440p, 1080p, 720p, 480p, 360p
@@ -149,8 +149,7 @@ class StreamOutputPlugin(TelescopePlugin):
         self._fps_spin.setRange(5, 60)
         self._fps_spin.setValue(_DEFAULT_FPS)
         self._fps_spin.setSuffix(" fps")
-        self._fps_spin.setToolTip("Both the phone's capture rate and the local virtual camera's "
-                                   "playback rate. Lower reduces bandwidth and phone battery use.")
+        self._fps_spin.setToolTip("The phone's capture rate and the virtual camera's. Lower saves data and battery.")
         self._fps_spin.editingFinished.connect(self._on_fps)
         lay.addLayout(_row("FPS", self._fps_spin, stretch=True))
 
@@ -494,9 +493,8 @@ class StreamOutputPlugin(TelescopePlugin):
 
     def _show_quality(self, q: int):
         self._quality_val_lbl.setText(f"{q}%")
-        tip = (f"{quality_label(q)}. {_DEFAULT_QUALITY}% (the dot) is recommended: higher sends a lot more data "
-               "for a difference you barely see, and can make the stream lag. Lower quality or FPS helps on "
-               "slow Wi-Fi. Very low values are a last resort: the image gets blocky fast.")
+        tip = (f"{quality_label(q)}. The dot ({_DEFAULT_QUALITY}%) is recommended: higher costs a lot more data "
+               "for little you'd see. On slow Wi-Fi, lower it or the FPS.")
         self._quality_slider.setToolTip(tip)
         self._quality_val_lbl.setToolTip(tip)
 

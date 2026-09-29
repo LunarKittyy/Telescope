@@ -876,7 +876,7 @@ def test_stream_quality_and_bitrate_reset_on_a_double_click(stream_output):
     QTest.mouseDClick(plugin._quality_slider, Qt.MouseButton.LeftButton)
     QTest.mouseDClick(plugin._bitrate_slider, Qt.MouseButton.LeftButton)
     assert (plugin._quality_slider.value(), plugin._bitrate_slider.value()) == (85, 0)  # 0 is Auto
-    assert plugin._bitrate_slider.toolTip().startswith("Auto picks about 8 Mbps")  # its own tip stays
+    assert plugin._bitrate_slider.toolTip().startswith("Auto: about 8 Mbps")  # its own tip stays
 
 
 def test_jpeg_quality_stops_at_95_and_marks_the_recommended_spot(stream_output):

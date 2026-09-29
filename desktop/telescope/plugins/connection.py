@@ -480,7 +480,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._route_combo = NoScrollComboBox()
         for key, label in _ROUTE_CHOICES:
             self._route_combo.addItem(label, key)
-        self._route_combo.setToolTip("Automatic uses USB when the phone is plugged in and Wi-Fi otherwise.")
+        self._route_combo.setToolTip("Automatic: USB when the phone's plugged in, Wi-Fi otherwise.")
         self._route_combo.currentIndexChanged.connect(
             lambda i: self.set_route_preference(self._route_combo.itemData(i)))
         self._route_row = control_row_widget("Connect via", self._route_combo, stretch=True)

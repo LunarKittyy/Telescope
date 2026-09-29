@@ -336,8 +336,7 @@ class PreviewPlugin(TelescopePlugin):
         self._toggle_btn.setMinimumWidth(ui_px(78))
         set_ui_role(self._toggle_btn, "quiet")
         self._toggle_btn.setToolTip(
-            "Stop decoding frames for this view. The virtual camera output is "
-            "unaffected either way."
+            "Stop drawing this preview. The camera output doesn't change."
         )
         self._toggle_btn.clicked.connect(self._toggle)
         tb_lay.addWidget(self._toggle_btn)
@@ -361,8 +360,8 @@ class PreviewPlugin(TelescopePlugin):
         self._lenses_btn.setCheckable(True)
         self._lenses_btn.setEnabled(False)
         self._lenses_btn.setToolTip(
-            "Lens outlines: keep showing what each of the phone's longer lenses sees. They also show "
-            "for a moment whenever you zoom or pan. Only here, never in the camera output."
+            "Keep showing what the phone's longer lenses see (they flash up anyway when you zoom or pan). "
+            "Only here, never in the camera output."
         )
         self._lenses_btn.toggled.connect(self._push_boxes)
         tb_lay.addWidget(self._lenses_btn)
