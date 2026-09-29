@@ -176,8 +176,9 @@ class PhoneSessionClient:
             phone_name=clean_name(body["phoneName"]) if isinstance(body.get("phoneName"), str) else None,
         )
 
-    def start(self) -> SessionResult:
-        return self._session("start")
+    def start(self, opening: Optional[dict] = None) -> SessionResult:
+        """opening: the size and rate to open at ({"width", "height", "fps"}, any of them); else the phone's last."""
+        return self._session("start", **(opening or {}))
 
     def stop(self) -> SessionResult:
         return self._session("stop")
@@ -194,8 +195,8 @@ class PhoneSessionClient:
             logger.debug("unpair failed", exc_info=True)
             return False
 
-    def _session(self, action: str) -> SessionResult:
-        payload = json.dumps({"action": action}).encode()
+    def _session(self, action: str, **params) -> SessionResult:
+        payload = json.dumps({"action": action, **params}).encode()
         req = urllib.request.Request(
             f"{self.base}/v1/session",
             data=payload,

@@ -29,7 +29,7 @@ data class Hello(
 
 // Narrow interface: server owns HTTP, this owns camera lifecycle - they don't cross.
 interface SessionCommands {
-    fun start(): ControlResult
+    fun start(opening: StreamOpening? = null): ControlResult
     fun stop(): ControlResult
     fun snapshot(): SessionSnapshot
     fun unpair(computer: PairedComputer)
@@ -119,14 +119,14 @@ object SessionStartWindow : StartWindow({ android.os.SystemClock.elapsedRealtime
 // Holds app Context only: socket thread may outlive component that acquired endpoint.
 private class ServiceSessionCommands(private val context: Context) : SessionCommands {
 
-    override fun start(): ControlResult {
+    override fun start(opening: StreamOpening?): ControlResult {
         val service = CameraStreamService.instance
         if (service?.isStreaming == true) return ControlResult(ok = true)
         // Same guard as MainActivity.isBusy().
         if (service != null && service.state != StreamState.Idle && service.state != StreamState.Failed) {
             return ControlResult(ok = false, error = "busy")
         }
-        return when (val result = StreamLauncher.startFromPrefs(context)) {
+        return when (val result = StreamLauncher.startFromPrefs(context, opening)) {
             is StreamLauncher.Result.Started -> ControlResult(ok = true)
             is StreamLauncher.Result.AlreadyStreaming -> ControlResult(ok = true)
             is StreamLauncher.Result.Rejected -> ControlResult(ok = false, error = result.reason)

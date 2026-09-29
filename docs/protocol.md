@@ -136,7 +136,7 @@ Also on 8766. JSON body `{"action": "start"}` or `{"action": "stop"}`; same auth
 
 | `action` | effect |
 |---|---|
-| `start` | Start the camera service, reproducing the camera/resolution/OIS selection last used on the phone. `{"ok": true}` if a stream is already running. |
+| `start` | Start the camera service, reproducing the camera/resolution/OIS selection last used on the phone. Optional `width` and `height` (both or neither) and `fps` open it at that size and rate instead, so a size that just failed isn't what opens again; the size is fitted to the lens like a `resolution` control. `{"ok": true}` if a stream is already running. |
 | `stop` | Stop the camera service. `{"ok": true}` if nothing was running. |
 
 Refusal reasons, all reported with HTTP `200` and `"ok": false` (the request was fine, the camera wouldn't open): `no_camera_permission`, `busy` (a start is already in flight), `start_refused` (Android declined the foreground-service start).

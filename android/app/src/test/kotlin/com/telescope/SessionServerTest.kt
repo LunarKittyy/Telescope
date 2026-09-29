@@ -26,7 +26,8 @@ class SessionServerTest {
         var stopResult: ControlResult = ControlResult(ok = true),
     ) : SessionCommands {
         val calls = mutableListOf<String>()
-        override fun start(): ControlResult { calls += "start"; return startResult }
+        val openings = mutableListOf<StreamOpening?>()
+        override fun start(opening: StreamOpening?): ControlResult { calls += "start"; openings += opening; return startResult }
         override fun stop(): ControlResult { calls += "stop"; return stopResult }
         override fun snapshot(): SessionSnapshot { calls += "snapshot"; return snapshot }
         val unpaired = mutableListOf<String>()
@@ -165,6 +166,15 @@ class SessionServerTest {
             assertEquals(200, post(port, "/v1/session", "secret-token", "{\"action\":\"start\"}").status)
             assertEquals(200, post(port, "/v1/session", "secret-token", "{\"action\":\"stop\"}").status)
             assertEquals(listOf("start", "stop"), commands.calls)
+        }
+    }
+
+    @Test
+    fun `a start can say what size and rate to open at`() {
+        withServer { port, commands ->
+            val body = "{\"action\":\"start\",\"width\":1920,\"height\":1080,\"fps\":60}"
+            assertEquals(200, post(port, "/v1/session", "secret-token", body).status)
+            assertEquals(listOf(StreamOpening(1920, 1080, 60)), commands.openings)
         }
     }
 

@@ -736,7 +736,7 @@ def _stub_session(monkeypatch, pings, start=None):
 
     monkeypatch.setattr(connection_module.PhoneSessionClient, "ping", ping)
     monkeypatch.setattr(connection_module.PhoneSessionClient, "start",
-                        lambda self: calls.append("start") or (start or SessionResult(ok=True)))
+                        lambda self, opening=None: calls.append("start") or (start or SessionResult(ok=True)))
     monkeypatch.setattr(connection_module.PhoneSessionClient, "stop",
                         lambda self: calls.append("stop") or SessionResult(ok=True))
     monkeypatch.setattr(connection_module.time, "sleep", lambda _s: None)
@@ -764,6 +764,17 @@ def test_ensure_streaming_starts_then_waits_for_the_camera(plugin_env, monkeypat
     assert plugin.ensure_phone_streaming(on_progress=progress.append, target=_TARGET) == (True, "")
     assert calls == ["ping", "start", "ping", "ping"]
     assert progress[0] == "Starting the phone's camera..."
+
+
+def test_ensure_streaming_asks_the_phone_to_open_at_the_size_picked(plugin_env, monkeypatch):
+    plugin, _host, _panel = plugin_env
+    _stub_session(monkeypatch, [_ping(), _ping(streaming=True)])
+    asked = []
+    monkeypatch.setattr(connection_module.PhoneSessionClient, "start",
+                        lambda self, opening=None: asked.append(opening) or SessionResult(ok=True))
+    opening = {"width": 1280, "height": 720, "fps": 60}
+    assert plugin.ensure_phone_streaming(target=_TARGET, opening=opening) == (True, "")
+    assert asked == [opening]
 
 
 def test_ensure_streaming_reports_a_refused_start(plugin_env, monkeypatch):

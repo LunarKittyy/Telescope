@@ -654,15 +654,18 @@ class TelescopeWindow(QMainWindow):
 
         self._wake_target = conn.session_target()
         self._stop_late_wake = True
-        self._spawn_wake(wake_id, conn, url, auth, self._wake_target)
+        output = self._plugin("stream_output")
+        # Read here, on the GUI thread: what the phone should open at, not the size it last used (which may have failed)
+        opening = output.opening() if output is not None and hasattr(output, "opening") else None
+        self._spawn_wake(wake_id, conn, url, auth, self._wake_target, opening)
 
-    def _spawn_wake(self, wake_id: int, conn, url: str, auth, target=None):
+    def _spawn_wake(self, wake_id: int, conn, url: str, auth, target=None, opening=None):
         """Split from _start() to allow test synchronization; thread mustn't outlive QObject."""
         threading.Thread(
-            target=self._wake_phone, args=(wake_id, conn, url, auth, target), daemon=True,
+            target=self._wake_phone, args=(wake_id, conn, url, auth, target, opening), daemon=True,
         ).start()
 
-    def _wake_phone(self, wake_id: int, conn, url: str, auth, target=None):
+    def _wake_phone(self, wake_id: int, conn, url: str, auth, target=None, opening=None):
         def on_progress(msg: str):
             try:
                 self._sig_wake_progress.emit(wake_id, msg)
@@ -670,7 +673,7 @@ class TelescopeWindow(QMainWindow):
                 pass
 
         try:
-            ok, reason = conn.ensure_phone_streaming(on_progress=on_progress, target=target)
+            ok, reason = conn.ensure_phone_streaming(on_progress=on_progress, target=target, opening=opening)
         except Exception:
             logging.exception("Phone wake failed")
             ok, reason = False, "Couldn't reach the phone."
