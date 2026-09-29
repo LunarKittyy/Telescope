@@ -26,11 +26,11 @@ FORMAT_H264  = "h264"
 
 # Shown as Light and Heavy: the codec names say nothing about the choice people actually make, which is how much data.
 _FORMAT_NOTES = {
-    FORMAT_H264:  "Fine for most calls. Works on any network.",
+    FORMAT_H264:  "Fine for most calls. Keeps up even on slower Wi-Fi.",
     FORMAT_MJPEG: "Sharper in fast motion. Needs USB or strong Wi-Fi.",
 }
 _LIGHT_TIP = ("H.264. About 8 Mbps at 1080p 30 fps. Looks the same as Heavy unless there's fast motion, "
-              "and keeps up over Wi-Fi, Tailscale or mobile data.")
+              "and keeps up even on slower Wi-Fi.")
 _HEAVY_TIP = ("MJPEG. Every frame is a full picture, so it sends several times as much data as Light. "
               "Sharpest in fast motion, but lags on anything slower than USB or strong Wi-Fi.")
 
