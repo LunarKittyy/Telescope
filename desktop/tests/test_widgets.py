@@ -366,6 +366,7 @@ def test_slider_fill_doesnt_stick_out_past_the_handle_at_zero(qapp):
 
 def test_menus_and_tooltips_have_see_through_corners(qapp):
     from PyQt6.QtCore import QPoint
+    from PyQt6 import sip
     from PyQt6.QtWidgets import QMenu, QToolTip
     from telescope.theme import apply_theme
     apply_theme(qapp)
@@ -378,4 +379,5 @@ def test_menus_and_tooltips_have_see_through_corners(qapp):
     QToolTip.showText(QPoint(10, 10), "tip", owner)
     tip = next(w for w in qapp.topLevelWidgets() if w.inherits("QTipLabel"))
     assert tip.grab().toImage().pixelColor(0, 0).alpha() == 0
-    QToolTip.hideText()
+    sip.delete(tip)  # gone now, not on a hide timer that can outlive its owner and crash
+    owner.close()
