@@ -137,6 +137,9 @@ class TelescopeWindow(QMainWindow):
         self._recovering = False
         self._recovery_gen = 0
         self._recovery_route = None  # the route recovery last moved the stream to
+        # Whether the stream is falling behind (bus.stream_behind), and throughput reports to skip before judging it.
+        self._behind = False
+        self._settling_reports = 0
         self._recovery_timer = QTimer(self)
         self._recovery_timer.setSingleShot(True)
         self._recovery_timer.timeout.connect(self._probe_recovery)
@@ -579,6 +582,7 @@ class TelescopeWindow(QMainWindow):
 
     def _on_stream_reconnected(self):
         self._end_recovery()
+        self._settling_reports = 1  # the next throughput report still counts the gap
         session = self._session
         if session is None:
             return
@@ -760,6 +764,8 @@ class TelescopeWindow(QMainWindow):
         self._net_lbl.setStyleSheet("")
         self._net_lbl.setText("—")
         self._set_status("Not streaming", "dim")
+        self._settling_reports = 0
+        self._set_behind(False)
 
         self._bus.stream_stopped.emit()
         self._each_plugin("on_stream_stop")
@@ -774,6 +780,7 @@ class TelescopeWindow(QMainWindow):
             return
         self._recovering = True
         self._recovery_route = None
+        self._set_behind(False)
         self._bus.stream_lost.emit()
         self._probe_recovery()
 
@@ -1119,11 +1126,14 @@ class TelescopeWindow(QMainWindow):
         elif kind == "net":
             self._net_lbl.setStyleSheet("")
             self._net_lbl.setText(msg)
+            self._note_throughput(behind=False)
         elif kind == "net_warn":
             self._net_lbl.setStyleSheet(f"color: {theme.WARN};")
             self._net_lbl.setText(msg)
+            self._note_throughput(behind=True)
         elif kind == "ok":
             self._set_status(msg, "ok")
+            self._set_behind(False)  # its banner goes with the rest below; a stream still behind says so again
             for key in self._banners.keys():  # whatever stopped the last Start is fixed now
                 if key != "h264":  # says why this very stream is MJPEG, and comes just before its reconnect
                     self._banners.clear_issue(key)
@@ -1150,6 +1160,20 @@ class TelescopeWindow(QMainWindow):
                                                [BannerAction("Start", self.start_stream)], kind="warn"))
         else:
             self._set_status(msg, "dim")
+
+    def _note_throughput(self, behind: bool):
+        """A dropped stream isn't slow, and the first report after it's back still counts the gap, so neither says."""
+        if self._recovering:
+            return
+        if self._settling_reports:
+            self._settling_reports -= 1
+            return
+        self._set_behind(behind)
+
+    def _set_behind(self, behind: bool):
+        if behind != self._behind:
+            self._behind = behind
+            self._bus.stream_behind.emit(behind)
 
     def _set_status(self, msg: str, kind: str):
         diagnostics.events.note(f"Status: {msg}")

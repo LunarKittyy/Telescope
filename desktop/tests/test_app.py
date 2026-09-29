@@ -1540,6 +1540,90 @@ def test_a_working_stream_keeps_the_note_on_why_it_fell_back_to_mjpeg(window):
     assert window._banners.issue("h264") is not None
 
 
+def _behind_events(window):
+    events = []
+    window._bus.stream_behind.connect(events.append)
+    return events
+
+
+def test_an_amber_throughput_readout_says_the_stream_is_behind_once_until_it_catches_up(window):
+    events = _behind_events(window)
+    window._on_worker_status("net", "12.0 Mbps")
+    assert events == []  # keeping up from the start: nothing to say
+    window._on_worker_status("net_warn", "40.0 Mbps")
+    window._on_worker_status("net_warn", "41.0 Mbps")  # still behind: said once, so a dismissed note stays gone
+    assert events == [True]
+    assert window._net_lbl.styleSheet() == f"color: {theme.WARN};"
+    window._on_worker_status("net", "12.0 Mbps")
+    assert events == [True, False]
+    assert window._net_lbl.styleSheet() == ""
+
+
+def test_a_stream_that_stops_or_reconnects_is_no_longer_behind(window):
+    events = _behind_events(window)
+    window._on_worker_status("net_warn", "40.0 Mbps")
+    window._stop()
+    assert events == [True, False]
+    window._on_worker_status("net_warn", "40.0 Mbps")
+    window._on_worker_status("ok", "Streaming")  # the virtual camera reopened, e.g. for a new FPS
+    assert events == [True, False, True, False]
+
+
+def test_a_dropped_stream_is_not_called_slow(window, monkeypatch):
+    events = _behind_events(window)
+    window._on_worker_status("net_warn", "40.0 Mbps")
+    _conn, worker, _client, _lost = _dropped_stream(window, monkeypatch, [None])
+    assert events == [True, False]
+    worker.status.emit("net_warn", "0.0 Mbps")  # no frames while it's down
+    assert events == [True, False]
+    worker.reconnected.emit()
+    worker.status.emit("net_warn", "3.0 Mbps")  # this report still counts the time it was down
+    assert events == [True, False]
+    worker.status.emit("net_warn", "40.0 Mbps")  # really behind now
+    assert events == [True, False, True]
+
+
+def test_a_stream_back_from_a_drop_that_keeps_up_says_nothing(window, monkeypatch):
+    events = _behind_events(window)
+    _conn, worker, _client, _lost = _dropped_stream(window, monkeypatch, [None])
+    worker.reconnected.emit()
+    worker.status.emit("net_warn", "3.0 Mbps")
+    worker.status.emit("net", "12.0 Mbps")
+    assert events == []
+
+
+def test_falling_behind_on_heavy_offers_light_and_switching_reconnects(window, monkeypatch):
+    import telescope.plugins.stream_output as so
+    monkeypatch.setattr(so.h264_reader, "available", lambda: True)
+    plugin = so.StreamOutputPlugin()
+    window.register_plugin(plugin)
+    plugin.set_config({"format": "mjpeg"})
+    reconnects = []
+    monkeypatch.setattr(window, "reconnect_stream", lambda: reconnects.append(True))
+
+    window._on_worker_status("net_warn", "40.0 Mbps")
+    banner = window._banners.banner("behind")
+    assert banner.issue.title == "Can't keep up" and banner.issue.text == "Try Light or lower quality."
+    assert [b.text() for b in banner.buttons] == ["Switch to Light"]
+    assert banner.issue.kind == "warn"
+
+    banner.buttons[0].click()
+    assert plugin.stream_format() == "h264" and plugin._fmt_h264.isChecked()
+    assert reconnects == [True]
+    assert window._banners.issue("behind") is None
+
+
+def test_the_can_t_keep_up_note_goes_once_the_stream_keeps_up(window, monkeypatch):
+    import telescope.plugins.stream_output as so
+    monkeypatch.setattr(so.h264_reader, "available", lambda: True)
+    window.register_plugin(so.StreamOutputPlugin())  # Light, the default
+    window._on_worker_status("net_warn", "8.0 Mbps")
+    issue = window._banners.issue("behind")
+    assert issue.text == "Try lower quality." and issue.actions == []  # already on Light
+    window._on_worker_status("net", "8.0 Mbps")
+    assert window._banners.issue("behind") is None
+
+
 def test_waiting_to_start_by_itself_keeps_running_in_the_tray(window, monkeypatch):
     window._tray = object()
     window.set_keep_in_tray(True)
