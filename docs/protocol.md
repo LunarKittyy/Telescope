@@ -67,7 +67,7 @@ Server is on the phone at port 8080 for `/v1/video`, `/v1/video.h264`, `/v1/audi
 }
 ```
 
-`minFocusDistance`, `aeCompMin`/`aeCompMax`/`aeCompStep` are per-lens, reported by Camera2 (`aeCompStep` is typically `0.167` = 1/6 EV). `wb_r`/`wb_ge`/`wb_go`/`wb_b` are the current RGGB channel gains when `wb_manual` is true, `null` otherwise. `supportedSizes` is the lens's actual list of capture sizes, which the desktop uses to populate its resolution dropdown instead of a fixed list. `stream_width`/`stream_height` are the current lens's live capture size. `codecs` lists what the phone can send (`h264` only with a hardware encoder), `codec` is what it's sending, and `bitrate` is the H.264 target in bits per second. `codec_error` appears when H.264 failed and the phone went back to MJPEG. `zoomRatioMax` is how far the lens zooms on the sensor (1 = it can't), `cropZoomMax` how far the crop can go, `freeformCrop` whether the crop can sit off-centre, and `lensZooms` the ratios where a multi-lens camera switches to a longer lens. `active_lens` is the physical lens a multi-lens camera is streaming from right now. Fields at their default value are left out, so read them with a default.
+`minFocusDistance`, `aeCompMin`/`aeCompMax`/`aeCompStep` are per-lens, reported by Camera2 (`aeCompStep` is typically `0.167` = 1/6 EV). `wb_r`/`wb_ge`/`wb_go`/`wb_b` are the current RGGB channel gains when `wb_manual` is true, `null` otherwise. `supportedSizes` is the lens's actual list of capture sizes, which the desktop uses to populate its resolution dropdown instead of a fixed list. `stream_width`/`stream_height` are the current lens's live capture size. `codecs` lists what the phone can send (`h264` only with a hardware encoder), `codec` is what it's sending, and `bitrate` is the H.264 target in bits per second (on Dynamic, where it is right now). `dynamic_bitrate` is true when the phone takes `bitrate` `-1`. `codec_error` appears when H.264 failed and the phone went back to MJPEG. `zoomRatioMax` is how far the lens zooms on the sensor (1 = it can't), `cropZoomMax` how far the crop can go, `freeformCrop` whether the crop can sit off-centre, and `lensZooms` the ratios where a multi-lens camera switches to a longer lens. `active_lens` is the physical lens a multi-lens camera is streaming from right now. Fields at their default value are left out, so read them with a default.
 
 ## `POST /v1/control`
 
@@ -93,8 +93,10 @@ JSON body `{"action": "<action>", ...params}`.
 | `black_level_lock` | `value=1\|0` | Toggle black level lock |
 | `torch` | `value=1\|0` | Toggle flash/torch |
 | `jpeg_quality` | `value=<int 1-100>` | Set JPEG quality on the phone |
-| `bitrate` | `value=<int bits/s>` | Set the H.264 bitrate (clamped to 1-30 Mbps); `0` sizes it from resolution and fps |
+| `bitrate` | `value=<int bits/s>` | Set the H.264 bitrate (clamped to 1-30 Mbps); `0` sizes it from resolution and fps; `-1` is Dynamic (the phone follows the link, see below). A phone without Dynamic treats `-1` as `0` |
 | `fps_target` | `value=<int 1-120>` | Set capture FPS on the phone (desktop UI restricts to 5-60) |
+
+On Dynamic the phone measures its own H.264 sending: every 250 ms, the shortest time a packet waited to go out (a queue that stays, not a keyframe's burst) and how much the socket took. A queue that stays for half a second drops the bitrate to just under what got through; otherwise it climbs, first to just under where the link filled up last time, then more carefully past it. It also keeps the socket's send buffer to about 100 ms of video and skips ahead to the next keyframe when video has waited over a second, so a full link shows up as a queue right away instead of as lag. `DynamicBitrate.kt` has the rules.
 
 All responses: `{"ok": true}` or `{"ok": false, "error": "..."}`.
 

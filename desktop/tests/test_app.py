@@ -1616,12 +1616,18 @@ def test_falling_behind_on_heavy_offers_light_and_switching_reconnects(window, m
 def test_the_can_t_keep_up_note_goes_once_the_stream_keeps_up(window, monkeypatch):
     import telescope.plugins.stream_output as so
     monkeypatch.setattr(so.h264_reader, "available", lambda: True)
-    window.register_plugin(so.StreamOutputPlugin())  # Light, the default
+    plugin = so.StreamOutputPlugin()
+    window.register_plugin(plugin)  # Light, the default
     window._on_worker_status("net_warn", "8.0 Mbps")
-    issue = window._banners.issue("behind")
-    assert issue.text == "Try lower quality." and issue.actions == []  # already on Light
+    banner = window._banners.banner("behind")
+    assert banner.issue.text == "Try Dynamic or lower quality."  # already on Light
+    assert [b.text() for b in banner.buttons] == ["Switch to Dynamic"]
     window._on_worker_status("net", "8.0 Mbps")
     assert window._banners.issue("behind") is None
+
+    window._on_worker_status("net_warn", "8.0 Mbps")
+    window._banners.banner("behind").buttons[0].click()
+    assert plugin.get_config()["bitrate_mbps"] == -1 and window._banners.issue("behind") is None
 
 
 def test_waiting_to_start_by_itself_keeps_running_in_the_tray(window, monkeypatch):

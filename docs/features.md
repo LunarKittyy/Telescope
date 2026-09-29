@@ -46,6 +46,7 @@ In Advanced, from the settings menu.
 - Format: **Light** (H.264, the default) or **Heavy** (MJPEG). Light comes from the phone's hardware encoder and needs a fraction of Heavy's bandwidth, about 8 Mbps at 1080p30, so it keeps up even on slower Wi-Fi. Heavy sends every frame as a full JPEG: sharper in fast motion, but it needs USB or strong Wi-Fi. A phone without an H.264 encoder uses Heavy by itself, and if the encoder fails mid-stream the stream goes back to Heavy and says so. Switching reconnects the stream
 - Heavy: JPEG quality slider (1-95%, with a dot at the recommended 85%; higher barely looks different but sends a lot more data), applied on the phone without restarting the stream
 - Light: bitrate slider, Auto (about 8 Mbps for 1080p30, scaled by size and fps) or 1-30 Mbps, applied live
+- All the way right is Dynamic: the phone sends as much as the connection carries, up to about 2.5 times Auto, and lowers it within a second or two when the connection can't keep up, before the video starts to lag. A short Wi-Fi hiccup doesn't count as a slow connection. It climbs back on its own, quickly at first, then carefully near where it last ran into trouble, so it settles instead of bouncing. Needs a phone app with Dynamic; an older one uses Auto
 
 ## Microphone
 
@@ -58,7 +59,7 @@ Its own card, per phone.
 - About 60 ms of buffering; the phone's and the computer's clocks drift apart, so it drops or pads audio to stay there
 
 ## Monitoring
-- FPS and throughput (Mbps) readouts in the footer while streaming; throughput turns amber if the real decode rate falls behind the target for a sustained stretch. A "Can't keep up" note then suggests Light or lower quality, with a **Switch to Light** button when you're on Heavy, and goes away once the stream keeps up again. A dropped stream doesn't count
+- FPS and throughput (Mbps) readouts in the footer while streaming; throughput turns amber if the real decode rate falls behind the target for a sustained stretch. A "Can't keep up" note then suggests what's left to try, with a **Switch to Light** button on Heavy or a **Switch to Dynamic** button on Light, and goes away once the stream keeps up again. A dropped stream doesn't count
 - A dropped stream shows an animated "Stream dropped - reconnecting..." status instead of a static line, and the desktop keeps looking for the phone on every route: pull the cable and it carries on over Wi-Fi, plug it back in and it can use USB again. If the phone answers but stopped streaming, the desktop stops too and offers **Start**. If it answers but won't take this computer back (unpaired, Local only, or a version mismatch), the desktop stops and shows the same banner a failed Start would
 - The phone's status reads "Waiting for the computer" while its camera is on but no computer is taking the video
 - Battery level and phone temperature polled every 15 seconds, shown in the Monitoring panel with color coding

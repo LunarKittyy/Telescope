@@ -741,19 +741,80 @@ def test_falling_behind_on_heavy_suggests_light_with_a_button(stream_output, mon
 
 
 @pytest.mark.parametrize("fmt,decodable,codecs", [
-    ("h264", True, ["mjpeg", "h264"]),   # already on Light
+    ("h264", True, ["mjpeg", "h264"]),   # already on Light, and this phone can't do Dynamic
     ("mjpeg", False, ["mjpeg", "h264"]),  # no PyAV here
     ("mjpeg", True, ["mjpeg"]),           # the phone has no encoder
 ])
 def test_falling_behind_without_light_to_offer_has_no_button(stream_output, monkeypatch, fmt, decodable, codecs):
     plugin, host = _stream_output_with(stream_output, monkeypatch, decodable=decodable)
     plugin.set_config({"format": fmt})
-    plugin.on_phone_state({"cameras": [], "codecs": codecs})
+    plugin.on_phone_state({"cameras": [], "codecs": codecs})  # an older phone: no dynamic_bitrate
     reconnects = host.reconnects
     plugin._bus.stream_behind.emit(True)
     issue = host.issues["behind"]
     assert issue.text == "Try lower quality." and issue.actions == []
     assert host.reconnects == reconnects
+
+
+def test_falling_behind_on_light_offers_dynamic(stream_output, monkeypatch):
+    plugin, host = _stream_output_with(stream_output, monkeypatch)
+    plugin._ctrl = _Ctrl()
+    plugin.on_phone_state({"cameras": [], "codecs": ["mjpeg", "h264"], "dynamic_bitrate": True})
+    plugin._bus.stream_behind.emit(True)
+    issue = host.issues["behind"]
+    assert issue.text == "Try Dynamic or lower quality." and [a.label for a in issue.actions] == ["Switch to Dynamic"]
+
+    issue.actions[0].callback()
+    assert plugin._ctrl.sent[-1] == {"action": "bitrate", "value": -1}
+    assert plugin._bitrate_val_lbl.text() == "Dynamic" and plugin.get_config()["bitrate_mbps"] == -1
+    assert host.reconnects == 0  # Dynamic changes nothing about the route
+
+    plugin._bus.stream_behind.emit(False)
+    plugin._bus.stream_behind.emit(True)  # behind even on Dynamic: what's left is size and frame rate
+    issue = host.issues["behind"]
+    assert issue.text == "Try a lower resolution or FPS." and issue.actions == []
+
+
+def test_dynamic_is_the_bitrate_slider_all_the_way_right(stream_output, monkeypatch):
+    plugin, host = _stream_output_with(stream_output, monkeypatch)
+    plugin._ctrl = _Ctrl()
+    plugin._bitrate_slider.setValue(plugin._bitrate_slider.maximum())
+    assert plugin._ctrl.sent[-1] == {"action": "bitrate", "value": -1}
+    assert plugin._bitrate_val_lbl.text() == "Dynamic"
+    plugin._bitrate_slider.setValue(30)
+    assert plugin._ctrl.sent[-1] == {"action": "bitrate", "value": 30_000_000}
+    assert plugin._bitrate_val_lbl.text() == "30 Mbps"
+    # Saved as -1, which an older desktop reads as Auto; loads back as Dynamic.
+    plugin._bitrate_slider.setValue(plugin._bitrate_slider.maximum())
+    assert plugin.get_config()["bitrate_mbps"] == -1
+    plugin.set_config({"bitrate_mbps": 0})
+    assert plugin._bitrate_val_lbl.text() == "Auto"
+    plugin.set_config({"bitrate_mbps": -1})
+    assert plugin._bitrate_val_lbl.text() == "Dynamic" and plugin._bitrate_bps() == -1
+    plugin.set_config({"bitrate_mbps": 99})  # out of range: the top fixed rate, not Dynamic
+    assert plugin._bitrate_val_lbl.text() == "30 Mbps"
+    plugin._push_initial_settings()
+    assert {"action": "bitrate", "value": 30_000_000} in plugin._ctrl.sent
+
+
+def test_a_phone_too_old_for_dynamic_says_so(stream_output, monkeypatch):
+    plugin, _host = _stream_output_with(stream_output, monkeypatch)
+    plugin.set_config({"bitrate_mbps": -1})
+    assert "too old" not in plugin._bitrate_slider.toolTip()  # not known yet
+    plugin.on_phone_state({"cameras": [], "codecs": ["mjpeg", "h264"]})
+    assert "too old for Dynamic" in plugin._bitrate_slider.toolTip()
+    assert plugin.diagnostics()["Bitrate"] == "Dynamic (phone uses Auto)"
+    plugin.on_phone_state({"cameras": [], "codecs": ["mjpeg", "h264"], "dynamic_bitrate": True})
+    assert "too old" not in plugin._bitrate_slider.toolTip()
+    assert plugin.diagnostics()["Bitrate"] == "Dynamic"
+    plugin._on_device_changed("another")
+    assert "too old" not in plugin._bitrate_slider.toolTip()
+
+
+def test_dynamic_is_no_wider_than_the_readouts_already_there(stream_output):
+    plugin, _host, _panel = stream_output
+    metrics = plugin._bitrate_val_lbl.fontMetrics()
+    assert metrics.horizontalAdvance("Dynamic") <= metrics.horizontalAdvance("30 Mbps") * 1.1
 
 
 def test_bitrate_is_sent_in_bits_per_second(stream_output, monkeypatch):
