@@ -37,6 +37,11 @@ _WIDTH_TWO_COL   = 900
 _RAIL_WIDTH       = 412
 _RAIL_WIDTH_SOLO  = 440  # two-column mode: the one rail holding every card
 _RECOVER_RETRY_MS = 3000  # a dropped stream: how often to look for a route back to the phone
+# Frames arriving at 90% of what the phone's camera makes means the link keeps up with the camera; how long the camera's
+# rate is trusted before asking again.
+_CAMERA_LIMITED_SHARE = 0.9
+_CAMERA_FPS_KEEP_S = 10.0
+_CAMERA_LIMITED_TIP = "The phone's camera is making fewer frames than asked for. Dim light slows it down."
 
 
 # ── Single-instance enforcement ───────────────────────────────────────────────
@@ -99,6 +104,7 @@ class TelescopeWindow(QMainWindow):
     _sig_wake_done = pyqtSignal(int, bool, str, str, object)  # wake_id, ok, reason, url, PhoneAuth
     _sig_wake_progress = pyqtSignal(int, str)  # wake_id, status text
     _sig_recovery_probed = pyqtSignal(int, int, object)  # session id, recovery generation, Resolution
+    _sig_camera_rate = pyqtSignal(int, float, float)  # session id, frames arriving per second, the phone's camera rate
 
     def __init__(self):
         super().__init__()
@@ -140,6 +146,13 @@ class TelescopeWindow(QMainWindow):
         # Whether the stream is falling behind (bus.stream_behind), and throughput reports to skip before judging it.
         self._behind = False
         self._settling_reports = 0
+        # Frames coming in under the rate asked for: the link, or a camera making fewer (dim light slows it down)?
+        # The phone's answer holds for a while, so it isn't asked every report.
+        self._arrival_slow = False
+        self._camera_check_busy = False
+        self._camera_fps: Optional[float] = None  # 0: not known
+        self._camera_fps_until = 0.0
+        self._state_poll_busy = False  # one recovery state poll at a time: an unreachable phone takes 4 s to time out
         self._recovery_timer = QTimer(self)
         self._recovery_timer.setSingleShot(True)
         self._recovery_timer.timeout.connect(self._probe_recovery)
@@ -163,6 +176,7 @@ class TelescopeWindow(QMainWindow):
         self._sig_wake_done.connect(self._on_wake_done)
         self._sig_wake_progress.connect(self._on_wake_progress)
         self._sig_recovery_probed.connect(self._on_recovery_probed)
+        self._sig_camera_rate.connect(self._on_camera_rate)
 
     @property
     def _worker(self) -> Optional[StreamWorker]:
@@ -765,6 +779,9 @@ class TelescopeWindow(QMainWindow):
         self._net_lbl.setText("—")
         self._set_status("Not streaming", "dim")
         self._settling_reports = 0
+        self._arrival_slow = False
+        self._camera_fps = None
+        self._fps_lbl.setToolTip("")
         self._set_behind(False)
 
         self._bus.stream_stopped.emit()
@@ -782,13 +799,28 @@ class TelescopeWindow(QMainWindow):
         self._recovery_route = None
         self._set_behind(False)
         self._bus.stream_lost.emit()
-        # The phone may have dropped the stream on purpose (H.264 it can't do at this size): its state says why.
-        self._spawn_state_fetch(self._session.id)
         self._probe_recovery()
 
     def _spawn_state_fetch(self, session_id: int):
         """Split out so tests can leave the thread out."""
-        threading.Thread(target=self._fetch_state_async, args=(session_id, False), daemon=True).start()
+        if self._state_poll_busy:
+            return
+        self._state_poll_busy = True
+        threading.Thread(target=self._poll_codec_state, args=(session_id,), daemon=True).start()
+
+    def _poll_codec_state(self, session_id: int):
+        """The phone's state, if it says why the stream stopped; the rest can wait for the stream to be back."""
+        try:
+            session = self._session  # one read: _stop() can clear it between checks on the GUI thread
+            if session is None or session.id != session_id:
+                return
+            state = session.client.get_state()
+            if state and state.get("codec_error"):
+                self._sig_state.emit(session_id, state)
+        except RuntimeError:
+            pass  # the window is gone
+        finally:
+            self._state_poll_busy = False
 
     def _end_recovery(self):
         self._recovering = False
@@ -799,6 +831,9 @@ class TelescopeWindow(QMainWindow):
         session, conn = self._session, self._plugin("connection")
         if session is None or conn is None or not self._recovering:
             return
+        # The phone may have dropped the stream on purpose (H.264 it can't do at this size): its state says why. The
+        # camera can take seconds to give up after the stream stops, so ask every round, not just once.
+        self._spawn_state_fetch(session.id)
         gen, job = self._recovery_gen, conn.recovery_probe()
         self._spawn_recovery_probe(session.id, gen, job)
 
@@ -1131,13 +1166,13 @@ class TelescopeWindow(QMainWindow):
                 except ValueError:
                     pass
         elif kind == "net":
-            self._net_lbl.setStyleSheet("")
+            self._arrival_slow = False
             self._net_lbl.setText(msg)
-            self._note_throughput(behind=False)
+            self._show_slow(False)
         elif kind == "net_warn":
-            self._net_lbl.setStyleSheet(f"color: {theme.WARN};")
+            self._arrival_slow = True
             self._net_lbl.setText(msg)
-            self._note_throughput(behind=True)
+            self._on_slow_arrival()
         elif kind == "ok":
             self._set_status(msg, "ok")
             self._set_behind(False)  # its banner goes with the rest below; a stream still behind says so again
@@ -1167,6 +1202,51 @@ class TelescopeWindow(QMainWindow):
                                                [BannerAction("Start", self.start_stream)], kind="warn"))
         else:
             self._set_status(msg, "dim")
+
+    def _on_slow_arrival(self):
+        """Frames arrive under the rate asked for. If the phone's camera makes about that many, it's not the link."""
+        session = self._session
+        arrival = getattr(session.worker, "last_arrival_fps", None) if session else None
+        if self._recovering or self._settling_reports or not arrival:
+            self._show_slow(True)  # nothing to ask, or nothing to say yet: as before
+        elif self._camera_fps is not None and time.monotonic() < self._camera_fps_until:
+            self._show_slow(True, camera_limited=self._camera_limits(arrival))
+        elif not self._camera_check_busy:
+            # The readout and any note wait for the answer, a moment on a working link.
+            self._camera_check_busy = True
+            self._spawn_camera_check(session.id, arrival)
+
+    def _spawn_camera_check(self, session_id: int, arrival: float):
+        """Split out so tests can run it synchronously."""
+        threading.Thread(target=self._check_camera_rate, args=(session_id, arrival), daemon=True).start()
+
+    def _check_camera_rate(self, session_id: int, arrival: float):
+        session = self._session
+        state = session.client.get_state() if session is not None and session.id == session_id else None
+        rate = state.get("camera_fps") if state else None
+        try:
+            self._sig_camera_rate.emit(session_id, arrival, float(rate) if isinstance(rate, (int, float)) else 0.0)
+        except RuntimeError:
+            pass  # the window is gone
+
+    def _on_camera_rate(self, session_id: int, arrival: float, camera_fps: float):
+        self._camera_check_busy = False
+        if self._session is None or self._session.id != session_id:
+            return
+        self._camera_fps = camera_fps
+        self._camera_fps_until = time.monotonic() + _CAMERA_FPS_KEEP_S
+        if self._arrival_slow:
+            self._show_slow(True, camera_limited=self._camera_limits(arrival))
+
+    def _camera_limits(self, arrival: float) -> bool:
+        # 0: a phone too old to say, or no answer: the link, as before
+        return bool(self._camera_fps) and arrival >= self._camera_fps * _CAMERA_LIMITED_SHARE
+
+    def _show_slow(self, slow: bool, camera_limited: bool = False):
+        behind = slow and not camera_limited
+        self._net_lbl.setStyleSheet(f"color: {theme.WARN};" if behind else "")
+        self._fps_lbl.setToolTip(_CAMERA_LIMITED_TIP if slow and camera_limited else "")
+        self._note_throughput(behind)
 
     def _note_throughput(self, behind: bool):
         """A dropped stream isn't slow, and the first report after it's back still counts the gap, so neither says."""
