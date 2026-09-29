@@ -24,7 +24,7 @@ This is a debug build - self-signed, for personal/development use.
 
 Both apps share one version, the `VERSION` file at the repo root. The build number is the commit count on `master`, so it only grows; it's the Android `versionCode` and what the update check compares. A build is stable (`3.0.0`), nightly (`3.0.0-nightly.123`) or a source checkout (`3.0.0 dev`). The version shows at the bottom of the Advanced dialog on the desktop and under Copy diagnostics on the phone, and both apps' Copy diagnostics include it.
 
-### `release.yml` - every push to `master`, and every `v*` tag
+### `release.yml` - every push to `master` that changes more than docs, and every `v*` tag
 
 Builds everything from one commit, then publishes it together:
 
@@ -35,29 +35,28 @@ Each release holds `Telescope.apk`, `Telescope-windows.zip`, `Telescope-linux.ta
 
 The APK is signed with the release key from the repository secrets `TELESCOPE_KEYSTORE` (the keystore, base64), `TELESCOPE_KEYSTORE_PASSWORD`, `TELESCOPE_KEY_ALIAS` and `TELESCOPE_KEY_PASSWORD`. A release fails rather than publish an APK signed with a debug key, because Android only installs an update signed with the same key as the installed app.
 
-The three build workflows below also run on pull requests, without publishing.
+The three build workflows below also run on pull requests, without publishing. A new push to a pull request cancels its checks that are still running.
 
-### `build-apk.yml` - pull requests touching `android/**` or `VERSION`
+### `build-apk.yml` - pull requests touching `android/**`, `VERSION` or the workflow itself
 
-1. JDK 21 (Temurin) + Gradle cache
+1. JDK 21 (Temurin) + Gradle cache (dependencies and build outputs, written only by `master` runs)
 2. Android SDK (android-34, build-tools;34.0.0)
 3. `./gradlew lintDebug testDebugUnitTest`, then `./gradlew assembleRelease -PbuildNumber=N -Pchannel=nightly|stable` (debug-signed on pull requests)
 4. In a release: checks the APK isn't debug-signed
 
-### `build-windows.yml` - pull requests touching `desktop/**` or `VERSION`
+### `build-windows.yml` - pull requests touching `desktop/**`, `VERSION` or the workflow itself
 
 1. Python 3.11 + pip cache
-2. `pip install -r requirements-dev.txt -c constraints.txt`; runs `pytest`
-3. `pip install -r requirements.txt pyinstaller -c constraints.txt`
-4. In a release: `scripts/write_build_info.py` stamps the version into `telescope/_build.py`
-5. `python scripts/smoke_check.py` - packaging smoke checks (see below)
-6. Registers UnityCapture on the runner and checks it's listed as **Telescope** and pyvirtualcam opens it
-7. `pyinstaller telescope.spec` - a folder build: `TelescopeDesktop.exe` next to `lib-<build>/`
-8. Assembles the bundle: the app folder + `THIRD_PARTY_NOTICES.txt` + `platform-tools/` + `unitycapture/`, and checks nothing is missing, including the Qt plugins it can't start or draw without
+2. `pip install -r requirements-dev.txt pyinstaller -c constraints.txt`; runs `pytest`
+3. In a release: `scripts/write_build_info.py` stamps the version into `telescope/_build.py`
+4. `python scripts/smoke_check.py` - packaging smoke checks (see below)
+5. Registers UnityCapture on the runner and checks it's listed as **Telescope** and pyvirtualcam opens it
+6. `pyinstaller telescope.spec` - a folder build: `TelescopeDesktop.exe` next to `lib-<build>/`
+7. Assembles the bundle: the app folder + `THIRD_PARTY_NOTICES.txt` + `platform-tools/` + `unitycapture/`, and checks nothing is missing, including the Qt plugins it can't start or draw without
 
 `telescope.spec` takes Qt through PyInstaller's own hooks (only the modules Telescope imports) and skips UPX.
 
-### `build-linux.yml` - pull requests touching `desktop/**` or `VERSION`
+### `build-linux.yml` - pull requests touching `desktop/**`, `VERSION` or the workflow itself
 
 1. Python 3.11 + pip cache; apt-installs `libegl1 libgl1 libxkbcommon0 libdbus-1-3` (PyQt6 needs these even in headless/offscreen test mode); installs `requirements-dev.txt` via `constraints.txt`; runs `pytest`
 2. In a release: stamps the version

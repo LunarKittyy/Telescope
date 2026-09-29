@@ -3,7 +3,7 @@ name: Build APK
 # Checks pull requests; release.yml calls it with a build number and channel to make the signed APK.
 on:
   pull_request:
-    paths: [android/**, VERSION]
+    paths: [android/**, VERSION, .github/workflows/build-apk.yml]
   workflow_dispatch:
   workflow_call:
     inputs:
@@ -20,6 +20,10 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # A new push to a pull request cancels the check still running for the old one.
+    concurrency:
+      group: apk-${{ github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -28,7 +32,10 @@ jobs:
         with:
           java-version: '21'
           distribution: temurin
-          cache: gradle
+
+      # Caches dependencies and the build cache; only master runs write it, pull requests read it.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
@@ -48,7 +55,7 @@ jobs:
 
       - name: Lint and unit test
         working-directory: android
-        run: ./gradlew lintDebug testDebugUnitTest --no-daemon
+        run: ./gradlew lintDebug testDebugUnitTest
 
       # Release runs only: every published APK carries the same signature, so each one installs as
       # an update over the last. A missing secret fails the release instead of shipping a debug key.
@@ -71,7 +78,7 @@ jobs:
           TELESCOPE_KEY_ALIAS: ${{ secrets.TELESCOPE_KEY_ALIAS }}
           TELESCOPE_KEY_PASSWORD: ${{ secrets.TELESCOPE_KEY_PASSWORD }}
         run: >-
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew assembleRelease
           -PbuildNumber=${{ inputs.build || '1' }}
           -Pchannel=${{ inputs.channel || 'dev' }}
 

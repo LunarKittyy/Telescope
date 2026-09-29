@@ -8,6 +8,12 @@ on:
   push:
     branches: [master]
     tags: ['v*']
+    # A merge that only changes docs doesn't rebuild the nightly. Tag pushes ignore this filter.
+    paths:
+      - '**'
+      - '!docs/**'
+      - '!**.md'
+      - .github/NIGHTLY_NOTES.md
   workflow_dispatch:
 
 concurrency:

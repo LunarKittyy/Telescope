@@ -3,7 +3,7 @@ name: Build Windows EXE
 # Checks pull requests; release.yml calls it with a build number and channel to make the release bundle.
 on:
   pull_request:
-    paths: [desktop/**, VERSION]
+    paths: [desktop/**, VERSION, .github/workflows/build-windows.yml]
   workflow_dispatch:
   workflow_call:
     inputs:
@@ -20,6 +20,10 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    # A new push to a pull request cancels the check still running for the old one.
+    concurrency:
+      group: windows-${{ github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -29,17 +33,13 @@ jobs:
           python-version: '3.11'
           cache: pip
 
-      - name: Install test dependencies
+      - name: Install dependencies and PyInstaller
         working-directory: desktop
-        run: pip install -r requirements-dev.txt -c constraints.txt
+        run: pip install -r requirements-dev.txt pyinstaller -c constraints.txt
 
       - name: Run tests
         working-directory: desktop
         run: python -m pytest -q
-
-      - name: Install runtime deps + PyInstaller
-        working-directory: desktop
-        run: pip install -r requirements.txt pyinstaller -c constraints.txt
 
       - name: Stamp the version
         if: inputs.channel
