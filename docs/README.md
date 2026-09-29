@@ -2,6 +2,11 @@
 
 New to Telescope? Start with the [Quick Start](../README.md#quick-start). It's all most people need.
 
+## Getting help
+
+- Questions go in [Q&A](https://github.com/LunarKittyy/Telescope/discussions/categories/q-a), and ideas in [Ideas](https://github.com/LunarKittyy/Telescope/discussions/categories/ideas)
+- Bugs and crashes go in [Issues](https://github.com/LunarKittyy/Telescope/issues), with your **Copy diagnostics** report
+
 ## Using Telescope
 
 - [Features](features.md): everything the apps can do, from camera controls and zoom to the microphone, automatic streaming and updates
