@@ -530,7 +530,7 @@ def ns_to_display(ns: int) -> str:
 
 
 def quality_label(q: int) -> str:
-    if q >= 95: return f"{q}%: High"
+    if q >= 91: return f"{q}%: High"
     if q >= 80: return f"{q}%: Balanced"
     if q >= 60: return f"{q}%: Low"
     return f"{q}%: Very low"

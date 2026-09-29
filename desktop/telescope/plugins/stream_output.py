@@ -13,15 +13,26 @@ from telescope.widgets.banner import Issue
 from telescope.widgets.common import (
     NoScrollComboBox, NoScrollSlider, NoScrollSpinBox, SegmentButton, add_card_header,
     add_section_heading, control_row as _row, control_row_widget, card_layout, create_card,
-    quality_label, segmented_row, slider_row, value_label,
+    quality_label, segmented_row, slider_row, value_label, wrapped_note,
 )
 
-_DEFAULT_QUALITY = 85
+_DEFAULT_QUALITY = 85  # the recommended spot, marked on the slider
+_MAX_QUALITY     = 95  # past about 92 a JPEG roughly doubles in size for no difference anyone sees
 _DEFAULT_FPS     = 30
 _MAX_BITRATE_MBPS = 30  # the phone clamps to the same range; 0 lets it size the bitrate itself
 
 FORMAT_MJPEG = "mjpeg"
 FORMAT_H264  = "h264"
+
+# Shown as Light and Heavy: the codec names say nothing about the choice people actually make, which is how much data.
+_FORMAT_NOTES = {
+    FORMAT_H264:  "Fine for most calls. Works on any network.",
+    FORMAT_MJPEG: "Sharper in fast motion. Needs USB or strong Wi-Fi.",
+}
+_LIGHT_TIP = ("H.264. About 8 Mbps at 1080p 30 fps. Looks the same as Heavy unless there's fast motion, "
+              "and keeps up over Wi-Fi, Tailscale or mobile data.")
+_HEAVY_TIP = ("MJPEG. Every frame is a full picture, so it sends several times as much data as Light. "
+              "Sharpest in fast motion, but lags on anything slower than USB or strong Wi-Fi.")
 
 # "1080p" etc. names a height, not one exact WxH - matching by height catches every ratio's version.
 _COMMON_HEIGHTS = {2160, 1440, 1080, 720, 480, 360}  # 4K, 1440p, 1080p, 720p, 480p, 360p
@@ -96,7 +107,7 @@ class StreamOutputPlugin(TelescopePlugin):
         self._had_saved_resolution = False  # True if this device has ever had a resolution saved.
         # Last resolution this device used; survives stream stop, which clears the combos.
         self._saved_resolution_text = None
-        self._format = FORMAT_MJPEG
+        self._format = FORMAT_H264
         self._phone_codecs: tuple = ()  # what the phone reported; () until it has
         # Lens switch doesn't trigger fresh /v1/state fetch; use cached capabilities dict.
         bus.camera_switched.connect(self._on_camera_switched)
@@ -138,7 +149,8 @@ class StreamOutputPlugin(TelescopePlugin):
         # ── JPEG Quality ──────────────────────────────────────────────────────
         add_section_heading(lay, "Phone stream")
         self._quality_slider = NoScrollSlider(Qt.Orientation.Horizontal)
-        self._quality_slider.setRange(1, 100)
+        self._quality_slider.setRange(1, _MAX_QUALITY)
+        self._quality_slider.set_snaps([_DEFAULT_QUALITY])
         self._quality_slider.setValue(_DEFAULT_QUALITY)
         self._quality_slider.set_default(_DEFAULT_QUALITY)
         self._quality_val_lbl = value_label()
@@ -160,16 +172,19 @@ class StreamOutputPlugin(TelescopePlugin):
             "Bitrate", slider_row(self._bitrate_slider, self._bitrate_val_lbl), stretch=True)
         lay.addWidget(self._bitrate_row)
 
-        self._fmt_mjpeg = SegmentButton("MJPEG")
-        self._fmt_h264 = SegmentButton("H.264")
+        self._fmt_h264 = SegmentButton("Light")
+        self._fmt_mjpeg = SegmentButton("Heavy")
+        self._fmt_mjpeg.setToolTip(_HEAVY_TIP)
         self._fmt_grp = QButtonGroup(card)
         self._fmt_grp.setExclusive(True)
-        for btn in (self._fmt_mjpeg, self._fmt_h264):
+        for btn in (self._fmt_h264, self._fmt_mjpeg):
             self._fmt_grp.addButton(btn)
-        self._fmt_mjpeg.setChecked(True)
+        self._fmt_h264.setChecked(True)
         self._fmt_grp.buttonClicked.connect(self._on_format_clicked)
-        lay.insertLayout(lay.indexOf(self._quality_row),
-                         _row("Format", segmented_row(self._fmt_mjpeg, self._fmt_h264), stretch=True))
+        self._fmt_note = wrapped_note("")
+        at = lay.indexOf(self._quality_row)
+        lay.insertLayout(at, _row("Format", segmented_row(self._fmt_h264, self._fmt_mjpeg), stretch=True))
+        lay.insertLayout(at + 1, _row("", self._fmt_note, stretch=True))
         self._show_format()
 
         return card
@@ -203,11 +218,15 @@ class StreamOutputPlugin(TelescopePlugin):
             self._ctrl.send(action="fps_target",   value=self._fps_spin.value())
 
     def on_phone_state(self, state: dict):
-        codecs = tuple(state.get("codecs") or (FORMAT_MJPEG,))
-        if codecs != self._phone_codecs:
+        # {} means the state fetch failed, not a phone without H.264 (a phone leaves codecs out when it's only MJPEG)
+        codecs = tuple(state.get("codecs") or (FORMAT_MJPEG,)) if "cameras" in state else self._phone_codecs
+        if codecs and codecs != self._phone_codecs:
             self._phone_codecs = codecs
             self._show_format()
-        if self._format == FORMAT_H264 and state.get("codec_error"):
+        if self._format == FORMAT_H264 and codecs and FORMAT_H264 not in codecs:
+            # Light is the default, and a phone without an encoder sends nothing on its route: Heavy for this phone.
+            self._set_format(FORMAT_MJPEG)
+        elif self._format == FORMAT_H264 and state.get("codec_error"):
             # The phone went back to MJPEG; so does the stream, or it would keep asking for H.264.
             self._host.show_issue("h264", Issue("Back to MJPEG", f"{state['codec_error']}.", kind="warn"))
             self._set_format(FORMAT_MJPEG)
@@ -366,24 +385,24 @@ class StreamOutputPlugin(TelescopePlugin):
         self._show_format()
 
     def _h264_offered(self) -> bool:
-        return h264_reader.available() and FORMAT_H264 in self._phone_codecs
+        """Until the phone has reported, assume it can: nearly every phone has an encoder, and one without falls back."""
+        return h264_reader.available() and (not self._phone_codecs or FORMAT_H264 in self._phone_codecs)
 
     def _show_format(self):
-        h264 = self._format == FORMAT_H264
+        h264 = self.stream_format() == FORMAT_H264
         for btn, on in ((self._fmt_mjpeg, not h264), (self._fmt_h264, h264)):
             btn.blockSignals(True)
             btn.setChecked(on)
             btn.blockSignals(False)
-        self._fmt_h264.setEnabled(h264 or self._h264_offered())
+        self._fmt_h264.setEnabled(self._h264_offered())
         if not h264_reader.available():
-            tip = "Needs PyAV on this computer (pip install av)."
-        elif not self._phone_codecs:
-            tip = "Start streaming to see whether the phone can send H.264."
-        elif FORMAT_H264 not in self._phone_codecs:
-            tip = "This phone has no H.264 encoder."
+            tip = "H.264. Needs PyAV on this computer (pip install av)."
+        elif self._phone_codecs and FORMAT_H264 not in self._phone_codecs:
+            tip = "H.264. This phone has no H.264 encoder."
         else:
-            tip = "Less bandwidth than MJPEG at the same quality. The phone's hardware encoder does the work."
+            tip = _LIGHT_TIP
         self._fmt_h264.setToolTip(tip)
+        self._fmt_note.setText(_FORMAT_NOTES[FORMAT_H264 if h264 else FORMAT_MJPEG])
         self._quality_row.setVisible(not h264)
         self._bitrate_row.setVisible(h264)
 
@@ -418,8 +437,9 @@ class StreamOutputPlugin(TelescopePlugin):
 
     def _show_quality(self, q: int):
         self._quality_val_lbl.setText(f"{q}%")
-        tip = (f"{quality_label(q)}. Lower quality and FPS reduce bandwidth, which helps on slow "
-               "Wi-Fi or USB 2. Very low values are a last resort: the image gets blocky fast.")
+        tip = (f"{quality_label(q)}. {_DEFAULT_QUALITY}% (the dot) is recommended: higher sends a lot more data "
+               "for a difference you barely see, and can make the stream lag. Lower quality or FPS helps on "
+               "slow Wi-Fi. Very low values are a last resort: the image gets blocky fast.")
         self._quality_slider.setToolTip(tip)
         self._quality_val_lbl.setToolTip(tip)
 
@@ -456,6 +476,9 @@ class StreamOutputPlugin(TelescopePlugin):
         """Load a preset's settings and, while streaming, send them."""
         old_format = self.stream_format()
         self.set_config(cfg)
+        if self._phone_codecs and FORMAT_H264 not in self._phone_codecs:
+            self._format = FORMAT_MJPEG  # a preset without a format can't ask this phone for Light
+            self._show_format()
         if not self._ctrl:
             return
         if self.stream_format() != old_format:
@@ -480,7 +503,7 @@ class StreamOutputPlugin(TelescopePlugin):
             self._fps_spin.setValue(int(fps))
         if q := cfg.get("jpeg_quality"):
             self._quality_slider.setValue(int(q))
-        self._format = FORMAT_H264 if cfg.get("format") == FORMAT_H264 else FORMAT_MJPEG
+        self._format = FORMAT_MJPEG if cfg.get("format") == FORMAT_MJPEG else FORMAT_H264
         self._bitrate_slider.blockSignals(True)
         self._bitrate_slider.setValue(max(0, min(_MAX_BITRATE_MBPS, int(cfg.get("bitrate_mbps", 0) or 0))))
         self._bitrate_slider.blockSignals(False)

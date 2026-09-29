@@ -46,7 +46,7 @@ def test_ns_to_display(value, expected):
 
 @pytest.mark.parametrize(
     "quality,suffix",
-    [(100, "High"), (95, "High"), (94, "Balanced"), (80, "Balanced"),
+    [(95, "High"), (91, "High"), (90, "Balanced"), (80, "Balanced"),
      (79, "Low"), (60, "Low"), (59, "Very low")],
 )
 def test_quality_label_boundaries(quality, suffix):

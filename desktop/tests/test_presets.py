@@ -32,6 +32,9 @@ class _Host:
     def update_stream_output(self, fps=None, **_kw):
         self.fps.append(fps)
 
+    def reconnect_stream(self):
+        pass
+
 
 class _Ctrl:
     def __init__(self):

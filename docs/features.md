@@ -43,9 +43,9 @@ In Advanced, from the settings menu.
 - One FPS spinner (5-60) drives both the phone's capture rate and the virtual camera's playback rate - there's no separate "phone" and "playback" rate to keep in sync
 
 ## Bandwidth controls
-- Format: MJPEG (default) or H.264. H.264 comes from the phone's hardware encoder and needs a fraction of MJPEG's bandwidth at the same quality. It's offered once the phone reports an encoder, and switching reconnects the stream. If the encoder fails, the stream goes back to MJPEG and says so
-- MJPEG: JPEG quality slider (1-100%), applied on the phone without restarting the stream
-- H.264: bitrate slider, Auto (about 8 Mbps for 1080p30, scaled by size and fps) or 1-30 Mbps, applied live
+- Format: **Light** (H.264, the default) or **Heavy** (MJPEG). Light comes from the phone's hardware encoder and needs a fraction of Heavy's bandwidth, about 8 Mbps at 1080p30, so it keeps up over Wi-Fi, Tailscale or mobile data. Heavy sends every frame as a full JPEG: sharper in fast motion, but it needs USB or strong Wi-Fi. A phone without an H.264 encoder uses Heavy by itself, and if the encoder fails mid-stream the stream goes back to Heavy and says so. Switching reconnects the stream
+- Heavy: JPEG quality slider (1-95%, with a dot at the recommended 85%; higher barely looks different but sends a lot more data), applied on the phone without restarting the stream
+- Light: bitrate slider, Auto (about 8 Mbps for 1080p30, scaled by size and fps) or 1-30 Mbps, applied live
 
 ## Microphone
 
