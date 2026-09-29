@@ -228,7 +228,8 @@ class StreamOutputPlugin(TelescopePlugin):
             self._set_format(FORMAT_MJPEG)
         elif self._format == FORMAT_H264 and state.get("codec_error"):
             # The phone went back to MJPEG; so does the stream, or it would keep asking for H.264.
-            self._host.show_issue("h264", Issue("Back to MJPEG", f"{state['codec_error']}.", kind="warn"))
+            self._host.show_issue("h264", Issue(
+                "Switched to Heavy", f"{state['codec_error']}. You can try Light again in Stream output.", kind="warn"))
             self._set_format(FORMAT_MJPEG)
         cams = state.get("cameras")
         if not isinstance(cams, list):

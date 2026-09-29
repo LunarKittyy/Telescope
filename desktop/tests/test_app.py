@@ -1535,7 +1535,7 @@ def test_a_start_problem_banner_clears_on_the_next_start_and_on_a_working_stream
 
 def test_a_working_stream_keeps_the_note_on_why_it_fell_back_to_mjpeg(window):
     from telescope.widgets.banner import Issue
-    window.show_issue("h264", Issue("Back to MJPEG", "The phone's H.264 encoder stopped."))
+    window.show_issue("h264", Issue("Switched to Heavy", "The phone's H.264 encoder stopped."))
     window._on_worker_status("ok", "Streaming")
     assert window._banners.issue("h264") is not None
 
