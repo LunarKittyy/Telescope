@@ -16,7 +16,8 @@ from telescope.widgets.common import (
     quality_label, segmented_row, slider_row, value_label, wrapped_note,
 )
 
-_DEFAULT_QUALITY = 85
+_DEFAULT_QUALITY = 85  # the recommended spot, marked on the slider
+_MAX_QUALITY     = 95  # past about 92 a JPEG roughly doubles in size for no difference anyone sees
 _DEFAULT_FPS     = 30
 _MAX_BITRATE_MBPS = 30  # the phone clamps to the same range; 0 lets it size the bitrate itself
 
@@ -148,7 +149,8 @@ class StreamOutputPlugin(TelescopePlugin):
         # ── JPEG Quality ──────────────────────────────────────────────────────
         add_section_heading(lay, "Phone stream")
         self._quality_slider = NoScrollSlider(Qt.Orientation.Horizontal)
-        self._quality_slider.setRange(1, 100)
+        self._quality_slider.setRange(1, _MAX_QUALITY)
+        self._quality_slider.set_snaps([_DEFAULT_QUALITY])
         self._quality_slider.setValue(_DEFAULT_QUALITY)
         self._quality_slider.set_default(_DEFAULT_QUALITY)
         self._quality_val_lbl = value_label()
@@ -435,8 +437,9 @@ class StreamOutputPlugin(TelescopePlugin):
 
     def _show_quality(self, q: int):
         self._quality_val_lbl.setText(f"{q}%")
-        tip = (f"{quality_label(q)}. Lower quality and FPS reduce bandwidth, which helps on slow "
-               "Wi-Fi or USB 2. Very low values are a last resort: the image gets blocky fast.")
+        tip = (f"{quality_label(q)}. {_DEFAULT_QUALITY}% (the dot) is recommended: higher sends a lot more data "
+               "for a difference you barely see, and can make the stream lag. Lower quality or FPS helps on "
+               "slow Wi-Fi. Very low values are a last resort: the image gets blocky fast.")
         self._quality_slider.setToolTip(tip)
         self._quality_val_lbl.setToolTip(tip)
 

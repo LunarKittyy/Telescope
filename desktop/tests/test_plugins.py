@@ -242,7 +242,7 @@ def test_stream_output_phone_settings_lifecycle(stream_output):
     assert {"action": "fps_target", "value": 25} in ctrl.sent
     assert {"action": "jpeg_quality", "value": 91} in ctrl.sent
     assert plugin._quality_val_lbl.text() == "91%"
-    assert "Balanced" in plugin._quality_val_lbl.toolTip()
+    assert "High" in plugin._quality_val_lbl.toolTip()
 
     plugin.on_stream_stop()
     before = list(ctrl.sent)
@@ -750,3 +750,12 @@ def test_stream_quality_and_bitrate_reset_on_a_double_click(stream_output):
     QTest.mouseDClick(plugin._bitrate_slider, Qt.MouseButton.LeftButton)
     assert (plugin._quality_slider.value(), plugin._bitrate_slider.value()) == (85, 0)  # 0 is Auto
     assert plugin._bitrate_slider.toolTip().startswith("Auto picks about 8 Mbps")  # its own tip stays
+
+
+def test_jpeg_quality_stops_at_95_and_marks_the_recommended_spot(stream_output):
+    plugin, _host, _panel = stream_output
+    assert plugin._quality_slider.maximum() == 95
+    assert plugin._quality_slider.snaps() == [85]
+    assert "recommended" in plugin._quality_slider.toolTip()
+    plugin.set_config({"jpeg_quality": 100})  # saved before the cap
+    assert plugin.get_config()["jpeg_quality"] == 95
