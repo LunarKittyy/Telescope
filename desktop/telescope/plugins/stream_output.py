@@ -26,13 +26,12 @@ FORMAT_H264  = "h264"
 
 # Shown as Light and Heavy: the codec names say nothing about the choice people actually make, which is how much data.
 _FORMAT_NOTES = {
-    FORMAT_H264:  "Fine for most calls. Keeps up even on slower Wi-Fi.",
-    FORMAT_MJPEG: "Sharper in fast motion. Needs USB or strong Wi-Fi.",
+    FORMAT_H264:  "Good for most calls.",
+    FORMAT_MJPEG: "Needs USB or strong Wi-Fi.",
 }
-_LIGHT_TIP = ("H.264. About 8 Mbps at 1080p 30 fps. Looks the same as Heavy unless there's fast motion, "
-              "and keeps up even on slower Wi-Fi.")
-_HEAVY_TIP = ("MJPEG. Every frame is a full picture, so it sends several times as much data as Light. "
-              "Sharpest in fast motion, but lags on anything slower than USB or strong Wi-Fi.")
+# Tooltips carry the technical side; the note under the buttons is the plain one.
+_LIGHT_TIP = "H.264 from the phone's hardware encoder. About 8 Mbps at 1080p 30 fps."
+_HEAVY_TIP = "MJPEG: every frame is a full JPEG, several times the data of Light. Sharper in fast motion."
 
 # "1080p" etc. names a height, not one exact WxH - matching by height catches every ratio's version.
 _COMMON_HEIGHTS = {2160, 1440, 1080, 720, 480, 360}  # 4K, 1440p, 1080p, 720p, 480p, 360p
