@@ -362,3 +362,20 @@ def test_slider_fill_doesnt_stick_out_past_the_handle_at_zero(qapp):
     accent = QColor(theme.ACCENT)
     y = handle.center().y()
     assert all(QColor(img.pixel(x, y)) != accent for x in range(handle.left()))  # at 0 the handle is the leftmost fill
+
+
+def test_menus_and_tooltips_have_see_through_corners(qapp):
+    from PyQt6.QtCore import QPoint
+    from PyQt6.QtWidgets import QMenu, QToolTip
+    from telescope.theme import apply_theme
+    apply_theme(qapp)
+    menu = QMenu()
+    menu.addAction("Advanced...")
+    menu.ensurePolished()
+    assert menu.grab().toImage().pixelColor(0, 0).alpha() == 0  # the rounded border, not a square window, at the corner
+    owner = QWidget()
+    owner.show()
+    QToolTip.showText(QPoint(10, 10), "tip", owner)
+    tip = next(w for w in qapp.topLevelWidgets() if w.inherits("QTipLabel"))
+    assert tip.grab().toImage().pixelColor(0, 0).alpha() == 0
+    QToolTip.hideText()
