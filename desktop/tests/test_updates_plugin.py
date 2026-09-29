@@ -101,6 +101,16 @@ def test_background_failures_stay_quiet_but_a_manual_check_explains(env):
     assert plugin.status_text()[1] == "status_err"
 
 
+def test_a_launch_without_internet_checks_again_on_the_next_tick(env):
+    plugin, _host, _bus, button, fetched = env
+    fetched["result"] = UpdateError("Couldn't check for updates. Check the internet connection.")
+    plugin._maybe_auto_check()
+    assert plugin._last_check == 0  # a failed check doesn't count as today's
+    fetched["result"] = NEWER
+    plugin._maybe_auto_check()
+    assert len(fetched["channels"]) == 2 and not button.isHidden()
+
+
 def test_up_to_date_and_no_release_yet(env):
     plugin, _host, _bus, button, fetched = env
     fetched["result"] = Manifest("0.5.0", 150, "nightly", "x", "", 2, NEWER.assets)

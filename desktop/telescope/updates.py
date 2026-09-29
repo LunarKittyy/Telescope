@@ -112,7 +112,7 @@ def fetch_manifest(channel: str, opener: Callable = _open) -> Optional[Manifest]
         if exc.code == 404:
             return None
         raise UpdateError(f"Couldn't check for updates (HTTP {exc.code}).") from exc
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, http.client.HTTPException) as exc:  # HTTPException: a reply that isn't HTTP
         raise UpdateError("Couldn't check for updates. Check the internet connection.") from exc
     if len(raw) > MAX_MANIFEST_BYTES:
         raise UpdateError("The update information couldn't be read.")
@@ -183,7 +183,10 @@ def download(asset: Asset, dest_dir: Path, progress: Optional[Callable[[int, int
     except (OSError, http.client.HTTPException) as exc:  # HTTPException: cut off part way (IncompleteRead)
         partial.unlink(missing_ok=True)
         raise UpdateError("The download failed. Check the internet connection and try again.") from exc
-    if done != asset.size or digest.hexdigest() != asset.sha256:
+    if done < asset.size:  # the connection closed early, as when a wifi without internet drops it
+        partial.unlink(missing_ok=True)
+        raise UpdateError("The download was cut short. Check the internet connection and try again.")
+    if digest.hexdigest() != asset.sha256:
         partial.unlink(missing_ok=True)
         raise UpdateError("The download didn't match its checksum, so it wasn't installed.")
     os.replace(partial, final)
