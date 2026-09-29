@@ -1,4 +1,5 @@
 import numpy as np
+from dataclasses import replace
 import time
 from types import SimpleNamespace
 import socket
@@ -142,6 +143,10 @@ def window(qapp, config_home, monkeypatch):
         app_module.TelescopeWindow, "_spawn_wake",
         lambda self, *a: self._wake_phone(*a),
     )
+    # Recorded, not run: the fetch sleeps and then signals, possibly after the window is gone.
+    win.state_fetches = []
+    monkeypatch.setattr(app_module.TelescopeWindow, "_spawn_state_fetch",
+                        lambda self, session_id: self.state_fetches.append(session_id))
     yield win
     # Don't call close(); a test's intentional closeEvent stub would abort Qt during fixture teardown.
     win._session = None
@@ -1748,6 +1753,32 @@ def _dropped_stream(window, monkeypatch, answers, url="http://127.0.0.1:40001/v1
     window._bus.stream_lost.connect(lambda: lost.append(True))
     worker.status.emit("reconnecting", "Stream dropped - reconnecting")
     return conn, worker, client, lost
+
+
+def test_a_dropped_stream_asks_the_phone_why_quietly(window, monkeypatch):
+    _conn, _worker, _client, lost = _dropped_stream(window, monkeypatch, [None])
+    assert lost == [True] and window.state_fetches == [1]  # H.264 it can't do: its state says so
+    emitted = []
+    window._sig_state.connect(lambda sid, state: emitted.append(state))
+    window._session = replace(window._session, client=SimpleNamespace(get_state=lambda: None))
+    monkeypatch.setattr(app_module.time, "sleep", lambda _s: None)
+    window._fetch_state_async(1, report_failure=False)
+    assert emitted == []  # got nothing: mid-stream that's no news, not an empty state
+
+
+def test_h264_too_much_for_the_phone_stops_the_stream_with_a_note_that_stays(window, monkeypatch):
+    import telescope.plugins.stream_output as so
+    from PyQt6.QtCore import QCoreApplication
+    monkeypatch.setattr(so.h264_reader, "available", lambda: True)
+    plugin = so.StreamOutputPlugin()
+    window.register_plugin(plugin)
+    _conn, _worker, _client, _lost = _dropped_stream(window, monkeypatch, [None])
+    window._apply_state(1, {**_VALID_STATE, "codecs": ["mjpeg", "h264"], "codec": "mjpeg", "codec_unsupported": True,
+                            "codec_error": "H.264 isn't available at 4096x3072 on this phone"})
+    QCoreApplication.processEvents()
+    assert window._session is None  # stopped
+    assert plugin.stream_format() == "h264"
+    assert window._banners.issue("encoder").title == "Too much for the phone's H.264 encoder"
 
 
 def test_a_dropped_usb_stream_moves_to_wifi_when_the_cable_is_pulled(window, monkeypatch):

@@ -40,6 +40,7 @@ data class CameraControlSnapshot(
     val codec:             String,
     val bitrate:           Int,
     val codecError:        String?,
+    val codecUnsupported:  Boolean,  // codecError is H.264 not doing this size or rate here, not a crash
     val activeLens:        String?,
 )
 
@@ -98,6 +99,7 @@ class CameraSessionController(
     @Volatile private var requestedBitrate: Int = 0  // 0 = sized from resolution and fps, H264Stream.DYNAMIC = dynamic
     @Volatile private var dynamic: DynamicBitrate? = null
     @Volatile private var codecError: String? = null
+    @Volatile private var codecUnsupported = false
 
     @Volatile private var currentCamera: CameraEntry? = null
 
@@ -141,6 +143,7 @@ class CameraSessionController(
         codec           = codec,
         bitrate         = currentBitrate(),
         codecError      = codecError,
+        codecUnsupported = codecUnsupported,
         activeLens      = activeLens,
     )
 
@@ -148,9 +151,11 @@ class CameraSessionController(
         if (requestedBitrate != H264Stream.DYNAMIC) {
             return H264Stream.bitrateFor(requestedBitrate, streamWidth, streamHeight, currentPhoneFps)
         }
-        val default = H264Stream.defaultBitrate(streamWidth, streamHeight, currentPhoneFps)
+        val ceiling = H264Stream.dynamicCeiling(streamWidth, streamHeight, currentPhoneFps, H264Encoder.maxBitrate)
         // Kept across a new size or rate: the link is the same one.
-        val d = dynamic?.also { it.rebound(default) } ?: DynamicBitrate(default).also { dynamic = it }
+        val d = dynamic?.also { it.rebound(ceiling) }
+            ?: DynamicBitrate(H264Stream.defaultBitrate(streamWidth, streamHeight, currentPhoneFps), ceiling)
+                .also { dynamic = it }
         return d.bitrate
     }
 
@@ -160,6 +165,7 @@ class CameraSessionController(
             if (value == codec) return@post
             codec = value
             codecError = null
+            codecUnsupported = false
             reopen("setCodec")
         }
     }
@@ -326,6 +332,7 @@ class CameraSessionController(
             } catch (e: Exception) {
                 codec = H264Stream.CODEC_MJPEG
                 codecError = "H.264 isn't available at ${streamWidth}x$streamHeight on this phone"
+                codecUnsupported = true
                 onControlError("h264Encoder", e)
                 onCodecFailed(codecError!!)
             }
@@ -333,10 +340,12 @@ class CameraSessionController(
         imageReader = buildImageReader()
     }
 
-    private fun encoderFailed(e: Throwable) {
+    // unsupported: it can't do this size or rate here (so trying again won't help), rather than a crash
+    private fun encoderFailed(e: Throwable, reason: String = "The phone's H.264 encoder stopped", unsupported: Boolean = false) {
         if (codec != H264Stream.CODEC_H264) return
         codec = H264Stream.CODEC_MJPEG
-        codecError = "The phone's H.264 encoder stopped"
+        codecError = reason
+        codecUnsupported = unsupported
         onControlError("h264Encoder", e)
         onCodecFailed(codecError!!)
         reopen("encoderFailed")
@@ -414,7 +423,8 @@ class CameraSessionController(
         if (retryWithoutPreview(op, e, onComplete)) return true
         if (codec == H264Stream.CODEC_H264) {
             // The camera can't feed the encoder at this size: MJPEG instead, and codecError stops the desktop retrying
-            encoderFailed(e ?: IllegalStateException("$op: configure failed"))
+            encoderFailed(e ?: IllegalStateException("$op: configure failed"),
+                "The camera can't feed H.264 at ${streamWidth}x$streamHeight on this phone", unsupported = true)
             return false
         }
         onStateChanged(StreamState.Failed, op, e)
@@ -775,7 +785,13 @@ class CameraSessionController(
                     camera.close()
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
-                        onStateChanged(StreamState.Failed, "$op.onError", RuntimeException("Camera2 error code $error"))
+                        val e = RuntimeException("Camera2 error code $error")
+                        if (codec == H264Stream.CODEC_H264 && error == CameraDevice.StateCallback.ERROR_CAMERA_DEVICE) {
+                            // The camera gave up feeding the encoder (a size or rate it can't): MJPEG, not the end
+                            encoderFailed(e, "H.264 at ${streamWidth}x$streamHeight stopped the camera on this phone", unsupported = true)
+                            return
+                        }
+                        onStateChanged(StreamState.Failed, "$op.onError", e)
                         onFatalError()
                     }
                 }

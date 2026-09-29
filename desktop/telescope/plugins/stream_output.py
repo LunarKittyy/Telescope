@@ -19,7 +19,7 @@ from telescope.widgets.common import (
 _DEFAULT_QUALITY = 85  # the recommended spot, marked on the slider
 _MAX_QUALITY     = 95  # past about 92 a JPEG roughly doubles in size for no difference anyone sees
 _DEFAULT_FPS     = 30
-_MAX_BITRATE_MBPS = 30  # the phone clamps to the same range; 0 lets it size the bitrate itself
+_MAX_BITRATE_MBPS = 100  # the phone clamps to the same range, and to what its encoder takes; 0 is Auto
 # One past the top of the slider: Dynamic, as much as the connection carries. -1 in the config and to the phone, which
 # an older desktop reads as Auto and an older phone treats as Auto.
 _DYNAMIC_POS = _MAX_BITRATE_MBPS + 1
@@ -237,6 +237,15 @@ class StreamOutputPlugin(TelescopePlugin):
         if self._format == FORMAT_H264 and codecs and FORMAT_H264 not in codecs:
             # Light is the default, and a phone without an encoder sends nothing on its route: Heavy for this phone.
             self._set_format(FORMAT_MJPEG)
+        elif self._format == FORMAT_H264 and state.get("codec_error") and state.get("codec_unsupported"):
+            # Too much for the phone's encoder at this size or rate. Heavy there can be hundreds of Mbps, so rather
+            # than switch by itself, stop and let the choice be made: something smaller, or Heavy anyway. The stop
+            # waits for every plugin to have this state, so none fills its controls back in after it.
+            QTimer.singleShot(0, self._host.stop_stream)
+            self._host.show_issue("encoder", Issue(
+                "Too much for the phone's H.264 encoder",
+                f"{state['codec_error']}. Try a lower resolution or FPS, or switch to Heavy.",
+                [BannerAction("Switch to Heavy", self._switch_to_heavy)], kind="warn"))
         elif self._format == FORMAT_H264 and state.get("codec_error"):
             # The phone went back to MJPEG; so does the stream, or it would keep asking for H.264.
             self._host.show_issue("h264", Issue(
@@ -451,6 +460,10 @@ class StreamOutputPlugin(TelescopePlugin):
     def _switch_to_light(self):
         self._host.clear_issue("h264")
         self._set_format(FORMAT_H264)
+
+    def _switch_to_heavy(self):
+        self._set_format(FORMAT_MJPEG)
+        self._host.start_stream()
 
     def _switch_to_dynamic(self):
         self._bitrate_slider.setValue(_DYNAMIC_POS)  # sends it and saves, as moving the slider there would

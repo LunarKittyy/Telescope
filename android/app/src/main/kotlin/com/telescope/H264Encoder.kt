@@ -33,7 +33,18 @@ class H264Encoder(
                 info.isEncoder && info.supportedTypes.any { it.equals(MIME, ignoreCase = true) }
             }
         } catch (_: Exception) { false }
+
+        /** The most the phone's first H.264 encoder takes (the one createEncoderByType picks), for Dynamic's ceiling. */
+        val maxBitrate: Int by lazy {
+            try {
+                MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
+                    .firstOrNull { info -> info.isEncoder && info.supportedTypes.any { it.equals(MIME, ignoreCase = true) } }
+                    ?.getCapabilitiesForType(MIME)?.videoCapabilities?.bitrateRange?.upper ?: H264Stream.MAX_BPS
+            } catch (_: Exception) { H264Stream.MAX_BPS }
+        }
     }
+
+    private var bitrateRange = android.util.Range(1, Int.MAX_VALUE)  // this encoder's own, once it's made
 
     private val thread = HandlerThread("h264-out").also { it.start() }
     @Volatile private var released = false
@@ -68,6 +79,16 @@ class H264Encoder(
         var failure: Exception? = null
         for (extras in ATTEMPTS) {
             val mc = try { MediaCodec.createEncoderByType(MIME) } catch (e: Exception) { failure = e; break }
+            val caps = try { mc.codecInfo.getCapabilitiesForType(MIME).videoCapabilities } catch (_: Exception) { null }
+            // 4:3 4K is past what H.264 encoders do (its usual 4K tops out near 4096x2304), and the camera then fails
+            // feeding it: say so now, and the stream goes to MJPEG instead. Only the size: encoders often claim lower
+            // frame rates than they manage.
+            if (caps != null && !fits(caps, width, height)) {
+                try { mc.release() } catch (_: Exception) {}
+                failure = IllegalArgumentException("${width}x$height is more than this phone's H.264 encoder takes")
+                break
+            }
+            caps?.bitrateRange?.let { bitrateRange = it }
             try {
                 mc.setCallback(callback, Handler(thread.looper))
                 mc.configure(format(width, height, fps, bitrate, extras), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
@@ -89,10 +110,20 @@ class H264Encoder(
         inputSurface = opened.second
     }
 
+    // The size within the encoder's limits. Not isSizeSupported(): that also wants the size aligned to what the encoder
+    // prefers, which some report as 16 and 1080 isn't. A capability that can't be read doesn't stop anything.
+    private fun fits(caps: MediaCodecInfo.VideoCapabilities, width: Int, height: Int): Boolean = try {
+        caps.supportedWidths.contains(width) && caps.getSupportedHeightsFor(width).contains(height)
+    } catch (_: IllegalArgumentException) {
+        false  // getSupportedHeightsFor: a width it doesn't take at all
+    } catch (_: Exception) {
+        true
+    }
+
     private fun format(width: Int, height: Int, fps: Int, bitrate: Int, extras: Set<Extra>): MediaFormat =
         MediaFormat.createVideoFormat(MIME, width, height).apply {
             setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
-            setInteger(MediaFormat.KEY_BIT_RATE, bitrate)
+            setInteger(MediaFormat.KEY_BIT_RATE, bitrate.coerceIn(bitrateRange.lower, bitrateRange.upper))
             setInteger(MediaFormat.KEY_FRAME_RATE, fps)
             setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
             setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR)
@@ -110,7 +141,7 @@ class H264Encoder(
 
     fun requestKeyFrame() = setParam(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0)
 
-    fun setBitrate(bps: Int) = setParam(MediaCodec.PARAMETER_KEY_VIDEO_BITRATE, bps)
+    fun setBitrate(bps: Int) = setParam(MediaCodec.PARAMETER_KEY_VIDEO_BITRATE, bps.coerceIn(bitrateRange.lower, bitrateRange.upper))
 
     private fun setParam(key: String, value: Int) {
         if (released) return

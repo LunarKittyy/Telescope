@@ -15,7 +15,7 @@ class DynamicBitrateSimTest {
     private val h = 1080
     private val fps = 30
     private val auto = H264Stream.defaultBitrate(w, h, fps)
-    private val top = DynamicBitrate.ceiling(auto)
+    private val top = H264Stream.dynamicCeiling(w, h, fps)
 
     /** A link: megabits per second at a given ms. */
     private fun interface Link { fun mbps(ms: Long): Double }
@@ -38,11 +38,11 @@ class DynamicBitrateSimTest {
      * mode: a fixed bitrate, or H264Stream.DYNAMIC. usage: how much of its budget the encoder spends (motion).
      */
     private fun simulate(name: String, mode: Int, link: Link, seconds: Int, usage: (Long) -> Double = { 0.9 },
-                         seed: Int = 1, auto: Int = this.auto): Result {
+                         seed: Int = 1, auto: Int = this.auto, ceiling: Int = top): Result {
         val rnd = Random(seed)
         var now = 0L
         val dynamic = mode == H264Stream.DYNAMIC
-        val controller = if (dynamic) DynamicBitrate(auto) else null
+        val controller = if (dynamic) DynamicBitrate(auto, ceiling) else null
         var bitrate = controller?.bitrate ?: if (mode == 0) auto else mode
         val queue = H264ClientQueue(clock = { now })
         if (dynamic) queue.maxWaitMs = MjpegServer.DYNAMIC_MAX_WAIT_MS
@@ -133,11 +133,11 @@ class DynamicBitrateSimTest {
     }
 
     private fun compare(title: String, link: Link, seconds: Int, usage: (Long) -> Double = { 0.9 }, seed: Int = 1,
-                        auto: Int = this.auto): List<Result> {
+                        auto: Int = this.auto, ceiling: Int = top): List<Result> {
         val results = listOf(
-            simulate("Dynamic", H264Stream.DYNAMIC, link, seconds, usage, seed, auto),
+            simulate("Dynamic", H264Stream.DYNAMIC, link, seconds, usage, seed, auto, ceiling),
             simulate("Auto (%.1f Mbps)".format(auto / 1e6), 0, link, seconds, usage, seed, auto),
-            simulate("Maxed slider (30 Mbps)", 30_000_000, link, seconds, usage, seed, auto),
+            simulate("Maxed slider (100 Mbps)", H264Stream.MAX_BPS, link, seconds, usage, seed, auto),
         )
         println("\n$title")
         results.forEach { println("  $it") }
@@ -209,9 +209,9 @@ class DynamicBitrateSimTest {
 
     @Test
     fun `usb climbs to the ceiling`() {
-        val (dyn, _, maxed) = compare("USB, 300 Mbps", { 300.0 }, 40)
+        val (dyn, _, _) = compare("USB, 300 Mbps", { 300.0 }, 40)
         assertTrue(dyn.bitrates.last() == top)
-        assertTrue(dyn.p95Ms < 50 && maxed.p95Ms < 50)
+        assertTrue(dyn.p95Ms < 50)
     }
 
     @Test
@@ -253,9 +253,29 @@ class DynamicBitrateSimTest {
 
     @Test
     fun `a 720p stream tops out at its own ceiling`() {
-        val auto720 = H264Stream.defaultBitrate(1280, 720, 30)
-        val (dyn, _, _) = compare("720p30 on strong Wi-Fi", { 60.0 }, 40, auto = auto720)
-        assertTrue(dyn.bitrates.last() == DynamicBitrate.ceiling(auto720), "${dyn.bitrates.last()}")
+        val top720 = H264Stream.dynamicCeiling(1280, 720, 30)
+        val (dyn, _, _) = compare("720p30 on strong Wi-Fi", { 60.0 }, 40,
+            auto = H264Stream.defaultBitrate(1280, 720, 30), ceiling = top720)
+        assertTrue(dyn.bitrates.last() == top720, "${dyn.bitrates.last()}")
         assertTrue(dyn.p95Ms < 50)
+    }
+
+    @Test
+    fun `4k gets far more than auto's 30 mbps when the link has it`() {
+        val auto4k = H264Stream.defaultBitrate(3840, 2160, 30)
+        val top4k = H264Stream.dynamicCeiling(3840, 2160, 30)
+        assertTrue(top4k in 75_000_000..85_000_000, "$top4k")
+        val (dyn, autoR, _) = compare("4K30 on very strong Wi-Fi, 200 Mbps", { 200.0 }, 40, auto = auto4k, ceiling = top4k)
+        assertTrue(dyn.bitrates.last() == top4k, "${dyn.bitrates.last()}")
+        assertTrue(dyn.meanMbps > autoR.meanMbps * 1.8 && dyn.p95Ms < 100, "${dyn.meanMbps} ${dyn.p95Ms}")
+    }
+
+    @Test
+    fun `4k on a link that can't carry the ceiling settles under it`() {
+        val auto4k = H264Stream.defaultBitrate(3840, 2160, 30)
+        val (dyn, _, maxed) = compare("4K30 on 50 Mbps Wi-Fi", { 50.0 }, 90, auto = auto4k,
+            ceiling = H264Stream.dynamicCeiling(3840, 2160, 30))
+        assertTrue(dyn.p95Ms < 300 && maxed.p95Ms > 1_000, "${dyn.p95Ms} ${maxed.p95Ms}")
+        assertTrue(dyn.bitrates.drop(30).all { it in 35_000_000..62_000_000 }, "${dyn.bitrates.drop(30)}")
     }
 }
