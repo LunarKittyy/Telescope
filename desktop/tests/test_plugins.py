@@ -667,7 +667,7 @@ def test_light_is_the_default_and_switching_reconnects(stream_output, monkeypatc
     assert plugin._fmt_h264.isChecked() and plugin._fmt_h264.isEnabled()  # offered before the phone has reported
     assert plugin._fmt_h264.text() == "Light" and "H.264" in plugin._fmt_h264.toolTip()
     assert plugin._fmt_mjpeg.text() == "Heavy" and "MJPEG" in plugin._fmt_mjpeg.toolTip()
-    assert "slower Wi-Fi" in plugin._fmt_note.text()
+    assert plugin._fmt_note.text() == "Good for most calls."
     assert plugin._bitrate_row.isHidden() is False and plugin._quality_row.isHidden()
 
     plugin.on_phone_state({"cameras": [], "codecs": ["mjpeg", "h264"]})
