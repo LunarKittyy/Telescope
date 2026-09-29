@@ -179,6 +179,7 @@ class CameraStreamService : Service() {
         const val EXTRA_WIDTH      = "width"
         const val EXTRA_HEIGHT     = "height"
         const val EXTRA_OIS        = "ois"
+        const val EXTRA_FPS        = "fps"
         const val EXTRA_LOCAL_ONLY = "local_only"
         const val EXTRA_REMOTE     = "remote"
         // Started as a plain service under WaitingService's foreground service (see StreamLauncher).
@@ -387,6 +388,7 @@ class CameraStreamService : Service() {
     // Stream config
     private var streamWidth  = 1920
     private var streamHeight = 1080
+    private var initialFps   = 30  // what the computer asked for at start; fps_target changes it later
     private var bindAddr     = "0.0.0.0"
 
     // Camera catalogue
@@ -521,6 +523,7 @@ class CameraStreamService : Service() {
         streamWidth   = intent?.getIntExtra(EXTRA_WIDTH,  1920)  ?: 1920
         streamHeight  = intent?.getIntExtra(EXTRA_HEIGHT, 1080)  ?: 1080
         val initialOis = intent?.getBooleanExtra(EXTRA_OIS,        true)  ?: true
+        initialFps    = intent?.getIntExtra(EXTRA_FPS, 30)?.coerceIn(1, 120) ?: 30
         val localOnly = intent?.getBooleanExtra(EXTRA_LOCAL_ONLY, false) ?: false
         bindAddr      = if (localOnly) "127.0.0.1" else "0.0.0.0"
         startedRemotely = intent?.getBooleanExtra(EXTRA_REMOTE, false) ?: false
@@ -579,6 +582,7 @@ class CameraStreamService : Service() {
             context             = this,
             initialStreamWidth  = streamWidth,
             initialStreamHeight = streamHeight,
+            initialPhoneFps     = initialFps,
             onFrame        = { bytes -> server?.sendFrame(bytes) },
             // A callback from a controller that's been replaced or stopped only goes in the history.
             onStateChanged = { newState, op, error ->
@@ -751,6 +755,7 @@ class CameraStreamService : Service() {
             torch = snap?.torch ?: false,
             jpeg_quality = snap?.jpegQuality ?: 85,
             phone_fps = snap?.phoneFps ?: 30,
+            camera_fps = server?.frameRate?.fps() ?: 0.0,
             codecs = if (h264Available) listOf(H264Stream.CODEC_MJPEG, H264Stream.CODEC_H264)
                      else listOf(H264Stream.CODEC_MJPEG),
             codec = snap?.codec ?: H264Stream.CODEC_MJPEG,

@@ -53,6 +53,7 @@ class CameraSessionController(
     private val context: Context,
     initialStreamWidth: Int,
     initialStreamHeight: Int,
+    initialPhoneFps: Int = 30,
     private val onFrame: (ByteArray) -> Unit,
     private val onStateChanged: (StreamState, String, Throwable?) -> Unit,
     private val onFatalError: () -> Unit,
@@ -93,7 +94,7 @@ class CameraSessionController(
     @Volatile private var currentBlackLevelLock: Boolean = false
     @Volatile private var currentTorch:          Boolean = false
     @Volatile private var currentJpegQuality: Int = 85
-    @Volatile private var currentPhoneFps:    Int = 30
+    @Volatile private var currentPhoneFps:    Int = initialPhoneFps
     // Mutable so switchResolution() can change live; sized by openCamera().
     @Volatile private var streamWidth:  Int = initialStreamWidth
     @Volatile private var streamHeight: Int = initialStreamHeight
@@ -260,6 +261,8 @@ class CameraSessionController(
     @Volatile private var wantedSize: Pair<Int, Int>? = null
 
     fun switchTo(entry: CameraEntry) {
+        // Asked again for the lens it's on or going to (the computer resends when a bad link lost the reply): no reopen
+        if ((wantedLens ?: currentCamera) == entry) return
         wantedLens = entry
         post { if (wantedLens === entry) switchCameraTo(entry) }
     }

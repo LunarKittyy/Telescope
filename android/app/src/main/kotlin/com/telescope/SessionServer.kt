@@ -122,7 +122,7 @@ class SessionServer(
                         HttpWire.sendError(out, 400, "Bad Request"); return
                     }
                     val result = when (val action = params["action"]) {
-                        "start" -> commands.start()
+                        "start" -> commands.start(StreamOpening.from(params))
                         "stop" -> commands.stop()
                         else -> ControlResult(ok = false, error = "unknown action '$action'")
                     }

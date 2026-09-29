@@ -137,6 +137,8 @@ class StreamWorker(QThread):
         self._frames_arrived = 0
         # Consecutive 2s windows with sustained low decode rate (distinguishes congestion from blips).
         self._weak_streak  = 0
+        # Frames per second that arrived over the last window, read by the app when that's under the target.
+        self.last_arrival_fps = 0.0
 
     def _process(self, frame):
         for fn in self._pipeline:
@@ -378,6 +380,7 @@ class StreamWorker(QThread):
                         # that come in a burst are all counted, though only the newest is shown to stay live.
                         recv_now = self._frames_arrived
                         arrival_fps = (recv_now - recv0) / elapsed
+                        self.last_arrival_fps = arrival_fps
                         struggling = arrival_fps < self._fps * 0.85
                         self._weak_streak = self._weak_streak + 1 if struggling else 0
                         net_kind = "net_warn" if self._weak_streak >= 2 else "net"

@@ -895,8 +895,9 @@ class ConnectionPlugin(TelescopePlugin):
         finally:
             self._tunnels.release(route.serial, PING_PORT)
 
-    def ensure_phone_streaming(self, on_progress=None, target: Optional[SessionTarget] = None) -> tuple:
-        """Start the phone's camera if it isn't running; blocking, worker threads only."""
+    def ensure_phone_streaming(self, on_progress=None, target: Optional[SessionTarget] = None,
+                               opening: Optional[dict] = None) -> tuple:
+        """Start the phone's camera if it isn't running (at opening's size and rate); blocking, worker threads only."""
         target = target or self.session_target()
         with self.session_channel(target) as client:
             if client is None:
@@ -912,7 +913,7 @@ class ConnectionPlugin(TelescopePlugin):
             if not ping.busy:
                 if on_progress:
                     on_progress("Starting the phone's camera...")
-                result = client.start()
+                result = client.start(opening)
                 if not result.ok:
                     return False, self._start_refused_reason(result.error)
             return self._await_streaming(client, on_progress)
