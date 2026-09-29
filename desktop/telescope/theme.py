@@ -1,8 +1,8 @@
 """Telescope's visual theme: palette tokens, QSS stylesheet, and theme application."""
 
-from PyQt6.QtCore import QEvent, QObject, Qt
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QPalette
-from PyQt6.QtWidgets import QMenu
+from PyQt6.QtWidgets import QMenu, QProxyStyle, QWidget
 
 # ── Palette ───────────────────────────────────────────────────────────────────
 # Surfaces run darkest-to-lightest: the window canvas sits *behind* the
@@ -731,26 +731,23 @@ QScrollBar::add-page, QScrollBar::sub-page {{
 """
 
 
-class _RoundPopups(QObject):
-    """Menus and tooltips get a see-through window, so the stylesheet's rounded border isn't drawn over square corners."""
+class _PopupStyle(QProxyStyle):
+    """Fusion, but menus and tooltips get a see-through window, so the stylesheet's rounded border isn't drawn over square corners."""
 
-    def eventFilter(self, obj, event):
-        if (event.type() == QEvent.Type.Polish and (isinstance(obj, QMenu) or obj.inherits("QTipLabel"))
-                and not obj.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)):
-            obj.setWindowFlags(obj.windowFlags() | Qt.WindowType.FramelessWindowHint
+    def polish(self, arg):
+        # Runs once per widget as it's set up, unlike an app-wide event filter that Python sees every event through
+        if (isinstance(arg, QWidget) and (isinstance(arg, QMenu) or arg.inherits("QTipLabel"))
+                and not arg.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)):
+            arg.setWindowFlags(arg.windowFlags() | Qt.WindowType.FramelessWindowHint
                                | Qt.WindowType.NoDropShadowWindowHint)
-            obj.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        return False
-
-
-_round_popups = _RoundPopups()
+            arg.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        return super().polish(arg)
 
 
 def apply_theme(app):
     """Install theme onto QApplication. A no-op once installed: re-applying repolishes every live widget."""
     if app.styleSheet() == QSS:
         return
-    app.setStyle("Fusion")
+    app.setStyle(_PopupStyle("Fusion"))
     app.setPalette(_palette())
-    app.installEventFilter(_round_popups)  # before the stylesheet, whose repolish reaches menus that already exist
     app.setStyleSheet(QSS)
