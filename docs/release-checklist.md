@@ -74,7 +74,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 - [ ] Camera controls (lens, exposure, WB, OIS) apply live and match what's shown on the desktop UI.
 - [ ] Stream transforms (flip, rotate, zoom/pan) apply without restart.
 - [ ] Zoom on the Auto lens: the lens marks on the zoom slider switch to the telephoto (the dot turns lavender); panning out of its view falls back (red dot). Sliding the zoom back and forth quickly on the telephoto never turns the dot red. Scrolling the preview zooms around the mouse, dragging pans, and the lens outlines show and fade.
-- [ ] Sliders stick at their neutral spots and marks when dragged, never with the arrow keys, and a double-click resets them.
+- [ ] Zoom, pan and Compensation sliders stick at their neutral spots and marks when dragged, never with the arrow keys; Temperature and Tint never stick. A double-click resets them all.
 - [ ] Point focus: clicking a near and a far object in the preview focuses each (with and without zoom, flip and rotation), exposure follows the point in auto, and Auto returns to continuous. The pop-out works the same.
 - [ ] Presets: switching between two presets while streaming changes lens, exposure, WB, zoom and fps together. A second phone doesn't see the first one's presets.
 - [ ] H.264: on a real phone, a fresh phone starts on Light (H.264), switching Format between Light and Heavy reconnects and streams on Wi-Fi and USB. Compare latency (a clock on screen) and the Mbps readout with MJPEG at the same size. A 30-minute run stays smooth, a reconnect (unplug, Wi-Fi off and on) recovers, and changing resolution or lens mid-stream keeps working.
