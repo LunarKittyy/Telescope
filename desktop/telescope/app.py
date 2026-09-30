@@ -114,6 +114,9 @@ class TelescopeWindow(QMainWindow):
 
         self._bus     = EventBus()
         self._bus.resolution_change_requested.connect(self._on_resolution_pending)
+        # Both restart the phone's camera, so the stream gets a moment before it counts as behind.
+        self._bus.resolution_change_requested.connect(lambda _w, _h: self._settle_stream())
+        self._bus.camera_switched.connect(lambda _cam: self._settle_stream())
         # In-flight resolution change; cleared on confirm or timeout.
         self._pending_resolution: Optional[tuple[int, int]] = None
         self._pending_resolution_timer: Optional[QTimer] = None
@@ -1106,6 +1109,10 @@ class TelescopeWindow(QMainWindow):
             )
         elif self._tray:
             self._tray.showMessage(title, body, QSystemTrayIcon.MessageIcon.Warning, 0)
+
+    def _settle_stream(self):
+        if (worker := self._worker) is not None:
+            worker.settle()
 
     def _on_resolution_pending(self, w: int, h: int):
         """Resolution change sent; phone must reopen camera, so show pending state."""

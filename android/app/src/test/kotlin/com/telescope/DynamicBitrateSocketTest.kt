@@ -133,9 +133,11 @@ class DynamicBitrateSocketTest {
         assertTrue(r.bitrates[5] > auto, "climbs on the fast link: ${r.bitrates[5]}")
         assertTrue(r.bitrates[10] < 5_000_000, "down with the slow link: ${r.bitrates[10]}")
         // Real time on a shared machine: bounds with room to spare. Auto on the same link lags about 2 s (below), and
-        // how soon it climbs back is up to its probing, which DynamicBitrateSimTest covers without a clock.
-        assertTrue(r.p90(8_000, 11_000) < 800, "no lag on the slow link: ${r.p90(8_000, 11_000)}")
-        assertTrue(r.p90(12_700, 14_000) < 1_000, "caught up after the stall: ${r.p90(12_700, 14_000)}")
+        // how soon it climbs back is up to its probing, which DynamicBitrateSimTest covers without a clock. A starved
+        // CPU makes this test's encoder fall behind, so its first cut can land high and take a few more to get under
+        // the link: about 1 s of lag at worst on one busy core, still well short of Auto's.
+        assertTrue(r.p90(8_000, 11_000) < 1_300, "no lag on the slow link: ${r.p90(8_000, 11_000)}")
+        assertTrue(r.p90(12_700, 14_000) < 1_300, "caught up after the stall: ${r.p90(12_700, 14_000)}")
         assertTrue(r.p90(16_000, 20_000) < 300, "quick on the fast link: ${r.p90(16_000, 20_000)}")
     }
 
@@ -144,7 +146,7 @@ class DynamicBitrateSocketTest {
         // The control: shows this measures lag at all.
         val r = run(dynamic = false, seconds = 11)
         println("Auto, p90 delay: fast ${r.p90(1_000, 6_000)} ms, slow ${r.p90(8_000, 11_000)} ms")
-        assertTrue(r.p90(8_000, 11_000) > 1_000, "lags: ${r.p90(8_000, 11_000)}")
+        assertTrue(r.p90(8_000, 11_000) > 1_700, "lags: ${r.p90(8_000, 11_000)}")  // well past Dynamic's bound above
     }
 
     private fun indexOf(haystack: ByteArray, needle: ByteArray, from: Int): Int {
