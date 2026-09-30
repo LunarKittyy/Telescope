@@ -2034,3 +2034,15 @@ def test_a_frame_step_that_keeps_failing_is_passed_through_then_skipped():
         assert step(frame) is frame
     assert len(calls) == STEP_FAILS_BEFORE_SKIP
     assert guarded_step("gray", lambda f: f[..., 0])(frame) is frame  # a mangled frame doesn't go on
+
+
+def test_a_lens_switch_or_new_size_lets_the_stream_settle_before_it_counts_as_behind(window, monkeypatch):
+    settled = []
+    worker = SimpleNamespace(settle=lambda: settled.append(True))
+    window._session = StreamSession(id=1, url="http://127.0.0.1:40001/v1/video", client=_Client(), worker=worker)
+    window._bus.camera_switched.emit({"id": "2"})
+    window._bus.resolution_change_requested.emit(1920, 1080)
+    assert settled == [True, True]
+    window._session = None
+    window._bus.camera_switched.emit({"id": "0"})  # not streaming: nothing to settle
+    assert settled == [True, True]
