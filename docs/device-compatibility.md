@@ -12,7 +12,7 @@ Legend: `OK` tested and working · `PARTIAL` works with caveats (see [notes](#no
 | Pixel-like (e.g. Pixel 6/7/8) | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | Samsung Galaxy S10+ (SM-G975F) | 12 | 3.1.0-nightly.374 | OK | OK | PARTIAL | - | OK | OK | OK | OK | OK | OK | OK | OK | OK |
 | Samsung Galaxy A-series | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| vivo V2413 | 16 | b1819a6 | OK | OK | OK | OK | OK | OK | OK | OK | OK | OK | OK | OK | OK |
+| vivo V2413 | 16 | 3.1.0-nightly.374 | OK | OK | OK | OK | OK | OK | OK | OK | OK | OK | OK | OK | OK |
 
 ## Notes
 
