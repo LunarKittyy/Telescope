@@ -582,3 +582,70 @@ def test_the_fps_readout_counts_frames_from_the_phone_not_resends(monkeypatch):
 
     fps = [msg for kind, msg in statuses if kind == "fps"]
     assert fps and fps[0].startswith("0.0 fps")  # the last frame was resent ~30 times a second meanwhile
+
+
+class _Clock:
+    def __init__(self, monkeypatch):
+        self.now = 1000.0
+        monkeypatch.setattr(stream.time, "monotonic", lambda: self.now)
+
+    def flow(self, worker, seconds: float):
+        """Frames arriving every 0.1 s for this long, the last one at the end."""
+        for _ in range(round(seconds * 10)):
+            self.now += 0.1
+            worker._count_arrived(1)
+
+
+def test_the_link_is_judged_only_once_frames_have_flowed_for_a_moment_after_start(monkeypatch):
+    clock = _Clock(monkeypatch)
+    worker = stream.StreamWorker("url", 1280, 720, 30)
+    clock.now += 4.0  # a slow phone: nothing for a while
+    worker._count_arrived(1)
+    assert not worker._judges_window(clock.now)  # frames only just started
+    clock.flow(worker, stream.SETTLE_AFTER_FRAMES_S - 0.1)
+    assert not worker._judges_window(clock.now)
+    clock.flow(worker, 0.1)
+    assert not worker._judges_window(clock.now - 1.0)  # a window that started while settling doesn't count
+    assert worker._judges_window(clock.now)
+    assert worker._settle_since is None
+
+
+def test_old_lens_frames_before_the_gap_do_not_count_as_back(monkeypatch):
+    clock = _Clock(monkeypatch)
+    worker = stream.StreamWorker("url", 1280, 720, 30)
+    worker._settle_since = None  # streaming along
+    worker.settle()  # lens switch
+    worker._count_arrived(1)  # the old lens's last frame
+    clock.now += 3.0  # an older phone switching
+    worker._count_arrived(1)
+    clock.flow(worker, stream.SETTLE_AFTER_FRAMES_S - 0.5)
+    assert not worker._judges_window(clock.now)
+    clock.flow(worker, 0.5)
+    assert worker._judges_window(clock.now)
+
+
+def test_a_phone_that_never_gets_going_is_judged_after_the_cap(monkeypatch):
+    clock = _Clock(monkeypatch)
+    worker = stream.StreamWorker("url", 1280, 720, 30)
+    clock.now += stream.SETTLE_MAX_S - 0.1
+    assert not worker._judges_window(clock.now)
+    clock.now += 0.1
+    assert worker._judges_window(clock.now)
+
+
+def test_a_gap_once_settled_is_not_excused(monkeypatch):
+    clock = _Clock(monkeypatch)
+    worker = stream.StreamWorker("url", 1280, 720, 30)
+    worker._count_arrived(1)
+    clock.flow(worker, stream.SETTLE_AFTER_FRAMES_S)
+    clock.now += 3.0  # the link stalls after the phone got going
+    worker._count_arrived(1)
+    assert worker._judges_window(clock.now - 2.0)
+
+
+def test_a_new_fps_settles_the_stream(monkeypatch):
+    clock = _Clock(monkeypatch)
+    worker = stream.StreamWorker("url", 1280, 720, 30)
+    worker._settle_since = None
+    worker.update_output(fps=60)
+    assert worker._settle_since == clock.now

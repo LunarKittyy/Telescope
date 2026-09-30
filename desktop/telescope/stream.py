@@ -24,6 +24,12 @@ MJPEG_DECODERS = max(1, min(2, (os.cpu_count() or 1) - 1))
 # A plugin step that fails this many frames in a row is skipped until the next stream.
 STEP_FAILS_BEFORE_SKIP = 30
 
+# After a Start, a lens switch or a new size or fps, the phone takes a while to make frames at full rate again (an older
+# phone can take seconds to switch lenses). The link is judged only once frames have flowed this long without a gap...
+SETTLE_AFTER_FRAMES_S = 2.5
+SETTLE_GAP_S = 1.0  # ...a gap this long (the old lens's last frames, then nothing) starts that over...
+SETTLE_MAX_S = 10.0  # ...or once this much has passed, frames or not, so a phone that never recovers still says so.
+
 
 def guarded_step(name: str, process):
     """A plugin's frame step that can't take the stream down: a frame it fails on or mangles goes through unchanged."""
@@ -139,6 +145,11 @@ class StreamWorker(QThread):
         self._weak_streak  = 0
         # Frames per second that arrived over the last window, read by the app when that's under the target.
         self.last_arrival_fps = 0.0
+        # Settling (see SETTLE_AFTER_FRAMES_S): since when, and since when frames have flowed; since is None once over.
+        self._settle_lock  = threading.Lock()
+        self._settle_since: Optional[float] = time.monotonic()
+        self._settle_flowing: Optional[float] = None
+        self._settle_last_frame = 0.0
 
     def _process(self, frame):
         for fn in self._pipeline:
@@ -151,8 +162,40 @@ class StreamWorker(QThread):
         if height is not _UNCHANGED: self._height = height
         if fps is not _UNCHANGED and fps != self._fps:  # the same fps again (a box losing focus) would still flicker the camera
             self._fps = fps
+            self.settle()
             self._restart_vcam.set()
             self._frame_ready.set()
+
+    def settle(self):
+        """The phone is restarting its camera (a lens switch, a new size): hold off judging the link until it's back."""
+        with self._settle_lock:
+            self._settle_since = time.monotonic()
+            self._settle_flowing = None
+
+    def _count_arrived(self, frames: int):
+        self._frames_arrived += frames
+        if self._settle_since is None:
+            return
+        now = time.monotonic()
+        with self._settle_lock:
+            flowing, last = self._settle_flowing, self._settle_last_frame
+            # Once frames have kept coming long enough the phone is back, and a gap after that is the link's.
+            if flowing is None or (last - flowing < SETTLE_AFTER_FRAMES_S and now - last > SETTLE_GAP_S):
+                self._settle_flowing = now
+            self._settle_last_frame = now
+
+    def _judges_window(self, start: float) -> bool:
+        """Whether the window from start on says anything about the link: it has to start after settling ended."""
+        with self._settle_lock:
+            if self._settle_since is None:
+                return True
+            end = self._settle_since + SETTLE_MAX_S
+            if self._settle_flowing is not None:
+                end = min(end, self._settle_flowing + SETTLE_AFTER_FRAMES_S)
+            if start < end:
+                return False
+            self._settle_since = None
+            return True
 
     def request_stop(self):
         self._stop_flag = True
@@ -217,11 +260,12 @@ class StreamWorker(QThread):
                     cap = self._reconnect_cap(stop_event)
                     if cap is None:
                         return
+                    self.settle()
                     self.status.emit("ok", "Stream reconnected")
                     self.reconnected.emit()
                     continue
                 self._bytes_total += cap.last_frame_bytes
-                self._frames_arrived += getattr(cap, "last_frame_count", 1)
+                self._count_arrived(getattr(cap, "last_frame_count", 1))
                 newest.put((next(self._seq), cap.decode, packet))
         finally:
             if cap is not None:
@@ -294,7 +338,7 @@ class StreamWorker(QThread):
                 self._restart_vcam.clear()
                 continue
             self._bytes_total += cap.last_frame_bytes
-            self._frames_arrived += getattr(cap, "last_frame_count", 1)
+            self._count_arrived(getattr(cap, "last_frame_count", 1))
             # Run first frame through pipeline so vcam dimensions account for transforms (e.g. 90° rotation swaps W↔H).
             self._latest = None
             self._publish(next(self._seq), frame)
@@ -382,7 +426,8 @@ class StreamWorker(QThread):
 
                         # Warn only if frames sustainedly arrive well under the target rate. Arrive, not shown: frames
                         # that come in a burst are all counted, though only the newest is shown to stay live.
-                        struggling = arrival_fps < self._fps * 0.85
+                        # A window that started while the phone was still settling says nothing about the link.
+                        struggling = self._judges_window(t0) and arrival_fps < self._fps * 0.85
                         self._weak_streak = self._weak_streak + 1 if struggling else 0
                         net_kind = "net_warn" if self._weak_streak >= 2 else "net"
                         self.status.emit(net_kind, f"{mbps:.1f} Mbps")
