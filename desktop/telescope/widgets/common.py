@@ -555,24 +555,31 @@ def val_to_log_pos(val: float, steps: int, v_min: float, v_max: float) -> int:
 
 # ── No-scroll subclasses ──────────────────────────────────────────────────────
 
+def fit_on_screen(rect: QRect, avail: QRect, margin: int) -> QRect:
+    """`rect` moved (not shrunk) to sit inside `avail` less `margin`; shrunk only if it can't fit at all."""
+    top, bottom = avail.y() + margin, avail.y() + avail.height() - margin
+    h = min(rect.height(), bottom - top)
+    y = min(max(rect.y(), top), bottom - h)
+    return QRect(rect.x(), y, rect.width(), h)
+
+
 class NoScrollComboBox(QComboBox):
     def wheelEvent(self, event):
         event.ignore()
 
     def showPopup(self):
-        # Qt sizes/positions the popup before it can know it overshoots the screen -
-        # a long list flipped upward routinely pokes above the top edge. Clamp after the fact.
+        # Qt sizes/positions the popup before it can know it overshoots the screen - it lines the current
+        # item up with the combo, so picking a lower item near the top edge pushes the list above it.
+        # Slide it back on screen, and only shrink it when it's taller than the screen itself.
         super().showPopup()
         popup = self.view().window()
         screen = self.screen()
         if popup is None or screen is None:
             return
-        avail = screen.availableGeometry()
-        margin = 8
-        top = max(popup.y(), avail.y() + margin)
-        bottom = min(popup.y() + popup.height(), avail.y() + avail.height() - margin)
-        if top != popup.y() or bottom != popup.y() + popup.height():
-            popup.setGeometry(popup.x(), top, popup.width(), max(bottom - top, 50))
+        g = fit_on_screen(popup.geometry(), screen.availableGeometry(), 8)
+        if g != popup.geometry():
+            popup.setGeometry(g)
+            self.view().scrollTo(self.view().currentIndex())
 
 
 class NoScrollSlider(QSlider):

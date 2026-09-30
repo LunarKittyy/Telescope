@@ -1,7 +1,7 @@
 import math
 
 import pytest
-from PyQt6.QtCore import QRectF, Qt
+from PyQt6.QtCore import QRect, QRectF, Qt
 from PyQt6.QtWidgets import (
     QStyle, QStyleOptionSlider,
     QCheckBox, QDoubleSpinBox, QLabel, QRadioButton, QSizePolicy, QSpinBox,
@@ -18,6 +18,7 @@ from telescope.widgets.common import (
     control_row_widget,
     create_separator,
     create_vector_icon,
+    fit_on_screen,
     log_pos_to_val,
     make_segmented,
     ns_to_display,
@@ -381,3 +382,25 @@ def test_menus_and_tooltips_have_see_through_corners(qapp):
     assert tip.grab().toImage().pixelColor(0, 0).alpha() == 0
     sip.delete(tip)  # gone now, not on a hide timer that can outlive its owner and crash
     owner.close()
+
+
+# ── fit_on_screen (combo popup clamp) ───────────────────────────────────────
+
+SCREEN = QRect(0, 0, 1920, 1080)
+
+
+def test_fit_on_screen_slides_popup_down_without_shrinking():
+    # Second item selected near the top edge: Qt opens the list above the screen.
+    assert fit_on_screen(QRect(100, -20, 200, 70), SCREEN, 8) == QRect(100, 8, 200, 70)
+
+
+def test_fit_on_screen_slides_popup_up_off_the_bottom():
+    assert fit_on_screen(QRect(100, 1050, 200, 70), SCREEN, 8) == QRect(100, 1002, 200, 70)
+
+
+def test_fit_on_screen_leaves_a_popup_that_fits_alone():
+    assert fit_on_screen(QRect(100, 300, 200, 70), SCREEN, 8) == QRect(100, 300, 200, 70)
+
+
+def test_fit_on_screen_shrinks_only_when_taller_than_the_screen():
+    assert fit_on_screen(QRect(100, -500, 200, 3000), SCREEN, 8) == QRect(100, 8, 200, 1064)
