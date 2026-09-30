@@ -125,8 +125,7 @@ jobs:
           gh release create "$TAG" out/* --verify-tag --latest \
             --title "Telescope $VERSION" "${notes_args[@]}"
 
-      # Deleted and recreated rather than edited: GitHub sorts releases by creation time, so this
-      # keeps nightly at the top of the Releases page.
+      # Delete and recreate nightly so its tag moves to the commit this build came from.
       - name: Publish nightly
         if: needs.meta.outputs.channel == 'nightly'
         run: |
