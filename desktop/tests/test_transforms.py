@@ -399,18 +399,32 @@ def _lens_state(active):
     return state
 
 
-def test_the_lens_dot_shows_only_when_the_phone_switched_or_fell_back(transforms_plugin):
+def _clock(monkeypatch):
+    now = [100.0]
+    monkeypatch.setattr(transforms_mod.time, "monotonic", lambda: now[0])
+    return now
+
+
+def _settled_state(plugin, now, active):
+    """A phone state from after the ratio sent last had time to take."""
+    now[0] += 3.0
+    plugin.on_phone_state(_lens_state(active))
+
+
+def test_the_lens_dot_shows_only_when_the_phone_switched_or_fell_back(transforms_plugin, monkeypatch):
     plugin, _host, _panel = transforms_plugin
+    now = _clock(monkeypatch)
     plugin.on_stream_start("http://phone/v1/video", _Ctrl())
-    plugin.on_phone_state(_lens_state("2"))  # unzoomed: learns the default camera
+    plugin.on_phone_state(_lens_state("2"))
+    _settled_state(plugin, now, "2")  # unzoomed: learns the default camera
     assert plugin._lens_dot.isHidden()
     plugin._zoom_slider.setValue(400)
-    plugin.on_phone_state(_lens_state("4"))
+    _settled_state(plugin, now, "4")
     assert not plugin._lens_dot.isHidden()
     assert plugin._lens_dot._color.name() == ACCENT
     assert plugin._lens_dot.toolTip().startswith("Switched to Tele ~85mm OIS")
     plugin._pan_x_slider._slider.setValue(plugin._pan_x_slider._slider.maximum())
-    plugin.on_phone_state(_lens_state("2"))
+    _settled_state(plugin, now, "2")
     assert "Panned past what Tele ~85mm OIS can see" in plugin._lens_dot.toolTip()
     assert plugin._lens_dot._color.name() == ERR
     plugin._zoom_slider.setValue(200)
@@ -420,10 +434,10 @@ def test_the_lens_dot_shows_only_when_the_phone_switched_or_fell_back(transforms
 
 def test_the_dot_goes_red_once_the_phone_had_time_to_switch_and_didnt(transforms_plugin, monkeypatch):
     plugin, _host, _panel = transforms_plugin
-    now = [100.0]
-    monkeypatch.setattr(transforms_mod.time, "monotonic", lambda: now[0])
+    now = _clock(monkeypatch)
     plugin.on_stream_start("http://phone/v1/video", _Ctrl())
     plugin.on_phone_state(_lens_state("2"))
+    _settled_state(plugin, now, "2")
     plugin._zoom_slider.setValue(400)
     plugin.on_phone_state(_lens_state("2"))
     assert plugin._lens_dot.isHidden()  # just asked: give it a moment
@@ -431,6 +445,28 @@ def test_the_dot_goes_red_once_the_phone_had_time_to_switch_and_didnt(transforms
     plugin._settle_timer.timeout.emit()
     assert not plugin._lens_dot.isHidden()
     assert "stayed on ~24mm OIS by itself" in plugin._lens_dot.toolTip()
+
+
+def test_sweeping_the_zoom_under_a_lens_and_back_doesnt_make_the_telephoto_the_unzoomed_lens(
+        transforms_plugin, monkeypatch):
+    plugin, _host, _panel = transforms_plugin
+    now = _clock(monkeypatch)
+    plugin.on_stream_start("http://phone/v1/video", _Ctrl())
+    plugin.on_phone_state(_lens_state("2"))
+    _settled_state(plugin, now, "2")
+    plugin._zoom_slider.setValue(500)
+    _settled_state(plugin, now, "4")
+    for _ in range(3):  # quick back and forth, dipping under 3.7x: the phone is still on the tele meanwhile
+        plugin._zoom_slider.setValue(350)
+        now[0] += 0.3
+        plugin.on_phone_state(_lens_state("4"))
+        plugin._zoom_slider.setValue(600)
+        now[0] += 0.3
+        plugin.on_phone_state(_lens_state("4"))
+    _settled_state(plugin, now, "4")
+    plugin._settle_timer.timeout.emit()
+    assert plugin._lens_dot._color.name() == ACCENT
+    assert plugin._lens_dot.toolTip().startswith("Switched to Tele ~85mm OIS")
 
 
 def test_the_zoom_slider_marks_each_lens(transforms_plugin):

@@ -42,6 +42,7 @@ data class CameraControlSnapshot(
     val codecError:        String?,
     val codecUnsupported:  Boolean,  // codecError is H.264 not doing this size or rate here, not a crash
     val activeLens:        String?,
+    val frameDurationNs:   Long? = null,  // how long the camera took per frame lately, from its capture results
 )
 
 // Phone-side zoom, as the desktop splits it: a centred CONTROL_ZOOM_RATIO, then a 1/crop SCALER_CROP_REGION
@@ -82,6 +83,7 @@ class CameraSessionController(
     @Volatile private var currentWbGains: RggbChannelVector? = null  // null = auto AWB
     @Volatile private var lastCCM:        ColorSpaceTransform? = null
     @Volatile private var lastMeasuredGains: RggbChannelVector? = null
+    @Volatile private var frameDurationNs: Long? = null  // SENSOR_FRAME_DURATION of the last capture, for diagnostics
     @Volatile private var activeLens: String? = null  // which lens a multi-lens camera is using (capture results)
     @Volatile private var currentFocusMode:     String = "continuous"
     @Volatile private var currentFocusDistance: Float  = 0f  // diopters; 0 = infinity
@@ -148,6 +150,7 @@ class CameraSessionController(
         codecError      = codecError,
         codecUnsupported = codecUnsupported,
         activeLens      = activeLens,
+        frameDurationNs = frameDurationNs,
     )
 
     private fun currentBitrate(): Int {
@@ -196,7 +199,12 @@ class CameraSessionController(
     fun setWbGains(gains: RggbChannelVector) { currentWbGains = gains;          post { applyExposure() } }
     fun setWbAuto()                         { currentWbGains = null;            post { applyExposure() } }
     fun setJpegQuality(q: Int)              { currentJpegQuality = q;           post { applyExposure() } }
-    fun setFpsTarget(fps: Int)              { currentPhoneFps = fps;            post { applyExposure(); encoder?.setBitrate(currentBitrate()) } }
+    fun setFpsTarget(fps: Int) {
+        val changed = fps != currentPhoneFps
+        currentPhoneFps = fps
+        // A new rate goes in the session's own setup too (see createSession), so the session is rebuilt for it
+        post { if (changed) reconfigureSession() else applyExposure(); encoder?.setBitrate(currentBitrate()) }
+    }
     fun setFocusMode(mode: String)          { currentFocusMode = mode; focusPoint = null; post { applyExposure() } }
     fun setZoom(z: ZoomRequest)             { zoom = z;                         post { applyExposure() } }
 
@@ -397,10 +405,7 @@ class CameraSessionController(
                     if (myGeneration != cameraGeneration) { camera.close(); return }
                     cameraDevice = camera
                     onStateChanged(StreamState.ConfiguringSession, "openCamera.onOpened", null)
-                    if (physicalCameraId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
-                        createPhysicalSession(camera, physicalCameraId, myGeneration)
-                    else
-                        createLegacySession(camera, myGeneration)
+                    createSession(camera, physicalCameraId, myGeneration)
                 }
                 override fun onDisconnected(camera: CameraDevice) {
                     camera.close()
@@ -450,8 +455,9 @@ class CameraSessionController(
 
     private fun currentTargetSurfaces(): List<Surface> = listOfNotNull(outputSurface(), previewSurface)
 
-    private fun createPhysicalSession(
-        camera: CameraDevice, physId: String,
+    // physId: a lens of a logical camera, streamed on its own; null for the camera as opened.
+    private fun createSession(
+        camera: CameraDevice, physId: String?,
         generation: Int = cameraGeneration,
         mySession: Int = sessionGeneration,
         onComplete: (() -> Unit)? = null,
@@ -461,9 +467,9 @@ class CameraSessionController(
         if (generation != cameraGeneration) { onComplete?.invoke(); return }
         val exec   = Executor { cmd -> handler?.post(cmd) }
         try {
-            if (noOutput("createPhysicalSession", onComplete)) return
+            if (noOutput("createSession", onComplete)) return
             val outCfgs = currentTargetSurfaces().map { surface ->
-                OutputConfiguration(surface).also { it.setPhysicalCameraId(physId) }
+                OutputConfiguration(surface).also { cfg -> physId?.let { cfg.setPhysicalCameraId(it) } }
             }
             camera.createCaptureSession(SessionConfiguration(
                 SessionConfiguration.SESSION_REGULAR, outCfgs, exec,
@@ -476,15 +482,19 @@ class CameraSessionController(
                     }
                     override fun onConfigureFailed(s: CameraCaptureSession) {
                         if (generation == cameraGeneration) {
-                            if (sessionFailed("createPhysicalSession.onConfigureFailed", null, onComplete)) return
+                            if (sessionFailed("createSession.onConfigureFailed", null, onComplete)) return
                         }
                         onComplete?.invoke()
                     }
                 }
-            ))
+            ).apply {
+                // The frame rate is picked when the session is set up: without it here, a phone can choose a
+                // sensor mode that never reaches the rate asked for later (a vivo stuck near 42 at 60 fps).
+                setSessionParameters(buildRequest(camera))
+            })
         } catch (e: Exception) {
             if (generation == cameraGeneration) {
-                if (sessionFailed("createPhysicalSession", e, onComplete)) return
+                if (sessionFailed("createSession", e, onComplete)) return
             }
             onComplete?.invoke()
         }
@@ -534,10 +544,7 @@ class CameraSessionController(
         val mySession = ++sessionGeneration
         val cam    = currentCamera
         val physId = if (cam?.logicalId != null) cam.id else null
-        if (physId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
-            createPhysicalSession(camera, physId, cameraGeneration, mySession, onComplete)
-        else
-            createLegacySession(camera, cameraGeneration, mySession, onComplete)
+        createSession(camera, physId, cameraGeneration, mySession, onComplete)
     }
 
     private fun startRepeating(camera: CameraDevice, session: CameraCaptureSession) {
@@ -585,6 +592,12 @@ class CameraSessionController(
 
             // Use CONTROL_MODE_AUTO even in manual AE so AF keeps running independently
             set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
+            // Set in manual exposure too, where AE ignores it: it's also what the session is set up for.
+            // Unsupported ranges can fail on some devices; use advertised range
+            CameraRequestSelection.pickAeFpsRange(cam?.aeFpsRanges ?: emptyList(), currentPhoneFps)?.let { range ->
+                android.util.Log.d(TAG, "AE FPS range for ${cam?.id}: $range (target=$currentPhoneFps)")
+                set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, range)
+            }
             if (currentIso != null && currentShutterNs != null && cam != null && cam.supportsManualSensor) {
                 val iso = CameraRequestSelection.clamp(currentIso!!, cam.isoMin, cam.isoMax)
                 val sht = CameraRequestSelection.clamp(currentShutterNs!!, cam.shutterMinNs, cam.shutterMaxNs)
@@ -595,12 +608,6 @@ class CameraSessionController(
                 set(CaptureRequest.SENSOR_FRAME_DURATION, targetFrameNs.coerceAtLeast(sht))
             } else {
                 set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
-                // Unsupported ranges can fail on some devices; use advertised range
-                val range = CameraRequestSelection.pickAeFpsRange(cam?.aeFpsRanges ?: emptyList(), currentPhoneFps)
-                if (range != null) {
-                    android.util.Log.d(TAG, "AE FPS range for ${cam?.id}: $range (target=$currentPhoneFps)")
-                    set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, range)
-                }
             }
 
             if (currentFocusMode == "point" && applyFocusRegion(this)) {
@@ -667,6 +674,7 @@ class CameraSessionController(
         ) {
             result.get(CaptureResult.COLOR_CORRECTION_TRANSFORM)?.let { lastCCM = it }
             result.get(CaptureResult.COLOR_CORRECTION_GAINS)?.let { lastMeasuredGains = it }
+            result.get(CaptureResult.SENSOR_FRAME_DURATION)?.let { frameDurationNs = it }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
                 activeLens = result.get(CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID)
         }
@@ -707,10 +715,7 @@ class CameraSessionController(
                     if (myGeneration != cameraGeneration) { camera.close(); return }
                     cameraDevice = camera
                     if (outputSurface() == null) buildOutputs()  // a reopen this switch overtook had released them
-                    if (physId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
-                        createPhysicalSession(camera, physId, myGeneration)
-                    else
-                        createLegacySession(camera, myGeneration)
+                    createSession(camera, physId, myGeneration)
                 }
                 override fun onDisconnected(camera: CameraDevice) {
                     camera.close()
@@ -776,10 +781,7 @@ class CameraSessionController(
                     if (myGeneration != cameraGeneration) { camera.close(); return }
                     cameraDevice = camera
                     buildOutputs()
-                    if (physId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
-                        createPhysicalSession(camera, physId, myGeneration)
-                    else
-                        createLegacySession(camera, myGeneration)
+                    createSession(camera, physId, myGeneration)
                 }
                 override fun onDisconnected(camera: CameraDevice) {
                     camera.close()

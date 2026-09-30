@@ -444,8 +444,14 @@ class CameraStreamService : Service() {
         sb.appendLine("Current state: $state")
         val size = getStreamSize()
         sb.appendLine("Stream: ${size.width}x${size.height}")
-        val cur = controller?.snapshot()?.currentCamera
+        val snap = controller?.snapshot()
+        val cur = snap?.currentCamera
         sb.appendLine("Current camera: ${cur?.id ?: "none"} (${cur?.label ?: "-"})")
+        snap?.let {
+            val frame = it.frameDurationNs?.takeIf { ns -> ns > 0 }
+                ?.let { ns -> ", camera frame time ${"%.1f".format(java.util.Locale.ROOT, ns / 1e6)} ms" } ?: ""
+            sb.appendLine("FPS asked for: ${it.phoneFps}$frame")
+        }
         sb.appendLine("Recent transitions:")
         val snapshot = stateMachine.recentTransitions()
         if (snapshot.isEmpty()) {
