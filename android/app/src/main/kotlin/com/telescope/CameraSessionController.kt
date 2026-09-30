@@ -82,6 +82,10 @@ class CameraSessionController(
     @Volatile private var currentWbGains: RggbChannelVector? = null  // null = auto AWB
     @Volatile private var lastCCM:        ColorSpaceTransform? = null
     @Volatile private var lastMeasuredGains: RggbChannelVector? = null
+    // From capture results, for diagnostics: what the camera really did, as opposed to what it was asked for.
+    private val frameDurations = ArrayDeque<Long>()  // SENSOR_FRAME_DURATION of the last frames, guarded by itself
+    @Volatile private var appliedFpsRange: android.util.Range<Int>? = null
+    @Volatile private var exposureNs: Long? = null
     @Volatile private var activeLens: String? = null  // which lens a multi-lens camera is using (capture results)
     @Volatile private var currentFocusMode:     String = "continuous"
     @Volatile private var currentFocusDistance: Float  = 0f  // diopters; 0 = infinity
@@ -196,7 +200,12 @@ class CameraSessionController(
     fun setWbGains(gains: RggbChannelVector) { currentWbGains = gains;          post { applyExposure() } }
     fun setWbAuto()                         { currentWbGains = null;            post { applyExposure() } }
     fun setJpegQuality(q: Int)              { currentJpegQuality = q;           post { applyExposure() } }
-    fun setFpsTarget(fps: Int)              { currentPhoneFps = fps;            post { applyExposure(); encoder?.setBitrate(currentBitrate()) } }
+    fun setFpsTarget(fps: Int) {
+        val changed = fps != currentPhoneFps
+        currentPhoneFps = fps
+        // A new rate goes in the session's own setup too (see createSession), so the session is rebuilt for it
+        post { if (changed) reconfigureSession() else applyExposure(); encoder?.setBitrate(currentBitrate()) }
+    }
     fun setFocusMode(mode: String)          { currentFocusMode = mode; focusPoint = null; post { applyExposure() } }
     fun setZoom(z: ZoomRequest)             { zoom = z;                         post { applyExposure() } }
 
@@ -218,7 +227,7 @@ class CameraSessionController(
         val c = cameraDevice ?: return
         try {
             s.setRepeatingRequest(buildRequest(c), ccmCaptureCallback, handler)
-            val trigger = c.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
+            val trigger = c.createCaptureRequest(requestTemplate()).apply {
                 addTarget(outputSurface()!!)
                 previewSurface?.let { addTarget(it) }
                 currentCamera?.let { applyZoom(this, it) }  // this frame reaches the stream too
@@ -397,10 +406,7 @@ class CameraSessionController(
                     if (myGeneration != cameraGeneration) { camera.close(); return }
                     cameraDevice = camera
                     onStateChanged(StreamState.ConfiguringSession, "openCamera.onOpened", null)
-                    if (physicalCameraId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
-                        createPhysicalSession(camera, physicalCameraId, myGeneration)
-                    else
-                        createLegacySession(camera, myGeneration)
+                    createSession(camera, physicalCameraId, myGeneration)
                 }
                 override fun onDisconnected(camera: CameraDevice) {
                     camera.close()
@@ -427,6 +433,13 @@ class CameraSessionController(
 
     // Returns true when it has taken over (onComplete is then someone else's to call)
     private fun sessionFailed(op: String, e: Throwable?, onComplete: (() -> Unit)?): Boolean {
+        if (usedStreamUseCase && !streamUseCaseRefused) {
+            // The labels are only a hint: a camera that won't take them gets the session without, from now on
+            streamUseCaseRefused = true
+            onControlError("$op.streamUseCaseDropped", e ?: IllegalStateException("configure failed"))
+            reconfigureSession(onComplete)
+            return true
+        }
         if (retryWithoutPreview(op, e, onComplete)) return true
         if (codec == H264Stream.CODEC_H264) {
             // The camera can't feed the encoder at this size: MJPEG instead, and codecError stops the desktop retrying
@@ -450,8 +463,9 @@ class CameraSessionController(
 
     private fun currentTargetSurfaces(): List<Surface> = listOfNotNull(outputSurface(), previewSurface)
 
-    private fun createPhysicalSession(
-        camera: CameraDevice, physId: String,
+    // physId: a lens of a logical camera, streamed on its own; null for the camera as opened.
+    private fun createSession(
+        camera: CameraDevice, physId: String?,
         generation: Int = cameraGeneration,
         mySession: Int = sessionGeneration,
         onComplete: (() -> Unit)? = null,
@@ -461,9 +475,14 @@ class CameraSessionController(
         if (generation != cameraGeneration) { onComplete?.invoke(); return }
         val exec   = Executor { cmd -> handler?.post(cmd) }
         try {
-            if (noOutput("createPhysicalSession", onComplete)) return
+            if (noOutput("createSession", onComplete)) return
+            usedStreamUseCase = false
             val outCfgs = currentTargetSurfaces().map { surface ->
-                OutputConfiguration(surface).also { it.setPhysicalCameraId(physId) }
+                OutputConfiguration(surface).also { cfg ->
+                    physId?.let { cfg.setPhysicalCameraId(it) }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !streamUseCaseRefused)
+                        applyStreamUseCase(cfg, surface)
+                }
             }
             camera.createCaptureSession(SessionConfiguration(
                 SessionConfiguration.SESSION_REGULAR, outCfgs, exec,
@@ -476,15 +495,19 @@ class CameraSessionController(
                     }
                     override fun onConfigureFailed(s: CameraCaptureSession) {
                         if (generation == cameraGeneration) {
-                            if (sessionFailed("createPhysicalSession.onConfigureFailed", null, onComplete)) return
+                            if (sessionFailed("createSession.onConfigureFailed", null, onComplete)) return
                         }
                         onComplete?.invoke()
                     }
                 }
-            ))
+            ).apply {
+                // The frame rate is picked when the session is set up: without it here, a phone can choose a
+                // sensor mode that never reaches the rate asked for later (a vivo stuck near 42 at 60 fps).
+                setSessionParameters(buildRequest(camera))
+            })
         } catch (e: Exception) {
             if (generation == cameraGeneration) {
-                if (sessionFailed("createPhysicalSession", e, onComplete)) return
+                if (sessionFailed("createSession", e, onComplete)) return
             }
             onComplete?.invoke()
         }
@@ -534,10 +557,7 @@ class CameraSessionController(
         val mySession = ++sessionGeneration
         val cam    = currentCamera
         val physId = if (cam?.logicalId != null) cam.id else null
-        if (physId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
-            createPhysicalSession(camera, physId, cameraGeneration, mySession, onComplete)
-        else
-            createLegacySession(camera, cameraGeneration, mySession, onComplete)
+        createSession(camera, physId, cameraGeneration, mySession, onComplete)
     }
 
     private fun startRepeating(camera: CameraDevice, session: CameraCaptureSession) {
@@ -575,8 +595,70 @@ class CameraSessionController(
             builder.set(CaptureRequest.SCALER_CROP_REGION, rect)
     }
 
+    // Labels each output with what it's for, on cameras that take that: some (a vivo) only run 60 fps for a
+    // stream marked as video recording, and otherwise stay at 30 whatever the request asks.
+    @Volatile private var usedStreamUseCase = false
+    @Volatile private var streamUseCaseRefused = false  // the session failed with the labels: sessions go without
+
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    private fun applyStreamUseCase(cfg: OutputConfiguration, surface: Surface) {
+        val useCase = when {
+            encoder != null && surface === encoder?.inputSurface ->
+                CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_VIDEO_RECORD.toLong()
+            surface === previewSurface -> CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_PREVIEW.toLong()
+            else -> return
+        }
+        val cam = currentCamera ?: return
+        val offered = try {
+            (context.getSystemService(Context.CAMERA_SERVICE) as CameraManager)
+                .getCameraCharacteristics(cam.logicalId ?: cam.id)
+                .get(CameraCharacteristics.SCALER_AVAILABLE_STREAM_USE_CASES)
+        } catch (_: Exception) { null } ?: return
+        if (useCase !in offered) return
+        cfg.streamUseCase = useCase
+        usedStreamUseCase = true
+    }
+
+    // For Copy diagnostics: the rate asked for against what the camera did, and the fastest each output allows here.
+    fun frameReport(): String = buildString {
+        val cam = currentCamera
+        val asked = CameraRequestSelection.pickAeFpsRange(cam?.aeFpsRanges ?: emptyList(), currentPhoneFps)
+        val template = if (requestTemplate() == CameraDevice.TEMPLATE_RECORD) "record" else "preview"
+        val labels = when {
+            usedStreamUseCase -> ", outputs labelled"
+            streamUseCaseRefused -> ", output labels refused"
+            else -> ""
+        }
+        appendLine("FPS asked for: $currentPhoneFps (range $asked, $template template, $codec$labels)")
+        val durations = synchronized(frameDurations) { frameDurations.toList() }
+        fun ms(ns: Long) = "%.1f".format(java.util.Locale.ROOT, ns / 1e6)
+        if (durations.isNotEmpty()) {
+            append("Camera did: frame time ${ms(durations.average().toLong())} ms (${ms(durations.min())}-${ms(durations.max())})")
+            append(", range ${appliedFpsRange ?: "?"}")
+            exposureNs?.let { append(", exposure ${ms(it)} ms") }
+            appendLine()
+        }
+        val map = try {
+            (context.getSystemService(Context.CAMERA_SERVICE) as CameraManager)
+                .getCameraCharacteristics(cam?.logicalId ?: cam?.id ?: return@buildString)
+                .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+        } catch (_: Exception) { null } ?: return@buildString
+        val size = android.util.Size(streamWidth, streamHeight)
+        val fastest = try {
+            if (encoder != null) map.getOutputMinFrameDuration(android.media.MediaCodec::class.java, size)
+            else map.getOutputMinFrameDuration(ImageFormat.JPEG, size)
+        } catch (_: Exception) { 0L }
+        append("Outputs: stream ${streamWidth}x$streamHeight fastest ${if (fastest > 0) ms(fastest) + " ms" else "?"}")
+        appendLine(if (previewSurface != null) ", plus the phone's preview" else "")
+    }
+
+    // H.264 feeds an encoder, so it asks as a video recording: phones like vivo's only run their 60 fps sensor modes
+    // for that, and stay at 30 for a preview. MJPEG's JPEG output stays a preview, where JPEG is a normal target.
+    private fun requestTemplate(): Int =
+        if (codec == H264Stream.CODEC_H264) CameraDevice.TEMPLATE_RECORD else CameraDevice.TEMPLATE_PREVIEW
+
     private fun buildRequest(camera: CameraDevice = cameraDevice!!): CaptureRequest {
-        return camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
+        return camera.createCaptureRequest(requestTemplate()).apply {
             addTarget(outputSurface()!!)
             previewSurface?.let { addTarget(it) }
 
@@ -585,6 +667,14 @@ class CameraSessionController(
 
             // Use CONTROL_MODE_AUTO even in manual AE so AF keeps running independently
             set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
+            // A recording template may turn stabilisation on, which crops: framing and zoom here assume the full view
+            set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE, CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF)
+            // Set in manual exposure too, where AE ignores it: it's also what the session is set up for.
+            // Unsupported ranges can fail on some devices; use advertised range
+            CameraRequestSelection.pickAeFpsRange(cam?.aeFpsRanges ?: emptyList(), currentPhoneFps)?.let { range ->
+                android.util.Log.d(TAG, "AE FPS range for ${cam?.id}: $range (target=$currentPhoneFps)")
+                set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, range)
+            }
             if (currentIso != null && currentShutterNs != null && cam != null && cam.supportsManualSensor) {
                 val iso = CameraRequestSelection.clamp(currentIso!!, cam.isoMin, cam.isoMax)
                 val sht = CameraRequestSelection.clamp(currentShutterNs!!, cam.shutterMinNs, cam.shutterMaxNs)
@@ -595,12 +685,6 @@ class CameraSessionController(
                 set(CaptureRequest.SENSOR_FRAME_DURATION, targetFrameNs.coerceAtLeast(sht))
             } else {
                 set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
-                // Unsupported ranges can fail on some devices; use advertised range
-                val range = CameraRequestSelection.pickAeFpsRange(cam?.aeFpsRanges ?: emptyList(), currentPhoneFps)
-                if (range != null) {
-                    android.util.Log.d(TAG, "AE FPS range for ${cam?.id}: $range (target=$currentPhoneFps)")
-                    set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, range)
-                }
             }
 
             if (currentFocusMode == "point" && applyFocusRegion(this)) {
@@ -667,6 +751,14 @@ class CameraSessionController(
         ) {
             result.get(CaptureResult.COLOR_CORRECTION_TRANSFORM)?.let { lastCCM = it }
             result.get(CaptureResult.COLOR_CORRECTION_GAINS)?.let { lastMeasuredGains = it }
+            result.get(CaptureResult.SENSOR_FRAME_DURATION)?.let { ns ->
+                synchronized(frameDurations) {
+                    frameDurations.addLast(ns)
+                    if (frameDurations.size > 60) frameDurations.removeFirst()
+                }
+            }
+            appliedFpsRange = result.get(CaptureResult.CONTROL_AE_TARGET_FPS_RANGE)
+            exposureNs = result.get(CaptureResult.SENSOR_EXPOSURE_TIME)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
                 activeLens = result.get(CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID)
         }
@@ -707,10 +799,7 @@ class CameraSessionController(
                     if (myGeneration != cameraGeneration) { camera.close(); return }
                     cameraDevice = camera
                     if (outputSurface() == null) buildOutputs()  // a reopen this switch overtook had released them
-                    if (physId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
-                        createPhysicalSession(camera, physId, myGeneration)
-                    else
-                        createLegacySession(camera, myGeneration)
+                    createSession(camera, physId, myGeneration)
                 }
                 override fun onDisconnected(camera: CameraDevice) {
                     camera.close()
@@ -776,10 +865,7 @@ class CameraSessionController(
                     if (myGeneration != cameraGeneration) { camera.close(); return }
                     cameraDevice = camera
                     buildOutputs()
-                    if (physId != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
-                        createPhysicalSession(camera, physId, myGeneration)
-                    else
-                        createLegacySession(camera, myGeneration)
+                    createSession(camera, physId, myGeneration)
                 }
                 override fun onDisconnected(camera: CameraDevice) {
                     camera.close()

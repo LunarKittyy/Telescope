@@ -40,7 +40,7 @@ In Advanced, from the settings menu.
 ## Resolution and FPS
 - Resolution dropdown is populated from the current lens's actual supported capture sizes (read from the phone), not a fixed list - picking one sends a live `resolution` control to the phone instead of resizing after decode. After a stream stops the sizes stay, so you can pick another before starting again, and Start opens the phone at that size and FPS
 - The readout goes amber while a resolution change is in flight and clears once the stream confirms the new size, or turns red if it never does
-- One FPS spinner (5-60) drives both the phone's capture rate and the virtual camera's playback rate - there's no separate "phone" and "playback" rate to keep in sync
+- One FPS dropdown (15, 24, 25, 30, 48 or 60) drives both the phone's capture rate and the virtual camera's playback rate - there's no separate "phone" and "playback" rate to keep in sync. Rates past what the current lens lists are grayed out, and it runs at the fastest it can below; the one you picked comes back on a lens that can do it
 
 ## Bandwidth controls
 - Format: **Light** (H.264, the default) or **Heavy** (MJPEG). Light comes from the phone's hardware encoder and needs a fraction of Heavy's bandwidth, about 8 Mbps at 1080p30, so it keeps up even on slower Wi-Fi. Heavy sends every frame as a full JPEG: sharper in fast motion, but it needs USB or strong Wi-Fi. A phone without an H.264 encoder uses Heavy by itself, and if the encoder fails mid-stream the stream goes back to Heavy and says so. Switching reconnects the stream

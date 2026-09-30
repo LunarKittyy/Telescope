@@ -472,10 +472,13 @@ class TransformsPlugin(TelescopePlugin):
         live = next((c for c in cameras if c.get("id") == state.get("active_lens")), None)
         self._live_lens = shorten_lens_label(live.get("label", "")) if live else ""
         self._on_camera_caps(next((c for c in cameras if c.get("current")), None))
-        if self._live_lens:
-            if self._sent_zoom is None or self._sent_zoom.ratio <= 1.0:
+        # Learnt only once the ratio sent last had time to take: right after a sweep back under a lens, or on a
+        # reconnect, the phone can still be on the telephoto, and taking that for the unzoomed lens made the dot red.
+        settled = time.monotonic() - self._sent_ratio_at >= _LENS_SETTLE_S
+        if self._live_lens and self._sent_zoom is not None and settled:
+            if self._sent_zoom.ratio <= 1.0:
                 self._default_lens = self._live_lens
-            elif self._live_lens != self._default_lens:
+            elif self._default_lens and self._live_lens != self._default_lens:
                 self._tele_lens = self._live_lens
         self._show_zoom_where()
 
