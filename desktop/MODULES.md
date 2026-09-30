@@ -260,7 +260,7 @@ UnityCapture helpers: `uc_registered_name()` (the name apps list it under, read 
 
 ### `plugins/camera_control.py`
 **CameraControlPlugin** - lens selection, exposure, white balance, focus, OIS, and image tuning. `panel_region = "right"`.
-- UI: `LensPanel`, camera capability info label, then sections: Exposure (auto/manual, ISO, shutter, compensation), White balance (auto/manual, Kelvin, tint), Focus (Auto / Point / Manual, distance), Image (OIS, noise reduction, sharpening, black-level lock, torch). Compensation and Tint snap and reset to 0; Temperature snaps to `_WB_STOPS` (3200, 5500, 6500 K) and resets to 5500.
+- UI: `LensPanel`, camera capability info label, then sections: Exposure (auto/manual, ISO, shutter, compensation), White balance (auto/manual, Kelvin, tint), Focus (Auto / Point / Manual, distance), Image (OIS, noise reduction, sharpening, black-level lock, torch). Compensation snaps and resets to 0; Tint resets to 0 and Temperature to 5500 K on a double-click, without snap points.
 - `derive_camera_control_view(state)` - pure function mapping a raw phone-state dict to a `CameraControlView` dataclass, independently testable without a `QApplication`.
 - `on_stream_start`: stores ctrl, sets "Loading lenses..." placeholder, re-pushes desktop-restored state to phone (phone keeps boot defaults until user touches a control).
 - `on_phone_state(state)`: loads cameras into `LensPanel`, syncs exposure/WB/focus/OIS/AE-comp/NR/edge/black-level-lock/torch from phone state. Empty `state` dict (fetch failure) shows "Unavailable" on lens panel.

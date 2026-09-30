@@ -493,15 +493,15 @@ def test_point_focus_follows_the_phone_and_the_lens(camera_plugin):
     assert not plugin._rb_focus_point.isEnabled()
 
 
-def test_exposure_and_white_balance_snap_to_neutral_and_reset_on_a_double_click(camera_plugin):
+def test_compensation_snaps_and_all_three_reset_on_a_double_click(camera_plugin):
     from PyQt6.QtCore import Qt
     from PyQt6.QtTest import QTest
     plugin, _host, _bus, panel = camera_plugin
     ctrl = _Ctrl()
     plugin._ctrl = ctrl
     assert plugin._ae_comp_slider.snaps() == [0]
-    assert plugin._tint_slider.snaps() == [0]
-    assert plugin._wb_slider.snaps() == [3200, 5500, 6500]
+    assert plugin._tint_slider.snaps() == []
+    assert plugin._wb_slider.snaps() == []
     panel.show()
     for slider in (plugin._ae_comp_slider, plugin._wb_slider, plugin._tint_slider):
         slider.setEnabled(True)
