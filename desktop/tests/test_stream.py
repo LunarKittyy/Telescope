@@ -542,3 +542,43 @@ def test_a_crash_in_the_worker_ends_with_an_error_and_idle(monkeypatch):
 
     assert ("error", "Stream error: boom") in statuses
     assert statuses[-1] == ("idle", "Not streaming")
+
+
+def test_the_fps_readout_counts_frames_from_the_phone_not_resends(monkeypatch):
+    import time
+    worker = stream.StreamWorker("url", None, None, 60)
+    worker._latest = np.zeros((2, 2, 3), dtype=np.uint8)  # one frame, then the phone sends nothing new
+    statuses = []
+    from PyQt6.QtCore import Qt
+    # Direct: emitted from the feeder thread, with no event loop here to deliver a queued call
+    worker.status.connect(lambda kind, msg: statuses.append((kind, msg)), Qt.ConnectionType.DirectConnection)
+
+    class FakeCamera:
+        device = "fake-vcam"
+
+        def __init__(self, **_kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def send(self, _frame):
+            pass
+
+    monkeypatch.setattr(vcam.pyvirtualcam, "Camera", FakeCamera)
+    monkeypatch.setattr(vcam, "locked_size", lambda: None)
+    feeder = threading.Thread(target=worker._run_vcam)
+    feeder.start()
+    try:
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline and not any(k == "fps" for k, _ in statuses):
+            time.sleep(0.05)
+    finally:
+        worker.request_stop()
+        feeder.join(timeout=3)
+
+    fps = [msg for kind, msg in statuses if kind == "fps"]
+    assert fps and fps[0].startswith("0.0 fps")  # the last frame was resent ~30 times a second meanwhile

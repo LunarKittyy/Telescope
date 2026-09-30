@@ -344,7 +344,7 @@ class StreamWorker(QThread):
                 shown_as = vcam.V4L2_PHONE_LABEL if vcam.IS_LINUX else cam.device
                 self.vcam_opened.emit(cam_w, cam_h)
                 self.status.emit("ok", f"Streaming {cam_w}x{cam_h} at {self._fps} fps to {shown_as}")
-                fc, t0, bytes0, recv0 = 0, time.monotonic(), self._bytes_total, self._frames_arrived
+                t0, bytes0, recv0 = time.monotonic(), self._bytes_total, self._frames_arrived
                 period = 1 / self._fps
                 last_src = fitted = None
                 last_sent = 0.0
@@ -364,28 +364,29 @@ class StreamWorker(QThread):
                             last_src, fitted = src, _fit_frame(src, cam_w, cam_h)
                         cam.send(fitted)
                         last_sent = time.monotonic()
-                    fc += 1
                     if (elapsed := time.monotonic() - t0) >= 2.0:
                         src_now = self._latest
                         if src_now is not None:
                             src_h, src_w = src_now.shape[:2]
                         else:
                             src_w, src_h = cam_w, cam_h
-                        self.status.emit("fps", f"{fc/elapsed:.1f} fps  {src_w}x{src_h}")
+                        # Frames that came from the phone, not what the virtual camera was sent: resends of the last
+                        # frame padded that out, so a camera stuck at 30 read as 42 at 60 fps.
+                        recv_now = self._frames_arrived
+                        arrival_fps = (recv_now - recv0) / elapsed
+                        self.last_arrival_fps = arrival_fps
+                        self.status.emit("fps", f"{arrival_fps:.1f} fps  {src_w}x{src_h}")
 
                         bytes_now = self._bytes_total
                         mbps = (bytes_now - bytes0) * 8 / elapsed / 1_000_000
 
                         # Warn only if frames sustainedly arrive well under the target rate. Arrive, not shown: frames
                         # that come in a burst are all counted, though only the newest is shown to stay live.
-                        recv_now = self._frames_arrived
-                        arrival_fps = (recv_now - recv0) / elapsed
-                        self.last_arrival_fps = arrival_fps
                         struggling = arrival_fps < self._fps * 0.85
                         self._weak_streak = self._weak_streak + 1 if struggling else 0
                         net_kind = "net_warn" if self._weak_streak >= 2 else "net"
                         self.status.emit(net_kind, f"{mbps:.1f} Mbps")
 
-                        fc, t0, bytes0, recv0 = 0, time.monotonic(), bytes_now, recv_now
+                        t0, bytes0, recv0 = time.monotonic(), bytes_now, recv_now
         except Exception as exc:
             self.status.emit("warn", f"Virtual camera error: {exc}")

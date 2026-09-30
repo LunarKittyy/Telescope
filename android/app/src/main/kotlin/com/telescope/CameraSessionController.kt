@@ -42,7 +42,6 @@ data class CameraControlSnapshot(
     val codecError:        String?,
     val codecUnsupported:  Boolean,  // codecError is H.264 not doing this size or rate here, not a crash
     val activeLens:        String?,
-    val frameDurationNs:   Long? = null,  // how long the camera took per frame lately, from its capture results
 )
 
 // Phone-side zoom, as the desktop splits it: a centred CONTROL_ZOOM_RATIO, then a 1/crop SCALER_CROP_REGION
@@ -83,7 +82,10 @@ class CameraSessionController(
     @Volatile private var currentWbGains: RggbChannelVector? = null  // null = auto AWB
     @Volatile private var lastCCM:        ColorSpaceTransform? = null
     @Volatile private var lastMeasuredGains: RggbChannelVector? = null
-    @Volatile private var frameDurationNs: Long? = null  // SENSOR_FRAME_DURATION of the last capture, for diagnostics
+    // From capture results, for diagnostics: what the camera really did, as opposed to what it was asked for.
+    private val frameDurations = ArrayDeque<Long>()  // SENSOR_FRAME_DURATION of the last frames, guarded by itself
+    @Volatile private var appliedFpsRange: android.util.Range<Int>? = null
+    @Volatile private var exposureNs: Long? = null
     @Volatile private var activeLens: String? = null  // which lens a multi-lens camera is using (capture results)
     @Volatile private var currentFocusMode:     String = "continuous"
     @Volatile private var currentFocusDistance: Float  = 0f  // diopters; 0 = infinity
@@ -150,7 +152,6 @@ class CameraSessionController(
         codecError      = codecError,
         codecUnsupported = codecUnsupported,
         activeLens      = activeLens,
-        frameDurationNs = frameDurationNs,
     )
 
     private fun currentBitrate(): Int {
@@ -432,6 +433,13 @@ class CameraSessionController(
 
     // Returns true when it has taken over (onComplete is then someone else's to call)
     private fun sessionFailed(op: String, e: Throwable?, onComplete: (() -> Unit)?): Boolean {
+        if (usedStreamUseCase && !streamUseCaseRefused) {
+            // The labels are only a hint: a camera that won't take them gets the session without, from now on
+            streamUseCaseRefused = true
+            onControlError("$op.streamUseCaseDropped", e ?: IllegalStateException("configure failed"))
+            reconfigureSession(onComplete)
+            return true
+        }
         if (retryWithoutPreview(op, e, onComplete)) return true
         if (codec == H264Stream.CODEC_H264) {
             // The camera can't feed the encoder at this size: MJPEG instead, and codecError stops the desktop retrying
@@ -468,8 +476,13 @@ class CameraSessionController(
         val exec   = Executor { cmd -> handler?.post(cmd) }
         try {
             if (noOutput("createSession", onComplete)) return
+            usedStreamUseCase = false
             val outCfgs = currentTargetSurfaces().map { surface ->
-                OutputConfiguration(surface).also { cfg -> physId?.let { cfg.setPhysicalCameraId(it) } }
+                OutputConfiguration(surface).also { cfg ->
+                    physId?.let { cfg.setPhysicalCameraId(it) }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !streamUseCaseRefused)
+                        applyStreamUseCase(cfg, surface)
+                }
             }
             camera.createCaptureSession(SessionConfiguration(
                 SessionConfiguration.SESSION_REGULAR, outCfgs, exec,
@@ -582,6 +595,63 @@ class CameraSessionController(
             builder.set(CaptureRequest.SCALER_CROP_REGION, rect)
     }
 
+    // Labels each output with what it's for, on cameras that take that: some (a vivo) only run 60 fps for a
+    // stream marked as video recording, and otherwise stay at 30 whatever the request asks.
+    @Volatile private var usedStreamUseCase = false
+    @Volatile private var streamUseCaseRefused = false  // the session failed with the labels: sessions go without
+
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    private fun applyStreamUseCase(cfg: OutputConfiguration, surface: Surface) {
+        val useCase = when {
+            encoder != null && surface === encoder?.inputSurface ->
+                CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_VIDEO_RECORD.toLong()
+            surface === previewSurface -> CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_PREVIEW.toLong()
+            else -> return
+        }
+        val cam = currentCamera ?: return
+        val offered = try {
+            (context.getSystemService(Context.CAMERA_SERVICE) as CameraManager)
+                .getCameraCharacteristics(cam.logicalId ?: cam.id)
+                .get(CameraCharacteristics.SCALER_AVAILABLE_STREAM_USE_CASES)
+        } catch (_: Exception) { null } ?: return
+        if (useCase !in offered) return
+        cfg.streamUseCase = useCase
+        usedStreamUseCase = true
+    }
+
+    // For Copy diagnostics: the rate asked for against what the camera did, and the fastest each output allows here.
+    fun frameReport(): String = buildString {
+        val cam = currentCamera
+        val asked = CameraRequestSelection.pickAeFpsRange(cam?.aeFpsRanges ?: emptyList(), currentPhoneFps)
+        val template = if (requestTemplate() == CameraDevice.TEMPLATE_RECORD) "record" else "preview"
+        val labels = when {
+            usedStreamUseCase -> ", outputs labelled"
+            streamUseCaseRefused -> ", output labels refused"
+            else -> ""
+        }
+        appendLine("FPS asked for: $currentPhoneFps (range $asked, $template template, $codec$labels)")
+        val durations = synchronized(frameDurations) { frameDurations.toList() }
+        fun ms(ns: Long) = "%.1f".format(java.util.Locale.ROOT, ns / 1e6)
+        if (durations.isNotEmpty()) {
+            append("Camera did: frame time ${ms(durations.average().toLong())} ms (${ms(durations.min())}-${ms(durations.max())})")
+            append(", range ${appliedFpsRange ?: "?"}")
+            exposureNs?.let { append(", exposure ${ms(it)} ms") }
+            appendLine()
+        }
+        val map = try {
+            (context.getSystemService(Context.CAMERA_SERVICE) as CameraManager)
+                .getCameraCharacteristics(cam?.logicalId ?: cam?.id ?: return@buildString)
+                .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+        } catch (_: Exception) { null } ?: return@buildString
+        val size = android.util.Size(streamWidth, streamHeight)
+        val fastest = try {
+            if (encoder != null) map.getOutputMinFrameDuration(android.media.MediaCodec::class.java, size)
+            else map.getOutputMinFrameDuration(ImageFormat.JPEG, size)
+        } catch (_: Exception) { 0L }
+        append("Outputs: stream ${streamWidth}x$streamHeight fastest ${if (fastest > 0) ms(fastest) + " ms" else "?"}")
+        appendLine(if (previewSurface != null) ", plus the phone's preview" else "")
+    }
+
     // H.264 feeds an encoder, so it asks as a video recording: phones like vivo's only run their 60 fps sensor modes
     // for that, and stay at 30 for a preview. MJPEG's JPEG output stays a preview, where JPEG is a normal target.
     private fun requestTemplate(): Int =
@@ -681,7 +751,14 @@ class CameraSessionController(
         ) {
             result.get(CaptureResult.COLOR_CORRECTION_TRANSFORM)?.let { lastCCM = it }
             result.get(CaptureResult.COLOR_CORRECTION_GAINS)?.let { lastMeasuredGains = it }
-            result.get(CaptureResult.SENSOR_FRAME_DURATION)?.let { frameDurationNs = it }
+            result.get(CaptureResult.SENSOR_FRAME_DURATION)?.let { ns ->
+                synchronized(frameDurations) {
+                    frameDurations.addLast(ns)
+                    if (frameDurations.size > 60) frameDurations.removeFirst()
+                }
+            }
+            appliedFpsRange = result.get(CaptureResult.CONTROL_AE_TARGET_FPS_RANGE)
+            exposureNs = result.get(CaptureResult.SENSOR_EXPOSURE_TIME)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
                 activeLens = result.get(CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID)
         }
