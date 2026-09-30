@@ -604,8 +604,8 @@ class CameraSessionController(
     private fun applyStreamUseCase(cfg: OutputConfiguration, surface: Surface) {
         val useCase = when {
             encoder != null && surface === encoder?.inputSurface ->
-                CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_VIDEO_RECORD
-            surface === previewSurface -> CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_PREVIEW
+                CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_VIDEO_RECORD.toLong()
+            surface === previewSurface -> CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_PREVIEW.toLong()
             else -> return
         }
         val cam = currentCamera ?: return
