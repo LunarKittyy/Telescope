@@ -226,7 +226,7 @@ class CameraSessionController(
         val c = cameraDevice ?: return
         try {
             s.setRepeatingRequest(buildRequest(c), ccmCaptureCallback, handler)
-            val trigger = c.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
+            val trigger = c.createCaptureRequest(requestTemplate()).apply {
                 addTarget(outputSurface()!!)
                 previewSurface?.let { addTarget(it) }
                 currentCamera?.let { applyZoom(this, it) }  // this frame reaches the stream too
@@ -582,8 +582,13 @@ class CameraSessionController(
             builder.set(CaptureRequest.SCALER_CROP_REGION, rect)
     }
 
+    // H.264 feeds an encoder, so it asks as a video recording: phones like vivo's only run their 60 fps sensor modes
+    // for that, and stay at 30 for a preview. MJPEG's JPEG output stays a preview, where JPEG is a normal target.
+    private fun requestTemplate(): Int =
+        if (codec == H264Stream.CODEC_H264) CameraDevice.TEMPLATE_RECORD else CameraDevice.TEMPLATE_PREVIEW
+
     private fun buildRequest(camera: CameraDevice = cameraDevice!!): CaptureRequest {
-        return camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
+        return camera.createCaptureRequest(requestTemplate()).apply {
             addTarget(outputSurface()!!)
             previewSurface?.let { addTarget(it) }
 
@@ -592,6 +597,8 @@ class CameraSessionController(
 
             // Use CONTROL_MODE_AUTO even in manual AE so AF keeps running independently
             set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
+            // A recording template may turn stabilisation on, which crops: framing and zoom here assume the full view
+            set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE, CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF)
             // Set in manual exposure too, where AE ignores it: it's also what the session is set up for.
             // Unsupported ranges can fail on some devices; use advertised range
             CameraRequestSelection.pickAeFpsRange(cam?.aeFpsRanges ?: emptyList(), currentPhoneFps)?.let { range ->
