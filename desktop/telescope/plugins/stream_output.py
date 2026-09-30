@@ -11,7 +11,7 @@ from telescope.plugin import TelescopePlugin
 from telescope.theme import OK, WARN
 from telescope.widgets.banner import BannerAction, Issue
 from telescope.widgets.common import (
-    NoScrollComboBox, NoScrollSlider, NoScrollSpinBox, SegmentButton, add_card_header,
+    NoScrollComboBox, NoScrollSlider, SegmentButton, add_card_header,
     add_section_heading, control_row as _row, control_row_widget, card_layout, create_card,
     quality_label, segmented_row, slider_row, value_label, wrapped_note,
 )
@@ -19,6 +19,7 @@ from telescope.widgets.common import (
 _DEFAULT_QUALITY = 85  # the recommended spot, marked on the slider
 _MAX_QUALITY     = 95  # past about 92 a JPEG roughly doubles in size for no difference anyone sees
 _DEFAULT_FPS     = 30
+_FPS_CHOICES     = (15, 24, 25, 30, 48, 60)
 _MAX_BITRATE_MBPS = 100  # the phone clamps to the same range, and to what its encoder takes; 0 is Auto
 # One past the top of the slider: Dynamic, as much as the connection carries. -1 in the config and to the phone, which
 # an older desktop reads as Auto and an older phone treats as Auto.
@@ -154,13 +155,16 @@ class StreamOutputPlugin(TelescopePlugin):
         lay.addLayout(_row("Resolution", self._res_combo, stretch=True))
 
         # ── FPS ───────────────────────────────────────────────────────────────
-        self._fps_spin = NoScrollSpinBox()  # Capture and playback rate; faster just wastes power.
-        self._fps_spin.setRange(5, 60)
-        self._fps_spin.setValue(_DEFAULT_FPS)
-        self._fps_spin.setSuffix(" fps")
-        self._fps_spin.setToolTip("The phone's capture rate and the virtual camera's. Lower saves data and battery.")
-        self._fps_spin.editingFinished.connect(self._on_fps)
-        lay.addLayout(_row("FPS", self._fps_spin, stretch=True))
+        # Capture and playback rate; faster just wastes power. Rates past what the lens lists are grayed out.
+        self._fps_combo = NoScrollComboBox()
+        for fps in _FPS_CHOICES:
+            self._fps_combo.addItem(f"{fps} fps", fps)
+        self._fps_combo.setToolTip("The phone's capture rate and the virtual camera's. Lower saves data and battery.")
+        self._fps_combo.activated.connect(self._on_fps_picked)
+        self._wanted_fps = _DEFAULT_FPS  # what was picked; a lens that can't do it runs the fastest it can below
+        self._camera_max_fps = 0         # the current lens's fastest listed rate; 0 = not known, nothing grayed
+        self._show_fps()
+        lay.addLayout(_row("FPS", self._fps_combo, stretch=True))
 
         # ── JPEG Quality ──────────────────────────────────────────────────────
         add_section_heading(lay, "Phone stream")
@@ -207,7 +211,7 @@ class StreamOutputPlugin(TelescopePlugin):
 
     def get_stream_params(self) -> tuple:
         """Return (width, height, fps) for StreamWorker (width/height always None; resolution controlled by phone)."""
-        return None, None, self._fps_spin.value()
+        return None, None, self._fps()
 
     def on_stream_start(self, stream_url: str, ctrl):
         self._ctrl = ctrl
@@ -223,7 +227,9 @@ class StreamOutputPlugin(TelescopePlugin):
         self._current_camera_id = None
 
     def _forget_sizes(self):
-        """Another phone: this one's sizes mean nothing there."""
+        """Another phone: this one's sizes and rates mean nothing there."""
+        self._camera_max_fps = 0
+        self._show_fps()
         self._sizes_by_ratio = {}
         self._ratios_sorted = []
         for combo in (self._ar_combo, self._res_combo):
@@ -237,7 +243,7 @@ class StreamOutputPlugin(TelescopePlugin):
         if self._ctrl:
             self._ctrl.send(action="jpeg_quality", value=self._quality_slider.value())
             self._ctrl.send(action="bitrate", value=self._bitrate_bps())
-            self._ctrl.send(action="fps_target",   value=self._fps_spin.value())
+            self._ctrl.send(action="fps_target",   value=self._fps())
 
     def on_phone_state(self, state: dict):
         # {} means the state fetch failed, not a phone without H.264 (a phone leaves codecs out when it's only MJPEG)
@@ -271,6 +277,7 @@ class StreamOutputPlugin(TelescopePlugin):
         cur = next((c for c in cams if c.get("current")), None)
         if cur is None:
             return
+        self._set_camera_max_fps(cur.get("maxFps"))
         self._apply_camera(cur, state.get("stream_width"), state.get("stream_height"))
 
     def _on_camera_switched(self, cam: dict):
@@ -402,7 +409,7 @@ class StreamOutputPlugin(TelescopePlugin):
 
     def opening(self) -> dict:
         """What the phone should open at when a stream starts: the size picked here (if known) and the FPS."""
-        out = {"fps": self._fps_spin.value()}
+        out = {"fps": self._fps()}
         wh = _parse_size_label(self._pending_resolution_text or self._saved_resolution_text)
         if wh:
             out["width"], out["height"] = wh
@@ -512,12 +519,49 @@ class StreamOutputPlugin(TelescopePlugin):
             self._ctrl.send(action="bitrate", value=self._bitrate_bps())
         self._host.schedule_save()
 
-    def _on_fps(self):
-        fps = self._fps_spin.value()
+    def _fps(self) -> int:
+        return self._fps_combo.currentData() or _DEFAULT_FPS
+
+    @staticmethod
+    def _nearest_fps(fps) -> int:
+        """A saved rate (older versions took any 5-60) as the closest choice, the lower one on a tie."""
+        try:
+            fps = int(fps)
+        except (TypeError, ValueError):
+            return _DEFAULT_FPS
+        return min(_FPS_CHOICES, key=lambda c: (abs(c - fps), c))
+
+    def _show_fps(self) -> bool:
+        """Gray out rates past the lens's and select the picked one, or the fastest it can below. True if the rate
+        in use changed."""
+        before = self._fps_combo.currentData()
+        limit = self._camera_max_fps
+        model = self._fps_combo.model()
+        for i, fps in enumerate(_FPS_CHOICES):
+            model.item(i).setEnabled(not limit or fps <= limit)
+        usable = [fps for fps in _FPS_CHOICES if not limit or fps <= limit] or [_FPS_CHOICES[0]]
+        use = max((fps for fps in usable if fps <= self._wanted_fps), default=usable[0])
+        self._fps_combo.setCurrentIndex(_FPS_CHOICES.index(use))
+        return before is not None and use != before
+
+    def _set_camera_max_fps(self, max_fps):
+        max_fps = max_fps if isinstance(max_fps, int) and max_fps > 0 else 0
+        if max_fps == self._camera_max_fps:
+            return
+        self._camera_max_fps = max_fps
+        if self._show_fps():
+            self._apply_fps()  # the picked rate stays saved, for a lens that can do it
+
+    def _on_fps_picked(self, _index: int):
+        self._wanted_fps = self._fps()
+        self._apply_fps()
+        self._host.schedule_save()
+
+    def _apply_fps(self):
+        fps = self._fps()
         self._host.update_stream_output(fps=fps)
         if self._ctrl:
             self._ctrl.send(action="fps_target", value=fps)
-        self._host.schedule_save()
 
     def _show_quality(self, q: int):
         self._quality_val_lbl.setText(f"{q}%")
@@ -539,14 +583,14 @@ class StreamOutputPlugin(TelescopePlugin):
             "Format": self.stream_format() + (" (H.264 chosen)" if self._format != self.stream_format() else ""),
             "Phone codecs": ", ".join(self._phone_codecs) or "unknown",
             "Resolution": self._res_combo.currentText() or "auto",
-            "FPS": str(self._fps_spin.value()),
+            "FPS": str(self._fps()) + (f" ({self._wanted_fps} chosen)" if self._fps() != self._wanted_fps else ""),
             "Bitrate": self._bitrate_val_lbl.text() + (" (phone uses Auto)" if self._dynamic() and
                                                        self._phone_dynamic is False else ""),
         }
 
     def get_config(self) -> dict:
         cfg = {
-            "fps":          self._fps_spin.value(),
+            "fps":          self._wanted_fps,
             "jpeg_quality": self._quality_slider.value(),
             "format":       self._format,
             "bitrate_mbps": _DYNAMIC if self._dynamic() else self._bitrate_slider.value(),
@@ -573,7 +617,7 @@ class StreamOutputPlugin(TelescopePlugin):
             self._host.reconnect_stream()  # the new stream picks everything up as it starts
             return
         self._push_initial_settings()
-        self._host.update_stream_output(fps=self._fps_spin.value())
+        self._host.update_stream_output(fps=self._fps())
         wh = self._find_by_label(self._pending_resolution_text) if self._pending_resolution_text else None
         if wh and wh != self._res_combo.currentData():
             self._select_resolution(wh)
@@ -588,7 +632,8 @@ class StreamOutputPlugin(TelescopePlugin):
         self._saved_resolution_text = res
         self._had_saved_resolution = res is not None
         if fps := cfg.get("fps"):
-            self._fps_spin.setValue(int(fps))
+            self._wanted_fps = self._nearest_fps(fps)
+            self._show_fps()
         if q := cfg.get("jpeg_quality"):
             self._quality_slider.setValue(int(q))
         self._format = FORMAT_MJPEG if cfg.get("format") == FORMAT_MJPEG else FORMAT_H264

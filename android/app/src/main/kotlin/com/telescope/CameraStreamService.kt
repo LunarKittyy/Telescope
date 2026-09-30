@@ -57,6 +57,8 @@ data class CameraEntry(
     val cropZoomMax: Float = 1f,      // SCALER_CROP_REGION's max zoom; 1 = the crop can't be set on this camera
     val freeformCrop: Boolean = false, // the crop can sit off-centre
     val lensZooms: List<Float> = emptyList(), // a multi-lens camera's zoom ratios where another lens takes over
+    // Constrained high-speed (slow-motion) modes, for diagnostics only: "1920x1080, 1280x720 at 30-120 120-120"
+    val highSpeed: List<String> = emptyList(),
 )
 
 // The sensor's active pixel array (SENSOR_INFO_ACTIVE_ARRAY_SIZE), kept free of android.graphics.Rect so
@@ -234,6 +236,7 @@ class CameraStreamService : Service() {
                 if (c.maxAfRegions > 0) append(", AF regions ${c.maxAfRegions}")
                 if (c.supportsFlash) append(", flash")
                 appendLine()
+                if (c.highSpeed.isNotEmpty()) appendLine("      high-speed only: ${c.highSpeed.joinToString("; ")}")
             }
         }
 
@@ -322,6 +325,19 @@ class CameraStreamService : Service() {
                     ?.takeIf { it.isNotEmpty() }
                     ?.toList()
                     ?: listOf(android.util.Size(1920, 1080), android.util.Size(1280, 720))
+                // Sizes that share their rates go on one entry, so the report stays a line per camera plus this one
+                // Its own try: a camera that trips over this is still listed, just without it
+                val highSpeed = if (streamMap != null && caps?.contains(
+                        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_CONSTRAINED_HIGH_SPEED_VIDEO) == true)
+                    runCatching {
+                        streamMap.highSpeedVideoSizes
+                            .sortedByDescending { it.width * it.height }
+                            .groupBy { size ->
+                                streamMap.getHighSpeedVideoFpsRangesFor(size).joinToString(" ") { "${it.lower}-${it.upper}" }
+                            }
+                            .map { (rates, sizes) -> "${sizes.joinToString { "${it.width}x${it.height}" }} at $rates" }
+                    }.getOrDefault(emptyList())
+                else emptyList()
 
                 val hwLevel = when (chars.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL)) {
                     CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY   -> "LEGACY"
@@ -341,7 +357,8 @@ class CameraStreamService : Service() {
                             aeCompMin, aeCompMax, aeCompStep, supportsFlash,
                             aeFpsRanges, afModes, nrModes, edgeModes, supportedSizes,
                             maxAfRegions, maxAeRegions, activeArray,
-                            zoomRatioMax.coerceAtLeast(1f), cropZoomMax.coerceAtLeast(1f), freeformCrop, lensZooms)
+                            zoomRatioMax.coerceAtLeast(1f), cropZoomMax.coerceAtLeast(1f), freeformCrop, lensZooms,
+                            highSpeed = highSpeed)
             }.getOrNull()
 
             manager.cameraIdList.forEach { id ->
@@ -452,7 +469,8 @@ class CameraStreamService : Service() {
         if (snapshot.isEmpty()) {
             sb.appendLine("  (none)")
         } else {
-            for (t in snapshot) {
+            // A session rebuilt in place (a new FPS, the phone's preview) is Streaming -> Streaming: not worth a line
+            for (t in snapshot.filter { it.from != it.to || it.error != null }) {
                 sb.append("  ${t.from} -> ${t.to}  op=${t.op}")
                 if (t.error != null) sb.append("  error=${t.error}")
                 sb.appendLine()
@@ -734,6 +752,7 @@ class CameraStreamService : Service() {
                     CaptureRequest.CONTROL_AF_MODE_AUTO in e.afModes,
                 zoomRatioMax = e.zoomRatioMax, cropZoomMax = e.cropZoomMax, freeformCrop = e.freeformCrop,
                 lensZooms = e.lensZooms,
+                maxFps = e.aeFpsRanges.maxOfOrNull { it.upper } ?: 0,
             )
         }
         val (battLevel, battCharging, battTempC) = getBatteryInfo()

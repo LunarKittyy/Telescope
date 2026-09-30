@@ -269,19 +269,60 @@ def test_stream_output_fps_hot_updates_worker_and_phone_together(stream_output):
     ctrl = _Ctrl()
     plugin.on_stream_start("url", ctrl)
 
-    plugin._fps_spin.setValue(45)
-    plugin._on_fps()
+    plugin._fps_combo.setCurrentIndex(plugin._fps_combo.findData(48))
+    plugin._on_fps_picked(plugin._fps_combo.currentIndex())
 
-    assert host._worker.updates[-1] == {"fps": 45}
-    assert {"action": "fps_target", "value": 45} in ctrl.sent
+    assert host._worker.updates[-1] == {"fps": 48}
+    assert {"action": "fps_target", "value": 48} in ctrl.sent
     assert host.saves >= 1
+
+
+def _pick_fps(plugin, fps):
+    plugin._fps_combo.setCurrentIndex(plugin._fps_combo.findData(fps))
+    plugin._on_fps_picked(plugin._fps_combo.currentIndex())
+
+
+def _fps_state(max_fps):
+    return {"cameras": [{"id": "0", "current": True, "maxFps": max_fps,
+                         "supportedSizes": [{"width": 1920, "height": 1080}]}]}
+
+
+def test_rates_past_the_lens_are_grayed_and_the_pick_comes_back_on_a_lens_that_can(stream_output):
+    plugin, host, _panel = stream_output
+    host._worker = _Worker()
+    ctrl = _Ctrl()
+    plugin.on_stream_start("url", ctrl)
+    _pick_fps(plugin, 60)
+    plugin.on_phone_state(_fps_state(30))
+    model = plugin._fps_combo.model()
+    enabled = {plugin._fps_combo.itemData(i): model.item(i).isEnabled() for i in range(plugin._fps_combo.count())}
+    assert enabled == {15: True, 24: True, 25: True, 30: True, 48: False, 60: False}
+    assert plugin._fps() == 30
+    assert {"action": "fps_target", "value": 30} in ctrl.sent and host._worker.updates[-1] == {"fps": 30}
+    assert plugin.get_config()["fps"] == 60  # still what was picked
+    plugin.on_phone_state(_fps_state(60))
+    assert plugin._fps() == 60
+
+
+def test_a_phone_that_doesnt_say_leaves_every_rate_open(stream_output):
+    plugin, _host, _panel = stream_output
+    plugin.on_phone_state(_fps_state(None))
+    model = plugin._fps_combo.model()
+    assert all(model.item(i).isEnabled() for i in range(plugin._fps_combo.count()))
+
+
+@pytest.mark.parametrize("saved,shown", [(45, 48), (5, 15), (27, 25), (60, 60), ("junk", 30)])
+def test_a_saved_rate_from_before_the_list_lands_on_the_nearest_choice(stream_output, saved, shown):
+    plugin, _host, _panel = stream_output
+    plugin.set_config({"fps": saved})
+    assert plugin._fps() == shown
 
 
 def test_stream_output_phone_settings_lifecycle(stream_output):
     plugin, _host, _panel = stream_output
     ctrl = _Ctrl()
     plugin._quality_slider.setValue(92)
-    plugin._fps_spin.setValue(25)
+    _pick_fps(plugin, 25)
 
     plugin.on_stream_start("url", ctrl)
     plugin._push_initial_settings()
