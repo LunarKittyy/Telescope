@@ -36,6 +36,7 @@ data class CameraCapability(
     val cropZoomMax: Float = 1f,
     val freeformCrop: Boolean = false,
     val lensZooms: List<Float> = emptyList(),
+    val maxFps: Int = 0,  // the fastest AE target FPS range this camera lists; 0 = none listed
 )
 
 @Serializable

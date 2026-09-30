@@ -12,6 +12,7 @@
 | Camera control panel never appears | Phone HTTP server slow to start | App retries 3x over 6s; check the phone still shows the stream running |
 | WB slider has no effect | Camera doesn't support `MANUAL_POST_PROCESSING` | Falls back gracefully; auto AWB still works |
 | ISO/shutter change has no effect | Only one of the two was sent | Switch to Manual - desktop sends both simultaneously |
+| FPS stays at 30 with 60 picked, whatever the light or size | The phone lists 60 fps and accepts the request, then runs at 30 anyway. Some phones (a vivo X200 Pro, for one) keep 60 for their own camera app. **Copy diagnostics** while streaming shows it: the "Camera did" line reads 33.4 ms with range [60, 60] | Nothing in Telescope can change this. Rates a camera doesn't list at all are grayed out in the FPS dropdown |
 | Lag or dropped frames over Wi-Fi | Format is Heavy (MJPEG), which sends several times the data of Light | Switch Format to Light, use USB, lower JPEG quality, or reduce FPS |
 | Second launch does nothing | Single-instance enforcement | The existing window is brought to the front |
 | QR pairing fails ("Could not reach the desktop") | Phone and desktop not on the same network, or desktop firewall blocking port 8765 | The failure dialog on the phone lists every address it tried and how each failed. Make sure both are on the same Wi-Fi and the Add phone dialog is still open (the pairing server only runs while it is), or plug the phone in and pair over USB |
