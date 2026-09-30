@@ -1,18 +1,22 @@
 # Device compatibility matrix
 
-Manually maintained - update after testing that exact device/build combo. "OK" means the feature worked as documented in [features.md](features.md); note caveats instead of just checking off.
+Manually maintained - update after testing that exact device/build combo. "OK" means the feature worked as documented in [features.md](features.md); put caveats in the notes under the table instead of just checking off.
 
 Tried Telescope on a phone? Share how it went in [Device compatibility](https://github.com/LunarKittyy/Telescope/discussions/new?category=device-compatibility).
 
-Legend: `OK` tested and working · `PARTIAL` works with caveats (see notes) ·
+Legend: `OK` tested and working · `PARTIAL` works with caveats (see [notes](#notes)) ·
 `FAIL` doesn't work · `-` not tested yet.
 
-| Device | Android version | App build | USB pairing | Wi-Fi pairing | Lens selection | Zoom on Auto | Manual exposure | Manual WB | Focus | OIS toggle | H.264 | Microphone | Reconnect after drop | Battery/temp reporting | Stop/start | Remote start/stop | Notes |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Pixel-like (e.g. Pixel 6/7/8) | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | |
-| Samsung Galaxy S-series | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | |
-| Samsung Galaxy A-series | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | |
-| vivo V2413 | (see build) | b1819a6 | OK | OK | OK | - | OK | OK | - | OK | - | - | OK | - | OK | - | Two defects found on 56bdafe are fixed as of 448fa13/b1819a6: reconnect after drop now resends the last-applied control settings (exposure/WB/etc.) instead of leaving the phone on defaults, and the paired device now survives a desktop app restart while in USB mode instead of losing its selection. |
+| Device | Android version | App build | USB pairing | Wi-Fi pairing | Lens selection | Zoom on Auto | Manual exposure | Manual WB | Focus | OIS toggle | H.264 | Microphone | Reconnect after drop | Battery/temp reporting | Stop/start |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Pixel-like (e.g. Pixel 6/7/8) | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| Samsung Galaxy S10+ (SM-G975F) | 12 | 3.1.0-nightly.374 | OK | OK | PARTIAL | - | OK | OK | OK | OK | OK | OK | OK | OK | OK |
+| Samsung Galaxy A-series | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
+| vivo V2413 | 16 | b1819a6 | OK | OK | OK | OK | OK | OK | OK | OK | OK | OK | OK | OK | OK |
+
+## Notes
+
+- **Samsung Galaxy S10+**: the 2x telephoto isn't exposed through Camera2, so only the main, ultrawide and both front lenses show up. All four of those work.
 
 ## What to check per row
 
@@ -28,8 +32,7 @@ Legend: `OK` tested and working · `PARTIAL` works with caveats (see notes) ·
 - **Microphone**: with the Microphone card on, other apps record the phone's mic.
 - **Reconnect after drop**: kill Wi-Fi or unplug USB mid-stream; confirm auto-reconnect within `RECONNECT_DELAY` when connectivity returns (no full restart needed).
 - **Battery/temp reporting**: Monitoring-panel values update and alert thresholds fire correctly.
-- **Stop/start**: 5+ stop/start cycles don't break phone foreground service or desktop virtual camera.
-- **Remote start/stop**: Telescope app foreground - desktop Start/Stop control phone camera; test with screen dark too.
+- **Stop/start**: the desktop's Start/Stop controls the phone camera, including with the phone screen dark, and 5+ cycles don't break the phone's foreground service or the desktop virtual camera.
 
 ## Process
 
