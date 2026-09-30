@@ -92,6 +92,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 - [ ] Corrupted `telescope_config.json` backs up (`.invalid-<timestamp>`) and app starts with defaults.
 - [ ] Tray minimize/restore and single-instance behavior both work.
 - [ ] Start streaming when the phone is ready: opening the phone app (or plugging it in) starts the stream; Stop keeps it stopped until the phone leaves and comes back; closing the window keeps it in the tray.
+- [ ] Windows, Stop set to "when no app uses the camera, even if you started it": start a stream by hand before any app has opened the camera. It stops after the wait.
 - [ ] Open Telescope when I sign in (Linux and Windows): after signing out and in, Telescope is in the tray; unticking removes the entry.
 - [ ] Stream only while an app is using the camera (Linux and Windows): opening the camera in OBS or a call starts the stream, closing it stops 15 s later. Ticking it unticks Start streaming when the phone is ready, and the other way round.
 - [ ] Wait screen: with nothing streaming, apps see the default screen, then a chosen image and a GIF; Mirror flips it. Starting and stopping a stream while a call has the camera open keeps the picture in the call.

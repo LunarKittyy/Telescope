@@ -199,7 +199,7 @@ Reusable Qt widgets and helpers used across multiple panels:
 - `set_status_kind(label, kind)` / `set_ui_role(widget, role)` - switch QSS roles and re-polish (a bare `setObjectName()` leaves the old colour).
 - `run_off_ui_thread(fn, *args)` - run a blocking call (adb) on a worker thread while the window keeps repainting; used by every GUI-thread adb call.
 - `stretch_slider(slider, minimum)` - give a slider a minimum width and an Expanding policy so it fills its column instead of being pinned to a fixed track width.
-- `NoScrollComboBox`, `NoScrollSlider`, `NoScrollSpinBox`, `NoScrollDoubleSpinBox` - scroll-wheel suppressed variants.
+- `NoScrollComboBox`, `NoScrollSlider`, `NoScrollSpinBox`, `NoScrollDoubleSpinBox` - scroll-wheel suppressed variants. The combo also keeps its popup on screen: `fit_on_screen(rect, avail, margin)` slides it back in and only shrinks it when it's taller than the screen.
 - `NoScrollSlider` also takes snap points and a default. `set_snaps(values)` paints a dot on the groove at each (under the handle, lighter on the filled part); `mark_x(value)` is the handle's centre there, asked of the style. Dragging the handle (only `SliderMove` actions, through `actionTriggered`, so listeners only ever see the snapped value) sticks to a snap within `SNAP_PX` (5 design px), or a third of the gap to its nearest neighbour if that's less; keys and groove clicks never snap. `set_default(value)` makes a double-click reset to it and adds "Double-click to reset" to the tooltip (`setToolTip` keeps the caller's text first). `PanSliderRow` snaps and resets to 0.
 - `LogSliderRow` - slider + spinbox with logarithmic scaling (ISO, shutter speed).
 - `PanSliderRow` - bipolar slider (−1 … +1).

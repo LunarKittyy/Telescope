@@ -96,7 +96,7 @@ JSON body `{"action": "<action>", ...params}`.
 | `torch` | `value=1\|0` | Toggle flash/torch |
 | `jpeg_quality` | `value=<int 1-100>` | Set JPEG quality on the phone |
 | `bitrate` | `value=<int bits/s>` | Set the H.264 bitrate (clamped to 1-100 Mbps and to what the phone's encoder takes); `0` sizes it from resolution and fps; `-1` is Dynamic (the phone follows the link, see below). A phone without Dynamic treats `-1` as `0` |
-| `fps_target` | `value=<int 1-120>` | Set capture FPS on the phone (desktop UI restricts to 5-60). A new rate rebuilds the capture session, since the rate is also set up with it; expect a short hitch |
+| `fps_target` | `value=<int 1-120>` | Set capture FPS on the phone (the desktop's dropdown offers 15, 24, 25, 30, 48 and 60). A new rate rebuilds the capture session, since the rate is also set up with it; expect a short hitch |
 
 On Dynamic the phone measures its own H.264 sending: every 250 ms, the shortest time a packet waited to go out (a queue that stays, not a keyframe's burst) and how much the socket took. A queue that stays for half a second drops the bitrate to just under what got through; otherwise it climbs, first to just under where the link filled up last time, then more carefully past it. It also keeps the socket's send buffer to about 100 ms of video and skips ahead to the next keyframe when video has waited over a second, so a full link shows up as a queue right away instead of as lag. `DynamicBitrate.kt` has the rules.
 
