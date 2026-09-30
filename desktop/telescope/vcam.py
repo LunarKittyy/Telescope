@@ -582,9 +582,12 @@ class CameraWatch(_Held):
         try:
             while not stop.is_set():
                 if handle is None:
-                    # It exists while something sends to the camera (the wait screen, or a stream).
+                    # An app's filter creates it when it opens the camera, and a sender holding it keeps it alive.
+                    # Until then no app has opened the camera, which is an answer too: without it an idle stop
+                    # would never start for a stream started before any app came along.
                     handle = k32.OpenEventW(synchronize, False, name) or None
                     if handle is None:
+                        self._report(False)
                         stop.wait(RETRY_OPEN)
                         continue
                 if k32.WaitForSingleObject(handle, 1000) == wait_object_0:

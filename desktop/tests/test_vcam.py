@@ -1,6 +1,7 @@
 """The virtual camera: the wait screen, letting go for a driver reload, and telling whether an app reads it."""
 
 import base64
+import ctypes
 import os
 import sys
 import threading
@@ -329,6 +330,30 @@ def test_unitycapture_event_follows_the_camera_number(monkeypatch):
     assert vcam._uc_object_name("Data", "Something else") == "UnityCapture_Data"
     names.pop(0x10)
     assert vcam._uc_object_name("Want", "Something else") == "UnityCapture_Want1"
+
+
+def test_windows_watch_counts_a_camera_no_app_has_opened_as_unwatched(monkeypatch):
+    # UnityCapture's "Want" event only exists once an app's filter has opened the camera, so a stream started
+    # before any app came along still needs an answer, or the idle stop never starts (#115).
+    k32 = types.SimpleNamespace(
+        OpenEventW=lambda *_a: None,  # no app's filter has made the event
+        WaitForSingleObject=lambda *_a: 0x102,  # WAIT_TIMEOUT: no app wants a frame
+        CloseHandle=lambda _h: None,
+    )
+    for fn in vars(k32).values():
+        fn.restype = fn.argtypes = None
+    monkeypatch.setattr(ctypes, "WinDLL", lambda *_a, **_k: k32, raising=False)
+    monkeypatch.setattr(vcam, "_uc_object_name", lambda kind: "UnityCapture_" + kind)
+    monkeypatch.setattr(vcam, "RETRY_OPEN", 0.01)
+    seen = []
+    watch = vcam.CameraWatch(seen.append)
+    stop = threading.Event()
+    t = threading.Thread(target=watch._run_windows, args=(stop,))
+    t.start()
+    time.sleep(0.05)
+    stop.set()
+    t.join()
+    assert seen == [False]
 
 
 @pytest.mark.skipif(not vcam.IS_LINUX, reason="v4l2loopback")
