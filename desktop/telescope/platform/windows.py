@@ -74,24 +74,62 @@ def download_unitycapture(progress_cb=None) -> tuple:
     return True, "Downloaded"
 
 
+def _known_folder(folder_id: str) -> Optional[Path]:
+    # The system's own setting, unlike %ProgramFiles%, which whoever starts Telescope can point anywhere
+    if sys.platform != "win32":
+        return None
+    import ctypes
+    from ctypes import wintypes
+
+    class GUID(ctypes.Structure):
+        _fields_ = [("Data1", wintypes.DWORD), ("Data2", wintypes.WORD), ("Data3", wintypes.WORD),
+                    ("Data4", ctypes.c_ubyte * 8)]
+    raw = bytes.fromhex(folder_id.replace("-", ""))
+    guid = GUID(int.from_bytes(raw[0:4], "big"), int.from_bytes(raw[4:6], "big"), int.from_bytes(raw[6:8], "big"),
+                (ctypes.c_ubyte * 8)(*raw[8:]))
+    out = ctypes.c_wchar_p()
+    if ctypes.windll.shell32.SHGetKnownFolderPath(ctypes.byref(guid), 0, None, ctypes.byref(out)) != 0:
+        return None
+    try:
+        return Path(out.value)
+    finally:
+        ctypes.windll.ole32.CoTaskMemFree(out)
+
+
+_FOLDERID_PROGRAM_FILES = "905e63b6-c1bf-494e-b29c-65b732d3d21a"
+
+
 def protected_unitycapture_dir() -> Path:
     # Only an admin can write here, unlike the app's folder, so nothing can swap a DLL between the hash check and every later load
-    base = os.environ.get("ProgramW6432") or os.environ.get("ProgramFiles") or r"C:\Program Files"
-    return Path(base) / "Telescope" / "UnityCapture"
+    base = _known_folder(_FOLDERID_PROGRAM_FILES) or Path(r"C:\Program Files")
+    return base / "Telescope" / "UnityCapture"
 
 
 def _ps_quote(value) -> str:
     return "'" + str(value).replace("'", "''") + "'"
 
 
-def _elevated_install_script(src: Path, dst: Path) -> str:
-    """Runs as admin: copy the DLLs into dst, check the copies' hashes there, register those copies."""
+def _elevated_install_script(src: Path) -> str:
+    """Runs as admin: find Program Files itself, make sure our folder there is a plain admin-only folder, copy the DLLs in, check their hashes there, register those copies."""
     files = "; ".join(f"{_ps_quote(name)} = {_ps_quote(digest)}" for name, digest in _EXPECTED_SHA256.items())
     return f"""$ErrorActionPreference = 'Stop'
 $src = {_ps_quote(src)}
-$dst = {_ps_quote(dst)}
+# Resolved here, as admin, from the system's settings: nothing the unelevated app passes decides where the DLLs go
+$programFiles = [Environment]::GetFolderPath('ProgramFiles')
+$telescope = Join-Path $programFiles 'Telescope'
+$dst = Join-Path $telescope 'UnityCapture'
 $files = [ordered]@{{ {files} }}
-New-Item -ItemType Directory -Force -Path $dst | Out-Null
+foreach ($dir in @($telescope, $dst)) {{
+    if (Test-Path -LiteralPath $dir) {{
+        # A junction or symlink here could send the copy somewhere a user can write
+        if ((Get-Item -LiteralPath $dir -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) {{ exit {_EXIT_UNSAFE_FOLDER} }}
+    }} else {{
+        New-Item -ItemType Directory -Path $dir | Out-Null
+    }}
+}}
+# Back to the permissions inherited from Program Files (admins write, users read), whatever made the folder
+& (Join-Path ([Environment]::SystemDirectory) 'icacls.exe') $telescope /reset /T /Q | Out-Null
+if ($LASTEXITCODE -ne 0) {{ exit {_EXIT_UNSAFE_FOLDER} }}
 foreach ($name in $files.Keys) {{
     $target = Join-Path $dst $name
     # A copy already there and right is kept: a camera app may have it loaded, so it can't be overwritten
@@ -103,9 +141,10 @@ foreach ($name in $files.Keys) {{
         exit {_EXIT_CHECKSUM}
     }}
 }}
+$regsvr32 = Join-Path ([Environment]::SystemDirectory) 'regsvr32.exe'
 foreach ($name in $files.Keys) {{
     $dll = '"' + (Join-Path $dst $name) + '"'
-    $p = Start-Process regsvr32.exe -ArgumentList '/s', '"/i:UnityCaptureName={UC_NAME}"', $dll -Wait -PassThru
+    $p = Start-Process $regsvr32 -ArgumentList '/s', '"/i:UnityCaptureName={UC_NAME}"', $dll -Wait -PassThru
     if ($p.ExitCode -ne 0) {{ exit {_EXIT_REGSVR32} }}
 }}
 exit 0
@@ -114,6 +153,7 @@ exit 0
 
 _EXIT_CHECKSUM = 2
 _EXIT_REGSVR32 = 3
+_EXIT_UNSAFE_FOLDER = 4
 
 
 def register_unitycapture() -> tuple:
@@ -127,10 +167,11 @@ def register_unitycapture() -> tuple:
                 pass
             return False, f"{name} failed checksum verification - not registering"
     # The check above is only for a quick, clear failure; the one that counts runs as admin on the protected copy
-    script = _elevated_install_script(d, protected_unitycapture_dir())
+    script = _elevated_install_script(d)
     encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
     ps = ("$ErrorActionPreference = 'Stop'; "
-          f"$p = Start-Process powershell.exe -ArgumentList '-NoProfile', '-NonInteractive', '-EncodedCommand', '{encoded}' "
+          "$ps = Join-Path ([Environment]::SystemDirectory) 'WindowsPowerShell\\v1.0\\powershell.exe'; "
+          f"$p = Start-Process $ps -ArgumentList '-NoProfile', '-NonInteractive', '-EncodedCommand', '{encoded}' "
           "-Verb RunAs -Wait -PassThru -WindowStyle Hidden; exit $p.ExitCode")
     try:
         r = subprocess.run(
@@ -141,6 +182,8 @@ def register_unitycapture() -> tuple:
             return True, "Installed"
         if r.returncode == _EXIT_CHECKSUM:
             return False, "The driver copy in Program Files failed checksum verification - not registering"
+        if r.returncode == _EXIT_UNSAFE_FOLDER:
+            return False, "The Telescope folder in Program Files is a link or its permissions couldn't be reset - not registering"
         if r.returncode == _EXIT_REGSVR32:
             return False, "Windows refused to register the driver (regsvr32 failed)"
         return False, "Registration failed (cancelled or denied?)"

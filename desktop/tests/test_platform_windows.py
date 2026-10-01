@@ -119,8 +119,8 @@ def _elevated_script(cmd) -> str:
 
 def test_register_invokes_elevated_powershell(monkeypatch, tmp_path):
     _good_dlls(monkeypatch, tmp_path)
-    protected = tmp_path / "Program Files" / "Telescope" / "UnityCapture"
-    monkeypatch.setattr(windows, "protected_unitycapture_dir", lambda: protected)
+    monkeypatch.setenv("ProgramFiles", str(tmp_path / "anywhere"))  # must not decide where the DLLs go
+    monkeypatch.setenv("ProgramW6432", str(tmp_path / "anywhere"))
     calls = []
     monkeypatch.setattr(
         windows.subprocess,
@@ -132,10 +132,15 @@ def test_register_invokes_elevated_powershell(monkeypatch, tmp_path):
     cmd = calls[0][0]
     assert cmd[:3] == ["powershell", "-NoProfile", "-Command"]
     assert "-Verb RunAs" in cmd[-1] and "exit $p.ExitCode" in cmd[-1]
+    assert "[Environment]::SystemDirectory" in cmd[-1]  # the real PowerShell, not one found on PATH
     assert calls[0][1]["timeout"] == 60
     script = _elevated_script(cmd)
     # The copy, the hash check that counts, and the registration all happen as admin, on the protected copy
-    assert f"$dst = '{protected}'" in script
+    assert "anywhere" not in script
+    assert "[Environment]::GetFolderPath('ProgramFiles')" in script
+    assert "ReparsePoint" in script and "/reset" in script
+    assert script.index("ReparsePoint") < script.index("/reset") < script.index("Copy-Item")
+    assert "Join-Path ([Environment]::SystemDirectory) 'regsvr32.exe'" in script
     copy, check, register = (script.index("Copy-Item"), script.rindex("Get-FileHash"), script.index("regsvr32"))
     assert copy < check < register
     assert "Join-Path $dst $name" in script[register - 200:]
@@ -159,7 +164,7 @@ def test_register_unitycapture_survives_an_apostrophe_in_the_folder(monkeypatch,
     assert src_line == "$src = '" + str(folder).replace("'", "''") + "'"
 
 
-@pytest.mark.parametrize("code, words", [(2, "checksum"), (3, "regsvr32")])
+@pytest.mark.parametrize("code, words", [(2, "checksum"), (3, "regsvr32"), (4, "link")])
 def test_register_names_what_failed_as_admin(monkeypatch, tmp_path, code, words):
     _good_dlls(monkeypatch, tmp_path)
     monkeypatch.setattr(windows.subprocess, "run", lambda cmd, **_k: subprocess.CompletedProcess(cmd, code))
@@ -167,9 +172,11 @@ def test_register_names_what_failed_as_admin(monkeypatch, tmp_path, code, words)
     assert ok is False and words in msg
 
 
-def test_protected_folder_is_under_program_files(monkeypatch):
-    monkeypatch.setenv("ProgramW6432", r"C:\Program Files")
-    assert windows.protected_unitycapture_dir() == Path(r"C:\Program Files") / "Telescope" / "UnityCapture"
+def test_protected_folder_comes_from_the_known_folder_not_the_environment(monkeypatch, tmp_path):
+    monkeypatch.setenv("ProgramFiles", str(tmp_path))
+    monkeypatch.setenv("ProgramW6432", str(tmp_path))
+    monkeypatch.setattr(windows, "_known_folder", lambda _id: Path(r"D:\Programs"))
+    assert windows.protected_unitycapture_dir() == Path(r"D:\Programs") / "Telescope" / "UnityCapture"
 
 
 @pytest.mark.parametrize(
