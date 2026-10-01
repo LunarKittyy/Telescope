@@ -18,6 +18,24 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 This is a debug build - self-signed, for personal/development use.
 
+## Test a change without touching your real install
+
+A dev phone app and a dev desktop client run next to the real ones and pair only with each other, so you can try a change before it's published.
+
+```bash
+cd android && ./gradlew installDev        # "Telescope (dev)", package com.telescope.dev
+cd desktop && python scripts/dev_desktop.py --keep
+```
+
+The dev app has its own data, pairings and phone identity, and the real app can't update over it or the other way round. The dev desktop keeps its config and log in a profile folder in your temp dir instead of your real config, so it gets its own pairings and computer identity too. It runs alongside the real desktop, never writes the menu or sign-in entries, uses its own virtual mic ("Telescope Microphone (dev)"), aims USB pairing at the dev app, and **Install app** installs the dev APK once `assembleDev` or `installDev` has built it.
+
+Without `--keep` the profile is fresh on every run and deleted when the app quits, so you pair again each time. With it, the profile stays (in `telescope-dev-profile-<user>` under your temp dir) until you run `python scripts/dev_desktop.py --reset`.
+
+Some things are shared because there's only one of them:
+- The phone apps use the same ports, so only one of them can be open (or waiting for its computer) at a time
+- On Linux both desktops stream into the same virtual camera device, and on Windows into the same UnityCapture driver, so only one can stream at a time
+- **Advanced** actions that change the system (loading v4l2loopback, installing the Windows driver) affect both
+
 ## CI / GitHub Actions
 
 ### Versions

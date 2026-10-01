@@ -15,12 +15,15 @@ import subprocess
 import tempfile
 from typing import Callable, Optional
 
-SOURCE = "telescope_mic"
-SOURCE_NAME = "Telescope Microphone"
+from telescope import dev_profile
+
+# A dev profile gets its own source, so setting it up doesn't unload the real app's
+SOURCE = "telescope_dev_mic" if dev_profile.active() else "telescope_mic"
+SOURCE_NAME = "Telescope Microphone (dev)" if dev_profile.active() else "Telescope Microphone"
 LINUX_TOOLS = ("pactl",)
 # Tags of every module an earlier run may have left loaded (the first builds used a null sink
 # plus a remapped source).
-_OURS = (f"source_name={SOURCE}", "sink_name=telescope_mic_sink")
+_OURS = (f"source_name={SOURCE}",) + (() if dev_profile.active() else ("sink_name=telescope_mic_sink",))
 
 VB_CABLE_URL = "https://vb-audio.com/Cable/"
 VB_CABLE_PLAYBACK = "CABLE Input"
@@ -42,7 +45,7 @@ def linux_tools_missing(which: Callable = shutil.which) -> list:
 def fifo_path() -> str:
     # XDG_RUNTIME_DIR is private to this user by spec; without it, a folder of our own, never shared /tmp itself
     runtime = os.environ.get("XDG_RUNTIME_DIR")
-    return os.path.join(runtime or _private_temp_dir(), "telescope-mic.fifo")
+    return os.path.join(runtime or _private_temp_dir(), f"{SOURCE.replace('_', '-')}.fifo")
 
 
 def _private_temp_dir() -> str:

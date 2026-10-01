@@ -10,6 +10,8 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from telescope import dev_profile
+
 IS_LINUX   = platform.system() == "Linux"
 IS_WINDOWS = platform.system() == "Windows"
 
@@ -105,7 +107,10 @@ def platform_tools_dir() -> Path:
 
 
 def bundled_apk_path() -> Optional[Path]:
-    """Return path to Telescope.apk sitting next to the script/exe, or None."""
+    """Return path to Telescope.apk sitting next to the script/exe, or None. A dev profile installs the dev app build instead."""
+    if dev_profile.active():
+        p = Path(__file__).parent.parent.parent.parent / "android" / "app" / "build" / "outputs" / "apk" / "dev" / "app-dev.apk"
+        return p if p.exists() else None
     if getattr(sys, "frozen", False):
         base = Path(sys.executable).parent
     else:
@@ -180,7 +185,7 @@ def adb_unreverse(port, serial=None):
 PAIR_BROADCAST_ACTION = "com.telescope.action.PAIR"
 
 
-PAIR_BROADCAST_PACKAGE = "com.telescope"
+PAIR_BROADCAST_PACKAGE = dev_profile.PHONE_PACKAGE if dev_profile.active() else "com.telescope"
 
 
 def adb_broadcast_pair(payload_b64: str, serial=None):

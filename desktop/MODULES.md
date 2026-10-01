@@ -93,6 +93,9 @@ The phone's mic into the virtual mic. `JitterBuffer` (pure): silence until `TARG
 ### `platform/virtual_mic.py`
 Linux: `linux_setup()` loads `module-pipe-source` (`telescope_mic`, "Telescope Microphone", s16le 48 kHz mono) on `fifo_path()` with `pactl`. `fifo_path()` is in `XDG_RUNTIME_DIR`, else a `telescope-<uid>` folder in the temp dir that must be a real 0700 folder owned by this user. It's an input only, so nothing shows up as a speaker. It first unloads any module an earlier run left (including the null sink + remap the first builds used), and retries without the description if a server rejects it. `linux_teardown(ids)`. Windows: `find_vb_cable(devices)` finds CABLE Input in `sounddevice.query_devices()`. Runners are injectable for tests.
 
+### `dev_profile.py`
+`TELESCOPE_DEV_PROFILE` (set by `scripts/dev_desktop.py`) names a folder; when set, `active()` is true and the config, log, single-instance port (`INSTANCE_PORT + 1`), virtual mic source and USB pairing package (`com.telescope.dev`) all move off the real app's, and the menu entry, dock grouping and sign-in toggle are left alone. Read at import, as at startup.
+
 ### `config.py`
 Load/save of `telescope_config.json` with versioned schema (current: v3) and per-section validation. It holds the pairing tokens, so on Unix the folder is kept 0700 and the file, its temp file and any `.invalid-*` backup 0600.
 

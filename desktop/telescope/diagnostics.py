@@ -14,7 +14,7 @@ from collections import deque
 from pathlib import Path
 from typing import Optional
 
-from telescope import version
+from telescope import dev_profile, version
 
 MAX_BYTES = 1_000_000  # per file; the one before is kept as telescope.log.1
 MAX_LINE = 300  # 200 lines of this still fit in a GitHub issue field
@@ -152,6 +152,8 @@ class EventLog(logging.Handler):
 def log_dir() -> Path:
     """Linux: a per-user folder in /tmp (cleared at reboot). Windows: %TEMP%\\Telescope, which
     Storage Sense and Disk Cleanup clear."""
+    if dev_profile.active():
+        return dev_profile.folder() / "logs"
     base = Path(tempfile.gettempdir())
     if sys.platform.startswith("win"):
         return base / "Telescope"
@@ -198,7 +200,7 @@ def install(app_dir: Optional[Path] = None):
     if events in root.handlers:
         return
     if events.open(log_dir() / "telescope.log"):
-        if app_dir is not None:
+        if app_dir is not None and not dev_profile.active():  # the shortcut next to the app belongs to the real one
             link_log(app_dir / "telescope.log", events.path)
     root.setLevel(logging.INFO)
     if not root.handlers:

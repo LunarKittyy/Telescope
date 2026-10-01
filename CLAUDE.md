@@ -2,6 +2,9 @@
 
 Android app (`android/`, Kotlin) streams the phone camera to a Python/PyQt6 desktop app (`desktop/`) that feeds a virtual webcam. README.md is the landing page and Quick Start; everything else for users and contributors (features, troubleshooting, protocol, architecture, CI) is in `docs/`, indexed by `docs/README.md`; `desktop/MODULES.md` describes each desktop module.
 
+## Trying a change on a real phone
+`./gradlew installDev` in `android/` and `python scripts/dev_desktop.py --keep` in `desktop/` give a dev app and dev desktop that pair with each other and leave the real installs alone (see `docs/building.md`).
+
 ## Checks
 - Desktop: `python -m pytest -q` and `python scripts/smoke_check.py` in `desktop/`
 - Android: `./gradlew lintDebug testDebugUnitTest` in `android/`

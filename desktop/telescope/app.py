@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (
 )
 
 import update_guard
-from telescope import diagnostics, theme, vcam
+from telescope import dev_profile, diagnostics, theme, vcam
 from telescope.config import DEVICE_LOCAL_PLUGINS, load_config, save_config
 from telescope.models import PhoneState, PhoneStateError
 from telescope.phone_client import PhoneControlClient
@@ -45,7 +45,8 @@ _CAMERA_LIMITED_TIP = "The phone's camera is making fewer frames than asked for.
 
 
 # ── Single-instance enforcement ───────────────────────────────────────────────
-_INSTANCE_PORT = update_guard.INSTANCE_PORT  # the guard checks it before an update's roll-back
+# The guard checks it before an update's roll-back; a dev profile takes the next one so it runs next to the real app
+_INSTANCE_PORT = update_guard.INSTANCE_PORT + (1 if dev_profile.active() else 0)
 
 
 def acquire_single_instance(wait: float = 0.0) -> Optional[socket.socket]:
@@ -108,7 +109,7 @@ class TelescopeWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Telescope")
+        self.setWindowTitle("Telescope (dev)" if dev_profile.active() else "Telescope")
         self.setMinimumSize(ui_px(560), ui_px(520))
         self.resize(ui_px(1380), ui_px(900))
 

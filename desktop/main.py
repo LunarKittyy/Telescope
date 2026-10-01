@@ -47,7 +47,7 @@ if _missing:
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QApplication
 
-from telescope import diagnostics
+from telescope import dev_profile, diagnostics
 from telescope.app import (
     TelescopeWindow, acquire_single_instance, listen_for_raise,
 )
@@ -92,8 +92,9 @@ def main():
     app = QApplication([sys.argv[0]] + qt_argv)
     # Set at QApplication level so dialogs and window share icon.
     app.setWindowIcon(create_app_icon(64))
-    app.setDesktopFileName(autostart.APP_ID)  # docks match the window to the menu entry and its icon
-    if not autostart.is_dev_checkout():
+    if not dev_profile.active():  # a dev profile's window shouldn't group under the real app's dock icon
+        app.setDesktopFileName(autostart.APP_ID)  # docks match the window to the menu entry and its icon
+    if not autostart.is_dev_checkout() and not dev_profile.active():
         if IS_LINUX:
             autostart.update_menu_entry(lambda path: create_app_icon(256).pixmap(256, 256).save(str(path), "PNG"))
         autostart.refresh()
