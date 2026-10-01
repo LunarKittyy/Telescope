@@ -7,6 +7,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
+from telescope import dev_profile
+
 logger = logging.getLogger(__name__)
 
 CONFIG_VERSION = 3
@@ -18,7 +20,9 @@ DEVICE_LOCAL_PLUGINS = frozenset({"camera_control", "stream_output", "transforms
 
 
 def config_path() -> Path:
-    """Stable per-user config file location (XDG_CONFIG_HOME or ~/.config)."""
+    """Stable per-user config file location (XDG_CONFIG_HOME or ~/.config), or the dev profile's folder."""
+    if dev_profile.active():
+        return dev_profile.folder() / _CONFIG_FILENAME
     if sys.platform == "win32":
         base = os.environ.get("APPDATA") or str(Path.home())
         return Path(base) / _APP_NAME / _CONFIG_FILENAME

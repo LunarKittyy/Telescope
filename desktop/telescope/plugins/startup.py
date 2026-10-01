@@ -16,6 +16,7 @@ from PyQt6.QtCore import QTimer
 from PyQt6.QtGui import QAction, QActionGroup
 from PyQt6.QtWidgets import QDialog, QHBoxLayout, QLabel, QMenu, QPushButton, QSizePolicy, QWidgetAction
 
+from telescope import dev_profile
 from telescope.platform import autostart
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.banner import Issue
@@ -100,6 +101,9 @@ class StartupPlugin(TelescopePlugin):
         sign_in.setCheckable(True)
         sign_in.setChecked(autostart.is_enabled())
         sign_in.toggled.connect(self.set_open_at_sign_in)
+        if dev_profile.active():  # the sign-in entry is the real app's
+            sign_in.setEnabled(False)
+            sign_in.setToolTip("Not in a dev profile")
         return [divider, self._build_submenu(), sign_in]
 
     def _build_submenu(self) -> QMenu:

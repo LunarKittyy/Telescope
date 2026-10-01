@@ -30,6 +30,7 @@ android {
 
     buildFeatures {
         buildConfig true
+        resValues true
     }
 
     signingConfigs {
@@ -46,6 +47,13 @@ android {
     buildTypes {
         debug {
             debuggable true
+        }
+        // Installs next to the real app (its own data, pairings and identity), for desktop/scripts/dev_desktop.py
+        dev {
+            initWith debug
+            applicationIdSuffix ".dev"
+            resValue "string", "app_name", "Telescope (dev)"
+            matchingFallbacks = ['debug']
         }
         release {
             minifyEnabled false
