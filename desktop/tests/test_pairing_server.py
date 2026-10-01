@@ -210,7 +210,7 @@ def _closed_by_server(sock, within: float) -> bool:
     sock.settimeout(within)
     try:
         return sock.recv(1) == b""
-    except ConnectionResetError:
+    except ConnectionError:  # reset, or aborted (WinError 10053): Windows reports a cut-off both ways
         return True
     except socket.timeout:
         return False
@@ -231,7 +231,7 @@ def test_a_peer_trickling_bytes_is_cut_off_at_the_deadline(monkeypatch):
                 if _closed_by_server(sock, 0.1):
                     break
             assert time.monotonic() - start < 2
-        except (BrokenPipeError, ConnectionResetError):
+        except ConnectionError:
             assert time.monotonic() - start < 2
         finally:
             sock.close()
