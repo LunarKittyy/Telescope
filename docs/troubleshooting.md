@@ -7,6 +7,8 @@
 | `/dev/video11` gone after reboot | v4l2loopback isn't loaded at boot | Start Streaming loads it. Leave **Also switch it on at every startup** ticked (or tick **Load at boot** in Advanced) and it won't ask again |
 | pyvirtualcam fails to open (Linux) | Module not loaded, or not installed | Install `v4l2loopback-dkms` (Debian/Ubuntu/Arch) or `v4l2loopback` (Fedora/Nobara, via RPM Fusion), then click Start again. **Advanced** can load it by hand |
 | pyvirtualcam fails to open (Windows) | UnityCapture not registered | Open **Advanced** from the settings menu and reinstall the driver |
+| Driver install says `Program Files\Telescope has links in it or other users can change it` (Windows) | Something else made that folder, or changed who can edit it, and Telescope won't install into a folder it can't trust | Delete `C:\Program Files\Telescope`, then click **Install driver** again |
+| Driver install says it `hit an error while running as admin` (Windows) | The install step failed after you allowed admin access | Click **Retry**. If it keeps failing, open an issue with your **Copy diagnostics** report |
 | "Virtual camera is set up differently" banner when starting | Some other app (OBS's own virtual camera, a previous session, etc.) already has the module loaded with different settings | Close that app, or run `sudo modprobe -r v4l2loopback` yourself, then click Start again |
 | Canvas restart fails with "module in use" | OBS or another app still holds the device | Close all apps using the virtual camera, then retry |
 | Camera control panel never appears | Phone HTTP server slow to start | App retries 3x over 6s; check the phone still shows the stream running |
