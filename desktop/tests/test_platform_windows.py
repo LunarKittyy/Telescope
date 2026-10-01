@@ -142,11 +142,13 @@ def test_register_invokes_elevated_powershell(monkeypatch, tmp_path):
     first_check = script.index("-not (Test-AdminOnly $telescope)")
     assert first_check < script.index("New-Item") < script.index("Copy-Item")
     assert "/reset" not in script and "/T" not in script
+    # No cmdlet that needs a module loaded: started from PowerShell 7, Windows PowerShell can't load them
+    assert "Get-Acl -" not in script and "Get-FileHash -" not in script and "PSModulePath" in script
     # ...and the finished tree is checked again before the hashes that count and the registration
     last_check = script.rindex("-not (Test-AdminOnly $telescope)")
-    assert script.index("Copy-Item") < last_check < script.rindex("Get-FileHash") < script.index("Start-Process $regsvr32")
+    assert script.index("Copy-Item") < last_check < script.rindex("Get-Sha256 $target") < script.index("Start-Process $regsvr32")
     assert "Join-Path ([Environment]::SystemDirectory) 'regsvr32.exe'" in script
-    copy, check, register = (script.index("Copy-Item"), script.rindex("Get-FileHash"), script.index("regsvr32"))
+    copy, check, register = (script.index("Copy-Item"), script.rindex("Get-Sha256 $target"), script.index("regsvr32"))
     assert copy < check < register
     assert "Join-Path $dst $name" in script[register - 200:]
     for digest in windows._EXPECTED_SHA256.values():

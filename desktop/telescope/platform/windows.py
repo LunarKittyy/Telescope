@@ -115,6 +115,14 @@ def _elevated_install_script(src: Path) -> str:
     return f"""$ErrorActionPreference = 'Stop'
 # Anything unexpected gets its own exit code, so it isn't mistaken for a cancelled admin prompt
 trap {{ exit {_EXIT_ERROR} }}
+# Started from PowerShell 7, this inherits its module path and can't load its own modules: use the system's
+$env:PSModulePath = [Environment]::GetEnvironmentVariable('PSModulePath', 'Machine')
+# .NET directly rather than Get-FileHash and Get-Acl, so nothing here depends on loading a module
+function Get-Sha256($path) {{
+    $stream = [IO.File]::OpenRead($path)
+    try {{ return -join ([Security.Cryptography.SHA256]::Create().ComputeHash($stream) | ForEach-Object {{ $_.ToString('X2') }}) }}
+    finally {{ $stream.Dispose() }}
+}}
 $src = {_ps_quote(src)}
 # Resolved here, as admin, from the system's settings: nothing the unelevated app passes decides where the DLLs go
 $telescope = Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'Telescope'
@@ -131,7 +139,7 @@ $writes = 0x2 -bor 0x4 -bor 0x10 -bor 0x40 -bor 0x100 -bor 0x10000 -bor 0x40000 
 function Test-AdminOnly($path) {{
     $item = Get-Item -LiteralPath $path -Force
     if (([int]$item.Attributes -band 0x400) -ne 0) {{ return $false }}  # FILE_ATTRIBUTE_REPARSE_POINT
-    $acl = Get-Acl -LiteralPath $path
+    $acl = $item.GetAccessControl()
     if ($trusted -notcontains $acl.GetOwner($sid).Value) {{ return $false }}
     foreach ($rule in $acl.GetAccessRules($true, $true, $sid)) {{
         if ($rule.AccessControlType -ne 'Allow' -or ([int]$rule.PropagationFlags -band 2) -ne 0) {{ continue }}  # 2: InheritOnly
@@ -161,7 +169,7 @@ foreach ($dir in @($telescope, $dst)) {{
 foreach ($name in $files.Keys) {{
     $target = Join-Path $dst $name
     # A copy already there and right is kept: a camera app may have it loaded, so it can't be overwritten
-    if (-not (Test-Path -LiteralPath $target) -or (Get-FileHash -Algorithm SHA256 -LiteralPath $target).Hash -ne $files[$name]) {{
+    if (-not (Test-Path -LiteralPath $target) -or (Get-Sha256 $target) -ne $files[$name]) {{
         Copy-Item -LiteralPath (Join-Path $src $name) -Destination $target -Force
         Set-AdminOwner $target
     }}
@@ -170,7 +178,7 @@ foreach ($name in $files.Keys) {{
 if (-not (Test-AdminOnly $telescope)) {{ exit {_EXIT_UNSAFE_FOLDER} }}
 foreach ($name in $files.Keys) {{
     $target = Join-Path $dst $name
-    if ((Get-FileHash -Algorithm SHA256 -LiteralPath $target).Hash -ne $files[$name]) {{
+    if ((Get-Sha256 $target) -ne $files[$name]) {{
         Remove-Item -LiteralPath $target -Force
         exit {_EXIT_CHECKSUM}
     }}
