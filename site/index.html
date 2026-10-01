@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Telescope</title>
+<meta name="description" content="Use your Android phone as a webcam on Linux or Windows, with every lens and full manual control.">
+<meta name="theme-color" content="#0f1216">
+<meta property="og:title" content="Telescope">
+<meta property="og:description" content="Use your phone as a webcam. Every lens, full manual control.">
+<meta property="og:image" content="https://raw.githubusercontent.com/LunarKittyy/Telescope/master/docs/assets/banner.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.min.js" } }</script>
+</head>
+<body class="static">
+<canvas id="space" aria-hidden="true"></canvas>
+
+<header class="topbar">
+  <a class="mark" href="#top" aria-label="Telescope, back to the top">
+    <svg viewBox="-24 -24 48 48" aria-hidden="true">
+      <g class="mark-ticks"></g>
+      <circle r="12" fill="#aa9cf5"/>
+      <circle r="5.5" fill="#0f1216"/>
+      <ellipse cx="-2" cy="-2.2" rx="1.6" ry="1" fill="#fff" fill-opacity="0.3" transform="rotate(-28 -2 -2.2)"/>
+    </svg>
+  </a>
+  <nav aria-label="Site">
+    <a href="https://github.com/LunarKittyy/Telescope/blob/master/docs/README.md">Docs</a>
+    <a href="https://github.com/LunarKittyy/Telescope/releases">Releases</a>
+    <a href="https://github.com/LunarKittyy/Telescope">GitHub</a>
+  </nav>
+</header>
+
+<main>
+  <section class="stop hero" id="top">
+    <svg class="flat-lens" viewBox="-460 -460 920 920" aria-hidden="true">
+      <defs>
+        <radialGradient id="fl-disc" cx="-60" cy="-70" r="260" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#cdc4fa"/><stop offset="1" stop-color="#aa9cf5"/></radialGradient>
+      </defs>
+      <circle r="300" fill="none" stroke="#aa9cf5" stroke-opacity="0.12" stroke-width="1.5"/>
+      <circle r="372" fill="none" stroke="#aa9cf5" stroke-opacity="0.07" stroke-width="1.5"/>
+      <g class="flat-ticks"></g>
+      <circle r="190" fill="url(#fl-disc)"/>
+      <circle r="86" fill="#0d1014"/>
+      <ellipse cx="-28" cy="-31" rx="19" ry="13" fill="#fff" fill-opacity="0.22" transform="rotate(-28 -28 -31)"/>
+    </svg>
+    <div class="copy">
+      <h1>Telescope</h1>
+      <p class="tagline"><span>Use your phone as a webcam.</span> <span>Every lens, full manual control.</span></p>
+      <div class="downloads" id="downloads">
+        <div class="dl-row">
+          <a class="dl" data-os="windows" href="https://github.com/LunarKittyy/Telescope/releases/latest/download/Telescope-windows.zip">Windows</a>
+          <a class="dl" data-os="linux" href="https://github.com/LunarKittyy/Telescope/releases/latest/download/Telescope-linux.tar.gz">Linux</a>
+        </div>
+        <p class="dl-note">You'll also need an Android phone running Android 8 or newer. The desktop app installs the phone app for you, or you can <a href="https://github.com/LunarKittyy/Telescope/releases/latest/download/Telescope.apk">download the APK</a> yourself.</p>
+      </div>
+    </div>
+  </section>
+  <section class="stop side-left" id="connect" aria-labelledby="connect-h">
+    <div class="copy">
+      <h2 id="connect-h">To your other apps, it's just a webcam</h2>
+      <ol class="chart">
+        <li class="star"><h3>Your phone</h3><p>Sends video and sound over USB or Wi&#8209;Fi, encrypted</p></li>
+        <li class="star"><h3>Your computer</h3><p>Shows up as a webcam and a microphone</p></li>
+        <li class="star"><h3>Your apps</h3><p>Discord, Zoom, OBS, or anything else that uses a webcam</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="stop side-right" id="controls" aria-labelledby="controls-h">
+    <div class="copy wide">
+      <h2 id="controls-h">Set the camera from your desk</h2>
+      <p class="lede">Pick the lens and set exposure, white balance and focus in the desktop app, live while it streams.</p>
+      <figure class="shots">
+        <button class="shot shot-desktop" type="button" aria-label="Enlarge the desktop app screenshot"><img src="shots/desktop.webp" draggable="false" alt="The Telescope desktop app streaming from a Pixel 9 Pro on the Tele 5x lens, with exposure set by hand" width="2400" height="1350" decoding="async"></button>
+        <button class="shot shot-phone" type="button" aria-label="Enlarge the phone app screenshot"><img src="shots/phone.webp" draggable="false" alt="The Telescope phone app while it streams" width="540" height="1200" decoding="async"></button>
+      </figure>
+    </div>
+  </section>
+
+  <section class="stop side-left" id="more" aria-labelledby="more-h">
+    <div class="copy">
+      <h2 id="more-h">Set it up once, then forget about it</h2>
+      <dl class="facts">
+        <div><dt>Starts when you need it</dt><dd>Streaming can start by itself when an app opens the camera, and stop once nothing's using it.</dd></div>
+        <div><dt>Remembers each phone</dt><dd>Save setups as presets, lens included, and switch between them in one click.</dd></div>
+        <div><dt>Updates in one click</dt><dd>Both apps tell you when there's a new version.</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="stop landing" id="setup" aria-labelledby="setup-h">
+    <div class="copy full">
+      <h2 id="setup-h">Setting it up</h2>
+      <p class="lede">Free and open source, under the <a href="https://github.com/LunarKittyy/Telescope/blob/master/LICENSE">AGPL-3.0</a>.</p>
+      <div class="downloads" data-clone="downloads"></div>
+      <div class="setup">
+        <div>
+          <h3>On Windows</h3>
+          <p>Extract the zip and run <code>TelescopeDesktop.exe</code>. Leave it in its folder; the app needs the files next to it.</p>
+          <h3 class="gap">On Linux</h3>
+          <p>Extract the tarball and run <code>./start.sh</code>. Install <code>v4l2loopback</code> first, since the virtual camera runs on it:</p>
+          <span class="cmd-label">Debian and Ubuntu</span>
+          <div class="cmd"><code>sudo apt install <span class="nw">v4l2loopback-dkms</span></code><button class="copy-btn" type="button">Copy</button></div>
+          <span class="cmd-label">Fedora and Nobara (Fedora needs <a href="https://rpmfusion.org/">RPM Fusion</a> first)</span>
+          <div class="cmd"><code>sudo dnf install v4l2loopback</code><button class="copy-btn" type="button">Copy</button></div>
+        </div>
+        <div>
+          <h3>Then follow the app</h3>
+          <p>On first launch it walks you through the virtual camera, installing the phone app, and pairing. Once it streams, pick <b>Telescope</b> (Windows) or <b>Phone Camera</b> (Linux) as the camera in your other apps.</p>
+          <p class="stuck">Stuck? <a href="https://github.com/LunarKittyy/Telescope/blob/master/docs/troubleshooting.md">Troubleshooting</a> covers the common problems, and you can ask in <a href="https://github.com/LunarKittyy/Telescope/discussions">Discussions</a>.</p>
+        </div>
+      </div>
+      <footer class="foot">
+        <p>Telescope by LunarKittyy</p>
+        <nav aria-label="Footer">
+          <a href="https://github.com/LunarKittyy/Telescope/blob/master/docs/README.md">Docs</a>
+          <a href="https://github.com/LunarKittyy/Telescope/blob/master/docs/features.md">All features</a>
+          <a href="https://github.com/LunarKittyy/Telescope/releases">Releases and nightlies</a>
+          <a href="https://github.com/LunarKittyy/Telescope/issues">Report a bug</a>
+        </nav>
+      </footer>
+    </div>
+  </section>
+</main>
+
+<script src="page.js"></script>
+<script type="module" src="space.js"></script>
+</body>
+</html>

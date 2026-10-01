@@ -8,11 +8,13 @@ on:
   push:
     branches: [master]
     tags: ['v*']
-    # A merge that only changes docs doesn't rebuild the nightly. Tag pushes ignore this filter.
+    # A merge that only changes docs or the website doesn't rebuild the nightly. Tag pushes ignore this filter.
     paths:
       - '**'
       - '!docs/**'
       - '!**.md'
+      - '!site/**'
+      - '!.github/workflows/pages.yml'
       - .github/NIGHTLY_NOTES.md
   workflow_dispatch:
 

@@ -24,7 +24,7 @@ This is a debug build - self-signed, for personal/development use.
 
 Both apps share one version, the `VERSION` file at the repo root. The build number is the commit count on `master`, so it only grows; it's the Android `versionCode` and what the update check compares. A build is stable (`3.0.0`), nightly (`3.0.0-nightly.123`) or a source checkout (`3.0.0 dev`). The version shows at the bottom of the Advanced dialog on the desktop and under Copy diagnostics on the phone, and both apps' Copy diagnostics include it.
 
-### `release.yml` - every push to `master` that changes more than docs, and every `v*` tag
+### `release.yml` - every push to `master` that changes more than docs or the website, and every `v*` tag
 
 Builds everything from one commit, then publishes it together:
 
@@ -64,6 +64,10 @@ The three build workflows below also run on pull requests, without publishing. A
 4. Assembles the bundle: `main.py` + `update_guard.py` + `telescope/` package + `requirements.txt` + `constraints.txt` + `start.sh` + `THIRD_PARTY_NOTICES.txt`
 
 No compiled build step - the Linux bundle is the Python source and launcher script, which creates its own venv on first run (see `start.sh`).
+
+### `pages.yml` - pushes to `master` touching `site/**` or the workflow itself
+
+Publishes `site/`, the landing page, to GitHub Pages as it is; there's no build step. The page loads three.js from jsDelivr and falls back to a still version without WebGL or with reduced motion. The repository's Pages source has to be set to **GitHub Actions**.
 
 ### `desktop/scripts/smoke_check.py`
 
