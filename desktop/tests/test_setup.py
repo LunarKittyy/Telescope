@@ -1,3 +1,4 @@
+import threading
 from pathlib import Path
 
 import pytest
@@ -53,12 +54,19 @@ def test_dialog_preset_visibility_and_apply_callback(qapp):
 def _delete_dialogs(qapp):
     # Dialogs left alive crash a later test that restyles the app, which repolishes every live widget
     before = set(map(id, qapp.topLevelWidgets()))
+    threads_before = set(threading.enumerate())
     yield
     from PyQt6.QtCore import QCoreApplication, QEvent
+    # A dialog's own checks (the Windows driver scan, say) emit into it when they finish: deleting it first crashes
+    started = [t for t in threading.enumerate() if t not in threads_before]
+    for thread in started:
+        thread.join(timeout=5)
+    safe_to_delete = not any(t.is_alive() for t in started)
     for widget in qapp.topLevelWidgets():
         if isinstance(widget, AdvancedDialog) and id(widget) not in before:
             widget.close()
-            widget.deleteLater()
+            if safe_to_delete:
+                widget.deleteLater()
     QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
 
 
