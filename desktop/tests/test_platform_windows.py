@@ -139,7 +139,8 @@ def test_register_invokes_elevated_powershell(monkeypatch, tmp_path):
     assert "anywhere" not in script
     assert "[Environment]::GetFolderPath('ProgramFiles')" in script
     assert "ReparsePoint" in script and "/reset" in script
-    assert script.index("ReparsePoint") < script.index("/reset") < script.index("Copy-Item")
+    assert script.index("ReparsePoint") < script.index("/setowner") < script.index("/reset") < script.index("Copy-Item")
+    assert "/setowner '*S-1-5-32-544'" in script  # Administrators, by SID
     assert "Join-Path ([Environment]::SystemDirectory) 'regsvr32.exe'" in script
     copy, check, register = (script.index("Copy-Item"), script.rindex("Get-FileHash"), script.index("regsvr32"))
     assert copy < check < register

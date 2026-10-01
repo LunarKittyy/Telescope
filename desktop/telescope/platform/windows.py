@@ -127,8 +127,12 @@ foreach ($dir in @($telescope, $dst)) {{
         New-Item -ItemType Directory -Path $dir | Out-Null
     }}
 }}
-# Back to the permissions inherited from Program Files (admins write, users read), whatever made the folder
-& (Join-Path ([Environment]::SystemDirectory) 'icacls.exe') $telescope /reset /T /Q | Out-Null
+$icacls = Join-Path ([Environment]::SystemDirectory) 'icacls.exe'
+# Owned by Administrators first (by SID, so any Windows language): an owner can always change permissions back
+& $icacls $telescope /setowner '*S-1-5-32-544' /T /C /Q | Out-Null
+if ($LASTEXITCODE -ne 0) {{ exit {_EXIT_UNSAFE_FOLDER} }}
+# Then back to the permissions inherited from Program Files (admins write, users read), whatever made the folder
+& $icacls $telescope /reset /T /C /Q | Out-Null
 if ($LASTEXITCODE -ne 0) {{ exit {_EXIT_UNSAFE_FOLDER} }}
 foreach ($name in $files.Keys) {{
     $target = Join-Path $dst $name
@@ -183,7 +187,7 @@ def register_unitycapture() -> tuple:
         if r.returncode == _EXIT_CHECKSUM:
             return False, "The driver copy in Program Files failed checksum verification - not registering"
         if r.returncode == _EXIT_UNSAFE_FOLDER:
-            return False, "The Telescope folder in Program Files is a link or its permissions couldn't be reset - not registering"
+            return False, "The Telescope folder in Program Files is a link, or its owner or permissions couldn't be reset - not registering"
         if r.returncode == _EXIT_REGSVR32:
             return False, "Windows refused to register the driver (regsvr32 failed)"
         return False, "Registration failed (cancelled or denied?)"
