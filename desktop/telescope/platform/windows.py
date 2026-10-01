@@ -113,6 +113,8 @@ def _elevated_install_script(src: Path) -> str:
     """Runs as admin: find Program Files itself, refuse a Telescope folder there that isn't admin-only all the way down, copy the DLLs in, check their hashes there, register those copies."""
     files = "; ".join(f"{_ps_quote(name)} = {_ps_quote(digest)}" for name, digest in _EXPECTED_SHA256.items())
     return f"""$ErrorActionPreference = 'Stop'
+# Anything unexpected gets its own exit code, so it isn't mistaken for a cancelled admin prompt
+trap {{ exit {_EXIT_ERROR} }}
 $src = {_ps_quote(src)}
 # Resolved here, as admin, from the system's settings: nothing the unelevated app passes decides where the DLLs go
 $telescope = Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'Telescope'
@@ -128,12 +130,12 @@ $writes = 0x2 -bor 0x4 -bor 0x10 -bor 0x40 -bor 0x100 -bor 0x10000 -bor 0x40000 
 # Admin-owned, no link anywhere, and nobody else can change it: checked, never repaired, so a link is never followed
 function Test-AdminOnly($path) {{
     $item = Get-Item -LiteralPath $path -Force
-    if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {{ return $false }}
+    if (([int]$item.Attributes -band 0x400) -ne 0) {{ return $false }}  # FILE_ATTRIBUTE_REPARSE_POINT
     $acl = Get-Acl -LiteralPath $path
     if ($trusted -notcontains $acl.GetOwner($sid).Value) {{ return $false }}
     foreach ($rule in $acl.GetAccessRules($true, $true, $sid)) {{
-        if ($rule.AccessControlType -ne 'Allow' -or ($rule.PropagationFlags -band [Security.AccessControl.PropagationFlags]::InheritOnly)) {{ continue }}
-        if ((([int]$rule.FileSystemRights) -band $writes) -and $trusted -notcontains $rule.IdentityReference.Value) {{ return $false }}
+        if ($rule.AccessControlType -ne 'Allow' -or ([int]$rule.PropagationFlags -band 2) -ne 0) {{ continue }}  # 2: InheritOnly
+        if (([int]$rule.FileSystemRights -band $writes) -ne 0 -and $trusted -notcontains $rule.IdentityReference.Value) {{ return $false }}
     }}
     if ($item.PSIsContainer) {{
         foreach ($child in [IO.Directory]::EnumerateFileSystemEntries($path)) {{
@@ -201,6 +203,7 @@ def _powershell() -> str:
 _EXIT_CHECKSUM = 2
 _EXIT_REGSVR32 = 3
 _EXIT_UNSAFE_FOLDER = 4
+_EXIT_ERROR = 5
 
 
 def register_unitycapture() -> tuple:
@@ -229,6 +232,8 @@ def register_unitycapture() -> tuple:
             return True, "Installed"
         if r.returncode == _EXIT_CHECKSUM:
             return False, "The driver copy in Program Files failed checksum verification - not registering"
+        if r.returncode == _EXIT_ERROR:
+            return False, "The driver install hit an error while running as admin - not registering"
         if r.returncode == _EXIT_UNSAFE_FOLDER:
             return False, "Program Files\\Telescope has links in it or other users can change it - delete that folder, then install again"
         if r.returncode == _EXIT_REGSVR32:

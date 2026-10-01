@@ -169,7 +169,7 @@ def test_register_unitycapture_survives_an_apostrophe_in_the_folder(monkeypatch,
     assert src_line == "$src = '" + str(folder).replace("'", "''") + "'"
 
 
-@pytest.mark.parametrize("code, words", [(2, "checksum"), (3, "regsvr32"), (4, "delete that folder")])
+@pytest.mark.parametrize("code, words", [(2, "checksum"), (3, "regsvr32"), (4, "delete that folder"), (5, "hit an error")])
 def test_register_names_what_failed_as_admin(monkeypatch, tmp_path, code, words):
     _good_dlls(monkeypatch, tmp_path)
     monkeypatch.setattr(windows.subprocess, "run", lambda cmd, **_k: subprocess.CompletedProcess(cmd, code))

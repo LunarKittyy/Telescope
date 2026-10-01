@@ -14,19 +14,28 @@ function Register {
     return $out
 }
 
+# The runner is already admin, so the install script can run in the open to show the error the elevated copy hid
+function Show-InstallError {
+    $script = Join-Path $scratch 'install.ps1'
+    python -c "from telescope.platform.windows import _elevated_install_script as s, unitycapture_dir as d; print(s(d()).replace('trap {', '# trap {', 1))" | Set-Content -LiteralPath $script
+    $output = & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $script 2>&1 | Out-String
+    Write-Host "  install script exit $LASTEXITCODE, output:"
+    Write-Host $output
+}
+
 function Py($code) { python -c $code }
 
 function Remove-Tree {
     if (Test-Path -LiteralPath $telescope) {
         $item = Get-Item -LiteralPath $telescope -Force
-        if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { $item.Delete() } else { Remove-Item -LiteralPath $telescope -Recurse -Force }
+        if (([int]$item.Attributes -band 0x400) -ne 0) { $item.Delete() } else { Remove-Item -LiteralPath $telescope -Recurse -Force }
     }
 }
 
 function Expect-Rejected($what, $sentinel) {
     $before = Get-Content -LiteralPath $sentinel -Raw
     $out = Register
-    if ($out -notmatch '^FAIL .*delete that folder') { throw "$what was not rejected: $out" }
+    if ($out -notmatch '^FAIL .*delete that folder') { Show-InstallError; throw "$what was not rejected: $out" }
     if ((Get-Content -LiteralPath $sentinel -Raw) -ne $before) { throw "${what}: the link's target was changed" }
     if (Get-ChildItem -LiteralPath (Split-Path $sentinel) -Filter 'UnityCapture*.dll' -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.FullName -ne $sentinel }) {
         throw "${what}: DLLs were copied through the link"
@@ -76,7 +85,7 @@ New-Item -ItemType Directory -Path $fake | Out-Null
 $saved = $env:ProgramFiles, $env:ProgramW6432
 $env:ProgramFiles = $fake; $env:ProgramW6432 = $fake
 try { $out = Register } finally { $env:ProgramFiles, $env:ProgramW6432 = $saved }
-if ($out -notmatch '^OK') { throw "clean install failed: $out" }
+if ($out -notmatch '^OK') { Show-InstallError; throw "clean install failed: $out" }
 if (Get-ChildItem -LiteralPath $fake -Recurse -Force) { throw 'the environment override decided where the DLLs went' }
 foreach ($name in 'UnityCaptureFilter32.dll', 'UnityCaptureFilter64.dll') {
     if (-not (Test-Path -LiteralPath (Join-Path $dst $name))) { throw "$name missing from $dst" }
@@ -87,13 +96,13 @@ $sid = [Security.Principal.SecurityIdentifier]
 $trusted = @('S-1-5-32-544', 'S-1-5-18', 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464')
 $writes = 0x2 -bor 0x4 -bor 0x10 -bor 0x40 -bor 0x100 -bor 0x10000 -bor 0x40000 -bor 0x80000 -bor 0x10000000 -bor 0x40000000
 foreach ($item in @(Get-Item -LiteralPath $telescope) + @(Get-ChildItem -LiteralPath $telescope -Recurse -Force)) {
-    if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw "$($item.FullName) is a link" }
+    if (([int]$item.Attributes -band 0x400) -ne 0) { throw "$($item.FullName) is a link" }
     $acl = Get-Acl -LiteralPath $item.FullName
     $owner = $acl.GetOwner($sid).Value
     if ($trusted -notcontains $owner) { throw "$($item.FullName) is owned by $owner" }
     foreach ($rule in $acl.GetAccessRules($true, $true, $sid)) {
-        if ($rule.AccessControlType -ne 'Allow' -or ($rule.PropagationFlags -band [Security.AccessControl.PropagationFlags]::InheritOnly)) { continue }
-        if ((([int]$rule.FileSystemRights) -band $writes) -and $trusted -notcontains $rule.IdentityReference.Value) {
+        if ($rule.AccessControlType -ne 'Allow' -or ([int]$rule.PropagationFlags -band 2) -ne 0) { continue }
+        if (([int]$rule.FileSystemRights -band $writes) -ne 0 -and $trusted -notcontains $rule.IdentityReference.Value) {
             throw "$($item.FullName) lets $($rule.IdentityReference.Value) change it"
         }
     }
@@ -109,7 +118,7 @@ Write-Host 'ok: the old registration moved to Program Files, apps list it as Tel
 
 Write-Host '6. Installing again over our own install keeps working'
 $out = Register
-if ($out -notmatch '^OK') { throw "reinstall failed: $out" }
+if ($out -notmatch '^OK') { Show-InstallError; throw "reinstall failed: $out" }
 Write-Host 'ok: reinstall'
 
 Remove-Item -LiteralPath $scratch -Recurse -Force
