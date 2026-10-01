@@ -50,48 +50,13 @@ jobs:
         working-directory: desktop
         run: python scripts/smoke_check.py
 
-      # A leftover install tree owned by and writable for ordinary users, with a stale DLL in it: registering must
-      # take it back (owner Administrators, users read only) rather than load from a folder a user can change.
-      - name: Leave a user-owned driver folder behind
-        shell: pwsh
-        run: |
-          $telescope = Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'Telescope'
-          $dst = Join-Path $telescope 'UnityCapture'
-          New-Item -ItemType Directory -Force -Path $dst | Out-Null
-          Set-Content -LiteralPath (Join-Path $dst 'UnityCaptureFilter64.dll') -Value 'stale'
-          icacls $telescope /grant '*S-1-5-32-545:(OI)(CI)F' /T /Q
-          icacls $telescope /setowner '*S-1-5-32-545' /T /Q
-          if ($LASTEXITCODE -ne 0) { throw 'could not set up the user-owned folder' }
-
-      # Runners are admin, so this does what the first-run checklist's Install driver does, then checks
-      # apps would list the camera as "Telescope" and pyvirtualcam opens it by that name.
-      - name: Register the virtual camera as Telescope
+      # Runners are admin with UAC off, so this runs the first-run checklist's Install driver for real: an old
+      # app-folder registration, hostile leftovers in Program Files (rejected, their targets untouched), then a clean
+      # install that migrates the old one, ignores a redirected %ProgramFiles%, and opens as "Telescope".
+      - name: Check the virtual camera driver install
         working-directory: desktop
-        run: |
-          python -c "from telescope.platform.windows import register_unitycapture as r; ok, msg = r(); print(ok, msg); assert ok, msg"
-          python -c "from telescope.platform.windows import uc_registered_name as n; name = n(); print(name); assert name == 'Telescope', name"
-          python -c "from telescope.platform.windows import uc_in_app_folder as f, protected_unitycapture_dir as d; print(d()); assert not f(), 'registered from the app folder'; assert all((d() / n).exists() for n in ('UnityCaptureFilter32.dll', 'UnityCaptureFilter64.dll'))"
-          python -c "import pyvirtualcam; cam = pyvirtualcam.Camera(width=640, height=480, fps=30, backend='unitycapture', device='Telescope'); print(cam.device); cam.close()"
-
-      - name: Check the driver folder is admin-owned and read-only for users
         shell: pwsh
-        run: |
-          $telescope = Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'Telescope'
-          $sid = [System.Security.Principal.SecurityIdentifier]
-          $write = [System.Security.AccessControl.FileSystemRights]'Write, Delete, ChangePermissions, TakeOwnership'
-          foreach ($item in @(Get-Item -LiteralPath $telescope) + @(Get-ChildItem -LiteralPath $telescope -Recurse -Force)) {
-            $acl = Get-Acl -LiteralPath $item.FullName
-            $owner = $acl.GetOwner($sid).Value
-            if ($owner -ne 'S-1-5-32-544') { throw "$($item.FullName) is owned by $owner" }
-            foreach ($rule in $acl.GetAccessRules($true, $true, $sid)) {
-              $who = $rule.IdentityReference.Value
-              $userish = $who -in @('S-1-5-32-545', 'S-1-5-11', 'S-1-1-0')  # Users, Authenticated Users, Everyone
-              if ($userish -and $rule.AccessControlType -eq 'Allow' -and ($rule.FileSystemRights -band $write)) {
-                throw "$($item.FullName) lets $who write"
-              }
-            }
-          }
-          Write-Host 'Driver folder is admin-owned, users can only read'
+        run: ./scripts/windows_driver_check.ps1
 
       - name: Build the app folder
         working-directory: desktop

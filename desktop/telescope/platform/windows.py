@@ -110,36 +110,64 @@ def _ps_quote(value) -> str:
 
 
 def _elevated_install_script(src: Path) -> str:
-    """Runs as admin: find Program Files itself, make sure our folder there is a plain admin-only folder, copy the DLLs in, check their hashes there, register those copies."""
+    """Runs as admin: find Program Files itself, refuse a Telescope folder there that isn't admin-only all the way down, copy the DLLs in, check their hashes there, register those copies."""
     files = "; ".join(f"{_ps_quote(name)} = {_ps_quote(digest)}" for name, digest in _EXPECTED_SHA256.items())
     return f"""$ErrorActionPreference = 'Stop'
 $src = {_ps_quote(src)}
 # Resolved here, as admin, from the system's settings: nothing the unelevated app passes decides where the DLLs go
-$programFiles = [Environment]::GetFolderPath('ProgramFiles')
-$telescope = Join-Path $programFiles 'Telescope'
+$telescope = Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'Telescope'
 $dst = Join-Path $telescope 'UnityCapture'
 $files = [ordered]@{{ {files} }}
+$icacls = Join-Path ([Environment]::SystemDirectory) 'icacls.exe'
+$sid = [Security.Principal.SecurityIdentifier]
+# Administrators, SYSTEM, TrustedInstaller
+$trusted = @('S-1-5-32-544', 'S-1-5-18', 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464')
+# Write data or attributes, delete, change permissions or owner, and generic all/write
+$writes = 0x2 -bor 0x4 -bor 0x10 -bor 0x40 -bor 0x100 -bor 0x10000 -bor 0x40000 -bor 0x80000 -bor 0x10000000 -bor 0x40000000
+
+# Admin-owned, no link anywhere, and nobody else can change it: checked, never repaired, so a link is never followed
+function Test-AdminOnly($path) {{
+    $item = Get-Item -LiteralPath $path -Force
+    if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {{ return $false }}
+    $acl = Get-Acl -LiteralPath $path
+    if ($trusted -notcontains $acl.GetOwner($sid).Value) {{ return $false }}
+    foreach ($rule in $acl.GetAccessRules($true, $true, $sid)) {{
+        if ($rule.AccessControlType -ne 'Allow' -or ($rule.PropagationFlags -band [Security.AccessControl.PropagationFlags]::InheritOnly)) {{ continue }}
+        if ((([int]$rule.FileSystemRights) -band $writes) -and $trusted -notcontains $rule.IdentityReference.Value) {{ return $false }}
+    }}
+    if ($item.PSIsContainer) {{
+        foreach ($child in [IO.Directory]::EnumerateFileSystemEntries($path)) {{
+            if (-not (Test-AdminOnly $child)) {{ return $false }}
+        }}
+    }}
+    return $true
+}}
+
+# Only for what this script just made: Windows can be set to make the creating account the owner instead
+function Set-AdminOwner($path) {{
+    & $icacls $path /setowner '*S-1-5-32-544' /Q | Out-Null
+    if ($LASTEXITCODE -ne 0) {{ exit {_EXIT_UNSAFE_FOLDER} }}
+}}
+
+if ((Test-Path -LiteralPath $telescope) -and -not (Test-AdminOnly $telescope)) {{ exit {_EXIT_UNSAFE_FOLDER} }}
 foreach ($dir in @($telescope, $dst)) {{
-    if (Test-Path -LiteralPath $dir) {{
-        # A junction or symlink here could send the copy somewhere a user can write
-        if ((Get-Item -LiteralPath $dir -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) {{ exit {_EXIT_UNSAFE_FOLDER} }}
-    }} else {{
+    if (-not (Test-Path -LiteralPath $dir)) {{
         New-Item -ItemType Directory -Path $dir | Out-Null
+        Set-AdminOwner $dir
     }}
 }}
-$icacls = Join-Path ([Environment]::SystemDirectory) 'icacls.exe'
-# Owned by Administrators first (by SID, so any Windows language): an owner can always change permissions back
-& $icacls $telescope /setowner '*S-1-5-32-544' /T /C /Q | Out-Null
-if ($LASTEXITCODE -ne 0) {{ exit {_EXIT_UNSAFE_FOLDER} }}
-# Then back to the permissions inherited from Program Files (admins write, users read), whatever made the folder
-& $icacls $telescope /reset /T /C /Q | Out-Null
-if ($LASTEXITCODE -ne 0) {{ exit {_EXIT_UNSAFE_FOLDER} }}
 foreach ($name in $files.Keys) {{
     $target = Join-Path $dst $name
     # A copy already there and right is kept: a camera app may have it loaded, so it can't be overwritten
     if (-not (Test-Path -LiteralPath $target) -or (Get-FileHash -Algorithm SHA256 -LiteralPath $target).Hash -ne $files[$name]) {{
         Copy-Item -LiteralPath (Join-Path $src $name) -Destination $target -Force
+        Set-AdminOwner $target
     }}
+}}
+# Again over the finished tree, so nothing that changed while it was being made gets registered
+if (-not (Test-AdminOnly $telescope)) {{ exit {_EXIT_UNSAFE_FOLDER} }}
+foreach ($name in $files.Keys) {{
+    $target = Join-Path $dst $name
     if ((Get-FileHash -Algorithm SHA256 -LiteralPath $target).Hash -ne $files[$name]) {{
         Remove-Item -LiteralPath $target -Force
         exit {_EXIT_CHECKSUM}
@@ -153,6 +181,21 @@ foreach ($name in $files.Keys) {{
 }}
 exit 0
 """
+
+
+def _system_dir() -> Optional[Path]:
+    # From Windows itself rather than PATH or %SystemRoot%, so the PowerShell started is the real one
+    if sys.platform != "win32":
+        return None
+    import ctypes
+    buf = ctypes.create_unicode_buffer(260)
+    n = ctypes.windll.kernel32.GetSystemDirectoryW(buf, len(buf))
+    return Path(buf.value) if 0 < n < len(buf) else None
+
+
+def _powershell() -> str:
+    system = _system_dir()
+    return str(system / "WindowsPowerShell" / "v1.0" / "powershell.exe") if system else "powershell"
 
 
 _EXIT_CHECKSUM = 2
@@ -179,7 +222,7 @@ def register_unitycapture() -> tuple:
           "-Verb RunAs -Wait -PassThru -WindowStyle Hidden; exit $p.ExitCode")
     try:
         r = subprocess.run(
-            ["powershell", "-NoProfile", "-Command", ps],
+            [_powershell(), "-NoProfile", "-Command", ps],
             capture_output=True, timeout=60, **NO_WINDOW,
         )
         if r.returncode == 0:
@@ -187,7 +230,7 @@ def register_unitycapture() -> tuple:
         if r.returncode == _EXIT_CHECKSUM:
             return False, "The driver copy in Program Files failed checksum verification - not registering"
         if r.returncode == _EXIT_UNSAFE_FOLDER:
-            return False, "The Telescope folder in Program Files is a link, or its owner or permissions couldn't be reset - not registering"
+            return False, "Program Files\\Telescope has links in it or other users can change it - delete that folder, then install again"
         if r.returncode == _EXIT_REGSVR32:
             return False, "Windows refused to register the driver (regsvr32 failed)"
         return False, "Registration failed (cancelled or denied?)"

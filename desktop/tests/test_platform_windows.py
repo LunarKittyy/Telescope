@@ -119,8 +119,8 @@ def _elevated_script(cmd) -> str:
 
 def test_register_invokes_elevated_powershell(monkeypatch, tmp_path):
     _good_dlls(monkeypatch, tmp_path)
-    monkeypatch.setenv("ProgramFiles", str(tmp_path / "anywhere"))  # must not decide where the DLLs go
-    monkeypatch.setenv("ProgramW6432", str(tmp_path / "anywhere"))
+    monkeypatch.setenv("ProgramFiles", str(tmp_path / "redirected-program-files"))  # must not decide where the DLLs go
+    monkeypatch.setenv("ProgramW6432", str(tmp_path / "redirected-program-files"))
     calls = []
     monkeypatch.setattr(
         windows.subprocess,
@@ -136,11 +136,15 @@ def test_register_invokes_elevated_powershell(monkeypatch, tmp_path):
     assert calls[0][1]["timeout"] == 60
     script = _elevated_script(cmd)
     # The copy, the hash check that counts, and the registration all happen as admin, on the protected copy
-    assert "anywhere" not in script
+    assert "redirected-program-files" not in script
     assert "[Environment]::GetFolderPath('ProgramFiles')" in script
-    assert "ReparsePoint" in script and "/reset" in script
-    assert script.index("ReparsePoint") < script.index("/setowner") < script.index("/reset") < script.index("Copy-Item")
-    assert "/setowner '*S-1-5-32-544'" in script  # Administrators, by SID
+    # A tree that's already there is checked before anything touches it, and never repaired
+    first_check = script.index("-not (Test-AdminOnly $telescope)")
+    assert first_check < script.index("New-Item") < script.index("Copy-Item")
+    assert "/reset" not in script and "/T" not in script
+    # ...and the finished tree is checked again before the hashes that count and the registration
+    last_check = script.rindex("-not (Test-AdminOnly $telescope)")
+    assert script.index("Copy-Item") < last_check < script.rindex("Get-FileHash") < script.index("Start-Process $regsvr32")
     assert "Join-Path ([Environment]::SystemDirectory) 'regsvr32.exe'" in script
     copy, check, register = (script.index("Copy-Item"), script.rindex("Get-FileHash"), script.index("regsvr32"))
     assert copy < check < register
@@ -165,7 +169,7 @@ def test_register_unitycapture_survives_an_apostrophe_in_the_folder(monkeypatch,
     assert src_line == "$src = '" + str(folder).replace("'", "''") + "'"
 
 
-@pytest.mark.parametrize("code, words", [(2, "checksum"), (3, "regsvr32"), (4, "link")])
+@pytest.mark.parametrize("code, words", [(2, "checksum"), (3, "regsvr32"), (4, "delete that folder")])
 def test_register_names_what_failed_as_admin(monkeypatch, tmp_path, code, words):
     _good_dlls(monkeypatch, tmp_path)
     monkeypatch.setattr(windows.subprocess, "run", lambda cmd, **_k: subprocess.CompletedProcess(cmd, code))
@@ -315,3 +319,12 @@ def test_running_from_archive_ignores_folders_outside_temp(tmp_path):
     app = tmp_path / "Downloads" / "Temp1_Telescope-windows.zip"
     app.mkdir(parents=True)
     assert not windows.running_from_archive(app, tmp_path / "Temp")
+
+
+def test_the_first_powershell_comes_from_the_system_folder(monkeypatch, tmp_path):
+    _good_dlls(monkeypatch, tmp_path)
+    monkeypatch.setattr(windows, "_system_dir", lambda: Path("C:/Windows/System32"))
+    calls = []
+    monkeypatch.setattr(windows.subprocess, "run", lambda cmd, **_k: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    windows.register_unitycapture()
+    assert calls[0][0] == str(Path("C:/Windows/System32") / "WindowsPowerShell" / "v1.0" / "powershell.exe")

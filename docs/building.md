@@ -50,7 +50,7 @@ The three build workflows below also run on pull requests, without publishing. A
 2. `pip install -r requirements-dev.txt pyinstaller -c constraints.txt`; runs `pytest`
 3. In a release: `scripts/write_build_info.py` stamps the version into `telescope/_build.py`
 4. `python scripts/smoke_check.py` - packaging smoke checks (see below)
-5. Registers UnityCapture on the runner and checks it's listed as **Telescope** and pyvirtualcam opens it
+5. `scripts/windows_driver_check.ps1` installs UnityCapture for real on the runner: it starts from an old registration in the app folder, checks that a junction, a planted DLL symlink and a user-owned folder in Program Files are each refused with their targets untouched, then does a clean install with `%ProgramFiles%` pointed elsewhere and checks the files land admin-owned in the real Program Files, the old registration moved, it's listed as **Telescope**, and pyvirtualcam opens it
 6. `pyinstaller telescope.spec` - a folder build: `TelescopeDesktop.exe` next to `lib-<build>/`
 7. Assembles the bundle: the app folder + `THIRD_PARTY_NOTICES.txt` + `platform-tools/` + `unitycapture/`, and checks nothing is missing, including the Qt plugins it can't start or draw without
 
