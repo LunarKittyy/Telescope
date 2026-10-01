@@ -10,6 +10,7 @@ Windows: VB-Audio Virtual Cable, which has to be installed separately; Telescope
 
 import os
 import shutil
+import stat
 import subprocess
 import tempfile
 from typing import Callable, Optional
@@ -39,7 +40,22 @@ def linux_tools_missing(which: Callable = shutil.which) -> list:
 
 
 def fifo_path() -> str:
-    return os.path.join(os.environ.get("XDG_RUNTIME_DIR") or tempfile.gettempdir(), "telescope-mic.fifo")
+    # XDG_RUNTIME_DIR is private to this user by spec; without it, a folder of our own, never shared /tmp itself
+    runtime = os.environ.get("XDG_RUNTIME_DIR")
+    return os.path.join(runtime or _private_temp_dir(), "telescope-mic.fifo")
+
+
+def _private_temp_dir() -> str:
+    path = os.path.join(tempfile.gettempdir(), f"telescope-{os.getuid()}")
+    try:
+        os.mkdir(path, 0o700)
+    except FileExistsError:
+        pass
+    # Someone else could have made it first in a shared /tmp: use it only if it's a real folder, ours, and closed
+    st = os.lstat(path)
+    if not stat.S_ISDIR(st.st_mode) or st.st_uid != os.getuid() or st.st_mode & 0o077:
+        raise OSError(f"{path} isn't a private folder of this user's, so the microphone won't use it")
+    return path
 
 
 def linux_setup(run: Callable = _run, fifo: Optional[str] = None) -> tuple:
@@ -51,7 +67,10 @@ def linux_setup(run: Callable = _run, fifo: Optional[str] = None) -> tuple:
     stale = [line.split("\t")[0] for line in out.splitlines()
              if any(tag in line for tag in _OURS)]
     linux_teardown([int(m) for m in stale if m.isdigit()], run)
-    fifo = fifo or fifo_path()
+    try:
+        fifo = fifo or fifo_path()
+    except OSError as e:
+        return [], f"Couldn't create the virtual microphone: {e}"
     try:
         os.unlink(fifo)
     except OSError:

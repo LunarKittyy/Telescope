@@ -79,10 +79,12 @@ class SessionServerTest {
         token: String? = "secret-token",
         commands: FakeCommands = FakeCommands(),
         requestDeadlineMs: Int = HttpWire.REQUEST_DEADLINE_MS,
+        localOnly: Boolean = false,
+        overUsb: Boolean = true,
         block: (port: Int, commands: FakeCommands) -> Unit,
     ) {
         val server = SessionServer(0, { computersOf(token) }, commands, appVersion = "1.2.3", appBuild = 42,
-            requestDeadlineMs = requestDeadlineMs)
+            requestDeadlineMs = requestDeadlineMs, localOnly = { localOnly }, isUsbPeer = { overUsb })
         server.start()
         try {
             block(actualPort(server), commands)
@@ -281,6 +283,29 @@ class SessionServerTest {
             assertFalse(response.body.contains("streaming"), response.body)
             assertFalse(commands.calls.contains("start"))
         }
+    }
+
+    @Test
+    fun `in Local only a computer off USB can only ping and unpair`() = withServer(localOnly = true, overUsb = false) { port, commands ->
+        assertEquals(403, post(port, "/v1/session", "secret-token", "{\"action\":\"start\"}").status)
+        assertEquals(403, get(port, "/v1/hello", null).status)
+        assertEquals(200, get(port, "/v1/ping", "secret-token").status)
+        assertEquals(401, get(port, "/v1/ping", "wrong").status)
+        assertEquals(200, post(port, "/v1/unpair", "secret-token", "{}").status)
+        assertFalse(commands.calls.contains("start"))
+    }
+
+    @Test
+    fun `in Local only USB still gets everything`() = withServer(localOnly = true, overUsb = true) { port, commands ->
+        assertEquals(200, get(port, "/v1/hello", null).status)
+        assertEquals(200, post(port, "/v1/session", "secret-token", "{\"action\":\"start\"}").status)
+        assertTrue(commands.calls.contains("start"))
+    }
+
+    @Test
+    fun `with Local only off Wi-Fi gets everything`() = withServer(localOnly = false, overUsb = false) { port, commands ->
+        assertEquals(200, post(port, "/v1/session", "secret-token", "{\"action\":\"start\"}").status)
+        assertEquals(listOf("start"), commands.calls)
     }
 
     @Test

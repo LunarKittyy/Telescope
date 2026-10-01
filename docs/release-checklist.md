@@ -21,6 +21,7 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 ## Packaging
 
 - [ ] Windows: `TelescopeDesktop.exe` launches with the Telescope icon, the first-run checklist's Install driver registers UnityCapture, bundled `adb.exe` works for USB, and no `adb.exe` is left running after quitting.
+- [ ] Windows, upgrading from a version that registered the driver from the app folder: **Advanced** shows **Reinstall for a security fix**, the camera still works until then, and Reinstall puts the DLLs in `C:\Program Files\Telescope\UnityCapture` and shows Ready.
 - [ ] Windows: opening `TelescopeDesktop.exe` from inside the zip without extracting says to extract it first.
 - [ ] Linux: Telescope shows up in the app menu after the first launch, and still opens after moving the folder and launching once from the new place.
 - [ ] Windows: OBS and Zoom list the camera as **Telescope**. On a machine registered by an older version, Advanced offers Rename, and streaming works before and after.
@@ -67,6 +68,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 - [ ] Plugging in mid-stream over Wi-Fi shows Switch to USB, and it switches without restarting the phone's camera.
 - [ ] Pulling the cable mid-stream on USB carries on over Wi-Fi; plugging it back in can use USB again.
 - [ ] Connect via USB only / Wi-Fi only is honoured, including reporting a missing cable instead of falling back.
+- [ ] Local only on, no cable: the desktop says the phone accepts USB only and Start doesn't open the camera. Plug in and it streams over USB.
 - [ ] Phone gets a new IP from the router: the desktop finds it again (mDNS) without re-pairing.
 - [ ] Phone foreground: desktop Start/Stop controls camera; test with screen dark too.
 - [ ] A lens, size and OIS setting picked on the desktop come back after Stop and Start. The phone shows Stop Streaming only while streaming, and it stops the stream.

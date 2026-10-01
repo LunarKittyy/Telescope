@@ -1,6 +1,14 @@
 import json
+import os
+import stat
 
 import pytest
+
+posix_only = pytest.mark.skipif(os.name != "posix", reason="Unix permissions")
+
+
+def _mode(path):
+    return stat.S_IMODE(os.stat(path).st_mode)
 
 
 def test_fresh_config_is_empty_current_version(config_home):
@@ -23,6 +31,49 @@ def test_save_is_atomic_no_leftover_tmp_file(config_home):
     config_home.save_config(cfg)
     tmp = config_home.config_path().with_suffix(".json.tmp")
     assert not tmp.exists()
+
+
+@posix_only
+def test_saved_config_is_private_whatever_the_umask(config_home):
+    old = os.umask(0o022)
+    try:
+        assert config_home.save_config(config_home.load_config()) is True
+    finally:
+        os.umask(old)
+    path = config_home.config_path()
+    assert _mode(path) == 0o600
+    assert _mode(path.parent) == 0o700
+
+
+@posix_only
+def test_saving_tightens_a_config_left_readable_by_others(config_home):
+    path = config_home.config_path()
+    path.parent.mkdir(parents=True)
+    path.write_text("{}")
+    os.chmod(path.parent, 0o755)
+    os.chmod(path, 0o644)
+    assert config_home.save_config(config_home.load_config()) is True
+    assert _mode(path) == 0o600
+    assert _mode(path.parent) == 0o700
+
+
+@posix_only
+def test_a_backup_of_a_bad_config_is_private(config_home):
+    path = config_home.config_path()
+    path.parent.mkdir(parents=True)
+    path.write_text("not valid json")
+    config_home.load_config()
+    backup, = path.parent.glob(f"{path.name}.invalid-*")
+    assert _mode(backup) == 0o600
+
+
+@posix_only
+def test_a_filesystem_that_refuses_chmod_still_saves(config_home, monkeypatch):
+    def refuse(*_args):
+        raise PermissionError("no Unix permissions here")
+    monkeypatch.setattr(os, "chmod", refuse)
+    monkeypatch.setattr(os, "fchmod", refuse)
+    assert config_home.save_config(config_home.load_config()) is True
 
 
 def test_malformed_json_falls_back_to_empty(config_home):

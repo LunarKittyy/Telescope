@@ -1,3 +1,4 @@
+import base64
 import io
 import hashlib
 import subprocess
@@ -101,13 +102,25 @@ def test_register_refuses_missing_or_tampered_files(monkeypatch, tmp_path):
     assert "checksum" in msg
 
 
-def test_register_invokes_elevated_powershell(monkeypatch, tmp_path):
+def _good_dlls(monkeypatch, folder):
     payloads = {name: name.encode() for name in windows._EXPECTED_SHA256}
-    expected = {name: hashlib.sha256(data).hexdigest() for name, data in payloads.items()}
     for name, data in payloads.items():
-        (tmp_path / name).write_bytes(data)
-    monkeypatch.setattr(windows, "unitycapture_dir", lambda: tmp_path)
-    monkeypatch.setattr(windows, "_EXPECTED_SHA256", expected)
+        (folder / name).write_bytes(data)
+    monkeypatch.setattr(windows, "unitycapture_dir", lambda: folder)
+    monkeypatch.setattr(windows, "_EXPECTED_SHA256",
+                        {name: hashlib.sha256(data).hexdigest() for name, data in payloads.items()})
+
+
+def _elevated_script(cmd) -> str:
+    ps = cmd[-1]
+    encoded = ps[ps.index("'-EncodedCommand', '") + len("'-EncodedCommand', '"):].split("'", 1)[0]
+    return base64.b64decode(encoded).decode("utf-16-le")
+
+
+def test_register_invokes_elevated_powershell(monkeypatch, tmp_path):
+    _good_dlls(monkeypatch, tmp_path)
+    monkeypatch.setenv("ProgramFiles", str(tmp_path / "redirected-program-files"))  # must not decide where the DLLs go
+    monkeypatch.setenv("ProgramW6432", str(tmp_path / "redirected-program-files"))
     calls = []
     monkeypatch.setattr(
         windows.subprocess,
@@ -116,30 +129,61 @@ def test_register_invokes_elevated_powershell(monkeypatch, tmp_path):
     )
 
     assert windows.register_unitycapture() == (True, "Installed")
-    assert calls[0][0][:3] == ["powershell", "-NoProfile", "-Command"]
-    assert "regsvr32" in calls[0][0][-1]
-    assert calls[0][0][-1].count('"/i:UnityCaptureName=Telescope"') == 2
+    cmd = calls[0][0]
+    assert cmd[0] == windows._powershell() and cmd[1:3] == ["-NoProfile", "-Command"]
+    assert "-Verb RunAs" in cmd[-1] and "exit $p.ExitCode" in cmd[-1]
+    assert "[Environment]::SystemDirectory" in cmd[-1]  # the real PowerShell, not one found on PATH
     assert calls[0][1]["timeout"] == 60
+    script = _elevated_script(cmd)
+    # The copy, the hash check that counts, and the registration all happen as admin, on the protected copy
+    assert "redirected-program-files" not in script
+    assert "[Environment]::GetFolderPath('ProgramFiles')" in script
+    # A tree that's already there is checked before anything touches it, and never repaired
+    first_check = script.index("-not (Test-AdminOnly $telescope)")
+    assert first_check < script.index("New-Item") < script.index("Copy-Item")
+    assert "/reset" not in script and "/T" not in script
+    # No cmdlet that needs a module loaded: started from PowerShell 7, Windows PowerShell can't load them
+    assert "Get-Acl -" not in script and "Get-FileHash -" not in script and "PSModulePath" in script
+    # ...and the finished tree is checked again before the hashes that count and the registration
+    last_check = script.rindex("-not (Test-AdminOnly $telescope)")
+    assert script.index("Copy-Item") < last_check < script.rindex("Get-Sha256 $target") < script.index("Start-Process $regsvr32")
+    assert "Join-Path ([Environment]::SystemDirectory) 'regsvr32.exe'" in script
+    copy, check, register = (script.index("Copy-Item"), script.rindex("Get-Sha256 $target"), script.index("regsvr32"))
+    assert copy < check < register
+    assert "Join-Path $dst $name" in script[register - 200:]
+    for digest in windows._EXPECTED_SHA256.values():
+        assert digest in script
+    assert script.count('"/i:UnityCaptureName=Telescope"') == 1  # once, inside the loop over both DLLs
 
 
 def test_register_unitycapture_survives_an_apostrophe_in_the_folder(monkeypatch, tmp_path):
     folder = tmp_path / "O'Brien"
     folder.mkdir()
-    payloads = {name: name.encode() for name in windows._EXPECTED_SHA256}
-    for name, data in payloads.items():
-        (folder / name).write_bytes(data)
-    monkeypatch.setattr(windows, "unitycapture_dir", lambda: folder)
-    monkeypatch.setattr(windows, "_EXPECTED_SHA256",
-                        {name: hashlib.sha256(data).hexdigest() for name, data in payloads.items()})
+    _good_dlls(monkeypatch, folder)
     calls = []
     monkeypatch.setattr(windows.subprocess, "run",
                         lambda cmd, **kwargs: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
 
     windows.register_unitycapture()
 
-    ps = calls[0][-1]
-    quoted = ps[ps.index("-ArgumentList '") + len("-ArgumentList '"):ps.rindex("' -Verb")]
-    assert "O''Brien" in quoted and "'" not in quoted.replace("''", "")
+    script = _elevated_script(calls[0])
+    src_line = next(line for line in script.splitlines() if line.startswith("$src = "))
+    assert src_line == "$src = '" + str(folder).replace("'", "''") + "'"
+
+
+@pytest.mark.parametrize("code, words", [(2, "checksum"), (3, "regsvr32"), (4, "delete that folder"), (5, "hit an error")])
+def test_register_names_what_failed_as_admin(monkeypatch, tmp_path, code, words):
+    _good_dlls(monkeypatch, tmp_path)
+    monkeypatch.setattr(windows.subprocess, "run", lambda cmd, **_k: subprocess.CompletedProcess(cmd, code))
+    ok, msg = windows.register_unitycapture()
+    assert ok is False and words in msg
+
+
+def test_protected_folder_comes_from_the_known_folder_not_the_environment(monkeypatch, tmp_path):
+    monkeypatch.setenv("ProgramFiles", str(tmp_path))
+    monkeypatch.setenv("ProgramW6432", str(tmp_path))
+    monkeypatch.setattr(windows, "_known_folder", lambda _id: Path(r"D:\Programs"))
+    assert windows.protected_unitycapture_dir() == Path(r"D:\Programs") / "Telescope" / "UnityCapture"
 
 
 @pytest.mark.parametrize(
@@ -198,6 +242,7 @@ def test_uc_is_registered_scans_registry_and_handles_absence(monkeypatch, tmp_pa
 def test_registered_name_reads_the_filter_key_and_skips_the_property_page(monkeypatch, tmp_path):
     dll = str(tmp_path / "UnityCaptureFilter64.dll")
     monkeypatch.setattr(windows, "unitycapture_dir", lambda: tmp_path)
+    monkeypatch.setattr(windows, "protected_unitycapture_dir", lambda: tmp_path / "protected")
     registry = {
         "{props}\\InprocServer32": dll, "{props}": "Unity Video Capture Configuration",
         "{filter}\\InprocServer32": dll, "{filter}": "Telescope",
@@ -232,6 +277,33 @@ def test_registered_name_reads_the_filter_key_and_skips_the_property_page(monkey
     assert windows.uc_registered_name() == windows.UC_DEFAULT_NAME
 
 
+@pytest.mark.parametrize("protected_install", [True, False])
+def test_a_registration_from_the_app_folder_is_flagged(monkeypatch, tmp_path, protected_install):
+    app, protected = tmp_path / "app", tmp_path / "protected"
+    monkeypatch.setattr(windows, "unitycapture_dir", lambda: app)
+    monkeypatch.setattr(windows, "protected_unitycapture_dir", lambda: protected)
+    dll = str((protected if protected_install else app) / "UnityCaptureFilter64.dll")
+    registry = {"{filter}\\InprocServer32": dll, "{filter}": "Telescope"}
+
+    class Key:
+        def __init__(self, path):
+            self.path = path
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            pass
+
+    fake = types.SimpleNamespace(HKEY_CLASSES_ROOT="HKCR")
+    fake.OpenKey = lambda _root, path: Key(path)
+    fake.EnumKey = lambda _root, idx: "{filter}" if idx == 0 else (_ for _ in ()).throw(OSError())
+    fake.QueryValueEx = lambda key, _name: (registry[key.path], 1)
+    monkeypatch.setitem(sys.modules, "winreg", fake)
+    assert windows.uc_registered_name() == "Telescope"  # still works either way, so the camera keeps working
+    assert windows.uc_in_app_folder() is not protected_install
+
+
 @pytest.mark.parametrize("inside, archived", [
     ("Temp1_Telescope-windows.zip/Telescope", True),       # Explorer's Run from the zip
     ("7zO4A8C1B2E", True),                                 # 7-Zip
@@ -249,3 +321,12 @@ def test_running_from_archive_ignores_folders_outside_temp(tmp_path):
     app = tmp_path / "Downloads" / "Temp1_Telescope-windows.zip"
     app.mkdir(parents=True)
     assert not windows.running_from_archive(app, tmp_path / "Temp")
+
+
+def test_the_first_powershell_comes_from_the_system_folder(monkeypatch, tmp_path):
+    _good_dlls(monkeypatch, tmp_path)
+    monkeypatch.setattr(windows, "_system_dir", lambda: Path("C:/Windows/System32"))
+    calls = []
+    monkeypatch.setattr(windows.subprocess, "run", lambda cmd, **_k: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    windows.register_unitycapture()
+    assert calls[0][0] == str(Path("C:/Windows/System32") / "WindowsPowerShell" / "v1.0" / "powershell.exe")

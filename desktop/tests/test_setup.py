@@ -1,3 +1,4 @@
+import threading
 from pathlib import Path
 
 import pytest
@@ -47,6 +48,26 @@ def test_dialog_preset_visibility_and_apply_callback(qapp):
     assert not dialog._canvas_apply_btn.isEnabled()
     assert dialog._canvas_status_lbl.isVisible()
     dialog.hide()
+
+
+@pytest.fixture(autouse=True)
+def _delete_dialogs(qapp):
+    # Dialogs left alive crash a later test that restyles the app, which repolishes every live widget
+    before = set(map(id, qapp.topLevelWidgets()))
+    threads_before = set(threading.enumerate())
+    yield
+    from PyQt6.QtCore import QCoreApplication, QEvent
+    # A dialog's own checks (the Windows driver scan, say) emit into it when they finish: deleting it first crashes
+    started = [t for t in threading.enumerate() if t not in threads_before]
+    for thread in started:
+        thread.join(timeout=5)
+    safe_to_delete = not any(t.is_alive() for t in started)
+    for widget in qapp.topLevelWidgets():
+        if isinstance(widget, AdvancedDialog) and id(widget) not in before:
+            widget.close()
+            if safe_to_delete:
+                widget.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
 
 
 @pytest.fixture
@@ -128,7 +149,9 @@ def test_persist_toggle_runs_correct_action_and_displays_success(monkeypatch, li
 
 def test_failed_persist_action_reverts_checkbox(linux_dialog):
     dialog = linux_dialog
+    dialog._persist_chk.blockSignals(True)  # a real toggle would run the real, privileged persist action
     dialog._persist_chk.setChecked(True)
+    dialog._persist_chk.blockSignals(False)
     dialog._on_persist_result(False, "denied")
     assert not dialog._persist_chk.isChecked()
     assert dialog._persist_status_lbl.objectName() == "status_err"
@@ -171,6 +194,7 @@ def test_windows_status_offers_download_when_dll_missing(monkeypatch, windows_di
 
 def test_windows_background_check_emits_current_status(monkeypatch, windows_dialog):
     monkeypatch.setattr(setup_mod, "uc_registered_name", lambda: "Telescope")
+    monkeypatch.setattr(setup_mod, "uc_in_app_folder", lambda: False)
     monkeypatch.setattr(setup_mod, "adb_available", lambda: False)
     windows_dialog._check_win_setup()
     assert windows_dialog._uc_status_lbl.text() == "Ready"
@@ -181,6 +205,15 @@ def test_an_old_registration_offers_the_rename(windows_dialog):
     windows_dialog._on_win_checks("Unity Video Capture", True)
     assert windows_dialog._uc_btn.text() == "Rename"
     assert "Unity Video Capture" in windows_dialog._uc_status_lbl.text()
+
+
+def test_a_registration_in_the_app_folder_asks_for_a_reinstall_and_says_why(windows_dialog):
+    windows_dialog._on_win_checks("Telescope", True, True)
+    assert windows_dialog._uc_btn.text() == "Reinstall"
+    assert "security" in windows_dialog._uc_status_lbl.text()
+    assert "Program Files" in windows_dialog._uc_btn.toolTip()
+    windows_dialog._on_uc_done(True, "Installed")
+    assert windows_dialog._uc_status_lbl.text() == "Ready" and windows_dialog._uc_btn.toolTip() == ""
 
 
 def test_install_unitycapture_downloads_then_registers(monkeypatch, windows_dialog, tmp_path):

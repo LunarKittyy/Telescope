@@ -19,6 +19,10 @@ class SessionServer(
     private val pending: PendingLimiter = PendingLimiter(),
     // TLS in the app (PhoneTls); plain sockets only in tests.
     private val socketFactory: javax.net.ServerSocketFactory = javax.net.ServerSocketFactory.getDefault(),
+    // Read per request, so flipping Local only takes effect without rebinding.
+    private val localOnly: () -> Boolean = { false },
+    // adb forward connects from the phone's own loopback, so that's what USB looks like here.
+    private val isUsbPeer: (Socket) -> Boolean = { it.inetAddress?.isLoopbackAddress == true },
 ) {
     private var serverSocket: ServerSocket? = null
     private val running = AtomicBoolean(false)
@@ -76,8 +80,14 @@ class SessionServer(
         try {
             val request = HttpWire.readRequest(socket, requestDeadlineMs) ?: return  // already responded/closed
             val out = socket.getOutputStream()
+            val route = route(request.method, request.path)
 
-            when (route(request.method, request.path)) {
+            // Still listening on Wi-Fi in Local only on purpose: ping lets the desktop see the toggle is on and tell the user
+            if (route !in REACHABLE_WHEN_LOCAL_ONLY && localOnly() && !isUsbPeer(socket)) {
+                HttpWire.sendError(out, 403, "Forbidden"); return
+            }
+
+            when (route) {
                 Route.NotFound -> HttpWire.sendError(out, 404, "Not Found")
                 Route.MethodNotAllowed -> HttpWire.sendError(out, 405, "Method Not Allowed")
 
@@ -145,6 +155,9 @@ class SessionServer(
         const val PROTOCOL_VERSION = 3
 
         private const val TAG = "SessionServer"
+
+        // What a Local only phone still answers off USB: the status check, and a computer revoking its own pairing.
+        private val REACHABLE_WHEN_LOCAL_ONLY = setOf(Route.Ping, Route.Unpair, Route.NotFound, Route.MethodNotAllowed)
 
         fun route(method: String, path: String): Route = when (path) {
             "/v1/hello" -> if (method == "GET") Route.Hello else Route.MethodNotAllowed

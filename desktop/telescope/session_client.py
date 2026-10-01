@@ -66,6 +66,7 @@ class PingResult:
 HELLO_OK = "ok"            # a Telescope app answered with its identity
 HELLO_MISSING = "missing"  # something answered on the session port but has no /v1/hello: an app too old
 HELLO_NONE = "none"        # nothing answered
+HELLO_USB_ONLY = "usb_only"  # the phone has Local only on and answers only ping off USB (403)
 
 
 @dataclass(frozen=True)
@@ -112,7 +113,9 @@ class PhoneSessionClient:
                 body = json.loads(read_capped(r).decode())
         except urllib.error.HTTPError as exc:
             # The session server answers 404 for routes it doesn't know: an app from before /v1/hello.
-            return Hello(HELLO_MISSING if exc.code == 404 else HELLO_NONE)
+            if exc.code == 404:
+                return Hello(HELLO_MISSING)
+            return Hello(HELLO_USB_ONLY if exc.code == 403 else HELLO_NONE)
         except Exception as exc:
             # Only a listener that took the connection but not TLS is worth a plain look; nobody there, or the wrong certificate, is just not our phone.
             # LEGACY MIGRATION PATH: a phone app from before TLS.

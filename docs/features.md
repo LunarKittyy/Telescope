@@ -82,11 +82,13 @@ Its own card, per phone.
 ## Privacy
 - Everything between the phone and the desktop is TLS. The phone makes its own certificate on first run, and the desktop learns its fingerprint at pairing and refuses any other, so a device pretending to be your phone never gets the token and can't feed the desktop its own video
 - The pairing token only travels in the QR code (or over adb) and inside that TLS connection. The pairing request itself proves the phone read the code with an HMAC of the token instead of sending it
-- A device on the network can still see that a stream is running and roughly how much data it moves, and can refuse to forward it. For the tightest setup, use **Local only - USB**, which keeps the camera service off the network entirely
-- Local only mode: binds the server to `127.0.0.1` so the stream is unreachable from the network; only USB works in this mode
+- A device on the network can still see that a stream is running and roughly how much data it moves, and can refuse to forward it. For the tightest setup, use **Local only - USB**, which keeps the stream and the camera controls off the network
+- Local only mode: binds the stream server to `127.0.0.1` so the stream is unreachable from the network; only USB works in this mode. The phone still answers a paired computer's status check over Wi-Fi, and nothing else, so the desktop can say Local only is on instead of just failing to find the phone. Starting or stopping the camera only works over the cable
 - Toggle in the Android app restarts the stream automatically to apply the change
 - Changing **Connect via** on the desktop reconnects a running stream over the new route
 - Local only also stops the phone announcing itself on the LAN
+- On Linux the desktop keeps its config folder (which holds the pairing tokens) readable by your user only, and puts the virtual mic's pipe in your private runtime folder rather than shared `/tmp`
+- On Windows the virtual camera driver is copied into `C:\Program Files\Telescope\UnityCapture` and checked there before it's registered, so other programs can't swap it out. A driver registered by an older version straight from the app folder shows **Reinstall for a security fix** under **Advanced** until you reinstall it
 - A stream only starts while Telescope is open on the phone or already streaming. **Wait for my computer** (under Local only, off by default) keeps the phone reachable while the screen is off or the app is closed, so a paired computer can start the camera. Android only lets an app start the camera from the background if it already has camera access then, so while waiting Telescope holds camera and mic access, but it doesn't open either until a paired computer starts a stream. A start still needs that computer's token over TLS. A "Waiting for your computer" notification shows while it's on, and its **Stop waiting** button turns it off. If Android stops it anyway, it comes back the next time you open the app, never on its own at boot
 
 ## Updates

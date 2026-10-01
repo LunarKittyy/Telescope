@@ -35,8 +35,8 @@ def test_setup_dialog_button_text_fits(qapp, monkeypatch, linux):
     monkeypatch.setattr(setup_plugin_module, "v4l2_persist_status",
                         lambda: {"modprobe_conf": False, "modules_load_conf": False})
     dialog = setup_plugin_module.AdvancedDialog()
-    for name in ([] if linux else ["", "Unity Video Capture"]):
-        dialog._on_win_checks(name, True)
+    for name, in_app_folder in ([] if linux else [("", False), ("Unity Video Capture", False), ("Telescope", True)]):
+        dialog._on_win_checks(name, True, in_app_folder)
         dialog.show()
         qapp.processEvents()
         assert _clipped_buttons(dialog) == []

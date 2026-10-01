@@ -16,7 +16,7 @@ from telescope.platform.linux import (
     v4l2_persist_disable, v4l2_persist_enable, v4l2_persist_status,
 )
 from telescope.platform.windows import (
-    UC_NAME, download_unitycapture, register_unitycapture, uc_registered_name, unitycapture_dir,
+    UC_NAME, download_unitycapture, register_unitycapture, uc_in_app_folder, uc_registered_name, unitycapture_dir,
     unitycapture_downloaded,
 )
 from telescope.plugin import TelescopePlugin
@@ -76,7 +76,7 @@ class AdvancedDialog(QDialog):
     _sig_v4l_result   = pyqtSignal(bool, str)
     _sig_v4l_unload   = pyqtSignal(bool, str)
     _sig_persist_result = pyqtSignal(bool, str)
-    _sig_win_checks   = pyqtSignal(str, bool)  # registered camera name ("" if none), adb found
+    _sig_win_checks   = pyqtSignal(str, bool, bool)  # registered camera name ("" if none), adb found, still in the app folder
     _sig_uc_done      = pyqtSignal(bool, str)
     _sig_uc_msg       = pyqtSignal(str)
     _sig_apk_done     = pyqtSignal(bool, str)
@@ -293,7 +293,11 @@ class AdvancedDialog(QDialog):
     def _copy_diagnostics(self):
         QGuiApplication.clipboard().setText(self._report())
         self._diag_btn.setText("Copied")
-        QTimer.singleShot(2000, lambda: self._diag_btn.setText("Copy diagnostics"))
+        # A timer owned by the button dies with it, unlike a bare singleShot lambda, which would touch a deleted button
+        reset = QTimer(self._diag_btn)
+        reset.setSingleShot(True)
+        reset.timeout.connect(lambda: (self._diag_btn.setText("Copy diagnostics"), reset.deleteLater()))
+        reset.start(2000)
 
     def _open_log(self):
         if diagnostics.events.path is not None:
@@ -423,11 +427,19 @@ class AdvancedDialog(QDialog):
     # ── Windows ───────────────────────────────────────────────────────────────
 
     def _check_win_setup(self):
-        self._sig_win_checks.emit(uc_registered_name() or "", adb_available())
+        self._sig_win_checks.emit(uc_registered_name() or "", adb_available(), uc_in_app_folder())
 
-    def _on_win_checks(self, uc_name: str, adb_ok: bool):
+    def _on_win_checks(self, uc_name: str, adb_ok: bool, in_app_folder: bool = False):
         self._uc_btn.setEnabled(not self._uc_installing)
-        if uc_name == UC_NAME:
+        if uc_name and in_app_folder:
+            # Registered by an older Telescope from the app's own folder, which any program running as this user can write to.
+            set_status_kind(self._uc_status_lbl, "status_warn")
+            self._uc_status_lbl.setText("Reinstall for a security fix")
+            self._uc_btn.setText("Reinstall")
+            self._uc_btn.setToolTip("Moves the driver into Program Files, where other programs can't swap it out. "
+                                    "Windows asks for admin access once.")
+            set_ui_role(self._uc_btn, "primary")
+        elif uc_name == UC_NAME:
             set_status_kind(self._uc_status_lbl, "status_ok")
             self._uc_status_lbl.setText("Ready")
             self._uc_btn.setText("Reinstall")
@@ -484,6 +496,7 @@ class AdvancedDialog(QDialog):
             set_status_kind(self._uc_status_lbl, "status_ok")
             self._uc_status_lbl.setText("Ready")
             self._uc_btn.setText("Reinstall")
+            self._uc_btn.setToolTip("")
         else:
             set_status_kind(self._uc_status_lbl, "status_err")
             self._uc_status_lbl.setText(f"Failed: {msg}")

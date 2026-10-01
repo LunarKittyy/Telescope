@@ -7,7 +7,7 @@ import pytest
 import telescope.session_client as session_client_module
 from telescope.pinned_https import PhoneAuth
 from telescope.session_client import (
-    HELLO_MISSING, HELLO_NONE, HELLO_OK, Hello, PhoneSessionClient, PingResult, SessionResult,
+    HELLO_MISSING, HELLO_NONE, HELLO_OK, HELLO_USB_ONLY, Hello, PhoneSessionClient, PingResult, SessionResult,
 )
 
 
@@ -182,6 +182,11 @@ def test_hello_tells_an_old_app_from_nothing_at_all(monkeypatch, client):
     assert client.hello().status == HELLO_NONE
     _stub_urlopen(monkeypatch, lambda _req: _Response(200, b"[1]"))
     assert client.hello().status == HELLO_NONE
+
+
+def test_hello_refused_off_usb_means_local_only(monkeypatch, client):
+    _stub_urlopen(monkeypatch, lambda _req: _http_error(403))
+    assert client.hello().status == HELLO_USB_ONLY
 
 
 def test_an_oversized_reply_is_treated_as_no_phone(monkeypatch, client):

@@ -8,6 +8,7 @@ the output's own pace, padding with silence on a gap and dropping audio when the
 import json
 import logging
 import os
+import stat
 import threading
 import time
 import urllib.error
@@ -79,7 +80,12 @@ class FifoSink:
     @classmethod
     def _open_fifo(cls, path: str) -> int:
         # Non-blocking open fails at once if nothing holds the read end, instead of hanging.
-        fd = os.open(path, os.O_WRONLY | getattr(os, "O_NONBLOCK", 0))
+        fd = os.open(path, os.O_WRONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0))
+        # Only the sound server's pipe, made by this user: never a file someone left there to have audio written into
+        st = os.fstat(fd)
+        if not stat.S_ISFIFO(st.st_mode) or (hasattr(os, "getuid") and st.st_uid != os.getuid()):
+            os.close(fd)
+            raise OSError(f"{path} isn't the microphone's pipe")
         os.set_blocking(fd, True)
         try:
             import fcntl
