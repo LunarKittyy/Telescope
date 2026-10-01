@@ -130,7 +130,7 @@ def test_register_invokes_elevated_powershell(monkeypatch, tmp_path):
 
     assert windows.register_unitycapture() == (True, "Installed")
     cmd = calls[0][0]
-    assert cmd[:3] == ["powershell", "-NoProfile", "-Command"]
+    assert cmd[0] == windows._powershell() and cmd[1:3] == ["-NoProfile", "-Command"]
     assert "-Verb RunAs" in cmd[-1] and "exit $p.ExitCode" in cmd[-1]
     assert "[Environment]::SystemDirectory" in cmd[-1]  # the real PowerShell, not one found on PATH
     assert calls[0][1]["timeout"] == 60
