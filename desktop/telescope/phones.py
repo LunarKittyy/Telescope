@@ -14,7 +14,7 @@ from typing import Callable, Optional
 from telescope import ip_utils
 from telescope.pinned_https import PhoneAuth, is_fingerprint
 from telescope.session_client import (
-    HELLO_MISSING, PING_PORT, SESSION_PROTOCOL, Hello, PhoneSessionClient, clean_name,
+    HELLO_MISSING, HELLO_USB_ONLY, PING_PORT, SESSION_PROTOCOL, Hello, PhoneSessionClient, clean_name,
 )
 
 STREAM_PORT = 8080  # the phone's MJPEG server; fixed on the phone, so not a setting here
@@ -229,6 +229,10 @@ class RouteResolver:
         hello = client.hello(timeout=self._wifi_timeout)
         if hello.status == HELLO_MISSING:
             return Resolution(PHONE_OUTDATED, route)
+        if hello.status == HELLO_USB_ONLY:
+            # Only ping answers off USB in Local only; the pinned certificate already says it's this phone.
+            ping = client.ping()
+            return Resolution(LOCAL_ONLY) if ping.status == "paired" and ping.local_only else None
         if not hello.ok or hello.phone_id != phone.id:
             return None
         mismatch = _version_mismatch(hello, route)

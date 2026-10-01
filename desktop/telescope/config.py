@@ -5,6 +5,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -72,9 +73,9 @@ def save_config(cfg: dict) -> bool:
         logger.exception("Config has a value that can't be saved; keeping the last saved config")
         return False
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
+        _private_dir(path.parent)
         tmp_path = path.with_suffix(path.suffix + ".tmp")
-        with open(tmp_path, "w", encoding="utf-8") as f:
+        with _open_private(tmp_path) as f:
             f.write(text)
             f.flush()
             os.fsync(f.fileno())
@@ -83,6 +84,33 @@ def save_config(cfg: dict) -> bool:
     except OSError:
         logger.exception("Failed to save config to %s", path)
         return False
+
+
+def _private_dir(path: Path) -> None:
+    # The config holds pairing tokens: only this user may read it (no-op on Windows, where %APPDATA% is already per-user)
+    path.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if os.name == "posix":
+        _tighten(lambda: os.chmod(path, 0o700), path)
+
+
+def _open_private(path: Path, mode: str = "w"):
+    # 0600 from creation, and again for a file left from before, since the mode argument only applies to new files
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_BINARY", 0), 0o600)
+    try:
+        if os.name == "posix":
+            _tighten(lambda: os.fchmod(fd, 0o600), path)
+        return open(fd, mode, encoding=None if "b" in mode else "utf-8")
+    except BaseException:
+        os.close(fd)
+        raise
+
+
+def _tighten(chmod: Callable, path: Path) -> None:
+    # A filesystem without Unix permissions (a FAT drive, some sync folders) shouldn't stop the config saving
+    try:
+        chmod()
+    except OSError:
+        logger.warning("Couldn't restrict permissions on %s", path)
 
 
 def _plain(value):
@@ -97,7 +125,8 @@ def _backup_invalid_file(path: Path, original: bytes) -> None:
     timestamp = datetime.now().strftime("%Y%m%dT%H%M%S")
     backup_path = path.with_name(f"{path.name}.invalid-{timestamp}")
     try:
-        backup_path.write_bytes(original)
+        with _open_private(backup_path, "wb") as f:
+            f.write(original)
         logger.info("Backed up invalid config to %s", backup_path)
     except OSError:
         logger.exception("Failed to back up invalid config to %s", backup_path)

@@ -247,6 +247,48 @@ def test_fifo_sink_fails_fast_when_the_source_is_gone(tmp_path):
             FifoSink(path)
 
 
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="Unix only")
+def test_fifo_sink_refuses_a_file_or_a_link_in_place_of_the_pipe(tmp_path):
+    target = tmp_path / "precious.txt"
+    target.write_text("keep me")
+    with pytest.raises(OSError):
+        FifoSink(str(target))
+    link = tmp_path / "mic.fifo"
+    link.symlink_to(target)
+    with pytest.raises(OSError):
+        FifoSink(str(link))
+    assert target.read_text() == "keep me"
+
+
+@pytest.mark.skipif(not hasattr(os, "getuid"), reason="Unix only")
+def test_without_a_runtime_dir_the_fifo_goes_in_a_private_folder(tmp_path, monkeypatch):
+    monkeypatch.delenv("XDG_RUNTIME_DIR", raising=False)
+    monkeypatch.setattr(virtual_mic.tempfile, "gettempdir", lambda: str(tmp_path))
+    path = virtual_mic.fifo_path()
+    folder = os.path.dirname(path)
+    assert folder == str(tmp_path / f"telescope-{os.getuid()}")
+    assert os.stat(folder).st_mode & 0o777 == 0o700
+
+
+@pytest.mark.skipif(not hasattr(os, "getuid"), reason="Unix only")
+def test_a_shared_or_linked_fallback_folder_is_refused(tmp_path, monkeypatch):
+    monkeypatch.delenv("XDG_RUNTIME_DIR", raising=False)
+    monkeypatch.setattr(virtual_mic.tempfile, "gettempdir", lambda: str(tmp_path))
+    folder = tmp_path / f"telescope-{os.getuid()}"
+    folder.mkdir(mode=0o777)
+    os.chmod(folder, 0o777)
+    with pytest.raises(OSError):
+        virtual_mic.fifo_path()
+    folder.rmdir()
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir(mode=0o700)
+    folder.symlink_to(elsewhere)
+    with pytest.raises(OSError):
+        virtual_mic.fifo_path()
+    ids, err = virtual_mic.linux_setup(_Pactl())
+    assert ids == [] and "private folder" in err
+
+
 def test_vb_cable_is_found_by_its_playback_end():
     devices = [{"name": "Speakers", "max_output_channels": 2},
                {"name": "CABLE Output (VB-Audio Virtual Cable)", "max_output_channels": 0},

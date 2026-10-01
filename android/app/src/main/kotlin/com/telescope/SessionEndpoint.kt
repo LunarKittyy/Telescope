@@ -62,6 +62,7 @@ object SessionEndpoint {
                 computers = { PairedComputers.list(app) },
                 commands = ServiceSessionCommands(app),
                 socketFactory = PhoneTls.identity(app).serverSocketFactory(),
+                localOnly = { StreamPrefs.localOnly(app) },
             ).also { it.start() }
         } catch (e: Exception) {
             android.util.Log.e("SessionEndpoint", "Could not start the session server", e)  // storage full saving the identity, say

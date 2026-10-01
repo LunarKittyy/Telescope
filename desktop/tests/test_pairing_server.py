@@ -206,6 +206,59 @@ def test_a_stalled_connection_does_not_block_the_phone_pairing(pairing_server):
         stalled.close()
 
 
+def _closed_by_server(sock, within: float) -> bool:
+    sock.settimeout(within)
+    try:
+        return sock.recv(1) == b""
+    except ConnectionResetError:
+        return True
+    except socket.timeout:
+        return False
+
+
+def test_a_peer_trickling_bytes_is_cut_off_at_the_deadline(monkeypatch):
+    # Each byte resets the read timeout, so only an absolute deadline stops this one.
+    monkeypatch.setattr(PairingServer, "_REQUEST_DEADLINE_S", 0.5)
+    server = PairingServer(on_paired=lambda _r: None)
+    offer = server.start(advertise=[])
+    try:
+        sock = socket.create_connection(("127.0.0.1", offer.port), timeout=2)
+        start = time.monotonic()
+        try:
+            sock.sendall(b"POST /pair/guess HTTP/1.1\r\n")
+            while time.monotonic() - start < 3:
+                sock.sendall(b"X")
+                if _closed_by_server(sock, 0.1):
+                    break
+            assert time.monotonic() - start < 2
+        except (BrokenPipeError, ConnectionResetError):
+            assert time.monotonic() - start < 2
+        finally:
+            sock.close()
+    finally:
+        server.stop()
+
+
+def test_too_many_connections_from_one_address_are_refused_and_freed_again(monkeypatch):
+    monkeypatch.setattr(PairingServer, "_MAX_PER_ADDRESS", 2)
+    paired = []
+    server = PairingServer(on_paired=paired.append)
+    offer = server.start(advertise=[])
+    try:
+        held = [socket.create_connection(("127.0.0.1", offer.port), timeout=2) for _ in range(2)]
+        time.sleep(0.2)  # let the server accept both
+        extra = socket.create_connection(("127.0.0.1", offer.port), timeout=2)
+        assert _closed_by_server(extra, 2)
+        extra.close()
+        for sock in held:
+            sock.close()
+        time.sleep(0.2)
+        assert _post(offer.port, f"/pair/{offer.nonce}", _pair_body(offer)) == 200
+        _wait_for(paired)
+    finally:
+        server.stop()
+
+
 def test_a_second_phone_is_refused_once_one_paired(pairing_server):
     # Both got the offer (two phones plugged in); only the first is kept, so the second mustn't think it paired.
     _server, offer, paired = pairing_server

@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 import secrets
+import socket
 import sys
 import threading
 from dataclasses import dataclass, field
@@ -24,7 +25,66 @@ PAIRING_PROTOCOL_VERSION = 4
 
 
 class _Server(ThreadingHTTPServer):
+    """Caps open connections in total and per address and cuts each off at a deadline, so a peer trickling bytes can't pile up threads."""
+
     allow_reuse_address = sys.platform != "win32"  # on Windows it would let two servers share the port
+
+    def __init__(self, address, handler, max_total: int, max_per_address: int, deadline_s: float):
+        self._max_total, self._max_per_address, self._deadline_s = max_total, max_per_address, deadline_s
+        self._open: dict = {}
+        self._open_lock = threading.Lock()
+        super().__init__(address, handler)
+
+    def _claim(self, host: str) -> bool:
+        with self._open_lock:
+            if sum(self._open.values()) >= self._max_total or self._open.get(host, 0) >= self._max_per_address:
+                return False
+            self._open[host] = self._open.get(host, 0) + 1
+            return True
+
+    def _release(self, host: str):
+        with self._open_lock:
+            held = self._open.get(host, 0)
+            if held <= 1:
+                self._open.pop(host, None)
+            else:
+                self._open[host] = held - 1
+
+    def process_request(self, request, client_address):
+        host = client_address[0] if client_address else ""
+        if not self._claim(host):
+            self.shutdown_request(request)
+            return
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            self._release(host)
+            raise
+
+    def process_request_thread(self, request, client_address):
+        # shutdown() rather than close(): it wakes a thread blocked reading the socket
+        guard = threading.Timer(self._deadline_s, _cut_off, (request,))
+        guard.daemon = True
+        guard.start()
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            guard.cancel()
+            self._release(client_address[0] if client_address else "")
+
+
+    def handle_error(self, request, client_address):
+        # A connection we cut off (or the peer dropped) fails its reply; that's expected, not worth a traceback
+        if isinstance(sys.exc_info()[1], OSError):
+            return
+        super().handle_error(request, client_address)
+
+
+def _cut_off(request):
+    try:
+        request.shutdown(socket.SHUT_RDWR)
+    except OSError:
+        pass
 
 
 def pairing_proof(token: str, nonce: str, phone_id: str, cert_sha256: str) -> str:
@@ -64,6 +124,11 @@ class PairingServer:
     _MAX_BODY_BYTES = 16 * 1024
     # A connection that stalls (a phone dropping off Wi-Fi mid-request, a port scanner) is cut off after this.
     _REQUEST_TIMEOUT_S = 10
+    # ...and one still sending, however slowly, after this. The phone's request is a few hundred bytes.
+    _REQUEST_DEADLINE_S = 15
+    # Same limits as the phone's PendingLimiter; USB pairing all arrives from 127.0.0.1 via adb reverse.
+    _MAX_CONNECTIONS = 32
+    _MAX_PER_ADDRESS = 4
     # Drain limit: avoid RST on Windows when closing with unread bytes.
     _DRAIN_LIMIT = 1024 * 1024
 
@@ -167,10 +232,12 @@ class PairingServer:
 
         # Threaded, so one stalled connection doesn't hold up the phone that's really pairing.
         # The fixed port (reused straight after the last pairing, which leaves it in TIME_WAIT), else any free one.
+        limits = dict(max_total=self._MAX_CONNECTIONS, max_per_address=self._MAX_PER_ADDRESS,
+                      deadline_s=self._REQUEST_DEADLINE_S)
         try:
-            self._server = _Server(("", PAIRING_PORT), _Handler)
+            self._server = _Server(("", PAIRING_PORT), _Handler, **limits)
         except OSError:
-            self._server = _Server(("", 0), _Handler)
+            self._server = _Server(("", 0), _Handler, **limits)
         port = self._server.server_address[1]
         self._server_thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._server_thread.start()

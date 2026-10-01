@@ -42,4 +42,4 @@ flatpak override --user --device=all com.obsproject.Studio
 
 ## Windows
 
-The release zip bundles the UnityCapture DLLs already; the first-run checklist registers them with one click (Windows asks for admin access). Running from a source checkout instead (contributors), `start.bat` installs pip dependencies and downloads+registers the DLLs on first run - it isn't part of the release zip, since the packaged EXE needs neither step.
+The release zip bundles the UnityCapture DLLs already; the first-run checklist registers them with one click (Windows asks for admin access). They're copied into `C:\Program Files\Telescope\UnityCapture` and registered from there, where only an admin can change them. Running from a source checkout instead (contributors), `start.bat` installs pip dependencies and downloads+registers the DLLs on first run - it isn't part of the release zip, since the packaged EXE needs neither step.

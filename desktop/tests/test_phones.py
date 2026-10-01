@@ -7,7 +7,7 @@ from telescope.phones import (
     Phone, RouteResolver, UsbTunnels,
 )
 from telescope.session_client import (
-    HELLO_MISSING, HELLO_NONE, HELLO_OK, SESSION_PROTOCOL, Hello, PingResult,
+    HELLO_MISSING, HELLO_NONE, HELLO_OK, HELLO_USB_ONLY, SESSION_PROTOCOL, Hello, PingResult,
 )
 
 PHONE = Phone(id="ph-1", name="Pixel", token="tok", ips=["192.168.1.40"], cert_sha256="ab" * 32)
@@ -19,9 +19,10 @@ OLD_APP = "old app"  # answers on the session port, but from before /v1/hello
 class FakeNet:
     """Who answers at which base URL: {base: (phone_id, ping_status, local_only[, protocol])} or OLD_APP."""
 
-    def __init__(self, answers):
+    def __init__(self, answers, usb_only_hello=()):
         self.answers = answers
         self.pinged = []
+        self.usb_only_hello = set(usb_only_hello)  # bases that refuse hello the way a Local only phone does off USB
 
     def factory(self, base, auth):
         net = self
@@ -35,6 +36,8 @@ class FakeNet:
                 a = net.answers.get(base)
                 if a == OLD_APP:
                     return Hello(HELLO_MISSING)
+                if base in net.usb_only_hello:
+                    return Hello(HELLO_USB_ONLY)
                 if not a:
                     return Hello(HELLO_NONE)
                 protocol = a[3] if len(a) > 3 else SESSION_PROTOCOL
@@ -132,6 +135,16 @@ def test_local_only_phone_reachable_on_wifi_asks_for_usb():
     net = FakeNet({"https://192.168.1.40:8766": ("ph-1", "paired", True)})
     resolver, _ = _resolver(net)
     assert resolver.resolve(PHONE).status == LOCAL_ONLY
+
+
+def test_local_only_phone_that_refuses_hello_off_usb_still_asks_for_usb():
+    base = "https://192.168.1.40:8766"
+    net = FakeNet({base: ("ph-1", "paired", True)}, usb_only_hello=[base])
+    resolver, _ = _resolver(net)
+    assert resolver.resolve(PHONE).status == LOCAL_ONLY
+    net = FakeNet({base: ("ph-1", "unreachable", True)}, usb_only_hello=[base])
+    resolver, _ = _resolver(net)
+    assert resolver.resolve(PHONE).status == UNREACHABLE
 
 
 def test_nothing_answering_is_unreachable():

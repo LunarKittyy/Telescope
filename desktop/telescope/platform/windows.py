@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import os
 import re
@@ -73,6 +74,48 @@ def download_unitycapture(progress_cb=None) -> tuple:
     return True, "Downloaded"
 
 
+def protected_unitycapture_dir() -> Path:
+    # Only an admin can write here, unlike the app's folder, so nothing can swap a DLL between the hash check and every later load
+    base = os.environ.get("ProgramW6432") or os.environ.get("ProgramFiles") or r"C:\Program Files"
+    return Path(base) / "Telescope" / "UnityCapture"
+
+
+def _ps_quote(value) -> str:
+    return "'" + str(value).replace("'", "''") + "'"
+
+
+def _elevated_install_script(src: Path, dst: Path) -> str:
+    """Runs as admin: copy the DLLs into dst, check the copies' hashes there, register those copies."""
+    files = "; ".join(f"{_ps_quote(name)} = {_ps_quote(digest)}" for name, digest in _EXPECTED_SHA256.items())
+    return f"""$ErrorActionPreference = 'Stop'
+$src = {_ps_quote(src)}
+$dst = {_ps_quote(dst)}
+$files = [ordered]@{{ {files} }}
+New-Item -ItemType Directory -Force -Path $dst | Out-Null
+foreach ($name in $files.Keys) {{
+    $target = Join-Path $dst $name
+    # A copy already there and right is kept: a camera app may have it loaded, so it can't be overwritten
+    if (-not (Test-Path -LiteralPath $target) -or (Get-FileHash -Algorithm SHA256 -LiteralPath $target).Hash -ne $files[$name]) {{
+        Copy-Item -LiteralPath (Join-Path $src $name) -Destination $target -Force
+    }}
+    if ((Get-FileHash -Algorithm SHA256 -LiteralPath $target).Hash -ne $files[$name]) {{
+        Remove-Item -LiteralPath $target -Force
+        exit {_EXIT_CHECKSUM}
+    }}
+}}
+foreach ($name in $files.Keys) {{
+    $dll = '"' + (Join-Path $dst $name) + '"'
+    $p = Start-Process regsvr32.exe -ArgumentList '/s', '"/i:UnityCaptureName={UC_NAME}"', $dll -Wait -PassThru
+    if ($p.ExitCode -ne 0) {{ exit {_EXIT_REGSVR32} }}
+}}
+exit 0
+"""
+
+
+_EXIT_CHECKSUM = 2
+_EXIT_REGSVR32 = 3
+
+
 def register_unitycapture() -> tuple:
     d = unitycapture_dir()
     for name, expected in _EXPECTED_SHA256.items():
@@ -83,12 +126,12 @@ def register_unitycapture() -> tuple:
             except OSError:
                 pass
             return False, f"{name} failed checksum verification - not registering"
-    dll32 = str(d / "UnityCaptureFilter32.dll")
-    dll64 = str(d / "UnityCaptureFilter64.dll")
-    args = (f'/c regsvr32 /s "/i:UnityCaptureName={UC_NAME}" "{dll32}" && '
-            f'regsvr32 /s "/i:UnityCaptureName={UC_NAME}" "{dll64}"')
-    quoted = args.replace("'", "''")  # a PowerShell single-quoted string; an apostrophe in the user's folder doubles
-    ps = f"Start-Process cmd.exe -ArgumentList '{quoted}' -Verb RunAs -Wait -WindowStyle Hidden"
+    # The check above is only for a quick, clear failure; the one that counts runs as admin on the protected copy
+    script = _elevated_install_script(d, protected_unitycapture_dir())
+    encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
+    ps = ("$ErrorActionPreference = 'Stop'; "
+          f"$p = Start-Process powershell.exe -ArgumentList '-NoProfile', '-NonInteractive', '-EncodedCommand', '{encoded}' "
+          "-Verb RunAs -Wait -PassThru -WindowStyle Hidden; exit $p.ExitCode")
     try:
         r = subprocess.run(
             ["powershell", "-NoProfile", "-Command", ps],
@@ -96,6 +139,10 @@ def register_unitycapture() -> tuple:
         )
         if r.returncode == 0:
             return True, "Installed"
+        if r.returncode == _EXIT_CHECKSUM:
+            return False, "The driver copy in Program Files failed checksum verification - not registering"
+        if r.returncode == _EXIT_REGSVR32:
+            return False, "Windows refused to register the driver (regsvr32 failed)"
         return False, "Registration failed (cancelled or denied?)"
     except subprocess.TimeoutExpired:
         return False, "Timed out"
@@ -103,11 +150,12 @@ def register_unitycapture() -> tuple:
         return False, str(e)
 
 
-def uc_registered_name() -> Optional[str]:
-    """The name Telescope's UnityCapture filter is registered under, or None if it isn't registered."""
+def _uc_registration() -> Optional[tuple]:
+    """(name apps list it as, folder its DLL is in) for Telescope's UnityCapture filter, or None if it isn't registered."""
     try:
         import winreg
-        dll = str(unitycapture_dir() / "UnityCaptureFilter64.dll").lower()
+        folders = {str(f / "UnityCaptureFilter64.dll").lower(): f
+                   for f in (unitycapture_dir(), protected_unitycapture_dir())}
         with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, "CLSID") as clsid_root:
             i = 0
             while True:
@@ -116,7 +164,7 @@ def uc_registered_name() -> Optional[str]:
                     try:
                         with winreg.OpenKey(clsid_root, f"{clsid}\\InprocServer32") as k:
                             val, _ = winreg.QueryValueEx(k, "")
-                        if val.lower() == dll:
+                        if val.lower() in folders:
                             # The filter's own key carries its display name as the default value.
                             try:
                                 with winreg.OpenKey(clsid_root, clsid) as k:
@@ -124,7 +172,7 @@ def uc_registered_name() -> Optional[str]:
                             except OSError:
                                 name = ""
                             if not name.endswith(" Configuration"):  # the property page shares the DLL
-                                return name or UC_DEFAULT_NAME
+                                return name or UC_DEFAULT_NAME, folders[val.lower()]
                     except OSError:
                         pass
                     i += 1
@@ -133,6 +181,18 @@ def uc_registered_name() -> Optional[str]:
     except Exception:
         pass
     return None
+
+
+def uc_registered_name() -> Optional[str]:
+    """The name Telescope's UnityCapture filter is registered under, or None if it isn't registered."""
+    reg = _uc_registration()
+    return reg[0] if reg else None
+
+
+def uc_in_app_folder() -> bool:
+    """Registered by an older Telescope straight from the app's folder, which this user's programs can write to."""
+    reg = _uc_registration()
+    return reg is not None and reg[1] != protected_unitycapture_dir()
 
 
 def uc_is_registered() -> bool:
