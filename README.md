@@ -1,5 +1,12 @@
 # Telescope
 
+[![Release](https://img.shields.io/github/v/release/LunarKittyy/Telescope)](../../releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/LunarKittyy/Telescope/total)](../../releases)
+[![Build](https://github.com/LunarKittyy/Telescope/actions/workflows/release.yml/badge.svg?branch=master)](../../actions/workflows/release.yml)
+[![License](https://img.shields.io/github/license/LunarKittyy/Telescope)](LICENSE)
+![Platforms](https://img.shields.io/badge/platform-Android%20%7C%20Linux%20%7C%20Windows-blue)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-support-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/lunarkittyy)
+
 Telescope turns your Android phone into a webcam for your Linux or Windows computer, and lets you use any of its lenses, telephoto and ultra-wide included.
 
 - Shows up as a normal webcam in Discord, Zoom, OBS and anything else, and the phone's mic can be your microphone too
