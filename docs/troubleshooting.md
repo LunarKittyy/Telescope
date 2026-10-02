@@ -2,7 +2,6 @@
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Only 2 cameras visible | Physical sub-cameras hidden behind logical camera | Already handled via `physicalCameraIds`; if still missing, device may restrict access |
 | Manual exposure greyed out | Camera doesn't report `MANUAL_SENSOR` capability | Some front cameras and telephoto lenses don't support it; use Auto |
 | `/dev/video11` gone after reboot | v4l2loopback isn't loaded at boot | Start Streaming loads it. Leave **Also switch it on at every startup** ticked (or tick **Load at boot** in Advanced) and it won't ask again |
 | pyvirtualcam fails to open (Linux) | Module not loaded, or not installed | Install `v4l2loopback-dkms` (Debian/Ubuntu/Arch) or `v4l2loopback` (Fedora/Nobara, via RPM Fusion), then click Start again. **Advanced** can load it by hand |
@@ -11,7 +10,6 @@
 | Driver install says it `hit an error while running as admin` (Windows) | The install step failed after you allowed admin access | Click **Retry**. If it keeps failing, open an issue with your **Copy diagnostics** report |
 | "Virtual camera is set up differently" banner when starting | Some other app (OBS's own virtual camera, a previous session, etc.) already has the module loaded with different settings | Close that app, or run `sudo modprobe -r v4l2loopback` yourself, then click Start again |
 | Canvas restart fails with "module in use" | OBS or another app still holds the device | Close all apps using the virtual camera, then retry |
-| Camera control panel never appears | Phone HTTP server slow to start | App retries 3x over 6s; check the phone still shows the stream running |
 | WB slider has no effect | Camera doesn't support `MANUAL_POST_PROCESSING` | Falls back gracefully; auto AWB still works |
 | ISO/shutter change has no effect | Only one of the two was sent | Switch to Manual - desktop sends both simultaneously |
 | FPS stays at 30 with 60 picked, whatever the light or size | Some phone makers keep their camera's faster modes for their own camera app. The phone lists 60 fps and accepts the request, then gives other apps 30 anyway. **Copy diagnostics** while streaming shows it: the "Camera did" line reads 33.4 ms with range [60, 60] | Nothing in Telescope can change this. Rates a camera doesn't list at all are grayed out in the FPS dropdown |
@@ -25,6 +23,5 @@
 | "Needs pairing again" | The phone removed this computer | Click **Add phone** and pair it again; its settings on this computer are kept |
 | "Can't reach the phone" after reinstalling the phone app | A reinstalled app is a new phone to Telescope | Click **Add phone** and pair it (it starts with default settings), then remove the old entry |
 | QR pairing fails while a VPN is active | The VPN is blocking local-network traffic outright. (A VPN that *allows* LAN access is handled: the desktop advertises its real interface addresses rather than whatever owns the default route, and the phone sends LAN attempts over its Wi-Fi interface rather than the tunnel) | Turn on the VPN's "allow local network access"/"LAN access" option, pause the VPN while pairing, or use USB pairing. Once paired, streaming has the same requirement |
-| QR scanner opens in landscape | Manifest override not applied | The app overrides ZXing's default orientation to portrait; rebuild if you see this on an old build |
 
 Not listed here? Ask in [Q&A](https://github.com/LunarKittyy/Telescope/discussions/categories/q-a). If something's broken, open an [issue](https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml) with your **Copy diagnostics** report.

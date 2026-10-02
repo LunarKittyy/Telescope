@@ -70,13 +70,9 @@ Stuck, or have an idea? Ask in [Discussions](../../discussions). Found a bug? Op
 
 ---
 
-## Why
-
-Most Android camera streaming solutions either lock you to a specific app ecosystem, use ADB screen mirroring which blocks the back camera on some devices, or route through OBS to create the virtual camera - which is a problem if you need OBS free for its own output. Telescope runs as a self-contained foreground service that serves MJPEG or H.264 directly and exposes camera controls as a simple REST API, leaving OBS (or any other capture tool) completely unencumbered.
-
 ## Docs
 
-- [Features](docs/features.md): everything Telescope can do, in detail
+- [Features](docs/features.md): everything Telescope can do
 - [Troubleshooting](docs/troubleshooting.md): common problems and their fixes
 - [Manual setup](docs/setup.md): the virtual camera and drivers by hand
 - [All docs](docs/README.md), including the protocol and how it's built
