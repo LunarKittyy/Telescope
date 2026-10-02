@@ -16,6 +16,13 @@
     flat += svgLine(232, cardinal ? 252 : major ? 246 : 240, deg).replace("/>", ` stroke="#aa9cf5" stroke-opacity="${cardinal ? 0.6 : major ? 0.42 : 0.2}" stroke-width="${major ? 2 : 1.4}"/>`);
   }
   $(".flat-ticks").innerHTML = flat;
+  // The scroll hint is the bottom of a dial, fading out from its long tick at the bottom
+  let hint = "";
+  for (let deg = 60; deg <= 120; deg += 6) {
+    const off = Math.abs(deg - 90) / 6;
+    hint += svgLine(36, off ? 42 - off * 0.5 : 49, deg).replace("/>", ` stroke-opacity="${off ? (0.62 - off * 0.1).toFixed(2) : 0.95}"/>`);
+  }
+  $(".scroll-hint svg").innerHTML = hint;
 
   // Downloads: the visitor's platform first, then a copy of the row for the last stop
   const ua = navigator.userAgent;
@@ -92,6 +99,128 @@
   measure();
   update();
   addEventListener("scroll", update, { passive: true });
+
+  // One driver moves the scroll at a time, frame by frame, and keeps its position and speed so the next can carry on
+  // from exactly there. Each step also updates the page in the same frame, so the text never lags a frame behind.
+  let drive = null, frame = 0, last = 0, y = scrollY, v = 0;
+  const loop = now => {
+    const dt = Math.min(0.05, Math.max(0.001, (now - last) / 1000));
+    last = now;
+    const [ny, done] = drive(now, dt);
+    v = (ny - y) / dt;
+    y = ny;
+    scrollTo(0, y);
+    update();
+    frame = done ? 0 : requestAnimationFrame(loop);
+    if (done) { drive = null; v = 0; }
+  };
+  const run = (d, from = scrollY, speed = 0) => {
+    if (!frame) { y = from; v = speed; last = performance.now(); frame = requestAnimationFrame(loop); }
+    drive = d;
+  };
+  const halt = () => { cancelAnimationFrame(frame); frame = 0; drive = null; };
+  // A path over ms, where path(t) gives the position for t from 0 to 1, counted from start
+  const glide = (path, ms, start = performance.now()) => {
+    run(now => { const t = Math.min(1, (now - start) / ms); return [path(t), t >= 1]; });
+  };
+
+  // The scroll hint glides to the next stop over 2s on an ease in out cubic
+  const hintLink = $(".scroll-hint");
+  hintLink.addEventListener("click", e => {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    e.preventDefault();
+    const from = scrollY, to = $(hintLink.hash).offsetTop;
+    glide(t => from + (to - from) * (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2), 2000);
+  });
+
+  // The page settles like a ball rolling over hills, with a stop in each dip. The moment you stop scrolling it carries
+  // on at your speed: heading at least 15% of the way to the next stop takes it over there, a smaller nudge lets it
+  // roll back, and it eases into the dip without rocking. A stop taller than the screen is a flat dip, so it can rest
+  // anywhere inside it. Only for the 3D trip; the flat page has no gaps between stops.
+  const trip = () => document.body.classList.contains("space") && !zoom;
+  let restY = scrollY;
+  // Quintic from (0, slope m) to (1, slope 0) with no acceleration at either end; it never overshoots while m <= 2.5
+  const roll = (s, m) => { const s3 = s * s * s; return s3 * (10 - 15 * s + 6 * s * s) + m * (s - 6 * s3 + 8 * s3 * s - 3 * s3 * s * s); };
+  // Rolls from the current position and speed into the dip nearest where it was heading, however many hills away;
+  // false if it's already resting there
+  const settle = (heading, start) => {
+    // Which way it was going: by where it was heading, else since it last rested
+    const dir = Math.sign(Math.abs(heading - y) > 10 ? heading - y : y - restY);
+    let to = heading;
+    for (let i = 0; i < stops.length - 1; i++) {
+      const top = anchors[i] + holds[i], bottom = anchors[i + 1];
+      if (heading <= top) { to = Math.max(heading, anchors[i]); break; }
+      if (heading < bottom) { to = heading - top > (bottom - top) * (0.5 - dir * 0.35) ? bottom : top; break; }
+    }
+    const from = y, d = to - from;
+    restY = to;
+    if (Math.abs(d) < 1) return false;
+    // Longer for a longer way, but quicker when it's already heading there fast, so it never has to brake past the dip
+    let sec = Math.min(2.4, Math.max(0.5, 0.45 + Math.abs(d) / 2400));
+    if (v * d > 0) sec = Math.max(0.35, Math.min(sec, 2.5 * Math.abs(d) / Math.abs(v)));
+    const m = Math.min(2.5, v * sec / d);
+    glide(t => from + d * roll(t, m), sec * 1000, start);
+    return true;
+  };
+
+  // Wheel and keys move a target that the page follows on a spring, and the moment they stop it rolls into a dip
+  let aim = 0, nudgedAt = 0;
+  const FOLLOW = 16;
+  const follow = (now, dt) => {
+    // The roll starts from where the last frame left off, so this frame already carries on at the same speed
+    if (now - nudgedAt > 60 && settle(aim, now - dt * 1000)) return drive(now, dt);
+    const nv = v + (FOLLOW * FOLLOW * (aim - y) - 2 * FOLLOW * v) * dt;
+    const ny = y + nv * dt;
+    return [ny, now - nudgedAt > 60 && Math.abs(aim - ny) < 0.5 && Math.abs(nv) < 5];
+  };
+  const nudge = (e, by, to = null) => {
+    if (!trip()) return false;
+    e.preventDefault();
+    const max = document.documentElement.scrollHeight - innerHeight;
+    if (drive !== follow) aim = frame ? y : scrollY;
+    aim = Math.min(max, Math.max(0, to ?? aim + by));
+    nudgedAt = performance.now();
+    run(follow);
+    return true;
+  };
+  addEventListener("wheel", e => {
+    if (e.ctrlKey || !e.deltaY) return;
+    nudge(e, e.deltaY * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? innerHeight : 1));
+  }, { passive: false });
+  addEventListener("keydown", e => {
+    if (e.altKey || e.ctrlKey || e.metaKey || e.target.closest("input, textarea, select, [contenteditable]")) return;
+    const page = innerHeight * 0.85;
+    const keys = { ArrowDown: 60, ArrowUp: -60, PageDown: page, PageUp: -page };
+    if (e.key === " " && !e.target.closest("button, a")) nudge(e, e.shiftKey ? -page : page);
+    else if (e.key in keys) nudge(e, keys[e.key]);
+    else if (e.key === "Home") nudge(e, 0, 0);
+    else if (e.key === "End") nudge(e, 0, Infinity);
+  });
+
+  // A finger or a dragged scrollbar scrolls natively; once it lets go and the page goes quiet, it rolls on from there
+  let idle = 0, held = false;
+  const recent = [];
+  const quiet = () => requestAnimationFrame(() => {
+    if (frame || held || !trip()) return;
+    const now = performance.now(), b = recent.at(-1), a = recent.at(-3);
+    y = scrollY;
+    v = a && now - b.t < 50 && b.t - a.t < 60 ? (b.y - a.y) / (b.t - a.t) * 1000 : 0;
+    settle(y + v * 0.35);
+  });
+  addEventListener("scroll", () => {
+    if (frame) return;
+    recent.push({ t: performance.now(), y: scrollY });
+    if (recent.length > 20) recent.shift();
+    clearTimeout(idle);
+    idle = setTimeout(quiet, 140);
+  }, { passive: true });
+  addEventListener("pointerdown", () => { held = true; halt(); }, { passive: true });
+  addEventListener("touchstart", () => { held = true; halt(); }, { passive: true });
+  for (const ev of ["pointerup", "pointercancel", "touchend", "touchcancel"]) addEventListener(ev, () => {
+    held = false;
+    clearTimeout(idle);
+    idle = setTimeout(quiet, 60);
+  }, { passive: true });
   addEventListener("resize", () => { measure(); update(); });
   new ResizeObserver(() => { measure(); update(); }).observe(document.body);
 

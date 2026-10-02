@@ -6,6 +6,8 @@ const journey = window.telescopeJourney;
 
 const hex = h => new THREE.Vector3(parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255);
 const smooth = t => t * t * (3 - 2 * t);
+// Like smooth, but it also starts and ends with no acceleration, for motion that has to merge in without a jolt
+const smoother = t => t * t * t * (t * (6 * t - 15) + 10);
 const clamp01 = t => Math.min(1, Math.max(0, t));
 const LIGHT = new THREE.Vector3(-0.55, 0.45, 0.7).normalize();
 const BG = "#0f1216";
@@ -709,37 +711,54 @@ function start() {
   layout();
   addEventListener("resize", layout);
 
-  // Camera position for a point on the trip; the first leg lines up with the pupil before passing through it
+  // Hermite step from 0 to 1 that leaves with slope m0 and arrives with slope m1
+  const hermite = (f, m0, m1) => { const f2 = f * f, f3 = f2 * f; return 3 * f2 - 2 * f3 + m0 * (f3 - 2 * f2 + f) + m1 * (f3 - f2); };
+  // The first leg eases into the pupil at this point of the scroll and glides through it at a steady pace
+  const PUPIL_AT = 0.45, PUPIL_PACE = 0.55;
+  // Camera position for a point on the trip
   const pose = (p, out) => {
-    const i = Math.min(stations.length - 2, Math.floor(p)), f = smooth(clamp01(p - i));
+    const i = Math.min(stations.length - 2, Math.floor(p)), u = clamp01(p - i), f = smooth(u);
     const a = stations[i], b = stations[i + 1];
-    out.z = a.z + (b.z - a.z) * f;
+    if (i === 0) {
+      // The lens sits at z = 0; the pace through it is a share of the average speed over the whole leg
+      const m = PUPIL_PACE * (b.z - a.z);
+      out.z = u < PUPIL_AT
+        ? a.z - a.z * hermite(u / PUPIL_AT, 0, m * PUPIL_AT / -a.z)
+        : b.z * hermite((u - PUPIL_AT) / (1 - PUPIL_AT), m * (1 - PUPIL_AT) / b.z, 0);
+    } else out.z = a.z + (b.z - a.z) * f;
     out.x = a.x + (b.x - a.x) * f; out.y = a.y + (b.y - a.y) * f;
     out.yaw = a.yaw + (b.yaw - a.yaw) * f;
-    // The shift eases out while closing in, so the pupil is in the middle when you pass through it
-    const k = i === 0 ? Math.pow(clamp01((out.z - 4) / (a.z - 4)), 1.4) : 0;
-    out.shiftX = a.shiftX * k; out.shiftY = a.shiftY * k;
+    // The hero shift eases out with the scroll and settles with no jolt a little before the pupil, so it is centred there
+    out.shift = i === 0 ? 1 - smoother(clamp01(u / (PUPIL_AT * 0.8))) : 0;
     return out;
   };
 
-  const cur = pose(journey.p, {}), want = {};
-  let lastZ = cur.z, vel = 0, spin = 0;
+  const cur = pose(journey.p, {}), want = {}, curV = {};
+  const AXES = ["x", "y", "z", "yaw", "shift"];
+  for (const key of AXES) curV[key] = 0;
+  let lastZ = cur.z, vel = 0, spin = 0, focus = null;
   const tick = now => {
     timer.update(now);
     const dt = Math.min(timer.getDelta(), 0.05), t = timer.getElapsed();
     pose(journey.p, want);
-    const k = 1 - Math.exp(-dt * 4.5);
-    for (const key of ["x", "y", "z", "yaw", "shiftX", "shiftY"]) cur[key] += (want[key] - cur[key]) * k;
+    // A critically damped spring per axis, so the camera picks up and sheds speed gradually instead of lurching
+    const W = 7.5;
+    for (const key of AXES) {
+      curV[key] += (W * W * (want[key] - cur[key]) - 2 * W * curV[key]) * dt;
+      cur[key] += curV[key] * dt;
+    }
     camera.position.set(cur.x, cur.y, cur.z);
     camera.rotation.set(0, cur.yaw, 0);
-    camera.setViewOffset(viewW, viewH, -cur.shiftX * viewW, -cur.shiftY * viewH, viewW, viewH);
+    camera.setViewOffset(viewW, viewH, -stations[0].shiftX * cur.shift * viewW, -stations[0].shiftY * cur.shift * viewH, viewW, viewH);
 
     const v = (lastZ - cur.z) / Math.max(dt, 0.001);
     lastZ = cur.z;
     vel += (v - vel) * (1 - Math.exp(-dt * 6));
     const speed = Math.abs(vel);
-    // Past the pupil the sky stops turning and comes into focus; speed stretches the stars into long streaks
-    const focus = smooth(clamp01((8 - cur.z) / 16));
+    // Past the pupil the sky stops turning and comes into focus; speed stretches the stars into long streaks.
+    // Focus also eases over time, so even a fast scroll through the pupil turns the trails over gently.
+    const aim = smooth(clamp01((10 - cur.z) / 34));
+    focus = focus === null ? aim : focus + (aim - focus) * (1 - Math.exp(-dt * 2.6));
     spin += dt * (Math.PI * 2 / 480) * (1 + speed * 0.01) * (1 - focus);
     trails.uniforms.uSpin.value = spin;
     trails.uniforms.uFocus.value = focus;
@@ -750,10 +769,10 @@ function start() {
 
     // The lens closes up as you reach it: the pupil and the disc fade so space shows through
     const near = cur.z;
-    const pupilFade = clamp01((near - 6) / 14);
+    const pupilFade = smooth(clamp01((near - 3) / 22));
     pupil.material.uniforms.uFade.value = pupilFade;
-    disc.material.uniforms.uFade.value = clamp01((near - 0.8) / 4);
-    glow.material.uniforms.uFade.value = clamp01((near - 2) / 18);
+    disc.material.uniforms.uFade.value = smooth(clamp01((near - 0.5) / 6));
+    glow.material.uniforms.uFade.value = smooth(clamp01(near / 26));
     lens.visible = near > -2;
 
     // Planets come out of the dark as you approach, instead of all being visible from the start
