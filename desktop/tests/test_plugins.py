@@ -72,8 +72,10 @@ class _Host:
 def stream_output(qapp):
     host = _Host()
     plugin = StreamOutputPlugin()
-    plugin.setup(host, EventBus())
+    bus = EventBus()
+    plugin.setup(host, bus)
     panel = plugin.create_panel()
+    bus.phones_changed.emit(1)
     return plugin, host, panel
 
 
@@ -408,6 +410,17 @@ def test_stream_output_saved_resolution_does_not_leak_into_the_next_device(strea
     assert plugin._pending_resolution_text is None
 
 
+@pytest.mark.parametrize("plugin_cls", [StreamOutputPlugin, MonitoringPlugin])
+def test_the_card_is_greyed_out_until_a_phone_is_paired(qapp, plugin_cls):
+    bus = EventBus()
+    plugin = plugin_cls()
+    plugin.setup(_Host(), bus)
+    panel = plugin.create_panel()
+    assert not panel.isEnabled()
+    bus.phones_changed.emit(1)
+    assert panel.isEnabled()
+
+
 def test_monitoring_threshold_changes_are_saved(monitoring):
     plugin, host, _bus, _panel = monitoring
     before = host.saves
@@ -423,6 +436,7 @@ def monitoring(qapp):
     plugin = MonitoringPlugin()
     plugin.setup(host, bus)
     panel = plugin.create_panel()
+    bus.phones_changed.emit(1)
     return plugin, host, bus, panel
 
 

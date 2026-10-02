@@ -195,6 +195,7 @@ Returns `InstallResult(relaunch, skipped)`. `clean_up_after_update()` runs on ev
 Reusable Qt widgets and helpers used across multiple panels:
 - The layout rules (type scale, control column, segment and button widths, button roles) are written as a comment block at the top of this file; new UI should stay inside them.
 - `control_row(label, widget, label_width, stretch)` / `control_row_widget(...)` - the standard settings row (dim label, then the control starting at the shared control column) and its hideable variant. Imported as `_row` / `_row_widget` by the panels that use them heavily.
+- `dim_until_paired(card, bus)` - fades a card to `DIMMED_OPACITY` and disables it until `phones_changed` reports a paired phone. Every main-window card except Connection uses it, so the first screen points at the checklist.
 - `SegmentButton` / `segmented_row(*buttons, fill=True)` - checkable buttons joined into one strip with equal segments: equal shares of the row when `fill`, `SEGMENT_WIDTH` each otherwise. Exclusivity comes from the `QButtonGroup` they're added to.
 - `slider_row(slider, readout, gutter)` / `value_label()` - slider plus fixed-width readout, optionally reserving the spinbox column so tracks line up across a card.
 - `card_layout()`, `add_card_header(..., action=)`, `card_action()`, `add_section_heading()` - card structure; the header carries the card's one action button.

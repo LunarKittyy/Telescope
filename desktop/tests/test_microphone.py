@@ -64,6 +64,17 @@ def _plugin(backend):
     return p
 
 
+def test_the_card_is_greyed_out_until_a_phone_is_paired(qapp):
+    bus = EventBus()
+    p = MicrophonePlugin(backend=_Backend(), worker_cls=_Worker, run_job=lambda fn: fn())
+    p.setup(_Host(), bus)
+    panel = p.create_panel()
+    _PANELS.append(panel)
+    assert not panel.isEnabled()
+    bus.phones_changed.emit(1)
+    assert panel.isEnabled()
+
+
 def test_on_follows_the_stream(qapp):
     backend = _Backend()
     p = _plugin(backend)

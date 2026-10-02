@@ -16,7 +16,7 @@ from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
     NoScrollComboBox, NoScrollSlider, PanSliderRow, SegmentButton, add_card_header,
     add_section_heading, control_row as _row, card_layout, create_card, card_action,
-    segmented_row, slider_row, ui_px, value_label,
+    dim_until_paired, segmented_row, slider_row, ui_px, value_label,
 )
 from telescope.widgets.lens_panel import shorten_lens_label
 from telescope.theme import ACCENT, ERR
@@ -387,6 +387,7 @@ class TransformsPlugin(TelescopePlugin):
         reset_btn = card_action("Reset", "reset", "Clear flip, rotation, zoom and pan back to defaults")
         reset_btn.clicked.connect(self._reset_all)
         add_card_header(lay, "Transforms", "transforms", action=reset_btn)
+        dim_until_paired(card, self._bus)
 
         # ── Flip ─────────────────────────────────────────────────────────────
         add_section_heading(lay, "Orientation")

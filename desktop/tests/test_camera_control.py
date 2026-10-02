@@ -34,7 +34,20 @@ def camera_plugin(qapp):
     plugin = CameraControlPlugin()
     plugin.setup(host, bus)
     panel = plugin.create_panel()
+    bus.phones_changed.emit(1)
     return plugin, host, bus, panel
+
+
+def test_the_card_is_greyed_out_until_a_phone_is_paired(qapp):
+    bus = EventBus()
+    plugin = CameraControlPlugin()
+    plugin.setup(_Host(), bus)
+    panel = plugin.create_panel()
+    assert not panel.isEnabled()
+    bus.phones_changed.emit(1)
+    assert panel.isEnabled()
+    bus.phones_changed.emit(0)
+    assert not panel.isEnabled()
 
 
 def test_derive_camera_control_view_returns_none_for_empty_state():

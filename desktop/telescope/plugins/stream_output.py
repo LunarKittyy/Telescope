@@ -12,7 +12,7 @@ from telescope.theme import OK, WARN
 from telescope.widgets.banner import BannerAction, Issue
 from telescope.widgets.common import (
     NoScrollComboBox, NoScrollSlider, SegmentButton, add_card_header,
-    add_section_heading, control_row as _row, control_row_widget, card_layout, create_card,
+    add_section_heading, control_row as _row, control_row_widget, card_layout, create_card, dim_until_paired,
     quality_label, segmented_row, slider_row, value_label, wrapped_note,
 )
 
@@ -135,6 +135,7 @@ class StreamOutputPlugin(TelescopePlugin):
         card = create_card()
         lay = card_layout(card)
         add_card_header(lay, "Stream output", "stream")
+        dim_until_paired(card, self._bus)
 
         # ── Resolution ────────────────────────────────────────────────────────
         add_section_heading(lay, "Output")

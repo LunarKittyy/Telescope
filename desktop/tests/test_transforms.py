@@ -26,9 +26,21 @@ class _Host:
 def transforms_plugin(qapp):
     host = _Host()
     plugin = TransformsPlugin()
-    plugin.setup(host, EventBus())
+    bus = EventBus()
+    plugin.setup(host, bus)
     panel = plugin.create_panel()
+    bus.phones_changed.emit(1)
     return plugin, host, panel
+
+
+def test_the_card_is_greyed_out_until_a_phone_is_paired(qapp):
+    bus = EventBus()
+    plugin = TransformsPlugin()
+    plugin.setup(_Host(), bus)
+    panel = plugin.create_panel()
+    assert not panel.isEnabled()
+    bus.phones_changed.emit(1)
+    assert panel.isEnabled()
 
 
 def _grid():
