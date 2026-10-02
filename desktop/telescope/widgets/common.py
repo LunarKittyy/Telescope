@@ -7,7 +7,7 @@ from PyQt6.QtGui import (
     QBrush, QColor, QFontMetrics, QIcon, QPainter, QPainterPath, QPixmap,
 )
 from PyQt6.QtWidgets import (
-    QApplication, QComboBox, QDoubleSpinBox, QFrame, QHBoxLayout, QLabel, QLayout, QPushButton,
+    QApplication, QComboBox, QDoubleSpinBox, QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLayout, QPushButton,
     QSlider, QSpinBox, QSizePolicy, QStyle, QStyleOptionSlider, QVBoxLayout, QWidget,
 )
 
@@ -270,6 +270,24 @@ def create_card(parent=None) -> QFrame:
     card.setObjectName("card")
     card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
     return card
+
+
+DIMMED_OPACITY = 0.4
+"""How visible a card is while it waits for a phone; disabled styling alone leaves titles and readouts bright."""
+
+
+def dim_until_paired(card: QWidget, bus):
+    """Fade a card out and disable it until a phone is paired, since its controls do nothing without one."""
+    def apply(count: int):
+        card.setEnabled(count > 0)
+        if count > 0:
+            card.setGraphicsEffect(None)  # an effect re-renders the whole card offscreen; only keep it while static
+        elif card.graphicsEffect() is None:
+            effect = QGraphicsOpacityEffect(card)
+            effect.setOpacity(DIMMED_OPACITY)
+            card.setGraphicsEffect(effect)
+    apply(0)
+    bus.phones_changed.connect(apply)
 
 
 def card_layout(card: QFrame) -> QVBoxLayout:

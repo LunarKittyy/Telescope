@@ -10,7 +10,7 @@ from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
     LogSliderRow, NoScrollComboBox, SegmentButton, NoScrollSlider, add_card_header, add_section_heading,
     ElidingLabel, control_row, control_row_widget, card_layout,
-    create_card, ns_to_display, segmented_row, slider_row, value_label,
+    create_card, dim_until_paired, ns_to_display, segmented_row, slider_row, value_label,
 )
 from telescope.widgets.lens_panel import LensPanel
 
@@ -144,6 +144,7 @@ class CameraControlPlugin(TelescopePlugin):
         card = create_card()
         lay = card_layout(card)
         add_card_header(lay, "Camera", "camera")
+        dim_until_paired(card, self._bus)
 
         self._lens_panel = LensPanel()
         self._lens_panel.lens_selected.connect(self._on_lens_selected)
