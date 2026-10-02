@@ -9,7 +9,7 @@ from telescope import theme
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
     NoScrollSpinBox, add_card_header, add_section_heading, control_row as _row,
-    card_layout, create_card, set_status_kind,
+    card_layout, create_card, dim_until_paired, set_status_kind,
 )
 
 logger = logging.getLogger(__name__)
@@ -51,6 +51,7 @@ class MonitoringPlugin(TelescopePlugin):
         card = create_card()
         lay = card_layout(card)
         add_card_header(lay, "Monitoring", "status")
+        dim_until_paired(card, self._bus)
 
         # ── Live readouts ─────────────────────────────────────────────────────
         add_section_heading(lay, "Live status")

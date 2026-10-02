@@ -20,7 +20,8 @@ from telescope import audio
 from telescope.platform import virtual_mic
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
-    add_card_header, card_layout, control_row, control_row_widget, create_card, set_status_kind, wrapped_note,
+    add_card_header, card_layout, control_row, control_row_widget, create_card, dim_until_paired, set_status_kind,
+    wrapped_note,
 )
 
 logger = logging.getLogger(__name__)
@@ -125,6 +126,7 @@ class MicrophonePlugin(TelescopePlugin):
         card = create_card()
         lay = card_layout(card)
         add_card_header(lay, "Microphone", "mic")
+        dim_until_paired(card, self._bus)
         self._toggle = QCheckBox("On")
         self._toggle.setToolTip("Use the phone's microphone on this computer while streaming.")
         self._toggle.toggled.connect(self._on_toggled)
