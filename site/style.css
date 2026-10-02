@@ -92,7 +92,7 @@ body:not(.at-top) .scroll-hint { opacity: 0; pointer-events: none; }
 /* downloads */
 .downloads { margin-top: 44px; }
 .dl-row { display: flex; flex-wrap: wrap; gap: 10px; }
-.dl { display: inline-flex; align-items: center; padding: 13px 22px; font-weight: 600; border-radius: 6px; border: 1px solid var(--line); background: rgba(15, 18, 22, 0.6); color: var(--ink); text-decoration: none; min-width: 150px; transition: border-color 160ms ease-out, background-color 160ms ease-out; }
+.dl { display: inline-flex; align-items: center; justify-content: center; padding: 13px 22px; font-weight: 600; border-radius: 6px; border: 1px solid var(--line); background: rgba(15, 18, 22, 0.6); color: var(--ink); text-decoration: none; min-width: 150px; transition: border-color 160ms ease-out, background-color 160ms ease-out; }
 .dl:hover { color: var(--ink); border-color: var(--lavender); background: rgba(170, 156, 245, 0.1); }
 .dl.primary { background: var(--lavender); border-color: var(--lavender); color: var(--on-lavender); }
 .dl.primary:hover { background: var(--lavender-light); border-color: var(--lavender-light); color: var(--on-lavender); }
