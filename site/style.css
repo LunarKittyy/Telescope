@@ -17,7 +17,7 @@
 }
 
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; scroll-snap-type: y proximity; }
+html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
   background: var(--night);
@@ -52,7 +52,7 @@ body.at-top .topbar::before { opacity: 0; }
 
 /* stops along the trip */
 main { position: relative; z-index: 1; overflow-x: clip; }
-.stop { position: relative; min-height: 100svh; display: flex; align-items: center; padding: 110px var(--gutter) 80px; scroll-snap-align: start; }
+.stop { position: relative; min-height: 100svh; display: flex; align-items: center; padding: 110px var(--gutter) 80px; }
 .stop + .stop { margin-top: 55svh; }
 .copy { position: relative; width: 100%; max-width: 560px; opacity: var(--f, 1); transform: translateY(calc((1 - var(--f, 1)) * 36px)); will-change: opacity, transform; }
 .copy::before { content: ""; position: absolute; inset: -80px -120px; z-index: -1; background: radial-gradient(closest-side, rgba(15, 18, 22, 0.82), rgba(15, 18, 22, 0.5) 60%, transparent); pointer-events: none; }
@@ -80,6 +80,14 @@ h1, h2, h3 { text-wrap: balance; }
 .tagline span { display: block; }
 .flat-lens { display: none; }
 body.static .flat-lens { display: block; position: absolute; width: min(64vh, 600px, 48vw); right: max(-40px, calc(50% - 680px)); top: 50%; translate: 0 -50%; pointer-events: none; }
+
+/* scroll hint: the bottom of a lens dial, its long tick pointing down, breathing slowly */
+.scroll-hint { position: absolute; left: 0; right: 0; bottom: 30px; width: 120px; margin-inline: auto; display: flex; flex-direction: column; align-items: center; gap: 2px; color: var(--ink-muted); font-size: 0.8rem; font-weight: 500; letter-spacing: 0.16em; text-indent: 0.16em; text-transform: uppercase; text-decoration: none; transition: opacity 300ms ease-out; }
+.scroll-hint:hover { color: var(--ink); }
+.scroll-hint svg { width: 80px; height: 20px; overflow: visible; animation: scroll-hint 5s ease-in-out infinite; }
+.scroll-hint line { stroke: var(--lavender); stroke-width: 1.4; stroke-linecap: round; }
+@keyframes scroll-hint { 0%, 100% { opacity: 0.55; transform: translateY(0); } 50% { opacity: 1; transform: translateY(3px); } }
+body:not(.at-top) .scroll-hint { opacity: 0; pointer-events: none; }
 
 /* downloads */
 .downloads { margin-top: 44px; }
@@ -148,6 +156,8 @@ body.static .copy { opacity: 1; transform: none; }
 @media (max-width: 860px) {
   .stop { align-items: flex-end; padding-top: 46svh; padding-bottom: 64px; }
   .stop.hero { align-items: flex-end; padding-top: 52svh; }
+  /* the hero already runs past the fold here, which says "scroll" on its own */
+  .scroll-hint { display: none; }
   .stop + .stop { margin-top: 28svh; }
   .side-left, .side-right, .hero { justify-content: flex-start; padding-left: var(--gutter); padding-right: var(--gutter); }
   .landing { padding-top: 120px; }
@@ -172,5 +182,5 @@ body.static .copy { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .zoomed, .zoom-veil { transition: none; }
-  html { scroll-snap-type: none; }
+  .scroll-hint svg { animation: none; }
 }
