@@ -137,6 +137,7 @@
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     e.preventDefault();
     const from = scrollY, to = $(hintLink.hash).offsetTop;
+    restY = to;
     glide(t => from + (to - from) * (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2), 2000);
   });
 
@@ -159,6 +160,10 @@
       if (heading <= top) { to = Math.max(heading, anchors[i]); break; }
       if (heading < bottom) { to = heading - top > (bottom - top) * (0.5 - dir * 0.35) ? bottom : top; break; }
     }
+    return rollTo(to, start);
+  };
+  // Rolls from the current position and speed to y = to; false if it's already there
+  const rollTo = (to, start) => {
     const from = y, d = to - from;
     restY = to;
     if (Math.abs(d) < 1) return false;
@@ -190,15 +195,40 @@
     run(follow);
     return true;
   };
+  // Each wheel gesture or page key moves one stop that way; inside a stop taller than the screen it scrolls up to the edge first
+  const lo = i => anchors[i];
+  const hi = i => i === stops.length - 1 ? document.documentElement.scrollHeight - innerHeight : anchors[i] + holds[i];
+  // A gesture is a burst of wheel events with no pause, so a touchpad's coasting after the swipe counts as the same one
+  let gestureAt = 0, gestureDir = 0, gestureUsed = false;
+  const step = (e, by, fresh) => {
+    if (!trip()) return;
+    e.preventDefault();
+    const dir = Math.sign(by), now = performance.now();
+    if (fresh || now - gestureAt > 250 || dir !== gestureDir) gestureUsed = false;
+    gestureAt = now; gestureDir = dir;
+    if (!frame) y = scrollY, v = 0;
+    const at = drive === follow ? aim : frame ? restY : scrollY;
+    const tall = stops.findIndex((_, i) => holds[i] > 80 && at >= lo(i) - 1 && at <= hi(i) + 1);
+    if (tall >= 0 && (dir > 0 ? at < hi(tall) - 1 : at > lo(tall) + 1)) {
+      gestureUsed = true;
+      nudge(e, 0, Math.min(hi(tall), Math.max(lo(tall), at + by)));
+      return;
+    }
+    if (gestureUsed) return;
+    gestureUsed = true;
+    const next = dir > 0 ? stops.findIndex((_, i) => lo(i) > at + 1) : stops.findLastIndex((_, i) => hi(i) < at - 1);
+    if (next >= 0) { if (drive === follow) drive = null; rollTo(dir > 0 ? lo(next) : hi(next), performance.now()); }
+  };
   addEventListener("wheel", e => {
     if (e.ctrlKey || !e.deltaY) return;
-    nudge(e, e.deltaY * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? innerHeight : 1));
+    step(e, e.deltaY * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? innerHeight : 1), false);
   }, { passive: false });
   addEventListener("keydown", e => {
     if (e.altKey || e.ctrlKey || e.metaKey || e.target.closest("input, textarea, select, [contenteditable]")) return;
     const page = innerHeight * 0.85;
-    const keys = { ArrowDown: 60, ArrowUp: -60, PageDown: page, PageUp: -page };
-    if (e.key === " " && !e.target.closest("button, a")) nudge(e, e.shiftKey ? -page : page);
+    const keys = { ArrowDown: 60, ArrowUp: -60 };
+    if (e.key === " " && !e.target.closest("button, a")) step(e, e.shiftKey ? -page : page, true);
+    else if (e.key === "PageDown" || e.key === "PageUp") step(e, e.key === "PageDown" ? page : -page, true);
     else if (e.key in keys) nudge(e, keys[e.key]);
     else if (e.key === "Home") nudge(e, 0, 0);
     else if (e.key === "End") nudge(e, 0, Infinity);
