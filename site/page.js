@@ -146,7 +146,7 @@
   // roll back, and it eases into the dip without rocking. A stop taller than the screen is a flat dip, so it can rest
   // anywhere inside it. Only for the 3D trip; the flat page has no gaps between stops.
   const trip = () => document.body.classList.contains("space") && !zoom;
-  let restY = scrollY;
+  let restY = scrollY, rollSpan = [0, 0];
   // Quintic from (0, slope m) to (1, slope 0) with no acceleration at either end; it never overshoots while m <= 2.5
   const roll = (s, m) => { const s3 = s * s * s; return s3 * (10 - 15 * s + 6 * s * s) + m * (s - 6 * s3 + 8 * s3 * s - 3 * s3 * s * s); };
   // Rolls from the current position and speed into the dip nearest where it was heading, however many hills away;
@@ -171,6 +171,7 @@
     let sec = Math.min(2.4, Math.max(0.5, 0.45 + Math.abs(d) / 2400));
     if (v * d > 0) sec = Math.max(0.35, Math.min(sec, 2.5 * Math.abs(d) / Math.abs(v)));
     const m = Math.min(2.5, Math.max(kick, v * sec / d));
+    rollSpan = [start, start + sec * 1000];
     glide(t => from + d * roll(t, m), sec * 1000, start);
     return true;
   };
@@ -199,15 +200,18 @@
   const lo = i => anchors[i];
   const hi = i => i === stops.length - 1 ? document.documentElement.scrollHeight - innerHeight : anchors[i] + holds[i];
   // A gesture is a burst of wheel events with no pause, so a touchpad's coasting after the swipe counts as the same one
-  let gestureAt = 0, gestureDir = 0, gestureUsed = false;
+  let gestureAt = 0, gestureDir = 0, gestureUsed = false, peak = 0;
   // A step sets off at this many times its average speed, since a wheel notch carries almost no speed of its own
   const STEP_KICK = 1.6;
   const step = (e, by, fresh) => {
     if (!trip()) return;
     e.preventDefault();
-    const dir = Math.sign(by), now = performance.now();
-    if (fresh || now - gestureAt > 250 || dir !== gestureDir) gestureUsed = false;
-    gestureAt = now; gestureDir = dir;
+    const dir = Math.sign(by), now = performance.now(), mag = Math.abs(by);
+    if (fresh || now - gestureAt > 250 || dir !== gestureDir) gestureUsed = false, peak = 0;
+    gestureAt = now; gestureDir = dir; peak = Math.max(peak, mag);
+    // Coasting only slows down, so scrolling that keeps its strength once a step is mostly done earns the next one
+    const rolled = frame && drive !== follow ? (now - rollSpan[0]) / (rollSpan[1] - rollSpan[0]) : 1;
+    if (gestureUsed && mag >= peak * 0.85 && rolled >= 0.6) gestureUsed = false, peak = mag;
     if (!frame) y = scrollY, v = 0;
     const at = drive === follow ? aim : frame ? restY : scrollY;
     const tall = stops.findIndex((_, i) => holds[i] > 80 && at >= lo(i) - 1 && at <= hi(i) + 1);
