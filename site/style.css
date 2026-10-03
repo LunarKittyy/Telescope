@@ -33,7 +33,8 @@ h1, h2, h3 { font-family: var(--display); font-weight: 700; margin: 0; letter-sp
 p { margin: 0; }
 code { font-family: var(--mono); font-size: 0.88em; }
 
-#space { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+/* Sized to the screen with the address bar hidden, so the bar sliding in and out never resizes it */
+#space { position: fixed; top: 0; left: 0; width: 100%; height: 100lvh; display: block; z-index: 0; }
 body.static #space { display: none; }
 
 /* top bar with the lens mark, whose ticks fill as you travel */
@@ -152,6 +153,11 @@ body:not(.at-top) .scroll-hint { opacity: 0; pointer-events: none; }
 body.static { background-repeat: repeat; }
 body.static .stop + .stop { margin-top: 0; }
 body.static .copy { opacity: 1; transform: none; }
+/* On touch screens a flick lands on a stop by itself; page.js rolls there for mice and keys */
+@media (pointer: coarse) {
+  html:has(body.space):not(.driving) { scroll-snap-type: y mandatory; }
+  body.space .stop { scroll-snap-align: start; }
+}
 /* Sections only need a full screen each when the camera flies between them */
 body.static .stop:not(.hero) { min-height: 0; padding-top: 110px; padding-bottom: 50px; }
 
@@ -172,9 +178,9 @@ body.static .stop:not(.hero) { min-height: 0; padding-top: 110px; padding-bottom
   .setup { grid-template-columns: minmax(0, 1fr); }
   .shots { padding: 0 8% 14% 0; }
   .shots .shot-phone { right: 0; width: 28%; }
-  body.static .flat-lens { width: 300px; right: -90px; top: 70px; translate: none; }
+  /* Centred above the title, the same size and place as the 3D lens */
+  body.static .flat-lens { width: min(160vw, 72svh); right: auto; left: 50%; top: 25svh; translate: -50% -50%; }
   body.static .stop:not(.hero) { padding-top: 100px; padding-bottom: 12px; }
-  body.static .stop.hero { padding-top: 340px; }
 }
 @media (max-width: 600px) {
   .cmd code { font-size: 0.78rem; white-space: normal; }
