@@ -69,13 +69,18 @@
   // Where we are on the trip: stop i sits at its top edge, and a stop taller than the screen holds while you read it
   const stops = $$(".stop");
   const journey = window.telescopeJourney = { p: 0, stops: stops.length };
+  // Screen height with the phone's address bar showing, which stays put while the bar slides in and out
+  const probe = document.createElement("div");
+  probe.style.cssText = "position: absolute; top: 0; width: 0; height: 100svh; visibility: hidden; pointer-events: none";
+  document.body.append(probe);
+  const screenH = () => probe.offsetHeight || innerHeight;
   let anchors = [], holds = [];
   const measure = () => {
     anchors = stops.map(s => s.offsetTop);
-    holds = stops.map(s => Math.max(0, s.offsetHeight - innerHeight));
+    holds = stops.map(s => Math.max(0, s.offsetHeight - screenH()));
   };
   const update = () => {
-    const y = scrollY, vh = innerHeight;
+    const y = scrollY, vh = screenH();
     let p = 0;
     for (let i = 0; i < stops.length; i++) {
       if (i === stops.length - 1 || y < anchors[i + 1]) {
@@ -112,13 +117,15 @@
     scrollTo(0, y);
     update();
     frame = done ? 0 : requestAnimationFrame(loop);
-    if (done) { drive = null; v = 0; }
+    if (done) { drive = null; v = 0; document.documentElement.classList.remove("driving"); }
   };
+  // While a driver runs, CSS snapping is off so it can't pull each step to a stop
   const run = (d, from = scrollY, speed = 0) => {
     if (!frame) { y = from; v = speed; last = performance.now(); frame = requestAnimationFrame(loop); }
+    document.documentElement.classList.add("driving");
     drive = d;
   };
-  const halt = () => { cancelAnimationFrame(frame); frame = 0; drive = null; };
+  const halt = () => { cancelAnimationFrame(frame); frame = 0; drive = null; document.documentElement.classList.remove("driving"); };
   // A path over ms, where path(t) gives the position for t from 0 to 1, counted from start
   const glide = (path, ms, start = performance.now()) => {
     run(now => { const t = Math.min(1, (now - start) / ms); return [path(t), t >= 1]; });
@@ -198,10 +205,12 @@
   });
 
   // A finger or a dragged scrollbar scrolls natively; once it lets go and the page goes quiet, it rolls on from there
+  // Touch screens skip this: CSS snapping lands a flick on a stop without stopping first
+  const touchScreen = matchMedia("(pointer: coarse)");
   let idle = 0, held = false;
   const recent = [];
   const quiet = () => requestAnimationFrame(() => {
-    if (frame || held || !trip()) return;
+    if (frame || held || !trip() || touchScreen.matches) return;
     const now = performance.now(), b = recent.at(-1), a = recent.at(-3);
     y = scrollY;
     v = a && now - b.t < 50 && b.t - a.t < 60 ? (b.y - a.y) / (b.t - a.t) * 1000 : 0;

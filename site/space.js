@@ -667,10 +667,12 @@ function start() {
   // ── Where everything sits for the current screen shape ──
   const STOP_GAP = 80, PLANET_AHEAD = 32;
   const stations = [];
-  let viewW = innerWidth, viewH = innerHeight;
+  let viewW = 0, viewH = 0;
   let halfW = 10, halfH = 10, narrow = false;
   const layout = () => {
-    const w = innerWidth, h = innerHeight;
+    // The canvas's own size, which leaves out the phone's address bar sliding in and out
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    if (w === viewW && h === viewH) return;
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
