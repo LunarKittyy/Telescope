@@ -152,6 +152,8 @@ body:not(.at-top) .scroll-hint { opacity: 0; pointer-events: none; }
 body.static { background-repeat: repeat; }
 body.static .stop + .stop { margin-top: 0; }
 body.static .copy { opacity: 1; transform: none; }
+/* Sections only need a full screen each when the camera flies between them */
+body.static .stop:not(.hero) { min-height: 0; padding-top: 110px; padding-bottom: 50px; }
 
 @media (max-width: 860px) {
   .stop { align-items: flex-end; padding-top: 46svh; padding-bottom: 64px; }
@@ -171,7 +173,7 @@ body.static .copy { opacity: 1; transform: none; }
   .shots { padding: 0 8% 14% 0; }
   .shots .shot-phone { right: 0; width: 28%; }
   body.static .flat-lens { width: 300px; right: -90px; top: 70px; translate: none; }
-  body.static .stop { padding-top: 110px; }
+  body.static .stop:not(.hero) { padding-top: 100px; padding-bottom: 12px; }
   body.static .stop.hero { padding-top: 340px; }
 }
 @media (max-width: 600px) {
