@@ -162,15 +162,15 @@
     }
     return rollTo(to, start);
   };
-  // Rolls from the current position and speed to y = to; false if it's already there
-  const rollTo = (to, start) => {
+  // Rolls from the current position and speed to y = to, leaving at least at slope kick; false if it's already there
+  const rollTo = (to, start, kick = 0) => {
     const from = y, d = to - from;
     restY = to;
     if (Math.abs(d) < 1) return false;
     // Longer for a longer way, but quicker when it's already heading there fast, so it never has to brake past the dip
     let sec = Math.min(2.4, Math.max(0.5, 0.45 + Math.abs(d) / 2400));
     if (v * d > 0) sec = Math.max(0.35, Math.min(sec, 2.5 * Math.abs(d) / Math.abs(v)));
-    const m = Math.min(2.5, v * sec / d);
+    const m = Math.min(2.5, Math.max(kick, v * sec / d));
     glide(t => from + d * roll(t, m), sec * 1000, start);
     return true;
   };
@@ -200,6 +200,8 @@
   const hi = i => i === stops.length - 1 ? document.documentElement.scrollHeight - innerHeight : anchors[i] + holds[i];
   // A gesture is a burst of wheel events with no pause, so a touchpad's coasting after the swipe counts as the same one
   let gestureAt = 0, gestureDir = 0, gestureUsed = false;
+  // A step sets off at this many times its average speed, since a wheel notch carries almost no speed of its own
+  const STEP_KICK = 1.6;
   const step = (e, by, fresh) => {
     if (!trip()) return;
     e.preventDefault();
@@ -217,7 +219,7 @@
     if (gestureUsed) return;
     gestureUsed = true;
     const next = dir > 0 ? stops.findIndex((_, i) => lo(i) > at + 1) : stops.findLastIndex((_, i) => hi(i) < at - 1);
-    if (next >= 0) { if (drive === follow) drive = null; rollTo(dir > 0 ? lo(next) : hi(next), performance.now()); }
+    if (next >= 0) { if (drive === follow) drive = null; rollTo(dir > 0 ? lo(next) : hi(next), performance.now(), STEP_KICK); }
   };
   addEventListener("wheel", e => {
     if (e.ctrlKey || !e.deltaY) return;
