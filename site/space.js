@@ -15,7 +15,8 @@ const BG = "#0f1216";
 let renderer;
 try {
   if (reduced.matches) throw new Error("reduced motion");
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+  // Falls back to the static page when WebGL would run on the CPU, which can't keep up with the scene
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance", failIfMajorPerformanceCaveat: true });
 } catch {
   renderer = null;
 }
