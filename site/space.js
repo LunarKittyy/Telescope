@@ -576,14 +576,14 @@ function start() {
     tilt.add(body, atmosphere(R, "#b3a3e8"));
     const ringMat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false, side: THREE.DoubleSide,
-      uniforms: { uLight: { value: LIGHT }, uCenter: { value: new THREE.Vector3() }, uR: { value: R }, uFade: { value: 1 } },
+      uniforms: { uLight: { value: LIGHT }, uCenter: { value: new THREE.Vector3() }, uR: { value: R }, uShadowR: { value: R }, uFade: { value: 1 } },
       vertexShader: `varying vec2 vP; varying vec3 vW; void main() { vP = position.xy; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
-      fragmentShader: NOISE + `uniform vec3 uLight, uCenter; uniform float uR, uFade; varying vec2 vP; varying vec3 vW;
+      fragmentShader: NOISE + `uniform vec3 uLight, uCenter; uniform float uR, uShadowR, uFade; varying vec2 vP; varying vec3 vW;
         void main() { float r = length(vP) / uR;
           float bands = 0.45 + 0.55 * noise(vec3(r * 22.0, 0.0, 0.0)) * (0.6 + 0.4 * sin(r * 70.0));
           float a = bands * smoothstep(1.35, 1.5, r) * (1.0 - smoothstep(2.15, 2.35, r)) * (1.0 - 0.7 * smoothstep(1.78, 1.82, r) * (1.0 - smoothstep(1.86, 1.9, r)));
           vec3 d = vW - uCenter; float along = dot(d, uLight); float perp = length(d - along * uLight);
-          float shadow = along < 0.0 ? smoothstep(uR * 0.92, uR * 1.04, perp) : 1.0;
+          float shadow = along < 0.0 ? smoothstep(uShadowR * 0.92, uShadowR * 1.04, perp) : 1.0;
           vec3 col = mix(vec3(0.78, 0.72, 0.9), vec3(0.93, 0.86, 0.8), noise(vec3(r * 9.0, 2.0, 0.0)));
           gl_FragColor = vec4(col * (0.15 + 0.85 * shadow), a * 0.75 * uFade); }`,
     });
@@ -643,6 +643,8 @@ function start() {
         group.getWorldPosition(ringMat.uniforms.uCenter.value);
         g.center.copy(ringMat.uniforms.uCenter.value);
         g.r.value = R * group.scale.x;
+        // The shadow is worked out in world space, so it shrinks with the planet on narrow screens
+        ringMat.uniforms.uShadowR.value = R * group.scale.x;
         // Wakes up once you're at this stop and goes back to sleep after you leave
         awake = Math.min(1, Math.max(0, awake + (here > 0.5 ? 1 : -1) * dt * 0.5));
         const open = smooth(clamp01(awake * 1.8)), raise = smooth(clamp01(awake * 1.8 - 0.7)), lit = smooth(clamp01(awake * 2.5 - 1.4));
