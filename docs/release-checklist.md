@@ -84,6 +84,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 - [ ] FPS: the dropdown grays out rates the camera doesn't list (48 and 60 on a 30 fps phone). On a phone that lists 60, picking 60 shows about 60 in the footer; Copy diagnostics shows what the camera actually did.
 - [ ] Microphone, Linux (Fedora/Nobara, PipeWire): switching it on while streaming makes "Telescope Microphone" appear; Audacity or a call records the phone; switching off or quitting removes it. Lip-sync looks right by eye. A 30-minute run doesn't drift, and unplugging and replugging recovers.
 - [ ] Microphone, Windows: without VB-Cable the card says so and links it; with it, apps record from CABLE Output.
+- [ ] Microphone card: the meter moves with your voice even when no app is recording, and its dot goes yellow on a loud clap (red with the limiter off in Advanced). Mute (card and tray) gives silence without the mic disappearing from the call app. Gain changes and typed values are audible without crackle, and Advanced's Max gain changes the slider's range. On Windows too.
 - [ ] Microphone permission: the first request makes the phone's Get set up card show Microphone; allowing it there starts the audio within a few seconds, without restarting the stream. Recording keeps going with the phone's screen off.
 - [ ] Canvas size change (Linux and Windows) restarts cleanly.
 - [ ] Linux, module not loaded: Start asks once, with the startup box ticked; after a reboot Start doesn't ask. Unticked: it asks again after a reboot.
