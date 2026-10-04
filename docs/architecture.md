@@ -155,6 +155,7 @@ telescope/
             |-- banner.py        # In-window problem banners
             |-- common.py        # NoScroll*, LogSliderRow, rows, segmented toggles, icons
             |-- qr.py            # QR code widget
+            |-- level_meter.py   # The Microphone card's level meter
             +-- lens_panel.py    # Lens picker widget
 ```
 
