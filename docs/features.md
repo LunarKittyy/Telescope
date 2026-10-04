@@ -36,6 +36,8 @@ The Presets button in the header saves the camera, output and transform settings
 - The phone's mic as a microphone on the computer while streaming, with the phone's noise suppression when it has it
 - Linux: Telescope creates **Telescope Microphone** through PulseAudio or PipeWire. Nothing to install on most desktops
 - Windows: needs [VB-Audio Virtual Cable](https://vb-audio.com/Cable/) (free). Pick **CABLE Output** as the microphone in other apps. The card links to it if it's missing
+- Gain from -24 dB up to +12 dB (Advanced lets it go to +24, +36 or +48 instead; type a value for an exact one), and a level meter that holds the latest peak, lights yellow while the limiter holds loud moments down and red when the sound clips. The limiter is on by default (Advanced)
+- **Mute** (in the card or the tray menu) sends silence without disconnecting the mic, for call apps that can't mute. It resets when the app restarts
 
 ## Monitoring
 - FPS and throughput in the footer. When the stream can't keep up, a note suggests what to try, with a button for it

@@ -2,10 +2,11 @@ import logging
 import threading
 from typing import Optional
 
-from PyQt6.QtCore import Qt, QTimer, QUrl, pyqtSignal
+from PyQt6.QtCore import QSize, Qt, QTimer, QUrl, pyqtSignal
 from PyQt6.QtGui import QAction, QDesktopServices, QGuiApplication
 from PyQt6.QtWidgets import (
-    QCheckBox, QDialog, QHBoxLayout, QInputDialog, QLabel, QPushButton, QWidget,
+    QButtonGroup, QCheckBox, QDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QPushButton, QScrollArea, QVBoxLayout,
+    QWidget,
 )
 
 from telescope import diagnostics, vcam
@@ -22,8 +23,8 @@ from telescope.platform.windows import (
 from telescope.plugin import TelescopePlugin
 from telescope.version import display_version
 from telescope.widgets.common import (
-    NoScrollComboBox, NoScrollSpinBox, action_button, add_card_header, button_row, card_layout,
-    control_row, create_card, dialog_buttons, dialog_header, dialog_layout, run_off_ui_thread,
+    NoScrollComboBox, NoScrollSpinBox, SegmentButton, action_button, add_card_header, button_row, card_layout,
+    control_row, create_card, dialog_buttons, dialog_header, dialog_layout, run_off_ui_thread, segmented_row,
     set_status_kind, set_ui_role, ui_px, wrapped_note,
 )
 
@@ -66,8 +67,27 @@ def _custom_size(cfg: dict) -> tuple[int, int]:
 
 DEFAULT_MAX_ZOOM = 10
 MAX_ZOOM_RANGE = (2, 30)
+MAX_GAIN_CHOICES = (12, 24, 36, 48)
+DEFAULT_MAX_GAIN = 12
 
 _SUDO_HINT = "Asks for your password (pkexec or sudo): this changes system settings."
+
+
+SCREEN_MARGIN = 48  # px the dialog keeps clear of the screen edges
+
+
+class _FitScroll(QScrollArea):
+    """Asks for its content's full height, so the dialog opens as tall as the screen allows and scrolls past that."""
+
+    def __init__(self):
+        super().__init__()
+        self.setWidgetResizable(True)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+
+    def sizeHint(self) -> QSize:
+        inner = self.widget().sizeHint() if self.widget() else QSize()
+        return QSize(inner.width() + self.verticalScrollBar().sizeHint().width(), inner.height())
 
 
 class AdvancedDialog(QDialog):
@@ -81,7 +101,8 @@ class AdvancedDialog(QDialog):
     _sig_uc_msg       = pyqtSignal(str)
     _sig_apk_done     = pyqtSignal(bool, str)
 
-    def __init__(self, parent=None, on_apply_canvas=None, report=None, on_max_zoom=None):
+    def __init__(self, parent=None, on_apply_canvas=None, report=None, on_max_zoom=None, on_max_gain=None,
+                 on_limiter=None):
         super().__init__(parent)
         self._report = report
         self._uc_installing = False
@@ -90,6 +111,8 @@ class AdvancedDialog(QDialog):
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self._on_apply_canvas = on_apply_canvas
         self._on_max_zoom = on_max_zoom
+        self._on_max_gain = on_max_gain
+        self._on_limiter = on_limiter
         self._build_ui()
         self._sig_v4l_result.connect(self._on_v4l_result)
         self._sig_v4l_unload.connect(self._on_v4l_unload_result)
@@ -100,7 +123,18 @@ class AdvancedDialog(QDialog):
                                   if hasattr(self, "_uc_status_lbl") else None)
         self._sig_apk_done.connect(self._on_apk_done)
 
+    def _fit_height(self):
+        # Not adjustSize(): Qt caps that at two thirds of the screen
+        screen = self.screen() or QGuiApplication.primaryScreen()
+        if screen is None:
+            self.adjustSize()
+            return
+        cap = screen.availableGeometry().height() - SCREEN_MARGIN
+        self.setMaximumHeight(cap)
+        self.resize(max(self.width(), self.sizeHint().width()), min(self.sizeHint().height(), cap))
+
     def showEvent(self, event):
+        self._fit_height()
         super().showEvent(event)
         if IS_LINUX:
             self._v4l_check()
@@ -110,8 +144,16 @@ class AdvancedDialog(QDialog):
 
     def _build_ui(self):
         lay = dialog_layout(self)
-        dialog_header(lay, "Advanced", "Virtual camera module, output canvas, zoom range, and installing the phone "
-                                   "app over USB.")
+        dialog_header(lay, "Advanced", "Virtual camera module, output canvas, zoom and gain range, and "
+                                   "installing the phone app over USB.")
+        # The cards scroll; the title, version row and Close stay put
+        scroll = _FitScroll()
+        content = QWidget()
+        body = QVBoxLayout(content)
+        body.setContentsMargins(0, 0, 6, 0)  # room for the scrollbar beside the cards
+        body.setSpacing(lay.spacing())
+        scroll.setWidget(content)
+        lay.addWidget(scroll, 1)
 
         # ── Virtual camera ────────────────────────────────────────────────────
         vc_card = create_card()
@@ -169,7 +211,7 @@ class AdvancedDialog(QDialog):
             self._adb_status_lbl = QLabel("Checking...")
             set_status_kind(self._adb_status_lbl, "status_dim")
             vc_lay.addLayout(control_row("ADB", self._adb_status_lbl, stretch=True))
-        lay.addWidget(vc_card)
+        body.addWidget(vc_card)
 
         # ── Phone app ─────────────────────────────────────────────────────────
         apk_card = create_card()
@@ -186,7 +228,7 @@ class AdvancedDialog(QDialog):
         apk_lay.addLayout(control_row("", wrapped_note(
             "Installs the Telescope.apk that came with this app, or one you pick, on a phone plugged "
             "in over USB."), stretch=True))
-        lay.addWidget(apk_card)
+        body.addWidget(apk_card)
 
         # ── Zoom ──────────────────────────────────────────────────────────────
         zoom_card = create_card()
@@ -202,7 +244,31 @@ class AdvancedDialog(QDialog):
         zoom_lay.addLayout(control_row("", wrapped_note(
             "How far the Zoom slider goes. Past what the phone can zoom itself, the rest is cropped on "
             "this computer."), stretch=True))
-        lay.addWidget(zoom_card)
+        body.addWidget(zoom_card)
+
+        # ── Microphone ────────────────────────────────────────────────────────
+        mic_card = create_card()
+        mic_lay = card_layout(mic_card)
+        add_card_header(mic_lay, "Microphone", "mic")
+        self._max_gain_btns = {db: SegmentButton(f"+{db} dB") for db in MAX_GAIN_CHOICES}
+        self._max_gain_grp = QButtonGroup(mic_card)
+        self._max_gain_grp.setExclusive(True)
+        for db, btn in self._max_gain_btns.items():
+            self._max_gain_grp.addButton(btn, db)
+        self._max_gain_btns[DEFAULT_MAX_GAIN].setChecked(True)
+        self._max_gain_grp.idClicked.connect(
+            lambda db: self._on_max_gain(db) if self._on_max_gain else None)
+        mic_lay.addLayout(control_row("Max gain", segmented_row(*self._max_gain_btns.values()), stretch=True))
+        mic_lay.addLayout(control_row("", wrapped_note(
+            "How far the Gain slider goes. Less range gives finer steps; more helps a quiet phone."), stretch=True))
+        self._limiter_chk = QCheckBox("On")
+        self._limiter_chk.setChecked(True)
+        self._limiter_chk.toggled.connect(lambda on: self._on_limiter(on) if self._on_limiter else None)
+        mic_lay.addLayout(control_row("Limiter", self._limiter_chk))
+        mic_lay.addLayout(control_row("", wrapped_note(
+            "Holds loud moments (a laugh, a cough) just under the top smoothly, instead of letting them crackle."),
+            stretch=True))
+        body.addWidget(mic_card)
 
         # ── Canvas ──────────────────────────────────────────────────────────
         adv_card = create_card()
@@ -264,8 +330,8 @@ class AdvancedDialog(QDialog):
         self._canvas_status_row.setVisible(False)
         adv_lay.addWidget(self._canvas_status_row)
 
-        lay.addWidget(adv_card)
-        lay.addStretch(1)
+        body.addWidget(adv_card)
+        body.addStretch(1)
 
         version_lbl = QLabel(f"Telescope {display_version()}")
         version_lbl.setObjectName("dim")
@@ -354,6 +420,14 @@ class AdvancedDialog(QDialog):
     def get_canvas_preset_label(self) -> str:
         return self._canvas_combo.currentText()
 
+    def set_max_gain(self, value: int):
+        self._max_gain_btns[value].setChecked(True)
+
+    def set_limiter(self, on: bool):
+        self._limiter_chk.blockSignals(True)  # syncing the stored value isn't a change
+        self._limiter_chk.setChecked(on)
+        self._limiter_chk.blockSignals(False)
+
     def set_max_zoom(self, value: int):
         self._max_zoom_spin.blockSignals(True)  # syncing the stored value isn't a change
         self._max_zoom_spin.setValue(value)
@@ -408,7 +482,7 @@ class AdvancedDialog(QDialog):
         set_status_kind(self._persist_status_lbl, "status_dim")
         self._persist_status_lbl.setText("Working...")
         self._persist_row.setVisible(True)
-        self.adjustSize()
+        self._fit_height()
         action = v4l2_persist_enable if checked else v4l2_persist_disable
         threading.Thread(target=lambda: self._sig_persist_result.emit(*as_text(action())), daemon=True).start()
 
@@ -422,7 +496,7 @@ class AdvancedDialog(QDialog):
         set_status_kind(self._persist_status_lbl, "status_ok" if ok else "status_err")
         self._persist_status_lbl.setText(msg)
         self._persist_row.setVisible(True)
-        self.adjustSize()
+        self._fit_height()
 
     # ── Windows ───────────────────────────────────────────────────────────────
 
@@ -559,6 +633,8 @@ class SetupPlugin(TelescopePlugin):
         self._bus = bus
         self._dlg: Optional[AdvancedDialog] = None
         self._max_zoom = DEFAULT_MAX_ZOOM
+        self._max_gain = DEFAULT_MAX_GAIN
+        self._limiter = True
         self._canvas_preset = "Auto (from first frame)"
         self._custom_w = 1920
         self._custom_h = 1080
@@ -580,9 +656,12 @@ class SetupPlugin(TelescopePlugin):
         if self._dlg is None:
             self._dlg = AdvancedDialog(self._host, on_apply_canvas=self._on_apply_canvas,
                                        report=self._host.diagnostics_report,
-                                       on_max_zoom=self._on_max_zoom)
+                                       on_max_zoom=self._on_max_zoom, on_max_gain=self._on_max_gain,
+                                       on_limiter=self._on_limiter)
         self._dlg.set_canvas_preset(self._canvas_preset, self._custom_w, self._custom_h)
         self._dlg.set_max_zoom(self._max_zoom)
+        self._dlg.set_max_gain(self._max_gain)
+        self._dlg.set_limiter(self._limiter)
         self._dlg.show()
         self._dlg.raise_()
         self._dlg.activateWindow()
@@ -605,12 +684,24 @@ class SetupPlugin(TelescopePlugin):
         self._bus.max_zoom_changed.emit(value)
         self._host.schedule_save()
 
+    def _on_max_gain(self, value: int):
+        self._max_gain = value
+        self._bus.max_gain_changed.emit(value)
+        self._host.schedule_save()
+
+    def _on_limiter(self, on: bool):
+        self._limiter = on
+        self._bus.limiter_changed.emit(on)
+        self._host.schedule_save()
+
     def get_config(self) -> dict:
         return {
             "canvas_preset":   self._canvas_preset,
             "custom_canvas_w": self._custom_w,
             "custom_canvas_h": self._custom_h,
             "max_zoom":        self._max_zoom,
+            "max_gain":        self._max_gain,
+            "limiter":         self._limiter,
         }
 
     def set_config(self, cfg: dict):
@@ -621,3 +712,8 @@ class SetupPlugin(TelescopePlugin):
             MAX_ZOOM_RANGE[0] <= max_zoom <= MAX_ZOOM_RANGE[1]
         self._max_zoom = max_zoom if valid else DEFAULT_MAX_ZOOM
         self._bus.max_zoom_changed.emit(self._max_zoom)
+        max_gain = cfg.get("max_gain", DEFAULT_MAX_GAIN)
+        self._max_gain = max_gain if max_gain in MAX_GAIN_CHOICES and not isinstance(max_gain, bool) else DEFAULT_MAX_GAIN
+        self._bus.max_gain_changed.emit(self._max_gain)
+        self._limiter = cfg.get("limiter", True) is not False  # only an explicit off turns it off
+        self._bus.limiter_changed.emit(self._limiter)

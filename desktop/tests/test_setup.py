@@ -435,6 +435,32 @@ def test_max_zoom_spinbox_applies_straight_away(qapp):
     plugin._dlg.hide()
 
 
+@pytest.mark.parametrize("stored,expected", [(None, 12), (48, 48), (24, 24), (30, 12), ("36", 12), (True, 12)])
+def test_max_gain_loads_with_a_safe_fallback_and_is_announced(qapp, stored, expected):
+    bus = EventBus()
+    seen = []
+    bus.max_gain_changed.connect(seen.append)
+    plugin = SetupPlugin()
+    plugin.setup(_Host(), bus)
+    plugin.set_config({} if stored is None else {"max_gain": stored})
+    assert plugin.get_config()["max_gain"] == expected
+    assert seen == [expected]
+
+
+def test_max_gain_buttons_apply_straight_away(qapp):
+    host, bus = _Host(), EventBus()
+    seen = []
+    bus.max_gain_changed.connect(seen.append)
+    plugin = SetupPlugin()
+    plugin.setup(host, bus)
+    plugin.set_config({"max_gain": 36})
+    plugin._open()
+    assert plugin._dlg._max_gain_btns[36].isChecked()
+    plugin._dlg._max_gain_btns[48].click()
+    assert seen == [36, 48] and plugin.get_config()["max_gain"] == 48 and host.saves >= 1
+    plugin._dlg.hide()
+
+
 def test_a_driver_install_that_crashes_still_frees_the_button(monkeypatch, windows_dialog, tmp_path):
     monkeypatch.setattr(setup_mod.threading, "Thread", _ImmediateThread)
     monkeypatch.setattr(setup_mod, "unitycapture_dir", lambda: tmp_path)
@@ -443,3 +469,40 @@ def test_a_driver_install_that_crashes_still_frees_the_button(monkeypatch, windo
     windows_dialog._install_uc()
     assert windows_dialog._uc_btn.isEnabled()
     assert "read-only folder" in windows_dialog._uc_status_lbl.text()
+
+
+def test_advanced_scrolls_instead_of_growing_past_the_screen(qapp):
+    from PyQt6.QtWidgets import QScrollArea
+    plugin = SetupPlugin()
+    plugin.setup(_Host(), EventBus())
+    plugin._open()
+    dlg = plugin._dlg
+    avail = dlg.screen().availableGeometry().height()
+    assert dlg.height() <= avail - setup_mod.SCREEN_MARGIN
+    assert dlg.findChild(QScrollArea).widget().sizeHint().height() > 0
+    dlg.hide()
+
+
+@pytest.mark.parametrize("stored,expected", [(None, True), (False, False), (True, True), ("off", True)])
+def test_limiter_defaults_on_and_is_announced(qapp, stored, expected):
+    bus = EventBus()
+    seen = []
+    bus.limiter_changed.connect(seen.append)
+    plugin = SetupPlugin()
+    plugin.setup(_Host(), bus)
+    plugin.set_config({} if stored is None else {"limiter": stored})
+    assert plugin.get_config()["limiter"] is expected and seen == [expected]
+
+
+def test_limiter_switch_applies_straight_away(qapp):
+    host, bus = _Host(), EventBus()
+    seen = []
+    bus.limiter_changed.connect(seen.append)
+    plugin = SetupPlugin()
+    plugin.setup(host, bus)
+    plugin.set_config({})
+    plugin._open()
+    assert plugin._dlg._limiter_chk.isChecked()
+    plugin._dlg._limiter_chk.setChecked(False)
+    assert seen == [True, False] and plugin.get_config()["limiter"] is False and host.saves >= 1
+    plugin._dlg.hide()
