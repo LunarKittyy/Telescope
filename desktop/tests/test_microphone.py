@@ -1,3 +1,5 @@
+import pytest
+
 from telescope.plugin import EventBus
 from telescope.plugins.microphone import MicrophonePlugin
 
@@ -39,7 +41,14 @@ class _Worker:
     def __init__(self, url, auth, open_sink, on_status):
         self.url, self.auth, self.on_status = url, auth, on_status
         self.started = self.stopped = False
+        self.muted = False
+        self.gain = 1.0
+        self.limit = True
+        self.level = (0.0, 0.0, False)
         _Worker.made.append(self)
+
+    def take_level(self):
+        return self.level
 
     def start(self):
         self.started = True
@@ -85,10 +94,10 @@ def test_on_follows_the_stream(qapp):
     assert w.started and w.url == "http://10.0.0.5:8080/v1/audio" and w.auth == "tok"
     w.on_status("ok", "")
     p._on_worker_status("ok", "")
-    assert "Telescope Microphone" in p._status.text()
+    assert p._status_row.isHidden()  # the meter shows it's working
     p.on_stream_stop()
     assert w.stopped
-    assert p.get_config() == {"enabled": True}
+    assert p.get_config() == {"enabled": True, "gain_db": 0}
 
 
 def test_audio_follows_the_stream_onto_another_route(qapp):
@@ -187,3 +196,94 @@ def test_switching_off_queues_teardown_after_the_stop(qapp):
     for job in jobs:
         job()
     assert w.stopped and backend.torn_down == 1
+
+
+def test_mute_writes_silence_without_dropping_the_mic_and_isnt_saved(qapp):
+    p = _plugin(_Backend())
+    assert p._mute_btn.isHidden() and p._level_row.isHidden()  # off: nothing to mute
+    p._toggle.setChecked(True)
+    assert not p._mute_btn.isHidden() and not p._level_row.isHidden()
+    p._mute_btn.setChecked(True)  # before the stream: the worker starts muted
+    p.on_stream_start("url", _Ctrl())
+    w = _Worker.made[-1]
+    assert w.muted and not w.stopped
+    assert p._mute_btn.text() == "Unmute" and p._readout.text() == "Muted"
+    p._mute_btn.setChecked(False)
+    assert not w.muted and p._mute_btn.text() == "Mute"
+    assert p.get_config() == {"enabled": True, "gain_db": 0}
+
+
+def test_meter_follows_the_worker_and_clears_when_the_stream_stops(qapp):
+    p = _plugin(_Backend())
+    p.set_config({"enabled": True})
+    p.on_stream_start("url", _Ctrl())
+    assert p._meter_timer.isActive()
+    _Worker.made[-1].level = (0.5, 0.2, False)
+    p._tick_meter()
+    assert p._readout.text() == "-6 dB"
+    p.on_stream_stop()
+    assert not p._meter_timer.isActive() and p._readout.text() == ""
+
+
+def test_gain_reaches_the_worker_and_is_saved_per_phone(qapp):
+    p = _plugin(_Backend())
+    p.set_config({"enabled": True, "gain_db": 6})
+    assert p._gain_spin.text() == "+6 dB" and not p._gain_row.isHidden()
+    p.on_stream_start("url", _Ctrl())
+    w = _Worker.made[-1]
+    assert w.gain == pytest.approx(1.995, abs=0.001)
+    p._gain_slider.setValue(-30)  # past the end: held at the minimum
+    assert w.gain == pytest.approx(10 ** (-24 / 20)) and p._gain_spin.text() == "-24 dB"
+    assert p.get_config() == {"enabled": True, "gain_db": -24}
+    p.set_config({"enabled": True, "gain_db": "junk"})
+    assert w.gain == 1.0 and p._gain_spin.text() == "0 dB"
+
+
+def test_typing_a_gain_moves_the_slider(qapp):
+    p = _plugin(_Backend())
+    p.set_config({"enabled": True})
+    p._gain_spin.setValue(9)  # what Enter does after typing +9
+    assert p._gain_slider.value() == 9 and p.get_config()["gain_db"] == 9
+
+
+def test_max_gain_from_advanced_sets_the_range_and_pulls_a_higher_gain_down(qapp):
+    bus = EventBus()
+    _Worker.made = []
+    p = MicrophonePlugin(backend=_Backend(), worker_cls=_Worker, run_job=lambda fn: fn())
+    p.setup(_Host(), bus)
+    bus.max_gain_changed.emit(48)  # Setup's config loads before the card is built
+    _PANELS.append(p.create_panel())
+    p.set_config({"enabled": True, "gain_db": 40})
+    assert p._gain_slider.maximum() == 48 and p._gain_spin.maximum() == 48 and p.get_config()["gain_db"] == 40
+    bus.max_gain_changed.emit(12)
+    assert p._gain_slider.maximum() == 12 and p.get_config()["gain_db"] == 12 and p._gain_spin.value() == 12
+
+
+def test_tray_mute_follows_the_card_both_ways(qapp):
+    p = _plugin(_Backend())
+    [tray] = p.create_tray_actions()
+    assert not tray.isVisible()  # mic off: nothing to mute
+    p.set_config({"enabled": True})
+    assert tray.isVisible() and not tray.isChecked()
+    tray.trigger()
+    assert p._mute_btn.isChecked() and p._mute_btn.text() == "Unmute"
+    p._mute_btn.setChecked(False)
+    assert not tray.isChecked()
+
+
+def test_limiter_switch_from_advanced_reaches_the_worker(qapp):
+    bus = EventBus()
+    _Worker.made = []
+    p = MicrophonePlugin(backend=_Backend(), worker_cls=_Worker, run_job=lambda fn: fn())
+    p.setup(_Host(), bus)
+    bus.limiter_changed.emit(False)
+    _PANELS.append(p.create_panel())
+    p.set_config({"enabled": True})
+    p.on_stream_start("url", _Ctrl())
+    w = _Worker.made[-1]
+    assert w.limit is False
+    bus.limiter_changed.emit(True)
+    assert w.limit is True
+    w.level = (0.89, 0.3, True)
+    p._tick_meter()
+    assert p._meter.limiting() and not p._meter.clipping()

@@ -2046,3 +2046,21 @@ def test_a_lens_switch_or_new_size_lets_the_stream_settle_before_it_counts_as_be
     window._session = None
     window._bus.camera_switched.emit({"id": "0"})  # not streaming: nothing to settle
     assert settled == [True, True]
+
+
+def test_plugin_tray_actions_go_between_show_and_quit(window):
+    menu = QMenu()
+    menu.addAction("Show")
+    window._tray_quit_sep = menu.addSeparator()
+    menu.addAction("Quit")
+    window._tray = SimpleNamespace(contextMenu=lambda: menu)
+
+    class _Muting(TelescopePlugin):
+        def create_tray_actions(self):
+            self.action = QAction("Mute microphone")
+            return [self.action]
+
+    plugin = _Muting()
+    window.register_plugin(plugin)
+    assert [a.text() for a in menu.actions()] == ["Show", "Mute microphone", "", "Quit"]
+    assert plugin.action.parent() is menu

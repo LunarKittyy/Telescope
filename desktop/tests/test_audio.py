@@ -4,6 +4,7 @@ import json
 import time
 import urllib.error
 
+import numpy as np
 import pytest
 
 
@@ -295,3 +296,102 @@ def test_vb_cable_is_found_by_its_playback_end():
                {"name": "CABLE Input (VB-Audio Virtual Cable)", "max_output_channels": 2}]
     assert virtual_mic.find_vb_cable(devices) == 2
     assert virtual_mic.find_vb_cable(devices[:2]) is None
+
+
+def _chunk(value: int) -> bytes:
+    return np.full(audio.CHUNK // 2, value, np.int16).tobytes()
+
+
+def test_muting_fades_out_over_one_chunk_then_writes_silence():
+    w, _ = _worker(None, _Sink())
+    assert w._mute(_chunk(1000)) == _chunk(1000)
+    w.muted = True
+    faded = np.frombuffer(w._mute(_chunk(1000)), np.int16)
+    assert faded[0] == 1000 and faded[-1] == 0 and np.all(np.diff(faded) <= 0)
+    assert w._mute(_chunk(1000)) == bytes(audio.CHUNK)
+    w.muted = False
+    back = np.frombuffer(w._mute(_chunk(1000)), np.int16)
+    assert back[0] == 0 and back[-1] == 1000
+    assert w._mute(_chunk(1000)) == _chunk(1000)
+
+
+def test_level_is_the_loudest_since_the_last_look_and_ignores_mute():
+    w, _ = _worker(None, _Sink())
+    w.muted = True
+    w._measure(_chunk(16384))
+    w._measure(_chunk(-32768))
+    w._measure(_chunk(100))
+    peak, rms, limited = w.take_level()
+    assert peak == pytest.approx(audio.LIMIT_CEILING) and limited  # the limiter's ceiling, not a clip
+    w.limit = False
+    w._measure(_chunk(-32768))
+    assert w.take_level()[:2] == (1.0, pytest.approx(1.0, abs=0.001))
+    assert w.take_level() == (0.0, 0.0, False)
+
+
+def test_gain_fades_to_its_new_level_and_clips_at_full_scale_without_the_limiter():
+    w, _ = _worker(None, _Sink())
+    w.limit = False
+    w.gain = 4.0
+    ramped = np.frombuffer(w._shape(_chunk(1000)), np.int16)
+    assert ramped[0] == 1000 and ramped[-1] == 4000
+    assert w._shape(_chunk(1000)) == _chunk(4000)
+    assert w._shape(_chunk(20000)) == _chunk(32767)
+    assert w._shape(_chunk(-20000)) == _chunk(-32768)
+    w.gain = 1.0
+    w._shape(_chunk(1000))
+    assert w._shape(_chunk(1000)) == _chunk(1000)
+
+
+def test_level_counts_the_gain_and_keeps_samples_whole_across_odd_reads():
+    w, _ = _worker(None, _Sink())
+    w.gain = 2.0
+    data = _chunk(8000)
+    w._measure(data[:3])
+    w._measure(data[3:])
+    peak, rms, _ = w.take_level()
+    assert peak == pytest.approx(16000 / 32767) and rms == pytest.approx(peak)
+    w.gain = 8.0
+    w.limit = False
+    w._measure(_chunk(8000))
+    assert w.take_level()[0] == 1.0
+
+
+def test_meter_keeps_moving_while_nothing_reads_the_mic():
+    pcm = np.full(48_000, 16384, np.int16).tobytes()
+
+    class _StuckSink(_Sink):
+        def write(self, b):
+            time.sleep(10)  # PipeWire suspended the mic and stopped reading the pipe
+
+    w, _ = _worker(lambda req, timeout: _Resp(pcm), _StuckSink())
+    seen = []
+    w.start()
+    assert _until(lambda: seen.append(w.take_level()[0]) or max(seen) > 0.4)  # each look resets the level
+    w._stop.set()
+
+
+def _wave(amp: float, n: int = audio.CHUNK // 2, phase: int = 0) -> bytes:
+    t = np.arange(phase, phase + n)
+    return (np.sin(2 * np.pi * 440 * t / audio.RATE) * amp).astype(np.int16).tobytes()
+
+
+def test_limiter_holds_loud_peaks_under_the_ceiling_then_lets_go_slowly():
+    w, _ = _worker(None, _Sink())
+    w.gain = 4.0  # +12 dB on a wave at about -6 dBFS would clip hard
+    ceiling = audio.LIMIT_CEILING * 32767
+    w._shape(_wave(16000))
+    outs = [np.frombuffer(w._shape(_wave(16000, phase=i * 480)), np.int16) for i in range(1, 20)]
+    assert all(np.abs(o).max() <= ceiling * 10 ** (0.1 / 20) for o in outs)  # the 1 ms attack may overshoot a hair
+    assert not any(np.abs(o).max() >= 32767 for o in outs)
+    w._shape(_wave(1000))  # quiet again: the gain comes back over time, not at once
+    assert w._limit_gain < 0.5
+    for _ in range(200):
+        w._shape(_wave(1000))
+    assert w._limit_gain == 1.0
+
+
+def test_quiet_audio_goes_through_untouched_with_the_limiter_on():
+    w, _ = _worker(None, _Sink())
+    quiet = _wave(3000)
+    assert w._shape(quiet) == quiet

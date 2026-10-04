@@ -521,6 +521,14 @@ QPushButton#card_action:hover {{
     border-color: {BORDER_HOVER};
     color: {TEXT};
 }}
+QPushButton#card_action[muted=true] {{
+    border-color: #5a3134;
+    color: {ERR};
+}}
+QPushButton#card_action[muted=true]:hover {{
+    background-color: #2a1d20;
+    border-color: {ERR};
+}}
 QFrame#focus_marker {{
     background: transparent;
     border: 2px solid {ACCENT_SOFT};

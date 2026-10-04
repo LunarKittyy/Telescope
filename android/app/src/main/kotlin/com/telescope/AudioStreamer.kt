@@ -36,7 +36,7 @@ class AudioStreamer(private val context: Context, private val onChunk: (ByteArra
             AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
         if (minBuf <= 0) return false
         val record = try {
-            AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION, AudioStream.SAMPLE_RATE,
+            AudioRecord(MediaRecorder.AudioSource.CAMCORDER, AudioStream.SAMPLE_RATE,
                 AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
                 maxOf(minBuf, AudioStream.CHUNK_BYTES * 4))
         } catch (_: Exception) { return false }

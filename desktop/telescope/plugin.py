@@ -118,6 +118,10 @@ class TelescopePlugin:
     def create_menu_actions(self) -> list:
         """QActions (or a QMenu, shown as a submenu) for the settings menu; lets dialog-only plugins skip a panel."""
         return []
+
+    def create_tray_actions(self) -> list:
+        """QActions for the tray menu, asked for once at startup; the plugin keeps them up to date (visible, checked)."""
+        return []
     def on_stream_starting(self):
         """A stream is about to open the virtual camera; anything holding it while idle lets go now."""
     def on_stream_start(self, stream_url: str, ctrl): ...
@@ -174,6 +178,10 @@ class EventBus(QObject):
     user just moved the framing (the preview shows them for a moment)."""
     max_zoom_changed       = pyqtSignal(int)
     """How far the Zoom slider goes (Advanced); Setup emits it on change and when its config loads."""
+    max_gain_changed       = pyqtSignal(int)
+    """How far the microphone's Gain slider goes, in dB (Advanced); Setup emits it on change and when its config loads."""
+    limiter_changed        = pyqtSignal(bool)
+    """Whether the microphone's limiter is on (Advanced); Setup emits it on change and when its config loads."""
     update_requested       = pyqtSignal()
     """Show the desktop app's update dialog (e.g. the phone app turned out to be newer)."""
     vcam_opened            = pyqtSignal(int, int)

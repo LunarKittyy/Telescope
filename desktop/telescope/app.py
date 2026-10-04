@@ -203,6 +203,11 @@ class TelescopeWindow(QMainWindow):
             slot = self._header_right_slot if plugin.header_side == "right" else self._header_slot
             slot.addWidget(header_widget)
         self._plugins.append(plugin)
+        if self._tray is not None:
+            menu = self._tray.contextMenu()
+            for action in plugin.create_tray_actions():
+                action.setParent(menu)
+                menu.insertAction(self._tray_quit_sep, action)  # between Show and Quit
         if plugin.name:
             self._plugins_by_name[plugin.name] = plugin
         if plugin.name:
@@ -1025,7 +1030,7 @@ class TelescopeWindow(QMainWindow):
         show_action.triggered.connect(self._tray_show)
         quit_action.triggered.connect(self._tray_quit)
         menu.addAction(show_action)
-        menu.addSeparator()
+        self._tray_quit_sep = menu.addSeparator()
         menu.addAction(quit_action)
         self._tray.setContextMenu(menu)
 

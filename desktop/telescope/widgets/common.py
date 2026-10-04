@@ -789,6 +789,8 @@ _ICON_SVG = {
     "preset": f'''<path d="M6.5 3.5h11a1 1 0 0 1 1 1v16l-6.5-4.2-6.5 4.2v-16a1 1 0 0 1 1-1z" {_SOFT}/>''',
     "mic": f'''<rect x="8.5" y="3" width="7" height="11.5" rx="3.5" {_SOFT}/>
         <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"/>''',
+    "mic_off": f'''<rect x="8.5" y="3" width="7" height="11.5" rx="3.5" {_SOFT}/>
+        <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M4 3.5l16 17"/>''',
     "close": '''<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>''',
 }
 
