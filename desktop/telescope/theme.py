@@ -472,6 +472,11 @@ QPushButton[uiRole="quiet"]:checked {{
     border-color: {ACCENT};
     color: {ACCENT_SOFT};
 }}
+QPushButton[uiRole="quiet"][camera_off=true] {{
+    background-color: {SURFACE_RAISE};
+    border-color: {ACCENT};
+    color: {ACCENT_SOFT};
+}}
 QPushButton#lens_button {{
     background-color: {SURFACE_RAISE};
     border: 1px solid {BORDER_STRONG};
@@ -616,6 +621,10 @@ QLabel#preview_surface {{
     border-radius: 11px;
     color: {TEXT_FAINT};
     font-size: 10pt;
+}}
+QLabel#preview_surface[uiRole="camera_off"] {{
+    color: {ACCENT_SOFT};
+    font-size: 11pt;
 }}
 QWidget#preview_toolbar {{
     background-color: {SURFACE};

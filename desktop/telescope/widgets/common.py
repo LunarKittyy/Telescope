@@ -1,10 +1,10 @@
 import math
 import threading
 
-from PyQt6.QtCore import QByteArray, QCoreApplication, QEventLoop, QMetaObject, QThread, QPoint, QRect, QRectF, QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QByteArray, QCoreApplication, QEventLoop, QMetaObject, QThread, QPoint, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtGui import (
-    QBrush, QColor, QFontMetrics, QIcon, QPainter, QPainterPath, QPixmap,
+    QBrush, QColor, QFontMetrics, QIcon, QPainter, QPainterPath, QPen, QPixmap,
 )
 from PyQt6.QtWidgets import (
     QApplication, QComboBox, QDoubleSpinBox, QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLayout, QPushButton,
@@ -751,6 +751,55 @@ def create_app_icon(size: int = 32) -> QIcon:
     return QIcon(pixmap)
 
 
+TRAY_SIZES = (16, 20, 22, 24, 32, 48, 64)  # tray icons are drawn per size, not scaled, so the badges stay crisp
+
+
+def _tray_pixmap(size: int, camera: bool, mic) -> QPixmap:
+    s = size
+    pixmap = create_app_icon(s).pixmap(s, s)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(Qt.PenStyle.NoPen)
+    gap = max(1.0, s / 16)
+    if camera:
+        # The red dot of a recording light, top right, cut clear of the ring so it reads on any panel
+        d = s * 0.36
+        centre = QPointF(s - d / 2 - gap / 2, d / 2 + gap / 2)
+        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Clear)
+        painter.setBrush(Qt.GlobalColor.black)
+        painter.drawEllipse(centre, d / 2 + gap, d / 2 + gap)
+        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
+        painter.setBrush(QColor(theme.ERR))
+        painter.drawEllipse(centre, d / 2, d / 2)
+    if mic:
+        # A dark mic sitting wholly on the ring, bottom right, so the panel never shows through it
+        u = s * 0.44 / 12
+        cx, cy = s * 0.73, s * 0.72
+        dark = QColor(theme.BG)
+        painter.setBrush(dark)
+        painter.drawRoundedRect(QRectF(cx - 1.5 * u, cy - 4 * u, 3 * u, 5 * u), 1.5 * u, 1.5 * u)
+        pen = QPen(dark, max(1.0, 1.1 * u))
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawArc(QRectF(cx - 3 * u, cy - 3.5 * u, 6 * u, 6 * u), 180 * 16, 180 * 16)
+        painter.drawLine(QPointF(cx, cy + 2.5 * u), QPointF(cx, cy + 4 * u))
+        if mic == "muted":
+            pen.setColor(QColor(theme.ERR))
+            painter.setPen(pen)
+            painter.drawLine(QPointF(cx - 3.5 * u, cy - 3.5 * u), QPointF(cx + 3.5 * u, cy + 3.5 * u))
+    painter.end()
+    return pixmap
+
+
+def create_tray_icon(camera: bool = False, mic=None) -> QIcon:
+    """The app mark with what's streaming on it: a red dot for the camera, a mic for the mic (mic="on" or "muted")."""
+    icon = QIcon()
+    for size in TRAY_SIZES:
+        icon.addPixmap(_tray_pixmap(size, camera, mic))
+    return icon
+
+
 # Icon artwork: 24-unit grid, rounded 2.2 strokes, and a soft 25% fill on each
 # icon's main shape so the set has some body at 16-20 px. "{c}" is the colour.
 _SOFT = 'fill="{c}" fill-opacity="0.25"'
@@ -761,6 +810,8 @@ _ICON_SVG = {
         <path d="M6.5 8.5h11v4.5a5.5 5.5 0 0 1-11 0z"/><path d="M12 18.5v3"/>''',
     "camera": f'''<path d="M4.5 7.5h2.8l1.8-2.6h5.8l1.8 2.6h2.8a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18V9a1.5 1.5 0 0 1 1.5-1.5z" {_SOFT}/>
         <circle cx="12" cy="13.2" r="3.4"/>''',
+    "camera_off": f'''<path d="M4.5 7.5h2.8l1.8-2.6h5.8l1.8 2.6h2.8a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18V9a1.5 1.5 0 0 1 1.5-1.5z" {_SOFT}/>
+        <circle cx="12" cy="13.2" r="3.4"/><path d="M3.5 3.5l17 17"/>''',
     "stream": f'''<rect x="3" y="4" width="18" height="12.5" rx="2.2" {_SOFT}/>
         <path d="M8.5 20.5h7M12 16.5v4"/>''',
     "gear": f'''<path d="M4 7h9M19 7h1M4 17h3M13 17h7"/>

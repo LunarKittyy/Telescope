@@ -28,6 +28,26 @@ class _Host:
     def is_streaming(self):
         return self.streaming
 
+    # The phone mic is off unless a test says so: the idle stop then stops, as it always did
+    mic_on = False
+    camera_on = True
+    camera_auto = False
+    camera_calls = []
+
+    def is_camera_on(self):
+        return self.camera_on
+
+    def is_camera_off_auto(self):
+        return not self.camera_on and self.camera_auto
+
+    def can_turn_camera_off(self):
+        return (True, "") if self.mic_on else (False, "Turn on the phone mic first.")
+
+    def set_camera_on(self, on, auto=False):
+        self.camera_calls = self.camera_calls + [(on, auto)]
+        self.camera_on = on
+        self.camera_auto = auto and not on
+
     def is_starting(self):
         return self.starting
 
@@ -635,3 +655,40 @@ def test_windows_run_key_round_trip(monkeypatch):
     autostart.enable([r"C:\Old\TelescopeDesktop.exe"], winreg=fake)
     assert autostart.refresh([r"C:\New\TelescopeDesktop.exe"], winreg=fake) is True
     assert values["Telescope"] == r"C:\New\TelescopeDesktop.exe"
+
+
+# ── With the phone mic on, only the camera turns off ──────────────────────────
+
+def test_with_the_mic_on_the_idle_stop_turns_only_the_camera_off(watching):
+    plugin, host, bus = watching
+    host.mic_on = True
+    bus.camera_watched.emit(True)
+    _stream_runs(host, bus)
+    bus.camera_watched.emit(False)
+    plugin._idle_stop.timeout.emit()
+    assert host.stops == 0 and host.camera_calls == [(False, True)]
+    assert not plugin._idle_stop.isActive()  # nothing more to count down while the camera is off
+    assert host.notes == []  # the tray icon shows it, no notification
+
+
+def test_the_camera_comes_back_when_an_app_opens_it_again(watching):
+    plugin, host, bus = watching
+    host.mic_on = True
+    bus.camera_watched.emit(True)
+    _stream_runs(host, bus)
+    bus.camera_watched.emit(False)
+    plugin._idle_stop.timeout.emit()
+    bus.camera_watched.emit(True)
+    assert host.camera_calls == [(False, True), (True, True)] and host.starts == [False]
+    # and it goes off again the next time the app lets go
+    bus.camera_watched.emit(False)
+    assert plugin._idle_stop.isActive()
+
+
+def test_a_camera_turned_off_by_hand_stays_off_when_an_app_opens_it(watching):
+    plugin, host, bus = watching
+    host.mic_on = True
+    _stream_runs(host, bus)
+    host.set_camera_on(False)  # the user, not the rule
+    bus.camera_watched.emit(True)
+    assert host.camera_calls == [(False, False)]

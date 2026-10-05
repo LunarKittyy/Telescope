@@ -6,7 +6,9 @@ a while: only a stream it started, or any stream). Starting when the phone is re
 becomes ready; after a Stop it waits until the phone goes away and comes back, so Stop sticks. Starting for an app
 happens once while that app reads the camera; after a Stop it waits until the app lets go and something opens the
 camera again. The idle stop never acts before the camera watch has reported at least once, so a machine where it
-can't tell whether an app reads the camera never has its streams stopped under it.
+can't tell whether an app reads the camera never has its streams stopped under it. With the phone mic on, the idle stop
+turns only the camera off and the mic keeps streaming (a call that switched its camera off still hears you); the camera
+comes back on when an app opens it again, and Stop ends the stream.
 """
 
 import logging
@@ -112,8 +114,11 @@ class StartupPlugin(TelescopePlugin):
         self._add_choices(menu, START_CHOICES, self.start_on, self.set_start_on)
         self._add_heading(menu, "Stop")
         self._add_choices(menu, STOP_CHOICES, self.stop_idle, self.set_stop_idle)
-        menu.addSeparator()
         stops = self.stop_idle != STOP_OFF  # the wait and the notice do nothing without an idle stop
+        note = self._add_action(menu, "With the phone mic on, only the camera turns off")
+        note.setEnabled(False)
+        note.setVisible(stops)
+        menu.addSeparator()
         delay = self._add_action(menu, f"Wait before stopping: {delay_text(self.stop_delay_s)}…")
         delay.setEnabled(stops)
         delay.triggered.connect(self._open_delay_dialog)
@@ -236,6 +241,9 @@ class StartupPlugin(TelescopePlugin):
         self._watched = watched
         logger.info("An app %s reading the camera", "started" if watched else "stopped")
         if watched:
+            if self._host.is_streaming() and self._host.is_camera_off_auto():
+                logger.info("An app opened the camera again; turning the phone's camera back on")
+                self._host.set_camera_on(True, auto=True)
             self._maybe_start_for_watch()
         else:
             self._watch_held = False  # the next app to open the camera counts as new
@@ -293,7 +301,7 @@ class StartupPlugin(TelescopePlugin):
     def _counting(self) -> bool:
         """Whether the wait before an idle stop should be running right now. Every doubt means no."""
         return (self._idle_stop_applies() and self._watch_known and not self._watched
-                and (self._host.is_streaming() or self._starting_own))
+                and (self._host.is_streaming() or self._starting_own) and self._host.is_camera_on())
 
     def _sync_idle_timer(self):
         if not self._counting():
@@ -305,6 +313,12 @@ class StartupPlugin(TelescopePlugin):
         if not self._counting():  # something changed since the wait started
             return
         running = self._host.is_streaming() or self._host.is_starting()
+        if self._host.is_streaming() and self._host.can_turn_camera_off()[0]:
+            # The mic is on: a call that switched its camera off still hears it, so only the camera goes
+            logger.info("No app has read the camera for %s; turning the phone's camera off", delay_text(self.stop_delay_s))
+            self._idle_stop.stop()
+            self._host.set_camera_on(False, auto=True)
+            return
         self._forget_own_stream()
         if not running:
             return  # its start already failed; nothing to stop

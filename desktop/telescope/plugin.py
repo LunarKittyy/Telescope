@@ -40,7 +40,24 @@ class HostServices(Protocol):
         ...
 
     def is_streaming(self) -> bool:
-        """Whether a stream worker is currently active."""
+        """Whether a stream is running, the camera off (just the mic) included."""
+        ...
+
+    def is_camera_on(self) -> bool:
+        """False while the stream runs with the camera off, or, before a start, when it will start that way."""
+        ...
+
+    def is_camera_off_auto(self) -> bool:
+        """Whether Automatic streaming turned the camera off (no app was using it), rather than the user."""
+        ...
+
+    def can_turn_camera_off(self) -> tuple:
+        """(whether set_camera_on(False) would work now, and if not, why), for a tooltip."""
+        ...
+
+    def set_camera_on(self, on: bool, auto: bool = False) -> None:
+        """Turn the phone's camera off (the stream carries on with the mic) or on; before a start, what it starts with.
+        auto: Automatic streaming did it, so an app opening the camera may turn it back on."""
         ...
 
     def is_starting(self) -> bool:
@@ -126,6 +143,10 @@ class TelescopePlugin:
         """A stream is about to open the virtual camera; anything holding it while idle lets go now."""
     def on_stream_start(self, stream_url: str, ctrl): ...
     def on_stream_stop(self): ...
+    def on_camera_off(self):
+        """The stream carries on with the camera off: no frames until on_camera_on (after on_stream_starting)."""
+    def on_camera_on(self):
+        """The camera is coming back on mid-stream; on_stream_starting came just before."""
     def on_phone_state(self, state: dict): ...
     def process_frame(self, frame: np.ndarray) -> np.ndarray: return frame
     def get_config(self) -> dict: return {}
@@ -188,6 +209,10 @@ class EventBus(QObject):
     """The stream opened the virtual camera at this width and height."""
     camera_watched         = pyqtSignal(bool)
     """Whether an app is reading the virtual camera (Wait screen watches it)."""
+    camera_on_changed      = pyqtSignal(bool)
+    """The camera went off (the stream is just the mic) or back on, or what the next start uses changed."""
+    mic_changed            = pyqtSignal(bool, bool)
+    """The microphone card was switched on or off, or muted (enabled, muted)."""
     stream_behind          = pyqtSignal(bool)
     """The stream fell behind its frame rate (the throughput readout went amber), or caught up again. Only on a
     change, and never for a dropped stream: that's stream_lost."""

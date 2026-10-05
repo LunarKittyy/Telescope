@@ -15,6 +15,12 @@ class _Host:
     def is_streaming(self):
         return False
 
+    def is_camera_on(self):
+        return True
+
+    def can_turn_camera_off(self):
+        return False, "Turn on the phone mic first."
+
     def schedule_save(self):
         pass
 

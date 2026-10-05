@@ -3,16 +3,34 @@ from PyQt6.QtCore import QEvent
 from PyQt6.QtWidgets import QSizePolicy, QWidget
 
 from telescope.plugin import EventBus
-from telescope.plugins.preview import _IDLE_TEXT, PreviewPlugin, _HostFilter, _PopoutWindow
+from telescope.plugins.preview import (
+    _CAMERA_OFF_AUTO_TEXT, _CAMERA_OFF_TEXT, _IDLE_MIC_TEXT, _IDLE_TEXT, _WAITING_TEXT, PreviewPlugin, _HostFilter,
+    _PopoutWindow,
+)
 
 
 class _Host(QWidget):
-    """Window stand-in; preview checks is_streaming() for placeholder text."""
+    """Window stand-in; preview checks is_streaming() and the camera for placeholder text."""
 
     streaming = False
+    camera_on = True
+    camera_off_auto = False
+    mic_on = True
 
     def is_streaming(self):
         return self.streaming
+
+    def is_camera_on(self):
+        return self.camera_on
+
+    def is_camera_off_auto(self):
+        return not self.camera_on and self.camera_off_auto
+
+    def can_turn_camera_off(self):
+        return (True, "") if self.mic_on else (False, "Turn on the phone mic first.")
+
+    def set_camera_on(self, on, auto=False):
+        self.camera_on = on
 
 
 def _plugin(qapp):
@@ -421,3 +439,57 @@ def test_a_new_stream_frees_a_preview_stuck_waiting_for_a_lost_frame(qapp):
     plugin._busy = True
     plugin.on_stream_start("http://phone/", None)
     assert plugin._busy is False
+
+
+def test_the_camera_button_turns_the_camera_off_and_says_so(qapp):
+    plugin, host, _panel = _plugin(qapp)
+    assert plugin._camera_btn.text().strip() == "Camera" and plugin._camera_btn.isEnabled()
+    plugin._camera_btn.click()
+    assert host.camera_on is False
+    plugin._bus.camera_on_changed.emit(False)
+    assert plugin._camera_btn.text().strip() == "Camera off"
+    assert plugin._camera_btn.property("camera_off") is True
+    # Not streaming yet: the stage says what Start will do
+    assert plugin._preview_lbl.text() == _IDLE_MIC_TEXT
+    plugin._camera_btn.click()
+    plugin._bus.camera_on_changed.emit(True)
+    assert host.camera_on is True and plugin._preview_lbl.text() == _IDLE_TEXT
+
+
+def test_the_camera_can_only_go_off_with_the_mic_on(qapp):
+    plugin, host, _panel = _plugin(qapp)
+    host.mic_on = False
+    plugin._bus.mic_changed.emit(False, False)
+    assert not plugin._camera_btn.isEnabled()
+    assert "mic" in plugin._camera_btn.toolTip()
+    host.camera_on = False  # already off: turning it back on always works
+    plugin._bus.camera_on_changed.emit(False)
+    assert plugin._camera_btn.isEnabled()
+
+
+def test_the_stage_says_the_camera_is_off_and_why(qapp):
+    plugin, host, _panel = _plugin(qapp)
+    host.streaming = True
+    plugin.on_stream_start("u", None)
+    host.camera_on = False
+    plugin.on_camera_off()
+    assert plugin._preview_lbl.text() == _CAMERA_OFF_TEXT
+    assert plugin._preview_lbl.property("uiRole") == "camera_off"
+    host.camera_off_auto = True
+    plugin.on_camera_off()
+    assert plugin._preview_lbl.text() == _CAMERA_OFF_AUTO_TEXT
+    host.camera_on = True
+    plugin.on_camera_on()
+    assert plugin._preview_lbl.text() == _WAITING_TEXT
+    assert plugin._preview_lbl.property("uiRole") == ""
+
+
+def test_a_frame_from_just_before_the_camera_went_off_is_dropped(qapp):
+    plugin, host, _panel = _plugin(qapp)
+    host.streaming = True
+    plugin.on_stream_start("u", None)
+    host.camera_on = False
+    plugin.on_camera_off()
+    plugin._busy = True
+    plugin._on_frame(np.zeros((4, 4, 3), dtype=np.uint8))
+    assert plugin._preview_lbl.pixmap().isNull() and plugin._busy is False

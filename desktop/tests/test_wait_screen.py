@@ -11,11 +11,15 @@ from telescope.plugins.wait_screen import WaitScreenDialog, WaitScreenPlugin
 class _Host:
     def __init__(self):
         self.streaming = False
+        self.camera_on = True
         self.setup_cfg = {}
         self.saves = 0
 
     def is_streaming(self):
         return self.streaming
+
+    def is_camera_on(self):
+        return self.camera_on
 
     def plugin_config(self, name):
         return self.setup_cfg if name == "setup" else None
@@ -91,6 +95,17 @@ def test_gives_the_camera_to_the_stream_and_takes_it_back(env):
     host.streaming = False
     plugin.on_stream_stop()
     assert len(screen.shown) == 2
+
+
+def test_takes_the_camera_back_while_the_stream_has_its_camera_off(env):
+    plugin, host, _bus, screen = env
+    plugin.on_stream_starting()
+    host.streaming = True
+    host.camera_on = False
+    plugin.on_camera_off()
+    assert len(screen.shown) == 2  # the call keeps a picture while the stream is just the mic
+    plugin.on_stream_starting()  # the camera coming back on
+    assert screen.stops == 2
 
 
 def test_a_reader_is_passed_to_the_screen_and_the_bus(env, qapp):

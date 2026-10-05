@@ -1,7 +1,8 @@
 """The wait screen: what the virtual camera shows while nothing streams, and whether an app is reading it.
 
-Holds the camera from app start to quit except while a stream has it. The size follows the stream (the Setup canvas,
-or the size the last stream opened at) so a call that's already watching keeps working when the phone takes over.
+Holds the camera from app start to quit except while a stream has it (a stream with the camera off doesn't). The size
+follows the stream (the Setup canvas, or the size the last stream opened at) so a call that's already watching keeps
+working when the phone takes over.
 """
 
 import logging
@@ -62,7 +63,7 @@ class WaitScreenPlugin(TelescopePlugin):
         return self.last_size or vcam.DEFAULT_SIZE
 
     def _show(self):
-        if self._shut or self._host.is_streaming():
+        if self._shut or (self._host.is_streaming() and self._host.is_camera_on()):
             return
         self._screen.show(self.size(), self.image_path, self.mirror)
 
@@ -71,6 +72,9 @@ class WaitScreenPlugin(TelescopePlugin):
 
     def on_stream_stop(self):
         self._show()
+
+    def on_camera_off(self):
+        self._show()  # at the size the stream had, so an app reading the camera keeps its picture
 
     def _on_vcam_opened(self, w: int, h: int):
         if (w, h) != self.last_size:
