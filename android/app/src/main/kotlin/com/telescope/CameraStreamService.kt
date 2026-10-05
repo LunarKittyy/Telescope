@@ -802,6 +802,7 @@ class CameraStreamService : Service() {
             active_lens = snap?.activeLens,
             camera_off = controller?.isCameraOff() ?: false,
             camera_error = controller?.cameraError,
+            camera_toggle = true,
             stream_width = liveSize.width,
             stream_height = liveSize.height,
             battery = battLevel,
