@@ -3,6 +3,7 @@ from PyQt6.QtCore import QEvent
 from PyQt6.QtWidgets import QSizePolicy, QWidget
 
 from telescope.plugin import EventBus
+from telescope.widgets.common import ui_px
 from telescope.plugins.preview import (
     _CAMERA_OFF_AUTO_TEXT, _CAMERA_OFF_TEXT, _IDLE_MIC_TEXT, _IDLE_TEXT, _WAITING_TEXT, PreviewPlugin, _HostFilter,
     _PopoutWindow,
@@ -250,7 +251,7 @@ def test_a_large_frame_does_not_pin_the_column_open(qapp):
     assert plugin._preview_lbl.minimumWidth() == 1
     assert plugin._preview_lbl.sizePolicy().horizontalPolicy() == \
         QSizePolicy.Policy.Ignored
-    assert panel.minimumSizeHint().width() < 400
+    assert panel.minimumSizeHint().width() < ui_px(400)  # the window's columns scale with the font too
 
 
 def test_a_click_on_the_frame_is_a_point_in_it_and_the_bars_are_ignored(qapp):
