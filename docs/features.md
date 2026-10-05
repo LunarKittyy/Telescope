@@ -65,6 +65,7 @@ The Presets button in the header saves the camera, output and transform settings
 - The pairing token only travels in the QR code (or over adb) and inside that TLS connection
 - Someone on the network can still see that a stream is running and roughly how much data it moves. **Local only - USB** in the Android app keeps the stream and the camera controls off the network entirely
 - **Wait for my computer** (off by default) keeps the phone ready while the screen is off or the app is closed, so a paired computer can start the camera. Its notification has a **Stop waiting** button
+- Browser camera only listens (on port 8767) while it's picked in the phone picker. The page itself is public, but sending video needs the token in the code, which is new every time Telescope starts or you click **New link**. Its certificate isn't pinned the way a phone's is, so on a network you don't trust, pick a phone instead
 - On Linux, the config folder with the pairing tokens is readable by your user only. On Windows, the camera driver is installed into Program Files so other programs can't swap it out
 
 ## Updates
