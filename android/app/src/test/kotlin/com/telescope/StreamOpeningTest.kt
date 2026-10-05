@@ -26,6 +26,16 @@ class StreamOpeningTest {
     }
 
     @Test
+    fun `a start with the camera off comes through, alone or with a size`() {
+        assertEquals(StreamOpening(null, null, null, cameraOff = true),
+            StreamOpening.from(mapOf("action" to "start", "camera" to "off")))
+        assertEquals(StreamOpening(1280, 720, 30, cameraOff = true),
+            StreamOpening.from(mapOf("width" to "1280", "height" to "720", "fps" to "30", "camera" to "off")))
+        assertEquals(StreamOpening(1280, 720, 30),
+            StreamOpening.from(mapOf("width" to "1280", "height" to "720", "fps" to "30", "camera" to "on")))
+    }
+
+    @Test
     fun `a rate is kept to what the phone takes`() {
         assertEquals(StreamOpening(1280, 720, 120),
             StreamOpening.from(mapOf("width" to "1280", "height" to "720", "fps" to "500")))

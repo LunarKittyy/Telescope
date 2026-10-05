@@ -268,13 +268,11 @@ class MjpegServer(
     /** Milliseconds since the last request that passed token auth. */
     fun idleForMs(): Long = System.currentTimeMillis() - lastAuthorizedRequestAtMs
 
-    /**
-     * Whether a computer is taking the video right now. A pulled cable or a dropped Wi-Fi link can
-     * leave a connection open for minutes, so only a viewer that took a write recently counts.
-     */
+    // A computer taking the video or the mic right now; only a recent write counts, as a dead link can stay open for minutes.
     fun hasActiveViewer(now: Long = System.currentTimeMillis()): Boolean =
         clients.any { now - it.lastWriteAtMs < VIEWER_STALE_MS } ||
-            h264Clients.any { now - it.lastWriteAtMs < VIEWER_STALE_MS }
+            h264Clients.any { now - it.lastWriteAtMs < VIEWER_STALE_MS } ||
+            audioClients.any { now - it.lastWriteAtMs < VIEWER_STALE_MS }
 
     private fun pollMs(): Long = minOf(2_000L, viewerGiveUpMs)
 

@@ -113,6 +113,14 @@ class CameraSessionController(
     // Set by stop(): work already queued on the camera thread (a switch, a reopen) must not reopen the camera.
     @Volatile private var stopped = false
 
+    // Camera off: device and outputs closed, every setting kept, so turning it back on carries on where it was.
+    @Volatile private var cameraOff = false
+    // Turning back on: a failure now leaves the camera off rather than ending the stream (and the mic with it).
+    @Volatile private var turningOn = false
+    // Why the camera didn't come back on; cleared on the next try.
+    @Volatile var cameraError: String? = null
+        private set
+
     // Guards against stale onOpened/onConfigured callbacks after a new open.
     @Volatile private var cameraGeneration = 0
 
@@ -120,6 +128,7 @@ class CameraSessionController(
     @Volatile private var sessionGeneration = 0
 
     fun getCurrentCameraId(): String? = currentCamera?.id
+    fun isCameraOff(): Boolean = cameraOff
     fun getStreamSize(): android.util.Size = android.util.Size(streamWidth, streamHeight)
 
     // True while PreviewActivity has a surface attached - the idle watchdog must not stop this.
@@ -265,6 +274,50 @@ class CameraSessionController(
         openCamera(cameraId, physicalCameraId)
     }
 
+    // A stream that starts with the camera off: nothing opens until setCameraOn(true).
+    fun openOff(initialEntry: CameraEntry, initialOis: Boolean) {
+        currentCamera = initialEntry
+        currentOis = initialOis
+        cameraOff = true
+        startThread()
+    }
+
+    fun setCameraOn(on: Boolean) {
+        post { if (on) turnCameraOn() else turnCameraOff() }
+    }
+
+    private fun turnCameraOff() {
+        if (cameraOff) return
+        cameraOff = true
+        turningOn = false
+        cameraError = null
+        teardown()  // also drops a lens switch or reopen still opening
+        onStateChanged(StreamState.Streaming, "cameraOff", null)
+    }
+
+    private fun turnCameraOn() {
+        if (!cameraOff) return
+        cameraOff = false
+        turningOn = true
+        cameraError = null
+        reopen("cameraOn")
+    }
+
+    // A camera that won't come back on stays off with the stream carrying on; any other failure ends the stream.
+    private fun fail(op: String, e: Throwable?) {
+        if (turningOn) {
+            turningOn = false
+            cameraOff = true
+            teardown()
+            cameraError = "The camera didn't turn back on. Another app may be using it."
+            onControlError(op, e ?: IllegalStateException(op))
+            onStateChanged(StreamState.Streaming, "$op.cameraStaysOff", null)
+            return
+        }
+        onStateChanged(StreamState.Failed, op, e)
+        onFatalError()
+    }
+
     // Only the newest of a burst of lens or size changes runs: each one is a full close and reopen of the camera.
     @Volatile private var wantedLens: CameraEntry? = null
     @Volatile private var wantedSize: Pair<Int, Int>? = null
@@ -298,8 +351,7 @@ class CameraSessionController(
                 super.dispatchMessage(msg)
             } catch (e: Exception) {
                 if (stopped) return
-                onStateChanged(StreamState.Failed, "cameraThread", e)
-                onFatalError()
+                fail("cameraThread", e)
             }
         }
     }
@@ -391,10 +443,13 @@ class CameraSessionController(
         return reader
     }
 
-    private fun openCamera(openCameraId: String, physicalCameraId: String?) {
+    private fun startThread() {
         handlerThread = HandlerThread("CamThread").also { it.start() }
         handler       = SafeHandler(handlerThread!!.looper)
+    }
 
+    private fun openCamera(openCameraId: String, physicalCameraId: String?) {
+        startThread()
         buildOutputs()
 
         val myGeneration = ++cameraGeneration
@@ -412,22 +467,19 @@ class CameraSessionController(
                     camera.close()
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
-                        onStateChanged(StreamState.Failed, "openCamera.onDisconnected", null)
-                        onFatalError()
+                        fail("openCamera.onDisconnected", null)
                     }
                 }
                 override fun onError(camera: CameraDevice, error: Int) {
                     camera.close()
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
-                        onStateChanged(StreamState.Failed, "openCamera.onError", RuntimeException("Camera2 error code $error"))
-                        onFatalError()
+                        fail("openCamera.onError", RuntimeException("Camera2 error code $error"))
                     }
                 }
             }, handler)
         } catch (e: Exception) {
-            onStateChanged(StreamState.Failed, "openCamera", e)
-            onFatalError()
+            fail("openCamera", e)
         }
     }
 
@@ -447,16 +499,14 @@ class CameraSessionController(
                 "The camera can't feed H.264 at ${streamWidth}x$streamHeight on this phone", unsupported = true)
             return false
         }
-        onStateChanged(StreamState.Failed, op, e)
-        onFatalError()
+        fail(op, e)
         return false
     }
 
     // A session without the stream's output would sit in Recovering until the watchdog; fail it now instead
     private fun noOutput(op: String, onComplete: (() -> Unit)?): Boolean {
         if (outputSurface() != null) return false
-        onStateChanged(StreamState.Failed, op, IllegalStateException("no stream output"))
-        onFatalError()
+        fail(op, IllegalStateException("no stream output"))
         onComplete?.invoke()
         return true
     }
@@ -563,12 +613,12 @@ class CameraSessionController(
     private fun startRepeating(camera: CameraDevice, session: CameraCaptureSession) {
         try {
             session.setRepeatingRequest(buildRequest(camera), ccmCaptureCallback, handler)
+            turningOn = false
             // Only after Camera2 accepts the repeating request are frames guaranteed en route
             onStateChanged(StreamState.Streaming, "startRepeating", null)
         } catch (e: Exception) {  // also IllegalStateException for a session closed meanwhile
             if (stopped) return
-            onStateChanged(StreamState.Failed, "startRepeating", e)
-            onFatalError()
+            fail("startRepeating", e)
         }
     }
 
@@ -782,6 +832,7 @@ class CameraSessionController(
         if (!entry.supportsManualFocus && currentFocusMode == "manual") currentFocusMode = "continuous"
         if (currentFocusMode == "point") { currentFocusMode = "continuous"; focusPoint = null }  // another sensor
         currentCamera = entry
+        if (cameraOff) return  // the lens it opens with when the camera comes back on
         onStateChanged(StreamState.Recovering, "switchCameraTo", null)
 
         val myGeneration = ++cameraGeneration
@@ -805,22 +856,19 @@ class CameraSessionController(
                     camera.close()
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
-                        onStateChanged(StreamState.Failed, "switchCameraTo.onDisconnected", null)
-                        onFatalError()
+                        fail("switchCameraTo.onDisconnected", null)
                     }
                 }
                 override fun onError(camera: CameraDevice, error: Int) {
                     camera.close()
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
-                        onStateChanged(StreamState.Failed, "switchCameraTo.onError", RuntimeException("Camera2 error code $error"))
-                        onFatalError()
+                        fail("switchCameraTo.onError", RuntimeException("Camera2 error code $error"))
                     }
                 }
             }, handler)
         } catch (e: Exception) {
-            onStateChanged(StreamState.Failed, "switchCameraTo", e)
-            onFatalError()
+            fail("switchCameraTo", e)
         }
     }
 
@@ -841,6 +889,7 @@ class CameraSessionController(
     // Same lens, new output (size or codec): the reader or encoder is rebuilt, which needs a reopen.
     // tries: how many more times to try, REOPEN_RETRY_MS apart, while the camera can't be opened yet.
     private fun reopen(op: String, tries: Int = 0) {
+        if (cameraOff) return  // a new size or codec is simply what it opens with later
         onStateChanged(StreamState.Recovering, op, null)
 
         val myGeneration = ++cameraGeneration
@@ -851,8 +900,7 @@ class CameraSessionController(
         captureSession = null; cameraDevice = null
 
         val cam = currentCamera ?: run {
-            onStateChanged(StreamState.Failed, op, IllegalStateException("no current camera"))
-            onFatalError()
+            fail(op, IllegalStateException("no current camera"))
             return
         }
         val openId = cam.logicalId ?: cam.id
@@ -871,8 +919,7 @@ class CameraSessionController(
                     camera.close()
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
-                        onStateChanged(StreamState.Failed, "$op.onDisconnected", null)
-                        onFatalError()
+                        fail("$op.onDisconnected", null)
                     }
                 }
                 override fun onError(camera: CameraDevice, error: Int) {
@@ -888,16 +935,14 @@ class CameraSessionController(
                             return
                         }
                         if (tries > 0 && retryReopen(op, tries, myGeneration)) return
-                        onStateChanged(StreamState.Failed, "$op.onError", e)
-                        onFatalError()
+                        fail("$op.onError", e)
                     }
                 }
             }, handler)
         } catch (e: Exception) {
             // Right after the camera failed it can be briefly unknown ("Unable to retrieve camera characteristics")
             if (tries > 0 && retryReopen(op, tries, myGeneration)) return
-            onStateChanged(StreamState.Failed, op, e)
-            onFatalError()
+            fail(op, e)
         }
     }
 

@@ -24,6 +24,7 @@ object StreamLauncher {
         selection: StreamPrefs.Selection?,
         remote: Boolean = false,
         fps: Int? = null,
+        cameraOff: Boolean = false,
     ): Result {
         if (CameraStreamService.instance?.isStreaming == true) return Result.AlreadyStreaming
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
@@ -45,6 +46,7 @@ object StreamLauncher {
                 putExtra(CameraStreamService.EXTRA_OIS, selection.ois)
             }
             if (fps != null) putExtra(CameraStreamService.EXTRA_FPS, fps)
+            putExtra(CameraStreamService.EXTRA_CAMERA_OFF, cameraOff)
         }
         // Opened before the start, or a service that settles first would have its settle() undone
         SessionStartWindow.begin()
@@ -65,13 +67,13 @@ object StreamLauncher {
         val selection = if (opening?.width != null && opening.height != null)
             (remembered ?: StreamPrefs.DEFAULT_SELECTION).copy(width = opening.width, height = opening.height)
         else remembered
-        return start(context, selection, remote = true, fps = opening?.fps)
+        return start(context, selection, remote = true, fps = opening?.fps, cameraOff = opening?.cameraOff == true)
     }
 }
 
 // What a computer's start asks for, so a size that just failed (too much for the encoder) isn't what opens again.
 // Each part is optional: an older computer sends none of them, and the phone then opens as it last did.
-data class StreamOpening(val width: Int?, val height: Int?, val fps: Int?) {
+data class StreamOpening(val width: Int?, val height: Int?, val fps: Int?, val cameraOff: Boolean = false) {
     companion object {
         private const val MAX_SIDE = 16_384
 
@@ -80,8 +82,9 @@ data class StreamOpening(val width: Int?, val height: Int?, val fps: Int?) {
             val h = params["height"]?.toIntOrNull()?.takeIf { it in 1..MAX_SIDE }
             val fps = params["fps"]?.toIntOrNull()?.takeIf { it > 0 }?.coerceAtMost(120)
             val sized = w != null && h != null
-            if (!sized && fps == null) return null
-            return StreamOpening(if (sized) w else null, if (sized) h else null, fps)
+            val cameraOff = params["camera"] == "off"
+            if (!sized && fps == null && !cameraOff) return null
+            return StreamOpening(if (sized) w else null, if (sized) h else null, fps, cameraOff)
         }
     }
 }

@@ -68,6 +68,9 @@ data class V1State(
     val codec_error: String? = null,
     val codec_unsupported: Boolean = false,  // codec_error is H.264 not doing this size or rate here, not a crash
     val active_lens: String? = null,  // the lens a multi-lens camera is streaming from right now
+    val camera_off: Boolean = false,  // streaming the mic with the camera closed
+    val camera_error: String? = null,  // why the camera didn't turn back on
+    val camera_toggle: Boolean = true,  // takes camera_on and starts with the camera off; older phones leave it out
     val stream_width: Int,
     val stream_height: Int,
     val battery: Int,
