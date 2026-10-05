@@ -8,9 +8,9 @@ from PyQt6.QtWidgets import QWidget
 
 import telescope.app as app_module
 import telescope.plugins.browser_camera as browser_module
-from telescope.browser_server import BrowserControl, BrowserFeed, BrowserReader
+from telescope.browser_server import BrowserControl, BrowserFeed, BrowserReader, ServerStats
 from telescope.plugin import EventBus
-from telescope.plugins.browser_camera import SOURCE_ID, BrowserCameraPlugin
+from telescope.plugins.browser_camera import HINT_AFTER_S, SOURCE_ID, BrowserCameraPlugin, waiting_hint
 from telescope.widgets.common import create_card, dim_until_paired
 
 from test_app import _Connection, _Plugin, _Signal, window  # noqa: F401 (the fixture)
@@ -199,6 +199,7 @@ class _Server:
         self.started = self.stopped = False
         self.token = "t1"
         self.port = 8767
+        self.stats = ServerStats(8767, 8767)
         _Server.instances.append(self)
 
     def start(self):
@@ -305,12 +306,47 @@ def test_without_cryptography_it_says_so_and_start_fails(browser, monkeypatch):
     assert "cryptography" in host.issues["start"].text
 
 
-def test_diagnostics_never_name_the_device(browser):
+def test_diagnostics_say_how_far_browsers_got_but_never_name_the_device(browser):
     plugin, _host, bus, _card = browser
     bus.source_selected.emit(SOURCE_ID)
+    stats = _Server.instances[-1].stats
+    stats.note("connections")
+    stats.note("tls_failed")
     plugin.feed.connect()
     plugin.feed.note_hello(plugin.feed._gen, "Safari on iPhone", "")
-    assert plugin.diagnostics() == {"Browser camera": "browser connected"}
+    diag = plugin.diagnostics()
+    assert diag["Browser camera"] == "browser connected"
+    assert diag["Browser camera port"] == "8767"
+    assert diag["Browser camera reached"].startswith("1 connections, 1 certificate refusals, 0 page loads")
+    assert "iPhone" not in str(diag)
+
+    stats.port, stats.fell_back = 41234, True
+    assert plugin.diagnostics()["Browser camera port"] == "41234 (8767 was taken)"
+
+
+def test_waiting_hint_points_at_the_step_that_failed():
+    stats = ServerStats(8767, 8767)
+    t0 = stats.started
+    assert waiting_hint(stats, False, t0 + 5) == ""  # still scanning, probably
+    assert "firewall allows port 8767" in waiting_hint(stats, False, t0 + HINT_AFTER_S)
+    assert waiting_hint(stats, True, t0 + HINT_AFTER_S) == ""
+    stats.note("connections")
+    assert waiting_hint(stats, False, t0 + HINT_AFTER_S) == ""
+    stats.note("tls_failed")
+    assert "certificate" in waiting_hint(stats, False, t0 + 1)
+    stats.note("pages")
+    assert waiting_hint(stats, False, t0 + HINT_AFTER_S) == ""  # on the page now
+
+
+def test_card_shows_the_firewall_hint_once_the_wait_is_long(browser, monkeypatch):
+    plugin, _host, bus, _card = browser
+    bus.source_selected.emit(SOURCE_ID)
+    assert plugin._hint_row.isHidden()
+    assert plugin._hint_timer.isActive()
+    _Server.instances[-1].stats.started -= HINT_AFTER_S
+    plugin._render()  # what the timer does
+    assert not plugin._hint_row.isHidden()
+    assert "port 8767" in plugin._hint_lbl.text()
 
 
 def test_feed_drops_frames_from_a_replaced_browser():

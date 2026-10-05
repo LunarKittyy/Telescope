@@ -189,6 +189,40 @@ def test_wrong_token_is_refused(server):
     assert b.status == 403
     b.close()
     assert not server.feed.connected
+    assert server.stats["refused"] == 1
+
+
+def test_stats_count_each_step_a_browser_gets_to(server, caplog):
+    caplog.set_level("INFO", logger="telescope.browser_server")
+    assert server.stats.nothing_arrived() and server.stats.port == server.port
+    _get(server.port, "/")
+    raw = socket.create_connection(("127.0.0.1", server.port), timeout=5)
+    raw.sendall(b"not a TLS handshake")  # what a browser that won't trust the certificate amounts to here
+    raw.close()
+    b = _Browser(server.port, server.token)
+    b.recv_json()
+    b.close()
+    stats = server.stats
+    assert _wait(lambda: stats["tls_failed"] == 1)
+    assert stats["connections"] == 3 and stats["pages"] == 1 and stats["browsers"] == 1
+    logged = [r.getMessage() for r in caplog.records]
+    assert logged.count("Browser camera: a device reached this computer") == 1  # only the first time
+    assert not any("127.0.0.1" in line or server.token in line for line in logged)
+
+
+def test_a_taken_port_is_logged_and_shown(cert, caplog):
+    first = bs.BrowserServer(bs.BrowserFeed(), *cert, port=0, host="127.0.0.1")
+    first.start()
+    try:
+        second = bs.BrowserServer(bs.BrowserFeed(), *cert, port=first.port, host="127.0.0.1")
+        second.start()
+        assert second.port != first.port
+        assert second.stats.fell_back and second.stats.port == second.port
+        assert not first.stats.fell_back
+        assert "was taken" in caplog.text
+        second.stop()
+    finally:
+        first.stop()
 
 
 def test_browser_frames_and_audio_reach_the_reader_and_the_mic(server):

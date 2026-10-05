@@ -6,7 +6,9 @@ way opening the app on a phone would.
 """
 
 import logging
+import time
 from typing import Optional
+
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from PyQt6.QtGui import QGuiApplication
@@ -35,6 +37,22 @@ DEFAULT_SIZE, DEFAULT_FPS = "720p", 30
 _CERT_NOTE = ("The browser warns that the connection isn't private: it's this computer's own certificate. "
               "On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed.")
 _BACKGROUND_NOTE = "Keep the page open with the screen on: phones pause the camera when you leave the browser."
+# Waiting this long with nothing reaching the server is worth a hint: scanning and loading the page take seconds.
+HINT_AFTER_S = 30
+
+
+def waiting_hint(stats, connected: bool, now: float) -> str:
+    """What to check when no browser has connected yet, from how far browsers got. "" when there's nothing to say."""
+    if connected or stats is None:
+        return ""
+    if stats["browsers"] or stats["pages"]:
+        return ""  # one got through before, or is on the page now
+    if stats["tls_failed"]:
+        return "A browser reached this computer but hasn't accepted its certificate yet. Tap through the warning."
+    if stats.nothing_arrived() and now - stats.started >= HINT_AFTER_S:
+        return (f"Nothing has reached this computer yet. Check that the device is on the same network as the address "
+                f"in the code, and that the firewall allows port {stats.port}.")
+    return ""
 
 
 class _Signals(QObject):
@@ -102,6 +120,13 @@ class BrowserCameraPlugin(TelescopePlugin):
         self._mic_lbl = wrapped_note("", "status_warn")
         self._mic_row = control_row_widget("", self._mic_lbl, stretch=True)
         lay.addWidget(self._mic_row)
+        self._hint_lbl = wrapped_note("", "status_warn")
+        self._hint_row = control_row_widget("", self._hint_lbl, stretch=True)
+        lay.addWidget(self._hint_row)
+        # Looks again once the wait for a first connection has gone on long enough to be worth a hint
+        self._hint_timer = QTimer(card)
+        self._hint_timer.setSingleShot(True)
+        self._hint_timer.timeout.connect(self._render)
 
         self._qr_box = QWidget()
         self._qr_lay = QVBoxLayout(self._qr_box)
@@ -178,6 +203,9 @@ class BrowserCameraPlugin(TelescopePlugin):
         mic = feed.mic_error if server is not None and feed.connected else ""
         self._mic_lbl.setText(f"No microphone: {mic}" if mic else "")
         self._mic_row.setVisible(bool(mic))
+        hint = waiting_hint(server.stats if server else None, feed.connected, time.monotonic())
+        self._hint_lbl.setText(hint)
+        self._hint_row.setVisible(bool(hint))
 
         url = self._url()
         if url != self._qr_url:
@@ -254,6 +282,8 @@ class BrowserCameraPlugin(TelescopePlugin):
             return False
         self._server = server
         self._apply_capture()
+        if self._card is not None:
+            self._hint_timer.start(HINT_AFTER_S * 1000)
         return True
 
     def _stop_server(self):
@@ -303,9 +333,19 @@ class BrowserCameraPlugin(TelescopePlugin):
     # ── Plugin hooks ──────────────────────────────────────────────────────
 
     def diagnostics(self) -> dict:
-        if self._server is None:
+        server = self._server
+        if server is None:
             return {"Browser camera": "off" if not self._problem else "not available"}
-        return {"Browser camera": "browser connected" if self.feed.connected else "waiting for a browser"}
+        stats = server.stats
+        port = f"{stats.port}" + (f" ({stats.wanted_port} was taken)" if stats.fell_back else "")
+        return {
+            "Browser camera": "browser connected" if self.feed.connected else "waiting for a browser",
+            "Browser camera port": port,
+            # How far browsers got: none at all points at the network or firewall, handshakes alone at the certificate
+            "Browser camera reached": (f"{stats['connections']} connections, {stats['tls_failed']} certificate "
+                                       f"refusals, {stats['pages']} page loads, {stats['refused']} old links, "
+                                       f"{stats['browsers']} browsers"),
+        }
 
     def get_config(self) -> dict:
         return {"size": self._size, "fps": self.fps, "address": self._address}
