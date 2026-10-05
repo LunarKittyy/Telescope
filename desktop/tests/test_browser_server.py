@@ -254,6 +254,8 @@ def test_a_new_link_drops_the_browser_and_the_old_token(server):
     old = server.token
     server.new_token()
     assert _wait(lambda: not server.feed.connected)
+    op, payload = b.recv()  # ended by its own thread, which says so
+    assert op == 0x8 and struct.unpack("!H", payload[:2])[0] == 1001
     assert _Browser(server.port, old).status == 403
     b.close()
 

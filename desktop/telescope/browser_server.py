@@ -609,6 +609,7 @@ class BrowserServer:
         self._server: Optional[_Server] = None
         self._thread: Optional[threading.Thread] = None
         self._socks: set = set()
+        self._kicked: set = set()  # connections to end; each one's own thread notices within _TICK_S
         self._socks_lock = threading.Lock()
 
     @property
@@ -645,13 +646,10 @@ class BrowserServer:
         self._close_all()
 
     def _close_all(self):
+        # Not shut down from here: that doesn't wake a blocked read on Windows, and an SSL socket mustn't be touched
+        # from another thread while its own reads it
         with self._socks_lock:
-            socks = list(self._socks)
-        for s in socks:
-            try:
-                s.shutdown(socket.SHUT_RDWR)
-            except OSError:
-                pass
+            self._kicked |= self._socks
 
     def serve_browser(self, sock):
         """One browser's connection, on its handler thread, until it ends or a newer one takes over."""
@@ -664,6 +662,8 @@ class BrowserServer:
         def tick():
             if not feed.current(gen):
                 raise _Closed("replaced")
+            if sock in self._kicked:
+                raise _Closed("ended here")
             seq, cfg = feed.page_config()
             if seq != sent[0]:
                 sent[0] = seq
@@ -687,11 +687,14 @@ class BrowserServer:
         except _Closed as why:
             if str(why) == "replaced":
                 _send_quietly(ws, ws_close_frame(4000, "Opened somewhere else"))
+            elif str(why) == "ended here":
+                _send_quietly(ws, ws_close_frame(1001))
         except (OSError, ssl.SSLError):
             pass
         finally:
             with self._socks_lock:
                 self._socks.discard(sock)
+                self._kicked.discard(sock)
             feed.disconnect(gen)
             self._on_change()
 
