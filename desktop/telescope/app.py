@@ -127,6 +127,7 @@ class TelescopeWindow(QMainWindow):
         self._reconnecting_dots = 1
         self._plugins: list[TelescopePlugin] = []
         self._plugins_by_name: dict[str, TelescopePlugin] = {}
+        self._sources: dict = {}  # StreamSources plugins offer, by id
         # Plugin defaults; lets us reset before applying device profile.
         self._plugin_defaults: dict[str, dict] = {}
 
@@ -634,12 +635,24 @@ class TelescopeWindow(QMainWindow):
         if self._worker or self._waking: self._stop()
         else:                            self._start()
 
+    def add_stream_source(self, source):
+        self._sources[source.id] = source
+        self._bus.stream_sources_changed.emit([(s.id, s.name) for s in self._sources.values()])
+
+    def _selected_source(self):
+        conn = self._plugin("connection")
+        return self._sources.get(conn.selected_device) if conn else None
+
     def _start(self, interactive: bool = True):
         """Ensure phone camera is running before reading frames; wake happens off-thread to avoid blocking UI."""
         conn = self._plugin("connection")
         if not conn:
             return
         self.clear_issue("start")
+        source = self._selected_source()
+        if source is not None:
+            self._start_source(conn, source, interactive)
+            return
         self._preparing = True
         try:
             url, auth, ok = conn.get_stream_info(interactive=interactive)
@@ -667,6 +680,23 @@ class TelescopeWindow(QMainWindow):
         # Read here, on the GUI thread: what the phone should open at, not the size it last used (which may have failed)
         opening = output.opening() if output is not None and hasattr(output, "opening") else None
         self._spawn_wake(wake_id, conn, url, auth, self._wake_target, opening)
+
+    def _start_source(self, conn, source, interactive: bool):
+        """No phone to wake: once the virtual camera and the source are ready, the stream starts right away."""
+        self._preparing = True
+        try:
+            ok = conn.ensure_virtual_camera(interactive) and source.prepare(interactive)
+        except Exception:
+            logging.exception("Getting %s ready to stream failed", source.name)
+            self.show_issue("start", Issue("Couldn't start streaming", "Something went wrong. Copy diagnostics has the details.",
+                                           [BannerAction("Try again", self.start_stream)]))
+            ok = False
+        finally:
+            self._preparing = False
+        if not ok:
+            self._bus.stream_start_failed.emit()
+            return
+        self._begin_stream(source.url, None, source)
 
     def _spawn_wake(self, wake_id: int, conn, url: str, auth, target=None, opening=None):
         """Split from _start() to allow test synchronization; thread mustn't outlive QObject."""
@@ -713,9 +743,11 @@ class TelescopeWindow(QMainWindow):
             return
         self._begin_stream(url, auth)
 
-    def _begin_stream(self, url: str, auth):
+    def _begin_stream(self, url: str, auth, source=None):
         so = self._plugin("stream_output")
         w, h, fps = so.get_stream_params() if so else (None, None, 30)
+        if source is not None:
+            w, h, fps = None, None, source.fps()
 
         setup = self._plugin("setup")
         canvas_w, canvas_h = setup.get_canvas_dims() if setup else (None, None)
@@ -724,16 +756,17 @@ class TelescopeWindow(QMainWindow):
                     if type(p).process_frame is not TelescopePlugin.process_frame]
         self._each_plugin("on_stream_starting")
 
-        ctrl = PhoneControlClient(url, auth)
+        ctrl = source.control_client() if source is not None else PhoneControlClient(url, auth)
         worker = StreamWorker(
             url=url, width=w, height=h, fps=fps,
             frame_pipeline=pipeline,
             canvas_width=canvas_w, canvas_height=canvas_h,
             auth=auth,
+            open_reader=source.open_reader if source is not None else None,
         )
         session_id = self._next_session_id
         self._next_session_id += 1
-        self._session = StreamSession(id=session_id, url=url, client=ctrl, worker=worker)
+        self._session = StreamSession(id=session_id, url=url, client=ctrl, worker=worker, source=source)
 
         worker.status.connect(self._on_worker_status)
         worker.reconnected.connect(self._on_stream_reconnected)
@@ -743,7 +776,8 @@ class TelescopeWindow(QMainWindow):
         self._bus.stream_started.emit(url)
         self._each_plugin("on_stream_start", url, ctrl)
 
-        threading.Thread(target=self._fetch_state_async, args=(session_id,), daemon=True).start()
+        if source is None:  # a source has no phone state to fetch
+            threading.Thread(target=self._fetch_state_async, args=(session_id,), daemon=True).start()
 
         self._set_start_button(streaming=True)
         self._set_status("Connecting...", "dim")
@@ -764,7 +798,7 @@ class TelescopeWindow(QMainWindow):
         worker = session.worker if session else None
         ctrl = session.client if session else None
 
-        if remote_stop and (session or was_waking):
+        if remote_stop and (session or was_waking) and not (session and session.source):
             self._stop_phone_async()
 
         if worker:
@@ -810,8 +844,10 @@ class TelescopeWindow(QMainWindow):
         self._recovering = True
         self._recovery_route = None
         self._set_behind(False)
+        source = self._session.source
         self._bus.stream_lost.emit()
-        self._probe_recovery()
+        if source is None:  # a source has no other route: its reader waits for it to come back
+            self._probe_recovery()
 
     def _spawn_state_fetch(self, session_id: int):
         """Split out so tests can leave the thread out."""

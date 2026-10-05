@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from telescope.phone_client import PhoneControlClient
@@ -14,3 +14,4 @@ class StreamSession:
     url: str
     client: "PhoneControlClient"
     worker: "StreamWorker"
+    source: Optional[object] = None  # the StreamSource it streams from, or None for a phone

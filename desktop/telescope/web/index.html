@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Telescope camera</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { --bg: #0f1216; --surface: #161a20; --text: #e7eaef; --dim: #a1abb8; --fill: #6a58cf;
+          --ok: #5fc98c; --warn: #f0b65c; --err: #ef6f6b; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+               font: 16px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  body { display: flex; flex-direction: column; padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom); }
+  header { display: flex; align-items: center; gap: 10px; padding: 14px 0; }
+  header h1 { font-size: 18px; margin: 0; flex: 1; }
+  #dot { width: 10px; height: 10px; border-radius: 50%; background: var(--dim); flex: none; }
+  #dot.ok { background: var(--ok); } #dot.warn { background: var(--warn); } #dot.err { background: var(--err); }
+  main { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0;
+         background: #0a0c0f; border-radius: 12px; overflow: hidden; }
+  video { width: 100%; height: 100%; object-fit: contain; }
+  video.mirror { transform: scaleX(-1); }
+  #status { color: var(--dim); margin: 12px 0 4px; min-height: 1.4em; }
+  #status.err { color: var(--err); } #status.warn { color: var(--warn); }
+  #note { color: var(--dim); font-size: 14px; margin: 0 0 12px; }
+  .buttons { display: flex; gap: 10px; padding-bottom: 16px; }
+  button { flex: 1; font: inherit; font-weight: 600; color: #fff; background: var(--fill); border: 0;
+           border-radius: 10px; padding: 14px; }
+  button.secondary { background: var(--surface); color: var(--text); flex: 0 0 auto; }
+  button:disabled { opacity: .45; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header><span id="dot"></span><h1>Telescope camera</h1></header>
+<main><video id="video" muted playsinline autoplay></video></main>
+<p id="status">Tap Start to use this camera on your computer.</p>
+<p id="note">Keep this page open and the screen on. Leaving the browser pauses the camera.</p>
+<div class="buttons">
+  <button id="start">Start</button>
+  <button id="flip" class="secondary" hidden>Switch camera</button>
+  <button id="stop" class="secondary" hidden>Stop</button>
+</div>
+<script src="/app.js"></script>
+</body>
+</html>

@@ -98,6 +98,37 @@ class HostServices(Protocol):
         """Hand a saved config to another plugin's apply_preset(); unknown names are ignored."""
         ...
 
+    def add_stream_source(self, source: "StreamSource") -> None:
+        """Offer somewhere other than a phone to stream from; it's listed in the phone picker."""
+        ...
+
+
+class StreamSource(Protocol):
+    """Something other than a paired phone to stream from, like the Browser camera. A plugin offers it with
+    host.add_stream_source(); while it's the one picked, Start streams from it instead of waking a phone."""
+
+    id: str
+    """Also the key its per-device settings are saved under, so it mustn't look like a phone id."""
+    name: str
+    url: str
+    """What stream_started and on_stream_start get as the stream's URL."""
+
+    def prepare(self, interactive: bool) -> bool:
+        """GUI thread, at Start: get ready, or show a banner and return False."""
+        ...
+
+    def open_reader(self):
+        """A new reader for StreamWorker, like MjpegReader: open, isOpened, read, read_packet, decode, release."""
+        ...
+
+    def control_client(self):
+        """Stands in for PhoneControlClient in on_stream_start: base, auth, send(), get_state(), close()."""
+        ...
+
+    def fps(self) -> int:
+        """The rate the virtual camera runs at."""
+        ...
+
 
 class TelescopePlugin:
     name: str = ""
@@ -188,6 +219,10 @@ class EventBus(QObject):
     """The stream opened the virtual camera at this width and height."""
     camera_watched         = pyqtSignal(bool)
     """Whether an app is reading the virtual camera (Wait screen watches it)."""
+    stream_sources_changed = pyqtSignal(list)
+    """[(id, name)] of every StreamSource plugins offer; the phone picker lists them after the phones."""
+    source_selected        = pyqtSignal(str)
+    """The picked StreamSource's id, or "" for a phone (or nothing): panels that only make sense for a phone hide."""
     stream_behind          = pyqtSignal(bool)
     """The stream fell behind its frame rate (the throughput readout went amber), or caught up again. Only on a
     change, and never for a dropped stream: that's stream_lost."""

@@ -178,3 +178,23 @@ The phone then `POST`s to `http://<ip>:<port>/pair/<nonce>` with `{"name": ..., 
 The desktop also notes the source address that request arrived from. That address is, by construction, one of the phone's *and* reachable from this machine over whatever path the phone found, so it becomes the phone's first active address.
 
 One code pairs one phone: once a phone has paired from it, a POST from a different `phone_id` gets `409` (the same phone retrying still gets `200`).
+
+## Browser camera
+
+Not the phone: the desktop serves this itself (`telescope/browser_server.py`) on port 8767 (any free port if that's taken) while Browser camera is picked, over HTTPS with a self-signed certificate it keeps next to the config. The QR code is `https://<desktop>:8767/#<token>`. The token is after `#`, so loading the page (`/`, `/app.js`, `/mic-worklet.js`) never sends it.
+
+The page opens a WebSocket on `/ws?token=<token>`. A wrong token gets `403`. A second connection with the right token takes over, and the first is closed with code `4000`. **New link** or switching Browser camera off closes it with `1001`. A connection that sends nothing for 10 seconds is closed.
+
+Page to desktop:
+
+- Binary, first byte `1`: one JPEG frame, the rest of the message
+- Binary, first byte `2`: microphone audio, 48 kHz mono s16le, 20 ms per message. Only sent while the desktop asks for it
+- Text: `{"type": "hello", "device": "Safari on iPhone", "mic_error": ""}`, sent on connect and again after the camera restarts. A non-empty `mic_error` says why there's no mic, and the Microphone card shows it
+
+Desktop to page, as text whenever something changes and once on connect:
+
+```json
+{ "type": "config", "width": 1280, "height": 720, "fps": 30, "audio": false }
+```
+
+The page asks the camera for that size and rate, scales frames down to fit it, and sends audio only while `audio` is true (the Microphone card is on and streaming). Messages over 16 MB end the connection.

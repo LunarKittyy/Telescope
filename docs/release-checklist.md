@@ -98,6 +98,9 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 - [ ] Windows, Stop set to "when no app uses the camera, even if you started it": start a stream by hand before any app has opened the camera. It stops after the wait.
 - [ ] Open Telescope when I sign in (Linux and Windows): after signing out and in, Telescope is in the tray; unticking removes the entry.
 - [ ] Stream only while an app is using the camera (Linux and Windows): opening the camera in OBS or a call starts the stream, closing it stops 15 s later. Ticking it unticks Start streaming when the phone is ready, and the other way round.
+- [ ] Browser camera, iPhone in Safari: scan the code, tap through the certificate warning, Start. Video and mic reach the virtual camera and mic, the screen stays on, and after locking the phone and coming back to the page the stream picks up again. Switch camera flips lenses.
+- [ ] Browser camera, Android in Chrome, and from a second computer's browser: the same. Resolution and Frame rate on the card change what arrives. New link drops the browser and the old code stops working. Opening the link in a second tab takes over from the first.
+- [ ] Browser camera, Windows: the firewall prompt (or a rule) lets port 8767 through, and picking a phone again stops the server.
 - [ ] Wait screen: with nothing streaming, apps see the default screen, then a chosen image and a GIF; Mirror flips it. Starting and stopping a stream while a call has the camera open keeps the picture in the call.
 
 ## Sign-off

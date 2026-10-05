@@ -41,6 +41,7 @@ def check_app_construction():
     from PyQt6.QtWidgets import QApplication
 
     from telescope.app import TelescopeWindow
+    from telescope.plugins.browser_camera import BrowserCameraPlugin
     from telescope.plugins.camera_control import CameraControlPlugin
     from telescope.plugins.connection import ConnectionPlugin
     from telescope.plugins.microphone import MicrophonePlugin
@@ -56,7 +57,7 @@ def check_app_construction():
     app = QApplication.instance() or QApplication([])
     win = TelescopeWindow()
     for plugin_cls in (
-        SetupPlugin, ConnectionPlugin, CameraControlPlugin, StreamOutputPlugin,
+        SetupPlugin, ConnectionPlugin, CameraControlPlugin, BrowserCameraPlugin, StreamOutputPlugin,
         TransformsPlugin, MicrophonePlugin, PresetsPlugin, PreviewPlugin, MonitoringPlugin, UpdatesPlugin, StartupPlugin,
     ):
         win.register_plugin(plugin_cls())
@@ -144,11 +145,65 @@ def check_authenticated_stream_round_trip():
     return "pinned TLS frame round-tripped; wrong token and wrong certificate rejected"
 
 
+def check_browser_camera_round_trip():
+    """The page and its certificate work in this bundle (web files and cryptography packaged), and a frame sent
+    over the WebSocket the way the page sends it comes out of the reader."""
+    import base64
+    import http.client
+    import socket
+    import struct
+    import tempfile
+
+    import cv2
+    import numpy as np
+
+    from telescope import browser_server as bs
+
+    with tempfile.TemporaryDirectory() as folder:
+        cert, key = bs.ensure_certificate(Path(folder), ["127.0.0.1"])
+        feed = bs.BrowserFeed()
+        server = bs.BrowserServer(feed, cert, key, port=0, host="127.0.0.1")
+        server.start()
+        try:
+            ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            conn = http.client.HTTPSConnection("127.0.0.1", server.port, context=ctx, timeout=5)
+            for path in ("/", "/app.js", "/mic-worklet.js"):
+                conn.request("GET", path)
+                resp = conn.getresponse()
+                assert resp.status == 200 and resp.read(), f"{path} isn't served"
+            conn.close()
+
+            sock = ctx.wrap_socket(socket.create_connection(("127.0.0.1", server.port), timeout=5))
+            ws_key = base64.b64encode(b"smoke-check-key!").decode()
+            sock.sendall((f"GET /ws?token={server.token} HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\n"
+                          f"Connection: Upgrade\r\nSec-WebSocket-Key: {ws_key}\r\nSec-WebSocket-Version: 13\r\n\r\n").encode())
+            head = b""
+            while b"\r\n\r\n" not in head:
+                head += sock.recv(1)
+            assert head.startswith(b"HTTP/1.1 101") and bs.ws_accept_key(ws_key).encode() in head, "no WebSocket"
+            ok, buf = cv2.imencode(".jpg", np.zeros((4, 6, 3), np.uint8))
+            payload = bytes([bs.FRAME_JPEG]) + buf.tobytes()
+            mask = b"\x01\x02\x03\x04"
+            sock.sendall(struct.pack("!BBH", 0x82, 0x80 | 126, len(payload)) + mask + bs.unmask(payload, mask))
+            reader = bs.BrowserReader(feed)
+            assert reader.open(), "the browser didn't connect"
+            ok, frame = reader.read()
+            assert ok and frame.shape == (4, 6, 3), "the frame didn't come through"
+            sock.close()
+        finally:
+            server.stop()
+    return "page served over TLS; a WebSocket frame reached the reader"
+
+
 def main() -> int:
     _check("Application constructs and registers all plugins", check_app_construction)
     _check("ADB discovery runs without crashing", check_adb_discovery)
     _check("Virtual-camera availability check runs without crashing", check_virtual_camera_availability)
     _check("Authenticated MJPEG stream round-trip", check_authenticated_stream_round_trip)
+    _check("Browser camera round-trip", check_browser_camera_round_trip)
 
     print()
     if _FAILURES:
