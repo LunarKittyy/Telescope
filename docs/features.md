@@ -38,7 +38,7 @@ The Presets button in the header saves the camera, output and transform settings
 - Windows: needs [VB-Audio Virtual Cable](https://vb-audio.com/Cable/) (free). Pick **CABLE Output** as the microphone in other apps. The card links to it if it's missing
 - Gain from -24 dB up to +12 dB (Advanced lets it go to +24, +36 or +48 instead; type a value for an exact one), and a level meter that holds the latest peak, lights yellow while the limiter holds loud moments down and red when the sound clips. The limiter is on by default (Advanced)
 - **Mute** (in the card or the tray menu) sends silence without disconnecting the mic, for call apps that can't mute. It resets when the app restarts
-- **Camera** under the preview turns the phone's camera off while the mic keeps streaming. Apps see the wait screen, and the preview says the camera is off. Pressed before a start, the button turns Start into **Start mic only**. It needs the mic on, and each stream starts with the camera on again
+- The camera button under the preview turns the phone's camera off while the mic keeps streaming. Apps see the wait screen, and the preview says the camera is off. Pressed before a start, the button turns Start into **Start mic only**. It needs the mic on, and each stream starts with the camera on again
 - The tray icon shows what's streaming: a red dot while the camera is on, a mic while the mic is (crossed out when muted)
 
 ## Monitoring

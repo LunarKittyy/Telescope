@@ -296,7 +296,7 @@ UnityCapture helpers: `uc_registered_name()` (the name apps list it under, read 
 
 ### `plugins/preview.py`
 **PreviewPlugin** - the centre video stage and its pop-out. `panel_region = "center"`.
-- UI: letterboxed frame and a toolbar with Hide/Show toggle, **Camera** (`host.set_camera_on()`; reads **Camera off** in the accent colour while off, greyed out with the reason as its tooltip while it can't go off), an icon-only lens outline toggle (fixed width, so the stage stays narrow; keeps the lens boxes on; enabled only while the camera has longer lenses) and Pop out.
+- UI: letterboxed frame and a toolbar with Hide/Show toggle, an icon-only camera toggle (`host.set_camera_on()`; a crossed-out camera with an accent border while off, greyed out with the reason as its tooltip while it can't go off), an icon-only lens outline toggle (fixed width, so the stage stays narrow; keeps the lens boxes on; enabled only while the camera has longer lenses) and Pop out.
 - Active by default - it's the centre of the window, not an opt-in card. The toggle remains as an escape hatch for anyone who'd rather not spend the decode.
 - `process_frame(frame)` - runs on a stream decoder thread; scales the frame to fit the view it's going to (the card's or pop-out's size as of the last frame shown, or `_CARD_MAX_W` wide before that), emits cross-thread Qt signal, returns frame unmodified (preview-only). The UI thread only wraps it in a pixmap (`Format_BGR888`) and puts it up; it scales only for the one frame after a resize.
 - Pop-out window auto-hides the in-card preview when opened. While the main window is hidden (tray) the card stops decoding without changing its Hide/Show setting.

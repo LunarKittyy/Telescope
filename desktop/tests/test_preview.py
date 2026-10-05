@@ -444,12 +444,12 @@ def test_a_new_stream_frees_a_preview_stuck_waiting_for_a_lost_frame(qapp):
 
 def test_the_camera_button_turns_the_camera_off_and_says_so(qapp):
     plugin, host, _panel = _plugin(qapp)
-    assert plugin._camera_btn.text().strip() == "Camera" and plugin._camera_btn.isEnabled()
+    assert plugin._camera_btn.property("camera_off") is False and plugin._camera_btn.isEnabled()
     plugin._camera_btn.click()
     assert host.camera_on is False
     plugin._bus.camera_on_changed.emit(False)
-    assert plugin._camera_btn.text().strip() == "Camera off"
     assert plugin._camera_btn.property("camera_off") is True
+    assert plugin._camera_btn.toolTip() == "Turn the phone's camera back on."
     # Not streaming yet: the stage says what Start will do
     assert plugin._preview_lbl.text() == _IDLE_MIC_TEXT
     plugin._camera_btn.click()

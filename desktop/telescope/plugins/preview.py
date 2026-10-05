@@ -370,9 +370,10 @@ class PreviewPlugin(TelescopePlugin):
         self._toggle_btn.clicked.connect(self._toggle)
         tb_lay.addWidget(self._toggle_btn)
 
-        # The phone's camera, like a call app's: off leaves the stream to the mic. Wide enough for "Camera off".
+        # The phone's camera, like a call app's: off leaves the stream to the mic. Icon only, like the lens toggle
         self._camera_btn = QPushButton()
-        self._camera_btn.setMinimumWidth(ui_px(118))
+        self._camera_btn.setFixedWidth(ui_px(36))
+        self._camera_btn.setAccessibleName("Phone camera")
         set_ui_role(self._camera_btn, "quiet")
         self._camera_btn.setIconSize(QSize(16, 16))
         self._camera_btn.clicked.connect(lambda: self._host.set_camera_on(not self._host.is_camera_on()))
@@ -473,7 +474,6 @@ class PreviewPlugin(TelescopePlugin):
     def _show_camera_btn(self, *_):
         on = self._host.is_camera_on()
         can, why = self._host.can_turn_camera_off()
-        self._camera_btn.setText("  Camera" if on else "  Camera off")
         self._camera_btn.setIcon(create_vector_icon("camera" if on else "camera_off",
                                                     theme.TEXT_DIM if on else theme.ACCENT))
         self._camera_btn.setEnabled(not on or can)
