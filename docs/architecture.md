@@ -120,6 +120,7 @@ telescope/
         |-- h264_reader.py       # Authenticated H.264 reader (PyAV), same interface
         |-- audio.py             # Phone mic -> jitter buffer -> virtual mic
         |-- session.py           # StreamSession: owns worker/client for one connect-to-disconnect lifecycle
+        |-- sources.py           # Where a stream comes from (the picked phone, or a plugin's StreamSource) and its state
         |-- vcam.py              # Opens the virtual camera, wait screen, whether an app reads it
         |-- plugin.py            # TelescopePlugin base class, EventBus, HostServices protocol
         |-- config.py            # Versioned JSON config (v3) with per-section validation

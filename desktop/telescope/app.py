@@ -20,10 +20,10 @@ from telescope import dev_profile, diagnostics, theme, vcam
 from telescope.config import DEVICE_LOCAL_PLUGINS, load_config, save_config
 from telescope.models import PhoneState, PhoneStateError
 from telescope.phone_client import PhoneControlClient
-from telescope.phones import DESKTOP_OUTDATED, LOCAL_ONLY, NOT_PAIRED, PHONE_OUTDATED, READY
 from telescope.platform import IS_LINUX
 from telescope.plugin import UNCHANGED, EventBus, TelescopePlugin
 from telescope.session import StreamSession
+from telescope.sources import PhoneSource, PluginSource, Source
 from telescope.stream import StreamWorker, guarded_step
 from telescope.widgets.banner import BannerAction, BannerArea, Issue, copy_action
 from telescope.widgets.common import (
@@ -36,14 +36,6 @@ _WIDTH_TWO_COL   = 900
 # Both rails share one width so the preview sits on the window's centre line.
 _RAIL_WIDTH       = 412
 _RAIL_WIDTH_SOLO  = 440  # two-column mode: the one rail holding every card
-_RECOVER_RETRY_MS = 3000  # a dropped stream: how often to look for a route back to the phone
-_ALIVE_POLL_MS = 5000  # camera off: how often to check the phone is still there, with no video to tell
-_ALIVE_MISSES = 2  # checks in a row the phone didn't answer before looking for it like a dropped stream
-_CAMERA_ON_CHECK_MS = 6000  # after turning the camera on: when to ask the phone whether it came on
-# Frames arriving at 90% of what the phone's camera makes means the link keeps up with the camera; how long the camera's
-# rate is trusted before asking again.
-_CAMERA_LIMITED_SHARE = 0.9
-_CAMERA_FPS_KEEP_S = 10.0
 _CAMERA_LIMITED_TIP = "The phone's camera is making fewer frames than asked for. Dim light slows it down."
 
 
@@ -102,15 +94,8 @@ def listen_for_raise(srv: socket.socket, raise_cb):
 
 # ── Main window ───────────────────────────────────────────────────────────────
 class TelescopeWindow(QMainWindow):
-    _sig_state = pyqtSignal(int, dict)
     _sig_raise = pyqtSignal()
     _sig_canvas_reload_done = pyqtSignal(bool, str, bool, str)  # ok, msg, restart_stream, command to run by hand
-    _sig_wake_done = pyqtSignal(int, bool, str, str, object)  # wake_id, ok, reason, url, PhoneAuth
-    _sig_wake_progress = pyqtSignal(int, str)  # wake_id, status text
-    _sig_recovery_probed = pyqtSignal(int, int, object)  # session id, recovery generation, Resolution
-    _sig_camera_rate = pyqtSignal(int, float, float)  # session id, frames arriving per second, the phone's camera rate
-    _sig_alive = pyqtSignal(int, bool)  # session id, whether the phone answered (camera off)
-    _sig_camera_check = pyqtSignal(int, object)  # session id, the phone's state after turning the camera on (or None)
 
     def __init__(self):
         super().__init__()
@@ -123,16 +108,12 @@ class TelescopeWindow(QMainWindow):
         # Both restart the phone's camera, so the stream gets a moment before it counts as behind.
         self._bus.resolution_change_requested.connect(lambda _w, _h: self._settle_stream())
         self._bus.camera_switched.connect(lambda _cam: self._settle_stream())
-        # In-flight resolution change; cleared on confirm or timeout.
-        self._pending_resolution: Optional[tuple[int, int]] = None
-        self._pending_resolution_timer: Optional[QTimer] = None
         # Animated "Stream dropped - reconnecting..." status.
         self._reconnecting_timer: Optional[QTimer] = None
         self._reconnecting_base = ""
         self._reconnecting_dots = 1
         self._plugins: list[TelescopePlugin] = []
         self._plugins_by_name: dict[str, TelescopePlugin] = {}
-        self._sources: dict = {}  # StreamSources plugins offer, by id
         # Plugin defaults; lets us reset before applying device profile.
         self._plugin_defaults: dict[str, dict] = {}
 
@@ -141,42 +122,15 @@ class TelescopeWindow(QMainWindow):
         self._next_session_id = 1
         self._save_failure_notified = False
 
-        # Generation counter for phone-wake; guards against stale async results.
-        self._wake_id = 0
-        self._wake_target = None  # where the latest wake went, to stop it if it finishes after a stop
-        self._stop_late_wake = False
+        # Where streams come from: the phone Connection picked, and the StreamSources plugins offer, by id.
+        self._phone = PhoneSource(self)
+        self._sources: dict[str, Source] = {}
+        self._camera_on_shown = True  # what camera_on_changed last said, to catch a pick with another camera choice
         self._waking = False
+        self._wake_source: Optional[Source] = None  # the source a start is waking, which a stop meanwhile has to reach
         self._preparing = False  # _start is finding the phone; timers still fire meanwhile, so it must not start again
         self._orphans: set = set()  # workers that outlived Stop's wait, kept referenced until they finish
         self._restarting = False  # stopping only to start again (reconnect, virtual camera resize)
-        # A dropped stream looking for its way back; the generation drops probes from an earlier drop.
-        self._recovering = False
-        self._recovery_gen = 0
-        self._recovery_route = None  # the route recovery last moved the stream to
-        # Whether the stream is falling behind (bus.stream_behind), and throughput reports to skip before judging it.
-        self._behind = False
-        self._settling_reports = 0
-        # Frames coming in under the rate asked for: the link, or a camera making fewer (dim light slows it down)?
-        # The phone's answer holds for a while, so it isn't asked every report.
-        self._arrival_slow = False
-        self._camera_check_busy = False
-        self._camera_fps: Optional[float] = None  # 0: not known
-        self._camera_fps_until = 0.0
-        self._state_poll_busy = False  # one recovery state poll at a time: an unreachable phone takes 4 s to time out
-        self._recovery_timer = QTimer(self)
-        self._recovery_timer.setSingleShot(True)
-        self._recovery_timer.timeout.connect(self._probe_recovery)
-        # Remote-stop requests; quit path waits for these to complete.
-        self._stop_threads: list[threading.Thread] = []
-        # Camera off: the stream is the mic alone, with no video worker. Before a start it means Start mic only.
-        self._camera_off = False
-        self._camera_off_auto = False  # Automatic streaming turned it off, so an app opening the camera turns it on
-        self._camera_toggle: Optional[bool] = None  # whether this stream's phone can turn its camera off; None: not known yet
-        self._alive_timer = QTimer(self)
-        self._alive_timer.setInterval(_ALIVE_POLL_MS)
-        self._alive_timer.timeout.connect(self._check_alive)
-        self._alive_misses = 0
-        self._alive_busy = False
 
         self._save_timer = QTimer(self)
         self._save_timer.setSingleShot(True)
@@ -189,16 +143,11 @@ class TelescopeWindow(QMainWindow):
         self._build_ui()
         self._setup_tray()
 
-        self._sig_state.connect(self._apply_state)
         self._sig_raise.connect(self._tray_show)
         self._sig_canvas_reload_done.connect(self._on_canvas_reload_done)
-        self._sig_wake_done.connect(self._on_wake_done)
-        self._sig_wake_progress.connect(self._on_wake_progress)
-        self._sig_recovery_probed.connect(self._on_recovery_probed)
-        self._sig_camera_rate.connect(self._on_camera_rate)
-        self._sig_alive.connect(self._on_alive)
-        self._sig_camera_check.connect(self._on_camera_check)
         self._bus.mic_changed.connect(self._on_mic_changed)
+        self._bus.source_selected.connect(self._on_source_selected)
+        self._bus.camera_on_changed.connect(lambda on: setattr(self, "_camera_on_shown", on))
         self._mic_state = (False, False)  # the microphone card: on, muted
         self._tray_shows = None
         for signal in (self._bus.stream_started, self._bus.stream_stopped, self._bus.camera_on_changed):
@@ -307,7 +256,7 @@ class TelescopeWindow(QMainWindow):
         """Keep label, icon, and color consistent."""
         self._streaming_label = streaming
         verb = "Stop" if streaming else "Start"
-        if not streaming and self._camera_off:
+        if not streaming and not self.is_camera_on():
             self._start_btn.setText("Start mic only")
         else:
             self._start_btn.setText(verb if self._layout_mode == "one" else f"{verb} Streaming")
@@ -630,7 +579,7 @@ class TelescopeWindow(QMainWindow):
 
     def _on_stream_reconnected(self):
         self._end_recovery()
-        self._settling_reports = 1  # the next throughput report still counts the gap
+        self._active_source().settling_reports = 1  # the next throughput report still counts the gap
         session = self._session
         if session is None:
             return
@@ -660,12 +609,20 @@ class TelescopeWindow(QMainWindow):
         else:                            self._start()
 
     def add_stream_source(self, source):
-        self._sources[source.id] = source
+        self._sources[source.id] = PluginSource(self, source)
         self._bus.stream_sources_changed.emit([(s.id, s.name) for s in self._sources.values()])
 
-    def _selected_source(self):
+    def _selected_source(self) -> Source:
         conn = self._plugin("connection")
-        return self._sources.get(conn.selected_device) if conn else None
+        return self._sources.get(conn.selected_device, self._phone) if conn else self._phone
+
+    def _active_source(self) -> Source:
+        """The stream's source, the one a start is waking, or while idle the one Start would stream from."""
+        if self._session is not None:
+            return self._session.source
+        if self._waking and self._wake_source is not None:
+            return self._wake_source  # the picker may have moved on already: a switch stops the wake after that
+        return self._selected_source()
 
     def _start(self, interactive: bool = True):
         """Ensure phone camera is running before reading frames; wake happens off-thread to avoid blocking UI."""
@@ -674,44 +631,9 @@ class TelescopeWindow(QMainWindow):
             return
         self.clear_issue("start")
         source = self._selected_source()
-        if source is not None:
-            self._start_source(conn, source, interactive)
-            return
         self._preparing = True
         try:
-            url, auth, ok = conn.get_stream_info(interactive=interactive)
-        except Exception:
-            logging.exception("Getting ready to stream failed")
-            self.show_issue("start", Issue("Couldn't start streaming", "Something went wrong. Copy diagnostics has the details.",
-                                           [BannerAction("Try again", self.start_stream)]))
-            url, auth, ok = None, None, False
-        finally:
-            self._preparing = False
-        if not ok:
-            self._bus.stream_start_failed.emit()
-            return
-
-        self._wake_id += 1
-        wake_id = self._wake_id
-        self._waking = True
-        self._set_start_button(streaming=True)
-        self._start_btn.setEnabled(False)
-        self._set_status("Starting the phone's mic…" if self._camera_off else "Starting the phone's camera…", "dim")
-
-        self._wake_target = conn.session_target()
-        self._stop_late_wake = True
-        output = self._plugin("stream_output")
-        # Read here, on the GUI thread: what the phone should open at, not the size it last used (which may have failed)
-        opening = output.opening() if output is not None and hasattr(output, "opening") else None
-        if self._camera_off:
-            opening = {**(opening or {}), "camera": "off"}  # an older phone leaves it out and opens the camera
-        self._spawn_wake(wake_id, conn, url, auth, self._wake_target, opening)
-
-    def _start_source(self, conn, source, interactive: bool):
-        """No phone to wake: once the virtual camera and the source are ready, the stream starts right away."""
-        self._preparing = True
-        try:
-            ok = conn.ensure_virtual_camera(interactive) and source.prepare(interactive)
+            ok = source.prepare(interactive)
         except Exception:
             logging.exception("Getting %s ready to stream failed", source.name)
             self.show_issue("start", Issue("Couldn't start streaming", "Something went wrong. Copy diagnostics has the details.",
@@ -722,42 +644,18 @@ class TelescopeWindow(QMainWindow):
         if not ok:
             self._bus.stream_start_failed.emit()
             return
-        self._begin_stream(source.url, None, source)
-
-    def _spawn_wake(self, wake_id: int, conn, url: str, auth, target=None, opening=None):
-        """Split from _start() to allow test synchronization; thread mustn't outlive QObject."""
-        threading.Thread(
-            target=self._wake_phone, args=(wake_id, conn, url, auth, target, opening), daemon=True,
-        ).start()
-
-    def _wake_phone(self, wake_id: int, conn, url: str, auth, target=None, opening=None):
-        def on_progress(msg: str):
-            try:
-                self._sig_wake_progress.emit(wake_id, msg)
-            except RuntimeError:
-                pass
-
-        try:
-            ok, reason = conn.ensure_phone_streaming(on_progress=on_progress, target=target, opening=opening)
-        except Exception:
-            logging.exception("Phone wake failed")
-            ok, reason = False, "Couldn't reach the phone."
-        try:
-            self._sig_wake_done.emit(wake_id, ok, reason, url, auth)
-        except RuntimeError:
-            pass
-
-    def _on_wake_progress(self, wake_id: int, msg: str):
-        if wake_id != self._wake_id or not self._waking:
+        if not source.wakes:  # nothing to wake: the stream starts right away
+            self._begin_stream(source)
             return
-        self._set_status(msg, "dim")
 
-    def _on_wake_done(self, wake_id: int, ok: bool, reason: str, url: str, auth):
-        if wake_id != self._wake_id or not self._waking:
-            if ok and self._stop_late_wake and not self._waking and self._session is None:
-                # Stopped while it woke: the stop may have reached the phone first, leaving its camera on
-                self._stop_phone_async(self._wake_target)
-            return
+        self._waking = True
+        self._wake_source = source
+        self._set_start_button(streaming=True)
+        self._start_btn.setEnabled(False)
+        self._set_status("Starting the phone's mic…" if source.camera_off else "Starting the phone's camera…", "dim")
+        source.wake()
+
+    def _on_wake_done(self, source: Source, ok: bool, reason: str):
         self._waking = False
         self._start_btn.setEnabled(True)
         if not ok:
@@ -767,39 +665,33 @@ class TelescopeWindow(QMainWindow):
                                            [BannerAction("Try again", self.start_stream)]))
             self._bus.stream_start_failed.emit()
             return
-        self._begin_stream(url, auth)
+        self._begin_stream(source)
 
-    def _begin_stream(self, url: str, auth, source=None):
-        if source is not None and self._camera_off:
-            self._camera_off = self._camera_off_auto = False  # only a phone can stream its mic alone
-            self._bus.camera_on_changed.emit(True)
-        ctrl = source.control_client() if source is not None else PhoneControlClient(url, auth)
+    def _begin_stream(self, source: Source):
+        url = source.url
+        ctrl = source.control_client()
         session_id = self._next_session_id
         self._next_session_id += 1
-        self._camera_toggle = None
-        worker = None if self._camera_off else self._start_worker(url, auth, source)
+        source.camera_toggle = None
+        worker = None if source.camera_off else self._start_worker(url, source.auth, source)
         self._session = StreamSession(id=session_id, url=url, client=ctrl, worker=worker, source=source)
 
         self._bus.stream_started.emit(url)
         self._each_plugin("on_stream_start", url, ctrl)
-        if self._camera_off:
+        if source.camera_off:
             self._each_plugin("on_camera_off")
 
-        if source is None:  # a source has no phone state to fetch
-            threading.Thread(target=self._fetch_state_async, args=(session_id,), daemon=True).start()
+        source.started(session_id)
 
         self._set_start_button(streaming=True)
-        if self._camera_off:
+        if source.camera_off:
             self._show_camera_off()
         else:
             self._set_status("Connecting...", "dim")
 
-    def _start_worker(self, url: str, auth, source=None) -> StreamWorker:
+    def _start_worker(self, url: str, auth, source: Source) -> StreamWorker:
         """A video worker on url, after whatever holds the virtual camera while idle has let go of it."""
-        so = self._plugin("stream_output")
-        w, h, fps = so.get_stream_params() if so else (None, None, 30)
-        if source is not None:
-            w, h, fps = None, None, source.fps()
+        w, h, fps = source.stream_params()
 
         setup = self._plugin("setup")
         canvas_w, canvas_h = setup.get_canvas_dims() if setup else (None, None)
@@ -813,7 +705,7 @@ class TelescopeWindow(QMainWindow):
             frame_pipeline=pipeline,
             canvas_width=canvas_w, canvas_height=canvas_h,
             auth=auth,
-            open_reader=source.open_reader if source is not None else None,
+            open_reader=source.open_reader,
         )
         worker.status.connect(self._on_worker_status)
         worker.reconnected.connect(self._on_stream_reconnected)
@@ -840,33 +732,36 @@ class TelescopeWindow(QMainWindow):
     # ── Camera off: the mic alone ─────────────────────────────────────────
 
     def is_camera_on(self) -> bool:
-        return not self._camera_off
+        return not self._active_source().camera_off
 
     def is_camera_off_auto(self) -> bool:
-        return self._camera_off and self._camera_off_auto
+        source = self._active_source()
+        return source.camera_off and source.camera_off_auto
 
     def can_turn_camera_off(self) -> tuple:
         """(whether the camera can go off now, and why not); it takes the microphone to have anything to stream."""
         session = self._session
-        if (session.source if session is not None else self._selected_source()) is not None:
+        source = self._active_source()
+        if not source.mic_alone:
             return False, "Only a phone can turn its camera off and keep streaming its mic."
         if not self._mic_enabled():
             return False, "Turn on the phone mic first. With the camera off, the mic is all that streams."
-        if session is not None and self._camera_toggle is False:
+        if session is not None and source.camera_toggle is False:
             return False, "Update Telescope on the phone to turn its camera off while streaming."
         return True, ""
 
     def set_camera_on(self, on: bool, auto: bool = False):
         """Turn the camera off (the stream carries on with just the mic) or back on; before a start, picks what it
         starts with. auto: Automatic streaming did it, not the user."""
-        if on == (not self._camera_off):
+        source = self._active_source()
+        if on == (not source.camera_off):
             if on or not auto:
-                self._camera_off_auto = False  # a choice by hand isn't the rule's to undo
+                source.camera_off_auto = False  # a choice by hand isn't the rule's to undo
             return
         if not on and not self.can_turn_camera_off()[0]:
             return
-        self._camera_off = not on
-        self._camera_off_auto = auto and not on
+        source.camera_off = not on
+        source.camera_off_auto = auto and not on
         logging.info("Camera %s%s", "on" if on else "off", " (automatic)" if auto else "")
         session = self._session
         if session is not None:
@@ -879,6 +774,12 @@ class TelescopeWindow(QMainWindow):
             self._set_start_button(streaming=self._waking)
         self._bus.camera_on_changed.emit(on)
 
+    def _on_source_selected(self, _sid: str):
+        """Each source keeps its own camera choice, so picking another can change what Start does."""
+        if self._session is None and self.is_camera_on() != self._camera_on_shown:
+            self._set_start_button(streaming=self._waking)
+            self._bus.camera_on_changed.emit(self.is_camera_on())
+
     def _camera_off_now(self, session: StreamSession):
         self._end_recovery()
         if session.worker is not None:
@@ -890,12 +791,12 @@ class TelescopeWindow(QMainWindow):
         self._show_camera_off()
 
     def _camera_on_now(self, session: StreamSession):
-        self._alive_timer.stop()
+        session.source.stop_watching_alive()
         self._end_recovery()
-        self._session = replace(session, worker=self._start_worker(session.url, session.client.auth))
+        self._session = replace(session, worker=self._start_worker(session.url, session.client.auth, session.source))
         self._each_plugin("on_camera_on")
         self._set_status("Turning the phone's camera on…", "dim")
-        QTimer.singleShot(_CAMERA_ON_CHECK_MS, lambda sid=session.id: self._spawn_camera_on_check(sid))
+        session.source.camera_turned_on(session.id)
 
     def _show_camera_off(self):
         self._fps_lbl.setText("—")
@@ -903,22 +804,21 @@ class TelescopeWindow(QMainWindow):
         self._net_lbl.setStyleSheet("")
         self._net_lbl.setText("—")
         self._set_status("Streaming the mic, camera off", "ok")
-        self._alive_misses = 0
-        self._alive_timer.start()
+        self._active_source().watch_alive()
 
     def _mic_enabled(self) -> bool:
         return bool((self.plugin_config("microphone") or {}).get("enabled"))
 
     def _on_mic_changed(self, enabled: bool, muted: bool):
         self._mic_state = (enabled, muted)
-        if not enabled and self._camera_off:
+        if not enabled and not self.is_camera_on():
             self.set_camera_on(True)  # with neither, the stream would carry nothing
         self._show_tray_state()
 
     def _show_tray_state(self, *_):
         """The tray icon and its tooltip say what's streaming: a red dot for the camera, a mic for the mic."""
         streaming = self._session is not None
-        camera = streaming and not self._camera_off
+        camera = streaming and self.is_camera_on()
         enabled, muted = self._mic_state
         mic = ("muted" if muted else "on") if streaming and enabled else None
         if self._tray is None or (camera, mic) == self._tray_shows:
@@ -933,73 +833,9 @@ class TelescopeWindow(QMainWindow):
             tip = "Telescope: streaming the mic, camera off" + (" (muted)" if mic == "muted" else "")
         self._tray.setToolTip(tip)
 
-    def _check_alive(self):
-        """With no video coming in, ask the phone now and then whether it's still there."""
-        session = self._session
-        if session is None or session.worker is not None or self._alive_busy:
-            return
-        self._alive_busy = True
-        self._spawn_alive_check(session.id, session.client)
-
-    def _spawn_alive_check(self, session_id: int, client):
-        """Split out so tests can leave the thread out."""
-        def work():
-            try:
-                ok = client.get_state() is not None
-            finally:
-                self._alive_busy = False
-            try:
-                self._sig_alive.emit(session_id, ok)
-            except RuntimeError:
-                pass  # the window is gone
-        threading.Thread(target=work, daemon=True).start()
-
-    def _on_alive(self, session_id: int, ok: bool):
-        session = self._session
-        if session is None or session.id != session_id or session.worker is not None:
-            return
-        if ok:
-            self._alive_misses = 0
-            if self._recovering:
-                self._on_stream_reconnected()
-                self._show_camera_off()
-            return
-        self._alive_misses += 1
-        if self._alive_misses >= _ALIVE_MISSES and not self._recovering:
-            self._start_reconnecting_animation("Lost the phone - reconnecting")
-            self._begin_recovery()
-
-    def _spawn_camera_on_check(self, session_id: int):
-        session = self._session
-        if session is None or session.id != session_id or self._camera_off:
-            return
-        client = session.client
-
-        def work():
-            state = client.get_state()
-            try:
-                self._sig_camera_check.emit(session_id, state)
-            except RuntimeError:
-                pass
-        threading.Thread(target=work, daemon=True).start()
-
-    def _on_camera_check(self, session_id: int, state):
-        """The phone says whether the camera came back on; one that couldn't (in use elsewhere) stays off."""
-        session = self._session
-        if session is None or session.id != session_id or self._camera_off or not state:
-            return
-        if state.get("camera_off") and state.get("camera_error"):
-            self._camera_off = True
-            self._camera_off_now(session)
-            self._bus.camera_on_changed.emit(False)
-            self.show_issue("camera", Issue("The camera didn't turn back on", state["camera_error"],
-                                            [BannerAction("Try again", lambda: self.set_camera_on(True))], kind="warn"))
-
     def _stop(self, remote_stop: bool = True):
         """Tear down stream; remote_stop=False for reconnects (changed address/vcam reload)."""
-        self._wake_id += 1
-        if not remote_stop:
-            self._stop_late_wake = False  # the phone is meant to keep going, so a wake landing late isn't stopped either
+        source = self._active_source()
         self._end_recovery()
         was_waking = self._waking
         self._waking = False
@@ -1011,168 +847,50 @@ class TelescopeWindow(QMainWindow):
         worker = session.worker if session else None
         ctrl = session.client if session else None
 
-        if remote_stop and (session or was_waking) and not (session and session.source):
-            self._stop_phone_async()
+        source.stopped(remote_stop, active=bool(session or was_waking))
 
         if worker:
             self._end_worker(worker)
         if ctrl:
             ctrl.close()
-        self._alive_timer.stop()
         self.clear_issue("camera")
-        camera_was_off = self._camera_off
+        camera_was_off = source.camera_off
         if not self._restarting:
-            self._camera_off = self._camera_off_auto = False  # each stream starts with the camera on
+            source.camera_off = source.camera_off_auto = False  # each stream starts with the camera on
         self._set_start_button(streaming=False)
-        self._clear_pending_resolution()
+        self._clear_pending_resolution(source)
         self._fps_lbl.setText("—")
         self._net_lbl.setStyleSheet("")
         self._net_lbl.setText("—")
         self._set_status("Not streaming", "dim")
-        self._settling_reports = 0
-        self._arrival_slow = False
-        self._camera_fps = None
+        source.settling_reports = 0
+        source.arrival_slow = False
         self._fps_lbl.setToolTip("")
-        self._set_behind(False)
+        self._set_behind(False, source)
 
         self._bus.stream_stopped.emit()
         self._each_plugin("on_stream_stop")
-        if camera_was_off and not self._camera_off:
+        if camera_was_off and not source.camera_off:
             self._bus.camera_on_changed.emit(True)
 
-    # ── A dropped stream ──────────────────────────────────────────────────
-    # The worker keeps retrying its URL, which is enough when Wi-Fi blips. But the phone may only be
-    # reachable another way now (cable pulled: Wi-Fi; plugged back in: a fresh adb forward), so keep
-    # asking Connection how to reach it and point the worker there.
-
     def _begin_recovery(self):
-        if self._session is None or self._recovering:
+        """The stream dropped: the source looks for its way back (a phone may be reachable another way now)."""
+        session = self._session
+        if session is None or session.source.recovering:
             return
-        self._recovering = True
-        self._recovery_route = None
+        session.source.recovering = True
         self._set_behind(False)
-        source = self._session.source
         self._bus.stream_lost.emit()
-        if source is None:  # a source has no other route: its reader waits for it to come back
-            self._probe_recovery()
-
-    def _spawn_state_fetch(self, session_id: int):
-        """Split out so tests can leave the thread out."""
-        if self._state_poll_busy:
-            return
-        self._state_poll_busy = True
-        threading.Thread(target=self._poll_codec_state, args=(session_id,), daemon=True).start()
-
-    def _poll_codec_state(self, session_id: int):
-        """The phone's state, if it says why the stream stopped; the rest can wait for the stream to be back."""
-        try:
-            session = self._session  # one read: _stop() can clear it between checks on the GUI thread
-            if session is None or session.id != session_id:
-                return
-            state = session.client.get_state()
-            if state and state.get("codec_error"):
-                self._sig_state.emit(session_id, state)
-        except RuntimeError:
-            pass  # the window is gone
-        finally:
-            self._state_poll_busy = False
+        session.source.lost()
 
     def _end_recovery(self):
-        self._recovering = False
-        self._recovery_gen += 1
-        self._recovery_timer.stop()
-
-    def _probe_recovery(self):
-        session, conn = self._session, self._plugin("connection")
-        if session is None or conn is None or not self._recovering:
-            return
-        # The phone may have dropped the stream on purpose (H.264 it can't do at this size): its state says why. The
-        # camera can take seconds to give up after the stream stops, so ask every round, not just once.
-        self._spawn_state_fetch(session.id)
-        gen, job = self._recovery_gen, conn.recovery_probe()
-        self._spawn_recovery_probe(session.id, gen, job)
-
-    def _spawn_recovery_probe(self, session_id: int, gen: int, job):
-        """Split out so tests can run it synchronously."""
-        def work():
-            try:
-                res = job()
-            except Exception:
-                logging.exception("Looking for the phone again failed")
-                res = None
-            try:
-                self._sig_recovery_probed.emit(session_id, gen, res)
-            except RuntimeError:
-                pass
-        threading.Thread(target=work, daemon=True).start()
-
-    def _on_recovery_probed(self, session_id: int, gen: int, res):
-        session = self._session
-        if not self._recovering or gen != self._recovery_gen or session is None or session.id != session_id:
-            return
-        if res is not None and res.status in (NOT_PAIRED, LOCAL_ONLY, PHONE_OUTDATED, DESKTOP_OUTDATED):
-            # The phone answers but won't take the stream back: say why instead of retrying forever.
-            self._stop(remote_stop=False)
-            conn = self._plugin("connection")
-            if conn:
-                conn.show_problem(res)
-            return
-        if res is not None and res.status == READY:
-            if not res.streaming and not res.busy:
-                # Stopped on the phone, or by its idle watchdog while we couldn't reach it.
-                self._stop(remote_stop=False)
-                self.show_issue("start", Issue(
-                    "The phone stopped streaming", "Start again when you're ready.",
-                    [BannerAction("Start", self.start_stream)], kind="warn"))
-                return
-            if res.streaming and res.route != self._recovery_route:
-                self._move_stream(session, res.route)
-        self._recovery_timer.start(_RECOVER_RETRY_MS)
-
-    def _move_stream(self, session: StreamSession, route):
-        conn = self._plugin("connection")
-        url = conn.adopt_stream_route(route) if conn else None
-        if url is None or self._session is not session:
-            return
-        self._recovery_route = route
-        if url != session.url:
-            session.client.close()
-            auth = session.worker.auth if session.worker is not None else session.client.auth
-            session = replace(session, url=url, client=PhoneControlClient(url, auth))
-            self._session = session
-        if session.worker is not None:
-            session.worker.retarget(url)
-        else:
-            self._on_stream_reconnected()  # camera off: the mic follows the new route, and nothing else waits for it
-            self._show_camera_off()
-
-    def _stop_phone_async(self, target=None):
-        """Tell phone to shut camera down; tracked thread lets quit path wait for it."""
-        conn = self._plugin("connection")
-        if not conn:
-            return
-        target = target or conn.session_target()
-
-        def stop():
-            try:
-                conn.stop_phone_streaming(target=target)
-            except Exception:
-                logging.debug("Remote stop failed", exc_info=True)
-
-        t = threading.Thread(target=stop, daemon=True)
-        self._stop_threads = [x for x in self._stop_threads if x.is_alive()]
-        self._stop_threads.append(t)
-        t.start()
+        self._active_source().end_recovery()
 
     def _drain_phone_stops(self, timeout: float = 2.0):
         """Wait for remote stops to complete, but never block quit indefinitely."""
         deadline = time.monotonic() + timeout
-        for t in self._stop_threads:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                break
-            t.join(remaining)
-        self._stop_threads.clear()
+        for source in (self._phone, *self._sources.values()):
+            source.drain_stops(deadline)
 
     def restart_vcam_canvas(self, w, h, on_done=None):
         """Stop stream, optionally reload the vcam driver, restart stream."""
@@ -1227,21 +945,6 @@ class TelescopeWindow(QMainWindow):
             cb(ok, msg)
             self._vcam_reload_callback = None
 
-    def _fetch_state_async(self, session_id: int, report_failure: bool = True):
-        """The phone's state to the plugins; report_failure=False keeps a fetch that got nothing quiet (mid-stream)."""
-        time.sleep(1.5)
-        for _ in range(3):
-            session = self._session  # one read: _stop() can clear it between checks on the GUI thread
-            if session is None or session.id != session_id:
-                return
-            state = session.client.get_state()
-            if state:
-                self._sig_state.emit(session_id, state)
-                return
-            time.sleep(2)
-        if report_failure and self._session is not None and self._session.id == session_id:
-            self._sig_state.emit(session_id, {})
-
     def _apply_state(self, session_id: int, state: dict):
         # A device switch or stop between the fetch completing and this slot
         # running (queued Qt signal) means this result belongs to a session
@@ -1263,23 +966,7 @@ class TelescopeWindow(QMainWindow):
             return  # something listening (Monitoring, too hot) stopped the stream just now
         self._each_plugin("on_phone_state", state)
         if state:
-            self._match_phone_camera(state)
-
-    def _match_phone_camera(self, state: dict):
-        """The phone's camera on or off as this stream wants it: a restart keeps it off, and an older phone can't."""
-        session = self._session
-        if session is None:
-            return
-        self._camera_toggle = bool(state.get("camera_toggle"))
-        if not self._camera_toggle:
-            if self._camera_off:
-                self.set_camera_on(True)
-                self.show_issue("camera", Issue("This phone can't turn its camera off yet",
-                                                "Update Telescope on the phone to stream the mic with the camera off.",
-                                                kind="warn"))
-            return
-        if bool(state.get("camera_off")) != self._camera_off:
-            session.client.send(action="camera_on", value=0 if self._camera_off else 1)
+            self._session.source.on_phone_state(state)
 
     def _setup_tray(self):
         self._tray_close_notified = False
@@ -1331,7 +1018,7 @@ class TelescopeWindow(QMainWindow):
         self._banners.clear_issue(key)
 
     def diagnostics_report(self) -> str:
-        state = {"Streaming": ("yes, camera off" if self._camera_off else "yes") if self.is_streaming() else "no"}
+        state = {"Streaming": ("yes" if self.is_camera_on() else "yes, camera off") if self.is_streaming() else "no"}
         for plugin in self._plugins:
             try:
                 state.update(plugin.diagnostics())
@@ -1388,27 +1075,30 @@ class TelescopeWindow(QMainWindow):
 
     def _on_resolution_pending(self, w: int, h: int):
         """Resolution change sent; phone must reopen camera, so show pending state."""
-        if self._pending_resolution_timer:
-            self._pending_resolution_timer.stop()
-        self._pending_resolution = (w, h)
+        source = self._active_source()
+        if source.pending_resolution_timer:
+            source.pending_resolution_timer.stop()
+        source.pending_resolution = (w, h)
         self._fps_lbl.setStyleSheet(f"color: {theme.WARN};")
         timer = QTimer(self)
         timer.setSingleShot(True)
         timer.timeout.connect(self._on_resolution_pending_timeout)
         timer.start(8000)  # generous: camera reopen + a possible brief reconnect
-        self._pending_resolution_timer = timer
+        source.pending_resolution_timer = timer
 
     def _on_resolution_pending_timeout(self):
-        self._pending_resolution = None
-        self._pending_resolution_timer = None
+        source = self._active_source()
+        source.pending_resolution = None
+        source.pending_resolution_timer = None
         self._fps_lbl.setStyleSheet(f"color: {theme.ERR};")
         QTimer.singleShot(4000, lambda: self._fps_lbl.setStyleSheet(""))
 
-    def _clear_pending_resolution(self):
-        if self._pending_resolution_timer:
-            self._pending_resolution_timer.stop()
-            self._pending_resolution_timer = None
-        self._pending_resolution = None
+    def _clear_pending_resolution(self, source: Optional[Source] = None):
+        source = source or self._active_source()
+        if source.pending_resolution_timer:
+            source.pending_resolution_timer.stop()
+            source.pending_resolution_timer = None
+        source.pending_resolution = None
         self._fps_lbl.setStyleSheet("")
 
     def _start_reconnecting_animation(self, base_msg: str):
@@ -1439,20 +1129,20 @@ class TelescopeWindow(QMainWindow):
     def _on_worker_status(self, kind: str, msg: str):
         if kind == "fps":
             self._fps_lbl.setText(msg)
-            if self._pending_resolution is not None:
+            if (pending := self._active_source().pending_resolution) is not None:
                 try:
                     size_text = msg.rsplit(" ", 1)[-1]
                     w_str, h_str = size_text.split("x")
-                    if (int(w_str), int(h_str)) == self._pending_resolution:
+                    if (int(w_str), int(h_str)) == pending:
                         self._clear_pending_resolution()
                 except ValueError:
                     pass
         elif kind == "net":
-            self._arrival_slow = False
+            self._active_source().arrival_slow = False
             self._net_lbl.setText(msg)
             self._show_slow(False)
         elif kind == "net_warn":
-            self._arrival_slow = True
+            self._active_source().arrival_slow = True
             self._net_lbl.setText(msg)
             self._on_slow_arrival()
         elif kind == "ok":
@@ -1488,41 +1178,12 @@ class TelescopeWindow(QMainWindow):
     def _on_slow_arrival(self):
         """Frames arrive under the rate asked for. If the phone's camera makes about that many, it's not the link."""
         session = self._session
+        source = self._active_source()
         arrival = getattr(session.worker, "last_arrival_fps", None) if session else None
-        if self._recovering or self._settling_reports or not arrival:
+        if source.recovering or source.settling_reports or not arrival:
             self._show_slow(True)  # nothing to ask, or nothing to say yet: as before
-        elif self._camera_fps is not None and time.monotonic() < self._camera_fps_until:
-            self._show_slow(True, camera_limited=self._camera_limits(arrival))
-        elif not self._camera_check_busy:
-            # The readout and any note wait for the answer, a moment on a working link.
-            self._camera_check_busy = True
-            self._spawn_camera_check(session.id, arrival)
-
-    def _spawn_camera_check(self, session_id: int, arrival: float):
-        """Split out so tests can run it synchronously."""
-        threading.Thread(target=self._check_camera_rate, args=(session_id, arrival), daemon=True).start()
-
-    def _check_camera_rate(self, session_id: int, arrival: float):
-        session = self._session
-        state = session.client.get_state() if session is not None and session.id == session_id else None
-        rate = state.get("camera_fps") if state else None
-        try:
-            self._sig_camera_rate.emit(session_id, arrival, float(rate) if isinstance(rate, (int, float)) else 0.0)
-        except RuntimeError:
-            pass  # the window is gone
-
-    def _on_camera_rate(self, session_id: int, arrival: float, camera_fps: float):
-        self._camera_check_busy = False
-        if self._session is None or self._session.id != session_id:
-            return
-        self._camera_fps = camera_fps
-        self._camera_fps_until = time.monotonic() + _CAMERA_FPS_KEEP_S
-        if self._arrival_slow:
-            self._show_slow(True, camera_limited=self._camera_limits(arrival))
-
-    def _camera_limits(self, arrival: float) -> bool:
-        # 0: a phone too old to say, or no answer: the link, as before
-        return bool(self._camera_fps) and arrival >= self._camera_fps * _CAMERA_LIMITED_SHARE
+        else:
+            source.check_camera_rate(session, arrival)
 
     def _show_slow(self, slow: bool, camera_limited: bool = False):
         behind = slow and not camera_limited
@@ -1532,16 +1193,18 @@ class TelescopeWindow(QMainWindow):
 
     def _note_throughput(self, behind: bool):
         """A dropped stream isn't slow, and the first report after it's back still counts the gap, so neither says."""
-        if self._recovering:
+        source = self._active_source()
+        if source.recovering:
             return
-        if self._settling_reports:
-            self._settling_reports -= 1
+        if source.settling_reports:
+            source.settling_reports -= 1
             return
         self._set_behind(behind)
 
-    def _set_behind(self, behind: bool):
-        if behind != self._behind:
-            self._behind = behind
+    def _set_behind(self, behind: bool, source: Optional[Source] = None):
+        source = source or self._active_source()
+        if behind != source.behind:
+            source.behind = behind
             self._bus.stream_behind.emit(behind)
 
     def _set_status(self, msg: str, kind: str):
