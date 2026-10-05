@@ -166,6 +166,7 @@ def check_browser_camera_round_trip():
         server.start()
         try:
             ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            ctx.minimum_version = ssl.TLSVersion.TLSv1_2
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
             conn = http.client.HTTPSConnection("127.0.0.1", server.port, context=ctx, timeout=5)

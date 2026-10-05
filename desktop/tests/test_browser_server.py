@@ -42,6 +42,7 @@ class _Browser:
 
     def __init__(self, port: int, token: str):
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
         raw = socket.create_connection(("127.0.0.1", port), timeout=5)
@@ -159,6 +160,7 @@ def test_an_unreadable_certificate_is_replaced(tmp_path):
 
 def _get(port: int, path: str) -> tuple:
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
     import http.client
