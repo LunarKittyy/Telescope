@@ -94,6 +94,8 @@ class OnboardingPlugin(TelescopePlugin):
         self._signals.vcam.connect(self._on_vcam)
         self._signals.apk.connect(self._on_apk)
         bus.phones_changed.connect(self._on_phones)
+        self._source = ""  # the stream source picked instead of a phone (Browser camera), if any
+        bus.source_selected.connect(self._on_source)
         bus.stream_started.connect(lambda _url: self._set_streaming(True))
         bus.stream_stopped.connect(lambda: self._set_streaming(False))
         bus.stream_connected.connect(self._on_stream_connected)
@@ -146,8 +148,11 @@ class OnboardingPlugin(TelescopePlugin):
                             "Installing it needs admin access.")
             vcam.action("Install driver", primary=True)
 
-        paired = self._phones > 0
-        if paired:
+        paired = self._phones > 0 or bool(self._source)
+        if self._source:
+            self._app.set(True, "Not needed: you picked a camera that isn't a phone.")
+            self._app.action(None)
+        elif paired:
             self._app.set(True, "Installed.")
             self._app.action(None)
         elif not self._busy:
@@ -158,7 +163,10 @@ class OnboardingPlugin(TelescopePlugin):
             self._app.action("Install over USB" if usb else None)
         self._qr_row.setVisible(not paired)
 
-        if paired:
+        if self._source:
+            self._pair.set(True, "Not needed: you picked a camera that isn't a phone.")
+            self._pair.action(None)
+        elif paired:
             self._pair.set(True, "Paired.")
             self._pair.action(None)
         else:
@@ -173,12 +181,17 @@ class OnboardingPlugin(TelescopePlugin):
         self._update_visibility()
 
     def _update_visibility(self):
-        needed = not self._streaming and not (self._phones > 0 and self._vcam_ready and self._streamed)
+        has_device = self._phones > 0 or bool(self._source)
+        needed = not self._streaming and not (has_device and self._vcam_ready and self._streamed)
         if self._card.isHidden() != (not needed):
             self._card.setVisible(needed)
         self._bus.setup_needed.emit(needed)
 
     # ── Events ────────────────────────────────────────────────────────────
+
+    def _on_source(self, sid: str):
+        self._source = sid
+        self._render()
 
     def _on_phones(self, count: int):
         self._phones = count

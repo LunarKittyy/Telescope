@@ -52,6 +52,7 @@ from telescope.app import (
     TelescopeWindow, acquire_single_instance, listen_for_raise,
 )
 from telescope.platform import IS_LINUX, autostart
+from telescope.plugins.browser_camera import BrowserCameraPlugin
 from telescope.plugins.camera_control import CameraControlPlugin
 from telescope.plugins.connection import ConnectionPlugin
 from telescope.plugins.microphone import MicrophonePlugin
@@ -108,6 +109,7 @@ def main():
     win.register_plugin(SetupPlugin())
     win.register_plugin(ConnectionPlugin())
     win.register_plugin(CameraControlPlugin())
+    win.register_plugin(BrowserCameraPlugin())  # after Camera: its card takes that place while it's picked
     win.register_plugin(StreamOutputPlugin())
     win.register_plugin(TransformsPlugin())
     win.register_plugin(MicrophonePlugin())

@@ -39,6 +39,14 @@ The Presets button in the header saves the camera, output and transform settings
 - Gain from -24 dB up to +12 dB (Advanced lets it go to +24, +36 or +48 instead; type a value for an exact one), and a level meter that holds the latest peak, lights yellow while the limiter holds loud moments down and red when the sound clips. The limiter is on by default (Advanced)
 - **Mute** (in the card or the tray menu) sends silence without disconnecting the mic, for call apps that can't mute. It resets when the app restarts
 
+## Browser camera
+- Stream from any device with a browser (an iPhone, a tablet, another laptop) without installing anything on it. Pick **Browser camera** in the phone picker, scan the code on its card, and tap **Start** on the page
+- The browser's microphone works with the Microphone card too
+- The browser warns that the connection isn't private, once per device: the page uses a certificate this computer made for itself. On iPhone tap **Show Details** and then **visit this website**; in Chrome tap **Advanced** and then **Proceed**
+- Keep the page open with the screen on. Phones pause the camera when you switch apps or lock the screen, and the stream picks up again when you come back to the page
+- **New link** makes a new code and stops the old one working. One browser streams at a time; opening the link somewhere else takes over
+- Camera, output and alert settings don't apply here. Resolution (480p to 1080p) and frame rate (15 to 30) are on the card instead
+
 ## Monitoring
 - FPS and throughput in the footer. When the stream can't keep up, a note suggests what to try, with a button for it
 - A dropped stream reconnects by itself, over whichever route works: pull the cable and it carries on over Wi-Fi

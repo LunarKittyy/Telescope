@@ -144,7 +144,7 @@ class CameraControlPlugin(TelescopePlugin):
         card = create_card()
         lay = card_layout(card)
         add_card_header(lay, "Camera", "camera")
-        dim_until_paired(card, self._bus)
+        dim_until_paired(card, self._bus, phone_only=True)
 
         self._lens_panel = LensPanel()
         self._lens_panel.lens_selected.connect(self._on_lens_selected)

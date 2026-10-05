@@ -431,6 +431,8 @@ class ConnectionPlugin(TelescopePlugin):
         bus.stream_connected.connect(self._on_stream_connected)
         bus.stream_lost.connect(self._on_stream_lost)
         bus.add_phone_requested.connect(self.open_add_phone)
+        self._sources: list = []  # [(id, name)] of the StreamSources other plugins offer (Browser camera)
+        bus.stream_sources_changed.connect(self._on_sources)
 
     # ── Model ─────────────────────────────────────────────────────────────
 
@@ -443,6 +445,18 @@ class ConnectionPlugin(TelescopePlugin):
 
     def _selected_phone(self) -> Optional[Phone]:
         return self.phone(self._selected_id)
+
+    def _source_name(self, sid: Optional[str]) -> Optional[str]:
+        return next((name for i, name in self._sources if i == sid), None)
+
+    def _on_sources(self, sources: list):
+        self._sources = list(sources)
+        self._refresh_combo()
+        self._render()
+        self._announce_source()
+
+    def _announce_source(self):
+        self._bus.source_selected.emit(self._selected_id if self._source_name(self._selected_id) else "")
 
     @property
     def selected_device(self) -> Optional[str]:
@@ -543,6 +557,10 @@ class ConnectionPlugin(TelescopePlugin):
         self._phone_combo.clear()
         for p in self._phones:
             self._phone_combo.addItem(p.name, p.id)
+        if self._sources and self._phones:
+            self._phone_combo.insertSeparator(self._phone_combo.count())
+        for sid, name in self._sources:
+            self._phone_combo.addItem(name, sid)
         self._phone_combo.setCurrentIndex(self._phone_combo.findData(self._selected_id))
         self._phone_combo.blockSignals(False)
         self._switching = False
@@ -551,9 +569,16 @@ class ConnectionPlugin(TelescopePlugin):
     def _render(self):
         """Card rows from the current phone + latest resolution."""
         phone = self._selected_phone()
+        source = self._source_name(self._selected_id)
         if phone is None:
-            set_status_kind(self._status_lbl, "status_dim")
-            self._status_lbl.setText("No phone yet")
+            live = self._streaming and self._connected and not self._lost
+            set_status_kind(self._status_lbl, "status_ok" if live else "status_dim")
+            if source is None:
+                self._status_lbl.setText("No phone yet")
+            elif self._streaming:
+                self._status_lbl.setText("● Streaming" if live else f"Waiting for {source}…")
+            else:
+                self._status_lbl.setText(f"{source}, no phone needed")
             self._using_row.setVisible(False)
             self._route_row.setVisible(False)
             self._note_lbl.setText("")
@@ -723,8 +748,12 @@ class ConnectionPlugin(TelescopePlugin):
 
     # ── Stream lifecycle (called by the host) ─────────────────────────────
 
+    def ensure_virtual_camera(self, interactive: bool = True) -> bool:
+        """Whether the virtual camera is ready to stream to, setting it up (asking first) on Linux."""
+        return not IS_LINUX or self._ensure_virtual_camera(interactive)
+
     def get_stream_info(self, interactive: bool = True) -> tuple:
-        if IS_LINUX and not self._ensure_virtual_camera(interactive):
+        if not self.ensure_virtual_camera(interactive):
             return None, None, False
         phone = self._selected_phone()
         if phone is None:
@@ -1118,6 +1147,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._refresh_combo()
         self._activate_profile(pid)
         self._render()
+        self._announce_source()
         self._running_check = None  # the other phone's check is stale now; don't wait for it
         self._check_status()
 
@@ -1146,6 +1176,7 @@ class ConnectionPlugin(TelescopePlugin):
         route = self._stream_route if self._streaming else (res.route if res else None)
         out = {
             "Paired phones": str(len(self._phones)),
+            "Streaming from": "a phone" if self._source_name(self._selected_id) is None else self._selected_id,
             "Connect via": self._route_pref,
             "Connection": route.kind if route else "none",
             "Phone status": res.status if res else "not checked",
@@ -1182,10 +1213,12 @@ class ConnectionPlugin(TelescopePlugin):
             except ValueError:
                 logger.warning("Discarding malformed phone entry in config: %r", raw)
         sel = cfg.get("selected_phone")
-        self._selected_id = sel if self.phone(sel) else (self._phones[0].id if self._phones else None)
+        known = self.phone(sel) or self._source_name(sel)
+        self._selected_id = sel if known else (self._phones[0].id if self._phones else None)
         self._resolution = None
         self._refresh_combo()
         self._render()
+        self._announce_source()
         self._check_status()
 
     def shutdown(self):

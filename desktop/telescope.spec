@@ -30,10 +30,10 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('telescope/web', 'telescope/web')],  # the Browser camera page
     # ifaddr picks its platform backend behind an `os.name` check, so pull
     # the whole package rather than relying on that branch being followed.
-    hiddenimports=collect_submodules('telescope') + collect_submodules('ifaddr') + collect_submodules('zeroconf') + collect_submodules('av') + [
+    hiddenimports=collect_submodules('telescope') + collect_submodules('ifaddr') + collect_submodules('zeroconf') + collect_submodules('av') + collect_submodules('cryptography') + [
         'sounddevice',  # hooks-contrib's hook collects its PortAudio DLL
         'pyvirtualcam',
         'cv2',
