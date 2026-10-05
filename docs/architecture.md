@@ -131,6 +131,8 @@ telescope/
         |-- phones.py            # Phone model, RouteResolver (USB or Wi-Fi, and why), refcounted adb forwards
         |-- discovery.py         # Finds phones on the LAN via mDNS (zeroconf)
         |-- ip_utils.py          # Desktop address discovery for the pairing code, address ranking
+        |-- browser_server.py    # Browser camera: HTTPS + WebSocket server, its certificate, BrowserReader
+        |-- web/                 # The page the Browser camera serves (HTML, JS, mic AudioWorklet)
         |-- platform/
         |   |-- autostart.py     # Open at sign-in (XDG autostart / HKCU Run)
         |   |-- linux.py         # v4l2loopback helpers (load, unload, reload)
@@ -141,6 +143,7 @@ telescope/
         |   |-- setup.py
         |   |-- connection.py
         |   |-- camera_control.py
+        |   |-- browser_camera.py # Browser camera card, offered as a stream source in the phone picker
         |   |-- stream_output.py
         |   |-- transforms.py
         |   |-- presets.py       # Saved camera/output/transform settings

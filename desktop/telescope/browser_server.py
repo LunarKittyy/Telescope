@@ -1,0 +1,725 @@
+"""Browser camera: any device with a browser streams its camera and mic here, no app needed. Qt-free.
+
+The device opens https://<this computer>:<port>/#<token>, allows the camera, and sends JPEG frames and
+48 kHz mono s16le audio over one WebSocket. Browsers only allow the camera on HTTPS (or localhost), so the
+server has a self-signed certificate the browser warns about once. The token is new every time the server
+starts, and a newer connection with it replaces the older one, so there's one browser at a time.
+
+BrowserFeed is where the server puts what arrives; BrowserReader hands its frames to StreamWorker the way
+MjpegReader does, and BrowserFeed.open_audio() stands in for the phone's /v1/audio for AudioWorker.
+"""
+
+import base64
+import datetime
+import hashlib
+import hmac
+import io
+import ipaddress
+import json
+import logging
+import os
+import secrets
+import socket
+import ssl
+import struct
+import sys
+import threading
+import time
+import urllib.error
+import urllib.parse
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Callable, Optional
+
+import cv2
+import numpy as np
+
+logger = logging.getLogger(__name__)
+
+BROWSER_PORT = 8767
+
+FRAME_JPEG = 1  # first byte of a binary message: what follows
+FRAME_PCM = 2
+
+_WS_GUID = b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+_MAX_MESSAGE_BYTES = 16 * 1024 * 1024  # far above a 1080p JPEG; anything bigger ends the connection
+_MAX_TEXT_BYTES = 16 * 1024
+_REQUEST_TIMEOUT_S = 10  # handshake and HTTP request
+_IDLE_TIMEOUT_S = 10  # no message at all for this long (a phone that went to sleep) ends the connection
+_TICK_S = 0.5  # how often the connection loop looks for something to send while nothing arrives
+_MAX_CONNECTIONS = 16
+_MAX_PER_ADDRESS = 6
+
+# Browsers refuse certificates valid for more than 398 days, so it's renewed a month before it runs out.
+_CERT_DAYS = 397
+_CERT_RENEW_DAYS = 30
+_CERT_FILE = "browser_camera_cert.pem"
+_KEY_FILE = "browser_camera_key.pem"
+
+_WEB_DIR = Path(__file__).resolve().parent / "web"
+_PAGES = {
+    "/": ("index.html", "text/html; charset=utf-8"),
+    "/app.js": ("app.js", "text/javascript; charset=utf-8"),
+    "/mic-worklet.js": ("mic-worklet.js", "text/javascript; charset=utf-8"),
+}
+
+
+def certificate_available() -> bool:
+    try:
+        import cryptography  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
+def ensure_certificate(folder: Path, hosts: list, now: Optional[datetime.datetime] = None) -> tuple:
+    """(cert path, key path) in folder, made or renewed when missing, unreadable or about to run out.
+
+    The same certificate is kept as long as it's valid, so a browser that was told to trust it once keeps doing so.
+    """
+    cert_path, key_path = folder / _CERT_FILE, folder / _KEY_FILE
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    if _certificate_fresh(cert_path, key_path, now):
+        return cert_path, key_path
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.x509.oid import NameOID
+
+    key = ec.generate_private_key(ec.SECP256R1())
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Telescope")])
+    alt = [x509.DNSName("localhost")]
+    for host in hosts:
+        try:
+            alt.append(x509.IPAddress(ipaddress.ip_address(host)))
+        except ValueError:
+            pass
+    cert = (x509.CertificateBuilder()
+            .subject_name(name).issuer_name(name)
+            .public_key(key.public_key())
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(now - datetime.timedelta(days=1))
+            .not_valid_after(now + datetime.timedelta(days=_CERT_DAYS))
+            .add_extension(x509.SubjectAlternativeName(alt), critical=False)
+            .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+            .add_extension(x509.ExtendedKeyUsage([x509.oid.ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
+            .sign(key, hashes.SHA256()))
+    folder.mkdir(parents=True, exist_ok=True)
+    _write_private(key_path, key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
+                                               serialization.NoEncryption()))
+    _write_private(cert_path, cert.public_bytes(serialization.Encoding.PEM))
+    return cert_path, key_path
+
+
+def _certificate_fresh(cert_path: Path, key_path: Path, now: datetime.datetime) -> bool:
+    if not cert_path.is_file() or not key_path.is_file():
+        return False
+    try:
+        from cryptography import x509
+        cert = x509.load_pem_x509_certificate(cert_path.read_bytes())
+        ssl.create_default_context(ssl.Purpose.CLIENT_AUTH).load_cert_chain(cert_path, key_path)
+    except Exception:
+        return False
+    return cert.not_valid_after_utc - now > datetime.timedelta(days=_CERT_RENEW_DAYS)
+
+
+def _write_private(path: Path, data: bytes):
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as f:
+        f.write(data)
+    os.replace(tmp, path)
+
+
+# ── What arrives ─────────────────────────────────────────────────────────────
+
+class BrowserFeed:
+    """Frames and audio from whichever browser is connected; thread-safe. A connection is a generation: a newer one
+    takes over, and the frames of an older one are never handed out after it."""
+
+    def __init__(self):
+        self._cond = threading.Condition()
+        self._gen = 0
+        self._connected = False
+        self._frame: Optional[bytes] = None
+        self._frame_seq = 0
+        self.device = ""  # what the browser says it runs on, for the card
+        self.mic_error = ""  # the browser's reason it has no mic, if it said one
+        self._audio_streams: list = []
+        self._settings = {"width": 1280, "height": 720, "fps": 30}
+        self._settings_seq = 0  # bumped on every change, so each connection sends the newest
+
+    # The server's side
+
+    def connect(self) -> int:
+        with self._cond:
+            self._gen += 1
+            self._connected = True
+            self._frame = None
+            self.device = ""
+            self.mic_error = ""
+            self._cond.notify_all()
+            return self._gen
+
+    def disconnect(self, gen: int):
+        with self._cond:
+            if gen != self._gen:
+                return
+            self._connected = False
+            self._frame = None
+            self._cond.notify_all()
+
+    def current(self, gen: int) -> bool:
+        return gen == self._gen
+
+    def put_frame(self, gen: int, jpeg: bytes):
+        with self._cond:
+            if gen != self._gen:
+                return
+            self._frame = jpeg
+            self._frame_seq += 1
+            self._cond.notify_all()
+
+    def put_audio(self, gen: int, pcm: bytes):
+        if gen != self._gen:
+            return
+        for stream in list(self._audio_streams):
+            stream.push(pcm)
+
+    def note_hello(self, gen: int, device: str, mic_error: str):
+        if gen == self._gen:
+            self.device, self.mic_error = device, mic_error
+
+    def page_config(self) -> tuple:
+        """(change counter, what the page should capture), sent to the page when the counter moves."""
+        with self._cond:
+            cfg = dict(self._settings, audio=bool(self._audio_streams))
+            return self._settings_seq, cfg
+
+    # The desktop's side
+
+    @property
+    def connected(self) -> bool:
+        return self._connected
+
+    def set_capture(self, width: int, height: int, fps: int):
+        with self._cond:
+            self._settings = {"width": int(width), "height": int(height), "fps": int(fps)}
+            self._settings_seq += 1
+
+    def wait_connected(self, timeout: float) -> Optional[int]:
+        """The connected browser's generation, waiting up to timeout for one; None if nothing connected."""
+        deadline = time.monotonic() + timeout
+        with self._cond:
+            while not self._connected:
+                left = deadline - time.monotonic()
+                if left <= 0:
+                    return None
+                self._cond.wait(left)
+            return self._gen
+
+    def next_frame(self, gen: int, after: int, timeout: float) -> Optional[tuple]:
+        """(seq, jpeg) newer than after from connection gen, waiting up to timeout; None once it's gone or quiet."""
+        deadline = time.monotonic() + timeout
+        with self._cond:
+            while True:
+                if gen != self._gen or not self._connected:
+                    return None
+                if self._frame is not None and self._frame_seq > after:
+                    return self._frame_seq, self._frame
+                left = deadline - time.monotonic()
+                if left <= 0:
+                    return None
+                self._cond.wait(left)
+
+    def open_audio(self, req=None, timeout: float = 5.0) -> "BrowserAudioStream":
+        """AudioWorker's opener: the browser's mic as a never-ending response. It outlives the browser reconnecting
+        (silence meanwhile); only the worker closing it ends it. Refuses, with the browser's reason, when the
+        connected browser has no mic."""
+        if self._connected and self.mic_error:
+            body = json.dumps({"error": self.mic_error}).encode()
+            raise urllib.error.HTTPError("browser:/audio", 409, "No microphone", {}, io.BytesIO(body))
+        stream = BrowserAudioStream(self._drop_audio)
+        with self._cond:
+            self._audio_streams.append(stream)
+            self._settings_seq += 1  # the page starts sending audio
+        return stream
+
+    def _drop_audio(self, stream):
+        with self._cond:
+            if stream in self._audio_streams:
+                self._audio_streams.remove(stream)
+                self._settings_seq += 1
+
+
+class BrowserAudioStream:
+    """read1()/close() like an HTTP response, fed by BrowserFeed. Keeps at most a second, so a stalled reader
+    can't build up delay (the jitter buffer drops it back to its target anyway)."""
+
+    _MAX_BYTES = 48_000 * 2
+
+    def __init__(self, on_close: Callable):
+        self._cond = threading.Condition()
+        self._buf = bytearray()
+        self._closed = False
+        self._on_close = on_close
+
+    def push(self, data: bytes):
+        with self._cond:
+            self._buf += data
+            if len(self._buf) > self._MAX_BYTES:
+                drop = len(self._buf) - self._MAX_BYTES
+                del self._buf[:drop - drop % 2]
+            self._cond.notify_all()
+
+    def read1(self, n: int = 4096) -> bytes:
+        with self._cond:
+            while not self._buf and not self._closed:
+                self._cond.wait(0.5)
+            if self._closed:
+                return b""
+            out = bytes(self._buf[:n])
+            del self._buf[:n]
+            return out
+
+    def close(self):
+        with self._cond:
+            self._closed = True
+            self._cond.notify_all()
+        self._on_close(self)
+
+
+class BrowserAuth:
+    """What AudioWorker expects of a phone's auth: no headers, and open() reaches the browser's mic."""
+
+    def __init__(self, feed: BrowserFeed):
+        self._feed = feed
+
+    def headers(self) -> dict:
+        return {}
+
+    def open(self, req, timeout: float = 5.0):
+        return self._feed.open_audio(req, timeout)
+
+
+class BrowserControl:
+    """Stands in for PhoneControlClient while the browser streams: there's no phone to control or ask for state.
+    The microphone plugin reads base and auth to reach the audio."""
+
+    base = "browser:"
+
+    def __init__(self, feed: BrowserFeed):
+        self.auth = BrowserAuth(feed)
+
+    def get_state(self):
+        return None
+
+    def send(self, **params):
+        pass
+
+    def close(self):
+        pass
+
+
+class BrowserReader:
+    """StreamWorker's reader for the browser: the same open/read_packet/decode/release as MjpegReader."""
+
+    parallel_decode = True
+    last_frame_count = 1
+    waiting_text = "Waiting for the browser. Scan the code on the Browser camera card and tap Start."
+    # How long open() waits for a browser, and how long read_packet() waits for a frame before the worker reconnects.
+    OPEN_WAIT_S = 1.0
+    FRAME_WAIT_S = 3.0
+
+    def __init__(self, feed: BrowserFeed):
+        self._feed = feed
+        self._gen: Optional[int] = None
+        self._seq = 0
+        self.last_frame_bytes = 0
+
+    def open(self) -> bool:
+        self._gen = self._feed.wait_connected(self.OPEN_WAIT_S)
+        self._seq = 0
+        return self._gen is not None
+
+    def isOpened(self) -> bool:
+        return self._gen is not None
+
+    def read_packet(self):
+        if self._gen is None:
+            return False, None
+        got = self._feed.next_frame(self._gen, self._seq, self.FRAME_WAIT_S)
+        if got is None:
+            return False, None
+        self._seq, jpeg = got
+        self.last_frame_bytes = len(jpeg)
+        return True, jpeg
+
+    @staticmethod
+    def decode(jpeg: bytes):
+        return cv2.imdecode(np.frombuffer(jpeg, dtype=np.uint8), cv2.IMREAD_COLOR)
+
+    def read(self):
+        ok, jpeg = self.read_packet()
+        if not ok:
+            return False, None
+        frame = self.decode(jpeg)
+        return (True, frame) if frame is not None else (False, None)
+
+    def release(self):
+        self._gen = None
+
+
+# ── WebSocket framing (RFC 6455, just what a browser sends) ──────────────────
+
+class _Closed(Exception):
+    """The connection ended, cleanly or not."""
+
+
+def ws_accept_key(key: str) -> str:
+    return base64.b64encode(hashlib.sha1(key.encode("ascii") + _WS_GUID).digest()).decode("ascii")
+
+
+def ws_frame(opcode: int, payload: bytes = b"") -> bytes:
+    """A server-to-client frame: final, unmasked."""
+    n = len(payload)
+    if n < 126:
+        head = struct.pack("!BB", 0x80 | opcode, n)
+    elif n < 1 << 16:
+        head = struct.pack("!BBH", 0x80 | opcode, 126, n)
+    else:
+        head = struct.pack("!BBQ", 0x80 | opcode, 127, n)
+    return head + payload
+
+
+def ws_close_frame(code: int, reason: str = "") -> bytes:
+    return ws_frame(0x8, struct.pack("!H", code) + reason.encode("utf-8")[:120])
+
+
+def unmask(payload: bytes, mask: bytes) -> bytes:
+    if not payload:
+        return b""
+    data = np.frombuffer(payload, np.uint8)
+    key = np.frombuffer(mask * (len(payload) // 4 + 1), np.uint8)[:len(payload)]
+    return (data ^ key).tobytes()
+
+
+class _WsConnection:
+    """Reads a browser's frames off the socket with its own buffer, so a read timeout (used to send pending
+    messages and notice a quiet peer) never loses half a frame. Everything is sent from this thread too:
+    an SSL socket mustn't be written while another thread reads it."""
+
+    def __init__(self, sock, on_tick: Callable):
+        self._sock = sock
+        self._buf = bytearray()
+        self._on_tick = on_tick
+        self._last_heard = time.monotonic()
+
+    def send(self, data: bytes):
+        self._sock.sendall(data)
+
+    def _fill(self, n: int):
+        while len(self._buf) < n:
+            try:
+                chunk = self._sock.recv(65536)
+            except (socket.timeout, TimeoutError):
+                if time.monotonic() - self._last_heard > _IDLE_TIMEOUT_S:
+                    raise _Closed("idle")
+                self._on_tick()
+                continue
+            except (OSError, ssl.SSLError) as exc:
+                raise _Closed(str(exc))
+            if not chunk:
+                raise _Closed("eof")
+            self._last_heard = time.monotonic()
+            self._buf += chunk
+
+    def _take(self, n: int) -> bytes:
+        self._fill(n)
+        out = bytes(self._buf[:n])
+        del self._buf[:n]
+        return out
+
+    def read_frame(self) -> tuple:
+        b0, b1 = self._take(2)
+        fin, opcode = bool(b0 & 0x80), b0 & 0x0F
+        if b0 & 0x70:
+            raise _Closed("reserved bits")
+        if not b1 & 0x80:
+            raise _Closed("unmasked frame")  # browsers always mask
+        n = b1 & 0x7F
+        if n == 126:
+            n = struct.unpack("!H", self._take(2))[0]
+        elif n == 127:
+            n = struct.unpack("!Q", self._take(8))[0]
+        if n > _MAX_MESSAGE_BYTES:
+            raise _Closed("frame too big")
+        mask = self._take(4)
+        return fin, opcode, unmask(self._take(n), mask)
+
+    def read_message(self) -> tuple:
+        """(opcode, payload) of the next text or binary message, answering pings and assembling fragments."""
+        opcode, parts, size = None, [], 0
+        while True:
+            fin, op, payload = self.read_frame()
+            if op == 0x8:
+                self.send(ws_close_frame(1000))
+                raise _Closed("closed by browser")
+            if op == 0x9:
+                self.send(ws_frame(0xA, payload[:125]))
+                continue
+            if op == 0xA:
+                continue
+            if op in (0x1, 0x2):
+                if opcode is not None:
+                    raise _Closed("new message inside a fragmented one")
+                opcode = op
+            elif op != 0x0 or opcode is None:
+                raise _Closed(f"unexpected opcode {op}")
+            parts.append(payload)
+            size += len(payload)
+            if size > _MAX_MESSAGE_BYTES:
+                raise _Closed("message too big")
+            if fin:
+                return opcode, b"".join(parts)
+
+
+# ── The server ───────────────────────────────────────────────────────────────
+
+class _Server(ThreadingHTTPServer):
+    """TLS per connection, on that connection's own thread, so a slow handshake holds up nobody else. Open
+    connections are capped in total and per address."""
+
+    allow_reuse_address = sys.platform != "win32"  # on Windows it would let two servers share the port
+    daemon_threads = True
+
+    def __init__(self, address, handler, ctx: ssl.SSLContext, owner: "BrowserServer"):
+        self.ctx, self.owner = ctx, owner
+        self._open: dict = {}
+        self._open_lock = threading.Lock()
+        super().__init__(address, handler)
+
+    def process_request(self, request, client_address):
+        host = client_address[0] if client_address else ""
+        with self._open_lock:
+            if sum(self._open.values()) >= _MAX_CONNECTIONS or self._open.get(host, 0) >= _MAX_PER_ADDRESS:
+                self.shutdown_request(request)
+                return
+            self._open[host] = self._open.get(host, 0) + 1
+        super().process_request(request, client_address)
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            host = client_address[0] if client_address else ""
+            with self._open_lock:
+                left = self._open.get(host, 0) - 1
+                if left <= 0:
+                    self._open.pop(host, None)
+                else:
+                    self._open[host] = left
+
+    def finish_request(self, request, client_address):
+        request.settimeout(_REQUEST_TIMEOUT_S)
+        try:
+            tls = self.ctx.wrap_socket(request, server_side=True)
+        except (OSError, ssl.SSLError):
+            return  # a browser that hasn't accepted the certificate yet hangs up here; that's expected
+        try:
+            self.RequestHandlerClass(tls, client_address, self)
+        finally:
+            try:
+                tls.close()
+            except OSError:
+                pass
+
+    def handle_error(self, request, client_address):
+        if isinstance(sys.exc_info()[1], (OSError, ssl.SSLError)):
+            return  # a dropped connection
+        super().handle_error(request, client_address)
+
+
+class _Handler(BaseHTTPRequestHandler):
+    server_version = "Telescope"
+    sys_version = ""
+    protocol_version = "HTTP/1.1"
+
+    def log_message(self, fmt, *args):
+        pass  # no addresses or tokens in the log
+
+    def _reply(self, code: int, body: bytes = b"", content_type: str = "text/plain; charset=utf-8"):
+        self.send_response(code)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("Content-Security-Policy",
+                         "default-src 'self'; connect-src 'self' wss:; img-src 'self' data:; "
+                         "style-src 'self' 'unsafe-inline'; media-src 'self' blob: mediastream:; frame-ancestors 'none'")
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(body)
+
+    def do_HEAD(self):
+        self.do_GET()
+
+    def do_GET(self):
+        url = urllib.parse.urlsplit(self.path)
+        if url.path == "/ws":
+            self._websocket(urllib.parse.parse_qs(url.query).get("token", [""])[0])
+            return
+        page = _PAGES.get(url.path)
+        if page is None:
+            self._reply(404, b"Not found")
+            return
+        self._reply(200, (_WEB_DIR / page[0]).read_bytes(), page[1])
+
+    def _websocket(self, token: str):
+        owner: BrowserServer = self.server.owner
+        key = self.headers.get("Sec-WebSocket-Key", "")
+        if (self.headers.get("Upgrade", "").lower() != "websocket" or not key
+                or self.headers.get("Sec-WebSocket-Version") != "13"):
+            self._reply(400, b"WebSocket only")
+            return
+        if not owner.token_ok(token):
+            self._reply(403, b"This link has expired. Scan the code on the computer again.")
+            return
+        self.send_response(101, "Switching Protocols")
+        self.send_header("Upgrade", "websocket")
+        self.send_header("Connection", "Upgrade")
+        self.send_header("Sec-WebSocket-Accept", ws_accept_key(key))
+        self.end_headers()
+        self.wfile.flush()
+        self.close_connection = True
+        owner.serve_browser(self.connection)
+
+
+class BrowserServer:
+    """Serves the page and takes one browser's camera at a time into feed. start() binds, stop() ends everything."""
+
+    def __init__(self, feed: BrowserFeed, cert_path: Path, key_path: Path,
+                 on_change: Optional[Callable[[], None]] = None, port: int = BROWSER_PORT, host: str = ""):
+        self.feed = feed
+        self.token = secrets.token_urlsafe(18)
+        self._cert, self._key = cert_path, key_path
+        self._on_change = on_change or (lambda: None)
+        self._want_port, self._host = port, host
+        self._server: Optional[_Server] = None
+        self._thread: Optional[threading.Thread] = None
+        self._socks: set = set()
+        self._kicked: set = set()  # connections to end; each one's own thread notices within _TICK_S
+        self._socks_lock = threading.Lock()
+
+    @property
+    def port(self) -> int:
+        return self._server.server_address[1] if self._server else 0
+
+    def url_for(self, host: str) -> str:
+        return f"https://{host}:{self.port}/#{self.token}"
+
+    def token_ok(self, token: str) -> bool:
+        return bool(token) and hmac.compare_digest(token.encode(), self.token.encode())
+
+    def new_token(self):
+        """Make the old link stop working (and drop whoever used it)."""
+        self.token = secrets.token_urlsafe(18)
+        self._close_all()
+
+    def start(self):
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        ctx.load_cert_chain(self._cert, self._key)
+        try:
+            self._server = _Server((self._host, self._want_port), _Handler, ctx, self)
+        except OSError:
+            self._server = _Server((self._host, 0), _Handler, ctx, self)  # taken: any free port
+        self._thread = threading.Thread(target=self._server.serve_forever, name="browser-camera", daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        server, self._server = self._server, None
+        if server is not None:
+            server.shutdown()
+            server.server_close()
+        self._close_all()
+
+    def _close_all(self):
+        # Not shut down from here: that doesn't wake a blocked read on Windows, and an SSL socket mustn't be touched
+        # from another thread while its own reads it
+        with self._socks_lock:
+            self._kicked |= self._socks
+
+    def serve_browser(self, sock):
+        """One browser's connection, on its handler thread, until it ends or a newer one takes over."""
+        feed = self.feed
+        gen = feed.connect()
+        with self._socks_lock:
+            self._socks.add(sock)
+        sent = [-1]
+
+        def tick():
+            if not feed.current(gen):
+                raise _Closed("replaced")
+            if sock in self._kicked:
+                raise _Closed("ended here")
+            seq, cfg = feed.page_config()
+            if seq != sent[0]:
+                sent[0] = seq
+                ws.send(ws_frame(0x1, json.dumps(dict(cfg, type="config")).encode()))
+
+        sock.settimeout(_TICK_S)
+        ws = _WsConnection(sock, tick)
+        self._on_change()
+        try:
+            tick()
+            while True:
+                opcode, payload = ws.read_message()
+                tick()
+                if opcode == 0x2 and payload:
+                    if payload[0] == FRAME_JPEG:
+                        feed.put_frame(gen, payload[1:])
+                    elif payload[0] == FRAME_PCM:
+                        feed.put_audio(gen, payload[1:])
+                elif opcode == 0x1 and len(payload) <= _MAX_TEXT_BYTES:
+                    self._on_text(gen, payload)
+        except _Closed as why:
+            if str(why) == "replaced":
+                _send_quietly(ws, ws_close_frame(4000, "Opened somewhere else"))
+            elif str(why) == "ended here":
+                _send_quietly(ws, ws_close_frame(1001))
+        except (OSError, ssl.SSLError):
+            pass
+        finally:
+            with self._socks_lock:
+                self._socks.discard(sock)
+                self._kicked.discard(sock)
+            feed.disconnect(gen)
+            self._on_change()
+
+    def _on_text(self, gen: int, payload: bytes):
+        try:
+            msg = json.loads(payload.decode("utf-8"))
+        except (UnicodeDecodeError, ValueError):
+            return
+        if not isinstance(msg, dict) or msg.get("type") != "hello":
+            return
+        device = _clean(msg.get("device"), 48)
+        mic_error = _clean(msg.get("mic_error"), 160)
+        self.feed.note_hello(gen, device, mic_error)
+        self._on_change()
+
+
+def _send_quietly(ws: _WsConnection, data: bytes):
+    try:
+        ws.send(data)
+    except (OSError, ssl.SSLError):
+        pass
+
+
+def _clean(value, limit: int) -> str:
+    """A string from the browser as plain display text."""
+    if not isinstance(value, str):
+        return ""
+    return "".join(c for c in value if c.isprintable() and c not in "<>")[:limit]

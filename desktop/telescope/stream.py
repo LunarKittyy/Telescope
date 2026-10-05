@@ -3,7 +3,7 @@ import logging
 import os
 import threading
 import time
-from typing import Optional
+from typing import Callable, Optional
 
 import cv2
 import numpy as np
@@ -116,10 +116,12 @@ class StreamWorker(QThread):
                  fps: int, frame_pipeline: list = None,
                  canvas_width: Optional[int] = None,
                  canvas_height: Optional[int] = None,
-                 auth: Optional[PhoneAuth] = None):
+                 auth: Optional[PhoneAuth] = None,
+                 open_reader: Optional[Callable] = None):
         super().__init__()
         self.url       = url
         self.auth      = auth
+        self._open_reader = open_reader  # a StreamSource's reader instead of the phone's
         self._width    = width
         self._height   = height
         self._fps      = fps
@@ -208,6 +210,10 @@ class StreamWorker(QThread):
         self._retry_now.set()
 
     def _open_cap(self):
+        if self._open_reader is not None:
+            reader = self._open_reader()
+            reader.open()
+            return reader
         # Our own readers, since cv2's FFmpeg backend can't attach the bearer header. The route says which.
         reader_cls = H264Reader if self.url.endswith(".h264") else MjpegReader
         reader = reader_cls(self.url, self.auth)
@@ -317,14 +323,15 @@ class StreamWorker(QThread):
             self.status.emit("idle", "Not streaming")
 
     def _run(self):
-        self.status.emit("info", f"Connecting to {self.url}...")
+        self.status.emit("info", "Connecting..." if self._open_reader else f"Connecting to {self.url}...")
         failed = False  # the phone may be reachable another way by now, so the host looks for it (see "waiting")
         while not self._stop_flag:
             cap = self._open_cap()
             if not cap.isOpened():
                 cap.release()
                 failed = True
-                self.status.emit("waiting", f"Can't reach the phone's stream. Trying again in {RECONNECT_DELAY} s…")
+                self.status.emit("waiting", getattr(cap, "waiting_text", None)
+                                 or f"Can't reach the phone's stream. Trying again in {RECONNECT_DELAY} s…")
                 self._restart_vcam.wait(timeout=RECONNECT_DELAY)
                 self._restart_vcam.clear()
                 continue

@@ -65,6 +65,12 @@ sounddevice (https://pypi.org/project/sounddevice/, Windows only)
 VB-Audio Virtual Cable is not distributed with Telescope; users install it
 themselves from https://vb-audio.com/Cable/ under VB-Audio's own terms.
 
+cryptography (https://pypi.org/project/cryptography/)
+    Makes the Browser camera's self-signed certificate. License: Apache 2.0
+    or BSD 3-Clause, at your choice. Its wheels bundle OpenSSL
+    (https://www.openssl.org/), Apache License 2.0, and depend on cffi
+    (https://pypi.org/project/cffi/), MIT.
+
 zeroconf (https://pypi.org/project/zeroconf/)
     Copyright (c) Paul Scott-Murphy, William McBrine, Jakub Stasiak and
     python-zeroconf contributors.

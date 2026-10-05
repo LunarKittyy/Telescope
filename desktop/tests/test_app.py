@@ -2265,3 +2265,32 @@ def test_the_tray_icon_says_what_streams(camera_env):
                          "Telescope: streaming the mic, camera off", "Telescope: streaming the mic, camera off (muted)",
                          "Telescope"]
     window._tray = None
+
+
+def test_a_browser_camera_streams_with_its_camera_on(camera_env):
+    window, conn, mic, clients, workers, changes = camera_env
+
+    class Source:
+        id, name, url = "browser", "Browser camera", "browser://camera"
+
+        def prepare(self, interactive):
+            return True
+
+        def open_reader(self):
+            return None
+
+        def control_client(self):
+            return clients[0] if clients else None
+
+        def fps(self):
+            return 30
+
+    conn.selected_device = "browser"
+    conn.ensure_virtual_camera = lambda interactive=True: True
+    window.add_stream_source(Source())
+    assert window.can_turn_camera_off()[0] is False  # only a phone can keep its mic going alone
+    window.set_camera_on(False)
+    assert window.is_camera_on() and changes == []
+    window._start()
+    assert len(workers) == 1 and workers[0].kwargs["open_reader"] is not None
+    assert window.can_turn_camera_off()[0] is False

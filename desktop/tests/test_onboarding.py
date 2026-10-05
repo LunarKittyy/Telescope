@@ -107,6 +107,18 @@ def test_a_paired_phone_alone_is_not_enough_without_the_camera(env):
     assert plugin._qr_row.isHidden()
 
 
+def test_a_stream_source_stands_in_for_the_phone_steps(env):
+    plugin, bus, card, _needed = env
+    plugin.set_config({"streamed": True})
+    plugin._on_vcam(True, "")
+    bus.source_selected.emit("browser")
+    assert card.isHidden()  # no phone, but nothing left to set up
+    assert plugin._pair.text.text().startswith("Not needed")
+    assert plugin._qr_row.isHidden()
+    bus.source_selected.emit("")
+    assert not card.isHidden()
+
+
 def test_streaming_hides_the_checklist(env):
     _plugin, bus, card, needed = env
     bus.stream_started.emit("url")

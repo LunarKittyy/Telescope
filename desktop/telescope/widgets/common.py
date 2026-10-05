@@ -276,18 +276,33 @@ DIMMED_OPACITY = 0.4
 """How visible a card is while it waits for a phone; disabled styling alone leaves titles and readouts bright."""
 
 
-def dim_until_paired(card: QWidget, bus):
-    """Fade a card out and disable it until a phone is paired, since its controls do nothing without one."""
-    def apply(count: int):
-        card.setEnabled(count > 0)
-        if count > 0:
+def dim_until_paired(card: QWidget, bus, phone_only: bool = False):
+    """Fade a card out and disable it until a phone is paired, since its controls do nothing without one. Picking a
+    stream source other than a phone (Browser camera) counts as paired, or hides the card if it's phone_only."""
+    state = {"phones": 0, "source": ""}
+
+    def apply():
+        on = state["phones"] > 0 or bool(state["source"])
+        card.setEnabled(on)
+        if on:
             card.setGraphicsEffect(None)  # an effect re-renders the whole card offscreen; only keep it while static
         elif card.graphicsEffect() is None:
             effect = QGraphicsOpacityEffect(card)
             effect.setOpacity(DIMMED_OPACITY)
             card.setGraphicsEffect(effect)
-    apply(0)
-    bus.phones_changed.connect(apply)
+        if phone_only and card.parentWidget() is not None and card.isHidden() != bool(state["source"]):
+            card.setVisible(not state["source"])
+
+    def on_phones(count: int):
+        state["phones"] = count
+        apply()
+
+    def on_source(sid: str):
+        state["source"] = sid
+        apply()
+    apply()
+    bus.phones_changed.connect(on_phones)
+    bus.source_selected.connect(on_source)
 
 
 def card_layout(card: QFrame) -> QVBoxLayout:
