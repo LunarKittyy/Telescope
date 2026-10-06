@@ -126,7 +126,7 @@ class _Signals(QObject):
 
 class MicrophonePlugin(TelescopePlugin):
     name = "microphone"
-    follows_focus = False  # the phone that started streaming first keeps the mic
+    follows_focus = False  # stays on one stream (the first, until another one's card takes it) whichever the panels show
     panel_region = "left"
 
     def __init__(self, backend=None, worker_cls=audio.AudioWorker, run_job=None):
@@ -141,7 +141,11 @@ class MicrophonePlugin(TelescopePlugin):
         self._limit = True
         bus.max_gain_changed.connect(self._on_max_gain)
         bus.limiter_changed.connect(self._on_limiter)
+        bus.device_changed.connect(self._sync_place)
+        bus.streams_changed.connect(self._sync_place)
         self._enabled = False
+        self._handing_on = False  # its stream stopped with the mic on while others carry on: the next one gets it on
+        self._elsewhere: Optional[tuple] = None  # (id, name) of the stream the mic is on, while the panels show another
         self._ctrl = None
         self._worker = None
         self._backend = self._backend or default_backend()
@@ -214,6 +218,11 @@ class MicrophonePlugin(TelescopePlugin):
     # ── State ─────────────────────────────────────────────────────────────────
 
     def _show(self, text: str, kind: str = "dim", action=None):
+        self._said = (text, kind, action)  # shown again when the panels come back to this mic's stream
+        if self._elsewhere is not None:  # this card is about another stream's mic: it says where this one is
+            name = self._elsewhere[1]
+            text, kind, action = (f"On for {name}. Turning it on here turns it off there." if self._enabled
+                                  else ""), "dim", None
         self._status.setText(text)
         self._status_row.setVisible(bool(text))
         set_status_kind(self._status, f"status_{kind}")
@@ -248,9 +257,10 @@ class MicrophonePlugin(TelescopePlugin):
         self._host.schedule_save()
 
     def _show_mute(self):
-        self._mute_btn.setVisible(self._enabled)
-        self._gain_row.setVisible(self._enabled)
-        self._level_row.setVisible(self._enabled)
+        here = self._enabled and self._elsewhere is None
+        self._mute_btn.setVisible(here)
+        self._gain_row.setVisible(here)
+        self._level_row.setVisible(here)
         self._mute_btn.setText("Unmute" if self._muted else "Mute")
         self._mute_btn.setIcon(create_vector_icon("mic_off" if self._muted else "mic",
                                                   theme.ERR if self._muted else theme.TEXT_DIM))
@@ -306,6 +316,12 @@ class MicrophonePlugin(TelescopePlugin):
             self._show("Starts with the stream.")
 
     def _on_toggled(self, on: bool):
+        if self._elsewhere is None:
+            self._set_enabled(on)
+        elif on:
+            self._take_mic()
+
+    def _set_enabled(self, on: bool):
         if on == self._enabled:
             return
         self._enabled = on
@@ -317,6 +333,37 @@ class MicrophonePlugin(TelescopePlugin):
             self._stop_worker()
             self._run_job(self._backend.teardown)
             self._refresh()
+
+    def _show_toggle(self):
+        self._toggle.blockSignals(True)
+        self._toggle.setChecked(self._enabled and self._elsewhere is None)
+        self._toggle.blockSignals(False)
+        shown = self._host.focused_source_id()
+        self._toggle.setEnabled(self._elsewhere is None or self._host.is_streaming_from(shown))
+
+    def _sync_place(self, *_args):
+        """Whether the panels show the stream the mic is on: with several, the card is about the shown one's."""
+        if not hasattr(self, "_toggle"):
+            return  # no card yet
+        main = self._host.main_stream()
+        elsewhere = main if main is not None and main[0] != self._host.focused_source_id() else None
+        if elsewhere != self._elsewhere:
+            self._elsewhere = elsewhere
+            self._show(*self._said)
+            self._show_mute()
+        self._show_toggle()
+
+    def _take_mic(self):
+        """On for the stream the panels show: the mic moves over from the one it was on, which keeps it off."""
+        was = self._enabled
+        self._enabled = False  # saved like this with the stream it leaves; its stop hook stops the worker
+        if not self._host.make_main(self._host.focused_source_id()):
+            self._enabled = was
+            self._show_toggle()
+            return
+        self._sync_place()
+        self._set_enabled(True)
+        self._show_toggle()
 
     def _start_worker(self):
         if self._worker is not None or self._preparing or self._ctrl is None or not self._enabled:
@@ -388,12 +435,16 @@ class MicrophonePlugin(TelescopePlugin):
         self._ctrl = ctrl
         if moved:
             self._stop_worker()  # the stream came back over another route; its audio lives there too
+        self._handing_on = False
         self._start_worker()
+        self._sync_place()
 
     def on_stream_stop(self):
+        self._handing_on = self._enabled and self._host.stream_count() > 0
         self._ctrl = None
         self._stop_worker()
         self._refresh()
+        self._sync_place()
 
     def shutdown(self):
         # Quitting may wait: the virtual mic has to be gone before the app is.
@@ -420,6 +471,6 @@ class MicrophonePlugin(TelescopePlugin):
         except (TypeError, ValueError):
             gain = 0
         self._gain_slider.setValue(gain)  # the slider holds it inside the range
-        on = bool(cfg.get("enabled", False))
-        self._toggle.setChecked(on)  # runs _on_toggled when it changes
+        self._set_enabled(bool(cfg.get("enabled", False)) or self._handing_on)
+        self._show_toggle()
         self._refresh()
