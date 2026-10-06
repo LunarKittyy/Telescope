@@ -408,8 +408,8 @@ class ConnectionPlugin(TelescopePlugin):
         self._streaming = False
         self._connected = False  # first frame arrived (EventBus.stream_connected)
         self._lost = False       # frames stopped; the host is reconnecting (EventBus.stream_lost)
-        self._stream_route: Optional[Route] = None
-        self._stream_forward_serial: Optional[str] = None
+        # The route each streaming phone's video comes over, and the USB forward it holds (None over Wi-Fi), by id
+        self._holds: dict = {}
         self._switching = False
         self._add_dlg: Optional[AddPhoneDialog] = None
         self._phones_dlg: Optional[PhonesDialog] = None
@@ -457,6 +457,15 @@ class ConnectionPlugin(TelescopePlugin):
 
     def _announce_source(self):
         self._bus.source_selected.emit(self._selected_id if self._source_name(self._selected_id) else "")
+
+    @property
+    def _stream_route(self) -> Optional[Route]:
+        """The route the selected phone streams over."""
+        return self._holds.get(self._selected_id, (None, None))[0]
+
+    @_stream_route.setter
+    def _stream_route(self, route: Optional[Route]):
+        self._holds[self._selected_id] = (route, self._holds.get(self._selected_id, (None, None))[1])
 
     @property
     def selected_device(self) -> Optional[str]:
@@ -752,22 +761,25 @@ class ConnectionPlugin(TelescopePlugin):
         """Whether the virtual camera is ready to stream to, setting it up (asking first) on Linux."""
         return not IS_LINUX or self._ensure_virtual_camera(interactive)
 
-    def get_stream_info(self, interactive: bool = True) -> tuple:
+    def get_stream_info(self, interactive: bool = True, pid: Optional[str] = None) -> tuple:
+        """(video URL, auth, ok) for streaming from phone pid (the selected one by default), holding its route."""
         if not self.ensure_virtual_camera(interactive):
             return None, None, False
-        phone = self._selected_phone()
+        pid = self._selected_id if pid is None else pid
+        phone = self.phone(pid)
         if phone is None:
             self._host.show_issue("start", Issue(
                 "No phone yet", "Add a phone to stream from.",
                 [BannerAction("Add phone", self.open_add_phone)], kind="warn"))
             return None, None, False
         res = run_off_ui_thread(self._resolver.resolve, Phone(**phone.to_dict()), self._route_pref)
-        self._check_id += 1  # anything in flight is older than this
-        self._apply_resolution(res)
+        if pid == self._selected_id:
+            self._check_id += 1  # anything in flight is older than this
+            self._apply_resolution(res)
         if res.status != READY:
             self._show_start_problem(res, phone)
             return None, None, False
-        url = self._hold_stream_route(res.route)
+        url = self._hold_stream_route(res.route, pid)
         if url is None:
             self._host.show_issue("start", Issue(
                 "Can't connect to the phone",
@@ -776,58 +788,63 @@ class ConnectionPlugin(TelescopePlugin):
             return None, None, False
         return url, phone.auth, True
 
-    def show_problem(self, res: Resolution):
+    def show_problem(self, res: Resolution, pid: Optional[str] = None):
         """Say why the phone won't stream (a dropped stream it won't take back), as a failed Start would."""
-        phone = self._selected_phone()
+        pid = self._selected_id if pid is None else pid
+        phone = self.phone(pid)
         if phone is None:
             return
-        self._check_id += 1
-        self._apply_resolution(res)
+        if pid == self._selected_id:
+            self._check_id += 1
+            self._apply_resolution(res)
         self._show_start_problem(res, phone)
 
     def _show_start_problem(self, res: Resolution, phone):
         self._host.show_issue("start", Issue(
             "Can't connect to the phone", problem_text(res, phone.name, self._route_pref), self._fix_actions(res)))
 
-    def _hold_stream_route(self, route: Route) -> Optional[str]:
-        """Make route the stream's, letting go of the previous one's USB forward. The video URL, or None."""
-        self._release_stream_forward()
-        self._stream_route = None
+    def _hold_stream_route(self, route: Route, pid: Optional[str]) -> Optional[str]:
+        """Make route pid's stream's, letting go of the previous one's USB forward. The video URL, or None."""
+        self.release_stream(pid)
+        forward = None
         if route.kind == "usb":
             # Always a fresh forward: adb drops them when the cable goes, even if it comes back.
             local = run_off_ui_thread(self._tunnels.acquire, route.serial, STREAM_PORT)
             if local is None:
                 return None
-            self._stream_forward_serial = route.serial
+            forward = route.serial
             url = f"https://127.0.0.1:{local}{self._video_path()}"
         else:
             url = f"https://{route.host}:{STREAM_PORT}{self._video_path()}"
-        self._stream_route = route
+        self._holds[pid] = (route, forward)
         return url
 
-    def _release_stream_forward(self):
-        if self._stream_forward_serial is not None:
-            serial, self._stream_forward_serial = self._stream_forward_serial, None
+    def release_stream(self, pid: Optional[str]):
+        """pid's stream is over: let go of its route and USB forward."""
+        _route, serial = self._holds.pop(pid, (None, None))
+        if serial is not None:
             run_off_ui_thread(self._tunnels.release, serial, STREAM_PORT)
 
     # ── Getting a dropped stream back ─────────────────────────────────────
 
-    def recovery_probe(self):
-        """A blocking job for a worker thread: how the phone can be reached right now, as a Resolution.
+    def recovery_probe(self, pid: Optional[str] = None):
+        """A blocking job for a worker thread: how phone pid (the selected one by default) can be reached right now,
+        as a Resolution.
 
         Snapshots the phone and preference here, on the GUI thread, since the job runs off it.
         """
-        phone = self._selected_phone()
+        phone = self.phone(self._selected_id if pid is None else pid)
         if phone is None:
             return lambda: Resolution(UNREACHABLE)
         probe, preference, resolver = Phone(**phone.to_dict()), self._route_pref, self._resolver
         return lambda: resolver.resolve(probe, preference)
 
-    def adopt_stream_route(self, route: Route) -> Optional[str]:
-        """Move the running stream onto route (a recovery_probe answer). The new video URL, or None."""
-        if not self._streaming:
+    def adopt_stream_route(self, route: Route, pid: Optional[str] = None) -> Optional[str]:
+        """Move pid's running stream onto route (a recovery_probe answer). The new video URL, or None."""
+        pid = self._selected_id if pid is None else pid
+        if pid not in self._holds:
             return None
-        url = self._hold_stream_route(route)
+        url = self._hold_stream_route(route, pid)
         self._render()
         return url
 
@@ -900,9 +917,13 @@ class ConnectionPlugin(TelescopePlugin):
             return None
         return check.isChecked()
 
-    def session_target(self) -> SessionTarget:
-        phone = self._selected_phone()
-        route = self._stream_route or (self._resolution.route if self._resolution else None)
+    def session_target(self, pid: Optional[str] = None) -> SessionTarget:
+        """How to reach phone pid's session port (the selected phone by default)."""
+        selected = pid is None or pid == self._selected_id
+        phone = self.phone(self._selected_id if pid is None else pid)
+        route = self._holds.get(self._selected_id if pid is None else pid, (None, None))[0]
+        if route is None and selected and self._resolution:
+            route = self._resolution.route
         return SessionTarget(phone.auth if phone else None, route)
 
     @contextlib.contextmanager
@@ -1015,8 +1036,9 @@ class ConnectionPlugin(TelescopePlugin):
         self._usb_watch_timer.stop()
         self._watch_id += 1
         self._switch_usb_row.setVisible(False)
-        self._release_stream_forward()
-        self._stream_route = None
+        for pid in list(self._holds):
+            if not self._host.is_streaming_from(pid):  # the panels may just have moved on to another stream
+                self.release_stream(pid)
         self._lost = False
         self._render()
         self._check_status()
@@ -1113,6 +1135,8 @@ class ConnectionPlugin(TelescopePlugin):
             return
         if pid == self._selected_id and self._streaming:
             self._host.stop_stream()  # while it's still paired, so the stop can reach the phone's camera
+        elif self._host.is_streaming_from(pid):
+            self._host.stop_stream(pid)
         self._spawn_revoke(Phone(**phone.to_dict()))
         self._phones = [p for p in self._phones if p.id != pid]
         if pid == self._selected_id:
@@ -1139,13 +1163,30 @@ class ConnectionPlugin(TelescopePlugin):
     def _select(self, pid: Optional[str], force: bool = False):
         if pid == self._selected_id and not force:
             return
+        if pid != self._selected_id and self._host.pick_source(pid):
+            self._refresh_combo()  # the host took it from here (it streams already, or replaces one of several)
+            return
         if self._streaming and pid != self._selected_id:
             self._host.stop_stream()
+        self._mark_selected(pid)
+        self._activate_profile(pid)
+        self._show_selection()
+
+    def show_selected(self, pid: Optional[str]):
+        """The host moved the panels to pid's stream and swapped the settings itself: show it as picked."""
+        if pid == self._selected_id:
+            return
+        self._mark_selected(pid)
+        self._active_key = pid
+        self._show_selection()
+
+    def _mark_selected(self, pid: Optional[str]):
         self._selected_id = pid
         self._resolution = None
         self._update_note = None
         self._refresh_combo()
-        self._activate_profile(pid)
+
+    def _show_selection(self):
         self._render()
         self._announce_source()
         self._running_check = None  # the other phone's check is stale now; don't wait for it

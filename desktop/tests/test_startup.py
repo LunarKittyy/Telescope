@@ -28,6 +28,11 @@ class _Host:
     def is_streaming(self):
         return self.streaming
 
+    streams = 1
+
+    def stream_count(self):
+        return self.streams if self.streaming else 0
+
     # The phone mic is off unless a test says so: the idle stop then stops, as it always did
     mic_on = False
     camera_on = True
@@ -532,6 +537,20 @@ def test_an_idle_stop_lets_the_next_app_start_it_again(watching):
     _stream_ends(host, bus)
     bus.camera_watched.emit(True)
     assert host.starts == [False, False]
+
+
+def test_with_a_second_camera_streaming_nothing_stops_by_itself(watching):
+    plugin, host, bus = watching
+    bus.camera_watched.emit(True)
+    _stream_runs(host, bus)
+    bus.camera_watched.emit(False)
+    assert plugin._idle_stop.isActive()
+    host.streams = 2
+    bus.streams_changed.emit(2)
+    assert not plugin._idle_stop.isActive()
+    host.streams = 1
+    bus.streams_changed.emit(1)
+    assert plugin._idle_stop.isActive()
 
 
 def test_an_outside_stop_while_an_app_reads_holds_the_watch_start(watching):

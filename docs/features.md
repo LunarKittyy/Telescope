@@ -49,6 +49,15 @@ The Presets button in the header saves the camera, output and transform settings
 - **New link** makes a new code and stops the old one working. One browser streams at a time; opening the link somewhere else takes over
 - Camera, output and alert settings don't apply here. Resolution (480p to 1080p) and frame rate (15 to 30) are on the card instead
 
+## Several cameras at once
+- While one stream runs, the **+** next to Stop streams another phone (or the browser camera) at the same time, up to four. Each goes to a virtual camera of its own: **Phone Camera 2** to **4** on Linux, **Telescope #2** to **#4** on Windows. The first time, Telescope adds those cameras, which asks for your password (Linux) or permission (Windows). On Linux they're gone again after a reboot and get added the next time
+- A row of tiles shows each stream with a small picture, the camera it goes to, and whether it's live. Click a tile to show its settings in the panels; zoom, flips, camera and output settings are kept per phone, and a stream you're not looking at keeps the ones it had. The x on a tile stops just that one, and Stop stops them all
+- A camera gets the same virtual camera as last time when it's free, so a scene in OBS keeps pointing at the right phone
+- The mic stays on the phone that started first. If that one stops, the next one's mic takes over
+- With more than one stream, the camera can't go off (mic only), Automatic streaming doesn't stop anything, and the wait screen comes back once the last one stops. Battery and temperature alerts only cover the phone whose settings are showing
+- The extra cameras are always the size set under Setup (1920x1080 when that's Auto), and a picture with another shape gets black bars
+- The browser camera counts as one source: one browser at a time
+
 ## Monitoring
 - FPS and throughput in the footer. When the stream can't keep up, a note suggests what to try, with a button for it
 - A dropped stream reconnects by itself, over whichever route works: pull the cable and it carries on over Wi-Fi

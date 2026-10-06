@@ -858,6 +858,7 @@ _ICON_SVG = {
     "mic_off": f'''<rect x="8.5" y="3" width="7" height="11.5" rx="3.5" {_SOFT}/>
         <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M4 3.5l16 17"/>''',
     "close": '''<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>''',
+    "plus": '''<path d="M12 5v14M5 12h14"/>''',
 }
 
 _ICON_RENDER_PX = 64  # rendered once, large; QIcon scales down smoothly for every use

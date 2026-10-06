@@ -160,6 +160,10 @@ class StreamWorker(QThread):
             frame = fn(frame)
         return frame
 
+    def latest_frame(self):
+        """The newest frame sent out (BGR), or None before the first; for a thumbnail."""
+        return self._latest
+
     def set_pipeline(self, frame_pipeline: list):
         """Swap the plugin steps from the next frame on (the panels moved to another stream, or back)."""
         with self._publish_lock:

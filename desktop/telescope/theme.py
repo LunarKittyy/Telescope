@@ -610,6 +610,32 @@ QLabel#caps_line {{
     font-size: 8pt;
 }}
 
+/* ── Stream tiles (several streams at once) ─────────────────────────────── */
+QFrame#stream_tile {{
+    background-color: {SURFACE};
+    border: 1px solid {BORDER};
+    border-radius: 10px;
+}}
+QFrame#stream_tile:hover {{
+    border-color: {BORDER_HOVER};
+}}
+QFrame#stream_tile[focused=true] {{
+    border-color: {ACCENT};
+}}
+QLabel#stream_tile_thumb {{
+    background-color: {SURFACE_SUNK};
+    border-radius: 6px;
+    color: {TEXT_FAINT};
+}}
+QLabel#stream_tile_name {{
+    color: {TEXT};
+    font-weight: 600;
+}}
+QLabel#stream_tile_out {{
+    color: {TEXT_FAINT};
+    font-size: 8pt;
+}}
+
 /* ── Preview stage ──────────────────────────────────────────────────────── */
 QFrame#preview_stage {{
     background-color: {SURFACE_SUNK};

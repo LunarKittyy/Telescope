@@ -91,7 +91,7 @@ class _Connection(_Plugin):
         self.wakes = 0
         self.remote_stops = 0
 
-    def get_stream_info(self, interactive=True):
+    def get_stream_info(self, interactive=True, pid=None):
         return self.stream_info
 
     def select_device(self, name):
@@ -100,7 +100,13 @@ class _Connection(_Plugin):
     def sync_active_profile(self):
         self.synced += 1
 
-    def session_target(self):
+    def session_target(self, pid=None):
+        return None
+
+    def show_selected(self, pid):
+        self.selected_device = pid
+
+    def phone(self, pid):
         return None
 
     def ensure_phone_streaming(self, on_progress=None, target=None, opening=None):
@@ -593,7 +599,7 @@ def test_switch_device_saves_old_profile_applies_new_and_restarts(window, config
     config_home.save_config(cfg)
     window._session = StreamSession(source=window._phone, id=1, url="url", client=object(), worker=object())
     calls = []
-    monkeypatch.setattr(window, "_stop", lambda **_kw: calls.append("stop") or setattr(window, "_session", None))
+    monkeypatch.setattr(window, "_stop_all", lambda **_kw: calls.append("stop") or setattr(window, "_session", None))
     monkeypatch.setattr(window, "_start", lambda: calls.append("start"))
     window._bus.device_changed.connect(lambda name: calls.append(f"changed {name}"))
 
@@ -609,7 +615,7 @@ def test_switch_device_saves_old_profile_applies_new_and_restarts(window, config
 def test_reconnect_stream_only_restarts_when_active(window, monkeypatch):
     calls = []
     monkeypatch.setattr(window, "_stop", lambda **_kw: calls.append("stop"))
-    monkeypatch.setattr(window, "_start", lambda: calls.append("start"))
+    monkeypatch.setattr(window, "_start", lambda **_kw: calls.append("start"))
     window.reconnect_stream()
     assert calls == []
 
@@ -692,7 +698,7 @@ def test_stream_reconnected_is_noop_without_an_active_session(window):
 def test_toggle_routes_to_start_or_stop(window, monkeypatch):
     calls = []
     monkeypatch.setattr(window, "_start", lambda: calls.append("start"))
-    monkeypatch.setattr(window, "_stop", lambda **_kw: calls.append("stop"))
+    monkeypatch.setattr(window, "_stop_all", lambda **_kw: calls.append("stop"))
     window._toggle()
     window._session = StreamSession(source=window._phone, id=1, url="url", client=object(), worker=object())
     window._toggle()
@@ -1138,7 +1144,7 @@ def test_a_start_is_not_started_again_while_it_finds_the_phone(window):
     starts = []
 
     class Conn(_Connection):
-        def get_stream_info(self, interactive=True):
+        def get_stream_info(self, interactive=True, pid=None):
             window.start_stream()  # an auto-start timer firing inside the nested event loop
             starts.append(True)
             return None, None, False
@@ -1308,7 +1314,7 @@ def test_tray_show_quit_and_activation(window, monkeypatch):
     window._on_tray_activated(app_module.QSystemTrayIcon.ActivationReason.Trigger)
     assert calls[-3:] == ["show", "raise", "activate"]
 
-    monkeypatch.setattr(window, "_stop", lambda **_kw: calls.append("stop"))
+    monkeypatch.setattr(window, "_stop_all", lambda **_kw: calls.append("stop"))
     monkeypatch.setattr(app_module.QApplication, "quit", lambda: calls.append("quit"))
     window._tray_quit()
     assert window._tray_close_notified is True
@@ -1333,7 +1339,7 @@ def test_close_event_minimizes_active_stream_to_tray(window, monkeypatch):
 
 def test_close_event_stops_and_accepts_without_background_stream(window, monkeypatch):
     calls = []
-    monkeypatch.setattr(window, "_stop", lambda **_kw: calls.append("stop"))
+    monkeypatch.setattr(window, "_stop_all", lambda **_kw: calls.append("stop"))
     monkeypatch.setattr(app_module.QApplication, "quit", lambda: calls.append("quit"))
     event = SimpleNamespace(accept=lambda: calls.append("accept"))
     window.closeEvent(event)
@@ -1494,7 +1500,7 @@ def test_reconnect_and_canvas_reload_leave_the_phone_streaming(window, monkeypat
         app_module.threading, "Thread",
         lambda target, daemon=False: SimpleNamespace(start=target, is_alive=lambda: False),
     )
-    monkeypatch.setattr(window, "_start", lambda: None)
+    monkeypatch.setattr(window, "_start", lambda **_kw: None)
     window._session = StreamSession(
         source=window._phone, id=1, url="url", client=None,
         worker=SimpleNamespace(
@@ -1611,8 +1617,10 @@ def test_a_stream_that_stops_or_reconnects_is_no_longer_behind(window):
 
 def test_a_dropped_stream_is_not_called_slow(window, monkeypatch):
     events = _behind_events(window)
+    conn = _RecoveringConnection([None])
+    window.register_plugin(conn)
     window._on_worker_status("net_warn", "40.0 Mbps")
-    _conn, worker, _client, _lost = _dropped_stream(window, monkeypatch, [None])
+    _conn, worker, _client, _lost = _dropped_stream(window, monkeypatch, [None], conn=conn)
     assert events == [True, False]
     worker.status.emit("net_warn", "0.0 Mbps")  # no frames while it's down
     assert events == [True, False]
@@ -1696,7 +1704,7 @@ def test_start_hidden_minimizes_without_a_tray(window, monkeypatch):
 def test_start_stream_passes_on_that_nobody_asked(window):
     conn = _Connection(wake=(False, "x"))
     seen = []
-    conn.get_stream_info = lambda interactive=True: seen.append(interactive) or (None, None, False)
+    conn.get_stream_info = lambda interactive=True, pid=None: seen.append(interactive) or (None, None, False)
     window.register_plugin(conn)
     window.start_stream(interactive=False)
     assert seen == [False]
@@ -1738,14 +1746,14 @@ class _RecoveringConnection(_Connection):
         self.adopted = []
         self.problems = []
 
-    def show_problem(self, res):
+    def show_problem(self, res, pid=None):
         self.problems.append(res.status)
 
-    def recovery_probe(self):
+    def recovery_probe(self, pid=None):
         answer = self.answers.pop(0) if self.answers else None
         return lambda: answer
 
-    def adopt_stream_route(self, route):
+    def adopt_stream_route(self, route, pid=None):
         self.adopted.append(route)
         return f"http://{route.host}:8080/v1/video"
 
@@ -1774,9 +1782,10 @@ class _Client:
         self.closed = True
 
 
-def _dropped_stream(window, monkeypatch, answers, url="http://127.0.0.1:40001/v1/video"):
-    conn = _RecoveringConnection(answers)
-    window.register_plugin(conn)
+def _dropped_stream(window, monkeypatch, answers, url="http://127.0.0.1:40001/v1/video", conn=None):
+    if conn is None:
+        conn = _RecoveringConnection(answers)
+        window.register_plugin(conn)
     monkeypatch.setattr(sources_module.PhoneSource, "_spawn_recovery_probe",
                         lambda self, sid, gen, job: self._on_recovery_probed(sid, gen, job()))
     monkeypatch.setattr(sources_module, "PhoneControlClient", lambda url, token: SimpleNamespace(
@@ -2143,6 +2152,12 @@ def camera_env(window, monkeypatch):
         def wait(self, _ms):
             return True
 
+        def set_pipeline(self, steps):
+            self.pipelines = getattr(self, "pipelines", []) + [steps]
+
+        def latest_frame(self):
+            return None
+
     class Thread:
         def __init__(self, target, args=(), daemon=False):
             pass
@@ -2250,7 +2265,7 @@ def test_with_the_camera_off_a_phone_that_stops_answering_is_looked_for(camera_e
     window._start()
     window.set_camera_on(False)
     probes = []
-    monkeypatch.setattr(window, "_begin_recovery", lambda: probes.append(True))
+    monkeypatch.setattr(window, "_begin_recovery", lambda _source=None: probes.append(True))
     sid = window._session.id
     window._phone._on_alive(sid, False)
     assert probes == []  # one miss can be a blip
@@ -2258,7 +2273,7 @@ def test_with_the_camera_off_a_phone_that_stops_answering_is_looked_for(camera_e
     assert probes == [True]
     window._phone.recovering = True
     reconnects = []
-    monkeypatch.setattr(window, "_on_stream_reconnected", lambda: reconnects.append(True))
+    monkeypatch.setattr(window, "_on_stream_reconnected", lambda _source=None: reconnects.append(True))
     window._phone._on_alive(sid, True)
     assert reconnects == [True] and window._phone._alive_misses == 0
 
@@ -2368,8 +2383,108 @@ def test_picking_another_source_while_the_phone_wakes_still_stops_the_phone(wind
     monkeypatch.setattr(app_module.threading, "Thread",
                         lambda target, daemon=False: SimpleNamespace(start=target, is_alive=lambda: False))
     window._start()
+    phone = window._phone
     connection.selected_device = "browser"  # Connection moves the pick before asking for the switch
     window._stop()
     wake_id, _conn, url, token, _target, _opening = spawned[0]
-    window._phone._on_wake_done(wake_id, True, "", url, token)
+    phone._on_wake_done(wake_id, True, "", url, token)
     assert connection.remote_stops == 2 and window._worker is None
+
+
+# ── Several streams at once ───────────────────────────────────────────────────
+
+@pytest.fixture
+def two_streams(camera_env, config_home, monkeypatch):
+    window, conn, mic, clients, workers, _changes = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    mic.follows_focus = False
+    view = _Plugin("transforms", {"zoom": 1})
+    window.register_plugin(view)
+    cfg = config_home.load_config()
+    cfg["devices"] = {"browser": {"plugin_configs": {"transforms": {"zoom": 3}}}}
+    config_home.save_config(cfg)
+    conn.ensure_virtual_camera = lambda interactive=True: True
+    window.add_stream_source(_Browser())
+    window._start()
+    view.config["zoom"] = 2  # changed while the phone streams
+    window.add_stream("browser")
+    return window, conn, mic, view, workers, config_home
+
+
+def test_a_second_camera_streams_next_to_the_first_to_a_camera_of_its_own(two_streams):
+    window, conn, mic, view, workers, _config = two_streams
+    assert [w.kwargs["slot"] for w in workers] == [0, 1]
+    assert (workers[1].kwargs["canvas_width"], workers[1].kwargs["canvas_height"]) == (1920, 1080)
+    assert window.stream_count() == 2 and window._focus.id == "browser" and conn.selected_device == "browser"
+    assert len(workers[0].pipelines) == 1  # frozen at the phone's settings when the panels moved on
+    assert not window._tiles.isHidden() and window._tiles.ids() == ["Phone", "browser"]
+    assert view.config["zoom"] == 3 and view.started[-1][0] == "browser://camera" and view.stopped == 1
+    assert [url for url, _ctrl in mic.started] == ["http://phone/video"]  # the mic stays with the first phone
+
+
+def test_clicking_a_tile_brings_its_settings_back(two_streams):
+    window, conn, _mic, view, workers, config = two_streams
+    window.focus_stream("Phone")
+    assert conn.selected_device == "Phone" and view.config["zoom"] == 2
+    assert view.started[-1][0] == "http://phone/video"
+    assert config.load_config()["devices"]["browser"]["plugin_configs"]["transforms"] == {"zoom": 3}
+    assert len(workers[1].pipelines) == 1 and len(workers[0].pipelines) == 2
+
+
+def test_stopping_the_first_camera_hands_the_mic_to_the_next(two_streams):
+    window, conn, mic, _view, _workers, _config = two_streams
+    stopped = []
+    window._bus.stream_stopped.connect(lambda: stopped.append(True))
+    window.stop_stream("Phone")
+    assert window.stream_count() == 1 and window._focus.id == "browser" and window._tiles.isHidden()
+    assert mic.stopped == 1 and mic.started[-1][0] == "browser://camera"
+    assert stopped == []
+    window._toggle()
+    assert not window.is_streaming() and stopped == [True] and window._focus is None
+
+
+def test_stop_stops_every_camera(two_streams):
+    window, conn, mic, _view, workers, _config = two_streams
+    window._toggle()
+    assert not window.is_streaming() and all(w.stopped for w in workers)
+    assert mic.stopped == 1
+
+
+def test_with_two_cameras_neither_turns_its_camera_off(two_streams):
+    window, _conn, _mic, _view, _workers, _config = two_streams
+    window.focus_stream("Phone")
+    ok, why = window.can_turn_camera_off()
+    assert not ok and "one camera" in why
+
+
+def test_picking_another_source_with_two_streaming_replaces_the_one_shown(two_streams, monkeypatch):
+    window, conn, _mic, _view, workers, _config = two_streams
+    other = _Browser()
+    other.id, other.name = "browser2", "Other browser"
+    window.add_stream_source(other)
+    assert window.pick_source("browser2") is True
+    assert sorted(s.id for s in window._streams) == ["Phone", "browser2"]
+    assert workers[1].stopped and workers[2].kwargs["slot"] == 1 and window._focus.id == "browser2"
+    assert window.pick_source("Phone") is True and window._focus.id == "Phone"
+
+
+def test_an_extra_camera_that_isnt_set_up_asks_first(camera_env, monkeypatch):
+    window, conn, _mic, _clients, workers, _changes = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda slot: slot == 0)
+    asked = []
+    monkeypatch.setattr(window, "_ask_slots", lambda: asked.append(True) or False)
+    window.add_stream_source(_Browser())
+    window._start()
+    window.add_stream("browser")
+    assert asked == [True] and len(workers) == 1 and window._focus.id == "Phone"
+
+
+def test_extra_cameras_ready_carries_on_and_a_failure_says_why(window):
+    calls = []
+    window._slots_then = lambda: calls.append(True)
+    window._on_slots_ready(True, "", "")
+    assert calls == [True]
+    window._slots_then = lambda: calls.append(True)
+    window._on_slots_ready(False, "too old", "sudo modprobe")
+    assert calls == [True] and window._banners.issue("vcam").title == "Couldn't add more virtual cameras"
+
