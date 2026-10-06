@@ -84,7 +84,7 @@ class H264Reader:
                 self._pending_bytes += len(chunk)
                 if self._pending_bytes > _MAX_BYTES_WITHOUT_FRAME:
                     return False, None
-                frame, count = _decode(self._codec, chunk)
+                frame, count = decode_counted(self._codec, chunk)
                 self._pending_frames += count
                 if frame is not None:
                     self.last_frame_bytes, self._pending_bytes = self._pending_bytes, 0
@@ -114,10 +114,10 @@ def new_decoder():
 def decode_newest(codec, data: bytes):
     """Feed Annex-B bytes to the decoder; the newest frame they completed (BGR ndarray), or None.
     Older frames from the same data are dropped, which keeps latency down after a stall."""
-    return _decode(codec, data)[0]
+    return decode_counted(codec, data)[0]
 
 
-def _decode(codec, data: bytes):
+def decode_counted(codec, data: bytes):
     """decode_newest(), and how many frames the data completed (the dropped ones too)."""
     newest, count = None, 0
     for packet in codec.parse(data):

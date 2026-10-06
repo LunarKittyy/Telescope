@@ -49,7 +49,8 @@ The Presets button in the header saves the camera, output and transform settings
 - **New link** makes a new code and stops the old one working. One browser streams at a time; opening the link somewhere else takes over
 - Camera, output and alert settings don't apply here. Resolution (480p to 1080p) and frame rate (15 to 30) are on the card instead
 - On Linux the virtual camera is 1920x1080 unless Advanced sets another canvas, since a browser's first frame can be any shape
-- The page turns each frame into a JPEG, which is slow at 1080p on most phones. When it can't keep up, it steps down to 720p and then 480p by itself, and goes back to trying the size picked here whenever you change it
+- The page sends H.264 from the device's hardware encoder when the browser has one, which keeps 1080p at 30 fps. Otherwise it sends JPEG, which is slow at 1080p on most phones; the card shows which, and its tooltip says why it's JPEG
+- When the device can't keep up, the page steps down to 720p and then 480p by itself, and goes back to trying the size picked here whenever you change it
 
 ## Monitoring
 - FPS and throughput in the footer. When the stream can't keep up, a note suggests what to try, with a button for it

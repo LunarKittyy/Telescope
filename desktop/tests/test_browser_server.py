@@ -231,7 +231,7 @@ def test_browser_frames_and_audio_reach_the_reader_and_the_mic(server):
     assert b.status == 101
     assert f"Sec-WebSocket-Accept: {b.accept}" in b.head
     config = b.recv_json()
-    assert config == {"type": "config", "width": 1280, "height": 720, "fps": 30, "audio": False}
+    assert config == {"type": "config", "width": 1280, "height": 720, "fps": 30, "audio": False, "h264": feed.h264}
 
     b.send(0x1, json.dumps({"type": "hello", "device": "Safari on <iPhone>", "mic_error": ""}).encode())
     assert _wait(lambda: feed.device == "Safari on iPhone")
@@ -242,6 +242,7 @@ def test_browser_frames_and_audio_reach_the_reader_and_the_mic(server):
     ok, frame = reader.read()
     assert ok and frame.shape == (48, 64, 3)
     assert reader.last_frame_bytes > 0
+    assert b.recv_json() == {"type": "keyframe"}  # the reader's new decoder starts at one
 
     # The mic asks for audio: the page hears it should send some, and it comes out of the stream
     mic = feed.open_audio()
@@ -300,7 +301,8 @@ def test_capture_changes_reach_a_connected_page(server):
     b = _Browser(server.port, server.token)
     b.recv_json()
     server.feed.set_capture(1920, 1080, 24)
-    assert b.recv_json() == {"type": "config", "width": 1920, "height": 1080, "fps": 24, "audio": False}
+    assert b.recv_json() == {"type": "config", "width": 1920, "height": 1080, "fps": 24, "audio": False,
+                             "h264": server.feed.h264}
     b.close()
 
 
@@ -411,3 +413,85 @@ def test_reader_waits_for_a_browser_and_says_what_its_waiting_for():
     reader.OPEN_WAIT_S = 0.05
     assert not reader.open()
     assert "Browser camera" in reader.waiting_text
+
+
+# ── H.264 ────────────────────────────────────────────────────────────────────
+
+def _h264(values, size=(64, 48), gop=5):
+    """(keyframe, Annex-B) per flat grey frame, the way a browser's WebCodecs encoder hands them out."""
+    av = pytest.importorskip("av")
+    import fractions
+    w, h = size
+    enc = av.CodecContext.create("libx264", "w")
+    enc.width, enc.height, enc.pix_fmt = w, h, "yuv420p"
+    enc.time_base = fractions.Fraction(1, 30)
+    enc.options = {"tune": "zerolatency", "g": str(gop), "bf": "0"}
+    out = []
+    for i, v in enumerate(values):
+        frame = av.VideoFrame.from_ndarray(np.full((h, w, 3), v, dtype=np.uint8), format="bgr24")
+        frame.pts = i
+        out += [(p.is_keyframe, bytes(p)) for p in enc.encode(frame)]
+    return out
+
+
+def test_h264_waits_for_a_keyframe_and_queues_the_rest_in_order():
+    feed = bs.BrowserFeed(h264=True)
+    gen = feed.connect()
+    feed.put_h264(gen, False, b"delta")  # joined between keyframes: nothing to decode it against
+    assert feed.next_frame(gen, 0, 0.01) is None
+    feed.put_h264(gen, True, b"key")
+    feed.put_h264(gen, False, b"d1")
+    assert feed.next_frame(gen, 0, 0.01) == (2, "h264", b"keyd1")  # none skipped, unlike JPEG
+    feed.put_frame(gen, b"jpeg")  # the page fell back to JPEG
+    assert feed.next_frame(gen, 2, 0.01) == (3, "jpeg", b"jpeg")
+
+
+def test_h264_piling_up_is_dropped_to_the_next_keyframe_which_the_page_is_asked_for(monkeypatch):
+    monkeypatch.setattr(bs, "_MAX_H264_BYTES", 10)
+    feed = bs.BrowserFeed(h264=True)
+    gen = feed.connect()
+    asked = feed.keyframe_requests()
+    feed.put_h264(gen, True, b"key12")
+    feed.put_h264(gen, False, b"d1234")
+    feed.put_h264(gen, False, b"d5678")  # past the limit
+    assert feed.next_frame(gen, 0, 0.01) is None and feed.keyframe_requests() == asked + 1
+    feed.put_h264(gen, False, b"d9")
+    assert feed.next_frame(gen, 0, 0.01) is None
+    feed.put_h264(gen, True, b"key")
+    assert feed.next_frame(gen, 0, 0.01)[1:] == ("h264", b"key")
+
+
+def test_browser_h264_reaches_the_reader_decoded_in_order(server):
+    feed = server.feed
+    if not feed.h264:
+        pytest.skip("PyAV isn't installed")
+    b = _Browser(server.port, server.token)
+    assert b.recv_json()["h264"] is True  # the page may send H.264
+    reader = bs.BrowserReader(feed)
+    assert reader.open()
+    assert b.recv_json() == {"type": "keyframe"}
+    values = [20, 80, 140, 200, 240]
+    for key, data in _h264(values):
+        b.send(0x2, bytes([bs.FRAME_H264, 1 if key else 0]) + data)
+    seen = []
+    while not seen or seen[-1] < 190:  # the decoder holds the newest frame back until the next one
+        ok, frame = reader.read_packet()
+        assert ok
+        seen.append(int(reader.decode(frame).mean()))
+    assert seen == sorted(seen)
+    b.close()
+
+
+def test_a_computer_without_pyav_ignores_h264_and_tells_the_page(cert):
+    feed = bs.BrowserFeed(h264=False)
+    server = bs.BrowserServer(feed, *cert, port=0, host="127.0.0.1")
+    server.start()
+    try:
+        b = _Browser(server.port, server.token)
+        assert b.recv_json()["h264"] is False
+        b.send(0x2, bytes([bs.FRAME_H264, 1]) + b"\x00\x00\x00\x01\x67")
+        time.sleep(0.2)
+        assert feed.next_frame(feed._gen, 0, 0.01) is None
+        b.close()
+    finally:
+        server.stop()

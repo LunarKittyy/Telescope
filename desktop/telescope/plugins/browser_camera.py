@@ -33,6 +33,7 @@ SOURCE_ID = "browser"
 SIZES = [("480p", 854, 480), ("720p", 1280, 720), ("1080p", 1920, 1080)]
 FPS_CHOICES = [15, 24, 30]
 DEFAULT_SIZE, DEFAULT_FPS = "720p", 30
+_CODEC_NAMES = {"h264": "H.264", "jpeg": "JPEG"}
 
 _CERT_NOTE = ("The browser warns that the connection isn't private: it's this computer's own certificate. "
               "On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed.")
@@ -196,11 +197,14 @@ class BrowserCameraPlugin(TelescopePlugin):
         if server is None:
             kind, text = ("status_err", self._problem) if self._problem else ("status_dim", "Off")
         elif feed.connected:
-            kind, text = "status_ok", f"● {feed.device or 'Connected'}"
+            codec = _CODEC_NAMES.get(feed.codec)
+            kind, text = "status_ok", f"● {feed.device or 'Connected'}" + (f", {codec}" if codec else "")
         else:
             kind, text = "status_dim", "Waiting for a browser"
         set_status_kind(self._status_lbl, kind)
         self._status_lbl.setText(text)
+        if server is not None and feed.connected and feed.codec_note:
+            self._status_lbl.setToolTip(f"{text}\n{feed.codec_note}")  # why it isn't H.264
         mic = feed.mic_error if server is not None and feed.connected else ""
         self._mic_lbl.setText(f"No microphone: {mic}" if mic else "")
         self._mic_row.setVisible(bool(mic))
@@ -350,7 +354,9 @@ class BrowserCameraPlugin(TelescopePlugin):
         stats = server.stats
         port = f"{stats.port}" + (f" ({stats.wanted_port} was taken)" if stats.fell_back else "")
         return {
-            "Browser camera": "browser connected" if self.feed.connected else "waiting for a browser",
+            "Browser camera": (f"browser connected, sending {self.feed.codec or 'nothing yet'}"
+                               + (f" ({self.feed.codec_note})" if self.feed.codec_note else "")
+                               if self.feed.connected else "waiting for a browser"),
             "Browser camera port": port,
             # How far browsers got: none at all points at the network or firewall, handshakes alone at the certificate
             "Browser camera reached": (f"{stats['connections']} connections, {stats['tls_failed']} certificate "

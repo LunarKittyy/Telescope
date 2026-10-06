@@ -287,7 +287,7 @@ def test_capture_settings_go_to_the_page_and_the_virtual_camera(browser):
     plugin._size_combo.setCurrentIndex(plugin._size_combo.findData("1080p"))
     assert host.outputs == [{"fps": 15}]
     _seq, cfg = plugin.feed.page_config()
-    assert cfg == {"width": 1920, "height": 1080, "fps": 15, "audio": False}
+    assert cfg == {"width": 1920, "height": 1080, "fps": 15, "audio": False, "h264": plugin.feed.h264}
     assert plugin.get_config() == {"size": "1080p", "fps": 15, "address": "192.168.1.20"}
 
 
@@ -313,9 +313,9 @@ def test_diagnostics_say_how_far_browsers_got_but_never_name_the_device(browser)
     stats.note("connections")
     stats.note("tls_failed")
     plugin.feed.connect()
-    plugin.feed.note_hello(plugin.feed._gen, "Safari on iPhone", "")
+    plugin.feed.note_hello(plugin.feed._gen, "Safari on iPhone", "", "jpeg", "No hardware H.264 encoder")
     diag = plugin.diagnostics()
-    assert diag["Browser camera"] == "browser connected"
+    assert diag["Browser camera"] == "browser connected, sending jpeg (No hardware H.264 encoder)"
     assert diag["Browser camera port"] == "8767"
     assert diag["Browser camera reached"].startswith("1 connections, 1 certificate refusals, 0 page loads")
     assert "iPhone" not in str(diag)
@@ -327,15 +327,16 @@ def test_diagnostics_say_how_far_browsers_got_but_never_name_the_device(browser)
 def test_waiting_hint_points_at_the_step_that_failed():
     stats = ServerStats(8767, 8767)
     t0 = stats.started
+    late = t0 + HINT_AFTER_S + 1  # exactly HINT_AFTER_S can come out a hair short in floats on a long-running clock
     assert waiting_hint(stats, False, t0 + 5) == ""  # still scanning, probably
-    assert "firewall allows port 8767" in waiting_hint(stats, False, t0 + HINT_AFTER_S)
-    assert waiting_hint(stats, True, t0 + HINT_AFTER_S) == ""
+    assert "firewall allows port 8767" in waiting_hint(stats, False, late)
+    assert waiting_hint(stats, True, late) == ""
     stats.note("connections")
-    assert waiting_hint(stats, False, t0 + HINT_AFTER_S) == ""
+    assert waiting_hint(stats, False, late) == ""
     stats.note("tls_failed")
     assert "certificate" in waiting_hint(stats, False, t0 + 1)
     stats.note("pages")
-    assert waiting_hint(stats, False, t0 + HINT_AFTER_S) == ""  # on the page now
+    assert waiting_hint(stats, False, late) == ""  # on the page now
 
 
 def test_card_shows_the_firewall_hint_once_the_wait_is_long(browser, monkeypatch):
@@ -356,7 +357,7 @@ def test_feed_drops_frames_from_a_replaced_browser():
     feed.put_frame(old, b"old")
     assert feed.next_frame(new, 0, 0.01) is None
     feed.put_frame(new, b"new")
-    assert feed.next_frame(new, 0, 0.01) == (1, b"new")
+    assert feed.next_frame(new, 0, 0.01) == (1, "jpeg", b"new")
 
 
 def test_falling_behind_points_at_its_own_resolution_and_frame_rate(browser):
