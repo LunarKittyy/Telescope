@@ -23,12 +23,19 @@ class PhoneControlClient:
     """Sends authenticated camera-control requests via queued background worker; coalesces requests by action."""
 
     _NON_COALESCING = frozenset({"camera"})
+    # What a phone that restarted its stream has forgotten, and gets again from resend_settings()
+    _SETTINGS = frozenset({
+        "auto", "iso", "shutter", "wb_auto", "wb_gains", "ois", "focus_mode", "focus_distance", "ae_comp", "nr_mode",
+        "edge_mode", "black_level_lock", "jpeg_quality", "bitrate", "fps_target", "zoom",
+    })
 
     def __init__(self, stream_url: str, auth: PhoneAuth):
-        self.base = stream_url.rsplit("/video", 1)[0]
+        self.retarget(stream_url)
         self.auth = auth
         self._queue: "queue.Queue" = queue.Queue()
-        self._pending: dict = {}
+        self._pending: dict = {}  # action: (place in the queue, params), the latest of each
+        self._seq = 0
+        self._settings: dict = {}  # the last of each setting sent, in the order they were last sent
         self._lock = threading.Lock()
         self._closed = False
         self._wake = threading.Event()  # set by close(), to end a wait between tries
@@ -52,13 +59,28 @@ class PhoneControlClient:
             return
         action = params.get("action")
         with self._lock:
+            if action in self._SETTINGS:
+                self._settings.pop(action, None)
+                self._settings[action] = params
             if action in self._NON_COALESCING:
                 self._queue.put(params)
             else:
-                is_new = action not in self._pending
-                self._pending[action] = params
-                if is_new:
-                    self._queue.put(action)
+                # Goes out at the latest send's place, after whatever was sent between (Manual, Auto, Manual: Manual)
+                self._seq += 1
+                self._pending[action] = (self._seq, params)
+                self._queue.put((action, self._seq))
+
+    def retarget(self, stream_url: str):
+        """The same stream on a new route (cable pulled: Wi-Fi): what's queued, and what resend_settings() sends,
+        goes there."""
+        self.base = stream_url.rsplit("/video", 1)[0]
+
+    def resend_settings(self):
+        """Send the phone every setting again, for a stream that came back while the panels showed another."""
+        with self._lock:
+            settings = list(self._settings.values())
+        for params in settings:
+            self.send(**params)
 
     def close(self):
         """Stop accepting requests and cancel queued ones (device switch cleanup)."""
@@ -83,10 +105,12 @@ class PhoneControlClient:
             if isinstance(item, dict):
                 params = item
             else:
+                action, seq = item
                 with self._lock:
-                    params = self._pending.pop(item, None)
-                if params is None:
-                    continue
+                    queued = self._pending.get(action)
+                    if queued is None or queued[0] != seq:
+                        continue  # sent already, or a newer value waits further back
+                    params = self._pending.pop(action)[1]
             self._deliver(params)
 
     def _deliver(self, params: dict):

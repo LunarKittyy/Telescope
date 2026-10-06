@@ -9,7 +9,8 @@ from PyQt6.QtWidgets import QWidget
 
 import telescope.app as app_module
 import telescope.plugins.browser_camera as browser_module
-from telescope.browser_server import BrowserControl, BrowserFeed, BrowserReader, ServerStats
+import telescope.sources as sources_module
+from telescope.browser_server import BrowserFeed, ServerStats
 from telescope.plugin import EventBus
 from telescope.plugins.browser_camera import (
     HINT_AFTER_S, REMEMBER_DAYS, SOURCE_ID, BrowserCameraPlugin, waiting_hint,
@@ -590,3 +591,79 @@ def test_a_browser_takes_the_waiting_tile_over_next_to_a_phone(camera_env, tmp_p
     assert window._focus.id == "browser:pixel-aaaaaaaa" and not _Server.instances[-1].stopped
     assert not plugin.is_waiting()
     plugin.shutdown()
+
+
+def test_every_browser_that_joined_during_a_phone_start_streams_after_it(camera_env, tmp_path, monkeypatch):
+    window, conn, *_ = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    conn.ensure_virtual_camera = lambda interactive=True: True
+
+    def show(pid):
+        conn.selected_device = pid
+        window._bus.source_selected.emit(pid or "")
+    conn.show_selected = conn.select = show
+    _Server.instances.clear()
+    plugin = BrowserCameraPlugin(server_cls=_Server, cert_folder=tmp_path,
+                                 addresses=lambda: [SimpleNamespace(ip="192.168.1.20")])
+    window.register_plugin(plugin)
+    QCoreApplication.processEvents()
+    conn.select(SOURCE_ID)
+    _arrive(plugin, "browser-initial1", "Chrome on Mac")
+    assert window.stream_count() == 1
+    monkeypatch.setattr(sources_module.PhoneSource, "_spawn_wake", lambda self, *a: None)
+    window.add_stream("Phone")
+    phone = window._wake_source
+    _arrive(plugin, "browser-aaaaaaaa", "Chrome on Android")
+    _arrive(plugin, "browser-bbbbbbbb", "Safari on iOS")
+    assert window.stream_count() == 1  # they wait for the phone
+    window._on_wake_done(phone, True, "")
+    assert window.stream_count() == 4
+    assert window.is_streaming_from("browser:browser-aaaaaaaa")
+    assert window.is_streaming_from("browser:browser-bbbbbbbb")
+    plugin.shutdown()
+
+
+def test_a_browser_stopped_here_leaves_room_for_another(browser):
+    plugin, host, bus, _card = browser
+    bus.source_selected.emit(SOURCE_ID)
+    for bid in ("browser-aaaaaaaa", "browser-bbbbbbbb", "browser-cccccccc", "browser-dddddddd"):
+        _arrive(plugin, bid)
+    _changed(host, bus)
+    assert host.stream_count() == 4
+    host.stop_stream("browser:browser-aaaaaaaa")
+    _changed(host, bus)
+    assert host.stream_count() == 3
+    assert plugin.hub.join("browser-replacement") is not None
+
+
+def test_a_browser_that_joins_while_the_extra_cameras_are_set_up_streams_after(camera_env, tmp_path, monkeypatch):
+    window, conn, *_ = camera_env
+    conn.ensure_virtual_camera = lambda interactive=True: True
+    ready = {0}
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda slot: slot in ready)
+    monkeypatch.setattr(window, "_ask_slots", lambda: True)
+    monkeypatch.setattr(app_module.threading, "Thread", lambda **_k: SimpleNamespace(start=lambda: None))
+    _Server.instances.clear()
+    plugin = BrowserCameraPlugin(server_cls=_Server, cert_folder=tmp_path,
+                                 addresses=lambda: [SimpleNamespace(ip="192.168.1.20")])
+    window.register_plugin(plugin)
+    window._bus.source_selected.emit(SOURCE_ID)
+    _arrive(plugin, "browser-aaaaaaaa")
+    _arrive(plugin, "browser-bbbbbbbb")  # sets up the extra cameras
+    _arrive(plugin, "browser-cccccccc")  # while that's under way
+    ready.update(range(1, app_module.vcam.MAX_SLOTS))
+    window._on_slots_ready(True, "", "")
+    QCoreApplication.processEvents()
+    assert window.is_streaming_from("browser:browser-bbbbbbbb")
+    assert window.is_streaming_from("browser:browser-cccccccc")
+    window._stop_all()
+    plugin.shutdown()
+
+
+def test_browsers_let_in_during_a_start_dont_outnumber_the_cameras(browser):
+    plugin, host, bus, _card = browser
+    host.streams = ["phone-a", "phone-b"]
+    host.starting = True  # a third phone waking takes the third camera
+    bus.source_selected.emit(SOURCE_ID)
+    _arrive(plugin, "browser-aaaaaaaa")  # the last camera
+    assert plugin.hub.join("browser-bbbbbbbb") is None

@@ -21,7 +21,7 @@ _CAMERA_OFF_AUTO_TEXT = ("Camera off\n\nNo app was using the camera, so it turne
 
 
 class _Sig(QObject):
-    frame = pyqtSignal(object)
+    frame = pyqtSignal(object, int)  # the frame, and the stream it's from (PreviewPlugin._stream_gen)
 
 
 _MARKER = 44  # the square drawn where you clicked, in px
@@ -298,6 +298,7 @@ class PreviewPlugin(TelescopePlugin):
         self._popout_active = False
         self._hid_for_popout = False  # opening the popout hid the card, so closing it shows the card again
         self._streaming = False  # a frame queued just before Stop arrives after it and is dropped
+        self._stream_gen = 0  # each stream the panels show, so one queued from the last one is dropped too
         self._busy   = False
         # Where each view last showed a frame, in px (UI thread writes, stream thread reads): frames are scaled to it
         # on the stream thread, so the UI thread only has to put them up.
@@ -450,6 +451,7 @@ class PreviewPlugin(TelescopePlugin):
 
     def on_stream_start(self, stream_url: str, ctrl):
         self._streaming = True
+        self._stream_gen += 1
         self._busy = False  # a frame lost on its way to the UI mustn't freeze the preview for good
         if self._active and self._preview_lbl.pixmap().isNull() and self._host.is_camera_on():
             self._preview_lbl.setText(_WAITING_TEXT)  # with the camera off, on_camera_off follows and says so
@@ -579,7 +581,7 @@ class PreviewPlugin(TelescopePlugin):
             else:
                 h, w = frame.shape[:2]
                 size = self._card_size or (min(w, self._CARD_MAX_W), h)
-            self._sig.frame.emit(_fit_within(frame, size))
+            self._sig.frame.emit(_fit_within(frame, size), self._stream_gen)
         except Exception:
             self._busy = False
             raise
@@ -587,8 +589,10 @@ class PreviewPlugin(TelescopePlugin):
 
     # ── UI thread ─────────────────────────────────────────────────────────────
 
-    def _on_frame(self, frame: np.ndarray):
+    def _on_frame(self, frame: np.ndarray, stream_gen: int | None = None):
         try:
+            if stream_gen is not None and stream_gen != self._stream_gen:
+                return  # the panels have moved on to another stream since
             if self._streaming and self._host.is_camera_on():  # a frame from just before the camera went off
                 self._show_frame(frame)
         finally:

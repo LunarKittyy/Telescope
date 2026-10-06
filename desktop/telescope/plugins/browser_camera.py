@@ -145,6 +145,7 @@ class BrowserCameraPlugin(TelescopePlugin):
         self._browsers: dict = {}  # id the page keeps: its _BrowserSource, while it's there or streams
         self._started: dict = {}  # id: the connection that started streaming, so a stop isn't undone right away
         self._joining = False
+        self._join_again = False  # streams changed during a join pass
         self._waiting = False  # Start or + asked for a browser and none has joined yet: the server stays up for it
         self._handover = ""  # the browser starting in its place, until it streams
         self._known: dict = {}  # id: {"name", "seen"} of browsers that connected, for the phones list
@@ -159,6 +160,7 @@ class BrowserCameraPlugin(TelescopePlugin):
         bus.source_selected.connect(self._on_source_selected)
         bus.stream_behind.connect(self._on_stream_behind)
         bus.streams_changed.connect(self._on_streams_changed)
+        bus.stream_start_failed.connect(lambda: self._on_streams_changed(self._host.stream_count()))  # camera's free
         bus.forget_source_requested.connect(self.forget_browser)
         host.add_stream_source(_Source(self))
         QTimer.singleShot(0, self._tidy_known)  # once the saved list is in
@@ -380,8 +382,12 @@ class BrowserCameraPlugin(TelescopePlugin):
         self._render()
 
     def _update_room(self):
-        waiting = sum(1 for src in self._connected() if not self._host.is_streaming_from(src.id))
-        self._room = vcam.MAX_SLOTS - self._host.stream_count() - waiting
+        # From the hub, so one let in since the last count holds its camera before it's offered as a source
+        waiting = sum(1 for bid, feed in self.hub.feeds().items() if feed.connected
+                      and not self._host.is_streaming_from(BROWSER_PREFIX + bid)
+                      and self._started.get(bid) != feed.generation)  # stopped here: it doesn't come back by itself
+        starting = 1 if self._host.is_starting() else 0  # a start under way has a camera coming too
+        self._room = vcam.MAX_SLOTS - self._host.stream_count() - starting - waiting
 
     def _can_join(self, _bid: str) -> bool:
         """Server thread: whether a browser that isn't known yet gets a feed (there's a camera left for it)."""
@@ -421,9 +427,13 @@ class BrowserCameraPlugin(TelescopePlugin):
 
     def _join_waiting(self):
         """A browser that just connected starts streaming, the way opening the app on a phone would."""
-        if self._joining or self._host.is_starting():
+        if self._joining:
+            self._join_again = True  # a start just went through: the next browser waiting goes once this pass ends
+            return
+        if self._host.is_starting():
             return
         self._joining = True
+        self._join_again = False
         try:
             for bid, src in list(self._browsers.items()):
                 feed = src.feed
@@ -445,6 +455,8 @@ class BrowserCameraPlugin(TelescopePlugin):
                 break  # one at a time: the next once this one is through (streams_changed)
         finally:
             self._joining = False
+        if self._join_again:
+            self._join_waiting()
 
     def _end_wait_if_joined(self):
         """The browser that came for the wait streams now (or it left before it could)."""

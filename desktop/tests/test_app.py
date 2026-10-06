@@ -1245,7 +1245,7 @@ def test_resolution_pending_times_out_to_error_then_self_clears(window, monkeypa
     monkeypatch.setattr(app_module.QTimer, "singleShot", staticmethod(fake_single_shot))
 
     window._on_resolution_pending(1280, 720)
-    window._on_resolution_pending_timeout()
+    window._phone.pending_resolution_timer.timeout.emit()
 
     assert fired["ms"] == 4000
     # Monkeypatched singleShot ran callback immediately, so auto-clear already executed.
@@ -1780,9 +1780,13 @@ class _RetargetWorker:
 class _Client:
     def __init__(self):
         self.closed = False
+        self.urls = []
 
     def close(self):
         self.closed = True
+
+    def retarget(self, url):
+        self.urls.append(url)
 
 
 def _dropped_stream(window, monkeypatch, answers, url="http://127.0.0.1:40001/v1/video", conn=None):
@@ -1791,8 +1795,6 @@ def _dropped_stream(window, monkeypatch, answers, url="http://127.0.0.1:40001/v1
         window.register_plugin(conn)
     monkeypatch.setattr(sources_module.PhoneSource, "_spawn_recovery_probe",
                         lambda self, sid, gen, job: self._on_recovery_probed(sid, gen, job()))
-    monkeypatch.setattr(sources_module, "PhoneControlClient", lambda url, token: SimpleNamespace(
-        base=url, token=token, close=lambda: None))
     worker, client = _RetargetWorker(), _Client()
     window._session = StreamSession(source=window._phone, id=1, url=url, client=client, worker=worker)
     worker.status.connect(window._on_worker_status)
@@ -1927,8 +1929,8 @@ def test_a_dropped_usb_stream_moves_to_wifi_when_the_cable_is_pulled(window, mon
     assert conn.adopted == [wifi]
     assert worker.urls == ["http://192.168.1.20:8080/v1/video"]
     assert window._session.url == "http://192.168.1.20:8080/v1/video"
-    assert window._session.client.base == "http://192.168.1.20:8080/v1/video"
-    assert client.closed
+    assert window._session.client is client and client.urls == ["http://192.168.1.20:8080/v1/video"]
+    assert not client.closed  # the same one, so it keeps what it sent
     assert window._phone._recovery_timer.isActive()  # until frames actually come back
 
 
@@ -2011,8 +2013,6 @@ def test_a_stream_that_never_got_its_first_frame_looks_for_the_phone_too(window,
     window.register_plugin(conn)
     monkeypatch.setattr(sources_module.PhoneSource, "_spawn_recovery_probe",
                         lambda self, sid, gen, job: self._on_recovery_probed(sid, gen, job()))
-    monkeypatch.setattr(sources_module, "PhoneControlClient", lambda url, token: SimpleNamespace(
-        base=url, token=token, close=lambda: None))
     worker = _RetargetWorker()
     window._session = StreamSession(source=window._phone, id=1, url="http://127.0.0.1:40001/v1/video", client=_Client(), worker=worker)
     worker.status.connect(window._on_worker_status)
@@ -2138,6 +2138,9 @@ def camera_env(window, monkeypatch):
         def send(self, **params):
             self.sent.append(params)
 
+        def retarget(self, url):
+            self.url = url
+
         def get_state(self):
             return self.state
 
@@ -2172,6 +2175,9 @@ def camera_env(window, monkeypatch):
 
         def start(self):
             pass
+
+        def is_alive(self):
+            return False
 
     monkeypatch.setattr(sources_module, "PhoneControlClient", Client)
     monkeypatch.setattr(app_module, "StreamWorker", Worker)
@@ -2558,10 +2564,10 @@ def test_an_extra_camera_that_isnt_set_up_asks_first(camera_env, monkeypatch):
 
 def test_extra_cameras_ready_carries_on_and_a_failure_says_why(window):
     calls = []
-    window._slots_then = lambda: calls.append(True)
+    window._slots_then = [lambda: calls.append(True)]
     window._on_slots_ready(True, "", "")
     assert calls == [True]
-    window._slots_then = lambda: calls.append(True)
+    window._slots_then = [lambda: calls.append(True)]
     window._on_slots_ready(False, "too old", "sudo modprobe")
     assert calls == [True] and window._banners.issue("vcam").title == "Couldn't add more virtual cameras"
 
@@ -2685,3 +2691,374 @@ def test_stop_drops_a_waiting_tile_too(two_streams):
     window.add_stream("waiting")
     window._toggle()
     assert launcher.cancels == 1 and not window.is_streaming() and window._pending is None
+
+
+def test_a_resolution_timeout_only_clears_its_own_stream(two_streams):
+    window, *_ = two_streams
+    window.focus_stream("Phone")
+    phone = window._focus
+    window._on_resolution_pending(1280, 720)
+    phone_timer = phone.pending_resolution_timer
+    window.focus_stream("browser")
+    browser = window._focus
+    window._on_resolution_pending(1920, 1080)
+    phone_timer.timeout.emit()
+    assert phone.pending_resolution is None and phone.pending_resolution_timer is None
+    assert browser.pending_resolution == (1920, 1080)
+    assert window._fps_lbl.styleSheet() == f"color: {theme.WARN};"  # still waiting on the browser's own change
+    window._clear_pending_resolution(browser)
+
+
+def test_a_starting_tiles_stop_cancels_its_start(two_streams, monkeypatch):
+    window, *_ = two_streams
+    monkeypatch.setattr(sources_module.PhoneSource, "_spawn_wake", lambda self, *a: None)
+    window.add_stream("third-phone")
+    assert window._waking and "third-phone" in window._tiles.ids()
+    window._tiles.stop_requested.emit("third-phone")
+    assert not window._waking and window._wake_source is None
+    assert window.stream_count() == 2 and window._focus.id != "third-phone"
+
+
+def test_a_cancelled_phone_that_starts_late_is_stopped_while_another_wakes(camera_env, monkeypatch):
+    window, conn, *_ = camera_env
+    monkeypatch.setattr(sources_module.PhoneSource, "_spawn_wake", lambda self, *a: None)
+    old = window._phone_source("Phone")
+    remote = []
+    monkeypatch.setattr(old, "_stop_phone_async", lambda target=None: remote.append(target))
+    window._start()
+    wake = old._wake_id
+    conn.selected_device = "new-phone"
+    window.switch_device("Phone", "new-phone")
+    assert window._waking and window._wake_source.id == "new-phone" and len(remote) == 1
+    old._on_wake_done(wake, True, "", "old-url", None)  # its start went through after the stop got there
+    assert len(remote) == 2
+
+
+def test_a_background_stream_the_encoder_cant_do_gets_the_panels_and_stops(two_streams, monkeypatch):
+    from telescope.plugins.stream_output import StreamOutputPlugin
+    import telescope.plugins.stream_output as stream_output_module
+    window, *_ = two_streams
+    monkeypatch.setattr(stream_output_module.h264_reader, "available", lambda: True)
+    window.register_plugin(StreamOutputPlugin())
+    phone = window._phone_source("Phone")
+    assert window._focus is not phone
+    state = {**_VALID_STATE, "codecs": ["mjpeg", "h264"], "codec": "mjpeg", "codec_unsupported": True,
+             "codec_error": "H.264 isn't available at 4096x3072 on this phone", "camera_toggle": True}
+    window._apply_state(phone.session.id, state, phone)
+    QCoreApplication.processEvents()
+    assert phone.session is None and window._banners.issue("encoder") is not None
+
+
+def test_restarting_the_only_stream_left_keeps_its_virtual_camera(camera_env, monkeypatch):
+    window, *_ = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    window._start()
+    window.add_stream("phone-b")
+    window.stop_stream("Phone")
+    source = window._focus
+    assert source.slot == 1
+    window.reconnect_stream()
+    assert source.session is not None and source.slot == 1
+    assert source.session.worker.kwargs["slot"] == 1
+    window.stop_stream()
+    window._start()
+    assert source.slot == 0  # a real stop and start alone goes back to the usual camera
+
+
+def test_a_background_stream_that_reconnects_gets_its_settings_again(two_streams):
+    window, *_ = two_streams
+    phone = window._phone_source("Phone")
+    resent = []
+    phone.session.client.resend_settings = lambda: resent.append(True)
+    window._on_stream_reconnected(phone)
+    assert resent == [True]
+    window.focus_stream("Phone")
+    window._on_stream_reconnected(phone)
+    assert resent == [True]  # the panels' plugins send them for the stream they show
+
+
+def test_re_pairing_a_background_phone_restarts_it_with_the_new_token(camera_env, monkeypatch):
+    import telescope.plugins.connection as connection_module
+    from telescope.phones import READY, Resolution
+    from telescope.plugins.connection import ConnectionPlugin
+    from test_connection import WIFI, _add, _FakeDiscovery, _FakeResolver, _FakeTunnels
+    window, *_ = camera_env
+    monkeypatch.setattr(connection_module, "LanDiscovery", _FakeDiscovery)
+    monkeypatch.setattr(connection_module, "run_off_ui_thread", lambda fn, *a, **k: fn(*a, **k))
+    monkeypatch.setattr(connection_module, "IS_LINUX", False)
+    monkeypatch.setattr(ConnectionPlugin, "_spawn_resolve", lambda self, *a: None)
+    monkeypatch.setattr(ConnectionPlugin, "ensure_virtual_camera", lambda self, *a, **k: True)
+    monkeypatch.setattr(ConnectionPlugin, "ensure_phone_streaming", lambda self, **k: (True, ""))
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    conn = ConnectionPlugin()
+    window.register_plugin(conn)
+    conn._resolver = _FakeResolver(Resolution(READY, route=WIFI))
+    conn._tunnels = _FakeTunnels()
+    conn._status_timer.stop()
+    _add(conn, "id-a")
+    _add(conn, "id-b", name="B")
+    conn.select("id-a")
+    window._start()
+    window.add_stream("id-b")
+    assert window._focus.id == "id-b"
+    _add(conn, "id-a", token="new-token")
+    assert window._focus.id == "id-a"
+    assert window._focus.session.worker.auth.token == "new-token"
+    assert window._focus.session.client.auth.token == "new-token"
+    conn.shutdown()
+
+
+def test_a_restart_next_to_another_stream_keeps_its_camera_over_a_remembered_one(camera_env, monkeypatch):
+    window, *_ = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    window._slot_memory["Phone"] = 2  # camera 3 in an earlier run; alone it starts on camera 1
+    window._start()
+    window.add_stream("phone-b")
+    window.focus_stream("Phone")
+    source = window._focus
+    assert source.slot == 0
+    window.reconnect_stream()  # the Starting tile works out its camera on the way
+    assert source.slot == 0 and source.session.worker.kwargs["slot"] == 0
+
+
+def test_a_background_phone_without_h264_falls_back_to_mjpeg(two_streams, monkeypatch):
+    from telescope.plugins.stream_output import StreamOutputPlugin
+    import telescope.plugins.stream_output as stream_output_module
+    window, *_ = two_streams
+    monkeypatch.setattr(stream_output_module.h264_reader, "available", lambda: True)
+    plugin = StreamOutputPlugin()
+    window.register_plugin(plugin)
+    phone = window._phone_source("Phone")
+    session = phone.session
+    window._apply_state(session.id, {**_VALID_STATE, "codecs": ["mjpeg"], "camera_toggle": True}, phone)
+    assert window._focus is phone and plugin._format == "mjpeg"
+    assert phone.session is not None and phone.session is not session  # restarted on the MJPEG route
+    window._stop_all()
+
+
+def test_a_codec_error_while_another_start_prepares_waits_for_it(camera_env, config_home, monkeypatch):
+    window, conn, *_ = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    window._start()
+    phone = window._phone_source("Phone")
+    focus_during_prepare = []
+    original = conn.get_stream_info
+
+    def preparing(*args, **kwargs):
+        phone._sig_state.emit(phone.session.id, {**_VALID_STATE, "codec_error": "Encoder stopped",
+                                                 "camera_toggle": True})
+        focus_during_prepare.append(window._focus.id)
+        return original(*args, **kwargs)
+    conn.get_stream_info = preparing
+    monkeypatch.setattr(sources_module.PhoneSource, "_spawn_wake", lambda self, *a: None)
+    window.add_stream("third")
+    assert focus_during_prepare == ["third"]  # the panels stay on the start, so it opens with its own settings
+    window._on_wake_done(window._wake_source, True, "")
+    QCoreApplication.processEvents()
+    assert window._focus is phone  # then the stream with the error gets them
+
+
+def test_re_pairing_a_phone_while_another_starts_restarts_it_after(camera_env, monkeypatch):
+    import telescope.plugins.connection as connection_module
+    from telescope.phones import READY, Resolution
+    from telescope.plugins.connection import ConnectionPlugin
+    from test_connection import WIFI, _add, _FakeDiscovery, _FakeResolver, _FakeTunnels
+    window, *_ = camera_env
+    monkeypatch.setattr(connection_module, "LanDiscovery", _FakeDiscovery)
+    monkeypatch.setattr(connection_module, "run_off_ui_thread", lambda fn, *a, **k: fn(*a, **k))
+    monkeypatch.setattr(connection_module, "IS_LINUX", False)
+    monkeypatch.setattr(ConnectionPlugin, "_spawn_resolve", lambda self, *a: None)
+    monkeypatch.setattr(ConnectionPlugin, "ensure_virtual_camera", lambda self, *a, **k: True)
+    monkeypatch.setattr(ConnectionPlugin, "ensure_phone_streaming", lambda self, **k: (True, ""))
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    conn = ConnectionPlugin()
+    window.register_plugin(conn)
+    conn._resolver = _FakeResolver(Resolution(READY, route=WIFI))
+    conn._tunnels = _FakeTunnels()
+    conn._status_timer.stop()
+    _add(conn, "id-a")
+    _add(conn, "id-b", name="B")
+    conn.select("id-a")
+    window._start()
+    monkeypatch.setattr(sources_module.PhoneSource, "_spawn_wake", lambda self, *a: None)
+    window.add_stream("id-b")
+    assert window._waking
+    _add(conn, "id-a", token="new-token")
+    a = window._phone_source("id-a")
+    window._on_wake_done(window._wake_source, True, "")
+    QCoreApplication.processEvents()
+    window._on_wake_done(window._wake_source, True, "")  # A's own restart
+    assert a.session.worker.auth.token == "new-token" and a.session.client.auth.token == "new-token"
+    assert window.stream_count() == 2
+    conn.shutdown()
+
+
+def test_a_preview_frame_from_the_last_stream_isnt_shown_on_the_next(two_streams):
+    from telescope.plugins.preview import PreviewPlugin
+    window, *_ = two_streams
+    preview = PreviewPlugin()
+    window.register_plugin(preview)
+    window.focus_stream("Phone")
+    old = preview._stream_gen
+    window.focus_stream("browser")
+    preview._on_frame(np.zeros((8, 8, 3), dtype=np.uint8), old)  # queued before the switch
+    assert preview._preview_lbl.pixmap().isNull() and not preview._busy
+
+
+def test_stop_cancels_a_stream_restarting_next_to_the_shown_one(camera_env, monkeypatch):
+    window, *_ = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    window._start()
+    window.add_stream("B")
+    phone = window._phone_source("Phone")
+    monkeypatch.setattr(sources_module.PhoneSource, "_spawn_wake", lambda self, *a: None)
+    window.reconnect_stream("Phone")
+    wake = phone._wake_id
+    window._toggle()  # the Stop button
+    assert not window._streams and not window._waking
+    phone._on_wake_done(wake, True, "", phone.url, phone.auth)
+    assert not window.is_streaming()
+
+
+def test_restarting_a_background_stream_starts_it_with_its_own_settings(camera_env, config_home, monkeypatch):
+    from telescope.plugins.stream_output import StreamOutputPlugin
+    window, conn, *_ = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    window.register_plugin(StreamOutputPlugin())
+    cfg = config_home.load_config()
+    cfg["devices"] = {"Phone": {"plugin_configs": {"stream_output": {"fps": 15}}},
+                      "B": {"plugin_configs": {"stream_output": {"fps": 60}}}}
+    config_home.save_config(cfg)
+    window._apply_device_profile("Phone")
+    window._start()
+    phone = window._phone_source("Phone")
+    window.add_stream("B")
+    window.reconnect_stream("Phone")
+    assert window._focus is phone
+    assert phone.session.worker.kwargs["fps"] == 15 and conn.opening["fps"] == 15
+    window._stop_all()
+
+
+def _camera_state(**camera):
+    from test_models import _VALID_CAMERA
+    return {**_VALID_STATE, "cameras": [{**_VALID_CAMERA, **camera}], "codecs": ["mjpeg", "h264"],
+            "camera_toggle": True}
+
+
+def test_coming_back_to_a_stream_keeps_its_exposure_and_sends_nothing(camera_env, monkeypatch):
+    from telescope.plugins.camera_control import CameraControlPlugin
+    window, *_ = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    camera = CameraControlPlugin()
+    window.register_plugin(camera)
+    window._bus.phones_changed.emit(2)
+    window._start()
+    phone = window._focus
+    window._apply_state(phone.session.id, {**_camera_state(isoMax=6400), "auto": False, "iso": 6400,
+                                           "shutter_ns": 10_000_000}, phone)
+    window.add_stream("B")
+    other = window._focus
+    window._apply_state(other.session.id, _camera_state(isoMax=800), other)  # a lens that stops at ISO 800
+    phone.session.client.sent.clear()
+    window.focus_stream("Phone")
+    assert camera.get_config()["iso"] > 6390 and camera._iso_slider.v_max == 6400
+    assert phone.session.client.sent == []  # the phone still has them
+    window._stop_all()
+
+
+def test_coming_back_to_a_stream_keeps_its_focus_point(camera_env, monkeypatch):
+    from telescope.plugins.camera_control import CameraControlPlugin
+    window, *_ = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    camera = CameraControlPlugin()
+    window.register_plugin(camera)
+    window._bus.phones_changed.emit(2)
+    window._start()
+    phone = window._focus
+    window._apply_state(phone.session.id, _camera_state(supportsFocusPoint=True), phone)
+    window._bus.focus_point.emit(0.25, 0.75)
+    window.add_stream("B")
+    assert not camera._point_focus  # B's panel
+    phone.session.client.sent.clear()
+    window.focus_stream("Phone")
+    assert camera._point_focus and camera._rb_focus_point.isChecked()
+    assert phone.session.client.sent == []
+    window._stop_all()
+
+
+def test_coming_back_to_a_zoomed_phone_doesnt_crop_its_crop_again(camera_env, monkeypatch):
+    from telescope.plugins.transforms import TransformsPlugin
+    window, *_ = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    view = TransformsPlugin()
+    window.register_plugin(view)
+    window._start()
+    phone = window._focus
+    window._apply_state(phone.session.id, _camera_state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True),
+                        phone)
+    view._zoom_slider.setValue(200)
+    assert view._desktop_crop == (1.0, 0.0, 0.0)  # the phone crops it all
+    window.add_stream("B")
+    phone.session.client.sent.clear()
+    window.focus_stream("Phone")
+    assert view._desktop_crop == (1.0, 0.0, 0.0)
+    assert phone.session.client.sent == []
+    window._stop_all()
+
+
+def test_coming_back_to_a_stream_that_changed_route_meanwhile_keeps_its_exposure(camera_env, monkeypatch):
+    from telescope.plugins.camera_control import CameraControlPlugin
+    window, conn, *_ = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    camera = CameraControlPlugin()
+    window.register_plugin(camera)
+    window._bus.phones_changed.emit(2)
+    window._start()
+    phone = window._focus
+    window._apply_state(phone.session.id, {**_camera_state(isoMax=6400), "auto": False, "iso": 6400,
+                                           "shutter_ns": 10_000_000}, phone)
+    window.add_stream("B")
+    other = window._focus
+    window._apply_state(other.session.id, _camera_state(isoMax=800), other)
+    conn.adopt_stream_route = lambda _route, _pid: "http://192.168.1.20:8080/v1/video"
+    phone.session.worker.retarget = lambda _url: None
+    phone._move_stream(phone.session, object())  # cable pulled while the panels show B: it goes on over Wi-Fi
+    phone.session.client.sent.clear()
+    window.focus_stream("Phone")
+    assert camera.get_config()["iso"] > 6390 and phone.session.client.sent == []
+    window._stop_all()
+
+
+def test_two_phones_waiting_for_the_extra_cameras_both_start(camera_env, monkeypatch):
+    window, *_ = camera_env
+    ready = {0}
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda slot: slot in ready)
+    monkeypatch.setattr(window, "_ask_slots", lambda: True)
+    window._start()
+    window.add_stream("B")  # sets up the extra cameras
+    window.add_stream("C")  # while that's under way
+    monkeypatch.setattr(sources_module.PhoneSource, "_spawn_wake", lambda self, *a: None)
+    ready.update(range(1, app_module.vcam.MAX_SLOTS))
+    window._on_slots_ready(True, "", "")
+    assert window._wake_source.id == "B"
+    window._on_wake_done(window._wake_source, True, "")
+    QCoreApplication.processEvents()
+    assert window._wake_source.id == "C"  # once B is through
+    window._on_wake_done(window._wake_source, True, "")
+    assert window.stream_count() == 3
+    window._stop_all()
+
+
+def test_stop_drops_starts_waiting_for_the_extra_cameras(camera_env, monkeypatch):
+    window, *_ = camera_env
+    ready = {0}
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda slot: slot in ready)
+    monkeypatch.setattr(window, "_ask_slots", lambda: True)
+    window._start()
+    window.add_stream("B")
+    window.add_stream("C")
+    window._toggle()
+    ready.update(range(1, app_module.vcam.MAX_SLOTS))
+    window._on_slots_ready(True, "", "")
+    QCoreApplication.processEvents()
+    assert not window.is_streaming() and not window._waking

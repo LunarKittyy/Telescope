@@ -103,6 +103,23 @@ def test_close_cancels_queued_and_pending_requests(monkeypatch):
     assert sent == []
 
 
+def test_resend_settings_sends_the_last_of_each_in_the_order_last_sent(monkeypatch):
+    monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
+    client = PhoneControlClient("http://phone/video", PhoneAuth("tok"))
+    client.send(action="iso", value=100)
+    client.send(action="wb_auto")
+    client.send(action="torch", value="1")  # a one-off, not a setting the phone keeps
+    client.send(action="auto")  # back to auto exposure after the manual ISO
+    client.send(action="zoom", value=2.0)
+    resent = []
+    monkeypatch.setattr(client, "send", lambda **params: resent.append(params))
+
+    client.resend_settings()
+
+    assert resent == [{"action": "iso", "value": 100}, {"action": "wb_auto"}, {"action": "auto"},
+                      {"action": "zoom", "value": 2.0}]
+
+
 class _Response:
     def __init__(self, body=b"{}"):
         self.body = body
@@ -213,7 +230,7 @@ def test_worker_skips_stale_pending_key(monkeypatch):
     client = PhoneControlClient("http://phone/video", PhoneAuth("tok"))
     sent = []
     monkeypatch.setattr(client, "_send_now", sent.append)
-    client._queue.put("iso")
+    client._queue.put(("iso", 1))
     client._queue.put(None)
     client._worker()
     assert sent == []
@@ -301,3 +318,30 @@ def test_a_stalled_link_still_delivers_the_setting(recording_server):
         time.sleep(0.02)
     client.close()
     assert recording_server.received == [{"action": "iso", "value": 100}]
+
+
+def test_a_value_sent_again_goes_after_what_was_sent_between(monkeypatch):
+    monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
+    client = PhoneControlClient("http://phone/video", PhoneAuth("tok"))
+    sent = []
+    monkeypatch.setattr(client, "_deliver", sent.append)
+    client.send(action="iso", value=100)
+    client.send(action="shutter", value=10_000_000)
+    client.send(action="auto")  # Manual, Auto, then Manual again
+    client.send(action="iso", value=200)
+    client.send(action="shutter", value=20_000_000)
+    client._queue.put(None)
+    client._worker()
+    assert sent == [{"action": "auto"}, {"action": "iso", "value": 200}, {"action": "shutter", "value": 20_000_000}]
+
+
+def test_a_new_route_takes_the_queue_and_the_settings_along(monkeypatch):
+    monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
+    client = PhoneControlClient("http://127.0.0.1:40001/v1/video", PhoneAuth("tok"))
+    client.send(action="iso", value=500)
+    client.retarget("https://192.168.1.20:8080/v1/video")
+    assert client.base == "https://192.168.1.20:8080/v1"  # where the queued ISO and every later request go
+    resent = []
+    monkeypatch.setattr(client, "send", lambda **params: resent.append(params))
+    client.resend_settings()
+    assert resent == [{"action": "iso", "value": 500}]

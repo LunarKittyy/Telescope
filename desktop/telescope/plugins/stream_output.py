@@ -210,6 +210,10 @@ class StreamOutputPlugin(TelescopePlugin):
         lay.insertLayout(at + 1, _row("", self._fmt_note, stretch=True))
         self._show_format()
 
+        # Goes with the card, so a push due after the window closed never reaches deleted controls
+        self._initial_timer = QTimer(card)
+        self._initial_timer.setSingleShot(True)
+        self._initial_timer.timeout.connect(self._push_initial_settings)
         return card
 
     def get_stream_params(self) -> tuple:
@@ -218,9 +222,10 @@ class StreamOutputPlugin(TelescopePlugin):
 
     def on_stream_start(self, stream_url: str, ctrl):
         self._ctrl = ctrl
-        QTimer.singleShot(1500, self._push_initial_settings)
+        self._initial_timer.start(1500)
 
     def on_stream_stop(self):
+        self._initial_timer.stop()
         if self._res_combo.currentData() is not None:
             self._saved_resolution_text = self._res_combo.currentText()
             # The lens's sizes stay up, so a size can be picked before starting again (say, after one was too much for

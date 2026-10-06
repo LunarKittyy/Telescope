@@ -215,6 +215,29 @@ class StreamSource(Protocol):
     # remember_changes_only = True: its settings are only saved where they differ from the defaults.
 
 
+class StreamsBehind:
+    """What a plugin following the panels keeps about a stream they moved away from while it streams on, so coming
+    back to it picks up where it was instead of starting over (and resending what the phone already has)."""
+
+    def __init__(self):
+        self._kept: dict = {}
+
+    def keep(self, host: "HostServices", ctrl, value):
+        """From on_stream_stop: value is kept if the stream the panels showed carries on, else it's dropped."""
+        sid = host.focused_source_id()
+        if ctrl is not None and host.is_streaming_from(sid):
+            self._kept[sid] = (ctrl, value)
+        else:
+            self._kept.pop(sid, None)
+        if not host.is_streaming():
+            self._kept.clear()
+
+    def take(self, host: "HostServices", ctrl):
+        """From on_stream_start: what keep() held for this stream, or None for a stream that starts afresh."""
+        kept = self._kept.pop(host.focused_source_id(), None)
+        return kept[1] if kept is not None and kept[0] is ctrl else None
+
+
 class TelescopePlugin:
     name: str = ""
 

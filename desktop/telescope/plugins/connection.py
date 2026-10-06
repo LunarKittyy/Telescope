@@ -1145,17 +1145,18 @@ class ConnectionPlugin(TelescopePlugin):
     def _on_phone_paired(self, result):
         existing = self.phone(result.phone_id)
         active = result.source_ip if result.source_ip in result.ips else None
+        streams = existing is not None and self._host.is_streaming_from(existing.id)
         if existing:
             existing.token = result.token  # re-pairing replaced this computer's token on the phone
             existing.cert_sha256 = result.cert_sha256
             existing.ips = list(result.ips)
             existing.active_ip = active
-            if self._streaming and existing.id == self._selected_id:
-                self._host.reconnect_stream()  # the running stream still holds the old token
         else:
             self._phones.append(Phone(result.phone_id, result.name, result.token, list(result.ips), active,
                                       result.cert_sha256))
-        self._select(result.phone_id, force=True)
+        self._select(result.phone_id, force=True)  # one streaming next to others gets the panels
+        if streams:
+            self._host.reconnect_stream(result.phone_id)  # the running stream still holds the old token
         self._host.save_now()
         if self._phones_dlg is not None and self._phones_dlg.isVisible():
             self._phones_dlg.refresh()
