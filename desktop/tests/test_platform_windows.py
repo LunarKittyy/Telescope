@@ -167,6 +167,19 @@ def test_registering_more_cameras_asks_unitycapture_for_them(monkeypatch, tmp_pa
     assert "'/s', '/i:UnityCaptureDevices=4', '\"/i:UnityCaptureName=Telescope\"'" in _elevated_script(calls[1])
 
 
+def test_going_back_to_one_camera_unregisters_them_all_first(monkeypatch, tmp_path):
+    _good_dlls(monkeypatch, tmp_path)
+    calls = []
+    monkeypatch.setattr(windows.subprocess, "run",
+                        lambda cmd, **kwargs: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    windows.register_unitycapture()
+    windows.register_unitycapture(1, reset=True)
+    assert "'/u'" not in _elevated_script(calls[0])
+    script = _elevated_script(calls[1])
+    assert script.index("'/s', '/u', $dll") < script.index("UnityCaptureName")
+    assert "UnityCaptureDevices" not in script
+
+
 def test_register_unitycapture_survives_an_apostrophe_in_the_folder(monkeypatch, tmp_path):
     folder = tmp_path / "O'Brien"
     folder.mkdir()

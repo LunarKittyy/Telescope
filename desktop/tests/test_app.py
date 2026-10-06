@@ -2422,6 +2422,34 @@ def test_a_second_camera_streams_next_to_the_first_to_a_camera_of_its_own(two_st
     assert [url for url, _ctrl in mic.started] == ["http://phone/video"]  # the mic stays with the first phone
 
 
+def test_a_tile_follows_its_stream_back_to_live(two_streams):
+    window, _conn, _mic, _view, _workers, _config = two_streams
+    browser = window._focus
+    state = lambda: window._tiles._tiles["browser"].state.text()  # noqa: E731
+    window._on_worker_status("waiting", "Waiting for the first frame…", browser)
+    assert state() == "● Reconnecting"
+    window._on_worker_status("ok", "Streaming", browser)
+    window._on_stream_reconnected(browser)
+    assert state() == "● Live"
+
+
+def test_the_wait_screen_hears_which_extra_cameras_are_free(two_streams):
+    window, _conn, _mic, _view, _workers, _config = two_streams
+    idle = []
+    window._bus.idle_outputs.connect(idle.append)
+    window._streams_changed()
+    assert idle[-1] == [2, 3]
+    window.stop_stream("browser")
+    assert idle[-1] == [1, 2, 3]
+
+
+def test_extra_cameras_stay_while_a_stream_goes_to_one(two_streams):
+    window, *_ = two_streams
+    answers = []
+    window.remove_extra_cameras(lambda ok, msg: answers.append((ok, msg)))
+    assert answers == [(False, "Stop the streams going to them first")]
+
+
 def test_clicking_a_tile_brings_its_settings_back(two_streams):
     window, conn, _mic, view, workers, config = two_streams
     window.focus_stream("Phone")

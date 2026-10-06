@@ -97,6 +97,27 @@ def test_gives_the_camera_to_the_stream_and_takes_it_back(env):
     assert len(screen.shown) == 2
 
 
+def test_extra_cameras_show_it_while_nothing_streams_to_them(qapp, config_home):
+    host, bus, made = _Host(), EventBus(), {}
+    plugin = WaitScreenPlugin(screen=_Screen(), watch_cls=_Watch,
+                              extra_screen=lambda slot: made.setdefault(slot, _Screen()))
+    plugin.setup(host, bus)
+    bus.idle_outputs.emit([1, 2])
+    assert made[1].shown == [(vcam.DEFAULT_SIZE, None)] and made[2].shown == [(vcam.DEFAULT_SIZE, None)]
+
+    host.streaming = True  # the first camera streams; a second one is about to take camera 2
+    bus.idle_outputs.emit([1])
+    assert made[2].stops == 1 and made[1].stops == 0
+
+    plugin.set_mirror(True)  # every screen picks it up
+    assert made[1].mirrored[-1] is True and len(made[2].shown) == 1
+
+    bus.idle_outputs.emit([1, 2])  # that stream stopped
+    assert len(made[2].shown) == 2
+    plugin.shutdown()
+    assert made[1].stops == 1 and made[2].stops == 2
+
+
 def test_takes_the_camera_back_while_the_stream_has_its_camera_off(env):
     plugin, host, _bus, screen = env
     plugin.on_stream_starting()

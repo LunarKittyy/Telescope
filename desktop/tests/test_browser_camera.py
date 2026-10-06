@@ -167,6 +167,7 @@ class _Host:
     def __init__(self):
         self.sources, self.issues, self.starts, self.outputs = [], {}, [], []
         self.streaming = self.starting = False
+        self.streaming_ids = set()
         self.saves = 0
 
     def add_stream_source(self, source):
@@ -183,6 +184,9 @@ class _Host:
 
     def is_starting(self):
         return self.starting
+
+    def is_streaming_from(self, source_id):
+        return source_id in self.streaming_ids
 
     def update_stream_output(self, **kwargs):
         self.outputs.append(kwargs)
@@ -257,6 +261,20 @@ def test_picking_it_runs_the_server_and_shows_the_code(browser):
 
     bus.source_selected.emit("some-phone")
     assert server.stopped and card.isHidden()
+
+
+def test_the_server_stays_up_while_its_stream_runs_behind_another(browser):
+    plugin, host, bus, card = browser
+    bus.source_selected.emit(SOURCE_ID)
+    server = _Server.instances[-1]
+    host.streaming_ids.add(SOURCE_ID)
+
+    bus.source_selected.emit("some-phone")  # the panels moved to a phone's tile
+    assert not server.stopped and card.isHidden()
+
+    host.streaming_ids.clear()
+    bus.streams_changed.emit(1)  # its stream stopped
+    assert server.stopped
 
 
 def test_a_browser_connecting_starts_the_stream_once(browser):

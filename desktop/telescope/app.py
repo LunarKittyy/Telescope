@@ -99,6 +99,7 @@ class TelescopeWindow(QMainWindow):
     _sig_raise = pyqtSignal()
     _sig_canvas_reload_done = pyqtSignal(bool, str, bool, str)  # ok, msg, restart_stream, command to run by hand
     _sig_slots_ready = pyqtSignal(bool, str, str)  # ok, msg, command to run by hand
+    _sig_extras_removed = pyqtSignal(bool, str)
 
     def __init__(self):
         super().__init__()
@@ -154,10 +155,13 @@ class TelescopeWindow(QMainWindow):
         self._sig_canvas_reload_done.connect(self._on_canvas_reload_done)
         self._sig_slots_ready.connect(self._on_slots_ready)
         self._slots_then = None
+        self._sig_extras_removed.connect(self._on_extras_removed)
+        self._extras_done = None
+        QTimer.singleShot(0, self._announce_idle_outputs)  # once the plugins are in
         self._bus.phones_changed.connect(lambda _n: self._show_add_button())
         self._bus.stream_sources_changed.connect(lambda _s: self._show_add_button())
         self._thumb_timer = QTimer(self)
-        self._thumb_timer.setInterval(500)
+        self._thumb_timer.setInterval(100)  # tiny pictures, so 10 fps costs next to nothing
         self._thumb_timer.timeout.connect(self._update_thumbnails)
         self._bus.mic_changed.connect(self._on_mic_changed)
         self._bus.source_selected.connect(self._on_source_selected)
@@ -686,6 +690,7 @@ class TelescopeWindow(QMainWindow):
         if source is None:
             return
         source.end_recovery()
+        self._refresh_tiles()
         source.settling_reports = 1  # the next throughput report still counts the gap
         session = source.session
         if session is None:
@@ -878,6 +883,8 @@ class TelescopeWindow(QMainWindow):
 
         if source.slot == 0:
             self._each_plugin("on_stream_starting")
+        else:
+            self._announce_idle_outputs(opening=source.slot)
 
         worker = StreamWorker(
             url=url, width=w, height=h, fps=fps,
@@ -1028,8 +1035,14 @@ class TelescopeWindow(QMainWindow):
             self._tell(main, "on_stream_start", main.session.url, main.session.client)
 
     def _streams_changed(self):
+        self._announce_idle_outputs()
         self._bus.streams_changed.emit(len(self._streams))
         self._refresh_tiles()
+
+    def _announce_idle_outputs(self, opening: Optional[int] = None):
+        """Tell the wait screen which extra cameras nothing streams to; opening is one a stream is about to take."""
+        used = {s.slot for s in self._streams} | {opening}
+        self._bus.idle_outputs.emit([n for n in range(1, vcam.MAX_SLOTS) if n not in used and vcam.slot_ready(n)])
 
     def _refresh_tiles(self):
         """The tile row: one per stream while there's more than one."""
@@ -1047,7 +1060,8 @@ class TelescopeWindow(QMainWindow):
             entries.append((s.id or "", s.name, vcam.slot_label(self._free_slot(s)), "Starting", "status_dim", True))
         self._tiles.show_streams(entries)
         if len(entries) > 1:
-            self._thumb_timer.start()
+            if not self._thumb_timer.isActive():
+                self._thumb_timer.start()
         else:
             self._thumb_timer.stop()
         self._show_add_button()
@@ -1104,6 +1118,37 @@ class TelescopeWindow(QMainWindow):
 
         threading.Thread(target=work, daemon=True).start()
 
+    def remove_extra_cameras(self, on_done=None):
+        extras = [n for n in range(1, vcam.MAX_SLOTS) if vcam.slot_ready(n)]
+        if self._extras_done is not None or not extras or any(s.slot for s in self._streams):
+            if on_done is not None:
+                on_done(False, "Stop the streams going to them first" if extras else "There are none to remove")
+            return
+        self._extras_done = on_done or (lambda ok, msg: None)
+
+        def work():
+            try:
+                with vcam.device_released():  # the wait screen lets go of them
+                    if IS_LINUX:
+                        from telescope.platform.linux import v4l2_remove_devices
+                        result = v4l2_remove_devices([d for d in map(vcam.slot_device, extras) if d])
+                        ok, msg = result.ok, result.message
+                    else:
+                        from telescope.platform.windows import register_unitycapture
+                        ok, msg = register_unitycapture(1, reset=True)
+            except Exception as exc:
+                logging.exception("Removing the extra virtual cameras failed")
+                ok, msg = False, str(exc)
+            self._sig_extras_removed.emit(ok, msg)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_extras_removed(self, ok: bool, msg: str):
+        done, self._extras_done = self._extras_done, None
+        self._announce_idle_outputs()
+        if done is not None:
+            done(ok, msg)
+
     def _ask_slots(self) -> bool:
         names = f"{vcam.slot_label(1)} to {vcam.slot_label(vcam.MAX_SLOTS - 1)}"
         box = QMessageBox(self)
@@ -1120,6 +1165,7 @@ class TelescopeWindow(QMainWindow):
             self._set_status(*self._focus.status)
         if ok:
             self.clear_issue("vcam")
+            self._announce_idle_outputs()
             if then is not None:
                 then()
             return
@@ -1315,6 +1361,7 @@ class TelescopeWindow(QMainWindow):
         if source is None or source.session is None or source.recovering:
             return
         source.recovering = True
+        self._refresh_tiles()
         self._set_behind(False, source)
         if source is self._focus:
             self._bus.stream_lost.emit()
@@ -1575,6 +1622,8 @@ class TelescopeWindow(QMainWindow):
         if source is None:
             return  # a worker that's been let go
         source.note_status(kind, msg)
+        if kind in ("ok", "waiting", "reconnecting") and len(self._streams) > 1:
+            self._refresh_tiles()  # its tile says how it's doing
         if source is not self._active_source():
             self._background_status(source, kind)
             return

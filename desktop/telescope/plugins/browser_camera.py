@@ -106,6 +106,7 @@ class BrowserCameraPlugin(TelescopePlugin):
         self._signals.changed.connect(self._on_server_changed)
         bus.source_selected.connect(self._on_source_selected)
         bus.stream_behind.connect(self._on_stream_behind)
+        bus.streams_changed.connect(self._on_streams_changed)
         host.add_stream_source(_Source(self))
 
     # ── UI ────────────────────────────────────────────────────────────────
@@ -273,10 +274,15 @@ class BrowserCameraPlugin(TelescopePlugin):
         self._selected = selected
         if selected:
             self._start_server()
-        else:
+        elif not self._host.is_streaming_from(SOURCE_ID):  # one still streaming keeps going while the panels move on
             self._stop_server()
         self._show_card()
         self._render()
+
+    def _on_streams_changed(self, _count: int):
+        if not self._selected and not self._host.is_streaming_from(SOURCE_ID):
+            self._stop_server()
+            self._render()
 
     def _start_server(self) -> bool:
         if self._server is not None:

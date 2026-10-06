@@ -259,3 +259,12 @@ def test_adding_cameras_without_the_tool_says_what_to_install(monkeypatch):
     monkeypatch.setattr(linux.shutil, "which", lambda name: None)
     ok, message = linux.v4l2_add_devices(["Phone Camera 2"])
     assert not ok and "v4l2loopback-utils" in message
+
+
+def test_removing_cameras_deletes_each_in_one_privileged_script(monkeypatch):
+    calls = []
+    monkeypatch.setattr(linux.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(linux, "_run", lambda cmd, timeout: calls.append(cmd) or (0, "", ""))
+    assert linux.v4l2_remove_devices(["/dev/video11", "/dev/video12"]) == (True, "/dev/video11, /dev/video12")
+    assert len(calls) == 1
+    assert "v4l2loopback-ctl delete /dev/video11 && v4l2loopback-ctl delete /dev/video12" in calls[0][-1]

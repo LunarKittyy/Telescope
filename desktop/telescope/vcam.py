@@ -4,6 +4,7 @@ Telescope keeps the camera open whenever it runs. While idle the wait screen hol
 a picture instead of the driver's own "no signal" screen, and a reader starting up can be noticed and answered.
 """
 
+import functools
 import glob
 import logging
 import math
@@ -364,12 +365,15 @@ class WaitScreen(_Held):
     """
 
     def __init__(self, open_camera: Callable = open_camera, loader: Callable = load_frames,
-                 locked: Callable = locked_size, filter_probe: Optional[Callable] = None):
+                 locked: Callable = locked_size, filter_probe: Optional[Callable] = None, slot: int = 0):
         super().__init__()
+        if slot:  # an extra camera: no filter to watch for, so it sends at the idle pace
+            open_camera = functools.partial(open_camera, slot=slot)
+            locked = functools.partial(locked, slot)
         self._open_camera = open_camera
         self._loader = loader
         self._locked = locked
-        self._filter_probe = filter_probe or (None if IS_LINUX else _uc_filter_probe)
+        self._filter_probe = filter_probe or (None if IS_LINUX or slot else _uc_filter_probe)
         self._size = DEFAULT_SIZE
         self._path: Optional[str] = None
         self._mirror = False

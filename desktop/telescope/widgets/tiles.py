@@ -32,6 +32,7 @@ class _Tile(QFrame):
         super().__init__()
         self.setObjectName("stream_tile")
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.last_frame = None  # the frame its picture shows, so an unchanged one isn't shrunk again
         lay = QHBoxLayout(self)
         lay.setContentsMargins(8, 8, 6, 8)
         lay.setSpacing(10)
@@ -91,7 +92,8 @@ class StreamTiles(QWidget):
                 tile = self._tiles[sid] = _Tile(lambda _=False, s=sid: self.stop_requested.emit(s))
                 tile.clicked.connect(lambda s=sid: self.focus_requested.emit(s))
                 tile.thumb.setText("…")
-            self._lay.insertWidget(i, tile)
+            if self._lay.indexOf(tile) != i:
+                self._lay.insertWidget(i, tile)
             tile.name.setText(name)
             tile.output.setText(f"to {output}")
             tile.state.setText(f"● {state}")
@@ -106,7 +108,8 @@ class StreamTiles(QWidget):
 
     def set_frame(self, sid: str, frame: Optional[np.ndarray]):
         tile = self._tiles.get(sid)
-        if tile is not None and frame is not None:
+        if tile is not None and frame is not None and frame is not tile.last_frame:
+            tile.last_frame = frame
             tile.thumb.setPixmap(thumbnail(frame, tile.thumb.width(), tile.thumb.height()))
 
     def ids(self) -> list:

@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
 from telescope import diagnostics, vcam
 from telescope.platform import IS_LINUX, adb_available, adb_devices, adb_install, bundled_apk_path
 from telescope.platform.linux import (
-    V4L2_OBS_DEV, V4L2_PHONE_DEV, as_text,
+    CANCELLED, V4L2_OBS_DEV, V4L2_PHONE_DEV, as_text,
     v4l2_devices_ready, v4l2_load, v4l2_module_loaded, v4l2_unload,
     v4l2_persist_disable, v4l2_persist_enable, v4l2_persist_status,
 )
@@ -23,8 +23,8 @@ from telescope.platform.windows import (
 from telescope.plugin import TelescopePlugin
 from telescope.version import display_version
 from telescope.widgets.common import (
-    NoScrollComboBox, NoScrollSpinBox, SegmentButton, action_button, add_card_header, button_row, card_layout,
-    control_row, create_card, dialog_buttons, dialog_header, dialog_layout, run_off_ui_thread, segmented_row,
+    ElidingLabel, NoScrollComboBox, NoScrollSpinBox, SegmentButton, action_button, add_card_header, button_row, card_layout,
+    control_row, control_row_widget, create_card, dialog_buttons, dialog_header, dialog_layout, run_off_ui_thread, segmented_row,
     set_status_kind, set_ui_role, ui_px, wrapped_note,
 )
 
@@ -102,8 +102,10 @@ class AdvancedDialog(QDialog):
     _sig_apk_done     = pyqtSignal(bool, str)
 
     def __init__(self, parent=None, on_apply_canvas=None, report=None, on_max_zoom=None, on_max_gain=None,
-                 on_limiter=None):
+                 on_limiter=None, on_remove_extras=None, extras_in_use=None):
         super().__init__(parent)
+        self._on_remove_extras = on_remove_extras
+        self._extras_in_use = extras_in_use or (lambda: False)
         self._report = report
         self._uc_installing = False
         self.setWindowTitle("Advanced")
@@ -134,6 +136,7 @@ class AdvancedDialog(QDialog):
         self.resize(max(self.width(), self.sizeHint().width()), min(self.sizeHint().height(), cap))
 
     def showEvent(self, event):
+        self._refresh_extras()
         self._fit_height()
         super().showEvent(event)
         if IS_LINUX:
@@ -211,6 +214,19 @@ class AdvancedDialog(QDialog):
             self._adb_status_lbl = QLabel("Checking...")
             set_status_kind(self._adb_status_lbl, "status_dim")
             vc_lay.addLayout(control_row("ADB", self._adb_status_lbl, stretch=True))
+
+        # The ones Add camera set up, for streaming several cameras at once
+        self._extras_lbl = ElidingLabel("")
+        self._extras_btn = QPushButton("Remove")
+        self._extras_btn.clicked.connect(self._remove_extras)
+        extras = QHBoxLayout()
+        extras.setContentsMargins(0, 0, 0, 0)
+        extras.setSpacing(8)
+        extras.addWidget(self._extras_lbl, 1)
+        extras.addWidget(self._extras_btn)
+        self._extras_row = control_row_widget("Extra cameras", extras, stretch=True)
+        self._extras_row.setVisible(False)
+        vc_lay.addWidget(self._extras_row)
         body.addWidget(vc_card)
 
         # ── Phone app ─────────────────────────────────────────────────────────
@@ -498,6 +514,36 @@ class AdvancedDialog(QDialog):
         self._persist_row.setVisible(True)
         self._fit_height()
 
+    # ── Extra cameras ─────────────────────────────────────────────────────────
+
+    def _refresh_extras(self, text: Optional[str] = None, kind: str = "status_dim"):
+        extras = [n for n in range(1, vcam.MAX_SLOTS) if vcam.slot_ready(n)]
+        busy = self._extras_in_use()
+        if text is None:
+            text = ", ".join(vcam.slot_label(n) for n in extras)
+        set_status_kind(self._extras_lbl, kind)
+        self._extras_lbl.setText(text)
+        self._extras_row.setVisible(bool(extras) or kind != "status_dim")
+        self._extras_btn.setVisible(bool(extras))
+        self._extras_btn.setEnabled(bool(extras) and not busy and self._on_remove_extras is not None)
+        self._extras_btn.setToolTip(
+            "Stop the streams going to them first" if busy else
+            "Back to just the one camera; Add camera sets them up again. "
+            + ("Asks for your password." if IS_LINUX else "Windows asks for permission."))
+
+    def _remove_extras(self):
+        self._extras_btn.setEnabled(False)
+        self._extras_lbl.setText("Removing…")
+        self._on_remove_extras(self._on_extras_removed)
+
+    def _on_extras_removed(self, ok: bool, msg: str):
+        if ok:
+            self._refresh_extras("Removed", "status_ok")
+        elif msg == CANCELLED:
+            self._refresh_extras()
+        else:
+            self._refresh_extras(f"Couldn't remove them: {msg}", "status_err")
+
     # ── Windows ───────────────────────────────────────────────────────────────
 
     def _check_win_setup(self):
@@ -657,7 +703,9 @@ class SetupPlugin(TelescopePlugin):
             self._dlg = AdvancedDialog(self._host, on_apply_canvas=self._on_apply_canvas,
                                        report=self._host.diagnostics_report,
                                        on_max_zoom=self._on_max_zoom, on_max_gain=self._on_max_gain,
-                                       on_limiter=self._on_limiter)
+                                       on_limiter=self._on_limiter,
+                                       on_remove_extras=lambda done: self._host.remove_extra_cameras(done),
+                                       extras_in_use=lambda: self._host.stream_count() > 1)
         self._dlg.set_canvas_preset(self._canvas_preset, self._custom_w, self._custom_h)
         self._dlg.set_max_zoom(self._max_zoom)
         self._dlg.set_max_gain(self._max_gain)

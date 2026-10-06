@@ -53,7 +53,8 @@ The Presets button in the header saves the camera, output and transform settings
 - When the device can't keep up, the page steps down to 720p and then 480p by itself, and goes back to trying the size picked here whenever you change it
 
 ## Several cameras at once
-- While one stream runs, the **+** next to Stop streams another phone (or the browser camera) at the same time, up to four. Each goes to a virtual camera of its own: **Phone Camera 2** to **4** on Linux, **Telescope #2** to **#4** on Windows. The first time, Telescope adds those cameras, which asks for your password (Linux) or permission (Windows). On Linux they're gone again after a reboot and get added the next time
+- While one stream runs, the **+** next to Stop streams another phone (or the browser camera) at the same time, up to four. Each goes to a virtual camera of its own: **Phone Camera 2** to **4** on Linux, **Telescope #2** to **#4** on Windows. The first time, Telescope adds those cameras, which asks for your password (Linux) or permission (Windows). On Linux they're gone again after a reboot and get added the next time. **Extra cameras** under Advanced removes them sooner, and on Windows that's the only way back to one
+- An extra camera nothing streams to shows the wait screen, like the first one
 - A row of tiles shows each stream with a small picture, the camera it goes to, and whether it's live. Click a tile to show its settings in the panels; zoom, flips, camera and output settings are kept per phone, and a stream you're not looking at keeps the ones it had. The x on a tile stops just that one, and Stop stops them all
 - A camera gets the same virtual camera as last time when it's free, so a scene in OBS keeps pointing at the right phone
 - The mic stays on the phone that started first. If that one stops, the next one's mic takes over

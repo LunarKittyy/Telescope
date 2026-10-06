@@ -2,7 +2,7 @@
 
 Holds the camera from app start to quit except while a stream has it (a stream with the camera off doesn't). The size
 follows the stream (the Setup canvas, or the size the last stream opened at) so a call that's already watching keeps
-working when the phone takes over.
+working when the phone takes over. The extra cameras Add camera sets up show it too while nothing streams to them.
 """
 
 import logging
@@ -34,11 +34,14 @@ class _Signals(QObject):
 class WaitScreenPlugin(TelescopePlugin):
     name = "wait_screen"
 
-    def __init__(self, screen: vcam.WaitScreen = None, watch_cls=vcam.CameraWatch):
+    def __init__(self, screen: vcam.WaitScreen = None, watch_cls=vcam.CameraWatch, extra_screen=None):
         self.image_path: Optional[str] = None
         self.mirror = False
         self.last_size: Optional[tuple] = None
         self._screen = screen or vcam.WaitScreen()
+        self._extra_screen = extra_screen or (lambda slot: vcam.WaitScreen(slot=slot))
+        self._extras: dict = {}  # slot: its WaitScreen, kept once made (each registers for driver reloads)
+        self._idle: list = []  # the extra cameras nothing streams to
         self._watch_cls = watch_cls
         self._watch = None
         self._dlg = None
@@ -50,6 +53,7 @@ class WaitScreenPlugin(TelescopePlugin):
         self._signals = _Signals()
         self._signals.watched.connect(self._on_watched)
         bus.vcam_opened.connect(self._on_vcam_opened)
+        bus.idle_outputs.connect(self._on_idle_outputs)
         self._watch = self._watch_cls(self._signals.watched.emit)
         self._watch.start()
         QTimer.singleShot(0, self._show)  # once every plugin's config is in, for the canvas size
@@ -63,9 +67,30 @@ class WaitScreenPlugin(TelescopePlugin):
         return self.last_size or vcam.DEFAULT_SIZE
 
     def _show(self):
-        if self._shut or (self._host.is_streaming() and self._host.is_camera_on()):
+        if self._shut:
+            return
+        self._show_extras()
+        if self._host.is_streaming() and self._host.is_camera_on():
             return
         self._screen.show(self.size(), self.image_path, self.mirror)
+
+    def _on_idle_outputs(self, slots: list):
+        self._idle = list(slots)
+        for slot, screen in self._extras.items():
+            if slot not in self._idle:
+                screen.stop()
+        self._show_extras()
+
+    def _show_extras(self):
+        if self._shut:
+            return
+        # A stream to an extra camera keeps one size (the canvas, or the default), so its wait screen does too
+        w, h = canvas_dims(self._host.plugin_config("setup") or {})
+        size = (w, h) if w and h else vcam.DEFAULT_SIZE
+        for slot in self._idle:
+            if slot not in self._extras:
+                self._extras[slot] = self._extra_screen(slot)
+            self._extras[slot].show(size, self.image_path, self.mirror)
 
     def on_stream_starting(self):
         self._screen.stop()
@@ -148,6 +173,8 @@ class WaitScreenPlugin(TelescopePlugin):
     def shutdown(self):
         self._shut = True
         self._screen.stop()
+        for screen in self._extras.values():
+            screen.stop()
         if self._watch is not None:
             self._watch.stop()
 
