@@ -119,6 +119,37 @@ def test_a_stream_source_stands_in_for_the_phone_steps(env):
     assert not card.isHidden()
 
 
+def test_the_help_button_brings_the_phone_steps_back_until_closed(env):
+    plugin, bus, card, needed = env
+    plugin.set_config({"streamed": True})
+    plugin._on_vcam(True, "")
+    bus.source_selected.emit("browser")
+    assert card.isHidden() and plugin._close_btn.isHidden()
+    bus.setup_guide_requested.emit()
+    assert not card.isHidden() and needed[-1] is True
+    assert plugin._pair.button.text() == "Add phone"  # not "Not needed": a phone is why they asked
+    assert not plugin._qr_row.isHidden() and not plugin._close_btn.isHidden()
+    plugin._close_btn.click()
+    assert card.isHidden() and needed[-1] is False
+    assert plugin._pair.text.text().startswith("Not needed")
+    bus.setup_guide_requested.emit()
+    bus.setup_guide_requested.emit()  # the same button closes it
+    assert card.isHidden()
+
+
+def test_a_stream_starting_closes_the_guide(env):
+    plugin, bus, card, _needed = env
+    plugin.set_config({"streamed": True})
+    plugin._on_vcam(True, "")
+    bus.phones_changed.emit(1)
+    bus.setup_guide_requested.emit()
+    assert not card.isHidden()
+    bus.stream_started.emit("url")
+    assert card.isHidden()
+    bus.stream_stopped.emit()
+    assert card.isHidden()
+
+
 def test_streaming_hides_the_checklist(env):
     _plugin, bus, card, needed = env
     bus.stream_started.emit("url")

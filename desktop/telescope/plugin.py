@@ -205,6 +205,8 @@ class EventBus(QObject):
     phones_changed         = pyqtSignal(int)
     """Number of paired phones, emitted whenever the list changes."""
     add_phone_requested    = pyqtSignal()
+    setup_guide_requested  = pyqtSignal()
+    """Open the first-run checklist again, phone steps included, or close it if that's how it opened (Connection's ?)."""
     setup_needed           = pyqtSignal(bool)
     """First-run checklist is showing (True) or done/hidden (False); the video stage makes room for it."""
     camera_switched        = pyqtSignal(dict)

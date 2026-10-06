@@ -482,7 +482,11 @@ class ConnectionPlugin(TelescopePlugin):
         lay = card_layout(card)
         self._add_btn = card_action("Add phone", "qr", "Pair a phone over Wi-Fi or USB")
         self._add_btn.clicked.connect(self.open_add_phone)
-        add_card_header(lay, "Connection", "connection", action=self._add_btn)
+        header = add_card_header(lay, "Connection", "connection", action=self._add_btn)
+        self._guide_btn = card_action("", "help", "Open or close the setup guide: the virtual camera, the phone app and pairing")
+        self._guide_btn.setAccessibleName("Setup guide")
+        self._guide_btn.clicked.connect(self._bus.setup_guide_requested.emit)
+        header.insertWidget(header.count() - 1, self._guide_btn)
 
         self._status_lbl = ElidingLabel("")
         lay.addLayout(_row("Phone", self._status_lbl, stretch=True))
