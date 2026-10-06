@@ -197,6 +197,15 @@ def v4l2_add_devices(labels: list) -> PrivResult:
     return PrivResult(True, ", ".join(labels)) if r.ok else r
 
 
+def v4l2_remove_devices(devices: list) -> PrivResult:
+    """Take the cameras v4l2_add_devices added (their /dev/video nodes) away again, behind one password prompt."""
+    if not shutil.which("v4l2loopback-ctl"):
+        return PrivResult(False, "v4l2loopback-ctl is missing. Unloading the module, or a restart, removes them too.")
+    steps = [("run", f"v4l2loopback-ctl delete {shlex.quote(dev)}") for dev in devices]
+    r = _privileged(steps, 60, "v4l2loopback-ctl delete failed (an app may still have one open)")
+    return PrivResult(True, ", ".join(devices)) if r.ok else r
+
+
 def v4l2_load() -> PrivResult:
     """Load v4l2loopback for this boot only."""
     return v4l2_setup(persist=False)

@@ -24,6 +24,14 @@ class _Host(QWidget):
         super().__init__()
         self.saves = 0
         self.restarts = []
+        self.streams = 0
+        self.removals = []
+
+    def stream_count(self):
+        return self.streams
+
+    def remove_extra_cameras(self, on_done=None):
+        self.removals.append(on_done)
 
     def schedule_save(self):
         self.saves += 1
@@ -506,3 +514,27 @@ def test_limiter_switch_applies_straight_away(qapp):
     plugin._dlg._limiter_chk.setChecked(False)
     assert seen == [True, False] and plugin.get_config()["limiter"] is False and host.saves >= 1
     plugin._dlg.hide()
+
+
+def test_extra_cameras_show_up_and_can_be_removed(monkeypatch, qapp):
+    host = _Host()
+    plugin = SetupPlugin()
+    plugin.setup(host, EventBus())
+    ready = {1, 2}
+    monkeypatch.setattr(setup_mod.vcam, "slot_ready", lambda n: n in ready)
+    plugin._open()
+    dialog = plugin._dlg
+    assert not dialog._extras_row.isHidden() and dialog._extras_btn.isEnabled()
+    assert dialog._extras_lbl.fullText() == f"{setup_mod.vcam.slot_label(1)}, {setup_mod.vcam.slot_label(2)}"
+
+    dialog._extras_btn.click()
+    ready.clear()
+    host.removals[0](True, "")
+    assert dialog._extras_lbl.fullText() == "Removed" and dialog._extras_btn.isHidden()
+    dialog.close()
+
+    host.streams, ready = 2, {1}
+    monkeypatch.setattr(setup_mod.vcam, "slot_ready", lambda n: n in ready)
+    plugin._open()
+    assert not dialog._extras_btn.isEnabled()  # a stream still goes to one
+    dialog.close()

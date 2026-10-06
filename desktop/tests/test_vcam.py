@@ -116,6 +116,21 @@ def test_holds_the_camera_until_stopped(qapp):
     assert cams[0].closed and not screen.running
 
 
+def test_a_wait_screen_on_an_extra_camera_opens_that_one(qapp):
+    opened, asked = [], []
+
+    def open_camera(w, h, fps, fmt, slot=0):
+        opened.append(slot)
+        return _Camera([], w, h, fps, fmt)
+    loader = lambda path, w, h, convert=None: [(np.zeros((h, w, 3), np.uint8), vcam.STILL_PERIOD)]  # noqa: E731
+    screen = vcam.WaitScreen(open_camera=open_camera, loader=loader,
+                             locked=lambda slot=0: asked.append(slot), slot=2)
+    screen.show((64, 36), None)
+    _wait_for(lambda: opened)
+    screen.stop()
+    assert opened[0] == 2 and asked[0] == 2
+
+
 def test_a_wait_screen_that_failed_to_prepare_starts_again_when_asked(qapp):
     calls = []
 

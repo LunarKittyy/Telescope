@@ -49,6 +49,7 @@ def test_setup_dialog_button_text_fits(qapp, monkeypatch, linux):
 class _FakePhonesPlugin:
     computer_name = "Desk"
     phones = [Phone("id-1", "Pixel", "tok")]
+    remembered = [("browser:x", "Chrome on Android", "Browser")]
 
     def phone(self, pid):
         return self.phones[0] if pid == "id-1" else None

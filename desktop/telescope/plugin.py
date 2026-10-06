@@ -80,6 +80,10 @@ class HostServices(Protocol):
         """How many streams run at once (each to its own virtual camera)."""
         ...
 
+    def remove_extra_cameras(self, on_done=None) -> None:
+        """Take away the virtual cameras Add camera set up, back to the one; on_done(ok, message) after."""
+        ...
+
     def pick_source(self, source_id: Optional[str]) -> bool:
         """The phone picker moved to source_id. True if the host handled it: that source already streams and gets the
         panels, or with several streaming it replaces the one they show. False: Connection switches as before."""
@@ -129,7 +133,24 @@ class HostServices(Protocol):
         ...
 
     def add_stream_source(self, source: "StreamSource") -> None:
-        """Offer somewhere other than a phone to stream from; it's listed in the phone picker."""
+        """Offer somewhere other than a phone to stream from; it's listed in the phone picker. Offering one with the
+        same id again updates its name."""
+        ...
+
+    def remove_stream_source(self, source_id: str) -> None:
+        """Take a StreamSource back (stopping its stream); the picker moves off it."""
+        ...
+
+    def stream_source(self, source_id: str) -> None:
+        """Start a StreamSource: picked and streamed when nothing streams yet, else next to the others."""
+        ...
+
+    def stream_output(self, source_id: str) -> str:
+        """The virtual camera source_id streams to, as apps list it, or "" when it doesn't stream."""
+        ...
+
+    def has_device_settings(self, name: str) -> bool:
+        """Whether settings are saved for this phone or source."""
         ...
 
 
@@ -158,6 +179,10 @@ class StreamSource(Protocol):
     def fps(self) -> int:
         """The rate the virtual camera runs at."""
         ...
+
+    # Optional:
+    # redirect() -> Optional[str]: at Start with nothing streaming, another source's id to stream instead.
+    # remember_changes_only = True: its settings are only saved where they differ from the defaults.
 
 
 class TelescopePlugin:
@@ -270,9 +295,16 @@ class EventBus(QObject):
     """[(id, name)] of every StreamSource plugins offer; the phone picker lists them after the phones."""
     source_selected        = pyqtSignal(str)
     """The picked StreamSource's id, or "" for a phone (or nothing): panels that only make sense for a phone hide."""
+    idle_outputs           = pyqtSignal(list)
+    """The extra virtual cameras (slot numbers) that are set up but nothing streams to; the wait screen shows on them.
+    Comes before a stream opens one, so whatever holds it lets go first."""
     streams_changed        = pyqtSignal(int)
     """How many streams run at once now (more than one: Add camera); stream_started and stream_stopped only mark the
     first starting and the last stopping."""
+    remembered_sources     = pyqtSignal(list)
+    """[(id, name, detail)] of StreamSources a plugin remembers settings for (browsers); the phones list shows them."""
+    forget_source_requested = pyqtSignal(str)
+    """Remove was clicked on one of remembered_sources in the phones list: its plugin forgets it."""
     stream_behind          = pyqtSignal(bool)
     """The stream fell behind its frame rate (the throughput readout went amber), or caught up again. Only on a
     change, and never for a dropped stream: that's stream_lost."""

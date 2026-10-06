@@ -90,9 +90,15 @@ class Source(QObject):
         else:
             self.status = (msg, kind if kind in ("warn", "err") else "dim")
 
+    remember_changes_only = False  # its settings are saved only where they differ from the defaults
+
     def prepare(self, interactive: bool) -> bool:
         """GUI thread, at Start: get ready, or show a banner and return False."""
         return True
+
+    def redirect(self) -> Optional[str]:
+        """At Start with nothing streaming: another source's id to stream instead, or None."""
+        return None
 
     def wake(self):
         """Only for a source that wakes: bring it up off the GUI thread, then call the window's _on_wake_done."""
@@ -146,7 +152,9 @@ class PluginSource(Source):
         super().__init__(win)
         self._source = source
         self.id = source.id
-        self.open_reader = source.open_reader
+
+    def open_reader(self):
+        return self._source.open_reader()
 
     @property
     def name(self) -> str:
@@ -162,6 +170,14 @@ class PluginSource(Source):
 
     def control_client(self):
         return self._source.control_client()
+
+    @property
+    def remember_changes_only(self) -> bool:
+        return getattr(self._source, "remember_changes_only", False)
+
+    def redirect(self) -> Optional[str]:
+        redirect = getattr(self._source, "redirect", None)
+        return redirect() if redirect is not None else None
 
 
     def stream_params(self) -> tuple:

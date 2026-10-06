@@ -46,20 +46,23 @@ The Presets button in the header saves the camera, output and transform settings
 - The browser's microphone works with the Microphone card too
 - The browser warns that the connection isn't private, once per device: the page uses a certificate this computer made for itself. On iPhone tap **Show Details** and then **visit this website**; in Chrome tap **Advanced** and then **Proceed**
 - Keep the page open with the screen on. Phones pause the camera when you switch apps or lock the screen, and the stream picks up again when you come back to the page
-- **New link** makes a new code and stops the old one working. One browser streams at a time; opening the link somewhere else takes over
+- **New link** makes a new code and stops the old one working
+- Several devices can scan the same code. Each one starts streaming as soon as it connects, the first as the stream and the next ones next to it, each to a virtual camera of its own (see below). The page says which camera it streams as. Reloading the page picks up the same stream again
+- While a browser is connected it's in the phone picker under its device name, like a phone. With **Browser camera** picked, **Start** streams a browser that's connected, or waits for one to scan the code
+- A browser keeps its own settings like a phone does, but only once you change one, so a quick scan from someone's phone leaves nothing behind. Those browsers are listed under **Your phones**, where **Remove** forgets them, and they're forgotten anyway after 60 days without connecting
 - Camera, output and alert settings don't apply here. Resolution (480p to 1080p) and frame rate (15 to 30) are on the card instead
 - On Linux the virtual camera is 1920x1080 unless Advanced sets another canvas, since a browser's first frame can be any shape
 - The page sends H.264 from the device's hardware encoder when the browser has one, which keeps 1080p at 30 fps. Otherwise it sends JPEG, which is slow at 1080p on most phones; the card shows which, and its tooltip says why it's JPEG
 - When the device can't keep up, the page steps down to 720p and then 480p by itself, and goes back to trying the size picked here whenever you change it
 
 ## Several cameras at once
-- While one stream runs, the **+** next to Stop streams another phone (or the browser camera) at the same time, up to four. Each goes to a virtual camera of its own: **Phone Camera 2** to **4** on Linux, **Telescope #2** to **#4** on Windows. The first time, Telescope adds those cameras, which asks for your password (Linux) or permission (Windows). On Linux they're gone again after a reboot and get added the next time
+- While one stream runs, the **+** next to Stop streams another phone (or the browser camera) at the same time, up to four. Each goes to a virtual camera of its own: **Phone Camera 2** to **4** on Linux, **Telescope #2** to **#4** on Windows. The first time, Telescope adds those cameras, which asks for your password (Linux) or permission (Windows). On Linux they're gone again after a reboot and get added the next time. **Extra cameras** under Advanced removes them sooner, and on Windows that's the only way back to one
+- An extra camera nothing streams to shows the wait screen, like the first one
 - A row of tiles shows each stream with a small picture, the camera it goes to, and whether it's live. Click a tile to show its settings in the panels; zoom, flips, camera and output settings are kept per phone, and a stream you're not looking at keeps the ones it had. The x on a tile stops just that one, and Stop stops them all
 - A camera gets the same virtual camera as last time when it's free, so a scene in OBS keeps pointing at the right phone
 - The mic stays on the phone that started first. If that one stops, the next one's mic takes over
 - With more than one stream, the camera can't go off (mic only), Automatic streaming doesn't stop anything, and the wait screen comes back once the last one stops. Battery and temperature alerts only cover the phone whose settings are showing
 - The extra cameras are always the size set under Setup (1920x1080 when that's Auto), and a picture with another shape gets black bars
-- The browser camera counts as one source: one browser at a time
 
 ## Monitoring
 - FPS and throughput in the footer. When the stream can't keep up, a note suggests what to try, with a button for it
@@ -80,7 +83,7 @@ The Presets button in the header saves the camera, output and transform settings
 - The pairing token only travels in the QR code (or over adb) and inside that TLS connection
 - Someone on the network can still see that a stream is running and roughly how much data it moves. **Local only - USB** in the Android app keeps the stream and the camera controls off the network entirely
 - **Wait for my computer** (off by default) keeps the phone ready while the screen is off or the app is closed, so a paired computer can start the camera. Its notification has a **Stop waiting** button
-- Browser camera only listens (on port 8767) while it's picked in the phone picker. The page itself is public, but sending video needs the token in the code, which is new every time Telescope starts or you click **New link**. Its certificate isn't pinned the way a phone's is, so on a network you don't trust, pick a phone instead
+- Browser camera only listens (on port 8767) while it or a browser is picked in the phone picker, or a browser streams. The page itself is public, but sending video needs the token in the code, which is new every time Telescope starts or you click **New link**. Its certificate isn't pinned the way a phone's is, so on a network you don't trust, pick a phone instead
 - On Linux, the config folder with the pairing tokens is readable by your user only. On Windows, the camera driver is installed into Program Files so other programs can't swap it out
 
 ## Updates

@@ -109,11 +109,13 @@ def _ps_quote(value) -> str:
     return "'" + str(value).replace("'", "''") + "'"
 
 
-def _elevated_install_script(src: Path, devices: int = 1) -> str:
+def _elevated_install_script(src: Path, devices: int = 1, reset: bool = False) -> str:
     """Runs as admin: find Program Files itself, refuse a Telescope folder there that isn't admin-only all the way down, copy the DLLs in, check their hashes there, register those copies."""
     files = "; ".join(f"{_ps_quote(name)} = {_ps_quote(digest)}" for name, digest in _EXPECTED_SHA256.items())
     # UnityCapture reads both from regsvr32's command line; the extra cameras get "Telescope #2" and on
     count = f"'/i:UnityCaptureDevices={int(devices)}', " if devices > 1 else ""
+    # Registering never takes cameras away, so going back to fewer unregisters them all first
+    unregister = "$p = Start-Process $regsvr32 -ArgumentList '/s', '/u', $dll -Wait -PassThru\n    " if reset else ""
     return f"""$ErrorActionPreference = 'Stop'
 # Anything unexpected gets its own exit code, so it isn't mistaken for a cancelled admin prompt
 trap {{ exit {_EXIT_ERROR} }}
@@ -188,7 +190,7 @@ foreach ($name in $files.Keys) {{
 $regsvr32 = Join-Path ([Environment]::SystemDirectory) 'regsvr32.exe'
 foreach ($name in $files.Keys) {{
     $dll = '"' + (Join-Path $dst $name) + '"'
-    $p = Start-Process $regsvr32 -ArgumentList '/s', {count}'"/i:UnityCaptureName={UC_NAME}"', $dll -Wait -PassThru
+    {unregister}$p = Start-Process $regsvr32 -ArgumentList '/s', {count}'"/i:UnityCaptureName={UC_NAME}"', $dll -Wait -PassThru
     if ($p.ExitCode -ne 0) {{ exit {_EXIT_REGSVR32} }}
 }}
 exit 0
@@ -216,8 +218,9 @@ _EXIT_UNSAFE_FOLDER = 4
 _EXIT_ERROR = 5
 
 
-def register_unitycapture(devices: int = 1) -> tuple:
-    """Install and register the driver as admin; devices > 1 also registers that many cameras to stream to at once."""
+def register_unitycapture(devices: int = 1, reset: bool = False) -> tuple:
+    """Install and register the driver as admin; devices > 1 also registers that many cameras to stream to at once.
+    reset: unregister every camera first, to go back to fewer."""
     d = unitycapture_dir()
     for name, expected in _EXPECTED_SHA256.items():
         path = d / name
@@ -228,7 +231,7 @@ def register_unitycapture(devices: int = 1) -> tuple:
                 pass
             return False, f"{name} failed checksum verification - not registering"
     # The check above is only for a quick, clear failure; the one that counts runs as admin on the protected copy
-    script = _elevated_install_script(d, devices)
+    script = _elevated_install_script(d, devices, reset)
     encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
     ps = ("$ErrorActionPreference = 'Stop'; "
           "$ps = Join-Path ([Environment]::SystemDirectory) 'WindowsPowerShell\\v1.0\\powershell.exe'; "

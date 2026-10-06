@@ -40,7 +40,7 @@ def server(cert):
 class _Browser:
     """Just enough of a browser's WebSocket: masked frames out, unmasked in."""
 
-    def __init__(self, port: int, token: str):
+    def __init__(self, port: int, token: str, bid: str = ""):
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         ctx.minimum_version = ssl.TLSVersion.TLSv1_2
         ctx.check_hostname = False
@@ -48,7 +48,8 @@ class _Browser:
         raw = socket.create_connection(("127.0.0.1", port), timeout=5)
         self.sock = ctx.wrap_socket(raw)
         key = base64.b64encode(os.urandom(16)).decode()
-        self.sock.sendall((f"GET /ws?token={token} HTTP/1.1\r\nHost: 127.0.0.1\r\nUpgrade: websocket\r\n"
+        query = f"token={token}" + (f"&id={bid}" if bid else "")
+        self.sock.sendall((f"GET /ws?{query} HTTP/1.1\r\nHost: 127.0.0.1\r\nUpgrade: websocket\r\n"
                            f"Connection: Upgrade\r\nSec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n").encode())
         head = b""
         while b"\r\n\r\n" not in head:
@@ -283,6 +284,62 @@ def test_a_newer_browser_takes_over_and_the_older_is_told(server):
     assert server.feed.connected
     second.close()
     first.close()
+
+
+@pytest.fixture
+def hub_server(cert):
+    joined = []
+    hub = bs.BrowserHub(can_join=lambda bid: joined.append(bid) or len(joined) <= 2)
+    srv = bs.BrowserServer(hub, *cert, port=0, host="127.0.0.1")
+    srv.start()
+    yield srv, hub
+    srv.stop()
+
+
+def test_each_browser_gets_a_feed_of_its_own(hub_server):
+    server, hub = hub_server
+    a = _Browser(server.port, server.token, "pixel-aaaaaaaa")
+    a.recv_json()
+    b = _Browser(server.port, server.token, "iphone-bbbbbbbb")
+    b.recv_json()
+    feeds = hub.feeds()
+    assert set(feeds) == {"pixel-aaaaaaaa", "iphone-bbbbbbbb"} and all(f.connected for f in feeds.values())
+    a.send(0x2, bytes([bs.FRAME_JPEG]) + _jpeg())
+    assert _wait(lambda: feeds["pixel-aaaaaaaa"]._frame is not None)
+    assert feeds["iphone-bbbbbbbb"]._frame is None
+
+    again = _Browser(server.port, server.token, "pixel-aaaaaaaa")  # a reload: the same browser, not a third
+    again.recv_json()
+    op, payload = a.recv()
+    assert op == 0x8 and struct.unpack("!H", payload[:2])[0] == bs.CLOSE_REPLACED
+    assert len(hub.feeds()) == 2
+    for x in (a, b, again):
+        x.close()
+
+
+def test_a_browser_with_no_room_is_told_every_camera_is_taken(hub_server):
+    server, hub = hub_server
+    kept = [_Browser(server.port, server.token, f"browser-{n}0000000") for n in range(2)]
+    for k in kept:
+        k.recv_json()
+    late = _Browser(server.port, server.token, "browser-20000000")
+    op, payload = late.recv()
+    assert op == 0x8 and struct.unpack("!H", payload[:2])[0] == bs.CLOSE_FULL
+    assert "browser-20000000" not in hub.feeds()
+    for x in (*kept, late):
+        x.close()
+
+
+def test_the_page_hears_which_camera_it_streams_to(hub_server):
+    server, hub = hub_server
+    b = _Browser(server.port, server.token, "pixel-aaaaaaaa")
+    assert "camera" not in b.recv_json()
+    hub.feed("pixel-aaaaaaaa").set_camera("Phone Camera 2")
+    assert b.recv_json()["camera"] == "Phone Camera 2"
+    b.close()
+    assert _wait(lambda: not hub.feed("pixel-aaaaaaaa").connected)
+    hub.drop("pixel-aaaaaaaa")
+    assert hub.feeds() == {}
 
 
 def test_a_new_link_drops_the_browser_and_the_old_token(server):

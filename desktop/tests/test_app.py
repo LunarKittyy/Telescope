@@ -106,6 +106,9 @@ class _Connection(_Plugin):
     def show_selected(self, pid):
         self.selected_device = pid
 
+    def select(self, pid):
+        self.selected_device = pid
+
     def phone(self, pid):
         return None
 
@@ -2347,6 +2350,47 @@ class _Browser:
         return 30
 
 
+class _OneBrowser(_Browser):
+    remember_changes_only = True
+
+    def __init__(self, bid):
+        self.id, self.name = f"browser:{bid}", bid
+
+
+def test_a_browser_starts_by_itself_and_goes_when_it_leaves(camera_env):
+    window, conn, _mic, _clients, workers, _changes = camera_env
+    conn.ensure_virtual_camera = lambda interactive=True: True
+    launcher = _Browser()
+    launcher.redirect = lambda: "browser:pixel"
+    window.add_stream_source(launcher)
+    window.add_stream_source(_OneBrowser("pixel"))
+    conn.selected_device = "browser"
+    window._start()  # Start with Browser camera picked streams the browser that's there
+    assert conn.selected_device == "browser:pixel" and window.is_streaming_from("browser:pixel")
+    window.remove_stream_source("browser:pixel")
+    assert not window.is_streaming() and conn.selected_device == "browser"
+    assert "browser:pixel" not in window._sources
+
+    window.add_stream_source(_OneBrowser("ipad"))
+    window.stream_source("browser:ipad")  # nothing streams: it's picked and streamed
+    assert conn.selected_device == "browser:ipad" and window.stream_output("browser:ipad") == app_module.vcam.slot_label(0)
+
+
+def test_a_browser_keeps_only_the_settings_that_changed(camera_env, config_home):
+    window, conn, _mic, _clients, _workers, _changes = camera_env
+    view = _Plugin("transforms", {"zoom": 1})
+    window.register_plugin(view)
+    window.add_stream_source(_OneBrowser("guest"))
+    window.add_stream_source(_OneBrowser("pixel"))
+    window._save_profile("browser:guest", [view])
+    assert not window.has_device_settings("browser:guest")
+    view.config["zoom"] = 2
+    window._save_profile("browser:pixel", [view])
+    assert config_home.load_config()["devices"]["browser:pixel"]["plugin_configs"]["transforms"] == {"zoom": 2}
+    window.forget_device_settings("browser:pixel")
+    assert not window.has_device_settings("browser:pixel")
+
+
 def test_each_source_keeps_its_own_camera_choice(camera_env):
     window, conn, _mic, _clients, _workers, changes = camera_env
     window.add_stream_source(_Browser())
@@ -2420,6 +2464,34 @@ def test_a_second_camera_streams_next_to_the_first_to_a_camera_of_its_own(two_st
     assert not window._tiles.isHidden() and window._tiles.ids() == ["Phone", "browser"]
     assert view.config["zoom"] == 3 and view.started[-1][0] == "browser://camera" and view.stopped == 1
     assert [url for url, _ctrl in mic.started] == ["http://phone/video"]  # the mic stays with the first phone
+
+
+def test_a_tile_follows_its_stream_back_to_live(two_streams):
+    window, _conn, _mic, _view, _workers, _config = two_streams
+    browser = window._focus
+    state = lambda: window._tiles._tiles["browser"].state.text()  # noqa: E731
+    window._on_worker_status("waiting", "Waiting for the first frame…", browser)
+    assert state() == "● Reconnecting"
+    window._on_worker_status("ok", "Streaming", browser)
+    window._on_stream_reconnected(browser)
+    assert state() == "● Live"
+
+
+def test_the_wait_screen_hears_which_extra_cameras_are_free(two_streams):
+    window, _conn, _mic, _view, _workers, _config = two_streams
+    idle = []
+    window._bus.idle_outputs.connect(idle.append)
+    window._streams_changed()
+    assert idle[-1] == [2, 3]
+    window.stop_stream("browser")
+    assert idle[-1] == [1, 2, 3]
+
+
+def test_extra_cameras_stay_while_a_stream_goes_to_one(two_streams):
+    window, *_ = two_streams
+    answers = []
+    window.remove_extra_cameras(lambda ok, msg: answers.append((ok, msg)))
+    assert answers == [(False, "Stop the streams going to them first")]
 
 
 def test_clicking_a_tile_brings_its_settings_back(two_streams):
