@@ -486,6 +486,39 @@ class _WsConnection:
 
 # ── The server ───────────────────────────────────────────────────────────────
 
+class ServerStats:
+    """How far browsers got, for telling a firewall from a certificate warning from an old link. Counts only: no
+    addresses or tokens. Each step is logged the first time it happens."""
+
+    STEPS = {
+        "connections": "a device reached this computer",
+        "tls_failed": "a browser hung up during the TLS handshake (it hasn't accepted the certificate yet)",
+        "pages": "a browser loaded the page",
+        "refused": "a browser was refused with an old or wrong link",
+        "browsers": "a browser connected",
+    }
+
+    def __init__(self, port: int, wanted_port: int, fell_back: bool = False):
+        self.port, self.wanted_port = port, wanted_port
+        self.fell_back = fell_back  # wanted_port was taken, so port is whatever was free
+        self.started = time.monotonic()
+        self._counts = dict.fromkeys(self.STEPS, 0)
+        self._lock = threading.Lock()
+
+    def note(self, step: str):
+        with self._lock:
+            self._counts[step] += 1
+            first = self._counts[step] == 1
+        if first:
+            logger.info("Browser camera: %s", self.STEPS[step])
+
+    def __getitem__(self, step: str) -> int:
+        return self._counts[step]
+
+    def nothing_arrived(self) -> bool:
+        return self._counts["connections"] == 0
+
+
 class _Server(ThreadingHTTPServer):
     """TLS per connection, on that connection's own thread, so a slow handshake holds up nobody else. Open
     connections are capped in total and per address."""
@@ -506,6 +539,7 @@ class _Server(ThreadingHTTPServer):
                 self.shutdown_request(request)
                 return
             self._open[host] = self._open.get(host, 0) + 1
+        self.owner.stats.note("connections")
         super().process_request(request, client_address)
 
     def process_request_thread(self, request, client_address):
@@ -525,6 +559,7 @@ class _Server(ThreadingHTTPServer):
         try:
             tls = self.ctx.wrap_socket(request, server_side=True)
         except (OSError, ssl.SSLError):
+            self.owner.stats.note("tls_failed")
             return  # a browser that hasn't accepted the certificate yet hangs up here; that's expected
         try:
             self.RequestHandlerClass(tls, client_address, self)
@@ -574,6 +609,8 @@ class _Handler(BaseHTTPRequestHandler):
         if page is None:
             self._reply(404, b"Not found")
             return
+        if url.path == "/":
+            self.server.owner.stats.note("pages")
         self._reply(200, (_WEB_DIR / page[0]).read_bytes(), page[1])
 
     def _websocket(self, token: str):
@@ -584,6 +621,7 @@ class _Handler(BaseHTTPRequestHandler):
             self._reply(400, b"WebSocket only")
             return
         if not owner.token_ok(token):
+            owner.stats.note("refused")
             self._reply(403, b"This link has expired. Scan the code on the computer again.")
             return
         self.send_response(101, "Switching Protocols")
@@ -593,6 +631,7 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.flush()
         self.close_connection = True
+        owner.stats.note("browsers")
         owner.serve_browser(self.connection)
 
 
@@ -611,6 +650,7 @@ class BrowserServer:
         self._socks: set = set()
         self._kicked: set = set()  # connections to end; each one's own thread notices within _TICK_S
         self._socks_lock = threading.Lock()
+        self.stats = ServerStats(0, port)
 
     @property
     def port(self) -> int:
@@ -631,10 +671,17 @@ class BrowserServer:
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ctx.minimum_version = ssl.TLSVersion.TLSv1_2
         ctx.load_cert_chain(self._cert, self._key)
+        fell_back = False
         try:
             self._server = _Server((self._host, self._want_port), _Handler, ctx, self)
         except OSError:
             self._server = _Server((self._host, 0), _Handler, ctx, self)  # taken: any free port
+            fell_back = True
+        self.stats = ServerStats(self.port, self._want_port, fell_back)
+        if fell_back:
+            logger.warning("Browser camera: port %d was taken, listening on %d instead", self._want_port, self.port)
+        else:
+            logger.info("Browser camera: listening on port %d", self.port)
         self._thread = threading.Thread(target=self._server.serve_forever, name="browser-camera", daemon=True)
         self._thread.start()
 
