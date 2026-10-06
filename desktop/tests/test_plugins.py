@@ -927,8 +927,10 @@ def test_h264_too_much_for_the_encoder_stops_and_offers_heavy(stream_output, mon
     from PyQt6.QtCore import QCoreApplication
     plugin, host = _stream_output_with(stream_output, monkeypatch)
     host.stops = host.starts = 0
-    host.stop_stream = lambda: setattr(host, "stops", host.stops + 1)
-    host.start_stream = lambda: setattr(host, "starts", host.starts + 1)
+    host.stop_stream = lambda sid=None: setattr(host, "stops", host.stops + 1)
+    host.focused_source_id = lambda: "phone-b"
+    host.start_again = lambda sid=None, before=None: lambda: (before(), setattr(host, "starts", host.starts + 1),
+                                                              setattr(host, "again", sid))
     plugin.on_phone_state({"cameras": [], "codecs": ["mjpeg", "h264"], "codec": "mjpeg",
                            "codec_error": "H.264 isn't available at 4096x3072 on this phone", "codec_unsupported": True})
     QCoreApplication.processEvents()
@@ -941,7 +943,7 @@ def test_h264_too_much_for_the_encoder_stops_and_offers_heavy(stream_output, mon
 
     issue.actions[0].callback()
     assert plugin.stream_format() == "mjpeg" and plugin.get_config()["format"] == "mjpeg"
-    assert host.starts == 1
+    assert host.starts == 1 and host.again == "phone-b"  # the phone it was about, even with focus moved on
 
 
 def test_bitrate_goes_up_to_100_mbps(stream_output, monkeypatch):

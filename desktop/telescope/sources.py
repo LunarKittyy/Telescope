@@ -452,10 +452,10 @@ class PhoneSource(Source):
             if not res.streaming and not res.busy:
                 # Stopped on the phone, or by its idle watchdog while we couldn't reach it.
                 win._stop(remote_stop=False, source=self)
-                win.show_issue("start", Issue(
+                win.show_issue(f"stopped:{self.id}", Issue(
                     "The phone stopped streaming" if not win._streams else f"{self.name} stopped streaming",
                     "Start again when you're ready.",
-                    [BannerAction("Start", win.start_stream)], kind="warn"))
+                    [BannerAction("Start", lambda: win._start_source(self.id))], kind="warn"))
                 return
             if res.streaming and res.route != self._recovery_route:
                 self._move_stream(session, res.route)

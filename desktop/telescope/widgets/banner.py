@@ -31,6 +31,7 @@ class Issue:
     actions: list = field(default_factory=list)
     kind: str = "err"
     details: str = ""  # shown monospaced under the text, e.g. a command to run
+    on_dismiss: Optional[Callable[[], None]] = None  # called when the person closes it with the X
 
 
 class Banner(QFrame):
@@ -80,9 +81,14 @@ class Banner(QFrame):
         close.setIconSize(QSize(14, 14))
         close.setFixedSize(28, 28)
         close.setToolTip("Dismiss")
-        close.clicked.connect(self.dismissed.emit)
+        close.clicked.connect(self._close)
         lay.addWidget(close, 0, Qt.AlignmentFlag.AlignTop)
         self.close_btn = close
+
+    def _close(self):
+        self.dismissed.emit()
+        if self.issue.on_dismiss is not None:
+            self.issue.on_dismiss()
 
     def _run(self, action: BannerAction):
         if not action.keeps_banner:

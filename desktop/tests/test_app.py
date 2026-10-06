@@ -1140,7 +1140,7 @@ def test_worker_fps_and_idle_status(window):
     assert window._session is None
     assert window._start_btn.text() == "Start Streaming"
     assert stopped == [True]
-    assert window._banners.issue("start").title == "The stream stopped unexpectedly"
+    assert window._banners.issue(f"stopped:{window._phone.id}").title == "The stream stopped unexpectedly"
 
 
 def test_a_start_is_not_started_again_while_it_finds_the_phone(window):
@@ -1986,7 +1986,12 @@ def test_recovery_stops_the_stream_when_the_phone_stopped_streaming(window, monk
     assert window._session is None
     assert conn.remote_stops == 0
     assert not window._phone.recovering
-    assert window._banners.issue("start").title == "The phone stopped streaming"
+    issue = window._banners.issue(f"stopped:{window._phone.id}")
+    assert issue.title == "The phone stopped streaming"
+    starts = []
+    monkeypatch.setattr(window, "_start_source", lambda sid, before=None: starts.append(sid))
+    issue.actions[0].callback()
+    assert starts == [window._phone.id]  # this phone, even with others still streaming
 
 
 @pytest.mark.parametrize("status", ["NOT_PAIRED", "LOCAL_ONLY", "PHONE_OUTDATED", "DESKTOP_OUTDATED"])
@@ -2571,3 +2576,21 @@ def test_a_browser_camera_on_auto_canvas_streams_at_its_own_default_size(camera_
     expected = (1920, 1080) if sources_module.vcam.IS_LINUX else (None, None)
     assert (workers[0].kwargs["canvas_width"], workers[0].kwargs["canvas_height"]) == expected
 
+
+
+def test_a_stopped_cameras_start_brings_it_back_next_to_the_others(two_streams):
+    window, conn, _mic, view, _workers, _config = two_streams
+    window.stop_stream("browser")
+    assert window.stream_count() == 1
+    picked = []
+    window.start_again("browser", lambda: picked.append((window._focus.id, view.config["zoom"])))()
+    assert window.stream_count() == 2 and window.is_streaming_from("browser")
+    assert picked == [("browser", 3)]  # before ran on its own settings, not the phone's
+
+
+def test_another_cameras_start_working_keeps_a_stopped_ones_banner(two_streams):
+    from telescope.widgets.banner import Issue
+    window, _conn, _mic, _view, _workers, _config = two_streams
+    window.show_issue("stopped:Phone", Issue("Phone stopped streaming"))
+    window._on_worker_status("ok", "Streaming", window._focus)  # the browser's stream
+    assert window._banners.issue("stopped:Phone") is not None

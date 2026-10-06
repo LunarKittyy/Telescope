@@ -212,6 +212,9 @@ class _Host:
     def start_stream(self, interactive=True):
         pass
 
+    def start_again(self, source_id=None, before=None):
+        return lambda: None
+
     def is_streaming(self):
         return bool(self.streams)
 
@@ -375,6 +378,34 @@ def test_the_server_stays_up_while_a_browser_streams_behind_another(browser):
     host.streams.clear()
     _changed(host, bus)  # its stream stopped
     assert server.stopped and "browser:pixel-aaaaaaaa" not in host.sources
+
+
+def test_adding_a_browser_next_to_a_phone_shows_the_code_until_one_joins(browser):
+    plugin, host, bus, card = browser
+    host.streams.append("some-phone")
+    bus.source_selected.emit("some-phone")  # + moved focus to the launcher and back once it couldn't start
+    assert not host.sources[SOURCE_ID].prepare(True)
+    server = _Server.instances[-1]
+    assert server.started and not card.isHidden() and plugin._qr is not None
+    _changed(host, bus)
+    assert not server.stopped and not card.isHidden()  # still waiting
+
+    _arrive(plugin, "pixel-aaaaaaaa")
+    assert host.starts == ["browser:pixel-aaaaaaaa"] and card.isHidden()
+    assert "start" not in host.issues
+
+
+def test_cancel_or_closing_the_wait_hides_the_code(browser):
+    plugin, host, bus, card = browser
+    host.streams.append("some-phone")
+    launcher = host.sources[SOURCE_ID]
+    launcher.prepare(True)
+    host.issues["start"].actions[0].callback()  # Cancel
+    assert card.isHidden() and _Server.instances[-1].stopped and "start" not in host.issues
+
+    launcher.prepare(True)
+    host.issues["start"].on_dismiss()  # the banner's X
+    assert card.isHidden() and _Server.instances[-1].stopped
 
 
 def test_the_card_shows_the_browser_the_panels_show(browser):

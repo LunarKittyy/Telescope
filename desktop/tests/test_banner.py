@@ -52,3 +52,12 @@ def test_dismiss(qapp):
     area.show_issue("start", Issue("Gone soon"))
     area.banner("start").close_btn.click()
     assert area.keys() == []
+
+
+def test_closing_tells_whoever_showed_it(qapp):
+    area, closed = BannerArea(), []
+    area.show_issue("start", Issue("Waiting", on_dismiss=lambda: closed.append(1)))
+    area.clear_issue("start")  # cleared by the app: not a close
+    area.show_issue("start", Issue("Waiting", on_dismiss=lambda: closed.append(1)))
+    area.banner("start").close_btn.click()
+    assert closed == [1] and area.keys() == []

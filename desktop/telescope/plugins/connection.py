@@ -817,7 +817,7 @@ class ConnectionPlugin(TelescopePlugin):
             self._host.show_issue("start", Issue(
                 "Can't connect to the phone",
                 "adb couldn't open a connection to the phone. Unplug it, plug it back in and try again.",
-                [BannerAction("Try again", self._host.start_stream)]))
+                [BannerAction("Try again", self._host.start_again())]))
             return None, None, False
         return url, phone.auth, True
 
@@ -834,7 +834,8 @@ class ConnectionPlugin(TelescopePlugin):
 
     def _show_start_problem(self, res: Resolution, phone):
         self._host.show_issue("start", Issue(
-            "Can't connect to the phone", problem_text(res, phone.name, self._route_pref), self._fix_actions(res)))
+            "Can't connect to the phone", problem_text(res, phone.name, self._route_pref),
+            self._fix_actions(res, phone.id)))
 
     def _hold_stream_route(self, route: Route, pid: Optional[str]) -> Optional[str]:
         """Make route pid's stream's, letting go of the previous one's USB forward. The video URL, or None."""
@@ -886,8 +887,9 @@ class ConnectionPlugin(TelescopePlugin):
         out = self._host.plugin_config("stream_output") or {}
         return "/v1/video.h264" if out.get("format") == "h264" and h264_reader.available() else "/v1/video"
 
-    def _fix_actions(self, res: Resolution) -> list:
-        """The banner buttons for a phone Start couldn't reach."""
+    def _fix_actions(self, res: Resolution, pid: str) -> list:
+        """The banner buttons for a phone Start couldn't reach (or a dropped stream that won't come back)."""
+        again = self._host.start_again(pid)
         if res.status == NOT_PAIRED:
             return [BannerAction("Add phone", self.open_add_phone)]
         update = self._outdated_action(res)
@@ -895,14 +897,14 @@ class ConnectionPlugin(TelescopePlugin):
             return [BannerAction(update, self._update_action)]
         actions = []
         if res.status == USB_NEEDS_ATTENTION or (self._route_pref != ROUTE_AUTO and res.status == UNREACHABLE):
-            actions.append(BannerAction("Switch to Automatic", self._switch_to_automatic))
+            actions.append(BannerAction("Switch to Automatic", lambda: self._switch_to_automatic(again)))
         if res.status in (UNREACHABLE, LOCAL_ONLY, USB_NEEDS_ATTENTION):
-            actions.append(BannerAction("Try again", self._host.start_stream))
+            actions.append(BannerAction("Try again", again))
         return actions
 
-    def _switch_to_automatic(self):
+    def _switch_to_automatic(self, start):
         self.set_route_preference(ROUTE_AUTO)
-        self._host.start_stream()
+        start()
 
     def _ensure_virtual_camera(self, interactive: bool = True) -> bool:
         if v4l2_devices_ready():
@@ -919,7 +921,7 @@ class ConnectionPlugin(TelescopePlugin):
             # Started by itself (nobody at the keyboard asked): no password prompt out of nowhere.
             self._host.show_issue("start", Issue(
                 "The virtual camera is off", "Switching it on asks for your password.",
-                [BannerAction("Switch on", self._host.start_stream)], kind="warn"))
+                [BannerAction("Switch on", self._host.start_again())], kind="warn"))
             return False
         persist = self._ask_virtual_camera()
         if persist is None:
@@ -933,7 +935,7 @@ class ConnectionPlugin(TelescopePlugin):
                 [copy_action(result.command)], kind="warn", details=result.command))
         elif result.message != CANCELLED:
             self._host.show_issue("start", Issue("Couldn't set up the virtual camera", result.message,
-                                                 [BannerAction("Try again", self._host.start_stream)]))
+                                                 [BannerAction("Try again", self._host.start_again())]))
         return False
 
     def _ask_virtual_camera(self) -> Optional[bool]:

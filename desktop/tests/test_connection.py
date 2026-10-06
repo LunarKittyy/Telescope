@@ -33,6 +33,7 @@ class _Host:
         self.streaming = False
         self.issues = {}
         self.starts = 0
+        self.again = []  # the source each Try again was for
         self.configs = {}
 
     def plugin_config(self, name):
@@ -49,6 +50,12 @@ class _Host:
 
     def start_stream(self):
         self.starts += 1
+
+    def start_again(self, source_id=None, before=None):
+        def again():
+            self.again.append(source_id)
+            self.start_stream()
+        return again
 
     def schedule_save(self):
         self.saves += 1
