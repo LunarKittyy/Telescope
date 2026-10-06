@@ -2363,6 +2363,7 @@ def test_a_browser_camera_on_auto_canvas_streams_at_its_own_default_size(camera_
     conn.selected_device = "browser"
     conn.ensure_virtual_camera = lambda interactive=True: True
     window.add_stream_source(_Browser())
+    window._plugin("setup").get_canvas_dims = lambda: (None, None)  # Auto
     window._start()
     expected = (1920, 1080) if sources_module.vcam.IS_LINUX else (None, None)
     assert (workers[0].kwargs["canvas_width"], workers[0].kwargs["canvas_height"]) == expected
