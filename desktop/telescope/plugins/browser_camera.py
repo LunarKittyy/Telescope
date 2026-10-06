@@ -146,6 +146,7 @@ class BrowserCameraPlugin(TelescopePlugin):
         self._started: dict = {}  # id: the connection that started streaming, so a stop isn't undone right away
         self._joining = False
         self._waiting = False  # Start or + asked for a browser and none has joined yet: the server stays up for it
+        self._handover = ""  # the browser starting in its place, until it streams
         self._known: dict = {}  # id: {"name", "seen"} of browsers that connected, for the phones list
         self._server: Optional[BrowserServer] = None
         self._problem = ""  # why the server isn't running
@@ -373,6 +374,7 @@ class BrowserCameraPlugin(TelescopePlugin):
             self._stop_server()
         else:
             self._tidy_browsers()
+            self._end_wait_if_joined()
             self._join_waiting()
         self._note_remembered()
         self._render()
@@ -434,11 +436,24 @@ class BrowserCameraPlugin(TelescopePlugin):
                     break
                 self._started[bid] = feed.generation
                 self._host.clear_issue("start")
-                self._set_waiting(False)
+                # The wait ends once it streams: ended first, the waiting tile would go and take the panels (and with
+                # them the server, and this browser) back to a phone before it starts
+                if self._waiting:
+                    self._handover = bid
                 self._host.stream_source(src.id)
+                self._end_wait_if_joined()
                 break  # one at a time: the next once this one is through (streams_changed)
         finally:
             self._joining = False
+
+    def _end_wait_if_joined(self):
+        """The browser that came for the wait streams now (or it left before it could)."""
+        src = self._browsers.get(self._handover) if self._handover else None
+        if src is None or self._host.is_streaming_from(src.id):
+            self._handover = ""
+            if src is not None:
+                self._set_waiting(False)
+
     def _start_server(self) -> bool:
         if self._server is not None:
             return True
