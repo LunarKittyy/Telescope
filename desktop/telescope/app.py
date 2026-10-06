@@ -871,6 +871,8 @@ class TelescopeWindow(QMainWindow):
 
         setup = self._plugin("setup")
         canvas_w, canvas_h = setup.get_canvas_dims() if setup else (None, None)
+        if canvas_w is None and source.auto_canvas:
+            canvas_w, canvas_h = source.auto_canvas
         if source.slot and not (canvas_w and canvas_h):
             canvas_w, canvas_h = vcam.DEFAULT_SIZE  # an extra camera keeps one size, whatever streams to it
 
