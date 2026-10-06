@@ -16,7 +16,7 @@ from telescope.plugins.browser_camera import (
 )
 from telescope.widgets.common import create_card, dim_until_paired
 
-from test_app import _Connection, _Plugin, _Signal, window  # noqa: F401 (the fixture)
+from test_app import _Connection, _Plugin, _Signal, camera_env, window  # noqa: F401 (the fixtures)
 from test_connection import _add, plugin_env  # noqa: F401 (the fixture)
 
 
@@ -564,3 +564,29 @@ def test_falling_behind_points_at_its_own_resolution_and_frame_rate(browser):
     assert host.issues["behind"].text == "The device's browser can't send any faster."
     bus.stream_behind.emit(False)
     assert "behind" not in host.issues
+
+
+def test_a_browser_takes_the_waiting_tile_over_next_to_a_phone(camera_env, tmp_path, monkeypatch):
+    window, conn, *_ = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    conn.ensure_virtual_camera = lambda interactive=True: True
+
+    def show(pid):  # the panels' picker, as the real one tells the plugins
+        conn.selected_device = pid
+        window._bus.source_selected.emit(pid or "")
+    conn.show_selected = conn.select = show
+    _Server.instances.clear()
+    plugin = BrowserCameraPlugin(server_cls=_Server, cert_folder=tmp_path,
+                                 addresses=lambda: [SimpleNamespace(ip="192.168.1.20")])
+    window.register_plugin(plugin)
+    QCoreApplication.processEvents()  # its startup tidy-up, while the window is still there
+    window._start()
+    window.add_stream(SOURCE_ID)
+    assert window._tiles.ids() == ["Phone", SOURCE_ID]
+
+    _arrive(plugin, "pixel-aaaaaaaa", "Chrome on Android")
+    assert window.is_streaming_from("browser:pixel-aaaaaaaa")  # it used to stop the server on the way, and itself
+    assert window._tiles.ids() == ["Phone", "browser:pixel-aaaaaaaa"] and window._pending is None
+    assert window._focus.id == "browser:pixel-aaaaaaaa" and not _Server.instances[-1].stopped
+    assert not plugin.is_waiting()
+    plugin.shutdown()
