@@ -117,11 +117,13 @@ class StreamWorker(QThread):
                  canvas_width: Optional[int] = None,
                  canvas_height: Optional[int] = None,
                  auth: Optional[PhoneAuth] = None,
-                 open_reader: Optional[Callable] = None):
+                 open_reader: Optional[Callable] = None,
+                 slot: int = 0):
         super().__init__()
         self.url       = url
         self.auth      = auth
         self._open_reader = open_reader  # a StreamSource's reader instead of the phone's
+        self.slot      = slot  # which of the virtual cameras it feeds (vcam.MAX_SLOTS)
         self._width    = width
         self._height   = height
         self._fps      = fps
@@ -385,7 +387,7 @@ class StreamWorker(QThread):
             reader.join(timeout=3)
 
     def _open_vcam(self, cam_w: int, cam_h: int):
-        return vcam.open_camera(cam_w, cam_h, self._fps, pyvirtualcam.PixelFormat.BGR)
+        return vcam.open_camera(cam_w, cam_h, self._fps, pyvirtualcam.PixelFormat.BGR, slot=self.slot)
 
     def _run_vcam(self):
         """Open the virtual camera at the current size/fps and feed it until stop or a restart request."""
@@ -393,11 +395,11 @@ class StreamWorker(QThread):
         cam_w = self._canvas_w or src0.shape[1]
         cam_h = self._canvas_h or src0.shape[0]
         # An app already reading the camera (the wait screen's) keeps it at that size; frames are fitted to it.
-        cam_w, cam_h = vcam.locked_size() or (cam_w, cam_h)
+        cam_w, cam_h = vcam.locked_size(self.slot) or (cam_w, cam_h)
         try:
             with self._open_vcam(cam_w, cam_h) as cam:
                 # Name the camera the way other apps list it (the v4l2loopback card label on Linux).
-                shown_as = vcam.V4L2_PHONE_LABEL if vcam.IS_LINUX else cam.device
+                shown_as = vcam.slot_label(self.slot) if vcam.IS_LINUX else cam.device
                 self.vcam_opened.emit(cam_w, cam_h)
                 self.status.emit("ok", f"Streaming {cam_w}x{cam_h} at {self._fps} fps to {shown_as}")
                 t0, bytes0, recv0 = time.monotonic(), self._bytes_total, self._frames_arrived

@@ -321,7 +321,7 @@ def test_run_opens_at_the_size_a_reader_holds_the_camera_at(monkeypatch):
     cap = _Capture([(True, frame)] * 20)
     worker = stream.StreamWorker("url", None, None, 24, canvas_width=4, canvas_height=4)
     monkeypatch.setattr(worker, "_open_cap", lambda: cap)
-    monkeypatch.setattr(vcam, "locked_size", lambda: (6, 6))
+    monkeypatch.setattr(vcam, "locked_size", lambda *_: (6, 6))
     cameras = []
 
     class FakeCamera:
@@ -412,6 +412,18 @@ def test_windows_opens_the_camera_named_telescope_or_any_older_registration(monk
     assert worker._open_vcam(4, 4) == vcam.V4L2_PHONE_DEV
 
 
+def test_another_slot_opens_its_own_camera(monkeypatch):
+    opened = []
+    monkeypatch.setattr(vcam.pyvirtualcam, "Camera", lambda **kwargs: opened.append(kwargs["device"]))
+    monkeypatch.setattr(vcam, "IS_LINUX", False)
+    stream.StreamWorker("url", None, None, 30, slot=2)._open_vcam(4, 4)
+    assert opened == ["Telescope #3"]
+    monkeypatch.setattr(vcam, "IS_LINUX", True)
+    monkeypatch.setattr(vcam, "slot_device", lambda slot: f"/dev/video{40 + slot}")
+    stream.StreamWorker("url", None, None, 30, slot=2)._open_vcam(4, 4)
+    assert opened[-1] == "/dev/video42"
+
+
 def test_newest_hands_over_only_the_latest_item():
     newest, done = stream._Newest(), threading.Event()
     newest.put("old")
@@ -500,7 +512,7 @@ def test_a_new_frame_goes_to_the_camera_without_waiting_for_the_next_tick(monkey
             sent.append((time.monotonic(), frame[0, 0, 0]))
 
     monkeypatch.setattr(vcam.pyvirtualcam, "Camera", FakeCamera)
-    monkeypatch.setattr(vcam, "locked_size", lambda: None)
+    monkeypatch.setattr(vcam, "locked_size", lambda *_: None)
     feeder = threading.Thread(target=worker._run_vcam)
     feeder.start()
     try:
@@ -575,7 +587,7 @@ def test_the_fps_readout_counts_frames_from_the_phone_not_resends(monkeypatch):
             pass
 
     monkeypatch.setattr(vcam.pyvirtualcam, "Camera", FakeCamera)
-    monkeypatch.setattr(vcam, "locked_size", lambda: None)
+    monkeypatch.setattr(vcam, "locked_size", lambda *_: None)
     feeder = threading.Thread(target=worker._run_vcam)
     feeder.start()
     try:
