@@ -104,6 +104,7 @@ class BrowserCameraPlugin(TelescopePlugin):
         self._signals = _Signals()
         self._signals.changed.connect(self._on_server_changed)
         bus.source_selected.connect(self._on_source_selected)
+        bus.stream_behind.connect(self._on_stream_behind)
         host.add_stream_source(_Source(self))
 
     # ── UI ────────────────────────────────────────────────────────────────
@@ -250,6 +251,16 @@ class BrowserCameraPlugin(TelescopePlugin):
             self._render()
 
     # ── Server ────────────────────────────────────────────────────────────
+
+    def _on_stream_behind(self, behind: bool):
+        if not self._selected:
+            return
+        if not behind:
+            self._host.clear_issue("behind")
+            return
+        text = ("Try a lower resolution or frame rate on the Browser camera card." if self._size != SIZES[0][0]
+                or self.fps != FPS_CHOICES[0] else "The device's browser can't send any faster.")
+        self._host.show_issue("behind", Issue("Can't keep up", text, kind="warn"))
 
     def _on_source_selected(self, sid: str):
         selected = sid == SOURCE_ID

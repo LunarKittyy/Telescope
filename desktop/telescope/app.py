@@ -695,6 +695,8 @@ class TelescopeWindow(QMainWindow):
 
         setup = self._plugin("setup")
         canvas_w, canvas_h = setup.get_canvas_dims() if setup else (None, None)
+        if canvas_w is None and source.auto_canvas:
+            canvas_w, canvas_h = source.auto_canvas
 
         pipeline = [guarded_step(p.name or type(p).__name__, p.process_frame) for p in self._plugins
                     if type(p).process_frame is not TelescopePlugin.process_frame]
