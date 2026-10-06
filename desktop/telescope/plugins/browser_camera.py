@@ -160,6 +160,7 @@ class BrowserCameraPlugin(TelescopePlugin):
         bus.source_selected.connect(self._on_source_selected)
         bus.stream_behind.connect(self._on_stream_behind)
         bus.streams_changed.connect(self._on_streams_changed)
+        bus.stream_start_failed.connect(lambda: self._on_streams_changed(self._host.stream_count()))  # camera's free
         bus.forget_source_requested.connect(self.forget_browser)
         host.add_stream_source(_Source(self))
         QTimer.singleShot(0, self._tidy_known)  # once the saved list is in
@@ -381,10 +382,12 @@ class BrowserCameraPlugin(TelescopePlugin):
         self._render()
 
     def _update_room(self):
-        # A browser stopped on the computer stays connected but doesn't come back by itself, so it holds no camera
-        waiting = sum(1 for src in self._connected() if not self._host.is_streaming_from(src.id)
-                      and self._started.get(src.bid) != src.feed.generation)
-        self._room = vcam.MAX_SLOTS - self._host.stream_count() - waiting
+        # From the hub, so one let in since the last count holds its camera before it's offered as a source
+        waiting = sum(1 for bid, feed in self.hub.feeds().items() if feed.connected
+                      and not self._host.is_streaming_from(BROWSER_PREFIX + bid)
+                      and self._started.get(bid) != feed.generation)  # stopped here: it doesn't come back by itself
+        starting = 1 if self._host.is_starting() else 0  # a start under way has a camera coming too
+        self._room = vcam.MAX_SLOTS - self._host.stream_count() - starting - waiting
 
     def _can_join(self, _bid: str) -> bool:
         """Server thread: whether a browser that isn't known yet gets a feed (there's a camera left for it)."""

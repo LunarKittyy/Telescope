@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
     QLabel, QWidget,
 )
 
-from telescope.plugin import TelescopePlugin
+from telescope.plugin import StreamsBehind, TelescopePlugin
 from telescope.widgets.common import (
     NoScrollComboBox, NoScrollSlider, PanSliderRow, SegmentButton, add_card_header,
     add_section_heading, control_row as _row, card_layout, create_card, card_action,
@@ -372,6 +372,7 @@ class TransformsPlugin(TelescopePlugin):
         self._live_lens = ""   # the lens a multi-lens camera streams from right now, as the lens picker names it
         self._default_lens = ""  # the lens it streams from unzoomed (seen live while the ratio was 1)
         self._tele_lens = ""     # the last longer lens seen live, to name it once it's out of view
+        self._behind = StreamsBehind()  # the phone side of each stream the panels moved away from
         self._bus = bus
         bus.focus_point_picked.connect(self._on_point_picked)
         bus.camera_switched.connect(self._on_camera_caps)
@@ -460,11 +461,19 @@ class TransformsPlugin(TelescopePlugin):
     # ── Phone-side zoom ───────────────────────────────────────────────────────
 
     def on_stream_start(self, stream_url: str, ctrl):
+        kept = self._behind.take(self._host, ctrl)
         self._ctrl = ctrl
-        self._sent_zoom = None  # a new connection (or a reconnect): tell the phone again
+        if kept is None:
+            self._sent_zoom = None  # a new connection (or a reconnect): tell the phone again
+        else:  # back on a stream: the phone already crops what it was sent, so the desktop only does the rest
+            caps, self._sent_zoom, self._sent_ratio_at, self._live_lens, self._default_lens, self._tele_lens = kept
+            self._zoom_caps = caps
+            self._zoom_slider.set_snaps([lens_step(z) for z in caps.lens_zooms] if caps else [])
         self._sync_zoom()
 
     def on_stream_stop(self):
+        self._behind.keep(self._host, self._ctrl, (self._zoom_caps, self._sent_zoom, self._sent_ratio_at,
+                                                   self._live_lens, self._default_lens, self._tele_lens))
         self._ctrl = None
         self._zoom_caps = None
         self._live_lens = ""

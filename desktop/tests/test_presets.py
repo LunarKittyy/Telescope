@@ -20,6 +20,15 @@ class _Host:
     def schedule_save(self):
         self.saves += 1
 
+    def focused_source_id(self):
+        return None
+
+    def is_streaming(self):
+        return False
+
+    def is_streaming_from(self, _source_id):
+        return False
+
     def plugin_config(self, name):
         p = self.plugins.get(name)
         return p.get_config() if p else None

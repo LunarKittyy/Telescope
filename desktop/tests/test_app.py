@@ -2173,6 +2173,9 @@ def camera_env(window, monkeypatch):
         def start(self):
             pass
 
+        def is_alive(self):
+            return False
+
     monkeypatch.setattr(sources_module, "PhoneControlClient", Client)
     monkeypatch.setattr(app_module, "StreamWorker", Worker)
     monkeypatch.setattr(app_module.threading, "Thread", Thread)
@@ -2558,10 +2561,10 @@ def test_an_extra_camera_that_isnt_set_up_asks_first(camera_env, monkeypatch):
 
 def test_extra_cameras_ready_carries_on_and_a_failure_says_why(window):
     calls = []
-    window._slots_then = lambda: calls.append(True)
+    window._slots_then = [lambda: calls.append(True)]
     window._on_slots_ready(True, "", "")
     assert calls == [True]
-    window._slots_then = lambda: calls.append(True)
+    window._slots_then = [lambda: calls.append(True)]
     window._on_slots_ready(False, "too old", "sudo modprobe")
     assert calls == [True] and window._banners.issue("vcam").title == "Couldn't add more virtual cameras"
 
@@ -2897,3 +2900,104 @@ def test_a_preview_frame_from_the_last_stream_isnt_shown_on_the_next(two_streams
     window.focus_stream("browser")
     preview._on_frame(np.zeros((8, 8, 3), dtype=np.uint8), old)  # queued before the switch
     assert preview._preview_lbl.pixmap().isNull() and not preview._busy
+
+
+def test_stop_cancels_a_stream_restarting_next_to_the_shown_one(camera_env, monkeypatch):
+    window, *_ = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    window._start()
+    window.add_stream("B")
+    phone = window._phone_source("Phone")
+    monkeypatch.setattr(sources_module.PhoneSource, "_spawn_wake", lambda self, *a: None)
+    window.reconnect_stream("Phone")
+    wake = phone._wake_id
+    window._toggle()  # the Stop button
+    assert not window._streams and not window._waking
+    phone._on_wake_done(wake, True, "", phone.url, phone.auth)
+    assert not window.is_streaming()
+
+
+def test_restarting_a_background_stream_starts_it_with_its_own_settings(camera_env, config_home, monkeypatch):
+    from telescope.plugins.stream_output import StreamOutputPlugin
+    window, conn, *_ = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    window.register_plugin(StreamOutputPlugin())
+    cfg = config_home.load_config()
+    cfg["devices"] = {"Phone": {"plugin_configs": {"stream_output": {"fps": 15}}},
+                      "B": {"plugin_configs": {"stream_output": {"fps": 60}}}}
+    config_home.save_config(cfg)
+    window._apply_device_profile("Phone")
+    window._start()
+    phone = window._phone_source("Phone")
+    window.add_stream("B")
+    window.reconnect_stream("Phone")
+    assert window._focus is phone
+    assert phone.session.worker.kwargs["fps"] == 15 and conn.opening["fps"] == 15
+    window._stop_all()
+
+
+def _camera_state(**camera):
+    from test_models import _VALID_CAMERA
+    return {**_VALID_STATE, "cameras": [{**_VALID_CAMERA, **camera}], "codecs": ["mjpeg", "h264"],
+            "camera_toggle": True}
+
+
+def test_coming_back_to_a_stream_keeps_its_exposure_and_sends_nothing(camera_env, monkeypatch):
+    from telescope.plugins.camera_control import CameraControlPlugin
+    window, *_ = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    camera = CameraControlPlugin()
+    window.register_plugin(camera)
+    window._bus.phones_changed.emit(2)
+    window._start()
+    phone = window._focus
+    window._apply_state(phone.session.id, {**_camera_state(isoMax=6400), "auto": False, "iso": 6400,
+                                           "shutter_ns": 10_000_000}, phone)
+    window.add_stream("B")
+    other = window._focus
+    window._apply_state(other.session.id, _camera_state(isoMax=800), other)  # a lens that stops at ISO 800
+    phone.session.client.sent.clear()
+    window.focus_stream("Phone")
+    assert camera.get_config()["iso"] > 6390 and camera._iso_slider.v_max == 6400
+    assert phone.session.client.sent == []  # the phone still has them
+    window._stop_all()
+
+
+def test_coming_back_to_a_stream_keeps_its_focus_point(camera_env, monkeypatch):
+    from telescope.plugins.camera_control import CameraControlPlugin
+    window, *_ = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    camera = CameraControlPlugin()
+    window.register_plugin(camera)
+    window._bus.phones_changed.emit(2)
+    window._start()
+    phone = window._focus
+    window._apply_state(phone.session.id, _camera_state(supportsFocusPoint=True), phone)
+    window._bus.focus_point.emit(0.25, 0.75)
+    window.add_stream("B")
+    assert not camera._point_focus  # B's panel
+    phone.session.client.sent.clear()
+    window.focus_stream("Phone")
+    assert camera._point_focus and camera._rb_focus_point.isChecked()
+    assert phone.session.client.sent == []
+    window._stop_all()
+
+
+def test_coming_back_to_a_zoomed_phone_doesnt_crop_its_crop_again(camera_env, monkeypatch):
+    from telescope.plugins.transforms import TransformsPlugin
+    window, *_ = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    view = TransformsPlugin()
+    window.register_plugin(view)
+    window._start()
+    phone = window._focus
+    window._apply_state(phone.session.id, _camera_state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True),
+                        phone)
+    view._zoom_slider.setValue(200)
+    assert view._desktop_crop == (1.0, 0.0, 0.0)  # the phone crops it all
+    window.add_stream("B")
+    phone.session.client.sent.clear()
+    window.focus_stream("Phone")
+    assert view._desktop_crop == (1.0, 0.0, 0.0)
+    assert phone.session.client.sent == []
+    window._stop_all()

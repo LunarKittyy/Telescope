@@ -158,7 +158,7 @@ class TelescopeWindow(QMainWindow):
         self._sig_raise.connect(self._tray_show)
         self._sig_canvas_reload_done.connect(self._on_canvas_reload_done)
         self._sig_slots_ready.connect(self._on_slots_ready)
-        self._slots_then = None
+        self._slots_then: Optional[list] = None  # while the extra cameras are being set up: what waits for them
         self._sig_extras_removed.connect(self._on_extras_removed)
         self._extras_done = None
         QTimer.singleShot(0, self._announce_idle_outputs)  # once the plugins are in
@@ -670,6 +670,7 @@ class TelescopeWindow(QMainWindow):
             if self._waking or self._preparing:  # one start at a time: this one goes after it
                 self._restart_later.add(source_id)
                 return
+            self._move_focus(source)  # it starts with the panels' settings, so they have to be its own
         self._stop_for_restart(source)
         self._start(source=source)
 
@@ -1230,9 +1231,12 @@ class TelescopeWindow(QMainWindow):
 
     def _set_up_slots(self, then):
         """Set up the extra virtual cameras (asking first, as it takes a password), then call then."""
-        if self._slots_then is not None or not self._ask_slots():
+        if self._slots_then is not None:
+            self._slots_then.append(then)  # already under way: then goes once they're ready, after the others
             return
-        self._slots_then = then
+        if not self._ask_slots():
+            return
+        self._slots_then = [then]
         self._set_status("Setting up more virtual cameras…", "dim")
 
         def work():
@@ -1295,13 +1299,13 @@ class TelescopeWindow(QMainWindow):
         return box.exec() == QMessageBox.StandardButton.Ok
 
     def _on_slots_ready(self, ok: bool, msg: str, command: str):
-        then, self._slots_then = self._slots_then, None
+        waiting, self._slots_then = self._slots_then or [], None
         if self._focus is not None:
             self._set_status(*self._focus.status)
         if ok:
             self.clear_issue("vcam")
             self._announce_idle_outputs()
-            if then is not None:
+            for then in waiting:
                 then()
             return
         if msg == CANCELLED:
@@ -1431,10 +1435,15 @@ class TelescopeWindow(QMainWindow):
         """Stop every stream, and a start still waking a phone (the Stop button)."""
         if self._pending is not None:
             self._drop_pending()
+        self._restart_later.clear()
+        self._held_states.clear()
         shown, main = self._active_source(), self._main
+        others = [s for s in self._streams if s is not shown]
+        if self._waking and self._wake_source not in (None, shown):
+            others.append(self._wake_source)  # one restarting next to the shown stream
         self._stopping_all = True
         try:
-            for source in [s for s in self._streams if s is not shown]:
+            for source in others:
                 self._stop(remote_stop, source)
         finally:
             self._stopping_all = False

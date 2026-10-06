@@ -17,6 +17,15 @@ class _Host:
     def schedule_save(self):
         self.saves += 1
 
+    def focused_source_id(self):
+        return None
+
+    def is_streaming(self):
+        return False
+
+    def is_streaming_from(self, _source_id):
+        return False
+
 
 class _Ctrl:
     def __init__(self):

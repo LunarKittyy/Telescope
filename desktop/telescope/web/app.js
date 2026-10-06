@@ -26,6 +26,7 @@ let config = { width: 1280, height: 720, fps: 30, audio: false };
 let facing = "user";
 let media = null;
 let mediaGen = 0;  // bumped by each open and by Stop, so a camera that opens late knows it's no longer wanted
+let runGen = 0;  // bumped by Stop, so a frame still encoding from before it isn't sent on the next Start's connection
 let micError = "";
 let ws = null;
 let running = false;
@@ -269,7 +270,9 @@ function frameSize(w, h) {
 
 function encodeJpeg() {
   encoding = true;
+  const gen = runGen;
   canvas.toBlob((blob) => {
+    if (gen !== runGen) return;  // stopped since: Stop already cleared encoding for the next run
     encoding = false;
     if (blob && ws && ws.readyState === WebSocket.OPEN) ws.send(new Blob([new Uint8Array([FRAME_JPEG]), blob]));
   }, "image/jpeg", JPEG_QUALITY);
@@ -418,7 +421,9 @@ function sendAudio(buffer) {
 async function keepAwake() {
   try {
     if ("wakeLock" in navigator && document.visibilityState === "visible") {
-      wakeLock = await navigator.wakeLock.request("screen");
+      const lock = await navigator.wakeLock.request("screen");
+      if (running) wakeLock = lock;
+      else lock.release().catch(() => {});  // Stop came while it was being granted
     }
   } catch (_) {
     wakeLock = null;  // not offered here (low battery, older browser); the note asks to keep the screen on
@@ -466,6 +471,7 @@ async function start() {
 function stop() {
   running = false;
   mediaGen++;
+  runGen++;
   clearTimeout(retryTimer);
   clearTimeout(frameTimer);
   const socket = ws;

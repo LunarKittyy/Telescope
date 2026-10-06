@@ -634,3 +634,36 @@ def test_a_browser_stopped_here_leaves_room_for_another(browser):
     _changed(host, bus)
     assert host.stream_count() == 3
     assert plugin.hub.join("browser-replacement") is not None
+
+
+def test_a_browser_that_joins_while_the_extra_cameras_are_set_up_streams_after(camera_env, tmp_path, monkeypatch):
+    window, conn, *_ = camera_env
+    conn.ensure_virtual_camera = lambda interactive=True: True
+    ready = {0}
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda slot: slot in ready)
+    monkeypatch.setattr(window, "_ask_slots", lambda: True)
+    monkeypatch.setattr(app_module.threading, "Thread", lambda **_k: SimpleNamespace(start=lambda: None))
+    _Server.instances.clear()
+    plugin = BrowserCameraPlugin(server_cls=_Server, cert_folder=tmp_path,
+                                 addresses=lambda: [SimpleNamespace(ip="192.168.1.20")])
+    window.register_plugin(plugin)
+    window._bus.source_selected.emit(SOURCE_ID)
+    _arrive(plugin, "browser-aaaaaaaa")
+    _arrive(plugin, "browser-bbbbbbbb")  # sets up the extra cameras
+    _arrive(plugin, "browser-cccccccc")  # while that's under way
+    ready.update(range(1, app_module.vcam.MAX_SLOTS))
+    window._on_slots_ready(True, "", "")
+    QCoreApplication.processEvents()
+    assert window.is_streaming_from("browser:browser-bbbbbbbb")
+    assert window.is_streaming_from("browser:browser-cccccccc")
+    window._stop_all()
+    plugin.shutdown()
+
+
+def test_browsers_let_in_during_a_start_dont_outnumber_the_cameras(browser):
+    plugin, host, bus, _card = browser
+    host.streams = ["phone-a", "phone-b"]
+    host.starting = True  # a third phone waking takes the third camera
+    bus.source_selected.emit(SOURCE_ID)
+    _arrive(plugin, "browser-aaaaaaaa")  # the last camera
+    assert plugin.hub.join("browser-bbbbbbbb") is None

@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QButtonGroup, QCheckBox, QWidget,
 )
 
-from telescope.plugin import TelescopePlugin
+from telescope.plugin import StreamsBehind, TelescopePlugin
 from telescope.widgets.common import (
     LogSliderRow, NoScrollComboBox, SegmentButton, NoScrollSlider, add_card_header, add_section_heading,
     ElidingLabel, control_row, control_row_widget, card_layout,
@@ -135,6 +135,9 @@ class CameraControlPlugin(TelescopePlugin):
         self._point_focus       = False
         self._lens_id: Optional[str] = None
         self._pending_lens: Optional[str] = None  # a preset's lens, applied while idle, for the next stream
+        self._last_state: Optional[dict] = None  # the stream's latest state, for its lenses and ranges
+        self._config_in: dict = {}  # what set_config() was last given, before the sliders' ranges clamped it
+        self._behind = StreamsBehind()  # each stream the panels moved away from: its last state and focus point
         bus.focus_point.connect(self._on_focus_point)
         self._focus_max_diopters: float = 10.0
         self._ae_comp_step: float = 0.167
@@ -300,9 +303,21 @@ class CameraControlPlugin(TelescopePlugin):
     # ── Stream lifecycle ──────────────────────────────────────────────────────
 
     def on_stream_start(self, stream_url: str, ctrl):
+        kept = self._behind.take(self._host, ctrl)
+        if kept is None:
+            self._ctrl = ctrl
+            self._lens_panel.set_placeholder("Loading lenses...")
+            self._push_settings_to_phone()
+            return
+        # Back on a stream that kept going: the phone has its settings, so the panel only shows them, in its ranges
+        state, point = kept
+        self.on_phone_state(state)
+        self.set_config(self._config_in)
+        self._point_focus = False
+        if point:
+            self._show_point_focus()
         self._ctrl = ctrl
-        self._lens_panel.set_placeholder("Loading lenses...")
-        self._push_settings_to_phone()
+        self._set_point_available(self._rb_focus_point.isEnabled())
 
     def _push_settings_to_phone(self):
         """Re-applies widget state to the phone (wiring up self._ctrl alone doesn't sync the existing config)."""
@@ -328,6 +343,9 @@ class CameraControlPlugin(TelescopePlugin):
         self._ctrl.send(action="black_level_lock", value="1" if self._bll_cb.isChecked() else "0")
 
     def on_stream_stop(self):
+        if self._last_state is not None:
+            self._behind.keep(self._host, self._ctrl, (self._last_state, self._point_focus))
+        self._last_state = None
         self._ctrl = None
         self._set_point_available(False)
         if self._point_focus:  # the point was for that session; the next one starts continuous
@@ -342,6 +360,7 @@ class CameraControlPlugin(TelescopePlugin):
         if view is None:
             self._lens_panel.set_placeholder("Unavailable")
             return
+        self._last_state = state
 
         self._lens_panel.load(view.lenses)
 
@@ -603,6 +622,9 @@ class CameraControlPlugin(TelescopePlugin):
         if not self._ctrl or not self._rb_focus_point.isEnabled():
             return
         self._ctrl.send(action="focus_point", x=round(x, 4), y=round(y, 4))
+        self._show_point_focus()
+
+    def _show_point_focus(self):
         self._point_focus, self._manual_focus = True, False
         self._rb_focus_point.setChecked(True)
         self._focus_slider.setEnabled(False)
@@ -693,6 +715,7 @@ class CameraControlPlugin(TelescopePlugin):
         }
 
     def set_config(self, cfg: dict):
+        self._config_in = cfg
         manual_exp = bool(cfg.get("exp_manual", False))
         self._rb_exp_manual.setChecked(manual_exp)
         self._rb_exp_auto.setChecked(not manual_exp)
