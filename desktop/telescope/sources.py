@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Optional
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 
+from telescope import vcam
 from telescope.phone_client import PhoneControlClient
 from telescope.phones import DESKTOP_OUTDATED, LOCAL_ONLY, NOT_PAIRED, PHONE_OUTDATED, READY
 from telescope.widgets.banner import BannerAction, Issue
@@ -42,6 +43,7 @@ class Source(QObject):
     wakes = False  # Start waits for wake() to report back before the stream begins
     mic_alone = False  # can stream its mic with the camera off
     open_reader = None  # a StreamWorker reader factory; None reads url
+    auto_canvas = None  # the virtual camera's size when Setup's canvas is Auto; None takes the first frame's
 
     def __init__(self, win: "TelescopeWindow"):
         super().__init__()
@@ -109,6 +111,9 @@ class Source(QObject):
 class PluginSource(Source):
     """A plugin's StreamSource (see plugin.py): ready once it and the virtual camera are, with nothing to wake."""
 
+    # A browser's first frame can be any shape (even square), and on Linux apps then keep the camera at that size
+    auto_canvas = (1920, 1080) if vcam.IS_LINUX else None
+
     def __init__(self, win: "TelescopeWindow", source):
         super().__init__(win)
         self._source = source
@@ -129,6 +134,7 @@ class PluginSource(Source):
 
     def control_client(self):
         return self._source.control_client()
+
 
     def stream_params(self) -> tuple:
         return None, None, self._source.fps()

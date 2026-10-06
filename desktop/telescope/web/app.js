@@ -6,6 +6,8 @@ const FRAME_JPEG = 1;
 const FRAME_PCM = 2;
 const MAX_BUFFERED = 1_500_000;  // bytes waiting to go out; past this a frame is skipped instead of piling up lag
 const JPEG_QUALITY = 0.8;
+const STEP_DOWN = [1280, 854];  // long edges to fall back to when this device can't encode frames as fast as asked
+const SLOW_SECONDS = 2;  // how long encoding has to lag before stepping down
 
 const token = decodeURIComponent(location.hash.slice(1));
 const video = document.getElementById("video");
@@ -25,6 +27,9 @@ let retries = 0;
 let retryTimer = null;
 let frameTimer = null;
 let encoding = false;
+let encodeMs = 0;  // average time to encode a frame
+let slowFrames = 0;
+let longCap = Infinity;  // the long edge this device keeps up with, once it has had to step down
 let audioCtx = null;
 let wakeLock = null;
 const canvas = document.createElement("canvas");
@@ -167,6 +172,10 @@ function sendHello() {
 function applyConfig(msg) {
   const changed = msg.width !== config.width || msg.height !== config.height || msg.fps !== config.fps;
   config = { width: msg.width | 0 || 1280, height: msg.height | 0 || 720, fps: msg.fps | 0 || 30, audio: !!msg.audio };
+  if (changed) {
+    longCap = Infinity;  // a size picked on the computer gets another try
+    resetPace();
+  }
   const track = media && media.getVideoTracks()[0];
   if (changed && track) track.applyConstraints(videoConstraints()).catch(() => {});
 }
@@ -177,16 +186,38 @@ function sendFrame() {
   const w = video.videoWidth, h = video.videoHeight;
   if (!w || !h) return;
   // Never more than the computer asked for; a camera that can't do that size sends what it has.
-  const long = Math.max(config.width, config.height), short = Math.min(config.width, config.height);
+  const askedLong = Math.max(config.width, config.height), askedShort = Math.min(config.width, config.height);
+  const long = Math.min(askedLong, longCap), short = askedShort * long / askedLong;
   const scale = Math.min(1, long / Math.max(w, h), short / Math.min(w, h));
   canvas.width = Math.round(w * scale);
   canvas.height = Math.round(h * scale);
   ctx2d.drawImage(video, 0, 0, canvas.width, canvas.height);
   encoding = true;
+  const began = performance.now();
   canvas.toBlob((blob) => {
     encoding = false;
+    notePace(performance.now() - began);
     if (blob && ws && ws.readyState === WebSocket.OPEN) ws.send(new Blob([new Uint8Array([FRAME_JPEG]), blob]));
   }, "image/jpeg", JPEG_QUALITY);
+}
+
+function notePace(ms) {
+  encodeMs = encodeMs ? encodeMs * 0.9 + ms * 0.1 : ms;
+  if (encodeMs <= 1000 / config.fps) {
+    slowFrames = 0;
+    return;
+  }
+  slowFrames += 1;
+  const next = STEP_DOWN.find((l) => l < Math.max(canvas.width, canvas.height));
+  if (slowFrames >= SLOW_SECONDS * config.fps && next) {
+    longCap = next;
+    resetPace();
+  }
+}
+
+function resetPace() {
+  encodeMs = 0;
+  slowFrames = 0;
 }
 
 function sendAudio(buffer) {

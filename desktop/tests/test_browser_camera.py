@@ -357,3 +357,19 @@ def test_feed_drops_frames_from_a_replaced_browser():
     assert feed.next_frame(new, 0, 0.01) is None
     feed.put_frame(new, b"new")
     assert feed.next_frame(new, 0, 0.01) == (1, b"new")
+
+
+def test_falling_behind_points_at_its_own_resolution_and_frame_rate(browser):
+    plugin, host, bus, _card = browser
+    host.clear_issue = lambda key: host.issues.pop(key, None)
+    bus.stream_behind.emit(True)
+    assert "behind" not in host.issues  # a phone is picked: Stream output says what helps
+    bus.source_selected.emit(SOURCE_ID)
+    bus.stream_behind.emit(True)
+    issue = host.issues["behind"]
+    assert issue.title == "Can't keep up" and "Browser camera card" in issue.text and issue.kind == "warn"
+    plugin._set_capture(size="480p", fps=15)
+    bus.stream_behind.emit(True)
+    assert host.issues["behind"].text == "The device's browser can't send any faster."
+    bus.stream_behind.emit(False)
+    assert "behind" not in host.issues

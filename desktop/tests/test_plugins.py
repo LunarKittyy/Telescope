@@ -992,3 +992,13 @@ def test_jpeg_quality_stops_at_95_and_marks_the_recommended_spot(stream_output):
     assert "recommended" in plugin._quality_slider.toolTip()
     plugin.set_config({"jpeg_quality": 100})  # saved before the cap
     assert plugin.get_config()["jpeg_quality"] == 95
+
+
+def test_falling_behind_leaves_another_source_to_say_what_helps(stream_output, monkeypatch):
+    plugin, host = _stream_output_with(stream_output, monkeypatch)
+    plugin._bus.source_selected.emit("browser")
+    plugin._bus.stream_behind.emit(True)
+    assert "behind" not in host.issues
+    plugin._bus.source_selected.emit("")
+    plugin._bus.stream_behind.emit(True)
+    assert "behind" in host.issues

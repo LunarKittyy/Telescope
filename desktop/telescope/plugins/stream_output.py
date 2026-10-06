@@ -126,10 +126,12 @@ class StreamOutputPlugin(TelescopePlugin):
         self._format = FORMAT_H264
         self._phone_codecs: tuple = ()  # what the phone reported; () until it has
         self._phone_dynamic = None  # whether the phone takes Dynamic; None until it has reported
+        self._phone_picked = True  # another source (Browser camera) says what helps itself
         # Lens switch doesn't trigger fresh /v1/state fetch; use cached capabilities dict.
         bus.camera_switched.connect(self._on_camera_switched)
         bus.device_changed.connect(self._on_device_changed)
         bus.stream_behind.connect(self._on_stream_behind)
+        bus.source_selected.connect(self._on_source_selected)
 
     def create_panel(self) -> QWidget:
         card = create_card()
@@ -477,7 +479,12 @@ class StreamOutputPlugin(TelescopePlugin):
         # The route decides the phone's codec, so switching means reconnecting.
         self._host.reconnect_stream()
 
+    def _on_source_selected(self, sid: str):
+        self._phone_picked = not sid
+
     def _on_stream_behind(self, behind: bool):
+        if not self._phone_picked:
+            return
         if not behind:
             self._host.clear_issue("behind")
             return
