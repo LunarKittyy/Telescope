@@ -180,6 +180,10 @@ class TelescopePlugin:
         """The camera is coming back on mid-stream; on_stream_starting came just before."""
     def on_phone_state(self, state: dict): ...
     def process_frame(self, frame: np.ndarray) -> np.ndarray: return frame
+    def frame_step(self):
+        """process_frame frozen at the current settings, for a stream that carries on while the panels show another
+        one; None leaves such streams alone (the preview only draws the one shown)."""
+        return None
     def get_config(self) -> dict: return {}
     def diagnostics(self) -> dict:
         """A few "Label": "value" lines for Copy diagnostics. No tokens, addresses or names."""

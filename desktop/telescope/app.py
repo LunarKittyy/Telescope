@@ -696,13 +696,11 @@ class TelescopeWindow(QMainWindow):
         setup = self._plugin("setup")
         canvas_w, canvas_h = setup.get_canvas_dims() if setup else (None, None)
 
-        pipeline = [guarded_step(p.name or type(p).__name__, p.process_frame) for p in self._plugins
-                    if type(p).process_frame is not TelescopePlugin.process_frame]
         self._each_plugin("on_stream_starting")
 
         worker = StreamWorker(
             url=url, width=w, height=h, fps=fps,
-            frame_pipeline=pipeline,
+            frame_pipeline=self._pipeline(),
             canvas_width=canvas_w, canvas_height=canvas_h,
             auth=auth,
             open_reader=source.open_reader,
@@ -712,6 +710,22 @@ class TelescopeWindow(QMainWindow):
         worker.vcam_opened.connect(self._bus.vcam_opened)
         worker.start()
         return worker
+
+    def _pipeline(self, live: bool = True) -> list:
+        """The plugins' frame steps: live for the stream the panels show, or frozen at their current settings for one
+        that carries on while they show another."""
+        steps = []
+        for p in self._plugins:
+            if type(p).process_frame is TelescopePlugin.process_frame:
+                continue
+            try:
+                fn = p.process_frame if live else p.frame_step()
+            except Exception:
+                logging.exception("Plugin %s couldn't freeze its frame step; leaving it out", p.name)
+                continue
+            if fn is not None:
+                steps.append(guarded_step(p.name or type(p).__name__, fn))
+        return steps
 
     def _end_worker(self, worker: StreamWorker):
         for signal, slot in ((worker.status, self._on_worker_status),

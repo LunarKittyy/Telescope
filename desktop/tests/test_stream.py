@@ -72,6 +72,12 @@ def test_fit_frame_pillarboxes_narrow_input():
     assert np.all(result[:, 3] == 0)
 
 
+def test_a_new_pipeline_takes_over_from_the_next_frame():
+    worker = stream.StreamWorker("url", None, None, 30, [lambda f: f + 1])
+    worker.set_pipeline([lambda f: f * 10])
+    assert worker._process(np.array([2]))[0] == 20
+
+
 def test_worker_processes_pipeline_in_order():
     calls = []
 

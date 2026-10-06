@@ -135,6 +135,15 @@ def test_plugin_process_frame_uses_runtime_transform_state(transforms_plugin):
     assert np.array_equal(result, expected)
 
 
+def test_a_frozen_frame_step_keeps_the_settings_it_was_taken_with(transforms_plugin):
+    plugin, _host, _panel = transforms_plugin
+    plugin.flip_h = True
+    step = plugin.frame_step()
+    plugin.flip_h = False
+    plugin.rotation = cv2.ROTATE_90_CLOCKWISE
+    assert np.array_equal(step(_grid()), cv2.flip(_grid(), 1))
+
+
 def test_config_round_trip_updates_widgets(transforms_plugin):
     plugin, _host, _panel = transforms_plugin
     cfg = {

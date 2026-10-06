@@ -842,6 +842,23 @@ def test_start_builds_worker_pipeline_and_notifies_plugins(window, monkeypatch):
     assert connection.progress_msgs == ["waking..."]
 
 
+def test_a_stream_the_panels_dont_show_gets_their_steps_frozen(window):
+    class Frozen(_Plugin):
+        def frame_step(self):
+            return lambda frame: frame + 1
+
+    class Broken(_Plugin):
+        def frame_step(self):
+            raise RuntimeError("no")
+
+    for plugin in (Frozen("transforms"), _Plugin("preview"), Broken("other")):
+        window.register_plugin(plugin)
+    frame = np.zeros((1, 1, 3), np.uint8)
+    assert len(window._pipeline()) == 3
+    steps = window._pipeline(live=False)
+    assert len(steps) == 1 and steps[0](frame)[0, 0, 0] == 1
+
+
 def test_wake_progress_updates_status_while_waking(window):
     window._phone._wake_id = 5
     window._waking = True

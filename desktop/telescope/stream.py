@@ -158,6 +158,11 @@ class StreamWorker(QThread):
             frame = fn(frame)
         return frame
 
+    def set_pipeline(self, frame_pipeline: list):
+        """Swap the plugin steps from the next frame on (the panels moved to another stream, or back)."""
+        with self._publish_lock:
+            self._pipeline = list(frame_pipeline)
+
     def update_output(self, width=_UNCHANGED, height=_UNCHANGED, fps=_UNCHANGED):
         """Update stream parameters live (None = pass-through; omit to leave unchanged; fps changes restart vcam)."""
         if width  is not _UNCHANGED: self._width  = width
