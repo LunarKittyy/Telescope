@@ -57,6 +57,7 @@ The Presets button in the header saves the camera, output and transform settings
 
 ## Phones, pairing and connection
 - **Add phone** pairs by QR code, or by plugging the phone in over USB
+- The **?** next to it opens the setup checklist again, with the phone app download and Add phone, even after you've streamed from Browser camera
 - Several phones per computer and several computers per phone. Removing one leaves the others paired
 - USB when the phone is plugged in and answering, Wi-Fi otherwise. If a cable is plugged in but not used, the Connection panel says why. **Connect via** forces one or the other
 - A new IP address from the router doesn't break anything: the phone announces itself on the network

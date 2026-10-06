@@ -982,3 +982,12 @@ def test_a_start_nobody_asked_for_never_prompts_for_a_password(plugin_env, monke
     assert issue.title == "The virtual camera is off"
     issue.actions[0].callback()
     assert host.starts == 1
+
+
+def test_the_help_button_asks_for_the_setup_guide(plugin_env):
+    plugin, _host, _panel = plugin_env
+    asked = []
+    plugin._bus.setup_guide_requested.connect(lambda: asked.append(True))
+    plugin._guide_btn.click()
+    assert asked == [True]
+    assert plugin._guide_btn.accessibleName() == "Setup guide"
