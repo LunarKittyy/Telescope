@@ -2373,7 +2373,7 @@ def test_a_browser_starts_by_itself_and_goes_when_it_leaves(camera_env):
 
     window.add_stream_source(_OneBrowser("ipad"))
     window.stream_source("browser:ipad")  # nothing streams: it's picked and streamed
-    assert conn.selected_device == "browser:ipad" and window.stream_output("browser:ipad") == "Phone Camera"
+    assert conn.selected_device == "browser:ipad" and window.stream_output("browser:ipad") == app_module.vcam.slot_label(0)
 
 
 def test_a_browser_keeps_only_the_settings_that_changed(camera_env, config_home):
