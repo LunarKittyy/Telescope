@@ -174,6 +174,7 @@ class _Host:
         self.saves = 0
         self.settings = set()  # ids with settings saved
         self.forgotten = []
+        self.stopped = []  # stop_stream calls, waiting tiles included
 
     def add_stream_source(self, source):
         self.sources[source.id] = source
@@ -188,7 +189,9 @@ class _Host:
         self.streams.append(source_id)
 
     def stop_stream(self, source_id=None):
-        self.streams.remove(source_id)
+        self.stopped.append(source_id)
+        if source_id in self.streams:
+            self.streams.remove(source_id)
 
     def stream_output(self, source_id):
         return f"Camera {self.streams.index(source_id) + 1}" if source_id in self.streams else ""
@@ -383,24 +386,36 @@ def test_the_server_stays_up_while_a_browser_streams_behind_another(browser):
 def test_adding_a_browser_next_to_a_phone_shows_the_code_until_one_joins(browser):
     plugin, host, bus, card = browser
     host.streams.append("some-phone")
-    bus.source_selected.emit("some-phone")  # + moved focus to the launcher and back once it couldn't start
+    bus.source_selected.emit(SOURCE_ID)  # + put the panels on it: its own page, with the code
     assert not host.sources[SOURCE_ID].prepare(True)
     server = _Server.instances[-1]
     assert server.started and not card.isHidden() and plugin._qr is not None
+    bus.source_selected.emit("some-phone")  # the phone's tile clicked: its settings, without the code
     _changed(host, bus)
-    assert not server.stopped and not card.isHidden()  # still waiting
+    assert not server.stopped and card.isHidden()  # still waiting
+
+    assert launcher_waits(host) and "start" not in host.issues  # its tile says so, not a banner
 
     _arrive(plugin, "pixel-aaaaaaaa")
     assert host.starts == ["browser:pixel-aaaaaaaa"] and card.isHidden()
-    assert "start" not in host.issues
+    assert not launcher_waits(host) and host.stopped == [SOURCE_ID]  # the waiting tile went
 
 
-def test_cancel_or_closing_the_wait_hides_the_code(browser):
+def launcher_waits(host):
+    return host.sources[SOURCE_ID].waiting()
+
+
+def test_closing_the_waiting_tile_or_the_banner_hides_the_code(browser):
     plugin, host, bus, card = browser
     host.streams.append("some-phone")
     launcher = host.sources[SOURCE_ID]
     launcher.prepare(True)
-    host.issues["start"].actions[0].callback()  # Cancel
+    launcher.cancel_wait()  # the tile's X
+    assert card.isHidden() and _Server.instances[-1].stopped and not launcher.waiting()
+
+    host.streams.clear()
+    launcher.prepare(True)
+    host.issues["start"].actions[0].callback()  # Cancel, with nothing else streaming
     assert card.isHidden() and _Server.instances[-1].stopped and "start" not in host.issues
 
     launcher.prepare(True)
@@ -421,14 +436,16 @@ def test_the_card_shows_the_browser_the_panels_show(browser):
     assert plugin._mic_lbl.text() == "No microphone: Not allowed"
 
 
-def test_capture_settings_go_to_every_page_and_the_shown_stream(browser):
+def test_capture_settings_go_to_every_page_and_stream(browser):
     plugin, host, bus, _card = browser
     bus.source_selected.emit(SOURCE_ID)
     feed, _ = _arrive(plugin, "pixel-aaaaaaaa")
+    _arrive(plugin, "iphone-bbbbbbbb")
     bus.source_selected.emit("browser:pixel-aaaaaaaa")
     plugin._fps_combo.setCurrentIndex(plugin._fps_combo.findData(15))
     plugin._size_combo.setCurrentIndex(plugin._size_combo.findData("1080p"))
-    assert host.outputs == [{"fps": 15}]
+    assert host.outputs == [{"fps": 15, "source_id": "browser:pixel-aaaaaaaa"},
+                            {"fps": 15, "source_id": "browser:iphone-bbbbbbbb"}]
     _seq, cfg = feed.page_config()
     assert (cfg["width"], cfg["height"], cfg["fps"]) == (1920, 1080, 15)
     later, _ = _arrive(plugin, "iphone-bbbbbbbb")

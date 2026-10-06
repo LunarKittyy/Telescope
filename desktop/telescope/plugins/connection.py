@@ -429,6 +429,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._lost = False       # frames stopped; the host is reconnecting (EventBus.stream_lost)
         # The route each streaming phone's video comes over, and the USB forward it holds (None over Wi-Fi), by id
         self._holds: dict = {}
+        self._paths: dict = {}  # pid: the video path its stream last opened, which says its format
         self._switching = False
         self._add_dlg: Optional[AddPhoneDialog] = None
         self._phones_dlg: Optional[PhonesDialog] = None
@@ -839,6 +840,8 @@ class ConnectionPlugin(TelescopePlugin):
 
     def _hold_stream_route(self, route: Route, pid: Optional[str]) -> Optional[str]:
         """Make route pid's stream's, letting go of the previous one's USB forward. The video URL, or None."""
+        # The panels' format is the picked phone's; one streaming behind them keeps the one it opened
+        path = self._video_path() if pid == self._selected_id else self._paths.get(pid) or self._video_path()
         self.release_stream(pid)
         forward = None
         if route.kind == "usb":
@@ -847,10 +850,11 @@ class ConnectionPlugin(TelescopePlugin):
             if local is None:
                 return None
             forward = route.serial
-            url = f"https://127.0.0.1:{local}{self._video_path()}"
+            url = f"https://127.0.0.1:{local}{path}"
         else:
-            url = f"https://{route.host}:{STREAM_PORT}{self._video_path()}"
+            url = f"https://{route.host}:{STREAM_PORT}{path}"
         self._holds[pid] = (route, forward)
+        self._paths[pid] = path
         return url
 
     def release_stream(self, pid: Optional[str]):

@@ -57,9 +57,11 @@ The Presets button in the header saves the camera, output and transform settings
 
 ## Several cameras at once
 - While one stream runs, the **+** next to Stop streams another phone (or the browser camera) at the same time, up to four. Each goes to a virtual camera of its own: **Phone Camera 2** to **4** on Linux, **Telescope #2** to **#4** on Windows. The first time, Telescope adds those cameras, which asks for your password (Linux) or permission (Windows). On Linux they're gone again after a reboot and get added the next time. **Extra cameras** under Advanced removes them sooner, and on Windows that's the only way back to one
-- An extra camera nothing streams to shows the wait screen, like the first one
+- An extra camera nothing streams to shows the wait screen, like the first one (and so does the first one while only extra ones stream)
+- Adding **Browser camera** with **+** gives it a tile that says **Waiting**, with the code on screen. The first browser to scan it takes that tile over; the x on the tile cancels it
 - A row of tiles shows each stream with a small picture, the camera it goes to, and whether it's live. Click a tile to show its settings in the panels; zoom, flips, camera and output settings are kept per phone, and a stream you're not looking at keeps the ones it had. The x on a tile stops just that one, and Stop stops them all
 - A camera gets the same virtual camera as last time when it's free, so a scene in OBS keeps pointing at the right phone
+- Battery and heat warnings cover every phone that streams, each by its own thresholds. Stopping when no app reads the camera stays off once a second camera has streamed, until everything has stopped. Changing the canvas size needs just one camera streaming
 - The mic stays on the phone that started first. If that one stops, the next one's mic takes over
 - With more than one stream, the camera can't go off (mic only), Automatic streaming doesn't stop anything, and the wait screen comes back once the last one stops. Battery and temperature alerts only cover the phone whose settings are showing
 - The extra cameras are always the size set under Setup (1920x1080 when that's Auto), and a picture with another shape gets black bars

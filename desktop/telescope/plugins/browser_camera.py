@@ -87,6 +87,12 @@ class _Source:
     def prepare(self, interactive: bool) -> bool:
         return self._plugin.prepare()
 
+    def waiting(self) -> bool:
+        return self._plugin.is_waiting()
+
+    def cancel_wait(self):
+        self._plugin.cancel_waiting()
+
     # Never streams itself (prepare() says to scan the code instead), so these read a feed nothing connects to
     def open_reader(self):
         return BrowserReader(BrowserFeed())
@@ -139,7 +145,7 @@ class BrowserCameraPlugin(TelescopePlugin):
         self._browsers: dict = {}  # id the page keeps: its _BrowserSource, while it's there or streams
         self._started: dict = {}  # id: the connection that started streaming, so a stop isn't undone right away
         self._joining = False
-        self._waiting = False  # Start or + asked for a browser and none has joined yet: the card stays up for its code
+        self._waiting = False  # Start or + asked for a browser and none has joined yet: the server stays up for it
         self._known: dict = {}  # id: {"name", "seen"} of browsers that connected, for the phones list
         self._server: Optional[BrowserServer] = None
         self._problem = ""  # why the server isn't running
@@ -162,7 +168,7 @@ class BrowserCameraPlugin(TelescopePlugin):
 
     @property
     def _needed(self) -> bool:
-        """Whether the card shows and the server runs even with no browser streaming."""
+        """Whether the server runs even with no browser streaming."""
         return self._selected or self._waiting
 
     def _shown_feed(self):
@@ -251,8 +257,8 @@ class BrowserCameraPlugin(TelescopePlugin):
 
     def _show_card(self):
         card = self._card
-        if card is not None and card.parentWidget() is not None and card.isHidden() == self._needed:
-            card.setVisible(self._needed)
+        if card is not None and card.parentWidget() is not None and card.isHidden() == self._selected:
+            card.setVisible(self._selected)
 
     def _url(self) -> str:
         server = self._server
@@ -482,16 +488,22 @@ class BrowserCameraPlugin(TelescopePlugin):
             return False
         if need_browser:
             self._set_waiting(True)
-            self._host.show_issue("start", Issue(
-                "Waiting for a browser", "Scan the code on the Browser camera card with the device to use. It "
-                "starts streaming as soon as it connects.", [BannerAction("Cancel", self.cancel_waiting)],
-                kind="warn", on_dismiss=self.cancel_waiting))
+            if not self._host.stream_count():  # next to other streams, its tile says it's waiting
+                self._host.show_issue("start", Issue(
+                    "Waiting for a browser", "Scan the code on the Browser camera card with the device to use. It "
+                    "starts streaming as soon as it connects.", [BannerAction("Cancel", self.cancel_waiting)],
+                    kind="warn", on_dismiss=self.cancel_waiting))
             return False
         return True
+
+    def is_waiting(self) -> bool:
+        return self._waiting
 
     def _set_waiting(self, waiting: bool):
         if waiting != self._waiting:
             self._waiting = waiting
+            if not waiting:
+                self._host.stop_stream(SOURCE_ID)  # its waiting tile goes
             self._show_card()
             self._render()
 
@@ -518,8 +530,9 @@ class BrowserCameraPlugin(TelescopePlugin):
             self._size = size
         if fps is not None and fps != self.fps:
             self.fps = fps
-            if self._host.is_streaming_from(self._selected_id):
-                self._host.update_stream_output(fps=fps)  # the shown stream; the others take it when they restart
+            for src in self._browsers.values():  # every page gets the new rate, so every stream of one does too
+                if self._host.is_streaming_from(src.id):
+                    self._host.update_stream_output(fps=fps, source_id=src.id)
         self._apply_capture()
         self._host.schedule_save()
 

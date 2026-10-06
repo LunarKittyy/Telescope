@@ -709,6 +709,17 @@ def test_recovery_moves_a_usb_stream_to_wifi_and_lets_go_of_the_forward(plugin_e
     assert plugin._tunnels.held == {}
 
 
+def test_recovery_keeps_the_format_the_stream_opened(plugin_env, monkeypatch):
+    plugin, host, _panel = plugin_env
+    monkeypatch.setattr(connection_module.h264_reader, "available", lambda: True)
+    _add(plugin)
+    host.configs["stream_output"] = {"format": "h264"}
+    _streaming_over(plugin, USB)
+    plugin._selected_id = "id-b"  # the panels moved to another phone, on Heavy
+    host.configs["stream_output"] = {"format": "mjpeg"}
+    assert plugin.adopt_stream_route(WIFI, "id-a") == "https://10.0.0.5:8080/v1/video.h264"
+
+
 def test_recovery_over_the_same_cable_opens_a_fresh_forward(plugin_env):
     # adb drops forwards when the cable goes; the one held from before is dead after a replug.
     plugin, _host, _panel = plugin_env

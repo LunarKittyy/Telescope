@@ -35,6 +35,18 @@ class _Host:
         self.saves = 0
         self.notifications = []
         self.canvas_restarts = []
+        self.others = []  # (id, name, control client) of streams the panels don't show
+        self.device_cfgs = {}
+        self.stopped = []
+
+    def focused_source_id(self):
+        return "phone-a"
+
+    def background_streams(self):
+        return list(self.others)
+
+    def device_config(self, source_id, plugin_name):
+        return self.device_cfgs.get(source_id, {})
 
     def schedule_save(self):
         self.saves += 1
@@ -45,7 +57,8 @@ class _Host:
     def is_streaming(self):
         return self._worker is not None
 
-    def stop_stream(self):
+    def stop_stream(self, source_id=None):
+        self.stopped.append(source_id)
         if self._worker is not None:
             self._worker = None
 
@@ -464,6 +477,37 @@ def test_monitoring_does_not_warn_again_when_the_same_stream_reconnects(monitori
     plugin.on_stream_start("url", ctrl)
     plugin._check_alerts(10, False, 30)
     plugin.on_stream_start("url", ctrl)
+    plugin._check_alerts(10, False, 30)
+    assert len(host.notifications) == 1
+
+
+def test_monitoring_watches_a_stream_behind_the_panels_by_its_own_settings(monitoring):
+    plugin, host, _bus, _panel = monitoring
+    host._worker = _Worker()  # streaming
+    other = _Ctrl({"battery": 15, "charging": False, "battery_temp_c": 30})
+    host.others = [("phone-b", "Pixel", other)]
+    host.device_cfgs = {"phone-b": {"battery_alert": 10, "temp_stop": True, "battery_stop": "yes"}}
+    plugin._on_other_polled("phone-b", "Pixel", other, other.state)
+    assert host.notifications == []  # 15% is fine by its own 10% threshold
+    plugin._on_other_polled("phone-b", "Pixel", other, {"battery": 50, "charging": True, "battery_temp_c": 50})
+    assert host.notifications == [("Telescope - Phone Running Hot",
+                                   "Pixel: temperature is 50.0 °C. Stopped streaming to let it cool down.")]
+    assert host.stopped == ["phone-b"]  # that one, not the one on screen
+
+    host.others = []  # stopped meanwhile: a late reading is dropped
+    plugin._on_other_polled("phone-b", "Pixel", other, {"battery": 1, "charging": False, "battery_temp_c": 60})
+    assert len(host.notifications) == 1
+
+
+def test_monitoring_doesnt_warn_again_after_a_tile_switch(monitoring):
+    plugin, host, _bus, _panel = monitoring
+    host._worker = _Worker()
+    ctrl = _Ctrl()
+    plugin.on_stream_start("url", ctrl)
+    plugin._check_alerts(10, False, 30)
+    plugin.on_stream_stop()  # the panels moved to another stream
+    assert plugin._timer.isActive()  # still watching this one from behind
+    plugin.on_stream_start("url", ctrl)  # and back
     plugin._check_alerts(10, False, 30)
     assert len(host.notifications) == 1
 
