@@ -189,13 +189,16 @@ The page opens a WebSocket on `/ws?token=<token>`. A wrong token gets `403`. A s
 Page to desktop:
 
 - Binary, first byte `1`: one JPEG frame, the rest of the message
+- Binary, first byte `3`: H.264, then `1` for a keyframe or `0`, then one Annex-B access unit (keyframes carry SPS and PPS). Only sent when the config says `h264`, and only from a hardware encoder; every frame refers to the ones before it, so the page never skips one it has encoded without starting over at a keyframe
 - Binary, first byte `2`: microphone audio, 48 kHz mono s16le, 20 ms per message. Only sent while the desktop asks for it
-- Text: `{"type": "hello", "device": "Safari on iPhone", "mic_error": ""}`, sent on connect and again after the camera restarts. A non-empty `mic_error` says why there's no mic, and the Microphone card shows it
+- Text: `{"type": "hello", "device": "Safari on iPhone", "mic_error": "", "codec": "h264", "codec_note": ""}`, sent on connect, after the camera restarts and when the codec changes. A non-empty `mic_error` says why there's no mic, and the Microphone card shows it. `codec` is `h264` or `jpeg`, and `codec_note` says why it's JPEG
 
 Desktop to page, as text whenever something changes and once on connect:
 
 ```json
-{ "type": "config", "width": 1280, "height": 720, "fps": 30, "audio": false }
+{ "type": "config", "width": 1280, "height": 720, "fps": 30, "audio": false, "h264": true }
 ```
+
+`h264` is true when the desktop can decode it (PyAV installed). `{"type": "keyframe"}` asks for a keyframe next: the desktop sends it when its decoder starts and when it had to drop H.264 that piled up.
 
 The page asks the camera for that size and rate, scales frames down to fit it, and sends audio only while `audio` is true (the Microphone card is on and streaming). Messages over 16 MB end the connection.

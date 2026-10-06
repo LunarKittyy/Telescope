@@ -1,13 +1,17 @@
-// Telescope's Browser camera page: sends this device's camera (JPEG frames) and mic (48 kHz s16le) to the
-// computer that served it, over one WebSocket. The token after # in the address is the computer's permission.
+// Telescope's Browser camera page: sends this device's camera (H.264 from its hardware encoder, else JPEG) and mic
+// (48 kHz s16le) to the computer that served it, over one WebSocket. The token after # in the address is the computer's permission.
 "use strict";
 
 const FRAME_JPEG = 1;
 const FRAME_PCM = 2;
+const FRAME_H264 = 3;
 const MAX_BUFFERED = 1_500_000;  // bytes waiting to go out; past this a frame is skipped instead of piling up lag
 const JPEG_QUALITY = 0.8;
 const STEP_DOWN = [1280, 854];  // long edges to fall back to when this device can't encode frames as fast as asked
-const SLOW_SECONDS = 2;  // how long encoding has to lag before stepping down
+const SLOW_SECONDS = 2;  // how often to look at whether encoding keeps up
+const SLOW_SHARE = 0.25;  // frames skipped for a busy encoder past which it steps down
+const H264_CODECS = ["avc1.42E028", "avc1.4D0028"];  // Constrained Baseline, then Main, level 4.0 (1080p30)
+const KEYFRAME_SECONDS = 2;
 
 const token = decodeURIComponent(location.hash.slice(1));
 const video = document.getElementById("video");
@@ -26,10 +30,17 @@ let running = false;
 let retries = 0;
 let retryTimer = null;
 let frameTimer = null;
-let encoding = false;
-let encodeMs = 0;  // average time to encode a frame
-let slowFrames = 0;
+let encoding = false;  // a JPEG is being made
+let ticks = 0, skipped = 0, paceSince = 0;
 let longCap = Infinity;  // the long edge this device keeps up with, once it has had to step down
+let encoder = null;
+let encoderSize = "";  // what encoder is set up for
+let configuring = false;
+let h264Off = "";  // why this page sends JPEG though the computer takes H.264
+let needKey = true;
+let dropping = false;  // a chunk didn't go out, so the frames after it wait for a keyframe
+let sinceKey = 0;
+let codecNow = "", codecNote = "";
 let audioCtx = null;
 let wakeLock = null;
 const canvas = document.createElement("canvas");
@@ -138,6 +149,7 @@ function connect() {
   ws = socket;
   socket.onopen = () => {
     retries = 0;
+    needKey = true;  // the computer starts a new decoder
     sendHello();
     show("Connected. Your computer can use this camera now.", "ok");
   };
@@ -146,6 +158,7 @@ function connect() {
     let msg;
     try { msg = JSON.parse(e.data); } catch (_) { return; }
     if (msg.type === "config") applyConfig(msg);
+    else if (msg.type === "keyframe") needKey = true;
   };
   socket.onclose = (e) => {
     if (ws !== socket) return;
@@ -165,59 +178,187 @@ function connect() {
 
 function sendHello() {
   if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: "hello", device: deviceName(), mic_error: micError }));
+    ws.send(JSON.stringify({ type: "hello", device: deviceName(), mic_error: micError, codec: codecNow,
+                             codec_note: codecNote }));
   }
 }
 
 function applyConfig(msg) {
   const changed = msg.width !== config.width || msg.height !== config.height || msg.fps !== config.fps;
-  config = { width: msg.width | 0 || 1280, height: msg.height | 0 || 720, fps: msg.fps | 0 || 30, audio: !!msg.audio };
+  config = { width: msg.width | 0 || 1280, height: msg.height | 0 || 720, fps: msg.fps | 0 || 30, audio: !!msg.audio,
+             h264: !!msg.h264 };
   if (changed) {
     longCap = Infinity;  // a size picked on the computer gets another try
     resetPace();
   }
+  if (!config.h264) closeEncoder();
   const track = media && media.getVideoTracks()[0];
   if (changed && track) track.applyConstraints(videoConstraints()).catch(() => {});
 }
 
 function sendFrame() {
   frameTimer = setTimeout(sendFrame, 1000 / config.fps);
-  if (!ws || ws.readyState !== WebSocket.OPEN || encoding || ws.bufferedAmount > MAX_BUFFERED) return;
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
   const w = video.videoWidth, h = video.videoHeight;
   if (!w || !h) return;
+  const [fw, fh] = frameSize(w, h);
+  const h264 = wantH264();
+  if (h264 && !encoderReady(fw, fh)) return;
+  if (!h264) showCodec("jpeg", h264Off || (config.h264 ? "" : "The computer can't decode H.264, so this sends JPEG."));
+  const busy = h264 ? encoder.encodeQueueSize > 1 : encoding;
+  notePace(busy);
+  if (busy || ws.bufferedAmount > MAX_BUFFERED) return;
+  canvas.width = fw;
+  canvas.height = fh;
+  ctx2d.drawImage(video, 0, 0, fw, fh);
+  if (h264) encodeH264();
+  else encodeJpeg();
+}
+
+function frameSize(w, h) {
   // Never more than the computer asked for; a camera that can't do that size sends what it has.
   const askedLong = Math.max(config.width, config.height), askedShort = Math.min(config.width, config.height);
   const long = Math.min(askedLong, longCap), short = askedShort * long / askedLong;
   const scale = Math.min(1, long / Math.max(w, h), short / Math.min(w, h));
-  canvas.width = Math.round(w * scale);
-  canvas.height = Math.round(h * scale);
-  ctx2d.drawImage(video, 0, 0, canvas.width, canvas.height);
+  return [2 * Math.round(w * scale / 2), 2 * Math.round(h * scale / 2)];  // H.264 needs even sizes
+}
+
+function encodeJpeg() {
   encoding = true;
-  const began = performance.now();
   canvas.toBlob((blob) => {
     encoding = false;
-    notePace(performance.now() - began);
     if (blob && ws && ws.readyState === WebSocket.OPEN) ws.send(new Blob([new Uint8Array([FRAME_JPEG]), blob]));
   }, "image/jpeg", JPEG_QUALITY);
 }
 
-function notePace(ms) {
-  encodeMs = encodeMs ? encodeMs * 0.9 + ms * 0.1 : ms;
-  if (encodeMs <= 1000 / config.fps) {
-    slowFrames = 0;
-    return;
+// ── H.264 ──────────────────────────────────────────────────────────────────
+
+function wantH264() {
+  if (!config.h264 || h264Off) return false;
+  if (typeof VideoEncoder !== "function" || typeof VideoFrame !== "function") {
+    useJpeg("This browser has no video encoder for pages, so this sends JPEG.");
+    return false;
   }
-  slowFrames += 1;
-  const next = STEP_DOWN.find((l) => l < Math.max(canvas.width, canvas.height));
-  if (slowFrames >= SLOW_SECONDS * config.fps && next) {
-    longCap = next;
-    resetPace();
+  return true;
+}
+
+function encoderReady(w, h) {
+  const size = `${w}x${h}@${config.fps}`;
+  if (encoder && encoder.state === "configured" && encoderSize === size) return true;
+  if (!configuring) setUpEncoder(w, h, size);
+  return false;
+}
+
+async function setUpEncoder(w, h, size) {
+  configuring = true;
+  try {
+    const cfg = await hardwareConfig(w, h);
+    if (!cfg) {
+      // Some hardware encoders stop short of 1080p: a smaller size may still have one
+      const next = STEP_DOWN.find((l) => l < Math.max(w, h));
+      if (next) longCap = next;
+      else useJpeg("This device has no hardware H.264 encoder the browser can use, so this sends JPEG.");
+      return;
+    }
+    if (!encoder || encoder.state === "closed") {
+      const enc = new VideoEncoder({
+        output: sendChunk,
+        error: (err) => { if (enc === encoder) useJpeg(`The H.264 encoder stopped (${err.message}), so this sends JPEG.`); },
+      });
+      encoder = enc;
+    }
+    encoder.configure(cfg);
+    encoderSize = size;
+    needKey = true;
+    showCodec("h264", "");
+  } catch (err) {
+    useJpeg(`H.264 didn't start (${err.message}), so this sends JPEG.`);
+  } finally {
+    configuring = false;
   }
 }
 
+async function hardwareConfig(w, h) {
+  for (const codec of H264_CODECS) {
+    // Chrome takes prefer-hardware as hardware only; a software encoder would be as slow as JPEG on a phone
+    const cfg = { codec, width: w, height: h, framerate: config.fps, bitrate: Math.min(12e6, Math.round(w * h * config.fps * 0.12)),
+                  hardwareAcceleration: "prefer-hardware", latencyMode: "realtime", avc: { format: "annexb" } };
+    try {
+      if ((await VideoEncoder.isConfigSupported(cfg)).supported) return cfg;
+    } catch (_) {
+      // not this one
+    }
+  }
+  return null;
+}
+
+function encodeH264() {
+  const frame = new VideoFrame(canvas, { timestamp: Math.round(performance.now() * 1000) });
+  const key = needKey || ++sinceKey >= config.fps * KEYFRAME_SECONDS;
+  if (key) {
+    needKey = false;
+    sinceKey = 0;
+  }
+  try {
+    encoder.encode(frame, { keyFrame: key });
+  } catch (err) {
+    useJpeg(`The H.264 encoder stopped (${err.message}), so this sends JPEG.`);
+  } finally {
+    frame.close();
+  }
+}
+
+function sendChunk(chunk) {
+  const key = chunk.type === "key";
+  if (!ws || ws.readyState !== WebSocket.OPEN || ws.bufferedAmount > MAX_BUFFERED) {
+    dropping = needKey = true;  // what comes next refers to this frame, so start over from a keyframe
+    return;
+  }
+  if (dropping && !key) return;
+  dropping = false;
+  const out = new Uint8Array(chunk.byteLength + 2);
+  out[0] = FRAME_H264;
+  out[1] = key ? 1 : 0;
+  chunk.copyTo(out.subarray(2));
+  ws.send(out);
+}
+
+function useJpeg(note) {
+  h264Off = note;
+  closeEncoder();
+  showCodec("jpeg", note);
+}
+
+function closeEncoder() {
+  if (encoder && encoder.state !== "closed") {
+    try { encoder.close(); } catch (_) { /* already gone */ }
+  }
+  encoder = null;
+  encoderSize = "";
+}
+
+function showCodec(codec, note) {
+  if (codec === codecNow && note === codecNote) return;
+  codecNow = codec;
+  codecNote = note;
+  sendHello();
+}
+
+// Every couple of seconds: a device that skipped more than a share of frames for a busy encoder steps down a size.
+function notePace(busy) {
+  const now = performance.now();
+  if (!paceSince) paceSince = now;
+  ticks += 1;
+  if (busy) skipped += 1;
+  if (now - paceSince < SLOW_SECONDS * 1000) return;
+  const slow = skipped > ticks * SLOW_SHARE;
+  resetPace();
+  const next = STEP_DOWN.find((l) => l < Math.max(canvas.width, canvas.height));
+  if (slow && next) longCap = next;
+}
+
 function resetPace() {
-  encodeMs = 0;
-  slowFrames = 0;
+  ticks = skipped = paceSince = 0;
 }
 
 function sendAudio(buffer) {
@@ -286,6 +427,9 @@ function stop() {
   ws = null;
   if (socket) socket.close(1000);
   stopMedia();
+  closeEncoder();
+  h264Off = codecNow = codecNote = "";
+  encoding = false;
   if (wakeLock) wakeLock.release().catch(() => {});
   wakeLock = null;
   video.srcObject = null;

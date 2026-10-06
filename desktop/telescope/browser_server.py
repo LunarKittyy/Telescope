@@ -1,7 +1,7 @@
 """Browser camera: any device with a browser streams its camera and mic here, no app needed. Qt-free.
 
-The device opens https://<this computer>:<port>/#<token>, allows the camera, and sends JPEG frames and
-48 kHz mono s16le audio over one WebSocket. Browsers only allow the camera on HTTPS (or localhost), so the
+The device opens https://<this computer>:<port>/#<token>, allows the camera, and sends H.264 (when its browser
+has a hardware encoder and PyAV can decode here) or JPEG frames, and 48 kHz mono s16le audio, over one WebSocket. Browsers only allow the camera on HTTPS (or localhost), so the
 server has a self-signed certificate the browser warns about once. The token is new every time the server
 starts, and a newer connection with it replaces the older one, so there's one browser at a time.
 
@@ -34,12 +34,15 @@ from typing import Callable, Optional
 import cv2
 import numpy as np
 
+from telescope import h264_reader
+
 logger = logging.getLogger(__name__)
 
 BROWSER_PORT = 8767
 
 FRAME_JPEG = 1  # first byte of a binary message: what follows
 FRAME_PCM = 2
+FRAME_H264 = 3  # then 1 for a keyframe or 0, then Annex-B
 
 _WS_GUID = b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 _MAX_MESSAGE_BYTES = 16 * 1024 * 1024  # far above a 1080p JPEG; anything bigger ends the connection
@@ -49,6 +52,8 @@ _IDLE_TIMEOUT_S = 10  # no message at all for this long (a phone that went to sl
 _TICK_S = 0.5  # how often the connection loop looks for something to send while nothing arrives
 _MAX_CONNECTIONS = 16
 _MAX_PER_ADDRESS = 6
+# H.264 waiting for the decoder past this is dropped up to the next keyframe, which the page is asked for
+_MAX_H264_BYTES = 8 * 1024 * 1024
 
 # Browsers refuse certificates valid for more than 398 days, so it's renewed a month before it runs out.
 _CERT_DAYS = 397
@@ -137,14 +142,20 @@ class BrowserFeed:
     """Frames and audio from whichever browser is connected; thread-safe. A connection is a generation: a newer one
     takes over, and the frames of an older one are never handed out after it."""
 
-    def __init__(self):
+    def __init__(self, h264: Optional[bool] = None):
         self._cond = threading.Condition()
         self._gen = 0
         self._connected = False
         self._frame: Optional[bytes] = None
         self._frame_seq = 0
+        self.h264 = h264_reader.available() if h264 is None else h264  # whether the page may send H.264
+        self._h264 = bytearray()  # H.264 not yet read, in order: each frame needs the ones before it
+        self._h264_need_key = True
+        self._key_seq = 0  # bumped to ask the page for a keyframe
         self.device = ""  # what the browser says it runs on, for the card
         self.mic_error = ""  # the browser's reason it has no mic, if it said one
+        self.codec = ""  # what the page sends: "h264" or "jpeg"
+        self.codec_note = ""  # why it isn't H.264, if it said
         self._audio_streams: list = []
         self._settings = {"width": 1280, "height": 720, "fps": 30}
         self._settings_seq = 0  # bumped on every change, so each connection sends the newest
@@ -156,8 +167,11 @@ class BrowserFeed:
             self._gen += 1
             self._connected = True
             self._frame = None
+            self._h264.clear()
+            self._h264_need_key = True
             self.device = ""
             self.mic_error = ""
+            self.codec = self.codec_note = ""
             self._cond.notify_all()
             return self._gen
 
@@ -167,6 +181,7 @@ class BrowserFeed:
                 return
             self._connected = False
             self._frame = None
+            self._h264.clear()
             self._cond.notify_all()
 
     def current(self, gen: int) -> bool:
@@ -177,8 +192,34 @@ class BrowserFeed:
             if gen != self._gen:
                 return
             self._frame = jpeg
+            self._h264.clear()
             self._frame_seq += 1
             self._cond.notify_all()
+
+    def put_h264(self, gen: int, key: bool, data: bytes):
+        with self._cond:
+            if gen != self._gen:
+                return
+            self._frame = None
+            if key:
+                self._h264_need_key = False
+            elif self._h264_need_key:
+                return  # nothing to decode it against
+            if len(self._h264) + len(data) > _MAX_H264_BYTES:
+                self._h264.clear()
+                if not key:
+                    self._h264_need_key = True
+                    self._key_seq += 1
+                    return
+            self._h264 += data
+            self._frame_seq += 1
+            self._cond.notify_all()
+
+    def request_keyframe(self):
+        with self._cond:
+            self._h264.clear()
+            self._h264_need_key = True
+            self._key_seq += 1
 
     def put_audio(self, gen: int, pcm: bytes):
         if gen != self._gen:
@@ -186,15 +227,20 @@ class BrowserFeed:
         for stream in list(self._audio_streams):
             stream.push(pcm)
 
-    def note_hello(self, gen: int, device: str, mic_error: str):
+    def note_hello(self, gen: int, device: str, mic_error: str, codec: str = "", codec_note: str = ""):
         if gen == self._gen:
             self.device, self.mic_error = device, mic_error
+            self.codec, self.codec_note = codec, codec_note
 
     def page_config(self) -> tuple:
         """(change counter, what the page should capture), sent to the page when the counter moves."""
         with self._cond:
-            cfg = dict(self._settings, audio=bool(self._audio_streams))
+            cfg = dict(self._settings, audio=bool(self._audio_streams), h264=self.h264)
             return self._settings_seq, cfg
+
+    def keyframe_requests(self) -> int:
+        """A counter that moves each time the decoder needs a keyframe; the connection asks the page when it does."""
+        return self._key_seq
 
     # The desktop's side
 
@@ -219,14 +265,20 @@ class BrowserFeed:
             return self._gen
 
     def next_frame(self, gen: int, after: int, timeout: float) -> Optional[tuple]:
-        """(seq, jpeg) newer than after from connection gen, waiting up to timeout; None once it's gone or quiet."""
+        """(seq, codec, data) newer than after from connection gen, waiting up to timeout; None once it's gone or
+        quiet. JPEG is the newest frame alone; H.264 is everything since the last call, which the reader decodes."""
         deadline = time.monotonic() + timeout
         with self._cond:
             while True:
                 if gen != self._gen or not self._connected:
                     return None
-                if self._frame is not None and self._frame_seq > after:
-                    return self._frame_seq, self._frame
+                if self._frame_seq > after:
+                    if self._frame is not None:
+                        return self._frame_seq, "jpeg", self._frame
+                    if self._h264:
+                        data = bytes(self._h264)
+                        self._h264.clear()
+                        return self._frame_seq, "h264", data
                 left = deadline - time.monotonic()
                 if left <= 0:
                     return None
@@ -322,10 +374,10 @@ class BrowserControl:
 
 
 class BrowserReader:
-    """StreamWorker's reader for the browser: the same open/read_packet/decode/release as MjpegReader."""
+    """StreamWorker's reader for the browser: the same open/read_packet/decode/release as MjpegReader. JPEG frames
+    decode in parallel in decode(); H.264 decodes in order in read_packet(), and decode() passes the frame on."""
 
     parallel_decode = True
-    last_frame_count = 1
     waiting_text = "Waiting for the browser. Scan the code on the Browser camera card and tap Start."
     # How long open() waits for a browser, and how long read_packet() waits for a frame before the worker reconnects.
     OPEN_WAIT_S = 1.0
@@ -335,39 +387,70 @@ class BrowserReader:
         self._feed = feed
         self._gen: Optional[int] = None
         self._seq = 0
+        self._codec = None
         self.last_frame_bytes = 0
+        self.last_frame_count = 1
+        self._pending_bytes = self._pending_frames = 0
 
     def open(self) -> bool:
         self._gen = self._feed.wait_connected(self.OPEN_WAIT_S)
         self._seq = 0
+        self._codec = None
+        if self._gen is not None:
+            self._feed.request_keyframe()  # a new decoder starts at one
         return self._gen is not None
 
     def isOpened(self) -> bool:
         return self._gen is not None
 
     def read_packet(self):
-        if self._gen is None:
-            return False, None
-        got = self._feed.next_frame(self._gen, self._seq, self.FRAME_WAIT_S)
-        if got is None:
-            return False, None
-        self._seq, jpeg = got
-        self.last_frame_bytes = len(jpeg)
-        return True, jpeg
+        while self._gen is not None:
+            got = self._feed.next_frame(self._gen, self._seq, self.FRAME_WAIT_S)
+            if got is None:
+                return False, None
+            self._seq, kind, data = got
+            if kind == "jpeg":
+                self.last_frame_bytes, self.last_frame_count = len(data), 1
+                return True, data
+            frame = self._decode_h264(data)
+            if frame is not None:
+                return True, frame
+        return False, None
+
+    def _decode_h264(self, data: bytes):
+        if self._codec is None:
+            self._codec = h264_reader.new_decoder()
+        try:
+            frame, count = h264_reader.decode_counted(self._codec, data)
+        except Exception:
+            logger.exception("Browser camera: H.264 decode failed; waiting for a keyframe")
+            self._codec = None
+            self._feed.request_keyframe()
+            return None
+        self._pending_bytes += len(data)
+        self._pending_frames += count
+        if frame is None:
+            return None
+        self.last_frame_bytes, self._pending_bytes = self._pending_bytes, 0
+        self.last_frame_count, self._pending_frames = self._pending_frames, 0
+        return frame
 
     @staticmethod
-    def decode(jpeg: bytes):
-        return cv2.imdecode(np.frombuffer(jpeg, dtype=np.uint8), cv2.IMREAD_COLOR)
+    def decode(packet):
+        if isinstance(packet, np.ndarray):
+            return packet  # H.264, already decoded in order
+        return cv2.imdecode(np.frombuffer(packet, dtype=np.uint8), cv2.IMREAD_COLOR)
 
     def read(self):
-        ok, jpeg = self.read_packet()
+        ok, packet = self.read_packet()
         if not ok:
             return False, None
-        frame = self.decode(jpeg)
+        frame = self.decode(packet)
         return (True, frame) if frame is not None else (False, None)
 
     def release(self):
         self._gen = None
+        self._codec = None
 
 
 # ── WebSocket framing (RFC 6455, just what a browser sends) ──────────────────
@@ -705,6 +788,7 @@ class BrowserServer:
         with self._socks_lock:
             self._socks.add(sock)
         sent = [-1]
+        keys_asked = [feed.keyframe_requests()]
 
         def tick():
             if not feed.current(gen):
@@ -715,6 +799,9 @@ class BrowserServer:
             if seq != sent[0]:
                 sent[0] = seq
                 ws.send(ws_frame(0x1, json.dumps(dict(cfg, type="config")).encode()))
+            if (keys := feed.keyframe_requests()) != keys_asked[0]:
+                keys_asked[0] = keys
+                ws.send(ws_frame(0x1, b'{"type":"keyframe"}'))
 
         sock.settimeout(_TICK_S)
         ws = _WsConnection(sock, tick)
@@ -729,6 +816,8 @@ class BrowserServer:
                         feed.put_frame(gen, payload[1:])
                     elif payload[0] == FRAME_PCM:
                         feed.put_audio(gen, payload[1:])
+                    elif payload[0] == FRAME_H264 and len(payload) > 2 and feed.h264:
+                        feed.put_h264(gen, payload[1] == 1, payload[2:])
                 elif opcode == 0x1 and len(payload) <= _MAX_TEXT_BYTES:
                     self._on_text(gen, payload)
         except _Closed as why:
@@ -754,7 +843,8 @@ class BrowserServer:
             return
         device = _clean(msg.get("device"), 48)
         mic_error = _clean(msg.get("mic_error"), 160)
-        self.feed.note_hello(gen, device, mic_error)
+        codec = msg.get("codec") if msg.get("codec") in ("h264", "jpeg") else ""
+        self.feed.note_hello(gen, device, mic_error, codec, _clean(msg.get("codec_note"), 160))
         self._on_change()
 
 
