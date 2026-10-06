@@ -1099,6 +1099,23 @@ class TelescopeWindow(QMainWindow):
         main = self._streams[0] if self._streams else None
         if main is self._main or self._stopping_all:
             return
+        self._set_main(main)
+
+    def make_main(self, source_id: str) -> bool:
+        """Move the plugins that don't follow the panels (the mic) to source_id's stream. False if it doesn't stream."""
+        main = next((s for s in self._streams if s.id == source_id and s.session is not None), None)
+        if main is None or self._stopping_all or self._restarting:
+            return False
+        if main is not self._main:
+            self._set_main(main)
+        return True
+
+    def main_stream(self) -> Optional[tuple]:
+        """(id, name) of the stream the mic is on, while one streams."""
+        main = self._main
+        return (main.id, main.name) if main is not None and main.session is not None else None
+
+    def _set_main(self, main: Optional[Source]):
         stays = [p for p in self._plugins if not p.follows_focus]
         old, self._main = self._main, None
         if old is not None:

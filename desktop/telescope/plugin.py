@@ -129,6 +129,15 @@ class HostServices(Protocol):
         """The source the panels show (or Start would stream from), for a banner about it to act on it later."""
         ...
 
+    def main_stream(self) -> Optional[tuple]:
+        """(id, name) of the stream plugins that don't follow the panels (the mic) are on, while one streams."""
+        ...
+
+    def make_main(self, source_id: str) -> bool:
+        """Move the plugins that don't follow the panels to source_id's stream: they get its saved settings, and the
+        stream they leave keeps theirs as they are now. False if it doesn't stream."""
+        ...
+
     def set_keep_in_tray(self, keep: bool) -> None:
         """Closing the window hides it to the tray even when idle (something is waiting to start)."""
         ...

@@ -1,15 +1,33 @@
+from types import SimpleNamespace
+
 import pytest
 
+import telescope.app as app_module
 from telescope.plugin import EventBus
 from telescope.plugins.microphone import MicrophonePlugin
+
+from test_app import _Connection, _Signal, window  # noqa: F401 (the fixture)
 
 
 class _Host:
     def __init__(self):
         self.saves = 0
+        self.main, self.shown = None, None  # (id, name) the mic is on; the id the panels show
 
     def schedule_save(self):
         self.saves += 1
+
+    def main_stream(self):
+        return self.main
+
+    def focused_source_id(self):
+        return self.shown
+
+    def is_streaming_from(self, _source_id):
+        return True
+
+    def stream_count(self):
+        return 0
 
 
 class _Backend:
@@ -287,3 +305,113 @@ def test_limiter_switch_from_advanced_reaches_the_worker(qapp):
     w.level = (0.89, 0.3, True)
     p._tick_meter()
     assert p._meter.limiting() and not p._meter.clipping()
+
+
+# ── Several streams: one mic, on the stream whose card has it on ─────────────
+
+class _Cam:
+    url = "browser:"
+    remember_changes_only = False
+
+    def __init__(self, sid, ip):
+        self.id, self.name = sid, sid.title()
+        self.ctrl = SimpleNamespace(base=f"http://{ip}/v1", auth="tok", send=lambda **_kw: None,
+                                    get_state=lambda: None, close=lambda: None)
+
+    def prepare(self, interactive):
+        return True
+
+    def open_reader(self):
+        return None
+
+    def control_client(self):
+        return self.ctrl
+
+    def fps(self):
+        return 30
+
+
+class _StreamWorker:
+    def __init__(self, **kwargs):
+        self.status, self.reconnected, self.vcam_opened = _Signal(), _Signal(), _Signal()
+
+    def start(self):
+        pass
+
+    def request_stop(self):
+        pass
+
+    def wait(self, _ms):
+        return True
+
+    def set_pipeline(self, _steps):
+        pass
+
+    def latest_frame(self):
+        return None
+
+
+@pytest.fixture
+def two_cams(window, config_home, monkeypatch):
+    monkeypatch.setattr(app_module, "StreamWorker", _StreamWorker)
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    conn = _Connection(selected="front")
+    conn.ensure_virtual_camera = lambda interactive=True: True
+    _Worker.made = []
+    mic = MicrophonePlugin(backend=_Backend(), worker_cls=_Worker, run_job=lambda fn: fn())
+    for plugin in (conn, mic):
+        window.register_plugin(plugin)
+    for cam in (_Cam("front", "10.0.0.5"), _Cam("back", "10.0.0.6")):
+        window.add_stream_source(cam)
+    window._bus.phones_changed.emit(2)  # the card is greyed out until then
+    window._start()
+    mic._toggle.setChecked(True)  # on for the first
+    window.add_stream("back")  # the panels move to it
+    return window, mic, config_home
+
+
+def _mic_on(config_home, sid):
+    cfg = config_home.load_config()
+    return cfg.get("devices", {}).get(sid, {}).get("plugin_configs", {}).get("microphone", {}).get("enabled")
+
+
+def test_another_streams_card_shows_its_mic_off_and_turning_it_on_moves_the_mic(two_cams):
+    window, mic, config_home = two_cams
+    assert window._focus.id == "back" and window.main_stream() == ("front", "Front")
+    assert not mic._toggle.isChecked() and mic._toggle.isEnabled()
+    assert mic._gain_row.isHidden() and "On for Front" in mic._status.text()
+    assert [w.url for w in _Worker.made if not w.stopped] == ["http://10.0.0.5/v1/audio"]
+
+    mic._toggle.click()
+    assert window.main_stream() == ("back", "Back")
+    assert mic._toggle.isChecked() and not mic._gain_row.isHidden() and mic._status.text() == "Connecting…"
+    assert [w.url for w in _Worker.made if not w.stopped] == ["http://10.0.0.6/v1/audio"]
+    assert _mic_on(config_home, "front") is False  # the one it left keeps it off
+    assert mic._backend.torn_down == 0  # apps keep the same microphone throughout
+
+    window.focus_stream("front")
+    assert not mic._toggle.isChecked() and "On for Back" in mic._status.text()
+
+    window.focus_stream("back")
+    mic._toggle.click()  # off on the one that has it: off, and it stays there
+    assert window.main_stream() == ("back", "Back") and not mic._enabled
+    window.focus_stream("front")
+    assert not mic._toggle.isChecked() and mic._status.text() == ""
+    mic._toggle.click()  # on again, here
+    assert window.main_stream() == ("front", "Front") and mic._enabled
+    assert [w.url for w in _Worker.made if not w.stopped] == ["http://10.0.0.5/v1/audio"]
+
+
+def test_the_mic_stays_on_when_the_stream_with_it_stops(two_cams):
+    window, mic, config_home = two_cams
+    mic._toggle.click()  # moved to the back camera; the front one keeps it off
+    window.stop_stream("back")
+    assert window.main_stream() == ("front", "Front") and mic._enabled and mic._toggle.isChecked()
+    assert [w.url for w in _Worker.made if not w.stopped] == ["http://10.0.0.5/v1/audio"]
+
+
+def test_a_card_whose_camera_is_still_starting_cant_take_the_mic(two_cams):
+    window, mic, _config = two_cams
+    window.stop_stream("back")
+    window._move_focus(window._source_by_id("back"))  # as + does, before its stream is up
+    assert not mic._toggle.isChecked() and not mic._toggle.isEnabled()
