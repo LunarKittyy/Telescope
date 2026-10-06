@@ -541,6 +541,7 @@ class TelescopeWindow(QMainWindow):
                 dev_pcfg = cfg.setdefault("devices", {}).setdefault(key, {}).setdefault("plugin_configs", {})
                 if (c := self._config_of(p, dev_pcfg.get(p.name))) is not None:
                     dev_pcfg[p.name] = c
+        self._drop_unchanged(cfg)
         if self._slot_memory:
             cfg["output_slots"] = dict(self._slot_memory)
         if save_config(cfg):
@@ -572,7 +573,22 @@ class TelescopeWindow(QMainWindow):
             if p.name and p.name in DEVICE_LOCAL_PLUGINS:
                 if (c := self._config_of(p, pcfg.get(p.name))) is not None:
                     pcfg[p.name] = c
+        self._drop_unchanged(cfg)
         save_config(cfg)
+
+    def _drop_unchanged(self, cfg: dict):
+        """A source that's only remembered once changed (a browser) keeps no settings that are still the defaults."""
+        devices = cfg.get("devices", {})
+        for name in [n for n in devices if getattr(self._sources.get(n), "remember_changes_only", False)]:
+            pcfg = devices[name].get("plugin_configs", {})
+            for pname in [k for k, v in pcfg.items() if v == self._plugin_defaults.get(k)]:
+                del pcfg[pname]
+            if not pcfg:
+                del devices[name]
+
+    def has_device_settings(self, name: str) -> bool:
+        cfg = load_config()
+        return bool(cfg.get("devices", {}).get(name, {}).get("plugin_configs"))
 
     def _apply_device_profile(self, name: Optional[str], plugins: Optional[list] = None):
         cfg = load_config()
@@ -601,6 +617,7 @@ class TelescopeWindow(QMainWindow):
                     if (c := self._config_of(p, prev_pcfg.get(p.name))) is not None:
                         prev_pcfg[p.name] = c
         if cfg is not None:
+            self._drop_unchanged(cfg)
             save_config(cfg)
 
         was_streaming = self._session is not None or self._waking  # a start still waking would stream the old phone
@@ -619,7 +636,9 @@ class TelescopeWindow(QMainWindow):
     def forget_device_settings(self, name: str):
         """Drop a removed phone's per-device settings from the config."""
         cfg = self._config_to_update()
-        if cfg is not None and cfg.get("devices", {}).pop(name, None) is not None:
+        self._slot_memory.pop(name, None)
+        if cfg is not None and (cfg.get("devices", {}).pop(name, None) is not None
+                                or cfg.get("output_slots", {}).pop(name, None) is not None):
             save_config(cfg)
 
     def _shutdown_plugins(self):
@@ -723,8 +742,41 @@ class TelescopeWindow(QMainWindow):
         else:                              self._start()
 
     def add_stream_source(self, source):
-        self._sources[source.id] = PluginSource(self, source)
+        old = self._sources.get(source.id)
+        if old is not None and old._source is not source:
+            old._source = source  # the same one offered again (a new name): a stream from it carries on
+        elif old is None:
+            self._sources[source.id] = PluginSource(self, source)
         self._bus.stream_sources_changed.emit([(s.id, s.name) for s in self._sources.values()])
+        if len(self._streams) > 1:
+            self._refresh_tiles()  # a new name for one that streams
+
+    def remove_stream_source(self, source_id: str):
+        if source_id not in self._sources:
+            return
+        if self.is_streaming_from(source_id):
+            self.stop_stream(source_id)
+        conn = self._plugin("connection")
+        if conn is not None and conn.selected_device == source_id and not self._streams:
+            conn.select(next((sid for sid in self._sources if sid != source_id), None))
+        del self._sources[source_id]
+        self._bus.stream_sources_changed.emit([(s.id, s.name) for s in self._sources.values()])
+
+    def stream_source(self, source_id: str):
+        """Start source_id: picked and streamed when nothing streams yet, else next to the others."""
+        if self._waking or self._preparing or self.is_streaming_from(source_id) or source_id not in self._sources:
+            return
+        if self._streams:
+            self.add_stream(source_id)
+            return
+        conn = self._plugin("connection")
+        if conn is not None and conn.selected_device != source_id:
+            conn.select(source_id)
+        self._start(interactive=False)
+
+    def stream_output(self, source_id: str) -> str:
+        source = next((s for s in self._streams if s.id == source_id), None)
+        return vcam.slot_label(source.slot) if source is not None else ""
 
     def _source_by_id(self, source_id: Optional[str]) -> Source:
         return self._sources.get(source_id) or self._phone_source(source_id)
@@ -781,6 +833,11 @@ class TelescopeWindow(QMainWindow):
             return
         self.clear_issue("start")
         source = source or self._selected_source()
+        target = source.redirect() if not self._streams else None
+        if target and target in self._sources:  # e.g. Browser camera picked with a browser already there
+            if conn.selected_device != target:
+                conn.select(target)
+            source = self._sources[target]
         self._preparing = True
         try:
             ok = source.prepare(interactive)

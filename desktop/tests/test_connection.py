@@ -305,6 +305,22 @@ def test_phones_dialog_lists_renames_and_removes(plugin_env, monkeypatch):
     assert host.forgotten == ["id-a"]
 
 
+def test_phones_dialog_lists_remembered_browsers_to_remove(plugin_env, monkeypatch):
+    plugin, _host, _panel = plugin_env
+    _add(plugin, pid="id-a", name="A")
+    asked = []
+    plugin._bus.forget_source_requested.connect(asked.append)
+    plugin._bus.remembered_sources.emit([("browser:pixel-aaaaaaaa", "Chrome on Android", "Browser")])
+    dialog = connection_module.PhonesDialog(plugin)
+    assert [dialog._list.item(i).text() for i in range(2)] == ["A", "Chrome on Android (browser)"]
+    dialog._list.setCurrentRow(1)
+    assert not dialog._rename_btn.isEnabled() and dialog._remove_btn.isEnabled()
+    monkeypatch.setattr(connection_module.QMessageBox, "question",
+                        lambda *a: QMessageBox.StandardButton.Yes)
+    dialog._remove()
+    assert asked == ["browser:pixel-aaaaaaaa"]
+
+
 # ── Status ────────────────────────────────────────────────────────────────────
 
 def test_resolution_updates_the_card_and_remembers_the_address_that_answered(plugin_env):

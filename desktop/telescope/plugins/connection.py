@@ -300,7 +300,8 @@ class PhonesDialog(QDialog):
         self.setMinimumSize(ui_px(440), ui_px(360))
         lay = dialog_layout(self)
         dialog_header(lay, "Your phones",
-                      "Each phone keeps its own camera settings. Removing one also unpairs it on the phone.")
+                      "Each phone keeps its own camera settings, and so does a browser once you change one. "
+                      "Removing a phone also unpairs it on the phone.")
         self._list = QListWidget()
         self._list.currentRowChanged.connect(self._on_selection)
         lay.addWidget(self._list, 1)
@@ -334,16 +335,24 @@ class PhonesDialog(QDialog):
             item = QListWidgetItem(phone.name)
             item.setData(Qt.ItemDataRole.UserRole, phone.id)
             self._list.addItem(item)
+        for sid, name, detail in self._plugin.remembered:  # browsers with settings of their own
+            item = QListWidgetItem(f"{name} (browser)")
+            item.setData(Qt.ItemDataRole.UserRole, sid)
+            item.setToolTip(detail)
+            self._list.addItem(item)
         self._on_selection(self._list.currentRow())
+
+    def _browser(self, sid: Optional[str]) -> Optional[tuple]:
+        return next((e for e in self._plugin.remembered if e[0] == sid), None)
 
     def _current_id(self) -> Optional[str]:
         item = self._list.currentItem()
         return item.data(Qt.ItemDataRole.UserRole) if item else None
 
     def _on_selection(self, _row: int):
-        ok = self._current_id() is not None
-        self._rename_btn.setEnabled(ok)
-        self._remove_btn.setEnabled(ok)
+        sid = self._current_id()
+        self._rename_btn.setEnabled(sid is not None and self._browser(sid) is None)
+        self._remove_btn.setEnabled(sid is not None)
 
     def _rename(self):
         pid = self._current_id()
@@ -365,6 +374,16 @@ class PhonesDialog(QDialog):
 
     def _remove(self):
         pid = self._current_id()
+        if (browser := self._browser(pid)) is not None:
+            r = QMessageBox.question(
+                self, "Remove browser",
+                f'Remove "{browser[1]}"? This deletes the settings it had on this computer. It can still connect '
+                "with the code, and starts from the defaults.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+            if r == QMessageBox.StandardButton.Yes:
+                self._plugin.forget_source(pid)
+                self.refresh()
+            return
         phone = self._plugin.phone(pid)
         if phone is None:
             return
@@ -433,6 +452,16 @@ class ConnectionPlugin(TelescopePlugin):
         bus.add_phone_requested.connect(self.open_add_phone)
         self._sources: list = []  # [(id, name)] of the StreamSources other plugins offer (Browser camera)
         bus.stream_sources_changed.connect(self._on_sources)
+        self.remembered: list = []  # [(id, name, detail)] of browsers with settings of their own
+        bus.remembered_sources.connect(self._on_remembered)
+
+    def _on_remembered(self, entries: list):
+        self.remembered = list(entries)
+        if self._phones_dlg is not None and self._phones_dlg.isVisible():
+            self._phones_dlg.refresh()
+
+    def forget_source(self, sid: str):
+        self._bus.forget_source_requested.emit(sid)
 
     # ── Model ─────────────────────────────────────────────────────────────
 
@@ -1175,6 +1204,10 @@ class ConnectionPlugin(TelescopePlugin):
         self._mark_selected(pid)
         self._activate_profile(pid)
         self._show_selection()
+
+    def select(self, pid: Optional[str]):
+        """Pick pid, as the picker would (its settings come in; whatever streamed stops)."""
+        self._select(pid)
 
     def show_selected(self, pid: Optional[str]):
         """The host moved the panels to pid's stream and swapped the settings itself: show it as picked."""

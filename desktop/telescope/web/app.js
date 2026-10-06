@@ -14,6 +14,7 @@ const H264_CODECS = ["avc1.42E028", "avc1.4D0028"];  // Constrained Baseline, th
 const KEYFRAME_SECONDS = 2;
 
 const token = decodeURIComponent(location.hash.slice(1));
+const browserId = keptId();  // tells the computer it's this browser again (a reload), not another camera
 const video = document.getElementById("video");
 const statusEl = document.getElementById("status");
 const dot = document.getElementById("dot");
@@ -45,6 +46,27 @@ let audioCtx = null;
 let wakeLock = null;
 const canvas = document.createElement("canvas");
 const ctx2d = canvas.getContext("2d");
+
+function keptId() {
+  const make = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, "0")).join("");
+  for (const store of [() => localStorage, () => sessionStorage]) {
+    try {
+      const s = store();
+      let id = s.getItem("telescope-browser-id");
+      if (!id || !/^[A-Za-z0-9_-]{8,40}$/.test(id)) {
+        id = make();
+        s.setItem("telescope-browser-id", id);
+      }
+      return id;
+    } catch (_) { /* storage blocked: try the next, else this page load only */ }
+  }
+  return make();
+}
+
+function showConnected() {
+  show(config.camera ? `Connected. Your computer streams this camera as ${config.camera}.`
+                     : "Connected. Your computer can use this camera now.", "ok");
+}
 
 function show(text, kind) {
   statusEl.textContent = text;
@@ -144,14 +166,15 @@ function cameraError(err) {
 
 function connect() {
   clearTimeout(retryTimer);
-  const socket = new WebSocket(`wss://${location.host}/ws?token=${encodeURIComponent(token)}`);
+  const socket = new WebSocket(
+    `wss://${location.host}/ws?token=${encodeURIComponent(token)}&id=${encodeURIComponent(browserId)}`);
   socket.binaryType = "arraybuffer";
   ws = socket;
   socket.onopen = () => {
     retries = 0;
     needKey = true;  // the computer starts a new decoder
     sendHello();
-    show("Connected. Your computer can use this camera now.", "ok");
+    showConnected();
   };
   socket.onmessage = (e) => {
     if (typeof e.data !== "string") return;
@@ -166,7 +189,12 @@ function connect() {
     if (!running) return;
     if (e.code === 4000) {
       stop();
-      show("This camera was opened on another device or tab.", "warn");
+      show("This camera was opened in another tab.", "warn");
+      return;
+    }
+    if (e.code === 4001) {
+      stop();
+      show("All of your computer's virtual cameras are in use. Stop one there, then tap Start.", "warn");
       return;
     }
     retries += 1;
@@ -185,8 +213,10 @@ function sendHello() {
 
 function applyConfig(msg) {
   const changed = msg.width !== config.width || msg.height !== config.height || msg.fps !== config.fps;
+  const named = (msg.camera || "") !== (config.camera || "");
   config = { width: msg.width | 0 || 1280, height: msg.height | 0 || 720, fps: msg.fps | 0 || 30, audio: !!msg.audio,
-             h264: !!msg.h264 };
+             h264: !!msg.h264, camera: typeof msg.camera === "string" ? msg.camera : "" };
+  if (named && ws && ws.readyState === WebSocket.OPEN) showConnected();
   if (changed) {
     longCap = Infinity;  // a size picked on the computer gets another try
     resetPace();

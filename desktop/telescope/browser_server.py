@@ -2,11 +2,14 @@
 
 The device opens https://<this computer>:<port>/#<token>, allows the camera, and sends H.264 (when its browser
 has a hardware encoder and PyAV can decode here) or JPEG frames, and 48 kHz mono s16le audio, over one WebSocket. Browsers only allow the camera on HTTPS (or localhost), so the
-server has a self-signed certificate the browser warns about once. The token is new every time the server
-starts, and a newer connection with it replaces the older one, so there's one browser at a time.
+server has a self-signed certificate the browser warns about once. The token is new every time the server starts.
 
-BrowserFeed is where the server puts what arrives; BrowserReader hands its frames to StreamWorker the way
-MjpegReader does, and BrowserFeed.open_audio() stands in for the phone's /v1/audio for AudioWorker.
+Several browsers can connect at once. Each page keeps an id of its own (in the browser's storage), so a reload or a
+second tab on the same device takes over that browser's feed, while another device gets a feed of its own.
+
+BrowserFeed is where the server puts what one browser sends, and BrowserHub keeps a feed per browser; BrowserReader
+hands a feed's frames to StreamWorker the way MjpegReader does, and BrowserFeed.open_audio() stands in for the phone's
+/v1/audio for AudioWorker.
 """
 
 import base64
@@ -18,6 +21,7 @@ import ipaddress
 import json
 import logging
 import os
+import re
 import secrets
 import socket
 import ssl
@@ -54,6 +58,10 @@ _MAX_CONNECTIONS = 16
 _MAX_PER_ADDRESS = 6
 # H.264 waiting for the decoder past this is dropped up to the next keyframe, which the page is asked for
 _MAX_H264_BYTES = 8 * 1024 * 1024
+_BROWSER_ID = re.compile(r"[A-Za-z0-9_-]{8,40}")
+DEFAULT_ID = "default"  # a page that sends no id of its own (an older one)
+CLOSE_REPLACED = 4000  # opened again on the same browser
+CLOSE_FULL = 4001  # every camera is taken
 
 # Browsers refuse certificates valid for more than 398 days, so it's renewed a month before it runs out.
 _CERT_DAYS = 397
@@ -159,6 +167,7 @@ class BrowserFeed:
         self._audio_streams: list = []
         self._settings = {"width": 1280, "height": 720, "fps": 30}
         self._settings_seq = 0  # bumped on every change, so each connection sends the newest
+        self._camera = ""  # the virtual camera it streams to, for the page to show
 
     # The server's side
 
@@ -236,6 +245,8 @@ class BrowserFeed:
         """(change counter, what the page should capture), sent to the page when the counter moves."""
         with self._cond:
             cfg = dict(self._settings, audio=bool(self._audio_streams), h264=self.h264)
+            if self._camera:
+                cfg["camera"] = self._camera
             return self._settings_seq, cfg
 
     def keyframe_requests(self) -> int:
@@ -248,10 +259,22 @@ class BrowserFeed:
     def connected(self) -> bool:
         return self._connected
 
+    @property
+    def generation(self) -> int:
+        """Moves on each time a browser connects to it."""
+        return self._gen
+
     def set_capture(self, width: int, height: int, fps: int):
         with self._cond:
             self._settings = {"width": int(width), "height": int(height), "fps": int(fps)}
             self._settings_seq += 1
+
+    def set_camera(self, name: str):
+        """The virtual camera this browser streams to ("" for none); its page shows it."""
+        with self._cond:
+            if name != self._camera:
+                self._camera = name
+                self._settings_seq += 1
 
     def wait_connected(self, timeout: float) -> Optional[int]:
         """The connected browser's generation, waiting up to timeout for one; None if nothing connected."""
@@ -302,6 +325,61 @@ class BrowserFeed:
             if stream in self._audio_streams:
                 self._audio_streams.remove(stream)
                 self._settings_seq += 1
+
+
+class BrowserHub:
+    """A BrowserFeed per browser, by the id its page keeps; thread-safe. can_join(id) decides whether a browser
+    that isn't known yet gets one (False: every camera is taken). Given a feed, every browser shares it."""
+
+    def __init__(self, can_join: Optional[Callable[[str], bool]] = None, h264: Optional[bool] = None,
+                 feed: Optional[BrowserFeed] = None):
+        self._can_join = can_join or (lambda _bid: True)
+        self._h264 = h264
+        self._single = feed
+        self._feeds: dict = {}
+        self._capture = (1280, 720, 30)
+        self._lock = threading.Lock()
+
+    def join(self, bid: str) -> Optional[BrowserFeed]:
+        if self._single is not None:
+            return self._single
+        with self._lock:
+            feed = self._feeds.get(bid)
+            if feed is not None:
+                return feed
+        if not self._can_join(bid):
+            return None
+        with self._lock:
+            feed = self._feeds.get(bid)
+            if feed is None:
+                feed = self._feeds[bid] = BrowserFeed(self._h264)
+                feed.set_capture(*self._capture)
+            return feed
+
+    def feed(self, bid: str) -> Optional[BrowserFeed]:
+        if self._single is not None:
+            return self._single
+        with self._lock:
+            return self._feeds.get(bid)
+
+    def feeds(self) -> dict:
+        """{id: feed} of every browser that connected since the server started (or was dropped)."""
+        if self._single is not None:
+            return {DEFAULT_ID: self._single}
+        with self._lock:
+            return dict(self._feeds)
+
+    def drop(self, bid: str):
+        """Forget a browser that left, so it needs room to join again."""
+        with self._lock:
+            feed = self._feeds.get(bid)
+            if feed is not None and not feed.connected:
+                del self._feeds[bid]
+
+    def set_capture(self, width: int, height: int, fps: int):
+        self._capture = (width, height, fps)
+        for feed in self.feeds().values():
+            feed.set_capture(width, height, fps)
 
 
 class BrowserAudioStream:
@@ -686,7 +764,9 @@ class _Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         url = urllib.parse.urlsplit(self.path)
         if url.path == "/ws":
-            self._websocket(urllib.parse.parse_qs(url.query).get("token", [""])[0])
+            query = urllib.parse.parse_qs(url.query)
+            bid = query.get("id", [""])[0]
+            self._websocket(query.get("token", [""])[0], bid if _BROWSER_ID.fullmatch(bid) else DEFAULT_ID)
             return
         page = _PAGES.get(url.path)
         if page is None:
@@ -696,7 +776,7 @@ class _Handler(BaseHTTPRequestHandler):
             self.server.owner.stats.note("pages")
         self._reply(200, (_WEB_DIR / page[0]).read_bytes(), page[1])
 
-    def _websocket(self, token: str):
+    def _websocket(self, token: str, bid: str):
         owner: BrowserServer = self.server.owner
         key = self.headers.get("Sec-WebSocket-Key", "")
         if (self.headers.get("Upgrade", "").lower() != "websocket" or not key
@@ -715,15 +795,16 @@ class _Handler(BaseHTTPRequestHandler):
         self.wfile.flush()
         self.close_connection = True
         owner.stats.note("browsers")
-        owner.serve_browser(self.connection)
+        owner.serve_browser(self.connection, bid)
 
 
 class BrowserServer:
-    """Serves the page and takes one browser's camera at a time into feed. start() binds, stop() ends everything."""
+    """Serves the page and takes each browser's camera into its feed in hub (or, given a feed, one browser at a
+    time into it). start() binds, stop() ends everything."""
 
-    def __init__(self, feed: BrowserFeed, cert_path: Path, key_path: Path,
+    def __init__(self, hub, cert_path: Path, key_path: Path,
                  on_change: Optional[Callable[[], None]] = None, port: int = BROWSER_PORT, host: str = ""):
-        self.feed = feed
+        self.hub = hub if isinstance(hub, BrowserHub) else BrowserHub(feed=hub)
         self.token = secrets.token_urlsafe(18)
         self._cert, self._key = cert_path, key_path
         self._on_change = on_change or (lambda: None)
@@ -734,6 +815,11 @@ class BrowserServer:
         self._kicked: set = set()  # connections to end; each one's own thread notices within _TICK_S
         self._socks_lock = threading.Lock()
         self.stats = ServerStats(0, port)
+
+    @property
+    def feed(self) -> Optional[BrowserFeed]:
+        """The feed of a browser that sent no id of its own (and, given one feed, every browser's)."""
+        return self.hub.feed(DEFAULT_ID)
 
     @property
     def port(self) -> int:
@@ -781,9 +867,12 @@ class BrowserServer:
         with self._socks_lock:
             self._kicked |= self._socks
 
-    def serve_browser(self, sock):
+    def serve_browser(self, sock, bid: str = DEFAULT_ID):
         """One browser's connection, on its handler thread, until it ends or a newer one takes over."""
-        feed = self.feed
+        feed = self.hub.join(bid)
+        if feed is None:
+            _send_quietly(_WsConnection(sock, lambda: None), ws_close_frame(CLOSE_FULL, "Every camera is in use"))
+            return
         gen = feed.connect()
         with self._socks_lock:
             self._socks.add(sock)
@@ -819,10 +908,10 @@ class BrowserServer:
                     elif payload[0] == FRAME_H264 and len(payload) > 2 and feed.h264:
                         feed.put_h264(gen, payload[1] == 1, payload[2:])
                 elif opcode == 0x1 and len(payload) <= _MAX_TEXT_BYTES:
-                    self._on_text(gen, payload)
+                    self._on_text(feed, gen, payload)
         except _Closed as why:
             if str(why) == "replaced":
-                _send_quietly(ws, ws_close_frame(4000, "Opened somewhere else"))
+                _send_quietly(ws, ws_close_frame(CLOSE_REPLACED, "Opened somewhere else"))
             elif str(why) == "ended here":
                 _send_quietly(ws, ws_close_frame(1001))
         except (OSError, ssl.SSLError):
@@ -834,7 +923,7 @@ class BrowserServer:
             feed.disconnect(gen)
             self._on_change()
 
-    def _on_text(self, gen: int, payload: bytes):
+    def _on_text(self, feed: BrowserFeed, gen: int, payload: bytes):
         try:
             msg = json.loads(payload.decode("utf-8"))
         except (UnicodeDecodeError, ValueError):
@@ -844,7 +933,7 @@ class BrowserServer:
         device = _clean(msg.get("device"), 48)
         mic_error = _clean(msg.get("mic_error"), 160)
         codec = msg.get("codec") if msg.get("codec") in ("h264", "jpeg") else ""
-        self.feed.note_hello(gen, device, mic_error, codec, _clean(msg.get("codec_note"), 160))
+        feed.note_hello(gen, device, mic_error, codec, _clean(msg.get("codec_note"), 160))
         self._on_change()
 
 

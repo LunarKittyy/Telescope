@@ -106,6 +106,9 @@ class _Connection(_Plugin):
     def show_selected(self, pid):
         self.selected_device = pid
 
+    def select(self, pid):
+        self.selected_device = pid
+
     def phone(self, pid):
         return None
 
@@ -2345,6 +2348,47 @@ class _Browser:
 
     def fps(self):
         return 30
+
+
+class _OneBrowser(_Browser):
+    remember_changes_only = True
+
+    def __init__(self, bid):
+        self.id, self.name = f"browser:{bid}", bid
+
+
+def test_a_browser_starts_by_itself_and_goes_when_it_leaves(camera_env):
+    window, conn, _mic, _clients, workers, _changes = camera_env
+    conn.ensure_virtual_camera = lambda interactive=True: True
+    launcher = _Browser()
+    launcher.redirect = lambda: "browser:pixel"
+    window.add_stream_source(launcher)
+    window.add_stream_source(_OneBrowser("pixel"))
+    conn.selected_device = "browser"
+    window._start()  # Start with Browser camera picked streams the browser that's there
+    assert conn.selected_device == "browser:pixel" and window.is_streaming_from("browser:pixel")
+    window.remove_stream_source("browser:pixel")
+    assert not window.is_streaming() and conn.selected_device == "browser"
+    assert "browser:pixel" not in window._sources
+
+    window.add_stream_source(_OneBrowser("ipad"))
+    window.stream_source("browser:ipad")  # nothing streams: it's picked and streamed
+    assert conn.selected_device == "browser:ipad" and window.stream_output("browser:ipad") == "Phone Camera"
+
+
+def test_a_browser_keeps_only_the_settings_that_changed(camera_env, config_home):
+    window, conn, _mic, _clients, _workers, _changes = camera_env
+    view = _Plugin("transforms", {"zoom": 1})
+    window.register_plugin(view)
+    window.add_stream_source(_OneBrowser("guest"))
+    window.add_stream_source(_OneBrowser("pixel"))
+    window._save_profile("browser:guest", [view])
+    assert not window.has_device_settings("browser:guest")
+    view.config["zoom"] = 2
+    window._save_profile("browser:pixel", [view])
+    assert config_home.load_config()["devices"]["browser:pixel"]["plugin_configs"]["transforms"] == {"zoom": 2}
+    window.forget_device_settings("browser:pixel")
+    assert not window.has_device_settings("browser:pixel")
 
 
 def test_each_source_keeps_its_own_camera_choice(camera_env):

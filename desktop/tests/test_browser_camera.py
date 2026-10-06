@@ -1,5 +1,6 @@
 """Browser camera as a stream source: the picker entry, the host's start and stop, and the plugin's card."""
 
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -10,7 +11,9 @@ import telescope.app as app_module
 import telescope.plugins.browser_camera as browser_module
 from telescope.browser_server import BrowserControl, BrowserFeed, BrowserReader, ServerStats
 from telescope.plugin import EventBus
-from telescope.plugins.browser_camera import HINT_AFTER_S, SOURCE_ID, BrowserCameraPlugin, waiting_hint
+from telescope.plugins.browser_camera import (
+    HINT_AFTER_S, REMEMBER_DAYS, SOURCE_ID, BrowserCameraPlugin, waiting_hint,
+)
 from telescope.widgets.common import create_card, dim_until_paired
 
 from test_app import _Connection, _Plugin, _Signal, window  # noqa: F401 (the fixture)
@@ -130,7 +133,7 @@ def test_start_streams_from_the_source_without_waking_a_phone(window, monkeypatc
 
     worker = window._worker
     assert conn.wakes == 0
-    assert worker.kwargs["open_reader"] == source.open_reader
+    assert worker.kwargs["open_reader"]() == "reader"
     assert worker.kwargs["fps"] == 24 and worker.kwargs["width"] is None
     assert window._ctrl is source.ctrl
     assert other.started == [("browser:", source.ctrl)]
@@ -165,28 +168,58 @@ def test_sources_are_announced_on_the_bus(window):  # noqa: F811
 
 class _Host:
     def __init__(self):
-        self.sources, self.issues, self.starts, self.outputs = [], {}, [], []
-        self.streaming = self.starting = False
-        self.streaming_ids = set()
+        self.sources, self.issues, self.starts, self.outputs = {}, {}, [], []
+        self.streams = []  # ids, in start order
+        self.starting = False
         self.saves = 0
+        self.settings = set()  # ids with settings saved
+        self.forgotten = []
 
     def add_stream_source(self, source):
-        self.sources.append(source)
+        self.sources[source.id] = source
+
+    def remove_stream_source(self, source_id):
+        self.sources.pop(source_id, None)
+        if source_id in self.streams:
+            self.streams.remove(source_id)
+
+    def stream_source(self, source_id):
+        self.starts.append(source_id)
+        self.streams.append(source_id)
+
+    def stop_stream(self, source_id=None):
+        self.streams.remove(source_id)
+
+    def stream_output(self, source_id):
+        return f"Camera {self.streams.index(source_id) + 1}" if source_id in self.streams else ""
+
+    def stream_count(self):
+        return len(self.streams)
+
+    def has_device_settings(self, name):
+        return name in self.settings
+
+    def forget_device_settings(self, name):
+        self.forgotten.append(name)
+        self.settings.discard(name)
 
     def show_issue(self, key, issue):
         self.issues[key] = issue
 
+    def clear_issue(self, key=None):
+        self.issues.pop(key, None)
+
     def start_stream(self, interactive=True):
-        self.starts.append(interactive)
+        pass
 
     def is_streaming(self):
-        return self.streaming
+        return bool(self.streams)
+
+    def is_streaming_from(self, source_id):
+        return source_id in self.streams
 
     def is_starting(self):
         return self.starting
-
-    def is_streaming_from(self, source_id):
-        return source_id in self.streaming_ids
 
     def update_stream_output(self, **kwargs):
         self.outputs.append(kwargs)
@@ -198,8 +231,8 @@ class _Host:
 class _Server:
     instances = []
 
-    def __init__(self, feed, cert, key, on_change=None):
-        self.feed, self.on_change = feed, on_change
+    def __init__(self, hub, cert, key, on_change=None):
+        self.hub, self.on_change = hub, on_change
         self.started = self.stopped = False
         self.token = "t1"
         self.port = 8767
@@ -234,14 +267,27 @@ def browser(qapp, tmp_path):
     plugin.shutdown()
 
 
-def test_offers_a_source_that_reads_the_browser(browser):
-    plugin, host, _bus, _card = browser
-    source = host.sources[0]
-    assert source.id == SOURCE_ID
-    assert isinstance(source.open_reader(), BrowserReader)
-    ctrl = source.control_client()
-    assert isinstance(ctrl, BrowserControl) and ctrl.get_state() is None
-    assert source.fps() == 30
+def _arrive(plugin, bid, device=""):
+    """A browser connects (and says what it runs on), as the server's thread would report it."""
+    feed = plugin.hub.join(bid)
+    gen = feed.connect()
+    if device:
+        feed.note_hello(gen, device, "", "h264")
+    plugin._on_server_changed()
+    return feed, gen
+
+
+def _changed(host, bus):
+    bus.streams_changed.emit(len(host.streams))
+
+
+def test_offers_a_picker_entry_that_waits_for_a_browser(browser):
+    plugin, host, bus, _card = browser
+    launcher = host.sources[SOURCE_ID]
+    assert launcher.name == "Browser camera" and launcher.redirect() is None
+    bus.source_selected.emit(SOURCE_ID)
+    assert not launcher.prepare(False)  # nothing to stream yet: the first browser to connect starts
+    assert host.issues["start"].title == "Waiting for a browser"
 
 
 def test_picking_it_runs_the_server_and_shows_the_code(browser):
@@ -263,56 +309,135 @@ def test_picking_it_runs_the_server_and_shows_the_code(browser):
     assert server.stopped and card.isHidden()
 
 
-def test_the_server_stays_up_while_its_stream_runs_behind_another(browser):
+def test_each_browser_streams_by_itself_to_a_camera_of_its_own(browser):
+    plugin, host, bus, _card = browser
+    bus.source_selected.emit(SOURCE_ID)
+    pixel, _ = _arrive(plugin, "pixel-aaaaaaaa", "Chrome on Android")
+    assert host.starts == ["browser:pixel-aaaaaaaa"]  # like opening the app on a phone
+    assert host.sources["browser:pixel-aaaaaaaa"].name == "Chrome on Android"
+    assert host.issues.get("start") is None
+    _changed(host, bus)
+    assert pixel.page_config()[1]["camera"] == "Camera 1"
+
+    iphone, _ = _arrive(plugin, "iphone-bbbbbbbb", "Safari on iPhone")
+    assert host.starts == ["browser:pixel-aaaaaaaa", "browser:iphone-bbbbbbbb"]
+    _changed(host, bus)
+    assert iphone.page_config()[1]["camera"] == "Camera 2"
+    assert plugin._list_lbl.text() == "Chrome on Android: Camera 1\nSafari on iPhone: Camera 2"
+    assert not plugin._list_row.isHidden()
+
+
+def test_a_stopped_browser_waits_until_it_connects_again(browser):
+    plugin, host, bus, _card = browser
+    bus.source_selected.emit(SOURCE_ID)
+    feed, gen = _arrive(plugin, "pixel-aaaaaaaa")
+    host.stop_stream("browser:pixel-aaaaaaaa")  # the x on its tile
+    _changed(host, bus)
+    assert host.starts == ["browser:pixel-aaaaaaaa"]
+    assert host.sources[SOURCE_ID].redirect() == "browser:pixel-aaaaaaaa"  # Start streams it again
+
+    feed.disconnect(gen)
+    plugin._on_server_changed()
+    assert "browser:pixel-aaaaaaaa" not in host.sources  # gone from the picker
+    _arrive(plugin, "pixel-aaaaaaaa")
+    assert host.starts == ["browser:pixel-aaaaaaaa"] * 2
+
+
+def test_a_streaming_browser_that_drops_stays_until_it_comes_back(browser):
+    plugin, host, bus, _card = browser
+    bus.source_selected.emit(SOURCE_ID)
+    feed, gen = _arrive(plugin, "pixel-aaaaaaaa")
+    feed.disconnect(gen)
+    plugin._on_server_changed()
+    assert "browser:pixel-aaaaaaaa" in host.sources and plugin.hub.feed("pixel-aaaaaaaa") is feed
+    _arrive(plugin, "pixel-aaaaaaaa")
+    assert host.starts == ["browser:pixel-aaaaaaaa"]  # still streaming: nothing to start
+
+
+def test_no_room_means_no_feed(browser):
+    plugin, host, bus, _card = browser
+    bus.source_selected.emit(SOURCE_ID)
+    host.streams = ["phone-1", "phone-2", "phone-3"]
+    _changed(host, bus)
+    assert plugin.hub.join("pixel-aaaaaaaa") is not None  # the last camera
+    assert plugin.hub.join("iphone-bbbbbbbb") is None
+
+
+def test_the_server_stays_up_while_a_browser_streams_behind_another(browser):
     plugin, host, bus, card = browser
     bus.source_selected.emit(SOURCE_ID)
     server = _Server.instances[-1]
-    host.streaming_ids.add(SOURCE_ID)
+    _arrive(plugin, "pixel-aaaaaaaa")
 
     bus.source_selected.emit("some-phone")  # the panels moved to a phone's tile
     assert not server.stopped and card.isHidden()
 
-    host.streaming_ids.clear()
-    bus.streams_changed.emit(1)  # its stream stopped
-    assert server.stopped
+    host.streams.clear()
+    _changed(host, bus)  # its stream stopped
+    assert server.stopped and "browser:pixel-aaaaaaaa" not in host.sources
 
 
-def test_a_browser_connecting_starts_the_stream_once(browser):
+def test_the_card_shows_the_browser_the_panels_show(browser):
+    plugin, host, bus, card = browser
+    bus.source_selected.emit(SOURCE_ID)
+    feed, gen = _arrive(plugin, "pixel-aaaaaaaa")
+    feed.note_hello(gen, "Firefox on Android", "Not allowed", "jpeg", "No hardware H.264 encoder")
+    plugin._on_server_changed()
+    bus.source_selected.emit("browser:pixel-aaaaaaaa")
+    assert not card.isHidden()
+    assert plugin._status_lbl.fullText() == "● Firefox on Android, JPEG"
+    assert "No hardware" in plugin._status_lbl.toolTip()
+    assert plugin._mic_lbl.text() == "No microphone: Not allowed"
+
+
+def test_capture_settings_go_to_every_page_and_the_shown_stream(browser):
     plugin, host, bus, _card = browser
     bus.source_selected.emit(SOURCE_ID)
-    gen = plugin.feed.connect()
-    plugin._on_server_changed()
-    assert host.starts == [False]  # nobody at the keyboard: no password prompts
-    assert plugin._status_lbl.fullText().startswith("●")
-
-    host.streaming = True
-    plugin._on_server_changed()  # a hello from the same browser
-    assert host.starts == [False]
-
-    plugin.feed.disconnect(gen)
-    plugin._on_server_changed()
-    host.streaming = False  # the user stopped it meanwhile
-    plugin.feed.connect()
-    plugin._on_server_changed()
-    assert host.starts == [False, False]
-
-
-def test_capture_settings_go_to_the_page_and_the_virtual_camera(browser):
-    plugin, host, bus, _card = browser
-    bus.source_selected.emit(SOURCE_ID)
-    host.streaming = True
+    feed, _ = _arrive(plugin, "pixel-aaaaaaaa")
+    bus.source_selected.emit("browser:pixel-aaaaaaaa")
     plugin._fps_combo.setCurrentIndex(plugin._fps_combo.findData(15))
     plugin._size_combo.setCurrentIndex(plugin._size_combo.findData("1080p"))
     assert host.outputs == [{"fps": 15}]
-    _seq, cfg = plugin.feed.page_config()
-    assert cfg == {"width": 1920, "height": 1080, "fps": 15, "audio": False, "h264": plugin.feed.h264}
-    assert plugin.get_config() == {"size": "1080p", "fps": 15, "address": "192.168.1.20"}
+    _seq, cfg = feed.page_config()
+    assert (cfg["width"], cfg["height"], cfg["fps"]) == (1920, 1080, 15)
+    later, _ = _arrive(plugin, "iphone-bbbbbbbb")
+    assert later.page_config()[1]["fps"] == 15
+    cfg = plugin.get_config()
+    assert (cfg["size"], cfg["fps"], cfg["address"]) == ("1080p", 15, "192.168.1.20")
 
 
 def test_config_falls_back_on_bad_values(browser):
     plugin, *_ = browser
-    plugin.set_config({"size": "8k", "fps": 120, "address": 5})
-    assert plugin.get_config() == {"size": "720p", "fps": 30, "address": ""}
+    plugin.set_config({"size": "8k", "fps": 120, "address": 5, "known": {"x": {"name": 3}}})
+    assert plugin.get_config() == {"size": "720p", "fps": 30, "address": "", "known": {}}
+
+
+def test_a_browser_is_remembered_once_it_has_settings_and_can_be_forgotten(browser, monkeypatch):
+    plugin, host, bus, _card = browser
+    lists = []
+    bus.remembered_sources.connect(lists.append)
+    bus.source_selected.emit(SOURCE_ID)
+    _arrive(plugin, "pixel-aaaaaaaa", "Chrome on Android")
+    _arrive(plugin, "guest-cccccccc", "Safari on iPhone")
+    host.settings.add("browser:pixel-aaaaaaaa")  # zoomed in on it; the guest changed nothing
+    _changed(host, bus)
+    assert [(sid, name) for sid, name, _detail in lists[-1]] == [("browser:pixel-aaaaaaaa", "Chrome on Android")]
+
+    plugin2 = BrowserCameraPlugin(server_cls=_Server)
+    plugin2.setup(host, EventBus())
+    plugin2.set_config(plugin.get_config())
+    plugin2._tidy_known()
+    assert set(plugin2._known) == {"pixel-aaaaaaaa"}  # the guest left nothing behind
+
+    old = time.time() - (REMEMBER_DAYS + 1) * 86400
+    plugin2._known["pixel-aaaaaaaa"]["seen"] = old
+    plugin2._tidy_known()
+    assert plugin2._known == {} and host.forgotten == ["browser:pixel-aaaaaaaa"]
+
+    host.settings.add("browser:pixel-aaaaaaaa")
+    bus.forget_source_requested.emit("browser:pixel-aaaaaaaa")
+    assert "browser:pixel-aaaaaaaa" not in host.streams and lists[-1] == []
+    assert host.forgotten == ["browser:pixel-aaaaaaaa"] * 2
 
 
 def test_without_cryptography_it_says_so_and_start_fails(browser, monkeypatch):
@@ -330,10 +455,10 @@ def test_diagnostics_say_how_far_browsers_got_but_never_name_the_device(browser)
     stats = _Server.instances[-1].stats
     stats.note("connections")
     stats.note("tls_failed")
-    plugin.feed.connect()
-    plugin.feed.note_hello(plugin.feed._gen, "Safari on iPhone", "", "jpeg", "No hardware H.264 encoder")
+    feed, gen = _arrive(plugin, "pixel-aaaaaaaa")
+    feed.note_hello(gen, "Safari on iPhone", "", "jpeg", "No hardware H.264 encoder")
     diag = plugin.diagnostics()
-    assert diag["Browser camera"] == "browser connected, sending jpeg (No hardware H.264 encoder)"
+    assert diag["Browser camera"] == "1 browser connected, sending jpeg (No hardware H.264 encoder)"
     assert diag["Browser camera port"] == "8767"
     assert diag["Browser camera reached"].startswith("1 connections, 1 certificate refusals, 0 page loads")
     assert "iPhone" not in str(diag)
@@ -380,7 +505,6 @@ def test_feed_drops_frames_from_a_replaced_browser():
 
 def test_falling_behind_points_at_its_own_resolution_and_frame_rate(browser):
     plugin, host, bus, _card = browser
-    host.clear_issue = lambda key: host.issues.pop(key, None)
     bus.stream_behind.emit(True)
     assert "behind" not in host.issues  # a phone is picked: Stream output says what helps
     bus.source_selected.emit(SOURCE_ID)
