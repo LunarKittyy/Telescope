@@ -262,6 +262,7 @@ class MicrophonePlugin(TelescopePlugin):
         self._mute_btn.style().polish(self._mute_btn)
         self._meter.set_muted(self._muted)
         self._show_readout()
+        self._bus.mic_changed.emit(self._enabled, self._muted)
 
     def _show_readout(self):
         red = self._muted or self._meter.clipping()

@@ -184,6 +184,8 @@ class CameraStreamService : Service() {
         const val EXTRA_FPS        = "fps"
         const val EXTRA_LOCAL_ONLY = "local_only"
         const val EXTRA_REMOTE     = "remote"
+        // Start with the camera off: the stream is just the mic until the computer turns the camera on.
+        const val EXTRA_CAMERA_OFF = "camera_off"
         // Started as a plain service under WaitingService's foreground service (see StreamLauncher).
         const val EXTRA_COVERED    = "covered"
         const val CHANNEL_ID       = "telescope_stream"
@@ -200,6 +202,9 @@ class CameraStreamService : Service() {
         // Opening or switching the camera takes a second or two; one that never answers mustn't leave the phone stuck.
         private const val BUSY_STUCK_MS = 20_000L
         private const val WAKE_LOCK_MS = 12 * 60 * 60 * 1000L
+
+        fun streamingText(cameraOff: Boolean): String =
+            if (cameraOff) "Microphone is streaming, camera off" else "Camera is streaming"
         private val BUSY_STATES = setOf(
             StreamState.StartingServer, StreamState.OpeningCamera, StreamState.ConfiguringSession, StreamState.Recovering)
 
@@ -417,8 +422,10 @@ class CameraStreamService : Service() {
     private val stateMachine = StreamStateMachine()
     val state: StreamState get() = stateMachine.state
     val isStreaming: Boolean get() = stateMachine.isStreaming
-    // A computer is taking the video (not just the camera being on).
+    // A computer is taking the video or the mic (not just the camera being on).
     val hasViewer: Boolean get() = server?.hasActiveViewer() == true
+    // Streaming the mic with the camera closed.
+    val cameraOff: Boolean get() = controller?.isCameraOff() == true
     val port: Int get() = DEFAULT_PORT
 
     // True when this session was started by the desktop rather than the button on this phone; MainActivity uses it to tell the user where an unrequested stream came from.
@@ -433,7 +440,10 @@ class CameraStreamService : Service() {
         else if (old != newState) busySinceMs = System.currentTimeMillis()
         val transition = stateMachine.transition(newState, op, error)
         if (old == StreamState.StartingServer && newState != StreamState.StartingServer) SessionStartWindow.settle()
-        if (newState == StreamState.Streaming) rememberSelection()
+        if (newState == StreamState.Streaming) {
+            rememberSelection()
+            mainHandler.post(::showStreamNotification)  // the camera may have gone off or come back on
+        }
         android.util.Log.i(
             TAG,
             "StreamState $old -> $newState (op=$op, camera=${controller?.getCurrentCameraId()}, " +
@@ -546,6 +556,7 @@ class CameraStreamService : Service() {
         val localOnly = intent?.getBooleanExtra(EXTRA_LOCAL_ONLY, false) ?: false
         bindAddr      = if (localOnly) "127.0.0.1" else "0.0.0.0"
         startedRemotely = intent?.getBooleanExtra(EXTRA_REMOTE, false) ?: false
+        val startOff  = intent?.getBooleanExtra(EXTRA_CAMERA_OFF, false) ?: false
         covered = (intent?.getBooleanExtra(EXTRA_COVERED, false) ?: false) && WaitingService.covering
 
         // Busy before promoting, so a computer waiting on the start sees it fail straight away rather than time out.
@@ -615,6 +626,11 @@ class CameraStreamService : Service() {
         )
         controller = ctrl
 
+        if (startOff) {
+            ctrl.openOff(initialEntry, initialOis)
+            setState(StreamState.Streaming, "cameraOffStart")
+            return START_NOT_STICKY
+        }
         setState(StreamState.OpeningCamera, "onStartCommand")
         controller!!.open(openId, physId, initialEntry, initialOis)
         return START_NOT_STICKY
@@ -784,6 +800,9 @@ class CameraStreamService : Service() {
             codec_error = snap?.codecError,
             codec_unsupported = snap?.codecUnsupported ?: false,
             active_lens = snap?.activeLens,
+            camera_off = controller?.isCameraOff() ?: false,
+            camera_error = controller?.cameraError,
+            camera_toggle = true,
             stream_width = liveSize.width,
             stream_height = liveSize.height,
             battery = battLevel,
@@ -913,6 +932,11 @@ class CameraStreamService : Service() {
                     ctrl.setTorch(params["value"] == "1")
                     ok()
                 }
+                "camera_on" -> {
+                    // Off: the camera closes and the mic carries on; on: it opens again as it was
+                    ctrl.setCameraOn(params["value"] == "1")
+                    ok()
+                }
                 else -> err("unknown action '${params["action"]}'")
             }
         } catch (e: Exception) { err(e.message ?: "exception") }
@@ -957,15 +981,28 @@ class CameraStreamService : Service() {
         (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(ch)
     }
 
-    private fun startForegroundCompat(withMic: Boolean = AudioStreamer.permitted(this)) {
+    private fun buildNotification(): android.app.Notification {
         val pi = PendingIntent.getActivity(this, 0,
             Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
-        val n = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Telescope").setContentText("Camera is streaming")
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Telescope").setContentText(streamingText(cameraOff))
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(ContextCompat.getColor(this, R.color.colorPrimary))
             .setColorized(false)
             .setContentIntent(pi).setOngoing(true).build()
+    }
+
+    // Says whether the camera is on: only a notify, since startForeground again from the background is refused.
+    @android.annotation.SuppressLint("MissingPermission")
+    private fun showStreamNotification() {
+        if (controller == null) return
+        if (covered) { WaitingService.showStreaming(this, true, cameraOff); return }
+        if (!inForeground) return
+        (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(NOTIF_ID, buildNotification())
+    }
+
+    private fun startForegroundCompat(withMic: Boolean = AudioStreamer.permitted(this)) {
+        val n = buildNotification()
         // Type parameter only works on R+; pre-R relies on manifest declaration.
         // Microphone only once it's allowed: Android refuses a type whose permission is missing.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

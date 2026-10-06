@@ -2064,3 +2064,233 @@ def test_plugin_tray_actions_go_between_show_and_quit(window):
     window.register_plugin(plugin)
     assert [a.text() for a in menu.actions()] == ["Show", "Mute microphone", "", "Quit"]
     assert plugin.action.parent() is menu
+
+
+# ── Camera off: the stream carries on with just the mic ───────────────────────
+
+class _Watcher(_Plugin):
+    """Records the camera hooks, and owns the microphone card's on/off."""
+
+    def __init__(self, mic=True):
+        super().__init__("microphone", {"enabled": mic})
+        self.calls = []
+
+    def on_stream_starting(self):
+        self.calls.append("starting")
+
+    def on_camera_off(self):
+        self.calls.append("off")
+
+    def on_camera_on(self):
+        self.calls.append("on")
+
+
+@pytest.fixture
+def camera_env(window, monkeypatch):
+    connection, mic = _Connection(), _Watcher()
+    for plugin in (connection, _StreamOutput(), _Setup(), mic):
+        window.register_plugin(plugin)
+    clients, workers = [], []
+
+    class Client:
+        def __init__(self, url, auth):
+            self.url, self.auth, self.sent, self.closed = url, auth, [], False
+            self.state = {"camera_toggle": True}
+            clients.append(self)
+
+        def send(self, **params):
+            self.sent.append(params)
+
+        def get_state(self):
+            return self.state
+
+        def close(self):
+            self.closed = True
+
+    class Worker:
+        def __init__(self, **kwargs):
+            self.kwargs, self.auth = kwargs, kwargs["auth"]
+            self.status, self.reconnected, self.vcam_opened = _Signal(), _Signal(), _Signal()
+            self.started = self.stopped = False
+            workers.append(self)
+
+        def start(self):
+            self.started = True
+
+        def request_stop(self):
+            self.stopped = True
+
+        def wait(self, _ms):
+            return True
+
+    class Thread:
+        def __init__(self, target, args=(), daemon=False):
+            pass
+
+        def start(self):
+            pass
+
+    monkeypatch.setattr(app_module, "PhoneControlClient", Client)
+    monkeypatch.setattr(app_module, "StreamWorker", Worker)
+    monkeypatch.setattr(app_module.threading, "Thread", Thread)
+    changes = []
+    window._bus.camera_on_changed.connect(changes.append)
+    return window, connection, mic, clients, workers, changes
+
+
+def test_the_camera_goes_off_and_on_while_the_stream_and_mic_carry_on(camera_env):
+    window, _conn, mic, clients, workers, changes = camera_env
+    window._start()
+    assert workers[0].started and mic.calls == ["starting"]
+
+    window.set_camera_on(False)
+    assert clients[0].sent == [{"action": "camera_on", "value": 0}]
+    assert workers[0].stopped and window._worker is None
+    assert window.is_streaming() and not window.is_camera_on()
+    assert mic.calls[-1] == "off" and changes == [False]
+    assert window._status_lbl.text() == "Streaming the mic, camera off"
+    assert window._alive_timer.isActive()  # no video to say the phone went away
+
+    window.set_camera_on(True)
+    assert clients[0].sent[-1] == {"action": "camera_on", "value": 1}
+    assert len(workers) == 2 and workers[1].started and window._worker is workers[1]
+    assert mic.calls[-2:] == ["starting", "on"]  # the wait screen lets go before the new worker opens the camera
+    assert changes == [False, True] and not window._alive_timer.isActive()
+
+
+def test_the_camera_stays_on_without_the_mic(camera_env):
+    window, _conn, mic, clients, workers, changes = camera_env
+    mic.config["enabled"] = False
+    window._start()
+    assert window.can_turn_camera_off()[0] is False
+    window.set_camera_on(False)
+    assert window.is_camera_on() and clients[0].sent == [] and changes == []
+
+
+def test_start_mic_only_opens_the_phone_with_its_camera_off(camera_env):
+    window, conn, mic, clients, workers, changes = camera_env
+    window.set_camera_on(False)
+    assert changes == [False] and window._start_btn.text() == "Start mic only"
+    window._start()
+    assert conn.opening["camera"] == "off"
+    assert workers == [] and window.is_streaming() and mic.calls == ["off"]
+    assert window._start_btn.text() == "Stop Streaming"
+    window._stop()
+    assert window.is_camera_on() and changes == [False, True]  # the next stream starts with the camera on
+    assert window._start_btn.text() == "Start Streaming"
+
+
+def test_a_restart_keeps_the_camera_off(camera_env):
+    window, _conn, _mic, clients, workers, _changes = camera_env
+    window._start()
+    window.set_camera_on(False)
+    window.reconnect_stream()
+    assert not window.is_camera_on() and len(workers) == 1  # no video worker for the restarted stream either
+
+
+def test_a_phone_left_with_its_camera_on_or_off_is_matched(camera_env):
+    window, _conn, _mic, clients, _workers, _changes = camera_env
+    window._start()
+    window._apply_state(window._session.id, {**_VALID_STATE, "camera_toggle": True, "camera_off": True})
+    assert clients[0].sent == [{"action": "camera_on", "value": 1}]
+
+
+def test_an_older_phone_that_cant_turn_its_camera_off_gets_the_camera_back(camera_env):
+    window, _conn, _mic, clients, workers, changes = camera_env
+    window.set_camera_on(False)
+    window._start()
+    window._apply_state(window._session.id, _VALID_STATE)  # no camera_toggle: it opened its camera anyway
+    assert window.is_camera_on() and len(workers) == 1 and changes == [False, True]
+    assert window._banners.issue("camera") is not None
+    assert window.can_turn_camera_off()[0] is False
+
+
+def test_a_camera_that_wont_come_back_on_stays_off_and_says_why(camera_env):
+    window, _conn, _mic, clients, workers, changes = camera_env
+    window._start()
+    window.set_camera_on(False)
+    window.set_camera_on(True)
+    window._on_camera_check(window._session.id, {"camera_toggle": True, "camera_off": True,
+                                                 "camera_error": "Another app may be using it."})
+    assert not window.is_camera_on() and window._worker is None and workers[1].stopped
+    assert changes == [False, True, False] and window._banners.issue("camera") is not None
+
+
+def test_switching_the_mic_off_brings_the_camera_back(camera_env):
+    window, _conn, mic, _clients, workers, changes = camera_env
+    window._start()
+    window.set_camera_on(False)
+    mic.config["enabled"] = False
+    window._bus.mic_changed.emit(False, False)
+    assert window.is_camera_on() and len(workers) == 2
+
+
+def test_with_the_camera_off_a_phone_that_stops_answering_is_looked_for(camera_env, monkeypatch):
+    window, _conn, _mic, _clients, _workers, _changes = camera_env
+    window._start()
+    window.set_camera_on(False)
+    probes = []
+    monkeypatch.setattr(window, "_begin_recovery", lambda: probes.append(True))
+    sid = window._session.id
+    window._on_alive(sid, False)
+    assert probes == []  # one miss can be a blip
+    window._on_alive(sid, False)
+    assert probes == [True]
+    window._recovering = True
+    reconnects = []
+    monkeypatch.setattr(window, "_on_stream_reconnected", lambda: reconnects.append(True))
+    window._on_alive(sid, True)
+    assert reconnects == [True] and window._alive_misses == 0
+
+
+def test_the_tray_icon_says_what_streams(camera_env):
+    window, _conn, _mic, _clients, _workers, _changes = camera_env
+
+    class Tray:
+        tips, icons = [], 0
+
+        def setIcon(self, _icon):
+            Tray.icons += 1
+
+        def setToolTip(self, tip):
+            Tray.tips.append(tip)
+
+    window._tray = Tray()
+    window._bus.mic_changed.emit(True, False)
+    window._start()
+    window.set_camera_on(False)
+    window._bus.mic_changed.emit(True, True)
+    window._stop()
+    assert Tray.tips == ["Telescope", "Telescope: streaming the camera and mic",
+                         "Telescope: streaming the mic, camera off", "Telescope: streaming the mic, camera off (muted)",
+                         "Telescope"]
+    window._tray = None
+
+
+def test_a_browser_camera_streams_with_its_camera_on(camera_env):
+    window, conn, mic, clients, workers, changes = camera_env
+
+    class Source:
+        id, name, url = "browser", "Browser camera", "browser://camera"
+
+        def prepare(self, interactive):
+            return True
+
+        def open_reader(self):
+            return None
+
+        def control_client(self):
+            return clients[0] if clients else None
+
+        def fps(self):
+            return 30
+
+    conn.selected_device = "browser"
+    conn.ensure_virtual_camera = lambda interactive=True: True
+    window.add_stream_source(Source())
+    assert window.can_turn_camera_off()[0] is False  # only a phone can keep its mic going alone
+    window.set_camera_on(False)
+    assert window.is_camera_on() and changes == []
+    window._start()
+    assert len(workers) == 1 and workers[0].kwargs["open_reader"] is not None
+    assert window.can_turn_camera_off()[0] is False

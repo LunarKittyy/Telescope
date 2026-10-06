@@ -103,14 +103,14 @@ class WaitingService : Service() {
         var hasMic = false
             private set
 
-        private fun buildNotification(context: Context, streaming: Boolean): android.app.Notification {
+        private fun buildNotification(context: Context, streaming: Boolean, cameraOff: Boolean = false): android.app.Notification {
             val open = PendingIntent.getActivity(context, 0,
                 Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
             val stop = PendingIntent.getService(context, 0,
                 Intent(context, WaitingService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE)
             return NotificationCompat.Builder(context, CHANNEL_ID)
                 .setContentTitle("Telescope")
-                .setContentText(if (streaming) "Camera is streaming" else "Waiting for your computer")
+                .setContentText(if (streaming) CameraStreamService.streamingText(cameraOff) else "Waiting for your computer")
                 .setSmallIcon(R.drawable.ic_notification)
                 .setColor(ContextCompat.getColor(context, R.color.colorPrimary))
                 .setContentIntent(open)
@@ -123,10 +123,10 @@ class WaitingService : Service() {
         // startForeground again from the background would be refused. Without the notification permission the
         // foreground notification is hidden anyway, so a refused notify changes nothing.
         @SuppressLint("MissingPermission")
-        fun showStreaming(context: Context, streaming: Boolean) {
+        fun showStreaming(context: Context, streaming: Boolean, cameraOff: Boolean = false) {
             if (!covering) return
             (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
-                .notify(NOTIF_ID, buildNotification(context, streaming))
+                .notify(NOTIF_ID, buildNotification(context, streaming, cameraOff))
         }
 
         // Only from a visible activity: starting a foreground service from the background is refused.

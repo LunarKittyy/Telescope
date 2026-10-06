@@ -96,6 +96,10 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 - [ ] Tray minimize/restore and single-instance behavior both work.
 - [ ] Start streaming when the phone is ready: opening the phone app (or plugging it in) starts the stream; Stop keeps it stopped until the phone leaves and comes back; closing the window keeps it in the tray.
 - [ ] Windows, Stop set to "when no app uses the camera, even if you started it": start a stream by hand before any app has opened the camera. It stops after the wait.
+- [ ] Camera off: in a call using both Telescope devices, press the camera button under the preview. The call shows the wait screen and still hears the mic, the phone's camera light goes out, and the tray icon loses its red dot. Press it again and the picture comes back.
+- [ ] Mic only from the start: with the mic on, press the camera button, then **Start mic only**. The phone opens no camera, and the call hears the mic.
+- [ ] With the mic on and Stop set to "when no app uses the camera": turn the camera off in the call. After the wait only the camera turns off. Turn it back on in the call and the picture returns.
+- [ ] Camera off on a phone in the background (screen off, **Wait for my computer** on): turn it off and on again. It comes back; if another app holds the camera, it stays off with a banner saying so.
 - [ ] Open Telescope when I sign in (Linux and Windows): after signing out and in, Telescope is in the tray; unticking removes the entry.
 - [ ] Stream only while an app is using the camera (Linux and Windows): opening the camera in OBS or a call starts the stream, closing it stops 15 s later. Ticking it unticks Start streaming when the phone is ready, and the other way round.
 - [ ] Browser camera, iPhone in Safari: scan the code, tap through the certificate warning, Start. Video and mic reach the virtual camera and mic, the screen stays on, and after locking the phone and coming back to the page the stream picks up again. Switch camera flips lenses.

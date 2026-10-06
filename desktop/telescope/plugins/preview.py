@@ -12,7 +12,12 @@ from telescope.widgets.common import create_vector_icon, set_ui_role, ui_px
 
 
 _IDLE_TEXT    = "Not streaming\n\nPress Start Streaming and the phone's camera comes up on its own."
+_IDLE_MIC_TEXT = "Not streaming\n\nStart mic only streams the phone's mic with its camera off."
 _WAITING_TEXT = "Waiting for the first frame\u2026"
+_CAMERA_OFF_TEXT = "Camera off\n\nThe phone's mic is still streaming.\nStop Streaming ends it."
+# Broken by hand like the rest: the stage doesn't wrap, and these are its longest lines
+_CAMERA_OFF_AUTO_TEXT = ("Camera off\n\nNo app was using the camera, so it turned off.\nThe phone's mic is still "
+                         "streaming, and the camera\ncomes back when an app opens it.")
 
 
 class _Sig(QObject):
@@ -24,6 +29,7 @@ _DRAG_START = 4  # px the mouse has to move before a press is a drag, not a clic
 _WHEEL_STEP = 1.1  # zoom factor per wheel notch
 _BOXES_HOLD_MS = 1000  # the lens boxes stay this long after the framing last moved, then fade
 _BOXES_FADE_MS = 300
+_PLACEHOLDER_ICON = 52  # px, the camera-off icon over the stage's text
 
 
 def _fit_within(frame: np.ndarray, size) -> np.ndarray:
@@ -64,6 +70,7 @@ class FrameLabel(QLabel):
         self._dragging = False
         self._boxes: list = []  # [(label, x0, y0, x1, y1)] in the frame, 0..1
         self._boxes_opacity = 0.0
+        self._placeholder_icon: QIcon | None = None  # drawn above the text while there's no frame
         self._marker = QFrame(self)
         self._marker.setObjectName("focus_marker")
         self._marker.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
@@ -85,6 +92,10 @@ class FrameLabel(QLabel):
         if boxes != self._boxes or opacity != self._boxes_opacity:
             self._boxes, self._boxes_opacity = boxes, opacity
             self.update()
+
+    def set_placeholder_icon(self, icon: QIcon | None):
+        self._placeholder_icon = icon
+        self.update()
 
     def _update_cursor(self):
         if self._dragging:
@@ -167,6 +178,8 @@ class FrameLabel(QLabel):
     def paintEvent(self, event):
         super().paintEvent(event)
         rect = self.frame_rect()
+        if rect is None and self._placeholder_icon is not None and self.text():
+            self._paint_placeholder_icon()
         if rect is None or not self._boxes or self._boxes_opacity <= 0.0:
             return
         p = QPainter(self)
@@ -203,6 +216,18 @@ class FrameLabel(QLabel):
             p.drawRoundedRect(tag, ui_px(3), ui_px(3))
             p.setPen(QColor(255, 255, 255))
             p.drawText(tag, Qt.AlignmentFlag.AlignCenter, label)
+
+
+    def _paint_placeholder_icon(self):
+        """The icon centred just above the (centred) placeholder text."""
+        size, gap = ui_px(_PLACEHOLDER_ICON), ui_px(14)
+        text_h = self.fontMetrics().lineSpacing() * (self.text().count("\n") + 1)
+        top = (self.height() - text_h) / 2 - gap - size
+        if top < 0:
+            return  # too short a stage: the text alone
+        p = QPainter(self)
+        p.drawPixmap(round((self.width() - size) / 2), round(top), self._placeholder_icon.pixmap(QSize(size, size)))
+        p.end()
 
 
 class _PopoutWindow(QWidget):
@@ -305,6 +330,10 @@ class PreviewPlugin(TelescopePlugin):
         self._boxes_hold.timeout.connect(self._boxes_fade.start)
         bus.lens_boxes.connect(self._on_lens_boxes)
         bus.view_pannable.connect(self._on_pannable)
+        self._camera_on = True
+        bus.camera_on_changed.connect(self._on_camera_changed)
+        for signal in (bus.mic_changed, bus.stream_started, bus.stream_stopped, bus.phone_state_updated):
+            signal.connect(self._show_camera_btn)
 
     def create_panel(self) -> QWidget:
         """Video stage: letterboxed frame area with toolbar beneath (centre column, no chrome)."""
@@ -340,6 +369,16 @@ class PreviewPlugin(TelescopePlugin):
         )
         self._toggle_btn.clicked.connect(self._toggle)
         tb_lay.addWidget(self._toggle_btn)
+
+        # The phone's camera, like a call app's: off leaves the stream to the mic. Icon only, like the lens toggle
+        self._camera_btn = QPushButton()
+        self._camera_btn.setFixedWidth(ui_px(36))
+        self._camera_btn.setAccessibleName("Phone camera")
+        set_ui_role(self._camera_btn, "quiet")
+        self._camera_btn.setIconSize(QSize(16, 16))
+        self._camera_btn.clicked.connect(lambda: self._host.set_camera_on(not self._host.is_camera_on()))
+        tb_lay.addWidget(self._camera_btn)
+        self._show_camera_btn()
 
         tb_lay.addStretch()
 
@@ -390,21 +429,66 @@ class PreviewPlugin(TelescopePlugin):
             self._preview_lbl.setPixmap(QPixmap())
             self._preview_lbl.setText("Preview hidden")
         else:
-            self._preview_lbl.setText(
-                _WAITING_TEXT if self._host.is_streaming() else _IDLE_TEXT)
+            self._preview_lbl.setText(self._idle_text())
+
+    def _idle_text(self) -> str:
+        """What the stage says with no frame to show."""
+        if not self._host.is_streaming():
+            return _IDLE_TEXT if self._host.is_camera_on() else _IDLE_MIC_TEXT
+        if not self._host.is_camera_on():
+            return _CAMERA_OFF_AUTO_TEXT if self._host.is_camera_off_auto() else _CAMERA_OFF_TEXT
+        return _WAITING_TEXT
+
+    def _clear(self):
+        if self._popout is not None:
+            self._popout._lbl.setPixmap(QPixmap())
+        self._preview_lbl.setPixmap(QPixmap())
+        self._preview_lbl.setText(self._idle_text() if self._active else "Preview hidden")
+        camera_off = self._host.is_streaming() and not self._host.is_camera_on()
+        set_ui_role(self._preview_lbl, "camera_off" if camera_off else "")
+        self._preview_lbl.set_placeholder_icon(create_vector_icon("camera_off", theme.ACCENT) if camera_off else None)
 
     def on_stream_start(self, stream_url: str, ctrl):
         self._streaming = True
         self._busy = False  # a frame lost on its way to the UI mustn't freeze the preview for good
-        if self._active and self._preview_lbl.pixmap().isNull():
-            self._preview_lbl.setText(_WAITING_TEXT)
+        if self._active and self._preview_lbl.pixmap().isNull() and self._host.is_camera_on():
+            self._preview_lbl.setText(_WAITING_TEXT)  # with the camera off, on_camera_off follows and says so
 
     def on_stream_stop(self):
         self._streaming = False
-        if self._popout is not None:
-            self._popout._lbl.setPixmap(QPixmap())
-        self._preview_lbl.setPixmap(QPixmap())
-        self._preview_lbl.setText(_IDLE_TEXT if self._active else "Preview hidden")
+        self._clear()
+
+    def on_camera_off(self):
+        self._clear()
+
+    def on_camera_on(self):
+        self._busy = False
+        self._clear()
+
+    def _on_camera_changed(self, on: bool):
+        self._camera_on = on
+        self._show_camera_btn()
+        if self._preview_lbl.pixmap().isNull():
+            self._clear()  # the idle text says what Start does
+
+    def _show_camera_btn(self, *_):
+        on = self._host.is_camera_on()
+        can, why = self._host.can_turn_camera_off()
+        self._camera_btn.setIcon(create_vector_icon("camera" if on else "camera_off",
+                                                    theme.TEXT_DIM if on else theme.ACCENT))
+        self._camera_btn.setEnabled(not on or can)
+        if not on:
+            tip = "Turn the phone's camera back on."
+        elif not can:
+            tip = why
+        elif self._host.is_streaming():
+            tip = "Turn the phone's camera off. Its mic keeps streaming."
+        else:
+            tip = "Start with the phone's camera off, streaming just its mic."
+        self._camera_btn.setToolTip(tip)
+        self._camera_btn.setProperty("camera_off", not on)
+        self._camera_btn.style().unpolish(self._camera_btn)
+        self._camera_btn.style().polish(self._camera_btn)
 
     def _open_popout(self):
         if self._popout and self._popout.isVisible():
@@ -505,7 +589,7 @@ class PreviewPlugin(TelescopePlugin):
 
     def _on_frame(self, frame: np.ndarray):
         try:
-            if self._streaming:
+            if self._streaming and self._host.is_camera_on():  # a frame from just before the camera went off
                 self._show_frame(frame)
         finally:
             self._busy = False

@@ -568,6 +568,9 @@ class MjpegServerTest {
                 var n = 0
                 while (n < 4) n += input.read(got, n, 4 - n)
                 assertArrayEquals(byteArrayOf(1, 2, 3, 4), got)
+                // With the camera off the mic is the whole stream: a listener keeps the idle watchdog away.
+                assertTrue(server.hasActiveViewer())
+                assertFalse(server.hasActiveViewer(System.currentTimeMillis() + MjpegServer.VIEWER_STALE_MS + 1_000))
             }
             val deadline = System.currentTimeMillis() + 5_000
             while (stops.get() == 0 && System.currentTimeMillis() < deadline) {
