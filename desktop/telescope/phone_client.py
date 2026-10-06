@@ -30,7 +30,7 @@ class PhoneControlClient:
     })
 
     def __init__(self, stream_url: str, auth: PhoneAuth):
-        self.base = stream_url.rsplit("/video", 1)[0]
+        self.retarget(stream_url)
         self.auth = auth
         self._queue: "queue.Queue" = queue.Queue()
         self._pending: dict = {}  # action: (place in the queue, params), the latest of each
@@ -70,14 +70,10 @@ class PhoneControlClient:
                 self._pending[action] = (self._seq, params)
                 self._queue.put((action, self._seq))
 
-    def keep_settings_of(self, other: "PhoneControlClient"):
-        """Take over the settings another client sent (the same stream on a new route), for resend_settings()."""
-        if not isinstance(other, PhoneControlClient):
-            return
-        with other._lock:
-            settings = dict(other._settings)
-        with self._lock:
-            self._settings = {**settings, **self._settings}
+    def retarget(self, stream_url: str):
+        """The same stream on a new route (cable pulled: Wi-Fi): what's queued, and what resend_settings() sends,
+        goes there."""
+        self.base = stream_url.rsplit("/video", 1)[0]
 
     def resend_settings(self):
         """Send the phone every setting again, for a stream that came back while the panels showed another."""

@@ -1780,9 +1780,13 @@ class _RetargetWorker:
 class _Client:
     def __init__(self):
         self.closed = False
+        self.urls = []
 
     def close(self):
         self.closed = True
+
+    def retarget(self, url):
+        self.urls.append(url)
 
 
 def _dropped_stream(window, monkeypatch, answers, url="http://127.0.0.1:40001/v1/video", conn=None):
@@ -1791,8 +1795,6 @@ def _dropped_stream(window, monkeypatch, answers, url="http://127.0.0.1:40001/v1
         window.register_plugin(conn)
     monkeypatch.setattr(sources_module.PhoneSource, "_spawn_recovery_probe",
                         lambda self, sid, gen, job: self._on_recovery_probed(sid, gen, job()))
-    monkeypatch.setattr(sources_module, "PhoneControlClient", lambda url, token: SimpleNamespace(
-        base=url, token=token, close=lambda: None))
     worker, client = _RetargetWorker(), _Client()
     window._session = StreamSession(source=window._phone, id=1, url=url, client=client, worker=worker)
     worker.status.connect(window._on_worker_status)
@@ -1927,8 +1929,8 @@ def test_a_dropped_usb_stream_moves_to_wifi_when_the_cable_is_pulled(window, mon
     assert conn.adopted == [wifi]
     assert worker.urls == ["http://192.168.1.20:8080/v1/video"]
     assert window._session.url == "http://192.168.1.20:8080/v1/video"
-    assert window._session.client.base == "http://192.168.1.20:8080/v1/video"
-    assert client.closed
+    assert window._session.client is client and client.urls == ["http://192.168.1.20:8080/v1/video"]
+    assert not client.closed  # the same one, so it keeps what it sent
     assert window._phone._recovery_timer.isActive()  # until frames actually come back
 
 
@@ -2011,8 +2013,6 @@ def test_a_stream_that_never_got_its_first_frame_looks_for_the_phone_too(window,
     window.register_plugin(conn)
     monkeypatch.setattr(sources_module.PhoneSource, "_spawn_recovery_probe",
                         lambda self, sid, gen, job: self._on_recovery_probed(sid, gen, job()))
-    monkeypatch.setattr(sources_module, "PhoneControlClient", lambda url, token: SimpleNamespace(
-        base=url, token=token, close=lambda: None))
     worker = _RetargetWorker()
     window._session = StreamSession(source=window._phone, id=1, url="http://127.0.0.1:40001/v1/video", client=_Client(), worker=worker)
     worker.status.connect(window._on_worker_status)
@@ -2137,6 +2137,9 @@ def camera_env(window, monkeypatch):
 
         def send(self, **params):
             self.sent.append(params)
+
+        def retarget(self, url):
+            self.url = url
 
         def get_state(self):
             return self.state
@@ -3001,3 +3004,61 @@ def test_coming_back_to_a_zoomed_phone_doesnt_crop_its_crop_again(camera_env, mo
     assert view._desktop_crop == (1.0, 0.0, 0.0)
     assert phone.session.client.sent == []
     window._stop_all()
+
+
+def test_coming_back_to_a_stream_that_changed_route_meanwhile_keeps_its_exposure(camera_env, monkeypatch):
+    from telescope.plugins.camera_control import CameraControlPlugin
+    window, conn, *_ = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    camera = CameraControlPlugin()
+    window.register_plugin(camera)
+    window._bus.phones_changed.emit(2)
+    window._start()
+    phone = window._focus
+    window._apply_state(phone.session.id, {**_camera_state(isoMax=6400), "auto": False, "iso": 6400,
+                                           "shutter_ns": 10_000_000}, phone)
+    window.add_stream("B")
+    other = window._focus
+    window._apply_state(other.session.id, _camera_state(isoMax=800), other)
+    conn.adopt_stream_route = lambda _route, _pid: "http://192.168.1.20:8080/v1/video"
+    phone.session.worker.retarget = lambda _url: None
+    phone._move_stream(phone.session, object())  # cable pulled while the panels show B: it goes on over Wi-Fi
+    phone.session.client.sent.clear()
+    window.focus_stream("Phone")
+    assert camera.get_config()["iso"] > 6390 and phone.session.client.sent == []
+    window._stop_all()
+
+
+def test_two_phones_waiting_for_the_extra_cameras_both_start(camera_env, monkeypatch):
+    window, *_ = camera_env
+    ready = {0}
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda slot: slot in ready)
+    monkeypatch.setattr(window, "_ask_slots", lambda: True)
+    window._start()
+    window.add_stream("B")  # sets up the extra cameras
+    window.add_stream("C")  # while that's under way
+    monkeypatch.setattr(sources_module.PhoneSource, "_spawn_wake", lambda self, *a: None)
+    ready.update(range(1, app_module.vcam.MAX_SLOTS))
+    window._on_slots_ready(True, "", "")
+    assert window._wake_source.id == "B"
+    window._on_wake_done(window._wake_source, True, "")
+    QCoreApplication.processEvents()
+    assert window._wake_source.id == "C"  # once B is through
+    window._on_wake_done(window._wake_source, True, "")
+    assert window.stream_count() == 3
+    window._stop_all()
+
+
+def test_stop_drops_starts_waiting_for_the_extra_cameras(camera_env, monkeypatch):
+    window, *_ = camera_env
+    ready = {0}
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda slot: slot in ready)
+    monkeypatch.setattr(window, "_ask_slots", lambda: True)
+    window._start()
+    window.add_stream("B")
+    window.add_stream("C")
+    window._toggle()
+    ready.update(range(1, app_module.vcam.MAX_SLOTS))
+    window._on_slots_ready(True, "", "")
+    QCoreApplication.processEvents()
+    assert not window.is_streaming() and not window._waking

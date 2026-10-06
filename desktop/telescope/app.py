@@ -142,6 +142,7 @@ class TelescopeWindow(QMainWindow):
         self._restarting = False  # stopping only to start again (reconnect, virtual camera resize)
         self._restart_later: set = set()  # streams to restart once the start under way is through
         self._held_states: dict = {}  # id: (source, session id, state) that needs the panels once that start is through
+        self._start_later: list = []  # starts that waited for the extra cameras, one at a time once they're there
         self._start_id: Optional[str] = None  # what the last start was for, so its banner's Try again starts it again
 
         self._save_timer = QTimer(self)
@@ -675,13 +676,16 @@ class TelescopeWindow(QMainWindow):
         self._start(source=source)
 
     def _after_start(self):
-        """What waited for the start under way to be through: phone states that need the panels, then restarts."""
-        while not (self._waking or self._preparing) and (self._held_states or self._restart_later):
+        """What waited for the start under way to be through: phone states that need the panels, restarts, then
+        starts that waited for the extra cameras."""
+        while not (self._waking or self._preparing) and (self._held_states or self._restart_later or self._start_later):
             if self._held_states:
                 source, session_id, state = self._held_states.pop(next(iter(self._held_states)))
                 self._apply_state(session_id, state, source)
-            else:
+            elif self._restart_later:
                 self.reconnect_stream(self._restart_later.pop())
+            else:
+                self._start_later.pop(0)()
 
     def _stop_for_restart(self, source: Optional[Source] = None):
         """Stop a stream that starts again right after; stream_stopped handlers can tell with is_restarting()."""
@@ -1305,8 +1309,8 @@ class TelescopeWindow(QMainWindow):
         if ok:
             self.clear_issue("vcam")
             self._announce_idle_outputs()
-            for then in waiting:
-                then()
+            self._start_later.extend(waiting)  # a phone wakes before the next one can start
+            self._after_start()
             return
         if msg == CANCELLED:
             return
@@ -1437,6 +1441,7 @@ class TelescopeWindow(QMainWindow):
             self._drop_pending()
         self._restart_later.clear()
         self._held_states.clear()
+        self._start_later.clear()
         shown, main = self._active_source(), self._main
         others = [s for s in self._streams if s is not shown]
         if self._waking and self._wake_source not in (None, shown):

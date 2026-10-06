@@ -335,14 +335,13 @@ def test_a_value_sent_again_goes_after_what_was_sent_between(monkeypatch):
     assert sent == [{"action": "auto"}, {"action": "iso", "value": 200}, {"action": "shutter", "value": 20_000_000}]
 
 
-def test_a_new_route_keeps_the_settings_sent_on_the_old_one(monkeypatch):
+def test_a_new_route_takes_the_queue_and_the_settings_along(monkeypatch):
     monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
-    old = PhoneControlClient("http://usb/video", PhoneAuth("tok"))
-    old.send(action="iso", value=500)
-    old.send(action="zoom", value=2.0)
-    new = PhoneControlClient("http://wifi/video", PhoneAuth("tok"))
-    new.keep_settings_of(old)
+    client = PhoneControlClient("http://127.0.0.1:40001/v1/video", PhoneAuth("tok"))
+    client.send(action="iso", value=500)
+    client.retarget("https://192.168.1.20:8080/v1/video")
+    assert client.base == "https://192.168.1.20:8080/v1"  # where the queued ISO and every later request go
     resent = []
-    monkeypatch.setattr(new, "send", lambda **params: resent.append(params))
-    new.resend_settings()
-    assert resent == [{"action": "iso", "value": 500}, {"action": "zoom", "value": 2.0}]
+    monkeypatch.setattr(client, "send", lambda **params: resent.append(params))
+    client.resend_settings()
+    assert resent == [{"action": "iso", "value": 500}]
