@@ -132,6 +132,9 @@ def test_the_help_button_brings_the_phone_steps_back_until_closed(env):
     plugin._close_btn.click()
     assert card.isHidden() and needed[-1] is False
     assert plugin._pair.text.text().startswith("Not needed")
+    bus.setup_guide_requested.emit()
+    bus.setup_guide_requested.emit()  # the same button closes it
+    assert card.isHidden()
 
 
 def test_a_stream_starting_closes_the_guide(env):

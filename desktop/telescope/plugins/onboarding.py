@@ -1,7 +1,7 @@
 """First-run checklist on the video stage: virtual camera, phone app, add a phone, start streaming.
 
 It shows until the first stream has delivered frames, then gets out of the way until setup_guide_requested opens
-it again (with a close button, and the phone steps even while another camera is picked). The other plugins are reached only through the EventBus: phones_changed tells it when a phone is
+it again (with a close button, and the phone steps even while another camera is picked); the next one closes it. The other plugins are reached only through the EventBus: phones_changed tells it when a phone is
 paired, add_phone_requested opens pairing, and setup_needed lets the video stage make room.
 """
 
@@ -97,7 +97,7 @@ class OnboardingPlugin(TelescopePlugin):
         self._source = ""  # the stream source picked instead of a phone (Browser camera), if any
         bus.source_selected.connect(self._on_source)
         self._asked = False  # opened from the help button: shows until closed, phone steps and all
-        bus.setup_guide_requested.connect(lambda: self._set_asked(True))
+        bus.setup_guide_requested.connect(lambda: self._set_asked(not self._asked))  # the button opens and closes it
         bus.stream_started.connect(lambda _url: self._set_streaming(True))
         bus.stream_stopped.connect(lambda: self._set_streaming(False))
         bus.stream_connected.connect(self._on_stream_connected)
