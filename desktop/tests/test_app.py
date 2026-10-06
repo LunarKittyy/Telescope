@@ -1140,7 +1140,7 @@ def test_worker_fps_and_idle_status(window):
     assert window._session is None
     assert window._start_btn.text() == "Start Streaming"
     assert stopped == [True]
-    assert window._banners.issue("start").title == "The stream stopped unexpectedly"
+    assert window._banners.issue(f"stopped:{window._phone.id}").title == "The stream stopped unexpectedly"
 
 
 def test_a_start_is_not_started_again_while_it_finds_the_phone(window):
@@ -1986,7 +1986,12 @@ def test_recovery_stops_the_stream_when_the_phone_stopped_streaming(window, monk
     assert window._session is None
     assert conn.remote_stops == 0
     assert not window._phone.recovering
-    assert window._banners.issue("start").title == "The phone stopped streaming"
+    issue = window._banners.issue(f"stopped:{window._phone.id}")
+    assert issue.title == "The phone stopped streaming"
+    starts = []
+    monkeypatch.setattr(window, "_start_source", lambda sid, before=None: starts.append(sid))
+    issue.actions[0].callback()
+    assert starts == [window._phone.id]  # this phone, even with others still streaming
 
 
 @pytest.mark.parametrize("status", ["NOT_PAIRED", "LOCAL_ONLY", "PHONE_OUTDATED", "DESKTOP_OUTDATED"])
@@ -2571,3 +2576,112 @@ def test_a_browser_camera_on_auto_canvas_streams_at_its_own_default_size(camera_
     expected = (1920, 1080) if sources_module.vcam.IS_LINUX else (None, None)
     assert (workers[0].kwargs["canvas_width"], workers[0].kwargs["canvas_height"]) == expected
 
+
+
+def test_a_stopped_cameras_start_brings_it_back_next_to_the_others(two_streams):
+    window, conn, _mic, view, _workers, _config = two_streams
+    window.stop_stream("browser")
+    assert window.stream_count() == 1
+    picked = []
+    window.start_again("browser", lambda: picked.append((window._focus.id, view.config["zoom"])))()
+    assert window.stream_count() == 2 and window.is_streaming_from("browser")
+    assert picked == [("browser", 3)]  # before ran on its own settings, not the phone's
+
+
+def test_another_cameras_start_working_keeps_a_stopped_ones_banner(two_streams):
+    from telescope.widgets.banner import Issue
+    window, _conn, _mic, _view, _workers, _config = two_streams
+    window.show_issue("stopped:Phone", Issue("Phone stopped streaming"))
+    window._on_worker_status("ok", "Streaming", window._focus)  # the browser's stream
+    assert window._banners.issue("stopped:Phone") is not None
+
+
+def test_stop_keeps_the_mics_settings_with_its_own_phone(two_streams):
+    window, conn, mic, _view, _workers, config = two_streams
+    mic.config["gain"] = 7  # set while the phone has the mic and the panels show the browser
+    window._toggle()
+    devices = config.load_config()["devices"]
+    assert devices["Phone"]["plugin_configs"]["microphone"]["gain"] == 7
+    assert devices.get("browser", {}).get("plugin_configs", {}).get("microphone", {}).get("gain") != 7
+
+
+def test_a_canvas_change_waits_for_one_camera(two_streams):
+    window, *_ = two_streams
+    answers = []
+    window.restart_vcam_canvas(1280, 720, on_done=lambda ok, msg: answers.append(ok))
+    assert answers == [False] and window.stream_count() == 2
+
+
+def test_reconnecting_the_mics_stream_keeps_the_mic_on_it(two_streams):
+    window, conn, mic, _view, _workers, _config = two_streams
+    window.focus_stream("Phone")
+    starts = len(mic.started)
+    window.reconnect_stream()
+    assert window._main is window._phone and window.stream_count() == 2
+    assert len(mic.started) == starts + 1 and mic.started[-1][0] == "http://phone/video"
+
+
+def test_back_on_a_tile_its_state_is_asked_for_again(two_streams, monkeypatch):
+    window, *_ = two_streams
+    asked = []
+    phone = window._source_by_id("Phone")
+    monkeypatch.setattr(phone, "refresh_state", asked.append)
+    window.focus_stream("Phone")
+    assert asked == [phone.session.id]  # as it is now, not as it was when the stream started
+
+
+def test_the_main_camera_counts_as_free_while_only_an_extra_one_streams(two_streams):
+    window, *_ = two_streams
+    idle = []
+    window._bus.idle_outputs.connect(idle.append)
+    window.stop_stream("Phone")
+    assert idle[-1] == [0, 2, 3]
+    window._toggle()
+    assert idle[-1] == [1, 2, 3]  # nothing streams: the main camera's wait screen follows the stop itself
+
+
+class _WaitingBrowser(_Browser):
+    """Browser camera with no browser yet: added next to a stream, it waits in a tile of its own."""
+    id, name = "waiting", "Browser camera"
+
+    def __init__(self):
+        self.waits, self.cancels = True, 0
+
+    def prepare(self, interactive):
+        return False
+
+    def waiting(self):
+        return self.waits
+
+    def cancel_wait(self):
+        self.waits = False
+        self.cancels += 1
+
+
+def test_a_source_that_waits_gets_a_tile_with_the_panels_on_it(two_streams):
+    window, conn, _mic, _view, _workers, _config = two_streams
+    launcher = _WaitingBrowser()
+    window.add_stream_source(launcher)
+    window.add_stream("waiting")
+    assert window._focus.id == "waiting" and conn.selected_device == "waiting"
+    assert window._tiles.ids() == ["Phone", "browser", "waiting"]
+    assert window._tiles._tiles["waiting"].state.text() == "● Waiting"
+    assert "waiting" not in [sid for sid, _name in window._add_candidates()]
+
+    window.focus_stream("Phone")
+    assert window._focus.id == "Phone"
+    window.focus_stream("waiting")
+    assert window._focus.id == "waiting"
+
+    window.stop_stream("waiting")  # its tile's X
+    assert launcher.cancels == 1 and window._tiles.ids() == ["Phone", "browser"]
+    assert window._focus.id == "Phone"
+
+
+def test_stop_drops_a_waiting_tile_too(two_streams):
+    window, *_ = two_streams
+    launcher = _WaitingBrowser()
+    window.add_stream_source(launcher)
+    window.add_stream("waiting")
+    window._toggle()
+    assert launcher.cancels == 1 and not window.is_streaming() and window._pending is None

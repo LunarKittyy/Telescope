@@ -539,7 +539,7 @@ def test_an_idle_stop_lets_the_next_app_start_it_again(watching):
     assert host.starts == [False, False]
 
 
-def test_with_a_second_camera_streaming_nothing_stops_by_itself(watching):
+def test_once_a_second_camera_streamed_nothing_stops_by_itself_until_all_stop(watching):
     plugin, host, bus = watching
     bus.camera_watched.emit(True)
     _stream_runs(host, bus)
@@ -549,8 +549,10 @@ def test_with_a_second_camera_streaming_nothing_stops_by_itself(watching):
     bus.streams_changed.emit(2)
     assert not plugin._idle_stop.isActive()
     host.streams = 1
-    bus.streams_changed.emit(1)
-    assert plugin._idle_stop.isActive()
+    bus.streams_changed.emit(1)  # the one left may stream to an extra camera, which no watch sees
+    assert not plugin._idle_stop.isActive()
+    _stream_ends(host, bus)
+    assert not plugin._several  # one camera again after a full stop
 
 
 def test_an_outside_stop_while_an_app_reads_holds_the_watch_start(watching):

@@ -87,6 +87,12 @@ class _Source:
     def prepare(self, interactive: bool) -> bool:
         return self._plugin.prepare()
 
+    def waiting(self) -> bool:
+        return self._plugin.is_waiting()
+
+    def cancel_wait(self):
+        self._plugin.cancel_waiting()
+
     # Never streams itself (prepare() says to scan the code instead), so these read a feed nothing connects to
     def open_reader(self):
         return BrowserReader(BrowserFeed())
@@ -139,6 +145,7 @@ class BrowserCameraPlugin(TelescopePlugin):
         self._browsers: dict = {}  # id the page keeps: its _BrowserSource, while it's there or streams
         self._started: dict = {}  # id: the connection that started streaming, so a stop isn't undone right away
         self._joining = False
+        self._waiting = False  # Start or + asked for a browser and none has joined yet: the server stays up for it
         self._known: dict = {}  # id: {"name", "seen"} of browsers that connected, for the phones list
         self._server: Optional[BrowserServer] = None
         self._problem = ""  # why the server isn't running
@@ -158,6 +165,11 @@ class BrowserCameraPlugin(TelescopePlugin):
     @property
     def _selected(self) -> bool:
         return bool(self._selected_id)
+
+    @property
+    def _needed(self) -> bool:
+        """Whether the server runs even with no browser streaming."""
+        return self._selected or self._waiting
 
     def _shown_feed(self):
         """The feed of the browser the panels show, if they show one."""
@@ -345,7 +357,7 @@ class BrowserCameraPlugin(TelescopePlugin):
         self._selected_id = sid
         if sid:
             self._start_server()
-        elif was and not self._any_streaming():  # one still streaming keeps going while the panels move on
+        elif was and not self._waiting and not self._any_streaming():  # one still streaming keeps going while the panels move on
             self._stop_server()
         self._show_card()
         self._render()
@@ -357,7 +369,7 @@ class BrowserCameraPlugin(TelescopePlugin):
         for src in self._browsers.values():
             src.feed.set_camera(self._host.stream_output(src.id))
         self._update_room()
-        if not self._selected and not self._any_streaming():
+        if not self._needed and not self._any_streaming():
             self._stop_server()
         else:
             self._tidy_browsers()
@@ -422,6 +434,7 @@ class BrowserCameraPlugin(TelescopePlugin):
                     break
                 self._started[bid] = feed.generation
                 self._host.clear_issue("start")
+                self._set_waiting(False)
                 self._host.stream_source(src.id)
                 break  # one at a time: the next once this one is through (streams_changed)
         finally:
@@ -471,14 +484,36 @@ class BrowserCameraPlugin(TelescopePlugin):
         if not self._start_server():
             self._render()
             self._host.show_issue("start", Issue("Browser camera isn't available", self._problem,
-                                                 [BannerAction("Try again", self._host.start_stream)]))
+                                                 [BannerAction("Try again", self._host.start_again())]))
             return False
         if need_browser:
-            self._host.show_issue("start", Issue(
-                "Waiting for a browser", "Scan the code on the Browser camera card with the device to use. It "
-                "starts streaming as soon as it connects.", kind="warn"))
+            self._set_waiting(True)
+            if not self._host.stream_count():  # next to other streams, its tile says it's waiting
+                self._host.show_issue("start", Issue(
+                    "Waiting for a browser", "Scan the code on the Browser camera card with the device to use. It "
+                    "starts streaming as soon as it connects.", [BannerAction("Cancel", self.cancel_waiting)],
+                    kind="warn", on_dismiss=self.cancel_waiting))
             return False
         return True
+
+    def is_waiting(self) -> bool:
+        return self._waiting
+
+    def _set_waiting(self, waiting: bool):
+        if waiting != self._waiting:
+            self._waiting = waiting
+            if not waiting:
+                self._host.stop_stream(SOURCE_ID)  # its waiting tile goes
+            self._show_card()
+            self._render()
+
+    def cancel_waiting(self):
+        """Banner's Cancel: nobody's coming, so the card goes unless Browser camera is picked."""
+        self._host.clear_issue("start")
+        self._set_waiting(False)
+        if not self._needed and not self._any_streaming():
+            self._stop_server()
+            self._render()
 
     def _on_server_changed(self):
         if self._server is None:
@@ -495,8 +530,9 @@ class BrowserCameraPlugin(TelescopePlugin):
             self._size = size
         if fps is not None and fps != self.fps:
             self.fps = fps
-            if self._host.is_streaming_from(self._selected_id):
-                self._host.update_stream_output(fps=fps)  # the shown stream; the others take it when they restart
+            for src in self._browsers.values():  # every page gets the new rate, so every stream of one does too
+                if self._host.is_streaming_from(src.id):
+                    self._host.update_stream_output(fps=fps, source_id=src.id)
         self._apply_capture()
         self._host.schedule_save()
 

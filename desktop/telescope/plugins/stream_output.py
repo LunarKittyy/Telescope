@@ -264,11 +264,12 @@ class StreamOutputPlugin(TelescopePlugin):
             # Too much for the phone's encoder at this size or rate. Heavy there can be hundreds of Mbps, so rather
             # than switch by itself, stop and let the choice be made: something smaller, or Heavy anyway. The stop
             # waits for every plugin to have this state, so none fills its controls back in after it.
-            QTimer.singleShot(0, self._host.stop_stream)
+            sid = self._host.focused_source_id()  # the panels may show another stream by the time it's answered
+            QTimer.singleShot(0, lambda: self._host.stop_stream(sid))
             self._host.show_issue("encoder", Issue(
                 "Too much for the phone's H.264 encoder",
                 f"{state['codec_error']}. Try a lower resolution or FPS, or switch to Heavy.",
-                [BannerAction("Switch to Heavy", self._switch_to_heavy)], kind="warn"))
+                [BannerAction("Switch to Heavy", self._host.start_again(sid, self._switch_to_heavy))], kind="warn"))
         elif self._format == FORMAT_H264 and state.get("codec_error"):
             # The phone went back to MJPEG; so does the stream, or it would keep asking for H.264.
             self._host.show_issue("h264", Issue(
@@ -505,7 +506,6 @@ class StreamOutputPlugin(TelescopePlugin):
 
     def _switch_to_heavy(self):
         self._set_format(FORMAT_MJPEG)
-        self._host.start_stream()
 
     def _switch_to_dynamic(self):
         self._bitrate_slider.setValue(_DYNAMIC_POS)  # sends it and saves, as moving the slider there would

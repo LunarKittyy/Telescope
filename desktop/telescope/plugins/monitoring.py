@@ -25,6 +25,34 @@ _STATUS_COLORS = {
 
 class _Signals(QObject):
     state_ready = pyqtSignal(object, dict)  # the stream's control client it was read through, and the state
+    other_ready = pyqtSignal(object, str, object, dict)  # the same for a stream the panels don't show: id, name first
+
+
+_DEFAULTS = {"battery_alert": 20, "temp_alert": 45, "battery_notify": True, "battery_stop": False,
+             "temp_notify": True, "temp_stop": False}
+
+
+def _thresholds(saved) -> dict:
+    """A stream's saved alert settings, the defaults for what's missing or doesn't make sense."""
+    cfg = dict(_DEFAULTS)
+    if isinstance(saved, dict):
+        for key, default in _DEFAULTS.items():
+            value = saved.get(key)
+            if isinstance(default, bool) and isinstance(value, bool):
+                cfg[key] = value
+            elif not isinstance(default, bool) and isinstance(value, int) and not isinstance(value, bool):
+                cfg[key] = value
+    return cfg
+
+
+def _reading(state: dict) -> Optional[tuple]:
+    """(battery level, charging, temperature) from a phone state, or None without one that makes sense."""
+    if "battery" not in state:
+        return None
+    try:
+        return int(state["battery"]), bool(state.get("charging", True)), float(state.get("battery_temp_c", 0.0))
+    except (TypeError, ValueError):
+        return None
 
 
 class MonitoringPlugin(TelescopePlugin):
@@ -40,6 +68,9 @@ class MonitoringPlugin(TelescopePlugin):
         self._last_level: Optional[int] = None
         self._sig = _Signals()
         self._sig.state_ready.connect(self._on_polled)
+        self._sig.other_ready.connect(self._on_other_polled)
+        self._sid = None  # the shown stream's source
+        self._others: dict = {}  # source id: what's been warned about for a stream the panels don't show
 
         self._timer = QTimer()
         self._timer.setInterval(15_000)
@@ -105,47 +136,71 @@ class MonitoringPlugin(TelescopePlugin):
         return notify, stop
 
     def on_stream_start(self, stream_url: str, ctrl):
+        sid = self._host.focused_source_id()
+        kept = self._others.pop(sid, None)
+        self._timer.start()
         if ctrl is not None and ctrl is self._ctrl:
             return  # a reconnect of the same stream: keep the reading shown and don't warn about it again
-        self._ctrl = ctrl
-        self._battery_notified = False
-        self._temp_notified    = False
-        self._last_level = None
+        self._ctrl, self._sid = ctrl, sid
         self._battery_lbl.setText("—")
         self._temp_lbl.setText("—")
-        self._timer.start()
+        if kept is not None and kept["ctrl"] is ctrl:  # back on a tile: what it already warned about stays said
+            self._battery_notified, self._temp_notified, self._last_level = kept["batt"], kept["temp"], kept["last"]
+        else:
+            self._battery_notified = self._temp_notified = False
+            self._last_level = None
 
     def on_stream_stop(self):
-        self._timer.stop()
+        if self._ctrl is not None and self._host.is_streaming():  # the panels moved on: it's watched from behind
+            self._others[self._sid] = {"ctrl": self._ctrl, "batt": self._battery_notified,
+                                       "temp": self._temp_notified, "last": self._last_level}
+        else:
+            self._timer.stop()
+            self._others.clear()
         self._ctrl = None
         self._battery_lbl.setText("—")
         self._temp_lbl.setText("—")
 
     def _poll(self):
-        if not self._ctrl:
-            return
-        threading.Thread(target=self._fetch, args=(self._ctrl,), daemon=True).start()
+        if self._ctrl:
+            threading.Thread(target=self._fetch, args=(self._ctrl,), daemon=True).start()
+        for sid, name, ctrl in self._host.background_streams():
+            if ctrl is not None:
+                threading.Thread(target=self._fetch_other, args=(sid, name, ctrl), daemon=True).start()
 
     def _fetch(self, ctrl):
         state = ctrl.get_state()
         if state and "battery" in state:
             self._sig.state_ready.emit(ctrl, state)
 
+    def _fetch_other(self, sid, name, ctrl):
+        state = ctrl.get_state()
+        if state and "battery" in state:
+            self._sig.other_ready.emit(sid, name, ctrl, state)
+
     def _on_polled(self, ctrl, state: dict):
         if ctrl is self._ctrl:  # a reading from a stream that has since stopped (or been replaced) is dropped
             self._on_state(state)
 
-    def _on_state(self, state: dict):
-        if "battery" not in state:
+    def _on_other_polled(self, sid, name: str, ctrl, state: dict):
+        """A stream the panels don't show: its own alerts, by the thresholds saved for it."""
+        if not any(s == sid and c is ctrl for s, _n, c in self._host.background_streams()):
+            return  # stopped, or the panels show it now
+        reading = _reading(state)
+        if reading is None:
             return
-        try:
-            level    = int(state["battery"])
-            charging = bool(state.get("charging", True))
-            temp_c   = float(state.get("battery_temp_c", 0.0))
-        except (TypeError, ValueError):
+        entry = self._others.get(sid)
+        if entry is None or entry["ctrl"] is not ctrl:
+            entry = self._others[sid] = {"ctrl": ctrl, "batt": False, "temp": False, "last": None}
+        cfg = _thresholds(self._host.device_config(sid, self.name))
+        self._alert(entry, *reading, cfg, sid, name)
+
+    def _on_state(self, state: dict):
+        reading = _reading(state)
+        if reading is None:
             return  # a reading we can't make sense of is skipped; the next poll tries again
-        self._update_display(level, charging, temp_c)
-        self._check_alerts(level, charging, temp_c)
+        self._update_display(*reading)
+        self._check_alerts(*reading)
 
     def _update_display(self, level: int, charging: bool, temp_c: float):
         batt_thresh = self._batt_alert_spin.value()
@@ -171,43 +226,52 @@ class MonitoringPlugin(TelescopePlugin):
         self._temp_lbl.setStyleSheet(f"color: {temp_color};")
 
     def _check_alerts(self, level: int, charging: bool, temp_c: float):
-        """Notify once per crossing of a threshold; stop on every reading past one whose Stop streaming is on."""
-        batt_thresh = self._batt_alert_spin.value()
-        temp_thresh = self._temp_alert_spin.value()
+        """The shown stream's alerts, by the thresholds on the card."""
+        entry = {"batt": self._battery_notified, "temp": self._temp_notified, "last": self._last_level}
+        self._alert(entry, level, charging, temp_c, self.get_config(), None, "")
+        self._battery_notified, self._temp_notified, self._last_level = entry["batt"], entry["temp"], entry["last"]
 
-        falling = (not charging) or (self._last_level is not None and level < self._last_level)  # Wonky charger may not keep up.
-        self._last_level = level
+    def _alert(self, entry: dict, level: int, charging: bool, temp_c: float, cfg: dict, sid, name: str):
+        """Notify once per crossing of a threshold; stop on every reading past one whose Stop streaming is on.
+        sid and name: a stream the panels don't show (None: the one they do)."""
+        batt_thresh = int(cfg["battery_alert"])
+        temp_thresh = int(cfg["temp_alert"])
+
+        falling = (not charging) or (entry["last"] is not None and level < entry["last"])  # Wonky charger may not keep up.
+        entry["last"] = level
         low = falling and level <= batt_thresh
         hot = temp_c >= temp_thresh
         streaming = self._host.is_streaming()
-        stop_low = low and streaming and self._batt_stop.isChecked()
-        stop_hot = hot and streaming and self._temp_stop.isChecked()
+        stop_low = low and streaming and cfg["battery_stop"] is True
+        stop_hot = hot and streaming and cfg["temp_stop"] is True
+        phone = name or "Phone"
 
         notes = []
-        if low and (stop_low or not self._battery_notified):
-            self._battery_notified = True
-            if self._batt_notify.isChecked():
-                text = (f"Phone battery is at {level}% and still dropping despite being "
+        if low and (stop_low or not entry["batt"]):
+            entry["batt"] = True
+            if cfg["battery_notify"] is not False:
+                text = (f"{phone} battery is at {level}% and still dropping despite being "
                         "plugged in - the charger may not be keeping up." if charging else
-                        f"Phone battery is at {level}%.")
+                        f"{phone} battery is at {level}%.")
                 notes.append(("Telescope - Low Battery", text + (" Stopped streaming." if stop_low else "")))
         elif level > batt_thresh + 5:
-            self._battery_notified = False
+            entry["batt"] = False
 
-        if hot and (stop_hot or not self._temp_notified):
-            self._temp_notified = True
-            if self._temp_notify.isChecked():
-                text = (f"Temperature is {temp_c:.1f} °C. Stopped streaming to let it cool down." if stop_hot else
-                        f"Temperature is {temp_c:.1f} °C. Consider stopping charging or closing other apps.")
+        if hot and (stop_hot or not entry["temp"]):
+            entry["temp"] = True
+            if cfg["temp_notify"] is not False:
+                where = f"{name}: t" if name else "T"
+                text = (f"{where}emperature is {temp_c:.1f} °C. Stopped streaming to let it cool down." if stop_hot else
+                        f"{where}emperature is {temp_c:.1f} °C. Consider stopping charging or closing other apps.")
                 notes.append(("Telescope - Phone Running Hot", text))
         elif temp_c < temp_thresh - 5:
-            self._temp_notified = False
+            entry["temp"] = False
 
         for title, text in notes:
             self._host.send_notification(title, text)
         if stop_low or stop_hot:
             logger.info("Stopping the stream: phone %s", "battery low" if stop_low else "too hot")
-            self._host.stop_stream()  # last: it runs on_stream_stop, which clears the stream's state here
+            self._host.stop_stream(sid)  # last: for the shown one it runs on_stream_stop, which clears its state here
 
     def get_config(self) -> dict:
         return {

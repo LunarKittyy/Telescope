@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional, Protocol
+from typing import TYPE_CHECKING, Callable, Optional, Protocol
 
 import numpy as np
 from PyQt6.QtCore import QObject, pyqtSignal
@@ -90,9 +90,10 @@ class HostServices(Protocol):
         ...
 
     def update_stream_output(
-        self, width=UNCHANGED, height=UNCHANGED, fps=UNCHANGED,
+        self, width=UNCHANGED, height=UNCHANGED, fps=UNCHANGED, source_id: Optional[str] = None,
     ) -> None:
-        """Push new output geometry and/or fps to the running stream worker; a no-op if nothing is streaming. UNCHANGED keeps the current value, None is a real value (pass-through resolution)."""
+        """Push new output geometry and/or fps to the running stream worker (the panels', or source_id's); a no-op if
+        it isn't streaming. UNCHANGED keeps the current value, None is a real value (pass-through resolution)."""
         ...
 
     def restart_vcam_canvas(self, width: int, height: int, on_done=None) -> None:
@@ -106,6 +107,26 @@ class HostServices(Protocol):
     def start_stream(self, interactive: bool = True) -> None:
         """Start streaming, as the Start button does; a no-op if already streaming or starting.
         interactive=False never asks anything (no password prompt): problems go to a banner."""
+        ...
+
+    def start_again(self, source_id: Optional[str] = None, before: Optional[Callable[[], None]] = None
+                    ) -> Callable[[], None]:
+        """For a banner's Try again: starts source_id (by default what is starting now) once more, next to any other
+        stream (Start would only start one while nothing streams). before runs first, with the panels on it, so a
+        setting it changes (e.g. Switch to Heavy) is that source's."""
+        ...
+
+    def background_streams(self) -> list:
+        """[(source id, name, control client)] of the streams the panels don't show."""
+        ...
+
+    def device_config(self, source_id: Optional[str], plugin_name: str) -> dict:
+        """The settings saved for source_id's stream in a device-local plugin (config.DEVICE_LOCAL_PLUGINS), for one
+        the panels don't show; {} without any."""
+        ...
+
+    def focused_source_id(self) -> Optional[str]:
+        """The source the panels show (or Start would stream from), for a banner about it to act on it later."""
         ...
 
     def set_keep_in_tray(self, keep: bool) -> None:

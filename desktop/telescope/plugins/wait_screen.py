@@ -42,6 +42,7 @@ class WaitScreenPlugin(TelescopePlugin):
         self._extra_screen = extra_screen or (lambda slot: vcam.WaitScreen(slot=slot))
         self._extras: dict = {}  # slot: its WaitScreen, kept once made (each registers for driver reloads)
         self._idle: list = []  # the extra cameras nothing streams to
+        self._main_idle = False  # nothing streams to the main camera while others stream to extra ones
         self._watch_cls = watch_cls
         self._watch = None
         self._dlg = None
@@ -70,16 +71,20 @@ class WaitScreenPlugin(TelescopePlugin):
         if self._shut:
             return
         self._show_extras()
-        if self._host.is_streaming() and self._host.is_camera_on():
+        if self._host.is_streaming() and self._host.is_camera_on() and not self._main_idle:
             return
         self._screen.show(self.size(), self.image_path, self.mirror)
 
     def _on_idle_outputs(self, slots: list):
-        self._idle = list(slots)
+        self._idle = [slot for slot in slots if slot]
         for slot, screen in self._extras.items():
             if slot not in self._idle:
                 screen.stop()
-        self._show_extras()
+        main_idle, self._main_idle = self._main_idle, 0 in slots
+        if self._main_idle and not main_idle:
+            self._show()
+        else:
+            self._show_extras()
 
     def _show_extras(self):
         if self._shut:

@@ -79,6 +79,9 @@ class StartupPlugin(TelescopePlugin):
         self._watch_held = False      # already started (or stopped) while this app reads the camera
         self._starting_own = False    # asked the host to start; the next stream_started is ours
         self._started_own = False     # the running stream is one it started
+        # Several cameras streamed since the last full stop: the one left may go to an extra camera, which the watch
+        # doesn't see, so nothing stops by itself until everything has
+        self._several = False
         self._delay_dlg: Optional["StopDelayDialog"] = None
 
     def setup(self, host, bus):
@@ -92,7 +95,7 @@ class StartupPlugin(TelescopePlugin):
         bus.stream_stopped.connect(self._on_stream_stopped)
         bus.stream_start_failed.connect(self._on_stream_start_failed)
         bus.device_changed.connect(self._on_device_changed)
-        bus.streams_changed.connect(lambda _count: self._sync_idle_timer())
+        bus.streams_changed.connect(self._on_streams_changed)
         bus.camera_watched.connect(self._on_camera_watched)
 
     # ── Menu ──────────────────────────────────────────────────────────────
@@ -275,6 +278,11 @@ class StartupPlugin(TelescopePlugin):
             logger.info("Can't tell yet whether an app reads the camera, so the stream won't stop by itself")
         self._sync_idle_timer()
 
+    def _on_streams_changed(self, count: int):
+        if count > 1:
+            self._several = True
+        self._sync_idle_timer()
+
     def _on_stream_start_failed(self):
         self._starting_own = False
         self._sync_idle_timer()
@@ -287,6 +295,7 @@ class StartupPlugin(TelescopePlugin):
             self._started_own = False
             return
         self._forget_own_stream()
+        self._several = False
         if self._watched:
             self._watch_held = True  # stopped while an app reads the camera: wait for it to let go
         self._sync_idle_timer()
@@ -303,7 +312,7 @@ class StartupPlugin(TelescopePlugin):
         """Whether the wait before an idle stop should be running right now. Every doubt means no."""
         return (self._idle_stop_applies() and self._watch_known and not self._watched
                 and (self._host.is_streaming() or self._starting_own) and self._host.is_camera_on()
-                and self._host.stream_count() <= 1)  # several cameras: each is somebody's, so none stops by itself
+                and self._host.stream_count() <= 1 and not self._several)  # each camera is somebody's
 
     def _sync_idle_timer(self):
         if not self._counting():

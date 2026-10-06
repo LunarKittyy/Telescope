@@ -118,6 +118,23 @@ def test_extra_cameras_show_it_while_nothing_streams_to_them(qapp, config_home):
     assert made[1].stops == 1 and made[2].stops == 2
 
 
+def test_the_main_camera_shows_it_while_only_extra_ones_stream(qapp, config_home):
+    host, bus, screen = _Host(), EventBus(), _Screen()
+    plugin = WaitScreenPlugin(screen=screen, watch_cls=_Watch, extra_screen=lambda slot: _Screen())
+    plugin.setup(host, bus)
+    host.streaming = True
+    bus.idle_outputs.emit([2, 3])  # the main camera and camera 2 stream
+    assert screen.shown == []
+    bus.idle_outputs.emit([0, 2, 3])  # the main camera's stream stopped; camera 2's goes on
+    assert len(screen.shown) == 1
+    bus.idle_outputs.emit([0, 2, 3])
+    assert len(screen.shown) == 1  # already up
+    plugin.on_stream_starting()  # a stream takes the main camera again
+    bus.idle_outputs.emit([2, 3])
+    assert screen.stops == 1
+    plugin.shutdown()
+
+
 def test_takes_the_camera_back_while_the_stream_has_its_camera_off(env):
     plugin, host, _bus, screen = env
     plugin.on_stream_starting()

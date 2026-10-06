@@ -63,7 +63,6 @@ class Source(QObject):
         self.pending_resolution_timer: Optional[QTimer] = None
         self.session: Optional["StreamSession"] = None  # while it streams
         self.slot = 0  # which virtual camera it streams to (vcam.MAX_SLOTS)
-        self.last_state: Optional[dict] = None  # the phone's latest state, for the panels when they come back to it
         self.forget_stream_status()
 
     def forget_stream_status(self):
@@ -71,7 +70,6 @@ class Source(QObject):
         self.status = ("Not streaming", "dim")
         self.fps_text = self.net_text = "—"
         self.connected = False
-        self.last_state = None
 
     def note_status(self, kind: str, msg: str):
         """A status report from this stream's worker, kept for the footer and its tile."""
@@ -100,6 +98,14 @@ class Source(QObject):
         """At Start with nothing streaming: another source's id to stream instead, or None."""
         return None
 
+    def waiting(self) -> bool:
+        """prepare() said no, but something is on its way to it (a browser to scan the code): added next to other
+        streams, it keeps a tile until then."""
+        return False
+
+    def cancel_wait(self):
+        """Its waiting tile was closed."""
+
     def wake(self):
         """Only for a source that wakes: bring it up off the GUI thread, then call the window's _on_wake_done."""
 
@@ -112,6 +118,9 @@ class Source(QObject):
 
     def started(self, session_id: int):
         """The stream began."""
+
+    def refresh_state(self, session_id: int):
+        """The panels came back to this stream: its state again, as it is now."""
 
     def stopped(self, remote_stop: bool, active: bool):
         """The stream ended, or a start was given up; active: there was a stream or a wake to stop."""
@@ -178,6 +187,15 @@ class PluginSource(Source):
     def redirect(self) -> Optional[str]:
         redirect = getattr(self._source, "redirect", None)
         return redirect() if redirect is not None else None
+
+    def waiting(self) -> bool:
+        waiting = getattr(self._source, "waiting", None)
+        return bool(waiting()) if waiting is not None else False
+
+    def cancel_wait(self):
+        cancel = getattr(self._source, "cancel_wait", None)
+        if cancel is not None:
+            cancel()
 
 
     def stream_params(self) -> tuple:
@@ -304,6 +322,10 @@ class PhoneSource(Source):
 
     def started(self, session_id: int):
         threading.Thread(target=self._fetch_state_async, args=(session_id,), daemon=True).start()
+
+    def refresh_state(self, session_id: int):
+        # After the panels' settings went out, so it holds them rather than the ones the stream started with
+        threading.Thread(target=self._fetch_state_async, args=(session_id, False), daemon=True).start()
 
     def stopped(self, remote_stop: bool, active: bool):
         self._wake_id += 1
@@ -452,10 +474,10 @@ class PhoneSource(Source):
             if not res.streaming and not res.busy:
                 # Stopped on the phone, or by its idle watchdog while we couldn't reach it.
                 win._stop(remote_stop=False, source=self)
-                win.show_issue("start", Issue(
+                win.show_issue(f"stopped:{self.id}", Issue(
                     "The phone stopped streaming" if not win._streams else f"{self.name} stopped streaming",
                     "Start again when you're ready.",
-                    [BannerAction("Start", win.start_stream)], kind="warn"))
+                    [BannerAction("Start", lambda: win._start_source(self.id))], kind="warn"))
                 return
             if res.streaming and res.route != self._recovery_route:
                 self._move_stream(session, res.route)
@@ -580,6 +602,11 @@ class PhoneSource(Source):
                 pass
         threading.Thread(target=work, daemon=True).start()
 
+    def _camera_on_again(self):
+        self._win.focus_stream(self.id)  # the switch is the panels' stream's
+        if self._win._focus is self:
+            self._win.set_camera_on(True)
+
     def _on_camera_check(self, session_id: int, state):
         """The phone says whether the camera came back on; one that couldn't (in use elsewhere) stays off."""
         win = self._win
@@ -591,4 +618,4 @@ class PhoneSource(Source):
             win._camera_off_now(session)
             win._bus.camera_on_changed.emit(False)
             win.show_issue("camera", Issue("The camera didn't turn back on", state["camera_error"],
-                                           [BannerAction("Try again", lambda: win.set_camera_on(True))], kind="warn"))
+                                           [BannerAction("Try again", self._camera_on_again)], kind="warn"))
