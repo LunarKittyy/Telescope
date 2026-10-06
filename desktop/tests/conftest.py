@@ -42,4 +42,4 @@ def qapp():
 def _no_locked_camera(monkeypatch):
     """Whatever the real virtual camera is doing on this machine stays out of the tests."""
     import telescope.vcam as vcam
-    monkeypatch.setattr(vcam, "locked_size", lambda: None)
+    monkeypatch.setattr(vcam, "locked_size", lambda *_: None)

@@ -92,6 +92,7 @@ class StartupPlugin(TelescopePlugin):
         bus.stream_stopped.connect(self._on_stream_stopped)
         bus.stream_start_failed.connect(self._on_stream_start_failed)
         bus.device_changed.connect(self._on_device_changed)
+        bus.streams_changed.connect(lambda _count: self._sync_idle_timer())
         bus.camera_watched.connect(self._on_camera_watched)
 
     # ── Menu ──────────────────────────────────────────────────────────────
@@ -301,7 +302,8 @@ class StartupPlugin(TelescopePlugin):
     def _counting(self) -> bool:
         """Whether the wait before an idle stop should be running right now. Every doubt means no."""
         return (self._idle_stop_applies() and self._watch_known and not self._watched
-                and (self._host.is_streaming() or self._starting_own) and self._host.is_camera_on())
+                and (self._host.is_streaming() or self._starting_own) and self._host.is_camera_on()
+                and self._host.stream_count() <= 1)  # several cameras: each is somebody's, so none stops by itself
 
     def _sync_idle_timer(self):
         if not self._counting():

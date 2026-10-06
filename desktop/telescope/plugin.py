@@ -68,8 +68,21 @@ class HostServices(Protocol):
         """Whether the stream stopping now starts again right after (a reconnect or virtual camera resize)."""
         ...
 
-    def stop_stream(self) -> None:
-        """Stop the active stream. A no-op if nothing is streaming."""
+    def stop_stream(self, source_id: Optional[str] = None) -> None:
+        """Stop the stream the panels show, or source_id's. A no-op if nothing is streaming."""
+        ...
+
+    def is_streaming_from(self, source_id: Optional[str]) -> bool:
+        """Whether source_id (a phone's id or a StreamSource's) streams, or a start is waking it, shown or not."""
+        ...
+
+    def stream_count(self) -> int:
+        """How many streams run at once (each to its own virtual camera)."""
+        ...
+
+    def pick_source(self, source_id: Optional[str]) -> bool:
+        """The phone picker moved to source_id. True if the host handled it: that source already streams and gets the
+        panels, or with several streaming it replaces the one they show. False: Connection switches as before."""
         ...
 
     def update_stream_output(
@@ -150,6 +163,9 @@ class StreamSource(Protocol):
 class TelescopePlugin:
     name: str = ""
 
+    follows_focus: bool = True
+    """With several streams, hear about the one the panels show (False: the first one, like the mic)."""
+
     panel_region: str = "left"
     """Panel placement: "left" (connection/output), "right" (camera/image), or "center" (video stage)."""
 
@@ -180,6 +196,10 @@ class TelescopePlugin:
         """The camera is coming back on mid-stream; on_stream_starting came just before."""
     def on_phone_state(self, state: dict): ...
     def process_frame(self, frame: np.ndarray) -> np.ndarray: return frame
+    def frame_step(self):
+        """process_frame frozen at the current settings, for a stream that carries on while the panels show another
+        one; None leaves such streams alone (the preview only draws the one shown)."""
+        return None
     def get_config(self) -> dict: return {}
     def diagnostics(self) -> dict:
         """A few "Label": "value" lines for Copy diagnostics. No tokens, addresses or names."""
@@ -250,6 +270,9 @@ class EventBus(QObject):
     """[(id, name)] of every StreamSource plugins offer; the phone picker lists them after the phones."""
     source_selected        = pyqtSignal(str)
     """The picked StreamSource's id, or "" for a phone (or nothing): panels that only make sense for a phone hide."""
+    streams_changed        = pyqtSignal(int)
+    """How many streams run at once now (more than one: Add camera); stream_started and stream_stopped only mark the
+    first starting and the last stopping."""
     stream_behind          = pyqtSignal(bool)
     """The stream fell behind its frame rate (the throughput readout went amber), or caught up again. Only on a
     change, and never for a dropped stream: that's stream_lost."""

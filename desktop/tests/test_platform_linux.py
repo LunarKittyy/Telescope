@@ -244,3 +244,18 @@ def test_persist_disable_noop_remove_and_error(monkeypatch):
 
     _record(monkeypatch, (1, "", "denied"))
     assert linux.v4l2_persist_disable() == (False, "denied")
+
+
+def test_adding_cameras_runs_one_privileged_script(monkeypatch):
+    calls = []
+    monkeypatch.setattr(linux.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(linux, "_run", lambda cmd, timeout: calls.append(cmd) or (0, "", ""))
+    assert linux.v4l2_add_devices(["Phone Camera 2", "Phone Camera 3"]) == (True, "Phone Camera 2, Phone Camera 3")
+    assert len(calls) == 1
+    assert "v4l2loopback-ctl add -n 'Phone Camera 2' && v4l2loopback-ctl add -n 'Phone Camera 3'" in calls[0][-1]
+
+
+def test_adding_cameras_without_the_tool_says_what_to_install(monkeypatch):
+    monkeypatch.setattr(linux.shutil, "which", lambda name: None)
+    ok, message = linux.v4l2_add_devices(["Phone Camera 2"])
+    assert not ok and "v4l2loopback-utils" in message

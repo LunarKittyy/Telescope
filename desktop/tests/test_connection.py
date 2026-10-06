@@ -68,10 +68,16 @@ class _Host:
     def is_streaming(self):
         return self.streaming
 
-    def stop_stream(self):
+    def stop_stream(self, source_id=None):
         if self.streaming:
             self.stops += 1
             self.streaming = False
+
+    def is_streaming_from(self, _source_id):
+        return self.streaming
+
+    def pick_source(self, _source_id):
+        return False
 
 
 class _FakeDiscovery:

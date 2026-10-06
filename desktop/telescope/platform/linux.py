@@ -186,6 +186,17 @@ def v4l2_setup(persist: bool = False) -> PrivResult:
     return r
 
 
+def v4l2_add_devices(labels: list) -> PrivResult:
+    """Add a v4l2loopback camera for each label to the running module (more cameras to stream to at once), behind one
+    password prompt. They last until the module reloads; v4l2loopback-ctl picks free device numbers."""
+    steps = [("run", f"v4l2loopback-ctl add -n {shlex.quote(label)}") for label in labels]
+    if not shutil.which("v4l2loopback-ctl"):
+        return PrivResult(False, ("This v4l2loopback can't add cameras while it runs (v4l2loopback-ctl is missing). "
+                                  "Install v4l2loopback-utils or a newer v4l2loopback, then try again."))
+    r = _privileged(steps, 60, "v4l2loopback-ctl add failed")
+    return PrivResult(True, ", ".join(labels)) if r.ok else r
+
+
 def v4l2_load() -> PrivResult:
     """Load v4l2loopback for this boot only."""
     return v4l2_setup(persist=False)

@@ -172,6 +172,30 @@ def test_locked_size_reads_the_drivers_format(monkeypatch, tmp_path, text, size)
     assert _locked_size() == size
 
 
+def test_extra_slots_are_found_by_their_label(monkeypatch, tmp_path):
+    monkeypatch.setattr(vcam, "IS_LINUX", True)
+    for node, label in (("video11", "Phone Camera"), ("video20", "Phone Camera 3"), ("video21", "Other")):
+        (tmp_path / node).mkdir()
+        (tmp_path / node / "name").write_text(label + "\n")
+    monkeypatch.setattr(vcam.glob, "glob", lambda _pattern: [str(p) for p in tmp_path.glob("video*/name")])
+    real_open = open
+    monkeypatch.setattr("builtins.open", lambda path, *a, **k: real_open(
+        tmp_path / str(path).split("/")[-2] / "name" if str(path).startswith("/sys/") else path, *a, **k))
+    assert vcam.slot_device(0) == vcam.V4L2_PHONE_DEV
+    assert vcam.slot_device(2) == "/dev/video20"
+    assert vcam.slot_device(1) is None
+    assert vcam.slot_ready(2) and not vcam.slot_ready(1) and vcam.slot_ready(0)
+    with pytest.raises(RuntimeError, match="Phone Camera 2"):
+        vcam.open_camera(4, 4, 30, slot=1)
+
+
+def test_windows_slots_need_their_numbered_registration(monkeypatch):
+    monkeypatch.setattr(vcam, "IS_LINUX", False)
+    monkeypatch.setattr(vcam, "_uc_names", lambda: {0: "Telescope", 2: "Telescope #2"})
+    assert vcam.slot_label(1) == "Telescope #2"
+    assert vcam.slot_ready(1) and not vcam.slot_ready(2)
+
+
 def test_locked_size_is_linux_only(monkeypatch):
     monkeypatch.setattr(vcam, "IS_LINUX", False)
     assert _locked_size() is None

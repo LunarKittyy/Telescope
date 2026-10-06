@@ -156,6 +156,17 @@ def test_register_invokes_elevated_powershell(monkeypatch, tmp_path):
     assert script.count('"/i:UnityCaptureName=Telescope"') == 1  # once, inside the loop over both DLLs
 
 
+def test_registering_more_cameras_asks_unitycapture_for_them(monkeypatch, tmp_path):
+    _good_dlls(monkeypatch, tmp_path)
+    calls = []
+    monkeypatch.setattr(windows.subprocess, "run",
+                        lambda cmd, **kwargs: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    windows.register_unitycapture()
+    windows.register_unitycapture(devices=4)
+    assert "UnityCaptureDevices" not in _elevated_script(calls[0])
+    assert "'/s', '/i:UnityCaptureDevices=4', '\"/i:UnityCaptureName=Telescope\"'" in _elevated_script(calls[1])
+
+
 def test_register_unitycapture_survives_an_apostrophe_in_the_folder(monkeypatch, tmp_path):
     folder = tmp_path / "O'Brien"
     folder.mkdir()

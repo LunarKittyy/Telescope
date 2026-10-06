@@ -126,6 +126,7 @@ class _Signals(QObject):
 
 class MicrophonePlugin(TelescopePlugin):
     name = "microphone"
+    follows_focus = False  # the phone that started streaming first keeps the mic
     panel_region = "left"
 
     def __init__(self, backend=None, worker_cls=audio.AudioWorker, run_job=None):

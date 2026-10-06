@@ -453,6 +453,10 @@ class TransformsPlugin(TelescopePlugin):
         frame = _apply_zoom(frame, *self._desktop_crop)
         return _transform_frame(frame, self.flip_h, self.flip_v, self.rotation)
 
+    def frame_step(self):
+        crop, flip_h, flip_v, rotation = self._desktop_crop, self.flip_h, self.flip_v, self.rotation
+        return lambda frame: _transform_frame(_apply_zoom(frame, *crop), flip_h, flip_v, rotation)
+
     # ── Phone-side zoom ───────────────────────────────────────────────────────
 
     def on_stream_start(self, stream_url: str, ctrl):

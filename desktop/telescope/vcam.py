@@ -4,6 +4,7 @@ Telescope keeps the camera open whenever it runs. While idle the wait screen hol
 a picture instead of the driver's own "no signal" screen, and a reader starting up can be noticed and answered.
 """
 
+import glob
 import logging
 import math
 import os
@@ -37,13 +38,53 @@ PROC_SCAN_PERIOD = 5.0         # old-driver fallback: how often to look for read
 WATCH_LINGER   = 3.0           # Windows: a reader counts as gone once it hasn't asked for a frame this long
 
 
-def open_camera(width: int, height: int, fps: float, fmt=pyvirtualcam.PixelFormat.RGB):
-    """Open Telescope's virtual camera (raises if it can't)."""
+MAX_SLOTS = 4  # virtual cameras streams can go to at once: the usual one and up to three more
+
+
+def slot_label(slot: int) -> str:
+    """What apps list slot's camera as. UnityCapture numbers the extra devices it registers "Telescope #2" and on."""
+    if IS_LINUX:
+        return V4L2_PHONE_LABEL if slot == 0 else f"{V4L2_PHONE_LABEL} {slot + 1}"
+    return UC_NAME if slot == 0 else f"{UC_NAME} #{slot + 1}"
+
+
+def slot_device(slot: int) -> Optional[str]:
+    """Linux: slot's /dev/video node, or None if it isn't set up. The extra ones take whatever number was free, so
+    they're found by their label."""
+    if slot == 0:
+        return V4L2_PHONE_DEV
+    label = slot_label(slot)
+    for name_file in sorted(glob.glob("/sys/class/video4linux/video*/name")):
+        try:
+            with open(name_file) as f:
+                if f.read().strip() == label:
+                    return "/dev/" + os.path.basename(os.path.dirname(name_file))
+        except OSError:
+            continue
+    return None
+
+
+def slot_ready(slot: int) -> bool:
+    """Whether slot's camera is set up to stream to (the first one is whenever Telescope is)."""
+    if slot == 0:
+        return True
+    if IS_LINUX:
+        return slot_device(slot) is not None
+    return slot_label(slot) in _uc_names().values()
+
+
+def open_camera(width: int, height: int, fps: float, fmt=pyvirtualcam.PixelFormat.RGB, slot: int = 0):
+    """Open Telescope's virtual camera, or another of its slots (raises if it can't)."""
     def open_(device):
         return pyvirtualcam.Camera(width=width, height=height, fps=fps, fmt=fmt,
                                    backend=VCAM_BACKEND, device=device)
     if IS_LINUX:
-        return open_(V4L2_PHONE_DEV)
+        device = slot_device(slot)
+        if device is None:
+            raise RuntimeError(f"{slot_label(slot)} isn't set up")
+        return open_(device)
+    if slot:
+        return open_(slot_label(slot))
     try:
         return open_(UC_NAME)
     except RuntimeError:
@@ -51,16 +92,19 @@ def open_camera(width: int, height: int, fps: float, fmt=pyvirtualcam.PixelForma
         return open_(None)
 
 
-def locked_size() -> Optional[tuple]:
-    """Linux: the size the camera is stuck at while an app still reads it, else None.
+def locked_size(slot: int = 0) -> Optional[tuple]:
+    """Linux: the size slot's camera is stuck at while an app still reads it, else None.
 
     v4l2loopback keeps its format while any reader holds buffers, and silently ignores a new writer asking for another
     size, so whoever opens the camera next has to use this size or the reader sees garbage.
     """
     if not IS_LINUX:
         return None
+    device = slot_device(slot)
+    if device is None:
+        return None
     try:
-        with open(f"/sys/class/video4linux/{os.path.basename(V4L2_PHONE_DEV)}/format") as f:
+        with open(f"/sys/class/video4linux/{os.path.basename(device)}/format") as f:
             fmt = f.read().strip()  # "YU12:1280x720@30", or empty once nothing holds the device
         w, h = fmt.split(":", 1)[1].split("@", 1)[0].split("x")
         return int(w), int(h)
@@ -447,14 +491,12 @@ def camera_holders(device: str, own_pid: int = None) -> list:
     return found
 
 
-def _uc_object_name(kind: str, name: str = UC_NAME) -> str:
-    """A UnityCapture shared object's name ("Want": the event an app's filter sets each time it wants a frame; "Data":
-    the shared image), for the camera called name (or the first registered one, as open_camera falls back to). Mirrors
-    pyvirtualcam's numbering."""
+def _uc_names() -> dict:
+    """Windows: the UnityCapture cameras registered, {number: name}, numbered the way pyvirtualcam numbers them."""
     import sys
     import winreg
     offset = 0x10 if sys.maxsize > 2**32 else 0x20
-    first = None
+    names = {}
     for num in range(ord("z") - ord("0")):
         key = rf"CLSID\{{5C2CD55C-92AD-4999-8666-912BD3E700{offset + num + (1 if num else 0):02X}}}"
         try:
@@ -462,12 +504,16 @@ def _uc_object_name(kind: str, name: str = UC_NAME) -> str:
                 registered, _ = winreg.QueryValueEx(k, "")
         except OSError:
             continue
-        if first is None:
-            first = num
-        if registered.strip() == name:
-            first = num
-            break
-    num = first or 0
+        names[num] = registered.strip()
+    return names
+
+
+def _uc_object_name(kind: str, name: str = UC_NAME) -> str:
+    """A UnityCapture shared object's name ("Want": the event an app's filter sets each time it wants a frame; "Data":
+    the shared image), for the camera called name (or the first registered one, as open_camera falls back to). Mirrors
+    pyvirtualcam's numbering."""
+    names = _uc_names()
+    num = next((n for n, registered in names.items() if registered == name), next(iter(names), 0))
     return f"UnityCapture_{kind}" + (chr(ord("0") + num) if num else "")
 
 

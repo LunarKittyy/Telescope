@@ -1,6 +1,6 @@
-"""What the window streams from: the phone Connection has picked, or a plugin's StreamSource (Browser camera).
+"""What the window streams from: a paired phone, or a plugin's StreamSource (Browser camera).
 
-Each source keeps the state of its own stream, so the window holds sources instead of phone-only fields. A phone also
+Each source keeps the state of its own stream, so the window can run several and point its panels at any of them. A phone also
 does what only a phone can: wake its camera, find another route when the stream drops, report its state, and turn its
 camera off while its mic carries on.
 """
@@ -61,6 +61,34 @@ class Source(QObject):
         # In-flight resolution change; cleared on confirm or timeout.
         self.pending_resolution: Optional[tuple[int, int]] = None
         self.pending_resolution_timer: Optional[QTimer] = None
+        self.session: Optional["StreamSession"] = None  # while it streams
+        self.slot = 0  # which virtual camera it streams to (vcam.MAX_SLOTS)
+        self.last_state: Optional[dict] = None  # the phone's latest state, for the panels when they come back to it
+        self.forget_stream_status()
+
+    def forget_stream_status(self):
+        """What the footer shows for this stream while the panels show another, back to before it started."""
+        self.status = ("Not streaming", "dim")
+        self.fps_text = self.net_text = "—"
+        self.connected = False
+        self.last_state = None
+
+    def note_status(self, kind: str, msg: str):
+        """A status report from this stream's worker, kept for the footer and its tile."""
+        if kind == "fps":
+            self.fps_text = msg
+        elif kind in ("net", "net_warn"):
+            self.net_text = msg
+        elif kind == "ok":
+            self.connected = True
+            self.status = (msg, "ok")
+        elif kind in ("waiting", "reconnecting"):
+            self.connected = False
+            self.status = (msg, "warn")
+        elif kind == "idle":
+            self.status = (msg, "dim")
+        else:
+            self.status = (msg, kind if kind in ("warn", "err") else "dim")
 
     def prepare(self, interactive: bool) -> bool:
         """GUI thread, at Start: get ready, or show a banner and return False."""
@@ -141,11 +169,10 @@ class PluginSource(Source):
 
 
 class PhoneSource(Source):
-    """The phone Connection has picked. Connection resolves and wakes whichever one that is, so this follows it."""
+    """A paired phone, by id. Connection resolves and wakes it."""
 
     wakes = True
     mic_alone = True
-    name = "the phone"
 
     _sig_state = pyqtSignal(int, dict)
     _sig_wake_done = pyqtSignal(int, bool, str, str, object)  # wake_id, ok, reason, url, PhoneAuth
@@ -155,8 +182,9 @@ class PhoneSource(Source):
     _sig_alive = pyqtSignal(int, bool)  # session id, whether the phone answered (camera off)
     _sig_camera_check = pyqtSignal(int, object)  # session id, the phone's state after turning the camera on (or None)
 
-    def __init__(self, win: "TelescopeWindow"):
+    def __init__(self, win: "TelescopeWindow", phone_id: Optional[str]):
         super().__init__(win)
+        self.id = phone_id
         # Generation counter for phone-wake; guards against stale async results.
         self._wake_id = 0
         self._wake_target = None  # where the latest wake went, to stop it if it finishes after a stop
@@ -180,7 +208,7 @@ class PhoneSource(Source):
         # Remote-stop requests; quit path waits for these to complete.
         self._stop_threads: list[threading.Thread] = []
 
-        self._sig_state.connect(win._apply_state)
+        self._sig_state.connect(lambda session_id, state: win._apply_state(session_id, state, self))
         self._sig_wake_done.connect(self._on_wake_done)
         self._sig_wake_progress.connect(self._on_wake_progress)
         self._sig_recovery_probed.connect(self._on_recovery_probed)
@@ -189,16 +217,16 @@ class PhoneSource(Source):
         self._sig_camera_check.connect(self._on_camera_check)
 
     @property
-    def id(self) -> Optional[str]:
+    def name(self) -> str:
         conn = self._win._plugin("connection")
-        picked = conn.selected_device if conn else None
-        return None if picked in self._win._sources else picked
+        phone = conn.phone(self.id) if conn is not None and hasattr(conn, "phone") else None
+        return phone.name if phone is not None else "the phone"
 
     # ── Start and stop ────────────────────────────────────────────────────
 
     def prepare(self, interactive: bool) -> bool:
         conn = self._win._plugin("connection")
-        self.url, self.auth, ok = conn.get_stream_info(interactive=interactive)
+        self.url, self.auth, ok = conn.get_stream_info(interactive=interactive, pid=self.id)
         return ok
 
     def control_client(self):
@@ -211,7 +239,7 @@ class PhoneSource(Source):
     def wake(self):
         conn = self._win._plugin("connection")
         self._wake_id += 1
-        self._wake_target = conn.session_target()
+        self._wake_target = conn.session_target(self.id)
         self._stop_late_wake = True
         output = self._win._plugin("stream_output")
         # Read here, on the GUI thread: what the phone should open at, not the size it last used (which may have failed)
@@ -246,12 +274,12 @@ class PhoneSource(Source):
     def _on_wake_progress(self, wake_id: int, msg: str):
         if wake_id != self._wake_id or not self._win._waking:
             return
-        self._win._set_status(msg, "dim")
+        self._win._source_status(self, msg, "dim")
 
     def _on_wake_done(self, wake_id: int, ok: bool, reason: str, url: str, auth):
         win = self._win
         if wake_id != self._wake_id or not win._waking:
-            if ok and self._stop_late_wake and not win._waking and win._session is None:
+            if ok and self._stop_late_wake and not win._waking and self.session is None:
                 # Stopped while it woke: the stop may have reached the phone first, leaving its camera on
                 self._stop_phone_async(self._wake_target)
             return
@@ -267,6 +295,9 @@ class PhoneSource(Source):
             self._stop_late_wake = False  # the phone is meant to keep going, so a wake landing late isn't stopped either
         if remote_stop and active:
             self._stop_phone_async()
+        conn = self._win._plugin("connection")
+        if conn is not None and hasattr(conn, "release_stream"):
+            conn.release_stream(self.id)
         self._alive_timer.stop()
         self._camera_fps = None
 
@@ -275,7 +306,7 @@ class PhoneSource(Source):
         conn = self._win._plugin("connection")
         if not conn:
             return
-        target = target or conn.session_target()
+        target = target or conn.session_target(self.id)
 
         def stop():
             try:
@@ -303,7 +334,7 @@ class PhoneSource(Source):
         """The phone's state to the plugins; report_failure=False keeps a fetch that got nothing quiet (mid-stream)."""
         time.sleep(1.5)
         for _ in range(3):
-            session = self._win._session  # one read: _stop() can clear it between checks on the GUI thread
+            session = self.session  # one read: _stop() can clear it between checks on the GUI thread
             if session is None or session.id != session_id:
                 return
             state = session.client.get_state()
@@ -311,12 +342,12 @@ class PhoneSource(Source):
                 self._sig_state.emit(session_id, state)
                 return
             time.sleep(2)
-        if report_failure and self._win._session is not None and self._win._session.id == session_id:
+        if report_failure and self.session is not None and self.session.id == session_id:
             self._sig_state.emit(session_id, {})
 
     def on_phone_state(self, state: dict):
         """The phone's camera on or off as this stream wants it: a restart keeps it off, and an older phone can't."""
-        session = self._win._session
+        session = self.session
         if session is None:
             return
         self.camera_toggle = bool(state.get("camera_toggle"))
@@ -354,7 +385,7 @@ class PhoneSource(Source):
     def _poll_codec_state(self, session_id: int):
         """The phone's state, if it says why the stream stopped; the rest can wait for the stream to be back."""
         try:
-            session = self._win._session  # one read: _stop() can clear it between checks on the GUI thread
+            session = self.session  # one read: _stop() can clear it between checks on the GUI thread
             if session is None or session.id != session_id:
                 return
             state = session.client.get_state()
@@ -366,13 +397,13 @@ class PhoneSource(Source):
             self._state_poll_busy = False
 
     def _probe_recovery(self):
-        session, conn = self._win._session, self._win._plugin("connection")
+        session, conn = self.session, self._win._plugin("connection")
         if session is None or conn is None or not self.recovering:
             return
         # The phone may have dropped the stream on purpose (H.264 it can't do at this size): its state says why. The
         # camera can take seconds to give up after the stream stops, so ask every round, not just once.
         self._spawn_state_fetch(session.id)
-        gen, job = self._recovery_gen, conn.recovery_probe()
+        gen, job = self._recovery_gen, conn.recovery_probe(self.id)
         self._spawn_recovery_probe(session.id, gen, job)
 
     def _spawn_recovery_probe(self, session_id: int, gen: int, job):
@@ -391,22 +422,23 @@ class PhoneSource(Source):
 
     def _on_recovery_probed(self, session_id: int, gen: int, res):
         win = self._win
-        session = win._session
+        session = self.session
         if not self.recovering or gen != self._recovery_gen or session is None or session.id != session_id:
             return
         if res is not None and res.status in (NOT_PAIRED, LOCAL_ONLY, PHONE_OUTDATED, DESKTOP_OUTDATED):
             # The phone answers but won't take the stream back: say why instead of retrying forever.
-            win._stop(remote_stop=False)
+            win._stop(remote_stop=False, source=self)
             conn = win._plugin("connection")
             if conn:
-                conn.show_problem(res)
+                conn.show_problem(res, self.id)
             return
         if res is not None and res.status == READY:
             if not res.streaming and not res.busy:
                 # Stopped on the phone, or by its idle watchdog while we couldn't reach it.
-                win._stop(remote_stop=False)
+                win._stop(remote_stop=False, source=self)
                 win.show_issue("start", Issue(
-                    "The phone stopped streaming", "Start again when you're ready.",
+                    "The phone stopped streaming" if not win._streams else f"{self.name} stopped streaming",
+                    "Start again when you're ready.",
                     [BannerAction("Start", win.start_stream)], kind="warn"))
                 return
             if res.streaming and res.route != self._recovery_route:
@@ -416,19 +448,19 @@ class PhoneSource(Source):
     def _move_stream(self, session: "StreamSession", route):
         win = self._win
         conn = win._plugin("connection")
-        url = conn.adopt_stream_route(route) if conn else None
-        if url is None or win._session is not session:
+        url = conn.adopt_stream_route(route, self.id) if conn else None
+        if url is None or self.session is not session:
             return
         self._recovery_route = route
         if url != session.url:
             session.client.close()
             auth = session.worker.auth if session.worker is not None else session.client.auth
             session = replace(session, url=url, client=PhoneControlClient(url, auth))
-            win._session = session
+            win._set_session(self, session)
         if session.worker is not None:
             session.worker.retarget(url)
         else:
-            win._on_stream_reconnected()  # camera off: the mic follows the new route, and nothing else waits for it
+            win._on_stream_reconnected(self)  # camera off: the mic follows the new route, and nothing else waits for it
             win._show_camera_off()
 
     # ── Frames arriving slowly ────────────────────────────────────────────
@@ -447,7 +479,7 @@ class PhoneSource(Source):
         threading.Thread(target=self._check_camera_rate, args=(session_id, arrival), daemon=True).start()
 
     def _check_camera_rate(self, session_id: int, arrival: float):
-        session = self._win._session
+        session = self.session
         state = session.client.get_state() if session is not None and session.id == session_id else None
         rate = state.get("camera_fps") if state else None
         try:
@@ -457,8 +489,8 @@ class PhoneSource(Source):
 
     def _on_camera_rate(self, session_id: int, arrival: float, camera_fps: float):
         self._camera_check_busy = False
-        session = self._win._session
-        if session is None or session.id != session_id:
+        session = self.session
+        if session is None or session.id != session_id or self is not self._win._focus:
             return
         self._camera_fps = camera_fps
         self._camera_fps_until = time.monotonic() + _CAMERA_FPS_KEEP_S
@@ -480,7 +512,7 @@ class PhoneSource(Source):
 
     def _check_alive(self):
         """With no video coming in, ask the phone now and then whether it's still there."""
-        session = self._win._session
+        session = self.session
         if session is None or session.worker is not None or self._alive_busy:
             return
         self._alive_busy = True
@@ -501,25 +533,25 @@ class PhoneSource(Source):
 
     def _on_alive(self, session_id: int, ok: bool):
         win = self._win
-        session = win._session
+        session = self.session
         if session is None or session.id != session_id or session.worker is not None:
             return
         if ok:
             self._alive_misses = 0
             if self.recovering:
-                win._on_stream_reconnected()
+                win._on_stream_reconnected(self)
                 win._show_camera_off()
             return
         self._alive_misses += 1
         if self._alive_misses >= _ALIVE_MISSES and not self.recovering:
             win._start_reconnecting_animation("Lost the phone - reconnecting")
-            win._begin_recovery()
+            win._begin_recovery(self)
 
     def camera_turned_on(self, session_id: int):
         QTimer.singleShot(_CAMERA_ON_CHECK_MS, lambda: self._spawn_camera_on_check(session_id))
 
     def _spawn_camera_on_check(self, session_id: int):
-        session = self._win._session
+        session = self.session
         if session is None or session.id != session_id or self.camera_off:
             return
         client = session.client
@@ -535,7 +567,7 @@ class PhoneSource(Source):
     def _on_camera_check(self, session_id: int, state):
         """The phone says whether the camera came back on; one that couldn't (in use elsewhere) stays off."""
         win = self._win
-        session = win._session
+        session = self.session
         if session is None or session.id != session_id or self.camera_off or not state:
             return
         if state.get("camera_off") and state.get("camera_error"):
