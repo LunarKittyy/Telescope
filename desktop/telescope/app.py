@@ -752,6 +752,9 @@ class TelescopeWindow(QMainWindow):
                 except Exception:
                     logging.exception("Plugin %s failed in %s", p.name, hook)
 
+    def _followers(self) -> list:
+        return [p for p in self._plugins if p.follows_focus]
+
     def _each_follower(self, hook: str, *args):
         for p in self._plugins:
             if p.follows_focus:
@@ -966,18 +969,18 @@ class TelescopeWindow(QMainWindow):
             return
         if old is not None:
             if old.session is not None:
+                self._save_profile(old.id, self._followers())  # as it was, before the stop hooks
                 if old.session.worker is not None:
                     old.session.worker.set_pipeline(self._pipeline(live=False))
                 self._each_follower("on_stream_stop")
             if old.behind:
                 old.behind = False
                 self._bus.stream_behind.emit(False)
-            self._save_profile(old.id, [p for p in self._plugins if p.follows_focus])
         self._focus = source
         conn = self._plugin("connection")
         if conn is not None:
             conn.show_selected(source.id)
-        self._apply_device_profile(source.id, [p for p in self._plugins if p.follows_focus])
+        self._apply_device_profile(source.id, self._followers())
         self._bus.device_changed.emit(source.id or "")
         self._show_focus()
 
@@ -1276,6 +1279,7 @@ class TelescopeWindow(QMainWindow):
 
         if self._streams:  # others carry on
             if shown:
+                self._save_profile(source.id, self._followers())
                 self._each_follower("on_stream_stop")
                 self._show_focus_stopped()
                 if not keep_focus:
