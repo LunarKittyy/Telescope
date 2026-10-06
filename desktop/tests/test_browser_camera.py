@@ -327,15 +327,16 @@ def test_diagnostics_say_how_far_browsers_got_but_never_name_the_device(browser)
 def test_waiting_hint_points_at_the_step_that_failed():
     stats = ServerStats(8767, 8767)
     t0 = stats.started
+    late = t0 + HINT_AFTER_S + 1  # exactly HINT_AFTER_S can come out a hair short in floats on a long-running clock
     assert waiting_hint(stats, False, t0 + 5) == ""  # still scanning, probably
-    assert "firewall allows port 8767" in waiting_hint(stats, False, t0 + HINT_AFTER_S)
-    assert waiting_hint(stats, True, t0 + HINT_AFTER_S) == ""
+    assert "firewall allows port 8767" in waiting_hint(stats, False, late)
+    assert waiting_hint(stats, True, late) == ""
     stats.note("connections")
-    assert waiting_hint(stats, False, t0 + HINT_AFTER_S) == ""
+    assert waiting_hint(stats, False, late) == ""
     stats.note("tls_failed")
     assert "certificate" in waiting_hint(stats, False, t0 + 1)
     stats.note("pages")
-    assert waiting_hint(stats, False, t0 + HINT_AFTER_S) == ""  # on the page now
+    assert waiting_hint(stats, False, late) == ""  # on the page now
 
 
 def test_card_shows_the_firewall_hint_once_the_wait_is_long(browser, monkeypatch):
