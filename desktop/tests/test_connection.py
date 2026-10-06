@@ -35,6 +35,10 @@ class _Host:
         self.starts = 0
         self.again = []  # the source each Try again was for
         self.configs = {}
+        self.focused = None
+
+    def focused_source_id(self):
+        return self.focused
 
     def plugin_config(self, name):
         return self.configs.get(name)
@@ -980,7 +984,8 @@ def test_computer_name_can_be_renamed_from_the_phones_dialog(plugin_env, monkeyp
 def test_re_pairing_the_streaming_phone_reconnects_with_the_new_token(plugin_env):
     plugin, host, _panel = plugin_env
     _add(plugin, token="old")
-    plugin._streaming = True
+    plugin._streaming = host.streaming = True
+    host.focused = "id-a"
     _add(plugin, token="new")
     assert host.reconnects == 1
     _add(plugin, pid="id-b", name="Other")  # pairing a different phone doesn't touch the stream

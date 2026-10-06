@@ -25,6 +25,7 @@ const stopBtn = document.getElementById("stop");
 let config = { width: 1280, height: 720, fps: 30, audio: false };
 let facing = "user";
 let media = null;
+let mediaGen = 0;  // bumped by each open and by Stop, so a camera that opens late knows it's no longer wanted
 let micError = "";
 let ws = null;
 let running = false;
@@ -90,26 +91,40 @@ function videoConstraints() {
            frameRate: { ideal: config.fps } };
 }
 
+// Returns false when Stop or a newer open took over while this one waited for the camera.
 async function openMedia() {
   stopMedia();
+  const gen = ++mediaGen;
+  const stale = (got) => {
+    if (gen === mediaGen) return false;
+    for (const track of got.getTracks()) track.stop();
+    return true;
+  };
   const audio = { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+  let got;
   try {
-    media = await navigator.mediaDevices.getUserMedia({ video: videoConstraints(), audio });
+    got = await navigator.mediaDevices.getUserMedia({ video: videoConstraints(), audio });
     micError = "";
   } catch (err) {
+    if (gen !== mediaGen) return false;
     if (err.name === "NotAllowedError" || err.name === "NotFoundError" || err.name === "NotReadableError") {
       // Maybe it's only the mic that's refused or missing: the camera alone still works.
-      media = await navigator.mediaDevices.getUserMedia({ video: videoConstraints(), audio: false });
+      got = await navigator.mediaDevices.getUserMedia({ video: videoConstraints(), audio: false });
       micError = "The browser didn't allow the microphone.";
     } else {
       throw err;
     }
   }
+  if (stale(got)) return false;
+  media = got;
   video.srcObject = media;
   video.classList.toggle("mirror", facing === "user");
   await video.play().catch(() => {});
+  if (stale(got)) return false;
   if (media.getAudioTracks().length) await startMic();
+  if (stale(got)) return false;
   for (const track of media.getTracks()) track.addEventListener("ended", onTrackEnded);
+  return true;
 }
 
 function stopMedia() {
@@ -148,10 +163,9 @@ function onTrackEnded() {
 
 async function restartMedia() {
   try {
-    await openMedia();
-    sendHello();
+    if (await openMedia()) sendHello();
   } catch (err) {
-    show(cameraError(err), "err");
+    if (running) show(cameraError(err), "err");
   }
 }
 
@@ -434,7 +448,7 @@ async function start() {
   startBtn.disabled = true;
   show("Opening the camera…");
   try {
-    await openMedia();
+    if (!await openMedia()) return;
   } catch (err) {
     startBtn.disabled = false;
     show(cameraError(err), "err");
@@ -451,6 +465,7 @@ async function start() {
 
 function stop() {
   running = false;
+  mediaGen++;
   clearTimeout(retryTimer);
   clearTimeout(frameTimer);
   const socket = ws;

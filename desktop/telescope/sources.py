@@ -63,6 +63,7 @@ class Source(QObject):
         self.pending_resolution_timer: Optional[QTimer] = None
         self.session: Optional["StreamSession"] = None  # while it streams
         self.slot = 0  # which virtual camera it streams to (vcam.MAX_SLOTS)
+        self.keep_slot: Optional[int] = None  # the slot a restart comes back to
         self.forget_stream_status()
 
     def forget_stream_status(self):
@@ -313,7 +314,7 @@ class PhoneSource(Source):
     def _on_wake_done(self, wake_id: int, ok: bool, reason: str, url: str, auth):
         win = self._win
         if wake_id != self._wake_id or not win._waking:
-            if ok and self._stop_late_wake and not win._waking and self.session is None:
+            if ok and self._stop_late_wake and win._wake_source is not self and self.session is None:
                 # Stopped while it woke: the stop may have reached the phone first, leaving its camera on
                 self._stop_phone_async(self._wake_target)
             return

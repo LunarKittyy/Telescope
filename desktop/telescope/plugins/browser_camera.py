@@ -145,6 +145,7 @@ class BrowserCameraPlugin(TelescopePlugin):
         self._browsers: dict = {}  # id the page keeps: its _BrowserSource, while it's there or streams
         self._started: dict = {}  # id: the connection that started streaming, so a stop isn't undone right away
         self._joining = False
+        self._join_again = False  # streams changed during a join pass
         self._waiting = False  # Start or + asked for a browser and none has joined yet: the server stays up for it
         self._handover = ""  # the browser starting in its place, until it streams
         self._known: dict = {}  # id: {"name", "seen"} of browsers that connected, for the phones list
@@ -421,9 +422,13 @@ class BrowserCameraPlugin(TelescopePlugin):
 
     def _join_waiting(self):
         """A browser that just connected starts streaming, the way opening the app on a phone would."""
-        if self._joining or self._host.is_starting():
+        if self._joining:
+            self._join_again = True  # a start just went through: the next browser waiting goes once this pass ends
+            return
+        if self._host.is_starting():
             return
         self._joining = True
+        self._join_again = False
         try:
             for bid, src in list(self._browsers.items()):
                 feed = src.feed
@@ -445,6 +450,8 @@ class BrowserCameraPlugin(TelescopePlugin):
                 break  # one at a time: the next once this one is through (streams_changed)
         finally:
             self._joining = False
+        if self._join_again:
+            self._join_waiting()
 
     def _end_wait_if_joined(self):
         """The browser that came for the wait streams now (or it left before it could)."""

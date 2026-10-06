@@ -1245,7 +1245,7 @@ def test_resolution_pending_times_out_to_error_then_self_clears(window, monkeypa
     monkeypatch.setattr(app_module.QTimer, "singleShot", staticmethod(fake_single_shot))
 
     window._on_resolution_pending(1280, 720)
-    window._on_resolution_pending_timeout()
+    window._phone.pending_resolution_timer.timeout.emit()
 
     assert fired["ms"] == 4000
     # Monkeypatched singleShot ran callback immediately, so auto-clear already executed.
@@ -2685,3 +2685,118 @@ def test_stop_drops_a_waiting_tile_too(two_streams):
     window.add_stream("waiting")
     window._toggle()
     assert launcher.cancels == 1 and not window.is_streaming() and window._pending is None
+
+
+def test_a_resolution_timeout_only_clears_its_own_stream(two_streams):
+    window, *_ = two_streams
+    window.focus_stream("Phone")
+    phone = window._focus
+    window._on_resolution_pending(1280, 720)
+    phone_timer = phone.pending_resolution_timer
+    window.focus_stream("browser")
+    browser = window._focus
+    window._on_resolution_pending(1920, 1080)
+    phone_timer.timeout.emit()
+    assert phone.pending_resolution is None and phone.pending_resolution_timer is None
+    assert browser.pending_resolution == (1920, 1080)
+    assert window._fps_lbl.styleSheet() == f"color: {theme.WARN};"  # still waiting on the browser's own change
+    window._clear_pending_resolution(browser)
+
+
+def test_a_starting_tiles_stop_cancels_its_start(two_streams, monkeypatch):
+    window, *_ = two_streams
+    monkeypatch.setattr(sources_module.PhoneSource, "_spawn_wake", lambda self, *a: None)
+    window.add_stream("third-phone")
+    assert window._waking and "third-phone" in window._tiles.ids()
+    window._tiles.stop_requested.emit("third-phone")
+    assert not window._waking and window._wake_source is None
+    assert window.stream_count() == 2 and window._focus.id != "third-phone"
+
+
+def test_a_cancelled_phone_that_starts_late_is_stopped_while_another_wakes(camera_env, monkeypatch):
+    window, conn, *_ = camera_env
+    monkeypatch.setattr(sources_module.PhoneSource, "_spawn_wake", lambda self, *a: None)
+    old = window._phone_source("Phone")
+    remote = []
+    monkeypatch.setattr(old, "_stop_phone_async", lambda target=None: remote.append(target))
+    window._start()
+    wake = old._wake_id
+    conn.selected_device = "new-phone"
+    window.switch_device("Phone", "new-phone")
+    assert window._waking and window._wake_source.id == "new-phone" and len(remote) == 1
+    old._on_wake_done(wake, True, "", "old-url", None)  # its start went through after the stop got there
+    assert len(remote) == 2
+
+
+def test_a_background_stream_the_encoder_cant_do_gets_the_panels_and_stops(two_streams, monkeypatch):
+    from telescope.plugins.stream_output import StreamOutputPlugin
+    import telescope.plugins.stream_output as stream_output_module
+    window, *_ = two_streams
+    monkeypatch.setattr(stream_output_module.h264_reader, "available", lambda: True)
+    window.register_plugin(StreamOutputPlugin())
+    phone = window._phone_source("Phone")
+    assert window._focus is not phone
+    state = {**_VALID_STATE, "codecs": ["mjpeg", "h264"], "codec": "mjpeg", "codec_unsupported": True,
+             "codec_error": "H.264 isn't available at 4096x3072 on this phone", "camera_toggle": True}
+    window._apply_state(phone.session.id, state, phone)
+    QCoreApplication.processEvents()
+    assert phone.session is None and window._banners.issue("encoder") is not None
+
+
+def test_restarting_the_only_stream_left_keeps_its_virtual_camera(camera_env, monkeypatch):
+    window, *_ = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    window._start()
+    window.add_stream("phone-b")
+    window.stop_stream("Phone")
+    source = window._focus
+    assert source.slot == 1
+    window.reconnect_stream()
+    assert source.session is not None and source.slot == 1
+    assert source.session.worker.kwargs["slot"] == 1
+    window.stop_stream()
+    window._start()
+    assert source.slot == 0  # a real stop and start alone goes back to the usual camera
+
+
+def test_a_background_stream_that_reconnects_gets_its_settings_again(two_streams):
+    window, *_ = two_streams
+    phone = window._phone_source("Phone")
+    resent = []
+    phone.session.client.resend_settings = lambda: resent.append(True)
+    window._on_stream_reconnected(phone)
+    assert resent == [True]
+    window.focus_stream("Phone")
+    window._on_stream_reconnected(phone)
+    assert resent == [True]  # the panels' plugins send them for the stream they show
+
+
+def test_re_pairing_a_background_phone_restarts_it_with_the_new_token(camera_env, monkeypatch):
+    import telescope.plugins.connection as connection_module
+    from telescope.phones import READY, Resolution
+    from telescope.plugins.connection import ConnectionPlugin
+    from test_connection import WIFI, _add, _FakeDiscovery, _FakeResolver, _FakeTunnels
+    window, *_ = camera_env
+    monkeypatch.setattr(connection_module, "LanDiscovery", _FakeDiscovery)
+    monkeypatch.setattr(connection_module, "run_off_ui_thread", lambda fn, *a, **k: fn(*a, **k))
+    monkeypatch.setattr(connection_module, "IS_LINUX", False)
+    monkeypatch.setattr(ConnectionPlugin, "_spawn_resolve", lambda self, *a: None)
+    monkeypatch.setattr(ConnectionPlugin, "ensure_virtual_camera", lambda self, *a, **k: True)
+    monkeypatch.setattr(ConnectionPlugin, "ensure_phone_streaming", lambda self, **k: (True, ""))
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    conn = ConnectionPlugin()
+    window.register_plugin(conn)
+    conn._resolver = _FakeResolver(Resolution(READY, route=WIFI))
+    conn._tunnels = _FakeTunnels()
+    conn._status_timer.stop()
+    _add(conn, "id-a")
+    _add(conn, "id-b", name="B")
+    conn.select("id-a")
+    window._start()
+    window.add_stream("id-b")
+    assert window._focus.id == "id-b"
+    _add(conn, "id-a", token="new-token")
+    assert window._focus.id == "id-a"
+    assert window._focus.session.worker.auth.token == "new-token"
+    assert window._focus.session.client.auth.token == "new-token"
+    conn.shutdown()

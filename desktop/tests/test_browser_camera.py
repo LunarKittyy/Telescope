@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import QWidget
 
 import telescope.app as app_module
 import telescope.plugins.browser_camera as browser_module
+import telescope.sources as sources_module
 from telescope.browser_server import BrowserControl, BrowserFeed, BrowserReader, ServerStats
 from telescope.plugin import EventBus
 from telescope.plugins.browser_camera import (
@@ -589,4 +590,34 @@ def test_a_browser_takes_the_waiting_tile_over_next_to_a_phone(camera_env, tmp_p
     assert window._tiles.ids() == ["Phone", "browser:pixel-aaaaaaaa"] and window._pending is None
     assert window._focus.id == "browser:pixel-aaaaaaaa" and not _Server.instances[-1].stopped
     assert not plugin.is_waiting()
+    plugin.shutdown()
+
+
+def test_every_browser_that_joined_during_a_phone_start_streams_after_it(camera_env, tmp_path, monkeypatch):
+    window, conn, *_ = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    conn.ensure_virtual_camera = lambda interactive=True: True
+
+    def show(pid):
+        conn.selected_device = pid
+        window._bus.source_selected.emit(pid or "")
+    conn.show_selected = conn.select = show
+    _Server.instances.clear()
+    plugin = BrowserCameraPlugin(server_cls=_Server, cert_folder=tmp_path,
+                                 addresses=lambda: [SimpleNamespace(ip="192.168.1.20")])
+    window.register_plugin(plugin)
+    QCoreApplication.processEvents()
+    conn.select(SOURCE_ID)
+    _arrive(plugin, "browser-initial1", "Chrome on Mac")
+    assert window.stream_count() == 1
+    monkeypatch.setattr(sources_module.PhoneSource, "_spawn_wake", lambda self, *a: None)
+    window.add_stream("Phone")
+    phone = window._wake_source
+    _arrive(plugin, "browser-aaaaaaaa", "Chrome on Android")
+    _arrive(plugin, "browser-bbbbbbbb", "Safari on iOS")
+    assert window.stream_count() == 1  # they wait for the phone
+    window._on_wake_done(phone, True, "")
+    assert window.stream_count() == 4
+    assert window.is_streaming_from("browser:browser-aaaaaaaa")
+    assert window.is_streaming_from("browser:browser-bbbbbbbb")
     plugin.shutdown()

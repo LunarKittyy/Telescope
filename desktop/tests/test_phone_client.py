@@ -103,6 +103,23 @@ def test_close_cancels_queued_and_pending_requests(monkeypatch):
     assert sent == []
 
 
+def test_resend_settings_sends_the_last_of_each_in_the_order_last_sent(monkeypatch):
+    monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
+    client = PhoneControlClient("http://phone/video", PhoneAuth("tok"))
+    client.send(action="iso", value=100)
+    client.send(action="wb_auto")
+    client.send(action="torch", value="1")  # a one-off, not a setting the phone keeps
+    client.send(action="auto")  # back to auto exposure after the manual ISO
+    client.send(action="zoom", value=2.0)
+    resent = []
+    monkeypatch.setattr(client, "send", lambda **params: resent.append(params))
+
+    client.resend_settings()
+
+    assert resent == [{"action": "iso", "value": 100}, {"action": "wb_auto"}, {"action": "auto"},
+                      {"action": "zoom", "value": 2.0}]
+
+
 class _Response:
     def __init__(self, body=b"{}"):
         self.body = body

@@ -660,6 +660,9 @@ class TelescopeWindow(QMainWindow):
 
     def _stop_for_restart(self, source: Optional[Source] = None):
         """Stop a stream that starts again right after; stream_stopped handlers can tell with is_restarting()."""
+        source = source or self._active_source()
+        if source.session is not None:
+            source.keep_slot = source.slot  # back on the virtual camera it had, which the call app watches
         self._restarting = True
         try:
             self._stop(remote_stop=False, source=source, keep_focus=True)
@@ -693,6 +696,8 @@ class TelescopeWindow(QMainWindow):
             return
         if source_id is not None:
             source = next((s for s in self._streams if s.id == source_id), None)
+            if source is None and self._waking and self._wake_source is not None and self._wake_source.id == source_id:
+                source = self._wake_source  # its Starting tile's stop
             if source is not None:
                 self._stop(source=source)
         elif self._streams or self._waking:
@@ -724,6 +729,8 @@ class TelescopeWindow(QMainWindow):
         session = source.session
         if session is None:
             return
+        if source is not self._focus and hasattr(session.client, "resend_settings"):
+            session.client.resend_settings()  # the panels' plugins send them for the stream they show
         self._tell(source, "on_stream_start", session.url, session.client)
 
     def _apply_config(self, cfg: dict):
@@ -878,6 +885,7 @@ class TelescopeWindow(QMainWindow):
         source.wake()
 
     def _start_failed(self, source: Source):
+        source.keep_slot = None
         if self._streams and source.session is None and source.waiting():
             self._pending = source  # a tile of its own, with the panels on it, until what it waits for comes
             self._bus.stream_start_failed.emit()
@@ -935,6 +943,9 @@ class TelescopeWindow(QMainWindow):
     def _free_slot(self, source: Source) -> int:
         """The virtual camera source streams to: the usual one alone, else the one it had before if it's free."""
         used = {s.slot for s in self._streams if s is not source}
+        keep, source.keep_slot = source.keep_slot, None
+        if keep is not None and keep not in used:
+            return keep
         if not used:
             return 0
         remembered = self._slot_memory.get(source.id)
@@ -959,8 +970,7 @@ class TelescopeWindow(QMainWindow):
 
         if source.slot == 0:
             self._each_plugin("on_stream_starting")
-        else:
-            self._announce_idle_outputs(opening=source.slot)
+        self._announce_idle_outputs(opening=source.slot)
 
         worker = StreamWorker(
             url=url, width=w, height=h, fps=fps,
@@ -1142,7 +1152,7 @@ class TelescopeWindow(QMainWindow):
     def _announce_idle_outputs(self, opening: Optional[int] = None):
         """Tell the wait screen which cameras nothing streams to; opening is one a stream is about to take. The main
         one counts only while others stream: alone, its wait screen follows the stream."""
-        used = {s.slot for s in self._streams} | {opening}
+        used = {s.slot for s in self._streams if s.session.worker is not None} | {opening}  # camera off: free
         first = 0 if self._streams else 1
         self._bus.idle_outputs.emit([n for n in range(first, vcam.MAX_SLOTS)
                                      if n not in used and (n == 0 or vcam.slot_ready(n))])
@@ -1342,6 +1352,7 @@ class TelescopeWindow(QMainWindow):
         if session.worker is not None:
             self._end_worker(session.worker)
             self._set_session(source, replace(session, worker=None))
+            self._announce_idle_outputs()  # its virtual camera gets the wait screen
         self._clear_pending_resolution(source)
         self._set_behind(False, source)
         self._tell(source, "on_camera_off")
@@ -1444,6 +1455,7 @@ class TelescopeWindow(QMainWindow):
         camera_was_off = source.camera_off
         if not self._restarting:
             source.camera_off = source.camera_off_auto = False  # each stream starts with the camera on
+            source.keep_slot = None
         self._clear_pending_resolution(source)
         source.settling_reports = 0
         source.arrival_slow = False
@@ -1566,6 +1578,11 @@ class TelescopeWindow(QMainWindow):
             cb(ok, msg)
             self._vcam_reload_callback = None
 
+    def _sends_h264(self, source: Source) -> bool:
+        """Whether a stream the panels don't show asks its phone for H.264 (Light, the default)."""
+        cfg = load_config().get("devices", {}).get(source.id, {}).get("plugin_configs", {}).get("stream_output", {})
+        return cfg.get("format") != "mjpeg"
+
     def _apply_state(self, session_id: int, state: dict, source: Optional[Source] = None):
         # A device switch or stop between the fetch completing and this slot
         # running (queued Qt signal) means this result belongs to a session
@@ -1580,6 +1597,8 @@ class TelescopeWindow(QMainWindow):
             logging.exception("Phone sent a malformed /v1/state response - not applying it")
             self._set_status("The phone sent data this version can't read. Update both apps to the same version.", "err")
             return
+        if source is not self._focus and state.get("codec_error") and not self._waking and self._sends_h264(source):
+            self._move_focus(source)  # Stream output falls back, or stops and says why, for the panels' stream
         # Decoded successfully - forwarded as the original dict rather than
         # the typed PhoneState so existing plugins keep consuming the shape
         # they already expect; the validation above is the new behavior.
@@ -1737,16 +1756,18 @@ class TelescopeWindow(QMainWindow):
         self._fps_lbl.setStyleSheet(f"color: {theme.WARN};")
         timer = QTimer(self)
         timer.setSingleShot(True)
-        timer.timeout.connect(self._on_resolution_pending_timeout)
+        timer.timeout.connect(lambda: self._on_resolution_pending_timeout(source, timer))
         timer.start(8000)  # generous: camera reopen + a possible brief reconnect
         source.pending_resolution_timer = timer
 
-    def _on_resolution_pending_timeout(self):
-        source = self._active_source()
+    def _on_resolution_pending_timeout(self, source: Source, timer: QTimer):
+        if source.pending_resolution_timer is not timer:
+            return  # a newer change, or one that already landed
         source.pending_resolution = None
         source.pending_resolution_timer = None
-        self._fps_lbl.setStyleSheet(f"color: {theme.ERR};")
-        QTimer.singleShot(4000, lambda: self._fps_lbl.setStyleSheet(""))
+        if source is self._active_source():
+            self._fps_lbl.setStyleSheet(f"color: {theme.ERR};")
+            QTimer.singleShot(4000, lambda: self._fps_lbl.setStyleSheet(""))
 
     def _clear_pending_resolution(self, source: Optional[Source] = None):
         source = source or self._active_source()

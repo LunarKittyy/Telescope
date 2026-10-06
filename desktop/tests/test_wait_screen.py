@@ -1,11 +1,13 @@
 """The wait screen plugin: when it holds the camera, at what size, and the image it shows."""
 
 import pytest
+from PyQt6.QtCore import QCoreApplication
 
 import telescope.vcam as vcam
 from telescope.plugin import EventBus
 from telescope.plugins.setup import CANVAS_PRESETS
 from telescope.plugins.wait_screen import WaitScreenDialog, WaitScreenPlugin
+from test_app import camera_env, window  # noqa: F401 (the fixtures)
 
 
 class _Host:
@@ -233,3 +235,28 @@ def test_menu_opens_the_dialog(env):
     dlg._mirror_box.setChecked(True)
     assert plugin.mirror
     dlg.close()
+
+
+def test_a_camera_off_stream_on_an_extra_camera_gets_its_wait_screen(camera_env, monkeypatch):
+    import telescope.app as app_module
+    window, _conn, mic, *_ = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    mic.follows_focus = False
+    extras = {}
+    wait = WaitScreenPlugin(screen=_Screen(), watch_cls=_Watch,
+                            extra_screen=lambda slot: extras.setdefault(slot, _Screen()))
+    window.register_plugin(wait)
+    QCoreApplication.processEvents()
+    window._start()
+    window.add_stream("phone-b")
+    second = window._focus
+    window.stop_stream("Phone")
+    assert second.slot == 1
+    mic.config["enabled"] = True
+    shown = len(extras[1].shown)
+    window.set_camera_on(False)
+    assert 1 in wait._idle and len(extras[1].shown) > shown
+    stops = extras[1].stops
+    window.set_camera_on(True)
+    assert 1 not in wait._idle and extras[1].stops > stops  # the camera has it back
+    wait.shutdown()
