@@ -494,7 +494,10 @@ class PhoneSource(Source):
         if url != session.url:
             session.client.close()
             auth = session.worker.auth if session.worker is not None else session.client.auth
-            session = replace(session, url=url, client=PhoneControlClient(url, auth))
+            client = PhoneControlClient(url, auth)
+            if hasattr(client, "keep_settings_of"):
+                client.keep_settings_of(session.client)  # a phone that restarted gets them again on reconnect
+            session = replace(session, url=url, client=client)
             win._set_session(self, session)
         if session.worker is not None:
             session.worker.retarget(url)

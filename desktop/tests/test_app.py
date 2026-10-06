@@ -2800,3 +2800,100 @@ def test_re_pairing_a_background_phone_restarts_it_with_the_new_token(camera_env
     assert window._focus.session.worker.auth.token == "new-token"
     assert window._focus.session.client.auth.token == "new-token"
     conn.shutdown()
+
+
+def test_a_restart_next_to_another_stream_keeps_its_camera_over_a_remembered_one(camera_env, monkeypatch):
+    window, *_ = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    window._slot_memory["Phone"] = 2  # camera 3 in an earlier run; alone it starts on camera 1
+    window._start()
+    window.add_stream("phone-b")
+    window.focus_stream("Phone")
+    source = window._focus
+    assert source.slot == 0
+    window.reconnect_stream()  # the Starting tile works out its camera on the way
+    assert source.slot == 0 and source.session.worker.kwargs["slot"] == 0
+
+
+def test_a_background_phone_without_h264_falls_back_to_mjpeg(two_streams, monkeypatch):
+    from telescope.plugins.stream_output import StreamOutputPlugin
+    import telescope.plugins.stream_output as stream_output_module
+    window, *_ = two_streams
+    monkeypatch.setattr(stream_output_module.h264_reader, "available", lambda: True)
+    plugin = StreamOutputPlugin()
+    window.register_plugin(plugin)
+    phone = window._phone_source("Phone")
+    session = phone.session
+    window._apply_state(session.id, {**_VALID_STATE, "codecs": ["mjpeg"], "camera_toggle": True}, phone)
+    assert window._focus is phone and plugin._format == "mjpeg"
+    assert phone.session is not None and phone.session is not session  # restarted on the MJPEG route
+    window._stop_all()
+
+
+def test_a_codec_error_while_another_start_prepares_waits_for_it(camera_env, config_home, monkeypatch):
+    window, conn, *_ = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    window._start()
+    phone = window._phone_source("Phone")
+    focus_during_prepare = []
+    original = conn.get_stream_info
+
+    def preparing(*args, **kwargs):
+        phone._sig_state.emit(phone.session.id, {**_VALID_STATE, "codec_error": "Encoder stopped",
+                                                 "camera_toggle": True})
+        focus_during_prepare.append(window._focus.id)
+        return original(*args, **kwargs)
+    conn.get_stream_info = preparing
+    monkeypatch.setattr(sources_module.PhoneSource, "_spawn_wake", lambda self, *a: None)
+    window.add_stream("third")
+    assert focus_during_prepare == ["third"]  # the panels stay on the start, so it opens with its own settings
+    window._on_wake_done(window._wake_source, True, "")
+    QCoreApplication.processEvents()
+    assert window._focus is phone  # then the stream with the error gets them
+
+
+def test_re_pairing_a_phone_while_another_starts_restarts_it_after(camera_env, monkeypatch):
+    import telescope.plugins.connection as connection_module
+    from telescope.phones import READY, Resolution
+    from telescope.plugins.connection import ConnectionPlugin
+    from test_connection import WIFI, _add, _FakeDiscovery, _FakeResolver, _FakeTunnels
+    window, *_ = camera_env
+    monkeypatch.setattr(connection_module, "LanDiscovery", _FakeDiscovery)
+    monkeypatch.setattr(connection_module, "run_off_ui_thread", lambda fn, *a, **k: fn(*a, **k))
+    monkeypatch.setattr(connection_module, "IS_LINUX", False)
+    monkeypatch.setattr(ConnectionPlugin, "_spawn_resolve", lambda self, *a: None)
+    monkeypatch.setattr(ConnectionPlugin, "ensure_virtual_camera", lambda self, *a, **k: True)
+    monkeypatch.setattr(ConnectionPlugin, "ensure_phone_streaming", lambda self, **k: (True, ""))
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    conn = ConnectionPlugin()
+    window.register_plugin(conn)
+    conn._resolver = _FakeResolver(Resolution(READY, route=WIFI))
+    conn._tunnels = _FakeTunnels()
+    conn._status_timer.stop()
+    _add(conn, "id-a")
+    _add(conn, "id-b", name="B")
+    conn.select("id-a")
+    window._start()
+    monkeypatch.setattr(sources_module.PhoneSource, "_spawn_wake", lambda self, *a: None)
+    window.add_stream("id-b")
+    assert window._waking
+    _add(conn, "id-a", token="new-token")
+    a = window._phone_source("id-a")
+    window._on_wake_done(window._wake_source, True, "")
+    QCoreApplication.processEvents()
+    window._on_wake_done(window._wake_source, True, "")  # A's own restart
+    assert a.session.worker.auth.token == "new-token" and a.session.client.auth.token == "new-token"
+    assert window.stream_count() == 2
+    conn.shutdown()
+
+
+def test_a_preview_frame_from_the_last_stream_isnt_shown_on_the_next(two_streams):
+    from telescope.plugins.preview import PreviewPlugin
+    window, *_ = two_streams
+    preview = PreviewPlugin()
+    window.register_plugin(preview)
+    window.focus_stream("Phone")
+    old = preview._stream_gen
+    window.focus_stream("browser")
+    preview._on_frame(np.zeros((8, 8, 3), dtype=np.uint8), old)  # queued before the switch
+    assert preview._preview_lbl.pixmap().isNull() and not preview._busy

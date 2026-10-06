@@ -35,11 +35,6 @@ class _Host:
         self.starts = 0
         self.again = []  # the source each Try again was for
         self.configs = {}
-        self.focused = None
-
-    def focused_source_id(self):
-        return self.focused
-
     def plugin_config(self, name):
         return self.configs.get(name)
 
@@ -73,7 +68,7 @@ class _Host:
     def forget_device_settings(self, name):
         self.forgotten.append(name)
 
-    def reconnect_stream(self):
+    def reconnect_stream(self, _source_id=None):
         self.reconnects += 1
 
     def is_streaming(self):
@@ -196,7 +191,7 @@ def test_config_round_trips_and_keeps_the_computer_identity(plugin_env):
     other = ConnectionPlugin()
     other.setup(_Host(), EventBus())
     other._resolver = _FakeResolver()
-    _other_panel = other.create_panel()
+    _other_panel = other.create_panel()  # held, or the panel and its timers are deleted under the plugin
     other._status_timer.stop()
     other.set_config(cfg)
 
@@ -985,7 +980,6 @@ def test_re_pairing_the_streaming_phone_reconnects_with_the_new_token(plugin_env
     plugin, host, _panel = plugin_env
     _add(plugin, token="old")
     plugin._streaming = host.streaming = True
-    host.focused = "id-a"
     _add(plugin, token="new")
     assert host.reconnects == 1
     _add(plugin, pid="id-b", name="Other")  # pairing a different phone doesn't touch the stream

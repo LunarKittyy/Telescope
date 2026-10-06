@@ -1155,8 +1155,8 @@ class ConnectionPlugin(TelescopePlugin):
             self._phones.append(Phone(result.phone_id, result.name, result.token, list(result.ips), active,
                                       result.cert_sha256))
         self._select(result.phone_id, force=True)  # one streaming next to others gets the panels
-        if streams and self._host.focused_source_id() == result.phone_id:
-            self._host.reconnect_stream()  # the running stream still holds the old token
+        if streams:
+            self._host.reconnect_stream(result.phone_id)  # the running stream still holds the old token
         self._host.save_now()
         if self._phones_dlg is not None and self._phones_dlg.isVisible():
             self._phones_dlg.refresh()

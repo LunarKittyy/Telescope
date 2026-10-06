@@ -9,7 +9,7 @@ import urllib.request
 from pathlib import Path
 from typing import Optional
 
-from telescope.platform import NO_WINDOW, _run
+from telescope.platform import NO_WINDOW
 
 # Pinned commit with hash verification to prevent tampering before registration.
 _UNITYCAPTURE_COMMIT = "3ed54c325e0ad71afcf4f246c07e5e17b3d7f2d2"

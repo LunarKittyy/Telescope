@@ -1,5 +1,3 @@
-import math
-
 import pytest
 from PyQt6.QtCore import QRect, QRectF, Qt
 from PyQt6.QtWidgets import (

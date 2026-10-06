@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import QWidget
 import telescope.app as app_module
 import telescope.plugins.browser_camera as browser_module
 import telescope.sources as sources_module
-from telescope.browser_server import BrowserControl, BrowserFeed, BrowserReader, ServerStats
+from telescope.browser_server import BrowserFeed, ServerStats
 from telescope.plugin import EventBus
 from telescope.plugins.browser_camera import (
     HINT_AFTER_S, REMEMBER_DAYS, SOURCE_ID, BrowserCameraPlugin, waiting_hint,
@@ -621,3 +621,16 @@ def test_every_browser_that_joined_during_a_phone_start_streams_after_it(camera_
     assert window.is_streaming_from("browser:browser-aaaaaaaa")
     assert window.is_streaming_from("browser:browser-bbbbbbbb")
     plugin.shutdown()
+
+
+def test_a_browser_stopped_here_leaves_room_for_another(browser):
+    plugin, host, bus, _card = browser
+    bus.source_selected.emit(SOURCE_ID)
+    for bid in ("browser-aaaaaaaa", "browser-bbbbbbbb", "browser-cccccccc", "browser-dddddddd"):
+        _arrive(plugin, bid)
+    _changed(host, bus)
+    assert host.stream_count() == 4
+    host.stop_stream("browser:browser-aaaaaaaa")
+    _changed(host, bus)
+    assert host.stream_count() == 3
+    assert plugin.hub.join("browser-replacement") is not None

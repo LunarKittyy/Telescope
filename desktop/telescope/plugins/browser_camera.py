@@ -381,7 +381,9 @@ class BrowserCameraPlugin(TelescopePlugin):
         self._render()
 
     def _update_room(self):
-        waiting = sum(1 for src in self._connected() if not self._host.is_streaming_from(src.id))
+        # A browser stopped on the computer stays connected but doesn't come back by itself, so it holds no camera
+        waiting = sum(1 for src in self._connected() if not self._host.is_streaming_from(src.id)
+                      and self._started.get(src.bid) != src.feed.generation)
         self._room = vcam.MAX_SLOTS - self._host.stream_count() - waiting
 
     def _can_join(self, _bid: str) -> bool:

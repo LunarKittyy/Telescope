@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 import telescope.platform.linux as linux

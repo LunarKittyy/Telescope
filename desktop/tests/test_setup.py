@@ -1,9 +1,8 @@
 import threading
-from pathlib import Path
 
 import pytest
 from PyQt6.QtGui import QGuiApplication, QShowEvent
-from PyQt6.QtWidgets import QDialog, QFileDialog, QWidget
+from PyQt6.QtWidgets import QFileDialog, QWidget
 
 import telescope.plugins.setup as setup_mod
 from telescope.plugin import EventBus

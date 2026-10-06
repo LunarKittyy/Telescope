@@ -230,7 +230,7 @@ def test_worker_skips_stale_pending_key(monkeypatch):
     client = PhoneControlClient("http://phone/video", PhoneAuth("tok"))
     sent = []
     monkeypatch.setattr(client, "_send_now", sent.append)
-    client._queue.put("iso")
+    client._queue.put(("iso", 1))
     client._queue.put(None)
     client._worker()
     assert sent == []
@@ -318,3 +318,31 @@ def test_a_stalled_link_still_delivers_the_setting(recording_server):
         time.sleep(0.02)
     client.close()
     assert recording_server.received == [{"action": "iso", "value": 100}]
+
+
+def test_a_value_sent_again_goes_after_what_was_sent_between(monkeypatch):
+    monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
+    client = PhoneControlClient("http://phone/video", PhoneAuth("tok"))
+    sent = []
+    monkeypatch.setattr(client, "_deliver", sent.append)
+    client.send(action="iso", value=100)
+    client.send(action="shutter", value=10_000_000)
+    client.send(action="auto")  # Manual, Auto, then Manual again
+    client.send(action="iso", value=200)
+    client.send(action="shutter", value=20_000_000)
+    client._queue.put(None)
+    client._worker()
+    assert sent == [{"action": "auto"}, {"action": "iso", "value": 200}, {"action": "shutter", "value": 20_000_000}]
+
+
+def test_a_new_route_keeps_the_settings_sent_on_the_old_one(monkeypatch):
+    monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
+    old = PhoneControlClient("http://usb/video", PhoneAuth("tok"))
+    old.send(action="iso", value=500)
+    old.send(action="zoom", value=2.0)
+    new = PhoneControlClient("http://wifi/video", PhoneAuth("tok"))
+    new.keep_settings_of(old)
+    resent = []
+    monkeypatch.setattr(new, "send", lambda **params: resent.append(params))
+    new.resend_settings()
+    assert resent == [{"action": "iso", "value": 500}, {"action": "zoom", "value": 2.0}]

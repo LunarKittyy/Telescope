@@ -33,7 +33,8 @@ class PhoneControlClient:
         self.base = stream_url.rsplit("/video", 1)[0]
         self.auth = auth
         self._queue: "queue.Queue" = queue.Queue()
-        self._pending: dict = {}
+        self._pending: dict = {}  # action: (place in the queue, params), the latest of each
+        self._seq = 0
         self._settings: dict = {}  # the last of each setting sent, in the order they were last sent
         self._lock = threading.Lock()
         self._closed = False
@@ -64,10 +65,19 @@ class PhoneControlClient:
             if action in self._NON_COALESCING:
                 self._queue.put(params)
             else:
-                is_new = action not in self._pending
-                self._pending[action] = params
-                if is_new:
-                    self._queue.put(action)
+                # Goes out at the latest send's place, after whatever was sent between (Manual, Auto, Manual: Manual)
+                self._seq += 1
+                self._pending[action] = (self._seq, params)
+                self._queue.put((action, self._seq))
+
+    def keep_settings_of(self, other: "PhoneControlClient"):
+        """Take over the settings another client sent (the same stream on a new route), for resend_settings()."""
+        if not isinstance(other, PhoneControlClient):
+            return
+        with other._lock:
+            settings = dict(other._settings)
+        with self._lock:
+            self._settings = {**settings, **self._settings}
 
     def resend_settings(self):
         """Send the phone every setting again, for a stream that came back while the panels showed another."""
@@ -99,10 +109,12 @@ class PhoneControlClient:
             if isinstance(item, dict):
                 params = item
             else:
+                action, seq = item
                 with self._lock:
-                    params = self._pending.pop(item, None)
-                if params is None:
-                    continue
+                    queued = self._pending.get(action)
+                    if queued is None or queued[0] != seq:
+                        continue  # sent already, or a newer value waits further back
+                    params = self._pending.pop(action)[1]
             self._deliver(params)
 
     def _deliver(self, params: dict):

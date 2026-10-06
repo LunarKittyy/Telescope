@@ -8,7 +8,7 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Optional
 
-from telescope.pinned_https import PhoneAuth, handshake_failed, pin_rejected
+from telescope.pinned_https import PhoneAuth, handshake_failed
 
 logger = logging.getLogger(__name__)
 
