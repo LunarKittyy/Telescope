@@ -148,6 +148,7 @@ class MicrophonePlugin(TelescopePlugin):
         self._elsewhere: Optional[tuple] = None  # (id, name) of the stream the mic is on, while the panels show another
         self._ctrl = None
         self._worker = None
+        self._audio_base = ""  # where the running worker listens; the control client can move under it
         self._backend = self._backend or default_backend()
         self._sig = _Signals()
         self._sig.status.connect(self._on_worker_status)
@@ -398,6 +399,7 @@ class MicrophonePlugin(TelescopePlugin):
             self._refresh()
             return
         self._show("Connecting…")
+        self._audio_base = self._ctrl.base
         self._worker = self._worker_cls(f"{self._ctrl.base}/audio", self._ctrl.auth,
                                         self._backend.open_sink, self._sig.status.emit)
         self._worker.gain = 10 ** (self._gain_db / 20)
@@ -431,7 +433,7 @@ class MicrophonePlugin(TelescopePlugin):
     # ── Plugin hooks ──────────────────────────────────────────────────────────
 
     def on_stream_start(self, stream_url: str, ctrl):
-        moved = self._ctrl is not None and ctrl is not None and self._ctrl.base != ctrl.base
+        moved = self._worker is not None and ctrl is not None and self._audio_base != ctrl.base
         self._ctrl = ctrl
         if moved:
             self._stop_worker()  # the stream came back over another route; its audio lives there too
