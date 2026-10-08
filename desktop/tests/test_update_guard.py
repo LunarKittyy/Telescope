@@ -329,6 +329,9 @@ def _manifest(build):
 
 # ── A logout during the first start is not a failed start ────────────────────
 
+_POSIX_ONLY = pytest.mark.skipif(sys.platform == "win32", reason="no SIGHUP or os.kill semantics on Windows")
+
+
 def _terminate_handler(monkeypatch, app):
     handlers, signalled = {}, []
     monkeypatch.setattr(update_guard.sys, "platform", "linux")
@@ -338,6 +341,7 @@ def _terminate_handler(monkeypatch, app):
     return handlers, signalled
 
 
+@_POSIX_ONLY
 def test_sigterm_during_the_first_start_confirms_instead_of_rolling_back(tmp_path, monkeypatch):
     app = _windows_app(tmp_path)
     updates.install_windows(_windows_zip(tmp_path), app, 131)
@@ -353,6 +357,7 @@ def test_sigterm_during_the_first_start_confirms_instead_of_rolling_back(tmp_pat
     assert (app / "TelescopeDesktop.exe").read_bytes() == b"exe 131"
 
 
+@_POSIX_ONLY
 def test_a_start_that_dies_with_no_signal_still_rolls_back(tmp_path, monkeypatch):
     app = _windows_app(tmp_path)
     updates.install_windows(_windows_zip(tmp_path), app, 131)
@@ -364,6 +369,7 @@ def test_a_start_that_dies_with_no_signal_still_rolls_back(tmp_path, monkeypatch
     assert update_guard.failed_build(app) == 131
 
 
+@_POSIX_ONLY
 def test_sigterm_with_no_update_in_progress_leaves_no_journal_behind(tmp_path, monkeypatch):
     handlers, signalled = _terminate_handler(monkeypatch, tmp_path)
     handlers[update_guard.signal.SIGHUP](update_guard.signal.SIGHUP, None)

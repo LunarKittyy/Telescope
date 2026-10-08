@@ -297,9 +297,11 @@ def confirm_on_terminate(directory: Path):
         signal.signal(signum, signal.SIG_DFL)
         os.kill(os.getpid(), signum)
 
-    for name in ("SIGTERM", "SIGHUP"):
+    for signum in (getattr(signal, name, None) for name in ("SIGTERM", "SIGHUP")):
+        if signum is None:
+            continue
         try:
-            signal.signal(getattr(signal, name), handler)
+            signal.signal(signum, handler)
         except (ValueError, OSError):
             pass  # not the main thread
 
