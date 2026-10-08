@@ -208,16 +208,26 @@ def instance_socket(family: int = socket.AF_INET) -> socket.socket:
     return s
 
 
-def another_copy_running() -> bool:
+def another_copy_running(legacy: bool = False) -> bool:
+    """legacy: also a Linux copy from before the per-user lock, which holds the port; only right after an update, as
+    another user's old copy or another program could hold that port for good."""
     family, address = instance_address()
     s = instance_socket(family)
     try:
         s.bind(address)
-        return False
     except OSError:
         return True
     finally:
         s.close()
+    if legacy and family != socket.AF_INET:
+        s = instance_socket(socket.AF_INET)
+        try:
+            s.bind(("127.0.0.1", INSTANCE_PORT))
+        except OSError:
+            return True
+        finally:
+            s.close()
+    return False
 
 
 def recover(directory: Path, wait: float = 0.0, running_elsewhere=another_copy_running) -> Optional[list]:

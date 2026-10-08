@@ -10,7 +10,10 @@ import update_guard
 
 APP_DIR = Path(sys.executable if getattr(sys, "frozen", False) else __file__).resolve().parent
 # Before anything else is imported: an update that was cut short may leave files that don't import together.
-_right_version = update_guard.recover(APP_DIR, wait=15 if "--after-update" in sys.argv[1:] else 0)
+_after_update = "--after-update" in sys.argv[1:]
+# legacy: the copy that installed this update may be one from before the per-user lock
+_right_version = update_guard.recover(APP_DIR, wait=15 if _after_update else 0,
+                                      running_elsewhere=lambda: update_guard.another_copy_running(legacy=_after_update))
 if _right_version is not None:
     try:
         update_guard.launch(_right_version)

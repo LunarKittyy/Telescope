@@ -2,6 +2,7 @@
 
 import io
 import os
+import sys
 from pathlib import Path
 import tarfile
 import zipfile
@@ -392,5 +393,23 @@ def test_the_guard_sees_a_running_copy_through_the_same_address_the_app_binds(mo
         assert update_guard.another_copy_running()
         monkeypatch.setattr(update_guard.os, "getuid", lambda: 4242426)  # another user's copy doesn't count
         assert not update_guard.another_copy_running()
+    finally:
+        holder.close()
+
+
+def test_right_after_an_update_a_copy_from_before_the_per_user_lock_counts(monkeypatch):
+    if sys.platform == "win32":
+        pytest.skip("the per-user lock is a Unix socket on Linux only")
+    monkeypatch.setattr(update_guard.os, "getuid", lambda: 4242427)
+    holder = update_guard.instance_socket(update_guard.socket.AF_INET)
+    try:
+        holder.bind(("127.0.0.1", 0))
+    except OSError:
+        pytest.skip("no loopback")
+    monkeypatch.setattr(update_guard, "INSTANCE_PORT", holder.getsockname()[1])
+    holder.listen(1)
+    try:
+        assert not update_guard.another_copy_running()
+        assert update_guard.another_copy_running(legacy=True)
     finally:
         holder.close()
