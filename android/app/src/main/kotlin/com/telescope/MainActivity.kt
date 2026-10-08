@@ -194,6 +194,7 @@ class MainActivity : AppCompatActivity() {
         uiHandler.post(statusPoller)
         PairedComputers.addListener(pairingListener)
         Updater.addListener(updateListener)
+        setupPrefs().registerOnSharedPreferenceChangeListener(setupPrefsListener)
         renderPairing()
         renderUpdate()
         // Reachable while screen is up; service holds reference after screen goes dark
@@ -223,7 +224,16 @@ class MainActivity : AppCompatActivity() {
         if (checked) WaitingService.start(this) else WaitingService.stop(this)
     }
 
+    // A computer asking for the mic sets mic_wanted from the service: the setup card shows its row right away.
+    // A field, since SharedPreferences only holds its listeners weakly.
+    private val setupPrefsListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == CameraStreamService.KEY_MIC_WANTED) checkPermissions()
+    }
+
+    private fun setupPrefs() = getSharedPreferences(CameraStreamService.PREFS_SETUP, MODE_PRIVATE)
+
     override fun onStop() {
+        setupPrefs().unregisterOnSharedPreferenceChangeListener(setupPrefsListener)
         uiHandler.removeCallbacks(statusPoller)
         PairedComputers.removeListener(pairingListener)
         Updater.removeListener(updateListener)
