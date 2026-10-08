@@ -1,7 +1,10 @@
+import hashlib
 import logging
+import os
 import shutil
 import socket
 import subprocess
+import sys
 import threading
 import time
 from dataclasses import replace
@@ -42,8 +45,23 @@ _CAMERA_LIMITED_TIP = "The phone's camera is making fewer frames than asked for.
 
 
 # ── Single-instance enforcement ───────────────────────────────────────────────
-# The guard checks it before an update's roll-back; a dev profile takes the next one so it runs next to the real app
-_INSTANCE_PORT = update_guard.INSTANCE_PORT + (1 if dev_profile.active() else 0)
+# The guard checks the real app's address before an update's roll-back; a dev profile takes its own so it runs next to it
+_INSTANCE_FAMILY, _INSTANCE_ADDRESS = update_guard.instance_address(dev_profile.active())
+
+
+def user_token() -> bytes:
+    """Who is running this copy, so a shared port (Windows) never raises another user's window."""
+    user = os.environ.get("USERNAME") or os.environ.get("USER") or str(os.getuid() if hasattr(os, "getuid") else "")
+    session = ""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            sid = ctypes.c_ulong()
+            ctypes.windll.kernel32.ProcessIdToSessionId(os.getpid(), ctypes.byref(sid))
+            session = str(sid.value)
+        except Exception:
+            pass
+    return hashlib.sha256(f"{user}\0{session}".encode()).hexdigest()[:16].encode()
 
 
 def acquire_single_instance(wait: float = 0.0) -> Optional[socket.socket]:
@@ -53,9 +71,9 @@ def acquire_single_instance(wait: float = 0.0) -> Optional[socket.socket]:
     """
     deadline = time.monotonic() + wait
     while True:
-        srv = update_guard.instance_socket()
+        srv = update_guard.instance_socket(_INSTANCE_FAMILY)
         try:
-            srv.bind(("127.0.0.1", _INSTANCE_PORT))
+            srv.bind(_INSTANCE_ADDRESS)
             srv.listen(1)
             return srv
         except OSError:
@@ -63,28 +81,38 @@ def acquire_single_instance(wait: float = 0.0) -> Optional[socket.socket]:
             if time.monotonic() >= deadline:
                 break
             time.sleep(0.25)
-    c = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    answered = False
+    c = socket.socket(_INSTANCE_FAMILY, socket.SOCK_STREAM)
+    reply = b""
     try:
         c.settimeout(2)
-        c.connect(("127.0.0.1", _INSTANCE_PORT))
-        c.sendall(b"raise")
-        answered = c.recv(2) == b"ok"
+        c.connect(_INSTANCE_ADDRESS)
+        c.sendall(b"raise:" + user_token())
+        reply = c.recv(5)
     except Exception:
         pass
     finally:
         c.close()
-    if not answered:
+    if reply == b"other":
+        _other_user_notice()
+    elif reply != b"ok":
         _port_taken_notice()
     return None
 
 
+def _other_user_notice():
+    QMessageBox.information(
+        None, "Telescope is already running",
+        "Telescope is already running for another user on this computer. Close it there, then open it again here.",
+    )
+
+
 def _port_taken_notice():
-    # Quitting without a word looks like a crash when the port is held by something that isn't Telescope
+    # Quitting without a word looks like a crash when the lock is held by something that isn't Telescope
+    where = f"port {_INSTANCE_ADDRESS[1]}" if _INSTANCE_FAMILY == socket.AF_INET else "a local socket"
     QMessageBox.warning(
         None, "Telescope can't start",
-        f"Telescope couldn't start because something else is using port {_INSTANCE_PORT} on this computer "
-        "(or another Telescope is stuck). Close that program, or restart the computer, then open Telescope again.",
+        f"Telescope couldn't start because something else is holding its single-instance lock ({where}), "
+        "or another Telescope is stuck. Close that program, or restart the computer, then open Telescope again.",
     )
 
 
@@ -99,9 +127,12 @@ def listen_for_raise(srv: socket.socket, raise_cb):
             break  # closed on quit
         try:
             conn.settimeout(1.0)
-            if conn.recv(16) == b"raise":
+            message = conn.recv(64)
+            if message == b"raise:" + user_token():
                 raise_cb()
-                conn.sendall(b"ok")  # tells the new copy a Telescope answered, not some other program on the port
+                conn.sendall(b"ok")  # tells the new copy a Telescope answered, not some other program holding the lock
+            elif message.startswith(b"raise:"):
+                conn.sendall(b"other")  # another user's Telescope, on a port both users can reach
         except OSError:
             pass  # a connection that says nothing or resets mustn't stop every later raise
         finally:

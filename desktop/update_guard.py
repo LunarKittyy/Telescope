@@ -34,7 +34,7 @@ EXE_NAME = "TelescopeDesktop.exe"
 OLD_EXE_NAME = "TelescopeDesktop.old.exe"
 FAILED_EXE_NAME = "TelescopeDesktop.failed.exe"
 LIB_PREFIX = "lib-"            # + the build number: the folder the exe's libraries are in (telescope.spec)
-INSTANCE_PORT = 47823          # telescope.app's single-instance port
+INSTANCE_PORT = 47823          # Windows: the single-instance port (Linux uses a per-user Unix socket)
 TRIAL_GRACE_S = 30             # a new version's first start may take this long to bind the port
 
 
@@ -192,17 +192,27 @@ def roll_back(directory: Path, journal: dict, remember: bool = True):
 
 # ── At start ──────────────────────────────────────────────────────────────────
 
-def instance_socket() -> socket.socket:
-    # Off Windows, reuse only skips the TIME_WAIT a "raise" leaves; on Windows it would let two copies share the port.
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 0 if sys.platform == "win32" else 1)
+def instance_address(dev: bool = False) -> tuple:
+    """(family, address) of the single-instance socket. Linux: one per user (an abstract Unix socket, which leaves no
+    file behind after a crash). Windows: a loopback port, so the handshake has to tell users apart."""
+    if sys.platform == "win32":
+        return socket.AF_INET, ("127.0.0.1", INSTANCE_PORT + (1 if dev else 0))
+    return socket.AF_UNIX, b"\0telescope-%d%s" % (os.getuid(), b"-dev" if dev else b"")
+
+
+def instance_socket(family: int = socket.AF_INET) -> socket.socket:
+    # On Windows reuse would let two copies share the port; on Linux a Unix socket has no TIME_WAIT to skip
+    s = socket.socket(family, socket.SOCK_STREAM)
+    if family == socket.AF_INET:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 0 if sys.platform == "win32" else 1)
     return s
 
 
 def another_copy_running() -> bool:
-    s = instance_socket()
+    family, address = instance_address()
+    s = instance_socket(family)
     try:
-        s.bind(("127.0.0.1", INSTANCE_PORT))
+        s.bind(address)
         return False
     except OSError:
         return True

@@ -375,3 +375,22 @@ def test_windows_installs_no_terminate_handler(tmp_path, monkeypatch):
     monkeypatch.setattr(update_guard.signal, "signal", lambda sig, h: handlers.__setitem__(sig, h))
     update_guard.confirm_on_terminate(tmp_path)
     assert handlers == {}
+
+
+def test_the_guard_sees_a_running_copy_through_the_same_address_the_app_binds(monkeypatch):
+    import socket
+    if not hasattr(socket, "AF_UNIX"):
+        pytest.skip("Unix sockets")
+    monkeypatch.setattr(update_guard.sys, "platform", "linux")
+    monkeypatch.setattr(update_guard.os, "getuid", lambda: 4242425)
+    family, address = update_guard.instance_address()
+    assert not update_guard.another_copy_running()
+    holder = update_guard.instance_socket(family)
+    holder.bind(address)
+    holder.listen(1)
+    try:
+        assert update_guard.another_copy_running()
+        monkeypatch.setattr(update_guard.os, "getuid", lambda: 4242426)  # another user's copy doesn't count
+        assert not update_guard.another_copy_running()
+    finally:
+        holder.close()
