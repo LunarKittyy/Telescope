@@ -87,6 +87,11 @@ class UpdatesDialog(QDialog):
         self._actions = QWidget()
         self._actions.setLayout(button_row(self._notes_btn, self._update_btn))
         c.addLayout(control_row("", self._actions, stretch=True))
+        self._retry_btn = QPushButton("Try again")
+        self._retry_btn.clicked.connect(plugin.try_again)
+        self._retry = QWidget()
+        self._retry.setLayout(button_row(self._retry_btn))
+        c.addLayout(control_row("", self._retry, stretch=True))
         lay.addWidget(card)
 
         close_btn = QPushButton("Close")
@@ -110,6 +115,8 @@ class UpdatesDialog(QDialog):
         self._check_btn.setEnabled(not busy)
         self._channel.setEnabled(not busy)
         self._actions.setVisible(available)
+        self._retry.setVisible(p.rolled_back is not None and not available)
+        self._retry_btn.setEnabled(not busy)
         blocker = updates.self_update_blocker() if available else None
         self._update_btn.setText("Open download page" if blocker else "Update and restart")
         self._update_btn.setEnabled(not busy and (blocker is not None or not p.host_streaming()))
@@ -127,6 +134,7 @@ class UpdatesPlugin(TelescopePlugin):
         self._last_check = 0.0
         self.available: Optional[updates.Manifest] = None
         self.latest: Optional[updates.Manifest] = None  # the last manifest seen, newer or not
+        self.rolled_back: Optional[updates.Manifest] = None  # a newer build held back: it was undone for not starting
         self._checked = False
         self._error = ""
         self._check_id = 0
@@ -216,6 +224,8 @@ class UpdatesPlugin(TelescopePlugin):
             return text, "status_ok"
         if not self._checked:
             return "", "status_dim"
+        if self.rolled_back is not None:
+            return f"Telescope {self.rolled_back.display_version} was rolled back because it didn't start. Try again?", "status_warn"
         if version.CHANNEL == "dev":
             latest = f" The latest {self.channel} build is {self.latest.display_version}." if self.latest else ""
             return f"This is a source checkout, so it doesn't update itself.{latest}", "status_dim"
@@ -231,7 +241,15 @@ class UpdatesPlugin(TelescopePlugin):
         self.channel = channel
         self.available = None
         self.latest = None
+        self.rolled_back = None
         self._host.schedule_save()
+        self.check(manual=True)
+
+    def try_again(self):
+        if self.busy:
+            return
+        updates.forget_rolled_back()
+        self.rolled_back = None
         self.check(manual=True)
 
     def set_auto_check(self, on: bool):
@@ -288,6 +306,7 @@ class UpdatesPlugin(TelescopePlugin):
             self.latest = manifest
             newer = updates.is_newer(manifest) and manifest is not None and updates.platform_asset(manifest)
             self.available = manifest if newer else None
+            self.rolled_back = manifest if updates.was_rolled_back(manifest) else None
         self._refresh()
 
     # ── Updating ──────────────────────────────────────────────────────────

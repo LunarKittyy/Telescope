@@ -8,7 +8,7 @@ Every start then calls recover() first:
   if that fails, roll_back() puts the old version back).
 - "trial": the new version is starting for the first time. The old one is kept until confirm(), which main.py calls
   once the window is up. A start that finds the trial already started (the last one never got that far) rolls back,
-  and remembers the build so the updater doesn't offer it again.
+  and remembers the build so the updater doesn't offer it again. A SIGTERM or SIGHUP first (a logout) confirms.
 - "rolling_back": a roll-back was cut short; it's safe to run again too.
 
 Windows: the exe is swapped with two renames (a running exe can be renamed but not replaced), and nothing can run
@@ -18,6 +18,7 @@ while it's missing in between, so that one instant stays unprotected. Everything
 import json
 import os
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -260,6 +261,27 @@ def confirm(directory: Path):
     journal = read_journal(directory)
     if journal is not None and journal.get("state") == "trial":
         clear_journal(directory)
+
+
+def confirm_on_terminate(directory: Path):
+    """A logout or shutdown (SIGTERM, SIGHUP) before confirm() is the system's doing, not a failed start: confirm,
+    then die the way the signal would have killed us. Not on Windows, where a shutdown closes the window instead."""
+    if sys.platform == "win32":
+        return
+
+    def handler(signum, _frame):
+        try:
+            confirm(directory)
+        except Exception:
+            pass  # nothing to lose by dying anyway
+        signal.signal(signum, signal.SIG_DFL)
+        os.kill(os.getpid(), signum)
+
+    for name in ("SIGTERM", "SIGHUP"):
+        try:
+            signal.signal(getattr(signal, name), handler)
+        except (ValueError, OSError):
+            pass  # not the main thread
 
 
 def relaunch_command(directory: Path, after_update: bool = False) -> list:

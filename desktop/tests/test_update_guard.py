@@ -324,3 +324,54 @@ def test_a_linux_install_that_fails_outright_is_undone_but_not_blamed_on_the_bui
 def _manifest(build):
     return (f'{{"schema": 1, "version": "0.6.0", "build": {build}, "channel": "nightly", "versionName": "x",'
             f' "commit": "abc", "protocol": 2, "notes": "", "assets": []}}').encode()
+
+
+# ── A logout during the first start is not a failed start ────────────────────
+
+def _terminate_handler(monkeypatch, app):
+    handlers, signalled = {}, []
+    monkeypatch.setattr(update_guard.sys, "platform", "linux")
+    monkeypatch.setattr(update_guard.signal, "signal", lambda sig, h: handlers.__setitem__(sig, h))
+    monkeypatch.setattr(update_guard.os, "kill", lambda pid, sig: signalled.append(sig))
+    update_guard.confirm_on_terminate(app)
+    return handlers, signalled
+
+
+def test_sigterm_during_the_first_start_confirms_instead_of_rolling_back(tmp_path, monkeypatch):
+    app = _windows_app(tmp_path)
+    updates.install_windows(_windows_zip(tmp_path), app, 131)
+    assert update_guard.recover(app, running_elsewhere=_no_one_else) is None  # the new version starts
+    handlers, signalled = _terminate_handler(monkeypatch, app)
+
+    handlers[update_guard.signal.SIGTERM](update_guard.signal.SIGTERM, None)
+
+    assert update_guard.read_journal(app) is None
+    assert signalled == [update_guard.signal.SIGTERM]  # then it dies as the signal meant
+    assert update_guard.recover(app, running_elsewhere=_no_one_else) is None  # nothing to roll back
+    assert update_guard.failed_build(app) is None
+    assert (app / "TelescopeDesktop.exe").read_bytes() == b"exe 131"
+
+
+def test_a_start_that_dies_with_no_signal_still_rolls_back(tmp_path, monkeypatch):
+    app = _windows_app(tmp_path)
+    updates.install_windows(_windows_zip(tmp_path), app, 131)
+    update_guard.recover(app, running_elsewhere=_no_one_else)
+    _terminate_handler(monkeypatch, app)  # installed, but never run: a hard kill or a crash
+    monkeypatch.setattr(update_guard, "TRIAL_GRACE_S", 0)
+
+    assert update_guard.recover(app, running_elsewhere=_no_one_else) is not None
+    assert update_guard.failed_build(app) == 131
+
+
+def test_sigterm_with_no_update_in_progress_leaves_no_journal_behind(tmp_path, monkeypatch):
+    handlers, signalled = _terminate_handler(monkeypatch, tmp_path)
+    handlers[update_guard.signal.SIGHUP](update_guard.signal.SIGHUP, None)
+    assert signalled == [update_guard.signal.SIGHUP] and not (tmp_path / update_guard.JOURNAL).exists()
+
+
+def test_windows_installs_no_terminate_handler(tmp_path, monkeypatch):
+    handlers = {}
+    monkeypatch.setattr(update_guard.sys, "platform", "win32")
+    monkeypatch.setattr(update_guard.signal, "signal", lambda sig, h: handlers.__setitem__(sig, h))
+    update_guard.confirm_on_terminate(tmp_path)
+    assert handlers == {}

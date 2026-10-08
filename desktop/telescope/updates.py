@@ -127,6 +127,22 @@ def is_newer(manifest: Optional[Manifest], build: Optional[int] = None, director
     return manifest.build != update_guard.failed_build(directory or install_dir())
 
 
+def was_rolled_back(manifest: Optional[Manifest], build: Optional[int] = None, directory: Optional[Path] = None) -> bool:
+    """Whether manifest is the newer build that is held back because it was rolled back for not starting."""
+    current = version.BUILD if build is None else build
+    if manifest is None or current <= 0 or manifest.build <= current:
+        return False
+    return manifest.build == update_guard.failed_build(directory or install_dir())
+
+
+def forget_rolled_back(directory: Optional[Path] = None):
+    """Offer the rolled-back build again."""
+    try:
+        ((directory or install_dir()) / update_guard.FAILED).unlink(missing_ok=True)
+    except OSError:
+        logger.exception("Couldn't clear the rolled-back marker")
+
+
 def platform_asset(manifest: Manifest) -> Optional[Asset]:
     return manifest.assets.get(WINDOWS_ASSET if IS_WINDOWS else LINUX_ASSET)
 

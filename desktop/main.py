@@ -17,6 +17,7 @@ if _right_version is not None:
     except OSError:
         pass  # nothing more this copy can do; starting Telescope again runs whatever version is in place
     sys.exit(0)
+update_guard.confirm_on_terminate(APP_DIR)
 
 # The new version has started fine this long after its window came up (or once it's closed normally).
 _STARTED_FINE_MS = 3000
@@ -142,6 +143,10 @@ def main():
             # Every start, not just after an update: an old version's files can still be locked the first time.
             clean_up_after_update()
     started_fine.done = False
+    # Python only runs a signal handler when the interpreter gets control, which Qt's loop doesn't give it by itself
+    wake = QTimer()
+    wake.timeout.connect(lambda: None)
+    wake.start(250)
     QTimer.singleShot(_STARTED_FINE_MS, started_fine)
     app.aboutToQuit.connect(started_fine)
 

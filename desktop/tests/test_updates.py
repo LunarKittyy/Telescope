@@ -411,3 +411,14 @@ def test_a_source_checkout_or_read_only_folder_only_gets_a_link(tmp_path, monkey
     assert "writable" in updates.self_update_blocker(app)
     monkeypatch.setattr(version, "CHANNEL", "dev")
     assert "source checkout" in updates.self_update_blocker(app)
+
+
+def test_a_rolled_back_build_is_named_and_can_be_tried_again(tmp_path):
+    (tmp_path / ".update-failed").write_text('{"build": 200}')
+    m = updates.Manifest("0.6.0", 200, "nightly", "n", "", 2, {})
+    assert updates.was_rolled_back(m, build=150, directory=tmp_path)
+    assert not updates.is_newer(m, build=150, directory=tmp_path)
+    assert not updates.was_rolled_back(updates.Manifest("0.6.0", 201, "nightly", "n", "", 2, {}), build=150, directory=tmp_path)
+    assert not updates.was_rolled_back(m, build=200, directory=tmp_path)  # already running it
+    updates.forget_rolled_back(tmp_path)
+    assert updates.is_newer(m, build=150, directory=tmp_path)
