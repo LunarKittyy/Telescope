@@ -12,6 +12,14 @@ sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-releas
 sudo dnf install v4l2loopback
 ```
 
+`start.sh` needs **Python 3.11 or newer**. It checks this first, and it picks `python3.13`, `python3.12` or `python3.11` ahead of `python3` when they're installed. On Ubuntu 22.04 (Python 3.10), install a newer one from the deadsnakes PPA:
+```bash
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt update
+sudo apt install python3.11 python3.11-venv
+```
+If an older Telescope environment was already created with an old Python, `start.sh` says so. Delete `~/.local/share/Telescope/venv` (or `$XDG_DATA_HOME/Telescope/venv`) and run it again.
+
 The `start.sh` script handles pip dependencies automatically, and only goes online for them when they change (first run, or an update). Once the package above is installed, Telescope loads the module when you start streaming. It asks for your password once, with **Also switch it on at every startup** ticked, so later boots don't ask again. Without a graphical password prompt (no pkexec or no polkit agent), it shows the command to run in a terminal instead, with a Copy button. **Advanced** in the settings menu can load and unload it too, or run it manually:
 
 ```bash

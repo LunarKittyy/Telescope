@@ -63,7 +63,7 @@ The Presets button in the header saves the camera, output and transform settings
 - A camera gets the same virtual camera as last time when it's free, so a scene in OBS keeps pointing at the right phone
 - Battery and heat warnings cover every phone that streams, each by its own thresholds. Stopping when no app reads the camera stays off once a second camera has streamed, until everything has stopped. Changing the canvas size needs just one camera streaming
 - The mic is on one stream at a time, the first one to start. To use another one's, click its tile and turn on **Phone mic**: it goes off on the other one. If the stream with the mic stops, the next one takes it over, still on
-- With more than one stream, the camera can't go off (mic only), Automatic streaming doesn't stop anything, and the wait screen comes back once the last one stops. Battery and temperature alerts only cover the phone whose settings are showing
+- With more than one stream, the camera can't go off (mic only), Automatic streaming doesn't stop anything, and the wait screen comes back once the last one stops.
 - The extra cameras are always the size set under Setup (1920x1080 when that's Auto), and a picture with another shape gets black bars
 
 ## Monitoring

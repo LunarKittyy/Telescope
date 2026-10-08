@@ -29,7 +29,7 @@ Download `Telescope-windows.zip` from the [releases page](../../releases), extra
 
 **🐧 Linux**
 
-Download `Telescope-linux.tar.gz` from the [releases page](../../releases), extract it, and run `./start.sh`. You'll also need a couple of things from your package manager:
+Download `Telescope-linux.tar.gz` from the [releases page](../../releases), extract it, and run `./start.sh`. The launcher needs **Python 3.11 or newer**. Ubuntu 22.04 ships 3.10, so there install `python3.11` and `python3.11-venv` from the deadsnakes PPA first (see [manual setup](docs/setup.md#linux)). You'll also need a couple of things from your package manager:
 
 - **`v4l2loopback`** - what the virtual camera runs on. Telescope switches it on when you stream, but can't install it.
   - Debian/Ubuntu: `sudo apt install v4l2loopback-dkms`
