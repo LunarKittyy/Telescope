@@ -513,6 +513,10 @@ class MainActivity : AppCompatActivity() {
         ).apply {
             text = "Remove"
             setOnClickListener { confirmRemoveComputer(computer) }
+            // Start, not left: in Persian or Arabic the button sits on the left, and the gap goes on its right
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { marginStart = dp(12) }
         })
         return row
     }
@@ -586,15 +590,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun buildStepRow(step: SetupStep, primary: Boolean, last: Boolean): View {
+        // At a large font size the button goes under its text, which keeps the whole width instead of breaking mid-word
+        val stacked = !step.done && resources.configuration.fontScale >= STACK_FONT_SCALE
         val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = android.view.Gravity.CENTER_VERTICAL
+            orientation = if (stacked) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
+            gravity = if (stacked) android.view.Gravity.START else android.view.Gravity.CENTER_VERTICAL
             setPadding(0, 0, 0, if (last) 0 else dp(14))
         }
 
         val textBlock = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            layoutParams = if (stacked) LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            else LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
         TextView(this).apply {
             text = step.label
@@ -646,7 +654,7 @@ class MainActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { marginStart = dp(12) }
+            ).apply { if (stacked) topMargin = dp(6) else marginStart = dp(12) }
         }
         row.addView(btn)
         return row
@@ -787,6 +795,8 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val RC_PERMS = 100
+        // Android's "Large" font is 1.15 and its largest 1.3 or more; from there a setup step stacks its button
+        private const val STACK_FONT_SCALE = 1.3f
         // Lets the desktop app push a pairing payload straight over adb when
         // there's no camera-scannable QR code involved (USB pairing) - the
         // same JSON shape and handleQrScan() logic as the QR flow, just
