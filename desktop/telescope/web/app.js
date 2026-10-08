@@ -136,24 +136,31 @@ function stopMedia() {
 }
 
 async function startMic() {
+  const gen = mediaGen, stream = media;  // this setup's own: a Flip or a Stop and Start while it waits hands the globals on
   try {
+    let ctx;
     try {
-      audioCtx = new AudioContext({ sampleRate: 48000 });
+      ctx = new AudioContext({ sampleRate: 48000 });
     } catch (_) {
-      audioCtx = new AudioContext();  // the worklet resamples whatever rate this runs at
+      ctx = new AudioContext();  // the worklet resamples whatever rate this runs at
     }
-    await audioCtx.audioWorklet.addModule("/mic-worklet.js");
-    const source = audioCtx.createMediaStreamSource(media);
-    const node = new AudioWorkletNode(audioCtx, "mic-sender");
+    audioCtx = ctx;
+    await ctx.audioWorklet.addModule("/mic-worklet.js");
+    if (gen !== mediaGen) {
+      ctx.close().catch(() => {});
+      return;
+    }
+    const source = ctx.createMediaStreamSource(stream);
+    const node = new AudioWorkletNode(ctx, "mic-sender");
     node.port.onmessage = (e) => sendAudio(e.data);
     source.connect(node);
     // Some browsers only run a node that leads to the speakers; a muted gain keeps it silent.
-    const mute = audioCtx.createGain();
+    const mute = ctx.createGain();
     mute.gain.value = 0;
-    node.connect(mute).connect(audioCtx.destination);
-    await audioCtx.resume();
+    node.connect(mute).connect(ctx.destination);
+    await ctx.resume();
   } catch (err) {
-    micError = "The browser couldn't record the microphone.";
+    if (gen === mediaGen) micError = "The browser couldn't record the microphone.";
   }
 }
 
@@ -298,8 +305,10 @@ function encoderReady(w, h) {
 
 async function setUpEncoder(w, h, size) {
   configuring = true;
+  const gen = runGen;
   try {
     const cfg = await hardwareConfig(w, h);
+    if (gen !== runGen) return;  // stopped while the browser was checking: nothing here is wanted any more
     if (!cfg) {
       // Some hardware encoders stop short of 1080p: a smaller size may still have one
       const next = STEP_DOWN.find((l) => l < Math.max(w, h));
@@ -319,7 +328,7 @@ async function setUpEncoder(w, h, size) {
     needKey = true;
     showCodec("h264", "");
   } catch (err) {
-    useJpeg(`H.264 didn't start (${err.message}), so this sends JPEG.`);
+    if (gen === runGen) useJpeg(`H.264 didn't start (${err.message}), so this sends JPEG.`);
   } finally {
     configuring = false;
   }
