@@ -12,7 +12,7 @@ Telescope turns your Android phone into a webcam for your Linux or Windows compu
 - Shows up as a normal webcam in Discord, Zoom, OBS and anything else, and the phone's mic can be your microphone too
 - Pick the lens, and set exposure, focus and white balance from the computer
 - Connects over USB or Wi-Fi, encrypted either way
-- Can start streaming by itself when an app opens the camera, and stop once nothing's using it
+- Can start streaming on its own when an app opens the camera and stop again once nothing's using it
 - A built-in updater lets you install new versions in one click
 
 ---
@@ -58,7 +58,7 @@ On first launch, the middle of the window is a checklist:
 1. **Virtual camera** - on Windows, click **Install driver**. On Linux it checks for the package above and names it if it's missing.
 2. **Phone app** - scan the code with your phone's camera to download `Telescope.apk`, then open it to install. (Your phone asks to allow "install from this source" the first time.)
 3. **Add your phone** - open Telescope on the phone and click **Add phone**. Then tap **Scan pairing code** on the phone, or plug it in over USB and allow [USB debugging](https://developer.android.com/studio/debug/dev-options#enable) when the phone asks.
-4. **Start streaming** - click **Start Streaming** in the top right corner. The phone's camera starts by itself.
+4. **Start streaming** - click **Start Streaming** in the top right corner. The phone's camera wakes up on its own.
 
 After the first stream, the checklist is replaced by the video.
 
@@ -66,7 +66,7 @@ After the first stream, the checklist is replaced by the video.
 
 In OBS (or anywhere else), pick **Phone Camera** (Linux) or **Telescope** (Windows) as your webcam. Installed the Windows driver with an older Telescope? It's still called **Unity Video Capture** until you click **Rename** in Advanced.
 
-Telescope uses USB whenever the phone is plugged in and answering, and Wi-Fi otherwise. The Connection panel shows which one it's using, and if a cable is plugged in but not used, it says why. **Connect via** forces one or the other.
+Telescope uses USB whenever the phone is plugged in and answering, and Wi-Fi otherwise. The Connection panel shows which one it's using, and if a cable is plugged in but not being used it tells you why. **Connect via** can force one or the other.
 
 > [!NOTE]
 > Use only on a trusted network, or enable **Local only - USB** in the Android app. See [Privacy](docs/features.md#privacy) for the full security model.
