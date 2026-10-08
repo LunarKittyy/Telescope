@@ -47,6 +47,42 @@ def test_an_image_that_wont_load_falls_back_to_the_default(qapp, tmp_path):
     assert len(vcam.load_frames(str(tmp_path / "missing.gif"), 64, 36)) == 1
 
 
+def test_a_photo_over_qts_allocation_limit_still_loads(qapp, tmp_path):
+    from PyQt6.QtGui import QColor, QImage, QImageReader
+
+    img = QImage(1200, 900, QImage.Format.Format_RGB32)
+    img.fill(QColor(10, 200, 30))
+    path = tmp_path / "big.jpg"
+    assert img.save(str(path), "JPG", 95)
+    old = QImageReader.allocationLimit()
+    QImageReader.setAllocationLimit(1)  # MB: the 4.3 MB decode no longer fits
+    try:
+        assert QImageReader(str(path)).read().isNull()
+        frames = vcam.read_image_frames(str(path), 64, 36)
+        assert len(frames) == 1 and frames[0][0].shape == (36, 64, 3)
+        assert abs(int(frames[0][0][18, 32][1]) - 200) < 12  # the photo, not the default screen
+    finally:
+        QImageReader.setAllocationLimit(old)
+
+
+def test_a_normal_image_is_not_prescaled(qapp, tmp_path):
+    from PyQt6.QtGui import QColor, QImage, QImageReader
+
+    img = QImage(200, 100, QImage.Format.Format_RGB32)
+    img.fill(QColor(255, 0, 0))
+    path = tmp_path / "ok.png"
+    img.save(str(path))
+    reader = QImageReader(str(path))
+    vcam._limit_decode_size(reader, 64)
+    assert not reader.scaledSize().isValid()
+
+
+def test_read_image_frames_is_empty_for_an_image_that_wont_load(qapp, tmp_path):
+    bad = tmp_path / "bad.png"
+    bad.write_bytes(b"not an image")
+    assert vcam.read_image_frames(str(bad), 64, 36) == []
+
+
 def test_an_animation_keeps_its_frames_and_timing_fitted_to_the_camera(qapp, tmp_path):
     gif = tmp_path / "wait.gif"
     gif.write_bytes(_GIF)
