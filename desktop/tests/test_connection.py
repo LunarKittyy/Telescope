@@ -68,6 +68,9 @@ class _Host:
     def forget_device_settings(self, name):
         self.forgotten.append(name)
 
+    def move_device_settings(self, old, new):
+        self.moved = getattr(self, "moved", []) + [(old, new)]
+
     def reconnect_stream(self, _source_id=None):
         self.reconnects += 1
 
@@ -259,6 +262,75 @@ def test_switching_phones_mid_stream_stops_the_stream(plugin_env):
     host.streaming = True
     plugin._select("id-a")
     assert host.stops == 1
+
+
+def test_picking_another_phone_by_hand_mid_stream_streams_that_one(plugin_env):
+    plugin, host, _panel = plugin_env
+    _add(plugin, pid="id-a", name="A")
+    _add(plugin, pid="id-b", name="B")
+    plugin._streaming = True
+    host.streaming = True
+    host.switches.clear()
+    plugin._phone_combo.setCurrentIndex(plugin._phone_combo.findData("id-a"))
+    assert host.stops == 1 and host.starts == 1
+    assert plugin.selected_device == "id-a" and host.switches == [("id-b", "id-a")]
+
+
+def test_picking_another_phone_while_idle_does_not_start_it(plugin_env):
+    plugin, host, _panel = plugin_env
+    _add(plugin, pid="id-a", name="A")
+    _add(plugin, pid="id-b", name="B")
+    plugin._phone_combo.setCurrentIndex(plugin._phone_combo.findData("id-a"))
+    assert host.stops == 0 and host.starts == 0
+
+
+def _reinstalled(plugin, monkeypatch, answer=True):
+    asked = []
+    monkeypatch.setattr(ConnectionPlugin, "_ask_same_phone", lambda self, name: asked.append(name) or answer)
+    _add(plugin, pid="id-new", name="Pixel", token="tok-new", ips=("10.0.0.7",))
+    return asked
+
+
+def test_a_reinstalled_phone_takes_the_old_ones_place_once_confirmed(plugin_env, monkeypatch):
+    plugin, host, _panel = plugin_env
+    _add(plugin, pid="id-old", name="Pixel")
+    _add(plugin, pid="id-b", name="Other")
+    plugin._resolver.result = Resolution(NOT_PAIRED)  # the old id: the phone doesn't know this computer anymore
+    host.switches.clear()
+    asked = _reinstalled(plugin, monkeypatch)
+    assert asked == ["Pixel"]
+    assert [p.id for p in plugin.phones] == ["id-new", "id-b"]  # in the old one's place
+    assert plugin.phone("id-new").token == "tok-new"
+    assert host.moved == [("id-old", "id-new")]
+    assert plugin.selected_device == "id-new" and host.switches == [("id-b", "id-new")]
+    assert plugin._revoked == []  # nothing to unpair: the phone forgot it already
+
+
+def test_a_reinstalled_phone_that_was_picked_keeps_the_settings_on_screen(plugin_env, monkeypatch):
+    plugin, host, _panel = plugin_env
+    _add(plugin, pid="id-old", name="Pixel")
+    plugin._apply_resolution(Resolution(UNREACHABLE))  # its last check
+    host.switches.clear()
+    _reinstalled(plugin, monkeypatch)
+    assert plugin._resolver.calls == []  # the last check was enough
+    assert [p.id for p in plugin.phones] == ["id-new"] and plugin.selected_device == "id-new"
+    assert host.switches == []  # the panels hold its settings already
+
+
+def test_saying_no_to_a_reinstalled_phone_adds_it_next_to_the_old_one(plugin_env, monkeypatch):
+    plugin, host, _panel = plugin_env
+    _add(plugin, pid="id-old", name="Pixel")
+    _reinstalled(plugin, monkeypatch, answer=False)
+    assert [p.id for p in plugin.phones] == ["id-old", "id-new"]
+    assert not hasattr(host, "moved")
+
+
+def test_a_second_phone_with_the_same_name_that_still_answers_is_not_asked_about(plugin_env, monkeypatch):
+    plugin, _host, _panel = plugin_env
+    _add(plugin, pid="id-old", name="Pixel")
+    plugin._apply_resolution(Resolution(READY, WIFI))
+    asked = _reinstalled(plugin, monkeypatch)
+    assert asked == [] and [p.id for p in plugin.phones] == ["id-old", "id-new"]
 
 
 def test_forgetting_the_phone_being_streamed_stops_it_while_it_can_still_be_reached(plugin_env):
@@ -467,6 +539,58 @@ def test_a_problem_shows_its_fix_on_the_card(plugin_env):
     plugin._apply_resolution(Resolution(NOT_PAIRED))
     assert "Needs pairing again" in plugin._status_lbl.text()
     assert "Add phone" in plugin._note_lbl.text()
+
+
+def _probe_now(monkeypatch):
+    monkeypatch.setattr(ConnectionPlugin, "_spawn_route_probe", lambda self, probe_id, phone, pref: self._on_route_probed(
+        probe_id, phone.id, pref, self._resolver.resolve(phone, pref)))
+
+
+def test_a_connect_via_the_phone_cant_be_reached_on_keeps_the_stream(plugin_env, monkeypatch):
+    plugin, host, _panel = plugin_env
+    _probe_now(monkeypatch)
+    _add(plugin)
+    plugin._streaming = host.streaming = True
+    plugin._stream_route = USB
+    plugin._route_combo.setCurrentIndex(plugin._route_combo.findData(ROUTE_WIFI))
+    assert host.reconnects == 0 and host.stops == 0
+    assert plugin.get_config()["route"] == ROUTE_AUTO and plugin._route_combo.currentData() == ROUTE_AUTO
+    issue = host.issues["route"]
+    assert issue.title == "Can't reach Pixel over Wi-Fi"
+    assert "Still streaming over USB, so Connect via stays on Automatic." in issue.text
+    plugin._resolver.result = Resolution(READY, WIFI)  # on the same Wi-Fi now
+    issue.actions[0].callback()
+    assert host.reconnects == 1 and plugin.get_config()["route"] == ROUTE_WIFI and "route" not in host.issues
+
+
+def test_a_new_connect_via_is_checked_before_the_stream_moves(plugin_env, monkeypatch):
+    plugin, host, _panel = plugin_env
+    probes = []
+    monkeypatch.setattr(ConnectionPlugin, "_spawn_route_probe", lambda self, *a: probes.append(a))
+    _add(plugin)
+    plugin._streaming = host.streaming = True
+    plugin.set_route_preference(ROUTE_USB)
+    assert host.reconnects == 0 and plugin._route_combo.currentData() == ROUTE_USB  # what was picked, meanwhile
+    plugin.set_route_preference(ROUTE_WIFI)
+    old_id, _phone, _pref = probes[0]
+    plugin._on_route_probed(old_id, "id-a", ROUTE_USB, Resolution(READY, USB))  # superseded
+    assert host.reconnects == 0
+    new_id, _phone, _pref = probes[1]
+    plugin._on_route_probed(new_id, "id-a", ROUTE_WIFI, Resolution(READY, WIFI))
+    assert host.reconnects == 1 and plugin.get_config()["route"] == ROUTE_WIFI
+
+
+def test_picking_the_old_connect_via_back_cancels_the_check(plugin_env, monkeypatch):
+    plugin, host, _panel = plugin_env
+    probes = []
+    monkeypatch.setattr(ConnectionPlugin, "_spawn_route_probe", lambda self, *a: probes.append(a))
+    _add(plugin)
+    plugin._streaming = host.streaming = True
+    plugin.set_route_preference(ROUTE_WIFI)
+    plugin.set_route_preference(ROUTE_AUTO)
+    plugin._on_route_probed(probes[0][0], "id-a", ROUTE_WIFI, Resolution(READY, WIFI))
+    assert host.reconnects == 0 and plugin.get_config()["route"] == ROUTE_AUTO
+    assert plugin._route_combo.currentData() == ROUTE_AUTO
 
 
 def test_changing_the_route_saves_and_reconnects_a_live_stream(plugin_env):
