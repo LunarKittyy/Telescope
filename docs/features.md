@@ -25,7 +25,7 @@ The Presets button in the header saves the camera, output and transform settings
 ## Resolution and FPS
 - The resolution list comes from what the current lens actually supports, and changing it changes what the phone captures
 - One FPS setting (15 to 60) drives both the phone and the virtual camera. Rates the lens can't do are greyed out
-- **Canvas size** in Advanced sets the virtual camera's size separately from the phone's: 720p, 1080p or 4K in landscape or portrait, 4:3 sizes, or custom. On Linux it reloads the driver with one password prompt (close OBS first)
+- **Canvas size** in Advanced sets the virtual camera's size separately from the phone's: 720p, 1080p or 4K in landscape or portrait, 4:3 sizes, or custom (even sizes only, since odd ones break the colours on Linux). On Linux it reloads the driver with one password prompt (close OBS first)
 
 ## Format and bandwidth
 - **Light** (H.264, the default) needs about 8 Mbps at 1080p30, so it keeps up on most Wi-Fi. **Heavy** (MJPEG) is sharper in fast motion but needs USB or strong Wi-Fi. A phone that can't do Light uses Heavy by itself
@@ -68,15 +68,16 @@ The Presets button in the header saves the camera, output and transform settings
 
 ## Monitoring
 - FPS and throughput in the footer. When the stream can't keep up, a note suggests what to try, with a button for it
-- A dropped stream reconnects by itself, over whichever route works: pull the cable and it carries on over Wi-Fi
-- Phone battery and temperature, with alerts you can set to notify you, stop the stream, or both
+- A dropped stream reconnects by itself, over whichever route works: pull the cable and it carries on over Wi-Fi. If it's still gone after 10 seconds, apps get the wait screen instead of the last frame, and after 30 seconds a banner says it can't reach the phone or browser. It keeps trying either way
+- Phone battery and temperature, with alerts you can set to notify you, stop the stream, or both. A stop also says why in the window, with **Start anyway** to keep streaming until the battery or temperature is back to normal
 - **Open log** and **Copy diagnostics** at the bottom of Advanced. Copy diagnostics is what to paste into a bug report. The log lives in the temp folder (`/tmp/telescope-<user>/` on Linux, `%TEMP%\Telescope\` on Windows), with addresses, tokens and your home folder stripped out
 
 ## Phones, pairing and connection
 - **Add phone** pairs by QR code, or by plugging the phone in over USB
 - The **?** next to it opens the setup checklist again, with the phone app download and Add phone, even after you've streamed from Browser camera. Click it again to close it
 - Several phones per computer and several computers per phone. Removing one leaves the others paired
-- USB when the phone is plugged in and answering, Wi-Fi otherwise. If a cable is plugged in but not used, the Connection panel says why. **Connect via** forces one or the other
+- USB when the phone is plugged in and answering, Wi-Fi otherwise. If a cable is plugged in but not used, the Connection panel says why. **Connect via** forces one or the other. Changed mid-stream, it checks the phone answers that way first, and keeps the stream as it is if not
+- Picking another phone or browser in the picker while streaming switches the stream to it
 - A new IP address from the router doesn't break anything: the phone announces itself on the network
 - Camera, output, transform and alert settings are saved per phone; connection settings and the canvas are shared
 
