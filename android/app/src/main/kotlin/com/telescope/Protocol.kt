@@ -70,6 +70,7 @@ data class V1State(
     val active_lens: String? = null,  // the lens a multi-lens camera is streaming from right now
     val camera_off: Boolean = false,  // streaming the mic with the camera closed
     val camera_error: String? = null,  // why the camera didn't turn back on
+    val camera_taken: Boolean = false,  // another app on the phone has the camera; it opens again once that lets go
     val camera_toggle: Boolean = false,  // takes camera_on and starts with the camera off; set by every phone that can
     val stream_width: Int,
     val stream_height: Int,

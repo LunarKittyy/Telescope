@@ -389,6 +389,13 @@ class PhoneSource(Source):
         session = self.session
         if session is None:
             return
+        if state.get("camera_taken"):
+            # Android gives the camera to the app on screen; the phone opens it again once that app lets go
+            self._win.show_issue(f"camera_taken:{self.id}", Issue(
+                "Another app on the phone is using the camera",
+                "The stream comes back by itself once that app closes or lets go of it.", kind="warn"))
+        else:
+            self._win.clear_issue(f"camera_taken:{self.id}")
         self.camera_toggle = bool(state.get("camera_toggle"))
         if not self.camera_toggle:
             if self.camera_off:
@@ -413,6 +420,7 @@ class PhoneSource(Source):
         super().end_recovery()
         self._recovery_gen += 1
         self._recovery_timer.stop()
+        self._win.clear_issue(f"camera_taken:{self.id}")  # frames are back, or the stream is over
 
     def _spawn_state_fetch(self, session_id: int):
         """Split out so tests can leave the thread out."""
@@ -428,7 +436,7 @@ class PhoneSource(Source):
             if session is None or session.id != session_id:
                 return
             state = session.client.get_state()
-            if state and state.get("codec_error"):
+            if state and (state.get("codec_error") or state.get("camera_taken")):
                 self._sig_state.emit(session_id, state)
         except RuntimeError:
             pass  # the window is gone

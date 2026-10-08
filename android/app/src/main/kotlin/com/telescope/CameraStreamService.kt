@@ -444,6 +444,8 @@ class CameraStreamService : Service() {
     val hasViewer: Boolean get() = server?.hasActiveViewer() == true
     // Streaming the mic with the camera closed.
     val cameraOff: Boolean get() = controller?.isCameraOff() == true
+    // Another app has the camera; the stream waits for it.
+    val cameraTaken: Boolean get() = controller?.isCameraTaken() == true
     val port: Int get() = DEFAULT_PORT
 
     // True when this session was started by the desktop rather than the button on this phone; MainActivity uses it to tell the user where an unrequested stream came from.
@@ -843,6 +845,7 @@ class CameraStreamService : Service() {
             active_lens = snap?.activeLens,
             camera_off = controller?.isCameraOff() ?: false,
             camera_error = controller?.cameraError,
+            camera_taken = controller?.isCameraTaken() ?: false,
             camera_toggle = true,
             stream_width = liveSize.width,
             stream_height = liveSize.height,

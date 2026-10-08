@@ -732,13 +732,15 @@ class MainActivity : AppCompatActivity() {
         if (streaming) {
             // The camera stays on while the computer reconnects; say so rather than claim it's getting video.
             val viewed = service?.hasViewer == true
+            val taken = service?.cameraTaken == true
             tvStatus.text = when {
+                taken -> "● Another app is using the camera. Streaming goes on when it's free."
                 !viewed -> "● Waiting for the computer"
                 service?.cameraOff == true -> "● Streaming the mic, camera off"
                 else -> "● Streaming"
             }
             tvStatus.setTextColor(resources.getColor(
-                if (viewed) R.color.colorStreamingText else R.color.colorWarn, theme))
+                if (viewed && !taken) R.color.colorStreamingText else R.color.colorWarn, theme))
         } else {
             tvStatus.text = if (busy) "○ Starting…" else "○ Not streaming"
             tvStatus.setTextColor(resources.getColor(R.color.colorOnSurfaceDim, theme))
