@@ -302,3 +302,48 @@ def test_a_briefly_locked_config_is_read_again_not_reset(config_home, monkeypatc
     monkeypatch.setattr(config_home.Path, "read_bytes", flaky)
     monkeypatch.setattr(config_home.time, "sleep", lambda _s: None)
     assert config_home.load_config()["selected_device"] == "Phone1"
+
+
+def test_a_config_nested_too_deep_is_backed_up_not_fatal(config_home):
+    path = config_home.config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("[" * 100000 + "]" * 100000, encoding="utf-8")
+
+    assert config_home.load_config() == config_home._empty()
+    assert len(list(path.parent.glob(f"{path.name}.invalid-*"))) == 1
+
+
+def test_loading_a_bad_config_again_before_saving_backs_it_up_once(config_home, monkeypatch):
+    path = config_home.config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("not valid json", encoding="utf-8")
+    stamps = iter(["20250101T000000", "20250101T000001", "20250101T000002"])
+
+    class _Now:
+        @staticmethod
+        def strftime(_fmt):
+            return next(stamps)
+
+    class _Clock:
+        @staticmethod
+        def now():
+            return _Now
+
+    monkeypatch.setattr(config_home, "datetime", _Clock)
+    for _ in range(3):
+        config_home.load_config()
+
+    assert len(list(path.parent.glob(f"{path.name}.invalid-*"))) == 1
+
+
+def test_a_reset_is_reported_once_with_where_the_copy_went(config_home):
+    path = config_home.config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    assert config_home.take_reset_notice() is None
+    path.write_text("not valid json", encoding="utf-8")
+    config_home.load_config()
+    config_home.load_config()
+
+    notice = config_home.take_reset_notice()
+    assert notice and ".invalid-" in notice
+    assert config_home.take_reset_notice() is None

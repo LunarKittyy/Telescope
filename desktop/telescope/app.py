@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (
 
 import update_guard
 from telescope import dev_profile, diagnostics, theme, vcam
-from telescope.config import DEVICE_LOCAL_PLUGINS, load_config, save_config
+from telescope.config import DEVICE_LOCAL_PLUGINS, load_config, save_config, take_reset_notice
 from telescope.models import PhoneState, PhoneStateError
 from telescope.phone_client import PhoneControlClient
 from telescope.platform import IS_LINUX
@@ -64,15 +64,28 @@ def acquire_single_instance(wait: float = 0.0) -> Optional[socket.socket]:
                 break
             time.sleep(0.25)
     c = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    answered = False
     try:
-        c.settimeout(1)
+        c.settimeout(2)
         c.connect(("127.0.0.1", _INSTANCE_PORT))
         c.sendall(b"raise")
+        answered = c.recv(2) == b"ok"
     except Exception:
         pass
     finally:
         c.close()
+    if not answered:
+        _port_taken_notice()
     return None
+
+
+def _port_taken_notice():
+    # Quitting without a word looks like a crash when the port is held by something that isn't Telescope
+    QMessageBox.warning(
+        None, "Telescope can't start",
+        f"Telescope couldn't start because something else is using port {_INSTANCE_PORT} on this computer "
+        "(or another Telescope is stuck). Close that program, or restart the computer, then open Telescope again.",
+    )
 
 
 def listen_for_raise(srv: socket.socket, raise_cb):
@@ -88,6 +101,7 @@ def listen_for_raise(srv: socket.socket, raise_cb):
             conn.settimeout(1.0)
             if conn.recv(16) == b"raise":
                 raise_cb()
+                conn.sendall(b"ok")  # tells the new copy a Telescope answered, not some other program on the port
         except OSError:
             pass  # a connection that says nothing or resets mustn't stop every later raise
         finally:
@@ -254,6 +268,11 @@ class TelescopeWindow(QMainWindow):
     def apply_saved_config(self):
         """Restore persisted config into all registered plugins. Call after all plugins registered."""
         self._apply_config(load_config())
+        if (backup := take_reset_notice()) is not None:
+            where = f" A copy of the old file is at {backup}." if backup else ""
+            self.show_issue("config", Issue(
+                "Your settings couldn't be read",
+                "Telescope started with its defaults, so paired phones need pairing again." + where, kind="warn"))
 
     # ── UI construction ───────────────────────────────────────────────────────
 
@@ -612,9 +631,18 @@ class TelescopeWindow(QMainWindow):
         """Load a saved config; one that won't load (hand-edited, another version's) leaves the plugin on its defaults."""
         try:
             plugin.set_config(cfg)
+            return
         except Exception:
-            logging.exception("Saved settings for %s couldn't be loaded; using the defaults", plugin.name)
-            plugin.set_config(self._plugin_defaults.get(plugin.name, {}))
+            logging.exception("Saved settings for %s couldn't be loaded; keeping what does load", plugin.name)
+        # One bad field shouldn't reset the rest: take the fields that load on their own, the defaults for the others
+        good = dict(self._plugin_defaults.get(plugin.name, {}))
+        for key, value in (cfg.items() if isinstance(cfg, dict) else ()):
+            try:
+                plugin.set_config({**good, key: value})
+                good[key] = value
+            except Exception:
+                logging.warning("Saved %s setting %r couldn't be loaded; using its default", plugin.name, key)
+        plugin.set_config(good)
 
     def switch_device(self, prev_name, new_name: Optional[str]):
         """Switch device profile; save old before applying new."""
