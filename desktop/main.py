@@ -51,7 +51,7 @@ from telescope import dev_profile, diagnostics
 from telescope.app import (
     TelescopeWindow, acquire_single_instance, listen_for_raise,
 )
-from telescope.platform import IS_LINUX, autostart
+from telescope.platform import IS_LINUX, autostart, virtual_mic
 from telescope.plugins.browser_camera import BrowserCameraPlugin
 from telescope.plugins.camera_control import CameraControlPlugin
 from telescope.plugins.connection import ConnectionPlugin
@@ -103,6 +103,9 @@ def main():
     srv = acquire_single_instance(wait=15 if args.after_update else 0)
     if srv is None:
         sys.exit(0)
+    if IS_LINUX:
+        # Only the copy holding the single-instance port gets here, so the source it finds is never a running one's
+        virtual_mic.remove_stale_source(lambda cmd: virtual_mic._run(cmd, timeout=2))
     apply_theme(app)
 
     win = TelescopeWindow()
