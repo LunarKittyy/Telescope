@@ -146,6 +146,7 @@ class BrowserCameraPlugin(TelescopePlugin):
         self._started: dict = {}  # id: the connection that started streaming, so a stop isn't undone right away
         self._joining = False
         self._join_again = False  # streams changed during a join pass
+        self._cutting = False  # New link is cutting the browsers off
         self._waiting = False  # Start or + asked for a browser and none has joined yet: the server stays up for it
         self._handover = ""  # the browser starting in its place, until it streams
         self._known: dict = {}  # id: {"name", "seen"} of browsers that connected, for the phones list
@@ -427,6 +428,8 @@ class BrowserCameraPlugin(TelescopePlugin):
 
     def _join_waiting(self):
         """A browser that just connected starts streaming, the way opening the app on a phone would."""
+        if self._cutting:
+            return
         if self._joining:
             self._join_again = True  # a start just went through: the next browser waiting goes once this pass ends
             return
@@ -501,9 +504,21 @@ class BrowserCameraPlugin(TelescopePlugin):
             self.hub.drop(bid)
 
     def new_link(self):
-        if self._server is not None:
+        """The old code stops working and every browser on it is cut off: their streams end (they wouldn't come back)."""
+        if self._server is None:
+            return
+        self._cutting = True  # a browser still connected must not start in the place of one that was stopped
+        try:
             self._server.new_token()
-            self._render()
+            for src in list(self._browsers.values()):
+                src.feed.disconnect(src.feed.generation)
+            for src in list(self._browsers.values()):
+                self._host.stop_stream(src.id)
+            self._tidy_browsers()
+        finally:
+            self._cutting = False
+        self._update_room()
+        self._render()
 
     def prepare(self, need_browser: bool = True) -> bool:
         """At Start: the server has to be up, or a browser has nowhere to connect. With Browser camera picked and no
