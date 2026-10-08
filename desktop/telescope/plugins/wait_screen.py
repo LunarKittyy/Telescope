@@ -148,7 +148,7 @@ class WaitScreenPlugin(TelescopePlugin):
         except OSError:
             part.unlink(missing_ok=True)
             raise
-        for old in folder.glob(_KEPT_PREFIX + "*"):
+        for old in [*folder.glob(_KEPT_PREFIX + "*"), *folder.glob("wait_screen.*")]:  # wait_screen.<ext>: older versions
             if old != dest:
                 old.unlink(missing_ok=True)
         return dest

@@ -197,6 +197,16 @@ def test_a_second_image_of_the_same_type_is_a_different_path(env, tmp_path, conf
     assert Path(second).read_bytes() == b"two" and _kept(config_home) == [Path(second).name]
 
 
+def test_a_copy_from_an_older_version_goes_on_the_next_pick(env, tmp_path, config_home):
+    plugin = env[0]
+    legacy = config_home.config_path().parent / "wait_screen.png"
+    legacy.parent.mkdir(parents=True, exist_ok=True)
+    legacy.write_bytes(b"old")
+    (tmp_path / "a.png").write_bytes(b"new")
+    plugin.set_image(str(tmp_path / "a.png"))
+    assert not legacy.exists() and Path(plugin.image_path).read_bytes() == b"new"
+
+
 def test_a_failed_replacement_keeps_the_previous_image(env, tmp_path, config_home, monkeypatch):
     plugin, host, _bus, screen = env
     (tmp_path / "a.png").write_bytes(b"one")
