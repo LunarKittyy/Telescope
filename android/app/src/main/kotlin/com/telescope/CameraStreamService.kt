@@ -188,6 +188,8 @@ class CameraStreamService : Service() {
         const val EXTRA_CAMERA_OFF = "camera_off"
         // Started as a plain service under WaitingService's foreground service (see StreamLauncher).
         const val EXTRA_COVERED    = "covered"
+        // The id of the paired computer whose start this is; absent for a start on the phone.
+        const val EXTRA_OWNER      = "owner"
         const val CHANNEL_ID       = "telescope_stream"
         const val NOTIF_ID         = 1
         const val DEFAULT_PORT     = 8080
@@ -433,6 +435,25 @@ class CameraStreamService : Service() {
     var startedRemotely: Boolean = false
         private set
 
+    // The paired computer this stream belongs to (StreamOwner): set by its start, or by the first computer to watch a
+    // stream started on the phone. Another computer's start or stop is refused and its viewer can't switch the codec.
+    @Volatile
+    private var ownerId: String? = null
+
+    // The paired computer that has this stream instead of caller, while there is a stream; null when caller may have it.
+    fun otherOwner(caller: PairedComputer?): PairedComputer? {
+        if (state == StreamState.Idle || state == StreamState.Failed) return null
+        return StreamOwner.other(ownerId, caller, PairedComputers.list(this))
+    }
+
+    // Takes a stream nobody else has for caller; false when another computer has it.
+    @Synchronized
+    fun claim(caller: PairedComputer): Boolean {
+        if (otherOwner(caller) != null) return false
+        ownerId = caller.id
+        return true
+    }
+
     // Records a state transition with sanitized context (class name + message only, never a stack trace or request data); history for "Copy diagnostics" lives in stateMachine.
     private fun setState(newState: StreamState, op: String, error: Throwable? = null) {
         val old = state
@@ -556,6 +577,7 @@ class CameraStreamService : Service() {
         val localOnly = intent?.getBooleanExtra(EXTRA_LOCAL_ONLY, false) ?: false
         bindAddr      = if (localOnly) "127.0.0.1" else "0.0.0.0"
         startedRemotely = intent?.getBooleanExtra(EXTRA_REMOTE, false) ?: false
+        ownerId = intent?.getStringExtra(EXTRA_OWNER)
         val startOff  = intent?.getBooleanExtra(EXTRA_CAMERA_OFF, false) ?: false
         covered = (intent?.getBooleanExtra(EXTRA_COVERED, false) ?: false) && WaitingService.covering
 
@@ -695,8 +717,11 @@ class CameraStreamService : Service() {
     }
 
     // The newest viewer's route picks the codec; viewers of the other one lose their stream.
-    private fun onVideoClient(codec: String) {
+    private fun onVideoClient(codec: String, token: String?) {
         val ctrl = controller ?: return
+        // Another computer watching this one's stream gets it as it is
+        val caller = PairedComputers.list(this).matchToken(token)
+        if (caller != null && !claim(caller)) return
         if (codec == H264Stream.CODEC_H264 && !h264Available) return  // the reader sees no data and gives up
         // Failed once this stream: stay on MJPEG rather than reopen, fail and reopen as the reader reconnects.
         if (codec == H264Stream.CODEC_H264 && ctrl.snapshot().codecError != null) return

@@ -1996,6 +1996,17 @@ def test_recovery_stops_the_stream_when_the_phone_stopped_streaming(window, monk
     assert starts == [window._phone.id]  # this phone, even with others still streaming
 
 
+def test_recovery_leaves_a_stream_another_computer_started_alone(window, monkeypatch):
+    from telescope.phones import READY, Resolution, Route
+    conn, worker, _client, _lost = _dropped_stream(window, monkeypatch, [
+        Resolution(READY, Route("wifi", "192.168.1.20"), streaming=True, streaming_for="Office PC")])
+
+    assert window._session is None
+    assert conn.adopted == [] and worker.urls == [] and conn.remote_stops == 0
+    assert not window._phone.recovering
+    assert window._banners.issue(f"stopped:{window._phone.id}").title == "The phone is streaming to Office PC"
+
+
 @pytest.mark.parametrize("status", ["NOT_PAIRED", "LOCAL_ONLY", "PHONE_OUTDATED", "DESKTOP_OUTDATED"])
 def test_recovery_stops_and_says_why_when_the_phone_wont_take_the_stream_back(window, monkeypatch, status):
     import telescope.phones as phones

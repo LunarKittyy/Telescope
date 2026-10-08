@@ -79,7 +79,11 @@ data class V1State(
 )
 
 @Serializable
-data class ControlResult(val ok: Boolean, val error: String? = null)
+data class ControlResult(
+    val ok: Boolean,
+    val error: String? = null,
+    val computer: String? = null,  // with busy_other: the computer the stream belongs to
+)
 
 @Serializable
 data class ApiError(val error: String)

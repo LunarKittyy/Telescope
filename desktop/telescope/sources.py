@@ -472,6 +472,15 @@ class PhoneSource(Source):
                 conn.show_problem(res, self.id)
             return
         if res is not None and res.status == READY:
+            other = getattr(res, "streaming_for", "")
+            if other:
+                # Another computer started the phone while this one couldn't reach it: that stream is theirs.
+                win._stop(remote_stop=False, source=self)
+                phone = "The phone" if not win._streams else self.name
+                win.show_issue(f"stopped:{self.id}", Issue(
+                    f"{phone} is streaming to {other}", "Stop it there or on the phone, then start again.",
+                    [BannerAction("Start", lambda: win._start_source(self.id))], kind="warn"))
+                return
             if not res.streaming and not res.busy:
                 # Stopped on the phone, or by its idle watchdog while we couldn't reach it.
                 win._stop(remote_stop=False, source=self)

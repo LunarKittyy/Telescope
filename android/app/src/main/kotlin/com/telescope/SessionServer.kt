@@ -100,12 +100,13 @@ class SessionServer(
                 }
 
                 Route.Ping -> {
-                    if (computers().matchToken(HttpWire.bearerToken(request)) == null) {
+                    val computer = computers().matchToken(HttpWire.bearerToken(request))
+                    if (computer == null) {
                         HttpWire.sendError(out, 401, "Unauthorized"); return
                     }
                     HttpWire.sendJson(
                         out,
-                        Json.encodeToString(SessionSnapshot.serializer(), commands.snapshot()),
+                        Json.encodeToString(SessionSnapshot.serializer(), commands.snapshot(computer)),
                     )
                 }
 
@@ -120,7 +121,8 @@ class SessionServer(
                 }
 
                 Route.Session -> {
-                    if (computers().matchToken(HttpWire.bearerToken(request)) == null) {
+                    val computer = computers().matchToken(HttpWire.bearerToken(request))
+                    if (computer == null) {
                         HttpWire.sendError(out, 401, "Unauthorized"); return
                     }
                     if (!HttpWire.isJsonBody(request)) {
@@ -132,8 +134,8 @@ class SessionServer(
                         HttpWire.sendError(out, 400, "Bad Request"); return
                     }
                     val result = when (val action = params["action"]) {
-                        "start" -> commands.start(StreamOpening.from(params))
-                        "stop" -> commands.stop()
+                        "start" -> commands.start(StreamOpening.from(params), computer)
+                        "stop" -> commands.stop(computer)
                         else -> ControlResult(ok = false, error = "unknown action '$action'")
                     }
                     HttpWire.sendJson(out, Json.encodeToString(ControlResult.serializer(), result))

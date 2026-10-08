@@ -130,7 +130,7 @@ Served on port 8766 by `SessionServer` - unlike the endpoints above, it exists w
 }
 ```
 
-`streaming` is a live stream, `busy` is a start in flight (camera opening, session configuring), and `localOnly` mirrors the app's **Local only - USB** setting, so the desktop can name that mismatch instead of timing out against an address nothing is listening on.
+`streaming` is a live stream, `busy` is a start in flight (camera opening, session configuring), and `localOnly` mirrors the app's **Local only - USB** setting, so the desktop can name that mismatch instead of timing out against an address nothing is listening on. `streamingFor` is the name of another paired computer that stream or start belongs to (see [One computer per stream](#one-computer-per-stream)); it's left out when the stream is the asking computer's, or nobody's. An older phone never sends it.
 
 ## `POST /v1/session`
 
@@ -141,7 +141,11 @@ Also on 8766. JSON body `{"action": "start"}` or `{"action": "stop"}`; same auth
 | `start` | Start the camera service, reproducing the camera/resolution/OIS selection last used on the phone. Optional `width` and `height` (both or neither) and `fps` open it at that size and rate instead, so a size that just failed isn't what opens again; the size is fitted to the lens like a `resolution` control. `camera: "off"` starts with the camera off, just the mic, until a `camera_on` control. `{"ok": true}` if a stream is already running. |
 | `stop` | Stop the camera service. `{"ok": true}` if nothing was running. |
 
-Refusal reasons, all reported with HTTP `200` and `"ok": false` (the request was fine, the camera wouldn't open): `no_camera_permission`, `busy` (a start is already in flight), `start_refused` (Android declined the foreground-service start).
+Refusal reasons, all reported with HTTP `200` and `"ok": false` (the request was fine, the camera wouldn't open): `no_camera_permission`, `busy` (a start is already in flight), `start_refused` (Android declined the foreground-service start), `busy_other` (the stream belongs to another paired computer, named in `computer`: `{"ok": false, "error": "busy_other", "computer": "desk"}`). A `stop` from a computer the stream doesn't belong to is refused with `busy_other` too, and the stream carries on.
+
+### One computer per stream
+
+A stream belongs to the paired computer whose `start` opened it, or, for one started on the phone, to the first computer that sends `start` or opens `/v1/video` or `/v1/video.h264` on it. While it runs, another computer's `start` and `stop` get `busy_other`, its `/v1/ping` carries `streamingFor`, and its video request doesn't switch the codec (it gets the stream as it is). The desktop says "The phone is streaming to <name>" instead of joining in. The owner itself can always reconnect, after a network blip or a restart, since it's matched by its pairing, not by its connection. Ownership ends with the stream: an owner that stops polling lets the idle watchdog stop it as before (60 s), and an owner that's unpaired on the phone no longer counts. `/v1/state`, `/v1/control` and `/v1/audio` aren't checked, so an older desktop that joins a running stream still works as it did.
 
 A start is only accepted while `SessionServer` is bound at all, i.e. the app's main screen is up or the camera service is already running - so this cannot open the camera on a phone that is both backgrounded and idle.
 

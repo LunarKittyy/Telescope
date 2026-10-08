@@ -25,6 +25,7 @@ object StreamLauncher {
         remote: Boolean = false,
         fps: Int? = null,
         cameraOff: Boolean = false,
+        owner: String? = null,
     ): Result {
         if (CameraStreamService.instance?.isStreaming == true) return Result.AlreadyStreaming
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
@@ -47,6 +48,7 @@ object StreamLauncher {
             }
             if (fps != null) putExtra(CameraStreamService.EXTRA_FPS, fps)
             putExtra(CameraStreamService.EXTRA_CAMERA_OFF, cameraOff)
+            if (owner != null) putExtra(CameraStreamService.EXTRA_OWNER, owner)
         }
         // Opened before the start, or a service that settles first would have its settle() undone
         SessionStartWindow.begin()
@@ -62,12 +64,13 @@ object StreamLauncher {
     }
 
     // Remote start using the remembered selection, at the size and rate the computer asks for when it says.
-    fun startFromPrefs(context: Context, opening: StreamOpening? = null): Result {
+    // owner: the id of the paired computer asking, which the stream then belongs to (StreamOwner).
+    fun startFromPrefs(context: Context, opening: StreamOpening? = null, owner: String? = null): Result {
         val remembered = StreamPrefs.lastSelection(context)
         val selection = if (opening?.width != null && opening.height != null)
             (remembered ?: StreamPrefs.DEFAULT_SELECTION).copy(width = opening.width, height = opening.height)
         else remembered
-        return start(context, selection, remote = true, fps = opening?.fps, cameraOff = opening?.cameraOff == true)
+        return start(context, selection, remote = true, fps = opening?.fps, cameraOff = opening?.cameraOff == true, owner = owner)
     }
 }
 
