@@ -117,7 +117,7 @@ On port 8766, and the one request without auth: it only says which phone this is
 
 ## `GET /v1/ping`
 
-Served on port 8766 by `SessionServer` - unlike the endpoints above, it exists whether or not a stream is running (while the app's main screen is up, or while the camera service is running, or both). Returns `200` if the token belongs to a paired computer, `401` if not.
+Served on port 8766 by `SessionServer` - unlike the endpoints above, it exists whether or not a stream is running (while the app's main screen is up, while the camera service is running, or while **Wait for my computer** is on - in any combination). Returns `200` if the token belongs to a paired computer, `401` if not.
 
 ```json
 {
@@ -143,7 +143,7 @@ Also on 8766. JSON body `{"action": "start"}` or `{"action": "stop"}`; same auth
 
 Refusal reasons, all reported with HTTP `200` and `"ok": false` (the request was fine, the camera wouldn't open): `no_camera_permission`, `busy` (a start is already in flight), `start_refused` (Android declined the foreground-service start).
 
-A start is only accepted while `SessionServer` is bound at all, i.e. the app's main screen is up or the camera service is already running - so this cannot open the camera on a phone that is both backgrounded and idle.
+A start is only accepted while `SessionServer` is bound at all, i.e. the app's main screen is up, the camera service is already running, or **Wait for my computer** is on. With that setting off (the default), this cannot open the camera on a phone that is both backgrounded and idle. With it on, `WaitingService` holds the port from the foreground, and a start from the desktop runs the camera under that service even while the app is in the background. It can still come back `start_refused` if Android declines it.
 
 The desktop polls `/v1/ping` after a start until `streaming` goes true (12s budget), because the service answers as soon as the start is accepted, well before the capture session is configured.
 

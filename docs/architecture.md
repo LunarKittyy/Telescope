@@ -8,7 +8,7 @@ How Telescope works inside, for contributors. The protocol itself is in [protoco
 Android device  (Telescope app, port 8080)
       |
       |  USB: adb forward tcp:0 tcp:8080 (adb picks the local port)
-      |  Wi-Fi: direct HTTP, address found via mDNS or stored
+      |  Wi-Fi: HTTPS (certificate pinned at pairing), address found via mDNS or stored
       v
 desktop/main.py  (Python, PyQt6)
       |
@@ -37,7 +37,7 @@ A second responder on the phone (`SessionServer`, port 8766) runs independently 
 
 That second endpoint is why the desktop's Start button is the only one anyone has to press. Hitting Start asks the phone to bring its camera up, waits for it, then connects; hitting Stop takes the phone's camera back down. Starting on the phone still works exactly as before, and the desktop leaves a stream it finds already running alone.
 
-`SessionServer` stays bound while **either** `MainActivity` is on screen **or** `CameraStreamService` is running (see `SessionEndpoint`'s refcount). Those two owners are the safety boundary: a fully backgrounded, non-streaming app cannot be told to open the camera - which is also what keeps the start legal, since Android 12+ blocks starting a `camera`-type foreground service from the background. Covering the streaming case as well is what lets you stop and restart a session from the desktop after the phone's screen has gone dark.
+`SessionServer` stays bound while any of three owners holds it (see `SessionEndpoint`'s refcount): `MainActivity` is on screen, `CameraStreamService` is running, or `WaitingService` is running because **Wait for my computer** is on. With that setting off (the default), a fully backgrounded, non-streaming app cannot be told to open the camera - which is also what keeps the start legal, since Android 12+ blocks starting a `camera`-type foreground service from the background. Turning it on is the opt-in exception that lets an idle, backgrounded phone start streaming; see WaitingService below. Covering the streaming case as well is what lets you stop and restart a session from the desktop after the phone's screen has gone dark.
 
 On **Linux**, two `v4l2loopback` devices are created (`/dev/video10` and `/dev/video11`). Telescope writes to `video11`; `video10` is intentionally left free for other software (e.g. OBS Virtual Camera).
 
