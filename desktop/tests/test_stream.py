@@ -667,3 +667,56 @@ def test_a_new_fps_settles_the_stream(monkeypatch):
     worker._settle_since = None
     worker.update_output(fps=60)
     assert worker._settle_since == clock.now
+
+
+def test_a_parked_worker_lets_go_of_the_camera_and_takes_it_back_when_unparked(monkeypatch):
+    import time
+    frame = np.full((2, 4, 3), 9, dtype=np.uint8)
+
+    class _EndlessCapture(_Capture):
+        def read(self):
+            time.sleep(0.01)
+            return True, frame
+
+    worker = stream.StreamWorker("url", None, None, 24, canvas_width=4, canvas_height=4)
+    monkeypatch.setattr(worker, "_open_cap", lambda: _EndlessCapture())
+    monkeypatch.setattr(vcam, "locked_size", lambda *_: None)
+    events = []
+
+    class FakeCamera:
+        device = "fake-vcam"
+
+        def __init__(self, **_kwargs):
+            events.append("open")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            events.append("close")
+            return False
+
+        def send(self, _frame):
+            pass
+
+    def wait_for(cond):
+        deadline = time.monotonic() + 3
+        while not cond() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        return cond()
+
+    monkeypatch.setattr(vcam.pyvirtualcam, "Camera", FakeCamera)
+    runner = threading.Thread(target=worker.run)
+    runner.start()
+    try:
+        assert wait_for(lambda: events == ["open"])
+        worker.set_parked(True)
+        assert events == ["open", "close"]  # let go before set_parked returns, so the wait screen can open it
+        time.sleep(0.2)
+        assert events == ["open", "close"]  # and stays let go while the reader carries on
+        worker.set_parked(False)
+        assert wait_for(lambda: events == ["open", "close", "open"])
+    finally:
+        worker.request_stop()
+        runner.join(timeout=5)
+    assert not runner.is_alive()

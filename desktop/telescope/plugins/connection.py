@@ -417,6 +417,7 @@ class _Signals(QObject):
     resolved = pyqtSignal(int, object, object)   # check id, phone id, Resolution
     usb_available = pyqtSignal(int, bool)        # watch id, our phone answers over USB
     phone_updated = pyqtSignal(bool, str)        # ok, what went wrong
+    route_probed = pyqtSignal(int, object, str, object)  # probe id, phone id, Connect via choice, Resolution
 
 
 class ConnectionPlugin(TelescopePlugin):
@@ -429,6 +430,8 @@ class ConnectionPlugin(TelescopePlugin):
         self._selected_id: Optional[str] = None
         self._active_key: Optional[str] = None
         self._route_pref = ROUTE_AUTO
+        self._pending_route: Optional[str] = None  # a Connect via choice checked before the stream moves to it
+        self._route_probe_id = 0
         self._computer_id = uuid.uuid4().hex
         self._computer_name = default_computer_name()
         self._resolution: Optional[Resolution] = None
@@ -458,6 +461,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._signals.resolved.connect(self._on_resolved)
         self._signals.usb_available.connect(self._on_usb_available)
         self._signals.phone_updated.connect(self._on_phone_updated)
+        self._signals.route_probed.connect(self._on_route_probed)
         self._updating_phone = False
         self._update_note: Optional[tuple] = None  # (kind, text) from the last phone update
         bus.stream_connected.connect(self._on_stream_connected)
@@ -655,7 +659,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._route_row.setVisible(True)
         self._using_lbl.setText(route_text(self._stream_route if self._streaming else (res.route if res else None)))
         self._route_combo.blockSignals(True)
-        self._route_combo.setCurrentIndex(self._route_combo.findData(self._route_pref))
+        self._route_combo.setCurrentIndex(self._route_combo.findData(self._pending_route or self._route_pref))
         self._route_combo.blockSignals(False)
         note = ""
         if res is not None and not self._streaming:
@@ -790,7 +794,60 @@ class ConnectionPlugin(TelescopePlugin):
 
     def set_route_preference(self, preference: str):
         if preference == self._route_pref:
+            if self._pending_route is not None:  # back to the one in use before the check answered
+                self._pending_route = None
+                self._route_probe_id += 1
+                self._render()
             return
+        phone = self._selected_phone()
+        if self._streaming and phone is not None and self._host.is_streaming_from(phone.id):
+            # Make sure the phone answers the new way before the stream that works now is dropped
+            self._pending_route = preference
+            self._route_probe_id += 1
+            self._render()
+            self._spawn_route_probe(self._route_probe_id, Phone(**phone.to_dict()), preference)
+            return
+        self._use_route_preference(preference)
+
+    def _spawn_route_probe(self, probe_id: int, phone: Phone, preference: str):
+        """Background resolve for a new Connect via choice (split out so tests can run it synchronously)."""
+        signals, resolver = self._signals, self._resolver
+
+        def work():
+            try:
+                res = resolver.resolve(phone, preference)
+            except Exception:
+                logger.exception("Route resolve failed")
+                res = Resolution(UNREACHABLE)
+            try:
+                signals.route_probed.emit(probe_id, phone.id, preference, res)
+            except RuntimeError:
+                pass
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_route_probed(self, probe_id: int, pid: str, preference: str, res: Resolution):
+        if probe_id != self._route_probe_id or preference != self._pending_route:
+            return  # another choice since
+        self._pending_route = None
+        phone = self.phone(pid)
+        if (res.status == READY or phone is None or pid != self._selected_id or not self._streaming
+                or not self._host.is_streaming_from(pid)):
+            self._use_route_preference(preference)
+            return
+        self._render()
+        how = {ROUTE_USB: " over USB", ROUTE_WIFI: " over Wi-Fi"}.get(preference, "")
+        now = "USB" if self._stream_route is not None and self._stream_route.kind == "usb" else "Wi-Fi"
+        kept = dict(_ROUTE_CHOICES).get(self._route_pref, self._route_pref)
+        hint = {ROUTE_USB: " Check the cable and that Telescope is open on the phone.",
+                ROUTE_WIFI: " Check that it's on the same network as this computer."}.get(preference, "")
+        self._host.show_issue("route", Issue(
+            f"Can't reach {phone.name}{how}",
+            f"Still streaming over {now}, so Connect via stays on {kept}.{hint}",
+            [BannerAction("Try again", lambda: self.set_route_preference(preference))], kind="warn"))
+
+    def _use_route_preference(self, preference: str):
+        self._pending_route = None
+        self._host.clear_issue("route")
         self._route_pref = preference
         self._resolution = None
         self._host.schedule_save()
@@ -1164,14 +1221,58 @@ class ConnectionPlugin(TelescopePlugin):
             existing.ips = list(result.ips)
             existing.active_ip = active
         else:
-            self._phones.append(Phone(result.phone_id, result.name, result.token, list(result.ips), active,
-                                      result.cert_sha256))
+            phone = Phone(result.phone_id, result.name, result.token, list(result.ips), active, result.cert_sha256)
+            old = self._earlier_install(phone)
+            if old is not None and self._ask_same_phone(old.name):
+                self._take_over(old, phone)
+            else:
+                self._phones.append(phone)
         self._select(result.phone_id, force=True)  # one streaming next to others gets the panels
         if streams:
             self._host.reconnect_stream(result.phone_id)  # the running stream still holds the old token
         self._host.save_now()
         if self._phones_dlg is not None and self._phones_dlg.isVisible():
             self._phones_dlg.refresh()
+
+    def _earlier_install(self, phone: Phone) -> Optional[Phone]:
+        """A listed phone with phone's name that no longer answers as itself: maybe the same phone after Telescope
+        was reinstalled on it or its data cleared, which gives it a new id."""
+        for old in self._phones:
+            if old.id == phone.id or old.name != phone.name or self._host.is_streaming_from(old.id):
+                continue
+            if old.id == self._selected_id and self._resolution is not None:
+                status = self._resolution.status  # its last check
+            else:
+                try:
+                    status = run_off_ui_thread(self._resolver.resolve, Phone(**old.to_dict()), ROUTE_AUTO).status
+                except Exception:
+                    logger.exception("Checking %s failed", old.name)
+                    continue
+            if status in (NOT_PAIRED, UNREACHABLE, USB_NEEDS_ATTENTION):
+                return old
+        return None
+
+    def _ask_same_phone(self, name: str) -> bool:
+        parent = self._add_dlg if self._add_dlg is not None and self._add_dlg.isVisible() else self._host
+        box = QMessageBox(parent)
+        box.setWindowTitle("Same phone?")
+        box.setText(f"Is this {name} again?")
+        box.setInformativeText(
+            f"A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or "
+            f"its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry.")
+        box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        box.setDefaultButton(QMessageBox.StandardButton.Yes)
+        return box.exec() == QMessageBox.StandardButton.Yes
+
+    def _take_over(self, old: Phone, phone: Phone):
+        """phone is old again with a new id: it takes old's place, settings and virtual camera."""
+        logger.info("%s paired with a new id; moving its settings over", old.name)
+        self._host.move_device_settings(old.id, phone.id)
+        self._phones[self._phones.index(old)] = phone
+        if self._active_key == old.id:
+            self._active_key = phone.id  # the panels hold its settings already, now the new id's
+        self.release_stream(old.id)
+        self._paths.pop(old.id, None)
 
     def rename_phone(self, pid: str, name: str):
         phone = self.phone(pid)
@@ -1212,17 +1313,22 @@ class ConnectionPlugin(TelescopePlugin):
                     client.unpair()
         threading.Thread(target=revoke, daemon=True).start()
 
-    def _select(self, pid: Optional[str], force: bool = False):
+    def _select(self, pid: Optional[str], force: bool = False, switch: bool = False):
+        """switch: picked by hand mid-stream, so the stream moves to pid instead of just stopping."""
         if pid == self._selected_id and not force:
             return
         if pid != self._selected_id and self._host.pick_source(pid):
             self._refresh_combo()  # the host took it from here (it streams already, or replaces one of several)
             return
+        restart = False
         if self._streaming and pid != self._selected_id:
             self._host.stop_stream()
+            restart = switch
         self._mark_selected(pid)
         self._activate_profile(pid)
         self._show_selection()
+        if restart:
+            self._host.start_stream()
 
     def select(self, pid: Optional[str]):
         """Pick pid, as the picker would (its settings come in; whatever streamed stops)."""
@@ -1253,7 +1359,7 @@ class ConnectionPlugin(TelescopePlugin):
             return
         pid = self._phone_combo.itemData(idx)
         if pid:
-            self._select(pid)
+            self._select(pid, switch=True)
 
     def _activate_profile(self, new_key: Optional[str]):
         """Swap per-phone settings via the host, only when the phone actually changed."""

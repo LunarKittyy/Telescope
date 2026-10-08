@@ -189,6 +189,7 @@ class TelescopeWindow(QMainWindow):
         self._held_states: dict = {}  # id: (source, session id, state) that needs the panels once that start is through
         self._start_later: list = []  # starts that waited for the extra cameras, one at a time once they're there
         self._start_id: Optional[str] = None  # what the last start was for, so its banner's Try again starts it again
+        self._canvas_restart = False  # a canvas resize stopped the stream and starts it once done; a Stop cancels it
 
         self._save_timer = QTimer(self)
         self._save_timer.setSingleShot(True)
@@ -709,6 +710,23 @@ class TelescopeWindow(QMainWindow):
                                 or cfg.get("output_slots", {}).pop(name, None) is not None):
             save_config(cfg)
 
+    def move_device_settings(self, old: str, new: str):
+        """A phone back with a new id (Telescope reinstalled on it): its settings and virtual camera go with it."""
+        if old in self._slot_memory:
+            self._slot_memory[new] = self._slot_memory.pop(old)
+        cfg = self._config_to_update()
+        if cfg is None:
+            return
+        devices = cfg.get("devices")
+        if isinstance(devices, dict) and old in devices:
+            devices[new] = devices.pop(old)
+        slots = cfg.get("output_slots")
+        if isinstance(slots, dict) and old in slots:
+            slots[new] = slots.pop(old)
+        if cfg.get("selected_device") == old:
+            cfg["selected_device"] = new
+        save_config(cfg)
+
     def _shutdown_plugins(self):
         for p in self._plugins:
             try:
@@ -817,6 +835,9 @@ class TelescopeWindow(QMainWindow):
         session = source.session
         if session is None:
             return
+        if session.worker is not None and getattr(session.worker, "parked", False):
+            self._free_vcam_for(source.slot)  # the wait screen lets go before the stream takes the camera back
+            session.worker.set_parked(False)
         if source is not self._focus and hasattr(session.client, "resend_settings"):
             session.client.resend_settings()  # the panels' plugins send them for the stream they show
         self._tell(source, "on_stream_start", session.url, session.client)
@@ -1053,9 +1074,7 @@ class TelescopeWindow(QMainWindow):
         if source.slot and not (canvas_w and canvas_h):
             canvas_w, canvas_h = vcam.DEFAULT_SIZE  # an extra camera keeps one size, whatever streams to it
 
-        if source.slot == 0:
-            self._each_plugin("on_stream_starting")
-        self._announce_idle_outputs(opening=source.slot)
+        self._free_vcam_for(source.slot)
 
         worker = StreamWorker(
             url=url, width=w, height=h, fps=fps,
@@ -1071,6 +1090,21 @@ class TelescopeWindow(QMainWindow):
             worker.vcam_opened.connect(self._bus.vcam_opened)
         worker.start()
         return worker
+
+    def _free_vcam_for(self, slot: int):
+        """Whatever holds slot's virtual camera while idle (the wait screen) lets go, for a stream about to open it."""
+        if slot == 0:
+            self._each_plugin("on_stream_starting")
+        self._announce_idle_outputs(opening=slot)
+
+    def _park_stream(self, source: Source):
+        """A stream gone a while: its virtual camera gets the wait screen instead of the last frame, until it's back."""
+        worker = source.session.worker if source.session is not None else None
+        if not source.recovering or worker is None or getattr(worker, "parked", True):
+            return
+        logging.info("%s has been gone a while; the virtual camera shows the wait screen", source.name)
+        worker.set_parked(True)
+        self._announce_idle_outputs()
 
     def _pipeline(self, live: bool = True) -> list:
         """The plugins' frame steps: live for the stream the panels show, or frozen at their current settings for one
@@ -1232,7 +1266,9 @@ class TelescopeWindow(QMainWindow):
     def _announce_idle_outputs(self, opening: Optional[int] = None):
         """Tell the wait screen which cameras nothing streams to; opening is one a stream is about to take. The main
         one counts only while others stream: alone, its wait screen follows the stream."""
-        used = {s.slot for s in self._streams if s.session.worker is not None} | {opening}  # camera off: free
+        # Camera off, or a stream gone a while (parked): free
+        used = {s.slot for s in self._streams
+                if s.session.worker is not None and not getattr(s.session.worker, "parked", False)} | {opening}
         first = 0 if self._streams else 1
         self._bus.idle_outputs.emit([n for n in range(first, vcam.MAX_SLOTS)
                                      if n not in used and (n == 0 or vcam.slot_ready(n))])
@@ -1545,6 +1581,7 @@ class TelescopeWindow(QMainWindow):
             ctrl.close()
         camera_was_off = source.camera_off
         if not self._restarting:
+            self._canvas_restart = False  # stopped for real: a canvas resize under way doesn't start it again
             source.camera_off = source.camera_off_auto = False  # each stream starts with the camera on
             source.keep_slot = None
             self._restart_later.discard(source.id)
@@ -1599,6 +1636,7 @@ class TelescopeWindow(QMainWindow):
         if source is None or source.session is None or source.recovering:
             return
         source.recovering = True
+        source.start_lost_clock()
         self._refresh_tiles()
         self._set_behind(False, source)
         if source is self._focus:
@@ -1619,6 +1657,7 @@ class TelescopeWindow(QMainWindow):
             return
         self._vcam_reload_callback = on_done
         was_streaming = self._session is not None or self._waking  # a start still waking restarts after it too
+        self._canvas_restart = self._canvas_restart or was_streaming
         old_worker = self._worker  # capture before _stop() clears it
         # Desktop-side driver reload only - the phone keeps streaming through it.
         if was_streaming:
@@ -1654,9 +1693,12 @@ class TelescopeWindow(QMainWindow):
             threading.Thread(target=worker, daemon=True).start()
 
     def _on_canvas_reload_done(self, ok: bool, msg: str, restart_stream: bool, command: str = ""):
+        restart = restart_stream and self._canvas_restart  # not after a Stop since
+        if restart_stream:
+            self._canvas_restart = False
         if ok:
             self._set_status(f"Loopback reloaded: {msg}" if IS_LINUX else "Canvas updated", "ok")
-            if restart_stream:
+            if restart:
                 self.start_stream()  # not over a stream started while the reload ran
         else:
             self._set_status("Not streaming" if command else f"Reload failed: {msg}", "dim" if command else "err")

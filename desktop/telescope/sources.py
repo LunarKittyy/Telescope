@@ -26,6 +26,8 @@ _RECOVER_RETRY_MS = 3000  # a dropped stream: how often to look for a route back
 _ALIVE_POLL_MS = 5000  # camera off: how often to check the phone is still there, with no video to tell
 _ALIVE_MISSES = 2  # checks in a row the phone didn't answer before looking for it like a dropped stream
 _CAMERA_ON_CHECK_MS = 6000  # after turning the camera on: when to ask the phone whether it came on
+_PARK_AFTER_MS = 10_000  # a stream gone this long: its virtual camera shows the wait screen, not a frozen frame
+_UNREACHABLE_AFTER_MS = 30_000  # gone this long: a banner says so
 # Frames arriving at 90% of what the phone's camera makes means the link keeps up with the camera; how long the camera's
 # rate is trusted before asking again.
 _CAMERA_LIMITED_SHARE = 0.9
@@ -44,10 +46,19 @@ class Source(QObject):
     mic_alone = False  # can stream its mic with the camera off
     open_reader = None  # a StreamWorker reader factory; None reads url
     auto_canvas = None  # the virtual camera's size when Setup's canvas is Auto; None takes the first frame's
+    lost_hint = "Check that it's still on."  # what to do when it can't be reached for a while
 
     def __init__(self, win: "TelescopeWindow"):
         super().__init__()
         self._win = win
+        # A dropped stream that stays gone: the wait screen takes its virtual camera, then a banner says so.
+        self._park_timer = QTimer(self)
+        self._park_timer.setSingleShot(True)
+        self._park_timer.timeout.connect(lambda: win._park_stream(self))
+        self._gone_timer = QTimer(self)
+        self._gone_timer.setSingleShot(True)
+        self._gone_timer.timeout.connect(self._show_unreachable)
+        self.unreachable_shown = False
         # Camera off: the stream is the mic alone, with no video worker. Before a start it means Start mic only.
         self.camera_off = False
         self.camera_off_auto = False  # Automatic streaming turned it off, so an app opening the camera turns it on
@@ -129,8 +140,24 @@ class Source(QObject):
     def lost(self):
         """The stream dropped. With no other route, the reader waits for the source to come back."""
 
+    def start_lost_clock(self):
+        """The stream just dropped: after a while the wait screen takes over, and later a banner says so."""
+        self._park_timer.start(_PARK_AFTER_MS)
+        self._gone_timer.start(_UNREACHABLE_AFTER_MS)
+
+    def _show_unreachable(self):
+        if not self.recovering or self.session is None:
+            return
+        self.unreachable_shown = True
+        self._win.show_issue(f"stopped:{self.id}", Issue(f"Can't reach {self.name}", self.lost_hint, kind="warn"))
+
     def end_recovery(self):
         self.recovering = False
+        self._park_timer.stop()
+        self._gone_timer.stop()
+        if self.unreachable_shown:
+            self.unreachable_shown = False
+            self._win.clear_issue(f"stopped:{self.id}")
 
     def check_camera_rate(self, session: "StreamSession", arrival: float):
         """Frames arrive under the rate asked for; with no camera rate to ask about, that's the link."""
@@ -171,6 +198,10 @@ class PluginSource(Source):
         return self._source.name
 
     @property
+    def lost_hint(self) -> str:
+        return getattr(self._source, "lost_hint", "Open the Telescope page in it again.")
+
+    @property
     def url(self) -> str:
         return self._source.url
 
@@ -208,6 +239,7 @@ class PhoneSource(Source):
 
     wakes = True
     mic_alone = True
+    lost_hint = "Open Telescope on it."
 
     _sig_state = pyqtSignal(int, dict)
     _sig_wake_done = pyqtSignal(int, bool, str, str, object)  # wake_id, ok, reason, url, PhoneAuth
