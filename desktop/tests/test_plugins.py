@@ -238,7 +238,7 @@ def test_a_size_can_be_picked_while_stopped_and_the_next_start_opens_at_it(strea
     assert plugin.opening() == {"width": 4096, "height": 3072, "fps": 60}
 
     ctrl.sent.clear()
-    plugin._ar_combo.setCurrentIndex(plugin._ratios_sorted.index((16, 9)))  # the largest 16:9 comes up first
+    plugin._ar_combo.setCurrentIndex(plugin._ratios_sorted.index((16, 9)))  # the 16:9 nearest 3072 high comes up
     plugin._res_combo.setCurrentIndex(plugin._res_combo.findText("1280 x 720"))
     assert ctrl.sent == []  # nothing to send it to
     assert plugin.opening() == {"width": 1280, "height": 720, "fps": 60}
@@ -249,6 +249,62 @@ def test_a_size_can_be_picked_while_stopped_and_the_next_start_opens_at_it(strea
     plugin.on_phone_state({**_TWO_SIZES, "stream_width": 1280, "stream_height": 720})  # it opened at the pick
     assert plugin._res_combo.currentText() == "1280 x 720"
     assert not [m for m in next_ctrl.sent if m["action"] == "resolution"]
+
+
+_ASPECTS = {
+    "cameras": [{"id": "0", "current": True, "supportedSizes": [
+        {"width": 1920, "height": 1440}, {"width": 1440, "height": 1080}, {"width": 640, "height": 480},
+        {"width": 1920, "height": 1080}, {"width": 1280, "height": 720}],
+        "h264Sizes": [{"width": 1440, "height": 1080}, {"width": 640, "height": 480},
+                      {"width": 1920, "height": 1080}, {"width": 1280, "height": 720}]}],
+    "codecs": ["mjpeg", "h264"], "codec": "h264", "stream_width": 1920, "stream_height": 1080,
+}
+
+
+def test_a_new_aspect_ratio_keeps_the_height_rather_than_jumping_to_the_largest(stream_output, monkeypatch):
+    plugin, _host = _stream_output_with(stream_output, monkeypatch, decodable=False)  # Heavy: every size listed
+    plugin.set_config({"resolution": "1920 x 1080"})
+    ctrl = _Ctrl()
+    plugin.on_stream_start("url", ctrl)
+    plugin.on_phone_state(_ASPECTS)
+    assert plugin._res_combo.currentText() == "1920 x 1080"
+    plugin._ar_combo.setCurrentIndex(plugin._ratios_sorted.index((4, 3)))
+    assert plugin._res_combo.currentText() == "1440 x 1080"
+    assert ctrl.sent[-1] == {"action": "resolution", "width": 1440, "height": 1080}
+
+
+def test_light_lists_only_the_sizes_the_phone_s_encoder_takes(stream_output, monkeypatch):
+    plugin, _host = _stream_output_with(stream_output, monkeypatch)
+    plugin.set_config({"resolution": "1920 x 1440"})  # picked on Heavy
+    assert plugin.opening()["width"] == 1920
+    plugin.on_stream_start("url", _Ctrl())
+    plugin.on_phone_state(_ASPECTS)
+    plugin._ar_combo.setCurrentIndex(plugin._ratios_sorted.index((4, 3)))
+    assert [plugin._res_combo.itemText(i) for i in range(plugin._res_combo.count())] == ["1440 x 1080", "640 x 480"]
+    plugin.on_stream_stop()
+    plugin.set_config({"resolution": "1920 x 1440"})
+    assert plugin.opening() == {"fps": 30, "width": 1440, "height": 1080}  # the nearest Light can open at
+
+
+def test_a_size_too_much_for_the_encoder_goes_back_to_the_last_that_worked(stream_output, monkeypatch):
+    from PyQt6.QtCore import QCoreApplication
+    plugin, host = _stream_output_with(stream_output, monkeypatch)
+    host.stop_stream = lambda sid=None: None
+    host.focused_source_id = lambda: "phone"
+    host.start_again = lambda sid=None, before=None: lambda: None
+    plugin.set_config({"resolution": "1920 x 1080"})
+    plugin.on_stream_start("url", _Ctrl())
+    plugin.on_phone_state(_ASPECTS)  # streaming 1080p on Light
+    plugin._res_combo.setCurrentIndex(plugin._res_combo.findText("1280 x 720"))
+    plugin.on_phone_state({**_ASPECTS, "codec": "mjpeg", "stream_width": 1280, "stream_height": 720,
+                           "codec_error": "The camera can't feed H.264 at 1280x720", "codec_unsupported": True})
+    QCoreApplication.processEvents()
+    issue = host.issues["encoder"]
+    assert "set back to 1920 x 1080" in issue.text
+    assert [a.label for a in issue.actions] == ["Start at 1920 x 1080", "Switch to Heavy"]
+    plugin.on_stream_stop()
+    assert plugin.get_config()["resolution"] == "1920 x 1080"
+    assert plugin.opening()["width"] == 1920
 
 
 def test_without_a_known_size_the_start_leaves_it_to_the_phone(stream_output):

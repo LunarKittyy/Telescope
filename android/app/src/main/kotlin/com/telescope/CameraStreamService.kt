@@ -807,6 +807,8 @@ class CameraStreamService : Service() {
                 aeCompMin = e.aeCompMin, aeCompMax = e.aeCompMax, aeCompStep = e.aeCompStep,
                 supportsFlash = e.supportsFlash, hwLevel = e.hwLevel,
                 supportedSizes = e.supportedSizes.map { CameraSize(it.width, it.height) },
+                h264Sizes = if (h264Available) e.supportedSizes.filter { H264Encoder.supportsSize(it.width, it.height) }
+                    .map { CameraSize(it.width, it.height) } else null,
                 supportsFocusPoint = e.maxAfRegions > 0 && e.activeArray != null &&
                     CaptureRequest.CONTROL_AF_MODE_AUTO in e.afModes,
                 zoomRatioMax = e.zoomRatioMax, cropZoomMax = e.cropZoomMax, freeformCrop = e.freeformCrop,

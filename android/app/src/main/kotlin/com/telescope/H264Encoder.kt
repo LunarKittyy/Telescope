@@ -34,6 +34,19 @@ class H264Encoder(
             }
         } catch (_: Exception) { false }
 
+        // The first H.264 encoder's video limits (the one createEncoderByType picks); null when there's none to ask.
+        private val videoCapabilities: MediaCodecInfo.VideoCapabilities? by lazy {
+            try {
+                MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
+                    .firstOrNull { info -> info.isEncoder && info.supportedTypes.any { it.equals(MIME, ignoreCase = true) } }
+                    ?.getCapabilitiesForType(MIME)?.videoCapabilities
+            } catch (_: Exception) { null }
+        }
+
+        // Whether the encoder takes a size at all; true when it can't say, so the size is still offered and tried.
+        fun supportsSize(width: Int, height: Int): Boolean =
+            try { videoCapabilities?.isSizeSupported(width, height) ?: true } catch (_: Exception) { true }
+
         /** The most the phone's first H.264 encoder takes (the one createEncoderByType picks), for Dynamic's ceiling. */
         val maxBitrate: Int by lazy {
             try {

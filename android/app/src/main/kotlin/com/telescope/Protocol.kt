@@ -31,6 +31,7 @@ data class CameraCapability(
     val supportsFlash: Boolean,
     val hwLevel: String,
     val supportedSizes: List<CameraSize> = emptyList(),
+    val h264Sizes: List<CameraSize>? = null,  // the supportedSizes the H.264 encoder takes; null = no encoder, or not said
     val supportsFocusPoint: Boolean = false,
     val zoomRatioMax: Float = 1f,
     val cropZoomMax: Float = 1f,
