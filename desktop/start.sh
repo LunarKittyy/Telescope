@@ -77,7 +77,7 @@ else
         fi
         echo ""
         echo "Python $MIN_PY or newer is required but not found. Install it with:"
-        echo "  sudo apt install python3.11 python3.11-venv          # Debian / Ubuntu (22.04: see below)"
+        echo "  sudo apt install python3.11 python3.11-venv          # Debian / Ubuntu (22.04: deadsnakes PPA)"
         echo "  sudo dnf install python3.11                          # Fedora / RHEL"
         echo "  sudo pacman -S python                                # Arch"
         exit 1
