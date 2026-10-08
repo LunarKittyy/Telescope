@@ -12,6 +12,7 @@ from telescope.widgets.common import create_vector_icon, set_ui_role, ui_px
 
 
 _IDLE_TEXT    = "Not streaming\n\nPress Start Streaming and the phone's camera comes up on its own."
+_IDLE_BROWSER_TEXT = "Not streaming\n\nPress Start Streaming and the browser's camera comes up once it connects."
 _IDLE_MIC_TEXT = "Not streaming\n\nStart mic only streams the phone's mic with its camera off."
 _WAITING_TEXT = "Waiting for the first frame\u2026"
 _CAMERA_OFF_TEXT = "Camera off\n\nThe phone's mic is still streaming.\nStop Streaming ends it."
@@ -332,6 +333,8 @@ class PreviewPlugin(TelescopePlugin):
         bus.lens_boxes.connect(self._on_lens_boxes)
         bus.view_pannable.connect(self._on_pannable)
         self._camera_on = True
+        self._phone_picked = True  # another source (Browser camera) has its own idle text
+        bus.source_selected.connect(self._on_source_selected)
         bus.camera_on_changed.connect(self._on_camera_changed)
         for signal in (bus.mic_changed, bus.stream_started, bus.stream_stopped, bus.phone_state_updated):
             signal.connect(self._show_camera_btn)
@@ -432,10 +435,17 @@ class PreviewPlugin(TelescopePlugin):
         else:
             self._preview_lbl.setText(self._idle_text())
 
+    def _on_source_selected(self, sid: str):
+        self._phone_picked = not sid
+        if self._active and not self._host.is_streaming():
+            self._preview_lbl.setText(self._idle_text())
+
     def _idle_text(self) -> str:
         """What the stage says with no frame to show."""
         if not self._host.is_streaming():
-            return _IDLE_TEXT if self._host.is_camera_on() else _IDLE_MIC_TEXT
+            if not self._host.is_camera_on():
+                return _IDLE_MIC_TEXT
+            return _IDLE_TEXT if self._phone_picked else _IDLE_BROWSER_TEXT
         if not self._host.is_camera_on():
             return _CAMERA_OFF_AUTO_TEXT if self._host.is_camera_off_auto() else _CAMERA_OFF_TEXT
         return _WAITING_TEXT

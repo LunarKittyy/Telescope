@@ -378,6 +378,23 @@ def test_a_new_link_ends_the_streams_it_cuts_off_without_starting_another(browse
     assert plugin.hub.feeds() == {} and _Server.instances[-1].token == "t2"
 
 
+def test_two_browsers_of_one_kind_are_told_apart_in_the_picker(browser):
+    plugin, host, bus, _card = browser
+    bus.source_selected.emit(SOURCE_ID)
+    first, gen = _arrive(plugin, "linux-aaaaaaaa", "Chrome on Linux")
+    _changed(host, bus)
+    _arrive(plugin, "linux-bbbbbbbb", "Chrome on Linux")
+    _changed(host, bus)
+    assert host.sources["browser:linux-aaaaaaaa"].name == "Chrome on Linux"
+    assert host.sources["browser:linux-bbbbbbbb"].name == "Chrome on Linux (2)"
+    assert plugin._known["linux-bbbbbbbb"]["name"] == "Chrome on Linux"  # remembered by what it is
+
+    first.disconnect(gen)  # reconnecting: it keeps its name, and the other its number
+    plugin._on_server_changed()
+    assert host.sources["browser:linux-aaaaaaaa"].name == "Chrome on Linux"
+    assert host.sources["browser:linux-bbbbbbbb"].name == "Chrome on Linux (2)"
+
+
 def test_no_room_means_no_feed(browser):
     plugin, host, bus, _card = browser
     bus.source_selected.emit(SOURCE_ID)

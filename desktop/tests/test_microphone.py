@@ -194,6 +194,19 @@ def test_shutdown_stops_and_tears_down(qapp):
     assert _Worker.made[-1].stopped and backend.torn_down == 1
 
 
+def test_the_card_calls_the_mic_by_the_source_picked(qapp):
+    bus = EventBus()
+    p = MicrophonePlugin(backend=_Backend(), worker_cls=_Worker, run_job=lambda fn: fn())
+    p.setup(_Host(), bus)
+    _PANELS.append(p.create_panel())
+    assert p._toggle_lbl.text() == "Phone mic" and "phone" in p._toggle.toolTip()
+    bus.source_selected.emit("browser:abc")
+    assert p._toggle_lbl.text() == "Browser mic" and "browser" in p._toggle.toolTip()
+    assert "phone" not in p._gain_slider.toolTip()
+    bus.source_selected.emit("")
+    assert p._toggle_lbl.text() == "Phone mic" and "phone" in p._gain_slider.toolTip()
+
+
 def test_setup_runs_off_the_ui_thread_and_a_late_result_is_ignored(qapp):
     jobs = []
     backend = _Backend()

@@ -115,6 +115,7 @@ class _BrowserSource:
         self.bid, self.feed = bid, feed
         self.id = BROWSER_PREFIX + bid
         self.name = "Browser"
+        self.device = ""  # what the page said it runs on, without the number a second one of its kind gets
 
     def prepare(self, interactive: bool) -> bool:
         return self._plugin.prepare(need_browser=False)
@@ -278,7 +279,8 @@ class BrowserCameraPlugin(TelescopePlugin):
             kind, text = ("status_err", self._problem) if self._problem else ("status_dim", "Off")
         elif feed is not None and feed.connected:
             codec = _CODEC_NAMES.get(feed.codec)
-            kind, text = "status_ok", f"● {feed.device or 'Connected'}" + (f", {codec}" if codec else "")
+            shown = next((src.name for src in self._browsers.values() if src.feed is feed), feed.device)
+            kind, text = "status_ok", f"● {shown if feed.device else 'Connected'}" + (f", {codec}" if codec else "")
             if feed.codec_note:
                 tip = f"{text}\n{feed.codec_note}"  # why it isn't H.264
         elif connected:
@@ -404,10 +406,14 @@ class BrowserCameraPlugin(TelescopePlugin):
     def _tidy_browsers(self):
         """Offer each connected browser as a source (by its device, once it says), and take back the ones that left
         and don't stream."""
+        taken: dict = {}  # device name: how many browsers have it, so a second "Chrome on Linux" is "Chrome on Linux (2)"
         for bid, feed in self.hub.feeds().items():
             src = self._browsers.get(bid)
+            if feed.connected or src is not None:
+                device = feed.device or (src.device if src is not None else "") or "Browser"  # kept across a reconnect
+                taken[device] = taken.get(device, 0) + 1
             if feed.connected:
-                name = feed.device or "Browser"
+                name = device if taken[device] == 1 else f"{device} ({taken[device]})"
                 if src is None:
                     src = self._browsers[bid] = _BrowserSource(self, bid, feed)
                     src.name = name
@@ -415,7 +421,8 @@ class BrowserCameraPlugin(TelescopePlugin):
                 elif src.name != name:
                     src.name = name
                     self._host.add_stream_source(src)
-                self._note_seen(bid, name)
+                src.device = device
+                self._note_seen(bid, device)
             elif src is not None and not self._host.is_streaming_from(src.id):
                 self._drop_browser(bid)
 
