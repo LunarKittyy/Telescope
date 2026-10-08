@@ -31,6 +31,10 @@ class HostServices(Protocol):
         """Delete the stored per-device settings for a removed device."""
         ...
 
+    def move_device_settings(self, old: str, new: str) -> None:
+        """Store a device's settings (presets included) and its virtual camera under a new id."""
+        ...
+
     def reconnect_stream(self) -> None:
         """Restart the stream, if one is active, to pick up new settings."""
         ...

@@ -159,6 +159,9 @@ def window(qapp, config_home, monkeypatch):
     monkeypatch.setattr(sources_module.PhoneSource, "_spawn_state_fetch",
                         lambda self, session_id: self._win.state_fetches.append(session_id))
     yield win
+    # A dropped stream's timers would fire into a window that's gone, in a later test's event loop.
+    for source in (*win._phones.values(), *win._sources.values()):
+        source.end_recovery()
     # Don't call close(); a test's intentional closeEvent stub would abort Qt during fixture teardown.
     win._session = None
     win._tray = None
@@ -369,6 +372,34 @@ def test_a_canvas_reload_does_not_start_over_a_stream_started_meanwhile(window, 
     window._session = StreamSession(source=window._phone, id=1, url="url", client=object(), worker=object())
     window._on_canvas_reload_done(True, "", True)
     assert starts == []
+
+
+def _resizing(window, monkeypatch):
+    """A stream stopped for a canvas resize that hasn't finished yet; returns the starts it asks for."""
+    monkeypatch.setattr(app_module, "IS_LINUX", False)
+    monkeypatch.setattr(app_module.threading, "Thread",
+                        lambda target, daemon=False: SimpleNamespace(start=lambda: None))
+    starts = []
+    monkeypatch.setattr(window, "_start", lambda *_a, **_k: starts.append(True))
+    window._session = StreamSession(source=window._phone, id=1, url="url", client=_Client(), worker=_RetargetWorker())
+    window.restart_vcam_canvas(1280, 720)
+    assert window._session is None
+    return starts
+
+
+def test_a_canvas_resize_starts_the_stream_it_stopped_again(window, monkeypatch):
+    starts = _resizing(window, monkeypatch)
+    window._on_canvas_reload_done(True, "", True)
+    assert starts == [True]
+
+
+def test_stop_during_a_canvas_resize_is_not_undone_when_it_finishes(window, monkeypatch):
+    starts = _resizing(window, monkeypatch)
+    # Start, then Stop, before the resize is through
+    window._session = StreamSession(source=window._phone, id=2, url="url", client=_Client(), worker=_RetargetWorker())
+    window._stop_all()
+    window._on_canvas_reload_done(True, "", True)
+    assert starts == [] and window._session is None
 
 
 def test_a_loopback_reload_that_raises_still_reports_back(window, monkeypatch, qapp):
@@ -2032,6 +2063,80 @@ def test_recovery_waits_while_the_phone_is_mid_start(window, monkeypatch):
     assert window._phone._recovery_timer.isActive()
 
 
+class _ParkingWorker(_RetargetWorker):
+    parked = False
+
+    def set_parked(self, parked):
+        self.parked = parked
+
+
+class _WaitScreen(_Plugin):
+    def __init__(self):
+        super().__init__("wait_screen", panel=False)
+        self.starting = 0
+
+    def on_stream_starting(self):
+        self.starting += 1
+
+
+def _gone_stream(window, monkeypatch):
+    """A phone stream that dropped and whose phone doesn't answer."""
+    from telescope.phones import UNREACHABLE, Resolution
+    wait = _WaitScreen()
+    window.register_plugin(wait)
+    window.register_plugin(_RecoveringConnection([Resolution(UNREACHABLE)] * 2))
+    monkeypatch.setattr(sources_module.PhoneSource, "_spawn_recovery_probe",
+                        lambda self, sid, gen, job: self._on_recovery_probed(sid, gen, job()))
+    worker = _ParkingWorker()
+    window._session = StreamSession(source=window._phone, id=1, url="http://127.0.0.1:40001/v1/video",
+                                    client=_Client(), worker=worker)
+    worker.status.connect(window._on_worker_status)
+    worker.reconnected.connect(window._on_stream_reconnected)
+    idle = []
+    window._bus.idle_outputs.connect(idle.append)
+    worker.status.emit("reconnecting", "Stream dropped - reconnecting")
+    return worker, idle, wait
+
+
+def test_a_phone_gone_a_while_gets_the_wait_screen_then_a_banner_until_it_is_back(window, monkeypatch):
+    worker, idle, wait = _gone_stream(window, monkeypatch)
+    phone = window._phone
+    assert phone._park_timer.isActive() and phone._park_timer.interval() == 10_000
+    assert phone._gone_timer.isActive() and phone._gone_timer.interval() == 30_000
+    assert not worker.parked
+
+    window._park_stream(phone)  # 10 s on
+    assert worker.parked and 0 in idle[-1]  # the wait screen takes the camera, not the last frame
+    phone._show_unreachable()  # 30 s on
+    issue = window._banners.issue(f"stopped:{phone.id}")
+    assert issue.title == "Can't reach the phone" and issue.text == "Open Telescope on it."
+    assert phone.recovering and phone._recovery_timer.isActive()  # still looking for it
+
+    worker.reconnected.emit()  # back
+    assert not worker.parked and wait.starting == 1 and 0 not in idle[-1]
+    assert window._banners.issue(f"stopped:{phone.id}") is None
+    assert not phone._park_timer.isActive() and not phone._gone_timer.isActive()
+
+
+def test_a_phone_back_before_the_wait_screen_keeps_its_camera(window, monkeypatch):
+    worker, idle, wait = _gone_stream(window, monkeypatch)
+    worker.reconnected.emit()
+    window._park_stream(window._phone)  # a timeout that was already on its way
+    assert not worker.parked and wait.starting == 0
+
+
+def test_stopping_a_phone_that_cant_be_reached_takes_its_banner_away(window, monkeypatch):
+    worker, _idle, _wait = _gone_stream(window, monkeypatch)
+    phone = window._phone
+    window._park_stream(phone)
+    phone._show_unreachable()
+    window._stop()
+    assert window._banners.issue(f"stopped:{phone.id}") is None
+    assert not phone._park_timer.isActive() and not phone._gone_timer.isActive()
+    phone._show_unreachable()  # late: says nothing about a stream that's over
+    assert window._banners.issue(f"stopped:{phone.id}") is None
+
+
 def test_a_plugin_hook_that_raises_does_not_stop_the_others(window):
     class Broken(_Plugin):
         def on_stream_stop(self):
@@ -2168,6 +2273,11 @@ def camera_env(window, monkeypatch):
 
         def latest_frame(self):
             return None
+
+        parked = False
+
+        def set_parked(self, parked):
+            self.parked = parked
 
     class Thread:
         def __init__(self, target, args=(), daemon=False):
@@ -2387,6 +2497,21 @@ def test_a_browser_starts_by_itself_and_goes_when_it_leaves(camera_env):
     assert conn.selected_device == "browser:ipad" and window.stream_output("browser:ipad") == app_module.vcam.slot_label(0)
 
 
+def test_a_phone_back_with_a_new_id_takes_its_settings_and_virtual_camera(window, config_home):
+    cfg = config_home.load_config()
+    presets = {"presets": {"items": [{"name": "Desk"}]}}
+    cfg["devices"] = {"old": {"plugin_configs": presets}, "other": {"plugin_configs": {}}}
+    cfg["output_slots"] = {"old": 2}
+    cfg["selected_device"] = "old"
+    config_home.save_config(cfg)
+    window._slot_memory = {"old": 2}
+    window.move_device_settings("old", "new")
+    cfg = config_home.load_config()
+    assert cfg["devices"]["new"]["plugin_configs"] == presets and "old" not in cfg["devices"]
+    assert cfg["output_slots"] == {"new": 2} and cfg["selected_device"] == "new"
+    assert window._slot_memory == {"new": 2}
+
+
 def test_a_browser_keeps_only_the_settings_that_changed(camera_env, config_home):
     window, conn, _mic, _clients, _workers, _changes = camera_env
     view = _Plugin("transforms", {"zoom": 1})
@@ -2428,6 +2553,26 @@ def test_a_dropped_browser_stream_waits_for_it_without_looking_for_a_phone(camer
     assert lost == [True] and window.state_fetches == [] and window._session is not None
     window._stop()
     assert conn.remote_stops == 0  # nothing on a phone to stop
+
+
+def test_a_browser_gone_a_while_gets_the_wait_screen_and_a_banner(camera_env):
+    window, conn, mic, _clients, workers, _changes = camera_env
+    conn.selected_device = "browser"
+    conn.ensure_virtual_camera = lambda interactive=True: True
+    window.add_stream_source(_Browser())
+    window._start()
+    workers[0].status.emit("reconnecting", "Stream dropped - reconnecting")
+    source = window._sources["browser"]
+    assert source._park_timer.isActive()
+    window._park_stream(source)
+    assert workers[0].parked
+    source._show_unreachable()
+    issue = window._banners.issue("stopped:browser")
+    assert issue.title == "Can't reach Browser camera" and issue.text == "Open the Telescope page in it again."
+    starting = mic.calls.count("starting")
+    workers[0].reconnected.emit()
+    assert not workers[0].parked and mic.calls.count("starting") == starting + 1
+    assert window._banners.issue("stopped:browser") is None
 
 
 def test_picking_another_source_while_the_phone_wakes_still_stops_the_phone(window, monkeypatch):

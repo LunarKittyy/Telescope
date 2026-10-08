@@ -133,6 +133,9 @@ class StreamWorker(QThread):
         self._stop_flag    = False
         self._restart_vcam = threading.Event()
         self._retry_now    = threading.Event()  # retarget(): skip the rest of the reconnect wait
+        self.parked        = False  # the virtual camera is let go (the wait screen takes it) until set_parked(False)
+        self._vcam_free    = threading.Event()  # set while this worker doesn't hold the virtual camera
+        self._vcam_free.set()
         # The newest processed frame (BGR, as the decoders give it and the virtual camera takes it).
         self._latest       = None
         self._frame_ready  = threading.Event()  # set when _latest changes, so the vcam sends it at once
@@ -214,6 +217,14 @@ class StreamWorker(QThread):
         self._stop_flag = True
         self._restart_vcam.set()
         self._frame_ready.set()
+
+    def set_parked(self, parked: bool):
+        """Let go of the virtual camera while the stream is gone (so the wait screen can show), or take it back."""
+        self.parked = parked
+        self._restart_vcam.set()
+        self._frame_ready.set()
+        if parked:
+            self._vcam_free.wait(1.0)  # the wait screen opens it next; it retries if this ran late
 
     def retarget(self, url: str):
         """Reconnect to url from the next attempt on (the phone moved to another route), and try now."""
@@ -380,6 +391,9 @@ class StreamWorker(QThread):
 
             while not self._stop_flag and not reader_done.is_set():
                 self._restart_vcam.clear()
+                if self.parked:
+                    self._restart_vcam.wait(timeout=RECONNECT_DELAY)
+                    continue
                 self._run_vcam()
                 if self._stop_flag:
                     break
@@ -400,6 +414,7 @@ class StreamWorker(QThread):
         cam_h = self._canvas_h or src0.shape[0]
         # An app already reading the camera (the wait screen's) keeps it at that size; frames are fitted to it.
         cam_w, cam_h = vcam.locked_size(self.slot) or (cam_w, cam_h)
+        self._vcam_free.clear()
         try:
             with self._open_vcam(cam_w, cam_h) as cam:
                 # Name the camera the way other apps list it (the v4l2loopback card label on Linux).
@@ -410,7 +425,7 @@ class StreamWorker(QThread):
                 period = 1 / self._fps
                 last_src = fitted = None
                 last_sent = 0.0
-                while not self._stop_flag and not self._restart_vcam.is_set():
+                while not self._stop_flag and not self._restart_vcam.is_set() and not self.parked:
                     # A new frame goes out as soon as it's ready. The last one is resent only after two periods
                     # without one, so a frame that's a little late isn't held back behind a resend.
                     self._frame_ready.wait(max(0.0, last_sent + 2 * period - time.monotonic()))
@@ -453,3 +468,5 @@ class StreamWorker(QThread):
                         t0, bytes0, recv0 = time.monotonic(), bytes_now, recv_now
         except Exception as exc:
             self.status.emit("warn", f"Virtual camera error: {exc}")
+        finally:
+            self._vcam_free.set()
