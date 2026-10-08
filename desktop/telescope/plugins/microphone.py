@@ -142,6 +142,8 @@ class MicrophonePlugin(TelescopePlugin):
         bus.max_gain_changed.connect(self._on_max_gain)
         bus.limiter_changed.connect(self._on_limiter)
         bus.device_changed.connect(self._sync_place)
+        bus.source_selected.connect(self._on_source_selected)
+        self._phone_picked = True  # a browser's mic is called by what it is
         bus.streams_changed.connect(self._sync_place)
         self._enabled = False
         self._handing_on = False  # its stream stopped with the mic on while others carry on: the next one gets it on
@@ -174,16 +176,16 @@ class MicrophonePlugin(TelescopePlugin):
         add_card_header(lay, "Microphone", "mic", action=self._mute_btn)
         dim_until_paired(card, self._bus)
         self._toggle = QCheckBox("On")
-        self._toggle.setToolTip("Use the phone's microphone on this computer while streaming. "
-                                f"Apps list it as “{self._backend.pick_name}”.")
         self._toggle.toggled.connect(self._on_toggled)
-        lay.addLayout(control_row("Phone mic", self._toggle))
+        row = control_row("Phone mic", self._toggle)
+        self._toggle_lbl = row.itemAt(0).widget()
+        lay.addLayout(row)
         self._gain_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._gain_slider.setRange(GAIN_MIN_DB, self._max_gain_db)
         self._gain_slider.setValue(0)
         self._gain_slider.set_snaps([0])
         self._gain_slider.set_default(0)
-        self._gain_slider.setToolTip("Makes the phone mic louder or quieter for other apps. The range is in Advanced.")
+        self._show_source_words()
         stretch_slider(self._gain_slider)
         self._gain_spin = _GainSpin()
         self._gain_spin.setRange(GAIN_MIN_DB, self._max_gain_db)
@@ -265,7 +267,7 @@ class MicrophonePlugin(TelescopePlugin):
         self._mute_btn.setText("Unmute" if self._muted else "Mute")
         self._mute_btn.setIcon(create_vector_icon("mic_off" if self._muted else "mic",
                                                   theme.ERR if self._muted else theme.TEXT_DIM))
-        self._mute_btn.setToolTip("Apps hear the phone mic again." if self._muted else
+        self._mute_btn.setToolTip("Apps hear the mic again." if self._muted else
                                   "Apps hear silence, but the microphone stays connected.")
         self._tray_mute.setVisible(self._enabled)
         self._tray_mute.setChecked(self._muted)
@@ -341,6 +343,20 @@ class MicrophonePlugin(TelescopePlugin):
         self._toggle.blockSignals(False)
         shown = self._host.focused_source_id()
         self._toggle.setEnabled(self._elsewhere is None or self._host.is_streaming_from(shown))
+
+    def _on_source_selected(self, sid: str):
+        self._phone_picked = not sid
+        if hasattr(self, "_toggle_lbl"):
+            self._show_source_words()
+
+    def _show_source_words(self):
+        what = "phone" if self._phone_picked else "browser"
+        self._toggle_lbl.setText(f"{what.capitalize()} mic")
+        self._toggle.setToolTip(f"Use the {what}'s microphone on this computer while streaming. "
+                                f"Apps list it as “{self._backend.pick_name}”.")
+        if hasattr(self, "_gain_slider"):
+            self._gain_slider.setToolTip(f"Makes the {what} mic louder or quieter for other apps. "
+                                         "The range is in Advanced.")
 
     def _sync_place(self, *_args):
         """Whether the panels show the stream the mic is on: with several, the card is about the shown one's."""

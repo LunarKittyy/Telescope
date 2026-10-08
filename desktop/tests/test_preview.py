@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import QSizePolicy, QWidget
 from telescope.plugin import EventBus
 from telescope.widgets.common import ui_px
 from telescope.plugins.preview import (
-    _CAMERA_OFF_AUTO_TEXT, _CAMERA_OFF_TEXT, _IDLE_MIC_TEXT, _IDLE_TEXT, _WAITING_TEXT, PreviewPlugin, _HostFilter,
+    _CAMERA_OFF_AUTO_TEXT, _CAMERA_OFF_TEXT, _IDLE_BROWSER_TEXT, _IDLE_MIC_TEXT, _IDLE_TEXT, _WAITING_TEXT, PreviewPlugin, _HostFilter,
     _PopoutWindow,
 )
 
@@ -67,6 +67,17 @@ def test_preview_starts_active_and_toggles_off_and_back_on(qapp):
     plugin._toggle()
     assert plugin._active is True
     assert plugin._toggle_btn.text() == "Hide"
+    assert plugin._preview_lbl.text() == _IDLE_TEXT
+
+
+def test_the_idle_text_names_the_browser_while_a_browser_source_is_picked(qapp):
+    host, bus = _Host(), EventBus()
+    plugin = PreviewPlugin()
+    plugin.setup(host, bus)
+    plugin.create_panel()
+    bus.source_selected.emit("browser")
+    assert plugin._preview_lbl.text() == _IDLE_BROWSER_TEXT and "phone" not in _IDLE_BROWSER_TEXT
+    bus.source_selected.emit("")  # a phone again
     assert plugin._preview_lbl.text() == _IDLE_TEXT
 
 
