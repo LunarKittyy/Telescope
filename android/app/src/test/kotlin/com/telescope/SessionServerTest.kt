@@ -217,6 +217,16 @@ class SessionServerTest {
     }
 
     @Test
+    fun `a deeply nested body is a 400 and the server keeps answering`() {
+        withServer { port, commands ->
+            assertEquals(400, post(port, "/v1/session", "secret-token", "[".repeat(4000)).status)
+            assertEquals(400, post(port, "/v1/session", "secret-token", "{\"action\":" + "[".repeat(4000)).status)
+            assertEquals(200, get(port, "/v1/ping", "secret-token").status)
+            assertEquals(emptyList<String>(), commands.calls.filter { it != "snapshot" })
+        }
+    }
+
+    @Test
     fun `unknown paths 404 and known paths reject the wrong method`() {
         withServer { port, _ ->
             assertEquals(404, get(port, "/v1/video", "secret-token").status)
