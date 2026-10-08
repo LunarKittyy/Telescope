@@ -2,9 +2,7 @@ import logging
 import urllib.request
 from typing import Optional
 
-import cv2
-import numpy as np
-
+from telescope.jpeg_guard import decode_jpeg
 from telescope.pinned_https import PhoneAuth
 
 logger = logging.getLogger(__name__)
@@ -77,8 +75,8 @@ class MjpegReader:
 
     @staticmethod
     def decode(jpeg: bytes):
-        """The BGR frame in jpeg, or None if it doesn't decode."""
-        return cv2.imdecode(np.frombuffer(jpeg, dtype=np.uint8), cv2.IMREAD_COLOR)
+        """The BGR frame in jpeg, or None if it doesn't decode or declares an oversized frame."""
+        return decode_jpeg(jpeg)
 
     def release(self):
         if self._response is not None:

@@ -98,6 +98,9 @@ The virtual camera outside a stream. Streams can go to up to `MAX_SLOTS` cameras
 - `CameraWatch(on_change)` reports whether an app is reading the camera: the v4l2loopback client-usage event (0.13+), a `/proc` scan every 5 s on older drivers (`camera_holders()`), or on Windows the `UnityCapture_Want` event an app's filter sets for each frame it wants (`_uc_object_name()` mirrors pyvirtualcam's numbering). The filter creates that event when an app first opens the camera, so while it doesn't exist the watch reports no reader.
 - `device_released()`: both let go of the device for the block (module reloads fail while anything holds it) and take it back after.
 
+### `jpeg_guard.py`
+`decode_jpeg(data)` is `MjpegReader.decode` and `BrowserReader.decode`: it reads the declared size from the first start-of-frame header (`jpeg_size`, every SOF variant, segments skipped by length) and returns None, dropping the frame, when it is over 8192 px a side or 64 MP, or has no readable header, before `cv2.imdecode` can allocate it.
+
 ### `h264_reader.py`
 **H264Reader** - the `/v1/video.h264` counterpart of `MjpegReader`: `open()` checks the `video/h264` response, `read()` returns the newest frame completed by the next data that finishes one (older frames in the same data are dropped). `new_decoder()` / `decode_newest(codec, data)` / `decode_counted(codec, data)` (also how many frames the data finished) are the pure decode steps (PyAV, low-delay, 2 threads). PyAV is optional: `available()` is False without it, and the desktop then offers only MJPEG.
 
