@@ -155,7 +155,7 @@ Load/save of `telescope_config.json` with versioned schema (current: v3) and per
 **PhoneControlClient** - authenticated HTTPS client for phone's `/v1/state` and `/v1/control` endpoints, through the phone's `PhoneAuth` (pinned certificate, bearer token on each request).
 - `send(action=..., **params)` - queues commands, coalesces repeated actions to latest value (sent at the place of the latest send), sends in order via background thread. Camera switches always go individually; slider bursts stay ordered (no stale response overtakes newer ones). A request that doesn't get through is retried with backoff for up to `_RETRY_FOR_S` (15 s), unless a newer value for that action is waiting, the phone refused it (HTTP error) or the client closed.
 - `resend_settings()` - sends the last value of each camera/output setting again, for a background stream that reconnected. `retarget(url)` points it at the stream's new route, queue and settings included.
-- `get_state()` - fetch current camera state dict (lenses, ISO, shutter, WB, focus, AE comp, NR/edge mode, battery, etc.).
+- `get_state()` - fetch current camera state dict (lenses, ISO, shutter, WB, focus, AE comp, NR/edge mode, battery, etc.). Each state it reads is checked against the settings last sent (`drifted_settings()`), and one the phone doesn't show is sent again, once per value, so a value the phone fitted to the lens doesn't start a loop.
 
 ### `ip_utils.py`
 Qt-free address helpers for pairing and routing.
