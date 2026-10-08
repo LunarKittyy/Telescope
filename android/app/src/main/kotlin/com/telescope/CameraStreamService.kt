@@ -162,6 +162,22 @@ object CameraRequestSelection {
     fun clamp(value: Float, min: Float, max: Float): Float =
         if (min > max) value else value.coerceIn(min, max)
 
+    // A computer's control values fitted to the lens, so /v1/state reports what the camera really does. Null when a
+    // value can't mean anything at all (an ISO or exposure time of zero or less), which is refused instead.
+    fun fitIso(value: Int, cam: CameraEntry): Int? = if (value <= 0) null else clamp(value, cam.isoMin, cam.isoMax)
+
+    fun fitShutter(ns: Long, cam: CameraEntry): Long? =
+        if (ns <= 0L) null else clamp(ns, cam.shutterMinNs, cam.shutterMaxNs)
+
+    fun fitAeComp(steps: Int, cam: CameraEntry): Int = clamp(steps, cam.aeCompMin, cam.aeCompMax)
+
+    fun fitFocusDistance(diopters: Float, cam: CameraEntry): Float =
+        clamp(diopters, 0f, cam.minFocusDistance.coerceAtLeast(0f))
+
+    // White balance gains are multipliers on each channel: the desktop sends about 0.3 to 4
+    const val MAX_WB_GAIN = 16f
+    fun validWbGain(gain: Float): Boolean = gain > 0f && gain <= MAX_WB_GAIN
+
     // The listed size nearest w x h, shape first and then pixel count; w x h itself when listed or nothing is listed.
     fun closestSize(w: Int, h: Int, sizes: List<Pair<Int, Int>>): Pair<Int, Int> {
         if (sizes.isEmpty() || (w to h) in sizes || w <= 0 || h <= 0) return w to h
@@ -857,12 +873,16 @@ class CameraStreamService : Service() {
                     ok()
                 }
                 "iso" -> {
-                    val iso = params["value"]?.toIntOrNull() ?: return err("bad iso")
+                    val cam = ctrl.snapshot().currentCamera ?: return err("camera not ready")
+                    val iso = params["value"]?.toIntOrNull()?.let { CameraRequestSelection.fitIso(it, cam) }
+                        ?: return err("bad iso")
                     ctrl.setIso(iso)
                     ok()
                 }
                 "shutter" -> {
-                    val ns = params["value"]?.toLongOrNull() ?: return err("bad shutter")
+                    val cam = ctrl.snapshot().currentCamera ?: return err("camera not ready")
+                    val ns = params["value"]?.toLongOrNull()?.let { CameraRequestSelection.fitShutter(it, cam) }
+                        ?: return err("bad shutter")
                     ctrl.setShutter(ns)
                     ok()
                 }
@@ -880,6 +900,7 @@ class CameraStreamService : Service() {
                     val ge = params["ge"].finite() ?: return err("bad ge")
                     val go = params["go"].finite() ?: return err("bad go")
                     val b  = params["b"].finite()  ?: return err("bad b")
+                    if (!listOf(r, ge, go, b).all(CameraRequestSelection::validWbGain)) return err("bad gains")
                     ctrl.setWbGains(RggbChannelVector(r, ge, go, b))
                     ok()
                 }
@@ -931,7 +952,8 @@ class CameraStreamService : Service() {
                 }
                 "focus_distance" -> {
                     val d = params["value"].finite() ?: return err("bad distance")
-                    ctrl.setFocusDistance(d.coerceAtLeast(0f))
+                    val cam = ctrl.snapshot().currentCamera ?: return err("camera not ready")
+                    ctrl.setFocusDistance(CameraRequestSelection.fitFocusDistance(d, cam))
                     ok()
                 }
                 "nr_mode" -> {
@@ -946,7 +968,8 @@ class CameraStreamService : Service() {
                 }
                 "ae_comp" -> {
                     val v = params["value"]?.toIntOrNull() ?: return err("bad value")
-                    ctrl.setAeComp(v)
+                    val cam = ctrl.snapshot().currentCamera ?: return err("camera not ready")
+                    ctrl.setAeComp(CameraRequestSelection.fitAeComp(v, cam))
                     ok()
                 }
                 "black_level_lock" -> {

@@ -80,16 +80,16 @@ JSON body `{"action": "<action>", ...params}`.
 | `camera` | `id=<id>` | Switch camera |
 | `resolution` | `width=<int> height=<int>` | Set the capture resolution to one of the lens's reported supported sizes |
 | `auto` | - | Restore auto exposure |
-| `iso` | `value=<int>` | Set ISO; switches AE to OFF (once shutter is also set) |
-| `shutter` | `value=<long ns>` | Set shutter in nanoseconds; switches AE to OFF (once ISO is also set) |
+| `iso` | `value=<int>` | Set ISO, fitted to the lens's `isoMin`-`isoMax` (0 or less is refused); switches AE to OFF (once shutter is also set) |
+| `shutter` | `value=<long ns>` | Set shutter in nanoseconds, fitted to `shutterMinNs`-`shutterMaxNs` (0 or less is refused); switches AE to OFF (once ISO is also set) |
 | `wb_auto` | - | Restore auto white balance |
-| `wb_gains` | `r=<float> ge=<float> go=<float> b=<float>` | Set manual white balance via `COLOR_CORRECTION_GAINS` RGGB channel gains |
+| `wb_gains` | `r=<float> ge=<float> go=<float> b=<float>` | Set manual white balance via `COLOR_CORRECTION_GAINS` RGGB channel gains, each above 0 and at most 16 (anything else is refused) |
 | `ois` | `value=1\|0` | Toggle OIS |
 | `focus_mode` | `value=continuous\|manual` | Switch autofocus / manual focus (also ends point focus) |
 | `focus_point` | `x=<0..1> y=<0..1> [size=<0..1>]` | Focus on a point of the stream frame, and meter exposure there while it's automatic. `size` is the region's side as a fraction of the frame's shorter side (default 0.1). Refused on a lens without `supportsFocusPoint`. `/v1/state` then reports `focus_mode: "point"` |
-| `focus_distance` | `value=<float diopters>` | Set manual focus distance |
+| `focus_distance` | `value=<float diopters>` | Set manual focus distance, fitted to 0-`minFocusDistance` |
 | `zoom` | `ratio=<float> crop=<float> x=<0..1> y=<0..1>` | Zoom on the phone: `ratio` is the centred zoom (a multi-lens camera switches lens on it), `crop` extra zoom inside that, centred on `x`, `y` of the view |
-| `ae_comp` | `value=<int steps>` | Set exposure compensation, in the lens's AE-compensation steps (see `aeCompStep`) |
+| `ae_comp` | `value=<int steps>` | Set exposure compensation, in the lens's AE-compensation steps (see `aeCompStep`), fitted to `aeCompMin`-`aeCompMax` |
 | `nr_mode` | `value=<int 0-4>` | Set noise reduction mode (desktop UI only offers 0/1/2 = Off/Fast/High Quality) |
 | `edge_mode` | `value=<int 0-3>` | Set sharpening/edge mode (desktop UI only offers 0/1/2 = Off/Fast/High Quality) |
 | `black_level_lock` | `value=1\|0` | Toggle black level lock |
@@ -102,6 +102,8 @@ JSON body `{"action": "<action>", ...params}`.
 On Dynamic the phone measures its own H.264 sending: every 250 ms, the shortest time a packet waited to go out (a queue that stays, not a keyframe's burst) and how much the socket took. A queue that stays for half a second drops the bitrate to just under what got through; otherwise it climbs, first to just under where the link filled up last time, then more carefully past it. It also keeps the socket's send buffer to about 100 ms of video and skips ahead to the next keyframe when video has waited over a second, so a full link shows up as a queue right away instead of as lag. `DynamicBitrate.kt` has the rules.
 
 All responses: `{"ok": true}` or `{"ok": false, "error": "..."}`.
+
+The desktop checks each `/v1/state` it reads against the settings it last sent (exposure, white balance mode, focus, `ae_comp`, `fps_target`, `jpeg_quality`, OIS, noise reduction, sharpening, black level lock) and sends one that doesn't show again. It does that once per value: a phone that fitted a value to the lens keeps reporting the fitted one, and that's left alone.
 
 > **Manual exposure note:** `CONTROL_AE_MODE_OFF` only activates when *both* ISO and shutter are set and the selected camera reports `supportsManualSensor` - `CONTROL_MODE` itself stays `CONTROL_MODE_AUTO` throughout, so autofocus keeps running independently of manual exposure. The desktop app sends both ISO and shutter simultaneously when switching to manual mode.
 

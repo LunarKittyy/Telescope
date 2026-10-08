@@ -345,3 +345,74 @@ def test_a_new_route_takes_the_queue_and_the_settings_along(monkeypatch):
     monkeypatch.setattr(client, "send", lambda **params: resent.append(params))
     client.resend_settings()
     assert resent == [{"action": "iso", "value": 500}]
+
+
+_STATE = {"cameras": [], "auto": True, "wb_manual": False, "focus_mode": "continuous", "focus_distance": 0.0,
+          "ae_comp": 0, "phone_fps": 30, "jpeg_quality": 85, "ois": True, "black_level_lock": False,
+          "nr_mode": 1, "edge_mode": 1}
+
+
+def _sent_client(monkeypatch, *sends):
+    """A client that has sent these, all delivered."""
+    monkeypatch.setattr(phone_client_module.threading.Thread, "start", lambda _self: None)
+    client = PhoneControlClient("http://phone/video", PhoneAuth("tok"))
+    for params in sends:
+        client.send(**params)
+    client._pending.clear()
+    return client
+
+
+def test_settings_the_phone_kept_are_left_alone():
+    settings = {"auto": {"action": "auto"}, "fps_target": {"action": "fps_target", "value": 30},
+                "ois": {"action": "ois", "value": "1"}, "nr_mode": {"action": "nr_mode", "value": 1}}
+    assert phone_client_module.drifted_settings(settings, _STATE) == []
+    assert phone_client_module.drifted_settings(settings, {"battery": 50}) == []  # not a whole state
+
+
+def test_settings_the_phone_lost_are_found():
+    fps = {"action": "fps_target", "value": 30}
+    iso, shutter = {"action": "iso", "value": 400}, {"action": "shutter", "value": 10_000_000}
+    state = {**_STATE, "phone_fps": 1, "auto": False, "iso": -1, "shutter_ns": -(2 ** 63)}
+    assert phone_client_module.drifted_settings({"auto": {"action": "auto"}, "fps_target": fps}, state) == [
+        {"action": "auto"}, fps]
+    manual = {"auto": {"action": "auto"}, "iso": iso, "shutter": shutter}
+    assert phone_client_module.drifted_settings(manual, state) == [iso, shutter]
+    assert phone_client_module.drifted_settings(manual, {**state, "iso": 400, "shutter_ns": 10_000_000}) == []
+
+
+def test_point_focus_isnt_taken_for_a_lost_focus_mode():
+    settings = {"focus_mode": {"action": "focus_mode", "value": "continuous"}}
+    assert phone_client_module.drifted_settings(settings, {**_STATE, "focus_mode": "point"}) == []
+    assert phone_client_module.drifted_settings(settings, {**_STATE, "focus_mode": "manual"}) == [
+        settings["focus_mode"]]
+
+
+def test_a_state_that_doesnt_show_a_setting_sends_it_again_once(monkeypatch):
+    client = _sent_client(monkeypatch, {"action": "fps_target", "value": 30})
+    resent = []
+    monkeypatch.setattr(client, "_send_now", lambda params: resent.append(params) or True)
+    monkeypatch.setattr(phone_client_module.urllib.request, "urlopen",
+                        lambda *_a, **_k: _Response(json.dumps({**_STATE, "phone_fps": 1}).encode()))
+
+    for _ in range(3):
+        assert client.get_state()["phone_fps"] == 1
+        client._queue.put(None)
+        client._worker()
+
+    assert resent == [{"action": "fps_target", "value": 30}]  # the phone may clamp it: no loop
+
+
+def test_picking_the_value_again_sends_it_again(monkeypatch):
+    client = _sent_client(monkeypatch, {"action": "jpeg_quality", "value": 90})
+    monkeypatch.setattr(phone_client_module.urllib.request, "urlopen",
+                        lambda *_a, **_k: _Response(json.dumps(_STATE).encode()))
+    client.get_state()  # 85 on the phone: sent again
+    client._pending.clear()
+    client.get_state()  # still 85: left alone
+    client.send(action="jpeg_quality", value=90)
+    client._pending.clear()
+    client.get_state()  # a new pick: one more try
+    actions = []
+    while not client._queue.empty():
+        actions.append(client._queue.get_nowait())
+    assert [a[0] for a in actions] == ["jpeg_quality"] * 4

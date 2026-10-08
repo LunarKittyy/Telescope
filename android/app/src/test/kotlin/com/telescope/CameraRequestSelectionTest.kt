@@ -242,4 +242,25 @@ class LensZoomsTest {
         assertEquals(640 to 480, CameraRequestSelection.closestSize(800, 600, sizes))
         assertEquals(1234 to 567, CameraRequestSelection.closestSize(1234, 567, emptyList()))  // nothing listed: trust it
     }
+
+    @Test
+    fun `control values from a computer are fitted to the lens and nonsense is refused`() {
+        val cam = CameraEntry("0", null, "Back", false, 50, 3200, 100_000L, 500_000_000L,
+            minFocusDistance = 10f, aeCompMin = -12, aeCompMax = 12)
+        assertEquals(800, CameraRequestSelection.fitIso(800, cam))
+        assertEquals(3200, CameraRequestSelection.fitIso(Int.MAX_VALUE, cam))
+        assertEquals(50, CameraRequestSelection.fitIso(1, cam))
+        assertEquals(null, CameraRequestSelection.fitIso(-1, cam))
+        assertEquals(null, CameraRequestSelection.fitIso(0, cam))
+        assertEquals(500_000_000L, CameraRequestSelection.fitShutter(Long.MAX_VALUE, cam))
+        assertEquals(100_000L, CameraRequestSelection.fitShutter(1L, cam))
+        assertEquals(null, CameraRequestSelection.fitShutter(Long.MIN_VALUE, cam))
+        assertEquals(12, CameraRequestSelection.fitAeComp(Int.MAX_VALUE, cam))
+        assertEquals(-12, CameraRequestSelection.fitAeComp(Int.MIN_VALUE, cam))
+        assertEquals(10f, CameraRequestSelection.fitFocusDistance(1e9f, cam))
+        assertEquals(0f, CameraRequestSelection.fitFocusDistance(-3f, cam))
+        assertEquals(true, CameraRequestSelection.validWbGain(2.5f))
+        assertEquals(false, CameraRequestSelection.validWbGain(0f))
+        assertEquals(false, CameraRequestSelection.validWbGain(2.1e9f))
+    }
 }
