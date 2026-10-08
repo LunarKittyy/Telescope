@@ -130,6 +130,22 @@ def test_a_refusal_body_carries_the_phone_s_reason_through(monkeypatch, client):
     assert client.start() == SessionResult(ok=False, error="no_camera_permission")
 
 
+def test_a_stream_another_computer_has_comes_back_with_its_name(monkeypatch, client):
+    body = b'{"ok": false, "error": "busy_other", "computer": "Office <PC>\\n"}'
+    _stub_urlopen(monkeypatch, lambda _req: _Response(200, body))
+
+    assert client.start() == SessionResult(ok=False, error="busy_other", computer="Office PC")
+
+
+def test_ping_says_which_other_computer_the_phone_streams_to(monkeypatch, client):
+    body = json.dumps({"streaming": True, "streamingFor": "Office PC"}).encode()
+    _stub_urlopen(monkeypatch, lambda _req: _Response(200, body))
+    assert client.ping().streaming_for == "Office PC"
+
+    _stub_urlopen(monkeypatch, lambda _req: _Response(200, json.dumps({"streaming": True}).encode()))
+    assert client.ping().streaming_for is None
+
+
 def test_transport_and_auth_failures_are_distinguished(monkeypatch, client):
     _stub_urlopen(monkeypatch, lambda _req: _http_error(401))
     assert client.start() == SessionResult(ok=False, error="not_paired")

@@ -123,14 +123,21 @@ object HttpWire {
 
     // Parses flat JSON object to string-keyed map; numeric 1 and string "1" both collapse to "1" since the camera-control parser downstream expects stringified values either way.
     fun parseJsonParams(body: ByteArray): Map<String, String>? {
+        // Anything but an object is refused unparsed: a body of nested arrays would recurse the parser off the stack
+        if (body.firstOrNull { it.toInt().toChar() !in JSON_SPACE } != '{'.code.toByte()) return null
         return try {
             Json.parseToJsonElement(String(body, Charsets.UTF_8))
                 .jsonObject
                 .mapValues { (_, v) -> v.jsonPrimitive.content }
         } catch (_: Exception) {
             null
+        } catch (_: StackOverflowError) {
+            // Nesting inside the object still recurses; an Error escaping this thread would end the whole app
+            null
         }
     }
+
+    private const val JSON_SPACE = " \t\r\n"
 
     // The bearer token a request carries, or null when it has none.
     fun bearerToken(request: Request): String? {

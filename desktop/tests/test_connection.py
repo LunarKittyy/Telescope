@@ -947,6 +947,30 @@ def test_ensure_streaming_reports_a_refused_start(plugin_env, monkeypatch):
     assert not ok and "camera access" in reason
 
 
+def test_ensure_streaming_leaves_another_computer_s_stream_alone(plugin_env, monkeypatch):
+    plugin, _host, _panel = plugin_env
+    theirs = PingResult("paired", streaming=True, busy=False, local_only=False, streaming_for="Office PC")
+    calls = _stub_session(monkeypatch, [theirs])
+    ok, reason = plugin.ensure_phone_streaming(target=_TARGET)
+    assert not ok and "streaming to Office PC" in reason
+    assert calls == ["ping"]
+
+
+def test_ensure_streaming_names_the_computer_when_the_start_is_refused_for_it(plugin_env, monkeypatch):
+    plugin, _host, _panel = plugin_env
+    _stub_session(monkeypatch, [_ping()], start=SessionResult(ok=False, error="busy_other", computer="Office PC"))
+    ok, reason = plugin.ensure_phone_streaming(target=_TARGET)
+    assert not ok and "streaming to Office PC" in reason
+
+
+def test_ensure_streaming_stops_waiting_when_another_computer_s_start_won(plugin_env, monkeypatch):
+    plugin, _host, _panel = plugin_env
+    theirs = PingResult("paired", streaming=False, busy=True, local_only=False, streaming_for="Office PC")
+    _stub_session(monkeypatch, [_ping(), theirs])
+    ok, reason = plugin.ensure_phone_streaming(target=_TARGET)
+    assert not ok and "streaming to Office PC" in reason
+
+
 def test_ensure_streaming_gives_up_when_the_camera_falls_back_to_idle(plugin_env, monkeypatch):
     plugin, _host, _panel = plugin_env
     _stub_session(monkeypatch, [_ping(), _ping(busy=True), _ping()])

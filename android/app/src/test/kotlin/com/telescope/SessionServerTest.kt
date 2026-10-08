@@ -27,9 +27,12 @@ class SessionServerTest {
     ) : SessionCommands {
         val calls = mutableListOf<String>()
         val openings = mutableListOf<StreamOpening?>()
-        override fun start(opening: StreamOpening?): ControlResult { calls += "start"; openings += opening; return startResult }
-        override fun stop(): ControlResult { calls += "stop"; return stopResult }
-        override fun snapshot(): SessionSnapshot { calls += "snapshot"; return snapshot }
+        val callers = mutableListOf<String?>()
+        override fun start(opening: StreamOpening?, computer: PairedComputer?): ControlResult {
+            calls += "start"; openings += opening; callers += computer?.id; return startResult
+        }
+        override fun stop(computer: PairedComputer?): ControlResult { calls += "stop"; callers += computer?.id; return stopResult }
+        override fun snapshot(computer: PairedComputer?): SessionSnapshot { calls += "snapshot"; callers += computer?.id; return snapshot }
         val unpaired = mutableListOf<String>()
         override fun unpair(computer: PairedComputer) { unpaired += computer.id }
     }
@@ -217,6 +220,16 @@ class SessionServerTest {
     }
 
     @Test
+    fun `a deeply nested body is a 400 and the server keeps answering`() {
+        withServer { port, commands ->
+            assertEquals(400, post(port, "/v1/session", "secret-token", "[".repeat(4000)).status)
+            assertEquals(400, post(port, "/v1/session", "secret-token", "{\"action\":" + "[".repeat(4000)).status)
+            assertEquals(200, get(port, "/v1/ping", "secret-token").status)
+            assertEquals(emptyList<String>(), commands.calls.filter { it != "snapshot" })
+        }
+    }
+
+    @Test
     fun `unknown paths 404 and known paths reject the wrong method`() {
         withServer { port, _ ->
             assertEquals(404, get(port, "/v1/video", "secret-token").status)
@@ -261,6 +274,56 @@ class SessionServerTest {
         } finally {
             server.stop()
         }
+    }
+
+    @Test
+    fun `start, stop and ping say which computer is asking`() {
+        val commands = FakeCommands()
+        val server = SessionServer(0, { computersOf("desk-token", "laptop-token") }, commands)
+        server.start()
+        try {
+            val port = actualPort(server)
+            post(port, "/v1/session", "laptop-token", "{\"action\":\"start\"}")
+            post(port, "/v1/session", "desk-token", "{\"action\":\"stop\"}")
+            get(port, "/v1/ping", "laptop-token")
+            get(port, "/v1/hello", null)
+            assertEquals(listOf("pc-1", "pc-0", "pc-1", null), commands.callers)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `a stream another computer has is refused with its name`() {
+        val commands = FakeCommands(startResult = StreamOwner.busyOther(PairedComputer("pc-9", "Office PC", "t", 0L)))
+        withServer(commands = commands) { port, _ ->
+            val body = post(port, "/v1/session", "secret-token", "{\"action\":\"start\"}").body
+            assertTrue(body.contains("\"error\":\"busy_other\""), body)
+            assertTrue(body.contains("\"computer\":\"Office PC\""), body)
+        }
+    }
+
+    @Test
+    fun `ping names the computer a stream belongs to only when it's another one`() {
+        val commands = FakeCommands(snapshot = FakeCommands().snapshot.copy(streaming = true, streamingFor = "Office PC"))
+        withServer(commands = commands) { port, _ ->
+            assertTrue(get(port, "/v1/ping", "secret-token").body.contains("\"streamingFor\":\"Office PC\""))
+        }
+        withServer { port, _ ->
+            assertFalse(get(port, "/v1/ping", "secret-token").body.contains("streamingFor"))
+        }
+    }
+
+    @Test
+    fun `a stream belongs to its owner while the owner stays paired`() {
+        val desk = PairedComputer("desk", "Desk", "a", 0L)
+        val laptop = PairedComputer("laptop", "Laptop", "b", 0L)
+        val both = PairedComputerList(listOf(desk, laptop))
+        assertEquals(desk, StreamOwner.other("desk", laptop, both))
+        assertEquals(null, StreamOwner.other("desk", desk, both))
+        assertEquals(null, StreamOwner.other(null, laptop, both))  // started on the phone: anyone may have it
+        assertEquals(null, StreamOwner.other("desk", null, both))  // the phone itself
+        assertEquals(null, StreamOwner.other("desk", laptop, PairedComputerList(listOf(laptop))))  // owner unpaired
     }
 
     @Test

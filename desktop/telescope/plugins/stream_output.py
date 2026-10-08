@@ -108,6 +108,12 @@ def _ratio_label(ratio: tuple) -> str:
     return f"{ratio[0]}:{ratio[1]}"
 
 
+def _closest_size(wh: tuple, sizes) -> tuple:
+    """The size nearest wh: its aspect ratio first, then the nearest height, the smaller one on a tie."""
+    ratio = _aspect_ratio(*wh)
+    return min(sizes, key=lambda s: (_aspect_ratio(*s) != ratio, abs(s[1] - wh[1]), s[0] * s[1]))
+
+
 class StreamOutputPlugin(TelescopePlugin):
     name = "stream_output"
 
@@ -127,6 +133,8 @@ class StreamOutputPlugin(TelescopePlugin):
         self._phone_codecs: tuple = ()  # what the phone reported; () until it has
         self._phone_dynamic = None  # whether the phone takes Dynamic; None until it has reported
         self._phone_picked = True  # another source (Browser camera) says what helps itself
+        self._h264_sizes = None  # the sizes the lens's H.264 encoder takes, as a set; None until a phone says
+        self._good_size = None  # the last size a Light stream ran at without trouble, to go back to when one fails
         # Lens switch doesn't trigger fresh /v1/state fetch; use cached capabilities dict.
         bus.camera_switched.connect(self._on_camera_switched)
         bus.device_changed.connect(self._on_device_changed)
@@ -236,6 +244,8 @@ class StreamOutputPlugin(TelescopePlugin):
 
     def _forget_sizes(self):
         """Another phone: this one's sizes and rates mean nothing there."""
+        self._h264_sizes = None
+        self._good_size = None
         self._camera_max_fps = 0
         self._show_fps()
         self._sizes_by_ratio = {}
@@ -262,6 +272,7 @@ class StreamOutputPlugin(TelescopePlugin):
         if "cameras" in state:
             self._phone_dynamic = bool(state.get("dynamic_bitrate"))
             self._show_bitrate()
+        back = None
         if self._format == FORMAT_H264 and codecs and FORMAT_H264 not in codecs:
             # Light is the default, and a phone without an encoder sends nothing on its route: Heavy for this phone.
             self._set_format(FORMAT_MJPEG)
@@ -271,10 +282,14 @@ class StreamOutputPlugin(TelescopePlugin):
             # waits for every plugin to have this state, so none fills its controls back in after it.
             sid = self._host.focused_source_id()  # the panels may show another stream by the time it's answered
             QTimer.singleShot(0, lambda: self._host.stop_stream(sid))
-            self._host.show_issue("encoder", Issue(
-                "Too much for the phone's H.264 encoder",
-                f"{state['codec_error']}. Try a lower resolution or FPS, or switch to Heavy.",
-                [BannerAction("Switch to Heavy", self._host.start_again(sid, self._switch_to_heavy))], kind="warn"))
+            back = self._back_to_good_size(state)
+            actions = [BannerAction("Switch to Heavy", self._host.start_again(sid, self._switch_to_heavy))]
+            if back:
+                text = f"{state['codec_error']}. It's set back to {back}, the last size that worked."
+                actions.insert(0, BannerAction(f"Start at {back}", self._host.start_again(sid)))
+            else:
+                text = f"{state['codec_error']}. Try a lower resolution or FPS, or switch to Heavy."
+            self._host.show_issue("encoder", Issue("Too much for the phone's H.264 encoder", text, actions, kind="warn"))
         elif self._format == FORMAT_H264 and state.get("codec_error"):
             # The phone went back to MJPEG; so does the stream, or it would keep asking for H.264.
             self._host.show_issue("h264", Issue(
@@ -286,8 +301,31 @@ class StreamOutputPlugin(TelescopePlugin):
         cur = next((c for c in cams if c.get("current")), None)
         if cur is None:
             return
+        live = (state.get("stream_width"), state.get("stream_height"))
+        if back:
+            live = (None, None)  # the size it failed at isn't the one to show any more
+        if state.get("codec") == FORMAT_H264 and not state.get("codec_error") and all(isinstance(v, int) for v in live):
+            self._good_size = live
         self._set_camera_max_fps(cur.get("maxFps"))
-        self._apply_camera(cur, state.get("stream_width"), state.get("stream_height"))
+        self._apply_camera(cur, *live)
+
+    def _back_to_good_size(self, state: dict):
+        """Puts the size back to the last one Light ran at, so the next start doesn't fail the same way; its label."""
+        failed = (state.get("stream_width"), state.get("stream_height"))
+        good = self._good_size
+        if good is None or good == failed or self._res_combo.findText(_size_label(*good)) < 0:
+            return None
+        self._select_resolution(good)
+        self._saved_resolution_text = self._pending_resolution_text = _size_label(*good)
+        self._host.schedule_save()
+        return _size_label(*good)
+
+    def _light_sizes(self, cam: dict):
+        """The sizes this lens's H.264 encoder takes, as a set; None when the phone doesn't say (older app, no encoder)."""
+        listed = cam.get("h264Sizes")
+        if not isinstance(listed, list):
+            return None
+        return {(s["width"], s["height"]) for s in listed if isinstance(s, dict) and "width" in s and "height" in s}
 
     def _on_camera_switched(self, cam: dict):
         current = self._res_combo.currentData()  # Lens switch reuses ImageReader; resolution carries over.
@@ -298,6 +336,9 @@ class StreamOutputPlugin(TelescopePlugin):
         sizes = cam.get("supportedSizes") or []
         sizes = [(s["width"], s["height"]) for s in sizes
                  if isinstance(s, dict) and "width" in s and "height" in s]
+        self._h264_sizes = self._light_sizes(cam)
+        if self.stream_format() == FORMAT_H264 and self._h264_sizes:
+            sizes = [wh for wh in sizes if wh in self._h264_sizes] or sizes  # leave out what Light can't do
         if not sizes:
             return
 
@@ -388,7 +429,11 @@ class StreamOutputPlugin(TelescopePlugin):
         self._res_combo.blockSignals(False)
 
     def _select_resolution(self, wh):
-        """Point both combos at `wh` (or the top entry, if `wh` is None/unavailable) without notifying the phone."""
+        """Point both combos at `wh` (the nearest listed size if it isn't listed, the top entry if None) without
+        notifying the phone."""
+        listed = [s for sizes in self._sizes_by_ratio.values() for s in sizes]
+        if wh and listed and wh not in listed:
+            wh = _closest_size(wh, listed)  # a size Light can't do, or another lens's
         ratio = _aspect_ratio(*wh) if wh else None
         if ratio not in self._sizes_by_ratio:
             ratio, wh = None, None
@@ -413,13 +458,22 @@ class StreamOutputPlugin(TelescopePlugin):
         ratio = self._ar_combo.currentData()
         if ratio is None:
             return
-        self._rebuild_resolution_combo(ratio)  # Defaults to the group's largest size.
+        current = self._res_combo.currentData()
+        self._rebuild_resolution_combo(ratio)
+        if current:
+            # The size nearest the current height, not the largest: that can be more than the phone's encoder takes
+            idx = self._res_combo.findText(_size_label(*_closest_size(current, self._sizes_by_ratio[ratio])))
+            self._res_combo.blockSignals(True)
+            self._res_combo.setCurrentIndex(max(idx, 0))
+            self._res_combo.blockSignals(False)
         self._on_resolution()  # Switching AR is itself a resolution change; notify like any other.
 
     def opening(self) -> dict:
         """What the phone should open at when a stream starts: the size picked here (if known) and the FPS."""
         out = {"fps": self._fps()}
         wh = _parse_size_label(self._pending_resolution_text or self._saved_resolution_text)
+        if wh and self.stream_format() == FORMAT_H264 and self._h264_sizes and wh not in self._h264_sizes:
+            wh = _closest_size(wh, self._h264_sizes)  # picked for Heavy: Light opens at the nearest it can do
         if wh:
             out["width"], out["height"] = wh
         return out

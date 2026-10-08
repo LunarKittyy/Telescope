@@ -162,6 +162,22 @@ object CameraRequestSelection {
     fun clamp(value: Float, min: Float, max: Float): Float =
         if (min > max) value else value.coerceIn(min, max)
 
+    // A computer's control values fitted to the lens, so /v1/state reports what the camera really does. Null when a
+    // value can't mean anything at all (an ISO or exposure time of zero or less), which is refused instead.
+    fun fitIso(value: Int, cam: CameraEntry): Int? = if (value <= 0) null else clamp(value, cam.isoMin, cam.isoMax)
+
+    fun fitShutter(ns: Long, cam: CameraEntry): Long? =
+        if (ns <= 0L) null else clamp(ns, cam.shutterMinNs, cam.shutterMaxNs)
+
+    fun fitAeComp(steps: Int, cam: CameraEntry): Int = clamp(steps, cam.aeCompMin, cam.aeCompMax)
+
+    fun fitFocusDistance(diopters: Float, cam: CameraEntry): Float =
+        clamp(diopters, 0f, cam.minFocusDistance.coerceAtLeast(0f))
+
+    // White balance gains are multipliers on each channel: the desktop sends about 0.3 to 4
+    const val MAX_WB_GAIN = 16f
+    fun validWbGain(gain: Float): Boolean = gain > 0f && gain <= MAX_WB_GAIN
+
     // The listed size nearest w x h, shape first and then pixel count; w x h itself when listed or nothing is listed.
     fun closestSize(w: Int, h: Int, sizes: List<Pair<Int, Int>>): Pair<Int, Int> {
         if (sizes.isEmpty() || (w to h) in sizes || w <= 0 || h <= 0) return w to h
@@ -188,6 +204,8 @@ class CameraStreamService : Service() {
         const val EXTRA_CAMERA_OFF = "camera_off"
         // Started as a plain service under WaitingService's foreground service (see StreamLauncher).
         const val EXTRA_COVERED    = "covered"
+        // The id of the paired computer whose start this is; absent for a start on the phone.
+        const val EXTRA_OWNER      = "owner"
         const val CHANNEL_ID       = "telescope_stream"
         const val NOTIF_ID         = 1
         const val DEFAULT_PORT     = 8080
@@ -426,12 +444,33 @@ class CameraStreamService : Service() {
     val hasViewer: Boolean get() = server?.hasActiveViewer() == true
     // Streaming the mic with the camera closed.
     val cameraOff: Boolean get() = controller?.isCameraOff() == true
+    // Another app has the camera; the stream waits for it.
+    val cameraTaken: Boolean get() = controller?.isCameraTaken() == true
     val port: Int get() = DEFAULT_PORT
 
     // True when this session was started by the desktop rather than the button on this phone; MainActivity uses it to tell the user where an unrequested stream came from.
     @Volatile
     var startedRemotely: Boolean = false
         private set
+
+    // The paired computer this stream belongs to (StreamOwner): set by its start, or by the first computer to watch a
+    // stream started on the phone. Another computer's start or stop is refused and its viewer can't switch the codec.
+    @Volatile
+    private var ownerId: String? = null
+
+    // The paired computer that has this stream instead of caller, while there is a stream; null when caller may have it.
+    fun otherOwner(caller: PairedComputer?): PairedComputer? {
+        if (state == StreamState.Idle || state == StreamState.Failed) return null
+        return StreamOwner.other(ownerId, caller, PairedComputers.list(this))
+    }
+
+    // Takes a stream nobody else has for caller; false when another computer has it.
+    @Synchronized
+    fun claim(caller: PairedComputer): Boolean {
+        if (otherOwner(caller) != null) return false
+        ownerId = caller.id
+        return true
+    }
 
     // Records a state transition with sanitized context (class name + message only, never a stack trace or request data); history for "Copy diagnostics" lives in stateMachine.
     private fun setState(newState: StreamState, op: String, error: Throwable? = null) {
@@ -556,6 +595,7 @@ class CameraStreamService : Service() {
         val localOnly = intent?.getBooleanExtra(EXTRA_LOCAL_ONLY, false) ?: false
         bindAddr      = if (localOnly) "127.0.0.1" else "0.0.0.0"
         startedRemotely = intent?.getBooleanExtra(EXTRA_REMOTE, false) ?: false
+        ownerId = intent?.getStringExtra(EXTRA_OWNER)
         val startOff  = intent?.getBooleanExtra(EXTRA_CAMERA_OFF, false) ?: false
         covered = (intent?.getBooleanExtra(EXTRA_COVERED, false) ?: false) && WaitingService.covering
 
@@ -695,8 +735,11 @@ class CameraStreamService : Service() {
     }
 
     // The newest viewer's route picks the codec; viewers of the other one lose their stream.
-    private fun onVideoClient(codec: String) {
+    private fun onVideoClient(codec: String, token: String?) {
         val ctrl = controller ?: return
+        // Another computer watching this one's stream gets it as it is
+        val caller = PairedComputers.list(this).matchToken(token)
+        if (caller != null && !claim(caller)) return
         if (codec == H264Stream.CODEC_H264 && !h264Available) return  // the reader sees no data and gives up
         // Failed once this stream: stay on MJPEG rather than reopen, fail and reopen as the reader reconnects.
         if (codec == H264Stream.CODEC_H264 && ctrl.snapshot().codecError != null) return
@@ -764,6 +807,8 @@ class CameraStreamService : Service() {
                 aeCompMin = e.aeCompMin, aeCompMax = e.aeCompMax, aeCompStep = e.aeCompStep,
                 supportsFlash = e.supportsFlash, hwLevel = e.hwLevel,
                 supportedSizes = e.supportedSizes.map { CameraSize(it.width, it.height) },
+                h264Sizes = if (h264Available) e.supportedSizes.filter { H264Encoder.supportsSize(it.width, it.height) }
+                    .map { CameraSize(it.width, it.height) } else null,
                 supportsFocusPoint = e.maxAfRegions > 0 && e.activeArray != null &&
                     CaptureRequest.CONTROL_AF_MODE_AUTO in e.afModes,
                 zoomRatioMax = e.zoomRatioMax, cropZoomMax = e.cropZoomMax, freeformCrop = e.freeformCrop,
@@ -802,6 +847,7 @@ class CameraStreamService : Service() {
             active_lens = snap?.activeLens,
             camera_off = controller?.isCameraOff() ?: false,
             camera_error = controller?.cameraError,
+            camera_taken = controller?.isCameraTaken() ?: false,
             camera_toggle = true,
             stream_width = liveSize.width,
             stream_height = liveSize.height,
@@ -832,12 +878,16 @@ class CameraStreamService : Service() {
                     ok()
                 }
                 "iso" -> {
-                    val iso = params["value"]?.toIntOrNull() ?: return err("bad iso")
+                    val cam = ctrl.snapshot().currentCamera ?: return err("camera not ready")
+                    val iso = params["value"]?.toIntOrNull()?.let { CameraRequestSelection.fitIso(it, cam) }
+                        ?: return err("bad iso")
                     ctrl.setIso(iso)
                     ok()
                 }
                 "shutter" -> {
-                    val ns = params["value"]?.toLongOrNull() ?: return err("bad shutter")
+                    val cam = ctrl.snapshot().currentCamera ?: return err("camera not ready")
+                    val ns = params["value"]?.toLongOrNull()?.let { CameraRequestSelection.fitShutter(it, cam) }
+                        ?: return err("bad shutter")
                     ctrl.setShutter(ns)
                     ok()
                 }
@@ -855,6 +905,7 @@ class CameraStreamService : Service() {
                     val ge = params["ge"].finite() ?: return err("bad ge")
                     val go = params["go"].finite() ?: return err("bad go")
                     val b  = params["b"].finite()  ?: return err("bad b")
+                    if (!listOf(r, ge, go, b).all(CameraRequestSelection::validWbGain)) return err("bad gains")
                     ctrl.setWbGains(RggbChannelVector(r, ge, go, b))
                     ok()
                 }
@@ -906,7 +957,8 @@ class CameraStreamService : Service() {
                 }
                 "focus_distance" -> {
                     val d = params["value"].finite() ?: return err("bad distance")
-                    ctrl.setFocusDistance(d.coerceAtLeast(0f))
+                    val cam = ctrl.snapshot().currentCamera ?: return err("camera not ready")
+                    ctrl.setFocusDistance(CameraRequestSelection.fitFocusDistance(d, cam))
                     ok()
                 }
                 "nr_mode" -> {
@@ -921,7 +973,8 @@ class CameraStreamService : Service() {
                 }
                 "ae_comp" -> {
                     val v = params["value"]?.toIntOrNull() ?: return err("bad value")
-                    ctrl.setAeComp(v)
+                    val cam = ctrl.snapshot().currentCamera ?: return err("camera not ready")
+                    ctrl.setAeComp(CameraRequestSelection.fitAeComp(v, cam))
                     ok()
                 }
                 "black_level_lock" -> {

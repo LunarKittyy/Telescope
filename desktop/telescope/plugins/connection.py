@@ -87,6 +87,12 @@ class SessionTarget:
     route: Optional[Route]
 
 
+def busy_other_reason(computer: Optional[str]) -> str:
+    """Why Start didn't take the phone: another paired computer's stream is running on it."""
+    who = computer or "another computer"
+    return f"The phone is streaming to {who}.\n\nStop it there or on the phone, then try again."
+
+
 # ── Status text ───────────────────────────────────────────────────────────────
 
 def status_line(res: Optional[Resolution]) -> tuple:
@@ -1066,6 +1072,8 @@ class ConnectionPlugin(TelescopePlugin):
                                "Click Add phone to pair it again.")
             if ping.status != "paired":
                 return False, "Couldn't reach the phone. Open Telescope on it and try again."
+            if ping.streaming_for:
+                return False, busy_other_reason(ping.streaming_for)
             if ping.streaming:
                 return True, ""
             if not ping.busy:
@@ -1073,7 +1081,7 @@ class ConnectionPlugin(TelescopePlugin):
                     on_progress("Starting the phone's camera...")
                 result = client.start(opening)
                 if not result.ok:
-                    return False, self._start_refused_reason(result.error)
+                    return False, self._start_refused_reason(result.error, result.computer)
             return self._await_streaming(client, on_progress)
 
     @staticmethod
@@ -1091,6 +1099,8 @@ class ConnectionPlugin(TelescopePlugin):
                 return True, ""
             if ping.status == "not_paired":
                 return False, "Lost contact with the phone while its camera was starting."
+            if ping.streaming_for:  # another computer's start got there first
+                return False, busy_other_reason(ping.streaming_for)
             if ping.status != "paired":
                 unreachable_streak += 1  # tolerate brief blips; bail on sustained failure
                 if unreachable_streak >= _UNREACHABLE_STREAK_LIMIT:
@@ -1117,7 +1127,9 @@ class ConnectionPlugin(TelescopePlugin):
                 client.stop()
 
     @staticmethod
-    def _start_refused_reason(error: Optional[str]) -> str:
+    def _start_refused_reason(error: Optional[str], computer: Optional[str] = None) -> str:
+        if error == "busy_other":
+            return busy_other_reason(computer)
         return {
             "no_camera_permission": ("The phone hasn't given Telescope camera access.\n\n"
                                      "Open the app on the phone and allow the camera permission."),

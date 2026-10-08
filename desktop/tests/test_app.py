@@ -1898,6 +1898,17 @@ def test_a_dropped_stream_asks_the_phone_why_quietly(window, monkeypatch):
     assert window._phone._state_poll_busy is False
 
 
+def test_a_camera_another_app_took_is_named_until_the_stream_is_back(window, monkeypatch):
+    _conn, _worker, _client, _lost = _dropped_stream(window, monkeypatch, [None])
+    taken = {**_VALID_STATE, "camera_taken": True}
+    window._session = replace(window._session, client=SimpleNamespace(get_state=lambda: taken))
+    window._phone._poll_codec_state(window._session.id)
+    key = f"camera_taken:{window._phone.id}"
+    assert window._banners.issue(key).title == "Another app on the phone is using the camera"
+    window._on_stream_reconnected()
+    assert window._banners.issue(key) is None
+
+
 def test_a_dropped_stream_keeps_asking_the_phone_why(window, monkeypatch):
     # The camera can take seconds to give up on a size it can't do, after the stream already stopped.
     _dropped_stream(window, monkeypatch, [None, None])
@@ -2071,6 +2082,17 @@ def test_recovery_stops_the_stream_when_the_phone_stopped_streaming(window, monk
     monkeypatch.setattr(window, "_start_source", lambda sid, before=None: starts.append(sid))
     issue.actions[0].callback()
     assert starts == [window._phone.id]  # this phone, even with others still streaming
+
+
+def test_recovery_leaves_a_stream_another_computer_started_alone(window, monkeypatch):
+    from telescope.phones import READY, Resolution, Route
+    conn, worker, _client, _lost = _dropped_stream(window, monkeypatch, [
+        Resolution(READY, Route("wifi", "192.168.1.20"), streaming=True, streaming_for="Office PC")])
+
+    assert window._session is None
+    assert conn.adopted == [] and worker.urls == [] and conn.remote_stops == 0
+    assert not window._phone.recovering
+    assert window._banners.issue(f"stopped:{window._phone.id}").title == "The phone is streaming to Office PC"
 
 
 @pytest.mark.parametrize("status", ["NOT_PAIRED", "LOCAL_ONLY", "PHONE_OUTDATED", "DESKTOP_OUTDATED"])

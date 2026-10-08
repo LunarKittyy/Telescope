@@ -31,6 +31,7 @@ data class CameraCapability(
     val supportsFlash: Boolean,
     val hwLevel: String,
     val supportedSizes: List<CameraSize> = emptyList(),
+    val h264Sizes: List<CameraSize>? = null,  // the supportedSizes the H.264 encoder takes; null = no encoder, or not said
     val supportsFocusPoint: Boolean = false,
     val zoomRatioMax: Float = 1f,
     val cropZoomMax: Float = 1f,
@@ -70,6 +71,7 @@ data class V1State(
     val active_lens: String? = null,  // the lens a multi-lens camera is streaming from right now
     val camera_off: Boolean = false,  // streaming the mic with the camera closed
     val camera_error: String? = null,  // why the camera didn't turn back on
+    val camera_taken: Boolean = false,  // another app on the phone has the camera; it opens again once that lets go
     val camera_toggle: Boolean = false,  // takes camera_on and starts with the camera off; set by every phone that can
     val stream_width: Int,
     val stream_height: Int,
@@ -79,7 +81,11 @@ data class V1State(
 )
 
 @Serializable
-data class ControlResult(val ok: Boolean, val error: String? = null)
+data class ControlResult(
+    val ok: Boolean,
+    val error: String? = null,
+    val computer: String? = null,  // with busy_other: the computer the stream belongs to
+)
 
 @Serializable
 data class ApiError(val error: String)

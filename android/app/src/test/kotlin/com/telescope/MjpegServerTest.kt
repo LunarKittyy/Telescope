@@ -491,7 +491,7 @@ class MjpegServerTest {
         val codecs = java.util.concurrent.CopyOnWriteArrayList<String>()
         val keyRequests = java.util.concurrent.atomic.AtomicInteger()
         val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") },
-            onVideoClient = { codecs.add(it) }, requestKeyFrame = { keyRequests.incrementAndGet() })
+            onVideoClient = { codec, _ -> codecs.add(codec) }, requestKeyFrame = { keyRequests.incrementAndGet() })
         server.start()
         try {
             server.sendH264(byteArrayOf(0, 0, 0, 1, 0x67), key = false, config = true)

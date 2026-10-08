@@ -30,7 +30,8 @@ The Presets button in the header saves the camera, output and transform settings
 ## Format and bandwidth
 - **Light** (H.264, the default) needs about 8 Mbps at 1080p30, so it keeps up on most Wi-Fi. **Heavy** (MJPEG) is sharper in fast motion but needs USB or strong Wi-Fi. A phone that can't do Light uses Heavy by itself
 - Heavy has a JPEG quality slider; Light has a bitrate slider: Auto, a fixed 1-100 Mbps, or **Dynamic**, which sends as much as the connection carries and backs off before the video starts to lag
-- A size the phone's encoder can't do in Light stops the stream with a note to pick a lower one or switch to Heavy
+- On Light, the resolution list leaves out sizes the phone's encoder says it can't take. A size that still fails stops the stream with a note to pick a lower one or switch to Heavy, and the resolution goes back to the last one that worked, so the next Start doesn't fail the same way
+- A new aspect ratio picks the size nearest the current height, not the largest
 
 ## Microphone
 - The phone's mic as a microphone on the computer while streaming, with the phone's noise suppression when it has it

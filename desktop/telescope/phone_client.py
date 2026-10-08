@@ -19,6 +19,58 @@ _RETRY_FIRST_WAIT_S = 0.25
 _RETRY_MAX_WAIT_S = 2.0
 
 
+def drifted_settings(settings: dict, state: dict) -> list:
+    """The sent settings (action: params, in the order sent) that the phone's /v1/state doesn't show."""
+    if "cameras" not in state:
+        return []  # not a whole state
+    order = list(settings)
+    out = []
+
+    def after(a: str, b: str) -> bool:
+        return b not in settings or order.index(a) > order.index(b)
+
+    def check(action: str, matches) -> None:
+        params = settings.get(action)
+        if params is None:
+            return
+        try:
+            ok = matches(params.get("value"))
+        except (TypeError, ValueError):
+            ok = True  # a state this can't read says nothing either way
+        if not ok:
+            out.append(params)
+
+    iso, shutter = settings.get("iso"), settings.get("shutter")
+    if iso and shutter and after("iso", "auto") and after("shutter", "auto"):
+        try:
+            kept = (not state.get("auto", True) and int(state.get("iso") or 0) == int(iso.get("value"))
+                    and int(state.get("shutter_ns") or 0) == int(shutter.get("value")))
+        except (TypeError, ValueError):
+            kept = True
+        if not kept:
+            out += [iso, shutter]
+    elif "auto" in settings and not state.get("auto", True):
+        out.append(settings["auto"])
+    if "wb_gains" in settings and after("wb_gains", "wb_auto"):
+        check("wb_gains", lambda _v: bool(state.get("wb_manual")))
+    else:
+        check("wb_auto", lambda _v: not state.get("wb_manual"))
+    focus = state.get("focus_mode")
+    if focus in ("continuous", "manual"):  # "point" is picked on the preview, not sent as a mode
+        check("focus_mode", lambda v: v == focus)
+        if focus == "manual":
+            check("focus_distance", lambda v: abs(float(state.get("focus_distance", 0.0)) - float(v)) < 0.01)
+    if state.get("auto", True):  # exposure compensation only applies to auto exposure
+        check("ae_comp", lambda v: int(state.get("ae_comp", 0)) == int(v))
+    check("fps_target", lambda v: int(state.get("phone_fps", 0)) == int(v))
+    check("jpeg_quality", lambda v: int(state.get("jpeg_quality", 0)) == int(v))
+    check("ois", lambda v: bool(state.get("ois", True)) == (str(v) == "1"))
+    check("black_level_lock", lambda v: bool(state.get("black_level_lock", False)) == (str(v) == "1"))
+    check("nr_mode", lambda v: int(state.get("nr_mode", 1)) == int(v))
+    check("edge_mode", lambda v: int(state.get("edge_mode", 1)) == int(v))
+    return out
+
+
 class PhoneControlClient:
     """Sends authenticated camera-control requests via queued background worker; coalesces requests by action."""
 
@@ -36,6 +88,7 @@ class PhoneControlClient:
         self._pending: dict = {}  # action: (place in the queue, params), the latest of each
         self._seq = 0
         self._settings: dict = {}  # the last of each setting sent, in the order they were last sent
+        self._resent: dict = {}  # action: params sent again because the phone's state didn't show them, once each
         self._lock = threading.Lock()
         self._closed = False
         self._wake = threading.Event()  # set by close(), to end a wait between tries
@@ -52,13 +105,29 @@ class PhoneControlClient:
                 state = json.loads(read_capped(r).decode())
         except Exception:
             return None
-        return state if isinstance(state, dict) else None  # every caller reads it with .get
+        if not isinstance(state, dict):
+            return None  # every caller reads it with .get
+        self._resync(state)
+        return state
+
+    def _resync(self, state: dict):
+        """Sends a setting again when the phone's state doesn't show it; once per value, as the phone may clamp it."""
+        with self._lock:
+            settings = dict(self._settings)
+            stale = [p for p in drifted_settings(settings, state)
+                     if p["action"] not in self._pending and self._resent.get(p["action"]) != p]
+        for params in stale:
+            logger.info("The phone doesn't show the %s sent, sending it again", params["action"])
+            self.send(**params)
+            with self._lock:
+                self._resent[params["action"]] = params
 
     def send(self, **params):
         if self._closed:
             return
         action = params.get("action")
         with self._lock:
+            self._resent.pop(action, None)
             if action in self._SETTINGS:
                 self._settings.pop(action, None)
                 self._settings[action] = params

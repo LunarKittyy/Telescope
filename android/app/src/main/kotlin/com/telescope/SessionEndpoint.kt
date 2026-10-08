@@ -15,6 +15,8 @@ data class SessionSnapshot(
     // Stable per install; lets the desktop tell which paired phone answered, e.g. over a USB forward.
     val phoneId: String,
     val phoneName: String,
+    // The other paired computer a running or starting stream belongs to, when it isn't the one asking.
+    val streamingFor: String? = null,
 )
 
 // appVersion/build: lets the desktop say which app needs updating instead of just "unreachable".
@@ -28,11 +30,26 @@ data class Hello(
 )
 
 // Narrow interface: server owns HTTP, this owns camera lifecycle - they don't cross.
+// computer: the paired computer asking, or null for a request without one (hello).
 interface SessionCommands {
-    fun start(opening: StreamOpening? = null): ControlResult
-    fun stop(): ControlResult
-    fun snapshot(): SessionSnapshot
+    fun start(opening: StreamOpening? = null, computer: PairedComputer? = null): ControlResult
+    fun stop(computer: PairedComputer? = null): ControlResult
+    fun snapshot(computer: PairedComputer? = null): SessionSnapshot
     fun unpair(computer: PairedComputer)
+}
+
+// A stream belongs to the computer whose start opened it, or to the first one to watch a stream started on the phone.
+// Another computer can't stop it or change its codec. An owner that has been unpaired no longer counts.
+object StreamOwner {
+    const val BUSY_OTHER = "busy_other"
+
+    // The paired computer that has the stream instead of caller; null when caller may have it.
+    fun other(ownerId: String?, caller: PairedComputer?, computers: PairedComputerList): PairedComputer? {
+        if (ownerId == null || caller == null || ownerId == caller.id) return null
+        return computers.computers.find { it.id == ownerId }
+    }
+
+    fun busyOther(owner: PairedComputer) = ControlResult(ok = false, error = BUSY_OTHER, computer = owner.name)
 }
 
 // Refcount design: Activity, stream service and waiting service hold tags; first acquire binds port, last release closes.
@@ -120,29 +137,36 @@ object SessionStartWindow : StartWindow({ android.os.SystemClock.elapsedRealtime
 // Holds app Context only: socket thread may outlive component that acquired endpoint.
 private class ServiceSessionCommands(private val context: Context) : SessionCommands {
 
-    override fun start(opening: StreamOpening?): ControlResult {
+    override fun start(opening: StreamOpening?, computer: PairedComputer?): ControlResult {
         val service = CameraStreamService.instance
-        if (service?.isStreaming == true) return ControlResult(ok = true)
+        service?.otherOwner(computer)?.let { return StreamOwner.busyOther(it) }
+        if (service?.isStreaming == true) {
+            computer?.let { service.claim(it) }  // one started on the phone is this computer's from now on
+            return ControlResult(ok = true)
+        }
         // Same guard as MainActivity.isBusy().
         if (service != null && service.state != StreamState.Idle && service.state != StreamState.Failed) {
             return ControlResult(ok = false, error = "busy")
         }
-        return when (val result = StreamLauncher.startFromPrefs(context, opening)) {
+        return when (val result = StreamLauncher.startFromPrefs(context, opening, owner = computer?.id)) {
             is StreamLauncher.Result.Started -> ControlResult(ok = true)
             is StreamLauncher.Result.AlreadyStreaming -> ControlResult(ok = true)
             is StreamLauncher.Result.Rejected -> ControlResult(ok = false, error = result.reason)
         }
     }
 
-    override fun stop(): ControlResult {
-        if (CameraStreamService.instance == null) return ControlResult(ok = true)
+    override fun stop(computer: PairedComputer?): ControlResult {
+        val service = CameraStreamService.instance ?: return ControlResult(ok = true)
+        // Another computer's stream carries on
+        service.otherOwner(computer)?.let { return StreamOwner.busyOther(it) }
         // On the main thread like every other stop, not this socket thread racing them.
         android.os.Handler(android.os.Looper.getMainLooper()).post { CameraStreamService.instance?.stopStreaming("remoteStop") }
         return ControlResult(ok = true)
     }
 
-    override fun snapshot(): SessionSnapshot {
-        val state = CameraStreamService.instance?.state ?: StreamState.Idle
+    override fun snapshot(computer: PairedComputer?): SessionSnapshot {
+        val service = CameraStreamService.instance
+        val state = service?.state ?: StreamState.Idle
         return SessionSnapshot(
             protocol = SessionServer.PROTOCOL_VERSION,
             streaming = state == StreamState.Streaming,
@@ -154,6 +178,7 @@ private class ServiceSessionCommands(private val context: Context) : SessionComm
             localOnly = StreamPrefs.localOnly(context),
             phoneId = PairedComputers.phoneId(context),
             phoneName = PairedComputers.phoneName(context),
+            streamingFor = service?.otherOwner(computer)?.name,
         )
     }
 

@@ -47,9 +47,9 @@ class TlsIdentityTest {
     fun `the session server speaks TLS with the pinned certificate and ignores plain HTTP`() {
         val identity = TlsIdentity.generate()
         val commands = object : SessionCommands {
-            override fun start(opening: StreamOpening?) = ControlResult(ok = true)
-            override fun stop() = ControlResult(ok = true)
-            override fun snapshot() = SessionSnapshot(SessionServer.PROTOCOL_VERSION, false, false, false, "phone-1", "Test phone")
+            override fun start(opening: StreamOpening?, computer: PairedComputer?) = ControlResult(ok = true)
+            override fun stop(computer: PairedComputer?) = ControlResult(ok = true)
+            override fun snapshot(computer: PairedComputer?) = SessionSnapshot(SessionServer.PROTOCOL_VERSION, false, false, false, "phone-1", "Test phone")
             override fun unpair(computer: PairedComputer) {}
         }
         val server = SessionServer(0, { PairedComputerList() }, commands, appVersion = "1", appBuild = 1,

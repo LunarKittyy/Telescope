@@ -42,6 +42,11 @@ def clean_name(raw) -> str:
     return " ".join(text.split())[:MAX_NAME_CHARS]
 
 
+def _computer_name(raw) -> Optional[str]:
+    """A computer's name from the phone as display text; None when it's missing or empty."""
+    return (clean_name(raw) or None) if isinstance(raw, str) else None
+
+
 # The phone is on this network or behind an adb forward; a configured proxy would answer for it instead.
 _NO_PROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
@@ -57,6 +62,8 @@ class PingResult:
     # Which phone answered; lets a USB probe tell our phone from any other one plugged in.
     phone_id: Optional[str] = None
     phone_name: Optional[str] = None
+    # The other paired computer the phone is streaming to (or starting for); None when it's this one or nobody.
+    streaming_for: Optional[str] = None
 
     @property
     def paired(self) -> bool:
@@ -91,6 +98,7 @@ class SessionResult:
 
     ok: bool
     error: Optional[str] = None
+    computer: Optional[str] = None  # with busy_other: the computer the phone is streaming to
 
 
 class PhoneSessionClient:
@@ -177,6 +185,7 @@ class PhoneSessionClient:
             local_only=bool(body.get("localOnly", False)),
             phone_id=body.get("phoneId") if isinstance(body.get("phoneId"), str) else None,
             phone_name=clean_name(body["phoneName"]) if isinstance(body.get("phoneName"), str) else None,
+            streaming_for=_computer_name(body.get("streamingFor")),
         )
 
     def start(self, opening: Optional[dict] = None) -> SessionResult:
@@ -211,7 +220,7 @@ class PhoneSessionClient:
                 body = json.loads(read_capped(r).decode())
             if body.get("ok"):
                 return SessionResult(ok=True)
-            return SessionResult(ok=False, error=body.get("error") or "refused")
+            return SessionResult(ok=False, error=body.get("error") or "refused", computer=_computer_name(body.get("computer")))
         except urllib.error.HTTPError as exc:
             if exc.code == 401:
                 return SessionResult(ok=False, error="not_paired")

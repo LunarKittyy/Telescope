@@ -117,6 +117,10 @@ class CameraSessionController(
     @Volatile private var cameraOff = false
     // Turning back on: a failure now leaves the camera off rather than ending the stream (and the mic with it).
     @Volatile private var turningOn = false
+    // Another app has the camera: waiting for it to be free again (cameraTaken).
+    @Volatile private var taken = false
+    // The camera has made frames for this stream at least once; a camera taken before then fails the start instead.
+    @Volatile private var streamedOnce = false
     // Why the camera didn't come back on; cleared on the next try.
     @Volatile var cameraError: String? = null
         private set
@@ -129,6 +133,7 @@ class CameraSessionController(
 
     fun getCurrentCameraId(): String? = currentCamera?.id
     fun isCameraOff(): Boolean = cameraOff
+    fun isCameraTaken(): Boolean = taken
     fun getStreamSize(): android.util.Size = android.util.Size(streamWidth, streamHeight)
 
     // True while PreviewActivity has a surface attached - the idle watchdog must not stop this.
@@ -290,6 +295,8 @@ class CameraSessionController(
         if (cameraOff) return
         cameraOff = true
         turningOn = false
+        taken = false  // off on purpose: no longer waiting for it
+        unwatchAvailability()
         cameraError = null
         teardown()  // also drops a lens switch or reopen still opening
         onStateChanged(StreamState.Streaming, "cameraOff", null)
@@ -316,6 +323,57 @@ class CameraSessionController(
         }
         onStateChanged(StreamState.Failed, op, e)
         onFatalError()
+    }
+
+    // Android hands the camera to the app on screen, so another app opening it takes it from this one.
+    private fun takenBy(error: Int): Boolean =
+        error == CameraDevice.StateCallback.ERROR_CAMERA_IN_USE || error == CameraDevice.StateCallback.ERROR_MAX_CAMERAS_IN_USE
+
+    private fun takenBy(e: Exception): Boolean = e is CameraAccessException &&
+        (e.reason == CameraAccessException.CAMERA_IN_USE || e.reason == CameraAccessException.MAX_CAMERAS_IN_USE)
+
+    // Another app took the camera mid-stream: the stream (and the mic) carries on without it, and the camera opens
+    // again once it's free. Before the first frame, or while turning back on, it fails as before.
+    private fun cameraTaken(op: String, e: Throwable?) {
+        if (turningOn || cameraOff || !streamedOnce) { fail(op, e); return }
+        teardown()
+        if (!taken) onControlError(op, e ?: IllegalStateException("another app took the camera"))
+        taken = true
+        // Streaming, not Recovering, also after a reopen that found it still taken: the busy watchdog would end it
+        onStateChanged(StreamState.Streaming, "$op.cameraTaken", null)
+        watchAvailability()
+    }
+
+    @Volatile private var availability: CameraManager.AvailabilityCallback? = null
+
+    private fun watchAvailability() {
+        if (availability != null || stopped) return
+        val callback = object : CameraManager.AvailabilityCallback() {
+            override fun onCameraAvailable(cameraId: String) {
+                val cam = currentCamera ?: return
+                if (stopped || !taken || cameraOff || cameraId != (cam.logicalId ?: cam.id)) return
+                unwatchAvailability()
+                // A moment's wait, so a camera listed free that still won't open doesn't make a tight loop of tries
+                handler?.postDelayed({
+                    if (!stopped && taken && !cameraOff) reopen("cameraFree")  // taken again if it isn't free after all
+                }, REOPEN_RETRY_MS)
+            }
+        }
+        availability = callback
+        try {
+            (context.getSystemService(Context.CAMERA_SERVICE) as CameraManager).registerAvailabilityCallback(callback, handler)
+        } catch (e: Exception) {
+            availability = null
+            onControlError("watchAvailability", e)
+        }
+    }
+
+    private fun unwatchAvailability() {
+        val callback = availability ?: return
+        availability = null
+        try {
+            (context.getSystemService(Context.CAMERA_SERVICE) as CameraManager).unregisterAvailabilityCallback(callback)
+        } catch (_: Exception) {}
     }
 
     // Only the newest of a burst of lens or size changes runs: each one is a full close and reopen of the camera.
@@ -373,6 +431,7 @@ class CameraSessionController(
     // Tears down camera/session/reader on the camera thread, after any frame it is copying; caller handles service-level cleanup
     fun stop() {
         stopped = true
+        unwatchAvailability()
         val h = handler
         if (h == null || !h.post { teardown(); handlerThread?.quitSafely() }) teardown()
     }
@@ -467,19 +526,20 @@ class CameraSessionController(
                     camera.close()
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
-                        fail("openCamera.onDisconnected", null)
+                        cameraTaken("openCamera.onDisconnected", null)
                     }
                 }
                 override fun onError(camera: CameraDevice, error: Int) {
                     camera.close()
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
-                        fail("openCamera.onError", RuntimeException("Camera2 error code $error"))
+                        val e = RuntimeException("Camera2 error code $error")
+                        if (takenBy(error)) cameraTaken("openCamera.onError", e) else fail("openCamera.onError", e)
                     }
                 }
             }, handler)
         } catch (e: Exception) {
-            fail("openCamera", e)
+            if (takenBy(e)) cameraTaken("openCamera", e) else fail("openCamera", e)
         }
     }
 
@@ -614,6 +674,8 @@ class CameraSessionController(
         try {
             session.setRepeatingRequest(buildRequest(camera), ccmCaptureCallback, handler)
             turningOn = false
+            streamedOnce = true
+            if (taken) { taken = false; unwatchAvailability() }
             // Only after Camera2 accepts the repeating request are frames guaranteed en route
             onStateChanged(StreamState.Streaming, "startRepeating", null)
         } catch (e: Exception) {  // also IllegalStateException for a session closed meanwhile
@@ -856,19 +918,20 @@ class CameraSessionController(
                     camera.close()
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
-                        fail("switchCameraTo.onDisconnected", null)
+                        cameraTaken("switchCameraTo.onDisconnected", null)
                     }
                 }
                 override fun onError(camera: CameraDevice, error: Int) {
                     camera.close()
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
-                        fail("switchCameraTo.onError", RuntimeException("Camera2 error code $error"))
+                        val e = RuntimeException("Camera2 error code $error")
+                        if (takenBy(error)) cameraTaken("switchCameraTo.onError", e) else fail("switchCameraTo.onError", e)
                     }
                 }
             }, handler)
         } catch (e: Exception) {
-            fail("switchCameraTo", e)
+            if (takenBy(e)) cameraTaken("switchCameraTo", e) else fail("switchCameraTo", e)
         }
     }
 
@@ -919,7 +982,7 @@ class CameraSessionController(
                     camera.close()
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
-                        fail("$op.onDisconnected", null)
+                        cameraTaken("$op.onDisconnected", null)
                     }
                 }
                 override fun onError(camera: CameraDevice, error: Int) {
@@ -927,6 +990,7 @@ class CameraSessionController(
                     if (myGeneration == cameraGeneration) {
                         cameraDevice = null
                         val e = RuntimeException("Camera2 error code $error")
+                        if (takenBy(error)) { cameraTaken("$op.onError", e); return }
                         if (codec == H264Stream.CODEC_H264 && error == CameraDevice.StateCallback.ERROR_CAMERA_DEVICE) {
                             // The camera gave up feeding the encoder (a size or rate it can't): MJPEG, not the end.
                             // The camera service restarts it first, so opening it again waits a little.
@@ -940,6 +1004,7 @@ class CameraSessionController(
                 }
             }, handler)
         } catch (e: Exception) {
+            if (takenBy(e)) { cameraTaken(op, e); return }
             // Right after the camera failed it can be briefly unknown ("Unable to retrieve camera characteristics")
             if (tries > 0 && retryReopen(op, tries, myGeneration)) return
             fail(op, e)

@@ -14,6 +14,8 @@
 | ISO/shutter change has no effect | Only one of the two was sent | Switch to Manual - desktop sends both simultaneously |
 | FPS stays at 30 with 60 picked, whatever the light or size | Some phone makers keep their camera's faster modes for their own camera app. The phone lists 60 fps and accepts the request, then gives other apps 30 anyway. **Copy diagnostics** while streaming shows it: the "Camera did" line reads 33.4 ms with range [60, 60] | Nothing in Telescope can change this. Rates a camera doesn't list at all are grayed out in the FPS dropdown |
 | Lag or dropped frames over Wi-Fi | Format is Heavy (MJPEG), which sends several times the data of Light | Switch Format to Light, use USB, lower JPEG quality, or reduce FPS |
+| "Another app on the phone is using the camera" | An app opened the phone's camera (the Camera app, a video call). Android gives the camera to the app on screen | Close that app or switch away from it. The stream comes back by itself once the camera is free |
+| "The phone is streaming to <name>" | Another computer paired with the phone started its camera first | Stop the stream on that computer or on the phone, then click Start again |
 | Second launch does nothing | Single-instance enforcement | The existing window is brought to the front |
 | Opening Telescope shows "Telescope can't start" | Another program is using port 47823 (or a stuck Telescope is), so the new copy can't tell whether one is already running | Close that program or end the stuck Telescope, then open it again |
 | Opening Telescope says it is already running for another user (Windows) | Another account on this PC has Telescope open, and both use the same local port | Close it in that account, then open Telescope again. On Linux each account has its own |
