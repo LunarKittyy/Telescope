@@ -300,7 +300,7 @@ def test_phones_dialog_lists_renames_and_removes(plugin_env, monkeypatch):
     dialog = connection_module.PhonesDialog(plugin)
     assert dialog._list.count() == 1
     dialog._list.setCurrentRow(0)
-    monkeypatch.setattr(connection_module.QInputDialog, "getText", lambda *a, **k: ("Renamed", True))
+    monkeypatch.setattr(connection_module, "_ask_name", lambda *a, **k: ("Renamed", True))
     dialog._rename()
     assert dialog._list.item(0).text() == "Renamed"
     monkeypatch.setattr(connection_module.QMessageBox, "question",
@@ -970,10 +970,29 @@ def test_add_phone_request_on_the_bus_opens_pairing(plugin_env, monkeypatch):
 def test_computer_name_can_be_renamed_from_the_phones_dialog(plugin_env, monkeypatch):
     plugin, _host, _panel = plugin_env
     dialog = connection_module.PhonesDialog(plugin)
-    monkeypatch.setattr(connection_module.QInputDialog, "getText", lambda *a, **k: ("Studio PC", True))
+    monkeypatch.setattr(connection_module, "_ask_name", lambda *a, **k: ("Studio PC", True))
     dialog._rename_computer()
     assert plugin.get_config()["computer_name"] == "Studio PC"
     assert dialog._computer_lbl.text() == "Studio PC"
+
+
+def test_computer_name_is_cleaned_and_capped(plugin_env):
+    plugin, _host, _panel = plugin_env
+    plugin.set_computer_name("A" * 500 + "\x00<b>")
+    assert plugin.computer_name == "A" * connection_module.MAX_NAME_CHARS
+    plugin.set_config({"computer_name": "Desk\x00 <PC>" + "x" * 200})
+    assert plugin.computer_name.startswith("Desk PC") and len(plugin.computer_name) == connection_module.MAX_NAME_CHARS
+    plugin.set_computer_name("\x00<>")
+    assert plugin.computer_name  # nothing printable left keeps the old name
+
+
+def test_rename_dialog_line_edit_has_a_length_cap(plugin_env, monkeypatch):
+    plugin, _host, _panel = plugin_env
+    caps = []
+    monkeypatch.setattr(connection_module.QInputDialog, "exec",
+                        lambda self: caps.append(self.findChild(connection_module.QLineEdit).maxLength()) or 0)
+    connection_module._ask_name(None, "Rename", "Name", "x")
+    assert caps == [connection_module.MAX_NAME_CHARS]
 
 
 def test_re_pairing_the_streaming_phone_reconnects_with_the_new_token(plugin_env):
