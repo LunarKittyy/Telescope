@@ -103,6 +103,18 @@ def test_blank_names_are_ignored(qapp):
     assert plugin.names() == [] and host.saves == 0
 
 
+def test_names_lose_control_characters_when_saved_renamed_and_loaded(qapp):
+    host = _Host()
+    plugin = _presets(host)
+    plugin.save("Des\x00k\n<b>")
+    assert plugin.names() == ["Desk b"]
+    plugin.rename("Desk b", "Ni\x07ght\t" + "x" * 80)
+    (name,) = plugin.names()
+    assert name.startswith("Night x") and len(name) == 40 and name.isprintable()
+    plugin.set_config({"presets": [{"name": "Lo\x00ad\x1b"}, {"name": "\x00\x01"}]})
+    assert plugin.names() == ["Load"]
+
+
 def test_apply_hands_sections_to_the_host_camera_first(qapp):
     host = _Host()
     stubs = {n: _Stub(n, {}) for n in ("camera_control", "stream_output", "transforms")}

@@ -35,10 +35,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Callable, Optional
 
-import cv2
 import numpy as np
 
 from telescope import h264_reader
+from telescope.jpeg_guard import decode_jpeg
 
 logger = logging.getLogger(__name__)
 
@@ -517,7 +517,7 @@ class BrowserReader:
     def decode(packet):
         if isinstance(packet, np.ndarray):
             return packet  # H.264, already decoded in order
-        return cv2.imdecode(np.frombuffer(packet, dtype=np.uint8), cv2.IMREAD_COLOR)
+        return decode_jpeg(packet)
 
     def read(self):
         ok, packet = self.read_packet()

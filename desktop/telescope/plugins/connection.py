@@ -18,7 +18,7 @@ from typing import Optional
 
 from PyQt6.QtCore import QObject, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
-    QCheckBox, QDialog, QHBoxLayout, QInputDialog, QLabel, QListWidget, QListWidgetItem,
+    QCheckBox, QDialog, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem,
     QMessageBox, QPushButton, QVBoxLayout, QWidget,
 )
 
@@ -39,7 +39,7 @@ from telescope.platform.linux import (
 )
 from telescope.plugin import TelescopePlugin
 from telescope.session_client import (
-    PING_PORT, START_POLL_INTERVAL, START_TIMEOUT, PhoneSessionClient, clean_name,
+    PING_PORT, START_POLL_INTERVAL, START_TIMEOUT, MAX_NAME_CHARS, PhoneSessionClient, clean_name,
 )
 from telescope.widgets.common import (
     ElidingLabel, NoScrollComboBox, action_button, add_card_header, button_row, card_action,
@@ -64,8 +64,20 @@ _UNREACHABLE_STREAK_LIMIT = 3
 
 
 def default_computer_name() -> str:
-    name = socket.gethostname().split(".")[0].strip()
-    return name or "Computer"
+    return clean_name(socket.gethostname().split(".")[0]) or "Computer"
+
+
+def _ask_name(parent, title: str, label: str, text: str):
+    """QInputDialog.getText with the name length cap on its line edit; returns (text, accepted)."""
+    dlg = QInputDialog(parent)
+    dlg.setWindowTitle(title)
+    dlg.setLabelText(label)
+    dlg.setTextValue(text)
+    edit = dlg.findChild(QLineEdit)
+    if edit is not None:
+        edit.setMaxLength(MAX_NAME_CHARS)
+    accepted = dlg.exec() == QInputDialog.DialogCode.Accepted
+    return dlg.textValue(), accepted
 
 
 @dataclass(frozen=True)
@@ -359,15 +371,15 @@ class PhonesDialog(QDialog):
         phone = self._plugin.phone(pid)
         if phone is None:
             return
-        name, ok = QInputDialog.getText(self, "Rename phone", "Name", text=phone.name)
+        name, ok = _ask_name(self, "Rename phone", "Name", phone.name)
         if ok and name.strip():
             self._plugin.rename_phone(pid, name.strip())
             self.refresh()
 
     def _rename_computer(self):
-        name, ok = QInputDialog.getText(self, "Rename this computer",
-                                        "Name your phones show (applies to phones you pair from now on)",
-                                        text=self._plugin.computer_name)
+        name, ok = _ask_name(self, "Rename this computer",
+                             "Name your phones show (applies to phones you pair from now on)",
+                             self._plugin.computer_name)
         if ok and name.strip():
             self._plugin.set_computer_name(name.strip())
             self.refresh()
@@ -507,7 +519,7 @@ class ConnectionPlugin(TelescopePlugin):
         return self._computer_name
 
     def set_computer_name(self, name: str):
-        self._computer_name = name
+        self._computer_name = clean_name(name) or self._computer_name
         self._host.save_now()
 
     @property
@@ -1286,8 +1298,8 @@ class ConnectionPlugin(TelescopePlugin):
         if isinstance(cid, str) and cid:
             self._computer_id = cid
         name = cfg.get("computer_name")
-        if isinstance(name, str) and name.strip():
-            self._computer_name = name.strip()
+        if isinstance(name, str) and clean_name(name):
+            self._computer_name = clean_name(name)
         route = cfg.get("route")
         self._route_pref = route if route in (ROUTE_AUTO, ROUTE_USB, ROUTE_WIFI) else ROUTE_AUTO
         self._phones = []

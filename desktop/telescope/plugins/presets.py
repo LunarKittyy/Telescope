@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import QInputDialog, QLineEdit, QMenu, QMessageBox, QPushBu
 
 from telescope import theme
 from telescope.plugin import TelescopePlugin
+from telescope.session_client import clean_name
 from telescope.widgets.common import create_vector_icon
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,11 @@ logger = logging.getLogger(__name__)
 SECTIONS = ("camera_control", "stream_output", "transforms")
 _KEYS = {"camera_control": "camera", "stream_output": "stream", "transforms": "transforms"}
 _MAX_NAME = 40
+
+
+def _clean(raw) -> str:
+    """A preset name as safe display text (no control characters or < >), capped at _MAX_NAME."""
+    return clean_name(raw)[:_MAX_NAME].strip()
 
 
 def _menu_text(name: str) -> str:
@@ -35,7 +41,7 @@ def clean_presets(raw) -> list:
     for p in raw if isinstance(raw, list) else []:
         if not isinstance(p, dict):
             continue
-        name = str(p.get("name", "")).strip()[:_MAX_NAME]
+        name = _clean(p.get("name", ""))
         if not name or name in seen:
             continue
         seen.add(name)
@@ -66,7 +72,7 @@ class PresetsPlugin(TelescopePlugin):
 
     def save(self, name: str):
         """Snapshot the current settings under name, replacing a preset of the same name in place."""
-        name = name.strip()[:_MAX_NAME]
+        name = _clean(name)
         if not name:
             return
         entry = {"name": name}
@@ -95,7 +101,7 @@ class PresetsPlugin(TelescopePlugin):
         self._host.schedule_save()
 
     def rename(self, old: str, new: str):
-        new = new.strip()[:_MAX_NAME]
+        new = _clean(new)
         preset = self.find(old)
         if preset is None or not new or new == old:
             return
@@ -160,7 +166,7 @@ class PresetsPlugin(TelescopePlugin):
 
     def _may_replace(self, name: str, keep: Optional[str] = None) -> bool:
         """Whether saving as name may go ahead: yes when no other preset has it, else ask first."""
-        name = name.strip()[:_MAX_NAME]
+        name = _clean(name)
         if not name or name == keep or self.find(name) is None:
             return True
         answer = QMessageBox.question(self._btn.window(), "Replace preset",

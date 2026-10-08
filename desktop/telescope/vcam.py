@@ -209,37 +209,58 @@ class _Held:
 
 # ── The wait screen ───────────────────────────────────────────────────────
 
-def load_frames(path: Optional[str], width: int, height: int, convert: Callable = None) -> list:
-    """The wait screen as [(frame, seconds)] fitted to width x height: the image or animation at path, or the default
-    screen when there's no path or it won't load. convert turns each RGB frame into what gets sent, as it loads; an
-    animation keeps every nth frame if all of them wouldn't fit in FRAME_BUDGET."""
+def read_image_frames(path: str, width: int, height: int, convert: Callable = None) -> list:
+    """The image or animation at path as [(frame, seconds)] fitted to width x height; empty if it won't load. convert
+    turns each RGB frame into what gets sent, as it loads; an animation keeps every nth frame if all of them wouldn't
+    fit in FRAME_BUDGET."""
     from PyQt6.QtGui import QImageReader
 
     convert = convert or (lambda f: f)
     frames = []
-    if path:
-        reader = QImageReader(path)
-        reader.setAutoTransform(True)
-        animated = reader.supportsAnimation() and reader.imageCount() != 1
-        count = reader.imageCount()
-        keep_every = 1
-        i = 0
-        while True:
-            img = reader.read()
-            if img.isNull():
-                break
-            seconds = max(reader.nextImageDelay() / 1000, MIN_GIF_PERIOD) if animated else STILL_PERIOD
-            if i % keep_every == 0 and (not frames or len(frames) * frames[0][0].nbytes < FRAME_BUDGET):
-                frames.append([convert(_fit_image(img, width, height)), seconds])
-                if i == 0 and count > 1:
-                    keep_every = max(1, math.ceil(count * frames[0][0].nbytes / FRAME_BUDGET))
-            else:
-                frames[-1][1] += seconds
-            i += 1
-            if not animated:
-                break
-        if not frames:
-            logger.warning("Wait screen image %r didn't load: %s", path, reader.errorString())
+    reader = QImageReader(path)
+    reader.setAutoTransform(True)
+    _limit_decode_size(reader, max(width, height))
+    animated = reader.supportsAnimation() and reader.imageCount() != 1
+    count = reader.imageCount()
+    keep_every = 1
+    i = 0
+    while True:
+        img = reader.read()
+        if img.isNull():
+            break
+        seconds = max(reader.nextImageDelay() / 1000, MIN_GIF_PERIOD) if animated else STILL_PERIOD
+        if i % keep_every == 0 and (not frames or len(frames) * frames[0][0].nbytes < FRAME_BUDGET):
+            frames.append([convert(_fit_image(img, width, height)), seconds])
+            if i == 0 and count > 1:
+                keep_every = max(1, math.ceil(count * frames[0][0].nbytes / FRAME_BUDGET))
+        else:
+            frames[-1][1] += seconds
+        i += 1
+        if not animated:
+            break
+    if not frames:
+        logger.warning("Wait screen image %r didn't load: %s", path, reader.errorString())
+    return [(f, s) for f, s in frames]
+
+
+def _limit_decode_size(reader, longest: int):
+    """Have reader decode an image too big for Qt's allocation limit at a size that fits longest px a side, so a huge
+    photo loads instead of failing. The longest side (not width x height) so a rotated photo still has pixels to spare;
+    images that fit the limit are left alone, as Qt's own scaling is the coarse kind."""
+    from PyQt6.QtCore import QSize, Qt
+
+    size = reader.size()
+    limit = reader.allocationLimit() * 1024 * 1024
+    if size.isValid() and max(size.width(), size.height()) > longest and (
+            not limit or size.width() * size.height() * 4 > limit // 2):
+        reader.setScaledSize(size.scaled(QSize(longest, longest), Qt.AspectRatioMode.KeepAspectRatio))
+
+
+def load_frames(path: Optional[str], width: int, height: int, convert: Callable = None) -> list:
+    """The wait screen as [(frame, seconds)] fitted to width x height: the image or animation at path, or the default
+    screen when there's no path or it won't load."""
+    convert = convert or (lambda f: f)
+    frames = [[f, s] for f, s in read_image_frames(path, width, height, convert)] if path else []
     if not frames:
         frames = [[convert(_default_screen(width, height)), STILL_PERIOD]]
     if len(frames) == 1:

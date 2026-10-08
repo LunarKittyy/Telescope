@@ -1,8 +1,11 @@
 """The wait screen plugin: when it holds the camera, at what size, and the image it shows."""
 
+from pathlib import Path
+
 import pytest
 from PyQt6.QtCore import QCoreApplication
 
+import telescope.plugins.wait_screen as wait_screen_module
 import telescope.vcam as vcam
 from telescope.plugin import EventBus
 from telescope.plugins.setup import CANVAS_PRESETS
@@ -157,25 +160,89 @@ def test_a_reader_is_passed_to_the_screen_and_the_bus(env, qapp):
     assert screen.watched == [True] and seen == [True]
 
 
+def _kept(config_home):
+    return sorted(p.name for p in config_home.config_path().parent.glob("wait_screen*"))
+
+
 def test_a_chosen_image_is_kept_next_to_the_config(env, tmp_path, config_home):
     plugin, host, _bus, screen = env
     first = tmp_path / "first.PNG"
     first.write_bytes(b"one")
     plugin.set_image(str(first))
-    kept = config_home.config_path().parent / "wait_screen.png"
-    assert kept.read_bytes() == b"one" and plugin.image_path == str(kept)
-    assert screen.shown[-1][1] == str(kept)
+    kept = Path(plugin.image_path)
+    assert kept.parent == config_home.config_path().parent and kept.suffix == ".png"
+    assert kept.read_bytes() == b"one" and screen.shown[-1][1] == str(kept)
 
     second = tmp_path / "second.gif"
     second.write_bytes(b"two")
     plugin.set_image(str(second))
     assert not kept.exists()  # the old copy goes
+    second_kept = Path(plugin.image_path)
     plugin.set_image(plugin.image_path)  # choosing the kept copy itself is fine
-    assert (kept.parent / "wait_screen.gif").read_bytes() == b"two"
+    assert plugin.image_path == str(second_kept) and second_kept.read_bytes() == b"two"
+    assert _kept(config_home) == [second_kept.name]
 
     plugin.set_image(None)
     assert plugin.image_path is None and screen.shown[-1][1] is None
     assert host.saves == 4
+
+
+def test_a_second_image_of_the_same_type_is_a_different_path(env, tmp_path, config_home):
+    plugin, _host, _bus, screen = env
+    for name, data in (("a.png", b"one"), ("b.png", b"two")):
+        (tmp_path / name).write_bytes(data)
+        plugin.set_image(str(tmp_path / name))
+    first, second = (shown[1] for shown in screen.shown[-2:])
+    assert first != second  # so the camera reloads instead of keeping the first picture
+    assert Path(second).read_bytes() == b"two" and _kept(config_home) == [Path(second).name]
+
+
+def test_a_copy_from_an_older_version_goes_on_the_next_pick(env, tmp_path, config_home):
+    plugin = env[0]
+    legacy = config_home.config_path().parent / "wait_screen.png"
+    legacy.parent.mkdir(parents=True, exist_ok=True)
+    legacy.write_bytes(b"old")
+    (tmp_path / "a.png").write_bytes(b"new")
+    plugin.set_image(str(tmp_path / "a.png"))
+    assert not legacy.exists() and Path(plugin.image_path).read_bytes() == b"new"
+
+
+def test_a_failed_replacement_keeps_the_previous_image(env, tmp_path, config_home, monkeypatch):
+    plugin, host, _bus, screen = env
+    (tmp_path / "a.png").write_bytes(b"one")
+    plugin.set_image(str(tmp_path / "a.png"))
+    previous, saves, shows = plugin.image_path, host.saves, len(screen.shown)
+    (tmp_path / "b.jpg").write_bytes(b"two")
+
+    def full_disk(src, dst):
+        Path(dst).write_bytes(b"tw")
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(wait_screen_module.shutil, "copyfile", full_disk)
+    assert "No space" in plugin.set_image(str(tmp_path / "b.jpg"))
+    assert plugin.image_path == previous and Path(previous).read_bytes() == b"one"
+    assert _kept(config_home) == [Path(previous).name]  # no half-written leftovers
+    assert host.saves == saves and len(screen.shown) == shows
+
+
+def test_the_dialog_says_when_a_pick_failed_or_wont_load(env, tmp_path, monkeypatch):
+    plugin = env[0]
+    dlg = WaitScreenDialog(plugin)
+    monkeypatch.setattr(WaitScreenPlugin, "set_image", lambda self, path: "No space left on device")
+    dlg._set(str(tmp_path / "x.png"))
+    assert "No space left on device" in dlg._note.text() and "Keeping" in dlg._note.text()
+    monkeypatch.undo()
+
+    bad = tmp_path / "bad.png"
+    bad.write_bytes(b"not an image")
+    plugin.set_image(str(bad))
+    dlg.refresh()
+    assert "Couldn't read that image" in dlg._note.text()
+    assert not dlg._preview.pixmap().isNull()  # the default screen stands in
+
+    plugin.set_image(None)
+    dlg.refresh()
+    assert "Couldn't" not in dlg._note.text()
 
 
 @pytest.mark.parametrize("size, kept", [
