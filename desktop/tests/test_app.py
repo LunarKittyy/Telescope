@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from dataclasses import replace
 import time
 from types import SimpleNamespace
@@ -179,6 +180,13 @@ def test_register_plugin_initializes_panel_and_captures_device_defaults(window):
     assert window._panels["left"] == [plugin.panel]
 
 
+@pytest.fixture(autouse=True)
+def port_notices(monkeypatch):
+    shown = []
+    monkeypatch.setattr(app_module, "_port_taken_notice", lambda: shown.append(True))
+    return shown
+
+
 def test_acquire_single_instance_binds_and_listens(monkeypatch):
     calls = []
 
@@ -190,11 +198,11 @@ def test_acquire_single_instance_binds_and_listens(monkeypatch):
     sock = Socket()
     monkeypatch.setattr(app_module.socket, "socket", lambda *_args: sock)
     assert app_module.acquire_single_instance() is sock
-    assert ("bind", ("127.0.0.1", app_module._INSTANCE_PORT)) in calls
+    assert ("bind", app_module._INSTANCE_ADDRESS) in calls
     assert ("listen", 1) in calls
 
 
-def test_acquire_single_instance_notifies_existing_process(monkeypatch):
+def test_acquire_single_instance_notifies_existing_process(monkeypatch, port_notices):
     events = []
 
     class Server:
@@ -206,13 +214,50 @@ def test_acquire_single_instance_notifies_existing_process(monkeypatch):
         def settimeout(self, timeout): events.append(("timeout", timeout))
         def connect(self, address): events.append(("connect", address))
         def sendall(self, data): events.append(("send", data))
+        def recv(self, _size): return b"ok"
         def close(self): events.append("client-close")
 
     sockets = iter([Server(), Client()])
     monkeypatch.setattr(app_module.socket, "socket", lambda *_args: next(sockets))
     assert app_module.acquire_single_instance() is None
-    assert ("send", b"raise") in events
+    assert ("send", b"raise:" + app_module.user_token()) in events
     assert events[0] == "server-close"
+    assert port_notices == []
+
+
+def test_acquire_single_instance_says_so_when_nothing_answers_the_raise(monkeypatch, port_notices):
+    class Server:
+        def setsockopt(self, *_args): pass
+        def bind(self, _address): raise OSError("in use")
+        def close(self): pass
+
+    class Client:
+        def settimeout(self, _timeout): pass
+        def connect(self, _address): pass
+        def sendall(self, _data): pass
+        def recv(self, _size): return b""  # some other program accepted the connection and closed it
+        def close(self): pass
+
+    sockets = iter([Server(), Client()])
+    monkeypatch.setattr(app_module.socket, "socket", lambda *_args: next(sockets))
+    assert app_module.acquire_single_instance() is None
+    assert port_notices == [True]
+
+
+def test_a_running_telescope_answers_a_raise_with_ok():
+    import threading
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(4)
+    raised = threading.Event()
+    threading.Thread(target=app_module.listen_for_raise, args=(srv, raised.set), daemon=True).start()
+    try:
+        with socket.create_connection(("127.0.0.1", srv.getsockname()[1]), timeout=5) as c:
+            c.sendall(b"raise:" + app_module.user_token())
+            assert c.recv(2) == b"ok"
+        assert raised.is_set()
+    finally:
+        srv.close()
 
 
 def test_acquire_single_instance_waits_for_the_old_copy_after_an_update(monkeypatch):
@@ -285,7 +330,8 @@ def test_listen_for_raise_invokes_callback_and_closes_connection():
 
     class Conn:
         def settimeout(self, timeout): events.append(("conn timeout", timeout))
-        def recv(self, _size): return b"raise"
+        def recv(self, _size): return b"raise:" + app_module.user_token()
+        def sendall(self, data): events.append(("reply", data))
         def close(self): events.append("closed")
 
     class Server:
@@ -297,7 +343,7 @@ def test_listen_for_raise_invokes_callback_and_closes_connection():
             return Conn(), ("127.0.0.1", 1)
 
     app_module.listen_for_raise(Server(), lambda: events.append("raised"))
-    assert events == [("timeout", 1.0), "accepted", ("conn timeout", 1.0), "raised", "closed"]
+    assert events == [("timeout", 1.0), "accepted", ("conn timeout", 1.0), "raised", ("reply", b"ok"), "closed"]
 
 
 def test_listen_for_raise_ignores_wrong_message_and_timeouts(monkeypatch):
@@ -333,7 +379,7 @@ def test_a_silent_connection_does_not_stop_later_raises():
     silent = socket.create_connection(("127.0.0.1", port))
     try:
         with socket.create_connection(("127.0.0.1", port)) as c:
-            c.sendall(b"raise")
+            c.sendall(b"raise:" + app_module.user_token())
         assert raised.wait(5)
     finally:
         silent.close()
@@ -357,7 +403,7 @@ def test_a_reset_connection_does_not_stop_later_raises():
         rude.close()  # sends RST
         time.sleep(0.2)
         with socket.create_connection(("127.0.0.1", port)) as c:
-            c.sendall(b"raise")
+            c.sendall(b"raise:" + app_module.user_token())
         assert raised.wait(5)
     finally:
         srv.close()
@@ -3062,3 +3108,100 @@ def test_stop_drops_starts_waiting_for_the_extra_cameras(camera_env, monkeypatch
     window._on_slots_ready(True, "", "")
     QCoreApplication.processEvents()
     assert not window.is_streaming() and not window._waking
+
+
+def test_one_bad_saved_field_keeps_the_plugins_other_settings(window):
+    class Picky(_Plugin):
+        def set_config(self, cfg):
+            if not isinstance(cfg.get("flip_h", False), bool):
+                raise TypeError("flip_h")
+            super().set_config(cfg)
+
+    plugin = Picky("transforms", {"flip_h": False, "zoom": 1.0})
+    window.register_plugin(plugin)
+
+    window._set_plugin_config(plugin, {"flip_h": "yes", "zoom": 2.0})
+
+    assert plugin.config == {"flip_h": False, "zoom": 2.0}
+
+
+def test_a_config_that_was_set_aside_shows_a_banner(window, config_home):
+    path = config_home.config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("not valid json", encoding="utf-8")
+
+    window.apply_saved_config()
+
+    banner = window._banners._banners["config"]
+    assert "couldn't be read" in banner.issue.title
+    assert ".invalid-" in banner.issue.text
+
+
+def test_a_readable_config_shows_no_banner(window):
+    window.apply_saved_config()
+    assert "config" not in window._banners._banners
+
+
+def test_another_users_telescope_on_a_shared_port_answers_other(monkeypatch, port_notices):
+    class Server:
+        def setsockopt(self, *_args): pass
+        def bind(self, _address): raise OSError("in use")
+        def close(self): pass
+
+    class Client:
+        def settimeout(self, _timeout): pass
+        def connect(self, _address): pass
+        def sendall(self, _data): pass
+        def recv(self, _size): return b"other"
+        def close(self): pass
+
+    seen = []
+    sockets = iter([Server(), Client()])
+    monkeypatch.setattr(app_module.socket, "socket", lambda *_args: next(sockets))
+    monkeypatch.setattr(app_module, "_other_user_notice", lambda: seen.append(True))
+    assert app_module.acquire_single_instance() is None
+    assert seen == [True] and port_notices == []
+
+
+def test_the_listener_only_raises_for_the_same_user():
+    import threading
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(4)
+    raised = threading.Event()
+    threading.Thread(target=app_module.listen_for_raise, args=(srv, raised.set), daemon=True).start()
+    try:
+        with socket.create_connection(("127.0.0.1", srv.getsockname()[1]), timeout=5) as c:
+            c.sendall(b"raise:" + b"0" * 16)
+            assert c.recv(5) == b"other"
+        assert not raised.is_set()
+    finally:
+        srv.close()
+
+
+@pytest.mark.skipif(not hasattr(socket, "AF_UNIX"), reason="Unix sockets")
+def test_a_linux_lock_is_per_user_and_a_second_copy_of_the_same_user_gets_ok(monkeypatch):
+    import threading
+    import update_guard
+    with monkeypatch.context() as m:
+        m.setattr(update_guard.sys, "platform", "linux")
+        _, mine = update_guard.instance_address()
+        m.setattr(update_guard.os, "getuid", lambda: 4242424)
+        _, other_users = update_guard.instance_address()
+    assert mine != other_users and other_users.startswith(b"\0telescope-4242424")
+
+    monkeypatch.setattr(app_module, "_INSTANCE_ADDRESS", b"\0telescope-test-%d" % os.getpid())
+    monkeypatch.setattr(app_module, "_INSTANCE_FAMILY", socket.AF_UNIX)
+    srv = app_module.acquire_single_instance()
+    assert srv is not None
+    raised = threading.Event()
+    threading.Thread(target=app_module.listen_for_raise, args=(srv, raised.set), daemon=True).start()
+    try:
+        assert app_module.acquire_single_instance() is None  # the second copy: raised the first
+        assert raised.wait(5)
+        monkeypatch.setattr(app_module, "_INSTANCE_ADDRESS", b"\0telescope-test-other-%d" % os.getpid())
+        other = app_module.acquire_single_instance()  # a different user's name binds alongside
+        assert other is not None
+        other.close()
+    finally:
+        srv.close()

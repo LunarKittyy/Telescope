@@ -231,3 +231,25 @@ def test_the_relaunched_app_unpacks_its_own_copy():
     (argv, kwargs), = launched
     assert argv == ["Telescope.exe", "--after-update"]
     assert kwargs["env"]["PYINSTALLER_RESET_ENVIRONMENT"] == "1"
+
+
+def test_the_dialog_says_a_build_was_rolled_back_and_lets_the_user_try_again(env, monkeypatch, tmp_path):
+    plugin, _host, _bus, button, _fetched = env
+    (tmp_path / ".update-failed").write_text('{"build": 200}')
+    monkeypatch.setattr(updates, "install_dir", lambda: tmp_path)
+
+    plugin.check(manual=True)
+    text, kind = plugin.status_text()
+    assert "0.6.0 nightly 200 was rolled back because it didn't start" in text and kind == "status_warn"
+    assert plugin.available is None and button.isHidden()
+
+    dlg = plugin_module.UpdatesDialog(plugin)
+    dlg.show()
+    dlg.refresh()
+    assert not dlg._retry.isHidden()
+
+    plugin.try_again()
+    assert plugin.rolled_back is None and plugin.available is NEWER
+    assert not (tmp_path / ".update-failed").exists()
+    assert not button.isHidden()
+    dlg.close()

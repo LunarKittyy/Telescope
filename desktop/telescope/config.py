@@ -5,7 +5,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Optional
 
 from telescope import dev_profile
 
@@ -17,6 +17,10 @@ _CONFIG_FILENAME = "telescope_config.json"
 
 # Plugin configs that are stored per-device rather than globally
 DEVICE_LOCAL_PLUGINS = frozenset({"camera_control", "stream_output", "transforms", "monitoring", "presets", "microphone"})
+
+
+_last_backed_up: Optional[tuple] = None
+_reset_notice: Optional[str] = None
 
 
 def config_path() -> Path:
@@ -50,7 +54,7 @@ def load_config(strict: bool = False) -> dict:
 
     try:
         raw = json.loads(data.decode("utf-8-sig"))  # -sig: Notepad saves a byte order mark
-    except ValueError:  # not JSON, not UTF-8, or a number too long to read
+    except (ValueError, RecursionError):  # not JSON, not UTF-8, a number too long to read, or nested too deep
         logger.exception("Config at %s is not valid JSON - backing up and starting fresh", path)
         _backup_invalid_file(path, data)
         return _empty()
@@ -124,13 +128,26 @@ def _plain(value):
     raise TypeError(f"{type(value).__name__} can't be saved in the config")
 
 
+def take_reset_notice() -> Optional[str]:
+    """Once, after a config was set aside: where the copy went ("" when it couldn't be kept). None: nothing happened."""
+    global _reset_notice
+    notice, _reset_notice = _reset_notice, None
+    return notice
+
+
 def _backup_invalid_file(path: Path, original: bytes) -> None:
     """Preserve discarded config (unparseable, wrong shape, unsupported version) as timestamped backup."""
+    global _last_backed_up, _reset_notice
+    if _last_backed_up == (path, original):
+        return  # every load before the first save sees the same file; one copy is enough
+    _last_backed_up = (path, original)
+    _reset_notice = ""
     timestamp = datetime.now().strftime("%Y%m%dT%H%M%S")
     backup_path = path.with_name(f"{path.name}.invalid-{timestamp}")
     try:
         with _open_private(backup_path, "wb") as f:
             f.write(original)
+        _reset_notice = str(backup_path)
         logger.info("Backed up invalid config to %s", backup_path)
     except OSError:
         logger.exception("Failed to back up invalid config to %s", backup_path)

@@ -10,13 +10,17 @@ import update_guard
 
 APP_DIR = Path(sys.executable if getattr(sys, "frozen", False) else __file__).resolve().parent
 # Before anything else is imported: an update that was cut short may leave files that don't import together.
-_right_version = update_guard.recover(APP_DIR, wait=15 if "--after-update" in sys.argv[1:] else 0)
+_after_update = "--after-update" in sys.argv[1:]
+# legacy: the copy that installed this update may be one from before the per-user lock
+_right_version = update_guard.recover(APP_DIR, wait=15 if _after_update else 0,
+                                      running_elsewhere=lambda: update_guard.another_copy_running(legacy=_after_update))
 if _right_version is not None:
     try:
         update_guard.launch(_right_version)
     except OSError:
         pass  # nothing more this copy can do; starting Telescope again runs whatever version is in place
     sys.exit(0)
+update_guard.confirm_on_terminate(APP_DIR)
 
 # The new version has started fine this long after its window came up (or once it's closed normally).
 _STARTED_FINE_MS = 3000
@@ -51,7 +55,7 @@ from telescope import dev_profile, diagnostics
 from telescope.app import (
     TelescopeWindow, acquire_single_instance, listen_for_raise,
 )
-from telescope.platform import IS_LINUX, autostart
+from telescope.platform import IS_LINUX, autostart, virtual_mic
 from telescope.plugins.browser_camera import BrowserCameraPlugin
 from telescope.plugins.camera_control import CameraControlPlugin
 from telescope.plugins.connection import ConnectionPlugin
@@ -103,6 +107,9 @@ def main():
     srv = acquire_single_instance(wait=15 if args.after_update else 0)
     if srv is None:
         sys.exit(0)
+    if IS_LINUX:
+        # Only the copy holding the single-instance port gets here, so the source it finds is never a running one's
+        virtual_mic.remove_stale_source(lambda cmd: virtual_mic._run(cmd, timeout=2))
     apply_theme(app)
 
     win = TelescopeWindow()
@@ -139,6 +146,10 @@ def main():
             # Every start, not just after an update: an old version's files can still be locked the first time.
             clean_up_after_update()
     started_fine.done = False
+    # Python only runs a signal handler when the interpreter gets control, which Qt's loop doesn't give it by itself
+    wake = QTimer()
+    wake.timeout.connect(lambda: None)
+    wake.start(250)
     QTimer.singleShot(_STARTED_FINE_MS, started_fine)
     app.aboutToQuit.connect(started_fine)
 

@@ -395,3 +395,27 @@ def test_quiet_audio_goes_through_untouched_with_the_limiter_on():
     w, _ = _worker(None, _Sink())
     quiet = _wave(3000)
     assert w._shape(quiet) == quiet
+
+
+def test_remove_stale_source_unloads_only_ours():
+    pactl = _Pactl("\n".join([
+        "8\tmodule-pipe-source\tsource_name=telescope_mic file=/run/user/1000/telescope-mic.fifo",
+        "10\tmodule-pipe-source\tsource_name=telescope_dev_mic file=/run/user/1000/telescope-dev-mic.fifo",
+        "9\tmodule-alsa-card\tdevice_id=0",
+    ]))
+    virtual_mic.remove_stale_source(pactl)
+    assert ["pactl", "unload-module", "8"] in pactl.calls
+    assert not any(c[1] == "load-module" for c in pactl.calls)
+    assert ["pactl", "unload-module", "9"] not in pactl.calls
+    assert ["pactl", "unload-module", "10"] not in pactl.calls  # a running dev profile's source stays
+
+
+def test_remove_stale_source_is_quiet_without_a_sound_server():
+    calls = []
+
+    def pactl(cmd):
+        calls.append(cmd)
+        return False, "No such file or directory"
+
+    virtual_mic.remove_stale_source(pactl)
+    assert calls == [["pactl", "list", "short", "modules"]]

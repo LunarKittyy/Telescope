@@ -17,8 +17,8 @@ from telescope.platform import virtual_mic
 print(json.dumps({
     "config": str(config.config_path()),
     "logs": str(diagnostics.log_dir()),
-    "instance_port": app._INSTANCE_PORT,
-    "real_instance_port": update_guard.INSTANCE_PORT,
+    "instance": repr(app._INSTANCE_ADDRESS),
+    "real_instance": repr(update_guard.instance_address()[1]),
     "mic_source": virtual_mic.SOURCE,
     "mic_ours": list(virtual_mic._OURS),
     "fifo": virtual_mic.fifo_path(),
@@ -43,7 +43,7 @@ def test_a_dev_profile_keeps_everything_apart_from_the_real_app(tmp_path):
     dev = _probe(tmp_path, tmp_path / "profile")
     assert Path(dev["config"]).parent == tmp_path / "profile"
     assert Path(dev["logs"]).parent == tmp_path / "profile"
-    assert dev["instance_port"] != real["instance_port"] == real["real_instance_port"]
+    assert dev["instance"] != real["instance"] == real["real_instance"]
     assert dev["mic_source"] != real["mic_source"]
     assert dev["fifo"] != real["fifo"]
     assert dev["pair_package"] == "com.telescope.dev" and real["pair_package"] == "com.telescope"

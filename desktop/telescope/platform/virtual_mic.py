@@ -61,15 +61,25 @@ def _private_temp_dir() -> str:
     return path
 
 
+def _stale_modules(out: str) -> list:
+    stale = [line.split("\t")[0] for line in out.splitlines() if any(tag in line for tag in _OURS)]
+    return [int(m) for m in stale if m.isdigit()]
+
+
+def remove_stale_source(run: Callable = _run):
+    """Unload a source a crashed run left behind. Quiet when there is no sound server or no pactl."""
+    ok, out = run(["pactl", "list", "short", "modules"])
+    if ok:
+        linux_teardown(_stale_modules(out), run)
+
+
 def linux_setup(run: Callable = _run, fifo: Optional[str] = None) -> tuple:
     """Create the source. Anything a crashed run left behind is unloaded first, so the FIFO is
     always the one this run writes to. Returns (module ids to unload later, error text or "")."""
     ok, out = run(["pactl", "list", "short", "modules"])
     if not ok:
         return [], "The sound server didn't answer (pactl list failed)."
-    stale = [line.split("\t")[0] for line in out.splitlines()
-             if any(tag in line for tag in _OURS)]
-    linux_teardown([int(m) for m in stale if m.isdigit()], run)
+    linux_teardown(_stale_modules(out), run)
     try:
         fifo = fifo or fifo_path()
     except OSError as e:

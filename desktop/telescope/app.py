@@ -1,7 +1,10 @@
+import hashlib
 import logging
+import os
 import shutil
 import socket
 import subprocess
+import sys
 import threading
 import time
 from dataclasses import replace
@@ -17,7 +20,7 @@ from PyQt6.QtWidgets import (
 
 import update_guard
 from telescope import dev_profile, diagnostics, theme, vcam
-from telescope.config import DEVICE_LOCAL_PLUGINS, load_config, save_config
+from telescope.config import DEVICE_LOCAL_PLUGINS, load_config, save_config, take_reset_notice
 from telescope.models import PhoneState, PhoneStateError
 from telescope.phone_client import PhoneControlClient
 from telescope.platform import IS_LINUX
@@ -42,8 +45,23 @@ _CAMERA_LIMITED_TIP = "The phone's camera is making fewer frames than asked for.
 
 
 # ── Single-instance enforcement ───────────────────────────────────────────────
-# The guard checks it before an update's roll-back; a dev profile takes the next one so it runs next to the real app
-_INSTANCE_PORT = update_guard.INSTANCE_PORT + (1 if dev_profile.active() else 0)
+# The guard checks the real app's address before an update's roll-back; a dev profile takes its own so it runs next to it
+_INSTANCE_FAMILY, _INSTANCE_ADDRESS = update_guard.instance_address(dev_profile.active())
+
+
+def user_token() -> bytes:
+    """Who is running this copy, so a shared port (Windows) never raises another user's window."""
+    user = os.environ.get("USERNAME") or os.environ.get("USER") or str(os.getuid() if hasattr(os, "getuid") else "")
+    session = ""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            sid = ctypes.c_ulong()
+            ctypes.windll.kernel32.ProcessIdToSessionId(os.getpid(), ctypes.byref(sid))
+            session = str(sid.value)
+        except Exception:
+            pass
+    return hashlib.sha256(f"{user}\0{session}".encode()).hexdigest()[:16].encode()
 
 
 def acquire_single_instance(wait: float = 0.0) -> Optional[socket.socket]:
@@ -53,9 +71,9 @@ def acquire_single_instance(wait: float = 0.0) -> Optional[socket.socket]:
     """
     deadline = time.monotonic() + wait
     while True:
-        srv = update_guard.instance_socket()
+        srv = update_guard.instance_socket(_INSTANCE_FAMILY)
         try:
-            srv.bind(("127.0.0.1", _INSTANCE_PORT))
+            srv.bind(_INSTANCE_ADDRESS)
             srv.listen(1)
             return srv
         except OSError:
@@ -63,16 +81,39 @@ def acquire_single_instance(wait: float = 0.0) -> Optional[socket.socket]:
             if time.monotonic() >= deadline:
                 break
             time.sleep(0.25)
-    c = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    c = socket.socket(_INSTANCE_FAMILY, socket.SOCK_STREAM)
+    reply = b""
     try:
-        c.settimeout(1)
-        c.connect(("127.0.0.1", _INSTANCE_PORT))
-        c.sendall(b"raise")
+        c.settimeout(2)
+        c.connect(_INSTANCE_ADDRESS)
+        c.sendall(b"raise:" + user_token())
+        reply = c.recv(5)
     except Exception:
         pass
     finally:
         c.close()
+    if reply == b"other":
+        _other_user_notice()
+    elif reply != b"ok":
+        _port_taken_notice()
     return None
+
+
+def _other_user_notice():
+    QMessageBox.information(
+        None, "Telescope is already running",
+        "Telescope is already running for another user on this computer. Close it there, then open it again here.",
+    )
+
+
+def _port_taken_notice():
+    # Quitting without a word looks like a crash when the lock is held by something that isn't Telescope
+    where = f"port {_INSTANCE_ADDRESS[1]}" if _INSTANCE_FAMILY == socket.AF_INET else "a local socket"
+    QMessageBox.warning(
+        None, "Telescope can't start",
+        f"Telescope couldn't start because something else is holding its single-instance lock ({where}), "
+        "or another Telescope is stuck. Close that program, or restart the computer, then open Telescope again.",
+    )
 
 
 def listen_for_raise(srv: socket.socket, raise_cb):
@@ -86,8 +127,12 @@ def listen_for_raise(srv: socket.socket, raise_cb):
             break  # closed on quit
         try:
             conn.settimeout(1.0)
-            if conn.recv(16) == b"raise":
+            message = conn.recv(64)
+            if message == b"raise:" + user_token():
                 raise_cb()
+                conn.sendall(b"ok")  # tells the new copy a Telescope answered, not some other program holding the lock
+            elif message.startswith(b"raise:"):
+                conn.sendall(b"other")  # another user's Telescope, on a port both users can reach
         except OSError:
             pass  # a connection that says nothing or resets mustn't stop every later raise
         finally:
@@ -254,6 +299,11 @@ class TelescopeWindow(QMainWindow):
     def apply_saved_config(self):
         """Restore persisted config into all registered plugins. Call after all plugins registered."""
         self._apply_config(load_config())
+        if (backup := take_reset_notice()) is not None:
+            where = f" A copy of the old file is at {backup}." if backup else ""
+            self.show_issue("config", Issue(
+                "Your settings couldn't be read",
+                "Telescope started with its defaults, so paired phones need pairing again." + where, kind="warn"))
 
     # ── UI construction ───────────────────────────────────────────────────────
 
@@ -612,9 +662,18 @@ class TelescopeWindow(QMainWindow):
         """Load a saved config; one that won't load (hand-edited, another version's) leaves the plugin on its defaults."""
         try:
             plugin.set_config(cfg)
+            return
         except Exception:
-            logging.exception("Saved settings for %s couldn't be loaded; using the defaults", plugin.name)
-            plugin.set_config(self._plugin_defaults.get(plugin.name, {}))
+            logging.exception("Saved settings for %s couldn't be loaded; keeping what does load", plugin.name)
+        # One bad field shouldn't reset the rest: take the fields that load on their own, the defaults for the others
+        good = dict(self._plugin_defaults.get(plugin.name, {}))
+        for key, value in (cfg.items() if isinstance(cfg, dict) else ()):
+            try:
+                plugin.set_config({**good, key: value})
+                good[key] = value
+            except Exception:
+                logging.warning("Saved %s setting %r couldn't be loaded; using its default", plugin.name, key)
+        plugin.set_config(good)
 
     def switch_device(self, prev_name, new_name: Optional[str]):
         """Switch device profile; save old before applying new."""
