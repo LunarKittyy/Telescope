@@ -7,19 +7,17 @@
 ![Platforms](https://img.shields.io/badge/platform-Android%20%7C%20Linux%20%7C%20Windows-blue)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-support-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/lunarkittyy)
 
-Telescope turns your Android phone into a webcam for your Linux or Windows computer, and lets you use any of its lenses, telephoto and ultra-wide included.
+Telescope turns your Android phone into a webcam for your Linux or Windows computer, and lets you use any of its lenses like telephoto or ultra-wide.
 
 - Shows up as a normal webcam in Discord, Zoom, OBS and anything else, and the phone's mic can be your microphone too
-- Pick the lens, and set exposure, focus and white balance from the computer
-- Connects over USB or Wi-Fi, encrypted either way
+- Pick the lens, and set exposure, focus and white balance remotely from the computer
+- Connects over USB or Wi-Fi, transfers data encrypted
 - Can start streaming on its own when an app opens the camera and stop again once nothing's using it
 - A built-in updater lets you install new versions in one click
 
----
-
 ## Quick Start
 
-You'll need an Android phone and a PC running Linux or Windows. No Android phone? [Browser camera](docs/features.md#browser-camera) streams from an iPhone or anything else with a browser.
+You'll need an Android phone and a PC running Linux or Windows. No Android phone? [Browser camera](docs/features.md#browser-camera) streams from an iPhone or anything else with a browser (but please use the app when you can, it's better for battery life, quality and gives you way more customization options).
 
 ### 1. 🖥️ Get the desktop app
 
