@@ -58,11 +58,19 @@ def canvas_dims(cfg: dict) -> tuple[int | None, int | None]:
     return val
 
 
+_CUSTOM_MAX = (7680, 4320)
+
+
+def _even(value: int, top: int) -> int:
+    """value rounded up to even, within top: on Linux the camera's I420 frames need an even width and height."""
+    return min(value + (value & 1), top - (top & 1))
+
+
 def _custom_size(cfg: dict) -> tuple[int, int]:
     # A hand-edited value outside the dialog's own ranges would stop the dialog opening, the one place to fix it
     w, h = cfg.get("custom_canvas_w"), cfg.get("custom_canvas_h")
     ok = all(isinstance(v, int) and not isinstance(v, bool) for v in (w, h)) and 64 <= w <= 7680 and 64 <= h <= 4320
-    return (w, h) if ok else (1920, 1080)
+    return (_even(w, _CUSTOM_MAX[0]), _even(h, _CUSTOM_MAX[1])) if ok else (1920, 1080)
 
 
 DEFAULT_MAX_ZOOM = 10
@@ -299,11 +307,13 @@ class AdvancedDialog(QDialog):
 
         # Custom W x H spinboxes (hidden unless "Custom..." selected)
         self._custom_w = NoScrollSpinBox()
-        self._custom_w.setRange(64, 7680)
+        self._custom_w.setRange(64, _CUSTOM_MAX[0])
+        self._custom_w.setSingleStep(2)  # odd sizes break the colours on Linux
         self._custom_w.setValue(1920)
         self._custom_w.setSuffix(" px")
         self._custom_h = NoScrollSpinBox()
-        self._custom_h.setRange(64, 4320)
+        self._custom_h.setRange(64, _CUSTOM_MAX[1])
+        self._custom_h.setSingleStep(2)
         self._custom_h.setValue(1080)
         self._custom_h.setSuffix(" px")
         size_lay = QHBoxLayout()
@@ -421,6 +431,9 @@ class AdvancedDialog(QDialog):
         if val is None:
             return None, None
         if val == "custom":
+            # A typed odd size goes up to the next even one, and the boxes show what's used
+            self._custom_w.setValue(_even(self._custom_w.value(), _CUSTOM_MAX[0]))
+            self._custom_h.setValue(_even(self._custom_h.value(), _CUSTOM_MAX[1]))
             return self._custom_w.value(), self._custom_h.value()
         return val  # (w, h)
 
@@ -715,14 +728,18 @@ class SetupPlugin(TelescopePlugin):
         self._dlg.activateWindow()
 
     def _on_apply_canvas(self, w: int | None, h: int | None):
+        # In effect for the restart, but kept only once the host accepts it
+        before = (self._canvas_preset, self._custom_w, self._custom_h)
         if self._dlg:
             self._canvas_preset = self._dlg.get_canvas_preset_label()
             if self._canvas_preset == "Custom...":
                 self._custom_w = w
                 self._custom_h = h
-        self._host.schedule_save()
 
         def on_done(ok: bool, msg: str):
+            if not ok:
+                self._canvas_preset, self._custom_w, self._custom_h = before
+            self._host.schedule_save()
             if self._dlg:
                 self._dlg.set_canvas_apply_result(ok, msg)
         self._host.restart_vcam_canvas(w, h, on_done=on_done)

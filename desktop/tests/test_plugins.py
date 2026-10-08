@@ -38,6 +38,14 @@ class _Host:
         self.others = []  # (id, name, control client) of streams the panels don't show
         self.device_cfgs = {}
         self.stopped = []
+        self.issues = {}
+        self.started = []
+
+    def show_issue(self, key, issue):
+        self.issues[key] = issue
+
+    def start_again(self, source_id=None, before=None):
+        return lambda: self.started.append(source_id)
 
     def focused_source_id(self):
         return "phone-a"
@@ -655,6 +663,46 @@ def test_monitoring_stops_again_after_a_restart_past_the_limit(monitoring):
         plugin.on_stream_stop()
 
 
+def test_monitoring_says_why_it_stopped_in_the_window_and_can_start_anyway(monitoring):
+    plugin, host, _bus, _panel = monitoring
+    _streaming(host)
+    plugin._batt_notify.setChecked(False)  # no notification: the banner still says it
+    plugin._batt_stop.setChecked(True)
+    plugin.on_stream_start("url", _Ctrl())
+    plugin._check_alerts(15, False, 30)
+    issue = host.issues["stopped:phone-a"]
+    assert issue.title == "The phone's battery is at 15%" and "20%" in issue.text
+    assert [a.label for a in issue.actions] == ["Start anyway"]
+    issue.actions[0].callback()
+    assert host.started == ["phone-a"]
+
+    _streaming(host)  # the start went through: still low, but it keeps going
+    plugin.on_stream_start("url", _Ctrl())
+    plugin._check_alerts(14, False, 30)
+    assert host.is_streaming()
+    plugin._check_alerts(30, True, 30)  # charged up past the limit: the next drop stops it again
+    plugin._check_alerts(15, False, 30)
+    assert not host.is_streaming()
+
+
+def test_monitoring_start_anyway_for_heat_still_stops_for_battery(monitoring):
+    plugin, host, _bus, _panel = monitoring
+    host._worker = _Worker()
+    other = _Ctrl()
+    host.others = [("phone-b", "Pixel", other)]
+    host.device_cfgs = {"phone-b": {"temp_stop": True, "battery_stop": True}}
+    plugin._on_other_polled("phone-b", "Pixel", other, {"battery": 80, "charging": False, "battery_temp_c": 50})
+    issue = host.issues["stopped:phone-b"]
+    assert issue.title == "Pixel is at 50.0 °C" and "45 °C" in issue.text
+    issue.actions[0].callback()
+    assert host.started == ["phone-b"]
+    host._worker, host.stopped = _Worker(), []  # streaming again
+    plugin._on_other_polled("phone-b", "Pixel", other, {"battery": 80, "charging": False, "battery_temp_c": 50})
+    assert host.stopped == []
+    plugin._on_other_polled("phone-b", "Pixel", other, {"battery": 10, "charging": False, "battery_temp_c": 50})
+    assert host.stopped == ["phone-b"]
+
+
 def test_monitoring_stops_quietly_with_notify_off(monitoring):
     plugin, host, _bus, _panel = monitoring
     _streaming(host)
@@ -736,7 +784,9 @@ def setup_plugin(qapp):
         ({}, (None, None)),
         ({"canvas_preset": "1280 x 720"}, (None, None)),
         ({"canvas_preset": "720p 16:9 - 1280 x 720"}, (1280, 720)),
-        ({"canvas_preset": "Custom...", "custom_canvas_w": 1111, "custom_canvas_h": 777}, (1111, 777)),
+        ({"canvas_preset": "Custom...", "custom_canvas_w": 1112, "custom_canvas_h": 778}, (1112, 778)),
+        ({"canvas_preset": "Custom...", "custom_canvas_w": 1111, "custom_canvas_h": 777}, (1112, 778)),  # odd: up
+        ({"canvas_preset": "Custom...", "custom_canvas_w": 7680, "custom_canvas_h": 4319}, (7680, 4320)),
         ({"canvas_preset": "Custom...", "custom_canvas_w": "1920", "custom_canvas_h": 1080}, (1920, 1080)),
         ({"canvas_preset": "Custom...", "custom_canvas_w": 0, "custom_canvas_h": 720}, (1920, 1080)),
     ],
@@ -780,10 +830,55 @@ def test_setup_plugin_apply_canvas_persists_and_reports_result(setup_plugin):
     assert plugin._dlg.result == (True, "done")
 
 
+def test_setup_plugin_keeps_a_canvas_the_host_refused(setup_plugin):
+    plugin, host, _panel = setup_plugin
+    plugin.set_config({"canvas_preset": "Custom...", "custom_canvas_w": 1920, "custom_canvas_h": 1080})
+    host.restart_vcam_canvas = lambda w, h, on_done=None: on_done(False, "Stop all but one camera first")
+
+    class Dialog:
+        def get_canvas_preset_label(self):
+            return "Custom..."
+
+        def set_canvas_apply_result(self, ok, msg):
+            self.result = (ok, msg)
+
+    plugin._dlg = Dialog()
+    plugin._on_apply_canvas(1280, 720)
+
+    assert plugin.get_canvas_dims() == (1920, 1080)
+    assert plugin.get_config()["custom_canvas_w"] == 1920
+    assert plugin._dlg.result == (False, "Stop all but one camera first")
+
+
+def test_setup_plugin_uses_the_new_canvas_for_the_restart_it_asks_for(setup_plugin):
+    plugin, host, _panel = setup_plugin
+    seen = []
+    host.restart_vcam_canvas = lambda w, h, on_done=None: (seen.append(plugin.get_canvas_dims()), on_done(True, ""))
+
+    class Dialog:
+        def get_canvas_preset_label(self):
+            return "720p 16:9 - 1280 x 720"
+
+        def set_canvas_apply_result(self, ok, msg):
+            pass
+
+    plugin._dlg = Dialog()
+    plugin._on_apply_canvas(1280, 720)
+    assert seen == [(1280, 720)] and plugin.get_canvas_dims() == (1280, 720)
+
+
+def test_setup_dialog_rounds_an_odd_custom_size_up_to_even(qapp):
+    dialog = AdvancedDialog()
+    assert dialog._custom_w.singleStep() == 2 and dialog._custom_h.singleStep() == 2
+    dialog.set_canvas_preset("Custom...", 1921, 1081)
+    assert dialog._get_selected_dims() == (1922, 1082)
+    assert (dialog._custom_w.value(), dialog._custom_h.value()) == (1922, 1082)
+
+
 def test_setup_dialog_canvas_dimension_selection_and_result_messages(qapp):
     dialog = AdvancedDialog()
-    dialog.set_canvas_preset("Custom...", 1234, 567)
-    assert dialog._get_selected_dims() == (1234, 567)
+    dialog.set_canvas_preset("Custom...", 1234, 568)
+    assert dialog._get_selected_dims() == (1234, 568)
     assert dialog.get_canvas_preset_label() == "Custom..."
     assert dialog._custom_widget.isVisible() is False  # parent dialog itself is hidden
 

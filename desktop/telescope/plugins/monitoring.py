@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QWidget
 
 from telescope import theme
 from telescope.plugin import TelescopePlugin
+from telescope.widgets.banner import BannerAction, Issue
 from telescope.widgets.common import (
     NoScrollSpinBox, add_card_header, add_section_heading, control_row as _row,
     card_layout, create_card, dim_until_paired, set_status_kind,
@@ -71,6 +72,7 @@ class MonitoringPlugin(TelescopePlugin):
         self._sig.other_ready.connect(self._on_other_polled)
         self._sid = None  # the shown stream's source
         self._others: dict = {}  # source id: what's been warned about for a stream the panels don't show
+        self._allowed: dict = {}  # source id: {"batt", "temp"} started anyway, not stopped again until that's fine
 
         self._timer = QTimer()
         self._timer.setInterval(15_000)
@@ -242,8 +244,14 @@ class MonitoringPlugin(TelescopePlugin):
         low = falling and level <= batt_thresh
         hot = temp_c >= temp_thresh
         streaming = self._host.is_streaming()
-        stop_low = low and streaming and cfg["battery_stop"] is True
-        stop_hot = hot and streaming and cfg["temp_stop"] is True
+        key = sid if sid is not None else self._sid
+        allowed = self._allowed.setdefault(key, set())
+        if level > batt_thresh + 5:
+            allowed.discard("batt")  # fine again: the next time it runs low stops it as usual
+        if temp_c < temp_thresh - 5:
+            allowed.discard("temp")
+        stop_low = low and streaming and cfg["battery_stop"] is True and "batt" not in allowed
+        stop_hot = hot and streaming and cfg["temp_stop"] is True and "temp" not in allowed
         phone = name or "Phone"
 
         notes = []
@@ -271,7 +279,22 @@ class MonitoringPlugin(TelescopePlugin):
             self._host.send_notification(title, text)
         if stop_low or stop_hot:
             logger.info("Stopping the stream: phone %s", "battery low" if stop_low else "too hot")
-            self._host.stop_stream(sid)  # last: for the shown one it runs on_stream_stop, which clears its state here
+            self._host.stop_stream(sid)  # for the shown one it runs on_stream_stop, which clears its state here
+            who = name or "The phone"
+            if stop_low:
+                title = f"{who}'s battery is at {level}%"
+                text = f"Streaming stopped, as Monitoring stops it at {batt_thresh}% or lower."
+            else:
+                title = f"{who} is at {temp_c:.1f} °C"
+                text = f"Streaming stopped to let it cool down, as Monitoring stops it at {temp_thresh} °C."
+            self._host.show_issue(f"stopped:{key}", Issue(
+                title, text, [BannerAction("Start anyway", lambda: self._start_anyway(key, stop_low, stop_hot))],
+                kind="warn"))
+
+    def _start_anyway(self, sid, low: bool, hot: bool):
+        """Start sid again, and don't stop it for the same reason until the battery or temperature is fine again."""
+        self._allowed.setdefault(sid, set()).update({"batt"} if low else set(), {"temp"} if hot else set())
+        self._host.start_again(sid)()
 
     def get_config(self) -> dict:
         return {
