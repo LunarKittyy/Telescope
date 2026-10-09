@@ -12,6 +12,9 @@ const SLOW_SECONDS = 2;  // how often to look at whether encoding keeps up
 const SLOW_SHARE = 0.25;  // frames skipped for a busy encoder past which it steps down
 const H264_CODECS = ["avc1.42E028", "avc1.4D0028"];  // Constrained Baseline, then Main, level 4.0 (1080p30)
 const KEYFRAME_SECONDS = 2;
+const HINT_SECONDS = 2;  // how long the black screen's hint stays, and how long a first tap waits for the second
+const WAKE_GUARD_MS = 500;  // buttons ignore taps this soon after a double tap wakes the screen (a third tap)
+const LOCK_RETRY_SECONDS = 5;  // a wake lock dropped sooner than this isn't asked for again until the page is shown again
 
 const token = decodeURIComponent(location.hash.slice(1));
 const browserId = keptId();  // tells the computer it's this browser again (a reload), not another camera
@@ -21,6 +24,10 @@ const dot = document.getElementById("dot");
 const startBtn = document.getElementById("start");
 const flipBtn = document.getElementById("flip");
 const stopBtn = document.getElementById("stop");
+const darkBtn = document.getElementById("dark");
+const black = document.getElementById("black");
+const wakeHint = document.getElementById("wake-hint");
+const blackStatus = document.getElementById("black-status");
 
 let config = { width: 1280, height: 720, fps: 30, audio: false };
 let facing = "user";
@@ -46,6 +53,9 @@ let sinceKey = 0;
 let codecNow = "", codecNote = "";
 let audioCtx = null;
 let wakeLock = null;
+let hintTimer = null;
+let tapped = false;  // one tap on the black screen, waiting for the second
+let wokeAt = -Infinity;
 const canvas = document.createElement("canvas");
 const ctx2d = canvas.getContext("2d");
 
@@ -431,6 +441,13 @@ async function keepAwake() {
   try {
     if ("wakeLock" in navigator && document.visibilityState === "visible") {
       const lock = await navigator.wakeLock.request("screen");
+      const since = performance.now();
+      lock.addEventListener("release", () => {
+        if (wakeLock !== lock) return;
+        wakeLock = null;
+        const lasted = performance.now() - since > LOCK_RETRY_SECONDS * 1000;  // else a browser taking it straight back would loop
+        if (running && lasted && document.visibilityState === "visible") keepAwake();  // the browser let go of it (battery saver)
+      });
       if (running) wakeLock = lock;
       else lock.release().catch(() => {});  // Stop came while it was being granted
     }
@@ -446,6 +463,50 @@ document.addEventListener("visibilitychange", () => {
   if (!track || track.readyState === "ended") restartMedia();
   if (audioCtx && audioCtx.state !== "running") audioCtx.resume().catch(() => {});
   if (!ws) connect();
+});
+
+// Black screen: everything off but the camera, with the phone's bars hidden too where the browser allows it.
+function goDark() {
+  black.hidden = false;
+  tapped = false;
+  showHint();
+  const root = document.documentElement;
+  const enter = root.requestFullscreen || root.webkitRequestFullscreen;
+  if (enter && (document.fullscreenEnabled || document.webkitFullscreenEnabled)) {
+    Promise.resolve(enter.call(root)).catch(() => {});
+  }
+}
+
+function wake() {
+  black.hidden = true;
+  tapped = false;
+  clearTimeout(hintTimer);
+  const leave = document.exitFullscreen || document.webkitExitFullscreen;
+  if (leave && (document.fullscreenElement || document.webkitFullscreenElement)) {
+    Promise.resolve(leave.call(document)).catch(() => {});
+  }
+}
+
+function showHint() {
+  blackStatus.textContent = statusEl.textContent;
+  wakeHint.classList.toggle("faded", false);
+  clearTimeout(hintTimer);
+  hintTimer = setTimeout(() => {
+    tapped = false;
+    wakeHint.classList.toggle("faded", true);
+  }, HINT_SECONDS * 1000);
+}
+
+const justWoke = () => performance.now() - wokeAt < WAKE_GUARD_MS;
+
+black.addEventListener("click", () => {
+  if (tapped) {
+    wokeAt = performance.now();
+    wake();
+    return;
+  }
+  tapped = true;
+  showHint();
 });
 
 // ── Buttons ────────────────────────────────────────────────────────────────
@@ -470,7 +531,7 @@ async function start() {
   }
   running = true;
   startBtn.hidden = true;
-  flipBtn.hidden = stopBtn.hidden = false;
+  flipBtn.hidden = stopBtn.hidden = darkBtn.hidden = false;
   keepAwake();
   show("Connecting…");
   connect();
@@ -495,13 +556,16 @@ function stop() {
   video.srcObject = null;
   startBtn.hidden = false;
   startBtn.disabled = false;
-  flipBtn.hidden = stopBtn.hidden = true;
+  flipBtn.hidden = stopBtn.hidden = darkBtn.hidden = true;
+  wake();
   show("Stopped. Tap Start to use this camera again.");
 }
 
 startBtn.addEventListener("click", start);
-stopBtn.addEventListener("click", stop);
+stopBtn.addEventListener("click", () => { if (!justWoke()) stop(); });
+darkBtn.addEventListener("click", () => { if (!justWoke()) goDark(); });
 flipBtn.addEventListener("click", async () => {
+  if (justWoke()) return;
   facing = facing === "user" ? "environment" : "user";
   flipBtn.disabled = true;
   await restartMedia();

@@ -17,11 +17,13 @@ function deferred() {
 const flush = async () => { for (let i = 0; i < 5; i++) await new Promise((r) => setImmediate(r)); };
 
 function makePage() {
-  const world = { sockets: [], contexts: [], nodes: [], encoders: [], supported: [], timers: [], timerId: 0, audio: true };
+  const world = { sockets: [], contexts: [], nodes: [], encoders: [], supported: [], timers: [], timerId: 0, audio: true,
+                  locks: [], fullscreen: null, fullscreenAsks: 0, now: 1000 };
   const elements = {};
   const element = (id) => elements[id] || (elements[id] = {
     id, hidden: false, disabled: false, textContent: "", className: "", srcObject: null, videoWidth: 0, videoHeight: 0,
-    listeners: {}, classList: { toggle() {} }, play: async () => {},
+    listeners: {}, classes: new Set(), play: async () => {},
+    get classList() { const c = this.classes; return { toggle: (name, on) => (on ?? !c.has(name)) ? c.add(name) : c.delete(name) }; },
     addEventListener(type, fn) { this.listeners[type] = fn; },
   });
   const track = (kind) => ({ kind, readyState: "live", stopped: false, stop() { this.stopped = true; },
@@ -65,17 +67,28 @@ function makePage() {
     static isConfigSupported() { const d = deferred(); world.supported.push(d); return d.promise; }
   }
   class FakeFrame { close() {} }
+  class FakeLock {
+    constructor() { this.released = false; this.listeners = {}; world.locks.push(this); }
+    addEventListener(type, fn) { this.listeners[type] = fn; }
+    async release() { this.drop(); }
+    drop() { if (this.released) return; this.released = true; if (this.listeners.release) this.listeners.release(); }
+  }
+  const root = { requestFullscreen: async () => { world.fullscreenAsks += 1; world.fullscreen = root; } };
 
   const sandbox = {
-    console, Blob, performance,
+    console, Blob, performance: { now: () => world.now },
     location: { hash: "#token", host: "computer:8767" },
     navigator: { userAgent: "Mozilla/5.0 (X11; Linux x86_64) Chrome/120", mediaDevices: {
-      getUserMedia: async () => stream(world.audio) } },
+      getUserMedia: async () => stream(world.audio) },
+      wakeLock: { request: async () => new FakeLock() } },
     crypto: require("crypto").webcrypto,
     localStorage: { getItem: () => null, setItem() {} },
     sessionStorage: { getItem: () => null, setItem() {} },
     document: {
       visibilityState: "visible", addEventListener() {}, getElementById: element,
+      documentElement: root, fullscreenEnabled: true,
+      get fullscreenElement() { return world.fullscreen; },
+      exitFullscreen: async () => { world.fullscreen = null; },
       createElement: () => ({ width: 0, height: 0, getContext: () => ({ drawImage() {} }), toBlob() {} }),
     },
     AudioContext: FakeContext, AudioWorkletNode: FakeNode, WebSocket: FakeSocket,
@@ -91,6 +104,7 @@ function makePage() {
     world, element,
     value: (expr) => vm.runInContext(expr, context),
     click: (id) => element(id).listeners.click(),
+    runTimer(id) { const t = world.timers.find((x) => x.id === id); world.timers = world.timers.filter((x) => x !== t); t.fn(); },
     runTimers() { const due = world.timers; world.timers = []; for (const t of due) t.fn(); },
     flush,
   };
@@ -128,6 +142,19 @@ async function flipStopStart() {
   assert.strictEqual(page.world.nodes.length, 2);
   return page;
 }
+
+// A started page that has gone to the black screen
+async function darkPage(fullscreen = true) {
+  const page = makePage();
+  page.world.audio = false;
+  page.value("document").fullscreenEnabled = fullscreen;
+  await page.click("start");
+  page.click("dark");
+  return page;
+}
+
+const tap = (page) => page.element("black").listeners.click();
+const faded = (page) => page.element("wake-hint").classes.has("faded");
 
 const nodeContexts = (page) => page.world.nodes.map((n) => page.world.contexts.indexOf(n.ctx));
 
@@ -209,6 +236,99 @@ const scenarios = {
     await page.flush();
     assert.deepStrictEqual(nodeContexts(page), [0, 2]);
     assert.strictEqual(page.value("micError"), "");
+  },
+
+  // One tap shows the hint and waits; a second one in time wakes the screen and leaves full screen
+  async a_double_tap_wakes_the_black_screen() {
+    const page = await darkPage();
+    assert.strictEqual(page.element("black").hidden, false);
+    assert.strictEqual(page.world.fullscreenAsks, 1);
+    page.runTimer(page.value("hintTimer"));
+    assert.ok(faded(page), "the hint didn't fade");
+    tap(page);
+    assert.strictEqual(page.element("black").hidden, false, "one tap woke it");
+    assert.ok(!faded(page), "a tap didn't bring the hint back");
+    tap(page);
+    assert.strictEqual(page.element("black").hidden, true);
+    assert.strictEqual(page.world.fullscreen, null, "full screen was left on");
+  },
+
+  // A first tap whose second never comes fades out, so the next single tap doesn't wake it
+  async a_lone_tap_times_out() {
+    const page = await darkPage();
+    tap(page);
+    page.runTimer(page.value("hintTimer"));
+    assert.ok(faded(page));
+    tap(page);
+    assert.strictEqual(page.element("black").hidden, false, "two taps far apart woke it");
+  },
+
+  // The tap that turned the screen black doesn't count as the first of two
+  async the_button_tap_is_not_half_a_double_tap() {
+    const page = await darkPage();
+    tap(page);
+    assert.strictEqual(page.element("black").hidden, false);
+  },
+
+  // Where a page can't go full screen (iPhone) the black screen still works
+  async black_screen_without_full_screen() {
+    const page = await darkPage(false);
+    assert.strictEqual(page.world.fullscreenAsks, 0);
+    assert.strictEqual(page.element("black").hidden, false);
+    tap(page);
+    tap(page);
+    assert.strictEqual(page.element("black").hidden, true);
+  },
+
+  // Stop takes the black screen and the button away
+  async stop_wakes_the_black_screen() {
+    const page = await darkPage();
+    await page.click("stop");
+    assert.strictEqual(page.element("black").hidden, true);
+    assert.strictEqual(page.element("dark").hidden, true);
+    assert.strictEqual(page.world.fullscreen, null);
+  },
+
+  // A wake lock the browser drops while the page is showing is asked for again, but not after Stop
+  async a_dropped_wake_lock_is_asked_for_again() {
+    const page = makePage();
+    page.world.audio = false;
+    await page.click("start");
+    await page.flush();
+    assert.strictEqual(page.world.locks.length, 1);
+    page.world.now += 6000;
+    page.world.locks[0].drop();
+    await page.flush();
+    assert.strictEqual(page.world.locks.length, 2, "the lock wasn't asked for again");
+    await page.click("stop");
+    await page.flush();
+    assert.ok(page.world.locks[1].released);
+    assert.strictEqual(page.world.locks.length, 2, "Stop's own release asked for a new lock");
+  },
+
+  // A lock taken back right after it was granted isn't asked for again, or a browser doing that would get asked in a loop
+  async a_lock_dropped_straight_away_is_not_asked_for_again() {
+    const page = makePage();
+    page.world.audio = false;
+    await page.click("start");
+    await page.flush();
+    page.world.now += 100;
+    page.world.locks[0].drop();
+    await page.flush();
+    assert.strictEqual(page.world.locks.length, 1);
+  },
+
+  // A third quick tap after the double tap lands on whatever button is under it, and is ignored for a moment
+  async a_third_tap_after_waking_does_not_press_stop() {
+    const page = await darkPage();
+    tap(page);
+    tap(page);
+    page.world.now += 100;
+    await page.click("stop");
+    assert.strictEqual(page.value("running"), true, "the third tap stopped the stream");
+    page.world.now += 1000;
+    await page.click("stop");
+    assert.strictEqual(page.value("running"), false);
   },
 };
 
