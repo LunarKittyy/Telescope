@@ -143,7 +143,9 @@ class OnboardingPlugin(TelescopePlugin):
             vcam.action(None)
         elif self._vcam_ready:
             vcam.set(True, "Installed. Starting a stream may ask for your password to switch it on."
-                     if IS_LINUX else "Installed.")
+                     if IS_LINUX else "Installed. If Discord, Zoom or a similar app was already open, quit it "
+                                      "fully (closing the window isn't enough if it's still in the tray) and "
+                                      "open it again to see the camera.")
             vcam.action(None)
         elif IS_LINUX:
             vcam.set(False, _LINUX_INSTALL_HINT, "status_warn")
