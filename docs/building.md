@@ -85,7 +85,7 @@ No compiled build step - the Linux bundle is the Python source and launcher scri
 
 ### `pages.yml` - pushes to `master` touching `site/**` or the workflow itself
 
-Publishes `site/`, the landing page, to GitHub Pages as it is; there's no build step. The page loads three.js from jsDelivr and falls back to a still version without WebGL or with reduced motion. The repository's Pages source has to be set to **GitHub Actions**.
+Publishes `site/`, the landing page, to GitHub Pages as it is; there's no build step. The page loads three.js from jsDelivr and falls back to a still version without WebGL or with reduced motion. The repository's Pages source has to be set to **GitHub Actions**. It's served at `telescope.webcam`: the domain is set under Settings → Pages (not a `CNAME` file, which Actions deploys ignore) and its DNS lives in Cloudflare as an unproxied CNAME to `lunarkittyy.github.io`.
 
 ### `desktop/scripts/smoke_check.py`
 
