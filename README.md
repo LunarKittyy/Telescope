@@ -17,7 +17,7 @@ Telescope turns your Android phone into a webcam for your Linux or Windows compu
 
 ## Quick Start
 
-You'll need an Android phone and a PC running Linux or Windows. No Android phone? [Browser camera](docs/features.md#browser-camera) streams from an iPhone or anything else with a browser (but please use the app when you can, it's better for battery life, quality and gives you way more customization options).
+You'll need an Android phone and a PC running Linux or Windows. No Android phone? [Browser camera](docs/features.md#browser-camera) streams from an iPhone or anything else with a browser, preferably Chrome (but please use the app when you can, it's better for battery life, quality and gives you way more customization options).
 
 ### 1. 🖥️ Get the desktop app
 
