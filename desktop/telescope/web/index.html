@@ -12,36 +12,57 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
                font: 16px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  body { display: flex; flex-direction: column; padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom); }
-  header { display: flex; align-items: center; gap: 10px; padding: 14px 0; }
-  header h1 { font-size: 18px; margin: 0; flex: 1; }
-  #dot { width: 10px; height: 10px; border-radius: 50%; background: var(--dim); flex: none; }
+  body { display: flex; flex-direction: column; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+         env(safe-area-inset-bottom) max(16px, env(safe-area-inset-left)); }
+  #status-row { display: flex; align-items: baseline; gap: 8px; margin: 12px 0 4px; }
+  #dot { width: 10px; height: 10px; border-radius: 50%; background: var(--dim); flex: none; transform: translateY(-1px); }
   #dot.ok { background: var(--ok); } #dot.warn { background: var(--warn); } #dot.err { background: var(--err); }
   main { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0;
          background: #0a0c0f; border-radius: 12px; overflow: hidden; }
   video { width: 100%; height: 100%; object-fit: contain; }
   video.mirror { transform: scaleX(-1); }
-  #status { color: var(--dim); margin: 12px 0 4px; min-height: 1.4em; }
+  #status { color: var(--dim); margin: 0; min-height: 1.4em; }
   #status.err { color: var(--err); } #status.warn { color: var(--warn); }
   #note { color: var(--dim); font-size: 14px; margin: 0 0 12px; }
   .buttons { display: flex; gap: 10px; padding-bottom: 16px; }
-  button { flex: 1; font: inherit; font-weight: 600; color: #fff; background: var(--fill); border: 0;
-           border-radius: 10px; padding: 14px; }
-  button.secondary { background: var(--surface); color: var(--text); flex: 0 0 auto; }
+  button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; font: inherit; font-weight: 600;
+           color: #fff; background: var(--fill); border: 0; border-radius: 10px; padding: 14px; }
+  button svg { width: 22px; height: 22px; flex: none; fill: none; stroke: currentColor; stroke-width: 2;
+               stroke-linecap: round; stroke-linejoin: round; }
+  button.secondary { flex: 1 1 0; min-width: 0; flex-direction: column; gap: 4px; padding: 10px 6px;
+                     background: var(--surface); color: var(--text); font-size: 13px; line-height: 1.2; }
+  @media (orientation: landscape) {
+    body { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr) auto auto;
+           column-gap: 14px; padding-top: max(12px, env(safe-area-inset-top)); }
+    main, #status-row, #note { grid-column: 1; }
+    #status-row { margin: 8px 0 2px; }
+    #note { font-size: 13px; margin-bottom: 10px; }
+    .buttons { grid-column: 2; grid-row: 1 / -1; flex-direction: column; justify-content: center; width: 104px;
+               padding: 0 0 12px; }
+    .buttons button { flex: 0 0 auto; flex-direction: column; gap: 4px; padding: 14px 6px; }
+    #start { font-size: 14px; padding: 22px 6px; }
+  }
   button:disabled { opacity: .45; }
+  #black { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 10; background: #000; display: flex;
+           flex-direction: column; align-items: center; justify-content: center; gap: 6px; touch-action: manipulation;
+           user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; cursor: none; }
+  #black p { margin: 0; color: #5d6670; font-size: 14px; text-align: center; padding: 0 24px; }
+  #wake-hint { transition: opacity .6s; }
+  #wake-hint.faded { opacity: 0; }
   [hidden] { display: none !important; }
 </style>
 </head>
 <body>
-<header><span id="dot"></span><h1>Telescope camera</h1></header>
 <main><video id="video" muted playsinline autoplay></video></main>
-<p id="status">Tap Start to use this camera on your computer.</p>
+<div id="status-row"><span id="dot"></span><p id="status">Tap Start to use this camera on your computer.</p></div>
 <p id="note">Keep this page open and the screen on. Leaving the browser pauses the camera.</p>
 <div class="buttons">
-  <button id="start">Start</button>
-  <button id="flip" class="secondary" hidden>Switch camera</button>
-  <button id="stop" class="secondary" hidden>Stop</button>
+  <button id="start"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10.5 22 7v10l-6-3.5z"/></svg>Start</button>
+  <button id="flip" class="secondary" title="Switch between the front and back camera" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8.5A1.5 1.5 0 0 1 4.5 7H7l2-2.5h6L17 7h2.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/><path d="M8.8 12a3.3 3.3 0 0 1 5.9-1.6M15.2 14a3.3 3.3 0 0 1-5.9 1.6"/><path d="M15 8.6v2.2h-2.2M9 17.4v-2.2h2.2"/></svg>Flip camera</button>
+  <button id="dark" class="secondary" title="Turn the screen black while the camera keeps going" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>Black screen</button>
+  <button id="stop" class="secondary" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" style="fill: currentColor"/></svg>Stop</button>
 </div>
+<div id="black" hidden><div id="wake-hint"><p>Double tap to wake</p><p id="black-status"></p></div></div>
 <script src="/app.js"></script>
 </body>
 </html>

@@ -18,6 +18,14 @@ SCENARIOS = [
     "a_stale_capability_check_does_not_serve_the_next_run",
     "a_mic_setup_from_before_stop_adds_no_second_sender",
     "a_failed_mic_setup_from_before_stop_leaves_the_mic_error_alone",
+    "a_double_tap_wakes_the_black_screen",
+    "a_lone_tap_times_out",
+    "the_button_tap_is_not_half_a_double_tap",
+    "black_screen_without_full_screen",
+    "stop_wakes_the_black_screen",
+    "a_dropped_wake_lock_is_asked_for_again",
+    "a_lock_dropped_straight_away_is_not_asked_for_again",
+    "a_third_tap_after_waking_does_not_press_stop",
 ]
 
 
