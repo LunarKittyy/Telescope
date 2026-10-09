@@ -14,6 +14,7 @@ const H264_CODECS = ["avc1.42E028", "avc1.4D0028"];  // Constrained Baseline, th
 const KEYFRAME_SECONDS = 2;
 const HINT_SECONDS = 4;  // how long the black screen's hint stays, and how long a first tap waits for the second
 const WAKE_GUARD_MS = 500;  // buttons ignore taps this soon after a double tap wakes the screen (a third tap)
+const PLAYER_STALL_SECONDS = 3;  // iPhone: a camera preview frozen this long behind the black video player closes the player
 const LOCK_RETRY_SECONDS = 5;  // a wake lock dropped sooner than this isn't asked for again until the page is shown again
 
 const token = decodeURIComponent(location.hash.slice(1));
@@ -56,6 +57,11 @@ let wakeLock = null;
 let hintTimer = null;
 let tapped = false;  // one tap on the black screen, waiting for the second
 let wokeAt = -Infinity;
+let blackVideo = null;  // iPhone: a black video shown in the system player, since pages there can't go full screen
+let blackPlayed = false;  // the black video has played at least once, so it works here
+let playerOff = false;  // the player stalled the camera here once, so this page load sticks to the plain black page
+let leavingPlayer = false;  // the page closed the player itself and stays black
+let playerTimer = null;
 const canvas = document.createElement("canvas");
 const ctx2d = canvas.getContext("2d");
 
@@ -466,14 +472,91 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // Black screen: everything off but the camera, with the phone's bars hidden too where the browser allows it.
+function pageFullscreen() {
+  return !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+}
+
+// Played (muted, tiny, invisible) from Start on to be ready within the Black screen tap; anything unexpected leaves it off.
+function prepareBlackVideo() {
+  if (pageFullscreen() || typeof video.webkitEnterFullscreen !== "function") return;
+  if (blackVideo) {
+    blackVideo.play().catch(() => {});
+    return;
+  }
+  let v = null;
+  try {
+    const frame = document.createElement("canvas");
+    if (typeof frame.captureStream !== "function") return;
+    frame.width = frame.height = 16;
+    const stream = frame.captureStream(1);
+    const g = frame.getContext("2d");
+    g.fillStyle = "#000";
+    g.fillRect(0, 0, 16, 16);
+    v = document.createElement("video");
+    if (typeof v.webkitEnterFullscreen !== "function") return;
+    v.muted = true;
+    v.playsInline = true;
+    v.setAttribute("playsinline", "");
+    v.className = "black-video";
+    v.srcObject = stream;
+    v.addEventListener("webkitendfullscreen", onPlayerClosed);
+    v.addEventListener("playing", () => { blackPlayed = true; });
+    v.addEventListener("pause", () => { if (v.webkitDisplayingFullscreen) v.play().catch(() => {}); });  // paused, the player keeps its controls up
+    document.body.appendChild(v);
+    v.play().catch(() => {});
+    blackVideo = v;
+  } catch (_) {
+    if (v && v.parentNode) v.parentNode.removeChild(v);
+  }
+}
+
+function playerReady() {
+  return !!blackVideo && !playerOff && blackPlayed && blackVideo.readyState >= 2;
+}
+
+function onPlayerClosed() {
+  clearTimeout(playerTimer);
+  if (leavingPlayer) {
+    leavingPlayer = false;
+    if (!black.hidden) showHint();
+    return;
+  }
+  if (!black.hidden) wake();  // closing the player is the double tap here
+}
+
+// While the player is up, the camera preview has to keep moving; if it stalls, the player goes and doesn't come back.
+function watchPlayer(last, still) {
+  playerTimer = setTimeout(() => {
+    if (!blackVideo || !blackVideo.webkitDisplayingFullscreen) return;
+    const now = video.currentTime;
+    if (now !== last) {
+      watchPlayer(now, 0);
+      return;
+    }
+    if (still + 1 < PLAYER_STALL_SECONDS) {
+      watchPlayer(last, still + 1);
+      return;
+    }
+    playerOff = true;
+    leavingPlayer = true;
+    try { blackVideo.webkitExitFullscreen(); } catch (_) { leavingPlayer = false; }
+  }, 1000);
+}
+
 function goDark() {
   black.hidden = false;
   tapped = false;
   showHint();
   const root = document.documentElement;
   const enter = root.requestFullscreen || root.webkitRequestFullscreen;
-  if (enter && (document.fullscreenEnabled || document.webkitFullscreenEnabled)) {
+  if (enter && pageFullscreen()) {
     Promise.resolve(enter.call(root)).catch(() => {});
+  } else if (playerReady()) {
+    try {
+      blackVideo.play().catch(() => {});  // iOS pauses a video when its player closes
+      blackVideo.webkitEnterFullscreen();
+      watchPlayer(video.currentTime, 0);
+    } catch (_) { /* refused: the black page still works */ }
   }
 }
 
@@ -481,6 +564,10 @@ function wake() {
   black.hidden = true;
   tapped = false;
   clearTimeout(hintTimer);
+  clearTimeout(playerTimer);
+  if (blackVideo && blackVideo.webkitDisplayingFullscreen) {
+    try { blackVideo.webkitExitFullscreen(); } catch (_) { /* already closing */ }
+  }
   const leave = document.exitFullscreen || document.webkitExitFullscreen;
   if (leave && (document.fullscreenElement || document.webkitFullscreenElement)) {
     Promise.resolve(leave.call(document)).catch(() => {});
@@ -530,6 +617,7 @@ async function start() {
     return;
   }
   running = true;
+  prepareBlackVideo();
   startBtn.hidden = true;
   flipBtn.hidden = stopBtn.hidden = darkBtn.hidden = false;
   keepAwake();
@@ -558,6 +646,7 @@ function stop() {
   startBtn.disabled = false;
   flipBtn.hidden = stopBtn.hidden = darkBtn.hidden = true;
   wake();
+  if (blackVideo) blackVideo.pause();
   show("Stopped. Tap Start to use this camera again.");
 }
 

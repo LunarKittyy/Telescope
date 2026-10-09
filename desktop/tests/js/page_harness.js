@@ -18,7 +18,8 @@ const flush = async () => { for (let i = 0; i < 5; i++) await new Promise((r) =>
 
 function makePage() {
   const world = { sockets: [], contexts: [], nodes: [], encoders: [], supported: [], timers: [], timerId: 0, audio: true,
-                  locks: [], fullscreen: null, fullscreenAsks: 0, now: 1000 };
+                  locks: [], fullscreen: null, fullscreenAsks: 0, now: 1000, videos: [],
+                  videoPlays: true };
   const elements = {};
   const element = (id) => elements[id] || (elements[id] = {
     id, hidden: false, disabled: false, textContent: "", className: "", srcObject: null, videoWidth: 0, videoHeight: 0,
@@ -73,6 +74,24 @@ function makePage() {
     async release() { this.drop(); }
     drop() { if (this.released) return; this.released = true; if (this.listeners.release) this.listeners.release(); }
   }
+  // A video that can only go full screen in the system player, the way iPhone Safari does it
+  const fakeVideo = () => {
+    const v = { listeners: {}, paused: true, plays: 0, readyState: 4, webkitDisplayingFullscreen: false, setAttribute() {},
+                addEventListener(type, fn) { this.listeners[type] = fn; },
+                play: async () => {
+                  v.plays += 1;
+                  if (!world.videoPlays || !v.paused) return;
+                  v.paused = false;
+                  if (v.listeners.playing) v.listeners.playing();
+                },
+                pause() { if (this.paused) return; this.paused = true; if (this.listeners.pause) this.listeners.pause(); },
+                webkitEnterFullscreen() { this.webkitDisplayingFullscreen = true; },
+                webkitExitFullscreen() { this.close(); },
+                userPause() { this.pause(); },
+                close() { if (!this.webkitDisplayingFullscreen) return; this.webkitDisplayingFullscreen = false; this.listeners.webkitendfullscreen(); } };
+    world.videos.push(v);
+    return v;
+  };
   const root = { requestFullscreen: async () => { world.fullscreenAsks += 1; world.fullscreen = root; } };
 
   const sandbox = {
@@ -89,7 +108,9 @@ function makePage() {
       documentElement: root, fullscreenEnabled: true,
       get fullscreenElement() { return world.fullscreen; },
       exitFullscreen: async () => { world.fullscreen = null; },
-      createElement: () => ({ width: 0, height: 0, getContext: () => ({ drawImage() {} }), toBlob() {} }),
+      createElement: (tag) => tag === "video" ? fakeVideo() : ({ width: 0, height: 0, toBlob() {}, captureStream: () => ({}),
+                                                                getContext: () => ({ drawImage() {}, fillRect() {} }) }),
+      body: { appendChild() {} },
     },
     AudioContext: FakeContext, AudioWorkletNode: FakeNode, WebSocket: FakeSocket,
     VideoEncoder: FakeEncoder, VideoFrame: FakeFrame,
@@ -148,6 +169,17 @@ async function darkPage(fullscreen = true) {
   const page = makePage();
   page.world.audio = false;
   page.value("document").fullscreenEnabled = fullscreen;
+  await page.click("start");
+  page.click("dark");
+  return page;
+}
+
+// The same on an iPhone: no page full screen, but videos can go full screen in the system player
+async function iphoneDarkPage() {
+  const page = makePage();
+  page.world.audio = false;
+  page.value("document").fullscreenEnabled = false;
+  page.element("video").webkitEnterFullscreen = () => {};
   await page.click("start");
   page.click("dark");
   return page;
@@ -278,6 +310,119 @@ const scenarios = {
     tap(page);
     tap(page);
     assert.strictEqual(page.element("black").hidden, true);
+  },
+
+  // On an iPhone the black screen shows a black video in the system player, and closing the player wakes the page
+  async iphone_black_screen_uses_the_video_player() {
+    const page = await iphoneDarkPage();
+    assert.strictEqual(page.world.videos.length, 1);
+    const v = page.world.videos[0];
+    assert.ok(!v.paused, "the black video wasn't playing before the tap");
+    assert.ok(v.webkitDisplayingFullscreen, "the black video didn't go full screen");
+    assert.strictEqual(page.world.fullscreenAsks, 0);
+    v.close();
+    assert.strictEqual(page.element("black").hidden, true, "closing the player didn't wake the page");
+    page.click("dark");
+    assert.ok(v.webkitDisplayingFullscreen, "a second Black screen didn't use the player again");
+    assert.strictEqual(page.world.videos.length, 1, "a second black video was made");
+  },
+
+  // A camera preview that stops moving behind the player closes it for good; the page stays black
+  async a_stalled_camera_closes_the_iphone_player() {
+    const page = await iphoneDarkPage();
+    const v = page.world.videos[0];
+    for (let i = 0; i < 3; i++) page.runTimer(page.value("playerTimer"));
+    assert.strictEqual(v.webkitDisplayingFullscreen, false, "the player stayed up over a frozen camera");
+    assert.strictEqual(page.element("black").hidden, false, "closing the player for a stall woke the page");
+    tap(page);
+    tap(page);
+    page.world.now += 1000;
+    page.click("dark");
+    assert.strictEqual(v.webkitDisplayingFullscreen, false, "the player was used again after a stall");
+    assert.strictEqual(page.element("black").hidden, false);
+  },
+
+  // A moving camera keeps the player up
+  async a_moving_camera_keeps_the_iphone_player() {
+    const page = await iphoneDarkPage();
+    for (let i = 0; i < 5; i++) {
+      page.element("video").currentTime = i + 1;
+      page.runTimer(page.value("playerTimer"));
+    }
+    assert.ok(page.world.videos[0].webkitDisplayingFullscreen);
+  },
+
+  // A black video that never starts playing is left alone; the black page works as usual
+  async a_black_video_that_does_not_play_is_not_used() {
+    const page = makePage();
+    page.world.audio = false;
+    page.world.videoPlays = false;
+    page.value("document").fullscreenEnabled = false;
+    page.element("video").webkitEnterFullscreen = () => {};
+    await page.click("start");
+    page.click("dark");
+    assert.strictEqual(page.world.videos[0].webkitDisplayingFullscreen, false);
+    assert.strictEqual(page.element("black").hidden, false);
+    tap(page);
+    tap(page);
+    assert.strictEqual(page.element("black").hidden, true);
+  },
+
+  // If making the black video throws, Start still works and Black screen falls back to the black page
+  async a_failing_black_video_leaves_start_working() {
+    const page = makePage();
+    page.world.audio = false;
+    page.value("document").fullscreenEnabled = false;
+    page.element("video").webkitEnterFullscreen = () => {};
+    page.value("document").createElement = () => { throw new Error("no"); };
+    await page.click("start");
+    assert.strictEqual(page.value("running"), true);
+    assert.strictEqual(page.element("dark").hidden, false);
+    page.click("dark");
+    assert.strictEqual(page.element("black").hidden, false);
+  },
+
+  // iOS pauses the video when its player closes; the next Black screen plays it and uses the player again
+  async the_player_works_again_after_ios_paused_the_video() {
+    const page = await iphoneDarkPage();
+    const v = page.world.videos[0];
+    v.close();
+    v.pause();
+    page.world.now += 1000;
+    page.click("dark");
+    assert.ok(v.webkitDisplayingFullscreen, "a paused black video kept the player from being used again");
+    await page.flush();
+    assert.strictEqual(v.paused, false);
+  },
+
+  // Pausing with the player's own controls resumes, so the controls fade away again
+  async pausing_in_the_player_resumes() {
+    const page = await iphoneDarkPage();
+    const v = page.world.videos[0];
+    const before = v.plays;
+    v.userPause();
+    await page.flush();
+    assert.strictEqual(v.plays, before + 1, "a pause in the player wasn't resumed");
+    assert.strictEqual(v.paused, false);
+  },
+
+  // Stop while the player is up closes it
+  async stop_closes_the_iphone_player() {
+    const page = await iphoneDarkPage();
+    await page.click("stop");
+    assert.strictEqual(page.world.videos[0].webkitDisplayingFullscreen, false);
+    assert.strictEqual(page.element("black").hidden, true);
+  },
+
+  // Where the page itself can go full screen there's no black video at all
+  async no_black_video_where_the_page_can_go_full_screen() {
+    const page = makePage();
+    page.world.audio = false;
+    page.element("video").webkitEnterFullscreen = () => {};
+    await page.click("start");
+    page.click("dark");
+    assert.strictEqual(page.world.videos.length, 0);
+    assert.strictEqual(page.world.fullscreenAsks, 1);
   },
 
   // Stop takes the black screen and the button away
