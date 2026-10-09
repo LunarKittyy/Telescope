@@ -12,7 +12,7 @@ const SLOW_SECONDS = 2;  // how often to look at whether encoding keeps up
 const SLOW_SHARE = 0.25;  // frames skipped for a busy encoder past which it steps down
 const H264_CODECS = ["avc1.42E028", "avc1.4D0028"];  // Constrained Baseline, then Main, level 4.0 (1080p30)
 const KEYFRAME_SECONDS = 2;
-const HINT_SECONDS = 2;  // how long the black screen's hint stays, and how long a first tap waits for the second
+const HINT_SECONDS = 4;  // how long the black screen's hint stays, and how long a first tap waits for the second
 const WAKE_GUARD_MS = 500;  // buttons ignore taps this soon after a double tap wakes the screen (a third tap)
 const LOCK_RETRY_SECONDS = 5;  // a wake lock dropped sooner than this isn't asked for again until the page is shown again
 
