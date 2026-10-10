@@ -71,7 +71,7 @@ from telescope.plugins.stream_output import StreamOutputPlugin
 from telescope.plugins.transforms import TransformsPlugin
 from telescope.plugins.updates import UpdatesPlugin
 from telescope.theme import apply_theme
-from telescope.updates import clean_up_after_update
+from telescope.updates import MOVED_FROM, clean_up_after_update, finish_move, pending_move
 from telescope.widgets.common import create_app_icon
 
 
@@ -82,6 +82,8 @@ def parse_args(argv):
                         help="started by the updater: wait for the old copy to exit, then tidy up")
     parser.add_argument("--minimized", action="store_true",
                         help="start in the tray (used when opening at sign-in)")
+    parser.add_argument(MOVED_FROM, dest="moved_from", metavar="FOLDER",
+                        help="started by an unzipped copy that installed this one: delete that copy once started")
     return parser.parse_known_args(argv)
 
 
@@ -145,6 +147,11 @@ def main():
             update_guard.confirm(APP_DIR)
             # Every start, not just after an update: an old version's files can still be locked the first time.
             clean_up_after_update()
+            # Only now: had this copy failed to start, the old one would still be there to use
+            moved_from = Path(args.moved_from) if args.moved_from else pending_move(APP_DIR)
+            if moved_from is not None:
+                # Not a daemon, so quitting straight away still lets it finish (a few seconds at most)
+                threading.Thread(target=finish_move, args=(moved_from, APP_DIR)).start()
     started_fine.done = False
     # Python only runs a signal handler when the interpreter gets control, which Qt's loop doesn't give it by itself
     wake = QTimer()

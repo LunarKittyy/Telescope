@@ -56,7 +56,7 @@ telescope/
 |   +-- workflows/
 |       |-- release.yml          # Builds all three and publishes nightly or a stable release
 |       |-- build-apk.yml        # APK (signed with the release key in a release)
-|       |-- build-windows.yml    # Windows bundle (app folder + adb + UnityCapture)
+|       |-- build-windows.yml    # Windows bundle (app folder + UnityCapture) and setup
 |       +-- build-linux.yml      # Linux bundle (source + start.sh)
 |
 |-- docs/                       # Everything past the README's Quick Start; README.md is the index
@@ -78,6 +78,7 @@ telescope/
 |       |-- H264Encoder.kt       # MediaCodec H.264 from the camera Surface
 |       |-- H264Stream.kt        # Per-viewer H.264 queue (and its link measurements), bitrate defaults
 |       |-- DynamicBitrate.kt    # Dynamic bitrate: follows the link from the queue's measurements (JVM-tested)
+|       |-- DynamicFrameRate.kt  # Dynamic frame rate: steps down when the link is too thin for the rate (JVM-tested)
 |       |-- AudioStreamer.kt     # Microphone recording while someone listens
 |       |-- AudioStream.kt       # PCM format, per-listener queue
 |       |-- SessionServer.kt     # Out-of-band responder (port 8766): /v1/hello, /v1/ping, /v1/session, /v1/unpair
@@ -107,7 +108,6 @@ telescope/
     |-- telescope.spec           # PyInstaller spec for the Windows app folder
     |-- start.sh                 # Linux launcher (creates/reuses a Telescope-owned venv)
     |-- start.bat                # Windows source-checkout launcher (auto-installs deps); not in the release zip, the EXE needs neither
-    |-- platform-tools/          # Bundled adb for Windows
     |-- unitycapture/            # Bundled UnityCapture DLLs (MIT)
     +-- telescope/
         |-- version.py           # This build's version, build number and channel
@@ -135,11 +135,12 @@ telescope/
         |-- browser_server.py    # Browser camera: HTTPS + WebSocket server, its certificate, BrowserReader
         |-- web/                 # The page the Browser camera serves (HTML, JS, mic AudioWorklet)
         |-- platform/
+        |   |-- adb_download.py  # Windows: adb from Google, on request
         |   |-- autostart.py     # Open at sign-in (XDG autostart / HKCU Run)
         |   |-- linux.py         # v4l2loopback helpers (load, unload, reload)
         |   |-- virtual_mic.py   # Telescope Microphone (pactl) and finding VB-Cable
         |   |-- windows.py       # UnityCapture helpers, zip detection
-        |   +-- winjob.py        # Job object so the bundled adb server dies with Telescope
+        |   +-- winjob.py        # Job object so the adb server dies with Telescope
         |-- plugins/
         |   |-- setup.py
         |   |-- connection.py
@@ -156,6 +157,7 @@ telescope/
         |   |-- wait_screen.py   # Wait screen and its dialog
         |   +-- monitoring.py
         +-- widgets/
+            |-- adb.py           # Windows' Get adb: asks, then downloads off the UI thread
             |-- banner.py        # In-window problem banners
             |-- common.py        # NoScroll*, LogSliderRow, rows, segmented toggles, icons
             |-- qr.py            # QR code widget

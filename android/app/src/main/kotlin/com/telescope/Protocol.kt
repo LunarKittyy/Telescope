@@ -66,6 +66,9 @@ data class V1State(
     val codec: String = "mjpeg",
     val bitrate: Int = 0,
     val dynamic_bitrate: Boolean = false,  // takes bitrate -1 (Dynamic); older phones treat it as 0 (Auto)
+    val dynamic_fps: Int = 0,  // the rate Dynamic stepped down to for a slow link; 0 = the rate asked for
+    val low_light: Boolean = false,  // auto exposure may slow the camera down in the dark (and noise reduction is high)
+    val low_light_toggle: Boolean = false,  // takes low_light; set by every phone that can
     val codec_error: String? = null,
     val codec_unsupported: Boolean = false,  // codec_error is H.264 not doing this size or rate here, not a crash
     val active_lens: String? = null,  // the lens a multi-lens camera is streaming from right now

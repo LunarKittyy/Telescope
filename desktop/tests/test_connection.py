@@ -183,6 +183,14 @@ def test_problem_text_says_what_to_do():
     assert problem_text(Resolution(READY, WIFI), "Pixel", ROUTE_AUTO) == ""
 
 
+def test_local_only_on_windows_without_adb_points_at_add_phone(monkeypatch):
+    monkeypatch.setattr(connection_module, "IS_WINDOWS", True)
+    monkeypatch.setattr(connection_module, "adb_available", lambda: False)
+    assert "Add phone can get" in problem_text(Resolution(LOCAL_ONLY), "Pixel", ROUTE_AUTO)
+    monkeypatch.setattr(connection_module, "adb_available", lambda: True)
+    assert "adb" not in problem_text(Resolution(LOCAL_ONLY), "Pixel", ROUTE_AUTO)
+
+
 # ── Config ────────────────────────────────────────────────────────────────────
 
 def test_config_round_trips_and_keeps_the_computer_identity(plugin_env):

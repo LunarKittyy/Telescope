@@ -1,5 +1,7 @@
 # Telescope
 
+<p align="center"><img src="docs/assets/banner.png" alt="Telescope: use your phone as a webcam. Every lens, full manual control. Android to Linux and Windows." width="720"></p>
+
 [![Release](https://img.shields.io/github/v/release/LunarKittyy/Telescope)](../../releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/LunarKittyy/Telescope/total)](../../releases)
 [![Build](https://github.com/LunarKittyy/Telescope/actions/workflows/release.yml/badge.svg?branch=master)](../../actions/workflows/release.yml)
@@ -15,6 +17,8 @@ Telescope turns your Android phone into a webcam for your Linux or Windows compu
 - Can start streaming on its own when an app opens the camera and stop again once nothing's using it
 - A built-in updater lets you install new versions in one click
 
+It's free, all of it: no watermark, no ads, no account, no Pro version. Here's [how it compares](https://telescope.webcam/compare.html) with DroidCam, Iriun and Camo.
+
 ## Quick Start
 
 You'll need an Android phone and a PC running Linux or Windows. No Android phone? [Browser camera](docs/features.md#browser-camera) streams from an iPhone or anything else with a browser, preferably Chrome (but please use the app when you can, it's better for battery life, quality and gives you way more customization options).
@@ -23,7 +27,9 @@ You'll need an Android phone and a PC running Linux or Windows. No Android phone
 
 **🪟 Windows**
 
-Download `Telescope-windows.zip` from the [releases page](../../releases), extract it, and run `TelescopeDesktop.exe` (keep it in its folder: the `lib-...` folder next to it is part of the app).
+Download `TelescopeSetup.exe` from the [releases page](../../releases) and run it. It installs just for you, so it doesn't need admin.
+
+Rather not install anything? `Telescope-windows.zip` has the same app: extract it and run `TelescopeDesktop.exe` (keep it in its folder: the `lib-...` folder next to it is part of the app).
 
 **🐧 Linux**
 
@@ -44,7 +50,7 @@ Download `Telescope-linux.tar.gz` from the [releases page](../../releases), extr
 
   </details>
 
-- 💡 **`adb`** *(optional)* - only for pairing or installing the phone app over USB. Wi-Fi works without it.
+- 💡 **`adb`** *(optional)* - only for pairing or installing the phone app over USB. Wi-Fi works without it. On Windows, Telescope offers to download it from Google when you first need it.
   - Debian/Ubuntu: `sudo apt install adb`
   - Fedora/Nobara: `sudo dnf install android-tools`
   - Arch: `sudo pacman -S android-tools`
@@ -73,6 +79,44 @@ That's all most people need. The full feature list, troubleshooting and everythi
 
 Stuck, or have an idea? Ask in [Discussions](../../discussions). Found a bug? Open an [issue](https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml) with your **Copy diagnostics** report.
 
+## Questions people ask
+
+<details>
+<summary><b>Is it actually free?</b></summary>
+
+Yes. Every feature, every resolution, no watermark, no ads. If you'd like to chip in anyway, there's [Ko-fi](https://ko-fi.com/lunarkittyy).
+</details>
+
+<details>
+<summary><b>Does my video go through someone's server?</b></summary>
+
+No. It goes straight from the phone to your computer, over USB or your own network, encrypted with TLS. There's no account and no cloud, and the apps only go online to check GitHub for updates, or to fetch adb or VB-Cable from Google or VB-Audio when you ask for them. Details in [Privacy](docs/features.md#privacy).
+</details>
+
+<details>
+<summary><b>Will it work with Discord / Zoom / Teams / OBS / my browser?</b></summary>
+
+If it can use a webcam, yes. Telescope shows up as an ordinary camera, so there's nothing to set up in the app itself.
+</details>
+
+<details>
+<summary><b>I have an iPhone or a Mac.</b></summary>
+
+The phone app is Android only, but [Browser camera](docs/features.md#browser-camera) streams from an iPhone's browser with nothing to install. The desktop app runs on Windows and Linux, not macOS (yet?).
+</details>
+
+<details>
+<summary><b>Can I use more than one phone?</b></summary>
+
+Up to four at once, each its own webcam. Nice for a second angle in OBS.
+</details>
+
+<details>
+<summary><b>Will it work on my phone?</b></summary>
+
+It needs Android 8 or newer. [Device compatibility](docs/device-compatibility.md) lists what's been tested. If you try it on a phone that isn't there, [tell us how it went](https://github.com/LunarKittyy/Telescope/discussions/new?category=device-compatibility). That's one of the most useful things you can do for the project.
+</details>
+
 ---
 
 ## Docs
@@ -82,9 +126,16 @@ Stuck, or have an idea? Ask in [Discussions](../../discussions). Found a bug? Op
 - [Manual setup](docs/setup.md): the virtual camera and drivers by hand
 - [All docs](docs/README.md), including the protocol and how it's built
 
+## Helping out
+
+Device reports, bug reports with a diagnostics report, and pull requests are all welcome. [CONTRIBUTING.md](CONTRIBUTING.md) has the details.
+
 ## License
 
 Telescope is licensed under the [GNU Affero General Public License v3.0](https://www.gnu.org/licenses/agpl-3.0.html) - see [LICENSE](LICENSE) for the full text.
+
+<details>
+<summary>The license notice, and what it means for you</summary>
 
     Copyright (C) 2026 LunarKittyy
 
@@ -100,7 +151,12 @@ Telescope is licensed under the [GNU Affero General Public License v3.0](https:/
 
 You are free to use, modify, and redistribute it, including for commercial purposes, provided derivative works remain under the AGPL-3.0 and you make the corresponding source available - including to users who interact with a modified version over a network. AGPL-3.0 is also compatible with the GPL v3 licensing of the bundled PyQt6 dependency.
 
+</details>
+
 ## Third-party components
+
+<details>
+<summary>What's bundled, and under which licenses</summary>
 
 Full notices (bundled binaries and Python runtime dependencies) are in [`desktop/THIRD_PARTY_NOTICES.txt`](desktop/THIRD_PARTY_NOTICES.txt), which ships inside both the Windows zip and the Linux tarball. Summary:
 
@@ -108,8 +164,9 @@ Full notices (bundled binaries and Python runtime dependencies) are in [`desktop
 Copyright (c) 2018 Bernhard Schelling. MIT License. See `desktop/unitycapture/LICENSE`.
 Source: https://github.com/schellingb/UnityCapture
 
-**Android SDK Platform Tools** (`desktop/platform-tools/`) - includes `adb.exe` for USB mode.
-Copyright (c) Google LLC. Android Software Development Kit License Agreement.
-See `desktop/platform-tools/NOTICE` and https://developer.android.com/studio/terms
+**Android SDK Platform Tools** - not included. On Windows, Telescope downloads `adb.exe` from Google when you ask for it, for USB mode.
+Copyright (c) Google LLC. Android Software Development Kit License Agreement: https://developer.android.com/studio/terms
 
 **Python runtime dependencies** (PyQt6, opencv-python-headless, numpy, pyvirtualcam, qrcode, ifaddr, zeroconf, av, and sounddevice on Windows) - installed from PyPI; exact pinned versions are in `desktop/constraints.txt`. PyQt6 in particular is GPL v3-licensed (a commercial Riverbank Computing license also exists but isn't what this project uses).
+
+</details>

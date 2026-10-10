@@ -264,3 +264,56 @@ class LensZoomsTest {
         assertEquals(false, CameraRequestSelection.validWbGain(2.1e9f))
     }
 }
+
+class LowLightFpsRangeTest {
+    // A typical phone's list: fixed rates plus a couple that let auto exposure slow down
+    private val ranges = listOf(15 to 15, 7 to 30, 15 to 30, 24 to 24, 30 to 30, 10 to 30, 60 to 60)
+    private fun pick(target: Int, lowLight: Boolean, list: List<Pair<Int, Int>> = ranges) =
+        CameraRequestSelection.pickAeFpsIndex(list, target, lowLight)?.let { list[it] }
+
+    @Test
+    fun `without low light the rate is held`() {
+        assertEquals(30 to 30, pick(30, false))
+        assertEquals(60 to 60, pick(60, false))
+        assertEquals(15 to 15, pick(15, false))
+    }
+
+    @Test
+    fun `low light lets the rate stretch down, but not past 10`() {
+        assertEquals(10 to 30, pick(30, true))  // 7 to 30 would turn a call into a slideshow
+    }
+
+    @Test
+    fun `low light never picks a range that goes past the rate asked for`() {
+        assertEquals(15 to 30, pick(30, true, listOf(30 to 30, 15 to 60, 15 to 30)))
+        assertEquals(15 to 15, pick(15, true))  // not 10 to 30, which could run at 30 in daylight
+        assertEquals(30 to 30, pick(30, true, listOf(30 to 30, 15 to 60)))
+    }
+
+    @Test
+    fun `low light with nothing to stretch picks as usual`() {
+        assertEquals(60 to 60, pick(60, true))
+        assertEquals(30 to 30, pick(30, true, listOf(30 to 30, 7 to 30)))
+        assertEquals(15 to 15, pick(15, true))
+        assertNull(pick(30, true, emptyList()))
+    }
+
+    @Test
+    fun `a rate under the top prefers a range that stops there`() {
+        // 24 to 30 contains 24 but lets the camera run at 30 in good light, which is what Dynamic stepped away from
+        assertEquals(15 to 24, pick(24, false, listOf(15 to 30, 24 to 30, 15 to 24, 30 to 30)))
+        assertEquals(24 to 30, pick(24, false, listOf(15 to 30, 24 to 30, 30 to 30)))  // nothing better there
+    }
+
+    @Test
+    fun `a rate can only be capped where a range tops out`() {
+        assertEquals(true, CameraRequestSelection.capsAt(ranges, 24))
+        assertEquals(false, CameraRequestSelection.capsAt(ranges, 20))
+        assertEquals(false, CameraRequestSelection.capsAt(emptyList(), 24))
+    }
+
+    @Test
+    fun `the usual pick still takes the nearest top when nothing contains the rate`() {
+        assertEquals(24 to 24, pick(25, false, listOf(15 to 15, 24 to 24, 30 to 30)))
+    }
+}

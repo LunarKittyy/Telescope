@@ -20,8 +20,10 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 
 ## Packaging
 
-- [ ] Windows: `TelescopeDesktop.exe` launches with the Telescope icon, the first-run checklist's Install driver registers UnityCapture, bundled `adb.exe` works for USB, and no `adb.exe` is left running after quitting.
+- [ ] Windows: `TelescopeDesktop.exe` launches with the Telescope icon, the first-run checklist's Install driver registers UnityCapture, the **get from Google** link in Add phone (or **Get adb** in Advanced) downloads adb and USB pairing then works, and no `adb.exe` is left running after quitting.
 - [ ] Windows, upgrading from a version that registered the driver from the app folder: **Advanced** shows **Reinstall for a security fix**, the camera still works until then, and Reinstall puts the DLLs in `C:\Program Files\Telescope\UnityCapture` and shows Ready.
+- [ ] Windows: `TelescopeSetup.exe` installs without a UAC prompt, the Start menu entry opens Telescope, Update and restart works on the installed copy, and uninstalling (from Settings → Apps) removes it and asks before deleting settings.
+- [ ] Windows, an unzipped copy of the previous release: Updates says updating installs it, **Update and restart** comes back as the installed copy (Start menu entry there, settings and phones kept), and the unzipped folder is gone a few seconds later. With **Keep this copy where it is** ticked it updates in place instead. Windows asks about the firewall once more for the installed copy, and Add phone over Wi-Fi works after allowing it. A copy run from a USB stick doesn't offer the move.
 - [ ] Windows: opening `TelescopeDesktop.exe` from inside the zip without extracting says to extract it first.
 - [ ] Linux: Telescope shows up in the app menu after the first launch, and still opens after moving the folder and launching once from the new place.
 - [ ] Windows: OBS and Zoom list the camera as **Telescope**. On a machine registered by an older version, Advanced offers Rename, and streaming works before and after.
@@ -83,7 +85,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 - [ ] H.264 fallback: a size the encoder refuses (4:3 4K on most phones) stops with a banner to try a lower resolution or FPS, and its Switch to Heavy button streams on Heavy. A phone without an encoder switches to Heavy by itself, with no banner.
 - [ ] FPS: the dropdown grays out rates the camera doesn't list (48 and 60 on a 30 fps phone). On a phone that lists 60, picking 60 shows about 60 in the footer; Copy diagnostics shows what the camera actually did.
 - [ ] Microphone, Linux (Fedora/Nobara, PipeWire): switching it on while streaming makes "Telescope Microphone" appear; Audacity or a call records the phone; switching off or quitting removes it. Lip-sync looks right by eye. A 30-minute run doesn't drift, and unplugging and replugging recovers.
-- [ ] Microphone, Windows: without VB-Cable the card says so and links it; with it, apps record from CABLE Output.
+- [ ] Microphone, Windows: without VB-Cable the card offers Install VB-Cable; it asks first (naming VB-Audio), opens VB-Audio's setup through UAC, and after a restart and an off/on, apps record from CABLE Output.
 - [ ] Microphone card: the meter moves with your voice even when no app is recording, and its dot goes yellow on a loud clap (red with the limiter off in Advanced). Mute (card and tray) gives silence without the mic disappearing from the call app. Gain changes and typed values are audible without crackle, and Advanced's Max gain changes the slider's range. On Windows too.
 - [ ] Microphone permission: the first request makes the phone's Get set up card show Microphone; allowing it there starts the audio within a few seconds, without restarting the stream. Recording keeps going with the phone's screen off.
 - [ ] Canvas size change (Linux and Windows) restarts cleanly.

@@ -21,6 +21,7 @@ from telescope.platform.windows import (
     unitycapture_downloaded,
 )
 from telescope.plugin import TelescopePlugin
+from telescope.widgets.adb import AdbDownload
 from telescope.version import display_version
 from telescope.widgets.common import (
     ElidingLabel, NoScrollComboBox, NoScrollSpinBox, SegmentButton, action_button, add_card_header, button_row, card_layout,
@@ -221,7 +222,20 @@ class AdvancedDialog(QDialog):
 
             self._adb_status_lbl = QLabel("Checking...")
             set_status_kind(self._adb_status_lbl, "status_dim")
+            self._adb_status_lbl.setWordWrap(True)
+            self._adb_status_lbl.setTextFormat(Qt.TextFormat.PlainText)  # errors can hold <urlopen error ...>
             vc_lay.addLayout(control_row("ADB", self._adb_status_lbl, stretch=True))
+            # Not bundled (Google's license doesn't allow passing it on), so it's fetched from Google when asked
+            self._adb_btn = action_button("Get adb", "primary")
+            self._adb_btn.setToolTip("Downloads adb from Google, for pairing and installing over USB")
+            self._adb_btn.clicked.connect(self._get_adb)
+            self._adb_row = QWidget()
+            self._adb_row.setLayout(control_row("", self._adb_btn))
+            self._adb_row.setVisible(False)
+            vc_lay.addWidget(self._adb_row)
+            self._adb_download = AdbDownload(self)
+            self._adb_download.progress.connect(self._adb_status_lbl.setText)
+            self._adb_download.finished.connect(self._on_adb_downloaded)
 
         # The ones Add camera set up, for streaming several cameras at once
         self._extras_lbl = ElidingLabel("")
@@ -593,12 +607,32 @@ class AdvancedDialog(QDialog):
             self._uc_btn.setText("Install driver")
             self._uc_btn.setToolTip("")
             set_ui_role(self._uc_btn, "primary")
+        if self._adb_download.running:
+            return
+        self._adb_row.setVisible(not adb_ok)
         if adb_ok:
             set_status_kind(self._adb_status_lbl, "status_ok")
             self._adb_status_lbl.setText("Ready")
         else:
             set_status_kind(self._adb_status_lbl, "status_err")
-            self._adb_status_lbl.setText("Not found. Pairing and installing over USB won't work.")
+            self._adb_status_lbl.setText("Not found. Pairing and installing over USB need it; Wi-Fi doesn't.")
+
+    def _get_adb(self):
+        def starting():
+            self._adb_btn.setEnabled(False)
+            set_status_kind(self._adb_status_lbl, "status_dim")
+        self._adb_download.ask_and_start(self, starting)
+
+    def _on_adb_downloaded(self, ok: bool, detail: str):
+        self._adb_btn.setEnabled(True)
+        if ok:
+            self._adb_row.setVisible(False)
+            set_status_kind(self._adb_status_lbl, "status_ok")
+            self._adb_status_lbl.setText(f"Ready (adb {detail}, from Google)" if detail else "Ready (adb from Google)")
+        else:
+            self._adb_btn.setText("Try again")
+            set_status_kind(self._adb_status_lbl, "status_err")
+            self._adb_status_lbl.setText(detail)
 
     def _install_uc(self):
         self._uc_installing = True
@@ -640,7 +674,9 @@ class AdvancedDialog(QDialog):
     def _install_apk(self):
         if not adb_available():
             set_status_kind(self._apk_status_lbl, "status_err")
-            self._apk_status_lbl.setText("adb not found - install Android platform-tools first")
+            self._apk_status_lbl.setText("Installing over USB needs adb. Click Get adb under Virtual camera above."
+                                         if not IS_LINUX else
+                                         "Installing over USB needs adb. Install it from your distro's packages.")
             return
 
         apk = bundled_apk_path()

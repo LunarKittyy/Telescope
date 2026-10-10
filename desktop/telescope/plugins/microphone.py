@@ -17,7 +17,7 @@ from typing import Optional
 
 from PyQt6.QtCore import QObject, Qt, QTimer, QUrl, pyqtSignal
 from PyQt6.QtGui import QAction, QDesktopServices
-from PyQt6.QtWidgets import QCheckBox, QHBoxLayout, QPushButton, QWidget
+from PyQt6.QtWidgets import QCheckBox, QHBoxLayout, QMessageBox, QPushButton, QWidget
 
 from telescope import audio, theme
 from telescope.platform import virtual_mic
@@ -82,10 +82,14 @@ class LinuxMic:
         self._modules = []
 
 
+INSTALL = "install"  # a problem's action that runs the backend's install() instead of opening a link
+
+
 class WindowsMic:
     pick_name = virtual_mic.VB_CABLE_RECORD
 
     def __init__(self):
+        self.setup_opened = False
         try:
             import sounddevice
         except Exception:  # missing module, or PortAudio failing to load
@@ -101,9 +105,20 @@ class WindowsMic:
         except Exception:
             self._device = None
         if self._device is None:
-            return ("Needs VB-Audio Virtual Cable (free). Install it, then switch this off and on.",
-                    ("Get VB-Cable", virtual_mic.VB_CABLE_URL))
+            if self.setup_opened:  # closed without installing, it can be opened again
+                return ("Once VB-Cable's setup says it's done, restart the computer, then switch this off and on.",
+                        ("Open setup again", INSTALL))
+            return ("Needs VB-Audio Virtual Cable, a free virtual audio cable by VB-Audio.",
+                    ("Install VB-Cable", INSTALL))
         return None
+
+    def install(self) -> str:
+        """Fetch VB-Cable and open its setup; blocks on the download, so it runs off the UI thread."""
+        setup, err = virtual_mic.download_vb_cable()
+        if not err:
+            err = virtual_mic.run_vb_cable_setup(setup)
+        self.setup_opened = not err
+        return err
 
     def prepare(self) -> str:
         return ""
@@ -122,6 +137,7 @@ def default_backend():
 class _Signals(QObject):
     status = pyqtSignal(str, str)    # from the worker's threads
     prepared = pyqtSignal(int, str)  # start generation, error text ("" when ready)
+    installed = pyqtSignal(str)      # error text ("" once VB-Cable's setup is open)
 
 
 class MicrophonePlugin(TelescopePlugin):
@@ -155,6 +171,8 @@ class MicrophonePlugin(TelescopePlugin):
         self._sig = _Signals()
         self._sig.status.connect(self._on_worker_status)
         self._sig.prepared.connect(self._on_prepared)
+        self._sig.installed.connect(self._on_installed)
+        self._installing = False
         self._gen = 0  # bumped by every start and stop, so a late setup result can't revive a stopped mic
         self._preparing = False
         self._muted = False
@@ -312,6 +330,8 @@ class MicrophonePlugin(TelescopePlugin):
         if not self._enabled:
             self._show("")
             return
+        if self._installing:
+            return  # says how the download is going until it's done
         problem = self._backend.problem()
         if problem:
             self._show(problem[0], "warn", problem[1])
@@ -443,8 +463,52 @@ class MicrophonePlugin(TelescopePlugin):
             self._show(text if text.endswith(".") else text + ".", "err")
 
     def _open_action(self):
-        if self._action_url:
+        if self._action_url == INSTALL:
+            self._install()
+        elif self._action_url:
             QDesktopServices.openUrl(QUrl(self._action_url))
+
+    def _confirm_install(self) -> bool:
+        box = QMessageBox(self._action_btn.window())
+        box.setWindowTitle("Install VB-Cable")
+        box.setIcon(QMessageBox.Icon.Question)
+        box.setText("The phone's mic needs VB-Audio Virtual Cable on Windows.")
+        box.setInformativeText(
+            "VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open "
+            "VB-Audio's own setup, which asks for admin. Restart the computer when it's done.<br><br>"
+            f"{virtual_mic.VB_CABLE_ORIGIN}<br>{virtual_mic.VB_CABLE_DONATIONWARE} "
+            f'<a href="{virtual_mic.VB_CABLE_URL}">Donate or read more</a>')
+        box.setTextFormat(Qt.TextFormat.RichText)
+        install = box.addButton("Download and install", QMessageBox.ButtonRole.AcceptRole)
+        box.addButton(QMessageBox.StandardButton.Cancel)
+        box.exec()
+        return box.clickedButton() is install
+
+    def _install(self):
+        if self._installing or not self._confirm_install():
+            return
+        self._installing = True
+        self._show("Downloading VB-Cable from vb-audio.com…")
+        backend, signals = self._backend, self._sig
+
+        def install():
+            try:
+                err = backend.install()
+            except Exception as e:
+                logger.exception("VB-Cable install failed")
+                err = f"Couldn't install VB-Cable: {e}"
+            try:
+                signals.installed.emit(err)
+            except RuntimeError:
+                pass  # the window is gone
+        self._run_job(install)
+
+    def _on_installed(self, err: str):
+        self._installing = False
+        if err and self._enabled:
+            self._show(err, "err", ("Get VB-Cable", virtual_mic.VB_CABLE_URL))
+        else:
+            self._refresh()
 
     # ── Plugin hooks ──────────────────────────────────────────────────────────
 

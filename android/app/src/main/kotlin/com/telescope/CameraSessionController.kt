@@ -42,6 +42,8 @@ data class CameraControlSnapshot(
     val codecError:        String?,
     val codecUnsupported:  Boolean,  // codecError is H.264 not doing this size or rate here, not a crash
     val activeLens:        String?,
+    val dynamicFps:        Int = 0,  // the rate Dynamic stepped down to for a slow link; 0 = the rate asked for
+    val lowLight:          Boolean = false,
 )
 
 // Phone-side zoom, as the desktop splits it: a centred CONTROL_ZOOM_RATIO, then a 1/crop SCALER_CROP_REGION
@@ -96,6 +98,9 @@ class CameraSessionController(
     @Volatile private var currentEdgeMode:       Int     = CaptureRequest.EDGE_MODE_FAST
     @Volatile private var currentAeComp:         Int     = 0
     @Volatile private var currentBlackLevelLock: Boolean = false
+    // Low light: auto exposure may slow the camera down (to CameraRequestSelection.LOW_LIGHT_MIN_FPS) and noise
+    // reduction runs at its best, for a dark room
+    @Volatile private var currentLowLight: Boolean = false
     @Volatile private var currentTorch:          Boolean = false
     @Volatile private var currentJpegQuality: Int = 85
     @Volatile private var currentPhoneFps:    Int = initialPhoneFps
@@ -105,6 +110,8 @@ class CameraSessionController(
     @Volatile private var codec: String = H264Stream.CODEC_MJPEG
     @Volatile private var requestedBitrate: Int = 0  // 0 = sized from resolution and fps, H264Stream.DYNAMIC = dynamic
     @Volatile private var dynamic: DynamicBitrate? = null
+    // Dynamic's frame rate step, alongside its bitrate: only while Dynamic runs the H.264 stream
+    @Volatile private var frameRate: DynamicFrameRate? = null
     @Volatile private var codecError: String? = null
     @Volatile private var codecUnsupported = false
 
@@ -166,13 +173,18 @@ class CameraSessionController(
         codecError      = codecError,
         codecUnsupported = codecUnsupported,
         activeLens      = activeLens,
+        dynamicFps      = frameRate?.cap ?: 0,
+        lowLight        = currentLowLight,
     )
+
+    // The rate the camera and encoder run at: the one asked for, unless Dynamic stepped it down for a slow link.
+    private fun streamFps(): Int = frameRate?.cap ?: currentPhoneFps
 
     private fun currentBitrate(): Int {
         if (requestedBitrate != H264Stream.DYNAMIC) {
             return H264Stream.bitrateFor(requestedBitrate, streamWidth, streamHeight, currentPhoneFps)
         }
-        val ceiling = H264Stream.dynamicCeiling(streamWidth, streamHeight, currentPhoneFps, H264Encoder.maxBitrate)
+        val ceiling = H264Stream.dynamicCeiling(streamWidth, streamHeight, streamFps(), H264Encoder.maxBitrate)
         // Kept across a new size or rate: the link is the same one.
         val d = dynamic?.also { it.rebound(ceiling) }
             ?: DynamicBitrate(H264Stream.defaultBitrate(streamWidth, streamHeight, currentPhoneFps), ceiling)
@@ -187,6 +199,7 @@ class CameraSessionController(
             codec = value
             codecError = null
             codecUnsupported = false
+            frameRate = null  // the reopen below picks the rate up again
             reopen("setCodec")
         }
     }
@@ -195,14 +208,40 @@ class CameraSessionController(
         if (bps == requestedBitrate) return
         if (bps == H264Stream.DYNAMIC) dynamic = null  // starts again from the default, like a new stream
         requestedBitrate = bps
-        post { encoder?.setBitrate(currentBitrate()) }
+        val capped = dropFrameRate()
+        post { if (capped) reconfigureSession(); encoder?.setBitrate(currentBitrate()) }
     }
 
-    /** How the link did lately (MjpegServer, on the encoder's thread); Dynamic moves the bitrate to match. */
+    // Back to the rate asked for; true if Dynamic had stepped it down, so the session needs the rate again.
+    private fun dropFrameRate(): Boolean {
+        val capped = frameRate?.cap != null
+        frameRate = null
+        return capped
+    }
+
+    /** How the link did lately (MjpegServer, on the encoder's thread); Dynamic moves the bitrate to match, and the
+     *  frame rate too once the bitrate alone can't keep it sharp. */
     fun onLinkSample(sample: DynamicBitrate.Sample) {
-        if (requestedBitrate != H264Stream.DYNAMIC) return
-        val next = dynamic?.update(sample) ?: return
-        encoder?.setBitrate(next)
+        if (requestedBitrate != H264Stream.DYNAMIC || codec != H264Stream.CODEC_H264) return
+        val d = dynamic ?: return
+        d.update(sample)?.let { encoder?.setBitrate(it) }
+        // A sample racing setFpsTarget or a lens switch could put back rungs for the rate or lens before; those are
+        // rebuilt here
+        val camera = currentCamera
+        val old = frameRate
+        val rate = old?.takeIf { it.askedFps == currentPhoneFps && it.lens === camera } ?: newFrameRate(camera).also {
+            frameRate = it
+            if (old?.cap != null) post { reconfigureSession(); encoder?.setBitrate(currentBitrate()) }  // uncapped
+        }
+        val stepped = rate.update(sample.nowMs, d.bitrate, streamWidth, streamHeight, d.lastStallMs) ?: return
+        android.util.Log.i(TAG, "Dynamic: ${stepped} fps for a ${d.bitrate / 1000} kbps link")
+        // The rate is part of the session's setup (see createSession), so the session is rebuilt for it
+        post { reconfigureSession(); encoder?.setBitrate(currentBitrate()) }
+    }
+
+    private fun newFrameRate(camera: CameraEntry?): DynamicFrameRate {
+        val ranges = camera?.aeFpsRanges?.map { it.lower to it.upper }
+        return DynamicFrameRate(currentPhoneFps, camera) { ranges == null || CameraRequestSelection.capsAt(ranges, it) }
     }
 
     fun requestKeyFrame() { encoder?.requestKeyFrame() }
@@ -215,8 +254,9 @@ class CameraSessionController(
     fun setWbAuto()                         { currentWbGains = null;            post { applyExposure() } }
     fun setJpegQuality(q: Int)              { currentJpegQuality = q;           post { applyExposure() } }
     fun setFpsTarget(fps: Int) {
-        val changed = fps != currentPhoneFps
+        val changed = fps != currentPhoneFps || frameRate?.cap != null
         currentPhoneFps = fps
+        frameRate = null  // a new rate asked for: Dynamic starts from it
         // A new rate goes in the session's own setup too (see createSession), so the session is rebuilt for it
         post { if (changed) reconfigureSession() else applyExposure(); encoder?.setBitrate(currentBitrate()) }
     }
@@ -268,6 +308,12 @@ class CameraSessionController(
     }
     fun setFocusDistance(d: Float)          { currentFocusDistance = d;         post { applyExposure() } }
     fun setNrMode(m: Int)                   { currentNrMode = m;                post { applyExposure() } }
+    fun setLowLight(on: Boolean) {
+        if (on == currentLowLight) return
+        currentLowLight = on
+        // The frame rate range is part of the session's setup (see createSession), so the session is rebuilt for it
+        post { reconfigureSession() }
+    }
     fun setEdgeMode(m: Int)                 { currentEdgeMode = m;              post { applyExposure() } }
     fun setAeComp(v: Int)                   { currentAeComp = v;                post { applyExposure() } }
     fun setBlackLevelLock(on: Boolean)      { currentBlackLevelLock = on;       post { applyExposure() } }
@@ -451,11 +497,12 @@ class CameraSessionController(
     private fun buildOutputs() {
         if (codec == H264Stream.CODEC_H264) {
             try {
-                encoder = H264Encoder(streamWidth, streamHeight, currentPhoneFps, currentBitrate(),
+                encoder = H264Encoder(streamWidth, streamHeight, streamFps(), currentBitrate(),
                     onPacket = onH264, onError = { e -> post { encoderFailed(e) } })
                 return
             } catch (e: Exception) {
                 codec = H264Stream.CODEC_MJPEG
+                frameRate = null  // Dynamic's step was for H.264; JPEG goes back to the rate asked for
                 codecError = "H.264 isn't available at ${streamWidth}x$streamHeight on this phone"
                 codecUnsupported = true
                 onControlError("h264Encoder", e)
@@ -471,6 +518,7 @@ class CameraSessionController(
                               unsupported: Boolean = false, reopenTries: Int = 0) {
         if (codec != H264Stream.CODEC_H264) return
         codec = H264Stream.CODEC_MJPEG
+        frameRate = null  // Dynamic's step was for H.264, and it can't step back up on JPEG
         codecError = reason
         codecUnsupported = unsupported
         onControlError("h264Encoder", e)
@@ -734,14 +782,16 @@ class CameraSessionController(
     // For Copy diagnostics: the rate asked for against what the camera did, and the fastest each output allows here.
     fun frameReport(): String = buildString {
         val cam = currentCamera
-        val asked = CameraRequestSelection.pickAeFpsRange(cam?.aeFpsRanges ?: emptyList(), currentPhoneFps)
+        val asked = CameraRequestSelection.pickAeFpsRange(cam?.aeFpsRanges ?: emptyList(), streamFps(), currentLowLight)
         val template = if (requestTemplate() == CameraDevice.TEMPLATE_RECORD) "record" else "preview"
         val labels = when {
             usedStreamUseCase -> ", outputs labelled"
             streamUseCaseRefused -> ", output labels refused"
             else -> ""
         }
-        appendLine("FPS asked for: $currentPhoneFps (range $asked, $template template, $codec$labels)")
+        val stepped = frameRate?.cap?.let { ", Dynamic stepped down to $it for the link" } ?: ""
+        val dark = if (currentLowLight) ", low light" else ""
+        appendLine("FPS asked for: $currentPhoneFps$stepped (range $asked$dark, $template template, $codec$labels)")
         val durations = synchronized(frameDurations) { frameDurations.toList() }
         fun ms(ns: Long) = "%.1f".format(java.util.Locale.ROOT, ns / 1e6)
         if (durations.isNotEmpty()) {
@@ -783,8 +833,9 @@ class CameraSessionController(
             set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE, CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF)
             // Set in manual exposure too, where AE ignores it: it's also what the session is set up for.
             // Unsupported ranges can fail on some devices; use advertised range
-            CameraRequestSelection.pickAeFpsRange(cam?.aeFpsRanges ?: emptyList(), currentPhoneFps)?.let { range ->
-                android.util.Log.d(TAG, "AE FPS range for ${cam?.id}: $range (target=$currentPhoneFps)")
+            val fps = streamFps()
+            CameraRequestSelection.pickAeFpsRange(cam?.aeFpsRanges ?: emptyList(), fps, currentLowLight)?.let { range ->
+                android.util.Log.d(TAG, "AE FPS range for ${cam?.id}: $range (target=$fps)")
                 set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, range)
             }
             if (currentIso != null && currentShutterNs != null && cam != null && cam.supportsManualSensor) {
@@ -793,7 +844,7 @@ class CameraSessionController(
                 set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
                 set(CaptureRequest.SENSOR_SENSITIVITY,   iso)
                 set(CaptureRequest.SENSOR_EXPOSURE_TIME, sht)
-                val targetFrameNs = 1_000_000_000L / currentPhoneFps
+                val targetFrameNs = 1_000_000_000L / fps
                 set(CaptureRequest.SENSOR_FRAME_DURATION, targetFrameNs.coerceAtLeast(sht))
             } else {
                 set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
@@ -831,7 +882,8 @@ class CameraSessionController(
                 else CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_OFF)
 
             // NR/edge modes set only if camera advertises them; omit otherwise.
-            CameraRequestSelection.pickNrMode(cam?.nrModes ?: emptySet(), currentNrMode)?.let {
+            val nr = if (currentLowLight) CaptureRequest.NOISE_REDUCTION_MODE_HIGH_QUALITY else currentNrMode
+            CameraRequestSelection.pickNrMode(cam?.nrModes ?: emptySet(), nr)?.let {
                 set(CaptureRequest.NOISE_REDUCTION_MODE, it)
             }
             CameraRequestSelection.pickEdgeMode(cam?.edgeModes ?: emptySet(), currentEdgeMode)?.let {
@@ -893,6 +945,7 @@ class CameraSessionController(
         if (!entry.supportsManualSensor) { currentIso = null; currentShutterNs = null }
         if (!entry.supportsManualFocus && currentFocusMode == "manual") currentFocusMode = "continuous"
         if (currentFocusMode == "point") { currentFocusMode = "continuous"; focusPoint = null }  // another sensor
+        dropFrameRate()  // its rungs came from the old lens's ranges; the next link sample builds the new lens's
         currentCamera = entry
         if (cameraOff) return  // the lens it opens with when the camera comes back on
         onStateChanged(StreamState.Recovering, "switchCameraTo", null)

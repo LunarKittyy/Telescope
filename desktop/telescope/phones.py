@@ -7,6 +7,7 @@ so the UI can show it next to the route instead of leaving the user to guess.
 """
 
 import concurrent.futures
+import sys
 import threading
 from dataclasses import dataclass, field, replace
 from typing import Callable, Optional
@@ -270,10 +271,13 @@ class RouteResolver:
         return Resolution(UNREACHABLE)
 
 
+_WINDOWS = sys.platform == "win32"  # adb is a click away there (platform/adb_download.py)
+
+
 def usb_note_text(note: Optional[str]) -> str:
     """Why the connection isn't using USB, in the words the UI shows."""
     return {
-        USB_NO_ADB: "adb isn't installed, so USB can't be used",
+        USB_NO_ADB: "adb isn't installed, so USB can't be used" + (" (Add phone can get it)" if _WINDOWS else ""),
         USB_NO_CABLE: "no phone plugged in over USB",
         USB_UNAUTHORIZED: "phone plugged in, but USB debugging isn't allowed yet: accept the prompt on the phone",
         USB_OTHER_PHONE: "the phone plugged in over USB is a different one",

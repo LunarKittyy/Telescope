@@ -7,6 +7,7 @@
 - Manual white balance: Kelvin (2000-10000 K) plus a green-magenta tint - *partially working: applies inconsistently depending on device/lens*
 - Manual focus, or click anywhere on the preview to focus (and meter exposure) on that spot. **Auto** goes back to continuous autofocus
 - OIS, noise reduction, sharpening (edge mode), black level lock, and the torch on lenses that have a flash
+- Low light, for a dark room: auto exposure may slow the camera to as few as 10 fps so each frame catches more light, and noise reduction runs at its best. It only slows down when it has to, so in good light it's the rate you picked
 - Anything the current lens doesn't support is greyed out
 
 ## Stream transforms
@@ -29,14 +30,14 @@ The Presets button in the header saves your camera, output and transform setting
 
 ## Format and bandwidth
 - **Light** (the H.264 format, and the default) needs about 8 Mbps at 1080p30, which makes it a good fit even for slower Wi-Fi. **Heavy** (MJPEG) is sharper in fast motion but needs USB or strong Wi-Fi. A phone that can't do Light switches to Heavy automatically
-- Heavy has a JPEG quality slider. Light gets a bitrate slider instead: Auto, a fixed 1-100 Mbps, or **Dynamic**, which sends as much as the connection can carry and backs off before the video starts to lag
+- Heavy has a JPEG quality slider. Light gets a bitrate slider instead: Auto, a fixed 1-100 Mbps, or **Dynamic**, which sends as much as the connection can carry and backs off before the video starts to lag. When even that leaves too little for each frame, Dynamic also steps the frame rate down (30, 24, 20, down to 15 at the lowest), so you get fewer sharp frames instead of a lot of smeared ones. It climbs back once the connection has room, more slowly than it came down. Each step restarts the phone's camera for a moment, the same as changing FPS by hand, and hovering the FPS in the footer says when Dynamic lowered it
 - On Light, the resolution list leaves out sizes the phone's encoder says it can't take. If one still fails, the stream stops with a note suggesting a lower size or Heavy, and the resolution goes back to the last one that worked (so pressing Start again won't fail the same way)
 - Switching to a new aspect ratio picks the size closest to your current height rather than the biggest one
 
 ## Microphone
 - While streaming, the phone's mic can be a microphone on the computer, with the phone's own noise suppression if it has one
 - Linux: Telescope creates **Telescope Microphone** through PulseAudio or PipeWire. Most desktops need nothing extra
-- Windows: you'll need [VB-Audio Virtual Cable](https://vb-audio.com/Cable/) (free), then pick **CABLE Output** as the microphone in other apps. If it's missing, the card links to it
+- Windows: you'll need [VB-Audio Virtual Cable](https://vb-audio.com/Cable/) (free, donationware by VB-Audio), then pick **CABLE Output** as the microphone in other apps. If it's missing, the card's **Install VB-Cable** downloads VB-Audio's own pack from vb-audio.com, checks it's the one Telescope knows, and opens their setup (Windows asks for admin). Restart the computer afterwards, as VB-Audio says, then switch the mic off and on. If you close their setup before it finishes, the card offers **Open setup again**. If the download has changed or anything fails, the card links to their site instead
 - Gain goes from -24 dB to +12 dB (Advanced can raise the top to +24, +36 or +48), and you can type in a value for an exact one. The level meter holds the latest peak and lights up yellow while the limiter is holding loud moments down, or red when the sound clips. The limiter is on by default and can be switched off in Advanced
 - **Mute** (in the card or the tray menu) sends silence without disconnecting the mic, handy for call apps that can't mute themselves. It resets when Telescope restarts
 - The camera button under the preview turns the phone's camera off while the mic keeps going. In the meantime apps get the wait screen and the preview shows that the camera is off. Press it before starting and Start turns into **Start mic only**. This needs the mic on, and every new stream starts with the camera back on
@@ -78,7 +79,7 @@ The Presets button in the header saves your camera, output and transform setting
 - **Open log** and **Copy diagnostics** are at the bottom of Advanced. Copy diagnostics is what to paste into a bug report. The log lives in the temp folder (`/tmp/telescope-<user>/` on Linux, `%TEMP%\Telescope\` on Windows) with addresses, tokens and your home folder stripped out
 
 ## Phones, pairing and connection
-- **Add phone** pairs by QR code or by plugging the phone in over USB
+- **Add phone** pairs by QR code or by plugging the phone in over USB. USB needs adb: on Windows, Telescope downloads it from Google the first time, after asking
 - The **?** next to it brings the setup checklist back (with the phone app download and Add phone), even after you've streamed from Browser camera. Click it again to close it
 - You can pair several phones to one computer and one phone to several computers. Removing one leaves the others paired
 - Telescope uses USB when the phone is plugged in and answering, and Wi-Fi otherwise. If a cable is plugged in but isn't being used, the Connection panel explains why. **Connect via** can force one or the other if you wish. When you change it mid-stream, it first checks that the phone answers that way and leaves the stream alone if it doesn't
@@ -92,11 +93,13 @@ The Presets button in the header saves your camera, output and transform setting
 - Someone on the network can still see that a stream is running and roughly how much data it moves. **Local only - USB** in the Android app keeps the stream and the camera controls off the network entirely
 - If you'd like to start the camera from your PC without picking up the phone, turn on **Wait for my computer**. The phone then stays ready even with the screen off or the app closed, until you tap **Stop waiting** in its notification. It's off by default
 - Browser camera only listens on port 8767 while it (or a browser) is picked in the phone picker, or while a browser is streaming. Anyone can load the page itself, but sending video needs the token in the code, and that changes every time Telescope starts or you click **New link**. Its certificate isn't pinned the way a phone's is, so on a network you don't trust it's better to use a phone
+- The apps only go online to check GitHub for updates. On Windows the desktop also fetches adb from Google or VB-Cable from VB-Audio, but only after you click to get them
 - On Linux, only your user can read the config folder with the pairing tokens. On Windows the camera driver is installed into Program Files, where other programs can't swap it out
 
 ## Updates
 - Both apps check for updates at launch and once a day, on **Stable** or **Nightly**
 - Desktop: an **Update** button shows up in the header and installs with one click (just not while streaming). If an update gets cut short or the new version won't start, the next launch finishes it or puts the old one back
+- Windows, from the zip: updating installs the new version for your user instead (Start menu entry, uninstaller, no admin), and once it has started it deletes the unzipped folder. Only Telescope's own files go, so other things in that folder stay. Settings, paired phones and the old zip's adb come along, and a desktop shortcut to the old copy is swapped for one to the installed copy. A copy on a USB stick or a network drive always updates in place, and anywhere else **Keep this copy where it is** in Updates does the same
 - Phone: the update card downloads, checks and installs the new APK. When the phone app is older than the desktop, the Connection panel points it out and can update it over USB
 
 ## System integration

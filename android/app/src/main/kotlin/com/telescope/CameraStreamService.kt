@@ -67,12 +67,33 @@ data class SensorBox(val left: Int, val top: Int, val width: Int, val height: In
 
 // Pure Camera2 request-parameter selection logic; no device/service state for JVM testability
 object CameraRequestSelection {
-    // Picks advertised FPS range closest to target; prefers ranges containing target
-    fun pickAeFpsRange(available: List<Range<Int>>, target: Int): Range<Int>? {
-        if (available.isEmpty()) return null
-        val containing = available.filter { target in it.lower..it.upper }
-        if (containing.isNotEmpty()) return containing.maxByOrNull { it.lower }
-        return available.minByOrNull { kotlin.math.abs(it.upper - target) }
+    /** Low light lets auto exposure slow the camera down to this, and no further, so a call still looks like video. */
+    const val LOW_LIGHT_MIN_FPS = 10
+
+    // Picks advertised FPS range closest to target; prefers ranges containing target.
+    // lowLight: a range that tops out at the target but lets auto exposure stretch each frame in a dark room, instead
+    // of the fixed one that holds the rate and darkens the picture. Falls back to the usual pick when there's none.
+    fun pickAeFpsRange(available: List<Range<Int>>, target: Int, lowLight: Boolean = false): Range<Int>? =
+        pickAeFpsIndex(available.map { it.lower to it.upper }, target, lowLight)?.let { available[it] }
+
+    /** Whether the camera can be held to fps: a range that tops out there (see [pickAeFpsIndex]). */
+    fun capsAt(ranges: List<Pair<Int, Int>>, fps: Int): Boolean = ranges.any { it.second == fps && it.first <= fps }
+
+    /** [pickAeFpsRange] on (lower, upper) pairs, so it runs as a JVM test: the index of the range to use. */
+    fun pickAeFpsIndex(ranges: List<Pair<Int, Int>>, target: Int, lowLight: Boolean = false): Int? {
+        if (ranges.isEmpty()) return null
+        val all = ranges.indices
+        if (lowLight) {
+            // Only ranges that top out at the target: one that goes past it would run faster than asked in bright light
+            all.filter { val (lo, hi) = ranges[it]; hi == target && lo < target && lo >= LOW_LIGHT_MIN_FPS }
+                .minByOrNull { ranges[it].first }?.let { return it }
+        }
+        // One that tops out at the target first: a range going past it lets the camera run faster than asked
+        all.filter { ranges[it].second == target && ranges[it].first <= target }
+            .maxByOrNull { ranges[it].first }?.let { return it }
+        val containing = all.filter { target in ranges[it].first..ranges[it].second }
+        if (containing.isNotEmpty()) return containing.maxByOrNull { ranges[it].first }
+        return all.minByOrNull { kotlin.math.abs(ranges[it].second - target) }
     }
 
     // Chooses AF mode; prefers CONTINUOUS_VIDEO, falls back to PICTURE, AUTO, OFF
@@ -842,6 +863,9 @@ class CameraStreamService : Service() {
             codec = snap?.codec ?: H264Stream.CODEC_MJPEG,
             bitrate = snap?.bitrate ?: 0,
             dynamic_bitrate = h264Available,
+            dynamic_fps = snap?.dynamicFps ?: 0,
+            low_light = snap?.lowLight ?: false,
+            low_light_toggle = true,
             codec_error = snap?.codecError,
             codec_unsupported = snap?.codecUnsupported ?: false,
             active_lens = snap?.activeLens,
@@ -893,6 +917,10 @@ class CameraStreamService : Service() {
                 }
                 "auto" -> {
                     ctrl.setAuto()
+                    ok()
+                }
+                "low_light" -> {
+                    ctrl.setLowLight(params["value"] == "1")
                     ok()
                 }
                 "ois" -> {

@@ -5,6 +5,9 @@ button beside the settings button, nothing more. Updating downloads, verifies, r
 files and restarts it; it waits while a stream is running, and one that finishes during a stream
 restarts when it stops. A copy that can't replace itself (a source checkout, a read-only folder)
 gets a link to the release page instead.
+
+On Windows, a copy someone unzipped updates through the installer instead (unless they keep it portable): the new
+version lands in the per-user install, and once it has started it deletes the unzipped folder.
 """
 
 import logging
@@ -76,6 +79,16 @@ class UpdatesDialog(QDialog):
         self._auto.toggled.connect(plugin.set_auto_check)
         c.addLayout(control_row("Check daily", self._auto))
 
+        self._portable = QCheckBox("Keep this copy where it is")
+        self._portable.setToolTip("This copy runs from a folder you unzipped. Updating normally installs it for your "
+                                  "user instead, with a Start menu entry and an uninstaller, and cleans up this folder. "
+                                  "Tick this to keep updating it in place, say on a USB stick.")
+        self._portable.toggled.connect(plugin.set_keep_portable)
+        self._portable_row = QWidget()
+        self._portable_row.setLayout(control_row("Unzipped copy", self._portable))
+        self._portable_row.setVisible(updates.is_unzipped_copy())
+        c.addWidget(self._portable_row)
+
         self._status = wrapped_note("")
         c.addLayout(control_row("", self._status, stretch=True))
 
@@ -107,6 +120,9 @@ class UpdatesDialog(QDialog):
         self._auto.blockSignals(True)
         self._auto.setChecked(p.auto_check)
         self._auto.blockSignals(False)
+        self._portable.blockSignals(True)
+        self._portable.setChecked(p.keep_portable)
+        self._portable.blockSignals(False)
         text, kind = p.status_text()
         self._status.setText(text)
         set_status_kind(self._status, kind)
@@ -117,7 +133,7 @@ class UpdatesDialog(QDialog):
         self._actions.setVisible(available)
         self._retry.setVisible(p.rolled_back is not None and not available)
         self._retry_btn.setEnabled(not busy)
-        blocker = updates.self_update_blocker() if available else None
+        blocker = p.update_blocker() if available else None
         self._update_btn.setText("Open download page" if blocker else "Update and restart")
         self._update_btn.setEnabled(not busy and (blocker is not None or not p.host_streaming()))
 
@@ -131,9 +147,12 @@ class UpdatesPlugin(TelescopePlugin):
         self._bus = bus
         self.channel = updates.default_channel()
         self.auto_check = True
+        self.keep_portable = False
         self._last_check = 0.0
         self.available: Optional[updates.Manifest] = None
         self.latest: Optional[updates.Manifest] = None  # the last manifest seen, newer or not
+        self._install_build = 0  # the build being installed, for mark_started_elsewhere
+        self._driver_here: Optional[tuple] = None  # (when, the camera driver registered from this folder)
         self.rolled_back: Optional[updates.Manifest] = None  # a newer build held back: it was undone for not starting
         self._checked = False
         self._error = ""
@@ -215,8 +234,11 @@ class UpdatesPlugin(TelescopePlugin):
         if self._error:
             return self._error, "status_err"
         if self.available is not None:
-            blocker = updates.self_update_blocker()
+            blocker = self.update_blocker()
             text = f"Telescope {self.available.display_version} is available."
+            if self.moves_on_update():
+                text += (" Updating also installs it for your user, with a Start menu entry, and removes this "
+                         "unzipped copy. Settings and phones come along.")
             if blocker:
                 return f"{text} {blocker}", "status_warn"
             if self.host_streaming():
@@ -225,7 +247,7 @@ class UpdatesPlugin(TelescopePlugin):
         if not self._checked:
             return "", "status_dim"
         if self.rolled_back is not None:
-            return f"Telescope {self.rolled_back.display_version} was rolled back because it didn't start. Try again?", "status_warn"
+            return f"Telescope {self.rolled_back.display_version} didn't start after updating, so it's held back. Try again?", "status_warn"
         if version.CHANNEL == "dev":
             latest = f" The latest {self.channel} build is {self.latest.display_version}." if self.latest else ""
             return f"This is a source checkout, so it doesn't update itself.{latest}", "status_dim"
@@ -255,6 +277,36 @@ class UpdatesPlugin(TelescopePlugin):
     def set_auto_check(self, on: bool):
         self.auto_check = bool(on)
         self._host.schedule_save()
+
+    def set_keep_portable(self, on: bool):
+        self.keep_portable = bool(on)
+        self._host.schedule_save()
+        self._refresh()
+
+    def moves_on_update(self) -> bool:
+        """Whether updating goes through the installer: an unzipped copy, not kept portable, with a setup to use."""
+        manifest = self.available
+        if self.keep_portable or manifest is None or not updates.setup_asset(manifest):
+            return False
+        if not updates.is_unzipped_copy():
+            return False
+        # An older version registered the camera driver from this folder, so deleting it would take the camera
+        # away. Advanced offers the reinstall that fixes that; until then this copy updates in place.
+        return not self._driver_in_app_folder()
+
+    def _driver_in_app_folder(self) -> bool:
+        """windows.uc_in_app_folder(), which reads every COM class in the registry: remembered for a little while,
+        since one refresh of the dialog asks more than once."""
+        now = time.monotonic()
+        if self._driver_here is None or now - self._driver_here[0] > 30:
+            from telescope.platform import windows
+            self._driver_here = (now, windows.uc_in_app_folder())
+        return self._driver_here[1]
+
+    def update_blocker(self) -> Optional[str]:
+        """Why updating has to go through the release page, or None. The installer doesn't need this folder to be
+        writable, so a move has no blocker."""
+        return None if self.moves_on_update() else updates.self_update_blocker()
 
     # ── Checking ──────────────────────────────────────────────────────────
 
@@ -319,23 +371,25 @@ class UpdatesPlugin(TelescopePlugin):
         manifest = self.available
         if manifest is None or self.busy:
             return
-        if updates.self_update_blocker():
+        if self.update_blocker():
             QDesktopServices.openUrl(QUrl(manifest.notes or RELEASES_URL))
             return
         if self._host.is_streaming():
             self._refresh()
             return
-        asset = updates.platform_asset(manifest)
+        via_setup = self.moves_on_update()
+        asset = updates.setup_asset(manifest) if via_setup else updates.platform_asset(manifest)
         self._phase = "downloading"
         self._progress = (0, asset.size)
         self._error = ""
         self._cancel.clear()
         self._refresh()
-        self._spawn_install(asset)
+        self._spawn_install(asset, via_setup)
 
-    def _spawn_install(self, asset):
+    def _spawn_install(self, asset, via_setup: bool = False):
         signals, cancel, host = self._signals, self._cancel, self._host
         build = self.available.build if self.available else 0
+        self._install_build = build
 
         def work():
             folder = None
@@ -345,8 +399,11 @@ class UpdatesPlugin(TelescopePlugin):
                     asset, folder, progress=lambda d, t: signals.progress.emit(d, t), cancelled=cancel.is_set)
                 signals.progress.emit(-1, -1)  # downloaded: now installing
                 if not host.is_streaming():  # a stream started meanwhile may run over USB; platform-tools can wait
-                    stop_adb_server()  # a running adb.exe would keep platform-tools on its old version
-                result, error = updates.install(archive, build=build), ""
+                    stop_adb_server()  # a running adb.exe locks its folder, which a move deletes
+                if via_setup:
+                    result, error = updates.install_with_setup(archive), ""
+                else:
+                    result, error = updates.install(archive, build=build), ""
             except updates.UpdateError as exc:
                 result, error = None, str(exc)
             except Exception:
@@ -403,6 +460,8 @@ class UpdatesPlugin(TelescopePlugin):
             self._error = "Updated. Close and reopen Telescope to finish."
             self._refresh()
             return
+        if updates.MOVED_FROM in argv:  # the installed copy is starting now; see mark_started_elsewhere
+            updates.mark_started_elsewhere(self._install_build)
         self._host.quit_app()
 
     @staticmethod
@@ -425,12 +484,14 @@ class UpdatesPlugin(TelescopePlugin):
     # ── Config ────────────────────────────────────────────────────────────
 
     def get_config(self) -> dict:
-        return {"channel": self.channel, "auto_check": self.auto_check, "last_check": self._last_check}
+        return {"channel": self.channel, "auto_check": self.auto_check, "last_check": self._last_check,
+                "keep_portable": self.keep_portable}
 
     def set_config(self, cfg: dict):
         channel = cfg.get("channel")
         self.channel = channel if channel in updates.CHANNELS else updates.default_channel()
         self.auto_check = cfg.get("auto_check") is not False
+        self.keep_portable = cfg.get("keep_portable") is True
         last = cfg.get("last_check")
         self._last_check = float(last) if isinstance(last, (int, float)) and not isinstance(last, bool) else 0.0
         self._refresh()
