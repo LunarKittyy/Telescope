@@ -79,7 +79,7 @@ The Presets button in the header saves your camera, output and transform setting
 - **Open log** and **Copy diagnostics** are at the bottom of Advanced. Copy diagnostics is what to paste into a bug report. The log lives in the temp folder (`/tmp/telescope-<user>/` on Linux, `%TEMP%\Telescope\` on Windows) with addresses, tokens and your home folder stripped out
 
 ## Phones, pairing and connection
-- **Add phone** pairs by QR code or by plugging the phone in over USB
+- **Add phone** pairs by QR code or by plugging the phone in over USB. USB needs adb: on Windows, Telescope downloads it from Google the first time, after asking
 - The **?** next to it brings the setup checklist back (with the phone app download and Add phone), even after you've streamed from Browser camera. Click it again to close it
 - You can pair several phones to one computer and one phone to several computers. Removing one leaves the others paired
 - Telescope uses USB when the phone is plugged in and answering, and Wi-Fi otherwise. If a cable is plugged in but isn't being used, the Connection panel explains why. **Connect via** can force one or the other if you wish. When you change it mid-stream, it first checks that the phone answers that way and leaves the stream alone if it doesn't

@@ -2,7 +2,7 @@
 """Windows CI: an unzipped copy moving to the installed one, for real.
 
 Unpacks the built bundle straight into a fake Downloads folder that already holds the user's own things (a photo
-and Google's platform-tools with fastboot in it, the same folder name Telescope ships), runs the real
+and Google's platform-tools with fastboot in it, the folder name older Telescopes shipped adb in), runs the real
 install_with_setup() against the real TelescopeSetup.exe, checks it found the install through the setup's uninstall
 entry and asked the installed copy to tidy up, then runs the installed copy's clean-up and checks only Telescope's
 files went. Uninstalls at the end.

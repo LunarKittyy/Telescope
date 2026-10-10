@@ -8,6 +8,7 @@ route and a one-click override. Tokens, ports and adb forwards never reach the U
 
 import base64
 import contextlib
+import html
 import logging
 import socket
 import threading
@@ -31,7 +32,7 @@ from telescope.phones import (
     USB_NEEDS_ATTENTION, USB_NO_ADB, USB_NO_CABLE, Phone, Resolution, Route, RouteResolver, UsbTunnels, usb_note_text,
 )
 from telescope.platform import (
-    IS_LINUX, adb_available, adb_broadcast_pair, adb_device_states, adb_forward_auto, adb_install,
+    IS_LINUX, IS_WINDOWS, adb_available, adb_broadcast_pair, adb_device_states, adb_forward_auto, adb_install,
     adb_reverse, adb_unforward, adb_unreverse, bundled_apk_path, stop_adb_server,
 )
 from telescope.platform.linux import (
@@ -48,6 +49,7 @@ from telescope.widgets.common import (
     ui_px, wrapped_note,
 )
 from telescope.widgets.banner import BannerAction, Issue, copy_action
+from telescope.widgets.adb import GET_ADB_LINK, AdbDownload
 from telescope.widgets.qr import QRCodeWidget
 
 logger = logging.getLogger(__name__)
@@ -186,8 +188,13 @@ class AddPhoneDialog(QDialog):
 
         self._usb_lbl = wrapped_note("")
         set_status_kind(self._usb_lbl, "status_dim")
+        self._usb_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.LinksAccessibleByMouse)
+        self._usb_lbl.linkActivated.connect(self._get_adb)
         self._usb_row = control_row_widget("USB", self._usb_lbl, stretch=True)
         lay.addWidget(self._usb_row)
+        self._adb_download = AdbDownload(self)
+        self._adb_download.progress.connect(lambda msg: self._set_usb(msg, "status_dim"))
+        self._adb_download.finished.connect(self._on_adb_downloaded)
 
         self._result_lbl = QLabel("")
         self._result_lbl.setObjectName("dialog_title")
@@ -224,12 +231,30 @@ class AddPhoneDialog(QDialog):
             self._wifi_lbl.setText("On the phone, tap Scan pairing code and point it at this code.")
         else:
             self._wifi_lbl.setText("This computer isn't on a network right now, so pair over USB.")
+        self._start_usb()
+
+    def _start_usb(self):
         if adb_available():
-            self._usb_lbl.setText("Plug the phone in with a USB cable and it pairs by itself.")
+            self._set_usb("Plug the phone in with a USB cable and it pairs by itself.", "status_dim")
             self._usb_timer.start(_PAIR_USB_POLL_MS)
             self._poll_usb()
+        elif IS_WINDOWS:
+            self._set_usb(f'Needs adb, which Telescope can <a href="{GET_ADB_LINK}">get from Google</a>. '
+                          "Wi-Fi works without it.", "status_dim")
         else:
-            self._usb_lbl.setText("Needs adb, which isn't installed. Wi-Fi works without it.")
+            self._set_usb("Needs adb, which isn't installed. Wi-Fi works without it.", "status_dim")
+
+    def _get_adb(self, link: str):
+        if link == GET_ADB_LINK and not self._done:
+            self._adb_download.ask_and_start(self)
+
+    def _on_adb_downloaded(self, ok: bool, detail: str):
+        if self._done:
+            return
+        if ok:
+            self._start_usb()
+        else:
+            self._set_usb(f'{html.escape(detail)} <a href="{GET_ADB_LINK}">Try again</a>', "status_err")
 
     def _stop(self):
         self._usb_timer.stop()

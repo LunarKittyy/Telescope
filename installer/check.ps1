@@ -11,11 +11,12 @@ $problems = @()
 $p = Start-Process -FilePath $Setup -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
 if ($p.ExitCode -ne 0) { throw "Setup exited with $($p.ExitCode)" }
 
-foreach ($want in "$app\TelescopeDesktop.exe", "$app\platform-tools", "$app\unitycapture", "$app\unins000.exe", $menu) {
+foreach ($want in "$app\TelescopeDesktop.exe", "$app\unitycapture", "$app\unins000.exe", $menu) {
     if (-not (Test-Path $want)) { $problems += "after install, missing $want" }
 }
 if (-not (Get-ChildItem $app -Directory -Filter "lib-*")) { $problems += "after install, no lib-<build> folder" }
 if (Test-Path "$env:ProgramFiles\Telescope\TelescopeDesktop.exe") { $problems += "installed into Program Files" }
+if (Get-ChildItem $app -Recurse -Filter "adb*.exe") { $problems += "adb is in the install; it's downloaded on request" }
 
 # What the app does to its folder later: an update's next libraries and leftovers, a log shortcut, the Run key
 New-Item -ItemType Directory -Force "$app\lib-999999\PyQt6" | Out-Null
@@ -23,7 +24,11 @@ Set-Content "$app\lib-999999\PyQt6\x.dll" "x"
 New-Item -ItemType Directory -Force "$app\.update-staging" | Out-Null
 Set-Content "$app\.update.json" "{}"
 Set-Content "$app\TelescopeDesktop.old.exe" "x"
-Set-Content "$app\platform-tools\added-by-an-update.dll" "x"
+New-Item -ItemType Directory -Force "$app\platform-tools" | Out-Null  # an older copy's bundled adb
+Set-Content "$app\platform-tools\adb.exe" "x"
+$adb = "$env:LOCALAPPDATA\Telescope\platform-tools"  # adb as Get adb downloads it
+New-Item -ItemType Directory -Force $adb | Out-Null
+Set-Content "$adb\adb.exe" "x"
 Set-ItemProperty $runKey -Name "Telescope" -Value "`"$app\TelescopeDesktop.exe`" --minimized"
 
 $p = Start-Process -FilePath "$app\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
@@ -36,6 +41,7 @@ if (Test-Path $app) {
     $problems += "after uninstall, the folder is still there with: $($left -join ', ')"
 }
 if (Test-Path $menu) { $problems += "after uninstall, the Start menu entry is still there" }
+if (Test-Path "$env:LOCALAPPDATA\Telescope") { $problems += "after uninstall, the downloaded adb is still there" }
 if ((Get-ItemProperty $runKey -ErrorAction SilentlyContinue).PSObject.Properties.Name -contains "Telescope") {
     $problems += "after uninstall, Telescope still opens at sign-in"
 }

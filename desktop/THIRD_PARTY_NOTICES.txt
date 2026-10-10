@@ -14,11 +14,11 @@ UnityCapture (desktop/unitycapture/)
     License: MIT (see desktop/unitycapture/LICENSE).
     Source: https://github.com/schellingb/UnityCapture
 
-Android SDK Platform Tools (desktop/platform-tools/)
-    Includes adb.exe, used for USB mode on Windows.
+Android SDK Platform Tools (not included)
+    On Windows, adb.exe is downloaded from Google when you ask for it (Get adb), and kept in
+    %LOCALAPPDATA%\Telescope\platform-tools with Google's NOTICE.txt.
     Copyright (c) Google LLC.
-    License: Android Software Development Kit License Agreement
-    (see desktop/platform-tools/NOTICE).
+    License: Android Software Development Kit License Agreement.
     https://developer.android.com/studio/terms
 
 Python runtime dependencies

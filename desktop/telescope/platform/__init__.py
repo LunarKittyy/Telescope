@@ -120,9 +120,16 @@ def bundled_apk_path() -> Optional[Path]:
 
 
 def adb_exe() -> Optional[str]:
+    """adb from the app's folder (copies from before it stopped being bundled), then the one Telescope downloaded
+    for this user (adb_download.py), then whatever is on PATH."""
     local = platform_tools_dir() / ("adb.exe" if IS_WINDOWS else "adb")
     if local.exists():
         return str(local)
+    if IS_WINDOWS:
+        from telescope.platform.adb_download import downloaded_adb
+        downloaded = downloaded_adb()
+        if downloaded is not None:
+            return str(downloaded)
     return shutil.which("adb")
 
 

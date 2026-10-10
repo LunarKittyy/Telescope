@@ -50,7 +50,7 @@ Download `Telescope-linux.tar.gz` from the [releases page](../../releases), extr
 
   </details>
 
-- 💡 **`adb`** *(optional)* - only for pairing or installing the phone app over USB. Wi-Fi works without it.
+- 💡 **`adb`** *(optional)* - only for pairing or installing the phone app over USB. Wi-Fi works without it. On Windows, Telescope offers to download it from Google when you first need it.
   - Debian/Ubuntu: `sudo apt install adb`
   - Fedora/Nobara: `sudo dnf install android-tools`
   - Arch: `sudo pacman -S android-tools`
@@ -164,9 +164,8 @@ Full notices (bundled binaries and Python runtime dependencies) are in [`desktop
 Copyright (c) 2018 Bernhard Schelling. MIT License. See `desktop/unitycapture/LICENSE`.
 Source: https://github.com/schellingb/UnityCapture
 
-**Android SDK Platform Tools** (`desktop/platform-tools/`) - includes `adb.exe` for USB mode.
-Copyright (c) Google LLC. Android Software Development Kit License Agreement.
-See `desktop/platform-tools/NOTICE` and https://developer.android.com/studio/terms
+**Android SDK Platform Tools** - not included. On Windows, Telescope downloads `adb.exe` from Google when you ask for it, for USB mode.
+Copyright (c) Google LLC. Android Software Development Kit License Agreement: https://developer.android.com/studio/terms
 
 **Python runtime dependencies** (PyQt6, opencv-python-headless, numpy, pyvirtualcam, qrcode, ifaddr, zeroconf, av, and sounddevice on Windows) - installed from PyPI; exact pinned versions are in `desktop/constraints.txt`. PyQt6 in particular is GPL v3-licensed (a commercial Riverbank Computing license also exists but isn't what this project uses).
 

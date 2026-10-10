@@ -150,3 +150,45 @@ def test_closing_stops_the_pairing_server(qapp, adb, lan):
     dialog.reject()
     assert dialog._server is None
     assert server.offer is None
+
+
+def test_on_windows_without_adb_it_offers_to_get_it_and_then_pairs_over_usb(qapp, adb, lan, monkeypatch):
+    import telescope.widgets.adb as adb_widget
+    adb["available"] = False
+    asked = []
+    monkeypatch.setattr(connection_module, "IS_WINDOWS", True)
+    monkeypatch.setattr(adb_widget, "confirm", lambda parent: asked.append(parent) or True)
+    monkeypatch.setattr(adb_widget, "threading", SimpleNamespace(Thread=_SyncThread))
+
+    def download(progress):
+        progress("Downloading adb 37.0.1 from Google...")
+        adb["available"] = True
+        return True, "37.0.1"
+    monkeypatch.setattr(adb_widget.adb_download, "download_adb", download)
+    dialog = _open(qapp)
+    try:
+        assert 'href="get-adb"' in dialog._usb_lbl.text()
+        dialog._usb_lbl.linkActivated.emit("get-adb")
+        assert asked == [dialog]
+        assert "pairs by itself" in dialog._usb_lbl.text()
+        assert dialog._usb_timer.isActive()
+    finally:
+        dialog.reject()
+
+
+def test_a_failed_adb_download_says_why_and_offers_another_go(qapp, adb, lan, monkeypatch):
+    import telescope.widgets.adb as adb_widget
+    adb["available"] = False
+    monkeypatch.setattr(connection_module, "IS_WINDOWS", True)
+    monkeypatch.setattr(adb_widget, "confirm", lambda parent: True)
+    monkeypatch.setattr(adb_widget, "threading", SimpleNamespace(Thread=_SyncThread))
+    monkeypatch.setattr(adb_widget.adb_download, "download_adb",
+                        lambda progress: (False, "Couldn't download adb: <urlopen error timed out>"))
+    dialog = _open(qapp)
+    try:
+        dialog._usb_lbl.linkActivated.emit("get-adb")
+        assert "&lt;urlopen error timed out&gt;" in dialog._usb_lbl.text()
+        assert "Try again" in dialog._usb_lbl.text()
+        assert not dialog._usb_timer.isActive()
+    finally:
+        dialog.reject()

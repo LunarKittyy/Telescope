@@ -69,7 +69,6 @@ jobs:
           New-Item -ItemType Directory -Path bundle
           Copy-Item -Recurse desktop/dist/TelescopeDesktop/* bundle/
           Copy-Item desktop/THIRD_PARTY_NOTICES.txt bundle/
-          Copy-Item -Recurse desktop/platform-tools bundle/platform-tools
           Copy-Item -Recurse desktop/unitycapture bundle/unitycapture
 
       - name: Verify release bundle
@@ -78,7 +77,6 @@ jobs:
           $required = @(
             "bundle/TelescopeDesktop.exe",
             "bundle/THIRD_PARTY_NOTICES.txt",
-            "bundle/platform-tools",
             "bundle/unitycapture"
           )
           $missing = @($required | Where-Object { -not (Test-Path $_) })
@@ -92,6 +90,8 @@ jobs:
               if (-not (Test-Path "$($lib.FullName)/PyQt6/Qt6/plugins/$plugin")) { $missing += $plugin }
             }
           }
+          # adb is under Google's SDK license, which doesn't allow passing it on: the app downloads it on request
+          if (Get-ChildItem bundle -Recurse -Filter "adb*.exe") { Write-Error "adb must not be in the bundle"; exit 1 }
           if ($missing) {
             Write-Error "Release bundle is missing: $($missing -join ', ')"
             exit 1

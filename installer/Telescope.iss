@@ -70,8 +70,9 @@ Name: "{autodesktop}\Telescope"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "Open Telescope"; Flags: nowait postinstall skipifsilent
 
-; What the app adds to its folder after setup, which the uninstall log can't know about: libraries from in-app
-; updates, the updater's working files (desktop/update_guard.py) and the log shortcut (desktop/telescope/diagnostics.py).
+; What the app adds after setup, which the uninstall log can't know about: libraries from in-app updates, the updater's
+; working files (desktop/update_guard.py), the log shortcut (desktop/telescope/diagnostics.py), and platform-tools,
+; which copies from before adb was downloaded on request still have.
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\lib-*"
 Type: filesandordirs; Name: "{app}\.update-staging"
@@ -82,6 +83,10 @@ Type: files; Name: "{app}\TelescopeDesktop.old.exe"
 Type: files; Name: "{app}\TelescopeDesktop.failed.exe"
 Type: files; Name: "{app}\telescope.log"
 Type: filesandordirs; Name: "{app}\platform-tools"
+; adb as the app downloads it (desktop/telescope/platform/adb_download.py), and a download cut short
+Type: filesandordirs; Name: "{localappdata}\Telescope\platform-tools"
+Type: filesandordirs; Name: "{localappdata}\Telescope\.adb-*"
+Type: dirifempty; Name: "{localappdata}\Telescope"
 Type: filesandordirs; Name: "{app}\unitycapture"
 Type: dirifempty; Name: "{app}"
 
