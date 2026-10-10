@@ -1,15 +1,15 @@
 """Starting and stopping on its own, and opening Telescope at sign-in.
 
 The settings menu's Automatic streaming submenu picks when a stream starts by itself (never, as soon as the phone is
-ready, or when an app opens the camera) and when one stops by itself (never, or once no app has read the camera for
-a while: only a stream it started, or any stream). Starting when the phone is ready happens once each time the phone
-becomes ready, which is only noticed while the window is on screen (the phone isn't checked otherwise); after a Stop
-it waits until the phone goes away and comes back, so Stop sticks. Starting for an app happens once while that app
-reads the camera; after a Stop it waits until the app lets go and something opens the camera again. The idle stop
-never acts before the camera watch has reported at least once, so a machine where it can't tell whether an app reads
-the camera never has its streams stopped under it. With the phone mic on, the idle stop turns only the camera off and
-the mic keeps streaming (a call that switched its camera off still hears you); the camera comes back on when an app
-opens it again, and Stop ends the stream.
+ready, or when an app opens the camera) and when one stops by itself (never, or once no app has read the camera for a
+while: only a stream it started, or any stream). Starting when the phone is ready happens once each time the phone
+becomes ready, and keeps the phone checked with the window hidden (otherwise it's checked only while the window is on
+screen or an app reads the camera); after a Stop it waits until the phone goes away and comes back, so Stop sticks.
+Starting for an app happens once while that app reads the camera; after a Stop it waits until the app lets go and
+something opens the camera again. The idle stop never acts before the camera watch has reported at least once, so a
+machine where it can't tell whether an app reads the camera never has its streams stopped under it. With the phone mic
+on, the idle stop turns only the camera off and the mic keeps streaming (a call that switched its camera off still hears
+you); the camera comes back on when an app opens it again, and Stop ends the stream.
 """
 
 import logging
@@ -211,6 +211,7 @@ class StartupPlugin(TelescopePlugin):
     def _keep_in_tray(self):
         # Closing the window mustn't quit what's waiting for the phone or for an app.
         self._host.set_keep_in_tray(self.start_on != START_OFF)
+        self._bus.phone_wanted.emit(self.start_on == START_READY)
 
     def set_open_at_sign_in(self, on: bool):
         ok, detail = autostart.enable() if on else autostart.disable()
@@ -230,8 +231,7 @@ class StartupPlugin(TelescopePlugin):
         if not ready:
             self._held = False  # gone: the next time it's ready counts as a new arrival
             return
-        # Only with the window on screen: hidden, the phone is checked just for an app reading the camera.
-        if (self.start_on == START_READY and self._shown and not self._held
+        if (self.start_on == START_READY and not self._held
                 and not self._host.is_streaming() and not self._host.is_starting()):
             # Held before starting, so a start that fails isn't retried on every status check.
             self._held = True

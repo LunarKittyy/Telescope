@@ -570,6 +570,21 @@ def test_an_app_reading_the_camera_keeps_checking_the_phone_while_hidden(plugin_
     assert plugin._check_id == first + 2
 
 
+def test_waiting_to_start_when_ready_keeps_checking_the_phone_while_hidden(plugin_env):
+    # Opened at sign-in to the tray: the window never shows, and the phone arriving has to be seen.
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    _settle(plugin)
+    plugin._bus.window_shown.emit(False)
+    first = plugin._check_id
+    plugin._bus.phone_wanted.emit(True)
+    assert plugin._check_id == first + 1
+    plugin._on_resolved(first + 1, "id-a", Resolution(READY, WIFI))
+    plugin._bus.phone_wanted.emit(False)
+    plugin._poll_status()
+    assert plugin._check_id == first + 1
+
+
 def test_a_check_that_never_answers_gives_way_to_a_new_one(plugin_env):
     plugin, _host, _panel = plugin_env
     _add(plugin)

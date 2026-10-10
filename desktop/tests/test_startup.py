@@ -320,17 +320,23 @@ def test_an_app_opening_the_camera_just_after_the_window_comes_back_waits_for_a_
     assert host.starts == [False]
 
 
-def test_ready_does_not_start_while_the_window_is_hidden(env):
-    # Hidden, the phone is checked only for an app reading the camera; that doesn't make it a ready start.
+def test_ready_starts_from_the_tray(env):
+    # Opened at sign-in straight to the tray, the window is never shown, and the phone arriving still starts.
     plugin, host, bus = env
     plugin.set_start_on("ready")
     bus.window_shown.emit(False)
-    bus.camera_watched.emit(True)
-    bus.phone_ready.emit("p1", True)
-    assert host.starts == []
-    bus.window_shown.emit(True)
     bus.phone_ready.emit("p1", True)
     assert host.starts == [False]
+
+
+def test_ready_asks_for_the_phone_to_be_checked_with_the_window_hidden(env):
+    plugin, _host, bus = env
+    wanted = []
+    bus.phone_wanted.connect(wanted.append)
+    plugin.set_start_on("ready")
+    plugin.set_start_on("watched")
+    plugin.set_config({"start_on": "ready"})
+    assert wanted == [True, False, True]
 
 
 def test_watching_is_off_by_default(env):

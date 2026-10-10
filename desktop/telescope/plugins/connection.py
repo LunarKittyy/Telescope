@@ -478,11 +478,14 @@ class ConnectionPlugin(TelescopePlugin):
         self.remembered: list = []  # [(id, name, detail)] of browsers with settings of their own
         bus.remembered_sources.connect(self._on_remembered)
         # Each idle check wakes the phone's Wi-Fi and CPU, so a phone left waiting all day isn't polled while nobody
-        # looks. An app reading the camera keeps the checks going, so starting for it still sees the phone arrive.
+        # looks. An app reading the camera, or starting when the phone is ready, keeps the checks going, so those
+        # still see the phone arrive.
         self._shown = True  # the window says otherwise when it starts hidden
         self._watched = False
-        bus.window_shown.connect(self._on_window_shown)
-        bus.camera_watched.connect(self._on_camera_watched)
+        self._wanted = False
+        bus.window_shown.connect(lambda shown: self._set_poll_reason("_shown", shown))
+        bus.camera_watched.connect(lambda watched: self._set_poll_reason("_watched", watched))
+        bus.phone_wanted.connect(lambda wanted: self._set_poll_reason("_wanted", wanted))
 
     def _on_remembered(self, entries: list):
         self.remembered = list(entries)
@@ -750,20 +753,14 @@ class ConnectionPlugin(TelescopePlugin):
 
     # ── Status checks ─────────────────────────────────────────────────────
 
-    def _on_window_shown(self, shown: bool):
+    def _set_poll_reason(self, attr: str, on: bool):
         was_polling = self._polling()
-        self._shown = shown
+        setattr(self, attr, on)
         if self._polling() and not was_polling:
             self._check_status()  # don't make the window wait a whole tick to say where the phone is
 
-    def _on_camera_watched(self, watched: bool):
-        was_polling = self._polling()
-        self._watched = watched
-        if self._polling() and not was_polling:
-            self._check_status()
-
     def _polling(self) -> bool:
-        return self._shown or self._watched
+        return self._shown or self._watched or self._wanted
 
     def _poll_status(self):
         if self._polling():
