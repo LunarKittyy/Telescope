@@ -138,6 +138,10 @@ def _sha256(path: Path) -> str:
 
 def download_vb_cable(folder: Optional[Path] = None, urlopen: Callable = urllib.request.urlopen) -> tuple:
     """Fetch VB-Audio's pack and unpack it; (setup exe path, "") or (None, why not)."""
+    if folder is None:
+        # An earlier try's folder: its setup has long finished (or never ran), and each one holds a few MB
+        for old in Path(tempfile.gettempdir()).glob("telescope-vbcable-*"):
+            shutil.rmtree(old, ignore_errors=True)
     folder = Path(folder or tempfile.mkdtemp(prefix="telescope-vbcable-"))
     pack = folder / "VBCABLE_Driver_Pack.zip"
     try:

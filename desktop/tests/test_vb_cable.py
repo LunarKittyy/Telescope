@@ -157,3 +157,16 @@ def test_the_question_names_vb_audio_and_says_what_they_ask(qapp, monkeypatch):
     assert virtual_mic.VB_CABLE_ORIGIN in shown["text"]
     assert virtual_mic.VB_CABLE_DONATIONWARE in shown["text"]
     assert "Download and install" in shown["buttons"]
+
+
+def test_an_earlier_tries_folder_is_cleared_first(tmp_path, monkeypatch, pinned):
+    monkeypatch.setattr(virtual_mic.tempfile, "gettempdir", lambda: str(tmp_path))
+    monkeypatch.setattr(virtual_mic.tempfile, "tempdir", str(tmp_path))
+    old = tmp_path / "telescope-vbcable-old"
+    old.mkdir()
+    (old / "VBCABLE_Setup_x64.exe").write_bytes(b"x")
+    keep = tmp_path / "something-else"
+    keep.mkdir()
+    setup, err = virtual_mic.download_vb_cable(urlopen=_serving(GOOD))
+    assert err == "" and setup.parent.parent == tmp_path
+    assert not old.exists() and keep.exists()

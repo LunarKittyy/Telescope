@@ -36,8 +36,14 @@ PrivilegesRequired=lowest
 DefaultDirName={autopf}\Telescope
 DisableProgramGroupPage=yes
 UsePreviousAppDir=yes
+; x64compatible also lets Windows on Arm install it (it runs the x64 app emulated); older Inno only knows x64
+#if Ver >= EncodeVer(6, 3, 0)
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
+#else
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
+#endif
 MinVersion=10.0
 SetupIconFile=..\desktop\resources\telescope.ico
 UninstallDisplayIcon={app}\{#AppExe}

@@ -490,6 +490,7 @@ class CameraSessionController(
                 return
             } catch (e: Exception) {
                 codec = H264Stream.CODEC_MJPEG
+                frameRate = null  // Dynamic's step was for H.264; JPEG goes back to the rate asked for
                 codecError = "H.264 isn't available at ${streamWidth}x$streamHeight on this phone"
                 codecUnsupported = true
                 onControlError("h264Encoder", e)
@@ -505,6 +506,7 @@ class CameraSessionController(
                               unsupported: Boolean = false, reopenTries: Int = 0) {
         if (codec != H264Stream.CODEC_H264) return
         codec = H264Stream.CODEC_MJPEG
+        frameRate = null  // Dynamic's step was for H.264, and it can't step back up on JPEG
         codecError = reason
         codecUnsupported = unsupported
         onControlError("h264Encoder", e)
