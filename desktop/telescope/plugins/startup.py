@@ -230,7 +230,8 @@ class StartupPlugin(TelescopePlugin):
         if not ready:
             self._held = False  # gone: the next time it's ready counts as a new arrival
             return
-        if (self.start_on == START_READY and not self._held
+        # Only with the window on screen: hidden, the phone is checked just for an app reading the camera.
+        if (self.start_on == START_READY and self._shown and not self._held
                 and not self._host.is_streaming() and not self._host.is_starting()):
             # Held before starting, so a start that fails isn't retried on every status check.
             self._held = True
@@ -245,14 +246,18 @@ class StartupPlugin(TelescopePlugin):
 
     def _on_window_shown(self, shown: bool):
         self._shown = shown
+        self._forget_ready_if_unchecked()
+
+    def _forget_ready_if_unchecked(self):
+        # The phone isn't checked while the window is hidden and no app reads the camera, so what it said last can go
+        # stale. Once checks resume, the first one answers with phone_ready and anything waiting on it starts then.
+        if not self._shown and not self._watched:
+            self._ready = False
 
     def _on_camera_watched(self, watched: bool):
         self._watch_known = True
         self._watched = watched
-        if watched and not self._shown:
-            # The phone isn't checked while the window is hidden, so what it last said may be hours old. The check
-            # this sets off answers with phone_ready, which starts the stream then.
-            self._ready = False
+        self._forget_ready_if_unchecked()
         logger.info("An app %s reading the camera", "started" if watched else "stopped")
         if watched:
             if self._host.is_streaming() and self._host.is_camera_off_auto():

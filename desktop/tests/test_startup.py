@@ -309,6 +309,30 @@ def test_with_the_window_hidden_an_app_does_not_start_for_a_phone_that_left(watc
     assert host.starts == []
 
 
+def test_an_app_opening_the_camera_just_after_the_window_comes_back_waits_for_a_fresh_check(watching):
+    # Hidden, the phone wasn't checked: the ready from before it was hidden says nothing about now.
+    plugin, host, bus = watching
+    bus.window_shown.emit(False)
+    bus.window_shown.emit(True)
+    bus.camera_watched.emit(True)
+    assert host.starts == []
+    bus.phone_ready.emit("p1", True)
+    assert host.starts == [False]
+
+
+def test_ready_does_not_start_while_the_window_is_hidden(env):
+    # Hidden, the phone is checked only for an app reading the camera; that doesn't make it a ready start.
+    plugin, host, bus = env
+    plugin.set_start_on("ready")
+    bus.window_shown.emit(False)
+    bus.camera_watched.emit(True)
+    bus.phone_ready.emit("p1", True)
+    assert host.starts == []
+    bus.window_shown.emit(True)
+    bus.phone_ready.emit("p1", True)
+    assert host.starts == [False]
+
+
 def test_watching_is_off_by_default(env):
     plugin, host, bus = env
     bus.phone_ready.emit("p1", True)
