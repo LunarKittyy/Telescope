@@ -8,7 +8,6 @@ working when the phone takes over. The extra cameras Add camera sets up show it 
 import logging
 import os
 import shutil
-import time
 from pathlib import Path
 from typing import Optional
 
@@ -140,7 +139,7 @@ class WaitScreenPlugin(TelescopePlugin):
         folder.mkdir(parents=True, exist_ok=True)
         if Path(path).resolve().parent == folder.resolve() and Path(path).name.startswith(_KEPT_PREFIX):
             return Path(path)  # already one of ours
-        dest = folder / f"{_KEPT_PREFIX}{time.time_ns():x}{Path(path).suffix.lower()}"
+        dest = folder / f"{_KEPT_PREFIX}{os.urandom(8).hex()}{Path(path).suffix.lower()}"  # time_ns() repeats on Windows
         part = dest.with_name(dest.name + ".part")
         try:
             shutil.copyfile(path, part)
