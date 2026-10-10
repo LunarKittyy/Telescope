@@ -76,6 +76,9 @@ object CameraRequestSelection {
     fun pickAeFpsRange(available: List<Range<Int>>, target: Int, lowLight: Boolean = false): Range<Int>? =
         pickAeFpsIndex(available.map { it.lower to it.upper }, target, lowLight)?.let { available[it] }
 
+    /** Whether the camera can be held to fps: a range that tops out there (see [pickAeFpsIndex]). */
+    fun capsAt(ranges: List<Pair<Int, Int>>, fps: Int): Boolean = ranges.any { it.second == fps && it.first <= fps }
+
     /** [pickAeFpsRange] on (lower, upper) pairs, so it runs as a JVM test: the index of the range to use. */
     fun pickAeFpsIndex(ranges: List<Pair<Int, Int>>, target: Int, lowLight: Boolean = false): Int? {
         if (ranges.isEmpty()) return null
@@ -85,6 +88,9 @@ object CameraRequestSelection {
             all.filter { val (lo, hi) = ranges[it]; hi == target && lo < target && lo >= LOW_LIGHT_MIN_FPS }
                 .minByOrNull { ranges[it].first }?.let { return it }
         }
+        // One that tops out at the target first: a range going past it lets the camera run faster than asked
+        all.filter { ranges[it].second == target && ranges[it].first <= target }
+            .maxByOrNull { ranges[it].first }?.let { return it }
         val containing = all.filter { target in ranges[it].first..ranges[it].second }
         if (containing.isNotEmpty()) return containing.maxByOrNull { ranges[it].first }
         return all.minByOrNull { kotlin.math.abs(ranges[it].second - target) }

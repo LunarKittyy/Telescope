@@ -58,7 +58,9 @@ class DynamicBitrate(startBps: Int, ceilingBps: Int) {
     private var clearSinceMs = -1L
     private var stallSinceMs = -1L
     private var climbs = 0  // steps up in a row since the last cut
-    private var lastStallMs = Long.MIN_VALUE / 2
+    /** When the link last stalled (nothing going out), for [DynamicFrameRate]. */
+    @Volatile var lastStallMs = Long.MIN_VALUE / 2
+        private set
     private var probeMs = PROBE_MS
     private var probing = false  // looking past the wall
     private val window = ArrayDeque<Sample>()

@@ -299,6 +299,20 @@ class LowLightFpsRangeTest {
     }
 
     @Test
+    fun `a rate under the top prefers a range that stops there`() {
+        // 24 to 30 contains 24 but lets the camera run at 30 in good light, which is what Dynamic stepped away from
+        assertEquals(15 to 24, pick(24, false, listOf(15 to 30, 24 to 30, 15 to 24, 30 to 30)))
+        assertEquals(24 to 30, pick(24, false, listOf(15 to 30, 24 to 30, 30 to 30)))  // nothing better there
+    }
+
+    @Test
+    fun `a rate can only be capped where a range tops out`() {
+        assertEquals(true, CameraRequestSelection.capsAt(ranges, 24))
+        assertEquals(false, CameraRequestSelection.capsAt(ranges, 20))
+        assertEquals(false, CameraRequestSelection.capsAt(emptyList(), 24))
+    }
+
+    @Test
     fun `the usual pick still takes the nearest top when nothing contains the rate`() {
         assertEquals(24 to 24, pick(25, false, listOf(15 to 15, 24 to 24, 30 to 30)))
     }

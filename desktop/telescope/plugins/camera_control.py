@@ -370,6 +370,7 @@ class CameraControlPlugin(TelescopePlugin):
         self._lens_panel.clear()
         self._cam_info_lbl.setText("")
         self._cam_info_row.setVisible(False)
+        self._low_light_row.setVisible(False)  # the next phone says whether it takes it
 
     def on_phone_state(self, state: dict):
         view = derive_camera_control_view(state)

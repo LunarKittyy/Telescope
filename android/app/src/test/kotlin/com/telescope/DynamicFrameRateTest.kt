@@ -31,6 +31,25 @@ class DynamicFrameRateTest {
     }
 
     @Test
+    fun `only rates the camera can be held to are rungs`() {
+        assertEquals(listOf(30, 24, 15), DynamicFrameRate(30) { it != 20 }.rungs)
+        assertEquals(listOf(30), DynamicFrameRate(30) { false }.rungs)
+    }
+
+    @Test
+    fun `a thin bitrate right after a stall isn't a slow link`() {
+        val r = DynamicFrameRate(30)
+        val stall = now
+        val steps = mutableListOf<Int>()
+        repeat(14 * 4) {  // DynamicBitrate's floor and climb back after the stall
+            now += 250
+            r.update(now, 500_000, w, h, lastStallMs = stall)?.let { steps += it }
+        }
+        assertEquals(emptyList<Int>(), steps)
+        assertEquals(listOf(24), r.hold(0.5, 5))  // still thin well after it: that's the link
+    }
+
+    @Test
     fun `a link that carries Auto's bitrate keeps the rate asked for`() {
         val r = DynamicFrameRate(30)
         assertEquals(emptyList<Int>(), r.hold(8.0, 120))

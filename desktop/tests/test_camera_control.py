@@ -576,6 +576,9 @@ def test_low_light_shows_only_once_the_phone_says_it_takes_it(camera_plugin):
     assert plugin._low_light_cb.isChecked()
     assert plugin._ctrl.sent == []  # following the phone isn't a new request
 
+    plugin.on_stream_stop()
+    assert plugin._low_light_row.isHidden()  # until the next phone says it takes it
+
 
 def test_low_light_toggle_sends_and_saves(camera_plugin):
     plugin, host, _bus, _panel = camera_plugin
