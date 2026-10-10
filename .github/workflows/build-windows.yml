@@ -3,7 +3,7 @@ name: Build Windows EXE
 # Checks pull requests; release.yml calls it with a build number and channel to make the release bundle.
 on:
   pull_request:
-    paths: [desktop/**, VERSION, .github/workflows/build-windows.yml]
+    paths: [desktop/**, installer/**, VERSION, .github/workflows/build-windows.yml]
   workflow_dispatch:
   workflow_call:
     inputs:
@@ -97,6 +97,14 @@ jobs:
             exit 1
           }
           Write-Host "Release bundle verified."
+
+      # A per-user install, a look at what it made, then an uninstall that has to leave nothing behind.
+      # release.yml builds the published one again with Telescope.apk inside, like the zip.
+      - name: Build and check the installer
+        shell: pwsh
+        run: |
+          ./installer/build.ps1 -Bundle bundle -Out setup -Build "${{ inputs.build || '0' }}"
+          ./installer/check.ps1 -Setup setup/TelescopeSetup.exe
 
       - uses: actions/upload-artifact@v7
         with:

@@ -2,6 +2,7 @@ Rolling pre-release, rebuilt from every push to `master`. Stable releases are th
 
 | File | What it is |
 |------|------------|
+| `TelescopeSetup.exe` | Windows installer. Installs for your user only (no admin), adds a Start menu entry and an uninstaller. Same files as the zip. |
 | `Telescope-windows.zip` | Windows. Extract and run `TelescopeDesktop.exe`, keeping it in its folder. Includes adb, UnityCapture and the phone app. |
 | `Telescope-linux.tar.gz` | Linux. Extract and run `./start.sh`, which installs the Python dependencies and launches. Includes the phone app. |
 | `Telescope.apk` | Android app. |

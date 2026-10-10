@@ -49,7 +49,7 @@ Builds everything from one commit, then publishes it together:
 - a push to `master` replaces the rolling **`nightly`** pre-release (deleted and recreated, so it stays at the top of the Releases page)
 - a tag `vX.Y.Z` creates the stable release `Telescope X.Y.Z`; the tag must match `VERSION`
 
-Each release holds `Telescope.apk`, `Telescope-windows.zip`, `Telescope-linux.tar.gz` (both desktop bundles include the APK, for Install over USB) and `manifest.json`: version, build number, channel, commit, session protocol, and each file's URL, size and SHA-256. The apps' update check reads the manifest: the phone compares `android.versionCode` with its own, the desktop compares `build`.
+Each release holds `Telescope.apk`, `Telescope-windows.zip`, `TelescopeSetup.exe` (the same files as the zip, as an installer, built in its own Windows job once the APK is ready), `Telescope-linux.tar.gz` (the desktop bundles include the APK, for Install over USB) and `manifest.json`: version, build number, channel, commit, session protocol, and each file's URL, size and SHA-256. The apps' update check reads the manifest: the phone compares `android.versionCode` with its own, the desktop compares `build`. `TelescopeSetup.exe` isn't in the manifest: an installed copy updates from the zip like any other.
 
 The APK is signed with the release key from the repository secrets `TELESCOPE_KEYSTORE` (the keystore, base64), `TELESCOPE_KEYSTORE_PASSWORD`, `TELESCOPE_KEY_ALIAS` and `TELESCOPE_KEY_PASSWORD`. A release fails rather than publish an APK signed with a debug key, because Android only installs an update signed with the same key as the installed app.
 
@@ -62,7 +62,7 @@ The three build workflows below also run on pull requests, without publishing. A
 3. `./gradlew lintDebug testDebugUnitTest`, then `./gradlew assembleRelease -PbuildNumber=N -Pchannel=nightly|stable` (debug-signed on pull requests)
 4. In a release: checks the APK isn't debug-signed
 
-### `build-windows.yml` - pull requests touching `desktop/**`, `VERSION` or the workflow itself
+### `build-windows.yml` - pull requests touching `desktop/**`, `installer/**`, `VERSION` or the workflow itself
 
 1. Python 3.11 + pip cache
 2. `pip install -r requirements-dev.txt pyinstaller -c constraints.txt`; runs `pytest`
@@ -71,6 +71,9 @@ The three build workflows below also run on pull requests, without publishing. A
 5. `scripts/windows_driver_check.ps1` installs UnityCapture for real on the runner: it starts from an old registration in the app folder, checks that a junction, a planted DLL symlink and a user-owned folder in Program Files are each refused with their targets untouched, then does a clean install with `%ProgramFiles%` pointed elsewhere and checks the files land admin-owned in the real Program Files, the old registration moved, it's listed as **Telescope**, and pyvirtualcam opens it
 6. `pyinstaller telescope.spec` - a folder build: `TelescopeDesktop.exe` next to `lib-<build>/`
 7. Assembles the bundle: the app folder + `THIRD_PARTY_NOTICES.txt` + `platform-tools/` + `unitycapture/`, and checks nothing is missing, including the Qt plugins it can't start or draw without
+8. `installer/build.ps1` builds `TelescopeSetup.exe` from that bundle with Inno Setup (installed through Chocolatey when the runner lacks it), and `installer/check.ps1` installs it silently for the current user, checks the files and Start menu entry, plays an update's leftovers and an "Open at sign-in" entry, uninstalls, and checks nothing's left (and that another copy's sign-in entry survives)
+
+The setup (`installer/Telescope.iss`) is per-user: it installs to `%LOCALAPPDATA%\Programs\Telescope` without admin, because the app updates itself in place and needs its folder writable. It doesn't touch the camera driver; the first-run checklist installs that. Uninstalling asks before deleting settings and pairings, and leaves the driver registered. Keep its `AppId` as it is: Windows finds an existing install by it.
 
 `telescope.spec` takes Qt through PyInstaller's own hooks (only the modules Telescope imports) and skips UPX.
 
