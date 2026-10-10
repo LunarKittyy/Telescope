@@ -346,8 +346,9 @@ class EventBus(QObject):
     """Whether an app is reading the virtual camera (Wait screen watches it)."""
     window_shown           = pyqtSignal(bool)
     """The main window came on screen, or went to the tray or was minimized."""
-    phone_wanted           = pyqtSignal(bool)
-    """Something waits for the phone to be ready (Automatic streaming), so it's checked even with the window hidden."""
+    phone_wanted           = pyqtSignal(bool, bool)
+    """Something waits for the phone to be ready (Automatic streaming), so it's checked even with the window hidden
+    (wanted, held). Held: it already started for this arrival, so only the phone going away matters and slow checks do."""
     camera_on_changed      = pyqtSignal(bool)
     """The camera went off (the stream is just the mic) or back on, or what the next start uses changed."""
     mic_changed            = pyqtSignal(bool, bool)

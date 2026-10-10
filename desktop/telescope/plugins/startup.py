@@ -73,6 +73,7 @@ class StartupPlugin(TelescopePlugin):
         self.stop_delay_s = DEFAULT_STOP_DELAY_S
         self.notify_stop = True
         self._held = False            # already started (or stopped) for this arrival of the phone
+        self._wanted_sent: Optional[tuple] = None  # what phone_wanted last said
         self._phone: Optional[str] = None
         self._ready = False
         self._watched = False
@@ -178,7 +179,7 @@ class StartupPlugin(TelescopePlugin):
         if mode not in dict(START_CHOICES) or mode == self.start_on:
             return
         self.start_on = mode
-        self._held = False
+        self._set_held(False)
         self._watch_held = False
         self._forget_own_stream()  # a stream it started is the user's now
         self._keep_in_tray()
@@ -211,7 +212,19 @@ class StartupPlugin(TelescopePlugin):
     def _keep_in_tray(self):
         # Closing the window mustn't quit what's waiting for the phone or for an app.
         self._host.set_keep_in_tray(self.start_on != START_OFF)
-        self._bus.phone_wanted.emit(self.start_on == START_READY)
+        self._sync_wanted()
+
+    def _set_held(self, held: bool):
+        self._held = held
+        self._sync_wanted()
+
+    def _sync_wanted(self):
+        # Waiting to start when ready: the phone is checked from the tray too. Once held, only the phone going away
+        # (which lifts the hold) matters, so a phone left waiting all day is checked slowly.
+        wanted = (self.start_on == START_READY, self._held)
+        if wanted != self._wanted_sent:
+            self._wanted_sent = wanted
+            self._bus.phone_wanted.emit(*wanted)
 
     def set_open_at_sign_in(self, on: bool):
         ok, detail = autostart.enable() if on else autostart.disable()
@@ -225,21 +238,21 @@ class StartupPlugin(TelescopePlugin):
     def _on_phone_ready(self, phone_id: str, ready: bool):
         if phone_id != self._phone:
             if self._phone is not None:
-                self._held = False  # another phone: a new arrival (the first report just names it)
+                self._set_held(False)  # another phone: a new arrival (the first report just names it)
             self._phone = phone_id
         self._ready = ready
         if not ready:
-            self._held = False  # gone: the next time it's ready counts as a new arrival
+            self._set_held(False)  # gone: the next time it's ready counts as a new arrival
             return
         if (self.start_on == START_READY and not self._held
                 and not self._host.is_streaming() and not self._host.is_starting()):
             # Held before starting, so a start that fails isn't retried on every status check.
-            self._held = True
+            self._set_held(True)
             self._start_own("Starting the stream now the phone is ready")
         self._maybe_start_for_watch()
 
     def _on_device_changed(self, _name: str):
-        self._held = False
+        self._set_held(False)
         self._ready = False  # the new phone's first status check says whether it's ready
 
     # ── Starting when an app opens the camera ─────────────────────────────
@@ -303,7 +316,7 @@ class StartupPlugin(TelescopePlugin):
         self._sync_idle_timer()
 
     def _on_stream_stopped(self):
-        self._held = True
+        self._set_held(True)
         if self._host.is_restarting():
             # The same stream back in a moment (a reconnect or camera resize): still one it started.
             self._starting_own = self._starting_own or self._started_own

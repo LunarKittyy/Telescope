@@ -577,10 +577,48 @@ def test_waiting_to_start_when_ready_keeps_checking_the_phone_while_hidden(plugi
     _settle(plugin)
     plugin._bus.window_shown.emit(False)
     first = plugin._check_id
-    plugin._bus.phone_wanted.emit(True)
+    plugin._bus.phone_wanted.emit(True, False)
     assert plugin._check_id == first + 1
     plugin._on_resolved(first + 1, "id-a", Resolution(READY, WIFI))
-    plugin._bus.phone_wanted.emit(False)
+    plugin._bus.phone_wanted.emit(False, False)
+    plugin._poll_status()
+    assert plugin._check_id == first + 1
+
+
+def test_once_started_for_the_ready_phone_the_tray_checks_it_slowly(plugin_env):
+    # Held after starting (or a Stop): only the phone going away matters, so it isn't woken every 3 s all day.
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    _settle(plugin)
+    plugin._bus.window_shown.emit(False)
+    plugin._bus.phone_wanted.emit(True, True)
+    first = plugin._check_id
+    plugin._poll_status()
+    assert plugin._check_id == first
+    plugin._check_started -= connection_module._HELD_POLL_S
+    plugin._poll_status()
+    assert plugin._check_id == first + 1
+    plugin._on_resolved(first + 1, "id-a", Resolution(READY, WIFI))
+    plugin._bus.window_shown.emit(True)  # on screen it's every tick again
+    assert plugin._check_id == first + 1
+    plugin._poll_status()
+    assert plugin._check_id == first + 2
+    plugin._on_resolved(first + 2, "id-a", Resolution(READY, WIFI))
+    plugin._bus.window_shown.emit(False)
+    plugin._bus.phone_wanted.emit(True, False)  # the phone left: its coming back is seen quickly
+    plugin._poll_status()
+    assert plugin._check_id == first + 3
+
+
+def test_an_app_reading_the_camera_keeps_quick_checks_while_ready_is_held(plugin_env):
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    _settle(plugin)
+    plugin._bus.window_shown.emit(False)
+    plugin._bus.phone_wanted.emit(True, True)
+    plugin._bus.camera_watched.emit(True)
+    first = plugin._check_id
+    plugin._on_resolved(first, "id-a", Resolution(READY, WIFI))
     plugin._poll_status()
     assert plugin._check_id == first + 1
 
