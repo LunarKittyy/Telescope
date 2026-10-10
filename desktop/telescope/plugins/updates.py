@@ -151,6 +151,7 @@ class UpdatesPlugin(TelescopePlugin):
         self._last_check = 0.0
         self.available: Optional[updates.Manifest] = None
         self.latest: Optional[updates.Manifest] = None  # the last manifest seen, newer or not
+        self._install_build = 0  # the build being installed, for mark_started_elsewhere
         self._driver_here: Optional[tuple] = None  # (when, the camera driver registered from this folder)
         self.rolled_back: Optional[updates.Manifest] = None  # a newer build held back: it was undone for not starting
         self._checked = False
@@ -388,6 +389,7 @@ class UpdatesPlugin(TelescopePlugin):
     def _spawn_install(self, asset, via_setup: bool = False):
         signals, cancel, host = self._signals, self._cancel, self._host
         build = self.available.build if self.available else 0
+        self._install_build = build
 
         def work():
             folder = None
@@ -399,7 +401,7 @@ class UpdatesPlugin(TelescopePlugin):
                 if not host.is_streaming():  # a stream started meanwhile may run over USB; platform-tools can wait
                     stop_adb_server()  # a running adb.exe locks its folder, which a move deletes
                 if via_setup:
-                    result, error = updates.install_with_setup(archive, build=build), ""
+                    result, error = updates.install_with_setup(archive), ""
                 else:
                     result, error = updates.install(archive, build=build), ""
             except updates.UpdateError as exc:
@@ -458,6 +460,8 @@ class UpdatesPlugin(TelescopePlugin):
             self._error = "Updated. Close and reopen Telescope to finish."
             self._refresh()
             return
+        if updates.MOVED_FROM in argv:  # the installed copy is starting now; see mark_started_elsewhere
+            updates.mark_started_elsewhere(self._install_build)
         self._host.quit_app()
 
     @staticmethod

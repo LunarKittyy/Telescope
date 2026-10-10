@@ -99,7 +99,7 @@ The Presets button in the header saves your camera, output and transform setting
 ## Updates
 - Both apps check for updates at launch and once a day, on **Stable** or **Nightly**
 - Desktop: an **Update** button shows up in the header and installs with one click (just not while streaming). If an update gets cut short or the new version won't start, the next launch finishes it or puts the old one back
-- Windows, from the zip: updating installs the new version for your user instead (Start menu entry, uninstaller, no admin), and once it has started it deletes the unzipped folder. Only Telescope's own files go, so other things in that folder stay. Settings, paired phones and the old zip's adb come along, and a desktop shortcut to the old copy is swapped for one to the installed copy. Tick **Keep this copy where it is** in Updates to keep updating it in place, say on a USB stick
+- Windows, from the zip: updating installs the new version for your user instead (Start menu entry, uninstaller, no admin), and once it has started it deletes the unzipped folder. Only Telescope's own files go, so other things in that folder stay. Settings, paired phones and the old zip's adb come along, and a desktop shortcut to the old copy is swapped for one to the installed copy. A copy on a USB stick or a network drive always updates in place, and anywhere else **Keep this copy where it is** in Updates does the same
 - Phone: the update card downloads, checks and installs the new APK. When the phone app is older than the desktop, the Connection panel points it out and can update it over USB
 
 ## System integration

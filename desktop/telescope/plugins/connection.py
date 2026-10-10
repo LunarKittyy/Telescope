@@ -124,8 +124,11 @@ def problem_text(res: Resolution, phone_name: str, preference: str) -> str:
         return (f"{phone_name} doesn't recognise this computer anymore (it was removed on the phone, "
                 "or the app was reinstalled). Click Add phone to pair it again.")
     if res.status == LOCAL_ONLY:
-        return (f"Local only is on in the phone app, so {phone_name} only accepts USB. Plug it in "
+        text = (f"Local only is on in the phone app, so {phone_name} only accepts USB. Plug it in "
                 "with a cable, or turn Local only off on the phone.")
+        if IS_WINDOWS and not adb_available():
+            text += " USB needs adb, which Add phone can get."
+        return text
     if res.status == USB_NEEDS_ATTENTION:
         why = usb_note_text(res.usb_note) or "the phone isn't answering over USB"
         return f"The connection is set to USB only: {why}. Switch to Automatic to use Wi-Fi instead."

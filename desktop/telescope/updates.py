@@ -49,6 +49,7 @@ WINDOWS_ASSET = "Telescope-windows.zip"
 WINDOWS_SETUP_ASSET = "TelescopeSetup.exe"
 SETUP_APP_ID = "{BF097F77-F8B9-4F70-B23C-0B500DB1A07C}"  # installer/Telescope.iss; never changes
 MOVED_FROM = "--moved-from"  # tells the installed copy which unzipped folder it replaced
+PENDING_MOVE = ".moved-from"  # the same, kept in the installed folder until that folder is gone
 LINUX_ASSET = "Telescope-linux.tar.gz"
 REQUEST_TIMEOUT = 15
 MAX_MANIFEST_BYTES = 256 * 1024
@@ -173,7 +174,21 @@ def is_unzipped_copy(directory: Optional[Path] = None) -> bool:
     directory = directory or install_dir()
     if _same_place(directory, default_install_dir()):
         return False  # unzipped where the setup installs: running the setup would close this copy mid-update
+    if _carried_around(directory):
+        return False  # on a USB stick or a share it's portable on purpose: moving it would empty the stick
     return not any(directory.glob("unins*.exe"))
+
+
+def _carried_around(directory: Path) -> bool:
+    """On a removable drive (2) or a network one (4), going by GetDriveTypeW."""
+    try:
+        import ctypes
+        root = os.path.splitdrive(str(directory.resolve()))[0]
+        if root.startswith("\\\\"):
+            return True  # \\server\share
+        return ctypes.windll.kernel32.GetDriveTypeW(root + "\\") in (2, 4)
+    except Exception:
+        return False
 
 
 def default_install_dir() -> Optional[Path]:
@@ -416,12 +431,10 @@ def shortcuts_to(exe: Path, folders: Optional[list] = None) -> list:
 
 
 def install_with_setup(setup: Path, old_dir: Optional[Path] = None, run: Callable = subprocess.run,
-                       locate: Callable = installed_location, build: int = 0,
-                       folders: Optional[list] = None) -> InstallResult:
+                       locate: Callable = installed_location, folders: Optional[list] = None) -> InstallResult:
     """Run the downloaded installer silently for this user; the result starts the installed copy, which tidies away
-    old_dir once it has started fine. This copy is left as it is until then, so a failed install loses nothing.
-    build: the one being installed. Should the installed copy not start, this one is opened again and shouldn't
-    offer that build straight back (Try again in Updates does). A desktop shortcut to this copy, which won't work
+    old_dir once it has started fine (it's noted in that folder too, see pending_move). This copy is left as it is
+    until then, so a failed install loses nothing. A desktop shortcut to this copy, which won't work
     once its folder goes, gets the installed copy's desktop icon in its place."""
     old_dir = old_dir or install_dir()
     argv = [str(setup), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-"]
@@ -448,12 +461,45 @@ def install_with_setup(setup: Path, old_dir: Optional[Path] = None, run: Callabl
             update_guard.clear_journal(location)
         except OSError:
             logger.warning("Couldn't clear the installed copy's old update journal")
-        if build:
-            try:  # goes with this folder once the installed copy has started fine
-                (old_dir / update_guard.FAILED).write_text(json.dumps({"build": build}))
-            except OSError:
-                pass
+        try:  # argv alone is lost if the first start doesn't get as far as tidying up (a crash, a later reopen)
+            (location / PENDING_MOVE).write_text(str(old_dir), encoding="utf-8")
+        except OSError:
+            logger.warning("Couldn't note the old copy for the installed one")
     return InstallResult(argv)
+
+
+def mark_started_elsewhere(build: int, old_dir: Optional[Path] = None):
+    """Called once the installed copy has been started from here. Should it not start, this copy is opened again
+    and shouldn't offer that build straight back (Try again in Updates does); once it has, it deletes this folder
+    and the marker with it."""
+    if not build:
+        return
+    try:
+        ((old_dir or install_dir()) / update_guard.FAILED).write_text(json.dumps({"build": build}))
+    except OSError:
+        pass
+
+
+def pending_move(directory: Optional[Path] = None) -> Optional[Path]:
+    """The unzipped folder this installed copy replaced and hasn't removed yet, or None."""
+    try:
+        text = ((directory or install_dir()) / PENDING_MOVE).read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    return Path(text) if text else None
+
+
+def finish_move(old_dir: Path, current_dir: Optional[Path] = None) -> bool:
+    """Remove the replaced unzipped copy; forget it once its exe is gone (or it was never one), else try again at
+    the next start, when whatever held its files has let go."""
+    current_dir = current_dir or install_dir()
+    done = remove_unzipped_copy(old_dir, current_dir)
+    if done or not (old_dir / EXE_NAME).is_file():
+        try:
+            (current_dir / PENDING_MOVE).unlink(missing_ok=True)
+        except OSError:
+            pass
+    return done
 
 
 # What an unzipped copy holds that's unmistakably Telescope's. A zip unpacked straight into Downloads shares that

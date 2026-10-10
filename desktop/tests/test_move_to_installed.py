@@ -2,6 +2,7 @@
 installed copy deleting the unzipped one, never anything else."""
 
 import subprocess
+import time as time_module
 import sys
 
 import pytest
@@ -47,14 +48,52 @@ def test_the_setup_runs_silently_and_the_installed_copy_takes_over(tmp_path):
     assert result.relaunch == [str(installed / "TelescopeDesktop.exe"), "--after-update", "--moved-from", str(old)]
 
 
-def test_the_move_clears_the_installed_folder_s_old_journal_and_marks_the_build(tmp_path):
+def test_the_move_clears_the_installed_folder_s_old_journal_and_notes_the_old_copy(tmp_path):
     installed, old = _installed(tmp_path), tmp_path / "Downloads" / "Telescope"
     old.mkdir(parents=True)
     update_guard.write_journal(installed, {"platform": "windows", "to_build": 150, "state": "trial", "started": True})
-    updates.install_with_setup(tmp_path / "s.exe", old, run=_Run(), locate=lambda: installed, build=200)
+    updates.install_with_setup(tmp_path / "s.exe", old, run=_Run(), locate=lambda: installed)
     assert update_guard.read_journal(installed) is None  # else its first start rolls the fresh install back
-    # Should the installed copy not start, this one is opened again and doesn't offer 200 straight back
-    assert update_guard.failed_build(old) == 200
+    assert updates.pending_move(installed) == old  # in case its first start doesn't get to tidy up
+    assert update_guard.failed_build(old) is None  # nothing has failed to start yet
+
+
+def test_once_the_installed_copy_is_started_the_old_one_holds_that_build_back(tmp_path):
+    old = tmp_path / "Telescope"
+    old.mkdir()
+    updates.mark_started_elsewhere(200, old)
+    assert update_guard.failed_build(old) == 200  # it's only seen if the installed copy didn't start
+
+
+def test_a_pending_move_is_finished_at_a_later_start_and_then_forgotten(tmp_path):
+    installed, old = _installed(tmp_path), _unzipped(tmp_path / "Downloads" / "Telescope")
+    (installed / updates.PENDING_MOVE).write_text(str(old), encoding="utf-8")
+    real = update_guard.remove
+    held = {"on": True}
+
+    def remove(path):
+        if held["on"] and path.name == "Telescope.apk":
+            raise PermissionError(32, "in use")
+        real(path)
+    import pytest as _p
+    mp = _p.MonkeyPatch()
+    mp.setattr(update_guard, "remove", remove)
+    mp.setattr(time_module, "sleep", lambda s: None)
+    try:
+        assert not updates.finish_move(old, installed)
+        assert updates.pending_move(installed) == old  # still there: the next start tries again
+        held["on"] = False
+        assert updates.finish_move(updates.pending_move(installed), installed)
+    finally:
+        mp.undo()
+    assert not old.exists() and updates.pending_move(installed) is None
+
+
+def test_a_pending_move_to_a_folder_that_s_gone_is_forgotten(tmp_path):
+    installed = _installed(tmp_path)
+    (installed / updates.PENDING_MOVE).write_text(str(tmp_path / "gone"), encoding="utf-8")
+    assert not updates.finish_move(tmp_path / "gone", installed)
+    assert updates.pending_move(installed) is None
 
 
 def test_an_old_copy_s_bundled_adb_is_kept_for_the_installed_one(tmp_path, _local_app_data):
@@ -267,6 +306,20 @@ def test_only_the_packaged_windows_app_counts_as_unzipped(tmp_path, monkeypatch)
     monkeypatch.setattr(updates, "IS_WINDOWS", False)
     monkeypatch.setattr(sys, "frozen", True)
     assert not updates.is_unzipped_copy(tmp_path / "nope")
+
+
+def test_a_copy_on_a_usb_stick_or_a_share_stays_where_it_is(tmp_path, monkeypatch):
+    import types
+    monkeypatch.setattr(updates, "IS_WINDOWS", True)
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    drive = {"type": 3}  # fixed
+    kernel32 = types.SimpleNamespace(GetDriveTypeW=lambda root: drive["type"])
+    import ctypes
+    monkeypatch.setattr(ctypes, "windll", types.SimpleNamespace(kernel32=kernel32), raising=False)
+    assert updates.is_unzipped_copy(tmp_path)
+    for kind in (2, 4):  # removable, network
+        drive["type"] = kind
+        assert not updates.is_unzipped_copy(tmp_path)
 
 
 def test_main_takes_the_moved_from_folder():
