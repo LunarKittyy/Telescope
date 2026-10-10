@@ -462,7 +462,9 @@ def install_with_setup(setup: Path, old_dir: Optional[Path] = None, run: Callabl
         except OSError:
             logger.warning("Couldn't clear the installed copy's old update journal")
         try:  # argv alone is lost if the first start doesn't get as far as tidying up (a crash, a later reopen)
-            (location / PENDING_MOVE).write_text(str(old_dir), encoding="utf-8")
+            part = location / (PENDING_MOVE + ".tmp")
+            part.write_text(str(old_dir), encoding="utf-8")
+            os.replace(part, location / PENDING_MOVE)
         except OSError:
             logger.warning("Couldn't note the old copy for the installed one")
     return InstallResult(argv)
@@ -482,18 +484,31 @@ def mark_started_elsewhere(build: int, old_dir: Optional[Path] = None):
 
 def pending_move(directory: Optional[Path] = None) -> Optional[Path]:
     """The unzipped folder this installed copy replaced and hasn't removed yet, or None."""
+    marker = (directory or install_dir()) / PENDING_MOVE
     try:
-        text = ((directory or install_dir()) / PENDING_MOVE).read_text(encoding="utf-8").strip()
+        text = marker.read_text(encoding="utf-8").strip()
     except OSError:
         return None
-    return Path(text) if text else None
+    except ValueError:  # not text: nothing to finish, and it would fail the same way at every start
+        text = ""
+    if text and "\0" not in text and Path(text).is_absolute():
+        return Path(text)
+    try:
+        marker.unlink(missing_ok=True)
+    except OSError:
+        pass
+    return None
 
 
 def finish_move(old_dir: Path, current_dir: Optional[Path] = None) -> bool:
     """Remove the replaced unzipped copy; forget it once its exe is gone (or it was never one), else try again at
     the next start, when whatever held its files has let go."""
     current_dir = current_dir or install_dir()
-    done = remove_unzipped_copy(old_dir, current_dir)
+    try:
+        done = remove_unzipped_copy(old_dir, current_dir)
+    except Exception:  # it runs at startup: a bad folder name must not take the app down with it
+        logger.exception("Couldn't remove the replaced copy at %s", old_dir)
+        done = False
     if done or not (old_dir / EXE_NAME).is_file():
         try:
             (current_dir / PENDING_MOVE).unlink(missing_ok=True)

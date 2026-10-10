@@ -89,6 +89,21 @@ def test_a_pending_move_is_finished_at_a_later_start_and_then_forgotten(tmp_path
     assert not old.exists() and updates.pending_move(installed) is None
 
 
+@pytest.mark.parametrize("contents", [b"C:\\Users\\\xc3", b"\xff\xfe", b"", b"relative\\path", b"C:\\a\x00b"])
+def test_a_damaged_pending_move_note_is_ignored_and_removed(tmp_path, contents):
+    installed = _installed(tmp_path)
+    (installed / updates.PENDING_MOVE).write_bytes(contents)  # a cut-off write, say
+    assert updates.pending_move(installed) is None
+    assert not (installed / updates.PENDING_MOVE).exists()  # not tried again at every start
+
+
+def test_the_pending_move_note_is_written_whole(tmp_path):
+    installed, old = _installed(tmp_path), tmp_path / "Downloads" / "Telescope"
+    old.mkdir(parents=True)
+    updates.install_with_setup(tmp_path / "s.exe", old, run=_Run(), locate=lambda: installed)
+    assert sorted(p.name for p in installed.glob(".moved-from*")) == [".moved-from"]
+
+
 def test_a_pending_move_to_a_folder_that_s_gone_is_forgotten(tmp_path):
     installed = _installed(tmp_path)
     (installed / updates.PENDING_MOVE).write_text(str(tmp_path / "gone"), encoding="utf-8")

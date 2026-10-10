@@ -16,7 +16,8 @@ package com.telescope
  *
  * Pure, so it runs as a JVM test; [update] runs on the encoder's thread like [DynamicBitrate.update].
  */
-class DynamicFrameRate(val askedFps: Int, canCapAt: (Int) -> Boolean = { true }) {
+// lens: whatever the rungs were worked out for (the controller passes the camera), so a caller can tell they're stale
+class DynamicFrameRate(val askedFps: Int, val lens: Any? = null, canCapAt: (Int) -> Boolean = { true }) {
 
     companion object {
         const val MIN_FPS = 15

@@ -225,17 +225,23 @@ class CameraSessionController(
         if (requestedBitrate != H264Stream.DYNAMIC || codec != H264Stream.CODEC_H264) return
         val d = dynamic ?: return
         d.update(sample)?.let { encoder?.setBitrate(it) }
-        // A sample racing setFpsTarget could put back rungs for the rate asked before; those are rebuilt here
-        val rate = frameRate?.takeIf { it.askedFps == currentPhoneFps } ?: newFrameRate().also { frameRate = it }
+        // A sample racing setFpsTarget or a lens switch could put back rungs for the rate or lens before; those are
+        // rebuilt here
+        val camera = currentCamera
+        val old = frameRate
+        val rate = old?.takeIf { it.askedFps == currentPhoneFps && it.lens === camera } ?: newFrameRate(camera).also {
+            frameRate = it
+            if (old?.cap != null) post { reconfigureSession(); encoder?.setBitrate(currentBitrate()) }  // uncapped
+        }
         val stepped = rate.update(sample.nowMs, d.bitrate, streamWidth, streamHeight, d.lastStallMs) ?: return
         android.util.Log.i(TAG, "Dynamic: ${stepped} fps for a ${d.bitrate / 1000} kbps link")
         // The rate is part of the session's setup (see createSession), so the session is rebuilt for it
         post { reconfigureSession(); encoder?.setBitrate(currentBitrate()) }
     }
 
-    private fun newFrameRate(): DynamicFrameRate {
-        val ranges = currentCamera?.aeFpsRanges?.map { it.lower to it.upper }
-        return DynamicFrameRate(currentPhoneFps) { ranges == null || CameraRequestSelection.capsAt(ranges, it) }
+    private fun newFrameRate(camera: CameraEntry?): DynamicFrameRate {
+        val ranges = camera?.aeFpsRanges?.map { it.lower to it.upper }
+        return DynamicFrameRate(currentPhoneFps, camera) { ranges == null || CameraRequestSelection.capsAt(ranges, it) }
     }
 
     fun requestKeyFrame() { encoder?.requestKeyFrame() }
