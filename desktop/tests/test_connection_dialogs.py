@@ -85,7 +85,8 @@ def test_without_a_network_it_steers_to_usb(qapp, adb, lan):
         dialog.reject()
 
 
-def test_without_adb_usb_says_so(qapp, adb, lan):
+def test_without_adb_usb_says_so(qapp, adb, lan, monkeypatch):
+    monkeypatch.setattr(connection_module, "IS_WINDOWS", False)  # Windows offers to get it instead (below)
     adb["available"] = False
     dialog = _open(qapp)
     try:
