@@ -148,8 +148,8 @@ def main():
             # Every start, not just after an update: an old version's files can still be locked the first time.
             clean_up_after_update()
             if args.moved_from:  # only now: had this copy failed to start, the old one would still be there to use
-                threading.Thread(target=remove_unzipped_copy, args=(Path(args.moved_from), APP_DIR),
-                                 daemon=True).start()
+                # Not a daemon, so quitting straight away still lets it finish (a few seconds at most)
+                threading.Thread(target=remove_unzipped_copy, args=(Path(args.moved_from), APP_DIR)).start()
     started_fine.done = False
     # Python only runs a signal handler when the interpreter gets control, which Qt's loop doesn't give it by itself
     wake = QTimer()

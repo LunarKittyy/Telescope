@@ -170,7 +170,23 @@ def is_unzipped_copy(directory: Optional[Path] = None) -> bool:
     """The packaged Windows app, run from a folder someone unzipped rather than one the installer made."""
     if not IS_WINDOWS or not getattr(sys, "frozen", False):
         return False
-    return not any((directory or install_dir()).glob("unins*.exe"))
+    directory = directory or install_dir()
+    if _same_place(directory, default_install_dir()):
+        return False  # unzipped where the setup installs: running the setup would close this copy mid-update
+    return not any(directory.glob("unins*.exe"))
+
+
+def default_install_dir() -> Optional[Path]:
+    """Where TelescopeSetup.exe installs ({autopf}\\Telescope for a per-user install, installer/Telescope.iss)."""
+    local = os.environ.get("LOCALAPPDATA")
+    return Path(local) / "Programs" / "Telescope" if local else None
+
+
+def _same_place(a: Path, b: Optional[Path]) -> bool:
+    try:
+        return b is not None and os.path.normcase(str(a.resolve())) == os.path.normcase(str(b.resolve()))
+    except OSError:
+        return False
 
 
 def self_update_blocker(directory: Optional[Path] = None) -> Optional[str]:
@@ -388,32 +404,60 @@ def install_with_setup(setup: Path, old_dir: Optional[Path] = None, run: Callabl
     return InstallResult(argv)
 
 
-# What an unzipped copy holds: Telescope-windows.zip's entries, and what the app and its updates add next to them.
-# Nothing else is touched, so a zip unpacked straight into Downloads only loses Telescope's own files.
-_UNZIPPED_ENTRIES = (EXE_NAME, OLD_EXE_NAME, update_guard.FAILED_EXE_NAME, STAGING_DIR, PREVIOUS_DIR,
-                     update_guard.JOURNAL, update_guard.FAILED, "platform-tools", "unitycapture",
-                     "THIRD_PARTY_NOTICES.txt", "Telescope.apk", "telescope.log")
+# What an unzipped copy holds that's unmistakably Telescope's. A zip unpacked straight into Downloads shares that
+# folder with the user's own things, which may include a platform-tools from Google's SDK or a lib-something folder,
+# so a folder only counts as Telescope's when its name and its contents both match.
+_OUR_FILES = (OLD_EXE_NAME, update_guard.FAILED_EXE_NAME, update_guard.JOURNAL, update_guard.FAILED,
+              "THIRD_PARTY_NOTICES.txt", "Telescope.apk", "telescope.log")
+_OUR_FOLDERS = {  # name: the files Telescope ships in it (nothing else may be in there)
+    "platform-tools": {"adb.exe", "AdbWinApi.dll", "AdbWinUsbApi.dll", "libwinpthread-1.dll", "NOTICE"},
+    "unitycapture": {"UnityCaptureFilter32.dll", "UnityCaptureFilter64.dll", "LICENSE"},
+}
+_UPDATER_FOLDERS = (STAGING_DIR, PREVIOUS_DIR)  # only Telescope's updater makes these dot-folders
+
+
+def _ours(entry: Path) -> bool:
+    name = entry.name
+    if entry.is_symlink():
+        return name == "telescope.log"  # the log shortcut; never follow anything else
+    if entry.is_file():
+        return name in _OUR_FILES
+    if not entry.is_dir():
+        return False
+    if name in _UPDATER_FOLDERS:
+        return True
+    if name in _OUR_FOLDERS:
+        return {p.name for p in entry.iterdir()} <= _OUR_FOLDERS[name]
+    # The app's libraries: lib-<build>, with the Qt it can't run without
+    return name.startswith(LIB_PREFIX) and name[len(LIB_PREFIX):].isdigit() and (entry / "PyQt6").is_dir()
 
 
 def remove_unzipped_copy(old_dir: Path, current_dir: Optional[Path] = None, tries: int = 20,
                          pause: float = 0.5) -> bool:
-    """Delete the unzipped copy this one replaced: only Telescope's own entries, then the folder if that left it
-    empty. Refuses anything that isn't an unzipped copy of Telescope. True once it's gone."""
+    """Delete the unzipped copy this one replaced: only entries that are unmistakably Telescope's (see _ours), the
+    exe last so a copy cut short still runs, then the folder if that left it empty. Refuses anything that isn't an
+    unzipped copy of Telescope. True once Telescope's part of it is gone."""
     current_dir = current_dir or install_dir()
+    exe = old_dir / EXE_NAME
     try:
-        if old_dir.resolve() == current_dir.resolve() or not (old_dir / EXE_NAME).is_file():
+        if old_dir.resolve() == current_dir.resolve() or not exe.is_file() or exe.is_symlink():
             return False
         if any(old_dir.glob("unins*.exe")):
             return False  # an installed copy: its own uninstaller removes it
     except OSError:
         return False
+    left = []
     for attempt in range(tries):
         left = []
-        entries = [old_dir / name for name in _UNZIPPED_ENTRIES] + list(old_dir.glob(LIB_PREFIX + "*"))
-        for entry in entries:
+        try:
+            entries = [e for e in old_dir.iterdir() if e.name != EXE_NAME and _ours(e)]
+        except OSError:
+            entries, left = [], [old_dir.name]  # couldn't look inside, so the exe stays too
+        for entry in entries + ([exe] if exe.exists() else []):
+            if entry == exe and left:
+                break  # keep the exe until the rest has gone, so what's left can still start
             try:
-                if entry.exists() or entry.is_symlink():
-                    update_guard.remove(entry)
+                update_guard.remove(entry)
             except OSError:
                 left.append(entry.name)
         if not left:
