@@ -198,3 +198,74 @@ def test_an_index_redirected_off_https_isn_t_trusted(tmp_path):
 def test_a_version_that_isn_t_numbers_isn_t_shown():
     index = _Google().index.replace(b"<major>37</major>", b"<major><![CDATA[<a href=x>hi</a>]]></major>")
     assert find_archive(index).revision == ""
+
+
+def test_a_zip_shorter_than_listed_is_refused_even_with_its_own_checksum(tmp_path):
+    real, dest = _zip(), tmp_path / "platform-tools"
+    google = _Google(real)
+    google.index = INDEX.format(size=len(real) + 10, sha1=hashlib.sha1(real).hexdigest(),
+                                name="platform-tools_r37.0.1-win.zip").encode()
+    ok, why = download_adb(google, dest)
+    assert not ok and why == "The download didn't match Google's checksum, so it wasn't used. Try again."
+    assert not dest.exists()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_an_index_listing_a_huge_zip_is_refused_before_downloading_it(tmp_path):
+    google = _Google()
+    google.index = INDEX.format(size=adb_download._MAX_ZIP + 1, sha1="00" * 20,
+                                name="platform-tools_r37.0.1-win.zip").encode()
+    ok, why = download_adb(google, tmp_path / "platform-tools")
+    assert not ok and "wasn't what Telescope expected" in why
+    assert google.urls == [adb_download.INDEX_URL]
+
+
+def test_an_archive_with_another_checksum_type_is_skipped():
+    index = _Google().index.replace(b'type="sha1"', b'type="sha256"')
+    with pytest.raises(ValueError, match="no platform-tools"):
+        find_archive(index)
+
+
+def test_a_failed_move_puts_the_old_folder_back(tmp_path, monkeypatch):
+    dest = tmp_path / "platform-tools"
+    dest.mkdir()
+    (dest / "stale.dll").write_bytes(b"old")
+    real, moves = adb_download.os.replace, []
+
+    def replace(src, dst):
+        moves.append(dst)
+        if len(moves) == 2:  # the unpacked folder going into dest
+            raise PermissionError(32, "in use")
+        real(src, dst)
+    monkeypatch.setattr(adb_download.os, "replace", replace)
+    ok, why = download_adb(_Google(), dest)
+    assert not ok and why.startswith("Couldn't put adb in place")
+    assert (dest / "stale.dll").read_bytes() == b"old"
+    assert [p.name for p in tmp_path.iterdir()] == ["platform-tools"]
+
+
+def test_two_downloads_at_once_fetch_only_once(tmp_path):
+    import threading
+    import time
+    google, dest = _Google(), tmp_path / "platform-tools"
+    at_zip, release = threading.Event(), threading.Event()
+
+    def urlopen(url, timeout):
+        if url != adb_download.INDEX_URL:
+            at_zip.set()
+            assert release.wait(5)
+        return google(url, timeout)
+    results = []
+
+    def run():
+        results.append(download_adb(urlopen, dest))
+    first, second = threading.Thread(target=run), threading.Thread(target=run)
+    first.start()
+    assert at_zip.wait(5)
+    second.start()
+    time.sleep(0.2)  # long enough for it to be waiting on the lock
+    release.set()
+    first.join(5)
+    second.join(5)
+    assert sorted(ok for ok, _ in results) == [True, True]
+    assert len(google.urls) == 2

@@ -212,3 +212,16 @@ def test_an_earlier_tries_folder_is_cleared_first(tmp_path, monkeypatch, pinned)
     setup, err = virtual_mic.download_vb_cable(urlopen=_serving(GOOD))
     assert err == "" and setup.parent.parent == tmp_path
     assert not old.exists() and keep.exists() and recent.exists()
+
+
+def test_a_hidden_file_in_the_pack_isn_t_unpacked_and_one_planted_later_blocks_the_setup(tmp_path, monkeypatch):
+    pack = _pack({virtual_mic.VB_CABLE_SETUP: SETUP, "readme.txt": b"hi", ".hidden": b"x"})
+    monkeypatch.setattr(virtual_mic, "VB_CABLE_PACK_SHA256", hashlib.sha256(pack).hexdigest())
+    monkeypatch.setattr(virtual_mic, "VB_CABLE_SETUP_SHA256", hashlib.sha256(SETUP).hexdigest())
+    setup, err = virtual_mic.download_vb_cable(tmp_path, _serving(pack))
+    assert err == "" and not (tmp_path / ".hidden").exists()
+    calls = []
+    assert virtual_mic.run_vb_cable_setup(setup, lambda *a: calls.append(a)) == ""
+    (tmp_path / ".hidden").write_bytes(b"planted")
+    assert "changed" in virtual_mic.run_vb_cable_setup(setup, lambda *a: calls.append(a))
+    assert len(calls) == 1

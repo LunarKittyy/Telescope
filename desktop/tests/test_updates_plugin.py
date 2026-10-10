@@ -356,3 +356,32 @@ def test_a_move_needs_no_writable_folder(unzipped, monkeypatch):
     monkeypatch.setattr(updates, "self_update_blocker", lambda directory=None: "Telescope's folder isn't writable.")
     plugin.check()
     assert plugin.update_blocker() is None
+
+
+def test_adb_is_stopped_before_the_setup_runs(unzipped, monkeypatch, tmp_path):
+    plugin, _host, _bus, _button, _fetched = unzipped
+    plugin.check()
+    order = []
+    monkeypatch.setattr(UpdatesPlugin, "_relaunch", staticmethod(lambda argv: None))
+    monkeypatch.setattr(plugin_module, "stop_adb_server", lambda: order.append("stop adb"))
+    monkeypatch.setattr(updates, "download", lambda asset, dest, progress=None, cancelled=None: tmp_path / asset.name)
+    monkeypatch.setattr(updates, "install_with_setup",
+                        lambda setup: order.append("setup") or InstallResult(["TelescopeDesktop.exe"]))
+    monkeypatch.setattr(updates, "mark_started_elsewhere", lambda build: None)
+    monkeypatch.setattr(plugin_module.threading, "Thread",
+                        lambda target, daemon: type("T", (), {"start": staticmethod(target)})())
+    plugin.update_now()
+    assert order == ["stop adb", "setup"]
+
+
+def test_the_camera_driver_check_is_remembered_for_half_a_minute(unzipped, monkeypatch):
+    plugin, _host, _bus, _button, _fetched = unzipped
+    from telescope.platform import windows
+    asked, now = [], [1000.0]
+    monkeypatch.setattr(windows, "uc_in_app_folder", lambda: asked.append(1) or False)
+    monkeypatch.setattr(plugin_module.time, "monotonic", lambda: now[0])
+    assert not plugin._driver_in_app_folder() and not plugin._driver_in_app_folder()
+    assert len(asked) == 1
+    now[0] += 31
+    plugin._driver_in_app_folder()
+    assert len(asked) == 2

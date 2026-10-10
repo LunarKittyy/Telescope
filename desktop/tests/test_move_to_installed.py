@@ -379,3 +379,52 @@ def test_shortcuts_are_found_whatever_the_case_and_encoding_of_the_path(tmp_path
     (tmp_path / "x.lnk").write_bytes(b"L\x00\x00\x00" + encode(str(exe).upper()) + b"\x00\x00")
     assert updates.shortcuts_to(exe, [tmp_path]) == [tmp_path / "x.lnk"]
     assert updates.shortcuts_to(tmp_path / "Other" / "TelescopeDesktop.exe", [tmp_path]) == []
+
+
+def test_lib_folders_without_a_build_number_or_without_qt_stay(tmp_path):
+    downloads = _unzipped(tmp_path / "Downloads")
+    for name in ("lib-abc/PyQt6/x.dll", "lib-456/notes.txt"):
+        (downloads / name).parent.mkdir(parents=True, exist_ok=True)
+        (downloads / name).write_bytes(b"theirs")
+    assert updates.remove_unzipped_copy(downloads, _installed(tmp_path), pause=0)
+    assert sorted(p.name for p in downloads.iterdir()) == ["lib-456", "lib-abc"]
+
+
+def test_the_setup_installing_over_the_unzipped_folder_notes_no_move(tmp_path):
+    old = _unzipped(tmp_path / "Telescope")
+    result = updates.install_with_setup(tmp_path / "s.exe", old, run=_Run(), locate=lambda: old)
+    assert result.relaunch == [str(old / "TelescopeDesktop.exe"), "--after-update"]
+    assert updates.pending_move(old) is None
+    assert not updates.remove_unzipped_copy(old, old, pause=0)  # and it wouldn't delete itself either
+    assert (old / "TelescopeDesktop.exe").exists()
+
+
+def test_an_installed_folder_without_the_exe_is_an_error(tmp_path):
+    folder = tmp_path / "Programs" / "Telescope"
+    folder.mkdir(parents=True)
+    old = tmp_path / "old"
+    old.mkdir()
+    with pytest.raises(UpdateError, match="wasn't where expected"):
+        updates.install_with_setup(tmp_path / "s.exe", old, run=_Run(), locate=lambda: folder)
+    assert not (folder / updates.PENDING_MOVE).exists()
+
+
+def test_symlinks_in_the_unzipped_copy_are_never_followed(tmp_path):
+    outside = tmp_path / "Outside"
+    (outside / "PyQt6").mkdir(parents=True)
+    (outside / "PyQt6" / "keep.dll").write_bytes(b"mine")
+    (outside / "adb.exe").write_bytes(b"mine")
+    (outside / "telescope.log").write_bytes(b"mine")
+    old = _unzipped(tmp_path / "Telescope")
+    try:
+        (old / "lib-456").symlink_to(outside, target_is_directory=True)
+        (old / "platform-tools-link").symlink_to(outside, target_is_directory=True)
+        (old / "THIRD_PARTY_NOTICES.txt").unlink()
+        (old / "THIRD_PARTY_NOTICES.txt").symlink_to(outside / "adb.exe")
+        (old / "telescope.log").symlink_to(outside / "telescope.log")
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks aren't available here")
+    assert updates.remove_unzipped_copy(old, _installed(tmp_path), pause=0)
+    assert sorted(p.name for p in outside.rglob("*")) == ["PyQt6", "adb.exe", "keep.dll", "telescope.log"]
+    assert (outside / "telescope.log").read_bytes() == b"mine"  # the log link goes, not what it points at
+    assert sorted(p.name for p in old.iterdir()) == ["THIRD_PARTY_NOTICES.txt", "lib-456", "platform-tools-link"]
