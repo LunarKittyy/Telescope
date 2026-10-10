@@ -129,7 +129,7 @@ def test_updating_downloads_installs_relaunches_and_quits(env, monkeypatch, tmp_
     monkeypatch.setattr(UpdatesPlugin, "_relaunch", staticmethod(relaunched.append))
     monkeypatch.setattr(updates, "download", lambda asset, dest, progress, cancelled: tmp_path / asset.name)
     monkeypatch.setattr(updates, "install", lambda archive: InstallResult(["start.sh", "--after-update"]))
-    monkeypatch.setattr(UpdatesPlugin, "_spawn_install", lambda self, asset: self._on_installed(
+    monkeypatch.setattr(UpdatesPlugin, "_spawn_install", lambda self, asset, via_setup=False: self._on_installed(
         updates.install(updates.download(asset, tmp_path, None, None)), ""))
     plugin.update_now()
     assert relaunched == [["start.sh", "--after-update"]]
@@ -145,7 +145,7 @@ def test_an_update_that_cant_restart_stays_open_and_says_so(env, monkeypatch):
 
     monkeypatch.setattr(UpdatesPlugin, "_relaunch", staticmethod(cant_start))
     monkeypatch.setattr(UpdatesPlugin, "_spawn_install",
-                        lambda self, asset: self._on_installed(InstallResult(["start.sh"]), ""))
+                        lambda self, asset, via_setup=False: self._on_installed(InstallResult(["start.sh"]), ""))
     plugin.update_now()
     assert host.quits == 0 and not plugin.busy
     assert "reopen Telescope" in plugin.status_text()[0]
@@ -156,7 +156,7 @@ def test_an_update_that_lands_during_a_stream_restarts_only_once_it_stops(env, m
     plugin.check()
     relaunched = []
     monkeypatch.setattr(UpdatesPlugin, "_relaunch", staticmethod(relaunched.append))
-    monkeypatch.setattr(UpdatesPlugin, "_spawn_install", lambda self, asset: None)  # still downloading
+    monkeypatch.setattr(UpdatesPlugin, "_spawn_install", lambda self, asset, via_setup=False: None)  # still downloading
     plugin.update_now()
     host.streaming = True  # an app opened the camera while it downloaded
     plugin._on_installed(InstallResult(["start.sh"]), "")
@@ -175,7 +175,7 @@ def test_no_update_while_streaming(env, monkeypatch):
     plugin.check()
     host.streaming = True
     started = []
-    monkeypatch.setattr(UpdatesPlugin, "_spawn_install", lambda self, asset: started.append(asset))
+    monkeypatch.setattr(UpdatesPlugin, "_spawn_install", lambda self, asset, via_setup=False: started.append(asset))
     plugin.open_dialog()
     assert not plugin._dlg._update_btn.isEnabled()
     assert "Stop streaming to update" in plugin._dlg._status.text()
@@ -191,7 +191,7 @@ def test_a_failed_update_says_why_and_keeps_running(env, monkeypatch):
     plugin, host, _bus, _button, _fetched = env
     plugin.check()
     monkeypatch.setattr(UpdatesPlugin, "_spawn_install",
-                        lambda self, asset: self._on_installed(None, "The download didn't match its checksum."))
+                        lambda self, asset, via_setup=False: self._on_installed(None, "The download didn't match its checksum."))
     plugin.update_now()
     assert plugin.status_text() == ("The download didn't match its checksum.", "status_err")
     assert host.quits == 0 and not plugin.busy
@@ -213,9 +213,13 @@ def test_a_copy_that_cant_replace_itself_links_to_the_release(env, monkeypatch):
 def test_config_round_trips_and_defaults_to_the_build_s_channel(env):
     plugin, _host, _bus, _button, _fetched = env
     plugin.set_config({"channel": "stable", "auto_check": False, "last_check": 5.0})
-    assert plugin.get_config() == {"channel": "stable", "auto_check": False, "last_check": 5.0}
-    plugin.set_config({"channel": "bogus", "last_check": "x"})
-    assert plugin.get_config() == {"channel": "nightly", "auto_check": True, "last_check": 0.0}
+    assert plugin.get_config() == {"channel": "stable", "auto_check": False, "last_check": 5.0,
+                                   "keep_portable": False}
+    plugin.set_config({"channel": "bogus", "last_check": "x", "keep_portable": "yes"})
+    assert plugin.get_config() == {"channel": "nightly", "auto_check": True, "last_check": 0.0,
+                                   "keep_portable": False}
+    plugin.set_config({"keep_portable": True})
+    assert plugin.get_config()["keep_portable"] is True
 
 
 def test_a_newer_phone_app_opens_the_dialog(env):
@@ -253,3 +257,100 @@ def test_the_dialog_says_a_build_was_rolled_back_and_lets_the_user_try_again(env
     assert not (tmp_path / ".update-failed").exists()
     assert not button.isHidden()
     dlg.close()
+
+
+
+# ── An unzipped Windows copy moves to the installed one ──────────────────────
+
+SETUP = Asset("TelescopeSetup.exe", "https://z", "c" * 64, 10)
+WITH_SETUP = Manifest(NEWER.version, NEWER.build, NEWER.channel, NEWER.version_name, NEWER.notes, NEWER.protocol,
+                      {**NEWER.assets, "TelescopeSetup.exe": SETUP})
+
+
+@pytest.fixture
+def unzipped(env, monkeypatch):
+    """An unzipped Windows copy whose camera driver lives in Program Files, with a release that has the setup."""
+    plugin, host, bus, button, fetched = env
+    fetched["result"] = WITH_SETUP
+    monkeypatch.setattr(updates, "is_unzipped_copy", lambda directory=None: True)
+    monkeypatch.setattr(updates, "IS_WINDOWS", True)  # so the in-place route picks the Windows zip
+    from telescope.platform import windows
+    monkeypatch.setattr(windows, "uc_in_app_folder", lambda: False)
+    return env
+
+
+def test_an_unzipped_copy_updates_through_the_installer_and_says_so(unzipped, monkeypatch, tmp_path):
+    plugin, host, _bus, _button, _fetched = unzipped
+    plugin.check()
+    assert plugin.moves_on_update()
+    assert "installs it for your user" in plugin.status_text()[0]
+    spawned = []
+    monkeypatch.setattr(UpdatesPlugin, "_spawn_install",
+                        lambda self, asset, via_setup=False: spawned.append((asset.name, via_setup)))
+    plugin.update_now()
+    assert spawned == [("TelescopeSetup.exe", True)]
+
+
+def test_the_installer_route_relaunches_the_installed_copy(unzipped, monkeypatch, tmp_path):
+    plugin, host, _bus, _button, _fetched = unzipped
+    plugin.check()
+    relaunched = []
+    monkeypatch.setattr(UpdatesPlugin, "_relaunch", staticmethod(relaunched.append))
+    argv = ["C:/Users/l/AppData/Local/Programs/Telescope/TelescopeDesktop.exe", "--after-update",
+            "--moved-from", "C:/Users/l/Downloads/Telescope"]
+    monkeypatch.setattr(updates, "install_with_setup", lambda setup: InstallResult(argv))
+    monkeypatch.setattr(updates, "install", lambda *a, **k: pytest.fail("the zip route ran"))
+    monkeypatch.setattr(updates, "download", lambda asset, dest, progress=None, cancelled=None: tmp_path / asset.name)
+    monkeypatch.setattr(plugin_module, "stop_adb_server", lambda: None)
+    # The real worker, run inline
+    monkeypatch.setattr(plugin_module.threading, "Thread",
+                        lambda target, daemon: type("T", (), {"start": staticmethod(target)})())
+    plugin.update_now()
+    assert relaunched == [argv]
+    assert host.quits == 1
+
+
+def test_keeping_it_portable_updates_in_place(unzipped, monkeypatch):
+    plugin, _host, _bus, _button, _fetched = unzipped
+    plugin.check()
+    plugin.open_dialog()
+    assert not plugin._dlg._portable_row.isHidden()
+    plugin._dlg._portable.setChecked(True)
+    assert plugin.keep_portable and not plugin.moves_on_update()
+    assert "installs it for your user" not in plugin.status_text()[0]
+    spawned = []
+    monkeypatch.setattr(UpdatesPlugin, "_spawn_install",
+                        lambda self, asset, via_setup=False: spawned.append((asset.name, via_setup)))
+    plugin.update_now()
+    assert spawned == [("Telescope-windows.zip", False)]
+    plugin._dlg.close()
+
+
+def test_no_move_without_a_setup_or_with_the_driver_in_this_folder(unzipped, monkeypatch):
+    plugin, _host, _bus, _button, fetched = unzipped
+    fetched["result"] = NEWER  # a release from before the installer
+    plugin.check()
+    assert not plugin.moves_on_update()
+    fetched["result"] = WITH_SETUP
+    plugin.check()
+    from telescope.platform import windows
+    monkeypatch.setattr(windows, "uc_in_app_folder", lambda: True)  # deleting this folder would take the camera
+    assert not plugin.moves_on_update()
+
+
+def test_an_installed_copy_never_moves(env, monkeypatch):
+    plugin, _host, _bus, _button, fetched = env
+    fetched["result"] = WITH_SETUP
+    monkeypatch.setattr(updates, "is_unzipped_copy", lambda directory=None: False)
+    plugin.check()
+    assert not plugin.moves_on_update()
+    plugin.open_dialog()
+    assert plugin._dlg._portable_row.isHidden()
+    plugin._dlg.close()
+
+
+def test_a_move_needs_no_writable_folder(unzipped, monkeypatch):
+    plugin, _host, _bus, _button, _fetched = unzipped
+    monkeypatch.setattr(updates, "self_update_blocker", lambda directory=None: "Telescope's folder isn't writable.")
+    plugin.check()
+    assert plugin.update_blocker() is None

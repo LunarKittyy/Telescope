@@ -21,8 +21,10 @@ import json
 import logging
 import os
 import shutil
+import subprocess
 import sys
 import tarfile
+import time
 import urllib.error
 import urllib.request
 import zipfile
@@ -33,7 +35,7 @@ from typing import Callable, Optional
 import update_guard
 from update_guard import EXE_NAME, LIB_PREFIX, OLD_EXE_NAME, PREVIOUS_DIR, STAGING_DIR
 from telescope import version
-from telescope.platform import IS_WINDOWS
+from telescope.platform import IS_WINDOWS, NO_WINDOW
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +45,10 @@ MANIFEST_URLS = {
     "nightly": f"https://github.com/{version.REPO}/releases/download/nightly/manifest.json",
 }
 WINDOWS_ASSET = "Telescope-windows.zip"
+# A copy unzipped by hand updates through the installer instead, which moves it to a per-user install
+WINDOWS_SETUP_ASSET = "TelescopeSetup.exe"
+SETUP_APP_ID = "{BF097F77-F8B9-4F70-B23C-0B500DB1A07C}"  # installer/Telescope.iss; never changes
+MOVED_FROM = "--moved-from"  # tells the installed copy which unzipped folder it replaced
 LINUX_ASSET = "Telescope-linux.tar.gz"
 REQUEST_TIMEOUT = 15
 MAX_MANIFEST_BYTES = 256 * 1024
@@ -147,6 +153,10 @@ def platform_asset(manifest: Manifest) -> Optional[Asset]:
     return manifest.assets.get(WINDOWS_ASSET if IS_WINDOWS else LINUX_ASSET)
 
 
+def setup_asset(manifest: Manifest) -> Optional[Asset]:
+    return manifest.assets.get(WINDOWS_SETUP_ASSET)
+
+
 # ── Where this copy lives ─────────────────────────────────────────────────────
 
 def install_dir() -> Path:
@@ -154,6 +164,13 @@ def install_dir() -> Path:
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parent.parent
+
+
+def is_unzipped_copy(directory: Optional[Path] = None) -> bool:
+    """The packaged Windows app, run from a folder someone unzipped rather than one the installer made."""
+    if not IS_WINDOWS or not getattr(sys, "frozen", False):
+        return False
+    return not any((directory or install_dir()).glob("unins*.exe"))
 
 
 def self_update_blocker(directory: Optional[Path] = None) -> Optional[str]:
@@ -331,3 +348,81 @@ def clean_up_after_update(directory: Optional[Path] = None, running_lib: Optiona
             update_guard.remove(leftover)
         except OSError:
             pass
+
+
+# ── Moving an unzipped copy to an installed one (Windows) ─────────────────────
+
+def installed_location(winreg=None) -> Optional[Path]:
+    """Where the installer put Telescope for this user, from its uninstall entry; None if it isn't installed."""
+    try:
+        if winreg is None:
+            import winreg
+        key = rf"Software\Microsoft\Windows\CurrentVersion\Uninstall\{SETUP_APP_ID}_is1"
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key) as k:
+            value, _ = winreg.QueryValueEx(k, "InstallLocation")
+    except (ImportError, OSError):
+        return None
+    return Path(value) if value else None
+
+
+def install_with_setup(setup: Path, old_dir: Optional[Path] = None, run: Callable = subprocess.run,
+                       locate: Callable = installed_location) -> InstallResult:
+    """Run the downloaded installer silently for this user; the result starts the installed copy, which tidies away
+    old_dir once it has started fine. This copy is left as it is until then, so a failed install loses nothing."""
+    old_dir = old_dir or install_dir()
+    try:
+        # Per-user, so no UAC prompt; downloaded by Telescope itself, so no SmartScreen prompt either
+        r = run([str(setup), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-"], timeout=600, **NO_WINDOW)
+    except subprocess.TimeoutExpired as exc:
+        raise UpdateError("The installer took too long, so this copy stays as it is.") from exc
+    except OSError as exc:
+        raise UpdateError(f"Couldn't start the installer: {exc.strerror or exc}") from exc
+    if r.returncode != 0:
+        raise UpdateError(f"The installer stopped (code {r.returncode}), so this copy stays as it is.")
+    location = locate()
+    if location is None or not (location / EXE_NAME).is_file():
+        raise UpdateError("Telescope was installed, but its folder wasn't where expected. Open it from the Start menu.")
+    argv = [str(location / EXE_NAME), "--after-update"]
+    if location.resolve() != old_dir.resolve():
+        argv += [MOVED_FROM, str(old_dir)]
+    return InstallResult(argv)
+
+
+# What an unzipped copy holds: Telescope-windows.zip's entries, and what the app and its updates add next to them.
+# Nothing else is touched, so a zip unpacked straight into Downloads only loses Telescope's own files.
+_UNZIPPED_ENTRIES = (EXE_NAME, OLD_EXE_NAME, update_guard.FAILED_EXE_NAME, STAGING_DIR, PREVIOUS_DIR,
+                     update_guard.JOURNAL, update_guard.FAILED, "platform-tools", "unitycapture",
+                     "THIRD_PARTY_NOTICES.txt", "Telescope.apk", "telescope.log")
+
+
+def remove_unzipped_copy(old_dir: Path, current_dir: Optional[Path] = None, tries: int = 20,
+                         pause: float = 0.5) -> bool:
+    """Delete the unzipped copy this one replaced: only Telescope's own entries, then the folder if that left it
+    empty. Refuses anything that isn't an unzipped copy of Telescope. True once it's gone."""
+    current_dir = current_dir or install_dir()
+    try:
+        if old_dir.resolve() == current_dir.resolve() or not (old_dir / EXE_NAME).is_file():
+            return False
+        if any(old_dir.glob("unins*.exe")):
+            return False  # an installed copy: its own uninstaller removes it
+    except OSError:
+        return False
+    for attempt in range(tries):
+        left = []
+        entries = [old_dir / name for name in _UNZIPPED_ENTRIES] + list(old_dir.glob(LIB_PREFIX + "*"))
+        for entry in entries:
+            try:
+                if entry.exists() or entry.is_symlink():
+                    update_guard.remove(entry)
+            except OSError:
+                left.append(entry.name)
+        if not left:
+            try:
+                old_dir.rmdir()  # only if empty
+            except OSError:
+                pass
+            return True
+        if attempt < tries - 1:
+            time.sleep(pause)  # the old copy may still be exiting and holding its files
+    logger.warning("Couldn't remove the old unzipped copy's %s", ", ".join(left))
+    return False

@@ -129,7 +129,7 @@ jobs:
         run: |
           mkdir out
           cp dist/apk/Telescope.apk out/
-          cp dist/windows-setup/TelescopeSetup.exe out/  # not in manifest.json: in-app updates use the zip
+          cp dist/windows-setup/TelescopeSetup.exe out/  # in manifest.json too: an unzipped copy updates through it
           cp dist/apk/Telescope.apk dist/windows-bundle/
           (cd dist/windows-bundle && zip -qr ../../out/Telescope-windows.zip .)
           cp dist/apk/Telescope.apk dist/linux-bundle/
@@ -141,7 +141,7 @@ jobs:
           python3 .github/write_manifest.py
           --version "$VERSION" --build "$BUILD" --channel "$CHANNEL" --commit "$GITHUB_SHA"
           --tag "$TAG" --repo "$GITHUB_REPOSITORY" --out out/manifest.json
-          out/Telescope.apk out/Telescope-windows.zip out/Telescope-linux.tar.gz
+          out/Telescope.apk out/Telescope-windows.zip out/TelescopeSetup.exe out/Telescope-linux.tar.gz
 
       - name: Publish the stable release
         if: needs.meta.outputs.channel == 'stable'

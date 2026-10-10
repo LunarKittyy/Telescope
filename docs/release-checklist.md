@@ -23,6 +23,7 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 - [ ] Windows: `TelescopeDesktop.exe` launches with the Telescope icon, the first-run checklist's Install driver registers UnityCapture, bundled `adb.exe` works for USB, and no `adb.exe` is left running after quitting.
 - [ ] Windows, upgrading from a version that registered the driver from the app folder: **Advanced** shows **Reinstall for a security fix**, the camera still works until then, and Reinstall puts the DLLs in `C:\Program Files\Telescope\UnityCapture` and shows Ready.
 - [ ] Windows: `TelescopeSetup.exe` installs without a UAC prompt, the Start menu entry opens Telescope, Update and restart works on the installed copy, and uninstalling (from Settings → Apps) removes it and asks before deleting settings.
+- [ ] Windows, an unzipped copy of the previous release: Updates says updating installs it, **Update and restart** comes back as the installed copy (Start menu entry there, settings and phones kept), and the unzipped folder is gone a few seconds later. With **Keep this copy where it is** ticked it updates in place instead.
 - [ ] Windows: opening `TelescopeDesktop.exe` from inside the zip without extracting says to extract it first.
 - [ ] Linux: Telescope shows up in the app menu after the first launch, and still opens after moving the folder and launching once from the new place.
 - [ ] Windows: OBS and Zoom list the camera as **Telescope**. On a machine registered by an older version, Advanced offers Rename, and streaming works before and after.
