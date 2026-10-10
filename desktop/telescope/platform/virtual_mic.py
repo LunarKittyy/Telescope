@@ -17,6 +17,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import time
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -139,9 +140,13 @@ def _sha256(path: Path) -> str:
 def download_vb_cable(folder: Optional[Path] = None, urlopen: Callable = urllib.request.urlopen) -> tuple:
     """Fetch VB-Audio's pack and unpack it; (setup exe path, "") or (None, why not)."""
     if folder is None:
-        # An earlier try's folder: its setup has long finished (or never ran), and each one holds a few MB
+        # An earlier try's folder, each a few MB. Only ones a day old: a newer one's setup may still be open.
         for old in Path(tempfile.gettempdir()).glob("telescope-vbcable-*"):
-            shutil.rmtree(old, ignore_errors=True)
+            try:
+                if time.time() - old.stat().st_mtime > 86400:
+                    shutil.rmtree(old, ignore_errors=True)
+            except OSError:
+                pass
     folder = Path(folder or tempfile.mkdtemp(prefix="telescope-vbcable-"))
     pack = folder / "VBCABLE_Driver_Pack.zip"
     try:

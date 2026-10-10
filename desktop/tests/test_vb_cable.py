@@ -3,6 +3,8 @@ download and a fake ShellExecute (the real pack is checked by hand, see virtual_
 
 import hashlib
 import io
+import os
+import time
 import zipfile
 
 import pytest
@@ -128,7 +130,9 @@ def test_the_card_offers_the_install_and_asks_first(qapp, monkeypatch):
     p._action_btn.click()
     assert calls == ["download", ("run", "setup.exe")]
     assert "restart the computer" in p._status.text()
-    assert p._action_btn.text() == "Get VB-Cable"  # in case their setup didn't work out
+    assert p._action_btn.text() == "Open setup again"  # in case it was closed without installing
+    p._action_btn.click()
+    assert calls == ["download", ("run", "setup.exe")] * 2
 
 
 def test_a_failed_install_falls_back_to_the_link(qapp, monkeypatch):
@@ -142,6 +146,17 @@ def test_a_failed_install_falls_back_to_the_link(qapp, monkeypatch):
     assert p._status.text() == "Couldn't download VB-Cable: offline"
     assert p._action_btn.text() == "Get VB-Cable" and p._action_url == virtual_mic.VB_CABLE_URL
     assert backend.setup_opened is False
+
+
+def test_a_failure_after_the_mic_was_switched_off_stays_quiet(qapp, monkeypatch):
+    backend, _calls = _windows_mic(monkeypatch)
+    p = _plugin(backend)
+    p._bus.phones_changed.emit(1)
+    p.set_config({"enabled": True})
+    p._installing = True
+    p._set_enabled(False)
+    p._on_installed("Couldn't download VB-Cable: offline")
+    assert p._status.text() == "" and not p._installing
 
 
 def test_the_question_names_vb_audio_and_says_what_they_ask(qapp, monkeypatch):
@@ -165,8 +180,11 @@ def test_an_earlier_tries_folder_is_cleared_first(tmp_path, monkeypatch, pinned)
     old = tmp_path / "telescope-vbcable-old"
     old.mkdir()
     (old / "VBCABLE_Setup_x64.exe").write_bytes(b"x")
+    os.utime(old, (time.time() - 2 * 86400,) * 2)
+    recent = tmp_path / "telescope-vbcable-recent"  # its setup may still be open
+    recent.mkdir()
     keep = tmp_path / "something-else"
     keep.mkdir()
     setup, err = virtual_mic.download_vb_cable(urlopen=_serving(GOOD))
     assert err == "" and setup.parent.parent == tmp_path
-    assert not old.exists() and keep.exists()
+    assert not old.exists() and keep.exists() and recent.exists()

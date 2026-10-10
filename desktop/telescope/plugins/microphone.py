@@ -105,9 +105,9 @@ class WindowsMic:
         except Exception:
             self._device = None
         if self._device is None:
-            if self.setup_opened:
+            if self.setup_opened:  # closed without installing, it can be opened again
                 return ("Once VB-Cable's setup says it's done, restart the computer, then switch this off and on.",
-                        ("Get VB-Cable", virtual_mic.VB_CABLE_URL))
+                        ("Open setup again", INSTALL))
             return ("Needs VB-Audio Virtual Cable, a free virtual audio cable by VB-Audio.",
                     ("Install VB-Cable", INSTALL))
         return None
@@ -505,7 +505,7 @@ class MicrophonePlugin(TelescopePlugin):
 
     def _on_installed(self, err: str):
         self._installing = False
-        if err:
+        if err and self._enabled:
             self._show(err, "err", ("Get VB-Cable", virtual_mic.VB_CABLE_URL))
         else:
             self._refresh()
