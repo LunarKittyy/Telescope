@@ -11,6 +11,13 @@ from telescope import updates
 from telescope.updates import UpdateError
 
 
+@pytest.fixture(autouse=True)
+def _local_app_data(tmp_path, monkeypatch):
+    """Where a kept adb would go (platform/adb_download.py), away from the real profile."""
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "LocalAppData"))
+    return tmp_path / "LocalAppData"
+
+
 class _Run:
     def __init__(self, code=0, exc=None):
         self.code, self.exc, self.calls = code, exc, []
@@ -38,6 +45,39 @@ def test_the_setup_runs_silently_and_the_installed_copy_takes_over(tmp_path):
     assert run.calls == [[str(tmp_path / "TelescopeSetup.exe"), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART",
                           "/SP-"]]
     assert result.relaunch == [str(installed / "TelescopeDesktop.exe"), "--after-update", "--moved-from", str(old)]
+
+
+def test_the_move_clears_the_installed_folder_s_old_journal_and_marks_the_build(tmp_path):
+    installed, old = _installed(tmp_path), tmp_path / "Downloads" / "Telescope"
+    old.mkdir(parents=True)
+    update_guard.write_journal(installed, {"platform": "windows", "to_build": 150, "state": "trial", "started": True})
+    updates.install_with_setup(tmp_path / "s.exe", old, run=_Run(), locate=lambda: installed, build=200)
+    assert update_guard.read_journal(installed) is None  # else its first start rolls the fresh install back
+    # Should the installed copy not start, this one is opened again and doesn't offer 200 straight back
+    assert update_guard.failed_build(old) == 200
+
+
+def test_an_old_copy_s_bundled_adb_is_kept_for_the_installed_one(tmp_path, _local_app_data):
+    old = _unzipped(tmp_path / "Telescope")
+    assert updates.remove_unzipped_copy(old, _installed(tmp_path), pause=0)
+    kept = _local_app_data / "Telescope" / "platform-tools"
+    assert sorted(p.name for p in kept.iterdir()) == ["AdbWinApi.dll", "NOTICE", "adb.exe"]
+    assert not old.exists()
+
+
+def test_a_downloaded_adb_isn_t_replaced_by_an_old_copy_s(tmp_path, _local_app_data):
+    kept = _local_app_data / "Telescope" / "platform-tools"
+    kept.mkdir(parents=True)
+    (kept / "adb.exe").write_bytes(b"newer")
+    assert updates.remove_unzipped_copy(_unzipped(tmp_path / "Telescope"), _installed(tmp_path), pause=0)
+    assert (kept / "adb.exe").read_bytes() == b"newer"
+
+
+def test_a_user_s_own_platform_tools_isn_t_taken_as_telescope_s_adb(tmp_path, _local_app_data):
+    downloads = _unzipped(tmp_path / "Downloads")
+    (downloads / "platform-tools" / "fastboot.exe").write_bytes(b"theirs")
+    updates.remove_unzipped_copy(downloads, _installed(tmp_path), pause=0)
+    assert not (_local_app_data / "Telescope").exists()
 
 
 @pytest.mark.parametrize("run, locate, says", [
@@ -234,3 +274,55 @@ def test_main_takes_the_moved_from_folder():
     args, rest = main.parse_args(["--after-update", "--moved-from", r"C:\Users\l\Downloads\Telescope", "-style", "x"])
     assert args.after_update and args.moved_from == r"C:\Users\l\Downloads\Telescope"
     assert rest == ["-style", "x"]
+
+
+def _link_to(path, exe):
+    """Enough of a .lnk for the search: the target's path as UTF-16, among other bytes."""
+    path.write_bytes(b"L\x00\x00\x00" + b"\x01" * 40 + str(exe).encode("utf-16-le") + b"\x00\x00")
+    return path
+
+
+def test_a_desktop_shortcut_to_the_old_copy_gets_the_installed_one_s_in_its_place(tmp_path):
+    desktop = tmp_path / "Desktop"
+    desktop.mkdir()
+    installed, old = _installed(tmp_path), _unzipped(tmp_path / "Downloads" / "Telescope")
+    dead = _link_to(desktop / "TelescopeDesktop.exe - Shortcut.lnk", str(old / "TelescopeDesktop.exe").upper())
+    other = _link_to(desktop / "Notes.lnk", tmp_path / "notes.exe")
+    run = _Run()
+    updates.install_with_setup(tmp_path / "s.exe", old, run=run, locate=lambda: installed, folders=[desktop])
+    assert run.calls[0][-1] == "/MERGETASKS=desktopicon"
+    assert updates.remove_unzipped_copy(old, installed, pause=0, folders=[desktop])
+    assert not dead.exists() and other.exists()
+
+
+def test_no_desktop_shortcut_means_no_desktop_icon(tmp_path):
+    installed, old = _installed(tmp_path), tmp_path / "Telescope"
+    old.mkdir()
+    run = _Run()
+    updates.install_with_setup(tmp_path / "s.exe", old, run=run, locate=lambda: installed, folders=[tmp_path])
+    assert "/MERGETASKS=desktopicon" not in run.calls[0]
+
+
+def test_a_shortcut_stays_while_the_old_exe_does(tmp_path, monkeypatch):
+    desktop = tmp_path / "Desktop"
+    desktop.mkdir()
+    old = _unzipped(tmp_path / "Telescope")
+    link = _link_to(desktop / "Telescope.lnk", old / "TelescopeDesktop.exe")
+    real = update_guard.remove
+
+    def remove(path):
+        if path.name == "TelescopeDesktop.exe":
+            raise PermissionError(32, "in use")
+        real(path)
+    monkeypatch.setattr(update_guard, "remove", remove)
+    assert not updates.remove_unzipped_copy(old, _installed(tmp_path), tries=2, pause=0, folders=[desktop])
+    assert link.exists()
+
+
+@pytest.mark.parametrize("encode", [lambda t: t.encode("utf-16-le"), lambda t: b"\x00" + t.encode("utf-16-le"),
+                                    lambda t: t.encode("latin-1")])
+def test_shortcuts_are_found_whatever_the_case_and_encoding_of_the_path(tmp_path, encode):
+    exe = tmp_path / "Åsa" / "Downloads" / "Telescope" / "TelescopeDesktop.exe"
+    (tmp_path / "x.lnk").write_bytes(b"L\x00\x00\x00" + encode(str(exe).upper()) + b"\x00\x00")
+    assert updates.shortcuts_to(exe, [tmp_path]) == [tmp_path / "x.lnk"]
+    assert updates.shortcuts_to(tmp_path / "Other" / "TelescopeDesktop.exe", [tmp_path]) == []

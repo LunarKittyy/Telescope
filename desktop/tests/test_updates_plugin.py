@@ -294,11 +294,11 @@ def test_an_unzipped_copy_updates_through_the_installer_and_says_so(unzipped, mo
 def test_the_installer_route_relaunches_the_installed_copy(unzipped, monkeypatch, tmp_path):
     plugin, host, _bus, _button, _fetched = unzipped
     plugin.check()
-    relaunched = []
+    relaunched, builds = [], []
     monkeypatch.setattr(UpdatesPlugin, "_relaunch", staticmethod(relaunched.append))
     argv = ["C:/Users/l/AppData/Local/Programs/Telescope/TelescopeDesktop.exe", "--after-update",
             "--moved-from", "C:/Users/l/Downloads/Telescope"]
-    monkeypatch.setattr(updates, "install_with_setup", lambda setup: InstallResult(argv))
+    monkeypatch.setattr(updates, "install_with_setup", lambda setup, build=0: builds.append(build) or InstallResult(argv))
     monkeypatch.setattr(updates, "install", lambda *a, **k: pytest.fail("the zip route ran"))
     monkeypatch.setattr(updates, "download", lambda asset, dest, progress=None, cancelled=None: tmp_path / asset.name)
     monkeypatch.setattr(plugin_module, "stop_adb_server", lambda: None)
@@ -307,6 +307,7 @@ def test_the_installer_route_relaunches_the_installed_copy(unzipped, monkeypatch
                         lambda target, daemon: type("T", (), {"start": staticmethod(target)})())
     plugin.update_now()
     assert relaunched == [argv]
+    assert builds == [plugin.available.build] and builds[0] > 0  # marked in the old folder, should it not start
     assert host.quits == 1
 
 

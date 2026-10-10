@@ -151,6 +151,7 @@ class UpdatesPlugin(TelescopePlugin):
         self._last_check = 0.0
         self.available: Optional[updates.Manifest] = None
         self.latest: Optional[updates.Manifest] = None  # the last manifest seen, newer or not
+        self._driver_here: Optional[tuple] = None  # (when, the camera driver registered from this folder)
         self.rolled_back: Optional[updates.Manifest] = None  # a newer build held back: it was undone for not starting
         self._checked = False
         self._error = ""
@@ -288,10 +289,18 @@ class UpdatesPlugin(TelescopePlugin):
             return False
         if not updates.is_unzipped_copy():
             return False
-        from telescope.platform import windows
         # An older version registered the camera driver from this folder, so deleting it would take the camera
         # away. Advanced offers the reinstall that fixes that; until then this copy updates in place.
-        return not windows.uc_in_app_folder()
+        return not self._driver_in_app_folder()
+
+    def _driver_in_app_folder(self) -> bool:
+        """windows.uc_in_app_folder(), which reads every COM class in the registry: remembered for a little while,
+        since one refresh of the dialog asks more than once."""
+        now = time.monotonic()
+        if self._driver_here is None or now - self._driver_here[0] > 30:
+            from telescope.platform import windows
+            self._driver_here = (now, windows.uc_in_app_folder())
+        return self._driver_here[1]
 
     def update_blocker(self) -> Optional[str]:
         """Why updating has to go through the release page, or None. The installer doesn't need this folder to be
@@ -388,9 +397,9 @@ class UpdatesPlugin(TelescopePlugin):
                     asset, folder, progress=lambda d, t: signals.progress.emit(d, t), cancelled=cancel.is_set)
                 signals.progress.emit(-1, -1)  # downloaded: now installing
                 if not host.is_streaming():  # a stream started meanwhile may run over USB; platform-tools can wait
-                    stop_adb_server()  # a running adb.exe would keep platform-tools on its old version
+                    stop_adb_server()  # a running adb.exe locks its folder, which a move deletes
                 if via_setup:
-                    result, error = updates.install_with_setup(archive), ""
+                    result, error = updates.install_with_setup(archive, build=build), ""
                 else:
                     result, error = updates.install(archive, build=build), ""
             except updates.UpdateError as exc:

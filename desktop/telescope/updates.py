@@ -381,14 +381,55 @@ def installed_location(winreg=None) -> Optional[Path]:
     return Path(value) if value else None
 
 
+def desktop_folders() -> list:
+    """Where Windows keeps desktop shortcuts for this user: the profile's Desktop, and OneDrive's when it backs that
+    up (then the profile's one is usually empty)."""
+    found = []
+    for base in (os.environ.get("USERPROFILE"), os.environ.get("OneDrive")):
+        if base and (Path(base) / "Desktop").is_dir():
+            found.append(Path(base) / "Desktop")
+    return found
+
+
+def shortcuts_to(exe: Path, folders: Optional[list] = None) -> list:
+    """Desktop shortcuts (.lnk) that start exe. A .lnk keeps its target's path as text (ANSI in its link info,
+    UTF-16 in its strings), so a plain search for it is enough to tell, without reading the format."""
+    target = str(exe).casefold()
+    ansi = "mbcs" if IS_WINDOWS else "latin-1"
+    found = []
+    for folder in desktop_folders() if folders is None else folders:
+        try:
+            links = list(Path(folder).glob("*.lnk"))
+        except OSError:
+            continue
+        for link in links:
+            try:
+                data = link.read_bytes()[:64 * 1024]
+            except OSError:
+                continue
+            # Decoded, so a folder like C:\Users\Åsa matches whatever its case; UTF-16 at either byte alignment
+            texts = (data.decode("utf-16-le", "ignore"), data[1:].decode("utf-16-le", "ignore"),
+                     data.decode(ansi, "ignore"))
+            if any(target in text.casefold() for text in texts):
+                found.append(link)
+    return found
+
+
 def install_with_setup(setup: Path, old_dir: Optional[Path] = None, run: Callable = subprocess.run,
-                       locate: Callable = installed_location) -> InstallResult:
+                       locate: Callable = installed_location, build: int = 0,
+                       folders: Optional[list] = None) -> InstallResult:
     """Run the downloaded installer silently for this user; the result starts the installed copy, which tidies away
-    old_dir once it has started fine. This copy is left as it is until then, so a failed install loses nothing."""
+    old_dir once it has started fine. This copy is left as it is until then, so a failed install loses nothing.
+    build: the one being installed. Should the installed copy not start, this one is opened again and shouldn't
+    offer that build straight back (Try again in Updates does). A desktop shortcut to this copy, which won't work
+    once its folder goes, gets the installed copy's desktop icon in its place."""
     old_dir = old_dir or install_dir()
+    argv = [str(setup), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-"]
+    if shortcuts_to(old_dir / EXE_NAME, folders):
+        argv.append("/MERGETASKS=desktopicon")  # installer/Telescope.iss [Tasks]
     try:
         # Per-user, so no UAC prompt; downloaded by Telescope itself, so no SmartScreen prompt either
-        r = run([str(setup), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-"], timeout=600, **NO_WINDOW)
+        r = run(argv, timeout=600, **NO_WINDOW)
     except subprocess.TimeoutExpired as exc:
         raise UpdateError("The installer took too long, so this copy stays as it is.") from exc
     except OSError as exc:
@@ -401,13 +442,25 @@ def install_with_setup(setup: Path, old_dir: Optional[Path] = None, run: Callabl
     argv = [str(location / EXE_NAME), "--after-update"]
     if location.resolve() != old_dir.resolve():
         argv += [MOVED_FROM, str(old_dir)]
+        # A journal from that folder's own in-app updates is about files the setup just replaced; left there, the
+        # first start would "roll back" the fresh install to them
+        try:
+            update_guard.clear_journal(location)
+        except OSError:
+            logger.warning("Couldn't clear the installed copy's old update journal")
+        if build:
+            try:  # goes with this folder once the installed copy has started fine
+                (old_dir / update_guard.FAILED).write_text(json.dumps({"build": build}))
+            except OSError:
+                pass
     return InstallResult(argv)
 
 
 # What an unzipped copy holds that's unmistakably Telescope's. A zip unpacked straight into Downloads shares that
 # folder with the user's own things, which may include a platform-tools from Google's SDK or a lib-something folder,
 # so a folder only counts as Telescope's when its name and its contents both match.
-_OUR_FILES = (OLD_EXE_NAME, update_guard.FAILED_EXE_NAME, update_guard.JOURNAL, update_guard.FAILED,
+_OUR_FILES = (OLD_EXE_NAME, update_guard.FAILED_EXE_NAME, update_guard.JOURNAL, update_guard.JOURNAL + ".tmp",
+              update_guard.FAILED,
               "THIRD_PARTY_NOTICES.txt", "Telescope.apk", "telescope.log")
 _OUR_FOLDERS = {  # name: the files Telescope ships in it (nothing else may be in there)
     "platform-tools": {"adb.exe", "AdbWinApi.dll", "AdbWinUsbApi.dll", "libwinpthread-1.dll", "NOTICE"},
@@ -432,8 +485,25 @@ def _ours(entry: Path) -> bool:
     return name.startswith(LIB_PREFIX) and name[len(LIB_PREFIX):].isdigit() and (entry / "PyQt6").is_dir()
 
 
+def _keep_adb(bundled: Path, dest: Optional[Path] = None):
+    """Older zips came with adb; the installed copy doesn't, so the one going with the old folder is kept where
+    Get adb would put it (platform/adb_download.py) instead of the installed copy having to download it."""
+    from telescope.platform import adb_download
+    dest = dest or adb_download.downloaded_dir()
+    try:
+        if not _ours(bundled) or not (bundled / "adb.exe").is_file() or (dest / "adb.exe").exists():
+            return
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        part = dest.parent / ".adb-moving"
+        shutil.rmtree(part, ignore_errors=True)
+        shutil.copytree(bundled, part)
+        os.replace(part, dest)
+    except OSError:
+        logger.warning("Couldn't keep the old copy's adb", exc_info=True)
+
+
 def remove_unzipped_copy(old_dir: Path, current_dir: Optional[Path] = None, tries: int = 20,
-                         pause: float = 0.5) -> bool:
+                         pause: float = 0.5, folders: Optional[list] = None) -> bool:
     """Delete the unzipped copy this one replaced: only entries that are unmistakably Telescope's (see _ours), the
     exe last so a copy cut short still runs, then the folder if that left it empty. Refuses anything that isn't an
     unzipped copy of Telescope. True once Telescope's part of it is gone."""
@@ -446,6 +516,8 @@ def remove_unzipped_copy(old_dir: Path, current_dir: Optional[Path] = None, trie
             return False  # an installed copy: its own uninstaller removes it
     except OSError:
         return False
+    _keep_adb(old_dir / "platform-tools")
+    dead_links = shortcuts_to(exe, folders)  # read before the exe goes; the setup put a working one beside them
     left = []
     for attempt in range(tries):
         left = []
@@ -465,6 +537,11 @@ def remove_unzipped_copy(old_dir: Path, current_dir: Optional[Path] = None, trie
                 old_dir.rmdir()  # only if empty
             except OSError:
                 pass
+            for link in dead_links:  # they started the exe that just went
+                try:
+                    link.unlink()
+                except OSError:
+                    pass
             return True
         if attempt < tries - 1:
             time.sleep(pause)  # the old copy may still be exiting and holding its files

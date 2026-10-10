@@ -193,3 +193,27 @@ def test_a_failed_adb_download_says_why_and_offers_another_go(qapp, adb, lan, mo
         assert not dialog._usb_timer.isActive()
     finally:
         dialog.reject()
+
+
+def test_an_adb_download_that_ends_after_closing_doesn_t_poll_usb(qapp, adb, lan, monkeypatch):
+    adb["available"] = False
+    monkeypatch.setattr(connection_module, "IS_WINDOWS", True)
+    dialog = _open(qapp)
+    dialog._adb_download.running = True
+    dialog.reject()  # closed while it downloads
+    adb["available"] = True
+    dialog._adb_download.finished.emit(True, "37.0.1")
+    assert not dialog._usb_timer.isActive()
+
+
+def test_reopened_mid_download_it_says_so_instead_of_offering_it_again(qapp, adb, lan, monkeypatch):
+    adb["available"] = False
+    monkeypatch.setattr(connection_module, "IS_WINDOWS", True)
+    dialog = _open(qapp)
+    try:
+        dialog._adb_download.running = True
+        dialog._start_usb()
+        assert "Getting adb" in dialog._usb_lbl.text() and "href" not in dialog._usb_lbl.text()
+    finally:
+        dialog._adb_download.running = False
+        dialog.reject()

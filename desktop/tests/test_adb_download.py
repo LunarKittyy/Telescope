@@ -122,20 +122,41 @@ def test_a_zip_without_adb_isn_t_used(tmp_path):
 def test_no_network_says_so_and_keeps_what_was_there(tmp_path, fail):
     dest = tmp_path / "platform-tools"
     dest.mkdir()
-    (dest / "adb.exe").write_bytes(b"old")
+    (dest / "NOTICE.txt").write_bytes(b"old")
     ok, why = download_adb(_Google(fail=fail), dest)
     assert not ok and why == "Couldn't reach Google. Check the internet connection and try again."
-    assert (dest / "adb.exe").read_bytes() == b"old"
+    assert (dest / "NOTICE.txt").read_bytes() == b"old"
     assert sorted(p.name for p in tmp_path.iterdir()) == ["platform-tools"]
 
 
-def test_a_new_download_replaces_an_old_one_whole(tmp_path):
+def test_a_half_emptied_folder_is_replaced_whole(tmp_path):
     dest = tmp_path / "platform-tools"
     dest.mkdir()
-    (dest / "adb.exe").write_bytes(b"old")
     (dest / "stale.dll").write_bytes(b"old")
     assert download_adb(_Google(), dest)[0]
     assert sorted(p.name for p in dest.iterdir()) == sorted(NEEDED)
+
+
+def test_adb_that_s_already_there_isn_t_fetched_again(tmp_path):
+    # The other dialog got it first, and its adb server may be running from that folder
+    google, dest = _Google(), tmp_path / "platform-tools"
+    assert download_adb(google, dest) == (True, "37.0.1") and len(google.urls) == 2
+    (dest / "source.properties").write_text("Pkg.UserSrc=false\nPkg.Revision=37.0.1\n")
+    assert download_adb(google, dest) == (True, "37.0.1") and len(google.urls) == 2
+    (dest / "source.properties").unlink()
+    assert download_adb(google, dest) == (True, "already downloaded")
+
+
+def test_a_cut_short_download_s_work_folder_is_cleared_later(tmp_path):
+    import os
+    import time
+    stale, fresh = tmp_path / ".adb-old", tmp_path / ".adb-running"
+    for folder in (stale, fresh):
+        folder.mkdir()
+        (folder / "platform-tools.zip").write_bytes(b"part")
+    os.utime(stale, (time.time() - 7200,) * 2)
+    assert download_adb(_Google(), tmp_path / "platform-tools")[0]
+    assert sorted(p.name for p in tmp_path.iterdir()) == [".adb-running", "platform-tools"]
 
 
 def test_it_lives_in_local_app_data(monkeypatch, tmp_path):

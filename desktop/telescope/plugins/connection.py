@@ -234,7 +234,9 @@ class AddPhoneDialog(QDialog):
         self._start_usb()
 
     def _start_usb(self):
-        if adb_available():
+        if self._adb_download.running:  # reopened mid-download: its progress shows on the next step
+            self._set_usb("Getting adb from Google...", "status_dim")
+        elif adb_available():
             self._set_usb("Plug the phone in with a USB cable and it pairs by itself.", "status_dim")
             self._usb_timer.start(_PAIR_USB_POLL_MS)
             self._poll_usb()
@@ -249,7 +251,7 @@ class AddPhoneDialog(QDialog):
             self._adb_download.ask_and_start(self)
 
     def _on_adb_downloaded(self, ok: bool, detail: str):
-        if self._done:
+        if self._done or self._server is None:  # closed meanwhile: opening it again starts USB if adb is there
             return
         if ok:
             self._start_usb()

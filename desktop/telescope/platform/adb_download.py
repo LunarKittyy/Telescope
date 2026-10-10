@@ -11,6 +11,8 @@ import logging
 import os
 import shutil
 import tempfile
+import threading
+import time
 import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -29,6 +31,7 @@ APPROX_SIZE = "8\u00a0MB"  # no-break space: it shows in a wrapped dialog
 NEEDED = ("adb.exe", "AdbWinApi.dll", "AdbWinUsbApi.dll", "libwinpthread-1.dll", "NOTICE.txt", "source.properties")
 _MAX_ZIP = 64 << 20   # the zip is about 8 MB; anything far bigger isn't it
 _MAX_INDEX = 16 << 20
+_lock = threading.Lock()  # Add phone and Advanced each have a Get adb; one download at a time
 
 
 @dataclass
@@ -94,12 +97,42 @@ def _fetch(urlopen: Callable, url: str, write: Callable, limit: int):
             write(chunk)
 
 
+def downloaded_revision(dest: Optional[Path] = None) -> str:
+    """The version Google's source.properties gives for the downloaded adb, or "" if it doesn't say."""
+    try:
+        for line in ((dest or downloaded_dir()) / "source.properties").read_text(errors="replace").splitlines():
+            key, _, value = line.partition("=")
+            if key.strip() == "Pkg.Revision":
+                return value.strip()
+    except OSError:
+        pass
+    return ""
+
+
 def download_adb(urlopen: Callable = urllib.request.urlopen, dest: Optional[Path] = None,
                  progress: Optional[Callable[[str], None]] = None) -> tuple:
-    """Download adb into dest (downloaded_dir()); (True, version) or (False, why not). Never leaves a half-made
-    folder where adb_exe() looks."""
+    """Download adb into dest (downloaded_dir()) unless it's already there; (True, version) or (False, why not).
+    Never leaves a half-made folder where adb_exe() looks."""
     dest = dest or downloaded_dir()
-    say = progress or (lambda _msg: None)
+    with _lock:
+        # Already there (the other dialog got it, say): its adb may be running, which keeps the folder from moving
+        if (dest / "adb.exe").is_file():
+            return True, downloaded_revision(dest) or "already downloaded"
+        _clear_leftovers(dest.parent)
+        return _download(urlopen, dest, progress or (lambda _msg: None))
+
+
+def _clear_leftovers(parent: Path):
+    """Work folders a download that was cut short (Telescope killed, say) left behind."""
+    for old in parent.glob(".adb-*"):
+        try:
+            if time.time() - old.stat().st_mtime > 3600:
+                shutil.rmtree(old, ignore_errors=True)
+        except OSError:
+            pass
+
+
+def _download(urlopen: Callable, dest: Path, say: Callable[[str], None]) -> tuple:
     try:
         say("Finding the current adb...")
         index = bytearray()
@@ -141,13 +174,13 @@ def download_adb(urlopen: Callable = urllib.request.urlopen, dest: Optional[Path
         if not (unpacked / "adb.exe").is_file():
             return False, "Google's download doesn't have adb.exe in it anymore."
         old = None
-        if dest.exists():
-            old = work / "old"
-            os.replace(dest, old)
         try:
+            if dest.exists():  # a folder without adb.exe in it: one that something else half emptied
+                old = work / "old"
+                os.replace(dest, old)
             os.replace(unpacked, dest)
         except OSError as e:
-            if old is not None:
+            if old is not None and not dest.exists():
                 os.replace(old, dest)
             return False, f"Couldn't put adb in place: {e}"
         return True, archive.revision
