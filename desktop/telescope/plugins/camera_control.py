@@ -17,6 +17,8 @@ from telescope.widgets.lens_panel import LensPanel
 _FOCUS_STEPS = 1000
 _NR_MODES    = [("Off", 0), ("Fast", 1), ("High Quality", 2)]
 _EDGE_MODES  = [("Off", 0), ("Fast", 1), ("High Quality", 2)]
+_LOW_LIGHT_TIP = ("For a dark room: the camera may slow down to as few as 10 frames per second so each frame catches "
+                  "more light, and noise reduction runs at its best. Works with automatic exposure.")
 _CAPABILITY_LABELS = [
     ("supportsManualSensor", "Manual exposure"),
     ("supportsManualWB",     "Manual WB"),
@@ -75,6 +77,8 @@ class CameraControlView:
     edge_mode_index: int
     black_level_lock: bool
     torch: bool
+    low_light: bool = False
+    low_light_available: bool = False  # the phone takes low_light (older apps don't)
 
 
 def derive_camera_control_view(state: dict) -> Optional[CameraControlView]:
@@ -113,6 +117,8 @@ def derive_camera_control_view(state: dict) -> Optional[CameraControlView]:
         edge_mode_index=edge_idx,
         black_level_lock=bool(state.get("black_level_lock", False)),
         torch=bool(state.get("torch", False)),
+        low_light=bool(state.get("low_light", False)),
+        low_light_available=bool(state.get("low_light_toggle", False)),
     )
 
 
@@ -202,6 +208,14 @@ class CameraControlPlugin(TelescopePlugin):
         self._ae_comp_lbl = value_label("0.0 EV")
         self._ae_comp_slider.valueChanged.connect(self._on_ae_comp_changed)
         lay.addWidget(_row_widget("Compensation", slider_row(self._ae_comp_slider, self._ae_comp_lbl, gutter=True), stretch=True))
+
+        self._low_light_cb = QCheckBox("On")
+        self._low_light_cb.setToolTip(_LOW_LIGHT_TIP)
+        self._low_light_cb.toggled.connect(self._on_low_light)
+        self._low_light_row = _row_widget("Low light", self._low_light_cb)
+        self._low_light_row.setToolTip(_LOW_LIGHT_TIP)
+        self._low_light_row.setVisible(False)  # until the phone says it takes it
+        lay.addWidget(self._low_light_row)
 
         # ── White Balance ─────────────────────────────────────────────────────
         add_section_heading(lay, "White balance")
@@ -341,6 +355,8 @@ class CameraControlPlugin(TelescopePlugin):
         self._ctrl.send(action="nr_mode", value=_NR_MODES[self._nr_combo.currentIndex()][1])
         self._ctrl.send(action="edge_mode", value=_EDGE_MODES[self._edge_combo.currentIndex()][1])
         self._ctrl.send(action="black_level_lock", value="1" if self._bll_cb.isChecked() else "0")
+        if self._low_light_cb.isChecked():  # off is every stream's start, and an older phone doesn't know it
+            self._ctrl.send(action="low_light", value="1")
 
     def on_stream_stop(self):
         if self._last_state is not None:
@@ -442,6 +458,12 @@ class CameraControlPlugin(TelescopePlugin):
         self._torch_btn.setChecked(view.torch)
         self._torch_on = view.torch
         self._torch_btn.blockSignals(False)
+
+        self._low_light_row.setVisible(view.low_light_available)
+        if view.low_light_available:
+            self._low_light_cb.blockSignals(True)
+            self._low_light_cb.setChecked(view.low_light)
+            self._low_light_cb.blockSignals(False)
 
     # ── Camera capability gating ──────────────────────────────────────────────
 
@@ -673,6 +695,11 @@ class CameraControlPlugin(TelescopePlugin):
             self._ctrl.send(action="edge_mode", value=_EDGE_MODES[idx][1])
         self._host.schedule_save()
 
+    def _on_low_light(self, checked: bool):
+        if self._ctrl:
+            self._ctrl.send(action="low_light", value="1" if checked else "0")
+        self._host.schedule_save()
+
     def _on_bll_changed(self, checked: bool):
         if self._ctrl:
             self._ctrl.send(action="black_level_lock", value="1" if checked else "0")
@@ -711,6 +738,7 @@ class CameraControlPlugin(TelescopePlugin):
             "nr_mode":         _NR_MODES[self._nr_combo.currentIndex()][1],
             "edge_mode":       _EDGE_MODES[self._edge_combo.currentIndex()][1],
             "bll":             self._bll_cb.isChecked(),
+            "low_light":       self._low_light_cb.isChecked(),
             "lens":            self._lens_id,
         }
 
@@ -761,6 +789,7 @@ class CameraControlPlugin(TelescopePlugin):
             idx = next((i for i, (_, v) in enumerate(_EDGE_MODES) if v == em), 1)
             self._edge_combo.setCurrentIndex(idx)
         self._bll_cb.setChecked(bool(cfg.get("bll", False)))
+        self._low_light_cb.setChecked(bool(cfg.get("low_light", False)))
         self._lens_id = cfg.get("lens")
         self._pending_lens = None
 

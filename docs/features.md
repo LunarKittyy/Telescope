@@ -7,6 +7,7 @@
 - Manual white balance: Kelvin (2000-10000 K) plus a green-magenta tint - *partially working: applies inconsistently depending on device/lens*
 - Manual focus, or click anywhere on the preview to focus (and meter exposure) on that spot. **Auto** goes back to continuous autofocus
 - OIS, noise reduction, sharpening (edge mode), black level lock, and the torch on lenses that have a flash
+- Low light, for a dark room: auto exposure may slow the camera to as few as 10 fps so each frame catches more light, and noise reduction runs at its best. It only slows down when it has to, so in good light it's the rate you picked
 - Anything the current lens doesn't support is greyed out
 
 ## Stream transforms

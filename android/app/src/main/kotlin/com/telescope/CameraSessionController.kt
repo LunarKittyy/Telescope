@@ -43,6 +43,7 @@ data class CameraControlSnapshot(
     val codecUnsupported:  Boolean,  // codecError is H.264 not doing this size or rate here, not a crash
     val activeLens:        String?,
     val dynamicFps:        Int = 0,  // the rate Dynamic stepped down to for a slow link; 0 = the rate asked for
+    val lowLight:          Boolean = false,
 )
 
 // Phone-side zoom, as the desktop splits it: a centred CONTROL_ZOOM_RATIO, then a 1/crop SCALER_CROP_REGION
@@ -97,6 +98,9 @@ class CameraSessionController(
     @Volatile private var currentEdgeMode:       Int     = CaptureRequest.EDGE_MODE_FAST
     @Volatile private var currentAeComp:         Int     = 0
     @Volatile private var currentBlackLevelLock: Boolean = false
+    // Low light: auto exposure may slow the camera down (to CameraRequestSelection.LOW_LIGHT_MIN_FPS) and noise
+    // reduction runs at its best, for a dark room
+    @Volatile private var currentLowLight: Boolean = false
     @Volatile private var currentTorch:          Boolean = false
     @Volatile private var currentJpegQuality: Int = 85
     @Volatile private var currentPhoneFps:    Int = initialPhoneFps
@@ -170,6 +174,7 @@ class CameraSessionController(
         codecUnsupported = codecUnsupported,
         activeLens      = activeLens,
         dynamicFps      = frameRate?.cap ?: 0,
+        lowLight        = currentLowLight,
     )
 
     // The rate the camera and encoder run at: the one asked for, unless Dynamic stepped it down for a slow link.
@@ -291,6 +296,12 @@ class CameraSessionController(
     }
     fun setFocusDistance(d: Float)          { currentFocusDistance = d;         post { applyExposure() } }
     fun setNrMode(m: Int)                   { currentNrMode = m;                post { applyExposure() } }
+    fun setLowLight(on: Boolean) {
+        if (on == currentLowLight) return
+        currentLowLight = on
+        // The frame rate range is part of the session's setup (see createSession), so the session is rebuilt for it
+        post { reconfigureSession() }
+    }
     fun setEdgeMode(m: Int)                 { currentEdgeMode = m;              post { applyExposure() } }
     fun setAeComp(v: Int)                   { currentAeComp = v;                post { applyExposure() } }
     fun setBlackLevelLock(on: Boolean)      { currentBlackLevelLock = on;       post { applyExposure() } }
@@ -757,7 +768,7 @@ class CameraSessionController(
     // For Copy diagnostics: the rate asked for against what the camera did, and the fastest each output allows here.
     fun frameReport(): String = buildString {
         val cam = currentCamera
-        val asked = CameraRequestSelection.pickAeFpsRange(cam?.aeFpsRanges ?: emptyList(), streamFps())
+        val asked = CameraRequestSelection.pickAeFpsRange(cam?.aeFpsRanges ?: emptyList(), streamFps(), currentLowLight)
         val template = if (requestTemplate() == CameraDevice.TEMPLATE_RECORD) "record" else "preview"
         val labels = when {
             usedStreamUseCase -> ", outputs labelled"
@@ -765,7 +776,8 @@ class CameraSessionController(
             else -> ""
         }
         val stepped = frameRate?.cap?.let { ", Dynamic stepped down to $it for the link" } ?: ""
-        appendLine("FPS asked for: $currentPhoneFps$stepped (range $asked, $template template, $codec$labels)")
+        val dark = if (currentLowLight) ", low light" else ""
+        appendLine("FPS asked for: $currentPhoneFps$stepped (range $asked$dark, $template template, $codec$labels)")
         val durations = synchronized(frameDurations) { frameDurations.toList() }
         fun ms(ns: Long) = "%.1f".format(java.util.Locale.ROOT, ns / 1e6)
         if (durations.isNotEmpty()) {
@@ -808,7 +820,7 @@ class CameraSessionController(
             // Set in manual exposure too, where AE ignores it: it's also what the session is set up for.
             // Unsupported ranges can fail on some devices; use advertised range
             val fps = streamFps()
-            CameraRequestSelection.pickAeFpsRange(cam?.aeFpsRanges ?: emptyList(), fps)?.let { range ->
+            CameraRequestSelection.pickAeFpsRange(cam?.aeFpsRanges ?: emptyList(), fps, currentLowLight)?.let { range ->
                 android.util.Log.d(TAG, "AE FPS range for ${cam?.id}: $range (target=$fps)")
                 set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, range)
             }
@@ -856,7 +868,8 @@ class CameraSessionController(
                 else CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_OFF)
 
             // NR/edge modes set only if camera advertises them; omit otherwise.
-            CameraRequestSelection.pickNrMode(cam?.nrModes ?: emptySet(), currentNrMode)?.let {
+            val nr = if (currentLowLight) CaptureRequest.NOISE_REDUCTION_MODE_HIGH_QUALITY else currentNrMode
+            CameraRequestSelection.pickNrMode(cam?.nrModes ?: emptySet(), nr)?.let {
                 set(CaptureRequest.NOISE_REDUCTION_MODE, it)
             }
             CameraRequestSelection.pickEdgeMode(cam?.edgeModes ?: emptySet(), currentEdgeMode)?.let {

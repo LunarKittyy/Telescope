@@ -559,3 +559,44 @@ def test_manual_focus_at_infinity_loads_from_a_preset(camera_plugin):
     plugin.set_config({"focus_manual": True, "focus_diopters": 2.0})
     plugin.set_config({"focus_manual": True, "focus_diopters": 0.0})
     assert plugin._focus_slider.value() == 0
+
+
+def test_low_light_shows_only_once_the_phone_says_it_takes_it(camera_plugin):
+    plugin, _host, _bus, _panel = camera_plugin
+    state = {"cameras": [{"id": "0", "label": "Main", "current": True}], "auto": True}
+    plugin.on_phone_state(state)
+    assert plugin._low_light_row.isHidden()  # an older phone app
+
+    plugin.on_phone_state({**state, "low_light_toggle": True})
+    assert not plugin._low_light_row.isHidden()
+    assert not plugin._low_light_cb.isChecked()
+
+    plugin._ctrl = _Ctrl()
+    plugin.on_phone_state({**state, "low_light_toggle": True, "low_light": True})
+    assert plugin._low_light_cb.isChecked()
+    assert plugin._ctrl.sent == []  # following the phone isn't a new request
+
+
+def test_low_light_toggle_sends_and_saves(camera_plugin):
+    plugin, host, _bus, _panel = camera_plugin
+    plugin._ctrl = _Ctrl()
+    plugin._low_light_cb.setChecked(True)
+    plugin._low_light_cb.setChecked(False)
+    assert plugin._ctrl.sent == [{"action": "low_light", "value": "1"}, {"action": "low_light", "value": "0"}]
+    assert host.saves == 2
+
+
+def test_low_light_is_saved_and_sent_at_stream_start_only_when_on(camera_plugin):
+    plugin, _host, _bus, _panel = camera_plugin
+    assert plugin.get_config()["low_light"] is False
+
+    plugin.set_config({"low_light": True})
+    assert plugin.get_config()["low_light"] is True
+    ctrl = _Ctrl()
+    plugin.on_stream_start("url", ctrl)
+    assert ctrl.sent[-1] == {"action": "low_light", "value": "1"}
+
+    plugin.set_config({"low_light": False})
+    ctrl = _Ctrl()
+    plugin.on_stream_start("url", ctrl)
+    assert "low_light" not in [p["action"] for p in ctrl.sent]
