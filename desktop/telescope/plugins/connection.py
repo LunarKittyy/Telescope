@@ -52,7 +52,7 @@ from telescope.widgets.qr import QRCodeWidget
 
 logger = logging.getLogger(__name__)
 
-_STATUS_POLL_MS = 3_000     # idle re-check of the selected phone
+_STATUS_POLL_MS = 3_000     # idle re-check of the selected phone, only while the window is on screen
 _CHECK_GIVE_UP_S = 60       # an idle check that never answers stops blocking new ones
 _USB_WATCH_MS = 5_000       # while streaming over Wi-Fi: has the phone been plugged in?
 _PAIR_USB_POLL_MS = 2_000   # Add phone dialog: look for a phone on USB to pair with
@@ -477,6 +477,12 @@ class ConnectionPlugin(TelescopePlugin):
         bus.stream_sources_changed.connect(self._on_sources)
         self.remembered: list = []  # [(id, name, detail)] of browsers with settings of their own
         bus.remembered_sources.connect(self._on_remembered)
+        # Each idle check wakes the phone's Wi-Fi and CPU, so a phone left waiting all day isn't polled while nobody
+        # looks. An app reading the camera keeps the checks going, so starting for it still sees the phone arrive.
+        self._shown = True  # the window says otherwise when it starts hidden
+        self._watched = False
+        bus.window_shown.connect(self._on_window_shown)
+        bus.camera_watched.connect(self._on_camera_watched)
 
     def _on_remembered(self, entries: list):
         self.remembered = list(entries)
@@ -585,7 +591,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._build_header()
 
         self._status_timer = QTimer(card)
-        self._status_timer.timeout.connect(self._check_status)
+        self._status_timer.timeout.connect(self._poll_status)
         self._status_timer.start(_STATUS_POLL_MS)
         self._usb_watch_timer = QTimer(card)
         self._usb_watch_timer.timeout.connect(self._watch_usb)
@@ -743,6 +749,25 @@ class ConnectionPlugin(TelescopePlugin):
         self._check_status()
 
     # ── Status checks ─────────────────────────────────────────────────────
+
+    def _on_window_shown(self, shown: bool):
+        was_polling = self._polling()
+        self._shown = shown
+        if self._polling() and not was_polling:
+            self._check_status()  # don't make the window wait a whole tick to say where the phone is
+
+    def _on_camera_watched(self, watched: bool):
+        was_polling = self._polling()
+        self._watched = watched
+        if self._polling() and not was_polling:
+            self._check_status()
+
+    def _polling(self) -> bool:
+        return self._shown or self._watched
+
+    def _poll_status(self):
+        if self._polling():
+            self._check_status()
 
     def _check_status(self):
         if self._streaming:

@@ -344,6 +344,8 @@ class EventBus(QObject):
     """The stream opened the virtual camera at this width and height."""
     camera_watched         = pyqtSignal(bool)
     """Whether an app is reading the virtual camera (Wait screen watches it)."""
+    window_shown           = pyqtSignal(bool)
+    """The main window came on screen, or went to the tray or was minimized."""
     camera_on_changed      = pyqtSignal(bool)
     """The camera went off (the stream is just the mic) or back on, or what the next start uses changed."""
     mic_changed            = pyqtSignal(bool, bool)

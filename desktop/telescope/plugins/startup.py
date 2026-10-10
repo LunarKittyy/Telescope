@@ -3,11 +3,11 @@
 The settings menu's Automatic streaming submenu picks when a stream starts by itself (never, as soon as the phone is
 ready, or when an app opens the camera) and when one stops by itself (never, or once no app has read the camera for
 a while: only a stream it started, or any stream). Starting when the phone is ready happens once each time the phone
-becomes ready; after a Stop it waits until the phone goes away and comes back, so Stop sticks. Starting for an app
-happens once while that app reads the camera; after a Stop it waits until the app lets go and something opens the
-camera again. The idle stop never acts before the camera watch has reported at least once, so a machine where it
-can't tell whether an app reads the camera never has its streams stopped under it. With the phone mic on, the idle stop
-turns only the camera off and the mic keeps streaming (a call that switched its camera off still hears you); the camera
+becomes ready, which is only noticed while the window is on screen (the phone isn't checked otherwise); after a Stop
+it waits until the phone goes away and comes back, so Stop sticks. Starting for an app happens once while that app
+reads the camera; after a Stop it waits until the app lets go and something opens the camera again. The idle stop
+never acts before the camera watch has reported at least once, so a machine where it can't tell whether an app reads
+the camera never has its streams stopped under it. With the phone mic on, the idle stop turns only the camera off and the mic keeps streaming (a call that switched its camera off still hears you); the camera
 comes back on when an app opens it again, and Stop ends the stream.
 """
 
@@ -75,6 +75,7 @@ class StartupPlugin(TelescopePlugin):
         self._phone: Optional[str] = None
         self._ready = False
         self._watched = False
+        self._shown = True            # the window on screen (EventBus.window_shown)
         self._watch_known = False     # the camera watch has reported at least once
         self._watch_held = False      # already started (or stopped) while this app reads the camera
         self._starting_own = False    # asked the host to start; the next stream_started is ours
@@ -97,6 +98,7 @@ class StartupPlugin(TelescopePlugin):
         bus.device_changed.connect(self._on_device_changed)
         bus.streams_changed.connect(self._on_streams_changed)
         bus.camera_watched.connect(self._on_camera_watched)
+        bus.window_shown.connect(self._on_window_shown)
 
     # ── Menu ──────────────────────────────────────────────────────────────
 
@@ -240,9 +242,16 @@ class StartupPlugin(TelescopePlugin):
 
     # ── Starting when an app opens the camera ─────────────────────────────
 
+    def _on_window_shown(self, shown: bool):
+        self._shown = shown
+
     def _on_camera_watched(self, watched: bool):
         self._watch_known = True
         self._watched = watched
+        if watched and not self._shown:
+            # The phone isn't checked while the window is hidden, so what it last said may be hours old. The check
+            # this sets off answers with phone_ready, which starts the stream then.
+            self._ready = False
         logger.info("An app %s reading the camera", "started" if watched else "stopped")
         if watched:
             if self._host.is_streaming() and self._host.is_camera_off_auto():

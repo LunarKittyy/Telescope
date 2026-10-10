@@ -291,6 +291,24 @@ def _stream_ends(host, bus):
     bus.stream_stopped.emit()
 
 
+def test_with_the_window_hidden_an_app_waits_for_a_fresh_check_of_the_phone(watching):
+    # The phone isn't checked while the window is hidden, so the ready it said before is no reason to start.
+    plugin, host, bus = watching
+    bus.window_shown.emit(False)
+    bus.camera_watched.emit(True)
+    assert host.starts == []
+    bus.phone_ready.emit("p1", True)
+    assert host.starts == [False]
+
+
+def test_with_the_window_hidden_an_app_does_not_start_for_a_phone_that_left(watching):
+    plugin, host, bus = watching
+    bus.window_shown.emit(False)
+    bus.camera_watched.emit(True)
+    bus.phone_ready.emit("p1", False)
+    assert host.starts == []
+
+
 def test_watching_is_off_by_default(env):
     plugin, host, bus = env
     bus.phone_ready.emit("p1", True)
