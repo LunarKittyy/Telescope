@@ -76,6 +76,13 @@ def test_a_failed_download_says_so_plainly(tmp_path):
     assert setup is None and err == "Couldn't reach vb-audio.com. Check the internet connection and try again."
 
 
+def test_a_refused_download_doesnt_blame_the_internet(tmp_path):
+    def gone(url, timeout):
+        raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+    setup, err = virtual_mic.download_vb_cable(tmp_path, gone)
+    assert setup is None and "didn't hand over" in err
+
+
 def test_a_download_far_bigger_than_the_pack_stops(tmp_path, pinned, monkeypatch):
     monkeypatch.setattr(virtual_mic, "_MAX_PACK", len(GOOD) - 1)
     setup, err = virtual_mic.download_vb_cable(tmp_path, _serving(GOOD))
@@ -91,11 +98,11 @@ def _unpacked(tmp_path):
 def test_the_setup_opens_as_admin_only_when_its_hash_still_matches(tmp_path, pinned):
     setup = _unpacked(tmp_path)
     calls = []
-    assert virtual_mic.run_vb_cable_setup(setup, lambda path, verb: calls.append((path, verb))) == ""
-    assert calls == [(str(setup), "runas")]
+    assert virtual_mic.run_vb_cable_setup(setup, lambda path, verb, cwd: calls.append((path, verb, cwd))) == ""
+    assert calls == [(str(setup), "runas", str(setup.parent))]
 
     setup.write_bytes(b"swapped after the check")
-    assert "changed" in virtual_mic.run_vb_cable_setup(setup, lambda *a: calls.append(a))
+    assert "changed" in virtual_mic.run_vb_cable_setup(setup, lambda *a, **kw: calls.append(a))
     assert len(calls) == 1
 
 
@@ -108,14 +115,14 @@ def test_nothing_runs_as_admin_from_a_folder_someone_changed(tmp_path, pinned, t
     setup = _unpacked(tmp_path)
     tamper(tmp_path)
     calls = []
-    assert "changed" in virtual_mic.run_vb_cable_setup(setup, lambda *a: calls.append(a))
+    assert "changed" in virtual_mic.run_vb_cable_setup(setup, lambda *a, **kw: calls.append(a))
     assert calls == []
 
 
 def test_saying_no_to_uac_is_reported_plainly(tmp_path, pinned):
     setup = _unpacked(tmp_path)
 
-    def declined(path, verb):
+    def declined(path, verb, cwd):
         e = OSError("The operation was canceled by the user")
         e.winerror = 1223
         raise e
@@ -221,7 +228,7 @@ def test_a_hidden_file_in_the_pack_isn_t_unpacked_and_one_planted_later_blocks_t
     setup, err = virtual_mic.download_vb_cable(tmp_path, _serving(pack))
     assert err == "" and not (tmp_path / ".hidden").exists()
     calls = []
-    assert virtual_mic.run_vb_cable_setup(setup, lambda *a: calls.append(a)) == ""
+    assert virtual_mic.run_vb_cable_setup(setup, lambda *a, **kw: calls.append(a)) == ""
     (tmp_path / ".hidden").write_bytes(b"planted")
-    assert "changed" in virtual_mic.run_vb_cable_setup(setup, lambda *a: calls.append(a))
+    assert "changed" in virtual_mic.run_vb_cable_setup(setup, lambda *a, **kw: calls.append(a))
     assert len(calls) == 1

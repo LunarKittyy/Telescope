@@ -78,6 +78,7 @@ telescope/
 |       |-- H264Encoder.kt       # MediaCodec H.264 from the camera Surface
 |       |-- H264Stream.kt        # Per-viewer H.264 queue (and its link measurements), bitrate defaults
 |       |-- DynamicBitrate.kt    # Dynamic bitrate: follows the link from the queue's measurements (JVM-tested)
+|       |-- DynamicFrameRate.kt  # Dynamic frame rate: steps down when the link is too thin for the rate (JVM-tested)
 |       |-- AudioStreamer.kt     # Microphone recording while someone listens
 |       |-- AudioStream.kt       # PCM format, per-listener queue
 |       |-- SessionServer.kt     # Out-of-band responder (port 8766): /v1/hello, /v1/ping, /v1/session, /v1/unpair

@@ -163,6 +163,9 @@ def download_vb_cable(folder: Optional[Path] = None, urlopen: Callable = urllib.
                 if got > _MAX_PACK:
                     raise ValueError("it's much bigger than VB-Audio's pack")
                 f.write(chunk)
+    except urllib.error.HTTPError as e:  # reached, but it said no
+        logger.warning("VB-Cable download: %s", e)
+        return None, "vb-audio.com didn't hand over VB-Cable. Try again later, or get it from their site."
     except urllib.error.URLError as e:
         logger.warning("VB-Cable download: %s", e)
         return None, "Couldn't reach vb-audio.com. Check the internet connection and try again."
@@ -212,7 +215,7 @@ def run_vb_cable_setup(setup: Path, start: Optional[Callable] = None) -> str:
         return "VB-Cable's setup changed after it was checked, so it wasn't opened."
     start = start or os.startfile  # Windows only; ShellExecute's runas shows UAC for the setup itself
     try:
-        start(str(setup), "runas")
+        start(str(setup), "runas", cwd=str(setup.parent))  # the setup's own folder, wherever it looks for its files
     except OSError as e:
         if getattr(e, "winerror", None) == _ERROR_CANCELLED:
             return "Windows didn't get permission to install VB-Cable."
