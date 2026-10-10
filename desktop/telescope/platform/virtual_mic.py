@@ -5,14 +5,21 @@ an input only, so it never shows up as a speaker, and there's no playback stream
 move onto the real speakers. Needs only pactl, and it's gone after a reboot (or when the mic is
 switched off).
 Windows: VB-Audio Virtual Cable, which has to be installed separately; Telescope plays into
-"CABLE Input" and apps record from "CABLE Output".
+"CABLE Input" and apps record from "CABLE Output". The mic card can fetch VB-Audio's own pack and open its
+setup, but VB-Cable isn't part of Telescope: its readme doesn't allow putting it inside another setup without
+VB-Audio's agreement, so their setup runs as it is, with its own windows, and the person installing it sees whose
+it is first.
 """
 
+import hashlib
 import os
 import shutil
 import stat
 import subprocess
 import tempfile
+import urllib.request
+import zipfile
+from pathlib import Path
 from typing import Callable, Optional
 
 from telescope import dev_profile
@@ -26,6 +33,15 @@ LINUX_TOOLS = ("pactl",)
 _OURS = (f"source_name={SOURCE}",) + (() if dev_profile.active() else ("sink_name=telescope_mic_sink",))
 
 VB_CABLE_URL = "https://vb-audio.com/Cable/"
+# The pack VB-Audio's page links, pinned: a newer one fails the check and the card goes back to the link above
+VB_CABLE_PACK_URL = "https://download.vb-audio.com/Download_CABLE/VBCABLE_Driver_Pack45.zip"
+VB_CABLE_PACK_SHA256 = "b950e39f01af1d04ea623c8f6d8eb9b6ea5c477c637295fabf20631c85116bfb"
+VB_CABLE_SETUP = "VBCABLE_Setup_x64.exe"  # signed by Vincent Burel, so UAC names VB-Audio's author
+VB_CABLE_SETUP_SHA256 = "734c35dfa6d98f48782a451633ceb471166ec70d60482fd89a1123d0ee3c4f41"
+# What VB-Audio asks anyone passing VB-Cable on to say (the pack's readme.txt)
+VB_CABLE_ORIGIN = "The origin of VB-CABLE : www.vb-cable.com."
+VB_CABLE_DONATIONWARE = "VB-CABLE is a donationware, all participations are welcome."
+_ERROR_CANCELLED = 1223  # ERROR_CANCELLED: no to the UAC prompt
 VB_CABLE_PLAYBACK = "CABLE Input"
 VB_CABLE_RECORD = "CABLE Output"
 
@@ -110,3 +126,52 @@ def find_vb_cable(devices: list) -> Optional[int]:
         if VB_CABLE_PLAYBACK.lower() in str(d.get("name", "")).lower() and d.get("max_output_channels", 0) > 0:
             return i
     return None
+
+
+def _sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def download_vb_cable(folder: Optional[Path] = None, urlopen: Callable = urllib.request.urlopen) -> tuple:
+    """Fetch VB-Audio's pack and unpack it; (setup exe path, "") or (None, why not)."""
+    folder = Path(folder or tempfile.mkdtemp(prefix="telescope-vbcable-"))
+    pack = folder / "VBCABLE_Driver_Pack.zip"
+    try:
+        with urlopen(VB_CABLE_PACK_URL, timeout=30) as r, open(pack, "wb") as f:
+            shutil.copyfileobj(r, f)
+    except Exception as e:
+        return None, f"Couldn't download VB-Cable: {e}"
+    if _sha256(pack) != VB_CABLE_PACK_SHA256:
+        return None, "VB-Audio's download has changed since this version of Telescope. Get it from their site instead."
+    try:
+        with zipfile.ZipFile(pack) as z:
+            for name in z.namelist():
+                # A flat pack: anything with a folder in its name isn't what was checked, so it's left out
+                if name != Path(name).name or name.startswith("."):
+                    continue
+                with z.open(name) as src, open(folder / name, "wb") as dst:
+                    shutil.copyfileobj(src, dst)
+    except (OSError, zipfile.BadZipFile) as e:
+        return None, f"Couldn't unpack VB-Cable: {e}"
+    setup = folder / VB_CABLE_SETUP
+    if not setup.exists():
+        return None, "VB-Audio's download doesn't have the setup it used to. Get it from their site instead."
+    return setup, ""
+
+
+def run_vb_cable_setup(setup: Path, start: Optional[Callable] = None) -> str:
+    """Open VB-Audio's setup as admin, after checking it once more; "" once it's open, else why not."""
+    if _sha256(setup) != VB_CABLE_SETUP_SHA256:
+        return "VB-Cable's setup changed after it was checked, so it wasn't opened."
+    start = start or os.startfile  # Windows only; ShellExecute's runas shows UAC for the setup itself
+    try:
+        start(str(setup), "runas")
+    except OSError as e:
+        if getattr(e, "winerror", None) == _ERROR_CANCELLED:
+            return "Windows didn't get permission to install VB-Cable."
+        return f"Couldn't open VB-Cable's setup: {e}"
+    return ""
