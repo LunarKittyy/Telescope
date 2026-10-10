@@ -165,7 +165,7 @@ def download_vb_cable(folder: Optional[Path] = None, urlopen: Callable = urllib.
                 f.write(chunk)
     except urllib.error.HTTPError as e:  # reached, but it said no
         logger.warning("VB-Cable download: %s", e)
-        return None, "vb-audio.com didn't hand over VB-Cable. Try again later, or get it from their site."
+        return None, "VB-Audio's site didn't hand over VB-Cable. Try again later, or get it from their site."
     except urllib.error.URLError as e:
         logger.warning("VB-Cable download: %s", e)
         return None, "Couldn't reach vb-audio.com. Check the internet connection and try again."

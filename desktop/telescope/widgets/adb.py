@@ -58,10 +58,13 @@ class AdbDownload(QObject):
         def work():
             try:
                 ok, detail = download(progress=progress.emit)
-            except Exception as e:  # always report back, or the button stays off until a restart
+            except Exception:  # always report back, or the button stays off until a restart
                 logger.exception("adb download failed")
                 ok, detail = False, "Couldn't download adb. Try again."
-            finished.emit(ok, detail)
+            try:
+                finished.emit(ok, detail)
+            except RuntimeError:  # the dialog closed during the download
+                pass
 
         threading.Thread(target=work, daemon=True).start()
 
