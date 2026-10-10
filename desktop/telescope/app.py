@@ -10,7 +10,7 @@ import time
 from dataclasses import replace
 from typing import Callable, Optional
 
-from PyQt6.QtCore import QPoint, QSize, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QEvent, QPoint, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QApplication, QFrame, QHBoxLayout, QLabel,
@@ -153,6 +153,7 @@ class TelescopeWindow(QMainWindow):
         self.resize(ui_px(1380), ui_px(900))
 
         self._bus     = EventBus()
+        self._reported_shown: Optional[bool] = None  # what window_shown last said
         self._bus.resolution_change_requested.connect(self._on_resolution_pending)
         # Both restart the phone's camera, so the stream gets a moment before it counts as behind.
         self._bus.resolution_change_requested.connect(lambda _w, _h: self._settle_stream())
@@ -1777,6 +1778,7 @@ class TelescopeWindow(QMainWindow):
         """For --minimized: live in the tray, or minimized where there's no tray."""
         if self._tray is None:
             self.showMinimized()
+        self._report_shown()  # never shown, so no event says so
 
     def quit_app(self):
         self._tray_quit()
@@ -2051,6 +2053,26 @@ class TelescopeWindow(QMainWindow):
                "err": "status_err", "dim": "status_dim"}.get(kind, "status_dim")
         set_status_kind(self._status_lbl, obj)
         self._status_lbl.setText(msg)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._report_shown()
+
+    def hideEvent(self, event):
+        super().hideEvent(event)
+        self._report_shown()
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.WindowStateChange:
+            self._report_shown()
+
+    def _report_shown(self):
+        """Tells the plugins whether the window is on screen; the tray and minimized both count as not."""
+        shown = self.isVisible() and not self.isMinimized()
+        if shown != self._reported_shown:
+            self._reported_shown = shown
+            self._bus.window_shown.emit(shown)
 
     def closeEvent(self, event):
         if self._tray and (self._streams or self._keep_in_tray):

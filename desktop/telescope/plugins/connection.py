@@ -52,8 +52,9 @@ from telescope.widgets.qr import QRCodeWidget
 
 logger = logging.getLogger(__name__)
 
-_STATUS_POLL_MS = 3_000     # idle re-check of the selected phone
+_STATUS_POLL_MS = 3_000     # idle re-check of the selected phone, only while the window is on screen
 _CHECK_GIVE_UP_S = 60       # an idle check that never answers stops blocking new ones
+_HELD_POLL_S = 60           # tray, after starting once the phone was ready: only its going away matters
 _USB_WATCH_MS = 5_000       # while streaming over Wi-Fi: has the phone been plugged in?
 _PAIR_USB_POLL_MS = 2_000   # Add phone dialog: look for a phone on USB to pair with
 
@@ -477,6 +478,16 @@ class ConnectionPlugin(TelescopePlugin):
         bus.stream_sources_changed.connect(self._on_sources)
         self.remembered: list = []  # [(id, name, detail)] of browsers with settings of their own
         bus.remembered_sources.connect(self._on_remembered)
+        # Each idle check wakes the phone's Wi-Fi and CPU, so a phone left waiting all day isn't polled while nobody
+        # looks. An app reading the camera, or starting when the phone is ready, keeps the checks going, so those
+        # still see the phone arrive.
+        self._shown = True  # the window says otherwise when it starts hidden
+        self._watched = False
+        self._wanted = False
+        self._wanted_held = False  # it already started for this arrival: slow checks will do
+        bus.window_shown.connect(lambda shown: self._set_poll_reason("_shown", shown))
+        bus.camera_watched.connect(lambda watched: self._set_poll_reason("_watched", watched))
+        bus.phone_wanted.connect(self._on_phone_wanted)
 
     def _on_remembered(self, entries: list):
         self.remembered = list(entries)
@@ -585,7 +596,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._build_header()
 
         self._status_timer = QTimer(card)
-        self._status_timer.timeout.connect(self._check_status)
+        self._status_timer.timeout.connect(self._poll_status)
         self._status_timer.start(_STATUS_POLL_MS)
         self._usb_watch_timer = QTimer(card)
         self._usb_watch_timer.timeout.connect(self._watch_usb)
@@ -743,6 +754,28 @@ class ConnectionPlugin(TelescopePlugin):
         self._check_status()
 
     # ── Status checks ─────────────────────────────────────────────────────
+
+    def _set_poll_reason(self, attr: str, on: bool):
+        was_polling = self._polling()
+        setattr(self, attr, on)
+        if self._polling() and not was_polling:
+            self._check_status()  # don't make the window wait a whole tick to say where the phone is
+
+    def _on_phone_wanted(self, wanted: bool, held: bool):
+        self._wanted_held = held
+        self._set_poll_reason("_wanted", wanted)
+
+    def _polling(self) -> bool:
+        return self._shown or self._watched or self._wanted
+
+    def _polling_fast(self) -> bool:
+        return self._shown or self._watched or (self._wanted and not self._wanted_held)
+
+    def _poll_status(self):
+        if self._polling_fast():
+            self._check_status()
+        elif self._polling() and time.monotonic() - self._check_started >= _HELD_POLL_S:
+            self._check_status()
 
     def _check_status(self):
         if self._streaming:

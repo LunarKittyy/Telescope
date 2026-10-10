@@ -1781,6 +1781,19 @@ def test_start_hidden_minimizes_without_a_tray(window, monkeypatch):
     assert calls == ["min"]
 
 
+def test_the_window_says_when_it_is_on_screen(window):
+    # Plugins stop checking the phone while nobody looks: in the tray, minimized, or started hidden.
+    seen = []
+    window._bus.window_shown.connect(seen.append)
+    window._tray = object()
+    window.start_hidden()
+    window.show()
+    window.showMinimized()
+    window.showNormal()
+    window.hide()
+    assert seen == [False, True, False, True, False]
+
+
 def test_start_stream_passes_on_that_nobody_asked(window):
     conn = _Connection(wake=(False, "x"))
     seen = []
