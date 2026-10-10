@@ -7,8 +7,9 @@ becomes ready, which is only noticed while the window is on screen (the phone is
 it waits until the phone goes away and comes back, so Stop sticks. Starting for an app happens once while that app
 reads the camera; after a Stop it waits until the app lets go and something opens the camera again. The idle stop
 never acts before the camera watch has reported at least once, so a machine where it can't tell whether an app reads
-the camera never has its streams stopped under it. With the phone mic on, the idle stop turns only the camera off and the mic keeps streaming (a call that switched its camera off still hears you); the camera
-comes back on when an app opens it again, and Stop ends the stream.
+the camera never has its streams stopped under it. With the phone mic on, the idle stop turns only the camera off and
+the mic keeps streaming (a call that switched its camera off still hears you); the camera comes back on when an app
+opens it again, and Stop ends the stream.
 """
 
 import logging
