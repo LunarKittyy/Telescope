@@ -249,8 +249,8 @@ class StartupPlugin(TelescopePlugin):
         self._forget_ready_if_unchecked()
 
     def _forget_ready_if_unchecked(self):
-        # The phone isn't checked while the window is hidden and no app reads the camera, so what it said last can go
-        # stale. Once checks resume, the first one answers with phone_ready and anything waiting on it starts then.
+        # The phone isn't checked while the window is hidden and no app reads the camera (unless starting when ready,
+        # which never reads _ready), so what it said last can go stale. Once checks resume, the first one answers with phone_ready and anything waiting on it starts then.
         if not self._shown and not self._watched:
             self._ready = False
 
