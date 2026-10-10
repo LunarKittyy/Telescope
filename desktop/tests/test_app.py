@@ -1920,13 +1920,13 @@ def test_a_dropped_stream_keeps_asking_the_phone_why(window, monkeypatch):
     assert window.state_fetches == [1, 1]  # back: nothing more to ask
 
 
-def _slow_stream(window, monkeypatch, camera_fps, arrival=46.8):
+def _slow_stream(window, monkeypatch, camera_fps, arrival=46.8, **state):
     """A stream whose frames arrive under the target, and a phone that answers with its camera's rate."""
     asked = []
 
     def get_state():
         asked.append(True)
-        return None if camera_fps is None else {**_VALID_STATE, "camera_fps": camera_fps}
+        return None if camera_fps is None else {**_VALID_STATE, "camera_fps": camera_fps, **state}
 
     worker = _RetargetWorker()
     worker.last_arrival_fps = arrival
@@ -1950,6 +1950,24 @@ def test_a_camera_making_fewer_frames_is_not_called_a_slow_link(window, monkeypa
     window._session.worker.last_arrival_fps = 30.0  # the link got worse too: the camera's rate still holds, but
     window._on_worker_status("net_warn", "0.9 Mbps")  # frames go missing on the way now
     assert events == [True] and asked == [True]
+
+
+def test_a_frame_rate_dynamic_lowered_says_so_instead_of_blaming_the_light(window, monkeypatch):
+    events = _behind_events(window)
+    _slow_stream(window, monkeypatch, camera_fps=20.1, arrival=19.8, dynamic_fps=20)  # 30 asked, a thin link
+    window._on_worker_status("net_warn", "1.9 Mbps")
+    window._on_worker_status("net_warn", "1.9 Mbps")
+    assert events == [] and window._net_lbl.styleSheet() == ""
+    assert "Dynamic lowered the frame rate to 20 fps" in window._fps_lbl.toolTip()
+    assert "Dim light" not in window._fps_lbl.toolTip()
+
+
+@pytest.mark.parametrize("dynamic_fps", [0, None, "20", -1])  # at the rate asked for, an older phone, junk
+def test_without_a_dynamic_step_the_camera_is_blamed_as_before(window, monkeypatch, dynamic_fps):
+    _slow_stream(window, monkeypatch, camera_fps=47.1, dynamic_fps=dynamic_fps)
+    window._on_worker_status("net_warn", "0.9 Mbps")
+    assert "Dim light" in window._fps_lbl.toolTip()
+    assert window._phone.dynamic_fps == 0
 
 
 def test_frames_lost_between_camera_and_computer_are_a_slow_link(window, monkeypatch):

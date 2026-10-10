@@ -842,6 +842,7 @@ class CameraStreamService : Service() {
             codec = snap?.codec ?: H264Stream.CODEC_MJPEG,
             bitrate = snap?.bitrate ?: 0,
             dynamic_bitrate = h264Available,
+            dynamic_fps = snap?.dynamicFps ?: 0,
             codec_error = snap?.codecError,
             codec_unsupported = snap?.codecUnsupported ?: false,
             active_lens = snap?.activeLens,

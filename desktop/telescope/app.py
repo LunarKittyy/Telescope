@@ -42,6 +42,8 @@ _WIDTH_TWO_COL   = 900
 _RAIL_WIDTH       = 412
 _RAIL_WIDTH_SOLO  = 440  # two-column mode: the one rail holding every card
 _CAMERA_LIMITED_TIP = "The phone's camera is making fewer frames than asked for. Dim light slows it down."
+_DYNAMIC_FPS_TIP = ("Dynamic lowered the frame rate to {fps} fps, so each frame gets more of a slow connection. "
+                    "It goes back up once there's room.")
 
 
 # ── Single-instance enforcement ───────────────────────────────────────────────
@@ -2024,7 +2026,11 @@ class TelescopeWindow(QMainWindow):
     def _show_slow(self, slow: bool, camera_limited: bool = False):
         behind = slow and not camera_limited
         self._net_lbl.setStyleSheet(f"color: {theme.WARN};" if behind else "")
-        self._fps_lbl.setToolTip(_CAMERA_LIMITED_TIP if slow and camera_limited else "")
+        tip = ""
+        if slow and camera_limited:
+            stepped = getattr(self._active_source(), "dynamic_fps", 0)
+            tip = _DYNAMIC_FPS_TIP.format(fps=stepped) if stepped else _CAMERA_LIMITED_TIP
+        self._fps_lbl.setToolTip(tip)
         self._note_throughput(behind)
 
     def _note_throughput(self, behind: bool):

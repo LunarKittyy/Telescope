@@ -29,7 +29,7 @@ The Presets button in the header saves your camera, output and transform setting
 
 ## Format and bandwidth
 - **Light** (the H.264 format, and the default) needs about 8 Mbps at 1080p30, which makes it a good fit even for slower Wi-Fi. **Heavy** (MJPEG) is sharper in fast motion but needs USB or strong Wi-Fi. A phone that can't do Light switches to Heavy automatically
-- Heavy has a JPEG quality slider. Light gets a bitrate slider instead: Auto, a fixed 1-100 Mbps, or **Dynamic**, which sends as much as the connection can carry and backs off before the video starts to lag
+- Heavy has a JPEG quality slider. Light gets a bitrate slider instead: Auto, a fixed 1-100 Mbps, or **Dynamic**, which sends as much as the connection can carry and backs off before the video starts to lag. When even that leaves too little for each frame, Dynamic also steps the frame rate down (30, 24, 20, down to 15 at the lowest), so you get fewer sharp frames instead of a lot of smeared ones. It climbs back once the connection has room, more slowly than it came down. Each step restarts the phone's camera for a moment, the same as changing FPS by hand, and hovering the FPS in the footer says when Dynamic lowered it
 - On Light, the resolution list leaves out sizes the phone's encoder says it can't take. If one still fails, the stream stops with a note suggesting a lower size or Heavy, and the resolution goes back to the last one that worked (so pressing Start again won't fail the same way)
 - Switching to a new aspect ratio picks the size closest to your current height rather than the biggest one
 

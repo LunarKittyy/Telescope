@@ -26,7 +26,7 @@ _MAX_BITRATE_MBPS = 100  # the phone clamps to the same range, and to what its e
 _DYNAMIC_POS = _MAX_BITRATE_MBPS + 1
 _DYNAMIC = -1
 _BITRATE_TIP = ("Auto: about 8 Mbps at 1080p30. All the way right is Dynamic: as much as the connection carries, "
-                "lowered before it lags.")
+                "lowered before it lags, and fewer frames per second when the connection is very slow.")
 _NO_DYNAMIC_TIP = " This phone's app is too old for Dynamic and uses Auto until it's updated."
 
 FORMAT_MJPEG = "mjpeg"
