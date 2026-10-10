@@ -68,8 +68,10 @@ def find_archive(index: bytes, host_os: str = "windows") -> Archive:
         if _local(package.tag) != "remotePackage" or package.get("path") != "platform-tools":
             continue
         rev = _child(package, "revision")
-        revision = ".".join(_child(rev, p).text.strip() for p in ("major", "minor", "micro")
+        revision = ".".join((_child(rev, p).text or "").strip() for p in ("major", "minor", "micro")
                             if rev is not None and _child(rev, p) is not None)
+        if not all(part.isdigit() for part in revision.split(".")):  # it's shown in the UI as the version
+            revision = ""
         for archive in package.iter():
             if _local(archive.tag) != "archive":
                 continue
@@ -90,6 +92,9 @@ def find_archive(index: bytes, host_os: str = "windows") -> Archive:
 def _fetch(urlopen: Callable, url: str, write: Callable, limit: int):
     got = 0
     with urlopen(url, timeout=30) as r:
+        final = getattr(r, "geturl", lambda: url)()
+        if not str(final).startswith("https://"):  # a redirect off HTTPS: the checksum would come from anyone
+            raise ValueError(f"it was redirected to {final}")
         for chunk in iter(lambda: r.read(1 << 16), b""):
             got += len(chunk)
             if got > limit:
@@ -103,7 +108,8 @@ def downloaded_revision(dest: Optional[Path] = None) -> str:
         for line in ((dest or downloaded_dir()) / "source.properties").read_text(errors="replace").splitlines():
             key, _, value = line.partition("=")
             if key.strip() == "Pkg.Revision":
-                return value.strip()
+                value = value.strip()
+                return value if all(part.isdigit() for part in value.split(".")) else ""
     except OSError:
         pass
     return ""
@@ -111,13 +117,14 @@ def downloaded_revision(dest: Optional[Path] = None) -> str:
 
 def download_adb(urlopen: Callable = urllib.request.urlopen, dest: Optional[Path] = None,
                  progress: Optional[Callable[[str], None]] = None) -> tuple:
-    """Download adb into dest (downloaded_dir()) unless it's already there; (True, version) or (False, why not).
+    """Download adb into dest (downloaded_dir()) unless it's already there; (True, version or "" if unknown) or
+    (False, why not).
     Never leaves a half-made folder where adb_exe() looks."""
     dest = dest or downloaded_dir()
     with _lock:
         # Already there (the other dialog got it, say): its adb may be running, which keeps the folder from moving
         if (dest / "adb.exe").is_file():
-            return True, downloaded_revision(dest) or "already downloaded"
+            return True, downloaded_revision(dest)
         _clear_leftovers(dest.parent)
         return _download(urlopen, dest, progress or (lambda _msg: None))
 
@@ -134,7 +141,7 @@ def _clear_leftovers(parent: Path):
 
 def _download(urlopen: Callable, dest: Path, say: Callable[[str], None]) -> tuple:
     try:
-        say("Finding the current adb...")
+        say("Finding the current adb…")
         index = bytearray()
         _fetch(urlopen, INDEX_URL, index.extend, _MAX_INDEX)
         archive = find_archive(bytes(index))
@@ -142,22 +149,22 @@ def _download(urlopen: Callable, dest: Path, say: Callable[[str], None]) -> tupl
             raise ValueError(f"platform-tools is listed at {archive.size} bytes")
     except Exception as e:
         logger.warning("adb index: %s", e)
-        return False, _offline(e) or f"Couldn't read Google's list of downloads: {e}"
+        return False, _offline(e) or "Google's list of downloads wasn't what Telescope expected. Try again later."
 
     dest.parent.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix=".adb-", dir=dest.parent))  # same drive, so the final move is a rename
     try:
         zip_path = work / "platform-tools.zip"
-        say(f"Downloading adb {archive.revision} from Google...")
+        say(f"Downloading adb {archive.revision} from Google…" if archive.revision else "Downloading adb from Google…")
         try:
             with open(zip_path, "wb") as f:
                 _fetch(urlopen, archive.url, f.write, archive.size)
         except Exception as e:
             logger.warning("adb download: %s", e)
-            return False, _offline(e) or f"Couldn't download adb: {e}"
+            return False, _offline(e) or "Couldn't download adb. Try again."
         if zip_path.stat().st_size != archive.size or _sha1(zip_path) != archive.sha1:
             return False, "The download didn't match Google's checksum, so it wasn't used. Try again."
-        say("Unpacking...")
+        say("Unpacking…")
         unpacked = work / "platform-tools"
         unpacked.mkdir()
         try:
@@ -170,7 +177,8 @@ def _download(urlopen: Callable, dest: Path, say: Callable[[str], None]) -> tupl
                     with z.open(info) as src, open(unpacked / name, "wb") as dst:
                         shutil.copyfileobj(src, dst)
         except (OSError, zipfile.BadZipFile) as e:
-            return False, f"Couldn't unpack adb: {e}"
+            logger.warning("adb unpack: %s", e)
+            return False, "Couldn't unpack adb. Try again."
         if not (unpacked / "adb.exe").is_file():
             return False, "Google's download doesn't have adb.exe in it anymore."
         old = None
@@ -182,7 +190,8 @@ def _download(urlopen: Callable, dest: Path, say: Callable[[str], None]) -> tupl
         except OSError as e:
             if old is not None and not dest.exists():
                 os.replace(old, dest)
-            return False, f"Couldn't put adb in place: {e}"
+            logger.warning("adb move: %s", e)
+            return False, "Couldn't put adb in place. Is another program using it? Try again."
         return True, archive.revision
     finally:
         shutil.rmtree(work, ignore_errors=True)

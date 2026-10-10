@@ -81,7 +81,7 @@ class UpdatesDialog(QDialog):
 
         self._portable = QCheckBox("Keep this copy where it is")
         self._portable.setToolTip("This copy runs from a folder you unzipped. Updating normally installs it for your "
-                                  "user instead, with a Start menu entry and an uninstaller, and deletes this folder. "
+                                  "user instead, with a Start menu entry and an uninstaller, and cleans up this folder. "
                                   "Tick this to keep updating it in place, say on a USB stick.")
         self._portable.toggled.connect(plugin.set_keep_portable)
         self._portable_row = QWidget()
@@ -246,7 +246,7 @@ class UpdatesPlugin(TelescopePlugin):
         if not self._checked:
             return "", "status_dim"
         if self.rolled_back is not None:
-            return f"Telescope {self.rolled_back.display_version} was rolled back because it didn't start. Try again?", "status_warn"
+            return f"Telescope {self.rolled_back.display_version} didn't start after updating, so it's held back. Try again?", "status_warn"
         if version.CHANNEL == "dev":
             latest = f" The latest {self.channel} build is {self.latest.display_version}." if self.latest else ""
             return f"This is a source checkout, so it doesn't update itself.{latest}", "status_dim"

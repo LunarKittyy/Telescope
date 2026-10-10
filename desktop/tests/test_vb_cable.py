@@ -5,6 +5,7 @@ import hashlib
 import io
 import os
 import time
+import urllib.error
 import zipfile
 
 import pytest
@@ -68,16 +69,27 @@ def test_paths_in_the_pack_stay_in_its_folder(tmp_path, monkeypatch):
     assert not (tmp_path / "escape.exe").exists() and not (folder / "sub").exists()
 
 
-def test_a_failed_download_says_so(tmp_path):
+def test_a_failed_download_says_so_plainly(tmp_path):
     def offline(url, timeout):
-        raise OSError("no route to host")
+        raise urllib.error.URLError(OSError("no route to host"))
     setup, err = virtual_mic.download_vb_cable(tmp_path, offline)
-    assert setup is None and "no route to host" in err
+    assert setup is None and err == "Couldn't reach vb-audio.com. Check the internet connection and try again."
+
+
+def test_a_download_far_bigger_than_the_pack_stops(tmp_path, pinned, monkeypatch):
+    monkeypatch.setattr(virtual_mic, "_MAX_PACK", len(GOOD) - 1)
+    setup, err = virtual_mic.download_vb_cable(tmp_path, _serving(GOOD))
+    assert setup is None and "Couldn't download VB-Cable" in err
+
+
+def _unpacked(tmp_path):
+    setup, err = virtual_mic.download_vb_cable(tmp_path, _serving(GOOD))
+    assert err == ""
+    return setup
 
 
 def test_the_setup_opens_as_admin_only_when_its_hash_still_matches(tmp_path, pinned):
-    setup = tmp_path / virtual_mic.VB_CABLE_SETUP
-    setup.write_bytes(SETUP)
+    setup = _unpacked(tmp_path)
     calls = []
     assert virtual_mic.run_vb_cable_setup(setup, lambda path, verb: calls.append((path, verb))) == ""
     assert calls == [(str(setup), "runas")]
@@ -87,9 +99,21 @@ def test_the_setup_opens_as_admin_only_when_its_hash_still_matches(tmp_path, pin
     assert len(calls) == 1
 
 
+@pytest.mark.parametrize("tamper", [
+    lambda folder: (folder / "version.dll").write_bytes(b"planted"),  # Windows looks beside the exe for DLLs
+    lambda folder: (folder / "vbMmeCable64_win10.inf").write_bytes(b"swapped"),
+    lambda folder: (folder / "readme.txt").unlink(),
+])
+def test_nothing_runs_as_admin_from_a_folder_someone_changed(tmp_path, pinned, tamper):
+    setup = _unpacked(tmp_path)
+    tamper(tmp_path)
+    calls = []
+    assert "changed" in virtual_mic.run_vb_cable_setup(setup, lambda *a: calls.append(a))
+    assert calls == []
+
+
 def test_saying_no_to_uac_is_reported_plainly(tmp_path, pinned):
-    setup = tmp_path / virtual_mic.VB_CABLE_SETUP
-    setup.write_bytes(SETUP)
+    setup = _unpacked(tmp_path)
 
     def declined(path, verb):
         e = OSError("The operation was canceled by the user")

@@ -90,7 +90,7 @@ Yes. Every feature, every resolution, no watermark, no ads. If you'd like to chi
 <details>
 <summary><b>Does my video go through someone's server?</b></summary>
 
-No. It goes straight from the phone to your computer, over USB or your own network, encrypted with TLS. There's no account and no cloud, and the apps only go online to check GitHub for updates. Details in [Privacy](docs/features.md#privacy).
+No. It goes straight from the phone to your computer, over USB or your own network, encrypted with TLS. There's no account and no cloud, and the apps only go online to check GitHub for updates, or to fetch adb or VB-Cable from Google or VB-Audio when you ask for them. Details in [Privacy](docs/features.md#privacy).
 </details>
 
 <details>

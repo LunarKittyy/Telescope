@@ -12,18 +12,22 @@ it is first.
 """
 
 import hashlib
+import logging
 import os
 import shutil
 import stat
 import subprocess
 import tempfile
 import time
+import urllib.error
 import urllib.request
 import zipfile
 from pathlib import Path
 from typing import Callable, Optional
 
 from telescope import dev_profile
+
+logger = logging.getLogger(__name__)
 
 # A dev profile gets its own source, so setting it up doesn't unload the real app's
 SOURCE = "telescope_dev_mic" if dev_profile.active() else "telescope_mic"
@@ -43,6 +47,8 @@ VB_CABLE_SETUP_SHA256 = "734c35dfa6d98f48782a451633ceb471166ec70d60482fd89a1123d
 VB_CABLE_ORIGIN = "The origin of VB-CABLE : www.vb-cable.com."
 VB_CABLE_DONATIONWARE = "VB-CABLE is a donationware, all participations are welcome."
 _ERROR_CANCELLED = 1223  # ERROR_CANCELLED: no to the UAC prompt
+_PACK = "VBCABLE_Driver_Pack.zip"
+_MAX_PACK = 64 << 20  # the pack is a few MB; anything far bigger isn't it
 VB_CABLE_PLAYBACK = "CABLE Input"
 VB_CABLE_RECORD = "CABLE Output"
 
@@ -148,12 +154,21 @@ def download_vb_cable(folder: Optional[Path] = None, urlopen: Callable = urllib.
             except OSError:
                 pass
     folder = Path(folder or tempfile.mkdtemp(prefix="telescope-vbcable-"))
-    pack = folder / "VBCABLE_Driver_Pack.zip"
+    pack = folder / _PACK
     try:
+        got = 0
         with urlopen(VB_CABLE_PACK_URL, timeout=30) as r, open(pack, "wb") as f:
-            shutil.copyfileobj(r, f)
+            for chunk in iter(lambda: r.read(1 << 16), b""):
+                got += len(chunk)
+                if got > _MAX_PACK:
+                    raise ValueError("it's much bigger than VB-Audio's pack")
+                f.write(chunk)
+    except urllib.error.URLError as e:
+        logger.warning("VB-Cable download: %s", e)
+        return None, "Couldn't reach vb-audio.com. Check the internet connection and try again."
     except Exception as e:
-        return None, f"Couldn't download VB-Cable: {e}"
+        logger.warning("VB-Cable download: %s", e)
+        return None, "Couldn't download VB-Cable. Try again, or get it from their site."
     if _sha256(pack) != VB_CABLE_PACK_SHA256:
         return None, "VB-Audio's download has changed since this version of Telescope. Get it from their site instead."
     try:
@@ -165,16 +180,35 @@ def download_vb_cable(folder: Optional[Path] = None, urlopen: Callable = urllib.
                 with z.open(name) as src, open(folder / name, "wb") as dst:
                     shutil.copyfileobj(src, dst)
     except (OSError, zipfile.BadZipFile) as e:
-        return None, f"Couldn't unpack VB-Cable: {e}"
+        logger.warning("VB-Cable unpack: %s", e)
+        return None, "Couldn't unpack VB-Cable. Try again, or get it from their site."
     setup = folder / VB_CABLE_SETUP
     if not setup.exists():
         return None, "VB-Audio's download doesn't have the setup it used to. Get it from their site instead."
     return setup, ""
 
 
+def _folder_is_the_pack(folder: Path) -> bool:
+    """The setup runs as admin and reads the files beside it (and Windows looks there for DLLs), so the whole
+    folder has to be the pinned pack's files and nothing else, not just the setup."""
+    pack = folder / _PACK
+    try:
+        if _sha256(pack) != VB_CABLE_PACK_SHA256:
+            return False
+        with zipfile.ZipFile(pack) as z:
+            wanted = {n: z.read(n) for n in z.namelist() if n == Path(n).name and not n.startswith(".")}
+        present = {p.name for p in folder.iterdir()}
+        if present != set(wanted) | {_PACK}:
+            return False
+        return all((folder / name).read_bytes() == data for name, data in wanted.items())
+    except (OSError, zipfile.BadZipFile):
+        return False
+
+
 def run_vb_cable_setup(setup: Path, start: Optional[Callable] = None) -> str:
-    """Open VB-Audio's setup as admin, after checking it once more; "" once it's open, else why not."""
-    if _sha256(setup) != VB_CABLE_SETUP_SHA256:
+    """Open VB-Audio's setup as admin, after checking it and everything beside it once more; "" once it's open,
+    else why not."""
+    if _sha256(setup) != VB_CABLE_SETUP_SHA256 or not _folder_is_the_pack(setup.parent):
         return "VB-Cable's setup changed after it was checked, so it wasn't opened."
     start = start or os.startfile  # Windows only; ShellExecute's runas shows UAC for the setup itself
     try:
@@ -182,5 +216,6 @@ def run_vb_cable_setup(setup: Path, start: Optional[Callable] = None) -> str:
     except OSError as e:
         if getattr(e, "winerror", None) == _ERROR_CANCELLED:
             return "Windows didn't get permission to install VB-Cable."
-        return f"Couldn't open VB-Cable's setup: {e}"
+        logger.warning("VB-Cable setup: %s", e)
+        return "Couldn't open VB-Cable's setup. Try again, or get it from their site."
     return ""

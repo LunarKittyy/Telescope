@@ -628,7 +628,7 @@ class AdvancedDialog(QDialog):
         if ok:
             self._adb_row.setVisible(False)
             set_status_kind(self._adb_status_lbl, "status_ok")
-            self._adb_status_lbl.setText(f"Ready (adb {detail}, from Google)")
+            self._adb_status_lbl.setText(f"Ready (adb {detail}, from Google)" if detail else "Ready (adb from Google)")
         else:
             self._adb_btn.setText("Try again")
             set_status_kind(self._adb_status_lbl, "status_err")
@@ -674,7 +674,7 @@ class AdvancedDialog(QDialog):
     def _install_apk(self):
         if not adb_available():
             set_status_kind(self._apk_status_lbl, "status_err")
-            self._apk_status_lbl.setText("Installing over USB needs adb. Get it under Virtual camera above."
+            self._apk_status_lbl.setText("Installing over USB needs adb. Click Get adb under Virtual camera above."
                                          if not IS_LINUX else
                                          "Installing over USB needs adb. Install it from your distro's packages.")
             return

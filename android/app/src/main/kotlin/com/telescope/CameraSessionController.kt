@@ -225,7 +225,8 @@ class CameraSessionController(
         if (requestedBitrate != H264Stream.DYNAMIC || codec != H264Stream.CODEC_H264) return
         val d = dynamic ?: return
         d.update(sample)?.let { encoder?.setBitrate(it) }
-        val rate = frameRate ?: newFrameRate().also { frameRate = it }
+        // A sample racing setFpsTarget could put back rungs for the rate asked before; those are rebuilt here
+        val rate = frameRate?.takeIf { it.askedFps == currentPhoneFps } ?: newFrameRate().also { frameRate = it }
         val stepped = rate.update(sample.nowMs, d.bitrate, streamWidth, streamHeight, d.lastStallMs) ?: return
         android.util.Log.i(TAG, "Dynamic: ${stepped} fps for a ${d.bitrate / 1000} kbps link")
         // The rate is part of the session's setup (see createSession), so the session is rebuilt for it
@@ -938,6 +939,7 @@ class CameraSessionController(
         if (!entry.supportsManualSensor) { currentIso = null; currentShutterNs = null }
         if (!entry.supportsManualFocus && currentFocusMode == "manual") currentFocusMode = "continuous"
         if (currentFocusMode == "point") { currentFocusMode = "continuous"; focusPoint = null }  // another sensor
+        dropFrameRate()  // its rungs came from the old lens's ranges; the next link sample builds the new lens's
         currentCamera = entry
         if (cameraOff) return  // the lens it opens with when the camera comes back on
         onStateChanged(StreamState.Recovering, "switchCameraTo", null)

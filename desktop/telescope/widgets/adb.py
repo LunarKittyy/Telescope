@@ -60,7 +60,7 @@ class AdbDownload(QObject):
                 ok, detail = download(progress=progress.emit)
             except Exception as e:  # always report back, or the button stays off until a restart
                 logger.exception("adb download failed")
-                ok, detail = False, f"Couldn't download adb: {e}"
+                ok, detail = False, "Couldn't download adb. Try again."
             finished.emit(ok, detail)
 
         threading.Thread(target=work, daemon=True).start()

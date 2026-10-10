@@ -24,8 +24,6 @@ Set-Content "$app\lib-999999\PyQt6\x.dll" "x"
 New-Item -ItemType Directory -Force "$app\.update-staging" | Out-Null
 Set-Content "$app\.update.json" "{}"
 Set-Content "$app\TelescopeDesktop.old.exe" "x"
-New-Item -ItemType Directory -Force "$app\platform-tools" | Out-Null  # an older copy's bundled adb
-Set-Content "$app\platform-tools\adb.exe" "x"
 $adb = "$env:LOCALAPPDATA\Telescope\platform-tools"  # adb as Get adb downloads it
 New-Item -ItemType Directory -Force $adb | Out-Null
 Set-Content "$adb\adb.exe" "x"

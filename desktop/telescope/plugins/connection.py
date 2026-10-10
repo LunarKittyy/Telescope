@@ -193,7 +193,7 @@ class AddPhoneDialog(QDialog):
         self._usb_row = control_row_widget("USB", self._usb_lbl, stretch=True)
         lay.addWidget(self._usb_row)
         self._adb_download = AdbDownload(self)
-        self._adb_download.progress.connect(lambda msg: self._set_usb(msg, "status_dim"))
+        self._adb_download.progress.connect(lambda msg: self._set_usb(html.escape(msg), "status_dim"))
         self._adb_download.finished.connect(self._on_adb_downloaded)
 
         self._result_lbl = QLabel("")
@@ -235,7 +235,7 @@ class AddPhoneDialog(QDialog):
 
     def _start_usb(self):
         if self._adb_download.running:  # reopened mid-download: its progress shows on the next step
-            self._set_usb("Getting adb from Google...", "status_dim")
+            self._set_usb("Getting adb from Google…", "status_dim")
         elif adb_available():
             self._set_usb("Plug the phone in with a USB cable and it pairs by itself.", "status_dim")
             self._usb_timer.start(_PAIR_USB_POLL_MS)

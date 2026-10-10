@@ -35,6 +35,9 @@ AppUpdatesURL=https://github.com/LunarKittyy/Telescope/releases
 PrivilegesRequired=lowest
 DefaultDirName={autopf}\Telescope
 DisableProgramGroupPage=yes
+; Always its own folder: the uninstaller clears what the app adds there by name (lib-*, below), which in a folder
+; someone picked, like C:\Android, could be theirs
+DisableDirPage=yes
 UsePreviousAppDir=yes
 ; x64compatible also lets Windows on Arm install it (it runs the x64 app emulated); older Inno only knows x64
 #if Ver >= EncodeVer(6, 3, 0)
@@ -71,8 +74,7 @@ Name: "{autodesktop}\Telescope"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
 Filename: "{app}\{#AppExe}"; Description: "Open Telescope"; Flags: nowait postinstall skipifsilent
 
 ; What the app adds after setup, which the uninstall log can't know about: libraries from in-app updates, the updater's
-; working files (desktop/update_guard.py), the log shortcut (desktop/telescope/diagnostics.py), and platform-tools,
-; which copies from before adb was downloaded on request still have.
+; working files (desktop/update_guard.py) and the log shortcut (desktop/telescope/diagnostics.py).
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\lib-*"
 Type: filesandordirs; Name: "{app}\.update-staging"
@@ -83,7 +85,6 @@ Type: files; Name: "{app}\.update-failed"
 Type: files; Name: "{app}\TelescopeDesktop.old.exe"
 Type: files; Name: "{app}\TelescopeDesktop.failed.exe"
 Type: files; Name: "{app}\telescope.log"
-Type: filesandordirs; Name: "{app}\platform-tools"
 ; adb as the app downloads it (desktop/telescope/platform/adb_download.py), and a download cut short
 Type: filesandordirs; Name: "{localappdata}\Telescope\platform-tools"
 Type: filesandordirs; Name: "{localappdata}\Telescope\.adb-*"

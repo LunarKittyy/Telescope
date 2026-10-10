@@ -244,7 +244,7 @@ def test_the_dialog_says_a_build_was_rolled_back_and_lets_the_user_try_again(env
 
     plugin.check(manual=True)
     text, kind = plugin.status_text()
-    assert "0.6.0 nightly 200 was rolled back because it didn't start" in text and kind == "status_warn"
+    assert "0.6.0 nightly 200 didn't start after updating, so it's held back" in text and kind == "status_warn"
     assert plugin.available is None and button.isHidden()
 
     dlg = plugin_module.UpdatesDialog(plugin)

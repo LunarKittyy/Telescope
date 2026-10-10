@@ -109,7 +109,7 @@ def test_a_zip_that_doesn_t_match_the_index_isn_t_used(tmp_path):
 def test_a_bigger_download_than_listed_stops_early(tmp_path):
     google = _Google(listed=b"tiny")
     ok, why = download_adb(google, tmp_path / "platform-tools")
-    assert not ok and "bigger than expected" in why
+    assert not ok and why == "Couldn't download adb. Try again."
 
 
 def test_a_zip_without_adb_isn_t_used(tmp_path):
@@ -144,7 +144,7 @@ def test_adb_that_s_already_there_isn_t_fetched_again(tmp_path):
     (dest / "source.properties").write_text("Pkg.UserSrc=false\nPkg.Revision=37.0.1\n")
     assert download_adb(google, dest) == (True, "37.0.1") and len(google.urls) == 2
     (dest / "source.properties").unlink()
-    assert download_adb(google, dest) == (True, "already downloaded")
+    assert download_adb(google, dest) == (True, "")  # Advanced then just says it's from Google
 
 
 def test_a_cut_short_download_s_work_folder_is_cleared_later(tmp_path):
@@ -184,3 +184,17 @@ def test_a_server_error_says_so(tmp_path):
     def urlopen(url, timeout):
         raise urllib.error.HTTPError(url, 503, "Service Unavailable", {}, None)
     assert download_adb(urlopen, tmp_path / "pt") == (False, "Google's server said 503. Try again later.")
+
+
+def test_an_index_redirected_off_https_isn_t_trusted(tmp_path):
+    class _Redirected(io.BytesIO):
+        def geturl(self):
+            return "http://dl.google.com/android/repository/repository2-3.xml"
+    google = _Google()
+    ok, why = download_adb(lambda url, timeout: _Redirected(google.index), tmp_path / "pt")
+    assert not ok and not (tmp_path / "pt").exists()
+
+
+def test_a_version_that_isn_t_numbers_isn_t_shown():
+    index = _Google().index.replace(b"<major>37</major>", b"<major><![CDATA[<a href=x>hi</a>]]></major>")
+    assert find_archive(index).revision == ""
