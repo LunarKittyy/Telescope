@@ -27,7 +27,7 @@ You'll need an Android phone and a PC running Linux or Windows. No Android phone
 
 **🪟 Windows**
 
-Download `TelescopeSetup.exe` from the [releases page](../../releases) and run it. It installs just for you, so it doesn't need admin.
+Download `TelescopeSetup.exe` from the [releases page](../../releases) and run it. It installs only for your user and doesn't need admin.
 
 Rather not install anything? `Telescope-windows.zip` has the same app: extract it and run `TelescopeDesktop.exe` (keep it in its folder: the `lib-...` folder next to it is part of the app).
 
@@ -96,7 +96,7 @@ No. It goes straight from the phone to your computer, over USB or your own netwo
 <details>
 <summary><b>Will it work with Discord / Zoom / Teams / OBS / my browser?</b></summary>
 
-If it can use a webcam, yes. Telescope shows up as an ordinary camera, so there's nothing to set up in the app itself.
+If it can use a webcam, yes. Telescope shows up there as an ordinary camera and you pick it like any other one.
 </details>
 
 <details>
@@ -114,7 +114,7 @@ Up to four at once, each its own webcam. Nice for a second angle in OBS.
 <details>
 <summary><b>Will it work on my phone?</b></summary>
 
-It needs Android 8 or newer. [Device compatibility](docs/device-compatibility.md) lists what's been tested. If you try it on a phone that isn't there, [tell us how it went](https://github.com/LunarKittyy/Telescope/discussions/new?category=device-compatibility). That's one of the most useful things you can do for the project.
+It needs Android 8 or newer. [Device compatibility](docs/device-compatibility.md) lists what's been tested. If you try it on a phone that isn't there, [let me know how it went](https://github.com/LunarKittyy/Telescope/discussions/new?category=device-compatibility). That's one of the most useful things you can do for the project.
 </details>
 
 ---
