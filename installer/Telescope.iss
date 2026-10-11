@@ -154,17 +154,70 @@ begin
   end;
 end;
 
+function PsQuote(Value: String): String;
+begin
+  StringChangeEx(Value, '''', '''''', True);
+  Result := '''' + Value + '''';
+end;
+
+// The virtual camera the app installs for every account (desktop/telescope/platform/windows.py)
+function CameraInstalled(): Boolean;
+begin
+  Result := DirExists(ExpandConstant('{commonpf64}\Telescope\UnityCapture')) or
+            RegKeyExists(HKLM64, 'SOFTWARE\Classes\CLSID\{5C2CD55C-92AD-4999-8666-912BD3E70010}');
+end;
+
+// As admin: unregister the camera and delete Program Files\Telescope (Camera), and this copy's firewall rules
+procedure RunAsAdmin(Camera: Boolean);
+var
+  Script: String;
+  ResultCode: Integer;
+begin
+  Script := '';
+  if Camera then
+    Script :=
+      '$uc = ' + PsQuote(ExpandConstant('{commonpf64}\Telescope')) + '; ' +
+      '$rs = Join-Path ([Environment]::SystemDirectory) ''regsvr32.exe''; ' +
+      'foreach ($n in ''UnityCaptureFilter64.dll'', ''UnityCaptureFilter32.dll'') { ' +
+      '$d = Join-Path (Join-Path $uc ''UnityCapture'') $n; if (Test-Path -LiteralPath $d) { & $rs /s /u $d | Out-Null } }; ' +
+      'Remove-Item -LiteralPath $uc -Recurse -Force -ErrorAction SilentlyContinue; ';
+  Script := Script +
+    '$ours = @(' + PsQuote(ExpandConstant('{app}\{#AppExe}')) + ', ' +
+    PsQuote(ExpandConstant('{localappdata}\Telescope\platform-tools\adb.exe')) + '); ' +
+    'Get-NetFirewallApplicationFilter | Where-Object { $ours -contains $_.Program } | Get-NetFirewallRule | ' +
+    'Remove-NetFirewallRule';
+  // {sysnative}: the uninstaller is 32-bit, and a 32-bit PowerShell would see Program Files (x86) and 32-bit regsvr32
+  if not ShellExec('runas', ExpandConstant('{sysnative}\WindowsPowerShell\v1.0\powershell.exe'),
+                   '-NoProfile -NonInteractive -Command "' + Script + '"', '', SW_HIDE, ewWaitUntilTerminated,
+                   ResultCode) then
+    Log('The admin clean-up didn''t run: ' + SysErrorMessage(ResultCode));
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   Settings: String;
+  Camera: Boolean;
 begin
   if CurUninstallStep = usUninstall then
   begin
     CloseRunningCopies();  // after "Are you sure?", so saying no there leaves Telescope running
     RemoveStartAtSignIn();
+    Camera := False;
+    if CameraInstalled() then
+      // Silent only as admin already: an admin prompt out of nowhere would be worse than leaving it
+      if UninstallSilent() then
+        Camera := IsAdmin()
+      else
+        Camera := MsgBox('Also remove the Telescope virtual camera?' + #13#10#13#10 +
+                         'It''s installed for everyone on this computer, so Windows asks for admin.',
+                         mbConfirmation, MB_YESNO) = IDYES;
+    // Firewall rules need admin too: removed along with the camera, or anyway when that needs no prompt
+    if Camera or IsAdmin() then
+      RunAsAdmin(Camera);
   end;
   if CurUninstallStep = usPostUninstall then
   begin
+    DelTree(GetEnv('TEMP') + '\Telescope', True, True, True);  // the log (desktop/telescope/diagnostics.py)
     // Settings and pairings stay unless asked, so a reinstall picks up where it left off
     Settings := ExpandConstant('{userappdata}\Telescope');
     if DirExists(Settings) and not UninstallSilent() then

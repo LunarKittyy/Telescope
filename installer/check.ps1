@@ -25,6 +25,9 @@ New-Item -ItemType Directory -Force "$app\.update-staging" | Out-Null
 Set-Content "$app\.update.json" "{}"
 Set-Content "$app\TelescopeDesktop.old.exe" "x"
 $adb = "$env:LOCALAPPDATA\Telescope\platform-tools"  # adb as Get adb downloads it
+New-Item -ItemType Directory -Force "$env:TEMP\Telescope" | Out-Null
+Set-Content "$env:TEMP\Telescope\telescope.log" "x"  # the log (diagnostics.py)
+New-NetFirewallRule -DisplayName "telescopedesktop.exe" -Direction Inbound -Program "$app\TelescopeDesktop.exe" -Action Allow | Out-Null
 New-Item -ItemType Directory -Force $adb | Out-Null
 Set-Content "$adb\adb.exe" "x"
 Set-ItemProperty $runKey -Name "Telescope" -Value "`"$app\TelescopeDesktop.exe`" --minimized"
@@ -40,6 +43,12 @@ if (Test-Path $app) {
 }
 if (Test-Path $menu) { $problems += "after uninstall, the Start menu entry is still there" }
 if (Test-Path "$env:LOCALAPPDATA\Telescope") { $problems += "after uninstall, the downloaded adb is still there" }
+if (Test-Path "$env:TEMP\Telescope") { $problems += "after uninstall, the log folder is still there" }
+# The runner is admin, so the silent uninstall takes the camera the driver check installed, and its firewall rules
+if (Test-Path "$env:ProgramFiles\Telescope") { $problems += "after uninstall, Program Files\Telescope (the camera) is still there" }
+if (Get-NetFirewallApplicationFilter | Where-Object { $_.Program -eq "$app\TelescopeDesktop.exe" }) {
+    $problems += "after uninstall, a firewall rule for Telescope is still there"
+}
 if ((Get-ItemProperty $runKey -ErrorAction SilentlyContinue).PSObject.Properties.Name -contains "Telescope") {
     $problems += "after uninstall, Telescope still opens at sign-in"
 }
