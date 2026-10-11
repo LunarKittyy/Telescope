@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
 
 from telescope import theme
 from telescope.plugin import TelescopePlugin
+from telescope.shortcuts import button_action
 from telescope.widgets.common import create_vector_icon, set_ui_role, ui_px
 
 
@@ -425,6 +426,14 @@ class PreviewPlugin(TelescopePlugin):
     def _on_setup_needed(self, needed: bool):
         # The first-run checklist takes the stage; there's nothing to preview before setup anyway.
         self._stage.setVisible(not needed)
+
+    def create_actions(self) -> list:
+        g = "Preview"
+        return [
+            button_action("preview.show_hide", "Show or hide the preview", g, self._toggle_btn),
+            button_action("preview.lens_outlines", "Lens outlines", g, self._lenses_btn),
+            button_action("preview.pop_out", "Pop out the preview", g, self._popout_btn),
+        ]
 
     def _toggle(self):
         self._active = not self._active

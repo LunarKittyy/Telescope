@@ -105,6 +105,10 @@ class LensPanel(QWidget):
                 return cam
         return None
 
+    def buttons(self) -> list:
+        """One per lens, in order; checked is the one in use."""
+        return list(self._btns)
+
     def set_placeholder(self, text: str):
         self._ph.setText(text)
         if not self._btns:

@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import QInputDialog, QLineEdit, QMenu, QMessageBox, QPushBu
 from telescope import theme
 from telescope.plugin import TelescopePlugin
 from telescope.session_client import clean_name
+from telescope.shortcuts import Param, ShortcutAction
 from telescope.widgets.common import create_vector_icon
 
 logger = logging.getLogger(__name__)
@@ -61,6 +62,7 @@ class PresetsPlugin(TelescopePlugin):
         self._host = host
         self._bus = bus
         self._presets: list = []
+        self._last: Optional[str] = None  # the preset applied last, for Next and Previous
 
     # ── Data ──────────────────────────────────────────────────────────────────
 
@@ -91,6 +93,7 @@ class PresetsPlugin(TelescopePlugin):
         preset = self.find(name)
         if preset is None:
             return
+        self._last = name
         for section in SECTIONS:
             cfg = preset.get(_KEYS[section])
             if cfg is not None:
@@ -122,6 +125,34 @@ class PresetsPlugin(TelescopePlugin):
 
     def set_config(self, cfg: dict):
         self._presets = clean_presets(cfg.get("presets"))
+
+    # ── Shortcuts ─────────────────────────────────────────────────────────────
+
+    def create_actions(self) -> list:
+        def apply(p):
+            if self.find(p.get("name")) is None:
+                return None
+            self.apply(p["name"])
+            return f"Preset: {p['name']}"
+
+        def cycle(p):
+            names = self.names()
+            if not names:
+                return None
+            at = names.index(self._last) if self._last in names else (-1 if p.get("op") == "next" else 0)
+            name = names[(at + (1 if p.get("op") == "next" else -1)) % len(names)]
+            self.apply(name)
+            return f"Preset: {name}"
+
+        ops = (("next", "Next"), ("previous", "Previous"))
+        return [
+            ShortcutAction("presets.apply", "Apply a preset", "Presets", apply,
+                           params=(Param("name", "Preset", "choice", "", lambda: [(n, n) for n in self.names()]),),
+                           describe=lambda p: f"Preset: {p.get('name') or '…'}"),
+            ShortcutAction("presets.cycle", "Next or previous preset", "Presets", cycle,
+                           params=(Param("op", "Does", "choice", "next", ops),),
+                           describe=lambda p: f"Preset: {p['op']}"),
+        ]
 
     # ── UI ────────────────────────────────────────────────────────────────────
 

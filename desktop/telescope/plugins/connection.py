@@ -38,6 +38,7 @@ from telescope.platform.linux import (
     CANCELLED, V4L2_PHONE_DEV, v4l2_devices_ready, v4l2_module_loaded, v4l2_setup,
 )
 from telescope.plugin import TelescopePlugin
+from telescope.shortcuts import choice_action
 from telescope.session_client import (
     PING_PORT, START_POLL_INTERVAL, START_TIMEOUT, MAX_NAME_CHARS, PhoneSessionClient, clean_name,
 )
@@ -591,6 +592,9 @@ class ConnectionPlugin(TelescopePlugin):
         self._usb_watch_timer.timeout.connect(self._watch_usb)
         self._render()
         return card
+
+    def create_actions(self) -> list:
+        return [choice_action("phone.pick", "Phone", "Telescope", combo=self._phone_combo)]
 
     def create_header_widget(self) -> QWidget:
         return self._header_w

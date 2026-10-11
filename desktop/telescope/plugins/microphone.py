@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import QCheckBox, QHBoxLayout, QPushButton, QWidget
 from telescope import audio, theme
 from telescope.platform import virtual_mic
 from telescope.plugin import TelescopePlugin
+from telescope.shortcuts import button_action, slider_action
 from telescope.widgets.common import (
     SPIN_COL_WIDTH, NoScrollSlider, NoScrollSpinBox, add_card_header, card_action, card_layout, control_row,
     control_row_widget, create_card, create_vector_icon, dim_until_paired, set_status_kind, stretch_slider, ui_px,
@@ -290,6 +291,19 @@ class MicrophonePlugin(TelescopePlugin):
             self._readout.setText(text)
         # Inset like the gain box's text above it (its 10px padding plus the border)
         self._readout.setStyleSheet(f"padding-right: 11px;{f' color: {theme.ERR};' if red else ''}")
+
+    def create_actions(self) -> list:
+        actions = [
+            button_action("microphone.mute", "Mute", "Microphone", self._mute_btn, states=("muted", "unmuted"),
+                          verbs={"toggle": "Mute or unmute", "on": "Mute", "off": "Unmute",
+                                 "hold": "Switch while held (push to talk while muted)"}),
+            button_action("microphone.on", "Phone mic", "Microphone", self._toggle),
+            slider_action("microphone.gain", "Gain", "Microphone", self._gain_slider, suffix=" dB", step=3,
+                          signed=True),
+        ]
+        actions[0].keywords = "push to talk silence"
+        actions[2].keywords = "volume loudness"
+        return actions
 
     def create_tray_actions(self) -> list:
         return [self._tray_mute]
