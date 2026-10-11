@@ -442,7 +442,7 @@ class TransformsPlugin(TelescopePlugin):
 
     def create_actions(self) -> list:
         g = "Transforms"
-        return [
+        actions = [
             button_action("transforms.flip_horizontal", "Flip horizontal", g, self._flip_h),
             button_action("transforms.flip_vertical", "Flip vertical", g, self._flip_v),
             choice_action("transforms.rotation", "Rotation", g, combo=self._rot_combo),
@@ -456,6 +456,12 @@ class TransformsPlugin(TelescopePlugin):
                           widgets=(self._pan_y_slider,)),
             button_action("transforms.reset", "Reset transforms", g, self._reset_btn),
         ]
+        keywords = {"transforms.flip_horizontal": "mirror", "transforms.flip_vertical": "mirror upside down",
+                    "transforms.rotation": "rotate turn", "transforms.zoom": "crop framing",
+                    "transforms.pan_x": "framing move", "transforms.pan_y": "framing move"}
+        for action in actions:
+            action.keywords = keywords.get(action.id, "")
+        return actions
 
     def _reset_all(self):
         """Reset to defaults; handlers fire from widget changes."""

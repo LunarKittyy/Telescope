@@ -303,7 +303,7 @@ class CameraControlPlugin(TelescopePlugin):
 
     def create_actions(self) -> list:
         g = "Camera"
-        return [
+        actions = [
             choice_action("camera.lens", "Lens", g, buttons=self._lens_panel.buttons),
             choice_action("camera.exposure_mode", "Exposure mode", g,
                           buttons=[self._rb_exp_auto, self._rb_exp_manual]),
@@ -327,6 +327,14 @@ class CameraControlPlugin(TelescopePlugin):
             button_action("camera.black_level_lock", "Black level lock", g, self._bll_cb),
             button_action("camera.torch", "Torch", g, self._torch_btn),
         ]
+        keywords = {"camera.iso": "exposure manual", "camera.shutter": "exposure manual speed",
+                    "camera.compensation": "exposure ev brightness", "camera.temperature": "white balance wb kelvin",
+                    "camera.tint": "white balance wb green magenta", "camera.wb_mode": "wb",
+                    "camera.focus": "manual focus", "camera.stabilization": "ois",
+                    "camera.torch": "flash light", "camera.sharpening": "edge"}
+        for action in actions:
+            action.keywords = keywords.get(action.id, "")
+        return actions
 
     # ── Stream lifecycle ──────────────────────────────────────────────────────
 

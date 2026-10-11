@@ -54,6 +54,7 @@ class _Host:
 
     def toggle_window(self):
         self.calls.append(("window",))
+        return len([c for c in self.calls if c == ("window",)]) % 2 == 1
 
 
 class _Backend(HotkeyBackend):
@@ -186,13 +187,20 @@ def test_keys_inside_telescope_run_bindings_and_skip_text_boxes(make, card):
     assert card.entry.text() == "z"
     QTest.keyClick(card.entry, Qt.Key.Key_T, Qt.KeyboardModifier.ControlModifier)  # with Ctrl it's still ours
     assert not card.torch.isChecked()
-    # A global binding the system confirmed never arrives here, so a stray one isn't acted on twice
-    backend.statuses["c"] = HotkeyStatus(True, "Everywhere")
+    # A global one works inside too: the desktop may have bound another key for it
     card.mute.setFocus()
     QTest.keyClick(card.mute, Qt.Key.Key_M, Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier)
-    assert not card.mute.isChecked()
-    backend.statuses["c"] = HotkeyStatus(False, "Another app already uses this key")
-    QTest.keyClick(card.mute, Qt.Key.Key_M, Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier)
+    assert card.mute.isChecked()
+
+
+def test_one_key_press_seen_globally_and_inside_runs_once(make, card):
+    plugin, _host, backend = make([_b("c", "Ctrl+Alt+M", "microphone.mute", glob=True)])
+    card.show()
+    QTest.qWaitForWindowActive(card)
+    card.torch.setFocus()
+    backend.pressed.emit("c")
+    QTest.keyClick(card.torch, Qt.Key.Key_M, Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier)
+    backend.released.emit("c")
     assert card.mute.isChecked()
 
 
@@ -245,6 +253,27 @@ def test_remote_actions(make, card):
     assert host.calls[-1] == ("stop",)
     assert plugin.handle_remote({"action": "streaming.camera", "params": {"mode": "off"}})["text"] == \
         "Phone camera: off"
+    assert plugin.handle_remote({"action": "window.show_hide"}) == {"ok": True, "text": "Telescope: shown"}
+    assert plugin.handle_remote({"action": "window.show_hide"}) == {"ok": True, "text": "Telescope: hidden"}
+
+
+@pytest.mark.parametrize("params, says", [
+    ({"op": "dwon"}, "op can be up | down | set, not 'dwon'"),
+    ({"amount": "lots"}, "amount has to be a number, not 'lots'"),
+    ({"op": "set"}, "needs value="),
+])
+def test_remote_settings_are_checked_not_defaulted(make, card, params, says):
+    plugin, _host, _ = make()
+    reply = plugin.handle_remote({"action": "transforms.zoom", "params": params})
+    assert not reply["ok"] and says in reply["text"]
+    assert card.slider.value() == 0
+
+
+def test_remote_hold_is_refused(make, card):
+    plugin, _host, _ = make()
+    reply = plugin.handle_remote({"action": "microphone.mute", "params": {"mode": "hold"}})
+    assert not reply["ok"] and "hold" in reply["text"]
+    assert not card.mute.isChecked()
 
 
 def test_config_round_trip_and_editing(make):
@@ -253,8 +282,10 @@ def test_config_round_trip_and_editing(make):
     assert host.saves == 1
     assert plugin.get_config() == {"bindings": [_b("a", "Ctrl+F1", "camera.torch", glob=True)], "notify": False}
     assert [h.id for h in backend.applied[-1]] == ["a"]
+    plugin.set_bindings(plugin.bindings + [_b("x", "F3", "camera.torch")])  # not global: nothing to rebind
+    assert len(backend.applied) == 2
     plugin.remove_binding("a")
-    assert plugin.get_config()["bindings"] == []
+    assert [b["id"] for b in plugin.get_config()["bindings"]] == ["x"]
     assert backend.applied[-1] == []
     plugin.shutdown()
     assert backend.stopped
@@ -327,3 +358,77 @@ def test_action_command(monkeypatch):
     cmd = action_command("transforms.zoom", {"op": "up", "amount": 0.25})
     assert cmd[-4:] == ["--action", "transforms.zoom", "op=up", "amount=0.25"]
     assert cmd[1].endswith("main.py")
+
+
+def test_editor_search_narrows_the_controls(make):
+    plugin, _host, _ = make()
+    editor = BindingEditor(plugin, {"id": "n", "keys": "", "action": "", "params": {}, "global": True})
+    try:
+        combo = editor._action_combo
+        listed = lambda: [combo.itemData(i) for i in range(combo.count()) if combo.itemData(i)]  # noqa: E731
+        assert len(listed()) == len(plugin.actions())
+        assert editor._search.hasFocus() or QApplication.focusWidget() is None  # a new one starts at the search
+        editor._search.setText("torch")
+        assert listed() == ["camera.torch"]
+        assert combo.currentData() == "camera.torch"
+        assert "mode" in editor._param_widgets
+        editor._search.setText("push talk")  # what a setting can do counts too
+        assert listed() == []
+        editor._search.setText("held")
+        assert set(listed()) == {"microphone.mute", "camera.torch"}
+        assert combo.currentData() == "camera.torch"  # still there, so still picked, settings kept
+        editor._search.setText("zzz")
+        assert listed() == [] and editor._problem.text() == "No control matches that search."
+        assert not editor._save_btn.isEnabled()
+        editor._search.clear()
+        assert len(listed()) == len(plugin.actions())
+    finally:
+        editor.deleteLater()
+
+
+def test_editor_search_uses_keywords(make):
+    plugin, _host, _ = make()
+    plugin.action("transforms.zoom").keywords = "crop framing"
+    editor = BindingEditor(plugin, {"id": "n", "keys": "", "action": "", "params": {}, "global": True})
+    try:
+        editor._search.setText("crop")
+        assert editor._action_combo.currentData() == "transforms.zoom"
+    finally:
+        editor.deleteLater()
+
+
+def test_a_key_whose_control_is_off_goes_to_the_control_with_focus(make, card):
+    plugin, _host, _ = make([_b("a", "Z", "transforms.zoom", {"op": "up", "amount": 10})])
+    card.slider.setEnabled(False)
+    card.show()
+    QTest.qWaitForWindowActive(card)
+    card.entry.setFocus()
+    QTest.keyClick(card.entry, Qt.Key.Key_Z, Qt.KeyboardModifier.ShiftModifier)  # Shift+Z isn't bound
+    card.mute.setFocus()
+    event = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Z, Qt.KeyboardModifier.NoModifier, "z")
+    assert not plugin._filter.eventFilter(card.mute, event)
+    card.slider.setEnabled(True)
+    assert plugin._filter.eventFilter(card.mute, event)
+    assert card.slider.value() == 10
+
+
+def test_controls_that_come_later_still_get_the_menu(qapp):
+    from telescope.shortcuts import choice_action
+    lenses = []
+    host = _Host([choice_action("camera.lens", "Lens", "Camera", buttons=lambda: lenses)])
+    plugin = ShortcutsPlugin(backend_factory=lambda: None)
+    plugin.setup(host, None)
+    plugin.start()
+    shown = []
+    plugin.control_menu = lambda w, a, pos: shown.append((w, a))
+    try:
+        btn = QPushButton("Wide")
+        lenses.append(btn)
+        from PyQt6.QtGui import QContextMenuEvent
+        from PyQt6.QtCore import QPoint
+        event = QContextMenuEvent(QContextMenuEvent.Reason.Mouse, QPoint(1, 1))
+        assert plugin._filter.eventFilter(btn, event)
+        assert shown == [(btn, "camera.lens")]
+        assert not plugin._filter.eventFilter(QPushButton("other"), event)
+    finally:
+        plugin.shutdown()

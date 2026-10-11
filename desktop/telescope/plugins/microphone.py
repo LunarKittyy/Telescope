@@ -293,7 +293,7 @@ class MicrophonePlugin(TelescopePlugin):
         self._readout.setStyleSheet(f"padding-right: 11px;{f' color: {theme.ERR};' if red else ''}")
 
     def create_actions(self) -> list:
-        return [
+        actions = [
             button_action("microphone.mute", "Mute", "Microphone", self._mute_btn, states=("muted", "unmuted"),
                           verbs={"toggle": "Mute or unmute", "on": "Mute", "off": "Unmute",
                                  "hold": "Switch while held (push to talk while muted)"}),
@@ -301,6 +301,9 @@ class MicrophonePlugin(TelescopePlugin):
             slider_action("microphone.gain", "Gain", "Microphone", self._gain_slider, suffix=" dB", step=3,
                           signed=True),
         ]
+        actions[0].keywords = "push to talk silence"
+        actions[2].keywords = "volume loudness"
+        return actions
 
     def create_tray_actions(self) -> list:
         return [self._tray_mute]

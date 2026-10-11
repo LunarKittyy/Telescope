@@ -191,8 +191,9 @@ class HostServices(Protocol):
         """Stop every stream, as the Stop button does."""
         ...
 
-    def toggle_window(self) -> None:
-        """Hide the window to the tray if it's showing (or minimize it without a tray), else bring it up."""
+    def toggle_window(self) -> bool:
+        """Hide the window to the tray if it's showing (or minimize it without a tray), else bring it up. Returns
+        whether it's showing now."""
         ...
 
     def shortcut_actions(self) -> list:

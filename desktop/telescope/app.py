@@ -1867,14 +1867,15 @@ class TelescopeWindow(QMainWindow):
         self.raise_()
         self.activateWindow()
 
-    def toggle_window(self):
+    def toggle_window(self) -> bool:
         if self.isVisible() and not self.isMinimized() and self.isActiveWindow():
             if self._tray is not None:
                 self.hide()
             else:
                 self.showMinimized()
-        else:
-            self._tray_show()
+            return False
+        self._tray_show()
+        return True
 
     def stop_all_streams(self):
         if self._streams or self._waking:

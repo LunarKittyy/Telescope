@@ -103,6 +103,8 @@ class ShortcutAction:
     them, for controls that come and go, like the lens buttons)."""
     current: Optional[Callable[[], float]] = None
     """Where the control is now, which a new "Set to" binding starts at."""
+    keywords: str = ""
+    """More words the shortcut editor's search finds it by (the card section it's under, what people call it)."""
 
     def controls(self) -> tuple:
         return tuple(self.widgets() if callable(self.widgets) else self.widgets)

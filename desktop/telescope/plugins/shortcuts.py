@@ -11,9 +11,11 @@ global shortcuts portal: bind that command in the desktop's own keyboard setting
 """
 
 import logging
+import re
 import shlex
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -41,6 +43,29 @@ logger = logging.getLogger(__name__)
 
 _TEXT_INPUTS = (QLineEdit, QAbstractSpinBox, QTextEdit, QPlainTextEdit)
 _ADD_TEXT = "Add keyboard shortcut…"
+_DOUBLED_S = 0.15  # a global and an in-app press of one binding this close together are one key press
+
+
+def _remote_param_problem(action: ShortcutAction, params: dict) -> str:
+    """Why --action's settings won't do, or "": a typo must not quietly run the default instead."""
+    for p in action.params:
+        if p.name not in params:
+            continue
+        value = params[p.name]
+        if p.kind == "number":
+            try:
+                float(value)
+            except (TypeError, ValueError):
+                return f"{p.name} has to be a number, not {value!r}."
+        elif not callable(p.choices) and value not in [v for v, _ in p.options()]:
+            return f"{p.name} can be {' | '.join(str(v) for v, _ in p.options())}, not {value!r}."
+        if value == "hold":
+            return "hold needs a key to let go of; use toggle, on or off with --action."
+    full = action.full_params(params)
+    for p in action.params:
+        if p.shown(full) and p.kind == "number" and full.get(p.name) is None:
+            return f"{action.id} needs {p.name}=… for that."
+    return ""
 
 
 def action_command(action_id: str, params: dict) -> list:
@@ -80,6 +105,9 @@ class ShortcutsPlugin(TelescopePlugin):
         self._filter: Optional[_KeyFilter] = None
         self._dlg: Optional[ShortcutsDialog] = None
         self._with_menu: list = []  # controls given "Add keyboard shortcut…", so it can come off at shutdown
+        self._dynamic: list = []  # actions whose controls come and go (the lens buttons)
+        self._last_global: Optional[list] = None  # what the system was last handed, so a same list isn't rebound
+        self._recent: dict = {}  # binding id: (source, monotonic time) of its last press, to drop a doubled one
         QTimer.singleShot(0, self.start)  # once every plugin is registered and its controls exist
 
     # ── Actions of its own: the ones that belong to the app, not a card ──────
@@ -111,8 +139,7 @@ class ShortcutsPlugin(TelescopePlugin):
             return f"Phone camera: {'on' if host.is_camera_on() else 'off'}"
 
         def window(_p):
-            host.toggle_window()
-            return None if QApplication.activeWindow() is None else "Telescope"
+            return f"Telescope: {'shown' if host.toggle_window() else 'hidden'}"
 
         camera_modes = (("toggle", "Switch on or off"), ("on", "Turn on"), ("off", "Turn off"))
         return [
@@ -137,8 +164,11 @@ class ShortcutsPlugin(TelescopePlugin):
         groups = list(dict.fromkeys(["Telescope"] + [a.group for a in found]))
         for action in sorted(found, key=lambda a: groups.index(a.group)):
             self._actions.setdefault(action.id, action)
-            for w in action.controls():
-                self._give_menu(w, action.id)
+            if callable(action.widgets):  # controls that come and go: the key filter catches their right-clicks
+                self._dynamic.append(action)
+            else:
+                for w in action.controls():
+                    self._give_menu(w, action.id)
         app = QApplication.instance()
         self._filter = _KeyFilter(self)
         app.installEventFilter(self._filter)
@@ -180,9 +210,11 @@ class ShortcutsPlugin(TelescopePlugin):
             self.release(bid)
         if self._backend is not None and self._started:
             skip = clashes(self._bindings)
-            self._backend.apply([
-                Hotkey(b["id"], b["keys"], self._describe(b)) for b in self._bindings
-                if b["global"] and b["id"] not in skip and b["action"] in self._actions])
+            hotkeys = [Hotkey(b["id"], b["keys"], self._describe(b)) for b in self._bindings
+                       if b["global"] and b["id"] not in skip and b["action"] in self._actions]
+            if hotkeys != self._last_global:  # rebinding can ask the user to confirm them all again (Plasma)
+                self._last_global = hotkeys
+                self._backend.apply(hotkeys)
         self._refresh_dialog()
 
     def _describe(self, binding: dict) -> str:
@@ -207,20 +239,15 @@ class ShortcutsPlugin(TelescopePlugin):
             return "Everywhere (setting up)", True
         return (status.text, True) if status.working else (f"In Telescope: {status.text}", False)
 
-    def _globally_bound(self, binding: dict) -> bool:
-        if not binding["global"] or self._backend is None:
-            return False
-        status = self._backend.status(binding["id"])
-        return status is not None and status.working
-
     # ── Running ───────────────────────────────────────────────────────────────
 
     def binding_for_keys(self, keys: str) -> Optional[dict]:
-        """The binding keys pressed inside Telescope run: the first with those keys, unless the system already
-        delivers it (then the key never reaches us anyway, and acting on it twice would be wrong)."""
+        """The binding keys pressed inside Telescope run: the first with those keys, if this version has its action.
+        A global one too: a system that took the key never lets it reach us, and the one it bound may be another
+        key (the portal lets the desktop pick), which then still works here."""
         for b in self._bindings:
             if b["keys"] == keys:
-                return None if self._globally_bound(b) else b
+                return b if b["action"] in self._actions else None
         return None
 
     def press(self, bid: str, source: str, repeat: bool = False) -> Optional[str]:
@@ -233,16 +260,28 @@ class ShortcutsPlugin(TelescopePlugin):
         params = action.full_params(binding["params"])
         if repeat and not action.repeats(params):
             return None
+        now = time.monotonic()
+        last = self._recent.get(bid)
+        if not repeat and last is not None and last[0] != source and now - last[1] < _DOUBLED_S:
+            return None  # the same key press, delivered both by the system and inside Telescope
+        self._recent[bid] = (source, now)
         if not repeat:
             self._held[bid] = source
         try:
             said = action.run(params)
         except Exception:
             logger.exception("Shortcut %s failed", binding["action"])
+            said = None
+        if said is None:
+            if not repeat:
+                self._held.pop(bid, None)  # nothing happened, so there's nothing to undo on release
             return None
-        if said and source != "app" and self._notify and QApplication.activeWindow() is None:
+        if source != "app" and self._notify and QApplication.activeWindow() is None:
             self._host.send_notification("Telescope", said, urgent=False)
         return said
+
+    def is_held(self, bid: str) -> bool:
+        return bid in self._held
 
     def release(self, bid: str):
         if self._held.pop(bid, None) is None:
@@ -280,6 +319,9 @@ class ShortcutsPlugin(TelescopePlugin):
         unknown = sorted(set(params) - {p.name for p in action.params})
         if unknown:
             return {"ok": False, "text": f"{action.id} has no setting {unknown[0]!r}."}
+        problem = _remote_param_problem(action, params)
+        if problem:
+            return {"ok": False, "text": problem}
         try:
             said = action.run(action.full_params(params))
         except Exception:
@@ -312,10 +354,20 @@ class ShortcutsPlugin(TelescopePlugin):
             return
         widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         widget.customContextMenuRequested.connect(
-            lambda pos, w=widget, a=action_id: self._control_menu(w, a, pos))
+            lambda pos, w=widget, a=action_id: self.control_menu(w, a, pos))
         self._with_menu.append(widget)
 
-    def _control_menu(self, widget: QWidget, action_id: str, pos: QPoint):
+    def dynamic_action_for(self, widget: QWidget) -> Optional[str]:
+        """The action whose current controls include widget, for one that came after start (a lens button)."""
+        for action in self._dynamic:
+            try:
+                if widget in action.controls():
+                    return action.id
+            except Exception:
+                continue
+        return None
+
+    def control_menu(self, widget: QWidget, action_id: str, pos: QPoint):
         menu = QMenu(widget)
         add = QAction(_ADD_TEXT, menu)
         add.triggered.connect(lambda: self.add_binding(action_id, parent=widget.window()))
@@ -335,9 +387,11 @@ class ShortcutsPlugin(TelescopePlugin):
     def add_binding(self, action_id: Optional[str] = None, parent=None) -> Optional[dict]:
         editor = BindingEditor(self, {"id": new_binding_id(), "keys": "", "action": action_id or "",
                                       "params": {}, "global": True}, parent)
-        if editor.exec() != QDialog.DialogCode.Accepted:
-            return None
+        accepted = editor.exec() == QDialog.DialogCode.Accepted
         binding = editor.binding()
+        editor.deleteLater()
+        if not accepted:
+            return None
         self.set_bindings(self._bindings + [binding])
         return binding
 
@@ -346,9 +400,11 @@ class ShortcutsPlugin(TelescopePlugin):
         if old is None:
             return None
         editor = BindingEditor(self, dict(old), parent)
-        if editor.exec() != QDialog.DialogCode.Accepted:
-            return None
+        accepted = editor.exec() == QDialog.DialogCode.Accepted
         binding = editor.binding()
+        editor.deleteLater()
+        if not accepted:
+            return None
         self.set_bindings([binding if b["id"] == bid else b for b in self._bindings])
         return binding
 
@@ -452,6 +508,12 @@ class _KeyFilter(QObject):
 
     def eventFilter(self, obj, event):
         kind = event.type()
+        if kind == QEvent.Type.ContextMenu and obj.isWidgetType():
+            action_id = self._plugin.dynamic_action_for(obj)
+            if action_id is not None:
+                self._plugin.control_menu(obj, action_id, event.pos())
+                return True
+            return False
         if kind not in (QEvent.Type.KeyPress, QEvent.Type.ShortcutOverride, QEvent.Type.KeyRelease):
             return False
         if not obj.isWidgetType():
@@ -466,8 +528,9 @@ class _KeyFilter(QObject):
         if kind == QEvent.Type.ShortcutOverride:
             event.accept()  # the key comes as a KeyPress then, instead of going to a menu shortcut
             return True
-        self._plugin.press(binding["id"], "app", repeat=event.isAutoRepeat())
-        return True
+        said = self._plugin.press(binding["id"], "app", repeat=event.isAutoRepeat())
+        # A binding that couldn't run (its control greyed out) leaves the key to the control with focus
+        return said is not None or self._plugin.is_held(binding["id"])
 
 
 def _inside_key_editor(widget: QWidget) -> bool:
@@ -638,9 +701,15 @@ class BindingEditor(QDialog):
         lay = dialog_layout(self)
         dialog_header(lay, "Keyboard shortcut", "Pick a control, what the key does to it, then press the key.")
 
+        self._search = QLineEdit()
+        self._search.setPlaceholderText("Search: mute, zoom, exposure, preset…")
+        self._search.setClearButtonEnabled(True)
+        self._search.textChanged.connect(self._filter_actions)
+        lay.addLayout(control_row("Find", self._search, stretch=True))
         self._action_combo = NoScrollComboBox()
+        self._shown_action = None  # the action the settings below were built for
         self._fill_actions()
-        self._action_combo.currentIndexChanged.connect(lambda _i: self._build_params())
+        self._action_combo.currentIndexChanged.connect(lambda _i: self._on_action_picked())
         lay.addLayout(control_row("Control", self._action_combo, stretch=True))
 
         self._params_box = QWidget()
@@ -679,14 +748,46 @@ class BindingEditor(QDialog):
         bar.insertWidget(0, self._copy_btn)
 
         self._build_params(self._binding.get("params"))
-        self._keys_edit.setFocus()
+        # A new shortcut from the dialog starts by finding the control; one for a known control, at the key
+        (self._keys_edit if self._binding.get("action") else self._search).setFocus()
 
-    def _fill_actions(self):
+    @staticmethod
+    def _matches(action: ShortcutAction, query: str) -> bool:
+        """Every word of query starts a word of the action's card, name, id, keywords or the names of what it can
+        do (starts: "crop" is in "microphone" otherwise)."""
+        words = re.findall(r"\w+", query.lower())
+        if not words:
+            return True
+        hay = re.findall(r"\w+", " ".join([action.group, action.label, action.id, action.keywords] + [
+            label for p in action.params if p.kind == "choice" and not callable(p.choices)
+            for _v, label in p.options()]).lower())
+        return all(any(h.startswith(w) for h in hay) for w in words)
+
+    def _filter_actions(self, query: str):
+        combo = self._action_combo
+        keep = combo.currentData() or self._shown_action  # a search that found nothing forgets no pick
+        combo.blockSignals(True)
+        combo.clear()
+        self._fill_actions(query, keep)
+        combo.blockSignals(False)
+        self._on_action_picked()
+
+    def _on_action_picked(self):
+        picked = self._action_combo.currentData()
+        self._params_box.setVisible(picked is not None)  # kept, not dropped, while a search shows nothing
+        if picked is not None and picked != self._shown_action:
+            self._build_params()
+        else:
+            self._check()
+
+    def _fill_actions(self, query: str = "", wanted=None):
         combo = self._action_combo
         model = combo.model()
         group = None
-        wanted = self._binding.get("action")
+        wanted = wanted or self._binding.get("action")
         for action in self._plugin.actions():
+            if not self._matches(action, query):
+                continue
             if action.group != group:
                 group = action.group
                 combo.addItem(group.upper())
@@ -695,7 +796,7 @@ class BindingEditor(QDialog):
             combo.addItem(action.label, action.id)
             if action.id == wanted:
                 combo.setCurrentIndex(combo.count() - 1)
-        if wanted and combo.findData(wanted) < 0:  # an action this version doesn't have: kept as it was
+        if wanted and not query and combo.findData(wanted) < 0:  # an action this version doesn't have: kept
             combo.addItem(f"Unknown ({wanted})", wanted)
             combo.setCurrentIndex(combo.count() - 1)
         if combo.currentData() is None:
@@ -711,6 +812,7 @@ class BindingEditor(QDialog):
             if item.widget() is not None:
                 item.widget().deleteLater()
         self._param_widgets = {}
+        self._shown_action = self._action_combo.currentData() or self._shown_action
         action = self._action()
         if action is None:
             self._check()
@@ -762,7 +864,7 @@ class BindingEditor(QDialog):
         keys = self._keys()
         problem, blocking = "", True
         if self._action_combo.currentData() is None:
-            problem = "Pick a control."
+            problem = "No control matches that search." if self._action_combo.count() == 0 else "Pick a control."
         elif not keys:
             problem = ("Press a key, with Ctrl, Alt, Shift or Meta if you like." if self._keys_edit.keySequence().isEmpty()
                        else "A modifier can't be a shortcut on its own. Add a key to it.")
