@@ -580,6 +580,17 @@ def test_low_light_shows_only_once_the_phone_says_it_takes_it(camera_plugin):
     assert plugin._low_light_row.isHidden()  # until the next phone says it takes it
 
 
+def test_low_light_shortcut_toggles_only_on_a_phone_that_takes_it(camera_plugin):
+    plugin, _host, _bus, _panel = camera_plugin
+    action = next(a for a in plugin.create_actions() if a.id == "camera.low_light")
+    plugin._ctrl = _Ctrl()
+    assert action.run({}) is None  # hidden: an older phone app doesn't know it
+    state = {"cameras": [{"id": "0", "label": "Main", "current": True}], "auto": True, "low_light_toggle": True}
+    plugin.on_phone_state(state)
+    assert action.run({}) == "Low light: on"
+    assert plugin._ctrl.sent == [{"action": "low_light", "value": "1"}]
+
+
 def test_low_light_toggle_sends_and_saves(camera_plugin):
     plugin, host, _bus, _panel = camera_plugin
     plugin._ctrl = _Ctrl()

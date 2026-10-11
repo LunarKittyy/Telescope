@@ -339,13 +339,15 @@ class CameraControlPlugin(TelescopePlugin):
             choice_action("camera.noise_reduction", "Noise reduction", g, combo=self._nr_combo),
             choice_action("camera.sharpening", "Sharpening", g, combo=self._edge_combo),
             button_action("camera.black_level_lock", "Black level lock", g, self._bll_cb),
+            button_action("camera.low_light", "Low light", g, self._low_light_cb),
             button_action("camera.torch", "Torch", g, self._torch_btn),
         ]
         keywords = {"camera.iso": "exposure manual", "camera.shutter": "exposure manual speed",
                     "camera.compensation": "exposure ev brightness", "camera.temperature": "white balance wb kelvin",
                     "camera.tint": "white balance wb green magenta", "camera.wb_mode": "wb",
                     "camera.focus": "manual focus", "camera.stabilization": "ois",
-                    "camera.torch": "flash light", "camera.sharpening": "edge"}
+                    "camera.torch": "flash light", "camera.sharpening": "edge",
+                    "camera.low_light": "dark night brightness"}
         for action in actions:
             action.keywords = keywords.get(action.id, "")
         return actions
