@@ -20,12 +20,11 @@ import subprocess
 import tempfile
 import time
 import urllib.error
-import urllib.request
 import zipfile
 from pathlib import Path
 from typing import Callable, Optional
 
-from telescope import dev_profile
+from telescope import dev_profile, web
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +142,7 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def download_vb_cable(folder: Optional[Path] = None, urlopen: Callable = urllib.request.urlopen) -> tuple:
+def download_vb_cable(folder: Optional[Path] = None, urlopen: Callable = web.urlopen) -> tuple:
     """Fetch VB-Audio's pack and unpack it; (setup exe path, "") or (None, why not)."""
     if folder is None:
         # An earlier try's folder, each a few MB. Only ones a day old: a newer one's setup may still be open.
@@ -168,6 +167,9 @@ def download_vb_cable(folder: Optional[Path] = None, urlopen: Callable = urllib.
         return None, "VB-Audio's site didn't hand over VB-Cable. Try again later, or get it from their site."
     except urllib.error.URLError as e:
         logger.warning("VB-Cable download: %s", e)
+        if web.certificate_failed(e):
+            return None, ("Couldn't check vb-audio.com's certificate, so nothing was downloaded. Security software "
+                          "or a network that inspects HTTPS can cause this.")
         return None, "Couldn't reach vb-audio.com. Check the internet connection and try again."
     except Exception as e:
         logger.warning("VB-Cable download: %s", e)

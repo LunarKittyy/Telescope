@@ -3,6 +3,7 @@ check it, and only what adb needs is kept, in a folder that's only ever swapped 
 
 import hashlib
 import io
+import ssl
 import urllib.error
 import zipfile
 
@@ -127,6 +128,18 @@ def test_no_network_says_so_and_keeps_what_was_there(tmp_path, fail):
     assert not ok and why == "Couldn't reach Google. Check the internet connection and try again."
     assert (dest / "NOTICE.txt").read_bytes() == b"old"
     assert sorted(p.name for p in tmp_path.iterdir()) == ["platform-tools"]
+
+
+def test_an_unchecked_certificate_isnt_blamed_on_the_internet(tmp_path):
+    def untrusted(url, timeout):
+        raise urllib.error.URLError(ssl.SSLCertVerificationError(1, "unable to get local issuer certificate"))
+    ok, why = download_adb(untrusted, tmp_path / "platform-tools")
+    assert not ok and why.startswith("Couldn't check Google's certificate") and "internet connection" not in why
+
+
+def test_downloads_go_through_the_system_certificate_check():
+    from telescope import web
+    assert download_adb.__defaults__[0] is web.urlopen
 
 
 def test_a_half_emptied_folder_is_replaced_whole(tmp_path):

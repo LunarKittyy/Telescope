@@ -14,12 +14,13 @@ import tempfile
 import threading
 import time
 import urllib.error
-import urllib.request
 import xml.etree.ElementTree as ET
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
+
+from telescope import web
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +116,7 @@ def downloaded_revision(dest: Optional[Path] = None) -> str:
     return ""
 
 
-def download_adb(urlopen: Callable = urllib.request.urlopen, dest: Optional[Path] = None,
+def download_adb(urlopen: Callable = web.urlopen, dest: Optional[Path] = None,
                  progress: Optional[Callable[[str], None]] = None) -> tuple:
     """Download adb into dest (downloaded_dir()) unless it's already there; (True, version or "" if unknown) or
     (False, why not).
@@ -199,6 +200,9 @@ def _download(urlopen: Callable, dest: Path, say: Callable[[str], None]) -> tupl
 
 def _offline(e: Exception) -> str:
     """A plain sentence for a network failure, "" for anything else."""
+    if web.certificate_failed(e):
+        return ("Couldn't check Google's certificate, so nothing was downloaded. Security software or a network "
+                "that inspects HTTPS can cause this.")
     if isinstance(e, (urllib.error.URLError, TimeoutError, ConnectionError)) and not isinstance(
             e, urllib.error.HTTPError):
         return "Couldn't reach Google. Check the internet connection and try again."

@@ -75,6 +75,11 @@ cryptography (https://pypi.org/project/cryptography/)
     (https://www.openssl.org/), Apache License 2.0, and depend on cffi
     (https://pypi.org/project/cffi/), MIT.
 
+truststore (https://pypi.org/project/truststore/)
+    Checks the certificates of Telescope's own downloads (updates, adb,
+    VB-Cable) with the system's certificate store. Copyright (c) 2022 Seth
+    Michael Larson. License: MIT.
+
 zeroconf (https://pypi.org/project/zeroconf/)
     Copyright (c) Paul Scott-Murphy, William McBrine, Jakub Stasiak and
     python-zeroconf contributors.

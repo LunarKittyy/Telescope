@@ -34,7 +34,7 @@ from typing import Callable, Optional
 
 import update_guard
 from update_guard import EXE_NAME, LIB_PREFIX, OLD_EXE_NAME, PREVIOUS_DIR, STAGING_DIR
-from telescope import version
+from telescope import version, web
 from telescope.platform import IS_WINDOWS, NO_WINDOW
 
 logger = logging.getLogger(__name__)
@@ -107,7 +107,7 @@ def parse_manifest(raw: bytes) -> Manifest:
 
 def _open(url: str, timeout: float):
     req = urllib.request.Request(url, headers={"User-Agent": f"Telescope/{version.VERSION}"})
-    return urllib.request.urlopen(req, timeout=timeout)
+    return web.urlopen(req, timeout)
 
 
 def fetch_manifest(channel: str, opener: Callable = _open) -> Optional[Manifest]:
@@ -120,6 +120,9 @@ def fetch_manifest(channel: str, opener: Callable = _open) -> Optional[Manifest]
             return None
         raise UpdateError(f"Couldn't check for updates (HTTP {exc.code}).") from exc
     except (OSError, ValueError, http.client.HTTPException) as exc:  # HTTPException: a reply that isn't HTTP
+        if web.certificate_failed(exc):
+            raise UpdateError("Couldn't check GitHub's certificate, so updates weren't checked. Security software or "
+                              "a network that inspects HTTPS can cause this.") from exc
         raise UpdateError("Couldn't check for updates. Check the internet connection.") from exc
     if len(raw) > MAX_MANIFEST_BYTES:
         raise UpdateError("The update information couldn't be read.")

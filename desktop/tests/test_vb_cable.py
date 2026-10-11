@@ -4,6 +4,7 @@ download and a fake ShellExecute (the real pack is checked by hand, see virtual_
 import hashlib
 import io
 import os
+import ssl
 import time
 import urllib.error
 import zipfile
@@ -74,6 +75,13 @@ def test_a_failed_download_says_so_plainly(tmp_path):
         raise urllib.error.URLError(OSError("no route to host"))
     setup, err = virtual_mic.download_vb_cable(tmp_path, offline)
     assert setup is None and err == "Couldn't reach vb-audio.com. Check the internet connection and try again."
+
+
+def test_an_unchecked_certificate_says_so(tmp_path):
+    def untrusted(url, timeout):
+        raise urllib.error.URLError(ssl.SSLCertVerificationError(1, "unable to get local issuer certificate"))
+    setup, err = virtual_mic.download_vb_cable(tmp_path, untrusted)
+    assert setup is None and err.startswith("Couldn't check vb-audio.com's certificate")
 
 
 def test_a_refused_download_doesnt_blame_the_internet(tmp_path):
