@@ -175,27 +175,39 @@ var
 begin
   Script := '';
   if Camera then
-    Script :=
-      '$uc = ' + PsQuote(ExpandConstant('{commonpf64}\Telescope')) + '; ' +
-      '$rs = Join-Path ([Environment]::SystemDirectory) ''regsvr32.exe''; ' +
+    // Files a camera app still has open go at the next restart, the way setups replace locked files
+    Script := '$uc = ' + PsQuote(ExpandConstant('{commonpf64}\Telescope')) + '; ' +
+      '$rs = Join-Path $env:windir ''Sysnative\regsvr32.exe''; if (-not (Test-Path -LiteralPath $rs)) { $rs = Join-Path $env:windir ''System32\regsvr32.exe'' }; ' +
       'foreach ($n in ''UnityCaptureFilter64.dll'', ''UnityCaptureFilter32.dll'') { ' +
       '$d = Join-Path (Join-Path $uc ''UnityCapture'') $n; if (Test-Path -LiteralPath $d) { & $rs /s /u $d | Out-Null } }; ' +
-      'Remove-Item -LiteralPath $uc -Recurse -Force -ErrorAction SilentlyContinue; ';
+      'Remove-Item -LiteralPath $uc -Recurse -Force -ErrorAction SilentlyContinue; ' +
+      'if (Test-Path -LiteralPath $uc) { ' +
+      '$k = ''HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager''; $p = @(); ' +
+      '$old = (Get-ItemProperty -LiteralPath $k -ErrorAction SilentlyContinue).PendingFileRenameOperations; if ($old) { $p += $old }; ' +
+      '$left = @(Get-ChildItem -LiteralPath $uc -Recurse -Force | Sort-Object { $_.FullName.Length } -Descending) + @(Get-Item -LiteralPath $uc); ' +
+      'foreach ($i in $left) { $p += ''\??\'' + $i.FullName; $p += '''' }; ' +
+      'Set-ItemProperty -LiteralPath $k -Name PendingFileRenameOperations -Type MultiString -Value ([string[]]$p) }; ';
   Script := Script +
     '$ours = @(' + PsQuote(ExpandConstant('{app}\{#AppExe}')) + ', ' +
     PsQuote(ExpandConstant('{localappdata}\Telescope\platform-tools\adb.exe')) + '); ' +
     'Get-NetFirewallApplicationFilter | Where-Object { $ours -contains $_.Program } | Get-NetFirewallRule | ' +
     'Remove-NetFirewallRule';
-  // {sysnative}: the uninstaller is 32-bit, and a 32-bit PowerShell would see Program Files (x86) and 32-bit regsvr32
-  if not ShellExec('runas', ExpandConstant('{sysnative}\WindowsPowerShell\v1.0\powershell.exe'),
-                   '-NoProfile -NonInteractive -Command "' + Script + '"', '', SW_HIDE, ewWaitUntilTerminated,
-                   ResultCode) then
+  // Not {sysnative}: UAC can't find that path. This PowerShell is 32-bit like the uninstaller, hence {commonpf64} and Sysnative regsvr32
+  repeat
+    if ShellExec('runas', ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+                 '-NoProfile -NonInteractive -Command "' + Script + '"', '', SW_HIDE, ewWaitUntilTerminated,
+                 ResultCode) then
+      Exit;
     Log('The admin clean-up didn''t run: ' + SysErrorMessage(ResultCode));
+  until not Camera or UninstallSilent() or
+        (MsgBox('The Telescope camera is still installed because Windows didn''t get admin permission to remove it.' + #13#10#13#10 +
+                'You can try again, or remove it later by installing Telescope again and uninstalling it.',
+                mbError, MB_RETRYCANCEL) <> IDRETRY);
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
-  Settings: String;
+  Settings, Adb: String;
   Camera: Boolean;
 begin
   if CurUninstallStep = usUninstall then
@@ -209,7 +221,7 @@ begin
         Camera := IsAdmin()
       else
         Camera := MsgBox('Also remove the Telescope virtual camera?' + #13#10#13#10 +
-                         'It''s installed for everyone on this computer, so Windows asks for admin.',
+                         'It''s installed for everyone on this computer which is why Windows will ask for admin permission.',
                          mbConfirmation, MB_YESNO) = IDYES;
     // Firewall rules need admin too: removed along with the camera, or anyway when that needs no prompt
     if Camera or IsAdmin() then
@@ -218,6 +230,11 @@ begin
   if CurUninstallStep = usPostUninstall then
   begin
     DelTree(GetEnv('TEMP') + '\Telescope', True, True, True);  // the log (desktop/telescope/diagnostics.py)
+    // adb still locked (a server that outlived Telescope): delete it at the next sign-in, which needs no admin
+    Adb := ExpandConstant('{localappdata}\Telescope');
+    if DirExists(Adb + '\platform-tools') then
+      RegWriteStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\RunOnce', 'TelescopeCleanup',
+                          'cmd.exe /d /c "rd /s /q "' + Adb + '\platform-tools" & rd "' + Adb + '""');
     // Settings and pairings stay unless asked, so a reinstall picks up where it left off
     Settings := ExpandConstant('{userappdata}\Telescope');
     if DirExists(Settings) and not UninstallSilent() then

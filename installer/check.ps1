@@ -76,6 +76,24 @@ if (Test-Path $app) {
 }
 if (-not $running.HasExited) { $problems += "uninstalling left Telescope running"; Stop-Process -Id $running.Id -Force }
 
+# adb still locked when uninstalling (a server that outlived Telescope): the next sign-in deletes it instead
+$runOnce = "HKCU:\Software\Microsoft\Windows\CurrentVersion\RunOnce"
+$p = Start-Process -FilePath $Setup -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
+New-Item -ItemType Directory -Force $adb | Out-Null
+Set-Content "$adb\adb.exe" "x"
+$lock = [IO.File]::Open("$adb\adb.exe", "Open", "Read", "Read")
+Start-Process -FilePath "$app\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait | Out-Null
+for ($i = 0; $i -lt 60 -and (Test-Path $app); $i++) { Start-Sleep -Seconds 1 }
+$lock.Close()
+$cleanup = (Get-ItemProperty $runOnce -ErrorAction SilentlyContinue).TelescopeCleanup
+if (-not $cleanup) { $problems += "a locked adb left no sign-in clean-up" }
+else {
+    # Run it the way Windows does at sign-in: the whole line, program first
+    Start-Process -FilePath "cmd.exe" -ArgumentList $cleanup.Substring("cmd.exe ".Length) -Wait -WindowStyle Hidden
+    if (Test-Path "$env:LOCALAPPDATA\Telescope") { $problems += "the sign-in clean-up didn't delete the adb folder" }
+    Remove-ItemProperty $runOnce -Name "TelescopeCleanup"
+}
+
 if ($problems) {
     $problems | ForEach-Object { Write-Host "::error::$_" }
     exit 1
