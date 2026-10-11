@@ -76,7 +76,7 @@ class _Host:
     def show_issue(self, key, issue):
         self.issues[key] = issue
 
-    def clear_issue(self, key=None):
+    def clear_issue(self, key=None, issue=None):
         self.issues.pop(key, None)
 
     def send_notification(self, title, body, urgent=True):

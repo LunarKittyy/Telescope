@@ -1962,8 +1962,8 @@ class TelescopeWindow(QMainWindow):
         diagnostics.events.note(f"Banner: {issue.title}. {issue.text}" if issue.text else f"Banner: {issue.title}")
         self._banners.show_issue(key, issue)
 
-    def clear_issue(self, key: Optional[str] = None):
-        self._banners.clear_issue(key)
+    def clear_issue(self, key: Optional[str] = None, issue: Optional[Issue] = None):
+        self._banners.clear_issue(key, issue)
 
     def diagnostics_report(self) -> str:
         state = {"Streaming": ("yes" if self.is_camera_on() else "yes, camera off") if self.is_streaming() else "no"}

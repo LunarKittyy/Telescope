@@ -120,7 +120,10 @@ class BannerArea(QWidget):
         if self._banners.get(key) is banner:
             self.clear_issue(key)
 
-    def clear_issue(self, key: Optional[str] = None):
+    def clear_issue(self, key: Optional[str] = None, issue: Optional[Issue] = None):
+        """Remove key's banner (all of them without a key); with issue, only while key still shows that one."""
+        if issue is not None and self.issue(key) is not issue:
+            return
         keys = list(self._banners) if key is None else [key]
         for k in keys:
             banner = self._banners.pop(k, None)
