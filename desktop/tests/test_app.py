@@ -4,6 +4,7 @@ from dataclasses import replace
 import time
 from types import SimpleNamespace
 import socket
+import sys
 
 import pytest
 from PyQt6.QtCore import QCoreApplication, QEvent
@@ -3372,3 +3373,53 @@ def test_a_linux_lock_is_per_user_and_a_second_copy_of_the_same_user_gets_ok(mon
         other.close()
     finally:
         srv.close()
+
+
+# ── telescope --action ────────────────────────────────────────────────────────
+
+@pytest.fixture
+def action_listener(monkeypatch, config_home):
+    import threading
+    monkeypatch.setattr(app_module, "config_path", config_home.config_path)
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(4)
+    monkeypatch.setattr(app_module, "_INSTANCE_FAMILY", socket.AF_INET)
+    monkeypatch.setattr(app_module, "_INSTANCE_ADDRESS", srv.getsockname())
+    got = []
+
+    def answer(request):
+        got.append(request)
+        return {"ok": True, "text": "Torch: on"}
+
+    key = app_module.write_control_key()
+    threading.Thread(target=app_module.listen_for_raise, args=(srv, lambda: None, answer, key),
+                     daemon=True).start()
+    yield got
+    srv.close()
+
+
+def test_an_action_reaches_the_running_copy_with_its_key(action_listener):
+    assert app_module.send_action({"action": "camera.torch", "params": {"mode": "on"}}) == (True, "Torch: on")
+    assert action_listener == [{"action": "camera.torch", "params": {"mode": "on"}}]  # the key isn't passed on
+    path = app_module.control_key_path()
+    if sys.platform != "win32":
+        assert path.stat().st_mode & 0o077 == 0  # nobody else can read it
+
+
+def test_an_action_without_the_right_key_is_turned_down(action_listener):
+    app_module.control_key_path().write_bytes(b"not-the-key")
+    ok, text = app_module.send_action({"action": "camera.torch"})
+    assert not ok and "turned that down" in text
+    assert action_listener == []
+
+
+def test_an_action_with_nothing_running(monkeypatch, config_home):
+    monkeypatch.setattr(app_module, "config_path", config_home.config_path)
+    assert app_module.send_action({"list": True}) == (False, "Telescope isn't running.")
+
+
+def test_a_raise_still_works_next_to_actions(action_listener):
+    with socket.create_connection(app_module._INSTANCE_ADDRESS, timeout=5) as c:
+        c.sendall(b"raise:" + app_module.user_token())
+        assert c.recv(2) == b"ok"

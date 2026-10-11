@@ -76,5 +76,9 @@ zeroconf (https://pypi.org/project/zeroconf/)
     python-zeroconf contributors.
     License: GNU Lesser General Public License v2.1 or later.
 
+jeepney (https://pypi.org/project/jeepney/, Linux only)
+    Talks D-Bus to the desktop portal for global keyboard shortcuts.
+    License: MIT.
+
 Exact installed versions for a given release are pinned in
 desktop/constraints.txt.

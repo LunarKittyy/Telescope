@@ -648,6 +648,10 @@ class NoScrollSlider(QSlider):
         self._default = value
         self.setToolTip(self._tip)
 
+    def default(self):
+        """Where a double-click puts it back, or None."""
+        return self._default
+
     def setToolTip(self, text: str):
         self._tip = text
         hint = self.RESET_HINT if self._default is not None else ""
@@ -984,6 +988,13 @@ class LogSliderRow(QWidget):
         self._slider.setEnabled(enabled)
         self._spin.setEnabled(enabled)
 
+    def is_enabled(self) -> bool:
+        return self._slider.isEnabled()
+
+    def display_text(self) -> str:
+        """What the row shows next to the slider ("ISO 400")."""
+        return self._val_lbl.text()
+
 
 # ── Pan slider row ────────────────────────────────────────────────────────────
 
@@ -1035,6 +1046,9 @@ class PanSliderRow(QWidget):
 
     def reset(self):
         self.set_value(0.0)
+
+    def slider(self) -> NoScrollSlider:
+        return self._slider
 
     def set_enabled(self, enabled: bool):
         self._slider.setEnabled(enabled)

@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
 )
 
 from telescope.plugin import StreamsBehind, TelescopePlugin
+from telescope.shortcuts import button_action, choice_action, slider_action
 from telescope.widgets.common import (
     NoScrollComboBox, NoScrollSlider, PanSliderRow, SegmentButton, add_card_header,
     add_section_heading, control_row as _row, card_layout, create_card, card_action,
@@ -385,9 +386,9 @@ class TransformsPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        reset_btn = card_action("Reset", "reset", "Clear flip, rotation, zoom and pan back to defaults")
-        reset_btn.clicked.connect(self._reset_all)
-        add_card_header(lay, "Transforms", "transforms", action=reset_btn)
+        self._reset_btn = card_action("Reset", "reset", "Clear flip, rotation, zoom and pan back to defaults")
+        self._reset_btn.clicked.connect(self._reset_all)
+        add_card_header(lay, "Transforms", "transforms", action=self._reset_btn)
         dim_until_paired(card, self._bus)
 
         # ── Flip ─────────────────────────────────────────────────────────────
@@ -438,6 +439,23 @@ class TransformsPlugin(TelescopePlugin):
         self._show_pan()
 
         return card
+
+    def create_actions(self) -> list:
+        g = "Transforms"
+        return [
+            button_action("transforms.flip_horizontal", "Flip horizontal", g, self._flip_h),
+            button_action("transforms.flip_vertical", "Flip vertical", g, self._flip_v),
+            choice_action("transforms.rotation", "Rotation", g, combo=self._rot_combo),
+            slider_action("transforms.zoom", "Zoom", g, self._zoom_slider, scale=0.01, suffix="×", decimals=2,
+                          step=0.25, readout=self._zoom_val_lbl),
+            slider_action("transforms.pan_x", "Pan left/right", g, self._pan_x_slider.slider(), scale=0.5,
+                          suffix="%", step=10.0, readout=self._pan_x_lbl, signed=True,
+                          widgets=(self._pan_x_slider,)),
+            slider_action("transforms.pan_y", "Pan up/down", g, self._pan_y_slider.slider(), scale=0.5,
+                          suffix="%", step=10.0, readout=self._pan_y_lbl, signed=True,
+                          widgets=(self._pan_y_slider,)),
+            button_action("transforms.reset", "Reset transforms", g, self._reset_btn),
+        ]
 
     def _reset_all(self):
         """Reset to defaults; handlers fire from widget changes."""

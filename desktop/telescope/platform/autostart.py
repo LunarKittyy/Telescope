@@ -114,6 +114,29 @@ def update_menu_entry(save_icon: Callable[[Path], bool], command: Optional[list]
     return True
 
 
+def _has_entry(app_id: str, data_home: Optional[Path]) -> bool:
+    dirs = [_data_home(data_home)] + [Path(d) for d in (os.environ.get("XDG_DATA_DIRS")
+                                                        or "/usr/local/share:/usr/share").split(":") if d]
+    return any((d / "applications" / f"{app_id}.desktop").exists() for d in dirs)
+
+
+def ensure_portal_entry(app_id: str, command: Optional[list] = None, data_home: Optional[Path] = None) -> bool:
+    """Linux: make sure there's a menu entry named app_id, which the desktop portal needs before it lets Telescope
+    register under that id (for global shortcuts). A copy that writes no menu entry of its own (a dev profile, a
+    git checkout) gets a hidden one. Returns whether one is there now."""
+    if _has_entry(app_id, data_home):
+        return True
+    text = desktop_entry(command or launch_command(minimized=False), menu=True) + "NoDisplay=true\n"
+    path = _data_home(data_home) / "applications" / f"{app_id}.desktop"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+    except OSError as exc:
+        logger.info("Couldn't write a menu entry for the desktop portal: %s", exc)
+        return False
+    return True
+
+
 # ── Both ──────────────────────────────────────────────────────────────────────
 
 def is_enabled(config_home: Optional[Path] = None, winreg=None) -> bool:

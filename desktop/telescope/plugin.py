@@ -187,6 +187,18 @@ class HostServices(Protocol):
         """Whether settings are saved for this phone or source."""
         ...
 
+    def stop_all_streams(self) -> None:
+        """Stop every stream, as the Stop button does."""
+        ...
+
+    def toggle_window(self) -> None:
+        """Hide the window to the tray if it's showing (or minimize it without a tray), else bring it up."""
+        ...
+
+    def shortcut_actions(self) -> list:
+        """Every plugin's create_actions(), in registration order."""
+        ...
+
 
 class StreamSource(Protocol):
     """Something other than a paired phone to stream from, like the Browser camera. A plugin offers it with
@@ -267,6 +279,10 @@ class TelescopePlugin:
 
     def create_tray_actions(self) -> list:
         """QActions for the tray menu, asked for once at startup; the plugin keeps them up to date (visible, checked)."""
+        return []
+
+    def create_actions(self) -> list:
+        """telescope.shortcuts.ShortcutActions keys can be bound to, asked for once, after create_panel()."""
         return []
     def on_stream_starting(self):
         """A stream is about to open the virtual camera; anything holding it while idle lets go now."""

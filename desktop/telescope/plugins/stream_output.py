@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
 
 from telescope import h264_reader
 from telescope.plugin import TelescopePlugin
+from telescope.shortcuts import choice_action, slider_action
 from telescope.theme import OK, WARN
 from telescope.widgets.banner import BannerAction, Issue
 from telescope.widgets.common import (
@@ -256,6 +257,19 @@ class StreamOutputPlugin(TelescopePlugin):
             combo.addItem("—")
             combo.setEnabled(False)
             combo.blockSignals(False)
+
+    def create_actions(self) -> list:
+        g = "Stream output"
+        return [
+            choice_action("stream.aspect_ratio", "Aspect ratio", g, combo=self._ar_combo),
+            choice_action("stream.resolution", "Resolution", g, combo=self._res_combo),
+            choice_action("stream.fps", "FPS", g, combo=self._fps_combo, wrap=False),
+            choice_action("stream.format", "Format", g, buttons=[self._fmt_h264, self._fmt_mjpeg]),
+            slider_action("stream.quality", "JPEG quality", g, self._quality_slider, step=5,
+                          readout=self._quality_val_lbl),
+            slider_action("stream.bitrate", "Bitrate", g, self._bitrate_slider, suffix=" Mbps",
+                          readout=self._bitrate_val_lbl),
+        ]
 
     def _push_initial_settings(self):
         if self._ctrl:
