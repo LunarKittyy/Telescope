@@ -121,10 +121,12 @@ def test_to_trigger(qapp, keys, want):
 class _FakePortal:
     """Just enough of xdg-desktop-portal's GlobalShortcuts, on a private bus, to drive PortalHotkeys for real."""
 
-    def __init__(self, address, version=2, accept=True, triggers=None):
+    def __init__(self, address, version=2, accept=True, triggers=None, plasma=True):
         from jeepney.io.blocking import open_dbus_connection
         self.conn = open_dbus_connection(bus=address)
         self.conn.send_and_get_reply(self._bus_call("RequestName", "su", ("org.freedesktop.portal.Desktop", 0)))
+        if plasma:  # Plasma's shortcut store, on the same connection
+            self.conn.send_and_get_reply(self._bus_call("RequestName", "su", ("org.kde.kglobalaccel", 0)))
         self.version, self.accept, self.triggers = version, accept, triggers or {}
         self.calls = []
         self.session = None
@@ -185,6 +187,11 @@ class _FakePortal:
                              (0, {"shortcuts": ("a(sa{sv})", bound)}))
             elif member in ("ConfigureShortcuts", "Close"):
                 self.conn.send(new_method_return(msg))
+            elif member == "getComponent":
+                self.conn.send(new_method_return(msg, "o", (f"/component/{msg.body[0]}",)))
+            elif member == "cleanUp":
+                self.calls[-1] = ("cleanUp", path)
+                self.conn.send(new_method_return(msg, "b", (True,)))
             else:
                 self.conn.send(new_error(msg, "org.freedesktop.DBus.Error.UnknownMethod"))
 
@@ -273,6 +280,36 @@ def test_portal_binds_and_relays_presses(portal_backend):
     assert any(c[0] == "Close" for c in portal.calls)
     portal.emit("Activated", "b3")
     assert _wait_for(lambda: ("down", "b3") in events)
+
+
+def test_portal_has_plasma_forget_shortcuts_no_session_binds_any_more(portal_backend):
+    portal, backend, _ = portal_backend()
+    backend.apply([Hotkey("b1", "Ctrl+M", "Mute"), Hotkey("b2", "Ctrl+T", "Torch")])
+    assert _wait_for(lambda: ("cleanUp", "/component/telescope") in portal.calls)
+    portal.calls.clear()
+    backend.apply([Hotkey("b1", "Ctrl+M", "Mute")])  # b2 removed: Plasma would keep listing it
+    assert _wait_for(lambda: ("cleanUp", "/component/telescope") in portal.calls)
+    assert [c[0] for c in portal.calls].index("BindShortcuts") < [c[0] for c in portal.calls].index("cleanUp")
+    portal.calls.clear()
+    backend.apply([])  # the last one removed: its session closes, and nothing binds again
+    assert _wait_for(lambda: ("cleanUp", "/component/telescope") in portal.calls)
+
+
+def test_portal_tidies_plasma_without_a_session_when_nothing_is_global(portal_backend):
+    portal, backend, prepared = portal_backend()
+    backend.apply([])
+    assert _wait_for(lambda: ("cleanUp", "/component/telescope") in portal.calls)
+    assert not prepared and not any(c[0] in ("Register", "CreateSession") for c in portal.calls)
+
+
+def test_portal_keeps_shortcuts_the_user_turned_down_and_works_without_plasma(portal_backend):
+    portal, backend, _ = portal_backend(accept=False, plasma=False)
+    backend.apply([Hotkey("b1", "Ctrl+M", "Mute")])
+    assert _wait_for(lambda: backend.status("b1") is not None and "Not confirmed" in backend.status("b1").text)
+    assert not any(c[0] in ("getComponent", "cleanUp") for c in portal.calls)  # declined: nothing to tidy
+    portal.accept = True
+    backend.apply([Hotkey("b1", "Ctrl+M", "Mute")])
+    assert _wait_for(lambda: backend.status("b1").working)  # no kglobalaccel on this bus: binding still works
 
 
 def test_portal_without_global_shortcuts_says_so(portal_backend):

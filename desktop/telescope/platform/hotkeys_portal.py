@@ -28,6 +28,10 @@ SHORTCUTS = "org.freedesktop.portal.GlobalShortcuts"
 REGISTRY = "org.freedesktop.host.portal.Registry"
 REQUEST = "org.freedesktop.portal.Request"
 SESSION = "org.freedesktop.portal.Session"
+KGLOBALACCEL = "org.kde.kglobalaccel"  # Plasma's shortcut store, which the portal binds into on Plasma
+KGLOBALACCEL_PATH = "/kglobalaccel"
+KGLOBALACCEL_IFACE = "org.kde.KGlobalAccel"
+KGLOBALACCEL_COMPONENT = "org.kde.kglobalaccel.Component"
 _CALL_TIMEOUT = 10
 _WAIT_STEP = 0.5
 
@@ -153,6 +157,7 @@ class PortalHotkeys(HotkeyBackend):
 
     def _run(self):
         # Nothing goes to the portal until there's a global shortcut to bind: no session, no dialog, no menu entry
+        tidied = False
         while True:
             cmd = self._cmds.get()
             if cmd[0] == "stop":
@@ -160,6 +165,9 @@ class PortalHotkeys(HotkeyBackend):
             if cmd[0] == "bind" and cmd[1]:
                 self._cmds.put(cmd)  # handled again, with any newer one, once connected
                 break
+            if cmd[0] == "bind" and not tidied:  # none to bind, but Plasma may still list ones from before
+                tidied = True
+                self._tidy_without_portal()
         try:
             if self._prepare is not None:
                 self._prepare()
@@ -237,6 +245,7 @@ class PortalHotkeys(HotkeyBackend):
             with self._lock:
                 self._statuses = {}
             self._set_state("ready")
+            self._forget_unbound()
             return
         code, results = self._request("CreateSession", "a{sv}", lambda token: (
             {"handle_token": ("s", token), "session_handle_token": ("s", "telescope" + secrets.token_hex(4))},))
@@ -263,6 +272,32 @@ class PortalHotkeys(HotkeyBackend):
             self._statuses = {hk.id: self._status_of(bound.get(hk.id)) for hk in hotkeys}
             self._state = "ready"
         self._changed_from_thread.emit()
+        if code == 0:
+            self._forget_unbound()
+
+    def _tidy_without_portal(self):
+        try:
+            if self._open_router is None:
+                from jeepney.io.threading import open_dbus_router
+                self._open_router = open_dbus_router
+            from jeepney import new_method_call
+            from jeepney.wrappers import unwrap_msg
+            with self._open_router() as router:
+                self._router, self._call, self._unwrap = router, new_method_call, unwrap_msg
+                self._forget_unbound()
+        except Exception as exc:
+            logger.debug("Couldn't reach the session bus to tidy shortcuts: %s", exc)
+
+    def _forget_unbound(self):
+        """Plasma lists every shortcut a session ever bound, greyed out once none does: drop the ones no session has
+        now (removed in Telescope, or from a closed session), which its settings would otherwise keep showing."""
+        from jeepney import DBusAddress
+        try:
+            (path,) = self._send(DBusAddress(KGLOBALACCEL_PATH, bus_name=KGLOBALACCEL, interface=KGLOBALACCEL_IFACE),
+                                 "getComponent", "s", (self._app_id,))
+            self._send(DBusAddress(path, bus_name=KGLOBALACCEL, interface=KGLOBALACCEL_COMPONENT), "cleanUp", None, ())
+        except Exception as exc:  # not Plasma, or nothing stored under this id yet
+            logger.debug("No Plasma shortcuts to tidy for %s: %s", self._app_id, exc)
 
     @staticmethod
     def _status_of(props: Optional[dict]) -> HotkeyStatus:
