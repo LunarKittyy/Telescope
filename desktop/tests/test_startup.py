@@ -291,6 +291,70 @@ def _stream_ends(host, bus):
     bus.stream_stopped.emit()
 
 
+def test_with_the_window_hidden_an_app_waits_for_a_fresh_check_of_the_phone(watching):
+    # The phone isn't checked while the window is hidden, so the ready it said before is no reason to start.
+    plugin, host, bus = watching
+    bus.window_shown.emit(False)
+    bus.camera_watched.emit(True)
+    assert host.starts == []
+    bus.phone_ready.emit("p1", True)
+    assert host.starts == [False]
+
+
+def test_with_the_window_hidden_an_app_does_not_start_for_a_phone_that_left(watching):
+    plugin, host, bus = watching
+    bus.window_shown.emit(False)
+    bus.camera_watched.emit(True)
+    bus.phone_ready.emit("p1", False)
+    assert host.starts == []
+
+
+def test_an_app_opening_the_camera_just_after_the_window_comes_back_waits_for_a_fresh_check(watching):
+    # Hidden, the phone wasn't checked: the ready from before it was hidden says nothing about now.
+    plugin, host, bus = watching
+    bus.window_shown.emit(False)
+    bus.window_shown.emit(True)
+    bus.camera_watched.emit(True)
+    assert host.starts == []
+    bus.phone_ready.emit("p1", True)
+    assert host.starts == [False]
+
+
+def test_ready_starts_from_the_tray(env):
+    # Opened at sign-in straight to the tray, the window is never shown, and the phone arriving still starts.
+    plugin, host, bus = env
+    plugin.set_start_on("ready")
+    bus.window_shown.emit(False)
+    bus.phone_ready.emit("p1", True)
+    assert host.starts == [False]
+
+
+def test_ready_asks_for_the_phone_to_be_checked_with_the_window_hidden(env):
+    plugin, _host, bus = env
+    wanted = []
+    bus.phone_wanted.connect(lambda *a: wanted.append(a))
+    plugin.set_start_on("ready")
+    plugin.set_start_on("watched")
+    plugin.set_config({"start_on": "ready"})
+    assert wanted == [(True, False), (False, False), (True, False)]
+
+
+def test_ready_says_when_only_the_phone_leaving_matters(env):
+    # Started (or stopped) for this arrival: checks only need to notice the phone going away, so they can be slow.
+    plugin, host, bus = env
+    wanted = []
+    bus.phone_wanted.connect(lambda *a: wanted.append(a))
+    plugin.set_start_on("ready")
+    bus.phone_ready.emit("p1", True)
+    assert host.starts == [False]
+    _stream_runs(host, bus)
+    _stream_ends(host, bus)
+    bus.phone_ready.emit("p1", True)
+    assert wanted == [(True, False), (True, True)]
+    bus.phone_ready.emit("p1", False)
+    assert wanted[-1] == (True, False)
+
+
 def test_watching_is_off_by_default(env):
     plugin, host, bus = env
     bus.phone_ready.emit("p1", True)

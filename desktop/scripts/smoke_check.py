@@ -49,6 +49,7 @@ def check_app_construction():
     from telescope.plugins.presets import PresetsPlugin
     from telescope.plugins.preview import PreviewPlugin
     from telescope.plugins.setup import SetupPlugin
+    from telescope.plugins.shortcuts import ShortcutsPlugin
     from telescope.plugins.stream_output import StreamOutputPlugin
     from telescope.plugins.transforms import TransformsPlugin
     from telescope.plugins.startup import StartupPlugin
@@ -58,11 +59,17 @@ def check_app_construction():
     win = TelescopeWindow()
     for plugin_cls in (
         SetupPlugin, ConnectionPlugin, CameraControlPlugin, BrowserCameraPlugin, StreamOutputPlugin,
-        TransformsPlugin, MicrophonePlugin, PresetsPlugin, PreviewPlugin, MonitoringPlugin, UpdatesPlugin, StartupPlugin,
+        TransformsPlugin, MicrophonePlugin, PresetsPlugin, PreviewPlugin, MonitoringPlugin, UpdatesPlugin,
+        ShortcutsPlugin, StartupPlugin,
     ):
         win.register_plugin(plugin_cls())
     win.apply_saved_config()
-    return f"{len(win._plugins)} plugins registered"
+    app.processEvents()  # the shortcuts plugin starts (and asks for the system's global shortcuts) from the loop
+    shortcuts = win._plugin("shortcuts")
+    detail = f"{len(shortcuts.actions())} shortcut actions, global shortcuts via " \
+             f"{type(shortcuts.backend).__name__ if shortcuts.backend else 'nothing'}"
+    shortcuts.shutdown()
+    return f"{len(win._plugins)} plugins registered, {detail}"
 
 
 def check_adb_discovery():

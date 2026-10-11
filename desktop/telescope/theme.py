@@ -178,6 +178,10 @@ QLabel#fps_lbl {{
     color: {TEXT};
     font-weight: 600;
 }}
+QLabel#key_chip {{
+    color: {ACCENT_SOFT};
+    font-weight: 600;
+}}
 QLabel#dialog_title {{
     color: {TEXT};
     font-size: 14pt;
@@ -435,6 +439,11 @@ QPushButton[uiRole="primary"]:hover {{
 }}
 QPushButton[uiRole="primary"]:pressed {{
     background-color: {FILL_PRESS};
+}}
+QPushButton[uiRole="primary"]:disabled {{
+    background-color: {BG};
+    border-color: {BORDER};
+    color: {TEXT_DISABLED};
 }}
 QPushButton[uiRole="success"] {{
     background-color: #2c6b4a;

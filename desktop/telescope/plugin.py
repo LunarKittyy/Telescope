@@ -187,6 +187,19 @@ class HostServices(Protocol):
         """Whether settings are saved for this phone or source."""
         ...
 
+    def stop_all_streams(self) -> None:
+        """Stop every stream, as the Stop button does."""
+        ...
+
+    def toggle_window(self) -> bool:
+        """Hide the window to the tray if it's showing (or minimize it without a tray), else bring it up. Returns
+        whether it's showing now."""
+        ...
+
+    def shortcut_actions(self) -> list:
+        """Every plugin's create_actions(), in registration order."""
+        ...
+
 
 class StreamSource(Protocol):
     """Something other than a paired phone to stream from, like the Browser camera. A plugin offers it with
@@ -268,6 +281,10 @@ class TelescopePlugin:
     def create_tray_actions(self) -> list:
         """QActions for the tray menu, asked for once at startup; the plugin keeps them up to date (visible, checked)."""
         return []
+
+    def create_actions(self) -> list:
+        """telescope.shortcuts.ShortcutActions keys can be bound to, asked for once, after create_panel()."""
+        return []
     def on_stream_starting(self):
         """A stream is about to open the virtual camera; anything holding it while idle lets go now."""
     def on_stream_start(self, stream_url: str, ctrl): ...
@@ -344,6 +361,11 @@ class EventBus(QObject):
     """The stream opened the virtual camera at this width and height."""
     camera_watched         = pyqtSignal(bool)
     """Whether an app is reading the virtual camera (Wait screen watches it)."""
+    window_shown           = pyqtSignal(bool)
+    """The main window came on screen, or went to the tray or was minimized."""
+    phone_wanted           = pyqtSignal(bool, bool)
+    """Something waits for the phone to be ready (Automatic streaming), so it's checked even with the window hidden
+    (wanted, held). Held: it already started for this arrival, so only the phone going away matters and slow checks do."""
     camera_on_changed      = pyqtSignal(bool)
     """The camera went off (the stream is just the mic) or back on, or what the next start uses changed."""
     mic_changed            = pyqtSignal(bool, bool)
