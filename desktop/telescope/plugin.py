@@ -150,8 +150,8 @@ class HostServices(Protocol):
         """Show a problem banner above the body (telescope.widgets.banner.Issue); the same key replaces it."""
         ...
 
-    def clear_issue(self, key: Optional[str] = None) -> None:
-        """Remove one banner, or all of them."""
+    def clear_issue(self, key: Optional[str] = None, issue: Optional["Issue"] = None) -> None:
+        """Remove one banner, or all of them; with issue, only while key still shows that one."""
         ...
 
     def diagnostics_report(self) -> str:
