@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
 )
 
 from telescope.plugin import StreamsBehind, TelescopePlugin
+from telescope.shortcuts import button_action, choice_action, log_slider_action, slider_action
 from telescope.widgets.common import (
     LogSliderRow, NoScrollComboBox, SegmentButton, NoScrollSlider, add_card_header, add_section_heading,
     ElidingLabel, control_row, control_row_widget, card_layout,
@@ -299,6 +300,41 @@ class CameraControlPlugin(TelescopePlugin):
         self._sync_manual_control_visibility()
 
         return card
+
+    def create_actions(self) -> list:
+        g = "Camera"
+        actions = [
+            choice_action("camera.lens", "Lens", g, buttons=self._lens_panel.buttons),
+            choice_action("camera.exposure_mode", "Exposure mode", g,
+                          buttons=[self._rb_exp_auto, self._rb_exp_manual]),
+            log_slider_action("camera.iso", "ISO", g, self._iso_slider),
+            log_slider_action("camera.shutter", "Shutter", g, self._sht_slider, display_scale=1e-6, suffix=" ms",
+                              decimals=2),
+            slider_action("camera.compensation", "Compensation", g, self._ae_comp_slider,
+                          scale=lambda: self._ae_comp_step, suffix=" EV", decimals=1, step=1.0,
+                          readout=self._ae_comp_lbl, signed=True),
+            choice_action("camera.wb_mode", "White balance mode", g, buttons=[self._rb_wb_auto, self._rb_wb_manual]),
+            slider_action("camera.temperature", "Temperature", g, self._wb_slider, suffix=" K",
+                          readout=self._wb_k_lbl),
+            slider_action("camera.tint", "Tint", g, self._tint_slider, step=10, readout=self._tint_lbl, signed=True),
+            choice_action("camera.focus_mode", "Focus mode", g,
+                          buttons=[self._rb_focus_auto, self._rb_focus_point, self._rb_focus_manual]),
+            slider_action("camera.focus", "Focus distance", g, self._focus_slider, scale=0.1, suffix="%",
+                          decimals=1, step=5.0, readout=self._focus_val_lbl),
+            button_action("camera.stabilization", "Stabilization", g, self._ois_cb),
+            choice_action("camera.noise_reduction", "Noise reduction", g, combo=self._nr_combo),
+            choice_action("camera.sharpening", "Sharpening", g, combo=self._edge_combo),
+            button_action("camera.black_level_lock", "Black level lock", g, self._bll_cb),
+            button_action("camera.torch", "Torch", g, self._torch_btn),
+        ]
+        keywords = {"camera.iso": "exposure manual", "camera.shutter": "exposure manual speed",
+                    "camera.compensation": "exposure ev brightness", "camera.temperature": "white balance wb kelvin",
+                    "camera.tint": "white balance wb green magenta", "camera.wb_mode": "wb",
+                    "camera.focus": "manual focus", "camera.stabilization": "ois",
+                    "camera.torch": "flash light", "camera.sharpening": "edge"}
+        for action in actions:
+            action.keywords = keywords.get(action.id, "")
+        return actions
 
     # ── Stream lifecycle ──────────────────────────────────────────────────────
 

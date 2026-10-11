@@ -1,4 +1,6 @@
 import hashlib
+import hmac
+import json
 import logging
 import os
 import shutil
@@ -8,6 +10,7 @@ import sys
 import threading
 import time
 from dataclasses import replace
+from pathlib import Path
 from typing import Callable, Optional
 
 from PyQt6.QtCore import QPoint, QSize, Qt, QTimer, pyqtSignal
@@ -20,7 +23,7 @@ from PyQt6.QtWidgets import (
 
 import update_guard
 from telescope import dev_profile, diagnostics, theme, vcam
-from telescope.config import DEVICE_LOCAL_PLUGINS, load_config, save_config, take_reset_notice
+from telescope.config import DEVICE_LOCAL_PLUGINS, config_path, load_config, save_config, take_reset_notice
 from telescope.models import PhoneState, PhoneStateError
 from telescope.phone_client import PhoneControlClient
 from telescope.platform import IS_LINUX
@@ -116,7 +119,80 @@ def _port_taken_notice():
     )
 
 
-def listen_for_raise(srv: socket.socket, raise_cb):
+_ACTION = b"action:"
+_MAX_REQUEST = 16384
+
+
+def control_key_path() -> Path:
+    """Where the running copy keeps the key `--action` has to send: in the user's own settings folder, so another
+    account on the computer (which can reach the single-instance socket too) can't drive this one's controls."""
+    return config_path().parent / ".control-key"
+
+
+def write_control_key() -> Optional[bytes]:
+    """A new key for this run, readable only by this user; None if it couldn't be written (then --action can't work)."""
+    key = hashlib.sha256(os.urandom(32)).hexdigest().encode()
+    path = control_key_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.unlink(missing_ok=True)  # a new file gets the mode below; an old one would keep its own
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "wb") as f:
+            f.write(key)
+    except OSError:
+        logging.exception("Couldn't write the key for telescope --action")
+        return None
+    return key
+
+
+def send_action(request: dict) -> tuple:
+    """For `telescope --action`: hand request ({"action", "params"} or {"list": True}) to the running copy.
+    Returns (ok, text to print)."""
+    try:
+        key = control_key_path().read_bytes().strip()
+    except OSError:
+        return False, "Telescope isn't running."
+    payload = _ACTION + json.dumps({**request, "key": key.decode(errors="replace")}).encode()
+    c = socket.socket(_INSTANCE_FAMILY, socket.SOCK_STREAM)
+    reply = b""
+    try:
+        c.settimeout(8)
+        c.connect(_INSTANCE_ADDRESS)
+        c.sendall(payload)
+        c.shutdown(socket.SHUT_WR)
+        while len(reply) < 1 << 20:
+            chunk = c.recv(65536)
+            if not chunk:
+                break
+            reply += chunk
+    except OSError:
+        return False, "Telescope isn't running."
+    finally:
+        c.close()
+    try:
+        answer = json.loads(reply.decode())
+        return bool(answer["ok"]), str(answer["text"])
+    except (ValueError, KeyError, TypeError):
+        return False, "Telescope didn't understand that. Is it an older version? Update it to use --action."
+
+
+def _read_request(conn: socket.socket, first: bytes) -> Optional[dict]:
+    data = first
+    while len(data) < _MAX_REQUEST:
+        chunk = conn.recv(4096)
+        if not chunk:
+            break
+        data += chunk
+    try:
+        request = json.loads(data[len(_ACTION):].decode())
+    except (ValueError, UnicodeDecodeError):
+        return None
+    return request if isinstance(request, dict) else None
+
+
+def listen_for_raise(srv: socket.socket, raise_cb, action_cb=None, control_key: Optional[bytes] = None):
+    """Answer later launches: raise:<user token> brings the window up; action:<json> (from --action, carrying
+    control_key) runs action_cb(request) and sends back its {"ok", "text"} as JSON."""
     srv.settimeout(1.0)
     while True:
         try:
@@ -127,8 +203,19 @@ def listen_for_raise(srv: socket.socket, raise_cb):
             break  # closed on quit
         try:
             conn.settimeout(1.0)
-            message = conn.recv(64)
-            if message == b"raise:" + user_token():
+            message = conn.recv(4096)
+            if message.startswith(_ACTION):
+                request = _read_request(conn, message)
+                sent = str((request or {}).get("key", "")).encode()
+                if request is None or action_cb is None or not control_key \
+                        or not hmac.compare_digest(sent, control_key):
+                    reply = {"ok": False, "text": "Telescope turned that down: it didn't come from this user's "
+                                                  "Telescope command."}
+                else:
+                    request.pop("key", None)
+                    reply = action_cb(request)
+                conn.sendall(json.dumps(reply).encode())
+            elif message == b"raise:" + user_token():
                 raise_cb()
                 conn.sendall(b"ok")  # tells the new copy a Telescope answered, not some other program holding the lock
             elif message.startswith(b"raise:"):
@@ -142,6 +229,7 @@ def listen_for_raise(srv: socket.socket, raise_cb):
 # ── Main window ───────────────────────────────────────────────────────────────
 class TelescopeWindow(QMainWindow):
     _sig_raise = pyqtSignal()
+    _sig_action = pyqtSignal(object, object)  # request, {"done": Event} the answer goes in
     _sig_canvas_reload_done = pyqtSignal(bool, str, bool, str)  # ok, msg, restart_stream, command to run by hand
     _sig_slots_ready = pyqtSignal(bool, str, str)  # ok, msg, command to run by hand
     _sig_extras_removed = pyqtSignal(bool, str)
@@ -163,6 +251,7 @@ class TelescopeWindow(QMainWindow):
         self._reconnecting_dots = 1
         self._plugins: list[TelescopePlugin] = []
         self._plugins_by_name: dict[str, TelescopePlugin] = {}
+        self._shortcut_actions: list = []
         # Plugin defaults; lets us reset before applying device profile.
         self._plugin_defaults: dict[str, dict] = {}
 
@@ -203,6 +292,7 @@ class TelescopeWindow(QMainWindow):
         self._setup_tray()
 
         self._sig_raise.connect(self._tray_show)
+        self._sig_action.connect(self._on_remote_action)
         self._sig_canvas_reload_done.connect(self._on_canvas_reload_done)
         self._sig_slots_ready.connect(self._on_slots_ready)
         self._slots_then: Optional[list] = None  # while the extra cameras are being set up: what waits for them
@@ -292,6 +382,10 @@ class TelescopeWindow(QMainWindow):
             self._plugins_by_name[plugin.name] = plugin
         if plugin.name:
             self._plugin_defaults[plugin.name] = plugin.get_config()
+        try:
+            self._shortcut_actions.extend(plugin.create_actions())
+        except Exception:
+            logging.exception("Plugin %s couldn't list its shortcut actions", plugin.name)
 
     def _plugin(self, name: str) -> Optional[TelescopePlugin]:
         """Look up a registered plugin by its declared name, or None."""
@@ -1772,6 +1866,43 @@ class TelescopeWindow(QMainWindow):
         self.showNormal()
         self.raise_()
         self.activateWindow()
+
+    def toggle_window(self) -> bool:
+        if self.isVisible() and not self.isMinimized() and self.isActiveWindow():
+            if self._tray is not None:
+                self.hide()
+            else:
+                self.showMinimized()
+            return False
+        self._tray_show()
+        return True
+
+    def stop_all_streams(self):
+        if self._streams or self._waking:
+            self._stop_all()
+
+    def shortcut_actions(self) -> list:
+        return list(self._shortcut_actions)
+
+    def run_remote_action(self, request: dict) -> dict:
+        """From the single-instance listener's thread: run a `telescope --action` request on this one and wait for
+        its answer."""
+        box = {"done": threading.Event()}
+        self._sig_action.emit(request, box)
+        if not box["done"].wait(5):
+            return {"ok": False, "text": "Telescope didn't answer in time."}
+        return box["reply"]
+
+    def _on_remote_action(self, request, box):
+        try:
+            plugin = self._plugin("shortcuts")
+            box["reply"] = plugin.handle_remote(request) if plugin is not None else {
+                "ok": False, "text": "This Telescope has no shortcuts."}
+        except Exception:
+            logging.exception("A --action request failed")
+            box["reply"] = {"ok": False, "text": "That failed; Copy diagnostics has the details."}
+        finally:
+            box["done"].set()
 
     def start_hidden(self):
         """For --minimized: live in the tray, or minimized where there's no tray."""

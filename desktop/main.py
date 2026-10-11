@@ -53,7 +53,7 @@ from PyQt6.QtWidgets import QApplication
 
 from telescope import dev_profile, diagnostics
 from telescope.app import (
-    TelescopeWindow, acquire_single_instance, listen_for_raise,
+    TelescopeWindow, acquire_single_instance, listen_for_raise, send_action, write_control_key,
 )
 from telescope.platform import IS_LINUX, autostart, virtual_mic
 from telescope.plugins.browser_camera import BrowserCameraPlugin
@@ -65,6 +65,7 @@ from telescope.plugins.onboarding import OnboardingPlugin
 from telescope.plugins.presets import PresetsPlugin
 from telescope.plugins.preview import PreviewPlugin
 from telescope.plugins.setup import SetupPlugin
+from telescope.plugins.shortcuts import ShortcutsPlugin
 from telescope.plugins.startup import StartupPlugin
 from telescope.plugins.wait_screen import WaitScreenPlugin
 from telescope.plugins.stream_output import StreamOutputPlugin
@@ -82,7 +83,35 @@ def parse_args(argv):
                         help="started by the updater: wait for the old copy to exit, then tidy up")
     parser.add_argument("--minimized", action="store_true",
                         help="start in the tray (used when opening at sign-in)")
+    parser.add_argument("--action", nargs="+", metavar=("ID", "NAME=VALUE"),
+                        help="run a shortcut action in the running Telescope, e.g. --action microphone.mute "
+                             "mode=toggle (for desktops without global shortcuts)")
+    parser.add_argument("--list-actions", action="store_true",
+                        help="list the actions --action takes, with their settings")
     return parser.parse_known_args(argv)
+
+
+def action_request(words: list) -> dict:
+    """--action's words as a request: the id, then name=value settings (the running copy reads the numbers)."""
+    params = {}
+    for word in words[1:]:
+        name, sep, value = word.partition("=")
+        if not sep or not name:
+            raise ValueError(f"{word!r} isn't NAME=VALUE")
+        params[name] = value
+    return {"action": words[0], "params": params}
+
+
+def run_action(args) -> int:
+    """--action / --list-actions: talk to the running copy, print what it says, and exit."""
+    try:
+        request = {"list": True} if args.list_actions else action_request(args.action)
+    except ValueError as exc:
+        print(f"telescope: {exc}", file=sys.stderr)
+        return 2
+    ok, text = send_action(request)
+    print(text, file=sys.stdout if ok else sys.stderr)
+    return 0 if ok else 1
 
 
 def main():
@@ -93,6 +122,8 @@ def main():
             windows.warn_running_from_archive()
             sys.exit(1)
     args, qt_argv = parse_args(sys.argv[1:])
+    if args.action or args.list_actions:
+        sys.exit(run_action(args))
     diagnostics.install(APP_DIR)
     app = QApplication([sys.argv[0]] + qt_argv)
     # Set at QApplication level so dialogs and window share icon.
@@ -126,6 +157,7 @@ def main():
     win.register_plugin(MonitoringPlugin())
     win.register_plugin(UpdatesPlugin())
     win.register_plugin(WaitScreenPlugin())  # before Startup: dialogs head the settings menu, toggles follow
+    win.register_plugin(ShortcutsPlugin())  # a dialog in the settings menu, so before Startup too
     win.register_plugin(StartupPlugin())
     win.apply_saved_config()
     if args.minimized:
@@ -135,7 +167,7 @@ def main():
 
     threading.Thread(
         target=listen_for_raise,
-        args=(srv, win._sig_raise.emit),
+        args=(srv, win._sig_raise.emit, win.run_remote_action, write_control_key()),
         daemon=True,
     ).start()
 
