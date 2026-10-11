@@ -48,6 +48,7 @@ class _User32:
         self.taken = set(taken)
         self.registered = {}
         self.down = set()
+        self.sent = []
 
     def RegisterHotKey(self, hwnd, number, flags, vk):
         if (flags & ~MOD_NOREPEAT, vk) in self.taken:
@@ -66,6 +67,9 @@ class _User32:
     def VkKeyScanW(self, ch):
         return -1
 
+    def keybd_event(self, vk, scan, flags, extra):
+        self.sent.append((vk, "up" if flags & 0x2 else "down"))
+
 
 def test_windows_backend_registers_and_reports(qapp):
     user32 = _User32(taken={(MOD_CONTROL, ord("T"))})
@@ -76,6 +80,8 @@ def test_windows_backend_registers_and_reports(qapp):
     assert user32.registered == {1: (MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, ord("M"))}
     assert backend.status("a").working
     assert backend.status("b").text == "Another app already uses this key"
+    assert backend.status("a").reaches_app and not backend.status("b").reaches_app  # Windows gives it to the other app
+    assert backend.status("c").reaches_app
     assert not backend.status("c").working
     assert changed
     backend.apply([])
@@ -100,6 +106,24 @@ def test_windows_backend_presses_and_watches_for_the_release(qapp):
     user32.down.clear()
     assert _wait_for(lambda: ("up", "a") in events)
     assert events == [("down", "a"), ("up", "a")]
+    backend.stop()
+
+
+def test_windows_backend_masks_alt_so_the_app_in_front_shows_no_menu_keys(qapp):
+    user32 = _User32()
+    backend = WindowsHotkeys(user32=user32, install_filter=False)
+    backend.apply([Hotkey("a", "Alt+M", "x"), Hotkey("b", "Ctrl+Alt+K", "y"), Hotkey("c", "Meta+Alt+J", "z"),
+                   Hotkey("d", "Ctrl+Shift+L", "w")])
+    backend._on_hotkey(1)
+    assert user32.sent == [(0x11, "down"), (0x11, "up")]
+    user32.sent.clear()
+    user32.down.add(0x11)  # Ctrl is part of the key and still held: it stays held
+    backend._on_hotkey(2)
+    assert user32.sent == [(0x11, "up"), (0x11, "down")]
+    user32.sent.clear()
+    backend._on_hotkey(3)  # Windows already keeps a Win key from opening Start
+    backend._on_hotkey(4)
+    assert user32.sent == []
     backend.stop()
 
 

@@ -61,3 +61,14 @@ def test_closing_tells_whoever_showed_it(qapp):
     area.show_issue("start", Issue("Waiting", on_dismiss=lambda: closed.append(1)))
     area.banner("start").close_btn.click()
     assert closed == [1] and area.keys() == []
+
+
+def test_clearing_one_issue_leaves_a_newer_one_under_the_same_key(qapp):
+    area = BannerArea()
+    old, new = Issue("Old", "x"), Issue("New", "y")
+    area.show_issue("start", old)
+    area.show_issue("start", new)
+    area.clear_issue("start", old)
+    assert area.issue("start") is new
+    area.clear_issue("start", new)
+    assert area.issue("start") is None

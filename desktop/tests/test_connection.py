@@ -41,7 +41,9 @@ class _Host:
     def show_issue(self, key, issue):
         self.issues[key] = issue
 
-    def clear_issue(self, key=None):
+    def clear_issue(self, key=None, issue=None):
+        if issue is not None and self.issues.get(key) is not issue:
+            return
         if key is None:
             self.issues.clear()
         else:
@@ -723,6 +725,16 @@ def test_start_without_a_phone_explains_and_refuses(plugin_env, monkeypatch):
     assert issue.title == "No phone yet"
     issue.actions[0].callback()
     assert opened == [True]
+
+
+def test_pairing_a_phone_takes_down_the_no_phone_banner(plugin_env):
+    plugin, host, _panel = plugin_env
+    plugin.get_stream_info()
+    _add(plugin)
+    assert "start" not in host.issues
+    plugin.get_stream_info()  # a later problem with the phone stays up when another phone pairs
+    _add(plugin, pid="id-b", name="Galaxy", token="tok-b")
+    assert host.issues["start"].title != "No phone yet"
 
 
 def test_start_on_an_unreachable_phone_shows_the_fix(plugin_env):

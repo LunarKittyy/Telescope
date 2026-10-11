@@ -32,6 +32,8 @@ class HotkeyStatus:
     working: bool
     text: str
     """What to show next to the binding: the key the system bound, or why it doesn't work."""
+    reaches_app: bool = True
+    """False when the key doesn't even reach Telescope's own window (another app took it on Windows)."""
 
 
 class HotkeyBackend(QObject):

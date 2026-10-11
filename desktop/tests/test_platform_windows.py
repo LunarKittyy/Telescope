@@ -354,3 +354,8 @@ def test_the_first_powershell_comes_from_the_system_folder(monkeypatch, tmp_path
     monkeypatch.setattr(windows.subprocess, "run", lambda cmd, **_k: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
     windows.register_unitycapture()
     assert calls[0][0] == str(Path("C:/Windows/System32") / "WindowsPowerShell" / "v1.0" / "powershell.exe")
+
+
+def test_only_the_installed_copy_takes_the_start_menu_entrys_app_id(tmp_path):
+    from telescope.platform import windows
+    assert not windows.use_installed_app_id(tmp_path)  # unzipped: no uninstaller, so no shortcut with the id

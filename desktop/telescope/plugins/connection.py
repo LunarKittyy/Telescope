@@ -474,6 +474,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._computer_name = default_computer_name()
         self._resolution: Optional[Resolution] = None
         self._check_id = 0
+        self._no_phone_issue: Optional[Issue] = None  # the "No phone yet" banner, while it may still be up
         self._running_check: Optional[int] = None  # the idle check still resolving; the poll waits for it
         self._check_started = 0.0
         self._watch_id = 0
@@ -944,9 +945,9 @@ class ConnectionPlugin(TelescopePlugin):
         pid = self._selected_id if pid is None else pid
         phone = self.phone(pid)
         if phone is None:
-            self._host.show_issue("start", Issue(
-                "No phone yet", "Add a phone to stream from.",
-                [BannerAction("Add phone", self.open_add_phone)], kind="warn"))
+            self._no_phone_issue = Issue("No phone yet", "Add a phone to stream from.",
+                                         [BannerAction("Add phone", self.open_add_phone)], kind="warn")
+            self._host.show_issue("start", self._no_phone_issue)
             return None, None, False
         res = run_off_ui_thread(self._resolver.resolve, Phone(**phone.to_dict()), self._route_pref)
         if pid == self._selected_id:
@@ -1307,6 +1308,9 @@ class ConnectionPlugin(TelescopePlugin):
             else:
                 self._phones.append(phone)
         self._select(result.phone_id, force=True)  # one streaming next to others gets the panels
+        if self._no_phone_issue is not None:  # a Start pressed before there was a phone left it up
+            self._host.clear_issue("start", self._no_phone_issue)
+            self._no_phone_issue = None
         if streams:
             self._host.reconnect_stream(result.phone_id)  # the running stream still holds the old token
         self._host.save_now()

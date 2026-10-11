@@ -267,3 +267,12 @@ def test_edits_text():
     from telescope.plugins.shortcuts import edits_text
     assert edits_text("Z") and edits_text("Space") and edits_text("Shift+Left")
     assert not edits_text("F8") and not edits_text("Volume Mute") and not edits_text("Ctrl+Z")
+
+
+def test_native_keys_names_the_windows_key_after_the_system(qapp, monkeypatch):
+    import telescope.shortcuts as shortcuts
+    monkeypatch.setattr(shortcuts, "META_NAME", "Meta")
+    assert shortcuts.native_keys("Meta+Alt+W") == "Meta+Alt+W"
+    monkeypatch.setattr(shortcuts, "META_NAME", "Win")
+    assert shortcuts.native_keys("Meta+Alt+W") == "Win+Alt+W"
+    assert shortcuts.native_keys("Ctrl+M") == "Ctrl+M"

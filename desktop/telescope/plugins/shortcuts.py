@@ -32,7 +32,7 @@ from telescope.platform import IS_LINUX, IS_WINDOWS, autostart
 from telescope.platform.hotkeys import Hotkey, create_backend
 from telescope.plugin import TelescopePlugin
 from telescope.shortcuts import (
-    Param, ShortcutAction, clashes, clean_bindings, has_command_modifier, keys_from_event, native_keys,
+    META_NAME, Param, ShortcutAction, clashes, clean_bindings, has_command_modifier, keys_from_event, native_keys,
     new_binding_id, normalize_keys, split_keys,
 )
 from telescope.widgets.common import (
@@ -105,6 +105,9 @@ def portal_app_id() -> str:
     return autostart.APP_ID + ("-dev" if dev_profile.active() else "")
 
 
+WINDOW_SHOWN = "Telescope: shown"
+
+
 class ShortcutsPlugin(TelescopePlugin):
     name = "shortcuts"
 
@@ -159,7 +162,7 @@ class ShortcutsPlugin(TelescopePlugin):
             return f"Phone camera: {'on' if host.is_camera_on() else 'off'}"
 
         def window(_p):
-            return f"Telescope: {'shown' if host.toggle_window() else 'hidden'}"
+            return WINDOW_SHOWN if host.toggle_window() else "Telescope: hidden"
 
         camera_modes = (("toggle", "Switch on or off"), ("on", "Turn on"), ("off", "Turn off"))
         return [
@@ -257,7 +260,9 @@ class ShortcutsPlugin(TelescopePlugin):
         status = self._backend.status(binding["id"])
         if status is None:
             return "Everywhere (setting up)", True
-        return (status.text, True) if status.working else (f"In Telescope: {status.text}", False)
+        if status.working:
+            return status.text, True
+        return (f"In Telescope: {status.text}", False) if status.reaches_app else (status.text, False)
 
     # ── Running ───────────────────────────────────────────────────────────────
 
@@ -299,7 +304,9 @@ class ShortcutsPlugin(TelescopePlugin):
             if not repeat:
                 self._held.pop(bid, None)  # nothing happened, so there's nothing to undo on release
             return None
-        if source != "app" and self._notify and QApplication.activeWindow() is None:
+        # Showing the window says it all, and Windows only activates it a moment later
+        shown = said == WINDOW_SHOWN
+        if source != "app" and self._notify and QApplication.activeWindow() is None and not shown:
             self._host.send_notification("Telescope", said, urgent=False)
         return said
 
@@ -775,6 +782,9 @@ class BindingEditor(QDialog):
             self._keys_edit.setKeySequence(QKeySequence.fromString(binding["keys"],
                                                                    QKeySequence.SequenceFormat.PortableText))
         self._keys_edit.keySequenceChanged.connect(lambda _s: self._check())
+        if META_NAME != "Meta":  # Qt writes the Windows key as Meta
+            self._keys_edit.keySequenceChanged.connect(lambda _s: self._show_native_keys())
+            self._show_native_keys()
         lay.addLayout(control_row("Key", self._keys_edit, stretch=True))
 
         self._global_box = QCheckBox("Also works while another app is in front")
@@ -783,6 +793,7 @@ class BindingEditor(QDialog):
         lay.addLayout(control_row("", self._global_box, stretch=True))
         self._problem = wrapped_note("", kind="status_warn")
         lay.addWidget(self._problem)
+        lay.addStretch(1)  # spare height goes below, so rows don't move when the note or a setting hides
 
         self._copy_btn = QPushButton("Copy command")
         self._copy_btn.setToolTip("A command line that does the same, for your desktop's own keyboard settings")
@@ -907,6 +918,11 @@ class BindingEditor(QDialog):
         self._check()
         self.adjustSize()
 
+    def _show_native_keys(self):
+        line = self._keys_edit.findChild(QLineEdit)
+        if line is not None and self._keys():
+            line.setText(native_keys(self._keys()))
+
     def _keys(self) -> str:
         return normalize_keys(self._keys_edit.keySequence().toString(QKeySequence.SequenceFormat.PortableText))
 
@@ -916,14 +932,15 @@ class BindingEditor(QDialog):
         if self._action_combo.currentData() is None:
             problem = "No control matches that search." if self._action_combo.count() == 0 else "Pick a control."
         elif not keys:
-            problem = ("Press a key, with Ctrl, Alt, Shift or Meta if you like." if self._keys_edit.keySequence().isEmpty()
+            problem = (f"Press a key, with Ctrl, Alt, Shift or {META_NAME} if you like."
+                       if self._keys_edit.keySequence().isEmpty()
                        else "A modifier can't be a shortcut on its own. Add a key to it.")
         elif (other := next((b for b in self._plugin.bindings
                              if b["keys"] == keys and b["id"] != self._binding["id"]), None)) is not None:
             problem = f"{native_keys(keys)} already does \"{self._plugin.describe(other)}\". Pick another key."
         elif self._global_box.isChecked() and edits_text(keys):
             problem, blocking = (f"Everywhere, {native_keys(keys)} would stop typing it in other apps. "
-                                 "Adding Ctrl, Alt or Meta is safer."), False
+                                 f"Adding Ctrl, Alt or {META_NAME} is safer."), False
         hold = self._params().get("mode") == "hold"
         self._copy_btn.setEnabled(not hold)
         self._copy_btn.setToolTip("A command can't hold a key down; pick another choice to copy one" if hold else
