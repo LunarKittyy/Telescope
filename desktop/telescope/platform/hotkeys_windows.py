@@ -3,7 +3,8 @@
 Registered with no window, so Windows posts WM_HOTKEY to the GUI thread's queue, where a native event filter
 sees it before Qt would drop it. Windows never says when the key comes back up, so for "while held" a timer
 watches the key (GetAsyncKeyState) once it went down. No hook, no admin rights: a key another app already
-registered just fails, and the dialog says so.
+registered just fails, and the dialog says so. Windows hands that key to the other app even while Telescope is
+in front, so it doesn't work inside Telescope either.
 """
 
 import ctypes
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 WM_HOTKEY = 0x0312
 MOD_ALT, MOD_CONTROL, MOD_SHIFT, MOD_WIN, MOD_NOREPEAT = 0x1, 0x2, 0x4, 0x8, 0x4000
+VK_CONTROL, KEYEVENTF_KEYUP = 0x11, 0x2
 _MODS = {"Ctrl": MOD_CONTROL, "Alt": MOD_ALT, "Shift": MOD_SHIFT, "Meta": MOD_WIN}
 _RELEASE_POLL_MS = 30
 
@@ -76,7 +78,7 @@ class WindowsHotkeys(HotkeyBackend):
     def __init__(self, user32=None, install_filter: bool = True):
         super().__init__()
         self._user32 = user32 if user32 is not None else _load_user32()
-        self._by_number: dict = {}  # RegisterHotKey's id: (hotkey id, virtual-key code)
+        self._by_number: dict = {}  # RegisterHotKey's id: (hotkey id, virtual-key code, modifier flags)
         self._statuses: dict = {}
         self._hotkeys: list = []
         self._held: dict = {}  # hotkey id: virtual-key code, while its key is down
@@ -105,10 +107,10 @@ class WindowsHotkeys(HotkeyBackend):
                 continue
             flags, vk = native
             if self._user32.RegisterHotKey(None, number, flags | MOD_NOREPEAT, vk):
-                self._by_number[number] = (hk.id, vk)
+                self._by_number[number] = (hk.id, vk, flags)
                 self._statuses[hk.id] = HotkeyStatus(True, "Everywhere")
             else:
-                self._statuses[hk.id] = HotkeyStatus(False, "Another app already uses this key")
+                self._statuses[hk.id] = HotkeyStatus(False, "Another app already uses this key", reaches_app=False)
         self.changed.emit()
 
     def status(self, hotkey_id: str) -> Optional[HotkeyStatus]:
@@ -116,7 +118,7 @@ class WindowsHotkeys(HotkeyBackend):
 
     def note(self) -> str:
         return ("Everywhere shortcuts are taken from Windows while Telescope runs. A key another app already "
-                "took only works inside Telescope.")
+                "took doesn't reach Telescope at all, so pick another.")
 
     def stop(self) -> None:
         self._unregister_all()
@@ -139,12 +141,20 @@ class WindowsHotkeys(HotkeyBackend):
         entry = self._by_number.get(number)
         if entry is None:
             return
-        hid, vk = entry
+        hid, vk, flags = entry
         if hid in self._held:
             return  # MOD_NOREPEAT should already stop these
         self._held[hid] = vk
         self._poll.start()
         self.pressed.emit(hid)
+        if flags & MOD_ALT and not flags & MOD_WIN:
+            self._mask_alt()  # after the action, so it reaches the window in front once Telescope hid or showed
+
+    def _mask_alt(self):
+        # Windows keeps the key itself, so the app in front sees Alt go down and up alone and shows its menu key tips
+        held = self._user32.GetAsyncKeyState(VK_CONTROL) & 0x8000
+        for up in ((True, False) if held else (False, True)):  # a held Ctrl stays held
+            self._user32.keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP if up else 0, 0)
 
     def _check_released(self):
         for hid, vk in list(self._held.items()):
@@ -165,4 +175,6 @@ def _load_user32():
     user32.GetAsyncKeyState.restype = ctypes.c_short
     user32.VkKeyScanW.argtypes = [wintypes.WCHAR]
     user32.VkKeyScanW.restype = ctypes.c_short
+    user32.keybd_event.argtypes = [wintypes.BYTE, wintypes.BYTE, wintypes.DWORD, ctypes.c_size_t]
+    user32.keybd_event.restype = None
     return user32

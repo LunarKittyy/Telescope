@@ -144,6 +144,8 @@ def test_only_global_bindings_without_clashes_go_to_the_system(make):
     assert plugin.where(plugin.bindings[0]) == ("Everywhere (setting up)", True)
     backend.statuses["a"] = HotkeyStatus(False, "Another app already uses this key")
     assert plugin.where(plugin.bindings[0]) == ("In Telescope: Another app already uses this key", False)
+    backend.statuses["a"] = HotkeyStatus(False, "Another app already uses this key", reaches_app=False)
+    assert plugin.where(plugin.bindings[0]) == ("Another app already uses this key", False)
 
 
 def test_a_global_press_runs_the_action_and_hold_comes_back_on_release(make, card):
@@ -530,3 +532,12 @@ def test_hold_comes_back_by_scan_code_when_the_key_changes_on_release(make, card
 def test_remote_numbers_must_be_finite(make, params, says):
     plugin, _host, _ = make()
     assert says in plugin.handle_remote({"action": "transforms.zoom", "params": params})["text"]
+
+
+def test_showing_the_window_from_the_background_doesnt_notify(make, monkeypatch):
+    monkeypatch.setattr(QApplication, "activeWindow", staticmethod(lambda: None))
+    _plugin, host, backend = make([_b("a", "Ctrl+Alt+H", "window.show_hide", glob=True)], notify=True)
+    backend.pressed.emit("a")  # shown: the window itself is the answer
+    backend.released.emit("a")
+    backend.pressed.emit("a")
+    assert host.notes == [("Telescope", "Telescope: hidden", False)]
