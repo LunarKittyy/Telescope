@@ -110,12 +110,59 @@ begin
       RegDeleteValue(HKCU, RunKey, RunValue);
 end;
 
+// The processes running from Exe (a full path), through WMI; Stop ends them. -1 when WMI can't be asked.
+function RunningFrom(Exe: String; Stop: Boolean): Integer;
+var
+  Locator, Wmi, Procs, Proc: Variant;
+  I: Integer;
+begin
+  Result := 0;
+  StringChangeEx(Exe, '\', '\\', True);  // WQL string escapes
+  StringChangeEx(Exe, '''', '\''', True);
+  try
+    Locator := CreateOleObject('WbemScripting.SWbemLocator');
+    Wmi := Locator.ConnectServer('.', 'root\CIMV2');
+    Procs := Wmi.ExecQuery('SELECT ProcessId FROM Win32_Process WHERE ExecutablePath = ''' + Exe + '''');
+    Result := Procs.Count;
+    if Stop then
+      for I := 0 to Procs.Count - 1 do
+      begin
+        Proc := Procs.ItemIndex(I);
+        Proc.Terminate(0);
+      end;
+  except
+    Log('Couldn''t look for running processes: ' + GetExceptionMessage);
+    Result := -1;
+  end;
+end;
+
+// Restart Manager only closes apps during setup: close a running Telescope and Get adb's adb server, or files stay
+procedure CloseRunningCopies();
+var
+  App, Adb: String;
+  I: Integer;
+begin
+  App := ExpandConstant('{app}\{#AppExe}');
+  Adb := ExpandConstant('{localappdata}\Telescope\platform-tools\adb.exe');
+  RunningFrom(App, True);
+  RunningFrom(Adb, True);
+  for I := 1 to 50 do
+  begin
+    if (RunningFrom(App, False) <= 0) and (RunningFrom(Adb, False) <= 0) then
+      Exit;
+    Sleep(100);
+  end;
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   Settings: String;
 begin
   if CurUninstallStep = usUninstall then
+  begin
+    CloseRunningCopies();  // after "Are you sure?", so saying no there leaves Telescope running
     RemoveStartAtSignIn();
+  end;
   if CurUninstallStep = usPostUninstall then
   begin
     // Settings and pairings stay unless asked, so a reinstall picks up where it left off

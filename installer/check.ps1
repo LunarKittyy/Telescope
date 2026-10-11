@@ -52,6 +52,21 @@ for ($i = 0; $i -lt 60 -and (Test-Path $app); $i++) { Start-Sleep -Seconds 1 }
 if ((Get-ItemProperty $runKey).Telescope -notlike "*C:\Tools\Telescope*") { $problems += "uninstall removed another copy's sign-in entry" }
 Remove-ItemProperty $runKey -Name "Telescope"
 
+# Telescope still running (in the tray, say) gets closed, so the uninstall can take all of its files
+$p = Start-Process -FilePath $Setup -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
+$env:QT_QPA_PLATFORM = "offscreen"
+$running = Start-Process -FilePath "$app\TelescopeDesktop.exe" -ArgumentList "--minimized" -PassThru
+Remove-Item Env:QT_QPA_PLATFORM
+Start-Sleep -Seconds 8
+if ($running.HasExited) { $problems += "Telescope didn't stay running for the uninstall-while-running check" }
+Start-Process -FilePath "$app\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait | Out-Null
+for ($i = 0; $i -lt 60 -and (Test-Path $app); $i++) { Start-Sleep -Seconds 1 }
+if (Test-Path $app) {
+    $left = Get-ChildItem $app -Recurse -Force | ForEach-Object { $_.FullName.Substring($app.Length + 1) }
+    $problems += "uninstalling while Telescope ran left: $($left -join ', ')"
+}
+if (-not $running.HasExited) { $problems += "uninstalling left Telescope running"; Stop-Process -Id $running.Id -Force }
+
 if ($problems) {
     $problems | ForEach-Object { Write-Host "::error::$_" }
     exit 1
