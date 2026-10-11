@@ -144,11 +144,11 @@ class WindowsHotkeys(HotkeyBackend):
         hid, vk, flags = entry
         if hid in self._held:
             return  # MOD_NOREPEAT should already stop these
-        if flags & MOD_ALT and not flags & MOD_WIN:
-            self._mask_alt()
         self._held[hid] = vk
         self._poll.start()
         self.pressed.emit(hid)
+        if flags & MOD_ALT and not flags & MOD_WIN:
+            self._mask_alt()  # after the action, so it reaches the window in front once Telescope hid or showed
 
     def _mask_alt(self):
         # Windows keeps the key itself, so the app in front sees Alt go down and up alone and shows its menu key tips

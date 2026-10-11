@@ -105,6 +105,9 @@ def portal_app_id() -> str:
     return autostart.APP_ID + ("-dev" if dev_profile.active() else "")
 
 
+WINDOW_SHOWN = "Telescope: shown"
+
+
 class ShortcutsPlugin(TelescopePlugin):
     name = "shortcuts"
 
@@ -159,7 +162,7 @@ class ShortcutsPlugin(TelescopePlugin):
             return f"Phone camera: {'on' if host.is_camera_on() else 'off'}"
 
         def window(_p):
-            return f"Telescope: {'shown' if host.toggle_window() else 'hidden'}"
+            return WINDOW_SHOWN if host.toggle_window() else "Telescope: hidden"
 
         camera_modes = (("toggle", "Switch on or off"), ("on", "Turn on"), ("off", "Turn off"))
         return [
@@ -301,7 +304,9 @@ class ShortcutsPlugin(TelescopePlugin):
             if not repeat:
                 self._held.pop(bid, None)  # nothing happened, so there's nothing to undo on release
             return None
-        if source != "app" and self._notify and QApplication.activeWindow() is None:
+        # Showing the window says it all, and Windows only activates it a moment later
+        shown = said == WINDOW_SHOWN
+        if source != "app" and self._notify and QApplication.activeWindow() is None and not shown:
             self._host.send_notification("Telescope", said, urgent=False)
         return said
 
