@@ -178,7 +178,10 @@ def send_action(request: dict) -> tuple:
 
 def _read_request(conn: socket.socket, first: bytes) -> Optional[dict]:
     data = first
+    deadline = time.monotonic() + 2  # a client that trickles bytes mustn't hold up every later raise
     while len(data) < _MAX_REQUEST:
+        if time.monotonic() > deadline:
+            return None
         chunk = conn.recv(4096)
         if not chunk:
             break

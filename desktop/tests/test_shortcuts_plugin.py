@@ -480,9 +480,39 @@ def test_desktop_settings_button_asks_again_for_unconfirmed_ones(make):
     backend.system_picks_keys = True
     backend.statuses["a"] = HotkeyStatus(False, "Not confirmed in the desktop's dialog")
     backend.configure = lambda: False
+    backend.can_rebind = lambda: True
     before = len(backend.applied)
     assert plugin.open_system_settings()
     assert len(backend.applied) == before + 1
+
+
+def test_desktop_settings_button_opens_plasmas_page_when_the_portal_cant_help(make, monkeypatch):
+    plugin, _host, backend = make([_b("a", "F9", "camera.torch", glob=True)])
+    backend.system_picks_keys = True
+    launched = []
+    monkeypatch.setattr(shortcuts_module, "IS_LINUX", True)
+    monkeypatch.setattr(shortcuts_module.subprocess, "Popen", lambda cmd, **_k: launched.append(cmd))
+    before = len(backend.applied)
+    assert plugin.open_system_settings()
+    assert launched == [["systemsettings", "kcm_keys"]]
+    assert len(backend.applied) == before
+
+
+def test_editor_warns_about_typing_keys_only(make):
+    plugin, _host, _ = make()
+    editor = BindingEditor(plugin, {"id": "n", "keys": "", "action": "camera.torch", "params": {"mode": "hold"},
+                                    "global": True})
+    try:
+        editor._keys_edit.setKeySequence(QKeySequence("F5"))
+        assert editor._problem.isHidden()
+        editor._keys_edit.setKeySequence(QKeySequence("Q"))
+        assert "stop typing" in editor._problem.text()
+        assert not editor._copy_btn.isEnabled()  # a command can't hold a key
+        mode = editor._param_widgets["mode"][1]
+        mode.setCurrentIndex(mode.findData("toggle"))
+        assert editor._copy_btn.isEnabled()
+    finally:
+        editor.deleteLater()
 
 
 def test_hold_comes_back_by_scan_code_when_the_key_changes_on_release(make, card):

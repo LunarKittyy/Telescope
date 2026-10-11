@@ -75,6 +75,10 @@ class HotkeyBackend(QObject):
     def can_configure(self) -> bool:
         return False
 
+    def can_rebind(self) -> bool:
+        """Whether binding the same keys again would ask the user once more (some weren't confirmed)."""
+        return False
+
     def configure(self) -> bool:
         """Open the system's own settings for these shortcuts; False if that didn't work."""
         return False

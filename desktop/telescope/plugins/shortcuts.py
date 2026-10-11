@@ -467,8 +467,7 @@ class ShortcutsPlugin(TelescopePlugin):
         """The desktop's own shortcut settings: the portal's dialog for these, or Plasma's Shortcuts page."""
         if self._backend is not None and self._backend.configure():
             return True
-        if self._backend is not None and self._backend.system_picks_keys and any(
-                b["global"] and not self.where(b)[1] for b in self._bindings):
+        if self._backend is not None and self._backend.can_rebind():
             self.rebind_global()  # some weren't confirmed: the desktop asks again
             return True
         if IS_LINUX:
@@ -726,6 +725,7 @@ class ShortcutsDialog(QDialog):
         copy = QAction("Copy command line", menu)
         copy.triggered.connect(lambda: QGuiApplication.clipboard().setText(
             command_text(action_command(binding["action"], binding["params"]))))
+        copy.setEnabled(binding["params"].get("mode") != "hold")  # nothing would let go of it
         menu.addAction(copy)
         menu.exec(self._list.viewport().mapToGlobal(pos))
         menu.deleteLater()
@@ -921,16 +921,20 @@ class BindingEditor(QDialog):
         elif (other := next((b for b in self._plugin.bindings
                              if b["keys"] == keys and b["id"] != self._binding["id"]), None)) is not None:
             problem = f"{native_keys(keys)} already does \"{self._plugin.describe(other)}\". Pick another key."
-        elif self._global_box.isChecked() and not has_command_modifier(keys):
+        elif self._global_box.isChecked() and edits_text(keys):
             problem, blocking = (f"Everywhere, {native_keys(keys)} would stop typing it in other apps. "
                                  "Adding Ctrl, Alt or Meta is safer."), False
+        hold = self._params().get("mode") == "hold"
+        self._copy_btn.setEnabled(not hold)
+        self._copy_btn.setToolTip("A command can't hold a key down; pick another choice to copy one" if hold else
+                                  "A command line that does the same, for your desktop's own keyboard settings")
         self._problem.setText(problem)
         self._problem.setVisible(bool(problem))
         self._save_btn.setEnabled(not (problem and blocking))
 
     def _copy_command(self):
         action_id = self._action_combo.currentData()
-        if action_id:
+        if action_id and self._params().get("mode") != "hold":
             QGuiApplication.clipboard().setText(command_text(action_command(action_id, self._params())))
             self._copy_btn.setText("Copied")
             QTimer.singleShot(1500, lambda: self._copy_btn.setText("Copy command"))

@@ -128,6 +128,11 @@ class PortalHotkeys(HotkeyBackend):
         with self._lock:
             return self._version >= 2 and self._session is not None and self._state == "ready"
 
+    def can_rebind(self) -> bool:
+        with self._lock:
+            return self._state == "ready" and any(
+                not st.working and st.text.startswith("Not confirmed") for st in self._statuses.values())
+
     def configure(self) -> bool:
         if not self.can_configure():
             return False

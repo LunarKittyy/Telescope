@@ -282,12 +282,18 @@ def test_portal_without_global_shortcuts_says_so(portal_backend):
     assert not backend.status("b1").working
     assert "doesn't offer global shortcuts" in backend.note()
     assert not backend.can_configure()
+    assert not backend.can_rebind()
 
 
 def test_portal_shortcuts_the_user_turned_down(portal_backend):
     portal, backend, _ = portal_backend(accept=False)
     backend.apply([Hotkey("b1", "Ctrl+M", "Mute")])
     assert _wait_for(lambda: backend.status("b1") is not None and "Not confirmed" in backend.status("b1").text)
+    assert backend.can_rebind()
+    portal.accept = True
+    backend.apply([Hotkey("b1", "Ctrl+M", "Mute")])
+    assert _wait_for(lambda: backend.status("b1").working)
+    assert not backend.can_rebind()
 
 
 def test_windows_backend_lets_go_while_suspended(qapp):
