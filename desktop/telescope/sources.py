@@ -245,7 +245,8 @@ class PhoneSource(Source):
     _sig_wake_done = pyqtSignal(int, bool, str, str, object)  # wake_id, ok, reason, url, PhoneAuth
     _sig_wake_progress = pyqtSignal(int, str)  # wake_id, status text
     _sig_recovery_probed = pyqtSignal(int, int, object)  # session id, recovery generation, Resolution
-    _sig_camera_rate = pyqtSignal(int, float, float)  # session id, frames arriving per second, the phone's camera rate
+    # session id, frames arriving per second, the phone's camera rate, the rate Dynamic stepped down to (0: none)
+    _sig_camera_rate = pyqtSignal(int, float, float, int)
     _sig_alive = pyqtSignal(int, bool)  # session id, whether the phone answered (camera off)
     _sig_camera_check = pyqtSignal(int, object)  # session id, the phone's state after turning the camera on (or None)
 
@@ -267,6 +268,7 @@ class PhoneSource(Source):
         self._camera_check_busy = False
         self._camera_fps: Optional[float] = None  # 0: not known
         self._camera_fps_until = 0.0
+        self.dynamic_fps = 0  # the rate the phone's Dynamic stepped down to for a slow link, as last asked; 0 = none
         self._alive_timer = QTimer(self)
         self._alive_timer.setInterval(_ALIVE_POLL_MS)
         self._alive_timer.timeout.connect(self._check_alive)
@@ -371,6 +373,7 @@ class PhoneSource(Source):
             conn.release_stream(self.id)
         self._alive_timer.stop()
         self._camera_fps = None
+        self.dynamic_fps = 0
 
     def _stop_phone_async(self, target=None):
         """Tell phone to shut camera down; tracked thread lets quit path wait for it."""
@@ -569,17 +572,20 @@ class PhoneSource(Source):
         session = self.session
         state = session.client.get_state() if session is not None and session.id == session_id else None
         rate = state.get("camera_fps") if state else None
+        stepped = state.get("dynamic_fps") if state else None
         try:
-            self._sig_camera_rate.emit(session_id, arrival, float(rate) if isinstance(rate, (int, float)) else 0.0)
+            self._sig_camera_rate.emit(session_id, arrival, float(rate) if isinstance(rate, (int, float)) else 0.0,
+                                       stepped if isinstance(stepped, int) and stepped > 0 else 0)
         except RuntimeError:
             pass  # the window is gone
 
-    def _on_camera_rate(self, session_id: int, arrival: float, camera_fps: float):
+    def _on_camera_rate(self, session_id: int, arrival: float, camera_fps: float, dynamic_fps: int = 0):
         self._camera_check_busy = False
         session = self.session
         if session is None or session.id != session_id or self is not self._win._focus:
             return
         self._camera_fps = camera_fps
+        self.dynamic_fps = dynamic_fps
         self._camera_fps_until = time.monotonic() + _CAMERA_FPS_KEEP_S
         if self.arrival_slow:
             self._win._show_slow(True, camera_limited=self._camera_limits(arrival))

@@ -83,8 +83,31 @@ jobs:
       build: ${{ needs.meta.outputs.build }}
       channel: ${{ needs.meta.outputs.channel }}
 
+  # The setup holds the same files as Telescope-windows.zip, APK included, so it's built once both are ready.
+  windows-setup:
+    needs: [meta, apk, windows]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+
+      - name: Build TelescopeSetup.exe
+        shell: pwsh
+        run: |
+          Copy-Item dist/apk/Telescope.apk dist/windows-bundle/
+          ./installer/build.ps1 -Bundle dist/windows-bundle -Out setup -Build "${{ needs.meta.outputs.build }}"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-setup
+          path: setup/TelescopeSetup.exe
+          retention-days: 7
+
   publish:
-    needs: [meta, apk, windows, linux]
+    needs: [meta, apk, windows, linux, windows-setup]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -106,6 +129,7 @@ jobs:
         run: |
           mkdir out
           cp dist/apk/Telescope.apk out/
+          cp dist/windows-setup/TelescopeSetup.exe out/  # in manifest.json too: an unzipped copy updates through it
           cp dist/apk/Telescope.apk dist/windows-bundle/
           (cd dist/windows-bundle && zip -qr ../../out/Telescope-windows.zip .)
           cp dist/apk/Telescope.apk dist/linux-bundle/
@@ -117,7 +141,7 @@ jobs:
           python3 .github/write_manifest.py
           --version "$VERSION" --build "$BUILD" --channel "$CHANNEL" --commit "$GITHUB_SHA"
           --tag "$TAG" --repo "$GITHUB_REPOSITORY" --out out/manifest.json
-          out/Telescope.apk out/Telescope-windows.zip out/Telescope-linux.tar.gz
+          out/Telescope.apk out/Telescope-windows.zip out/TelescopeSetup.exe out/Telescope-linux.tar.gz
 
       - name: Publish the stable release
         if: needs.meta.outputs.channel == 'stable'

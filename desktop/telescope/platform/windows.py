@@ -5,10 +5,10 @@ import re
 import shutil
 import subprocess
 import sys
-import urllib.request
 from pathlib import Path
 from typing import Optional
 
+from telescope import web
 from telescope.platform import NO_WINDOW
 
 # Pinned commit with hash verification to prevent tampering before registration.
@@ -58,7 +58,7 @@ def download_unitycapture(progress_cb=None) -> tuple:
         try:
             if progress_cb:
                 progress_cb(f"Downloading {name}...")
-            with urllib.request.urlopen(url, timeout=30) as r, open(part, "wb") as f:  # urlretrieve never times out
+            with web.urlopen(url, 30) as r, open(part, "wb") as f:  # urlretrieve never times out
                 shutil.copyfileobj(r, f)
             digest = _sha256(part)
             if digest != _EXPECTED_SHA256[name]:

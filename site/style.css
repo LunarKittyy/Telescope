@@ -192,3 +192,48 @@ body.static .stop:not(.hero) { min-height: 0; padding-top: 110px; padding-bottom
   .zoomed, .zoom-veil { transition: none; }
   .scroll-hint svg { animation: none; }
 }
+
+/* subpages (compare): a plain reading page with the same look, no trip */
+.subpage .topbar::before { opacity: 1; }
+.page { max-width: var(--wide); margin: 0 auto; padding: 120px var(--gutter) 40px; }
+.page h1 { font-size: clamp(2.4rem, 6vw, 4.4rem); font-weight: 800; line-height: 0.98; letter-spacing: -0.035em; font-variation-settings: "opsz" 96; }
+.page > .lede { max-width: 40em; }
+.table-wrap { margin-top: 48px; overflow-x: auto; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; background: rgba(22, 26, 33, 0.6); }
+.table-wrap:focus-visible { outline: 2px solid var(--lavender); outline-offset: 3px; }
+.compare { width: 100%; min-width: 760px; border-collapse: collapse; font-size: 0.97rem; }
+.compare caption { text-align: left; padding: 18px 20px 6px; font-family: var(--display); font-size: 1.15rem; font-weight: 600; color: var(--ink); }
+.compare th, .compare td { text-align: left; vertical-align: top; padding: 14px 20px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+.compare thead th { font-family: var(--display); font-size: 1.05rem; font-weight: 600; border-top: 0; }
+.compare tbody th { font-weight: 500; color: var(--ink-muted); width: 22%; }
+.compare td { color: var(--ink-muted); }
+.compare .us { color: var(--ink); background: rgba(170, 156, 245, 0.08); }
+.compare thead .us { color: var(--lavender-light); }
+.compare .span-note { font-style: italic; color: var(--ink-faint); }
+.cols { margin-top: 72px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(40px, 7vw, 110px); }
+.cols h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); }
+.ticks { list-style: none; margin: 24px 0 0; padding: 0; display: grid; row-gap: 16px; }
+.ticks li { position: relative; padding-left: 28px; color: var(--ink-muted); }
+.ticks li::before { content: ""; position: absolute; left: 2px; top: 0.55em; width: 10px; height: 10px; border-radius: 50%; background: var(--lavender-light); box-shadow: 0 0 0 5px rgba(170, 156, 245, 0.14); }
+.ticks.plain li::before { background: transparent; border: 1.5px solid var(--ink-faint); box-shadow: none; }
+.ticks b { color: var(--ink); font-weight: 600; }
+.aside { margin-top: 28px; color: var(--ink-faint); font-size: 0.95rem; }
+.page > .downloads { margin-top: 64px; }
+.sources ul { margin: 10px 0 0; padding-left: 18px; }
+.sources > div { max-width: 46em; }
+@media (max-width: 860px) {
+  .cols { grid-template-columns: minmax(0, 1fr); }
+  .page { padding-top: 100px; }
+}
+/* On phones each row becomes a card: the question, then one line per app */
+@media (max-width: 700px) {
+  .table-wrap { overflow: visible; border: 0; background: none; }
+  .compare { min-width: 0; }
+  .compare caption { display: block; padding: 0 0 12px; }
+  .compare thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .compare, .compare tbody, .compare tr, .compare th, .compare td { display: block; width: auto; }
+  .compare tr { margin-bottom: 14px; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; background: rgba(22, 26, 33, 0.6); overflow: hidden; }
+  .compare tbody th { width: auto; padding: 14px 16px 8px; border-top: 0; font-family: var(--display); font-size: 1.05rem; font-weight: 600; color: var(--ink); }
+  .compare td { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: 12px; padding: 9px 16px; }
+  .compare td::before { content: attr(data-label); color: var(--ink-faint); font-size: 0.9rem; }
+  .compare td.us::before { color: var(--lavender-light); }
+}

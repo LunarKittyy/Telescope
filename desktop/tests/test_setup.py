@@ -176,7 +176,7 @@ def windows_dialog(monkeypatch, qapp):
     "uc_ok,adb_ok,uc_text,uc_button,adb_text",
     [
         ("Telescope", True, "Ready", "Reinstall", "Ready"),
-        ("", False, "Not installed", "Install driver", "Not found. Pairing and installing over USB won't work."),
+        ("", False, "Not installed", "Install driver", "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."),
     ],
 )
 def test_windows_setup_status(
@@ -206,6 +206,30 @@ def test_windows_background_check_emits_current_status(monkeypatch, windows_dial
     windows_dialog._check_win_setup()
     assert windows_dialog._uc_status_lbl.text() == "Ready"
     assert "Not found" in windows_dialog._adb_status_lbl.text()
+
+
+def test_without_adb_advanced_offers_to_get_it(monkeypatch, windows_dialog):
+    from types import SimpleNamespace
+
+    import telescope.widgets.adb as adb_widget
+    windows_dialog._on_win_checks("Telescope", True)
+    assert windows_dialog._adb_row.isHidden()
+    windows_dialog._on_win_checks("Telescope", False)
+    assert not windows_dialog._adb_row.isHidden()
+
+    class _Now:
+        def __init__(self, target, daemon=None):
+            self.start = target
+    monkeypatch.setattr(adb_widget, "confirm", lambda parent: True)
+    monkeypatch.setattr(adb_widget, "threading", SimpleNamespace(Thread=_Now))
+    windows_dialog._adb_download._download = lambda progress: (False, "Couldn't download adb: <urlopen error x>")
+    windows_dialog._adb_btn.click()
+    assert windows_dialog._adb_status_lbl.text() == "Couldn't download adb: <urlopen error x>"
+    assert windows_dialog._adb_btn.text() == "Try again" and windows_dialog._adb_btn.isEnabled()
+    windows_dialog._adb_download._download = lambda progress: (True, "37.0.1")
+    windows_dialog._adb_btn.click()
+    assert windows_dialog._adb_status_lbl.text() == "Ready (adb 37.0.1, from Google)"
+    assert windows_dialog._adb_row.isHidden()
 
 
 def test_an_old_registration_offers_the_rename(windows_dialog):
@@ -280,7 +304,7 @@ def test_apk_install_rejects_missing_adb_or_device(monkeypatch, qapp, tmp_path):
     dialog = AdvancedDialog()
     monkeypatch.setattr(setup_mod, "adb_available", lambda: False)
     dialog._install_apk()
-    assert "adb not found" in dialog._apk_status_lbl.text()
+    assert "needs adb" in dialog._apk_status_lbl.text()
 
     apk = tmp_path / "Telescope.apk"
     apk.write_bytes(b"apk")

@@ -416,3 +416,11 @@ def test_picking_the_value_again_sends_it_again(monkeypatch):
     while not client._queue.empty():
         actions.append(client._queue.get_nowait())
     assert [a[0] for a in actions] == ["jpeg_quality"] * 4
+
+
+def test_low_light_is_checked_only_on_a_phone_that_takes_it():
+    settings = {"low_light": {"action": "low_light", "value": "1"}}
+    assert phone_client_module.drifted_settings(settings, _STATE) == []  # older phone: nothing to resend
+    newer = {**_STATE, "low_light_toggle": True}
+    assert phone_client_module.drifted_settings(settings, newer) == [settings["low_light"]]
+    assert phone_client_module.drifted_settings(settings, {**newer, "low_light": True}) == []

@@ -3,7 +3,7 @@ name: Build Windows EXE
 # Checks pull requests; release.yml calls it with a build number and channel to make the release bundle.
 on:
   pull_request:
-    paths: [desktop/**, VERSION, .github/workflows/build-windows.yml]
+    paths: [desktop/**, installer/**, VERSION, .github/workflows/build-windows.yml]
   workflow_dispatch:
   workflow_call:
     inputs:
@@ -69,7 +69,6 @@ jobs:
           New-Item -ItemType Directory -Path bundle
           Copy-Item -Recurse desktop/dist/TelescopeDesktop/* bundle/
           Copy-Item desktop/THIRD_PARTY_NOTICES.txt bundle/
-          Copy-Item -Recurse desktop/platform-tools bundle/platform-tools
           Copy-Item -Recurse desktop/unitycapture bundle/unitycapture
 
       - name: Verify release bundle
@@ -78,7 +77,6 @@ jobs:
           $required = @(
             "bundle/TelescopeDesktop.exe",
             "bundle/THIRD_PARTY_NOTICES.txt",
-            "bundle/platform-tools",
             "bundle/unitycapture"
           )
           $missing = @($required | Where-Object { -not (Test-Path $_) })
@@ -92,11 +90,26 @@ jobs:
               if (-not (Test-Path "$($lib.FullName)/PyQt6/Qt6/plugins/$plugin")) { $missing += $plugin }
             }
           }
+          # adb is under Google's SDK license, which doesn't allow passing it on: the app downloads it on request
+          if (Get-ChildItem bundle -Recurse -Filter "adb*.exe") { Write-Error "adb must not be in the bundle"; exit 1 }
           if ($missing) {
             Write-Error "Release bundle is missing: $($missing -join ', ')"
             exit 1
           }
           Write-Host "Release bundle verified."
+
+      # A per-user install, a look at what it made, then an uninstall that has to leave nothing behind.
+      # release.yml builds the published one again with Telescope.apk inside, like the zip.
+      - name: Build and check the installer
+        shell: pwsh
+        run: |
+          ./installer/build.ps1 -Bundle bundle -Out setup -Build "${{ inputs.build || '0' }}"
+          ./installer/check.ps1 -Setup setup/TelescopeSetup.exe
+
+      # The update path for people who unzipped Telescope: the real setup, registry entry and clean-up.
+      - name: Check an unzipped copy moves to the installed one
+        working-directory: desktop
+        run: python scripts/windows_move_check.py ../setup/TelescopeSetup.exe ../bundle
 
       - uses: actions/upload-artifact@v7
         with:

@@ -68,6 +68,8 @@ def drifted_settings(settings: dict, state: dict) -> list:
     check("black_level_lock", lambda v: bool(state.get("black_level_lock", False)) == (str(v) == "1"))
     check("nr_mode", lambda v: int(state.get("nr_mode", 1)) == int(v))
     check("edge_mode", lambda v: int(state.get("edge_mode", 1)) == int(v))
+    if state.get("low_light_toggle"):  # an older phone doesn't know it: sending it again wouldn't change that
+        check("low_light", lambda v: bool(state.get("low_light", False)) == (str(v) == "1"))
     return out
 
 
@@ -78,7 +80,7 @@ class PhoneControlClient:
     # What a phone that restarted its stream has forgotten, and gets again from resend_settings()
     _SETTINGS = frozenset({
         "auto", "iso", "shutter", "wb_auto", "wb_gains", "ois", "focus_mode", "focus_distance", "ae_comp", "nr_mode",
-        "edge_mode", "black_level_lock", "jpeg_quality", "bitrate", "fps_target", "zoom",
+        "edge_mode", "black_level_lock", "jpeg_quality", "bitrate", "fps_target", "zoom", "low_light",
     })
 
     def __init__(self, stream_url: str, auth: PhoneAuth):
