@@ -279,8 +279,17 @@ class LowLightFpsRangeTest {
     }
 
     @Test
-    fun `low light lets the rate stretch down, but not past 10`() {
+    fun `low light lets the rate stretch down, to 10 when there's a range for it`() {
         assertEquals(10 to 30, pick(30, true))  // 7 to 30 would turn a call into a slideshow
+    }
+
+    @Test
+    fun `low light takes a range that goes under 10 when that's all there is`() {
+        // vivo V2413's main camera: only 5 to 30 stretches down from 30
+        val vivo = listOf(5 to 15, 15 to 15, 15 to 20, 20 to 20, 22 to 22, 24 to 24, 5 to 30, 30 to 30, 15 to 60, 60 to 60)
+        assertEquals(5 to 30, pick(30, true, vivo))
+        assertEquals(30 to 30, pick(30, false, vivo))
+        assertEquals(7 to 30, pick(30, true, listOf(30 to 30, 5 to 30, 7 to 30)))  // the least far under 10
     }
 
     @Test
@@ -293,7 +302,6 @@ class LowLightFpsRangeTest {
     @Test
     fun `low light with nothing to stretch picks as usual`() {
         assertEquals(60 to 60, pick(60, true))
-        assertEquals(30 to 30, pick(30, true, listOf(30 to 30, 7 to 30)))
         assertEquals(15 to 15, pick(15, true))
         assertNull(pick(30, true, emptyList()))
     }

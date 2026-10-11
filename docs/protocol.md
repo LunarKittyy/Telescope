@@ -93,7 +93,7 @@ JSON body `{"action": "<action>", ...params}`.
 | `nr_mode` | `value=<int 0-4>` | Set noise reduction mode (desktop UI only offers 0/1/2 = Off/Fast/High Quality) |
 | `edge_mode` | `value=<int 0-3>` | Set sharpening/edge mode (desktop UI only offers 0/1/2 = Off/Fast/High Quality) |
 | `black_level_lock` | `value=1\|0` | Toggle black level lock |
-| `low_light` | `value=1\|0` | Let auto exposure slow the camera down to 10 fps in the dark, with high quality noise reduction |
+| `low_light` | `value=1\|0` | Let auto exposure slow the camera down in the dark (to 10 fps where the phone has a range for it, else the nearest below), with high quality noise reduction |
 | `torch` | `value=1\|0` | Toggle flash/torch |
 | `jpeg_quality` | `value=<int 1-100>` | Set JPEG quality on the phone |
 | `bitrate` | `value=<int bits/s>` | Set the H.264 bitrate (clamped to 1-100 Mbps and to what the phone's encoder takes); `0` sizes it from resolution and fps; `-1` is Dynamic (the phone follows the link, see below). A phone without Dynamic treats `-1` as `0` |

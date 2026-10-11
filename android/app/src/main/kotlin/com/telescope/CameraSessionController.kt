@@ -98,7 +98,7 @@ class CameraSessionController(
     @Volatile private var currentEdgeMode:       Int     = CaptureRequest.EDGE_MODE_FAST
     @Volatile private var currentAeComp:         Int     = 0
     @Volatile private var currentBlackLevelLock: Boolean = false
-    // Low light: auto exposure may slow the camera down (to CameraRequestSelection.LOW_LIGHT_MIN_FPS) and noise
+    // Low light: auto exposure may slow the camera down (to LOW_LIGHT_MIN_FPS where the phone has that) and noise
     // reduction runs at its best, for a dark room
     @Volatile private var currentLowLight: Boolean = false
     @Volatile private var currentTorch:          Boolean = false

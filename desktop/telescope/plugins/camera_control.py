@@ -18,8 +18,8 @@ from telescope.widgets.lens_panel import LensPanel
 _FOCUS_STEPS = 1000
 _NR_MODES    = [("Off", 0), ("Fast", 1), ("High Quality", 2)]
 _EDGE_MODES  = [("Off", 0), ("Fast", 1), ("High Quality", 2)]
-_LOW_LIGHT_TIP = ("For a dark room: the camera may slow down to as few as 10 frames per second so each frame catches "
-                  "more light, and noise reduction runs at its best. Works with automatic exposure.")
+_LOW_LIGHT_TIP = ("For a dark room: the camera may slow down so each frame catches more light (usually no lower than "
+                  "10 fps, lower on some phones), and noise reduction runs at its best. Works with automatic exposure.")
 _CAPABILITY_LABELS = [
     ("supportsManualSensor", "Manual exposure"),
     ("supportsManualWB",     "Manual WB"),

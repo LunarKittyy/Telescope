@@ -67,7 +67,7 @@ data class SensorBox(val left: Int, val top: Int, val width: Int, val height: In
 
 // Pure Camera2 request-parameter selection logic; no device/service state for JVM testability
 object CameraRequestSelection {
-    /** Low light lets auto exposure slow the camera down to this, and no further, so a call still looks like video. */
+    /** Low light lets auto exposure slow the camera down to this when the phone has a range that stops there. */
     const val LOW_LIGHT_MIN_FPS = 10
 
     // Picks advertised FPS range closest to target; prefers ranges containing target.
@@ -85,8 +85,10 @@ object CameraRequestSelection {
         val all = ranges.indices
         if (lowLight) {
             // Only ranges that top out at the target: one that goes past it would run faster than asked in bright light
-            all.filter { val (lo, hi) = ranges[it]; hi == target && lo < target && lo >= LOW_LIGHT_MIN_FPS }
-                .minByOrNull { ranges[it].first }?.let { return it }
+            val stretch = all.filter { val (lo, hi) = ranges[it]; hi == target && lo < target }
+            stretch.filter { ranges[it].first >= LOW_LIGHT_MIN_FPS }.minByOrNull { ranges[it].first }?.let { return it }
+            // Many phones only offer one that goes lower (5 to 30, say): still better than holding the rate in the dark
+            stretch.maxByOrNull { ranges[it].first }?.let { return it }
         }
         // One that tops out at the target first: a range going past it lets the camera run faster than asked
         all.filter { ranges[it].second == target && ranges[it].first <= target }
