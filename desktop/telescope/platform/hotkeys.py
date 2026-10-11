@@ -64,6 +64,10 @@ class HotkeyBackend(QObject):
         """How the hotkey with this id is doing, or None before the system answered."""
         return None
 
+    def suspend(self, on: bool) -> None:
+        """Let the keys go for a while (the shortcut editor is recording one), where that's cheap; on=False takes
+        them back. The portal keeps them, since binding again can ask the user to confirm them all again."""
+
     def note(self) -> str:
         """A line for the shortcuts dialog about how global shortcuts work here."""
         return ""

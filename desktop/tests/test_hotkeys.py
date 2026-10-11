@@ -288,3 +288,14 @@ def test_portal_shortcuts_the_user_turned_down(portal_backend):
     portal, backend, _ = portal_backend(accept=False)
     backend.apply([Hotkey("b1", "Ctrl+M", "Mute")])
     assert _wait_for(lambda: backend.status("b1") is not None and "Not confirmed" in backend.status("b1").text)
+
+
+def test_windows_backend_lets_go_while_suspended(qapp):
+    user32 = _User32()
+    backend = WindowsHotkeys(user32=user32, install_filter=False)
+    backend.apply([Hotkey("a", "Ctrl+F1", "x")])
+    backend.suspend(True)
+    assert user32.registered == {}
+    backend.suspend(False)
+    assert list(user32.registered.values()) == [(MOD_CONTROL | MOD_NOREPEAT, 0x70)]
+    backend.stop()

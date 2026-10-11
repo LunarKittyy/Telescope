@@ -78,6 +78,7 @@ class WindowsHotkeys(HotkeyBackend):
         self._user32 = user32 if user32 is not None else _load_user32()
         self._by_number: dict = {}  # RegisterHotKey's id: (hotkey id, virtual-key code)
         self._statuses: dict = {}
+        self._hotkeys: list = []
         self._held: dict = {}  # hotkey id: virtual-key code, while its key is down
         self._poll = QTimer(self)
         self._poll.setInterval(_RELEASE_POLL_MS)
@@ -87,7 +88,14 @@ class WindowsHotkeys(HotkeyBackend):
             self._filter = _Filter(self._on_hotkey)
             QCoreApplication.instance().installNativeEventFilter(self._filter)
 
+    def suspend(self, on: bool) -> None:
+        if on:
+            self._unregister_all()
+        else:
+            self.apply(self._hotkeys)
+
     def apply(self, hotkeys: list) -> None:
+        self._hotkeys = list(hotkeys)
         self._unregister_all()
         self._statuses = {}
         for number, hk in enumerate(hotkeys, start=1):

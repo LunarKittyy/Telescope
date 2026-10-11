@@ -3423,3 +3423,22 @@ def test_a_raise_still_works_next_to_actions(action_listener):
     with socket.create_connection(app_module._INSTANCE_ADDRESS, timeout=5) as c:
         c.sendall(b"raise:" + app_module.user_token())
         assert c.recv(2) == b"ok"
+
+
+def test_an_action_when_the_key_couldnt_be_written(monkeypatch, config_home):
+    import threading
+    monkeypatch.setattr(app_module, "config_path", config_home.config_path)
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(4)
+    monkeypatch.setattr(app_module, "_INSTANCE_FAMILY", socket.AF_INET)
+    monkeypatch.setattr(app_module, "_INSTANCE_ADDRESS", srv.getsockname())
+    app_module.control_key_path().parent.mkdir(parents=True, exist_ok=True)
+    app_module.control_key_path().write_bytes(b"old-run")
+    threading.Thread(target=app_module.listen_for_raise, args=(srv, lambda: None, lambda r: {}, None),
+                     daemon=True).start()
+    try:
+        ok, text = app_module.send_action({"action": "x"})
+        assert not ok and "Restart it" in text
+    finally:
+        srv.close()

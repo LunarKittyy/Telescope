@@ -102,8 +102,22 @@ def action_request(words: list) -> dict:
     return {"action": words[0], "params": params}
 
 
+def _attach_console():
+    """The packaged Windows app has no console, so print() goes nowhere: borrow the one it was started from."""
+    if sys.platform != "win32" or not getattr(sys, "frozen", False):
+        return
+    try:
+        import ctypes
+        if ctypes.windll.kernel32.AttachConsole(-1):  # ATTACH_PARENT_PROCESS
+            sys.stdout = open("CONOUT$", "w", encoding="utf-8")
+            sys.stderr = open("CONOUT$", "w", encoding="utf-8")
+    except (OSError, AttributeError):
+        pass
+
+
 def run_action(args) -> int:
     """--action / --list-actions: talk to the running copy, print what it says, and exit."""
+    _attach_console()
     try:
         request = {"list": True} if args.list_actions else action_request(args.action)
     except ValueError as exc:
@@ -138,6 +152,7 @@ def main():
     srv = acquire_single_instance(wait=15 if args.after_update else 0)
     if srv is None:
         sys.exit(0)
+    control_key = write_control_key()  # straight away: an --action from a sign-in script mustn't find the last run's
     if IS_LINUX:
         # Only the copy holding the single-instance port gets here, so the source it finds is never a running one's
         virtual_mic.remove_stale_source(lambda cmd: virtual_mic._run(cmd, timeout=2))
@@ -167,7 +182,7 @@ def main():
 
     threading.Thread(
         target=listen_for_raise,
-        args=(srv, win._sig_raise.emit, win.run_remote_action, write_control_key()),
+        args=(srv, win._sig_raise.emit, win.run_remote_action, control_key),
         daemon=True,
     ).start()
 

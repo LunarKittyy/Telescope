@@ -207,8 +207,10 @@ def listen_for_raise(srv: socket.socket, raise_cb, action_cb=None, control_key: 
             if message.startswith(_ACTION):
                 request = _read_request(conn, message)
                 sent = str((request or {}).get("key", "")).encode()
-                if request is None or action_cb is None or not control_key \
-                        or not hmac.compare_digest(sent, control_key):
+                if request is not None and action_cb is not None and not control_key:
+                    reply = {"ok": False, "text": "Telescope couldn't write the key --action needs next to its "
+                                                  "settings when it started. Restart it."}
+                elif request is None or action_cb is None or not hmac.compare_digest(sent, control_key):
                     reply = {"ok": False, "text": "Telescope turned that down: it didn't come from this user's "
                                                   "Telescope command."}
                 else:

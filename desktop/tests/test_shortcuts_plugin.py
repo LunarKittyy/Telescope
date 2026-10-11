@@ -432,3 +432,71 @@ def test_controls_that_come_later_still_get_the_menu(qapp):
         assert not plugin._filter.eventFilter(QPushButton("other"), event)
     finally:
         plugin.shutdown()
+
+
+def test_f_keys_still_work_while_a_text_box_has_focus(make, card):
+    plugin, _host, _ = make([_b("a", "F8", "camera.torch"), _b("b", "Z", "transforms.zoom")])
+    card.show()
+    QTest.qWaitForWindowActive(card)
+    card.entry.setFocus()
+    QTest.keyClick(card.entry, Qt.Key.Key_F8)
+    assert card.torch.isChecked()
+    QTest.keyClick(card.entry, Qt.Key.Key_Z)
+    assert card.slider.value() == 0 and card.entry.text() == "z"
+
+
+def test_an_ignored_key_runs_once_not_at_every_parent(make, card):
+    plugin, _host, _ = make([_b("a", "F8", "camera.torch")])
+    card.torch.setEnabled(False)
+    calls = []
+    real = plugin.press
+    plugin.press = lambda *a, **k: (calls.append(a), real(*a, **k))[1]
+    card.show()
+    QTest.qWaitForWindowActive(card)
+    card.mute.setFocus()
+    QTest.keyClick(card.mute, Qt.Key.Key_F8)
+    assert len(calls) == 1
+
+
+def test_global_presses_are_ignored_while_the_editor_records_a_key(make, card):
+    plugin, _host, backend = make([_b("a", "F9", "camera.torch", glob=True)])
+    suspended = []
+    backend.suspend = suspended.append
+    from PyQt6.QtCore import QTimer
+
+    def press_then_close():
+        backend.pressed.emit("a")
+        QApplication.activeModalWidget().reject()
+    QTimer.singleShot(0, press_then_close)
+    assert plugin.add_binding("camera.torch") is None
+    assert not card.torch.isChecked()
+    assert suspended == [True, False]
+    backend.pressed.emit("a")
+    assert card.torch.isChecked()
+
+
+def test_desktop_settings_button_asks_again_for_unconfirmed_ones(make):
+    plugin, _host, backend = make([_b("a", "F9", "camera.torch", glob=True)])
+    backend.system_picks_keys = True
+    backend.statuses["a"] = HotkeyStatus(False, "Not confirmed in the desktop's dialog")
+    backend.configure = lambda: False
+    before = len(backend.applied)
+    assert plugin.open_system_settings()
+    assert len(backend.applied) == before + 1
+
+
+def test_hold_comes_back_by_scan_code_when_the_key_changes_on_release(make, card):
+    plugin, _host, _ = make([_b("a", "Ctrl+Shift+1", "microphone.mute", {"mode": "hold"})])
+    plugin.press("a", "app", scan=10)
+    assert card.mute.isChecked()
+    plugin.release_app_keys(int(Qt.Key.Key_Exclam), 10)
+    assert not card.mute.isChecked()
+
+
+@pytest.mark.parametrize("params, says", [
+    ({"op": "up", "amount": "nan"}, "has to be a number"),
+    ({"op": "up", "amount": "inf"}, "has to be a number"),
+])
+def test_remote_numbers_must_be_finite(make, params, says):
+    plugin, _host, _ = make()
+    assert says in plugin.handle_remote({"action": "transforms.zoom", "params": params})["text"]

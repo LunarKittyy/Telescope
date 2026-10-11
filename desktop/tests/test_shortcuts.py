@@ -261,3 +261,9 @@ def test_choice_over_buttons_that_come_and_go(panel):
     assert action.run(action.full_params({"op": "next"})) == "Lens: Tele"
     assert buttons[1].isChecked()
     assert action.controls() == tuple(buttons)
+
+
+def test_edits_text():
+    from telescope.plugins.shortcuts import edits_text
+    assert edits_text("Z") and edits_text("Space") and edits_text("Shift+Left")
+    assert not edits_text("F8") and not edits_text("Volume Mute") and not edits_text("Ctrl+Z")
