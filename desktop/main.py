@@ -72,7 +72,7 @@ from telescope.plugins.stream_output import StreamOutputPlugin
 from telescope.plugins.transforms import TransformsPlugin
 from telescope.plugins.updates import UpdatesPlugin
 from telescope.theme import apply_theme
-from telescope.updates import MOVED_FROM, clean_up_after_update, finish_move, pending_move
+from telescope.updates import MOVED_FROM, clean_up_after_update, finish_move, note_installed_version, pending_move
 from telescope.widgets.common import create_app_icon
 
 
@@ -195,6 +195,8 @@ def main():
             update_guard.confirm(APP_DIR)
             # Every start, not just after an update: an old version's files can still be locked the first time.
             clean_up_after_update()
+            if not IS_LINUX and getattr(sys, "frozen", False):
+                note_installed_version()
             # Only now: had this copy failed to start, the old one would still be there to use
             moved_from = Path(args.moved_from) if args.moved_from else pending_move(APP_DIR)
             if moved_from is not None:

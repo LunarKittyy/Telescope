@@ -386,17 +386,42 @@ def clean_up_after_update(directory: Optional[Path] = None, running_lib: Optiona
 
 # ── Moving an unzipped copy to an installed one (Windows) ─────────────────────
 
+UNINSTALL_KEY = rf"Software\Microsoft\Windows\CurrentVersion\Uninstall\{SETUP_APP_ID}_is1"
+
+
 def installed_location(winreg=None) -> Optional[Path]:
     """Where the installer put Telescope for this user, from its uninstall entry; None if it isn't installed."""
     try:
         if winreg is None:
             import winreg
-        key = rf"Software\Microsoft\Windows\CurrentVersion\Uninstall\{SETUP_APP_ID}_is1"
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key) as k:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, UNINSTALL_KEY) as k:
             value, _ = winreg.QueryValueEx(k, "InstallLocation")
     except (ImportError, OSError):
         return None
     return Path(value) if value else None
+
+
+def note_installed_version(directory: Optional[Path] = None, winreg=None) -> bool:
+    """In the installed copy, show this version in Settings > Apps. The installer wrote the one it installed, and an
+    update since then didn't run it. True when the entry was changed."""
+    directory = directory or install_dir()
+    try:
+        if winreg is None:
+            import winreg
+        if not _same_place(directory, installed_location(winreg)):
+            return False  # an unzipped copy: the entry belongs to the installed one
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, UNINSTALL_KEY, 0,
+                            winreg.KEY_QUERY_VALUE | winreg.KEY_SET_VALUE) as k:
+            if winreg.QueryValueEx(k, "DisplayVersion")[0] == version.VERSION:
+                return False
+            winreg.SetValueEx(k, "DisplayVersion", 0, winreg.REG_SZ, version.VERSION)
+            parts = version.VERSION.split(".")
+            for name, part in zip(("MajorVersion", "MinorVersion"), parts):
+                if part.isdigit():
+                    winreg.SetValueEx(k, name, 0, winreg.REG_DWORD, int(part))
+    except (ImportError, OSError):
+        return False
+    return True
 
 
 def desktop_folders() -> list:

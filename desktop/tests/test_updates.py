@@ -422,3 +422,47 @@ def test_a_rolled_back_build_is_named_and_can_be_tried_again(tmp_path):
     assert not updates.was_rolled_back(m, build=200, directory=tmp_path)  # already running it
     updates.forget_rolled_back(tmp_path)
     assert updates.is_newer(m, build=150, directory=tmp_path)
+
+
+class _FakeWinreg:
+    """The uninstall entry Inno writes, in memory."""
+    HKEY_CURRENT_USER = "HKCU"
+    KEY_QUERY_VALUE, KEY_SET_VALUE = 1, 2
+    REG_SZ, REG_DWORD = 1, 4
+
+    def __init__(self, values=None):
+        self.values = values
+
+    @contextlib.contextmanager
+    def OpenKey(self, root, key, reserved=0, access=0):
+        if self.values is None or key != updates.UNINSTALL_KEY:
+            raise FileNotFoundError(key)
+        yield self.values
+
+    def QueryValueEx(self, values, name):
+        if name not in values:
+            raise FileNotFoundError(name)
+        return values[name], self.REG_SZ
+
+    def SetValueEx(self, values, name, reserved, kind, value):
+        values[name] = value
+
+
+def test_note_installed_version_updates_the_apps_entry(tmp_path, monkeypatch):
+    monkeypatch.setattr(updates.version, "VERSION", "3.4.1")
+    reg = _FakeWinreg({"InstallLocation": str(tmp_path), "DisplayVersion": "3.3.1",
+                       "MajorVersion": 3, "MinorVersion": 3})
+    assert updates.note_installed_version(tmp_path, winreg=reg)
+    assert reg.values["DisplayVersion"] == "3.4.1"
+    assert (reg.values["MajorVersion"], reg.values["MinorVersion"]) == (3, 4)
+    assert not updates.note_installed_version(tmp_path, winreg=reg)  # already right: nothing written
+
+
+def test_note_installed_version_leaves_another_copys_entry(tmp_path, monkeypatch):
+    monkeypatch.setattr(updates.version, "VERSION", "3.4.1")
+    installed = tmp_path / "Programs" / "Telescope"
+    installed.mkdir(parents=True)
+    reg = _FakeWinreg({"InstallLocation": str(installed), "DisplayVersion": "3.3.1"})
+    assert not updates.note_installed_version(tmp_path, winreg=reg)
+    assert reg.values["DisplayVersion"] == "3.3.1"
+    assert not updates.note_installed_version(tmp_path, winreg=_FakeWinreg())  # not installed at all
