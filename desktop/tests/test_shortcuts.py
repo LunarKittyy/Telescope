@@ -271,6 +271,7 @@ def test_edits_text():
 
 def test_native_keys_names_the_windows_key_after_the_system(qapp, monkeypatch):
     import telescope.shortcuts as shortcuts
+    monkeypatch.setattr(shortcuts, "META_NAME", "Meta")
     assert shortcuts.native_keys("Meta+Alt+W") == "Meta+Alt+W"
     monkeypatch.setattr(shortcuts, "META_NAME", "Win")
     assert shortcuts.native_keys("Meta+Alt+W") == "Win+Alt+W"
