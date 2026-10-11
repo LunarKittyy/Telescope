@@ -44,7 +44,7 @@ def test_download_unitycapture_verifies_both_files(monkeypatch, tmp_path):
         assert timeout
         return io.BytesIO(payloads["32" if "32.dll" in url else "64"])
 
-    monkeypatch.setattr(windows.urllib.request, "urlopen", fetch)
+    monkeypatch.setattr(windows.web, "urlopen", fetch)
 
     assert windows.download_unitycapture(progress.append) == (True, "Downloaded")
     assert progress == [
@@ -56,7 +56,7 @@ def test_download_unitycapture_verifies_both_files(monkeypatch, tmp_path):
 def test_download_unitycapture_handles_network_and_checksum_failures(monkeypatch, tmp_path):
     monkeypatch.setattr(windows, "unitycapture_dir", lambda: tmp_path)
     monkeypatch.setattr(
-        windows.urllib.request,
+        windows.web,
         "urlopen",
         lambda *_args, **_kw: (_ for _ in ()).throw(OSError("offline")),
     )
@@ -65,7 +65,7 @@ def test_download_unitycapture_handles_network_and_checksum_failures(monkeypatch
     assert "offline" in msg
 
     monkeypatch.setattr(
-        windows.urllib.request,
+        windows.web,
         "urlopen",
         lambda _url, timeout: io.BytesIO(b"wrong"),
     )
@@ -82,7 +82,7 @@ def test_a_cut_off_download_leaves_nothing_for_the_next_try_to_trip_over(monkeyp
         def read(self, *_a):
             raise OSError("connection reset")
 
-    monkeypatch.setattr(windows.urllib.request, "urlopen", lambda _url, timeout: Cut())
+    monkeypatch.setattr(windows.web, "urlopen", lambda _url, timeout: Cut())
     ok, _msg = windows.download_unitycapture()
     assert ok is False
     assert list(tmp_path.iterdir()) == []
