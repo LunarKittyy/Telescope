@@ -137,6 +137,7 @@ def main():
         if windows.running_from_archive(APP_DIR, Path(tempfile.gettempdir())):
             windows.warn_running_from_archive()
             sys.exit(1)
+        windows.use_installed_app_id(APP_DIR)
     args, qt_argv = parse_args(sys.argv[1:])
     if args.action or args.list_actions:
         sys.exit(run_action(args))

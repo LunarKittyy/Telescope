@@ -461,6 +461,11 @@ QPushButton[uiRole="danger"] {{
 QPushButton[uiRole="danger"]:hover {{
     background-color: #824244;
 }}
+QPushButton[uiRole="success"]:disabled, QPushButton[uiRole="danger"]:disabled {{
+    background-color: {BG};
+    border-color: {BORDER};
+    color: {TEXT_DISABLED};
+}}
 QPushButton[uiRole="quiet"] {{
     background-color: transparent;
     border-color: {BORDER};

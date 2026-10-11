@@ -2017,7 +2017,8 @@ class TelescopeWindow(QMainWindow):
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
         elif self._tray:
-            self._tray.showMessage(title, body, QSystemTrayIcon.MessageIcon.Warning, 0)
+            icon = QSystemTrayIcon.MessageIcon.Warning if urgent else QSystemTrayIcon.MessageIcon.Information
+            self._tray.showMessage(title, body, icon, 0)
 
     def _settle_stream(self):
         if (worker := self._worker) is not None:

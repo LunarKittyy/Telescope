@@ -19,6 +19,8 @@ from PyQt6.QtCore import QKeyCombination, Qt
 from PyQt6.QtGui import QKeySequence
 from PyQt6.QtWidgets import QAbstractButton, QAbstractSlider, QComboBox, QWidget
 
+from telescope.platform import IS_WINDOWS
+
 _PORTABLE = QKeySequence.SequenceFormat.PortableText
 _MODIFIER_KEYS = {Qt.Key.Key_Control, Qt.Key.Key_Shift, Qt.Key.Key_Alt, Qt.Key.Key_Meta, Qt.Key.Key_AltGr,
                   Qt.Key.Key_Super_L, Qt.Key.Key_Super_R, Qt.Key.Key_Hyper_L, Qt.Key.Key_Hyper_R}
@@ -165,9 +167,14 @@ def split_keys(keys: str) -> tuple:
     return mods, key, combo.key()
 
 
+META_NAME = "Win" if IS_WINDOWS else "Meta"
+"""What this system calls the Windows/Super key."""
+
+
 def native_keys(keys: str) -> str:
-    """keys as this system writes them (Ctrl on Windows and Linux; Qt shows Meta as the Windows/Super key)."""
-    return QKeySequence.fromString(keys, _PORTABLE).toString(QKeySequence.SequenceFormat.NativeText)
+    """keys as this system writes them (Ctrl on Windows and Linux; the Windows/Super key as META_NAME)."""
+    text = QKeySequence.fromString(keys, _PORTABLE).toString(QKeySequence.SequenceFormat.NativeText)
+    return text.replace("Meta+", f"{META_NAME}+") if META_NAME != "Meta" else text
 
 
 def has_command_modifier(keys: str) -> bool:

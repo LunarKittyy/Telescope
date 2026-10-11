@@ -308,6 +308,21 @@ def uc_is_registered() -> bool:
     return uc_registered_name() is not None
 
 
+APP_USER_MODEL_ID = "LunarKittyy.Telescope"  # installer/Telescope.iss gives its shortcuts the same one
+
+
+def use_installed_app_id(app_dir: Path) -> bool:
+    """In the installed copy, take the id its Start menu entry carries, so Windows names notifications after that
+    entry. A copy without one keeps the exe's own: Windows can drop toasts from an id no shortcut has."""
+    if not any(Path(app_dir).glob("unins*.exe")):
+        return False
+    try:
+        import ctypes
+        return ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_USER_MODEL_ID) == 0
+    except (AttributeError, OSError):
+        return False
+
+
 # The temp folders zip tools run a file from: Explorer's Temp1_<name>.zip, 7-Zip's 7zO..., WinRAR's Rar$EX...
 _ARCHIVE_TEMP = re.compile(r"(temp\d+_.*\.zip|7zo\w+|rar\$ex\w*\..*)$", re.I)
 

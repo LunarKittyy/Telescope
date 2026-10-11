@@ -67,8 +67,9 @@ Name: desktopicon; Description: "Put Telescope on the desktop"; Flags: unchecked
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\Telescope"; Filename: "{app}\{#AppExe}"
-Name: "{autodesktop}\Telescope"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
+; The app takes this id too (windows.use_installed_app_id), so its notifications say Telescope, not the exe's name
+Name: "{autoprograms}\Telescope"; Filename: "{app}\{#AppExe}"; AppUserModelID: "LunarKittyy.Telescope"
+Name: "{autodesktop}\Telescope"; Filename: "{app}\{#AppExe}"; AppUserModelID: "LunarKittyy.Telescope"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "Open Telescope"; Flags: nowait postinstall skipifsilent
