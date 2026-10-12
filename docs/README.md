@@ -13,6 +13,7 @@ New to Telescope? Start with the [Quick Start](../README.md#quick-start). It's a
 - [Troubleshooting](troubleshooting.md): common problems, what usually causes them, and the fix
 - [Manual setup](setup.md): setting up the virtual camera by hand on Linux, loading it at boot, and OBS as a Flatpak
 - [Device compatibility](device-compatibility.md): phones that have been tested, and what worked on each
+- [Licenses](licenses.md): Telescope's license, what it means for you, and the third-party parts it uses
 
 ## How it works
 

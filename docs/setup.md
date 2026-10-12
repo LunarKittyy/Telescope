@@ -5,6 +5,9 @@ The first-run checklist covers this for most people. This is the detail behind i
 ## Linux
 
 First, install the `v4l2loopback` kernel module package through your distro's package manager - Telescope can load and unload the module, but it doesn't install it. It's usually called `v4l2loopback-dkms` (Debian/Ubuntu, Arch).
+```bash
+sudo apt install v4l2loopback-dkms
+```
 
 On **Fedora/Nobara** it's `v4l2loopback` too - `sudo dnf install v4l2loopback` pulls in the actual kernel module (`akmod-v4l2loopback`) as a dependency automatically. It ships via [RPM Fusion](https://rpmfusion.org/), which plain Fedora installs don't have enabled out of the box (Nobara does):
 ```bash
@@ -19,6 +22,13 @@ sudo apt update
 sudo apt install python3.11 python3.11-venv
 ```
 If an older Telescope environment was already created with an old Python, `start.sh` will tell you. Delete `~/.local/share/Telescope/venv` (or `$XDG_DATA_HOME/Telescope/venv`) and run it again.
+
+`adb` is optional. It's only for pairing or installing the phone app over USB, and Wi-Fi works without it:
+```bash
+sudo apt install adb             # Debian/Ubuntu
+sudo dnf install android-tools   # Fedora/Nobara
+sudo pacman -S android-tools     # Arch
+```
 
 The `start.sh` script handles pip dependencies automatically, and only goes online for them when they change (first run, or an update). Once the package above is installed, Telescope loads the module when you start streaming. It asks for your password once. **Also switch it on at every startup** is ticked in that prompt, so later boots won't ask again. Without a graphical password prompt (no pkexec or no polkit agent), it shows the command to run in a terminal instead, with a Copy button. **Advanced** in the settings menu can load and unload it too, or run it manually:
 
