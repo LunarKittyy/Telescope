@@ -170,3 +170,13 @@ Copyright (c) Google LLC. Android Software Development Kit License Agreement: ht
 **Python runtime dependencies** (PyQt6, opencv-python-headless, numpy, pyvirtualcam, qrcode, ifaddr, zeroconf, av, and sounddevice on Windows) - installed from PyPI; exact pinned versions are in `desktop/constraints.txt`. PyQt6 in particular is GPL v3-licensed (a commercial Riverbank Computing license also exists but isn't what this project uses).
 
 </details>
+
+## Star history
+
+<a href="https://www.star-history.com/#LunarKittyy/Telescope&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=lunarkittyy/telescope&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=lunarkittyy/telescope&type=Date" />
+    <img alt="Star history chart" src="https://api.star-history.com/svg?repos=lunarkittyy/telescope&type=Date" />
+  </picture>
+</a>
