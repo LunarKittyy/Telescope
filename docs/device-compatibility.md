@@ -11,12 +11,16 @@ Legend: `OK` tested and working · `PARTIAL` works with caveats (see [notes](#no
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Pixel-like (e.g. Pixel 6/7/8) | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | Samsung Galaxy S10+ (SM-G975F) | 12 | 3.1.0-nightly.374 | OK | OK | PARTIAL | - | OK | OK | OK | OK | OK | OK | OK | OK | OK |
+| Samsung Galaxy S25 Ultra (SM-S938U) | 17 | - | OK | - | OK | OK | OK | OK | OK | OK | OK | - | - | OK | OK |
 | Samsung Galaxy A-series | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
 | vivo V2413 | 16 | 3.1.0-nightly.374 | OK | OK | OK | OK | OK | OK | OK | OK | OK | OK | OK | OK | OK |
+| Xiaomi Poco M6 Pro (2312FPCA6G) | 16 | 3.4.0 | OK | OK | PARTIAL | OK | OK | OK | OK | OK | OK | OK | OK | OK | OK |
 
 ## Notes
 
 - **Samsung Galaxy S10+**: the 2x telephoto isn't exposed through Camera2, so only the main, ultrawide and both front lenses show up. All four of those work.
+- **Samsung Galaxy S25 Ultra**: Auto covers the main camera plus both telephotos (they kick in at about 3x and 5x). The ultrawide and both front cameras show up as their own lenses. Tested over USB only.
+- **Xiaomi Poco M6 Pro**: the ultrawide and macro lenses don't show up because Camera2 only exposes the main back camera and the front camera. Xiaomi's own camera app records 1080p at 60 fps, but other apps get at most 30 fps. Android offers 60 fps and up only as 720p high-speed mode, which Telescope doesn't use.
 
 ## What to check per row
 
