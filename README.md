@@ -10,9 +10,9 @@
 
 Telescope turns your Android phone into a webcam for your Linux or Windows computer, and lets you use any of its lenses like telephoto or ultra-wide.
 
-[![Windows](https://img.shields.io/badge/Windows-download-0078D4?style=for-the-badge&logo=windows)](https://github.com/LunarKittyy/Telescope/releases/latest/download/TelescopeSetup.exe)&nbsp;
-[![Linux](https://img.shields.io/badge/Linux-download-E95420?style=for-the-badge&logo=linux&logoColor=white)](https://github.com/LunarKittyy/Telescope/releases/latest/download/Telescope-linux.tar.gz)&nbsp;
-[![Android](https://img.shields.io/badge/Android-APK-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/LunarKittyy/Telescope/releases/latest/download/Telescope.apk)
+<a href="https://github.com/LunarKittyy/Telescope/releases/latest/download/TelescopeSetup.exe"><img src="docs/assets/download-windows.svg" alt="Download for Windows" height="56"></a>
+<a href="https://github.com/LunarKittyy/Telescope/releases/latest/download/Telescope-linux.tar.gz"><img src="docs/assets/download-linux.svg" alt="Download for Linux" height="56"></a>
+<a href="https://github.com/LunarKittyy/Telescope/releases/latest/download/Telescope.apk"><img src="docs/assets/download-android.svg" alt="Download for Android" height="56"></a>
 
 - Shows up as a normal webcam in Discord, Zoom, OBS and anything else, and the phone's mic can be your [microphone](docs/features.md#microphone) too
 - [Pick the lens](docs/features.md#camera-control), and set exposure, focus and white balance remotely from the computer
