@@ -1,10 +1,12 @@
 name: Pages
 
-# Publishes site/ to GitHub Pages whenever it changes on master.
+# Publishes site/ to GitHub Pages whenever it changes on master, and every 6 hours for the README's downloads badge.
 on:
   push:
     branches: [master]
     paths: [site/**, .github/workflows/pages.yml]
+  schedule:
+    - cron: '17 */6 * * *'
   workflow_dispatch:
 
 permissions:
@@ -26,6 +28,18 @@ jobs:
       - uses: actions/checkout@v7
 
       - uses: actions/configure-pages@v6
+
+      # Release downloads without manifest.json, which every update check fetches, in shields' endpoint format
+      - name: Count downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/releases" --paginate \
+            --jq '.[].assets[] | select(.name != "manifest.json") | .download_count' \
+            | jq -s '{schemaVersion: 1, label: "downloads", color: "brightgreen",
+                      message: (add // 0 | if . >= 1000 then "\(. / 100 | floor / 10)k" else tostring end)}' \
+            > site/downloads.json
+          cat site/downloads.json
 
       - uses: actions/upload-pages-artifact@v5
         with:

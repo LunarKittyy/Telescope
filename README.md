@@ -3,7 +3,7 @@
 <p align="center"><img src="docs/assets/banner.png" alt="Telescope: use your phone as a webcam. Every lens, full manual control. Android to Linux and Windows." width="720"></p>
 
 [![Release](https://img.shields.io/github/v/release/LunarKittyy/Telescope)](../../releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/LunarKittyy/Telescope/total)](../../releases)
+[![Downloads](https://img.shields.io/endpoint?url=https://telescope.webcam/downloads.json)](../../releases)
 [![License](https://img.shields.io/github/license/LunarKittyy/Telescope)](LICENSE)
 ![Platforms](https://img.shields.io/badge/platform-Android%20%7C%20Linux%20%7C%20Windows-blue)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-support-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/lunarkittyy)
@@ -118,3 +118,13 @@ Device reports, bug reports with a diagnostics report, and pull requests are all
 ## License
 
 Telescope is licensed under the [GNU Affero General Public License v3.0](LICENSE). [Licenses](docs/licenses.md) explains what that means for you and lists the third-party parts it uses.
+
+## Star history
+
+<a href="https://www.star-history.com/#LunarKittyy/Telescope&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=lunarkittyy/telescope&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=lunarkittyy/telescope&type=Date" />
+    <img alt="Star history chart" src="https://api.star-history.com/svg?repos=lunarkittyy/telescope&type=Date" />
+  </picture>
+</a>
