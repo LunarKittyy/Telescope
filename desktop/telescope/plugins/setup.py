@@ -227,10 +227,20 @@ class AdvancedDialog(QDialog):
             vc_lay.addLayout(control_row("ADB", self._adb_status_lbl, stretch=True))
             # Not bundled (Google's license doesn't allow passing it on), so it's fetched from Google when asked
             self._adb_btn = action_button("Get adb", "primary")
+            self._adb_from_google = True
             self._adb_btn.setToolTip("Downloads adb from Google, for pairing and installing over USB")
             self._adb_btn.clicked.connect(self._get_adb)
+            # Google blocks the download in some countries, so one got another way can be picked instead
+            self._adb_pick_btn = QPushButton("Use my own adb…")
+            self._adb_pick_btn.setToolTip("Pick an adb.exe or platform-tools zip you already have")
+            self._adb_pick_btn.clicked.connect(self._pick_adb)
+            adb_buttons = QHBoxLayout()
+            adb_buttons.setContentsMargins(0, 0, 0, 0)
+            adb_buttons.setSpacing(8)
+            adb_buttons.addWidget(self._adb_btn)
+            adb_buttons.addWidget(self._adb_pick_btn)
             self._adb_row = QWidget()
-            self._adb_row.setLayout(control_row("", self._adb_btn))
+            self._adb_row.setLayout(control_row("", adb_buttons))
             self._adb_row.setVisible(False)
             vc_lay.addWidget(self._adb_row)
             self._adb_download = AdbDownload(self)
@@ -617,18 +627,27 @@ class AdvancedDialog(QDialog):
             set_status_kind(self._adb_status_lbl, "status_err")
             self._adb_status_lbl.setText("Not found. Pairing and installing over USB need it; Wi-Fi doesn't.")
 
+    def _adb_starting(self):
+        self._adb_btn.setEnabled(False)
+        self._adb_pick_btn.setEnabled(False)
+        set_status_kind(self._adb_status_lbl, "status_dim")
+
     def _get_adb(self):
-        def starting():
-            self._adb_btn.setEnabled(False)
-            set_status_kind(self._adb_status_lbl, "status_dim")
-        self._adb_download.ask_and_start(self, starting)
+        self._adb_from_google = True
+        self._adb_download.ask_and_start(self, self._adb_starting)
+
+    def _pick_adb(self):
+        self._adb_from_google = False
+        self._adb_download.pick_and_start(self, self._adb_starting)
 
     def _on_adb_downloaded(self, ok: bool, detail: str):
         self._adb_btn.setEnabled(True)
+        self._adb_pick_btn.setEnabled(True)
         if ok:
             self._adb_row.setVisible(False)
             set_status_kind(self._adb_status_lbl, "status_ok")
-            self._adb_status_lbl.setText(f"Ready (adb {detail}, from Google)" if detail else "Ready (adb from Google)")
+            where = ", from Google" if self._adb_from_google else ""
+            self._adb_status_lbl.setText(f"Ready (adb {detail}{where})" if detail else f"Ready (adb{where})")
         else:
             self._adb_btn.setText("Try again")
             set_status_kind(self._adb_status_lbl, "status_err")
