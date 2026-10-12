@@ -167,35 +167,74 @@ def _download(urlopen: Callable, dest: Path, say: Callable[[str], None]) -> tupl
             return False, "The download didn't match Google's checksum, so it wasn't used. Try again."
         say("Unpacking…")
         unpacked = work / "platform-tools"
-        unpacked.mkdir()
         try:
-            with zipfile.ZipFile(zip_path) as z:
-                for name in NEEDED:
-                    try:
-                        info = z.getinfo(f"platform-tools/{name}")
-                    except KeyError:
-                        continue
-                    with z.open(info) as src, open(unpacked / name, "wb") as dst:
-                        shutil.copyfileobj(src, dst)
+            _unzip(zip_path, unpacked)
         except (OSError, zipfile.BadZipFile) as e:
             logger.warning("adb unpack: %s", e)
             return False, "Couldn't unpack adb. Try again."
         if not (unpacked / "adb.exe").is_file():
             return False, "Google's download doesn't have adb.exe in it anymore."
-        old = None
-        try:
-            if dest.exists():  # a folder without adb.exe in it: one that something else half emptied
-                old = work / "old"
-                os.replace(dest, old)
-            os.replace(unpacked, dest)
-        except OSError as e:
-            if old is not None and not dest.exists():
-                os.replace(old, dest)
-            logger.warning("adb move: %s", e)
-            return False, "Couldn't put adb in place. Is another program using it? Try again."
-        return True, archive.revision
+        ok, why = _put_in_place(unpacked, dest, work)
+        return (True, archive.revision) if ok else (False, why)
     finally:
         shutil.rmtree(work, ignore_errors=True)
+
+
+def _unzip(zip_path: Path, unpacked: Path):
+    """Only what adb needs, from platform-tools/ in the zip (Google's layout) or from its top level."""
+    unpacked.mkdir()
+    with zipfile.ZipFile(zip_path) as z:
+        names = set(z.namelist())
+        for name in NEEDED:
+            member = next((m for m in (f"platform-tools/{name}", name) if m in names), None)
+            if member is None:
+                continue
+            with z.open(member) as src, open(unpacked / name, "wb") as dst:
+                shutil.copyfileobj(src, dst)
+
+
+def _put_in_place(unpacked: Path, dest: Path, work: Path) -> tuple:
+    old = None
+    try:
+        if dest.exists():  # a folder without adb.exe in it: one that something else half emptied
+            old = work / "old"
+            os.replace(dest, old)
+        os.replace(unpacked, dest)
+    except OSError as e:
+        if old is not None and not dest.exists():
+            os.replace(old, dest)
+        logger.warning("adb move: %s", e)
+        return False, "Couldn't put adb in place. Is another program using it? Try again."
+    return True, ""
+
+
+def use_own_adb(source: Path, dest: Optional[Path] = None) -> tuple:
+    """Keep an adb the person got some other way (Google blocks the download in some countries): source is adb.exe,
+    whose folder has the DLLs it needs, or a platform-tools zip. (True, version or "") or (False, why not)."""
+    dest = dest or downloaded_dir()
+    with _lock:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        _clear_leftovers(dest.parent)
+        work = Path(tempfile.mkdtemp(prefix=".adb-", dir=dest.parent))
+        try:
+            unpacked = work / "platform-tools"
+            try:
+                if source.suffix.lower() == ".zip":
+                    _unzip(source, unpacked)
+                else:
+                    unpacked.mkdir()
+                    for name in NEEDED:
+                        if (source.parent / name).is_file():
+                            shutil.copyfile(source.parent / name, unpacked / name)
+            except (OSError, zipfile.BadZipFile) as e:
+                logger.warning("own adb: %s", e)
+                return False, "Couldn't copy adb from there."
+            if not (unpacked / "adb.exe").is_file():
+                return False, "That doesn't have adb.exe in it."
+            ok, why = _put_in_place(unpacked, dest, work)
+            return (True, downloaded_revision(dest)) if ok else (False, why)
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
 
 
 def _offline(e: Exception) -> str:
@@ -206,6 +245,9 @@ def _offline(e: Exception) -> str:
     if isinstance(e, (urllib.error.URLError, TimeoutError, ConnectionError)) and not isinstance(
             e, urllib.error.HTTPError):
         return "Couldn't reach Google. Check the internet connection and try again."
+    if isinstance(e, urllib.error.HTTPError) and e.code in (403, 404, 451):
+        return (f"Google wouldn't send adb to this computer (it said {e.code}). Google blocks Android downloads in "
+                "some countries. If you get platform-tools another way, pick its adb.exe or zip instead.")
     if isinstance(e, urllib.error.HTTPError):
         return f"Google's server said {e.code}. Try again later."
     return ""

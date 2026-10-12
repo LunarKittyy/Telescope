@@ -50,7 +50,7 @@ from telescope.widgets.common import (
     ui_px, wrapped_note,
 )
 from telescope.widgets.banner import BannerAction, Issue, copy_action
-from telescope.widgets.adb import GET_ADB_LINK, AdbDownload
+from telescope.widgets.adb import GET_ADB_LINK, PICK_ADB_LINK, AdbDownload
 from telescope.widgets.qr import QRCodeWidget
 
 logger = logging.getLogger(__name__)
@@ -254,6 +254,8 @@ class AddPhoneDialog(QDialog):
     def _get_adb(self, link: str):
         if link == GET_ADB_LINK and not self._done:
             self._adb_download.ask_and_start(self)
+        elif link == PICK_ADB_LINK and not self._done:
+            self._adb_download.pick_and_start(self, lambda: self._set_usb("Copying adb…", "status_dim"))
 
     def _on_adb_downloaded(self, ok: bool, detail: str):
         if self._done or self._server is None:  # closed meanwhile: opening it again starts USB if adb is there
@@ -261,7 +263,8 @@ class AddPhoneDialog(QDialog):
         if ok:
             self._start_usb()
         else:
-            self._set_usb(f'{html.escape(detail)} <a href="{GET_ADB_LINK}">Try again</a>', "status_err")
+            self._set_usb(f'{html.escape(detail)} <a href="{GET_ADB_LINK}">Try again</a> or '
+                          f'<a href="{PICK_ADB_LINK}">pick one you already have</a>.', "status_err")
 
     def _stop(self):
         self._usb_timer.stop()

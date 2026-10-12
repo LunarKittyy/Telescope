@@ -11,7 +11,7 @@ import pytest
 
 import telescope.platform as platform_api
 from telescope.platform import adb_download
-from telescope.platform.adb_download import NEEDED, Archive, download_adb, find_archive
+from telescope.platform.adb_download import NEEDED, Archive, download_adb, find_archive, use_own_adb
 
 # The shape of Google's repository2-3.xml (trimmed from the real one: namespaces, the unprefixed remotePackage)
 INDEX = """<?xml version='1.0' encoding='utf-8'?>
@@ -282,3 +282,47 @@ def test_two_downloads_at_once_fetch_only_once(tmp_path):
     second.join(5)
     assert sorted(ok for ok, _ in results) == [True, True]
     assert len(google.urls) == 2
+
+
+@pytest.mark.parametrize("code", [403, 404, 451])
+def test_a_blocked_download_says_google_blocks_some_countries_and_offers_picking_one(tmp_path, code):
+    def urlopen(url, timeout):
+        raise urllib.error.HTTPError(url, code, "Not Found", {}, None)
+    ok, why = download_adb(urlopen, tmp_path / "pt")
+    assert not ok and f"said {code}" in why and "some countries" in why and "adb.exe or zip" in why
+
+
+def test_an_adb_picked_by_hand_is_kept_with_only_what_it_needs(tmp_path):
+    theirs = tmp_path / "Downloads" / "platform-tools"
+    theirs.mkdir(parents=True)
+    for name in ("adb.exe", "AdbWinApi.dll", "AdbWinUsbApi.dll", "fastboot.exe"):
+        (theirs / name).write_bytes(name.encode())
+    (theirs / "source.properties").write_text("Pkg.Revision=36.0.0\n")
+    dest = tmp_path / "Telescope" / "platform-tools"
+    assert use_own_adb(theirs / "adb.exe", dest) == (True, "36.0.0")
+    assert sorted(p.name for p in dest.iterdir()) == ["AdbWinApi.dll", "AdbWinUsbApi.dll", "adb.exe",
+                                                      "source.properties"]
+    assert (theirs / "fastboot.exe").exists()  # theirs is copied, not moved
+    assert sorted(p.name for p in dest.parent.iterdir()) == ["platform-tools"]
+
+
+@pytest.mark.parametrize("prefix", ["platform-tools/", ""])
+def test_a_platform_tools_zip_picked_by_hand_is_unpacked(tmp_path, prefix):
+    zip_path = tmp_path / "pt.zip"
+    with zipfile.ZipFile(zip_path, "w") as z:
+        for name in ("adb.exe", "AdbWinApi.dll", "fastboot.exe"):
+            z.writestr(prefix + name, name.encode())
+    dest = tmp_path / "Telescope" / "platform-tools"
+    assert use_own_adb(zip_path, dest) == (True, "")
+    assert sorted(p.name for p in dest.iterdir()) == ["AdbWinApi.dll", "adb.exe"]
+
+
+def test_a_pick_without_adb_in_it_isn_t_kept(tmp_path):
+    zip_path = tmp_path / "other.zip"
+    with zipfile.ZipFile(zip_path, "w") as z:
+        z.writestr("readme.txt", b"hi")
+    dest = tmp_path / "Telescope" / "platform-tools"
+    assert use_own_adb(zip_path, dest) == (False, "That doesn't have adb.exe in it.")
+    assert not dest.exists()
+    (tmp_path / "broken.zip").write_bytes(b"not a zip")
+    assert use_own_adb(tmp_path / "broken.zip", dest) == (False, "Couldn't copy adb from there.")
