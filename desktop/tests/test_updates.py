@@ -237,7 +237,7 @@ def test_windows_install_renames_the_running_exe_and_replaces_changed_files(tmp_
     (app / "TelescopeDesktop.exe").write_bytes(b"old exe")
     (app / "unitycapture" / "UnityCaptureFilter64.dll").write_bytes(b"same dll")
     (app / "Telescope.apk").write_bytes(b"old apk")
-    archive = _zip(tmp_path / "Telescope-windows.zip", {
+    archive = _zip(tmp_path / "Telescope-windows-portable.zip", {
         "TelescopeDesktop.exe": b"new exe", "unitycapture/UnityCaptureFilter64.dll": b"same dll",
         "Telescope.apk": b"new apk",
     })
@@ -259,7 +259,7 @@ def test_the_first_folder_build_installs_over_the_single_exe(tmp_path):
     app = tmp_path / "app"
     app.mkdir()
     (app / "TelescopeDesktop.exe").write_bytes(b"onefile exe")
-    archive = _zip(tmp_path / "Telescope-windows.zip", {
+    archive = _zip(tmp_path / "Telescope-windows-portable.zip", {
         "TelescopeDesktop.exe": b"folder exe", "lib-130/python311.dll": b"py", "lib-130/PyQt6/Qt6/x.dll": b"qt",
     })
     updates.install_windows(archive, app)
@@ -279,7 +279,7 @@ def test_a_folder_build_update_adds_its_own_libs_and_the_old_ones_go_on_the_next
     (app / "TelescopeDesktop.exe").write_bytes(b"exe 130")
     (app / "platform-tools").mkdir()
     (app / "platform-tools" / "adb.exe").write_bytes(b"adb")
-    archive = _zip(tmp_path / "Telescope-windows.zip", {
+    archive = _zip(tmp_path / "Telescope-windows-portable.zip", {
         "TelescopeDesktop.exe": b"exe 131", "lib-131/python311.dll": b"new py", "platform-tools/adb.exe": b"adb",
     })
     result = updates.install_windows(archive, app)
@@ -300,7 +300,7 @@ def test_the_new_lib_folder_is_in_place_before_the_exe_is_swapped(tmp_path, monk
     app = tmp_path / "app"
     app.mkdir()
     (app / "TelescopeDesktop.exe").write_bytes(b"exe 130")
-    archive = _zip(tmp_path / "Telescope-windows.zip", {
+    archive = _zip(tmp_path / "Telescope-windows-portable.zip", {
         "TelescopeDesktop.exe": b"exe 131", "lib-131/a.dll": b"a", "lib-131/sub/b.dll": b"b",
     })
     seen = []

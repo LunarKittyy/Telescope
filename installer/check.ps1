@@ -6,6 +6,7 @@ $ErrorActionPreference = "Stop"
 $app = "$env:LOCALAPPDATA\Programs\Telescope"
 $menu = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Telescope.lnk"
 $runKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+if (-not (Test-Path $runKey)) { New-Item $runKey | Out-Null }  # fresh runner images can lack it; the app creates it too
 $problems = @()
 
 $p = Start-Process -FilePath $Setup -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
