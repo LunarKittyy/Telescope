@@ -44,7 +44,7 @@ MANIFEST_URLS = {
     "stable": f"https://github.com/{version.REPO}/releases/latest/download/manifest.json",
     "nightly": f"https://github.com/{version.REPO}/releases/download/nightly/manifest.json",
 }
-WINDOWS_ASSET = "Telescope-windows.zip"
+WINDOWS_ASSET = "Telescope-windows-portable.zip"
 # A copy unzipped by hand updates through the installer instead, which moves it to a per-user install
 WINDOWS_SETUP_ASSET = "TelescopeSetup.exe"
 SETUP_APP_ID = "{BF097F77-F8B9-4F70-B23C-0B500DB1A07C}"  # installer/Telescope.iss; never changes

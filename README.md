@@ -34,7 +34,7 @@ You'll need an Android phone and a PC running Linux or Windows. No Android phone
 
 Download `TelescopeSetup.exe` from the [releases page](../../releases) and run it. It installs only for your user and doesn't need admin.
 
-Rather not install anything? `Telescope-windows.zip` has the same app: extract it and run `TelescopeDesktop.exe` (keep it in its folder: the `lib-...` folder next to it is part of the app).
+Rather not install anything? `Telescope-windows-portable.zip` has the same app: extract it and run `TelescopeDesktop.exe` (keep it in its folder: the `lib-...` folder next to it is part of the app).
 
 **🐧 Linux**
 

@@ -329,7 +329,7 @@ def test_a_registration_from_the_app_folder_is_flagged(monkeypatch, tmp_path, pr
 
 
 @pytest.mark.parametrize("inside, archived", [
-    ("Temp1_Telescope-windows.zip/Telescope", True),       # Explorer's Run from the zip
+    ("Temp1_Telescope-windows-portable.zip/Telescope", True),       # Explorer's Run from the zip
     ("7zO4A8C1B2E", True),                                 # 7-Zip
     ("Rar$EXa1234.5678/Telescope", True),                  # WinRAR
     ("Telescope", False),                                  # extracted into temp on purpose
@@ -342,7 +342,7 @@ def test_running_from_archive_spots_zip_tools_temp_folders(tmp_path, inside, arc
 
 
 def test_running_from_archive_ignores_folders_outside_temp(tmp_path):
-    app = tmp_path / "Downloads" / "Temp1_Telescope-windows.zip"
+    app = tmp_path / "Downloads" / "Temp1_Telescope-windows-portable.zip"
     app.mkdir(parents=True)
     assert not windows.running_from_archive(app, tmp_path / "Temp")
 

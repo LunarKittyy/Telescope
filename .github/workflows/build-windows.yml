@@ -62,7 +62,7 @@ jobs:
         working-directory: desktop
         run: pyinstaller telescope.spec
 
-      # release.yml adds Telescope.apk and packs this into Telescope-windows.zip.
+      # release.yml adds Telescope.apk and packs this into Telescope-windows-portable.zip.
       - name: Assemble release bundle
         shell: pwsh
         run: |

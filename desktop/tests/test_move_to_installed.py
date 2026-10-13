@@ -210,10 +210,10 @@ def test_the_unzipped_copy_goes_once_the_installed_one_runs(tmp_path):
 
 
 def test_a_zip_unpacked_into_downloads_only_loses_telescope_s_files(tmp_path):
-    downloads = _unzipped(tmp_path / "Downloads", extras=("holiday.jpg", "Telescope-windows.zip", "lib.txt"))
+    downloads = _unzipped(tmp_path / "Downloads", extras=("holiday.jpg", "Telescope-windows-portable.zip", "lib.txt"))
     (downloads / "Games").mkdir()
     assert updates.remove_unzipped_copy(downloads, _installed(tmp_path), pause=0)
-    assert sorted(p.name for p in downloads.iterdir()) == ["Games", "Telescope-windows.zip", "holiday.jpg", "lib.txt"]
+    assert sorted(p.name for p in downloads.iterdir()) == ["Games", "Telescope-windows-portable.zip", "holiday.jpg", "lib.txt"]
 
 
 def test_the_user_s_own_folders_with_telescope_like_names_stay(tmp_path):

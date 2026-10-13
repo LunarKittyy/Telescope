@@ -33,7 +33,7 @@ def _windows_app(tmp_path):
 
 
 def _windows_zip(tmp_path):
-    path = tmp_path / "Telescope-windows.zip"
+    path = tmp_path / "Telescope-windows-portable.zip"
     with zipfile.ZipFile(path, "w") as z:
         for name, data in {"TelescopeDesktop.exe": b"exe 131", "lib-131/python311.dll": b"py 131",
                            "lib-131/PyQt6/qt.dll": b"qt 131", "Telescope.apk": b"apk 131"}.items():

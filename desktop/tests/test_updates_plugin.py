@@ -12,7 +12,7 @@ from telescope.updates import Asset, InstallResult, Manifest, UpdateError
 
 NEWER = Manifest("0.6.0", 200, "nightly", "0.6.0-nightly.200", "https://notes", 2,
                  {"Telescope-linux.tar.gz": Asset("Telescope-linux.tar.gz", "https://x", "a" * 64, 10),
-                  "Telescope-windows.zip": Asset("Telescope-windows.zip", "https://y", "b" * 64, 10)})
+                  "Telescope-windows-portable.zip": Asset("Telescope-windows-portable.zip", "https://y", "b" * 64, 10)})
 
 
 class _Host(QWidget):
@@ -324,7 +324,7 @@ def test_keeping_it_portable_updates_in_place(unzipped, monkeypatch):
     monkeypatch.setattr(UpdatesPlugin, "_spawn_install",
                         lambda self, asset, via_setup=False: spawned.append((asset.name, via_setup)))
     plugin.update_now()
-    assert spawned == [("Telescope-windows.zip", False)]
+    assert spawned == [("Telescope-windows-portable.zip", False)]
     plugin._dlg.close()
 
 

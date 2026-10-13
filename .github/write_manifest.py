@@ -2,7 +2,7 @@
 """Write manifest.json for a release: what the apps' updaters read to decide whether to update.
 
 Usage: write_manifest.py --version 3.0.0 --build 123 --channel nightly --commit <sha> --tag nightly
-                         --repo owner/name --out out/manifest.json out/Telescope.apk out/Telescope-windows.zip ...
+                         --repo owner/name --out out/manifest.json out/Telescope.apk out/Telescope-windows-portable.zip ...
 """
 
 import argparse
@@ -13,6 +13,8 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+# Copies from before the rename look their asset up by the old name, so it stays in the manifest pointing at the new file
+OLD_NAMES = {"Telescope-windows-portable.zip": "Telescope-windows.zip"}
 
 
 def session_protocol() -> int:
@@ -57,6 +59,9 @@ def main():
         "assets": [
             {"name": f.name, "url": f"{base}/{f.name}", "sha256": sha256(f), "size": f.stat().st_size}
             for f in args.files
+        ] + [
+            {"name": OLD_NAMES[f.name], "url": f"{base}/{f.name}", "sha256": sha256(f), "size": f.stat().st_size}
+            for f in args.files if f.name in OLD_NAMES
         ],
         # The phone compares versionCode (the build number), the same number the desktop compares.
         "android": {"versionCode": args.build, "versionName": version_name, "asset": "Telescope.apk"},
