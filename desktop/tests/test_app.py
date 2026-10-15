@@ -159,7 +159,7 @@ def window(qapp, config_home, monkeypatch):
     # Recorded, not run: the fetch sleeps and then signals, possibly after the window is gone.
     win.state_fetches = []
     monkeypatch.setattr(sources_module.PhoneSource, "_spawn_state_fetch",
-                        lambda self, session_id: self._win.state_fetches.append(session_id))
+                        lambda self, session_id: win.state_fetches.append(session_id))
     yield win
     # A dropped stream's timers would fire into a window that's gone, in a later test's event loop.
     for source in (*win._phones.values(), *win._sources.values()):

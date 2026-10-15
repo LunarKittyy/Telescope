@@ -233,6 +233,80 @@ def listen_for_raise(srv: socket.socket, raise_cb, action_cb=None, control_key: 
             conn.close()
 
 
+# ── What sources see of the window ────────────────────────────────────────────
+class _SourceHost:
+    """The window as sources.SourceHost: the few things a source asks of it, and nothing else."""
+
+    def __init__(self, win: "TelescopeWindow"):
+        self._win = win
+
+    def connection(self):
+        return self._win._plugin("connection")
+
+    def stream_output(self):
+        return self._win._plugin("stream_output")
+
+    def show_issue(self, key: str, issue: Issue):
+        self._win.show_issue(key, issue)
+
+    def clear_issue(self, key: str):
+        self._win.clear_issue(key)
+
+    def is_streaming(self) -> bool:
+        return self._win.is_streaming()
+
+    def is_focused(self, source: Source) -> bool:
+        return self._win._focus is source
+
+    def focus_stream(self, source_id: Optional[str]):
+        self._win.focus_stream(source_id)
+
+    def is_waking(self) -> bool:
+        return self._win._waking
+
+    def waking_source(self) -> Optional[Source]:
+        return self._win._wake_source
+
+    def wake_progress(self, source: Source, msg: str):
+        self._win._source_status(source, msg, "dim")
+
+    def wake_done(self, source: Source, ok: bool, reason: str):
+        self._win._on_wake_done(source, ok, reason)
+
+    def apply_state(self, source: Source, session_id: int, state: dict):
+        self._win._apply_state(session_id, state, source)
+
+    def set_session(self, source: Source, session: StreamSession):
+        self._win._set_session(source, session)
+
+    def stop_source(self, source: Source):
+        self._win._stop(remote_stop=False, source=source)
+
+    def start_source(self, source_id: Optional[str]):
+        self._win._start_source(source_id)
+
+    def set_camera_on(self, on: bool):
+        self._win.set_camera_on(on)
+
+    def camera_stayed_off(self, session: StreamSession):
+        self._win._camera_off_now(session)
+        self._win._bus.camera_on_changed.emit(False)
+
+    def mic_reconnected(self, source: Source):
+        self._win._on_stream_reconnected(source)
+        self._win._show_camera_off()
+
+    def lost_contact(self, source: Source):
+        self._win._start_reconnecting_animation("Lost the phone - reconnecting")
+        self._win._begin_recovery(source)
+
+    def park(self, source: Source):
+        self._win._park_stream(source)
+
+    def show_slow(self, camera_limited: bool = False):
+        self._win._show_slow(True, camera_limited=camera_limited)
+
+
 # ── Main window ───────────────────────────────────────────────────────────────
 class TelescopeWindow(QMainWindow):
     _sig_raise = pyqtSignal()
@@ -268,6 +342,7 @@ class TelescopeWindow(QMainWindow):
         self._save_failure_notified = False
 
         # Where streams come from: each phone (made when first needed), and the StreamSources plugins offer, by id.
+        self._source_host = _SourceHost(self)
         self._phones: dict = {}
         self._sources: dict[str, Source] = {}
         self._streams: list[Source] = []  # the sources streaming now, in the order they started
@@ -357,7 +432,7 @@ class TelescopeWindow(QMainWindow):
 
     def _phone_source(self, pid: Optional[str]) -> "PhoneSource":
         if pid not in self._phones:
-            self._phones[pid] = PhoneSource(self, pid)
+            self._phones[pid] = PhoneSource(self._source_host, pid)
         return self._phones[pid]
 
     @property
@@ -974,7 +1049,7 @@ class TelescopeWindow(QMainWindow):
         if old is not None and old._source is not source:
             old._source = source  # the same one offered again (a new name): a stream from it carries on
         elif old is None:
-            self._sources[source.id] = PluginSource(self, source)
+            self._sources[source.id] = PluginSource(self._source_host, source)
         self._bus.stream_sources_changed.emit([(s.id, s.name) for s in self._sources.values()])
         if len(self._streams) > 1:
             self._refresh_tiles()  # a new name for one that streams
