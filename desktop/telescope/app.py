@@ -1026,8 +1026,7 @@ class TelescopeWindow(QMainWindow):
         """A video worker on url, after whatever holds the virtual camera while idle has let go of it."""
         w, h, fps = source.stream_params()
 
-        setup = self._plugin("setup")
-        canvas_w, canvas_h = setup.get_canvas_dims() if setup else (None, None)
+        canvas_w, canvas_h = self.canvas_size()
         if canvas_w is None and source.auto_canvas:
             canvas_w, canvas_h = source.auto_canvas
         if source.slot and not (canvas_w and canvas_h):
@@ -1606,6 +1605,10 @@ class TelescopeWindow(QMainWindow):
         deadline = time.monotonic() + timeout
         for source in (*self._phones.values(), *self._sources.values()):
             source.drain_stops(deadline)
+
+    def canvas_size(self) -> tuple:
+        setup = self._plugin("setup")
+        return setup.get_canvas_dims() if setup else (None, None)
 
     def restart_vcam_canvas(self, w, h, on_done=None):
         """Stop stream, optionally reload the vcam driver, restart stream."""

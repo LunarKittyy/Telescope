@@ -8,7 +8,7 @@ from PyQt6.QtCore import QCoreApplication
 import telescope.plugins.wait_screen as wait_screen_module
 import telescope.vcam as vcam
 from telescope.plugin import EventBus
-from telescope.plugins.setup import CANVAS_PRESETS
+from telescope.plugins.setup import CANVAS_PRESETS, canvas_dims
 from telescope.plugins.wait_screen import WaitScreenDialog, WaitScreenPlugin
 from test_app import camera_env, window  # noqa: F401 (the fixtures)
 
@@ -28,6 +28,9 @@ class _Host:
 
     def plugin_config(self, name):
         return self.setup_cfg if name == "setup" else None
+
+    def canvas_size(self):
+        return canvas_dims(self.setup_cfg)
 
     def schedule_save(self):
         self.saves += 1

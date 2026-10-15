@@ -129,6 +129,10 @@ class HostStreams(Protocol):
         it isn't streaming. UNCHANGED keeps the current value, None is a real value (pass-through resolution)."""
         ...
 
+    def canvas_size(self) -> tuple:
+        """(width, height) of the virtual camera canvas Setup asks for, or (None, None) for Auto."""
+        ...
+
     def restart_vcam_canvas(self, width: int, height: int, on_done=None) -> None:
         """Recreate the virtual camera and stream at a new canvas size."""
         ...
