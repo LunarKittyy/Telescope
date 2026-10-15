@@ -553,6 +553,10 @@ class ConnectionPlugin(TelescopePlugin):
         self._render()
         self._announce_source()
 
+    def on_plugins_ready(self):
+        self._bus.phones_changed.emit(len(self._phones))
+        self._announce_source()
+
     def _announce_source(self):
         self._bus.source_selected.emit(self._selected_id if self._source_name(self._selected_id) else "")
 

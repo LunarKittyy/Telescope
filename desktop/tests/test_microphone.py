@@ -102,6 +102,14 @@ def test_the_card_is_greyed_out_until_a_phone_is_paired(qapp):
     assert panel.isEnabled()
 
 
+def test_once_every_plugin_is_in_the_mic_says_again_whether_its_on(qapp):
+    p = _plugin(_Backend())
+    heard = []
+    p._bus.mic_changed.connect(lambda on, muted: heard.append((on, muted)))
+    p.on_plugins_ready()
+    assert heard == [(False, False)]
+
+
 def test_on_follows_the_stream(qapp):
     backend = _Backend()
     p = _plugin(backend)

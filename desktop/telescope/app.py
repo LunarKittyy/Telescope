@@ -477,6 +477,7 @@ class TelescopeWindow(QMainWindow):
     def apply_saved_config(self):
         """Restore persisted config into all registered plugins. Call after all plugins registered."""
         self._apply_config(load_config())
+        self._each_plugin("on_plugins_ready")  # what was said during setup, for those set up after
         if (backup := take_reset_notice()) is not None:
             where = f" A copy of the old file is at {backup}." if backup else ""
             self.show_issue("config", Issue(

@@ -3535,3 +3535,23 @@ def test_an_action_when_the_key_couldnt_be_written(monkeypatch, config_home):
         assert not ok and "Restart it" in text
     finally:
         srv.close()
+
+
+def test_once_every_plugin_is_in_each_hears_on_plugins_ready_after_its_settings(window, config_home):
+    heard = []
+
+    class _Ready(_Plugin):
+        def set_config(self, cfg):
+            heard.append(("config", self.name))
+            super().set_config(cfg)
+
+        def on_plugins_ready(self):
+            heard.append(("ready", self.name))
+
+    cfg = config_home.load_config()
+    cfg["plugin_configs"] = {"first": {"a": 1}, "second": {"b": 2}}
+    config_home.save_config(cfg)
+    for name in ("first", "second"):
+        window.register_plugin(_Ready(name))
+    window.apply_saved_config()
+    assert heard == [("config", "first"), ("config", "second"), ("ready", "first"), ("ready", "second")]

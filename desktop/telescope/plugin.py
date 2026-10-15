@@ -268,7 +268,9 @@ class TelescopePlugin:
     panel_region: str = "left"
     """Panel placement: "left" (connection/output), "right" (camera/image), or "center" (video stage)."""
 
-    def setup(self, host: HostServices, bus: "EventBus"): ...
+    def setup(self, host: HostServices, bus: "EventBus"):
+        """Plugins are set up one at a time, so one set up later misses what this one emits here: state other plugins
+        follow is announced again from on_plugins_ready."""
     def create_panel(self) -> Optional[QWidget]: return None
 
     header_side: str = "left"
@@ -320,6 +322,8 @@ class TelescopePlugin:
     def apply_preset(self, cfg: dict):
         """Load settings from a preset; plugins that drive the phone also send them while streaming."""
         self.set_config(cfg)
+    def on_plugins_ready(self):
+        """Every plugin is set up and the saved settings are in: emit again any state other plugins follow."""
     def shutdown(self):
         """App is quitting: stop background services the plugin started."""
 

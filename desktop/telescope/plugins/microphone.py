@@ -558,6 +558,9 @@ class MicrophonePlugin(TelescopePlugin):
         return {"Microphone": "on, " + ("running" if self._worker is not None else "not running")
                 + (f", gain {self._gain_db:+d} dB" if self._gain_db else "") + (", muted" if self._muted else "")}
 
+    def on_plugins_ready(self):
+        self._bus.mic_changed.emit(self._enabled, self._muted)
+
     def get_config(self) -> dict:
         return {"enabled": self._enabled, "gain_db": self._gain_db}
 

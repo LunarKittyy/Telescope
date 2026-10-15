@@ -158,6 +158,16 @@ def _add(plugin, pid="id-a", name="Pixel", token="tok-a", ips=("10.0.0.5",)):
                                           source_ip=ips[0] if ips else None, phone_id=pid, cert_sha256=PIN))
 
 
+def test_once_every_plugin_is_in_connection_says_again_how_many_phones_and_whats_picked(plugin_env):
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    heard = []
+    plugin._bus.phones_changed.connect(lambda n: heard.append(("phones", n)))
+    plugin._bus.source_selected.connect(lambda sid: heard.append(("source", sid)))
+    plugin.on_plugins_ready()
+    assert heard == [("phones", 1), ("source", "")]
+
+
 # ── Text ──────────────────────────────────────────────────────────────────────
 
 def test_status_line_covers_every_state():
