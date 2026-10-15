@@ -56,6 +56,7 @@ def clean_presets(raw) -> list:
 
 class PresetsPlugin(TelescopePlugin):
     name = "presets"
+    device_local = True
     header_side = "left"
 
     def setup(self, host, bus):

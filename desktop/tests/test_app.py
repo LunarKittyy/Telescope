@@ -34,9 +34,14 @@ class _Signal:
             callback(*args)
 
 
+# The built-in plugins whose settings are kept per phone (their device_local)
+_DEVICE_LOCAL = {"camera_control", "stream_output", "transforms", "monitoring", "presets", "microphone"}
+
+
 class _Plugin(TelescopePlugin):
     def __init__(self, name, config=None, panel=True):
         self.name = name
+        self.device_local = name in _DEVICE_LOCAL
         self.config = dict(config or {})
         self.want_panel = panel
         self.setup_args = None
@@ -3570,3 +3575,8 @@ def test_once_every_plugin_is_in_each_hears_on_plugins_ready_after_its_settings(
         window.register_plugin(_Ready(name))
     window.apply_saved_config()
     assert heard == [("config", "first"), ("config", "second"), ("ready", "first"), ("ready", "second")]
+
+
+def test_the_built_in_plugins_keep_per_phone_settings_where_they_always_did():
+    from telescope.plugins import builtin_plugins
+    assert {p.name for p in builtin_plugins() if p.device_local} == _DEVICE_LOCAL

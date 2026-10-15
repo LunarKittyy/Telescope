@@ -130,6 +130,7 @@ _row_widget = control_row_widget
 
 class CameraControlPlugin(TelescopePlugin):
     name = "camera_control"
+    device_local = True
     panel_region = "right"
 
     def setup(self, host, bus):

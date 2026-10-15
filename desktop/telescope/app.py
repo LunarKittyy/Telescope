@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
 )
 
 from telescope import dev_profile, diagnostics, theme, vcam
-from telescope.config import DEVICE_LOCAL_PLUGINS, load_config, save_config, take_reset_notice
+from telescope.config import load_config, save_config, take_reset_notice
 from telescope.models import PhoneState, PhoneStateError
 from telescope.phone_client import PhoneControlClient
 from telescope.platform import IS_LINUX
@@ -556,13 +556,13 @@ class TelescopeWindow(QMainWindow):
         selected = conn.selected_device if conn else None
         cfg["selected_device"] = selected
         for p in self._plugins:
-            if p.name and p.name not in DEVICE_LOCAL_PLUGINS:
+            if p.name and not p.device_local:
                 if (c := self._config_of(p, global_pcfg.get(p.name))) is not None:
                     global_pcfg[p.name] = c
         # Per-device plugin configs: the panels' stream's, and the main stream's for a plugin that stays with it
         for p in self._plugins:
             key = self._profile_key(p)
-            if key and p.name and p.name in DEVICE_LOCAL_PLUGINS:
+            if key and p.name and p.device_local:
                 dev_pcfg = cfg.setdefault("devices", {}).setdefault(key, {}).setdefault("plugin_configs", {})
                 if (c := self._config_of(p, dev_pcfg.get(p.name))) is not None:
                     dev_pcfg[p.name] = c
@@ -595,7 +595,7 @@ class TelescopeWindow(QMainWindow):
             return
         pcfg = cfg.setdefault("devices", {}).setdefault(name, {}).setdefault("plugin_configs", {})
         for p in plugins:
-            if p.name and p.name in DEVICE_LOCAL_PLUGINS:
+            if p.name and p.device_local:
                 if (c := self._config_of(p, pcfg.get(p.name))) is not None:
                     pcfg[p.name] = c
         self._drop_unchanged(cfg)
@@ -619,7 +619,7 @@ class TelescopeWindow(QMainWindow):
         cfg = load_config()
         pcfg = cfg.get("devices", {}).get(name, {}).get("plugin_configs", {}) if name else {}
         for p in self._plugins if plugins is None else plugins:
-            if p.name and p.name in DEVICE_LOCAL_PLUGINS:
+            if p.name and p.device_local:
                 p.set_config(self._plugin_defaults.get(p.name, {}))
                 if p.name in pcfg:
                     self._set_plugin_config(p, pcfg[p.name])
@@ -647,7 +647,7 @@ class TelescopeWindow(QMainWindow):
         if cfg is not None and prev_name:
             prev_pcfg = cfg.setdefault("devices", {}).setdefault(prev_name, {}).setdefault("plugin_configs", {})
             for p in self._plugins:
-                if p.name and p.name in DEVICE_LOCAL_PLUGINS:
+                if p.name and p.device_local:
                     if (c := self._config_of(p, prev_pcfg.get(p.name))) is not None:
                         prev_pcfg[p.name] = c
         if cfg is not None:
@@ -818,7 +818,7 @@ class TelescopeWindow(QMainWindow):
 
         conn = self._plugin("connection")
         for p in self._plugins:
-            if not p.name or p.name in DEVICE_LOCAL_PLUGINS:
+            if not p.name or p.device_local:
                 continue
             if p.name in global_pcfg:
                 self._set_plugin_config(p, global_pcfg[p.name])

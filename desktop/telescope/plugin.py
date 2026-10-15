@@ -32,7 +32,7 @@ class HostSettings(Protocol):
         ...
 
     def device_config(self, source_id: Optional[str], plugin_name: str) -> dict:
-        """The settings saved for source_id's stream in a device-local plugin (config.DEVICE_LOCAL_PLUGINS), for one
+        """The settings saved for source_id's stream in a device-local plugin (TelescopePlugin.device_local), for one
         the panels don't show; {} without any."""
         ...
 
@@ -286,6 +286,10 @@ class StreamsBehind:
 
 class TelescopePlugin:
     name: str = ""
+
+    device_local: bool = False
+    """Each phone (or other source) gets its own copy of this plugin's settings, swapped in when it's picked or the
+    panels move to its stream; False: one copy for the whole app."""
 
     follows_focus: bool = True
     """With several streams, hear about the one the panels show (False: the first one, like the mic)."""

@@ -15,10 +15,6 @@ CONFIG_VERSION = 3
 _APP_NAME = "Telescope"
 _CONFIG_FILENAME = "telescope_config.json"
 
-# Plugin configs that are stored per-device rather than globally
-DEVICE_LOCAL_PLUGINS = frozenset({"camera_control", "stream_output", "transforms", "monitoring", "presets", "microphone"})
-
-
 _last_backed_up: Optional[tuple] = None
 _reset_notice: Optional[str] = None
 

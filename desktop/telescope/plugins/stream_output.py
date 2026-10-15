@@ -117,6 +117,7 @@ def _closest_size(wh: tuple, sizes) -> tuple:
 
 class StreamOutputPlugin(TelescopePlugin):
     name = "stream_output"
+    device_local = True
 
     def setup(self, host, bus):
         self._host = host

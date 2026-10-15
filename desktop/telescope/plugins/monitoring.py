@@ -58,6 +58,7 @@ def _reading(state: dict) -> Optional[tuple]:
 
 class MonitoringPlugin(TelescopePlugin):
     name = "monitoring"
+    device_local = True
     panel_region = "right"  # the phone's own health, beside its camera
 
     def setup(self, host, bus):

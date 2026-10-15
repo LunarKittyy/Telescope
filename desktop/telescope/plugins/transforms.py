@@ -353,6 +353,7 @@ class _LensDot(QWidget):
 
 class TransformsPlugin(TelescopePlugin):
     name = "transforms"
+    device_local = True
     panel_region = "left"   # desktop-side processing, with the output settings
 
     def setup(self, host, bus):
