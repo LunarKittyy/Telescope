@@ -298,9 +298,8 @@ class PluginsDialog(QDialog):
                                                        "switch it on in the list under Added when you're ready.")
 
     def _open_folder(self):
-        folder = plugin_loader.plugins_dir()
         try:
-            folder.mkdir(parents=True, exist_ok=True)
+            folder = plugin_loader.make_plugins_dir()
         except OSError as exc:
             QMessageBox.warning(self, "Couldn't open it", f"Telescope couldn't make its plugins folder: {exc}")
             return

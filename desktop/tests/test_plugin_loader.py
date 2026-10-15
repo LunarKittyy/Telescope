@@ -127,6 +127,16 @@ def test_a_plugin_other_users_can_change_isnt_loaded(plugins):
     assert "Other users" in _one(plugins).problem
 
 
+@pytest.mark.skipif(os.name != "posix", reason="permissions as on Linux")
+def test_group_write_is_fine_when_the_group_is_the_users_own(plugins, monkeypatch):
+    folder = _plugin(plugins, "thing", _SIMPLE.format(name="thing"))
+    folder.chmod(0o775)
+    monkeypatch.setattr(plugin_loader, "_private_group", lambda gid: True)
+    assert _one(plugins).problem == ""
+    monkeypatch.setattr(plugin_loader, "_private_group", lambda gid: False)  # a group others are in
+    assert "Other users" in _one(plugins).problem
+
+
 def test_a_plugins_own_modules_dont_shadow_anything(plugins):
     folder = _plugin(plugins, "thing", "import json\nfrom telescope.plugin import TelescopePlugin\n"
                                        "from .helper import VALUE\n\nclass P(TelescopePlugin):\n"

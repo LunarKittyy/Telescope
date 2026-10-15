@@ -110,7 +110,27 @@ def _unsafe_permissions(path: Path) -> bool:
     if os.name != "posix":
         return False
     st = path.stat()
-    return st.st_uid != os.getuid() or bool(st.st_mode & 0o022)
+    if st.st_uid != os.getuid() or st.st_mode & 0o002:
+        return True
+    return bool(st.st_mode & 0o020) and not _private_group(st.st_gid)
+
+
+def _private_group(gid: int) -> bool:
+    """Whether gid is this user's own group with nobody else in it (Fedora's umask 002 makes folders group-writable)."""
+    try:
+        import grp
+        import pwd
+        group = grp.getgrgid(gid)
+        return group.gr_name == pwd.getpwuid(os.getuid()).pw_name and not group.gr_mem
+    except (ImportError, KeyError):
+        return False
+
+
+def make_plugins_dir(folder: Optional[Path] = None) -> Path:
+    """The plugins folder, made if it isn't there yet, readable and writable by this user alone."""
+    folder = folder or plugins_dir()
+    folder.mkdir(parents=True, exist_ok=True, mode=0o700)
+    return folder
 
 
 def _state(cfg: dict) -> tuple:
@@ -320,7 +340,7 @@ def install_zip(archive: Path, reserved=(), folder: Optional[Path] = None) -> In
                 raise ValueError("A plugin that comes with Telescope already has that name.")
             if (folder / name).exists():
                 raise FileExistsError(name)
-            folder.mkdir(parents=True, exist_ok=True)
+            make_plugins_dir(folder)
             staging = Path(tempfile.mkdtemp(prefix=".adding-", dir=folder))
             try:
                 for e in entries:
