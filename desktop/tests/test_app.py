@@ -1669,7 +1669,7 @@ def test_a_working_stream_keeps_the_note_on_why_it_fell_back_to_mjpeg(window):
 
 def _behind_events(window):
     events = []
-    window._bus.stream_behind.connect(events.append)
+    window._bus.stream_behind.connect(lambda _sid, behind: events.append(behind))
     return events
 
 
@@ -3082,6 +3082,20 @@ def test_a_background_stream_that_reconnects_gets_its_settings_again(two_streams
     window.focus_stream("Phone")
     window._on_stream_reconnected(phone)
     assert resent == [True]  # the panels' plugins send them for the stream they show
+
+
+def test_a_background_stream_says_which_one_dropped_and_came_back(two_streams):
+    window, *_ = two_streams
+    heard = []
+    window._bus.stream_lost.connect(lambda sid: heard.append(("lost", sid)))
+    window._bus.stream_connected.connect(lambda sid: heard.append(("connected", sid)))
+    window.focus_stream("Phone")
+    heard.clear()
+    browser = window._sources["browser"]
+    window._on_worker_status("reconnecting", "Stream dropped - reconnecting", browser)
+    window._on_worker_status("ok", "Streaming", browser)
+    assert heard == [("lost", "browser"), ("connected", "browser")]
+    assert window.focused_source_id() == "Phone"  # the panels stayed where they were
 
 
 def test_re_pairing_a_background_phone_restarts_it_with_the_new_token(camera_env, monkeypatch):

@@ -345,11 +345,13 @@ class BrowserCameraPlugin(TelescopePlugin):
 
     # ── Server ────────────────────────────────────────────────────────────
 
-    def _on_stream_behind(self, behind: bool):
+    def _on_stream_behind(self, sid: str, behind: bool):
         if not self._selected:
             return
         if not behind:
-            self._host.clear_issue("behind")
+            self._host.clear_issue("behind")  # whichever stream: only one the panels showed can have been behind
+            return
+        if sid != (self._host.focused_source_id() or ""):
             return
         text = ("Try a lower resolution or frame rate on the Browser camera card." if self._size != SIZES[0][0]
                 or self.fps != FPS_CHOICES[0] else "The device's browser can't send any faster.")

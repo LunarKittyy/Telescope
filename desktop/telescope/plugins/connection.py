@@ -1238,12 +1238,20 @@ class ConnectionPlugin(TelescopePlugin):
         self._render()
         self._check_status()
 
-    def _on_stream_connected(self):
+    def _shows(self, sid: str) -> bool:
+        """Whether sid's stream is the one this card shows (a bus signal can be about one behind it)."""
+        return sid == (self._host.focused_source_id() or "")
+
+    def _on_stream_connected(self, sid: str):
+        if not self._shows(sid):
+            return
         self._connected = True
         self._lost = False
         self._render()
 
-    def _on_stream_lost(self):
+    def _on_stream_lost(self, sid: str):
+        if not self._shows(sid):
+            return
         self._lost = True
         # Recovery picks USB by itself when the phone answers on it, so no Switch to USB meanwhile.
         self._usb_watch_timer.stop()

@@ -210,7 +210,7 @@ class OnboardingPlugin(TelescopePlugin):
         self._phones = count
         self._render()
 
-    def _on_stream_connected(self):
+    def _on_stream_connected(self, _sid: str):
         if not self._streamed:
             self._streamed = True
             self._host.schedule_save()

@@ -354,9 +354,12 @@ class EventBus(QObject):
     stream_stopped         = pyqtSignal()
     stream_start_failed    = pyqtSignal()
     """A Start ended without a stream (the phone couldn't be reached or woken); no stream_started follows."""
-    stream_connected       = pyqtSignal()
-    stream_lost            = pyqtSignal()
-    """Frames stopped mid-stream; the host is looking for a route back (stream_connected ends it)."""
+    stream_connected       = pyqtSignal(str)
+    """A stream's frames are coming in (its source id; "" for no phone picked), the first time or back after a drop.
+    Every stream, shown or not, and again for the one the panels move onto: check focused_source_id() for the shown one."""
+    stream_lost            = pyqtSignal(str)
+    """A stream's frames stopped mid-stream (its source id); the host is looking for a route back (stream_connected
+    ends it). Every stream, and again for the one the panels move onto, as stream_connected."""
     phone_state_updated    = pyqtSignal(dict)
     device_changed         = pyqtSignal(str)
     phones_changed         = pyqtSignal(int)
@@ -422,6 +425,7 @@ class EventBus(QObject):
     """[(id, name, detail)] of StreamSources a plugin remembers settings for (browsers); the phones list shows them."""
     forget_source_requested = pyqtSignal(str)
     """Remove was clicked on one of remembered_sources in the phones list: its plugin forgets it."""
-    stream_behind          = pyqtSignal(bool)
-    """The stream fell behind its frame rate (the throughput readout went amber), or caught up again. Only on a
-    change, and never for a dropped stream: that's stream_lost."""
+    stream_behind          = pyqtSignal(str, bool)
+    """A stream (its source id) fell behind its frame rate (the throughput readout went amber), or caught up again.
+    Only on a change, and never for a dropped stream: that's stream_lost. A stream the panels leave counts as caught
+    up; only the shown one is measured, so check focused_source_id() as for stream_connected."""

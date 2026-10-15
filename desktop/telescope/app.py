@@ -1372,7 +1372,7 @@ class TelescopeWindow(QMainWindow):
                 self._each_follower("on_focus_lost")  # it streams on, behind
             if old.behind:
                 old.behind = False
-                self._bus.stream_behind.emit(False)
+                self._bus.stream_behind.emit(old.id or "", False)
         self._focus = source
         conn = self._plugin("connection")
         if conn is not None:
@@ -1396,9 +1396,9 @@ class TelescopeWindow(QMainWindow):
             self._each_follower("on_focus_gained", session.url, session.client)
             source.refresh_state(session.id)
             if source.recovering:
-                self._bus.stream_lost.emit()
+                self._bus.stream_lost.emit(source.id or "")
             elif source.connected:
-                self._bus.stream_connected.emit()
+                self._bus.stream_connected.emit(source.id or "")
         self._refresh_tiles()
 
     def _sync_main(self):
@@ -1818,8 +1818,7 @@ class TelescopeWindow(QMainWindow):
         source.start_lost_clock()
         self._refresh_tiles()
         self._set_behind(False, source)
-        if source is self._focus:
-            self._bus.stream_lost.emit()
+        self._bus.stream_lost.emit(source.id or "")
         source.lost()
 
     def _drain_phone_stops(self, timeout: float = 2.0):
@@ -2193,7 +2192,7 @@ class TelescopeWindow(QMainWindow):
                 # still needs its Start
                 if key != "h264" and (not key.startswith("stopped:") or key == f"stopped:{source.id}"):
                     self._banners.clear_issue(key)
-            self._bus.stream_connected.emit()
+            self._bus.stream_connected.emit(source.id or "")
         elif kind == "warn":
             self._set_status(msg, "warn")
         elif kind == "waiting":  # no first frame yet: maybe the route died between waking the phone and now
@@ -2222,6 +2221,8 @@ class TelescopeWindow(QMainWindow):
         """A stream the panels don't show: its tile says how it's doing, and a dropped one still finds its way back."""
         if kind in ("waiting", "reconnecting"):
             self._begin_recovery(source)
+        elif kind == "ok":
+            self._bus.stream_connected.emit(source.id or "")
         elif kind == "idle" and source.session is not None:
             logging.warning("The stream worker for %s ended by itself", source.name)
             self._stop(source=source)
@@ -2263,8 +2264,7 @@ class TelescopeWindow(QMainWindow):
         source = source or self._active_source()
         if behind != source.behind:
             source.behind = behind
-            if source is self._focus or self._focus is None:
-                self._bus.stream_behind.emit(behind)
+            self._bus.stream_behind.emit(source.id or "", behind)
 
     def _set_status(self, msg: str, kind: str):
         diagnostics.events.note(f"Status: {msg}")

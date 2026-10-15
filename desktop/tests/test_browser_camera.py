@@ -200,6 +200,9 @@ class _Host:
     def stream_count(self):
         return len(self.streams)
 
+    def focused_source_id(self):
+        return SOURCE_ID
+
     def has_device_settings(self, name):
         return name in self.settings
 
@@ -588,16 +591,16 @@ def test_feed_drops_frames_from_a_replaced_browser():
 
 def test_falling_behind_points_at_its_own_resolution_and_frame_rate(browser):
     plugin, host, bus, _card = browser
-    bus.stream_behind.emit(True)
+    bus.stream_behind.emit(SOURCE_ID, True)
     assert "behind" not in host.issues  # a phone is picked: Stream output says what helps
     bus.source_selected.emit(SOURCE_ID)
-    bus.stream_behind.emit(True)
+    bus.stream_behind.emit(SOURCE_ID, True)
     issue = host.issues["behind"]
     assert issue.title == "Can't keep up" and "Browser camera card" in issue.text and issue.kind == "warn"
     plugin._set_capture(size="480p", fps=15)
-    bus.stream_behind.emit(True)
+    bus.stream_behind.emit(SOURCE_ID, True)
     assert host.issues["behind"].text == "The device's browser can't send any faster."
-    bus.stream_behind.emit(False)
+    bus.stream_behind.emit(SOURCE_ID, False)
     assert "behind" not in host.issues
 
 
