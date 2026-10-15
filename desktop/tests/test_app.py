@@ -711,8 +711,8 @@ def test_window_implements_the_public_host_services_contract(window):
     # reintroducing private coupling that the HostServices Protocol hides.
     from telescope.plugin import HostServices
     contract = [
-        n for n, v in vars(HostServices).items()
-        if not n.startswith("_") and callable(v)
+        n for part in HostServices.__mro__ if part.__module__ == "telescope.plugin"
+        for n, v in vars(part).items() if not n.startswith("_") and callable(v)
     ]
     assert "schedule_save" in contract  # sanity: the introspection found methods
     for name in contract:
