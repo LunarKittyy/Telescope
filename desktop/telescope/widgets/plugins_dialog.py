@@ -186,7 +186,7 @@ class PluginsDialog(QDialog):
         elif not item.enabled and item.name in self._running:
             note, kind = "Switched off. It goes away when Telescope restarts.", "status_warn"
         row, box, top = self._row(title, item.enabled, about, note, kind)
-        box.setEnabled(not item.problem)
+        box.setEnabled(not item.problem or item.enabled)  # one that's on can always be switched off
         box.toggled.connect(lambda checked, i=item, b=box: self._switch_added(i, checked, b))
         remove = QPushButton("Remove")
         remove.clicked.connect(lambda _=False, i=item: self._remove(i))

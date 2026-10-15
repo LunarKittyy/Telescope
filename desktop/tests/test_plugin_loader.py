@@ -137,6 +137,45 @@ def test_group_write_is_fine_when_the_group_is_the_users_own(plugins, monkeypatc
     assert "Other users" in _one(plugins).problem
 
 
+def test_compiled_code_left_in_a_plugin_never_runs(plugins, tmp_path):
+    import importlib.util
+    import py_compile
+    folder = _plugin(plugins, "thing", _SIMPLE.format(name="thing"))
+    plugin_loader.set_enabled(_one(plugins), True)
+    evil = tmp_path / "evil.py"
+    marker = tmp_path / "ran"
+    evil.write_text(f"open({str(marker)!r}, 'w').close()\n" + _SIMPLE.format(name="thing"))
+    cached = folder / "__pycache__" / Path(importlib.util.cache_from_source(str(folder / "__init__.py"))).name
+    cached.parent.mkdir()
+    py_compile.compile(str(evil), cfile=str(cached), invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH)
+    assert _one(plugins).enabled  # a cache isn't a change...
+    loaded, failed = plugin_loader.load_enabled()
+    assert failed == [] and [p.name for p in loaded] == ["thing"]
+    assert not marker.exists()  # ...because it's cleared before loading, and the source is what runs
+
+
+def test_a_pyc_next_to_the_source_is_refused(plugins):
+    folder = _plugin(plugins, "thing", _SIMPLE.format(name="thing"))
+    (folder / "helper.pyc").write_bytes(b"\0")
+    assert ".pyc" in _one(plugins).problem
+
+
+@pytest.mark.skipif(os.name != "posix", reason="permissions as on Linux")
+def test_a_file_inside_other_users_can_change_is_caught(plugins):
+    folder = _plugin(plugins, "thing", _SIMPLE.format(name="thing"))
+    (folder / "sub").mkdir()
+    (folder / "sub" / "x.py").write_text("")
+    (folder / "sub" / "x.py").chmod(0o666)
+    assert "Other users" in _one(plugins).problem
+
+
+def test_a_plugin_that_exits_on_import_doesnt_end_telescope(plugins):
+    _plugin(plugins, "thing", "import sys\nsys.exit(3)\n")
+    plugin_loader.set_enabled(_one(plugins), True)
+    loaded, failed = plugin_loader.load_enabled()
+    assert loaded == [] and "SystemExit" in failed[0].error
+
+
 def test_a_plugins_own_modules_dont_shadow_anything(plugins):
     folder = _plugin(plugins, "thing", "import json\nfrom telescope.plugin import TelescopePlugin\n"
                                        "from .helper import VALUE\n\nclass P(TelescopePlugin):\n"
@@ -208,6 +247,8 @@ def test_a_zip_installs_switched_off(plugins, tmp_path):
     found = plugin_loader.install_zip(archive, folder=plugins)
     assert found.problem == "" and not found.enabled and (plugins / "black_and_white" / "plugin.json").is_file()
     assert [p.name for p in plugins.iterdir()] == ["black_and_white"]  # nothing left from unpacking
+    if os.name == "posix":
+        assert all(p.stat().st_mode & 0o022 == 0 for p in (plugins / "black_and_white").rglob("*"))
 
 
 @pytest.mark.parametrize("files, links, expect", [

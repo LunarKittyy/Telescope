@@ -93,6 +93,13 @@ def test_an_added_plugin_that_breaks_while_starting_is_taken_back_out(window, pl
     assert issue.title == "Broken didn't start" and "no card today" in window._plugin_problems["broken"]
 
 
+def test_an_added_plugin_that_exits_while_starting_is_left_out(window, plugins):
+    _added(plugins, "quitter", header="raise SystemExit(3)")
+    plugin_loader.set_enabled(plugin_loader.find_installed(folder=plugins)[0], True)
+    window.load_plugins(_builtins())
+    assert window._plugin("quitter") is None and "SystemExit" in window._plugin_problems["quitter"]
+
+
 def test_a_built_in_plugin_that_breaks_still_stops_the_start(window, plugins):
     class Broken(_Builtin):
         def setup(self, host, bus):
@@ -174,3 +181,15 @@ def test_a_plugin_that_didnt_start_says_why_in_the_list(qapp, plugins, answers):
     texts = [label.text() for label in dialog.findChildren(dialog_module.QWidget) if hasattr(label, "text")
              and callable(label.text) and isinstance(label.text(), str)]
     assert any("It didn't start: RuntimeError: no card today" in t for t in texts)
+
+
+def test_one_thats_on_can_be_switched_off_even_with_a_problem(qapp, plugins, answers):
+    folder = _added(plugins, "extra")
+    plugin_loader.set_enabled(plugin_loader.find_installed(folder=plugins)[0], True)
+    (folder / "plugin.json").write_text((folder / "plugin.json").read_text().replace('"api": 1', '"api": 99'))
+    plugin_loader.set_enabled(plugin_loader.find_installed(folder=plugins)[0], True)  # on, as this version
+    dialog = PluginsDialog(None, _builtins(), {"connection", "camera_control", "presets", "extra"}, {}, lambda: True)
+    box = _boxes(dialog)["Extra"]
+    assert box.isEnabled() and box.isChecked()
+    box.setChecked(False)
+    assert not plugin_loader.find_installed(folder=plugins)[0].enabled

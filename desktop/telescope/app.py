@@ -268,7 +268,7 @@ class TelescopeWindow(QMainWindow):
                 self._plugins_by_name[plugin.name] = plugin
             if plugin.name:
                 self._plugin_defaults[plugin.name] = plugin.get_config()
-        except Exception:
+        except BaseException:
             if added:
                 self._take_out(plugin, panel, header_widget, tray)
             raise
@@ -312,7 +312,7 @@ class TelescopeWindow(QMainWindow):
         for plugin in loaded:
             try:
                 self.register_plugin(plugin, added=True)
-            except Exception as exc:
+            except (Exception, SystemExit) as exc:
                 logging.exception("Plugin %s failed while starting; leaving it out", plugin.name)
                 problems[plugin.name] = (plugin.title or plugin.name, f"{type(exc).__name__}: {exc}"[:300])
         self._added_plugins = [p for p in loaded if p in self._plugins]

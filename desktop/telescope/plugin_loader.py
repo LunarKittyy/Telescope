@@ -40,7 +40,9 @@ _CLASS = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,63}\Z")
 _TEXT_MAX = 300  # longest title, author or description shown
 _MAX_FILES = 500
 _MAX_BYTES = 20 * 1024 * 1024  # a plugin folder, or what a .zip unpacks to
-_SKIPPED = {"__pycache__"}  # Python writes these next to the code when it's imported
+_CACHE = "__pycache__"  # Python writes these next to the code when it's imported; cleared before each load
+_SHARED = "Other users on this computer could change it, so it isn't loaded."
+_LINK = "It contains a link to somewhere else, which plugins can't have."
 _PACKAGE = "telescope_ext"  # loaded plugins are telescope_ext.<name>, never on sys.path
 
 
@@ -75,20 +77,25 @@ def _text(value) -> str:
 
 
 def _files(folder: Path) -> list:
-    """The plugin's files, relative to folder and sorted; raises ValueError for a link or a folder too big."""
+    """The plugin's files, relative to folder and sorted; raises ValueError for a link, compiled code, a file other
+    users could change, or a folder too big."""
     found, total = [], 0
     for root, dirs, names in os.walk(folder, followlinks=False):
-        dirs[:] = sorted(d for d in dirs if d not in _SKIPPED)
         here = Path(root)
         for d in dirs:
             if (here / d).is_symlink():
-                raise ValueError("It contains a link to somewhere else, which plugins can't have.")
+                raise ValueError(_LINK)
+        dirs[:] = sorted(d for d in dirs if d != _CACHE)
+        if _unsafe_permissions(here):
+            raise ValueError(_SHARED)
         for n in sorted(names):
             path = here / n
             if path.is_symlink():
-                raise ValueError("It contains a link to somewhere else, which plugins can't have.")
-            if n.endswith(".pyc"):
-                continue
+                raise ValueError(_LINK)
+            if n.endswith((".pyc", ".pyo")):
+                raise ValueError("It contains compiled Python (.pyc) files. Plugins have to be source code.")
+            if _unsafe_permissions(path):
+                raise ValueError(_SHARED)
             total += path.stat().st_size
             found.append(path.relative_to(folder))
             if len(found) > _MAX_FILES or total > _MAX_BYTES:
@@ -121,7 +128,10 @@ def _private_group(gid: int) -> bool:
         import grp
         import pwd
         group = grp.getgrgid(gid)
-        return group.gr_name == pwd.getpwuid(os.getuid()).pw_name and not group.gr_mem
+        me = pwd.getpwuid(os.getuid())
+        if group.gr_name != me.pw_name or group.gr_mem:
+            return False
+        return not any(user.pw_gid == gid and user.pw_uid != me.pw_uid for user in pwd.getpwall())
     except (ImportError, KeyError):
         return False
 
@@ -250,7 +260,7 @@ def _inspect(path: Path, reserved, enabled: dict, shared: bool) -> Installed:
     if not (path / "__init__.py").is_file():
         return problem("It has no __init__.py.")
     if shared or _unsafe_permissions(path):
-        return problem("Other users on this computer could change it, so it isn't loaded.")
+        return problem(_SHARED)
     return plugin
 
 
@@ -273,6 +283,7 @@ def load(plugin: Installed) -> TelescopePlugin:
         package.__path__ = []  # a namespace for the plugins, with nothing to import from on its own
         sys.modules[_PACKAGE] = package
     module_name = f"{_PACKAGE}.{plugin.name}"
+    _clear_caches(plugin.folder)
     spec = importlib.util.spec_from_file_location(module_name, plugin.folder / "__init__.py",
                                                   submodule_search_locations=[str(plugin.folder)])
     module = importlib.util.module_from_spec(spec)
@@ -293,6 +304,16 @@ def load(plugin: Installed) -> TelescopePlugin:
     return instance
 
 
+def _clear_caches(folder: Path):
+    """Delete the plugin's __pycache__ folders, so what runs is compiled from the source that was checked."""
+    for root, dirs, _names in os.walk(folder, followlinks=False):
+        for d in dirs:
+            path = Path(root) / d
+            if d == _CACHE and not path.is_symlink():
+                shutil.rmtree(path)
+        dirs[:] = [d for d in dirs if d != _CACHE]
+
+
 def load_enabled(reserved=(), folder: Optional[Path] = None) -> tuple:
     """(plugins to register, the Installed entries that are on but couldn't load, error filled in)."""
     loaded, failed = [], []
@@ -306,7 +327,7 @@ def load_enabled(reserved=(), folder: Optional[Path] = None) -> tuple:
         try:
             loaded.append(load(plugin))
             logger.info("Loaded plugin %s %s", plugin.name, plugin.version)
-        except Exception as exc:
+        except (Exception, SystemExit) as exc:  # a sys.exit() in a plugin mustn't keep Telescope from starting
             logger.exception("Plugin %s couldn't load", plugin.name)
             plugin.error = plugin.problem or f"{type(exc).__name__}: {exc}"[:_TEXT_MAX]
             failed.append(plugin)
@@ -329,7 +350,7 @@ def install_zip(archive: Path, reserved=(), folder: Optional[Path] = None) -> In
                         or any(p in ("..", "") or ":" in p for p in parts)):
                     raise ValueError("It holds a file with a path that points outside the plugin.")
                 if (e.external_attr >> 16) & 0o170000 == 0o120000:
-                    raise ValueError("It contains a link to somewhere else, which plugins can't have.")
+                    raise ValueError(_LINK)
                 tops.add(parts[0])
             if len(tops) != 1:
                 raise ValueError("It has to hold one folder, named as the plugin.")
@@ -351,7 +372,10 @@ def install_zip(archive: Path, reserved=(), folder: Optional[Path] = None) -> In
                     target.parent.mkdir(parents=True, exist_ok=True)
                     with zf.open(e) as src, open(target, "wb") as dst:
                         shutil.copyfileobj(src, dst)
-                os.chmod(staging / name, 0o755)
+                for root, dirs, names in os.walk(staging / name):
+                    os.chmod(root, 0o755)
+                    for n in names:
+                        os.chmod(Path(root) / n, 0o644)
                 os.replace(staging / name, folder / name)
             finally:
                 shutil.rmtree(staging, ignore_errors=True)
