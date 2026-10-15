@@ -1293,7 +1293,7 @@ class TelescopeWindow(QMainWindow):
                 self._save_profile(old.id, self._followers())  # as it was, before the stop hooks
                 if old.session.worker is not None:
                     old.session.worker.set_pipeline(self._pipeline(live=False))
-                self._each_follower("on_stream_stop")
+                self._each_follower("on_focus_lost")  # it streams on, behind
             if old.behind:
                 old.behind = False
                 self._bus.stream_behind.emit(False)
@@ -1317,7 +1317,7 @@ class TelescopeWindow(QMainWindow):
         if session is not None:
             if session.worker is not None:
                 session.worker.set_pipeline(self._pipeline())
-            self._each_follower("on_stream_start", session.url, session.client)
+            self._each_follower("on_focus_gained", session.url, session.client)
             source.refresh_state(session.id)
             if source.recovering:
                 self._bus.stream_lost.emit()
@@ -1350,12 +1350,13 @@ class TelescopeWindow(QMainWindow):
         stays = self._stays()
         old, self._main = self._main, None
         if old is not None:
-            self._tell_stays("on_stream_stop")
+            self._call(stays, "on_focus_lost" if old.session is not None else "on_stream_stop")
             self._save_profile(old.id, stays)
         self._main = main
         if main is not None:
             self._apply_device_profile(main.id, stays)
-            self._tell(main, "on_stream_start", main.session.url, main.session.client)
+            # Only those staying with it: the panels' plugins already hear about it if they show it
+            self._call(stays, "on_focus_gained", main.session.url, main.session.client)
 
     def _tell_stays(self, hook: str):
         self._call(self._stays(), hook)

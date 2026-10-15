@@ -485,19 +485,32 @@ class TransformsPlugin(TelescopePlugin):
     # ── Phone-side zoom ───────────────────────────────────────────────────────
 
     def on_stream_start(self, stream_url: str, ctrl):
-        kept = self._behind.take(self._host, ctrl)
         self._ctrl = ctrl
+        self._sent_zoom = None  # a new connection (or a reconnect): tell the phone again
+        self._sync_zoom()
+
+    def on_focus_gained(self, stream_url: str, ctrl):
+        kept = self._behind.take(self._host, ctrl)
         if kept is None:
-            self._sent_zoom = None  # a new connection (or a reconnect): tell the phone again
-        else:  # back on a stream: the phone already crops what it was sent, so the desktop only does the rest
-            caps, self._sent_zoom, self._sent_ratio_at, self._live_lens, self._default_lens, self._tele_lens = kept
-            self._zoom_caps = caps
-            self._zoom_slider.set_snaps([lens_step(z) for z in caps.lens_zooms] if caps else [])
+            self.on_stream_start(stream_url, ctrl)
+            return
+        # Back on a stream: the phone already crops what it was sent, so the desktop only does the rest
+        self._ctrl = ctrl
+        caps, self._sent_zoom, self._sent_ratio_at, self._live_lens, self._default_lens, self._tele_lens = kept
+        self._zoom_caps = caps
+        self._zoom_slider.set_snaps([lens_step(z) for z in caps.lens_zooms] if caps else [])
         self._sync_zoom()
 
     def on_stream_stop(self):
+        self._behind.drop(self._host)
+        self._leave_stream()
+
+    def on_focus_lost(self):
         self._behind.keep(self._host, self._ctrl, (self._zoom_caps, self._sent_zoom, self._sent_ratio_at,
                                                    self._live_lens, self._default_lens, self._tele_lens))
+        self._leave_stream()
+
+    def _leave_stream(self):
         self._ctrl = None
         self._zoom_caps = None
         self._live_lens = ""

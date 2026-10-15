@@ -569,11 +569,24 @@ def test_monitoring_doesnt_warn_again_after_a_tile_switch(monitoring):
     ctrl = _Ctrl()
     plugin.on_stream_start("url", ctrl)
     plugin._check_alerts(10, False, 30)
-    plugin.on_stream_stop()  # the panels moved to another stream
+    plugin.on_focus_lost()  # the panels moved to another stream
     assert plugin._timer.isActive()  # still watching this one from behind
-    plugin.on_stream_start("url", ctrl)  # and back
+    plugin.on_focus_gained("url", ctrl)  # and back
     plugin._check_alerts(10, False, 30)
     assert len(host.notifications) == 1
+
+
+def test_monitoring_warns_afresh_about_a_stream_that_ended(monitoring):
+    plugin, host, _bus, _panel = monitoring
+    host._worker = _Worker()
+    ctrl = _Ctrl()
+    plugin.on_stream_start("url", ctrl)
+    plugin._check_alerts(10, False, 30)
+    plugin.on_stream_stop()  # really stopped, with another stream carrying on
+    assert plugin._timer.isActive()
+    plugin.on_focus_gained("url", ctrl)
+    plugin._check_alerts(10, False, 30)
+    assert len(host.notifications) == 2
 
 
 def test_monitoring_skips_a_reading_it_cant_read(monitoring):

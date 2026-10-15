@@ -2778,6 +2778,68 @@ def test_stop_stops_every_camera(two_streams):
     assert mic.stopped == 1
 
 
+class _Hooks(_Plugin):
+    """Writes down which stream hooks it hears, in order."""
+
+    def __init__(self, follows_focus=True):
+        super().__init__("hooks")
+        self.follows_focus = follows_focus
+        self.heard = []
+
+    def on_stream_start(self, url, ctrl):
+        self.heard.append(("start", url))
+
+    def on_stream_stop(self):
+        self.heard.append(("stop",))
+
+    def on_focus_gained(self, url, ctrl):
+        self.heard.append(("gained", url))
+
+    def on_focus_lost(self):
+        self.heard.append(("lost",))
+
+
+def test_clicking_a_tile_is_a_focus_change_not_a_stop_and_start(two_streams):
+    window, *_ = two_streams
+    hooks = _Hooks()
+    window.register_plugin(hooks)
+    window.focus_stream("Phone")
+    assert hooks.heard == [("lost",), ("gained", "http://phone/video")]
+
+
+def test_stopping_the_shown_stream_stops_it_then_moves_the_panels_on(two_streams):
+    window, *_ = two_streams
+    hooks = _Hooks()
+    window.register_plugin(hooks)
+    window.stop_stream("browser")
+    assert hooks.heard == [("stop",), ("gained", "http://phone/video")]
+
+
+def test_the_panels_dont_hear_their_stream_start_again_when_the_mic_moves_onto_it(two_streams):
+    window, *_ = two_streams
+    hooks, stays = _Hooks(), _Hooks(follows_focus=False)
+    window.register_plugin(hooks)
+    window.register_plugin(stays)
+    window.stop_stream("Phone")  # the mic's stream; the panels show the browser, which carries on
+    assert hooks.heard == []
+    assert stays.heard == [("stop",), ("gained", "browser://camera")]
+
+
+def test_moving_the_mic_to_another_stream_is_a_focus_change_for_it(two_streams):
+    window, *_ = two_streams
+    stays = _Hooks(follows_focus=False)
+    window.register_plugin(stays)
+    assert window.make_main("browser")
+    assert stays.heard == [("lost",), ("gained", "browser://camera")]
+
+
+def test_the_focus_hooks_default_to_the_stream_hooks():
+    plugin = _Plugin("plain")
+    plugin.on_focus_gained("url", "ctrl")
+    plugin.on_focus_lost()
+    assert plugin.started == [("url", "ctrl")] and plugin.stopped == 1
+
+
 def test_with_two_cameras_neither_turns_its_camera_off(two_streams):
     window, _conn, _mic, _view, _workers, _config = two_streams
     window.focus_stream("Phone")

@@ -355,11 +355,14 @@ class CameraControlPlugin(TelescopePlugin):
     # ── Stream lifecycle ──────────────────────────────────────────────────────
 
     def on_stream_start(self, stream_url: str, ctrl):
+        self._ctrl = ctrl
+        self._lens_panel.set_placeholder("Loading lenses...")
+        self._push_settings_to_phone()
+
+    def on_focus_gained(self, stream_url: str, ctrl):
         kept = self._behind.take(self._host, ctrl)
         if kept is None:
-            self._ctrl = ctrl
-            self._lens_panel.set_placeholder("Loading lenses...")
-            self._push_settings_to_phone()
+            self.on_stream_start(stream_url, ctrl)
             return
         # Back on a stream that kept going: the phone has its settings, so the panel only shows them, in its ranges
         state, point = kept
@@ -397,8 +400,15 @@ class CameraControlPlugin(TelescopePlugin):
             self._ctrl.send(action="low_light", value="1")
 
     def on_stream_stop(self):
+        self._behind.drop(self._host)
+        self._leave_stream()
+
+    def on_focus_lost(self):
         if self._last_state is not None:
             self._behind.keep(self._host, self._ctrl, (self._last_state, self._point_focus))
+        self._leave_stream()
+
+    def _leave_stream(self):
         self._last_state = None
         self._ctrl = None
         self._set_point_available(False)

@@ -721,3 +721,19 @@ def test_a_damaged_saved_zoom_or_pan_falls_back_instead_of_breaking_frames(trans
     plugin.set_config({"zoom": "big"})
     assert plugin.get_config()["zoom"] == 1.0
     assert plugin.process_frame(_grid()).shape == (4, 6, 3)
+
+
+def test_back_on_a_tile_the_phone_isnt_told_its_zoom_again_but_after_a_real_stop_it_is(transforms_plugin):
+    plugin, _host, _panel = transforms_plugin
+    ctrl = _Ctrl()
+    plugin.on_stream_start("http://phone/v1/video", ctrl)
+    plugin.on_phone_state(_state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True))
+    plugin.on_focus_lost()
+    ctrl.sent.clear()
+    plugin.on_focus_gained("http://phone/v1/video", ctrl)
+    plugin.on_phone_state(_state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True))
+    assert ctrl.sent == []
+    plugin.on_stream_stop()
+    plugin.on_focus_gained("http://phone/v1/video", ctrl)
+    plugin.on_phone_state(_state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True))
+    assert ctrl.sent == [{"action": "zoom", "ratio": 1.0, "crop": 1.0, "x": 0.5, "y": 0.5}]

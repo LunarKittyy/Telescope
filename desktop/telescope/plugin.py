@@ -240,19 +240,23 @@ class StreamsBehind:
         self._kept: dict = {}
 
     def keep(self, host: "HostServices", ctrl, value):
-        """From on_stream_stop: value is kept if the stream the panels showed carries on, else it's dropped."""
+        """From on_focus_lost: value is kept for the stream the panels are leaving."""
         sid = host.focused_source_id()
-        if ctrl is not None and host.is_streaming_from(sid):
+        if ctrl is not None:
             self._kept[sid] = (ctrl, value)
         else:
             self._kept.pop(sid, None)
-        if not host.is_streaming():
-            self._kept.clear()
 
     def take(self, host: "HostServices", ctrl):
-        """From on_stream_start: what keep() held for this stream, or None for a stream that starts afresh."""
+        """From on_focus_gained: what keep() held for this stream, or None if it has started again since."""
         kept = self._kept.pop(host.focused_source_id(), None)
         return kept[1] if kept is not None and kept[0] is ctrl else None
+
+    def drop(self, host: "HostServices"):
+        """From on_stream_stop: the shown stream ended, so nothing about it is kept (and nothing at all once idle)."""
+        self._kept.pop(host.focused_source_id(), None)
+        if not host.is_streaming():
+            self._kept.clear()
 
 
 class TelescopePlugin:
@@ -287,8 +291,17 @@ class TelescopePlugin:
         return []
     def on_stream_starting(self):
         """A stream is about to open the virtual camera; anything holding it while idle lets go now."""
-    def on_stream_start(self, stream_url: str, ctrl): ...
-    def on_stream_stop(self): ...
+    def on_stream_start(self, stream_url: str, ctrl):
+        """The stream this plugin hears about started, or came back after a drop (the same ctrl then)."""
+    def on_stream_stop(self):
+        """The stream this plugin hears about ended (or stops to start again: host.is_restarting())."""
+    def on_focus_gained(self, stream_url: str, ctrl):
+        """The plugin moved onto a stream that was already running (a tile was clicked, the shown stream stopped
+        with others carrying on, or the mic was moved). By default it's treated like on_stream_start."""
+        self.on_stream_start(stream_url, ctrl)
+    def on_focus_lost(self):
+        """The plugin moved off a stream that carries on without it. By default it's treated like on_stream_stop."""
+        self.on_stream_stop()
     def on_camera_off(self):
         """The stream carries on with the camera off: no frames until on_camera_on (after on_stream_starting)."""
     def on_camera_on(self):

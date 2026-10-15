@@ -614,3 +614,17 @@ def test_low_light_is_saved_and_sent_at_stream_start_only_when_on(camera_plugin)
     ctrl = _Ctrl()
     plugin.on_stream_start("url", ctrl)
     assert "low_light" not in [p["action"] for p in ctrl.sent]
+
+
+def test_back_on_a_tile_nothing_is_sent_but_after_a_real_stop_everything_is(camera_plugin):
+    plugin, _host, _bus, _panel = camera_plugin
+    ctrl = _Ctrl()
+    plugin.on_stream_start("url", ctrl)
+    plugin.on_phone_state({"cameras": [{"id": "0", "label": "Back", "current": True}], "auto": True})
+    plugin.on_focus_lost()
+    ctrl.sent.clear()
+    plugin.on_focus_gained("url", ctrl)
+    assert ctrl.sent == []  # the phone still has its settings
+    plugin.on_stream_stop()
+    plugin.on_focus_gained("url", ctrl)
+    assert ctrl.sent  # nothing kept from a stream that ended
