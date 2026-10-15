@@ -143,6 +143,9 @@ class _Signals(QObject):
 
 class MicrophonePlugin(TelescopePlugin):
     name = "microphone"
+    title = "Microphone"
+    about = "Using the phone's microphone on this computer."
+    when_off = "The Microphone card and the tray's Mute go away, and no virtual microphone is made."
     device_local = True
     follows_focus = False  # stays on one stream (the first, until another one's card takes it) whichever the panels show
     panel_region = "left"

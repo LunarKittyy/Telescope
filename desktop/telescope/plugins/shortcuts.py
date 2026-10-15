@@ -110,6 +110,9 @@ WINDOW_SHOWN = "Telescope: shown"
 
 class ShortcutsPlugin(TelescopePlugin):
     name = "shortcuts"
+    title = "Keyboard shortcuts"
+    about = "Keys for Telescope's controls, including ones that work in other apps."
+    when_off = "Keyboard shortcuts leaves the settings menu, and no shortcut does anything. They're kept for later."
 
     def __init__(self, backend_factory=None):
         self._backend_factory = backend_factory

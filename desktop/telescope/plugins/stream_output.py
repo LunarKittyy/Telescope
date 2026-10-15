@@ -117,6 +117,9 @@ def _closest_size(wh: tuple, sizes) -> tuple:
 
 class StreamOutputPlugin(TelescopePlugin):
     name = "stream_output"
+    title = "Stream output"
+    about = "The resolution, frame rate and format of the stream."
+    when_off = "The Stream output card goes away, and streams use the phone's own size and format."
     device_local = True
 
     def setup(self, host, bus):

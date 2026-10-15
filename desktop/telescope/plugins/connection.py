@@ -463,6 +463,9 @@ class _Signals(QObject):
 
 class ConnectionPlugin(TelescopePlugin):
     name = "connection"
+    title = "Phones and connection"
+    about = "Pairing phones, picking one and connecting to it over Wi-Fi or USB."
+    required = True
 
     def setup(self, host, bus):
         self._host = host

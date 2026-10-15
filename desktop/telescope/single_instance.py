@@ -1,4 +1,5 @@
-"""One Telescope per user: the lock later launches find, raising the running window, and `telescope --action`."""
+"""One Telescope per user: the lock later launches find, raising the running window, `telescope --action`, and
+starting a new copy of this one (after an update, or to turn plugins on or off)."""
 
 import hashlib
 import hmac
@@ -6,6 +7,7 @@ import json
 import logging
 import os
 import socket
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -199,3 +201,28 @@ def listen_for_raise(srv: socket.socket, raise_cb, action_cb=None, control_key: 
             pass  # a connection that says nothing or resets mustn't stop every later raise
         finally:
             conn.close()
+
+
+RESTARTED = "--restarted"
+"""Passed to the copy restart_argv() starts: it waits for this one to let go of the lock instead of raising it."""
+
+
+def restart_argv() -> list:
+    """The command that starts this Telescope again, the way it was started (the packaged app, or main.py)."""
+    if getattr(sys, "frozen", False):
+        return [sys.executable, RESTARTED]
+    return [sys.executable, str(Path(sys.argv[0]).resolve()), RESTARTED]
+
+
+def relaunch(argv: list, popen=subprocess.Popen):
+    """Start argv as a copy of Telescope that outlives this one."""
+    # The packaged app unpacks itself into a temp folder and passes it to child copies of itself, so the
+    # relaunched app would run from ours, which is deleted as we exit ("Failed to remove temporary
+    # directory", then a half-working app). This makes it unpack its own.
+    env = dict(os.environ, PYINSTALLER_RESET_ENVIRONMENT="1")
+    kwargs = {"close_fds": True, "env": env}
+    if sys.platform == "win32":
+        kwargs["creationflags"] = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+    else:
+        kwargs["start_new_session"] = True
+    popen(argv, **kwargs)

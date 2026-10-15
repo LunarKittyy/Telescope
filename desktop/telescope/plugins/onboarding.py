@@ -79,6 +79,9 @@ class _Step:
 
 class OnboardingPlugin(TelescopePlugin):
     name = "onboarding"
+    title = "Setup guide"
+    about = "The step by step checklist shown until the first stream works."
+    when_off = "The checklist won't show, even before anything is set up."
     panel_region = "center"
 
     def setup(self, host, bus):

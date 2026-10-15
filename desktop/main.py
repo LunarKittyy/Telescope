@@ -53,7 +53,9 @@ from PyQt6.QtWidgets import QApplication
 
 from telescope import dev_profile, diagnostics
 from telescope.app import TelescopeWindow
-from telescope.single_instance import acquire_single_instance, listen_for_raise, send_action, write_control_key
+from telescope.single_instance import (
+    RESTARTED, acquire_single_instance, listen_for_raise, send_action, write_control_key,
+)
 from telescope.platform import IS_LINUX, autostart, virtual_mic
 from telescope.plugins import builtin_plugins
 from telescope.theme import apply_theme
@@ -66,6 +68,8 @@ def parse_args(argv):
     parser = argparse.ArgumentParser(prog="telescope", add_help=False)
     parser.add_argument("--after-update", action="store_true",
                         help="started by the updater: wait for the old copy to exit, then tidy up")
+    parser.add_argument(RESTARTED, action="store_true",
+                        help="started by Restart now (Plugins): wait for the old copy to exit")
     parser.add_argument("--minimized", action="store_true",
                         help="start in the tray (used when opening at sign-in)")
     parser.add_argument(MOVED_FROM, dest="moved_from", metavar="FOLDER",
@@ -137,7 +141,7 @@ def main():
             autostart.update_menu_entry(lambda path: create_app_icon(256).pixmap(256, 256).save(str(path), "PNG"))
         autostart.refresh()
 
-    srv = acquire_single_instance(wait=15 if args.after_update else 0)
+    srv = acquire_single_instance(wait=15 if args.after_update or args.restarted else 0)
     if srv is None:
         sys.exit(0)
     control_key = write_control_key()  # straight away: an --action from a sign-in script mustn't find the last run's
@@ -147,8 +151,7 @@ def main():
     apply_theme(app)
 
     win = TelescopeWindow()
-    for plugin in builtin_plugins():
-        win.register_plugin(plugin)
+    win.load_plugins(builtin_plugins())
     win.apply_saved_config()
     if args.minimized:
         win.start_hidden()

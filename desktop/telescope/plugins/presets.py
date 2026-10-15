@@ -56,6 +56,9 @@ def clean_presets(raw) -> list:
 
 class PresetsPlugin(TelescopePlugin):
     name = "presets"
+    title = "Presets"
+    about = "Saving and loading groups of settings with one click."
+    when_off = "The Presets button goes away. Saved presets are kept."
     device_local = True
     header_side = "left"
 

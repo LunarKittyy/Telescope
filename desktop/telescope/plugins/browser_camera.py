@@ -132,6 +132,9 @@ class _BrowserSource:
 
 class BrowserCameraPlugin(TelescopePlugin):
     name = "browser_camera"
+    title = "Browser camera"
+    about = "Streaming from any device's web browser, by scanning a code."
+    when_off = "Browser camera leaves the phone picker, and its card goes away."
     panel_region = "right"  # where the Camera card is, which hides while this streams
 
     def __init__(self, server_cls=BrowserServer, cert_folder=None, addresses=None):

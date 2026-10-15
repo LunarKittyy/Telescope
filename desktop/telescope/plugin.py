@@ -286,6 +286,16 @@ class StreamsBehind:
 
 class TelescopePlugin:
     name: str = ""
+    """Its id: where its settings are saved, and what other plugins and the Plugins dialog know it by."""
+
+    title: str = ""
+    """What the Plugins dialog calls it ("Camera"); a plugin someone added takes it from its plugin.json."""
+    about: str = ""
+    """One plain sentence for the Plugins dialog: what it does."""
+    when_off: str = ""
+    """What goes away while it's turned off, so nobody wonders where a card went ("The Camera card goes away...")."""
+    required: bool = False
+    """Telescope can't work without it, so the Plugins dialog doesn't offer to turn it off."""
 
     device_local: bool = False
     """Each phone (or other source) gets its own copy of this plugin's settings, swapped in when it's picked or the

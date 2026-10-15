@@ -286,6 +286,9 @@ class _HostFilter(QObject):
 
 class PreviewPlugin(TelescopePlugin):
     name = "preview"
+    title = "Preview"
+    about = "The live picture in the middle of the window, and the camera on/off button under it."
+    when_off = "The window shows no picture. Apps using the virtual camera still get it."
     panel_region = "center"
 
     # Max width for in-window preview sent across thread, until the stage's size is known.

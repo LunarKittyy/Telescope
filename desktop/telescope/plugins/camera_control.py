@@ -130,6 +130,9 @@ _row_widget = control_row_widget
 
 class CameraControlPlugin(TelescopePlugin):
     name = "camera_control"
+    title = "Camera"
+    about = "Exposure, white balance, focus, lenses and the phone camera's other settings."
+    when_off = "The Camera card goes away, and the phone uses its own automatic settings."
     device_local = True
     panel_region = "right"
 

@@ -579,8 +579,8 @@ def test_settings_menu_takes_a_submenu_and_owns_it(window, qapp, monkeypatch):
     window._show_settings_menu()
 
     (menu,) = shown
-    before, more = menu.actions()
-    assert before.text() == "Before" and more.menu() is sub
+    before, more, plugins = menu.actions()
+    assert before.text() == "Before" and more.menu() is sub and plugins.text() == "Plugins…"
     assert sub.parent() is menu and sub.isWindow()  # still a popup, and freed with the menu
 
 

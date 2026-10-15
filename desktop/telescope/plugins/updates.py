@@ -11,10 +11,8 @@ version lands in the per-user install, and once it has started it deletes the un
 """
 
 import logging
-import os
 import shutil
 import subprocess
-import sys
 import tempfile
 import threading
 import time
@@ -28,6 +26,7 @@ from PyQt6.QtWidgets import QCheckBox, QDialog, QPushButton, QWidget
 from telescope import updates, version
 from telescope.platform import stop_adb_server
 from telescope.plugin import TelescopePlugin
+from telescope.single_instance import relaunch
 from telescope.widgets.common import (
     NoScrollComboBox, add_card_header, button_row, card_action, card_layout, control_row,
     create_card, create_vector_icon, dialog_buttons, dialog_header, dialog_layout, set_status_kind,
@@ -140,6 +139,9 @@ class UpdatesDialog(QDialog):
 
 class UpdatesPlugin(TelescopePlugin):
     name = "updates"
+    title = "Updates"
+    about = "Checking for new versions of Telescope and installing them."
+    required = True
     header_side = "right"
 
     def setup(self, host, bus):
@@ -466,16 +468,7 @@ class UpdatesPlugin(TelescopePlugin):
 
     @staticmethod
     def _relaunch(argv: list, popen=subprocess.Popen):
-        # The packaged app unpacks itself into a temp folder and passes it to child copies of itself, so the
-        # relaunched app would run from ours, which is deleted as we exit ("Failed to remove temporary
-        # directory", then a half-working app). This makes it unpack its own.
-        env = dict(os.environ, PYINSTALLER_RESET_ENVIRONMENT="1")
-        kwargs = {"close_fds": True, "env": env}
-        if sys.platform == "win32":
-            kwargs["creationflags"] = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
-        else:
-            kwargs["start_new_session"] = True
-        popen(argv, **kwargs)
+        relaunch(argv, popen)
 
     def shutdown(self):
         self._cancel.set()

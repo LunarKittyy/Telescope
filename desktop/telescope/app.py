@@ -20,8 +20,10 @@ from telescope.models import PhoneState, PhoneStateError
 from telescope.phone_client import PhoneControlClient
 from telescope.platform import IS_LINUX
 from telescope.platform.linux import CANCELLED
+from telescope import plugin_loader
 from telescope.plugin import UNCHANGED, EventBus, TelescopePlugin
 from telescope.session import Sessions, StreamSession
+from telescope.single_instance import relaunch, restart_argv
 from telescope.sources import PhoneSource, PluginSource, Source
 from telescope.stream import StreamWorker, guarded_step
 from telescope.widgets.banner import BannerAction, BannerArea, Issue, copy_action
@@ -39,6 +41,11 @@ _RAIL_WIDTH_SOLO  = 440  # two-column mode: the one rail holding every card
 _CAMERA_LIMITED_TIP = "The phone's camera is making fewer frames than asked for. Dim light slows it down."
 _DYNAMIC_FPS_TIP = ("Dynamic lowered the frame rate to {fps} fps, so each frame gets more of a slow connection. "
                     "It goes back up once there's room.")
+
+
+def _joined(words: list) -> str:
+    """["A", "B", "C"] as "A, B and C"."""
+    return words[0] if len(words) == 1 else ", ".join(words[:-1]) + " and " + words[-1]
 
 
 # ── What sources see of the window ────────────────────────────────────────────
@@ -140,6 +147,9 @@ class TelescopeWindow(QMainWindow):
         self._reconnecting_base = ""
         self._reconnecting_dots = 1
         self._plugins: list[TelescopePlugin] = []
+        self._builtin_plugins: list = []  # every built-in one, turned off or not (load_plugins)
+        self._added_plugins: list = []  # the ones the user installed that are running
+        self._plugin_problems: dict = {}  # name: why an added plugin that's on didn't start
         self._plugins_by_name: dict[str, TelescopePlugin] = {}
         self._shortcut_actions: list = []
         # Plugin defaults; lets us reset before applying device profile.
@@ -230,32 +240,138 @@ class TelescopeWindow(QMainWindow):
     def _ctrl(self) -> Optional[PhoneControlClient]:
         return self._session.client if self._session else None
 
-    def register_plugin(self, plugin: TelescopePlugin):
-        plugin.setup(self, self._bus)
-        panel = plugin.create_panel()
-        if panel:
-            region = plugin.panel_region if plugin.panel_region in self._panels else "left"
-            self._panels[region].append(panel)
-            # Forced: the mode hasn't changed, but the panel set has.
-            self._refresh_layout(force=True)
-        header_widget = plugin.create_header_widget()
-        if header_widget:
-            slot = self._header_right_slot if plugin.header_side == "right" else self._header_slot
-            slot.addWidget(header_widget)
-        self._plugins.append(plugin)
-        if self._tray is not None:
-            menu = self._tray.contextMenu()
-            for action in plugin.create_tray_actions():
-                action.setParent(menu)
-                menu.insertAction(self._tray_quit_sep, action)  # between Show and Quit
-        if plugin.name:
-            self._plugins_by_name[plugin.name] = plugin
-        if plugin.name:
-            self._plugin_defaults[plugin.name] = plugin.get_config()
+    def register_plugin(self, plugin: TelescopePlugin, added: bool = False):
+        """Set plugin up and give it its place in the window. added: one the user installed, so one that raises here
+        is taken back out again (and the exception passed on) rather than left half in."""
+        panel = header_widget = None
+        tray: list = []
+        try:
+            plugin.setup(self, self._bus)
+            panel = plugin.create_panel()
+            if panel:
+                region = plugin.panel_region if plugin.panel_region in self._panels else "left"
+                self._panels[region].append(panel)
+                # Forced: the mode hasn't changed, but the panel set has.
+                self._refresh_layout(force=True)
+            header_widget = plugin.create_header_widget()
+            if header_widget:
+                slot = self._header_right_slot if plugin.header_side == "right" else self._header_slot
+                slot.addWidget(header_widget)
+            self._plugins.append(plugin)
+            if self._tray is not None:
+                menu = self._tray.contextMenu()
+                for action in plugin.create_tray_actions():
+                    tray.append(action)
+                    action.setParent(menu)
+                    menu.insertAction(self._tray_quit_sep, action)  # between Show and Quit
+            if plugin.name:
+                self._plugins_by_name[plugin.name] = plugin
+            if plugin.name:
+                self._plugin_defaults[plugin.name] = plugin.get_config()
+        except Exception:
+            if added:
+                self._take_out(plugin, panel, header_widget, tray)
+            raise
         try:
             self._shortcut_actions.extend(plugin.create_actions())
         except Exception:
             logging.exception("Plugin %s couldn't list its shortcut actions", plugin.name)
+
+    def _take_out(self, plugin: TelescopePlugin, panel, header_widget, tray: list):
+        """Undo what register_plugin did for a plugin that failed part way (what it connected to the bus stays)."""
+        if plugin in self._plugins:
+            self._plugins.remove(plugin)
+        if self._plugins_by_name.get(plugin.name) is plugin:
+            del self._plugins_by_name[plugin.name]
+            self._plugin_defaults.pop(plugin.name, None)
+        for widget in (panel, header_widget):
+            if widget is None:
+                continue
+            for panels in self._panels.values():
+                if widget in panels:
+                    panels.remove(widget)
+            widget.setParent(None)
+            widget.deleteLater()
+        if panel is not None:
+            self._refresh_layout(force=True)
+        for action in tray:
+            action.setParent(None)
+            if self._tray is not None:
+                self._tray.contextMenu().removeAction(action)
+
+    def load_plugins(self, builtins: list):
+        """Register the built-in plugins (all but those turned off in Plugins, never the required ones), then the
+        added plugins turned on there. One of those that can't load is left out, with a banner saying which."""
+        self._builtin_plugins = list(builtins)
+        off = plugin_loader.builtin_off()
+        for plugin in builtins:
+            if plugin.required or plugin.name not in off:
+                self.register_plugin(plugin)
+        loaded, failed = plugin_loader.load_enabled(reserved={p.name for p in builtins})
+        problems = {item.name: (item.title, item.error) for item in failed}
+        for plugin in loaded:
+            try:
+                self.register_plugin(plugin, added=True)
+            except Exception as exc:
+                logging.exception("Plugin %s failed while starting; leaving it out", plugin.name)
+                problems[plugin.name] = (plugin.title or plugin.name, f"{type(exc).__name__}: {exc}"[:300])
+        self._added_plugins = [p for p in loaded if p in self._plugins]
+        self._plugin_problems = {name: error for name, (_title, error) in problems.items()}
+        if problems:
+            titles = [title for title, _error in problems.values()]
+            self.show_issue("plugins", Issue(
+                f"{_joined(titles)} didn't start" if len(titles) < 4 else f"{len(titles)} plugins didn't start",
+                "Telescope works without it. Plugins in the settings menu says what went wrong." if len(titles) == 1
+                else "Telescope works without them. Plugins in the settings menu says what went wrong.",
+                [BannerAction("Plugins…", self.show_plugins)], kind="warn"))
+        self._remind_plugins_off()
+
+    def _remind_plugins_off(self):
+        """Once per change: which built-in plugins are off, so a card that's gone doesn't look like a bug."""
+        try:
+            names = plugin_loader.unnoticed_off()
+        except OSError:
+            return
+        titles = [p.title or p.name for p in self._builtin_plugins if p.name in names and not p.required]
+        if not titles:
+            return
+
+        def noticed():
+            try:
+                plugin_loader.notice_off()
+            except OSError:
+                logging.exception("Couldn't note that the plugins turned off were seen")
+
+        def open_plugins():
+            noticed()
+            self.show_plugins()
+
+        self.show_issue("plugins_off", Issue(
+            f"{_joined(titles)} {'is' if len(titles) == 1 else 'are'} turned off",
+            "You turned this off in Plugins. To get it back, open Plugins in the settings menu and switch it on."
+            if len(titles) == 1 else
+            "You turned these off in Plugins. To get them back, open Plugins in the settings menu and switch them on.",
+            [BannerAction("Plugins…", open_plugins)], kind="warn", on_dismiss=noticed))
+
+    def plugins_off(self) -> list:
+        """The built-in plugins turned off this run."""
+        return [p for p in self._builtin_plugins if p not in self._plugins]
+
+    def show_plugins(self):
+        """The Plugins dialog: every plugin, built in or added, with a switch for each one that can be turned off."""
+        from telescope.widgets.plugins_dialog import PluginsDialog
+        PluginsDialog(self, self._builtin_plugins, {p.name for p in self._plugins},
+                      self._plugin_problems, self.restart_app, self.is_streaming).exec()
+
+    def restart_app(self) -> bool:
+        """Start a new copy of Telescope and quit this one; False if the new one couldn't be started."""
+        try:
+            relaunch(restart_argv())
+        except (OSError, ValueError):
+            logging.exception("Couldn't start Telescope again")
+            return False
+        self._tray_quit()
+        return True
 
     def _plugin(self, name: str) -> Optional[TelescopePlugin]:
         """Look up a registered plugin by its declared name, or None."""
@@ -436,17 +552,28 @@ class TelescopeWindow(QMainWindow):
 
     def _show_settings_menu(self):
         menu = QMenu(self)
+        off = len(self.plugins_off())
+        plugins = QAction(f"Plugins… ({off} off)" if off else "Plugins…", menu)
+        plugins.triggered.connect(self.show_plugins)
+        placed = False
         for p in self._plugins:
-            for entry in p.create_menu_actions():
+            try:
+                entries = p.create_menu_actions()
+            except Exception:
+                logging.exception("Plugin %s couldn't list its menu entries", p.name)
+                continue
+            for entry in entries:
+                if not placed and isinstance(entry, QAction) and entry.isCheckable():
+                    menu.addAction(plugins)  # last of the dialogs, before the toggles
+                    placed = True
                 if isinstance(entry, QMenu):
                     entry.setParent(menu, entry.windowFlags())  # keeps it a popup, owned by this menu
                     menu.addMenu(entry)
                 else:
                     entry.setParent(menu)
                     menu.addAction(entry)
-        if menu.isEmpty():
-            menu.deleteLater()
-            return
+        if not placed:
+            menu.addAction(plugins)
         menu.exec(self._menu_btn.mapToGlobal(
             self._menu_btn.rect().bottomLeft()) + QPoint(0, 6))
         menu.deleteLater()  # rebuilt on every click; without this each one stays alive under the window
@@ -1829,6 +1956,12 @@ class TelescopeWindow(QMainWindow):
         state = {"Streaming": ("yes" if self.is_camera_on() else "yes, camera off") if self.is_streaming() else "no"}
         if len(self._sessions.streams) > 1:
             state["Streams"] = str(len(self._sessions.streams))
+        if off := self.plugins_off():
+            state["Plugins off"] = ", ".join(p.name for p in off)
+        if self._added_plugins or self._plugin_problems:
+            added = [f"{p.name} (running)" for p in self._added_plugins]
+            added += [f"{name} (didn't start)" for name in self._plugin_problems]
+            state["Added plugins"] = ", ".join(added)
         for plugin in self._plugins:
             try:
                 state.update(plugin.diagnostics())

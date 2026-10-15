@@ -195,3 +195,10 @@ def test_the_app_starts_streams_and_quits_without_any_one_optional_plugin(build,
 def test_only_connection_is_required():
     assert set(OPTIONAL) | REQUIRED == {p.name for p in builtin_plugins()}
     assert len(OPTIONAL) == len(builtin_plugins()) - 1
+
+
+def test_every_built_in_plugin_says_what_it_is_for_the_plugins_dialog():
+    for plugin in builtin_plugins():
+        assert plugin.title and plugin.about, plugin.name
+        assert plugin.required or plugin.when_off, f"{plugin.name}: say what goes away while it's off"
+    assert {p.name for p in builtin_plugins() if p.required} == {"connection", "setup", "updates"}

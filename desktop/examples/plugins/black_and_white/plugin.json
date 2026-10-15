@@ -1,0 +1,9 @@
+{
+  "name": "black_and_white",
+  "title": "Black and white",
+  "version": "1.0",
+  "author": "Telescope",
+  "description": "Turns the picture black and white. An example to start your own plugin from.",
+  "api": 1,
+  "class": "BlackAndWhitePlugin"
+}
