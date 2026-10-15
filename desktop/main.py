@@ -55,21 +55,7 @@ from telescope import dev_profile, diagnostics
 from telescope.app import TelescopeWindow
 from telescope.single_instance import acquire_single_instance, listen_for_raise, send_action, write_control_key
 from telescope.platform import IS_LINUX, autostart, virtual_mic
-from telescope.plugins.browser_camera import BrowserCameraPlugin
-from telescope.plugins.camera_control import CameraControlPlugin
-from telescope.plugins.connection import ConnectionPlugin
-from telescope.plugins.microphone import MicrophonePlugin
-from telescope.plugins.monitoring import MonitoringPlugin
-from telescope.plugins.onboarding import OnboardingPlugin
-from telescope.plugins.presets import PresetsPlugin
-from telescope.plugins.preview import PreviewPlugin
-from telescope.plugins.setup import SetupPlugin
-from telescope.plugins.shortcuts import ShortcutsPlugin
-from telescope.plugins.startup import StartupPlugin
-from telescope.plugins.wait_screen import WaitScreenPlugin
-from telescope.plugins.stream_output import StreamOutputPlugin
-from telescope.plugins.transforms import TransformsPlugin
-from telescope.plugins.updates import UpdatesPlugin
+from telescope.plugins import builtin_plugins
 from telescope.theme import apply_theme
 from telescope.updates import MOVED_FROM, clean_up_after_update, finish_move, note_installed_version, pending_move
 from telescope.widgets.common import create_app_icon
@@ -161,21 +147,8 @@ def main():
     apply_theme(app)
 
     win = TelescopeWindow()
-    win.register_plugin(SetupPlugin())
-    win.register_plugin(ConnectionPlugin())
-    win.register_plugin(CameraControlPlugin())
-    win.register_plugin(BrowserCameraPlugin())  # after Camera: its card takes that place while it's picked
-    win.register_plugin(StreamOutputPlugin())
-    win.register_plugin(TransformsPlugin())
-    win.register_plugin(MicrophonePlugin())
-    win.register_plugin(PresetsPlugin())
-    win.register_plugin(PreviewPlugin())
-    win.register_plugin(OnboardingPlugin())  # after Preview: the stage listens for setup_needed
-    win.register_plugin(MonitoringPlugin())
-    win.register_plugin(UpdatesPlugin())
-    win.register_plugin(WaitScreenPlugin())  # before Startup: dialogs head the settings menu, toggles follow
-    win.register_plugin(ShortcutsPlugin())  # a dialog in the settings menu, so before Startup too
-    win.register_plugin(StartupPlugin())
+    for plugin in builtin_plugins():
+        win.register_plugin(plugin)
     win.apply_saved_config()
     if args.minimized:
         win.start_hidden()
