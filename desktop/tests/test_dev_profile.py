@@ -12,12 +12,12 @@ DESKTOP = Path(__file__).resolve().parent.parent
 _PROBE = """
 import json
 import update_guard
-from telescope import app, config, diagnostics, platform
+from telescope import config, diagnostics, platform, single_instance
 from telescope.platform import virtual_mic
 print(json.dumps({
     "config": str(config.config_path()),
     "logs": str(diagnostics.log_dir()),
-    "instance": repr(app._INSTANCE_ADDRESS),
+    "instance": repr(single_instance._INSTANCE_ADDRESS),
     "real_instance": repr(update_guard.instance_address()[1]),
     "mic_source": virtual_mic.SOURCE,
     "mic_ours": list(virtual_mic._OURS),

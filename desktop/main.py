@@ -52,9 +52,8 @@ from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QApplication
 
 from telescope import dev_profile, diagnostics
-from telescope.app import (
-    TelescopeWindow, acquire_single_instance, listen_for_raise, send_action, write_control_key,
-)
+from telescope.app import TelescopeWindow
+from telescope.single_instance import acquire_single_instance, listen_for_raise, send_action, write_control_key
 from telescope.platform import IS_LINUX, autostart, virtual_mic
 from telescope.plugins.browser_camera import BrowserCameraPlugin
 from telescope.plugins.camera_control import CameraControlPlugin

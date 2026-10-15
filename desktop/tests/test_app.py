@@ -12,6 +12,7 @@ from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QMenu, QWidget
 
 import telescope.app as app_module
+import telescope.single_instance as instance_module
 import telescope.sources as sources_module
 from telescope import theme
 from telescope.plugin import TelescopePlugin
@@ -187,7 +188,7 @@ def test_register_plugin_initializes_panel_and_captures_device_defaults(window):
 @pytest.fixture(autouse=True)
 def port_notices(monkeypatch):
     shown = []
-    monkeypatch.setattr(app_module, "_port_taken_notice", lambda: shown.append(True))
+    monkeypatch.setattr(instance_module, "_port_taken_notice", lambda: shown.append(True))
     return shown
 
 
@@ -200,9 +201,9 @@ def test_acquire_single_instance_binds_and_listens(monkeypatch):
         def listen(self, count): calls.append(("listen", count))
 
     sock = Socket()
-    monkeypatch.setattr(app_module.socket, "socket", lambda *_args: sock)
-    assert app_module.acquire_single_instance() is sock
-    assert ("bind", app_module._INSTANCE_ADDRESS) in calls
+    monkeypatch.setattr(instance_module.socket, "socket", lambda *_args: sock)
+    assert instance_module.acquire_single_instance() is sock
+    assert ("bind", instance_module._INSTANCE_ADDRESS) in calls
     assert ("listen", 1) in calls
 
 
@@ -222,9 +223,9 @@ def test_acquire_single_instance_notifies_existing_process(monkeypatch, port_not
         def close(self): events.append("client-close")
 
     sockets = iter([Server(), Client()])
-    monkeypatch.setattr(app_module.socket, "socket", lambda *_args: next(sockets))
-    assert app_module.acquire_single_instance() is None
-    assert ("send", b"raise:" + app_module.user_token()) in events
+    monkeypatch.setattr(instance_module.socket, "socket", lambda *_args: next(sockets))
+    assert instance_module.acquire_single_instance() is None
+    assert ("send", b"raise:" + instance_module.user_token()) in events
     assert events[0] == "server-close"
     assert port_notices == []
 
@@ -243,8 +244,8 @@ def test_acquire_single_instance_says_so_when_nothing_answers_the_raise(monkeypa
         def close(self): pass
 
     sockets = iter([Server(), Client()])
-    monkeypatch.setattr(app_module.socket, "socket", lambda *_args: next(sockets))
-    assert app_module.acquire_single_instance() is None
+    monkeypatch.setattr(instance_module.socket, "socket", lambda *_args: next(sockets))
+    assert instance_module.acquire_single_instance() is None
     assert port_notices == [True]
 
 
@@ -254,10 +255,10 @@ def test_a_running_telescope_answers_a_raise_with_ok():
     srv.bind(("127.0.0.1", 0))
     srv.listen(4)
     raised = threading.Event()
-    threading.Thread(target=app_module.listen_for_raise, args=(srv, raised.set), daemon=True).start()
+    threading.Thread(target=instance_module.listen_for_raise, args=(srv, raised.set), daemon=True).start()
     try:
         with socket.create_connection(("127.0.0.1", srv.getsockname()[1]), timeout=5) as c:
-            c.sendall(b"raise:" + app_module.user_token())
+            c.sendall(b"raise:" + instance_module.user_token())
             assert c.recv(2) == b"ok"
         assert raised.is_set()
     finally:
@@ -276,9 +277,9 @@ def test_acquire_single_instance_waits_for_the_old_copy_after_an_update(monkeypa
         def listen(self, _count): pass
         def close(self): pass
 
-    monkeypatch.setattr(app_module.socket, "socket", lambda *_args: Socket())
+    monkeypatch.setattr(instance_module.socket, "socket", lambda *_args: Socket())
     monkeypatch.setattr(app_module.time, "sleep", lambda _s: None)
-    assert app_module.acquire_single_instance(wait=5) is not None
+    assert instance_module.acquire_single_instance(wait=5) is not None
     assert len(attempts) == 3
 
 
@@ -292,8 +293,8 @@ def test_acquire_single_instance_tolerates_stale_listener(monkeypatch):
         def connect(self, _address): raise OSError("stale")
         def close(self): closed.append(True)
 
-    monkeypatch.setattr(app_module.socket, "socket", lambda *_args: Socket())
-    assert app_module.acquire_single_instance() is None
+    monkeypatch.setattr(instance_module.socket, "socket", lambda *_args: Socket())
+    assert instance_module.acquire_single_instance() is None
     assert closed
 
 
@@ -322,9 +323,9 @@ def test_acquire_single_instance_closes_failed_notification_socket(monkeypatch):
     server = Socket(server=True)
     client = Socket(server=False)
     sockets = iter([server, client])
-    monkeypatch.setattr(app_module.socket, "socket", lambda *_args: next(sockets))
+    monkeypatch.setattr(instance_module.socket, "socket", lambda *_args: next(sockets))
 
-    app_module.acquire_single_instance()
+    instance_module.acquire_single_instance()
 
     assert client.closed is True
 
@@ -334,7 +335,7 @@ def test_listen_for_raise_invokes_callback_and_closes_connection():
 
     class Conn:
         def settimeout(self, timeout): events.append(("conn timeout", timeout))
-        def recv(self, _size): return b"raise:" + app_module.user_token()
+        def recv(self, _size): return b"raise:" + instance_module.user_token()
         def sendall(self, data): events.append(("reply", data))
         def close(self): events.append("closed")
 
@@ -346,7 +347,7 @@ def test_listen_for_raise_invokes_callback_and_closes_connection():
             events.append("accepted")
             return Conn(), ("127.0.0.1", 1)
 
-    app_module.listen_for_raise(Server(), lambda: events.append("raised"))
+    instance_module.listen_for_raise(Server(), lambda: events.append("raised"))
     assert events == [("timeout", 1.0), "accepted", ("conn timeout", 1.0), "raised", ("reply", b"ok"), "closed"]
 
 
@@ -367,7 +368,7 @@ def test_listen_for_raise_ignores_wrong_message_and_timeouts(monkeypatch):
             if self.calls == 2: return Conn(), None
             raise OSError("done")
 
-    app_module.listen_for_raise(Server(), lambda: events.append("raised"))
+    instance_module.listen_for_raise(Server(), lambda: events.append("raised"))
     assert events == ["closed"]
 
 
@@ -378,12 +379,12 @@ def test_a_silent_connection_does_not_stop_later_raises():
     srv.bind(("127.0.0.1", 0))
     srv.listen(4)
     raised = threading.Event()
-    threading.Thread(target=app_module.listen_for_raise, args=(srv, raised.set), daemon=True).start()
+    threading.Thread(target=instance_module.listen_for_raise, args=(srv, raised.set), daemon=True).start()
     port = srv.getsockname()[1]
     silent = socket.create_connection(("127.0.0.1", port))
     try:
         with socket.create_connection(("127.0.0.1", port)) as c:
-            c.sendall(b"raise:" + app_module.user_token())
+            c.sendall(b"raise:" + instance_module.user_token())
         assert raised.wait(5)
     finally:
         silent.close()
@@ -397,7 +398,7 @@ def test_a_reset_connection_does_not_stop_later_raises():
     srv.bind(("127.0.0.1", 0))
     srv.listen(4)
     raised = threading.Event()
-    listener = threading.Thread(target=app_module.listen_for_raise, args=(srv, raised.set), daemon=True)
+    listener = threading.Thread(target=instance_module.listen_for_raise, args=(srv, raised.set), daemon=True)
     listener.start()
     port = srv.getsockname()[1]
     try:
@@ -407,7 +408,7 @@ def test_a_reset_connection_does_not_stop_later_raises():
         rude.close()  # sends RST
         time.sleep(0.2)
         with socket.create_connection(("127.0.0.1", port)) as c:
-            c.sendall(b"raise:" + app_module.user_token())
+            c.sendall(b"raise:" + instance_module.user_token())
         assert raised.wait(5)
     finally:
         srv.close()
@@ -3432,9 +3433,9 @@ def test_another_users_telescope_on_a_shared_port_answers_other(monkeypatch, por
 
     seen = []
     sockets = iter([Server(), Client()])
-    monkeypatch.setattr(app_module.socket, "socket", lambda *_args: next(sockets))
-    monkeypatch.setattr(app_module, "_other_user_notice", lambda: seen.append(True))
-    assert app_module.acquire_single_instance() is None
+    monkeypatch.setattr(instance_module.socket, "socket", lambda *_args: next(sockets))
+    monkeypatch.setattr(instance_module, "_other_user_notice", lambda: seen.append(True))
+    assert instance_module.acquire_single_instance() is None
     assert seen == [True] and port_notices == []
 
 
@@ -3444,7 +3445,7 @@ def test_the_listener_only_raises_for_the_same_user():
     srv.bind(("127.0.0.1", 0))
     srv.listen(4)
     raised = threading.Event()
-    threading.Thread(target=app_module.listen_for_raise, args=(srv, raised.set), daemon=True).start()
+    threading.Thread(target=instance_module.listen_for_raise, args=(srv, raised.set), daemon=True).start()
     try:
         with socket.create_connection(("127.0.0.1", srv.getsockname()[1]), timeout=5) as c:
             c.sendall(b"raise:" + b"0" * 16)
@@ -3465,17 +3466,17 @@ def test_a_linux_lock_is_per_user_and_a_second_copy_of_the_same_user_gets_ok(mon
         _, other_users = update_guard.instance_address()
     assert mine != other_users and other_users.startswith(b"\0telescope-4242424")
 
-    monkeypatch.setattr(app_module, "_INSTANCE_ADDRESS", b"\0telescope-test-%d" % os.getpid())
-    monkeypatch.setattr(app_module, "_INSTANCE_FAMILY", socket.AF_UNIX)
-    srv = app_module.acquire_single_instance()
+    monkeypatch.setattr(instance_module, "_INSTANCE_ADDRESS", b"\0telescope-test-%d" % os.getpid())
+    monkeypatch.setattr(instance_module, "_INSTANCE_FAMILY", socket.AF_UNIX)
+    srv = instance_module.acquire_single_instance()
     assert srv is not None
     raised = threading.Event()
-    threading.Thread(target=app_module.listen_for_raise, args=(srv, raised.set), daemon=True).start()
+    threading.Thread(target=instance_module.listen_for_raise, args=(srv, raised.set), daemon=True).start()
     try:
-        assert app_module.acquire_single_instance() is None  # the second copy: raised the first
+        assert instance_module.acquire_single_instance() is None  # the second copy: raised the first
         assert raised.wait(5)
-        monkeypatch.setattr(app_module, "_INSTANCE_ADDRESS", b"\0telescope-test-other-%d" % os.getpid())
-        other = app_module.acquire_single_instance()  # a different user's name binds alongside
+        monkeypatch.setattr(instance_module, "_INSTANCE_ADDRESS", b"\0telescope-test-other-%d" % os.getpid())
+        other = instance_module.acquire_single_instance()  # a different user's name binds alongside
         assert other is not None
         other.close()
     finally:
@@ -3487,65 +3488,65 @@ def test_a_linux_lock_is_per_user_and_a_second_copy_of_the_same_user_gets_ok(mon
 @pytest.fixture
 def action_listener(monkeypatch, config_home):
     import threading
-    monkeypatch.setattr(app_module, "config_path", config_home.config_path)
+    monkeypatch.setattr(instance_module, "config_path", config_home.config_path)
     srv = socket.socket()
     srv.bind(("127.0.0.1", 0))
     srv.listen(4)
-    monkeypatch.setattr(app_module, "_INSTANCE_FAMILY", socket.AF_INET)
-    monkeypatch.setattr(app_module, "_INSTANCE_ADDRESS", srv.getsockname())
+    monkeypatch.setattr(instance_module, "_INSTANCE_FAMILY", socket.AF_INET)
+    monkeypatch.setattr(instance_module, "_INSTANCE_ADDRESS", srv.getsockname())
     got = []
 
     def answer(request):
         got.append(request)
         return {"ok": True, "text": "Torch: on"}
 
-    key = app_module.write_control_key()
-    threading.Thread(target=app_module.listen_for_raise, args=(srv, lambda: None, answer, key),
+    key = instance_module.write_control_key()
+    threading.Thread(target=instance_module.listen_for_raise, args=(srv, lambda: None, answer, key),
                      daemon=True).start()
     yield got
     srv.close()
 
 
 def test_an_action_reaches_the_running_copy_with_its_key(action_listener):
-    assert app_module.send_action({"action": "camera.torch", "params": {"mode": "on"}}) == (True, "Torch: on")
+    assert instance_module.send_action({"action": "camera.torch", "params": {"mode": "on"}}) == (True, "Torch: on")
     assert action_listener == [{"action": "camera.torch", "params": {"mode": "on"}}]  # the key isn't passed on
-    path = app_module.control_key_path()
+    path = instance_module.control_key_path()
     if sys.platform != "win32":
         assert path.stat().st_mode & 0o077 == 0  # nobody else can read it
 
 
 def test_an_action_without_the_right_key_is_turned_down(action_listener):
-    app_module.control_key_path().write_bytes(b"not-the-key")
-    ok, text = app_module.send_action({"action": "camera.torch"})
+    instance_module.control_key_path().write_bytes(b"not-the-key")
+    ok, text = instance_module.send_action({"action": "camera.torch"})
     assert not ok and "turned that down" in text
     assert action_listener == []
 
 
 def test_an_action_with_nothing_running(monkeypatch, config_home):
-    monkeypatch.setattr(app_module, "config_path", config_home.config_path)
-    assert app_module.send_action({"list": True}) == (False, "Telescope isn't running.")
+    monkeypatch.setattr(instance_module, "config_path", config_home.config_path)
+    assert instance_module.send_action({"list": True}) == (False, "Telescope isn't running.")
 
 
 def test_a_raise_still_works_next_to_actions(action_listener):
-    with socket.create_connection(app_module._INSTANCE_ADDRESS, timeout=5) as c:
-        c.sendall(b"raise:" + app_module.user_token())
+    with socket.create_connection(instance_module._INSTANCE_ADDRESS, timeout=5) as c:
+        c.sendall(b"raise:" + instance_module.user_token())
         assert c.recv(2) == b"ok"
 
 
 def test_an_action_when_the_key_couldnt_be_written(monkeypatch, config_home):
     import threading
-    monkeypatch.setattr(app_module, "config_path", config_home.config_path)
+    monkeypatch.setattr(instance_module, "config_path", config_home.config_path)
     srv = socket.socket()
     srv.bind(("127.0.0.1", 0))
     srv.listen(4)
-    monkeypatch.setattr(app_module, "_INSTANCE_FAMILY", socket.AF_INET)
-    monkeypatch.setattr(app_module, "_INSTANCE_ADDRESS", srv.getsockname())
-    app_module.control_key_path().parent.mkdir(parents=True, exist_ok=True)
-    app_module.control_key_path().write_bytes(b"old-run")
-    threading.Thread(target=app_module.listen_for_raise, args=(srv, lambda: None, lambda r: {}, None),
+    monkeypatch.setattr(instance_module, "_INSTANCE_FAMILY", socket.AF_INET)
+    monkeypatch.setattr(instance_module, "_INSTANCE_ADDRESS", srv.getsockname())
+    instance_module.control_key_path().parent.mkdir(parents=True, exist_ok=True)
+    instance_module.control_key_path().write_bytes(b"old-run")
+    threading.Thread(target=instance_module.listen_for_raise, args=(srv, lambda: None, lambda r: {}, None),
                      daemon=True).start()
     try:
-        ok, text = app_module.send_action({"action": "x"})
+        ok, text = instance_module.send_action({"action": "x"})
         assert not ok and "Restart it" in text
     finally:
         srv.close()
