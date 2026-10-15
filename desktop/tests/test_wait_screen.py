@@ -316,7 +316,7 @@ def test_a_camera_off_stream_on_an_extra_camera_gets_its_wait_screen(camera_env,
     QCoreApplication.processEvents()
     window._start()
     window.add_stream("phone-b")
-    second = window._focus
+    second = window._sessions.focus
     window.stop_stream("Phone")
     assert second.slot == 1
     mic.config["enabled"] = True

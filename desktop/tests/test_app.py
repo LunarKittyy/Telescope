@@ -948,7 +948,7 @@ def test_a_stream_the_panels_dont_show_gets_their_steps_frozen(window):
 
 def test_wake_progress_updates_status_while_waking(window):
     window._phone._wake_id = 5
-    window._waking = True
+    window._sessions.waking = True
 
     window._phone._on_wake_progress(5, "Phone's camera is opening... (3s)")
 
@@ -957,7 +957,7 @@ def test_wake_progress_updates_status_while_waking(window):
 
 def test_wake_progress_ignores_a_stale_or_cancelled_wake(window):
     window._phone._wake_id = 5
-    window._waking = True
+    window._sessions.waking = True
     window._on_worker_status("other", "sentinel")  # baseline status text
 
     # A progress tick for an old wake_id (a newer start superseded it).
@@ -965,7 +965,7 @@ def test_wake_progress_ignores_a_stale_or_cancelled_wake(window):
     assert window._status_lbl.fullText() == "sentinel"
 
     # A progress tick after the wake was cancelled (stop/device switch).
-    window._waking = False
+    window._sessions.waking = False
     window._phone._on_wake_progress(5, "too late")
     assert window._status_lbl.fullText() == "sentinel"
 
@@ -2715,7 +2715,7 @@ def test_a_second_camera_streams_next_to_the_first_to_a_camera_of_its_own(two_st
     window, conn, mic, view, workers, _config = two_streams
     assert [w.kwargs["slot"] for w in workers] == [0, 1]
     assert (workers[1].kwargs["canvas_width"], workers[1].kwargs["canvas_height"]) == (1920, 1080)
-    assert window.stream_count() == 2 and window._focus.id == "browser" and conn.selected_device == "browser"
+    assert window.stream_count() == 2 and window._sessions.focus.id == "browser" and conn.selected_device == "browser"
     assert len(workers[0].pipelines) == 1  # frozen at the phone's settings when the panels moved on
     assert not window._tiles.isHidden() and window._tiles.ids() == ["Phone", "browser"]
     assert view.config["zoom"] == 3 and view.started[-1][0] == "browser://camera" and view.stopped == 1
@@ -2724,7 +2724,7 @@ def test_a_second_camera_streams_next_to_the_first_to_a_camera_of_its_own(two_st
 
 def test_a_tile_follows_its_stream_back_to_live(two_streams):
     window, _conn, _mic, _view, _workers, _config = two_streams
-    browser = window._focus
+    browser = window._sessions.focus
     state = lambda: window._tiles._tiles["browser"].state.text()  # noqa: E731
     window._on_worker_status("waiting", "Waiting for the first frame…", browser)
     assert state() == "● Reconnecting"
@@ -2764,11 +2764,11 @@ def test_stopping_the_first_camera_hands_the_mic_to_the_next(two_streams):
     stopped = []
     window._bus.stream_stopped.connect(lambda: stopped.append(True))
     window.stop_stream("Phone")
-    assert window.stream_count() == 1 and window._focus.id == "browser" and window._tiles.isHidden()
+    assert window.stream_count() == 1 and window._sessions.focus.id == "browser" and window._tiles.isHidden()
     assert mic.stopped == 1 and mic.started[-1][0] == "browser://camera"
     assert stopped == []
     window._toggle()
-    assert not window.is_streaming() and stopped == [True] and window._focus is None
+    assert not window.is_streaming() and stopped == [True] and window._sessions.focus is None
 
 
 def test_stop_stops_every_camera(two_streams):
@@ -2853,9 +2853,9 @@ def test_picking_another_source_with_two_streaming_replaces_the_one_shown(two_st
     other.id, other.name = "browser2", "Other browser"
     window.add_stream_source(other)
     assert window.pick_source("browser2") is True
-    assert sorted(s.id for s in window._streams) == ["Phone", "browser2"]
-    assert workers[1].stopped and workers[2].kwargs["slot"] == 1 and window._focus.id == "browser2"
-    assert window.pick_source("Phone") is True and window._focus.id == "Phone"
+    assert sorted(s.id for s in window._sessions.streams) == ["Phone", "browser2"]
+    assert workers[1].stopped and workers[2].kwargs["slot"] == 1 and window._sessions.focus.id == "browser2"
+    assert window.pick_source("Phone") is True and window._sessions.focus.id == "Phone"
 
 
 def test_an_extra_camera_that_isnt_set_up_asks_first(camera_env, monkeypatch):
@@ -2866,7 +2866,7 @@ def test_an_extra_camera_that_isnt_set_up_asks_first(camera_env, monkeypatch):
     window.add_stream_source(_Browser())
     window._start()
     window.add_stream("browser")
-    assert asked == [True] and len(workers) == 1 and window._focus.id == "Phone"
+    assert asked == [True] and len(workers) == 1 and window._sessions.focus.id == "Phone"
 
 
 def test_extra_cameras_ready_carries_on_and_a_failure_says_why(window):
@@ -2896,7 +2896,7 @@ def test_a_stopped_cameras_start_brings_it_back_next_to_the_others(two_streams):
     window.stop_stream("browser")
     assert window.stream_count() == 1
     picked = []
-    window.start_again("browser", lambda: picked.append((window._focus.id, view.config["zoom"])))()
+    window.start_again("browser", lambda: picked.append((window._sessions.focus.id, view.config["zoom"])))()
     assert window.stream_count() == 2 and window.is_streaming_from("browser")
     assert picked == [("browser", 3)]  # before ran on its own settings, not the phone's
 
@@ -2905,7 +2905,7 @@ def test_another_cameras_start_working_keeps_a_stopped_ones_banner(two_streams):
     from telescope.widgets.banner import Issue
     window, _conn, _mic, _view, _workers, _config = two_streams
     window.show_issue("stopped:Phone", Issue("Phone stopped streaming"))
-    window._on_worker_status("ok", "Streaming", window._focus)  # the browser's stream
+    window._on_worker_status("ok", "Streaming", window._sessions.focus)  # the browser's stream
     assert window._banners.issue("stopped:Phone") is not None
 
 
@@ -2930,7 +2930,7 @@ def test_reconnecting_the_mics_stream_keeps_the_mic_on_it(two_streams):
     window.focus_stream("Phone")
     starts = len(mic.started)
     window.reconnect_stream()
-    assert window._main is window._phone and window.stream_count() == 2
+    assert window._sessions.main is window._phone and window.stream_count() == 2
     assert len(mic.started) == starts + 1 and mic.started[-1][0] == "http://phone/video"
 
 
@@ -2976,19 +2976,19 @@ def test_a_source_that_waits_gets_a_tile_with_the_panels_on_it(two_streams):
     launcher = _WaitingBrowser()
     window.add_stream_source(launcher)
     window.add_stream("waiting")
-    assert window._focus.id == "waiting" and conn.selected_device == "waiting"
+    assert window._sessions.focus.id == "waiting" and conn.selected_device == "waiting"
     assert window._tiles.ids() == ["Phone", "browser", "waiting"]
     assert window._tiles._tiles["waiting"].state.text() == "● Waiting"
     assert "waiting" not in [sid for sid, _name in window._add_candidates()]
 
     window.focus_stream("Phone")
-    assert window._focus.id == "Phone"
+    assert window._sessions.focus.id == "Phone"
     window.focus_stream("waiting")
-    assert window._focus.id == "waiting"
+    assert window._sessions.focus.id == "waiting"
 
     window.stop_stream("waiting")  # its tile's X
     assert launcher.cancels == 1 and window._tiles.ids() == ["Phone", "browser"]
-    assert window._focus.id == "Phone"
+    assert window._sessions.focus.id == "Phone"
 
 
 def test_stop_drops_a_waiting_tile_too(two_streams):
@@ -2997,17 +2997,17 @@ def test_stop_drops_a_waiting_tile_too(two_streams):
     window.add_stream_source(launcher)
     window.add_stream("waiting")
     window._toggle()
-    assert launcher.cancels == 1 and not window.is_streaming() and window._pending is None
+    assert launcher.cancels == 1 and not window.is_streaming() and window._sessions.pending is None
 
 
 def test_a_resolution_timeout_only_clears_its_own_stream(two_streams):
     window, *_ = two_streams
     window.focus_stream("Phone")
-    phone = window._focus
+    phone = window._sessions.focus
     window._on_resolution_pending(1280, 720)
     phone_timer = phone.pending_resolution_timer
     window.focus_stream("browser")
-    browser = window._focus
+    browser = window._sessions.focus
     window._on_resolution_pending(1920, 1080)
     phone_timer.timeout.emit()
     assert phone.pending_resolution is None and phone.pending_resolution_timer is None
@@ -3020,10 +3020,10 @@ def test_a_starting_tiles_stop_cancels_its_start(two_streams, monkeypatch):
     window, *_ = two_streams
     monkeypatch.setattr(sources_module.PhoneSource, "_spawn_wake", lambda self, *a: None)
     window.add_stream("third-phone")
-    assert window._waking and "third-phone" in window._tiles.ids()
+    assert window._sessions.waking and "third-phone" in window._tiles.ids()
     window._tiles.stop_requested.emit("third-phone")
-    assert not window._waking and window._wake_source is None
-    assert window.stream_count() == 2 and window._focus.id != "third-phone"
+    assert not window._sessions.waking and window._sessions.wake_source is None
+    assert window.stream_count() == 2 and window._sessions.focus.id != "third-phone"
 
 
 def test_a_cancelled_phone_that_starts_late_is_stopped_while_another_wakes(camera_env, monkeypatch):
@@ -3036,7 +3036,7 @@ def test_a_cancelled_phone_that_starts_late_is_stopped_while_another_wakes(camer
     wake = old._wake_id
     conn.selected_device = "new-phone"
     window.switch_device("Phone", "new-phone")
-    assert window._waking and window._wake_source.id == "new-phone" and len(remote) == 1
+    assert window._sessions.waking and window._sessions.wake_source.id == "new-phone" and len(remote) == 1
     old._on_wake_done(wake, True, "", "old-url", None)  # its start went through after the stop got there
     assert len(remote) == 2
 
@@ -3048,7 +3048,7 @@ def test_a_background_stream_the_encoder_cant_do_gets_the_panels_and_stops(two_s
     monkeypatch.setattr(stream_output_module.h264_reader, "available", lambda: True)
     window.register_plugin(StreamOutputPlugin())
     phone = window._phone_source("Phone")
-    assert window._focus is not phone
+    assert window._sessions.focus is not phone
     state = {**_VALID_STATE, "codecs": ["mjpeg", "h264"], "codec": "mjpeg", "codec_unsupported": True,
              "codec_error": "H.264 isn't available at 4096x3072 on this phone", "camera_toggle": True}
     window._apply_state(phone.session.id, state, phone)
@@ -3062,7 +3062,7 @@ def test_restarting_the_only_stream_left_keeps_its_virtual_camera(camera_env, mo
     window._start()
     window.add_stream("phone-b")
     window.stop_stream("Phone")
-    source = window._focus
+    source = window._sessions.focus
     assert source.slot == 1
     window.reconnect_stream()
     assert source.session is not None and source.slot == 1
@@ -3121,11 +3121,11 @@ def test_re_pairing_a_background_phone_restarts_it_with_the_new_token(camera_env
     conn.select("id-a")
     window._start()
     window.add_stream("id-b")
-    assert window._focus.id == "id-b"
+    assert window._sessions.focus.id == "id-b"
     _add(conn, "id-a", token="new-token")
-    assert window._focus.id == "id-a"
-    assert window._focus.session.worker.auth.token == "new-token"
-    assert window._focus.session.client.auth.token == "new-token"
+    assert window._sessions.focus.id == "id-a"
+    assert window._sessions.focus.session.worker.auth.token == "new-token"
+    assert window._sessions.focus.session.client.auth.token == "new-token"
     conn.shutdown()
 
 
@@ -3136,7 +3136,7 @@ def test_a_restart_next_to_another_stream_keeps_its_camera_over_a_remembered_one
     window._start()
     window.add_stream("phone-b")
     window.focus_stream("Phone")
-    source = window._focus
+    source = window._sessions.focus
     assert source.slot == 0
     window.reconnect_stream()  # the Starting tile works out its camera on the way
     assert source.slot == 0 and source.session.worker.kwargs["slot"] == 0
@@ -3152,7 +3152,7 @@ def test_a_background_phone_without_h264_falls_back_to_mjpeg(two_streams, monkey
     phone = window._phone_source("Phone")
     session = phone.session
     window._apply_state(session.id, {**_VALID_STATE, "codecs": ["mjpeg"], "camera_toggle": True}, phone)
-    assert window._focus is phone and plugin._format == "mjpeg"
+    assert window._sessions.focus is phone and plugin._format == "mjpeg"
     assert phone.session is not None and phone.session is not session  # restarted on the MJPEG route
     window._stop_all()
 
@@ -3168,15 +3168,15 @@ def test_a_codec_error_while_another_start_prepares_waits_for_it(camera_env, con
     def preparing(*args, **kwargs):
         phone._sig_state.emit(phone.session.id, {**_VALID_STATE, "codec_error": "Encoder stopped",
                                                  "camera_toggle": True})
-        focus_during_prepare.append(window._focus.id)
+        focus_during_prepare.append(window._sessions.focus.id)
         return original(*args, **kwargs)
     conn.get_stream_info = preparing
     monkeypatch.setattr(sources_module.PhoneSource, "_spawn_wake", lambda self, *a: None)
     window.add_stream("third")
     assert focus_during_prepare == ["third"]  # the panels stay on the start, so it opens with its own settings
-    window._on_wake_done(window._wake_source, True, "")
+    window._on_wake_done(window._sessions.wake_source, True, "")
     QCoreApplication.processEvents()
-    assert window._focus is phone  # then the stream with the error gets them
+    assert window._sessions.focus is phone  # then the stream with the error gets them
 
 
 def test_re_pairing_a_phone_while_another_starts_restarts_it_after(camera_env, monkeypatch):
@@ -3203,12 +3203,12 @@ def test_re_pairing_a_phone_while_another_starts_restarts_it_after(camera_env, m
     window._start()
     monkeypatch.setattr(sources_module.PhoneSource, "_spawn_wake", lambda self, *a: None)
     window.add_stream("id-b")
-    assert window._waking
+    assert window._sessions.waking
     _add(conn, "id-a", token="new-token")
     a = window._phone_source("id-a")
-    window._on_wake_done(window._wake_source, True, "")
+    window._on_wake_done(window._sessions.wake_source, True, "")
     QCoreApplication.processEvents()
-    window._on_wake_done(window._wake_source, True, "")  # A's own restart
+    window._on_wake_done(window._sessions.wake_source, True, "")  # A's own restart
     assert a.session.worker.auth.token == "new-token" and a.session.client.auth.token == "new-token"
     assert window.stream_count() == 2
     conn.shutdown()
@@ -3236,7 +3236,7 @@ def test_stop_cancels_a_stream_restarting_next_to_the_shown_one(camera_env, monk
     window.reconnect_stream("Phone")
     wake = phone._wake_id
     window._toggle()  # the Stop button
-    assert not window._streams and not window._waking
+    assert not window._sessions.streams and not window._sessions.waking
     phone._on_wake_done(wake, True, "", phone.url, phone.auth)
     assert not window.is_streaming()
 
@@ -3255,7 +3255,7 @@ def test_restarting_a_background_stream_starts_it_with_its_own_settings(camera_e
     phone = window._phone_source("Phone")
     window.add_stream("B")
     window.reconnect_stream("Phone")
-    assert window._focus is phone
+    assert window._sessions.focus is phone
     assert phone.session.worker.kwargs["fps"] == 15 and conn.opening["fps"] == 15
     window._stop_all()
 
@@ -3274,11 +3274,11 @@ def test_coming_back_to_a_stream_keeps_its_exposure_and_sends_nothing(camera_env
     window.register_plugin(camera)
     window._bus.phones_changed.emit(2)
     window._start()
-    phone = window._focus
+    phone = window._sessions.focus
     window._apply_state(phone.session.id, {**_camera_state(isoMax=6400), "auto": False, "iso": 6400,
                                            "shutter_ns": 10_000_000}, phone)
     window.add_stream("B")
-    other = window._focus
+    other = window._sessions.focus
     window._apply_state(other.session.id, _camera_state(isoMax=800), other)  # a lens that stops at ISO 800
     phone.session.client.sent.clear()
     window.focus_stream("Phone")
@@ -3295,7 +3295,7 @@ def test_coming_back_to_a_stream_keeps_its_focus_point(camera_env, monkeypatch):
     window.register_plugin(camera)
     window._bus.phones_changed.emit(2)
     window._start()
-    phone = window._focus
+    phone = window._sessions.focus
     window._apply_state(phone.session.id, _camera_state(supportsFocusPoint=True), phone)
     window._bus.focus_point.emit(0.25, 0.75)
     window.add_stream("B")
@@ -3314,7 +3314,7 @@ def test_coming_back_to_a_zoomed_phone_doesnt_crop_its_crop_again(camera_env, mo
     view = TransformsPlugin()
     window.register_plugin(view)
     window._start()
-    phone = window._focus
+    phone = window._sessions.focus
     window._apply_state(phone.session.id, _camera_state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True),
                         phone)
     view._zoom_slider.setValue(200)
@@ -3335,11 +3335,11 @@ def test_coming_back_to_a_stream_that_changed_route_meanwhile_keeps_its_exposure
     window.register_plugin(camera)
     window._bus.phones_changed.emit(2)
     window._start()
-    phone = window._focus
+    phone = window._sessions.focus
     window._apply_state(phone.session.id, {**_camera_state(isoMax=6400), "auto": False, "iso": 6400,
                                            "shutter_ns": 10_000_000}, phone)
     window.add_stream("B")
-    other = window._focus
+    other = window._sessions.focus
     window._apply_state(other.session.id, _camera_state(isoMax=800), other)
     conn.adopt_stream_route = lambda _route, _pid: "http://192.168.1.20:8080/v1/video"
     phone.session.worker.retarget = lambda _url: None
@@ -3361,11 +3361,11 @@ def test_two_phones_waiting_for_the_extra_cameras_both_start(camera_env, monkeyp
     monkeypatch.setattr(sources_module.PhoneSource, "_spawn_wake", lambda self, *a: None)
     ready.update(range(1, app_module.vcam.MAX_SLOTS))
     window._on_slots_ready(True, "", "")
-    assert window._wake_source.id == "B"
-    window._on_wake_done(window._wake_source, True, "")
+    assert window._sessions.wake_source.id == "B"
+    window._on_wake_done(window._sessions.wake_source, True, "")
     QCoreApplication.processEvents()
-    assert window._wake_source.id == "C"  # once B is through
-    window._on_wake_done(window._wake_source, True, "")
+    assert window._sessions.wake_source.id == "C"  # once B is through
+    window._on_wake_done(window._sessions.wake_source, True, "")
     assert window.stream_count() == 3
     window._stop_all()
 
@@ -3382,7 +3382,7 @@ def test_stop_drops_starts_waiting_for_the_extra_cameras(camera_env, monkeypatch
     ready.update(range(1, app_module.vcam.MAX_SLOTS))
     window._on_slots_ready(True, "", "")
     QCoreApplication.processEvents()
-    assert not window.is_streaming() and not window._waking
+    assert not window.is_streaming() and not window._sessions.waking
 
 
 def test_one_bad_saved_field_keeps_the_plugins_other_settings(window):

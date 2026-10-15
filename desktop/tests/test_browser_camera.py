@@ -624,8 +624,8 @@ def test_a_browser_takes_the_waiting_tile_over_next_to_a_phone(camera_env, tmp_p
 
     _arrive(plugin, "pixel-aaaaaaaa", "Chrome on Android")
     assert window.is_streaming_from("browser:pixel-aaaaaaaa")  # it used to stop the server on the way, and itself
-    assert window._tiles.ids() == ["Phone", "browser:pixel-aaaaaaaa"] and window._pending is None
-    assert window._focus.id == "browser:pixel-aaaaaaaa" and not _Server.instances[-1].stopped
+    assert window._tiles.ids() == ["Phone", "browser:pixel-aaaaaaaa"] and window._sessions.pending is None
+    assert window._sessions.focus.id == "browser:pixel-aaaaaaaa" and not _Server.instances[-1].stopped
     assert not plugin.is_waiting()
     plugin.shutdown()
 
@@ -649,7 +649,7 @@ def test_every_browser_that_joined_during_a_phone_start_streams_after_it(camera_
     assert window.stream_count() == 1
     monkeypatch.setattr(sources_module.PhoneSource, "_spawn_wake", lambda self, *a: None)
     window.add_stream("Phone")
-    phone = window._wake_source
+    phone = window._sessions.wake_source
     _arrive(plugin, "browser-aaaaaaaa", "Chrome on Android")
     _arrive(plugin, "browser-bbbbbbbb", "Safari on iOS")
     assert window.stream_count() == 1  # they wait for the phone

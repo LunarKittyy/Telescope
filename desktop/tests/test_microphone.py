@@ -412,7 +412,7 @@ def _mic_on(config_home, sid):
 
 def test_another_streams_card_shows_its_mic_off_and_turning_it_on_moves_the_mic(two_cams):
     window, mic, config_home = two_cams
-    assert window._focus.id == "back" and window.main_stream() == ("front", "Front")
+    assert window._sessions.focus.id == "back" and window.main_stream() == ("front", "Front")
     assert not mic._toggle.isChecked() and mic._toggle.isEnabled()
     assert mic._gain_row.isHidden() and "On for Front" in mic._status.text()
     assert [w.url for w in _Worker.made if not w.stopped] == ["http://10.0.0.5/v1/audio"]
