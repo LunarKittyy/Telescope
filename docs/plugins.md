@@ -47,6 +47,7 @@ If an added plugin won't switch on, the dialog shows the reason under it. The us
 | A plugin that comes with Telescope already has that name | Two plugins can't share a name. The plugin needs renaming. |
 | Other users on this computer could change it | Its folder can be changed by someone else on this computer, so running it isn't safe. Fix the folder's permissions, or install it again with **Install plugin…**. |
 | It contains a link to somewhere else | Plugins have to be plain files and folders. |
+| It contains compiled code | Plugins have to be Python source code people can read, without `.pyc`, `.so` or `.pyd` files. |
 
 ## Making your own plugin
 
@@ -153,7 +154,7 @@ These keep plugins from breaking each other or Telescope. The [architecture note
 - **Keep the window responsive.** Hooks run on the window's thread, so don't wait for the network or the disk there. Do slow work in a thread and come back with a Qt signal.
 - **Keep `process_frame()` quick.** It runs for every frame on a decoding thread. If it takes too long the stream falls behind. If it raises, that frame goes through unchanged, and if it keeps failing Telescope skips it until the next stream.
 - **Don't write files into your plugin's folder.** A new or changed file there counts as a change, so your plugin would be switched off at the next start. Keep settings in `get_config()`, and put anything else somewhere outside the plugins folder.
-- **Ship source code.** A plugin with `.pyc` files in it isn't loaded, and Telescope clears `__pycache__` before loading one, so what runs is always the code people can read.
+- **Ship source code.** A plugin with compiled files in it (`.pyc`, `.so`, `.pyd`) isn't loaded, and Telescope clears `__pycache__` before loading one, so what runs is always the code people can read.
 - **Use what Telescope comes with.** That's PyQt6, NumPy, OpenCV and Python's standard library. Telescope can't install anything else for your plugin. The Windows app only carries the parts of the standard library Telescope uses itself, so try your plugin there too: an import that's missing shows up as the reason it didn't start. If your plugin is more than one file, import your own modules relatively (`from . import helpers`).
 
 If something in your plugin raises an exception, Telescope logs it and carries on, and the other plugins still hear about everything. The log file (`telescope.log`) is in the `logs` folder of your dev profile, or in Telescope's temp folder for a normal install (`/tmp/telescope-<user>` on Linux, `%TEMP%\Telescope` on Windows).

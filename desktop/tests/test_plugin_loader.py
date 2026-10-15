@@ -157,7 +157,15 @@ def test_compiled_code_left_in_a_plugin_never_runs(plugins, tmp_path):
 def test_a_pyc_next_to_the_source_is_refused(plugins):
     folder = _plugin(plugins, "thing", _SIMPLE.format(name="thing"))
     (folder / "helper.pyc").write_bytes(b"\0")
-    assert ".pyc" in _one(plugins).problem
+    assert "compiled code" in _one(plugins).problem
+
+
+def test_one_that_was_on_and_got_a_bad_file_says_why_it_didnt_start(plugins):
+    folder = _plugin(plugins, "thing", _SIMPLE.format(name="thing"))
+    plugin_loader.set_enabled(_one(plugins), True)
+    (folder / "native.so").write_bytes(b"\0")
+    loaded, failed = plugin_loader.load_enabled()
+    assert loaded == [] and "compiled code" in failed[0].error  # so the window shows a banner
 
 
 @pytest.mark.skipif(os.name != "posix", reason="permissions as on Linux")

@@ -92,8 +92,8 @@ def _files(folder: Path) -> list:
             path = here / n
             if path.is_symlink():
                 raise ValueError(_LINK)
-            if n.endswith((".pyc", ".pyo")):
-                raise ValueError("It contains compiled Python (.pyc) files. Plugins have to be source code.")
+            if n.endswith((".pyc", ".pyo", ".so", ".pyd")):
+                raise ValueError("It contains compiled code (like .pyc files). Plugins have to be source code.")
             if _unsafe_permissions(path):
                 raise ValueError(_SHARED)
             total += path.stat().st_size
@@ -244,6 +244,7 @@ def _inspect(path: Path, reserved, enabled: dict, shared: bool) -> Installed:
     try:
         plugin.digest = digest(path)
     except (OSError, ValueError) as exc:
+        plugin.changed = path.name in enabled  # it was on: say why it didn't start
         return problem(str(exc) if isinstance(exc, ValueError) else "Its files couldn't be read.")
     plugin.enabled = enabled.get(path.name) == plugin.digest
     plugin.changed = path.name in enabled and not plugin.enabled
@@ -321,7 +322,8 @@ def load_enabled(reserved=(), folder: Optional[Path] = None) -> tuple:
         if not plugin.enabled and not plugin.changed:
             continue
         if plugin.changed:
-            plugin.error = "Its files changed since it was turned on. Turn it on again if you trust this version."
+            plugin.error = plugin.problem or ("Its files changed since it was turned on. Turn it on again if you "
+                                              "trust this version.")
             failed.append(plugin)
             continue
         try:
