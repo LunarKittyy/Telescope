@@ -160,6 +160,7 @@ TelescopePlugin.on_stream_stop(self)
 TelescopePlugin.panel_region = 'left'
 TelescopePlugin.process_frame(self, frame)
 TelescopePlugin.required = False
+TelescopePlugin.sees_final_frame = False
 TelescopePlugin.set_config(self, cfg)
 TelescopePlugin.setup(self, host, bus)
 TelescopePlugin.shutdown(self)

@@ -226,7 +226,7 @@ class StreamFlow:
         """The plugins' frame steps: live for the stream the panels show, or frozen at their current settings for one
         that carries on while they show another."""
         steps = []
-        for p in self._host.plugins():
+        for p in sorted(self._host.plugins(), key=lambda p: p.sees_final_frame):  # stable: otherwise as registered
             if type(p).process_frame is TelescopePlugin.process_frame:
                 continue
             try:

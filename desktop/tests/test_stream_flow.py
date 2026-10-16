@@ -2,6 +2,7 @@
 
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 
 from telescope.plugin import TelescopePlugin
@@ -299,3 +300,24 @@ def test_a_pending_source_can_be_cancelled_from_its_tile(setup):
     assert flow.sessions.pending is waiting and flow.sessions.focus is waiting
     flow.stop_stream("b")
     assert flow.sessions.pending is None and waiting.cancelled and flow.sessions.focus is sources["a"]
+
+
+def test_a_plugin_that_sees_the_final_frame_gets_it_after_plugins_registered_later():
+    order = []
+
+    class Step(TelescopePlugin):
+        def __init__(self, name, last=False):
+            self.name, self.sees_final_frame = name, last
+
+        def process_frame(self, frame):
+            order.append(self.name)
+            return frame
+
+    class Host:
+        def plugins(self):
+            return [Step("transforms"), Step("preview", last=True), Step("added"), Step("added_too")]
+
+    frame = np.zeros((2, 2, 3), np.uint8)
+    for step in StreamFlow(Host()).pipeline():
+        frame = step(frame)
+    assert order == ["transforms", "added", "added_too", "preview"]

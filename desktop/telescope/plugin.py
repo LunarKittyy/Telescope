@@ -301,6 +301,9 @@ class TelescopePlugin:
     """Each phone (or other source) gets its own copy of this plugin's settings, swapped in when it's picked or the
     panels move to its stream; False: one copy for the whole app."""
 
+    sees_final_frame: bool = False
+    """Its process_frame runs after every other plugin's, so it sees the frame the virtual camera gets (the preview).
+    It has to hand the frame back unchanged."""
     follows_focus: bool = True
     """With several streams, hear about the one the panels show (False: the first one, like the mic)."""
 
