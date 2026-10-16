@@ -143,7 +143,7 @@ def test_switching_off_asks_first_names_what_goes_and_waits_for_a_restart(qapp, 
     _boxes(dialog)["Presets"].setChecked(False)
     assert plugin_loader.builtin_off() == {"presets"}
     title, text, _danger = asked[-1]
-    assert title == "Switch off Presets?" and "The Presets card goes away." in text and "settings are kept" in text
+    assert title == "Switch off Presets?" and "The Presets card goes away." in text and "settings stay saved" in text
     assert not dialog._restart_bar.isHidden()
     _boxes(dialog)["Presets"].setChecked(True)
     assert plugin_loader.builtin_off() == set() and dialog._restart_bar.isHidden()  # back as it is: no restart
@@ -180,7 +180,7 @@ def test_a_plugin_that_didnt_start_says_why_in_the_list(qapp, plugins, answers):
     dialog = PluginsDialog(None, _builtins(), set(), {"extra": "RuntimeError: no card today"}, lambda: True)
     texts = [label.text() for label in dialog.findChildren(dialog_module.QWidget) if hasattr(label, "text")
              and callable(label.text) and isinstance(label.text(), str)]
-    assert any("It didn't start: RuntimeError: no card today" in t for t in texts)
+    assert any("It didn't start (RuntimeError: no card today)." in t for t in texts)
 
 
 def test_one_thats_on_can_be_switched_off_even_with_a_problem(qapp, plugins, answers):

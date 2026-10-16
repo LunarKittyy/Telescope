@@ -118,8 +118,8 @@ class PluginsDialog(QDialog):
         add_section_heading(self._rows, "Added")
         if not self._installed:
             self._rows.addWidget(wrapped_note(
-                "No plugins added yet. A plugin someone shared comes as a .zip file: click Install plugin and pick "
-                "it, or drop it onto this window. Added plugins start out switched off."))
+                "No plugins added yet. Plugins people share come as .zip files. Click Install plugin and pick one or "
+                "drop it onto this window. Added plugins start out switched off."))
         for item in self._installed:
             self._rows.addWidget(self._added_row(item))
         add_section_heading(self._rows, "Always on")
@@ -169,11 +169,11 @@ class PluginsDialog(QDialog):
             return row
         note, kind = "", "dim"
         if on and plugin.name not in self._running:
-            note, kind = "Switched on. It comes back when Telescope restarts.", "status_warn"
+            note, kind = "It comes back after Telescope restarts.", "status_warn"
         elif not on and plugin.name in self._running:
-            note, kind = "Switched off. It goes away when Telescope restarts.", "status_warn"
+            note, kind = "It goes away after Telescope restarts.", "status_warn"
         elif not on:
-            note = "Off. " + plugin.when_off if plugin.when_off else "Off."
+            note = plugin.when_off
         row, box, _top = self._row(title, on, plugin.about, note, kind)
         box.toggled.connect(lambda checked, p=plugin, b=box: self._switch_builtin(p, checked, b))
         return row
@@ -188,11 +188,11 @@ class PluginsDialog(QDialog):
             note, kind = ("Its files changed since you switched it on, so it's off for now. Switch it on again if "
                           "you trust this version."), "status_warn"
         elif item.name in self._problems and item.enabled:
-            note, kind = "It didn't start: " + self._problems[item.name], "status_err"
+            note, kind = f"It didn't start ({self._problems[item.name].rstrip('.')}).", "status_err"
         elif item.enabled and item.name not in self._running:
-            note, kind = "Switched on. It starts when Telescope restarts.", "status_warn"
+            note, kind = "It starts after Telescope restarts.", "status_warn"
         elif not item.enabled and item.name in self._running:
-            note, kind = "Switched off. It goes away when Telescope restarts.", "status_warn"
+            note, kind = "It goes away after Telescope restarts.", "status_warn"
         row, box, top = self._row(title, item.enabled, about, note, kind)
         box.setEnabled(not item.problem or item.enabled)  # one that's on can always be switched off
         box.toggled.connect(lambda checked, i=item, b=box: self._switch_added(i, checked, b))
@@ -207,7 +207,7 @@ class PluginsDialog(QDialog):
         title = plugin.title or plugin.name
         if not on and not _ask(self, f"Switch off {title}?",
                                (plugin.when_off + "\n\n" if plugin.when_off else "")
-                               + "Its settings are kept, so switching it back on here brings everything back.",
+                               + "Its settings stay saved for when you switch it back on.",
                                "Switch off"):
             with QSignalBlocker(box):
                 box.setChecked(True)
@@ -221,8 +221,8 @@ class PluginsDialog(QDialog):
                       "the network. Only switch it on if you trust whoever made it.", "Switch on", danger=True)
         else:
             ok = _ask(self, f"Switch off {item.title}?",
-                      "Whatever it added to Telescope goes away. Its settings are kept, so switching it back on "
-                      "brings everything back.", "Switch off")
+                      "Without it, whatever it added to Telescope is gone. Its settings stay saved for when you switch "
+                      "it back on.", "Switch off")
         if not ok:
             with QSignalBlocker(box):
                 box.setChecked(not on)
@@ -299,11 +299,11 @@ class PluginsDialog(QDialog):
         finally:
             self.refresh()
         if item.problem:
-            QMessageBox.warning(self, "Installed, but it won't load", f"{item.title} was installed, but: "
-                                                                     f"{item.problem}")
+            QMessageBox.warning(self, "Installed, but it won't load", f"{item.title} was installed, but it can't run "
+                                                                     f"yet. {item.problem}")
         else:
-            QMessageBox.information(self, "Installed", f"{item.title} is installed. It's switched off for now: "
-                                                       "switch it on in the list under Added when you're ready.")
+            QMessageBox.information(self, "Installed", f"{item.title} is installed but switched off for now. "
+                                                       "To use it, switch it on under Added and restart Telescope.")
 
     def _open_folder(self):
         try:

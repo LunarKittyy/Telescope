@@ -119,7 +119,7 @@ class StreamOutputPlugin(TelescopePlugin):
     name = "stream_output"
     title = "Stream output"
     about = "The resolution, frame rate and format of the stream."
-    when_off = "The Stream output card goes away, and streams use the phone's own size and format."
+    when_off = "Without it there's no Stream output card and streams use whatever size and format the phone picks."
     device_local = True
 
     def setup(self, host, bus):

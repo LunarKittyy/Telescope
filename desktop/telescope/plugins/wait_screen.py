@@ -36,7 +36,8 @@ class WaitScreenPlugin(TelescopePlugin):
     name = "wait_screen"
     title = "Wait screen"
     about = "The picture apps see on the virtual camera while nothing is streaming."
-    when_off = "Wait screen leaves the settings menu, and between streams apps may see a black picture or none at all."
+    when_off = ("Without it Wait screen isn't in the settings menu and between streams apps might see a black picture "
+                "or nothing at all.")
 
     def __init__(self, screen: vcam.WaitScreen = None, watch_cls=vcam.CameraWatch, extra_screen=None):
         self.image_path: Optional[str] = None

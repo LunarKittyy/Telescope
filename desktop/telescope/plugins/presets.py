@@ -58,7 +58,7 @@ class PresetsPlugin(TelescopePlugin):
     name = "presets"
     title = "Presets"
     about = "Saving and loading groups of settings with one click."
-    when_off = "The Presets button goes away. Saved presets are kept."
+    when_off = "Without it there's no Presets button in the header (your saved presets aren't deleted)."
     device_local = True
     header_side = "left"
 

@@ -742,7 +742,7 @@ class AdvancedDialog(QDialog):
 class SetupPlugin(TelescopePlugin):
     name = "setup"
     title = "Advanced settings"
-    about = "The Advanced dialog: the virtual camera, its size, extra cameras and other rarely changed settings."
+    about = "The Advanced dialog with the virtual camera, its size, extra cameras and other settings you rarely change."
     required = True
 
     def setup(self, host, bus):

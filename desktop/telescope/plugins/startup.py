@@ -68,8 +68,8 @@ class StartupPlugin(TelescopePlugin):
     name = "startup"
     title = "Start and stop by itself"
     about = "Opening Telescope when you sign in, and Automatic streaming."
-    when_off = ("Both leave the settings menu and Automatic streaming stops. Whether Telescope opens at sign-in "
-                "stays as it was.")
+    when_off = ("Without it Automatic streaming stops and both it and the sign-in option leave the settings menu. "
+                "Telescope still opens at sign-in if it did before.")
 
     def __init__(self):
         self.start_on = START_OFF

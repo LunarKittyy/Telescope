@@ -145,7 +145,8 @@ class MicrophonePlugin(TelescopePlugin):
     name = "microphone"
     title = "Microphone"
     about = "Using the phone's microphone on this computer."
-    when_off = "The Microphone card and the tray's Mute go away, and no virtual microphone is made."
+    when_off = ("Without it there's no Microphone card or Mute in the tray menu and Telescope doesn't make a virtual "
+                "microphone.")
     device_local = True
     follows_focus = False  # stays on one stream (the first, until another one's card takes it) whichever the panels show
     panel_region = "left"

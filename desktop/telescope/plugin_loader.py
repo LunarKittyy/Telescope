@@ -149,7 +149,8 @@ def _state(cfg: dict) -> tuple:
     raw = raw if isinstance(raw, dict) else {}
     off, added = raw.get("off"), raw.get("added")
     off = {n for n in off if isinstance(n, str)} if isinstance(off, list) else set()
-    added = {k: v for k, v in added.items() if isinstance(k, str) and isinstance(v, str)} if isinstance(added, dict) else {}
+    added = ({k: v for k, v in added.items() if isinstance(k, str) and isinstance(v, str)}
+             if isinstance(added, dict) else {})
     return off, added
 
 
@@ -225,7 +226,8 @@ def _inspect(path: Path, reserved, enabled: dict, shared: bool) -> Installed:
     if path.is_symlink():
         return problem("It's a link to another folder, which plugins can't be.")
     if not _NAME.match(path.name):
-        return problem("Its folder name has to be its name: lowercase letters, digits and _, starting with a letter.")
+        return problem("The folder has to have the same name as the plugin, using only lowercase letters, digits and _ "
+                       "(starting with a letter).")
     try:
         manifest = json.loads((path / MANIFEST).read_text(encoding="utf-8"))
     except OSError:
@@ -358,7 +360,8 @@ def install_zip(archive: Path, reserved=(), folder: Optional[Path] = None) -> In
                 raise ValueError("It has to hold one folder, named as the plugin.")
             name = tops.pop()
             if not _NAME.match(name):
-                raise ValueError("Its folder name has to be its name: lowercase letters, digits and _.")
+                raise ValueError("The folder has to have the same name as the plugin, using only lowercase letters, "
+                                 "digits and _ (starting with a letter).")
             if name in reserved:
                 raise ValueError("A plugin that comes with Telescope already has that name.")
             if (folder / name).exists():

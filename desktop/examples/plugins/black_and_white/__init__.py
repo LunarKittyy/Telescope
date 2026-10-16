@@ -15,7 +15,7 @@ def _grey(frame):
 
 class BlackAndWhitePlugin(TelescopePlugin):
     name = "black_and_white"  # the same as "name" in plugin.json and the folder's name
-    when_off = "The Black and white card goes away, and the picture keeps its colours."
+    when_off = "Without it there's no Black and white card and the picture keeps its colours."
     panel_region = "right"  # with the cards about the phone's picture
     device_local = True  # each phone remembers its own choice
 

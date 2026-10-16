@@ -355,7 +355,7 @@ class TransformsPlugin(TelescopePlugin):
     name = "transforms"
     title = "Transforms"
     about = "Zoom, pan, flip and rotate the picture."
-    when_off = "The Transforms card goes away, and the picture goes out as the phone sends it."
+    when_off = "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
     device_local = True
     panel_region = "left"   # desktop-side processing, with the output settings
 

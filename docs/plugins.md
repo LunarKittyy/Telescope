@@ -26,10 +26,10 @@ Plugins people share come as a `.zip` file. To install one:
 
 1. Open **Plugins…** from the settings menu.
 2. Click **Install plugin…** and pick the `.zip` (or drag the file onto the Plugins window).
-3. It shows up under **Added**, switched off. Tick it when you're ready.
+3. Tick it under **Added** (new plugins start out switched off).
 4. Click **Restart now**.
 
-When you switch on a plugin you installed, Telescope warns you first. That's because a plugin is a small program: it can do anything Telescope itself can on your computer, like reading files or using the network. Only switch on plugins from people you trust.
+When you switch on a plugin you installed, Telescope warns you first. That's because a plugin is a small program and it can do anything Telescope itself can on your computer, like reading files or using the network. Only switch on plugins from people you trust.
 
 A few more things worth knowing:
 
@@ -92,7 +92,7 @@ Here's the example's code with what each part is for:
 ```python
 class BlackAndWhitePlugin(TelescopePlugin):
     name = "black_and_white"  # the same as "name" in plugin.json
-    when_off = "The Black and white card goes away, and the picture keeps its colours."
+    when_off = "Without it there's no Black and white card and the picture keeps its colours."
     panel_region = "right"  # which column the card goes in: "left", "right" or "center"
     device_local = True  # each phone remembers its own setting
 
@@ -141,9 +141,9 @@ All of these are optional. Override only what you need.
 | `on_phone_state()` | The phone sent its current state: lenses, battery and so on |
 | `on_plugins_ready()` | Every plugin is set up and settings are loaded |
 | `diagnostics()` | A few lines for Copy diagnostics (no tokens, addresses or names) |
-| `shutdown()` | Telescope is quitting: stop anything you started |
+| `shutdown()` | Telescope is quitting, so stop anything you started |
 
-You can also set `title`, `about` and `when_off` on your class. `title` and `about` fall back to your `plugin.json`, and `when_off` is the sentence the Plugins dialog shows before someone switches your plugin off.
+You can also set `title`, `about` and `when_off` on your class. `title` and `about` fall back to your `plugin.json`. `when_off` says what's missing without your plugin (like "Without it there's no Black and white card") and the Plugins dialog shows it when someone switches your plugin off.
 
 ### A few ground rules
 
@@ -155,7 +155,7 @@ These keep plugins from breaking each other or Telescope. The [architecture note
 - **Keep `process_frame()` quick.** It runs for every frame on a decoding thread. If it takes too long the stream falls behind. If it raises, that frame goes through unchanged, and if it keeps failing Telescope skips it until the next stream.
 - **Don't write files into your plugin's folder.** A new or changed file there counts as a change, so your plugin would be switched off at the next start. Keep settings in `get_config()`, and put anything else somewhere outside the plugins folder.
 - **Ship source code.** A plugin with compiled files in it (`.pyc`, `.so`, `.pyd`) isn't loaded, and Telescope clears `__pycache__` before loading one, so what runs is always the code people can read.
-- **Use what Telescope comes with.** That's PyQt6, NumPy, OpenCV and Python's standard library. Telescope can't install anything else for your plugin. The Windows app only carries the parts of the standard library Telescope uses itself, so try your plugin there too: an import that's missing shows up as the reason it didn't start. If your plugin is more than one file, import your own modules relatively (`from . import helpers`).
+- **Use what Telescope comes with.** That's PyQt6, NumPy, OpenCV and Python's standard library. Telescope can't install anything else for your plugin. The Windows app only carries the parts of the standard library Telescope uses itself, so try your plugin there too. If an import is missing there the Plugins dialog shows it as the reason the plugin didn't start. If your plugin is more than one file, import your own modules relatively (`from . import helpers`).
 
 If something in your plugin raises an exception, Telescope logs it and carries on, and the other plugins still hear about everything. The log file (`telescope.log`) is in the `logs` folder of your dev profile, or in Telescope's temp folder for a normal install (`/tmp/telescope-<user>` on Linux, `%TEMP%\Telescope` on Windows).
 
