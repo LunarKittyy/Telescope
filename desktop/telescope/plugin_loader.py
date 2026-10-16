@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Optional
 
+from telescope import dev_profile
 from telescope.config import config_path, load_config, save_config
 from telescope.plugin import TelescopePlugin
 
@@ -67,6 +68,7 @@ class Installed:
     problem: str = ""
     enabled: bool = False
     changed: bool = False  # turned on, but its files differ from when it was
+    dev: bool = False  # loaded from where it's written by dev_desktop.py --plugin, always on
     error: str = field(default="", compare=False)  # what went wrong loading it this run
 
 
@@ -76,12 +78,15 @@ def _text(value) -> str:
     return text.strip()[:_TEXT_MAX]
 
 
-def _files(folder: Path) -> list:
+def _files(folder: Path, skip_hidden: bool = False) -> list:
     """The plugin's files, relative to folder and sorted; raises ValueError for a link, compiled code, a file other
-    users could change, or a folder too big."""
+    users could change, or a folder too big. skip_hidden: leave out .git and the like (a plugin being written)."""
     found, total = [], 0
     for root, dirs, names in os.walk(folder, followlinks=False):
         here = Path(root)
+        if skip_hidden:
+            dirs[:] = [d for d in dirs if not d.startswith(".")]
+            names = [n for n in names if not n.startswith(".")]
         for d in dirs:
             if (here / d).is_symlink():
                 raise ValueError(_LINK)
@@ -103,10 +108,10 @@ def _files(folder: Path) -> list:
     return found
 
 
-def digest(folder: Path) -> str:
+def digest(folder: Path, skip_hidden: bool = False) -> str:
     """A fingerprint of every file in folder (names and contents), to notice a plugin that changed."""
     h = hashlib.sha256()
-    for rel in _files(folder):
+    for rel in _files(folder, skip_hidden):
         h.update(rel.as_posix().encode() + b"\0")
         h.update(hashlib.sha256((folder / rel).read_bytes()).digest())
     return h.hexdigest()
@@ -206,18 +211,20 @@ def find_installed(reserved=(), folder: Optional[Path] = None) -> list:
     """Every plugin folder, by name, with whether it's on and why it can't load. reserved: names already taken (the
     built-in plugins')."""
     folder = folder or plugins_dir()
+    dev = [_inspect(path, reserved, {}, False, dev=True) for path in dev_profile.plugin_folders()]
     if not folder.is_dir():
-        return []
+        return dev
     enabled = _read_enabled()
     shared = _unsafe_permissions(folder)
     found = []
     for path in sorted(p for p in folder.iterdir() if p.is_dir() and not p.name.startswith(".")):
-        found.append(_inspect(path, reserved, enabled, shared))
-    return found
+        if path.name not in {d.name for d in dev}:  # the copy being written stands in for an installed one
+            found.append(_inspect(path, reserved, enabled, shared))
+    return found + dev
 
 
-def _inspect(path: Path, reserved, enabled: dict, shared: bool) -> Installed:
-    plugin = Installed(folder=path, name=path.name, title=path.name)
+def _inspect(path: Path, reserved, enabled: dict, shared: bool, dev: bool = False) -> Installed:
+    plugin = Installed(folder=path, name=path.name, title=path.name, dev=dev)
 
     def problem(text: str) -> Installed:
         plugin.problem = text
@@ -244,12 +251,13 @@ def _inspect(path: Path, reserved, enabled: dict, shared: bool) -> Installed:
     plugin.api = api if isinstance(api, int) and not isinstance(api, bool) else 0
     plugin.class_name = manifest.get("class") if isinstance(manifest.get("class"), str) else ""
     try:
-        plugin.digest = digest(path)
+        plugin.digest = digest(path, skip_hidden=dev)
     except (OSError, ValueError) as exc:
         plugin.changed = path.name in enabled  # it was on: say why it didn't start
+        plugin.enabled = dev
         return problem(str(exc) if isinstance(exc, ValueError) else "Its files couldn't be read.")
-    plugin.enabled = enabled.get(path.name) == plugin.digest
-    plugin.changed = path.name in enabled and not plugin.enabled
+    plugin.enabled = dev or enabled.get(path.name) == plugin.digest
+    plugin.changed = not dev and path.name in enabled and not plugin.enabled
     if manifest.get("name") != path.name:
         return problem(f"Its {MANIFEST} has to give the folder's name as \"name\".")
     if path.name in reserved:
@@ -286,7 +294,8 @@ def load(plugin: Installed) -> TelescopePlugin:
         package.__path__ = []  # a namespace for the plugins, with nothing to import from on its own
         sys.modules[_PACKAGE] = package
     module_name = f"{_PACKAGE}.{plugin.name}"
-    _clear_caches(plugin.folder)
+    if not plugin.dev:  # the author's own folder: their code, and their caches
+        _clear_caches(plugin.folder)
     spec = importlib.util.spec_from_file_location(module_name, plugin.folder / "__init__.py",
                                                   submodule_search_locations=[str(plugin.folder)])
     module = importlib.util.module_from_spec(spec)
@@ -322,6 +331,10 @@ def load_enabled(reserved=(), folder: Optional[Path] = None) -> tuple:
     loaded, failed = [], []
     for plugin in find_installed(reserved, folder):
         if not plugin.enabled and not plugin.changed:
+            continue
+        if plugin.dev and plugin.problem:
+            plugin.error = plugin.problem
+            failed.append(plugin)
             continue
         if plugin.changed:
             plugin.error = plugin.problem or ("Its files changed since it was turned on. Turn it on again if you "

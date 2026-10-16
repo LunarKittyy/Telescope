@@ -77,16 +77,16 @@ def test_the_launcher_runs_the_app_in_a_profile_and_throws_a_fresh_one_away(tmp_
     monkeypatch.setattr(launcher.tempfile, "tempdir", str(tmp_path))
     seen = []
 
-    def call(cmd, env, cwd):
+    def run(args, env):
         folder = Path(env["TELESCOPE_DEV_PROFILE"])
         (folder / "telescope_config.json").write_text("{}")
-        seen.append((cmd, folder))
+        seen.append((args, folder))
         return 0
-    monkeypatch.setattr(launcher.subprocess, "call", call)
+    monkeypatch.setattr(launcher, "run_app", run)
 
     assert launcher.main(["-platform", "offscreen"]) == 0
-    cmd, folder = seen[0]
-    assert cmd[1].endswith("main.py") and cmd[2:] == ["-platform", "offscreen"]
+    args, folder = seen[0]
+    assert args == ["-platform", "offscreen"]
     assert not folder.exists()
 
     assert launcher.main(["--keep"]) == 0
@@ -95,3 +95,50 @@ def test_the_launcher_runs_the_app_in_a_profile_and_throws_a_fresh_one_away(tmp_
     assert launcher.main(["--keep"]) == 0 and seen[2][1] == kept
     assert launcher.main(["--reset"]) == 0
     assert not kept.exists()
+
+
+def test_the_launcher_loads_plugins_being_written_and_starts_the_app_again_when_asked(tmp_path, monkeypatch):
+    launcher = _launcher()
+    monkeypatch.setattr(launcher.tempfile, "tempdir", str(tmp_path))
+    plugin = tmp_path / "my_plugin"
+    plugin.mkdir()
+    (plugin / "plugin.json").write_text("{}")
+    runs, codes = [], iter([76, 75, 3])
+
+    def run(args, env):
+        runs.append((args, env["TELESCOPE_DEV_PLUGINS"], env.get("TELESCOPE_DEV_RESUME"),
+                     env["TELESCOPE_DEV_SUPERVISED"]))
+        return next(codes)
+    monkeypatch.setattr(launcher, "run_app", run)
+
+    assert launcher.main(["--plugin", str(plugin), "--minimized"]) == 3
+    assert runs == [(["--minimized"], str(plugin), None, "1"),
+                    (["--restarted"], str(plugin), "1", "1"),  # it was streaming
+                    (["--restarted"], str(plugin), "", "1")]
+    with pytest.raises(SystemExit, match="plugin.json"):
+        launcher.main(["--plugin", str(tmp_path)])
+
+
+def test_the_launcher_stops_the_app_when_it_is_stopped(monkeypatch):
+    launcher = _launcher()
+    stopped = []
+
+    class _Child:
+        def __init__(self, *_a, **_k):
+            self.running = True
+
+        def wait(self, timeout=None):
+            if timeout is None:
+                raise KeyboardInterrupt  # Ctrl+C, or the SIGTERM handler's exit
+            return 0
+
+        def poll(self):
+            return None if self.running else 0
+
+        def terminate(self):
+            stopped.append(True)
+            self.running = False
+    monkeypatch.setattr(launcher.subprocess, "Popen", _Child)
+    with pytest.raises(KeyboardInterrupt):
+        launcher.run_app([], {})
+    assert stopped == [True]

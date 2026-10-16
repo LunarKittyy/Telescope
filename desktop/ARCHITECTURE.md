@@ -34,13 +34,23 @@ This is the short version of how the desktop app is split up and which rules kee
 
 **The window drives and nothing reaches back into it.** `sources.py`, `session.py`, `stream_flow.py` and `plugin.py` never import `app.py`. Session state (what streams, focus, main, what's waking or waiting) lives in `Sessions` and not in new attributes on the window. Starting, stopping and focus changes go in `StreamFlow`. If it needs something new from the window, add it to `FlowHost` and `app._FlowHost` the same way sources use `SourceHost`. Code that doesn't need the window at all goes in its own module, the way the single-instance lock went into `single_instance.py`.
 
+## Keeping plugins working
+
+People write plugins against what `plugin.py` offers and expect them to keep working after an update. Everything a plugin can use is listed in `tests/plugin_api.txt`. That covers the hooks, the host methods, the bus signals, `StreamSource`, `StreamsBehind`, the banner classes and the shortcut helpers. `tests/test_plugin_api.py` fails as soon as any of it changes.
+
+- **Adding is fine.** A new hook, host method, signal or optional argument with a default doesn't bother existing plugins. Write the new list with `UPDATE_PLUGIN_API=1 python -m pytest tests/test_plugin_api.py` and commit it with the change.
+- **Never give an existing hook a new required argument and never change what a signal carries.** Plugins that override the hook or connect to the signal would crash. Add a new hook or signal next to the old one instead and keep firing both.
+- **Renaming or removing something means keeping the old name working** for at least one release. Let it call the new one and log a warning once so plugin authors notice.
+- **A hook means what its docstring says.** Calling it at a different moment breaks plugins just as much as changing its arguments, even though the test can't see that.
+- **Only when there's no way to keep the old behaviour** raise `PLUGIN_API` in `plugin_loader.py`. Plugins made for the old number then show "It was made for an older Telescope" instead of crashing halfway. Raise `OLDEST_PLUGIN_API` too if the old ones can't run at all. Say so in the release notes.
+
 ## Why
 
 Before these rules, plugins had to guess whether a stream had stopped or someone had just clicked another tile. Sources called about 25 private window methods and one plugin imported another one's helper. Each of those worked until someone changed the other side. These rules write the fixes down so they stick.
 
 ## What's checked automatically
 
-`tests/test_architecture.py` fails when a plugin imports another plugin or the window or calls a private host method. It also fails when `sources.py`, `session.py`, `stream_flow.py` or `plugin.py` import the window. `tests/test_stream_flow.py` checks who hears which hook when streams start, stop and change focus, without a window. `tests/test_plugin_removal.py` checks that every optional plugin can be left out. When you add a rule here that a test could check, add the test too.
+`tests/test_architecture.py` fails when a plugin imports another plugin or the window or calls a private host method. It also fails when `sources.py`, `session.py`, `stream_flow.py` or `plugin.py` import the window. `tests/test_stream_flow.py` checks who hears which hook when streams start, stop and change focus, without a window. `tests/test_plugin_removal.py` checks that every optional plugin can be left out. `tests/test_plugin_api.py` checks that the plugin API only changes on purpose. When you add a rule here that a test could check, add the test too.
 
 ## Known exceptions
 

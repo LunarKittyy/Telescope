@@ -457,6 +457,10 @@ class TelescopeWindow(QMainWindow):
 
     def restart_app(self) -> bool:
         """Start a new copy of Telescope and quit this one; False if the new one couldn't be started."""
+        if dev_profile.supervised():  # dev_desktop.py starts it again, in the same terminal and profile
+            self._tray_close_notified = True
+            self._shut_down_and_exit(dev_profile.RESTART_STREAMING if self.is_streaming() else dev_profile.RESTART_EXIT)
+            return True
         try:
             relaunch(restart_argv())
         except (OSError, ValueError):
@@ -1631,6 +1635,10 @@ class TelescopeWindow(QMainWindow):
         self._tray_close_notified = True
         self._shut_down()
         QApplication.quit()
+
+    def _shut_down_and_exit(self, code: int):
+        self._shut_down()
+        QApplication.exit(code)
 
     def _flush_save(self):
         if self._save_timer.isActive():  # a setting changed just before quitting

@@ -3597,3 +3597,19 @@ def test_once_every_plugin_is_in_each_hears_on_plugins_ready_after_its_settings(
 def test_the_built_in_plugins_keep_per_phone_settings_where_they_always_did():
     from telescope.plugins import builtin_plugins
     assert {p.name for p in builtin_plugins() if p.device_local} == _DEVICE_LOCAL
+
+
+def test_under_dev_desktop_a_restart_is_left_to_it(window, monkeypatch, tmp_path):
+    monkeypatch.setenv("TELESCOPE_DEV_PROFILE", str(tmp_path))
+    monkeypatch.setenv("TELESCOPE_DEV_SUPERVISED", "1")
+    calls = []
+    monkeypatch.setattr(app_module, "relaunch", lambda argv: calls.append("relaunch"))
+    monkeypatch.setattr(window, "_shut_down", lambda: calls.append("shut down"))
+    monkeypatch.setattr(app_module.QApplication, "exit", lambda code: calls.append(code))
+    monkeypatch.setattr(window, "is_streaming", lambda: False)
+    assert window.restart_app() and calls == ["shut down", 75]
+    monkeypatch.setattr(window, "is_streaming", lambda: True)
+    assert window.restart_app() and calls[-1] == 76  # and dev_desktop.py has the next one start streaming
+    monkeypatch.delenv("TELESCOPE_DEV_SUPERVISED")
+    monkeypatch.setattr(window, "_tray_quit", lambda: calls.append("quit"))
+    assert window.restart_app() and calls[-2:] == ["relaunch", "quit"]

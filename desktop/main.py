@@ -5,6 +5,7 @@ import argparse
 import sys
 import threading
 from pathlib import Path
+from typing import Optional
 
 import update_guard
 
@@ -119,6 +120,27 @@ def run_action(args) -> int:
     return 0 if ok else 1
 
 
+def _watch_dev_plugins(win) -> Optional[QTimer]:
+    """dev_desktop.py --plugin: restart when one of the plugin's files is saved, so the change shows right away."""
+    folders = dev_profile.plugin_folders()
+    if not folders:
+        return None
+    last = dev_profile.files_stamp(folders)
+    timer = QTimer()
+
+    def look():
+        nonlocal last
+        now = dev_profile.files_stamp(folders)
+        if now != last:
+            print(f"Saw a change in {', '.join(f.name for f in folders)}", file=sys.stderr, flush=True)
+            timer.stop()
+            win.restart_app()
+
+    timer.timeout.connect(look)
+    timer.start(700)
+    return timer
+
+
 def main():
     if getattr(sys, "frozen", False) and not IS_LINUX:
         import tempfile
@@ -157,6 +179,9 @@ def main():
         win.start_hidden()
     else:
         win.show()
+    watch = _watch_dev_plugins(win)  # noqa: F841 (kept alive until quitting)
+    if dev_profile.resume_stream():
+        QTimer.singleShot(0, lambda: win.start_stream(interactive=False))
 
     threading.Thread(
         target=listen_for_raise,

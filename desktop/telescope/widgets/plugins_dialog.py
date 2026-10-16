@@ -182,6 +182,8 @@ class PluginsDialog(QDialog):
         title = f"{item.title} {item.version}".strip()
         about = item.description + (f" By {item.author}." if item.author else "")
         note, kind = "", "dim"
+        if item.dev:
+            return self._dev_row(item, title, about)
         if item.problem:
             note, kind = item.problem, "status_err"
         elif item.changed:
@@ -199,6 +201,17 @@ class PluginsDialog(QDialog):
         remove = QPushButton("Remove")
         remove.clicked.connect(lambda _=False, i=item: self._remove(i))
         top.addWidget(remove)
+        return row
+
+    def _dev_row(self, item, title: str, about: str) -> QWidget:
+        """A plugin dev_desktop.py --plugin loads from where it's written: always on, nothing to switch or remove."""
+        if item.problem or item.name in self._problems:
+            note, kind = f"It didn't start ({(item.problem or self._problems[item.name]).rstrip('.')}).", "status_err"
+        else:
+            note, kind = (f"Loaded from {item.folder} by dev_desktop.py. Telescope restarts by itself when you save "
+                          "one of its files."), "dim"
+        row, _box, _top = self._row(title, True, about, note, kind, locked=True,
+                                    tooltip="dev_desktop.py --plugin loads this one, so it's always on")
         return row
 
     # ── Switching ─────────────────────────────────────────────────────────
@@ -221,7 +234,7 @@ class PluginsDialog(QDialog):
                       "the network. Only switch it on if you trust whoever made it.", "Switch on", danger=True)
         else:
             ok = _ask(self, f"Switch off {item.title}?",
-                      "Without it, whatever it added to Telescope is gone. Its settings stay saved for when you switch "
+                      "Without it whatever it added to Telescope is gone. Its settings stay saved for when you switch "
                       "it back on.", "Switch off")
         if not ok:
             with QSignalBlocker(box):

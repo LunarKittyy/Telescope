@@ -312,3 +312,55 @@ def test_removing_refuses_a_folder_outside_the_plugins_folder(plugins, tmp_path)
     with pytest.raises(ValueError):
         plugin_loader.remove(fake, folder=plugins)
     assert outside.is_dir()
+
+
+def _dev(monkeypatch, tmp_path, *folders):
+    monkeypatch.setenv("TELESCOPE_DEV_PROFILE", str(tmp_path / "profile"))
+    monkeypatch.setenv("TELESCOPE_DEV_PLUGINS", os.pathsep.join(map(str, folders)))
+
+
+def test_a_plugin_being_written_loads_from_its_folder_and_stays_on_when_it_changes(plugins, tmp_path, monkeypatch):
+    work = tmp_path / "work"
+    work.mkdir()
+    folder = _example(work)
+    (folder / ".git").mkdir()
+    (folder / ".git" / "HEAD").write_text("ref")  # a repository around it doesn't count as part of the plugin
+    (folder / "__pycache__").mkdir()
+    (folder / "__pycache__" / "x.pyc").write_bytes(b"")
+    _dev(monkeypatch, tmp_path, folder)
+    found = _one(plugins)
+    assert found.dev and found.enabled and found.problem == "" and found.folder == folder
+    (folder / "__init__.py").write_text((folder / "__init__.py").read_text() + "\n# changed\n")
+    loaded, failed = plugin_loader.load_enabled()
+    assert failed == [] and [p.name for p in loaded] == ["black_and_white"]
+    assert (folder / "__pycache__" / "x.pyc").exists()  # the author's folder is left as it is
+
+
+def test_a_plugin_being_written_stands_in_for_an_installed_copy(plugins, tmp_path, monkeypatch):
+    _example(plugins)
+    work = tmp_path / "work"
+    work.mkdir()
+    folder = _example(work)
+    _dev(monkeypatch, tmp_path, folder)
+    (found,) = plugin_loader.find_installed()
+    assert found.dev and found.folder == folder
+
+
+def test_a_plugin_being_written_that_cant_load_says_why(plugins, tmp_path, monkeypatch):
+    work = tmp_path / "work"
+    work.mkdir()
+    broken = _plugin(work, "broken", "raise ImportError('no module named shiny')")
+    wrong = _plugin(work, "wrong", _SIMPLE.format(name="wrong"), api=99)
+    _dev(monkeypatch, tmp_path, broken, wrong)
+    loaded, failed = plugin_loader.load_enabled()
+    assert loaded == []
+    assert {p.name: p.error for p in failed} == {"broken": "ImportError: no module named shiny",
+                                                 "wrong": "It needs a newer Telescope (plugin API 99; this one has 1)."}
+
+
+def test_plugins_being_written_need_a_dev_profile(plugins, tmp_path, monkeypatch):
+    work = tmp_path / "work"
+    work.mkdir()
+    monkeypatch.delenv("TELESCOPE_DEV_PROFILE", raising=False)
+    monkeypatch.setenv("TELESCOPE_DEV_PLUGINS", str(_example(work)))
+    assert plugin_loader.find_installed() == [] and plugin_loader.load_enabled() == ([], [])

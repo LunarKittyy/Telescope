@@ -57,14 +57,27 @@ A plugin is a folder with two files in it. `plugin.json` describes the plugin an
 
 The repository has a small example plugin in [`desktop/examples/plugins/black_and_white`](../desktop/examples/plugins/black_and_white). It adds a card with one checkbox that turns the picture black and white, and each phone remembers its own setting. Copying it is the quickest way to start.
 
-To try it:
+To try it, set up the desktop app from source (see [Building and CI](building.md)) and run this in `desktop/`:
 
-1. Set up the desktop app from source and start a dev copy with `python scripts/dev_desktop.py --keep` in `desktop/` (see [Building and CI](building.md)). The dev copy has its own settings and its own plugins folder, which keeps your normal Telescope safe from whatever you try.
-2. In the dev copy, open **Plugins…** and click **Open plugins folder**.
-3. Copy the `black_and_white` folder into it.
-4. It now shows up under **Added** in **Plugins…**. Tick it and click **Restart now**.
+```bash
+python scripts/dev_desktop.py --plugin examples/plugins/black_and_white
+```
 
-The Black and white card is now in the right column. Every time you change a file you have to switch the plugin on again in **Plugins…** and restart. That's the "files changed" protection doing its job.
+That starts a dev copy of Telescope with its own settings, which keeps your normal Telescope safe from whatever you try. The plugin is loaded straight from its folder and is always on, and the Black and white card shows up in the right column.
+
+For your own plugin copy the folder somewhere, rename it and change `name` in both files to match. Then point `--plugin` at your copy. You can give `--plugin` more than once to load several plugins.
+
+### Trying out changes
+
+Leave the dev copy running while you work. Every time you save a file in your plugin's folder Telescope restarts by itself with the new code. If it was streaming it starts streaming again once it's back. Errors from your plugin show up with their tracebacks in the terminal you started it from, and if your plugin didn't start at all the Plugins dialog says why under its name.
+
+For a quick check that doesn't open Telescope run this:
+
+```bash
+python scripts/check_plugin.py path/to/my_plugin
+```
+
+It loads your plugin next to the built-in ones in a throwaway profile and builds its card. Then it sends it a test frame, saves and restores its settings and takes it through a stream starting and stopping. Anything that goes wrong is listed with a traceback pointing into your code. It also tells you when `process_frame()` is slow enough to make a stream fall behind.
 
 ### plugin.json
 
@@ -82,7 +95,7 @@ The Black and white card is now in the right column. Every time you change a fil
 
 - `name` is your plugin's id. It has to match the folder's name and the `name` in your class, using only lowercase letters, digits and `_` (like `my_overlay`). Your settings are saved under it, so don't change it later.
 - `title`, `version`, `author` and `description` are what people see in the Plugins dialog. Write the description for someone who has never heard of your plugin.
-- `api` is the version of the plugin API you wrote it for, which is `1` for now. Telescope only raises it for a change that would break existing plugins. A plugin with the wrong number isn't loaded.
+- `api` is the version of the plugin API you wrote it for, which is `1` for now. Telescope only raises it for a change that would break existing plugins, and everything in `plugin.py` keeps working until then (Telescope's own tests check that). A plugin with the wrong number isn't loaded.
 - `class` is the name of your plugin class in `__init__.py`.
 
 ### __init__.py
@@ -157,11 +170,11 @@ These keep plugins from breaking each other or Telescope. The [architecture note
 - **Ship source code.** A plugin with compiled files in it (`.pyc`, `.so`, `.pyd`) isn't loaded. Telescope also clears `__pycache__` before loading one to make sure what runs is the code people can read.
 - **Use what Telescope comes with.** That's PyQt6, NumPy, OpenCV and Python's standard library, and Telescope can't install anything else for your plugin. The Windows app only carries the parts of the standard library that Telescope itself uses, so try your plugin there too. If an import is missing there the Plugins dialog shows it as the reason the plugin didn't start. A plugin with more than one file imports its own modules relatively (`from . import helpers`).
 
-When something in your plugin raises an exception Telescope logs it and carries on, and the other plugins still hear about everything. The log file (`telescope.log`) is in the `logs` folder of your dev profile. For a normal install it's in Telescope's temp folder (`/tmp/telescope-<user>` on Linux, `%TEMP%\Telescope` on Windows).
+When something in your plugin raises an exception Telescope logs it and carries on, and the other plugins still hear about everything. In the dev copy you see it in the terminal. A normal install writes it to `telescope.log` in Telescope's temp folder (`/tmp/telescope-<user>` on Linux, `%TEMP%\Telescope` on Windows).
 
 ### Sharing it
 
-Zip your plugin's folder so the `.zip` holds that one folder and not just the files inside it:
+Run `check_plugin.py` one more time first. Then zip your plugin's folder so the `.zip` holds that one folder and not just the files inside it (leave out `.git` and the like):
 
 ```
 black_and_white.zip

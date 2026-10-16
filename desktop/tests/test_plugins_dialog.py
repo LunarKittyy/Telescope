@@ -210,3 +210,18 @@ def test_switching_one_keeps_the_list_where_it_was(qapp, plugins, answers):
     qapp.processEvents()
     assert bar.value() == at
     dialog.close()
+
+
+def test_a_plugin_being_written_shows_where_its_from_with_nothing_to_switch(qapp, plugins, answers, tmp_path,
+                                                                          monkeypatch):
+    work = tmp_path / "work"
+    work.mkdir()
+    folder = _added(work, "mine")
+    monkeypatch.setenv("TELESCOPE_DEV_PROFILE", str(tmp_path / "profile"))
+    monkeypatch.setenv("TELESCOPE_DEV_PLUGINS", str(folder))
+    dialog = PluginsDialog(None, _builtins(), {"connection", "camera_control", "presets", "mine"}, {}, lambda: True)
+    assert "Mine" not in _boxes(dialog)
+    texts = [w.text() for w in dialog.findChildren(dialog_module.QLabel)]
+    assert any(t.startswith(f"Loaded from {folder} by dev_desktop.py.") for t in texts)
+    assert not [b for b in dialog.findChildren(dialog_module.QPushButton) if b.text() == "Remove"]
+    assert dialog._restart_bar.isHidden()
