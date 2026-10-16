@@ -83,6 +83,7 @@ _SUDO_HINT = "Asks for your password (pkexec or sudo): this changes system setti
 
 
 SCREEN_MARGIN = 48  # px the dialog keeps clear of the screen edges
+AUTHOR_URL = "https://github.com/LunarKittyy"
 
 
 class _FitScroll(QScrollArea):
@@ -383,9 +384,11 @@ class AdvancedDialog(QDialog):
         body.addWidget(adv_card)
         body.addStretch(1)
 
-        version_lbl = QLabel(f"Telescope {display_version()}")
+        version_lbl = QLabel(f'Telescope {display_version()} · by <a href="{AUTHOR_URL}">LunarKittyy</a>')
         version_lbl.setObjectName("dim")
-        version_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        version_lbl.setTextFormat(Qt.TextFormat.RichText)
+        version_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        version_lbl.setOpenExternalLinks(True)
         self._diag_btn = QPushButton("Copy diagnostics")
         self._diag_btn.setToolTip("For a bug report: version, system, connection and the end of the log. "
                                   "No pairing tokens, addresses or file paths.")
