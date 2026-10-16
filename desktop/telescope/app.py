@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
 )
 
 from telescope import dev_profile, diagnostics, theme, vcam
-from telescope.config import load_config, save_config, take_reset_notice
+from telescope.config import load_config, save_config, saveable, take_reset_notice
 from telescope.models import PhoneState, PhoneStateError
 from telescope.phone_client import PhoneControlClient
 from telescope.platform import IS_LINUX
@@ -754,12 +754,18 @@ class TelescopeWindow(QMainWindow):
 
     @staticmethod
     def _config_of(plugin: TelescopePlugin, saved):
-        """plugin.get_config(), or what was saved before if it raises (so one plugin can't stop every save)."""
+        """plugin.get_config(), or what was saved before if it raises or gives something the settings file can't hold
+        (so one plugin can't stop every save)."""
         try:
-            return plugin.get_config()
+            cfg = plugin.get_config()
         except Exception:
             logging.exception("Plugin %s couldn't report its settings; keeping the saved ones", plugin.name)
             return saved
+        if not isinstance(cfg, dict) or not saveable(cfg):
+            logging.error("Plugin %s gave settings that can't be saved (get_config() has to return a dict of what "
+                          "JSON holds); keeping the saved ones", plugin.name)
+            return saved
+        return cfg
 
     def _config_to_update(self) -> Optional[dict]:
         # None when the saved file is there but unreadable right now: saving over it would lose every other phone's settings

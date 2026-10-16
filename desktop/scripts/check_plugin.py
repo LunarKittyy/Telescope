@@ -72,6 +72,8 @@ class _Logged(logging.Handler):
 
     def emit(self, record):
         text = record.getMessage() + ("\n" + logging.Formatter().formatException(record.exc_info) if record.exc_info else "")
+        if "can't be saved" in text:
+            return  # the settings check says so already, more precisely
         if self.name in record.getMessage() or self.folder in text:
             self.records.append(text)
 
@@ -125,6 +127,8 @@ def check_running(folder: Path, name: str, log: _Logged):
 
     app = QApplication.instance() or QApplication([])
     win = TelescopeWindow()
+    notified = []
+    win.send_notification = lambda title, body, urgent=True: notified.append(f"{title}: {body}")  # not on your desktop
     win.load_plugins(builtin_plugins())
     win.apply_saved_config()
     app.processEvents()
@@ -195,6 +199,8 @@ def check_running(folder: Path, name: str, log: _Logged):
     win._shut_down()
     app.processEvents()
     _logged("Quitting", log)
+    for text in notified:
+        _note(f"Telescope would have shown this notification: {text}")
 
 
 def _logged(what: str, log: _Logged):

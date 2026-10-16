@@ -117,6 +117,15 @@ def _tighten(chmod: Callable, path: Path) -> None:
         logger.warning("Couldn't restrict permissions on %s", path)
 
 
+def saveable(value) -> bool:
+    """Whether save_config() can write value (what JSON holds, numpy numbers and arrays included)."""
+    try:
+        json.dumps(value, default=_plain)
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
 def _plain(value):
     # A plugin handing back a numpy number or array is saved as the plain value it stands for
     if hasattr(value, "tolist"):

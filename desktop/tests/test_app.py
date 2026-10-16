@@ -2285,6 +2285,29 @@ def test_a_plugin_hook_that_raises_does_not_stop_the_others(window):
     assert heard == ["last"]
 
 
+def test_a_plugin_with_settings_that_cant_be_saved_keeps_its_old_ones_and_the_rest_save(window, config_home,
+                                                                                      monkeypatch):
+    class Odd(_Plugin):
+        odd = None
+
+        def get_config(self):
+            return self.odd if self.odd is not None else {"level": 1}
+
+    notified = []
+    monkeypatch.setattr(window, "send_notification", lambda *a, **k: notified.append(a))
+    odd, other = Odd("odd", {}), _Plugin("other", {})
+    window.register_plugin(odd)
+    window.register_plugin(other)
+    window.save_now()
+    for bad in ({"when": object()}, ["not", "a", "dict"]):
+        odd.odd, other.cfg = bad, {"x": len(notified) + 2}
+        other.get_config = lambda o=other: dict(o.cfg)
+        window.save_now()
+        saved = app_module.load_config()["plugin_configs"]
+        assert saved["odd"] == {"level": 1} and saved["other"] == other.cfg
+    assert notified == []
+
+
 def test_a_frame_step_that_keeps_failing_is_passed_through_then_skipped():
     from telescope.stream import STEP_FAILS_BEFORE_SKIP, guarded_step
     calls = []
