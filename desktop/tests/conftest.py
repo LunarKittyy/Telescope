@@ -22,13 +22,12 @@ import pytest
 @pytest.fixture(autouse=True)
 def _no_desktop_notifications(monkeypatch):
     """A test never pops a real notification up on the desktop it runs on (notify-send is a no-op here)."""
-    real = subprocess.Popen
-
-    def popen(args, *a, **kw):
-        if isinstance(args, (list, tuple)) and args and Path(str(args[0])).name == "notify-send":
-            return real([sys.executable, "-c", ""], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return real(args, *a, **kw)
-    monkeypatch.setattr(subprocess, "Popen", popen)
+    class Popen(subprocess.Popen):  # a class, since modules imported during a test subclass it (asyncio on Windows)
+        def __init__(self, args, *a, **kw):
+            if isinstance(args, (list, tuple)) and args and Path(str(args[0])).name == "notify-send":
+                args, a, kw = [sys.executable, "-c", ""], (), {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+            super().__init__(args, *a, **kw)
+    monkeypatch.setattr(subprocess, "Popen", Popen)
 
 
 @pytest.fixture
