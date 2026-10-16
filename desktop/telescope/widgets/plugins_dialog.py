@@ -54,7 +54,9 @@ class PluginsDialog(QDialog):
         self._rows = QVBoxLayout(self._list)
         self._rows.setContentsMargins(0, 0, 8, 0)
         self._rows.setSpacing(10)
-        scroll = QScrollArea()
+        scroll = self._scroll = QScrollArea()
+        self._keep_at = 0
+        scroll.verticalScrollBar().rangeChanged.connect(self._restore_scroll)
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setWidget(self._list)
@@ -95,7 +97,13 @@ class PluginsDialog(QDialog):
 
     # ── The list ──────────────────────────────────────────────────────────
 
+    def _restore_scroll(self, _low: int, high: int):
+        if self._keep_at and high >= self._keep_at:
+            self._scroll.verticalScrollBar().setValue(self._keep_at)
+            self._keep_at = 0
+
     def refresh(self):
+        self._keep_at = self._scroll.verticalScrollBar().value()  # stay where the person was once the rows are back
         while self._rows.count():
             item = self._rows.takeAt(0)
             if item.widget() is not None:

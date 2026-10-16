@@ -193,3 +193,20 @@ def test_one_thats_on_can_be_switched_off_even_with_a_problem(qapp, plugins, ans
     assert box.isEnabled() and box.isChecked()
     box.setChecked(False)
     assert not plugin_loader.find_installed(folder=plugins)[0].enabled
+
+
+def test_switching_one_keeps_the_list_where_it_was(qapp, plugins, answers):
+    for n in range(8):
+        _added(plugins, f"extra{n}")
+    dialog = PluginsDialog(None, _builtins(), {"connection", "camera_control", "presets"}, {}, lambda: True)
+    dialog.resize(500, 400)
+    dialog.show()
+    qapp.processEvents()
+    bar = dialog._scroll.verticalScrollBar()
+    bar.setValue(bar.maximum())
+    at = bar.value()
+    assert at > 0
+    _boxes(dialog)["Extra7"].setChecked(True)
+    qapp.processEvents()
+    assert bar.value() == at
+    dialog.close()
