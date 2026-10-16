@@ -196,7 +196,7 @@ def test_one_thats_on_can_be_switched_off_even_with_a_problem(qapp, plugins, ans
 
 
 def test_switching_one_keeps_the_list_where_it_was(qapp, plugins, answers):
-    for n in range(8):
+    for n in range(40):  # enough to overflow at any screen scaling
         _added(plugins, f"extra{n}")
     dialog = PluginsDialog(None, _builtins(), {"connection", "camera_control", "presets"}, {}, lambda: True)
     dialog.resize(500, 400)
@@ -206,7 +206,7 @@ def test_switching_one_keeps_the_list_where_it_was(qapp, plugins, answers):
     bar.setValue(bar.maximum())
     at = bar.value()
     assert at > 0
-    _boxes(dialog)["Extra7"].setChecked(True)
+    _boxes(dialog)["Extra39"].setChecked(True)
     qapp.processEvents()
     assert bar.value() == at
     dialog.close()
