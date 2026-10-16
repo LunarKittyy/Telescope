@@ -1,10 +1,12 @@
 name: Pages
 
-# Publishes site/ to GitHub Pages whenever it changes on master, and every 6 hours for the README's downloads badge.
+# Publishes site/ to GitHub Pages whenever it changes on master, on each release, and every 6 hours for the README's badges.
 on:
   push:
     branches: [master]
     paths: [site/**, .github/workflows/pages.yml]
+  release:
+    types: [published]
   schedule:
     - cron: '17 */6 * * *'
   workflow_dispatch:
@@ -40,6 +42,16 @@ jobs:
                       message: (add // 0 | if . >= 1000 then "\(. / 100 | floor / 10)k" else tostring end)}' \
             > site/downloads.json
           cat site/downloads.json
+
+      # Latest release tag, so the README badge doesn't depend on shields' shared GitHub token pool
+      - name: Latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/releases/latest" \
+            | jq '{schemaVersion: 1, label: "release", color: "blue", message: .tag_name}' \
+            > site/release.json
+          cat site/release.json
 
       - uses: actions/upload-pages-artifact@v5
         with:

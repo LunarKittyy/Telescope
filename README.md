@@ -2,9 +2,9 @@
 
 <p align="center"><img src="docs/assets/banner.png" alt="Telescope: use your phone as a webcam. Every lens, full manual control. Android to Linux and Windows." width="720"></p>
 
-[![Release](https://img.shields.io/github/v/release/LunarKittyy/Telescope)](../../releases/latest)
+[![Release](https://img.shields.io/endpoint?url=https://telescope.webcam/release.json)](../../releases/latest)
 [![Downloads](https://img.shields.io/endpoint?url=https://telescope.webcam/downloads.json)](../../releases)
-[![License](https://img.shields.io/github/license/LunarKittyy/Telescope)](LICENSE)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 ![Platforms](https://img.shields.io/badge/platform-Android%20%7C%20Linux%20%7C%20Windows-blue)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-support-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/lunarkittyy)
 
