@@ -290,6 +290,7 @@ class PreviewPlugin(TelescopePlugin):
     about = "The live picture in the middle of the window, and the camera on/off button under it."
     when_off = "Without it the window doesn't show the picture but apps using the virtual camera still get it."
     panel_region = "center"
+    sees_final_frame = True  # shows what apps get, added plugins included
 
     # Max width for in-window preview sent across thread, until the stage's size is known.
     _CARD_MAX_W = 960

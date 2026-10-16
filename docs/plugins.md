@@ -133,7 +133,7 @@ class BlackAndWhitePlugin(TelescopePlugin):
 
 `setup()` runs once at the start and gets two things. `host` is the window and has everything a plugin may ask of it, like saving settings, starting or stopping a stream or showing a banner. `bus` is the event bus where you can listen for things happening, like a stream starting or a phone being paired. Both are described in [`desktop/telescope/plugin.py`](../desktop/telescope/plugin.py), which is the whole plugin API in one file.
 
-`process_frame()` gets every frame of the stream as a NumPy array (BGR, height × width × 3) and returns the frame to send on. When several phones stream at once, `frame_step()` hands Telescope a frozen copy of that for the streams the panels aren't showing. Return `None` there if your plugin shouldn't touch those.
+`process_frame()` gets every frame of the stream as a NumPy array (BGR, height × width × 3) and returns the frame to send on. Plugins get the frame in the order they're registered, built-in ones first, and the preview always shows it after every plugin had its turn. When several phones stream at once, `frame_step()` hands Telescope a frozen copy of that for the streams the panels aren't showing. Return `None` there if your plugin shouldn't touch those.
 
 `get_config()` and `set_config()` are how settings get saved. Return a plain dict of what you want remembered and read it back in `set_config()`. Telescope calls `get_config()` whenever it saves, and `host.schedule_save()` asks it to save after something changed. `set_config()` might also get a dict saved by an older version of your plugin (or edited by hand) so read it carefully, the way the example checks `cfg.get("on") is True`.
 
