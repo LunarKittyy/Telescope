@@ -29,7 +29,7 @@ Plugins people share come as a `.zip` file. To install one:
 3. Tick it under **Added** (new plugins start out switched off).
 4. Click **Restart now**.
 
-Telescope warns you before you switch on a plugin you installed. A plugin is a small program and it can do anything Telescope itself can on your computer, like reading your files or using the network. Only switch on plugins from people you trust.
+Telescope warns you before you switch on a plugin you installed. A plugin is Python code that Telescope runs inside its own process, with no sandbox, so it can read and change your files, use the network and start other programs, the same as any program running under your user account. Only install plugins from a source you trust.
 
 A few more things worth knowing:
 
