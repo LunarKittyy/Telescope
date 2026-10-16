@@ -81,7 +81,7 @@ def test_checklist_steps_aside_after_the_first_stream(env):
     assert plugin._pair.badge.text() == "✓"
     assert "top right" in plugin._start.text.text()
     bus.stream_started.emit("url")
-    bus.stream_connected.emit()
+    bus.stream_connected.emit("")
     bus.stream_stopped.emit()
     assert card.isHidden()
     assert needed[-1] is False

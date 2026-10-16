@@ -18,7 +18,6 @@ from PyQt6.QtWidgets import QCheckBox, QDialog, QFileDialog, QLabel, QPushButton
 from telescope import vcam
 from telescope.config import config_path
 from telescope.plugin import TelescopePlugin
-from telescope.plugins.setup import canvas_dims
 from telescope.widgets.common import (
     action_button, button_row, dialog_buttons, dialog_header, dialog_layout, ui_px, wrapped_note,
 )
@@ -35,6 +34,10 @@ class _Signals(QObject):
 
 class WaitScreenPlugin(TelescopePlugin):
     name = "wait_screen"
+    title = "Wait screen"
+    about = "The picture apps see on the virtual camera while nothing is streaming."
+    when_off = ("Without it Wait screen isn't in the settings menu and between streams apps might see a black picture "
+                "or nothing at all.")
 
     def __init__(self, screen: vcam.WaitScreen = None, watch_cls=vcam.CameraWatch, extra_screen=None):
         self.image_path: Optional[str] = None
@@ -64,7 +67,7 @@ class WaitScreenPlugin(TelescopePlugin):
     # ── Holding the camera ────────────────────────────────────────────────
 
     def size(self) -> tuple:
-        w, h = canvas_dims(self._host.plugin_config("setup") or {})
+        w, h = self._host.canvas_size()
         if w and h:
             return w, h
         return self.last_size or vcam.DEFAULT_SIZE
@@ -92,7 +95,7 @@ class WaitScreenPlugin(TelescopePlugin):
         if self._shut:
             return
         # A stream to an extra camera keeps one size (the canvas, or the default), so its wait screen does too
-        w, h = canvas_dims(self._host.plugin_config("setup") or {})
+        w, h = self._host.canvas_size()
         size = (w, h) if w and h else vcam.DEFAULT_SIZE
         for slot in self._idle:
             if slot not in self._extras:

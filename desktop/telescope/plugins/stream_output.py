@@ -117,6 +117,10 @@ def _closest_size(wh: tuple, sizes) -> tuple:
 
 class StreamOutputPlugin(TelescopePlugin):
     name = "stream_output"
+    title = "Stream output"
+    about = "The resolution, frame rate and format of the stream."
+    when_off = "Without it there's no Stream output card and streams use whatever size and format the phone picks."
+    device_local = True
 
     def setup(self, host, bus):
         self._host = host
@@ -556,11 +560,13 @@ class StreamOutputPlugin(TelescopePlugin):
     def _on_source_selected(self, sid: str):
         self._phone_picked = not sid
 
-    def _on_stream_behind(self, behind: bool):
+    def _on_stream_behind(self, sid: str, behind: bool):
         if not self._phone_picked:
             return
         if not behind:
-            self._host.clear_issue("behind")
+            self._host.clear_issue("behind")  # whichever stream: only one the panels showed can have been behind
+            return
+        if sid != (self._host.focused_source_id() or ""):
             return
         on_light = self.stream_format() == FORMAT_H264
         if not on_light and self._h264_offered():

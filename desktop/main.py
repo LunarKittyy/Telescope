@@ -5,6 +5,7 @@ import argparse
 import sys
 import threading
 from pathlib import Path
+from typing import Optional
 
 import update_guard
 
@@ -52,25 +53,12 @@ from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QApplication
 
 from telescope import dev_profile, diagnostics
-from telescope.app import (
-    TelescopeWindow, acquire_single_instance, listen_for_raise, send_action, write_control_key,
+from telescope.app import TelescopeWindow
+from telescope.single_instance import (
+    RESTARTED, acquire_single_instance, listen_for_raise, send_action, write_control_key,
 )
 from telescope.platform import IS_LINUX, autostart, virtual_mic
-from telescope.plugins.browser_camera import BrowserCameraPlugin
-from telescope.plugins.camera_control import CameraControlPlugin
-from telescope.plugins.connection import ConnectionPlugin
-from telescope.plugins.microphone import MicrophonePlugin
-from telescope.plugins.monitoring import MonitoringPlugin
-from telescope.plugins.onboarding import OnboardingPlugin
-from telescope.plugins.presets import PresetsPlugin
-from telescope.plugins.preview import PreviewPlugin
-from telescope.plugins.setup import SetupPlugin
-from telescope.plugins.shortcuts import ShortcutsPlugin
-from telescope.plugins.startup import StartupPlugin
-from telescope.plugins.wait_screen import WaitScreenPlugin
-from telescope.plugins.stream_output import StreamOutputPlugin
-from telescope.plugins.transforms import TransformsPlugin
-from telescope.plugins.updates import UpdatesPlugin
+from telescope.plugins import builtin_plugins
 from telescope.theme import apply_theme
 from telescope.updates import MOVED_FROM, clean_up_after_update, finish_move, note_installed_version, pending_move
 from telescope.widgets.common import create_app_icon
@@ -81,6 +69,8 @@ def parse_args(argv):
     parser = argparse.ArgumentParser(prog="telescope", add_help=False)
     parser.add_argument("--after-update", action="store_true",
                         help="started by the updater: wait for the old copy to exit, then tidy up")
+    parser.add_argument(RESTARTED, action="store_true",
+                        help="started by Restart now (Plugins): wait for the old copy to exit")
     parser.add_argument("--minimized", action="store_true",
                         help="start in the tray (used when opening at sign-in)")
     parser.add_argument(MOVED_FROM, dest="moved_from", metavar="FOLDER",
@@ -130,6 +120,27 @@ def run_action(args) -> int:
     return 0 if ok else 1
 
 
+def _watch_dev_plugins(win) -> Optional[QTimer]:
+    """dev_desktop.py --plugin: restart when one of the plugin's files is saved, so the change shows right away."""
+    folders = dev_profile.plugin_folders()
+    if not folders:
+        return None
+    last = dev_profile.files_stamp(folders)
+    timer = QTimer()
+
+    def look():
+        nonlocal last
+        now = dev_profile.files_stamp(folders)
+        if now != last:
+            print(f"Saw a change in {', '.join(f.name for f in folders)}", file=sys.stderr, flush=True)
+            timer.stop()
+            win.restart_app()
+
+    timer.timeout.connect(look)
+    timer.start(700)
+    return timer
+
+
 def main():
     if getattr(sys, "frozen", False) and not IS_LINUX:
         import tempfile
@@ -152,7 +163,7 @@ def main():
             autostart.update_menu_entry(lambda path: create_app_icon(256).pixmap(256, 256).save(str(path), "PNG"))
         autostart.refresh()
 
-    srv = acquire_single_instance(wait=15 if args.after_update else 0)
+    srv = acquire_single_instance(wait=15 if args.after_update or args.restarted else 0)
     if srv is None:
         sys.exit(0)
     control_key = write_control_key()  # straight away: an --action from a sign-in script mustn't find the last run's
@@ -162,26 +173,15 @@ def main():
     apply_theme(app)
 
     win = TelescopeWindow()
-    win.register_plugin(SetupPlugin())
-    win.register_plugin(ConnectionPlugin())
-    win.register_plugin(CameraControlPlugin())
-    win.register_plugin(BrowserCameraPlugin())  # after Camera: its card takes that place while it's picked
-    win.register_plugin(StreamOutputPlugin())
-    win.register_plugin(TransformsPlugin())
-    win.register_plugin(MicrophonePlugin())
-    win.register_plugin(PresetsPlugin())
-    win.register_plugin(PreviewPlugin())
-    win.register_plugin(OnboardingPlugin())  # after Preview: the stage listens for setup_needed
-    win.register_plugin(MonitoringPlugin())
-    win.register_plugin(UpdatesPlugin())
-    win.register_plugin(WaitScreenPlugin())  # before Startup: dialogs head the settings menu, toggles follow
-    win.register_plugin(ShortcutsPlugin())  # a dialog in the settings menu, so before Startup too
-    win.register_plugin(StartupPlugin())
+    win.load_plugins(builtin_plugins())
     win.apply_saved_config()
     if args.minimized:
         win.start_hidden()
     else:
         win.show()
+    watch = _watch_dev_plugins(win)  # noqa: F841 (kept alive until quitting)
+    if dev_profile.resume_stream():
+        QTimer.singleShot(0, lambda: win.start_stream(interactive=False))
 
     threading.Thread(
         target=listen_for_raise,

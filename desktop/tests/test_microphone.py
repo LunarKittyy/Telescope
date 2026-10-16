@@ -102,6 +102,14 @@ def test_the_card_is_greyed_out_until_a_phone_is_paired(qapp):
     assert panel.isEnabled()
 
 
+def test_once_every_plugin_is_in_the_mic_says_again_whether_its_on(qapp):
+    p = _plugin(_Backend())
+    heard = []
+    p._bus.mic_changed.connect(lambda on, muted: heard.append((on, muted)))
+    p.on_plugins_ready()
+    assert heard == [(False, False)]
+
+
 def test_on_follows_the_stream(qapp):
     backend = _Backend()
     p = _plugin(backend)
@@ -391,7 +399,7 @@ def two_cams(window, config_home, monkeypatch):
     for cam in (_Cam("front", "10.0.0.5"), _Cam("back", "10.0.0.6")):
         window.add_stream_source(cam)
     window._bus.phones_changed.emit(2)  # the card is greyed out until then
-    window._start()
+    window._flow.start()
     mic._toggle.setChecked(True)  # on for the first
     window.add_stream("back")  # the panels move to it
     return window, mic, config_home
@@ -404,7 +412,7 @@ def _mic_on(config_home, sid):
 
 def test_another_streams_card_shows_its_mic_off_and_turning_it_on_moves_the_mic(two_cams):
     window, mic, config_home = two_cams
-    assert window._focus.id == "back" and window.main_stream() == ("front", "Front")
+    assert window._sessions.focus.id == "back" and window.main_stream() == ("front", "Front")
     assert not mic._toggle.isChecked() and mic._toggle.isEnabled()
     assert mic._gain_row.isHidden() and "On for Front" in mic._status.text()
     assert [w.url for w in _Worker.made if not w.stopped] == ["http://10.0.0.5/v1/audio"]
@@ -440,5 +448,5 @@ def test_the_mic_stays_on_when_the_stream_with_it_stops(two_cams):
 def test_a_card_whose_camera_is_still_starting_cant_take_the_mic(two_cams):
     window, mic, _config = two_cams
     window.stop_stream("back")
-    window._move_focus(window._source_by_id("back"))  # as + does, before its stream is up
+    window._flow.move_focus(window._source_by_id("back"))  # as + does, before its stream is up
     assert not mic._toggle.isChecked() and not mic._toggle.isEnabled()

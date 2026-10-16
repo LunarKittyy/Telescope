@@ -143,6 +143,11 @@ class _Signals(QObject):
 
 class MicrophonePlugin(TelescopePlugin):
     name = "microphone"
+    title = "Microphone"
+    about = "Using the phone's microphone on this computer."
+    when_off = ("Without it there's no Microphone card or Mute in the tray menu and Telescope doesn't make a virtual "
+                "microphone.")
+    device_local = True
     follows_focus = False  # stays on one stream (the first, until another one's card takes it) whichever the panels show
     panel_region = "left"
 
@@ -557,6 +562,9 @@ class MicrophonePlugin(TelescopePlugin):
             return {"Microphone": "off"}
         return {"Microphone": "on, " + ("running" if self._worker is not None else "not running")
                 + (f", gain {self._gain_db:+d} dB" if self._gain_db else "") + (", muted" if self._muted else "")}
+
+    def on_plugins_ready(self):
+        self._bus.mic_changed.emit(self._enabled, self._muted)
 
     def get_config(self) -> dict:
         return {"enabled": self._enabled, "gain_db": self._gain_db}

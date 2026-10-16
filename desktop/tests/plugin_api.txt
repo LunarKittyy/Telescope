@@ -1,0 +1,172 @@
+BannerAction(label, callback, keeps_banner=False)
+BannerAction.callback
+BannerAction.keeps_banner = False
+BannerAction.label
+EventBus.add_phone_requested()
+EventBus.camera_on_changed(bool)
+EventBus.camera_switched(PyQt_PyObject)
+EventBus.camera_watched(bool)
+EventBus.device_changed(QString)
+EventBus.focus_point(double,double)
+EventBus.focus_point_available(bool)
+EventBus.focus_point_picked(double,double)
+EventBus.forget_source_requested(QString)
+EventBus.idle_outputs(QVariantList)
+EventBus.lens_boxes(QVariantList,bool)
+EventBus.limiter_changed(bool)
+EventBus.max_gain_changed(int)
+EventBus.max_zoom_changed(int)
+EventBus.mic_changed(bool,bool)
+EventBus.phone_ready(QString,bool)
+EventBus.phone_state_updated(PyQt_PyObject)
+EventBus.phone_wanted(bool,bool)
+EventBus.phones_changed(int)
+EventBus.remembered_sources(QVariantList)
+EventBus.resolution_change_requested(int,int)
+EventBus.setup_guide_requested()
+EventBus.setup_needed(bool)
+EventBus.source_selected(QString)
+EventBus.stream_behind(QString,bool)
+EventBus.stream_connected(QString)
+EventBus.stream_lost(QString)
+EventBus.stream_sources_changed(QVariantList)
+EventBus.stream_start_failed()
+EventBus.stream_started(QString)
+EventBus.stream_stopped()
+EventBus.streams_changed(int)
+EventBus.update_requested()
+EventBus.vcam_opened(int,int)
+EventBus.view_dragged(double,double)
+EventBus.view_pannable(bool)
+EventBus.view_scrolled(double,double,double)
+EventBus.window_shown(bool)
+HostCamera.can_turn_camera_off(self)
+HostCamera.is_camera_off_auto(self)
+HostCamera.is_camera_on(self)
+HostCamera.set_camera_on(self, on, auto=False)
+HostSettings.apply_preset(self, name, cfg)
+HostSettings.device_config(self, source_id, plugin_name)
+HostSettings.forget_device_settings(self, name)
+HostSettings.has_device_settings(self, name)
+HostSettings.move_device_settings(self, old, new)
+HostSettings.plugin_config(self, name)
+HostSettings.save_now(self)
+HostSettings.schedule_save(self)
+HostSettings.switch_device(self, prev_name, new_name)
+HostShell.clear_issue(self, key=None, issue=None)
+HostShell.diagnostics_report(self)
+HostShell.quit_app(self)
+HostShell.send_notification(self, title, body, urgent=True)
+HostShell.set_keep_in_tray(self, keep)
+HostShell.shortcut_actions(self)
+HostShell.show_issue(self, key, issue)
+HostShell.toggle_window(self)
+HostSources.add_stream_source(self, source)
+HostSources.remove_stream_source(self, source_id)
+HostSources.stream_source(self, source_id)
+HostStreams.background_streams(self)
+HostStreams.canvas_size(self)
+HostStreams.focused_source_id(self)
+HostStreams.is_restarting(self)
+HostStreams.is_starting(self)
+HostStreams.is_streaming(self)
+HostStreams.is_streaming_from(self, source_id)
+HostStreams.main_stream(self)
+HostStreams.make_main(self, source_id)
+HostStreams.pick_source(self, source_id)
+HostStreams.reconnect_stream(self)
+HostStreams.remove_extra_cameras(self, on_done=None)
+HostStreams.restart_vcam_canvas(self, width, height, on_done=None)
+HostStreams.start_again(self, source_id=None, before=None)
+HostStreams.start_stream(self, interactive=True)
+HostStreams.stop_all_streams(self)
+HostStreams.stop_stream(self, source_id=None)
+HostStreams.stream_count(self)
+HostStreams.stream_output(self, source_id)
+HostStreams.update_stream_output(self, width=UNCHANGED, height=UNCHANGED, fps=UNCHANGED, source_id=None)
+Issue(title, text='', actions=<factory>, kind='err', details='', on_dismiss=None)
+Issue.actions
+Issue.details = ''
+Issue.kind = 'err'
+Issue.on_dismiss = None
+Issue.text = ''
+Issue.title
+OLDEST_PLUGIN_API = 1
+PLUGIN_API = 1
+Param(name, label, kind, default=None, choices=(), minimum=0.0, maximum=100.0, decimals=0, suffix='', shown_if=None)
+Param.bounds(self)
+Param.choices = ()
+Param.clean(self, value)
+Param.decimals = 0
+Param.default = None
+Param.kind
+Param.label
+Param.maximum = 100.0
+Param.minimum = 0.0
+Param.name
+Param.options(self)
+Param.shown(self, params)
+Param.shown_if = None
+Param.suffix = ''
+ShortcutAction(id, label, group, run, params=(), release=None, repeats=<lambda>, describe=None, widgets=(), current=None, keywords='')
+ShortcutAction.controls(self)
+ShortcutAction.current = None
+ShortcutAction.describe = None
+ShortcutAction.full_params(self, params)
+ShortcutAction.group
+ShortcutAction.id
+ShortcutAction.keywords = ''
+ShortcutAction.label
+ShortcutAction.params = ()
+ShortcutAction.release = None
+ShortcutAction.repeats(_p)
+ShortcutAction.run
+ShortcutAction.summary(self, params)
+ShortcutAction.widgets = ()
+StreamSource.control_client(self)
+StreamSource.fps(self)
+StreamSource.id
+StreamSource.name
+StreamSource.open_reader(self)
+StreamSource.prepare(self, interactive)
+StreamSource.url
+StreamsBehind()
+StreamsBehind.drop(self, host)
+StreamsBehind.keep(self, host, ctrl, value)
+StreamsBehind.take(self, host, ctrl)
+TelescopePlugin.about = ''
+TelescopePlugin.apply_preset(self, cfg)
+TelescopePlugin.create_actions(self)
+TelescopePlugin.create_header_widget(self)
+TelescopePlugin.create_menu_actions(self)
+TelescopePlugin.create_panel(self)
+TelescopePlugin.create_tray_actions(self)
+TelescopePlugin.device_local = False
+TelescopePlugin.diagnostics(self)
+TelescopePlugin.follows_focus = True
+TelescopePlugin.frame_step(self)
+TelescopePlugin.get_config(self)
+TelescopePlugin.header_side = 'left'
+TelescopePlugin.name = ''
+TelescopePlugin.on_camera_off(self)
+TelescopePlugin.on_camera_on(self)
+TelescopePlugin.on_focus_gained(self, stream_url, ctrl)
+TelescopePlugin.on_focus_lost(self)
+TelescopePlugin.on_phone_state(self, state)
+TelescopePlugin.on_plugins_ready(self)
+TelescopePlugin.on_stream_start(self, stream_url, ctrl)
+TelescopePlugin.on_stream_starting(self)
+TelescopePlugin.on_stream_stop(self)
+TelescopePlugin.panel_region = 'left'
+TelescopePlugin.process_frame(self, frame)
+TelescopePlugin.required = False
+TelescopePlugin.set_config(self, cfg)
+TelescopePlugin.setup(self, host, bus)
+TelescopePlugin.shutdown(self)
+TelescopePlugin.title = ''
+TelescopePlugin.when_off = ''
+banner.copy_action(text, label='Copy command')
+shortcuts.button_action(id, label, group, button, states=('on', 'off'), verbs=None)
+shortcuts.choice_action(id, label, group, combo=None, buttons=None, wrap=True)
+shortcuts.log_slider_action(id, label, group, row, display_scale=1.0, suffix='', decimals=0)
+shortcuts.slider_action(id, label, group, slider, scale=1.0, suffix='', decimals=0, step=None, readout=None, signed=False, widgets=())

@@ -569,11 +569,24 @@ def test_monitoring_doesnt_warn_again_after_a_tile_switch(monitoring):
     ctrl = _Ctrl()
     plugin.on_stream_start("url", ctrl)
     plugin._check_alerts(10, False, 30)
-    plugin.on_stream_stop()  # the panels moved to another stream
+    plugin.on_focus_lost()  # the panels moved to another stream
     assert plugin._timer.isActive()  # still watching this one from behind
-    plugin.on_stream_start("url", ctrl)  # and back
+    plugin.on_focus_gained("url", ctrl)  # and back
     plugin._check_alerts(10, False, 30)
     assert len(host.notifications) == 1
+
+
+def test_monitoring_warns_afresh_about_a_stream_that_ended(monitoring):
+    plugin, host, _bus, _panel = monitoring
+    host._worker = _Worker()
+    ctrl = _Ctrl()
+    plugin.on_stream_start("url", ctrl)
+    plugin._check_alerts(10, False, 30)
+    plugin.on_stream_stop()  # really stopped, with another stream carrying on
+    assert plugin._timer.isActive()
+    plugin.on_focus_gained("url", ctrl)
+    plugin._check_alerts(10, False, 30)
+    assert len(host.notifications) == 2
 
 
 def test_monitoring_skips_a_reading_it_cant_read(monitoring):
@@ -1027,7 +1040,7 @@ def test_falling_behind_on_heavy_suggests_light_with_a_button(stream_output, mon
     plugin, host = _stream_output_with(stream_output, monkeypatch)
     plugin.set_config({"format": "mjpeg"})
     host.issues["h264"] = object()  # an earlier "Switched to Heavy"
-    plugin._bus.stream_behind.emit(True)
+    plugin._bus.stream_behind.emit("phone-a", True)
     issue = host.issues["behind"]
     assert (issue.title, issue.text, issue.kind) == ("Can't keep up", "Try Light or lower quality.", "warn")
     assert [a.label for a in issue.actions] == ["Switch to Light"]
@@ -1037,7 +1050,7 @@ def test_falling_behind_on_heavy_suggests_light_with_a_button(stream_output, mon
     assert plugin._fmt_h264.isChecked() and host.reconnects == 1
     assert "h264" not in host.issues  # Light again, so that note is out of date
 
-    plugin._bus.stream_behind.emit(False)
+    plugin._bus.stream_behind.emit("phone-a", False)
     assert "behind" not in host.issues
 
 
@@ -1051,7 +1064,7 @@ def test_falling_behind_without_light_to_offer_has_no_button(stream_output, monk
     plugin.set_config({"format": fmt})
     plugin.on_phone_state({"cameras": [], "codecs": codecs})  # an older phone: no dynamic_bitrate
     reconnects = host.reconnects
-    plugin._bus.stream_behind.emit(True)
+    plugin._bus.stream_behind.emit("phone-a", True)
     issue = host.issues["behind"]
     assert issue.text == "Try lower quality." and issue.actions == []
     assert host.reconnects == reconnects
@@ -1061,7 +1074,7 @@ def test_falling_behind_on_light_offers_dynamic(stream_output, monkeypatch):
     plugin, host = _stream_output_with(stream_output, monkeypatch)
     plugin._ctrl = _Ctrl()
     plugin.on_phone_state({"cameras": [], "codecs": ["mjpeg", "h264"], "dynamic_bitrate": True})
-    plugin._bus.stream_behind.emit(True)
+    plugin._bus.stream_behind.emit("phone-a", True)
     issue = host.issues["behind"]
     assert issue.text == "Try Dynamic or lower quality." and [a.label for a in issue.actions] == ["Switch to Dynamic"]
 
@@ -1070,8 +1083,8 @@ def test_falling_behind_on_light_offers_dynamic(stream_output, monkeypatch):
     assert plugin._bitrate_val_lbl.text() == "Dynamic" and plugin.get_config()["bitrate_mbps"] == -1
     assert host.reconnects == 0  # Dynamic changes nothing about the route
 
-    plugin._bus.stream_behind.emit(False)
-    plugin._bus.stream_behind.emit(True)  # behind even on Dynamic: what's left is size and frame rate
+    plugin._bus.stream_behind.emit("phone-a", False)
+    plugin._bus.stream_behind.emit("phone-a", True)  # behind even on Dynamic: what's left is size and frame rate
     issue = host.issues["behind"]
     assert issue.text == "Try a lower resolution or FPS." and issue.actions == []
 
@@ -1194,8 +1207,17 @@ def test_jpeg_quality_stops_at_95_and_marks_the_recommended_spot(stream_output):
 def test_falling_behind_leaves_another_source_to_say_what_helps(stream_output, monkeypatch):
     plugin, host = _stream_output_with(stream_output, monkeypatch)
     plugin._bus.source_selected.emit("browser")
-    plugin._bus.stream_behind.emit(True)
+    plugin._bus.stream_behind.emit("phone-a", True)
     assert "behind" not in host.issues
     plugin._bus.source_selected.emit("")
-    plugin._bus.stream_behind.emit(True)
+    plugin._bus.stream_behind.emit("phone-a", True)
     assert "behind" in host.issues
+
+
+def test_another_stream_falling_behind_says_nothing_but_catching_up_clears_the_note(stream_output, monkeypatch):
+    plugin, host = _stream_output_with(stream_output, monkeypatch)
+    plugin._bus.stream_behind.emit("phone-b", True)
+    assert "behind" not in host.issues
+    plugin._bus.stream_behind.emit("phone-a", True)
+    plugin._bus.stream_behind.emit("phone-b", False)  # one the panels showed a moment ago, now caught up or stopped
+    assert "behind" not in host.issues

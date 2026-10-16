@@ -8,7 +8,7 @@ from PyQt6.QtCore import QCoreApplication
 import telescope.plugins.wait_screen as wait_screen_module
 import telescope.vcam as vcam
 from telescope.plugin import EventBus
-from telescope.plugins.setup import CANVAS_PRESETS
+from telescope.plugins.setup import CANVAS_PRESETS, canvas_dims
 from telescope.plugins.wait_screen import WaitScreenDialog, WaitScreenPlugin
 from test_app import camera_env, window  # noqa: F401 (the fixtures)
 
@@ -28,6 +28,9 @@ class _Host:
 
     def plugin_config(self, name):
         return self.setup_cfg if name == "setup" else None
+
+    def canvas_size(self):
+        return canvas_dims(self.setup_cfg)
 
     def schedule_save(self):
         self.saves += 1
@@ -314,9 +317,9 @@ def test_a_camera_off_stream_on_an_extra_camera_gets_its_wait_screen(camera_env,
                             extra_screen=lambda slot: extras.setdefault(slot, _Screen()))
     window.register_plugin(wait)
     QCoreApplication.processEvents()
-    window._start()
+    window._flow.start()
     window.add_stream("phone-b")
-    second = window._focus
+    second = window._sessions.focus
     window.stop_stream("Phone")
     assert second.slot == 1
     mic.config["enabled"] = True

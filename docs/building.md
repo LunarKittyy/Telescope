@@ -31,6 +31,8 @@ The dev app has its own data, pairings and phone identity, and the real app can'
 
 Without `--keep` the profile is fresh on every run and deleted when the app quits, so you pair again each time. With it, the profile stays (in `telescope-dev-profile-<user>` under your temp dir) until you run `python scripts/dev_desktop.py --reset`.
 
+`--plugin FOLDER` loads a plugin you're writing straight from its folder and restarts the dev desktop whenever you save one of its files. [Plugins](plugins.md#trying-out-changes) has the details and `scripts/check_plugin.py`.
+
 Some things are shared because there's only one of them:
 - The phone apps use the same ports, so only one of them can be open (or waiting for its computer) at a time
 - On Linux both desktops stream into the same virtual camera device, and on Windows into the same UnityCapture driver, so only one can stream at a time

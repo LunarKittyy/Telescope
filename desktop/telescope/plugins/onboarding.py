@@ -79,6 +79,9 @@ class _Step:
 
 class OnboardingPlugin(TelescopePlugin):
     name = "onboarding"
+    title = "Setup guide"
+    about = "The step by step checklist shown until the first stream works."
+    when_off = "Without it the setup checklist never shows, not even when nothing is set up yet."
     panel_region = "center"
 
     def setup(self, host, bus):
@@ -210,7 +213,7 @@ class OnboardingPlugin(TelescopePlugin):
         self._phones = count
         self._render()
 
-    def _on_stream_connected(self):
+    def _on_stream_connected(self, _sid: str):
         if not self._streamed:
             self._streamed = True
             self._host.schedule_save()

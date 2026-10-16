@@ -1,6 +1,7 @@
 import atexit
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -16,6 +17,17 @@ os.environ["APPDATA"] = os.path.join(_CONFIG_HOME, "appdata")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _no_desktop_notifications(monkeypatch):
+    """A test never pops a real notification up on the desktop it runs on (notify-send is a no-op here)."""
+    class Popen(subprocess.Popen):  # a class, since modules imported during a test subclass it (asyncio on Windows)
+        def __init__(self, args, *a, **kw):
+            if isinstance(args, (list, tuple)) and args and Path(str(args[0])).name == "notify-send":
+                args, a, kw = [sys.executable, "-c", ""], (), {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+            super().__init__(args, *a, **kw)
+    monkeypatch.setattr(subprocess, "Popen", Popen)
 
 
 @pytest.fixture

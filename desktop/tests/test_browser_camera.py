@@ -130,7 +130,7 @@ def _source_window(window, monkeypatch, source):  # noqa: F811
 def test_start_streams_from_the_source_without_waking_a_phone(window, monkeypatch):  # noqa: F811
     source = _Source()
     conn, other, threads = _source_window(window, monkeypatch, source)
-    window._start()
+    window._flow.start()
 
     worker = window._worker
     assert conn.wakes == 0
@@ -143,7 +143,7 @@ def test_start_streams_from_the_source_without_waking_a_phone(window, monkeypatc
     worker.status.emit("reconnecting", "Stream dropped - reconnecting")
     assert window.state_fetches == []  # nowhere else to look for it
 
-    window._stop()
+    window._flow.stop()
     assert conn.remote_stops == 0
     assert window._worker is None
 
@@ -153,7 +153,7 @@ def test_a_source_that_isnt_ready_builds_nothing(window, monkeypatch):  # noqa: 
     _source_window(window, monkeypatch, source)
     failed = []
     window._bus.stream_start_failed.connect(lambda: failed.append(1))
-    window._start()
+    window._flow.start()
     assert source.prepared == 1
     assert window._worker is None and failed == [1]
 
@@ -199,6 +199,9 @@ class _Host:
 
     def stream_count(self):
         return len(self.streams)
+
+    def focused_source_id(self):
+        return SOURCE_ID
 
     def has_device_settings(self, name):
         return name in self.settings
@@ -588,16 +591,16 @@ def test_feed_drops_frames_from_a_replaced_browser():
 
 def test_falling_behind_points_at_its_own_resolution_and_frame_rate(browser):
     plugin, host, bus, _card = browser
-    bus.stream_behind.emit(True)
+    bus.stream_behind.emit(SOURCE_ID, True)
     assert "behind" not in host.issues  # a phone is picked: Stream output says what helps
     bus.source_selected.emit(SOURCE_ID)
-    bus.stream_behind.emit(True)
+    bus.stream_behind.emit(SOURCE_ID, True)
     issue = host.issues["behind"]
     assert issue.title == "Can't keep up" and "Browser camera card" in issue.text and issue.kind == "warn"
     plugin._set_capture(size="480p", fps=15)
-    bus.stream_behind.emit(True)
+    bus.stream_behind.emit(SOURCE_ID, True)
     assert host.issues["behind"].text == "The device's browser can't send any faster."
-    bus.stream_behind.emit(False)
+    bus.stream_behind.emit(SOURCE_ID, False)
     assert "behind" not in host.issues
 
 
@@ -615,14 +618,14 @@ def test_a_browser_takes_the_waiting_tile_over_next_to_a_phone(camera_env, tmp_p
                                  addresses=lambda: [SimpleNamespace(ip="192.168.1.20")])
     window.register_plugin(plugin)
     QCoreApplication.processEvents()  # its startup tidy-up, while the window is still there
-    window._start()
+    window._flow.start()
     window.add_stream(SOURCE_ID)
     assert window._tiles.ids() == ["Phone", SOURCE_ID]
 
     _arrive(plugin, "pixel-aaaaaaaa", "Chrome on Android")
     assert window.is_streaming_from("browser:pixel-aaaaaaaa")  # it used to stop the server on the way, and itself
-    assert window._tiles.ids() == ["Phone", "browser:pixel-aaaaaaaa"] and window._pending is None
-    assert window._focus.id == "browser:pixel-aaaaaaaa" and not _Server.instances[-1].stopped
+    assert window._tiles.ids() == ["Phone", "browser:pixel-aaaaaaaa"] and window._sessions.pending is None
+    assert window._sessions.focus.id == "browser:pixel-aaaaaaaa" and not _Server.instances[-1].stopped
     assert not plugin.is_waiting()
     plugin.shutdown()
 
@@ -646,11 +649,11 @@ def test_every_browser_that_joined_during_a_phone_start_streams_after_it(camera_
     assert window.stream_count() == 1
     monkeypatch.setattr(sources_module.PhoneSource, "_spawn_wake", lambda self, *a: None)
     window.add_stream("Phone")
-    phone = window._wake_source
+    phone = window._sessions.wake_source
     _arrive(plugin, "browser-aaaaaaaa", "Chrome on Android")
     _arrive(plugin, "browser-bbbbbbbb", "Safari on iOS")
     assert window.stream_count() == 1  # they wait for the phone
-    window._on_wake_done(phone, True, "")
+    window._flow.wake_done(phone, True, "")
     assert window.stream_count() == 4
     assert window.is_streaming_from("browser:browser-aaaaaaaa")
     assert window.is_streaming_from("browser:browser-bbbbbbbb")
@@ -690,7 +693,7 @@ def test_a_browser_that_joins_while_the_extra_cameras_are_set_up_streams_after(c
     QCoreApplication.processEvents()
     assert window.is_streaming_from("browser:browser-bbbbbbbb")
     assert window.is_streaming_from("browser:browser-cccccccc")
-    window._stop_all()
+    window._flow.stop_all()
     plugin.shutdown()
 
 

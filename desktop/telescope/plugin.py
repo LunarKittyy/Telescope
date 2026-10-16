@@ -12,8 +12,8 @@ UNCHANGED = object()
 """Sentinel for update_stream_output; UNCHANGED keeps current, None is a real value."""
 
 
-class HostServices(Protocol):
-    """Public contract for plugin-to-host calls (structural typing); plugins use this instead of reaching into private methods."""
+class HostSettings(Protocol):
+    """Saving and reading settings: this plugin's, another's, and each device's."""
 
     def schedule_save(self) -> None:
         """Persist all plugin config soon, coalescing rapid successive calls."""
@@ -21,6 +21,23 @@ class HostServices(Protocol):
 
     def save_now(self) -> None:
         """Persist all plugin config immediately, bypassing the debounce."""
+        ...
+
+    def plugin_config(self, name: str) -> Optional[dict]:
+        """Another plugin's current get_config(), or None if it isn't registered."""
+        ...
+
+    def apply_preset(self, name: str, cfg: dict) -> None:
+        """Hand a saved config to another plugin's apply_preset(); unknown names are ignored."""
+        ...
+
+    def device_config(self, source_id: Optional[str], plugin_name: str) -> dict:
+        """The settings saved for source_id's stream in a device-local plugin (TelescopePlugin.device_local), for one
+        the panels don't show; {} without any."""
+        ...
+
+    def has_device_settings(self, name: str) -> bool:
+        """Whether settings are saved for this phone or source."""
         ...
 
     def switch_device(self, prev_name: Optional[str], new_name: Optional[str]) -> None:
@@ -35,17 +52,102 @@ class HostServices(Protocol):
         """Store a device's settings (presets included) and its virtual camera under a new id."""
         ...
 
-    def reconnect_stream(self) -> None:
-        """Restart the stream, if one is active, to pick up new settings."""
-        ...
 
-    def send_notification(self, title: str, body: str, urgent: bool = True) -> None:
-        """Show a desktop/tray notification; urgent ones stay on screen until dismissed (Linux)."""
-        ...
+class HostStreams(Protocol):
+    """Starting, stopping and following streams, the one the panels show and those behind it."""
 
     def is_streaming(self) -> bool:
         """Whether a stream is running, the camera off (just the mic) included."""
         ...
+
+    def is_starting(self) -> bool:
+        """Whether a start is still waking the phone (is_streaming() turns true once it's through)."""
+        ...
+
+    def is_restarting(self) -> bool:
+        """Whether the stream stopping now starts again right after (a reconnect or virtual camera resize)."""
+        ...
+
+    def is_streaming_from(self, source_id: Optional[str]) -> bool:
+        """Whether source_id (a phone's id or a StreamSource's) streams, or a start is waking it, shown or not."""
+        ...
+
+    def stream_count(self) -> int:
+        """How many streams run at once (each to its own virtual camera)."""
+        ...
+
+    def start_stream(self, interactive: bool = True) -> None:
+        """Start streaming, as the Start button does; a no-op if already streaming or starting.
+        interactive=False never asks anything (no password prompt): problems go to a banner."""
+        ...
+
+    def start_again(self, source_id: Optional[str] = None, before: Optional[Callable[[], None]] = None
+                    ) -> Callable[[], None]:
+        """For a banner's Try again: starts source_id (by default what is starting now) once more, next to any other
+        stream (Start would only start one while nothing streams). before runs first, with the panels on it, so a
+        setting it changes (e.g. Switch to Heavy) is that source's."""
+        ...
+
+    def stop_stream(self, source_id: Optional[str] = None) -> None:
+        """Stop the stream the panels show, or source_id's. A no-op if nothing is streaming."""
+        ...
+
+    def stop_all_streams(self) -> None:
+        """Stop every stream, as the Stop button does."""
+        ...
+
+    def reconnect_stream(self) -> None:
+        """Restart the stream, if one is active, to pick up new settings."""
+        ...
+
+    def focused_source_id(self) -> Optional[str]:
+        """The source the panels show (or Start would stream from), for a banner about it to act on it later."""
+        ...
+
+    def background_streams(self) -> list:
+        """[(source id, name, control client)] of the streams the panels don't show."""
+        ...
+
+    def pick_source(self, source_id: Optional[str]) -> bool:
+        """The phone picker moved to source_id. True if the host handled it: that source already streams and gets the
+        panels, or with several streaming it replaces the one they show. False: Connection switches as before."""
+        ...
+
+    def main_stream(self) -> Optional[tuple]:
+        """(id, name) of the stream plugins that don't follow the panels (the mic) are on, while one streams."""
+        ...
+
+    def make_main(self, source_id: str) -> bool:
+        """Move the plugins that don't follow the panels to source_id's stream: they get its saved settings, and the
+        stream they leave keeps theirs as they are now. False if it doesn't stream."""
+        ...
+
+    def update_stream_output(
+        self, width=UNCHANGED, height=UNCHANGED, fps=UNCHANGED, source_id: Optional[str] = None,
+    ) -> None:
+        """Push new output geometry and/or fps to the running stream worker (the panels', or source_id's); a no-op if
+        it isn't streaming. UNCHANGED keeps the current value, None is a real value (pass-through resolution)."""
+        ...
+
+    def canvas_size(self) -> tuple:
+        """(width, height) of the virtual camera canvas Setup asks for, or (None, None) for Auto."""
+        ...
+
+    def restart_vcam_canvas(self, width: int, height: int, on_done=None) -> None:
+        """Recreate the virtual camera and stream at a new canvas size."""
+        ...
+
+    def stream_output(self, source_id: str) -> str:
+        """The virtual camera source_id streams to, as apps list it, or "" when it doesn't stream."""
+        ...
+
+    def remove_extra_cameras(self, on_done=None) -> None:
+        """Take away the virtual cameras Add camera set up, back to the one; on_done(ok, message) after."""
+        ...
+
+
+class HostCamera(Protocol):
+    """The phone's camera going off while its mic streams on, and back."""
 
     def is_camera_on(self) -> bool:
         """False while the stream runs with the camera off, or, before a start, when it will start that way."""
@@ -64,107 +166,9 @@ class HostServices(Protocol):
         auto: Automatic streaming did it, so an app opening the camera may turn it back on."""
         ...
 
-    def is_starting(self) -> bool:
-        """Whether a start is still waking the phone (is_streaming() turns true once it's through)."""
-        ...
 
-    def is_restarting(self) -> bool:
-        """Whether the stream stopping now starts again right after (a reconnect or virtual camera resize)."""
-        ...
-
-    def stop_stream(self, source_id: Optional[str] = None) -> None:
-        """Stop the stream the panels show, or source_id's. A no-op if nothing is streaming."""
-        ...
-
-    def is_streaming_from(self, source_id: Optional[str]) -> bool:
-        """Whether source_id (a phone's id or a StreamSource's) streams, or a start is waking it, shown or not."""
-        ...
-
-    def stream_count(self) -> int:
-        """How many streams run at once (each to its own virtual camera)."""
-        ...
-
-    def remove_extra_cameras(self, on_done=None) -> None:
-        """Take away the virtual cameras Add camera set up, back to the one; on_done(ok, message) after."""
-        ...
-
-    def pick_source(self, source_id: Optional[str]) -> bool:
-        """The phone picker moved to source_id. True if the host handled it: that source already streams and gets the
-        panels, or with several streaming it replaces the one they show. False: Connection switches as before."""
-        ...
-
-    def update_stream_output(
-        self, width=UNCHANGED, height=UNCHANGED, fps=UNCHANGED, source_id: Optional[str] = None,
-    ) -> None:
-        """Push new output geometry and/or fps to the running stream worker (the panels', or source_id's); a no-op if
-        it isn't streaming. UNCHANGED keeps the current value, None is a real value (pass-through resolution)."""
-        ...
-
-    def restart_vcam_canvas(self, width: int, height: int, on_done=None) -> None:
-        """Recreate the virtual camera and stream at a new canvas size."""
-        ...
-
-    def quit_app(self) -> None:
-        """Stop streaming, shut every plugin down and quit (the tray's Quit)."""
-        ...
-
-    def start_stream(self, interactive: bool = True) -> None:
-        """Start streaming, as the Start button does; a no-op if already streaming or starting.
-        interactive=False never asks anything (no password prompt): problems go to a banner."""
-        ...
-
-    def start_again(self, source_id: Optional[str] = None, before: Optional[Callable[[], None]] = None
-                    ) -> Callable[[], None]:
-        """For a banner's Try again: starts source_id (by default what is starting now) once more, next to any other
-        stream (Start would only start one while nothing streams). before runs first, with the panels on it, so a
-        setting it changes (e.g. Switch to Heavy) is that source's."""
-        ...
-
-    def background_streams(self) -> list:
-        """[(source id, name, control client)] of the streams the panels don't show."""
-        ...
-
-    def device_config(self, source_id: Optional[str], plugin_name: str) -> dict:
-        """The settings saved for source_id's stream in a device-local plugin (config.DEVICE_LOCAL_PLUGINS), for one
-        the panels don't show; {} without any."""
-        ...
-
-    def focused_source_id(self) -> Optional[str]:
-        """The source the panels show (or Start would stream from), for a banner about it to act on it later."""
-        ...
-
-    def main_stream(self) -> Optional[tuple]:
-        """(id, name) of the stream plugins that don't follow the panels (the mic) are on, while one streams."""
-        ...
-
-    def make_main(self, source_id: str) -> bool:
-        """Move the plugins that don't follow the panels to source_id's stream: they get its saved settings, and the
-        stream they leave keeps theirs as they are now. False if it doesn't stream."""
-        ...
-
-    def set_keep_in_tray(self, keep: bool) -> None:
-        """Closing the window hides it to the tray even when idle (something is waiting to start)."""
-        ...
-
-    def show_issue(self, key: str, issue: "Issue") -> None:
-        """Show a problem banner above the body (telescope.widgets.banner.Issue); the same key replaces it."""
-        ...
-
-    def clear_issue(self, key: Optional[str] = None, issue: Optional["Issue"] = None) -> None:
-        """Remove one banner, or all of them; with issue, only while key still shows that one."""
-        ...
-
-    def diagnostics_report(self) -> str:
-        """The Copy diagnostics text: version, system, each plugin's diagnostics() and recent events."""
-        ...
-
-    def plugin_config(self, name: str) -> Optional[dict]:
-        """Another plugin's current get_config(), or None if it isn't registered."""
-        ...
-
-    def apply_preset(self, name: str, cfg: dict) -> None:
-        """Hand a saved config to another plugin's apply_preset(); unknown names are ignored."""
-        ...
+class HostSources(Protocol):
+    """Places other than a paired phone to stream from (StreamSource)."""
 
     def add_stream_source(self, source: "StreamSource") -> None:
         """Offer somewhere other than a phone to stream from; it's listed in the phone picker. Offering one with the
@@ -179,16 +183,24 @@ class HostServices(Protocol):
         """Start a StreamSource: picked and streamed when nothing streams yet, else next to the others."""
         ...
 
-    def stream_output(self, source_id: str) -> str:
-        """The virtual camera source_id streams to, as apps list it, or "" when it doesn't stream."""
+
+class HostShell(Protocol):
+    """The window around the plugins: banners, notifications, the tray and quitting."""
+
+    def show_issue(self, key: str, issue: "Issue") -> None:
+        """Show a problem banner above the body (telescope.widgets.banner.Issue); the same key replaces it."""
         ...
 
-    def has_device_settings(self, name: str) -> bool:
-        """Whether settings are saved for this phone or source."""
+    def clear_issue(self, key: Optional[str] = None, issue: Optional["Issue"] = None) -> None:
+        """Remove one banner, or all of them; with issue, only while key still shows that one."""
         ...
 
-    def stop_all_streams(self) -> None:
-        """Stop every stream, as the Stop button does."""
+    def send_notification(self, title: str, body: str, urgent: bool = True) -> None:
+        """Show a desktop/tray notification; urgent ones stay on screen until dismissed (Linux)."""
+        ...
+
+    def set_keep_in_tray(self, keep: bool) -> None:
+        """Closing the window hides it to the tray even when idle (something is waiting to start)."""
         ...
 
     def toggle_window(self) -> bool:
@@ -196,9 +208,22 @@ class HostServices(Protocol):
         whether it's showing now."""
         ...
 
+    def quit_app(self) -> None:
+        """Stop streaming, shut every plugin down and quit (the tray's Quit)."""
+        ...
+
+    def diagnostics_report(self) -> str:
+        """The Copy diagnostics text: version, system, each plugin's diagnostics() and recent events."""
+        ...
+
     def shortcut_actions(self) -> list:
         """Every plugin's create_actions(), in registration order."""
         ...
+
+
+class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, Protocol):
+    """Everything a plugin may call on the host (structural typing), instead of reaching into private methods.
+    A plugin that only needs part of it can say so with one of the narrower protocols above."""
 
 
 class StreamSource(Protocol):
@@ -239,24 +264,42 @@ class StreamsBehind:
     def __init__(self):
         self._kept: dict = {}
 
-    def keep(self, host: "HostServices", ctrl, value):
-        """From on_stream_stop: value is kept if the stream the panels showed carries on, else it's dropped."""
+    def keep(self, host: HostStreams, ctrl, value):
+        """From on_focus_lost: value is kept for the stream the panels are leaving."""
         sid = host.focused_source_id()
-        if ctrl is not None and host.is_streaming_from(sid):
+        if ctrl is not None:
             self._kept[sid] = (ctrl, value)
         else:
             self._kept.pop(sid, None)
-        if not host.is_streaming():
-            self._kept.clear()
 
-    def take(self, host: "HostServices", ctrl):
-        """From on_stream_start: what keep() held for this stream, or None for a stream that starts afresh."""
+    def take(self, host: HostStreams, ctrl):
+        """From on_focus_gained: what keep() held for this stream, or None if it has started again since."""
         kept = self._kept.pop(host.focused_source_id(), None)
         return kept[1] if kept is not None and kept[0] is ctrl else None
+
+    def drop(self, host: HostStreams):
+        """From on_stream_stop: the shown stream ended, so nothing about it is kept (and nothing at all once idle)."""
+        self._kept.pop(host.focused_source_id(), None)
+        if not host.is_streaming():
+            self._kept.clear()
 
 
 class TelescopePlugin:
     name: str = ""
+    """Its id: where its settings are saved, and what other plugins and the Plugins dialog know it by."""
+
+    title: str = ""
+    """What the Plugins dialog calls it ("Camera"); a plugin someone added takes it from its plugin.json."""
+    about: str = ""
+    """One plain sentence for the Plugins dialog: what it does."""
+    when_off: str = ""
+    """What goes away while it's turned off, so nobody wonders where a card went ("The Camera card goes away...")."""
+    required: bool = False
+    """Telescope can't work without it, so the Plugins dialog doesn't offer to turn it off."""
+
+    device_local: bool = False
+    """Each phone (or other source) gets its own copy of this plugin's settings, swapped in when it's picked or the
+    panels move to its stream; False: one copy for the whole app."""
 
     follows_focus: bool = True
     """With several streams, hear about the one the panels show (False: the first one, like the mic)."""
@@ -264,7 +307,9 @@ class TelescopePlugin:
     panel_region: str = "left"
     """Panel placement: "left" (connection/output), "right" (camera/image), or "center" (video stage)."""
 
-    def setup(self, host: HostServices, bus: "EventBus"): ...
+    def setup(self, host: HostServices, bus: "EventBus"):
+        """Plugins are set up one at a time, so one set up later misses what this one emits here: state other plugins
+        follow is announced again from on_plugins_ready."""
     def create_panel(self) -> Optional[QWidget]: return None
 
     header_side: str = "left"
@@ -287,8 +332,17 @@ class TelescopePlugin:
         return []
     def on_stream_starting(self):
         """A stream is about to open the virtual camera; anything holding it while idle lets go now."""
-    def on_stream_start(self, stream_url: str, ctrl): ...
-    def on_stream_stop(self): ...
+    def on_stream_start(self, stream_url: str, ctrl):
+        """The stream this plugin hears about started, or came back after a drop (the same ctrl then)."""
+    def on_stream_stop(self):
+        """The stream this plugin hears about ended (or stops to start again: host.is_restarting())."""
+    def on_focus_gained(self, stream_url: str, ctrl):
+        """The plugin moved onto a stream that was already running (a tile was clicked, the shown stream stopped
+        with others carrying on, or the mic was moved). By default it's treated like on_stream_start."""
+        self.on_stream_start(stream_url, ctrl)
+    def on_focus_lost(self):
+        """The plugin moved off a stream that carries on without it. By default it's treated like on_stream_stop."""
+        self.on_stream_stop()
     def on_camera_off(self):
         """The stream carries on with the camera off: no frames until on_camera_on (after on_stream_starting)."""
     def on_camera_on(self):
@@ -307,6 +361,8 @@ class TelescopePlugin:
     def apply_preset(self, cfg: dict):
         """Load settings from a preset; plugins that drive the phone also send them while streaming."""
         self.set_config(cfg)
+    def on_plugins_ready(self):
+        """Every plugin is set up and the saved settings are in: emit again any state other plugins follow."""
     def shutdown(self):
         """App is quitting: stop background services the plugin started."""
 
@@ -316,9 +372,12 @@ class EventBus(QObject):
     stream_stopped         = pyqtSignal()
     stream_start_failed    = pyqtSignal()
     """A Start ended without a stream (the phone couldn't be reached or woken); no stream_started follows."""
-    stream_connected       = pyqtSignal()
-    stream_lost            = pyqtSignal()
-    """Frames stopped mid-stream; the host is looking for a route back (stream_connected ends it)."""
+    stream_connected       = pyqtSignal(str)
+    """A stream's frames are coming in (its source id; "" for no phone picked), the first time or back after a drop.
+    Every stream, shown or not, and again for the one the panels move onto: check focused_source_id() for the shown one."""
+    stream_lost            = pyqtSignal(str)
+    """A stream's frames stopped mid-stream (its source id); the host is looking for a route back (stream_connected
+    ends it). Every stream, and again for the one the panels move onto, as stream_connected."""
     phone_state_updated    = pyqtSignal(dict)
     device_changed         = pyqtSignal(str)
     phones_changed         = pyqtSignal(int)
@@ -384,6 +443,7 @@ class EventBus(QObject):
     """[(id, name, detail)] of StreamSources a plugin remembers settings for (browsers); the phones list shows them."""
     forget_source_requested = pyqtSignal(str)
     """Remove was clicked on one of remembered_sources in the phones list: its plugin forgets it."""
-    stream_behind          = pyqtSignal(bool)
-    """The stream fell behind its frame rate (the throughput readout went amber), or caught up again. Only on a
-    change, and never for a dropped stream: that's stream_lost."""
+    stream_behind          = pyqtSignal(str, bool)
+    """A stream (its source id) fell behind its frame rate (the throughput readout went amber), or caught up again.
+    Only on a change, and never for a dropped stream: that's stream_lost. A stream the panels leave counts as caught
+    up; only the shown one is measured, so check focused_source_id() as for stream_connected."""

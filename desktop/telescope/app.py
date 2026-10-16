@@ -1,16 +1,9 @@
-import hashlib
-import hmac
-import json
 import logging
-import os
 import shutil
-import socket
 import subprocess
-import sys
 import threading
 import time
 from dataclasses import replace
-from pathlib import Path
 from typing import Callable, Optional
 
 from PyQt6.QtCore import QEvent, QPoint, QSize, Qt, QTimer, pyqtSignal
@@ -21,17 +14,19 @@ from PyQt6.QtWidgets import (
     QSizePolicy, QSystemTrayIcon, QVBoxLayout, QWidget,
 )
 
-import update_guard
 from telescope import dev_profile, diagnostics, theme, vcam
-from telescope.config import DEVICE_LOCAL_PLUGINS, config_path, load_config, save_config, take_reset_notice
+from telescope.config import load_config, save_config, saveable, take_reset_notice
 from telescope.models import PhoneState, PhoneStateError
 from telescope.phone_client import PhoneControlClient
 from telescope.platform import IS_LINUX
 from telescope.platform.linux import CANCELLED
+from telescope import plugin_loader
 from telescope.plugin import UNCHANGED, EventBus, TelescopePlugin
-from telescope.session import StreamSession
+from telescope.session import Sessions, StreamSession
+from telescope.single_instance import relaunch, restart_argv
 from telescope.sources import PhoneSource, PluginSource, Source
-from telescope.stream import StreamWorker, guarded_step
+from telescope.stream import StreamWorker
+from telescope.stream_flow import StreamFlow
 from telescope.widgets.banner import BannerAction, BannerArea, Issue, copy_action
 from telescope.widgets.tiles import StreamTiles
 from telescope.widgets.common import (
@@ -49,188 +44,173 @@ _DYNAMIC_FPS_TIP = ("Dynamic lowered the frame rate to {fps} fps, so each frame 
                     "It goes back up once there's room.")
 
 
-# ── Single-instance enforcement ───────────────────────────────────────────────
-# The guard checks the real app's address before an update's roll-back; a dev profile takes its own so it runs next to it
-_INSTANCE_FAMILY, _INSTANCE_ADDRESS = update_guard.instance_address(dev_profile.active())
+def _joined(words: list) -> str:
+    """["A", "B", "C"] as "A, B and C"."""
+    return words[0] if len(words) == 1 else ", ".join(words[:-1]) + " and " + words[-1]
 
 
-def user_token() -> bytes:
-    """Who is running this copy, so a shared port (Windows) never raises another user's window."""
-    user = os.environ.get("USERNAME") or os.environ.get("USER") or str(os.getuid() if hasattr(os, "getuid") else "")
-    session = ""
-    if sys.platform == "win32":
-        try:
-            import ctypes
-            sid = ctypes.c_ulong()
-            ctypes.windll.kernel32.ProcessIdToSessionId(os.getpid(), ctypes.byref(sid))
-            session = str(sid.value)
-        except Exception:
-            pass
-    return hashlib.sha256(f"{user}\0{session}".encode()).hexdigest()[:16].encode()
+# ── What sources see of the window ────────────────────────────────────────────
+class _SourceHost:
+    """The window as sources.SourceHost: the few things a source asks of it, and nothing else."""
+
+    def __init__(self, win: "TelescopeWindow"):
+        self._win = win
+
+    def connection(self):
+        return self._win._plugin("connection")
+
+    def stream_output(self):
+        return self._win._plugin("stream_output")
+
+    def show_issue(self, key: str, issue: Issue):
+        self._win.show_issue(key, issue)
+
+    def clear_issue(self, key: str):
+        self._win.clear_issue(key)
+
+    def is_streaming(self) -> bool:
+        return self._win.is_streaming()
+
+    def is_focused(self, source: Source) -> bool:
+        return self._win._sessions.focus is source
+
+    def focus_stream(self, source_id: Optional[str]):
+        self._win.focus_stream(source_id)
+
+    def is_waking(self) -> bool:
+        return self._win._sessions.waking
+
+    def waking_source(self) -> Optional[Source]:
+        return self._win._sessions.wake_source
+
+    def wake_progress(self, source: Source, msg: str):
+        self._win._source_status(source, msg, "dim")
+
+    def wake_done(self, source: Source, ok: bool, reason: str):
+        self._win._flow.wake_done(source, ok, reason)
+
+    def apply_state(self, source: Source, session_id: int, state: dict):
+        self._win._apply_state(session_id, state, source)
+
+    def set_session(self, source: Source, session: StreamSession):
+        self._win._sessions.add(source, session)
+
+    def stop_source(self, source: Source):
+        self._win._flow.stop(remote_stop=False, source=source)
+
+    def start_source(self, source_id: Optional[str]):
+        self._win._start_source(source_id)
+
+    def set_camera_on(self, on: bool):
+        self._win.set_camera_on(on)
+
+    def camera_stayed_off(self, session: StreamSession):
+        self._win._camera_off_now(session)
+        self._win._bus.camera_on_changed.emit(False)
+
+    def mic_reconnected(self, source: Source):
+        self._win._on_stream_reconnected(source)
+        self._win._show_camera_off()
+
+    def lost_contact(self, source: Source):
+        self._win._start_reconnecting_animation("Lost the phone - reconnecting")
+        self._win._flow.begin_recovery(source)
+
+    def park(self, source: Source):
+        self._win._flow.park(source)
+
+    def show_slow(self, camera_limited: bool = False):
+        self._win._show_slow(True, camera_limited=camera_limited)
 
 
-def acquire_single_instance(wait: float = 0.0) -> Optional[socket.socket]:
-    """The single-instance socket, or None after asking the running copy to show itself.
+# ── What the stream flow sees of the window ──────────────────────────────────
+class _FlowHost:
+    """The window as stream_flow.FlowHost: its widgets, banners, saved settings and plugins, for StreamFlow."""
 
-    wait: keep retrying this long first, for a relaunch after an update while the old copy exits.
-    """
-    deadline = time.monotonic() + wait
-    while True:
-        srv = update_guard.instance_socket(_INSTANCE_FAMILY)
-        try:
-            srv.bind(_INSTANCE_ADDRESS)
-            srv.listen(1)
-            return srv
-        except OSError:
-            srv.close()
-            if time.monotonic() >= deadline:
-                break
-            time.sleep(0.25)
-    c = socket.socket(_INSTANCE_FAMILY, socket.SOCK_STREAM)
-    reply = b""
-    try:
-        c.settimeout(2)
-        c.connect(_INSTANCE_ADDRESS)
-        c.sendall(b"raise:" + user_token())
-        reply = c.recv(5)
-    except Exception:
-        pass
-    finally:
-        c.close()
-    if reply == b"other":
-        _other_user_notice()
-    elif reply != b"ok":
-        _port_taken_notice()
-    return None
+    def __init__(self, win: "TelescopeWindow"):
+        self._win = win
+        self.bus = win._bus
 
+    def plugins(self) -> list:
+        return self._win._plugins
 
-def _other_user_notice():
-    QMessageBox.information(
-        None, "Telescope is already running",
-        "Telescope is already running for another user on this computer. Close it there, then open it again here.",
-    )
+    def plugin(self, name: str):
+        return self._win._plugin(name)
 
+    def call(self, plugins: list, hook: str, *args):
+        self._win._call(plugins, hook, *args)
 
-def _port_taken_notice():
-    # Quitting without a word looks like a crash when the lock is held by something that isn't Telescope
-    where = f"port {_INSTANCE_ADDRESS[1]}" if _INSTANCE_FAMILY == socket.AF_INET else "a local socket"
-    QMessageBox.warning(
-        None, "Telescope can't start",
-        f"Telescope couldn't start because something else is holding its single-instance lock ({where}), "
-        "or another Telescope is stuck. Close that program, or restart the computer, then open Telescope again.",
-    )
+    def source_by_id(self, source_id: Optional[str]) -> Source:
+        return self._win._source_by_id(source_id)
 
+    def plugin_source(self, source_id: str) -> Optional[Source]:
+        return self._win._sources.get(source_id)
 
-_ACTION = b"action:"
-_MAX_REQUEST = 16384
+    def selected_source(self) -> Source:
+        return self._win._selected_source()
 
+    def later(self, fn: Callable[[], None]):
+        QTimer.singleShot(0, fn)
 
-def control_key_path() -> Path:
-    """Where the running copy keeps the key `--action` has to send: in the user's own settings folder, so another
-    account on the computer (which can reach the single-instance socket too) can't drive this one's controls."""
-    return config_path().parent / ".control-key"
+    def start_problem(self, title: str, text: str):
+        self._win.show_issue("start", Issue(title, text, [BannerAction("Try again", self._win.start_again())]))
 
+    def clear_issue(self, key: str):
+        self._win.clear_issue(key)
 
-def write_control_key() -> Optional[bytes]:
-    """A new key for this run, readable only by this user; None if it couldn't be written (then --action can't work)."""
-    key = hashlib.sha256(os.urandom(32)).hexdigest().encode()
-    path = control_key_path()
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.unlink(missing_ok=True)  # a new file gets the mode below; an old one would keep its own
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        with os.fdopen(fd, "wb") as f:
-            f.write(key)
-    except OSError:
-        logging.exception("Couldn't write the key for telescope --action")
-        return None
-    return key
+    def set_start_button(self, streaming: bool):
+        self._win._set_start_button(streaming=streaming)
 
+    def enable_start(self, enabled: bool):
+        self._win._start_btn.setEnabled(enabled)
 
-def send_action(request: dict) -> tuple:
-    """For `telescope --action`: hand request ({"action", "params"} or {"list": True}) to the running copy.
-    Returns (ok, text to print)."""
-    try:
-        key = control_key_path().read_bytes().strip()
-    except OSError:
-        return False, "Telescope isn't running."
-    payload = _ACTION + json.dumps({**request, "key": key.decode(errors="replace")}).encode()
-    c = socket.socket(_INSTANCE_FAMILY, socket.SOCK_STREAM)
-    reply = b""
-    try:
-        c.settimeout(8)
-        c.connect(_INSTANCE_ADDRESS)
-        c.sendall(payload)
-        c.shutdown(socket.SHUT_WR)
-        while len(reply) < 1 << 20:
-            chunk = c.recv(65536)
-            if not chunk:
-                break
-            reply += chunk
-    except OSError:
-        return False, "Telescope isn't running."
-    finally:
-        c.close()
-    try:
-        answer = json.loads(reply.decode())
-        return bool(answer["ok"]), str(answer["text"])
-    except (ValueError, KeyError, TypeError):
-        return False, "Telescope didn't understand that. Is it an older version? Update it to use --action."
+    def source_status(self, source: Source, msg: str, kind: str):
+        self._win._source_status(source, msg, kind)
 
+    def show_stream(self, source: Source):
+        self._win._show_stream(source)
 
-def _read_request(conn: socket.socket, first: bytes) -> Optional[dict]:
-    data = first
-    deadline = time.monotonic() + 2  # a client that trickles bytes mustn't hold up every later raise
-    while len(data) < _MAX_REQUEST:
-        if time.monotonic() > deadline:
-            return None
-        chunk = conn.recv(4096)
-        if not chunk:
-            break
-        data += chunk
-    try:
-        request = json.loads(data[len(_ACTION):].decode())
-    except (ValueError, UnicodeDecodeError):
-        return None
-    return request if isinstance(request, dict) else None
+    def show_stopped(self):
+        self._win._show_focus_stopped()
 
+    def show_camera_off(self):
+        self._win._show_camera_off()
 
-def listen_for_raise(srv: socket.socket, raise_cb, action_cb=None, control_key: Optional[bytes] = None):
-    """Answer later launches: raise:<user token> brings the window up; action:<json> (from --action, carrying
-    control_key) runs action_cb(request) and sends back its {"ok", "text"} as JSON."""
-    srv.settimeout(1.0)
-    while True:
-        try:
-            conn, _ = srv.accept()
-        except socket.timeout:
-            continue
-        except OSError:
-            break  # closed on quit
-        try:
-            conn.settimeout(1.0)
-            message = conn.recv(4096)
-            if message.startswith(_ACTION):
-                request = _read_request(conn, message)
-                sent = str((request or {}).get("key", "")).encode()
-                if request is not None and action_cb is not None and not control_key:
-                    reply = {"ok": False, "text": "Telescope couldn't write the key --action needs next to its "
-                                                  "settings when it started. Restart it."}
-                elif request is None or action_cb is None or not hmac.compare_digest(sent, control_key):
-                    reply = {"ok": False, "text": "Telescope turned that down: it didn't come from this user's "
-                                                  "Telescope command."}
-                else:
-                    request.pop("key", None)
-                    reply = action_cb(request)
-                conn.sendall(json.dumps(reply).encode())
-            elif message == b"raise:" + user_token():
-                raise_cb()
-                conn.sendall(b"ok")  # tells the new copy a Telescope answered, not some other program holding the lock
-            elif message.startswith(b"raise:"):
-                conn.sendall(b"other")  # another user's Telescope, on a port both users can reach
-        except OSError:
-            pass  # a connection that says nothing or resets mustn't stop every later raise
-        finally:
-            conn.close()
+    def refresh_tiles(self):
+        self._win._refresh_tiles()
+
+    def clear_pending_resolution(self, source: Source):
+        self._win._clear_pending_resolution(source)
+
+    def set_behind(self, behind: bool, source: Source):
+        self._win._set_behind(behind, source)
+
+    def save_profile(self, source_id: Optional[str], plugins: list):
+        self._win._save_profile(source_id, plugins)
+
+    def apply_device_profile(self, source_id: Optional[str], plugins: list):
+        self._win._apply_device_profile(source_id, plugins)
+
+    def schedule_save(self):
+        self._win.schedule_save()
+
+    def canvas_size(self) -> tuple:
+        return self._win.canvas_size()
+
+    def set_up_slots(self, then: Callable[[], None]):
+        self._win._set_up_slots(then)
+
+    def set_camera_on(self, on: bool):
+        self._win.set_camera_on(on)
+
+    def apply_state(self, session_id: int, state: dict, source: Source):
+        self._win._apply_state(session_id, state, source)
+
+    def new_worker(self, source: Source, url: str, auth, params: tuple, pipeline: list, canvas: tuple):
+        return self._win._new_worker(source, url, auth, params, pipeline, canvas)
+
+    def end_worker(self, worker):
+        self._win._end_worker(worker)
 
 
 # ── Main window ───────────────────────────────────────────────────────────────
@@ -258,35 +238,23 @@ class TelescopeWindow(QMainWindow):
         self._reconnecting_base = ""
         self._reconnecting_dots = 1
         self._plugins: list[TelescopePlugin] = []
+        self._builtin_plugins: list = []  # every built-in one, turned off or not (load_plugins)
+        self._added_plugins: list = []  # the ones the user installed that are running
+        self._plugin_problems: dict = {}  # name: why an added plugin that's on didn't start
         self._plugins_by_name: dict[str, TelescopePlugin] = {}
         self._shortcut_actions: list = []
         # Plugin defaults; lets us reset before applying device profile.
         self._plugin_defaults: dict[str, dict] = {}
 
-        # Each streaming source holds its StreamSession (worker and client); the id guards against stale async results.
-        self._next_session_id = 1
         self._save_failure_notified = False
 
         # Where streams come from: each phone (made when first needed), and the StreamSources plugins offer, by id.
+        self._source_host = _SourceHost(self)
         self._phones: dict = {}
         self._sources: dict[str, Source] = {}
-        self._streams: list[Source] = []  # the sources streaming now, in the order they started
-        self._focus: Optional[Source] = None  # the stream the panels show (and plugins that follow them hear about)
-        self._pending: Optional[Source] = None  # added next to the streams, waiting for something to stream (a browser)
-        self._main: Optional[Source] = None  # the first stream: plugins that don't follow the panels (the mic) hear it
-        self._stopping_all = False
-        self._slot_memory: dict = {}  # source id: the extra virtual camera it went to last, so it goes there again
+        self._flow = StreamFlow(_FlowHost(self))  # starting, stopping and focus; its Sessions has the state
         self._camera_on_shown = True  # what camera_on_changed last said, to catch a pick with another camera choice
-        self._waking = False
-        self._wake_source: Optional[Source] = None  # the source a start is waking, which a stop meanwhile has to reach
-        self._preparing = False  # _start is finding the phone; timers still fire meanwhile, so it must not start again
         self._orphans: set = set()  # workers that outlived Stop's wait, kept referenced until they finish
-        self._restarting = False  # stopping only to start again (reconnect, virtual camera resize)
-        self._restart_later: set = set()  # streams to restart once the start under way is through
-        self._held_states: dict = {}  # id: (source, session id, state) that needs the panels once that start is through
-        self._start_later: list = []  # starts that waited for the extra cameras, one at a time once they're there
-        self._start_id: Optional[str] = None  # what the last start was for, so its banner's Try again starts it again
-        self._canvas_restart = False  # a canvas resize stopped the stream and starts it once done; a Stop cancels it
 
         self._save_timer = QTimer(self)
         self._save_timer.setSingleShot(True)
@@ -306,7 +274,7 @@ class TelescopeWindow(QMainWindow):
         self._slots_then: Optional[list] = None  # while the extra cameras are being set up: what waits for them
         self._sig_extras_removed.connect(self._on_extras_removed)
         self._extras_done = None
-        QTimer.singleShot(0, self._announce_idle_outputs)  # once the plugins are in
+        QTimer.singleShot(0, self._flow.announce_idle_outputs)  # once the plugins are in
         self._bus.phones_changed.connect(lambda _n: self._show_add_button())
         self._bus.stream_sources_changed.connect(lambda _s: self._show_add_button())
         self._thumb_timer = QTimer(self)
@@ -321,32 +289,28 @@ class TelescopeWindow(QMainWindow):
             signal.connect(self._show_tray_state)
 
     @property
+    def _sessions(self) -> Sessions:
+        """Which sources stream, which one the panels show, and what's starting (kept by the stream flow)."""
+        return self._flow.sessions
+
+    @property
     def _session(self) -> Optional[StreamSession]:
         """The stream the panels show."""
-        return self._focus.session if self._focus is not None else None
+        return self._sessions.shown
 
     @_session.setter
     def _session(self, session: Optional[StreamSession]):
         # Tests and teardown: make session the panels' stream, or with None drop theirs.
+        sessions = self._sessions
         if session is None:
-            if self._focus is not None:
-                self._forget_stream(self._focus)
-                self._focus = self._streams[0] if self._streams else None
+            if sessions.focus is not None:
+                sessions.forget(sessions.focus)
+                sessions.focus = sessions.streams[0] if sessions.streams else None
             return
-        self._set_session(session.source, session)
-        self._focus = session.source
-        if self._main is None:
-            self._main = session.source
-
-    def _set_session(self, source: Source, session: StreamSession):
-        source.session = session
-        if source not in self._streams:
-            self._streams.append(source)
-
-    def _forget_stream(self, source: Source):
-        source.session = None
-        if source in self._streams:
-            self._streams.remove(source)
+        sessions.add(session.source, session)
+        sessions.focus = session.source
+        if sessions.main is None:
+            sessions.main = session.source
 
     @property
     def _phone(self) -> "PhoneSource":
@@ -357,7 +321,7 @@ class TelescopeWindow(QMainWindow):
 
     def _phone_source(self, pid: Optional[str]) -> "PhoneSource":
         if pid not in self._phones:
-            self._phones[pid] = PhoneSource(self, pid)
+            self._phones[pid] = PhoneSource(self._source_host, pid)
         return self._phones[pid]
 
     @property
@@ -368,32 +332,142 @@ class TelescopeWindow(QMainWindow):
     def _ctrl(self) -> Optional[PhoneControlClient]:
         return self._session.client if self._session else None
 
-    def register_plugin(self, plugin: TelescopePlugin):
-        plugin.setup(self, self._bus)
-        panel = plugin.create_panel()
-        if panel:
-            region = plugin.panel_region if plugin.panel_region in self._panels else "left"
-            self._panels[region].append(panel)
-            # Forced: the mode hasn't changed, but the panel set has.
-            self._refresh_layout(force=True)
-        header_widget = plugin.create_header_widget()
-        if header_widget:
-            slot = self._header_right_slot if plugin.header_side == "right" else self._header_slot
-            slot.addWidget(header_widget)
-        self._plugins.append(plugin)
-        if self._tray is not None:
-            menu = self._tray.contextMenu()
-            for action in plugin.create_tray_actions():
-                action.setParent(menu)
-                menu.insertAction(self._tray_quit_sep, action)  # between Show and Quit
-        if plugin.name:
-            self._plugins_by_name[plugin.name] = plugin
-        if plugin.name:
-            self._plugin_defaults[plugin.name] = plugin.get_config()
+    def register_plugin(self, plugin: TelescopePlugin, added: bool = False):
+        """Set plugin up and give it its place in the window. added: one the user installed, so one that raises here
+        is taken back out again (and the exception passed on) rather than left half in."""
+        panel = header_widget = None
+        tray: list = []
+        try:
+            plugin.setup(self, self._bus)
+            panel = plugin.create_panel()
+            if panel:
+                region = plugin.panel_region if plugin.panel_region in self._panels else "left"
+                self._panels[region].append(panel)
+                # Forced: the mode hasn't changed, but the panel set has.
+                self._refresh_layout(force=True)
+            header_widget = plugin.create_header_widget()
+            if header_widget:
+                slot = self._header_right_slot if plugin.header_side == "right" else self._header_slot
+                slot.addWidget(header_widget)
+            self._plugins.append(plugin)
+            if self._tray is not None:
+                menu = self._tray.contextMenu()
+                for action in plugin.create_tray_actions():
+                    tray.append(action)
+                    action.setParent(menu)
+                    menu.insertAction(self._tray_quit_sep, action)  # between Show and Quit
+            if plugin.name:
+                self._plugins_by_name[plugin.name] = plugin
+            if plugin.name:
+                self._plugin_defaults[plugin.name] = plugin.get_config()
+        except BaseException:
+            if added:
+                self._take_out(plugin, panel, header_widget, tray)
+            raise
         try:
             self._shortcut_actions.extend(plugin.create_actions())
         except Exception:
             logging.exception("Plugin %s couldn't list its shortcut actions", plugin.name)
+
+    def _take_out(self, plugin: TelescopePlugin, panel, header_widget, tray: list):
+        """Undo what register_plugin did for a plugin that failed part way (what it connected to the bus stays)."""
+        if plugin in self._plugins:
+            self._plugins.remove(plugin)
+        if self._plugins_by_name.get(plugin.name) is plugin:
+            del self._plugins_by_name[plugin.name]
+            self._plugin_defaults.pop(plugin.name, None)
+        for widget in (panel, header_widget):
+            if widget is None:
+                continue
+            for panels in self._panels.values():
+                if widget in panels:
+                    panels.remove(widget)
+            widget.setParent(None)
+            widget.deleteLater()
+        if panel is not None:
+            self._refresh_layout(force=True)
+        for action in tray:
+            action.setParent(None)
+            if self._tray is not None:
+                self._tray.contextMenu().removeAction(action)
+
+    def load_plugins(self, builtins: list):
+        """Register the built-in plugins (all but those turned off in Plugins, never the required ones), then the
+        added plugins turned on there. One of those that can't load is left out, with a banner saying which."""
+        self._builtin_plugins = list(builtins)
+        off = plugin_loader.builtin_off()
+        for plugin in builtins:
+            if plugin.required or plugin.name not in off:
+                self.register_plugin(plugin)
+        loaded, failed = plugin_loader.load_enabled(reserved={p.name for p in builtins})
+        problems = {item.name: (item.title, item.error) for item in failed}
+        for plugin in loaded:
+            try:
+                self.register_plugin(plugin, added=True)
+            except (Exception, SystemExit) as exc:
+                logging.exception("Plugin %s failed while starting; leaving it out", plugin.name)
+                problems[plugin.name] = (plugin.title or plugin.name, f"{type(exc).__name__}: {exc}"[:300])
+        self._added_plugins = [p for p in loaded if p in self._plugins]
+        self._plugin_problems = {name: error for name, (_title, error) in problems.items()}
+        if problems:
+            titles = [title for title, _error in problems.values()]
+            self.show_issue("plugins", Issue(
+                f"{_joined(titles)} didn't start" if len(titles) < 4 else f"{len(titles)} plugins didn't start",
+                "Telescope works without it. Plugins in the settings menu says what went wrong." if len(titles) == 1
+                else "Telescope works without them. Plugins in the settings menu says what went wrong.",
+                [BannerAction("Plugins…", self.show_plugins)], kind="warn"))
+        self._remind_plugins_off()
+
+    def _remind_plugins_off(self):
+        """Once per change: which built-in plugins are off, so a card that's gone doesn't look like a bug."""
+        try:
+            names = plugin_loader.unnoticed_off()
+        except OSError:
+            return
+        titles = [p.title or p.name for p in self._builtin_plugins if p.name in names and not p.required]
+        if not titles:
+            return
+
+        def noticed():
+            try:
+                plugin_loader.notice_off()
+            except OSError:
+                logging.exception("Couldn't note that the plugins turned off were seen")
+
+        def open_plugins():
+            noticed()
+            self.show_plugins()
+
+        self.show_issue("plugins_off", Issue(
+            f"{_joined(titles)} {'is' if len(titles) == 1 else 'are'} turned off",
+            "You turned this off in Plugins. To get it back, open Plugins in the settings menu and switch it on."
+            if len(titles) == 1 else
+            "You turned these off in Plugins. To get them back, open Plugins in the settings menu and switch them on.",
+            [BannerAction("Plugins…", open_plugins)], kind="warn", on_dismiss=noticed))
+
+    def plugins_off(self) -> list:
+        """The built-in plugins turned off this run."""
+        return [p for p in self._builtin_plugins if p not in self._plugins]
+
+    def show_plugins(self):
+        """The Plugins dialog: every plugin, built in or added, with a switch for each one that can be turned off."""
+        from telescope.widgets.plugins_dialog import PluginsDialog
+        PluginsDialog(self, self._builtin_plugins, {p.name for p in self._plugins},
+                      self._plugin_problems, self.restart_app, self.is_streaming).exec()
+
+    def restart_app(self) -> bool:
+        """Start a new copy of Telescope and quit this one; False if the new one couldn't be started."""
+        if dev_profile.supervised():  # dev_desktop.py starts it again, in the same terminal and profile
+            self._tray_close_notified = True
+            self._shut_down_and_exit(dev_profile.RESTART_STREAMING if self.is_streaming() else dev_profile.RESTART_EXIT)
+            return True
+        try:
+            relaunch(restart_argv())
+        except (OSError, ValueError):
+            logging.exception("Couldn't start Telescope again")
+            return False
+        self._tray_quit()
+        return True
 
     def _plugin(self, name: str) -> Optional[TelescopePlugin]:
         """Look up a registered plugin by its declared name, or None."""
@@ -402,6 +476,7 @@ class TelescopeWindow(QMainWindow):
     def apply_saved_config(self):
         """Restore persisted config into all registered plugins. Call after all plugins registered."""
         self._apply_config(load_config())
+        self._each_plugin("on_plugins_ready")  # what was said during setup, for those set up after
         if (backup := take_reset_notice()) is not None:
             where = f" A copy of the old file is at {backup}." if backup else ""
             self.show_issue("config", Issue(
@@ -573,17 +648,28 @@ class TelescopeWindow(QMainWindow):
 
     def _show_settings_menu(self):
         menu = QMenu(self)
+        off = len(self.plugins_off())
+        plugins = QAction(f"Plugins… ({off} off)" if off else "Plugins…", menu)
+        plugins.triggered.connect(self.show_plugins)
+        placed = False
         for p in self._plugins:
-            for entry in p.create_menu_actions():
+            try:
+                entries = p.create_menu_actions()
+            except Exception:
+                logging.exception("Plugin %s couldn't list its menu entries", p.name)
+                continue
+            for entry in entries:
+                if not placed and isinstance(entry, QAction) and (entry.isSeparator() or entry.isCheckable()):
+                    menu.addAction(plugins)  # last of the dialogs, before the divider and the toggles
+                    placed = True
                 if isinstance(entry, QMenu):
                     entry.setParent(menu, entry.windowFlags())  # keeps it a popup, owned by this menu
                     menu.addMenu(entry)
                 else:
                     entry.setParent(menu)
                     menu.addAction(entry)
-        if menu.isEmpty():
-            menu.deleteLater()
-            return
+        if not placed:
+            menu.addAction(plugins)
         menu.exec(self._menu_btn.mapToGlobal(
             self._menu_btn.rect().bottomLeft()) + QPoint(0, 6))
         menu.deleteLater()  # rebuilt on every click; without this each one stays alive under the window
@@ -668,12 +754,18 @@ class TelescopeWindow(QMainWindow):
 
     @staticmethod
     def _config_of(plugin: TelescopePlugin, saved):
-        """plugin.get_config(), or what was saved before if it raises (so one plugin can't stop every save)."""
+        """plugin.get_config(), or what was saved before if it raises or gives something the settings file can't hold
+        (so one plugin can't stop every save)."""
         try:
-            return plugin.get_config()
+            cfg = plugin.get_config()
         except Exception:
             logging.exception("Plugin %s couldn't report its settings; keeping the saved ones", plugin.name)
             return saved
+        if not isinstance(cfg, dict) or not saveable(cfg):
+            logging.error("Plugin %s gave settings that can't be saved (get_config() has to return a dict of what "
+                          "JSON holds); keeping the saved ones", plugin.name)
+            return saved
+        return cfg
 
     def _config_to_update(self) -> Optional[dict]:
         # None when the saved file is there but unreadable right now: saving over it would lose every other phone's settings
@@ -693,19 +785,19 @@ class TelescopeWindow(QMainWindow):
         selected = conn.selected_device if conn else None
         cfg["selected_device"] = selected
         for p in self._plugins:
-            if p.name and p.name not in DEVICE_LOCAL_PLUGINS:
+            if p.name and not p.device_local:
                 if (c := self._config_of(p, global_pcfg.get(p.name))) is not None:
                     global_pcfg[p.name] = c
         # Per-device plugin configs: the panels' stream's, and the main stream's for a plugin that stays with it
         for p in self._plugins:
             key = self._profile_key(p)
-            if key and p.name and p.name in DEVICE_LOCAL_PLUGINS:
+            if key and p.name and p.device_local:
                 dev_pcfg = cfg.setdefault("devices", {}).setdefault(key, {}).setdefault("plugin_configs", {})
                 if (c := self._config_of(p, dev_pcfg.get(p.name))) is not None:
                     dev_pcfg[p.name] = c
         self._drop_unchanged(cfg)
-        if self._slot_memory:
-            cfg["output_slots"] = dict(self._slot_memory)
+        if self._flow.slot_memory:
+            cfg["output_slots"] = dict(self._flow.slot_memory)
         if save_config(cfg):
             self._save_failure_notified = False
         elif not self._save_failure_notified:
@@ -720,8 +812,8 @@ class TelescopeWindow(QMainWindow):
     def _profile_key(self, plugin: TelescopePlugin) -> Optional[str]:
         """Whose settings plugin has now: the picked source's, or for one that doesn't follow the panels, the main
         stream's."""
-        if not plugin.follows_focus and self._main is not None:
-            return self._main.id
+        if not plugin.follows_focus and self._sessions.main is not None:
+            return self._sessions.main.id
         conn = self._plugin("connection")
         return conn.selected_device if conn else None
 
@@ -732,7 +824,7 @@ class TelescopeWindow(QMainWindow):
             return
         pcfg = cfg.setdefault("devices", {}).setdefault(name, {}).setdefault("plugin_configs", {})
         for p in plugins:
-            if p.name and p.name in DEVICE_LOCAL_PLUGINS:
+            if p.name and p.device_local:
                 if (c := self._config_of(p, pcfg.get(p.name))) is not None:
                     pcfg[p.name] = c
         self._drop_unchanged(cfg)
@@ -756,7 +848,7 @@ class TelescopeWindow(QMainWindow):
         cfg = load_config()
         pcfg = cfg.get("devices", {}).get(name, {}).get("plugin_configs", {}) if name else {}
         for p in self._plugins if plugins is None else plugins:
-            if p.name and p.name in DEVICE_LOCAL_PLUGINS:
+            if p.name and p.device_local:
                 p.set_config(self._plugin_defaults.get(p.name, {}))
                 if p.name in pcfg:
                     self._set_plugin_config(p, pcfg[p.name])
@@ -784,16 +876,17 @@ class TelescopeWindow(QMainWindow):
         if cfg is not None and prev_name:
             prev_pcfg = cfg.setdefault("devices", {}).setdefault(prev_name, {}).setdefault("plugin_configs", {})
             for p in self._plugins:
-                if p.name and p.name in DEVICE_LOCAL_PLUGINS:
+                if p.name and p.device_local:
                     if (c := self._config_of(p, prev_pcfg.get(p.name))) is not None:
                         prev_pcfg[p.name] = c
         if cfg is not None:
             self._drop_unchanged(cfg)
             save_config(cfg)
 
-        was_streaming = self._session is not None or self._waking  # a start still waking would stream the old phone
+        # A start still waking would stream the old phone
+        was_streaming = self._session is not None or self._sessions.waking
         if was_streaming:
-            self._stop_all()
+            self._flow.stop_all()
 
         if cfg is not None:
             cfg["selected_device"] = new_name
@@ -802,20 +895,20 @@ class TelescopeWindow(QMainWindow):
         self._bus.device_changed.emit(new_name or "")
 
         if was_streaming:
-            self._start()
+            self._flow.start()
 
     def forget_device_settings(self, name: str):
         """Drop a removed phone's per-device settings from the config."""
         cfg = self._config_to_update()
-        self._slot_memory.pop(name, None)
+        self._flow.slot_memory.pop(name, None)
         if cfg is not None and (cfg.get("devices", {}).pop(name, None) is not None
                                 or cfg.get("output_slots", {}).pop(name, None) is not None):
             save_config(cfg)
 
     def move_device_settings(self, old: str, new: str):
         """A phone back with a new id (Telescope reinstalled on it): its settings and virtual camera go with it."""
-        if old in self._slot_memory:
-            self._slot_memory[new] = self._slot_memory.pop(old)
+        if old in self._flow.slot_memory:
+            self._flow.slot_memory[new] = self._flow.slot_memory.pop(old)
         cfg = self._config_to_update()
         if cfg is None:
             return
@@ -838,85 +931,35 @@ class TelescopeWindow(QMainWindow):
 
     def reconnect_stream(self, source_id: Optional[str] = None):
         """Restart the panels' stream, or source_id's, to pick up changed connection settings."""
-        waking = self._waking and self._wake_source is not None and self._wake_source.id == source_id
-        if source_id is None or waking:
-            if self._session is None and not self._waking:  # a start still waking would use the old settings
-                return
-            source = self._active_source()
-        else:
-            source = next((s for s in self._streams if s.id == source_id), None)
-            if source is None:
-                return
-            if self._waking or self._preparing:  # one start at a time: this one goes after it
-                self._restart_later.add(source_id)
-                return
-            self._move_focus(source)  # it starts with the panels' settings, so they have to be its own
-        self._stop_for_restart(source)
-        self._start(source=source)
-
-    def _after_start(self):
-        """What waited for the start under way to be through: phone states that need the panels, restarts, then
-        starts that waited for the extra cameras."""
-        while not (self._waking or self._preparing) and (self._held_states or self._restart_later or self._start_later):
-            if self._held_states:
-                source, session_id, state = self._held_states.pop(next(iter(self._held_states)))
-                self._apply_state(session_id, state, source)
-            elif self._restart_later:
-                self.reconnect_stream(self._restart_later.pop())
-            else:
-                self._start_later.pop(0)()
-
-    def _stop_for_restart(self, source: Optional[Source] = None):
-        """Stop a stream that starts again right after; stream_stopped handlers can tell with is_restarting()."""
-        source = source or self._active_source()
-        if source.session is not None:
-            source.keep_slot = source.slot  # back on the virtual camera it had, which the call app watches
-        self._restarting = True
-        try:
-            self._stop(remote_stop=False, source=source, keep_focus=True)
-        finally:
-            self._restarting = False
+        self._flow.reconnect_stream(source_id)
 
     def is_restarting(self) -> bool:
-        return self._restarting
+        return self._sessions.restarting
 
     def is_streaming(self) -> bool:
         """Whether a stream is running, the camera off (just the mic) included."""
-        return bool(self._streams)
+        return bool(self._sessions.streams)
 
     def is_streaming_from(self, source_id: Optional[str]) -> bool:
         """Whether source_id streams (or a start is waking it), whether or not the panels show it."""
-        if self._waking and self._wake_source is not None and self._wake_source.id == source_id:
-            return True
-        return any(s.id == source_id for s in self._streams)
+        return self._sessions.is_streaming_from(source_id)
 
     def stream_count(self) -> int:
-        return len(self._streams)
+        return len(self._sessions.streams)
 
     def is_starting(self) -> bool:
-        return self._waking or self._preparing
+        return self._sessions.is_starting()
 
     def stop_stream(self, source_id: Optional[str] = None):
-        """Stop the panels' stream, or source_id's; safe no-op if idle. Waking counts as active, and so does a
-        source waiting next to the streams."""
-        if self._pending is not None and source_id == self._pending.id:
-            self._drop_pending()
-            return
-        if source_id is not None:
-            source = next((s for s in self._streams if s.id == source_id), None)
-            if source is None and self._waking and self._wake_source is not None and self._wake_source.id == source_id:
-                source = self._wake_source  # its Starting tile's stop
-            if source is not None:
-                self._stop(source=source)
-        elif self._streams or self._waking:
-            self._stop()
+        """Stop the panels' stream, or source_id's; safe no-op if idle."""
+        self._flow.stop_stream(source_id)
 
     def update_stream_output(self, width=UNCHANGED, height=UNCHANGED, fps=UNCHANGED, source_id=None):
         """Push output geometry/fps to worker. No-op if not streaming."""
         if source_id is None:
             worker = self._worker
         else:
-            source = next((s for s in self._streams if s.id == source_id), None)
+            source = self._sessions.find(source_id)
             worker = source.session.worker if source is not None else None
         if worker is None:
             return
@@ -929,20 +972,8 @@ class TelescopeWindow(QMainWindow):
 
     def _on_stream_reconnected(self, source: Optional[Source] = None):
         source = source or self._worker_source(self.sender())
-        if source is None:
-            return
-        source.end_recovery()
-        self._refresh_tiles()
-        source.settling_reports = 1  # the next throughput report still counts the gap
-        session = source.session
-        if session is None:
-            return
-        if session.worker is not None and getattr(session.worker, "parked", False):
-            self._free_vcam_for(source.slot)  # the wait screen lets go before the stream takes the camera back
-            session.worker.set_parked(False)
-        if source is not self._focus and hasattr(session.client, "resend_settings"):
-            session.client.resend_settings()  # the panels' plugins send them for the stream they show
-        self._tell(source, "on_stream_start", session.url, session.client)
+        if source is not None:
+            self._flow.stream_reconnected(source)
 
     def _apply_config(self, cfg: dict):
         if not cfg:
@@ -951,11 +982,11 @@ class TelescopeWindow(QMainWindow):
         selected    = cfg.get("selected_device")
         global_pcfg = cfg.get("plugin_configs", {})
         slots = cfg.get("output_slots")
-        self._slot_memory = {k: v for k, v in slots.items() if isinstance(v, int)} if isinstance(slots, dict) else {}
+        self._flow.slot_memory = {k: v for k, v in slots.items() if isinstance(v, int)} if isinstance(slots, dict) else {}
 
         conn = self._plugin("connection")
         for p in self._plugins:
-            if not p.name or p.name in DEVICE_LOCAL_PLUGINS:
+            if not p.name or p.device_local:
                 continue
             if p.name in global_pcfg:
                 self._set_plugin_config(p, global_pcfg[p.name])
@@ -965,18 +996,18 @@ class TelescopeWindow(QMainWindow):
             conn.sync_active_profile()
 
     def _toggle(self):
-        if self._preparing:                return
-        if self._streams or self._waking: self._stop_all()
-        else:                              self._start()
+        if self._sessions.preparing:                return
+        if self._sessions.streams or self._sessions.waking: self._flow.stop_all()
+        else:                              self._flow.start()
 
     def add_stream_source(self, source):
         old = self._sources.get(source.id)
         if old is not None and old._source is not source:
             old._source = source  # the same one offered again (a new name): a stream from it carries on
         elif old is None:
-            self._sources[source.id] = PluginSource(self, source)
+            self._sources[source.id] = PluginSource(self._source_host, source)
         self._bus.stream_sources_changed.emit([(s.id, s.name) for s in self._sources.values()])
-        if len(self._streams) > 1:
+        if len(self._sessions.streams) > 1:
             self._refresh_tiles()  # a new name for one that streams
 
     def remove_stream_source(self, source_id: str):
@@ -985,25 +1016,25 @@ class TelescopeWindow(QMainWindow):
         if self.is_streaming_from(source_id):
             self.stop_stream(source_id)
         conn = self._plugin("connection")
-        if conn is not None and conn.selected_device == source_id and not self._streams:
+        if conn is not None and conn.selected_device == source_id and not self._sessions.streams:
             conn.select(next((sid for sid in self._sources if sid != source_id), None))
         del self._sources[source_id]
         self._bus.stream_sources_changed.emit([(s.id, s.name) for s in self._sources.values()])
 
     def stream_source(self, source_id: str):
         """Start source_id: picked and streamed when nothing streams yet, else next to the others."""
-        if self._waking or self._preparing or self.is_streaming_from(source_id) or source_id not in self._sources:
+        if self._sessions.is_starting() or self.is_streaming_from(source_id) or source_id not in self._sources:
             return
-        if self._streams:
+        if self._sessions.streams:
             self.add_stream(source_id)
             return
         conn = self._plugin("connection")
         if conn is not None and conn.selected_device != source_id:
             conn.select(source_id)
-        self._start(interactive=False)
+        self._flow.start(interactive=False)
 
     def stream_output(self, source_id: str) -> str:
-        source = next((s for s in self._streams if s.id == source_id), None)
+        source = self._sessions.find(source_id)
         return vcam.slot_label(source.slot) if source is not None else ""
 
     def _source_by_id(self, source_id: Optional[str]) -> Source:
@@ -1015,33 +1046,20 @@ class TelescopeWindow(QMainWindow):
 
     def _active_source(self) -> Source:
         """The panels' stream's source, the one a start is waking, or while idle the one Start would stream from."""
-        if self._focus is not None and (self._focus.session is not None or not self._waking):
-            return self._focus
-        if self._waking and self._wake_source is not None:
-            return self._wake_source  # the picker may have moved on already: a switch stops the wake after that
-        return self._selected_source()
+        return self._flow.active_source()
 
     def _worker_source(self, worker) -> Optional[Source]:
         """The source whose worker sent a signal (None: one that's been let go); called directly, the active one."""
         if worker is None:
             return self._active_source()
-        return next((s for s in self._streams if s.session.worker is worker), None)
+        return self._sessions.by_worker(worker)
 
     def _tell(self, source: Source, hook: str, *args):
-        """Call a stream hook on the plugins that hear about source: those following the panels if they show it, and
-        those staying with the first stream (the mic) if it's that one."""
-        hearing = [p for p in self._plugins if source is (self._focus if p.follows_focus else self._main)]
-        self._call(hearing, hook, *args)
+        self._flow.tell(source, hook, *args)
 
-    def _followers(self) -> list:
-        return [p for p in self._plugins if p.follows_focus]
 
-    def _stays(self) -> list:
-        """The plugins that stay with one stream (the mic) whichever the panels show."""
-        return [p for p in self._plugins if not p.follows_focus]
 
-    def _each_follower(self, hook: str, *args):
-        self._call(self._followers(), hook, *args)
+
 
     def _source_status(self, source: Source, msg: str, kind: str):
         """A source's own status line, shown in the footer while the panels show it."""
@@ -1049,139 +1067,14 @@ class TelescopeWindow(QMainWindow):
         if source is self._active_source():
             self._set_status(msg, kind)
 
-    def _start(self, interactive: bool = True, source: Optional[Source] = None):
-        """Ensure phone camera is running before reading frames; wake happens off-thread to avoid blocking UI."""
-        conn = self._plugin("connection")
-        if not conn:
-            return
-        self.clear_issue("start")
-        source = source or self._selected_source()
-        target = source.redirect() if not self._streams else None
-        if target and target in self._sources:  # e.g. Browser camera picked with a browser already there
-            if conn.selected_device != target:
-                conn.select(target)
-            source = self._sources[target]
-        self._start_id = source.id
-        self.clear_issue(f"stopped:{source.id}")
-        self._preparing = True
-        try:
-            ok = source.prepare(interactive)
-        except Exception:
-            logging.exception("Getting %s ready to stream failed", source.name)
-            self.show_issue("start", Issue("Couldn't start streaming", "Something went wrong. Copy diagnostics has the details.",
-                                           [BannerAction("Try again", self.start_again())]))
-            ok = False
-        finally:
-            self._preparing = False
-            QTimer.singleShot(0, self._after_start)
-        if not ok:
-            self._start_failed(source)
-            return
-        if not source.wakes:  # nothing to wake: the stream starts right away
-            self._begin_stream(source)
-            return
-
-        self._waking = True
-        self._wake_source = source
-        self._set_start_button(streaming=True)
-        self._start_btn.setEnabled(False)
-        self._source_status(source, "Starting the phone's mic…" if source.camera_off else "Starting the phone's camera…",
-                            "dim")
-        if self._streams:
-            self._refresh_tiles()  # its tile says it's starting
-        source.wake()
-
-    def _start_failed(self, source: Source):
-        source.keep_slot = None
-        if self._streams and source.session is None and source.waiting():
-            self._pending = source  # a tile of its own, with the panels on it, until what it waits for comes
-            self._bus.stream_start_failed.emit()
-            self._refresh_tiles()
-            return
-        if self._streams and source is self._focus and source.session is None:
-            self._move_focus(self._streams[0])  # an added camera that didn't start: back to one that streams
-        if self._main is source and source.session is None:
-            self._sync_main()  # the mic's stream didn't come back from a restart: it moves to one that streams
-        self._bus.stream_start_failed.emit()
-
-    def _on_wake_done(self, source: Source, ok: bool, reason: str):
-        self._waking = False
-        self._wake_source = None
-        self._start_btn.setEnabled(True)
-        QTimer.singleShot(0, self._after_start)
-        if not ok:
-            self._set_start_button(streaming=bool(self._streams))
-            self._source_status(source, "Not streaming", "dim")
-            self.show_issue("start", Issue("Couldn't start the phone's camera", reason,
-                                           [BannerAction("Try again", self.start_again())]))
-            self._start_failed(source)
-            return
-        self._begin_stream(source)
-
-    def _begin_stream(self, source: Source):
-        url = source.url
-        ctrl = source.control_client()
-        session_id = self._next_session_id
-        self._next_session_id += 1
-        source.camera_toggle = None
-        first = not self._streams
-        if first:
-            self._focus = self._main = source
-        source.slot = self._free_slot(source)
-        source.keep_slot = None
-        worker = None if source.camera_off else self._start_worker(url, source.auth, source)
-        self._set_session(source, StreamSession(id=session_id, url=url, client=ctrl, worker=worker, source=source))
-
-        if first:
-            self._bus.stream_started.emit(url)
-            self._each_plugin("on_stream_start", url, ctrl)
-        else:
-            self._tell(source, "on_stream_start", url, ctrl)  # the panels if they show it, the mic if it's back
-        if source.camera_off:
-            self._tell(source, "on_camera_off")
-
-        source.started(session_id)
-
-        self._set_start_button(streaming=True)
-        if source.camera_off:
-            self._show_camera_off()
-        else:
-            self._source_status(source, "Connecting...", "dim")
-        self._streams_changed()
-
-    def _free_slot(self, source: Source) -> int:
-        """The virtual camera source streams to: the usual one alone, else the one it had before if it's free."""
-        used = {s.slot for s in self._streams if s is not source}
-        if source.keep_slot is not None and source.keep_slot not in used:
-            return source.keep_slot
-        if not used:
-            return 0
-        remembered = self._slot_memory.get(source.id)
-        if isinstance(remembered, int) and 0 < remembered < vcam.MAX_SLOTS and remembered not in used:
-            return remembered
-        slot = min(set(range(vcam.MAX_SLOTS)) - used, default=0)
-        if slot and source.id:
-            self._slot_memory[source.id] = slot
-            self.schedule_save()
-        return slot
-
-    def _start_worker(self, url: str, auth, source: Source) -> StreamWorker:
-        """A video worker on url, after whatever holds the virtual camera while idle has let go of it."""
-        w, h, fps = source.stream_params()
-
-        setup = self._plugin("setup")
-        canvas_w, canvas_h = setup.get_canvas_dims() if setup else (None, None)
-        if canvas_w is None and source.auto_canvas:
-            canvas_w, canvas_h = source.auto_canvas
-        if source.slot and not (canvas_w and canvas_h):
-            canvas_w, canvas_h = vcam.DEFAULT_SIZE  # an extra camera keeps one size, whatever streams to it
-
-        self._free_vcam_for(source.slot)
-
+    def _new_worker(self, source: Source, url: str, auth, params: tuple, pipeline: list, canvas: tuple
+                    ) -> StreamWorker:
+        """A started video worker for source, with its signals coming here."""
+        w, h, fps = params
         worker = StreamWorker(
             url=url, width=w, height=h, fps=fps,
-            frame_pipeline=self._pipeline(live=source is self._focus or not self._streams),
-            canvas_width=canvas_w, canvas_height=canvas_h,
+            frame_pipeline=pipeline,
+            canvas_width=canvas[0], canvas_height=canvas[1],
             auth=auth,
             open_reader=source.open_reader,
             slot=source.slot,
@@ -1193,36 +1086,14 @@ class TelescopeWindow(QMainWindow):
         worker.start()
         return worker
 
-    def _free_vcam_for(self, slot: int):
-        """Whatever holds slot's virtual camera while idle (the wait screen) lets go, for a stream about to open it."""
-        if slot == 0:
-            self._each_plugin("on_stream_starting")
-        self._announce_idle_outputs(opening=slot)
-
-    def _park_stream(self, source: Source):
-        """A stream gone a while: its virtual camera gets the wait screen instead of the last frame, until it's back."""
-        worker = source.session.worker if source.session is not None else None
-        if not source.recovering or worker is None or getattr(worker, "parked", True):
-            return
-        logging.info("%s has been gone a while; the virtual camera shows the wait screen", source.name)
-        worker.set_parked(True)
-        self._announce_idle_outputs()
-
-    def _pipeline(self, live: bool = True) -> list:
-        """The plugins' frame steps: live for the stream the panels show, or frozen at their current settings for one
-        that carries on while they show another."""
-        steps = []
-        for p in self._plugins:
-            if type(p).process_frame is TelescopePlugin.process_frame:
-                continue
-            try:
-                fn = p.process_frame if live else p.frame_step()
-            except Exception:
-                logging.exception("Plugin %s couldn't freeze its frame step; leaving it out", p.name)
-                continue
-            if fn is not None:
-                steps.append(guarded_step(p.name or type(p).__name__, fn))
-        return steps
+    def _show_stream(self, source: Source):
+        """The footer for the stream the panels show now."""
+        self._clear_pending_resolution(source)
+        self._fps_lbl.setText(source.fps_text)
+        self._fps_lbl.setToolTip("")
+        self._net_lbl.setStyleSheet("")
+        self._net_lbl.setText(source.net_text)
+        self._set_status(*source.status)
 
     def _end_worker(self, worker: StreamWorker):
         for signal, slot in ((worker.status, self._on_worker_status),
@@ -1244,156 +1115,39 @@ class TelescopeWindow(QMainWindow):
 
     def focus_stream(self, source_id: str):
         """Point the panels at source_id's stream (a tile was clicked)."""
-        source = next((s for s in self._streams if s.id == source_id), None)
-        if source is None and self._pending is not None and self._pending.id == source_id:
-            source = self._pending
-        if source is not None and not self._waking:
-            self._move_focus(source)
+        self._flow.focus_stream(source_id)
 
     def pick_source(self, source_id: Optional[str]) -> bool:
-        """The picker moved to source_id. True if that's handled here: its stream gets the panels, or with several
-        running it takes the place of the one they show."""
-        source = next((s for s in self._streams if s.id == source_id), None)
-        if source is not None:
-            if not self._waking:
-                self._move_focus(source)
-            return True
-        if len(self._streams) > 1 and not self._waking and not self._preparing:
-            old = self._focus
-            self._stop(source=old, keep_focus=True)
-            new = self._source_by_id(source_id)
-            self._move_focus(new)
-            self._start(source=new)
-            return True
-        return False
+        return self._flow.pick_source(source_id)
 
     def add_stream(self, source_id: str, before: Optional[Callable[[], None]] = None):
-        """Start streaming source_id next to what streams already, to a virtual camera of its own (before: as in
-        _start_source)."""
-        if (self._waking or self._preparing or not self._streams or len(self._streams) >= vcam.MAX_SLOTS
-                or self.is_streaming_from(source_id)):
-            return
-        source = self._source_by_id(source_id)
-        if not vcam.slot_ready(self._free_slot(source)):
-            self._set_up_slots(lambda: self.add_stream(source_id, before))
-            return
-        if self._focus is not None and self._focus.camera_off:
-            self.set_camera_on(True)  # one camera off is for the mic alone; with two it would just be confusing
-        self._move_focus(source)  # its own settings first, so it starts with them
-        if before is not None:
-            before()
-        self._start(source=source)
-
-    def _move_focus(self, source: Source):
-        old = self._focus
-        if source is old:
-            return
-        if old is not None:
-            if old.session is not None:
-                self._save_profile(old.id, self._followers())  # as it was, before the stop hooks
-                if old.session.worker is not None:
-                    old.session.worker.set_pipeline(self._pipeline(live=False))
-                self._each_follower("on_stream_stop")
-            if old.behind:
-                old.behind = False
-                self._bus.stream_behind.emit(False)
-        self._focus = source
-        conn = self._plugin("connection")
-        if conn is not None:
-            conn.show_selected(source.id)
-        self._apply_device_profile(source.id, self._followers())
-        self._bus.device_changed.emit(source.id or "")
-        self._show_focus()
-
-    def _show_focus(self):
-        """Bring the panels and footer up to date with the stream they show now."""
-        source, session = self._focus, self._focus.session
-        self._clear_pending_resolution(source)
-        self._fps_lbl.setText(source.fps_text)
-        self._fps_lbl.setToolTip("")
-        self._net_lbl.setStyleSheet("")
-        self._net_lbl.setText(source.net_text)
-        self._set_status(*source.status)
-        if session is not None:
-            if session.worker is not None:
-                session.worker.set_pipeline(self._pipeline())
-            self._each_follower("on_stream_start", session.url, session.client)
-            source.refresh_state(session.id)
-            if source.recovering:
-                self._bus.stream_lost.emit()
-            elif source.connected:
-                self._bus.stream_connected.emit()
-        self._refresh_tiles()
-
-    def _sync_main(self):
-        """The first stream left is the one plugins that don't follow the panels (the mic) hear about."""
-        main = self._streams[0] if self._streams else None
-        if main is self._main or self._stopping_all:
-            return
-        self._set_main(main)
+        self._flow.add_stream(source_id, before)
 
     def make_main(self, source_id: str) -> bool:
-        """Move the plugins that don't follow the panels (the mic) to source_id's stream. False if it doesn't stream."""
-        main = next((s for s in self._streams if s.id == source_id and s.session is not None), None)
-        if main is None or self._stopping_all or self._restarting:
-            return False
-        if main is not self._main:
-            self._set_main(main)
-        return True
+        return self._flow.make_main(source_id)
 
     def main_stream(self) -> Optional[tuple]:
-        """(id, name) of the stream the mic is on, while one streams."""
-        main = self._main
-        return (main.id, main.name) if main is not None and main.session is not None else None
-
-    def _set_main(self, main: Optional[Source]):
-        stays = self._stays()
-        old, self._main = self._main, None
-        if old is not None:
-            self._tell_stays("on_stream_stop")
-            self._save_profile(old.id, stays)
-        self._main = main
-        if main is not None:
-            self._apply_device_profile(main.id, stays)
-            self._tell(main, "on_stream_start", main.session.url, main.session.client)
-
-    def _tell_stays(self, hook: str):
-        self._call(self._stays(), hook)
-
-    def _streams_changed(self):
-        self._announce_idle_outputs()
-        self._bus.streams_changed.emit(len(self._streams))
-        self._refresh_tiles()
-
-    def _announce_idle_outputs(self, opening: Optional[int] = None):
-        """Tell the wait screen which cameras nothing streams to; opening is one a stream is about to take. The main
-        one counts only while others stream: alone, its wait screen follows the stream."""
-        # Camera off, or a stream gone a while (parked): free
-        used = {s.slot for s in self._streams
-                if s.session.worker is not None and not getattr(s.session.worker, "parked", False)} | {opening}
-        first = 0 if self._streams else 1
-        self._bus.idle_outputs.emit([n for n in range(first, vcam.MAX_SLOTS)
-                                     if n not in used and (n == 0 or vcam.slot_ready(n))])
+        return self._flow.main_stream()
 
     def _refresh_tiles(self):
         """The tile row: one per stream while there's more than one."""
         entries = []
-        for s in self._streams:
+        for s in self._sessions.streams:
             if s.recovering:
                 state, kind = "Reconnecting", "status_warn"
             elif s.connected or s.session.worker is None:
                 state, kind = "Live", "status_ok"
             else:
                 state, kind = "Connecting", "status_dim"
-            entries.append((s.id or "", s.name, vcam.slot_label(s.slot), state, kind, s is self._focus))
-        if self._waking and self._wake_source is not None and self._streams:
-            s = self._wake_source
-            entries.append((s.id or "", s.name, vcam.slot_label(self._free_slot(s)), "Starting", "status_dim",
-                            s is self._focus))
-        if self._pending is not None and self._streams:
-            s = self._pending
-            entries.append((s.id or "", s.name, vcam.slot_label(self._free_slot(s)), "Waiting", "status_dim",
-                            s is self._focus))
+            entries.append((s.id or "", s.name, vcam.slot_label(s.slot), state, kind, s is self._sessions.focus))
+        if self._sessions.waking and self._sessions.wake_source is not None and self._sessions.streams:
+            s = self._sessions.wake_source
+            entries.append((s.id or "", s.name, vcam.slot_label(self._flow.free_slot(s)), "Starting", "status_dim",
+                            s is self._sessions.focus))
+        if self._sessions.pending is not None and self._sessions.streams:
+            s = self._sessions.pending
+            entries.append((s.id or "", s.name, vcam.slot_label(self._flow.free_slot(s)), "Waiting", "status_dim",
+                            s is self._sessions.focus))
         self._tiles.show_streams(entries)
         if len(entries) > 1:
             if not self._thumb_timer.isActive():
@@ -1405,7 +1159,7 @@ class TelescopeWindow(QMainWindow):
     def _update_thumbnails(self):
         if not self.isVisible():
             return
-        for s in self._streams:
+        for s in self._sessions.streams:
             worker = s.session.worker if s.session is not None else None
             self._tiles.set_frame(s.id or "", worker.latest_frame() if worker is not None else None)
 
@@ -1413,14 +1167,14 @@ class TelescopeWindow(QMainWindow):
         """[(id, name)] of what Add camera offers: every phone and StreamSource that isn't streaming."""
         conn = self._plugin("connection")
         phones = [(p.id, p.name) for p in getattr(conn, "phones", [])] if conn is not None else []
-        pending = self._pending.id if self._pending is not None else None
+        pending = self._sessions.pending.id if self._sessions.pending is not None else None
         return [(sid, name) for sid, name in phones + [(s.id, s.name) for s in self._sources.values()]
                 if not self.is_streaming_from(sid) and sid != pending]
 
     def _show_add_button(self):
-        self._add_btn.setVisible(bool(self._streams) and len(self._streams) < vcam.MAX_SLOTS
+        self._add_btn.setVisible(bool(self._sessions.streams) and len(self._sessions.streams) < vcam.MAX_SLOTS
                                  and bool(self._add_candidates()))
-        self._add_btn.setEnabled(not self._waking)
+        self._add_btn.setEnabled(not self._sessions.waking)
 
     def _show_add_menu(self):
         menu = QMenu(self)
@@ -1460,7 +1214,7 @@ class TelescopeWindow(QMainWindow):
 
     def remove_extra_cameras(self, on_done=None):
         extras = [n for n in range(1, vcam.MAX_SLOTS) if vcam.slot_ready(n)]
-        if self._extras_done is not None or not extras or any(s.slot for s in self._streams):
+        if self._extras_done is not None or not extras or any(s.slot for s in self._sessions.streams):
             if on_done is not None:
                 on_done(False, "Stop the streams going to them first" if extras else "There are none to remove")
             return
@@ -1485,7 +1239,7 @@ class TelescopeWindow(QMainWindow):
 
     def _on_extras_removed(self, ok: bool, msg: str):
         done, self._extras_done = self._extras_done, None
-        self._announce_idle_outputs()
+        self._flow.announce_idle_outputs()
         if done is not None:
             done(ok, msg)
 
@@ -1501,13 +1255,13 @@ class TelescopeWindow(QMainWindow):
 
     def _on_slots_ready(self, ok: bool, msg: str, command: str):
         waiting, self._slots_then = self._slots_then or [], None
-        if self._focus is not None:
-            self._set_status(*self._focus.status)
+        if self._sessions.focus is not None:
+            self._set_status(*self._sessions.focus.status)
         if ok:
             self.clear_issue("vcam")
-            self._announce_idle_outputs()
-            self._start_later.extend(waiting)  # a phone wakes before the next one can start
-            self._after_start()
+            self._flow.announce_idle_outputs()
+            self._sessions.start_later.extend(waiting)  # a phone wakes before the next one can start
+            self._flow.after_start()
             return
         if msg == CANCELLED:
             return
@@ -1530,7 +1284,7 @@ class TelescopeWindow(QMainWindow):
         source = self._active_source()
         if not source.mic_alone:
             return False, "Only a phone can turn its camera off and keep streaming its mic."
-        if len(self._streams) > 1 or (self._streams and source.session is None):
+        if len(self._sessions.streams) > 1 or (self._sessions.streams and source.session is None):
             return False, "Only while one camera streams."
         if not self._mic_enabled():
             return False, "Turn on the phone mic first. With the camera off, the mic is all that streams."
@@ -1559,13 +1313,13 @@ class TelescopeWindow(QMainWindow):
             else:
                 self._camera_off_now(session)
         else:
-            self._set_start_button(streaming=self._waking)
+            self._set_start_button(streaming=self._sessions.waking)
         self._bus.camera_on_changed.emit(on)
 
     def _on_source_selected(self, _sid: str):
         """Each source keeps its own camera choice, so picking another can change what Start does."""
-        if not self._streams and self.is_camera_on() != self._camera_on_shown:
-            self._set_start_button(streaming=self._waking)
+        if not self._sessions.streams and self.is_camera_on() != self._camera_on_shown:
+            self._set_start_button(streaming=self._sessions.waking)
             self._bus.camera_on_changed.emit(self.is_camera_on())
 
     def _camera_off_now(self, session: StreamSession):
@@ -1573,19 +1327,19 @@ class TelescopeWindow(QMainWindow):
         source.end_recovery()
         if session.worker is not None:
             self._end_worker(session.worker)
-            self._set_session(source, replace(session, worker=None))
-            self._announce_idle_outputs()  # its virtual camera gets the wait screen
+            self._sessions.add(source, replace(session, worker=None))
+            self._flow.announce_idle_outputs()  # its virtual camera gets the wait screen
         self._clear_pending_resolution(source)
         self._set_behind(False, source)
         self._tell(source, "on_camera_off")
-        if source is self._focus:
+        if source is self._sessions.focus:
             self._show_camera_off()
 
     def _camera_on_now(self, session: StreamSession):
         session.source.stop_watching_alive()
         session.source.end_recovery()
-        self._set_session(session.source, replace(
-            session, worker=self._start_worker(session.url, session.client.auth, session.source)))
+        self._sessions.add(session.source, replace(
+            session, worker=self._flow.start_worker(session.url, session.client.auth, session.source)))
         self._tell(session.source, "on_camera_on")
         self._set_status("Turning the phone's camera on…", "dim")
         session.source.camera_turned_on(session.id)
@@ -1609,7 +1363,7 @@ class TelescopeWindow(QMainWindow):
 
     def _show_tray_state(self, *_):
         """The tray icon and its tooltip say what's streaming: a red dot for the camera, a mic for the mic."""
-        streaming = bool(self._streams)
+        streaming = bool(self._sessions.streams)
         camera = streaming and self.is_camera_on()
         enabled, muted = self._mic_state
         mic = ("muted" if muted else "on") if streaming and enabled else None
@@ -1625,106 +1379,6 @@ class TelescopeWindow(QMainWindow):
             tip = "Telescope: streaming the mic, camera off" + (" (muted)" if mic == "muted" else "")
         self._tray.setToolTip(tip)
 
-    def _drop_pending(self):
-        source, self._pending = self._pending, None
-        if source is self._focus and self._streams:
-            self._move_focus(self._streams[0])
-        self._refresh_tiles()
-        source.cancel_wait()
-
-    def _stop_all(self, remote_stop: bool = True):
-        """Stop every stream, and a start still waking a phone (the Stop button)."""
-        if self._pending is not None:
-            self._drop_pending()
-        self._restart_later.clear()
-        self._held_states.clear()
-        self._start_later.clear()
-        shown, main = self._active_source(), self._main
-        others = [s for s in self._streams if s is not shown]
-        if self._waking and self._wake_source not in (None, shown):
-            others.append(self._wake_source)  # one restarting next to the shown stream
-        self._stopping_all = True
-        try:
-            for source in others:
-                self._stop(remote_stop, source)
-        finally:
-            self._stopping_all = False
-        self._stop(remote_stop)
-        if main is not None and main is not shown:
-            # The mic has the first stream's settings; idle, they'd be saved as the shown one's
-            stays = self._stays()
-            self._save_profile(main.id, stays)
-            self._apply_device_profile(shown.id, stays)
-
-    def _stop(self, remote_stop: bool = True, source: Optional[Source] = None, keep_focus: bool = False):
-        """Tear down a stream, the panels' one unless source says; remote_stop=False for reconnects (changed
-        address/vcam reload). keep_focus: it starts again right after, so the panels stay on it."""
-        source = source or self._active_source()
-        source.end_recovery()
-        was_waking = self._waking and self._wake_source in (None, source)
-        if was_waking:
-            self._waking = False
-            self._wake_source = None
-            self._start_btn.setEnabled(True)
-            QTimer.singleShot(0, self._after_start)
-        shown = source is self._focus or self._focus is None
-
-        # Forget the session before the synchronous teardown below, so any in-flight async state fetch sees "no active session" immediately rather than racing the unwind.
-        session = source.session
-        self._forget_stream(source)
-        worker = session.worker if session else None
-        ctrl = session.client if session else None
-
-        source.stopped(remote_stop, active=bool(session or was_waking))
-
-        if worker:
-            self._end_worker(worker)
-        if ctrl:
-            ctrl.close()
-        camera_was_off = source.camera_off
-        if not self._restarting:
-            self._canvas_restart = False  # stopped for real: a canvas resize under way doesn't start it again
-            source.camera_off = source.camera_off_auto = False  # each stream starts with the camera on
-            source.keep_slot = None
-            self._restart_later.discard(source.id)
-            self._held_states.pop(source.id, None)
-        self._clear_pending_resolution(source)
-        source.settling_reports = 0
-        source.arrival_slow = False
-        source.forget_stream_status()
-        self._set_behind(False, source)
-
-        if self._streams:  # others carry on
-            if shown:
-                self._save_profile(source.id, self._followers())
-                self._each_follower("on_stream_stop")
-                self._show_focus_stopped()
-                if not keep_focus:
-                    self._move_focus(self._streams[0])
-            if source is self._main:
-                if self._restarting:  # back in a moment: the mic waits for it rather than moving to another
-                    self._tell_stays("on_stream_stop")
-                else:
-                    self._sync_main()
-            self._streams_changed()
-            return
-
-        if shown:
-            self.clear_issue("camera")
-        self._focus = self._main = None
-        if self._pending is not None and not self._restarting:  # the last stream next to it stopped: it's picked
-            pending, self._pending = self._pending, None
-            conn = self._plugin("connection")
-            if conn is not None:
-                conn.select(pending.id)
-        self._set_start_button(streaming=self._waking)
-        self._show_focus_stopped()
-        self._bus.stream_stopped.emit()
-        self._each_plugin("on_stream_stop")
-        if camera_was_off and not source.camera_off:
-            self._bus.camera_on_changed.emit(True)
-        self._streams_changed()
-
     def _show_focus_stopped(self):
         self._fps_lbl.setText("—")
         self._net_lbl.setStyleSheet("")
@@ -1732,38 +1386,29 @@ class TelescopeWindow(QMainWindow):
         self._set_status("Not streaming", "dim")
         self._fps_lbl.setToolTip("")
 
-    def _begin_recovery(self, source: Optional[Source] = None):
-        """The stream dropped: the source looks for its way back (a phone may be reachable another way now)."""
-        source = source or (self._session.source if self._session is not None else None)
-        if source is None or source.session is None or source.recovering:
-            return
-        source.recovering = True
-        source.start_lost_clock()
-        self._refresh_tiles()
-        self._set_behind(False, source)
-        if source is self._focus:
-            self._bus.stream_lost.emit()
-        source.lost()
-
     def _drain_phone_stops(self, timeout: float = 2.0):
         """Wait for remote stops to complete, but never block quit indefinitely."""
         deadline = time.monotonic() + timeout
         for source in (*self._phones.values(), *self._sources.values()):
             source.drain_stops(deadline)
 
+    def canvas_size(self) -> tuple:
+        setup = self._plugin("setup")
+        return setup.get_canvas_dims() if setup else (None, None)
+
     def restart_vcam_canvas(self, w, h, on_done=None):
         """Stop stream, optionally reload the vcam driver, restart stream."""
-        if len(self._streams) > 1:  # the reload needs every virtual camera free, and would drop the extra ones
+        if len(self._sessions.streams) > 1:  # the reload needs every virtual camera free, and would drop the extra ones
             if on_done is not None:
                 on_done(False, "Stop all but one camera first, then apply again")
             return
         self._vcam_reload_callback = on_done
-        was_streaming = self._session is not None or self._waking  # a start still waking restarts after it too
-        self._canvas_restart = self._canvas_restart or was_streaming
+        was_streaming = self._session is not None or self._sessions.waking  # a start still waking restarts after it too
+        self._sessions.canvas_restart = self._sessions.canvas_restart or was_streaming
         old_worker = self._worker  # capture before _stop() clears it
         # Desktop-side driver reload only - the phone keeps streaming through it.
         if was_streaming:
-            self._stop_for_restart()
+            self._flow.stop_for_restart()
         # Idle: nothing to stop, and a stream_stopped now would tell Startup the user stopped one
 
         if IS_LINUX:
@@ -1795,9 +1440,9 @@ class TelescopeWindow(QMainWindow):
             threading.Thread(target=worker, daemon=True).start()
 
     def _on_canvas_reload_done(self, ok: bool, msg: str, restart_stream: bool, command: str = ""):
-        restart = restart_stream and self._canvas_restart  # not after a Stop since
+        restart = restart_stream and self._sessions.canvas_restart  # not after a Stop since
         if restart_stream:
-            self._canvas_restart = False
+            self._sessions.canvas_restart = False
         if ok:
             self._set_status(f"Loopback reloaded: {msg}" if IS_LINUX else "Canvas updated", "ok")
             if restart:
@@ -1834,13 +1479,14 @@ class TelescopeWindow(QMainWindow):
             logging.exception("Phone sent a malformed /v1/state response - not applying it")
             self._set_status("The phone sent data this version can't read. Update both apps to the same version.", "err")
             return
-        if source is not self._focus and self._codec_trouble(source, state):
-            if self._waking or self._preparing:
-                self._held_states[source.id] = (source, session_id, state)  # the panels belong to that start for now
+        if source is not self._sessions.focus and self._codec_trouble(source, state):
+            if self._sessions.is_starting():
+                # The panels belong to that start for now
+                self._sessions.held_states[source.id] = (source, session_id, state)
             else:
-                self._move_focus(source)  # Stream output falls back, or stops and says why, for the panels' stream
+                self._flow.move_focus(source)  # Stream output falls back, or stops and says why, for the panels' stream
         # Plugins get the dict as sent; PhoneState above only checks it
-        if source is self._focus:
+        if source is self._sessions.focus:
             self._bus.phone_state_updated.emit(state)
         if source.session is None or source.session.id != session_id:
             return  # something listening (Monitoring, too hot) stopped the stream just now
@@ -1886,8 +1532,8 @@ class TelescopeWindow(QMainWindow):
         return True
 
     def stop_all_streams(self):
-        if self._streams or self._waking:
-            self._stop_all()
+        if self._sessions.streams or self._sessions.waking:
+            self._flow.stop_all()
 
     def shortcut_actions(self) -> list:
         return list(self._shortcut_actions)
@@ -1922,19 +1568,19 @@ class TelescopeWindow(QMainWindow):
         self._tray_quit()
 
     def start_stream(self, interactive: bool = True):
-        if not self._streams and not self._waking and not self._preparing:
-            self._start(interactive)
+        if not self._sessions.streams and not self._sessions.waking and not self._sessions.preparing:
+            self._flow.start(interactive)
 
     def start_again(self, source_id: Optional[str] = None, before: Optional[Callable[[], None]] = None
                     ) -> Callable[[], None]:
-        source_id = self._start_id if source_id is None else source_id
+        source_id = self._flow.start_id if source_id is None else source_id
         return lambda: self._start_source(source_id, before)
 
     def focused_source_id(self) -> Optional[str]:
         return self._active_source().id
 
     def background_streams(self) -> list:
-        return [(s.id, s.name, s.session.client) for s in self._streams if s is not self._focus]
+        return [(s.id, s.name, s.session.client) for s in self._sessions.background()]
 
     def device_config(self, source_id: Optional[str], plugin_name: str) -> dict:
         cfg = load_config()
@@ -1945,7 +1591,7 @@ class TelescopeWindow(QMainWindow):
     def _start_source(self, source_id: Optional[str], before: Optional[Callable[[], None]] = None):
         """Start source_id by itself, or next to what streams already (a stopped or failed one, from its banner).
         before runs once the panels show it, so a setting it changes is that source's."""
-        if not self._streams:
+        if not self._sessions.streams:
             conn = self._plugin("connection")
             if conn is not None and source_id is not None and conn.selected_device != source_id:
                 conn.select(source_id)
@@ -1967,8 +1613,14 @@ class TelescopeWindow(QMainWindow):
 
     def diagnostics_report(self) -> str:
         state = {"Streaming": ("yes" if self.is_camera_on() else "yes, camera off") if self.is_streaming() else "no"}
-        if len(self._streams) > 1:
-            state["Streams"] = str(len(self._streams))
+        if len(self._sessions.streams) > 1:
+            state["Streams"] = str(len(self._sessions.streams))
+        if off := self.plugins_off():
+            state["Plugins off"] = ", ".join(p.name for p in off)
+        if self._added_plugins or self._plugin_problems:
+            added = [f"{p.name} (running)" for p in self._added_plugins]
+            added += [f"{name} (didn't start)" for name in self._plugin_problems]
+            state["Added plugins"] = ", ".join(added)
         for plugin in self._plugins:
             try:
                 state.update(plugin.diagnostics())
@@ -1990,6 +1642,10 @@ class TelescopeWindow(QMainWindow):
         self._shut_down()
         QApplication.quit()
 
+    def _shut_down_and_exit(self, code: int):
+        self._shut_down()
+        QApplication.exit(code)
+
     def _flush_save(self):
         if self._save_timer.isActive():  # a setting changed just before quitting
             self._save_timer.stop()
@@ -1997,7 +1653,7 @@ class TelescopeWindow(QMainWindow):
 
     def _shut_down(self):
         """Everything quitting does, each step on its own, so one that fails can't keep the app from closing."""
-        for step in (self._stop_all, self._flush_save, self._drain_phone_stops, self._shutdown_plugins):
+        for step in (self._flow.stop_all, self._flush_save, self._drain_phone_stops, self._shutdown_plugins):
             try:
                 step()
             except Exception:
@@ -2085,7 +1741,7 @@ class TelescopeWindow(QMainWindow):
         if source is None:
             return  # a worker that's been let go
         source.note_status(kind, msg)
-        if kind in ("ok", "waiting", "reconnecting") and len(self._streams) > 1:
+        if kind in ("ok", "waiting", "reconnecting") and len(self._sessions.streams) > 1:
             self._refresh_tiles()  # its tile says how it's doing
         if source is not self._active_source():
             self._background_status(source, kind)
@@ -2116,15 +1772,15 @@ class TelescopeWindow(QMainWindow):
                 # still needs its Start
                 if key != "h264" and (not key.startswith("stopped:") or key == f"stopped:{source.id}"):
                     self._banners.clear_issue(key)
-            self._bus.stream_connected.emit()
+            self._bus.stream_connected.emit(source.id or "")
         elif kind == "warn":
             self._set_status(msg, "warn")
         elif kind == "waiting":  # no first frame yet: maybe the route died between waking the phone and now
             self._set_status(msg, "warn")
-            self._begin_recovery()
+            self._flow.begin_recovery()
         elif kind == "reconnecting":
             self._start_reconnecting_animation(msg)
-            self._begin_recovery()
+            self._flow.begin_recovery()
         elif kind == "idle":
             self._clear_pending_resolution()
             self._fps_lbl.setText("—")
@@ -2134,7 +1790,7 @@ class TelescopeWindow(QMainWindow):
             if self._session:
                 # Stop disconnects the worker first, so this is a worker that ended by itself: tidy up like a Stop.
                 logging.warning("The stream worker ended by itself")
-                self._stop()
+                self._flow.stop()
                 self.show_issue(f"stopped:{source.id}", Issue(
                     "The stream stopped unexpectedly", "Copy diagnostics has the details.",
                     [BannerAction("Start", lambda sid=source.id: self._start_source(sid))], kind="warn"))
@@ -2144,10 +1800,12 @@ class TelescopeWindow(QMainWindow):
     def _background_status(self, source: Source, kind: str):
         """A stream the panels don't show: its tile says how it's doing, and a dropped one still finds its way back."""
         if kind in ("waiting", "reconnecting"):
-            self._begin_recovery(source)
+            self._flow.begin_recovery(source)
+        elif kind == "ok":
+            self._bus.stream_connected.emit(source.id or "")
         elif kind == "idle" and source.session is not None:
             logging.warning("The stream worker for %s ended by itself", source.name)
-            self._stop(source=source)
+            self._flow.stop(source=source)
             self.show_issue(f"stopped:{source.id}", Issue(
                 f"The stream from {source.name} stopped unexpectedly", "Copy diagnostics has the details.",
                 [BannerAction("Start", lambda sid=source.id: self._start_source(sid))], kind="warn"))
@@ -2186,8 +1844,7 @@ class TelescopeWindow(QMainWindow):
         source = source or self._active_source()
         if behind != source.behind:
             source.behind = behind
-            if source is self._focus or self._focus is None:
-                self._bus.stream_behind.emit(behind)
+            self._bus.stream_behind.emit(source.id or "", behind)
 
     def _set_status(self, msg: str, kind: str):
         diagnostics.events.note(f"Status: {msg}")
@@ -2218,14 +1875,14 @@ class TelescopeWindow(QMainWindow):
             self._bus.window_shown.emit(shown)
 
     def closeEvent(self, event):
-        if self._tray and (self._streams or self._keep_in_tray):
+        if self._tray and (self._sessions.streams or self._keep_in_tray):
             event.ignore()
             self.hide()
             if not self._tray_close_notified:
                 self._tray_close_notified = True
                 self.send_notification(
                     "Telescope is still running",
-                    ("Streaming continues in the background." if self._streams else
+                    ("Streaming continues in the background." if self._sessions.streams else
                      "It starts streaming by itself when it needs to.")
                     + " Right-click the tray icon to quit.",
                     urgent=False,

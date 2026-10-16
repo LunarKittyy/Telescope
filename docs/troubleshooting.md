@@ -2,6 +2,7 @@
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
+| A card or a menu entry is gone | That part of Telescope is switched off in **Plugins…** | Open the settings menu (it reads **Plugins… (N off)** when something is off) and switch it back on or click **Turn all back on**. Then click **Restart now** |
 | Manual exposure greyed out | Camera doesn't report `MANUAL_SENSOR` capability | Some front cameras and telephoto lenses don't support it; use Auto |
 | `/dev/video11` gone after reboot | v4l2loopback isn't loaded at boot | Start Streaming loads it. Leave **Also switch it on at every startup** ticked (or tick **Load at boot** in Advanced) and it won't ask again |
 | pyvirtualcam fails to open (Linux) | Module not loaded, or not installed | Install `v4l2loopback-dkms` (Debian/Ubuntu/Arch) or `v4l2loopback` (Fedora/Nobara, via RPM Fusion), then click Start again. **Advanced** can load it by hand |

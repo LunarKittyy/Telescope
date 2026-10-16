@@ -35,6 +35,9 @@ class _Host:
         self.starts = 0
         self.again = []  # the source each Try again was for
         self.configs = {}
+    def focused_source_id(self):
+        return None
+
     def plugin_config(self, name):
         return self.configs.get(name)
 
@@ -156,6 +159,16 @@ PIN = "ab" * 32
 def _add(plugin, pid="id-a", name="Pixel", token="tok-a", ips=("10.0.0.5",)):
     plugin._on_phone_paired(PairingResult(name=name, ips=list(ips), token=token,
                                           source_ip=ips[0] if ips else None, phone_id=pid, cert_sha256=PIN))
+
+
+def test_once_every_plugin_is_in_connection_says_again_how_many_phones_and_whats_picked(plugin_env):
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    heard = []
+    plugin._bus.phones_changed.connect(lambda n: heard.append(("phones", n)))
+    plugin._bus.source_selected.connect(lambda sid: heard.append(("source", sid)))
+    plugin.on_plugins_ready()
+    assert heard == [("phones", 1), ("source", "")]
 
 
 # ── Text ──────────────────────────────────────────────────────────────────────
@@ -922,7 +935,7 @@ def _streaming_over(plugin, route):
     url, _token, ok = plugin.get_stream_info()
     assert ok
     plugin.on_stream_start(url, None)
-    plugin._on_stream_connected()
+    plugin._on_stream_connected("")
 
 
 def test_a_lost_stream_says_reconnecting_until_frames_return(plugin_env):
@@ -931,11 +944,19 @@ def test_a_lost_stream_says_reconnecting_until_frames_return(plugin_env):
     _streaming_over(plugin, WIFI)
     assert plugin._status_lbl.fullText() == "● Streaming"
 
-    plugin._on_stream_lost()
+    plugin._on_stream_lost("")
     assert plugin._status_lbl.fullText() == "Reconnecting…"
     assert not plugin._usb_watch_timer.isActive()  # recovery picks USB up by itself
 
-    plugin._on_stream_connected()
+    plugin._on_stream_connected("")
+    assert plugin._status_lbl.fullText() == "● Streaming"
+
+
+def test_another_streams_drop_leaves_the_card_alone(plugin_env):
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    _streaming_over(plugin, WIFI)
+    plugin._on_stream_lost("id-b")
     assert plugin._status_lbl.fullText() == "● Streaming"
 
 
@@ -1279,7 +1300,7 @@ def test_card_says_connecting_until_the_first_frame(plugin_env):
     plugin._stream_route = WIFI
     plugin.on_stream_start("url", None)
     assert plugin._status_lbl.text() == "Connecting…"
-    plugin._bus.stream_connected.emit()
+    plugin._bus.stream_connected.emit("")
     assert plugin._status_lbl.text() == "● Streaming"
 
 

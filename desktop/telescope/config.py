@@ -15,10 +15,6 @@ CONFIG_VERSION = 3
 _APP_NAME = "Telescope"
 _CONFIG_FILENAME = "telescope_config.json"
 
-# Plugin configs that are stored per-device rather than globally
-DEVICE_LOCAL_PLUGINS = frozenset({"camera_control", "stream_output", "transforms", "monitoring", "presets", "microphone"})
-
-
 _last_backed_up: Optional[tuple] = None
 _reset_notice: Optional[str] = None
 
@@ -119,6 +115,15 @@ def _tighten(chmod: Callable, path: Path) -> None:
         chmod()
     except OSError:
         logger.warning("Couldn't restrict permissions on %s", path)
+
+
+def saveable(value) -> bool:
+    """Whether save_config() can write value (what JSON holds, numpy numbers and arrays included)."""
+    try:
+        json.dumps(value, default=_plain)
+    except (TypeError, ValueError):
+        return False
+    return True
 
 
 def _plain(value):

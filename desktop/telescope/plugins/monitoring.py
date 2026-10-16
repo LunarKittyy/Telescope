@@ -58,6 +58,10 @@ def _reading(state: dict) -> Optional[tuple]:
 
 class MonitoringPlugin(TelescopePlugin):
     name = "monitoring"
+    title = "Monitoring"
+    about = "The phone's battery and temperature, with warnings when they get low or high."
+    when_off = "Without it there's no Monitoring card and nothing warns you about a low battery or a hot phone."
+    device_local = True
     panel_region = "right"  # the phone's own health, beside its camera
 
     def setup(self, host, bus):
@@ -138,27 +142,42 @@ class MonitoringPlugin(TelescopePlugin):
         return notify, stop
 
     def on_stream_start(self, stream_url: str, ctrl):
-        sid = self._host.focused_source_id()
-        kept = self._others.pop(sid, None)
         self._timer.start()
         if ctrl is not None and ctrl is self._ctrl:
             return  # a reconnect of the same stream: keep the reading shown and don't warn about it again
-        self._ctrl, self._sid = ctrl, sid
+        self._show_stream(ctrl, None)
+
+    def on_focus_gained(self, stream_url: str, ctrl):
+        self._timer.start()
+        kept = self._others.pop(self._host.focused_source_id(), None)
+        self._show_stream(ctrl, kept if kept is not None and kept["ctrl"] is ctrl else None)
+
+    def _show_stream(self, ctrl, kept):
+        """The panels show ctrl's stream now; kept is what was already warned about for it, behind another one."""
+        self._ctrl, self._sid = ctrl, self._host.focused_source_id()
+        self._others.pop(self._sid, None)
         self._battery_lbl.setText("—")
         self._temp_lbl.setText("—")
-        if kept is not None and kept["ctrl"] is ctrl:  # back on a tile: what it already warned about stays said
+        if kept is not None:  # back on a tile: what it already warned about stays said
             self._battery_notified, self._temp_notified, self._last_level = kept["batt"], kept["temp"], kept["last"]
         else:
             self._battery_notified = self._temp_notified = False
             self._last_level = None
 
     def on_stream_stop(self):
-        if self._ctrl is not None and self._host.is_streaming():  # the panels moved on: it's watched from behind
-            self._others[self._sid] = {"ctrl": self._ctrl, "batt": self._battery_notified,
-                                       "temp": self._temp_notified, "last": self._last_level}
-        else:
+        self._others.pop(self._sid, None)
+        if not self._host.is_streaming():
             self._timer.stop()
             self._others.clear()
+        self._forget_shown()
+
+    def on_focus_lost(self):
+        if self._ctrl is not None:  # the panels moved on: it's watched from behind
+            self._others[self._sid] = {"ctrl": self._ctrl, "batt": self._battery_notified,
+                                       "temp": self._temp_notified, "last": self._last_level}
+        self._forget_shown()
+
+    def _forget_shown(self):
         self._ctrl = None
         self._battery_lbl.setText("—")
         self._temp_lbl.setText("—")
