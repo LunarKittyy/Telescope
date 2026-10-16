@@ -55,16 +55,16 @@ Each release holds `Telescope.apk`, `Telescope-windows-portable.zip`, `Telescope
 
 The APK is signed with the release key from the repository secrets `TELESCOPE_KEYSTORE` (the keystore, base64), `TELESCOPE_KEYSTORE_PASSWORD`, `TELESCOPE_KEY_ALIAS` and `TELESCOPE_KEY_PASSWORD`. A release fails rather than publish an APK signed with a debug key, because Android only installs an update signed with the same key as the installed app.
 
-The three build workflows below also run on pull requests, without publishing. A new push to a pull request cancels its checks that are still running.
+The three build workflows below also run on every pull request, without publishing. Their checks are called `android`, `windows` and `linux`, and `master` only takes a pull request once all three pass (a ruleset, with the maintainer allowed to push past it). A small `changes` job in each looks at what the pull request changes and the check skips itself when nothing it covers changed, which GitHub counts as passing. That way a docs-only pull request isn't stuck waiting for a check that never runs. A new push to a pull request cancels its checks that are still running.
 
-### `build-apk.yml` - pull requests touching `android/**`, `VERSION` or the workflow itself
+### `build-apk.yml` (`android`) - runs for `android/**`, `VERSION` or the workflow itself
 
 1. JDK 21 (Temurin) + Gradle cache (dependencies and build outputs, written only by `master` runs)
 2. Android SDK (android-34, build-tools;34.0.0)
 3. `./gradlew lintDebug testDebugUnitTest`, then `./gradlew assembleRelease -PbuildNumber=N -Pchannel=nightly|stable` (debug-signed on pull requests)
 4. In a release: checks the APK isn't debug-signed
 
-### `build-windows.yml` - pull requests touching `desktop/**`, `installer/**`, `VERSION` or the workflow itself
+### `build-windows.yml` (`windows`) - runs for `desktop/**`, `installer/**`, `VERSION` or the workflow itself
 
 1. Python 3.11 + pip cache
 2. `pip install -r requirements-dev.txt pyinstaller -c constraints.txt`; runs `pytest`
@@ -80,7 +80,7 @@ The setup (`installer/Telescope.iss`) is per-user: it installs to `%LOCALAPPDATA
 
 `telescope.spec` takes Qt through PyInstaller's own hooks (only the modules Telescope imports) and skips UPX.
 
-### `build-linux.yml` - pull requests touching `desktop/**`, `VERSION` or the workflow itself
+### `build-linux.yml` (`linux`) - runs for `desktop/**`, `VERSION` or the workflow itself
 
 1. Python 3.11 + pip cache; apt-installs `libegl1 libgl1 libxkbcommon0 libdbus-1-3` (PyQt6 needs these even in headless/offscreen test mode); installs `requirements-dev.txt` via `constraints.txt`; runs `pytest`
 2. In a release: stamps the version
