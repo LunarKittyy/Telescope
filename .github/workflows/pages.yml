@@ -49,7 +49,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh api "repos/${{ github.repository }}/releases/latest" \
-            | jq '{schemaVersion: 1, label: "release", color: "blue", message: .tag_name}' \
+            | jq '{schemaVersion: 1, label: "release", color: "6f42c1", message: .tag_name}' \
             > site/release.json
           cat site/release.json
 
