@@ -4,7 +4,7 @@
 
 [![Release](https://img.shields.io/endpoint?url=https://telescope.webcam/release.json)](../../releases/latest)
 [![Downloads](https://img.shields.io/endpoint?url=https://telescope.webcam/downloads.json)](../../releases)
-[![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
 ![Platforms](https://img.shields.io/badge/platform-Android%20%7C%20Linux%20%7C%20Windows-blue)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-support-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/lunarkittyy)
 
