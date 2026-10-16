@@ -230,8 +230,8 @@ class PluginsDialog(QDialog):
     def _switch_added(self, item, on: bool, box: QCheckBox):
         if on:
             ok = _ask(self, f"Switch on {item.title}?",
-                      "A plugin can do anything Telescope can on this computer, like reading your files or using "
-                      "the network. Only switch it on if you trust whoever made it.", "Switch on", danger=True)
+                      "A plugin can do anything on your computer. Only switch it on if you trust its source.",
+                      "Switch on", danger=True)
         else:
             ok = _ask(self, f"Switch off {item.title}?",
                       "Without it whatever it added to Telescope is gone. Its settings stay saved for when you switch "
