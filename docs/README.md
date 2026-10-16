@@ -10,7 +10,7 @@ New to Telescope? Start with the [Quick Start](../README.md#quick-start). It's a
 ## Using Telescope
 
 - [Features](features.md): everything the apps can do, from camera controls and zoom to the microphone, Browser camera, automatic streaming and updates
-- [Plugins](plugins.md): switching parts of the desktop app off, installing plugins people made, and writing your own
+- [Plugins](plugins.md): switching parts of the desktop app off, installing plugins other people made and writing your own
 - [Troubleshooting](troubleshooting.md): common problems, what usually causes them, and the fix
 - [Manual setup](setup.md): setting up the virtual camera by hand on Linux, loading it at boot, and OBS as a Flatpak
 - [Device compatibility](device-compatibility.md): phones that have been tested, and what worked on each
@@ -20,7 +20,7 @@ New to Telescope? Start with the [Quick Start](../README.md#quick-start). It's a
 
 - [Architecture](architecture.md): how the phone and desktop apps fit together, the repository layout, and implementation notes for contributors
 - [Control API](protocol.md): the phone's HTTP endpoints, what they return, the pairing QR code's contents, and the Browser camera's WebSocket messages
-- [desktop/ARCHITECTURE.md](../desktop/ARCHITECTURE.md): how the desktop app is split into plugins, and the rules that keep it that way
+- [desktop/ARCHITECTURE.md](../desktop/ARCHITECTURE.md): how the desktop app is split into plugins and the rules that keep it that way
 - [desktop/MODULES.md](../desktop/MODULES.md): the desktop app, module by module
 
 ## Building and releasing

@@ -118,7 +118,7 @@ The Presets button in the header saves your camera, output and transform setting
 - **Show a notification when a shortcut runs while Telescope is in the background** gives a quick confirmation, off by default
 
 ## Plugins
-- **Plugins…** in the settings menu lists every part of the desktop app that can be switched off, like the Camera card, Transforms, Presets or the microphone, with what each one does. Telescope asks before switching one off, says what will disappear, and keeps its settings for when it comes back. Changes apply after a restart, and the dialog has a **Restart now** button for that
-- When some are off, the menu entry says how many (**Plugins… (2 off)**), and after the restart a banner names what went
-- **Install plugin…** adds a plugin someone shared as a `.zip` (dragging the file onto the dialog works too). Added plugins start switched off, Telescope warns you before you switch one on, and one whose files changed is switched off again until you say so
-- [Plugins](plugins.md) covers installing them and writing your own
+- **Plugins…** in the settings menu lists every part of the desktop app that can be switched off (like the Camera card, Transforms, Presets or the microphone) with a line about what each one does. Telescope asks before switching one off and tells you what will be missing. Its settings stay saved for when you switch it back on. Changes apply after a restart and the dialog has a **Restart now** button for that
+- When some are off the menu entry says how many (**Plugins… (2 off)**) and after the restart a banner names what's off
+- **Install plugin…** adds a plugin someone shared as a `.zip` and dragging the file onto the dialog works too. Added plugins start out switched off and Telescope warns you before you switch one on. One whose files changed gets switched off again until you switch it back on
+- [Plugins](plugins.md) covers installing plugins and writing your own
