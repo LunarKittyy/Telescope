@@ -3,7 +3,6 @@ name: Build APK
 # Checks pull requests; release.yml calls it with a build number and channel to make the signed APK.
 on:
   pull_request:
-    paths: [android/**, VERSION, .github/workflows/build-apk.yml]
   workflow_dispatch:
   workflow_call:
     inputs:
@@ -18,7 +17,35 @@ permissions:
   contents: read
 
 jobs:
+  # "android" runs on every pull request so it can be a required check, and skips itself when nothing it covers changed
+  changes:
+    name: changes (android)
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.diff.outputs.run || 'true' }}
+    steps:
+      # A pull request checks out its merge into master, whose first parent is master: the diff is what it changes
+      - uses: actions/checkout@v7
+        if: github.event_name == 'pull_request'
+        with:
+          fetch-depth: 2
+
+      - id: diff
+        if: github.event_name == 'pull_request'
+        run: |
+          files=$(git diff --name-only HEAD^1 HEAD)
+          echo "$files"
+          if echo "$files" | grep -qE '^(android/|VERSION$|\.github/workflows/build-apk\.yml$)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    name: android
+    needs: changes
+    # Runs unless changes said there's nothing to check, so a changes job that failed doesn't pass this silently
+    if: ${{ !cancelled() && needs.changes.outputs.run != 'false' }}
     runs-on: ubuntu-latest
     # A new push to a pull request cancels the check still running for the old one.
     concurrency:
