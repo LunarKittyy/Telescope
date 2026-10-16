@@ -44,6 +44,20 @@ People write plugins against what `plugin.py` offers and expect them to keep wor
 - **A hook means what its docstring says.** Calling it at a different moment breaks plugins just as much as changing its arguments, even though the test can't see that.
 - **Only when there's no way to keep the old behaviour** raise `PLUGIN_API` in `plugin_loader.py`. Plugins made for the old number then show "It was made for an older Telescope" instead of crashing halfway. Raise `OLDEST_PLUGIN_API` too if the old ones can't run at all. Say so in the release notes.
 
+## When plugins need the same thing
+
+None of this is built yet. It's the plan for when the first plugin needs it, written down so nobody reaches for plugin-to-plugin dependencies first.
+
+Some future plugins will want a shared base. Several effect plugins could share one post-processing backend (a GPU context, a smaller copy of the frame or face detection run once a frame). An AI framing plugin would want to move the same zoom and pan the Transforms card does rather than add a second transform on top of it.
+
+Plugins still won't depend on other plugins. If B used A's code then any update of A could break B, and nothing would catch it the way `test_plugin_api.py` catches changes to the host. Switching A off or removing it would have to do something about B too, and the loader would need versions and a load order between plugins. So the plan is this:
+
+- **The shared part moves into the app.** A post-processing backend becomes a host service that effect plugins call through `HostServices`. Zoom, pan and rotation become a view the window owns, with Transforms as the manual controls for it. AI framing drives the same view through a host method and keeps working when someone switches the Transforms card off. Helpers like the zoom math in `plugins/transforms.py` move out of `plugins/` as the rules above already say.
+- **A plugin can say what it needs.** A `needs` list in plugin.json names the built-in plugins it can't work without. If one of them is switched off the Plugins dialog shows which one it's waiting for (instead of the plugin quietly doing nothing), and switching it off warns about the plugins that need it.
+- **Added plugins sharing with each other** would go through a host registry if that ever comes up for real. One plugin registers a service under a name and the others ask `host.service(name)` and get None when it isn't there. They still never import each other.
+
+Build each piece together with the first plugin that needs it, since what the service should look like depends on that plugin.
+
 ## Why
 
 Before these rules, plugins had to guess whether a stream had stopped or someone had just clicked another tile. Sources called about 25 private window methods and one plugin imported another one's helper. Each of those worked until someone changed the other side. These rules write the fixes down so they stick.
