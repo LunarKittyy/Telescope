@@ -584,6 +584,23 @@ def test_settings_menu_takes_a_submenu_and_owns_it(window, qapp, monkeypatch):
     assert sub.parent() is menu and sub.isWindow()  # still a popup, and freed with the menu
 
 
+def test_plugins_goes_with_the_dialogs_above_the_divider(window, qapp, monkeypatch):
+    dialogs, toggles = _Plugin("dialogs"), _Plugin("toggles")
+    dialogs.menu_actions = [QAction("Wait screen…", None)]
+    divider = QAction(None)
+    divider.setSeparator(True)
+    toggle = QAction("Open when I sign in", None)
+    toggle.setCheckable(True)
+    toggles.menu_actions = [divider, QMenu("Automatic streaming"), toggle]
+    window.register_plugin(dialogs)
+    window.register_plugin(toggles)
+    shown = []
+    monkeypatch.setattr(QMenu, "exec", lambda self, *_a: shown.append(
+        ["---" if a.isSeparator() else a.text() for a in self.actions()]))
+    window._show_settings_menu()
+    assert shown == [["Wait screen…", "Plugins…", "---", "Automatic streaming", "Open when I sign in"]]
+
+
 def test_save_config_separates_global_and_device_local_plugins(window, config_home):
     connection = _Connection(selected="PhoneA")
     global_plugin = _Plugin("setup", {"canvas": "auto"})

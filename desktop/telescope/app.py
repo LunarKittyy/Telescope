@@ -563,8 +563,8 @@ class TelescopeWindow(QMainWindow):
                 logging.exception("Plugin %s couldn't list its menu entries", p.name)
                 continue
             for entry in entries:
-                if not placed and isinstance(entry, QAction) and entry.isCheckable():
-                    menu.addAction(plugins)  # last of the dialogs, before the toggles
+                if not placed and isinstance(entry, QAction) and (entry.isSeparator() or entry.isCheckable()):
+                    menu.addAction(plugins)  # last of the dialogs, before the divider and the toggles
                     placed = True
                 if isinstance(entry, QMenu):
                     entry.setParent(menu, entry.windowFlags())  # keeps it a popup, owned by this menu
