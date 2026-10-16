@@ -130,7 +130,7 @@ def _source_window(window, monkeypatch, source):  # noqa: F811
 def test_start_streams_from_the_source_without_waking_a_phone(window, monkeypatch):  # noqa: F811
     source = _Source()
     conn, other, threads = _source_window(window, monkeypatch, source)
-    window._start()
+    window._flow.start()
 
     worker = window._worker
     assert conn.wakes == 0
@@ -143,7 +143,7 @@ def test_start_streams_from_the_source_without_waking_a_phone(window, monkeypatc
     worker.status.emit("reconnecting", "Stream dropped - reconnecting")
     assert window.state_fetches == []  # nowhere else to look for it
 
-    window._stop()
+    window._flow.stop()
     assert conn.remote_stops == 0
     assert window._worker is None
 
@@ -153,7 +153,7 @@ def test_a_source_that_isnt_ready_builds_nothing(window, monkeypatch):  # noqa: 
     _source_window(window, monkeypatch, source)
     failed = []
     window._bus.stream_start_failed.connect(lambda: failed.append(1))
-    window._start()
+    window._flow.start()
     assert source.prepared == 1
     assert window._worker is None and failed == [1]
 
@@ -618,7 +618,7 @@ def test_a_browser_takes_the_waiting_tile_over_next_to_a_phone(camera_env, tmp_p
                                  addresses=lambda: [SimpleNamespace(ip="192.168.1.20")])
     window.register_plugin(plugin)
     QCoreApplication.processEvents()  # its startup tidy-up, while the window is still there
-    window._start()
+    window._flow.start()
     window.add_stream(SOURCE_ID)
     assert window._tiles.ids() == ["Phone", SOURCE_ID]
 
@@ -653,7 +653,7 @@ def test_every_browser_that_joined_during_a_phone_start_streams_after_it(camera_
     _arrive(plugin, "browser-aaaaaaaa", "Chrome on Android")
     _arrive(plugin, "browser-bbbbbbbb", "Safari on iOS")
     assert window.stream_count() == 1  # they wait for the phone
-    window._on_wake_done(phone, True, "")
+    window._flow.wake_done(phone, True, "")
     assert window.stream_count() == 4
     assert window.is_streaming_from("browser:browser-aaaaaaaa")
     assert window.is_streaming_from("browser:browser-bbbbbbbb")
@@ -693,7 +693,7 @@ def test_a_browser_that_joins_while_the_extra_cameras_are_set_up_streams_after(c
     QCoreApplication.processEvents()
     assert window.is_streaming_from("browser:browser-bbbbbbbb")
     assert window.is_streaming_from("browser:browser-cccccccc")
-    window._stop_all()
+    window._flow.stop_all()
     plugin.shutdown()
 
 

@@ -421,7 +421,7 @@ def test_a_reset_connection_does_not_stop_later_raises():
 
 def test_a_canvas_reload_does_not_start_over_a_stream_started_meanwhile(window, monkeypatch):
     starts = []
-    monkeypatch.setattr(window, "_start", lambda *_a: starts.append(True))
+    monkeypatch.setattr(window._flow, "start", lambda *_a: starts.append(True))
     window._session = StreamSession(source=window._phone, id=1, url="url", client=object(), worker=object())
     window._on_canvas_reload_done(True, "", True)
     assert starts == []
@@ -433,7 +433,7 @@ def _resizing(window, monkeypatch):
     monkeypatch.setattr(app_module.threading, "Thread",
                         lambda target, daemon=False: SimpleNamespace(start=lambda: None))
     starts = []
-    monkeypatch.setattr(window, "_start", lambda *_a, **_k: starts.append(True))
+    monkeypatch.setattr(window._flow, "start", lambda *_a, **_k: starts.append(True))
     window._session = StreamSession(source=window._phone, id=1, url="url", client=_Client(), worker=_RetargetWorker())
     window.restart_vcam_canvas(1280, 720)
     assert window._session is None
@@ -450,7 +450,7 @@ def test_stop_during_a_canvas_resize_is_not_undone_when_it_finishes(window, monk
     starts = _resizing(window, monkeypatch)
     # Start, then Stop, before the resize is through
     window._session = StreamSession(source=window._phone, id=2, url="url", client=_Client(), worker=_RetargetWorker())
-    window._stop_all()
+    window._flow.stop_all()
     window._on_canvas_reload_done(True, "", True)
     assert starts == [] and window._session is None
 
@@ -489,7 +489,7 @@ def test_a_canvas_change_while_the_phone_wakes_starts_it_again_without_stopping_
     connection = _Connection()
     window.register_plugin(connection)
     spawned = _real_spawn_wake(monkeypatch)
-    window._start()
+    window._flow.start()
     wake_id, _conn, url, token, _target, _opening = spawned[0]
     starts = []
     monkeypatch.setattr(window, "start_stream", lambda *a, **k: starts.append(True))
@@ -703,8 +703,8 @@ def test_switch_device_saves_old_profile_applies_new_and_restarts(window, config
     config_home.save_config(cfg)
     window._session = StreamSession(source=window._phone, id=1, url="url", client=object(), worker=object())
     calls = []
-    monkeypatch.setattr(window, "_stop_all", lambda **_kw: calls.append("stop") or setattr(window, "_session", None))
-    monkeypatch.setattr(window, "_start", lambda: calls.append("start"))
+    monkeypatch.setattr(window._flow, "stop_all", lambda **_kw: calls.append("stop") or setattr(window, "_session", None))
+    monkeypatch.setattr(window._flow, "start", lambda: calls.append("start"))
     window._bus.device_changed.connect(lambda name: calls.append(f"changed {name}"))
 
     window.switch_device("Old", "New")
@@ -718,8 +718,8 @@ def test_switch_device_saves_old_profile_applies_new_and_restarts(window, config
 
 def test_reconnect_stream_only_restarts_when_active(window, monkeypatch):
     calls = []
-    monkeypatch.setattr(window, "_stop", lambda **_kw: calls.append("stop"))
-    monkeypatch.setattr(window, "_start", lambda **_kw: calls.append("start"))
+    monkeypatch.setattr(window._flow, "stop", lambda **_kw: calls.append("stop"))
+    monkeypatch.setattr(window._flow, "start", lambda **_kw: calls.append("start"))
     window.reconnect_stream()
     assert calls == []
 
@@ -746,7 +746,7 @@ def test_is_streaming_and_stop_stream_track_the_session(window, monkeypatch):
     assert window.is_streaming() is False
 
     stopped = []
-    monkeypatch.setattr(window, "_stop", lambda **_kw: stopped.append(True))
+    monkeypatch.setattr(window._flow, "stop", lambda **_kw: stopped.append(True))
     # stop_stream is a guarded no-op while idle - no spurious _stop().
     window.stop_stream()
     assert stopped == []
@@ -801,8 +801,8 @@ def test_stream_reconnected_is_noop_without_an_active_session(window):
 
 def test_toggle_routes_to_start_or_stop(window, monkeypatch):
     calls = []
-    monkeypatch.setattr(window, "_start", lambda: calls.append("start"))
-    monkeypatch.setattr(window, "_stop_all", lambda **_kw: calls.append("stop"))
+    monkeypatch.setattr(window._flow, "start", lambda: calls.append("start"))
+    monkeypatch.setattr(window._flow, "stop_all", lambda **_kw: calls.append("stop"))
     window._toggle()
     window._session = StreamSession(source=window._phone, id=1, url="url", client=object(), worker=object())
     window._toggle()
@@ -868,10 +868,10 @@ def test_apply_config_empty_is_noop(window):
 def test_start_without_connection_or_invalid_stream_is_noop(window):
     failed = []
     window._bus.stream_start_failed.connect(lambda: failed.append(1))
-    window._start()
+    window._flow.start()
     assert window._worker is None
     window.register_plugin(_Connection(stream_info=(None, None, False)))
-    window._start()
+    window._flow.start()
     assert window._worker is None
     assert failed == [1]  # the Start that got as far as asking for the stream says it ended
 
@@ -923,7 +923,7 @@ def test_start_builds_worker_pipeline_and_notifies_plugins(window, monkeypatch):
     bus_urls = []
     window._bus.stream_started.connect(bus_urls.append)
 
-    window._start()
+    window._flow.start()
 
     assert clients[0].url == "http://phone/video"
     assert clients[0].token == "tok"
@@ -964,8 +964,8 @@ def test_a_stream_the_panels_dont_show_gets_their_steps_frozen(window):
     for plugin in (Frozen("transforms"), _Plugin("preview"), Broken("other")):
         window.register_plugin(plugin)
     frame = np.zeros((1, 1, 3), np.uint8)
-    assert len(window._pipeline()) == 3
-    steps = window._pipeline(live=False)
+    assert len(window._flow.pipeline()) == 3
+    steps = window._flow.pipeline(live=False)
     assert len(steps) == 1 and steps[0](frame)[0, 0, 0] == 1
 
 
@@ -1014,7 +1014,7 @@ def test_start_uses_defaults_without_optional_plugins(window, monkeypatch):
         "Thread",
         lambda **_kwargs: SimpleNamespace(start=lambda: None),
     )
-    window._start()
+    window._flow.start()
     assert captured[0]["width"] is None
     assert captured[0]["height"] is None
     assert captured[0]["fps"] == 30
@@ -1052,7 +1052,7 @@ def test_stop_requests_worker_closes_client_and_notifies_plugins(window):
     client = Client()
     window._session = StreamSession(source=window._phone, id=1, url="url", client=client, worker=worker)
 
-    window._stop()
+    window._flow.stop()
 
     assert worker.stop_requested is True
     assert worker.timeout == 5000
@@ -1066,7 +1066,7 @@ def test_stop_requests_worker_closes_client_and_notifies_plugins(window):
 
 
 def test_stop_is_safe_when_already_stopped(window):
-    window._stop()
+    window._flow.stop()
     assert window._status_lbl.fullText() == "Not streaming"
 
 
@@ -1081,11 +1081,11 @@ def test_restart_canvas_non_linux_waits_and_restarts_active_stream(window, monke
     window._session = StreamSession(source=window._phone, id=1, url="url", client=object(), worker=old)
     monkeypatch.setattr(app_module, "IS_LINUX", False)
     monkeypatch.setattr(
-        window,
-        "_stop",
+        window._flow,
+        "stop",
         lambda **_kw: events.append("stop") or setattr(window, "_session", None),
     )
-    monkeypatch.setattr(window, "_start", lambda *_a: events.append("start"))
+    monkeypatch.setattr(window._flow, "start", lambda *_a: events.append("start"))
 
     class ImmediateThread:
         def __init__(self, target, daemon): self.target = target
@@ -1101,7 +1101,7 @@ def test_restart_canvas_non_linux_waits_and_restarts_active_stream(window, monke
 def test_canvas_reload_failure_reports_error_and_clears_callback(window, monkeypatch):
     done = []
     window._vcam_reload_callback = lambda *args: done.append(args)
-    monkeypatch.setattr(window, "_start", lambda: (_ for _ in ()).throw(AssertionError()))
+    monkeypatch.setattr(window._flow, "start", lambda: (_ for _ in ()).throw(AssertionError()))
     window._on_canvas_reload_done(False, "busy", True)
     assert window._status_lbl.fullText() == "Reload failed: busy"
     assert window._status_lbl.objectName() == "status_err"
@@ -1254,7 +1254,7 @@ def test_a_start_is_not_started_again_while_it_finds_the_phone(window):
             return None, None, False
 
     window.register_plugin(Conn())
-    window._start()
+    window._flow.start()
     assert starts == [True]
 
 
@@ -1264,7 +1264,7 @@ def test_a_start_that_raises_says_so(window):
             raise RuntimeError("boom")
 
     window.register_plugin(Conn())
-    window._start()
+    window._flow.start()
     assert window._banners.issue("start").title == "Couldn't start streaming"
     assert not window.is_starting()
 
@@ -1418,7 +1418,7 @@ def test_tray_show_quit_and_activation(window, monkeypatch):
     window._on_tray_activated(app_module.QSystemTrayIcon.ActivationReason.Trigger)
     assert calls[-3:] == ["show", "raise", "activate"]
 
-    monkeypatch.setattr(window, "_stop_all", lambda **_kw: calls.append("stop"))
+    monkeypatch.setattr(window._flow, "stop_all", lambda **_kw: calls.append("stop"))
     monkeypatch.setattr(app_module.QApplication, "quit", lambda: calls.append("quit"))
     window._tray_quit()
     assert window._tray_close_notified is True
@@ -1443,7 +1443,7 @@ def test_close_event_minimizes_active_stream_to_tray(window, monkeypatch):
 
 def test_close_event_stops_and_accepts_without_background_stream(window, monkeypatch):
     calls = []
-    monkeypatch.setattr(window, "_stop_all", lambda **_kw: calls.append("stop"))
+    monkeypatch.setattr(window._flow, "stop_all", lambda **_kw: calls.append("stop"))
     monkeypatch.setattr(app_module.QApplication, "quit", lambda: calls.append("quit"))
     event = SimpleNamespace(accept=lambda: calls.append("accept"))
     window.closeEvent(event)
@@ -1478,7 +1478,7 @@ def test_start_wakes_the_phone_before_building_a_worker(window, monkeypatch):
         lambda **_kw: SimpleNamespace(start=lambda: None),
     )
 
-    window._start()
+    window._flow.start()
 
     assert connection.wakes == 1
     assert built, "the stream was never built after a successful wake"
@@ -1492,7 +1492,7 @@ def test_start_asks_the_phone_to_open_at_the_size_picked(window, monkeypatch):
     output.opening = lambda: {"width": 1920, "height": 1080, "fps": 60}
     window.register_plugin(output)
     spawned = _real_spawn_wake(monkeypatch)
-    window._start()
+    window._flow.start()
     *_rest, opening = spawned[0]
     assert opening == {"width": 1920, "height": 1080, "fps": 60}
     window._phone._sig_wake_done.disconnect()  # only the wake itself: no stream to build here
@@ -1508,7 +1508,7 @@ def test_start_shows_the_reason_and_builds_nothing_when_the_wake_fails(window, m
     )
     failed = []
     window._bus.stream_start_failed.connect(lambda: failed.append(1))
-    window._start()
+    window._flow.start()
 
     assert window._worker is None
     assert failed == [1]
@@ -1530,11 +1530,11 @@ def test_a_wake_that_lands_after_the_user_gave_up_is_discarded(window, monkeypat
         lambda **_kw: pytest.fail("a cancelled start must not build a worker"),
     )
 
-    window._start()
+    window._flow.start()
     assert spawned, "the wake was never spawned"
     wake_id, _conn, url, token, _target, _opening = spawned[0]
 
-    window._stop()          # user hits Stop while the phone is still starting
+    window._flow.stop()          # user hits Stop while the phone is still starting
     window._phone._on_wake_done(wake_id, True, "", url, token)
 
     assert window._worker is None
@@ -1544,10 +1544,10 @@ def test_a_wake_that_finishes_after_stop_stops_the_phone_again(window, monkeypat
     connection = _Connection()
     window.register_plugin(connection)
     spawned = _real_spawn_wake(monkeypatch)
-    window._start()
+    window._flow.start()
     wake_id, _conn, url, token, _target, _opening = spawned[0]
 
-    window._stop()  # its stop can reach the phone before the wake's start does
+    window._flow.stop()  # its stop can reach the phone before the wake's start does
     window._phone._on_wake_done(wake_id, True, "", url, token)
     window._drain_phone_stops()
 
@@ -1563,7 +1563,7 @@ def test_stop_takes_the_phone_s_camera_down_with_it(window, monkeypatch):
     )
     window._session = StreamSession(source=window._phone, id=1, url="url", client=None, worker=None)
 
-    window._stop()
+    window._flow.stop()
 
     assert connection.remote_stops == 1
 
@@ -1576,7 +1576,7 @@ def test_stop_leaves_an_idle_phone_alone(window, monkeypatch):
         lambda target, daemon=False: SimpleNamespace(start=target, is_alive=lambda: False),
     )
 
-    window._stop()  # nothing was ever started
+    window._flow.stop()  # nothing was ever started
 
     assert connection.remote_stops == 0
 
@@ -1590,8 +1590,8 @@ def test_a_cancelled_wake_still_stops_a_phone_that_may_be_mid_start(window, monk
         lambda target, daemon=False: SimpleNamespace(start=target, is_alive=lambda: False),
     )
 
-    window._start()   # wake in flight, no session yet
-    window._stop()
+    window._flow.start()   # wake in flight, no session yet
+    window._flow.stop()
 
     assert connection.remote_stops == 1
 
@@ -1604,7 +1604,7 @@ def test_reconnect_and_canvas_reload_leave_the_phone_streaming(window, monkeypat
         app_module.threading, "Thread",
         lambda target, daemon=False: SimpleNamespace(start=target, is_alive=lambda: False),
     )
-    monkeypatch.setattr(window, "_start", lambda **_kw: None)
+    monkeypatch.setattr(window._flow, "start", lambda **_kw: None)
     window._session = StreamSession(
         source=window._phone, id=1, url="url", client=None,
         worker=SimpleNamespace(
@@ -1641,7 +1641,7 @@ def test_drain_phone_stops_is_bounded(window, monkeypatch):
     monkeypatch.setattr(app_module.threading, "Thread", SlowThread)
     window.register_plugin(_Connection())
     window._session = StreamSession(source=window._phone, id=1, url="url", client=None, worker=None)
-    window._stop()
+    window._flow.stop()
 
     window._drain_phone_stops(timeout=1.5)
 
@@ -1664,7 +1664,7 @@ def test_stop_stream_cancels_a_wake_that_is_still_in_flight(window, monkeypatch)
         lambda **_kw: pytest.fail("a cancelled start must not build a worker"),
     )
 
-    window._start()
+    window._flow.start()
     window.stop_stream()
     wake_id, _conn, url, token, _target, _opening = spawned[0]
     window._phone._on_wake_done(wake_id, True, "", url, token)
@@ -1677,7 +1677,7 @@ def test_a_start_problem_banner_clears_on_the_next_start_and_on_a_working_stream
     window.show_issue("start", Issue("Can't connect"))
     window.show_issue("vcam", Issue("Resize"))
     window.register_plugin(_Connection(wake=(False, "still closed")))
-    window._start()
+    window._flow.start()
     assert window._banners.issue("start").text == "still closed"  # replaced, not stacked
     window._on_worker_status("ok", "Streaming")
     assert window._banners.keys() == []
@@ -1712,7 +1712,7 @@ def test_an_amber_throughput_readout_says_the_stream_is_behind_once_until_it_cat
 def test_a_stream_that_stops_or_reconnects_is_no_longer_behind(window):
     events = _behind_events(window)
     window._on_worker_status("net_warn", "40.0 Mbps")
-    window._stop()
+    window._flow.stop()
     assert events == [True, False]
     window._on_worker_status("net_warn", "40.0 Mbps")
     window._on_worker_status("ok", "Streaming")  # the virtual camera reopened, e.g. for a new FPS
@@ -2228,7 +2228,7 @@ def test_a_phone_gone_a_while_gets_the_wait_screen_then_a_banner_until_it_is_bac
     assert phone._gone_timer.isActive() and phone._gone_timer.interval() == 30_000
     assert not worker.parked
 
-    window._park_stream(phone)  # 10 s on
+    window._flow.park(phone)  # 10 s on
     assert worker.parked and 0 in idle[-1]  # the wait screen takes the camera, not the last frame
     phone._show_unreachable()  # 30 s on
     issue = window._banners.issue(f"stopped:{phone.id}")
@@ -2244,16 +2244,16 @@ def test_a_phone_gone_a_while_gets_the_wait_screen_then_a_banner_until_it_is_bac
 def test_a_phone_back_before_the_wait_screen_keeps_its_camera(window, monkeypatch):
     worker, idle, wait = _gone_stream(window, monkeypatch)
     worker.reconnected.emit()
-    window._park_stream(window._phone)  # a timeout that was already on its way
+    window._flow.park(window._phone)  # a timeout that was already on its way
     assert not worker.parked and wait.starting == 0
 
 
 def test_stopping_a_phone_that_cant_be_reached_takes_its_banner_away(window, monkeypatch):
     worker, _idle, _wait = _gone_stream(window, monkeypatch)
     phone = window._phone
-    window._park_stream(phone)
+    window._flow.park(phone)
     phone._show_unreachable()
-    window._stop()
+    window._flow.stop()
     assert window._banners.issue(f"stopped:{phone.id}") is None
     assert not phone._park_timer.isActive() and not phone._gone_timer.isActive()
     phone._show_unreachable()  # late: says nothing about a stream that's over
@@ -2422,7 +2422,7 @@ def camera_env(window, monkeypatch):
 
 def test_the_camera_goes_off_and_on_while_the_stream_and_mic_carry_on(camera_env):
     window, _conn, mic, clients, workers, changes = camera_env
-    window._start()
+    window._flow.start()
     assert workers[0].started and mic.calls == ["starting"]
 
     window.set_camera_on(False)
@@ -2443,7 +2443,7 @@ def test_the_camera_goes_off_and_on_while_the_stream_and_mic_carry_on(camera_env
 def test_the_camera_stays_on_without_the_mic(camera_env):
     window, _conn, mic, clients, workers, changes = camera_env
     mic.config["enabled"] = False
-    window._start()
+    window._flow.start()
     assert window.can_turn_camera_off()[0] is False
     window.set_camera_on(False)
     assert window.is_camera_on() and clients[0].sent == [] and changes == []
@@ -2453,18 +2453,18 @@ def test_start_mic_only_opens_the_phone_with_its_camera_off(camera_env):
     window, conn, mic, clients, workers, changes = camera_env
     window.set_camera_on(False)
     assert changes == [False] and window._start_btn.text() == "Start mic only"
-    window._start()
+    window._flow.start()
     assert conn.opening["camera"] == "off"
     assert workers == [] and window.is_streaming() and mic.calls == ["off"]
     assert window._start_btn.text() == "Stop Streaming"
-    window._stop()
+    window._flow.stop()
     assert window.is_camera_on() and changes == [False, True]  # the next stream starts with the camera on
     assert window._start_btn.text() == "Start Streaming"
 
 
 def test_a_restart_keeps_the_camera_off(camera_env):
     window, _conn, _mic, clients, workers, _changes = camera_env
-    window._start()
+    window._flow.start()
     window.set_camera_on(False)
     window.reconnect_stream()
     assert not window.is_camera_on() and len(workers) == 1  # no video worker for the restarted stream either
@@ -2472,7 +2472,7 @@ def test_a_restart_keeps_the_camera_off(camera_env):
 
 def test_a_phone_left_with_its_camera_on_or_off_is_matched(camera_env):
     window, _conn, _mic, clients, _workers, _changes = camera_env
-    window._start()
+    window._flow.start()
     window._apply_state(window._session.id, {**_VALID_STATE, "camera_toggle": True, "camera_off": True})
     assert clients[0].sent == [{"action": "camera_on", "value": 1}]
 
@@ -2480,7 +2480,7 @@ def test_a_phone_left_with_its_camera_on_or_off_is_matched(camera_env):
 def test_an_older_phone_that_cant_turn_its_camera_off_gets_the_camera_back(camera_env):
     window, _conn, _mic, clients, workers, changes = camera_env
     window.set_camera_on(False)
-    window._start()
+    window._flow.start()
     window._apply_state(window._session.id, _VALID_STATE)  # no camera_toggle: it opened its camera anyway
     assert window.is_camera_on() and len(workers) == 1 and changes == [False, True]
     assert window._banners.issue("camera") is not None
@@ -2489,7 +2489,7 @@ def test_an_older_phone_that_cant_turn_its_camera_off_gets_the_camera_back(camer
 
 def test_a_camera_that_wont_come_back_on_stays_off_and_says_why(camera_env):
     window, _conn, _mic, clients, workers, changes = camera_env
-    window._start()
+    window._flow.start()
     window.set_camera_on(False)
     window.set_camera_on(True)
     window._phone._on_camera_check(window._session.id, {"camera_toggle": True, "camera_off": True,
@@ -2500,7 +2500,7 @@ def test_a_camera_that_wont_come_back_on_stays_off_and_says_why(camera_env):
 
 def test_switching_the_mic_off_brings_the_camera_back(camera_env):
     window, _conn, mic, _clients, workers, changes = camera_env
-    window._start()
+    window._flow.start()
     window.set_camera_on(False)
     mic.config["enabled"] = False
     window._bus.mic_changed.emit(False, False)
@@ -2509,10 +2509,10 @@ def test_switching_the_mic_off_brings_the_camera_back(camera_env):
 
 def test_with_the_camera_off_a_phone_that_stops_answering_is_looked_for(camera_env, monkeypatch):
     window, _conn, _mic, _clients, _workers, _changes = camera_env
-    window._start()
+    window._flow.start()
     window.set_camera_on(False)
     probes = []
-    monkeypatch.setattr(window, "_begin_recovery", lambda _source=None: probes.append(True))
+    monkeypatch.setattr(window._flow, "begin_recovery", lambda _source=None: probes.append(True))
     sid = window._session.id
     window._phone._on_alive(sid, False)
     assert probes == []  # one miss can be a blip
@@ -2539,10 +2539,10 @@ def test_the_tray_icon_says_what_streams(camera_env):
 
     window._tray = Tray()
     window._bus.mic_changed.emit(True, False)
-    window._start()
+    window._flow.start()
     window.set_camera_on(False)
     window._bus.mic_changed.emit(True, True)
-    window._stop()
+    window._flow.stop()
     assert Tray.tips == ["Telescope", "Telescope: streaming the camera and mic",
                          "Telescope: streaming the mic, camera off", "Telescope: streaming the mic, camera off (muted)",
                          "Telescope"]
@@ -2573,7 +2573,7 @@ def test_a_browser_camera_streams_with_its_camera_on(camera_env):
     assert window.can_turn_camera_off()[0] is False  # only a phone can keep its mic going alone
     window.set_camera_on(False)
     assert window.is_camera_on() and changes == []
-    window._start()
+    window._flow.start()
     assert len(workers) == 1 and workers[0].kwargs["open_reader"] is not None
     assert window.can_turn_camera_off()[0] is False
 
@@ -2609,7 +2609,7 @@ def test_a_browser_starts_by_itself_and_goes_when_it_leaves(camera_env):
     window.add_stream_source(launcher)
     window.add_stream_source(_OneBrowser("pixel"))
     conn.selected_device = "browser"
-    window._start()  # Start with Browser camera picked streams the browser that's there
+    window._flow.start()  # Start with Browser camera picked streams the browser that's there
     assert conn.selected_device == "browser:pixel" and window.is_streaming_from("browser:pixel")
     window.remove_stream_source("browser:pixel")
     assert not window.is_streaming() and conn.selected_device == "browser"
@@ -2627,12 +2627,12 @@ def test_a_phone_back_with_a_new_id_takes_its_settings_and_virtual_camera(window
     cfg["output_slots"] = {"old": 2}
     cfg["selected_device"] = "old"
     config_home.save_config(cfg)
-    window._slot_memory = {"old": 2}
+    window._flow.slot_memory = {"old": 2}
     window.move_device_settings("old", "new")
     cfg = config_home.load_config()
     assert cfg["devices"]["new"]["plugin_configs"] == presets and "old" not in cfg["devices"]
     assert cfg["output_slots"] == {"new": 2} and cfg["selected_device"] == "new"
-    assert window._slot_memory == {"new": 2}
+    assert window._flow.slot_memory == {"new": 2}
 
 
 def test_a_browser_keeps_only_the_settings_that_changed(camera_env, config_home):
@@ -2669,12 +2669,12 @@ def test_a_dropped_browser_stream_waits_for_it_without_looking_for_a_phone(camer
     conn.selected_device = "browser"
     conn.ensure_virtual_camera = lambda interactive=True: True
     window.add_stream_source(_Browser())
-    window._start()
+    window._flow.start()
     lost = []
     window._bus.stream_lost.connect(lambda: lost.append(True))
     workers[0].status.emit("reconnecting", "Stream dropped - reconnecting")  # _Connection can't probe: it would raise
     assert lost == [True] and window.state_fetches == [] and window._session is not None
-    window._stop()
+    window._flow.stop()
     assert conn.remote_stops == 0  # nothing on a phone to stop
 
 
@@ -2683,11 +2683,11 @@ def test_a_browser_gone_a_while_gets_the_wait_screen_and_a_banner(camera_env):
     conn.selected_device = "browser"
     conn.ensure_virtual_camera = lambda interactive=True: True
     window.add_stream_source(_Browser())
-    window._start()
+    window._flow.start()
     workers[0].status.emit("reconnecting", "Stream dropped - reconnecting")
     source = window._sources["browser"]
     assert source._park_timer.isActive()
-    window._park_stream(source)
+    window._flow.park(source)
     assert workers[0].parked
     source._show_unreachable()
     issue = window._banners.issue("stopped:browser")
@@ -2705,10 +2705,10 @@ def test_picking_another_source_while_the_phone_wakes_still_stops_the_phone(wind
     spawned = _real_spawn_wake(monkeypatch)
     monkeypatch.setattr(app_module.threading, "Thread",
                         lambda target, daemon=False: SimpleNamespace(start=target, is_alive=lambda: False))
-    window._start()
+    window._flow.start()
     phone = window._phone
     connection.selected_device = "browser"  # Connection moves the pick before asking for the switch
-    window._stop()
+    window._flow.stop()
     wake_id, _conn, url, token, _target, _opening = spawned[0]
     phone._on_wake_done(wake_id, True, "", url, token)
     assert connection.remote_stops == 2 and window._worker is None
@@ -2728,7 +2728,7 @@ def two_streams(camera_env, config_home, monkeypatch):
     config_home.save_config(cfg)
     conn.ensure_virtual_camera = lambda interactive=True: True
     window.add_stream_source(_Browser())
-    window._start()
+    window._flow.start()
     view.config["zoom"] = 2  # changed while the phone streams
     window.add_stream("browser")
     return window, conn, mic, view, workers, config_home
@@ -2760,7 +2760,7 @@ def test_the_wait_screen_hears_which_extra_cameras_are_free(two_streams):
     window, _conn, _mic, _view, _workers, _config = two_streams
     idle = []
     window._bus.idle_outputs.connect(idle.append)
-    window._streams_changed()
+    window._flow.streams_changed()
     assert idle[-1] == [2, 3]
     window.stop_stream("browser")
     assert idle[-1] == [1, 2, 3]
@@ -2887,7 +2887,7 @@ def test_an_extra_camera_that_isnt_set_up_asks_first(camera_env, monkeypatch):
     asked = []
     monkeypatch.setattr(window, "_ask_slots", lambda: asked.append(True) or False)
     window.add_stream_source(_Browser())
-    window._start()
+    window._flow.start()
     window.add_stream("browser")
     assert asked == [True] and len(workers) == 1 and window._sessions.focus.id == "Phone"
 
@@ -2908,7 +2908,7 @@ def test_a_browser_camera_on_auto_canvas_streams_at_its_own_default_size(camera_
     conn.ensure_virtual_camera = lambda interactive=True: True
     window.add_stream_source(_Browser())
     window._plugin("setup").get_canvas_dims = lambda: (None, None)  # Auto
-    window._start()
+    window._flow.start()
     expected = (1920, 1080) if sources_module.vcam.IS_LINUX else (None, None)
     assert (workers[0].kwargs["canvas_width"], workers[0].kwargs["canvas_height"]) == expected
 
@@ -3055,7 +3055,7 @@ def test_a_cancelled_phone_that_starts_late_is_stopped_while_another_wakes(camer
     old = window._phone_source("Phone")
     remote = []
     monkeypatch.setattr(old, "_stop_phone_async", lambda target=None: remote.append(target))
-    window._start()
+    window._flow.start()
     wake = old._wake_id
     conn.selected_device = "new-phone"
     window.switch_device("Phone", "new-phone")
@@ -3082,7 +3082,7 @@ def test_a_background_stream_the_encoder_cant_do_gets_the_panels_and_stops(two_s
 def test_restarting_the_only_stream_left_keeps_its_virtual_camera(camera_env, monkeypatch):
     window, *_ = camera_env
     monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
-    window._start()
+    window._flow.start()
     window.add_stream("phone-b")
     window.stop_stream("Phone")
     source = window._sessions.focus
@@ -3091,7 +3091,7 @@ def test_restarting_the_only_stream_left_keeps_its_virtual_camera(camera_env, mo
     assert source.session is not None and source.slot == 1
     assert source.session.worker.kwargs["slot"] == 1
     window.stop_stream()
-    window._start()
+    window._flow.start()
     assert source.slot == 0  # a real stop and start alone goes back to the usual camera
 
 
@@ -3142,7 +3142,7 @@ def test_re_pairing_a_background_phone_restarts_it_with_the_new_token(camera_env
     _add(conn, "id-a")
     _add(conn, "id-b", name="B")
     conn.select("id-a")
-    window._start()
+    window._flow.start()
     window.add_stream("id-b")
     assert window._sessions.focus.id == "id-b"
     _add(conn, "id-a", token="new-token")
@@ -3155,8 +3155,8 @@ def test_re_pairing_a_background_phone_restarts_it_with_the_new_token(camera_env
 def test_a_restart_next_to_another_stream_keeps_its_camera_over_a_remembered_one(camera_env, monkeypatch):
     window, *_ = camera_env
     monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
-    window._slot_memory["Phone"] = 2  # camera 3 in an earlier run; alone it starts on camera 1
-    window._start()
+    window._flow.slot_memory["Phone"] = 2  # camera 3 in an earlier run; alone it starts on camera 1
+    window._flow.start()
     window.add_stream("phone-b")
     window.focus_stream("Phone")
     source = window._sessions.focus
@@ -3177,13 +3177,13 @@ def test_a_background_phone_without_h264_falls_back_to_mjpeg(two_streams, monkey
     window._apply_state(session.id, {**_VALID_STATE, "codecs": ["mjpeg"], "camera_toggle": True}, phone)
     assert window._sessions.focus is phone and plugin._format == "mjpeg"
     assert phone.session is not None and phone.session is not session  # restarted on the MJPEG route
-    window._stop_all()
+    window._flow.stop_all()
 
 
 def test_a_codec_error_while_another_start_prepares_waits_for_it(camera_env, config_home, monkeypatch):
     window, conn, *_ = camera_env
     monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
-    window._start()
+    window._flow.start()
     phone = window._phone_source("Phone")
     focus_during_prepare = []
     original = conn.get_stream_info
@@ -3197,7 +3197,7 @@ def test_a_codec_error_while_another_start_prepares_waits_for_it(camera_env, con
     monkeypatch.setattr(sources_module.PhoneSource, "_spawn_wake", lambda self, *a: None)
     window.add_stream("third")
     assert focus_during_prepare == ["third"]  # the panels stay on the start, so it opens with its own settings
-    window._on_wake_done(window._sessions.wake_source, True, "")
+    window._flow.wake_done(window._sessions.wake_source, True, "")
     QCoreApplication.processEvents()
     assert window._sessions.focus is phone  # then the stream with the error gets them
 
@@ -3223,15 +3223,15 @@ def test_re_pairing_a_phone_while_another_starts_restarts_it_after(camera_env, m
     _add(conn, "id-a")
     _add(conn, "id-b", name="B")
     conn.select("id-a")
-    window._start()
+    window._flow.start()
     monkeypatch.setattr(sources_module.PhoneSource, "_spawn_wake", lambda self, *a: None)
     window.add_stream("id-b")
     assert window._sessions.waking
     _add(conn, "id-a", token="new-token")
     a = window._phone_source("id-a")
-    window._on_wake_done(window._sessions.wake_source, True, "")
+    window._flow.wake_done(window._sessions.wake_source, True, "")
     QCoreApplication.processEvents()
-    window._on_wake_done(window._sessions.wake_source, True, "")  # A's own restart
+    window._flow.wake_done(window._sessions.wake_source, True, "")  # A's own restart
     assert a.session.worker.auth.token == "new-token" and a.session.client.auth.token == "new-token"
     assert window.stream_count() == 2
     conn.shutdown()
@@ -3252,7 +3252,7 @@ def test_a_preview_frame_from_the_last_stream_isnt_shown_on_the_next(two_streams
 def test_stop_cancels_a_stream_restarting_next_to_the_shown_one(camera_env, monkeypatch):
     window, *_ = camera_env
     monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
-    window._start()
+    window._flow.start()
     window.add_stream("B")
     phone = window._phone_source("Phone")
     monkeypatch.setattr(sources_module.PhoneSource, "_spawn_wake", lambda self, *a: None)
@@ -3274,13 +3274,13 @@ def test_restarting_a_background_stream_starts_it_with_its_own_settings(camera_e
                       "B": {"plugin_configs": {"stream_output": {"fps": 60}}}}
     config_home.save_config(cfg)
     window._apply_device_profile("Phone")
-    window._start()
+    window._flow.start()
     phone = window._phone_source("Phone")
     window.add_stream("B")
     window.reconnect_stream("Phone")
     assert window._sessions.focus is phone
     assert phone.session.worker.kwargs["fps"] == 15 and conn.opening["fps"] == 15
-    window._stop_all()
+    window._flow.stop_all()
 
 
 def _camera_state(**camera):
@@ -3296,7 +3296,7 @@ def test_coming_back_to_a_stream_keeps_its_exposure_and_sends_nothing(camera_env
     camera = CameraControlPlugin()
     window.register_plugin(camera)
     window._bus.phones_changed.emit(2)
-    window._start()
+    window._flow.start()
     phone = window._sessions.focus
     window._apply_state(phone.session.id, {**_camera_state(isoMax=6400), "auto": False, "iso": 6400,
                                            "shutter_ns": 10_000_000}, phone)
@@ -3307,7 +3307,7 @@ def test_coming_back_to_a_stream_keeps_its_exposure_and_sends_nothing(camera_env
     window.focus_stream("Phone")
     assert camera.get_config()["iso"] > 6390 and camera._iso_slider.v_max == 6400
     assert phone.session.client.sent == []  # the phone still has them
-    window._stop_all()
+    window._flow.stop_all()
 
 
 def test_coming_back_to_a_stream_keeps_its_focus_point(camera_env, monkeypatch):
@@ -3317,7 +3317,7 @@ def test_coming_back_to_a_stream_keeps_its_focus_point(camera_env, monkeypatch):
     camera = CameraControlPlugin()
     window.register_plugin(camera)
     window._bus.phones_changed.emit(2)
-    window._start()
+    window._flow.start()
     phone = window._sessions.focus
     window._apply_state(phone.session.id, _camera_state(supportsFocusPoint=True), phone)
     window._bus.focus_point.emit(0.25, 0.75)
@@ -3327,7 +3327,7 @@ def test_coming_back_to_a_stream_keeps_its_focus_point(camera_env, monkeypatch):
     window.focus_stream("Phone")
     assert camera._point_focus and camera._rb_focus_point.isChecked()
     assert phone.session.client.sent == []
-    window._stop_all()
+    window._flow.stop_all()
 
 
 def test_coming_back_to_a_zoomed_phone_doesnt_crop_its_crop_again(camera_env, monkeypatch):
@@ -3336,7 +3336,7 @@ def test_coming_back_to_a_zoomed_phone_doesnt_crop_its_crop_again(camera_env, mo
     monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
     view = TransformsPlugin()
     window.register_plugin(view)
-    window._start()
+    window._flow.start()
     phone = window._sessions.focus
     window._apply_state(phone.session.id, _camera_state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True),
                         phone)
@@ -3347,7 +3347,7 @@ def test_coming_back_to_a_zoomed_phone_doesnt_crop_its_crop_again(camera_env, mo
     window.focus_stream("Phone")
     assert view._desktop_crop == (1.0, 0.0, 0.0)
     assert phone.session.client.sent == []
-    window._stop_all()
+    window._flow.stop_all()
 
 
 def test_coming_back_to_a_stream_that_changed_route_meanwhile_keeps_its_exposure(camera_env, monkeypatch):
@@ -3357,7 +3357,7 @@ def test_coming_back_to_a_stream_that_changed_route_meanwhile_keeps_its_exposure
     camera = CameraControlPlugin()
     window.register_plugin(camera)
     window._bus.phones_changed.emit(2)
-    window._start()
+    window._flow.start()
     phone = window._sessions.focus
     window._apply_state(phone.session.id, {**_camera_state(isoMax=6400), "auto": False, "iso": 6400,
                                            "shutter_ns": 10_000_000}, phone)
@@ -3370,7 +3370,7 @@ def test_coming_back_to_a_stream_that_changed_route_meanwhile_keeps_its_exposure
     phone.session.client.sent.clear()
     window.focus_stream("Phone")
     assert camera.get_config()["iso"] > 6390 and phone.session.client.sent == []
-    window._stop_all()
+    window._flow.stop_all()
 
 
 def test_two_phones_waiting_for_the_extra_cameras_both_start(camera_env, monkeypatch):
@@ -3378,19 +3378,19 @@ def test_two_phones_waiting_for_the_extra_cameras_both_start(camera_env, monkeyp
     ready = {0}
     monkeypatch.setattr(app_module.vcam, "slot_ready", lambda slot: slot in ready)
     monkeypatch.setattr(window, "_ask_slots", lambda: True)
-    window._start()
+    window._flow.start()
     window.add_stream("B")  # sets up the extra cameras
     window.add_stream("C")  # while that's under way
     monkeypatch.setattr(sources_module.PhoneSource, "_spawn_wake", lambda self, *a: None)
     ready.update(range(1, app_module.vcam.MAX_SLOTS))
     window._on_slots_ready(True, "", "")
     assert window._sessions.wake_source.id == "B"
-    window._on_wake_done(window._sessions.wake_source, True, "")
+    window._flow.wake_done(window._sessions.wake_source, True, "")
     QCoreApplication.processEvents()
     assert window._sessions.wake_source.id == "C"  # once B is through
-    window._on_wake_done(window._sessions.wake_source, True, "")
+    window._flow.wake_done(window._sessions.wake_source, True, "")
     assert window.stream_count() == 3
-    window._stop_all()
+    window._flow.stop_all()
 
 
 def test_stop_drops_starts_waiting_for_the_extra_cameras(camera_env, monkeypatch):
@@ -3398,7 +3398,7 @@ def test_stop_drops_starts_waiting_for_the_extra_cameras(camera_env, monkeypatch
     ready = {0}
     monkeypatch.setattr(app_module.vcam, "slot_ready", lambda slot: slot in ready)
     monkeypatch.setattr(window, "_ask_slots", lambda: True)
-    window._start()
+    window._flow.start()
     window.add_stream("B")
     window.add_stream("C")
     window._toggle()

@@ -39,7 +39,7 @@ def test_a_plugin_calls_nothing_private_on_its_host(path):
     assert not re.findall(r"\bhost\._[a-z]\w*", text), "add it to HostServices instead"
 
 
-@pytest.mark.parametrize("name", ["sources.py", "session.py", "plugin.py"])
+@pytest.mark.parametrize("name", ["sources.py", "session.py", "stream_flow.py", "plugin.py"])
 def test_the_pieces_the_window_drives_dont_import_it(name):
     assert "telescope.app" not in _imports(ROOT / name)
 

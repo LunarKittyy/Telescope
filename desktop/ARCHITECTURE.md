@@ -9,6 +9,7 @@ This is the short version of how the desktop app is split up and which rules kee
 - **The plugin API** lives in `telescope/plugin.py`. It has the `TelescopePlugin` hooks, `HostServices` (everything a plugin may call on the window) and the `EventBus` signals. A plugin only talks to the rest of the app through these three.
 - **Sources** (`telescope/sources.py`) are what a stream comes from, which is either a paired phone or a plugin's `StreamSource`. They reach the window only through `SourceHost`.
 - **Sessions** (`telescope/session.py`) keeps track of which sources are streaming, which one the panels show and what's still starting. There's no Qt in it at all.
+- **The stream flow** (`telescope/stream_flow.py`, `StreamFlow`) starts and stops streams, moves the panels between them and keeps the mic on one stream. It works on `Sessions` and reaches the window only through `FlowHost`.
 - **Added plugins** are loaded from the user's plugins folder by `telescope/plugin_loader.py`. The Plugins dialog (`telescope/widgets/plugins_dialog.py`) is where people switch them on and off, built-in ones included.
 
 ## The rules
@@ -31,7 +32,7 @@ This is the short version of how the desktop app is split up and which rules kee
 
 **Signals about a stream say which stream.** `stream_connected`, `stream_lost` and `stream_behind` carry the source id and fire for every stream, including the ones behind the panels. A card about the shown stream compares the id with `host.focused_source_id()`.
 
-**The window drives and nothing reaches back into it.** `sources.py`, `session.py` and `plugin.py` never import `app.py`. Session state (what streams, focus, main, what's waking or waiting) lives in `Sessions` and not in new attributes on the window. Code that doesn't need the window at all goes in its own module, the way the single-instance lock went into `single_instance.py`.
+**The window drives and nothing reaches back into it.** `sources.py`, `session.py`, `stream_flow.py` and `plugin.py` never import `app.py`. Session state (what streams, focus, main, what's waking or waiting) lives in `Sessions` and not in new attributes on the window. Starting, stopping and focus changes go in `StreamFlow`. If it needs something new from the window, add it to `FlowHost` and `app._FlowHost` the same way sources use `SourceHost`. Code that doesn't need the window at all goes in its own module, the way the single-instance lock went into `single_instance.py`.
 
 ## Why
 
@@ -39,7 +40,7 @@ Before these rules, plugins had to guess whether a stream had stopped or someone
 
 ## What's checked automatically
 
-`tests/test_architecture.py` fails when a plugin imports another plugin or the window or calls a private host method. It also fails when `sources.py`, `session.py` or `plugin.py` import the window. `tests/test_plugin_removal.py` checks that every optional plugin can be left out. When you add a rule here that a test could check, add the test too.
+`tests/test_architecture.py` fails when a plugin imports another plugin or the window or calls a private host method. It also fails when `sources.py`, `session.py`, `stream_flow.py` or `plugin.py` import the window. `tests/test_stream_flow.py` checks who hears which hook when streams start, stop and change focus, without a window. `tests/test_plugin_removal.py` checks that every optional plugin can be left out. When you add a rule here that a test could check, add the test too.
 
 ## Known exceptions
 
@@ -48,7 +49,3 @@ These places don't follow the rules yet. Don't add to this list without a good r
 - The window talks to a few built-in plugins directly through `_plugin(name)`. It asks Connection which phone is picked, to wake it and for its routes. It asks Setup for the canvas size, Stream output for the stream size and what the phone opens at, and Shortcuts to run `--action`. Connection is required for exactly this reason. The others are optional and the window checks they're there before using them.
 - Connection reads Stream output's `format` setting with `plugin_config` to pick the phone's video URL.
 - Presets saves and loads the settings of every plugin that keeps per-phone settings through `plugin_config` and `apply_preset`. That's what Presets is for, so it stays.
-
-## Not done yet
-
-`Sessions` holds the session state, but the code that starts and stops streams and moves the panels between them (`_start`, `_stop` and `_move_focus` in `app.py`) is still in the window. Moving it next to `Sessions` would make `app.py` a lot smaller and let the stream flow be tested without a window. It's a big change to the most sensitive part of the app, which is why it's left for its own PR.

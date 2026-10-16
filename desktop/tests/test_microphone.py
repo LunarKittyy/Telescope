@@ -399,7 +399,7 @@ def two_cams(window, config_home, monkeypatch):
     for cam in (_Cam("front", "10.0.0.5"), _Cam("back", "10.0.0.6")):
         window.add_stream_source(cam)
     window._bus.phones_changed.emit(2)  # the card is greyed out until then
-    window._start()
+    window._flow.start()
     mic._toggle.setChecked(True)  # on for the first
     window.add_stream("back")  # the panels move to it
     return window, mic, config_home
@@ -448,5 +448,5 @@ def test_the_mic_stays_on_when_the_stream_with_it_stops(two_cams):
 def test_a_card_whose_camera_is_still_starting_cant_take_the_mic(two_cams):
     window, mic, _config = two_cams
     window.stop_stream("back")
-    window._move_focus(window._source_by_id("back"))  # as + does, before its stream is up
+    window._flow.move_focus(window._source_by_id("back"))  # as + does, before its stream is up
     assert not mic._toggle.isChecked() and not mic._toggle.isEnabled()
