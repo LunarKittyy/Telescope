@@ -5,6 +5,7 @@ from typing import Optional
 from PyQt6.QtCore import QSize, Qt, QTimer, QUrl, pyqtSignal
 from PyQt6.QtGui import QAction, QDesktopServices, QGuiApplication
 from PyQt6.QtWidgets import (
+    QComboBox,
     QButtonGroup, QDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QPushButton, QScrollArea, QVBoxLayout,
     QWidget,
 )
@@ -23,10 +24,13 @@ from telescope.platform.windows import (
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.adb import AdbDownload
 from telescope.version import display_version
+from telescope.widgets.controls import setting_row
+from telescope.widgets.line_icons import line_icon
 from telescope.widgets.common import (
+    set_button_icon,
     Switch,
-    ElidingLabel, NoScrollComboBox, NoScrollSpinBox, SegmentButton, action_button, add_card_header, button_row, card_layout,
-    control_row, control_row_widget, create_card, dialog_buttons, dialog_header, dialog_layout, refresh_hues,
+    NoScrollComboBox, NoScrollSpinBox, SegmentButton, action_button, add_card_header, button_row, card_layout,
+    create_card, dialog_layout, refresh_hues,
     run_off_ui_thread, segmented_row,
     set_status_kind, set_ui_role, ui_px, wrapped_note,
 )
@@ -162,10 +166,24 @@ class AdvancedDialog(QDialog):
             threading.Thread(target=self._check_win_setup, daemon=True).start()
 
     def _build_ui(self):
-        lay = dialog_layout(self)
-        dialog_header(lay, "Advanced", "Virtual camera module, output canvas, zoom and gain range, and "
-                                   "installing the phone app over USB.")
-        # The cards scroll; the title, version row and Close stay put
+        # The bottom row is a bar across the whole dialog, so the dialog's own layout has no margins
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+        page = QWidget()
+        outer.addWidget(page, 1)
+        lay = dialog_layout(page)
+        lay.setContentsMargins(20, 18, 20, 14)
+        title_row = QHBoxLayout()
+        title = QLabel("Advanced")
+        title.setObjectName("dialog_title")
+        title_row.addWidget(title)
+        title_row.addStretch(1)
+        version = QLabel(f"Telescope {display_version()}")
+        version.setObjectName("version_note")
+        title_row.addWidget(version)
+        lay.addLayout(title_row)
+        # The cards scroll; the title and the bottom row stay put
         scroll = _FitScroll()
         content = QWidget()
         body = QVBoxLayout(content)
@@ -177,17 +195,8 @@ class AdvancedDialog(QDialog):
         # ── Virtual camera ────────────────────────────────────────────────────
         vc_card = create_card()
         vc_lay = card_layout(vc_card)
-        add_card_header(vc_lay, "Virtual camera", "stream", hue="stream")
+        add_card_header(vc_lay, "Virtual camera", "video", hue="stream")
         if IS_LINUX:
-            self._v4l_lbl = QLabel("Checking...")
-            self._v4l_lbl.setWordWrap(True)
-            self._v4l_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-            set_status_kind(self._v4l_lbl, "status_dim")
-            self._v4l_lbl.setWordWrap(True)
-            self._v4l_lbl.setToolTip(
-                f"Virtual camera mapping:\n  Phone Feed: {V4L2_PHONE_DEV}\n  OBS Loopback: {V4L2_OBS_DEV}"
-            )
-            vc_lay.addLayout(control_row("Status", self._v4l_lbl, stretch=True))
             chk_btn    = QPushButton("Check")
             load_btn   = QPushButton("Load")
             unload_btn = QPushButton("Unload")
@@ -196,42 +205,30 @@ class AdvancedDialog(QDialog):
             chk_btn.clicked.connect(self._v4l_check)
             load_btn.clicked.connect(self._v4l_load)
             unload_btn.clicked.connect(self._v4l_unload)
-            vc_lay.addLayout(control_row("Module", button_row(chk_btn, load_btn, unload_btn), stretch=True))
-            vc_lay.addLayout(control_row("", wrapped_note(
-                "Already says Ready? Leave these alone; they're only for fixing a \"not ready\" status."),
-                stretch=True))
+            strip, self._v4l_lbl = setting_row("Kernel module", "Checking...", button_row(chk_btn, load_btn, unload_btn))
+            self._v4l_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            set_status_kind(self._v4l_lbl, "status_dim")
+            strip.setToolTip("Already says Ready? Leave these alone; they're only for fixing a \"not ready\" status.")
+            vc_lay.addWidget(strip)
 
             self._persist_chk = Switch()
             self._persist_chk.setToolTip(
                 "Also writes it to /etc/modprobe.d/ and /etc/modules-load.d/, so it survives a reboot.\n" + _SUDO_HINT
             )
             self._persist_chk.toggled.connect(self._on_persist_toggled)
-            vc_lay.addLayout(control_row("Load at boot", self._persist_chk))
-
-            self._persist_status_lbl = wrapped_note("")
+            strip, self._persist_status_lbl = setting_row("Load when the computer starts", "", self._persist_chk)
             self._persist_status_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             set_status_kind(self._persist_status_lbl, "status_dim")
-            self._persist_status_lbl.setTextInteractionFlags(
-                Qt.TextInteractionFlag.TextSelectableByMouse
-            )
-            self._persist_row = QWidget()
-            self._persist_row.setObjectName("form_row")
-            self._persist_row.setLayout(control_row("", self._persist_status_lbl, stretch=True))
+            self._persist_row = self._persist_status_lbl
             self._persist_row.setVisible(False)
-            vc_lay.addWidget(self._persist_row)
+            vc_lay.addWidget(strip)
         else:
-            self._uc_status_lbl = QLabel("Checking...")
-            set_status_kind(self._uc_status_lbl, "status_dim")
-            vc_lay.addLayout(control_row("Driver", self._uc_status_lbl, stretch=True))
             self._uc_btn = action_button("Install driver")
             self._uc_btn.clicked.connect(self._install_uc)
-            vc_lay.addLayout(control_row("", self._uc_btn))
+            strip, self._uc_status_lbl = setting_row("Driver", "Checking...", self._uc_btn)
+            set_status_kind(self._uc_status_lbl, "status_dim")
+            vc_lay.addWidget(strip)
 
-            self._adb_status_lbl = QLabel("Checking...")
-            set_status_kind(self._adb_status_lbl, "status_dim")
-            self._adb_status_lbl.setWordWrap(True)
-            self._adb_status_lbl.setTextFormat(Qt.TextFormat.PlainText)  # errors can hold <urlopen error ...>
-            vc_lay.addLayout(control_row("ADB", self._adb_status_lbl, stretch=True))
             # Not bundled (Google's license doesn't allow passing it on), so it's fetched from Google when asked
             self._adb_btn = action_button("Get adb", "primary")
             self._adb_from_google = True
@@ -241,65 +238,100 @@ class AdvancedDialog(QDialog):
             self._adb_pick_btn = QPushButton("Use my own adb…")
             self._adb_pick_btn.setToolTip("Pick an adb.exe or platform-tools zip you already have")
             self._adb_pick_btn.clicked.connect(self._pick_adb)
-            adb_buttons = QHBoxLayout()
+            self._adb_row = QWidget()
+            adb_buttons = QHBoxLayout(self._adb_row)
             adb_buttons.setContentsMargins(0, 0, 0, 0)
             adb_buttons.setSpacing(8)
             adb_buttons.addWidget(self._adb_btn)
             adb_buttons.addWidget(self._adb_pick_btn)
-            self._adb_row = QWidget()
-            self._adb_row.setLayout(control_row("", adb_buttons))
             self._adb_row.setVisible(False)
-            vc_lay.addWidget(self._adb_row)
+            strip, self._adb_status_lbl = setting_row("ADB", "Checking...", self._adb_row)
+            set_status_kind(self._adb_status_lbl, "status_dim")
+            self._adb_status_lbl.setTextFormat(Qt.TextFormat.PlainText)  # errors can hold <urlopen error ...>
+            vc_lay.addWidget(strip)
             self._adb_download = AdbDownload(self)
             self._adb_download.progress.connect(self._adb_status_lbl.setText)
             self._adb_download.finished.connect(self._on_adb_downloaded)
 
         # The ones Add camera set up, for streaming several cameras at once
-        self._extras_lbl = ElidingLabel("")
         self._extras_btn = QPushButton("Remove")
         self._extras_btn.clicked.connect(self._remove_extras)
-        extras = QHBoxLayout()
-        extras.setContentsMargins(0, 0, 0, 0)
-        extras.setSpacing(8)
-        extras.addWidget(self._extras_lbl, 1)
-        extras.addWidget(self._extras_btn)
-        self._extras_row = control_row_widget("Extra cameras", extras, stretch=True)
+        self._extras_row, self._extras_lbl = setting_row("Extra cameras", "", self._extras_btn)
         self._extras_row.setVisible(False)
         vc_lay.addWidget(self._extras_row)
         body.addWidget(vc_card)
 
-        # ── Phone app ─────────────────────────────────────────────────────────
-        apk_card = create_card()
-        apk_lay = card_layout(apk_card)
-        add_card_header(apk_lay, "Phone app", "devices", hue="phone")
-        _apk = bundled_apk_path()
-        self._apk_status_lbl = QLabel("Telescope.apk found" if _apk else "No Telescope.apk came with this app")
-        set_status_kind(self._apk_status_lbl, "status_ok" if _apk else "status_dim")
-        self._apk_status_lbl.setWordWrap(True)
-        apk_lay.addLayout(control_row("APK", self._apk_status_lbl, stretch=True))
-        self._apk_btn = action_button("Install APK" if _apk else "Choose APK...", "primary")
-        self._apk_btn.clicked.connect(self._install_apk)
-        apk_lay.addLayout(control_row("", self._apk_btn))
-        apk_lay.addLayout(control_row("", wrapped_note(
-            "Installs the Telescope.apk that came with this app, or one you pick, on a phone plugged "
-            "in over USB."), stretch=True))
-        body.addWidget(apk_card)
-
-        # ── Zoom ──────────────────────────────────────────────────────────────
-        zoom_card = create_card()
-        zoom_lay = card_layout(zoom_card)
-        add_card_header(zoom_lay, "Zoom", "transforms", hue="transforms")
+        # ── Video ─────────────────────────────────────────────────────────────
+        video_card = create_card()
+        self._advanced_content = video_card
+        video_lay = card_layout(video_card)
+        add_card_header(video_lay, "Video", "chip", hue="stream")
         self._max_zoom_spin = NoScrollSpinBox()
+        self._max_zoom_spin.setObjectName("chip_spin")
+        self._max_zoom_spin.setFixedSize(ui_px(80), ui_px(30))
         self._max_zoom_spin.setRange(*MAX_ZOOM_RANGE)
         self._max_zoom_spin.setValue(DEFAULT_MAX_ZOOM)
         self._max_zoom_spin.setSuffix("×")
         self._max_zoom_spin.valueChanged.connect(
             lambda value: self._on_max_zoom(value) if self._on_max_zoom else None)
-        zoom_lay.addLayout(control_row("Max zoom", self._max_zoom_spin))
-        zoom_lay.addLayout(control_row("", wrapped_note(
-            "How far the Zoom slider goes. Past what the phone can zoom itself, the rest is cropped on "
-            "this computer."), stretch=True))
-        body.addWidget(zoom_card)
+        strip, _ = setting_row("Max zoom", "", self._max_zoom_spin)
+        strip.setToolTip("How far the Zoom slider goes. Past what the phone can zoom itself, the rest is cropped on "
+                         "this computer.")
+        video_lay.addWidget(strip)
+
+        self._canvas_combo = NoScrollComboBox()
+        self._canvas_combo.addItems(_PRESET_LABELS)
+        self._canvas_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self._canvas_combo.setMinimumContentsLength(18)  # the row fits the dialog; the list opens as wide as it needs
+        self._canvas_combo.currentTextChanged.connect(self._on_preset_changed)
+
+        # Custom W x H spinboxes (hidden unless "Custom..." selected)
+        self._custom_w = NoScrollSpinBox()
+        self._custom_w.setRange(64, _CUSTOM_MAX[0])
+        self._custom_w.setSingleStep(2)  # odd sizes break the colours on Linux
+        self._custom_w.setValue(1920)
+        self._custom_w.setSuffix(" px")
+        self._custom_h = NoScrollSpinBox()
+        self._custom_h.setRange(64, _CUSTOM_MAX[1])
+        self._custom_h.setSingleStep(2)
+        self._custom_h.setValue(1080)
+        self._custom_h.setSuffix(" px")
+        self._custom_widget = QWidget()
+        size_lay = QHBoxLayout(self._custom_widget)
+        size_lay.setContentsMargins(0, 0, 0, 0)
+        size_lay.setSpacing(8)
+        size_lay.addWidget(self._custom_w, 1)
+        times = QLabel("×")
+        times.setObjectName("dim")
+        size_lay.addWidget(times)
+        size_lay.addWidget(self._custom_h, 1)
+        if IS_LINUX:
+            canvas_note = ("Applying stops the stream, unloads v4l2loopback and loads it again. "
+                           "Close OBS and anything else using the virtual camera first.")
+            apply_label, apply_tooltip = "Apply and reload", _SUDO_HINT
+        else:
+            canvas_note = "Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."
+            apply_label, apply_tooltip = "Apply", None
+        self._canvas_apply_btn = action_button(apply_label, tooltip="\n".join(t for t in (canvas_note, apply_tooltip) if t))
+        self._canvas_apply_btn.clicked.connect(self._apply_canvas)
+        self._custom_widget.setVisible(False)
+        self._canvas_status_lbl = wrapped_note("")
+        set_status_kind(self._canvas_status_lbl, "status_dim")
+        self._canvas_status_row = self._canvas_status_lbl
+        self._canvas_status_row.setVisible(False)
+        under = QVBoxLayout()
+        under.setContentsMargins(0, 0, 0, 0)
+        under.setSpacing(6)
+        under.addWidget(self._custom_widget)
+        apply_row = QHBoxLayout()
+        apply_row.setContentsMargins(0, 0, 0, 0)
+        apply_row.setSpacing(8)
+        apply_row.addWidget(self._canvas_status_lbl, 1)
+        apply_row.addWidget(self._canvas_apply_btn, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
+        under.addLayout(apply_row)
+        strip, _ = setting_row("Canvas size", "", self._canvas_combo, under)
+        video_lay.addWidget(strip)
+        body.addWidget(video_card)
 
         # ── Hardware acceleration ─────────────────────────────────────────────
         hw_card = create_card()
@@ -326,22 +358,36 @@ class AdvancedDialog(QDialog):
         self._max_gain_btns[DEFAULT_MAX_GAIN].setChecked(True)
         self._max_gain_grp.idClicked.connect(
             lambda db: self._on_max_gain(db) if self._on_max_gain else None)
-        mic_lay.addLayout(control_row("Max gain", segmented_row(*self._max_gain_btns.values()), stretch=True))
-        mic_lay.addLayout(control_row("", wrapped_note(
-            "How far the Gain slider goes. Less range gives finer steps; more helps a quiet phone."), stretch=True))
+        strip, _ = setting_row("Max gain", "", None, segmented_row(*self._max_gain_btns.values()))
+        strip.setToolTip("How far the Gain slider goes. Less range gives finer steps; more helps a quiet phone.")
+        mic_lay.addWidget(strip)
         self._limiter_chk = Switch()
         self._limiter_chk.setChecked(True)
         self._limiter_chk.toggled.connect(lambda on: self._on_limiter(on) if self._on_limiter else None)
-        mic_lay.addLayout(control_row("Limiter", self._limiter_chk))
-        mic_lay.addLayout(control_row("", wrapped_note(
-            "Holds loud moments (a laugh, a cough) just under the top smoothly, instead of letting them crackle."),
-            stretch=True))
+        strip, _ = setting_row("Limiter", "Keeps loud sounds from clipping", self._limiter_chk)
+        mic_lay.addWidget(strip)
         body.addWidget(mic_card)
+
+        # ── Phone app ─────────────────────────────────────────────────────────
+        apk_card = create_card()
+        apk_lay = card_layout(apk_card)
+        add_card_header(apk_lay, "Phone app", "phone", hue="phone")
+        _apk = bundled_apk_path()
+        self._apk_btn = action_button("Install over USB" if _apk else "Choose APK...")
+        set_button_icon(self._apk_btn, line_icon("download", theme.TEXT_DIM))
+        self._apk_btn.setToolTip("Installs the Telescope.apk that came with this app, or one you pick, on a phone "
+                                 "plugged in over USB.")
+        self._apk_btn.clicked.connect(self._install_apk)
+        strip, self._apk_status_lbl = setting_row(
+            "Telescope.apk", "Comes with this app" if _apk else "None came with this app", self._apk_btn)
+        set_status_kind(self._apk_status_lbl, "status_dim")
+        apk_lay.addWidget(strip)
+        body.addWidget(apk_card)
 
         # ── Look ────────────────────────────────────────────────────────────
         look_card = create_card()
         look_lay = card_layout(look_card)
-        add_card_header(look_lay, "Look", "gear")
+        add_card_header(look_lay, "Look", "sliders")
         self._hues_own, self._hues_purple = SegmentButton("Each its own"), SegmentButton("All purple")
         self._hues_grp = QButtonGroup(look_card)
         self._hues_grp.setExclusive(True)
@@ -351,97 +397,39 @@ class AdvancedDialog(QDialog):
         self._hues_own.setToolTip("Every card in the main window gets its own colour.")
         self._hues_grp.buttonClicked.connect(
             lambda btn: self._on_plugin_hues(btn is self._hues_own) if self._on_plugin_hues else None)
-        look_lay.addLayout(control_row("Card colours", segmented_row(self._hues_own, self._hues_purple), stretch=True))
+        strip, _ = setting_row("Card colours", "", None, segmented_row(self._hues_own, self._hues_purple))
+        look_lay.addWidget(strip)
         body.addWidget(look_card)
-
-        # ── Canvas ──────────────────────────────────────────────────────────
-        adv_card = create_card()
-        self._advanced_content = adv_card
-        adv_lay = card_layout(adv_card)
-        add_card_header(adv_lay, "Virtual camera canvas", "expand", hue="stream")
-
-        self._canvas_combo = NoScrollComboBox()
-        self._canvas_combo.addItems(_PRESET_LABELS)
-        self._canvas_combo.currentTextChanged.connect(self._on_preset_changed)
-        adv_lay.addLayout(control_row("Canvas", self._canvas_combo, stretch=True))
-
-        # Custom W x H spinboxes (hidden unless "Custom..." selected)
-        self._custom_w = NoScrollSpinBox()
-        self._custom_w.setRange(64, _CUSTOM_MAX[0])
-        self._custom_w.setSingleStep(2)  # odd sizes break the colours on Linux
-        self._custom_w.setValue(1920)
-        self._custom_w.setSuffix(" px")
-        self._custom_h = NoScrollSpinBox()
-        self._custom_h.setRange(64, _CUSTOM_MAX[1])
-        self._custom_h.setSingleStep(2)
-        self._custom_h.setValue(1080)
-        self._custom_h.setSuffix(" px")
-        size_lay = QHBoxLayout()
-        size_lay.setContentsMargins(0, 0, 0, 0)
-        size_lay.setSpacing(8)
-        size_lay.addWidget(self._custom_w, 1)
-        times = QLabel("×")
-        times.setObjectName("dim")
-        size_lay.addWidget(times)
-        size_lay.addWidget(self._custom_h, 1)
-        self._custom_widget = QWidget()
-        self._custom_widget.setObjectName("form_row")
-        self._custom_widget.setLayout(control_row("Size", size_lay, stretch=True))
-        self._custom_widget.setVisible(False)
-        adv_lay.addWidget(self._custom_widget)
-
-        if IS_LINUX:
-            adv_lay.addLayout(control_row("", wrapped_note(
-                "Applying stops the stream, unloads v4l2loopback and loads it again. "
-                "Close OBS and anything else using the virtual camera first.", "status_warn"),
-                stretch=True))
-            apply_label = "Apply and reload"
-            apply_tooltip = _SUDO_HINT
-        else:
-            adv_lay.addLayout(control_row("", wrapped_note(
-                "Applying restarts the stream at the new size. "
-                "If OBS loses the source, remove it and add it again."), stretch=True))
-            apply_label = "Apply"
-            apply_tooltip = None
-
-        self._canvas_apply_btn = action_button(apply_label, tooltip=apply_tooltip or "")
-        self._canvas_apply_btn.clicked.connect(self._apply_canvas)
-        adv_lay.addLayout(control_row("", self._canvas_apply_btn))
-
-        self._canvas_status_lbl = wrapped_note("")
-        set_status_kind(self._canvas_status_lbl, "status_dim")
-        self._canvas_status_row = QWidget()
-        self._canvas_status_row.setObjectName("form_row")
-        self._canvas_status_row.setLayout(control_row("", self._canvas_status_lbl, stretch=True))
-        self._canvas_status_row.setVisible(False)
-        adv_lay.addWidget(self._canvas_status_row)
-
-        body.addWidget(adv_card)
         body.addStretch(1)
 
-        version_lbl = QLabel(f'Telescope {display_version()} · by <a href="{AUTHOR_URL}">LunarKittyy</a>')
-        version_lbl.setObjectName("dim")
-        version_lbl.setTextFormat(Qt.TextFormat.RichText)
-        version_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
-        version_lbl.setOpenExternalLinks(True)
+        by_lbl = QLabel(f'by <a href="{AUTHOR_URL}">LunarKittyy</a>')
+        by_lbl.setObjectName("version_note")
+        by_lbl.setTextFormat(Qt.TextFormat.RichText)
+        by_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        by_lbl.setOpenExternalLinks(True)
         self._diag_btn = QPushButton("Copy diagnostics")
+        set_button_icon(self._diag_btn, line_icon("copy", theme.TEXT_DIM))
         self._diag_btn.setToolTip("Copies info for a bug report, leaving out pairing tokens, addresses and file paths.")
         self._diag_btn.clicked.connect(self._copy_diagnostics)
         self._diag_btn.setVisible(self._report is not None)
-        version_row = QHBoxLayout()
-        version_row.addWidget(version_lbl)
-        version_row.addStretch(1)
         self._log_btn = QPushButton("Open log")
         self._log_btn.setToolTip("The full log, in the temp folder (the system clears it).")
         self._log_btn.clicked.connect(self._open_log)
         self._log_btn.setVisible(self._report is not None and diagnostics.events.path is not None)
-        version_row.addWidget(self._log_btn)
-        version_row.addWidget(self._diag_btn)
-        lay.addLayout(version_row)
-
         close_btn = QPushButton("Close")
+        set_ui_role(close_btn, "primary")
         close_btn.clicked.connect(self.accept)
-        dialog_buttons(lay, close_btn)
+        bar = QFrame()
+        bar.setObjectName("dialog_footer")
+        bottom = QHBoxLayout(bar)
+        bottom.setContentsMargins(20, 10, 20, 10)
+        bottom.setSpacing(8)
+        bottom.addWidget(by_lbl)
+        bottom.addStretch(1)
+        bottom.addWidget(self._log_btn)
+        bottom.addWidget(self._diag_btn)
+        bottom.addWidget(close_btn)
+        outer.addWidget(bar)
 
     def _copy_diagnostics(self):
         QGuiApplication.clipboard().setText(self._report())

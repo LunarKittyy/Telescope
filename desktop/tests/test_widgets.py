@@ -198,15 +198,17 @@ def test_make_segmented_handles_a_lone_button(qapp):
     assert button.property("segPos") == "only"
 
 
-def test_segmented_row_packs_buttons_without_gaps(qapp):
+def test_segmented_row_puts_the_buttons_in_one_track(qapp):
     a, b = QRadioButton("a"), QRadioButton("b")
 
     row = segmented_row(a, b)
 
-    assert row.spacing() == 0
-    assert row.count() == 2
-    assert row.itemAt(0).widget() is a
-    assert row.itemAt(1).widget() is b
+    track = row.itemAt(0).widget()
+    assert row.count() == 1 and track.objectName() == "seg_track"
+    inner = track.layout()
+    assert inner.count() == 2
+    assert inner.itemAt(0).widget() is a
+    assert inner.itemAt(1).widget() is b
 
 
 def test_stretch_slider_sets_a_floor_not_a_fixed_width(qapp):
@@ -427,3 +429,12 @@ def test_turning_plugin_colours_off_repaints_every_card_in_the_app_purple(qapp, 
     theme.set_plugin_hues(False)
     refresh_hues()
     assert theme.PLUGIN_HUES["camera"] not in card.styleSheet() and theme.ACCENT in card.styleSheet()
+
+
+def test_lens_tiles_split_the_focal_length_from_the_rest_and_stay_in_even_rows():
+    from telescope.widgets.lens_panel import _columns, split_lens_label
+    assert split_lens_label("Auto ~24mm OIS") == ("24", "mm", "Auto · OIS")
+    assert split_lens_label("F/~25mm") == ("25", "mm", "Front")
+    assert split_lens_label("Tele 3x") == ("3", "x", "Tele")
+    assert split_lens_label("Wide") == ("Wide", "", "")
+    assert [_columns(n) for n in (1, 3, 5, 6, 7, 10, 11)] == [1, 3, 5, 3, 4, 5, 4]

@@ -508,7 +508,7 @@ class StreamWorker(QThread):
                 # Name the camera the way other apps list it (the v4l2loopback card label on Linux).
                 shown_as = vcam.slot_label(self.slot) if vcam.IS_LINUX else cam.device
                 self.vcam_opened.emit(cam_w, cam_h)
-                self.status.emit("ok", f"Streaming {cam_w}x{cam_h} at {self._fps} fps to {shown_as}")
+                self.status.emit("ok", f"Streaming {cam_w} × {cam_h} at {self._fps} fps to {shown_as}")
                 t0, bytes0, recv0 = time.monotonic(), self._bytes_total, self._frames_arrived
                 period = 1 / self._fps
                 last_src = fitted = None

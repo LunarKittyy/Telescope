@@ -20,6 +20,6 @@
     <color name="colorStreamingText">#5fc98c</color>
     <color name="colorWarn">#f0b65c</color>
     <color name="colorError">#ef6f6b</color>
-    <color name="colorStop">#b04a46</color>         <!-- Stop Streaming, same as the desktop's -->
+    <color name="colorStop">#b04a46</color>         <!-- Stop streaming, same as the desktop's -->
     <color name="colorOverlay">#b3121519</color>    <!-- chips over the camera preview -->
 </resources>

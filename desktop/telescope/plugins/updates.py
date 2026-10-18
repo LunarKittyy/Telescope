@@ -181,7 +181,7 @@ class UpdatesPlugin(TelescopePlugin):
     # ── UI ────────────────────────────────────────────────────────────────
 
     def create_header_widget(self) -> QWidget:
-        # Green, not the accent blue: Start Streaming stays the one primary button in the header.
+        # Green, not the accent blue: Start streaming stays the one primary button in the header.
         self._header_btn = QPushButton("Update")
         self._header_btn.setFixedHeight(36)
         self._header_btn.setIcon(create_vector_icon("update", "#ffffff"))

@@ -947,7 +947,7 @@ def test_start_builds_worker_pipeline_and_notifies_plugins(window, monkeypatch):
     assert window._ctrl is clients[0]
     assert threads[0][1] == (window._session.id,)
     assert threads[0][2] is True
-    assert window._start_btn.text() == "Stop Streaming"
+    assert window._start_btn.text() == "Stop streaming"
     # on_progress callback must reach plugin and route through signal to fix "frozen button for 12s" complaint.
     assert connection.progress_msgs == ["waking..."]
 
@@ -1062,7 +1062,7 @@ def test_stop_requests_worker_closes_client_and_notifies_plugins(window):
     assert window._session is None
     assert plugin.stopped == 1
     assert bus == [True]
-    assert window._start_btn.text() == "Start Streaming"
+    assert window._start_btn.text() == "Start streaming"
 
 
 def test_stop_is_safe_when_already_stopped(window):
@@ -1219,7 +1219,7 @@ def test_apply_state_accepts_empty_state(window):
 
 @pytest.mark.parametrize(
     "kind,object_name",
-    [("ok", "status_ok"), ("warn", "status_warn"), ("other", "status_dim")],
+    [("ok", "status_dim"), ("warn", "status_warn"), ("other", "status_dim")],
 )
 def test_worker_status_updates_status_label(window, kind, object_name):
     window._on_worker_status(kind, "message")
@@ -1229,7 +1229,7 @@ def test_worker_status_updates_status_label(window, kind, object_name):
 
 def test_worker_fps_and_idle_status(window):
     window._on_worker_status("fps", "29.9 fps")
-    assert window._fps_lbl.text() == "29.9 fps"
+    assert window._fps_lbl.text() == "29.9"
     stopped = []
     window._bus.stream_stopped.connect(lambda: stopped.append(True))
     worker = _RetargetWorker()
@@ -1239,7 +1239,7 @@ def test_worker_fps_and_idle_status(window):
     assert window._fps_lbl.text() == "—"
     assert window._worker is None
     assert window._session is None
-    assert window._start_btn.text() == "Start Streaming"
+    assert window._start_btn.text() == "Start streaming"
     assert stopped == [True]
     assert window._banners.issue(f"stopped:{window._phone.id}").title == "The stream stopped unexpectedly"
 
@@ -1302,7 +1302,7 @@ def test_reconnecting_animation_stops_when_another_status_arrives(window):
     # Timer must be stopped, not just replaced, so it can't fire and overwrite new status.
     assert not window._reconnecting_timer.isActive()
     assert window._status_lbl.fullText() == "Stream reconnected"
-    assert window._status_lbl.objectName() == "status_ok"
+    assert window._status_lbl.objectName() == "status_dim"  # all is well: plain text, only trouble gets a colour
 
 
 def test_status_colour_actually_changes_with_kind(qapp):
@@ -1518,7 +1518,7 @@ def test_start_shows_the_reason_and_builds_nothing_when_the_wake_fails(window, m
     assert [a.label for a in issue.actions] == ["Try again"]
     # Button must come back enabled so user can retry.
     assert window._start_btn.isEnabled()
-    assert window._start_btn.text() == "Start Streaming"
+    assert window._start_btn.text() == "Start streaming"
 
 
 def test_a_wake_that_lands_after_the_user_gave_up_is_discarded(window, monkeypatch):
@@ -2488,10 +2488,10 @@ def test_start_mic_only_opens_the_phone_with_its_camera_off(camera_env):
     window._flow.start()
     assert conn.opening["camera"] == "off"
     assert workers == [] and window.is_streaming() and mic.calls == ["off"]
-    assert window._start_btn.text() == "Stop Streaming"
+    assert window._start_btn.text() == "Stop streaming"
     window._flow.stop()
     assert window.is_camera_on() and changes == [False, True]  # the next stream starts with the camera on
-    assert window._start_btn.text() == "Start Streaming"
+    assert window._start_btn.text() == "Start streaming"
 
 
 def test_a_restart_keeps_the_camera_off(camera_env):
@@ -2689,7 +2689,7 @@ def test_each_source_keeps_its_own_camera_choice(camera_env):
     conn.selected_device = "browser"
     window._bus.source_selected.emit("browser")
     assert window.is_camera_on() and changes == [False, True]
-    assert window._start_btn.text() == "Start Streaming"
+    assert window._start_btn.text() == "Start streaming"
     conn.selected_device = "Phone"
     window._bus.source_selected.emit("")
     assert not window.is_camera_on() and changes == [False, True, False]
@@ -2782,10 +2782,10 @@ def test_a_tile_follows_its_stream_back_to_live(two_streams):
     browser = window._sessions.focus
     state = lambda: window._tiles._tiles["browser"].state.text()  # noqa: E731
     window._on_worker_status("waiting", "Waiting for the first frame…", browser)
-    assert state() == "● Reconnecting"
+    assert state() == "Reconnecting"
     window._on_worker_status("ok", "Streaming", browser)
     window._on_stream_reconnected(browser)
-    assert state() == "● Live"
+    assert state() == "Live"
 
 
 def test_the_wait_screen_hears_which_extra_cameras_are_free(two_streams):
@@ -3033,7 +3033,7 @@ def test_a_source_that_waits_gets_a_tile_with_the_panels_on_it(two_streams):
     window.add_stream("waiting")
     assert window._sessions.focus.id == "waiting" and conn.selected_device == "waiting"
     assert window._tiles.ids() == ["Phone", "browser", "waiting"]
-    assert window._tiles._tiles["waiting"].state.text() == "● Waiting"
+    assert window._tiles._tiles["waiting"].state.text() == "Waiting"
     assert "waiting" not in [sid for sid, _name in window._add_candidates()]
 
     window.focus_stream("Phone")

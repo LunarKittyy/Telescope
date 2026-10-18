@@ -1,7 +1,7 @@
 """Telescope's visual theme: palette tokens, QSS stylesheet, and theme application."""
 
 from PyQt6.QtCore import QEvent, QObject, Qt
-from PyQt6.QtGui import QColor, QCursor, QPalette
+from PyQt6.QtGui import QColor, QCursor, QFont, QPalette
 from PyQt6.QtWidgets import QApplication, QMenu, QProxyStyle, QStyle, QWidget
 
 # ── Palette ───────────────────────────────────────────────────────────────────
@@ -103,7 +103,7 @@ def _palette() -> QPalette:
 QSS = f"""
 * {{
     font-family: {FONT_STACK};
-    font-size: 9.5pt;
+    font-size: 9.75pt;
 }}
 
 /* ── Shell ──────────────────────────────────────────────────────────────── */
@@ -167,11 +167,15 @@ QLabel#card_subtitle {{
 }}
 QLabel#section_title {{
     color: {TEXT_FAINT};
-    font-size: 7.5pt;
-    font-weight: 700;
-    letter-spacing: 1px;
-    margin-top: 10px;
-    margin-bottom: 0px;
+    font-size: 9pt;
+    font-weight: 600;
+}}
+QWidget#section_head {{
+    background: transparent;
+}}
+QFrame#section_rule {{
+    background-color: {BORDER};
+    border: none;
 }}
 QFrame#subsection {{
     background-color: {SURFACE_RAISE};
@@ -200,6 +204,12 @@ QLabel#status_ok   {{ color: {OK}; }}
 QLabel#status_warn {{ color: {WARN}; }}
 QLabel#status_err  {{ color: {ERR}; }}
 QLabel#status_dim  {{ color: {DIM}; }}
+QFrame#footer_pill {{
+    background-color: {SURFACE_RAISE};
+    border: 1px solid {BORDER};
+    border-radius: 12px;
+}}
+QFrame#footer_pill QLabel {{ background: transparent; }}
 QLabel#fps_lbl {{
     color: {TEXT};
     font-weight: 600;
@@ -252,6 +262,7 @@ QComboBox::drop-down {{
     width: 22px;
     border: none;
 }}
+QComboBox::down-arrow {{ image: none; width: 0; height: 0; }}
 /* No ::down-arrow rule: styling it without an image asset only ever
    produces a rotated-looking box, so Fusion draws its own arrow, which
    picks up the palette. */
@@ -337,50 +348,79 @@ QCheckBox::indicator:checked:disabled, QRadioButton::indicator:checked:disabled 
     background-color: {BORDER_HOVER};
 }}
 
-/* Segmented toggles: checkable SegmentButtons in a zero-gap row. Segment
-   widths come from the layout (equal shares of the row), never from their text. */
-QPushButton[segmented="true"] {{
+/* Segmented toggles: SegmentButtons inside one QFrame#seg_track, the picked one a filled pill. Segment widths
+   come from the layout (equal shares of the row), never from their text. */
+/* The redesign's tiles and cards paint themselves; these only pin their sizes over the generic rules. */
+QComboBox#choice_tile {{ min-height: 54px; max-height: 54px; padding: 0; border: none; background: transparent; }}
+QComboBox#choice_field {{ min-height: 48px; max-height: 48px; padding: 0; border: none; background: transparent; }}
+QComboBox#chip_combo {{ min-height: 30px; max-height: 30px; padding: 0; border: none; background: transparent; }}
+QPushButton#option_card {{ min-height: 56px; max-height: 56px; padding: 0; }}
+QFrame#switch_tile {{
     background-color: {SURFACE_RAISE};
-    border: 1px solid {BORDER_STRONG};
-    border-radius: 0;
-    color: {TEXT_DIM};
+    border: 1px solid {BORDER};
+    border-radius: 9px;
+}}
+QLabel#card_note {{ color: {TEXT_FAINT}; font-size: 9pt; }}
+QAbstractSpinBox#chip_spin {{
+    background-color: {BG};
     font-weight: 600;
-    min-height: 30px;
+    padding: 0 6px 0 10px;
+}}
+QComboBox#phone_picker {{ padding-left: 32px; font-weight: 600; }}
+QFrame#setting_row {{
+    background-color: {SURFACE_RAISE};
+    border: 1px solid {BORDER};
+    border-radius: 9px;
+}}
+QFrame#setting_row QLabel {{ background: transparent; }}
+QLabel#setting_sub {{ color: {TEXT_FAINT}; }}
+QLabel[sub="true"] {{ font-size: 8.75pt; }}
+QLabel#version_note {{ color: {TEXT_FAINT}; font-size: 9pt; }}
+QPushButton[strip="true"] {{
+    background-color: transparent;
+    font-weight: 400;
+    padding: 0 12px;
+}}
+QPushButton[strip="true"]:hover {{ background-color: {SURFACE_HOVER}; }}
+QPushButton[strip="true"][uiRole="primary"] {{ background-color: {FILL}; border-color: {FILL}; color: #ffffff; font-weight: 600; }}
+QFrame#dialog_footer {{
+    background-color: {CHROME};
+    border-top: 1px solid {BORDER};
+}}
+QFrame#seg_track {{
+    background-color: {SURFACE_RAISE};
+    border: 1px solid {BORDER};
+    border-radius: 8px;
+}}
+QPushButton[segmented="true"] {{
+    background-color: transparent;
+    border: none;
+    border-radius: 6px;
+    color: {TEXT_DIM};
+    min-height: 26px;
+    max-height: 26px;
     padding: 0 8px;
     margin: 0;
-}}
-QPushButton[segPos="first"] {{
-    border-top-left-radius: 7px;
-    border-bottom-left-radius: 7px;
-}}
-QPushButton[segPos="last"] {{
-    border-top-right-radius: 7px;
-    border-bottom-right-radius: 7px;
-    border-left: none;
-}}
-QPushButton[segPos="mid"] {{
-    border-left: none;
-}}
-QPushButton[segPos="only"] {{
-    border-radius: 7px;
+    font-weight: 400;
 }}
 QPushButton[segmented="true"]:hover {{
     background-color: {SURFACE_HOVER};
-    border-color: {BORDER_STRONG};
     color: {TEXT};
 }}
 QPushButton[segmented="true"]:checked {{
     background-color: {FILL};
-    border-color: {FILL};
     color: #ffffff;
+    font-weight: 600;
 }}
 QPushButton[segmented="true"]:checked:hover {{
     background-color: {FILL_HOVER};
 }}
 QPushButton[segmented="true"]:disabled {{
-    background-color: {BG};
-    border-color: {BORDER};
+    background-color: transparent;
     color: {TEXT_DISABLED};
+}}
+QPushButton[segmented="true"]:checked:disabled {{
+    background-color: {BORDER_STRONG};
 }}
 
 /* ── Sliders ────────────────────────────────────────────────────────────── */
@@ -399,7 +439,7 @@ QSlider::groove:horizontal {{
     margin-right: 7px;
 }}
 QSlider::sub-page:horizontal {{
-    background: {ACCENT};
+    background: {BORDER_STRONG};  /* the handle carries the colour; the track stays quiet */
     border-radius: 2px;
     margin-left: 7px;  /* Qt doesn't apply the groove's margin to the fill, which then stuck out left of the handle at 0 */
 }}
@@ -900,5 +940,8 @@ def apply_theme(app):
     global _style
     _style = _PopupStyle("Fusion")  # kept here too: app.style() hands back a plain QStyle wrapper
     app.setStyle(_style)
+    font = app.font()
+    font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)  # softer, closer to how a browser draws Inter
+    app.setFont(font)
     app.setPalette(_palette())
     app.setStyleSheet(QSS)

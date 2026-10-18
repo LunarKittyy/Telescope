@@ -283,11 +283,11 @@ class BrowserCameraPlugin(TelescopePlugin):
         elif feed is not None and feed.connected:
             codec = _CODEC_NAMES.get(feed.codec)
             shown = next((src.name for src in self._browsers.values() if src.feed is feed), feed.device)
-            kind, text = "status_ok", f"● {shown if feed.device else 'Connected'}" + (f", {codec}" if codec else "")
+            kind, text = "status_ok", f"{shown if feed.device else 'Connected'}" + (f", {codec}" if codec else "")
             if feed.codec_note:
                 tip = f"{text}\n{feed.codec_note}"  # why it isn't H.264
         elif connected:
-            kind, text = "status_ok", f"● {len(connected)} connected" if len(connected) > 1 else f"● {connected[0].name}"
+            kind, text = "status_ok", f"{len(connected)} connected" if len(connected) > 1 else f"{connected[0].name}"
         else:
             kind, text = "status_dim", "Waiting for a browser"
         set_status_kind(self._status_lbl, kind)

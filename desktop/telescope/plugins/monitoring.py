@@ -3,26 +3,18 @@ import threading
 from typing import Optional
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
-from PyQt6.QtWidgets import QHBoxLayout, QLabel, QWidget
+from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
-from telescope import theme
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.banner import BannerAction, Issue
+from telescope.widgets.controls import hairline
 from telescope.widgets.common import (
-    Switch,
-    NoScrollSpinBox, add_card_header, add_section_heading, control_row as _row,
-    card_layout, create_card, dim_until_paired, set_status_kind,
+    StatusPill, Switch,
+    NoScrollSpinBox, add_card_header, add_section_heading, card_layout, create_card,
+    dim_until_paired, hued_icon, ui_px,
 )
 
 logger = logging.getLogger(__name__)
-
-# Inline colors (change with live values) sourced from theme for one semantic color definition.
-_STATUS_COLORS = {
-    "ok":   theme.OK,
-    "warn": theme.WARN,
-    "err":  theme.ERR,
-    "dim":  theme.DIM,
-}
 
 
 class _Signals(QObject):
@@ -88,21 +80,27 @@ class MonitoringPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, "Monitoring", "status", hue="phone")
+        add_card_header(lay, "Phone", "phone", hue="phone")
         dim_until_paired(card, self._bus, phone_only=True)
 
-        # ── Live readouts ─────────────────────────────────────────────────────
-        add_section_heading(lay, "Live status")
-        self._battery_lbl = QLabel("—")
-        set_status_kind(self._battery_lbl, "status_dim")
-        lay.addLayout(_row("Battery", self._battery_lbl, stretch=True))
+        # ── Live readings ─────────────────────────────────────────────────────
+        self._battery_lbl = StatusPill("battery")
+        self._temp_lbl = StatusPill("thermometer")
+        pills = QHBoxLayout()
+        pills.setContentsMargins(0, 0, 0, 0)
+        pills.setSpacing(8)
+        pills.addWidget(self._battery_lbl, 1)
+        pills.addWidget(self._temp_lbl, 1)
+        lay.addLayout(pills)
 
-        self._temp_lbl = QLabel("—")
-        set_status_kind(self._temp_lbl, "status_dim")
-        lay.addLayout(_row("Temperature", self._temp_lbl, stretch=True))
-
-        # ── Alert thresholds ──────────────────────────────────────────────────
-        add_section_heading(lay, "Alert thresholds")
+        # ── Warnings ──────────────────────────────────────────────────────────
+        add_section_heading(lay, "Warnings", "bell")
+        block = QFrame()
+        block.setObjectName("subsection")
+        warnings = QVBoxLayout(block)
+        warnings.setContentsMargins(12, 10, 12, 10)
+        warnings.setSpacing(10)
+        lay.addWidget(block)
         self._batt_alert_spin = NoScrollSpinBox()
         self._batt_alert_spin.setRange(5, 95)
         self._batt_alert_spin.setValue(20)
@@ -111,8 +109,9 @@ class MonitoringPlugin(TelescopePlugin):
             "Counts as low at this level, even while charging if it keeps dropping"
         )
         self._batt_alert_spin.valueChanged.connect(self._host.schedule_save)
-        lay.addLayout(_row("Battery", self._batt_alert_spin, stretch=True))
-        self._batt_notify, self._batt_stop = self._alert_choices(lay, "battery runs low")
+        self._batt_notify, self._batt_stop = self._alert_block(
+            warnings, "battery", "Battery under", self._batt_alert_spin, "battery runs low")
+        warnings.addWidget(hairline())
 
         self._temp_alert_spin = NoScrollSpinBox()
         self._temp_alert_spin.setRange(35, 65)
@@ -120,26 +119,40 @@ class MonitoringPlugin(TelescopePlugin):
         self._temp_alert_spin.setSuffix(" °C")
         self._temp_alert_spin.setToolTip("The temperature that counts as too hot")
         self._temp_alert_spin.valueChanged.connect(self._host.schedule_save)
-        lay.addLayout(_row("Temperature", self._temp_alert_spin, stretch=True))
-        self._temp_notify, self._temp_stop = self._alert_choices(lay, "phone gets too hot")
+        self._temp_notify, self._temp_stop = self._alert_block(
+            warnings, "thermometer", "Hotter than", self._temp_alert_spin, "phone gets too hot")
 
         return card
 
+    def _alert_block(self, lay, icon_name: str, label: str, spin, what: str) -> tuple:
+        """One warning: what counts, then whether to notify and stop the stream."""
+        inner = lay
+        top = QHBoxLayout()
+        top.setSpacing(10)
+        top.addWidget(hued_icon(icon_name, "phone"))
+        top.addWidget(QLabel(label), 1)
+        spin.setObjectName("chip_spin")
+        spin.setFixedSize(ui_px(80), ui_px(30))
+        top.addWidget(spin)
+        inner.addLayout(top)
+        return self._alert_choices(inner, what)
+
     def _alert_choices(self, lay, what: str) -> tuple:
-        """The Notify and Stop streaming checkboxes under a threshold, in its control column."""
-        notify = Switch("Notify")
+        """The Notify and Stop streaming switches of one warning."""
+        notify = Switch("Notify me")
         notify.setChecked(True)
         notify.setToolTip(f"Show a notification when the {what}")
-        stop = Switch("Stop streaming")
+        stop = Switch("Stop the stream")
         stop.setToolTip(f"Stop the stream when the {what}, and at every restart until it's fine again")
         for box in (notify, stop):
+            box.setProperty("dim_text", True)  # the choices under a warning read quieter than the warning itself
             box.toggled.connect(self._host.schedule_save)
         boxes = QHBoxLayout()
-        boxes.setContentsMargins(0, 0, 0, 0)
-        boxes.setSpacing(16)
+        boxes.setContentsMargins(26, 0, 0, 0)  # under the label, past the icon
+        boxes.setSpacing(24)
         boxes.addWidget(notify)
         boxes.addWidget(stop)
-        lay.addLayout(_row("", boxes))
+        lay.addLayout(boxes)
         return notify, stop
 
     def on_stream_start(self, stream_url: str, ctrl):
@@ -157,8 +170,7 @@ class MonitoringPlugin(TelescopePlugin):
         """The panels show ctrl's stream now; kept is what was already warned about for it, behind another one."""
         self._ctrl, self._sid = ctrl, self._host.focused_source_id()
         self._others.pop(self._sid, None)
-        self._battery_lbl.setText("—")
-        self._temp_lbl.setText("—")
+        self._clear_readings()
         if kept is not None:  # back on a tile: what it already warned about stays said
             self._battery_notified, self._temp_notified, self._last_level = kept["batt"], kept["temp"], kept["last"]
         else:
@@ -180,8 +192,11 @@ class MonitoringPlugin(TelescopePlugin):
 
     def _forget_shown(self):
         self._ctrl = None
-        self._battery_lbl.setText("—")
-        self._temp_lbl.setText("—")
+        self._clear_readings()
+
+    def _clear_readings(self):
+        self._battery_lbl.set("—", "", "status_dim", "battery")
+        self._temp_lbl.set("—", "", "status_dim", "thermometer")
 
     def _poll(self):
         if self._ctrl:
@@ -228,24 +243,23 @@ class MonitoringPlugin(TelescopePlugin):
         batt_thresh = self._batt_alert_spin.value()
         temp_thresh = self._temp_alert_spin.value()
 
-        charge_icon = "  ·  charging" if charging else ""
         if not charging and level <= batt_thresh:
-            batt_color = _STATUS_COLORS["err"]
+            batt_kind = "status_err"
         elif not charging and level <= batt_thresh + 10:
-            batt_color = _STATUS_COLORS["warn"]
+            batt_kind = "status_warn"
         else:
-            batt_color = _STATUS_COLORS["ok"]
-        self._battery_lbl.setText(f"{level}%{charge_icon}")
-        self._battery_lbl.setStyleSheet(f"color: {batt_color};")
+            batt_kind = "status_ok"
+        self._battery_lbl.set(f"{level}%", "Charging" if charging else "", batt_kind,
+                              "battery_charging" if charging else "battery")
 
         if temp_c >= temp_thresh:
-            temp_color = _STATUS_COLORS["err"]
+            temp_kind = "status_err"
         elif temp_c >= temp_thresh - 5:
-            temp_color = _STATUS_COLORS["warn"]
+            temp_kind = "status_warn"
         else:
-            temp_color = _STATUS_COLORS["ok"]
-        self._temp_lbl.setText(f"{temp_c:.1f} °C")
-        self._temp_lbl.setStyleSheet(f"color: {temp_color};")
+            temp_kind = "status_ok"
+        feel = {"status_ok": "Cool", "status_warn": "Warm", "status_err": "Hot"}[temp_kind]
+        self._temp_lbl.set(f"{temp_c:.1f} °C", feel, temp_kind, "thermometer")
 
     def _check_alerts(self, level: int, charging: bool, temp_c: float):
         """The shown stream's alerts, by the thresholds on the card."""

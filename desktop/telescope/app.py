@@ -550,7 +550,7 @@ class TelescopeWindow(QMainWindow):
         self._add_btn.setVisible(False)
         lay.addWidget(self._add_btn)
 
-        self._start_btn = QPushButton("Start Streaming")
+        self._start_btn = QPushButton("Start streaming")
         self._start_btn.setObjectName("start_btn")
         self._start_btn.setProperty("uiRole", "primary")
         self._start_btn.setProperty("streaming", False)
@@ -568,7 +568,7 @@ class TelescopeWindow(QMainWindow):
         if not streaming and not self.is_camera_on():
             self._start_btn.setText("Start mic only")
         else:
-            self._start_btn.setText(verb if self._layout_mode == "one" else f"{verb} Streaming")
+            self._start_btn.setText(verb if self._layout_mode == "one" else f"{verb} streaming")
         self._start_btn.setIcon(
             create_vector_icon("stop" if streaming else "play", "#ffffff"))
         self._start_btn.setProperty("streaming", streaming)
@@ -617,37 +617,28 @@ class TelescopeWindow(QMainWindow):
         set_status_kind(self._status_lbl, "status_dim")
         lay.addWidget(self._status_lbl, 1)
 
-        divider = QFrame()
-        divider.setObjectName("header_divider")
-        divider.setFixedWidth(1)
-        divider.setFixedHeight(22)
-        lay.addWidget(divider)
-
-        fps_cap = QLabel("FPS")
-        fps_cap.setObjectName("footer_label")
-        lay.addWidget(fps_cap)
-
         self._fps_lbl = QLabel("—")
         self._fps_lbl.setObjectName("fps_lbl")
-        self._fps_lbl.setMinimumWidth(ui_px(72))
-        lay.addWidget(self._fps_lbl)
-
-        divider2 = QFrame()
-        divider2.setObjectName("header_divider")
-        divider2.setFixedWidth(1)
-        divider2.setFixedHeight(22)
-        lay.addWidget(divider2)
-
-        net_cap = QLabel("Throughput")
-        net_cap.setObjectName("footer_label")
-        lay.addWidget(net_cap)
+        lay.addWidget(self._footer_pill("FPS", self._fps_lbl))
 
         self._net_lbl = QLabel("—")
         self._net_lbl.setObjectName("fps_lbl")
-        self._net_lbl.setMinimumWidth(ui_px(80))
-        lay.addWidget(self._net_lbl)
+        lay.addWidget(self._footer_pill("Throughput", self._net_lbl))
 
         return bar
+
+    def _footer_pill(self, caption: str, value: QLabel) -> QFrame:
+        pill = QFrame()
+        pill.setObjectName("footer_pill")
+        pill.setFixedHeight(ui_px(24))
+        lay = QHBoxLayout(pill)
+        lay.setContentsMargins(10, 0, 10, 0)
+        lay.setSpacing(6)
+        cap = QLabel(caption)
+        cap.setObjectName("footer_label")
+        lay.addWidget(cap)
+        lay.addWidget(value)
+        return pill
 
     def _show_settings_menu(self):
         menu = QMenu(self)
@@ -1774,7 +1765,7 @@ class TelescopeWindow(QMainWindow):
             self._background_status(source, kind)
             return
         if kind == "fps":
-            self._fps_lbl.setText(msg)
+            self._fps_lbl.setText(msg.split("  ", 1)[0].removesuffix(" fps"))  # the status line already gives the size
             if (pending := self._active_source().pending_resolution) is not None:
                 try:
                     size_text = msg.rsplit(" ", 1)[-1]
@@ -1882,7 +1873,7 @@ class TelescopeWindow(QMainWindow):
         self._stop_reconnecting_animation()
         obj = {"ok": "status_ok", "warn": "status_warn",
                "err": "status_err", "dim": "status_dim"}.get(kind, "status_dim")
-        set_status_kind(self._status_lbl, obj)
+        set_status_kind(self._status_lbl, "status_dim" if obj == "status_ok" else obj)  # only trouble gets a colour
         self._status_lbl.setText(msg)
 
     def showEvent(self, event):

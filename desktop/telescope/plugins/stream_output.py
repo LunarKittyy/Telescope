@@ -4,7 +4,7 @@ import urllib.parse
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QBrush, QColor
 from PyQt6.QtWidgets import (
-    QApplication, QButtonGroup, QComboBox, QStyle, QStyledItemDelegate, QStyleOptionViewItem, QWidget,
+    QApplication, QButtonGroup, QHBoxLayout, QStyle, QStyledItemDelegate, QStyleOptionViewItem, QWidget,
 )
 
 from telescope import h264_reader
@@ -13,10 +13,10 @@ from telescope.shortcuts import choice_action, slider_action
 from telescope.theme import OK, WARN
 from telescope.widgets.banner import BannerAction, Issue
 from telescope.widgets.common import (
-    NoScrollComboBox, NoScrollSlider, SegmentButton, add_card_header,
-    add_section_heading, control_row as _row, control_row_widget, card_layout, create_card, dim_until_paired,
-    quality_label, segmented_row, slider_row, value_label, wrapped_note,
+    NoScrollSlider, add_card_header, control_row_widget, card_layout, create_card, dim_until_paired, quality_label,
+    slider_row, value_label,
 )
+from telescope.widgets.controls import ChoiceTile, OptionCard, option_row
 
 _DEFAULT_QUALITY = 85  # the recommended spot, marked on the slider
 _MAX_QUALITY     = 95  # past about 92 a JPEG roughly doubles in size for no difference anyone sees
@@ -35,10 +35,10 @@ FORMAT_H264  = "h264"
 
 # Shown as Light and Heavy: the codec names say nothing about the choice people actually make, which is how much data.
 _FORMAT_NOTES = {
-    FORMAT_H264:  "Good for most calls.",
-    FORMAT_MJPEG: "Needs USB or strong Wi-Fi.",
+    FORMAT_H264:  "Good for most calls",
+    FORMAT_MJPEG: "Sharper, more data",
 }
-# Tooltips carry the technical side; the note under the buttons is the plain one.
+# Tooltips carry the technical side; the note on each button is the plain one.
 _LIGHT_TIP = "H.264 from the phone's hardware encoder, like video calls use."
 _HEAVY_TIP = "MJPEG: every frame a full JPEG. Several times Light's data, sharper in fast motion."
 
@@ -84,13 +84,13 @@ class _ColoredItemDelegate(QStyledItemDelegate):
 
 
 def _size_label(w: int, h: int) -> str:
-    return f"{w} x {h}"
+    return f"{w} × {h}"
 
 
 def _parse_size_label(text):
     """(w, h) from a _size_label, or None."""
     try:
-        w, h = (int(part) for part in str(text).split(" x "))
+        w, h = (int(part) for part in str(text).replace(" x ", " × ").split(" × "))  # saved before the × came in
     except (TypeError, ValueError):
         return None
     return (w, h) if w > 0 and h > 0 else None
@@ -157,27 +157,21 @@ class StreamOutputPlugin(TelescopePlugin):
         add_card_header(lay, "Stream output", "stream", hue="stream")
         dim_until_paired(card, self._bus, phone_only=True)
 
-        # ── Resolution ────────────────────────────────────────────────────────
-        add_section_heading(lay, "Output")
-        self._ar_combo = NoScrollComboBox()  # Aspect ratio; narrows the resolution list below.
+        # ── Resolution, frame rate and shape, as three tiles ────────────────
+        self._ar_combo = ChoiceTile("Shape")  # aspect ratio; narrows the resolution list
         self._ar_combo.setItemDelegate(_ColoredItemDelegate(self._ar_combo))
-        self._ar_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self._ar_combo.addItem("—")
         self._ar_combo.setEnabled(False)
         self._ar_combo.currentIndexChanged.connect(self._on_aspect_ratio_changed)
-        lay.addLayout(_row("Aspect ratio", self._ar_combo, stretch=True))
 
-        self._res_combo = NoScrollComboBox()
+        self._res_combo = ChoiceTile("Resolution")
         self._res_combo.setItemDelegate(_ColoredItemDelegate(self._res_combo))
-        self._res_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self._res_combo.addItem("—")
         self._res_combo.setEnabled(False)
         self._res_combo.currentIndexChanged.connect(self._on_resolution)
-        lay.addLayout(_row("Resolution", self._res_combo, stretch=True))
 
-        # ── FPS ───────────────────────────────────────────────────────────────
         # Capture and playback rate; faster just wastes power. Rates past what the lens lists are grayed out.
-        self._fps_combo = NoScrollComboBox()
+        self._fps_combo = ChoiceTile("Frame rate")
         for fps in _FPS_CHOICES:
             self._fps_combo.addItem(f"{fps} fps", fps)
         self._fps_combo.setToolTip("The phone's capture rate and the virtual camera's. Lower saves data and battery.")
@@ -185,10 +179,15 @@ class StreamOutputPlugin(TelescopePlugin):
         self._wanted_fps = _DEFAULT_FPS  # what was picked; a lens that can't do it runs the fastest it can below
         self._camera_max_fps = 0         # the current lens's fastest listed rate; 0 = not known, nothing grayed
         self._show_fps()
-        lay.addLayout(_row("FPS", self._fps_combo, stretch=True))
+        tiles = QHBoxLayout()
+        tiles.setContentsMargins(0, 0, 0, 0)
+        tiles.setSpacing(8)
+        tiles.addWidget(self._res_combo, 3)
+        tiles.addWidget(self._fps_combo, 2)
+        tiles.addWidget(self._ar_combo, 2)
+        lay.addLayout(tiles)
 
-        # ── JPEG Quality ──────────────────────────────────────────────────────
-        add_section_heading(lay, "Phone stream")
+        # ── JPEG quality or bitrate ───────────────────────────────────────────
         self._quality_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._quality_slider.setRange(1, _MAX_QUALITY)
         self._quality_slider.set_snaps([_DEFAULT_QUALITY])
@@ -213,8 +212,8 @@ class StreamOutputPlugin(TelescopePlugin):
             "Bitrate", slider_row(self._bitrate_slider, self._bitrate_val_lbl), stretch=True)
         lay.addWidget(self._bitrate_row)
 
-        self._fmt_h264 = SegmentButton("Light")
-        self._fmt_mjpeg = SegmentButton("Heavy")
+        self._fmt_h264 = OptionCard("Light", _FORMAT_NOTES[FORMAT_H264], "bolt")
+        self._fmt_mjpeg = OptionCard("Heavy", _FORMAT_NOTES[FORMAT_MJPEG], "heavy")
         self._fmt_mjpeg.setToolTip(_HEAVY_TIP)
         self._fmt_grp = QButtonGroup(card)
         self._fmt_grp.setExclusive(True)
@@ -222,10 +221,8 @@ class StreamOutputPlugin(TelescopePlugin):
             self._fmt_grp.addButton(btn)
         self._fmt_h264.setChecked(True)
         self._fmt_grp.buttonClicked.connect(self._on_format_clicked)
-        self._fmt_note = wrapped_note("")
         at = lay.indexOf(self._quality_row)
-        lay.insertLayout(at, _row("Format", segmented_row(self._fmt_h264, self._fmt_mjpeg), stretch=True))
-        lay.insertLayout(at + 1, _row("", self._fmt_note, stretch=True))
+        lay.insertLayout(at, option_row(self._fmt_h264, self._fmt_mjpeg))
         self._show_format()
 
         # Goes with the card, so a push due after the window closed never reaches deleted controls
@@ -554,7 +551,6 @@ class StreamOutputPlugin(TelescopePlugin):
         else:
             tip = _LIGHT_TIP
         self._fmt_h264.setToolTip(tip)
-        self._fmt_note.setText(_FORMAT_NOTES[FORMAT_H264 if h264 else FORMAT_MJPEG])
         self._quality_row.setVisible(not h264)
         self._bitrate_row.setVisible(h264)
 
@@ -721,7 +717,7 @@ class StreamOutputPlugin(TelescopePlugin):
         if self._ctrl is not None and self._res_combo.currentData() is not None:
             self._saved_resolution_text = self._res_combo.currentText()  # stopped, a pick or preset already set it
         if self._saved_resolution_text:
-            cfg["resolution"] = self._saved_resolution_text
+            cfg["resolution"] = self._saved_resolution_text.replace(" × ", " x ")  # saved the way older versions read it
         return cfg
 
     def apply_preset(self, cfg: dict):
@@ -751,6 +747,8 @@ class StreamOutputPlugin(TelescopePlugin):
     def set_config(self, cfg: dict):
         # Always overwrite: the host applies defaults before each device's own config.
         res = cfg.get("resolution") or None
+        if (wh := _parse_size_label(res)) is not None:
+            res = _size_label(*wh)
         self._pending_resolution_text = res  # Combo unpopulated at load; apply when on_phone_state() arrives.
         self._saved_resolution_text = res
         self._had_saved_resolution = res is not None

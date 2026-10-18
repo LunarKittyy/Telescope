@@ -96,7 +96,7 @@ class StreamTiles(QWidget):
                 self._lay.insertWidget(i, tile)
             tile.name.setText(name)
             tile.output.setText(f"to {output}")
-            tile.state.setText(f"● {state}")
+            tile.state.setText(state)
             set_status_kind(tile.state, kind)
             tile.stop_btn.setToolTip(f"Stop streaming {name}")
             tile.setToolTip("" if focused else "Show this one's settings")
