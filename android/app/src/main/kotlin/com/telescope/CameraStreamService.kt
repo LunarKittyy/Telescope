@@ -869,6 +869,7 @@ class CameraStreamService : Service() {
             dynamic_bitrate = h264Available,
             dynamic_fps = snap?.dynamicFps ?: 0,
             low_light = snap?.lowLight ?: false,
+            h264_profile = snap?.h264Profile,
             low_light_toggle = true,
             codec_error = snap?.codecError,
             codec_unsupported = snap?.codecUnsupported ?: false,

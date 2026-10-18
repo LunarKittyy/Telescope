@@ -69,6 +69,7 @@ data class V1State(
     val dynamic_fps: Int = 0,  // the rate Dynamic stepped down to for a slow link; 0 = the rate asked for
     val low_light: Boolean = false,  // auto exposure may slow the camera down in the dark (and noise reduction is high)
     val low_light_toggle: Boolean = false,  // takes low_light; set by every phone that can
+    val h264_profile: String? = null,  // "high", "baseline" or "auto" while H.264 runs
     val codec_error: String? = null,
     val codec_unsupported: Boolean = false,  // codec_error is H.264 not doing this size or rate here, not a crash
     val active_lens: String? = null,  // the lens a multi-lens camera is streaming from right now

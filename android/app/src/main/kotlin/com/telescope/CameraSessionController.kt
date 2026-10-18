@@ -44,6 +44,7 @@ data class CameraControlSnapshot(
     val activeLens:        String?,
     val dynamicFps:        Int = 0,  // the rate Dynamic stepped down to for a slow link; 0 = the rate asked for
     val lowLight:          Boolean = false,
+    val h264Profile:       String? = null,  // "high", "baseline" or "auto" while H.264 runs
 )
 
 // Phone-side zoom, as the desktop splits it: a centred CONTROL_ZOOM_RATIO, then a 1/crop SCALER_CROP_REGION
@@ -175,6 +176,7 @@ class CameraSessionController(
         activeLens      = activeLens,
         dynamicFps      = frameRate?.cap ?: 0,
         lowLight        = currentLowLight,
+        h264Profile     = encoder?.profile?.wire,
     )
 
     // The rate the camera and encoder run at: the one asked for, unless Dynamic stepped it down for a slow link.
@@ -498,7 +500,8 @@ class CameraSessionController(
         if (codec == H264Stream.CODEC_H264) {
             try {
                 encoder = H264Encoder(streamWidth, streamHeight, streamFps(), currentBitrate(),
-                    onPacket = onH264, onError = { e -> post { encoderFailed(e) } })
+                    onPacket = onH264, onError = { e -> post { encoderFailed(e) } },
+                    onReorder = { post { if (codec == H264Stream.CODEC_H264) reopen("h264Reorders") } })
                 return
             } catch (e: Exception) {
                 codec = H264Stream.CODEC_MJPEG

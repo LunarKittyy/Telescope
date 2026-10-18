@@ -129,6 +129,14 @@ def test_stream_output_resolution_populates_from_phone_state(stream_output):
     assert plugin.get_stream_params() == (None, None, 30)
 
 
+def test_stream_output_diagnostics_say_which_h264_profile_the_phone_runs(stream_output):
+    plugin, _host, _panel = stream_output
+    plugin.on_phone_state({"cameras": [], "codec": "h264", "h264_profile": "high"})
+    assert plugin.diagnostics()["H.264 profile"] == "high"
+    plugin.on_phone_state({"cameras": []})  # an older phone, or MJPEG: nothing to say
+    assert "H.264 profile" not in plugin.diagnostics()
+
+
 def test_stream_output_saved_resolution_wins_over_default_and_live(stream_output):
     """A device with a saved preference gets that preference, not our default or the phone's live guess."""
     plugin, _host, _panel = stream_output

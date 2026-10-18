@@ -18,15 +18,31 @@ class H264Encoder(
     bitrate: Int,
     private val onPacket: (bytes: ByteArray, key: Boolean, config: Boolean) -> Unit,
     private val onError: (Throwable) -> Unit,
+    // The encoder put frames out of order despite being asked not to: High is off for this run, rebuild the encoder
+    private val onReorder: () -> Unit = {},
 ) {
     // Optional settings. Some encoders refuse one of them outright (an Exynos S10+ threw IllegalArgumentException
     // at 1080p), so a refused setup is retried with a fresh encoder and fewer of them.
-    enum class Extra { LOW_LATENCY, REALTIME, BASELINE }
+    enum class Extra { LOW_LATENCY, REALTIME }
+
+    // High compresses better than Baseline at the same bitrate; with no B-frames it adds no delay either
+    enum class Profile(val wire: String) { HIGH("high"), BASELINE("baseline"), ANY("auto") }
+
+    data class Attempt(val extras: Set<Extra>, val profile: Profile)
 
     companion object {
         private const val MIME = MediaFormat.MIMETYPE_VIDEO_AVC
 
-        val ATTEMPTS: List<Set<Extra>> = listOf(Extra.values().toSet(), setOf(Extra.BASELINE), emptySet())
+        val ATTEMPTS: List<Attempt> = listOf(
+            Attempt(Extra.values().toSet(), Profile.HIGH),
+            Attempt(Extra.values().toSet(), Profile.BASELINE),
+            Attempt(emptySet(), Profile.HIGH),
+            Attempt(emptySet(), Profile.BASELINE),
+            Attempt(emptySet(), Profile.ANY),
+        )
+
+        // Set once an encoder ignored KEY_MAX_B_FRAMES at High; Baseline from then on, until the app restarts
+        @Volatile var highReorders = false
 
         fun isAvailable(): Boolean = try {
             MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.any { info ->
@@ -58,6 +74,10 @@ class H264Encoder(
     }
 
     private var bitrateRange = android.util.Range(1, Int.MAX_VALUE)  // this encoder's own, once it's made
+    @Volatile var profile = Profile.ANY  // what the running encoder was set up with
+        private set
+    @Volatile private var lastPtsUs = Long.MIN_VALUE
+    @Volatile private var reordered = false
 
     private val thread = HandlerThread("h264-out").also { it.start() }
     @Volatile private var released = false
@@ -76,6 +96,7 @@ class H264Encoder(
                     val bytes = ByteArray(info.size).also { buf.get(it) }
                     val config = info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
                     val key = info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0
+                    if (!config) checkOrder(info.presentationTimeUs)
                     onPacket(bytes, key, config)
                 }
                 mc.releaseOutputBuffer(index, false)
@@ -90,7 +111,7 @@ class H264Encoder(
     init {
         var opened: Pair<MediaCodec, Surface>? = null
         var failure: Exception? = null
-        for (extras in ATTEMPTS) {
+        for (attempt in ATTEMPTS) {
             val mc = try { MediaCodec.createEncoderByType(MIME) } catch (e: Exception) { failure = e; break }
             val caps = try { mc.codecInfo.getCapabilitiesForType(MIME).videoCapabilities } catch (_: Exception) { null }
             // 4:3 4K is past what H.264 encoders do (its usual 4K tops out near 4096x2304), and the camera then fails
@@ -102,10 +123,15 @@ class H264Encoder(
                 break
             }
             caps?.bitrateRange?.let { bitrateRange = it }
+            if (attempt.profile == Profile.HIGH && !highOk(mc)) {
+                try { mc.release() } catch (_: Exception) {}
+                continue
+            }
             try {
                 mc.setCallback(callback, Handler(thread.looper))
-                mc.configure(format(width, height, fps, bitrate, extras), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+                mc.configure(format(width, height, fps, bitrate, attempt), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
                 val surface = mc.createInputSurface()
+                profile = attempt.profile
                 mc.start()
                 opened = mc to surface
                 break
@@ -123,6 +149,24 @@ class H264Encoder(
         inputSurface = opened.second
     }
 
+    // Only where KEY_MAX_B_FRAMES exists (Android 10) and the encoder lists High; never again once one reordered
+    private fun highOk(mc: MediaCodec): Boolean {
+        if (highReorders || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
+        return try {
+            mc.codecInfo.getCapabilitiesForType(MIME).profileLevels
+                .any { it.profile == MediaCodecInfo.CodecProfileLevel.AVCProfileHigh }
+        } catch (_: Exception) { false }
+    }
+
+    private fun checkOrder(ptsUs: Long) {
+        if (ptsUs < lastPtsUs && !reordered && profile == Profile.HIGH) {
+            reordered = true
+            highReorders = true
+            onReorder()
+        }
+        lastPtsUs = maxOf(lastPtsUs, ptsUs)
+    }
+
     // The size within the encoder's limits. Not isSizeSupported(): that also wants the size aligned to what the encoder
     // prefers, which some report as 16 and 1080 isn't. A capability that can't be read doesn't stop anything.
     private fun fits(caps: MediaCodecInfo.VideoCapabilities, width: Int, height: Int): Boolean = try {
@@ -133,22 +177,25 @@ class H264Encoder(
         true
     }
 
-    private fun format(width: Int, height: Int, fps: Int, bitrate: Int, extras: Set<Extra>): MediaFormat =
+    private fun format(width: Int, height: Int, fps: Int, bitrate: Int, attempt: Attempt): MediaFormat =
         MediaFormat.createVideoFormat(MIME, width, height).apply {
             setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
             setInteger(MediaFormat.KEY_BIT_RATE, bitrate.coerceIn(bitrateRange.lower, bitrateRange.upper))
             setInteger(MediaFormat.KEY_FRAME_RATE, fps)
             setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
             setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR)
-            if (Extra.REALTIME in extras) setInteger(MediaFormat.KEY_PRIORITY, 0)
-            if (Extra.LOW_LATENCY in extras && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (Extra.REALTIME in attempt.extras) setInteger(MediaFormat.KEY_PRIORITY, 0)
+            if (Extra.LOW_LATENCY in attempt.extras && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 setInteger(MediaFormat.KEY_LOW_LATENCY, 1)
             }
-            // Baseline: no B-frames, so every packet can be shown as soon as it's decoded. Without it, ask for none.
-            if (Extra.BASELINE in extras) {
-                setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline)
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                setInteger(MediaFormat.KEY_MAX_B_FRAMES, 0)
+            // Baseline has no B-frames, so every packet can be shown as soon as it's decoded. Otherwise ask for none.
+            when (attempt.profile) {
+                Profile.BASELINE -> setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline)
+                Profile.HIGH -> {
+                    setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileHigh)
+                    setInteger(MediaFormat.KEY_MAX_B_FRAMES, 0)
+                }
+                Profile.ANY -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) setInteger(MediaFormat.KEY_MAX_B_FRAMES, 0)
             }
         }
 
