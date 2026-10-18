@@ -19,6 +19,7 @@ from telescope.pinned_https import PhoneAuth
 logger = logging.getLogger(__name__)
 
 RECONNECT_DELAY = 3
+DROP_RETRY_DELAY = 1  # Between tries after a stream drops mid-way, since a phone back on Wi-Fi answers within seconds.
 # hand_over(): the new route has to keep frames coming this long, with no gap past HANDOVER_GAP_S, before the stream moves
 HANDOVER_HEALTHY_S = 2.0
 HANDOVER_GAP_S = 0.5
@@ -324,7 +325,7 @@ class StreamWorker(QThread):
     def _reconnect_cap(self, stop_event: threading.Event) -> Optional[object]:
         self.status.emit("reconnecting", "Stream dropped - reconnecting")
         while not stop_event.is_set() and not self._stop_flag:
-            for _ in range(RECONNECT_DELAY * 10):
+            for _ in range(DROP_RETRY_DELAY * 10):
                 if stop_event.is_set() or self._stop_flag:
                     return None
                 if self._retry_now.is_set():
@@ -547,7 +548,8 @@ class StreamWorker(QThread):
                         # Warn only if frames sustainedly arrive well under the target rate. Arrive, not shown: frames
                         # that come in a burst are all counted, though only the newest is shown to stay live.
                         # A window that started while the phone was still settling says nothing about the link.
-                        struggling = self._judges_window(t0) and arrival_fps < self._fps * 0.85
+                        # Nothing at all is a dropped link the reader is about to reconnect, not a slow one.
+                        struggling = self._judges_window(t0) and 0 < arrival_fps < self._fps * 0.85
                         self._weak_streak = self._weak_streak + 1 if struggling else 0
                         net_kind = "net_warn" if self._weak_streak >= 2 else "net"
                         self.status.emit(net_kind, f"{mbps:.1f} Mbps")
