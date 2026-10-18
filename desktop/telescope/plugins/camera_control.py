@@ -162,7 +162,7 @@ class CameraControlPlugin(TelescopePlugin):
 
         self._lens_panel = LensPanel()
         self._lens_panel.lens_selected.connect(self._on_lens_selected)
-        lay.addWidget(_row_widget("Lens", self._lens_panel, stretch=True))
+        lay.addWidget(self._lens_panel)  # the tiles take the whole width, so they stay one size
 
         # Hardware level is the only capability not reflected in control state.
         self._cam_info_lbl = ElidingLabel("")

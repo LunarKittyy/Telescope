@@ -427,3 +427,12 @@ def test_turning_plugin_colours_off_repaints_every_card_in_the_app_purple(qapp, 
     theme.set_plugin_hues(False)
     refresh_hues()
     assert theme.PLUGIN_HUES["camera"] not in card.styleSheet() and theme.ACCENT in card.styleSheet()
+
+
+def test_lens_tiles_split_the_focal_length_from_the_rest_and_stay_in_even_rows():
+    from telescope.widgets.lens_panel import _columns, split_lens_label
+    assert split_lens_label("Auto ~24mm OIS") == ("24", "mm", "Auto · OIS")
+    assert split_lens_label("F/~25mm") == ("25", "mm", "Front")
+    assert split_lens_label("Tele 3x") == ("3", "x", "Tele")
+    assert split_lens_label("Wide") == ("Wide", "", "")
+    assert [_columns(n) for n in (1, 3, 5, 6, 7, 10, 11)] == [1, 3, 5, 3, 4, 5, 4]
