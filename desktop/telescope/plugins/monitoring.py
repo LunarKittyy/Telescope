@@ -3,12 +3,13 @@ import threading
 from typing import Optional
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
-from PyQt6.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QWidget
+from PyQt6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
 from telescope import theme
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.banner import BannerAction, Issue
 from telescope.widgets.common import (
+    Switch,
     NoScrollSpinBox, add_card_header, add_section_heading, control_row as _row,
     card_layout, create_card, dim_until_paired, set_status_kind,
 )
@@ -87,7 +88,7 @@ class MonitoringPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, "Monitoring", "status")
+        add_card_header(lay, "Monitoring", "status", hue="phone")
         dim_until_paired(card, self._bus, phone_only=True)
 
         # ── Live readouts ─────────────────────────────────────────────────────
@@ -126,10 +127,10 @@ class MonitoringPlugin(TelescopePlugin):
 
     def _alert_choices(self, lay, what: str) -> tuple:
         """The Notify and Stop streaming checkboxes under a threshold, in its control column."""
-        notify = QCheckBox("Notify")
+        notify = Switch("Notify")
         notify.setChecked(True)
         notify.setToolTip(f"Show a notification when the {what}")
-        stop = QCheckBox("Stop streaming")
+        stop = Switch("Stop streaming")
         stop.setToolTip(f"Stop the stream when the {what}, and at every restart until it's fine again")
         for box in (notify, stop):
             box.toggled.connect(self._host.schedule_save)

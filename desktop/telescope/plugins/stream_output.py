@@ -154,7 +154,7 @@ class StreamOutputPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, "Stream output", "stream")
+        add_card_header(lay, "Stream output", "stream", hue="stream")
         dim_until_paired(card, self._bus, phone_only=True)
 
         # ── Resolution ────────────────────────────────────────────────────────

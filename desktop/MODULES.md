@@ -61,6 +61,7 @@ The header's settings menu stays in one shape as options are added: entries that
 
 ### `theme.py`
 The app's entire visual definition: palette constants (`BG`, `SURFACE`, `ACCENT`, `FILL`, the `OK`/`WARN`/`ERR`/`DIM` status set, `STATUS_COLORS`), a dark `QPalette`, and the stylesheet built from those tokens.
+- `PLUGIN_HUES` - each card's own colour, by name. `hue(name)` gives it, or `ACCENT` for an unknown name or once `set_plugin_hues(False)` turned them off (Advanced, **Card colours**).
 - `apply_theme(app)` - sets Fusion as the base style, installs the palette, applies the QSS. A no-op once installed, since re-applying repolishes every live widget.
 - Tooltips: show after `TIP_WAKE_MS` (250 ms, Qt's is 700), wrap at about `TIP_LINE_CHARS` (64) characters, and stay up while the mouse is still on their control. `_PopupStyle` does it with a style hint and one event filter on Qt's single tooltip window (`_TipFilter`), not an app-wide filter.
 - No image files and no third-party theme: icons are inline SVG rendered by `create_vector_icon()`, and controls that need a custom look (segmented toggles, card actions, the preview stage) are targeted by object name or property selector.
@@ -255,8 +256,10 @@ Reusable Qt widgets and helpers used across multiple panels:
 - The layout rules (type scale, control column, segment and button widths, button roles) are written as a comment block at the top of this file; new UI should stay inside them.
 - `control_row(label, widget, label_width, stretch)` / `control_row_widget(...)` - the standard settings row (dim label, then the control starting at the shared control column) and its hideable variant. Imported as `_row` / `_row_widget` by the panels that use them heavily.
 - `dim_until_paired(card, bus, phone_only=False)` - fades a card to `DIMMED_OPACITY` and disables it until `phones_changed` reports a paired phone or `source_selected` a stream source. Every main-window card except Connection uses it, so the first screen points at the checklist. `phone_only` cards (Camera, Stream output, Monitoring) hide while a source is picked.
+- `Switch(text)` - the on/off control everywhere (a `QCheckBox` it paints itself): text on the left, track at the right end. `control_row` gives a Switch the rest of the row, so the track lines up with the end of the inputs above it.
 - `SegmentButton` / `segmented_row(*buttons, fill=True)` - checkable buttons joined into one strip with equal segments: equal shares of the row when `fill`, `SEGMENT_WIDTH` each otherwise. Exclusivity comes from the `QButtonGroup` they're added to.
 - `slider_row(slider, readout, gutter)` / `value_label()` - slider plus fixed-width readout, optionally reserving the spinbox column so tracks line up across a card.
+- `add_card_header(..., hue=)` puts the icon in a chip tinted with the card's colour (`theme.hue(name)`) and colours the card's sliders and readouts with it. `refresh_hues()` repaints every card after `theme.set_plugin_hues()`.
 - `card_layout()`, `add_card_header(..., action=)`, `card_action()`, `add_section_heading()` - card structure; the header carries the card's one action button.
 - `action_button()`, `button_row()`, `dialog_layout()`, `dialog_header()`, `dialog_buttons()`, `wrapped_note()` / `WrapLabel` - dialog kit. `WrapLabel` measures its text on every resize and text change and pins its minimum height to that, so wrapped text is never clipped and never keeps stale space.
 - `set_status_kind(label, kind)` / `set_ui_role(widget, role)` - switch QSS roles and re-polish (a bare `setObjectName()` leaves the old colour).

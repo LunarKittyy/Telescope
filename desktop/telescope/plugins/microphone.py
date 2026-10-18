@@ -17,13 +17,14 @@ from typing import Optional
 
 from PyQt6.QtCore import QObject, Qt, QTimer, QUrl, pyqtSignal
 from PyQt6.QtGui import QAction, QDesktopServices
-from PyQt6.QtWidgets import QCheckBox, QHBoxLayout, QMessageBox, QPushButton, QWidget
+from PyQt6.QtWidgets import QHBoxLayout, QMessageBox, QPushButton, QWidget
 
 from telescope import audio, theme
 from telescope.platform import virtual_mic
 from telescope.plugin import TelescopePlugin
 from telescope.shortcuts import button_action, slider_action
 from telescope.widgets.common import (
+    Switch,
     SPIN_COL_WIDTH, NoScrollSlider, NoScrollSpinBox, add_card_header, card_action, card_layout, control_row,
     control_row_widget, create_card, create_vector_icon, dim_until_paired, set_status_kind, stretch_slider, ui_px,
     value_label, wrapped_note,
@@ -198,9 +199,9 @@ class MicrophonePlugin(TelescopePlugin):
         self._tray_mute = QAction("Mute microphone")
         self._tray_mute.setCheckable(True)
         self._tray_mute.triggered.connect(self._mute_btn.setChecked)  # triggered: only a click, not our own syncing
-        add_card_header(lay, "Microphone", "mic", action=self._mute_btn)
+        add_card_header(lay, "Microphone", "mic", action=self._mute_btn, hue="mic")
         dim_until_paired(card, self._bus)
-        self._toggle = QCheckBox("On")
+        self._toggle = Switch()
         self._toggle.toggled.connect(self._on_toggled)
         row = control_row("Phone mic", self._toggle)
         self._toggle_lbl = row.itemAt(0).widget()
@@ -222,7 +223,7 @@ class MicrophonePlugin(TelescopePlugin):
         self._gain_spin.valueChanged.connect(self._gain_slider.setValue)
         self._gain_row = control_row_widget("Gain", _readout_row(self._gain_slider, self._gain_spin), stretch=True)
         lay.addWidget(self._gain_row)
-        self._auto_cb = QCheckBox("On")
+        self._auto_cb = Switch()
         self._auto_cb.setToolTip("Evens out quiet and loud speech.")
         self._auto_cb.toggled.connect(self._on_auto_level)
         self._auto_row = control_row_widget("Auto level", self._auto_cb)

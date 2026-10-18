@@ -19,7 +19,7 @@ from typing import Optional
 
 from PyQt6.QtCore import QObject, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
-    QCheckBox, QDialog, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem,
+    QDialog, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem,
     QMessageBox, QPushButton, QVBoxLayout, QWidget,
 )
 
@@ -45,6 +45,7 @@ from telescope.session_client import (
     PhoneSessionClient, clean_name,
 )
 from telescope.widgets.common import (
+    Switch,
     ElidingLabel, NoScrollComboBox, action_button, add_card_header, button_row, card_action,
     card_layout, control_row as _row, control_row_widget, create_card, create_vector_icon,
     dialog_buttons, dialog_header, dialog_layout, run_off_ui_thread, set_status_kind, set_ui_role,
@@ -602,7 +603,7 @@ class ConnectionPlugin(TelescopePlugin):
         lay = card_layout(card)
         self._add_btn = card_action("Add phone", "qr", "Pair a phone over Wi-Fi or USB")
         self._add_btn.clicked.connect(self.open_add_phone)
-        header = add_card_header(lay, "Connection", "connection", action=self._add_btn)
+        header = add_card_header(lay, "Connection", "connection", action=self._add_btn, hue="connection")
         self._guide_btn = card_action("", "help", "Open or close the setup guide: the virtual camera, the phone app and pairing")
         self._guide_btn.setAccessibleName("Setup guide")
         self._guide_btn.clicked.connect(self._bus.setup_guide_requested.emit)
@@ -624,7 +625,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._route_row = control_row_widget("Connect via", self._route_combo, stretch=True)
         lay.addWidget(self._route_row)
 
-        self._udp_cb = QCheckBox("Experimental")
+        self._udp_cb = Switch("Experimental")
         self._udp_cb.setChecked(self._udp)
         self._udp_cb.setToolTip("Can smooth out lag spikes on busy Wi-Fi but doesn't work with Dynamic or Heavy yet.")
         self._udp_cb.toggled.connect(self._on_udp)
@@ -1174,7 +1175,7 @@ class ConnectionPlugin(TelescopePlugin):
         box = QMessageBox(self._host)
         box.setWindowTitle("Set up the virtual camera")
         box.setText("Telescope needs to switch on its virtual camera first. This asks for your password.")
-        check = QCheckBox("Also switch it on at every startup")
+        check = Switch("Also switch it on at every startup")
         check.setChecked(True)
         box.setCheckBox(check)
         box.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
