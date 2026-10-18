@@ -23,7 +23,9 @@ class H264Encoder(
 ) {
     // Optional settings. Some encoders refuse one of them outright (an Exynos S10+ threw IllegalArgumentException
     // at 1080p), so a refused setup is retried with a fresh encoder and fewer of them.
-    enum class Extra { LOW_LATENCY, REALTIME }
+    // INTRA_REFRESH spreads the picture's refresh over a second of frames instead of a keyframe burst every second,
+    // which a thin link swallows more easily; only where the encoder lists it, and dropped first when a setup fails.
+    enum class Extra { LOW_LATENCY, REALTIME, INTRA_REFRESH }
 
     // High compresses better than Baseline at the same bitrate; with no B-frames it adds no delay either
     enum class Profile(val wire: String) { HIGH("high"), BASELINE("baseline"), ANY("auto") }
@@ -36,6 +38,8 @@ class H264Encoder(
         val ATTEMPTS: List<Attempt> = listOf(
             Attempt(Extra.values().toSet(), Profile.HIGH),
             Attempt(Extra.values().toSet(), Profile.BASELINE),
+            Attempt(Extra.values().toSet() - Extra.INTRA_REFRESH, Profile.HIGH),
+            Attempt(Extra.values().toSet() - Extra.INTRA_REFRESH, Profile.BASELINE),
             Attempt(emptySet(), Profile.HIGH),
             Attempt(emptySet(), Profile.BASELINE),
             Attempt(emptySet(), Profile.ANY),
@@ -44,6 +48,8 @@ class H264Encoder(
         // Set once an encoder ignored KEY_MAX_B_FRAMES at High; Baseline from then on, until the app restarts
         @Volatile var highReorders = false
         private const val REORDERS_TO_DROP_HIGH = 3
+        // With intra refresh a keyframe is only needed when a viewer joins or skips ahead, and the server asks for one
+        private const val REFRESHED_KEYFRAME_S = 10
 
         fun isAvailable(): Boolean = try {
             MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.any { info ->
@@ -76,6 +82,8 @@ class H264Encoder(
 
     private var bitrateRange = android.util.Range(1, Int.MAX_VALUE)  // this encoder's own, once it's made
     @Volatile var profile = Profile.ANY  // what the running encoder was set up with
+        private set
+    @Volatile var intraRefresh = false  // whether it was set up with intra refresh
         private set
     val outputRate = FrameRate()  // frames it actually encodes, to check a cap from setMaxFps took
     @Volatile private var lastPtsUs = Long.MIN_VALUE
@@ -126,7 +134,7 @@ class H264Encoder(
                 break
             }
             caps?.bitrateRange?.let { bitrateRange = it }
-            if (attempt.profile == Profile.HIGH && !highOk(mc)) {
+            if ((attempt.profile == Profile.HIGH && !highOk(mc)) || (Extra.INTRA_REFRESH in attempt.extras && !refreshOk(mc))) {
                 try { mc.release() } catch (_: Exception) {}
                 continue
             }
@@ -135,6 +143,7 @@ class H264Encoder(
                 mc.configure(format(width, height, fps, bitrate, attempt), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
                 val surface = mc.createInputSurface()
                 profile = attempt.profile
+                intraRefresh = Extra.INTRA_REFRESH in attempt.extras
                 mc.start()
                 opened = mc to surface
                 break
@@ -161,6 +170,10 @@ class H264Encoder(
         } catch (_: Exception) { false }
     }
 
+    private fun refreshOk(mc: MediaCodec): Boolean = try {
+        mc.codecInfo.getCapabilitiesForType(MIME).isFeatureSupported(MediaCodecInfo.CodecCapabilities.FEATURE_IntraRefresh)
+    } catch (_: Exception) { false }
+
     private fun checkOrder(ptsUs: Long) {
         if (ptsUs < lastPtsUs && !reordered && profile == Profile.HIGH && ++backwards >= REORDERS_TO_DROP_HIGH) {
             reordered = true
@@ -185,7 +198,12 @@ class H264Encoder(
             setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
             setInteger(MediaFormat.KEY_BIT_RATE, bitrate.coerceIn(bitrateRange.lower, bitrateRange.upper))
             setInteger(MediaFormat.KEY_FRAME_RATE, fps)
-            setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
+            if (Extra.INTRA_REFRESH in attempt.extras) {
+                setInteger(MediaFormat.KEY_INTRA_REFRESH_PERIOD, fps)
+                setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, REFRESHED_KEYFRAME_S)
+            } else {
+                setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
+            }
             setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR)
             if (Extra.REALTIME in attempt.extras) setInteger(MediaFormat.KEY_PRIORITY, 0)
             if (Extra.LOW_LATENCY in attempt.extras && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

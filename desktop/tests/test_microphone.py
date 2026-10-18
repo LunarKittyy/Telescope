@@ -74,6 +74,10 @@ class _Worker:
     def stop(self):
         self.stopped = True
 
+    def hand_over(self, url):
+        self.url = url
+        self.handed_over = getattr(self, "handed_over", 0) + 1
+
 
 class _Ctrl:
     base = "http://10.0.0.5:8080/v1"
@@ -138,8 +142,11 @@ def test_audio_follows_the_stream_onto_another_route(qapp):
     usb = _Ctrl()
     usb.base = "http://127.0.0.1:41000/v1"
     p.on_stream_start("url", usb)
-    assert first.stopped
-    assert _Worker.made[-1].url == "http://127.0.0.1:41000/v1/audio" and _Worker.made[-1].started
+    # the same worker moves over without a gap rather than a new one starting from silence
+    assert _Worker.made == [first] and not first.stopped and first.handed_over == 1
+    assert first.url == "http://127.0.0.1:41000/v1/audio"
+    p.on_stream_start("url", usb)
+    assert first.handed_over == 1  # already there
 
 
 def test_audio_follows_a_route_change_on_the_same_control_client(qapp):
@@ -152,8 +159,7 @@ def test_audio_follows_a_route_change_on_the_same_control_client(qapp):
 
     ctrl.base = "http://10.0.0.5:8080/v1"  # retargeted onto Wi-Fi, still the same client
     p.on_stream_start("url", ctrl)
-    assert usb.stopped
-    assert _Worker.made[-1].url == "http://10.0.0.5:8080/v1/audio" and _Worker.made[-1].started
+    assert not usb.stopped and usb.handed_over == 1 and usb.url == "http://10.0.0.5:8080/v1/audio"
 
 
 def test_switching_off_mid_stream_stops_and_removes_the_virtual_mic(qapp):

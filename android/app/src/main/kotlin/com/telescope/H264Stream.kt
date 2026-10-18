@@ -11,6 +11,7 @@ object H264Stream {
     const val CODEC_H264 = "h264"
 
     const val MIN_BPS = 1_000_000
+    const val DYNAMIC_MIN_BPS = 300_000  // Dynamic on a link thinner than MIN_BPS: a softer picture beats skipped frames
     const val MAX_BPS = 100_000_000       // what the desktop's slider goes up to
     const val AUTO_MAX_BPS = 30_000_000   // Auto stays at most this, as it always has
     const val DYNAMIC = -1  // the bitrate control's value for DynamicBitrate
@@ -55,6 +56,7 @@ class H264ClientQueue(
     private val ready = lock.newCondition()
     private val packets = ArrayDeque<ByteArray>()
     private val queuedAt = ArrayDeque<Long>()
+    private val isKey = ArrayDeque<Boolean>()
     private var config: ByteArray? = null
     private var waitingForKey = true
 
@@ -64,6 +66,8 @@ class H264ClientQueue(
     private var shortestWaitMs = -1L  // since the last takeQueueMs(); -1 = nothing went out
     private var writingSinceMs = -1L  // a packet handed to the sender and not yet written
     private var sentBytes = 0L
+    private var keyWriting = false  // a keyframe is going out: on a thin link it can take a second, which isn't lag
+    private var keyDoneMs = Long.MIN_VALUE
 
     /** Codec config (SPS/PPS): sent ahead of the next keyframe. A new one replaces what's queued. */
     fun offerConfig(bytes: ByteArray) = lock.withLock {
@@ -76,12 +80,12 @@ class H264ClientQueue(
         if (waitingForKey) {
             if (!key) return false
             waitingForKey = false
-            config?.let { add(it, now) }
-        } else if (packets.size >= capacity || (queuedAt.isNotEmpty() && now - queuedAt.first() > maxWaitMs)) {
+            config?.let { add(it, now, true) }
+        } else if (packets.size >= capacity || (queuedAt.isNotEmpty() && !keyWriting && now - maxOf(queuedAt.first(), keyDoneMs) > maxWaitMs)) {
             clear()
             return true
         }
-        add(packet, now)
+        add(packet, now, key)
         ready.signal()
         false
     }
@@ -96,12 +100,16 @@ class H264ClientQueue(
         val waited = now - queuedAt.poll()
         if (shortestWaitMs < 0 || waited < shortestWaitMs) shortestWaitMs = waited
         writingSinceMs = now
+        if (isKey.poll() == true) keyWriting = true
         packets.poll()
     }
 
     /** [bytes] more of the packet poll() last returned went into the socket; [done] once all of it has. */
     fun written(bytes: Int, done: Boolean) = lock.withLock {
-        if (done) writingSinceMs = -1
+        if (done) {
+            writingSinceMs = -1
+            if (keyWriting) { keyWriting = false; keyDoneMs = clock() }
+        }
         sentBytes += bytes
     }
 
@@ -122,14 +130,16 @@ class H264ClientQueue(
 
     fun size(): Int = lock.withLock { packets.size }
 
-    private fun add(packet: ByteArray, now: Long) {
+    private fun add(packet: ByteArray, now: Long, key: Boolean) {
         packets.add(packet)
         queuedAt.add(now)
+        isKey.add(key)
     }
 
     private fun clear() {
         packets.clear()
         queuedAt.clear()
+        isKey.clear()
         waitingForKey = true
     }
 }

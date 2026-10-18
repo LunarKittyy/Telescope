@@ -133,6 +133,9 @@ def test_stream_output_diagnostics_say_which_h264_profile_the_phone_runs(stream_
     plugin, _host, _panel = stream_output
     plugin.on_phone_state({"cameras": [], "codec": "h264", "h264_profile": "high"})
     assert plugin.diagnostics()["H.264 profile"] == "high"
+    assert plugin.diagnostics()["H.264 refresh"] == "keyframes"
+    plugin.on_phone_state({"cameras": [], "codec": "h264", "h264_profile": "high", "intra_refresh": True})
+    assert plugin.diagnostics()["H.264 refresh"] == "intra refresh"
     plugin.on_phone_state({"cameras": []})  # an older phone, or MJPEG: nothing to say
     assert "H.264 profile" not in plugin.diagnostics()
 
@@ -1229,3 +1232,27 @@ def test_another_stream_falling_behind_says_nothing_but_catching_up_clears_the_n
     plugin._bus.stream_behind.emit("phone-a", True)
     plugin._bus.stream_behind.emit("phone-b", False)  # one the panels showed a moment ago, now caught up or stopped
     assert "behind" not in host.issues
+
+
+@pytest.mark.parametrize("wifi,url,starts", [
+    ({"wifi_band": "5", "wifi_rssi": -78}, "https://10.0.0.5:8080/v1/video.h264", "The phone's Wi-Fi signal is weak"),
+    ({"wifi_band": "2.4", "wifi_rssi": -50}, "https://10.0.0.5:8080/v1/video.h264", "The phone is on 2.4 GHz Wi-Fi"),
+    ({"wifi_band": "5", "wifi_rssi": -50}, "https://10.0.0.5:8080/v1/video.h264", "Try "),  # good Wi-Fi: nothing to say
+    ({"wifi_band": "2.4", "wifi_rssi": -80}, "https://127.0.0.1:41000/v1/video.h264", "Try "),  # over USB it doesn't matter
+    ({}, "https://10.0.0.5:8080/v1/video.h264", "Try "),  # an older phone doesn't say
+])
+def test_falling_behind_says_when_the_phones_wifi_is_why(stream_output, monkeypatch, wifi, url, starts):
+    plugin, host = _stream_output_with(stream_output, monkeypatch)
+    plugin.on_stream_start(url, _Ctrl())
+    plugin.on_phone_state({"cameras": [], "codecs": ["mjpeg", "h264"], "dynamic_bitrate": True, **wifi})
+    plugin._bus.stream_behind.emit("phone-a", True)
+    assert host.issues["behind"].text.startswith(starts)
+    assert host.issues["behind"].text.endswith("Try Dynamic or lower quality.")
+
+
+def test_diagnostics_show_the_phones_wifi(stream_output):
+    plugin, _host, _panel = stream_output
+    plugin.on_phone_state({"cameras": [], "wifi_band": "5", "wifi_rssi": -58, "wifi_mbps": 866})
+    assert plugin.diagnostics()["Phone Wi-Fi"] == "5 GHz, -58 dBm, 866 Mbps link"
+    plugin.on_phone_state({"cameras": []})
+    assert "Phone Wi-Fi" not in plugin.diagnostics()

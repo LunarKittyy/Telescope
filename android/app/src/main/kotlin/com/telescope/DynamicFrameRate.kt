@@ -6,9 +6,10 @@ package com.telescope
  * note told people to do by hand.
  *
  * The signal is the bitrate [DynamicBitrate] settled on, which tracks what the link carries, against Auto's bitrate
- * for each rate. Well under it for a while steps down a rung; comfortably over the next rung's for longer steps back
- * up. A step has the encoder drop frames where it can (Android 10+), else it restarts the camera's session (the rate
- * is part of its setup), so it waits between steps and never goes under [MIN_FPS].
+ * for each rate. Well under it for a while steps down, straight to the first rung it's enough for; comfortably over
+ * the next rung's for longer steps back up. A step has the encoder drop frames where it can (Android 10+), else it
+ * restarts the camera's session (the rate is part of its setup), so it waits between steps and never goes under
+ * [MIN_FPS].
  *
  * Only rates the camera can be held to are rungs ([canCapAt]): one whose ranges all go past a rate would keep
  * running faster than it, so stepping there would rebuild the session for nothing. A stall isn't a slower link
@@ -44,18 +45,21 @@ class DynamicFrameRate(val askedFps: Int, val lens: Any? = null, canCapAt: (Int)
     /** The cap in force, or null at the rate asked for. */
     val cap: Int? get() = if (rung == 0) null else fps
 
-    /** Feed what Dynamic's bitrate is now and when the link last stalled; returns the new rate when it should
+    /** Feed what Dynamic's bitrate is now and when a stall last cut it; returns the new rate when it should
      *  change, else null. */
     @Synchronized
-    fun update(nowMs: Long, bitrate: Int, width: Int, height: Int, lastStallMs: Long = Long.MIN_VALUE / 2): Int? {
-        val tooThin = rung < rungs.size - 1 && nowMs - lastStallMs >= AFTER_STALL_MS &&
+    fun update(nowMs: Long, bitrate: Int, width: Int, height: Int, lastStallCutMs: Long = Long.MIN_VALUE / 2): Int? {
+        val tooThin = rung < rungs.size - 1 && nowMs - lastStallCutMs >= AFTER_STALL_MS &&
             bitrate < H264Stream.defaultBitrate(width, height, fps) * LOW
         val room = rung > 0 && bitrate >= H264Stream.defaultBitrate(width, height, rungs[rung - 1]) * HIGH
         lowSinceMs = if (tooThin) (if (lowSinceMs < 0) nowMs else lowSinceMs) else -1
         roomSinceMs = if (room) (if (roomSinceMs < 0) nowMs else roomSinceMs) else -1
         if (nowMs - lastStepMs < SETTLE_MS) return null
         val next = when {
-            lowSinceMs >= 0 && nowMs - lowSinceMs >= DOWN_MS -> rung + 1
+            // Far too thin goes straight to the rung it fits, rather than one every SETTLE_MS
+            lowSinceMs >= 0 && nowMs - lowSinceMs >= DOWN_MS ->
+                (rung + 1 until rungs.size).firstOrNull { bitrate >= H264Stream.defaultBitrate(width, height, rungs[it]) * LOW }
+                    ?: (rungs.size - 1)
             roomSinceMs >= 0 && nowMs - roomSinceMs >= UP_MS -> rung - 1
             else -> return null
         }
@@ -83,4 +87,12 @@ object HeatStep {
         if (askedFps <= limit) return null
         return RUNGS.filter { it <= limit && canCapAt(it) }.maxOrNull()
     }
+
+    const val FORECAST_S = 30  // how far ahead to ask Android about (Android 11 and newer)
+    const val FORECAST_EVERY_MS = 10_000L  // Android wants at most one ask a second; this is plenty
+
+    /** The status to act on now: Android's, or severe already when its forecast says that's [FORECAST_S] away
+     *  (headroom 1.0 is where severe throttling starts), so the rate eases off before the phone gets that hot. */
+    fun status(current: Int, headroom: Float): Int =
+        if (current < SEVERE && headroom.isFinite() && headroom >= 1f) SEVERE else current
 }

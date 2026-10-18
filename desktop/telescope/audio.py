@@ -10,6 +10,7 @@ import json
 import logging
 import math
 import os
+import select
 import stat
 import threading
 import time
@@ -36,11 +37,19 @@ MAX_BACKLOG_MS = 500  # past MAX_MS, while nothing reads the output
 JITTER_MARGIN_MS = 10
 MAX_SKEW = 0.002  # playing 0.2% faster or slower can't be heard
 SKEW_PER_SAMPLE = MAX_SKEW / (10 * RATE / 1000)  # full skew 10 ms off target
+FAST_SKEW = 0.005  # far over target and never quiet (music, a fan): still hard to hear, and drains 100 ms in 20 s
+FAST_AFTER_MS = 30  # over the target by this much, the skew can grow toward FAST_SKEW...
+FAST_FULL_MS = 60  # ...reaching it here
+QUIET_SKIP_MS = 20  # this far over target, a quiet moment is skipped with a crossfade instead
+QUIET_DBFS = -50.0  # always quiet enough to skip...
+QUIET_MAX_DBFS = -35.0  # ...never when louder (speech), and in between only near the room's own noise
+FLOOR_RISE = 10 ** (1 / 20 / 100)  # the noise floor estimate creeps up 1 dB/s, so it follows a noisier room
 AVERAGE_S = 0.5
 FADE = 96  # samples (2 ms) to fade out and back in around a gap or a jump
 LEAD_WINDOW_S = 10
 LATE_FORGET_S = 5  # how quickly a late burst stops counting
 RETRY_S = 3
+_MOVED = object()  # _read_once's answer when the audio moved to another connection
 FULL_SCALE = 32767
 LIMIT_CEILING = 10 ** (-1 / 20)  # the limiter keeps peaks under -1 dBFS
 LIMIT_RELEASE = 10 ** (0.25 / 20)  # per chunk once the peak has passed: 25 dB/s
@@ -56,6 +65,17 @@ AUTO_UP_DB = 0.06  # per 10 ms chunk: 6 dB/s up, slow so it doesn't pump...
 AUTO_DOWN_DB = 0.3  # ...and 30 dB/s down, so a loud bit comes down quickly (the limiter catches the first of it)
 AUTO_LEVEL_RATE = 0.02  # per chunk: the speech level it goes by is an average over about half a second
 LIMIT_ATTACK = 48  # samples (1 ms) to reach a new, lower gain; hard clipping catches anything in between
+
+
+def _close(resp):
+    try:
+        resp.close()
+    except Exception:
+        pass
+
+
+def _dbfs(db: float) -> float:
+    return FULL_SCALE * 10 ** (db / 20)
 
 
 class JitterBuffer:
@@ -79,6 +99,8 @@ class JitterBuffer:
         self._received = 0
         self._last_arrival = 0.0
         self.ran_dry = 0  # how many times it ran out and faded to silence
+        self._floor = float(FULL_SCALE)  # the quietest it's been lately (RMS per chunk)
+        self._fade_next = False  # the next audio pushed starts another connection's: fade it in
 
     def push(self, data: bytes):
         now = self._clock()
@@ -89,6 +111,10 @@ class JitterBuffer:
             samples = np.frombuffer(data[:whole], np.int16).astype(np.float32)
             if not samples.size:
                 return
+            if self._fade_next:
+                self._fade_next = False
+                k = min(FADE, samples.size)
+                samples[:k] *= np.linspace(0.0, 1.0, k, dtype=np.float32)
             self._buf = np.concatenate((self._buf, samples))
             self._track_jitter(now)  # by when this chunk's first sample arrived
             self._received += samples.size
@@ -102,6 +128,18 @@ class JitterBuffer:
     def restart_clock(self):
         """A new connection: its audio's timing starts over, so the old arrivals say nothing about it."""
         with self._lock:
+            self._leads.clear()
+            self._received = 0
+            self._odd = b""
+
+    def splice(self):
+        """The audio moves to another connection: fade out what's here and fade in what comes next, since the
+        two don't line up to the sample."""
+        with self._lock:
+            k = min(FADE, int(self._buf.size - self._pos))
+            if k > 0:
+                self._buf[-k:] *= np.linspace(1.0, 0.0, k, dtype=np.float32)
+            self._fade_next = True
             self._leads.clear()
             self._received = 0
             self._odd = b""
@@ -140,10 +178,16 @@ class JitterBuffer:
             else:
                 fade_in = False
             self._avg += (fill - self._avg) * min(1.0, m / (AVERAGE_S * RATE))
-            ratio = 1.0 + float(np.clip((self._avg - self._target) * SKEW_PER_SAMPLE, -MAX_SKEW, MAX_SKEW))
+            over_ms = (self._avg - self._target) * 1000 / RATE
+            fast = min(1.0, max(0.0, (over_ms - FAST_AFTER_MS) / (FAST_FULL_MS - FAST_AFTER_MS)))
+            ratio = 1.0 + float(np.clip((self._avg - self._target) * SKEW_PER_SAMPLE,
+                                        -MAX_SKEW, MAX_SKEW + (FAST_SKEW - MAX_SKEW) * fast))
             skip = 0
             if fill - m * ratio > self._target + self._max_extra:
                 skip = int(fill - m * ratio - self._target)  # far too much: jump back to the target
+                self._avg = self._target
+            elif over_ms > QUIET_SKIP_MS and self._quiet(int(self._pos), int(fill - self._target)):
+                skip = int(fill - m * ratio - self._target)  # a pause: jumping back to the target can't be heard
                 self._avg = self._target
             at = self._pos + skip + ratio * np.arange(m, dtype=np.float64)
             usable = int(np.searchsorted(at, self._buf.size - 2.0, side="left"))  # cubic needs two samples ahead
@@ -156,6 +200,8 @@ class JitterBuffer:
             if fade_in:
                 k = min(FADE, out.size)
                 out[:k] *= np.linspace(0.0, 1.0, k, dtype=np.float32)
+            if out.size:
+                self._floor = min(float(np.sqrt(np.mean(out * out))), self._floor * FLOOR_RISE)
             if usable < m:
                 # Ran dry: fade out what's left instead of stopping dead, then fill up to the target again
                 k = min(FADE, out.size)
@@ -172,6 +218,15 @@ class JitterBuffer:
                 self._buf = self._buf[keep_from:]
                 self._pos = end - keep_from
             return np.clip(np.rint(out), -32768, FULL_SCALE).astype(np.int16).tobytes() + bytes(n - 2 * m)
+
+    def _quiet(self, start: int, n: int) -> bool:
+        """Whether the n samples from start (what a skip would leave out, and a bit after) are a quiet moment."""
+        part = self._buf[start:start + n]
+        if not part.size:
+            return False
+        rms = float(np.sqrt(np.mean(part * part)))
+        limit = min(_dbfs(QUIET_MAX_DBFS), max(_dbfs(QUIET_DBFS), self._floor * 2))
+        return rms < limit
 
     def _cubic(self, at: np.ndarray) -> np.ndarray:
         """Catmull-Rom between samples: straight lines would dull "s" and "t" sounds."""
@@ -195,11 +250,13 @@ class FifoSink:
     to real time, and the pipe is shrunk to one page so a stalled reader can't queue up delay."""
 
     PIPE_BYTES = 4096  # about 40 ms; Linux won't go below a page
+    STALL_S = 0.2  # a pipe that stays full this long has no reader (nothing uses the mic): drop the chunk
     _F_SETPIPE_SZ = 1031
 
     def __init__(self, path: str, clock: Callable = time.monotonic, sleep: Callable = time.sleep,
                  open_fd: Optional[Callable] = None):
         self._fd = (open_fd or self._open_fifo)(path)
+        os.set_blocking(self._fd, False)  # so a pipe nobody reads can't hold up stopping
         self._clock, self._sleep = clock, sleep
         self._due: Optional[float] = None
 
@@ -212,7 +269,6 @@ class FifoSink:
         if not stat.S_ISFIFO(st.st_mode) or (hasattr(os, "getuid") and st.st_uid != os.getuid()):
             os.close(fd)
             raise OSError(f"{path} isn't the microphone's pipe")
-        os.set_blocking(fd, True)
         try:
             import fcntl
             fcntl.fcntl(fd, cls._F_SETPIPE_SZ, cls.PIPE_BYTES)
@@ -226,9 +282,17 @@ class FifoSink:
             self._due = now  # first write, or so far behind that catching up would only burst
         elif self._due > now:
             self._sleep(self._due - now)
-        view = memoryview(data)
-        while view:
-            view = view[os.write(self._fd, view):]
+        # Chunks are under PIPE_BUF, so each write goes in whole or not at all and samples never split
+        give_up = None
+        while True:
+            try:
+                os.write(self._fd, data)
+                break
+            except BlockingIOError:
+                give_up = give_up or time.monotonic() + self.STALL_S
+                left = give_up - time.monotonic()
+                if left <= 0 or not select.select([], [self._fd], [], left)[1]:
+                    break
         self._due += len(data) / (RATE * 2)
 
     def close(self):
@@ -285,6 +349,8 @@ class AudioWorker:
         self._peak = self._rms = 0.0
         self._limited = False
         self._level_lock = threading.Lock()
+        self._handover_lock = threading.Lock()
+        self._handover = None  # (response, its first audio) for a connection that is ready to take over
         self._odd = b""  # a reply can end mid-sample; its first byte waits for the next one
 
     def take_level(self) -> tuple:
@@ -304,6 +370,10 @@ class AudioWorker:
 
     def stop(self):
         self._stop.set()
+        with self._handover_lock:
+            pending, self._handover = self._handover, None
+        if pending is not None:
+            _close(pending[0])
         resp = self._response
         if resp is not None:
             try:
@@ -314,39 +384,84 @@ class AudioWorker:
             t.join(timeout=3)
         self._threads.clear()
 
+    def hand_over(self, url: str):
+        """Moves to url without a gap: opens it next to the current connection and switches once audio comes
+        through. If it doesn't, the current one keeps going and the next reconnect goes to url."""
+        self.url = url
+
+        def work():
+            try:
+                resp = self._opener(urllib.request.Request(url, headers=self.auth.headers()), timeout=5)
+            except Exception:
+                logger.info("Couldn't open the microphone's new connection; staying on the old one")
+                return
+            try:
+                first = resp.read1(4096)
+            except Exception:
+                first = b""
+            with self._handover_lock:
+                if not first or self._stop.is_set() or self.url != url:
+                    _close(resp)
+                    return
+                old, self._handover = self._handover, (resp, first)
+                current = self._response
+            if old is not None:
+                _close(old[0])
+            if current is not None:
+                _close(current)  # wakes a read waiting on the old route; it sees the hand-over and moves on
+        threading.Thread(target=work, name="mic-handover", daemon=True).start()
+
     def _read_loop(self):
         while not self._stop.is_set():
             problem = self._read_once()
             if self._stop.is_set():
                 break
+            if problem is _MOVED:
+                continue
             if problem:
                 self._on_status("err", problem)
-            self._stop.wait(RETRY_S)
+            until = time.monotonic() + RETRY_S
+            while time.monotonic() < until and self._handover is None:  # a hand-over meanwhile goes ahead at once
+                if self._stop.wait(min(0.1, RETRY_S)):
+                    break
 
-    def _read_once(self) -> Optional[str]:
-        req = urllib.request.Request(self.url, headers=self.auth.headers())
-        try:
-            resp = self._opener(req, timeout=5)
-        except urllib.error.HTTPError as e:
-            return _phone_reason(e)
-        except Exception:
-            return "Can't reach the phone's microphone."
-        self._response = resp
+    def _read_once(self):
+        with self._handover_lock:
+            taken, self._handover = self._handover, None
+            if taken is not None:
+                resp, pending = taken
+                self._response = resp
+        if taken is not None:
+            self._buffer.splice()
+        else:
+            req = urllib.request.Request(self.url, headers=self.auth.headers())
+            try:
+                resp = self._opener(req, timeout=5)
+            except urllib.error.HTTPError as e:
+                return _phone_reason(e)
+            except Exception:
+                return "Can't reach the phone's microphone."
+            pending = b""
+            self._response = resp
+            self._buffer.restart_clock()
         self._odd = b""
-        self._buffer.restart_clock()
         told = False
         try:
             while not self._stop.is_set():
-                chunk = resp.read1(4096)
+                if self._handover is not None:
+                    return _MOVED
+                chunk, pending = pending or resp.read1(4096), b""
                 if not chunk:
-                    return "The phone's microphone stopped."
+                    return _MOVED if self._handover is not None else "The phone's microphone stopped."
                 self._buffer.push(chunk)
                 self._measure(chunk)
                 if not told:
                     self._on_status("ok", "")
                     told = True
         except Exception:
-            return None if self._stop.is_set() else "The phone's microphone stopped."
+            if self._stop.is_set():
+                return None
+            return _MOVED if self._handover is not None else "The phone's microphone stopped."
         finally:
             self._response = None
             try:

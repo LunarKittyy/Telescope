@@ -118,4 +118,21 @@ class H264StreamTest {
         assertTrue(q.offer(p(3), key = false))   // over it: dropped, and a keyframe asked for
         assertEquals(0, q.size())
     }
+
+    @Test
+    fun `a keyframe that takes a while to go out doesn't count as lag`() {
+        var now = 0L
+        val q = H264ClientQueue(clock = { now })
+        q.maxWaitMs = 1_000
+        q.offer(p(1), key = true)
+        q.poll(0)                                // the keyframe starts going out
+        q.offer(p(2), key = false)
+        now = 1_500
+        assertFalse(q.offer(p(3), key = false))  // still sending it: kept
+        q.written(1, done = true)
+        now = 2_400
+        assertFalse(q.offer(p(4), key = false))  // 900 ms since it went: kept
+        now = 2_600
+        assertTrue(q.offer(p(5), key = false))   // the rest still waiting after that: real lag
+    }
 }

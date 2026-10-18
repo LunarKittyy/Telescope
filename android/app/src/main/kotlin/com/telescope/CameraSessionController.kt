@@ -45,6 +45,7 @@ data class CameraControlSnapshot(
     val dynamicFps:        Int = 0,  // the rate Dynamic stepped down to for a slow link; 0 = the rate asked for
     val lowLight:          Boolean = false,
     val h264Profile:       String? = null,  // "high", "baseline" or "auto" while H.264 runs
+    val intraRefresh:      Boolean = false,  // the encoder refreshes the picture gradually instead of with keyframes
     val heatFps:           Int = 0,  // the rate the phone's heat capped the camera at; 0 = not capped
 )
 
@@ -74,12 +75,15 @@ class CameraSessionController(
         private const val COOL_DOWN_MS = 30_000L
         // False once this phone's encoder was caught ignoring KEY_MAX_FPS_TO_ENCODER; every step is checked until then
         @Volatile var encoderCapWorks: Boolean? = null
+        // True once a FrameGate failed here: steps restart the camera from then on, until the app restarts
+        @Volatile var gateBroken = false
     }
 
     private var cameraDevice: CameraDevice? = null
     private var captureSession: CameraCaptureSession? = null
     private var imageReader: ImageReader? = null
     private var encoder: H264Encoder? = null
+    private var gate: FrameGate? = null  // drops frames for an encoder that ignores the cap; between camera and encoder
     private var handlerThread: HandlerThread? = null
     private var handler: Handler? = null
     @Volatile private var previewSurface: Surface? = null
@@ -182,6 +186,7 @@ class CameraSessionController(
         dynamicFps      = frameRate?.cap ?: 0,
         lowLight        = currentLowLight,
         h264Profile     = encoder?.profile?.wire,
+        intraRefresh    = encoder?.intraRefresh == true,
         heatFps         = heatCap()?.takeIf { it < (frameRate?.cap ?: currentPhoneFps) } ?: 0,
     )
 
@@ -203,15 +208,19 @@ class CameraSessionController(
     @Volatile private var sessionFps = 0  // the rate the camera's last repeating request was built for
     private var capCheckGeneration = 0
 
-    private fun canCapInEncoder(): Boolean =
-        encoderCapWorks != false && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && encoder != null && heatCap() == null
+    private fun canCapInEncoder(): Boolean = encoder != null && heatCap() == null &&
+        (gate != null || (encoderCapWorks != false && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q))
 
     // On the camera thread, after Dynamic stepped: the encoder takes the new rate, or the session is rebuilt for it
     private fun applyFrameRate() {
         val cap = frameRate?.cap
         val enc = encoder
         // Only from a camera already at the rate asked for: one an earlier step slowed down needs the session rebuilt anyway
-        if (enc != null && (capInEncoder || (cap != null && sessionFps == currentPhoneFps)) && canCapInEncoder() &&
+        val g = gate
+        if (enc != null && g != null && (capInEncoder || (cap != null && sessionFps == currentPhoneFps)) && canCapInEncoder()) {
+            g.maxFps = cap  // ours: no need to check it took
+            capInEncoder = cap != null
+        } else if (enc != null && (capInEncoder || (cap != null && sessionFps == currentPhoneFps)) && canCapInEncoder() &&
             enc.setMaxFps(cap, currentPhoneFps)) {
             capInEncoder = cap != null
             if (cap != null) checkEncoderCap(enc, cap)
@@ -233,6 +242,8 @@ class CameraSessionController(
                 android.util.Log.i(TAG, "The encoder didn't drop frames for $cap fps ($out came out): restarting the camera instead")
                 encoderCapWorks = false
                 uncapEncoder()
+                // The camera holds the encoder's surface, so a FrameGate comes with a fresh encoder: one reopen, then no more restarts
+                if (!gateBroken) { reopen("addFrameGate"); return@postDelayed }
                 reconfigureSession()
                 encoder?.setBitrate(currentBitrate())
             }
@@ -243,7 +254,30 @@ class CameraSessionController(
         if (!capInEncoder) return
         capInEncoder = false
         capCheckGeneration++
-        encoder?.setMaxFps(null, currentPhoneFps)
+        gate?.maxFps = null
+        if (gate == null) encoder?.setMaxFps(null, currentPhoneFps)
+    }
+
+    // A FrameGate in front of the encoder; the session has to be rebuilt to send the camera into it
+    private fun addGate(): Boolean {
+        val enc = encoder ?: return false
+        if (gate != null) return true
+        if (gateBroken) return false
+        return try {
+            gate = FrameGate(streamWidth, streamHeight, enc.inputSurface) { e -> post { gateFailed(e) } }
+            true
+        } catch (e: Exception) {
+            gateBroken = true
+            onControlError("frameGate", e)
+            false
+        }
+    }
+
+    private fun gateFailed(e: Throwable) {
+        if (gate == null) return
+        gateBroken = true
+        onControlError("frameGate", e)
+        reopen("frameGate")  // without it: steps restart the camera again
     }
 
     // Back to no Dynamic step; the encoder lets every frame through again
@@ -337,7 +371,7 @@ class CameraSessionController(
             frameRate = it
             if (old?.cap != null) post { applyFrameRate() }  // uncapped
         }
-        val stepped = rate.update(sample.nowMs, d.bitrate, streamWidth, streamHeight, d.lastStallMs) ?: return
+        val stepped = rate.update(sample.nowMs, d.bitrate, streamWidth, streamHeight, d.lastStallCutMs) ?: return
         android.util.Log.i(TAG, "Dynamic: ${stepped} fps for a ${d.bitrate / 1000} kbps link")
         // The encoder drops frames for it where it can; otherwise the session is rebuilt, as the rate is part of
         // its setup (see createSession)
@@ -605,6 +639,11 @@ class CameraSessionController(
                 encoder = H264Encoder(streamWidth, streamHeight, streamFps(), currentBitrate(),
                     onPacket = onH264, onError = { e -> post { encoderFailed(e) } },
                     onReorder = { post { if (codec == H264Stream.CODEC_H264) reopen("h264Reorders") } })
+                // An encoder known to ignore the cap gets a FrameGate straight away; Dynamic's step is then its job
+                if (encoderCapWorks == false && addGate() && frameRate?.cap != null) {
+                    gate?.maxFps = frameRate?.cap
+                    capInEncoder = true
+                }
                 return
             } catch (e: Exception) {
                 codec = H264Stream.CODEC_MJPEG
@@ -634,13 +673,14 @@ class CameraSessionController(
 
     private fun releaseOutputs() {
         try { imageReader?.close() } catch (_: Exception) {}
+        gate?.release()
         encoder?.release()
-        imageReader = null; encoder = null
+        imageReader = null; encoder = null; gate = null
         capInEncoder = false  // a new encoder doesn't have the cap: the session takes Dynamic's rate again
         capCheckGeneration++
     }
 
-    private fun outputSurface(): Surface? = encoder?.inputSurface ?: imageReader?.surface
+    private fun outputSurface(): Surface? = gate?.inputSurface ?: encoder?.inputSurface ?: imageReader?.surface
 
     private fun buildImageReader(): ImageReader {
         val reader = ImageReader.newInstance(streamWidth, streamHeight, ImageFormat.JPEG, 3)
@@ -871,7 +911,7 @@ class CameraSessionController(
     @androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
     private fun applyStreamUseCase(cfg: OutputConfiguration, surface: Surface) {
         val useCase = when {
-            encoder != null && surface === encoder?.inputSurface ->
+            encoder != null && (surface === encoder?.inputSurface || surface === gate?.inputSurface) ->
                 CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_VIDEO_RECORD.toLong()
             surface === previewSurface -> CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_PREVIEW.toLong()
             else -> return

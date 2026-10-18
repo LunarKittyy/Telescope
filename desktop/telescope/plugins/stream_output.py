@@ -1,4 +1,5 @@
 import math
+import urllib.parse
 
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QBrush, QColor
@@ -49,6 +50,7 @@ _COMMON_ASPECT_RATIOS = {(16, 9), (4, 3)}
 _PREFERRED_DEFAULTS = ((1920, 1080), (1280, 720))  # Preferred default, in priority order.
 _COMMON_COLOR = QColor(OK)
 _AR_COMMON_COLOR = QColor(WARN)  # Aspect ratios that contain a common resolution.
+_WEAK_WIFI_DBM = -70  # at or under this the signal, not the network, is what holds a stream back
 
 
 class _ColoredItemDelegate(QStyledItemDelegate):
@@ -137,6 +139,9 @@ class StreamOutputPlugin(TelescopePlugin):
         self._phone_codecs: tuple = ()  # what the phone reported; () until it has
         self._phone_dynamic = None  # whether the phone takes Dynamic; None until it has reported
         self._h264_profile = None  # what the phone's encoder runs ("high", "baseline", "auto"); older phones don't say
+        self._intra_refresh = False  # the phone's encoder refreshes the picture gradually instead of with keyframes
+        self._wifi = (None, None, None)  # the phone's Wi-Fi band ("2.4", "5", "6"), signal (dBm), link speed (Mbps)
+        self._over_usb = False  # the stream comes over the cable, so the phone's Wi-Fi doesn't matter
         self._phone_picked = True  # another source (Browser camera) says what helps itself
         self._h264_sizes = None  # the sizes the lens's H.264 encoder takes, as a set; None until a phone says
         self._good_size = None  # the last size a Light stream ran at without trouble, to go back to when one fails
@@ -235,6 +240,7 @@ class StreamOutputPlugin(TelescopePlugin):
 
     def on_stream_start(self, stream_url: str, ctrl):
         self._ctrl = ctrl
+        self._over_usb = urllib.parse.urlsplit(stream_url or "").hostname in ("127.0.0.1", "localhost", "::1")
         self._initial_timer.start(1500)
 
     def on_stream_stop(self):
@@ -290,6 +296,10 @@ class StreamOutputPlugin(TelescopePlugin):
         if "cameras" in state:
             self._phone_dynamic = bool(state.get("dynamic_bitrate"))
             self._h264_profile = state.get("h264_profile") if isinstance(state.get("h264_profile"), str) else None
+            self._intra_refresh = state.get("intra_refresh") is True
+            band, rssi, mbps = state.get("wifi_band"), state.get("wifi_rssi"), state.get("wifi_mbps")
+            self._wifi = (band if isinstance(band, str) else None, rssi if isinstance(rssi, int) else None,
+                          mbps if isinstance(mbps, int) else None)
             self._show_bitrate()
         back = None
         if self._format == FORMAT_H264 and codecs and FORMAT_H264 not in codecs:
@@ -521,6 +531,8 @@ class StreamOutputPlugin(TelescopePlugin):
         self._phone_codecs = ()  # another phone: unknown until it reports
         self._phone_dynamic = None
         self._h264_profile = None
+        self._intra_refresh = False
+        self._wifi = (None, None, None)
         self._show_format()
         self._show_bitrate()
 
@@ -579,7 +591,21 @@ class StreamOutputPlugin(TelescopePlugin):
             text, action = "Try Dynamic or lower quality.", BannerAction("Switch to Dynamic", self._switch_to_dynamic)
         else:
             text, action = "Try lower quality.", None
+        hint = self._wifi_hint()
+        if hint:
+            text = f"{hint} {text}"
         self._host.show_issue("behind", Issue("Can't keep up", text, [action] if action else [], kind="warn"))
+
+    def _wifi_hint(self) -> str:
+        """What's likely slowing a Wi-Fi stream down, when the phone's Wi-Fi says so."""
+        band, rssi, _mbps = self._wifi
+        if self._over_usb:
+            return ""
+        if rssi is not None and rssi <= _WEAK_WIFI_DBM:
+            return "The phone's Wi-Fi signal is weak, so moving it closer to the router or plugging in a cable helps most."
+        if band == "2.4":
+            return "The phone is on 2.4 GHz Wi-Fi, which is slower and often crowded. A 5 GHz network or a cable helps most."
+        return ""
 
     def _switch_to_light(self):
         self._host.clear_issue("h264")
@@ -676,7 +702,14 @@ class StreamOutputPlugin(TelescopePlugin):
             "Bitrate": self._bitrate_val_lbl.text() + (" (phone uses Auto)" if self._dynamic() and
                                                        self._phone_dynamic is False else ""),
             **({"H.264 profile": self._h264_profile} if self._h264_profile else {}),
+            **({"H.264 refresh": "intra refresh" if self._intra_refresh else "keyframes"} if self._h264_profile else {}),
+            **({"Phone Wi-Fi": self._wifi_text()} if any(v is not None for v in self._wifi) else {}),
         }
+
+    def _wifi_text(self) -> str:
+        band, rssi, mbps = self._wifi
+        parts = [f"{band} GHz" if band else "", f"{rssi} dBm" if rssi is not None else "", f"{mbps} Mbps link" if mbps else ""]
+        return ", ".join(p for p in parts if p)
 
     def get_config(self) -> dict:
         cfg = {

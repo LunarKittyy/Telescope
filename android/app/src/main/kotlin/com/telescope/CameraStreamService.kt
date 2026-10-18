@@ -443,6 +443,9 @@ class CameraStreamService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private val wifiLocks = mutableListOf<android.net.wifi.WifiManager.WifiLock>()
     private var thermalListener: Any? = null  // PowerManager.OnThermalStatusChangedListener, Android 10 and newer
+    private var thermalStatus = 0  // Android's last thermal status
+    private var thermalHeadroom = Float.NaN  // its last forecast, NaN where there's none
+    private var heatSent = -1  // the status the controller was last told
     private var idleWatchdogThread: Thread? = null
     // One flag per watchdog thread, so a quick stop and start can't revive the old thread beside the new one
     private var idleWatchdogRunning = java.util.concurrent.atomic.AtomicBoolean(false)
@@ -845,6 +848,7 @@ class CameraStreamService : Service() {
         }
         val (battLevel, battCharging, battTempC) = getBatteryInfo()
         val liveSize = controller?.getStreamSize() ?: android.util.Size(streamWidth, streamHeight)
+        val wifi = WifiLink.current(this)
         val state = V1State(
             cameras = cams,
             auto = snap?.iso == null,
@@ -872,6 +876,8 @@ class CameraStreamService : Service() {
             dynamic_fps = snap?.dynamicFps ?: 0,
             low_light = snap?.lowLight ?: false,
             h264_profile = snap?.h264Profile,
+            intra_refresh = snap?.intraRefresh == true,
+            wifi_band = wifi?.band, wifi_rssi = wifi?.rssi, wifi_mbps = wifi?.mbps,
             heat_fps = snap?.heatFps ?: 0,
             low_light_toggle = true,
             codec_error = snap?.codecError,
@@ -1118,16 +1124,46 @@ class CameraStreamService : Service() {
     private fun watchThermalStatus() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
         val pm = getSystemService(POWER_SERVICE) as PowerManager
-        val listener = PowerManager.OnThermalStatusChangedListener { status -> controller?.setThermalStatus(status) }
+        val listener = PowerManager.OnThermalStatusChangedListener { status ->
+            thermalStatus = status
+            applyHeat()
+        }
         try {
             pm.addThermalStatusListener(ContextCompat.getMainExecutor(this), listener)
             thermalListener = listener
         } catch (e: Exception) {
             recordControlError("thermalStatus", e)
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) mainHandler.post(forecastHeat)
+    }
+
+    // Android 11 and newer forecast how close to throttling the phone will be: ease off before it gets there
+    private val forecastHeat: Runnable = object : Runnable {
+        override fun run() {
+            if (thermalListener == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
+            val pm = getSystemService(POWER_SERVICE) as PowerManager
+            val headroom = runCatching { pm.getThermalHeadroom(HeatStep.FORECAST_S) }.getOrDefault(Float.NaN)
+            if (headroom.isFinite() || thermalHeadroom.isFinite()) {  // NaN: not offered, or asked too soon
+                thermalHeadroom = headroom
+                applyHeat()
+            }
+            mainHandler.postDelayed(this, HeatStep.FORECAST_EVERY_MS)
+        }
+    }
+
+    // Only a change: the controller's cool-down starts over with every status it's told
+    private fun applyHeat() {
+        val status = HeatStep.status(thermalStatus, thermalHeadroom)
+        if (status == heatSent) return
+        heatSent = status
+        controller?.setThermalStatus(status)
     }
 
     private fun stopWatchingThermalStatus() {
+        mainHandler.removeCallbacks(forecastHeat)
+        thermalHeadroom = Float.NaN
+        thermalStatus = 0
+        heatSent = -1
         val listener = thermalListener ?: return
         thermalListener = null
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
