@@ -5,8 +5,10 @@ the output's own pace, playing slightly faster or slower since the phone's clock
 never quite agree, so the delay stays near the target.
 """
 
+import collections
 import json
 import logging
+import math
 import os
 import stat
 import threading
@@ -36,8 +38,8 @@ MAX_SKEW = 0.002  # playing 0.2% faster or slower can't be heard
 SKEW_PER_SAMPLE = MAX_SKEW / (10 * RATE / 1000)  # full skew 10 ms off target
 AVERAGE_S = 0.5
 FADE = 96  # samples (2 ms) to fade out and back in around a gap or a jump
-LEAD_CREEP = 0.005
-LATE_DECAY = 0.9995  # per arrival (about every 10 ms): a late burst stops counting after 10 s or so
+LEAD_WINDOW_S = 10
+LATE_FORGET_S = 5  # how quickly a late burst stops counting
 RETRY_S = 3
 FULL_SCALE = 32767
 LIMIT_CEILING = 10 ** (-1 / 20)  # the limiter keeps peaks under -1 dBFS
@@ -61,10 +63,11 @@ class JitterBuffer:
         self._playing = False  # False until the target has built up, and again after running dry
         self._avg = 0.0  # how full it is on average, in samples
         self._lock = threading.Lock()
-        self._lead: Optional[float] = None  # earliest arrival seen relative to the audio's own clock, in samples
+        self._leads: collections.deque = collections.deque()  # [second, earliest arrival relative to the audio's own clock]
         self._late = 0.0  # how late audio has been arriving recently, in samples
         self._received = 0
         self._last_arrival = 0.0
+        self.ran_dry = 0  # how many times it ran out and faded to silence
 
     def push(self, data: bytes):
         now = self._clock()
@@ -88,21 +91,27 @@ class JitterBuffer:
     def restart_clock(self):
         """A new connection: its audio's timing starts over, so the old arrivals say nothing about it."""
         with self._lock:
-            self._lead = None
+            self._leads.clear()
             self._received = 0
             self._odd = b""
 
     def _track_jitter(self, now: float):
         lead = now * RATE - self._received  # the later audio arrives, the bigger this gets
-        if self._lead is None:
-            self._lead = lead
+        # The earliest arrival over the last LEAD_WINDOW_S, kept per second: audio lost on the way (a mic that
+        # reopened, a backlog the phone dropped) shifts this for good, and a window lets that go
+        second = int(now)
+        if self._leads and self._leads[-1][0] == second:
+            self._leads[-1][1] = min(self._leads[-1][1], lead)
         else:
-            # Creeps up a little so a phone whose clock runs slow doesn't look like it's always late
-            self._lead = min(lead, self._lead + (now - self._last_arrival) * RATE * LEAD_CREEP)
+            self._leads.append([second, lead])
+        while self._leads[0][0] <= second - LEAD_WINDOW_S:
+            self._leads.popleft()
+        earliest = min(v for _s, v in self._leads)
+        dt = max(0.0, now - self._last_arrival) if self._last_arrival else 0.0
         self._last_arrival = now
         if not self._adaptive:
             return
-        self._late = max(lead - self._lead, self._late * LATE_DECAY)
+        self._late = max(lead - earliest, self._late * math.exp(-dt / LATE_FORGET_S))
         self._target = int(min(max(self._base, self._late + JITTER_MARGIN_MS * RATE / 1000),
                                MAX_TARGET_MS * RATE / 1000))
 
@@ -144,6 +153,7 @@ class JitterBuffer:
                 self._buf = self._buf[-1:]
                 self._pos = 1.0
                 self._playing = False
+                self.ran_dry += 1
                 out = np.concatenate((out, np.zeros(m - usable, np.float32)))
             else:
                 end = self._pos + skip + ratio * m

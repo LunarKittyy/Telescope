@@ -110,6 +110,17 @@ def test_jitter_buffer_grows_the_target_when_audio_arrives_unevenly_then_shrinks
     assert jb.target_ms() < 40
 
 
+def test_audio_lost_on_the_way_doesnt_keep_the_target_up():
+    clock = _Clock()
+    jb = JitterBuffer(target_ms=20, clock=clock)
+    _steady(jb, clock, 2)
+    clock.t += 1.3  # the phone's mic reopened: 1.3 s of audio that never comes
+    jb.push(_pcm(_sine(480)))
+    assert jb.target_ms() == audio.MAX_TARGET_MS
+    _steady(jb, clock, 30)
+    assert jb.target_ms() < 30
+
+
 def test_jitter_buffer_caps_what_piles_up_while_nothing_reads():
     jb = JitterBuffer(target_ms=20, adaptive=False)
     for _ in range(300):
