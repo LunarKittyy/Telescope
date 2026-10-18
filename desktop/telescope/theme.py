@@ -30,6 +30,32 @@ FILL          = "#6a58cf"   # filled/primary buttons, selected segments; white t
 FILL_HOVER    = "#7867dc"
 FILL_PRESS    = "#5b4bb8"
 
+# Each plugin card's own colour (icon, sliders, readouts), pastels about as light as ACCENT; selections stay FILL.
+PLUGIN_HUES = {
+    "connection": "#8cc4f2",  # sky
+    "stream":     "#aa9cf5",  # lavender, the app's own
+    "transforms": "#f2b48c",  # peach
+    "mic":        "#e8d08a",  # butter
+    "camera":     "#7fd3c4",  # mint
+    "phone":      "#f2a0bf",  # rose
+}
+_own_hues = True
+
+
+def set_plugin_hues(on: bool):
+    """Off puts every card back in ACCENT, for anyone who'd rather have the whole window purple."""
+    global _own_hues
+    _own_hues = on
+
+
+def plugin_hues_on() -> bool:
+    return _own_hues
+
+
+def hue(name: str) -> str:
+    """The colour the card called `name` uses: ACCENT for an unknown name or with plugin colours off."""
+    return PLUGIN_HUES.get(name, ACCENT) if _own_hues else ACCENT
+
 OK            = "#5fc98c"
 WARN          = "#f0b65c"
 ERR           = "#ef6f6b"

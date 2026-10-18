@@ -392,7 +392,7 @@ class TransformsPlugin(TelescopePlugin):
         lay = card_layout(card)
         self._reset_btn = card_action("Reset", "reset", "Clear flip, rotation, zoom and pan back to defaults")
         self._reset_btn.clicked.connect(self._reset_all)
-        add_card_header(lay, "Transforms", "transforms", action=self._reset_btn)
+        add_card_header(lay, "Transforms", "transforms", action=self._reset_btn, hue="transforms")
         dim_until_paired(card, self._bus)
 
         # ── Flip ─────────────────────────────────────────────────────────────

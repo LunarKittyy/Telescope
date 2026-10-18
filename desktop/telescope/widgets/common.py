@@ -1,13 +1,15 @@
 import math
 import threading
+import weakref
 
 from PyQt6.QtCore import QByteArray, QCoreApplication, QEventLoop, QMetaObject, QThread, QPoint, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
+from PyQt6 import sip
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtGui import (
     QBrush, QColor, QFontMetrics, QIcon, QPainter, QPainterPath, QPen, QPixmap,
 )
 from PyQt6.QtWidgets import (
-    QApplication, QComboBox, QDoubleSpinBox, QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLayout, QPushButton,
+    QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLayout, QPushButton,
     QSlider, QSpinBox, QSizePolicy, QStyle, QStyleOptionSlider, QVBoxLayout, QWidget,
 )
 
@@ -22,11 +24,12 @@ from telescope import theme
 #   - Text, number and select inputs fill the control column (control_row(..., stretch=True)).
 #   - Segmented toggles (SegmentButton) fill the control column in equal shares, like the inputs
 #     around them; outside a card they use SEGMENT_WIDTH per segment. Text fits the segment, not
-#     the other way round. Checkboxes keep their natural width at the column start.
+#     the other way round.
 #   - Slider rows are slider_row(): [slider][value column]; in a card where any slider row has a
 #     direct-entry spinbox, every slider row reserves that column (gutter=True) so tracks end together.
 #   - Card-level actions (Pair, Reset) go in the card header, not in a row.
-#   - On/off settings are checkboxes labelled "On".
+#   - On/off settings are a Switch at the end of the row (control_row(..., stretch=True)), so the row reads as one line.
+#   - Each card has a hue (theme.PLUGIN_HUES) for its header icon, sliders and readouts; selections stay theme.FILL.
 #   - Buttons: one primary per view (the thing you came to do), "danger" only for destructive
 #     actions, everything else default. A lone action button is BUTTON_WIDTH wide; buttons sharing
 #     a row split it equally (button_row). Dialogs: dialog_header() on top, sections are cards,
@@ -248,6 +251,77 @@ class SegmentButton(QPushButton):
         self.setAutoExclusive(False)
 
 
+SWITCH_W, SWITCH_H = 36, 20
+"""Size of a Switch's track."""
+
+
+class Switch(QCheckBox):
+    """An on/off switch: optional text on the left, the track at the right end, so it reads as one line in a row."""
+
+    def __init__(self, text: str = "", parent=None):
+        super().__init__(text, parent)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+    def sizeHint(self) -> QSize:
+        text_w = self.fontMetrics().horizontalAdvance(self.text()) + 12 if self.text() else 0
+        return QSize(text_w + ui_px(SWITCH_W), max(ui_px(ROW_HEIGHT) - 4, ui_px(SWITCH_H)))
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(ui_px(SWITCH_W), ui_px(SWITCH_H))
+
+    def hitButton(self, pos: QPoint) -> bool:
+        return self.rect().contains(pos)
+
+    def paintEvent(self, _event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h = ui_px(SWITCH_W), ui_px(SWITCH_H)
+        track = QRectF(self.width() - w, (self.height() - h) / 2, w, h)
+        on, enabled = self.isChecked(), self.isEnabled()
+        if not enabled:
+            fill, knob = QColor(theme.BORDER_STRONG if on else theme.SURFACE_RAISE), QColor(theme.TEXT_DISABLED)
+        elif on:
+            fill, knob = QColor(theme.FILL_HOVER if self.underMouse() else theme.FILL), QColor("#ffffff")
+        else:
+            fill, knob = QColor(theme.BORDER_HOVER if self.underMouse() else theme.BORDER_STRONG), QColor(theme.TEXT_DIM)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(fill)
+        p.drawRoundedRect(track, h / 2, h / 2)
+        if self.hasFocus() and self.focusPolicy() != Qt.FocusPolicy.NoFocus and self.property("focusVisible"):
+            p.setPen(QPen(QColor(theme.ACCENT), 1.5))
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.drawRoundedRect(track.adjusted(-2, -2, 2, 2), h / 2 + 2, h / 2 + 2)
+            p.setPen(Qt.PenStyle.NoPen)
+        d = h - 6
+        x = track.right() - 3 - d if on else track.left() + 3
+        p.setBrush(knob)
+        p.drawEllipse(QRectF(x, track.top() + 3, d, d))
+        if self.text():
+            p.setPen(QColor(theme.TEXT if enabled else theme.TEXT_DISABLED))
+            p.setFont(self.font())
+            text_rect = QRect(0, 0, int(track.left()) - 12, self.height())
+            p.drawText(text_rect, int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
+                       self.fontMetrics().elidedText(self.text(), Qt.TextElideMode.ElideRight, text_rect.width()))
+        p.end()
+
+    def keyPressEvent(self, event):
+        self.setProperty("focusVisible", True)
+        super().keyPressEvent(event)
+
+    def focusInEvent(self, event):
+        self.setProperty("focusVisible", event.reason() in (Qt.FocusReason.TabFocusReason, Qt.FocusReason.BacktabFocusReason))
+        super().focusInEvent(event)
+
+    def enterEvent(self, event):
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.update()
+        super().leaveEvent(event)
+
+
 def segmented_row(*buttons: QWidget, fill: bool = True) -> QHBoxLayout:
     """Zero-gap run of segments, all the same width: equal shares of the row when fill, else SEGMENT_WIDTH each."""
     make_segmented(*buttons)
@@ -313,18 +387,57 @@ def card_layout(card: QFrame) -> QVBoxLayout:
     return lay
 
 
+ICON_CHIP = 30
+"""Size of the tinted square behind a card's header icon."""
+
+_hued: "weakref.WeakKeyDictionary[QWidget, tuple]" = weakref.WeakKeyDictionary()  # card -> (hue name, chip, icon name)
+
+
+def _paint_hue(card: QWidget, hue_name: str, chip: QLabel = None, icon_name: str = ""):
+    """Colour a card's header icon, sliders and readouts in its hue."""
+    color = theme.hue(hue_name)
+    if chip is not None:
+        tint = QColor(color)
+        tint.setAlphaF(0.14)
+        chip.setStyleSheet(f"background: {tint.name(QColor.NameFormat.HexArgb)}; border-radius: 9px;")
+        chip.setPixmap(create_vector_icon(icon_name, color).pixmap(18, 18))
+    hover = QColor(color).lighter(115).name()
+    card.setStyleSheet(
+        f"QSlider::sub-page:horizontal {{ background: {color}; }}"
+        f"QSlider::handle:horizontal {{ background: {color}; }}"
+        f"QSlider::handle:horizontal:hover {{ background: {hover}; }}"
+        f"QLabel#val {{ color: {color}; }}")
+
+
+def refresh_hues():
+    """Repaint every card after theme.set_plugin_hues() changed."""
+    for card, (hue_name, chip, icon_name) in list(_hued.items()):
+        if sip.isdeleted(card) or (chip is not None and sip.isdeleted(chip)):
+            _hued.pop(card, None)  # Qt deleted it, though Python still holds the wrapper
+            continue
+        _paint_hue(card, hue_name, chip, icon_name)
+
+
 def add_card_header(layout: QVBoxLayout, title: str, icon_name: str,
-                    subtitle: str = "", action: QWidget = None) -> QHBoxLayout:
-    """Add the standard icon/title header used by every main-window card; action is the card's one button, top right."""
+                    subtitle: str = "", action: QWidget = None, hue: str = "") -> QHBoxLayout:
+    """Add the standard icon/title header used by every main-window card; action is the card's one button, top right.
+    hue names the card's colour in theme.PLUGIN_HUES (none: ACCENT)."""
     header = QHBoxLayout()
     header.setContentsMargins(0, 0, 0, 2)
     header.setSpacing(10)
 
+    chip = None
     if icon_name:
-        icon = QLabel()
-        icon.setPixmap(create_vector_icon(icon_name, theme.ACCENT).pixmap(20, 20))
-        icon.setFixedSize(20, 20)
-        header.addWidget(icon)
+        chip = QLabel()
+        chip.setFixedSize(ICON_CHIP, ICON_CHIP)
+        chip.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        header.addWidget(chip)
+    card = layout.parentWidget()
+    if card is not None:
+        _hued[card] = (hue, chip, icon_name)
+        _paint_hue(card, hue, chip, icon_name)
+    elif chip is not None:
+        chip.setPixmap(create_vector_icon(icon_name, theme.hue(hue)).pixmap(18, 18))
 
     title_label = QLabel(title)
     title_label.setObjectName("card_title")
@@ -498,6 +611,7 @@ def form_label(text: str, width: int = FORM_LABEL_WIDTH) -> QLabel:
 def control_row(label: str, widget, label_width: int = FORM_LABEL_WIDTH,
                 stretch: bool = False) -> QHBoxLayout:
     """Settings row: dim label, then the control starting at a shared column so label and value sit side by side."""
+    stretch = stretch or isinstance(widget, Switch)  # a switch sits at the row's end
     lay = QHBoxLayout()
     lay.setContentsMargins(0, 0, 0, 0)
     lay.setSpacing(10)

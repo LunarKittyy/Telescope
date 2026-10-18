@@ -3,12 +3,13 @@ from typing import Optional
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QButtonGroup, QCheckBox, QWidget,
+    QButtonGroup, QWidget,
 )
 
 from telescope.plugin import StreamsBehind, TelescopePlugin
 from telescope.shortcuts import button_action, choice_action, log_slider_action, slider_action
 from telescope.widgets.common import (
+    Switch,
     LogSliderRow, NoScrollComboBox, SegmentButton, NoScrollSlider, add_card_header, add_section_heading,
     ElidingLabel, control_row, control_row_widget, card_layout,
     create_card, dim_until_paired, ns_to_display, segmented_row, slider_row, value_label,
@@ -156,7 +157,7 @@ class CameraControlPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, "Camera", "camera")
+        add_card_header(lay, "Camera", "camera", hue="camera")
         dim_until_paired(card, self._bus, phone_only=True)
 
         self._lens_panel = LensPanel()
@@ -213,7 +214,7 @@ class CameraControlPlugin(TelescopePlugin):
         self._ae_comp_slider.valueChanged.connect(self._on_ae_comp_changed)
         lay.addWidget(_row_widget("Compensation", slider_row(self._ae_comp_slider, self._ae_comp_lbl, gutter=True), stretch=True))
 
-        self._low_light_cb = QCheckBox("On")
+        self._low_light_cb = Switch()
         self._low_light_cb.setToolTip(_LOW_LIGHT_TIP)
         self._low_light_cb.toggled.connect(self._on_low_light)
         self._low_light_row = _row_widget("Low light", self._low_light_cb)
@@ -286,7 +287,7 @@ class CameraControlPlugin(TelescopePlugin):
 
         # ── Image ─────────────────────────────────────────────────────────────
         add_section_heading(lay, "Image")
-        self._ois_cb = QCheckBox("On")
+        self._ois_cb = Switch()
         self._ois_cb.setChecked(True)
         self._ois_cb.setToolTip("Optical image stabilization")
         self._ois_cb.toggled.connect(self._on_ois)
@@ -306,11 +307,11 @@ class CameraControlPlugin(TelescopePlugin):
         self._edge_combo.currentIndexChanged.connect(self._on_edge_mode_changed)
         lay.addWidget(_row_widget("Sharpening", self._edge_combo, stretch=True))
 
-        self._bll_cb = QCheckBox("On")
+        self._bll_cb = Switch()
         self._bll_cb.toggled.connect(self._on_bll_changed)
         lay.addWidget(_row_widget("Black level lock", self._bll_cb))
 
-        self._torch_btn = QCheckBox("On")
+        self._torch_btn = Switch()
         self._torch_btn.toggled.connect(self._on_torch_toggled)
         lay.addWidget(_row_widget("Torch", self._torch_btn))
 
