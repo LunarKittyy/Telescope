@@ -14,6 +14,14 @@ Background blur and replacing the background with a picture, to start with. Both
 
 Both effects run on every frame on the desktop and have to stay cheap enough for 1080p at 30 fps on an ordinary laptop, and for several streams at once.
 
+## Mic noise reduction and automatic level
+
+The phone switches on its own noise suppressor and gain control when it has them, but those vary a lot between phones and some have neither. Running RNNoise on the desktop would clean up typing, fans and room hiss the same way on every phone (and for Browser camera's mic). It needs a Python binding or a small native library, and the Microphone card would get a switch for it.
+
+Automatic level would sit next to the manual gain slider and bring quiet and loud speech to a steady level. It needs a noise gate so it doesn't turn up the room during pauses, and smooth gain changes so it doesn't pump. The limiter stays after it to catch peaks.
+
+Both run in the mic's writer loop in `desktop/telescope/audio.py`, which has to keep up in real time (10 ms chunks).
+
 ## A Windows 11 camera every app can see
 
 On Windows the virtual camera is UnityCapture, a DirectShow filter. Apps that only look for cameras through Media Foundation never see it. Windows 11 added `MFCreateVirtualCamera`, which registers a camera with the system so every app sees it. That takes a small native DLL that Windows loads, with the app handing it frames through shared memory. A nice side effect is that the camera only opens that shared memory while some app is using it, which would give Automatic streaming a reliable way to tell when the camera is in use.
