@@ -34,7 +34,7 @@ Without `--keep` the profile is fresh on every run and deleted when the app quit
 `--plugin FOLDER` loads a plugin you're writing straight from its folder and restarts the dev desktop whenever you save one of its files. [Plugins](plugins.md#trying-out-changes) has the details and `scripts/check_plugin.py`.
 
 Some things are shared because there's only one of them:
-- The phone apps use the same ports, so only one of them can be open (or waiting for its computer) at a time
+- The phone apps use the same ports, so only one of them can be open (or waiting for its computer) at a time. The one you open while the other still holds them takes them over within a few seconds of it closing
 - On Linux both desktops stream into the same virtual camera device, and on Windows into the same UnityCapture driver, so only one can stream at a time
 - **Advanced** actions that change the system (loading v4l2loopback, installing the Windows driver) affect both
 
