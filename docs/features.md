@@ -75,7 +75,7 @@ The Presets button in the header saves your camera, output and transform setting
 ## Monitoring
 - FPS and throughput sit in the footer. When the stream can't keep up, a note suggests what to try and gives you a button for it
 - A dropped stream reconnects over whichever route works, so you can pull the cable and it carries on over Wi-Fi. If it's still gone after 10 seconds, apps get the wait screen instead of a frozen last frame. After 30 seconds a banner warns that it can't reach the phone or browser, though it keeps trying either way
-- Phone battery and temperature, with alerts you can set to notify you, stop the stream, or both. When an alert stops the stream, the window explains why and offers **Start anyway** to keep streaming until the battery or temperature is back to normal
+- Phone battery and temperature, with alerts you can set to notify you, stop the stream, or both. When an alert stops the stream, the window explains why and offers **Start anyway** to keep streaming until the battery or temperature is back to normal. On Android 10 and newer a phone that says it's running hot lowers its frame rate first (to 24 fps, then 15), and hovering the FPS readout says so
 - **Open log** and **Copy diagnostics** are at the bottom of Advanced. Copy diagnostics is what to paste into a bug report. The log lives in the temp folder (`/tmp/telescope-<user>/` on Linux, `%TEMP%\Telescope\` on Windows) with addresses, tokens and your home folder stripped out
 
 ## Phones, pairing and connection

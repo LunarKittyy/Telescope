@@ -442,6 +442,7 @@ class CameraStreamService : Service() {
     @Volatile private var covered = false
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: android.net.wifi.WifiManager.WifiLock? = null
+    private var thermalListener: Any? = null  // PowerManager.OnThermalStatusChangedListener, Android 10 and newer
     private var idleWatchdogThread: Thread? = null
     // One flag per watchdog thread, so a quick stop and start can't revive the old thread beside the new one
     private var idleWatchdogRunning = java.util.concurrent.atomic.AtomicBoolean(false)
@@ -690,6 +691,7 @@ class CameraStreamService : Service() {
             onCodecFailed  = { server?.closeH264Clients() },
         )
         controller = ctrl
+        watchThermalStatus()
 
         if (startOff) {
             ctrl.openOff(initialEntry, initialOis)
@@ -870,6 +872,7 @@ class CameraStreamService : Service() {
             dynamic_fps = snap?.dynamicFps ?: 0,
             low_light = snap?.lowLight ?: false,
             h264_profile = snap?.h264Profile,
+            heat_fps = snap?.heatFps ?: 0,
             low_light_toggle = true,
             codec_error = snap?.codecError,
             codec_unsupported = snap?.codecUnsupported ?: false,
@@ -1040,6 +1043,7 @@ class CameraStreamService : Service() {
         wakeLock?.let { if (it.isHeld) it.release() }
         wifiLock?.let { if (it.isHeld) it.release() }
         wifiLock = null
+        stopWatchingThermalStatus()
         controller = null; server = null
         setState(StreamState.Idle, op)
         // Release session; endpoint stays bound if MainActivity holds a reference.
@@ -1108,6 +1112,27 @@ class CameraStreamService : Service() {
         val pm = getSystemService(POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "telescope::stream")
         wakeLock?.acquire(WAKE_LOCK_MS)
+    }
+
+    // Android says it's getting hot before the battery does: the controller lowers the frame rate (called at once with the status now)
+    private fun watchThermalStatus() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        val pm = getSystemService(POWER_SERVICE) as PowerManager
+        val listener = PowerManager.OnThermalStatusChangedListener { status -> controller?.setThermalStatus(status) }
+        try {
+            pm.addThermalStatusListener(ContextCompat.getMainExecutor(this), listener)
+            thermalListener = listener
+        } catch (e: Exception) {
+            recordControlError("thermalStatus", e)
+        }
+    }
+
+    private fun stopWatchingThermalStatus() {
+        val listener = thermalListener ?: return
+        thermalListener = null
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        val pm = getSystemService(POWER_SERVICE) as PowerManager
+        runCatching { pm.removeThermalStatusListener(listener as PowerManager.OnThermalStatusChangedListener) }
     }
 
     // Wi-Fi power saving with the screen off shows up as short latency spikes; this keeps the radio awake while streaming

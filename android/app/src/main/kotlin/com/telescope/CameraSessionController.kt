@@ -45,6 +45,7 @@ data class CameraControlSnapshot(
     val dynamicFps:        Int = 0,  // the rate Dynamic stepped down to for a slow link; 0 = the rate asked for
     val lowLight:          Boolean = false,
     val h264Profile:       String? = null,  // "high", "baseline" or "auto" while H.264 runs
+    val heatFps:           Int = 0,  // the rate the phone's heat capped the camera at; 0 = not capped
 )
 
 // Phone-side zoom, as the desktop splits it: a centred CONTROL_ZOOM_RATIO, then a 1/crop SCALER_CROP_REGION
@@ -177,10 +178,35 @@ class CameraSessionController(
         dynamicFps      = frameRate?.cap ?: 0,
         lowLight        = currentLowLight,
         h264Profile     = encoder?.profile?.wire,
+        heatFps         = heatCap()?.takeIf { it < (frameRate?.cap ?: currentPhoneFps) } ?: 0,
     )
 
-    // The rate the camera and encoder run at: the one asked for, unless Dynamic stepped it down for a slow link.
-    private fun streamFps(): Int = frameRate?.cap ?: currentPhoneFps
+    // The rate the camera and encoder run at: the one asked for, unless Dynamic stepped it down for a slow link
+    // or the phone is running hot.
+    private fun streamFps(): Int {
+        val rate = frameRate?.cap ?: currentPhoneFps
+        return heatCap()?.let { minOf(it, rate) } ?: rate
+    }
+
+    @Volatile private var thermalStatus = 0
+
+    private fun heatCap(): Int? {
+        val ranges = currentCamera?.aeFpsRanges?.map { it.lower to it.upper }
+        return HeatStep.cap(thermalStatus, currentPhoneFps) { ranges == null || CameraRequestSelection.capsAt(ranges, it) }
+    }
+
+    /** Android's thermal status (PowerManager.THERMAL_STATUS_*): severe and up lower the frame rate until it cools. */
+    fun setThermalStatus(status: Int) {
+        post {
+            val before = streamFps()
+            thermalStatus = status
+            val after = streamFps()
+            if (after == before) return@post
+            android.util.Log.i(TAG, "Thermal status $status: $after fps")
+            reconfigureSession()
+            encoder?.setBitrate(currentBitrate())
+        }
+    }
 
     private fun currentBitrate(): Int {
         if (requestedBitrate != H264Stream.DYNAMIC) {
@@ -792,7 +818,8 @@ class CameraSessionController(
             streamUseCaseRefused -> ", output labels refused"
             else -> ""
         }
-        val stepped = frameRate?.cap?.let { ", Dynamic stepped down to $it for the link" } ?: ""
+        val stepped = (frameRate?.cap?.let { ", Dynamic stepped down to $it for the link" } ?: "") +
+            (heatCap()?.let { ", $it for the heat (thermal status $thermalStatus)" } ?: "")
         val dark = if (currentLowLight) ", low light" else ""
         appendLine("FPS asked for: $currentPhoneFps$stepped (range $asked$dark, $template template, $codec$labels)")
         val durations = synchronized(frameDurations) { frameDurations.toList() }

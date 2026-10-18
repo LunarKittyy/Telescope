@@ -1999,6 +1999,15 @@ def test_a_frame_rate_dynamic_lowered_says_so_instead_of_blaming_the_light(windo
     assert "Dim light" not in window._fps_lbl.toolTip()
 
 
+def test_a_frame_rate_lowered_for_the_heat_says_so(window, monkeypatch):
+    events = _behind_events(window)
+    _slow_stream(window, monkeypatch, camera_fps=24.0, arrival=23.8, heat_fps=24)  # 30 asked, a hot phone
+    window._on_worker_status("net_warn", "4.0 Mbps")
+    window._on_worker_status("net_warn", "4.0 Mbps")
+    assert events == [] and window._net_lbl.styleSheet() == ""
+    assert "running hot" in window._fps_lbl.toolTip() and "24 fps" in window._fps_lbl.toolTip()
+
+
 @pytest.mark.parametrize("dynamic_fps", [0, None, "20", -1])  # at the rate asked for, an older phone, junk
 def test_without_a_dynamic_step_the_camera_is_blamed_as_before(window, monkeypatch, dynamic_fps):
     _slow_stream(window, monkeypatch, camera_fps=47.1, dynamic_fps=dynamic_fps)

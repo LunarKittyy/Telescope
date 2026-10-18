@@ -42,6 +42,8 @@ _RAIL_WIDTH_SOLO  = 440  # two-column mode: the one rail holding every card
 _CAMERA_LIMITED_TIP = "The phone's camera is making fewer frames than asked for. Dim light slows it down."
 _DYNAMIC_FPS_TIP = ("Dynamic lowered the frame rate to {fps} fps, so each frame gets more of a slow connection. "
                     "It goes back up once there's room.")
+_HEAT_FPS_TIP = ("The phone is running hot, so it lowered the frame rate to {fps} fps to keep streaming. "
+                 "It goes back up once it cools down.")
 
 
 def _joined(words: list) -> str:
@@ -1825,8 +1827,12 @@ class TelescopeWindow(QMainWindow):
         self._net_lbl.setStyleSheet(f"color: {theme.WARN};" if behind else "")
         tip = ""
         if slow and camera_limited:
-            stepped = getattr(self._active_source(), "dynamic_fps", 0)
-            tip = _DYNAMIC_FPS_TIP.format(fps=stepped) if stepped else _CAMERA_LIMITED_TIP
+            source = self._active_source()
+            stepped, heat = getattr(source, "dynamic_fps", 0), getattr(source, "heat_fps", 0)
+            if heat and (not stepped or heat <= stepped):
+                tip = _HEAT_FPS_TIP.format(fps=heat)
+            else:
+                tip = _DYNAMIC_FPS_TIP.format(fps=stepped) if stepped else _CAMERA_LIMITED_TIP
         self._fps_lbl.setToolTip(tip)
         self._note_throughput(behind)
 

@@ -66,3 +66,21 @@ class DynamicFrameRate(val askedFps: Int, val lens: Any? = null, canCapAt: (Int)
         return fps
     }
 }
+
+// Android's own thermal status (10 and newer) caps the rate before the phone gets hot enough for an alert to stop it
+object HeatStep {
+    const val SEVERE = 3    // PowerManager.THERMAL_STATUS_SEVERE
+    const val CRITICAL = 4  // PowerManager.THERMAL_STATUS_CRITICAL
+    private val RUNGS = listOf(24, 20, DynamicFrameRate.MIN_FPS)
+
+    /** The rate to cap at for this status, or null when it needn't (or the camera can't be held under the rate asked for). */
+    fun cap(status: Int, askedFps: Int, canCapAt: (Int) -> Boolean = { true }): Int? {
+        val limit = when {
+            status >= CRITICAL -> DynamicFrameRate.MIN_FPS
+            status >= SEVERE -> 24
+            else -> return null
+        }
+        if (askedFps <= limit) return null
+        return RUNGS.filter { it <= limit && canCapAt(it) }.maxOrNull()
+    }
+}
