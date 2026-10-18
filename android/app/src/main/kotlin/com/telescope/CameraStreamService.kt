@@ -848,6 +848,7 @@ class CameraStreamService : Service() {
         }
         val (battLevel, battCharging, battTempC) = getBatteryInfo()
         val liveSize = controller?.getStreamSize() ?: android.util.Size(streamWidth, streamHeight)
+        val wifi = WifiLink.current(this)
         val state = V1State(
             cameras = cams,
             auto = snap?.iso == null,
@@ -876,6 +877,7 @@ class CameraStreamService : Service() {
             low_light = snap?.lowLight ?: false,
             h264_profile = snap?.h264Profile,
             intra_refresh = snap?.intraRefresh == true,
+            wifi_band = wifi?.band, wifi_rssi = wifi?.rssi, wifi_mbps = wifi?.mbps,
             heat_fps = snap?.heatFps ?: 0,
             low_light_toggle = true,
             codec_error = snap?.codecError,

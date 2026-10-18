@@ -86,6 +86,7 @@ The Presets button in the header saves your camera, output and transform setting
 - Telescope uses USB when the phone is plugged in and answering, and Wi-Fi otherwise. If a cable is plugged in but isn't being used, the Connection panel explains why. **Connect via** can force one or the other if you wish. When you change it mid-stream, it first checks that the phone answers that way and leaves the stream alone if it doesn't
 - Picking another phone or browser in the picker while streaming switches the stream over to it
 - A new IP address from the router doesn't break anything, since the phone announces itself on the network
+- When a stream over Wi-Fi can't keep up and the phone has a weak signal or is on 2.4 GHz, the note says so, since moving closer, a 5 GHz network or a cable fixes that better than lowering the quality. Copy diagnostics includes the phone's Wi-Fi band, signal and link speed
 - The phone's screen stays on while the Telescope app is open, because Android only keeps Wi-Fi at its quickest with the screen on. If you'd rather have it dark just press the power button and the stream keeps going
 - Camera, output, transform and alert settings are saved per phone, while connection settings and the canvas are shared
 
