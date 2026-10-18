@@ -4,7 +4,7 @@
 - Lens picker: switches between the phone's real wide, main and telephoto sensors instead of faking it with digital zoom. On **Auto** the phone picks the lens itself as you zoom
 - Manual ISO and shutter speed, with sliders or typed values. The range follows whatever the current lens can do
 - Exposure compensation, typically ±8 EV
-- Manual white balance: Kelvin (2000-10000 K) plus a green-magenta tint - *partially working: applies inconsistently depending on device/lens*
+- Manual white balance: Kelvin (2000-10000 K) plus a green-magenta tint
 - Manual focus, or click anywhere on the preview to focus (and meter exposure) on that spot. **Auto** goes back to continuous autofocus
 - OIS, noise reduction, sharpening (edge mode), black level lock, and the torch on lenses that have a flash
 - Low light, for a dark room: auto exposure may slow the camera down so each frame catches more light (usually no lower than 10 fps, lower on some phones), and noise reduction runs at its best. It only slows down when it has to (in good light you still get the rate you picked)
