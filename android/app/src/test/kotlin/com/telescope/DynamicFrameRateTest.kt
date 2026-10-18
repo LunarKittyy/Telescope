@@ -43,10 +43,10 @@ class DynamicFrameRateTest {
         val steps = mutableListOf<Int>()
         repeat(14 * 4) {  // DynamicBitrate's floor and climb back after the stall
             now += 250
-            r.update(now, 500_000, w, h, lastStallMs = stall)?.let { steps += it }
+            r.update(now, 500_000, w, h, lastStallCutMs = stall)?.let { steps += it }
         }
         assertEquals(emptyList<Int>(), steps)
-        assertEquals(listOf(24), r.hold(0.5, 5))  // still thin well after it: that's the link
+        assertEquals(listOf(15), r.hold(0.5, 5))  // still thin well after it: that's the link
     }
 
     @Test
@@ -58,20 +58,20 @@ class DynamicFrameRateTest {
     }
 
     @Test
-    fun `a thin link steps down one rung at a time and stops where the bitrate is enough`() {
+    fun `a thin link steps straight down to the first rung the bitrate is enough for`() {
         val r = DynamicFrameRate(30)
         // Auto at 1080p30 is about 8 Mbps; 2 Mbps is a quarter of it. 20 fps is the first rung it's enough for.
-        assertEquals(listOf(24, 20), r.hold(2.0, 60))
+        assertEquals(listOf(20), r.hold(2.0, 60))
         assertEquals(20, r.cap)
     }
 
     @Test
     fun `waits before stepping, and between steps`() {
         val r = DynamicFrameRate(30)
-        assertEquals(emptyList<Int>(), r.hold(1.0, 3))  // under DOWN_MS of a thin link
-        assertEquals(listOf(24), r.hold(1.0, 2))
-        assertEquals(emptyList<Int>(), r.hold(1.0, 9))  // settling after the step
-        assertEquals(listOf(20), r.hold(1.0, 2))
+        assertEquals(emptyList<Int>(), r.hold(2.5, 3))  // under DOWN_MS of a thin link
+        assertEquals(listOf(24), r.hold(2.5, 2))  // 24 fps is enough for 2.5 Mbps
+        assertEquals(emptyList<Int>(), r.hold(1.0, 9))  // thinner, but settling after the step
+        assertEquals(listOf(15), r.hold(1.0, 2))
     }
 
     @Test

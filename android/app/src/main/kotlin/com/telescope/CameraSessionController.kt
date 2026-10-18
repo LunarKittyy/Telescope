@@ -337,7 +337,7 @@ class CameraSessionController(
             frameRate = it
             if (old?.cap != null) post { applyFrameRate() }  // uncapped
         }
-        val stepped = rate.update(sample.nowMs, d.bitrate, streamWidth, streamHeight, d.lastStallMs) ?: return
+        val stepped = rate.update(sample.nowMs, d.bitrate, streamWidth, streamHeight, d.lastStallCutMs) ?: return
         android.util.Log.i(TAG, "Dynamic: ${stepped} fps for a ${d.bitrate / 1000} kbps link")
         // The encoder drops frames for it where it can; otherwise the session is rebuilt, as the rate is part of
         // its setup (see createSession)

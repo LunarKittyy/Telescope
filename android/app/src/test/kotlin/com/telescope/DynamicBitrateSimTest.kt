@@ -29,6 +29,8 @@ class DynamicBitrateSimTest {
         val skips: Int,            // backlog dropped, picture skipped ahead
         val changes: Int,          // bitrate changes sent to the encoder
         val bitrates: List<Int>,   // the bitrate once a second
+        val fpsSteps: List<Pair<Long, Int>> = emptyList(),  // (when, to what) Dynamic's frame rate stepped
+        val framesLate: Int = 0,   // frames that reached the computer in the last 10 seconds
     ) {
         override fun toString() = "%-34s %6.1f Mbps  p50 %4d ms  p95 %5d ms  max %5d ms  skips %2d  changes %3d".format(
             name, meanMbps, p50Ms, p95Ms, maxMs, skips, changes)
@@ -38,7 +40,14 @@ class DynamicBitrateSimTest {
      * mode: a fixed bitrate, or H264Stream.DYNAMIC. usage: how much of its budget the encoder spends (motion).
      */
     private fun simulate(name: String, mode: Int, link: Link, seconds: Int, usage: (Long) -> Double = { 0.9 },
-                         seed: Int = 1, auto: Int = this.auto, ceiling: Int = top): Result {
+                         seed: Int = 1, auto: Int = this.auto, ceiling: Int = top,
+                         w: Int = this.w, h: Int = this.h, fps: Int = this.fps, stepFps: Boolean = false): Result {
+        var fps = fps
+        val rates = if (stepFps) DynamicFrameRate(fps) else null
+        val fpsSteps = ArrayList<Pair<Long, Int>>()
+        var framesLate = 0
+        var rateFromMs = 0L  // the frame rate last changed here, at this frame
+        var rateFromFrame = 0
         val rnd = Random(seed)
         var now = 0L
         val dynamic = mode == H264Stream.DYNAMIC
@@ -76,7 +85,7 @@ class DynamicBitrateSimTest {
 
         while (now < seconds * 1000L) {
             // Encoder: a frame every 1/fps. P-frames around the budget, keyframes 5x a P-frame once a second.
-            if (now * fps >= frame * 1000L) {
+            if ((now - rateFromMs) * fps >= (frame - rateFromFrame) * 1000L) {
                 val key = wantKey || frame % fps == 0
                 wantKey = false
                 val perFrame = bitrate / 8.0 / fps * usage(now)
@@ -110,7 +119,10 @@ class DynamicBitrateSimTest {
                 head[0] -= n; linkCredit -= n; kernelBytes -= n; received += n
                 if (head[0] == 0L) {
                     kernel.removeFirst()
-                    if (head[2] == 1L) frameAt.remove(head[1].toInt())?.let { latencies.add(now - it) }
+                    if (head[2] == 1L) frameAt.remove(head[1].toInt())?.let {
+                        latencies.add(now - it)
+                        if (now >= seconds * 1000L - 10_000) framesLate++
+                    }
                 }
             }
             if (kernel.isEmpty()) linkCredit = minOf(linkCredit, 1.0)  // an idle link doesn't bank capacity
@@ -122,6 +134,16 @@ class DynamicBitrateSimTest {
                 if (dynamic) kernelCap = MjpegServer.dynamicSendBuffer(encodedBps) * 2
                 encoded = 0
                 controller?.update(sample)?.let { bitrate = it; changes++ }
+                if (controller != null && rates != null) {
+                    rates.update(now, bitrate, w, h, controller.lastStallCutMs)?.let {
+                        fps = it
+                        rateFromMs = now
+                        rateFromFrame = frame
+                        fpsSteps.add(now to it)
+                        controller.rebound(H264Stream.dynamicCeiling(w, h, it))
+                        bitrate = controller.bitrate
+                    }
+                }
             }
             if (now % 1000 == 0L) perSecond.add(bitrate)
             now += step
@@ -129,7 +151,7 @@ class DynamicBitrateSimTest {
         latencies.sort()
         fun pct(p: Double) = if (latencies.isEmpty()) 0L else latencies[((latencies.size - 1) * p).toInt()]
         return Result(name, received * 8.0 / seconds / 1_000_000, pct(0.5), pct(0.95), latencies.lastOrNull() ?: 0,
-            skips, changes, perSecond)
+            skips, changes, perSecond, fpsSteps, framesLate)
     }
 
     private fun compare(title: String, link: Link, seconds: Int, usage: (Long) -> Double = { 0.9 }, seed: Int = 1,
@@ -277,5 +299,39 @@ class DynamicBitrateSimTest {
             ceiling = H264Stream.dynamicCeiling(3840, 2160, 30))
         assertTrue(dyn.p95Ms < 300 && maxed.p95Ms > 1_000, "${dyn.p95Ms} ${maxed.p95Ms}")
         assertTrue(dyn.bitrates.drop(30).all { it in 35_000_000..62_000_000 }, "${dyn.bitrates.drop(30)}")
+    }
+
+    @Test
+    fun `a link thinner than the lowest bitrate steps the frame rate down soon and gets frames through`() {
+        val (w, h) = 1280 to 720
+        val r = simulate("Dynamic at 0.7 Mbps", H264Stream.DYNAMIC, { 0.7 }, 90, w = w, h = h, stepFps = true,
+            auto = H264Stream.defaultBitrate(w, h, 30), ceiling = H264Stream.dynamicCeiling(w, h, 30))
+        println("\n$r\n  frame rate steps: ${r.fpsSteps}  frames in the last 10 s: ${r.framesLate}")
+        println("  bitrate each second (Mbps): " + r.bitrates.joinToString(" ") { "%.1f".format(it / 1e6) })
+        assertTrue(r.fpsSteps.isNotEmpty() && r.fpsSteps.first().first < 10_000, "first step at ${r.fpsSteps}")
+        val fps = r.fpsSteps.last().second
+        assertTrue(r.framesLate >= fps * 10 * 0.8, "${r.framesLate} frames in 10 s at $fps fps")
+        assertTrue(r.p95Ms < 1_000, "p95 ${r.p95Ms} ms")
+    }
+
+    @Test
+    fun `flaky but adequate wifi keeps the frame rate`() {
+        for (seed in listOf(7, 21, 99)) {
+            val rnd = Random(seed)
+            val speeds = DoubleArray(240) { 4.0 + rnd.nextDouble() * 16.0 }
+            val stalls = (1 until 12).map { it * 10_000L + rnd.nextLong(3_000) to 300L + rnd.nextLong(600) }
+            val link = Link { ms ->
+                if (stalls.any { (at, len) -> ms in at until at + len }) 0.0 else speeds[(ms / 500).toInt() % speeds.size]
+            }
+            val r = simulate("Flaky Wi-Fi with frame rate steps", H264Stream.DYNAMIC, link, 120, seed = seed, stepFps = true)
+            // At most a short step to 24 while it dips under 4 Mbps for a while (as before), and back
+            val ok = r.fpsSteps.all { it.second >= 24 } && (r.fpsSteps.isEmpty() || r.fpsSteps.last().second == 30)
+            assertTrue(ok && r.fpsSteps.size <= 2, "seed $seed stepped: ${r.fpsSteps}")
+        }
+        // Walking far away: 30 Mbps down to 1.5 and back. Steps down on the way and comes back to 30 after
+        val walk = Link { ms -> val t = (ms / 1000.0).coerceAtMost(120.0); if (t < 60) 30 - 28.5 * t / 60 else 1.5 + 28.5 * (t - 60) / 60 }
+        val r = simulate("Walking away with frame rate steps", H264Stream.DYNAMIC, walk, 130, stepFps = true)
+        println("\n$r\n  frame rate steps: ${r.fpsSteps}")
+        assertTrue(r.fpsSteps.isNotEmpty() && r.fpsSteps.last().second == 30, "back to 30 once the link is: ${r.fpsSteps}")
     }
 }

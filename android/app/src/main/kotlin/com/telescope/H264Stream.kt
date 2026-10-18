@@ -11,6 +11,7 @@ object H264Stream {
     const val CODEC_H264 = "h264"
 
     const val MIN_BPS = 1_000_000
+    const val DYNAMIC_MIN_BPS = 300_000  // Dynamic on a link thinner than MIN_BPS: a softer picture beats skipped frames
     const val MAX_BPS = 100_000_000       // what the desktop's slider goes up to
     const val AUTO_MAX_BPS = 30_000_000   // Auto stays at most this, as it always has
     const val DYNAMIC = -1  // the bitrate control's value for DynamicBitrate

@@ -43,7 +43,7 @@ class DynamicBitrate(startBps: Int, ceilingBps: Int) {
         private const val MIN_CHANGE = 0.05  // smaller changes aren't worth reconfiguring the encoder
     }
 
-    private var floor = H264Stream.MIN_BPS
+    private var floor = H264Stream.DYNAMIC_MIN_BPS
     private var ceiling = ceilingBps.coerceAtLeast(floor)  // H264Stream.dynamicCeiling
 
     /** The bitrate the encoder should run at. */
@@ -60,6 +60,9 @@ class DynamicBitrate(startBps: Int, ceilingBps: Int) {
     private var climbs = 0  // steps up in a row since the last cut
     /** When the link last stalled (nothing going out), for [DynamicFrameRate]. */
     @Volatile var lastStallMs = Long.MIN_VALUE / 2
+        private set
+    /** When a stall last lasted long enough to cut the bitrate, which then climbs back: not the link's speed. */
+    @Volatile var lastStallCutMs = Long.MIN_VALUE / 2
         private set
     private var probeMs = PROBE_MS
     private var probing = false  // looking past the wall
@@ -100,7 +103,9 @@ class DynamicBitrate(startBps: Int, ceilingBps: Int) {
             if (stallSinceMs < 0) stallSinceMs = prev.nowMs
             if (s.nowMs - stallSinceMs < STALL_MS || s.nowMs - lastCutMs < CUT_GAP_MS) return null
             lastCutMs = s.nowMs
-            return set(floor.toDouble(), force = true)
+            lastStallCutMs = s.nowMs
+            // The worst link there is, but only down to what a usable link carries: a slower one shows as a queue
+            return set(minOf(target, H264Stream.MIN_BPS.toDouble()), force = true)
         }
         stallSinceMs = -1
         if (capacity > 0 && s.nowMs - capacityAtMs > MEMORY_MS) capacity = 0.0  // the link may be better now
