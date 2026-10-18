@@ -594,3 +594,129 @@ def test_switching_automatic_level_off_fades_its_gain_out():
     joined = np.concatenate((before[-audio.RATE:], after))
     assert _biggest_step(joined) <= _biggest_step(before[-audio.RATE:]) * 1.05  # no jump down to the plain level
     assert np.allclose(after[-audio.RATE // 2:], np.rint(talk[audio.RATE // 2:audio.RATE]), atol=1)
+
+
+def _feed(jb, clock, seconds, make):
+    """Pushes and pops 10 ms at a time; make(n, start) gives the phone's samples. Returns the output and the fills."""
+    out, fills, sent = [], [], 0
+    chunk = audio.CHUNK // 2
+    for _ in range(int(seconds * 100)):
+        clock.t += 0.01
+        jb.push(_pcm(make(chunk, sent)))
+        sent += chunk
+        out.append(np.frombuffer(jb.pop(audio.CHUNK), np.int16))
+        fills.append(jb.buffered_ms())
+    return np.concatenate(out).astype(np.float32), fills
+
+
+def _room(n, start):
+    return np.random.default_rng(start).normal(0, 30, n)  # a quiet room, about -60 dBFS
+
+
+def test_extra_delay_goes_in_the_next_pause():
+    clock = _Clock()
+    jb = JitterBuffer(target_ms=40, max_ms=200, clock=clock, adaptive=False)
+    _feed(jb, clock, 2, _room)
+    jb.push(_pcm(_room(100 * audio.RATE // 1000, 10**6)))  # a Wi-Fi burst: 100 ms more than it needs
+    _, fills = _feed(jb, clock, 1, _room)
+    assert fills[-1] <= 45  # skipped within about the half second its average takes, not drained over a minute
+
+
+def test_extra_delay_under_constant_sound_drains_by_playing_faster_without_jumps():
+    clock = _Clock()
+    jb = JitterBuffer(target_ms=40, max_ms=200, clock=clock, adaptive=False)
+    _feed(jb, clock, 2, _sine)
+    jb.push(_pcm(_sine(100 * audio.RATE // 1000, 200 * audio.CHUNK // 2)))
+    out, fills = _feed(jb, clock, 40, lambda n, s: _sine(n, s + 100 * audio.RATE // 1000))
+    assert fills[200] > 100  # never skipped: it's never quiet
+    assert max(fills[-200:]) <= 50
+    assert _biggest_step(out[audio.RATE:]) < 650  # sped up smoothly, no jumps
+
+
+def test_speech_is_never_skipped():
+    clock = _Clock()
+    jb = JitterBuffer(target_ms=40, max_ms=200, clock=clock, adaptive=False)
+    speech = lambda n, s: _sine(n, s, freq=300, amp=1500)  # about -30 dBFS
+    _feed(jb, clock, 2, speech)
+    jb.push(_pcm(speech(60 * audio.RATE // 1000, 200 * audio.CHUNK // 2)))
+    _, fills = _feed(jb, clock, 2, speech)
+    assert min(fills) > 70
+
+
+def test_a_splice_fades_out_the_old_connection_and_in_the_new_one():
+    clock = _Clock()
+    jb = JitterBuffer(target_ms=20, clock=clock, adaptive=False)
+    jb.push(_pcm(np.full(30 * audio.RATE // 1000, 8000)))
+    jb.splice()
+    jb.push(_pcm(np.full(30 * audio.RATE // 1000, -8000)))  # where the other route's audio happens to start
+    out = np.concatenate([np.frombuffer(jb.pop(audio.CHUNK), np.int16) for _ in range(5)]).astype(np.float32)
+    assert _biggest_step(out[audio.FADE:]) < 400  # through zero in 2 ms steps, not a 16000 jump
+
+
+@pytest.mark.skipif(not hasattr(os, "pipe2"), reason="Linux pipes")
+def test_fifo_sink_drops_audio_nobody_reads_instead_of_blocking(monkeypatch):
+    import fcntl
+    monkeypatch.setattr(FifoSink, "STALL_S", 0.02)
+    read_end, write_end = os.pipe()
+    fcntl.fcntl(write_end, FifoSink._F_SETPIPE_SZ, FifoSink.PIPE_BYTES)
+    sink = FifoSink("unused", open_fd=lambda _path: write_end)
+    started = time.monotonic()
+    for _ in range(20):  # five times what the pipe holds
+        sink.write(bytes(960))
+    assert time.monotonic() - started < 2
+    assert len(os.read(read_end, 1 << 20)) % 960 == 0  # what went in went in whole
+    sink.close()
+    os.close(read_end)
+
+
+class _Endless:
+    """A phone connection that keeps sending one value until closed."""
+
+    def __init__(self, value):
+        self.value, self.closed = value, False
+
+    def read1(self, n):
+        if self.closed:
+            raise OSError("closed")
+        time.sleep(0.005)
+        return _pcm(np.full(240, self.value))
+
+    def close(self):
+        self.closed = True
+
+
+def test_worker_hands_over_to_another_route_without_restarting():
+    conns = {}
+
+    def opener(req, timeout):
+        conns[req.full_url] = _Endless(100 if "wifi" in req.full_url else 200)
+        return conns[req.full_url]
+
+    sink = _Sink()
+    w = AudioWorker("http://wifi/v1/audio", PhoneAuth("tok"), lambda: sink, lambda k, t: None, opener=opener)
+    w.start()
+    assert _until(lambda: b"\x64\x00" * 8 in bytes(sink.data))
+    w.hand_over("http://usb/v1/audio")
+    assert _until(lambda: conns["http://wifi/v1/audio"].closed)
+    assert _until(lambda: b"\xc8\x00" * 8 in bytes(sink.data))
+    w.stop()
+    assert conns["http://usb/v1/audio"].closed
+
+
+def test_a_hand_over_that_cant_connect_keeps_the_old_route():
+    def opener(req, timeout):
+        if "usb" in req.full_url:
+            raise OSError("refused")
+        return _Endless(100)
+
+    sink = _Sink()
+    statuses = []
+    w = AudioWorker("http://wifi/v1/audio", PhoneAuth("tok"), lambda: sink, lambda k, t: statuses.append(k), opener=opener)
+    w.start()
+    assert _until(lambda: b"\x64\x00" * 8 in bytes(sink.data))
+    w.hand_over("http://usb/v1/audio")
+    time.sleep(0.2)
+    before = len(sink.data)
+    assert _until(lambda: len(sink.data) > before + 4000)  # still playing
+    assert "err" not in statuses
+    w.stop()

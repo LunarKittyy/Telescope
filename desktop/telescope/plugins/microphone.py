@@ -551,7 +551,10 @@ class MicrophonePlugin(TelescopePlugin):
         moved = self._worker is not None and ctrl is not None and self._audio_base != ctrl.base
         self._ctrl = ctrl
         if moved:
-            self._stop_worker()  # the stream came back over another route; its audio lives there too
+            # The stream moved to another route and its audio lives there too: follow it without a gap
+            self._audio_base = ctrl.base
+            self._worker.auth = ctrl.auth
+            self._worker.hand_over(f"{ctrl.base}/audio")
         self._handing_on = False
         self._start_worker()
         self._sync_place()
