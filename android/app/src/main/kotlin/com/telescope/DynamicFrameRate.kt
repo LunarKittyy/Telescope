@@ -87,4 +87,12 @@ object HeatStep {
         if (askedFps <= limit) return null
         return RUNGS.filter { it <= limit && canCapAt(it) }.maxOrNull()
     }
+
+    const val FORECAST_S = 30  // how far ahead to ask Android about (Android 11 and newer)
+    const val FORECAST_EVERY_MS = 10_000L  // Android wants at most one ask a second; this is plenty
+
+    /** The status to act on now: Android's, or severe already when its forecast says that's [FORECAST_S] away
+     *  (headroom 1.0 is where severe throttling starts), so the rate eases off before the phone gets that hot. */
+    fun status(current: Int, headroom: Float): Int =
+        if (current < SEVERE && headroom.isFinite() && headroom >= 1f) SEVERE else current
 }

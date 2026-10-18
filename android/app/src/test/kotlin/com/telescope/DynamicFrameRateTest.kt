@@ -149,4 +149,13 @@ class HeatStepTest {
         assertEquals(20, HeatStep.cap(HeatStep.SEVERE, 30) { it != 24 })
         assertEquals(null, HeatStep.cap(HeatStep.SEVERE, 30) { false })
     }
+
+    @Test
+    fun `a forecast of severe heat eases off early, and nothing else changes Android's own status`() {
+        assertEquals(HeatStep.SEVERE, HeatStep.status(0, 1.02f))
+        assertEquals(1, HeatStep.status(1, 0.7f))
+        assertEquals(HeatStep.CRITICAL, HeatStep.status(HeatStep.CRITICAL, 1.5f))  // already hotter than the forecast
+        assertEquals(0, HeatStep.status(0, Float.NaN))  // no forecast on this phone
+        assertEquals(0, HeatStep.status(0, Float.POSITIVE_INFINITY))
+    }
 }
