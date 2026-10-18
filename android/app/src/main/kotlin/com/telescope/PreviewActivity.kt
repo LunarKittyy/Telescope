@@ -27,6 +27,7 @@ import android.view.Gravity
 import android.view.Surface
 import android.view.TextureView
 import android.view.View
+import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.LinearLayout
@@ -110,6 +111,8 @@ class PreviewActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_preview)
+        // The screen stays on while the app is open (the Wi-Fi locks only work with it on); the power button still turns it off
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         textureView   = findViewById(R.id.textureView)
         btnClose      = findViewById(R.id.btnClosePreview)
