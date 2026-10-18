@@ -441,6 +441,7 @@ class CameraStreamService : Service() {
     private var inForeground = false
     @Volatile private var covered = false
     private var wakeLock: PowerManager.WakeLock? = null
+    private var wifiLock: android.net.wifi.WifiManager.WifiLock? = null
     private var idleWatchdogThread: Thread? = null
     // One flag per watchdog thread, so a quick stop and start can't revive the old thread beside the new one
     private var idleWatchdogRunning = java.util.concurrent.atomic.AtomicBoolean(false)
@@ -652,6 +653,7 @@ class CameraStreamService : Service() {
             return START_NOT_STICKY
         }
         acquireWakeLock()
+        if (!localOnly) acquireWifiLock()
 
         // A saved lens that's gone (unplugged, renumbered by an update) or a size it doesn't list would fail every start.
         val found = allCameras.find { it.id == cameraId }
@@ -1035,6 +1037,8 @@ class CameraStreamService : Service() {
         server?.stop()
         audio?.stop()
         wakeLock?.let { if (it.isHeld) it.release() }
+        wifiLock?.let { if (it.isHeld) it.release() }
+        wifiLock = null
         controller = null; server = null
         setState(StreamState.Idle, op)
         // Release session; endpoint stays bound if MainActivity holds a reference.
@@ -1103,5 +1107,19 @@ class CameraStreamService : Service() {
         val pm = getSystemService(POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "telescope::stream")
         wakeLock?.acquire(WAKE_LOCK_MS)
+    }
+
+    // Wi-Fi power saving with the screen off shows up as short latency spikes; this keeps the radio awake while streaming
+    @Suppress("DEPRECATION")
+    private fun acquireWifiLock() {
+        val wm = applicationContext.getSystemService(WIFI_SERVICE) as? android.net.wifi.WifiManager ?: return
+        val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) android.net.wifi.WifiManager.WIFI_MODE_FULL_LOW_LATENCY
+                   else android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF
+        wifiLock = try {
+            wm.createWifiLock(mode, "telescope::stream").apply { setReferenceCounted(false); acquire() }
+        } catch (e: Exception) {
+            recordControlError("wifiLock", e)
+            null
+        }
     }
 }
