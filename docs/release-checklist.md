@@ -17,6 +17,7 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 - [ ] `desktop` pytest suite passes locally and in CI for the release commit.
 - [ ] Android JVM unit tests pass locally and in CI for the release commit.
 - [ ] `desktop/scripts/smoke_check.py` passes on both Linux and Windows CI runners.
+- [ ] `python scripts/phone_check.py --wifi-drop 5 --handover` in `desktop/` passes against the dev app on a real phone (it exits with 1 when something didn't work).
 - [ ] `desktop/constraints.txt` installs cleanly in clean venv and versions haven't drifted out of date.
 
 ## Packaging
