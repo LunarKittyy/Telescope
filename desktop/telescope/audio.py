@@ -44,6 +44,17 @@ RETRY_S = 3
 FULL_SCALE = 32767
 LIMIT_CEILING = 10 ** (-1 / 20)  # the limiter keeps peaks under -1 dBFS
 LIMIT_RELEASE = 10 ** (0.25 / 20)  # per chunk once the peak has passed: 25 dB/s
+# Automatic level: speech brought toward AUTO_TARGET_DB (RMS), within these bounds, and only while someone speaks
+AUTO_TARGET_DB = -20.0
+AUTO_MAX_BOOST_DB = 18.0
+AUTO_MAX_CUT_DB = -12.0
+AUTO_GATE_DB = 10.0  # over the room's own noise floor counts as speech; the gain holds during pauses...
+AUTO_GATE_BELOW_SPEECH_DB = 18.0  # ...and so does anything this far under how loud speech has been (a fan starting up)
+AUTO_GATE_FLOOR_DB = -60.0  # quieter than this is never speech
+AUTO_FLOOR_S = 2.0  # the noise floor is the quietest 100 ms over this long: speech pauses at least that often
+AUTO_UP_DB = 0.06  # per 10 ms chunk: 6 dB/s up, slow so it doesn't pump...
+AUTO_DOWN_DB = 0.3  # ...and 30 dB/s down, so a loud bit comes down quickly (the limiter catches the first of it)
+AUTO_LEVEL_RATE = 0.02  # per chunk: the speech level it goes by is an average over about half a second
 LIMIT_ATTACK = 48  # samples (1 ms) to reach a new, lower gain; hard clipping catches anything in between
 
 
@@ -263,6 +274,11 @@ class AudioWorker:
         self.gain = 1.0  # linear; changes fade in over a chunk like mute does
         self.muted = False  # the output gets silence, so apps keep the mic but hear nothing
         self.limit = True  # squash peaks smoothly instead of letting gain clip them
+        self.auto_level = False  # bring speech to a steady level, after gain and before the limiter
+        self._auto_db = 0.0  # automatic level's gain now
+        self._speech_db: Optional[float] = None  # how loud speech has been lately (RMS, dBFS); None before any
+        self._quietest: collections.deque = collections.deque(maxlen=int(AUTO_FLOOR_S * 10))  # per 100 ms, the quietest chunk
+        self._chunks_in_block = 0
         self._limit_gain = 1.0  # the limiter's current gain reduction
         self._gain = 1.0  # where the last chunk's gain fade ended
         self._mute_gain = 1.0  # where the last chunk's mute fade ended
@@ -378,7 +394,7 @@ class AudioWorker:
         samples = np.frombuffer(data[:whole], np.int16).astype(np.float32)
         if not samples.size:
             return
-        gain = self.gain / FULL_SCALE
+        gain = self.gain * (10 ** (self._auto_db / 20) if self.auto_level else 1.0) / FULL_SCALE
         peak = float(np.abs(samples).max()) * gain
         rms = float(np.sqrt(np.mean(samples * samples))) * gain
         limited = self.limit and peak > LIMIT_CEILING
@@ -392,7 +408,7 @@ class AudioWorker:
         """Gain, then the limiter, then clipping to 16 bits."""
         target = self.gain
         raw = np.frombuffer(data, np.int16)
-        if target == self._gain == 1.0 and (not self.limit or (
+        if not self.auto_level and target == self._gain == 1.0 and (not self.limit or (
                 self._limit_gain == 1.0 and int(np.abs(raw.astype(np.int32)).max(initial=0)) <= LIMIT_CEILING * FULL_SCALE)):
             self._limit_gain = 1.0
             return data  # nothing to do, the usual case
@@ -402,11 +418,37 @@ class AudioWorker:
             self._gain = target
         elif target != 1.0:
             samples *= target
+        if self.auto_level:
+            samples = self._auto(samples)
         if self.limit:
             samples = self._limit(samples)
         else:
             self._limit_gain = 1.0
         return np.clip(samples, -32768, FULL_SCALE).astype(np.int16).tobytes()
+
+    def _auto(self, samples: np.ndarray) -> np.ndarray:
+        """Automatic level: follows how loud speech is and moves its gain toward the target, holding it in pauses."""
+        if not samples.size:
+            return samples
+        rms = float(np.sqrt(np.mean(samples * samples))) / FULL_SCALE
+        db = 20 * math.log10(max(rms, 1e-9))
+        if self._chunks_in_block == 0 or not self._quietest:
+            self._quietest.append(db)
+        else:
+            self._quietest[-1] = min(self._quietest[-1], db)
+        self._chunks_in_block = (self._chunks_in_block + 1) % 10
+        gate = max(min(self._quietest) + AUTO_GATE_DB, AUTO_GATE_FLOOR_DB)
+        if self._speech_db is not None:
+            gate = max(gate, self._speech_db - AUTO_GATE_BELOW_SPEECH_DB)
+        before = self._auto_db
+        if db > gate:
+            self._speech_db = db if self._speech_db is None else self._speech_db + (db - self._speech_db) * AUTO_LEVEL_RATE
+            want = min(max(AUTO_TARGET_DB - self._speech_db, AUTO_MAX_CUT_DB), AUTO_MAX_BOOST_DB)
+            self._auto_db += min(max(want - before, -AUTO_DOWN_DB), AUTO_UP_DB)
+        if before == self._auto_db == 0.0:
+            return samples
+        ramp = np.linspace(10 ** (before / 20), 10 ** (self._auto_db / 20), samples.size, dtype=np.float32)
+        return samples * ramp  # a jump in gain clicks
 
     def _limit(self, samples: np.ndarray) -> np.ndarray:
         peak = float(np.abs(samples).max()) / FULL_SCALE if samples.size else 0.0

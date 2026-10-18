@@ -513,3 +513,71 @@ def test_remove_stale_source_is_quiet_without_a_sound_server():
 
     virtual_mic.remove_stale_source(pactl)
     assert calls == [["pactl", "list", "short", "modules"]]
+
+
+# ── Automatic level ───────────────────────────────────────────────────────────
+
+def _talk(seconds, db, pause_db=-70.0, seed=1):
+    """Speech-ish: 300 ms of tone at db (RMS dBFS), then 100 ms of room noise at pause_db."""
+    rng = np.random.default_rng(seed)
+    n = int(seconds * audio.RATE)
+    t = np.arange(n)
+    tone = np.sin(2 * np.pi * 220 * t / audio.RATE) * np.sqrt(2) * audio.FULL_SCALE * 10 ** (db / 20)
+    noise = rng.standard_normal(n) * audio.FULL_SCALE * 10 ** (pause_db / 20)
+    talking = (t % (audio.RATE * 4 // 10)) < audio.RATE * 3 // 10
+    return np.where(talking, tone, noise)
+
+
+def _shape_all(w, samples):
+    chunk = audio.CHUNK // 2
+    out = [np.frombuffer(w._shape(_pcm(samples[i:i + chunk])), np.int16) for i in range(0, len(samples) - chunk + 1, chunk)]
+    return np.concatenate(out).astype(np.float32)
+
+
+def _rms_db(samples):
+    return 20 * np.log10(np.sqrt(np.mean(samples * samples)) / audio.FULL_SCALE)
+
+
+def _speech_db(samples):
+    t = np.arange(samples.size)
+    talking = (t % (audio.RATE * 4 // 10)) < audio.RATE * 3 // 10
+    return _rms_db(samples[talking])
+
+
+def _auto_worker():
+    w, _ = _worker(lambda req, timeout: _Resp(b""), _Sink())
+    w.auto_level = True
+    return w
+
+
+def test_automatic_level_brings_quiet_speech_up():
+    w = _auto_worker()
+    out = _shape_all(w, _talk(8, -34))
+    assert abs(_speech_db(out[-audio.RATE * 2:]) - audio.AUTO_TARGET_DB) < 2
+
+
+def test_automatic_level_brings_loud_speech_down():
+    w = _auto_worker()
+    out = _shape_all(w, _talk(4, -10))
+    assert abs(_speech_db(out[-audio.RATE * 2:]) - audio.AUTO_TARGET_DB) < 2
+
+
+def test_automatic_level_doesnt_turn_up_the_room_while_nobody_speaks():
+    w = _auto_worker()
+    _shape_all(w, _talk(6, -26))
+    held = w._auto_db
+    _shape_all(w, _talk(5, -48, pause_db=-45))  # only the room now, with a fan going
+    assert w._auto_db <= held + 0.5
+
+
+def test_automatic_level_changes_gain_without_clicks():
+    w = _auto_worker()
+    out = _shape_all(w, _talk(3, -10))
+    tone_step = 2 * np.pi * 220 / audio.RATE * np.sqrt(2) * audio.FULL_SCALE * 10 ** (-10 / 20)
+    assert _biggest_step(out) < tone_step * 1.2  # never a jump bigger than the loudest tone itself makes
+
+
+def test_automatic_level_is_off_unless_asked_for():
+    w, _ = _worker(lambda req, timeout: _Resp(b""), _Sink())
+    quiet = _talk(1, -34)
+    assert np.array_equal(_shape_all(w, quiet), np.rint(quiet[:len(quiet) // 480 * 480]).astype(np.int16).astype(np.float32))

@@ -123,7 +123,7 @@ def test_on_follows_the_stream(qapp):
     assert p._status_row.isHidden()  # the meter shows it's working
     p.on_stream_stop()
     assert w.stopped
-    assert p.get_config() == {"enabled": True, "gain_db": 0}
+    assert p.get_config() == {"enabled": True, "gain_db": 0, "auto_level": False}
 
 
 def test_audio_follows_the_stream_onto_another_route(qapp):
@@ -263,7 +263,7 @@ def test_mute_writes_silence_without_dropping_the_mic_and_isnt_saved(qapp):
     assert p._mute_btn.text() == "Unmute" and p._readout.text() == "Muted"
     p._mute_btn.setChecked(False)
     assert not w.muted and p._mute_btn.text() == "Mute"
-    assert p.get_config() == {"enabled": True, "gain_db": 0}
+    assert p.get_config() == {"enabled": True, "gain_db": 0, "auto_level": False}
 
 
 def test_meter_follows_the_worker_and_clears_when_the_stream_stops(qapp):
@@ -287,7 +287,7 @@ def test_gain_reaches_the_worker_and_is_saved_per_phone(qapp):
     assert w.gain == pytest.approx(1.995, abs=0.001)
     p._gain_slider.setValue(-30)  # past the end: held at the minimum
     assert w.gain == pytest.approx(10 ** (-24 / 20)) and p._gain_spin.text() == "-24 dB"
-    assert p.get_config() == {"enabled": True, "gain_db": -24}
+    assert p.get_config() == {"enabled": True, "gain_db": -24, "auto_level": False}
     p.set_config({"enabled": True, "gain_db": "junk"})
     assert w.gain == 1.0 and p._gain_spin.text() == "0 dB"
 
@@ -450,3 +450,17 @@ def test_a_card_whose_camera_is_still_starting_cant_take_the_mic(two_cams):
     window.stop_stream("back")
     window._flow.move_focus(window._source_by_id("back"))  # as + does, before its stream is up
     assert not mic._toggle.isChecked() and not mic._toggle.isEnabled()
+
+
+def test_auto_level_reaches_the_worker_and_is_saved_per_phone(qapp):
+    p = _plugin(_Backend())
+    p.set_config({"enabled": True})
+    assert not p._auto_cb.isChecked() and not p._auto_row.isHidden()  # off until asked for
+    p.on_stream_start("url", _Ctrl())
+    w = _Worker.made[-1]
+    assert getattr(w, "auto_level", False) is False
+    p._auto_cb.setChecked(True)
+    assert w.auto_level is True and p.get_config()["auto_level"] is True
+    assert "auto level" in p.diagnostics()["Microphone"]
+    p.set_config({"enabled": True, "auto_level": False})
+    assert w.auto_level is False

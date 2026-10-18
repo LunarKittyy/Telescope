@@ -183,6 +183,7 @@ class MicrophonePlugin(TelescopePlugin):
         self._preparing = False
         self._muted = False
         self._gain_db = 0
+        self._auto_level = False
         self._jobs = None
         if self._run_job is None:
             self._jobs = ThreadPoolExecutor(max_workers=1, thread_name_prefix="mic-setup")
@@ -221,6 +222,12 @@ class MicrophonePlugin(TelescopePlugin):
         self._gain_spin.valueChanged.connect(self._gain_slider.setValue)
         self._gain_row = control_row_widget("Gain", _readout_row(self._gain_slider, self._gain_spin), stretch=True)
         lay.addWidget(self._gain_row)
+        self._auto_cb = QCheckBox("On")
+        self._auto_cb.setToolTip("Brings quiet and loud speech to a steady level. It holds still while nobody "
+                                 "speaks, so it doesn't turn up the room. Gain still applies before it.")
+        self._auto_cb.toggled.connect(self._on_auto_level)
+        self._auto_row = control_row_widget("Auto level", self._auto_cb)
+        lay.addWidget(self._auto_row)
         self._meter = LevelMeter()
         self._readout = value_label()
         self._readout.setFixedWidth(ui_px(SPIN_COL_WIDTH))  # the gain box's column, so both line up
@@ -283,10 +290,19 @@ class MicrophonePlugin(TelescopePlugin):
         self._show_gain()
         self._host.schedule_save()
 
+    def _on_auto_level(self, on: bool):
+        if on == self._auto_level:
+            return
+        self._auto_level = on
+        if self._worker is not None:
+            self._worker.auto_level = on
+        self._host.schedule_save()
+
     def _show_mute(self):
         here = self._enabled and self._elsewhere is None
         self._mute_btn.setVisible(here)
         self._gain_row.setVisible(here)
+        self._auto_row.setVisible(here)
         self._level_row.setVisible(here)
         self._mute_btn.setText("Unmute" if self._muted else "Mute")
         self._mute_btn.setIcon(create_vector_icon("mic_off" if self._muted else "mic",
@@ -460,6 +476,7 @@ class MicrophonePlugin(TelescopePlugin):
         self._worker.gain = 10 ** (self._gain_db / 20)
         self._worker.muted = self._muted
         self._worker.limit = self._limit
+        self._worker.auto_level = self._auto_level
         self._worker.start()
         self._meter_timer.start()
 
@@ -561,13 +578,14 @@ class MicrophonePlugin(TelescopePlugin):
         if not self._enabled:
             return {"Microphone": "off"}
         return {"Microphone": "on, " + ("running" if self._worker is not None else "not running")
-                + (f", gain {self._gain_db:+d} dB" if self._gain_db else "") + (", muted" if self._muted else "")}
+                + (f", gain {self._gain_db:+d} dB" if self._gain_db else "") + (", auto level" if self._auto_level else "")
+                + (", muted" if self._muted else "")}
 
     def on_plugins_ready(self):
         self._bus.mic_changed.emit(self._enabled, self._muted)
 
     def get_config(self) -> dict:
-        return {"enabled": self._enabled, "gain_db": self._gain_db}
+        return {"enabled": self._enabled, "gain_db": self._gain_db, "auto_level": self._auto_level}
 
     def set_config(self, cfg: dict):
         try:
@@ -575,6 +593,7 @@ class MicrophonePlugin(TelescopePlugin):
         except (TypeError, ValueError):
             gain = 0
         self._gain_slider.setValue(gain)  # the slider holds it inside the range
+        self._auto_cb.setChecked(bool(cfg.get("auto_level", False)))
         self._set_enabled(bool(cfg.get("enabled", False)) or self._handing_on)
         self._show_toggle()
         self._refresh()
