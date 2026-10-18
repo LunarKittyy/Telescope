@@ -22,9 +22,15 @@ data class WifiLink(val band: String?, val rssi: Int?, val mbps: Int?) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
             return try {
                 val cm = context.getSystemService(ConnectivityManager::class.java) ?: return null
-                val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return null
-                if (!caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) return null
-                val info = caps.transportInfo as? WifiInfo ?: return null
+                val active = cm.getNetworkCapabilities(cm.activeNetwork) ?: return null
+                if (!active.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) && !active.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) return null
+                // Behind a VPN (Tailscale) the active network is the VPN's, so the Wi-Fi's details are on the network under it
+                @Suppress("DEPRECATION")
+                val info = active.transportInfo as? WifiInfo
+                    ?: cm.allNetworks.asSequence().mapNotNull { cm.getNetworkCapabilities(it) }
+                        .filter { !it.hasTransport(NetworkCapabilities.TRANSPORT_VPN) }
+                        .firstNotNullOfOrNull { it.transportInfo as? WifiInfo }
+                    ?: return null
                 WifiLink(
                     band = band(info.frequency),
                     rssi = info.rssi.takeIf { it in -126..0 },  // -127 is "unknown"
