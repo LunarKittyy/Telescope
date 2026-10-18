@@ -625,7 +625,7 @@ class ConnectionPlugin(TelescopePlugin):
 
         self._udp_cb = QCheckBox("Experimental")
         self._udp_cb.setChecked(self._udp)
-        self._udp_cb.setToolTip("Can cut the lag spikes on busy Wi-Fi. Goes back to TCP by itself if it doesn't get through.")
+        self._udp_cb.setToolTip("Can smooth out lag spikes on busy Wi-Fi but doesn't work with Dynamic or Heavy yet.")
         self._udp_cb.toggled.connect(self._on_udp)
         self._udp_row = control_row_widget("UDP on Wi-Fi", self._udp_cb)
         lay.addWidget(self._udp_row)

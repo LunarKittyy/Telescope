@@ -27,7 +27,7 @@ _MAX_BITRATE_MBPS = 100  # the phone clamps to the same range, and to what its e
 # an older desktop reads as Auto and an older phone treats as Auto.
 _DYNAMIC_POS = _MAX_BITRATE_MBPS + 1
 _DYNAMIC = -1
-_BITRATE_TIP = "All the way right is Dynamic, which follows what the connection carries."
+_BITRATE_TIP = "All the way right is Dynamic, which adjusts to what your connection can handle."
 _NO_DYNAMIC_TIP = " This phone's app is too old for Dynamic and uses Auto until it's updated."
 
 FORMAT_MJPEG = "mjpeg"
@@ -602,9 +602,9 @@ class StreamOutputPlugin(TelescopePlugin):
         if self._over_usb:
             return ""
         if rssi is not None and rssi <= _WEAK_WIFI_DBM:
-            return "The phone's Wi-Fi signal is weak, so moving it closer to the router or plugging in a cable helps most."
+            return "The phone's Wi-Fi signal is weak. Moving it closer to the router or plugging in a cable will help the most."
         if band == "2.4":
-            return "The phone is on 2.4 GHz Wi-Fi, which is slower and often crowded. A 5 GHz network or a cable helps most."
+            return "The phone is on 2.4 GHz Wi-Fi which is slower and often crowded. A 5 GHz network or a cable will help the most."
         return ""
 
     def _switch_to_light(self):

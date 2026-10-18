@@ -79,7 +79,7 @@ class UpdatesDialog(QDialog):
         c.addLayout(control_row("Check daily", self._auto))
 
         self._portable = QCheckBox("Keep this copy where it is")
-        self._portable.setToolTip("Update this unzipped folder in place instead of installing Telescope for your user.")
+        self._portable.setToolTip("Updates this unzipped folder in place instead of installing Telescope for your user.")
         self._portable.toggled.connect(plugin.set_keep_portable)
         self._portable_row = QWidget()
         self._portable_row.setLayout(control_row("Unzipped copy", self._portable))

@@ -390,7 +390,7 @@ class AdvancedDialog(QDialog):
         version_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
         version_lbl.setOpenExternalLinks(True)
         self._diag_btn = QPushButton("Copy diagnostics")
-        self._diag_btn.setToolTip("For a bug report. No pairing tokens, addresses or file paths.")
+        self._diag_btn.setToolTip("Copies info for a bug report, leaving out pairing tokens, addresses and file paths.")
         self._diag_btn.clicked.connect(self._copy_diagnostics)
         self._diag_btn.setVisible(self._report is not None)
         version_row = QHBoxLayout()
@@ -595,7 +595,7 @@ class AdvancedDialog(QDialog):
             set_status_kind(self._uc_status_lbl, "status_warn")
             self._uc_status_lbl.setText("Reinstall for a security fix")
             self._uc_btn.setText("Reinstall")
-            self._uc_btn.setToolTip("Moves the driver into Program Files. Windows asks for admin access once.")
+            self._uc_btn.setToolTip("Moves the driver into Program Files (Windows asks for admin access once).")
             set_ui_role(self._uc_btn, "primary")
         elif uc_name == UC_NAME:
             set_status_kind(self._uc_status_lbl, "status_ok")
