@@ -46,8 +46,7 @@ LIMIT_ATTACK = 48  # samples (1 ms) to reach a new, lower gain; hard clipping ca
 
 
 class JitterBuffer:
-    """Holds the phone's audio until the writer wants it, playing up to MAX_SKEW faster or slower so it
-    stays near the target instead of cutting it back in one go. Runs dry and big jumps fade instead of clicking."""
+    """Holds the phone's audio for the writer, playing up to MAX_SKEW faster or slower to stay near the target."""
 
     def __init__(self, target_ms: int = TARGET_MS, max_ms: int = MAX_MS, clock: Callable = time.monotonic,
                  adaptive: bool = True):
