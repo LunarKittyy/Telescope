@@ -1219,7 +1219,7 @@ def test_apply_state_accepts_empty_state(window):
 
 @pytest.mark.parametrize(
     "kind,object_name",
-    [("ok", "status_ok"), ("warn", "status_warn"), ("other", "status_dim")],
+    [("ok", "status_dim"), ("warn", "status_warn"), ("other", "status_dim")],
 )
 def test_worker_status_updates_status_label(window, kind, object_name):
     window._on_worker_status(kind, "message")
@@ -1229,7 +1229,7 @@ def test_worker_status_updates_status_label(window, kind, object_name):
 
 def test_worker_fps_and_idle_status(window):
     window._on_worker_status("fps", "29.9 fps")
-    assert window._fps_lbl.text() == "29.9 fps"
+    assert window._fps_lbl.text() == "29.9"
     stopped = []
     window._bus.stream_stopped.connect(lambda: stopped.append(True))
     worker = _RetargetWorker()
@@ -1302,7 +1302,7 @@ def test_reconnecting_animation_stops_when_another_status_arrives(window):
     # Timer must be stopped, not just replaced, so it can't fire and overwrite new status.
     assert not window._reconnecting_timer.isActive()
     assert window._status_lbl.fullText() == "Stream reconnected"
-    assert window._status_lbl.objectName() == "status_ok"
+    assert window._status_lbl.objectName() == "status_dim"  # all is well: plain text, only trouble gets a colour
 
 
 def test_status_colour_actually_changes_with_kind(qapp):

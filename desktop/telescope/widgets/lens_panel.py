@@ -1,11 +1,11 @@
 import re
 
-from PyQt6.QtCore import QRect, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QFont, QPainter
+from PyQt6.QtCore import QPointF, QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QColor, QFont, QFontMetrics, QPainter
 from PyQt6.QtWidgets import QLabel, QPushButton, QSizePolicy, QStyle, QStyleOptionButton, QVBoxLayout, QWidget
 
 from telescope import theme
-from telescope.widgets.common import FlowLayout, ui_px
+from telescope.widgets.common import FlowLayout, cap_baseline, card_hue, stacked_baselines, ui_px
 
 TILE_HEIGHT = 54
 """Height of a lens tile, the same whatever its label says."""
@@ -49,33 +49,33 @@ class _LensButton(QPushButton):
         opt.text = ""
         self.style().drawControl(QStyle.ControlElement.CE_PushButton, opt, p, self)
         on = self.isChecked()
-        ink = QColor("#ffffff" if on else theme.TEXT) if self.isEnabled() else QColor(theme.TEXT_DISABLED)
+        ink = QColor(card_hue(self) if on else theme.TEXT) if self.isEnabled() else QColor(theme.TEXT_DISABLED)
         big, small = QFont(self.font()), QFont(self.font())
-        big.setPointSizeF(self.font().pointSizeF() * 1.3)
+        big.setPointSizeF(self.font().pointSizeF() * 1.25)
         big.setWeight(QFont.Weight.DemiBold)
         small.setPointSizeF(self.font().pointSizeF() * 0.85)
-        top = QRect(4, 4, self.width() - 8, self.height() // 2)  # the same height on every tile, second line or not
+        first, second = stacked_baselines(QFontMetrics(big), QFontMetrics(small), 0, self.height(), 8)
+        if not self._rest:
+            first = cap_baseline(QFontMetrics(big), 0, self.height())  # a lone number sits in the middle
+        width = self.width() - 8
         p.setPen(ink)
         p.setFont(big)
-        number = p.fontMetrics().elidedText(self._number, Qt.TextElideMode.ElideRight, top.width())
+        number = p.fontMetrics().elidedText(self._number, Qt.TextElideMode.ElideRight, width)
         n_w = p.fontMetrics().horizontalAdvance(number)
-        p.setFont(small)
-        u_w = p.fontMetrics().horizontalAdvance(self._unit) if number == self._number else 0
-        x = top.left() + max(0, (top.width() - n_w - u_w) // 2)
-        p.setFont(big)
-        p.drawText(QRect(x, top.top(), n_w, top.height()), int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom), number)
+        unit = QFont(small)
+        unit.setWeight(QFont.Weight.Medium)
+        u_w = QFontMetrics(unit).horizontalAdvance(self._unit) if number == self._number else 0
+        x = 4 + max(0, (width - n_w - u_w) // 2)
+        p.drawText(QPointF(x, first), number)
         if u_w:
-            p.setFont(small)
-            p.drawText(QRect(x + n_w + 1, top.top(), u_w + 2, top.height() - 2),
-                       int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom), self._unit)
+            p.setFont(unit)
+            p.drawText(QPointF(x + n_w + 1, first), self._unit)
         if self._rest:
             p.setFont(small)
-            faint = QColor(ink)
-            faint.setAlphaF(0.85 if on else 0.65)
+            faint = QColor(ink if on else theme.TEXT_FAINT)
             p.setPen(faint)
-            below = QRect(4, self.height() // 2 + 4, self.width() - 8, self.height() // 2 - 6)
-            p.drawText(below, int(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop),
-                       p.fontMetrics().elidedText(self._rest, Qt.TextElideMode.ElideRight, below.width()))
+            rest = p.fontMetrics().elidedText(self._rest, Qt.TextElideMode.ElideRight, width)
+            p.drawText(QPointF(4 + (width - p.fontMetrics().horizontalAdvance(rest)) / 2, second), rest)
         p.end()
 
 

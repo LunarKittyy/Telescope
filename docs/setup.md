@@ -37,7 +37,7 @@ sudo modprobe v4l2loopback devices=2 video_nr=10,11 \
   card_label="OBS Virtual Camera,Phone Camera" exclusive_caps=1
 ```
 
-To load it at every boot, tick **Load at boot** in Advanced -
+To load it at every boot, switch on **Load when the computer starts** in Advanced -
 it writes the same module options to `/etc/modprobe.d/99-telescope-v4l2loopback.conf` and
 `/etc/modules-load.d/99-telescope-v4l2loopback.conf` (and can be unticked later to remove them
 again). It refuses to write if another config already sets `v4l2loopback` options, so it won't

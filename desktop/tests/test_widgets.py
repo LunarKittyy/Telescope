@@ -198,15 +198,17 @@ def test_make_segmented_handles_a_lone_button(qapp):
     assert button.property("segPos") == "only"
 
 
-def test_segmented_row_packs_buttons_without_gaps(qapp):
+def test_segmented_row_puts_the_buttons_in_one_track(qapp):
     a, b = QRadioButton("a"), QRadioButton("b")
 
     row = segmented_row(a, b)
 
-    assert row.spacing() == 0
-    assert row.count() == 2
-    assert row.itemAt(0).widget() is a
-    assert row.itemAt(1).widget() is b
+    track = row.itemAt(0).widget()
+    assert row.count() == 1 and track.objectName() == "seg_track"
+    inner = track.layout()
+    assert inner.count() == 2
+    assert inner.itemAt(0).widget() is a
+    assert inner.itemAt(1).widget() is b
 
 
 def test_stretch_slider_sets_a_floor_not_a_fixed_width(qapp):

@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
 )
 
 from telescope import theme
+from telescope.widgets.line_icons import LINE_ICONS, line_icon
 
 
 # ── Shared desktop UI primitives ─────────────────────────────────────────────
@@ -39,7 +40,7 @@ from telescope import theme
 #     font. Pass them through ui_px(), which scales them up when the font the user actually gets
 #     is wider (another fallback font, larger system text, a different DPI), so text keeps fitting.
 
-FORM_LABEL_WIDTH = 112
+FORM_LABEL_WIDTH = 96
 
 SEGMENT_WIDTH = 78
 """Width of one segment where a toggle has no control column to fill (the header)."""
@@ -50,7 +51,7 @@ BUTTON_WIDTH = 160
 DIALOG_BUTTON_WIDTH = 96
 """Width of the Close / OK / Cancel buttons in a dialog's bottom bar."""
 
-ROW_HEIGHT = 32
+ROW_HEIGHT = 36
 """Minimum height of a settings row; matches the input controls."""
 
 VALUE_COL_WIDTH = 56
@@ -342,11 +343,17 @@ class Switch(QCheckBox):
         p.setBrush(knob)
         p.drawEllipse(QRectF(x, track.top() + 3, d, d))
         if self.text():
-            p.setPen(QColor(theme.TEXT if enabled else theme.TEXT_DISABLED))
+            p.setPen(QColor((theme.TEXT_DIM if self.property("dim_text") else theme.TEXT) if enabled else theme.TEXT_DISABLED))
             p.setFont(self.font())
             text_rect = QRect(0, 0, int(track.left()) - 12, self.height())
-            p.drawText(text_rect, int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
-                       self.fontMetrics().elidedText(self.text(), Qt.TextElideMode.ElideRight, text_rect.width()))
+            fm = self.fontMetrics()
+            if fm.horizontalAdvance(self.text()) > text_rect.width() and self.height() >= 2 * fm.height():
+                # A long name in a tight spot (a tile) wraps onto a second line rather than losing its end
+                p.drawText(text_rect, int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+                                          | Qt.TextFlag.TextWordWrap), self.text())
+            else:
+                p.drawText(text_rect, int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
+                           fm.elidedText(self.text(), Qt.TextElideMode.ElideRight, text_rect.width()))
         p.end()
 
     def keyPressEvent(self, event):
@@ -370,61 +377,96 @@ PILL_HEIGHT = 40
 """Height of a StatusPill."""
 
 
+def cap_baseline(fm: QFontMetrics, top: float, height: float) -> int:
+    """Baseline that centres a line's capitals in a band: what reads as centred, unlike Qt's line box with its
+    descender room."""
+    return round(top + (height + fm.capHeight()) / 2)
+
+
+def stacked_baselines(top_fm: QFontMetrics, low_fm: QFontMetrics, top: float, height: float,
+                      gap: float = 7) -> tuple:
+    """Baselines for two lines read as one block (a value over its caption), the block centred in the band; gap is
+    from the first line's baseline to the second's capitals."""
+    span = top_fm.capHeight() + gap + low_fm.capHeight()
+    first = round(top + (height - span) / 2 + top_fm.capHeight())
+    return first, round(first + gap + low_fm.capHeight())
+
+
 class StatusPill(QFrame):
-    """A live reading at a glance: icon, value and a short note, tinted by how it's doing (theme.STATUS_COLORS)."""
+    """A live reading at a glance: icon, value and a short note, tinted by how it's doing (theme.STATUS_COLORS).
+    Painted, so the value and note share one baseline and the icon centres on it."""
 
     def __init__(self, icon_name: str, parent=None):
         super().__init__(parent)
         self.setObjectName("status_pill")
         self.setFixedHeight(ui_px(PILL_HEIGHT))
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(14, 0, 14, 0)
-        lay.setSpacing(9)
-        self._icon = QLabel()
-        self._icon.setFixedSize(18, 18)
-        self._value = QLabel()
-        self._value.setObjectName("pill_value")
-        self._note = QLabel()
-        self._note.setObjectName("pill_note")
-        lay.addWidget(self._icon)
-        lay.addWidget(self._value)
-        lay.addWidget(self._note)
-        lay.addStretch(1)
+        self.setMinimumWidth(1)
         self.kind = ""
+        self._value = self._note = self._icon_name = ""
+        self._ink = QColor(theme.TEXT_DIM)
         self.set("—", "", "status_dim", icon_name)
 
     def set(self, value: str, note: str, kind: str, icon_name: str):
         """kind is one of theme.STATUS_COLORS ("status_ok", "status_warn", "status_err", "status_dim")."""
         self.kind = kind
         color = QColor(theme.STATUS_COLORS.get(kind, theme.DIM))
-        ink = color.lighter(112).name() if kind != "status_dim" else theme.TEXT_DIM
-        fill, edge = QColor(color), QColor(color)
-        fill.setAlphaF(0.12 if kind != "status_dim" else 0.06)
-        edge.setAlphaF(0.25 if kind != "status_dim" else 0.15)
-        self.setStyleSheet(
-            f"QFrame#status_pill {{ background: {fill.name(QColor.NameFormat.HexArgb)};"
-            f" border: 1px solid {edge.name(QColor.NameFormat.HexArgb)}; border-radius: {ui_px(PILL_HEIGHT) // 2}px; }}"
-            f"QLabel#pill_value {{ color: {ink}; font-size: 11pt; font-weight: 600; }}"
-            f"QLabel#pill_note {{ color: {ink}; }}")
-        self._icon.setPixmap(create_vector_icon(icon_name, ink).pixmap(18, 18))
-        self._value.setText(value)
-        self._note.setText(note)
-        self._note.setVisible(bool(note))
+        self._ink = QColor(color.lighter(112).name() if kind != "status_dim" else theme.TEXT_DIM)
+        self._fill, self._edge = QColor(color), QColor(color)
+        self._fill.setAlphaF(0.12 if kind != "status_dim" else 0.06)
+        self._edge.setAlphaF(0.25 if kind != "status_dim" else 0.15)
+        self._value, self._note, self._icon_name = value, note, icon_name
+        self.update()
 
     def value(self) -> str:
-        return self._value.text()
+        return self._value
 
     def note(self) -> str:
-        return self._note.text()
+        return self._note
+
+    def paintEvent(self, _event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        p.setPen(QPen(self._edge, 1))
+        p.setBrush(self._fill)
+        p.drawRoundedRect(r, r.height() / 2, r.height() / 2)
+        big = QFont(self.font())
+        big.setPointSizeF(self.font().pointSizeF() * 1.13)
+        big.setWeight(QFont.Weight.DemiBold)
+        fm_big = QFontMetrics(big)
+        base = cap_baseline(fm_big, 0, self.height())
+        x = 14
+        icon_px = 18
+        mid = base - fm_big.capHeight() / 2
+        made = line_icon if self._icon_name in LINE_ICONS else create_vector_icon
+        made(self._icon_name, self._ink.name()).paint(p, QRect(x, round(mid - icon_px / 2), icon_px, icon_px))
+        x += icon_px + 9
+        p.setPen(self._ink)
+        p.setFont(big)
+        room = self.width() - x - 14
+        p.drawText(QPointF(x, base), fm_big.elidedText(self._value, Qt.TextElideMode.ElideRight, room))
+        x += fm_big.horizontalAdvance(self._value) + 9
+        if self._note and x < self.width() - 14:
+            p.setFont(self.font())
+            p.drawText(QPointF(x, base), p.fontMetrics().elidedText(self._note, Qt.TextElideMode.ElideRight,
+                                                                     self.width() - 14 - x))
+        p.end()
 
 
 def segmented_row(*buttons: QWidget, fill: bool = True) -> QHBoxLayout:
-    """Zero-gap run of segments, all the same width: equal shares of the row when fill, else SEGMENT_WIDTH each."""
+    """Segments in one track, all the same width: equal shares of the row when fill, else SEGMENT_WIDTH each. The
+    picked one is a filled pill inside the track."""
     make_segmented(*buttons)
-    lay = QHBoxLayout()
-    lay.setContentsMargins(0, 0, 0, 0)
-    lay.setSpacing(0)
+    outer = QHBoxLayout()
+    outer.setContentsMargins(0, 0, 0, 0)
+    track = QFrame()
+    track.setObjectName("seg_track")
+    track.setSizePolicy(QSizePolicy.Policy.Expanding if fill else QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+    outer.addWidget(track, 1 if fill else 0)
+    lay = QHBoxLayout(track)
+    lay.setContentsMargins(2, 2, 2, 2)
+    lay.setSpacing(2)
     for btn in buttons:
         if fill:
             btn.setMinimumWidth(1)
@@ -433,7 +475,7 @@ def segmented_row(*buttons: QWidget, fill: bool = True) -> QHBoxLayout:
         else:
             btn.setFixedWidth(ui_px(SEGMENT_WIDTH))
             lay.addWidget(btn)
-    return lay
+    return outer
 
 
 def create_card(parent=None) -> QFrame:
@@ -479,7 +521,7 @@ def dim_until_paired(card: QWidget, bus, phone_only: bool = False):
 def card_layout(card: QFrame) -> QVBoxLayout:
     """The standard padded column every main-window card uses."""
     lay = QVBoxLayout(card)
-    lay.setContentsMargins(18, 16, 18, 18)
+    lay.setContentsMargins(16, 14, 16, 16)
     lay.setSpacing(8)
     return lay
 
@@ -497,13 +539,31 @@ def _paint_hue(card: QWidget, hue_name: str, chip: QLabel = None, icon_name: str
         tint = QColor(color)
         tint.setAlphaF(0.14)
         chip.setStyleSheet(f"background: {tint.name(QColor.NameFormat.HexArgb)}; border-radius: 9px;")
-        chip.setPixmap(create_vector_icon(icon_name, color).pixmap(18, 18))
+        chip.setPixmap(_header_icon(icon_name, color).pixmap(16, 16))
     hover = QColor(color).lighter(115).name()
+    picked = QColor(color)
+    picked.setAlphaF(0.12)
+    picked_hex = picked.name(QColor.NameFormat.HexArgb)
     card.setStyleSheet(
-        f"QSlider::sub-page:horizontal {{ background: {color}; }}"
         f"QSlider::handle:horizontal {{ background: {color}; }}"
         f"QSlider::handle:horizontal:hover {{ background: {hover}; }}"
-        f"QLabel#val {{ color: {color}; }}")
+        f"QLabel#val {{ color: {color}; }}"
+        f"QPushButton#lens_button:checked, QPushButton#option_card:checked {{"
+        f" background-color: {picked_hex}; border-color: {color}; }}")
+
+
+def _header_icon(name: str, color: str) -> QIcon:
+    return line_icon(name, color) if name in LINE_ICONS else create_vector_icon(name, color)
+
+
+def card_hue(widget: QWidget) -> str:
+    """The hue of the card a widget sits in, ACCENT outside one."""
+    while widget is not None:
+        entry = _hued.get(widget)
+        if entry is not None:
+            return theme.hue(entry[0])
+        widget = widget.parentWidget()
+    return theme.ACCENT
 
 
 _hued_icons: "weakref.WeakKeyDictionary[QLabel, tuple]" = weakref.WeakKeyDictionary()  # label -> (icon name, hue name, px)
@@ -551,7 +611,7 @@ def add_card_header(layout: QVBoxLayout, title: str, icon_name: str,
         _hued[card] = (hue, chip, icon_name)
         _paint_hue(card, hue, chip, icon_name)
     elif chip is not None:
-        chip.setPixmap(create_vector_icon(icon_name, theme.hue(hue)).pixmap(18, 18))
+        chip.setPixmap(_header_icon(icon_name, theme.hue(hue)).pixmap(16, 16))
 
     title_label = QLabel(title)
     title_label.setObjectName("card_title")
@@ -671,12 +731,29 @@ def wrapped_note(text: str, kind: str = "dim") -> QLabel:
     return lbl
 
 
+def set_button_icon(btn: QPushButton, icon: QIcon, px: int = 14):
+    """Put an icon on a button. Qt keeps it 4px from the words, which reads cramped, so the pixmap carries 2px more
+    of empty room on its right."""
+    gap = 2 if btn.text() else 0
+    padded = QIcon()
+    for mode in (QIcon.Mode.Normal, QIcon.Mode.Disabled):
+        pm = QPixmap((px + gap) * 2, px * 2)
+        pm.fill(Qt.GlobalColor.transparent)
+        pm.setDevicePixelRatio(2)
+        p = QPainter(pm)
+        p.drawPixmap(QRect(0, 0, px, px), icon.pixmap(QSize(px, px), 2.0, mode))
+        p.end()
+        padded.addPixmap(pm, mode)
+    btn.setIcon(padded)
+    btn.setIconSize(QSize(px + gap, px))
+
+
 def card_action(text: str, icon_name: str, tooltip: str = "") -> QPushButton:
     """The small quiet button a card header carries."""
     btn = QPushButton(text)
     btn.setObjectName("card_action")
-    btn.setIcon(create_vector_icon(icon_name, theme.TEXT_DIM))
-    btn.setIconSize(QSize(15, 15))
+    made = line_icon if icon_name in LINE_ICONS else create_vector_icon
+    set_button_icon(btn, made(icon_name, theme.TEXT_DIM), 14)
     if tooltip:
         btn.setToolTip(tooltip)
     return btn
@@ -704,12 +781,28 @@ def slider_row(slider: QWidget, readout: QLabel, gutter: bool = False) -> QHBoxL
     return lay
 
 
-def add_section_heading(layout: QVBoxLayout, text: str):
-    """Quiet small-caps divider between groups of rows; spacing, not a rule, does the separating."""
-    heading = QLabel(text.upper())
+def add_section_heading(layout: QVBoxLayout, text: str, icon_name: str = ""):
+    """A quiet heading between groups of rows: a small icon, the name and a hairline running to the card's edge."""
+    row = QWidget()
+    row.setObjectName("section_head")
+    lay = QHBoxLayout(row)
+    lay.setContentsMargins(0, 4, 0, 0)
+    lay.setSpacing(8)
+    if icon_name:
+        icon = QLabel()
+        icon.setFixedSize(13, 13)
+        made = line_icon if icon_name in LINE_ICONS else create_vector_icon
+        icon.setPixmap(made(icon_name, theme.TEXT_FAINT).pixmap(13, 13))
+        lay.addWidget(icon)
+    heading = QLabel(text)
     heading.setIndent(0)  # QSS margins switch on QLabel's auto-indent, which pushed headings ~4px right of the row labels
     heading.setObjectName("section_title")
-    layout.addWidget(heading)
+    lay.addWidget(heading)
+    rule = QFrame()
+    rule.setObjectName("section_rule")
+    rule.setFixedHeight(1)
+    lay.addWidget(rule, 1)
+    layout.addWidget(row)
     return heading
 
 
@@ -827,6 +920,13 @@ def fit_on_screen(rect: QRect, avail: QRect, margin: int) -> QRect:
 class NoScrollComboBox(QComboBox):
     def wheelEvent(self, event):
         event.ignore()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        p = QPainter(self)  # the chevron, drawn here so every dropdown has the same one
+        color = theme.TEXT_DIM if self.isEnabled() else theme.TEXT_DISABLED
+        line_icon("chevron", color).paint(p, QRect(self.width() - 22, (self.height() - 12) // 2, 12, 12))
+        p.end()
 
     def showPopup(self):
         # Qt sizes/positions the popup before it can know it overshoots the screen - it lines the current

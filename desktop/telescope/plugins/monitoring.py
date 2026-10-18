@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.banner import BannerAction, Issue
+from telescope.widgets.controls import hairline
 from telescope.widgets.common import (
     StatusPill, Switch,
     NoScrollSpinBox, add_card_header, add_section_heading, card_layout, create_card,
@@ -79,7 +80,7 @@ class MonitoringPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, "Monitoring", "status", hue="phone")
+        add_card_header(lay, "Phone", "phone", hue="phone")
         dim_until_paired(card, self._bus, phone_only=True)
 
         # ── Live readings ─────────────────────────────────────────────────────
@@ -93,7 +94,13 @@ class MonitoringPlugin(TelescopePlugin):
         lay.addLayout(pills)
 
         # ── Warnings ──────────────────────────────────────────────────────────
-        add_section_heading(lay, "Warnings")
+        add_section_heading(lay, "Warnings", "bell")
+        block = QFrame()
+        block.setObjectName("subsection")
+        warnings = QVBoxLayout(block)
+        warnings.setContentsMargins(12, 10, 12, 10)
+        warnings.setSpacing(10)
+        lay.addWidget(block)
         self._batt_alert_spin = NoScrollSpinBox()
         self._batt_alert_spin.setRange(5, 95)
         self._batt_alert_spin.setValue(20)
@@ -103,7 +110,8 @@ class MonitoringPlugin(TelescopePlugin):
         )
         self._batt_alert_spin.valueChanged.connect(self._host.schedule_save)
         self._batt_notify, self._batt_stop = self._alert_block(
-            lay, "battery", "Battery under", self._batt_alert_spin, "battery runs low")
+            warnings, "battery", "Battery under", self._batt_alert_spin, "battery runs low")
+        warnings.addWidget(hairline())
 
         self._temp_alert_spin = NoScrollSpinBox()
         self._temp_alert_spin.setRange(35, 65)
@@ -112,36 +120,32 @@ class MonitoringPlugin(TelescopePlugin):
         self._temp_alert_spin.setToolTip("The temperature that counts as too hot")
         self._temp_alert_spin.valueChanged.connect(self._host.schedule_save)
         self._temp_notify, self._temp_stop = self._alert_block(
-            lay, "thermometer", "Hotter than", self._temp_alert_spin, "phone gets too hot")
+            warnings, "thermometer", "Hotter than", self._temp_alert_spin, "phone gets too hot")
 
         return card
 
     def _alert_block(self, lay, icon_name: str, label: str, spin, what: str) -> tuple:
-        """One warning as one block: what counts, then whether to notify and stop the stream."""
-        block = QFrame()
-        block.setObjectName("subsection")
-        inner = QVBoxLayout(block)
-        inner.setContentsMargins(12, 6, 12, 8)
-        inner.setSpacing(2)
+        """One warning: what counts, then whether to notify and stop the stream."""
+        inner = lay
         top = QHBoxLayout()
         top.setSpacing(10)
         top.addWidget(hued_icon(icon_name, "phone"))
         top.addWidget(QLabel(label), 1)
-        spin.setFixedWidth(ui_px(96))
+        spin.setObjectName("chip_spin")
+        spin.setFixedSize(ui_px(80), ui_px(30))
         top.addWidget(spin)
         inner.addLayout(top)
-        notify, stop = self._alert_choices(inner, what)
-        lay.addWidget(block)
-        return notify, stop
+        return self._alert_choices(inner, what)
 
     def _alert_choices(self, lay, what: str) -> tuple:
         """The Notify and Stop streaming switches of one warning."""
-        notify = Switch("Notify")
+        notify = Switch("Notify me")
         notify.setChecked(True)
         notify.setToolTip(f"Show a notification when the {what}")
-        stop = Switch("Stop streaming")
+        stop = Switch("Stop the stream")
         stop.setToolTip(f"Stop the stream when the {what}, and at every restart until it's fine again")
         for box in (notify, stop):
+            box.setProperty("dim_text", True)  # the choices under a warning read quieter than the warning itself
             box.toggled.connect(self._host.schedule_save)
         boxes = QHBoxLayout()
         boxes.setContentsMargins(26, 0, 0, 0)  # under the label, past the icon
@@ -254,7 +258,8 @@ class MonitoringPlugin(TelescopePlugin):
             temp_kind = "status_warn"
         else:
             temp_kind = "status_ok"
-        self._temp_lbl.set(f"{temp_c:.1f} °C", "", temp_kind, "thermometer")
+        feel = {"status_ok": "Cool", "status_warn": "Warm", "status_err": "Hot"}[temp_kind]
+        self._temp_lbl.set(f"{temp_c:.1f} °C", feel, temp_kind, "thermometer")
 
     def _check_alerts(self, level: int, charging: bool, temp_c: float):
         """The shown stream's alerts, by the thresholds on the card."""
