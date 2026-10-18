@@ -27,3 +27,4 @@ New to Telescope? Start with the [Quick Start](../README.md#quick-start). It's a
 
 - [Building and CI](building.md): building the Android app, testing a change with the dev app and dev desktop, versions, and what each GitHub Actions workflow does
 - [Release checklist](release-checklist.md): what to test by hand on real devices before tagging a release
+- [Roadmap](roadmap/README.md): what's planned for the next release, ideas for some day, and what each past release set out to do
