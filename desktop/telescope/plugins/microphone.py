@@ -223,8 +223,7 @@ class MicrophonePlugin(TelescopePlugin):
         self._gain_row = control_row_widget("Gain", _readout_row(self._gain_slider, self._gain_spin), stretch=True)
         lay.addWidget(self._gain_row)
         self._auto_cb = QCheckBox("On")
-        self._auto_cb.setToolTip("Evens out quiet and loud speech. It stops adjusting while nobody is talking "
-                                 "to not turn up the room noise in the pauses.")
+        self._auto_cb.setToolTip("Evens out quiet and loud speech.")
         self._auto_cb.toggled.connect(self._on_auto_level)
         self._auto_row = control_row_widget("Auto level", self._auto_cb)
         lay.addWidget(self._auto_row)

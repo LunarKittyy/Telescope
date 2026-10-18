@@ -48,9 +48,8 @@ class LevelMeter(QWidget):
         self.setFixedHeight(ROW_HEIGHT)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setToolTip("The phone mic's level. The line holds the latest peak. The dot turns yellow while the "
-                        "limiter is holding loud peaks down, and red when the sound clips (too loud to record "
-                        "cleanly). Click to clear them.")
+        self.setToolTip("The dot turns yellow while the limiter holds loud peaks down and red when the sound clips. "
+                        "Click to clear it.")
 
     # ── State ─────────────────────────────────────────────────────────────────
 
