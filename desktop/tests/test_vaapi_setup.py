@@ -1,12 +1,26 @@
+from types import SimpleNamespace
+
 import pytest
 
 from telescope import pyav_vaapi
+from telescope.widgets import vaapi_setup
 from telescope.widgets.vaapi_setup import VaapiSetupDialog
+
+
+class _SyncThread:
+    def __init__(self, target, **_kwargs):
+        self._run = target
+
+    def start(self):
+        self._run()
 
 
 @pytest.fixture
 def setup(qapp, tmp_path, monkeypatch):
     """The dialog with a temp data folder, no distro PyAV and every build tool there."""
+    # Deliver the check's signal while this test's mocks are still installed.
+    # A real worker queues it until a later test processes Qt events.
+    monkeypatch.setattr(vaapi_setup, "threading", SimpleNamespace(Thread=_SyncThread))
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
     monkeypatch.setattr(pyav_vaapi, "standard_version", lambda: "18.1.0")
     monkeypatch.setattr(pyav_vaapi, "active", None)
@@ -18,7 +32,6 @@ def setup(qapp, tmp_path, monkeypatch):
 
     def make():
         dlg = VaapiSetupDialog(None, lambda: restarts.append(True) or True)
-        dlg._on_system(None)  # what the background check finds, without waiting for it
         made.append(dlg)
         return dlg
     yield make, restarts, tmp_path / "Telescope" / "pyav-vaapi"
