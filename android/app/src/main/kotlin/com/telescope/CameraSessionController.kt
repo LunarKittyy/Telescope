@@ -70,6 +70,9 @@ class CameraSessionController(
         private const val TAG = "CameraSessionController"
         private const val REOPEN_TRIES = 8        // after the camera failed: up to about 4 s for it to come back
         private const val REOPEN_RETRY_MS = 500L
+        private const val ENCODER_CAP_CHECK_MS = 3_000L
+        // Whether this phone's encoder drops frames for KEY_MAX_FPS_TO_ENCODER; null until a step finds out
+        @Volatile var encoderCapWorks: Boolean? = null
     }
 
     private var cameraDevice: CameraDevice? = null
@@ -188,6 +191,67 @@ class CameraSessionController(
         return heatCap()?.let { minOf(it, rate) } ?: rate
     }
 
+    // The rate the camera runs at: the stream's, unless the encoder is the one dropping frames for Dynamic's step
+    private fun cameraFps(): Int {
+        val rate = if (capInEncoder) currentPhoneFps else frameRate?.cap ?: currentPhoneFps
+        return heatCap()?.let { minOf(it, rate) } ?: rate
+    }
+
+    // Dynamic's step is the encoder dropping frames rather than the camera's session being rebuilt for it
+    @Volatile private var capInEncoder = false
+    @Volatile private var sessionFps = 0  // the rate the camera's last repeating request was built for
+    private var capCheckGeneration = 0
+
+    private fun canCapInEncoder(): Boolean =
+        encoderCapWorks != false && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && encoder != null && heatCap() == null
+
+    // On the camera thread, after Dynamic stepped: the encoder takes the new rate, or the session is rebuilt for it
+    private fun applyFrameRate() {
+        val cap = frameRate?.cap
+        val enc = encoder
+        // Only from a camera already at the rate asked for: one an earlier step slowed down needs the session rebuilt anyway
+        if (enc != null && (capInEncoder || (cap != null && sessionFps == currentPhoneFps)) && canCapInEncoder() &&
+            enc.setMaxFps(cap, currentPhoneFps)) {
+            capInEncoder = cap != null
+            if (cap != null) checkEncoderCap(enc, cap)
+        } else {
+            uncapEncoder()
+            reconfigureSession()
+        }
+        encoder?.setBitrate(currentBitrate())
+    }
+
+    // Some encoders take KEY_MAX_FPS_TO_ENCODER and ignore it: a few seconds on, what came out says whether it worked
+    private fun checkEncoderCap(enc: H264Encoder, cap: Int) {
+        val generation = ++capCheckGeneration
+        handler?.postDelayed({
+            if (generation != capCheckGeneration || encoder !== enc || !capInEncoder || frameRate?.cap != cap) return@postDelayed
+            val out = enc.outputRate.fps()
+            if (out > cap * 1.25) {
+                android.util.Log.i(TAG, "The encoder didn't drop frames for $cap fps ($out came out): restarting the camera instead")
+                encoderCapWorks = false
+                uncapEncoder()
+                reconfigureSession()
+                encoder?.setBitrate(currentBitrate())
+            } else if (out > 0) {
+                encoderCapWorks = true
+            }
+        }, ENCODER_CAP_CHECK_MS)
+    }
+
+    private fun uncapEncoder() {
+        if (!capInEncoder) return
+        capInEncoder = false
+        capCheckGeneration++
+        encoder?.setMaxFps(null, currentPhoneFps)
+    }
+
+    // Back to no Dynamic step; the encoder lets every frame through again
+    private fun forgetFrameRate() {
+        frameRate = null
+        if (capInEncoder) post { uncapEncoder() }
+    }
+
     @Volatile private var thermalStatus = 0
 
     private fun heatCap(): Int? {
@@ -198,9 +262,9 @@ class CameraSessionController(
     /** Android's thermal status (PowerManager.THERMAL_STATUS_*): severe and up lower the frame rate until it cools. */
     fun setThermalStatus(status: Int) {
         post {
-            val before = streamFps()
+            val before = cameraFps() to streamFps()
             thermalStatus = status
-            val after = streamFps()
+            val after = cameraFps() to streamFps()
             if (after == before) return@post
             android.util.Log.i(TAG, "Thermal status $status: $after fps")
             reconfigureSession()
@@ -227,7 +291,7 @@ class CameraSessionController(
             codec = value
             codecError = null
             codecUnsupported = false
-            frameRate = null  // the reopen below picks the rate up again
+            forgetFrameRate()  // the reopen below picks the rate up again
             reopen("setCodec")
         }
     }
@@ -242,8 +306,8 @@ class CameraSessionController(
 
     // Back to the rate asked for; true if Dynamic had stepped it down, so the session needs the rate again.
     private fun dropFrameRate(): Boolean {
-        val capped = frameRate?.cap != null
-        frameRate = null
+        val capped = frameRate?.cap != null && !capInEncoder
+        forgetFrameRate()
         return capped
     }
 
@@ -259,12 +323,13 @@ class CameraSessionController(
         val old = frameRate
         val rate = old?.takeIf { it.askedFps == currentPhoneFps && it.lens === camera } ?: newFrameRate(camera).also {
             frameRate = it
-            if (old?.cap != null) post { reconfigureSession(); encoder?.setBitrate(currentBitrate()) }  // uncapped
+            if (old?.cap != null) post { applyFrameRate() }  // uncapped
         }
         val stepped = rate.update(sample.nowMs, d.bitrate, streamWidth, streamHeight, d.lastStallMs) ?: return
         android.util.Log.i(TAG, "Dynamic: ${stepped} fps for a ${d.bitrate / 1000} kbps link")
-        // The rate is part of the session's setup (see createSession), so the session is rebuilt for it
-        post { reconfigureSession(); encoder?.setBitrate(currentBitrate()) }
+        // The encoder drops frames for it where it can; otherwise the session is rebuilt, as the rate is part of
+        // its setup (see createSession)
+        post { applyFrameRate() }
     }
 
     private fun newFrameRate(camera: CameraEntry?): DynamicFrameRate {
@@ -284,7 +349,7 @@ class CameraSessionController(
     fun setFpsTarget(fps: Int) {
         val changed = fps != currentPhoneFps || frameRate?.cap != null
         currentPhoneFps = fps
-        frameRate = null  // a new rate asked for: Dynamic starts from it
+        forgetFrameRate()  // a new rate asked for: Dynamic starts from it
         // A new rate goes in the session's own setup too (see createSession), so the session is rebuilt for it
         post { if (changed) reconfigureSession() else applyExposure(); encoder?.setBitrate(currentBitrate()) }
     }
@@ -531,7 +596,7 @@ class CameraSessionController(
                 return
             } catch (e: Exception) {
                 codec = H264Stream.CODEC_MJPEG
-                frameRate = null  // Dynamic's step was for H.264; JPEG goes back to the rate asked for
+                forgetFrameRate()  // Dynamic's step was for H.264; JPEG goes back to the rate asked for
                 codecError = "H.264 isn't available at ${streamWidth}x$streamHeight on this phone"
                 codecUnsupported = true
                 onControlError("h264Encoder", e)
@@ -547,7 +612,7 @@ class CameraSessionController(
                               unsupported: Boolean = false, reopenTries: Int = 0) {
         if (codec != H264Stream.CODEC_H264) return
         codec = H264Stream.CODEC_MJPEG
-        frameRate = null  // Dynamic's step was for H.264, and it can't step back up on JPEG
+        forgetFrameRate()  // Dynamic's step was for H.264, and it can't step back up on JPEG
         codecError = reason
         codecUnsupported = unsupported
         onControlError("h264Encoder", e)
@@ -559,6 +624,8 @@ class CameraSessionController(
         try { imageReader?.close() } catch (_: Exception) {}
         encoder?.release()
         imageReader = null; encoder = null
+        capInEncoder = false  // a new encoder doesn't have the cap: the session takes Dynamic's rate again
+        capCheckGeneration++
     }
 
     private fun outputSurface(): Surface? = encoder?.inputSurface ?: imageReader?.surface
@@ -811,7 +878,7 @@ class CameraSessionController(
     // For Copy diagnostics: the rate asked for against what the camera did, and the fastest each output allows here.
     fun frameReport(): String = buildString {
         val cam = currentCamera
-        val asked = CameraRequestSelection.pickAeFpsRange(cam?.aeFpsRanges ?: emptyList(), streamFps(), currentLowLight)
+        val asked = CameraRequestSelection.pickAeFpsRange(cam?.aeFpsRanges ?: emptyList(), cameraFps(), currentLowLight)
         val template = if (requestTemplate() == CameraDevice.TEMPLATE_RECORD) "record" else "preview"
         val labels = when {
             usedStreamUseCase -> ", outputs labelled"
@@ -863,7 +930,8 @@ class CameraSessionController(
             set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE, CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF)
             // Set in manual exposure too, where AE ignores it: it's also what the session is set up for.
             // Unsupported ranges can fail on some devices; use advertised range
-            val fps = streamFps()
+            val fps = cameraFps()
+            sessionFps = fps
             CameraRequestSelection.pickAeFpsRange(cam?.aeFpsRanges ?: emptyList(), fps, currentLowLight)?.let { range ->
                 android.util.Log.d(TAG, "AE FPS range for ${cam?.id}: $range (target=$fps)")
                 set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, range)

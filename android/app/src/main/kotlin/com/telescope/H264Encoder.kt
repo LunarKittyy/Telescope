@@ -76,6 +76,7 @@ class H264Encoder(
     private var bitrateRange = android.util.Range(1, Int.MAX_VALUE)  // this encoder's own, once it's made
     @Volatile var profile = Profile.ANY  // what the running encoder was set up with
         private set
+    val outputRate = FrameRate()  // frames it actually encodes, to check a cap from setMaxFps took
     @Volatile private var lastPtsUs = Long.MIN_VALUE
     @Volatile private var reordered = false
 
@@ -96,7 +97,7 @@ class H264Encoder(
                     val bytes = ByteArray(info.size).also { buf.get(it) }
                     val config = info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
                     val key = info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0
-                    if (!config) checkOrder(info.presentationTimeUs)
+                    if (!config) { checkOrder(info.presentationTimeUs); outputRate.tick() }
                     onPacket(bytes, key, config)
                 }
                 mc.releaseOutputBuffer(index, false)
@@ -200,6 +201,17 @@ class H264Encoder(
         }
 
     fun requestKeyFrame() = setParam(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0)
+
+    // Drops frames past fps before encoding (Android 10+), so a lower rate needn't restart the camera; null lets all through
+    fun setMaxFps(fps: Int?, cameraFps: Int): Boolean {
+        if (released || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
+        // Uncapped is a cap well above the camera's rate rather than a "none" value encoders may read differently
+        val cap = (fps ?: (cameraFps * 2)).toFloat()
+        return try {
+            codec.setParameters(Bundle().apply { putFloat(MediaFormat.KEY_MAX_FPS_TO_ENCODER, cap) })
+            true
+        } catch (_: Exception) { false }
+    }
 
     fun setBitrate(bps: Int) = setParam(MediaCodec.PARAMETER_KEY_VIDEO_BITRATE, bps.coerceIn(bitrateRange.lower, bitrateRange.upper))
 
