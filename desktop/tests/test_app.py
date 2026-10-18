@@ -2005,7 +2005,7 @@ def test_a_frame_rate_lowered_for_the_heat_says_so(window, monkeypatch):
     window._on_worker_status("net_warn", "4.0 Mbps")
     window._on_worker_status("net_warn", "4.0 Mbps")
     assert events == [] and window._net_lbl.styleSheet() == ""
-    assert "running hot" in window._fps_lbl.toolTip() and "24 fps" in window._fps_lbl.toolTip()
+    assert "got hot" in window._fps_lbl.toolTip() and "24 fps" in window._fps_lbl.toolTip()
 
 
 @pytest.mark.parametrize("dynamic_fps", [0, None, "20", -1])  # at the rate asked for, an older phone, junk
