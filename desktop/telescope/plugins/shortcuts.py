@@ -555,6 +555,7 @@ class _KeyFilter(QObject):
         super().__init__()
         self._plugin = plugin
         self._watched: list = []  # the control with focus and its window (keys go to the window when nothing has focus)
+        self._watching = True
 
     def follow_focus(self, _old, new):
         window = QApplication.activeWindow()
@@ -563,9 +564,11 @@ class _KeyFilter(QObject):
         self._watch([w for w in (new, window) if w is not None])
 
     def follow_window(self, _window):
-        self.follow_focus(None, QApplication.focusWidget())  # a window with nothing that takes focus gets its keys too
+        # A window with nothing that takes focus gets its keys too; later, as Qt sets the active window after this
+        QTimer.singleShot(0, lambda: self._watching and self.follow_focus(None, QApplication.focusWidget()))
 
     def let_go(self):
+        self._watching = False
         self._watch([])
 
     def _watch(self, widgets: list):

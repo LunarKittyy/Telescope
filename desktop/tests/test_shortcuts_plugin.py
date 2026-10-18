@@ -590,6 +590,7 @@ def test_keys_reach_a_window_where_nothing_takes_focus(make, card):
     bare.show()
     bare.activateWindow()
     QTest.qWaitForWindowActive(bare)
+    QTest.qWait(10)  # it looks once Qt has finished making the window active
     try:
         assert any(w is bare for w in plugin._filter._watched)
         QTest.keyClick(bare, Qt.Key.Key_T, Qt.KeyboardModifier.ControlModifier)

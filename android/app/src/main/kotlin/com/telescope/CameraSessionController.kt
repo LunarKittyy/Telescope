@@ -71,7 +71,8 @@ class CameraSessionController(
         private const val REOPEN_TRIES = 8        // after the camera failed: up to about 4 s for it to come back
         private const val REOPEN_RETRY_MS = 500L
         private const val ENCODER_CAP_CHECK_MS = 3_000L
-        // Whether this phone's encoder drops frames for KEY_MAX_FPS_TO_ENCODER; null until a step finds out
+        private const val COOL_DOWN_MS = 30_000L
+        // False once this phone's encoder was caught ignoring KEY_MAX_FPS_TO_ENCODER; every step is checked until then
         @Volatile var encoderCapWorks: Boolean? = null
     }
 
@@ -227,14 +228,13 @@ class CameraSessionController(
         handler?.postDelayed({
             if (generation != capCheckGeneration || encoder !== enc || !capInEncoder || frameRate?.cap != cap) return@postDelayed
             val out = enc.outputRate.fps()
-            if (out > cap * 1.25) {
+            // Working, it puts out the cap give or take a frame; ignoring it, the camera's rate (a rung or more above)
+            if (out > cap + maxOf(2.0, cap * 0.1)) {
                 android.util.Log.i(TAG, "The encoder didn't drop frames for $cap fps ($out came out): restarting the camera instead")
                 encoderCapWorks = false
                 uncapEncoder()
                 reconfigureSession()
                 encoder?.setBitrate(currentBitrate())
-            } else if (out > 0) {
-                encoderCapWorks = true
             }
         }, ENCODER_CAP_CHECK_MS)
     }
@@ -261,15 +261,27 @@ class CameraSessionController(
 
     /** Android's thermal status (PowerManager.THERMAL_STATUS_*): severe and up lower the frame rate until it cools. */
     fun setThermalStatus(status: Int) {
-        post {
-            val before = cameraFps() to streamFps()
-            thermalStatus = status
-            val after = cameraFps() to streamFps()
-            if (after == before) return@post
-            android.util.Log.i(TAG, "Thermal status $status: $after fps")
-            reconfigureSession()
-            encoder?.setBitrate(currentBitrate())
+        // Hotter applies at once; cooler only once it has held a while, so a status flickering at the edge doesn't
+        // rebuild the session every time
+        if (status < thermalStatus) {
+            val seen = ++thermalSeen
+            handler?.postDelayed({ if (seen == thermalSeen) applyThermalStatus(status) }, COOL_DOWN_MS)
+        } else {
+            thermalSeen++
+            post { applyThermalStatus(status) }
         }
+    }
+
+    @Volatile private var thermalSeen = 0  // bumped by every status, so a cool-down that waited sees a newer one
+
+    private fun applyThermalStatus(status: Int) {
+        val before = cameraFps() to streamFps()
+        thermalStatus = status
+        val after = cameraFps() to streamFps()
+        if (after == before) return
+        android.util.Log.i(TAG, "Thermal status $status: $after fps")
+        reconfigureSession()
+        encoder?.setBitrate(currentBitrate())
     }
 
     private fun currentBitrate(): Int {

@@ -43,6 +43,7 @@ class H264Encoder(
 
         // Set once an encoder ignored KEY_MAX_B_FRAMES at High; Baseline from then on, until the app restarts
         @Volatile var highReorders = false
+        private const val REORDERS_TO_DROP_HIGH = 3
 
         fun isAvailable(): Boolean = try {
             MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.any { info ->
@@ -79,6 +80,7 @@ class H264Encoder(
     val outputRate = FrameRate()  // frames it actually encodes, to check a cap from setMaxFps took
     @Volatile private var lastPtsUs = Long.MIN_VALUE
     @Volatile private var reordered = false
+    private var backwards = 0
 
     private val thread = HandlerThread("h264-out").also { it.start() }
     @Volatile private var released = false
@@ -160,7 +162,7 @@ class H264Encoder(
     }
 
     private fun checkOrder(ptsUs: Long) {
-        if (ptsUs < lastPtsUs && !reordered && profile == Profile.HIGH) {
+        if (ptsUs < lastPtsUs && !reordered && profile == Profile.HIGH && ++backwards >= REORDERS_TO_DROP_HIGH) {
             reordered = true
             highReorders = true
             onReorder()

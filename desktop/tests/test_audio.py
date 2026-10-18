@@ -581,3 +581,16 @@ def test_automatic_level_is_off_unless_asked_for():
     w, _ = _worker(lambda req, timeout: _Resp(b""), _Sink())
     quiet = _talk(1, -34)
     assert np.array_equal(_shape_all(w, quiet), np.rint(quiet[:len(quiet) // 480 * 480]).astype(np.int16).astype(np.float32))
+
+
+def test_switching_automatic_level_off_fades_its_gain_out():
+    w = _auto_worker()
+    talk = _talk(6, -34)
+    before = _shape_all(w, talk)
+    assert w._auto_db > 10
+    w.auto_level = False
+    after = _shape_all(w, talk[:audio.RATE])
+    assert w._auto_db == 0.0
+    joined = np.concatenate((before[-audio.RATE:], after))
+    assert _biggest_step(joined) <= _biggest_step(before[-audio.RATE:]) * 1.05  # no jump down to the plain level
+    assert np.allclose(after[-audio.RATE // 2:], np.rint(talk[audio.RATE // 2:audio.RATE]), atol=1)

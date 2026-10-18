@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 class AudioStreamer(private val context: Context, private val onChunk: (ByteArray) -> Unit) {
     // One flag per recording: a stop() then quick start() mustn't let the old thread (mid-read) carry on beside the new one.
     private var running: AtomicBoolean? = null
+    private var loop: MicLoop? = null
 
     companion object {
         fun permitted(context: Context): Boolean =
@@ -34,7 +35,7 @@ class AudioStreamer(private val context: Context, private val onChunk: (ByteArra
         val first = open() ?: return false
         val active = AtomicBoolean(true).also { running = it }
         // The audio server restarting ends or freezes the recording: open a new one rather than stay quiet
-        val loop = MicLoop(::open, onChunk, active)
+        val loop = MicLoop(::open, onChunk, active).also { this.loop = it }
         Thread({ loop.run(first) }, "mic-record").start()
         Thread({
             while (active.get()) {
@@ -86,5 +87,7 @@ class AudioStreamer(private val context: Context, private val onChunk: (ByteArra
     fun stop() {
         running?.set(false)
         running = null
+        loop?.halt()
+        loop = null
     }
 }

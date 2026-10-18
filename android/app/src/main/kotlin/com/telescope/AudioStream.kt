@@ -108,6 +108,11 @@ class MicLoop(
         return got
     }
 
+    // Stopping: a read() waiting forever on a dead recording would otherwise keep the mic held
+    fun halt() {
+        current?.let { runCatching { it.stop() } }
+    }
+
     /** Called every so often from another thread: stops a recording that's gone quiet so [run] opens a new one. */
     fun checkStall(): Boolean {
         val source = current ?: return false

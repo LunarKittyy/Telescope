@@ -408,7 +408,7 @@ class AudioWorker:
         """Gain, then the limiter, then clipping to 16 bits."""
         target = self.gain
         raw = np.frombuffer(data, np.int16)
-        if not self.auto_level and target == self._gain == 1.0 and (not self.limit or (
+        if not self.auto_level and self._auto_db == 0.0 and target == self._gain == 1.0 and (not self.limit or (
                 self._limit_gain == 1.0 and int(np.abs(raw.astype(np.int32)).max(initial=0)) <= LIMIT_CEILING * FULL_SCALE)):
             self._limit_gain = 1.0
             return data  # nothing to do, the usual case
@@ -420,6 +420,12 @@ class AudioWorker:
             samples *= target
         if self.auto_level:
             samples = self._auto(samples)
+        elif self._auto_db != 0.0:
+            # Switched off: its gain fades out over this chunk, and it starts over if switched on again
+            samples = samples * np.linspace(10 ** (self._auto_db / 20), 1.0, samples.size, dtype=np.float32)
+            self._auto_db = 0.0
+            self._speech_db = None
+            self._quietest.clear()
         if self.limit:
             samples = self._limit(samples)
         else:

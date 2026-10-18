@@ -1394,3 +1394,17 @@ def test_the_help_button_asks_for_the_setup_guide(plugin_env):
     plugin._guide_btn.click()
     assert asked == [True]
     assert plugin._guide_btn.accessibleName() == "Setup guide"
+
+
+def test_a_usb_check_that_finishes_after_the_move_doesnt_start_another(plugin_env):
+    plugin, host, _panel = plugin_env
+    _add(plugin)
+    plugin._stream_route = WIFI
+    plugin.on_stream_start("url", None)
+    plugin._watch_usb()
+    stale = plugin._watch_id
+    plugin._holds["id-a"] = (USB, "serial-1")  # the hand-over moved it meanwhile
+    plugin.on_stream_start("url", None)
+    plugin._on_usb_available(stale, USB)
+    assert host.hand_overs == []
+    assert plugin.prepare_stream_route(USB, "id-a") is None  # it's on that one already

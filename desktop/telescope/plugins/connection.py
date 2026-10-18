@@ -1025,6 +1025,9 @@ class ConnectionPlugin(TelescopePlugin):
         """The video URL for pid's stream on route, while it still runs on its old one (a hand-over). None if not."""
         if pid not in self._holds or pid in self._prepared:
             return None
+        held = self._holds[pid][0]
+        if held is not None and held.kind == route.kind and (held.serial, held.host) == (route.serial, route.host):
+            return None  # already there
         path = self._paths.get(pid) or self._video_path()
         forward = None
         if route.kind == "usb":
@@ -1272,6 +1275,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._lost = False
         self._switch_usb_row.setVisible(False)
         self._usb_watch_timer.stop()
+        self._watch_id += 1  # a USB check still running is about the route before this one
         if (self._stream_route is not None and self._stream_route.kind == "wifi"
                 and self._route_pref == ROUTE_AUTO):
             self._usb_watch_timer.start(_USB_WATCH_MS)
