@@ -310,6 +310,7 @@ def test_linux_needs_only_pactl():
     assert virtual_mic.linux_tools_missing(lambda t: "/usr/bin/" + t) == []
 
 
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="Unix only")
 def test_fifo_sink_writes_everything_at_real_time_pace():
     read_end, write_end = os.pipe()
     clock = [100.0]
