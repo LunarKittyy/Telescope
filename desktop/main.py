@@ -49,6 +49,10 @@ if _missing:
         pass
     sys.exit(1)
 
+# A VA-API PyAV picked in Advanced goes ahead of the venv's own, before anything imports av
+from telescope import pyav_vaapi
+pyav_vaapi.activate()
+
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QApplication
 
