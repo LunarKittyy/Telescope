@@ -68,7 +68,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 - [ ] Phone on tailnet desktop is not on: after Wi-Fi pairing, **Using** shows the phone's Wi-Fi address (not `100.64/10`), stream works.
 - [ ] Removing the computer on the phone revokes access (requests get 401; desktop shows Needs pairing again).
 - [ ] Automatic route: plugged in uses USB, unplugged uses Wi-Fi. Plugged in with the app closed, or with a different phone on the cable, uses Wi-Fi and the card says why.
-- [ ] Plugging in mid-stream over Wi-Fi shows Switch to USB, and it switches without restarting the phone's camera.
+- [ ] Plugging in mid-stream over Wi-Fi (Connect via Automatic) moves the stream to USB a few seconds later without a gap in the video. The mic moves with it.
 - [ ] Pulling the cable mid-stream on USB carries on over Wi-Fi; plugging it back in can use USB again.
 - [ ] Connect via USB only / Wi-Fi only is honoured, including reporting a missing cable instead of falling back.
 - [ ] Local only on, no cable: the desktop says the phone accepts USB only and Start doesn't open the camera. Plug in and it streams over USB.

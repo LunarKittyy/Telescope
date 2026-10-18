@@ -22,6 +22,7 @@ import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import android.view.View
+import android.view.WindowManager
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
@@ -112,6 +113,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         RecentRuns.recordCrashes(this)
         setContentView(R.layout.activity_main)
+        // The screen stays on while the app is open (the Wi-Fi locks only work with it on); the power button still turns it off
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         btnToggle         = findViewById<MaterialButton>(R.id.btnToggle)
         tvStatus          = findViewById(R.id.tvStatus)

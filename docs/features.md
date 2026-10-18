@@ -39,6 +39,7 @@ The Presets button in the header saves your camera, output and transform setting
 - Linux: Telescope creates **Telescope Microphone** through PulseAudio or PipeWire. Most desktops need nothing extra
 - Windows: you'll need [VB-Audio Virtual Cable](https://vb-audio.com/Cable/) (free, donationware by VB-Audio), then pick **CABLE Output** as the microphone in other apps. If it's missing, the card's **Install VB-Cable** downloads VB-Audio's own pack from vb-audio.com, checks it's the one Telescope knows, and opens their setup (Windows asks for admin). VB-Audio asks for a restart afterwards. Once that's done, switch the mic off and on again in Telescope. If you close their setup before it finishes, the card offers **Open setup again**. If the download has changed or anything fails, the card links to their site instead
 - Gain goes from -24 dB to +12 dB (Advanced can raise the top to +24, +36 or +48), and you can type in a value for an exact one. The level meter holds the latest peak and lights up yellow while the limiter is holding loud moments down, or red when the sound clips. The limiter is on by default and can be switched off in Advanced
+- **Auto level** (off by default) evens out quiet and loud speech. It stops adjusting while nobody is talking to not turn up the room noise in the pauses. Gain is applied before it
 - **Mute** (in the card or the tray menu) sends silence without disconnecting the mic, handy for call apps that can't mute themselves. It resets when Telescope restarts
 - The camera button under the preview turns the phone's camera off while the mic keeps going. In the meantime apps get the wait screen and the preview shows that the camera is off. Press it before starting and Start turns into **Start mic only**. This needs the mic on, and every new stream starts with the camera back on
 - The tray icon shows what's live: a red dot while the camera is on and a mic while the mic is (crossed out when muted)
@@ -75,7 +76,7 @@ The Presets button in the header saves your camera, output and transform setting
 ## Monitoring
 - FPS and throughput sit in the footer. When the stream can't keep up, a note suggests what to try and gives you a button for it
 - A dropped stream reconnects over whichever route works, so you can pull the cable and it carries on over Wi-Fi. If it's still gone after 10 seconds, apps get the wait screen instead of a frozen last frame. After 30 seconds a banner warns that it can't reach the phone or browser, though it keeps trying either way
-- Phone battery and temperature, with alerts you can set to notify you, stop the stream, or both. When an alert stops the stream, the window explains why and offers **Start anyway** to keep streaming until the battery or temperature is back to normal
+- Phone battery and temperature, with alerts you can set to notify you, stop the stream, or both. When an alert stops the stream, the window explains why and offers **Start anyway** to keep streaming until the battery or temperature is back to normal. On Android 10 and newer a phone that reports running hot lowers its frame rate first (to 24 fps and then 15) and the FPS readout's tooltip shows when that happened
 - **Open log** and **Copy diagnostics** are at the bottom of Advanced. Copy diagnostics is what to paste into a bug report. The log lives in the temp folder (`/tmp/telescope-<user>/` on Linux, `%TEMP%\Telescope\` on Windows) with addresses, tokens and your home folder stripped out
 
 ## Phones, pairing and connection
@@ -85,6 +86,7 @@ The Presets button in the header saves your camera, output and transform setting
 - Telescope uses USB when the phone is plugged in and answering, and Wi-Fi otherwise. If a cable is plugged in but isn't being used, the Connection panel explains why. **Connect via** can force one or the other if you wish. When you change it mid-stream, it first checks that the phone answers that way and leaves the stream alone if it doesn't
 - Picking another phone or browser in the picker while streaming switches the stream over to it
 - A new IP address from the router doesn't break anything, since the phone announces itself on the network
+- The phone's screen stays on while the Telescope app is open, because Android only keeps Wi-Fi at its quickest with the screen on. If you'd rather have it dark just press the power button and the stream keeps going
 - Camera, output, transform and alert settings are saved per phone, while connection settings and the canvas are shared
 
 ## Privacy

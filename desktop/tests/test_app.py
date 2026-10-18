@@ -1999,6 +1999,15 @@ def test_a_frame_rate_dynamic_lowered_says_so_instead_of_blaming_the_light(windo
     assert "Dim light" not in window._fps_lbl.toolTip()
 
 
+def test_a_frame_rate_lowered_for_the_heat_says_so(window, monkeypatch):
+    events = _behind_events(window)
+    _slow_stream(window, monkeypatch, camera_fps=24.0, arrival=23.8, heat_fps=24)  # 30 asked, a hot phone
+    window._on_worker_status("net_warn", "4.0 Mbps")
+    window._on_worker_status("net_warn", "4.0 Mbps")
+    assert events == [] and window._net_lbl.styleSheet() == ""
+    assert "running hot" in window._fps_lbl.toolTip() and "24 fps" in window._fps_lbl.toolTip()
+
+
 @pytest.mark.parametrize("dynamic_fps", [0, None, "20", -1])  # at the rate asked for, an older phone, junk
 def test_without_a_dynamic_step_the_camera_is_blamed_as_before(window, monkeypatch, dynamic_fps):
     _slow_stream(window, monkeypatch, camera_fps=47.1, dynamic_fps=dynamic_fps)
@@ -3636,3 +3645,78 @@ def test_under_dev_desktop_a_restart_is_left_to_it(window, monkeypatch, tmp_path
     monkeypatch.delenv("TELESCOPE_DEV_SUPERVISED")
     monkeypatch.setattr(window, "_tray_quit", lambda: calls.append("quit"))
     assert window.restart_app() and calls[-2:] == ["relaunch", "quit"]
+
+
+# ── Moving to USB without a gap ──────────────────────────────────────────────
+
+class _HandingConnection(_Connection):
+    def __init__(self):
+        super().__init__()
+        self.prepared, self.committed, self.dropped = [], [], []
+
+    def prepare_stream_route(self, route, pid=None):
+        self.prepared.append((route, pid))
+        return "https://127.0.0.1:41000/v1/video"
+
+    def commit_stream_route(self, pid=None):
+        self.committed.append(pid)
+
+    def drop_stream_route(self, pid=None, failed=False):
+        self.dropped.append((pid, failed))
+
+
+class _HandingWorker(_RetargetWorker):
+    def __init__(self, can=True):
+        super().__init__()
+        self.moved, self.move_failed = _Signal(), _Signal()
+        self.handed, self.can = [], can
+
+    def hand_over(self, url):
+        self.handed.append(url)
+        return self.can
+
+
+def _wifi_stream(window, can=True):
+    conn = _HandingConnection()
+    window.register_plugin(conn)
+    listener = _Plugin("listener")
+    window.register_plugin(listener)
+    worker, client = _HandingWorker(can), _Client()
+    window._session = StreamSession(source=window._phone, id=1, url="https://192.168.1.20:8080/v1/video",
+                                    client=client, worker=worker)
+    worker.moved.connect(window._on_stream_moved)
+    worker.move_failed.connect(window._on_stream_move_failed)
+    return conn, worker, client, listener
+
+
+def test_a_hand_over_moves_the_stream_and_tells_the_plugins_where_it_is_now(window):
+    from telescope.phones import Route
+    usb = Route("usb", "127.0.0.1", "SER")
+    conn, worker, client, listener = _wifi_stream(window)
+    assert window.hand_over_stream(usb)
+    assert worker.handed == ["https://127.0.0.1:41000/v1/video"]
+    assert window._session.url == "https://192.168.1.20:8080/v1/video"  # still Wi-Fi until it's moved
+    assert not window.hand_over_stream(usb)  # one at a time
+    worker.moved.emit("https://127.0.0.1:41000/v1/video")
+    assert conn.committed == [window._phone.id]
+    assert window._session.url == "https://127.0.0.1:41000/v1/video"
+    assert client.urls == ["https://127.0.0.1:41000/v1/video"] and not client.closed
+    assert listener.started[-1] == ("https://127.0.0.1:41000/v1/video", client)  # the mic follows it there
+
+
+def test_a_failed_hand_over_leaves_the_stream_where_it_was(window):
+    from telescope.phones import Route
+    conn, worker, client, listener = _wifi_stream(window)
+    assert window.hand_over_stream(Route("usb", "127.0.0.1", "SER"))
+    worker.move_failed.emit("https://127.0.0.1:41000/v1/video")
+    assert conn.dropped == [(window._phone.id, True)] and conn.committed == []
+    assert window._session.url == "https://192.168.1.20:8080/v1/video" and client.urls == []
+    assert listener.started == []
+    assert window.hand_over_stream(Route("usb", "127.0.0.1", "SER"))  # it can try again
+
+
+def test_a_worker_that_cant_hand_over_lets_go_of_the_route_at_once(window):
+    from telescope.phones import Route
+    conn, _worker, _client, _listener = _wifi_stream(window, can=False)
+    assert not window.hand_over_stream(Route("usb", "127.0.0.1", "SER"))
+    assert conn.dropped == [(window._phone.id, False)]

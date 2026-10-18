@@ -408,8 +408,7 @@ class PreviewPlugin(TelescopePlugin):
         self._lenses_btn.setCheckable(True)
         self._lenses_btn.setEnabled(False)
         self._lenses_btn.setToolTip(
-            "Keep showing what the phone's longer lenses see (they flash up anyway when you zoom or pan). "
-            "Only here, never in the camera output."
+            "Keep showing what the phone's longer lenses see. Doesn't show in the camera output."
         )
         self._lenses_btn.toggled.connect(self._push_boxes)
         tb_lay.addWidget(self._lenses_btn)

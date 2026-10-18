@@ -7,8 +7,8 @@ package com.telescope
  *
  * The signal is the bitrate [DynamicBitrate] settled on, which tracks what the link carries, against Auto's bitrate
  * for each rate. Well under it for a while steps down a rung; comfortably over the next rung's for longer steps back
- * up. Each step restarts the camera's session (the rate is part of its setup), so it waits between steps and never
- * goes under [MIN_FPS].
+ * up. A step has the encoder drop frames where it can (Android 10+), else it restarts the camera's session (the rate
+ * is part of its setup), so it waits between steps and never goes under [MIN_FPS].
  *
  * Only rates the camera can be held to are rungs ([canCapAt]): one whose ranges all go past a rate would keep
  * running faster than it, so stepping there would rebuild the session for nothing. A stall isn't a slower link
@@ -64,5 +64,23 @@ class DynamicFrameRate(val askedFps: Int, val lens: Any? = null, canCapAt: (Int)
         lowSinceMs = -1
         roomSinceMs = -1
         return fps
+    }
+}
+
+// Android's own thermal status (10 and newer) caps the rate before the phone gets hot enough for an alert to stop it
+object HeatStep {
+    const val SEVERE = 3    // PowerManager.THERMAL_STATUS_SEVERE
+    const val CRITICAL = 4  // PowerManager.THERMAL_STATUS_CRITICAL
+    private val RUNGS = listOf(24, 20, DynamicFrameRate.MIN_FPS)
+
+    /** The rate to cap at for this status, or null when it needn't (or the camera can't be held under the rate asked for). */
+    fun cap(status: Int, askedFps: Int, canCapAt: (Int) -> Boolean = { true }): Int? {
+        val limit = when {
+            status >= CRITICAL -> DynamicFrameRate.MIN_FPS
+            status >= SEVERE -> 24
+            else -> return null
+        }
+        if (askedFps <= limit) return null
+        return RUNGS.filter { it <= limit && canCapAt(it) }.maxOrNull()
     }
 }

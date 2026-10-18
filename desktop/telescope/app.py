@@ -40,8 +40,8 @@ _WIDTH_TWO_COL   = 900
 _RAIL_WIDTH       = 412
 _RAIL_WIDTH_SOLO  = 440  # two-column mode: the one rail holding every card
 _CAMERA_LIMITED_TIP = "The phone's camera is making fewer frames than asked for. Dim light slows it down."
-_DYNAMIC_FPS_TIP = ("Dynamic lowered the frame rate to {fps} fps, so each frame gets more of a slow connection. "
-                    "It goes back up once there's room.")
+_DYNAMIC_FPS_TIP = "Dynamic lowered the frame rate to {fps} fps for a slow connection."
+_HEAT_FPS_TIP = "The phone is running hot and lowered the frame rate to {fps} fps."
 
 
 def _joined(words: list) -> str:
@@ -111,6 +111,9 @@ class _SourceHost:
     def mic_reconnected(self, source: Source):
         self._win._on_stream_reconnected(source)
         self._win._show_camera_off()
+
+    def stream_moved(self, source: Source):
+        self._win._on_stream_reconnected(source)
 
     def lost_contact(self, source: Source):
         self._win._start_reconnecting_animation("Lost the phone - reconnecting")
@@ -975,6 +978,28 @@ class TelescopeWindow(QMainWindow):
         if source is not None:
             self._flow.stream_reconnected(source)
 
+    def _move_signals(self, worker) -> list:
+        """A worker's hand-over signals and where they go (a stand-in worker in the tests may have none)."""
+        pairs = ((getattr(worker, "moved", None), self._on_stream_moved),
+                 (getattr(worker, "move_failed", None), self._on_stream_move_failed))
+        return [(signal, slot) for signal, slot in pairs if signal is not None]
+
+    def _on_stream_moved(self, url: str):
+        source = self._worker_source(self.sender())
+        if source is not None and hasattr(source, "on_moved"):
+            source.on_moved(url)
+
+    def _on_stream_move_failed(self, url: str):
+        source = self._worker_source(self.sender())
+        if source is not None and hasattr(source, "on_move_failed"):
+            source.on_move_failed(url)
+
+    def hand_over_stream(self, route, source_id: Optional[str] = None) -> bool:
+        """Move a running phone stream onto route without a gap; False if it can't try (see PhoneSource.hand_over)."""
+        source = self._sessions.find(source_id) if source_id else self._active_source()
+        hand_over = getattr(source, "hand_over", None)
+        return bool(hand_over and source.session is not None and hand_over(route))
+
     def _apply_config(self, cfg: dict):
         if not cfg:
             return
@@ -1081,6 +1106,8 @@ class TelescopeWindow(QMainWindow):
         )
         worker.status.connect(self._on_worker_status)
         worker.reconnected.connect(self._on_stream_reconnected)
+        for signal, slot in self._move_signals(worker):
+            signal.connect(slot)
         if source.slot == 0:
             worker.vcam_opened.connect(self._bus.vcam_opened)
         worker.start()
@@ -1098,7 +1125,7 @@ class TelescopeWindow(QMainWindow):
     def _end_worker(self, worker: StreamWorker):
         for signal, slot in ((worker.status, self._on_worker_status),
                              (worker.reconnected, self._on_stream_reconnected),
-                             (worker.vcam_opened, self._bus.vcam_opened)):
+                             (worker.vcam_opened, self._bus.vcam_opened), *self._move_signals(worker)):
             try:
                 signal.disconnect(slot)
             except (TypeError, RuntimeError, ValueError):
@@ -1825,8 +1852,12 @@ class TelescopeWindow(QMainWindow):
         self._net_lbl.setStyleSheet(f"color: {theme.WARN};" if behind else "")
         tip = ""
         if slow and camera_limited:
-            stepped = getattr(self._active_source(), "dynamic_fps", 0)
-            tip = _DYNAMIC_FPS_TIP.format(fps=stepped) if stepped else _CAMERA_LIMITED_TIP
+            source = self._active_source()
+            stepped, heat = getattr(source, "dynamic_fps", 0), getattr(source, "heat_fps", 0)
+            if heat and (not stepped or heat <= stepped):
+                tip = _HEAT_FPS_TIP.format(fps=heat)
+            else:
+                tip = _DYNAMIC_FPS_TIP.format(fps=stepped) if stepped else _CAMERA_LIMITED_TIP
         self._fps_lbl.setToolTip(tip)
         self._note_throughput(behind)
 

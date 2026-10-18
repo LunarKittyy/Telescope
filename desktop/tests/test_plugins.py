@@ -129,6 +129,14 @@ def test_stream_output_resolution_populates_from_phone_state(stream_output):
     assert plugin.get_stream_params() == (None, None, 30)
 
 
+def test_stream_output_diagnostics_say_which_h264_profile_the_phone_runs(stream_output):
+    plugin, _host, _panel = stream_output
+    plugin.on_phone_state({"cameras": [], "codec": "h264", "h264_profile": "high"})
+    assert plugin.diagnostics()["H.264 profile"] == "high"
+    plugin.on_phone_state({"cameras": []})  # an older phone, or MJPEG: nothing to say
+    assert "H.264 profile" not in plugin.diagnostics()
+
+
 def test_stream_output_saved_resolution_wins_over_default_and_live(stream_output):
     """A device with a saved preference gets that preference, not our default or the phone's live guess."""
     plugin, _host, _panel = stream_output
@@ -1192,7 +1200,7 @@ def test_stream_quality_and_bitrate_reset_on_a_double_click(stream_output):
     QTest.mouseDClick(plugin._quality_slider, Qt.MouseButton.LeftButton)
     QTest.mouseDClick(plugin._bitrate_slider, Qt.MouseButton.LeftButton)
     assert (plugin._quality_slider.value(), plugin._bitrate_slider.value()) == (85, 0)  # 0 is Auto
-    assert plugin._bitrate_slider.toolTip().startswith("Auto: about 8 Mbps")  # its own tip stays
+    assert plugin._bitrate_slider.toolTip().startswith("All the way right is Dynamic")  # its own tip stays
 
 
 def test_jpeg_quality_stops_at_95_and_marks_the_recommended_spot(stream_output):

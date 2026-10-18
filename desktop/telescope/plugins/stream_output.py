@@ -26,8 +26,7 @@ _MAX_BITRATE_MBPS = 100  # the phone clamps to the same range, and to what its e
 # an older desktop reads as Auto and an older phone treats as Auto.
 _DYNAMIC_POS = _MAX_BITRATE_MBPS + 1
 _DYNAMIC = -1
-_BITRATE_TIP = ("Auto: about 8 Mbps at 1080p30. All the way right is Dynamic: as much as the connection carries, "
-                "lowered before it lags, and fewer frames per second when the connection is very slow.")
+_BITRATE_TIP = "All the way right is Dynamic, which follows what the connection carries."
 _NO_DYNAMIC_TIP = " This phone's app is too old for Dynamic and uses Auto until it's updated."
 
 FORMAT_MJPEG = "mjpeg"
@@ -137,6 +136,7 @@ class StreamOutputPlugin(TelescopePlugin):
         self._format = FORMAT_H264
         self._phone_codecs: tuple = ()  # what the phone reported; () until it has
         self._phone_dynamic = None  # whether the phone takes Dynamic; None until it has reported
+        self._h264_profile = None  # what the phone's encoder runs ("high", "baseline", "auto"); older phones don't say
         self._phone_picked = True  # another source (Browser camera) says what helps itself
         self._h264_sizes = None  # the sizes the lens's H.264 encoder takes, as a set; None until a phone says
         self._good_size = None  # the last size a Light stream ran at without trouble, to go back to when one fails
@@ -289,6 +289,7 @@ class StreamOutputPlugin(TelescopePlugin):
             self._show_format()
         if "cameras" in state:
             self._phone_dynamic = bool(state.get("dynamic_bitrate"))
+            self._h264_profile = state.get("h264_profile") if isinstance(state.get("h264_profile"), str) else None
             self._show_bitrate()
         back = None
         if self._format == FORMAT_H264 and codecs and FORMAT_H264 not in codecs:
@@ -519,6 +520,7 @@ class StreamOutputPlugin(TelescopePlugin):
         self._forget_sizes()
         self._phone_codecs = ()  # another phone: unknown until it reports
         self._phone_dynamic = None
+        self._h264_profile = None
         self._show_format()
         self._show_bitrate()
 
@@ -673,6 +675,7 @@ class StreamOutputPlugin(TelescopePlugin):
             "FPS": str(self._fps()) + (f" ({self._wanted_fps} chosen)" if self._fps() != self._wanted_fps else ""),
             "Bitrate": self._bitrate_val_lbl.text() + (" (phone uses Auto)" if self._dynamic() and
                                                        self._phone_dynamic is False else ""),
+            **({"H.264 profile": self._h264_profile} if self._h264_profile else {}),
         }
 
     def get_config(self) -> dict:

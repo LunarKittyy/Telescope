@@ -14,30 +14,124 @@ from telescope.audio import BYTES_PER_MS, AudioWorker, FifoSink, JitterBuffer
 from telescope.platform import virtual_mic
 
 
-def test_jitter_buffer_waits_for_the_target_then_plays_in_order():
-    jb = JitterBuffer(target_ms=20, max_ms=100)
-    jb.push(b"\x01\x00" * (10 * BYTES_PER_MS // 2))
+def _pcm(samples) -> bytes:
+    return np.asarray(np.rint(samples), np.int16).tobytes()
+
+
+def _sine(n, start=0, freq=440.0, amp=10000):
+    return amp * np.sin(2 * np.pi * freq * (np.arange(n) + start) / audio.RATE)
+
+
+class _Clock:
+    def __init__(self):
+        self.t = 0.0
+
+    def __call__(self):
+        return self.t
+
+
+def _steady(jb, clock, seconds, phone_speed=1.0, freq=440.0):
+    """Phone pushes 10 ms chunks at phone_speed while the writer pops 10 ms; returns what came out and the fill each pop."""
+    out, fills, sent, owed = [], [], 0, 0.0
+    chunk = audio.CHUNK // 2
+    for _ in range(int(seconds * 100)):
+        clock.t += 0.01
+        owed += chunk * phone_speed
+        n = int(owed) - sent
+        jb.push(_pcm(_sine(n, sent, freq)))
+        sent += n
+        out.append(np.frombuffer(jb.pop(audio.CHUNK), np.int16))
+        fills.append(jb.buffered_ms())
+    return np.concatenate(out).astype(np.float32), fills
+
+
+def _biggest_step(samples):
+    return float(np.abs(np.diff(samples)).max())
+
+
+def test_jitter_buffer_waits_for_the_target_then_fades_in_and_plays_in_order():
+    jb = JitterBuffer(target_ms=20, adaptive=False)
+    jb.push(_pcm(np.full(10 * audio.RATE // 1000, 1000)))
     assert jb.pop(4) == bytes(4)  # still filling: silence
-    jb.push(b"\x02\x00" * (10 * BYTES_PER_MS // 2))
-    assert jb.pop(4) == b"\x01\x00\x01\x00"
-    assert jb.buffered_ms() == 19
+    jb.push(_pcm(np.full(10 * audio.RATE // 1000, 1000)))
+    out = np.frombuffer(jb.pop(audio.CHUNK), np.int16)
+    assert out[0] == 0 and out[audio.FADE // 2] < 1000  # fading in, not starting at full level
+    assert (out[audio.FADE:] == 1000).all()
+    assert 9 <= jb.buffered_ms() <= 10
 
 
-def test_jitter_buffer_pads_a_gap_with_silence_and_refills():
-    jb = JitterBuffer(target_ms=1, max_ms=100)
-    jb.push(b"\x05\x00" * BYTES_PER_MS)  # 2 ms
-    jb.pop(BYTES_PER_MS * 2 - 2)
-    out = jb.pop(6)
-    assert out == b"\x05\x00" + bytes(4)
+def test_jitter_buffer_fades_out_when_it_runs_dry_and_refills():
+    jb = JitterBuffer(target_ms=10, adaptive=False)
+    jb.push(_pcm(np.full(15 * audio.RATE // 1000, 1000)))
+    jb.pop(audio.CHUNK)
+    out = np.frombuffer(jb.pop(audio.CHUNK), np.int16)  # only 5 ms left
+    played = out[out != 0]
+    assert played.size and played[-1] < 100  # faded down, not cut off at 1000
+    assert (out[played.size:] == 0).all()
     assert jb.pop(4) == bytes(4)  # refilling again
 
 
-def test_jitter_buffer_drops_the_oldest_audio_when_the_phone_runs_ahead():
-    jb = JitterBuffer(target_ms=10, max_ms=30)
-    jb.push(b"\x01\x00" * (20 * BYTES_PER_MS // 2))
-    jb.push(b"\x02\x00" * (20 * BYTES_PER_MS // 2))  # 40 ms > max: back down to 10
-    assert jb.buffered_ms() == 10
-    assert jb.pop(2) == b"\x02\x00"
+def test_jitter_buffer_holds_the_target_when_the_phones_clock_runs_fast_or_slow():
+    for speed in (1.001, 0.999):
+        clock = _Clock()
+        jb = JitterBuffer(target_ms=40, clock=clock, adaptive=False)
+        out, fills = _steady(jb, clock, 120, phone_speed=speed)
+        settled = fills[1000:]
+        assert 20 <= min(settled) and max(settled) <= 40, speed  # never cut back, never ran dry (read just after a pop)
+        assert _biggest_step(out[5000:]) < 650, speed  # a 440 Hz sine at 10000 moves at most ~575 a sample
+
+
+def test_jitter_buffer_drift_correction_keeps_high_notes_sharp():
+    clock = _Clock()
+    jb = JitterBuffer(target_ms=40, clock=clock, adaptive=False)
+    out, _ = _steady(jb, clock, 10, phone_speed=1.002, freq=8000)
+    assert np.abs(out[audio.RATE * 5:]).max() > 9500  # straight-line interpolation would lose a lot of this
+
+
+def test_jitter_buffer_fades_back_to_the_target_when_far_behind():
+    clock = _Clock()
+    jb = JitterBuffer(target_ms=20, max_ms=60, clock=clock, adaptive=False)
+    out, fills = _steady(jb, clock, 1)
+    jb.push(_pcm(_sine(200 * audio.RATE // 1000, 100 * audio.CHUNK // 2)))  # 200 ms arrive at once
+    after = np.frombuffer(jb.pop(audio.CHUNK), np.int16).astype(np.float32)
+    assert jb.buffered_ms() <= 25
+    assert _biggest_step(np.concatenate((out[-10:], after))) < 1500  # crossfaded, not a jump
+
+
+def test_jitter_buffer_grows_the_target_when_audio_arrives_unevenly_then_shrinks_again():
+    clock = _Clock()
+    jb = JitterBuffer(target_ms=20, clock=clock)
+    _steady(jb, clock, 2)
+    assert jb.target_ms() == 20
+    clock.t += 0.08  # 80 ms with nothing, then it all arrives
+    jb.push(_pcm(_sine(80 * audio.RATE // 1000)))
+    assert jb.target_ms() >= 70  # 70 ms later than the rest, plus a margin
+    _steady(jb, clock, 30)
+    assert jb.target_ms() < 40
+
+
+def test_audio_lost_on_the_way_doesnt_keep_the_target_up():
+    clock = _Clock()
+    jb = JitterBuffer(target_ms=20, clock=clock)
+    _steady(jb, clock, 2)
+    clock.t += 1.3  # the phone's mic reopened: 1.3 s of audio that never comes
+    jb.push(_pcm(_sine(480)))
+    assert jb.target_ms() == audio.MAX_TARGET_MS
+    _steady(jb, clock, 30)
+    assert jb.target_ms() < 30
+
+
+def test_jitter_buffer_caps_what_piles_up_while_nothing_reads():
+    jb = JitterBuffer(target_ms=20, adaptive=False)
+    for _ in range(300):
+        jb.push(_pcm(np.zeros(audio.CHUNK // 2)))
+    assert jb.buffered_ms() <= 20 + 130 + audio.MAX_BACKLOG_MS
+
+
+def test_usb_starts_with_a_shorter_buffer_than_wifi():
+    assert audio._target_for("https://127.0.0.1:5000/v1/audio") == audio.USB_TARGET_MS
+    assert audio._target_for("https://192.168.1.20:8443/v1/audio") == audio.WIFI_TARGET_MS
+    assert audio._target_for("browser:/audio") == audio.WIFI_TARGET_MS
 
 
 class _Resp:
@@ -419,3 +513,84 @@ def test_remove_stale_source_is_quiet_without_a_sound_server():
 
     virtual_mic.remove_stale_source(pactl)
     assert calls == [["pactl", "list", "short", "modules"]]
+
+
+# ── Automatic level ───────────────────────────────────────────────────────────
+
+def _talk(seconds, db, pause_db=-70.0, seed=1):
+    """Speech-ish: 300 ms of tone at db (RMS dBFS), then 100 ms of room noise at pause_db."""
+    rng = np.random.default_rng(seed)
+    n = int(seconds * audio.RATE)
+    t = np.arange(n)
+    tone = np.sin(2 * np.pi * 220 * t / audio.RATE) * np.sqrt(2) * audio.FULL_SCALE * 10 ** (db / 20)
+    noise = rng.standard_normal(n) * audio.FULL_SCALE * 10 ** (pause_db / 20)
+    talking = (t % (audio.RATE * 4 // 10)) < audio.RATE * 3 // 10
+    return np.where(talking, tone, noise)
+
+
+def _shape_all(w, samples):
+    chunk = audio.CHUNK // 2
+    out = [np.frombuffer(w._shape(_pcm(samples[i:i + chunk])), np.int16) for i in range(0, len(samples) - chunk + 1, chunk)]
+    return np.concatenate(out).astype(np.float32)
+
+
+def _rms_db(samples):
+    return 20 * np.log10(np.sqrt(np.mean(samples * samples)) / audio.FULL_SCALE)
+
+
+def _speech_db(samples):
+    t = np.arange(samples.size)
+    talking = (t % (audio.RATE * 4 // 10)) < audio.RATE * 3 // 10
+    return _rms_db(samples[talking])
+
+
+def _auto_worker():
+    w, _ = _worker(lambda req, timeout: _Resp(b""), _Sink())
+    w.auto_level = True
+    return w
+
+
+def test_automatic_level_brings_quiet_speech_up():
+    w = _auto_worker()
+    out = _shape_all(w, _talk(8, -34))
+    assert abs(_speech_db(out[-audio.RATE * 2:]) - audio.AUTO_TARGET_DB) < 2
+
+
+def test_automatic_level_brings_loud_speech_down():
+    w = _auto_worker()
+    out = _shape_all(w, _talk(4, -10))
+    assert abs(_speech_db(out[-audio.RATE * 2:]) - audio.AUTO_TARGET_DB) < 2
+
+
+def test_automatic_level_doesnt_turn_up_the_room_while_nobody_speaks():
+    w = _auto_worker()
+    _shape_all(w, _talk(6, -26))
+    held = w._auto_db
+    _shape_all(w, _talk(5, -48, pause_db=-45))  # only the room now, with a fan going
+    assert w._auto_db <= held + 0.5
+
+
+def test_automatic_level_changes_gain_without_clicks():
+    w = _auto_worker()
+    out = _shape_all(w, _talk(3, -10))
+    tone_step = 2 * np.pi * 220 / audio.RATE * np.sqrt(2) * audio.FULL_SCALE * 10 ** (-10 / 20)
+    assert _biggest_step(out) < tone_step * 1.2  # never a jump bigger than the loudest tone itself makes
+
+
+def test_automatic_level_is_off_unless_asked_for():
+    w, _ = _worker(lambda req, timeout: _Resp(b""), _Sink())
+    quiet = _talk(1, -34)
+    assert np.array_equal(_shape_all(w, quiet), np.rint(quiet[:len(quiet) // 480 * 480]).astype(np.int16).astype(np.float32))
+
+
+def test_switching_automatic_level_off_fades_its_gain_out():
+    w = _auto_worker()
+    talk = _talk(6, -34)
+    before = _shape_all(w, talk)
+    assert w._auto_db > 10
+    w.auto_level = False
+    after = _shape_all(w, talk[:audio.RATE])
+    assert w._auto_db == 0.0
+    joined = np.concatenate((before[-audio.RATE:], after))
+    assert _biggest_step(joined) <= _biggest_step(before[-audio.RATE:]) * 1.05  # no jump down to the plain level
+    assert np.allclose(after[-audio.RATE // 2:], np.rint(talk[audio.RATE // 2:audio.RATE]), atol=1)

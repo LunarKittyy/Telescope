@@ -104,6 +104,10 @@ class SourceHost(Protocol):
         """source's stream, with the camera off, is back (or moved to another route)."""
         ...
 
+    def stream_moved(self, source: "Source") -> None:
+        """source's stream moved to another route without a gap (hand_over): the plugins hear about the new one."""
+        ...
+
     def lost_contact(self, source: "Source") -> None:
         """source's camera is off and its phone stopped answering: look for it like a dropped stream."""
         ...
@@ -329,7 +333,7 @@ class PhoneSource(Source):
     _sig_wake_progress = pyqtSignal(int, str)  # wake_id, status text
     _sig_recovery_probed = pyqtSignal(int, int, object)  # session id, recovery generation, Resolution
     # session id, frames arriving per second, the phone's camera rate, the rate Dynamic stepped down to (0: none)
-    _sig_camera_rate = pyqtSignal(int, float, float, int)
+    _sig_camera_rate = pyqtSignal(int, float, float, int, int)
     _sig_alive = pyqtSignal(int, bool)  # session id, whether the phone answered (camera off)
     _sig_camera_check = pyqtSignal(int, object)  # session id, the phone's state after turning the camera on (or None)
 
@@ -343,6 +347,7 @@ class PhoneSource(Source):
         # The generation drops probes from an earlier drop.
         self._recovery_gen = 0
         self._recovery_route = None  # the route recovery last moved the stream to
+        self._handover = None  # (session id, route, url) of a hand_over() under way
         self._state_poll_busy = False  # one recovery state poll at a time: an unreachable phone takes 4 s to time out
         self._recovery_timer = QTimer(self)
         self._recovery_timer.setSingleShot(True)
@@ -352,6 +357,7 @@ class PhoneSource(Source):
         self._camera_fps: Optional[float] = None  # 0: not known
         self._camera_fps_until = 0.0
         self.dynamic_fps = 0  # the rate the phone's Dynamic stepped down to for a slow link, as last asked; 0 = none
+        self.heat_fps = 0  # the rate the phone capped itself at for its heat, as last asked; 0 = none
         self._alive_timer = QTimer(self)
         self._alive_timer.setInterval(_ALIVE_POLL_MS)
         self._alive_timer.timeout.connect(self._check_alive)
@@ -454,9 +460,11 @@ class PhoneSource(Source):
         conn = self._host.connection()
         if conn is not None and hasattr(conn, "release_stream"):
             conn.release_stream(self.id)
+        self._handover = None  # a stopped worker says nothing more about it
         self._alive_timer.stop()
         self._camera_fps = None
         self.dynamic_fps = 0
+        self.heat_fps = 0
 
     def _stop_phone_async(self, target=None):
         """Tell phone to shut camera down; tracked thread lets quit path wait for it."""
@@ -635,6 +643,42 @@ class PhoneSource(Source):
         else:
             host.mic_reconnected(self)  # camera off: the mic follows the new route, and nothing else waits for it
 
+    # ── Moving to another route without a gap ─────────────────────────────
+
+    def hand_over(self, route) -> bool:
+        """Open the stream on route next to the running one and move over once it's healthy (plugging in USB while
+        streaming over Wi-Fi). False if it can't try now; the Connection card hears how it went either way."""
+        session = self.session
+        conn = self._host.connection()
+        if session is None or session.worker is None or self.recovering or self._handover is not None or conn is None:
+            return False
+        url = conn.prepare_stream_route(route, self.id)
+        if url is None:
+            return False
+        if not session.worker.hand_over(url):
+            conn.drop_stream_route(self.id)
+            return False
+        self._handover = (session.id, route, url)
+        return True
+
+    def on_moved(self, url: str):
+        pending, self._handover = self._handover, None
+        session = self.session
+        conn = self._host.connection()
+        if pending is None or session is None or session.id != pending[0] or pending[2] != url or conn is None:
+            return
+        conn.commit_stream_route(self.id)
+        session.client.retarget(url)  # the same client, so its settings carry on
+        self._host.set_session(self, replace(session, url=url))
+        self._host.stream_moved(self)
+
+    def on_move_failed(self, url: str):
+        pending, self._handover = self._handover, None
+        conn = self._host.connection()
+        if pending is None or pending[2] != url or conn is None:
+            return
+        conn.drop_stream_route(self.id, failed=True)
+
     # ── Frames arriving slowly ────────────────────────────────────────────
 
     def check_camera_rate(self, session: "StreamSession", arrival: float):
@@ -655,19 +699,23 @@ class PhoneSource(Source):
         state = session.client.get_state() if session is not None and session.id == session_id else None
         rate = state.get("camera_fps") if state else None
         stepped = state.get("dynamic_fps") if state else None
+        heat = state.get("heat_fps") if state else None
         try:
             self._sig_camera_rate.emit(session_id, arrival, float(rate) if isinstance(rate, (int, float)) else 0.0,
-                                       stepped if isinstance(stepped, int) and stepped > 0 else 0)
+                                       stepped if isinstance(stepped, int) and stepped > 0 else 0,
+                                       heat if isinstance(heat, int) and not isinstance(heat, bool) and heat > 0 else 0)
         except RuntimeError:
             pass  # the window is gone
 
-    def _on_camera_rate(self, session_id: int, arrival: float, camera_fps: float, dynamic_fps: int = 0):
+    def _on_camera_rate(self, session_id: int, arrival: float, camera_fps: float, dynamic_fps: int = 0,
+                        heat_fps: int = 0):
         self._camera_check_busy = False
         session = self.session
         if session is None or session.id != session_id or not self._host.is_focused(self):
             return
         self._camera_fps = camera_fps
         self.dynamic_fps = dynamic_fps
+        self.heat_fps = heat_fps
         self._camera_fps_until = time.monotonic() + _CAMERA_FPS_KEEP_S
         if self.arrival_slow:
             self._host.show_slow(camera_limited=self._camera_limits(arrival))

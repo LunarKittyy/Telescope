@@ -28,6 +28,8 @@ class _Host:
         self.saves = 0
         self.switches = []
         self.reconnects = 0
+        self.hand_overs = []
+        self.hand_over_ok = True
         self.stops = 0
         self.forgotten = []
         self.streaming = False
@@ -78,6 +80,10 @@ class _Host:
 
     def reconnect_stream(self, _source_id=None):
         self.reconnects += 1
+
+    def hand_over_stream(self, route, source_id=None):
+        self.hand_overs.append((route, source_id))
+        return self.hand_over_ok
 
     def is_streaming(self):
         return self.streaming
@@ -887,7 +893,7 @@ def test_linux_virtual_camera_without_a_password_prompt_shows_the_command(plugin
 
 # ── Plugged in mid-stream ─────────────────────────────────────────────────────
 
-def test_streaming_over_wifi_in_automatic_watches_for_usb(plugin_env):
+def test_streaming_over_wifi_in_automatic_moves_to_usb_once_its_plugged_in(plugin_env):
     plugin, host, _panel = plugin_env
     _add(plugin)
     plugin._stream_route = WIFI
@@ -895,11 +901,61 @@ def test_streaming_over_wifi_in_automatic_watches_for_usb(plugin_env):
     assert plugin._usb_watch_timer.isActive()
 
     plugin._watch_id = 4
-    plugin._on_usb_available(4, True)
+    plugin._on_usb_available(4, None)
+    assert host.hand_overs == []
+    plugin._on_usb_available(4, USB)
+    assert host.hand_overs == [(USB, "id-a")]  # no gap, so no need to ask first
+    assert plugin._switch_usb_row.isHidden()
+
+
+def test_a_hand_over_holds_both_routes_until_it_moves_then_only_the_new_one(plugin_env):
+    plugin, _host, _panel = plugin_env
+    _add(plugin)
+    plugin._holds["id-a"] = (WIFI, None)
+    plugin._paths["id-a"] = "/v1/video.h264"
+    assert plugin.prepare_stream_route(USB, "id-a") == "https://127.0.0.1:41000/v1/video.h264"
+    assert plugin.prepare_stream_route(USB, "id-a") is None  # one at a time
+    assert plugin._tunnels.held == {("serial-1", 8080): 1}
+    assert plugin._holds["id-a"] == (WIFI, None)  # still on Wi-Fi meanwhile
+    plugin.commit_stream_route("id-a")
+    assert plugin._holds["id-a"] == (USB, "serial-1")
+    plugin.release_stream("id-a")
+    assert plugin._tunnels.held == {}
+
+
+def test_a_failed_hand_over_lets_go_of_usb_and_offers_the_button_instead(plugin_env):
+    plugin, host, _panel = plugin_env
+    _add(plugin)
+    plugin._stream_route = WIFI
+    plugin.on_stream_start("url", None)
+    plugin._holds["id-a"] = (WIFI, None)
+    assert plugin.prepare_stream_route(USB, "id-a")
+    plugin.drop_stream_route("id-a", failed=True)
+    assert plugin._tunnels.held == {} and plugin._holds["id-a"] == (WIFI, None)
     assert not plugin._switch_usb_row.isHidden()
+    plugin._watch_id = 4
+    plugin._on_usb_available(4, USB)
+    assert host.hand_overs == []  # USB sits out, and the button does it by hand
     plugin._switch_usb_btn.click()
     assert host.reconnects == 1
     assert plugin._switch_usb_row.isHidden()
+
+
+def test_usb_that_dropped_a_stream_isnt_handed_straight_back_to(plugin_env, monkeypatch):
+    plugin, host, _panel = plugin_env
+    _add(plugin)
+    plugin._stream_route = USB
+    plugin.on_stream_start("url", None)
+    plugin._connected = True
+    plugin._on_stream_lost(plugin._host.focused_source_id() or "")
+    plugin._stream_route = WIFI  # recovery found it over Wi-Fi
+    plugin.on_stream_start("url", None)
+    plugin._watch_id = 4
+    plugin._on_usb_available(4, USB)
+    assert host.hand_overs == []
+    monkeypatch.setattr(connection_module.time, "monotonic", lambda: plugin._usb_sat_out + 11)
+    plugin._on_usb_available(4, USB)
+    assert host.hand_overs == [(USB, "id-a")]
 
 
 def test_no_usb_watch_when_wifi_was_chosen_explicitly_or_already_on_usb(plugin_env):
@@ -918,14 +974,14 @@ def test_no_usb_watch_when_wifi_was_chosen_explicitly_or_already_on_usb(plugin_e
 
 
 def test_a_usb_answer_after_the_stream_stopped_is_ignored(plugin_env):
-    plugin, _host, _panel = plugin_env
+    plugin, host, _panel = plugin_env
     _add(plugin)
     plugin._stream_route = WIFI
     plugin.on_stream_start("url", None)
     plugin._watch_id = 4
     plugin.on_stream_stop()
-    plugin._on_usb_available(4, True)
-    assert plugin._switch_usb_row.isHidden()
+    plugin._on_usb_available(4, USB)
+    assert plugin._switch_usb_row.isHidden() and host.hand_overs == []
 
 
 # ── A dropped stream ──────────────────────────────────────────────────────────
@@ -1338,3 +1394,17 @@ def test_the_help_button_asks_for_the_setup_guide(plugin_env):
     plugin._guide_btn.click()
     assert asked == [True]
     assert plugin._guide_btn.accessibleName() == "Setup guide"
+
+
+def test_a_usb_check_that_finishes_after_the_move_doesnt_start_another(plugin_env):
+    plugin, host, _panel = plugin_env
+    _add(plugin)
+    plugin._stream_route = WIFI
+    plugin.on_stream_start("url", None)
+    plugin._watch_usb()
+    stale = plugin._watch_id
+    plugin._holds["id-a"] = (USB, "serial-1")  # the hand-over moved it meanwhile
+    plugin.on_stream_start("url", None)
+    plugin._on_usb_available(stale, USB)
+    assert host.hand_overs == []
+    assert plugin.prepare_stream_route(USB, "id-a") is None  # it's on that one already

@@ -128,3 +128,25 @@ class DynamicFrameRateTest {
         assertTrue(queueMs < 200, "video still queueing: $queueMs ms")
     }
 }
+
+class HeatStepTest {
+    @Test
+    fun `severe caps at 24 and critical at 15, cooler leaves the rate alone`() {
+        assertEquals(null, HeatStep.cap(2, 30))
+        assertEquals(24, HeatStep.cap(HeatStep.SEVERE, 30))
+        assertEquals(15, HeatStep.cap(HeatStep.CRITICAL, 60))
+        assertEquals(15, HeatStep.cap(6, 30))  // shutdown is past critical
+    }
+
+    @Test
+    fun `a rate already under the cap isn't touched`() {
+        assertEquals(null, HeatStep.cap(HeatStep.SEVERE, 24))
+        assertEquals(null, HeatStep.cap(HeatStep.CRITICAL, 15))
+    }
+
+    @Test
+    fun `it caps at the fastest rate the camera can be held to under the limit`() {
+        assertEquals(20, HeatStep.cap(HeatStep.SEVERE, 30) { it != 24 })
+        assertEquals(null, HeatStep.cap(HeatStep.SEVERE, 30) { false })
+    }
+}
