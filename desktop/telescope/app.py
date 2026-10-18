@@ -550,7 +550,7 @@ class TelescopeWindow(QMainWindow):
         self._add_btn.setVisible(False)
         lay.addWidget(self._add_btn)
 
-        self._start_btn = QPushButton("Start Streaming")
+        self._start_btn = QPushButton("Start streaming")
         self._start_btn.setObjectName("start_btn")
         self._start_btn.setProperty("uiRole", "primary")
         self._start_btn.setProperty("streaming", False)
@@ -568,7 +568,7 @@ class TelescopeWindow(QMainWindow):
         if not streaming and not self.is_camera_on():
             self._start_btn.setText("Start mic only")
         else:
-            self._start_btn.setText(verb if self._layout_mode == "one" else f"{verb} Streaming")
+            self._start_btn.setText(verb if self._layout_mode == "one" else f"{verb} streaming")
         self._start_btn.setIcon(
             create_vector_icon("stop" if streaming else "play", "#ffffff"))
         self._start_btn.setProperty("streaming", streaming)

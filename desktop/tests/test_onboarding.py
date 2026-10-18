@@ -77,7 +77,7 @@ def test_checklist_steps_aside_after_the_first_stream(env):
     plugin, bus, card, needed = env
     plugin._on_vcam(True, "")
     bus.phones_changed.emit(1)
-    assert not card.isHidden()  # paired and ready, but step 4 still points at Start Streaming
+    assert not card.isHidden()  # paired and ready, but step 4 still points at Start streaming
     assert plugin._pair.badge.text() == "✓"
     assert "top right" in plugin._start.text.text()
     bus.stream_started.emit("url")
