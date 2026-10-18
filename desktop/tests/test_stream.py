@@ -157,7 +157,7 @@ def test_reconnect_returns_first_capture_with_a_readable_frame(monkeypatch):
     good = _Capture([(True, np.zeros((1, 1, 3), dtype=np.uint8))])
     captures = iter([bad, empty, good])
     worker = stream.StreamWorker("url", None, None, 30)
-    monkeypatch.setattr(stream, "RECONNECT_DELAY", 0)
+    monkeypatch.setattr(stream, "DROP_RETRY_DELAY", 0)
     monkeypatch.setattr(worker, "_open_cap", lambda: next(captures))
 
     result = worker._reconnect_cap(threading.Event())
@@ -808,7 +808,7 @@ def test_hand_over_fails_on_a_route_that_wont_open(qapp, monkeypatch):
 def test_a_stream_that_drops_mid_hand_over_carries_on_on_the_new_route(qapp, monkeypatch):
     new = _Live(2)
     worker, moved, _failed = _handover_worker(monkeypatch, new)
-    monkeypatch.setattr(stream, "RECONNECT_DELAY", 0)
+    monkeypatch.setattr(stream, "DROP_RETRY_DELAY", 0)
     monkeypatch.setattr(worker, "_open_cap", lambda: _Capture(opened=False))
     assert worker.hand_over("https://127.0.0.1:41000/v1/video")
     assert _until(lambda: worker._handover_ready is not None)
