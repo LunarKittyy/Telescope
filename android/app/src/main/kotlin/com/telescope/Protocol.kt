@@ -71,6 +71,7 @@ data class V1State(
     val low_light: Boolean = false,  // auto exposure may slow the camera down in the dark (and noise reduction is high)
     val low_light_toggle: Boolean = false,  // takes low_light; set by every phone that can
     val h264_profile: String? = null,  // "high", "baseline" or "auto" while H.264 runs
+    val intra_refresh: Boolean = false,  // H.264 refreshes the picture over a second of frames instead of keyframes
     val codec_error: String? = null,
     val codec_unsupported: Boolean = false,  // codec_error is H.264 not doing this size or rate here, not a crash
     val active_lens: String? = null,  // the lens a multi-lens camera is streaming from right now

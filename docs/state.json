@@ -76,6 +76,7 @@
     "low_light": true,
     "low_light_toggle": true,
     "h264_profile": "high",
+    "intra_refresh": true,
     "codec_error": "The phone's H.264 encoder stopped",
     "codec_unsupported": true,
     "active_lens": "2",

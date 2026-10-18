@@ -45,6 +45,7 @@ data class CameraControlSnapshot(
     val dynamicFps:        Int = 0,  // the rate Dynamic stepped down to for a slow link; 0 = the rate asked for
     val lowLight:          Boolean = false,
     val h264Profile:       String? = null,  // "high", "baseline" or "auto" while H.264 runs
+    val intraRefresh:      Boolean = false,  // the encoder refreshes the picture gradually instead of with keyframes
     val heatFps:           Int = 0,  // the rate the phone's heat capped the camera at; 0 = not capped
 )
 
@@ -182,6 +183,7 @@ class CameraSessionController(
         dynamicFps      = frameRate?.cap ?: 0,
         lowLight        = currentLowLight,
         h264Profile     = encoder?.profile?.wire,
+        intraRefresh    = encoder?.intraRefresh == true,
         heatFps         = heatCap()?.takeIf { it < (frameRate?.cap ?: currentPhoneFps) } ?: 0,
     )
 

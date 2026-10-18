@@ -133,6 +133,9 @@ def test_stream_output_diagnostics_say_which_h264_profile_the_phone_runs(stream_
     plugin, _host, _panel = stream_output
     plugin.on_phone_state({"cameras": [], "codec": "h264", "h264_profile": "high"})
     assert plugin.diagnostics()["H.264 profile"] == "high"
+    assert plugin.diagnostics()["H.264 refresh"] == "keyframes"
+    plugin.on_phone_state({"cameras": [], "codec": "h264", "h264_profile": "high", "intra_refresh": True})
+    assert plugin.diagnostics()["H.264 refresh"] == "intra refresh"
     plugin.on_phone_state({"cameras": []})  # an older phone, or MJPEG: nothing to say
     assert "H.264 profile" not in plugin.diagnostics()
 
