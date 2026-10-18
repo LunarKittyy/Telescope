@@ -196,6 +196,9 @@ Qt-free address helpers for pairing and routing.
 - `MAX_PAIRING_CANDIDATES = 8` - cap on what goes into the QR code.
 - `rank_ip()` / `valid_ipv4()` - used on the *phone's* reported addresses when choosing which to probe.
 
+### `pyav_vaapi.py`
+A second PyAV with VA-API for AMD and Intel graphics cards on Linux, since PyAV's wheel leaves VA-API out. `activate()` runs in `main.py` before anything imports av: if Advanced picked one (`choice.json` under `~/.local/share/Telescope/pyav-vaapi/`), `probe()` checks it in a separate process (loads from its folder, PyAV 14 or newer, VA-API opens) and only then puts it first on `sys.path`; otherwise `problem` says why and the venv's own PyAV loads. `find_system()` / `link_system()` give the distro's av in a folder of its own, `build()` builds the venv's PyAV version from source against the system FFmpeg (no pip cache, so never against an FFmpeg since replaced), `missing_tools()` and `install_command()` say what a build needs.
+
 ### `pinned_https.py`
 HTTPS to a paired phone, trusting only the certificate fingerprint it gave at pairing. Qt-free.
 - `PhoneAuth(token, pin)` - `headers()` for the bearer header, `open(req, timeout)` like `urlopen`. An `https://` URL needs a pin, and the certificate is checked right after the handshake, before any request byte goes out. No redirects, no proxies. Plain `http://` only works with no pin at all (tests' local servers), so a paired phone's token never goes out unencrypted.
@@ -293,6 +296,9 @@ Note: white balance sliders are built directly in `plugins/camera_control.py`, n
 
 ### `widgets/adb.py`
 Windows' **Get adb**: `confirm(parent)` asks first, naming Google's Android SDK License with a link, and `AdbDownload` runs `adb_download.download_adb` on a thread (`ask_and_start(window, starting)`, one at a time) and emits `progress(str)` and `finished(ok, version or why)` on the UI thread. Used by the Add phone dialog's USB line (a `get-adb` link) and Advanced's ADB row.
+
+### `widgets/vaapi_setup.py`
+**VaapiSetupDialog** - Advanced's Set up VA-API: the distro's PyAV (checked in the background), building one here (or the packages it needs and the command that installs them), what's in use, and Restart now when the pick changed.
 
 ### `widgets/controls.py`
 The redesign's card pieces, mostly painted so their text centres by its letters (`common.cap_baseline`, `stacked_baselines`) rather than Qt's line box: `ChoiceTile` (a dropdown drawn as a value tile or a captioned field), `ChipCombo`, `OptionCard` (a pick between a few choices, tinted in the card's hue), `SwitchTile`, `Tag`, `PanPad`, `RoundIcon`, and `setting_row` (Advanced's raised strip: name, a short line under it, the control on the right or below).

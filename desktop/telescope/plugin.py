@@ -217,6 +217,10 @@ class HostShell(Protocol):
         """Stop streaming, shut every plugin down and quit (the tray's Quit)."""
         ...
 
+    def restart_app(self) -> bool:
+        """Start a new copy of Telescope and quit this one (Restart now); False if the new one couldn't start."""
+        ...
+
     def diagnostics_report(self) -> str:
         """The Copy diagnostics text: version, system, each plugin's diagnostics() and recent events."""
         ...

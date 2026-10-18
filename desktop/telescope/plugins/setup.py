@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from telescope import diagnostics, h264_reader, theme, vcam
+from telescope import diagnostics, h264_reader, pyav_vaapi, theme, vcam
 from telescope.platform import IS_LINUX, adb_available, adb_devices, adb_install, bundled_apk_path
 from telescope.platform.linux import (
     CANCELLED, V4L2_OBS_DEV, V4L2_PHONE_DEV, as_text,
@@ -120,7 +120,7 @@ class AdvancedDialog(QDialog):
 
     def __init__(self, parent=None, on_apply_canvas=None, report=None, on_max_zoom=None, on_max_gain=None,
                  on_limiter=None, on_remove_extras=None, extras_in_use=None, on_hw_decode=None,
-                 on_plugin_hues=None):
+                 on_plugin_hues=None, on_vaapi=None):
         super().__init__(parent)
         self._on_remove_extras = on_remove_extras
         self._extras_in_use = extras_in_use or (lambda: False)
@@ -134,6 +134,7 @@ class AdvancedDialog(QDialog):
         self._on_max_gain = on_max_gain
         self._on_limiter = on_limiter
         self._on_hw_decode = on_hw_decode
+        self._on_vaapi = on_vaapi
         self._on_plugin_hues = on_plugin_hues
         self._build_ui()
         self._sig_v4l_result.connect(self._on_v4l_result)
@@ -272,9 +273,19 @@ class AdvancedDialog(QDialog):
         self._hw_chk.setToolTip("Decodes the Light format on the graphics card from the next stream on.")
         self._hw_chk.toggled.connect(lambda on: self._on_hw_decode(on) if self._on_hw_decode else None)
         # The line under it names the graphics card it would use, so one strip says whether it's on and what with
+        # On Linux without a card PyAV can use, VA-API can be set up for AMD and Intel ones (pyav_vaapi)
+        self._vaapi_btn = QPushButton("Set up VA-API…")
+        self._vaapi_btn.clicked.connect(lambda: self._on_vaapi() if self._on_vaapi else None)
+        self._vaapi_btn.setVisible(pyav_vaapi.supported() and (device is None or pyav_vaapi.chosen() is not None
+                                                                or bool(pyav_vaapi.problem)))
+        hw_controls = QHBoxLayout()
+        hw_controls.setContentsMargins(0, 0, 0, 0)
+        hw_controls.setSpacing(10)
+        hw_controls.addWidget(self._vaapi_btn)
+        hw_controls.addWidget(self._hw_chk)
         strip, self._hw_line = setting_row(
             "Hardware acceleration",
-            f"Found {_HW_NAMES.get(device, device)}" if device else "No graphics card Telescope can use", self._hw_chk)
+            f"Found {_HW_NAMES.get(device, device)}" if device else "No graphics card Telescope can use", hw_controls)
         strip.setToolTip(self._hw_chk.toolTip())
         video_lay.addWidget(strip)
         self._max_zoom_spin = NoScrollSpinBox()
@@ -809,7 +820,7 @@ class SetupPlugin(TelescopePlugin):
                                        on_limiter=self._on_limiter, on_plugin_hues=self._on_plugin_hues,
                                        on_remove_extras=lambda done: self._host.remove_extra_cameras(done),
                                        extras_in_use=lambda: self._host.stream_count() > 1,
-                                       on_hw_decode=self._on_hw_decode)
+                                       on_hw_decode=self._on_hw_decode, on_vaapi=self._open_vaapi)
         self._dlg.set_canvas_preset(self._canvas_preset, self._custom_w, self._custom_h)
         self._dlg.set_max_zoom(self._max_zoom)
         self._dlg.set_max_gain(self._max_gain)
@@ -847,6 +858,10 @@ class SetupPlugin(TelescopePlugin):
         self._bus.max_gain_changed.emit(value)
         self._host.schedule_save()
 
+    def _open_vaapi(self):
+        from telescope.widgets.vaapi_setup import VaapiSetupDialog
+        VaapiSetupDialog(self._dlg, self._host.restart_app).exec()
+
     def _on_hw_decode(self, on: bool):
         self._hw_decode = on
         h264_reader.set_hardware(on)
@@ -864,6 +879,17 @@ class SetupPlugin(TelescopePlugin):
         self._host.schedule_save()
 
     def diagnostics(self) -> dict:
+        return {**self._decoding(), **self._pyav()}
+
+    def _pyav(self) -> dict:
+        if pyav_vaapi.active:
+            which = "distro's" if pyav_vaapi.active["kind"] == pyav_vaapi.SYSTEM else "built here"
+            return {"PyAV": f"{pyav_vaapi.active['version']} ({which}, for VA-API)"}
+        if pyav_vaapi.problem:
+            return {"PyAV": f"standard (the VA-API one isn't used: {pyav_vaapi.problem})"}
+        return {}
+
+    def _decoding(self) -> dict:
         if not self._hw_decode:
             return {"Decoding": "processor"}
         if h264_reader.hardware_in_use():
