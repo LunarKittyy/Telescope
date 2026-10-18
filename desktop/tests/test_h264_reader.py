@@ -190,3 +190,12 @@ def test_no_graphics_card_decoder_means_software(hardware):
     dec = new_decoder()  # _open_hw finds nothing to open
     assert dec.hardware is None
     assert decode_newest(dec, _encode([90])) is not None
+
+
+def test_linux_tries_va_api_before_cuda_when_pyav_has_it(monkeypatch):
+    import av.codec.hwaccel
+    monkeypatch.setattr(h264_reader, "_HW_TYPES", ("vaapi", "cuda"))
+    monkeypatch.setattr(av.codec.hwaccel, "hwdevices_available", lambda: ["cuda", "drm", "vaapi"])
+    assert h264_reader._hw_types() == ["vaapi", "cuda"]
+    monkeypatch.setattr(av.codec.hwaccel, "hwdevices_available", lambda: ["cuda", "drm"])  # PyAV's own wheel
+    assert h264_reader._hw_types() == ["cuda"]
