@@ -42,8 +42,8 @@ _RAIL_WIDTH_SOLO  = 440  # two-column mode: the one rail holding every card
 _CAMERA_LIMITED_TIP = "The phone's camera is making fewer frames than asked for. Dim light slows it down."
 _DYNAMIC_FPS_TIP = ("Dynamic lowered the frame rate to {fps} fps, so each frame gets more of a slow connection. "
                     "It goes back up once there's room.")
-_HEAT_FPS_TIP = ("The phone is running hot, so it lowered the frame rate to {fps} fps to keep streaming. "
-                 "It goes back up once it cools down.")
+_HEAT_FPS_TIP = ("The phone is running hot and lowered the frame rate to {fps} fps to keep streaming instead of "
+                 "stopping. It goes back up once it cools down.")
 
 
 def _joined(words: list) -> str:

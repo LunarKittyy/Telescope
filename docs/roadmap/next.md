@@ -2,18 +2,19 @@
 
 Planned in October 2026, after 3.5. The order is only a rough suggestion. The first three are small, the middle ones need testing on real phones and the last two are bigger.
 
-- [ ] [Mic clock drift without clicks](#mic-clock-drift-without-clicks)
-- [ ] [Wi-Fi latency lock on the phone](#wi-fi-latency-lock-on-the-phone)
-- [ ] [Phone mic that reopens after an error](#phone-mic-that-reopens-after-an-error)
-- [ ] [H.264 High profile](#h264-high-profile)
-- [ ] [Stepping down on Android's thermal status](#stepping-down-on-androids-thermal-status)
-- [ ] [Frame rate changes without restarting the camera](#frame-rate-changes-without-restarting-the-camera)
-- [ ] [Moving to USB without a gap](#moving-to-usb-without-a-gap)
-- [ ] [One shared example of /v1/state for both apps](#one-shared-example-of-v1state-for-both-apps)
+- [x] [Mic clock drift without clicks](#mic-clock-drift-without-clicks)
+- [x] [Wi-Fi latency lock on the phone](#wi-fi-latency-lock-on-the-phone)
+- [x] [Phone mic that reopens after an error](#phone-mic-that-reopens-after-an-error)
+- [x] [H.264 High profile](#h264-high-profile)
+- [x] [Stepping down on Android's thermal status](#stepping-down-on-androids-thermal-status)
+- [x] [Frame rate changes without restarting the camera](#frame-rate-changes-without-restarting-the-camera)
+- [x] [Moving to USB without a gap](#moving-to-usb-without-a-gap)
+- [x] [One shared example of /v1/state for both apps](#one-shared-example-of-v1state-for-both-apps)
 
 Already merged:
 
 - [x] Credit to LunarKittyy next to the version in Advanced
+- [x] Auto level for the mic, off by default (noise reduction with RNNoise would need a native library in both builds, so it isn't in)
 
 ## Mic clock drift without clicks
 
@@ -47,11 +48,15 @@ Monitoring compares the battery temperature with the user's thresholds and then 
 
 Medium. The desktop should show when heat was the reason the frame rate dropped, the same way it does for Dynamic.
 
+The 720p step at critical isn't in yet. Changing the size mid-stream reaches a lot further than the frame rate does (the desktop's resolution picker, saved sizes, the encoder) and only the frame rate part has been tried on the emulator.
+
 ## Frame rate changes without restarting the camera
 
 Each step Dynamic frame rate takes restarts the phone's camera for a moment. With a GL stage between them the camera could keep running while frames get dropped before the encoder, but Telescope sends the camera straight into the encoder. `KEY_MAX_FPS_TO_ENCODER` (Android 10+) might do it without adding one, though nobody has checked yet whether it can change without setting the encoder up again (which would still be cheaper than restarting the camera).
 
 Needs a look at the APIs first. Lower priority than the rest.
+
+It went in for Android 10 and newer with a safety net. Three seconds after a step the phone counts what the encoder really put out, and an encoder that ignored the cap (the emulator's does) goes back to restarting the camera for the rest of the run.
 
 ## Moving to USB without a gap
 

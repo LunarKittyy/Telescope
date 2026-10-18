@@ -7,8 +7,8 @@ package com.telescope
  *
  * The signal is the bitrate [DynamicBitrate] settled on, which tracks what the link carries, against Auto's bitrate
  * for each rate. Well under it for a while steps down a rung; comfortably over the next rung's for longer steps back
- * up. Each step restarts the camera's session (the rate is part of its setup), so it waits between steps and never
- * goes under [MIN_FPS].
+ * up. A step has the encoder drop frames where it can (Android 10+), else it restarts the camera's session (the rate
+ * is part of its setup), so it waits between steps and never goes under [MIN_FPS].
  *
  * Only rates the camera can be held to are rungs ([canCapAt]): one whose ranges all go past a rate would keep
  * running faster than it, so stepping there would rebuild the session for nothing. A stall isn't a slower link
