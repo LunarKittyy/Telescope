@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
 
 from telescope import plugin_loader
 from telescope.widgets.common import (
+    Switch,
     add_section_heading, dialog_buttons, dialog_header, dialog_layout, set_ui_role, ui_px, wrapped_note,
 )
 
@@ -144,20 +145,16 @@ class PluginsDialog(QDialog):
         if locked:
             box = QLabel(title)  # no switch to grey out: a greyed box reads as off
         else:
-            box = QCheckBox(title)
+            box = Switch(title)
             box.setChecked(on)
         box.setToolTip(tooltip)
-        top.addWidget(box)
-        top.addStretch(1)
+        top.addWidget(box, 1)
         lay.addLayout(top)
-        indent = 0 if locked else ui_px(26)  # under the title, past the box
         if about:
             text = wrapped_note(about)
-            text.setContentsMargins(indent, 0, 0, 0)
             lay.addWidget(text)
         if note:
             extra = wrapped_note(note, note_kind)
-            extra.setContentsMargins(indent, 0, 0, 0)
             lay.addWidget(extra)
         return row, box, top
 

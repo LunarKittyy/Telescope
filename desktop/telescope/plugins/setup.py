@@ -5,11 +5,11 @@ from typing import Optional
 from PyQt6.QtCore import QSize, Qt, QTimer, QUrl, pyqtSignal
 from PyQt6.QtGui import QAction, QDesktopServices, QGuiApplication
 from PyQt6.QtWidgets import (
-    QButtonGroup, QCheckBox, QDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QPushButton, QScrollArea, QVBoxLayout,
+    QButtonGroup, QDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QPushButton, QScrollArea, QVBoxLayout,
     QWidget,
 )
 
-from telescope import diagnostics, h264_reader, vcam
+from telescope import diagnostics, h264_reader, theme, vcam
 from telescope.platform import IS_LINUX, adb_available, adb_devices, adb_install, bundled_apk_path
 from telescope.platform.linux import (
     CANCELLED, V4L2_OBS_DEV, V4L2_PHONE_DEV, as_text,
@@ -24,8 +24,10 @@ from telescope.plugin import TelescopePlugin
 from telescope.widgets.adb import AdbDownload
 from telescope.version import display_version
 from telescope.widgets.common import (
+    Switch,
     ElidingLabel, NoScrollComboBox, NoScrollSpinBox, SegmentButton, action_button, add_card_header, button_row, card_layout,
-    control_row, control_row_widget, create_card, dialog_buttons, dialog_header, dialog_layout, run_off_ui_thread, segmented_row,
+    control_row, control_row_widget, create_card, dialog_buttons, dialog_header, dialog_layout, refresh_hues,
+    run_off_ui_thread, segmented_row,
     set_status_kind, set_ui_role, ui_px, wrapped_note,
 )
 
@@ -113,7 +115,8 @@ class AdvancedDialog(QDialog):
     _sig_apk_done     = pyqtSignal(bool, str)
 
     def __init__(self, parent=None, on_apply_canvas=None, report=None, on_max_zoom=None, on_max_gain=None,
-                 on_limiter=None, on_remove_extras=None, extras_in_use=None, on_hw_decode=None):
+                 on_limiter=None, on_remove_extras=None, extras_in_use=None, on_hw_decode=None,
+                 on_plugin_hues=None):
         super().__init__(parent)
         self._on_remove_extras = on_remove_extras
         self._extras_in_use = extras_in_use or (lambda: False)
@@ -127,6 +130,7 @@ class AdvancedDialog(QDialog):
         self._on_max_gain = on_max_gain
         self._on_limiter = on_limiter
         self._on_hw_decode = on_hw_decode
+        self._on_plugin_hues = on_plugin_hues
         self._build_ui()
         self._sig_v4l_result.connect(self._on_v4l_result)
         self._sig_v4l_unload.connect(self._on_v4l_unload_result)
@@ -173,7 +177,7 @@ class AdvancedDialog(QDialog):
         # ── Virtual camera ────────────────────────────────────────────────────
         vc_card = create_card()
         vc_lay = card_layout(vc_card)
-        add_card_header(vc_lay, "Virtual camera", "stream")
+        add_card_header(vc_lay, "Virtual camera", "stream", hue="stream")
         if IS_LINUX:
             self._v4l_lbl = QLabel("Checking...")
             self._v4l_lbl.setWordWrap(True)
@@ -197,7 +201,7 @@ class AdvancedDialog(QDialog):
                 "Already says Ready? Leave these alone; they're only for fixing a \"not ready\" status."),
                 stretch=True))
 
-            self._persist_chk = QCheckBox("On")
+            self._persist_chk = Switch()
             self._persist_chk.setToolTip(
                 "Also writes it to /etc/modprobe.d/ and /etc/modules-load.d/, so it survives a reboot.\n" + _SUDO_HINT
             )
@@ -267,7 +271,7 @@ class AdvancedDialog(QDialog):
         # ── Phone app ─────────────────────────────────────────────────────────
         apk_card = create_card()
         apk_lay = card_layout(apk_card)
-        add_card_header(apk_lay, "Phone app", "devices")
+        add_card_header(apk_lay, "Phone app", "devices", hue="phone")
         _apk = bundled_apk_path()
         self._apk_status_lbl = QLabel("Telescope.apk found" if _apk else "No Telescope.apk came with this app")
         set_status_kind(self._apk_status_lbl, "status_ok" if _apk else "status_dim")
@@ -284,7 +288,7 @@ class AdvancedDialog(QDialog):
         # ── Zoom ──────────────────────────────────────────────────────────────
         zoom_card = create_card()
         zoom_lay = card_layout(zoom_card)
-        add_card_header(zoom_lay, "Zoom", "transforms")
+        add_card_header(zoom_lay, "Zoom", "transforms", hue="transforms")
         self._max_zoom_spin = NoScrollSpinBox()
         self._max_zoom_spin.setRange(*MAX_ZOOM_RANGE)
         self._max_zoom_spin.setValue(DEFAULT_MAX_ZOOM)
@@ -297,13 +301,13 @@ class AdvancedDialog(QDialog):
             "this computer."), stretch=True))
         body.addWidget(zoom_card)
 
-        # ── Hardware acceleration ────────────────────────────────────────────────────
+        # ── Hardware acceleration ─────────────────────────────────────────────
         hw_card = create_card()
         hw_lay = card_layout(hw_card)
-        add_card_header(hw_lay, "Hardware acceleration", "stream")
+        add_card_header(hw_lay, "Hardware acceleration", "stream", hue="stream")
         device = h264_reader.hardware_device()
         # The box names the graphics card it would use, so one row says both whether it's on and what with.
-        self._hw_chk = QCheckBox(_HW_NAMES.get(device, device) if device else "No graphics card Telescope can use")
+        self._hw_chk = Switch(_HW_NAMES.get(device, device) if device else "No graphics card Telescope can use")
         self._hw_chk.setEnabled(device is not None)
         self._hw_chk.setToolTip("Decodes the Light format on the graphics card from the next stream on.")
         self._hw_chk.toggled.connect(lambda on: self._on_hw_decode(on) if self._on_hw_decode else None)
@@ -313,7 +317,7 @@ class AdvancedDialog(QDialog):
         # ── Microphone ────────────────────────────────────────────────────────
         mic_card = create_card()
         mic_lay = card_layout(mic_card)
-        add_card_header(mic_lay, "Microphone", "mic")
+        add_card_header(mic_lay, "Microphone", "mic", hue="mic")
         self._max_gain_btns = {db: SegmentButton(f"+{db} dB") for db in MAX_GAIN_CHOICES}
         self._max_gain_grp = QButtonGroup(mic_card)
         self._max_gain_grp.setExclusive(True)
@@ -325,7 +329,7 @@ class AdvancedDialog(QDialog):
         mic_lay.addLayout(control_row("Max gain", segmented_row(*self._max_gain_btns.values()), stretch=True))
         mic_lay.addLayout(control_row("", wrapped_note(
             "How far the Gain slider goes. Less range gives finer steps; more helps a quiet phone."), stretch=True))
-        self._limiter_chk = QCheckBox("On")
+        self._limiter_chk = Switch()
         self._limiter_chk.setChecked(True)
         self._limiter_chk.toggled.connect(lambda on: self._on_limiter(on) if self._on_limiter else None)
         mic_lay.addLayout(control_row("Limiter", self._limiter_chk))
@@ -334,11 +338,27 @@ class AdvancedDialog(QDialog):
             stretch=True))
         body.addWidget(mic_card)
 
+        # ── Look ────────────────────────────────────────────────────────────
+        look_card = create_card()
+        look_lay = card_layout(look_card)
+        add_card_header(look_lay, "Look", "gear")
+        self._hues_own, self._hues_purple = SegmentButton("Each its own"), SegmentButton("All purple")
+        self._hues_grp = QButtonGroup(look_card)
+        self._hues_grp.setExclusive(True)
+        self._hues_grp.addButton(self._hues_own)
+        self._hues_grp.addButton(self._hues_purple)
+        self._hues_own.setChecked(True)
+        self._hues_own.setToolTip("Every card in the main window gets its own colour.")
+        self._hues_grp.buttonClicked.connect(
+            lambda btn: self._on_plugin_hues(btn is self._hues_own) if self._on_plugin_hues else None)
+        look_lay.addLayout(control_row("Card colours", segmented_row(self._hues_own, self._hues_purple), stretch=True))
+        body.addWidget(look_card)
+
         # ── Canvas ──────────────────────────────────────────────────────────
         adv_card = create_card()
         self._advanced_content = adv_card
         adv_lay = card_layout(adv_card)
-        add_card_header(adv_lay, "Virtual camera canvas", "expand")
+        add_card_header(adv_lay, "Virtual camera canvas", "expand", hue="stream")
 
         self._canvas_combo = NoScrollComboBox()
         self._canvas_combo.addItems(_PRESET_LABELS)
@@ -497,6 +517,9 @@ class AdvancedDialog(QDialog):
         self._hw_chk.blockSignals(True)  # syncing the stored value isn't a change
         self._hw_chk.setChecked(on)
         self._hw_chk.blockSignals(False)
+
+    def set_plugin_hues(self, on: bool):
+        (self._hues_own if on else self._hues_purple).setChecked(True)
 
     def set_limiter(self, on: bool):
         self._limiter_chk.blockSignals(True)  # syncing the stored value isn't a change
@@ -774,6 +797,7 @@ class SetupPlugin(TelescopePlugin):
         self._max_gain = DEFAULT_MAX_GAIN
         self._limiter = True
         self._hw_decode = False
+        self._plugin_hues = True
         self._canvas_preset = "Auto (from first frame)"
         self._custom_w = 1920
         self._custom_h = 1080
@@ -796,7 +820,7 @@ class SetupPlugin(TelescopePlugin):
             self._dlg = AdvancedDialog(self._host, on_apply_canvas=self._on_apply_canvas,
                                        report=self._host.diagnostics_report,
                                        on_max_zoom=self._on_max_zoom, on_max_gain=self._on_max_gain,
-                                       on_limiter=self._on_limiter,
+                                       on_limiter=self._on_limiter, on_plugin_hues=self._on_plugin_hues,
                                        on_remove_extras=lambda done: self._host.remove_extra_cameras(done),
                                        extras_in_use=lambda: self._host.stream_count() > 1,
                                        on_hw_decode=self._on_hw_decode)
@@ -805,6 +829,7 @@ class SetupPlugin(TelescopePlugin):
         self._dlg.set_max_gain(self._max_gain)
         self._dlg.set_limiter(self._limiter)
         self._dlg.set_hw_decode(self._hw_decode)
+        self._dlg.set_plugin_hues(self._plugin_hues)
         self._dlg.show()
         self._dlg.raise_()
         self._dlg.activateWindow()
@@ -841,6 +866,12 @@ class SetupPlugin(TelescopePlugin):
         h264_reader.set_hardware(on)
         self._host.schedule_save()
 
+    def _on_plugin_hues(self, on: bool):
+        self._plugin_hues = on
+        theme.set_plugin_hues(on)
+        refresh_hues()
+        self._host.schedule_save()
+
     def _on_limiter(self, on: bool):
         self._limiter = on
         self._bus.limiter_changed.emit(on)
@@ -863,6 +894,7 @@ class SetupPlugin(TelescopePlugin):
             "max_gain":        self._max_gain,
             "limiter":         self._limiter,
             "hw_decode":       self._hw_decode,
+            "plugin_hues":     self._plugin_hues,
         }
 
     def set_config(self, cfg: dict):
@@ -880,3 +912,6 @@ class SetupPlugin(TelescopePlugin):
         self._bus.limiter_changed.emit(self._limiter)
         self._hw_decode = cfg.get("hw_decode") is True  # off unless turned on
         h264_reader.set_hardware(self._hw_decode)
+        self._plugin_hues = cfg.get("plugin_hues", True) is not False
+        theme.set_plugin_hues(self._plugin_hues)
+        refresh_hues()

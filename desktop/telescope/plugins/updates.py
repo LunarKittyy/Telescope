@@ -21,13 +21,14 @@ from typing import Optional
 
 from PyQt6.QtCore import QObject, QSize, Qt, QTimer, QUrl, pyqtSignal
 from PyQt6.QtGui import QAction, QDesktopServices
-from PyQt6.QtWidgets import QCheckBox, QDialog, QPushButton, QWidget
+from PyQt6.QtWidgets import QDialog, QPushButton, QWidget
 
 from telescope import updates, version
 from telescope.platform import stop_adb_server
 from telescope.plugin import TelescopePlugin
 from telescope.single_instance import relaunch
 from telescope.widgets.common import (
+    Switch,
     NoScrollComboBox, add_card_header, button_row, card_action, card_layout, control_row,
     create_card, create_vector_icon, dialog_buttons, dialog_header, dialog_layout, set_status_kind,
     set_ui_role, ui_px, wrapped_note,
@@ -74,11 +75,11 @@ class UpdatesDialog(QDialog):
             lambda i: plugin.set_channel(self._channel.itemData(i)))
         c.addLayout(control_row("Channel", self._channel, stretch=True))
 
-        self._auto = QCheckBox("On")
+        self._auto = Switch()
         self._auto.toggled.connect(plugin.set_auto_check)
         c.addLayout(control_row("Check daily", self._auto))
 
-        self._portable = QCheckBox("Keep this copy where it is")
+        self._portable = Switch("Keep this copy where it is")
         self._portable.setToolTip("Updates this unzipped folder in place instead of installing Telescope for your user.")
         self._portable.toggled.connect(plugin.set_keep_portable)
         self._portable_row = QWidget()

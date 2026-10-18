@@ -17,6 +17,7 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 - [ ] `desktop` pytest suite passes locally and in CI for the release commit.
 - [ ] Android JVM unit tests pass locally and in CI for the release commit.
 - [ ] `desktop/scripts/smoke_check.py` passes on both Linux and Windows CI runners.
+- [ ] `python scripts/phone_check.py --wifi-drop 5 --handover` in `desktop/` passes against the dev app on a real phone (it exits with 1 when something didn't work).
 - [ ] `desktop/constraints.txt` installs cleanly in clean venv and versions haven't drifted out of date.
 
 ## Packaging
@@ -94,6 +95,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 - [ ] Linux without pkexec (or with no polkit agent): Start shows the command banner, Copy command works, and running it then Start streams.
 - [ ] Each Start failure shows a banner with a working button: no phone (Add phone), phone app closed (Try again), USB only without a cable (Switch to Automatic), app versions differ (Update).
 - [ ] Battery/temp alerts fire once per threshold cross, not repeatedly.
+- [ ] On a phone that runs hot (Android 11+), stream for 15 minutes or more. The frame rate drops to 24 fps shortly before Android itself reports severe heat, the FPS readout's tooltip says the phone got hot, and it goes back up once the phone cools.
 - [ ] Config persists across app restart, including per-phone settings after switching. A config from the previous version keeps global settings and asks to pair again.
 - [ ] Corrupted `telescope_config.json` backs up (`.invalid-<timestamp>`) and app starts with defaults.
 - [ ] Tray minimize/restore and single-instance behavior both work.

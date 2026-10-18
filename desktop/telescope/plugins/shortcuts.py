@@ -23,7 +23,7 @@ from typing import Optional
 from PyQt6.QtCore import QEvent, QObject, QPoint, QSize, Qt, QTimer
 from PyQt6.QtGui import QAction, QGuiApplication, QKeySequence
 from PyQt6.QtWidgets import (
-    QAbstractSpinBox, QApplication, QCheckBox, QComboBox, QDialog, QHBoxLayout, QKeySequenceEdit, QLabel,
+    QAbstractSpinBox, QApplication, QComboBox, QDialog, QHBoxLayout, QKeySequenceEdit, QLabel,
     QLineEdit, QListWidget, QListWidgetItem, QMenu, QPlainTextEdit, QPushButton, QTextEdit, QVBoxLayout, QWidget,
 )
 
@@ -36,6 +36,7 @@ from telescope.shortcuts import (
     new_binding_id, normalize_keys, split_keys,
 )
 from telescope.widgets.common import (
+    Switch,
     ElidingLabel, NoScrollComboBox, NoScrollDoubleSpinBox, action_button, button_row, control_row,
     control_row_widget, dialog_buttons, dialog_header, dialog_layout, set_ui_role, ui_px, wrapped_note,
 )
@@ -710,7 +711,7 @@ class ShortcutsDialog(QDialog):
         note_row.addWidget(self._system_btn, 0, Qt.AlignmentFlag.AlignTop)
         lay.addLayout(note_row)
 
-        self._notify_box = QCheckBox("Show a notification when a shortcut runs while Telescope is in the background")
+        self._notify_box = Switch("Show a notification when a shortcut runs while Telescope is in the background")
         self._notify_box.toggled.connect(self._plugin.set_notify)
         lay.addWidget(self._notify_box)
 
@@ -833,7 +834,7 @@ class BindingEditor(QDialog):
             self._show_native_keys()
         lay.addLayout(control_row("Key", self._keys_edit, stretch=True))
 
-        self._global_box = QCheckBox("Also works while another app is in front")
+        self._global_box = Switch("Also works while another app is in front")
         self._global_box.setChecked(binding.get("global", True))
         self._global_box.toggled.connect(lambda _on: self._check())
         lay.addLayout(control_row("", self._global_box, stretch=True))

@@ -33,6 +33,8 @@ Without `--keep` the profile is fresh on every run and deleted when the app quit
 
 `--plugin FOLDER` loads a plugin you're writing straight from its folder and restarts the dev desktop whenever you save one of its files. [Plugins](plugins.md#trying-out-changes) has the details and `scripts/check_plugin.py`.
 
+`python scripts/phone_check.py` runs a quick check against the paired dev phone: how long a start takes and how steady the stream is. With `--wifi-drop 5` it also turns the phone's Wi-Fi off for 5 seconds and times how long the video takes to come back, and `--handover` measures the gap when it moves from Wi-Fi to USB (both need the cable plugged in). It only prints numbers, nothing about the phone or the network, which makes the output fine to paste into an issue or PR.
+
 Some things are shared because there's only one of them:
 - The phone apps use the same ports, so only one of them can be open (or waiting for its computer) at a time. The one you open while the other still holds them takes them over within a few seconds of it closing
 - On Linux both desktops stream into the same virtual camera device, and on Windows into the same UnityCapture driver, so only one can stream at a time

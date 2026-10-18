@@ -194,7 +194,7 @@ class BrowserCameraPlugin(TelescopePlugin):
         lay = card_layout(card)
         self._new_link_btn = card_action("New link", "reset", "Make a new code; the old one stops working")
         self._new_link_btn.clicked.connect(self.new_link)
-        add_card_header(lay, "Browser camera", "qr", action=self._new_link_btn)
+        add_card_header(lay, "Browser camera", "qr", action=self._new_link_btn, hue="connection")
 
         self._status_lbl = ElidingLabel("")
         lay.addLayout(control_row("Browser", self._status_lbl, stretch=True))

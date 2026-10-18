@@ -877,7 +877,9 @@ def test_setup_plugin_canvas_config(setup_plugin, config, expected):
     assert plugin.get_canvas_dims() == expected
 
 
-def test_setup_plugin_config_round_trip(setup_plugin):
+def test_setup_plugin_config_round_trip(setup_plugin, monkeypatch):
+    from telescope import theme
+    monkeypatch.setattr(theme, "_own_hues", True)  # put back after: plugin_hues off changes the whole app
     plugin, _host, _panel = setup_plugin
     cfg = {
         "canvas_preset": "Custom...",
@@ -887,9 +889,11 @@ def test_setup_plugin_config_round_trip(setup_plugin):
         "max_gain": 36,
         "limiter": False,
         "hw_decode": True,
+        "plugin_hues": False,
     }
     plugin.set_config(cfg)
     assert plugin.get_config() == cfg
+    assert not theme.plugin_hues_on()
 
 
 def test_hardware_decoding_is_off_unless_turned_on(setup_plugin, monkeypatch):

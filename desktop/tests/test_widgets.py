@@ -402,3 +402,28 @@ def test_fit_on_screen_leaves_a_popup_that_fits_alone():
 
 def test_fit_on_screen_shrinks_only_when_taller_than_the_screen():
     assert fit_on_screen(QRect(100, -500, 200, 3000), SCREEN, 8) == QRect(100, 8, 200, 1064)
+
+
+def test_a_switch_toggles_from_anywhere_on_its_row_and_sits_at_the_row_end(qapp):
+    from PyQt6.QtCore import QPoint
+    from telescope.widgets.common import Switch
+    switch = Switch("Notify")
+    row = control_row("Battery", switch)
+    assert row.stretch(1) == 1  # a switch takes the rest of the row, so its track lands at the end
+    switch.resize(300, 28)
+    assert switch.hitButton(QPoint(5, 14))  # on the text, not just the track
+    switch.click()
+    assert switch.isChecked()
+
+
+def test_turning_plugin_colours_off_repaints_every_card_in_the_app_purple(qapp, monkeypatch):
+    from PyQt6.QtWidgets import QVBoxLayout
+    from telescope import theme
+    from telescope.widgets.common import add_card_header, create_card, refresh_hues
+    monkeypatch.setattr(theme, "_own_hues", True)
+    card = create_card()
+    add_card_header(QVBoxLayout(card), "Camera", "camera", hue="camera")
+    assert theme.PLUGIN_HUES["camera"] in card.styleSheet()
+    theme.set_plugin_hues(False)
+    refresh_hues()
+    assert theme.PLUGIN_HUES["camera"] not in card.styleSheet() and theme.ACCENT in card.styleSheet()

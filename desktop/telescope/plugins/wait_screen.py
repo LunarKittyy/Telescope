@@ -13,12 +13,13 @@ from typing import Optional
 
 from PyQt6.QtCore import QObject, QSignalBlocker, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction, QImage, QImageReader, QMovie, QPixmap
-from PyQt6.QtWidgets import QCheckBox, QDialog, QFileDialog, QLabel, QPushButton
+from PyQt6.QtWidgets import QDialog, QFileDialog, QLabel, QPushButton
 
 from telescope import vcam
 from telescope.config import config_path
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
+    Switch,
     action_button, button_row, dialog_buttons, dialog_header, dialog_layout, ui_px, wrapped_note,
 )
 
@@ -226,7 +227,7 @@ class WaitScreenDialog(QDialog):
         self._default_btn = action_button("Use default")
         self._default_btn.clicked.connect(lambda: self._set(None))
         lay.addLayout(button_row(self._choose_btn, self._default_btn))
-        self._mirror_box = QCheckBox("Mirror it, for apps that flip the camera")
+        self._mirror_box = Switch("Mirror it, for apps that flip the camera")
         self._mirror_box.toggled.connect(self._plugin.set_mirror)
         lay.addWidget(self._mirror_box)
 
