@@ -41,7 +41,8 @@ from telescope.platform.linux import (
 from telescope.plugin import TelescopePlugin
 from telescope.shortcuts import choice_action
 from telescope.session_client import (
-    PING_PORT, START_POLL_INTERVAL, START_TIMEOUT, MAX_NAME_CHARS, PhoneSessionClient, clean_name,
+    PING_PORT, START_FAST_POLL_FOR, START_FAST_POLL_INTERVAL, START_POLL_INTERVAL, START_TIMEOUT, MAX_NAME_CHARS,
+    PhoneSessionClient, clean_name,
 )
 from telescope.widgets.common import (
     ElidingLabel, NoScrollComboBox, action_button, add_card_header, button_row, card_action,
@@ -1242,8 +1243,10 @@ class ConnectionPlugin(TelescopePlugin):
         wait_start = time.monotonic()
         started = False
         unreachable_streak = 0
+        elapsed = 0.0
         while time.monotonic() < deadline:
-            time.sleep(START_POLL_INTERVAL)
+            fast = elapsed < START_FAST_POLL_FOR and not unreachable_streak  # a quiet phone gets the slow pace
+            time.sleep(START_FAST_POLL_INTERVAL if fast else START_POLL_INTERVAL)
             ping = client.ping()
             elapsed = time.monotonic() - wait_start
             if ping.streaming:

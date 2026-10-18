@@ -21,6 +21,8 @@ SESSION_PROTOCOL = 3
 REQUEST_TIMEOUT = 3  # Ping timeout; long enough for slow Wi-Fi, short enough for polling.
 START_TIMEOUT = 12   # Wait for camera to come up after accepting start.
 START_POLL_INTERVAL = 0.5  # Poll interval while waiting for camera startup.
+START_FAST_POLL_INTERVAL = 0.1  # Polls this often at first, since most phones are up within a second.
+START_FAST_POLL_FOR = 2.0
 # Largest JSON reply taken from anything answering on a phone's ports; whoever answers may not be the phone.
 MAX_REPLY_BYTES = 256 * 1024
 
