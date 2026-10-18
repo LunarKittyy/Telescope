@@ -322,6 +322,59 @@ class Switch(QCheckBox):
         super().leaveEvent(event)
 
 
+PILL_HEIGHT = 40
+"""Height of a StatusPill."""
+
+
+class StatusPill(QFrame):
+    """A live reading at a glance: icon, value and a short note, tinted by how it's doing (theme.STATUS_COLORS)."""
+
+    def __init__(self, icon_name: str, parent=None):
+        super().__init__(parent)
+        self.setObjectName("status_pill")
+        self.setFixedHeight(ui_px(PILL_HEIGHT))
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(14, 0, 14, 0)
+        lay.setSpacing(9)
+        self._icon = QLabel()
+        self._icon.setFixedSize(18, 18)
+        self._value = QLabel()
+        self._value.setObjectName("pill_value")
+        self._note = QLabel()
+        self._note.setObjectName("pill_note")
+        lay.addWidget(self._icon)
+        lay.addWidget(self._value)
+        lay.addWidget(self._note)
+        lay.addStretch(1)
+        self.kind = ""
+        self.set("—", "", "status_dim", icon_name)
+
+    def set(self, value: str, note: str, kind: str, icon_name: str):
+        """kind is one of theme.STATUS_COLORS ("status_ok", "status_warn", "status_err", "status_dim")."""
+        self.kind = kind
+        color = QColor(theme.STATUS_COLORS.get(kind, theme.DIM))
+        ink = color.lighter(112).name() if kind != "status_dim" else theme.TEXT_DIM
+        fill, edge = QColor(color), QColor(color)
+        fill.setAlphaF(0.12 if kind != "status_dim" else 0.06)
+        edge.setAlphaF(0.25 if kind != "status_dim" else 0.15)
+        self.setStyleSheet(
+            f"QFrame#status_pill {{ background: {fill.name(QColor.NameFormat.HexArgb)};"
+            f" border: 1px solid {edge.name(QColor.NameFormat.HexArgb)}; border-radius: {ui_px(PILL_HEIGHT) // 2}px; }}"
+            f"QLabel#pill_value {{ color: {ink}; font-size: 11pt; font-weight: 600; }}"
+            f"QLabel#pill_note {{ color: {ink}; }}")
+        self._icon.setPixmap(create_vector_icon(icon_name, ink).pixmap(18, 18))
+        self._value.setText(value)
+        self._note.setText(note)
+        self._note.setVisible(bool(note))
+
+    def value(self) -> str:
+        return self._value.text()
+
+    def note(self) -> str:
+        return self._note.text()
+
+
 def segmented_row(*buttons: QWidget, fill: bool = True) -> QHBoxLayout:
     """Zero-gap run of segments, all the same width: equal shares of the row when fill, else SEGMENT_WIDTH each."""
     make_segmented(*buttons)
@@ -409,8 +462,25 @@ def _paint_hue(card: QWidget, hue_name: str, chip: QLabel = None, icon_name: str
         f"QLabel#val {{ color: {color}; }}")
 
 
+_hued_icons: "weakref.WeakKeyDictionary[QLabel, tuple]" = weakref.WeakKeyDictionary()  # label -> (icon name, hue name, px)
+
+
+def hued_icon(icon_name: str, hue_name: str, px: int = 16) -> QLabel:
+    """A small icon in a card's hue, repainted by refresh_hues()."""
+    label = QLabel()
+    label.setFixedSize(px, px)
+    label.setPixmap(create_vector_icon(icon_name, theme.hue(hue_name)).pixmap(px, px))
+    _hued_icons[label] = (icon_name, hue_name, px)
+    return label
+
+
 def refresh_hues():
     """Repaint every card after theme.set_plugin_hues() changed."""
+    for label, (icon_name, hue_name, px) in list(_hued_icons.items()):
+        if sip.isdeleted(label):
+            _hued_icons.pop(label, None)
+            continue
+        label.setPixmap(create_vector_icon(icon_name, theme.hue(hue_name)).pixmap(px, px))
     for card, (hue_name, chip, icon_name) in list(_hued.items()):
         if sip.isdeleted(card) or (chip is not None and sip.isdeleted(chip)):
             _hued.pop(card, None)  # Qt deleted it, though Python still holds the wrapper
@@ -978,6 +1048,11 @@ _ICON_SVG = {
     "mic_off": f'''<rect x="8.5" y="3" width="7" height="11.5" rx="3.5" {_SOFT}/>
         <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M4 3.5l16 17"/>''',
     "close": '''<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>''',
+    "battery": f'''<rect x="2.5" y="7" width="17" height="10" rx="2.5" {_SOFT}/><path d="M22 10.5v3"/>''',
+    "battery_charging": f'''<rect x="2.5" y="7" width="17" height="10" rx="2.5" {_SOFT}/><path d="M22 10.5v3"/>
+        <path d="M11.5 8.5l-2.5 3.5h4l-2.5 3.5"/>''',
+    "thermometer": f'''<path d="M9.5 4.5a2.5 2.5 0 0 1 5 0v9a4.5 4.5 0 1 1-5 0z" {_SOFT}/><path d="M12 9v7"/>''',
+    "bell": f'''<path d="M6 16.5v-5.5a6 6 0 0 1 12 0v5.5l1.5 1.5h-15z" {_SOFT}/><path d="M10 20.5h4"/>''',
     "plus": '''<path d="M12 5v14M5 12h14"/>''',
 }
 

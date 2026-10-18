@@ -542,8 +542,8 @@ def test_monitoring_stream_lifecycle(monitoring):
     plugin.on_stream_stop()
     assert not plugin._timer.isActive()
     assert plugin._ctrl is None
-    assert plugin._battery_lbl.text() == "—"
-    assert plugin._temp_lbl.text() == "—"
+    assert plugin._battery_lbl.value() == "—"
+    assert plugin._temp_lbl.value() == "—"
 
 
 def test_monitoring_does_not_warn_again_when_the_same_stream_reconnects(monitoring):
@@ -603,13 +603,13 @@ def test_monitoring_warns_afresh_about_a_stream_that_ended(monitoring):
 def test_monitoring_skips_a_reading_it_cant_read(monitoring):
     plugin, _host, _bus, _panel = monitoring
     plugin._on_state({"battery": "full", "battery_temp_c": None})
-    assert plugin._battery_lbl.text() == "—"
+    assert plugin._battery_lbl.value() == "—"
 
 
 def test_monitoring_ignores_state_without_battery(monitoring):
     plugin, _host, _bus, _panel = monitoring
     plugin._on_state({"battery_temp_c": 99})
-    assert plugin._battery_lbl.text() == "—"
+    assert plugin._battery_lbl.value() == "—"
 
 
 @pytest.mark.parametrize(
@@ -626,10 +626,12 @@ def test_monitoring_display_colours(
 ):
     plugin, _host, _bus, _panel = monitoring
     plugin._update_display(level, charging, temp)
-    assert batt_colour in plugin._battery_lbl.styleSheet()
-    assert temp_colour in plugin._temp_lbl.styleSheet()
-    assert plugin._battery_lbl.text() == f"{level}%" + ("  ·  charging" if charging else "")
-    assert plugin._temp_lbl.text() == f"{temp:.1f} °C"
+    kinds = {theme.ERR: "status_err", theme.WARN: "status_warn", theme.OK: "status_ok"}
+    assert plugin._battery_lbl.kind == kinds[batt_colour]
+    assert plugin._temp_lbl.kind == kinds[temp_colour]
+    assert plugin._battery_lbl.value() == f"{level}%"
+    assert plugin._battery_lbl.note() == ("Charging" if charging else "")
+    assert plugin._temp_lbl.value() == f"{temp:.1f} °C"
 
 
 def test_monitoring_alerts_once_then_rearm_after_hysteresis(monitoring):
@@ -700,9 +702,9 @@ def test_monitoring_drops_a_reading_from_a_stream_that_ended(monitoring):
     old, new = _Ctrl(), _Ctrl()
     plugin.on_stream_start("url", new)
     plugin._on_polled(old, {"battery": 3, "charging": False})  # read before the restart, landed after
-    assert plugin._battery_lbl.text() == "—" and host.notifications == []
+    assert plugin._battery_lbl.value() == "—" and host.notifications == []
     plugin._on_polled(new, {"battery": 60, "charging": False})
-    assert plugin._battery_lbl.text() == "60%"
+    assert plugin._battery_lbl.value() == "60%"
 
 
 def _streaming(host):
@@ -845,8 +847,8 @@ def test_monitoring_bus_subscription_and_config(monitoring):
     assert plugin.get_config()["battery_alert"] == 30 and plugin.get_config()["temp_alert"] == 50
 
     bus.phone_state_updated.emit({"battery": 29, "charging": False, "battery_temp_c": 49})
-    assert plugin._battery_lbl.text() == "29%"
-    assert plugin._temp_lbl.text() == "49.0 °C"
+    assert plugin._battery_lbl.value() == "29%"
+    assert plugin._temp_lbl.value() == "49.0 °C"
 
 
 @pytest.fixture
