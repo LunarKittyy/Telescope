@@ -541,3 +541,58 @@ def test_showing_the_window_from_the_background_doesnt_notify(make, monkeypatch)
     backend.released.emit("a")
     backend.pressed.emit("a")
     assert host.notes == [("Telescope", "Telescope: hidden", False)]
+
+
+def test_a_right_click_that_reaches_the_window_finds_the_later_control(qapp):
+    from telescope.shortcuts import choice_action
+    from PyQt6.QtGui import QContextMenuEvent
+    from PyQt6.QtCore import QPoint
+    window = QWidget()
+    lay = QVBoxLayout(window)
+    btn = QPushButton("Wide")
+    lay.addWidget(btn)
+    window.resize(200, 100)
+    window.show()
+    host = _Host([choice_action("camera.lens", "Lens", "Camera", buttons=lambda: [btn])])
+    plugin = ShortcutsPlugin(backend_factory=lambda: None)
+    plugin.setup(host, None)
+    plugin.start()
+    shown = []
+    plugin.control_menu = lambda w, a, pos: shown.append((w, a, pos))
+    try:
+        at = btn.mapTo(window, QPoint(2, 3))
+        assert plugin._filter.eventFilter(window, QContextMenuEvent(QContextMenuEvent.Reason.Mouse, at))
+        assert shown == [(btn, "camera.lens", QPoint(2, 3))]
+    finally:
+        plugin.shutdown()
+        window.close()
+
+
+def test_the_key_filter_follows_focus_instead_of_watching_the_whole_app(make, card):
+    # An app-wide Python filter sees objects Qt is tearing down, and PyQt can crash wrapping them
+    plugin, _host, _ = make([_b("a", "Ctrl+T", "camera.torch")])
+    card.show()
+    card.activateWindow()
+    QTest.qWaitForWindowActive(card)
+    card.mute.setFocus()
+    assert any(w is card.mute for w in plugin._filter._watched)
+    card.entry.setFocus()
+    assert any(w is card.entry for w in plugin._filter._watched)
+    assert not any(w is card.mute for w in plugin._filter._watched)
+    assert not any(w is QApplication.instance() for w in plugin._filter._watched)
+    QTest.keyClick(card.entry, Qt.Key.Key_T, Qt.KeyboardModifier.ControlModifier)
+    assert card.torch.isChecked()
+
+
+def test_keys_reach_a_window_where_nothing_takes_focus(make, card):
+    plugin, _host, _ = make([_b("a", "Ctrl+T", "camera.torch")])
+    bare = QWidget()
+    bare.show()
+    bare.activateWindow()
+    QTest.qWaitForWindowActive(bare)
+    try:
+        assert any(w is bare for w in plugin._filter._watched)
+        QTest.keyClick(bare, Qt.Key.Key_T, Qt.KeyboardModifier.ControlModifier)
+        assert card.torch.isChecked()
+    finally:
+        bare.close()

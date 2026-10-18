@@ -198,7 +198,10 @@ class ShortcutsPlugin(TelescopePlugin):
                     self._give_menu(w, action.id)
         app = QApplication.instance()
         self._filter = _KeyFilter(self)
-        app.installEventFilter(self._filter)
+        # On the focused control and the active window, not the app: PyQt can crash wrapping objects Qt is tearing down
+        app.focusChanged.connect(self._filter.follow_focus)
+        app.focusWindowChanged.connect(self._filter.follow_window)
+        self._filter.follow_focus(None, QApplication.focusWidget())
         app.applicationStateChanged.connect(self._on_app_state)
         factory = self._backend_factory or (lambda: create_backend(portal_app_id()))
         try:
@@ -536,7 +539,12 @@ class ShortcutsPlugin(TelescopePlugin):
                 logger.exception("Couldn't let go of the global shortcuts")
         app = QApplication.instance()
         if self._filter is not None and app is not None:
-            app.removeEventFilter(self._filter)
+            try:
+                app.focusChanged.disconnect(self._filter.follow_focus)
+                app.focusWindowChanged.disconnect(self._filter.follow_window)
+            except (TypeError, RuntimeError):
+                pass
+            self._filter.let_go()
             self._filter = None
 
 
@@ -546,6 +554,31 @@ class _KeyFilter(QObject):
     def __init__(self, plugin: ShortcutsPlugin):
         super().__init__()
         self._plugin = plugin
+        self._watched: list = []  # the control with focus and its window (keys go to the window when nothing has focus)
+
+    def follow_focus(self, _old, new):
+        window = QApplication.activeWindow()
+        if new is not None and window is None:
+            window = new.window()
+        self._watch([w for w in (new, window) if w is not None])
+
+    def follow_window(self, _window):
+        self.follow_focus(None, QApplication.focusWidget())  # a window with nothing that takes focus gets its keys too
+
+    def let_go(self):
+        self._watch([])
+
+    def _watch(self, widgets: list):
+        for w in self._watched:
+            if not any(w is n for n in widgets):
+                try:
+                    w.removeEventFilter(self)
+                except RuntimeError:
+                    pass  # already deleted
+        for w in widgets:
+            if not any(w is o for o in self._watched):
+                w.installEventFilter(self)
+        self._watched = widgets
 
     def _binding(self, event) -> Optional[dict]:
         keys = keys_from_event(event.key(), event.modifiers())
@@ -567,10 +600,16 @@ class _KeyFilter(QObject):
     def eventFilter(self, obj, event):
         kind = event.type()
         if kind == QEvent.Type.ContextMenu and obj.isWidgetType():
-            action_id = self._plugin.dynamic_action_for(obj)
-            if action_id is not None:
-                self._plugin.control_menu(obj, action_id, event.pos())
-                return True
+            # A right-click the control ignored comes up to the window: find the control that was under it
+            widget = obj.childAt(event.pos()) or obj
+            while widget is not None:
+                action_id = self._plugin.dynamic_action_for(widget)
+                if action_id is not None:
+                    self._plugin.control_menu(widget, action_id, widget.mapFrom(obj, event.pos()))
+                    return True
+                if widget is obj:
+                    break
+                widget = widget.parentWidget()
             return False
         if kind not in (QEvent.Type.KeyPress, QEvent.Type.ShortcutOverride, QEvent.Type.KeyRelease):
             return False
