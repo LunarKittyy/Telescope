@@ -12,6 +12,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 from telescope import vcam
 from telescope.h264_reader import H264Reader
+from telescope.udp_reader import UdpH264Reader
 from telescope.mjpeg_reader import MjpegReader
 from telescope.pinned_https import PhoneAuth
 
@@ -308,7 +309,7 @@ class StreamWorker(QThread):
 
     def _new_reader(self, url: str):
         # Our own readers, since cv2's FFmpeg backend can't attach the bearer header. The route says which.
-        reader_cls = H264Reader if url.endswith(".h264") else MjpegReader
+        reader_cls = H264Reader if url.endswith(".h264") else UdpH264Reader if url.endswith(".udp") else MjpegReader
         return reader_cls(url, self.auth)
 
     def _open_cap(self):

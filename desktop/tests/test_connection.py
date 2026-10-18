@@ -1408,3 +1408,28 @@ def test_a_usb_check_that_finishes_after_the_move_doesnt_start_another(plugin_en
     plugin._on_usb_available(stale, USB)
     assert host.hand_overs == []
     assert plugin.prepare_stream_route(USB, "id-a") is None  # it's on that one already
+
+
+def test_udp_is_used_on_wifi_only_when_switched_on_and_not_on_dynamic(plugin_env, monkeypatch):
+    plugin, host, _panel = plugin_env
+    monkeypatch.setattr(connection_module.h264_reader, "available", lambda: True)
+    _add(plugin)
+    host.configs["stream_output"] = {"format": "h264"}
+    _streaming_over(plugin, USB)
+    assert plugin.adopt_stream_route(WIFI, "id-a").endswith("/v1/video.h264")  # off by default
+
+    plugin._udp_cb.setChecked(True)
+    assert plugin.get_config()["udp"] is True
+    assert plugin.adopt_stream_route(WIFI, "id-a") == "https://10.0.0.5:8080/v1/video.udp"
+    assert plugin.adopt_stream_route(USB, "id-a").endswith("/v1/video.h264")  # a cable: TCP
+    plugin._holds["id-a"] = (WIFI, None)
+    assert plugin.prepare_stream_route(USB, "id-a").endswith("/v1/video.h264")  # handing over to the cable too
+    plugin.drop_stream_route("id-a")
+
+    host.configs["stream_output"] = {"format": "h264", "bitrate_mbps": -1}  # Dynamic measures TCP's queue
+    assert plugin.adopt_stream_route(WIFI, "id-a").endswith("/v1/video.h264")
+    host.configs["stream_output"] = {"format": "mjpeg"}
+    assert plugin.adopt_stream_route(WIFI, "id-a").endswith("/v1/video")  # Heavy is never UDP
+
+    plugin.set_config({**plugin.get_config(), "udp": False})
+    assert not plugin._udp_cb.isChecked()

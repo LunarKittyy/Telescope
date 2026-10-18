@@ -475,6 +475,8 @@ class ConnectionPlugin(TelescopePlugin):
         self._selected_id: Optional[str] = None
         self._active_key: Optional[str] = None
         self._route_pref = ROUTE_AUTO
+        self._udp = False  # experimental H.264 over UDP on Wi-Fi
+        self._udp_cb = None
         self._pending_route: Optional[str] = None  # a Connect via choice checked before the stream moves to it
         self._route_probe_id = 0
         self._computer_id = uuid.uuid4().hex
@@ -620,6 +622,13 @@ class ConnectionPlugin(TelescopePlugin):
             lambda i: self.set_route_preference(self._route_combo.itemData(i)))
         self._route_row = control_row_widget("Connect via", self._route_combo, stretch=True)
         lay.addWidget(self._route_row)
+
+        self._udp_cb = QCheckBox("Experimental")
+        self._udp_cb.setChecked(self._udp)
+        self._udp_cb.setToolTip("Can cut the lag spikes on busy Wi-Fi. Goes back to TCP by itself if it doesn't get through.")
+        self._udp_cb.toggled.connect(self._on_udp)
+        self._udp_row = control_row_widget("UDP on Wi-Fi", self._udp_cb)
+        lay.addWidget(self._udp_row)
 
         self._note_lbl = wrapped_note("")
         self._note_row = control_row_widget("", self._note_lbl, stretch=True)
@@ -1008,7 +1017,7 @@ class ConnectionPlugin(TelescopePlugin):
             forward = route.serial
             url = f"https://127.0.0.1:{local}{path}"
         else:
-            url = f"https://{route.host}:{STREAM_PORT}{path}"
+            url = f"https://{route.host}:{STREAM_PORT}{self._path_for(route, path)}"
         self._holds[pid] = (route, forward)
         self._paths[pid] = path
         return url
@@ -1037,7 +1046,7 @@ class ConnectionPlugin(TelescopePlugin):
             forward = route.serial
             url = f"https://127.0.0.1:{local}{path}"
         else:
-            url = f"https://{route.host}:{STREAM_PORT}{path}"
+            url = f"https://{route.host}:{STREAM_PORT}{self._path_for(route, path)}"
         self._prepared[pid] = (route, forward, path)
         return url
 
@@ -1089,6 +1098,19 @@ class ConnectionPlugin(TelescopePlugin):
         url = self._hold_stream_route(route, pid)
         self._render()
         return url
+
+    def _on_udp(self, on: bool):
+        if on == self._udp:
+            return
+        self._udp = on
+        self._host.schedule_save()
+
+    def _path_for(self, route: Route, path: str) -> str:
+        """The H.264 path over UDP where it applies: Wi-Fi, switched on, and not Dynamic (which measures TCP's queue)."""
+        out = self._host.plugin_config("stream_output") or {}
+        if path == "/v1/video.h264" and route.kind == "wifi" and self._udp and out.get("bitrate_mbps") != -1:
+            return "/v1/video.udp"
+        return path
 
     def _video_path(self) -> str:
         """The phone serves each format on its own route, and runs whichever one was opened last."""
@@ -1556,6 +1578,7 @@ class ConnectionPlugin(TelescopePlugin):
             "computer_id": self._computer_id,
             "computer_name": self._computer_name,
             "route": self._route_pref,
+            "udp": self._udp,
             "phones": [p.to_dict() for p in self._phones],
             "selected_phone": self._selected_id,
         }
@@ -1569,6 +1592,11 @@ class ConnectionPlugin(TelescopePlugin):
             self._computer_name = clean_name(name)
         route = cfg.get("route")
         self._route_pref = route if route in (ROUTE_AUTO, ROUTE_USB, ROUTE_WIFI) else ROUTE_AUTO
+        self._udp = cfg.get("udp") is True
+        if self._udp_cb is not None:
+            self._udp_cb.blockSignals(True)
+            self._udp_cb.setChecked(self._udp)
+            self._udp_cb.blockSignals(False)
         self._phones = []
         raw_phones = cfg.get("phones")
         for raw in raw_phones if isinstance(raw_phones, list) else []:

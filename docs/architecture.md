@@ -74,7 +74,8 @@ telescope/
 |       |-- SetupSteps.kt       # Get set up card rules: ask, or send to settings (JVM-tested)
 |       |-- Pairing.kt           # QR payload (v3) parsing/validation, attempt ordering, failure text
 |       |-- PairedComputers.kt   # Paired computers (one token each), this phone's id and name
-|       |-- MjpegServer.kt       # Authenticated HTTPS: /v1/video(.h264)  /v1/state  /v1/control
+|       |-- MjpegServer.kt       # Authenticated HTTPS: /v1/video(.h264|.udp)  /v1/state  /v1/control
+|       |-- UdpVideo.kt          # Experimental H.264 over UDP: datagram format, AES-GCM, resends
 |       |-- H264Encoder.kt       # MediaCodec H.264 from the camera Surface
 |       |-- H264Stream.kt        # Per-viewer H.264 queue (and its link measurements), bitrate defaults
 |       |-- DynamicBitrate.kt    # Dynamic bitrate: follows the link from the queue's measurements (JVM-tested)

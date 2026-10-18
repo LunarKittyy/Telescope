@@ -1,6 +1,6 @@
 # Control API reference
 
-Server is on the phone at port 8080 for `/v1/video`, `/v1/video.h264`, `/v1/audio`, `/v1/state` and `/v1/control` (all only exist while actively streaming); a separate responder on port 8766 serves `/v1/hello`, `/v1/ping`, `/v1/session` and `/v1/unpair`. Every request below except `/v1/hello` requires an `Authorization: Bearer <token>` header carrying the token this computer got when it paired; missing or unknown tokens get `401`. With **Local only** on, port 8766 answers anything that didn't arrive over USB (the phone's loopback, where `adb forward` lands) with `403`, except `/v1/ping` and `/v1/unpair`. The desktop reads a `403` on `/v1/hello` as "this phone is in Local only" and checks with `/v1/ping`.
+Server is on the phone at port 8080 for `/v1/video`, `/v1/video.h264`, `/v1/video.udp`, `/v1/audio`, `/v1/state` and `/v1/control` (all only exist while actively streaming); a separate responder on port 8766 serves `/v1/hello`, `/v1/ping`, `/v1/session` and `/v1/unpair`. Every request below except `/v1/hello` requires an `Authorization: Bearer <token>` header carrying the token this computer got when it paired; missing or unknown tokens get `401`. With **Local only** on, port 8766 answers anything that didn't arrive over USB (the phone's loopback, where `adb forward` lands) with `403`, except `/v1/ping` and `/v1/unpair`. The desktop reads a `403` on `/v1/hello` as "this phone is in Local only" and checks with `/v1/ping`.
 
 ## `GET /v1/state`
 
@@ -109,6 +109,19 @@ All responses: `{"ok": true}` or `{"ok": false, "error": "..."}`.
 The desktop checks each `/v1/state` it reads against the settings it last sent (exposure, white balance mode, focus, `ae_comp`, `fps_target`, `jpeg_quality`, OIS, noise reduction, sharpening, black level lock, and Low light on a phone that takes it) and sends one that doesn't show again. It does that once per value: a phone that fitted a value to the lens keeps reporting the fitted one, and that's left alone.
 
 > **Manual exposure note:** `CONTROL_AE_MODE_OFF` only activates when *both* ISO and shutter are set and the selected camera reports `supportsManualSensor` - `CONTROL_MODE` itself stays `CONTROL_MODE_AUTO` throughout, so autofocus keeps running independently of manual exposure. The desktop app sends both ISO and shutter simultaneously when switching to manual mode.
+
+## `GET /v1/video.udp` (experimental)
+
+The same H.264 as `/v1/video.h264`, but the frames come over UDP, so one lost packet on a busy Wi-Fi doesn't hold up everything behind it the way TCP does. The desktop only asks for it on a Wi-Fi route with **UDP on Wi-Fi** checked, the Light format and a bitrate other than Dynamic.
+
+- The desktop opens a UDP socket and asks `GET /v1/video.udp?port=<its port>`. Over the phone's loopback (USB) the answer is `409`, since there's nothing to gain there.
+- The reply is `application/x-telescope-udp`, and its first line is JSON: `{"key": <32 random bytes, base64>, "port": <the phone's UDP port>}`. The request then stays open as the session: the phone writes `\n` every second, and when either side closes it, the UDP stream ends too. The key comes over the pinned HTTPS connection, so it's as private as the token.
+- Every datagram is an 8-byte big-endian counter followed by AES-256-GCM of the plaintext, with the nonce being a direction byte (`1` phone to desktop, `2` desktop to phone), three zero bytes and the counter. Each side drops anything that doesn't decrypt or that it has already seen (a 4096-datagram window).
+- Phone to desktop, each plaintext is a piece of one frame: frame number (u32), piece index (u16), piece count (u16), flags (u8, `1` for a keyframe), then up to 1100 bytes of Annex-B. Keyframes start with the encoder's SPS/PPS, so the desktop can start at any of them, and every frame ends with an access unit delimiter.
+- Desktop to phone, the first byte says what it is: `1` NACK (frame number u32, then the missing piece indexes as u16, or none for the whole frame), `2` keyframe please, `3` hello. The desktop sends a hello every half second, which also keeps its firewall open for the phone's datagrams; the phone sends to wherever the last valid one came from.
+- The phone keeps the last 90 frames for resending and gives at most one keyframe per 300 ms however many are asked for. When its queue to that desktop backs up, it drops what's queued and waits for the next keyframe.
+- The desktop asks again for a frame that's missing pieces after 15 ms (60 ms for the newest one, whose pieces may still be arriving), every 50 ms after that, and gives up after 250 ms: it then freezes on the last picture and asks for a keyframe rather than decode on a broken reference.
+- When nothing decodable arrives within 3 seconds (usually a firewall), or the phone refuses, the desktop switches to `/v1/video.h264` and doesn't try UDP with that phone again until it restarts.
 
 ## `GET /v1/hello`
 
