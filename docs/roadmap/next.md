@@ -30,6 +30,8 @@ Phones put Wi-Fi into power saving when the screen is off, which shows up as sho
 
 About 20 lines. Worth comparing latency with the screen off before and after.
 
+Android only honours the low-latency lock with the screen on and Telescope in front, so the phone holds a high-performance lock next to it, which is what covers the screen being off up to Android 13. From Android 14 a high-performance lock turns into a low-latency one, so with the screen off it won't do anything there.
+
 ## Phone mic that reopens after an error
 
 When `AudioRecord.read()` in `AudioStreamer.kt` returns an error (the phone's audio server restarting, for example), the recording thread ends and nothing starts it again, so the mic stays quiet until the stream restarts. It should reopen the recording when that happens, and after half a second with no audio at all. It's still worth checking what the desktop's Microphone card shows in that state.

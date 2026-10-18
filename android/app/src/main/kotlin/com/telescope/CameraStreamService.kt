@@ -441,7 +441,7 @@ class CameraStreamService : Service() {
     private var inForeground = false
     @Volatile private var covered = false
     private var wakeLock: PowerManager.WakeLock? = null
-    private var wifiLock: android.net.wifi.WifiManager.WifiLock? = null
+    private val wifiLocks = mutableListOf<android.net.wifi.WifiManager.WifiLock>()
     private var thermalListener: Any? = null  // PowerManager.OnThermalStatusChangedListener, Android 10 and newer
     private var idleWatchdogThread: Thread? = null
     // One flag per watchdog thread, so a quick stop and start can't revive the old thread beside the new one
@@ -1041,8 +1041,8 @@ class CameraStreamService : Service() {
         server?.stop()
         audio?.stop()
         wakeLock?.let { if (it.isHeld) it.release() }
-        wifiLock?.let { if (it.isHeld) it.release() }
-        wifiLock = null
+        wifiLocks.forEach { runCatching { if (it.isHeld) it.release() } }
+        wifiLocks.clear()
         stopWatchingThermalStatus()
         controller = null; server = null
         setState(StreamState.Idle, op)
@@ -1135,17 +1135,21 @@ class CameraStreamService : Service() {
         runCatching { pm.removeThermalStatusListener(listener as PowerManager.OnThermalStatusChangedListener) }
     }
 
-    // Wi-Fi power saving with the screen off shows up as short latency spikes; this keeps the radio awake while streaming
+    // Wi-Fi power saving with the screen off shows up as short latency spikes. Low latency only works with the screen
+    // on and the app in front; high performance covers the rest up to Android 13 (from 14 it's low latency too)
     @Suppress("DEPRECATION")
     private fun acquireWifiLock() {
         val wm = applicationContext.getSystemService(WIFI_SERVICE) as? android.net.wifi.WifiManager ?: return
-        val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) android.net.wifi.WifiManager.WIFI_MODE_FULL_LOW_LATENCY
-                   else android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF
-        wifiLock = try {
-            wm.createWifiLock(mode, "telescope::stream").apply { setReferenceCounted(false); acquire() }
-        } catch (e: Exception) {
-            recordControlError("wifiLock", e)
-            null
+        val modes = listOfNotNull(
+            android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) android.net.wifi.WifiManager.WIFI_MODE_FULL_LOW_LATENCY else null,
+        )
+        for (mode in modes) {
+            try {
+                wifiLocks += wm.createWifiLock(mode, "telescope::stream").apply { setReferenceCounted(false); acquire() }
+            } catch (e: Exception) {
+                recordControlError("wifiLock", e)
+            }
         }
     }
 }
