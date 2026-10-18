@@ -1,0 +1,91 @@
+{
+    "cameras": [
+        {
+            "id": "2",
+            "logicalId": "0",
+            "label": "Main (wide)",
+            "current": true,
+            "hasOis": true,
+            "isoMin": 50,
+            "isoMax": 3200,
+            "shutterMinNs": 100000,
+            "shutterMaxNs": 1000000000,
+            "supportsManualSensor": true,
+            "supportsManualWB": true,
+            "supportsManualFocus": true,
+            "minFocusDistance": 10.0,
+            "aeCompMin": -12,
+            "aeCompMax": 12,
+            "aeCompStep": 0.16666667,
+            "supportsFlash": true,
+            "hwLevel": "FULL",
+            "supportedSizes": [
+                {
+                    "width": 4032,
+                    "height": 3024
+                },
+                {
+                    "width": 1920,
+                    "height": 1080
+                }
+            ],
+            "h264Sizes": [
+                {
+                    "width": 1920,
+                    "height": 1080
+                }
+            ],
+            "supportsFocusPoint": true,
+            "zoomRatioMax": 10.0,
+            "cropZoomMax": 8.0,
+            "freeformCrop": true,
+            "lensZooms": [
+                3.0
+            ],
+            "maxFps": 60
+        }
+    ],
+    "auto": false,
+    "iso": 400,
+    "shutter_ns": 16666666,
+    "wb_manual": true,
+    "wb_r": 2.1,
+    "wb_ge": 1.0,
+    "wb_go": 1.0,
+    "wb_b": 1.8,
+    "ois": false,
+    "focus_mode": "manual",
+    "focus_distance": 2.5,
+    "nr_mode": 2,
+    "edge_mode": 2,
+    "ae_comp": -3,
+    "black_level_lock": true,
+    "torch": true,
+    "jpeg_quality": 90,
+    "phone_fps": 30,
+    "camera_fps": 29.8,
+    "codecs": [
+        "mjpeg",
+        "h264"
+    ],
+    "codec": "h264",
+    "bitrate": 8087040,
+    "dynamic_bitrate": true,
+    "dynamic_fps": 24,
+    "heat_fps": 15,
+    "low_light": true,
+    "low_light_toggle": true,
+    "h264_profile": "high",
+    "codec_error": "The phone's H.264 encoder stopped",
+    "codec_unsupported": true,
+    "active_lens": "2",
+    "camera_off": true,
+    "camera_error": "The camera is in use by another app",
+    "camera_taken": true,
+    "camera_toggle": true,
+    "stream_width": 1920,
+    "stream_height": 1080,
+    "battery": 87,
+    "charging": true,
+    "battery_temp_c": 32.5
+}

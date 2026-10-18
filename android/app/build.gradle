@@ -81,4 +81,7 @@ dependencies {
 
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
+    // StateExampleTest reads it: a change there has to run the tests again
+    inputs.file(rootProject.file('../docs/state.json')).withPropertyName('stateExample')
+    environment 'UPDATE_STATE_EXAMPLE', System.getenv('UPDATE_STATE_EXAMPLE') ?: ''
 }

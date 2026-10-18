@@ -4,6 +4,8 @@ Server is on the phone at port 8080 for `/v1/video`, `/v1/video.h264`, `/v1/audi
 
 ## `GET /v1/state`
 
+A short example is below. [`state.json`](state.json) has every field, and both apps' tests check it (`StateExampleTest.kt` that the phone still sends it, `test_state_example.py` that the desktop still reads it), so a field renamed on one side fails a test instead of quietly breaking a control. After changing `V1State`, run the phone's tests with `UPDATE_STATE_EXAMPLE=1` to rewrite it.
+
 ```json
 {
   "cameras": [
