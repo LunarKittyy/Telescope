@@ -5,7 +5,10 @@ bundled FFmpeg; without PyAV installed, available() is False and the desktop onl
 """
 
 import logging
+import sys
+import threading
 import urllib.request
+from typing import Optional
 
 from telescope.pinned_https import PhoneAuth
 
@@ -21,8 +24,64 @@ _CHUNK = 64 * 1024
 _MAX_BYTES_WITHOUT_FRAME = 32 * 1024 * 1024
 
 
+# Hardware decoders to try, best first: D3D11 works on any Windows GPU; on Linux the bundled FFmpeg only has CUDA (NVIDIA)
+_HW_TYPES = ("d3d11va", "cuda") if sys.platform == "win32" else ("videotoolbox",) if sys.platform == "darwin" else ("cuda",)
+_hw_wanted = False
+_hw_found: Optional[str] = None  # the device type that opened, once probed
+_hw_probed = False
+_hw_failed = False  # a hardware decoder errored this run: software from then on
+_hw_lock = threading.Lock()
+
+
 def available() -> bool:
     return av is not None
+
+
+def set_hardware(on: bool):
+    """Whether new decoders try the graphics card (Advanced > Hardware decoding). Takes effect on the next connect."""
+    global _hw_wanted
+    _hw_wanted = bool(on)
+
+
+def hardware_device() -> Optional[str]:
+    """The graphics card decoder this computer has ("d3d11va", "cuda"), or None. Probed once, by opening one."""
+    global _hw_probed, _hw_found
+    with _hw_lock:
+        if not _hw_probed:
+            _hw_probed = True
+            _hw_found = next((t for t in _hw_types() if _open_hw(t) is not None), None)
+        return _hw_found
+
+
+def hardware_in_use() -> bool:
+    return _hw_wanted and not _hw_failed and hardware_device() is not None
+
+
+def _hw_types() -> list:
+    if av is None:
+        return []
+    try:
+        from av.codec.hwaccel import hwdevices_available
+        offered = set(hwdevices_available())
+    except Exception:  # an older PyAV without hardware decoding
+        return []
+    return [t for t in _HW_TYPES if t in offered]
+
+
+def _open_hw(device_type: str):
+    try:
+        from av.codec.hwaccel import HWAccel
+        return av.CodecContext.create("h264", "r", hwaccel=HWAccel(device_type=device_type, allow_software_fallback=True))
+    except Exception:
+        return None
+
+
+def _software_codec():
+    codec = av.CodecContext.create("h264", "r")
+    # Show each frame as soon as it's decoded, instead of holding some back for reordering.
+    codec.options = {"flags": "low_delay"}
+    codec.thread_count = 2
+    return codec
 
 
 class H264Reader:
@@ -103,12 +162,39 @@ class H264Reader:
         self._codec = None
 
 
-def new_decoder():
-    codec = av.CodecContext.create("h264", "r")
-    # Show each frame as soon as it's decoded, instead of holding some back for reordering.
-    codec.options = {"flags": "low_delay"}
-    codec.thread_count = 2
-    return codec
+class Decoder:
+    """An H.264 decoder on the graphics card when that's on and works, else in software. A hardware one that errors is
+    swapped for software on the spot (the picture resumes at the next keyframe) and not tried again this run."""
+
+    def __init__(self):
+        self.hardware: Optional[str] = None
+        self._codec = None
+        if hardware_in_use():
+            device = hardware_device()
+            self._codec = _open_hw(device)
+            if self._codec is not None:
+                self._codec.options = {"flags": "low_delay"}
+                self.hardware = device
+        if self._codec is None:
+            self._codec = _software_codec()
+
+    def feed(self, data: bytes):
+        """(newest BGR frame the data completed or None, how many frames it completed)."""
+        try:
+            return _decode_counted(self._codec, data)
+        except Exception:
+            if self.hardware is None:
+                raise
+            global _hw_failed
+            _hw_failed = True
+            logger.warning("Hardware decoding (%s) failed; decoding in software from now on", self.hardware, exc_info=True)
+            self.hardware = None
+            self._codec = _software_codec()
+            return None, 0
+
+
+def new_decoder() -> Decoder:
+    return Decoder()
 
 
 def decode_newest(codec, data: bytes):
@@ -119,6 +205,12 @@ def decode_newest(codec, data: bytes):
 
 def decode_counted(codec, data: bytes):
     """decode_newest(), and how many frames the data completed (the dropped ones too)."""
+    if isinstance(codec, Decoder):
+        return codec.feed(data)
+    return _decode_counted(codec, data)
+
+
+def _decode_counted(codec, data: bytes):
     newest, count = None, 0
     for packet in codec.parse(data):
         try:

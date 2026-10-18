@@ -886,9 +886,23 @@ def test_setup_plugin_config_round_trip(setup_plugin):
         "max_zoom": 15,
         "max_gain": 36,
         "limiter": False,
+        "hw_decode": True,
     }
     plugin.set_config(cfg)
     assert plugin.get_config() == cfg
+
+
+def test_hardware_decoding_is_off_unless_turned_on(setup_plugin, monkeypatch):
+    from telescope import h264_reader
+    plugin, _host, _panel = setup_plugin
+    monkeypatch.setattr(h264_reader, "_hw_wanted", False)
+    plugin.set_config({"hw_decode": "yes"})
+    assert plugin.get_config()["hw_decode"] is False and not h264_reader._hw_wanted
+    plugin._on_hw_decode(True)
+    assert plugin.get_config()["hw_decode"] is True and h264_reader._hw_wanted
+    monkeypatch.setattr(h264_reader, "_hw_probed", True)
+    monkeypatch.setattr(h264_reader, "_hw_found", None)
+    assert plugin.diagnostics() == {"Decoding": "processor (graphics card on, none found)"}
 
 
 def test_setup_plugin_apply_canvas_persists_and_reports_result(setup_plugin):

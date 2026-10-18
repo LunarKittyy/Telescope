@@ -147,3 +147,46 @@ def test_data_that_never_makes_a_frame_ends_the_stream(monkeypatch):
     reader._codec = h264_reader.new_decoder()
     reader._response = _Endless()
     assert reader.read() == (False, None)
+
+
+@pytest.fixture
+def hardware(monkeypatch):
+    """A computer whose graphics card decoder opens; the codec it gives is the test's to choose."""
+    made = []
+    monkeypatch.setattr(h264_reader, "_hw_wanted", True)
+    monkeypatch.setattr(h264_reader, "_hw_failed", False)
+    monkeypatch.setattr(h264_reader, "_hw_probed", True)
+    monkeypatch.setattr(h264_reader, "_hw_found", "cuda")
+    monkeypatch.setattr(h264_reader, "_open_hw", lambda device: made.pop(0) if made else None)
+    return made
+
+
+class _BrokenCodec:
+    options = {}
+
+    def parse(self, data):
+        raise RuntimeError("the driver fell over")
+
+
+def test_decoding_stays_in_software_unless_hardware_is_on(monkeypatch):
+    monkeypatch.setattr(h264_reader, "_hw_wanted", False)
+    assert new_decoder().hardware is None
+
+
+def test_a_graphics_card_that_fails_hands_over_to_software_and_stays_out(hardware):
+    hardware.append(_BrokenCodec())
+    dec = new_decoder()
+    assert dec.hardware == "cuda"
+    packets = _packets([60, 120, 180])
+    assert h264_reader.decode_counted(dec, packets[0]) == (None, 0)  # the failure costs this data, not the stream
+    assert dec.hardware is None and h264_reader._hw_failed
+    frame, count = h264_reader.decode_counted(dec, b"".join(packets))
+    assert frame is not None and count == 3
+    assert new_decoder().hardware is None  # not tried again this run
+    assert not h264_reader.hardware_in_use()
+
+
+def test_no_graphics_card_decoder_means_software(hardware):
+    dec = new_decoder()  # _open_hw finds nothing to open
+    assert dec.hardware is None
+    assert decode_newest(dec, _encode([90])) is not None

@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from telescope import diagnostics, vcam
+from telescope import diagnostics, h264_reader, vcam
 from telescope.platform import IS_LINUX, adb_available, adb_devices, adb_install, bundled_apk_path
 from telescope.platform.linux import (
     CANCELLED, V4L2_OBS_DEV, V4L2_PHONE_DEV, as_text,
@@ -77,6 +77,7 @@ def _custom_size(cfg: dict) -> tuple[int, int]:
 DEFAULT_MAX_ZOOM = 10
 MAX_ZOOM_RANGE = (2, 30)
 MAX_GAIN_CHOICES = (12, 24, 36, 48)
+_HW_NAMES = {"d3d11va": "Found (Direct3D 11)", "cuda": "Found (NVIDIA CUDA)", "videotoolbox": "Found (VideoToolbox)"}
 DEFAULT_MAX_GAIN = 12
 
 _SUDO_HINT = "Asks for your password (pkexec or sudo): this changes system settings."
@@ -112,7 +113,7 @@ class AdvancedDialog(QDialog):
     _sig_apk_done     = pyqtSignal(bool, str)
 
     def __init__(self, parent=None, on_apply_canvas=None, report=None, on_max_zoom=None, on_max_gain=None,
-                 on_limiter=None, on_remove_extras=None, extras_in_use=None):
+                 on_limiter=None, on_remove_extras=None, extras_in_use=None, on_hw_decode=None):
         super().__init__(parent)
         self._on_remove_extras = on_remove_extras
         self._extras_in_use = extras_in_use or (lambda: False)
@@ -125,6 +126,7 @@ class AdvancedDialog(QDialog):
         self._on_max_zoom = on_max_zoom
         self._on_max_gain = on_max_gain
         self._on_limiter = on_limiter
+        self._on_hw_decode = on_hw_decode
         self._build_ui()
         self._sig_v4l_result.connect(self._on_v4l_result)
         self._sig_v4l_unload.connect(self._on_v4l_unload_result)
@@ -294,6 +296,21 @@ class AdvancedDialog(QDialog):
             "How far the Zoom slider goes. Past what the phone can zoom itself, the rest is cropped on "
             "this computer."), stretch=True))
         body.addWidget(zoom_card)
+
+        # ── Video decoding ────────────────────────────────────────────────────
+        hw_card = create_card()
+        hw_lay = card_layout(hw_card)
+        add_card_header(hw_lay, "Video decoding", "stream")
+        device = h264_reader.hardware_device()
+        self._hw_chk = QCheckBox("On")
+        self._hw_chk.setEnabled(device is not None)
+        self._hw_chk.setToolTip("Decodes the Light format on the graphics card instead of the processor, "
+                                "from the next time the stream connects.")
+        self._hw_chk.toggled.connect(lambda on: self._on_hw_decode(on) if self._on_hw_decode else None)
+        hw_lay.addLayout(control_row("Hardware", self._hw_chk))
+        hw_lay.addLayout(control_row("Graphics card", QLabel(
+            _HW_NAMES.get(device, device) if device else "None Telescope can use here"), stretch=True))
+        body.addWidget(hw_card)
 
         # ── Microphone ────────────────────────────────────────────────────────
         mic_card = create_card()
@@ -477,6 +494,11 @@ class AdvancedDialog(QDialog):
 
     def set_max_gain(self, value: int):
         self._max_gain_btns[value].setChecked(True)
+
+    def set_hw_decode(self, on: bool):
+        self._hw_chk.blockSignals(True)  # syncing the stored value isn't a change
+        self._hw_chk.setChecked(on)
+        self._hw_chk.blockSignals(False)
 
     def set_limiter(self, on: bool):
         self._limiter_chk.blockSignals(True)  # syncing the stored value isn't a change
@@ -753,6 +775,7 @@ class SetupPlugin(TelescopePlugin):
         self._max_zoom = DEFAULT_MAX_ZOOM
         self._max_gain = DEFAULT_MAX_GAIN
         self._limiter = True
+        self._hw_decode = False
         self._canvas_preset = "Auto (from first frame)"
         self._custom_w = 1920
         self._custom_h = 1080
@@ -777,11 +800,13 @@ class SetupPlugin(TelescopePlugin):
                                        on_max_zoom=self._on_max_zoom, on_max_gain=self._on_max_gain,
                                        on_limiter=self._on_limiter,
                                        on_remove_extras=lambda done: self._host.remove_extra_cameras(done),
-                                       extras_in_use=lambda: self._host.stream_count() > 1)
+                                       extras_in_use=lambda: self._host.stream_count() > 1,
+                                       on_hw_decode=self._on_hw_decode)
         self._dlg.set_canvas_preset(self._canvas_preset, self._custom_w, self._custom_h)
         self._dlg.set_max_zoom(self._max_zoom)
         self._dlg.set_max_gain(self._max_gain)
         self._dlg.set_limiter(self._limiter)
+        self._dlg.set_hw_decode(self._hw_decode)
         self._dlg.show()
         self._dlg.raise_()
         self._dlg.activateWindow()
@@ -813,10 +838,23 @@ class SetupPlugin(TelescopePlugin):
         self._bus.max_gain_changed.emit(value)
         self._host.schedule_save()
 
+    def _on_hw_decode(self, on: bool):
+        self._hw_decode = on
+        h264_reader.set_hardware(on)
+        self._host.schedule_save()
+
     def _on_limiter(self, on: bool):
         self._limiter = on
         self._bus.limiter_changed.emit(on)
         self._host.schedule_save()
+
+    def diagnostics(self) -> dict:
+        if not self._hw_decode:
+            return {"Decoding": "processor"}
+        if h264_reader.hardware_in_use():
+            return {"Decoding": f"graphics card ({h264_reader.hardware_device()})"}
+        reason = "it failed" if h264_reader.hardware_device() else "none found"
+        return {"Decoding": f"processor (graphics card on, {reason})"}
 
     def get_config(self) -> dict:
         return {
@@ -826,6 +864,7 @@ class SetupPlugin(TelescopePlugin):
             "max_zoom":        self._max_zoom,
             "max_gain":        self._max_gain,
             "limiter":         self._limiter,
+            "hw_decode":       self._hw_decode,
         }
 
     def set_config(self, cfg: dict):
@@ -841,3 +880,5 @@ class SetupPlugin(TelescopePlugin):
         self._bus.max_gain_changed.emit(self._max_gain)
         self._limiter = cfg.get("limiter", True) is not False  # only an explicit off turns it off
         self._bus.limiter_changed.emit(self._limiter)
+        self._hw_decode = cfg.get("hw_decode") is True  # off unless turned on
+        h264_reader.set_hardware(self._hw_decode)
