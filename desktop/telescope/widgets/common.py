@@ -6,11 +6,11 @@ from PyQt6.QtCore import QByteArray, QCoreApplication, QEventLoop, QMetaObject, 
 from PyQt6 import sip
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtGui import (
-    QBrush, QColor, QFontMetrics, QIcon, QPainter, QPainterPath, QPen, QPixmap,
+    QBrush, QColor, QFont, QFontMetrics, QIcon, QPainter, QPainterPath, QPen, QPixmap,
 )
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLayout, QPushButton,
-    QSlider, QSpinBox, QSizePolicy, QStyle, QStyleOptionSlider, QVBoxLayout, QWidget,
+    QSlider, QSpinBox, QSizePolicy, QStyle, QStyleOptionButton, QStyleOptionSlider, QVBoxLayout, QWidget,
 )
 
 from telescope import theme
@@ -249,6 +249,50 @@ class SegmentButton(QPushButton):
         super().__init__(text, parent)
         self.setCheckable(True)
         self.setAutoExclusive(False)
+
+
+OPTION_HEIGHT = 52
+"""Height of an OptionButton."""
+
+
+class OptionButton(SegmentButton):
+    """A segment that says what picking it means: its name, and a short note under it. text() stays the name."""
+
+    def __init__(self, text: str, note: str, parent=None):
+        super().__init__(text, parent)
+        self._note = note
+        self.setMinimumHeight(ui_px(OPTION_HEIGHT))
+
+    def note(self) -> str:
+        return self._note
+
+    def sizeHint(self) -> QSize:
+        return QSize(super().sizeHint().width(), ui_px(OPTION_HEIGHT))
+
+    def paintEvent(self, _event):
+        p = QPainter(self)
+        opt = QStyleOptionButton()
+        self.initStyleOption(opt)
+        opt.text = ""
+        self.style().drawControl(QStyle.ControlElement.CE_PushButton, opt, p, self)
+        on = self.isChecked()
+        ink = QColor("#ffffff" if on else theme.TEXT) if self.isEnabled() else QColor(theme.TEXT_DISABLED)
+        title, small = QFont(self.font()), QFont(self.font())
+        title.setWeight(QFont.Weight.DemiBold)
+        small.setPointSizeF(self.font().pointSizeF() * 0.9)
+        box = self.rect().adjusted(12, 0, -10, 0)
+        half = self.height() // 2
+        p.setPen(ink)
+        p.setFont(title)
+        p.drawText(QRect(box.left(), 0, box.width(), half + 1), int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom),
+                   p.fontMetrics().elidedText(self.text(), Qt.TextElideMode.ElideRight, box.width()))
+        faint = QColor(ink)
+        faint.setAlphaF(0.85 if on else 0.6)
+        p.setPen(faint)
+        p.setFont(small)
+        p.drawText(QRect(box.left(), half + 2, box.width(), half - 2), int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop),
+                   p.fontMetrics().elidedText(self._note, Qt.TextElideMode.ElideRight, box.width()))
+        p.end()
 
 
 SWITCH_W, SWITCH_H = 36, 20

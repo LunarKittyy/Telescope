@@ -13,9 +13,9 @@ from telescope.shortcuts import choice_action, slider_action
 from telescope.theme import OK, WARN
 from telescope.widgets.banner import BannerAction, Issue
 from telescope.widgets.common import (
-    NoScrollComboBox, NoScrollSlider, SegmentButton, add_card_header,
+    NoScrollComboBox, NoScrollSlider, OptionButton, add_card_header,
     add_section_heading, control_row as _row, control_row_widget, card_layout, create_card, dim_until_paired,
-    quality_label, segmented_row, slider_row, value_label, wrapped_note,
+    quality_label, segmented_row, slider_row, value_label,
 )
 
 _DEFAULT_QUALITY = 85  # the recommended spot, marked on the slider
@@ -38,7 +38,7 @@ _FORMAT_NOTES = {
     FORMAT_H264:  "Good for most calls.",
     FORMAT_MJPEG: "Needs USB or strong Wi-Fi.",
 }
-# Tooltips carry the technical side; the note under the buttons is the plain one.
+# Tooltips carry the technical side; the note on each button is the plain one.
 _LIGHT_TIP = "H.264 from the phone's hardware encoder, like video calls use."
 _HEAVY_TIP = "MJPEG: every frame a full JPEG. Several times Light's data, sharper in fast motion."
 
@@ -213,8 +213,8 @@ class StreamOutputPlugin(TelescopePlugin):
             "Bitrate", slider_row(self._bitrate_slider, self._bitrate_val_lbl), stretch=True)
         lay.addWidget(self._bitrate_row)
 
-        self._fmt_h264 = SegmentButton("Light")
-        self._fmt_mjpeg = SegmentButton("Heavy")
+        self._fmt_h264 = OptionButton("Light", _FORMAT_NOTES[FORMAT_H264])
+        self._fmt_mjpeg = OptionButton("Heavy", _FORMAT_NOTES[FORMAT_MJPEG])
         self._fmt_mjpeg.setToolTip(_HEAVY_TIP)
         self._fmt_grp = QButtonGroup(card)
         self._fmt_grp.setExclusive(True)
@@ -222,10 +222,8 @@ class StreamOutputPlugin(TelescopePlugin):
             self._fmt_grp.addButton(btn)
         self._fmt_h264.setChecked(True)
         self._fmt_grp.buttonClicked.connect(self._on_format_clicked)
-        self._fmt_note = wrapped_note("")
         at = lay.indexOf(self._quality_row)
-        lay.insertLayout(at, _row("Format", segmented_row(self._fmt_h264, self._fmt_mjpeg), stretch=True))
-        lay.insertLayout(at + 1, _row("", self._fmt_note, stretch=True))
+        lay.insertLayout(at, segmented_row(self._fmt_h264, self._fmt_mjpeg))  # the whole width, so the notes fit
         self._show_format()
 
         # Goes with the card, so a push due after the window closed never reaches deleted controls
@@ -554,7 +552,6 @@ class StreamOutputPlugin(TelescopePlugin):
         else:
             tip = _LIGHT_TIP
         self._fmt_h264.setToolTip(tip)
-        self._fmt_note.setText(_FORMAT_NOTES[FORMAT_H264 if h264 else FORMAT_MJPEG])
         self._quality_row.setVisible(not h264)
         self._bitrate_row.setVisible(h264)
 
