@@ -1186,6 +1186,17 @@ def test_ensure_streaming_tolerates_a_blip_but_not_a_sustained_outage(plugin_env
     assert not ok and "Lost contact" in reason
 
 
+def test_ensure_streaming_checks_often_at_first_and_slows_down_when_the_phone_goes_quiet(plugin_env, monkeypatch):
+    plugin, _host, _panel = plugin_env
+    gone = PingResult("unreachable")
+    _stub_session(monkeypatch, [_ping(), _ping(busy=True), gone, _ping(busy=True), _ping(streaming=True)])
+    sleeps = []
+    monkeypatch.setattr(connection_module.time, "sleep", sleeps.append)
+    assert plugin.ensure_phone_streaming(target=_TARGET) == (True, "")
+    fast, slow = connection_module.START_FAST_POLL_INTERVAL, connection_module.START_POLL_INTERVAL
+    assert sleeps == [fast, fast, slow, fast]
+
+
 def test_ensure_streaming_times_out_rather_than_hanging(plugin_env, monkeypatch):
     plugin, _host, _panel = plugin_env
     _stub_session(monkeypatch, [_ping()])
