@@ -14,30 +14,113 @@ from telescope.audio import BYTES_PER_MS, AudioWorker, FifoSink, JitterBuffer
 from telescope.platform import virtual_mic
 
 
-def test_jitter_buffer_waits_for_the_target_then_plays_in_order():
-    jb = JitterBuffer(target_ms=20, max_ms=100)
-    jb.push(b"\x01\x00" * (10 * BYTES_PER_MS // 2))
+def _pcm(samples) -> bytes:
+    return np.asarray(np.rint(samples), np.int16).tobytes()
+
+
+def _sine(n, start=0, freq=440.0, amp=10000):
+    return amp * np.sin(2 * np.pi * freq * (np.arange(n) + start) / audio.RATE)
+
+
+class _Clock:
+    def __init__(self):
+        self.t = 0.0
+
+    def __call__(self):
+        return self.t
+
+
+def _steady(jb, clock, seconds, phone_speed=1.0, freq=440.0):
+    """Phone pushes 10 ms chunks at phone_speed while the writer pops 10 ms; returns what came out and the fill each pop."""
+    out, fills, sent, owed = [], [], 0, 0.0
+    chunk = audio.CHUNK // 2
+    for _ in range(int(seconds * 100)):
+        clock.t += 0.01
+        owed += chunk * phone_speed
+        n = int(owed) - sent
+        jb.push(_pcm(_sine(n, sent, freq)))
+        sent += n
+        out.append(np.frombuffer(jb.pop(audio.CHUNK), np.int16))
+        fills.append(jb.buffered_ms())
+    return np.concatenate(out).astype(np.float32), fills
+
+
+def _biggest_step(samples):
+    return float(np.abs(np.diff(samples)).max())
+
+
+def test_jitter_buffer_waits_for_the_target_then_fades_in_and_plays_in_order():
+    jb = JitterBuffer(target_ms=20, adaptive=False)
+    jb.push(_pcm(np.full(10 * audio.RATE // 1000, 1000)))
     assert jb.pop(4) == bytes(4)  # still filling: silence
-    jb.push(b"\x02\x00" * (10 * BYTES_PER_MS // 2))
-    assert jb.pop(4) == b"\x01\x00\x01\x00"
-    assert jb.buffered_ms() == 19
+    jb.push(_pcm(np.full(10 * audio.RATE // 1000, 1000)))
+    out = np.frombuffer(jb.pop(audio.CHUNK), np.int16)
+    assert out[0] == 0 and out[audio.FADE // 2] < 1000  # fading in, not starting at full level
+    assert (out[audio.FADE:] == 1000).all()
+    assert 9 <= jb.buffered_ms() <= 10
 
 
-def test_jitter_buffer_pads_a_gap_with_silence_and_refills():
-    jb = JitterBuffer(target_ms=1, max_ms=100)
-    jb.push(b"\x05\x00" * BYTES_PER_MS)  # 2 ms
-    jb.pop(BYTES_PER_MS * 2 - 2)
-    out = jb.pop(6)
-    assert out == b"\x05\x00" + bytes(4)
+def test_jitter_buffer_fades_out_when_it_runs_dry_and_refills():
+    jb = JitterBuffer(target_ms=10, adaptive=False)
+    jb.push(_pcm(np.full(15 * audio.RATE // 1000, 1000)))
+    jb.pop(audio.CHUNK)
+    out = np.frombuffer(jb.pop(audio.CHUNK), np.int16)  # only 5 ms left
+    played = out[out != 0]
+    assert played.size and played[-1] < 100  # faded down, not cut off at 1000
+    assert (out[played.size:] == 0).all()
     assert jb.pop(4) == bytes(4)  # refilling again
 
 
-def test_jitter_buffer_drops_the_oldest_audio_when_the_phone_runs_ahead():
-    jb = JitterBuffer(target_ms=10, max_ms=30)
-    jb.push(b"\x01\x00" * (20 * BYTES_PER_MS // 2))
-    jb.push(b"\x02\x00" * (20 * BYTES_PER_MS // 2))  # 40 ms > max: back down to 10
-    assert jb.buffered_ms() == 10
-    assert jb.pop(2) == b"\x02\x00"
+def test_jitter_buffer_holds_the_target_when_the_phones_clock_runs_fast_or_slow():
+    for speed in (1.001, 0.999):
+        clock = _Clock()
+        jb = JitterBuffer(target_ms=40, clock=clock, adaptive=False)
+        out, fills = _steady(jb, clock, 120, phone_speed=speed)
+        settled = fills[1000:]
+        assert 20 <= min(settled) and max(settled) <= 40, speed  # never cut back, never ran dry (read just after a pop)
+        assert _biggest_step(out[5000:]) < 650, speed  # a 440 Hz sine at 10000 moves at most ~575 a sample
+
+
+def test_jitter_buffer_drift_correction_keeps_high_notes_sharp():
+    clock = _Clock()
+    jb = JitterBuffer(target_ms=40, clock=clock, adaptive=False)
+    out, _ = _steady(jb, clock, 10, phone_speed=1.002, freq=8000)
+    assert np.abs(out[audio.RATE * 5:]).max() > 9500  # straight-line interpolation would lose a lot of this
+
+
+def test_jitter_buffer_fades_back_to_the_target_when_far_behind():
+    clock = _Clock()
+    jb = JitterBuffer(target_ms=20, max_ms=60, clock=clock, adaptive=False)
+    out, fills = _steady(jb, clock, 1)
+    jb.push(_pcm(_sine(200 * audio.RATE // 1000, 100 * audio.CHUNK // 2)))  # 200 ms arrive at once
+    after = np.frombuffer(jb.pop(audio.CHUNK), np.int16).astype(np.float32)
+    assert jb.buffered_ms() <= 25
+    assert _biggest_step(np.concatenate((out[-10:], after))) < 1500  # crossfaded, not a jump
+
+
+def test_jitter_buffer_grows_the_target_when_audio_arrives_unevenly_then_shrinks_again():
+    clock = _Clock()
+    jb = JitterBuffer(target_ms=20, clock=clock)
+    _steady(jb, clock, 2)
+    assert jb.target_ms() == 20
+    clock.t += 0.08  # 80 ms with nothing, then it all arrives
+    jb.push(_pcm(_sine(80 * audio.RATE // 1000)))
+    assert jb.target_ms() >= 70  # 70 ms later than the rest, plus a margin
+    _steady(jb, clock, 30)
+    assert jb.target_ms() < 40
+
+
+def test_jitter_buffer_caps_what_piles_up_while_nothing_reads():
+    jb = JitterBuffer(target_ms=20, adaptive=False)
+    for _ in range(300):
+        jb.push(_pcm(np.zeros(audio.CHUNK // 2)))
+    assert jb.buffered_ms() <= 20 + 130 + audio.MAX_BACKLOG_MS
+
+
+def test_usb_starts_with_a_shorter_buffer_than_wifi():
+    assert audio._target_for("https://127.0.0.1:5000/v1/audio") == audio.USB_TARGET_MS
+    assert audio._target_for("https://192.168.1.20:8443/v1/audio") == audio.WIFI_TARGET_MS
+    assert audio._target_for("browser:/audio") == audio.WIFI_TARGET_MS
 
 
 class _Resp:

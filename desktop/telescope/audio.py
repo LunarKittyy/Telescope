@@ -1,8 +1,8 @@
 """Plays the phone's microphone (/v1/audio: 48 kHz mono s16le) into the virtual microphone.
 
 A reader thread fills a jitter buffer from the phone; a writer thread drains it into the output at
-the output's own pace, padding with silence on a gap and dropping audio when the phone runs ahead
-(its clock and the sound card's never quite agree), so the delay stays near TARGET_MS.
+the output's own pace, playing slightly faster or slower since the phone's clock and the sound card's
+never quite agree, so the delay stays near the target.
 """
 
 import json
@@ -12,6 +12,7 @@ import stat
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Callable, Optional
 
@@ -25,7 +26,18 @@ RATE = 48_000
 BYTES_PER_MS = RATE * 2 // 1000
 CHUNK = 10 * BYTES_PER_MS  # what the writer hands the output at a time
 TARGET_MS = 60
-MAX_MS = 150
+USB_TARGET_MS = 20  # where the buffer starts on a steady connection; it grows when audio arrives unevenly
+WIFI_TARGET_MS = 40
+MAX_MS = 150  # jump back to the target once this far behind (more than playing faster can catch up)
+MAX_TARGET_MS = 120
+MAX_BACKLOG_MS = 500  # past MAX_MS, while nothing reads the output
+JITTER_MARGIN_MS = 10
+MAX_SKEW = 0.002  # playing 0.2% faster or slower can't be heard
+SKEW_PER_SAMPLE = MAX_SKEW / (10 * RATE / 1000)  # full skew 10 ms off target
+AVERAGE_S = 0.5
+FADE = 96  # samples (2 ms) to fade out and back in around a gap or a jump
+LEAD_CREEP = 0.005
+LATE_DECAY = 0.9995  # per arrival (about every 10 ms): a late burst stops counting after 10 s or so
 RETRY_S = 3
 FULL_SCALE = 32767
 LIMIT_CEILING = 10 ** (-1 / 20)  # the limiter keeps peaks under -1 dBFS
@@ -34,40 +46,128 @@ LIMIT_ATTACK = 48  # samples (1 ms) to reach a new, lower gain; hard clipping ca
 
 
 class JitterBuffer:
-    def __init__(self, target_ms: int = TARGET_MS, max_ms: int = MAX_MS):
-        self._target = target_ms * BYTES_PER_MS
-        self._max = max_ms * BYTES_PER_MS
-        self._buf = bytearray()
-        self._playing = False  # False until TARGET_MS has built up, and again after running dry
+    """Holds the phone's audio until the writer wants it, playing up to MAX_SKEW faster or slower so it
+    stays near the target instead of cutting it back in one go. Runs dry and big jumps fade instead of clicking."""
+
+    def __init__(self, target_ms: int = TARGET_MS, max_ms: int = MAX_MS, clock: Callable = time.monotonic,
+                 adaptive: bool = True):
+        self._base = target_ms * RATE // 1000  # the target with a steady connection, in samples
+        self._target = self._base
+        self._max_extra = (max_ms - target_ms) * RATE // 1000  # how far over target before jumping back
+        self._adaptive = adaptive
+        self._clock = clock
+        self._buf = np.zeros(1, np.float32)
+        self._pos = 1.0  # read position in _buf; the sample before it stays for the interpolation
+        self._odd = b""
+        self._playing = False  # False until the target has built up, and again after running dry
+        self._avg = 0.0  # how full it is on average, in samples
         self._lock = threading.Lock()
+        self._lead: Optional[float] = None  # earliest arrival seen relative to the audio's own clock, in samples
+        self._late = 0.0  # how late audio has been arriving recently, in samples
+        self._received = 0
+        self._last_arrival = 0.0
 
     def push(self, data: bytes):
+        now = self._clock()
         with self._lock:
-            self._buf += data
-            if len(self._buf) > self._max:
-                drop = len(self._buf) - self._target
-                drop -= drop % 2  # whole samples
-                del self._buf[:drop]
+            data = self._odd + data
+            whole = len(data) - len(data) % 2
+            self._odd = data[whole:]
+            samples = np.frombuffer(data[:whole], np.int16).astype(np.float32)
+            if not samples.size:
+                return
+            self._buf = np.concatenate((self._buf, samples))
+            self._track_jitter(now)  # by when this chunk's first sample arrived
+            self._received += samples.size
+            hard = int(self._pos) + self._target + self._max_extra + MAX_BACKLOG_MS * RATE // 1000
+            if self._buf.size > hard:
+                # The writer stalled (an idle output stops reading): never pile up more than this
+                drop = self._buf.size - hard
+                self._buf = self._buf[drop:]
+                self._pos = max(1.0, self._pos - drop)
+
+    def restart_clock(self):
+        """A new connection: its audio's timing starts over, so the old arrivals say nothing about it."""
+        with self._lock:
+            self._lead = None
+            self._received = 0
+            self._odd = b""
+
+    def _track_jitter(self, now: float):
+        lead = now * RATE - self._received  # the later audio arrives, the bigger this gets
+        if self._lead is None:
+            self._lead = lead
+        else:
+            # Creeps up a little so a phone whose clock runs slow doesn't look like it's always late
+            self._lead = min(lead, self._lead + (now - self._last_arrival) * RATE * LEAD_CREEP)
+        self._last_arrival = now
+        if not self._adaptive:
+            return
+        self._late = max(lead - self._lead, self._late * LATE_DECAY)
+        self._target = int(min(max(self._base, self._late + JITTER_MARGIN_MS * RATE / 1000),
+                               MAX_TARGET_MS * RATE / 1000))
 
     def pop(self, n: int) -> bytes:
         """n bytes of audio, or silence while (re)filling."""
+        m = n // 2
         with self._lock:
+            fill = self._buf.size - self._pos
             if not self._playing:
-                if len(self._buf) < self._target:
+                if fill < self._target:
                     return bytes(n)
                 self._playing = True
-            if len(self._buf) < n:
-                out = bytes(self._buf) + bytes(n - len(self._buf))
-                self._buf.clear()
+                self._avg = fill
+                fade_in = True
+            else:
+                fade_in = False
+            self._avg += (fill - self._avg) * min(1.0, m / (AVERAGE_S * RATE))
+            ratio = 1.0 + float(np.clip((self._avg - self._target) * SKEW_PER_SAMPLE, -MAX_SKEW, MAX_SKEW))
+            skip = 0
+            if fill - m * ratio > self._target + self._max_extra:
+                skip = int(fill - m * ratio - self._target)  # far too much: jump back to the target
+                self._avg = self._target
+            at = self._pos + skip + ratio * np.arange(m, dtype=np.float64)
+            usable = int(np.searchsorted(at, self._buf.size - 2.0, side="left"))  # cubic needs two samples ahead
+            out = self._cubic(at[:usable])
+            if skip:
+                k = min(FADE, usable)
+                before = self._cubic(self._pos + ratio * np.arange(k, dtype=np.float64))
+                w = np.linspace(0.0, 1.0, k, dtype=np.float32)
+                out[:k] = before * (1 - w) + out[:k] * w
+            if fade_in:
+                k = min(FADE, out.size)
+                out[:k] *= np.linspace(0.0, 1.0, k, dtype=np.float32)
+            if usable < m:
+                # Ran dry: fade out what's left instead of stopping dead, then fill up to the target again
+                k = min(FADE, out.size)
+                if k:
+                    out[-k:] *= np.linspace(1.0, 0.0, k, dtype=np.float32)
+                self._buf = self._buf[-1:]
+                self._pos = 1.0
                 self._playing = False
-                return out
-            out = bytes(self._buf[:n])
-            del self._buf[:n]
-            return out
+                out = np.concatenate((out, np.zeros(m - usable, np.float32)))
+            else:
+                end = self._pos + skip + ratio * m
+                keep_from = int(end) - 1
+                self._buf = self._buf[keep_from:]
+                self._pos = end - keep_from
+            return np.clip(np.rint(out), -32768, FULL_SCALE).astype(np.int16).tobytes() + bytes(n - 2 * m)
+
+    def _cubic(self, at: np.ndarray) -> np.ndarray:
+        """Catmull-Rom between samples: straight lines would dull "s" and "t" sounds."""
+        i = np.floor(at).astype(np.int64)
+        t = (at - i).astype(np.float32)
+        x = self._buf
+        p0, p1, p2, p3 = x[np.maximum(i - 1, 0)], x[i], x[i + 1], x[i + 2]
+        return p1 + 0.5 * t * (p2 - p0 + t * (2 * p0 - 5 * p1 + 4 * p2 - p3 + t * (3 * (p1 - p2) + p3 - p0)))
 
     def buffered_ms(self) -> int:
         with self._lock:
-            return len(self._buf) // BYTES_PER_MS
+            return int(self._buf.size - self._pos) * 1000 // RATE
+
+    def target_ms(self) -> int:
+        with self._lock:
+            return self._target * 1000 // RATE
 
 
 class FifoSink:
@@ -148,7 +248,7 @@ class AudioWorker:
         self._on_status = on_status
         self._opener = opener or auth.open
         self._stop = threading.Event()
-        self._buffer = JitterBuffer()
+        self._buffer = JitterBuffer(_target_for(url))
         self._response = None
         self._threads: list = []
         self.gain = 1.0  # linear; changes fade in over a chunk like mute does
@@ -208,6 +308,7 @@ class AudioWorker:
             return "Can't reach the phone's microphone."
         self._response = resp
         self._odd = b""
+        self._buffer.restart_clock()
         told = False
         try:
             while not self._stop.is_set():
@@ -322,6 +423,12 @@ class AudioWorker:
         ramp = np.linspace(self._mute_gain, target, samples.size, dtype=np.float32)
         self._mute_gain = target
         return (samples * ramp).astype(np.int16).tobytes()
+
+
+def _target_for(url: str) -> int:
+    """USB arrives evenly enough for a shorter buffer than Wi-Fi."""
+    host = urllib.parse.urlsplit(url).hostname or ""
+    return USB_TARGET_MS if host in ("127.0.0.1", "localhost") else WIFI_TARGET_MS
 
 
 def _phone_reason(err: urllib.error.HTTPError) -> str:
