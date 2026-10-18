@@ -77,7 +77,7 @@ def _custom_size(cfg: dict) -> tuple[int, int]:
 DEFAULT_MAX_ZOOM = 10
 MAX_ZOOM_RANGE = (2, 30)
 MAX_GAIN_CHOICES = (12, 24, 36, 48)
-_HW_NAMES = {"d3d11va": "Found (Direct3D 11)", "cuda": "Found (NVIDIA CUDA)", "videotoolbox": "Found (VideoToolbox)"}
+_HW_NAMES = {"d3d11va": "Direct3D 11", "cuda": "NVIDIA CUDA", "videotoolbox": "VideoToolbox"}
 DEFAULT_MAX_GAIN = 12
 
 _SUDO_HINT = "Asks for your password (pkexec or sudo): this changes system settings."
@@ -297,19 +297,17 @@ class AdvancedDialog(QDialog):
             "this computer."), stretch=True))
         body.addWidget(zoom_card)
 
-        # ── Video decoding ────────────────────────────────────────────────────
+        # ── Hardware acceleration ────────────────────────────────────────────────────
         hw_card = create_card()
         hw_lay = card_layout(hw_card)
-        add_card_header(hw_lay, "Video decoding", "stream")
+        add_card_header(hw_lay, "Hardware acceleration", "stream")
         device = h264_reader.hardware_device()
-        self._hw_chk = QCheckBox("On")
+        # The box names the graphics card it would use, so one row says both whether it's on and what with.
+        self._hw_chk = QCheckBox(_HW_NAMES.get(device, device) if device else "No graphics card Telescope can use")
         self._hw_chk.setEnabled(device is not None)
-        self._hw_chk.setToolTip("Decodes the Light format on the graphics card instead of the processor, "
-                                "from the next time the stream connects.")
+        self._hw_chk.setToolTip("Decodes the Light format on the graphics card from the next stream on.")
         self._hw_chk.toggled.connect(lambda on: self._on_hw_decode(on) if self._on_hw_decode else None)
-        hw_lay.addLayout(control_row("Hardware", self._hw_chk))
-        hw_lay.addLayout(control_row("Graphics card", QLabel(
-            _HW_NAMES.get(device, device) if device else "None Telescope can use here"), stretch=True))
+        hw_lay.addLayout(control_row("Graphics card", self._hw_chk, stretch=True))
         body.addWidget(hw_card)
 
         # ── Microphone ────────────────────────────────────────────────────────
