@@ -28,3 +28,8 @@ On Windows the virtual camera is UnityCapture, a DirectShow filter. Apps that on
 
 Big. It means a native DLL next to the Python app, registering it with admin rights, keeping UnityCapture for Windows 10, and a lot of testing across apps.
 
+## Dynamic over UDP
+
+UDP on Wi-Fi and Dynamic can't be on together right now, so it's one or the other. Dynamic decides from how long frames wait in the phone's send queue, which only shows a problem once the queue is already backing up. Over UDP the desktop asks for every lost piece again, and how often it has to ask is an earlier and cleaner sign the link is getting too thin. Dynamic could step the bitrate down on that and keep UDP's lower lag spikes at the same time.
+
+Medium to big. It needs the resend rate reported back to the phone, the step-down tuned on a real thin link, and `scripts/phone_check.py` would be the place to measure it.
