@@ -1,0 +1,117 @@
+package com.telescope
+
+import org.junit.jupiter.api.Assertions.assertArrayEquals
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Test
+import java.nio.ByteBuffer
+
+class UdpVideoTest {
+    private val key = ByteArray(32) { it.toByte() }
+    private fun hex(s: String) = s.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+
+    @Test
+    fun `seals exactly like the desktop expects`() {
+        // The same vector is in the desktop's test_udp_reader.py
+        val seal = UdpSeal(key, UdpWire.TO_DESKTOP)
+        repeat(5) { seal.seal(ByteArray(0)) }
+        assertArrayEquals(hex("00000000000000055e76b1e3a4fb9044e263c4c95177c93d06d25e7b83374ba48c"), seal.seal("telescope".toByteArray()))
+    }
+
+    @Test
+    fun `opens what the other side sealed, once, and nothing forged`() {
+        val desktop = UdpSeal(key, UdpWire.TO_PHONE)
+        val phone = UdpSeal(key, UdpWire.TO_PHONE)
+        val a = desktop.seal(byteArrayOf(UdpWire.HELLO))
+        val b = desktop.seal(byteArrayOf(UdpWire.KEYFRAME))
+        assertArrayEquals(byteArrayOf(UdpWire.KEYFRAME), phone.open(b))
+        assertArrayEquals(byteArrayOf(UdpWire.HELLO), phone.open(a))  // late but new: fine
+        assertNull(phone.open(a))  // replayed
+        val forged = b.copyOf().also { it[it.size - 1] = (it[it.size - 1] + 1).toByte() }
+        assertNull(phone.open(forged))
+        assertNull(UdpSeal(ByteArray(32), UdpWire.TO_PHONE).open(desktop.seal(byteArrayOf(1))))  // another key
+        assertNull(UdpSeal(key, UdpWire.TO_DESKTOP).open(desktop.seal(byteArrayOf(1))))  // the other direction
+    }
+
+    @Test
+    fun `far too old is refused even if never seen`() {
+        val desktop = UdpSeal(key, UdpWire.TO_PHONE)
+        val phone = UdpSeal(key, UdpWire.TO_PHONE)
+        val old = desktop.seal(byteArrayOf(1))
+        repeat(UdpSeal.WINDOW + 1) { phone.open(desktop.seal(byteArrayOf(2))) }
+        assertNull(phone.open(old))
+    }
+
+    @Test
+    fun `a frame is cut into numbered pieces that put back together`() {
+        val data = ByteArray(2500) { (it % 251).toByte() }
+        val parts = UdpWire.fragments(7, data, key = true)
+        assertEquals(3, parts.size)
+        val back = parts.map { p ->
+            val b = ByteBuffer.wrap(p)
+            assertEquals(7, b.int)
+            val idx = b.short.toInt(); assertEquals(3, b.short.toInt()); assertEquals(UdpWire.FLAG_KEY, b.get().toInt())
+            idx to p.copyOfRange(UdpWire.HEADER, p.size)
+        }.sortedBy { it.first }.flatMap { it.second.toList() }
+        assertArrayEquals(data, back.toByteArray())
+        assertEquals(1, UdpWire.fragments(1, ByteArray(0), key = false).size)
+    }
+
+    @Test
+    fun `the desktop's udp port comes from the query`() {
+        assertEquals(5000, MjpegServer.udpPort("port=5000"))
+        assertEquals(5000, MjpegServer.udpPort("x=1&port=5000"))
+        assertNull(MjpegServer.udpPort(""))
+        assertNull(MjpegServer.udpPort("port=0"))
+        assertNull(MjpegServer.udpPort("port=70000"))
+        assertNull(MjpegServer.udpPort("port=abc"))
+    }
+
+    @Test
+    fun `sends frames to the desktop, sends lost pieces again, and stops when the session ends`() {
+        val desktop = java.net.DatagramSocket(0, java.net.InetAddress.getLoopbackAddress()).apply { soTimeout = 2000 }
+        val server = java.net.ServerSocket(0, 1, java.net.InetAddress.getLoopbackAddress())
+        val session = java.net.Socket(java.net.InetAddress.getLoopbackAddress(), server.localPort)
+        val phoneSide = server.accept()
+        val keyAsks = java.util.concurrent.atomic.AtomicInteger()
+        val client = UdpVideoClient(phoneSide, java.net.InetSocketAddress(java.net.InetAddress.getLoopbackAddress(), desktop.localPort)) { keyAsks.incrementAndGet() }
+        val hello = client.hello()
+        val key = java.util.Base64.getDecoder().decode(Regex("\"key\":\"([^\"]+)\"").find(hello)!!.groupValues[1])
+        val phonePort = Regex("\"port\":(\\d+)").find(hello)!!.groupValues[1].toInt()
+        val runner = Thread { client.run { byteArrayOf(9, 9) } }.apply { start() }
+        val inbound = UdpSeal(key, UdpWire.TO_DESKTOP)
+        val outbound = UdpSeal(key, UdpWire.TO_PHONE)
+        fun receive(): ByteBuffer {
+            val buf = ByteArray(2048)
+            val p = java.net.DatagramPacket(buf, buf.size)
+            desktop.receive(p)
+            return ByteBuffer.wrap(inbound.open(buf, p.length)!!)
+        }
+        fun tell(plain: ByteArray) {
+            val sealed = outbound.seal(plain)
+            desktop.send(java.net.DatagramPacket(sealed, sealed.size, java.net.InetAddress.getLoopbackAddress(), phonePort))
+        }
+
+        client.offer(ByteArray(10), key = false)  // nothing goes before a keyframe
+        client.offer(ByteArray(3000) { 7 }, key = true)
+        val first = receive()
+        assertEquals(0, first.int)  // frame 0
+        val count = run { first.short; first.short.toInt() }
+        assertEquals(3, count)
+        repeat(count - 1) { receive() }
+
+        tell(ByteBuffer.allocate(7).put(UdpWire.NACK).putInt(0).putShort(1).array())
+        val again = receive()
+        assertEquals(0, again.int); assertEquals(1, again.short.toInt())
+
+        tell(byteArrayOf(UdpWire.KEYFRAME))
+        val deadline = System.currentTimeMillis() + 2000
+        while (keyAsks.get() == 0 && System.currentTimeMillis() < deadline) Thread.sleep(10)
+        assertEquals(1, keyAsks.get())
+
+        session.close()  // the desktop went away
+        runner.join(5000)
+        assertEquals(false, runner.isAlive)
+        desktop.close(); server.close()
+    }
+}

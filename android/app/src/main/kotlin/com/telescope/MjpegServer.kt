@@ -37,6 +37,7 @@ class MjpegServer(
     private var serverSocket: ServerSocket? = null
     private val clients = CopyOnWriteArrayList<MjpegClient>()
     private val h264Clients = CopyOnWriteArrayList<H264Client>()
+    private val udpClients = CopyOnWriteArrayList<UdpVideoClient>()
     @Volatile private var h264Config: ByteArray? = null
     // Dynamic bitrate: short socket buffers and a short backlog, so a full link shows up as a queue here right away.
     @Volatile var dynamicH264 = false
@@ -104,6 +105,7 @@ class MjpegServer(
             return
         }
         frameRate.tick()
+        udpClients.forEach { it.offer(packet, key) }
         if (h264Clients.isEmpty()) return
         val framed = H264Stream.withDelimiter(packet)
         var wantKey = false
@@ -156,6 +158,7 @@ class MjpegServer(
         running.set(false)
         closeMjpegClients()
         closeH264Clients()
+        udpClients.forEach { it.close() }
         synchronized(audioLock) {  // so a /v1/audio request finishing now can't start the mic after this
             audioClients.forEach { it.close() }
             audioClients.clear()
@@ -226,6 +229,28 @@ class MjpegServer(
                         h264Clients.remove(client)
                     } finally { streamSlots.release() }
                 }
+                "/v1/video.udp" -> {
+                    if (request.method != "GET") { HttpWire.sendError(socket.getOutputStream(), 405, "Method Not Allowed"); return }
+                    if (!isAuthorized(request)) { HttpWire.sendError(socket.getOutputStream(), 401, "Unauthorized"); return }
+                    val port = udpPort(request.query)
+                    if (port == null) { HttpWire.sendError(socket.getOutputStream(), 400, "Bad Request"); return }
+                    // Over USB the desktop is adb's forward on the phone itself: UDP can't get there
+                    if (socket.inetAddress.isLoopbackAddress) { HttpWire.sendError(socket.getOutputStream(), 409, "UDP needs Wi-Fi"); return }
+                    if (!takeStreamSlot()) return
+                    streaming = true
+                    try {
+                        val client = UdpVideoClient(socket, java.net.InetSocketAddress(socket.inetAddress, port), requestKeyFrame)
+                        socket.getOutputStream().apply {
+                            write(("HTTP/1.1 200 OK\r\nContent-Type: application/x-telescope-udp\r\n" +
+                                "Cache-Control: no-store\r\n\r\n" + client.hello() + "\n").toByteArray())
+                            flush()
+                        }
+                        udpClients.add(client)
+                        onVideoClient(H264Stream.CODEC_H264, HttpWire.bearerToken(request))
+                        requestKeyFrame()  // a decoder can only start at one
+                        try { client.run { h264Config } } finally { udpClients.remove(client) }
+                    } finally { streamSlots.release() }
+                }
                 "/v1/audio" -> {
                     if (request.method != "GET") { HttpWire.sendError(socket.getOutputStream(), 405, "Method Not Allowed"); return }
                     if (!isAuthorized(request)) { HttpWire.sendError(socket.getOutputStream(), 401, "Unauthorized"); return }
@@ -291,6 +316,11 @@ class MjpegServer(
     }
 
     companion object {
+        // The port=N a /v1/video.udp request names for the desktop's UDP socket, or null
+        fun udpPort(query: String): Int? = query.split('&').firstNotNullOfOrNull { part ->
+            part.removePrefix("port=").takeIf { part.startsWith("port=") }?.toIntOrNull()?.takeIf { it in 1..65535 }
+        }
+
         private const val MAX_CONCURRENT_STREAMS = 16
         const val VIEWER_STALE_MS = 5_000L
         const val VIEWER_GIVE_UP_MS = 10_000L
