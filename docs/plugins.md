@@ -10,7 +10,7 @@ The first two parts of this page are for everyone. The last one is for people wh
 
 ## Switching plugins on and off
 
-Click the settings button next to **Start Streaming** and pick **Plugins…**. Every plugin is listed there with a sentence about what it does. Untick one to switch it off. Telescope asks first and tells you what will be missing without it.
+Click the settings button next to **Start streaming** and pick **Plugins…**. Every plugin is listed there with a sentence about what it does. Untick one to switch it off. Telescope asks first and tells you what will be missing without it.
 
 Changes apply the next time Telescope starts. If there's something to apply the dialog shows a **Restart now** button (if you're streaming, the stream stops for the few seconds the restart takes).
 

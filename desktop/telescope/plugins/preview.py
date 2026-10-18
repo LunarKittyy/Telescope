@@ -6,17 +6,19 @@ from PyQt6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget,
 )
 
+from telescope.widgets.common import set_button_icon
+from telescope.widgets.line_icons import line_icon
 from telescope import theme
 from telescope.plugin import TelescopePlugin
 from telescope.shortcuts import button_action
 from telescope.widgets.common import create_vector_icon, set_ui_role, ui_px
 
 
-_IDLE_TEXT    = "Not streaming\n\nPress Start Streaming and the phone's camera comes up on its own."
-_IDLE_BROWSER_TEXT = "Not streaming\n\nPress Start Streaming and the browser's camera comes up once it connects."
+_IDLE_TEXT    = "Not streaming\n\nPress Start streaming and the phone's camera comes up on its own."
+_IDLE_BROWSER_TEXT = "Not streaming\n\nPress Start streaming and the browser's camera comes up once it connects."
 _IDLE_MIC_TEXT = "Not streaming\n\nStart mic only streams the phone's mic with its camera off."
 _WAITING_TEXT = "Waiting for the first frame\u2026"
-_CAMERA_OFF_TEXT = "Camera off\n\nThe phone's mic is still streaming.\nStop Streaming ends it."
+_CAMERA_OFF_TEXT = "Camera off\n\nThe phone's mic is still streaming.\nStop streaming ends it."
 # Broken by hand like the rest: the stage doesn't wrap, and these are its longest lines
 _CAMERA_OFF_AUTO_TEXT = ("Camera off\n\nNo app was using the camera, so it turned off.\nThe phone's mic is still "
                          "streaming, and the camera\ncomes back when an app opens it.")
@@ -377,6 +379,7 @@ class PreviewPlugin(TelescopePlugin):
             "Stop drawing this preview. The camera output doesn't change."
         )
         self._toggle_btn.clicked.connect(self._toggle)
+        set_button_icon(self._toggle_btn, line_icon("eye_off", theme.TEXT_DIM))
         tb_lay.addWidget(self._toggle_btn)
 
         # The phone's camera, like a call app's: off leaves the stream to the mic. Icon only, like the lens toggle
@@ -413,11 +416,10 @@ class PreviewPlugin(TelescopePlugin):
         self._lenses_btn.toggled.connect(self._push_boxes)
         tb_lay.addWidget(self._lenses_btn)
 
-        self._popout_btn = QPushButton("  Pop out")
+        self._popout_btn = QPushButton("Pop out")
         self._popout_btn.setMinimumWidth(ui_px(92))
         set_ui_role(self._popout_btn, "quiet")
-        self._popout_btn.setIcon(create_vector_icon("expand", theme.TEXT_DIM))
-        self._popout_btn.setIconSize(QSize(14, 14))
+        set_button_icon(self._popout_btn, line_icon("pop_out", theme.TEXT_DIM))
         self._popout_btn.clicked.connect(self._open_popout)
         tb_lay.addWidget(self._popout_btn)
 
@@ -441,6 +443,7 @@ class PreviewPlugin(TelescopePlugin):
     def _toggle(self):
         self._active = not self._active
         self._toggle_btn.setText("Hide" if self._active else "Show")
+        set_button_icon(self._toggle_btn, line_icon("eye_off" if self._active else "eye", theme.TEXT_DIM))
         if not self._active:
             self._preview_lbl.setPixmap(QPixmap())
             self._preview_lbl.setText("Preview hidden")

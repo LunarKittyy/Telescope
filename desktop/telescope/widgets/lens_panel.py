@@ -1,27 +1,88 @@
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
+import re
 
-from telescope.widgets.common import FlowLayout
+from PyQt6.QtCore import QPointF, QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QColor, QFont, QFontMetrics, QPainter
+from PyQt6.QtWidgets import QLabel, QPushButton, QSizePolicy, QStyle, QStyleOptionButton, QVBoxLayout, QWidget
 
-_TEXT_PAD = 30  # the lens_button QSS padding + border, both sides
+from telescope import theme
+from telescope.widgets.common import FlowLayout, cap_baseline, card_hue, stacked_baselines, ui_px
+
+TILE_HEIGHT = 54
+"""Height of a lens tile, the same whatever its label says."""
+
+_FOCAL = re.compile(r"~?(\d+(?:\.\d+)?)\s*(mm|x)\b")
+
+
+def split_lens_label(label: str) -> tuple:
+    """(number, unit, the rest) of a shortened lens label: "Auto ~24mm OIS" is ("24", "mm", "Auto · OIS")."""
+    match = _FOCAL.search(label)
+    if not match:
+        return label, "", ""
+    rest = (label[:match.start()] + " " + label[match.end():]).replace("F/", "Front ")
+    return match.group(1), match.group(2), " · ".join(rest.split())
 
 
 class _LensButton(QPushButton):
-    """Lens pill whose label elides to the width the grid gives it, re-fitting on every resize."""
+    """One lens as a tile: its focal length big on top, what else sets it apart small below. The button's text stays
+    the whole label, for the shortcuts menu and the tooltip."""
 
     def __init__(self, label: str):
-        super().__init__()
+        super().__init__(label)
         self._label = label
+        self._number, self._unit, self._rest = split_lens_label(label)
+        self.setToolTip(label)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
     def label(self) -> str:
         return self._label
 
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        fitted = self.fontMetrics().elidedText(
-            self._label, Qt.TextElideMode.ElideRight, max(self.width() - _TEXT_PAD, 1))
-        self.setText(fitted)
-        self.setToolTip(self._label if fitted != self._label else "")
+    def sizeHint(self) -> QSize:
+        return QSize(ui_px(64), ui_px(TILE_HEIGHT))
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(1, ui_px(TILE_HEIGHT))
+
+    def paintEvent(self, _event):
+        p = QPainter(self)
+        opt = QStyleOptionButton()
+        self.initStyleOption(opt)
+        opt.text = ""
+        self.style().drawControl(QStyle.ControlElement.CE_PushButton, opt, p, self)
+        on = self.isChecked()
+        ink = QColor(card_hue(self) if on else theme.TEXT) if self.isEnabled() else QColor(theme.TEXT_DISABLED)
+        big, small = QFont(self.font()), QFont(self.font())
+        big.setPointSizeF(self.font().pointSizeF() * 1.25)
+        big.setWeight(QFont.Weight.DemiBold)
+        small.setPointSizeF(self.font().pointSizeF() * 0.85)
+        first, second = stacked_baselines(QFontMetrics(big), QFontMetrics(small), 0, self.height(), 8)
+        if not self._rest:
+            first = cap_baseline(QFontMetrics(big), 0, self.height())  # a lone number sits in the middle
+        width = self.width() - 8
+        p.setPen(ink)
+        p.setFont(big)
+        number = p.fontMetrics().elidedText(self._number, Qt.TextElideMode.ElideRight, width)
+        n_w = p.fontMetrics().horizontalAdvance(number)
+        unit = QFont(small)
+        unit.setWeight(QFont.Weight.Medium)
+        u_w = QFontMetrics(unit).horizontalAdvance(self._unit) if number == self._number else 0
+        x = 4 + max(0, (width - n_w - u_w) // 2)
+        p.drawText(QPointF(x, first), number)
+        if u_w:
+            p.setFont(unit)
+            p.drawText(QPointF(x + n_w + 1, first), self._unit)
+        if self._rest:
+            p.setFont(small)
+            faint = QColor(ink if on else theme.TEXT_FAINT)
+            p.setPen(faint)
+            rest = p.fontMetrics().elidedText(self._rest, Qt.TextElideMode.ElideRight, width)
+            p.drawText(QPointF(4 + (width - p.fontMetrics().horizontalAdvance(rest)) / 2, second), rest)
+        p.end()
+
+
+def _columns(count: int) -> int:
+    """Up to five tiles in a row; more lenses split into rows as even as they can be."""
+    rows = -(-count // 5)
+    return max(1, -(-count // rows))
 
 
 def shorten_lens_label(raw: str) -> str:
@@ -60,8 +121,8 @@ class LensPanel(QWidget):
 
         self._flow_host = QWidget()
         self._flow_host.setObjectName("lens_panel")
-        # Two fixed columns: the grid comes from the layout, and long lens names elide to fit it.
-        self._layout = FlowLayout(self._flow_host, spacing=6, uniform=True, columns=2)
+        # Equal tiles in fixed columns, so they never reflow into odd sizes whatever the labels say.
+        self._layout = FlowLayout(self._flow_host, spacing=6, uniform=True, columns=1)
         outer.addWidget(self._flow_host)
         self._flow_host.hide()
 
@@ -77,15 +138,12 @@ class LensPanel(QWidget):
         self._btns.clear()
         self._cameras = cameras
 
+        self._layout._columns = _columns(len(cameras))
         for cam in cameras:
-            label = shorten_lens_label(cam["label"])
-            btn = _LensButton(label)
+            btn = _LensButton(shorten_lens_label(cam["label"]))
             btn.setObjectName("lens_button")
-            btn.setMinimumHeight(30)
-            btn.setMinimumWidth(1)
             btn.setCheckable(True)
             btn.setChecked(cam.get("current", False))
-            btn.setText(label)
             btn.clicked.connect(lambda _, c=cam, b=btn: self._select(c, b))
             self._layout.addWidget(btn)
             self._btns.append(btn)

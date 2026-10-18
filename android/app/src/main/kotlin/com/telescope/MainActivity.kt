@@ -739,7 +739,7 @@ class MainActivity : AppCompatActivity() {
         val busy = isBusy()
         btnToggle.visibility = if (streaming || busy) View.VISIBLE else View.GONE
         btnToggle.isEnabled = streaming || (busy && service != null)
-        btnToggle.text = if (busy) "Cancel" else "Stop Streaming"
+        btnToggle.text = if (busy) "Cancel" else "Stop streaming"
         if (streaming) {
             // The camera stays on while the computer reconnects; say so rather than claim it's getting video.
             val viewed = service?.hasViewer == true

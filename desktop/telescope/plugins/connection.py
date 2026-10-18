@@ -18,8 +18,9 @@ from dataclasses import dataclass
 from typing import Optional
 
 from PyQt6.QtCore import QObject, QSize, Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
-    QDialog, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem,
+    QButtonGroup, QDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem,
     QMessageBox, QPushButton, QVBoxLayout, QWidget,
 )
 
@@ -44,7 +45,11 @@ from telescope.session_client import (
     PING_PORT, START_FAST_POLL_FOR, START_FAST_POLL_INTERVAL, START_POLL_INTERVAL, START_TIMEOUT, MAX_NAME_CHARS,
     PhoneSessionClient, clean_name,
 )
+from telescope.widgets.controls import RoundIcon, Tag, hairline
+from telescope.widgets.line_icons import line_icon
 from telescope.widgets.common import (
+    set_button_icon,
+    ROW_HEIGHT, SegmentButton, segmented_row,
     Switch,
     ElidingLabel, NoScrollComboBox, action_button, add_card_header, button_row, card_action,
     card_layout, control_row as _row, control_row_widget, create_card, create_vector_icon,
@@ -107,7 +112,7 @@ def status_line(res: Optional[Resolution]) -> tuple:
     if res is None:
         return "status_dim", "Checking…"
     return {
-        READY: ("status_ok", "● Ready"),
+        READY: ("status_ok", "Ready"),
         UNREACHABLE: ("status_warn", "○ Can't reach the phone"),
         NOT_PAIRED: ("status_err", "○ Needs pairing again"),
         LOCAL_ONLY: ("status_warn", "○ Phone accepts USB only"),
@@ -601,7 +606,7 @@ class ConnectionPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        self._add_btn = card_action("Add phone", "qr", "Pair a phone over Wi-Fi or USB")
+        self._add_btn = card_action("Add phone", "plus", "Pair a phone over Wi-Fi or USB")
         self._add_btn.clicked.connect(self.open_add_phone)
         header = add_card_header(lay, "Connection", "connection", action=self._add_btn, hue="connection")
         self._guide_btn = card_action("", "help", "Open or close the setup guide: the virtual camera, the phone app and pairing")
@@ -609,12 +614,33 @@ class ConnectionPlugin(TelescopePlugin):
         self._guide_btn.clicked.connect(self._bus.setup_guide_requested.emit)
         header.insertWidget(header.count() - 1, self._guide_btn)
 
+        # The link as one block: how the phone is doing and over what, then the two choices about the route.
+        link = QFrame()
+        link.setObjectName("subsection")
+        link_lay = QVBoxLayout(link)
+        link_lay.setContentsMargins(12, 8, 12, 6)
+        link_lay.setSpacing(4)
+        top = QHBoxLayout()
+        top.setSpacing(12)
+        self._route_icon = RoundIcon(34)
+        top.addWidget(self._route_icon)
+        texts = QVBoxLayout()
+        texts.setSpacing(1)
         self._status_lbl = ElidingLabel("")
-        lay.addLayout(_row("Phone", self._status_lbl, stretch=True))
-
+        status_font = self._status_lbl.font()
+        status_font.setWeight(QFont.Weight.DemiBold)
+        status_font.setPointSizeF(status_font.pointSizeF() * 1.08)
+        self._status_lbl.setFont(status_font)
+        texts.addWidget(self._status_lbl)
         self._using_lbl = ElidingLabel("—")
-        self._using_row = control_row_widget("Using", self._using_lbl, stretch=True)
-        lay.addWidget(self._using_row)
+        self._using_lbl.setObjectName("dim")
+        self._using_row = self._using_lbl
+        texts.addWidget(self._using_lbl)
+        top.addLayout(texts, 1)
+        link_lay.addLayout(top)
+        link_lay.addSpacing(4)
+        link_lay.addWidget(hairline())
+        self._show_route_icon(None)
 
         self._route_combo = NoScrollComboBox()
         for key, label in _ROUTE_CHOICES:
@@ -622,15 +648,38 @@ class ConnectionPlugin(TelescopePlugin):
         self._route_combo.setToolTip("Automatic: USB when the phone's plugged in, Wi-Fi otherwise.")
         self._route_combo.currentIndexChanged.connect(
             lambda i: self.set_route_preference(self._route_combo.itemData(i)))
-        self._route_row = control_row_widget("Connect via", self._route_combo, stretch=True)
-        lay.addWidget(self._route_row)
+        self._route_combo.setVisible(False)  # the segments below drive it; it stays for shortcuts
+        self._route_segs = {}
+        self._route_grp = QButtonGroup(link)
+        for key, text, icon in ((ROUTE_AUTO, "Auto", ""), (ROUTE_USB, "USB", "usb"), (ROUTE_WIFI, "Wi-Fi", "wifi")):
+            btn = SegmentButton(text)
+            if icon:
+                set_button_icon(btn, line_icon(icon, theme.TEXT_DIM), 13)
+            btn.setToolTip(self._route_combo.toolTip())
+            btn.clicked.connect(lambda _c=False, k=key: self._route_combo.setCurrentIndex(self._route_combo.findData(k)))
+            self._route_grp.addButton(btn)
+            self._route_segs[key] = btn
+        self._route_row = control_row_widget("Connect via", segmented_row(*self._route_segs.values()), stretch=True)
+        self._route_row.layout().addWidget(self._route_combo)
+        link_lay.addWidget(self._route_row)
 
-        self._udp_cb = Switch("Experimental")
+        self._udp_cb = Switch("")
         self._udp_cb.setChecked(self._udp)
         self._udp_cb.setToolTip("Can smooth out lag spikes on busy Wi-Fi but doesn't work with Dynamic or Heavy yet.")
         self._udp_cb.toggled.connect(self._on_udp)
-        self._udp_row = control_row_widget("UDP on Wi-Fi", self._udp_cb)
-        lay.addWidget(self._udp_row)
+        self._udp_row = QWidget()
+        udp_lay = QHBoxLayout(self._udp_row)
+        udp_lay.setContentsMargins(0, 0, 0, 0)
+        udp_lay.setSpacing(8)
+        udp_name = QLabel("UDP on Wi-Fi")
+        udp_name.setMinimumHeight(ui_px(ROW_HEIGHT))
+        udp_lay.addWidget(udp_name)
+        udp_lay.addWidget(Tag("Experimental", "warn"))
+        udp_lay.addStretch(1)
+        udp_lay.addWidget(self._udp_cb)
+        self._udp_row.setToolTip(self._udp_cb.toolTip())
+        link_lay.addWidget(self._udp_row)
+        lay.addWidget(link)
 
         self._note_lbl = wrapped_note("")
         self._note_row = control_row_widget("", self._note_lbl, stretch=True)
@@ -676,6 +725,13 @@ class ConnectionPlugin(TelescopePlugin):
         self._phone_combo.setPlaceholderText("No phone yet")
         self._phone_combo.setToolTip("Which phone to stream from")
         self._phone_combo.currentIndexChanged.connect(self._on_combo_changed)
+        self._phone_combo.setObjectName("phone_picker")
+        phone_icon = QLabel(self._phone_combo)
+        phone_icon.setPixmap(line_icon("phone", theme.hue("connection")).pixmap(14, 14))
+        phone_icon.setFixedSize(14, 14)
+        phone_icon.move(11, (ui_px(34) - 14) // 2)
+        phone_icon.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self._phone_combo.setFixedHeight(ui_px(34))
         lay.addWidget(self._phone_combo)
         self._manage_btn = QPushButton()
         self._manage_btn.setObjectName("icon_btn")
@@ -701,6 +757,10 @@ class ConnectionPlugin(TelescopePlugin):
         self._switching = False
         self._bus.phones_changed.emit(len(self._phones))
 
+    def _show_route_icon(self, kind: Optional[str]):
+        """The link block's icon: a cable, Wi-Fi, or the plain link while there's no route yet."""
+        self._route_icon.set_icon({"usb": "usb", "wifi": "wifi"}.get(kind or "", "link"))
+
     def _render(self):
         """Card rows from the current phone + latest resolution."""
         phone = self._selected_phone()
@@ -711,11 +771,12 @@ class ConnectionPlugin(TelescopePlugin):
             if source is None:
                 self._status_lbl.setText("No phone yet")
             elif self._streaming:
-                self._status_lbl.setText("● Streaming" if live else f"Waiting for {source}…")
+                self._status_lbl.setText("Streaming" if live else f"Waiting for {source}…")
             else:
                 self._status_lbl.setText(f"{source}, no phone needed")
             self._using_row.setVisible(False)
             self._route_row.setVisible(False)
+            self._show_route_icon(None)
             self._note_lbl.setText("")
             self._note_row.setVisible(False)
             self._update_row.setVisible(False)
@@ -726,17 +787,23 @@ class ConnectionPlugin(TelescopePlugin):
             if self._lost:
                 kind, text = "status_warn", "Reconnecting…"
             elif self._connected:
-                kind, text = "status_ok", "● Streaming"
+                kind, text = "", "Streaming"
+                over = getattr(self._stream_route, "kind", None)
+                if over:
+                    text = "Streaming over USB" if over == "usb" else "Streaming over Wi-Fi"
             else:
                 kind, text = "status_dim", "Connecting…"
         set_status_kind(self._status_lbl, kind)
         self._status_lbl.setText(text)
-        self._using_row.setVisible(True)
         self._route_row.setVisible(True)
-        self._using_lbl.setText(route_text(self._stream_route if self._streaming else (res.route if res else None)))
+        route = self._stream_route if self._streaming else (res.route if res else None)
+        self._using_lbl.setText(route_text(route))
+        self._using_row.setVisible(route is not None)  # nothing to say over what until there's a route
+        self._show_route_icon(getattr(route, "kind", None))
         self._route_combo.blockSignals(True)
         self._route_combo.setCurrentIndex(self._route_combo.findData(self._pending_route or self._route_pref))
         self._route_combo.blockSignals(False)
+        self._route_segs[self._pending_route or self._route_pref].setChecked(True)
         note = ""
         if res is not None and not self._streaming:
             note = problem_text(res, phone.name, self._route_pref)

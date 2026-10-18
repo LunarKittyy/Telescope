@@ -188,7 +188,7 @@ class OnboardingPlugin(TelescopePlugin):
             self._start.set(True, "Done.")
         else:
             # Points at the real button rather than duplicating it, so people learn where it lives.
-            self._start.set(False, "Click Start Streaming in the top right corner of this window.")
+            self._start.set(False, "Click Start streaming in the top right corner of this window.")
         self._update_visibility()
 
     def _update_visibility(self):

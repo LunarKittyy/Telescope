@@ -274,7 +274,7 @@ def test_phone_state_populates_camera_capabilities_and_controls(camera_plugin):
     assert plugin._focus_slider.value() == 500
     assert not plugin._ois_cb.isEnabled()
     assert plugin._torch_btn.isEnabled()
-    assert plugin._cam_info_lbl.fullText().startswith("Full")
+    assert plugin._cam_info_lbl.text() == "Full manual control"
 
 
 def test_empty_phone_state_and_stop_clear_camera_ui(camera_plugin):
@@ -287,8 +287,8 @@ def test_empty_phone_state_and_stop_clear_camera_ui(camera_plugin):
     assert plugin._ctrl is None
     assert plugin._lens_panel._btns == []
     assert plugin._lens_panel._ph.text() == "Start streaming to load lenses"
-    assert plugin._cam_info_lbl.fullText() == ""
-    assert plugin._cam_info_row.isHidden()
+    assert plugin._cam_info_lbl.text() == ""
+    assert plugin._cam_info_lbl.isHidden()
 
 
 def test_capability_line_names_only_what_the_lens_supports(camera_plugin):
@@ -302,45 +302,27 @@ def test_capability_line_names_only_what_the_lens_supports(camera_plugin):
         "hasOis": False,
     })
 
-    assert plugin._cam_info_lbl.fullText() == "Level 3  ·  Manual exposure  ·  Manual focus"
-    # What's missing is still recoverable, just not spending space on it.
-    assert "Not supported: Manual WB, Point focus, OIS" in plugin._cam_info_row.toolTip()
+    assert plugin._cam_info_lbl.isHidden()  # no manual white balance, so not full manual control
+    tip = plugin._cam_info_lbl.toolTip()
+    assert "Camera level: Level 3" in tip and "Supports: Manual exposure, Manual focus" in tip
+    assert "Not supported: Manual WB, Point focus, OIS" in tip
 
 
 def test_capability_line_is_rebuilt_not_appended(camera_plugin):
     plugin, _host, _bus, _panel = camera_plugin
-    cam = {"hwLevel": "FULL", "supportsManualSensor": True}
+    cam = {"hwLevel": "FULL", "supportsManualSensor": True, "supportsManualWB": True, "supportsManualFocus": True}
 
     plugin._update_cam_info_lbl(cam)
     plugin._update_cam_info_lbl(cam)
 
-    assert plugin._cam_info_lbl.fullText() == "Full  ·  Manual exposure"
+    assert plugin._cam_info_lbl.text() == "Full manual control"
+    assert plugin._cam_info_lbl.toolTip().count("Supports:") == 1
 
 
 def test_unknown_hardware_level_passes_through_verbatim(camera_plugin):
     plugin, _host, _bus, _panel = camera_plugin
     plugin._update_cam_info_lbl({"hwLevel": "WHO_KNOWS"})
-    assert plugin._cam_info_lbl.fullText() == "WHO_KNOWS"
-
-
-def test_capability_line_elides_instead_of_widening_its_column(camera_plugin, qapp):
-    plugin, _host, _bus, _panel = camera_plugin
-    plugin._update_cam_info_lbl({
-        "hwLevel": "LEVEL_3", "supportsManualSensor": True,
-        "supportsManualWB": True, "supportsManualFocus": True, "hasOis": True,
-    })
-
-    # Minimum width 1 prevents full text from pinning column open.
-    assert plugin._cam_info_lbl.minimumWidth() == 1
-
-    host = QWidget()
-    QVBoxLayout(host).addWidget(plugin._cam_info_lbl)
-    host.resize(90, 40)
-    host.show()
-    qapp.processEvents()
-
-    assert plugin._cam_info_lbl.text() != plugin._cam_info_lbl.fullText()
-    assert plugin._cam_info_lbl.text().endswith("…")
+    assert "Camera level: WHO_KNOWS" in plugin._cam_info_lbl.toolTip()
 
 
 def test_capability_gating_forces_unsupported_modes_off(camera_plugin):

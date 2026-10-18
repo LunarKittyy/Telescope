@@ -8,7 +8,7 @@ phone while streaming.
 import logging
 from typing import Optional
 
-from PyQt6.QtCore import QPoint, QSize
+from PyQt6.QtCore import QPoint
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QInputDialog, QLineEdit, QMenu, QMessageBox, QPushButton, QWidget
 
@@ -16,7 +16,8 @@ from telescope import theme
 from telescope.plugin import TelescopePlugin
 from telescope.session_client import clean_name
 from telescope.shortcuts import Param, ShortcutAction
-from telescope.widgets.common import create_vector_icon
+from telescope.widgets.common import set_button_icon
+from telescope.widgets.line_icons import line_icon
 
 logger = logging.getLogger(__name__)
 
@@ -163,8 +164,7 @@ class PresetsPlugin(TelescopePlugin):
     def create_header_widget(self) -> QWidget:
         self._btn = QPushButton("Presets")
         self._btn.setFixedHeight(34)
-        self._btn.setIcon(create_vector_icon("preset", theme.TEXT_DIM))
-        self._btn.setIconSize(QSize(16, 16))
+        set_button_icon(self._btn, line_icon("bookmark", theme.ACCENT_SOFT))
         self._btn.setToolTip("This phone's saved camera, output and transform settings")
         self._btn.clicked.connect(self._show_menu)
         return self._btn

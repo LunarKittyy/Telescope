@@ -436,7 +436,7 @@ def test_resolution_updates_the_card_and_remembers_the_address_that_answered(plu
     saves = host.saves
     plugin._check_id = 7
     plugin._on_resolved(7, "id-a", Resolution(READY, Route("wifi", "10.0.0.77"), usb_note=USB_NO_CABLE))
-    assert plugin._status_lbl.text() == "● Ready"
+    assert plugin._status_lbl.text() == "Ready"
     assert plugin._using_lbl.text() == "Wi-Fi · 10.0.0.77"
     assert plugin._note_row.isHidden()  # no cable, nothing to explain
     assert plugin.phone("id-a").active_ip == "10.0.0.77"
@@ -998,14 +998,14 @@ def test_a_lost_stream_says_reconnecting_until_frames_return(plugin_env):
     plugin, _host, _panel = plugin_env
     _add(plugin)
     _streaming_over(plugin, WIFI)
-    assert plugin._status_lbl.fullText() == "● Streaming"
+    assert plugin._status_lbl.fullText() .startswith("Streaming")
 
     plugin._on_stream_lost("")
     assert plugin._status_lbl.fullText() == "Reconnecting…"
     assert not plugin._usb_watch_timer.isActive()  # recovery picks USB up by itself
 
     plugin._on_stream_connected("")
-    assert plugin._status_lbl.fullText() == "● Streaming"
+    assert plugin._status_lbl.fullText() .startswith("Streaming")
 
 
 def test_another_streams_drop_leaves_the_card_alone(plugin_env):
@@ -1013,7 +1013,7 @@ def test_another_streams_drop_leaves_the_card_alone(plugin_env):
     _add(plugin)
     _streaming_over(plugin, WIFI)
     plugin._on_stream_lost("id-b")
-    assert plugin._status_lbl.fullText() == "● Streaming"
+    assert plugin._status_lbl.fullText() .startswith("Streaming")
 
 
 def test_recovery_moves_a_usb_stream_to_wifi_and_lets_go_of_the_forward(plugin_env):
@@ -1368,7 +1368,7 @@ def test_card_says_connecting_until_the_first_frame(plugin_env):
     plugin.on_stream_start("url", None)
     assert plugin._status_lbl.text() == "Connecting…"
     plugin._bus.stream_connected.emit("")
-    assert plugin._status_lbl.text() == "● Streaming"
+    assert plugin._status_lbl.text() == "Streaming over Wi-Fi"
 
 
 def test_idle_checks_tell_whether_the_phone_is_ready(plugin_env):

@@ -24,8 +24,9 @@ from telescope.platform import virtual_mic
 from telescope.plugin import TelescopePlugin
 from telescope.shortcuts import button_action, slider_action
 from telescope.widgets.common import (
+    set_button_icon,
     Switch,
-    SPIN_COL_WIDTH, NoScrollSlider, NoScrollSpinBox, add_card_header, card_action, card_layout, control_row,
+    SPIN_COL_WIDTH, NoScrollSlider, NoScrollSpinBox, add_card_header, card_action, card_layout,
     control_row_widget, create_card, create_vector_icon, dim_until_paired, set_status_kind, stretch_slider, ui_px,
     value_label, wrapped_note,
 )
@@ -199,13 +200,25 @@ class MicrophonePlugin(TelescopePlugin):
         self._tray_mute = QAction("Mute microphone")
         self._tray_mute.setCheckable(True)
         self._tray_mute.triggered.connect(self._mute_btn.setChecked)  # triggered: only a click, not our own syncing
-        add_card_header(lay, "Microphone", "mic", action=self._mute_btn, hue="mic")
-        dim_until_paired(card, self._bus)
         self._toggle = Switch()
         self._toggle.toggled.connect(self._on_toggled)
-        row = control_row("Phone mic", self._toggle)
-        self._toggle_lbl = row.itemAt(0).widget()
-        lay.addLayout(row)
+        # The on/off switch sits in the header, so the card says at a glance whether the mic is in use.
+        head_right = QWidget()
+        head_lay = QHBoxLayout(head_right)
+        head_lay.setContentsMargins(0, 0, 0, 0)
+        head_lay.setSpacing(10)
+        head_lay.addWidget(self._mute_btn)
+        head_lay.addWidget(self._toggle)
+        add_card_header(lay, "Microphone", "mic", action=head_right, hue="mic")
+        dim_until_paired(card, self._bus)
+        self._meter = LevelMeter()
+        self._readout = value_label()
+        self._readout.setFixedWidth(ui_px(SPIN_COL_WIDTH))  # the gain box's column, so both line up
+        self._level_row = QWidget()
+        self._level_row.setLayout(_readout_row(self._meter, self._readout))
+        self._mic_row = control_row_widget("Phone mic", self._level_row, stretch=True)
+        self._toggle_lbl = self._mic_row.layout().itemAt(0).widget()
+        lay.addWidget(self._mic_row)
         self._gain_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._gain_slider.setRange(GAIN_MIN_DB, self._max_gain_db)
         self._gain_slider.setValue(0)
@@ -228,11 +241,6 @@ class MicrophonePlugin(TelescopePlugin):
         self._auto_cb.toggled.connect(self._on_auto_level)
         self._auto_row = control_row_widget("Auto level", self._auto_cb)
         lay.addWidget(self._auto_row)
-        self._meter = LevelMeter()
-        self._readout = value_label()
-        self._readout.setFixedWidth(ui_px(SPIN_COL_WIDTH))  # the gain box's column, so both line up
-        self._level_row = control_row_widget("Level", _readout_row(self._meter, self._readout), stretch=True)
-        lay.addWidget(self._level_row)
         self._meter_timer = QTimer(card)
         self._meter_timer.setInterval(METER_MS)
         self._meter_timer.timeout.connect(self._tick_meter)
@@ -304,9 +312,10 @@ class MicrophonePlugin(TelescopePlugin):
         self._gain_row.setVisible(here)
         self._auto_row.setVisible(here)
         self._level_row.setVisible(here)
+        self._mic_row.setVisible(here)
         self._mute_btn.setText("Unmute" if self._muted else "Mute")
-        self._mute_btn.setIcon(create_vector_icon("mic_off" if self._muted else "mic",
-                                                  theme.ERR if self._muted else theme.TEXT_DIM))
+        set_button_icon(self._mute_btn, create_vector_icon("mic_off" if self._muted else "mic",
+                                                           theme.ERR if self._muted else theme.TEXT_DIM))
         self._mute_btn.setToolTip("Apps hear the mic again." if self._muted else
                                   "Apps hear silence, but the microphone stays connected.")
         self._tray_mute.setVisible(self._enabled)
