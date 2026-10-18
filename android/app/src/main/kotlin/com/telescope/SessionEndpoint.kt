@@ -58,15 +58,35 @@ object SessionEndpoint {
     const val OWNER_SERVICE = "service"
     const val OWNER_WAITING = "waiting"  // WaitingService, while "Wait for my computer" is on
 
+    private const val REBIND_MS = 3_000L  // while held, a server that isn't listening (port busy, say) is retried this often
+
     private val owners = mutableSetOf<String>()
     private var server: SessionServer? = null
     private var announcer: LanAnnouncer? = null
+    private var watchdog: java.util.Timer? = null
 
     @Synchronized
     fun acquire(context: Context, owner: String) {
         val app = context.applicationContext
         owners.add(owner)
-        // A server whose bind failed or whose accept loop died is replaced on the next acquire, not kept forever.
+        bind(app)
+        if (watchdog == null) {
+            watchdog = java.util.Timer("session-rebind", true).apply {
+                schedule(object : java.util.TimerTask() {
+                    override fun run() = rebind(app)
+                }, REBIND_MS, REBIND_MS)
+            }
+        }
+    }
+
+    // The port was busy (the other Telescope build, an old socket after an update) or the accept loop died: try again
+    @Synchronized
+    private fun rebind(app: Context) {
+        if (owners.isNotEmpty() && server?.listening != true) bind(app)
+    }
+
+    private fun bind(app: Context) {
+        // A server whose bind failed or whose accept loop died is replaced, not kept forever.
         if (server?.listening == true) {
             announcer?.start(SessionServer.DEFAULT_PORT)  // retries an announcement that failed; a no-op otherwise
             return
@@ -85,7 +105,7 @@ object SessionEndpoint {
             android.util.Log.e("SessionEndpoint", "Could not start the session server", e)  // storage full saving the identity, say
             null
         }
-        announcer = LanAnnouncer(app).also { it.start(SessionServer.DEFAULT_PORT) }
+        if (server?.listening == true) announcer = LanAnnouncer(app).also { it.start(SessionServer.DEFAULT_PORT) }
     }
 
     // Local only was toggled: announce or go quiet to match.
@@ -100,6 +120,8 @@ object SessionEndpoint {
     fun release(owner: String) {
         if (!owners.remove(owner)) return
         if (owners.isNotEmpty()) return
+        watchdog?.cancel()
+        watchdog = null
         server?.stop()
         server = null
         announcer?.stop()
