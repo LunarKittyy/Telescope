@@ -469,7 +469,7 @@ def test_the_card_shows_the_browser_the_panels_show(browser):
     plugin._on_server_changed()
     bus.source_selected.emit("browser:pixel-aaaaaaaa")
     assert not card.isHidden()
-    assert plugin._status_lbl.fullText() == "● Firefox on Android, JPEG"
+    assert plugin._status_lbl.fullText() == "Firefox on Android, JPEG"
     assert "No hardware" in plugin._status_lbl.toolTip()
     assert plugin._mic_lbl.text() == "No microphone: Not allowed"
 

@@ -2782,10 +2782,10 @@ def test_a_tile_follows_its_stream_back_to_live(two_streams):
     browser = window._sessions.focus
     state = lambda: window._tiles._tiles["browser"].state.text()  # noqa: E731
     window._on_worker_status("waiting", "Waiting for the first frame…", browser)
-    assert state() == "● Reconnecting"
+    assert state() == "Reconnecting"
     window._on_worker_status("ok", "Streaming", browser)
     window._on_stream_reconnected(browser)
-    assert state() == "● Live"
+    assert state() == "Live"
 
 
 def test_the_wait_screen_hears_which_extra_cameras_are_free(two_streams):
@@ -3033,7 +3033,7 @@ def test_a_source_that_waits_gets_a_tile_with_the_panels_on_it(two_streams):
     window.add_stream("waiting")
     assert window._sessions.focus.id == "waiting" and conn.selected_device == "waiting"
     assert window._tiles.ids() == ["Phone", "browser", "waiting"]
-    assert window._tiles._tiles["waiting"].state.text() == "● Waiting"
+    assert window._tiles._tiles["waiting"].state.text() == "Waiting"
     assert "waiting" not in [sid for sid, _name in window._add_candidates()]
 
     window.focus_stream("Phone")

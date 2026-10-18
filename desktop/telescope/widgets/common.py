@@ -1048,6 +1048,7 @@ _ICON_SVG = {
     "mic_off": f'''<rect x="8.5" y="3" width="7" height="11.5" rx="3.5" {_SOFT}/>
         <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M4 3.5l16 17"/>''',
     "close": '''<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>''',
+    "wifi": '''<path d="M3 9.5a13 13 0 0 1 18 0M6 13a8.5 8.5 0 0 1 12 0M9 16.5a4 4 0 0 1 6 0"/><path d="M12 20v.2"/>''',
     "battery": f'''<rect x="2.5" y="7" width="17" height="10" rx="2.5" {_SOFT}/><path d="M22 10.5v3"/>''',
     "battery_charging": f'''<rect x="2.5" y="7" width="17" height="10" rx="2.5" {_SOFT}/><path d="M22 10.5v3"/>
         <path d="M11.5 8.5l-2.5 3.5h4l-2.5 3.5"/>''',

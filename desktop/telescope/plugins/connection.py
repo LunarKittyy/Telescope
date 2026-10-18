@@ -18,8 +18,9 @@ from dataclasses import dataclass
 from typing import Optional
 
 from PyQt6.QtCore import QObject, QSize, Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtWidgets import (
-    QDialog, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem,
+    QDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem,
     QMessageBox, QPushButton, QVBoxLayout, QWidget,
 )
 
@@ -107,7 +108,7 @@ def status_line(res: Optional[Resolution]) -> tuple:
     if res is None:
         return "status_dim", "Checking…"
     return {
-        READY: ("status_ok", "● Ready"),
+        READY: ("status_ok", "Ready"),
         UNREACHABLE: ("status_warn", "○ Can't reach the phone"),
         NOT_PAIRED: ("status_err", "○ Needs pairing again"),
         LOCAL_ONLY: ("status_warn", "○ Phone accepts USB only"),
@@ -609,12 +610,33 @@ class ConnectionPlugin(TelescopePlugin):
         self._guide_btn.clicked.connect(self._bus.setup_guide_requested.emit)
         header.insertWidget(header.count() - 1, self._guide_btn)
 
+        # The link as one block: how the phone is doing and over what, then the two choices about the route.
+        link = QFrame()
+        link.setObjectName("subsection")
+        link_lay = QVBoxLayout(link)
+        link_lay.setContentsMargins(12, 8, 12, 6)
+        link_lay.setSpacing(4)
+        top = QHBoxLayout()
+        top.setSpacing(12)
+        self._route_icon = QLabel()
+        self._route_icon.setFixedSize(ui_px(34), ui_px(34))
+        self._route_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        top.addWidget(self._route_icon)
+        texts = QVBoxLayout()
+        texts.setSpacing(1)
         self._status_lbl = ElidingLabel("")
-        lay.addLayout(_row("Phone", self._status_lbl, stretch=True))
-
+        status_font = self._status_lbl.font()
+        status_font.setWeight(QFont.Weight.DemiBold)
+        status_font.setPointSizeF(status_font.pointSizeF() * 1.08)
+        self._status_lbl.setFont(status_font)
+        texts.addWidget(self._status_lbl)
         self._using_lbl = ElidingLabel("—")
-        self._using_row = control_row_widget("Using", self._using_lbl, stretch=True)
-        lay.addWidget(self._using_row)
+        self._using_lbl.setObjectName("dim")
+        self._using_row = self._using_lbl
+        texts.addWidget(self._using_lbl)
+        top.addLayout(texts, 1)
+        link_lay.addLayout(top)
+        self._show_route_icon(None)
 
         self._route_combo = NoScrollComboBox()
         for key, label in _ROUTE_CHOICES:
@@ -622,15 +644,19 @@ class ConnectionPlugin(TelescopePlugin):
         self._route_combo.setToolTip("Automatic: USB when the phone's plugged in, Wi-Fi otherwise.")
         self._route_combo.currentIndexChanged.connect(
             lambda i: self.set_route_preference(self._route_combo.itemData(i)))
-        self._route_row = control_row_widget("Connect via", self._route_combo, stretch=True)
-        lay.addWidget(self._route_row)
+        self._route_row = QWidget()
+        route_lay = QVBoxLayout(self._route_row)
+        route_lay.setContentsMargins(0, 4, 0, 0)
+        route_lay.addLayout(_row("Connect via", self._route_combo, stretch=True))
+        link_lay.addWidget(self._route_row)
 
         self._udp_cb = Switch("Experimental")
         self._udp_cb.setChecked(self._udp)
         self._udp_cb.setToolTip("Can smooth out lag spikes on busy Wi-Fi but doesn't work with Dynamic or Heavy yet.")
         self._udp_cb.toggled.connect(self._on_udp)
         self._udp_row = control_row_widget("UDP on Wi-Fi", self._udp_cb)
-        lay.addWidget(self._udp_row)
+        link_lay.addWidget(self._udp_row)
+        lay.addWidget(link)
 
         self._note_lbl = wrapped_note("")
         self._note_row = control_row_widget("", self._note_lbl, stretch=True)
@@ -701,6 +727,16 @@ class ConnectionPlugin(TelescopePlugin):
         self._switching = False
         self._bus.phones_changed.emit(len(self._phones))
 
+    def _show_route_icon(self, kind: Optional[str]):
+        """The link block's icon: a cable, Wi-Fi, or the plain link while there's no route yet."""
+        name = {"usb": "usb", "wifi": "wifi"}.get(kind or "", "connection")
+        color = theme.hue("connection")
+        tint = QColor(color)
+        tint.setAlphaF(0.14)
+        self._route_icon.setStyleSheet(f"background: {tint.name(QColor.NameFormat.HexArgb)}; "
+                                       f"border-radius: {ui_px(34) // 2}px;")
+        self._route_icon.setPixmap(create_vector_icon(name, color).pixmap(18, 18))
+
     def _render(self):
         """Card rows from the current phone + latest resolution."""
         phone = self._selected_phone()
@@ -711,11 +747,12 @@ class ConnectionPlugin(TelescopePlugin):
             if source is None:
                 self._status_lbl.setText("No phone yet")
             elif self._streaming:
-                self._status_lbl.setText("● Streaming" if live else f"Waiting for {source}…")
+                self._status_lbl.setText("Streaming" if live else f"Waiting for {source}…")
             else:
                 self._status_lbl.setText(f"{source}, no phone needed")
             self._using_row.setVisible(False)
             self._route_row.setVisible(False)
+            self._show_route_icon(None)
             self._note_lbl.setText("")
             self._note_row.setVisible(False)
             self._update_row.setVisible(False)
@@ -726,14 +763,16 @@ class ConnectionPlugin(TelescopePlugin):
             if self._lost:
                 kind, text = "status_warn", "Reconnecting…"
             elif self._connected:
-                kind, text = "status_ok", "● Streaming"
+                kind, text = "status_ok", "Streaming"
             else:
                 kind, text = "status_dim", "Connecting…"
         set_status_kind(self._status_lbl, kind)
         self._status_lbl.setText(text)
-        self._using_row.setVisible(True)
         self._route_row.setVisible(True)
-        self._using_lbl.setText(route_text(self._stream_route if self._streaming else (res.route if res else None)))
+        route = self._stream_route if self._streaming else (res.route if res else None)
+        self._using_lbl.setText(route_text(route))
+        self._using_row.setVisible(route is not None)  # nothing to say over what until there's a route
+        self._show_route_icon(getattr(route, "kind", None))
         self._route_combo.blockSignals(True)
         self._route_combo.setCurrentIndex(self._route_combo.findData(self._pending_route or self._route_pref))
         self._route_combo.blockSignals(False)
