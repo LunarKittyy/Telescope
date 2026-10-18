@@ -266,6 +266,17 @@ class AdvancedDialog(QDialog):
         self._advanced_content = video_card
         video_lay = card_layout(video_card)
         add_card_header(video_lay, "Video", "chip", hue="stream")
+        device = h264_reader.hardware_device()
+        self._hw_chk = Switch()
+        self._hw_chk.setEnabled(device is not None)
+        self._hw_chk.setToolTip("Decodes the Light format on the graphics card from the next stream on.")
+        self._hw_chk.toggled.connect(lambda on: self._on_hw_decode(on) if self._on_hw_decode else None)
+        # The line under it names the graphics card it would use, so one strip says whether it's on and what with
+        strip, self._hw_line = setting_row(
+            "Hardware acceleration",
+            f"Found {_HW_NAMES.get(device, device)}" if device else "No graphics card Telescope can use", self._hw_chk)
+        strip.setToolTip(self._hw_chk.toolTip())
+        video_lay.addWidget(strip)
         self._max_zoom_spin = NoScrollSpinBox()
         self._max_zoom_spin.setObjectName("chip_spin")
         self._max_zoom_spin.setFixedSize(ui_px(80), ui_px(30))
@@ -332,19 +343,6 @@ class AdvancedDialog(QDialog):
         strip, _ = setting_row("Canvas size", "", self._canvas_combo, under)
         video_lay.addWidget(strip)
         body.addWidget(video_card)
-
-        # ── Hardware acceleration ─────────────────────────────────────────────
-        hw_card = create_card()
-        hw_lay = card_layout(hw_card)
-        add_card_header(hw_lay, "Hardware acceleration", "stream", hue="stream")
-        device = h264_reader.hardware_device()
-        # The box names the graphics card it would use, so one row says both whether it's on and what with.
-        self._hw_chk = Switch(_HW_NAMES.get(device, device) if device else "No graphics card Telescope can use")
-        self._hw_chk.setEnabled(device is not None)
-        self._hw_chk.setToolTip("Decodes the Light format on the graphics card from the next stream on.")
-        self._hw_chk.toggled.connect(lambda on: self._on_hw_decode(on) if self._on_hw_decode else None)
-        hw_lay.addLayout(control_row("Graphics card", self._hw_chk, stretch=True))
-        body.addWidget(hw_card)
 
         # ── Microphone ────────────────────────────────────────────────────────
         mic_card = create_card()
