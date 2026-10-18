@@ -1,0 +1,91 @@
+package com.telescope
+
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+import java.util.concurrent.atomic.AtomicBoolean
+
+class MicLoopTest {
+    // Gives `chunks` full chunks, then fails with `then` (a negative error) or blocks until stopped.
+    private class Fake(private val chunks: Int, private val then: Int?) : MicSource {
+        var given = 0
+        @Volatile var stopped = false
+        var released = false
+        override fun read(buf: ByteArray, off: Int, len: Int): Int {
+            if (given < chunks) { given++; return len }
+            if (then != null) return then
+            while (!stopped) Thread.sleep(1)
+            return 0
+        }
+        override fun stop() { stopped = true }
+        override fun release() { released = true }
+    }
+
+    @Test
+    fun `a recording that fails is opened again and keeps going`() {
+        val active = AtomicBoolean(true)
+        val chunks = mutableListOf<ByteArray>()
+        val first = Fake(3, AudioRecordErrorDeadObject)
+        val second = Fake(2, null)
+        val opened = mutableListOf<Fake>()
+        lateinit var loop: MicLoop
+        loop = MicLoop(
+            open = { second.also { opened += it } },
+            onChunk = { chunks += it; if (chunks.size == 5) active.set(false) },
+            active = active, sleepMs = {},
+        )
+        loop.run(first)
+        assertEquals(5, chunks.size)
+        assertEquals(listOf(second), opened)
+        assertTrue(first.released && second.released)
+        assertEquals(1, loop.reopens)
+    }
+
+    @Test
+    fun `a mic that can't open yet is retried with a growing wait`() {
+        val active = AtomicBoolean(true)
+        val waits = mutableListOf<Long>()
+        var tries = 0
+        val loop = MicLoop(
+            open = { tries++; if (tries == 4) active.set(false); null },
+            onChunk = {}, active = active, sleepMs = { waits += it },
+        )
+        loop.run(Fake(0, -1))
+        assertEquals(listOf(100L, 200L, 400L, 800L), waits)
+    }
+
+    @Test
+    fun `a recording that goes quiet is stopped by the watchdog and reopened`() {
+        val active = AtomicBoolean(true)
+        var now = 0L
+        val stuck = Fake(1, null)
+        val next = Fake(1, null)
+        val loop = MicLoop(open = { active.set(false); next }, onChunk = {}, active = active,
+            clockMs = { now }, sleepMs = {})
+        val thread = Thread { loop.run(stuck) }.apply { start() }
+        Thread.sleep(50)
+        assertFalse(loop.checkStall())  // not long enough yet
+        now += MicLoop.STALL_MS
+        assertTrue(loop.checkStall())
+        thread.join(2_000)
+        assertFalse(thread.isAlive)
+        assertTrue(stuck.stopped && stuck.released)
+        assertEquals(1, loop.reopens)
+    }
+
+    @Test
+    fun `stopping ends the loop without reopening`() {
+        val active = AtomicBoolean(true)
+        val loop = MicLoop(open = { error("shouldn't reopen") }, onChunk = { active.set(false) }, active = active,
+            sleepMs = {})
+        val source = Fake(5, null)
+        loop.run(source)
+        assertTrue(source.released)
+        assertEquals(0, loop.reopens)
+    }
+
+    private companion object {
+        const val AudioRecordErrorDeadObject = -6  // AudioRecord.ERROR_DEAD_OBJECT
+    }
+}

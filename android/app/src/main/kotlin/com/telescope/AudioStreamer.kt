@@ -27,50 +27,59 @@ class AudioStreamer(private val context: Context, private val onChunk: (ByteArra
     fun permitted(): Boolean = permitted(context)
 
     /** False if recording couldn't start (no permission, or the mic is unavailable). */
-    @SuppressLint("MissingPermission")  // checked by permitted()
     @Synchronized
     fun start(): Boolean {
         if (running?.get() == true) return true
         if (!permitted()) return false
+        val first = open() ?: return false
+        val active = AtomicBoolean(true).also { running = it }
+        // The audio server restarting ends or freezes the recording: open a new one rather than stay quiet
+        val loop = MicLoop(::open, onChunk, active)
+        Thread({ loop.run(first) }, "mic-record").start()
+        Thread({
+            while (active.get()) {
+                try { Thread.sleep(MicLoop.STALL_MS / 2) } catch (_: InterruptedException) { break }
+                if (active.get() && loop.checkStall()) android.util.Log.i("AudioStreamer", "No audio for a while, reopening the mic")
+            }
+        }, "mic-watchdog").apply { isDaemon = true }.start()
+        return true
+    }
+
+    @SuppressLint("MissingPermission")  // checked by permitted()
+    private fun open(): MicSource? {
+        if (!permitted()) return null
         val minBuf = AudioRecord.getMinBufferSize(AudioStream.SAMPLE_RATE,
             AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
-        if (minBuf <= 0) return false
+        if (minBuf <= 0) return null
         val record = try {
             AudioRecord(MediaRecorder.AudioSource.CAMCORDER, AudioStream.SAMPLE_RATE,
                 AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
                 maxOf(minBuf, AudioStream.CHUNK_BYTES * 4))
-        } catch (_: Exception) { return false }
-        if (record.state != AudioRecord.STATE_INITIALIZED) { record.release(); return false }
+        } catch (_: Exception) { return null }
+        if (record.state != AudioRecord.STATE_INITIALIZED) { record.release(); return null }
         val effects = listOfNotNull(
-            if (NoiseSuppressor.isAvailable()) NoiseSuppressor.create(record.audioSessionId) else null,
-            if (AutomaticGainControl.isAvailable()) AutomaticGainControl.create(record.audioSessionId) else null,
+            runCatching { if (NoiseSuppressor.isAvailable()) NoiseSuppressor.create(record.audioSessionId) else null }.getOrNull(),
+            runCatching { if (AutomaticGainControl.isAvailable()) AutomaticGainControl.create(record.audioSessionId) else null }.getOrNull(),
         )
         effects.forEach { runCatching { it.enabled = true } }
         try { record.startRecording() } catch (_: Exception) {
-            effects.forEach { it.release() }
+            effects.forEach { runCatching { it.release() } }
             record.release()
-            return false
+            return null
         }
-        val active = AtomicBoolean(true).also { running = it }
-        Thread({
-            try {
-                while (active.get()) {
-                    val chunk = ByteArray(AudioStream.CHUNK_BYTES)
-                    var n = 0
-                    while (n < chunk.size && active.get()) {
-                        val r = record.read(chunk, n, chunk.size - n)
-                        if (r < 0) { active.set(false); break }
-                        n += r
-                    }
-                    if (n == chunk.size) onChunk(chunk)
-                }
-            } finally {
-                runCatching { record.stop() }
-                effects.forEach { it.release() }
+        if (record.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
+            effects.forEach { runCatching { it.release() } }
+            record.release()
+            return null  // another app has the mic
+        }
+        return object : MicSource {
+            override fun read(buf: ByteArray, off: Int, len: Int) = record.read(buf, off, len)
+            override fun stop() { record.stop() }
+            override fun release() {
+                effects.forEach { runCatching { it.release() } }
                 record.release()
             }
-        }, "mic-record").start()
-        return true
+        }
     }
 
     @Synchronized
