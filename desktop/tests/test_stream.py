@@ -720,3 +720,102 @@ def test_a_parked_worker_lets_go_of_the_camera_and_takes_it_back_when_unparked(m
         worker.request_stop()
         runner.join(timeout=5)
     assert not runner.is_alive()
+
+
+class _Live(_Capture):
+    """Frames filled with value, one every `every` seconds until released (or `gap_after` frames, then a long pause)."""
+
+    def __init__(self, value, every=0.01, opened=True, gap_after=None):
+        super().__init__(opened=opened)
+        self.value, self.every, self.gap_after, self.count = value, every, gap_after, 0
+
+    def read(self):
+        if self.released:
+            return False, None
+        self.count += 1
+        stream.time.sleep(self.every if self.gap_after is None or self.count != self.gap_after else 1.0)
+        return True, np.full((2, 2, 3), self.value, dtype=np.uint8)
+
+    def open(self):
+        pass
+
+
+def _handover_worker(monkeypatch, new_reader):
+    monkeypatch.setattr(stream, "HANDOVER_HEALTHY_S", 0.2)
+    monkeypatch.setattr(stream, "HANDOVER_TIMEOUT_S", 1.5)
+    worker = stream.StreamWorker("https://10.0.0.5:8080/v1/video", None, None, 30)
+    monkeypatch.setattr(worker, "_new_reader", lambda url: new_reader)
+    moved, failed = [], []
+    worker.moved.connect(moved.append)
+    worker.move_failed.connect(failed.append)
+    return worker, moved, failed
+
+
+def _until(cond, timeout=3.0):
+    from PyQt6.QtCore import QCoreApplication
+    end = stream.time.monotonic() + timeout
+    while not cond() and stream.time.monotonic() < end:
+        QCoreApplication.processEvents()  # the worker's signals come from its threads, queued
+        stream.time.sleep(0.01)
+    return cond()
+
+
+def test_hand_over_moves_to_the_new_route_once_it_keeps_frames_coming(qapp, monkeypatch):
+    old, new = _Live(1), _Live(2)
+    worker, moved, failed = _handover_worker(monkeypatch, new)
+    reader = threading.Thread(target=worker._stream_reader, args=(old, threading.Event(), threading.Event()))
+    reader.start()
+    try:
+        assert _until(lambda: worker._latest is not None and worker._latest[0, 0, 0] == 1)
+        assert worker.hand_over("https://127.0.0.1:41000/v1/video")
+        assert not worker.hand_over("https://127.0.0.1:41000/v1/video")  # one at a time
+        assert _until(lambda: moved == ["https://127.0.0.1:41000/v1/video"])
+        assert _until(lambda: worker._latest[0, 0, 0] == 2)
+        assert old.released and not new.released
+        assert worker.url == "https://127.0.0.1:41000/v1/video"
+        assert failed == []
+    finally:
+        worker._stop_flag = True
+        reader.join(3)
+
+
+def test_hand_over_gives_up_on_a_route_with_gaps_and_keeps_the_old_one(qapp, monkeypatch):
+    old, new = _Live(1), _Live(2, gap_after=5)
+    monkeypatch.setattr(stream, "HANDOVER_GAP_S", 0.5)
+    worker, moved, failed = _handover_worker(monkeypatch, new)
+    monkeypatch.setattr(stream, "HANDOVER_HEALTHY_S", 1.0)
+    monkeypatch.setattr(stream, "HANDOVER_TIMEOUT_S", 1.2)  # the gap leaves too little time to be healthy again
+    reader = threading.Thread(target=worker._stream_reader, args=(old, threading.Event(), threading.Event()))
+    reader.start()
+    try:
+        assert worker.hand_over("https://127.0.0.1:41000/v1/video")
+        assert _until(lambda: failed == ["https://127.0.0.1:41000/v1/video"])
+        assert moved == [] and new.released and not old.released
+        assert worker._latest[0, 0, 0] == 1
+        assert worker.hand_over("https://127.0.0.1:41000/v1/video")  # it can try again later
+    finally:
+        worker._stop_flag = True
+        reader.join(3)
+
+
+def test_hand_over_fails_on_a_route_that_wont_open(qapp, monkeypatch):
+    worker, moved, failed = _handover_worker(monkeypatch, _Live(2, opened=False))
+    assert worker.hand_over("https://127.0.0.1:41000/v1/video")
+    assert _until(lambda: failed == ["https://127.0.0.1:41000/v1/video"])
+    assert moved == []
+
+
+def test_a_stream_that_drops_mid_hand_over_carries_on_on_the_new_route(qapp, monkeypatch):
+    new = _Live(2)
+    worker, moved, _failed = _handover_worker(monkeypatch, new)
+    monkeypatch.setattr(stream, "RECONNECT_DELAY", 0)
+    monkeypatch.setattr(worker, "_open_cap", lambda: _Capture(opened=False))
+    assert worker.hand_over("https://127.0.0.1:41000/v1/video")
+    assert _until(lambda: worker._handover_ready is not None)
+    assert worker._reconnect_cap(threading.Event()) is new
+    assert moved == ["https://127.0.0.1:41000/v1/video"]
+
+
+def test_sources_from_plugins_dont_hand_over():
+    worker = stream.StreamWorker("url", None, None, 30, open_reader=lambda: _Capture())
+    assert not worker.hand_over("https://127.0.0.1:41000/v1/video")

@@ -100,6 +100,11 @@ class HostStreams(Protocol):
         """Restart the stream, if one is active, to pick up new settings."""
         ...
 
+    def hand_over_stream(self, route, source_id: Optional[str] = None) -> bool:
+        """Move a running phone stream (the panels', or source_id's) onto another route (a phones.Route) without a
+        gap: it opens there next to the old one and moves once it's healthy. False if it can't try now."""
+        ...
+
     def focused_source_id(self) -> Optional[str]:
         """The source the panels show (or Start would stream from), for a banner about it to act on it later."""
         ...

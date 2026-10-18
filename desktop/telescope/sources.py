@@ -104,6 +104,10 @@ class SourceHost(Protocol):
         """source's stream, with the camera off, is back (or moved to another route)."""
         ...
 
+    def stream_moved(self, source: "Source") -> None:
+        """source's stream moved to another route without a gap (hand_over): the plugins hear about the new one."""
+        ...
+
     def lost_contact(self, source: "Source") -> None:
         """source's camera is off and its phone stopped answering: look for it like a dropped stream."""
         ...
@@ -343,6 +347,7 @@ class PhoneSource(Source):
         # The generation drops probes from an earlier drop.
         self._recovery_gen = 0
         self._recovery_route = None  # the route recovery last moved the stream to
+        self._handover = None  # (session id, route, url) of a hand_over() under way
         self._state_poll_busy = False  # one recovery state poll at a time: an unreachable phone takes 4 s to time out
         self._recovery_timer = QTimer(self)
         self._recovery_timer.setSingleShot(True)
@@ -455,6 +460,7 @@ class PhoneSource(Source):
         conn = self._host.connection()
         if conn is not None and hasattr(conn, "release_stream"):
             conn.release_stream(self.id)
+        self._handover = None  # a stopped worker says nothing more about it
         self._alive_timer.stop()
         self._camera_fps = None
         self.dynamic_fps = 0
@@ -636,6 +642,42 @@ class PhoneSource(Source):
             session.worker.retarget(url)
         else:
             host.mic_reconnected(self)  # camera off: the mic follows the new route, and nothing else waits for it
+
+    # ── Moving to another route without a gap ─────────────────────────────
+
+    def hand_over(self, route) -> bool:
+        """Open the stream on route next to the running one and move over once it's healthy (plugging in USB while
+        streaming over Wi-Fi). False if it can't try now; the Connection card hears how it went either way."""
+        session = self.session
+        conn = self._host.connection()
+        if session is None or session.worker is None or self.recovering or self._handover is not None or conn is None:
+            return False
+        url = conn.prepare_stream_route(route, self.id)
+        if url is None:
+            return False
+        if not session.worker.hand_over(url):
+            conn.drop_stream_route(self.id)
+            return False
+        self._handover = (session.id, route, url)
+        return True
+
+    def on_moved(self, url: str):
+        pending, self._handover = self._handover, None
+        session = self.session
+        conn = self._host.connection()
+        if pending is None or session is None or session.id != pending[0] or pending[2] != url or conn is None:
+            return
+        conn.commit_stream_route(self.id)
+        session.client.retarget(url)  # the same client, so its settings carry on
+        self._host.set_session(self, replace(session, url=url))
+        self._host.stream_moved(self)
+
+    def on_move_failed(self, url: str):
+        pending, self._handover = self._handover, None
+        conn = self._host.connection()
+        if pending is None or pending[2] != url or conn is None:
+            return
+        conn.drop_stream_route(self.id, failed=True)
 
     # ── Frames arriving slowly ────────────────────────────────────────────
 

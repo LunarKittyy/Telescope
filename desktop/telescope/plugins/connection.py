@@ -59,6 +59,7 @@ _STATUS_POLL_MS = 3_000     # idle re-check of the selected phone, only while th
 _CHECK_GIVE_UP_S = 60       # an idle check that never answers stops blocking new ones
 _HELD_POLL_S = 60           # tray, after starting once the phone was ready: only its going away matters
 _USB_WATCH_MS = 5_000       # while streaming over Wi-Fi: has the phone been plugged in?
+_USB_SIT_OUT_S = 10         # USB that just failed a stream isn't tried again for this long, so it can't flap
 _PAIR_USB_POLL_MS = 2_000   # Add phone dialog: look for a phone on USB to pair with
 
 _MAX_REMEMBERED_IPS = 8     # a phone's addresses kept for Wi-Fi probes, newest last
@@ -456,7 +457,7 @@ class PhonesDialog(QDialog):
 
 class _Signals(QObject):
     resolved = pyqtSignal(int, object, object)   # check id, phone id, Resolution
-    usb_available = pyqtSignal(int, bool)        # watch id, our phone answers over USB
+    usb_available = pyqtSignal(int, object)      # watch id, the USB route our phone answers on (None: it doesn't)
     phone_updated = pyqtSignal(bool, str)        # ok, what went wrong
     route_probed = pyqtSignal(int, object, str, object)  # probe id, phone id, Connect via choice, Resolution
 
@@ -490,6 +491,8 @@ class ConnectionPlugin(TelescopePlugin):
         # The route each streaming phone's video comes over, and the USB forward it holds (None over Wi-Fi), by id
         self._holds: dict = {}
         self._paths: dict = {}  # pid: the video path its stream last opened, which says its format
+        self._prepared: dict = {}  # pid: (route, USB forward serial or None, path) a hand-over is trying
+        self._usb_sat_out = -1e9  # monotonic time USB last failed a stream, which then sits out USB_SIT_OUT_S
         self._switching = False
         self._add_dlg: Optional[AddPhoneDialog] = None
         self._phones_dlg: Optional[PhonesDialog] = None
@@ -995,7 +998,7 @@ class ConnectionPlugin(TelescopePlugin):
         """Make route pid's stream's, letting go of the previous one's USB forward. The video URL, or None."""
         # The panels' format is the picked phone's; one streaming behind them keeps the one it opened
         path = self._video_path() if pid == self._selected_id else self._paths.get(pid) or self._video_path()
-        self.release_stream(pid)
+        self.release_stream(pid, moving=True)
         forward = None
         if route.kind == "usb":
             # Always a fresh forward: adb drops them when the cable goes, even if it comes back.
@@ -1010,11 +1013,56 @@ class ConnectionPlugin(TelescopePlugin):
         self._paths[pid] = path
         return url
 
-    def release_stream(self, pid: Optional[str]):
-        """pid's stream is over: let go of its route and USB forward."""
+    def release_stream(self, pid: Optional[str], moving: bool = False):
+        """pid's stream is over (or moving: going onto another route): let go of its route and USB forward."""
         _route, serial = self._holds.pop(pid, (None, None))
         if serial is not None:
             run_off_ui_thread(self._tunnels.release, serial, STREAM_PORT)
+        if not moving:
+            self.drop_stream_route(pid)  # a hand-over still under way when it moves can still finish
+
+    def prepare_stream_route(self, route: Route, pid: Optional[str]) -> Optional[str]:
+        """The video URL for pid's stream on route, while it still runs on its old one (a hand-over). None if not."""
+        if pid not in self._holds or pid in self._prepared:
+            return None
+        path = self._paths.get(pid) or self._video_path()
+        forward = None
+        if route.kind == "usb":
+            local = run_off_ui_thread(self._tunnels.acquire, route.serial, STREAM_PORT)
+            if local is None:
+                return None
+            forward = route.serial
+            url = f"https://127.0.0.1:{local}{path}"
+        else:
+            url = f"https://{route.host}:{STREAM_PORT}{path}"
+        self._prepared[pid] = (route, forward, path)
+        return url
+
+    def commit_stream_route(self, pid: Optional[str]):
+        """The hand-over worked: the prepared route is pid's stream's now, and the old one's forward goes."""
+        prepared = self._prepared.pop(pid, None)
+        if prepared is None:
+            return
+        route, forward, path = prepared
+        _old, old_serial = self._holds.get(pid, (None, None))
+        if old_serial is not None:
+            run_off_ui_thread(self._tunnels.release, old_serial, STREAM_PORT)
+        self._holds[pid] = (route, forward)
+        self._paths[pid] = path
+        self._render()
+
+    def drop_stream_route(self, pid: Optional[str], failed: bool = False):
+        """The hand-over didn't happen: let go of the route it prepared. failed: that route sits out a while."""
+        prepared = self._prepared.pop(pid, None)
+        if prepared is None:
+            return
+        route, forward, _path = prepared
+        if forward is not None:
+            run_off_ui_thread(self._tunnels.release, forward, STREAM_PORT)
+        if failed and route.kind == "usb":
+            self._usb_sat_out = time.monotonic()
+            if pid == self._selected_id and self._streaming:
+                self._switch_usb_row.setVisible(True)  # reconnecting over it by hand still might work
 
     # ── Getting a dropped stream back ─────────────────────────────────────
 
@@ -1256,6 +1304,8 @@ class ConnectionPlugin(TelescopePlugin):
         if not self._shows(sid):
             return
         self._lost = True
+        if self._stream_route is not None and self._stream_route.kind == "usb":
+            self._usb_sat_out = time.monotonic()  # so Wi-Fi recovery doesn't hand straight back to a flaky cable
         # Recovery picks USB by itself when the phone answers on it, so no Switch to USB meanwhile.
         self._usb_watch_timer.stop()
         self._watch_id += 1
@@ -1273,17 +1323,23 @@ class ConnectionPlugin(TelescopePlugin):
         probe = Phone(**phone.to_dict())
 
         def work():
-            ok = resolver.resolve(probe, ROUTE_USB).status == READY
+            res = resolver.resolve(probe, ROUTE_USB)
             try:
-                signals.usb_available.emit(watch_id, ok)
+                signals.usb_available.emit(watch_id, res.route if res.status == READY else None)
             except RuntimeError:
                 pass
         threading.Thread(target=work, daemon=True).start()
 
-    def _on_usb_available(self, watch_id: int, ok: bool):
+    def _on_usb_available(self, watch_id: int, route):
         if watch_id != self._watch_id or not self._streaming:
             return
-        self._switch_usb_row.setVisible(ok)
+        if route is None:
+            self._switch_usb_row.setVisible(False)
+            return
+        if self._switch_usb_row.isVisible() or time.monotonic() - self._usb_sat_out < _USB_SIT_OUT_S:
+            return  # it just failed: the button's there to try by hand
+        # Opens next to the Wi-Fi stream and moves once it's healthy; Wi-Fi only closes then
+        self._host.hand_over_stream(route, self._selected_id)
 
     def _switch_to_usb(self):
         self._switch_usb_row.setVisible(False)

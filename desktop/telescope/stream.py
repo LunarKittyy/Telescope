@@ -18,6 +18,11 @@ from telescope.pinned_https import PhoneAuth
 logger = logging.getLogger(__name__)
 
 RECONNECT_DELAY = 3
+# hand_over(): the new route has to keep frames coming this long, with no gap past HANDOVER_GAP_S, before the stream moves
+HANDOVER_HEALTHY_S = 2.0
+HANDOVER_GAP_S = 0.5
+HANDOVER_TIMEOUT_S = 10.0  # ...or it gives up on it
+HANDOVER_TAKE_S = 5.0  # how long a ready one waits for the reader to take it (a read on the old route can block)
 # JPEG decoders running side by side: at 4K one decode takes longer than a frame lasts.
 MJPEG_DECODERS = max(1, min(2, (os.cpu_count() or 1) - 1))
 
@@ -110,6 +115,8 @@ class _Newest:
 class StreamWorker(QThread):
     status      = pyqtSignal(str, str)   # (kind, msg): info/ok/warn/fps/idle
     reconnected = pyqtSignal()           # mid-stream reconnect succeeded (not the initial connect)
+    moved       = pyqtSignal(str)        # hand_over() moved the stream to this URL without a gap
+    move_failed = pyqtSignal(str)        # hand_over() gave up on this URL; the stream carries on where it was
     vcam_opened = pyqtSignal(int, int)   # the virtual camera opened at this width, height
 
     def __init__(self, url: str, width: Optional[int], height: Optional[int],
@@ -133,6 +140,9 @@ class StreamWorker(QThread):
         self._stop_flag    = False
         self._restart_vcam = threading.Event()
         self._retry_now    = threading.Event()  # retarget(): skip the rest of the reconnect wait
+        self._handover_lock = threading.Lock()
+        self._handover_busy = False  # a hand_over() is trying its URL
+        self._handover_ready = None  # (reader, url, taken event): its reader, healthy and waiting to take over
         self.parked        = False  # the virtual camera is let go (the wait screen takes it) until set_parked(False)
         self._vcam_free    = threading.Event()  # set while this worker doesn't hold the virtual camera
         self._vcam_free.set()
@@ -231,14 +241,82 @@ class StreamWorker(QThread):
         self.url = url
         self._retry_now.set()
 
+    def hand_over(self, url: str) -> bool:
+        """Open url next to the running stream and move over once it has kept frames coming for HANDOVER_HEALTHY_S;
+        only then does the old connection close. moved or move_failed says how it went. False if it can't try."""
+        if self._open_reader is not None or self._stop_flag:
+            return False
+        with self._handover_lock:
+            if self._handover_busy:
+                return False
+            self._handover_busy = True
+        threading.Thread(target=self._try_handover, args=(url,), daemon=True, name="stream-handover").start()
+        return True
+
+    def _try_handover(self, url: str):
+        reader = self._new_reader(url)
+        try:
+            reader.open()
+            if reader.isOpened() and self._healthy(reader):
+                taken = threading.Event()
+                with self._handover_lock:
+                    self._handover_ready = (reader, url, taken)
+                if taken.wait(HANDOVER_TAKE_S):
+                    return
+                with self._handover_lock:
+                    if self._handover_ready is not None and self._handover_ready[2] is taken:
+                        self._handover_ready = None
+                    elif taken.is_set():
+                        return  # taken just now
+        except Exception:
+            logger.exception("Trying the new route failed")
+        finally:
+            with self._handover_lock:
+                self._handover_busy = False
+        reader.release()
+        if not self._stop_flag:
+            self.move_failed.emit(url)
+
+    def _healthy(self, reader) -> bool:
+        """Read (and, for H.264, decode, so it's ready to carry on) until frames have come without a gap for a while."""
+        start = since = last = time.monotonic()
+        while not self._stop_flag and last - start < HANDOVER_TIMEOUT_S:
+            ret, _packet = reader.read_packet()
+            now = time.monotonic()
+            if not ret:
+                return False
+            if now - last > HANDOVER_GAP_S:
+                since = now  # a gap: the time without one starts over
+            last = now
+            if now - since >= HANDOVER_HEALTHY_S:
+                return True
+        return False
+
+    def _take_handover(self):
+        """The new route's reader, if one is ready to take over; the stream moves to it."""
+        with self._handover_lock:
+            ready, self._handover_ready = self._handover_ready, None
+        if ready is None:
+            return None
+        reader, url, taken = ready
+        taken.set()
+        self.url = url
+        self.settle()
+        logger.info("Stream moved to %s", url)
+        self.moved.emit(url)
+        return reader
+
+    def _new_reader(self, url: str):
+        # Our own readers, since cv2's FFmpeg backend can't attach the bearer header. The route says which.
+        reader_cls = H264Reader if url.endswith(".h264") else MjpegReader
+        return reader_cls(url, self.auth)
+
     def _open_cap(self):
         if self._open_reader is not None:
             reader = self._open_reader()
             reader.open()
             return reader
-        # Our own readers, since cv2's FFmpeg backend can't attach the bearer header. The route says which.
-        reader_cls = H264Reader if self.url.endswith(".h264") else MjpegReader
-        reader = reader_cls(self.url, self.auth)
+        reader = self._new_reader(self.url)
         reader.open()
         return reader
 
@@ -252,6 +330,9 @@ class StreamWorker(QThread):
                     break
                 time.sleep(0.1)
             self._retry_now.clear()
+            moved = self._take_handover()
+            if moved is not None:
+                return moved
             cap = self._open_cap()
             if cap.isOpened():
                 ret, _ = cap.read()
@@ -282,6 +363,11 @@ class StreamWorker(QThread):
             d.start()
         try:
             while not stop_event.is_set() and not self._stop_flag:
+                moved = self._take_handover()
+                if moved is not None:
+                    cap.release()
+                    cap = moved
+                    continue
                 ret, packet = cap.read_packet()
                 if not ret or packet is None:
                     cap.release()
