@@ -463,8 +463,7 @@ class TransformsPlugin(TelescopePlugin):
 
         self._pan_pad = PanPad()
         self._pan_pad.moved.connect(self._on_pan_pad)
-        self._pan_lbl = value_label("0%, 0%")
-        self._pan_lbl.setMinimumWidth(ui_px(64))
+        self._pan_lbl = value_label("H 0%\nV 0%")
         pan_row = _row("Pan", slider_row(self._pan_pad, self._pan_lbl), stretch=True)
         pan_row.setAlignment(pan_row.itemAt(0).widget(), Qt.AlignmentFlag.AlignVCenter)
         lay.addLayout(pan_row)
@@ -716,7 +715,7 @@ class TransformsPlugin(TelescopePlugin):
             pct = round(pan * 100)
             lbl.setText(f"{pct:+d}%" if pct else "0%")
             lbl.setEnabled(slider._slider.isEnabled())
-        self._pan_lbl.setText(f"{self._pan_x_lbl.text()}, {self._pan_y_lbl.text()}")
+        self._pan_lbl.setText(f"H {self._pan_x_lbl.text()}\nV {self._pan_y_lbl.text()}")
         self._pan_lbl.setEnabled(self._pan_pad.isEnabled())
 
     # ── Config ────────────────────────────────────────────────────────────────
