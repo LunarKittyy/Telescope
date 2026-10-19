@@ -360,7 +360,7 @@ class AdvancedDialog(QDialog):
         look_card = create_card()
         look_lay = card_layout(look_card)
         add_card_header(look_lay, "Look", "sliders")
-        self._hues_own, self._hues_purple = SegmentButton("Each its own"), SegmentButton("All purple")
+        self._hues_own, self._hues_purple = SegmentButton("Colourful"), SegmentButton("Monochrome")
         self._hues_grp = QButtonGroup(look_card)
         self._hues_grp.setExclusive(True)
         self._hues_grp.addButton(self._hues_own)

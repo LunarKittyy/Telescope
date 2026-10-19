@@ -114,7 +114,7 @@ The Presets button in the header saves your camera, output and transform setting
 - **Open Telescope when I sign in** starts it quietly in the tray
 - Closing the window while streaming (or while waiting to start automatically) keeps Telescope running in the tray
 - When Start can't go ahead, a banner tells you why and has the button that fixes it
-- Every card in the main window has its own colour. **Card colours** in Advanced puts them all back in the app's purple if you'd rather have that
+- Every card in the main window has its own colour. **Monochrome** under **Card colours** in Advanced puts them all back in the app's purple if you'd rather have that
 
 ## Keyboard shortcuts
 - **Keyboard shortcuts…** in the settings menu binds a key to almost any control: mute, the presets, starting and stopping, the lens, every camera slider, the transforms, the output settings, the preview buttons and the phone picker. Right-clicking one of those controls in the main window adds a shortcut for it straight away
