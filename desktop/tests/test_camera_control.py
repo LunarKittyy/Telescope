@@ -303,7 +303,7 @@ def test_capability_line_names_only_what_the_lens_supports(camera_plugin):
     })
 
     assert not plugin._cam_info_lbl.isHidden()
-    assert plugin._cam_info_lbl.text() == "Camera details"
+    assert plugin._cam_info_lbl.text() == "Limited manual control"
     tip = plugin._cam_info_lbl.toolTip()
     assert "Camera level: Level 3" in tip and "Supports: Manual exposure, Manual focus" in tip
     assert "Not supported: Manual WB, Point focus, OIS" in tip

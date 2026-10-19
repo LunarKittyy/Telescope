@@ -544,7 +544,7 @@ class CameraControlPlugin(TelescopePlugin):
         missing   = [l for l, ok in supported if not ok]
 
         full = all(cam.get(k) for k in ("supportsManualSensor", "supportsManualWB", "supportsManualFocus"))
-        self._cam_info_lbl.setText("Full manual control" if full else "Camera details")
+        self._cam_info_lbl.setText("Full manual control" if full else "Limited manual control")
         self._cam_info_lbl.setToolTip("\n".join(
             ([f"Camera level: {hw_level}"] if hw_level else [])
             + (["Supports: " + ", ".join(have)] if have else [])

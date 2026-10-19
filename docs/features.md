@@ -8,7 +8,7 @@
 - Manual focus, or click anywhere on the preview to focus (and meter exposure) on that spot. **Auto** goes back to continuous autofocus
 - OIS, noise reduction, sharpening (edge mode), black level lock, and the torch on lenses that have a flash
 - Low light, for a dark room: auto exposure may slow the camera down so each frame catches more light (usually no lower than 10 fps, lower on some phones), and noise reduction runs at its best. It only slows down when it has to (in good light you still get the rate you picked)
-- Anything the current lens doesn't support is greyed out. **Camera details** explains which controls are available
+- Anything the current lens doesn't support is greyed out. Hover **Full manual control** or **Limited manual control** to see what the lens supports
 
 ## Stream transforms
 

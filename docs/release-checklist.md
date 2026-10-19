@@ -123,7 +123,6 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 - [ ] Hardware decoding: a driver failure resumes in software without missing setup headers; Copy diagnostics reflects the decoder still running if the preference changes mid-stream.
 - [ ] Auto level: beginning in silence or recovering from a gap does not turn up steady room noise.
 - [ ] Tab through the tiles and switches, use rotation/pan shortcuts saved before this release, pan with arrow keys and Home, and inspect labels with a screen reader.
-- [ ] FrameGate on a real phone: compare orientation and crop with the direct encoder path across lenses and landscape/portrait sizes.
 - [ ] USB-only viewers hold no Wi-Fi performance lock.
 
 ### Plugins

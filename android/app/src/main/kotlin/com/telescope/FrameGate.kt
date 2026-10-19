@@ -34,7 +34,6 @@ class FrameGate(width: Int, height: Int, output: Surface, private val onError: (
     private var program = 0
     private var textureId = 0
     private val pacer = FramePacer()
-    private val textureMatrix = FloatArray(16)
     @Volatile private var released = false
 
     init {
@@ -87,13 +86,11 @@ class FrameGate(width: Int, height: Int, output: Surface, private val onError: (
     private fun draw() {
         if (released) return
         try {
-            // Every frame, even ones the pacer drops, or the camera stalls; the matrix brings the camera's crop and orientation
+            // Always, or the camera stalls; its transform matrix is left out as it adds a rotation and crop the encoder ignores
             texture.updateTexImage()
-            texture.getTransformMatrix(textureMatrix)
             val ts = texture.timestamp
             if (!pacer.keep(ts, maxFps)) return
             GLES20.glUseProgram(program)
-            GLES20.glUniformMatrix4fv(GLES20.glGetUniformLocation(program, "uTexMatrix"), 1, false, textureMatrix, 0)
             val pos = GLES20.glGetAttribLocation(program, "aPos")
             GLES20.glEnableVertexAttribArray(pos)
             GLES20.glVertexAttribPointer(pos, 2, GLES20.GL_FLOAT, false, 0, QUAD)
@@ -151,11 +148,10 @@ class FrameGate(width: Int, height: Int, output: Surface, private val onError: (
             .apply { put(floatArrayOf(-1f, -1f, 1f, -1f, -1f, 1f, 1f, 1f)); position(0) }
         const val VERTEX = """
             attribute vec2 aPos;
-            uniform mat4 uTexMatrix;
             varying vec2 vTex;
             void main() {
                 gl_Position = vec4(aPos, 0.0, 1.0);
-                vTex = (uTexMatrix * vec4((aPos + 1.0) * 0.5, 0.0, 1.0)).xy;
+                vTex = vec2(aPos.x + 1.0, 1.0 - aPos.y) * 0.5;  // the buffer as it is, like the encoder reads it
             }"""
         const val FRAGMENT = """
             #extension GL_OES_EGL_image_external : require
