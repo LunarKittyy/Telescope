@@ -13,7 +13,7 @@ Android device  (Telescope app, port 8080)
 desktop/main.py  (Python, PyQt6)
       |
       |-- telescope/stream.py       StreamWorker (QThread)
-      |     reads authenticated MJPEG (mjpeg_reader.py) or H.264 (h264_reader.py)
+      |     reads authenticated MJPEG (mjpeg_reader.py), H.264 (h264_reader.py) or H.264 over UDP (udp_reader.py)
       |     runs frames through plugin pipeline
       |     _fit_frame() letterboxes to canvas size
       |     pyvirtualcam -> virtual camera device
@@ -72,7 +72,7 @@ telescope/
 |       |-- StreamStateMachine.kt   # Idle/StartingServer/.../Streaming/Failed state + history
 |       |-- Protocol.kt          # kotlinx.serialization models for the v1 API
 |       |-- SetupSteps.kt       # Get set up card rules: ask, or send to settings (JVM-tested)
-|       |-- Pairing.kt           # QR payload (v3) parsing/validation, attempt ordering, failure text
+|       |-- Pairing.kt           # QR payload (v4) parsing/validation, attempt ordering, failure text
 |       |-- PairedComputers.kt   # Paired computers (one token each), this phone's id and name
 |       |-- MjpegServer.kt       # Authenticated HTTPS: /v1/video(.h264|.udp)  /v1/state  /v1/control
 |       |-- UdpVideo.kt          # Experimental H.264 over UDP: datagram format, AES-GCM, resends
@@ -80,6 +80,8 @@ telescope/
 |       |-- H264Stream.kt        # Per-viewer H.264 queue (and its link measurements), bitrate defaults
 |       |-- DynamicBitrate.kt    # Dynamic bitrate: follows the link from the queue's measurements (JVM-tested)
 |       |-- DynamicFrameRate.kt  # Dynamic frame rate: steps down when the link is too thin for the rate (JVM-tested)
+|       |-- FrameRate.kt         # Frames per second the camera actually makes, reported to the desktop
+|       |-- WifiLink.kt          # The phone's Wi-Fi band, signal and link speed, for why a stream can't keep up
 |       |-- FrameGate.kt         # GL relay between camera and encoder that drops frames for encoders that ignore the cap
 |       |-- AudioStreamer.kt     # Microphone recording while someone listens
 |       |-- AudioStream.kt       # PCM format, per-listener queue
@@ -91,6 +93,7 @@ telescope/
 |       |-- StreamLauncher.kt    # Single place CameraStreamService is started from
 |       |-- StreamPrefs.kt       # Last camera/resolution selection, for desktop-initiated starts
 |       |-- Updater.kt           # Self-update: manifest check, download, verify, PackageInstaller
+|       |-- UpdateHttp.kt        # Updater's network half, plain JVM so tests can run it offline
 |       |-- UpdateLogic.kt       # Manifest parsing and version rules (JVM-tested)
 |       |-- RecentRuns.kt        # The last 3 streams' reports, kept for Copy diagnostics
 |       |-- LanAnnouncer.kt      # mDNS announcement (_telescope._tcp) so desktops find the phone's address
@@ -103,6 +106,10 @@ telescope/
     |-- requirements-dev.txt     # requirements.txt + pytest, used by CI
     |-- constraints.txt          # Exact pinned versions for CI/release installs
     |-- scripts/smoke_check.py   # Packaging smoke checks (see building.md)
+    |-- scripts/dev_desktop.py   # A dev desktop in its own profile, paired with the dev app (see building.md)
+    |-- scripts/check_plugin.py  # Runs a plugin next to the built-in ones and reports its problems
+    |-- scripts/phone_check.py   # Release check on a real phone: start time, a steady stream, a Wi-Fi drop, USB handover
+    |-- scripts/windows_*        # Windows CI checks: the driver install and an unzipped copy moving to the installed one
     |-- scripts/write_build_info.py  # Stamps a release build's version into telescope/_build.py
     |-- scripts/write_icon.py    # Writes resources/telescope.ico, the Windows exe's icon
     |-- tests/                   # pytest suite (desktop only; Android has its own JVM unit tests)
@@ -119,7 +126,10 @@ telescope/
         |-- theme.py             # Palette tokens + the app stylesheet
         |-- stream.py            # StreamWorker: MJPEG -> pipeline -> pyvirtualcam
         |-- mjpeg_reader.py      # Authenticated multipart-MJPEG reader (replaces cv2.VideoCapture)
-        |-- h264_reader.py       # Authenticated H.264 reader (PyAV), same interface
+        |-- h264_reader.py       # Authenticated H.264 reader (PyAV), same interface, on the graphics card when asked
+        |-- udp_reader.py        # Experimental H.264 over UDP: decrypts, reassembles and asks for resends
+        |-- jpeg_guard.py        # Drops a JPEG that declares a huge size before it's decoded
+        |-- pyav_vaapi.py        # A VA-API PyAV for AMD and Intel cards on Linux: the distro's or one built here
         |-- audio.py             # Phone mic -> jitter buffer -> virtual mic
         |-- session.py           # StreamSession (one stream's worker and client) and Sessions (which streams run, which one is shown)
         |-- stream_flow.py       # StreamFlow: starting, stopping and moving the panels between streams
@@ -127,6 +137,8 @@ telescope/
         |-- vcam.py              # Opens the virtual camera, wait screen, whether an app reads it
         |-- plugin.py            # The plugin API: TelescopePlugin, EventBus, HostServices
         |-- plugin_loader.py     # Finds, checks, installs and loads plugins from the plugins folder
+        |-- shortcuts.py         # Keyboard shortcut actions, bindings and key names
+        |-- dev_profile.py       # The dev desktop's own profile (scripts/dev_desktop.py)
         |-- single_instance.py   # The one-window lock, --action, restarting the app
         |-- config.py            # Versioned JSON config (v3) with per-section validation
         |-- models.py            # Typed contracts: PhoneState, CameraCapabilities (parsed from /v1/state)
@@ -142,6 +154,7 @@ telescope/
         |-- platform/
         |   |-- adb_download.py  # Windows: adb from Google, on request
         |   |-- autostart.py     # Open at sign-in (XDG autostart / HKCU Run)
+        |   |-- hotkeys*.py      # Global shortcuts: RegisterHotKey on Windows, the desktop portal on Linux
         |   |-- linux.py         # v4l2loopback helpers (load, unload, reload)
         |   |-- virtual_mic.py   # Telescope Microphone (pactl) and finding VB-Cable
         |   |-- windows.py       # UnityCapture helpers, zip detection
@@ -160,11 +173,17 @@ telescope/
         |   |-- updates.py       # Update button and dialog
         |   |-- startup.py       # Automatic streaming (start and stop), open at sign-in
         |   |-- wait_screen.py   # Wait screen and its dialog
+        |   |-- shortcuts.py     # Keyboard shortcuts and their window
         |   +-- monitoring.py
         +-- widgets/
             |-- adb.py           # Windows' Get adb: asks, then downloads off the UI thread
             |-- banner.py        # In-window problem banners
             |-- common.py        # NoScroll*, LogSliderRow, rows, segmented toggles, icons
+            |-- controls.py      # The redesign's card pieces: tiles, tags, setting rows, the settings window frame
+            |-- line_icons.py    # The redesign's line icons
+            |-- plugins_dialog.py  # The Plugins window
+            |-- tiles.py         # A tile per stream while several run
+            |-- vaapi_setup.py   # Advanced's Set up VA-API window
             |-- qr.py            # QR code widget
             |-- level_meter.py   # The Microphone card's level meter
             +-- lens_panel.py    # Lens picker widget
@@ -179,7 +198,8 @@ On first launch the top card is **Get set up**: camera access, notifications and
 Runs a **foreground service** (type `camera`, required on Android 14+, plus `microphone` once that's allowed) that owns a Camera2 session and an HTTPS server on port 8080 (TLS 1.2 or 1.3, with the certificate from `PhoneTls`). All endpoints require a bearer token issued during pairing:
 
 - `GET /v1/video` - MJPEG stream (`multipart/x-mixed-replace`)
-- `GET /v1/video.h264` - H.264 stream (`video/h264`: Annex-B, High without B-frames where the encoder takes it and Baseline otherwise, a keyframe every second). A new viewer starts with the codec config and the next keyframe. Each frame is followed by an access unit delimiter, so a decoder can show it without waiting for the next one. `ffplay` plays it given the bearer header. Opening either video route switches the phone to that format. A viewer that gets nothing for 10 seconds is closed, so a computer that left can't hold a stream slot.
+- `GET /v1/video.h264` - H.264 stream (`video/h264`: Annex-B, High without B-frames where the encoder takes it and Baseline otherwise, a keyframe every 10 seconds with intra refresh and every second without). A new viewer starts with the codec config and the next keyframe. Each frame is followed by an access unit delimiter, so a decoder can show it without waiting for the next one. `ffplay` plays it given the bearer header. Opening any of the video routes switches the phone to that format. A viewer that gets nothing for 10 seconds is closed, so a computer that left can't hold a stream slot.
+- `GET /v1/video.udp?port=` - experimental: the same H.264 in encrypted UDP datagrams to the desktop's port, with resends (see [protocol.md](protocol.md))
 - `GET /v1/audio` - the microphone, raw PCM (`audio/pcm; rate=48000; channels=1; format=s16le`, 10 ms chunks). Recording starts with the first listener and stops with the last. `403` with the reason in `error` when it can't record (no permission yet, or the mic is busy)
 - `GET /v1/state` - JSON of all detected cameras + current exposure/WB/battery state
 - `POST /v1/control` - live camera control, JSON body
@@ -261,7 +281,7 @@ A **Copy diagnostics** button copies app version, device info, current stream st
 
 **Live resolution change:** Unlike FPS, mid-stream resolution changes don't require a vcam restart. The reader thread reads `self._width`/`self._height` dynamically each frame, and `_fit_frame()` adapts the output to the fixed canvas dimensions.
 
-**Auto-reconnect:** If `cap.read_packet()` fails, the stream reader calls `_reconnect_cap()`, which loops with a 3-second delay until the stream comes back. Meanwhile the window resolves the route again every 3 seconds and, when the phone answers another way (Wi-Fi after the cable was pulled, or a fresh adb forward after it's plugged back in), points the reader there. The pyvirtualcam context stays open during reconnect so the virtual camera doesn't disappear from OBS. Every plugin's current settings (ISO, WB, JPEG quality, etc.) are resent to the phone right after a successful reconnect, since the phone has no way to know its control state might be stale.
+**Auto-reconnect:** If `cap.read_packet()` fails, the stream reader calls `_reconnect_cap()`, which loops until the stream comes back: a try every second after a stream drops mid-way, every 3 seconds after an open fails. Meanwhile the window resolves the route again every 3 seconds and, when the phone answers another way (Wi-Fi after the cable was pulled, or a fresh adb forward after it's plugged back in), points the reader there. The pyvirtualcam context stays open during reconnect so the virtual camera doesn't disappear from OBS. Every plugin's current settings (ISO, WB, JPEG quality, etc.) are resent to the phone right after a successful reconnect, since the phone has no way to know its control state might be stale.
 
 **Genuine-connection signal:** `EventBus.stream_connected` fires only when `StreamWorker` reports its first `"ok"` status (an actual frame decoded), not merely when a worker object exists. The Connection card shows **Connecting…** until it fires, so a worker quietly retrying against a phone that isn't answering never reads as a healthy stream.
 

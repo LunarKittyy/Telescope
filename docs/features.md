@@ -3,10 +3,10 @@
 ## Camera control
 - Lens picker: switches between the phone's real wide, main and telephoto sensors instead of faking it with digital zoom. On **Auto** the phone picks the lens itself as you zoom
 - Manual ISO and shutter speed, with sliders or typed values. The range follows whatever the current lens can do
-- Exposure compensation, typically ±8 EV
+- **Brightness** (exposure compensation), typically ±8 EV
 - Manual white balance: Kelvin (2000-10000 K) plus a green-magenta tint
-- Manual focus, or click anywhere on the preview to focus (and meter exposure) on that spot. **Auto** goes back to continuous autofocus
-- OIS, noise reduction, sharpening (edge mode), black level lock, and the torch on lenses that have a flash
+- Focus: **Auto** for continuous autofocus, **Tap a point** to click anywhere on the preview and focus (and meter exposure) on that spot, or **Manual**
+- **Stabilization** (OIS), noise reduction, sharpening (edge mode), black level lock, and the torch on lenses that have a flash
 - Low light, for a dark room: auto exposure may slow the camera down so each frame catches more light (usually no lower than 10 fps, lower on some phones), and noise reduction runs at its best. It only slows down when it has to (in good light you still get the rate you picked)
 - Anything the current lens doesn't support is greyed out. Hover **Full manual control** or **Limited manual control** to see what the lens supports
 
@@ -16,7 +16,7 @@ These apply live without restarting the phone's camera.
 
 - Horizontal and vertical flip
 - Rotation: 90 CW, 180, 90 CCW
-- Zoom 1-10x with pan. You can also scroll over the preview to zoom and drag it around to pan. The phone crops from the full sensor first, and once your framing fits inside the telephoto lens it hops over to that one, which is why zooming in actually gets sharper. Dots on the zoom slider mark where a longer lens takes over, and hovering the slider or the lens dot next to the value explains the rest
+- Zoom 1-10x with pan (**Max zoom** in Advanced takes it from 2x up to 30x). You can also scroll over the preview to zoom and drag it around to pan. The phone crops from the full sensor first, and once your framing fits inside the telephoto lens it hops over to that one, which is why zooming in actually gets sharper. Dots on the zoom slider mark where a longer lens takes over, and hovering the slider or the lens dot next to the value explains the rest
 - Double-click any slider to put it back to its default. The pan pad also takes arrow keys (Shift for bigger steps) and Home to centre
 
 ## Presets
@@ -126,5 +126,5 @@ The Presets button in the header saves your camera, output and transform setting
 ## Plugins
 - **Plugins…** in the settings menu lists every part of the desktop app that can be switched off (like the Camera card, Transforms, Presets or the microphone) with a line about what each one does. Telescope asks before switching one off and tells you what will be missing. Its settings stay saved for when you switch it back on. Changes apply after a restart and the dialog has a **Restart now** button for that
 - When some are off the menu entry says how many (**Plugins… (2 off)**) and after the restart a banner names what's off
-- **Install plugin…** adds a plugin someone shared as a `.zip` and dragging the file onto the dialog works too. Added plugins start out switched off and Telescope warns you before you switch one on. One whose files changed gets switched off again until you switch it back on
+- **Install** under **Added** adds a plugin someone shared as a `.zip` and dragging the file onto the dialog works too. Added plugins start out switched off and Telescope warns you before you switch one on. One whose files changed gets switched off again until you switch it back on
 - [Plugins](plugins.md) covers installing plugins and writing your own
