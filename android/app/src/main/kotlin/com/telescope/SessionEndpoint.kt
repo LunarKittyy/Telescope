@@ -59,7 +59,7 @@ object SessionEndpoint {
     const val OWNER_WAITING = "waiting"  // WaitingService, while "Wait for my computer" is on
     const val OWNER_STOPPED = "stopped"  // briefly after a stream stops, so its computer hears it stopped rather than dropped
 
-    private const val STOPPED_HOLD_MS = 10_000L  // the computer asks within a second or two of its stream ending
+    private const val STOPPED_HOLD_MS = 6_000L  // the computer asks within a second or two of its stream ending
 
     private const val REBIND_MS = 3_000L  // while held, a server that isn't listening (port busy, say) is retried this often
 
