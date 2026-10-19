@@ -35,6 +35,7 @@ LINE_ICONS = {
     "chevron": '<path d="M4.5 6.5l3.5 3.5 3.5-3.5"/>',
     "plus": '<path d="M8 3v10M3 8h10"/>',
     "x": '<path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/>',
+    "check": '<path d="M3.5 8.5l3 3 6-7"/>',
     "pencil": '<path d="M10.5 2.5l3 3L6 13H3v-3zM9 4l3 3"/>',
     "trash": '<path d="M2.5 4.5h11M6 4.5v-2h4v2M4 4.5l.7 9a1 1 0 0 0 1 1h4.6a1 1 0 0 0 1-1l.7-9M6.8 7.5v4M9.2 7.5v4"/>',
     "keyboard": '<rect x="1.5" y="3.5" width="13" height="9" rx="1.5"/><path d="M4.5 6.5h.01M7 6.5h.01M9.5 6.5h.01M12 6.5h.01M5 9.5h6"/>',

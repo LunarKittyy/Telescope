@@ -104,7 +104,7 @@ class ChoiceTile(NoScrollComboBox):
         _two_lines(p, QRect(pad, 0, width, self.height()), top_font, top_ink, top_text, low_font, low_ink, low_text)
         if self._style == "field":
             line_icon("chevron", theme.TEXT_DIM).paint(p, QRect(self.width() - pad - 14, (self.height() - 14) // 2, 14, 14))
-        paint_focus(p, self)
+        paint_focus(p, self, 10)
         p.end()
 
 
@@ -129,7 +129,7 @@ class ChipCombo(NoScrollComboBox):
         p.setPen(QColor(theme.TEXT))
         p.drawText(QPointF(10, cap_baseline(p.fontMetrics(), 0, self.height())), self.currentText())
         line_icon("chevron", theme.TEXT_DIM).paint(p, QRect(self.width() - 22, (self.height() - 12) // 2, 12, 12))
-        paint_focus(p, self)
+        paint_focus(p, self, 8)
         p.end()
 
 
@@ -182,7 +182,7 @@ class OptionCard(SegmentButton):
             x += 21
         p.setPen(ink)
         p.drawText(QPointF(x, name_base), fm.elidedText(self.text(), Qt.TextElideMode.ElideRight, self.width() - x - pad))
-        paint_focus(p, self)
+        paint_focus(p, self, 10)
         p.end()
 
 
@@ -360,7 +360,7 @@ class PanPad(QWidget):
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(QColor(card_hue(self) if self.isEnabled() else theme.TEXT_DISABLED))
         p.drawEllipse(QPointF(x, y), 7, 7)
-        paint_focus(p, self)
+        paint_focus(p, self, 9)
         p.end()
 
 

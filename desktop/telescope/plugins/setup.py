@@ -377,7 +377,8 @@ class AdvancedDialog(QDialog):
         by_lbl = QLabel(f'by <a href="{AUTHOR_URL}">LunarKittyy</a>')
         by_lbl.setObjectName("version_note")
         by_lbl.setTextFormat(Qt.TextFormat.RichText)
-        by_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        by_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.LinksAccessibleByMouse)  # a credit, not a Tab stop
+        by_lbl.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         by_lbl.setOpenExternalLinks(True)
         self._diag_btn = QPushButton("Copy diagnostics")
         set_button_icon(self._diag_btn, line_icon("copy", theme.TEXT_DIM))

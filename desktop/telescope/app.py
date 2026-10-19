@@ -30,7 +30,7 @@ from telescope.stream_flow import StreamFlow
 from telescope.widgets.banner import BannerAction, BannerArea, Issue, copy_action
 from telescope.widgets.tiles import StreamTiles
 from telescope.widgets.common import (
-    ElidingLabel, create_app_icon, create_tray_icon, create_vector_icon, set_status_kind, ui_px,
+    ElidingLabel, create_app_icon, create_tray_icon, create_vector_icon, set_status_kind, tab_in_reading_order, ui_px,
 )
 
 STATUS_COLORS = theme.STATUS_COLORS
@@ -739,6 +739,10 @@ class TelescopeWindow(QMainWindow):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._refresh_layout()
+
+    def focusNextPrevChild(self, next: bool) -> bool:
+        # Qt tabs in the order widgets were made; cards build theirs out of order, and rows come and go
+        return tab_in_reading_order(self, next)
 
     def schedule_save(self):
         self._save_timer.start(500)

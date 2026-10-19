@@ -9,8 +9,8 @@ from PyQt6.QtGui import (
     QBrush, QColor, QFont, QFontMetrics, QFontMetricsF, QIcon, QPainter, QPainterPath, QPen, QPixmap,
 )
 from PyQt6.QtWidgets import (
-    QAbstractButton, QAbstractSlider, QAbstractSpinBox, QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLayout, QPushButton,
-    QSlider, QSpinBox, QSizePolicy, QStyle, QStyleOptionButton, QStyleOptionSlider, QVBoxLayout, QWidget,
+    QAbstractButton, QAbstractSlider, QAbstractSpinBox, QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QFrame, QGraphicsOpacityEffect, QGridLayout, QHBoxLayout, QLabel, QLayout,
+    QPushButton, QScrollArea, QSlider, QSpinBox, QSizePolicy, QStyle, QStyledItemDelegate, QStyleOptionButton, QStyleOptionSlider, QVBoxLayout, QWidget,
 )
 
 from telescope import theme
@@ -343,11 +343,8 @@ class Switch(QCheckBox):
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(fill)
         p.drawRoundedRect(track, h / 2, h / 2)
-        if self.hasFocus() and self.focusPolicy() != Qt.FocusPolicy.NoFocus and self.property("focusVisible"):
-            p.setPen(QPen(QColor(theme.ACCENT), 1.5))
-            p.setBrush(Qt.BrushStyle.NoBrush)
-            p.drawRoundedRect(track.adjusted(-2, -2, 2, 2), h / 2 + 2, h / 2 + 2)
-            p.setPen(Qt.PenStyle.NoPen)
+        if theme.keyboard_focus(self):
+            theme.focus_ring(p, track, h / 2, filled=on and enabled)  # on the edge: the track sits flush right, so an outer ring would be cut off
         d = h - 6
         x = track.right() - 3 - d if on else track.left() + 3
         p.setBrush(knob)
@@ -365,14 +362,6 @@ class Switch(QCheckBox):
                 p.drawText(text_rect, int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
                            fm.elidedText(self.text(), Qt.TextElideMode.ElideRight, text_rect.width()))
         p.end()
-
-    def keyPressEvent(self, event):
-        self.setProperty("focusVisible", True)
-        super().keyPressEvent(event)
-
-    def focusInEvent(self, event):
-        self.setProperty("focusVisible", event.reason() in (Qt.FocusReason.TabFocusReason, Qt.FocusReason.BacktabFocusReason))
-        super().focusInEvent(event)
 
     def enterEvent(self, event):
         self.update()
@@ -393,12 +382,83 @@ def cap_baseline(fm: QFontMetrics, top: float, height: float) -> int:
     return round(top + (height + fm.capHeight()) / 2)
 
 
-def paint_focus(painter: QPainter, widget: QWidget):
+def paint_focus(painter: QPainter, widget: QWidget, radius: float = 7):
     """Keep keyboard focus visible on controls that paint over Qt's standard focus indicator; a click shows none."""
-    if widget.hasFocus() and widget.window().testAttribute(Qt.WidgetAttribute.WA_KeyboardFocusChange):
-        painter.setPen(QPen(QColor(theme.ACCENT), 2))
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.drawRoundedRect(QRectF(widget.rect()).adjusted(2, 2, -2, -2), 7, 7)
+    if theme.keyboard_focus(widget):
+        # Inside the edge, so it still shows on a tile whose border already marks it as picked
+        theme.focus_ring(painter, QRectF(widget.rect()).adjusted(3, 3, -3, -3), radius - 3)
+
+
+def _placed_children(widget: QWidget) -> list:
+    """widget's children in the order its layouts put them on screen, then any it places by hand, top to bottom."""
+    if isinstance(widget, QScrollArea):
+        return [widget.widget()] if widget.widget() else []
+    placed = []
+
+    def walk(lay: QLayout):
+        items = range(lay.count())
+        if isinstance(lay, QGridLayout):
+            items = sorted(items, key=lambda i: lay.getItemPosition(i)[:2])
+        for i in items:
+            item = lay.itemAt(i)
+            if item.widget():
+                placed.append(item.widget())
+            elif item.layout():
+                walk(item.layout())
+
+    if widget.layout():
+        walk(widget.layout())
+    rest = [c for c in widget.findChildren(QWidget, options=Qt.FindChildOption.FindDirectChildrenOnly)
+            if c not in placed and not c.isWindow()]
+    return placed + sorted(rest, key=lambda c: (c.y(), c.x()))
+
+
+def _tab_stop(widget: QWidget) -> bool:
+    policy = widget.focusPolicy().value
+    if policy & Qt.FocusPolicy.TabFocus.value:
+        return True
+    # Qt takes Tab off every option of a pick-one group but the picked one; here each option is a stop, like elsewhere
+    grouped = isinstance(widget, QAbstractButton) and (widget.autoExclusive() or (
+        widget.group() is not None and widget.group().exclusive()))
+    return grouped and bool(policy & Qt.FocusPolicy.ClickFocus.value)
+
+
+def reading_order(root: QWidget) -> list:
+    """The controls Tab can reach under root, in the order they read on screen rather than the order they were made."""
+    found = []
+
+    def visit(widget: QWidget):
+        for child in _placed_children(widget):
+            if not child.isVisible() or not child.isEnabled():
+                continue
+            if not isinstance(child, QScrollArea) and _tab_stop(child):
+                found.append(child)
+            else:
+                visit(child)
+
+    visit(root)
+    return found
+
+
+def tab_in_reading_order(root: QWidget, forward: bool) -> bool:
+    """Move focus to the next (or previous) control in reading_order; what a window's focusNextPrevChild can call."""
+    order = reading_order(root)
+    if not order:
+        return False
+    current = QApplication.focusWidget()
+    while current is not None and current not in order:
+        current = current.parentWidget()
+    if current is None:
+        target = order[0 if forward else -1]
+    else:
+        target = order[(order.index(current) + (1 if forward else -1)) % len(order)]
+    target.setFocus(Qt.FocusReason.TabFocusReason if forward else Qt.FocusReason.BacktabFocusReason)
+    parent = target.parentWidget()
+    while parent is not None and parent is not root:
+        if isinstance(parent, QScrollArea):
+            parent.ensureWidgetVisible(target)
+        parent = parent.parentWidget()
+    return True
 
 
 def stacked_baselines(top_fm: QFontMetrics, low_fm: QFontMetrics, top: float, height: float,
@@ -972,7 +1032,44 @@ def fit_on_screen(rect: QRect, avail: QRect, margin: int) -> QRect:
     return QRect(rect.x(), y, rect.width(), h)
 
 
+class ComboItemDelegate(QStyledItemDelegate):
+    """Draws a dropdown's items from the stylesheet (Fusion's own ignores it, so the arrow keys showed no highlight)
+    and ticks the one that's picked."""
+
+    @staticmethod
+    def _separator(index) -> bool:
+        return index.data(Qt.ItemDataRole.AccessibleDescriptionRole) == "separator"  # what insertSeparator marks
+
+    def sizeHint(self, option, index):
+        if self._separator(index):
+            return QSize(option.rect.width(), 9)
+        return super().sizeHint(option, index)
+
+    def paint(self, painter, option, index):
+        if self._separator(index):
+            painter.save()
+            painter.setPen(QPen(QColor(theme.BORDER_HOVER), 1))
+            y = option.rect.center().y()
+            painter.drawLine(option.rect.left() + 6, y, option.rect.right() - 6, y)
+            painter.restore()
+            return
+        super().paint(painter, option, index)
+        self.paint_tick(painter, option, index)
+
+    def paint_tick(self, painter, option, index):
+        combo = self.parent()
+        if isinstance(combo, QComboBox) and index.row() == combo.currentIndex():
+            selected = option.state & QStyle.StateFlag.State_Selected
+            r = option.rect
+            line_icon("check", "#ffffff" if selected else theme.ACCENT).paint(
+                painter, QRect(r.right() - 22, r.center().y() - 7, 14, 14))
+
+
 class NoScrollComboBox(QComboBox):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setItemDelegate(ComboItemDelegate(self))
+
     def wheelEvent(self, event):
         event.ignore()
 
@@ -981,6 +1078,8 @@ class NoScrollComboBox(QComboBox):
         p = QPainter(self)  # the chevron, drawn here so every dropdown has the same one
         color = theme.TEXT_DIM if self.isEnabled() else theme.TEXT_DISABLED
         line_icon("chevron", color).paint(p, QRect(self.width() - 22, (self.height() - 12) // 2, 12, 12))
+        if theme.keyboard_focus(self):
+            theme.focus_ring(p, QRectF(self.rect()))
         p.end()
 
     def showPopup(self):
@@ -1076,13 +1175,17 @@ class NoScrollSlider(QSlider):
 
     def paintEvent(self, event):
         super().paintEvent(event)
-        marks = [m for m in self._marks if self.minimum() < m < self.maximum()]
-        if not marks:
-            return
         opt = QStyleOptionSlider()
         self.initStyleOption(opt)
         handle = QRectF(self.style().subControlRect(QStyle.ComplexControl.CC_Slider, opt,
                                                     QStyle.SubControl.SC_SliderHandle, self))
+        if theme.keyboard_focus(self):
+            ring = QPainter(self)
+            theme.focus_ring(ring, handle.adjusted(-3, -3, 3, 3), handle.height() / 2 + 3)
+            ring.end()
+        marks = [m for m in self._marks if self.minimum() < m < self.maximum()]
+        if not marks:
+            return
         groove = QRectF(self.style().subControlRect(QStyle.ComplexControl.CC_Slider, opt,
                                                     QStyle.SubControl.SC_SliderGroove, self))
         # On top of the fill, but cut around the (round) handle so a mark never sits over it.
