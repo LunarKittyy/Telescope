@@ -161,3 +161,49 @@ def test_rebuilding_a_build_not_in_use_replaces_it_now(home, monkeypatch):
     assert pyav_vaapi.build("18.1.0", lambda line: None) == (True, str(final))
     assert (final / "av").is_dir() and not (final / "av" / "old").exists()
     assert not (home / ".ready-18.1.0").exists()
+
+
+@pytest.mark.parametrize("failed_step", ["backup", "promote"])
+def test_failed_promotion_keeps_the_previous_build_usable(home, monkeypatch, failed_step):
+    final = home / "18.1.0"
+    ready = pyav_vaapi.staged(final)
+    for folder, name in ((final, "old"), (ready, "new")):
+        (folder / "av").mkdir(parents=True)
+        (folder / "av" / name).touch()
+    pyav_vaapi.choose(pyav_vaapi.BUILD, final)
+    rename = Path.rename
+
+    def fail(self, target):
+        if self == (final if failed_step == "backup" else ready):
+            raise PermissionError("simulated rename failure")
+        return rename(self, target)
+
+    monkeypatch.setattr(Path, "rename", fail)
+    monkeypatch.setattr(pyav_vaapi, "probe", lambda f: (True, "18.1.0", "") if (f / "av" / "old").exists()
+                        else (False, "", "load"))
+    assert pyav_vaapi.activate()["path"] == str(final)
+    assert (final / "av" / "old").exists() and (ready / "av" / "new").exists()
+    assert not (home / ".previous-18.1.0").exists()
+
+
+def test_failed_rollback_retains_a_backup_that_the_next_start_recovers(home, monkeypatch):
+    final = home / "18.1.0"
+    previous = home / ".previous-18.1.0"
+    ready = pyav_vaapi.staged(final)
+    for folder, name in ((final, "old"), (ready, "new")):
+        (folder / "av").mkdir(parents=True)
+        (folder / "av" / name).touch()
+    rename = Path.rename
+
+    def fail(self, target):
+        if self in (ready, previous):
+            raise PermissionError("simulated rename failure")
+        return rename(self, target)
+
+    monkeypatch.setattr(Path, "rename", fail)
+    pyav_vaapi._swap_in_staged(final)
+    assert (previous / "av" / "old").exists() and (ready / "av" / "new").exists()
+    monkeypatch.setattr(Path, "rename", rename)
+    pyav_vaapi._swap_in_staged(final)
+    assert (final / "av" / "new").exists()
+    assert not previous.exists() and not ready.exists()

@@ -7,6 +7,7 @@ check in a separate process, so one that's broken can never stop Telescope from 
 
 import importlib.metadata
 import json
+import logging
 import os
 import shutil
 import subprocess
@@ -84,13 +85,25 @@ def staged(folder: Path) -> Path:
 
 def _swap_in_staged(folder: Path):
     ready = staged(folder)
-    if not (ready / "av").is_dir():
-        return
+    previous = folder.parent / f".previous-{folder.name}"
     try:
-        shutil.rmtree(folder, ignore_errors=True)
-        ready.rename(folder)
+        # Recover a promotion interrupted before the replacement reached its final name.
+        if previous.exists() and not folder.exists():
+            previous.rename(folder)
+        if not (ready / "av").is_dir():
+            return
+        shutil.rmtree(previous, ignore_errors=True)
+        if folder.exists():
+            folder.rename(previous)
+        try:
+            ready.rename(folder)
+        except OSError:
+            if previous.exists():
+                previous.rename(folder)
+            raise
+        shutil.rmtree(previous, ignore_errors=True)
     except OSError:
-        pass  # the old build stays, and its check below decides
+        logging.exception("Could not install the staged VA-API build; keeping its previous files")
 
 
 # ── The choice ────────────────────────────────────────────────────────────────

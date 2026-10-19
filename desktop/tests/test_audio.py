@@ -772,6 +772,7 @@ def test_handover_interrupts_a_stalled_tls_read_instead_of_waiting_for_its_timeo
 
     fixtures = Path(__file__).parent / "fixtures"
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
     context.load_cert_chain(fixtures / "test_phone.crt", fixtures / "test_phone.key")
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Phone)
     server.handle_error = lambda *_args: None  # aborting a stream can end its TLS socket mid-write
