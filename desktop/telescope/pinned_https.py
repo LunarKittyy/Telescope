@@ -3,9 +3,11 @@
 import functools
 import hashlib
 import hmac
+import _socket
 import http.client
 import socket
 import ssl
+import sys
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
@@ -47,6 +49,8 @@ class _InterruptibleResponse(http.client.HTTPResponse):
         try:
             # Shut down TCP without SSLSocket.shutdown() clearing OpenSSL state under the reader.
             socket.socket.shutdown(self._socket, socket.SHUT_RDWR)
+            if sys.platform == "win32":
+                _socket.socket.close(self._socket)  # Windows doesn't wake a waiting read on shutdown, only on close
         except OSError:
             pass  # it may have ended already
         self.close()
