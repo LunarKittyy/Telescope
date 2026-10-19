@@ -132,6 +132,7 @@ class MonitoringPlugin(TelescopePlugin):
         top.addWidget(hued_icon(icon_name, "phone"))
         top.addWidget(QLabel(label), 1)
         spin.setObjectName("chip_spin")
+        spin.setAccessibleName(label)
         spin.setFixedSize(ui_px(80), ui_px(30))
         top.addWidget(spin)
         inner.addLayout(top)

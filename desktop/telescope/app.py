@@ -536,6 +536,7 @@ class TelescopeWindow(QMainWindow):
         self._menu_btn.setIcon(create_vector_icon("gear", theme.TEXT_DIM))
         self._menu_btn.setIconSize(QSize(19, 19))
         self._menu_btn.setToolTip("Settings")
+        self._menu_btn.setAccessibleName("Settings")
         self._menu_btn.clicked.connect(self._show_settings_menu)
         lay.addWidget(self._menu_btn)
 

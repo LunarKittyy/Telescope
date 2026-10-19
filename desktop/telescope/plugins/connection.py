@@ -727,6 +727,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._phone_combo.setMinimumWidth(ui_px(180))
         self._phone_combo.setPlaceholderText("No phone yet")
         self._phone_combo.setToolTip("Which phone to stream from")
+        self._phone_combo.setAccessibleName("Phone")
         self._phone_combo.currentIndexChanged.connect(self._on_combo_changed)
         self._phone_combo.setObjectName("phone_picker")
         phone_icon = QLabel(self._phone_combo)
@@ -742,6 +743,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._manage_btn.setIcon(create_vector_icon("devices", theme.TEXT_DIM))
         self._manage_btn.setIconSize(QSize(18, 18))
         self._manage_btn.setToolTip("Your phones: add, rename, remove")
+        self._manage_btn.setAccessibleName("Your phones")
         self._manage_btn.clicked.connect(self.open_phones)
         lay.addWidget(self._manage_btn)
 

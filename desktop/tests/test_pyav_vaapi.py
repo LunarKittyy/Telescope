@@ -99,3 +99,21 @@ def test_version_compare_reads_odd_versions():
 def test_the_check_says_when_a_folder_has_no_pyav(tmp_path):
     ok, _version, why = pyav_vaapi.probe(tmp_path)
     assert not ok and why == "load"  # the venv's own PyAV loads instead, which doesn't count
+
+
+def test_a_build_pins_cython_so_a_newer_one_cant_break_it(home, monkeypatch):
+    seen = {}
+
+    class Done:
+        stdout, returncode = iter(["ERROR: stop here"]), 1
+
+        def __init__(self, cmd, env=None, **_kwargs):
+            seen["env"] = env
+
+        def wait(self):
+            pass
+
+    monkeypatch.setattr(pyav_vaapi.subprocess, "Popen", Done)
+    assert pyav_vaapi.build("18.1.0", lambda line: None)[0] is False
+    pins = Path(seen["env"]["PIP_CONSTRAINT"])
+    assert pins.read_text().strip() == f"cython=={pyav_vaapi.BUILD_CYTHON}"

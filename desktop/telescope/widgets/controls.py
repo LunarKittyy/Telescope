@@ -1,8 +1,10 @@
 """The card pieces of the redesign: line icons, value and dropdown tiles, switch tiles, option cards, tags, pills and
 the pan pad. Sizes are design pixels (pass through ui_px), colours come from theme and the card's hue."""
 
-from PyQt6.QtCore import QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen
+import math
+
+from PyQt6.QtCore import QEvent, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QColor, QFont, QFontMetrics, QFontMetricsF, QPainter, QPen
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 from telescope import theme
@@ -239,11 +241,25 @@ class Tag(QWidget):
         self._text = text
         self.setAccessibleName(text)
         self._color = QColor(theme.WARN if kind == "warn" else theme.OK)
-        self._font = _font(self.font(), 0.88, QFont.Weight.DemiBold)
-        self.setFixedSize(QFontMetrics(self._font).horizontalAdvance(text) + 16, ui_px(20))
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
     def text(self) -> str:
         return self._text
+
+    def _tag_font(self) -> QFont:
+        self.ensurePolished()  # the theme's font only arrives with the stylesheet, after __init__
+        return _font(self.font(), 0.88, QFont.Weight.DemiBold)
+
+    def sizeHint(self) -> QSize:
+        return QSize(math.ceil(QFontMetricsF(self._tag_font()).horizontalAdvance(self._text)) + 16, ui_px(20))
+
+    def minimumSizeHint(self) -> QSize:
+        return self.sizeHint()
+
+    def changeEvent(self, event):
+        if event.type() == QEvent.Type.FontChange:
+            self.updateGeometry()
+        super().changeEvent(event)
 
     def paintEvent(self, _event):
         p = QPainter(self)
@@ -251,9 +267,10 @@ class Tag(QWidget):
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(_alpha(self._color.name(), 0.14))
         p.drawRoundedRect(QRectF(self.rect()), self.height() / 2, self.height() / 2)
-        p.setFont(self._font)
+        p.setFont(self._tag_font())
         p.setPen(self._color.lighter(108))
-        p.drawText(QPointF(8, cap_baseline(p.fontMetrics(), 0, self.height())), self._text)
+        left = (self.width() - QFontMetricsF(p.font()).horizontalAdvance(self._text)) / 2
+        p.drawText(QPointF(left, cap_baseline(p.fontMetrics(), 0, self.height())), self._text)
         p.end()
 
 
@@ -354,7 +371,7 @@ class RoundIcon(QLabel):
 
     def __init__(self, size: int = 34, parent=None):
         super().__init__(parent)
-        self._size = ui_px(size)
+        self._size = ui_px(size) | 1  # odd, so it has a centre pixel column for the icon's stroke
         self._name = ""
         self.setFixedSize(self._size, self._size)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -375,7 +392,7 @@ class RoundIcon(QLabel):
         p.setBrush(_alpha(hue, 0.14))
         p.drawEllipse(QRectF(self.rect()))
         if self._name:
-            px = self._size // 2
+            px = self._size // 2 | 1  # odd like the chip, so the icon's middle stroke lands on the chip's centre
             line_icon(self._name, hue).paint(p, QRect((self.width() - px) // 2, (self.height() - px) // 2, px, px))
         p.end()
 
