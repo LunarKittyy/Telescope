@@ -15,6 +15,12 @@ Already merged:
 
 - [x] Credit to LunarKittyy next to the version in Advanced
 - [x] Auto level for the mic, off by default (noise reduction with RNNoise would need a native library in both builds, so it isn't in)
+- [x] Experimental H.264 over UDP on Wi-Fi (**UDP on Wi-Fi** in the Connection card)
+- [x] Hardware acceleration for Light, off by default, and **Set up VA-API…** for AMD and Intel cards on Linux
+- [x] The redesigned window: cards with a colour each, and Advanced, Keyboard shortcuts and Plugins laid out the same way
+- [x] Streams start about 0.1 s sooner, and come back about a second sooner after a Wi-Fi drop without a Can't keep up banner
+- [x] Retrying the phone's session port when it's busy
+- [x] `scripts/phone_check.py`, a release check on a real phone
 
 ## Mic clock drift without clicks
 
@@ -42,7 +48,7 @@ Small.
 
 Every attempt in `H264Encoder.ATTEMPTS` asks for Baseline first. Asking for High with `KEY_MAX_B_FRAMES` set to 0 keeps frames in order (no extra delay) but gets the better compression tools Baseline doesn't have. If the encoder refuses it can fall back to Constrained Baseline and then to whatever the encoder picks itself. At the same bitrate High usually looks noticeably sharper, which helps Light most on slow Wi-Fi. PyAV decodes it without changes.
 
-Needs trying on a few phones, since some encoders are worse at High than at Baseline. `docs/protocol.md` and `docs/architecture.md` say Baseline and would need updating.
+Needs trying on a few phones, since some encoders are worse at High than at Baseline. `docs/protocol.md` and `docs/architecture.md` now say High where the encoder takes it.
 
 ## Stepping down on Android's thermal status
 
