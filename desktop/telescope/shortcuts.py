@@ -27,6 +27,7 @@ _MODIFIER_KEYS = {Qt.Key.Key_Control, Qt.Key.Key_Shift, Qt.Key.Key_Alt, Qt.Key.K
 _MODIFIERS = (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier
               | Qt.KeyboardModifier.ShiftModifier | Qt.KeyboardModifier.MetaModifier)
 MAX_BINDINGS = 200
+SHORTCUT_VALUE_ROLE = Qt.ItemDataRole.UserRole.value + 1  # stable choice value, independent of its displayed text
 
 
 @dataclass(frozen=True)
@@ -411,7 +412,7 @@ def choice_action(id: str, label: str, group: str, combo: Optional[QComboBox] = 
                   wrap: bool = True) -> ShortcutAction:
     """A key that picks in a drop-down (combo) or a row of buttons only one of which is on (buttons: a list, or a
     callable for one that changes, like the lens buttons): the next one, the previous one, or a named one.
-    A button's shortcutValue property preserves saved choices when its displayed text changes."""
+    A button's shortcutValue property or a combo item's SHORTCUT_VALUE_ROLE preserves saved choices when its text changes."""
     def options() -> list:
         """[(text, enabled)] in order."""
         if combo is not None:
@@ -419,7 +420,10 @@ def choice_action(id: str, label: str, group: str, combo: Optional[QComboBox] = 
             out = []
             for i in range(combo.count()):
                 item = model.index(i, 0)
-                out.append((combo.itemText(i), bool(model.flags(item) & Qt.ItemFlag.ItemIsEnabled)))
+                value = combo.itemData(i, SHORTCUT_VALUE_ROLE)
+                if value is None:
+                    value = combo.itemText(i)
+                out.append((value, bool(model.flags(item) & Qt.ItemFlag.ItemIsEnabled)))
             return out
         return [(button_value(b), b.isEnabled()) for b in current_buttons()]
 
@@ -428,6 +432,9 @@ def choice_action(id: str, label: str, group: str, combo: Optional[QComboBox] = 
 
     def current_buttons() -> list:
         return list(buttons() if callable(buttons) else buttons or [])
+
+    def shown(i: int) -> str:
+        return combo.itemText(i) if combo is not None else current_buttons()[i].text().strip()
 
     def current_index() -> int:
         if combo is not None:
@@ -457,8 +464,7 @@ def choice_action(id: str, label: str, group: str, combo: Optional[QComboBox] = 
             return None
         op, cur = p.get("op", "next"), current_index()
         if op == "set":
-            target = next((i for i, (text, on) in enumerate(opts) if on and (
-                text == p.get("option") or (combo is None and current_buttons()[i].text().strip() == p.get("option")))), None)
+            target = next((i for i, (value, on) in enumerate(opts) if on and p.get("option") in (value, shown(i))), None)
             if target is None:
                 return None
         else:
@@ -473,14 +479,12 @@ def choice_action(id: str, label: str, group: str, combo: Optional[QComboBox] = 
                     target = i
                     break
             if target is None:
-                return f"{label}: {opts[cur][0]}" if 0 <= cur < len(opts) else None
+                return f"{label}: {shown(cur)}" if 0 <= cur < len(opts) else None
         pick(target)
-        return f"{label}: {opts[target][0]}"
+        return f"{label}: {shown(target)}"
 
     def option_choices():
-        if combo is None:
-            return [(button_value(b), b.text().strip()) for b in current_buttons()]
-        return [(text, text) for text, _ in options()]
+        return [(value, shown(i)) for i, (value, _on) in enumerate(options())]
 
     params = (
         Param("op", "Does", "choice", "next", (("next", "Next"), ("previous", "Previous"), ("set", "Pick"))),
@@ -489,7 +493,8 @@ def choice_action(id: str, label: str, group: str, combo: Optional[QComboBox] = 
 
     def describe(p):
         if p["op"] == "set":
-            return f"{label}: {p.get('option') or '…'}"
+            option = p.get("option")
+            return f"{label}: {dict(option_choices()).get(option, option) or '…'}"
         return f"{label}: {p['op']}"
 
     return ShortcutAction(id, label, group, run, params=params, describe=describe,

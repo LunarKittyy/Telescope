@@ -1656,7 +1656,7 @@ def test_drain_phone_stops_is_bounded(window, monkeypatch):
 
     window._drain_phone_stops(timeout=1.5)
 
-    assert joins and joins[0] <= 1.5
+    assert joins and joins[0] <= 1.5 + 1e-9  # Windows' coarse clock can leave deadline - now a rounding error over
     assert window._phone._stop_threads == []
 
 

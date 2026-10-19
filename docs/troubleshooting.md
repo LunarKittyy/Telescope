@@ -19,6 +19,8 @@
 | Lag or dropped frames over Wi-Fi | Format is Heavy (MJPEG), which sends several times the data of Light | Switch Format to Light, use USB, lower JPEG quality, or reduce FPS |
 | Light over Wi-Fi freezes for a moment now and then | A busy network loses a packet, and TCP holds up everything after it until the resend | Try **UDP on Wi-Fi** in the Connection card (experimental). If the video can't get through over UDP it goes back to TCP by itself |
 | Advanced says "No graphics card Telescope can use" | On Linux the PyAV Telescope installs only decodes on NVIDIA cards, so AMD and Intel ones need VA-API | Click **Set up VA-API…** next to it. Without a graphics card, Light still decodes on the processor |
+| VA-API setup says an existing build no longer works | A system update may have changed FFmpeg or Python | Install any packages setup lists, then click **Rebuild** and restart Telescope |
+| VA-API setup asks for PyAV 14 or newer | Telescope's Python environment still has an older PyAV | Upgrade PyAV in that environment, then restart Telescope and open setup again |
 | "Another app on the phone is using the camera" | An app opened the phone's camera (the Camera app, a video call). Android gives the camera to the app on screen | Close that app or switch away from it. The stream picks back up once the camera is free |
 | "The phone is streaming to <name>" | Another computer paired with the phone started its camera first | Stop the stream on that computer or on the phone, then click Start again |
 | A global shortcut says "Another app already uses this key" (Windows) | Some other program registered that key first | Windows gives that key to the other program every time, even with Telescope in front. Pick another key in **Keyboard shortcuts…** |

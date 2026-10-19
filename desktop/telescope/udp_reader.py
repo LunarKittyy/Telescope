@@ -91,6 +91,12 @@ class _Frame:
     def missing(self) -> list:
         return [i for i in range(self.count) if i not in self.parts]
 
+    def notice(self, now: float):
+        # A large keyframe gets time to finish while new fragments are still arriving.
+        if self.noticed is None or (self.key and self.progress != len(self.parts)):
+            self.noticed = now
+            self.progress = len(self.parts)
+
 
 class Reassembler:
     """Puts datagrams back into whole frames, in order. Pure, so tests drive it with their own clock."""
@@ -152,9 +158,7 @@ class Reassembler:
             f = self.frames[seq]
             if f.complete():
                 return [], False
-            if f.noticed is None or f.progress != len(f.parts):
-                f.noticed = now
-                f.progress = len(f.parts)
+            f.notice(now)
             if now - f.noticed >= GIVE_UP_S:
                 self._forget_before(seq + 1)
                 return [], True
@@ -171,8 +175,7 @@ class Reassembler:
                 f = self.frames[seq] = _Frame()  # none of it came, but newer ones did
             if f.complete():
                 continue
-            if f.noticed is None:
-                f.noticed = now
+            f.notice(now)
             waited = now - f.noticed
             if waited >= GIVE_UP_S:
                 self.dropped += 1

@@ -49,20 +49,14 @@ if _missing:
         pass
     sys.exit(1)
 
-# A VA-API PyAV picked in Advanced goes ahead of the venv's own, before anything imports av
-from telescope import pyav_vaapi
-pyav_vaapi.activate()
-
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QApplication
 
 from telescope import dev_profile, diagnostics
-from telescope.app import TelescopeWindow
 from telescope.single_instance import (
     RESTARTED, acquire_single_instance, listen_for_raise, send_action, write_control_key,
 )
 from telescope.platform import IS_LINUX, autostart, virtual_mic
-from telescope.plugins import builtin_plugins
 from telescope.theme import apply_theme
 from telescope.updates import MOVED_FROM, clean_up_after_update, finish_move, note_installed_version, pending_move
 from telescope.widgets.common import create_app_icon
@@ -171,6 +165,13 @@ def main():
     if srv is None:
         sys.exit(0)
     control_key = write_control_key()  # straight away: an --action from a sign-in script mustn't find the last run's
+
+    # Only the new instance may replace a staged build. Activate it before the window or plugins import av.
+    from telescope import pyav_vaapi
+    pyav_vaapi.activate()
+    from telescope.app import TelescopeWindow
+    from telescope.plugins import builtin_plugins
+
     if IS_LINUX:
         # Only the copy holding the single-instance port gets here, so the source it finds is never a running one's
         virtual_mic.remove_stale_source(lambda cmd: virtual_mic._run(cmd, timeout=2))
