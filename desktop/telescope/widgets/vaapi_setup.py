@@ -1,5 +1,6 @@
 """Set up VA-API: picks a PyAV that has it (the distro's, or one built here) for the next start. See pyav_vaapi."""
 
+import logging
 import sys
 import threading
 from pathlib import Path
@@ -30,6 +31,7 @@ def _say(line: QLabel, text: str):
 
 class VaapiSetupDialog(QDialog):
     _sig_system = pyqtSignal(object)        # (folder, ok, version, why) or None
+    _sig_existing = pyqtSignal(bool)
     _sig_line = pyqtSignal(str)
     _sig_built = pyqtSignal(bool, str)
 
@@ -40,14 +42,17 @@ class VaapiSetupDialog(QDialog):
         self._restart = restart
         self._system: Optional[tuple] = None
         self._system_checked = False
+        self._checking = False
         self._building = False
+        self._built_ok: Optional[bool] = None
+        self._rebuilt_active = False
         self._version = pyav_vaapi.standard_version()
         self._sig_system.connect(self._on_system)
+        self._sig_existing.connect(self._on_existing)
         self._sig_line.connect(self._on_line)
         self._sig_built.connect(self._on_built)
         self._build_ui()
-        self._refresh()
-        threading.Thread(target=self._check_system, daemon=True).start()
+        self.check_again()
 
     def _build_ui(self):
         lay = dialog_layout(self)
@@ -73,7 +78,7 @@ class VaapiSetupDialog(QDialog):
         self._copy_btn = QPushButton("Copy")
         self._copy_btn.clicked.connect(lambda: QApplication.clipboard().setText(self._command_text))
         self._recheck_btn = QPushButton("Check again")
-        self._recheck_btn.clicked.connect(self._refresh)
+        self._recheck_btn.clicked.connect(self.check_again)
         # The command gets the strip's whole width, its buttons under it
         self._tools = QWidget()
         tools_lay = QVBoxLayout(self._tools)
@@ -114,7 +119,20 @@ class VaapiSetupDialog(QDialog):
 
     # ── What there is ─────────────────────────────────────────────────────────
 
-    def _check_system(self):
+    def check_again(self):
+        """Packages may have changed while setup was closed. An existing build job keeps running instead."""
+        if self._building or self._checking:
+            return
+        self._checking = True
+        self._built_ok = None
+        self._system = None
+        self._system_checked = False
+        self._refresh()
+        threading.Thread(target=self._check_packages, daemon=True).start()
+
+    def _check_packages(self):
+        folder = self._built_folder()
+        self._sig_existing.emit((folder / "av").is_dir() and pyav_vaapi.probe(folder)[0])
         package = pyav_vaapi.find_system()
         if package is None:
             self._sig_system.emit(None)
@@ -124,6 +142,11 @@ class VaapiSetupDialog(QDialog):
 
     def _on_system(self, result):
         self._system, self._system_checked = result, True
+        self._checking = False
+        self._refresh()
+
+    def _on_existing(self, ok: bool):
+        self._built_ok = ok
         self._refresh()
 
     def _built_folder(self) -> Path:
@@ -151,27 +174,35 @@ class VaapiSetupDialog(QDialog):
         self._system_btn.setVisible(system_ok and not (pick and pick["kind"] == pyav_vaapi.SYSTEM))
 
         # Building one
-        built = (self._built_folder() / "av").is_dir()
-        missing = [] if built or self._building else pyav_vaapi.missing_tools()
+        exists = (self._built_folder() / "av").is_dir()
+        built = exists and self._built_ok is True
+        checking = exists and self._built_ok is None
+        supported = pyav_vaapi.build_version_supported(self._version)
+        missing = [] if built or checking or self._building or not supported else pyav_vaapi.missing_tools()
         command = pyav_vaapi.install_command() if missing else ""
         if self._building:
             pass  # the build's own lines show here
+        elif not supported:
+            _say(self._build_line, "Upgrade PyAV in Telescope's Python environment to 14 or newer, then restart Telescope.")
+        elif checking:
+            _say(self._build_line, "Checking the existing build...")
         elif built:
             _say(self._build_line, f"PyAV {self._version} is built")
         elif missing:
             needs = " and ".join([", ".join(missing[:-1]), missing[-1]] if len(missing) > 1 else missing)
             _say(self._build_line, f"Needs {needs}." + (" To install them:" if command else " Your distro has them."))
         else:
-            _say(self._build_line, f"Builds PyAV {self._version} against your system's FFmpeg, in a minute or two")
+            _say(self._build_line, "The existing build no longer works. Rebuild it against your system's FFmpeg."
+                 if exists else f"Builds PyAV {self._version} against your system's FFmpeg, in a minute or two")
         self._command_text = command
         # Shown with non-breaking hyphens so a package name never splits; Copy gives the plain command
         self._command.setText(command.replace("-", "\u2011"))
         self._tools.setVisible(bool(missing))
         self._command.setVisible(bool(command))
         self._copy_btn.setVisible(bool(command))
-        self._build_btn.setText("Use it" if built else "Build")
-        self._build_btn.setVisible(not missing and not self._building and not (pick and pick["kind"] == pyav_vaapi.BUILD))
-        self._build_btn.setEnabled(bool(self._version))
+        self._build_btn.setText("Use it" if built else "Rebuild" if exists else "Build")
+        self._build_btn.setVisible(supported and not missing and not checking and not self._building
+                                  and not (built and pick and pick["kind"] == pyav_vaapi.BUILD))
 
         # What's in use
         if active:
@@ -187,7 +218,7 @@ class VaapiSetupDialog(QDialog):
         self._using_strip.setVisible(bool(using))
         self._standard_btn.setVisible(pick is not None)
 
-        pending = (pick or {}).get("path") != (active or {}).get("path")
+        pending = self._rebuilt_active or (pick or {}).get("path") != (active or {}).get("path")
         self._restart_note.setVisible(pending)
         self._restart_btn.setVisible(pending and self._restart is not None)
         QTimer.singleShot(0, self._fit)
@@ -209,15 +240,24 @@ class VaapiSetupDialog(QDialog):
         self._refresh()
 
     def _start_build(self):
-        if (self._built_folder() / "av").is_dir():
+        if self._building or not pyav_vaapi.build_version_supported(self._version):
+            return
+        if self._built_ok and (self._built_folder() / "av").is_dir():
             pyav_vaapi.choose(pyav_vaapi.BUILD, self._built_folder())
             self._refresh()
             return
         self._building = True
         _say(self._build_line, "Starting the build...")
         self._refresh()
-        threading.Thread(target=lambda: self._sig_built.emit(*pyav_vaapi.build(self._version, self._sig_line.emit)),
-                         daemon=True).start()
+        threading.Thread(target=self._build, daemon=True).start()
+
+    def _build(self):
+        try:
+            result = pyav_vaapi.build(self._version, self._sig_line.emit)
+        except Exception as exc:
+            logging.exception("VA-API build failed")
+            result = False, str(exc)
+        self._sig_built.emit(*result)
 
     def _on_line(self, line: str):
         if self._building:
@@ -226,6 +266,8 @@ class VaapiSetupDialog(QDialog):
     def _on_built(self, ok: bool, message: str):
         self._building = False
         if ok:
+            self._built_ok = True
+            self._rebuilt_active |= (pyav_vaapi.active or {}).get("path") == message
             pyav_vaapi.choose(pyav_vaapi.BUILD, Path(message))
             self._refresh()
         else:

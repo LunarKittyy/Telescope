@@ -133,14 +133,32 @@ def test_a_keyframe_can_replace_a_full_backlog():
     assert len(r.frames) == 0
 
 
-def test_a_large_initial_keyframe_is_not_discarded_while_it_is_still_arriving():
+@pytest.mark.parametrize("established", [False, True])
+def test_a_large_keyframe_is_not_discarded_while_it_is_still_arriving(established):
     r = Reassembler()
-    pieces = _fragments(0, b"K" * 80, True, 10)
+    if established:
+        r.add(_fragments(0, b"first", True, 10)[0])
+        assert r.take() == (b"first", 1)
+    seq = int(established)
+    pieces = _fragments(seq, b"K" * 80, True, 10)
     for i, piece in enumerate(pieces):
         r.add(piece)
         _nacks, want_key = r.chase(i * 0.1)
         assert not want_key
     assert r.take() == (b"K" * 80, 1)
+
+
+@pytest.mark.parametrize("established", [False, True])
+def test_a_keyframe_that_stops_progressing_still_times_out(established):
+    r = Reassembler()
+    if established:
+        r.add(_fragments(0, b"first", True, 10)[0])
+        r.take()
+    piece = _fragments(int(established), b"K" * 80, True, 10)[0]
+    r.add(piece)
+    r.chase(0.0)
+    r.add(piece)  # a duplicate isn't progress
+    assert r.chase(udp_reader.GIVE_UP_S + 0.01) == ([], True)
 
 
 class _Phone(http.server.BaseHTTPRequestHandler):

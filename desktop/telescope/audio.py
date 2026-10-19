@@ -69,7 +69,7 @@ LIMIT_ATTACK = 48  # samples (1 ms) to reach a new, lower gain; hard clipping ca
 
 def _close(resp):
     try:
-        resp.close()
+        getattr(resp, "abort", resp.close)()
     except Exception:
         pass
 
@@ -199,7 +199,8 @@ class JitterBuffer:
             if fill - m * ratio > self._target + self._max_extra:
                 skip = int(fill - m * ratio - self._target)  # far too much: jump back to the target
                 self._avg = self._target
-            elif over_ms > QUIET_SKIP_MS and self._quiet(int(self._pos), int(fill - self._target)):
+            elif (fill - m * ratio > self._target and over_ms > QUIET_SKIP_MS
+                  and self._quiet(int(self._pos), int(fill - self._target))):
                 skip = int(fill - m * ratio - self._target)  # a pause: jumping back to the target can't be heard
                 self._avg = self._target
             at = self._pos + skip + ratio * np.arange(m, dtype=np.float64)
@@ -390,10 +391,7 @@ class AudioWorker:
             _close(pending[0])
         resp = self._response
         if resp is not None:
-            try:
-                resp.close()
-            except Exception:
-                pass
+            _close(resp)
         for t in self._threads:
             t.join(timeout=3)
         self._threads.clear()

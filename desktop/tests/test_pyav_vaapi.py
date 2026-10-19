@@ -89,6 +89,14 @@ def test_missing_tools_are_named(monkeypatch):
     assert pyav_vaapi.missing_tools() == ["a C compiler", "pkg-config", "Python's development files"]
 
 
+@pytest.mark.parametrize("version", ["12.3.0", "13.1.0", ""])
+def test_unsupported_build_versions_are_rejected_before_running_pip(home, monkeypatch, version):
+    monkeypatch.setattr(pyav_vaapi.subprocess, "Popen", lambda *a, **kw: pytest.fail("ran pip"))
+    ok, message = pyav_vaapi.build(version, lambda line: None)
+    assert not ok and "14 or newer" in message
+    assert not home.exists()
+
+
 def test_version_compare_reads_odd_versions():
     assert pyav_vaapi._version_tuple("14.2.0") >= pyav_vaapi.MIN_VERSION
     assert pyav_vaapi._version_tuple("11.0.0") < pyav_vaapi.MIN_VERSION

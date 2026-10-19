@@ -752,6 +752,7 @@ class SetupPlugin(TelescopePlugin):
         self._host = host
         self._bus = bus
         self._dlg: Optional[AdvancedDialog] = None
+        self._vaapi_dlg = None  # closing setup leaves a build running; reopening follows the same job
         self._max_zoom = DEFAULT_MAX_ZOOM
         self._max_gain = DEFAULT_MAX_GAIN
         self._limiter = True
@@ -825,7 +826,11 @@ class SetupPlugin(TelescopePlugin):
 
     def _open_vaapi(self):
         from telescope.widgets.vaapi_setup import VaapiSetupDialog
-        VaapiSetupDialog(self._dlg, self._host.restart_app).exec()
+        if self._vaapi_dlg is None:
+            self._vaapi_dlg = VaapiSetupDialog(self._dlg, self._host.restart_app)
+        else:
+            self._vaapi_dlg.check_again()
+        self._vaapi_dlg.exec()
 
     def _on_hw_decode(self, on: bool):
         self._hw_decode = on
