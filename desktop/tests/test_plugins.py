@@ -139,7 +139,8 @@ def test_resolution_shortcuts_accept_old_and_current_labels(stream_output, optio
     ]}], "stream_width": 1920, "stream_height": 1080})
     panel.show()
     action = next(a for a in plugin.create_actions() if a.id == "stream.resolution")
-    assert action.run(action.full_params({"op": "set", "option": option})) is not None
+    assert action.run(action.full_params({"op": "set", "option": option})) == "Resolution: 1280 × 720"
+    assert action.describe(action.full_params({"op": "set", "option": "1280 x 720"})) == "Resolution: 1280 × 720"
     assert plugin._res_combo.currentData() == (1280, 720)
     assert ctrl.sent[-1] == {"action": "resolution", "width": 1280, "height": 720}
     assert ("1280 x 720", "1280 × 720") in action.params[1].options()

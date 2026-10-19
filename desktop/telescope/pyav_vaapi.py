@@ -73,6 +73,26 @@ def build_version_supported(version: str) -> bool:
     return bool(version) and _version_tuple(version) >= MIN_VERSION
 
 
+UPGRADE_NEEDED = (f"Upgrade PyAV in Telescope's Python environment to {MIN_VERSION[0]} or newer, "
+                  "then restart Telescope.")
+
+
+def staged(folder: Path) -> Path:
+    """Where a rebuild of the PyAV this run imports from waits until the next start."""
+    return folder.parent / f".ready-{folder.name}"
+
+
+def _swap_in_staged(folder: Path):
+    ready = staged(folder)
+    if not (ready / "av").is_dir():
+        return
+    try:
+        shutil.rmtree(folder, ignore_errors=True)
+        ready.rename(folder)
+    except OSError:
+        pass  # the old build stays, and its check below decides
+
+
 # ── The choice ────────────────────────────────────────────────────────────────
 
 def chosen() -> Optional[dict]:
@@ -122,6 +142,8 @@ def activate() -> Optional[dict]:
     if pick is None:
         return None
     folder = Path(pick["path"])
+    if pick["kind"] == BUILD:
+        _swap_in_staged(folder)
     if pick["kind"] == BUILD and folder.name != standard_version():
         problem = f"built for PyAV {folder.name}, and this version of Telescope uses {standard_version()}"
         return None
@@ -228,7 +250,7 @@ def install_command() -> str:
 def build(version: str, on_line: Callable[[str], None]) -> tuple:
     """Build PyAV `version` against the system FFmpeg into its own folder. (ok, message); runs for a minute or two."""
     if not build_version_supported(version):
-        return False, "Upgrade PyAV in Telescope's Python environment to 14 or newer, then restart Telescope."
+        return False, UPGRADE_NEEDED
     final = root() / version
     work = root() / f".building-{version}"
     shutil.rmtree(work, ignore_errors=True)
@@ -257,6 +279,12 @@ def build(version: str, on_line: Callable[[str], None]) -> tuple:
     if not ok:
         shutil.rmtree(work, ignore_errors=True)
         return False, "it built, but VA-API didn't open with it" if why in ("novaapi", "noopen") else "it built, but didn't load"
+    if active and Path(active["path"]) == final:
+        # This run still imports from final, so swapping it now would mix two builds; activate() swaps it in
+        shutil.rmtree(staged(final), ignore_errors=True)
+        work.rename(staged(final))
+        return True, str(final)
     shutil.rmtree(final, ignore_errors=True)
+    shutil.rmtree(staged(final), ignore_errors=True)
     work.rename(final)
     return True, str(final)

@@ -42,7 +42,7 @@ class VaapiSetupDialog(QDialog):
         self._restart = restart
         self._system: Optional[tuple] = None
         self._system_checked = False
-        self._checking = False
+        self._checks = 0  # background checks still running
         self._building = False
         self._built_ok: Optional[bool] = None
         self._rebuilt_active = False
@@ -121,36 +121,55 @@ class VaapiSetupDialog(QDialog):
 
     def check_again(self):
         """Packages may have changed while setup was closed. An existing build job keeps running instead."""
-        if self._building or self._checking:
+        if self._building or self._checks:
             return
-        self._checking = True
+        self._checks = 2
         self._built_ok = None
         self._system = None
         self._system_checked = False
         self._refresh()
-        threading.Thread(target=self._check_packages, daemon=True).start()
+        threading.Thread(target=self._check_system, daemon=True).start()
+        threading.Thread(target=self._check_existing, daemon=True).start()
 
-    def _check_packages(self):
-        folder = self._built_folder()
-        self._sig_existing.emit((folder / "av").is_dir() and pyav_vaapi.probe(folder)[0])
-        package = pyav_vaapi.find_system()
-        if package is None:
-            self._sig_system.emit(None)
-            return
-        folder = pyav_vaapi.link_system(package)
-        self._sig_system.emit((folder, *pyav_vaapi.probe(folder)))
+    def _check_system(self):
+        result = None
+        try:
+            package = pyav_vaapi.find_system()
+            if package is not None:
+                folder = pyav_vaapi.link_system(package)
+                result = (folder, *pyav_vaapi.probe(folder))
+        except Exception:
+            logging.exception("Checking the distro's PyAV failed")
+        self._sig_system.emit(result)
+
+    def _check_existing(self):
+        ok = False
+        try:
+            folder = self._existing_folder()
+            ok = folder is not None and pyav_vaapi.probe(folder)[0]
+        except Exception:
+            logging.exception("Checking the existing VA-API build failed")
+        self._sig_existing.emit(ok)
 
     def _on_system(self, result):
         self._system, self._system_checked = result, True
-        self._checking = False
+        self._checks -= 1
         self._refresh()
 
     def _on_existing(self, ok: bool):
         self._built_ok = ok
+        self._checks -= 1
         self._refresh()
 
     def _built_folder(self) -> Path:
         return pyav_vaapi.root() / self._version
+
+    def _existing_folder(self) -> Optional[Path]:
+        """The build the next start uses: a rebuild waiting for it, else the one there."""
+        for folder in (pyav_vaapi.staged(self._built_folder()), self._built_folder()):
+            if (folder / "av").is_dir():
+                return folder
+        return None
 
     def _refresh(self):
         pick = pyav_vaapi.chosen()
@@ -174,7 +193,7 @@ class VaapiSetupDialog(QDialog):
         self._system_btn.setVisible(system_ok and not (pick and pick["kind"] == pyav_vaapi.SYSTEM))
 
         # Building one
-        exists = (self._built_folder() / "av").is_dir()
+        exists = self._existing_folder() is not None
         built = exists and self._built_ok is True
         checking = exists and self._built_ok is None
         supported = pyav_vaapi.build_version_supported(self._version)
@@ -183,7 +202,7 @@ class VaapiSetupDialog(QDialog):
         if self._building:
             pass  # the build's own lines show here
         elif not supported:
-            _say(self._build_line, "Upgrade PyAV in Telescope's Python environment to 14 or newer, then restart Telescope.")
+            _say(self._build_line, pyav_vaapi.UPGRADE_NEEDED)
         elif checking:
             _say(self._build_line, "Checking the existing build...")
         elif built:
@@ -242,7 +261,7 @@ class VaapiSetupDialog(QDialog):
     def _start_build(self):
         if self._building or not pyav_vaapi.build_version_supported(self._version):
             return
-        if self._built_ok and (self._built_folder() / "av").is_dir():
+        if self._built_ok and self._existing_folder() is not None:
             pyav_vaapi.choose(pyav_vaapi.BUILD, self._built_folder())
             self._refresh()
             return

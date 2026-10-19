@@ -433,6 +433,9 @@ def choice_action(id: str, label: str, group: str, combo: Optional[QComboBox] = 
     def current_buttons() -> list:
         return list(buttons() if callable(buttons) else buttons or [])
 
+    def shown(i: int) -> str:
+        return combo.itemText(i) if combo is not None else current_buttons()[i].text().strip()
+
     def current_index() -> int:
         if combo is not None:
             return combo.currentIndex()
@@ -461,9 +464,7 @@ def choice_action(id: str, label: str, group: str, combo: Optional[QComboBox] = 
             return None
         op, cur = p.get("op", "next"), current_index()
         if op == "set":
-            target = next((i for i, (text, on) in enumerate(opts) if on and (
-                text == p.get("option") or (combo.itemText(i) if combo is not None
-                                           else current_buttons()[i].text().strip()) == p.get("option"))), None)
+            target = next((i for i, (value, on) in enumerate(opts) if on and p.get("option") in (value, shown(i))), None)
             if target is None:
                 return None
         else:
@@ -478,14 +479,12 @@ def choice_action(id: str, label: str, group: str, combo: Optional[QComboBox] = 
                     target = i
                     break
             if target is None:
-                return f"{label}: {opts[cur][0]}" if 0 <= cur < len(opts) else None
+                return f"{label}: {shown(cur)}" if 0 <= cur < len(opts) else None
         pick(target)
-        return f"{label}: {opts[target][0]}"
+        return f"{label}: {shown(target)}"
 
     def option_choices():
-        if combo is None:
-            return [(button_value(b), b.text().strip()) for b in current_buttons()]
-        return [(value, combo.itemText(i)) for i, (value, _on) in enumerate(options())]
+        return [(value, shown(i)) for i, (value, _on) in enumerate(options())]
 
     params = (
         Param("op", "Does", "choice", "next", (("next", "Next"), ("previous", "Previous"), ("set", "Pick"))),
@@ -494,7 +493,8 @@ def choice_action(id: str, label: str, group: str, combo: Optional[QComboBox] = 
 
     def describe(p):
         if p["op"] == "set":
-            return f"{label}: {p.get('option') or '…'}"
+            option = p.get("option")
+            return f"{label}: {dict(option_choices()).get(option, option) or '…'}"
         return f"{label}: {p['op']}"
 
     return ShortcutAction(id, label, group, run, params=params, describe=describe,

@@ -221,3 +221,28 @@ def test_rechecking_finds_packages_installed_while_setup_was_closed(setup, monke
     dlg.check_again()
     assert dlg._system_line.text() == "PyAV 18.1.0, with VA-API"
     assert not dlg._system_btn.isHidden()
+
+
+def test_a_check_that_raises_still_finishes_and_can_run_again(setup, monkeypatch):
+    make, _restarts, root = setup
+    (root / "18.1.0" / "av").mkdir(parents=True)
+
+    def fail(*_args):
+        raise PermissionError("read-only data folder")
+    monkeypatch.setattr(pyav_vaapi, "find_system", fail)
+    monkeypatch.setattr(pyav_vaapi, "probe", fail)
+    dlg = make()
+    assert dlg._system_line.text() == "None installed" and "no longer works" in dlg._build_line.text()
+    monkeypatch.setattr(pyav_vaapi, "probe", lambda folder: (True, "18.1.0", ""))
+    dlg.check_again()
+    assert dlg._build_btn.text() == "Use it"
+
+
+def test_a_rebuild_waiting_for_the_next_start_counts_as_built(setup, monkeypatch):
+    make, _restarts, root = setup
+    (root / "18.1.0" / "av").mkdir(parents=True)
+    (root / ".ready-18.1.0" / "av").mkdir(parents=True)
+    probed = []
+    monkeypatch.setattr(pyav_vaapi, "probe", lambda folder: probed.append(folder) or (True, "18.1.0", ""))
+    dlg = make()
+    assert probed == [root / ".ready-18.1.0"] and dlg._build_btn.text() == "Use it"

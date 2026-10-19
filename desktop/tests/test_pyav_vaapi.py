@@ -125,3 +125,39 @@ def test_a_build_pins_cython_so_a_newer_one_cant_break_it(home, monkeypatch):
     assert pyav_vaapi.build("18.1.0", lambda line: None)[0] is False
     pins = Path(seen["env"]["PIP_CONSTRAINT"])
     assert pins.read_text().strip() == f"cython=={pyav_vaapi.BUILD_CYTHON}"
+
+
+def _fake_pip(monkeypatch):
+    class Done:
+        stdout, returncode = iter([]), 0
+
+        def __init__(self, cmd, **_kwargs):
+            (Path(cmd[cmd.index("--target") + 1]) / "av").mkdir(parents=True)
+
+        def wait(self):
+            pass
+    monkeypatch.setattr(pyav_vaapi.subprocess, "Popen", Done)
+    monkeypatch.setattr(pyav_vaapi, "probe", lambda f: (True, "18.1.0", ""))
+
+
+def test_rebuilding_the_build_in_use_waits_for_the_next_start(home, monkeypatch):
+    final = home / "18.1.0"
+    (final / "av").mkdir(parents=True)
+    (final / "av" / "old").touch()
+    monkeypatch.setattr(pyav_vaapi, "active", {"kind": "build", "version": "18.1.0", "path": str(final)})
+    _fake_pip(monkeypatch)
+    assert pyav_vaapi.build("18.1.0", lambda line: None) == (True, str(final))
+    assert (final / "av" / "old").exists() and (home / ".ready-18.1.0" / "av").is_dir()
+    pyav_vaapi.choose(pyav_vaapi.BUILD, final)
+    assert pyav_vaapi.activate()["path"] == str(final)
+    assert not (final / "av" / "old").exists() and not (home / ".ready-18.1.0").exists()
+
+
+def test_rebuilding_a_build_not_in_use_replaces_it_now(home, monkeypatch):
+    final = home / "18.1.0"
+    (final / "av").mkdir(parents=True)
+    (final / "av" / "old").touch()
+    _fake_pip(monkeypatch)
+    assert pyav_vaapi.build("18.1.0", lambda line: None) == (True, str(final))
+    assert (final / "av").is_dir() and not (final / "av" / "old").exists()
+    assert not (home / ".ready-18.1.0").exists()
