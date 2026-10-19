@@ -6,10 +6,11 @@ Runs this checkout's app offscreen with a copy of the dev profile, so pair the d
 
 Usage: python scripts/phone_check.py [--starts N] [--wifi-drop SECONDS] [--handover]
   --wifi-drop  streams over Wi-Fi and turns the phone's Wi-Fi off for that long over adb (needs the USB cable)
-  --handover   streams over Wi-Fi, then switches Connect via to USB and measures the gap (needs the USB cable)
+  --handover   starts on Automatic with USB hidden from discovery, then reveals it and checks seamless handover
 """
 
 import argparse
+import bisect
 import getpass
 import os
 import shutil
@@ -19,6 +20,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from unittest.mock import patch
 
 DESKTOP = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(DESKTOP))
@@ -104,7 +106,12 @@ class Check:
         return "USB" if "127.0.0.1" in url else "Wi-Fi"
 
     def longest_gap(self, since: float) -> float:
-        times = [t for t in self.frames if t >= since]
+        times = sorted(self.frames)
+        first = bisect.bisect_left(times, since)
+        times = times[max(0, first - 1):]
+        if not times:
+            times = [since]
+        times.append(time.monotonic())  # count a freeze that has not ended yet too
         return max((b - a for a, b in zip(times, times[1:])), default=0.0)
 
     def use_route(self, preference: str):
@@ -142,7 +149,7 @@ class Check:
         if args.wifi_drop:
             failed |= not self.wifi_drop(args.wifi_drop, ROUTE_WIFI)
         if args.handover:
-            failed |= not self.handover(ROUTE_WIFI, ROUTE_USB)
+            failed |= not self.handover()
         if args.wifi_drop or args.handover:
             self.use_route(ROUTE_AUTO)
         self.win.close()
@@ -177,15 +184,27 @@ class Check:
         self.stop()
         return came_back and not wrong
 
-    def handover(self, wifi_route: str, usb_route: str) -> bool:
-        self.use_route(wifi_route)
-        if not self.start():
-            print("Moving to USB: couldn't start over Wi-Fi")
-            return False
-        self.pump(3)
+    def handover(self) -> bool:
+        from telescope.phones import ROUTE_AUTO
+
+        # Keep the real cable connected. Only discovery is hidden, so this exercises the same watcher and
+        # parallel reader used when a cable is plugged in, without disconnecting adb or restarting video.
+        with patch.object(self.connection._resolver, "_adb_device_states", return_value=[]):
+            self.use_route(ROUTE_AUTO)
+            if not self.start():
+                print("Moving to USB: couldn't start over Wi-Fi")
+                return False
+            self.pump(3)
+            if self.route() != "Wi-Fi":
+                self.stop()
+                print("Moving to USB: didn't begin on Wi-Fi")
+                return False
+        worker, moves = self.worker, []
+        worker.moved.connect(moves.append)
         since = time.monotonic()
-        self.connection.set_route_preference(usb_route)
-        moved = self.pump(15, until=lambda: self.route() == "USB")
+        self.connection._watch_usb()
+        moved = self.pump(15, until=lambda: bool(moves))
+        moved = moved and self.worker is worker and self.route() == "USB"
         took = time.monotonic() - since
         self.pump(3)
         if moved:

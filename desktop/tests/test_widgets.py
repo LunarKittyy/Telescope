@@ -28,6 +28,14 @@ from telescope.widgets.common import (
 from telescope.widgets.lens_panel import LensPanel
 
 
+def test_empty_lenses_show_a_placeholder(qapp):
+    panel = LensPanel()
+    panel.load([])
+    assert panel.buttons() == []
+    assert panel._ph.text() == "No cameras available"
+    assert not panel._ph.isHidden()
+
+
 @pytest.mark.parametrize(
     "value,expected",
     [

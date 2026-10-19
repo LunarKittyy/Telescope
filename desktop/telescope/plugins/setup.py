@@ -890,12 +890,15 @@ class SetupPlugin(TelescopePlugin):
         return {}
 
     def _decoding(self) -> dict:
-        if not self._hw_decode:
-            return {"Decoding": "processor"}
-        if h264_reader.hardware_in_use():
-            return {"Decoding": f"graphics card ({h264_reader.hardware_device()})"}
-        reason = "it failed" if h264_reader.hardware_device() else "none found"
-        return {"Decoding": f"processor (graphics card on, {reason})"}
+        active = h264_reader.decoding_backends()
+        chosen = "graphics card" if self._hw_decode else "processor"
+        if not active:
+            return {"Decoding": f"not streaming ({chosen} selected)"}
+        text = ", ".join("processor" if b == "processor" else f"graphics card ({b})" for b in active)
+        if self._hw_decode != any(b != "processor" for b in active):
+            text += (" (graphics card failed; processor until restart)" if self._hw_decode and h264_reader.hardware_failed()
+                     else f" ({chosen} selected for the next connection)")
+        return {"Decoding": text}
 
     def get_config(self) -> dict:
         return {

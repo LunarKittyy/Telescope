@@ -650,11 +650,17 @@ class PhoneSource(Source):
         streaming over Wi-Fi). False if it can't try now; the Connection card hears how it went either way."""
         session = self.session
         conn = self._host.connection()
-        if session is None or session.worker is None or self.recovering or self._handover is not None or conn is None:
+        if session is None or self.recovering or self._handover is not None or conn is None:
             return False
         url = conn.prepare_stream_route(route, self.id)
         if url is None:
             return False
+        if session.worker is None:
+            # The resolver authenticated this route already. The audio worker opens it alongside the old audio;
+            # there is no video reader to wait for while the camera is off.
+            self._handover = (session.id, route, url)
+            self.on_moved(url)
+            return True
         if not session.worker.hand_over(url):
             conn.drop_stream_route(self.id)
             return False
@@ -670,7 +676,10 @@ class PhoneSource(Source):
         conn.commit_stream_route(self.id)
         session.client.retarget(url)  # the same client, so its settings carry on
         self._host.set_session(self, replace(session, url=url))
-        self._host.stream_moved(self)
+        if session.worker is None:
+            self._host.mic_reconnected(self)
+        else:
+            self._host.stream_moved(self)
 
     def on_move_failed(self, url: str):
         pending, self._handover = self._handover, None

@@ -178,7 +178,8 @@ def test_a_graphics_card_that_fails_hands_over_to_software_and_stays_out(hardwar
     dec = new_decoder()
     assert dec.hardware == "cuda"
     packets = _packets([60, 120, 180])
-    assert h264_reader.decode_counted(dec, packets[0]) == (None, 0)  # the failure costs this data, not the stream
+    frame, count = h264_reader.decode_counted(dec, packets[0])
+    assert frame is not None and count == 1  # retry the same input in software
     assert dec.hardware is None and h264_reader._hw_failed
     frame, count = h264_reader.decode_counted(dec, b"".join(packets))
     assert frame is not None and count == 3
@@ -199,3 +200,57 @@ def test_linux_tries_va_api_before_cuda_when_pyav_has_it(monkeypatch):
     assert h264_reader._hw_types() == ["vaapi", "cuda"]
     monkeypatch.setattr(av.codec.hwaccel, "hwdevices_available", lambda: ["cuda", "drm"])  # PyAV's own wheel
     assert h264_reader._hw_types() == ["cuda"]
+
+
+def test_failure_after_setup_recovers_at_an_idr_without_repeated_headers(hardware):
+    import re
+
+    class FailsLater:
+        options = {}
+        def __init__(self):
+            self.codec = h264_reader._software_codec()
+            self.calls = 0
+        def parse(self, data):
+            self.calls += 1
+            if self.calls == 2:
+                raise RuntimeError("driver failed after receiving setup")
+            return self.codec.parse(data)
+        def decode(self, packet):
+            return self.codec.decode(packet)
+
+    hardware.append(FailsLater())
+    decoder = new_decoder()
+    packets = _packets([60 + i for i in range(15)])
+    assert decode_newest(decoder, packets[0]) is not None
+    recovered = []
+    for packet in packets[1:]:
+        parts = re.split(b'(\x00\x00(?:\x00)?\x01)', packet)
+        without_headers = b''.join(parts[i] + parts[i + 1] for i in range(1, len(parts), 2)
+                                   if parts[i + 1] and parts[i + 1][0] & 31 not in (7, 8))
+        recovered.append(decode_newest(decoder, without_headers))
+    assert any(frame is not None for frame in recovered)
+    assert decoder.hardware is None
+
+
+def test_decoding_diagnostics_follow_the_live_decoder_not_the_next_preference(hardware):
+    hardware.append(h264_reader._software_codec())
+    decoder = new_decoder()
+    h264_reader.set_hardware(False)
+    assert decoder.hardware == "cuda"
+    assert "cuda" in h264_reader.decoding_backends()
+    assert h264_reader.hardware_in_use()
+
+
+def test_a_hardware_decoder_refusing_the_stream_falls_back_too(hardware):
+    class RefusesStream:
+        options = {}
+        def parse(self, data):
+            return [None]
+        def decode(self, packet):
+            raise av.error.InvalidDataError(22, "unsupported hardware format")
+
+    hardware.append(RefusesStream())
+    decoder = new_decoder()
+    frame, count = h264_reader.decode_counted(decoder, _encode([100]))
+    assert frame is not None and count == 1
+    assert decoder.hardware is None

@@ -383,6 +383,14 @@ def cap_baseline(fm: QFontMetrics, top: float, height: float) -> int:
     return round(top + (height + fm.capHeight()) / 2)
 
 
+def paint_focus(painter: QPainter, widget: QWidget):
+    """Keep keyboard focus visible on controls that paint over Qt's standard focus indicator."""
+    if widget.hasFocus():
+        painter.setPen(QPen(QColor(theme.ACCENT), 2))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRoundedRect(QRectF(widget.rect()).adjusted(2, 2, -2, -2), 7, 7)
+
+
 def stacked_baselines(top_fm: QFontMetrics, low_fm: QFontMetrics, top: float, height: float,
                       gap: float = 7) -> tuple:
     """Baselines for two lines read as one block (a value over its caption), the block centred in the band; gap is
@@ -416,6 +424,7 @@ class StatusPill(QFrame):
         self._fill.setAlphaF(0.12 if kind != "status_dim" else 0.06)
         self._edge.setAlphaF(0.25 if kind != "status_dim" else 0.15)
         self._value, self._note, self._icon_name = value, note, icon_name
+        self.setAccessibleName(" ".join(t for t in (value, note) if t))
         self.update()
 
     def value(self) -> str:
@@ -819,6 +828,8 @@ def control_row(label: str, widget, label_width: int = FORM_LABEL_WIDTH,
                 stretch: bool = False) -> QHBoxLayout:
     """Settings row: dim label, then the control starting at a shared column so label and value sit side by side."""
     stretch = stretch or isinstance(widget, Switch)  # a switch sits at the row's end
+    if label and isinstance(widget, QWidget) and not widget.accessibleName():
+        widget.setAccessibleName(label)
     lay = QHBoxLayout()
     lay.setContentsMargins(0, 0, 0, 0)
     lay.setSpacing(10)

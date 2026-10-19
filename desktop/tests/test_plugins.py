@@ -908,7 +908,7 @@ def test_hardware_decoding_is_off_unless_turned_on(setup_plugin, monkeypatch):
     assert plugin.get_config()["hw_decode"] is True and h264_reader._hw_wanted
     monkeypatch.setattr(h264_reader, "_hw_probed", True)
     monkeypatch.setattr(h264_reader, "_hw_found", None)
-    assert plugin.diagnostics() == {"Decoding": "processor (graphics card on, none found)"}
+    assert plugin.diagnostics() == {"Decoding": "not streaming (graphics card selected)"}
 
 
 def test_setup_plugin_apply_canvas_persists_and_reports_result(setup_plugin):

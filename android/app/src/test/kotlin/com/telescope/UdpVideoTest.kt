@@ -3,12 +3,77 @@ package com.telescope
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 import java.nio.ByteBuffer
 
 class UdpVideoTest {
     private val key = ByteArray(32) { it.toByte() }
     private fun hex(s: String) = s.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+
+    private class Session(authorized: () -> Boolean = { true }, timeoutMs: Long = 2000L) : java.io.Closeable {
+        val desktop = java.net.DatagramSocket(0, java.net.InetAddress.getLoopbackAddress())
+        private val listener = java.net.ServerSocket(0, 1, java.net.InetAddress.getLoopbackAddress())
+        private val session = java.net.Socket(java.net.InetAddress.getLoopbackAddress(), listener.localPort)
+        val client = UdpVideoClient(listener.accept(),
+            java.net.InetSocketAddress(java.net.InetAddress.getLoopbackAddress(), desktop.localPort),
+            stillAuthorized = authorized, feedbackTimeoutMs = timeoutMs, requestKeyFrame = {})
+        private val hello = client.hello()
+        private val key = java.util.Base64.getDecoder().decode(Regex("\"key\":\"([^\"]+)\"").find(hello)!!.groupValues[1])
+        private val port = Regex("\"port\":(\\d+)").find(hello)!!.groupValues[1].toInt()
+        private val out = UdpSeal(key, UdpWire.TO_PHONE)
+        val runner = Thread { client.run { null } }.apply { start() }
+
+        fun hello() {
+            val sealed = out.seal(byteArrayOf(UdpWire.HELLO))
+            desktop.send(java.net.DatagramPacket(sealed, sealed.size, java.net.InetAddress.getLoopbackAddress(), port))
+            val deadline = System.nanoTime() + 1_000_000_000L
+            while (!client.hasActiveViewer() && System.nanoTime() < deadline) Thread.sleep(5)
+            assertTrue(client.hasActiveViewer())
+        }
+
+        override fun close() {
+            client.close(); session.close(); desktop.close(); listener.close()
+            runner.join(2000)
+        }
+    }
+
+    @Test
+    fun `revoking pairing cuts off an existing udp session`() {
+        val authorized = java.util.concurrent.atomic.AtomicBoolean(true)
+        Session(authorized::get).use { session ->
+            session.hello()
+            authorized.set(false)
+            session.runner.join(1500)
+            assertFalse(session.runner.isAlive)
+            assertFalse(session.client.hasActiveViewer())
+        }
+    }
+
+    @Test
+    fun `a desktop that sends no feedback loses its session`() {
+        Session(timeoutMs = 100L).use { session ->
+            session.runner.join(1000)
+            assertFalse(session.runner.isAlive)
+        }
+    }
+
+    @Test
+    fun `udp viewers count as watching and close with the h264 encoder`() {
+        Session().use { session ->
+            session.hello()
+            val server = MjpegServer(0, { "{}" }, { "{}" }, tokens = { listOf("secret") })
+            val field = MjpegServer::class.java.getDeclaredField("udpClients").apply { isAccessible = true }
+            @Suppress("UNCHECKED_CAST")
+            (field.get(server) as MutableList<UdpVideoClient>).add(session.client)
+            assertTrue(server.hasActiveViewer())
+            server.closeH264Clients()
+            assertFalse(server.hasActiveViewer())
+            session.runner.join(1500)
+            assertFalse(session.runner.isAlive)
+        }
+    }
 
     @Test
     fun `seals exactly like the desktop expects`() {

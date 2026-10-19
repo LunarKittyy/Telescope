@@ -86,6 +86,8 @@ class UdpSeal(key: ByteArray, private val direction: Byte) {
 class UdpVideoClient(
     private val socket: Socket,
     peer: InetSocketAddress,
+    private val stillAuthorized: () -> Boolean = { true },
+    private val feedbackTimeoutMs: Long = FEEDBACK_TIMEOUT_MS,
     private val requestKeyFrame: () -> Unit,
 ) {
     private val key = UdpSeal.newKey()
@@ -101,6 +103,12 @@ class UdpVideoClient(
     @Volatile private var waitingForKey = true
     private var frameSeq = 0
     private var lastKeyAskMs = 0L
+    @Volatile private var lastFeedbackMs = 0L
+    private val openedAtMs = nowMs()
+
+    fun hasActiveViewer(): Boolean = !closed && lastFeedbackMs != 0L && nowMs() - lastFeedbackMs < feedbackTimeoutMs
+
+    private fun nowMs(): Long = System.nanoTime() / 1_000_000
 
     // The first line of the reply: what the desktop needs to listen and decrypt
     fun hello(): String =
@@ -125,10 +133,10 @@ class UdpVideoClient(
         val feedback = Thread({ feedbackLoop() }, "udp-video-feedback").apply { start() }
         try {
             val stream: OutputStream = socket.getOutputStream()
-            while (!closed) {
+            while (!closed && stillAuthorized() && nowMs() - maxOf(openedAtMs, lastFeedbackMs) < feedbackTimeoutMs) {
                 stream.write('\n'.code)  // a desktop that went away shows up as a failed write
                 stream.flush()
-                Thread.sleep(KEEPALIVE_MS)
+                Thread.sleep(minOf(KEEPALIVE_MS, feedbackTimeoutMs))
             }
         } catch (_: Exception) {
         } finally {
@@ -158,10 +166,12 @@ class UdpVideoClient(
         try {
             udp.soTimeout = 1000
             while (!closed) {
+                packet.length = buf.size
                 try { udp.receive(packet) } catch (_: java.net.SocketTimeoutException) { continue }
                 val from = packet.socketAddress as? InetSocketAddress ?: continue
                 if (from.address != peer.address) continue
                 val plain = back.open(buf, packet.length) ?: continue
+                lastFeedbackMs = nowMs()
                 peer = from  // the desktop's port as its router sees it
                 handle(plain)
             }
@@ -202,6 +212,7 @@ class UdpVideoClient(
         const val QUEUE = 8              // frames waiting to go out; more and the link (or the phone) is stuck
         const val KEEP_FRAMES = 90       // about three seconds at 30 fps for a NACK to ask for again
         const val KEEPALIVE_MS = 1000L
+        const val FEEDBACK_TIMEOUT_MS = 5_000L
         const val KEY_ASK_GAP_MS = 300L  // one keyframe per this, however many a lossy link asks for
     }
 }

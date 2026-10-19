@@ -483,6 +483,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._active_key: Optional[str] = None
         self._route_pref = ROUTE_AUTO
         self._udp = False  # experimental H.264 over UDP on Wi-Fi
+        self._transport_udp = False
         self._udp_cb = None
         self._pending_route: Optional[str] = None  # a Connect via choice checked before the stream moves to it
         self._route_probe_id = 0
@@ -523,6 +524,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._update_note: Optional[tuple] = None  # (kind, text) from the last phone update
         bus.stream_connected.connect(self._on_stream_connected)
         bus.stream_lost.connect(self._on_stream_lost)
+        bus.stream_transport_changed.connect(self._refresh_transport)
         bus.add_phone_requested.connect(self.open_add_phone)
         self._sources: list = []  # [(id, name)] of the StreamSources other plugins offer (Browser camera)
         bus.stream_sources_changed.connect(self._on_sources)
@@ -665,7 +667,8 @@ class ConnectionPlugin(TelescopePlugin):
 
         self._udp_cb = Switch("")
         self._udp_cb.setChecked(self._udp)
-        self._udp_cb.setToolTip("Can smooth out lag spikes on busy Wi-Fi but doesn't work with Dynamic or Heavy yet.")
+        self._udp_cb.setToolTip("Tries UDP to smooth out lag spikes on busy Wi-Fi, falling back to TCP. Changing this reconnects the stream. Dynamic and Heavy use TCP.")
+        self._udp_cb.setAccessibleName("UDP on Wi-Fi")
         self._udp_cb.toggled.connect(self._on_udp)
         self._udp_row = QWidget()
         udp_lay = QHBoxLayout(self._udp_row)
@@ -1173,6 +1176,15 @@ class ConnectionPlugin(TelescopePlugin):
             return
         self._udp = on
         self._host.schedule_save()
+        self._refresh_transport()
+
+    def _refresh_transport(self):
+        route = self._stream_route
+        if not self._streaming or route is None or route.kind != "wifi" or self._video_path() != "/v1/video.h264":
+            return
+        wants_udp = self._path_for(route, "/v1/video.h264").endswith(".udp")
+        if wants_udp != self._transport_udp:
+            self._host.reconnect_stream()
 
     def _path_for(self, route: Route, path: str) -> str:
         """The H.264 path over UDP where it applies: Wi-Fi, switched on, and not Dynamic (which measures TCP's queue)."""
@@ -1362,6 +1374,7 @@ class ConnectionPlugin(TelescopePlugin):
         }.get(error or "", f"The phone refused to start streaming ({error or 'unknown error'}).")
 
     def on_stream_start(self, stream_url: str, ctrl):
+        self._transport_udp = stream_url.endswith(".udp")
         if not self._streaming:  # also called after an auto-reconnect; that isn't a fresh start
             self._connected = False
         self._streaming = True
@@ -1436,7 +1449,8 @@ class ConnectionPlugin(TelescopePlugin):
         if self._switch_usb_row.isVisible() or time.monotonic() - self._usb_sat_out < _USB_SIT_OUT_S:
             return  # it just failed: the button's there to try by hand
         # Opens next to the Wi-Fi stream and moves once it's healthy; Wi-Fi only closes then
-        self._host.hand_over_stream(route, self._selected_id)
+        if not self._host.hand_over_stream(route, self._selected_id):
+            self._switch_usb_row.setVisible(True)
 
     def _switch_to_usb(self):
         self._switch_usb_row.setVisible(False)

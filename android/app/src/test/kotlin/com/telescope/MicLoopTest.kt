@@ -88,4 +88,20 @@ class MicLoopTest {
     private companion object {
         const val AudioRecordErrorDeadObject = -6  // AudioRecord.ERROR_DEAD_OBJECT
     }
+
+    @Test
+    fun `stop before the recording thread starts still releases the first recording`() {
+        val source = Fake(1, null)
+        val loop = MicLoop(open = { error("shouldn't reopen") }, onChunk = {}, active = AtomicBoolean(false))
+        loop.run(source)
+        assertTrue(source.stopped && source.released)
+    }
+
+    @Test
+    fun `a failed chunk consumer cannot hold the microphone`() {
+        val source = Fake(1, null)
+        val loop = MicLoop(open = { null }, onChunk = { error("consumer failed") }, active = AtomicBoolean(true))
+        runCatching { loop.run(source) }
+        assertTrue(source.stopped && source.released)
+    }
 }

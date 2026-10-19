@@ -420,6 +420,7 @@ class TransformsPlugin(TelescopePlugin):
         rot_grp = QButtonGroup(card)
         for name, text in _ROTATION_SEGMENTS:
             btn = SegmentButton(text)
+            btn.setProperty("shortcutValue", name)
             btn.clicked.connect(lambda _c=False, n=name: self._rot_combo.setCurrentText(n))
             rot_grp.addButton(btn)
             self._rot_segs[name] = btn
@@ -479,15 +480,15 @@ class TransformsPlugin(TelescopePlugin):
         actions = [
             button_action("transforms.flip_horizontal", "Flip horizontal", g, self._flip_h),
             button_action("transforms.flip_vertical", "Flip vertical", g, self._flip_v),
-            choice_action("transforms.rotation", "Rotation", g, combo=self._rot_combo),
+            choice_action("transforms.rotation", "Rotation", g, buttons=list(self._rot_segs.values())),
             slider_action("transforms.zoom", "Zoom", g, self._zoom_slider, scale=0.01, suffix="×", decimals=2,
                           step=0.25, readout=self._zoom_val_lbl),
             slider_action("transforms.pan_x", "Pan left/right", g, self._pan_x_slider.slider(), scale=0.5,
                           suffix="%", step=10.0, readout=self._pan_x_lbl, signed=True,
-                          widgets=(self._pan_x_slider,)),
+                          widgets=(self._pan_pad,), ready_widget=self._pan_pad),
             slider_action("transforms.pan_y", "Pan up/down", g, self._pan_y_slider.slider(), scale=0.5,
                           suffix="%", step=10.0, readout=self._pan_y_lbl, signed=True,
-                          widgets=(self._pan_y_slider,)),
+                          widgets=(self._pan_pad,), ready_widget=self._pan_pad),
             button_action("transforms.reset", "Reset transforms", g, self._reset_btn),
         ]
         keywords = {"transforms.flip_horizontal": "mirror", "transforms.flip_vertical": "mirror upside down",

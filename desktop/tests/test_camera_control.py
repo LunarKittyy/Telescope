@@ -302,7 +302,8 @@ def test_capability_line_names_only_what_the_lens_supports(camera_plugin):
         "hasOis": False,
     })
 
-    assert plugin._cam_info_lbl.isHidden()  # no manual white balance, so not full manual control
+    assert not plugin._cam_info_lbl.isHidden()
+    assert plugin._cam_info_lbl.text() == "Camera details"
     tip = plugin._cam_info_lbl.toolTip()
     assert "Camera level: Level 3" in tip and "Supports: Manual exposure, Manual focus" in tip
     assert "Not supported: Manual WB, Point focus, OIS" in tip
@@ -317,6 +318,15 @@ def test_capability_line_is_rebuilt_not_appended(camera_plugin):
 
     assert plugin._cam_info_lbl.text() == "Full manual control"
     assert plugin._cam_info_lbl.toolTip().count("Supports:") == 1
+
+
+def test_saved_point_focus_shortcuts_accept_the_previous_name(camera_plugin):
+    plugin, _host, bus, _panel = camera_plugin
+    bus.phones_changed.emit(1)
+    plugin._rb_focus_point.setEnabled(True)
+    action = next(a for a in plugin.create_actions() if a.id == "camera.focus_mode")
+    assert action.run(action.full_params({"op": "set", "option": "Point"})) is not None
+    assert plugin._rb_focus_point.isChecked()
 
 
 def test_unknown_hardware_level_passes_through_verbatim(camera_plugin):

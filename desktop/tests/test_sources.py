@@ -129,6 +129,21 @@ def _probe(source, host, res):
     source.lost()
 
 
+def test_mic_only_session_can_hand_over_to_usb(phone):
+    source, host = phone
+    source.camera_off = True
+    route = Route("usb", "127.0.0.1", "serial")
+    moved = "https://127.0.0.1:12345/v1/video.h264"
+    committed = []
+    host.conn.prepare_stream_route = lambda r, sid: moved
+    host.conn.commit_stream_route = committed.append
+    source.session.client.retarget = lambda url: setattr(source.session.client, "base", url.rsplit("/", 1)[0])
+    assert source.hand_over(route)
+    assert source.session.url == moved and source.session.worker is None
+    assert committed == [source.id]
+    assert ("mic_back", source.id) in host.calls
+
+
 def test_the_window_offers_every_call_a_source_makes():
     wanted = {name for name, _ in inspect.getmembers(SourceHost, inspect.isfunction) if not name.startswith("_")}
     offered = {name for name, _ in inspect.getmembers(app_module._SourceHost, inspect.isfunction)}

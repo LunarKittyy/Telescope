@@ -115,6 +115,17 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 - [ ] Browser camera, Windows: the firewall prompt (or a rule) lets port 8767 through, and picking a phone again stops the server.
 - [ ] Wait screen: with nothing streaming, apps see the default screen, then a chosen image and a GIF; Mirror flips it. Starting and stopping a stream while a call has the camera open keeps the picture in the call.
 
+### Stream recovery and controls
+
+- [ ] UDP, mic off: the phone says Streaming. Remove the computer on the phone: its video stops within a second. A lost desktop releases its UDP session within 5 seconds.
+- [ ] UDP to Dynamic and the UDP switch both reconnect onto the right transport; changing to Heavy leaves no UDP session behind.
+- [ ] Automatic routing, mic only: plugging in USB moves the microphone too. Rapid mic off/on leaves no recording held.
+- [ ] Hardware decoding: a driver failure resumes in software without missing setup headers; Copy diagnostics reflects the decoder still running if the preference changes mid-stream.
+- [ ] Auto level: beginning in silence or recovering from a gap does not turn up steady room noise.
+- [ ] Tab through the tiles and switches, use rotation/pan shortcuts saved before this release, pan with arrow keys and Home, and inspect labels with a screen reader.
+- [ ] FrameGate on a real phone: compare orientation and crop with the direct encoder path across lenses and landscape/portrait sizes.
+- [ ] Idle phone app: screen timeout works. During streaming/preview it stays awake; USB-only viewers hold no Wi-Fi performance lock.
+
 ### Plugins
 
 Make a `.zip` of `desktop/examples/plugins/black_and_white` (the folder itself inside it) to try these with.
