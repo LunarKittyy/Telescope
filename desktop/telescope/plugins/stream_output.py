@@ -4,7 +4,7 @@ import urllib.parse
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QBrush, QColor
 from PyQt6.QtWidgets import (
-    QApplication, QButtonGroup, QHBoxLayout, QStyle, QStyledItemDelegate, QStyleOptionViewItem, QWidget,
+    QApplication, QButtonGroup, QHBoxLayout, QStyle, QStyleOptionViewItem, QWidget,
 )
 
 from telescope import h264_reader
@@ -13,7 +13,7 @@ from telescope.shortcuts import choice_action, slider_action
 from telescope.theme import OK, WARN
 from telescope.widgets.banner import BannerAction, Issue
 from telescope.widgets.common import (
-    NoScrollSlider, add_card_header, control_row_widget, card_layout, create_card, dim_until_paired, quality_label,
+    ComboItemDelegate, NoScrollSlider, add_card_header, control_row_widget, card_layout, create_card, dim_until_paired, quality_label,
     slider_row, value_label,
 )
 from telescope.widgets.controls import ChoiceTile, OptionCard, option_row
@@ -53,7 +53,7 @@ _AR_COMMON_COLOR = QColor(WARN)  # Aspect ratios that contain a common resolutio
 _WEAK_WIFI_DBM = -70  # at or under this the signal, not the network, is what holds a stream back
 
 
-class _ColoredItemDelegate(QStyledItemDelegate):
+class _ColoredItemDelegate(ComboItemDelegate):
     """Paints item text by hand - the app's QSS overrides Qt::ForegroundRole otherwise."""
 
     def paint(self, painter, option, index):
@@ -81,6 +81,7 @@ class _ColoredItemDelegate(QStyledItemDelegate):
         text_rect = style.subElementRect(QStyle.SubElement.SE_ItemViewItemText, opt, widget)
         painter.drawText(text_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), text)
         painter.restore()
+        self.paint_tick(painter, option, index)
 
 
 def _size_label(w: int, h: int) -> str:

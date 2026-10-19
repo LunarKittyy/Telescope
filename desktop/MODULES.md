@@ -64,6 +64,7 @@ The app's entire visual definition: palette constants (`BG`, `SURFACE`, `ACCENT`
 - `PLUGIN_HUES` - each card's own colour, by name. `hue(name)` gives it, or `ACCENT` for an unknown name or once `set_plugin_hues(False)` turned them off (Advanced, **Card colours**).
 - `apply_theme(app)` - sets Fusion as the base style, installs the palette, applies the QSS. A no-op once installed, since re-applying repolishes every live widget.
 - Tooltips: show after `TIP_WAKE_MS` (250 ms, Qt's is 700), wrap at about `TIP_LINE_CHARS` (64) characters, and stay up while the mouse is still on their control. `_PopupStyle` does it with a style hint and one event filter on Qt's single tooltip window (`_TipFilter`), not an app-wide filter.
+- Focus: `keyboard_focus(widget)` is true only when focus came from the keyboard (Qt clears it on the next click), and `focus_ring()` is the ring every control draws then, white on filled ones. `_PopupStyle` swaps Fusion's square box on buttons for it and gives every dialog `_TabOrderFilter`, which tabs in reading order.
 - No image files and no third-party theme: icons are inline SVG rendered by `create_vector_icon()`, and controls that need a custom look (segmented toggles, card actions, the preview stage) are targeted by object name or property selector.
 - The layout rules every panel and dialog follows (type scale, control column, button roles) are written at the top of `widgets/common.py`.
 
@@ -279,6 +280,8 @@ Reusable Qt widgets and helpers used across multiple panels:
 - `action_button()`, `button_row()`, `dialog_layout()`, `dialog_header()`, `dialog_buttons()`, `wrapped_note()` / `WrapLabel` - dialog kit. `WrapLabel` measures its text on every resize and text change and pins its minimum height to that, so wrapped text is never clipped and never keeps stale space.
 - `icon_button(icon, name, tooltip)` - a small square button with only a line icon; `name` is what a screen reader says.
 - `host_window(host)` - the main window to parent a plugin's own window on, so it stays above it (None for a test's stand-in host).
+- `reading_order(root)` / `tab_in_reading_order(root, forward)` - Tab follows the layouts (top to bottom, left to right), not the order widgets were made, and stops on every option of a pick-one group. The main window's `focusNextPrevChild` calls it; dialogs get it from `theme`.
+- `NoScrollComboBox` draws its list with `ComboItemDelegate`: items styled by the stylesheet, so the arrow keys show where they are, and a tick on the picked one.
 - `ElidingLabel` (one line, cut with … to fit), `FlowLayout` (wraps its items like text), `StatusPill` (icon, value and a note, tinted by how it's doing), and `OptionButton` (a segment with a short note under its name).
 - `set_status_kind(label, kind)` / `set_ui_role(widget, role)` - switch QSS roles and re-polish (a bare `setObjectName()` leaves the old colour).
 - `run_off_ui_thread(fn, *args)` - run a blocking call (adb) on a worker thread while the window keeps repainting; used by every GUI-thread adb call.

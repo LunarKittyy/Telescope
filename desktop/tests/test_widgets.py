@@ -486,3 +486,89 @@ def test_a_tag_measures_itself_in_the_themes_font_not_the_systems(qapp):
     host.show()
     qapp.processEvents()
     assert tag.width() == tag.sizeHint().width() and tag.width() > 120  # follows the bigger styled font
+
+
+def test_focus_ring_shows_after_tab_and_not_after_a_click(qapp):
+    from PyQt6.QtTest import QTest
+    from PyQt6.QtWidgets import QPushButton, QVBoxLayout
+    from telescope import theme
+    from telescope.widgets.common import NoScrollComboBox, Switch
+    window = QWidget()
+    lay = QVBoxLayout(window)
+    first, combo, switch = QPushButton("First"), NoScrollComboBox(), Switch("Check daily")
+    for w in (first, combo, switch):
+        lay.addWidget(w)
+    window.show()
+    QTest.qWaitForWindowExposed(window)
+    first.setFocus()
+    QTest.keyClick(first, Qt.Key.Key_Tab)
+    assert combo.hasFocus() and theme.keyboard_focus(combo)
+    QTest.mouseClick(switch, Qt.MouseButton.LeftButton)
+    assert switch.hasFocus() and not theme.keyboard_focus(switch)
+    window.close()
+
+
+def test_tab_follows_the_layout_not_the_order_widgets_were_made(qapp):
+    from PyQt6.QtTest import QTest
+    from PyQt6.QtWidgets import QHBoxLayout, QPushButton, QVBoxLayout
+    from telescope.widgets.common import reading_order, tab_in_reading_order
+    window = QWidget()
+    lay = QVBoxLayout(window)
+    bitrate, light, heavy, fps = (QPushButton(t) for t in ("Bitrate", "Light", "Heavy", "Frame rate"))
+    row = QHBoxLayout()
+    row.addWidget(light)
+    row.addWidget(heavy)
+    lay.addWidget(fps)
+    lay.addLayout(row)
+    lay.addWidget(bitrate)
+    hidden = QPushButton("Hidden", window)
+    hidden.hide()
+    window.show()
+    window.activateWindow()
+    QTest.qWaitForWindowActive(window)
+    assert reading_order(window) == [fps, light, heavy, bitrate]
+    fps.setFocus()
+    tab_in_reading_order(window, True)
+    assert light.hasFocus()
+    tab_in_reading_order(window, False)
+    tab_in_reading_order(window, False)
+    assert bitrate.hasFocus()
+    window.close()
+
+
+def test_tab_in_a_dialog_stops_on_every_option_of_a_group(qapp):
+    from PyQt6.QtTest import QTest
+    from PyQt6.QtWidgets import QButtonGroup, QDialog, QPushButton, QVBoxLayout
+    dialog = QDialog()
+    lay = QVBoxLayout(dialog)
+    group = QButtonGroup(dialog)
+    options = [QPushButton(t) for t in ("+12 dB", "+24 dB", "+36 dB")]
+    for button in options:
+        button.setCheckable(True)
+        group.addButton(button)
+        lay.addWidget(button)
+    options[0].setChecked(True)
+    close = QPushButton("Close")
+    lay.addWidget(close)
+    dialog.show()
+    dialog.activateWindow()
+    QTest.qWaitForWindowActive(dialog)
+    QTest.qWait(20)
+    options[0].setFocus()
+    walked = []
+    for _ in range(3):
+        QTest.keyClick(qapp.focusWidget(), Qt.Key.Key_Tab)
+        walked.append(qapp.focusWidget())
+    assert walked == [options[1], options[2], close]
+    dialog.close()
+
+
+def test_dropdown_ticks_the_picked_item_and_keeps_its_divider_thin(qapp):
+    from PyQt6.QtWidgets import QStyleOptionViewItem
+    from telescope.widgets.common import ComboItemDelegate, NoScrollComboBox
+    combo = NoScrollComboBox()
+    combo.addItems(["Phone", "Browser camera"])
+    combo.insertSeparator(1)
+    delegate = combo.itemDelegate()
+    assert isinstance(delegate, ComboItemDelegate)
+    assert delegate.sizeHint(QStyleOptionViewItem(), combo.model().index(1, 0)).height() < 12

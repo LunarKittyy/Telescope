@@ -1,8 +1,10 @@
 """Telescope's visual theme: palette tokens, QSS stylesheet, and theme application."""
 
-from PyQt6.QtCore import QEvent, QObject, Qt
-from PyQt6.QtGui import QColor, QCursor, QFont, QFontDatabase, QPalette
-from PyQt6.QtWidgets import QApplication, QMenu, QProxyStyle, QStyle, QWidget
+from PyQt6.QtCore import QEvent, QObject, QRectF, Qt, QTimer
+from PyQt6.QtGui import QColor, QCursor, QFont, QFontDatabase, QPainter, QPalette, QPen
+from PyQt6.QtWidgets import (
+    QApplication, QDialog, QKeySequenceEdit, QMenu, QPlainTextEdit, QPushButton, QProxyStyle, QStyle, QTextEdit, QWidget,
+)
 
 # ── Palette ───────────────────────────────────────────────────────────────────
 # Surfaces run darkest-to-lightest: the window canvas sits *behind* the
@@ -282,6 +284,19 @@ QComboBox QAbstractItemView {{
     selection-background-color: {FILL};
     selection-color: #ffffff;
 }}
+QComboBox QAbstractItemView::item {{
+    min-height: 26px;
+    padding: 0 30px 0 8px;  /* the right side keeps room for the picked item's tick */
+    border-radius: 5px;
+    color: {TEXT};
+}}
+QComboBox QAbstractItemView::item:hover {{
+    background-color: {SURFACE_HOVER};
+}}
+QComboBox QAbstractItemView::item:selected {{
+    background-color: {FILL};
+    color: #ffffff;
+}}
 QLineEdit, QTextEdit, QSpinBox, QDoubleSpinBox {{
     min-height: 30px;
     padding: 0 10px;
@@ -300,7 +315,7 @@ QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {{
 QComboBox:hover, QLineEdit:hover, QSpinBox:hover, QDoubleSpinBox:hover {{
     border-color: {BORDER_HOVER};
 }}
-QLineEdit:focus, QTextEdit:focus, QComboBox:focus,
+QLineEdit:focus, QTextEdit:focus,
 QSpinBox:focus, QDoubleSpinBox:focus {{
     color: #ffffff;
     border: 1px solid {ACCENT};
@@ -875,6 +890,35 @@ def _tip_owner(widget):
     return widget
 
 
+class _TabOrderFilter(QObject):
+    """Tab in a dialog goes in reading order (widgets.common.tab_in_reading_order), as in the main window, and stops on
+    every option of a group rather than Qt's one per group. Watches the dialog's controls, redone as its layout changes."""
+
+    def __init__(self, dialog: QDialog):
+        super().__init__(dialog)
+        self._timer = QTimer(self)
+        self._timer.setSingleShot(True)
+        self._timer.timeout.connect(self._watch)
+
+    def eventFilter(self, obj, event):
+        kind = event.type()
+        if obj is self.parent():
+            if kind in (QEvent.Type.Show, QEvent.Type.LayoutRequest):
+                self._timer.start(0)
+        elif (kind == QEvent.Type.KeyPress and event.key() in (Qt.Key.Key_Tab.value, Qt.Key.Key_Backtab.value)
+              and not event.modifiers() & Qt.KeyboardModifier.ControlModifier
+              and not isinstance(obj, (QKeySequenceEdit, QTextEdit, QPlainTextEdit))):  # these take Tab as input
+            from telescope.widgets.common import tab_in_reading_order  # common imports this module
+            return tab_in_reading_order(self.parent(), event.key() == Qt.Key.Key_Tab.value
+                                        and not event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+        return False
+
+    def _watch(self):
+        from telescope.widgets.common import reading_order
+        for widget in reading_order(self.parent()):
+            widget.installEventFilter(self)  # installing it again is a no-op
+
+
 class _TipFilter(QObject):
     """On Qt's one tooltip window only: wraps long text instead of one line across the screen, and keeps the tip up
     while the mouse is still on what it's about (Qt hides it after a few seconds regardless)."""
@@ -915,6 +959,21 @@ class _TipFilter(QObject):
             self._wrapping = False
 
 
+def keyboard_focus(widget: QWidget) -> bool:
+    """Whether to ring this widget: it has focus and got there by keyboard. Qt clears the flag on the next click."""
+    return widget.hasFocus() and widget.window().testAttribute(Qt.WidgetAttribute.WA_KeyboardFocusChange)
+
+
+def focus_ring(painter: QPainter, rect: QRectF, radius: float = 7, filled: bool = False):
+    """The one focus ring every control draws, laid over its own 1px border. filled: white, to show on a FILL control."""
+    painter.save()
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(QPen(QColor("#ffffff" if filled else ACCENT), 1.5))
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+    painter.drawRoundedRect(rect.adjusted(0.75, 0.75, -0.75, -0.75), radius, radius)
+    painter.restore()
+
+
 class _PopupStyle(QProxyStyle):
     """Fusion, but menus and tooltips get a see-through window, so the stylesheet's rounded border isn't drawn over
     square corners. Tooltips also show sooner, wrap, and stay while hovered (_TipFilter)."""
@@ -932,7 +991,18 @@ class _PopupStyle(QProxyStyle):
             arg.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
             if arg.inherits("QTipLabel"):
                 arg.installEventFilter(self._tip_filter)  # the one tooltip window Qt reuses for every tip
+        if isinstance(arg, QDialog) and not arg.findChild(_TabOrderFilter):
+            arg.installEventFilter(_TabOrderFilter(arg))
         return super().polish(arg)
+
+    def drawPrimitive(self, element, option, painter, widget=None):
+        # Fusion boxes a button's label in a square; ring the whole button instead, like every other control
+        if element == QStyle.PrimitiveElement.PE_FrameFocusRect and isinstance(widget, QPushButton):
+            if option.state & QStyle.StateFlag.State_KeyboardFocusChange:
+                filled = widget.isChecked() or widget.property("uiRole") in ("primary", "success", "danger")
+                focus_ring(painter, QRectF(widget.rect()), filled=filled)
+            return
+        super().drawPrimitive(element, option, painter, widget)
 
     def styleHint(self, hint, option=None, widget=None, returnData=None):
         if hint == QStyle.StyleHint.SH_ToolTip_WakeUpDelay:
