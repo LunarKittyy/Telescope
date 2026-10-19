@@ -25,7 +25,7 @@ Phones and connection, Advanced settings and Updates can't be switched off becau
 Plugins people share come as a `.zip` file. To install one:
 
 1. Open **Plugins…** from the settings menu.
-2. Click **Install plugin…** and pick the `.zip` (or drag the file onto the Plugins window).
+2. Click **Install** under **Added** and pick the `.zip` (or drag the file onto the Plugins window).
 3. Tick it under **Added** (new plugins start out switched off).
 4. Click **Restart now**.
 
@@ -45,7 +45,7 @@ If an added plugin won't switch on, the dialog shows why under its name. The usu
 | It needs a newer Telescope | The plugin was made for a newer version. Update Telescope. |
 | It was made for an older Telescope | Telescope changed in a way the plugin doesn't know about yet. Ask its author for an update. |
 | A plugin that comes with Telescope already has that name | Two plugins can't share a name. The plugin needs renaming. |
-| Other users on this computer could change it | Someone else on this computer can change its files, which makes running it unsafe. Fix the folder's permissions or install it again with **Install plugin…**. |
+| Other users on this computer could change it | Someone else on this computer can change its files, which makes running it unsafe. Fix the folder's permissions or install it again with **Install**. |
 | It contains a link to somewhere else | Plugins have to be plain files and folders. |
 | It contains compiled code | Plugins have to be Python source code that people can read, without `.pyc`, `.so` or `.pyd` files. |
 
@@ -183,4 +183,4 @@ black_and_white.zip
     └── __init__.py
 ```
 
-Bump `version` in `plugin.json` whenever you share a new one. People install it with **Install plugin…** and have to switch your plugin on again after each update.
+Bump `version` in `plugin.json` whenever you share a new one. People install it with **Install** in **Plugins…** and have to switch your plugin on again after each update.
