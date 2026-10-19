@@ -1,7 +1,7 @@
 """Telescope's visual theme: palette tokens, QSS stylesheet, and theme application."""
 
 from PyQt6.QtCore import QEvent, QObject, Qt
-from PyQt6.QtGui import QColor, QCursor, QFont, QPalette
+from PyQt6.QtGui import QColor, QCursor, QFont, QFontDatabase, QPalette
 from PyQt6.QtWidgets import QApplication, QMenu, QProxyStyle, QStyle, QWidget
 
 # ── Palette ───────────────────────────────────────────────────────────────────
@@ -46,6 +46,13 @@ def set_plugin_hues(on: bool):
     """Off puts every card back in ACCENT, for anyone who'd rather have the whole window purple."""
     global _own_hues
     _own_hues = on
+
+
+def use_mono(widget):
+    """The system's fixed-width font on widget, for a command to copy (the app stylesheet's own font wins over setFont,
+    and a family list there falls back to Inter when none of them is installed)."""
+    family = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
+    widget.setStyleSheet(f"font-family: '{family}';")
 
 
 def plugin_hues_on() -> bool:
@@ -606,6 +613,10 @@ QPushButton#card_action:hover {{
     border-color: {BORDER_HOVER};
     color: {TEXT};
 }}
+QPushButton#card_action:disabled {{
+    color: {TEXT_FAINT};
+    border-color: {BORDER};
+}}
 QPushButton#card_action[muted=true] {{
     border-color: #5a3134;
     color: {ERR};
@@ -635,9 +646,8 @@ QLabel#banner_title {{
 QLabel#banner_text {{
     color: {TEXT_DIM};
 }}
-QLabel#banner_details {{
+QLabel#banner_details, QLabel#command, QFrame#setting_row QLabel#command {{
     color: {TEXT};
-    font-family: 'JetBrains Mono', 'Cascadia Mono', 'DejaVu Sans Mono', monospace;
     background-color: rgba(0, 0, 0, 0.25);
     border-radius: 6px;
     padding: 6px 8px;

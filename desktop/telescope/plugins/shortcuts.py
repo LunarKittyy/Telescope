@@ -20,11 +20,11 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from PyQt6.QtCore import QEvent, QObject, QPoint, QSize, Qt, QTimer
+from PyQt6.QtCore import QEvent, QObject, QPoint, Qt, QTimer
 from PyQt6.QtGui import QAction, QGuiApplication, QKeySequence
 from PyQt6.QtWidgets import (
-    QAbstractSpinBox, QApplication, QComboBox, QDialog, QHBoxLayout, QKeySequenceEdit, QLabel,
-    QLineEdit, QListWidget, QListWidgetItem, QMenu, QPlainTextEdit, QPushButton, QTextEdit, QVBoxLayout, QWidget,
+    QAbstractSpinBox, QApplication, QComboBox, QDialog, QFrame, QHBoxLayout, QKeySequenceEdit, QLabel,
+    QLineEdit, QMenu, QPlainTextEdit, QPushButton, QTextEdit, QVBoxLayout, QWidget,
 )
 
 from telescope import dev_profile
@@ -37,9 +37,11 @@ from telescope.shortcuts import (
 )
 from telescope.widgets.common import (
     Switch,
-    ElidingLabel, NoScrollComboBox, NoScrollDoubleSpinBox, action_button, button_row, control_row,
+    ElidingLabel, NoScrollComboBox, NoScrollDoubleSpinBox, control_row,
     control_row_widget, dialog_buttons, dialog_header, dialog_layout, set_ui_role, ui_px, wrapped_note,
+    add_card_header, card_action, card_layout, create_card, host_window, icon_button,
 )
+from telescope.widgets.controls import fit_height, setting_row, window_frame
 
 logger = logging.getLogger(__name__)
 
@@ -514,7 +516,7 @@ class ShortcutsPlugin(TelescopePlugin):
 
     def open_dialog(self):
         if self._dlg is None:
-            self._dlg = ShortcutsDialog(self)
+            self._dlg = ShortcutsDialog(self, host_window(self._host))
         self._dlg.refresh()
         self._dlg.show()
         self._dlg.raise_()
@@ -656,95 +658,107 @@ def _inside_key_editor(widget: QWidget) -> bool:
 
 # ── Dialogs ───────────────────────────────────────────────────────────────────
 
-class _BindingRow(QWidget):
-    """One line of the list: the key, what it does, and where it works (or why not, in amber)."""
+class _BindingRow(QFrame):
+    """One shortcut as a strip: the key, what it does with where it works (or why not, in amber) under it, and its
+    edit and remove buttons. Clicking the strip edits it too; right-clicking offers its command line."""
 
-    def __init__(self, keys: str, does: str, where: str, ok: bool):
+    def __init__(self, keys: str, does: str, where: str, ok: bool, on_edit, on_remove, on_menu):
         super().__init__()
-        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)  # clicks select the item under it
+        self.setObjectName("setting_row")
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._on_edit = on_edit
         lay = QHBoxLayout(self)
-        lay.setContentsMargins(2, 0, 2, 0)
+        lay.setContentsMargins(12, 6, 6, 6)
         lay.setSpacing(12)
         key = QLabel(native_keys(keys))
         key.setObjectName("key_chip")
-        key.setFixedWidth(ui_px(120))
+        key.setFixedWidth(ui_px(150))
         lay.addWidget(key)
-        text = ElidingLabel(does)
-        text.setMinimumWidth(ui_px(120))
-        lay.addWidget(text, 1)
-        status = QLabel(where)
-        status.setObjectName("dim" if ok else "status_warn")
-        status.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        lay.addWidget(status)
-        self.setMinimumHeight(ui_px(26))
+        texts = QVBoxLayout()
+        texts.setSpacing(1)
+        self.does = ElidingLabel(does)
+        self.does.setMinimumWidth(ui_px(120))
+        texts.addWidget(self.does)
+        self.where = ElidingLabel(where)
+        self.where.setObjectName("setting_sub" if ok else "status_warn")
+        self.where.setProperty("sub", True)
+        texts.addWidget(self.where)
+        lay.addLayout(texts, 1)
+        self.edit_btn = icon_button("pencil", f"Edit {does}", "Edit")
+        self.edit_btn.clicked.connect(on_edit)
+        lay.addWidget(self.edit_btn)
+        self.remove_btn = icon_button("trash", f"Remove {does}", "Remove")
+        self.remove_btn.clicked.connect(on_remove)
+        lay.addWidget(self.remove_btn)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(lambda pos: on_menu(self.mapToGlobal(pos)))
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(event.position().toPoint()):
+            self._on_edit()
+        super().mouseReleaseEvent(event)
 
 
 class ShortcutsDialog(QDialog):
-    def __init__(self, plugin: ShortcutsPlugin):
-        super().__init__()
+    def __init__(self, plugin: ShortcutsPlugin, parent=None):
+        super().__init__(parent)
         self._plugin = plugin
         self.setWindowTitle("Keyboard shortcuts")
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
-        self.setMinimumSize(ui_px(620), ui_px(440))
-        lay = dialog_layout(self)
-        dialog_header(lay, "Keyboard shortcuts",
-                      "Keys for Telescope's controls, with how much each one changes. "
-                      "Right-click most controls to add one for it.")
-        self._list = QListWidget()
-        self._list.currentRowChanged.connect(lambda _r: self._on_selection())
-        self._list.itemDoubleClicked.connect(lambda _i: self._edit())
-        self._list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self._list.customContextMenuRequested.connect(self._row_menu)
-        lay.addWidget(self._list, 1)
-        self._empty = wrapped_note("No shortcuts yet. Add one, or right-click a control in the main window.")
-        lay.addWidget(self._empty)
+        self.setMinimumSize(ui_px(620), ui_px(480))
+        body, bottom, _scroll = window_frame(
+            self, "Keyboard shortcuts",
+            "Keys for Telescope's controls, with how much each one changes. Right-click most controls to add one for it.")
 
-        self._add_btn = QPushButton("Add…")
-        set_ui_role(self._add_btn, "primary")
+        keys_card = create_card()
+        keys_lay = card_layout(keys_card)
+        self._add_btn = card_action("Add", "plus", "Pick a control and the key for it")
         self._add_btn.clicked.connect(lambda: self._plugin.add_binding(parent=self))
-        self._edit_btn = QPushButton("Edit…")
-        self._edit_btn.clicked.connect(self._edit)
-        self._remove_btn = QPushButton("Remove")
-        set_ui_role(self._remove_btn, "danger")
-        self._remove_btn.clicked.connect(self._remove)
-        lay.addLayout(button_row(self._add_btn, self._edit_btn, self._remove_btn))
+        add_card_header(keys_lay, "Shortcuts", "keyboard", action=self._add_btn)
+        self._rows_lay = QVBoxLayout()
+        self._rows_lay.setSpacing(8)
+        keys_lay.addLayout(self._rows_lay)
+        self._rows: list = []
+        self._empty = wrapped_note("No shortcuts yet. Add one, or right-click a control in the main window.")
+        keys_lay.addWidget(self._empty)
+        body.addWidget(keys_card)
 
-        self._note = wrapped_note("")
-        self._system_btn = action_button("Desktop shortcut settings…",
-                                         tooltip="Where your desktop lets you change the keys of global shortcuts")
-        self._system_btn.setFixedWidth(ui_px(220))
+        global_card = create_card()
+        global_lay = card_layout(global_card)
+        add_card_header(global_lay, "Everywhere", "monitor")
+        self._system_btn = QPushButton("Open")
+        self._system_btn.setToolTip("Where your desktop lets you change the keys of global shortcuts")
         self._system_btn.clicked.connect(self._open_system)
-        note_row = QHBoxLayout()
-        note_row.setContentsMargins(0, 0, 0, 0)
-        note_row.setSpacing(12)
-        note_row.addWidget(self._note, 1)
-        note_row.addWidget(self._system_btn, 0, Qt.AlignmentFlag.AlignTop)
-        lay.addLayout(note_row)
-
-        self._notify_box = Switch("Show a notification when a shortcut runs while Telescope is in the background")
+        strip, self._note = setting_row("Desktop shortcut settings", "", self._system_btn)
+        self._note.setObjectName("setting_sub")
+        global_lay.addWidget(strip)
+        self._notify_box = Switch()
         self._notify_box.toggled.connect(self._plugin.set_notify)
-        lay.addWidget(self._notify_box)
+        strip, _ = setting_row("Notify when one runs", "While Telescope is in the background", self._notify_box)
+        global_lay.addWidget(strip)
+        body.addWidget(global_card)
+        body.addStretch(1)
 
         close_btn = QPushButton("Close")
+        set_ui_role(close_btn, "primary")
         close_btn.clicked.connect(self.accept)
-        dialog_buttons(lay, close_btn)
+        bottom.addStretch(1)
+        bottom.addWidget(close_btn)
 
     def refresh(self):
-        current = self._current_id()
-        self._list.clear()
+        for row in self._rows:
+            row.hide()  # deleteLater waits for the event loop, and until then it'd still take up room
+            row.deleteLater()
+        self._rows = []
         for b in self._plugin.bindings:
             where, ok = self._plugin.where(b)
-            item = QListWidgetItem()
-            item.setData(Qt.ItemDataRole.UserRole, b["id"])
-            row = _BindingRow(b["keys"], self._plugin.describe(b), where, ok)
-            item.setSizeHint(QSize(0, row.minimumHeight() + ui_px(8)))  # the list's item padding comes on top
-            self._list.addItem(item)
-            self._list.setItemWidget(item, row)
-            if b["id"] == current:
-                self._list.setCurrentItem(item)
-        has_any = self._list.count() > 0
-        self._list.setVisible(has_any)
-        self._empty.setVisible(not has_any)
+            bid = b["id"]
+            row = _BindingRow(b["keys"], self._plugin.describe(b), where, ok,
+                              lambda _c=False, i=bid: self._edit(i), lambda _c=False, i=bid: self._remove(i),
+                              lambda at, i=bid: self._row_menu(i, at))
+            self._rows_lay.addWidget(row)
+            self._rows.append(row)
+        self._empty.setVisible(not self._rows)
         backend = self._plugin.backend
         if backend is not None:
             self._note.setText(backend.note())
@@ -752,36 +766,23 @@ class ShortcutsDialog(QDialog):
             self._note.setText("Global shortcuts aren't available on this desktop, so these work inside Telescope. "
                                "For keys that work everywhere, bind a shortcut's Copy command line in your "
                                "desktop's keyboard settings.")
+        self._note.setVisible(bool(self._note.text()))
         self._system_btn.setVisible(IS_LINUX and (backend is None or backend.system_picks_keys))
         self._notify_box.blockSignals(True)
         self._notify_box.setChecked(self._plugin.notify)
         self._notify_box.blockSignals(False)
-        self._on_selection()
 
-    def _current_id(self) -> Optional[str]:
-        item = self._list.currentItem()
-        return item.data(Qt.ItemDataRole.UserRole) if item is not None else None
+    def showEvent(self, event):
+        fit_height(self)
+        super().showEvent(event)
 
-    def _on_selection(self):
-        has = self._current_id() is not None
-        self._edit_btn.setEnabled(has)
-        self._remove_btn.setEnabled(has)
+    def _edit(self, bid: str):
+        self._plugin.edit_binding(bid, parent=self)
 
-    def _edit(self):
-        bid = self._current_id()
-        if bid is not None:
-            self._plugin.edit_binding(bid, parent=self)
+    def _remove(self, bid: str):
+        self._plugin.remove_binding(bid)
 
-    def _remove(self):
-        bid = self._current_id()
-        if bid is not None:
-            self._plugin.remove_binding(bid)
-
-    def _row_menu(self, pos: QPoint):
-        item = self._list.itemAt(pos)
-        if item is None:
-            return
-        bid = item.data(Qt.ItemDataRole.UserRole)
+    def _row_menu(self, bid: str, at: QPoint):
         binding = next((b for b in self._plugin.bindings if b["id"] == bid), None)
         if binding is None:
             return
@@ -791,7 +792,7 @@ class ShortcutsDialog(QDialog):
             command_text(action_command(binding["action"], binding["params"]))))
         copy.setEnabled(binding["params"].get("mode") != "hold")  # nothing would let go of it
         menu.addAction(copy)
-        menu.exec(self._list.viewport().mapToGlobal(pos))
+        menu.exec(at)
         menu.deleteLater()
 
     def _open_system(self):

@@ -5,6 +5,7 @@ from PyQt6.QtGui import QGuiApplication, QShowEvent
 from PyQt6.QtWidgets import QFileDialog, QWidget
 
 import telescope.plugins.setup as setup_mod
+from telescope.widgets import controls
 from telescope.plugin import EventBus
 from telescope.plugins.setup import AdvancedDialog, SetupPlugin
 
@@ -509,7 +510,7 @@ def test_advanced_scrolls_instead_of_growing_past_the_screen(qapp):
     plugin._open()
     dlg = plugin._dlg
     avail = dlg.screen().availableGeometry().height()
-    assert dlg.height() <= avail - setup_mod.SCREEN_MARGIN
+    assert dlg.height() <= avail - controls.SCREEN_MARGIN
     assert dlg.findChild(QScrollArea).widget().sizeHint().height() > 0
     dlg.hide()
 

@@ -344,14 +344,12 @@ def test_dialog_lists_bindings(make, monkeypatch):
     dialog = ShortcutsDialog(plugin)
     try:
         dialog.refresh()
-        assert dialog._list.count() == 2
-        assert not dialog._edit_btn.isEnabled()
-        dialog._list.setCurrentRow(1)
-        assert dialog._remove_btn.isEnabled()
-        dialog._remove()
+        assert [r.where.text() for r in dialog._rows] == ["Everywhere: Meta+M", plugin.where(plugin.bindings[1])[0]]
+        assert dialog._empty.isHidden()
+        dialog._rows[1].remove_btn.click()
         assert [b["id"] for b in plugin.bindings] == ["a"]
         dialog.refresh()
-        assert dialog._list.count() == 1
+        assert len(dialog._rows) == 1 and dialog._rows[0].remove_btn.accessibleName() == "Remove Mute: switch on or off"
     finally:
         dialog.deleteLater()
 

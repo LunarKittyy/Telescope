@@ -2,18 +2,18 @@ import logging
 import threading
 from typing import Optional
 
-from PyQt6.QtCore import QSize, Qt, QTimer, QUrl, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer, QUrl, pyqtSignal
 from PyQt6.QtGui import QAction, QDesktopServices, QGuiApplication
 from PyQt6.QtWidgets import (
     QComboBox,
-    QButtonGroup, QDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QPushButton, QScrollArea, QVBoxLayout,
+    QButtonGroup, QDialog, QHBoxLayout, QInputDialog, QLabel, QPushButton, QVBoxLayout,
     QWidget,
 )
 
 from telescope import diagnostics, h264_reader, pyav_vaapi, theme, vcam
 from telescope.platform import IS_LINUX, adb_available, adb_devices, adb_install, bundled_apk_path
 from telescope.platform.linux import (
-    CANCELLED, V4L2_OBS_DEV, V4L2_PHONE_DEV, as_text,
+    CANCELLED, V4L2_OBS_DEV, V4L2_PHONE_DEV, result_parts,
     v4l2_devices_ready, v4l2_load, v4l2_module_loaded, v4l2_unload,
     v4l2_persist_disable, v4l2_persist_enable, v4l2_persist_status,
 )
@@ -24,13 +24,14 @@ from telescope.platform.windows import (
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.adb import AdbDownload
 from telescope.version import display_version
-from telescope.widgets.controls import setting_row
+from telescope.widgets.banner import Issue, copy_action
+from telescope.widgets.controls import CommandBox, fit_height, setting_row, window_frame
 from telescope.widgets.line_icons import line_icon
 from telescope.widgets.common import (
     set_button_icon,
     Switch,
     NoScrollComboBox, NoScrollSpinBox, SegmentButton, action_button, add_card_header, button_row, card_layout,
-    create_card, dialog_layout, refresh_hues,
+    create_card, refresh_hues,
     run_off_ui_thread, segmented_row,
     set_status_kind, set_ui_role, ui_px, wrapped_note,
 )
@@ -89,30 +90,15 @@ DEFAULT_MAX_GAIN = 12
 _SUDO_HINT = "Asks for your password (pkexec or sudo): this changes system settings."
 
 
-SCREEN_MARGIN = 48  # px the dialog keeps clear of the screen edges
 AUTHOR_URL = "https://github.com/LunarKittyy"
-
-
-class _FitScroll(QScrollArea):
-    """Asks for its content's full height, so the dialog opens as tall as the screen allows and scrolls past that."""
-
-    def __init__(self):
-        super().__init__()
-        self.setWidgetResizable(True)
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.setFrameShape(QFrame.Shape.NoFrame)
-
-    def sizeHint(self) -> QSize:
-        inner = self.widget().sizeHint() if self.widget() else QSize()
-        return QSize(inner.width() + self.verticalScrollBar().sizeHint().width(), inner.height())
 
 
 class AdvancedDialog(QDialog):
     """Rarely needed controls. First-run setup lives in the onboarding checklist instead."""
 
-    _sig_v4l_result   = pyqtSignal(bool, str)
-    _sig_v4l_unload   = pyqtSignal(bool, str)
-    _sig_persist_result = pyqtSignal(bool, str)
+    _sig_v4l_result   = pyqtSignal(bool, str, str)  # ok, message, the command to run by hand ("" if none)
+    _sig_v4l_unload   = pyqtSignal(bool, str, str)
+    _sig_persist_result = pyqtSignal(bool, str, str)
     _sig_win_checks   = pyqtSignal(str, bool, bool)  # registered camera name ("" if none), adb found, still in the app folder
     _sig_uc_done      = pyqtSignal(bool, str)
     _sig_uc_msg       = pyqtSignal(str)
@@ -147,14 +133,7 @@ class AdvancedDialog(QDialog):
         self._sig_apk_done.connect(self._on_apk_done)
 
     def _fit_height(self):
-        # Not adjustSize(): Qt caps that at two thirds of the screen
-        screen = self.screen() or QGuiApplication.primaryScreen()
-        if screen is None:
-            self.adjustSize()
-            return
-        cap = screen.availableGeometry().height() - SCREEN_MARGIN
-        self.setMaximumHeight(cap)
-        self.resize(max(self.width(), self.sizeHint().width()), min(self.sizeHint().height(), cap))
+        fit_height(self)
 
     def showEvent(self, event):
         self._refresh_extras()
@@ -167,31 +146,9 @@ class AdvancedDialog(QDialog):
             threading.Thread(target=self._check_win_setup, daemon=True).start()
 
     def _build_ui(self):
-        # The bottom row is a bar across the whole dialog, so the dialog's own layout has no margins
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)
-        outer.setSpacing(0)
-        page = QWidget()
-        outer.addWidget(page, 1)
-        lay = dialog_layout(page)
-        lay.setContentsMargins(20, 18, 20, 14)
-        title_row = QHBoxLayout()
-        title = QLabel("Advanced")
-        title.setObjectName("dialog_title")
-        title_row.addWidget(title)
-        title_row.addStretch(1)
         version = QLabel(f"Telescope {display_version()}")
         version.setObjectName("version_note")
-        title_row.addWidget(version)
-        lay.addLayout(title_row)
-        # The cards scroll; the title and the bottom row stay put
-        scroll = _FitScroll()
-        content = QWidget()
-        body = QVBoxLayout(content)
-        body.setContentsMargins(0, 0, 6, 0)  # room for the scrollbar beside the cards
-        body.setSpacing(lay.spacing())
-        scroll.setWidget(content)
-        lay.addWidget(scroll, 1)
+        body, bottom, _scroll = window_frame(self, "Advanced", aside=version)
 
         # ── Virtual camera ────────────────────────────────────────────────────
         vc_card = create_card()
@@ -206,7 +163,9 @@ class AdvancedDialog(QDialog):
             chk_btn.clicked.connect(self._v4l_check)
             load_btn.clicked.connect(self._v4l_load)
             unload_btn.clicked.connect(self._v4l_unload)
-            strip, self._v4l_lbl = setting_row("Kernel module", "Checking...", button_row(chk_btn, load_btn, unload_btn))
+            self._v4l_cmd = CommandBox()
+            strip, self._v4l_lbl = setting_row("Kernel module", "Checking...", button_row(chk_btn, load_btn, unload_btn),
+                                               self._v4l_cmd)
             self._v4l_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             set_status_kind(self._v4l_lbl, "status_dim")
             strip.setToolTip("Already says Ready? Leave these alone; they're only for fixing a \"not ready\" status.")
@@ -217,7 +176,9 @@ class AdvancedDialog(QDialog):
                 "Also writes it to /etc/modprobe.d/ and /etc/modules-load.d/, so it survives a reboot.\n" + _SUDO_HINT
             )
             self._persist_chk.toggled.connect(self._on_persist_toggled)
-            strip, self._persist_status_lbl = setting_row("Load when the computer starts", "", self._persist_chk)
+            self._persist_cmd = CommandBox()
+            strip, self._persist_status_lbl = setting_row("Load when the computer starts", "", self._persist_chk,
+                                                          self._persist_cmd)
             self._persist_status_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             set_status_kind(self._persist_status_lbl, "status_dim")
             self._persist_row = self._persist_status_lbl
@@ -351,6 +312,8 @@ class AdvancedDialog(QDialog):
         apply_row.addWidget(self._canvas_status_lbl, 1)
         apply_row.addWidget(self._canvas_apply_btn, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
         under.addLayout(apply_row)
+        self._canvas_cmd = CommandBox()
+        under.addWidget(self._canvas_cmd)
         strip, _ = setting_row("Canvas size", "", self._canvas_combo, under)
         video_lay.addWidget(strip)
         body.addWidget(video_card)
@@ -428,17 +391,11 @@ class AdvancedDialog(QDialog):
         close_btn = QPushButton("Close")
         set_ui_role(close_btn, "primary")
         close_btn.clicked.connect(self.accept)
-        bar = QFrame()
-        bar.setObjectName("dialog_footer")
-        bottom = QHBoxLayout(bar)
-        bottom.setContentsMargins(20, 10, 20, 10)
-        bottom.setSpacing(8)
         bottom.addWidget(by_lbl)
         bottom.addStretch(1)
         bottom.addWidget(self._log_btn)
         bottom.addWidget(self._diag_btn)
         bottom.addWidget(close_btn)
-        outer.addWidget(bar)
 
     def _copy_diagnostics(self):
         QGuiApplication.clipboard().setText(self._report())
@@ -465,9 +422,10 @@ class AdvancedDialog(QDialog):
         if self._on_apply_canvas:
             self._on_apply_canvas(w, h)
 
-    def set_canvas_apply_result(self, ok: bool, msg: str):
-        """Called from SetupPlugin once the reload completes."""
+    def set_canvas_apply_result(self, ok: bool, msg: str, command: str = ""):
+        """Called from SetupPlugin once the reload completes; command is one to run by hand, shown under it."""
         self._canvas_apply_btn.setEnabled(True)
+        self._canvas_cmd.set_command(command)
         if ok:
             set_status_kind(self._canvas_status_lbl, "status_ok")
             self._canvas_status_lbl.setText(
@@ -544,7 +502,7 @@ class AdvancedDialog(QDialog):
     def _v4l_load(self):
         set_status_kind(self._v4l_lbl, "status_dim")
         self._v4l_lbl.setText("Loading...")
-        threading.Thread(target=lambda: self._sig_v4l_result.emit(*as_text(v4l2_load())), daemon=True).start()
+        threading.Thread(target=lambda: self._sig_v4l_result.emit(*result_parts(v4l2_load())), daemon=True).start()
 
     def _v4l_unload(self):
         set_status_kind(self._v4l_lbl, "status_dim")
@@ -552,16 +510,18 @@ class AdvancedDialog(QDialog):
         def unload():
             with vcam.device_released():
                 result = v4l2_unload()
-            self._sig_v4l_unload.emit(*as_text(result))
+            self._sig_v4l_unload.emit(*result_parts(result))
         threading.Thread(target=unload, daemon=True).start()
 
-    def _on_v4l_result(self, ok: bool, msg: str):
+    def _on_v4l_result(self, ok: bool, msg: str, command: str = ""):
         self._v4l_lbl.setText(("Loaded - " if ok else "Failed - ") + msg)
         set_status_kind(self._v4l_lbl, "status_ok" if ok else "status_err")
+        self._v4l_cmd.set_command(command)
 
-    def _on_v4l_unload_result(self, ok: bool, msg: str):
+    def _on_v4l_unload_result(self, ok: bool, msg: str, command: str = ""):
         self._v4l_lbl.setText(("Unloaded - " if ok else "Failed - ") + msg)
         set_status_kind(self._v4l_lbl, "status_ok" if ok else "status_err")
+        self._v4l_cmd.set_command(command)
 
     # ── v4l2 persistence ─────────────────────────────────────────────────────
 
@@ -579,10 +539,11 @@ class AdvancedDialog(QDialog):
         self._persist_row.setVisible(True)
         self._fit_height()
         action = v4l2_persist_enable if checked else v4l2_persist_disable
-        threading.Thread(target=lambda: self._sig_persist_result.emit(*as_text(action())), daemon=True).start()
+        threading.Thread(target=lambda: self._sig_persist_result.emit(*result_parts(action())), daemon=True).start()
 
-    def _on_persist_result(self, ok: bool, msg: str):
+    def _on_persist_result(self, ok: bool, msg: str, command: str = ""):
         self._persist_chk.setEnabled(True)
+        self._persist_cmd.set_command(command)
         if not ok:
             # Revert the checkbox without re-triggering the write/remove action.
             self._persist_chk.blockSignals(True)
@@ -840,12 +801,15 @@ class SetupPlugin(TelescopePlugin):
                 self._custom_w = w
                 self._custom_h = h
 
-        def on_done(ok: bool, msg: str):
+        def on_done(ok: bool, msg: str, command: str = ""):
             if not ok:
                 self._canvas_preset, self._custom_w, self._custom_h = before
             self._host.schedule_save()
             if self._dlg:
-                self._dlg.set_canvas_apply_result(ok, msg)
+                self._dlg.set_canvas_apply_result(ok, msg, command)
+            if command and not (self._dlg and self._dlg.isVisible()):  # closed meanwhile: the main window says it
+                self._host.show_issue("vcam", Issue("Resize the virtual camera", msg, [copy_action(command)],
+                                                    kind="warn", details=command))
         self._host.restart_vcam_canvas(w, h, on_done=on_done)
 
     def _on_max_zoom(self, value: int):

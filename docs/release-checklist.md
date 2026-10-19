@@ -129,7 +129,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 
 Make a `.zip` of `desktop/examples/plugins/black_and_white` (the folder itself inside it) to try these with.
 
-- [ ] Windows exe and Linux bundle: **Install plugin…** in **Plugins…** installs the `.zip`, and so does dragging it onto the dialog. It shows under **Added**, switched off.
+- [ ] Windows exe and Linux bundle: **Install** in **Plugins…** installs the `.zip`, and so does dragging it onto the dialog. It shows under **Added**, switched off.
 - [ ] Switching it on asks first with the warning. After **Restart now** its card shows and the picture turns black and white while streaming from a real phone.
 - [ ] Changing one of its files in the plugins folder (**Open plugins folder**) switches it off on the next start until you switch it on again.
 - [ ] A plugin that raises in `setup()` is left out with a banner naming it, and the rest of Telescope starts and streams.

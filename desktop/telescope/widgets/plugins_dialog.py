@@ -7,15 +7,15 @@ from typing import Callable
 from PyQt6.QtCore import QSignalBlocker, Qt, QUrl
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
-    QCheckBox, QDialog, QFileDialog, QFrame, QHBoxLayout, QLabel, QMessageBox, QPushButton, QScrollArea,
-    QVBoxLayout, QWidget,
+    QCheckBox, QDialog, QFileDialog, QFrame, QHBoxLayout, QMessageBox, QPushButton, QVBoxLayout, QWidget,
 )
 
 from telescope import plugin_loader
 from telescope.widgets.common import (
     Switch,
-    add_section_heading, dialog_buttons, dialog_header, dialog_layout, set_ui_role, ui_px, wrapped_note,
+    add_card_header, card_action, card_layout, create_card, icon_button, set_ui_role, ui_px, wrapped_note,
 )
+from telescope.widgets.controls import fit_height, setting_row, window_frame
 
 logger = logging.getLogger(__name__)
 
@@ -47,54 +47,47 @@ class PluginsDialog(QDialog):
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self.setMinimumWidth(ui_px(600))
         self.setAcceptDrops(True)
-        lay = dialog_layout(self)
-        dialog_header(lay, "Plugins", "Switch parts of Telescope on or off. A change takes effect the next time "
-                                      "Telescope starts, and settings are kept either way.")
-
-        self._list = QWidget()
-        self._rows = QVBoxLayout(self._list)
-        self._rows.setContentsMargins(0, 0, 8, 0)
-        self._rows.setSpacing(10)
-        scroll = self._scroll = QScrollArea()
+        body, bottom, self._scroll = window_frame(
+            self, "Plugins", "Switch parts of Telescope on or off. A change takes effect the next time Telescope "
+                             "starts, and settings are kept either way.")
         self._keep_at = 0
-        scroll.verticalScrollBar().rangeChanged.connect(self._restore_scroll)
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setWidget(self._list)
-        scroll.setMinimumHeight(ui_px(380))
-        lay.addWidget(scroll, 1)
+        self._scroll.verticalScrollBar().rangeChanged.connect(self._restore_scroll)
 
-        self._restart_bar = QWidget()
+        self._restart_bar = QFrame()
+        self._restart_bar.setObjectName("setting_row")
         bar = QHBoxLayout(self._restart_bar)
-        bar.setContentsMargins(0, 0, 0, 0)
+        bar.setContentsMargins(12, 8, 8, 8)
+        bar.setSpacing(12)
         self._restart_note = wrapped_note("Restart Telescope to apply your changes.", "status_warn")
         bar.addWidget(self._restart_note, 1)
         self._restart_btn = QPushButton("Restart now")
         set_ui_role(self._restart_btn, "primary")
         self._restart_btn.clicked.connect(self._restart_now)
         bar.addWidget(self._restart_btn)
-        lay.addWidget(self._restart_bar)
+        self._scroll.parentWidget().layout().addWidget(self._restart_bar)  # under the list, so it stays in view
+        self._list = QWidget()
+        self._rows = QVBoxLayout(self._list)
+        self._rows.setContentsMargins(0, 0, 0, 0)
+        self._rows.setSpacing(body.spacing())
+        body.addWidget(self._list)
+        body.addStretch(1)
 
-        self._add_btn = QPushButton("Install plugin…")
-        self._add_btn.setToolTip("Pick a plugin's .zip file. You can also drop one onto this window.")
-        self._add_btn.clicked.connect(self._add_zip)
         self._folder_btn = QPushButton("Open plugins folder")
         self._folder_btn.clicked.connect(self._open_folder)
-        self._all_on_btn = QPushButton("Turn all back on")
-        self._all_on_btn.setToolTip("Switch every built-in plugin back on")
-        self._all_on_btn.clicked.connect(self._all_on)
         help_btn = QPushButton("How plugins work")
         help_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(DOCS_URL)))
         close_btn = QPushButton("Close")
+        set_ui_role(close_btn, "primary")
         close_btn.clicked.connect(self.accept)
-        tools = QHBoxLayout()
-        tools.setSpacing(8)
-        for btn in (self._add_btn, self._folder_btn, self._all_on_btn, help_btn):
-            tools.addWidget(btn)
-        tools.addStretch(1)
-        lay.addLayout(tools)
-        dialog_buttons(lay, close_btn)
+        bottom.addWidget(help_btn)
+        bottom.addWidget(self._folder_btn)
+        bottom.addStretch(1)
+        bottom.addWidget(close_btn)
         self.refresh()
+
+    def showEvent(self, event):
+        fit_height(self)
+        super().showEvent(event)
 
     # ── The list ──────────────────────────────────────────────────────────
 
@@ -108,55 +101,66 @@ class PluginsDialog(QDialog):
         while self._rows.count():
             item = self._rows.takeAt(0)
             if item.widget() is not None:
+                item.widget().hide()  # deleteLater waits for the event loop, and until then it'd paint under the new one
                 item.widget().deleteLater()
         off = self._read(plugin_loader.builtin_off, set())
         self._installed = self._read(lambda: plugin_loader.find_installed(self._reserved), [])
 
-        add_section_heading(self._rows, "Built in")
+        self._all_on_btn = card_action("Turn all back on", "reset", "Switch every built-in plugin back on")
+        self._all_on_btn.clicked.connect(self._all_on)
+        self._all_on_btn.setEnabled(any(p.name in off for p in self._builtins if not p.required))
+        rows = self._card("Built in", "plug", self._all_on_btn)
         for plugin in self._builtins:
             if not plugin.required:
-                self._rows.addWidget(self._builtin_row(plugin, plugin.name not in off))
-        add_section_heading(self._rows, "Added")
+                rows.addWidget(self._builtin_row(plugin, plugin.name not in off))
+        self._add_btn = card_action("Install", "plus", "Pick a plugin's .zip file. You can also drop one onto this "
+                                                       "window.")
+        self._add_btn.clicked.connect(self._add_zip)
+        rows = self._card("Added", "download", self._add_btn)
         if not self._installed:
-            self._rows.addWidget(wrapped_note(
-                "No plugins added yet. Plugins people share come as .zip files. Click Install plugin and pick one or "
+            rows.addWidget(wrapped_note(
+                "No plugins added yet. Plugins people share come as .zip files. Click Install and pick one or "
                 "drop it onto this window. Added plugins start out switched off."))
         for item in self._installed:
-            self._rows.addWidget(self._added_row(item))
-        add_section_heading(self._rows, "Always on")
+            rows.addWidget(self._added_row(item))
+        rows = self._card("Always on", "lock")
         for plugin in self._builtins:
             if plugin.required:
-                self._rows.addWidget(self._builtin_row(plugin, True))
-        self._rows.addStretch(1)
+                rows.addWidget(self._builtin_row(plugin, True))
 
-        self._all_on_btn.setEnabled(any(p.name in off for p in self._builtins if not p.required))
         wanted = {p.name for p in self._builtins if p.required or p.name not in off}
         wanted |= {i.name for i in self._installed if i.enabled and not i.problem}
         known = self._reserved | {i.name for i in self._installed} | set(self._problems)
         self._restart_bar.setVisible(wanted != (self._running & known))
 
+    def _card(self, title: str, icon: str, action: QWidget = None) -> QVBoxLayout:
+        """A card in the list, returning the layout its rows go in."""
+        card = create_card()
+        lay = card_layout(card)
+        add_card_header(lay, title, icon, action=action)
+        self._rows.addWidget(card)
+        return lay
+
     def _row(self, title: str, on: bool, about: str, note: str = "", note_kind: str = "dim",
              locked: bool = False, tooltip: str = "") -> tuple:
-        row = QWidget()
-        lay = QVBoxLayout(row)
-        lay.setContentsMargins(0, 0, 0, 0)
-        lay.setSpacing(2)
-        top = QHBoxLayout()
-        if locked:
-            box = QLabel(title)  # no switch to grey out: a greyed box reads as off
-        else:
-            box = Switch(title)
+        """A plugin as a strip: its name and what it does, its switch on the right (none when locked), and a line
+        under it about what happens next. Returns the strip, the switch (None when locked) and the strip's controls."""
+        box = None
+        controls = QHBoxLayout()
+        controls.setSpacing(8)
+        if not locked:
+            box = Switch()
             box.setChecked(on)
-        box.setToolTip(tooltip)
-        top.addWidget(box, 1)
-        lay.addLayout(top)
-        if about:
-            text = wrapped_note(about)
-            lay.addWidget(text)
+            box.setAccessibleName(title)
+            box.setToolTip(tooltip)
+            controls.addWidget(box)
+        extra = None
         if note:
-            extra = wrapped_note(note, note_kind)
-            lay.addWidget(extra)
-        return row, box, top
+            extra = wrapped_note(note, "setting_sub" if note_kind == "dim" else note_kind)
+            extra.setProperty("sub", True)
+        strip, _line = setting_row(title, about, controls, extra)
+        strip.setToolTip(tooltip if locked else "")
+        return strip, box, controls
 
     def _builtin_row(self, plugin, on: bool) -> QWidget:
         title = plugin.title or plugin.name
@@ -192,12 +196,12 @@ class PluginsDialog(QDialog):
             note, kind = "It starts after Telescope restarts.", "status_warn"
         elif not item.enabled and item.name in self._running:
             note, kind = "It goes away after Telescope restarts.", "status_warn"
-        row, box, top = self._row(title, item.enabled, about, note, kind)
+        row, box, controls = self._row(title, item.enabled, about, note, kind)
         box.setEnabled(not item.problem or item.enabled)  # one that's on can always be switched off
         box.toggled.connect(lambda checked, i=item, b=box: self._switch_added(i, checked, b))
-        remove = QPushButton("Remove")
+        remove = icon_button("trash", f"Remove {item.title}", "Remove")
         remove.clicked.connect(lambda _=False, i=item: self._remove(i))
-        top.addWidget(remove)
+        controls.insertWidget(0, remove)
         return row
 
     def _dev_row(self, item, title: str, about: str) -> QWidget:

@@ -1095,7 +1095,7 @@ def test_restart_canvas_non_linux_waits_and_restarts_active_stream(window, monke
     done = []
     window.restart_vcam_canvas(1920, 1080, on_done=lambda *args: done.append(args))
     assert events == ["stop", ("wait", 5000), "start"]
-    assert done == [(True, "")]
+    assert done == [(True, "", "")]
 
 
 def test_canvas_reload_failure_reports_error_and_clears_callback(window, monkeypatch):
@@ -1105,8 +1105,19 @@ def test_canvas_reload_failure_reports_error_and_clears_callback(window, monkeyp
     window._on_canvas_reload_done(False, "busy", True)
     assert window._status_lbl.fullText() == "Reload failed: busy"
     assert window._status_lbl.objectName() == "status_err"
-    assert done == [(False, "busy")]
+    assert done == [(False, "busy", "")]
     assert window._vcam_reload_callback is None
+
+
+def test_a_reload_command_goes_to_whoever_asked_and_only_otherwise_to_a_banner(window, monkeypatch):
+    shown = []
+    monkeypatch.setattr(window, "show_issue", lambda key, issue: shown.append((key, issue.details)))
+    done = []
+    window._vcam_reload_callback = lambda *args: done.append(args)
+    window._on_canvas_reload_done(False, "Run this", False, "sudo modprobe v4l2loopback")
+    assert done == [(False, "Run this", "sudo modprobe v4l2loopback")] and shown == []
+    window._on_canvas_reload_done(False, "Run this", False, "sudo modprobe v4l2loopback")
+    assert shown == [("vcam", "sudo modprobe v4l2loopback")]
 
 
 _VALID_STATE = {
