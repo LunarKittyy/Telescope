@@ -24,6 +24,7 @@ from telescope.platform import autostart
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.banner import Issue
 from telescope.widgets.common import (
+    host_window,
     NoScrollComboBox, NoScrollSpinBox, card_layout, control_row, create_card, dialog_buttons, dialog_header,
     dialog_layout, set_ui_role, ui_px,
 )
@@ -171,7 +172,7 @@ class StartupPlugin(TelescopePlugin):
 
     def _open_delay_dialog(self):
         if self._delay_dlg is None:
-            self._delay_dlg = StopDelayDialog(self)
+            self._delay_dlg = StopDelayDialog(self, host_window(self._host))
         self._delay_dlg.refresh()
         self._delay_dlg.show()
         self._delay_dlg.raise_()
@@ -415,8 +416,8 @@ class StopDelayDialog(QDialog):
 
     _UNITS = (("seconds", 1), ("minutes", 60))
 
-    def __init__(self, plugin: StartupPlugin):
-        super().__init__()
+    def __init__(self, plugin: StartupPlugin, parent=None):
+        super().__init__(parent)
         self._plugin = plugin
         self.setWindowTitle("Wait before stopping")
         self.setMinimumWidth(ui_px(_DELAY_DIALOG_WIDTH))

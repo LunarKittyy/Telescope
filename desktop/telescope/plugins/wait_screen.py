@@ -19,6 +19,7 @@ from telescope import vcam
 from telescope.config import config_path
 from telescope.plugin import TelescopePlugin
 from telescope.widgets.common import (
+    host_window,
     Switch,
     action_button, button_row, dialog_buttons, dialog_header, dialog_layout, ui_px, wrapped_note,
 )
@@ -170,7 +171,7 @@ class WaitScreenPlugin(TelescopePlugin):
 
     def _open_dialog(self):
         if self._dlg is None:
-            self._dlg = WaitScreenDialog(self)
+            self._dlg = WaitScreenDialog(self, host_window(self._host))
         self._dlg.refresh()
         self._dlg.show()
         self._dlg.raise_()
@@ -207,8 +208,8 @@ class WaitScreenPlugin(TelescopePlugin):
 
 
 class WaitScreenDialog(QDialog):
-    def __init__(self, plugin: WaitScreenPlugin):
-        super().__init__()
+    def __init__(self, plugin: WaitScreenPlugin, parent=None):
+        super().__init__(parent)
         self._plugin = plugin
         self._movie = None
         self.setWindowTitle("Wait screen")

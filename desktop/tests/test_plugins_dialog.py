@@ -4,7 +4,7 @@ import json
 import sys
 
 import pytest
-from PyQt6.QtWidgets import QCheckBox, QMenu
+from PyQt6.QtWidgets import QCheckBox, QLabel, QMenu
 
 import telescope.widgets.plugins_dialog as dialog_module
 from telescope import plugin_loader
@@ -126,7 +126,7 @@ def answers(monkeypatch):
 
 
 def _boxes(dialog) -> dict:
-    return {box.text(): box for box in dialog.findChildren(QCheckBox)}
+    return {box.accessibleName(): box for box in dialog.findChildren(QCheckBox)}
 
 
 def test_switching_off_asks_first_names_what_goes_and_waits_for_a_restart(qapp, plugins, answers):
@@ -221,7 +221,18 @@ def test_a_plugin_being_written_shows_where_its_from_with_nothing_to_switch(qapp
     monkeypatch.setenv("TELESCOPE_DEV_PLUGINS", str(folder))
     dialog = PluginsDialog(None, _builtins(), {"connection", "camera_control", "presets", "mine"}, {}, lambda: True)
     assert "Mine" not in _boxes(dialog)
-    texts = [w.text() for w in dialog.findChildren(dialog_module.QLabel)]
+    texts = [w.text() for w in dialog.findChildren(QLabel)]
     assert any(t.startswith(f"Loaded from {folder} by dev_desktop.py.") for t in texts)
     assert not [b for b in dialog.findChildren(dialog_module.QPushButton) if b.text() == "Remove"]
     assert dialog._restart_bar.isHidden()
+
+
+def test_the_plugins_window_opens_over_the_main_window_without_blocking_it(qapp, window, plugins):
+    window.show_plugins()
+    dlg = window._plugins_dlg
+    try:
+        assert dlg.parent() is window and dlg.isVisible() and not dlg.isModal()
+        window.show_plugins()
+        assert window._plugins_dlg is dlg  # brought back up, not a second one
+    finally:
+        dlg.close()

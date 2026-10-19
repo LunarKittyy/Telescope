@@ -139,7 +139,8 @@ class HostStreams(Protocol):
         ...
 
     def restart_vcam_canvas(self, width: int, height: int, on_done=None) -> None:
-        """Recreate the virtual camera and stream at a new canvas size."""
+        """Recreate the virtual camera and stream at a new canvas size; on_done(ok, message, command) after, the command
+        one to run by hand when Telescope couldn't ask for the password (shown by on_done, or as a banner without it)."""
         ...
 
     def stream_output(self, source_id: str) -> str:

@@ -918,7 +918,10 @@ def test_setup_plugin_apply_canvas_persists_and_reports_result(setup_plugin):
         def get_canvas_preset_label(self):
             return "Custom..."
 
-        def set_canvas_apply_result(self, ok, msg):
+        def isVisible(self):
+            return True
+
+        def set_canvas_apply_result(self, ok, msg, command=""):
             self.result = (ok, msg)
 
     plugin._dlg = Dialog()
@@ -939,7 +942,10 @@ def test_setup_plugin_keeps_a_canvas_the_host_refused(setup_plugin):
         def get_canvas_preset_label(self):
             return "Custom..."
 
-        def set_canvas_apply_result(self, ok, msg):
+        def isVisible(self):
+            return True
+
+        def set_canvas_apply_result(self, ok, msg, command=""):
             self.result = (ok, msg)
 
     plugin._dlg = Dialog()
@@ -948,6 +954,32 @@ def test_setup_plugin_keeps_a_canvas_the_host_refused(setup_plugin):
     assert plugin.get_canvas_dims() == (1920, 1080)
     assert plugin.get_config()["custom_canvas_w"] == 1920
     assert plugin._dlg.result == (False, "Stop all but one camera first")
+
+
+def test_setup_plugin_shows_a_command_to_run_where_it_was_asked_for(setup_plugin):
+    plugin, host, _panel = setup_plugin
+    host.restart_vcam_canvas = lambda w, h, on_done=None: on_done(False, "Run this", "sudo modprobe v4l2loopback")
+    issues = []
+    host.show_issue = lambda key, issue: issues.append(issue.details)
+
+    class Dialog:
+        visible = True
+
+        def get_canvas_preset_label(self):
+            return "1280 × 720"
+
+        def isVisible(self):
+            return self.visible
+
+        def set_canvas_apply_result(self, ok, msg, command=""):
+            self.result = (ok, msg, command)
+
+    plugin._dlg = Dialog()
+    plugin._on_apply_canvas(1280, 720)
+    assert plugin._dlg.result == (False, "Run this", "sudo modprobe v4l2loopback") and issues == []
+    plugin._dlg.visible = False  # closed while it ran: the main window says it instead
+    plugin._on_apply_canvas(1280, 720)
+    assert issues == ["sudo modprobe v4l2loopback"]
 
 
 def test_setup_plugin_uses_the_new_canvas_for_the_restart_it_asks_for(setup_plugin):
@@ -959,7 +991,10 @@ def test_setup_plugin_uses_the_new_canvas_for_the_restart_it_asks_for(setup_plug
         def get_canvas_preset_label(self):
             return "720p 16:9 - 1280 x 720"
 
-        def set_canvas_apply_result(self, ok, msg):
+        def isVisible(self):
+            return True
+
+        def set_canvas_apply_result(self, ok, msg, command=""):
             pass
 
     plugin._dlg = Dialog()

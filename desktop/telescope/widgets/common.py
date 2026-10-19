@@ -675,6 +675,23 @@ def button_row(*buttons: QPushButton) -> QHBoxLayout:
     return lay
 
 
+def host_window(host) -> "QWidget | None":
+    """The main window, as the parent of a plugin's own window so it stays above it; None for a test's stand-in."""
+    return host if isinstance(host, QWidget) else None
+
+
+def icon_button(icon_name: str, name: str, tooltip: str = "") -> QPushButton:
+    """A small square button with only a line icon; name is what a screen reader says."""
+    btn = QPushButton()
+    btn.setProperty("strip", True)
+    btn.setIcon(line_icon(icon_name, theme.TEXT_DIM))
+    btn.setIconSize(QSize(ui_px(15), ui_px(15)))
+    btn.setFixedSize(ui_px(30), ui_px(30))
+    btn.setAccessibleName(name)
+    btn.setToolTip(tooltip or name)
+    return btn
+
+
 def dialog_layout(dialog: QWidget) -> QVBoxLayout:
     lay = QVBoxLayout(dialog)
     lay.setContentsMargins(20, 18, 20, 18)

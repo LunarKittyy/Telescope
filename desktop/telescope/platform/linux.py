@@ -71,11 +71,10 @@ class PrivResult(tuple):
         return self[1]
 
 
-def as_text(result) -> tuple:
-    """(ok, message) for a status label, with the command to run by hand appended when there is one."""
+def result_parts(result) -> tuple:
+    """(ok, message, the command to run by hand or "") for a status line and its command box."""
     ok, message = result
-    command = getattr(result, "command", None)
-    return ok, f"{message}\n{command}" if command else message
+    return ok, message, getattr(result, "command", None) or ""
 
 
 NO_PROMPT = "Telescope couldn't ask for your password here. Run this in a terminal, then try again."

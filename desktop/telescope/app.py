@@ -455,8 +455,16 @@ class TelescopeWindow(QMainWindow):
     def show_plugins(self):
         """The Plugins dialog: every plugin, built in or added, with a switch for each one that can be turned off."""
         from telescope.widgets.plugins_dialog import PluginsDialog
-        PluginsDialog(self, self._builtin_plugins, {p.name for p in self._plugins},
-                      self._plugin_problems, self.restart_app, self.is_streaming).exec()
+        dlg = getattr(self, "_plugins_dlg", None)
+        if dlg is None or not dlg.isVisible():
+            # Not modal: it would block every other Telescope window, which can still come up over it
+            dlg = self._plugins_dlg = PluginsDialog(self, self._builtin_plugins, {p.name for p in self._plugins},
+                                                    self._plugin_problems, self.restart_app, self.is_streaming)
+            dlg.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+            dlg.destroyed.connect(lambda: setattr(self, "_plugins_dlg", None))
+        dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
 
     def restart_app(self) -> bool:
         """Start a new copy of Telescope and quit this one; False if the new one couldn't be started."""
@@ -1468,13 +1476,13 @@ class TelescopeWindow(QMainWindow):
                 self.start_stream()  # not over a stream started while the reload ran
         else:
             self._set_status("Not streaming" if command else f"Reload failed: {msg}", "dim" if command else "err")
-            if command:
-                self.show_issue("vcam", Issue("Resize the virtual camera", msg, [copy_action(command)],
-                                              kind="warn", details=command))
         cb = getattr(self, "_vcam_reload_callback", None)
+        self._vcam_reload_callback = None
         if cb:
-            cb(ok, msg)
-            self._vcam_reload_callback = None
+            cb(ok, msg, command)  # whoever asked shows a command to run by hand
+        elif command and not ok:
+            self.show_issue("vcam", Issue("Resize the virtual camera", msg, [copy_action(command)],
+                                          kind="warn", details=command))
 
     def _codec_trouble(self, source: Source, state: dict) -> bool:
         """Whether a stream the panels don't show asks its phone for H.264 (Light, the default) and the phone says it

@@ -62,6 +62,7 @@ class Banner(QFrame):
         col.addWidget(self.text_lbl)
         self.details_lbl = WrapLabel(issue.details)
         self.details_lbl.setObjectName("banner_details")
+        theme.use_mono(self.details_lbl)
         self.details_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.details_lbl.setVisible(bool(issue.details))
         col.addWidget(self.details_lbl)

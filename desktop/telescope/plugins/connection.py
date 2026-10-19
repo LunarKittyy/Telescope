@@ -640,6 +640,24 @@ class ConnectionPlugin(TelescopePlugin):
         texts.addWidget(self._using_lbl)
         top.addLayout(texts, 1)
         link_lay.addLayout(top)
+        # What's wrong and what to do, lined up with the status it explains
+        self._note_box = QWidget()
+        note_lay = QVBoxLayout(self._note_box)
+        note_lay.setContentsMargins(self._route_icon.width() + top.spacing(), 0, 0, 2)
+        note_lay.setSpacing(8)
+        self._note_lbl = wrapped_note("")
+        note_lay.addWidget(self._note_lbl)
+        self._switch_usb_btn = action_button("Switch to USB", "primary",
+                                             "The phone was plugged in; reconnect over the cable")
+        self._switch_usb_btn.clicked.connect(self._switch_to_usb)
+        self._switch_usb_btn.setVisible(False)
+        note_lay.addWidget(self._switch_usb_btn, 0, Qt.AlignmentFlag.AlignLeft)
+        self._update_btn = action_button("Update over USB", "primary")
+        self._update_btn.clicked.connect(self._update_action)
+        self._update_btn.setVisible(False)
+        note_lay.addWidget(self._update_btn, 0, Qt.AlignmentFlag.AlignLeft)
+        self._note_row, self._switch_usb_row, self._update_row = self._note_lbl, self._switch_usb_btn, self._update_btn
+        link_lay.addWidget(self._note_box)
         link_lay.addSpacing(4)
         link_lay.addWidget(hairline())
         self._show_route_icon(None)
@@ -683,23 +701,6 @@ class ConnectionPlugin(TelescopePlugin):
         self._udp_row.setToolTip(self._udp_cb.toolTip())
         link_lay.addWidget(self._udp_row)
         lay.addWidget(link)
-
-        self._note_lbl = wrapped_note("")
-        self._note_row = control_row_widget("", self._note_lbl, stretch=True)
-        lay.addWidget(self._note_row)
-
-        self._switch_usb_btn = action_button("Switch to USB", "primary",
-                                             "The phone was plugged in; reconnect over the cable")
-        self._switch_usb_btn.clicked.connect(self._switch_to_usb)
-        self._switch_usb_row = control_row_widget("", self._switch_usb_btn)
-        self._switch_usb_row.setVisible(False)
-        lay.addWidget(self._switch_usb_row)
-
-        self._update_btn = action_button("Update over USB", "primary")
-        self._update_btn.clicked.connect(self._update_action)
-        self._update_row = control_row_widget("", self._update_btn)
-        self._update_row.setVisible(False)
-        lay.addWidget(self._update_row)
 
         self._build_header()
 
