@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
 
 from telescope import h264_reader
 from telescope.plugin import TelescopePlugin
-from telescope.shortcuts import choice_action, slider_action
+from telescope.shortcuts import SHORTCUT_VALUE_ROLE, choice_action, slider_action
 from telescope.theme import OK, WARN
 from telescope.widgets.banner import BannerAction, Issue
 from telescope.widgets.common import (
@@ -446,6 +446,7 @@ class StreamOutputPlugin(TelescopePlugin):
         self._res_combo.clear()
         for w, h in sorted(self._sizes_by_ratio[ratio], key=lambda wh: wh[0] * wh[1], reverse=True):
             self._res_combo.addItem(_size_label(w, h), (w, h))
+            self._res_combo.setItemData(self._res_combo.count() - 1, f"{w} x {h}", SHORTCUT_VALUE_ROLE)
             if h in _COMMON_HEIGHTS:
                 idx = self._res_combo.count() - 1
                 font = self._res_combo.font()

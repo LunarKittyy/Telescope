@@ -1,14 +1,18 @@
 import io
 import os
 import json
+import http.server
+import ssl
+import threading
 import time
 import urllib.error
+from pathlib import Path
 
 import numpy as np
 import pytest
 
 
-from telescope.pinned_https import PhoneAuth
+from telescope.pinned_https import PhoneAuth, fingerprint
 from telescope import audio
 from telescope.audio import BYTES_PER_MS, AudioWorker, FifoSink, JitterBuffer
 from telescope.platform import virtual_mic
@@ -108,6 +112,16 @@ def test_jitter_buffer_grows_the_target_when_audio_arrives_unevenly_then_shrinks
     assert jb.target_ms() >= 70  # 70 ms later than the rest, plus a margin
     _steady(jb, clock, 30)
     assert jb.target_ms() < 40
+
+
+def test_a_short_pause_after_a_burst_never_wraps_back_to_the_end_of_the_buffer():
+    jb = JitterBuffer(target_ms=40)
+    voice = _sine(105 * audio.RATE // 1000)
+    pause = np.linspace(10, 100, 50 * audio.RATE // 1000)
+    jb.push(_pcm(np.concatenate((voice, pause))))
+    out = np.concatenate([np.frombuffer(jb.pop(audio.CHUNK), np.int16) for _ in range(14)]).astype(np.int32)
+    # This part is all a slowly rising, quiet ramp. A negative catch-up skip would read the tail first, then jump back.
+    assert np.diff(out[110 * audio.RATE // 1000:130 * audio.RATE // 1000]).min() >= -1
 
 
 def test_audio_lost_on_the_way_doesnt_keep_the_target_up():
@@ -740,3 +754,68 @@ def test_a_hand_over_that_cant_connect_keeps_the_old_route():
     assert _until(lambda: len(sink.data) > before + 4000)  # still playing
     assert "err" not in statuses
     w.stop()
+
+
+def test_handover_interrupts_a_stalled_tls_read_instead_of_waiting_for_its_timeout():
+    stalled, new_audio, finish = threading.Event(), threading.Event(), threading.Event()
+
+    class Phone(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(_chunk(100 if self.path == "/old" else 200))
+            self.wfile.flush()
+            finish.wait(10)  # the old route sends nothing else, without closing
+
+        def log_message(self, *_args):
+            pass
+
+    fixtures = Path(__file__).parent / "fixtures"
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    context.load_cert_chain(fixtures / "test_phone.crt", fixtures / "test_phone.key")
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Phone)
+    server.handle_error = lambda *_args: None  # aborting a stream can end its TLS socket mid-write
+    server.socket = context.wrap_socket(server.socket, server_side=True)
+    serving = threading.Thread(target=server.serve_forever, daemon=True)
+    serving.start()
+    pin = fingerprint(ssl.PEM_cert_to_DER_cert((fixtures / "test_phone.crt").read_text()))
+    auth = PhoneAuth("token", pin)
+    url = f"https://127.0.0.1:{server.server_port}"
+
+    def opener(req, timeout):
+        response = auth.open(req, timeout=timeout)
+        if req.full_url.endswith("/old"):
+            read1 = response.read1
+            first = True
+
+            def read(n):
+                nonlocal first
+                if not first:
+                    stalled.set()
+                first = False
+                return read1(n)
+            response.read1 = read
+        return response
+
+    worker = AudioWorker(url + "/old", auth, lambda: None, lambda *_args: None, opener=opener)
+    push = worker._buffer.push
+
+    def received(data):
+        push(data)
+        if data == _chunk(200):
+            new_audio.set()
+    worker._buffer.push = received
+    reader = threading.Thread(target=worker._read_loop, daemon=True)
+    worker._threads.append(reader)
+    reader.start()
+    try:
+        assert stalled.wait(10)  # only setup: a slow CI runner can take a while to connect
+        worker.hand_over(url + "/new")
+        assert new_audio.wait(2)  # well before the old socket's five-second timeout
+    finally:
+        finish.set()
+        worker.stop()
+        server.shutdown()
+        server.server_close()
+        serving.join(timeout=2)

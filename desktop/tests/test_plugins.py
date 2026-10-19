@@ -129,6 +129,25 @@ def test_stream_output_resolution_populates_from_phone_state(stream_output):
     assert plugin.get_stream_params() == (None, None, 30)
 
 
+@pytest.mark.parametrize("option", ["1280 x 720", "1280 × 720"])
+def test_resolution_shortcuts_accept_old_and_current_labels(stream_output, option):
+    plugin, _host, panel = stream_output
+    ctrl = _Ctrl()
+    plugin.on_stream_start("https://phone/v1/video.h264", ctrl)
+    plugin.on_phone_state({"cameras": [{"id": "0", "current": True, "supportedSizes": [
+        {"width": 1920, "height": 1080}, {"width": 1280, "height": 720},
+    ]}], "stream_width": 1920, "stream_height": 1080})
+    panel.show()
+    action = next(a for a in plugin.create_actions() if a.id == "stream.resolution")
+    assert action.run(action.full_params({"op": "set", "option": option})) == "Resolution: 1280 × 720"
+    assert action.describe(action.full_params({"op": "set", "option": "1280 x 720"})) == "Resolution: 1280 × 720"
+    assert plugin._res_combo.currentData() == (1280, 720)
+    assert ctrl.sent[-1] == {"action": "resolution", "width": 1280, "height": 720}
+    assert ("1280 x 720", "1280 × 720") in action.params[1].options()
+    plugin.on_stream_stop()
+    panel.close()
+
+
 def test_stream_output_diagnostics_say_which_h264_profile_the_phone_runs(stream_output):
     plugin, _host, _panel = stream_output
     plugin.on_phone_state({"cameras": [], "codec": "h264", "h264_profile": "high"})

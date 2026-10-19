@@ -3,8 +3,11 @@
 import functools
 import hashlib
 import hmac
+import _socket
 import http.client
+import socket
 import ssl
+import sys
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
@@ -36,7 +39,26 @@ def _client_context() -> ssl.SSLContext:
     return ctx
 
 
+class _InterruptibleResponse(http.client.HTTPResponse):
+    def __init__(self, sock, *args, **kwargs):
+        super().__init__(sock, *args, **kwargs)
+        self._socket = sock
+
+    def abort(self):
+        """Interrupt a read on another thread before closing its buffered file."""
+        try:
+            # Shut down TCP without SSLSocket.shutdown() clearing OpenSSL state under the reader.
+            socket.socket.shutdown(self._socket, socket.SHUT_RDWR)
+            if sys.platform == "win32":
+                _socket.socket.close(self._socket)  # Windows doesn't wake a waiting read on shutdown, only on close
+        except OSError:
+            pass  # it may have ended already
+        self.close()
+
+
 class _PinnedConnection(http.client.HTTPSConnection):
+    response_class = _InterruptibleResponse
+
     def __init__(self, *args, pin: str, **kwargs):
         super().__init__(*args, **kwargs)
         self._pin = pin
