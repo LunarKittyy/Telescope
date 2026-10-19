@@ -52,6 +52,32 @@ def test_the_card_is_greyed_out_until_a_phone_is_paired(qapp):
     assert panel.isEnabled()
 
 
+def test_visible_rotation_and_pan_controls_keep_their_shortcuts(transforms_plugin):
+    plugin, _host, _panel = transforms_plugin
+    plugin._zoom_slider.setValue(200)
+    actions = {a.id: a for a in plugin.create_actions()}
+    for aid, params in (("transforms.rotation", {"op": "set", "option": "90 CW"}),
+                        ("transforms.pan_x", {"op": "set", "value": 50}),
+                        ("transforms.pan_y", {"op": "set", "value": -25})):
+        action = actions[aid]
+        assert action.run(action.full_params(params)) is not None
+    assert plugin.rotation == cv2.ROTATE_90_CLOCKWISE
+    assert plugin.pan_x == 0.5 and plugin.pan_y == -0.25
+
+
+def test_pan_pad_works_from_the_keyboard(transforms_plugin):
+    from PyQt6.QtTest import QTest
+    plugin, _host, _panel = transforms_plugin
+    plugin._zoom_slider.setValue(200)
+    pad = plugin._pan_pad
+    assert pad.focusPolicy() == Qt.FocusPolicy.StrongFocus
+    QTest.keyClick(pad, Qt.Key.Key_Right)
+    QTest.keyClick(pad, Qt.Key.Key_Down, Qt.KeyboardModifier.ShiftModifier)
+    assert plugin.pan_x > 0 and plugin.pan_y == 0.1
+    QTest.keyClick(pad, Qt.Key.Key_Home)
+    assert plugin.pan_x == plugin.pan_y == 0
+
+
 def _grid():
     return np.arange(4 * 6, dtype=np.uint8).reshape(4, 6, 1).repeat(3, axis=2)
 

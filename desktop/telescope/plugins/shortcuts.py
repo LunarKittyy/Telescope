@@ -412,10 +412,20 @@ class ShortcutsPlugin(TelescopePlugin):
         window = widget.window()  # the menu belongs to the window: a lens button can go while it's open
         at = widget.mapToGlobal(pos)
         menu = QMenu(window)
-        add = QAction(_ADD_TEXT, menu)
-        add.triggered.connect(lambda: self.add_binding(action_id, parent=window))
-        menu.addAction(add)
-        existing = [b for b in self._bindings if b["action"] == action_id]
+        actions = []
+        for action in self._actions.values():
+            try:
+                if widget in action.controls():
+                    actions.append(action)
+            except Exception:
+                continue  # another plugin's dynamic controls may have disappeared
+        ids = [a.id for a in actions] if len(actions) > 1 else [action_id]
+        for aid in ids:
+            text = f"Add shortcut for {self._actions[aid].label}…" if len(ids) > 1 else _ADD_TEXT
+            add = QAction(text, menu)
+            add.triggered.connect(lambda _=False, a=aid: self.add_binding(a, parent=window))
+            menu.addAction(add)
+        existing = [b for b in self._bindings if b["action"] in ids]
         if existing:
             menu.addSeparator()
             for b in existing:

@@ -416,6 +416,7 @@ class MicrophonePlugin(TelescopePlugin):
     def _show_source_words(self):
         what = "phone" if self._phone_picked else "browser"
         self._toggle_lbl.setText(f"{what.capitalize()} mic")
+        self._toggle.setAccessibleName(f"{what.capitalize()} microphone")
         self._toggle.setToolTip(f"Use the {what}'s microphone on this computer while streaming. "
                                 f"Apps list it as “{self._backend.pick_name}”.")
         if hasattr(self, "_gain_slider"):

@@ -33,6 +33,7 @@ class MjpegServer(
     private val socketFactory: javax.net.ServerSocketFactory = javax.net.ServerSocketFactory.getDefault(),
     // A viewer sent nothing for this long is dropped: with nothing to write it would never notice the computer left.
     private val viewerGiveUpMs: Long = VIEWER_GIVE_UP_MS,
+    private val onWifiViewersChanged: (Boolean) -> Unit = {},
 ) {
     private var serverSocket: ServerSocket? = null
     private val clients = CopyOnWriteArrayList<MjpegClient>()
@@ -47,6 +48,14 @@ class MjpegServer(
     private val audioClients = CopyOnWriteArrayList<AudioClient>()
     private val audioLock = Any()
     private val running = AtomicBoolean(false)
+    private val wifiViewers = mutableSetOf<Socket>()
+
+    private fun trackViewer(socket: Socket, watching: Boolean) = synchronized(wifiViewers) {
+        if (socket.inetAddress.isLoopbackAddress) return@synchronized
+        val was = wifiViewers.isNotEmpty()
+        if (watching) wifiViewers.add(socket) else wifiViewers.remove(socket)
+        if (was != wifiViewers.isNotEmpty()) onWifiViewersChanged(wifiViewers.isNotEmpty())
+    }
 
     // Updated on every authorized request; feeds battery-saving watchdog.
     @Volatile private var lastAuthorizedRequestAtMs: Long = System.currentTimeMillis()
@@ -151,6 +160,8 @@ class MjpegServer(
     fun closeH264Clients() {
         h264Clients.forEach { it.close() }
         h264Clients.clear()
+        udpClients.forEach { it.close() }
+        udpClients.clear()
         h264Config = null
     }
 
@@ -158,7 +169,6 @@ class MjpegServer(
         running.set(false)
         closeMjpegClients()
         closeH264Clients()
-        udpClients.forEach { it.close() }
         synchronized(audioLock) {  // so a /v1/audio request finishing now can't start the mic after this
             audioClients.forEach { it.close() }
             audioClients.clear()
@@ -167,7 +177,6 @@ class MjpegServer(
     }
 
     private fun dispatch(socket: Socket, address: String) {
-        var streaming = false
         var pendingHeld = true
         fun releasePending() { if (pendingHeld) { pendingHeld = false; pending.release(address) } }
         // Leaves the pending pool for a stream slot; false (503 sent) when every slot is taken.
@@ -205,7 +214,7 @@ class MjpegServer(
                     if (request.method != "GET") { HttpWire.sendError(socket.getOutputStream(), 405, "Method Not Allowed"); return }
                     if (!isAuthorized(request)) { HttpWire.sendError(socket.getOutputStream(), 401, "Unauthorized"); return }
                     if (!takeStreamSlot()) return
-                    streaming = true
+                    trackViewer(socket, true)
                     try {
                         val client = MjpegClient(socket, request)
                         clients.add(client)
@@ -218,7 +227,7 @@ class MjpegServer(
                     if (request.method != "GET") { HttpWire.sendError(socket.getOutputStream(), 405, "Method Not Allowed"); return }
                     if (!isAuthorized(request)) { HttpWire.sendError(socket.getOutputStream(), 401, "Unauthorized"); return }
                     if (!takeStreamSlot()) return
-                    streaming = true
+                    trackViewer(socket, true)
                     try {
                         val client = H264Client(socket, request)
                         h264Config?.let { client.queue.offerConfig(it) }
@@ -237,18 +246,21 @@ class MjpegServer(
                     // Over USB the desktop is adb's forward on the phone itself: UDP can't get there
                     if (socket.inetAddress.isLoopbackAddress) { HttpWire.sendError(socket.getOutputStream(), 409, "UDP needs Wi-Fi"); return }
                     if (!takeStreamSlot()) return
-                    streaming = true
+                    trackViewer(socket, true)
                     try {
-                        val client = UdpVideoClient(socket, java.net.InetSocketAddress(socket.inetAddress, port), requestKeyFrame)
-                        socket.getOutputStream().apply {
-                            write(("HTTP/1.1 200 OK\r\nContent-Type: application/x-telescope-udp\r\n" +
-                                "Cache-Control: no-store\r\n\r\n" + client.hello() + "\n").toByteArray())
-                            flush()
-                        }
-                        udpClients.add(client)
-                        onVideoClient(H264Stream.CODEC_H264, HttpWire.bearerToken(request))
-                        requestKeyFrame()  // a decoder can only start at one
-                        try { client.run { h264Config } } finally { udpClients.remove(client) }
+                        val client = UdpVideoClient(socket, java.net.InetSocketAddress(socket.inetAddress, port),
+                            stillAuthorized = { running.get() && stillPaired(request) }, requestKeyFrame = requestKeyFrame)
+                        try {
+                            socket.getOutputStream().apply {
+                                write(("HTTP/1.1 200 OK\r\nContent-Type: application/x-telescope-udp\r\n" +
+                                    "Cache-Control: no-store\r\n\r\n" + client.hello() + "\n").toByteArray())
+                                flush()
+                            }
+                            udpClients.add(client)
+                            onVideoClient(H264Stream.CODEC_H264, HttpWire.bearerToken(request))
+                            requestKeyFrame()  // a decoder can only start at one
+                            client.run { h264Config }
+                        } finally { udpClients.remove(client); client.close() }
                     } finally { streamSlots.release() }
                 }
                 "/v1/audio" -> {
@@ -262,7 +274,7 @@ class MjpegServer(
                             else (if (audioClients.isEmpty()) startAudio() else null).also { if (it == null) audioClients.add(client) }
                         }
                         if (problem != null) { HttpWire.sendError(socket.getOutputStream(), 403, problem); return }
-                        streaming = true
+                        trackViewer(socket, true)
                         try {
                             client.stream()
                         } finally {
@@ -280,7 +292,8 @@ class MjpegServer(
         } catch (_: Exception) {
         } finally {
             releasePending()
-            if (!streaming) try { socket.close() } catch (_: Exception) {}
+            trackViewer(socket, false)
+            try { socket.close() } catch (_: Exception) {}
         }
     }
 
@@ -297,6 +310,7 @@ class MjpegServer(
     fun hasActiveViewer(now: Long = System.currentTimeMillis()): Boolean =
         clients.any { now - it.lastWriteAtMs < VIEWER_STALE_MS } ||
             h264Clients.any { now - it.lastWriteAtMs < VIEWER_STALE_MS } ||
+            udpClients.any { it.hasActiveViewer() } ||
             audioClients.any { now - it.lastWriteAtMs < VIEWER_STALE_MS }
 
     private fun pollMs(): Long = minOf(2_000L, viewerGiveUpMs)

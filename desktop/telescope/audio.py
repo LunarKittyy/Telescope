@@ -101,6 +101,18 @@ class JitterBuffer:
         self.ran_dry = 0  # how many times it ran out and faded to silence
         self._floor = float(FULL_SCALE)  # the quietest it's been lately (RMS per chunk)
         self._fade_next = False  # the next audio pushed starts another connection's: fade it in
+        self.has_audio = False  # the last pop was a whole chunk of recorded audio, rather than refill silence
+
+    def set_target_ms(self, target_ms: int):
+        """The connection changed: learn its jitter afresh, with the appropriate USB or Wi-Fi minimum."""
+        with self._lock:
+            base = target_ms * RATE // 1000
+            self._max_extra = max(0, self._max_extra + self._base - base)
+            self._base = self._target = base
+            self._late = 0.0
+            self._leads.clear()
+            self._received = 0
+            self._last_arrival = 0.0
 
     def push(self, data: bytes):
         now = self._clock()
@@ -168,6 +180,7 @@ class JitterBuffer:
         """n bytes of audio, or silence while (re)filling."""
         m = n // 2
         with self._lock:
+            self.has_audio = False
             fill = self._buf.size - self._pos
             if not self._playing:
                 if fill < self._target:
@@ -191,6 +204,7 @@ class JitterBuffer:
                 self._avg = self._target
             at = self._pos + skip + ratio * np.arange(m, dtype=np.float64)
             usable = int(np.searchsorted(at, self._buf.size - 2.0, side="left"))  # cubic needs two samples ahead
+            self.has_audio = usable == m
             out = self._cubic(at[:usable])
             if skip:
                 k = min(FADE, usable)
@@ -433,6 +447,7 @@ class AudioWorker:
                 self._response = resp
         if taken is not None:
             self._buffer.splice()
+            self._buffer.set_target_ms(_target_for(self.url))
         else:
             req = urllib.request.Request(self.url, headers=self.auth.headers())
             try:
@@ -444,6 +459,7 @@ class AudioWorker:
             pending = b""
             self._response = resp
             self._buffer.restart_clock()
+            self._buffer.set_target_ms(_target_for(self.url))
         self._odd = b""
         told = False
         try:
@@ -492,7 +508,8 @@ class AudioWorker:
             if recovering:
                 self._on_status("ok", "")
             while not self._stop.is_set():
-                data = self._shape(self._buffer.pop(CHUNK))
+                raw = self._buffer.pop(CHUNK)
+                data = self._shape(raw, observe_level=self._buffer.has_audio)
                 sink.write(self._mute(data))  # blocks at the output's pace
         except Exception:
             if not self._stop.is_set():
@@ -519,7 +536,7 @@ class AudioWorker:
             self._rms = max(self._rms, min(rms, top))
             self._limited = self._limited or limited
 
-    def _shape(self, data: bytes) -> bytes:
+    def _shape(self, data: bytes, observe_level: bool = True) -> bytes:
         """Gain, then the limiter, then clipping to 16 bits."""
         target = self.gain
         raw = np.frombuffer(data, np.int16)
@@ -534,7 +551,7 @@ class AudioWorker:
         elif target != 1.0:
             samples *= target
         if self.auto_level:
-            samples = self._auto(samples)
+            samples = self._auto(samples) if observe_level else samples * 10 ** (self._auto_db / 20)
         elif self._auto_db != 0.0:
             # Switched off: its gain fades out over this chunk, and it starts over if switched on again
             samples = samples * np.linspace(10 ** (self._auto_db / 20), 1.0, samples.size, dtype=np.float32)
@@ -553,6 +570,9 @@ class AudioWorker:
             return samples
         rms = float(np.sqrt(np.mean(samples * samples))) / FULL_SCALE
         db = 20 * math.log10(max(rms, 1e-9))
+        if db < -90:
+            # Digital silence (startup, a muted source, a recording gap) says nothing about the room's noise floor.
+            return samples * 10 ** (self._auto_db / 20)
         if self._chunks_in_block == 0 or not self._quietest:
             self._quietest.append(db)
         else:

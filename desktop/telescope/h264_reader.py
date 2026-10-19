@@ -5,9 +5,11 @@ bundled FFmpeg; without PyAV installed, available() is False and the desktop onl
 """
 
 import logging
+import re
 import sys
 import threading
 import urllib.request
+import weakref
 from typing import Optional
 
 from telescope.pinned_https import PhoneAuth
@@ -32,6 +34,8 @@ _hw_found: Optional[str] = None  # the device type that opened, once probed
 _hw_probed = False
 _hw_failed = False  # a hardware decoder errored this run: software from then on
 _hw_lock = threading.Lock()
+_decoders = weakref.WeakSet()
+_ANNEX_B_START = re.compile(b"\x00\x00(?:\x00)?\x01")
 
 
 def available() -> bool:
@@ -55,6 +59,21 @@ def hardware_device() -> Optional[str]:
 
 
 def hardware_in_use() -> bool:
+    with _hw_lock:
+        return any(d.hardware is not None for d in list(_decoders))
+
+
+def decoding_backends() -> tuple:
+    """Backends of live decoder instances, independent of the preference for the next connection."""
+    with _hw_lock:
+        return tuple(sorted({d.hardware or "processor" for d in list(_decoders)}))
+
+
+def hardware_failed() -> bool:
+    return _hw_failed
+
+
+def _hardware_requested() -> bool:
     return _hw_wanted and not _hw_failed and hardware_device() is not None
 
 
@@ -72,7 +91,8 @@ def _hw_types() -> list:
 def _open_hw(device_type: str):
     try:
         from av.codec.hwaccel import HWAccel
-        return av.CodecContext.create("h264", "r", hwaccel=HWAccel(device_type=device_type, allow_software_fallback=True))
+        codec = av.CodecContext.create("h264", "r", hwaccel=HWAccel(device_type=device_type, allow_software_fallback=False))
+        return codec if codec.is_hwaccel else None
     except Exception:
         return None
 
@@ -170,7 +190,10 @@ class Decoder:
     def __init__(self):
         self.hardware: Optional[str] = None
         self._codec = None
-        if hardware_in_use():
+        self._headers = {}
+        self._header_tail = b""
+        self._hw_proven = False  # decoded a frame: from then on a bad packet is the stream's fault, not the card's
+        if _hardware_requested():
             device = hardware_device()
             self._codec = _open_hw(device)
             if self._codec is not None:
@@ -178,11 +201,16 @@ class Decoder:
                 self.hardware = device
         if self._codec is None:
             self._codec = _software_codec()
+        with _hw_lock:
+            _decoders.add(self)
 
     def feed(self, data: bytes):
         """(newest BGR frame the data completed or None, how many frames it completed)."""
+        self._remember_headers(data)
         try:
-            return _decode_counted(self._codec, data)
+            frame, count = _decode_counted(self._codec, data, fail_on_invalid=self.hardware is not None and not self._hw_proven)
+            self._hw_proven = self._hw_proven or count > 0
+            return frame, count
         except Exception:
             if self.hardware is None:
                 raise
@@ -191,7 +219,22 @@ class Decoder:
             logger.warning("Hardware decoding (%s) failed; decoding in software from now on", self.hardware, exc_info=True)
             self.hardware = None
             self._codec = _software_codec()
-            return None, 0
+            # TCP sends SPS and PPS only when joining, and a fresh decoder can't start from a keyframe alone
+            setup = b"".join(self._headers[k] for k in (7, 8) if k in self._headers)
+            return _decode_counted(self._codec, setup + data)
+
+    def _remember_headers(self, data: bytes):
+        data = self._header_tail + data
+        starts = list(_ANNEX_B_START.finditer(data))
+        for first, last in zip(starts, starts[1:]):
+            if first.end() < last.start() and (kind := data[first.end()] & 31) in (7, 8):
+                self._headers[kind] = data[first.start():last.start()]
+        # Keep split start codes and incomplete SPS/PPS, without retaining ordinary video frames.
+        last = starts[-1] if starts else None
+        if last is not None and last.end() < len(data) and data[last.end()] & 31 in (7, 8):
+            self._header_tail = data[last.start():][-65536:]
+        else:
+            self._header_tail = data[-4:]
 
 
 def new_decoder() -> Decoder:
@@ -211,12 +254,14 @@ def decode_counted(codec, data: bytes):
     return _decode_counted(codec, data)
 
 
-def _decode_counted(codec, data: bytes):
+def _decode_counted(codec, data: bytes, fail_on_invalid: bool = False):
     newest, count = None, 0
     for packet in codec.parse(data):
         try:
             frames = codec.decode(packet)
         except av.error.InvalidDataError:
+            if fail_on_invalid:
+                raise  # hardware refusal must reach Decoder's software fallback too
             continue  # e.g. joined mid-GOP: skip until a keyframe
         if frames:
             newest = frames[-1]

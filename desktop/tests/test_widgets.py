@@ -28,6 +28,14 @@ from telescope.widgets.common import (
 from telescope.widgets.lens_panel import LensPanel
 
 
+def test_empty_lenses_show_a_placeholder(qapp):
+    panel = LensPanel()
+    panel.load([])
+    assert panel.buttons() == []
+    assert panel._ph.text() == "No cameras available"
+    assert not panel._ph.isHidden()
+
+
 @pytest.mark.parametrize(
     "value,expected",
     [
@@ -438,3 +446,43 @@ def test_lens_tiles_split_the_focal_length_from_the_rest_and_stay_in_even_rows()
     assert split_lens_label("Tele 3x") == ("3", "x", "Tele")
     assert split_lens_label("Wide") == ("Wide", "", "")
     assert [_columns(n) for n in (1, 3, 5, 6, 7, 10, 11)] == [1, 3, 5, 3, 4, 5, 4]
+
+
+def test_a_picked_segment_keeps_room_for_its_bold_text(qapp):
+    from PyQt6.QtGui import QFont, QFontMetricsF
+    from PyQt6.QtWidgets import QWidget
+    from telescope.widgets.common import SegmentButton, segmented_row
+    buttons = [SegmentButton(t) for t in ("Auto", "Tap a point", "Manual")]
+    host = QWidget()
+    host.setLayout(segmented_row(*buttons))
+    host.resize(200, 40)
+    host.show()
+    qapp.processEvents()
+    bold = QFont(buttons[1].font())
+    bold.setWeight(QFont.Weight.DemiBold)
+    assert buttons[1].width() >= QFontMetricsF(bold).horizontalAdvance("Tap a point") + 16
+
+
+def test_a_rows_controls_get_its_label_as_their_screen_reader_name(qapp):
+    from PyQt6.QtWidgets import QPushButton, QWidget
+    from telescope.widgets.common import NoScrollSlider, SegmentButton, control_row, segmented_row, slider_row, value_label
+    slider, reset = NoScrollSlider(), QPushButton("Reset")
+    row = control_row("Zoom", slider_row(slider, value_label("1.0×")))
+    row.addWidget(reset)
+    auto, manual = SegmentButton("Auto"), SegmentButton("Manual")
+    control_row("Exposure", segmented_row(auto, manual))
+    assert slider.accessibleName() == "Zoom"
+    assert (auto.accessibleName(), manual.accessibleName()) == ("Exposure: Auto", "Exposure: Manual")
+    assert reset.accessibleName() == ""  # a button with words keeps them
+
+
+def test_a_tag_measures_itself_in_the_themes_font_not_the_systems(qapp):
+    from PyQt6.QtWidgets import QWidget, QVBoxLayout
+    from telescope.widgets.controls import Tag
+    tag = Tag("Experimental")
+    host = QWidget()
+    QVBoxLayout(host).addWidget(tag)
+    host.setStyleSheet("* { font-size: 20pt; }")
+    host.show()
+    qapp.processEvents()
+    assert tag.width() == tag.sizeHint().width() and tag.width() > 120  # follows the bigger styled font

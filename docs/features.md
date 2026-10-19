@@ -8,7 +8,7 @@
 - Manual focus, or click anywhere on the preview to focus (and meter exposure) on that spot. **Auto** goes back to continuous autofocus
 - OIS, noise reduction, sharpening (edge mode), black level lock, and the torch on lenses that have a flash
 - Low light, for a dark room: auto exposure may slow the camera down so each frame catches more light (usually no lower than 10 fps, lower on some phones), and noise reduction runs at its best. It only slows down when it has to (in good light you still get the rate you picked)
-- Anything the current lens doesn't support is greyed out
+- Anything the current lens doesn't support is greyed out. Hover **Full manual control** or **Limited manual control** to see what the lens supports
 
 ## Stream transforms
 
@@ -17,7 +17,7 @@ These apply live without restarting the phone's camera.
 - Horizontal and vertical flip
 - Rotation: 90 CW, 180, 90 CCW
 - Zoom 1-10x with pan. You can also scroll over the preview to zoom and drag it around to pan. The phone crops from the full sensor first, and once your framing fits inside the telephoto lens it hops over to that one, which is why zooming in actually gets sharper. Dots on the zoom slider mark where a longer lens takes over, and hovering the slider or the lens dot next to the value explains the rest
-- Double-click any slider to put it back to its default
+- Double-click any slider to put it back to its default. The pan pad also takes arrow keys (Shift for bigger steps) and Home to centre
 
 ## Presets
 
@@ -31,7 +31,7 @@ The Presets button in the header saves your camera, output and transform setting
 ## Format and bandwidth
 - **Light** (the H.264 format, and the default) needs about 8 Mbps at 1080p30, which makes it a good fit even for slower Wi-Fi. **Heavy** (MJPEG) is sharper in fast motion but needs USB or strong Wi-Fi. A phone that can't do Light switches to Heavy automatically
 - Heavy has a JPEG quality slider. Light gets a bitrate slider instead: Auto, a fixed 1-100 Mbps, or **Dynamic**, which sends as much as the connection can carry and backs off before the video starts to lag. When even that leaves too little for each frame, Dynamic also lowers the frame rate (30, 24, 20, down to 15 at the lowest) to send fewer but sharper frames instead of a lot of smeared ones. It goes straight to the rate the connection is enough for and climbs back once there's room, more slowly than it came down. On a really slow connection it keeps going down to 0.3 Mbps, which looks soft but keeps the picture moving. A step doesn't restart the camera: the phone's encoder skips the frames, or where it ignores that, the first step restarts the camera once and Telescope skips them itself from then on. Hovering the FPS in the footer shows when Dynamic was the one that lowered it
-- **UDP on Wi-Fi** (experimental, in the connection settings) sends Light over UDP instead of TCP when the phone is on Wi-Fi. On a busy network a lost packet then only costs a resend of that piece instead of holding up the whole stream, which can cut the lag spikes. It's encrypted with a key the phone hands out over the paired connection. If the video doesn't get through (a firewall, usually) it goes back to TCP by itself. It isn't used with Dynamic, over USB, or for Heavy
+- **UDP on Wi-Fi** (experimental, in the connection settings) sends Light over UDP instead of TCP when the phone is on Wi-Fi. On a busy network a lost packet then only costs a resend of that piece instead of holding up the whole stream, which can cut the lag spikes. It's encrypted with a key the phone hands out over the paired connection. If the video doesn't get through (a firewall, usually) it goes back to TCP by itself. Changing the switch reconnects a running Wi-Fi stream. Picking Dynamic switches it back to TCP. It isn't used over USB or for Heavy
 - **Hardware acceleration** in Advanced decodes Light on the graphics card instead of the processor, which matters most at 4K or on a laptop. It's off by default and takes effect the next time the stream connects. It works on Windows with any graphics card and on Linux with an NVIDIA one. AMD and Intel cards on Linux need VA-API, which the PyAV Telescope installs leaves out. **Set up VA-API…** next to it uses your distro's PyAV if it's 14 or newer and has VA-API (Arch, openSUSE, Debian 13), or builds one against your system's FFmpeg in about a minute (it lists the packages to install first, if any are missing). It's kept apart from Telescope's own PyAV and used from the next start, and if it ever stops loading, Telescope goes back to its own on its own. Without any of these, Advanced says there's no graphics card Telescope can use. If the graphics card ever fails to decode, Telescope goes back to the processor on its own for the rest of the run
 - On Light, the resolution list leaves out sizes the phone's encoder says it can't take. If one still fails, the stream stops with a note suggesting a lower size or Heavy, and the resolution goes back to the last one that worked (so pressing Start again won't fail the same way)
 - Switching to a new aspect ratio picks the size closest to your current height rather than the biggest one

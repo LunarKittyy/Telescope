@@ -629,6 +629,7 @@ class StreamOutputPlugin(TelescopePlugin):
         if self._ctrl:
             self._ctrl.send(action="bitrate", value=self._bitrate_bps())
         self._host.schedule_save()
+        self._bus.stream_transport_changed.emit()
 
     def _fps(self) -> int:
         return self._fps_combo.currentData() or _DEFAULT_FPS
@@ -735,6 +736,7 @@ class StreamOutputPlugin(TelescopePlugin):
         if self.stream_format() != old_format:
             self._host.reconnect_stream()  # the new stream picks everything up as it starts
             return
+        self._bus.stream_transport_changed.emit()
         self._push_initial_settings()
         self._host.update_stream_output(fps=self._fps())
         wh = self._find_by_label(self._pending_resolution_text) if self._pending_resolution_text else None

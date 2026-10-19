@@ -81,11 +81,13 @@ class _LensButton(QPushButton):
 
 def _columns(count: int) -> int:
     """Up to five tiles in a row; more lenses split into rows as even as they can be."""
+    if count == 0:
+        return 1
     rows = -(-count // 5)
     return max(1, -(-count // rows))
 
 
-def shorten_lens_label(raw: str) -> str:
+def shorten_lens_label(raw: str, compact: bool = True) -> str:
     """Strip Android boilerplate ("Back", "[phys]") from camera names; "[auto]" marks a multi-lens camera.
 
     "Auto" goes first: the pill elides from the right, and it's what tells the multi-lens camera apart
@@ -96,8 +98,9 @@ def shorten_lens_label(raw: str) -> str:
                .replace(" [auto]", "")
                .replace("Back ", "")
                .replace("Front ", "F/")
-               .replace("Telephoto", "Tele")  # keeps the zoom factor ("Tele 3x") inside a grid cell
                .strip())
+    if compact:
+        label = label.replace("Telephoto", "Tele")
     return f"Auto {label}" if auto else label
 
 
@@ -130,6 +133,10 @@ class LensPanel(QWidget):
         self._btns:    list = []
 
     def load(self, cameras: list):
+        if not cameras:
+            self.clear()
+            self.set_placeholder("No cameras available")
+            return
         self._ph.hide()
         self._flow_host.show()
         for b in self._btns:
@@ -141,6 +148,7 @@ class LensPanel(QWidget):
         self._layout._columns = _columns(len(cameras))
         for cam in cameras:
             btn = _LensButton(shorten_lens_label(cam["label"]))
+            btn.setProperty("shortcutValue", shorten_lens_label(cam["label"], compact=False))
             btn.setObjectName("lens_button")
             btn.setCheckable(True)
             btn.setChecked(cam.get("current", False))

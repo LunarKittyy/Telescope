@@ -6,10 +6,10 @@ from PyQt6.QtCore import QByteArray, QCoreApplication, QEventLoop, QMetaObject, 
 from PyQt6 import sip
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtGui import (
-    QBrush, QColor, QFont, QFontMetrics, QIcon, QPainter, QPainterPath, QPen, QPixmap,
+    QBrush, QColor, QFont, QFontMetrics, QFontMetricsF, QIcon, QPainter, QPainterPath, QPen, QPixmap,
 )
 from PyQt6.QtWidgets import (
-    QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLayout, QPushButton,
+    QAbstractButton, QAbstractSlider, QAbstractSpinBox, QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLayout, QPushButton,
     QSlider, QSpinBox, QSizePolicy, QStyle, QStyleOptionButton, QStyleOptionSlider, QVBoxLayout, QWidget,
 )
 
@@ -251,6 +251,16 @@ class SegmentButton(QPushButton):
         self.setCheckable(True)
         self.setAutoExclusive(False)
 
+    def minimumSizeHint(self) -> QSize:
+        """In a segment row: room for the text in bold, as it turns when picked, plus the theme's 8 px padding."""
+        hint = super().minimumSizeHint()
+        if self.property("segmented") is not True:
+            return hint
+        self.ensurePolished()
+        bold = QFont(self.font())
+        bold.setWeight(QFont.Weight.DemiBold)
+        return QSize(math.ceil(QFontMetricsF(bold).horizontalAdvance(self.text())) + 18, hint.height())
+
 
 OPTION_HEIGHT = 52
 """Height of an OptionButton."""
@@ -383,6 +393,14 @@ def cap_baseline(fm: QFontMetrics, top: float, height: float) -> int:
     return round(top + (height + fm.capHeight()) / 2)
 
 
+def paint_focus(painter: QPainter, widget: QWidget):
+    """Keep keyboard focus visible on controls that paint over Qt's standard focus indicator; a click shows none."""
+    if widget.hasFocus() and widget.window().testAttribute(Qt.WidgetAttribute.WA_KeyboardFocusChange):
+        painter.setPen(QPen(QColor(theme.ACCENT), 2))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRoundedRect(QRectF(widget.rect()).adjusted(2, 2, -2, -2), 7, 7)
+
+
 def stacked_baselines(top_fm: QFontMetrics, low_fm: QFontMetrics, top: float, height: float,
                       gap: float = 7) -> tuple:
     """Baselines for two lines read as one block (a value over its caption), the block centred in the band; gap is
@@ -416,6 +434,7 @@ class StatusPill(QFrame):
         self._fill.setAlphaF(0.12 if kind != "status_dim" else 0.06)
         self._edge.setAlphaF(0.25 if kind != "status_dim" else 0.15)
         self._value, self._note, self._icon_name = value, note, icon_name
+        self.setAccessibleName(" ".join(t for t in (value, note) if t))
         self.update()
 
     def value(self) -> str:
@@ -469,7 +488,8 @@ def segmented_row(*buttons: QWidget, fill: bool = True) -> QHBoxLayout:
     lay.setSpacing(2)
     for btn in buttons:
         if fill:
-            btn.setMinimumWidth(1)
+            if type(btn) is not SegmentButton:
+                btn.setMinimumWidth(1)  # these size by the row; a plain segment keeps room for its bold text
             btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             lay.addWidget(btn, 1)
         else:
@@ -815,10 +835,28 @@ def form_label(text: str, width: int = FORM_LABEL_WIDTH) -> QLabel:
     return label
 
 
+def name_controls(label: str, item):
+    """Give a row's unnamed controls its label as their screen-reader name; segments get "Label: Their text"."""
+    if isinstance(item, QLayout):
+        for i in range(item.count()):
+            child = item.itemAt(i)
+            name_controls(label, child.widget() or child.layout())
+    elif isinstance(item, SegmentButton):
+        if not item.accessibleName():
+            item.setAccessibleName(f"{label}: {item.text()}")
+    elif isinstance(item, (QAbstractSlider, QAbstractSpinBox, QComboBox, QAbstractButton)):
+        if not item.accessibleName() and not (isinstance(item, QAbstractButton) and item.text().strip()):
+            item.setAccessibleName(label)
+    elif isinstance(item, QWidget) and item.layout() is not None:
+        name_controls(label, item.layout())
+
+
 def control_row(label: str, widget, label_width: int = FORM_LABEL_WIDTH,
                 stretch: bool = False) -> QHBoxLayout:
     """Settings row: dim label, then the control starting at a shared column so label and value sit side by side."""
     stretch = stretch or isinstance(widget, Switch)  # a switch sits at the row's end
+    if label:
+        name_controls(label, widget)
     lay = QHBoxLayout()
     lay.setContentsMargins(0, 0, 0, 0)
     lay.setSpacing(10)

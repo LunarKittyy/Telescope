@@ -571,6 +571,25 @@ def test_automatic_level_doesnt_turn_up_the_room_while_nobody_speaks():
     assert w._auto_db <= held + 0.5
 
 
+def test_startup_silence_does_not_make_room_noise_count_as_speech():
+    w = _auto_worker()
+    _shape_all(w, np.zeros(4 * 480))
+    room = np.random.default_rng(7).normal(0, audio.FULL_SCALE * 10 ** (-45 / 20), audio.RATE * 5)
+    _shape_all(w, room)
+    assert w._auto_db == 0.0
+
+
+def test_moving_to_usb_lowers_the_buffer_target_without_discarding_audio():
+    jb = JitterBuffer(target_ms=40, adaptive=False)
+    jb.push(_pcm(np.full(60 * audio.RATE // 1000, 1000)))
+    before = jb.buffered_ms()
+    jb.set_target_ms(20)
+    assert jb.target_ms() == 20 and jb.buffered_ms() == before
+    assert np.frombuffer(jb.pop(audio.CHUNK), np.int16).max() > 0
+    jb.set_target_ms(40)
+    assert jb.target_ms() == 40
+
+
 def test_automatic_level_changes_gain_without_clicks():
     w = _auto_worker()
     out = _shape_all(w, _talk(3, -10))

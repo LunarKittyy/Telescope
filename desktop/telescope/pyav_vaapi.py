@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 MIN_VERSION = (14, 0)  # PyAV's hardware decoding came in 14
+BUILD_CYTHON = "3.3.0"  # the Cython PyAV 18.1.0 last built with here; a newer one can stop an older PyAV compiling
 SYSTEM, BUILD = "system", "build"
 _PROBE_TIMEOUT = 20
 _PKG_CONFIG_LIBS = ("libavcodec", "libavdevice", "libavfilter", "libavformat", "libavutil", "libswresample", "libswscale")
@@ -181,8 +182,13 @@ def missing_tools() -> list:
         missing.append("a C compiler")
     if not shutil.which("pkg-config"):
         missing.append("pkg-config")
-    elif subprocess.run(["pkg-config", "--exists", *_PKG_CONFIG_LIBS], capture_output=True).returncode != 0:
-        missing.append("FFmpeg's development files")
+    else:
+        try:
+            found = subprocess.run(["pkg-config", "--exists", *_PKG_CONFIG_LIBS], capture_output=True).returncode == 0
+        except OSError:  # an error here would end Telescope, as it runs inside a Qt slot
+            found = False
+        if not found:
+            missing.append("FFmpeg's development files")
     include = sysconfig.get_paths().get("include", "")
     if not (include and Path(include, "Python.h").is_file()):
         missing.append("Python's development files")
@@ -224,9 +230,12 @@ def build(version: str, on_line: Callable[[str], None]) -> tuple:
     # No cache: a wheel built earlier may be linked to an FFmpeg the system has since replaced
     cmd = [sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "--no-cache-dir", "--no-deps",
            "--no-binary", "av", "--target", str(work), f"av=={version}"]
+    pins = root() / ".build-constraints.txt"
+    pins.write_text(f"cython=={BUILD_CYTHON}\n")
+    env = {**os.environ, "PIP_CONSTRAINT": str(pins)}  # pip applies it inside the build's own environment too
     tail = []
     try:
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env)
         for line in proc.stdout:
             line = line.strip()
             if line:

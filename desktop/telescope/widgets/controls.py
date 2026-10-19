@@ -1,13 +1,15 @@
 """The card pieces of the redesign: line icons, value and dropdown tiles, switch tiles, option cards, tags, pills and
 the pan pad. Sizes are design pixels (pass through ui_px), colours come from theme and the card's hue."""
 
-from PyQt6.QtCore import QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen
+import math
+
+from PyQt6.QtCore import QEvent, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QColor, QFont, QFontMetrics, QFontMetricsF, QPainter, QPen
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 from telescope import theme
 from telescope.widgets.common import (
-    NoScrollComboBox, SegmentButton, Switch, cap_baseline, card_hue, stacked_baselines, ui_px,
+    NoScrollComboBox, SegmentButton, Switch, cap_baseline, card_hue, paint_focus, stacked_baselines, ui_px,
 )
 from telescope.widgets.line_icons import line_icon
 
@@ -60,6 +62,7 @@ class ChoiceTile(NoScrollComboBox):
     def __init__(self, caption: str, style: str = "value", parent=None):
         super().__init__(parent)
         self._caption = caption
+        self.setAccessibleName(caption)
         self._style = style
         self.setObjectName("choice_tile" if style == "value" else "choice_field")
         self.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -101,6 +104,7 @@ class ChoiceTile(NoScrollComboBox):
         _two_lines(p, QRect(pad, 0, width, self.height()), top_font, top_ink, top_text, low_font, low_ink, low_text)
         if self._style == "field":
             line_icon("chevron", theme.TEXT_DIM).paint(p, QRect(self.width() - pad - 14, (self.height() - 14) // 2, 14, 14))
+        paint_focus(p, self)
         p.end()
 
 
@@ -125,6 +129,7 @@ class ChipCombo(NoScrollComboBox):
         p.setPen(QColor(theme.TEXT))
         p.drawText(QPointF(10, cap_baseline(p.fontMetrics(), 0, self.height())), self.currentText())
         line_icon("chevron", theme.TEXT_DIM).paint(p, QRect(self.width() - 22, (self.height() - 12) // 2, 12, 12))
+        paint_focus(p, self)
         p.end()
 
 
@@ -137,6 +142,7 @@ class OptionCard(SegmentButton):
     def __init__(self, text: str, note: str, icon_name: str = "", parent=None):
         super().__init__(text, parent)
         self._note = note
+        self.setAccessibleDescription(note)
         self._icon = icon_name
         self.setObjectName("option_card")
         self.setFixedHeight(ui_px(56))
@@ -176,6 +182,7 @@ class OptionCard(SegmentButton):
             x += 21
         p.setPen(ink)
         p.drawText(QPointF(x, name_base), fm.elidedText(self.text(), Qt.TextElideMode.ElideRight, self.width() - x - pad))
+        paint_focus(p, self)
         p.end()
 
 
@@ -232,12 +239,27 @@ class Tag(QWidget):
     def __init__(self, text: str, kind: str = "warn", parent=None):
         super().__init__(parent)
         self._text = text
+        self.setAccessibleName(text)
         self._color = QColor(theme.WARN if kind == "warn" else theme.OK)
-        self._font = _font(self.font(), 0.88, QFont.Weight.DemiBold)
-        self.setFixedSize(QFontMetrics(self._font).horizontalAdvance(text) + 16, ui_px(20))
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
     def text(self) -> str:
         return self._text
+
+    def _tag_font(self) -> QFont:
+        self.ensurePolished()  # the theme's font only arrives with the stylesheet, after __init__
+        return _font(self.font(), 0.88, QFont.Weight.DemiBold)
+
+    def sizeHint(self) -> QSize:
+        return QSize(math.ceil(QFontMetricsF(self._tag_font()).horizontalAdvance(self._text)) + 16, ui_px(20))
+
+    def minimumSizeHint(self) -> QSize:
+        return self.sizeHint()
+
+    def changeEvent(self, event):
+        if event.type() == QEvent.Type.FontChange:
+            self.updateGeometry()
+        super().changeEvent(event)
 
     def paintEvent(self, _event):
         p = QPainter(self)
@@ -245,9 +267,10 @@ class Tag(QWidget):
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(_alpha(self._color.name(), 0.14))
         p.drawRoundedRect(QRectF(self.rect()), self.height() / 2, self.height() / 2)
-        p.setFont(self._font)
+        p.setFont(self._tag_font())
         p.setPen(self._color.lighter(108))
-        p.drawText(QPointF(8, cap_baseline(p.fontMetrics(), 0, self.height())), self._text)
+        left = (self.width() - QFontMetricsF(p.font()).horizontalAdvance(self._text)) / 2
+        p.drawText(QPointF(left, cap_baseline(p.fontMetrics(), 0, self.height())), self._text)
         p.end()
 
 
@@ -266,11 +289,30 @@ class PanPad(QWidget):
         self.setMinimumWidth(ui_px(96))
         self.setCursor(Qt.CursorShape.OpenHandCursor)
         self.setToolTip("Drag to move the view. Double-click to centre it.")
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setAccessibleName("Pan")
         self._x = self._y = 0.0
 
     def set_position(self, x: float, y: float):
         self._x, self._y = max(-1.0, min(1.0, x)), max(-1.0, min(1.0, y))
+        self.setAccessibleDescription(
+            f"Horizontal {self._x:.0%}, vertical {self._y:.0%}. Arrow keys move the view; Home centres it.")
         self.update()
+
+    def keyPressEvent(self, event):
+        steps = {Qt.Key.Key_Left: (-1, 0), Qt.Key.Key_Right: (1, 0),
+                 Qt.Key.Key_Up: (0, -1), Qt.Key.Key_Down: (0, 1)}
+        if event.key() == Qt.Key.Key_Home:
+            self.set_position(0, 0)
+        elif event.key() in steps:
+            dx, dy = steps[event.key()]
+            step = 0.1 if event.modifiers() & Qt.KeyboardModifier.ShiftModifier else 0.01
+            self.set_position(self._x + dx * step, self._y + dy * step)
+        else:
+            super().keyPressEvent(event)
+            return
+        self.moved.emit(self._x, self._y)
+        event.accept()
 
     def position(self) -> tuple:
         return self._x, self._y
@@ -287,6 +329,7 @@ class PanPad(QWidget):
 
     def mousePressEvent(self, event):
         if self.isEnabled() and event.button() == Qt.MouseButton.LeftButton:
+            self.setFocus(Qt.FocusReason.MouseFocusReason)
             self.setCursor(Qt.CursorShape.ClosedHandCursor)
             self._from_point(event.position())
 
@@ -317,6 +360,7 @@ class PanPad(QWidget):
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(QColor(card_hue(self) if self.isEnabled() else theme.TEXT_DISABLED))
         p.drawEllipse(QPointF(x, y), 7, 7)
+        paint_focus(p, self)
         p.end()
 
 
@@ -327,7 +371,7 @@ class RoundIcon(QLabel):
 
     def __init__(self, size: int = 34, parent=None):
         super().__init__(parent)
-        self._size = ui_px(size)
+        self._size = ui_px(size) | 1  # odd, so it has a centre pixel column for the icon's stroke
         self._name = ""
         self.setFixedSize(self._size, self._size)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -348,7 +392,7 @@ class RoundIcon(QLabel):
         p.setBrush(_alpha(hue, 0.14))
         p.drawEllipse(QRectF(self.rect()))
         if self._name:
-            px = self._size // 2
+            px = self._size // 2 | 1  # odd like the chip, so the icon's middle stroke lands on the chip's centre
             line_icon(self._name, hue).paint(p, QRect((self.width() - px) // 2, (self.height() - px) // 2, px, px))
         p.end()
 
@@ -399,6 +443,8 @@ def setting_row(title: str, sub: str = "", control=None, below=None) -> tuple:
     texts.addStretch(1)
     top.addLayout(texts, 1)
     if isinstance(control, QWidget):
+        if not control.accessibleName():
+            control.setAccessibleName(title)
         top.addWidget(control, 0, Qt.AlignmentFlag.AlignVCenter)
     elif control is not None:
         top.addLayout(control)

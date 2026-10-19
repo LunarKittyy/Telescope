@@ -1442,5 +1442,27 @@ def test_udp_is_used_on_wifi_only_when_switched_on_and_not_on_dynamic(plugin_env
     host.configs["stream_output"] = {"format": "mjpeg"}
     assert plugin.adopt_stream_route(WIFI, "id-a").endswith("/v1/video")  # Heavy is never UDP
 
+
+def test_udp_switch_reconnects_a_running_wifi_stream(plugin_env, monkeypatch):
+    plugin, host, _panel = plugin_env
+    monkeypatch.setattr(connection_module.h264_reader, "available", lambda: True)
+    host.configs["stream_output"] = {"format": "h264", "bitrate_mbps": 0}
+    plugin._stream_route = WIFI
+    plugin.on_stream_start("https://phone/v1/video.h264", None)
+    plugin._on_udp(True)
+    assert host.reconnects == 1
+
+
+def test_dynamic_replaces_a_running_udp_stream_with_tcp(plugin_env, monkeypatch):
+    plugin, host, _panel = plugin_env
+    monkeypatch.setattr(connection_module.h264_reader, "available", lambda: True)
+    host.configs["stream_output"] = {"format": "h264", "bitrate_mbps": 0}
+    plugin._udp = True
+    plugin._stream_route = WIFI
+    plugin.on_stream_start("https://phone/v1/video.udp", None)
+    host.configs["stream_output"]["bitrate_mbps"] = -1
+    plugin._bus.stream_transport_changed.emit()
+    assert host.reconnects == 1
+
     plugin.set_config({**plugin.get_config(), "udp": False})
     assert not plugin._udp_cb.isChecked()

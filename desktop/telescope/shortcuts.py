@@ -297,10 +297,11 @@ def button_action(id: str, label: str, group: str, button: QAbstractButton,
 
 def slider_action(id: str, label: str, group: str, slider: QAbstractSlider, scale=1.0, suffix: str = "",
                   decimals: int = 0, step=None, readout=None, signed: bool = False,
-                  widgets: tuple = ()) -> ShortcutAction:
+                  widgets: tuple = (), ready_widget: Optional[QWidget] = None) -> ShortcutAction:
     """A key that moves slider: up or down by an amount, to a value, or back to its default. Amounts are in what
     the control shows: the slider's own steps times scale (scale can be a callable, for one that changes).
-    readout() (or a QLabel) gives the text to show after; step is the amount a new binding starts with."""
+    readout() (or a QLabel) gives the text to show after; step is the amount a new binding starts with.
+    ready_widget can be the visible replacement for a hidden slider; that replacement gates the action."""
     def sc() -> float:
         return float(scale() if callable(scale) else scale) or 1.0
 
@@ -330,7 +331,11 @@ def slider_action(id: str, label: str, group: str, slider: QAbstractSlider, scal
         return f"{label}: {_fmt(slider.value() * sc(), decimals, suffix, signed)}"
 
     def run(p):
-        if not control_ready(slider):
+        try:
+            ready = control_ready(ready_widget if ready_widget is not None else slider) and slider.isEnabled()
+        except RuntimeError:  # a replaced control can disappear before its shortcut is removed
+            ready = False
+        if not ready:
             return None
         op, cur = p.get("op", "up"), slider.value()
         if op == "set":
@@ -405,7 +410,8 @@ def log_slider_action(id: str, label: str, group: str, row, display_scale: float
 def choice_action(id: str, label: str, group: str, combo: Optional[QComboBox] = None, buttons=None,
                   wrap: bool = True) -> ShortcutAction:
     """A key that picks in a drop-down (combo) or a row of buttons only one of which is on (buttons: a list, or a
-    callable for one that changes, like the lens buttons): the next one, the previous one, or a named one."""
+    callable for one that changes, like the lens buttons): the next one, the previous one, or a named one.
+    A button's shortcutValue property preserves saved choices when its displayed text changes."""
     def options() -> list:
         """[(text, enabled)] in order."""
         if combo is not None:
@@ -415,7 +421,10 @@ def choice_action(id: str, label: str, group: str, combo: Optional[QComboBox] = 
                 item = model.index(i, 0)
                 out.append((combo.itemText(i), bool(model.flags(item) & Qt.ItemFlag.ItemIsEnabled)))
             return out
-        return [(b.text().strip(), b.isEnabled()) for b in current_buttons()]
+        return [(button_value(b), b.isEnabled()) for b in current_buttons()]
+
+    def button_value(button) -> str:
+        return button.property("shortcutValue") or button.text().strip()
 
     def current_buttons() -> list:
         return list(buttons() if callable(buttons) else buttons or [])
@@ -448,7 +457,8 @@ def choice_action(id: str, label: str, group: str, combo: Optional[QComboBox] = 
             return None
         op, cur = p.get("op", "next"), current_index()
         if op == "set":
-            target = next((i for i, (text, on) in enumerate(opts) if text == p.get("option") and on), None)
+            target = next((i for i, (text, on) in enumerate(opts) if on and (
+                text == p.get("option") or (combo is None and current_buttons()[i].text().strip() == p.get("option")))), None)
             if target is None:
                 return None
         else:
@@ -468,6 +478,8 @@ def choice_action(id: str, label: str, group: str, combo: Optional[QComboBox] = 
         return f"{label}: {opts[target][0]}"
 
     def option_choices():
+        if combo is None:
+            return [(button_value(b), b.text().strip()) for b in current_buttons()]
         return [(text, text) for text, _ in options()]
 
     params = (

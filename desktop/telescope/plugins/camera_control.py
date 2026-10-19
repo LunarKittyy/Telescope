@@ -250,6 +250,7 @@ class CameraControlPlugin(TelescopePlugin):
         add_section_heading(lay, "Focus", "focus")
         self._rb_focus_auto   = SegmentButton("Auto")
         self._rb_focus_point  = SegmentButton("Tap a point")
+        self._rb_focus_point.setProperty("shortcutValue", "Point")
         self._rb_focus_point.setEnabled(False)
         self._rb_focus_manual = SegmentButton("Manual")
         self._focus_grp = QButtonGroup(card)
@@ -543,12 +544,12 @@ class CameraControlPlugin(TelescopePlugin):
         missing   = [l for l, ok in supported if not ok]
 
         full = all(cam.get(k) for k in ("supportsManualSensor", "supportsManualWB", "supportsManualFocus"))
-        self._cam_info_lbl.setText("Full manual control" if full else "")
+        self._cam_info_lbl.setText("Full manual control" if full else "Limited manual control")
         self._cam_info_lbl.setToolTip("\n".join(
             ([f"Camera level: {hw_level}"] if hw_level else [])
             + (["Supports: " + ", ".join(have)] if have else [])
             + (["Not supported: " + ", ".join(missing)] if missing else [])))
-        self._cam_info_lbl.setVisible(full)
+        self._cam_info_lbl.setVisible(True)
 
     def _update_camera_caps(self, supports_manual_sensor: bool, supports_manual_wb: bool,
                             supports_manual_focus: bool = False, min_focus_distance: float = 10.0,

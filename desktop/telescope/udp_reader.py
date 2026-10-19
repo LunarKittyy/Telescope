@@ -74,7 +74,7 @@ class Seal:
 
 
 class _Frame:
-    __slots__ = ("count", "parts", "key", "noticed", "asked", "asks")
+    __slots__ = ("count", "parts", "key", "noticed", "asked", "asks", "progress")
 
     def __init__(self):
         self.count = 0  # 0 until a piece of it arrived
@@ -83,6 +83,7 @@ class _Frame:
         self.noticed = None  # when it was first seen holding up newer frames
         self.asked = float("-inf")
         self.asks = 0
+        self.progress = 0
 
     def complete(self) -> bool:
         return self.count > 0 and len(self.parts) == self.count
@@ -109,7 +110,13 @@ class Reassembler:
         f = self.frames.get(seq)
         if f is None:
             if len(self.frames) >= MAX_FRAMES:
-                return
+                if not flags & FLAG_KEY:
+                    return
+                # A fresh keyframe is the way out of a backlog, so make room for it.
+                self._forget_before(seq)
+                if len(self.frames) >= MAX_FRAMES:
+                    return
+                self.next = None
             f = self.frames[seq] = _Frame()
         f.count, f.key = count, bool(flags & FLAG_KEY)
         f.parts[idx] = plain[HEADER.size:]
@@ -137,7 +144,24 @@ class Reassembler:
     def chase(self, now: float) -> tuple:
         """([(frame, missing indexes, [] for all of it)] to ask the phone for, whether to ask for a keyframe)."""
         if self.next is None:
-            return [], self.newest >= 0  # waiting for a keyframe
+            keys = [s for s, f in self.frames.items() if f.key]
+            if not keys:
+                return [], self.newest >= 0
+            # Repair the newest partial keyframe instead of repeatedly replacing it with another large burst.
+            seq = max(keys)
+            f = self.frames[seq]
+            if f.complete():
+                return [], False
+            if f.noticed is None or f.progress != len(f.parts):
+                f.noticed = now
+                f.progress = len(f.parts)
+            if now - f.noticed >= GIVE_UP_S:
+                self._forget_before(seq + 1)
+                return [], True
+            if now - f.noticed >= NACK_AFTER_S and now - f.asked >= NACK_AGAIN_S:
+                f.asked = now
+                return [(seq, f.missing())], False
+            return [], False
         nacks = []
         for seq in range(self.next, self.newest + 1):
             f = self.frames.get(seq)

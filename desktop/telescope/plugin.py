@@ -384,6 +384,8 @@ class EventBus(QObject):
     stream_stopped         = pyqtSignal()
     stream_start_failed    = pyqtSignal()
     """A Start ended without a stream (the phone couldn't be reached or woken); no stream_started follows."""
+    stream_transport_changed = pyqtSignal()
+    """The shown stream's settings changed which video transport it can use; Connection re-evaluates its route."""
     stream_connected       = pyqtSignal(str)
     """A stream's frames are coming in (its source id; "" for no phone picked), the first time or back after a drop.
     Every stream, shown or not, and again for the one the panels move onto: check focused_source_id() for the shown one."""

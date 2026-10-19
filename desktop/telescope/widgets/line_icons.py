@@ -34,6 +34,7 @@ LINE_ICONS = {
     "thermometer": '<path d="M6.3 2.8a1.7 1.7 0 0 1 3.4 0v5.9a3.1 3.1 0 1 1-3.4 0z"/><path d="M8 6.2v4.3"/>',
     "chevron": '<path d="M4.5 6.5l3.5 3.5 3.5-3.5"/>',
     "plus": '<path d="M8 3v10M3 8h10"/>',
+    "x": '<path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/>',
     "reset": '<path d="M3 8a5 5 0 1 0 1.6-3.7M3 2v3h3"/>',
     "bookmark": '<path d="M4 2h8v12l-4-3-4 3z"/>',
     "sliders": '<path d="M2 4.5h7M12 4.5h2M2 11.5h2M7 11.5h7"/><circle cx="10.5" cy="4.5" r="1.6"/><circle cx="5.5" cy="11.5" r="1.6"/>',

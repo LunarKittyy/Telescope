@@ -72,19 +72,28 @@ class MicLoop(
     fun run(first: MicSource) {
         var source: MicSource? = first
         var retryMs = FIRST_RETRY_MS
-        while (active.get()) {
-            if (source == null) {
-                sleepMs(retryMs)
-                retryMs = minOf(retryMs * 2, MAX_RETRY_MS)
-                if (!active.get()) break
-                source = open() ?: continue
-                reopens++
+        try {
+            while (active.get()) {
+                if (source == null) {
+                    sleepMs(retryMs)
+                    retryMs = minOf(retryMs * 2, MAX_RETRY_MS)
+                    if (!active.get()) break
+                    source = open() ?: continue
+                    reopens++
+                }
+                if (pump(source)) retryMs = FIRST_RETRY_MS  // it did record for a while: the next failure retries quickly
+                current = null
+                runCatching { source.stop() }
+                runCatching { source.release() }
+                source = null
             }
-            if (pump(source)) retryMs = FIRST_RETRY_MS  // it did record for a while: the next failure retries quickly
+        } finally {
+            active.set(false)
             current = null
-            runCatching { source.stop() }
-            runCatching { source.release() }
-            source = null
+            source?.let { s ->
+                runCatching { s.stop() }
+                runCatching { s.release() }
+            }
         }
     }
 

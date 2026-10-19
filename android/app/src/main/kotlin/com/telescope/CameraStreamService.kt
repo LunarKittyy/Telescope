@@ -657,7 +657,6 @@ class CameraStreamService : Service() {
             return START_NOT_STICKY
         }
         acquireWakeLock()
-        if (!localOnly) acquireWifiLock()
 
         // A saved lens that's gone (unplugged, renumbered by an update) or a size it doesn't list would fail every start.
         val found = allCameras.find { it.id == cameraId }
@@ -727,7 +726,8 @@ class CameraStreamService : Service() {
     }
 
     private fun startServer() {
-        server = MjpegServer(
+        lateinit var serving: MjpegServer
+        serving = MjpegServer(
             port           = DEFAULT_PORT,
             getCamerasJson = ::buildCamerasJson,
             handleControl  = ::handleControlCommand,
@@ -739,7 +739,14 @@ class CameraStreamService : Service() {
             startAudio     = ::startAudio,
             stopAudio      = { audio?.stop() },
             socketFactory  = PhoneTls.identity(this).serverSocketFactory(),
-        ).also { it.start() }
+            onWifiViewersChanged = { watching -> mainHandler.post {
+                if (server === serving) {
+                    if (watching) acquireWifiLock() else releaseWifiLocks()
+                }
+            } },
+        )
+        server = serving
+        serving.start()
         startIdleWatchdog()
     }
 
@@ -1047,8 +1054,7 @@ class CameraStreamService : Service() {
         server?.stop()
         audio?.stop()
         wakeLock?.let { if (it.isHeld) it.release() }
-        wifiLocks.forEach { runCatching { if (it.isHeld) it.release() } }
-        wifiLocks.clear()
+        releaseWifiLocks()
         stopWatchingThermalStatus()
         controller = null; server = null
         setState(StreamState.Idle, op)
@@ -1175,6 +1181,7 @@ class CameraStreamService : Service() {
     // on and the app in front; high performance covers the rest up to Android 13 (from 14 it's low latency too)
     @Suppress("DEPRECATION")
     private fun acquireWifiLock() {
+        if (wifiLocks.isNotEmpty()) return
         val wm = applicationContext.getSystemService(WIFI_SERVICE) as? android.net.wifi.WifiManager ?: return
         val modes = listOfNotNull(
             android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF,
@@ -1187,5 +1194,10 @@ class CameraStreamService : Service() {
                 recordControlError("wifiLock", e)
             }
         }
+    }
+
+    private fun releaseWifiLocks() {
+        wifiLocks.forEach { runCatching { if (it.isHeld) it.release() } }
+        wifiLocks.clear()
     }
 }

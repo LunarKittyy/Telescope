@@ -113,6 +113,36 @@ def test_a_frame_that_never_comes_freezes_until_a_keyframe():
     assert r.chase(1000.0) == ([], False)
 
 
+def test_a_partial_first_keyframe_is_repaired_without_asking_for_another():
+    r = Reassembler()
+    pieces = _fragments(0, b"keyframe" * 100, True, 200)
+    for piece in pieces[:-1]:
+        r.add(piece)
+    assert r.chase(1.0) == ([], False)
+    assert r.chase(1.1) == ([(0, [len(pieces) - 1])], False)
+    r.add(pieces[-1])
+    assert r.take() == (b"keyframe" * 100, 1)
+
+
+def test_a_keyframe_can_replace_a_full_backlog():
+    r = Reassembler()
+    for seq in range(udp_reader.MAX_FRAMES):
+        r.add(_fragments(seq, b"p", False, 10)[0])
+    r.add(_fragments(udp_reader.MAX_FRAMES, b"key", True, 10)[0])
+    assert r.take() is not None
+    assert len(r.frames) == 0
+
+
+def test_a_large_initial_keyframe_is_not_discarded_while_it_is_still_arriving():
+    r = Reassembler()
+    pieces = _fragments(0, b"K" * 80, True, 10)
+    for i, piece in enumerate(pieces):
+        r.add(piece)
+        _nacks, want_key = r.chase(i * 0.1)
+        assert not want_key
+    assert r.take() == (b"K" * 80, 1)
+
+
 class _Phone(http.server.BaseHTTPRequestHandler):
     """/v1/video.udp: hands out a key and sends frames over UDP, losing some on the way; /v1/video.h264 over TCP."""
     frames: list = []
