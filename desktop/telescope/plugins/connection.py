@@ -763,8 +763,8 @@ class ConnectionPlugin(TelescopePlugin):
         self._bus.phones_changed.emit(len(self._phones))
 
     def _show_route_icon(self, kind: Optional[str]):
-        """The link block's icon: a cable, Wi-Fi, or the plain link while there's no route yet."""
-        self._route_icon.set_icon({"usb": "usb", "wifi": "wifi"}.get(kind or "", "link"))
+        """The link block's icon: a cable, Wi-Fi, or a cross while there's no route (the card's own icon is the link)."""
+        self._route_icon.set_icon({"usb": "usb", "wifi": "wifi"}.get(kind or "", "x"))
 
     def _render(self):
         """Card rows from the current phone + latest resolution."""
