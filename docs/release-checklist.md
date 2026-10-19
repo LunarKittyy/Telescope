@@ -66,7 +66,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 - [ ] Tailscale on both (no shared LAN): pairing works over `100.64/10`.
 - [ ] VPN blocking local-network traffic: pairing fails (phone dialog lists each address). USB pairing works.
 - [ ] Desktop with Docker/libvirt/VirtualBox installed: the QR code does not advertise `docker0`/`virbr0`/`vboxnet0` addresses.
-- [ ] Phone on tailnet desktop is not on: after Wi-Fi pairing, **Using** shows the phone's Wi-Fi address (not `100.64/10`), stream works.
+- [ ] Phone on tailnet desktop is not on: after Wi-Fi pairing, the line under the Connection status shows the phone's Wi-Fi address (not `100.64/10`), stream works.
 - [ ] Removing the computer on the phone revokes access (requests get 401; desktop shows Needs pairing again).
 - [ ] Automatic route: plugged in uses USB, unplugged uses Wi-Fi. Plugged in with the app closed, or with a different phone on the cable, uses Wi-Fi and the card says why.
 - [ ] Plugging in mid-stream over Wi-Fi (Connect via Automatic) moves the stream to USB a few seconds later without a gap in the video. The mic moves with it.
@@ -99,7 +99,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 - [ ] Config persists across app restart, including per-phone settings after switching. A config from the previous version keeps global settings and asks to pair again.
 - [ ] Corrupted `telescope_config.json` backs up (`.invalid-<timestamp>`) and app starts with defaults.
 - [ ] Tray minimize/restore and single-instance behavior both work.
-- [ ] Start streaming when the phone is ready: opening the phone app (or plugging it in) starts the stream; Stop keeps it stopped until the phone leaves and comes back; closing the window keeps it in the tray.
+- [ ] Start set to "When the phone is ready": opening the phone app (or plugging it in) starts the stream; Stop keeps it stopped until the phone leaves and comes back; closing the window keeps it in the tray.
 - [ ] Windows, Stop set to "when no app uses the camera, even if you started it": start a stream by hand before any app has opened the camera. It stops after the wait.
 - [ ] Camera off: in a call using both Telescope devices, press the camera button under the preview. The call shows the wait screen and still hears the mic, the phone's camera light goes out, and the tray icon loses its red dot. Press it again and the picture comes back.
 - [ ] Mic only from the start: with the mic on, press the camera button, then **Start mic only**. The phone opens no camera, and the call hears the mic.
@@ -107,7 +107,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 - [ ] Camera off on a phone in the background (screen off, **Wait for my computer** on): turn it off and on again. It comes back; if another app holds the camera, it stays off with a banner saying so.
 - [ ] Open Telescope when I sign in (Linux and Windows): after signing out and in, Telescope is in the tray; unticking removes the entry.
 - [ ] Close the window to the tray with a phone waiting and Automatic streaming off: the phone stops getting checked (no new `/v1/ping` in its logs), and opening the window checks it straight away.
-- [ ] Stream only while an app is using the camera (Linux and Windows): opening the camera in OBS or a call starts the stream, closing it stops 15 s later. Ticking it unticks Start streaming when the phone is ready, and the other way round.
+- [ ] Start set to "When an app opens the camera" and Stop to "When no app uses the camera, if it started the stream" (Linux and Windows): opening the camera in OBS or a call starts the stream, closing it stops it 15 s later.
 - [ ] Browser camera, iPhone in Safari: scan the code, tap through the certificate warning, Start. Video and mic reach the virtual camera and mic, the screen stays on, and after locking the phone and coming back to the page the stream picks up again. Flip camera flips lenses.
 - [ ] Browser camera, Black screen (portrait and landscape): the page goes black and, on Android, full screen without the status and nav bars. One tap shows the hint and fades again, a double tap brings the page back, and the stream keeps going the whole time.
 - [ ] Browser camera, Black screen on iPhone: a black video opens in the system player and hides the status bar, the stream keeps going behind it, and closing the player brings the page back.
@@ -120,7 +120,8 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 - [ ] UDP, mic off: the phone says Streaming. Remove the computer on the phone: its video stops within a second. A lost desktop releases its UDP session within 5 seconds.
 - [ ] UDP to Dynamic and the UDP switch both reconnect onto the right transport; changing to Heavy leaves no UDP session behind.
 - [ ] Automatic routing, mic only: plugging in USB moves the microphone too. Rapid mic off/on leaves no recording held.
-- [ ] Hardware decoding: a driver failure resumes in software without missing setup headers; Copy diagnostics reflects the decoder still running if the preference changes mid-stream.
+- [ ] Linux, AMD or Intel card: **Set up VA-API…** in Advanced uses the distro's PyAV or builds one, and after **Restart now** Hardware acceleration says it found VA-API.
+- [ ] Hardware acceleration: a driver failure resumes in software without missing setup headers; Copy diagnostics reflects the decoder still running if the preference changes mid-stream.
 - [ ] Auto level: beginning in silence or recovering from a gap does not turn up steady room noise.
 - [ ] Tab through the tiles and switches, use rotation/pan shortcuts saved before this release, pan with arrow keys and Home, and inspect labels with a screen reader.
 - [ ] USB-only viewers hold no Wi-Fi performance lock.

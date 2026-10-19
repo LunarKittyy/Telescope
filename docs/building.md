@@ -27,7 +27,7 @@ cd android && ./gradlew installDev        # "Telescope (dev)", package com.teles
 cd desktop && python scripts/dev_desktop.py --keep
 ```
 
-The dev app has its own data, pairings and phone identity, and the real app can't update over it or the other way round. The dev desktop keeps its config and log in a profile folder in your temp dir instead of your real config, so it gets its own pairings and computer identity too. It runs alongside the real desktop, never writes the menu or sign-in entries, uses its own virtual mic ("Telescope Microphone (dev)"), aims USB pairing at the dev app, and **Install app** installs the dev APK once `assembleDev` or `installDev` has built it.
+The dev app has its own data, pairings and phone identity, and the real app can't update over it or the other way round. The dev desktop keeps its config and log in a profile folder in your temp dir instead of your real config, so it gets its own pairings and computer identity too. It runs alongside the real desktop, never writes the menu or sign-in entries, uses its own virtual mic ("Telescope Microphone (dev)"), aims USB pairing at the dev app, and **Install over USB** installs the dev APK once `assembleDev` or `installDev` has built it.
 
 Without `--keep` the profile is fresh on every run and deleted when the app quits, so you pair again each time. With it, the profile stays (in `telescope-dev-profile-<user>` under your temp dir) until you run `python scripts/dev_desktop.py --reset`.
 

@@ -10,7 +10,7 @@ The first two parts of this page are for everyone. The last one is for people wh
 
 ## Switching plugins on and off
 
-Click the settings button next to **Start streaming** and pick **Plugins…**. Every plugin is listed there with a sentence about what it does. Untick one to switch it off. Telescope asks first and tells you what will be missing without it.
+Click the settings button next to **Start streaming** and pick **Plugins…**. Every plugin is listed there with a sentence about what it does and a switch. Telescope asks before switching one off and tells you what will be missing without it.
 
 Changes apply the next time Telescope starts. If there's something to apply the dialog shows a **Restart now** button (if you're streaming, the stream stops for the few seconds the restart takes).
 
@@ -26,7 +26,7 @@ Plugins people share come as a `.zip` file. To install one:
 
 1. Open **Plugins…** from the settings menu.
 2. Click **Install** under **Added** and pick the `.zip` (or drag the file onto the Plugins window).
-3. Tick it under **Added** (new plugins start out switched off).
+3. Switch it on under **Added** (new plugins start out switched off).
 4. Click **Restart now**.
 
 Telescope warns you before you switch on a plugin you installed. A plugin is Python code that Telescope runs inside its own process, with no sandbox, so it can read and change your files, use the network and start other programs, the same as any program running under your user account. Only install plugins from a source you trust.
