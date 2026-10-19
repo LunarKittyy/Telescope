@@ -192,6 +192,7 @@ class Decoder:
         self._codec = None
         self._headers = {}
         self._header_tail = b""
+        self._hw_proven = False  # decoded a frame: from then on a bad packet is the stream's fault, not the card's
         if _hardware_requested():
             device = hardware_device()
             self._codec = _open_hw(device)
@@ -207,7 +208,9 @@ class Decoder:
         """(newest BGR frame the data completed or None, how many frames it completed)."""
         self._remember_headers(data)
         try:
-            return _decode_counted(self._codec, data, fail_on_invalid=self.hardware is not None)
+            frame, count = _decode_counted(self._codec, data, fail_on_invalid=self.hardware is not None and not self._hw_proven)
+            self._hw_proven = self._hw_proven or count > 0
+            return frame, count
         except Exception:
             if self.hardware is None:
                 raise
@@ -216,7 +219,7 @@ class Decoder:
             logger.warning("Hardware decoding (%s) failed; decoding in software from now on", self.hardware, exc_info=True)
             self.hardware = None
             self._codec = _software_codec()
-            # TCP only sends these when joining. Subsequent IDRs alone cannot initialize a fresh decoder.
+            # TCP sends SPS and PPS only when joining, and a fresh decoder can't start from a keyframe alone
             setup = b"".join(self._headers[k] for k in (7, 8) if k in self._headers)
             return _decode_counted(self._codec, setup + data)
 

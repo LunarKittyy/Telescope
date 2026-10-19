@@ -656,8 +656,7 @@ class PhoneSource(Source):
         if url is None:
             return False
         if session.worker is None:
-            # The resolver authenticated this route already. The audio worker opens it alongside the old audio;
-            # there is no video reader to wait for while the camera is off.
+            # Camera off: no video reader to wait for, the mic opens the already checked route next to the old one
             self._handover = (session.id, route, url)
             self.on_moved(url)
             return True

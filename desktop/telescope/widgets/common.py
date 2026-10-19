@@ -384,8 +384,8 @@ def cap_baseline(fm: QFontMetrics, top: float, height: float) -> int:
 
 
 def paint_focus(painter: QPainter, widget: QWidget):
-    """Keep keyboard focus visible on controls that paint over Qt's standard focus indicator."""
-    if widget.hasFocus():
+    """Keep keyboard focus visible on controls that paint over Qt's standard focus indicator; a click shows none."""
+    if widget.hasFocus() and widget.window().testAttribute(Qt.WidgetAttribute.WA_KeyboardFocusChange):
         painter.setPen(QPen(QColor(theme.ACCENT), 2))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRoundedRect(QRectF(widget.rect()).adjusted(2, 2, -2, -2), 7, 7)

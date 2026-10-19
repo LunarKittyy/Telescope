@@ -87,8 +87,7 @@ class FrameGate(width: Int, height: Int, output: Surface, private val onError: (
     private fun draw() {
         if (released) return
         try {
-            // Consume every frame, including ones dropped by the pacer. The producer's matrix also accounts for
-            // buffer crop and orientation, which can differ between camera implementations.
+            // Every frame, even ones the pacer drops, or the camera stalls; the matrix brings the camera's crop and orientation
             texture.updateTexImage()
             texture.getTransformMatrix(textureMatrix)
             val ts = texture.timestamp

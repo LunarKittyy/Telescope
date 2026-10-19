@@ -254,3 +254,28 @@ def test_a_hardware_decoder_refusing_the_stream_falls_back_too(hardware):
     frame, count = h264_reader.decode_counted(decoder, _encode([100]))
     assert frame is not None and count == 1
     assert decoder.hardware is None
+
+
+def test_a_bad_packet_after_hardware_decoded_frames_is_skipped_not_a_fallback(hardware):
+    class OneBadPacket:
+        options = {}
+        def __init__(self):
+            self.codec = h264_reader._software_codec()
+            self.bad = False
+        def parse(self, data):
+            return self.codec.parse(data)
+        def decode(self, packet):
+            if self.bad:
+                self.bad = False
+                raise av.error.InvalidDataError(22, "lost a reference frame")
+            return self.codec.decode(packet)
+
+    codec = OneBadPacket()
+    hardware.append(codec)
+    decoder = new_decoder()
+    packets = _packets([60 + i for i in range(5)])
+    assert decode_newest(decoder, packets[0]) is not None
+    codec.bad = True
+    decode_newest(decoder, packets[1])
+    assert decoder.hardware == "cuda" and not h264_reader._hw_failed
+    assert decode_newest(decoder, b"".join(packets[2:])) is not None

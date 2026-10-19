@@ -187,8 +187,7 @@ class Check:
     def handover(self) -> bool:
         from telescope.phones import ROUTE_AUTO
 
-        # Keep the real cable connected. Only discovery is hidden, so this exercises the same watcher and
-        # parallel reader used when a cable is plugged in, without disconnecting adb or restarting video.
+        # Only discovery hides the cable, so this runs the real plug-in path without dropping adb or video
         with patch.object(self.connection._resolver, "_adb_device_states", return_value=[]):
             self.use_route(ROUTE_AUTO)
             if not self.start():
