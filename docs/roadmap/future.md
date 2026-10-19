@@ -31,3 +31,13 @@ Big. It means a native DLL next to the Python app, registering it with admin rig
 UDP on Wi-Fi and Dynamic can't be on together right now, so it's one or the other. Dynamic decides from how long frames wait in the phone's send queue, which only shows a problem once the queue is already backing up. Over UDP the desktop asks for every lost piece again, and how often it has to ask is an earlier and cleaner sign the link is getting too thin. Dynamic could step the bitrate down on that and keep UDP's lower lag spikes at the same time.
 
 Medium to big. It needs the resend rate reported back to the phone, the step-down tuned on a real thin link, and `scripts/phone_check.py` would be the place to measure it.
+
+## Plugin updates
+
+Updating a plugin right now means removing it with **Remove** and installing the new `.zip`. Installing the new version should just replace the old one instead and keep its settings. The new version still starts out switched off like any other new plugin, and switching it on is always a step you do yourself.
+
+`plugin.json` could also get a `repo` link that the Plugins dialog shows next to the author. It's only a shorter way to look at the source and download a new version. Nothing gets pulled in the background. For plugins that publish their builds as GitHub Releases there could be an optional update check on top of that. It would only tell you a new version is out so you know to go get it.
+
+If someone really wants updates installed and switched on without asking, that could be a switch in Advanced. It should be a big red one surrounded by warnings, since it lets whoever controls the plugin's repo run new code on your computer every time they publish a release.
+
+Medium. Most of it is in the Plugins dialog and the install code. The update check has to stay quiet when GitHub is unreachable or rate limiting it.
