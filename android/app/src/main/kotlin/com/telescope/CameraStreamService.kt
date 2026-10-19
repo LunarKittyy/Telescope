@@ -1059,6 +1059,7 @@ class CameraStreamService : Service() {
         controller = null; server = null
         setState(StreamState.Idle, op)
         // Release session; endpoint stays bound if MainActivity holds a reference.
+        SessionEndpoint.holdAfterStop(this)
         SessionEndpoint.release(SessionEndpoint.OWNER_SERVICE)
         if (inForeground) { stopForeground(STOP_FOREGROUND_REMOVE); inForeground = false }
         if (covered) WaitingService.showStreaming(this, false)

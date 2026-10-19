@@ -57,6 +57,9 @@ object SessionEndpoint {
     const val OWNER_ACTIVITY = "activity"
     const val OWNER_SERVICE = "service"
     const val OWNER_WAITING = "waiting"  // WaitingService, while "Wait for my computer" is on
+    const val OWNER_STOPPED = "stopped"  // briefly after a stream stops, so its computer hears it stopped rather than dropped
+
+    private const val STOPPED_HOLD_MS = 6_000L  // the computer asks within a second or two of its stream ending
 
     private const val REBIND_MS = 3_000L  // while held, a server that isn't listening (port busy, say) is retried this often
 
@@ -64,6 +67,7 @@ object SessionEndpoint {
     private var server: SessionServer? = null
     private var announcer: LanAnnouncer? = null
     private var watchdog: java.util.Timer? = null
+    private var stoppedHold: java.util.TimerTask? = null
 
     @Synchronized
     fun acquire(context: Context, owner: String) {
@@ -77,6 +81,16 @@ object SessionEndpoint {
                 }, REBIND_MS, REBIND_MS)
             }
         }
+    }
+
+    // A stream just stopped: keep answering /v1/ping for a bit even if the app leaves the screen right away.
+    @Synchronized
+    fun holdAfterStop(context: Context) {
+        acquire(context, OWNER_STOPPED)
+        stoppedHold?.cancel()
+        stoppedHold = object : java.util.TimerTask() {
+            override fun run() = release(OWNER_STOPPED)
+        }.also { watchdog?.schedule(it, STOPPED_HOLD_MS) }
     }
 
     // The port was busy (the other Telescope build, an old socket after an update) or the accept loop died: try again
@@ -120,6 +134,7 @@ object SessionEndpoint {
     fun release(owner: String) {
         if (!owners.remove(owner)) return
         if (owners.isNotEmpty()) return
+        stoppedHold = null
         watchdog?.cancel()
         watchdog = null
         server?.stop()
