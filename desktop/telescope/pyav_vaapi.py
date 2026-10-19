@@ -181,8 +181,13 @@ def missing_tools() -> list:
         missing.append("a C compiler")
     if not shutil.which("pkg-config"):
         missing.append("pkg-config")
-    elif subprocess.run(["pkg-config", "--exists", *_PKG_CONFIG_LIBS], capture_output=True).returncode != 0:
-        missing.append("FFmpeg's development files")
+    else:
+        try:
+            found = subprocess.run(["pkg-config", "--exists", *_PKG_CONFIG_LIBS], capture_output=True).returncode == 0
+        except OSError:  # an error here would end Telescope, as it runs inside a Qt slot
+            found = False
+        if not found:
+            missing.append("FFmpeg's development files")
     include = sysconfig.get_paths().get("include", "")
     if not (include and Path(include, "Python.h").is_file()):
         missing.append("Python's development files")

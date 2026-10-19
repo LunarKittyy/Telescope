@@ -667,7 +667,7 @@ class ConnectionPlugin(TelescopePlugin):
 
         self._udp_cb = Switch("")
         self._udp_cb.setChecked(self._udp)
-        self._udp_cb.setToolTip("Tries UDP to smooth out lag spikes on busy Wi-Fi, falling back to TCP. Changing this reconnects the stream. Dynamic and Heavy use TCP.")
+        self._udp_cb.setToolTip("Can smooth out lag spikes on busy Wi-Fi. Dynamic and Heavy still use TCP.")
         self._udp_cb.setAccessibleName("UDP on Wi-Fi")
         self._udp_cb.toggled.connect(self._on_udp)
         self._udp_row = QWidget()

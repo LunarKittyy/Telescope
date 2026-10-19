@@ -113,6 +113,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         RecentRuns.recordCrashes(this)
         setContentView(R.layout.activity_main)
+        // The screen stays on while the app is open (the Wi-Fi locks only work with it on); the power button still turns it off
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         btnToggle         = findViewById<MaterialButton>(R.id.btnToggle)
         tvStatus          = findViewById(R.id.tvStatus)
@@ -734,8 +736,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateStatusText() {
         val streaming = service?.isStreaming == true
-        if (streaming) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val busy = isBusy()
         btnToggle.visibility = if (streaming || busy) View.VISIBLE else View.GONE
         btnToggle.isEnabled = streaming || (busy && service != null)
