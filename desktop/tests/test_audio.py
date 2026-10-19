@@ -810,7 +810,7 @@ def test_handover_interrupts_a_stalled_tls_read_instead_of_waiting_for_its_timeo
     worker._threads.append(reader)
     reader.start()
     try:
-        assert stalled.wait(2)
+        assert stalled.wait(10)  # only setup: a slow CI runner can take a while to connect
         worker.hand_over(url + "/new")
         assert new_audio.wait(2)  # well before the old socket's five-second timeout
     finally:
