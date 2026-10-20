@@ -151,6 +151,7 @@ def main():
     if args.action or args.list_actions:
         sys.exit(run_action(args))
     diagnostics.install(APP_DIR)
+    cv2.setNumThreads(2)  # 16 threads spin more than they work on per-frame jobs this small
     if IS_LINUX:
         from telescope.platform.linux import limit_malloc_arenas
         limit_malloc_arenas()  # before Qt and the stream start their threads
