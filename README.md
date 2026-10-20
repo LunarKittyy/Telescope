@@ -101,6 +101,12 @@ Up to four at once, each its own webcam. Nice for a second angle in OBS.
 It needs Android 8 or newer. [Device compatibility](docs/device-compatibility.md) lists what's been tested. If you try it on a phone that isn't there, [let me know how it went](https://github.com/LunarKittyy/Telescope/discussions/new?category=device-compatibility). That's one of the most useful things you can do for the project.
 </details>
 
+<details>
+<summary><b>Is it made with AI?</b></summary>
+
+Yes, I use AI agents for a big part of the project. The code is generated but what Telescope does and how it should behave is my design, and testing on real hardware is also mostly done by me (automated tests aside).
+</details>
+
 ---
 
 ## Docs
