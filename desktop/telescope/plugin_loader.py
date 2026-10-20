@@ -118,7 +118,7 @@ def digest(folder: Path, skip_hidden: bool = False) -> str:
 
 
 def _unsafe_permissions(path: Path) -> bool:
-    """On Linux and macOS, whether another user could change path (so it could run as this one)."""
+    """On Linux, whether another user could change path (so it could run as this one)."""
     if os.name != "posix":
         return False
     st = path.stat()

@@ -28,7 +28,7 @@ _MAX_BYTES_WITHOUT_FRAME = 32 * 1024 * 1024
 
 # Hardware decoders to try, best first: D3D11 works on any Windows GPU. On Linux, PyAV's own wheel only has CUDA (NVIDIA); one
 # built against the system FFmpeg also has VA-API (AMD and Intel)
-_HW_TYPES = ("d3d11va", "cuda") if sys.platform == "win32" else ("videotoolbox",) if sys.platform == "darwin" else ("vaapi", "cuda")
+_HW_TYPES = ("d3d11va", "cuda") if sys.platform == "win32" else ("vaapi", "cuda")
 _hw_wanted = False
 _hw_found: Optional[str] = None  # the device type that opened, once probed
 _hw_probed = False
