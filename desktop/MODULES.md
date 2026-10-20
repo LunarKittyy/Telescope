@@ -129,6 +129,8 @@ The virtual camera outside a stream. Streams can go to up to `MAX_SLOTS` cameras
 
 Hardware fallback retains the latest SPS/PPS and retries the input in software, so later TCP keyframes can decode without reconnecting. `decoding_backends()` reports live decoder instances, independently of the setting for the next connection.
 
+Each `Decoder` converts frames to BGR with its own `_ToBgr` (one `VideoReformatter` with 4 threads). `frame.to_ndarray()` would build a new swscale context and its slice threads for every frame.
+
 **H264Reader** - the `/v1/video.h264` counterpart of `MjpegReader`: `open()` checks the `video/h264` response, `read()` returns the newest frame completed by the next data that finishes one (older frames in the same data are dropped). `new_decoder()` / `decode_newest(codec, data)` / `decode_counted(codec, data)` (also how many frames the data finished) are the pure decode steps (PyAV, low-delay, 2 threads). PyAV is optional: `available()` is False without it, and the desktop then offers only MJPEG. `new_decoder()` returns a `Decoder`: on the graphics card when `set_hardware(True)` (Advanced) and `hardware_device()` found one (`d3d11va` or `cuda` on Windows, `vaapi` (with a VA-API PyAV, see `pyav_vaapi.py`) or `cuda` on Linux, probed once by opening it), else in software; a hardware one that raises is swapped for software on the spot and not tried again that run (`hardware_in_use()`). A packet it rejects only counts as the card's fault before it has decoded a frame; after that it's skipped as the stream's.
 
 ### `udp_reader.py`
@@ -350,6 +352,8 @@ Global shortcuts. `HotkeyBackend` takes `Hotkey(id, keys, description)`s in `app
 
 ### `platform/linux.py`
 v4l2loopback helpers. Root work goes through `_privileged(steps)`: one `pkexec sh -c`, else `sudo -n`, else a `PrivResult(False, NO_PROMPT, command)` whose `command` is the same steps as pasteable `sudo` lines. `PrivResult` is an `(ok, message)` tuple with `.command`; `result_parts()` gives `(ok, message, command or "")` for a status line and its command box. `v4l2_setup(persist)` loads the module and, with persist, writes the boot config in the same prompt (skipped when another file already configures v4l2loopback). `v4l2_module_installed()`, `v4l2_load()`, `v4l2_unload()`, `v4l2_module_loaded()`, `v4l2_devices_ready()`, and the load-at-boot trio `v4l2_persist_status/enable/disable()`. Device constants: `V4L2_PHONE_DEV = /dev/video11`, `V4L2_OBS_DEV = /dev/video10`.
+
+`limit_malloc_arenas()` (called in `main.py` before Qt starts) caps glibc's per-thread memory pools at 4, and `release_freed_memory()` (`malloc_trim`, when a stream stops) hands freed frame memory back. Both do nothing on a libc that isn't glibc.
 
 `v4l2_add_devices(labels)` adds cameras to the running module with `v4l2loopback-ctl add` (one prompt), for streaming several at once; they last until the module reloads.
 

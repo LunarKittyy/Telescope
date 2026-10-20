@@ -97,6 +97,25 @@ def _open_hw(device_type: str):
         return None
 
 
+class _ToBgr:
+    """Converts decoded frames to BGR with one reused converter. frame.to_ndarray() builds a new one, threads and all, per frame."""
+
+    _THREADS = 4
+
+    def __init__(self):
+        from av.video.reformatter import VideoReformatter
+        self._reformatter = VideoReformatter()
+        self._threads = True
+
+    def __call__(self, frame):
+        if self._threads:
+            try:
+                return self._reformatter.reformat(frame, format="bgr24", threads=self._THREADS).to_ndarray()
+            except TypeError:  # PyAV before 14 has no threads argument
+                self._threads = False
+        return self._reformatter.reformat(frame, format="bgr24").to_ndarray()
+
+
 def _software_codec():
     codec = av.CodecContext.create("h264", "r")
     # Show each frame as soon as it's decoded, instead of holding some back for reordering.
@@ -193,6 +212,7 @@ class Decoder:
         self._headers = {}
         self._header_tail = b""
         self._hw_proven = False  # decoded a frame: from then on a bad packet is the stream's fault, not the card's
+        self._to_bgr = _ToBgr() if av is not None else None
         if _hardware_requested():
             device = hardware_device()
             self._codec = _open_hw(device)
@@ -208,7 +228,8 @@ class Decoder:
         """(newest BGR frame the data completed or None, how many frames it completed)."""
         self._remember_headers(data)
         try:
-            frame, count = _decode_counted(self._codec, data, fail_on_invalid=self.hardware is not None and not self._hw_proven)
+            frame, count = _decode_counted(self._codec, data, fail_on_invalid=self.hardware is not None and not self._hw_proven,
+                                           to_bgr=self._to_bgr)
             self._hw_proven = self._hw_proven or count > 0
             return frame, count
         except Exception:
@@ -221,7 +242,7 @@ class Decoder:
             self._codec = _software_codec()
             # TCP sends SPS and PPS only when joining, and a fresh decoder can't start from a keyframe alone
             setup = b"".join(self._headers[k] for k in (7, 8) if k in self._headers)
-            return _decode_counted(self._codec, setup + data)
+            return _decode_counted(self._codec, setup + data, to_bgr=self._to_bgr)
 
     def _remember_headers(self, data: bytes):
         data = self._header_tail + data
@@ -254,7 +275,7 @@ def decode_counted(codec, data: bytes):
     return _decode_counted(codec, data)
 
 
-def _decode_counted(codec, data: bytes, fail_on_invalid: bool = False):
+def _decode_counted(codec, data: bytes, fail_on_invalid: bool = False, to_bgr=None):
     newest, count = None, 0
     for packet in codec.parse(data):
         try:
@@ -266,4 +287,6 @@ def _decode_counted(codec, data: bytes, fail_on_invalid: bool = False):
         if frames:
             newest = frames[-1]
             count += len(frames)
-    return (newest.to_ndarray(format="bgr24") if newest is not None else None), count
+    if newest is None:
+        return None, count
+    return (to_bgr(newest) if to_bgr is not None else newest.to_ndarray(format="bgr24")), count
