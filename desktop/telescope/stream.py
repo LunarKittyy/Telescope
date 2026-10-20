@@ -430,6 +430,9 @@ class StreamWorker(QThread):
             logger.exception("Stream worker crashed")
             self.status.emit("error", f"Stream error: {exc}")
         finally:
+            if vcam.IS_LINUX:
+                from telescope.platform.linux import release_freed_memory
+                release_freed_memory()
             self.status.emit("idle", "Not streaming")
 
     def _run(self):

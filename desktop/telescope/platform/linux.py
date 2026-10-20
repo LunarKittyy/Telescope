@@ -17,7 +17,32 @@ V4L2_PARAMS = {
     "exclusive_caps": "1",
 }
 
-V4L2_PERSIST_MODPROBE_CONF = "/etc/modprobe.d/99-telescope-v4l2loopback.conf"
+_M_ARENA_MAX = -8
+
+
+def _libc():
+    import ctypes
+    try:
+        return ctypes.CDLL("libc.so.6")
+    except OSError:  # not glibc
+        return None
+
+
+def limit_malloc_arenas(count: int = 4):
+    """Caps glibc's per-thread memory pools; with the decoder's and OpenCV's threads it made dozens that keep freed frames."""
+    libc = _libc()
+    if libc is not None and hasattr(libc, "mallopt"):
+        libc.mallopt(_M_ARENA_MAX, count)
+
+
+def release_freed_memory():
+    """Hands memory glibc kept after frames were freed back to the system."""
+    libc = _libc()
+    if libc is not None and hasattr(libc, "malloc_trim"):
+        libc.malloc_trim(0)
+
+
+V4L2_PERSIST_MODPROBE_CONF ="/etc/modprobe.d/99-telescope-v4l2loopback.conf"
 V4L2_PERSIST_MODULES_CONF  = "/etc/modules-load.d/99-telescope-v4l2loopback.conf"
 
 

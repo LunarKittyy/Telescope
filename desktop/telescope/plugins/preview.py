@@ -45,7 +45,11 @@ def _fit_within(frame: np.ndarray, size) -> np.ndarray:
     new_w, new_h = max(1, round(w * scale)), max(1, round(h * scale))
     if (new_w, new_h) == (w, h):
         return frame.copy()
-    return cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA if scale < 1 else cv2.INTER_LINEAR)
+    # INTER_AREA is slow at uneven scales, so shrink by a whole factor with it first and finish with INTER_LINEAR
+    step = int(1 / scale)
+    if step >= 2:
+        frame = cv2.resize(frame, (w // step, h // step), interpolation=cv2.INTER_AREA)
+    return cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
 
 
 def _show(lbl: QLabel, pixmap: QPixmap):

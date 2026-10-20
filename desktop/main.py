@@ -151,6 +151,9 @@ def main():
     if args.action or args.list_actions:
         sys.exit(run_action(args))
     diagnostics.install(APP_DIR)
+    if IS_LINUX:
+        from telescope.platform.linux import limit_malloc_arenas
+        limit_malloc_arenas()  # before Qt and the stream start their threads
     app = QApplication([sys.argv[0]] + qt_argv)
     # Set at QApplication level so dialogs and window share icon.
     app.setWindowIcon(create_app_icon(64))
