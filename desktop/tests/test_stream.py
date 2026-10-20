@@ -1,6 +1,7 @@
 import threading
 
 import numpy as np
+import pytest
 
 import telescope.stream as stream
 import telescope.vcam as vcam
@@ -309,7 +310,7 @@ def test_run_streams_a_frame_and_stops_cleanly(monkeypatch):
     assert cameras[0].kwargs["width"] == 4
     assert cameras[0].kwargs["height"] == 4
     assert cameras[0].kwargs["fps"] == 24
-    assert cameras[0].sent[0].shape == (4, 4, 3)
+    assert cameras[0].sent[0].shape == _sent_shape(4, 4)
     # Names the camera as other apps list it: the card label on Linux, the device name elsewhere.
     shown_as = vcam.V4L2_PHONE_LABEL if vcam.IS_LINUX else "fake-vcam"
     assert any(kind == "ok" and msg.endswith(f"fps to {shown_as}") for kind, msg in statuses)
@@ -347,7 +348,7 @@ def test_run_opens_at_the_size_a_reader_holds_the_camera_at(monkeypatch):
     worker.run()
 
     assert (cameras[0].kwargs["width"], cameras[0].kwargs["height"]) == (6, 6)
-    assert cameras[0].sent[0].shape == (6, 6, 3) and opened == [(6, 6)]
+    assert cameras[0].sent[0].shape == _sent_shape(6, 6) and opened == [(6, 6)]
 
 
 def test_fps_change_rebuilds_the_vcam_without_reopening_the_phone_stream(monkeypatch):
@@ -513,6 +514,7 @@ def test_a_new_frame_goes_to_the_camera_without_waiting_for_the_next_tick(monkey
 
     monkeypatch.setattr(vcam.pyvirtualcam, "Camera", FakeCamera)
     monkeypatch.setattr(vcam, "locked_size", lambda *_: None)
+    monkeypatch.setattr(stream, "_vcam_format", lambda *_: (vcam.pyvirtualcam.PixelFormat.BGR, None))  # frames stay readable
     feeder = threading.Thread(target=worker._run_vcam)
     feeder.start()
     try:
@@ -529,12 +531,35 @@ def test_a_new_frame_goes_to_the_camera_without_waiting_for_the_next_tick(monkey
     assert any(v == 7 and t - published_at < 0.1 for t, v in sent)
 
 
-def test_the_virtual_camera_opens_in_bgr(monkeypatch):
+def _sent_shape(w: int, h: int) -> tuple:
+    """What the camera gets for a w x h frame: I420 planes on Linux, BGR elsewhere."""
+    return (h * 3 // 2, w) if vcam.IS_LINUX else (h, w, 3)
+
+
+@pytest.mark.parametrize("linux, size, fmt", [
+    (True, (4, 4), "I420"),
+    (True, (5, 4), "BGR"),  # I420 needs even sizes
+    (False, (4, 4), "BGR"),
+])
+def test_the_virtual_camera_opens_in_its_own_format(monkeypatch, linux, size, fmt):
+    monkeypatch.setattr(vcam, "IS_LINUX", linux)
     opened = []
     monkeypatch.setattr(vcam.pyvirtualcam, "Camera", lambda **kwargs: opened.append(kwargs["fmt"]))
-    stream.StreamWorker("url", None, None, 30)._open_vcam(4, 4)
+    stream.StreamWorker("url", None, None, 30)._open_vcam(*size)
 
-    assert opened == [vcam.pyvirtualcam.PixelFormat.BGR]
+    assert opened == [getattr(vcam.pyvirtualcam.PixelFormat, fmt)]
+
+
+def test_frames_reach_an_i420_camera_converted():
+    fmt, to_cam = stream._vcam_format(4, 2) if vcam.IS_LINUX else (None, None)
+    if to_cam is None:
+        pytest.skip("I420 is only used on Linux")
+    frame = np.zeros((2, 4, 3), np.uint8)
+    frame[:] = (255, 255, 255)
+
+    out = to_cam(frame)
+
+    assert out.shape == (3, 4) and (out[:2] == 235).all()  # white's luma in the video range OpenCV uses
 
 
 def test_a_crashing_reader_wakes_the_vcam_instead_of_freezing_it():
