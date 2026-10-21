@@ -21,6 +21,7 @@ Already merged:
 - [x] Streams start about 0.1 s sooner, and come back about a second sooner after a Wi-Fi drop without a Can't keep up banner
 - [x] Retrying the phone's session port when it's busy
 - [x] `scripts/phone_check.py`, a release check on a real phone
+- [x] Less CPU and memory on the desktop: one reused frame converter per stream, a cheaper preview resize, I420 straight to v4l2loopback, 2 OpenCV threads and capped glibc memory pools on Linux
 
 ## Mic clock drift without clicks
 

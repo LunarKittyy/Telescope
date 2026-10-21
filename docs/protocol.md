@@ -136,7 +136,7 @@ On port 8766, and the one request without auth: it only says which phone this is
 
 ## `GET /v1/ping`
 
-Served on port 8766 by `SessionServer` - unlike the endpoints above, it exists whether or not a stream is running (while the app's main screen is up, while the camera service is running, or while **Wait for my computer** is on - in any combination). Returns `200` if the token belongs to a paired computer, `401` if not.
+Served on port 8766 by `SessionServer` - unlike the endpoints above, it exists whether or not a stream is running (while the app's main screen is up, while the camera service is running, while **Wait for my computer** is on, and for 6 s after a stream stops - in any combination). Returns `200` if the token belongs to a paired computer, `401` if not.
 
 ```json
 {
