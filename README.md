@@ -25,7 +25,7 @@ It's free, all of it: no watermark, no ads, no account, no Pro version. Here's [
 
 ## Quick Start
 
-You'll need a PC running Linux or Windows and a phone. With the Android app you get every lens and full manual control. On an iPhone, a tablet or another laptop, [Browser camera](docs/features.md#browser-camera) streams straight from the browser with nothing to install (Chrome works best there).
+You'll need a PC running Linux or Windows and a phone. With the Android app you get every lens and full manual control. Without the app, [Browser camera](docs/features.md#browser-camera) streams from any phone, tablet or laptop straight from its browser with nothing to install (Chrome works best there).
 
 ### 1. 🖥️ Get the desktop app
 
