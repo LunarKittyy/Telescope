@@ -37,7 +37,7 @@
     row.prepend(pick);
   }
   if (os === "android") note.innerHTML = 'Telescope runs on a Linux or Windows computer, so open this page there. The phone half is the <a href="https://github.com/LunarKittyy/Telescope/releases/latest/download/Telescope.apk">APK</a>, but the desktop app can install it for you.';
-  if (os === "apple") note.textContent = "Telescope needs a Linux or Windows computer and an Android phone. There's no Mac or iPhone version.";
+  if (os === "apple") note.textContent = "The desktop app needs a Linux or Windows computer (there's no Mac version). An iPhone or iPad works as the camera straight from its browser with nothing to install.";
   for (const slot of $$("[data-clone=downloads]")) slot.innerHTML = downloads.innerHTML;
 
   document.addEventListener("click", e => {
