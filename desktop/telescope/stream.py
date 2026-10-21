@@ -63,6 +63,13 @@ def guarded_step(name: str, process):
     return step
 
 
+def _vcam_format(width: int, height: int):
+    """(pixel format, BGR converter or None) for the virtual camera; OpenCV makes v4l2loopback's I420 ~8x cheaper than pyvirtualcam."""
+    if vcam.IS_LINUX and width % 2 == 0 and height % 2 == 0:
+        return pyvirtualcam.PixelFormat.I420, lambda frame: cv2.cvtColor(frame, cv2.COLOR_BGR2YUV_I420)
+    return pyvirtualcam.PixelFormat.BGR, None
+
+
 # Sentinel: "leave unchanged" (distinct from None = pass-through).
 _UNCHANGED = object()
 
@@ -148,8 +155,9 @@ class StreamWorker(QThread):
         self.parked        = False  # the virtual camera is let go (the wait screen takes it) until set_parked(False)
         self._vcam_free    = threading.Event()  # set while this worker doesn't hold the virtual camera
         self._vcam_free.set()
-        # The newest processed frame (BGR, as the decoders give it and the virtual camera takes it).
+        # The newest processed frame (BGR, as the decoders give it and the plugins work on it).
         self._latest       = None
+        self._to_cam: Optional[Callable] = None  # the camera's own format from BGR, set by _open_vcam (None: BGR)
         self._frame_ready  = threading.Event()  # set when _latest changes, so the vcam sends it at once
         self._seq          = itertools.count(1)
         self._shown_seq    = 0  # the newest packet that made it to _latest; an older one finishing later is dropped
@@ -430,6 +438,9 @@ class StreamWorker(QThread):
             logger.exception("Stream worker crashed")
             self.status.emit("error", f"Stream error: {exc}")
         finally:
+            if vcam.IS_LINUX:
+                from telescope.platform.linux import release_freed_memory
+                release_freed_memory()
             self.status.emit("idle", "Not streaming")
 
     def _run(self):
@@ -493,7 +504,8 @@ class StreamWorker(QThread):
             reader.join(timeout=3)
 
     def _open_vcam(self, cam_w: int, cam_h: int):
-        return vcam.open_camera(cam_w, cam_h, self._fps, pyvirtualcam.PixelFormat.BGR, slot=self.slot)
+        fmt, self._to_cam = _vcam_format(cam_w, cam_h)
+        return vcam.open_camera(cam_w, cam_h, self._fps, fmt, slot=self.slot)
 
     def _run_vcam(self):
         """Open the virtual camera at the current size/fps and feed it until stop or a restart request."""
@@ -503,6 +515,7 @@ class StreamWorker(QThread):
         # An app already reading the camera (the wait screen's) keeps it at that size; frames are fitted to it.
         cam_w, cam_h = vcam.locked_size(self.slot) or (cam_w, cam_h)
         self._vcam_free.clear()
+        self._to_cam = None
         try:
             with self._open_vcam(cam_w, cam_h) as cam:
                 # Name the camera the way other apps list it (the v4l2loopback card label on Linux).
@@ -527,6 +540,8 @@ class StreamWorker(QThread):
                         # a frame re-sent because the phone hasn't delivered a new one reuses its fitted copy.
                         if src is not last_src:
                             last_src, fitted = src, _fit_frame(src, cam_w, cam_h)
+                            if self._to_cam is not None:
+                                fitted = self._to_cam(fitted)
                         cam.send(fitted)
                         last_sent = time.monotonic()
                     if (elapsed := time.monotonic() - t0) >= 2.0:

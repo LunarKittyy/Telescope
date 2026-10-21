@@ -84,7 +84,7 @@ def _custom_size(cfg: dict) -> tuple[int, int]:
 DEFAULT_MAX_ZOOM = 10
 MAX_ZOOM_RANGE = (2, 30)
 MAX_GAIN_CHOICES = (12, 24, 36, 48)
-_HW_NAMES = {"d3d11va": "Direct3D 11", "cuda": "NVIDIA CUDA", "vaapi": "VA-API", "videotoolbox": "VideoToolbox"}
+_HW_NAMES = {"d3d11va": "Direct3D 11", "cuda": "NVIDIA CUDA", "vaapi": "VA-API"}
 DEFAULT_MAX_GAIN = 12
 
 _SUDO_HINT = "Asks for your password (pkexec or sudo): this changes system settings."
