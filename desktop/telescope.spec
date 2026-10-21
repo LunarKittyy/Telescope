@@ -33,7 +33,8 @@ a = Analysis(
     datas=[('telescope/web', 'telescope/web')],  # the Browser camera page
     # ifaddr picks its platform backend behind an `os.name` check, so pull
     # the whole package rather than relying on that branch being followed.
-    hiddenimports=collect_submodules('telescope') + collect_submodules('ifaddr') + collect_submodules('zeroconf') + collect_submodules('av') + collect_submodules('cryptography') + [
+    # dnspython (dns), which aioice uses, loads its record types by name
+    hiddenimports=collect_submodules('telescope') + collect_submodules('ifaddr') + collect_submodules('zeroconf') + collect_submodules('av') + collect_submodules('cryptography') + collect_submodules('aiortc') + collect_submodules('aioice') + collect_submodules('dns') + [
         'sounddevice',  # hooks-contrib's hook collects its PortAudio DLL
         'pyvirtualcam',
         'cv2',

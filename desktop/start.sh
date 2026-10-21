@@ -94,11 +94,17 @@ PIP_ARGS=(-r requirements.txt)
 if [ -f constraints.txt ]; then
     PIP_ARGS+=(-c constraints.txt)
 fi
+NODEPS_ARGS=(--no-deps -r requirements-nodeps.txt)
+if [ -f constraints.txt ]; then
+    NODEPS_ARGS+=(-c constraints.txt)
+fi
 STAMP="$VENV_DIR/.telescope-requirements"
-WANTED="$(cat requirements.txt constraints.txt 2>/dev/null | cksum)"
+WANTED="$(cat requirements.txt requirements-nodeps.txt constraints.txt 2>/dev/null | cksum)"
 if [ "$(cat "$STAMP" 2>/dev/null)" != "$WANTED" ]; then
     echo "Checking dependencies..."
-    if "$PY" -m pip install --quiet --disable-pip-version-check "${PIP_ARGS[@]}"; then
+    # aiortc goes in on its own, without its dependencies: see requirements-nodeps.txt
+    if "$PY" -m pip install --quiet --disable-pip-version-check "${PIP_ARGS[@]}" \
+        && { [ ! -f requirements-nodeps.txt ] || "$PY" -m pip install --quiet --disable-pip-version-check "${NODEPS_ARGS[@]}"; }; then
         echo "$WANTED" > "$STAMP"
     else
         echo "Couldn't install Telescope's dependencies; trying to start anyway."

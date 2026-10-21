@@ -35,4 +35,12 @@ cffi==2.1.1
 cryptography==50.0.2
 pycparser==3.0
 truststore==0.10.4
+aioice==0.10.2
+aiortc==1.15.0
+dnspython==2.9.0
+google-crc32c==1.9.0
+pyee==15.0.0
+pylibsrtp==1.0.0
+pyOpenSSL==26.4.0
+typing_extensions==4.16.0
 zeroconf==0.151.3

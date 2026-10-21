@@ -45,6 +45,8 @@ if errorlevel 1 (
 :: Install Python dependencies
 echo Checking dependencies...
 python -m pip install --quiet -r requirements.txt
+:: aiortc goes in on its own, without its dependencies: see requirements-nodeps.txt
+python -m pip install --quiet --no-deps -r requirements-nodeps.txt
 echo.
 
 :: Download UnityCapture DLLs if missing. Pinned to a specific commit (not the

@@ -1,0 +1,2 @@
+# pip install --no-deps -r requirements-nodeps.txt, after requirements.txt: aiortc 1.15 caps PyAV below 18 but runs on it
+aiortc==1.15.0

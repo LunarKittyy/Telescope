@@ -64,6 +64,10 @@ jobs:
         working-directory: desktop
         run: pip install -r requirements-dev.txt pyinstaller -c constraints.txt
 
+      - name: Install aiortc
+        working-directory: desktop
+        run: pip install --no-deps -r requirements-nodeps.txt -c constraints.txt
+
       - name: Run tests
         working-directory: desktop
         run: python -m pytest -q
