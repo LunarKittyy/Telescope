@@ -21,6 +21,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
+import android.text.method.LinkMovementMethod
 import android.view.View
 import android.view.WindowManager
 import android.widget.*
@@ -30,6 +31,7 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.text.HtmlCompat
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 
@@ -156,6 +158,12 @@ class MainActivity : AppCompatActivity() {
             scanLauncher.launch(opts)
         }
         btnCopyDiagnostics.setOnClickListener { copyDiagnostics() }
+        findViewById<View>(R.id.btnReportBug).setOnClickListener { reportBug() }
+        findViewById<View>(R.id.btnHelp).setOnClickListener { openUrl(HELP_URL) }
+        findViewById<TextView>(R.id.tvMadeBy).apply {
+            text = HtmlCompat.fromHtml("Made by <a href=\"$AUTHOR_URL\">LunarKittyy</a>", HtmlCompat.FROM_HTML_MODE_LEGACY)
+            movementMethod = LinkMovementMethod.getInstance()
+        }
 
         cardUpdate    = findViewById(R.id.cardUpdate)
         tvUpdateTitle = findViewById(R.id.tvUpdateTitle)
@@ -770,6 +778,16 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(this, "Diagnostics copied to clipboard", Toast.LENGTH_SHORT).show()
     }
 
+    private fun reportBug() {
+        copyDiagnostics()
+        openUrl(BUG_REPORT_URL)
+    }
+
+    private fun openUrl(url: String) {
+        runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+            .onFailure { Toast.makeText(this, "No browser to open $url", Toast.LENGTH_LONG).show() }
+    }
+
     // All IPv4 addresses with Wi-Fi ones first (reachable through VPN for desktop streaming)
     private fun getAllDeviceIps(wifi: android.net.Network? = wifiNetwork()): List<String> {
         val all = try {
@@ -798,6 +816,9 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val RC_PERMS = 100
+        private const val AUTHOR_URL = "https://github.com/LunarKittyy"
+        private const val HELP_URL = "https://github.com/${UpdateLogic.REPO}/blob/master/docs/troubleshooting.md"
+        private const val BUG_REPORT_URL = "https://github.com/${UpdateLogic.REPO}/issues/new?template=bug.yml"
         // Android's "Large" font is 1.15 and its largest 1.3 or more; from there a setup step stacks its button
         private const val STACK_FONT_SCALE = 1.3f
         // Lets the desktop app push a pairing payload straight over adb when

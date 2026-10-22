@@ -120,7 +120,7 @@ Click the **+** next to Stop while streaming to add another phone (or Browser ca
 - FPS and throughput sit in the footer. When the stream can't keep up a note suggests what to try, with a button for it
 - A dropped stream reconnects over whichever route works (pull the cable and it carries on over Wi-Fi). After 10 seconds apps get the wait screen instead of a frozen frame and after 30 a banner says the phone can't be reached
 - Phone battery and temperature have alerts that can notify you, stop the stream or both. A stop explains why and offers **Start anyway**. A phone that runs hot also lowers its own frame rate first (Android 10 and newer)
-- **Open log** and **Copy diagnostics** are under Updates & About in Settings. Paste Copy diagnostics into bug reports. Addresses, tokens and your home folder are stripped out
+- **Open log**, **Copy diagnostics** and **Report a bug** are under Updates & About in Settings. Report a bug copies the diagnostics and opens the bug form on GitHub for you to paste them in. Addresses, tokens and your home folder are stripped out
 
 ## Phones, pairing and connection
 

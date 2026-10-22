@@ -370,6 +370,24 @@
                         android:minHeight="48dp"
                         android:text="Copy diagnostics" />
 
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnReportBug"
+                        style="?attr/materialButtonOutlinedStyle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="48dp"
+                        android:layout_marginTop="10dp"
+                        android:text="Report a bug" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnHelp"
+                        style="?attr/materialButtonOutlinedStyle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="48dp"
+                        android:layout_marginTop="10dp"
+                        android:text="Troubleshooting" />
+
                     <com.google.android.material.switchmaterial.SwitchMaterial
                         android:id="@+id/switchNightly"
                         style="@style/Widget.Telescope.Switch"
@@ -400,6 +418,16 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="14dp"
                         android:gravity="center_horizontal"
+                        android:textAppearance="@style/TextAppearance.Telescope.Hint" />
+
+                    <!-- Same credit as the desktop's About card -->
+                    <TextView
+                        android:id="@+id/tvMadeBy"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:gravity="center_horizontal"
+                        android:textColorLink="@color/colorAccent"
                         android:textAppearance="@style/TextAppearance.Telescope.Hint" />
 
                 </LinearLayout>

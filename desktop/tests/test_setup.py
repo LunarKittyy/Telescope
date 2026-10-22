@@ -404,6 +404,12 @@ def test_setup_plugin_builds_its_cards_and_syncs_config(monkeypatch, qapp):
     first._diag_btn.click()
     assert QGuiApplication.clipboard().text() == "Telescope test report"
     assert first._diag_btn.text() == "Copied"
+    QGuiApplication.clipboard().clear()
+    opened = []
+    monkeypatch.setattr(setup_mod.QDesktopServices, "openUrl", lambda url: opened.append(url.toString()))
+    first._bug_btn.click()
+    assert QGuiApplication.clipboard().text() == "Telescope test report"
+    assert opened == [setup_mod.BUG_REPORT_URL]
     first.hide()
 
 
