@@ -30,7 +30,8 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('telescope/web', 'telescope/web')],  # the Browser camera page
+    # The Browser camera page, and which vision pack this build downloads for Auto framing and Background
+    datas=[('telescope/web', 'telescope/web'), ('telescope/vision_pack.json', 'telescope')],
     # ifaddr picks its platform backend behind an `os.name` check, so pull
     # the whole package rather than relying on that branch being followed.
     # dnspython (dns), which aioice uses, loads its record types by name

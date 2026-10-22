@@ -10,7 +10,7 @@ import numpy as np
 import pyvirtualcam
 from PyQt6.QtCore import QThread, pyqtSignal
 
-from telescope import vcam
+from telescope import vcam, vision
 from telescope.h264_reader import H264Reader
 from telescope.udp_reader import UdpH264Reader
 from telescope.mjpeg_reader import MjpegReader
@@ -415,11 +415,14 @@ class StreamWorker(QThread):
         with self._publish_lock:
             if seq <= self._shown_seq:
                 return
+            here = vision.current_frame.set((self, seq))  # the plugins' person_mask() knows which stream this is
             try:
                 self._latest = self._prepare(raw)
             except Exception:
                 logger.exception("Frame processing failed; dropping this frame")
                 return
+            finally:
+                vision.current_frame.reset(here)
             self._shown_seq = seq
             self._frames_received += 1
         self._frame_ready.set()
