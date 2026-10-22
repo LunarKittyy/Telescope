@@ -21,10 +21,11 @@ These apply live without restarting the phone's camera.
 
 ## Auto framing
 
-An optional plugin, switched on under **Optional** in **Plugins…** (see [the vision download](#the-vision-download) below). It finds you in the picture and moves the zoom and pan to keep you framed. The **Framing** slider sets how much of you that is, anywhere from just your face through head and shoulders and upper body to all of you. Two people in the picture get framed together. If nobody's been in the picture for two seconds it zooms back out to the whole thing.
+An optional plugin, switched on under **Optional** in **Plugins…** (see [the vision download](#the-vision-download) below). It finds you in the picture and moves the zoom and pan to keep you framed. The **Framing** slider sets how much of you that is, anywhere from just your head, down to your chest or waist, to all of you. Two people in the picture get framed together. If nobody's been in the picture for two seconds it zooms back out to the whole thing.
 
 - **Widen for something in your hand** (on by default) widens the framing when you hold a hand out to the side to fit whatever you're showing in next to you. It goes back to the usual framing a moment after you put the hand down
 - **Speed** goes from 1, which lets you move around a fair bit before it slowly follows, to 10, which stays close behind you
+- **Room to move** is how far you can shift around before the framing follows at all, so settling into your chair or leaning over for a second doesn't slide the picture around. Once you've moved further than that it follows and then holds still again where you stopped. At **Off** it follows every move
 - While it's on, Zoom and Pan on the Transforms card are greyed out and flip and rotation still work as usual. Switching it off puts the zoom and pan back where you had them
 - The skeleton button under the preview draws the points MediaPipe finds on you, with an arm in orange when it counts as held out. It's only drawn in the preview and never shows in the camera output. It's there for fun, and for checking what the framing is reacting to
 - The phone still does as much of the zoom as it can. While the framing moves around the phone stays on a slightly wider crop and the small moves happen on the computer, which stops the phone from hopping between lenses every time you lean over. The phone's part only changes once the framing has settled somewhere new for a couple of seconds or is about to run off its edge. When it does, the computer waits for the phone's new picture to actually arrive before cropping for it, so the picture doesn't jump
@@ -41,7 +42,7 @@ It only works on 64-bit Intel and AMD computers for now.
 
 ## Presets
 
-The Presets button in the header saves your camera, output and transform settings under a name (lens included) and brings them all back with one click later. Each phone has its own presets.
+The Presets button in the header saves your camera, output and transform settings under a name (lens included) and brings them all back with one click later. Auto framing and Background are saved in presets too if they're switched on, so one preset can frame you while you talk and another can park the zoom on something you're showing, each on its own shortcut. Each phone has its own presets.
 
 ## Resolution and FPS
 - The resolution list comes from what the current lens really supports, and picking one changes what the phone itself captures

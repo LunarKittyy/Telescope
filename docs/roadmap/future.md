@@ -2,6 +2,14 @@
 
 Ideas worth keeping that nobody is about to work on. Move one to [next.md](next.md) once it's planned.
 
+## Scenes and a whiteboard
+
+Presets already save Auto framing and Background, so a preset can be a scene: one that frames you while you talk, another with the framing off and the zoom parked on a whiteboard or a desk, each on its own key. A teacher, someone running a workshop or anyone drawing on paper could switch between them mid-call.
+
+The bigger part is the board itself. Telescope would find the board's four corners, straighten it out when the phone looks at it from an angle, even out shadows and glare and make the writing stand out. None of that exists yet, and it's plain OpenCV rather than MediaPipe. Tuning it so it works in real rooms on real boards is most of the work. A Whiteboard source or card could follow the board the way Auto framing follows you.
+
+Big, mostly the corner finding and the clean-up. Worth seeing first whether people use presets as scenes.
+
 ## Mic noise reduction
 
 The phone switches on its own noise suppressor and gain control when it has them, but those vary a lot between phones and some have neither. Running RNNoise on the desktop would clean up typing, fans and room hiss the same way on every phone (and for Browser camera's mic). It needs a Python binding or a small native library, and the Microphone card would get a switch for it. **Auto level** is already in, so this is the part that's left.

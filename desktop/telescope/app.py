@@ -1712,6 +1712,9 @@ class TelescopeWindow(QMainWindow):
         if plugin:
             plugin.apply_preset(cfg)
 
+    def preset_plugins(self) -> list:
+        return [p.name for p in self._plugins if p.in_presets and p.name]
+
     def _tray_quit(self):
         self._tray_close_notified = True
         self._shut_down()

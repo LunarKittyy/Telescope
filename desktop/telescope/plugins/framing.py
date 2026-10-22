@@ -18,7 +18,7 @@ from telescope.widgets.common import (
 from telescope.widgets.vision_status import VisionStatus
 
 # Framing runs through these, from 0 to len - 1, and anywhere in between
-FRAMINGS = ("Face", "Head", "Waist", "Body")  # short: the name sits in the slider's readout column
+FRAMINGS = ("Head", "Chest", "Waist", "Body")  # short: the name sits in the slider's readout column
 FRAMING_DEFAULT = 1.0
 _FRAMING_STEPS = 10  # slider steps between two of them
 _HALF_WIDTH = (0.5, 0.85, 1.05, 1.2)  # at each, half the box's width in shoulder widths
@@ -30,6 +30,10 @@ _LOST_S = 2.0  # nobody seen for this long: back to the whole picture
 _DEAD_CENTRE = 0.06  # the framing lets the target's centre wander this far (of the window's size) at Speed 5
 _DEAD_ZOOM = 1.12  # and its zoom this much, and only follows what goes past that
 _SETTLE_S = 2.0  # inside the dead zone it drifts back to the target this slowly (at Speed 5)
+ROOM_DEFAULT = 4  # Room to move runs from 0 (off) to 10
+_ROOM_STEP = 0.03  # each step lets you move this much further (of the window's size) before the framing follows
+_LEAVE_S = 0.5  # outside the room for this long before it does (a quick lean and back doesn't count)
+_SETTLED_S = 0.6  # following stops once the framing has been this close to you for this long
 _WIDEN_OMEGA = 3.5  # widening for a hand is at least this quick, whatever Speed says
 _HAND_ON_S = 0.3
 _HAND_OFF_S = 0.8
@@ -113,6 +117,48 @@ def follow(goal: Target, target: Target, scale: float = 1.0) -> Target:
                   min(max(goal.y, target.y - band), target.y + band), zoom)
 
 
+def inside(anchor: Target, target: Target, room: float) -> bool:
+    """target is within room (of the window's size, and as a zoom ratio in log space) of anchor."""
+    size = 1.0 / anchor.zoom
+    return (abs(target.x - anchor.x) <= room * size and abs(target.y - anchor.y) <= room * size
+            and abs(math.log(target.zoom / anchor.zoom)) <= room * 1.2)
+
+
+class _Room:
+    """Room to move: the framing holds still while you stay near where it last settled, follows once you've been out
+    of that for _LEAVE_S, and holds still again where it settles."""
+
+    def __init__(self):
+        self.anchor: Optional[Target] = None  # where it holds; None while following
+        self._out_since = None
+        self._close_since = None
+
+    def goal(self, target: Target, at: Target, room: float, now: float) -> Optional[Target]:
+        """Where to hold, or None to follow target."""
+        if self.anchor is not None:
+            if inside(self.anchor, target, room):
+                self._out_since = None
+                return self.anchor
+            if self._out_since is None:
+                self._out_since = now
+            if now - self._out_since < _LEAVE_S:
+                return self.anchor
+            self.anchor, self._out_since, self._close_since = None, None, None
+            return None
+        if inside(at, target, room * 0.25):  # caught up with you: hold again once it stays that way
+            if self._close_since is None:
+                self._close_since = now
+            if now - self._close_since >= _SETTLED_S:
+                self.anchor, self._close_since = target, None  # where you are: the spring finishes getting there
+                return self.anchor
+        else:
+            self._close_since = None
+        return None
+
+    def reset(self):
+        self.anchor, self._out_since, self._close_since = None, None, None
+
+
 def smoothed(last: Optional[Target], target: Target, dt: float, tau: float) -> Target:
     """target followed with a time constant of tau, zoom in log space; landmarks wobble a little every frame."""
     if last is None:
@@ -165,6 +211,7 @@ class FramingPlugin(TelescopePlugin):
     when_off = "Without it there's no Auto framing card and the zoom stays where you put it."
     optional = True
     needs_vision = True
+    in_presets = True  # a preset can be a scene: framing on for talking, off with the zoom parked on something
     panel_region = "left"
 
     def setup(self, host, bus):
@@ -174,6 +221,7 @@ class FramingPlugin(TelescopePlugin):
         self._goal: Optional[Target] = None
         self._smooth: Optional[Target] = None  # the target after smoothing()
         self._widened = set()  # the sides a hand is held out on, after their _Latch
+        self._room = _Room()
         self._hands = {side: _Latch(_HAND_ON_S, _HAND_OFF_S) for side in SIDES}
         self._ticked_at = None
         self._max_zoom = _MAX_ZOOM
@@ -199,8 +247,8 @@ class FramingPlugin(TelescopePlugin):
         self._framing_slider.setRange(0, (len(FRAMINGS) - 1) * _FRAMING_STEPS)
         self._framing_slider.setValue(round(FRAMING_DEFAULT * _FRAMING_STEPS))
         self._framing_slider.set_default(round(FRAMING_DEFAULT * _FRAMING_STEPS))
-        self._framing_slider.setToolTip("How much of you is in the picture: just your face, head and shoulders, "
-                                        "down to the waist or all of you")
+        self._framing_slider.setToolTip("How much of you is in the picture: just your head, down to your chest, "
+                                        "down to your waist or all of you")
         self._framing_lbl = value_label()
         self._framing_slider.valueChanged.connect(self._on_framing)
         lay.addLayout(_row("Framing", slider_row(self._framing_slider, self._framing_lbl), stretch=True))
@@ -213,6 +261,16 @@ class FramingPlugin(TelescopePlugin):
         self._speed_lbl = value_label(str(SPEED_DEFAULT))
         self._speed_slider.valueChanged.connect(self._on_speed)
         lay.addLayout(_row("Speed", slider_row(self._speed_slider, self._speed_lbl), stretch=True))
+        self._room_slider = NoScrollSlider(Qt.Orientation.Horizontal)
+        self._room_slider.setRange(0, 10)
+        self._room_slider.setValue(ROOM_DEFAULT)
+        self._room_slider.set_default(ROOM_DEFAULT)
+        self._room_slider.setToolTip("How far you can shift around, like settling in your chair, before the framing "
+                                     "follows you")
+        self._room_lbl = value_label()
+        self._room_slider.valueChanged.connect(self._on_room)
+        lay.addLayout(_row("Room to move", slider_row(self._room_slider, self._room_lbl), stretch=True))
+        self._show_room()
         self._hand_switch = Switch("Widen for something in your hand")
         self._hand_switch.setChecked(True)
         self._hand_switch.toggled.connect(lambda _on: self._host.schedule_save())
@@ -241,6 +299,14 @@ class FramingPlugin(TelescopePlugin):
     def _show_framing(self):
         self._framing_lbl.setText(FRAMINGS[round(self._framing())])
 
+    def _on_room(self, _value: int):
+        self._show_room()
+        self._host.schedule_save()
+
+    def _show_room(self):
+        value = self._room_slider.value()
+        self._room_lbl.setText(str(value) if value else "Off")
+
     def _on_speed(self, value: int):
         self._speed_lbl.setText(str(value))
         self._host.schedule_save()
@@ -259,6 +325,7 @@ class FramingPlugin(TelescopePlugin):
             self._steering = True
             self._host.want_people(self.title, True)
             self._spring = self._goal = self._smooth = None
+            self._room.reset()
             self._ticked_at = None
             self._timer.start()
         elif not on and self._steering:
@@ -281,6 +348,7 @@ class FramingPlugin(TelescopePlugin):
 
     def on_focus_gained(self, stream_url: str, ctrl):
         self._people, self._seen_at, self._spring, self._goal, self._smooth = [], None, None, None, None
+        self._room.reset()
 
     def _start_from_view(self) -> Spring:
         view = self._host.view()
@@ -299,8 +367,15 @@ class FramingPlugin(TelescopePlugin):
         if self._widened:  # someone's showing something: get it in the picture now, not at Speed's pace
             omega, tau, scale = max(omega, _WIDEN_OMEGA), min(tau, 0.1), min(scale, 0.5)
         self._smooth = smoothed(self._smooth, target, dt, tau)
-        self._goal = follow(self._goal or self._smooth, self._smooth, scale)
-        self._goal = smoothed(self._goal, self._smooth, dt, _SETTLE_S * scale)  # and it centres up once you stop
+        room = self._room_slider.value() * _ROOM_STEP
+        hold = None if self._widened or not room else self._room.goal(self._smooth, self._spring.at, room, now)
+        if self._widened or not room:
+            self._room.reset()
+        if hold is not None:
+            self._goal = hold
+        else:
+            self._goal = follow(self._goal or self._smooth, self._smooth, scale)
+            self._goal = smoothed(self._goal, self._smooth, dt, _SETTLE_S * scale)  # and it centres up once you stop
         before = self._spring.at
         at = self._spring.step(self._goal, dt, omega)
         if abs(at.x - before.x) + abs(at.y - before.y) + abs(at.zoom - before.zoom) > 1e-5:
@@ -327,7 +402,8 @@ class FramingPlugin(TelescopePlugin):
 
     def get_config(self) -> dict:
         return {"on": self._switch.isChecked(), "framing": self._framing(),
-                "speed": self._speed_slider.value(), "hand": self._hand_switch.isChecked()}
+                "speed": self._speed_slider.value(), "room": self._room_slider.value(),
+                "hand": self._hand_switch.isChecked()}
 
     def set_config(self, cfg: dict):
         framing = cfg.get("framing")
@@ -342,6 +418,12 @@ class FramingPlugin(TelescopePlugin):
                                     else SPEED_DEFAULT)
         self._speed_slider.blockSignals(False)
         self._speed_lbl.setText(str(self._speed_slider.value()))
+        room = cfg.get("room")
+        self._room_slider.blockSignals(True)
+        self._room_slider.setValue(room if isinstance(room, int) and not isinstance(room, bool) and 0 <= room <= 10
+                                   else ROOM_DEFAULT)
+        self._room_slider.blockSignals(False)
+        self._show_room()
         self._hand_switch.blockSignals(True)
         self._hand_switch.setChecked(cfg.get("hand") is not False)
         self._hand_switch.blockSignals(False)

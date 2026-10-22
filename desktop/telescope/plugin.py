@@ -32,6 +32,10 @@ class HostSettings(Protocol):
         """Hand a saved config to another plugin's apply_preset(); unknown names are ignored."""
         ...
 
+    def preset_plugins(self) -> list:
+        """The names of the running plugins that are in_presets, in the order they're registered (and applied)."""
+        ...
+
     def device_config(self, source_id: Optional[str], plugin_name: str) -> dict:
         """The settings saved for source_id's stream in a device-local plugin (TelescopePlugin.device_local), for one
         the panels don't show; {} without any."""
@@ -357,6 +361,9 @@ class TelescopePlugin:
     """A built-in one that's off until someone switches it on in Plugins, since it asks more of the computer."""
     needs_vision: bool = False
     """It uses person_mask or want_people: switching it on in Plugins downloads the vision pack first."""
+
+    in_presets: bool = False
+    """Presets save its get_config() and bring it back through apply_preset(), in the order plugins are registered."""
 
     device_local: bool = False
     """Each phone (or other source) gets its own copy of this plugin's settings, swapped in when it's picked or the

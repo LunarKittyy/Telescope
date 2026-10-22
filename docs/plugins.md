@@ -158,7 +158,7 @@ All of these are optional and you only override what you need.
 | `diagnostics()` | A few lines for Copy diagnostics (no tokens, addresses or names) |
 | `shutdown()` | Telescope is quitting and you should stop anything you started |
 
-You can also set `title`, `about` and `when_off` on your class. `title` and `about` fall back to your `plugin.json`. `when_off` says what's missing without your plugin (like "Without it there's no Black and white card") and the Plugins dialog shows it when someone switches your plugin off.
+You can also set `title`, `about` and `when_off` on your class. `title` and `about` fall back to your `plugin.json`. `when_off` says what's missing without your plugin (like "Without it there's no Black and white card") and the Plugins dialog shows it when someone switches your plugin off. With `in_presets = True` your settings get saved in presets along with the camera and the transforms, and come back through `apply_preset()` (which calls `set_config()` unless you override it).
 
 ### The view and people in the picture
 

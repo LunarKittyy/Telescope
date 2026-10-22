@@ -224,13 +224,14 @@ def test_it_says_so_when_something_else_has_the_view(card):
 
 def test_settings_round_trip_and_damaged_ones_fall_back(card):
     plugin, host, _bus, _clock = card()
-    plugin.set_config({"on": True, "framing": 2.5, "speed": 9, "hand": False})
-    assert plugin.get_config() == {"on": True, "framing": 2.5, "speed": 9, "hand": False}
+    plugin.set_config({"on": True, "framing": 2.5, "speed": 9, "room": 0, "hand": False})
+    assert plugin.get_config() == {"on": True, "framing": 2.5, "speed": 9, "room": 0, "hand": False}
+    assert plugin._room_lbl.text() == "Off"
     assert plugin._framing_lbl.text() in ("Waist", "Body")
     assert host.owner == "Auto framing"
-    plugin.set_config({"on": "yes", "framing": "head", "speed": 30})
-    assert plugin.get_config() == {"on": False, "framing": 1.0, "speed": 5, "hand": True}
-    assert plugin._framing_lbl.text() == "Head"
+    plugin.set_config({"on": "yes", "framing": "head", "speed": 30, "room": True})
+    assert plugin.get_config() == {"on": False, "framing": 1.0, "speed": 5, "room": 4, "hand": True}
+    assert plugin._framing_lbl.text() == "Chest"
     assert host.owner == ""
 
 
@@ -254,3 +255,39 @@ def test_holding_a_hand_out_gets_it_in_the_picture_quickly_even_at_the_calmest_s
     assert _right_edge(host.steered[-1]) < 0.69
     _run(plugin, clock, 1.2, bus, [_person(left_wrist=(0.69, 0.44), left_elbow=(0.62, 0.46), seen=0.3)])
     assert _right_edge(host.steered[-1]) > 0.72  # the hand and a bit of room for what's in it
+
+
+def _centre(steered):
+    zoom, pan_x, _pan_y = steered
+    return window_centre(zoom, pan_x)
+
+
+def _same_place(a, b):
+    return abs(_centre(a) - _centre(b)) < 1e-3 and abs(a[0] - b[0]) < 1e-2
+
+
+def test_shifting_in_your_seat_doesnt_move_the_framing_but_moving_away_does(card):
+    plugin, host, bus, clock = card()
+    plugin._switch.setChecked(True)
+    _run(plugin, clock, 20, bus, [_person(x=0.5)])
+    settled = host.steered[-1]
+    _run(plugin, clock, 3, bus, [_person(x=0.52)])  # settling in the chair
+    assert _same_place(host.steered[-1], settled)
+    _run(plugin, clock, 0.3, bus, [_person(x=0.62)])  # a quick lean to the side
+    _run(plugin, clock, 3, bus, [_person(x=0.5)])
+    assert _same_place(host.steered[-1], settled)
+    _run(plugin, clock, 8, bus, [_person(x=0.62)])  # moving over for good
+    assert _centre(host.steered[-1]) == pytest.approx(0.62, abs=0.01)
+    moved = host.steered[-1]
+    _run(plugin, clock, 3, bus, [_person(x=0.6)])  # and it holds still again where it settled
+    assert _same_place(host.steered[-1], moved)
+
+
+def test_with_no_room_to_move_it_follows_every_shift(card):
+    plugin, host, bus, clock = card()
+    plugin._switch.setChecked(True)
+    plugin._room_slider.setValue(0)
+    _run(plugin, clock, 20, bus, [_person(x=0.5)])
+    before = _centre(host.steered[-1])
+    _run(plugin, clock, 8, bus, [_person(x=0.52)])
+    assert _centre(host.steered[-1]) > before + 0.01

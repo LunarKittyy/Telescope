@@ -109,6 +109,7 @@ class BackgroundPlugin(TelescopePlugin):
     when_off = "Without it there's no Background card and the background stays as the camera sees it."
     optional = True
     needs_vision = True
+    in_presets = True
     panel_region = "right"
 
     def setup(self, host, bus):

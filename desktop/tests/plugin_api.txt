@@ -56,6 +56,7 @@ HostSettings.forget_device_settings(self, name)
 HostSettings.has_device_settings(self, name)
 HostSettings.move_device_settings(self, old, new)
 HostSettings.plugin_config(self, name)
+HostSettings.preset_plugins(self)
 HostSettings.save_now(self)
 HostSettings.schedule_save(self)
 HostSettings.switch_device(self, prev_name, new_name)
@@ -164,6 +165,7 @@ TelescopePlugin.follows_focus = True
 TelescopePlugin.frame_step(self)
 TelescopePlugin.get_config(self)
 TelescopePlugin.header_side = 'left'
+TelescopePlugin.in_presets = False
 TelescopePlugin.name = ''
 TelescopePlugin.needs_vision = False
 TelescopePlugin.on_camera_off(self)
