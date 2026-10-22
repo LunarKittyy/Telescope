@@ -41,9 +41,11 @@ def check_app_construction():
     from PyQt6.QtWidgets import QApplication
 
     from telescope.app import TelescopeWindow
+    from telescope.plugins.background import BackgroundPlugin
     from telescope.plugins.browser_camera import BrowserCameraPlugin
     from telescope.plugins.camera_control import CameraControlPlugin
     from telescope.plugins.connection import ConnectionPlugin
+    from telescope.plugins.framing import FramingPlugin
     from telescope.plugins.microphone import MicrophonePlugin
     from telescope.plugins.monitoring import MonitoringPlugin
     from telescope.plugins.presets import PresetsPlugin
@@ -58,8 +60,8 @@ def check_app_construction():
     app = QApplication.instance() or QApplication([])
     win = TelescopeWindow()
     for plugin_cls in (
-        SetupPlugin, ConnectionPlugin, CameraControlPlugin, BrowserCameraPlugin, StreamOutputPlugin,
-        TransformsPlugin, MicrophonePlugin, PresetsPlugin, PreviewPlugin, MonitoringPlugin, UpdatesPlugin,
+        SetupPlugin, ConnectionPlugin, CameraControlPlugin, BrowserCameraPlugin, BackgroundPlugin, StreamOutputPlugin,
+        TransformsPlugin, FramingPlugin, MicrophonePlugin, PresetsPlugin, PreviewPlugin, MonitoringPlugin, UpdatesPlugin,
         ShortcutsPlugin, StartupPlugin,
     ):
         win.register_plugin(plugin_cls())
@@ -70,6 +72,29 @@ def check_app_construction():
              f"{type(shortcuts.backend).__name__ if shortcuts.backend else 'nothing'}"
     shortcuts.shutdown()
     return f"{len(win._plugins)} plugins registered, {detail}"
+
+
+def check_background_speed():
+    import time
+
+    import cv2
+    import numpy as np
+
+    from telescope.plugins.background import blurred, compose, soften
+
+    cv2.setNumThreads(2)  # as the app runs it (main.py)
+    frame = np.random.default_rng(0).integers(0, 255, (1080, 1920, 3), np.uint8)
+    mask = np.zeros((1080, 1920), np.uint8)
+    mask[:, :900] = 255
+    times = []
+    for _ in range(30):
+        t0 = time.perf_counter()
+        compose(frame, soften(mask, 3), blurred(frame, 6, mask))
+        times.append((time.perf_counter() - t0) * 1000)
+    median = sorted(times)[len(times) // 2]
+    if median > 40:  # far past a 33 ms frame at 30 fps: something made it a lot slower
+        raise RuntimeError(f"a 1080p background blur took {median:.1f} ms")
+    return f"1080p blur without the model: {median:.1f} ms"
 
 
 def check_adb_discovery():
@@ -260,6 +285,7 @@ def main() -> int:
     _check("Virtual-camera availability check runs without crashing", check_virtual_camera_availability)
     _check("Authenticated MJPEG stream round-trip", check_authenticated_stream_round_trip)
     _check("Browser camera round-trip", check_browser_camera_round_trip)
+    _check("Background blur keeps up at 1080p", check_background_speed)
 
     print()
     if _FAILURES:

@@ -10,6 +10,7 @@ Planned in October 2026, after 3.5. The order is only a rough suggestion. The fi
 - [x] [Frame rate changes without restarting the camera](#frame-rate-changes-without-restarting-the-camera)
 - [x] [Moving to USB without a gap](#moving-to-usb-without-a-gap)
 - [x] [One shared example of /v1/state for both apps](#one-shared-example-of-v1state-for-both-apps)
+- [ ] [Auto framing and Background](#auto-framing-and-background)
 
 Already merged:
 
@@ -78,3 +79,9 @@ Medium, mostly in `StreamWorker` and the Connection plugin.
 `/v1/state` is described twice, once in `Protocol.kt` on the phone and once in `models.py` on the desktop, and nothing checks that they still agree. One `state.json` example in the repo that both test suites read would catch that. A Kotlin test builds a known state and compares it with the file and a Python test parses the same file.
 
 Small. It's mostly picking where the file lives so both test suites can read it.
+
+## Auto framing and Background
+
+Two plugins on top of MediaPipe. Auto framing follows you with the zoom and pan and widens when you hold a hand out to show something. Background blurs what's behind you or swaps it for a picture. They're the first optional plugins, off until switched on in Plugins, since MediaPipe is a download of its own (about 47 MB on Linux and 28 MB on Windows) and most people won't want it.
+
+Big. The zoom and pan moved out of the Transforms card into a view the window owns, MediaPipe runs as a host service for every stream, and the release builds a vision pack for each platform next to the app. While framing moves the view the phone stays on a wider crop and only changes it once the framing settles, so it doesn't hop between lenses. That part still needs trying on a real multi-lens phone.

@@ -1,4 +1,4 @@
-"""Named snapshots of a phone's camera, stream output and transform settings.
+"""Named snapshots of the settings of every plugin that's in_presets (the camera, stream output, transforms and so on).
 
 Per phone (lens ids and sizes differ between phones), so the host keeps them with the other per-device
 configs. Applying one hands each section to its plugin's apply_preset(), which also sends it to the
@@ -21,8 +21,7 @@ from telescope.widgets.line_icons import line_icon
 
 logger = logging.getLogger(__name__)
 
-# Applied in this order: the lens switch goes out before stream output looks up its sizes.
-SECTIONS = ("camera_control", "stream_output", "transforms")
+# The keys the first three sections were saved under; any other plugin's section is under its name
 _KEYS = {"camera_control": "camera", "stream_output": "stream", "transforms": "transforms"}
 _MAX_NAME = 40
 
@@ -48,9 +47,9 @@ def clean_presets(raw) -> list:
             continue
         seen.add(name)
         entry = {"name": name}
-        for key in _KEYS.values():
-            if isinstance(p.get(key), dict):
-                entry[key] = dict(p[key])
+        for key, section in p.items():
+            if key != "name" and isinstance(key, str) and isinstance(section, dict):
+                entry[key] = dict(section)  # a switched-off plugin's section stays for when it's back
         out.append(entry)
     return out
 
@@ -83,10 +82,10 @@ class PresetsPlugin(TelescopePlugin):
         if not name:
             return
         entry = {"name": name}
-        for section in SECTIONS:
+        for section in self._host.preset_plugins():
             cfg = self._host.plugin_config(section)
             if cfg is not None:
-                entry[_KEYS[section]] = cfg
+                entry[_KEYS.get(section, section)] = cfg
         existing = self.find(name)
         if existing is not None:
             self._presets[self._presets.index(existing)] = entry
@@ -99,8 +98,9 @@ class PresetsPlugin(TelescopePlugin):
         if preset is None:
             return
         self._last = name
-        for section in SECTIONS:
-            cfg = preset.get(_KEYS[section])
+        # In registration order: the lens switch goes out before stream output looks up its sizes
+        for section in self._host.preset_plugins():
+            cfg = preset.get(_KEYS.get(section, section))
             if cfg is not None:
                 try:
                     self._host.apply_preset(section, cfg)
@@ -165,7 +165,7 @@ class PresetsPlugin(TelescopePlugin):
         self._btn = QPushButton("Presets")
         self._btn.setFixedHeight(34)
         set_button_icon(self._btn, line_icon("bookmark", theme.ACCENT_SOFT))
-        self._btn.setToolTip("This phone's saved camera, output and transform settings")
+        self._btn.setToolTip("This phone's saved camera, output, transform, framing and background settings")
         self._btn.clicked.connect(self._show_menu)
         return self._btn
 

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from telescope.models import PhoneState
 from telescope.plugins.camera_control import derive_camera_control_view
-from telescope.plugins.transforms import PhoneZoomCaps
+from telescope.view import PhoneZoomCaps
 
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLE = json.loads((ROOT / "docs" / "state.json").read_text(encoding="utf-8"))

@@ -1,8 +1,12 @@
+import pytest
 import numpy as np
 from PyQt6.QtCore import QEvent
 from PyQt6.QtWidgets import QSizePolicy, QWidget
 
+from telescope import vision
 from telescope.plugin import EventBus
+from telescope.view import View
+from telescope.vision import Person
 from telescope.widgets.common import ui_px
 from telescope.plugins.preview import (
     _CAMERA_OFF_AUTO_TEXT, _CAMERA_OFF_TEXT, _IDLE_BROWSER_TEXT, _IDLE_MIC_TEXT, _IDLE_TEXT, _WAITING_TEXT, PreviewPlugin, _HostFilter,
@@ -32,6 +36,28 @@ class _Host(QWidget):
 
     def set_camera_on(self, on, auto=False):
         self.camera_on = on
+
+    vision = "missing"
+    wanted = ()
+    shown = View()
+
+    def vision_state(self):
+        return self.vision
+
+    def want_people(self, owner, on):
+        self.wanted = (owner,) if on else ()
+
+    def view(self):
+        return self.shown
+
+    def view_aspect(self):
+        return 16 / 9
+
+    def focused_source_id(self):
+        return "phone"
+
+    def schedule_save(self):
+        pass
 
 
 def _plugin(qapp):
@@ -374,7 +400,7 @@ def test_lens_boxes_show_for_a_moment_after_a_move_then_fade(qapp):
 
     plugin._lenses_btn.setChecked(True)
     assert lbl._boxes_opacity == 1.0  # always on
-    assert plugin.get_config() == {"lens_boxes": True}
+    assert plugin.get_config() == {"lens_boxes": True, "skeleton": False}
     plugin.set_config({"lens_boxes": False})
     assert not plugin._lenses_btn.isChecked() and lbl._boxes_opacity == 0.0
 
@@ -505,3 +531,57 @@ def test_a_frame_from_just_before_the_camera_went_off_is_dropped(qapp):
     plugin._busy = True
     plugin._on_frame(np.zeros((4, 4, 3), dtype=np.uint8))
     assert plugin._preview_lbl.pixmap().isNull() and plugin._busy is False
+
+
+def _figure(arm_out=False):
+    """Shoulders at 0.45 and 0.55 of the width, 0.4 down; the person's left arm straight out on request."""
+    points = {"left_shoulder": (0.55, 0.4, 0.99), "right_shoulder": (0.45, 0.4, 0.99),
+              "left_hip": (0.53, 0.75, 0.9), "right_hip": (0.47, 0.75, 0.9), "nose": (0.5, 0.28, 0.99),
+              "left_eye": (0.51, 0.26, 0.99), "left_ear": (0.53, 0.27, 0.9)}
+    if arm_out:
+        points.update({"left_elbow": (0.62, 0.42, 0.9), "left_wrist": (0.69, 0.42, 0.9)})
+    return Person(points)
+
+
+def _skeleton_plugin(qapp, state=vision.READY):
+    host, bus = _Host(), EventBus()
+    host.vision = state
+    plugin = PreviewPlugin()
+    plugin.setup(host, bus)
+    plugin.create_panel()
+    plugin.set_config({})
+    return plugin, host, bus
+
+
+def test_the_skeleton_button_only_shows_with_the_vision_download(qapp):
+    plugin, _host, _bus = _skeleton_plugin(qapp, vision.MISSING)
+    assert plugin._skeleton_btn.isHidden()
+    plugin, _host, _bus = _skeleton_plugin(qapp, vision.OFF)
+    assert not plugin._skeleton_btn.isHidden()
+
+
+def test_the_skeleton_draws_the_shown_streams_people_over_the_preview(qapp):
+    plugin, host, bus = _skeleton_plugin(qapp)
+    bus.people_seen.emit("phone", [_figure()])
+    assert plugin._preview_lbl._skeleton == []  # not asked for
+    plugin._skeleton_btn.setChecked(True)
+    assert host.wanted == ("Preview skeleton",)
+    bus.people_seen.emit("another phone", [_figure()])
+    assert plugin._preview_lbl._skeleton == []
+    bus.people_seen.emit("phone", [_figure()])
+    shoulders = [line for line in plugin._preview_lbl._skeleton if line[1] == line[3] == 0.4]
+    assert shoulders and sorted((shoulders[0][0], shoulders[0][2])) == [0.45, 0.55]
+    plugin._skeleton_btn.setChecked(False)
+    assert host.wanted == () and plugin._preview_lbl._skeleton == []
+
+
+def test_the_skeleton_follows_the_zoom_and_marks_an_arm_held_out(qapp):
+    plugin, host, bus = _skeleton_plugin(qapp)
+    plugin._skeleton_btn.setChecked(True)
+    host.shown = View(zoom=2.0)
+    bus.people_seen.emit("phone", [_figure(arm_out=True)])
+    lines = plugin._preview_lbl._skeleton
+    shoulders = next(line for line in lines if line[1] == line[3] == pytest.approx(0.3))
+    assert sorted((shoulders[0], shoulders[2])) == [pytest.approx(0.4), pytest.approx(0.6)] and not shoulders[5]
+    arm = [line for line in lines if line[5]]
+    assert len(arm) == 2  # shoulder to elbow and elbow to wrist, not the side of the body or the face

@@ -236,3 +236,115 @@ def test_the_plugins_window_opens_over_the_main_window_without_blocking_it(qapp,
         assert window._plugins_dlg is dlg  # brought back up, not a second one
     finally:
         dlg.close()
+
+
+# ── Optional built-in plugins ───────────────────────────────────────────────
+
+class _Optional(_Builtin):
+    optional = True
+
+    def __init__(self, name, title, needs_vision=True):
+        super().__init__(name, title)
+        self.needs_vision = needs_vision
+
+
+class _Download:
+    """Stands in for VisionDownload: start() finishes at once, as the real one does once its thread is done."""
+
+    def __init__(self, ready=False, available=True, error=""):
+        from PyQt6.QtCore import QObject, pyqtSignal
+
+        class Signals(QObject):
+            progress = pyqtSignal(int, int)
+            finished = pyqtSignal(str)
+        self._signals = Signals()
+        self.progress, self.finished = self._signals.progress, self._signals.finished
+        self._ready, self._available, self._error = ready, available, error
+        self.waiting = self.error = self.failed_for = ""
+        self.started, self.removed = [], 0
+
+    def ready(self):
+        return self._ready
+
+    def available(self):
+        return self._available
+
+    def running(self):
+        return False
+
+    def size_mb(self):
+        return 47
+
+    def start(self, switch_on=""):
+        self.started.append(switch_on)
+        if self._error:
+            self.error, self.failed_for = self._error, switch_on
+        else:
+            self._ready = True
+            plugin_loader.set_optional_on(switch_on, True)
+        self.finished.emit(self._error)
+
+    def remove(self):
+        self.removed += 1
+        self._ready = False
+
+
+def test_an_optional_plugin_starts_off_and_isnt_loaded_until_its_switched_on(window, plugins):
+    window.load_plugins([*_builtins(), _Optional("framing", "Auto framing")])
+    assert "framing" not in [p.name for p in window._plugins]
+    assert window.plugins_off() == []  # never switched on isn't "turned off"
+    assert window._banners.issue("plugins_off") is None
+    plugin_loader.set_optional_on("framing", True)
+    plugin_loader.all_builtin_on()  # Turn all back on keeps it
+    assert plugin_loader.optional_on() == {"framing"}
+
+
+def test_switching_one_on_asks_to_download_first_then_switches_it_on(qapp, plugins, answers):
+    asked, reply = answers
+    dl = _Download()
+    builtins = [*_builtins(), _Optional("framing", "Auto framing")]
+    dialog = PluginsDialog(None, builtins, {"connection", "camera_control", "presets"}, {}, lambda: True,
+                           download=dl)
+    texts = [lbl.text() for lbl in dialog.findChildren(QLabel)]
+    assert "Switching it on downloads about 47 MB first." in texts
+    reply["yes"] = False
+    _boxes(dialog)["Auto framing"].setChecked(True)
+    assert dl.started == [] and plugin_loader.optional_on() == set()
+    assert not _boxes(dialog)["Auto framing"].isChecked()
+    reply["yes"] = True
+    _boxes(dialog)["Auto framing"].setChecked(True)
+    assert asked[-1][0] == "Download about 47 MB?" and "MediaPipe" in asked[-1][1]
+    assert dl.started == ["framing"] and plugin_loader.optional_on() == {"framing"}
+    assert _boxes(dialog)["Auto framing"].isChecked() and not dialog._restart_bar.isHidden()
+    assert dialog._remove_pack_btn.isHidden()  # something uses it
+
+
+def test_with_the_download_there_switching_on_is_just_a_switch(qapp, plugins, answers):
+    asked, _reply = answers
+    dl = _Download(ready=True)
+    builtins = [*_builtins(), _Optional("framing", "Auto framing"), _Optional("background", "Background")]
+    dialog = PluginsDialog(None, builtins, {"connection"}, {}, lambda: True, download=dl)
+    _boxes(dialog)["Background"].setChecked(True)
+    assert asked == [] and dl.started == [] and plugin_loader.optional_on() == {"background"}
+    _boxes(dialog)["Background"].setChecked(False)
+    assert plugin_loader.optional_on() == set()
+    assert not dialog._remove_pack_btn.isHidden()
+    dialog._remove_pack_btn.click()
+    assert dl.removed == 1
+
+
+def test_a_failed_download_leaves_it_off_and_says_why(qapp, plugins, answers):
+    dl = _Download(error="The download failed. Check the internet connection and try again.")
+    dialog = PluginsDialog(None, [*_builtins(), _Optional("framing", "Auto framing")], {"connection"}, {},
+                           lambda: True, download=dl)
+    _boxes(dialog)["Auto framing"].setChecked(True)
+    assert plugin_loader.optional_on() == set() and not _boxes(dialog)["Auto framing"].isChecked()
+    texts = [lbl.text() for lbl in dialog.findChildren(QLabel)]
+    assert any(t.startswith("The download didn't work. The download failed.") for t in texts)
+
+
+def test_without_a_pack_for_this_computer_it_cant_be_switched_on(qapp, plugins, answers):
+    dl = _Download(available=False)
+    dialog = PluginsDialog(None, [*_builtins(), _Optional("framing", "Auto framing")], {"connection"}, {},
+                           lambda: True, download=dl)
+    assert not _boxes(dialog)["Auto framing"].isEnabled()

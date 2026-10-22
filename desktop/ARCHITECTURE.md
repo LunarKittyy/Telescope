@@ -46,13 +46,13 @@ People write plugins against what `plugin.py` offers and expect them to keep wor
 
 ## When plugins need the same thing
 
-None of this is built yet. It's the plan for when the first plugin needs it, written down so nobody reaches for plugin-to-plugin dependencies first.
+Two shared pieces are built. The view (`view.py` and `view_controller.py`, `HostView` in `plugin.py`) is the zoom, pan, flip and rotation that Transforms and Auto framing both move. The vision service (`vision.py`, `HostVision`) runs MediaPipe once per frame for Background and Auto framing, so two plugins asking for a person mask don't each run the model. The `needs` list and the registry below are still only a plan, written down so nobody reaches for plugin-to-plugin dependencies first.
 
-Some future plugins will want a shared base. Several effect plugins could share one post-processing backend (a GPU context, a smaller copy of the frame or face detection run once a frame). An AI framing plugin would want to move the same zoom and pan the Transforms card does rather than add a second transform on top of it.
+More plugins will want a shared base like that. Several effects could share a GPU context or a smaller copy of the frame, the same way they already share the mask.
 
 Plugins still won't depend on other plugins. If B used A's code then any update of A could break B, and nothing would catch it the way `test_plugin_api.py` catches changes to the host. Switching A off or removing it would have to do something about B too, and the loader would need versions and a load order between plugins. So the plan is this:
 
-- **The shared part moves into the app.** A post-processing backend becomes a host service that effect plugins call through `HostServices`. Zoom, pan and rotation become a view the window owns, with Transforms as the manual controls for it. AI framing drives the same view through a host method and keeps working when someone switches the Transforms card off. Helpers like the zoom math in `plugins/transforms.py` move out of `plugins/` as the rules above already say.
+- **The shared part moves into the app.** Something like the vision service becomes a host service that plugins call through `HostServices`. Zoom, pan, flip and rotation are a view the window owns, with Transforms as the manual controls for it (`host.set_view`). Something that moves the view by itself, like AI framing, takes it with `host.take_view` and keeps working when someone switches the Transforms card off. The zoom maths lives in `view.py`, outside `plugins/`.
 - **A plugin can say what it needs.** A `needs` list in plugin.json names the built-in plugins it can't work without. If one of them is switched off the Plugins dialog shows which one it's waiting for (instead of the plugin quietly doing nothing), and switching it off warns about the plugins that need it.
 - **Added plugins sharing with each other** would go through a host registry if that ever comes up for real. One plugin registers a service under a name and the others ask `host.service(name)` and get None when it isn't there. They still never import each other.
 
