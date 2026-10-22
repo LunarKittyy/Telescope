@@ -12,11 +12,11 @@ This page is for people who write Python. To switch plugins on and off or instal
 - [Ground rules](#a-few-ground-rules)
 - [Sharing it](#sharing-it)
 
-A plugin is a folder with two files in it. `plugin.json` describes the plugin and `__init__.py` holds its Python code. If you've written a little Python before you can write a plugin, and you don't need to understand the rest of Telescope first.
+A plugin is a folder with two files in it. `plugin.json` describes the plugin and `__init__.py` holds its Python code. If you've written a little Python before you can write a plugin and you don't need to understand the rest of Telescope first.
 
 ## Start from the example
 
-The repository has a small example plugin in [`desktop/examples/plugins/black_and_white`](../desktop/examples/plugins/black_and_white). It adds a card with one checkbox that turns the picture black and white, and each phone remembers its own setting. Copying it is the quickest way to start.
+The repository has a small example plugin in [`desktop/examples/plugins/black_and_white`](../desktop/examples/plugins/black_and_white). It adds a card with one checkbox that turns the picture black and white and each phone remembers its own setting. Copying it is the quickest way to start.
 
 To try it, set up the desktop app from source (see [Building and CI](building.md)) and run this in `desktop/`:
 
@@ -24,13 +24,13 @@ To try it, set up the desktop app from source (see [Building and CI](building.md
 python scripts/dev_desktop.py --plugin examples/plugins/black_and_white
 ```
 
-That starts a dev copy of Telescope with its own settings, which keeps your normal Telescope safe from whatever you try. The plugin is loaded straight from its folder and is always on, and the Black and white card shows up in the right column.
+That starts a dev copy of Telescope with its own settings, which keeps your normal Telescope safe from whatever you try. The plugin is loaded straight from its folder and is always on and the Black and white card shows up in the right column.
 
 For your own plugin copy the folder somewhere, rename it and change `name` in both files to match. Then point `--plugin` at your copy. You can give `--plugin` more than once to load several plugins.
 
 ## Trying out changes
 
-Leave the dev copy running while you work. Every time you save a file in your plugin's folder Telescope restarts by itself with the new code. If it was streaming it starts streaming again once it's back. Errors from your plugin show up with their tracebacks in the terminal you started it from, and if your plugin didn't start at all the Plugins tab says why under its name.
+Leave the dev copy running while you work. Every time you save a file in your plugin's folder Telescope restarts by itself with the new code. If it was streaming it starts streaming again once it's back. Errors from your plugin show up with their tracebacks in the terminal you started it from and if your plugin didn't start at all the Plugins tab says why under its name.
 
 For a quick check that doesn't open Telescope run this:
 
@@ -56,7 +56,7 @@ It loads your plugin next to the built-in ones in a throwaway profile and builds
 
 - `name` is your plugin's id. It has to match the folder's name and the `name` in your class, using only lowercase letters, digits and `_` (like `my_overlay`). Your settings are saved under it, so don't change it later.
 - `title`, `version`, `author` and `description` are what people see in the Plugins tab. Write the description for someone who has never heard of your plugin.
-- `api` is the version of the plugin API you wrote it for, which is `1` for now. Telescope only raises it for a change that would break existing plugins, and everything in `plugin.py` keeps working until then (Telescope's own tests check that). A plugin with the wrong number isn't loaded.
+- `api` is the version of the plugin API you wrote it for, which is `1` for now. Telescope only raises it for a change that would break existing plugins and everything in `plugin.py` keeps working until then (Telescope's own tests check that). A plugin with the wrong number isn't loaded.
 - `class` is the name of your plugin class in `__init__.py`.
 
 ## __init__.py
@@ -94,16 +94,16 @@ class BlackAndWhitePlugin(TelescopePlugin):
 
 `setup()` runs once at the start and gets two things. `host` is the window and has everything a plugin may ask of it, like saving settings, starting or stopping a stream or showing a banner. `bus` is the event bus where you can listen for things happening, like a stream starting or a phone being paired. Both are described in [`desktop/telescope/plugin.py`](../desktop/telescope/plugin.py), which is the whole plugin API in one file.
 
-`process_frame()` gets every frame of the stream as a NumPy array (BGR, height × width × 3) and returns the frame to send on. Plugins get the frame in the order they're registered, built-in ones first, and the preview always shows it after every plugin had its turn. When several phones stream at once, `frame_step()` hands Telescope a frozen copy of that for the streams the panels aren't showing. Return `None` there if your plugin shouldn't touch those.
+`process_frame()` gets every frame of the stream as a NumPy array (BGR, height × width × 3) and returns the frame to send on. Plugins get the frame in the order they're registered, built-in ones first and the preview always shows it after every plugin had its turn. When several phones stream at once, `frame_step()` hands Telescope a frozen copy of that for the streams the panels aren't showing. Return `None` there if your plugin shouldn't touch those.
 
-`get_config()` and `set_config()` are how settings get saved. Return a plain dict of what you want remembered and read it back in `set_config()`. Telescope calls `get_config()` whenever it saves, and `host.schedule_save()` asks it to save after something changed. `set_config()` might also get a dict saved by an older version of your plugin (or edited by hand) so read it carefully, the way the example checks `cfg.get("on") is True`.
+`get_config()` and `set_config()` are how settings get saved. Return a plain dict of what you want remembered and read it back in `set_config()`. Telescope calls `get_config()` whenever it saves and `host.schedule_save()` asks it to save after something changed. `set_config()` might also get a dict saved by an older version of your plugin (or edited by hand) so read it carefully, the way the example checks `cfg.get("on") is True`.
 
 ## Folding the card
 
-People can click a card's title to fold the card down to its header, and a section title inside it to fold just that section. There's nothing for you to write. After `create_panel()` returns Telescope looks at the card and makes it foldable if you built it with the helpers in `telescope/widgets/common.py`:
+People can click a card's title to fold the card down to its header and a section title inside it to fold just that section. There's nothing for you to write. After `create_panel()` returns Telescope looks at the card and makes it foldable if you built it with the helpers in `telescope/widgets/common.py`:
 
 - `create_card()` and `card_layout(card)` make the card and its layout
-- `add_card_header(layout, "Title", "icon")` adds the header, and its title is what people click. A card without one is left alone
+- `add_card_header(layout, "Title", "icon")` adds the header and its title is what people click. A card without one is left alone
 - `add_section_heading(layout, "Section", "icon")` starts a section that runs until the next heading or the end of the card
 
 What to keep in mind while building the card:
@@ -133,7 +133,7 @@ All of these are optional and you only override what you need.
 | `diagnostics()` | A few lines for Copy diagnostics (no tokens, addresses or names) |
 | `shutdown()` | Telescope is quitting and you should stop anything you started |
 
-You can also set `title`, `about` and `when_off` on your class. `title` and `about` fall back to your `plugin.json`. `when_off` says what's missing without your plugin (like "Without it there's no Black and white card") and the Plugins tab shows it when someone switches your plugin off. With `in_presets = True` your settings get saved in presets along with the camera and the transforms, and come back through `apply_preset()` (which calls `set_config()` unless you override it).
+You can also set `title`, `about` and `when_off` on your class. `title` and `about` fall back to your `plugin.json`. `when_off` says what's missing without your plugin (like "Without it there's no Black and white card") and the Plugins tab shows it when someone switches your plugin off. With `in_presets = True` your settings get saved in presets along with the camera and the transforms and come back through `apply_preset()` (which calls `set_config()` unless you override it).
 
 #### Settings of your own
 
@@ -141,7 +141,7 @@ You can also set `title`, `about` and `when_off` on your class. `title` and `abo
 
 ## The view and people in the picture
 
-Zoom, pan, flip and rotation belong to the window, not to the Transforms card, so a plugin can work with them even when Transforms is switched off. `host.view()` is the shown stream's view as it is now and `bus.view_changed` fires when it changes. `host.set_view(zoom=2.0)` changes it the way the Transforms controls do. A plugin that wants to move the zoom and pan by itself (like Auto framing) calls `host.take_view("My plugin")` first, then `host.steer_view(...)` as often as it likes, and `host.release_view(...)` when it's done. Only one plugin can have the view at a time, and the Transforms card shows who has it.
+Zoom, pan, flip and rotation belong to the window, not to the Transforms card, so a plugin can work with them even when Transforms is switched off. `host.view()` is the shown stream's view as it is now and `bus.view_changed` fires when it changes. `host.set_view(zoom=2.0)` changes it the way the Transforms controls do. A plugin that wants to move the zoom and pan by itself (like Auto framing) calls `host.take_view("My plugin")` first, then `host.steer_view(...)` as often as it likes and `host.release_view(...)` when it's done. Only one plugin can have the view at a time and the Transforms card shows who has it.
 
 The vision service runs MediaPipe for plugins that ask. `host.person_mask(frame)` in `process_frame()` gives a mask of where the people are (`None` while it's still loading or if the download isn't there). `host.want_people("My plugin", True)` makes `bus.people_seen` report the people on each stream with their landmarks (eyes, shoulders, wrists, hips and so on) a dozen or so times a second. `host.vision_state()` and `bus.vision_state_changed` tell you whether it's ready. Plugins someone adds can use all of this, but only once the vision download is there, which right now only happens by switching on Auto framing or Background.
 
@@ -155,9 +155,9 @@ These keep plugins from breaking each other or Telescope. The [architecture note
 - **Keep `process_frame()` quick.** It runs for every frame on a decoding thread and the stream falls behind if it takes too long. A frame it raises on goes through unchanged. If it keeps failing Telescope skips it until the next stream.
 - **Don't write files into your plugin's folder.** Any new or changed file there counts as a change and your plugin would be switched off at the next start. Keep settings in `get_config()` and put anything else outside the plugins folder.
 - **Ship source code.** A plugin with compiled files in it (`.pyc`, `.so`, `.pyd`) isn't loaded. Telescope also clears `__pycache__` before loading one to make sure what runs is the code people can read.
-- **Use what Telescope comes with.** That's PyQt6, NumPy, OpenCV and Python's standard library, and Telescope can't install anything else for your plugin. The Windows app only carries the parts of the standard library that Telescope itself uses, so try your plugin there too. If an import is missing there the Plugins tab shows it as the reason the plugin didn't start. A plugin with more than one file imports its own modules relatively (`from . import helpers`).
+- **Use what Telescope comes with.** That's PyQt6, NumPy, OpenCV and Python's standard library and Telescope can't install anything else for your plugin. The Windows app only carries the parts of the standard library that Telescope itself uses, so try your plugin there too. If an import is missing there the Plugins tab shows it as the reason the plugin didn't start. A plugin with more than one file imports its own modules relatively (`from . import helpers`).
 
-When something in your plugin raises an exception Telescope logs it and carries on, and the other plugins still hear about everything. In the dev copy you see it in the terminal. A normal install writes it to `telescope.log` in Telescope's temp folder (`/tmp/telescope-<user>` on Linux, `%TEMP%\Telescope` on Windows).
+When something in your plugin raises an exception Telescope logs it and carries on and the other plugins still hear about everything. In the dev copy you see it in the terminal. A normal install writes it to `telescope.log` in Telescope's temp folder (`/tmp/telescope-<user>` on Linux, `%TEMP%\Telescope` on Windows).
 
 ## Sharing it
 

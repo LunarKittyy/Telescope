@@ -21,12 +21,12 @@ Another program is using port 47823, or a stuck Telescope is. Close it (or end t
 Another account on this PC has Telescope open and both use the same local port. Close it there. Linux accounts don't share it.
 
 **"Your settings couldn't be read"**
-`telescope_config.json` was damaged or edited wrongly, so Telescope started with defaults and paired phones need pairing again. The banner says where the old file was copied (`telescope_config.json.invalid-...`). Fix it and put it back, or pair again.
+`telescope_config.json` was damaged or edited wrongly, so Telescope started with defaults and paired phones need pairing again. The banner shows where the old file was copied (`telescope_config.json.invalid-...`). Fix it and put it back, or pair again.
 
 ## Virtual camera
 
 **Telescope or Phone Camera isn't listed in OBS, Discord or Zoom**
-Apps only look for cameras when they start, so restart the app if it was already open when the camera was set up. On Windows, Discord stays in the tray when you close its window, so quit it from the tray icon (right-click, Quit) and open it again. Restarting the computer works too.
+Apps only look for cameras when they start. Restart the app if it was already open when the camera was set up. On Windows, Discord stays in the tray when you close its window, so quit it from the tray icon (right-click, Quit) and open it again. Restarting the computer works too.
 
 **Linux: the virtual camera won't open**
 The `v4l2loopback` package isn't installed or loaded. Install it (`v4l2loopback-dkms` on Debian, Ubuntu and Arch, `v4l2loopback` on Fedora and Nobara through RPM Fusion, see [Manual setup](setup.md#linux)) and click Start again. **Virtual camera & phone** in Settings can load it by hand.
@@ -50,7 +50,7 @@ An older Telescope installed the driver before it had its own name. Click **Rena
 Something else made that folder or changed who can edit it, and Telescope won't install into a folder it can't trust. Delete `C:\Program Files\Telescope` and click **Install driver** again.
 
 **Windows: driver install says it `hit an error while running as admin`**
-Click **Retry**. If it keeps failing open an issue with your **Copy diagnostics** report.
+Click **Retry**. If it fails again open an issue with your **Copy diagnostics** report.
 
 ## Pairing and connecting
 
@@ -58,19 +58,19 @@ Click **Retry**. If it keeps failing open an issue with your **Copy diagnostics*
 The phone and computer aren't on the same network, or the computer's firewall blocks port 8765. The dialog on the phone lists every address it tried and how each failed. Make sure both are on the same Wi-Fi and the Add phone dialog is still open (the pairing server only runs while it is). Or plug the phone in and pair over USB.
 
 **QR pairing fails on guest or public Wi-Fi**
-Those networks usually block devices from talking to each other. Nothing can work around that, so use USB pairing or a network you control.
+Those networks usually block devices from talking to each other. Nothing can work around that. Use USB pairing or a network you control.
 
 **QR pairing fails with a VPN on**
 The VPN is blocking local network traffic. Turn on its "allow local network access" option, pause it while pairing or use USB. Streaming over Wi-Fi needs the same.
 
 **Plugged in but USB pairing doesn't happen**
-The USB line in the Add phone dialog says which of these it is: adb isn't installed, USB debugging isn't allowed on the phone, or the app isn't on screen. Install `adb` (Linux) or click **get from Google** in that line (Windows), accept the USB debugging prompt and keep Telescope open on the phone.
+The USB line in the Add phone dialog names which of these it is: adb isn't installed, USB debugging isn't allowed on the phone, or the app isn't on screen. Install `adb` (Linux) or click **get from Google** in that line (Windows), accept the USB debugging prompt and keep Telescope open on the phone.
 
 **"Google wouldn't send adb to this computer" (Windows)**
 Google blocks these downloads in some countries. Get Google's platform-tools for Windows another way, then click **pick one you already have** in Add phone (or **Use my own adb…** under Virtual camera & phone in Settings) and choose `adb.exe` or the zip. Wi-Fi works without adb.
 
 **It streams over Wi-Fi although the phone is plugged in**
-The note under the Connection panel's status says why: Telescope isn't open on the phone, USB debugging isn't allowed yet or the cable has a different phone on it. Fix that and the next connect uses USB. To never use Wi-Fi set **Connect via** to USB only.
+The note under the Connection panel's status names the reason: Telescope isn't open on the phone, USB debugging isn't allowed yet or the cable has a different phone on it. Fix that and the next connect uses USB. To never use Wi-Fi set **Connect via** to USB only.
 
 **"Can't reach the phone"**
 Telescope isn't open on the phone, or the phone is on another network and not plugged in. Open Telescope on the phone and keep it on screen.
@@ -79,10 +79,10 @@ Telescope isn't open on the phone, or the phone is on another network and not pl
 A reinstall (or Clear data) gives the phone a new identity. Click **Add phone** and pair again. Telescope asks whether it's the same phone and, if you say yes, takes over the old settings and presets.
 
 **"Can't reach <phone>" banner while streaming**
-The phone app was closed or killed, or the phone left the network. Open Telescope on the phone. If it's still streaming the picture comes back on its own, otherwise press Start.
+The phone app was closed or killed, or the phone left the network. Open Telescope on the phone. If it's still streaming the picture returns without you doing anything, otherwise press Start.
 
 **"Needs pairing again"**
-The phone removed this computer. Click **Add phone** and pair again. Its settings here are kept.
+The phone removed this computer. Click **Add phone** and pair again. Its settings on this computer stay.
 
 **"Another app on the phone is using the camera"**
 Android gives the camera to the app on screen (the Camera app, a video call). Close or switch away from it and the stream picks back up.
@@ -119,7 +119,7 @@ Telescope's Python environment has an older PyAV. Upgrade it there, restart Tele
 ## Camera controls
 
 **A control is greyed out or does nothing**
-The current lens doesn't support it. Some front cameras and telephoto lenses have no manual exposure or white balance, so use Auto there. Hover **Full manual control** or **Limited manual control** to see what the lens can do.
+The current lens doesn't support it. Some front cameras and telephoto lenses have no manual exposure or white balance, use Auto there. Hover **Full manual control** or **Limited manual control** to see what the lens can do.
 
 **Zoom and Pan are greyed out on the Transforms card**
 Auto framing is moving them. Switch it off on its card and your own zoom and pan come back.

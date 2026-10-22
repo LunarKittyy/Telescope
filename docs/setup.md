@@ -4,7 +4,7 @@ The first-run checklist covers this for most people. This page is for doing it b
 
 ## Linux
 
-You need three things: the `v4l2loopback` package, Python 3.11 or newer, and optionally `adb`.
+You need three things: the `v4l2loopback` package, Python 3.11 or newer and optionally `adb`.
 
 ### 1. The virtual camera package
 

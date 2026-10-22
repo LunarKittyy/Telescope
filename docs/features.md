@@ -30,14 +30,14 @@ Optional. It finds you in the picture and moves zoom and pan to keep you framed.
 
 - **Framing** sets how much of you is in the shot, from just your head to your whole body. Two people get framed together. With nobody in view for two seconds it zooms back out
 - **Speed** goes from **Sloth** to **Zippy**. **Easy** is the default
-- **Room to move** is how far you can shift before the framing follows (**Fidget** to **Roam**, and **Off** follows every move)
+- **Room to move** is how far you can shift before the framing follows (**Fidget** to **Roam**, while **Off** follows every move)
 - **Widen for something in your hand** (on by default) makes room when you hold something out to the side
-- Zoom and Pan on the Transforms card are greyed out while it's on. Flip and rotation still work, and your own zoom and pan come back when you switch it off
+- Zoom and Pan on the Transforms card are greyed out while it's on. Flip and rotation still work and your own zoom and pan come back when you switch it off
 - The skeleton button under the preview shows what the framing is reacting to. It never appears in the camera output
 
 ## Background
 
-Optional, and it shares the vision download. **Blur** blurs everything behind you and **Picture** puts an image there instead (PNG, JPEG, WebP or BMP). **Edges** sets how soft the outline around you is. It runs on the computer so it works with any phone and with Browser camera.
+Optional and it shares the vision download. **Blur** blurs everything behind you and **Picture** puts an image there instead (PNG, JPEG, WebP or BMP). **Edges** sets how soft the outline around you is. It runs on the computer so it works with any phone and with Browser camera.
 
 ## The vision download
 
@@ -84,7 +84,7 @@ The phone's mic can be a microphone on your computer while you stream.
 - **Gain** goes from -24 to +12 dB (**Max gain** under Audio in Settings raises the top). The level meter turns yellow while the limiter is holding loud moments down and red when the sound clips. The limiter is on by default
 - **Auto level** (off by default) evens out quiet and loud speech and stops adjusting while nobody talks
 - **Mute** sends silence without disconnecting. It's in the card and the tray menu and resets when Telescope restarts
-- **Mic only:** the camera button under the preview turns the phone's camera off while the mic keeps going. Apps see the wait screen. Press it before starting and Start becomes **Start mic only**
+- **Mic only:** the camera button under the preview turns the phone's camera off while the mic stays on. Apps see the wait screen. Press it before starting and Start becomes **Start mic only**
 - The tray icon shows what's live: a red dot for the camera and a mic for the mic (crossed out when muted)
 
 ## Browser camera
@@ -92,8 +92,8 @@ The phone's mic can be a microphone on your computer while you stream.
 Stream from anything with a browser (an iPhone, a tablet, another laptop) with nothing to install on it. Pick **Browser camera** in the phone picker, scan the code and tap **Start** on the page. It uses WebRTC like browser video calls do, so any up to date browser works. Nothing goes through a server outside your network.
 
 - **First visit warning:** the browser says the connection isn't private because Telescope makes its own certificate. It's still encrypted. On iPhone tap **Show Details** then **visit this website**. In Chrome it's **Advanced** then **Proceed**
-- **Keep the page open with the screen on.** Phones pause the camera when you switch apps or lock, and it picks up again when you come back
-- **Black screen** turns the page black while the camera keeps streaming, which saves battery on OLED phones. Double tap to get the page back. A single tap only shows the connection status for a few seconds. iPhones don't let web pages go full screen, so there it plays a black video in the iPhone's own player instead and closing the player brings the page back
+- **Keep the page open with the screen on.** Phones pause the camera when you switch apps or lock and it picks up again when you come back
+- **Black screen** turns the page black while the camera streams on to save battery on OLED phones. Double tap to get the page back. A single tap only shows the connection status for a few seconds. iPhones don't let web pages go full screen, so there it plays a black video in the iPhone's own player instead and closing the player brings the page back
 - **Light** on the page turns on the flash where the browser allows it (Chrome on Android usually does). Front cameras get a white screen instead
 - **Flip camera** shows on devices with more than one camera
 - **New link** makes a fresh code and the old one stops working at once. Connected browsers are dropped and apps fall back to the wait screen
@@ -110,7 +110,7 @@ Click the **+** next to Stop while streaming to add another phone (or Browser ca
 
 - The first time Telescope adds those cameras and asks for your password (Linux) or permission (Windows). **Extra cameras** under Virtual camera & phone in Settings removes them again
 - A row of tiles shows every stream, which camera it goes to and whether it's live. Click a tile to bring its settings into the panels. The **x** on a tile stops only that stream and Stop stops them all
-- A phone gets the same virtual camera slot as last time if it's free, so OBS scenes keep pointing at the right one
+- A phone gets the same virtual camera slot as last time if it's free, to lower the need for redoing OBS scenes
 - Only one stream has the mic at a time (the first to start). To move it, click another tile and turn on **Phone mic**
 - With more than one stream mic only isn't available, the canvas can't be resized and Automatic streaming won't stop anything until all of them have stopped
 - Extra cameras are always the size set under Setup (1920x1080 on Auto). Other shapes get black bars
@@ -118,7 +118,7 @@ Click the **+** next to Stop while streaming to add another phone (or Browser ca
 ## Monitoring
 
 - FPS and throughput sit in the footer. When the stream can't keep up a note suggests what to try, with a button for it
-- A dropped stream reconnects over whichever route works, so you can pull the cable and it carries on over Wi-Fi. After 10 seconds apps get the wait screen instead of a frozen frame and after 30 a banner says the phone can't be reached
+- A dropped stream reconnects over whichever route works (pull the cable and it carries on over Wi-Fi). After 10 seconds apps get the wait screen instead of a frozen frame and after 30 a banner says the phone can't be reached
 - Phone battery and temperature have alerts that can notify you, stop the stream or both. A stop explains why and offers **Start anyway**. A phone that runs hot also lowers its own frame rate first (Android 10 and newer)
 - **Open log** and **Copy diagnostics** are under Updates & About in Settings. Paste Copy diagnostics into bug reports. Addresses, tokens and your home folder are stripped out
 
@@ -130,15 +130,15 @@ Click the **+** next to Stop while streaming to add another phone (or Browser ca
 - Telescope uses USB when the phone is plugged in and answering and Wi-Fi otherwise. If a cable is plugged in but isn't used the Connection panel says why. **Connect via** can force either one
 - A new IP address from the router breaks nothing, since the phone announces itself on the network
 - On a slow Wi-Fi stream the note tells you when a weak signal or 2.4 GHz is the cause, since moving closer, a 5 GHz network or a cable fixes that better than lowering quality
-- The phone's screen stays on while the app is open because Android only keeps Wi-Fi at full speed with the screen on. You can press the power button and the stream keeps going
+- The phone's screen stays on while the app is open because Android only runs Wi-Fi at full speed with the screen on. You can press the power button and the stream keeps going
 - Camera, output, transform and alert settings are saved per phone. Connection settings and the canvas are shared
 
 ## Privacy
 
 - Everything between the phone and computer is encrypted with TLS. The desktop remembers your phone's certificate at pairing and refuses anything that shows up with a different one
 - The pairing token only travels in the QR code (or over adb) and inside the encrypted connection
-- Someone on the network can still see that a stream is running and roughly how much data it moves. **Local only - USB** in the Android app keeps the stream and controls off the network entirely
-- **Wait for my computer** (off by default) keeps the phone ready even with the screen off or the app closed, so you can start the camera from your PC. Tap **Stop waiting** in its notification to end it
+- Someone on the network can still see that a stream is running and roughly how much data it moves. **Local only - USB** in the Android app takes the stream and controls off the network entirely
+- **Wait for my computer** (off by default) lets you start the camera from your PC with the phone's screen off or the app closed. Tap **Stop waiting** in its notification to end it
 - Browser camera only listens on port 8767 while it is picked or a browser is streaming. Anyone can load the page but sending video needs the token in the code, which changes on every start and on **New link**. Its certificate isn't pinned like a phone's, so on a network you don't trust use a phone
 - The apps only go online to check GitHub for updates. On Windows the desktop also fetches adb from Google and VB-Cable from VB-Audio, but only after you click to get them
 - On Linux only your user can read the config folder with the pairing tokens. On Windows the camera driver sits in Program Files where other programs can't swap it
@@ -160,7 +160,7 @@ Updating installs the new version for your user instead (Start menu entry and un
 - **Automatic streaming** (Streaming in Settings, off by default) starts when the phone is ready or when an app opens the camera. It stops once no app has used the camera for **Wait before stopping** (15 seconds by default). With the phone mic on it only turns the camera off. After you press Stop it won't start again until the phone or the app goes away and comes back
 - **Wait screen** is what apps see while the phone isn't streaming. Use the default or your own image or GIF. **Mirror** is for apps that flip the camera
 - **Open Telescope when I sign in** (General in Settings) starts it quietly in the tray
-- Closing the window while streaming keeps Telescope in the tray
+- Closing the window while streaming hides Telescope to the tray
 - When Start can't go ahead a banner says why and has a button that fixes it
 - While the window is in the tray Telescope checks on the phone less often to save its battery
 
@@ -175,15 +175,15 @@ Click a card's title to fold it down to its header and click again to open it. S
 ## Keyboard shortcuts
 
 - The **Keyboard shortcuts** tab in Settings binds a key to almost any control. You can also right-click a control in the main window to add one for it
-- Each shortcut has its own settings, so one key can raise exposure by 1 EV while another lowers it by 0.3 EV. Switches can toggle or work only while the key is held, which makes **Mute** a push to talk
-- **Settings search** (Ctrl+F) finds settings by what they do, so "gpu" leads to Hardware acceleration
+- Each shortcut has its own settings. One key can raise exposure by 1 EV while another lowers it by 0.3 EV. Switches can toggle or work only while the key is held, which makes **Mute** a push to talk
+- **Settings search** (Ctrl+F) finds settings by what they do ("gpu" leads to Hardware acceleration)
 
 <details>
 <summary><b>Global shortcuts and the command line</b></summary>
 
 Shortcuts are global by default and also work while another app is in front.
 
-- **Windows:** Telescope claims the key from Windows. If another app already has it Windows gives it to that app even while Telescope is in front, so pick another key
+- **Windows:** Telescope claims the key from Windows. If another app already has it Windows gives it to that app even while Telescope is in front. Pick another key
 - **Linux:** it goes through the desktop's global shortcuts portal (Plasma 5.27 and later, GNOME 48 and later, Hyprland). The first time the desktop asks you to confirm the keys and may pick different ones. **Open** next to **Desktop shortcut settings** opens the place to change them
 - **Other desktops:** shortcuts only work inside Telescope. To make them global bind a command in the desktop's own keyboard settings. Right-click a shortcut and pick **Copy command line**, or use `telescope --action ID name=value` (for example `--action microphone.mute mode=toggle`). `--list-actions` lists every action
 
