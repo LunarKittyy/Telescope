@@ -86,7 +86,7 @@ If it can use a webcam, yes. Telescope shows up there as an ordinary camera and 
 <details>
 <summary><b>I have an iPhone or a Mac.</b></summary>
 
-The phone app is Android only, but [Browser camera](docs/features.md#browser-camera) streams from an iPhone's browser with nothing to install. The desktop app runs on Windows and Linux, not macOS (yet?).
+The phone app is Android only, but [Browser camera](docs/features.md#browser-camera) streams from an iPhone's browser with nothing to install. The desktop app runs on Windows and Linux, not macOS.
 </details>
 
 <details>

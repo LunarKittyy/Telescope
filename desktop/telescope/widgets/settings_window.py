@@ -365,3 +365,10 @@ class SettingsWindow(QDialog):
             w, h = min(w, area.width() - SCREEN_MARGIN), min(h, area.height() - SCREEN_MARGIN)
             self.setMinimumSize(min(self.minimumWidth(), w), min(self.minimumHeight(), h))  # a small screen wins
         self.resize(w, h)
+
+    def keyPressEvent(self, event):
+        # Enter belongs to the focused control. QDialog would also click a default button after a search opens a tab.
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            event.accept()
+        else:
+            super().keyPressEvent(event)

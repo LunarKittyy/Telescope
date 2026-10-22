@@ -62,6 +62,35 @@ def test_the_card_is_greyed_out_until_a_phone_is_paired(qapp):
     assert panel.isEnabled()
 
 
+def test_auto_framing_visibly_disables_the_zoom_handle_and_value(transforms_plugin, qapp):
+    from PyQt6.QtGui import QColor
+    from PyQt6.QtWidgets import QStyle, QStyleOptionSlider
+    from telescope import theme
+
+    theme.apply_theme(qapp)
+    plugin, host, panel = transforms_plugin
+    panel.resize(420, 600)
+    panel.show()
+    qapp.processEvents()
+
+    def handle_color():
+        slider = plugin._zoom_slider
+        option = QStyleOptionSlider()
+        slider.initStyleOption(option)
+        rect = slider.style().subControlRect(QStyle.ComplexControl.CC_Slider, option,
+                                             QStyle.SubControl.SC_SliderHandle, slider)
+        return slider.grab().toImage().pixelColor(rect.center())
+
+    assert handle_color() == QColor(theme.hue("transforms"))
+    assert host.vc.take_view("Auto framing")
+    assert not plugin._zoom_slider.isEnabled() and not plugin._zoom_val_lbl.isEnabled()
+    assert handle_color() == QColor(theme.TEXT_DISABLED)
+    host.vc.release_view("Auto framing")
+    assert plugin._zoom_slider.isEnabled() and plugin._zoom_val_lbl.isEnabled()
+    assert handle_color() == QColor(theme.hue("transforms"))
+    panel.close()
+
+
 def test_visible_rotation_and_pan_controls_keep_their_shortcuts(transforms_plugin):
     plugin, _host, _panel = transforms_plugin
     plugin._zoom_slider.setValue(200)

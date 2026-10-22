@@ -11,7 +11,10 @@ from typing import Callable, Iterable, Optional
 
 from PyQt6 import sip
 from PyQt6.QtCore import QEvent, QObject, Qt
-from PyQt6.QtWidgets import QBoxLayout, QFrame, QLabel, QLayoutItem, QVBoxLayout, QWidget
+from PyQt6.QtGui import QPainter
+from PyQt6.QtWidgets import QApplication, QBoxLayout, QFrame, QLabel, QLayoutItem, QToolButton, QVBoxLayout, QWidget
+
+from telescope.widgets.common import paint_focus
 
 # The object names common.py gives the pieces, which is how they're told apart from the rows around them.
 CARD = "card"
@@ -68,9 +71,44 @@ class _Toggle(QObject):
             _set_hot(self._title, False)
         elif (kind == QEvent.Type.MouseButtonRelease and event.button() == Qt.MouseButton.LeftButton
               and obj.rect().contains(event.position().toPoint())):
+            button = obj if isinstance(obj, _FoldButton) else obj.parentWidget()
+            if isinstance(button, _FoldButton) and button.isEnabled():
+                return False  # let the native button release its pressed state and emit clicked
             self._on_click()
             return True
         return False
+
+
+class _FoldButton(QToolButton):
+    """A native, named toggle for keyboard and screen-reader users, painted as the existing title label."""
+
+    def __init__(self, title: QLabel):
+        super().__init__()
+        self.setObjectName("fold_heading")
+        self.setCheckable(True)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setText(title.text())
+        self.setAccessibleName(title.text())
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(6, 3, 6, 3)  # keep the focus ring clear of the text
+
+    def sizeHint(self):
+        return self.layout().sizeHint()
+
+    def minimumSizeHint(self):
+        return self.sizeHint()
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        paint_focus(painter, self)
+
+    def keyPressEvent(self, event):
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            if not event.isAutoRepeat():
+                self.click()
+            event.accept()
+        else:
+            super().keyPressEvent(event)
 
 
 def _body(parent_layout: QBoxLayout) -> tuple:
@@ -96,6 +134,7 @@ class Collapsing:
         self._on_change = on_change
         self._folded: set = set()
         self._bodies: dict = {}  # key -> the container that key folds
+        self._buttons: dict = {}  # key -> the title's accessible toggle
 
     def keys(self) -> list:
         """The folded keys, for saving."""
@@ -125,8 +164,18 @@ class Collapsing:
         body = self._bodies.get(key)
         if body is None or sip.isdeleted(body):
             self._bodies.pop(key, None)
+            self._buttons.pop(key, None)
             return
-        body.setVisible(key not in self._folded)
+        folded, button = key in self._folded, self._buttons[key]
+        focus = QApplication.focusWidget()
+        if folded and focus is not None and body.isAncestorOf(focus):
+            button.setFocus(Qt.FocusReason.OtherFocusReason)
+        body.setVisible(not folded)
+        button.setChecked(not folded)
+        description = ("Collapsed. Press Space or Enter to expand." if folded else
+                       "Expanded. Press Space or Enter to collapse.")
+        button.setAccessibleDescription(description)
+        button.setToolTip(description)
 
     def install(self, panel: QWidget, scope: str) -> None:
         """Make every card in panel (the panel itself, or cards inside it) foldable, and each section in them.
@@ -175,7 +224,7 @@ class Collapsing:
                 section_body, target = _body(lay)
                 card_lay.addWidget(section_body)
                 if label is not None:
-                    self._register(section_key, section_body, label, [heading])
+                    self._register(section_key, section_body, label, [heading, label], heading.layout())
                 continue
             if item.widget() is not None:
                 target.addWidget(item.widget(), stretch, item.alignment())
@@ -189,9 +238,14 @@ class Collapsing:
 
         hit = [header.itemAt(i).widget() for i in range(header.count())
                if isinstance(header.itemAt(i).widget(), QLabel)]
-        self._register(card_key, card_body, title, hit)
+        self._register(card_key, card_body, title, hit, header)
 
-    def _register(self, key: str, body: QWidget, title: QLabel, hit: list) -> None:
+    def _register(self, key: str, body: QWidget, title: QLabel, hit: list, header: QBoxLayout) -> None:
         self._bodies[key] = body
-        _Toggle(title, hit, lambda k=key: self.toggle(k))
+        button = self._buttons[key] = _FoldButton(title)
+        header.replaceWidget(title, button)
+        button.layout().addWidget(title)  # keep its appearance and the QLabel plugins already hold
+        button.lower()  # Qt's accessible child order follows stacking order: the heading comes before its rows
+        button.clicked.connect(lambda _checked=False, k=key: self.toggle(k))
+        _Toggle(title, [*hit, button], lambda k=key: self.toggle(k))
         self._apply(key)

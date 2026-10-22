@@ -1,4 +1,6 @@
+import cv2
 import pytest
+from dataclasses import replace
 
 from telescope import vision
 from telescope.plugin import EventBus
@@ -6,7 +8,7 @@ from telescope.plugins import framing
 from telescope.plugins.framing import (
     FramingPlugin, Spring, Target, _Latch, fit, follow, hands_out, smoothed, target_box, tuning,
 )
-from telescope.view import View, window_centre
+from telescope.view import View, view_to_shown, window_centre
 from telescope.vision import Person
 
 _ASPECT = 16 / 9
@@ -50,6 +52,26 @@ def test_framing_goes_smoothly_from_the_face_to_the_whole_body():
 def test_two_people_get_one_box_around_both():
     box = target_box([_person(x=0.3), _person(x=0.7)], _ASPECT)
     assert box[0] < 0.25 and box[2] > 0.75
+
+
+@pytest.mark.parametrize("rotation", [None, cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_180, cv2.ROTATE_90_COUNTERCLOCKWISE])
+@pytest.mark.parametrize("hand", [False, True])
+@pytest.mark.parametrize("flips", [(False, False), (True, False), (False, True), (True, True)])
+@pytest.mark.parametrize("head", [False, True])
+def test_rotating_the_view_keeps_the_same_part_of_the_person_in_frame(rotation, hand, flips, head):
+    person = _person(x=0.65, left_wrist=(0.85, 0.45), left_elbow=(0.75, 0.47))
+    if not head:
+        person = Person({n: p for n, p in person.points.items() if n not in ("nose", "left_eye", "right_eye")})
+    hands = {"left"} if hand else set()
+    box = target_box([person], _ASPECT, hands=hands)
+    rotate = lambda x, y: view_to_shown(x, y, 1.0, 0.0, 0.0, *flips, rotation)
+    corners = [rotate(x, y) for x in (box[0], box[2]) for y in (box[1], box[3])]
+    expected = (min(p[0] for p in corners), min(p[1] for p in corners),
+                max(p[0] for p in corners), max(p[1] for p in corners))
+    aspect = _ASPECT if rotation in (None, cv2.ROTATE_180) else 1 / _ASPECT
+    rotated = person.mapped(rotate)
+    assert target_box([rotated], aspect, hands=hands) == pytest.approx(expected)
+    assert hands_out([rotated], aspect) == {"left"}
 
 
 def test_the_window_keeps_the_box_and_stays_in_the_picture():
@@ -213,6 +235,29 @@ def test_a_flipped_view_pans_the_other_way_to_the_same_person(card):
     plugin._switch.setChecked(True)
     _run(plugin, clock, 3, bus, [_person(x=0.6)])
     assert host.steered[-1][1] < 0
+
+
+@pytest.mark.parametrize("rotation", [cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_180, cv2.ROTATE_90_COUNTERCLOCKWISE])
+def test_rotating_while_tracking_does_not_steer_to_the_old_screen_coordinates(card, rotation):
+    plugin, host, bus, clock = card()
+
+    def steer(owner, zoom, pan_x, pan_y):
+        host.steered.append((zoom, pan_x, pan_y))
+        host._view = replace(host._view, zoom=zoom, pan_x=pan_x, pan_y=pan_y)
+        bus.view_changed.emit(host._view)
+
+    host.steer_view = steer
+    host.view_aspect = lambda: _ASPECT if host._view.rotation in (None, cv2.ROTATE_180) else 1 / _ASPECT
+    plugin.set_config({"on": True, "room": 0, "speed": 10})
+    _run(plugin, clock, 5, bus, [_person(x=0.65)])
+    before = host._view
+    host._view = replace(before, rotation=rotation)
+    bus.view_changed.emit(host._view)
+    # Until the next pose arrives, the same sensor region should simply turn with the picture.
+    _run(plugin, clock, 0.5)
+    assert host._view.zoom == pytest.approx(before.zoom, abs=0.01)
+    assert host._view.pan_x == pytest.approx(before.pan_x, abs=0.01)
+    assert host._view.pan_y == pytest.approx(before.pan_y, abs=0.01)
 
 
 def test_it_says_so_when_something_else_has_the_view(card):

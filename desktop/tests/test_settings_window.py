@@ -1,10 +1,13 @@
 """The settings window: which tabs show, in what order, and when its sections hear they're on screen."""
 
 import pytest
-from PyQt6.QtWidgets import QLabel
+from PyQt6.QtCore import Qt
+from PyQt6.QtTest import QTest
+from PyQt6.QtWidgets import QLabel, QPushButton
 
 from telescope.plugin import SETTINGS_TABS, SettingsSection
 from telescope.widgets.settings_window import SettingsWindow
+from telescope.widgets.controls import setting_row
 
 
 @pytest.fixture
@@ -90,3 +93,34 @@ def test_it_stays_inside_the_screen(make, qapp):
     qapp.processEvents()
     area = win.screen().availableGeometry()
     assert win.width() <= area.width() and win.height() <= area.height()
+
+
+@pytest.mark.parametrize("key", [Qt.Key.Key_Return, Qt.Key.Key_Enter])
+@pytest.mark.parametrize("focus", ["search", "results"])
+def test_opening_a_search_result_does_not_click_the_setting(make, qapp, key, focus):
+    clicked = []
+    button = QPushButton("Remove download")
+    button.clicked.connect(lambda: clicked.append(True))
+    row, _ = setting_row("Remove download", "", button)
+    win = make(SettingsSection("general", row))
+    win.show()
+    qapp.processEvents()
+    win._search.setText("remove download")
+    target = win._search if focus == "search" else win._results
+    target.setFocus()
+    QTest.keyClick(target, key)
+    qapp.processEvents()
+    assert win._search.text() == "" and win._stack.currentWidget() is not win._results_page
+    assert clicked == []
+
+
+def test_enter_on_a_focused_button_still_runs_it(make, qapp):
+    clicked = []
+    button = QPushButton("Copy diagnostics")
+    button.clicked.connect(lambda: clicked.append(True))
+    win = make(SettingsSection("general", button))
+    win.show()
+    qapp.processEvents()
+    button.setFocus()
+    QTest.keyClick(button, Qt.Key.Key_Return)
+    assert clicked == [True]
