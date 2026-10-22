@@ -768,3 +768,13 @@ def test_back_on_a_tile_the_phone_isnt_told_its_zoom_again_but_after_a_real_stop
     _both(plugin, 'on_focus_gained', "http://phone/v1/video", ctrl)
     _both(plugin, 'on_phone_state', _state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True))
     assert ctrl.sent == [{"action": "zoom", "ratio": 1.0, "crop": 1.0, "x": 0.5, "y": 0.5}]
+
+
+def test_a_slow_pan_moves_the_picture_evenly_instead_of_in_whole_pixels():
+    small = np.random.default_rng(2).integers(0, 255, (36, 64), np.uint8)
+    frame = cv2.cvtColor(cv2.resize(small, (640, 360), interpolation=cv2.INTER_CUBIC), cv2.COLOR_GRAY2BGR)
+    shots = [cv2.cvtColor(_apply_zoom(frame, 1.4, -0.5 + i * 0.002, 0.0), cv2.COLOR_BGR2GRAY).astype(np.float32)
+             for i in range(12)]
+    steps = [cv2.phaseCorrelate(a, b)[0][0] for a, b in zip(shots, shots[1:])]
+    # Each frame the window moves about a third of an output pixel: whole-pixel crops made that 0, 0, 1.4, 0...
+    assert all(step < -0.05 for step in steps) and max(steps) - min(steps) < 0.04

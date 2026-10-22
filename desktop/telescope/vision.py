@@ -32,7 +32,7 @@ current_frame: contextvars.ContextVar = contextvars.ContextVar("current_frame", 
 # Pose landmarks we use, by their index in MediaPipe's 33.
 _POINTS = {
     "nose": 0, "left_eye": 2, "right_eye": 5, "left_ear": 7, "right_ear": 8,
-    "left_shoulder": 11, "right_shoulder": 12, "left_wrist": 15, "right_wrist": 16,
+    "left_shoulder": 11, "right_shoulder": 12, "left_elbow": 13, "right_elbow": 14, "left_wrist": 15, "right_wrist": 16,
     "left_pinky": 17, "right_pinky": 18, "left_index": 19, "right_index": 20, "left_thumb": 21, "right_thumb": 22,
     "left_hip": 23, "right_hip": 24,
 }

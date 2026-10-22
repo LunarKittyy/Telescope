@@ -4,16 +4,17 @@ from telescope import vision
 from telescope.plugin import EventBus
 from telescope.plugins import framing
 from telescope.plugins.framing import (
-    FramingPlugin, Spring, Target, _Latch, fit, follow, hand_out, smoothed, target_box, tuning,
+    FramingPlugin, Spring, Target, _Latch, fit, follow, hands_out, smoothed, target_box, tuning,
 )
-from telescope.view import View
+from telescope.view import View, window_centre
 from telescope.vision import Person
 
 _ASPECT = 16 / 9
 
 
-def _person(x=0.5, y=0.4, width=0.1, left_wrist=None, hips=True):
-    """Someone facing the camera: shoulders width apart (of the picture's width) at height y."""
+def _person(x=0.5, y=0.4, width=0.1, left_wrist=None, hips=True, left_elbow=None, seen=0.99):
+    """Someone facing the camera: shoulders width apart (of the picture's width) at height y. Their left is on the
+    right of the picture; left_wrist and left_elbow are (x, y), seen how sure the model is of those two."""
     points = {
         "nose": (x, y - 0.12, 0.99), "left_eye": (x + 0.01, y - 0.14, 0.99), "right_eye": (x - 0.01, y - 0.14, 0.99),
         "left_shoulder": (x + width / 2, y, 0.99), "right_shoulder": (x - width / 2, y, 0.99),
@@ -22,7 +23,9 @@ def _person(x=0.5, y=0.4, width=0.1, left_wrist=None, hips=True):
     if hips:
         points.update({"left_hip": (x + width / 3, y + 0.35, 0.9), "right_hip": (x - width / 3, y + 0.35, 0.9)})
     if left_wrist:
-        points["left_wrist"] = (*left_wrist, 0.99)
+        points["left_wrist"] = (*left_wrist, seen)
+    if left_elbow:
+        points["left_elbow"] = (*left_elbow, seen)
     return Person(points)
 
 
@@ -48,11 +51,28 @@ def test_the_window_keeps_the_box_and_stays_in_the_picture():
     assert fit((-0.2, 0.0, 1.2, 1.0)).zoom == 1.0
 
 
-def test_a_hand_held_out_widens_the_box_once_it_counts():
-    out = _person(left_wrist=(0.75, 0.45))
-    assert hand_out([out], _ASPECT) and not hand_out([_person()], _ASPECT)
-    assert not hand_out([_person(left_wrist=(0.75, 0.9))], _ASPECT)  # down by the hip: not showing anything
-    assert target_box([out], _ASPECT, hands=True)[2] > 0.75 > target_box([out], _ASPECT)[2]
+def test_a_hand_held_out_widens_the_box_on_its_side_once_it_counts():
+    out = _person(left_wrist=(0.66, 0.45), left_elbow=(0.6, 0.47))
+    assert hands_out([out], _ASPECT) == {"left"} and hands_out([_person()], _ASPECT) == set()
+    assert hands_out([_person(left_wrist=(0.75, 0.8))], _ASPECT) == set()  # down by the hip: not showing anything
+    assert target_box([out], _ASPECT, hands={"left"})[2] > 0.66 > target_box([out], _ASPECT)[2]
+
+
+def test_an_arm_reaching_past_the_edge_of_the_picture_counts():
+    # the phone only sends a little more than the framing, so the hand is a guess past the edge, the elbow in view
+    reaching = _person(left_wrist=(0.69, 0.44), left_elbow=(0.62, 0.46), seen=0.3)
+    assert hands_out([reaching], _ASPECT) == {"left"}
+    elbow_only = _person(left_wrist=(0.66, 0.42), left_elbow=(0.61, 0.47), seen=0.3)
+    assert hands_out([elbow_only], _ASPECT) == {"left"}
+
+
+def test_hands_on_hips_or_hanging_down_dont_count():
+    on_hips = _person(left_wrist=(0.56, 0.74), left_elbow=(0.62, 0.6))
+    assert hands_out([on_hips], _ASPECT) == set()
+    hanging = _person(left_wrist=(0.57, 0.7), left_elbow=(0.56, 0.55))
+    assert hands_out([hanging], _ASPECT) == set()
+    head = target_box([hanging], _ASPECT, hands={"left"})
+    assert head[3] < 0.6  # a hand down by the side doesn't stretch the framing to it
 
 
 def test_the_hand_latch_waits_before_switching_both_ways():
@@ -208,3 +228,18 @@ def test_shutting_down_gives_the_view_back(card):
     plugin._switch.setChecked(True)
     plugin.shutdown()
     assert host.owner == ""
+
+
+def _right_edge(steered):
+    zoom, pan_x, _pan_y = steered
+    return window_centre(zoom, pan_x) + 0.5 / zoom
+
+
+def test_holding_a_hand_out_gets_it_in_the_picture_quickly_even_at_the_calmest_speed(card):
+    plugin, host, bus, clock = card()
+    plugin._switch.setChecked(True)
+    plugin._speed_slider.setValue(1)
+    _run(plugin, clock, 20, bus, [_person()])
+    assert _right_edge(host.steered[-1]) < 0.69
+    _run(plugin, clock, 1.2, bus, [_person(left_wrist=(0.69, 0.44), left_elbow=(0.62, 0.46), seen=0.3)])
+    assert _right_edge(host.steered[-1]) > 0.72  # the hand and a bit of room for what's in it

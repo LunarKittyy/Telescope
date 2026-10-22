@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 import cv2
+import numpy as np
 
 ROTATIONS = {
     "None":   None,
@@ -28,20 +29,17 @@ def apply_zoom(frame, zoom: float, pan_x: float, pan_y: float):
     if zoom <= 1.0:
         return frame
     h, w = frame.shape[:2]
-    x0, y0, crop_w, crop_h = zoom_origin(w, h, zoom, pan_x, pan_y)
-    return cv2.resize(frame[y0:y0 + crop_h, x0:x0 + crop_w], (w, h),
-                      interpolation=cv2.INTER_LINEAR)
+    x0, y0, _crop_w, _crop_h = zoom_origin(w, h, zoom, pan_x, pan_y)
+    # A fractional crop: one cut at whole pixels made a slowly moving framing shake and breathe
+    move = np.float32([[zoom, 0, zoom * (0.5 - x0) - 0.5], [0, zoom, zoom * (0.5 - y0) - 0.5]])
+    return cv2.warpAffine(frame, move, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
 
 
 def zoom_origin(w: int, h: int, zoom: float, pan_x: float, pan_y: float) -> tuple:
-    """The crop apply_zoom takes: (x0, y0, crop_w, crop_h) in source pixels."""
-    crop_w = int(w / zoom)
-    crop_h = int(h / zoom)
-    max_dx = (w - crop_w) // 2
-    max_dy = (h - crop_h) // 2
-    cx = max_dx + int(pan_x * max_dx)
-    cy = max_dy + int(pan_y * max_dy)
-    return max(0, min(cx, w - crop_w)), max(0, min(cy, h - crop_h)), crop_w, crop_h
+    """The crop apply_zoom takes: (x0, y0, crop_w, crop_h) in source pixels, fractional."""
+    zoom = max(zoom, 1.0)
+    (x0, size_x), (y0, size_y) = window(zoom, min(max(pan_x, -1.0), 1.0)), window(zoom, min(max(pan_y, -1.0), 1.0))
+    return x0 * w, y0 * h, size_x * w, size_y * h
 
 
 # ── Zoom: the phone crops what it can, this computer the rest ────────────────

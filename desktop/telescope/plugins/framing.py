@@ -25,11 +25,15 @@ _LOST_S = 2.0  # nobody seen for this long: back to the whole picture
 _DEAD_CENTRE = 0.06  # the framing lets the target's centre wander this far (of the window's size) at Speed 5
 _DEAD_ZOOM = 1.12  # and its zoom this much, and only follows what goes past that
 _SETTLE_S = 2.0  # inside the dead zone it drifts back to the target this slowly (at Speed 5)
-_HAND_OUT = 1.3  # a wrist this many shoulder widths out from its shoulder is holding something out
+_HAND_OUT = 0.9  # a wrist this many shoulder widths out past its shoulder is holding something out
+_ELBOW_OUT = 0.55  # or an elbow this far out with the wrist further still (the hand itself can be out of the picture)
+_ARM_SEEN = 0.15  # arms count at lower visibility: past the edge of the picture the model only guesses where they are
+_WIDEN_OMEGA = 3.5  # widening for a hand is at least this quick, whatever Speed says
 _HAND_ON_S = 0.3
 _HAND_OFF_S = 0.8
 _SEEN = 0.5  # landmark visibility the model has to be this sure of
-_HANDS = ("wrist", "index", "pinky", "thumb")
+_HANDS = ("elbow", "wrist", "index", "pinky", "thumb")
+SIDES = ("left", "right")
 
 
 @dataclass(frozen=True)
@@ -53,23 +57,39 @@ def _body(person, aspect: float) -> Optional[tuple]:
     return (_mid(left, right), width) if width > 1e-3 else None
 
 
-def hand_out(people, aspect: float) -> bool:
-    """Someone holds a hand out to the side (showing something), above their hips."""
+def _arm(person, side: str, aspect: float) -> Optional[tuple]:
+    """(shoulder width, how far out past the shoulder a point is, the hip line) for one arm, or None."""
+    body = _body(person, aspect)
+    shoulder = person.point(f"{side}_shoulder", _SEEN)
+    if body is None or shoulder is None:
+        return None
+    (cx, sy), width = body
+    away = 1.0 if shoulder[0] >= cx else -1.0
+
+    def out(p):
+        return (p[0] - shoulder[0]) * away * aspect
+    hip = person.point(f"{side}_hip", _SEEN)
+    return width, out, (hip[1] - 0.2 * width) if hip else sy + 1.4 * width
+
+
+def hands_out(people, aspect: float) -> set:
+    """The sides ("left", "right") on which someone holds a hand out (showing something), above their hips."""
+    found = set()
     for person in people:
-        body = _body(person, aspect)
-        if body is None:
-            continue
-        (_cx, sy), width = body
-        for side in ("left", "right"):
-            shoulder, wrist = person.point(f"{side}_shoulder", _SEEN), person.point(f"{side}_wrist", _SEEN)
-            hip = person.point(f"{side}_hip", _SEEN)
-            below = hip[1] if hip else sy + 1.6 * width
-            if wrist and abs(wrist[0] - shoulder[0]) * aspect > _HAND_OUT * width and wrist[1] < below:
-                return True
-    return False
+        for side in SIDES:
+            arm = _arm(person, side, aspect)
+            if arm is None:
+                continue
+            width, out, below = arm
+            elbow, wrist = person.point(f"{side}_elbow", _ARM_SEEN), person.point(f"{side}_wrist", _ARM_SEEN)
+            if wrist is None or wrist[1] > below:
+                continue
+            if out(wrist) > _HAND_OUT * width or (elbow and out(elbow) > _ELBOW_OUT * width and out(wrist) > out(elbow)):
+                found.add(side)
+    return found
 
 
-def target_box(people, aspect: float, framing: str = "head", hands: bool = False) -> Optional[tuple]:
+def target_box(people, aspect: float, framing: str = "head", hands=()) -> Optional[tuple]:
     """(x0, y0, x1, y1) in the picture as shown around everyone, or None when nobody's clear enough to frame."""
     boxes = []
     for person in people:
@@ -87,11 +107,14 @@ def target_box(people, aspect: float, framing: str = "head", hands: bool = False
             bottom = sy + 0.6 * width
             half = 0.85 * width / aspect
         box = [cx - half, top, cx + half, bottom]
-        if hands:
-            margin = 0.35 * width
-            for side in ("left", "right"):
-                for p in (person.point(f"{side}_{n}", _SEEN) for n in _HANDS):
-                    if p:
+        margin = 0.6 * width  # room for what's in the hand
+        for side in hands:
+            arm = _arm(person, side, aspect)
+            if arm is None:
+                continue
+            width, out, below = arm
+            for p in (person.point(f"{side}_{n}", _ARM_SEEN) for n in _HANDS):
+                if p and p[1] < below and out(p) > 0.25 * width:  # what's out to the side, not a hand hanging down
                         box = [min(box[0], p[0] - margin / aspect), min(box[1], p[1] - margin),
                                max(box[2], p[0] + margin / aspect), max(box[3], p[1] + margin)]
         boxes.append(box)
@@ -187,7 +210,8 @@ class FramingPlugin(TelescopePlugin):
         self._spring: Optional[Spring] = None
         self._goal: Optional[Target] = None
         self._smooth: Optional[Target] = None  # the target after smoothing()
-        self._hands = _Latch(_HAND_ON_S, _HAND_OFF_S)
+        self._widened = set()  # the sides a hand is held out on, after their _Latch
+        self._hands = {side: _Latch(_HAND_ON_S, _HAND_OFF_S) for side in SIDES}
         self._ticked_at = None
         self._max_zoom = _MAX_ZOOM
         self._steering = False
@@ -305,7 +329,10 @@ class FramingPlugin(TelescopePlugin):
         if self._spring is None:
             self._spring = self._start_from_view()
         omega, tau, scale = tuning(self._speed_slider.value())
-        self._smooth = smoothed(self._smooth, self._target(now), dt, tau)
+        target = self._target(now)
+        if self._widened:  # someone's showing something: get it in the picture now, not at Speed's pace
+            omega, tau, scale = max(omega, _WIDEN_OMEGA), min(tau, 0.1), min(scale, 0.5)
+        self._smooth = smoothed(self._smooth, target, dt, tau)
         self._goal = follow(self._goal or self._smooth, self._smooth, scale)
         self._goal = smoothed(self._goal, self._smooth, dt, _SETTLE_S * scale)  # and it centres up once you stop
         before = self._spring.at
@@ -317,8 +344,9 @@ class FramingPlugin(TelescopePlugin):
         aspect = self._host.view_aspect() or 16 / 9
         fresh = self._seen_at is not None and now - self._seen_at < _LOST_S
         people = self._people if fresh else []
-        hands = self._hand_switch.isChecked() and self._hands.update(hand_out(people, aspect), now)
-        box = target_box(people, aspect, self._picked(self._framing_btns), hands)
+        out = hands_out(people, aspect) if self._hand_switch.isChecked() else set()
+        self._widened = {side for side, latch in self._hands.items() if latch.update(side in out, now)}
+        box = target_box(people, aspect, self._picked(self._framing_btns), self._widened)
         return fit(box, self._max_zoom) if box else Target(0.5, 0.5, 1.0)
 
     def _steer(self, at: Target):
