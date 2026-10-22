@@ -3,14 +3,19 @@ import time
 from dataclasses import asdict, replace
 from typing import Optional
 
+import cv2
 import numpy as np
 
 from telescope.plugin import StreamsBehind, TelescopePlugin
 from telescope.view import (
-    PhoneZoom, PhoneZoomCaps, View, ViewStatus, apply_zoom, inverse_map, lens_boxes, split_zoom, transform_frame,
+    PhoneZoom, PhoneZoomCaps, View, ViewStatus, apply_zoom, inverse_map, lens_boxes, pan_for, phone_window, rest_within,
+    shown_to_view, split_zoom, transform_frame, view_to_shown, window_centre,
 )
 
 _MOVES = ("zoom", "pan_x", "pan_y")  # what a taken view moves; flip and rotation stay manual
+_HOLD_SLACK = 1.4  # while steered, the phone is sent a share this much wider than the framing
+_HOLD_DRIFT = 1.25  # and a new one once the share it would get is this far off its own
+_HOLD_S = 2.0  # for this long
 
 
 class ViewController(TelescopePlugin):
@@ -32,6 +37,7 @@ class ViewController(TelescopePlugin):
         self._zoom_caps: Optional[PhoneZoomCaps] = None
         self._sent_zoom: Optional[PhoneZoom] = None
         self._sent_ratio_at = 0.0  # time.monotonic() when the phone was last sent a new ratio
+        self._drift_since = None  # while steered: since when the phone's share has been clearly off (_held)
         self._behind = StreamsBehind()  # the phone side of each stream the panels moved away from
         bus.focus_point_picked.connect(self._on_point_picked)
         bus.camera_switched.connect(self._on_camera_caps)
@@ -51,15 +57,17 @@ class ViewController(TelescopePlugin):
             return False
         if not self._owner:
             self._owner = owner
+            self._drift_since = float("-inf")  # the phone's share is picked afresh on the first steer
             self._bus.view_taken.emit(owner)
         return True
 
     def steer_view(self, owner: str, zoom: float, pan_x: float, pan_y: float):
         if owner and owner == self._owner:
-            if not self._engaged:
-                self._engaged = True
-                self._sync_zoom()
+            engaging, before = not self._engaged, self.view
+            self._engaged = True
             self._move(replace(self.view, zoom=zoom, pan_x=pan_x, pan_y=pan_y), moved=False)
+            if engaging and self.view == before:
+                self._sync_zoom()
 
     def release_view(self, owner: str):
         if not owner or owner != self._owner:
@@ -81,11 +89,28 @@ class ViewController(TelescopePlugin):
 
     def process_frame(self, frame: np.ndarray) -> np.ndarray:
         self._frame_size = (frame.shape[1], frame.shape[0])
-        if self._vision is not None and self._vision.wants_people():
-            self._vision.feed_raw(frame)
         view = self.view
+        if self._vision is not None and self._vision.wants_people():
+            self._vision.feed_raw(frame, *self._upright(view))
         frame = apply_zoom(frame, *self._desktop_crop)
         return transform_frame(frame, view.flip_h, view.flip_v, view.rotation)
+
+    def _upright(self, view: View) -> tuple:
+        """(prepare, to_shown) for vision: the raw frame turned the way it's shown, and its points onto the
+        picture as shown at zoom 1 (through the phone share it was sent with)."""
+        sent = phone_window(self._sent_zoom if self._ctrl else None)
+        flips = (view.flip_h, view.flip_v, view.rotation)
+
+        def to_shown(u, v):
+            return view_to_shown(*shown_to_view(u, v, *sent, *flips), 1.0, 0.0, 0.0, *flips)
+        return (lambda frame: transform_frame(frame, *flips)), to_shown
+
+    def aspect(self) -> float:
+        """Width over height of the picture as shown, 0 before the first frame."""
+        w, h = self._frame_size
+        if not h:
+            return 0.0
+        return h / w if self.view.rotation in (cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_90_COUNTERCLOCKWISE) else w / h
 
     def frame_step(self):
         crop, view = self._desktop_crop, self.view
@@ -138,14 +163,41 @@ class ViewController(TelescopePlugin):
         current = self._sent_zoom.ratio if self._sent_zoom else 1.0
         caps = self._zoom_caps if self._ctrl and self._engaged else None
         split = split_zoom(view.zoom, view.pan_x, view.pan_y, caps, current)
-        self._desktop_crop = split.desktop
-        if split.phone is not None and split.phone != self._sent_zoom:
-            if self._sent_zoom is None or split.phone.ratio != self._sent_zoom.ratio:
+        phone, desktop = split.phone, split.desktop
+        if self._owner and phone is not None:
+            phone, desktop = self._held(view, caps, current, split)
+        self._desktop_crop = desktop
+        if phone is not None and phone != self._sent_zoom:
+            if self._sent_zoom is None or phone.ratio != self._sent_zoom.ratio:
                 self._sent_ratio_at = time.monotonic()
-            self._sent_zoom = split.phone
-            self._ctrl.send(action="zoom", **asdict(split.phone))
+            self._sent_zoom = phone
+            self._ctrl.send(action="zoom", **asdict(phone))
         self._bus.view_status.emit(ViewStatus(self._ctrl is not None, self._zoom_caps if self._ctrl else None,
-                                              self._sent_zoom, self._sent_ratio_at, split.desktop[0]))
+                                              self._sent_zoom, self._sent_ratio_at, desktop[0]))
+
+    def _held(self, view: View, caps, current: float, split) -> tuple:
+        """(phone share, desktop crop) while something steers the view: the phone keeps what it was sent (a moving
+        crop would make it hop lenses and lag behind) until the framing leaves it, or wants a clearly different one
+        for _HOLD_S."""
+        held = self._sent_zoom
+        rest = rest_within(view.zoom, view.pan_x, view.pan_y, held) if held else None
+        wide = max(1.0, view.zoom / _HOLD_SLACK)  # room around the framing, so small moves stay on this computer
+        centre = (window_centre(view.zoom, view.pan_x), window_centre(view.zoom, view.pan_y))
+        want = split_zoom(wide, pan_for(centre[0], wide), pan_for(centre[1], wide), caps, current).phone
+        off = (want.ratio * want.crop) / (held.ratio * held.crop) if held else 0.0
+        drifted = not held or want.ratio != held.ratio or not 1 / _HOLD_DRIFT <= off <= _HOLD_DRIFT
+        now = time.monotonic()
+        if rest is not None:
+            if not drifted:
+                self._drift_since = None
+                return held, rest
+            if self._drift_since is None:
+                self._drift_since = now
+            if now - self._drift_since < _HOLD_S:
+                return held, rest
+        self._drift_since = None
+        rest = rest_within(view.zoom, view.pan_x, view.pan_y, want)
+        return (want, rest) if rest is not None else (split.phone, split.desktop)
 
     # ── The preview ───────────────────────────────────────────────────────
 

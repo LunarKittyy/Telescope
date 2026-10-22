@@ -41,9 +41,11 @@ def check_app_construction():
     from PyQt6.QtWidgets import QApplication
 
     from telescope.app import TelescopeWindow
+    from telescope.plugins.background import BackgroundPlugin
     from telescope.plugins.browser_camera import BrowserCameraPlugin
     from telescope.plugins.camera_control import CameraControlPlugin
     from telescope.plugins.connection import ConnectionPlugin
+    from telescope.plugins.framing import FramingPlugin
     from telescope.plugins.microphone import MicrophonePlugin
     from telescope.plugins.monitoring import MonitoringPlugin
     from telescope.plugins.presets import PresetsPlugin
@@ -58,8 +60,8 @@ def check_app_construction():
     app = QApplication.instance() or QApplication([])
     win = TelescopeWindow()
     for plugin_cls in (
-        SetupPlugin, ConnectionPlugin, CameraControlPlugin, BrowserCameraPlugin, StreamOutputPlugin,
-        TransformsPlugin, MicrophonePlugin, PresetsPlugin, PreviewPlugin, MonitoringPlugin, UpdatesPlugin,
+        SetupPlugin, ConnectionPlugin, CameraControlPlugin, BrowserCameraPlugin, BackgroundPlugin, StreamOutputPlugin,
+        TransformsPlugin, FramingPlugin, MicrophonePlugin, PresetsPlugin, PreviewPlugin, MonitoringPlugin, UpdatesPlugin,
         ShortcutsPlugin, StartupPlugin,
     ):
         win.register_plugin(plugin_cls())

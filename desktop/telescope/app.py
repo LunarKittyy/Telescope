@@ -1627,6 +1627,9 @@ class TelescopeWindow(QMainWindow):
     def view(self):
         return self._view.view
 
+    def view_aspect(self) -> float:
+        return self._view.aspect()
+
     def set_view(self, **changes):
         self._view.set_view(**changes)
 

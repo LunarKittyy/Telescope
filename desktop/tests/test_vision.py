@@ -131,6 +131,20 @@ def test_people_come_from_their_own_thread_only_while_wanted(monkeypatch):
     assert not v.wants_people()
 
 
+def test_people_are_found_upright_and_put_where_they_are_shown():
+    v, _backend, _states, people = _ready()
+    v.want_people("Auto framing", True)
+    seen = []
+
+    def prepare(frame):
+        seen.append(frame.shape)
+        return np.ascontiguousarray(np.rot90(frame))
+    _in_stream("a", 1, lambda: v.feed_raw(np.zeros((720, 1280, 3), np.uint8), prepare, lambda x, y: (1 - y, x)))
+    _wait(lambda: people)
+    assert seen == [(360, 640, 3)]
+    assert people[0][1][0].point("nose") == (0.75, 0.5)
+
+
 def test_frames_for_people_are_spaced_out_and_made_small(monkeypatch):
     v, _backend, _states, _people = _ready()
     v.want_people("x", True)
@@ -141,7 +155,7 @@ def test_frames_for_people_are_spaced_out_and_made_small(monkeypatch):
         _in_stream("a", seq, lambda: v.feed_raw(frame))
         sv = v._streams["a"]
         if sv.people_frame is not None:
-            sizes.append(sv.people_frame.shape)
+            sizes.append(sv.people_frame[0].shape)
             sv.people_frame = None
     assert sizes == [(360, 640, 3)]
 

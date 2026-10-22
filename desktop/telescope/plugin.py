@@ -239,6 +239,10 @@ class HostView(Protocol):
         """The shown stream's view as it is now (telescope.view.View)."""
         ...
 
+    def view_aspect(self) -> float:
+        """Width over height of the shown stream's picture as shown (after rotation), 0 before its first frame."""
+        ...
+
     def set_view(self, **changes) -> None:
         """Change the manual view (zoom, pan_x, pan_y, flip_h, flip_v, rotation); the phone does its share of the zoom.
         While something has taken the view, zoom and pan wait until it lets go."""

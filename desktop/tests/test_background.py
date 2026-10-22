@@ -104,7 +104,7 @@ def test_without_a_mask_yet_the_frame_goes_out_as_it_is(card):
     plugin._set_mode("blur")
     frame = _frame()
     assert plugin.process_frame(frame) is frame
-    assert plugin._status.text() == "Getting ready…" and not plugin._status_row.isHidden()
+    assert plugin._status.text() == "Getting ready…" and not plugin._status.isHidden()
 
 
 def test_a_frozen_step_keeps_its_settings(card):

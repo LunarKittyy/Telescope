@@ -141,6 +141,30 @@ def split_zoom(zoom: float, pan_x: float, pan_y: float, caps: Optional[PhoneZoom
     return ZoomSplit(phone, (rest, _pan_within(centre[0], vx, view, size), _pan_within(centre[1], vy, view, size)))
 
 
+def phone_window(phone: Optional[PhoneZoom]) -> tuple:
+    """The (zoom, pan_x, pan_y) of the full view that a phone share sends."""
+    if phone is None:
+        return (1.0, 0.0, 0.0)
+    total = phone.ratio * phone.crop
+    return (total, pan_for(0.5 + (phone.x - 0.5) / phone.ratio, total), pan_for(0.5 + (phone.y - 0.5) / phone.ratio, total))
+
+
+def rest_within(zoom: float, pan_x: float, pan_y: float, phone: PhoneZoom) -> Optional[tuple]:
+    """What this computer crops for the framing asked for when the phone stays on phone's share, or None when the
+    framing doesn't fit inside what the phone sends (it would have to be told something else)."""
+    total = phone.ratio * phone.crop
+    zoom = max(zoom, 1.0)
+    size, view = 1.0 / zoom, 1.0 / total
+    centre = (window_centre(zoom, pan_x), window_centre(zoom, pan_y))
+    view_centre = (0.5 + (phone.x - 0.5) / phone.ratio, 0.5 + (phone.y - 0.5) / phone.ratio)
+    if zoom < total - 1e-6 or any(abs(c - v) + size / 2 > view / 2 + 1e-6 for c, v in zip(centre, view_centre)):
+        return None
+    rest = zoom / total
+    if rest < 1.0 + 1e-3:
+        return (1.0, 0.0, 0.0)
+    return (rest, _pan_within(centre[0], view_centre[0], view, size), _pan_within(centre[1], view_centre[1], view, size))
+
+
 def lens_step(lens: float) -> int:
     """A lens's ratio as a Zoom slider value (x100), rounded up: a hair under the lens wouldn't get it."""
     return math.ceil(lens * 100 - 1e-6)

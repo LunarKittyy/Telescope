@@ -7,13 +7,12 @@ import numpy as np
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QButtonGroup, QFileDialog, QHBoxLayout, QLabel, QPushButton, QWidget
 
-from telescope import vision
 from telescope.plugin import TelescopePlugin
 from telescope.shortcuts import choice_action, slider_action
-from telescope.widgets import vision_download
+from telescope.widgets.vision_status import VisionStatus
 from telescope.widgets.common import (
     NoScrollSlider, SegmentButton, add_card_header, card_layout, control_row as _row, control_row_widget,
-    create_card, dim_until_paired, segmented_row, slider_row, value_label, wrapped_note,
+    create_card, dim_until_paired, segmented_row, slider_row, value_label,
 )
 
 MODES = (("off", "Off"), ("blur", "Blur"), ("picture", "Picture"))
@@ -118,7 +117,6 @@ class BackgroundPlugin(TelescopePlugin):
         self._picture_path = ""
         self._picture: Optional[np.ndarray] = None
         self._picture_problem = ""
-        bus.vision_state_changed.connect(lambda _state: self._show_status())
 
     # ── Card ──────────────────────────────────────────────────────────────
 
@@ -170,20 +168,8 @@ class BackgroundPlugin(TelescopePlugin):
         self._edges_row = control_row_widget("Edges", slider_row(self._edges_slider, self._edges_lbl), stretch=True)
         lay.addWidget(self._edges_row)
 
-        self._status = wrapped_note("", "status_warn")
-        self._download_btn = QPushButton("Download")
-        self._download_btn.clicked.connect(self._download)
-        status = QHBoxLayout()
-        status.setSpacing(8)
-        status.addWidget(self._status, 1)
-        status.addWidget(self._download_btn)
-        self._status_row = QWidget()
-        self._status_row.setLayout(status)
-        status.setContentsMargins(0, 0, 0, 0)
-        lay.addWidget(self._status_row)
-        dl = vision_download.shared()
-        dl.progress.connect(self._on_download_progress)
-        dl.finished.connect(lambda _error: self._show_status())
+        self._status = VisionStatus(self._host, self._bus)
+        lay.addWidget(self._status)
 
         self._show_mode()
         return card
@@ -249,33 +235,12 @@ class BackgroundPlugin(TelescopePlugin):
     def _show_status(self):
         if not hasattr(self, "_status"):
             return
-        dl, state = vision_download.shared(), self._host.vision_state()
-        text, download = "", False
-        if self._mode() == "off":
-            pass
-        elif self._mode() == "picture" and self._picture_problem:
-            text = self._picture_problem
-        elif self._mode() == "picture" and self._picture is None:
-            text = "Choose a picture to put behind you."
-        elif dl.running():
-            text = "Downloading…"
-        elif state == vision.MISSING:
-            text, download = f"What it needs isn't downloaded yet (about {dl.size_mb()} MB).", dl.available()
-        elif state == vision.FAILED:
-            text = "MediaPipe didn't load on this computer. Copy diagnostics has the details."
-        elif state == vision.LOADING:
-            text = "Getting ready…"
-        self._status.setText(text)
-        self._status_row.setVisible(bool(text))
-        self._download_btn.setVisible(download)
-
-    def _download(self):
-        vision_download.shared().start()
-        self._show_status()
-
-    def _on_download_progress(self, done: int, size: int):
-        if size and self._status_row.isVisible():
-            self._status.setText(f"Downloading… {min(99, done * 100 // size)}%")
+        mode, problem = self._mode(), ""
+        if mode == "picture" and self._picture_problem:
+            problem = self._picture_problem
+        elif mode == "picture" and self._picture is None:
+            problem = "Choose a picture to put behind you."
+        self._status.refresh(mode != "off", problem)
 
     # ── Frames (worker thread) ────────────────────────────────────────────
 

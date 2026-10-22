@@ -1,0 +1,187 @@
+import pytest
+
+from telescope import vision
+from telescope.plugin import EventBus
+from telescope.plugins import framing
+from telescope.plugins.framing import FramingPlugin, Spring, Target, _Latch, fit, hand_out, settled, target_box
+from telescope.view import View
+from telescope.vision import Person
+
+_ASPECT = 16 / 9
+
+
+def _person(x=0.5, y=0.4, width=0.1, left_wrist=None, hips=True):
+    """Someone facing the camera: shoulders width apart (of the picture's width) at height y."""
+    points = {
+        "nose": (x, y - 0.12, 0.99), "left_eye": (x + 0.01, y - 0.14, 0.99), "right_eye": (x - 0.01, y - 0.14, 0.99),
+        "left_shoulder": (x + width / 2, y, 0.99), "right_shoulder": (x - width / 2, y, 0.99),
+        "right_wrist": (x - width / 2, y + 0.3, 0.99),
+    }
+    if hips:
+        points.update({"left_hip": (x + width / 3, y + 0.35, 0.9), "right_hip": (x - width / 3, y + 0.35, 0.9)})
+    if left_wrist:
+        points["left_wrist"] = (*left_wrist, 0.99)
+    return Person(points)
+
+
+def test_the_box_takes_in_the_head_and_shoulders_and_upper_body_takes_more():
+    head = target_box([_person()], _ASPECT, "head")
+    body = target_box([_person()], _ASPECT, "body")
+    assert head[1] < 0.26 and head[0] < 0.45 < 0.55 < head[2]
+    assert body[3] > head[3] and body[2] - body[0] > head[2] - head[0]
+    assert target_box([], _ASPECT) is None
+    assert target_box([Person({"nose": (0.5, 0.5, 0.99)})], _ASPECT) is None  # no shoulders to go by
+
+
+def test_two_people_get_one_box_around_both():
+    box = target_box([_person(x=0.3), _person(x=0.7)], _ASPECT)
+    assert box[0] < 0.25 and box[2] > 0.75
+
+
+def test_the_window_keeps_the_box_and_stays_in_the_picture():
+    target = fit((0.4, 0.2, 0.6, 0.5))
+    assert target.zoom == pytest.approx(1 / 0.3) and target.x == pytest.approx(0.5)
+    corner = fit((0.0, 0.0, 0.1, 0.1))
+    assert corner.zoom == framing._MAX_ZOOM and corner.x == pytest.approx(0.125) and corner.y == pytest.approx(0.125)
+    assert fit((-0.2, 0.0, 1.2, 1.0)).zoom == 1.0
+
+
+def test_a_hand_held_out_widens_the_box_once_it_counts():
+    out = _person(left_wrist=(0.75, 0.45))
+    assert hand_out([out], _ASPECT) and not hand_out([_person()], _ASPECT)
+    assert not hand_out([_person(left_wrist=(0.75, 0.9))], _ASPECT)  # down by the hip: not showing anything
+    assert target_box([out], _ASPECT, hands=True)[2] > 0.75 > target_box([out], _ASPECT)[2]
+
+
+def test_the_hand_latch_waits_before_switching_both_ways():
+    latch = _Latch(0.3, 0.8)
+    assert not latch.update(True, 0.0) and not latch.update(True, 0.2)
+    assert latch.update(True, 0.35)
+    assert latch.update(False, 0.4) and latch.update(False, 1.0)
+    assert not latch.update(False, 1.25)
+
+
+def test_small_moves_stay_put_and_big_ones_dont():
+    goal = Target(0.5, 0.5, 2.0)
+    assert settled(goal, Target(0.52, 0.5, 2.1))
+    assert not settled(goal, Target(0.6, 0.5, 2.0)) and not settled(goal, Target(0.5, 0.5, 2.6))
+
+
+def test_the_spring_settles_without_overshooting():
+    spring, goal = Spring(Target(0.5, 0.5, 1.0)), Target(0.7, 0.4, 3.0)
+    xs = [spring.step(goal, 1 / 30, 4.0).x for _ in range(150)]
+    assert all(a <= b + 1e-9 for a, b in zip(xs, xs[1:])) and max(xs) <= 0.7 + 1e-6
+    assert spring.at.x == pytest.approx(0.7, abs=1e-3) and spring.at.zoom == pytest.approx(3.0, abs=1e-2)
+
+
+class _Host:
+    def __init__(self, owner=""):
+        self._view = View()
+        self.owner, self.wanted, self.steered = owner, set(), []
+
+    def view(self):
+        return self._view
+
+    def view_aspect(self):
+        return _ASPECT
+
+    def take_view(self, owner):
+        if self.owner and self.owner != owner:
+            return False
+        self.owner = owner
+        return True
+
+    def release_view(self, owner):
+        if self.owner == owner:
+            self.owner = ""
+
+    def steer_view(self, owner, zoom, pan_x, pan_y):
+        self.steered.append((zoom, pan_x, pan_y))
+
+    def want_people(self, owner, on):
+        (self.wanted.add if on else self.wanted.discard)(owner)
+
+    def vision_state(self):
+        return vision.READY
+
+    def focused_source_id(self):
+        return "phone"
+
+    def schedule_save(self):
+        pass
+
+
+@pytest.fixture
+def card(qapp, monkeypatch):
+    clock = [10.0]
+    monkeypatch.setattr(framing.time, "monotonic", lambda: clock[0])
+
+    def make(**host_kw):
+        host, bus = _Host(**host_kw), EventBus()
+        plugin = FramingPlugin()
+        plugin.setup(host, bus)
+        plugin.create_panel()
+        plugin.set_config({})
+        return plugin, host, bus, clock
+    return make
+
+
+def _run(plugin, clock, seconds, bus=None, people=None):
+    for _ in range(round(seconds * 30)):
+        clock[0] += 1 / 30
+        if bus is not None:
+            bus.people_seen.emit("phone", people)
+        plugin._tick()
+
+
+def test_switching_on_takes_the_view_and_switching_off_gives_it_back(card):
+    plugin, host, _bus, _clock = card()
+    assert host.owner == "" and not host.wanted
+    plugin._switch.setChecked(True)
+    assert host.owner == "Auto framing" and host.wanted == {"Auto framing"}
+    plugin._switch.setChecked(False)
+    assert host.owner == "" and not host.wanted and not plugin._timer.isActive()
+
+
+def test_it_frames_the_person_on_the_shown_stream_and_goes_wide_when_they_leave(card):
+    plugin, host, bus, clock = card()
+    plugin._switch.setChecked(True)
+    bus.people_seen.emit("another phone", [_person(x=0.2)])
+    _run(plugin, clock, 3, bus, [_person(x=0.6)])
+    zoom, pan_x, _pan_y = host.steered[-1]
+    assert zoom > 2.0 and pan_x > 0
+    host._view = View(zoom=zoom, pan_x=pan_x)
+    _run(plugin, clock, 6)  # nobody seen since
+    assert host.steered[-1][0] == pytest.approx(1.0, abs=0.02)
+
+
+def test_a_flipped_view_pans_the_other_way_to_the_same_person(card):
+    plugin, host, bus, clock = card()
+    host._view = View(flip_h=True)
+    plugin._switch.setChecked(True)
+    _run(plugin, clock, 3, bus, [_person(x=0.6)])
+    assert host.steered[-1][1] < 0
+
+
+def test_it_says_so_when_something_else_has_the_view(card):
+    plugin, host, _bus, _clock = card(owner="Something")
+    plugin._switch.setChecked(True)
+    assert host.owner == "Something" and not host.wanted
+    assert "Something else" in plugin._status.text()
+
+
+def test_settings_round_trip_and_damaged_ones_fall_back(card):
+    plugin, host, _bus, _clock = card()
+    plugin.set_config({"on": True, "framing": "body", "speed": "quick", "hand": False})
+    assert plugin.get_config() == {"on": True, "framing": "body", "speed": "quick", "hand": False}
+    assert host.owner == "Auto framing"
+    plugin.set_config({"on": "yes", "framing": ["x"], "speed": 3})
+    assert plugin.get_config() == {"on": False, "framing": "head", "speed": "calm", "hand": True}
+    assert host.owner == ""
+
+
+def test_shutting_down_gives_the_view_back(card):
+    plugin, host, _bus, _clock = card()
+    plugin._switch.setChecked(True)
+    plugin.shutdown()
+    assert host.owner == ""

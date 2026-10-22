@@ -42,8 +42,13 @@ OFF, LOADING, READY, MISSING, FAILED = "off", "loading", "ready", "missing", "fa
 
 @dataclass(frozen=True)
 class Person:
-    """One person the pose model found: name -> (x, y, visibility), x and y 0..1 of the raw frame (before the view)."""
+    """One person the pose model found: name -> (x, y, visibility), x and y 0..1 of the picture as shown at zoom 1
+    (upright, flipped the way the view is)."""
     points: dict
+
+    def mapped(self, to: Callable) -> "Person":
+        """The same person with each (x, y) put through to(x, y)."""
+        return Person({name: (*to(x, y), seen) for name, (x, y, seen) in self.points.items()})
 
     def point(self, name: str, min_visibility: float = 0.5) -> Optional[tuple]:
         """(x, y) of a landmark, or None when the model isn't sure it's in the picture."""
@@ -151,7 +156,7 @@ class _StreamVision:
         self.mask_clock = _Timestamps()
         self.mask_seq = None  # the frame the cached mask is for
         self.mask = None
-        self.people_frame = None  # the newest small frame waiting for the pose model
+        self.people_frame = None  # the newest (small frame, prepare, to_shown) waiting for the pose model
         self.people_at = 0.0  # time.monotonic() a frame was last handed over
         self.people_wake = threading.Event()
         self.people_thread: Optional[threading.Thread] = None
@@ -259,8 +264,12 @@ class Vision:
     def wants_people(self) -> bool:
         return bool(self._people_wanted)
 
-    def feed_raw(self, frame: np.ndarray):
-        """A stream's frame before the view; one every _PEOPLE_EVERY_S goes to its people thread, the rest are skipped."""
+    def feed_raw(self, frame: np.ndarray, prepare: Optional[Callable] = None, to_shown: Optional[Callable] = None):
+        """A stream's frame before the view; one every _PEOPLE_EVERY_S goes to its people thread, the rest are skipped.
+
+        prepare(frame) turns the small copy upright for the model (on that thread), and to_shown(x, y) takes a point
+        from it to the picture as shown at zoom 1.
+        """
         here = current_frame.get()
         if not self._people_wanted or self._state != READY or here is None:
             return
@@ -271,7 +280,8 @@ class Vision:
         sv.people_at = now
         h, w = frame.shape[:2]
         width = min(_PEOPLE_WIDTH, w)
-        sv.people_frame = cv2.resize(frame, (width, max(1, round(h * width / w))), interpolation=cv2.INTER_AREA)
+        small = cv2.resize(frame, (width, max(1, round(h * width / w))), interpolation=cv2.INTER_AREA)
+        sv.people_frame = (small, prepare, to_shown)
         if sv.people_thread is None:
             sv.people_thread = threading.Thread(target=self._people_loop, args=(here[0], sv), daemon=True,
                                                 name="vision-people")
@@ -289,12 +299,15 @@ class Vision:
             while not sv.stopping:
                 sv.people_wake.wait()
                 sv.people_wake.clear()
-                frame, sv.people_frame = sv.people_frame, None
-                if sv.stopping or frame is None:
+                waiting, sv.people_frame = sv.people_frame, None
+                if sv.stopping or waiting is None:
                     continue
+                frame, prepare, to_shown = waiting
                 t0 = time.perf_counter()
                 try:
-                    people = detect(frame, clock.next())
+                    people = detect(prepare(frame) if prepare else frame, clock.next())
+                    if to_shown:
+                        people = [person.mapped(to_shown) for person in people]
                 except Exception:
                     logger.exception("Looking for people failed; trying the next frame")
                     continue

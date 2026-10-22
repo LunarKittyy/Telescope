@@ -4,7 +4,7 @@ import pytest
 
 from telescope.plugin import EventBus
 from telescope.plugins.transforms import TransformsPlugin
-from telescope.view import View
+from telescope.view import PhoneZoom, View, rest_within
 from telescope.view_controller import ViewController
 
 
@@ -89,7 +89,49 @@ def test_steering_alone_wakes_the_phone_up_to_its_share(view):
     vc.on_phone_state(_ZOOMS)
     vc.take_view("Auto framing")
     vc.steer_view("Auto framing", 2.0, 0.0, 0.0)
-    assert ctrl.sent[-1] == {"action": "zoom", "ratio": 1.0, "crop": 2.0, "x": 0.5, "y": 0.5}
+    assert ctrl.sent == [{"action": "zoom", "ratio": 1.0, "crop": 1.4286, "x": 0.5, "y": 0.5}]  # with room to move
+    assert vc._desktop_crop[0] == pytest.approx(1.4, abs=1e-3)
+
+
+@pytest.fixture
+def steered(view, monkeypatch):
+    vc, _bus = view
+    clock = [100.0]
+    monkeypatch.setattr("telescope.view_controller.time.monotonic", lambda: clock[0])
+    ctrl = _Ctrl()
+    vc.on_stream_start("url", ctrl)
+    vc.on_phone_state(_ZOOMS)
+    vc.take_view("Auto framing")
+    vc.steer_view("Auto framing", 2.0, 0.0, 0.0)
+    return vc, ctrl, clock
+
+
+def test_small_steers_move_on_this_computer_and_leave_the_phone_alone(steered):
+    vc, ctrl, _clock = steered
+    for pan in (0.05, 0.1, -0.1, 0.0):
+        vc.steer_view("Auto framing", 2.1, pan, pan)
+    assert len(ctrl.sent) == 1
+
+
+def test_a_steady_new_framing_gets_a_new_phone_share_after_a_while(steered):
+    vc, ctrl, clock = steered
+    vc.steer_view("Auto framing", 3.0, 0.0, 0.0)  # still fits in what the phone sends, just tighter
+    assert len(ctrl.sent) == 1
+    clock[0] += 2.5
+    vc.steer_view("Auto framing", 3.0, 0.0, 0.0001)
+    assert len(ctrl.sent) == 2 and ctrl.sent[-1]["crop"] == pytest.approx(3.0 / 1.4, abs=1e-3)
+
+
+def test_a_framing_the_phone_share_cant_show_gets_one_at_once(steered):
+    vc, ctrl, _clock = steered
+    vc.steer_view("Auto framing", 1.0, 0.0, 0.0)
+    assert ctrl.sent[-1]["crop"] == 1.0 and vc._desktop_crop == (1.0, 0.0, 0.0)
+
+
+def test_releasing_puts_back_the_manual_zoom(steered):
+    vc, ctrl, _clock = steered
+    vc.release_view("Auto framing")
+    assert vc.view.zoom == 1.0 and ctrl.sent[-1]["crop"] == 1.0
 
 
 def test_a_frozen_step_keeps_the_view_it_was_taken_with(view):
@@ -125,3 +167,42 @@ def test_the_transforms_card_greys_out_zoom_and_pan_while_something_else_moves_t
     vc.release_view("Auto framing")
     assert card._zoom_slider.isEnabled() and card._pan_pad.isEnabled()
     assert vc.view.zoom == 2.0
+
+
+def test_rest_within_says_what_this_computer_crops_from_a_phone_share():
+    centre = PhoneZoom(ratio=1.0, crop=2.0, x=0.5, y=0.5)
+    assert rest_within(2.0, 0.0, 0.0, centre) == (1.0, 0.0, 0.0)
+    rest = rest_within(4.0, 0.3, 0.0, centre)
+    assert rest[0] == pytest.approx(2.0) and rest[1] > 0 and rest[2] == pytest.approx(0.0)
+    assert rest_within(1.5, 0.0, 0.0, centre) is None  # wider than what the phone sends
+    assert rest_within(4.0, 1.0, 0.0, centre) is None  # off its edge
+
+
+class _Vision:
+    def __init__(self):
+        self.fed = []
+
+    def wants_people(self):
+        return True
+
+    def feed_raw(self, frame, prepare, to_shown):
+        self.fed.append((prepare(frame), to_shown))
+
+
+def test_people_are_found_in_the_picture_as_shown_through_the_phone_share(qapp):
+    vision = _Vision()
+    vc = ViewController()
+    vc.setup(_Host(), EventBus(), vision)
+    ctrl = _Ctrl()
+    vc.on_stream_start("url", ctrl)
+    vc.on_phone_state(_ZOOMS)
+    vc.take_view("Auto framing")
+    vc.steer_view("Auto framing", 2.0, 0.0, 0.0)  # the phone sends the middle 1/1.4286
+    vc.set_view(rotation=cv2.ROTATE_90_CLOCKWISE)
+    vc.process_frame(np.zeros((40, 60, 3), np.uint8))
+    upright, to_shown = vision.fed[0]
+    assert upright.shape == (60, 40, 3) and vc.aspect() == pytest.approx(40 / 60)
+    x, y = to_shown(0.5, 0.5)
+    assert (x, y) == (pytest.approx(0.5), pytest.approx(0.5))
+    x, y = to_shown(1.0, 0.0)  # the top right of the upright frame, inside the share
+    assert x == pytest.approx(0.5 + 0.35, abs=1e-3) and y == pytest.approx(0.5 - 0.35, abs=1e-3)
