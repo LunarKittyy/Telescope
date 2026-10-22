@@ -33,11 +33,17 @@ You'll need a PC running Linux or Windows and a phone. With the Android app you 
 
 Download `TelescopeSetup.exe` from the [releases page](../../releases) and run it. It installs only for your user and doesn't need admin.
 
-Rather not install anything? `Telescope-windows-portable.zip` has the same app: extract it and run `TelescopeDesktop.exe` (keep it in its folder: the `lib-...` folder next to it is part of the app).
+Rather not install anything? `Telescope-windows-portable.zip` has the same app. Extract it and run `TelescopeDesktop.exe`, keeping it in its folder since the `lib-...` folder next to it is part of the app.
 
 **🐧 Linux**
 
-Download `Telescope-linux.tar.gz` from the [releases page](../../releases), extract it, and run `./start.sh`. It needs **Python 3.11 or newer** and the **`v4l2loopback`** package from your distro (what the virtual camera runs on). For USB you'll also want **`adb`**, but Wi-Fi works without it. [Manual setup](docs/setup.md#linux) has the install commands for each distro, plus fixes for Ubuntu 22.04's older Python and Fedora without RPM Fusion.
+Download `Telescope-linux.tar.gz` from the [releases page](../../releases), extract it and run `./start.sh`. You need:
+
+- **Python 3.11 or newer**
+- **`v4l2loopback`** from your distro (the virtual camera runs on it)
+- **`adb`** for USB only. Wi-Fi works without it
+
+[Manual setup](docs/setup.md#linux) has the install commands for each distro, plus fixes for Ubuntu 22.04's older Python and Fedora without RPM Fusion.
 
 ### 2. ✅ Follow the checklist
 
@@ -54,7 +60,7 @@ After the first stream, the checklist is replaced by the video.
 
 In OBS (or anywhere else), pick **Phone Camera** (Linux) or **Telescope** (Windows) as your webcam.
 
-Telescope uses USB whenever the phone is plugged in and answering, and Wi-Fi otherwise. The Connection panel shows which one it's using, and if a cable is plugged in but not being used it tells you why. **Connect via** can force one or the other.
+Telescope uses USB when the phone is plugged in and Wi-Fi otherwise. The Connection panel shows which one and **Connect via** can force either.
 
 > [!NOTE]
 > Use only on a trusted network, or enable **Local only - USB** in the Android app. See [Privacy](docs/features.md#privacy) for the full security model.

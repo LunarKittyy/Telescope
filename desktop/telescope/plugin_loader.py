@@ -1,7 +1,7 @@
 """Plugins that don't come with Telescope: finding them, turning them on, and loading the ones that are on.
 
 Each lives in a folder of its own under plugins_dir(): a plugin.json describing it and an __init__.py with its
-TelescopePlugin class (docs/plugins.md). Nothing in a folder runs until the user turns that plugin on, and turning it
+TelescopePlugin class (docs/writing-plugins.md). Nothing in a folder runs until the user turns that plugin on, and turning it
 on remembers a fingerprint of its files: a plugin that changes afterwards stays off until it's turned on again.
 
 Which plugins are on is kept in the settings file, under "plugins": "off" lists the built-in ones turned off,

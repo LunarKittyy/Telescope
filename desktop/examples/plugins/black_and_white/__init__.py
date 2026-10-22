@@ -1,4 +1,4 @@
-"""Black and white: an example plugin. docs/plugins.md walks through it line by line."""
+"""Black and white: an example plugin. docs/writing-plugins.md walks through it line by line."""
 
 import cv2
 from PyQt6.QtCore import QSignalBlocker

@@ -1,54 +1,166 @@
 # Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| A card or a menu entry is gone | That part of Telescope is switched off in **Plugins** | Open Settings and go to the Plugins tab (it reads **Plugins (N off)** when something is off). Switch it back on or click **Turn all back on**, then click **Restart now** |
-| Auto framing or Background says it needs a one-time download | The vision download didn't happen yet or was removed. A new Telescope version can need a newer one too | Click **Download** on the card. If it fails, check that GitHub is reachable from this computer |
-| Auto framing or Background says MediaPipe didn't load | The download is there but MediaPipe wouldn't start on this computer (it only works on 64-bit Intel and AMD). On Linux it also needs the EGL and OpenGL ES libraries, which graphics drivers normally bring along | If **Copy diagnostics** says `libEGL.so.1 missing` or `libGLESv2.so.2 missing`, install `libegl1` and `libgles2` (Debian/Ubuntu) or `libglvnd-egl` and `libglvnd-gles` (Fedora) and restart Telescope. Otherwise open an issue with your **Copy diagnostics** report |
-| Zoom and Pan are greyed out on the Transforms card | Auto framing is moving them | Switch Auto framing off on its card and your own zoom and pan come back |
-| Manual exposure greyed out | Camera doesn't report `MANUAL_SENSOR` capability | Some front cameras and telephoto lenses don't support it; use Auto |
-| `/dev/video11` gone after reboot | v4l2loopback isn't loaded at boot | Start streaming loads it. Leave **Also switch it on at every startup** ticked (or switch on **Load when the computer starts** under Virtual camera & phone in Settings) and it won't ask again |
-| pyvirtualcam fails to open (Linux) | Module not loaded, or not installed | Install `v4l2loopback-dkms` (Debian/Ubuntu/Arch) or `v4l2loopback` (Fedora/Nobara, via RPM Fusion), then click Start again. **Virtual camera & phone** in Settings can load it by hand |
-| pyvirtualcam fails to open (Windows) | UnityCapture not registered | Open **Virtual camera & phone** in Settings and reinstall the driver |
-| The camera is called **Unity Video Capture** instead of **Telescope** (Windows) | The driver was installed by an older Telescope, before it had its own name | Click **Rename** under **Virtual camera & phone** in Settings |
-| Telescope camera missing in Discord, Zoom, a browser or another app (Windows) | The app was already open when the driver got installed and only looks for cameras when it starts. Discord starts with Windows and stays in the tray when you close its window | Quit the app from its tray icon (right-click it and pick Quit), then open it again. Restarting the computer works too |
-| Driver install says `Program Files\Telescope has links in it or other users can change it` (Windows) | Something else made that folder, or changed who can edit it, and Telescope won't install into a folder it can't trust | Delete `C:\Program Files\Telescope`, then click **Install driver** again |
-| Driver install says it `hit an error while running as admin` (Windows) | The install step failed after you allowed admin access | Click **Retry**. If it keeps failing, open an issue with your **Copy diagnostics** report |
-| "Virtual camera is set up differently" banner when starting | Some other app (OBS's own virtual camera, a previous session, etc.) already has the module loaded with different settings | Close that app and click **Unload** under Virtual camera in Settings → Virtual camera & phone (or run `sudo modprobe -r v4l2loopback` yourself), then click Start again |
-| Canvas restart fails with "module in use" | OBS or another app still holds the device | Close all apps using the virtual camera, then retry |
-| WB slider has no effect | Camera doesn't support `MANUAL_POST_PROCESSING` | Falls back gracefully; auto AWB still works |
-| ISO/shutter change has no effect | Only one of the two was sent | Switch to Manual - desktop sends both simultaneously |
-| FPS stays at 30 with 60 picked, whatever the light or size | Some phone makers keep their camera's faster modes for their own camera app. The phone lists 60 fps and accepts the request, then gives other apps 30 anyway. **Copy diagnostics** while streaming shows it: the "Camera did" line reads 33.4 ms with range [60, 60] | Nothing in Telescope can change this. Rates a camera doesn't list at all are grayed out in the FPS dropdown |
-| Lag or dropped frames over Wi-Fi | Format is Heavy (MJPEG), which sends several times the data of Light | Switch Format to Light, use USB, lower JPEG quality, or reduce FPS |
-| Light over Wi-Fi freezes for a moment now and then | A busy network loses a packet, and TCP holds up everything after it until the resend | Try **UDP on Wi-Fi** in the Connection card (experimental). If the video can't get through over UDP it goes back to TCP by itself |
-| Video in Settings says "No graphics card Telescope can use" | On Linux the PyAV Telescope installs only decodes on NVIDIA cards, so AMD and Intel ones need VA-API | Click **Set up VA-API…** next to it. Without a graphics card, Light still decodes on the processor |
-| VA-API setup says an existing build no longer works | A system update may have changed FFmpeg or Python | Install any packages setup lists, then click **Rebuild** and restart Telescope |
-| VA-API setup asks for PyAV 14 or newer | Telescope's Python environment still has an older PyAV | Upgrade PyAV in that environment, then restart Telescope and open setup again |
-| "Another app on the phone is using the camera" | An app opened the phone's camera (the Camera app, a video call). Android gives the camera to the app on screen | Close that app or switch away from it. The stream picks back up once the camera is free |
-| "The phone is streaming to <name>" | Another computer paired with the phone started its camera first | Stop the stream on that computer or on the phone, then click Start again |
-| A global shortcut says "Another app already uses this key" (Windows) | Some other program registered that key first | Windows gives that key to the other program every time, even with Telescope in front. Pick another key in **Keyboard shortcuts…** |
-| Global shortcuts only work inside Telescope (Linux) | The desktop has no global shortcuts portal (anything other than Plasma 5.27+, GNOME 48+ or Hyprland), or you turned the shortcut down in its confirm dialog | On Plasma, **Open** next to **Desktop shortcut settings** in the dialog lets you set the key. Elsewhere, bind the shortcut's **Copy command line** in your desktop's keyboard settings |
-| A shortcut does nothing | Its control is greyed out or hidden right now: no phone, Auto mode for a manual slider, or the mic is off for Mute | Use it once the control is there. `telescope --action` prints why it couldn't |
-| Second launch does nothing | Single-instance enforcement | The existing window is brought to the front |
-| Opening Telescope shows "Telescope can't start" | Another program is using port 47823 (or a stuck Telescope is), so the new copy can't tell whether one is already running | Close that program or end the stuck Telescope, then open it again |
-| Opening Telescope says it is already running for another user (Windows) | Another account on this PC has Telescope open, and both use the same local port | Close it in that account, then open Telescope again. On Linux each account has its own |
-| "Your settings couldn't be read" banner | `telescope_config.json` was damaged or hand-edited wrongly, so Telescope started with defaults and paired phones need pairing again | The banner says where the old file was copied (`telescope_config.json.invalid-...`); fix it and put it back, or pair again |
-| Updates says a build "didn't start after updating, so it's held back" | The new version crashed before its window came up, so the old one was put back (or, for an unzipped copy that moved to the installed one, the installed copy didn't open) | Click **Try again**. If it keeps happening, open an issue with your **Copy diagnostics** report |
-| Windows asks about the firewall again after an update | The update moved an unzipped copy to the installed one. Windows ties firewall rules to one exe path, which makes the installed copy a new program as far as it's concerned | Click Allow on private networks, as the first time. The old copy's rule is left behind and does nothing |
-| QR pairing fails ("Could not reach the desktop") | Phone and desktop not on the same network, or desktop firewall blocking port 8765 | The failure dialog on the phone lists every address it tried and how each failed. Make sure both are on the same Wi-Fi and the Add phone dialog is still open (the pairing server only runs while it is), or plug the phone in and pair over USB |
-| QR pairing fails on a guest/public Wi-Fi | Client isolation - the access point blocks device-to-device traffic entirely | Nothing on either device can work around this; use USB pairing, or a network you control |
-| Plugged in, but USB pairing doesn't happen | The USB line in the Add phone dialog tells you which one: adb isn't installed, USB debugging hasn't been allowed on the phone, or the app isn't on screen | Install `adb` (Linux) or click **get from Google** in that line (Windows), accept the USB debugging prompt on the phone, and keep Telescope open on it - the offer is re-sent every few seconds |
-| Get adb fails with "Google wouldn't send adb to this computer" (404 or 403) | Google blocks Android SDK downloads in some countries, so Telescope can't fetch adb for you there | Get Google's platform-tools for Windows another way, then click **pick one you already have** in Add phone, or **Use my own adb…** under Virtual camera & phone in Settings, and choose its `adb.exe` or the zip. Wi-Fi pairing and streaming work without adb |
-| Streams over Wi-Fi although the phone is plugged in | The note under the Connection panel's status says which of these it is: Telescope isn't open on the phone, USB debugging isn't allowed yet, or the cable has a different phone on it | Fix what it names and the next connect uses USB (mid-stream on Automatic the stream moves to the cable automatically and **Switch to USB** only shows up if that didn't work). To never use Wi-Fi, set **Connect via** to USB only |
-| "Can't reach the phone" | The app isn't open on the phone, or the phone is on another network and not plugged in | Open Telescope on the phone and keep it on screen. The status updates on its own |
-| "Needs pairing again" | The phone removed this computer | Click **Add phone** and pair it again; its settings on this computer are kept |
-| "Can't reach the phone" after reinstalling the phone app | A reinstalled app (or Clear data) gives the phone a new identity | Click **Add phone** and pair it. Telescope asks whether it's the same phone; say yes and it takes over the old entry's settings and presets |
-| "Can't reach <phone>" banner while streaming | The phone app was closed or killed, or the phone left the network. After 10 seconds apps see the wait screen instead of a frozen picture | Open Telescope on the phone. If it's still streaming the picture comes back without you doing anything, otherwise press Start |
-| Stream stops a few seconds after Start, with a battery or temperature banner | **Stop the stream** is on in the Phone card and the phone is past its threshold | Click **Start anyway** on the banner, or change the threshold in the Phone card |
-| QR pairing fails while a VPN is active | The VPN is blocking local-network traffic outright. (A VPN that *allows* LAN access is handled: the desktop advertises its real interface addresses rather than whatever owns the default route, and the phone sends LAN attempts over its Wi-Fi interface rather than the tunnel) | Turn on the VPN's "allow local network access"/"LAN access" option, pause the VPN while pairing, or use USB pairing. Once paired, streaming has the same requirement |
-| Browser camera page won't load | The device isn't on the same network, or a firewall blocks port 8767. If nothing has reached the computer after 30 seconds, the card points that out | Use the address on the card that's on the same network as the device (the card lists each one when there are several), and allow port 8767 in the firewall. **Copy diagnostics** shows the port and how far browsers got: 0 connections means nothing got through, so it's the network or the firewall. If you clicked Cancel on the Windows firewall prompt, allow Telescope in Windows Security, Firewall & network protection, Allow an app through firewall |
-| Browser camera page says it can't reach the computer, or that the code was replaced | The code changed (**New link**, or Telescope restarted) | Scan the code on the card again |
-| Browser camera page stays on "Connecting the video…" or keeps reconnecting | The video goes over WebRTC on UDP ports picked each time, which a strict firewall can block even with port 8767 allowed | On Windows allow Telescope itself in the firewall (not only the port). On Linux allow incoming UDP from your local network, or try with the firewall off for a moment to confirm that's it |
-| Browser camera stops when the phone locks or you switch apps | Phones pause the camera for pages in the background | Keep the page open with the screen on. Going back to the page starts it again |
+Find your problem below. Nothing there? Ask in [Q&A](https://github.com/LunarKittyy/Telescope/discussions/categories/q-a), or open an [issue](https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml) with your **Copy diagnostics** report if something is broken.
 
-Not listed here? Ask in [Q&A](https://github.com/LunarKittyy/Telescope/discussions/categories/q-a). If something's broken, open an [issue](https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml) with your **Copy diagnostics** report.
+- [Starting Telescope](#starting-telescope)
+- [Virtual camera](#virtual-camera)
+- [Pairing and connecting](#pairing-and-connecting)
+- [Video and quality](#video-and-quality)
+- [Camera controls](#camera-controls)
+- [Browser camera](#browser-camera)
+- [Shortcuts](#shortcuts)
+- [Plugins and extra downloads](#plugins-and-extra-downloads)
+- [Updates](#updates)
+
+## Starting Telescope
+
+**"Telescope can't start"**
+Another program is using port 47823, or a stuck Telescope is. Close it (or end the stuck Telescope) and open Telescope again.
+
+**"Already running for another user" (Windows)**
+Another account on this PC has Telescope open and both use the same local port. Close it there. Linux accounts don't share it.
+
+**"Your settings couldn't be read"**
+`telescope_config.json` was damaged or edited wrongly, so Telescope started with defaults and paired phones need pairing again. The banner shows where the old file was copied (`telescope_config.json.invalid-...`). Fix it and put it back, or pair again.
+
+## Virtual camera
+
+**Telescope or Phone Camera isn't listed in OBS, Discord or Zoom**
+Apps only look for cameras when they start. Restart the app if it was already open when the camera was set up. On Windows, Discord stays in the tray when you close its window, so quit it from the tray icon (right-click, Quit) and open it again. Restarting the computer works too.
+
+**Linux: the virtual camera won't open**
+The `v4l2loopback` package isn't installed or loaded. Install it (`v4l2loopback-dkms` on Debian, Ubuntu and Arch, `v4l2loopback` on Fedora and Nobara through RPM Fusion, see [Manual setup](setup.md#linux)) and click Start again. **Virtual camera & phone** in Settings can load it by hand.
+
+**Linux: `/dev/video11` is gone after a reboot**
+The module isn't loaded at boot. Starting loads it again. Leave **Also switch it on at every startup** ticked in the password prompt, or switch on **Load when the computer starts** under Virtual camera & phone in Settings.
+
+**Linux: "Virtual camera is set up differently"**
+Another app (OBS's own virtual camera, for example) already loaded the module with different settings. Close that app, click **Unload** under Virtual camera & phone in Settings (or run `sudo modprobe -r v4l2loopback`) and click Start again.
+
+**Linux: canvas change fails with "module in use"**
+OBS or another app still holds the device. Close everything using the virtual camera and retry.
+
+**Windows: the virtual camera won't open**
+The driver isn't registered. Open **Virtual camera & phone** in Settings and reinstall it.
+
+**Windows: the camera is called "Unity Video Capture"**
+An older Telescope installed the driver before it had its own name. Click **Rename** under **Virtual camera & phone** in Settings.
+
+**Windows: driver install says `Program Files\Telescope has links in it or other users can change it`**
+Something else made that folder or changed who can edit it, and Telescope won't install into a folder it can't trust. Delete `C:\Program Files\Telescope` and click **Install driver** again.
+
+**Windows: driver install says it `hit an error while running as admin`**
+Click **Retry**. If it fails again open an issue with your **Copy diagnostics** report.
+
+## Pairing and connecting
+
+**QR pairing fails ("Could not reach the desktop")**
+The phone and computer aren't on the same network, or the computer's firewall blocks port 8765. The dialog on the phone lists every address it tried and how each failed. Make sure both are on the same Wi-Fi and the Add phone dialog is still open (the pairing server only runs while it is). Or plug the phone in and pair over USB.
+
+**QR pairing fails on guest or public Wi-Fi**
+Those networks usually block devices from talking to each other. Nothing can work around that. Use USB pairing or a network you control.
+
+**QR pairing fails with a VPN on**
+The VPN is blocking local network traffic. Turn on its "allow local network access" option, pause it while pairing or use USB. Streaming over Wi-Fi needs the same.
+
+**Plugged in but USB pairing doesn't happen**
+The USB line in the Add phone dialog names which of these it is: adb isn't installed, USB debugging isn't allowed on the phone, or the app isn't on screen. Install `adb` (Linux) or click **get from Google** in that line (Windows), accept the USB debugging prompt and keep Telescope open on the phone.
+
+**"Google wouldn't send adb to this computer" (Windows)**
+Google blocks these downloads in some countries. Get Google's platform-tools for Windows another way, then click **pick one you already have** in Add phone (or **Use my own adb…** under Virtual camera & phone in Settings) and choose `adb.exe` or the zip. Wi-Fi works without adb.
+
+**It streams over Wi-Fi although the phone is plugged in**
+The note under the Connection panel's status names the reason: Telescope isn't open on the phone, USB debugging isn't allowed yet or the cable has a different phone on it. Fix that and the next connect uses USB. To never use Wi-Fi set **Connect via** to USB only.
+
+**"Can't reach the phone"**
+Telescope isn't open on the phone, or the phone is on another network and not plugged in. Open Telescope on the phone and keep it on screen.
+
+**"Can't reach the phone" after reinstalling the phone app**
+A reinstall (or Clear data) gives the phone a new identity. Click **Add phone** and pair again. Telescope asks whether it's the same phone and, if you say yes, takes over the old settings and presets.
+
+**"Can't reach <phone>" banner while streaming**
+The phone app was closed or killed, or the phone left the network. Open Telescope on the phone. If it's still streaming the picture returns without you doing anything, otherwise press Start.
+
+**"Needs pairing again"**
+The phone removed this computer. Click **Add phone** and pair again. Its settings on this computer stay.
+
+**"Another app on the phone is using the camera"**
+Android gives the camera to the app on screen (the Camera app, a video call). Close or switch away from it and the stream picks back up.
+
+**"The phone is streaming to <name>"**
+Another computer paired with the phone started its camera first. Stop it there or on the phone and click Start again.
+
+**Stream stops a few seconds after Start with a battery or temperature banner**
+**Stop the stream** is on in the Phone card and the phone is past its threshold. Click **Start anyway** or change the threshold.
+
+**Windows asks about the firewall again after an update**
+The update moved an unzipped copy to the installed one and Windows treats it as a new program. Click Allow on private networks like the first time. The old copy's rule stays behind and does nothing.
+
+## Video and quality
+
+**Lag or dropped frames over Wi-Fi**
+Heavy (MJPEG) sends several times the data of Light. Switch Format to Light, use USB, lower JPEG quality or reduce FPS.
+
+**Light freezes for a moment now and then over Wi-Fi**
+A busy network loses a packet and TCP holds everything up until the resend. Try **UDP on Wi-Fi** in the Connection card (experimental).
+
+**FPS stays at 30 with 60 picked**
+Some phone makers keep their camera's faster modes for their own camera app. The phone lists 60 fps and accepts the request, then gives other apps 30. Telescope can't change that. **Copy diagnostics** while streaming shows it: the "Camera did" line reads 33.4 ms with range [60, 60]. Rates a camera doesn't list at all are greyed out.
+
+**"No graphics card Telescope can use" in Video settings**
+On Linux, Telescope's decoder only uses NVIDIA cards. For AMD and Intel click **Set up VA-API…** next to it. Without a usable card Light still decodes on the processor.
+
+**VA-API setup says an existing build no longer works**
+A system update changed FFmpeg or Python. Install any packages setup lists, click **Rebuild** and restart Telescope.
+
+**VA-API setup asks for PyAV 14 or newer**
+Telescope's Python environment has an older PyAV. Upgrade it there, restart Telescope and open setup again.
+
+## Camera controls
+
+**A control is greyed out or does nothing**
+The current lens doesn't support it. Some front cameras and telephoto lenses have no manual exposure or white balance, use Auto there. Hover **Full manual control** or **Limited manual control** to see what the lens can do.
+
+**Zoom and Pan are greyed out on the Transforms card**
+Auto framing is moving them. Switch it off on its card and your own zoom and pan come back.
+
+## Browser camera
+
+**The page won't load**
+The device isn't on the same network, or a firewall blocks port 8767. Use the address on the card that matches the device's network (the card lists each one if there are several) and allow port 8767 in the firewall. If you clicked Cancel on the Windows firewall prompt, allow Telescope in Windows Security under Firewall & network protection, Allow an app through firewall.
+
+**The page says it can't reach the computer or that the code was replaced**
+The code changed (**New link**, or Telescope restarted). Scan the code on the card again.
+
+**The page stays on "Connecting the video…" or keeps reconnecting**
+The video goes over WebRTC on UDP ports picked each time, which a strict firewall can block even with port 8767 open. On Windows allow Telescope itself in the firewall, not only the port. On Linux allow incoming UDP from your local network, or turn the firewall off for a moment to confirm that's it.
+
+**It stops when the phone locks or you switch apps**
+Phones pause the camera for pages in the background. Keep the page open with the screen on. Going back to it starts it again.
+
+## Shortcuts
+
+**A shortcut does nothing**
+Its control is greyed out or hidden right now (no phone, Auto mode for a manual slider, or the mic is off for Mute). `telescope --action` prints why.
+
+**"Another app already uses this key" (Windows)**
+Windows gives the key to the other program every time, even with Telescope in front. Pick another key in **Keyboard shortcuts…**.
+
+**Shortcuts only work inside Telescope (Linux)**
+Your desktop has no global shortcuts portal (only Plasma 5.27+, GNOME 48+ and Hyprland do) or you turned the shortcut down in its confirm dialog. On Plasma, **Open** next to **Desktop shortcut settings** lets you set the key. Elsewhere bind the shortcut's **Copy command line** in your desktop's keyboard settings.
+
+## Plugins and extra downloads
+
+**A card or menu entry is gone**
+That part of Telescope is switched off in **Plugins**. Open Settings and go to the Plugins tab (it reads **Plugins (N off)** when something is off), switch it back on or click **Turn all back on**, then click **Restart now**.
+
+**Auto framing or Background asks for a one-time download**
+The vision download hasn't happened yet or was removed. A new Telescope version can need a newer one too. Click **Download** on the card. If it fails check that GitHub is reachable from this computer.
+
+**Auto framing or Background says MediaPipe didn't load**
+The download is there but MediaPipe won't start here (it only works on 64-bit Intel and AMD). On Linux it also needs the EGL and OpenGL ES libraries, which graphics drivers normally bring. If **Copy diagnostics** says `libEGL.so.1 missing` or `libGLESv2.so.2 missing`, install `libegl1` and `libgles2` (Debian and Ubuntu) or `libglvnd-egl` and `libglvnd-gles` (Fedora) and restart Telescope. Otherwise open an issue with your **Copy diagnostics** report.
+
+## Updates
+
+**"Didn't start after updating, so it's held back"**
+The new version crashed before its window came up, so the old one was put back (or the installed copy didn't open, for an unzipped copy that moved). Click **Try again**. If it keeps happening open an issue with your **Copy diagnostics** report.

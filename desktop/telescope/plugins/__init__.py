@@ -1,4 +1,4 @@
-"""The built-in plugins. ARCHITECTURE.md has the rules they follow, docs/plugins.md how to write one."""
+"""The built-in plugins. ARCHITECTURE.md has the rules they follow, docs/writing-plugins.md how to write one."""
 
 
 def builtin_plugins() -> list:

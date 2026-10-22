@@ -2,7 +2,7 @@
 """Check a plugin you're writing without starting Telescope: its files and plugin.json, that it loads and starts next
 to the built-in plugins, makes its card, handles frames, saves and restores its settings and gets through a stream
 starting and stopping. Every problem comes with the traceback. Runs in a throwaway profile, so your settings and
-installed plugins are left alone. See docs/plugins.md.
+installed plugins are left alone. See docs/writing-plugins.md.
 
 Usage: python scripts/check_plugin.py FOLDER
 """

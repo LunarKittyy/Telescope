@@ -5,7 +5,7 @@ Usage: python scripts/dev_desktop.py [--keep] [--plugin FOLDER ...] [Qt options]
   default          a fresh profile, deleted when the app quits
   --keep           reuse one profile across runs, so the dev phone stays paired (delete it with --reset)
   --plugin FOLDER  load the plugin in FOLDER as it is, always on, and restart whenever one of its files is saved
-                   (docs/plugins.md); give it more than once for several
+                   (docs/writing-plugins.md); give it more than once for several
 """
 
 import getpass
