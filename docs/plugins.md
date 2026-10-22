@@ -16,6 +16,8 @@ Changes apply the next time Telescope starts. If there's something to apply the 
 
 Switching a plugin off doesn't delete anything. Its settings stay saved and everything is back as before once you switch it on again. **Turn all back on** switches every built-in plugin on in one go.
 
+Under **Optional** are the built-in plugins that start out switched off (Auto framing and Background). Both need MediaPipe, which is a separate download the first time you switch either of them on. [Features](features.md#the-vision-download) has the details.
+
 Phones and connection, Advanced settings and Updates can't be switched off because Telescope doesn't work without them. They're listed at the bottom under "Always on".
 
 **A card or a menu entry is gone?** Look at the settings menu. When some plugins are off the entry reads something like **Plugins… (2 off)**. Right after a restart that switched one off there's also a banner at the top of the window naming it.
@@ -157,6 +159,12 @@ All of these are optional and you only override what you need.
 | `shutdown()` | Telescope is quitting and you should stop anything you started |
 
 You can also set `title`, `about` and `when_off` on your class. `title` and `about` fall back to your `plugin.json`. `when_off` says what's missing without your plugin (like "Without it there's no Black and white card") and the Plugins dialog shows it when someone switches your plugin off.
+
+### The view and people in the picture
+
+Zoom, pan, flip and rotation belong to the window, not to the Transforms card, so a plugin can work with them even when Transforms is switched off. `host.view()` is the shown stream's view as it is now and `bus.view_changed` fires when it changes. `host.set_view(zoom=2.0)` changes it the way the Transforms controls do. A plugin that wants to move the zoom and pan by itself (like Auto framing) calls `host.take_view("My plugin")` first, then `host.steer_view(...)` as often as it likes, and `host.release_view(...)` when it's done. Only one plugin can have the view at a time, and the Transforms card shows who has it.
+
+The vision service runs MediaPipe for plugins that ask. `host.person_mask(frame)` in `process_frame()` gives a mask of where the people are (`None` while it's still loading or if the download isn't there). `host.want_people("My plugin", True)` makes `bus.people_seen` report the people on each stream with their landmarks (eyes, shoulders, wrists, hips and so on) a dozen or so times a second. `host.vision_state()` and `bus.vision_state_changed` tell you whether it's ready. Plugins someone adds can use all of this, but only once the vision download is there, which right now only happens by switching on Auto framing or Background.
 
 ### A few ground rules
 

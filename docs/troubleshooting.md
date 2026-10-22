@@ -3,6 +3,9 @@
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | A card or a menu entry is gone | That part of Telescope is switched off in **Plugins…** | Open the settings menu (it reads **Plugins… (N off)** when something is off) and switch it back on or click **Turn all back on**. Then click **Restart now** |
+| Auto framing or Background says what it needs isn't downloaded | The vision download didn't happen yet or was removed. A new Telescope version can need a newer one too | Click **Download** on the card. If it fails, check that GitHub is reachable from this computer |
+| Auto framing or Background says MediaPipe didn't load | The download is there but MediaPipe wouldn't start on this computer (it only works on 64-bit Intel and AMD) | Open an issue with your **Copy diagnostics** report, which has the details |
+| Zoom and Pan are greyed out on the Transforms card | Auto framing is moving them | Switch Auto framing off on its card and your own zoom and pan come back |
 | Manual exposure greyed out | Camera doesn't report `MANUAL_SENSOR` capability | Some front cameras and telephoto lenses don't support it; use Auto |
 | `/dev/video11` gone after reboot | v4l2loopback isn't loaded at boot | Start streaming loads it. Leave **Also switch it on at every startup** ticked (or switch on **Load when the computer starts** in Advanced) and it won't ask again |
 | pyvirtualcam fails to open (Linux) | Module not loaded, or not installed | Install `v4l2loopback-dkms` (Debian/Ubuntu/Arch) or `v4l2loopback` (Fedora/Nobara, via RPM Fusion), then click Start again. **Advanced** can load it by hand |

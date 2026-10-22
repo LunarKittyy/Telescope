@@ -19,6 +19,25 @@ These apply live without restarting the phone's camera.
 - Zoom 1-10x with pan (**Max zoom** in Advanced takes it from 2x up to 30x). You can also scroll over the preview to zoom and drag it around to pan. The phone crops from the full sensor first, and once your framing fits inside the telephoto lens it hops over to that one, which is why zooming in actually gets sharper. Dots on the zoom slider mark where a longer lens takes over, and hovering the slider or the lens dot next to the value explains the rest
 - Double-click any slider to put it back to its default. The pan pad also takes arrow keys (Shift for bigger steps) and Home to centre
 
+## Auto framing
+
+An optional plugin, switched on under **Optional** in **Plugins…** (see [the vision download](#the-vision-download) below). It finds you in the picture and moves the zoom and pan to keep you framed, either your head and shoulders or your whole upper body. Two people in the picture get framed together. If nobody's been in the picture for two seconds it zooms back out to the whole thing.
+
+- **Widen for something in your hand** (on by default) widens the framing when you hold a hand out to the side to fit whatever you're showing in next to you. It goes back to the usual framing a moment after you put the hand down
+- **Speed** picks between a calm follow and a quicker one
+- While it's on, Zoom and Pan on the Transforms card are greyed out and flip and rotation still work as usual. Switching it off puts the zoom and pan back where you had them
+- The phone still does as much of the zoom as it can. While the framing moves around the phone stays on a slightly wider crop and the small moves happen on the computer, which stops the phone from hopping between lenses every time you lean over. The phone's part only changes once the framing has settled somewhere new for a couple of seconds
+
+## Background
+
+Also optional and sharing the same download. **Blur** blurs everything behind you and **Picture** puts a picture of your choice there instead (PNG, JPEG, WebP or BMP). **Edges** sets how soft the edge around you is. Since it runs on the computer it works with any phone and with Browser camera too.
+
+## The vision download
+
+Auto framing and Background use MediaPipe to find people in the picture. MediaPipe and the two models it needs don't come with Telescope, since most people won't use them. The first time you switch one of them on Telescope asks and then downloads them (about 47 MB on Linux and 28 MB on Windows) from Telescope's releases on GitHub. Both plugins share that one download. Once both are off again **Remove download** on the Optional card deletes it.
+
+It only works on 64-bit Intel and AMD computers for now.
+
 ## Presets
 
 The Presets button in the header saves your camera, output and transform settings under a name (lens included) and brings them all back with one click later. Each phone has its own presets.
@@ -127,4 +146,5 @@ The Presets button in the header saves your camera, output and transform setting
 - **Plugins…** in the settings menu lists every part of the desktop app that can be switched off (like the Camera card, Transforms, Presets or the microphone) with a line about what each one does. Telescope asks before switching one off and tells you what will be missing. Its settings stay saved for when you switch it back on. Changes apply after a restart and the dialog has a **Restart now** button for that
 - When some are off the menu entry says how many (**Plugins… (2 off)**) and after the restart a banner names what's off
 - **Install** under **Added** adds a plugin someone shared as a `.zip` and dragging the file onto the dialog works too. Added plugins start out switched off and Telescope warns you before you switch one on. One whose files changed gets switched off again until you switch it back on
+- **Optional** lists the plugins that start out switched off, which right now are Auto framing and Background. They need [the vision download](#the-vision-download) the first time one of them goes on
 - [Plugins](plugins.md) covers installing plugins and writing your own
