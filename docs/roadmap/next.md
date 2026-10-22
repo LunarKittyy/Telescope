@@ -1,6 +1,6 @@
 # Next release
 
-Planned in October 2026, after 3.5. The order is only a rough suggestion. The first three are small, the middle ones need testing on real phones and the last two are bigger.
+Planned in October 2026, after 3.5. It became 4.0. The order is only a rough suggestion. The first three are small, the middle ones need testing on real phones and the last two are bigger.
 
 - [x] [Mic clock drift without clicks](#mic-clock-drift-without-clicks)
 - [x] [Wi-Fi latency lock on the phone](#wi-fi-latency-lock-on-the-phone)
@@ -10,11 +10,11 @@ Planned in October 2026, after 3.5. The order is only a rough suggestion. The fi
 - [x] [Frame rate changes without restarting the camera](#frame-rate-changes-without-restarting-the-camera)
 - [x] [Moving to USB without a gap](#moving-to-usb-without-a-gap)
 - [x] [One shared example of /v1/state for both apps](#one-shared-example-of-v1state-for-both-apps)
-- [ ] [Auto framing and Background](#auto-framing-and-background)
+- [x] [Auto framing and Background](#auto-framing-and-background)
 
 Already merged:
 
-- [x] Credit to LunarKittyy next to the version in Advanced
+- [x] Credit to LunarKittyy next to the version in Settings
 - [x] Auto level for the mic, off by default (noise reduction with RNNoise would need a native library in both builds, so it isn't in)
 - [x] Experimental H.264 over UDP on Wi-Fi (**UDP on Wi-Fi** in the Connection card)
 - [x] Hardware acceleration for Light, off by default, and **Set up VA-API…** for AMD and Intel cards on Linux
@@ -23,6 +23,10 @@ Already merged:
 - [x] Retrying the phone's session port when it's busy
 - [x] `scripts/phone_check.py`, a release check on a real phone
 - [x] Less CPU and memory on the desktop: one reused frame converter per stream, a cheaper preview resize, I420 straight to v4l2loopback, 2 OpenCV threads and capped glibc memory pools on Linux
+- [x] The Browser camera over WebRTC, with a Light button on the page
+- [x] One Settings window with tabs and search in place of the settings menu and Advanced
+- [x] Cards and sections that fold when their title is clicked
+- [x] Your phones and the Plugins tab's Restart now moved to the new layout
 
 ## Mic clock drift without clicks
 
