@@ -5,9 +5,11 @@ from types import SimpleNamespace
 
 import pytest
 from PyQt6.QtCore import QCoreApplication, QEvent, QTimer
+from PyQt6.QtWidgets import QLabel
 
 import telescope.app as app_module
 import telescope.plugins.connection as connection_module
+from telescope.config import load_config
 import telescope.plugins.setup as setup_plugin
 from telescope.plugin import TelescopePlugin
 from telescope.plugins import builtin_plugins
@@ -203,6 +205,33 @@ def test_the_app_starts_streams_and_quits_without_any_one_optional_plugin(build,
 
     # The host logs a plugin hook that raises instead of letting it through, so the log is where breakage shows
     assert [r.getMessage() for r in caplog.records if r.levelno >= logging.ERROR] == []
+
+
+def test_every_card_and_section_in_the_window_folds(build):
+    window = build(None)
+    cards = {t.text() for t in window.findChildren(QLabel, "card_title")}
+    folds = set(window._collapse._bodies)
+    assert cards and cards <= {key.split("/")[1] for key in folds}
+    assert {"camera_control/Camera/Light", "camera_control/Camera/Image", "monitoring/Phone/Warnings"} <= folds
+
+
+def test_a_plugin_switched_off_and_on_again_has_its_folds_as_it_left_them(build):
+    first = build(None)
+    first._collapse.set_folded("transforms/Transforms", True)
+    first._collapse.set_folded("camera_control/Camera/Image", True)
+    first.save_now()
+
+    without = build("transforms")  # Transforms is off for this run
+    assert "transforms/Transforms" not in without._collapse._bodies
+    assert without._collapse.is_folded("camera_control/Camera/Image")
+    without.save_now()
+    assert "transforms/Transforms" in load_config()["collapsed"]
+
+    again = build(None)
+    assert again._collapse.is_folded("transforms/Transforms")
+    assert again._collapse._bodies["transforms/Transforms"].isHidden()
+    assert again._collapse._bodies["camera_control/Camera/Image"].isHidden()
+    assert not again._collapse._bodies["camera_control/Camera/Light"].isHidden()
 
 
 def test_only_connection_is_required():

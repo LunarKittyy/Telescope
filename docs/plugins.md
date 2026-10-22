@@ -139,6 +139,22 @@ class BlackAndWhitePlugin(TelescopePlugin):
 
 `get_config()` and `set_config()` are how settings get saved. Return a plain dict of what you want remembered and read it back in `set_config()`. Telescope calls `get_config()` whenever it saves, and `host.schedule_save()` asks it to save after something changed. `set_config()` might also get a dict saved by an older version of your plugin (or edited by hand) so read it carefully, the way the example checks `cfg.get("on") is True`.
 
+### Folding the card
+
+People can click a card's title to fold the card down to its header, and a section title inside it to fold just that section. There's nothing for you to write. After `create_panel()` returns Telescope looks at the card and makes it foldable if you built it with the helpers in `telescope/widgets/common.py`:
+
+- `create_card()` and `card_layout(card)` make the card and its layout
+- `add_card_header(layout, "Title", "icon")` adds the header, and its title is what people click. A card without one is left alone
+- `add_section_heading(layout, "Section", "icon")` starts a section that runs until the next heading or the end of the card
+
+What to keep in mind while building the card:
+
+- **Add every row inside `create_panel()`.** The rows get grouped once it returns. One you add to the card's own layout afterwards lands outside the fold and is still visible when the card is folded. Changing things inside a layout or widget you already added is fine at any time.
+- **Show and hide your own rows as you like.** A fold hides a container around the rows and never changes a row's own visibility, so a row you hid stays hidden when the card is opened again.
+- **Hiding the whole card still works.** `setVisible()` on the card is yours and a fold doesn't touch it.
+- **The titles make up the saved name.** A fold is saved under your plugin's `name`, the card title and the section title. If you rename a title it starts out open again for people who had it folded. Two sections with the same title in one card are told apart by their order.
+- **Only headings placed straight in the card's layout fold.** One inside a nested layout or widget is drawn like any other widget.
+
 ### What else a plugin can do
 
 All of these are optional and you only override what you need.

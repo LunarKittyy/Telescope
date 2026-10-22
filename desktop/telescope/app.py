@@ -30,6 +30,7 @@ from telescope.stream_flow import StreamFlow
 from telescope.view_controller import ViewController
 from telescope.vision import Vision
 from telescope.widgets.banner import BannerAction, BannerArea, Issue, copy_action
+from telescope.widgets.collapse import Collapsing
 from telescope.widgets.settings_window import SettingsWindow
 from telescope.widgets.tiles import StreamTiles
 from telescope.widgets.common import (
@@ -273,6 +274,7 @@ class TelescopeWindow(QMainWindow):
         self._save_timer = QTimer(self)
         self._save_timer.setSingleShot(True)
         self._save_timer.timeout.connect(self.save_now)
+        self._collapse = Collapsing(self.schedule_save)  # which cards and sections are folded
 
         self._tray: Optional[QSystemTrayIcon] = None
         self._keep_in_tray = False
@@ -358,6 +360,7 @@ class TelescopeWindow(QMainWindow):
             plugin.setup(self, self._bus)
             panel = plugin.create_panel()
             if panel:
+                self._collapse.install(panel, plugin.name or type(plugin).__name__)
                 region = plugin.panel_region if plugin.panel_region in self._panels else "left"
                 self._panels[region].append(panel)
                 # Forced: the mode hasn't changed, but the panel set has.
@@ -790,6 +793,7 @@ class TelescopeWindow(QMainWindow):
         conn = self._plugin("connection")
         selected = conn.selected_device if conn else None
         cfg["selected_device"] = selected
+        cfg["collapsed"] = self._collapse.keys()
         for p in self._plugins:
             if p.name and not p.device_local:
                 if (c := self._config_of(p, global_pcfg.get(p.name))) is not None:
@@ -1010,6 +1014,7 @@ class TelescopeWindow(QMainWindow):
         # config.py's load_config() already ran migration; cfg is always current here
         selected    = cfg.get("selected_device")
         global_pcfg = cfg.get("plugin_configs", {})
+        self._collapse.load(cfg.get("collapsed"))
         slots = cfg.get("output_slots")
         self._flow.slot_memory = {k: v for k, v in slots.items() if isinstance(v, int)} if isinstance(slots, dict) else {}
 
