@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 from typing import Callable, Optional
 
-from PyQt6.QtCore import QSignalBlocker, QUrl
+from PyQt6.QtCore import QSignalBlocker, Qt, QUrl
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QCheckBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QMessageBox, QPushButton, QScrollArea, QVBoxLayout, QWidget,
@@ -113,6 +113,7 @@ class PluginsPanel(QWidget):
             if item.widget() is not None:
                 item.widget().hide()  # deleteLater waits for the event loop, and until then it'd paint under the new one
                 item.widget().deleteLater()
+        self._restart_rows = 0
         off = self._read(plugin_loader.builtin_off, set())
         on = self._read(plugin_loader.optional_on, set())
         self._installed = self._read(lambda: plugin_loader.find_installed(self._reserved), [])
@@ -156,7 +157,8 @@ class PluginsPanel(QWidget):
                   if p.required or (p.name in on if p.optional else p.name not in off)}
         wanted |= {i.name for i in self._installed if i.enabled and not i.problem}
         known = self._reserved | {i.name for i in self._installed} | set(self._problems)
-        self._restart_bar.setVisible(wanted != (self._running & known))
+        # Rows that wait on a restart carry the button; the bar is for a change no row shows, like a removed plugin.
+        self._restart_bar.setVisible(wanted != (self._running & known) and not self._restart_rows)
 
     def _card(self, title: str, icon: str, action: QWidget = None) -> QVBoxLayout:
         """A card in the list, returning the layout its rows go in."""
@@ -182,8 +184,18 @@ class PluginsPanel(QWidget):
             controls.addWidget(box)
         extra = None
         if note:
-            extra = wrapped_note(note, "setting_sub" if note_kind == "dim" else note_kind)
-            extra.setProperty("sub", True)
+            label = wrapped_note(note, {"dim": "setting_sub", "restart": "status_warn"}.get(note_kind, note_kind))
+            label.setProperty("sub", True)
+            extra = label
+        if note_kind == "restart":  # the button right where the change was made, not only at the top of the tab
+            extra = QHBoxLayout()
+            extra.setSpacing(8)
+            extra.addWidget(label, 1)
+            restart = card_action("Restart now", "reset", "Start Telescope again to apply your changes")
+            restart.setObjectName("row_restart")
+            restart.clicked.connect(self._restart_now)
+            extra.addWidget(restart, 0, Qt.AlignmentFlag.AlignVCenter)
+            self._restart_rows += 1
         strip, _line = setting_row(title, about, controls, extra)
         strip.setToolTip(tooltip if locked else "")
         return strip, box, controls
@@ -196,9 +208,9 @@ class PluginsPanel(QWidget):
             return row
         note, kind = "", "dim"
         if on and plugin.name not in self._running:
-            note, kind = "It comes back after Telescope restarts.", "status_warn"
+            note, kind = "It comes back after Telescope restarts.", "restart"
         elif not on and plugin.name in self._running:
-            note, kind = "It goes away after Telescope restarts.", "status_warn"
+            note, kind = "It goes away after Telescope restarts.", "restart"
         elif not on:
             note = plugin.when_off
         row, box, _top = self._row(title, on, plugin.about, note, kind)
@@ -221,9 +233,9 @@ class PluginsPanel(QWidget):
             note, kind = (f"Its download (about {dl.size_mb()} MB) isn't there anymore. Switch it off and on again "
                           "to get it."), "status_warn"
         elif on and plugin.name not in self._running:
-            note, kind = "It starts after Telescope restarts.", "status_warn"
+            note, kind = "It starts after Telescope restarts.", "restart"
         elif not on and plugin.name in self._running:
-            note, kind = "It goes away after Telescope restarts.", "status_warn"
+            note, kind = "It goes away after Telescope restarts.", "restart"
         elif needs:
             note = f"Switching it on downloads about {dl.size_mb()} MB first."
         row, box, _controls = self._row(title, on, plugin.about, note, kind)
@@ -280,9 +292,9 @@ class PluginsPanel(QWidget):
         elif item.name in self._problems and item.enabled:
             note, kind = f"It didn't start ({self._problems[item.name].rstrip('.')}).", "status_err"
         elif item.enabled and item.name not in self._running:
-            note, kind = "It starts after Telescope restarts.", "status_warn"
+            note, kind = "It starts after Telescope restarts.", "restart"
         elif not item.enabled and item.name in self._running:
-            note, kind = "It goes away after Telescope restarts.", "status_warn"
+            note, kind = "It goes away after Telescope restarts.", "restart"
         row, box, controls = self._row(title, item.enabled, about, note, kind)
         box.setEnabled(not item.problem or item.enabled)  # one that's on can always be switched off
         box.toggled.connect(lambda checked, i=item, b=box: self._switch_added(i, checked, b))

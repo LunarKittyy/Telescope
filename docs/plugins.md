@@ -12,7 +12,7 @@ The first two parts of this page are for everyone. The last one is for people wh
 
 Click the settings button next to **Start streaming** and open the **Plugins** tab. Every plugin is listed there with a sentence about what it does and a switch. Telescope asks before switching one off and tells you what will be missing without it.
 
-Changes apply the next time Telescope starts. If there's something to apply the tab shows a **Restart now** button (if you're streaming, the stream stops for the few seconds the restart takes).
+Changes apply the next time Telescope starts. If there's something to apply the plugin's row gets a **Restart now** button (if you're streaming, the stream stops for the few seconds the restart takes).
 
 Switching a plugin off doesn't delete anything. Its settings stay saved and everything is back as before once you switch it on again. **Turn all back on** switches every built-in plugin on in one go.
 
