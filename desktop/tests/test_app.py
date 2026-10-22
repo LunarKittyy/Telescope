@@ -9,13 +9,13 @@ import sys
 import pytest
 from PyQt6.QtCore import QCoreApplication, QEvent
 from PyQt6.QtGui import QAction
-from PyQt6.QtWidgets import QMenu, QWidget
+from PyQt6.QtWidgets import QLabel, QMenu, QWidget
 
 import telescope.app as app_module
 import telescope.single_instance as instance_module
 import telescope.sources as sources_module
 from telescope import theme
-from telescope.plugin import TelescopePlugin
+from telescope.plugin import SettingsSection, TelescopePlugin
 from telescope.session import StreamSession
 
 
@@ -60,8 +60,8 @@ class _Plugin(TelescopePlugin):
     def create_header_widget(self):
         return None
 
-    def create_menu_actions(self):
-        return list(getattr(self, "menu_actions", []))
+    def create_settings_sections(self):
+        return list(getattr(self, "settings_sections", []))
 
     def process_frame(self, frame):
         return frame
@@ -557,48 +557,56 @@ def test_narrow_layout_stacks_every_panel_into_one_visible_column(window):
                        window._panels["right"][0]]
 
 
-def test_settings_menu_collects_actions_from_every_plugin(window, qapp):
-    plugin = _Plugin("with_actions")
-    action = QAction("Do a thing", None)
-    plugin.menu_actions = [action]
+def test_settings_window_collects_sections_from_every_plugin(window, qapp):
+    plugin = _Plugin("with_sections")
+    plugin.settings_sections = [SettingsSection("general", QLabel("Do a thing")),
+                                SettingsSection("my_own", QLabel("Mine"), tab_title="My own")]
     window.register_plugin(plugin)
 
-    assert [a.text() for p in window._plugins for a in p.create_menu_actions()] \
-        == ["Do a thing"]
+    window.open_settings()
+    win = window._settings_win
+    try:
+        assert win.isVisible()
+        assert win.tabs() == ["general", "my_own", "plugins"]  # a tab of its own goes before Plugins
+        assert window._settings_win is win
+        window.open_settings("my_own")
+        assert win.current_tab() == "my_own"
+        window.open_settings("nowhere")  # not a tab: stays where it was
+        assert win.current_tab() == "my_own"
+    finally:
+        win.close()
 
 
-def test_settings_menu_takes_a_submenu_and_owns_it(window, qapp, monkeypatch):
-    plugin = _Plugin("with_submenu")
-    sub = QMenu("More")
-    sub.addAction("Inside")
-    plugin.menu_actions = [QAction("Before", None), sub]
+def test_the_gear_button_opens_settings_without_a_menu(window, qapp, monkeypatch):
+    monkeypatch.setattr(QMenu, "exec", lambda self, *_a: pytest.fail("a menu came up"))
+    window._menu_btn.click()
+    win = window._settings_win
+    try:
+        assert win is not None and win.isVisible()
+    finally:
+        win.close()
+
+
+def test_a_plugin_that_cant_list_its_settings_doesnt_stop_the_window(window, qapp):
+    plugin = _Plugin("broken")
+
+    def fail():
+        raise RuntimeError("nope")
+    plugin.create_settings_sections = fail
     window.register_plugin(plugin)
-    shown = []
-    monkeypatch.setattr(QMenu, "exec", lambda self, *_a: shown.append(self))
-
-    window._show_settings_menu()
-
-    (menu,) = shown
-    before, more, plugins = menu.actions()
-    assert before.text() == "Before" and more.menu() is sub and plugins.text() == "Plugins…"
-    assert sub.parent() is menu and sub.isWindow()  # still a popup, and freed with the menu
+    window.open_settings("plugins")
+    try:
+        assert window._settings_win.current_tab() == "plugins"
+    finally:
+        window._settings_win.close()
 
 
-def test_plugins_goes_with_the_dialogs_above_the_divider(window, qapp, monkeypatch):
-    dialogs, toggles = _Plugin("dialogs"), _Plugin("toggles")
-    dialogs.menu_actions = [QAction("Wait screen…", None)]
-    divider = QAction(None)
-    divider.setSeparator(True)
-    toggle = QAction("Open when I sign in", None)
-    toggle.setCheckable(True)
-    toggles.menu_actions = [divider, QMenu("Automatic streaming"), toggle]
-    window.register_plugin(dialogs)
-    window.register_plugin(toggles)
-    shown = []
-    monkeypatch.setattr(QMenu, "exec", lambda self, *_a: shown.append(
-        ["---" if a.isSeparator() else a.text() for a in self.actions()]))
-    window._show_settings_menu()
-    assert shown == [["Wait screen…", "Plugins…", "---", "Automatic streaming", "Open when I sign in"]]
+def test_a_plugin_still_using_the_settings_menu_hook_is_warned_about(window, caplog):
+    plugin = _Plugin("old_style")
+    plugin.create_menu_actions = lambda: []
+    with caplog.at_level("WARNING"):
+        window.register_plugin(plugin)
+    assert "old_style" in caplog.text and "create_menu_actions" in caplog.text
 
 
 def test_save_config_separates_global_and_device_local_plugins(window, config_home):

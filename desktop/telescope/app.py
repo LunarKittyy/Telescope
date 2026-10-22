@@ -21,13 +21,14 @@ from telescope.phone_client import PhoneControlClient
 from telescope.platform import IS_LINUX
 from telescope.platform.linux import CANCELLED
 from telescope import plugin_loader
-from telescope.plugin import UNCHANGED, EventBus, TelescopePlugin
+from telescope.plugin import UNCHANGED, EventBus, SettingsSection, TelescopePlugin
 from telescope.session import Sessions, StreamSession
 from telescope.single_instance import relaunch, restart_argv
 from telescope.sources import PhoneSource, PluginSource, Source
 from telescope.stream import StreamWorker
 from telescope.stream_flow import StreamFlow
 from telescope.widgets.banner import BannerAction, BannerArea, Issue, copy_action
+from telescope.widgets.settings_window import SettingsWindow
 from telescope.widgets.tiles import StreamTiles
 from telescope.widgets.common import (
     ElidingLabel, create_app_icon, create_tray_icon, create_vector_icon, set_status_kind, tab_in_reading_order, ui_px,
@@ -244,6 +245,7 @@ class TelescopeWindow(QMainWindow):
         self._builtin_plugins: list = []  # every built-in one, turned off or not (load_plugins)
         self._added_plugins: list = []  # the ones the user installed that are running
         self._plugin_problems: dict = {}  # name: why an added plugin that's on didn't start
+        self._settings_win: Optional[SettingsWindow] = None  # built the first time Settings is opened
         self._plugins_by_name: dict[str, TelescopePlugin] = {}
         self._shortcut_actions: list = []
         # Plugin defaults; lets us reset before applying device profile.
@@ -340,6 +342,9 @@ class TelescopeWindow(QMainWindow):
         is taken back out again (and the exception passed on) rather than left half in."""
         panel = header_widget = None
         tray: list = []
+        if getattr(plugin, "create_menu_actions", None) is not None:
+            logging.warning("Plugin %s has create_menu_actions(), which Telescope no longer calls: the settings menu "
+                            "is now a settings window. Its create_settings_sections() takes its place.", plugin.name)
         try:
             plugin.setup(self, self._bus)
             panel = plugin.create_panel()
@@ -416,9 +421,9 @@ class TelescopeWindow(QMainWindow):
             titles = [title for title, _error in problems.values()]
             self.show_issue("plugins", Issue(
                 f"{_joined(titles)} didn't start" if len(titles) < 4 else f"{len(titles)} plugins didn't start",
-                "Telescope works without it. Plugins in the settings menu says what went wrong." if len(titles) == 1
-                else "Telescope works without them. Plugins in the settings menu says what went wrong.",
-                [BannerAction("Plugins…", self.show_plugins)], kind="warn"))
+                "Telescope works without it. The Plugins tab in Settings says what went wrong." if len(titles) == 1
+                else "Telescope works without them. The Plugins tab in Settings says what went wrong.",
+                [BannerAction("Plugins…", lambda: self.open_settings("plugins"))], kind="warn"))
         self._remind_plugins_off()
 
     def _remind_plugins_off(self):
@@ -439,32 +444,45 @@ class TelescopeWindow(QMainWindow):
 
         def open_plugins():
             noticed()
-            self.show_plugins()
+            self.open_settings("plugins")
 
         self.show_issue("plugins_off", Issue(
             f"{_joined(titles)} {'is' if len(titles) == 1 else 'are'} turned off",
-            "You turned this off in Plugins. To get it back, open Plugins in the settings menu and switch it on."
+            "You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on."
             if len(titles) == 1 else
-            "You turned these off in Plugins. To get them back, open Plugins in the settings menu and switch them on.",
+            "You turned these off in Plugins. To get them back, open Plugins in Settings and switch them on.",
             [BannerAction("Plugins…", open_plugins)], kind="warn", on_dismiss=noticed))
 
     def plugins_off(self) -> list:
         """The built-in plugins turned off this run."""
         return [p for p in self._builtin_plugins if p not in self._plugins]
 
-    def show_plugins(self):
-        """The Plugins dialog: every plugin, built in or added, with a switch for each one that can be turned off."""
-        from telescope.widgets.plugins_dialog import PluginsDialog
-        dlg = getattr(self, "_plugins_dlg", None)
-        if dlg is None or not dlg.isVisible():
-            # Not modal: it would block every other Telescope window, which can still come up over it
-            dlg = self._plugins_dlg = PluginsDialog(self, self._builtin_plugins, {p.name for p in self._plugins},
-                                                    self._plugin_problems, self.restart_app, self.is_streaming)
-            dlg.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-            dlg.destroyed.connect(lambda: setattr(self, "_plugins_dlg", None))
-        dlg.show()
-        dlg.raise_()
-        dlg.activateWindow()
+    def open_settings(self, tab: str = ""):
+        """The settings window, built from every plugin's settings sections the first time it's asked for."""
+        win = self._settings_win
+        if win is None:
+            win = self._settings_win = self._build_settings_window()
+        if tab:
+            win.show_tab(tab)
+        win.show()
+        win.raise_()
+        win.activateWindow()
+
+    def _build_settings_window(self) -> SettingsWindow:
+        from telescope.widgets.plugins_panel import PluginsPanel
+        sections = []
+        for p in self._plugins:
+            try:
+                sections.extend(p.create_settings_sections())
+            except Exception:
+                logging.exception("Plugin %s couldn't list its settings", p.name)
+        panel = PluginsPanel(self._builtin_plugins, {p.name for p in self._plugins}, self._plugin_problems,
+                             self.restart_app, self.is_streaming)
+        off = len(self.plugins_off())
+        sections.append(SettingsSection("plugins", panel, on_show=panel.refresh,
+                                        tab_title=f"Plugins ({off} off)" if off else ""))
+        # Not modal: it would block every other Telescope window, which can still come up over it
+        return SettingsWindow(sections, self)
 
     def restart_app(self) -> bool:
         """Start a new copy of Telescope and quit this one; False if the new one couldn't be started."""
@@ -545,7 +563,7 @@ class TelescopeWindow(QMainWindow):
         self._menu_btn.setIconSize(QSize(19, 19))
         self._menu_btn.setToolTip("Settings")
         self._menu_btn.setAccessibleName("Settings")
-        self._menu_btn.clicked.connect(self._show_settings_menu)
+        self._menu_btn.clicked.connect(lambda: self.open_settings())
         lay.addWidget(self._menu_btn)
 
         self._add_btn = QPushButton()
@@ -648,34 +666,6 @@ class TelescopeWindow(QMainWindow):
         lay.addWidget(cap)
         lay.addWidget(value)
         return pill
-
-    def _show_settings_menu(self):
-        menu = QMenu(self)
-        off = len(self.plugins_off())
-        plugins = QAction(f"Plugins… ({off} off)" if off else "Plugins…", menu)
-        plugins.triggered.connect(self.show_plugins)
-        placed = False
-        for p in self._plugins:
-            try:
-                entries = p.create_menu_actions()
-            except Exception:
-                logging.exception("Plugin %s couldn't list its menu entries", p.name)
-                continue
-            for entry in entries:
-                if not placed and isinstance(entry, QAction) and (entry.isSeparator() or entry.isCheckable()):
-                    menu.addAction(plugins)  # last of the dialogs, before the divider and the toggles
-                    placed = True
-                if isinstance(entry, QMenu):
-                    entry.setParent(menu, entry.windowFlags())  # keeps it a popup, owned by this menu
-                    menu.addMenu(entry)
-                else:
-                    entry.setParent(menu)
-                    menu.addAction(entry)
-        if not placed:
-            menu.addAction(plugins)
-        menu.exec(self._menu_btn.mapToGlobal(
-            self._menu_btn.rect().bottomLeft()) + QPoint(0, 6))
-        menu.deleteLater()  # rebuilt on every click; without this each one stays alive under the window
 
     def _layout_mode_for(self, width: int) -> str:
         if width >= ui_px(_WIDTH_THREE_COL):

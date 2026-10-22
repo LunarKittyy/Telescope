@@ -19,19 +19,20 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from PyQt6.QtCore import QObject, QSize, Qt, QTimer, QUrl, pyqtSignal
-from PyQt6.QtGui import QAction, QDesktopServices
-from PyQt6.QtWidgets import QDialog, QPushButton, QWidget
+from PyQt6.QtCore import QObject, QSize, QTimer, QUrl, pyqtSignal
+from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtWidgets import QPushButton, QVBoxLayout, QWidget
 
 from telescope import updates, version
 from telescope.platform import stop_adb_server
-from telescope.plugin import TelescopePlugin
+from telescope.plugin import SettingsSection, TelescopePlugin
+from telescope.widgets.settings_search import keywords
 from telescope.single_instance import relaunch
 from telescope.widgets.common import (
     Switch,
     NoScrollComboBox, add_card_header, button_row, card_action, card_layout, control_row,
-    create_card, create_vector_icon, dialog_buttons, dialog_header, dialog_layout, set_status_kind,
-    set_ui_role, ui_px, wrapped_note,
+    create_card, create_vector_icon, set_status_kind,
+    set_ui_role, wrapped_note,
 )
 
 logger = logging.getLogger(__name__)
@@ -49,23 +50,21 @@ class _Signals(QObject):
     installed = pyqtSignal(object, str)      # InstallResult or None, error text
 
 
-class UpdatesDialog(QDialog):
-    def __init__(self, plugin: "UpdatesPlugin", parent=None):
-        super().__init__(parent)
+class UpdatesSection(QWidget):
+    def __init__(self, plugin: "UpdatesPlugin"):
+        super().__init__()
         self._plugin = plugin
-        self.setWindowTitle("Updates")
-        self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
-        self.setMinimumWidth(ui_px(580))
-        lay = dialog_layout(self)
-        dialog_header(lay, "Updates")
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
 
         card = create_card()
         c = card_layout(card)
         self._check_btn = card_action("Check now", "reset")
         self._check_btn.clicked.connect(lambda: plugin.check(manual=True))
         add_card_header(c, "Telescope", "update", action=self._check_btn)
+        keywords(card, "update upgrade new version release download install latest")
         self._version_lbl = wrapped_note(version.display_version(), "val")
-        c.addLayout(control_row("This version", self._version_lbl, stretch=True))
+        c.addLayout(control_row("This version", self._version_lbl, stretch=True, keywords="current build number"))
 
         self._channel = NoScrollComboBox()
         for key, label in _CHANNEL_LABELS:
@@ -73,17 +72,19 @@ class UpdatesDialog(QDialog):
         self._channel.setToolTip("Nightly: built from every change. Fixes first, less tested.")
         self._channel.currentIndexChanged.connect(
             lambda i: plugin.set_channel(self._channel.itemData(i)))
-        c.addLayout(control_row("Channel", self._channel, stretch=True))
+        c.addLayout(control_row("Channel", self._channel, stretch=True,
+                                keywords="stable nightly beta release track builds testing"))
 
         self._auto = Switch()
         self._auto.toggled.connect(plugin.set_auto_check)
-        c.addLayout(control_row("Check daily", self._auto))
+        c.addLayout(control_row("Check daily", self._auto, keywords="automatic updates auto check every day background"))
 
         self._portable = Switch("Keep this copy where it is")
         self._portable.setToolTip("Updates this unzipped folder in place instead of installing Telescope for your user.")
         self._portable.toggled.connect(plugin.set_keep_portable)
         self._portable_row = QWidget()
-        self._portable_row.setLayout(control_row("Unzipped copy", self._portable))
+        self._portable_row.setLayout(control_row("Unzipped copy", self._portable,
+                                                      keywords="portable keep this copy where it is zip folder in place windows"))
         self._portable_row.setVisible(updates.is_unzipped_copy())
         c.addWidget(self._portable_row)
 
@@ -104,10 +105,6 @@ class UpdatesDialog(QDialog):
         self._retry.setLayout(button_row(self._retry_btn))
         c.addLayout(control_row("", self._retry, stretch=True))
         lay.addWidget(card)
-
-        close_btn = QPushButton("Close")
-        close_btn.clicked.connect(self.accept)
-        dialog_buttons(lay, close_btn)
         self.refresh()
 
     def refresh(self):
@@ -164,12 +161,12 @@ class UpdatesPlugin(TelescopePlugin):
         self._relaunch_argv: Optional[list] = None
         self._progress = (0, 0)
         self._cancel = threading.Event()
-        self._dlg: Optional[UpdatesDialog] = None
+        self._section: Optional[UpdatesSection] = None
         self._signals = _Signals()
         self._signals.checked.connect(self._on_checked)
         self._signals.progress.connect(self._on_progress)
         self._signals.installed.connect(self._on_installed)
-        bus.update_requested.connect(self.open_dialog)
+        bus.update_requested.connect(self.open_updates)
         bus.stream_started.connect(lambda _url: self._refresh())
         bus.stream_stopped.connect(self._on_stream_stopped)
 
@@ -187,22 +184,16 @@ class UpdatesPlugin(TelescopePlugin):
         self._header_btn.setIcon(create_vector_icon("update", "#ffffff"))
         self._header_btn.setIconSize(QSize(16, 16))
         set_ui_role(self._header_btn, "success")
-        self._header_btn.clicked.connect(self.open_dialog)
+        self._header_btn.clicked.connect(self.open_updates)
         self._header_btn.setVisible(False)
         return self._header_btn
 
-    def create_menu_actions(self) -> list:
-        action = QAction("Updates…", None)
-        action.triggered.connect(self.open_dialog)
-        return [action]
+    def create_settings_sections(self) -> list:
+        self._section = UpdatesSection(self)
+        return [SettingsSection("about", self._section, on_show=self._section.refresh)]
 
-    def open_dialog(self):
-        if self._dlg is None:
-            self._dlg = UpdatesDialog(self, self._host)
-        self._dlg.refresh()
-        self._dlg.show()
-        self._dlg.raise_()
-        self._dlg.activateWindow()
+    def open_updates(self):
+        self._host.open_settings("about")
         if not self._checked and not self._checking:
             self.check(manual=True)
 
@@ -211,8 +202,8 @@ class UpdatesPlugin(TelescopePlugin):
             self._header_btn.setVisible(self.available is not None)
             if self.available is not None:
                 self._header_btn.setToolTip(f"Telescope {self.available.display_version} is available")
-        if self._dlg is not None:
-            self._dlg.refresh()
+        if self._section is not None:
+            self._section.refresh()
 
     @property
     def busy(self) -> bool:

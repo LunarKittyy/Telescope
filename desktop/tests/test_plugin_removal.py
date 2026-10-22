@@ -173,11 +173,21 @@ def build(qapp, config_home, monkeypatch):
 
 
 @pytest.mark.parametrize("left_out", [None, *OPTIONAL])
-def test_the_app_starts_streams_and_quits_without_any_one_optional_plugin(build, caplog, left_out):
+def test_the_app_starts_streams_and_quits_without_any_one_optional_plugin(build, qapp, caplog, left_out):
     caplog.set_level(logging.ERROR)
     window = build(left_out)
     names = {p.name for p in window._plugins}
     assert left_out not in names and REQUIRED <= names
+
+    window.open_settings()  # every tab builds and comes up, whatever's missing
+    win = window._settings_win
+    for tab in win.tabs():
+        win.show_tab(tab)
+        qapp.processEvents()
+    assert ("shortcuts" in win.tabs()) == (left_out != "shortcuts")
+    assert ({"video", "audio", "devices"} <= set(win.tabs())) == (left_out != "setup")
+    assert "plugins" in win.tabs()
+    win.close()
 
     window.stream_source("test:cam")
     assert window.is_streaming() and _Worker.made[-1].started
@@ -197,7 +207,7 @@ def test_only_connection_is_required():
     assert len(OPTIONAL) == len(builtin_plugins()) - 1
 
 
-def test_every_built_in_plugin_says_what_it_is_for_the_plugins_dialog():
+def test_every_built_in_plugin_says_what_it_is_for_the_plugins_tab():
     for plugin in builtin_plugins():
         assert plugin.title and plugin.about, plugin.name
         assert plugin.required or plugin.when_off, f"{plugin.name}: say what goes away while it's off"

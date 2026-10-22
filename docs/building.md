@@ -38,13 +38,13 @@ Without `--keep` the profile is fresh on every run and deleted when the app quit
 Some things are shared because there's only one of them:
 - The phone apps use the same ports, so only one of them can be open (or waiting for its computer) at a time. The one you open while the other still holds them takes them over within a few seconds of it closing
 - On Linux both desktops stream into the same virtual camera device, and on Windows into the same UnityCapture driver, so only one can stream at a time
-- **Advanced** actions that change the system (loading v4l2loopback, installing the Windows driver) affect both
+- Actions in Settings that change the system (loading v4l2loopback, installing the Windows driver) affect both
 
 ## CI / GitHub Actions
 
 ### Versions
 
-Both apps share one version, the `VERSION` file at the repo root. The build number is the commit count on `master`, so it only grows; it's the Android `versionCode` and what the update check compares. A build is stable (`3.0.0`), nightly (`3.0.0-nightly.123`) or a source checkout (`3.0.0 dev`). The version shows at the bottom of the Advanced dialog on the desktop and under Copy diagnostics on the phone, and both apps' Copy diagnostics include it.
+Both apps share one version, the `VERSION` file at the repo root. The build number is the commit count on `master`, so it only grows; it's the Android `versionCode` and what the update check compares. A build is stable (`3.0.0`), nightly (`3.0.0-nightly.123`) or a source checkout (`3.0.0 dev`). The version shows under Updates & About in Settings on the desktop and under Copy diagnostics on the phone, and both apps' Copy diagnostics include it.
 
 ### `release.yml` - every push to `master` that changes more than docs or the website, and every `v*` tag
 

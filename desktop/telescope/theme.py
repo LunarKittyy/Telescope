@@ -804,6 +804,41 @@ QListWidget::item:selected {{
 QListWidget::item:hover:!selected {{
     background-color: {SURFACE_HOVER};
 }}
+QFrame#settings_side {{
+    background-color: {CHROME};
+    border: none;
+    border-right: 1px solid {BORDER};
+    border-radius: 0;
+}}
+QListWidget#settings_nav {{
+    background-color: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 4px 0 12px 0;
+    outline: 0;
+}}
+QListWidget#settings_results {{
+    background-color: transparent;
+    border: none;
+    padding: 0;
+    outline: 0;
+}}
+QListWidget#settings_results::item {{
+    border-radius: 8px;
+    padding: 0;
+}}
+QFrame#setting_row[found="true"], QFrame#card[found="true"] {{
+    border: 1px solid {ACCENT};
+}}
+QListWidget#settings_nav::item {{
+    padding: 0 10px;
+    margin: 1px 0;
+    border-radius: 7px;
+    color: {TEXT_DIM};
+}}
+QListWidget#settings_nav::item:selected {{
+    color: #ffffff;
+}}
 QMenu {{
     background-color: {SURFACE_RAISE};
     border: 1px solid {BORDER_HOVER};

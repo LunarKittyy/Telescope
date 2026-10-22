@@ -1,13 +1,12 @@
 import threading
 
 import pytest
-from PyQt6.QtGui import QGuiApplication, QShowEvent
+from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import QFileDialog, QWidget
 
 import telescope.plugins.setup as setup_mod
-from telescope.widgets import controls
 from telescope.plugin import EventBus
-from telescope.plugins.setup import AdvancedDialog, SetupPlugin
+from telescope.plugins.setup import AdvancedSettings, SetupPlugin
 
 
 class _ImmediateThread:
@@ -47,7 +46,7 @@ class _Host(QWidget):
 
 def test_dialog_preset_visibility_and_apply_callback(qapp):
     applied = []
-    dialog = AdvancedDialog(on_apply_canvas=lambda w, h: applied.append((w, h)))
+    dialog = AdvancedSettings(on_apply_canvas=lambda w, h: applied.append((w, h)))
     dialog.show()
     dialog.set_canvas_preset("Custom...", 1000, 700)
     assert not dialog._custom_widget.isHidden()
@@ -71,7 +70,7 @@ def _delete_dialogs(qapp):
         thread.join(timeout=5)
     safe_to_delete = not any(t.is_alive() for t in started)
     for widget in qapp.topLevelWidgets():
-        if isinstance(widget, AdvancedDialog) and id(widget) not in before:
+        if isinstance(widget, AdvancedSettings) and id(widget) not in before:
             widget.close()
             if safe_to_delete:
                 widget.deleteLater()
@@ -82,7 +81,7 @@ def _delete_dialogs(qapp):
 def linux_dialog(monkeypatch, qapp):
     # Force IS_LINUX to test Linux widgets on any OS (CI runs on Windows too).
     monkeypatch.setattr(setup_mod, "IS_LINUX", True)
-    return AdvancedDialog()
+    return AdvancedSettings()
 
 
 @pytest.mark.parametrize(
@@ -169,7 +168,7 @@ def test_failed_persist_action_reverts_checkbox(linux_dialog):
 @pytest.fixture
 def windows_dialog(monkeypatch, qapp):
     monkeypatch.setattr(setup_mod, "IS_LINUX", False)
-    dialog = AdvancedDialog()
+    dialog = AdvancedSettings()
     return dialog
 
 
@@ -302,7 +301,7 @@ def test_install_unitycapture_skips_download_when_dll_exists(monkeypatch, window
 
 
 def test_apk_install_rejects_missing_adb_or_device(monkeypatch, qapp, tmp_path):
-    dialog = AdvancedDialog()
+    dialog = AdvancedSettings()
     monkeypatch.setattr(setup_mod, "adb_available", lambda: False)
     dialog._install_apk()
     assert "needs adb" in dialog._apk_status_lbl.text()
@@ -317,7 +316,7 @@ def test_apk_install_rejects_missing_adb_or_device(monkeypatch, qapp, tmp_path):
 
 
 def test_apk_install_uses_selected_device_and_reports_success(monkeypatch, qapp, tmp_path):
-    dialog = AdvancedDialog()
+    dialog = AdvancedSettings()
     apk = tmp_path / "Telescope.apk"
     apk.write_bytes(b"apk")
     monkeypatch.setattr(setup_mod, "adb_available", lambda: True)
@@ -336,7 +335,7 @@ def test_apk_install_uses_selected_device_and_reports_success(monkeypatch, qapp,
 
 
 def test_apk_install_cancel_and_failure_detail(monkeypatch, qapp, tmp_path):
-    dialog = AdvancedDialog()
+    dialog = AdvancedSettings()
     apk = tmp_path / "Telescope.apk"
     apk.write_bytes(b"apk")
     monkeypatch.setattr(setup_mod, "adb_available", lambda: True)
@@ -355,7 +354,7 @@ def test_apk_install_cancel_and_failure_detail(monkeypatch, qapp, tmp_path):
 
 
 def test_apk_picker_cancel_and_selected_file(monkeypatch, qapp, tmp_path):
-    dialog = AdvancedDialog()
+    dialog = AdvancedSettings()
     initial_status = dialog._apk_status_lbl.text()
     monkeypatch.setattr(setup_mod, "adb_available", lambda: True)
     monkeypatch.setattr(setup_mod, "bundled_apk_path", lambda: None)
@@ -383,7 +382,7 @@ def test_apk_picker_cancel_and_selected_file(monkeypatch, qapp, tmp_path):
     assert dialog._apk_status_lbl.text() == "adb install failed"
 
 
-def test_setup_plugin_opens_reuses_dialogs_and_syncs_config(monkeypatch, qapp):
+def test_setup_plugin_builds_its_cards_and_syncs_config(monkeypatch, qapp):
     host = _Host()
     plugin = SetupPlugin()
     plugin.setup(host, EventBus())
@@ -394,12 +393,13 @@ def test_setup_plugin_opens_reuses_dialogs_and_syncs_config(monkeypatch, qapp):
         "custom_canvas_h": 600,
     })
 
-    plugin._open()
-    first = plugin._dlg
+    plugin.create_settings_sections()
+    first = plugin._panel
     assert first.get_canvas_preset_label() == "Custom..."
     assert first._custom_w.value() == 900
-    plugin._open()
-    assert plugin._dlg is first
+    plugin.set_config({"canvas_preset": "720p 16:9 - 1280 x 720"})
+    plugin._on_show()  # the saved value changed while Settings was closed
+    assert plugin._panel is first and first.get_canvas_preset_label() == "720p 16:9 - 1280 x 720"
     assert first._diag_btn.isVisibleTo(first)
     first._diag_btn.click()
     assert QGuiApplication.clipboard().text() == "Telescope test report"
@@ -412,31 +412,28 @@ def test_show_event_refreshes_platform_specific_status(monkeypatch, linux_dialog
     calls = []
     monkeypatch.setattr(dialog, "_v4l_check", lambda: calls.append("check"))
     monkeypatch.setattr(dialog, "_refresh_persist_status", lambda: calls.append("persist"))
-    dialog.showEvent(QShowEvent())
+    dialog.on_show()
     assert calls == ["check", "persist"]
 
     monkeypatch.setattr(setup_mod, "IS_LINUX", False)
-    windows = AdvancedDialog()
+    windows = AdvancedSettings()
     monkeypatch.setattr(setup_mod.threading, "Thread", _ImmediateThread)
     monkeypatch.setattr(windows, "_check_win_setup", lambda: calls.append("windows"))
-    windows.showEvent(QShowEvent())
+    windows.on_show()
     assert calls[-1] == "windows"
 
 
-def test_setup_contributes_menu_actions_instead_of_a_panel(monkeypatch, qapp):
+def test_setup_contributes_settings_sections_instead_of_a_panel(monkeypatch, qapp):
     host = _Host()
     plugin = SetupPlugin()
     plugin.setup(host, EventBus())
-
-    # Setup takes menu slot (entry points to dialogs), not rail slot.
     assert plugin.create_panel() is None
 
-    actions = plugin.create_menu_actions()
-    assert [a.text() for a in actions] == ["Advanced…"]
-
-    actions[0].trigger()
-    assert plugin._dlg is not None
-    plugin._dlg.hide()
+    sections = plugin.create_settings_sections()
+    tabs = sorted({s.tab for s in sections})
+    assert tabs == ["about", "audio", "devices", "general", "video"]
+    assert all(s.on_show is not None for s in sections)
+    plugin._panel.hide()
 
 
 @pytest.mark.parametrize("stored,expected", [(None, 10), (15, 15), (1, 10), (99, 10), ("8", 10), (True, 10)])
@@ -458,13 +455,13 @@ def test_max_zoom_spinbox_applies_straight_away(qapp):
     plugin = SetupPlugin()
     plugin.setup(host, bus)
     plugin.set_config({"max_zoom": 12})
-    plugin._open()
-    assert plugin._dlg._max_zoom_spin.value() == 12
-    plugin._dlg._max_zoom_spin.setValue(20)
+    plugin.create_settings_sections()
+    assert plugin._panel._max_zoom_spin.value() == 12
+    plugin._panel._max_zoom_spin.setValue(20)
     assert seen == [12, 20]
     assert plugin.get_config()["max_zoom"] == 20
     assert host.saves >= 1
-    plugin._dlg.hide()
+    plugin._panel.hide()
 
 
 @pytest.mark.parametrize("stored,expected", [(None, 12), (48, 48), (24, 24), (30, 12), ("36", 12), (True, 12)])
@@ -486,11 +483,11 @@ def test_max_gain_buttons_apply_straight_away(qapp):
     plugin = SetupPlugin()
     plugin.setup(host, bus)
     plugin.set_config({"max_gain": 36})
-    plugin._open()
-    assert plugin._dlg._max_gain_btns[36].isChecked()
-    plugin._dlg._max_gain_btns[48].click()
+    plugin.create_settings_sections()
+    assert plugin._panel._max_gain_btns[36].isChecked()
+    plugin._panel._max_gain_btns[48].click()
     assert seen == [36, 48] and plugin.get_config()["max_gain"] == 48 and host.saves >= 1
-    plugin._dlg.hide()
+    plugin._panel.hide()
 
 
 def test_a_driver_install_that_crashes_still_frees_the_button(monkeypatch, windows_dialog, tmp_path):
@@ -501,18 +498,6 @@ def test_a_driver_install_that_crashes_still_frees_the_button(monkeypatch, windo
     windows_dialog._install_uc()
     assert windows_dialog._uc_btn.isEnabled()
     assert "read-only folder" in windows_dialog._uc_status_lbl.text()
-
-
-def test_advanced_scrolls_instead_of_growing_past_the_screen(qapp):
-    from PyQt6.QtWidgets import QScrollArea
-    plugin = SetupPlugin()
-    plugin.setup(_Host(), EventBus())
-    plugin._open()
-    dlg = plugin._dlg
-    avail = dlg.screen().availableGeometry().height()
-    assert dlg.height() <= avail - controls.SCREEN_MARGIN
-    assert dlg.findChild(QScrollArea).widget().sizeHint().height() > 0
-    dlg.hide()
 
 
 @pytest.mark.parametrize("stored,expected", [(None, True), (False, False), (True, True), ("off", True)])
@@ -533,11 +518,11 @@ def test_limiter_switch_applies_straight_away(qapp):
     plugin = SetupPlugin()
     plugin.setup(host, bus)
     plugin.set_config({})
-    plugin._open()
-    assert plugin._dlg._limiter_chk.isChecked()
-    plugin._dlg._limiter_chk.setChecked(False)
+    plugin.create_settings_sections()
+    assert plugin._panel._limiter_chk.isChecked()
+    plugin._panel._limiter_chk.setChecked(False)
     assert seen == [True, False] and plugin.get_config()["limiter"] is False and host.saves >= 1
-    plugin._dlg.hide()
+    plugin._panel.hide()
 
 
 def test_extra_cameras_show_up_and_can_be_removed(monkeypatch, qapp):
@@ -546,8 +531,9 @@ def test_extra_cameras_show_up_and_can_be_removed(monkeypatch, qapp):
     plugin.setup(host, EventBus())
     ready = {1, 2}
     monkeypatch.setattr(setup_mod.vcam, "slot_ready", lambda n: n in ready)
-    plugin._open()
-    dialog = plugin._dlg
+    plugin.create_settings_sections()
+    dialog = plugin._panel
+    plugin._on_show()
     assert not dialog._extras_row.isHidden() and dialog._extras_btn.isEnabled()
     assert dialog._extras_lbl.text() == f"{setup_mod.vcam.slot_label(1)}, {setup_mod.vcam.slot_label(2)}"
 
@@ -559,6 +545,6 @@ def test_extra_cameras_show_up_and_can_be_removed(monkeypatch, qapp):
 
     host.streams, ready = 2, {1}
     monkeypatch.setattr(setup_mod.vcam, "slot_ready", lambda n: n in ready)
-    plugin._open()
+    plugin._on_show()
     assert not dialog._extras_btn.isEnabled()  # a stream still goes to one
     dialog.close()

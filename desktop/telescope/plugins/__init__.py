@@ -34,7 +34,7 @@ def builtin_plugins() -> list:
         OnboardingPlugin(),  # after Preview: the stage starts out making room for the checklist
         MonitoringPlugin(),
         UpdatesPlugin(),
-        WaitScreenPlugin(),  # before Startup: dialogs head the settings menu, toggles follow
-        ShortcutsPlugin(),  # a dialog in the settings menu, so before Startup too
+        WaitScreenPlugin(),
+        ShortcutsPlugin(),
         StartupPlugin(),
     ]
