@@ -30,8 +30,9 @@ _LOST_S = 2.0  # nobody seen for this long: back to the whole picture
 _DEAD_CENTRE = 0.06  # the framing lets the target's centre wander this far (of the window's size) at Speed 5
 _DEAD_ZOOM = 1.12  # and its zoom this much, and only follows what goes past that
 _SETTLE_S = 2.0  # inside the dead zone it drifts back to the target this slowly (at Speed 5)
-ROOM_DEFAULT = 4  # Room to move runs from 0 (off) to 10
-_ROOM_STEP = 0.03  # each step lets you move this much further (of the window's size) before the framing follows
+ROOMS = ("Off", "Fidget", "Shift", "Lean", "Step", "Roam")  # Room to move: what you can do before it follows
+ROOM_DEFAULT = 2
+_ROOM_STEP = 0.06  # each step lets you move this much further (of the window's size) before the framing follows
 _LEAVE_S = 0.5  # outside the room for this long before it does (a quick lean and back doesn't count)
 _SETTLED_S = 0.6  # following stops once the framing has been this close to you for this long
 _WIDEN_OMEGA = 3.5  # widening for a hand is at least this quick, whatever Speed says
@@ -262,11 +263,11 @@ class FramingPlugin(TelescopePlugin):
         self._speed_slider.valueChanged.connect(self._on_speed)
         lay.addLayout(_row("Speed", slider_row(self._speed_slider, self._speed_lbl), stretch=True))
         self._room_slider = NoScrollSlider(Qt.Orientation.Horizontal)
-        self._room_slider.setRange(0, 10)
+        self._room_slider.setRange(0, len(ROOMS) - 1)
         self._room_slider.setValue(ROOM_DEFAULT)
         self._room_slider.set_default(ROOM_DEFAULT)
-        self._room_slider.setToolTip("How far you can shift around, like settling in your chair, before the framing "
-                                     "follows you")
+        self._room_slider.setToolTip("What you can do before the framing follows you: fidget, shift in your seat, "
+                                     "lean over, take a step or move around")
         self._room_lbl = value_label()
         self._room_slider.valueChanged.connect(self._on_room)
         lay.addLayout(_row("Room to move", slider_row(self._room_slider, self._room_lbl), stretch=True))
@@ -304,8 +305,7 @@ class FramingPlugin(TelescopePlugin):
         self._host.schedule_save()
 
     def _show_room(self):
-        value = self._room_slider.value()
-        self._room_lbl.setText(str(value) if value else "Off")
+        self._room_lbl.setText(ROOMS[self._room_slider.value()])
 
     def _on_speed(self, value: int):
         self._speed_lbl.setText(str(value))
@@ -420,8 +420,8 @@ class FramingPlugin(TelescopePlugin):
         self._speed_lbl.setText(str(self._speed_slider.value()))
         room = cfg.get("room")
         self._room_slider.blockSignals(True)
-        self._room_slider.setValue(room if isinstance(room, int) and not isinstance(room, bool) and 0 <= room <= 10
-                                   else ROOM_DEFAULT)
+        self._room_slider.setValue(room if isinstance(room, int) and not isinstance(room, bool)
+                                   and 0 <= room < len(ROOMS) else ROOM_DEFAULT)
         self._room_slider.blockSignals(False)
         self._show_room()
         self._hand_switch.blockSignals(True)
