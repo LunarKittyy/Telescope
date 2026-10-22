@@ -22,6 +22,7 @@ POSE_MODEL = "pose_landmarker_lite.task"
 _PEOPLE_EVERY_S = 0.08  # how often people are looked for (about 12 a second); framing smooths in between
 _PEOPLE_WIDTH = 640  # the size the pose model gets the frame at
 _MAX_PEOPLE = 3
+_MASK_CARRY = 0.3  # how much of the last frame's mask carries into the next
 _LOOK_AGAIN_S = 5.0  # without a pack, how often asking looks for one again (a download may have finished)
 
 # Which stream the frame being processed comes from, and its number: set by StreamWorker around the plugin steps.
@@ -240,6 +241,8 @@ class Vision:
                 return None
         t0 = time.perf_counter()
         mask = sv.segment(frame, sv.mask_clock.next())
+        if sv.mask is not None and sv.mask.shape == mask.shape:
+            mask = cv2.addWeighted(mask, 1.0 - _MASK_CARRY, sv.mask, _MASK_CARRY, 0)  # less flicker at the edges
         self._note("mask", t0)
         sv.mask_seq, sv.mask = seq, mask
         return mask

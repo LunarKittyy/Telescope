@@ -5,6 +5,7 @@ def builtin_plugins() -> list:
     """One of each built-in plugin, in the order they're registered (the order their cards and menu entries come in).
     Only Connection is needed for streaming; any other can be left out (tests/test_plugin_removal.py checks)."""
     # Imported here, not at the top, so importing one plugin module doesn't import them all
+    from telescope.plugins.background import BackgroundPlugin
     from telescope.plugins.browser_camera import BrowserCameraPlugin
     from telescope.plugins.camera_control import CameraControlPlugin
     from telescope.plugins.connection import ConnectionPlugin
@@ -26,6 +27,7 @@ def builtin_plugins() -> list:
         ConnectionPlugin(),
         CameraControlPlugin(),
         BrowserCameraPlugin(),  # after Camera: its card takes that place while it's picked
+        BackgroundPlugin(),  # optional: off until switched on in Plugins
         StreamOutputPlugin(),
         TransformsPlugin(),
         MicrophonePlugin(),

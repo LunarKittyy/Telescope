@@ -40,6 +40,7 @@ PLUGIN_HUES = {
     "mic":        "#e8d08a",  # butter
     "camera":     "#7fd3c4",  # mint
     "phone":      "#f2a0bf",  # rose
+    "vision":     "#bcd98c",  # pistachio, the optional plugins that find people in the picture
 }
 _own_hues = True
 
