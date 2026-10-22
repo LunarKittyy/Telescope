@@ -160,6 +160,29 @@ def test_frames_for_people_are_spaced_out_and_made_small(monkeypatch):
     assert sizes == [(360, 640, 3)]
 
 
+def test_a_segmenter_that_cant_load_fails_once_and_names_the_missing_library():
+    v, backend, states, _people = _ready()
+    tries = []
+
+    def broken():
+        tries.append(1)
+        raise OSError("libGLESv2.so.2: cannot open shared object file: No such file or directory")
+    backend.segmenter = broken
+    frame = np.zeros((4, 6, 3), np.uint8)
+    for seq in range(3):
+        assert _in_stream("a", seq, lambda: v.person_mask(frame)) is None
+    assert tries == [1] and v.state() == vision.FAILED and states[-1] == vision.FAILED
+    assert "OSError: libGLESv2.so.2 missing" in str(v.diagnostics())
+
+
+def test_a_failure_message_with_a_path_in_it_stays_out_of_diagnostics():
+    v = Vision(on_people=lambda *_a: None, on_state=lambda _s: None,
+               find=lambda: (_ for _ in ()).throw(OSError("/home/someone/vision/site: broken")))
+    v.load()
+    _wait(lambda: v.state() == vision.FAILED)
+    assert "someone" not in str(v.diagnostics()) and "OSError" in str(v.diagnostics())
+
+
 def test_dropping_a_stream_closes_its_segmenter():
     v, backend, _states, _people = _ready()
     _in_stream("a", 1, lambda: v.person_mask(np.zeros((4, 6, 3), np.uint8)))

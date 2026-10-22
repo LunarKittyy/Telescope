@@ -2,6 +2,7 @@
 import contextvars
 import logging
 import os
+import re
 import sys
 import threading
 import time
@@ -35,6 +36,8 @@ _POINTS = {
     "left_pinky": 17, "right_pinky": 18, "left_index": 19, "right_index": 20, "left_thumb": 21, "right_thumb": 22,
     "left_hip": 23, "right_hip": 24,
 }
+
+_MISSING_LIBRARY = re.compile(r"^(lib[\w.+-]+\.so[\w.]*): cannot open shared object file")
 
 # What state() reports
 OFF, LOADING, READY, MISSING, FAILED = "off", "loading", "ready", "missing", "failed"
@@ -99,6 +102,8 @@ class MediaPipeBackend:
         self._segmenter_model = (folder / "models" / SEGMENTER_MODEL).read_bytes()
         self._pose_model = (folder / "models" / POSE_MODEL).read_bytes()
         self.version = getattr(mp, "__version__", "?")
+        _segment, close = self.segmenter()  # loads the native library now, not on the first frame
+        close()
 
     def segmenter(self):
         v = self._vision
@@ -200,6 +205,12 @@ class Vision:
             self._set_state(LOADING)
         threading.Thread(target=self._load, daemon=True, name="vision-load").start()
 
+    def _fail(self, exc: Exception):
+        missing = _MISSING_LIBRARY.match(str(exc)) if isinstance(exc, OSError) else None
+        # Only the type and a missing library's name: the message can hold a path with the user's name in it
+        self._problem = f"{type(exc).__name__}: {missing.group(1)} missing" if missing else type(exc).__name__
+        self._set_state(FAILED)
+
     def _load(self):
         try:
             backend = self._find()
@@ -210,8 +221,7 @@ class Vision:
             return
         except Exception as exc:
             logger.exception("MediaPipe didn't load")
-            self._problem = type(exc).__name__  # the message can hold a path with the user's name in it
-            self._set_state(FAILED)
+            self._fail(exc)
             return
         self._backend = backend
         logger.info("MediaPipe %s loaded", getattr(backend, "version", "?"))
@@ -241,8 +251,9 @@ class Vision:
         if sv.segment is None:
             try:
                 sv.segment, sv.close_segmenter = self._backend.segmenter()
-            except Exception:
+            except Exception as exc:
                 logger.exception("Couldn't make the person segmenter")
+                self._fail(exc)  # trying again on every frame would only fill the log
                 return None
         t0 = time.perf_counter()
         mask = sv.segment(frame, sv.mask_clock.next())
@@ -291,8 +302,9 @@ class Vision:
     def _people_loop(self, key, sv: _StreamVision):
         try:
             detect, close = self._backend.pose()
-        except Exception:
+        except Exception as exc:
             logger.exception("Couldn't make the pose model")
+            self._fail(exc)
             return
         clock = _Timestamps()
         try:
