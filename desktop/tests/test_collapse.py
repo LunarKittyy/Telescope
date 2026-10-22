@@ -5,13 +5,15 @@ from PyQt6 import sip
 from PyQt6.QtCore import QEvent, QPointF, Qt
 from PyQt6.QtGui import QEnterEvent
 from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QLabel, QPushButton, QToolButton, QVBoxLayout, QWidget
 
 from telescope.config import load_config
 from telescope.plugin import TelescopePlugin
 from telescope.shortcuts import button_action, control_ready
 from telescope.widgets.collapse import Collapsing
-from telescope.widgets.common import add_card_header, add_section_heading, card_layout, create_card
+from telescope.widgets.common import (
+    add_card_header, add_section_heading, card_layout, create_card, reading_order, tab_in_reading_order,
+)
 
 
 def make_card(title="Things", sections=("Light", "Focus")):
@@ -116,6 +118,66 @@ def test_folding_a_card_while_a_shortcut_is_held_still_restores_it(qapp, shown):
     state.set_folded("p/Things", True)
     action.release(params)
     assert not button.isChecked()
+
+
+def test_clicking_the_label_releases_the_native_toggle(qapp, shown):
+    card, rows = make_card()
+    state = Collapsing()
+    state.install(card, "p")
+    shown(card)
+    label = title_of(card, "Things")
+    button = label.parentWidget()
+    for folded in (True, False, True, False):
+        click(label)
+        assert state.is_folded("p/Things") is folded
+        assert button.isDown() is False and button.isChecked() is not folded
+        assert rows["loose"].isVisible() is not folded
+
+
+@pytest.mark.parametrize("key", [Qt.Key.Key_Space, Qt.Key.Key_Return, Qt.Key.Key_Enter])
+def test_card_and_section_titles_are_named_keyboard_toggles(qapp, shown, key):
+    card, rows = make_card()
+    state = Collapsing()
+    state.install(card, "p")
+    shown(card)
+    card.activateWindow()
+    qapp.processEvents()
+    buttons = {b.accessibleName(): b for b in card.findChildren(QToolButton, "fold_heading")}
+    title, section = buttons["Things"], buttons["Light"]
+    # Qt also uses child order for its native accessibility tree.
+    body = card.findChild(QWidget, "card_body", Qt.FindChildOption.FindDirectChildrenOnly)
+    assert card.children().index(title) < card.children().index(body)
+    assert reading_order(card) == [title, section, buttons["Focus"]]
+    assert title.isCheckable() and title.isChecked() and "Expanded" in title.accessibleDescription()
+    assert title.toolTip() == title.accessibleDescription()
+    title.setFocus(Qt.FocusReason.TabFocusReason)
+    QTest.keyClick(title, key)
+    assert state.is_folded("p/Things") and not rows["loose"].isVisible()
+    assert title.hasFocus() and not title.isChecked() and "Collapsed" in title.accessibleDescription()
+    assert reading_order(card) == [title]
+    QTest.keyClick(title, key)
+    tab_in_reading_order(card, True)
+    assert section.hasFocus()
+    QTest.keyClick(section, key)
+    assert not rows["Light 0"].isVisible() and rows["Focus 0"].isVisible()
+    tab_in_reading_order(card, False)
+    assert title.hasFocus()
+
+
+def test_folding_moves_focus_out_of_the_rows_it_hides(qapp, shown):
+    card, _rows = make_card()
+    control = QPushButton("A setting")
+    card.layout().addWidget(control)
+    state = Collapsing()
+    state.install(card, "p")
+    shown(card)
+    card.activateWindow()
+    qapp.processEvents()
+    control.setFocus()
+    assert control.hasFocus()
+    state.set_folded("p/Things", True)
+    title = next(b for b in card.findChildren(QToolButton) if b.accessibleName() == "Things")
+    assert title.hasFocus() and not control.isVisible()
 
 
 def test_the_rule_and_icon_of_a_section_heading_fold_it_too(qapp, shown):

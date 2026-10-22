@@ -439,6 +439,7 @@ class TransformsPlugin(TelescopePlugin):
         """Zoom and pan work by hand unless something else moves them; pan only once zoomed in."""
         free = not self._taken_by
         self._zoom_slider.setEnabled(free)
+        self._zoom_val_lbl.setEnabled(free)
         pan_active = free and self.zoom > 1.0
         for slider in (self._pan_x_slider, self._pan_y_slider):
             slider.set_enabled(pan_active)

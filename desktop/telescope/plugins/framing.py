@@ -8,7 +8,7 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QSizePolicy, QWidget
 
 from telescope.plugin import TelescopePlugin
-from telescope.pose import ARM_SEEN, SEEN, SIDES, arm, body, hands_out
+from telescope.pose import ARM_SEEN, SEEN, SIDES, arm, body, hands_out, upright
 from telescope.shortcuts import button_action, slider_action
 from telescope.view import pan_for, shown_to_view, view_to_shown, window_centre
 from telescope.widgets.common import (
@@ -64,6 +64,7 @@ def target_box(people, aspect: float, framing: float = FRAMING_DEFAULT, hands=()
     """(x0, y0, x1, y1) in the picture as shown around everyone, or None when nobody's clear enough to frame."""
     boxes = []
     for person in people:
+        person, to_shown = upright(person, aspect)
         shoulders = body(person, aspect)
         if shoulders is None:
             continue
@@ -86,7 +87,9 @@ def target_box(people, aspect: float, framing: float = FRAMING_DEFAULT, hands=()
                 if p and p[1] < below and out(p) > 0.25 * width:  # what's out to the side, not a hand hanging down
                         box = [min(box[0], p[0] - margin / aspect), min(box[1], p[1] - margin),
                                max(box[2], p[0] + margin / aspect), max(box[3], p[1] + margin)]
-        boxes.append(box)
+        corners = [to_shown(x, y) for x in (box[0], box[2]) for y in (box[1], box[3])]
+        boxes.append((min(p[0] for p in corners), min(p[1] for p in corners),
+                      max(p[0] for p in corners), max(p[1] for p in corners)))
     if not boxes:
         return None
     return (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
@@ -226,12 +229,14 @@ class FramingPlugin(TelescopePlugin):
         self._room = _Room()
         self._hands = {side: _Latch(_HAND_ON_S, _HAND_OFF_S) for side in SIDES}
         self._ticked_at = None
+        self._orientation = host.view()
         self._max_zoom = _MAX_ZOOM
         self._steering = False
         self._timer = QTimer()
         self._timer.setInterval(_TICK_MS)
         self._timer.timeout.connect(self._tick)
         bus.people_seen.connect(self._on_people)
+        bus.view_changed.connect(self._on_view_changed)
         bus.max_zoom_changed.connect(lambda most: setattr(self, "_max_zoom", min(_MAX_ZOOM, float(most))))
 
     # ── Card ──────────────────────────────────────────────────────────────
@@ -346,6 +351,21 @@ class FramingPlugin(TelescopePlugin):
     def _on_people(self, source_id: str, people: list):
         if self._steering and source_id == (self._host.focused_source_id() or ""):
             self._people, self._seen_at = people, time.monotonic()
+
+    def _on_view_changed(self, view):
+        before, self._orientation = self._orientation, view
+        old = (before.flip_h, before.flip_v, before.rotation)
+        new = (view.flip_h, view.flip_v, view.rotation)
+        if old == new:
+            return
+
+        def remap(x, y):
+            return view_to_shown(*shown_to_view(x, y, 1.0, 0.0, 0.0, *old), 1.0, 0.0, 0.0, *new)
+
+        self._people = [person.mapped(remap) for person in self._people]
+        self._spring = self._goal = self._smooth = None
+        self._room.reset()
+        self._ticked_at = None
 
     def on_focus_gained(self, stream_url: str, ctrl):
         self._people, self._seen_at, self._spring, self._goal, self._smooth = [], None, None, None, None

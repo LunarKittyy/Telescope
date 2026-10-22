@@ -127,6 +127,20 @@ def test_blank_names_are_ignored(qapp):
     assert plugin.names() == [] and host.saves == 0
 
 
+def test_overwriting_a_preset_keeps_the_settings_of_plugins_that_are_off(qapp):
+    host = _Host()
+    host.plugins = {"transforms": _Stub("transforms", {"zoom": 3.0})}
+    plugin = _presets(host)
+    plugin.set_config({"presets": [{"name": "Desk", "transforms": {"zoom": 2.0},
+                                   "background": {"mode": "picture", "picture": "desk.png"}}]})
+    plugin.save("Desk")
+    assert plugin.find("Desk") == {"name": "Desk", "transforms": {"zoom": 3.0},
+                                   "background": {"mode": "picture", "picture": "desk.png"}}
+    host.plugins["background"] = _Stub("background", {})
+    plugin.apply("Desk")
+    assert host.plugins["background"].cfg == {"mode": "picture", "picture": "desk.png"}
+
+
 def test_names_lose_control_characters_when_saved_renamed_and_loaded(qapp):
     host = _Host()
     plugin = _presets(host)

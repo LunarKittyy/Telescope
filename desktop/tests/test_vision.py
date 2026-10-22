@@ -114,6 +114,33 @@ def test_a_broken_mediapipe_fails_once_and_names_only_the_error():
     assert v.diagnostics() == {"Vision": "didn't load (OSError)"}
 
 
+def test_auto_framing_loads_a_pack_that_arrives_while_it_is_on():
+    backend, people, available, tries = _Backend(), [], [False], []
+
+    def find():
+        tries.append(1)
+        if not available[0]:
+            raise FileNotFoundError("pack not downloaded")
+        return backend
+
+    v = Vision(on_people=lambda key, found: people.append((key, found)), on_state=lambda _s: None, find=find)
+    try:
+        v.want_people("Auto framing", True)
+        _wait(lambda: v.state() == MISSING)
+        available[0] = True
+        frame = np.zeros((40, 60, 3), np.uint8)
+        _in_stream("a", 1, lambda: v.feed_raw(frame))
+        assert tries == [1]  # absent packs are not looked for on every video frame
+        v._looked_at -= vision._LOOK_AGAIN_S
+        _in_stream("a", 2, lambda: v.feed_raw(frame))
+        _wait(lambda: v.state() == READY)
+        _in_stream("a", 3, lambda: v.feed_raw(frame))
+        _wait(lambda: people)
+        assert people[0][0] == "a"
+    finally:
+        v.shutdown()
+
+
 def test_people_come_from_their_own_thread_only_while_wanted(monkeypatch):
     v, backend, _states, people = _ready()
     frame = np.zeros((720, 1280, 3), np.uint8)
