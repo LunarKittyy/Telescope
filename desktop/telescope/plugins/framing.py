@@ -8,6 +8,7 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QButtonGroup, QSizePolicy, QWidget
 
 from telescope.plugin import TelescopePlugin
+from telescope.pose import ARM_SEEN, SEEN, SIDES, arm, body, hands_out
 from telescope.shortcuts import button_action, choice_action, slider_action
 from telescope.view import pan_for, shown_to_view, view_to_shown, window_centre
 from telescope.widgets.common import (
@@ -25,15 +26,10 @@ _LOST_S = 2.0  # nobody seen for this long: back to the whole picture
 _DEAD_CENTRE = 0.06  # the framing lets the target's centre wander this far (of the window's size) at Speed 5
 _DEAD_ZOOM = 1.12  # and its zoom this much, and only follows what goes past that
 _SETTLE_S = 2.0  # inside the dead zone it drifts back to the target this slowly (at Speed 5)
-_HAND_OUT = 0.9  # a wrist this many shoulder widths out past its shoulder is holding something out
-_ELBOW_OUT = 0.55  # or an elbow this far out with the wrist further still (the hand itself can be out of the picture)
-_ARM_SEEN = 0.15  # arms count at lower visibility: past the edge of the picture the model only guesses where they are
 _WIDEN_OMEGA = 3.5  # widening for a hand is at least this quick, whatever Speed says
 _HAND_ON_S = 0.3
 _HAND_OFF_S = 0.8
-_SEEN = 0.5  # landmark visibility the model has to be this sure of
 _HANDS = ("elbow", "wrist", "index", "pinky", "thumb")
-SIDES = ("left", "right")
 
 
 @dataclass(frozen=True)
@@ -44,63 +40,18 @@ class Target:
     zoom: float
 
 
-def _mid(a, b):
-    return ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
-
-
-def _body(person, aspect: float) -> Optional[tuple]:
-    """(shoulder centre, shoulder width in picture heights) or None without both shoulders."""
-    left, right = person.point("left_shoulder", _SEEN), person.point("right_shoulder", _SEEN)
-    if left is None or right is None:
-        return None
-    width = math.hypot((left[0] - right[0]) * aspect, left[1] - right[1])
-    return (_mid(left, right), width) if width > 1e-3 else None
-
-
-def _arm(person, side: str, aspect: float) -> Optional[tuple]:
-    """(shoulder width, how far out past the shoulder a point is, the hip line) for one arm, or None."""
-    body = _body(person, aspect)
-    shoulder = person.point(f"{side}_shoulder", _SEEN)
-    if body is None or shoulder is None:
-        return None
-    (cx, sy), width = body
-    away = 1.0 if shoulder[0] >= cx else -1.0
-
-    def out(p):
-        return (p[0] - shoulder[0]) * away * aspect
-    hip = person.point(f"{side}_hip", _SEEN)
-    return width, out, (hip[1] - 0.2 * width) if hip else sy + 1.4 * width
-
-
-def hands_out(people, aspect: float) -> set:
-    """The sides ("left", "right") on which someone holds a hand out (showing something), above their hips."""
-    found = set()
-    for person in people:
-        for side in SIDES:
-            arm = _arm(person, side, aspect)
-            if arm is None:
-                continue
-            width, out, below = arm
-            elbow, wrist = person.point(f"{side}_elbow", _ARM_SEEN), person.point(f"{side}_wrist", _ARM_SEEN)
-            if wrist is None or wrist[1] > below:
-                continue
-            if out(wrist) > _HAND_OUT * width or (elbow and out(elbow) > _ELBOW_OUT * width and out(wrist) > out(elbow)):
-                found.add(side)
-    return found
-
-
 def target_box(people, aspect: float, framing: str = "head", hands=()) -> Optional[tuple]:
     """(x0, y0, x1, y1) in the picture as shown around everyone, or None when nobody's clear enough to frame."""
     boxes = []
     for person in people:
-        body = _body(person, aspect)
-        if body is None:
+        shoulders = body(person, aspect)
+        if shoulders is None:
             continue
-        (cx, sy), width = body
-        head = [p for p in (person.point(n, _SEEN) for n in ("nose", "left_eye", "right_eye")) if p]
+        (cx, sy), width = shoulders
+        head = [p for p in (person.point(n, SEEN) for n in ("nose", "left_eye", "right_eye")) if p]
         top = (min(p[1] for p in head) if head else sy - 0.6 * width) - 0.55 * width
         if framing == "body":
-            hips = [p for p in (person.point(n, _SEEN) for n in ("left_hip", "right_hip")) if p]
+            hips = [p for p in (person.point(n, SEEN) for n in ("left_hip", "right_hip")) if p]
             bottom = max(p[1] for p in hips) if hips else sy + 1.4 * width
             half = 1.05 * width / aspect
         else:
@@ -109,11 +60,11 @@ def target_box(people, aspect: float, framing: str = "head", hands=()) -> Option
         box = [cx - half, top, cx + half, bottom]
         margin = 0.6 * width  # room for what's in the hand
         for side in hands:
-            arm = _arm(person, side, aspect)
-            if arm is None:
+            found = arm(person, side, aspect)
+            if found is None:
                 continue
-            width, out, below = arm
-            for p in (person.point(f"{side}_{n}", _ARM_SEEN) for n in _HANDS):
+            width, out, below = found
+            for p in (person.point(f"{side}_{n}", ARM_SEEN) for n in _HANDS):
                 if p and p[1] < below and out(p) > 0.25 * width:  # what's out to the side, not a hand hanging down
                         box = [min(box[0], p[0] - margin / aspect), min(box[1], p[1] - margin),
                                max(box[2], p[0] + margin / aspect), max(box[3], p[1] + margin)]

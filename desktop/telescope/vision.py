@@ -134,6 +134,12 @@ class MediaPipeBackend:
         return self._mp.Image(image_format=self._mp.ImageFormat.SRGB, data=cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
 
+def pack_there() -> bool:
+    """This version's pack is unpacked and checked (cheap: nothing is imported)."""
+    from telescope import vision_pack
+    return vision_pack.installed(vision_dir())
+
+
 def find_backend():
     """MediaPipe from this version's pack (checked when it was unpacked); FileNotFoundError when it isn't there."""
     from telescope import vision_pack
@@ -172,10 +178,11 @@ class Vision:
     """Loads MediaPipe on first use and runs it for each stream; every call is safe before it's ready (None, [])."""
 
     def __init__(self, on_people: Callable[[object, list], None], on_state: Callable[[str], None],
-                 find: Callable[[], object] = find_backend):
+                 find: Callable[[], object] = find_backend, there: Optional[Callable[[], bool]] = None):
         self._on_people = on_people  # (stream key, [Person]) from a people thread
         self._on_state = on_state  # state() changed, from whichever thread changed it
         self._find = find
+        self._there = there or (pack_there if find is find_backend else (lambda: True))
         self._backend = None
         self._state = OFF
         self._problem = ""
@@ -188,6 +195,9 @@ class Vision:
     # ── Loading ───────────────────────────────────────────────────────────
 
     def state(self) -> str:
+        """OFF until something asks for it, then LOADING and READY; MISSING (without loading) when there's no pack."""
+        if self._state == OFF and not self._there():
+            return MISSING
         return self._state
 
     def problem(self) -> str:
