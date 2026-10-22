@@ -127,6 +127,13 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 - [ ] Tab through the tiles and switches, use rotation/pan shortcuts saved before this release, pan with arrow keys and Home, and inspect labels with a screen reader.
 - [ ] USB-only viewers hold no Wi-Fi performance lock.
 
+### Settings, folding and optional plugins
+
+- [ ] Settings: every tab opens and the settings button brings the window back on the tab it was left on. Searching "gpu", "resolutoin" and "login" finds Hardware acceleration, Canvas size and Open Telescope when I sign in, and picking a result goes to it and outlines it. Enter in the search box doesn't click anything on the tab it opens.
+- [ ] Folding: clicking a card title and a section title folds and unfolds them, Tab reaches the titles and Space or Enter toggles them. A shortcut for a control in a folded card still works. Folds come back after a restart.
+- [ ] Your phones: the rows list the paired phones and saved browsers, Rename and Remove work, and Change name changes what a newly paired phone shows.
+- [ ] Auto framing and Background (Linux and Windows): switching one on under **Optional** asks before downloading, shows the progress, and after **Restart now** its card shows. Auto framing follows you while streaming from a real phone, widens when you hold a hand out and zooms back out when you leave, also at 90, 180 and 270 degrees and flipped. Zoom and Pan in Transforms grey out while it's on. Background blurs and puts a picture behind you. With both off **Remove download** deletes the download.
+
 ### Plugins
 
 Make a `.zip` of `desktop/examples/plugins/black_and_white` (the folder itself inside it) to try these with.
