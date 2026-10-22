@@ -16,7 +16,7 @@ body:
     attributes:
       label: Desktop diagnostics
       description: |
-        In the desktop app, open the gear menu, then Advanced, and click **Copy diagnostics** at the bottom, then paste here. It has the version, your system, the connection and recent errors, with addresses and tokens stripped out.
+        In the desktop app, click the settings button in the top right, open **Updates & About** and click **Report a bug** (it copies the diagnostics for you) or **Copy diagnostics**, then paste here. It has the version, your system, the connection and recent errors, with addresses and tokens stripped out.
         On an older version without that button, write the version and your OS (Windows 10, 11 or Linux) instead.
       render: text
     validations:
@@ -27,6 +27,6 @@ body:
     attributes:
       label: Phone diagnostics
       description: |
-        In the Telescope app on the phone, open About and tap **Copy diagnostics**, then paste here. It has the app version, phone model, Android version and recent errors, and never includes your pairing token or addresses.
+        In the Telescope app on the phone, scroll to About and tap **Report a bug** (it copies the diagnostics for you) or **Copy diagnostics**, then paste here. It has the app version, phone model, Android version and recent errors, and never includes your pairing token or addresses.
         Can't get to it? Just write your phone model and Android version. Skip this if the problem is only on the computer.
       render: text

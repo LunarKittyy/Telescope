@@ -93,6 +93,8 @@ _SUDO_HINT = "Asks for your password (pkexec or sudo): this changes system setti
 
 
 AUTHOR_URL = "https://github.com/LunarKittyy"
+BUG_REPORT_URL = "https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml"
+HELP_URL = "https://github.com/LunarKittyy/Telescope/blob/master/docs/troubleshooting.md"
 
 
 class AdvancedSettings(QWidget):
@@ -409,7 +411,7 @@ class AdvancedSettings(QWidget):
         about_lay = card_layout(about_card)
         add_card_header(about_lay, "About", "help")
         keywords(about_card, "info version help support credits")
-        by_lbl = QLabel(f'<a href="{AUTHOR_URL}">LunarKittyy</a>')
+        by_lbl = QLabel(f'Made by <a href="{AUTHOR_URL}">LunarKittyy</a>')
         by_lbl.setTextFormat(Qt.TextFormat.RichText)
         by_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.LinksAccessibleByMouse)  # a credit, not a Tab stop
         by_lbl.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -426,11 +428,20 @@ class AdvancedSettings(QWidget):
         self._log_btn.setToolTip("The full log, in the temp folder (the system clears it).")
         self._log_btn.clicked.connect(self._open_log)
         self._log_btn.setVisible(self._report is not None and diagnostics.events.path is not None)
+        self._bug_btn = QPushButton("Report a bug")
+        self._bug_btn.setToolTip("Copies the diagnostics and opens the bug form on GitHub.")
+        self._bug_btn.clicked.connect(self._report_bug)
         self._support_row, _ = setting_row("Bug reports", "Paste the diagnostics into the report.",
-                                           button_row(self._log_btn, self._diag_btn))
+                                           self._support_buttons())
         keywords(self._support_row, "bug report diagnostics logs debug support problem issue help copy log file")
         self._support_row.setVisible(self._report is not None)
         about_lay.addWidget(self._support_row)
+        help_btn = QPushButton("Troubleshooting")
+        help_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(HELP_URL)))
+        help_row, _ = setting_row("Need help?", "Fixes for common problems, and where to ask if yours isn't there.",
+                                  help_btn)
+        keywords(help_row, "help support troubleshooting question faq problem not working stuck ask")
+        about_lay.addWidget(help_row)
         self._place("about", about_card, order=10)
 
     def _copy_diagnostics(self):
@@ -441,6 +452,19 @@ class AdvancedSettings(QWidget):
         reset.setSingleShot(True)
         reset.timeout.connect(lambda: (self._diag_btn.setText("Copy diagnostics"), reset.deleteLater()))
         reset.start(2000)
+
+    def _support_buttons(self) -> QHBoxLayout:
+        # Natural widths: three buttons sharing the row equally squeeze the text next to them onto extra lines
+        lay = QHBoxLayout()
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(8)
+        for btn in (self._log_btn, self._diag_btn, self._bug_btn):
+            lay.addWidget(btn)
+        return lay
+
+    def _report_bug(self):
+        self._copy_diagnostics()
+        QDesktopServices.openUrl(QUrl(BUG_REPORT_URL))
 
     def _open_log(self):
         if diagnostics.events.path is not None:
