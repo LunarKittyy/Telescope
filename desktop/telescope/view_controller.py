@@ -18,9 +18,10 @@ class ViewController(TelescopePlugin):
     window's: it isn't in the plugin list, has no card and can't be switched off."""
     name = "view"
 
-    def setup(self, host, bus):
+    def setup(self, host, bus, vision=None):
         self._host = host
         self._bus = bus
+        self._vision = vision  # the raw frames go to it while something wants people (Auto framing)
         self.view = View()  # Written by Qt thread; read by worker thread (GIL ensures atomicity).
         self._manual = View()  # what set_view asked for; differs from view in zoom and pan while it's taken
         self._owner = ""  # what took the view ("" = nobody)
@@ -80,6 +81,8 @@ class ViewController(TelescopePlugin):
 
     def process_frame(self, frame: np.ndarray) -> np.ndarray:
         self._frame_size = (frame.shape[1], frame.shape[0])
+        if self._vision is not None and self._vision.wants_people():
+            self._vision.feed_raw(frame)
         view = self.view
         frame = apply_zoom(frame, *self._desktop_crop)
         return transform_frame(frame, view.flip_h, view.flip_v, view.rotation)

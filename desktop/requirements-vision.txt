@@ -1,0 +1,8 @@
+# What Auto framing and Background need, on top of requirements.txt. Install it with --no-deps:
+#   pip install --no-deps -r requirements-vision.txt
+# mediapipe asks for opencv-contrib-python and matplotlib, which would replace our opencv-python-headless
+# and aren't needed. Releases get this as the vision pack instead (scripts/build_vision_pack.py).
+mediapipe==1.1.1
+absl-py==2.5.1
+flatbuffers==25.12.19
+certifi

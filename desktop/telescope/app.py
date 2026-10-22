@@ -28,6 +28,7 @@ from telescope.sources import PhoneSource, PluginSource, Source
 from telescope.stream import StreamWorker
 from telescope.stream_flow import StreamFlow
 from telescope.view_controller import ViewController
+from telescope.vision import Vision
 from telescope.widgets.banner import BannerAction, BannerArea, Issue, copy_action
 from telescope.widgets.tiles import StreamTiles
 from telescope.widgets.common import (
@@ -224,6 +225,8 @@ class TelescopeWindow(QMainWindow):
     _sig_canvas_reload_done = pyqtSignal(bool, str, bool, str)  # ok, msg, restart_stream, command to run by hand
     _sig_slots_ready = pyqtSignal(bool, str, str)  # ok, msg, command to run by hand
     _sig_extras_removed = pyqtSignal(bool, str)
+    _sig_people = pyqtSignal(object, list)  # a stream's worker, [Person], from its people thread
+    _sig_vision_state = pyqtSignal(str)
 
     def __init__(self):
         super().__init__()
@@ -232,8 +235,11 @@ class TelescopeWindow(QMainWindow):
         self.resize(ui_px(1380), ui_px(900))
 
         self._bus     = EventBus()
+        self._vision  = Vision(on_people=self._sig_people.emit, on_state=self._sig_vision_state.emit)  # (HostVision)
+        self._sig_people.connect(self._on_people)
+        self._sig_vision_state.connect(self._bus.vision_state_changed)
         self._view    = ViewController()  # the shown stream's zoom, pan, flip and rotation (HostView)
-        self._view.setup(self, self._bus)
+        self._view.setup(self, self._bus, self._vision)
         self._reported_shown: Optional[bool] = None  # what window_shown last said
         self._bus.resolution_change_requested.connect(self._on_resolution_pending)
         # Both restart the phone's camera, so the stream gets a moment before it counts as behind.
@@ -938,6 +944,7 @@ class TelescopeWindow(QMainWindow):
                 p.shutdown()
             except Exception:
                 logging.exception("Plugin %s failed to shut down", p.name)
+        self._vision.shutdown()
 
     def reconnect_stream(self, source_id: Optional[str] = None):
         """Restart the panels' stream, or source_id's, to pick up changed connection settings."""
@@ -1138,6 +1145,7 @@ class TelescopeWindow(QMainWindow):
             except (TypeError, RuntimeError, ValueError):
                 pass  # already disconnected
         worker.request_stop()
+        self._vision.drop_stream(worker)
         # Bounded wait so a stalled read can't freeze the UI; if it doesn't finish in time, let it keep unwinding in the background.
         if not worker.wait(5000):
             logging.warning("Stream worker did not stop within 5s; abandoning it in the background")
@@ -1631,6 +1639,20 @@ class TelescopeWindow(QMainWindow):
     def release_view(self, owner: str):
         self._view.release_view(owner)
 
+    def vision_state(self) -> str:
+        return self._vision.state()
+
+    def person_mask(self, frame):
+        return self._vision.person_mask(frame)
+
+    def want_people(self, owner: str, on: bool):
+        self._vision.want_people(owner, on)
+
+    def _on_people(self, worker, people: list):
+        source = self._sessions.by_worker(worker)
+        if source is not None:
+            self._bus.people_seen.emit(source.id or "", people)
+
     def device_config(self, source_id: Optional[str], plugin_name: str) -> dict:
         cfg = load_config()
         for key in ("devices", source_id, "plugin_configs", plugin_name):
@@ -1670,6 +1692,7 @@ class TelescopeWindow(QMainWindow):
             added = [f"{p.name} (running)" for p in self._added_plugins]
             added += [f"{name} (didn't start)" for name in self._plugin_problems]
             state["Added plugins"] = ", ".join(added)
+        state.update(self._vision.diagnostics())
         for plugin in self._plugins:
             try:
                 state.update(plugin.diagnostics())

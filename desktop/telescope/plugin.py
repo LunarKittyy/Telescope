@@ -257,7 +257,24 @@ class HostView(Protocol):
         ...
 
 
-class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, HostView, Protocol):
+class HostVision(Protocol):
+    """People in the picture, from MediaPipe: loaded the first time something asks, None or nothing until then."""
+
+    def vision_state(self) -> str:
+        """"off" (nothing asked yet), "loading", "ready", "missing" (not downloaded) or "failed"; vision_state_changed."""
+        ...
+
+    def person_mask(self, frame: np.ndarray) -> Optional[np.ndarray]:
+        """From process_frame or a frame_step only: how sure it is each pixel of frame is a person (uint8 0..255, the
+        frame's size), or None while it can't say. The same frame asked twice is worked out once."""
+        ...
+
+    def want_people(self, owner: str, on: bool) -> None:
+        """While on, people_seen reports where the people in the shown stream are, about 12 times a second."""
+        ...
+
+
+class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, HostView, HostVision, Protocol):
     """Everything a plugin may call on the host (structural typing), instead of reaching into private methods.
     A plugin that only needs part of it can say so with one of the narrower protocols above."""
 
@@ -453,6 +470,11 @@ class EventBus(QObject):
     """The shown stream's view (telescope.view.View) changed, manually or by whatever took it."""
     view_taken             = pyqtSignal(str)
     """Something took the view (what's moving it), or "" once it let go; the Transforms card greys out Zoom and Pan."""
+    people_seen            = pyqtSignal(str, list)
+    """Where the people are in a stream (its source id) as [telescope.vision.Person], in its frame before the view;
+    only while something wants_people. Check focused_source_id() for the shown stream."""
+    vision_state_changed   = pyqtSignal(str)
+    """host.vision_state() changed (MediaPipe loading, ready, missing or failed)."""
     view_status            = pyqtSignal(object)
     """How the shown stream's zoom is shared with the phone now (telescope.view.ViewStatus), for the lens dot."""
     max_zoom_changed       = pyqtSignal(int)
