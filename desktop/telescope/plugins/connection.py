@@ -20,8 +20,8 @@ from typing import Optional
 from PyQt6.QtCore import QObject, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
-    QButtonGroup, QDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem,
-    QMessageBox, QPushButton, QVBoxLayout, QWidget,
+    QButtonGroup, QDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QLineEdit,
+    QMessageBox, QPushButton, QScrollArea, QVBoxLayout, QWidget,
 )
 
 from telescope import h264_reader, theme
@@ -45,15 +45,15 @@ from telescope.session_client import (
     PING_PORT, START_FAST_POLL_FOR, START_FAST_POLL_INTERVAL, START_POLL_INTERVAL, START_TIMEOUT, MAX_NAME_CHARS,
     PhoneSessionClient, clean_name,
 )
-from telescope.widgets.controls import RoundIcon, Tag, hairline
+from telescope.widgets.controls import RoundIcon, Tag, hairline, setting_row
 from telescope.widgets.line_icons import line_icon
 from telescope.widgets.common import (
     set_button_icon,
     ROW_HEIGHT, SegmentButton, segmented_row,
     Switch,
-    ElidingLabel, NoScrollComboBox, action_button, add_card_header, button_row, card_action,
-    card_layout, control_row as _row, control_row_widget, create_card, create_vector_icon,
-    dialog_buttons, dialog_header, dialog_layout, run_off_ui_thread, set_status_kind, set_ui_role,
+    ElidingLabel, NoScrollComboBox, action_button, add_card_header, card_action,
+    card_layout, control_row_widget, create_card, create_vector_icon,
+    dialog_buttons, dialog_header, dialog_layout, icon_button, run_off_ui_thread, set_status_kind, set_ui_role,
     ui_px, wrapped_note,
 )
 from telescope.widgets.banner import BannerAction, Issue, copy_action
@@ -352,38 +352,82 @@ class AddPhoneDialog(QDialog):
 
 # ── Phones list ───────────────────────────────────────────────────────────────
 
+class _PhoneRows(QScrollArea):
+    """The phones' strips: as tall as they are up to about six of them, then a scroll bar instead of a dialog that
+    grows off the screen."""
+    MAX_HEIGHT = 320
+    GUTTER = 14
+
+    def __init__(self):
+        super().__init__()
+        self.setWidgetResizable(True)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setStyleSheet("QScrollArea, QScrollArea > QWidget, QScrollArea > QWidget > QWidget "
+                           "{ background: transparent; }")  # the card shows through, not the window's colour
+        rows = QWidget()
+        self.rows = QVBoxLayout(rows)
+        self.rows.setContentsMargins(0, 0, 0, 0)
+        self.rows.setSpacing(8)
+        self.rows.addStretch(1)
+        self.setWidget(rows)
+        # Room for the scroll bar once there is one, so it doesn't cover the rows' buttons.
+        self.verticalScrollBar().rangeChanged.connect(self._on_range)
+
+    def _on_range(self, _lo: int, hi: int):
+        self.rows.setContentsMargins(0, 0, ui_px(self.GUTTER) if hi > 0 else 0, 0)
+
+    def add(self, row: QWidget):
+        self.rows.insertWidget(self.rows.count() - 1, row)
+        row.show()  # a layout only shows it on the next pass, and fit() would measure the list without it
+
+    def fit(self):
+        """As tall as the rows at the width they get, less the scroll bar's room so a list that just fits doesn't
+        grow one, get narrower and then not fit."""
+        self.widget().ensurePolished()
+        lay = self.widget().layout()
+        width = self.viewport().width() - (0 if self.verticalScrollBar().maximum() > 0 else ui_px(self.GUTTER))
+        wanted = lay.totalHeightForWidth(width) if lay.hasHeightForWidth() and width > 0 else lay.sizeHint().height()
+        self.setFixedHeight(min(wanted, ui_px(self.MAX_HEIGHT)))
+
+
 class PhonesDialog(QDialog):
     def __init__(self, plugin: "ConnectionPlugin", parent=None):
         super().__init__(parent)
         self._plugin = plugin
         self.setWindowTitle("Your phones")
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
-        self.setMinimumSize(ui_px(440), ui_px(360))
+        self.setMinimumWidth(ui_px(460))
         lay = dialog_layout(self)
         dialog_header(lay, "Your phones",
                       "Each phone keeps its own camera settings, and so does a browser once you change one. "
                       "Removing a phone also unpairs it on the phone.")
-        self._list = QListWidget()
-        self._list.currentRowChanged.connect(self._on_selection)
-        lay.addWidget(self._list, 1)
-        self._add_btn = QPushButton("Add phone")
-        self._rename_btn = QPushButton("Rename")
-        self._remove_btn = QPushButton("Remove")
-        set_ui_role(self._add_btn, "primary")
-        set_ui_role(self._remove_btn, "danger")
+
+        phones_card = create_card()
+        phones_lay = card_layout(phones_card)
+        self._add_btn = card_action("Add phone", "plus", "Pair another phone")
         self._add_btn.clicked.connect(plugin.open_add_phone)
-        self._rename_btn.clicked.connect(self._rename)
-        self._remove_btn.clicked.connect(self._remove)
-        lay.addLayout(button_row(self._add_btn, self._rename_btn, self._remove_btn))
-        self._computer_lbl = ElidingLabel("")
-        rename_computer = action_button("Change name", tooltip="The name your phones show for this computer")
+        add_card_header(phones_lay, "Phones", "phone", action=self._add_btn, hue="connection")
+        self._scroll = _PhoneRows()
+        phones_lay.addWidget(self._scroll)
+        self._rows: dict = {}  # id -> its strip
+        self._empty = wrapped_note("No phones yet. Add one to pair it with this computer.")
+        phones_lay.addWidget(self._empty)
+        lay.addWidget(phones_card)
+
+        computer_card = create_card()
+        computer_lay = card_layout(computer_card)
+        add_card_header(computer_lay, "This computer", "monitor", hue="connection")
+        rename_computer = QPushButton("Change name")
+        rename_computer.setToolTip("The name your phones show for this computer")
         rename_computer.clicked.connect(self._rename_computer)
-        computer_row = QHBoxLayout()
-        computer_row.setContentsMargins(0, 0, 0, 0)
-        computer_row.setSpacing(8)
-        computer_row.addWidget(self._computer_lbl, 1)
-        computer_row.addWidget(rename_computer)
-        lay.addLayout(_row("This computer", computer_row, stretch=True))
+        strip, _ = setting_row("", "What your phones call it", rename_computer)
+        self._computer_lbl = strip.findChild(QLabel, "setting_name")
+        rename_computer.setAccessibleName("Change this computer's name")
+        computer_lay.addWidget(strip)
+        lay.addWidget(computer_card)
+        lay.addStretch(1)
+
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.accept)
         dialog_buttons(lay, close_btn)
@@ -391,32 +435,50 @@ class PhonesDialog(QDialog):
 
     def refresh(self):
         self._computer_lbl.setText(self._plugin.computer_name)
-        self._list.clear()
+        for row in self._rows.values():
+            row.hide()  # deleteLater waits for the event loop, and until then it'd still take up room
+            row.deleteLater()
+        self._rows = {}
         for phone in self._plugin.phones:
-            item = QListWidgetItem(phone.name)
-            item.setData(Qt.ItemDataRole.UserRole, phone.id)
-            self._list.addItem(item)
+            ip = phone.active_ip or (phone.ips[0] if phone.ips else "")
+            self._add_row(phone.id, phone.name, f"Phone · {ip}" if ip else "Phone", renamable=True)
         for sid, name, detail in self._plugin.remembered:  # browsers with settings of their own
-            item = QListWidgetItem(f"{name} (browser)")
-            item.setData(Qt.ItemDataRole.UserRole, sid)
-            item.setToolTip(detail)
-            self._list.addItem(item)
-        self._on_selection(self._list.currentRow())
+            self._add_row(sid, name, detail, renamable=False)
+        self._empty.setVisible(not self._rows)
+        self._scroll.setVisible(bool(self._rows))
+        self._fit()
+
+    def _fit(self):
+        self._scroll.fit()
+        if self.isVisible():
+            self.layout().invalidate()  # Qt doesn't resize a window whose layout wraps text by itself
+            self.adjustSize()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        QTimer.singleShot(0, self._fit)  # again now the rows know their real width
+
+    def _add_row(self, sid: str, name: str, sub: str, renamable: bool):
+        buttons = QHBoxLayout()
+        buttons.setContentsMargins(0, 0, 0, 0)
+        buttons.setSpacing(6)
+        if renamable:
+            rename = icon_button("pencil", f"Rename {name}", "Rename")
+            rename.setObjectName("rename")
+            rename.clicked.connect(lambda _c=False, i=sid: self._rename(i))
+            buttons.addWidget(rename)
+        remove = icon_button("trash", f"Remove {name}", "Remove")
+        remove.setObjectName("remove")
+        remove.clicked.connect(lambda _c=False, i=sid: self._remove(i))
+        buttons.addWidget(remove)
+        strip, _ = setting_row(name, sub, buttons)
+        self._scroll.add(strip)
+        self._rows[sid] = strip
 
     def _browser(self, sid: Optional[str]) -> Optional[tuple]:
         return next((e for e in self._plugin.remembered if e[0] == sid), None)
 
-    def _current_id(self) -> Optional[str]:
-        item = self._list.currentItem()
-        return item.data(Qt.ItemDataRole.UserRole) if item else None
-
-    def _on_selection(self, _row: int):
-        sid = self._current_id()
-        self._rename_btn.setEnabled(sid is not None and self._browser(sid) is None)
-        self._remove_btn.setEnabled(sid is not None)
-
-    def _rename(self):
-        pid = self._current_id()
+    def _rename(self, pid: str):
         phone = self._plugin.phone(pid)
         if phone is None:
             return
@@ -433,8 +495,7 @@ class PhonesDialog(QDialog):
             self._plugin.set_computer_name(name.strip())
             self.refresh()
 
-    def _remove(self):
-        pid = self._current_id()
+    def _remove(self, pid: str):
         if (browser := self._browser(pid)) is not None:
             r = QMessageBox.question(
                 self, "Remove browser",

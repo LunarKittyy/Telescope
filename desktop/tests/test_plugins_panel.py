@@ -133,13 +133,22 @@ def _boxes(dialog) -> dict:
     return {box.accessibleName(): box for box in dialog.findChildren(QCheckBox)}
 
 
+def _row_restarts(dialog) -> list:
+    """The Restart now buttons on rows that wait for one (rows being replaced are hidden)."""
+    return [b for b in dialog.findChildren(dialog_module.QPushButton, "row_restart") if b.isVisibleTo(dialog)]
+
+
+def _restart_offered(dialog) -> bool:
+    return bool(_row_restarts(dialog)) or not dialog._restart_bar.isHidden()
+
+
 def test_switching_off_asks_first_names_what_goes_and_waits_for_a_restart(qapp, plugins, answers):
     asked, reply = answers
     builtins = _builtins()
     dialog = PluginsPanel(builtins, {p.name for p in builtins}, {}, lambda: True)
     boxes = _boxes(dialog)
     assert "Connection" not in boxes  # required: no switch at all
-    assert dialog._restart_bar.isHidden()
+    assert not _restart_offered(dialog)
     reply["yes"] = False
     boxes["Presets"].setChecked(False)
     assert plugin_loader.builtin_off() == set() and boxes["Presets"].isChecked()  # cancelled: nothing changes
@@ -148,9 +157,9 @@ def test_switching_off_asks_first_names_what_goes_and_waits_for_a_restart(qapp, 
     assert plugin_loader.builtin_off() == {"presets"}
     title, text, _danger = asked[-1]
     assert title == "Switch off Presets?" and "The Presets card goes away." in text and "settings stay saved" in text
-    assert not dialog._restart_bar.isHidden()
+    assert len(_row_restarts(dialog)) == 1 and dialog._restart_bar.isHidden()  # on the row, not only up top
     _boxes(dialog)["Presets"].setChecked(True)
-    assert plugin_loader.builtin_off() == set() and dialog._restart_bar.isHidden()  # back as it is: no restart
+    assert plugin_loader.builtin_off() == set() and not _restart_offered(dialog)  # back as it is: no restart
 
 
 def test_switching_on_an_added_plugin_warns_about_trust(qapp, plugins, answers):
@@ -160,7 +169,7 @@ def test_switching_on_an_added_plugin_warns_about_trust(qapp, plugins, answers):
     _boxes(dialog)["Extra"].setChecked(True)
     title, text, danger = asked[-1]
     assert title == "Switch on Extra?" and "trust" in text and danger
-    assert plugin_loader.find_installed(folder=plugins)[0].enabled and not dialog._restart_bar.isHidden()
+    assert plugin_loader.find_installed(folder=plugins)[0].enabled and _row_restarts(dialog)
 
 
 def test_turn_all_back_on(qapp, plugins, answers):
@@ -175,7 +184,18 @@ def test_restart_now_restarts(qapp, plugins, answers):
     restarted = []
     dialog = PluginsPanel(_builtins(), set(), {}, lambda: restarted.append(True) or True)
     dialog._restart_btn.click()
-    assert restarted == [True]
+    _row_restarts(dialog)[0].click()
+    assert restarted == [True, True]
+
+
+def test_a_restart_no_row_offers_gets_the_bar(qapp, plugins, answers):
+    # A plugin that didn't start says why on its row, and a restart tries it again.
+    _added(plugins, "extra")
+    plugin_loader.set_enabled(plugin_loader.find_installed(folder=plugins)[0], True)
+    builtins = _builtins()
+    dialog = PluginsPanel(builtins, {p.name for p in builtins}, {"extra": "RuntimeError: no card today"},
+                          lambda: True)
+    assert not _row_restarts(dialog) and not dialog._restart_bar.isHidden()
 
 
 def test_a_plugin_that_didnt_start_says_why_in_the_list(qapp, plugins, answers):
@@ -237,7 +257,7 @@ def test_a_plugin_being_written_shows_where_its_from_with_nothing_to_switch(qapp
     texts = [w.text() for w in dialog.findChildren(QLabel)]
     assert any(t.startswith(f"Loaded from {folder} by dev_desktop.py.") for t in texts)
     assert not [b for b in dialog.findChildren(dialog_module.QPushButton) if b.text() == "Remove"]
-    assert dialog._restart_bar.isHidden()
+    assert not _restart_offered(dialog)
 
 
 def test_the_plugins_tab_opens_over_the_main_window_without_blocking_it(qapp, window, plugins):
@@ -329,7 +349,7 @@ def test_switching_one_on_asks_to_download_first_then_switches_it_on(qapp, plugi
     _boxes(dialog)["Auto framing"].setChecked(True)
     assert asked[-1][0] == "Download about 47 MB?" and "MediaPipe" in asked[-1][1]
     assert dl.started == ["framing"] and plugin_loader.optional_on() == {"framing"}
-    assert _boxes(dialog)["Auto framing"].isChecked() and not dialog._restart_bar.isHidden()
+    assert _boxes(dialog)["Auto framing"].isChecked() and _restart_offered(dialog)
     assert dialog._remove_pack_btn.isHidden()  # something uses it
 
 
