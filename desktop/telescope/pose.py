@@ -34,6 +34,39 @@ def body(person, aspect: float) -> Optional[tuple]:
     return (_mid(left, right), width) if width > 1e-3 else None
 
 
+def upright(person, aspect: float) -> tuple:
+    """The pose with its shoulders horizontal and head above them, plus a mapping back to the shown picture.
+    Work in picture heights so a quarter turn on a non-square frame preserves distances."""
+    shoulders = body(person, aspect)
+    if shoulders is None:
+        return person, lambda x, y: (x, y)
+    (cx, cy), width = shoulders
+    left, right = person.point("left_shoulder", SEEN), person.point("right_shoulder", SEEN)
+    across = ((left[0] - right[0]) * aspect / width, (left[1] - right[1]) / width)
+    down = (-across[1], across[0])
+    head = [p for p in (person.point(n, SEEN) for n in ("nose", "left_eye", "right_eye")) if p]
+    hips = [p for p in (person.point(n, SEEN) for n in ("left_hip", "right_hip")) if p]
+    if head or hips:
+        points = head or hips
+        dx = (sum(p[0] for p in points) / len(points) - cx) * aspect
+        dy = sum(p[1] for p in points) / len(points) - cy
+        if (dx * down[0] + dy * down[1]) * (-1 if head else 1) < 0:
+            down = (-down[0], -down[1])
+    elif down[1] < 0:
+        down = (-down[0], -down[1])
+    across = (down[1], -down[0])
+
+    def to_upright(x, y):
+        dx, dy = (x - cx) * aspect, y - cy
+        return cx + (dx * across[0] + dy * across[1]) / aspect, cy + dx * down[0] + dy * down[1]
+
+    def to_shown(x, y):
+        dx, dy = (x - cx) * aspect, y - cy
+        return cx + (dx * across[0] + dy * down[0]) / aspect, cy + dx * across[1] + dy * down[1]
+
+    return person.mapped(to_upright), to_shown
+
+
 def arm(person, side: str, aspect: float) -> Optional[tuple]:
     """(shoulder width, how far out past the shoulder a point is, the hip line) for one arm, or None."""
     shoulders = body(person, aspect)
@@ -53,6 +86,7 @@ def hands_out(people, aspect: float) -> set:
     """The sides ("left", "right") on which someone holds a hand out (showing something), above their hips."""
     found = set()
     for person in people:
+        person, _to_shown = upright(person, aspect)
         for side in SIDES:
             found_arm = arm(person, side, aspect)
             if found_arm is None:

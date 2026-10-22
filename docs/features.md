@@ -42,7 +42,7 @@ It only works on 64-bit Intel and AMD computers for now.
 
 ## Presets
 
-The Presets button in the header saves your camera, output and transform settings under a name (lens included) and brings them all back with one click later. Auto framing and Background are saved in presets too if they're switched on, so one preset can frame you while you talk and another can park the zoom on something you're showing, each on its own shortcut. Each phone has its own presets.
+The Presets button in the header saves your camera, output and transform settings under a name (lens included) and brings them all back with one click later. Auto framing and Background are saved in presets too if they're switched on, so one preset can frame you while you talk and another can park the zoom on something you're showing, each on its own shortcut. Overwriting a preset keeps the saved settings of plugins that are switched off. Each phone has its own presets.
 
 ## Resolution and FPS
 - The resolution list comes from what the current lens really supports, and picking one changes what the phone itself captures
@@ -138,6 +138,7 @@ The Presets button in the header saves your camera, output and transform setting
 - When Start can't go ahead, a banner tells you why and has the button that fixes it
 - Click a card's title (Camera, Transforms, Connection and so on) to fold the card down to its header, and click it again to open it. Section titles inside a card work the same way, so you can fold just **Image** in the Camera card and leave **Light** and **Focus** open. A card remembers which of its sections you folded, even while the whole card is folded. A card title gets darker when the pointer is on it and a section title lights up to the colour of the card titles and there's no other sign that it can be clicked
 - Everything starts open and folds are remembered after a restart. They're saved for the whole app and not per phone. If you switch a plugin off and on again its card comes back folded the way you left it
+- Tab reaches card and section titles; Space or Enter folds or opens them. Screen readers get a named toggle and its state. Folded controls leave the tab order, and folding a card while a setting has focus moves focus to its title
 - Every card in the main window has its own colour. **Monochrome** under **Card colours** in General puts them all back in the app's purple if you'd rather have that
 
 ## Keyboard shortcuts

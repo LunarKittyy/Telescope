@@ -625,9 +625,9 @@ def _paint_hue(card: QWidget, hue_name: str, chip: QLabel = None, icon_name: str
     picked.setAlphaF(0.12)
     picked_hex = picked.name(QColor.NameFormat.HexArgb)
     card.setStyleSheet(
-        f"QSlider::handle:horizontal {{ background: {color}; }}"
-        f"QSlider::handle:horizontal:hover {{ background: {hover}; }}"
-        f"QLabel#val {{ color: {color}; }}"
+        f"QSlider::handle:horizontal:enabled {{ background: {color}; }}"
+        f"QSlider::handle:horizontal:enabled:hover {{ background: {hover}; }}"
+        f"QLabel#val:enabled {{ color: {color}; }}"
         f"QPushButton#lens_button:checked, QPushButton#option_card:checked {{"
         f" background-color: {picked_hex}; border-color: {color}; }}")
 

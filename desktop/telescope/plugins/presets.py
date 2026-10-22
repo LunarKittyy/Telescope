@@ -81,12 +81,12 @@ class PresetsPlugin(TelescopePlugin):
         name = _clean(name)
         if not name:
             return
-        entry = {"name": name}
+        existing = self.find(name)
+        entry = dict(existing) if existing is not None else {"name": name}
         for section in self._host.preset_plugins():
             cfg = self._host.plugin_config(section)
             if cfg is not None:
                 entry[_KEYS.get(section, section)] = cfg
-        existing = self.find(name)
         if existing is not None:
             self._presets[self._presets.index(existing)] = entry
         else:

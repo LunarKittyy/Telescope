@@ -279,7 +279,10 @@ class Vision:
         from it to the picture as shown at zoom 1.
         """
         here = current_frame.get()
-        if not self._people_wanted or self._state != READY or here is None:
+        if not self._people_wanted or here is None:
+            return
+        if self._state != READY:
+            self.load()
             return
         sv = self._stream(here[0])
         now = time.monotonic()

@@ -119,6 +119,7 @@ The view's maths, with no Qt and no window: `View` (frozen: `zoom`, `pan_x`, `pa
 
 ### `pose.py`
 What a pose says, for the plugins that look at people (Auto framing, the preview's skeleton), with no Qt: `SEEN` / `ARM_SEEN` visibility bars, `body(person, aspect)` (shoulder centre and width), `arm(person, side, aspect)`, `hands_out(people, aspect)` and the skeleton's `BONES`.
+`upright(person, aspect)` levels the shoulders in picture heights, uses the head or hips to choose which way is up, and returns the pose plus a mapping back. Framing and hand detection use it so rotation and flips keep the same body region in view.
 
 ### `vision.py`
 MediaPipe for the plugins that ask, with no Qt: the window makes one `Vision` (`window._vision`) and the `HostVision` methods forward to it.
@@ -343,6 +344,7 @@ Cards and sections that fold when their title is clicked. Nothing in it names a 
 - `Collapsing(on_change)` - the folded keys and the folding. The window owns one (`TelescopeWindow._collapse`), `install(panel, scope)` runs on each panel right after `create_panel()` (scope is the plugin's name), `load(keys)` takes the saved list and `keys()` gives it back for saving. Keys are `scope/Card title` and `scope/Card title/Section title` (`#2` after the first one of a repeated title).
 - `install()` takes every row under a card's header out of the card's layout and puts it in a `card_body` container, with a nested one under each section heading. A fold hides that container, never the rows, so a plugin's own `setVisible()` calls and a card hidden on purpose (`dim_until_paired(phone_only=True)`, onboarding) are left alone. Stretch factors and alignment move with the rows. A card without the standard header is skipped, and so is one that was done already.
 - A click on a card's icon or title (anywhere on a section's row, the rule too) folds it. `_Toggle` is the event filter doing that and setting the title's `hot` property while the pointer is on it, which `theme.py` styles (a card title goes half as bright, a section title takes the main title colour). It sits on the labels themselves, so it still works while `dim_until_paired` has the card disabled.
+- `_FoldButton` wraps each title label in a native checkable button. Tab reaches it, Space and Enter toggle it, and checked means expanded. Its name and state reach the accessibility tree before its rows. Folding a container with a focused control moves focus to its title.
 - The set of folded keys is saved by `save_now()` as the top-level `collapsed` list in the settings file (checked by `config._validate_sections`) and read back in `_apply_config()`. Keys of cards that aren't there are kept, so switching a plugin off and on again keeps its folds. Rows added to a card's layout after `install()` ran land outside the fold.
 
 ### `widgets/settings_window.py` and `widgets/plugins_panel.py`
