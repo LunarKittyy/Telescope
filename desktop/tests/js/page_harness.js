@@ -17,9 +17,10 @@ function deferred() {
 const flush = async () => { for (let i = 0; i < 5; i++) await new Promise((r) => setImmediate(r)); };
 
 function makePage() {
-  const world = { sockets: [], contexts: [], nodes: [], encoders: [], supported: [], timers: [], timerId: 0, audio: true,
-                  locks: [], fullscreen: null, fullscreenAsks: 0, now: 1000, videos: [],
-                  videoPlays: true };
+  const world = { sockets: [], peers: [], gum: [], timers: [], timerId: 0, audio: true, locks: [], fullscreen: null,
+                  fullscreenAsks: 0, now: 1000, videos: [], videoPlays: true, iceComplete: true,
+                  cameraSettings: { width: 1280, height: 720, frameRate: 30, facingMode: "user" },
+                  devices: [{ kind: "videoinput" }, { kind: "videoinput" }, { kind: "audioinput" }] };
   const elements = {};
   const element = (id) => elements[id] || (elements[id] = {
     id, hidden: false, disabled: false, textContent: "", className: "", srcObject: null, videoWidth: 0, videoHeight: 0,
@@ -27,47 +28,70 @@ function makePage() {
     get classList() { const c = this.classes; return { toggle: (name, on) => (on ?? !c.has(name)) ? c.add(name) : c.delete(name) }; },
     addEventListener(type, fn) { this.listeners[type] = fn; },
   });
-  const track = (kind) => ({ kind, readyState: "live", stopped: false, stop() { this.stopped = true; },
-                             addEventListener() {}, applyConstraints: async () => {} });
-  const stream = (audio) => {
-    const tracks = [track("video"), ...(audio ? [track("audio")] : [])];
+  element("screen-light").hidden = true;  // hidden in index.html
+  const track = (kind, settings) => ({
+    kind, readyState: "live", stopped: false, listeners: {}, settings: { ...settings },
+    stop() { this.stopped = true; this.readyState = "ended"; },
+    end() { this.readyState = "ended"; for (const fn of this.listeners.ended || []) fn(); },
+    addEventListener(type, fn) { (this.listeners[type] = this.listeners[type] || []).push(fn); },
+    applyConstraints: async (c) => { world.applied = c; },
+    getSettings() { return this.settings; },
+    getCapabilities() { return kind === "video" ? world.capabilities || {} : {}; },
+  });
+  const getUserMedia = async (constraints) => {
+    world.gum.push(constraints);
+    if (world.gumFails) throw Object.assign(new Error("no"), { name: world.gumFails });
+    const tracks = [];
+    if (constraints.video) tracks.push(track("video", world.cameraSettings));
+    if (constraints.audio && world.audio) tracks.push(track("audio", {}));
     return { getTracks: () => tracks, getAudioTracks: () => tracks.filter((t) => t.kind === "audio"),
              getVideoTracks: () => tracks.filter((t) => t.kind === "video") };
   };
 
-  class FakeContext {
-    constructor() {
-      this.state = "suspended";
-      this.destination = {};
-      this.module = deferred();
-      this.audioWorklet = { addModule: () => this.module.promise };
-      world.contexts.push(this);
-    }
-    createMediaStreamSource(media) { return { media, connect() {} }; }
-    createGain() { return { gain: { value: 1 }, connect: (n) => n }; }
-    async resume() { this.state = "running"; }
-    async close() { this.state = "closed"; }
-  }
-  class FakeNode {
-    constructor(ctx) { this.ctx = ctx; this.port = {}; world.nodes.push(this); }
-    connect(n) { return n; }
-  }
   class FakeSocket {
-    constructor(url) { this.url = url; this.readyState = 0; this.sent = []; this.bufferedAmount = 0; world.sockets.push(this); }
-    send(data) { this.sent.push(data); }
+    constructor(url) { this.url = url; this.readyState = 0; this.sent = []; world.sockets.push(this); }
+    send(data) { this.sent.push(JSON.parse(data)); }
     close() { this.readyState = 3; }
     open() { this.readyState = 1; this.onopen(); }
     message(obj) { this.onmessage({ data: JSON.stringify(obj) }); }
+    closed(code) { this.readyState = 3; this.onclose({ code }); }
+    of(type) { return this.sent.filter((m) => m.type === type); }
   }
   FakeSocket.OPEN = 1;
-  class FakeEncoder {
-    constructor(init) { this.init = init; this.state = "unconfigured"; this.encodeQueueSize = 0; world.encoders.push(this); }
-    configure(cfg) { this.state = "configured"; this.cfg = cfg; }
-    encode() {}
-    close() { this.state = "closed"; }
-    static isConfigSupported() { const d = deferred(); world.supported.push(d); return d.promise; }
+  class FakeSender {
+    constructor(peer, track) { this.peer = peer; this.track = track; this.replaced = []; this.set = null; this.enc = {}; }
+    async replaceTrack(t) { this.track = t; this.replaced.push(t); }
+    getParameters() { return { encodings: this.peer.remoteDescription ? [this.enc] : [] }; }
+    async setParameters(p) { this.set = p; }
+    async getStats() { return new Map(Object.entries(world.stats || {})); }
   }
-  class FakeFrame { close() {} }
+  class FakePeer {
+    constructor(cfg) {
+      this.cfg = cfg; this.connectionState = "new"; this.iceGatheringState = world.iceComplete ? "complete" : "gathering";
+      this.transceivers = []; this.listeners = {}; this.closed = false; this.remoteDescription = null;
+      world.peers.push(this);
+    }
+    addTransceiver(what, init) {
+      const t = { kind: typeof what === "string" ? what : what.kind, init,
+                  sender: new FakeSender(this, typeof what === "string" ? null : what),
+                  setCodecPreferences(list) { this.prefs = list; } };
+      this.transceivers.push(t);
+      return t;
+    }
+    async createOffer() { return { type: "offer", sdp: `offer ${world.peers.indexOf(this)}` }; }
+    async setLocalDescription(d) { this.localDescription = d; }
+    async setRemoteDescription(d) { this.remoteDescription = d; }
+    addEventListener(type, fn) { this.listeners[type] = fn; }
+    gathered() { this.iceGatheringState = "complete"; this.listeners.icegatheringstatechange(); }
+    state(s) { this.connectionState = s; if (this.onconnectionstatechange) this.onconnectionstatechange(); }
+    close() { this.closed = true; this.connectionState = "closed"; }
+  }
+  const FakeRtpSender = { getCapabilities: () => ({ codecs: [
+    { mimeType: "video/VP9" }, { mimeType: "video/H264", sdpFmtpLine: "packetization-mode=1;profile-level-id=640c1f" },
+    { mimeType: "video/rtx" }, { mimeType: "video/VP8" },
+    { mimeType: "video/H264", sdpFmtpLine: "packetization-mode=0;profile-level-id=42e01f" },
+    { mimeType: "video/H264", sdpFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f" },
+  ] }) };
   class FakeLock {
     constructor() { this.released = false; this.listeners = {}; world.locks.push(this); }
     addEventListener(type, fn) { this.listeners[type] = fn; }
@@ -93,12 +117,14 @@ function makePage() {
     return v;
   };
   const root = { requestFullscreen: async () => { world.fullscreenAsks += 1; world.fullscreen = root; } };
+  const timer = (fn) => { world.timers.push({ id: ++world.timerId, fn }); return world.timerId; };
+  const clear = (id) => { world.timers = world.timers.filter((t) => t.id !== id); };
 
   const sandbox = {
-    console, Blob, performance: { now: () => world.now },
+    console, performance: { now: () => world.now },
     location: { hash: "#token", host: "computer:8767" },
     navigator: { userAgent: "Mozilla/5.0 (X11; Linux x86_64) Chrome/120", mediaDevices: {
-      getUserMedia: async () => stream(world.audio) },
+      getUserMedia, enumerateDevices: async () => world.devices },
       wakeLock: { request: async () => new FakeLock() } },
     crypto: require("crypto").webcrypto,
     localStorage: { getItem: () => null, setItem() {} },
@@ -108,14 +134,13 @@ function makePage() {
       documentElement: root, fullscreenEnabled: true,
       get fullscreenElement() { return world.fullscreen; },
       exitFullscreen: async () => { world.fullscreen = null; },
-      createElement: (tag) => tag === "video" ? fakeVideo() : ({ width: 0, height: 0, toBlob() {}, captureStream: () => ({}),
-                                                                getContext: () => ({ drawImage() {}, fillRect() {} }) }),
+      createElement: (tag) => tag === "video" ? fakeVideo() : ({ width: 0, height: 0, captureStream: () => ({}),
+                                                                getContext: () => ({ fillRect() {} }) }),
       body: { appendChild() {} },
     },
-    AudioContext: FakeContext, AudioWorkletNode: FakeNode, WebSocket: FakeSocket,
-    VideoEncoder: FakeEncoder, VideoFrame: FakeFrame,
-    setTimeout: (fn) => { world.timers.push({ id: ++world.timerId, fn }); return world.timerId; },
-    clearTimeout: (id) => { world.timers = world.timers.filter((t) => t.id !== id); },
+    WebSocket: FakeSocket, RTCPeerConnection: FakePeer, RTCRtpSender: FakeRtpSender,
+    MediaStream: class { constructor(tracks) { this.tracks = tracks; } },
+    setTimeout: timer, clearTimeout: clear, setInterval: timer, clearInterval: clear,
   };
   sandbox.window = sandbox;
   sandbox.isSecureContext = true;
@@ -128,41 +153,28 @@ function makePage() {
     runTimer(id) { const t = world.timers.find((x) => x.id === id); world.timers = world.timers.filter((x) => x !== t); t.fn(); },
     runTimers() { const due = world.timers; world.timers = []; for (const t of due) t.fn(); },
     flush,
+    socket: () => world.sockets[world.sockets.length - 1],
+    peer: () => world.peers[world.peers.length - 1],
   };
 }
 
-// A page that has started with the computer asking for H.264 and a camera frame ready: the frame timer's next run asks the capability check
-async function pageAskingForH264() {
+// A started page connected to the computer, its offer answered: what the next WebRTC scenarios start from
+async function connectedPage(setUp) {
   const page = makePage();
-  page.world.audio = false;
+  if (setUp) setUp(page.world);
   await page.click("start");
-  const socket = page.world.sockets[page.world.sockets.length - 1];
+  const socket = page.socket();
   socket.open();
-  socket.message({ type: "config", width: 1280, height: 720, fps: 30, audio: false, h264: true });
-  page.element("video").videoWidth = 1280;
-  page.element("video").videoHeight = 720;
+  await page.flush();
+  socket.message({ type: "config", width: 1280, height: 720, fps: 30, audio: false, max_kbps: 4000 });
+  socket.message({ type: "answer", sdp: "answer" });
+  await page.flush();
+  page.peer().state("connected");
   return page;
 }
 
-// Start, Flip (its mic setup stays pending), Stop, Start (its setup finishes): contexts 0, 1 (the Flip's) and 2
-async function flipStopStart() {
-  const page = makePage();
-  const first = page.click("start");
-  await page.flush();
-  page.world.contexts[0].module.resolve();
-  await first;
-  page.element("flip").listeners.click();
-  await page.flush();
-  assert.strictEqual(page.world.contexts.length, 2);
-  await page.click("stop");
-  const second = page.click("start");
-  await page.flush();
-  assert.strictEqual(page.world.contexts.length, 3);
-  page.world.contexts[2].module.resolve();
-  await second;
-  assert.strictEqual(page.world.nodes.length, 2);
-  return page;
-}
+const videoSender = (peer) => peer.transceivers.find((t) => t.kind === "video").sender;
+const micSender = (peer) => peer.transceivers.find((t) => t.kind === "audio").sender;
 
 // A started page that has gone to the black screen
 async function darkPage(fullscreen = true) {
@@ -188,86 +200,246 @@ async function iphoneDarkPage() {
 const tap = (page) => page.element("black").listeners.click();
 const faded = (page) => page.element("wake-hint").classes.has("faded");
 
-const nodeContexts = (page) => page.world.nodes.map((n) => page.world.contexts.indexOf(n.ctx));
 
 const scenarios = {
-  // Without a Stop the check builds the encoder (shows the harness drives the page properly)
-  async the_capability_check_builds_the_encoder() {
-    const page = await pageAskingForH264();
-    page.runTimers();
-    page.world.supported[0].resolve({ supported: true });
-    await page.flush();
-    assert.strictEqual(page.world.encoders.length, 1);
-    assert.strictEqual(page.world.encoders[0].state, "configured");
-    assert.strictEqual(page.value("codecNow"), "h264");
+  // Connecting says hello, offers H.264 first with every address, and sets the computer's limits once answered
+  async the_page_offers_and_applies_the_answer() {
+    const page = await connectedPage();
+    const socket = page.socket(), peer = page.peer();
+    assert.deepStrictEqual(socket.sent.map((m) => m.type), ["hello", "offer"]);
+    assert.strictEqual(socket.of("offer")[0].sdp, "offer 0");
+    assert.strictEqual(peer.cfg.iceServers.length, 0, "a server outside the network was asked for addresses");
+    const prefs = peer.transceivers[0].prefs.map((c) => `${c.mimeType} ${c.sdpFmtpLine || ""}`);
+    assert.ok(prefs[0].includes("packetization-mode=1;profile-level-id=42e01f"), prefs[0]);
+    assert.strictEqual(prefs[1], "video/VP8 ");
+    assert.strictEqual(peer.remoteDescription.sdp, "answer");
+    const enc = videoSender(peer).set.encodings[0];
+    assert.strictEqual(enc.maxBitrate, 4_000_000);
+    assert.strictEqual(enc.maxFramerate, 30);
+    assert.strictEqual(enc.scaleResolutionDownBy, 1);
+    assert.strictEqual(page.element("status").className, "");
+    assert.ok(page.element("status").textContent.startsWith("Connected"));
   },
 
-  // Stop while the capability check is pending must not leave an encoder behind
-  async stop_during_the_capability_check() {
-    const page = await pageAskingForH264();
-    page.runTimers();
-    assert.strictEqual(page.world.supported.length, 1);
-    await page.click("stop");
-    page.world.supported[0].resolve({ supported: true });
-    await page.flush();
-    assert.strictEqual(page.world.encoders.length, 0, "an encoder was created after Stop");
-    assert.strictEqual(page.value("codecNow"), "", "the codec was reported after Stop");
-    assert.strictEqual(page.value("configuring"), false);
-  },
-
-  // A check that answers "no encoder" after Stop must not change the fallback state either
-  async stop_during_a_failed_capability_check() {
-    const page = await pageAskingForH264();
-    page.runTimers();
-    await page.click("stop");
-    page.world.supported[0].resolve({ supported: false });
-    await page.flush();
-    page.world.supported[1].resolve({ supported: false });  // the second codec is tried too
-    await page.flush();
-    assert.strictEqual(page.value("h264Off"), "", "the fallback was recorded after Stop");
-    assert.strictEqual(page.value("longCap"), Infinity, "the size cap changed after Stop");
-    assert.strictEqual(page.value("codecNow"), "");
-  },
-
-  // A check that answers after Stop and Start again is ignored; the new run sets up its own encoder
-  async a_stale_capability_check_does_not_serve_the_next_run() {
-    const page = await pageAskingForH264();
-    page.runTimers();
-    await page.click("stop");
+  // An offer whose addresses are still being gathered when a newer one starts is never sent
+  async a_superseded_offer_is_not_sent() {
+    const page = makePage();
+    page.world.iceComplete = false;
     await page.click("start");
-    const socket = page.world.sockets[1];
+    const socket = page.socket();
     socket.open();
-    socket.message({ type: "config", width: 1280, height: 720, fps: 30, audio: false, h264: true });
-    page.world.supported[0].resolve({ supported: true });  // the old run's answer
     await page.flush();
-    assert.strictEqual(page.world.encoders.length, 0, "the old run's answer built an encoder");
-    page.element("video").videoWidth = 1280;
-    page.element("video").videoHeight = 720;
-    page.runTimers();  // the new run asks for itself
-    assert.strictEqual(page.world.supported.length, 2);
-    page.world.supported[1].resolve({ supported: true });
+    const first = page.peer();
+    first.state("failed");  // starts over before the first one's addresses are in
     await page.flush();
-    assert.strictEqual(page.world.encoders.length, 1);
-    assert.strictEqual(page.world.encoders[0].state, "configured");
-    assert.strictEqual(page.value("codecNow"), "h264");
+    first.gathered();
+    await page.flush();
+    assert.strictEqual(socket.of("offer").length, 0, "the old connection's offer went out");
+    page.peer().gathered();
+    await page.flush();
+    assert.strictEqual(socket.of("offer").length, 1);
+    assert.ok(first.closed);
   },
 
-  // Flip, then Stop and Start while the Flip's mic setup is pending: only the new run records the mic
-  async a_mic_setup_from_before_stop_adds_no_second_sender() {
-    const page = await flipStopStart();
-    page.world.contexts[1].module.resolve();  // the Flip's setup finishes last
+  // A connection that fails is set up again over the same socket; a disconnected one gets a moment first
+  async a_failed_connection_offers_again() {
+    const page = await connectedPage();
+    const socket = page.socket();
+    page.peer().state("failed");
     await page.flush();
-    assert.deepStrictEqual(nodeContexts(page), [0, 2]);
-    assert.strictEqual(page.value("micError"), "");
+    assert.strictEqual(page.world.peers.length, 2);
+    assert.strictEqual(socket.of("offer").length, 2);
+    page.peer().state("disconnected");
+    await page.flush();
+    assert.strictEqual(page.world.peers.length, 2, "a short disconnect started over at once");
+    page.runTimer(page.value("downTimer"));
+    await page.flush();
+    assert.strictEqual(page.world.peers.length, 3);
   },
 
-  // The same, with the old setup failing because its context was closed
-  async a_failed_mic_setup_from_before_stop_leaves_the_mic_error_alone() {
-    const page = await flipStopStart();
-    page.world.contexts[1].module.reject(new Error("closed"));
+  // Flip opens the other camera alone: the mic keeps going and the new camera goes out on the same connection
+  async flip_keeps_the_mic() {
+    const page = await connectedPage();
+    const mic = page.value("mic");
+    assert.ok(mic && !mic.stopped);
+    page.world.cameraSettings = { width: 1280, height: 720, frameRate: 30, facingMode: "environment" };
+    await page.click("flip");
     await page.flush();
-    assert.deepStrictEqual(nodeContexts(page), [0, 2]);
-    assert.strictEqual(page.value("micError"), "");
+    const last = page.world.gum[page.world.gum.length - 1];
+    assert.strictEqual(last.audio, false, "Flip asked for the mic again");
+    assert.ok(!mic.stopped, "Flip stopped the mic");
+    assert.strictEqual(page.value("mic"), mic);
+    const sender = videoSender(page.peer());
+    assert.strictEqual(sender.track, page.value("camera"));
+    assert.strictEqual(page.world.peers.length, 1, "Flip set the connection up again");
+    assert.ok(!page.element("video").classes.has("mirror"), "the back camera is mirrored");
+  },
+
+  // The preview is mirrored by the camera's own facing; one that doesn't say (a laptop's) counts as a front one
+  async the_mirror_follows_the_camera_not_the_request() {
+    const page = await connectedPage((w) => { w.cameraSettings = { width: 1280, height: 720 }; });
+    assert.ok(page.element("video").classes.has("mirror"));
+    page.world.cameraSettings = { width: 1280, height: 720 };
+    await page.click("flip");  // asks for the back camera; this device only has the one
+    await page.flush();
+    assert.ok(page.element("video").classes.has("mirror"), "the same front camera lost its mirror");
+  },
+
+  // The mic only goes out while the computer asks for it
+  async the_mic_follows_the_computer() {
+    const page = await connectedPage();
+    const sender = micSender(page.peer());
+    assert.strictEqual(sender.track, null);
+    page.socket().message({ type: "config", width: 1280, height: 720, fps: 30, audio: true, max_kbps: 4000 });
+    assert.strictEqual(sender.track, page.value("mic"));
+    page.socket().message({ type: "config", width: 1280, height: 720, fps: 30, audio: false, max_kbps: 4000 });
+    assert.strictEqual(sender.track, null);
+  },
+
+  // A mic the browser took away is opened again on its own once the page is back
+  async a_lost_mic_comes_back() {
+    const page = await connectedPage();
+    page.socket().message({ type: "config", width: 1280, height: 720, fps: 30, audio: true, max_kbps: 4000 });
+    const mic = page.value("mic");
+    mic.end();
+    await page.flush();
+    const again = page.value("mic");
+    assert.notStrictEqual(again, mic);
+    assert.strictEqual(micSender(page.peer()).track, again);
+    assert.deepStrictEqual(page.world.gum[page.world.gum.length - 1].video, false);
+  },
+
+  // Without the mic the camera still starts, and the computer hears why
+  async a_refused_mic_leaves_the_camera_working() {
+    const page = makePage();
+    const gum = page.value("navigator").mediaDevices.getUserMedia;
+    page.value("navigator").mediaDevices.getUserMedia = async (c) => {
+      if (c.audio) throw Object.assign(new Error("no"), { name: "NotAllowedError" });
+      return gum(c);
+    };
+    await page.click("start");
+    page.socket().open();
+    await page.flush();
+    assert.strictEqual(page.value("running"), true);
+    assert.ok(page.socket().of("hello")[0].mic_error.includes("microphone"));
+  },
+
+  // A new size the camera ignores (Safari) opens it again; a camera bigger than asked is scaled down when sending
+  async a_size_the_camera_ignores_reopens_it() {
+    const page = await connectedPage();
+    const asked = page.world.gum.length;
+    page.socket().message({ type: "config", width: 1920, height: 1080, fps: 30, audio: false, max_kbps: 9000 });
+    await page.flush();
+    assert.strictEqual(page.world.applied.width.ideal, 1920);
+    assert.strictEqual(page.world.gum.length, asked + 1, "a camera stuck at 720p wasn't opened again");
+    page.socket().message({ type: "config", width: 854, height: 480, fps: 15, audio: false, max_kbps: 1500 });
+    page.world.cameraSettings = { width: 1280, height: 720, frameRate: 15, facingMode: "user" };
+    await page.flush();
+    const enc = videoSender(page.peer()).set.encodings[0];
+    assert.strictEqual(enc.maxBitrate, 1_500_000);
+    assert.strictEqual(enc.maxFramerate, 15);
+  },
+
+  // New link on the computer stops the page for good instead of retrying a dead code
+  async a_new_link_stops_the_page() {
+    const page = await connectedPage();
+    page.socket().closed(4002);
+    assert.strictEqual(page.value("running"), false);
+    assert.ok(page.element("status").textContent.includes("replaced"));
+    assert.strictEqual(page.element("start").hidden, true, "Start was offered for a code that no longer works");
+    assert.strictEqual(page.world.timers.filter((t) => String(t.fn).includes("connect")).length, 0);
+    assert.strictEqual(page.world.sockets.length, 1);
+    assert.ok(page.peer().closed);
+  },
+
+  // Any other drop reconnects and offers again
+  async a_dropped_socket_reconnects() {
+    const page = await connectedPage();
+    page.socket().closed(1006);
+    assert.strictEqual(page.value("running"), true);
+    assert.ok(page.peer().closed);
+    page.runTimer(page.value("retryTimer"));
+    page.socket().open();
+    await page.flush();
+    assert.strictEqual(page.world.sockets.length, 2);
+    assert.strictEqual(page.socket().of("offer").length, 1);
+  },
+
+  // The page shows and reports what really goes out
+  async stats_report_what_is_sent() {
+    const page = await connectedPage();
+    page.world.stats = { a: { type: "outbound-rtp", kind: "video", frameWidth: 1280, frameHeight: 720,
+                              framesPerSecond: 29.7, qualityLimitationReason: "cpu" } };
+    page.runTimer(page.value("statsTimer"));
+    await page.flush();
+    assert.deepStrictEqual(page.socket().of("stats")[0], { type: "stats", width: 1280, height: 720, fps: 30, limit: "cpu" });
+    assert.strictEqual(page.element("rate").textContent, "Sending 1280×720 at 30 fps");
+  },
+
+  // Flip only shows where there's another camera
+  async one_camera_hides_flip() {
+    const page = makePage();
+    page.world.devices = [{ kind: "videoinput" }, { kind: "audioinput" }];
+    await page.click("start");
+    await page.flush();
+    assert.strictEqual(page.element("flip").hidden, true);
+    const two = makePage();
+    await two.click("start");
+    await two.flush();
+    assert.strictEqual(two.element("flip").hidden, false);
+  },
+
+  // A front camera without a flash gets the screen as its light; a back one without a flash gets no Light at all
+  async a_front_camera_lights_the_screen() {
+    const page = await connectedPage();
+    assert.strictEqual(page.element("light").hidden, false);
+    await page.click("light");
+    assert.strictEqual(page.element("screen-light").hidden, false);
+    assert.ok(page.element("light").classes.has("on"));
+    page.element("screen-light").listeners.click();
+    assert.strictEqual(page.element("screen-light").hidden, true);
+    assert.ok(!page.element("light").classes.has("on"));
+    await page.click("light");
+    page.world.cameraSettings = { width: 1280, height: 720, frameRate: 30, facingMode: "environment" };
+    await page.click("flip");
+    await page.flush();
+    assert.strictEqual(page.element("screen-light").hidden, true, "the screen stayed white for the back camera");
+    assert.strictEqual(page.element("light").hidden, true);
+  },
+
+  // A camera with a flash turns it on, keeping the size it was asked for, and keeps it on through a new size
+  async a_flash_stays_on_through_a_new_size() {
+    const page = await connectedPage((w) => {
+      w.capabilities = { torch: true };
+      w.cameraSettings = { width: 1280, height: 720, frameRate: 30, facingMode: "environment" };
+    });
+    await page.click("light");
+    assert.strictEqual(page.world.applied.advanced[0].torch, true);
+    assert.strictEqual(page.world.applied.width.ideal, 1280, "turning the flash on dropped the size");
+    assert.strictEqual(page.element("screen-light").hidden, true);
+    page.socket().message({ type: "config", width: 854, height: 480, fps: 30, audio: false, max_kbps: 1800 });
+    await page.flush();
+    assert.strictEqual(page.world.applied.width.ideal, 854);
+    assert.strictEqual(page.world.applied.advanced[0].torch, true, "a new size turned the flash off");
+    await page.click("stop");
+    assert.strictEqual(page.value("torchOn"), false);
+    assert.strictEqual(page.element("light").hidden, true);
+  },
+
+  // Stop while the camera is still opening leaves nothing running once it opens
+  async stop_while_the_camera_opens() {
+    const page = makePage();
+    let release;
+    const gum = page.value("navigator").mediaDevices.getUserMedia;
+    page.value("navigator").mediaDevices.getUserMedia = (c) => new Promise((resolve) => { release = () => resolve(gum(c)); });
+    const started = page.click("start");
+    await page.flush();
+    page.value("stop()");
+    release();
+    await started;
+    await page.flush();
+    assert.strictEqual(page.value("camera"), null);
+    assert.strictEqual(page.world.sockets.length, 0);
   },
 
   // One tap shows the hint and waits; a second one in time wakes the screen and leaves full screen

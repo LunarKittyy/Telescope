@@ -7,7 +7,6 @@ import numpy as np
 import pytest
 
 from telescope import jpeg_guard
-from telescope.browser_server import BrowserReader
 from telescope.jpeg_guard import decode_jpeg, jpeg_size, within_limits
 from telescope.mjpeg_reader import MjpegReader
 
@@ -98,8 +97,7 @@ def test_a_normal_frame_decodes_and_a_patched_huge_one_is_dropped_before_allocat
     assert calls == []  # never reached the decoder
 
 
-def test_both_readers_drop_an_oversized_frame_and_decode_a_normal_one():
+def test_the_reader_drops_an_oversized_frame_and_decodes_a_normal_one():
     good, huge = bytes(_jpeg(32, 24)), _patch_size(_jpeg(), 32767, 32767)
-    for decode in (MjpegReader.decode, BrowserReader.decode):
-        assert decode(good).shape == (24, 32, 3)
-        assert decode(huge) is None
+    assert MjpegReader.decode(good).shape == (24, 32, 3)
+    assert MjpegReader.decode(huge) is None

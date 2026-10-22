@@ -1,58 +1,50 @@
-// Telescope's Browser camera page: sends this device's camera (H.264 from its hardware encoder, else JPEG) and mic
-// (48 kHz s16le) to the computer that served it, over one WebSocket. The token after # in the address is the computer's permission.
+// Telescope's Browser camera page: sends this device's camera and mic to the computer that served it over WebRTC.
+// A WebSocket to the computer carries the offer and answer, the settings and stats. The token after # in the address is the computer's permission.
 "use strict";
 
-const FRAME_JPEG = 1;
-const FRAME_PCM = 2;
-const FRAME_H264 = 3;
-const MAX_BUFFERED = 1_500_000;  // bytes waiting to go out; past this a frame is skipped instead of piling up lag
-const JPEG_QUALITY = 0.8;
-const STEP_DOWN = [1280, 854];  // long edges to fall back to when this device can't encode frames as fast as asked
-const SLOW_SECONDS = 2;  // how often to look at whether encoding keeps up
-const SLOW_SHARE = 0.25;  // frames skipped for a busy encoder past which it steps down
-const H264_CODECS = ["avc1.42E028", "avc1.4D0028"];  // Constrained Baseline, then Main, level 4.0 (1080p30)
-const KEYFRAME_SECONDS = 2;
 const HINT_SECONDS = 4;  // how long the black screen's hint stays, and how long a first tap waits for the second
 const WAKE_GUARD_MS = 500;  // buttons ignore taps this soon after a double tap wakes the screen (a third tap)
 const PLAYER_STALL_SECONDS = 3;  // iPhone: a camera preview frozen this long behind the black video player closes the player
 const LOCK_RETRY_SECONDS = 5;  // a wake lock dropped sooner than this isn't asked for again until the page is shown again
+const ICE_WAIT_MS = 2500;  // the offer goes with every address found by then; on a home network that's well under a second
+const STATS_SECONDS = 2;
+const DISCONNECTED_SECONDS = 5;  // a connection that says disconnected this long is set up again
+// A raw mic, like a USB one: the app on the computer does its own echo cancellation, noise suppression and levels
+const MIC = { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false };
 
 const token = decodeURIComponent(location.hash.slice(1));
 const browserId = keptId();  // tells the computer it's this browser again (a reload), not another camera
 const video = document.getElementById("video");
 const statusEl = document.getElementById("status");
+const rateEl = document.getElementById("rate");
 const dot = document.getElementById("dot");
 const startBtn = document.getElementById("start");
 const flipBtn = document.getElementById("flip");
 const stopBtn = document.getElementById("stop");
 const darkBtn = document.getElementById("dark");
+const lightBtn = document.getElementById("light");
+const screenLight = document.getElementById("screen-light");
 const black = document.getElementById("black");
 const wakeHint = document.getElementById("wake-hint");
 const blackStatus = document.getElementById("black-status");
 
-let config = { width: 1280, height: 720, fps: 30, audio: false };
+let config = { width: 1280, height: 720, fps: 30, audio: false, max_kbps: 4000, camera: "" };
 let facing = "user";
-let media = null;
+let camera = null;  // the video track
+let mic = null;  // the audio track, kept apart from the camera's so a Flip or a restart never cuts it
+let wantMic = false;  // the mic was allowed, so it's opened again after the browser takes it away
+let torchOn = false;
 let mediaGen = 0;  // bumped by each open and by Stop, so a camera that opens late knows it's no longer wanted
-let runGen = 0;  // bumped by Stop, so a frame still encoding from before it isn't sent on the next Start's connection
 let micError = "";
 let ws = null;
 let running = false;
 let retries = 0;
 let retryTimer = null;
-let frameTimer = null;
-let encoding = false;  // a JPEG is being made
-let ticks = 0, skipped = 0, paceSince = 0;
-let longCap = Infinity;  // the long edge this device keeps up with, once it has had to step down
-let encoder = null;
-let encoderSize = "";  // what encoder is set up for
-let configuring = false;
-let h264Off = "";  // why this page sends JPEG though the computer takes H.264
-let needKey = true;
-let dropping = false;  // a chunk didn't go out, so the frames after it wait for a keyframe
-let sinceKey = 0;
-let codecNow = "", codecNote = "";
-let audioCtx = null;
+let pc = null;
+let videoSender = null;
+let micSender = null;
+let downTimer = null;  // a disconnected peer connection gets this long to come back
+let statsTimer = null;
 let wakeLock = null;
 let hintTimer = null;
 let tapped = false;  // one tap on the black screen, waiting for the second
@@ -62,8 +54,6 @@ let blackPlayed = false;  // the black video has played at least once, so it wor
 let playerOff = false;  // the player stalled the camera here once, so this page load sticks to the plain black page
 let leavingPlayer = false;  // the page closed the player itself and stays black
 let playerTimer = null;
-const canvas = document.createElement("canvas");
-const ctx2d = canvas.getContext("2d");
 
 function keptId() {
   const make = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, "0")).join("");
@@ -90,6 +80,7 @@ function show(text, kind) {
   statusEl.textContent = text;
   statusEl.className = kind === "err" ? "err" : kind === "warn" ? "warn" : "";
   dot.className = kind || "";
+  if (kind !== "ok") rateEl.textContent = "";
 }
 
 function deviceName() {
@@ -104,23 +95,17 @@ function deviceName() {
 // ── Camera and mic ─────────────────────────────────────────────────────────
 
 function videoConstraints() {
-  return { facingMode: facing, width: { ideal: config.width }, height: { ideal: config.height },
-           frameRate: { ideal: config.fps } };
+  return { facingMode: { ideal: facing }, width: { ideal: config.width }, height: { ideal: config.height },
+           frameRate: { ideal: config.fps }, resizeMode: "crop-and-scale" };
 }
 
-// Returns false when Stop or a newer open took over while this one waited for the camera.
+// The first open: camera and mic in one go, so the browser asks once. Returns false when Stop or a newer open took over.
 async function openMedia() {
   stopMedia();
   const gen = ++mediaGen;
-  const stale = (got) => {
-    if (gen === mediaGen) return false;
-    for (const track of got.getTracks()) track.stop();
-    return true;
-  };
-  const audio = { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true };
   let got;
   try {
-    got = await navigator.mediaDevices.getUserMedia({ video: videoConstraints(), audio });
+    got = await navigator.mediaDevices.getUserMedia({ video: videoConstraints(), audio: MIC });
     micError = "";
   } catch (err) {
     if (gen !== mediaGen) return false;
@@ -132,62 +117,127 @@ async function openMedia() {
       throw err;
     }
   }
-  if (stale(got)) return false;
-  media = got;
-  video.srcObject = media;
-  video.classList.toggle("mirror", facing === "user");
-  await video.play().catch(() => {});
-  if (stale(got)) return false;
-  if (media.getAudioTracks().length) await startMic();
-  if (stale(got)) return false;
-  for (const track of media.getTracks()) track.addEventListener("ended", onTrackEnded);
+  if (gen !== mediaGen) {
+    for (const track of got.getTracks()) track.stop();
+    return false;
+  }
+  const audio = got.getAudioTracks()[0];
+  wantMic = !!audio;
+  if (audio) useMic(audio);
+  useCamera(got.getVideoTracks()[0]);
   return true;
 }
 
-function stopMedia() {
-  if (media) for (const track of media.getTracks()) track.stop();
-  media = null;
-  if (audioCtx) audioCtx.close().catch(() => {});
-  audioCtx = null;
+// Flip, a size the camera ignored, or the camera coming back: the camera alone, the mic carries on.
+async function openCamera() {
+  stopCamera();
+  const gen = ++mediaGen;
+  const got = await navigator.mediaDevices.getUserMedia({ video: videoConstraints(), audio: false });
+  if (gen !== mediaGen) {
+    for (const track of got.getTracks()) track.stop();
+    return false;
+  }
+  useCamera(got.getVideoTracks()[0]);
+  return true;
 }
 
-async function startMic() {
-  const gen = mediaGen, stream = media;  // this setup's own: a Flip or a Stop and Start while it waits hands the globals on
+async function openMic() {
+  const gen = mediaGen;
   try {
-    let ctx;
-    try {
-      ctx = new AudioContext({ sampleRate: 48000 });
-    } catch (_) {
-      ctx = new AudioContext();  // the worklet resamples whatever rate this runs at
-    }
-    audioCtx = ctx;
-    await ctx.audioWorklet.addModule("/mic-worklet.js");
-    if (gen !== mediaGen) {
-      ctx.close().catch(() => {});
+    const got = await navigator.mediaDevices.getUserMedia({ audio: MIC, video: false });
+    if (gen !== mediaGen || !running) {
+      for (const track of got.getTracks()) track.stop();
       return;
     }
-    const source = ctx.createMediaStreamSource(stream);
-    const node = new AudioWorkletNode(ctx, "mic-sender");
-    node.port.onmessage = (e) => sendAudio(e.data);
-    source.connect(node);
-    // Some browsers only run a node that leads to the speakers; a muted gain keeps it silent.
-    const mute = ctx.createGain();
-    mute.gain.value = 0;
-    node.connect(mute).connect(ctx.destination);
-    await ctx.resume();
-  } catch (err) {
-    if (gen === mediaGen) micError = "The browser couldn't record the microphone.";
+    useMic(got.getAudioTracks()[0]);
+  } catch (_) {
+    micError = "The browser couldn't record the microphone.";
+    sendHello();
   }
 }
 
-function onTrackEnded() {
-  // The camera was taken away (another app, or the page went to the background on iOS); get it back when visible.
-  if (running && document.visibilityState === "visible") restartMedia();
+function useCamera(track) {
+  camera = track;
+  try { track.contentHint = "motion"; } catch (_) { /* older browsers */ }
+  const s = track.getSettings ? track.getSettings() : {};
+  if (s.facingMode === "user" || s.facingMode === "environment") facing = s.facingMode;
+  video.srcObject = new MediaStream([track]);
+  // A camera that doesn't say which way it faces is a laptop's or a tablet's front one
+  video.classList.toggle("mirror", s.facingMode !== "environment");
+  video.play().catch(() => {});
+  track.addEventListener("ended", onCameraEnded);
+  torchOn = false;  // a camera opened again starts with its flash off
+  if (!frontCamera()) screenLight.hidden = true;
+  showLight();
+  if (videoSender) videoSender.replaceTrack(track).then(applyLimits, () => {});
 }
 
-async function restartMedia() {
+function useMic(track) {
+  if (mic && mic !== track) mic.stop();
+  mic = track;
+  track.addEventListener("ended", () => {
+    if (mic === track && running && document.visibilityState === "visible") openMic();
+  });
+  updateMicSender();
+}
+
+function stopCamera() {
+  if (camera) camera.stop();
+  camera = null;
+}
+
+function stopMedia() {
+  stopCamera();
+  if (mic) mic.stop();
+  mic = null;
+}
+
+// The camera's own flash where it has one; a front camera without one gets the screen as its light
+function hasTorch() {
   try {
-    if (await openMedia()) sendHello();
+    return !!(camera && camera.getCapabilities && camera.getCapabilities().torch);
+  } catch (_) {
+    return false;
+  }
+}
+
+function frontCamera() {
+  const s = camera && camera.getSettings ? camera.getSettings() : {};
+  return s.facingMode !== "environment";
+}
+
+// What the camera is asked for, flash included: applyConstraints replaces everything asked before
+function cameraConstraints() {
+  return torchOn ? Object.assign(videoConstraints(), { advanced: [{ torch: true }] }) : videoConstraints();
+}
+
+function showLight() {
+  lightBtn.hidden = !running || !camera || !(hasTorch() || frontCamera());
+  lightBtn.classList.toggle("on", torchOn || !screenLight.hidden);
+}
+
+async function toggleLight() {
+  if (hasTorch()) {
+    torchOn = !torchOn;
+    try {
+      await camera.applyConstraints(cameraConstraints());
+    } catch (_) {
+      torchOn = !torchOn;  // refused: it stays as it was
+    }
+  } else {
+    screenLight.hidden = !screenLight.hidden;
+  }
+  showLight();
+}
+
+function onCameraEnded() {
+  // The camera was taken away (another app, or the page went to the background on iOS); get it back when visible.
+  if (running && document.visibilityState === "visible") restartCamera();
+}
+
+async function restartCamera() {
+  try {
+    await openCamera();
   } catch (err) {
     if (running) show(cameraError(err), "err");
   }
@@ -200,39 +250,48 @@ function cameraError(err) {
   return `Couldn't open the camera (${err && err.name || "unknown error"}).`;
 }
 
-// ── Sending ────────────────────────────────────────────────────────────────
+// Flip only where there's another camera to flip to
+async function showFlip() {
+  let cameras = 2;
+  try {
+    cameras = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "videoinput").length;
+  } catch (_) { /* can't tell: offer it */ }
+  flipBtn.hidden = !running || cameras < 2;
+}
+
+// ── Connecting ─────────────────────────────────────────────────────────────
 
 function connect() {
   clearTimeout(retryTimer);
   const socket = new WebSocket(
     `wss://${location.host}/ws?token=${encodeURIComponent(token)}&id=${encodeURIComponent(browserId)}`);
-  socket.binaryType = "arraybuffer";
   ws = socket;
   socket.onopen = () => {
     retries = 0;
-    needKey = true;  // the computer starts a new decoder
     sendHello();
-    showConnected();
+    show("Connecting the video…");
+    negotiate();
   };
   socket.onmessage = (e) => {
     if (typeof e.data !== "string") return;
     let msg;
     try { msg = JSON.parse(e.data); } catch (_) { return; }
     if (msg.type === "config") applyConfig(msg);
-    else if (msg.type === "keyframe") needKey = true;
+    else if (msg.type === "answer") onAnswer(msg);
+    else if (msg.type === "rtc_error") show(msg.message || "The computer couldn't set up the video connection.", "err");
   };
   socket.onclose = (e) => {
     if (ws !== socket) return;
     ws = null;
+    closePeer();
     if (!running) return;
-    if (e.code === 4000) {
+    const why = { 4000: "This camera was opened in another tab.",
+                  4001: "All of your computer's virtual cameras are in use. Stop one there, then tap Start.",
+                  4002: "This code was replaced on the computer. Scan the new one to stream again." }[e.code];
+    if (why) {
       stop();
-      show("This camera was opened in another tab.", "warn");
-      return;
-    }
-    if (e.code === 4001) {
-      stop();
-      show("All of your computer's virtual cameras are in use. Stop one there, then tap Start.", "warn");
+      show(why, "warn");
+      startBtn.hidden = e.code === 4002;  // this code can't start anything again
       return;
     }
     retries += 1;
@@ -243,202 +302,169 @@ function connect() {
 }
 
 function sendHello() {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: "hello", device: deviceName(), mic_error: micError, codec: codecNow,
-                             codec_note: codecNote }));
-  }
+  send({ type: "hello", device: deviceName(), mic_error: micError });
+}
+
+function send(msg) {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
 }
 
 function applyConfig(msg) {
   const changed = msg.width !== config.width || msg.height !== config.height || msg.fps !== config.fps;
   const named = (msg.camera || "") !== (config.camera || "");
   config = { width: msg.width | 0 || 1280, height: msg.height | 0 || 720, fps: msg.fps | 0 || 30, audio: !!msg.audio,
-             h264: !!msg.h264, camera: typeof msg.camera === "string" ? msg.camera : "" };
-  if (named && ws && ws.readyState === WebSocket.OPEN) showConnected();
-  if (changed) {
-    longCap = Infinity;  // a size picked on the computer gets another try
-    resetPace();
-  }
-  if (!config.h264) closeEncoder();
-  const track = media && media.getVideoTracks()[0];
-  if (changed && track) track.applyConstraints(videoConstraints()).catch(() => {});
+             max_kbps: msg.max_kbps | 0 || 4000, camera: typeof msg.camera === "string" ? msg.camera : "" };
+  if (named && pc && pc.connectionState === "connected") showConnected();
+  updateMicSender();
+  if (changed && camera) resize();
+  else applyLimits();
 }
 
-function sendFrame() {
-  frameTimer = setTimeout(sendFrame, 1000 / config.fps);
-  if (!ws || ws.readyState !== WebSocket.OPEN) return;
-  const w = video.videoWidth, h = video.videoHeight;
-  if (!w || !h) return;
-  const [fw, fh] = frameSize(w, h);
-  const h264 = wantH264();
-  if (h264 && !encoderReady(fw, fh)) return;
-  if (!h264) showCodec("jpeg", h264Off || (config.h264 ? "" : "The computer can't decode H.264, so this sends JPEG."));
-  const busy = h264 ? encoder.encodeQueueSize > 1 : encoding;
-  notePace(busy);
-  if (busy || ws.bufferedAmount > MAX_BUFFERED) return;
-  canvas.width = fw;
-  canvas.height = fh;
-  ctx2d.drawImage(video, 0, 0, fw, fh);
-  if (h264) encodeH264();
-  else encodeJpeg();
-}
-
-function frameSize(w, h) {
-  // Never more than the computer asked for; a camera that can't do that size sends what it has.
-  const askedLong = Math.max(config.width, config.height), askedShort = Math.min(config.width, config.height);
-  const long = Math.min(askedLong, longCap), short = askedShort * long / askedLong;
-  const scale = Math.min(1, long / Math.max(w, h), short / Math.min(w, h));
-  return [2 * Math.round(w * scale / 2), 2 * Math.round(h * scale / 2)];  // H.264 needs even sizes
-}
-
-function encodeJpeg() {
-  encoding = true;
-  const gen = runGen;
-  canvas.toBlob((blob) => {
-    if (gen !== runGen) return;  // stopped since: Stop already cleared encoding for the next run
-    encoding = false;
-    if (blob && ws && ws.readyState === WebSocket.OPEN) ws.send(new Blob([new Uint8Array([FRAME_JPEG]), blob]));
-  }, "image/jpeg", JPEG_QUALITY);
-}
-
-// ── H.264 ──────────────────────────────────────────────────────────────────
-
-function wantH264() {
-  if (!config.h264 || h264Off) return false;
-  if (typeof VideoEncoder !== "function" || typeof VideoFrame !== "function") {
-    useJpeg("This browser has no video encoder for pages, so this sends JPEG.");
-    return false;
-  }
-  return true;
-}
-
-function encoderReady(w, h) {
-  const size = `${w}x${h}@${config.fps}`;
-  if (encoder && encoder.state === "configured" && encoderSize === size) return true;
-  if (!configuring) setUpEncoder(w, h, size);
-  return false;
-}
-
-async function setUpEncoder(w, h, size) {
-  configuring = true;
-  const gen = runGen;
+// A new size or rate: the camera is asked for it, and opened again where the browser ignores that (Safari often does).
+async function resize() {
+  const track = camera;
   try {
-    const cfg = await hardwareConfig(w, h);
-    if (gen !== runGen) return;  // stopped while the browser was checking: nothing here is wanted any more
-    if (!cfg) {
-      // Some hardware encoders stop short of 1080p: a smaller size may still have one
-      const next = STEP_DOWN.find((l) => l < Math.max(w, h));
-      if (next) longCap = next;
-      else useJpeg("This device has no hardware H.264 encoder the browser can use, so this sends JPEG.");
-      return;
-    }
-    if (!encoder || encoder.state === "closed") {
-      const enc = new VideoEncoder({
-        output: sendChunk,
-        error: (err) => { if (enc === encoder) useJpeg(`The H.264 encoder stopped (${err.message}), so this sends JPEG.`); },
-      });
-      encoder = enc;
-    }
-    encoder.configure(cfg);
-    encoderSize = size;
-    needKey = true;
-    showCodec("h264", "");
-  } catch (err) {
-    if (gen === runGen) useJpeg(`H.264 didn't start (${err.message}), so this sends JPEG.`);
-  } finally {
-    configuring = false;
-  }
+    await track.applyConstraints(cameraConstraints());
+  } catch (_) { /* reopened below */ }
+  const s = track.getSettings ? track.getSettings() : {};
+  const near = (a, b) => !a || Math.abs(a - b) < 64;
+  const fits = near(Math.max(s.width, s.height), Math.max(config.width, config.height)) && near(s.frameRate, config.fps);
+  if (track === camera && !fits && running) await restartCamera();
+  applyLimits();
 }
 
-async function hardwareConfig(w, h) {
-  for (const codec of H264_CODECS) {
-    // Chrome takes prefer-hardware as hardware only; a software encoder would be as slow as JPEG on a phone
-    const cfg = { codec, width: w, height: h, framerate: config.fps, bitrate: Math.min(12e6, Math.round(w * h * config.fps * 0.12)),
-                  hardwareAcceleration: "prefer-hardware", latencyMode: "realtime", avc: { format: "annexb" } };
-    try {
-      if ((await VideoEncoder.isConfigSupported(cfg)).supported) return cfg;
-    } catch (_) {
-      // not this one
-    }
-  }
-  return null;
-}
+// ── WebRTC ─────────────────────────────────────────────────────────────────
 
-function encodeH264() {
-  const frame = new VideoFrame(canvas, { timestamp: Math.round(performance.now() * 1000) });
-  const key = needKey || ++sinceKey >= config.fps * KEYFRAME_SECONDS;
-  if (key) {
-    needKey = false;
-    sinceKey = 0;
-  }
+async function negotiate() {
+  closePeer();
+  const socket = ws;
+  const peer = new RTCPeerConnection({ iceServers: [], bundlePolicy: "max-bundle" });  // the local network only
+  pc = peer;
+  const vt = peer.addTransceiver(camera || "video", { direction: "sendonly" });
+  videoSender = vt.sender;
+  preferCodecs(vt);
+  micSender = peer.addTransceiver("audio", { direction: "sendonly" }).sender;
+  updateMicSender();
+  peer.onconnectionstatechange = () => onPeerState(peer);
   try {
-    encoder.encode(frame, { keyFrame: key });
+    await peer.setLocalDescription(await peer.createOffer());
+    await iceGathered(peer);
   } catch (err) {
-    useJpeg(`The H.264 encoder stopped (${err.message}), so this sends JPEG.`);
-  } finally {
-    frame.close();
-  }
-}
-
-function sendChunk(chunk) {
-  const key = chunk.type === "key";
-  if (!ws || ws.readyState !== WebSocket.OPEN || ws.bufferedAmount > MAX_BUFFERED) {
-    dropping = needKey = true;  // what comes next refers to this frame, so start over from a keyframe
+    if (pc === peer) show(`This browser couldn't set up the video connection (${err.name || err}).`, "err");
     return;
   }
-  if (dropping && !key) return;
-  dropping = false;
-  const out = new Uint8Array(chunk.byteLength + 2);
-  out[0] = FRAME_H264;
-  out[1] = key ? 1 : 0;
-  chunk.copyTo(out.subarray(2));
-  ws.send(out);
+  if (pc !== peer || ws !== socket) return;  // superseded while the addresses were gathered
+  send({ type: "offer", sdp: peer.localDescription.sdp });
 }
 
-function useJpeg(note) {
-  h264Off = note;
-  closeEncoder();
-  showCodec("jpeg", note);
+function iceGathered(peer) {
+  if (peer.iceGatheringState === "complete") return Promise.resolve();
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ICE_WAIT_MS);
+    peer.addEventListener("icegatheringstatechange", () => {
+      if (peer.iceGatheringState !== "complete") return;
+      clearTimeout(timer);
+      resolve();
+    });
+  });
 }
 
-function closeEncoder() {
-  if (encoder && encoder.state !== "closed") {
-    try { encoder.close(); } catch (_) { /* already gone */ }
+// H.264 first (the device's hardware encoder; the computer decodes Constrained Baseline and Baseline), then VP8
+function preferCodecs(transceiver) {
+  if (typeof transceiver.setCodecPreferences !== "function" || !RTCRtpSender.getCapabilities) return;
+  const rank = (c) => {
+    const type = c.mimeType.toLowerCase(), fmtp = c.sdpFmtpLine || "";
+    if (type === "video/h264" && /packetization-mode=1/.test(fmtp)) {
+      if (/profile-level-id=42e0/i.test(fmtp)) return 0;
+      if (/profile-level-id=4200/i.test(fmtp)) return 1;
+    }
+    if (type === "video/vp8") return 2;
+    return 3;  // rtx, red, ulpfec, other H.264 profiles and codecs the computer doesn't decode
+  };
+  try {
+    const codecs = RTCRtpSender.getCapabilities("video").codecs;
+    transceiver.setCodecPreferences([...codecs].sort((a, b) => rank(a) - rank(b)));
+  } catch (_) { /* the browser's own order */ }
+}
+
+async function onAnswer(msg) {
+  const peer = pc;
+  if (!peer || typeof msg.sdp !== "string") return;
+  try {
+    await peer.setRemoteDescription({ type: "answer", sdp: msg.sdp });
+  } catch (err) {
+    if (pc === peer) show(`The video connection didn't start (${err.name || err}).`, "err");
+    return;
   }
-  encoder = null;
-  encoderSize = "";
+  applyLimits();
 }
 
-function showCodec(codec, note) {
-  if (codec === codecNow && note === codecNote) return;
-  codecNow = codec;
-  codecNote = note;
-  sendHello();
+function onPeerState(peer) {
+  if (pc !== peer) return;
+  clearTimeout(downTimer);
+  const state = peer.connectionState;
+  if (state === "connected") {
+    showConnected();
+    clearInterval(statsTimer);
+    statsTimer = setInterval(sendStats, STATS_SECONDS * 1000);
+  } else if (state === "failed") {
+    show("Reconnecting…", "warn");
+    negotiate();
+  } else if (state === "disconnected") {
+    show("Reconnecting…", "warn");
+    downTimer = setTimeout(() => { if (pc === peer && peer.connectionState !== "connected") negotiate(); },
+                           DISCONNECTED_SECONDS * 1000);
+  }
 }
 
-// Every couple of seconds: a device that skipped more than a share of frames for a busy encoder steps down a size.
-function notePace(busy) {
-  const now = performance.now();
-  if (!paceSince) paceSince = now;
-  ticks += 1;
-  if (busy) skipped += 1;
-  if (now - paceSince < SLOW_SECONDS * 1000) return;
-  const slow = skipped > ticks * SLOW_SHARE;
-  resetPace();
-  const next = STEP_DOWN.find((l) => l < Math.max(canvas.width, canvas.height));
-  if (slow && next) longCap = next;
+function closePeer() {
+  clearTimeout(downTimer);
+  clearInterval(statsTimer);
+  const peer = pc;
+  pc = videoSender = micSender = null;
+  if (peer) {
+    peer.onconnectionstatechange = null;
+    try { peer.close(); } catch (_) { /* already closed */ }
+  }
 }
 
-function resetPace() {
-  ticks = skipped = paceSince = 0;
+function updateMicSender() {
+  if (!micSender) return;
+  const track = config.audio && mic && mic.readyState === "live" ? mic : null;
+  if (micSender.track !== track) micSender.replaceTrack(track).catch(() => {});
 }
 
-function sendAudio(buffer) {
-  if (!config.audio || !ws || ws.readyState !== WebSocket.OPEN || ws.bufferedAmount > MAX_BUFFERED) return;
-  const out = new Uint8Array(buffer.byteLength + 1);
-  out[0] = FRAME_PCM;
-  out.set(new Uint8Array(buffer), 1);
-  ws.send(out);
+// The computer's limits for the encoder; a camera that delivers more than asked is scaled down here, not on the computer
+async function applyLimits() {
+  const sender = videoSender;
+  if (!sender || !camera) return;
+  try {
+    const params = sender.getParameters();
+    if (!params.encodings || !params.encodings.length) return;  // before the answer: applied again after it
+    const s = camera.getSettings ? camera.getSettings() : {};
+    const long = Math.max(s.width || 0, s.height || 0);
+    const enc = params.encodings[0];
+    enc.maxBitrate = config.max_kbps * 1000;
+    enc.maxFramerate = config.fps;
+    enc.scaleResolutionDownBy = long > 0 ? Math.max(1, long / Math.max(config.width, config.height)) : 1;
+    await sender.setParameters(params);
+  } catch (_) { /* some browsers refuse some of these; their defaults are fine */ }
+}
+
+async function sendStats() {
+  const sender = videoSender;
+  if (!sender) return;
+  let out = null;
+  try {
+    (await sender.getStats()).forEach((r) => {
+      if (r.type === "outbound-rtp" && r.kind !== "audio" && r.frameWidth) out = r;
+    });
+  } catch (_) { return; }
+  if (!out || sender !== videoSender) return;
+  const fps = Math.round(out.framesPerSecond || 0);
+  const limit = out.qualityLimitationReason === "cpu" || out.qualityLimitationReason === "bandwidth" ? out.qualityLimitationReason : "";
+  rateEl.textContent = `Sending ${out.frameWidth}×${out.frameHeight}` + (fps ? ` at ${fps} fps` : "");
+  send({ type: "stats", width: out.frameWidth, height: out.frameHeight, fps, limit });
 }
 
 // ── Screen ─────────────────────────────────────────────────────────────────
@@ -465,10 +491,10 @@ async function keepAwake() {
 document.addEventListener("visibilitychange", () => {
   if (!running || document.visibilityState !== "visible") return;
   keepAwake();
-  const track = media && media.getVideoTracks()[0];
-  if (!track || track.readyState === "ended") restartMedia();
-  if (audioCtx && audioCtx.state !== "running") audioCtx.resume().catch(() => {});
+  if (!camera || camera.readyState === "ended") restartCamera();
+  if (wantMic && (!mic || mic.readyState === "ended")) openMic();
   if (!ws) connect();
+  else if (pc && pc.connectionState === "failed") negotiate();
 });
 
 // Black screen: everything off but the camera, with the phone's bars hidden too where the browser allows it.
@@ -607,6 +633,10 @@ async function start() {
     show(cameraError(null), "err");
     return;
   }
+  if (typeof RTCPeerConnection !== "function") {
+    show("This browser can't send video. Try another browser, or update this one.", "err");
+    return;
+  }
   startBtn.disabled = true;
   show("Opening the camera…");
   try {
@@ -619,45 +649,51 @@ async function start() {
   running = true;
   prepareBlackVideo();
   startBtn.hidden = true;
-  flipBtn.hidden = stopBtn.hidden = darkBtn.hidden = false;
+  stopBtn.hidden = darkBtn.hidden = false;
+  showFlip();
+  showLight();
   keepAwake();
   show("Connecting…");
   connect();
-  sendFrame();
 }
 
 function stop() {
   running = false;
   mediaGen++;
-  runGen++;
   clearTimeout(retryTimer);
-  clearTimeout(frameTimer);
   const socket = ws;
   ws = null;
+  closePeer();
   if (socket) socket.close(1000);
   stopMedia();
-  closeEncoder();
-  h264Off = codecNow = codecNote = "";
-  encoding = false;
+  wantMic = false;
   if (wakeLock) wakeLock.release().catch(() => {});
   wakeLock = null;
   video.srcObject = null;
   startBtn.hidden = false;
   startBtn.disabled = false;
   flipBtn.hidden = stopBtn.hidden = darkBtn.hidden = true;
+  torchOn = false;
+  screenLight.hidden = true;
+  showLight();
   wake();
   if (blackVideo) blackVideo.pause();
   show("Stopped. Tap Start to use this camera again.");
 }
 
 startBtn.addEventListener("click", start);
+lightBtn.addEventListener("click", () => { if (!justWoke()) toggleLight(); });
+screenLight.addEventListener("click", () => {
+  screenLight.hidden = true;
+  showLight();
+});
 stopBtn.addEventListener("click", () => { if (!justWoke()) stop(); });
 darkBtn.addEventListener("click", () => { if (!justWoke()) goDark(); });
 flipBtn.addEventListener("click", async () => {
   if (justWoke()) return;
   facing = facing === "user" ? "environment" : "user";
   flipBtn.disabled = true;
-  await restartMedia();
+  await restartCamera();
   flipBtn.disabled = false;
 });
 

@@ -7,6 +7,12 @@ ifaddr>=0.2.0
 zeroconf>=0.132
 av>=12.0
 cryptography>=42
+# Browser camera (WebRTC). aiortc itself is in requirements-nodeps.txt
+aioice>=0.10.2
+pylibsrtp>=0.10.0
+pyee>=13.0.0
+google-crc32c>=1.1
+pyopenssl>=25.0.0
 truststore>=0.9
 sounddevice>=0.4.6; sys_platform == "win32"
 jeepney>=0.8; sys_platform == "linux"

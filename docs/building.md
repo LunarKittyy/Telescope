@@ -69,7 +69,7 @@ The three build workflows below also run on every pull request, without publishi
 ### `build-windows.yml` (`windows`) - runs for `desktop/**`, `installer/**`, `VERSION` or the workflow itself
 
 1. Python 3.11 + pip cache
-2. `pip install -r requirements-dev.txt pyinstaller -c constraints.txt`; runs `pytest`
+2. `pip install -r requirements-dev.txt pyinstaller -c constraints.txt`, then `pip install --no-deps -r requirements-nodeps.txt -c constraints.txt` (aiortc, whose PyAV cap is out of date); runs `pytest`
 3. In a release: `scripts/write_build_info.py` stamps the version into `telescope/_build.py`
 4. `python scripts/smoke_check.py` - packaging smoke checks (see below)
 5. `scripts/windows_driver_check.ps1` installs UnityCapture for real on the runner: it starts from an old registration in the app folder, checks that a junction, a planted DLL symlink and a user-owned folder in Program Files are each refused with their targets untouched, then does a clean install with `%ProgramFiles%` pointed elsewhere and checks the files land admin-owned in the real Program Files, the old registration moved, it's listed as **Telescope**, and pyvirtualcam opens it
@@ -84,10 +84,10 @@ The setup (`installer/Telescope.iss`) is per-user: it installs to `%LOCALAPPDATA
 
 ### `build-linux.yml` (`linux`) - runs for `desktop/**`, `VERSION` or the workflow itself
 
-1. Python 3.11 + pip cache; apt-installs `libegl1 libgl1 libxkbcommon0 libdbus-1-3` (PyQt6 needs these even in headless/offscreen test mode); installs `requirements-dev.txt` via `constraints.txt`; runs `pytest`
+1. Python 3.11 + pip cache; apt-installs `libegl1 libgl1 libxkbcommon0 libdbus-1-3` (PyQt6 needs these even in headless/offscreen test mode); installs `requirements-dev.txt` via `constraints.txt` and `requirements-nodeps.txt` with `--no-deps`; runs `pytest`
 2. In a release: stamps the version
 3. `python3 scripts/smoke_check.py` - packaging smoke checks
-4. Assembles the bundle: `main.py` + `update_guard.py` + `telescope/` package + `requirements.txt` + `constraints.txt` + `start.sh` + `THIRD_PARTY_NOTICES.txt`
+4. Assembles the bundle: `main.py` + `update_guard.py` + `telescope/` package + `requirements.txt` + `requirements-nodeps.txt` + `constraints.txt` + `start.sh` + `THIRD_PARTY_NOTICES.txt`
 
 No compiled build step - the Linux bundle is the Python source and launcher script, which creates its own venv on first run (see `start.sh`).
 
@@ -97,4 +97,4 @@ Publishes `site/`, the landing page, to GitHub Pages as it is; there's no build 
 
 ### `desktop/scripts/smoke_check.py`
 
-Run in both desktop CI workflows before assembling the bundle: constructs the full app and registers every plugin, exercises ADB discovery and virtual-camera-availability detection without crashing, drives a real authenticated MJPEG round-trip (auth header, multipart framing, JPEG decode, and that an unauthenticated request is actually rejected) against a local test server, and makes a Browser camera certificate, fetches the page over TLS and sends a frame over its WebSocket (so a bundle missing `cryptography` or the `web/` files fails here). It isn't a substitute for testing against a real phone - see the manual [release checklist](release-checklist.md) and [device-compatibility matrix](device-compatibility.md) for that.
+Run in both desktop CI workflows before assembling the bundle: constructs the full app and registers every plugin, exercises ADB discovery and virtual-camera-availability detection without crashing, drives a real authenticated MJPEG round-trip (auth header, multipart framing, JPEG decode, and that an unauthenticated request is actually rejected) against a local test server, and makes a Browser camera certificate, fetches the page over TLS and has an aiortc peer send video through the WebSocket's offer and answer into the reader (so a bundle missing `cryptography`, aiortc or the `web/` files fails here). It isn't a substitute for testing against a real phone - see the manual [release checklist](release-checklist.md) and [device-compatibility matrix](device-compatibility.md) for that.

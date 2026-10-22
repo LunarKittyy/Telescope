@@ -104,6 +104,7 @@ telescope/
     |-- update_guard.py          # Finishes or rolls back an update before the app imports anything
     |-- requirements.txt         # Readable ">=" lower bounds
     |-- requirements-dev.txt     # requirements.txt + pytest, used by CI
+    |-- requirements-nodeps.txt  # aiortc, installed with --no-deps after the rest (its PyAV cap is out of date)
     |-- constraints.txt          # Exact pinned versions for CI/release installs
     |-- scripts/smoke_check.py   # Packaging smoke checks (see building.md)
     |-- scripts/dev_desktop.py   # A dev desktop in its own profile, paired with the dev app (see building.md)
@@ -150,7 +151,8 @@ telescope/
         |-- discovery.py         # Finds phones on the LAN via mDNS (zeroconf)
         |-- ip_utils.py          # Desktop address discovery for the pairing code, address ranking
         |-- browser_server.py    # Browser camera: HTTPS + WebSocket server, its certificate, BrowserReader
-        |-- web/                 # The page the Browser camera serves (HTML, JS, mic AudioWorklet)
+        |-- browser_rtc.py       # Browser camera: the WebRTC side (aiortc), answers the page and decodes
+        |-- web/                 # The page the Browser camera serves (HTML, JS)
         |-- platform/
         |   |-- adb_download.py  # Windows: adb from Google, on request
         |   |-- autostart.py     # Open at sign-in (XDG autostart / HKCU Run)
