@@ -19,6 +19,7 @@ SCENARIOS = [
     "the_mirror_follows_the_camera_not_the_request",
     "the_mic_follows_the_computer",
     "a_lost_mic_comes_back",
+    "a_mic_that_recovers_clears_its_error_on_the_computer",
     "a_refused_mic_leaves_the_camera_working",
     "a_size_the_camera_ignores_reopens_it",
     "a_new_link_stops_the_page",

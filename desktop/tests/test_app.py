@@ -9,7 +9,7 @@ import sys
 import pytest
 from PyQt6.QtCore import QCoreApplication, QEvent
 from PyQt6.QtGui import QAction
-from PyQt6.QtWidgets import QLabel, QMenu, QWidget
+from PyQt6.QtWidgets import QLabel, QMenu, QToolButton, QWidget
 
 import telescope.app as app_module
 import telescope.single_instance as instance_module
@@ -607,6 +607,42 @@ def test_a_plugin_still_using_the_settings_menu_hook_is_warned_about(window, cap
     with caplog.at_level("WARNING"):
         window.register_plugin(plugin)
     assert "old_style" in caplog.text and "create_menu_actions" in caplog.text
+
+
+def test_a_legacy_plugins_settings_actions_still_work(window, qapp):
+    triggered = []
+    enabled = [True]
+
+    class LegacyPlugin(TelescopePlugin):
+        name = "legacy"
+        title = "Legacy effect"
+
+        def create_menu_actions(self):
+            entries = super().create_menu_actions()
+            toggle = QAction("Enable effect")
+            toggle.setCheckable(True)
+            toggle.triggered.connect(triggered.append)
+            menu = QMenu("More")
+            menu.addAction("Reset").triggered.connect(lambda: triggered.append("reset"))
+            menu.setEnabled(enabled[0])
+            return entries + [toggle, menu]
+
+    window.register_plugin(LegacyPlugin())
+    window.open_settings("general")
+    try:
+        win = window._settings_win
+        button = next(b for b in win.findChildren(QToolButton) if b.text() == "Open settings")
+        actions = button.menu().actions()
+        assert actions[0].text() == "Enable effect"
+        actions[0].trigger()
+        assert actions[0].isChecked() and triggered == [True]
+        actions[1].menu().actions()[0].trigger()
+        assert triggered == [True, "reset"]
+        enabled[0] = False
+        button.menu().aboutToShow.emit()
+        assert not button.menu().actions()[1].isEnabled()
+    finally:
+        window._settings_win.close()
 
 
 def test_save_config_separates_global_and_device_local_plugins(window, config_home):

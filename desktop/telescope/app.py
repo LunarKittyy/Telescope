@@ -353,9 +353,10 @@ class TelescopeWindow(QMainWindow):
         is taken back out again (and the exception passed on) rather than left half in."""
         panel = header_widget = None
         tray: list = []
-        if getattr(plugin, "create_menu_actions", None) is not None:
-            logging.warning("Plugin %s has create_menu_actions(), which Telescope no longer calls: the settings menu "
-                            "is now a settings window. Its create_settings_sections() takes its place.", plugin.name)
+        legacy = getattr(plugin, "create_menu_actions", None)
+        if legacy is not None and getattr(legacy, "__func__", None) is not TelescopePlugin.create_menu_actions:
+            logging.warning("Plugin %s uses the deprecated create_menu_actions() hook; its actions remain in Settings. "
+                            "Use create_settings_sections() for the settings window.", plugin.name)
         try:
             plugin.setup(self, self._bus)
             panel = plugin.create_panel()
