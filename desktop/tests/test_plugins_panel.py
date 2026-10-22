@@ -206,8 +206,11 @@ def test_switching_one_keeps_the_list_where_it_was(qapp, plugins, answers):
     win = SettingsWindow([SettingsSection("plugins", panel, on_show=panel.refresh)])
     win.resize(700, 500)
     win.show()
-    QTest.qWait(50)  # the rows are rebuilt as the tab comes up, and laid out a pass later
     bar = win._stack.currentWidget().verticalScrollBar()
+    for _ in range(40):  # the rows are rebuilt as the tab comes up, and laid out a pass later
+        if bar.maximum() > 0:
+            break
+        QTest.qWait(50)
     bar.setValue(bar.maximum())
     at = bar.value()
     assert at > 0

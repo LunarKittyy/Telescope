@@ -8,6 +8,7 @@ from PyQt6.QtCore import QCoreApplication, QEvent, QTimer
 
 import telescope.app as app_module
 import telescope.plugins.connection as connection_module
+import telescope.plugins.setup as setup_plugin
 from telescope.plugin import TelescopePlugin
 from telescope.plugins import builtin_plugins
 from telescope.plugins.onboarding import OnboardingPlugin
@@ -137,6 +138,8 @@ def build(qapp, config_home, monkeypatch):
     monkeypatch.setattr(app_module, "StreamWorker", _Worker)
     monkeypatch.setattr(connection_module, "LanDiscovery", lambda *a, **k: _Held())
     monkeypatch.setattr(connection_module, "stop_adb_server", lambda: None)
+    monkeypatch.setattr(setup_plugin, "uc_registered_name", lambda: None, raising=False)  # Setup's tabs scan the registry on a thread when shown
+    monkeypatch.setattr(setup_plugin, "uc_in_app_folder", lambda: False, raising=False)
     monkeypatch.setattr(connection_module.ConnectionPlugin, "_spawn_resolve", lambda self, *a: None)
     monkeypatch.setattr(connection_module.ConnectionPlugin, "ensure_virtual_camera", lambda self, interactive=True: True)
     monkeypatch.setattr(OnboardingPlugin, "check_virtual_camera", lambda self: None)
