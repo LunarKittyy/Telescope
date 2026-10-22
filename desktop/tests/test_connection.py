@@ -422,7 +422,7 @@ def test_a_long_phone_list_scrolls_instead_of_growing_off_the_screen(plugin_env,
     dialog.show()
     qapp.processEvents()
     assert dialog._scroll.verticalScrollBar().maximum() == 0
-    short = dialog.height()
+    short = dialog.heightForWidth(dialog.width())  # what it asks for: a window manager may resize it later
     for i in range(1, 100):
         _add(plugin, pid=f"id-{i}", name=f"Phone {i}", token=f"tok-{i}", ips=(f"10.0.1.{i}",))
     dialog.refresh()
@@ -430,7 +430,8 @@ def test_a_long_phone_list_scrolls_instead_of_growing_off_the_screen(plugin_env,
     assert len(dialog._rows) == 100
     assert dialog._scroll.height() <= connection_module.ui_px(connection_module._PhoneRows.MAX_HEIGHT)
     assert dialog._scroll.verticalScrollBar().maximum() > 0
-    assert short < dialog.height() < short + connection_module.ui_px(connection_module._PhoneRows.MAX_HEIGHT)
+    assert short < dialog.heightForWidth(dialog.width()) < short + connection_module.ui_px(
+        connection_module._PhoneRows.MAX_HEIGHT)
     dialog.close()
 
 
