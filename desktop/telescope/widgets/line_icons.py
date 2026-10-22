@@ -35,6 +35,7 @@ LINE_ICONS = {
     "battery_charging": '<rect x="1.5" y="5" width="11.5" height="6.5" rx="1.6"/><path d="M14.5 7.2v2.2M7.6 6L6 8.3h2.6L7 10.6"/>',
     "thermometer": '<path d="M6.3 2.8a1.7 1.7 0 0 1 3.4 0v5.9a3.1 3.1 0 1 1-3.4 0z"/><path d="M8 6.2v4.3"/>',
     "chevron": '<path d="M4.5 6.5l3.5 3.5 3.5-3.5"/>',
+    "search": '<circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/>',
     "plus": '<path d="M8 3v10M3 8h10"/>',
     "x": '<path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/>',
     "check": '<path d="M3.5 8.5l3 3 6-7"/>',

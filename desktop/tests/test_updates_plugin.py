@@ -21,6 +21,10 @@ class _Host(QWidget):
         self.streaming = False
         self.quits = 0
         self.saves = 0
+        self.settings_tabs = []
+
+    def open_settings(self, tab=""):
+        self.settings_tabs.append(tab)
 
     def is_streaming(self):
         return self.streaming
@@ -30,6 +34,16 @@ class _Host(QWidget):
 
     def quit_app(self):
         self.quits += 1
+
+
+def _open(plugin):
+    """What opening Settings on the Updates & About tab does: the card is built, shown and brought up to date."""
+    if plugin._section is None:
+        plugin.create_settings_sections()
+    plugin.open_updates()
+    plugin._section.show()
+    plugin._section.refresh()
+    return plugin._section
 
 
 @pytest.fixture
@@ -176,15 +190,15 @@ def test_no_update_while_streaming(env, monkeypatch):
     host.streaming = True
     started = []
     monkeypatch.setattr(UpdatesPlugin, "_spawn_install", lambda self, asset, via_setup=False: started.append(asset))
-    plugin.open_dialog()
-    assert not plugin._dlg._update_btn.isEnabled()
-    assert "Stop streaming to update" in plugin._dlg._status.text()
+    _open(plugin)
+    assert not plugin._section._update_btn.isEnabled()
+    assert "Stop streaming to update" in plugin._section._status.text()
     plugin.update_now()
     assert started == []
     host.streaming = False
     bus.stream_stopped.emit()
-    assert plugin._dlg._update_btn.isEnabled()
-    plugin._dlg.close()
+    assert plugin._section._update_btn.isEnabled()
+    plugin._section.close()
 
 
 def test_a_failed_update_says_why_and_keeps_running(env, monkeypatch):
@@ -203,11 +217,11 @@ def test_a_copy_that_cant_replace_itself_links_to_the_release(env, monkeypatch):
     monkeypatch.setattr(updates, "self_update_blocker", lambda directory=None: "This is a source checkout. Update it with git.")
     opened = []
     monkeypatch.setattr(plugin_module.QDesktopServices, "openUrl", lambda url: opened.append(url.toString()))
-    plugin.open_dialog()
-    assert plugin._dlg._update_btn.text() == "Open download page"
+    _open(plugin)
+    assert plugin._section._update_btn.text() == "Open download page"
     plugin.update_now()
     assert opened == ["https://notes"]
-    plugin._dlg.close()
+    plugin._section.close()
 
 
 def test_config_round_trips_and_defaults_to_the_build_s_channel(env):
@@ -222,11 +236,10 @@ def test_config_round_trips_and_defaults_to_the_build_s_channel(env):
     assert plugin.get_config()["keep_portable"] is True
 
 
-def test_a_newer_phone_app_opens_the_dialog(env):
-    plugin, _host, bus, _button, _fetched = env
+def test_a_newer_phone_app_opens_settings_on_updates(env):
+    plugin, host, bus, _button, _fetched = env
     bus.update_requested.emit()
-    assert plugin._dlg is not None and plugin._dlg.isVisible()
-    plugin._dlg.close()
+    assert host.settings_tabs == ["about"]
 
 
 def test_the_relaunched_app_unpacks_its_own_copy():
@@ -247,7 +260,7 @@ def test_the_dialog_says_a_build_was_rolled_back_and_lets_the_user_try_again(env
     assert "0.6.0 nightly 200 didn't start after updating, so it's held back" in text and kind == "status_warn"
     assert plugin.available is None and button.isHidden()
 
-    dlg = plugin_module.UpdatesDialog(plugin)
+    dlg = plugin_module.UpdatesSection(plugin)
     dlg.show()
     dlg.refresh()
     assert not dlg._retry.isHidden()
@@ -315,9 +328,9 @@ def test_the_installer_route_relaunches_the_installed_copy(unzipped, monkeypatch
 def test_keeping_it_portable_updates_in_place(unzipped, monkeypatch):
     plugin, _host, _bus, _button, _fetched = unzipped
     plugin.check()
-    plugin.open_dialog()
-    assert not plugin._dlg._portable_row.isHidden()
-    plugin._dlg._portable.setChecked(True)
+    _open(plugin)
+    assert not plugin._section._portable_row.isHidden()
+    plugin._section._portable.setChecked(True)
     assert plugin.keep_portable and not plugin.moves_on_update()
     assert "installs it for your user" not in plugin.status_text()[0]
     spawned = []
@@ -325,7 +338,7 @@ def test_keeping_it_portable_updates_in_place(unzipped, monkeypatch):
                         lambda self, asset, via_setup=False: spawned.append((asset.name, via_setup)))
     plugin.update_now()
     assert spawned == [("Telescope-windows-portable.zip", False)]
-    plugin._dlg.close()
+    plugin._section.close()
 
 
 def test_no_move_without_a_setup_or_with_the_driver_in_this_folder(unzipped, monkeypatch):
@@ -346,9 +359,9 @@ def test_an_installed_copy_never_moves(env, monkeypatch):
     monkeypatch.setattr(updates, "is_unzipped_copy", lambda directory=None: False)
     plugin.check()
     assert not plugin.moves_on_update()
-    plugin.open_dialog()
-    assert plugin._dlg._portable_row.isHidden()
-    plugin._dlg.close()
+    _open(plugin)
+    assert plugin._section._portable_row.isHidden()
+    plugin._section.close()
 
 
 def test_a_move_needs_no_writable_folder(unzipped, monkeypatch):

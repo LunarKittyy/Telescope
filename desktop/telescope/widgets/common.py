@@ -929,7 +929,7 @@ def name_controls(label: str, item):
 
 
 def control_row(label: str, widget, label_width: int = FORM_LABEL_WIDTH,
-                stretch: bool = False) -> QHBoxLayout:
+                stretch: bool = False, keywords: str = "") -> QHBoxLayout:
     """Settings row: dim label, then the control starting at a shared column so label and value sit side by side."""
     stretch = stretch or isinstance(widget, Switch)  # a switch sits at the row's end
     if label:
@@ -938,7 +938,10 @@ def control_row(label: str, widget, label_width: int = FORM_LABEL_WIDTH,
     lay.setContentsMargins(0, 0, 0, 0)
     lay.setSpacing(10)
     # Top-anchored: when the control wraps (lens pills) the label lines up with its first line, not the block's middle.
-    lay.addWidget(form_label(label, label_width), 0, Qt.AlignmentFlag.AlignTop)
+    name = form_label(label, label_width)
+    if keywords:
+        name.setProperty("keywords", keywords)  # for the settings search
+    lay.addWidget(name, 0, Qt.AlignmentFlag.AlignTop)
     if isinstance(widget, QLayout): lay.addLayout(widget, 1 if stretch else 0)
     else:                           lay.addWidget(widget, 1 if stretch else 0)
     if not stretch:
@@ -1040,12 +1043,32 @@ class ComboItemDelegate(QStyledItemDelegate):
     def _separator(index) -> bool:
         return index.data(Qt.ItemDataRole.AccessibleDescriptionRole) == "separator"  # what insertSeparator marks
 
+    @staticmethod
+    def _heading(index) -> bool:
+        return index.data(Qt.ItemDataRole.AccessibleDescriptionRole) == "heading"  # a group's title among its items
+
     def sizeHint(self, option, index):
         if self._separator(index):
             return QSize(option.rect.width(), 9)
-        return super().sizeHint(option, index)
+        hint = super().sizeHint(option, index)
+        return QSize(hint.width(), hint.height() + 6) if self._heading(index) else hint
 
     def paint(self, painter, option, index):
+        if self._heading(index):
+            painter.save()
+            band = QColor(theme.ACCENT)
+            band.setAlphaF(0.12)
+            painter.fillRect(option.rect.adjusted(0, 2, 0, -1), band)
+            font = QFont(option.font)
+            font.setBold(True)
+            font.setPointSizeF(font.pointSizeF() * 0.85)
+            painter.setFont(font)
+            painter.setPen(QColor(theme.ACCENT))
+            text = option.rect.adjusted(10, 0, -10, 0)
+            painter.drawText(text, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft),
+                             index.data(Qt.ItemDataRole.DisplayRole))
+            painter.restore()
+            return
         if self._separator(index):
             painter.save()
             painter.setPen(QPen(QColor(theme.BORDER_HOVER), 1))

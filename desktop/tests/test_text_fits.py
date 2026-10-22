@@ -8,7 +8,9 @@ import telescope.pairing as pairing_module
 import telescope.plugins.setup as setup_plugin_module
 from telescope.ip_utils import PairingAddress
 from telescope.phones import Phone
+from telescope.plugin import SettingsSection
 from telescope.theme import apply_theme
+from telescope.widgets.settings_window import SettingsWindow
 
 # QSS horizontal padding + border of the widest button style, both sides.
 _BUTTON_CHROME = 2 * 14 + 2
@@ -27,6 +29,19 @@ def _clipped_buttons(root):
     return clipped
 
 
+def _settings_tabs_clipped(sections, qapp):
+    """Open a settings window on these sections and look at every tab in turn."""
+    win = SettingsWindow(sections)
+    win.show()
+    clipped = []
+    for tab in win.tabs():
+        win.show_tab(tab)
+        qapp.processEvents()
+        clipped += _clipped_buttons(win._stack.currentWidget())
+    win.close()
+    return clipped
+
+
 @pytest.mark.parametrize("linux", [True, False])
 def test_setup_dialog_button_text_fits(qapp, monkeypatch, linux):
     apply_theme(qapp)
@@ -34,16 +49,10 @@ def test_setup_dialog_button_text_fits(qapp, monkeypatch, linux):
     monkeypatch.setattr(setup_plugin_module, "v4l2_devices_ready", lambda: True)
     monkeypatch.setattr(setup_plugin_module, "v4l2_persist_status",
                         lambda: {"modprobe_conf": False, "modules_load_conf": False})
-    dialog = setup_plugin_module.AdvancedDialog()
+    dialog = setup_plugin_module.AdvancedSettings()
     for name, in_app_folder in ([] if linux else [("", False), ("Unity Video Capture", False), ("Telescope", True)]):
         dialog._on_win_checks(name, True, in_app_folder)
-        dialog.show()
-        qapp.processEvents()
-        assert _clipped_buttons(dialog) == []
-    dialog.show()
-    qapp.processEvents()
-    assert _clipped_buttons(dialog) == []
-    dialog.hide()
+    assert _settings_tabs_clipped(dialog.sections(), qapp) == []
 
 
 class _FakePhonesPlugin:
@@ -105,10 +114,11 @@ def test_text_still_fits_with_larger_text(larger_text, qapp, monkeypatch, linux)
     monkeypatch.setattr(connection_module, "adb_available", lambda: False)
     monkeypatch.setattr(pairing_module.ip_utils, "get_pairing_addresses",
                         lambda: [PairingAddress("192.168.1.2", "wlan0", "lan")])
-    dialog = setup_plugin_module.AdvancedDialog()
+    panel = setup_plugin_module.AdvancedSettings()
     if not linux:
-        dialog._on_win_checks("", True)
-    for d in (dialog, connection_module.AddPhoneDialog(None, "cid", "Desk", lambda *a: None),
+        panel._on_win_checks("", True)
+    assert _settings_tabs_clipped(panel.sections(), qapp) == []
+    for d in (connection_module.AddPhoneDialog(None, "cid", "Desk", lambda *a: None),
               connection_module.PhonesDialog(_FakePhonesPlugin())):
         d.show()
         qapp.processEvents()
@@ -116,8 +126,8 @@ def test_text_still_fits_with_larger_text(larger_text, qapp, monkeypatch, linux)
         d.close()
 
 
-def test_stop_delay_dialog_fields_fit(qapp):
-    from telescope.plugins.startup import StartupPlugin, StopDelayDialog
+def test_automatic_streaming_fields_fit(qapp):
+    from telescope.plugins.startup import AutomaticStreamingSection, StartupPlugin
     apply_theme(qapp)
 
     class _Host:
@@ -126,37 +136,15 @@ def test_stop_delay_dialog_fields_fit(qapp):
 
     plugin = StartupPlugin()
     plugin._host = _Host()
-    dialog = StopDelayDialog(plugin)
-    dialog.refresh()
-    dialog.show()
+    section = AutomaticStreamingSection(plugin)
+    section.refresh()
+    win = SettingsWindow([SettingsSection("streaming", section)])
+    win.show()
     qapp.processEvents()
-    for combo_index in range(dialog._unit.count()):
-        dialog._unit.setCurrentIndex(combo_index)
+    for index in range(section._unit.count()):
+        section._unit.setCurrentIndex(index)
         qapp.processEvents()
-        assert dialog._unit.width() >= dialog._unit.sizeHint().width()  # the longest unit fits
-        assert dialog._value.width() >= dialog._value.sizeHint().width()
-    assert _clipped_buttons(dialog) == []
-    dialog.close()
-
-
-def test_monitoring_alert_checkboxes_fit_the_rail(qapp):
-    from PyQt6.QtWidgets import QCheckBox
-    from telescope.app import _RAIL_WIDTH
-    from telescope.plugin import EventBus
-    from telescope.plugins.monitoring import MonitoringPlugin
-    from telescope.widgets.common import ui_px
-    apply_theme(qapp)
-
-    class _Host:
-        def schedule_save(self): ...
-
-    plugin = MonitoringPlugin()
-    plugin.setup(_Host(), EventBus())
-    card = plugin.create_panel()
-    card.setFixedWidth(ui_px(_RAIL_WIDTH))
-    card.show()
-    qapp.processEvents()
-    for box in card.findChildren(QCheckBox):
-        assert box.width() >= box.sizeHint().width(), box.text()
-        assert box.geometry().right() < card.width(), box.text()
-    card.close()
+        assert section._unit.width() >= section._unit.sizeHint().width()  # the longest unit fits
+        assert section._value.width() >= section._value.sizeHint().width()
+    assert _clipped_buttons(win) == []
+    win.close()

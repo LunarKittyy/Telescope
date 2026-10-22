@@ -30,14 +30,14 @@ sudo dnf install android-tools   # Fedora/Nobara
 sudo pacman -S android-tools     # Arch
 ```
 
-The `start.sh` script handles pip dependencies automatically, and only goes online for them when they change (first run, or an update). Once the package above is installed, Telescope loads the module when you start streaming. It asks for your password once. **Also switch it on at every startup** is ticked in that prompt, so later boots won't ask again. Without a graphical password prompt (no pkexec or no polkit agent), it shows the command to run in a terminal instead, with a Copy button. **Advanced** in the settings menu can load and unload it too, or run it manually:
+The `start.sh` script handles pip dependencies automatically, and only goes online for them when they change (first run, or an update). Once the package above is installed, Telescope loads the module when you start streaming. It asks for your password once. **Also switch it on at every startup** is ticked in that prompt, so later boots won't ask again. Without a graphical password prompt (no pkexec or no polkit agent), it shows the command to run in a terminal instead, with a Copy button. **Virtual camera & phone** in Settings can load and unload it too, or run it manually:
 
 ```bash
 sudo modprobe v4l2loopback devices=2 video_nr=10,11 \
   card_label="OBS Virtual Camera,Phone Camera" exclusive_caps=1
 ```
 
-To load it at every boot, switch on **Load when the computer starts** in Advanced -
+To load it at every boot, switch on **Load when the computer starts** under Virtual camera & phone in Settings -
 it writes the same module options to `/etc/modprobe.d/99-telescope-v4l2loopback.conf` and
 `/etc/modules-load.d/99-telescope-v4l2loopback.conf` (and can be unticked later to remove them
 again). It refuses to write if another config already sets `v4l2loopback` options, so it won't

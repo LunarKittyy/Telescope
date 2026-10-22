@@ -9,7 +9,7 @@ import telescope.plugins.wait_screen as wait_screen_module
 import telescope.vcam as vcam
 from telescope.plugin import EventBus
 from telescope.plugins.setup import CANVAS_PRESETS, canvas_dims
-from telescope.plugins.wait_screen import WaitScreenDialog, WaitScreenPlugin
+from telescope.plugins.wait_screen import WaitScreenPlugin, WaitScreenSection
 from test_app import camera_env, window  # noqa: F401 (the fixtures)
 
 
@@ -228,9 +228,9 @@ def test_a_failed_replacement_keeps_the_previous_image(env, tmp_path, config_hom
     assert host.saves == saves and len(screen.shown) == shows
 
 
-def test_the_dialog_says_when_a_pick_failed_or_wont_load(env, tmp_path, monkeypatch):
+def test_the_card_says_when_a_pick_failed_or_wont_load(env, tmp_path, monkeypatch):
     plugin = env[0]
-    dlg = WaitScreenDialog(plugin)
+    dlg = WaitScreenSection(plugin)
     monkeypatch.setattr(WaitScreenPlugin, "set_image", lambda self, path: "No space left on device")
     dlg._set(str(tmp_path / "x.png"))
     assert "No space left on device" in dlg._note.text() and "Keeping" in dlg._note.text()
@@ -292,13 +292,13 @@ def test_shutdown_lets_go_for_good(env):
     assert len(screen.shown) == 1
 
 
-def test_menu_opens_the_dialog(env):
+def test_settings_section_goes_in_streaming_and_shows_the_wait_screen(env):
     plugin = env[0]
-    (action,) = plugin.create_menu_actions()
-    assert action.text() == "Wait screen…"
-    action.trigger()
-    dlg = plugin._dlg
-    assert isinstance(dlg, WaitScreenDialog) and dlg.isVisible()
+    (section,) = plugin.create_settings_sections()
+    assert section.tab == "streaming" and isinstance(section.widget, WaitScreenSection)
+    dlg = section.widget
+    dlg.show()
+    section.on_show()
     assert not dlg._default_btn.isEnabled()
     assert dlg._preview.pixmap() is not None and not dlg._preview.pixmap().isNull()
     assert not dlg._mirror_box.isChecked()

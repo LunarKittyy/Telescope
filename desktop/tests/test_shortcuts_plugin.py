@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import QApplication, QCheckBox, QLineEdit, QPushButton, QVB
 
 from telescope.platform.hotkeys import HotkeyBackend, HotkeyStatus
 from telescope.plugins import shortcuts as shortcuts_module
-from telescope.plugins.shortcuts import BindingEditor, ShortcutsDialog, ShortcutsPlugin, action_command
+from telescope.plugins.shortcuts import BindingEditor, ShortcutsPlugin, ShortcutsSection, action_command
 from telescope.shortcuts import button_action, slider_action
 from telescope.widgets.common import NoScrollSlider
 
@@ -341,7 +341,7 @@ def test_dialog_lists_bindings(make, monkeypatch):
     monkeypatch.setattr(shortcuts_module, "IS_LINUX", True)
     plugin, _host, backend = make([_b("a", "Ctrl+Alt+M", "microphone.mute", glob=True), _b("b", "F2", "camera.torch")])
     backend.statuses["a"] = HotkeyStatus(True, "Everywhere: Meta+M")
-    dialog = ShortcutsDialog(plugin)
+    dialog = ShortcutsSection(plugin)
     try:
         dialog.refresh()
         assert [r.where.text() for r in dialog._rows] == ["Everywhere: Meta+M", plugin.where(plugin.bindings[1])[0]]
@@ -595,3 +595,24 @@ def test_keys_reach_a_window_where_nothing_takes_focus(make, card):
         assert card.torch.isChecked()
     finally:
         bare.close()
+
+
+def test_the_editors_search_forgives_typos_and_still_wants_word_starts():
+    from telescope.shortcuts import ShortcutAction
+    mute = ShortcutAction("microphone.mute", "Mute", "Microphone", run=lambda p: None, keywords="silence")
+    assert BindingEditor._matches(mute, "") and BindingEditor._matches(mute, "mute")
+    assert BindingEditor._matches(mute, "mutee") and BindingEditor._matches(mute, "silence")
+    assert not BindingEditor._matches(mute, "crop")  # inside "microphone" is no match
+
+
+def test_the_editors_control_list_marks_group_titles_so_they_look_different(make, qapp):
+    plugin, _host, _backend = make([])
+    editor = BindingEditor(plugin, {"id": "x", "keys": "", "action": "", "params": {}, "global": True}, None)
+    try:
+        model = editor._action_combo.model()
+        items = [model.item(i) for i in range(model.rowCount())]
+        titles = [i for i in items if i.accessibleDescription() == "heading"]
+        assert titles and all(not t.flags() & Qt.ItemFlag.ItemIsEnabled for t in titles)
+        assert all(i.flags() & Qt.ItemFlag.ItemIsEnabled for i in items if i not in titles)
+    finally:
+        editor.deleteLater()

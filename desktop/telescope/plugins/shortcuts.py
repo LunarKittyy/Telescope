@@ -12,7 +12,6 @@ global shortcuts portal: bind that command in the desktop's own keyboard setting
 
 import logging
 import math
-import re
 import shlex
 import subprocess
 import sys
@@ -27,10 +26,11 @@ from PyQt6.QtWidgets import (
     QLineEdit, QMenu, QPlainTextEdit, QPushButton, QTextEdit, QVBoxLayout, QWidget,
 )
 
-from telescope import dev_profile
+from telescope import dev_profile, fuzzy
 from telescope.platform import IS_LINUX, IS_WINDOWS, autostart
 from telescope.platform.hotkeys import Hotkey, create_backend
-from telescope.plugin import TelescopePlugin
+from telescope.plugin import SettingsSection, TelescopePlugin
+from telescope.widgets.settings_search import keywords
 from telescope.shortcuts import (
     META_NAME, Param, ShortcutAction, clashes, clean_bindings, has_command_modifier, keys_from_event, native_keys,
     new_binding_id, normalize_keys, split_keys,
@@ -39,11 +39,13 @@ from telescope.widgets.common import (
     Switch,
     ElidingLabel, NoScrollComboBox, NoScrollDoubleSpinBox, control_row,
     control_row_widget, dialog_buttons, dialog_header, dialog_layout, set_ui_role, ui_px, wrapped_note,
-    add_card_header, card_action, card_layout, create_card, host_window, icon_button,
+    add_card_header, card_action, card_layout, create_card, icon_button,
 )
-from telescope.widgets.controls import fit_height, setting_row, window_frame
+from telescope.widgets.controls import setting_row
 
 logger = logging.getLogger(__name__)
+
+_SEARCH_WEIGHTS = {"name": 1.0, "keywords": 0.9, "card": 0.7, "extra": 0.6}
 
 _TEXT_INPUTS = (QLineEdit, QAbstractSpinBox, QTextEdit, QPlainTextEdit)
 _NEVER_TYPES = {
@@ -115,7 +117,7 @@ class ShortcutsPlugin(TelescopePlugin):
     name = "shortcuts"
     title = "Keyboard shortcuts"
     about = "Keys for Telescope's controls, including ones that work in other apps."
-    when_off = ("Without it no shortcut does anything and Keyboard shortcuts isn't in the settings menu (your "
+    when_off = ("Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your "
                 "shortcuts are kept for when it's back).")
 
     def __init__(self, backend_factory=None):
@@ -133,7 +135,7 @@ class ShortcutsPlugin(TelescopePlugin):
         self._held_scan: dict = {}  # binding id: the scan code of the key that pressed it inside Telescope
         self._editing = False  # the shortcut editor is open: global keys are being pressed to pick one
         self._filter: Optional[_KeyFilter] = None
-        self._dlg: Optional[ShortcutsDialog] = None
+        self._section: Optional[ShortcutsSection] = None
         self._with_menu: list = []  # controls given "Add keyboard shortcut…", so it can come off at shutdown
         self._dynamic: list = []  # actions whose controls come and go (the lens buttons)
         self._last_global: Optional[list] = None  # what the system was last handed, so a same list isn't rebound
@@ -215,7 +217,7 @@ class ShortcutsPlugin(TelescopePlugin):
         if self._backend is not None:
             self._backend.pressed.connect(lambda bid: self.press(bid, "global"))
             self._backend.released.connect(lambda bid: self.release(bid))
-            self._backend.changed.connect(self._refresh_dialog)
+            self._backend.changed.connect(self._refresh_section)
         self.apply()
 
     def actions(self) -> list:
@@ -248,7 +250,7 @@ class ShortcutsPlugin(TelescopePlugin):
             if hotkeys != self._last_global:  # rebinding can ask the user to confirm them all again (Plasma)
                 self._last_global = hotkeys
                 self._backend.apply(hotkeys)
-        self._refresh_dialog()
+        self._refresh_section()
 
     def _describe(self, binding: dict) -> str:
         action = self._actions.get(binding["action"])
@@ -509,22 +511,13 @@ class ShortcutsPlugin(TelescopePlugin):
 
     # ── Menu and dialog ───────────────────────────────────────────────────────
 
-    def create_menu_actions(self) -> list:
-        action = QAction("Keyboard shortcuts…", None)
-        action.triggered.connect(self.open_dialog)
-        return [action]
+    def create_settings_sections(self) -> list:
+        self._section = ShortcutsSection(self)
+        return [SettingsSection("shortcuts", self._section, on_show=self._section.refresh)]
 
-    def open_dialog(self):
-        if self._dlg is None:
-            self._dlg = ShortcutsDialog(self, host_window(self._host))
-        self._dlg.refresh()
-        self._dlg.show()
-        self._dlg.raise_()
-        self._dlg.activateWindow()
-
-    def _refresh_dialog(self):
-        if self._dlg is not None and self._dlg.isVisible():
-            self._dlg.refresh()
+    def _refresh_section(self):
+        if self._section is not None and self._section.isVisible():
+            self._section.refresh()
 
     # ── Config ────────────────────────────────────────────────────────────────
 
@@ -699,22 +692,22 @@ class _BindingRow(QFrame):
         super().mouseReleaseEvent(event)
 
 
-class ShortcutsDialog(QDialog):
-    def __init__(self, plugin: ShortcutsPlugin, parent=None):
-        super().__init__(parent)
+class ShortcutsSection(QWidget):
+    def __init__(self, plugin: ShortcutsPlugin):
+        super().__init__()
         self._plugin = plugin
-        self.setWindowTitle("Keyboard shortcuts")
-        self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
-        self.setMinimumSize(ui_px(620), ui_px(480))
-        body, bottom, _scroll = window_frame(
-            self, "Keyboard shortcuts",
-            "Keys for Telescope's controls, with how much each one changes. Right-click most controls to add one for it.")
+        body = QVBoxLayout(self)
+        body.setContentsMargins(0, 0, 0, 0)
+        body.setSpacing(14)
+        body.addWidget(wrapped_note("Keys for Telescope's controls, with how much each one changes. Right-click "
+                                    "most controls to add one for it."))
 
         keys_card = create_card()
         keys_lay = card_layout(keys_card)
         self._add_btn = card_action("Add", "plus", "Pick a control and the key for it")
         self._add_btn.clicked.connect(lambda: self._plugin.add_binding(parent=self))
         add_card_header(keys_lay, "Shortcuts", "keyboard", action=self._add_btn)
+        keywords(keys_card, "hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove")
         self._rows_lay = QVBoxLayout()
         self._rows_lay.setSpacing(8)
         keys_lay.addLayout(self._rows_lay)
@@ -726,24 +719,20 @@ class ShortcutsDialog(QDialog):
         global_card = create_card()
         global_lay = card_layout(global_card)
         add_card_header(global_lay, "Everywhere", "monitor")
+        keywords(global_card, "global system wide hotkeys background other apps")
         self._system_btn = QPushButton("Open")
         self._system_btn.setToolTip("Where your desktop lets you change the keys of global shortcuts")
         self._system_btn.clicked.connect(self._open_system)
-        strip, self._note = setting_row("Desktop shortcut settings", "", self._system_btn)
+        strip, self._note = setting_row("Desktop shortcut settings", "", self._system_btn,
+                                        keywords="global hotkeys portal kde plasma gnome desktop keys rebind")
         self._note.setObjectName("setting_sub")
         global_lay.addWidget(strip)
         self._notify_box = Switch()
         self._notify_box.toggled.connect(self._plugin.set_notify)
-        strip, _ = setting_row("Notify when one runs", "While Telescope is in the background", self._notify_box)
+        strip, _ = setting_row("Notify when one runs", "While Telescope is in the background", self._notify_box,
+                               keywords="notification notify toast confirmation popup")
         global_lay.addWidget(strip)
         body.addWidget(global_card)
-        body.addStretch(1)
-
-        close_btn = QPushButton("Close")
-        set_ui_role(close_btn, "primary")
-        close_btn.clicked.connect(self.accept)
-        bottom.addStretch(1)
-        bottom.addWidget(close_btn)
 
     def refresh(self):
         for row in self._rows:
@@ -771,10 +760,6 @@ class ShortcutsDialog(QDialog):
         self._notify_box.blockSignals(True)
         self._notify_box.setChecked(self._plugin.notify)
         self._notify_box.blockSignals(False)
-
-    def showEvent(self, event):
-        fit_height(self)
-        super().showEvent(event)
 
     def _edit(self, bid: str):
         self._plugin.edit_binding(bid, parent=self)
@@ -872,15 +857,14 @@ class BindingEditor(QDialog):
 
     @staticmethod
     def _matches(action: ShortcutAction, query: str) -> bool:
-        """Every word of query starts a word of the action's card, name, id, keywords or the names of what it can
-        do (starts: "crop" is in "microphone" otherwise)."""
-        words = re.findall(r"\w+", query.lower())
-        if not words:
+        """Whether the query fits the action's card, name, id, keywords or the names of what it can do."""
+        if not fuzzy.split(query):
             return True
-        hay = re.findall(r"\w+", " ".join([action.group, action.label, action.id, action.keywords] + [
-            label for p in action.params if p.kind == "choice" and not callable(p.choices)
-            for _v, label in p.options()]).lower())
-        return all(any(h.startswith(w) for h in hay) for w in words)
+        choices = [label for p in action.params if p.kind == "choice" and not callable(p.choices)
+                   for _v, label in p.options()]
+        doc = fuzzy.Doc(name=action.label, keywords=action.keywords, card=action.group,
+                        extra=" ".join([action.id, *choices]))
+        return doc.score(query, _SEARCH_WEIGHTS) > 0
 
     def _filter_actions(self, query: str):
         combo = self._action_combo
@@ -912,6 +896,7 @@ class BindingEditor(QDialog):
                 combo.addItem(group.upper())
                 header = model.item(combo.count() - 1)
                 header.setFlags(Qt.ItemFlag.NoItemFlags)
+                header.setAccessibleDescription("heading")  # the combo's delegate paints it as a title, not an entry
             combo.addItem(action.label, action.id)
             if action.id == wanted:
                 combo.setCurrentIndex(combo.count() - 1)
