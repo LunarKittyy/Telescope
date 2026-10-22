@@ -186,9 +186,8 @@ def v4l2_setup(persist: bool = False) -> PrivResult:
     password prompt. Never unloads an already-running module, since that could break other setups."""
     if v4l2_module_loaded():
         return PrivResult(False, (
-            f"v4l2loopback is loaded with a different config "
-            f"and {V4L2_PHONE_DEV} is unavailable. "
-            f"Run: sudo modprobe -r v4l2loopback"
+            f"v4l2loopback is already loaded with other settings, so {V4L2_PHONE_DEV} isn't there. "
+            "Close any app using a virtual camera, click Unload and then Load."
         ))
     for dev in (V4L2_PHONE_DEV, V4L2_OBS_DEV):
         if os.path.exists(dev):

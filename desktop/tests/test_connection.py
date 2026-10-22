@@ -3,7 +3,7 @@
 from types import SimpleNamespace
 
 import pytest
-from PyQt6.QtWidgets import QMessageBox
+from PyQt6.QtWidgets import QLabel, QMessageBox, QPushButton
 
 import telescope.plugins.connection as connection_module
 from telescope.pinned_https import PhoneAuth
@@ -395,21 +395,44 @@ def test_rename_updates_the_picker(plugin_env):
     assert plugin._phone_combo.currentText() == "Desk cam"
 
 
+def _phone_rows(dialog):
+    return {sid: (row.findChild(QLabel, "setting_name").text(), row.findChild(QPushButton, "rename"),
+                  row.findChild(QPushButton, "remove")) for sid, row in dialog._rows.items()}
+
+
 def test_phones_dialog_lists_renames_and_removes(plugin_env, monkeypatch):
     plugin, host, _panel = plugin_env
     _add(plugin, pid="id-a", name="A")
     dialog = connection_module.PhonesDialog(plugin)
-    assert dialog._list.count() == 1
-    dialog._list.setCurrentRow(0)
+    assert list(_phone_rows(dialog)) == ["id-a"] and dialog._empty.isHidden()
     monkeypatch.setattr(connection_module, "_ask_name", lambda *a, **k: ("Renamed", True))
-    dialog._rename()
-    assert dialog._list.item(0).text() == "Renamed"
+    _phone_rows(dialog)["id-a"][1].click()
+    assert _phone_rows(dialog)["id-a"][0] == "Renamed"
     monkeypatch.setattr(connection_module.QMessageBox, "question",
                         lambda *a: QMessageBox.StandardButton.Yes)
-    dialog._list.setCurrentRow(0)
-    dialog._remove()
-    assert dialog._list.count() == 0
+    _phone_rows(dialog)["id-a"][2].click()
+    assert dialog._rows == {} and not dialog._empty.isHidden()
     assert host.forgotten == ["id-a"]
+
+
+def test_a_long_phone_list_scrolls_instead_of_growing_off_the_screen(plugin_env, qapp):
+    plugin, _host, _panel = plugin_env
+    _add(plugin, pid="id-0", name="Phone 0")
+    dialog = connection_module.PhonesDialog(plugin)
+    dialog.show()
+    qapp.processEvents()
+    assert dialog._scroll.verticalScrollBar().maximum() == 0
+    short = dialog.heightForWidth(dialog.width())  # what it asks for: a window manager may resize it later
+    for i in range(1, 100):
+        _add(plugin, pid=f"id-{i}", name=f"Phone {i}", token=f"tok-{i}", ips=(f"10.0.1.{i}",))
+    dialog.refresh()
+    qapp.processEvents()
+    assert len(dialog._rows) == 100
+    assert dialog._scroll.height() <= connection_module.ui_px(connection_module._PhoneRows.MAX_HEIGHT)
+    assert dialog._scroll.verticalScrollBar().maximum() > 0
+    assert short < dialog.heightForWidth(dialog.width()) < short + connection_module.ui_px(
+        connection_module._PhoneRows.MAX_HEIGHT)
+    dialog.close()
 
 
 def test_phones_dialog_lists_remembered_browsers_to_remove(plugin_env, monkeypatch):
@@ -419,12 +442,13 @@ def test_phones_dialog_lists_remembered_browsers_to_remove(plugin_env, monkeypat
     plugin._bus.forget_source_requested.connect(asked.append)
     plugin._bus.remembered_sources.emit([("browser:pixel-aaaaaaaa", "Chrome on Android", "Browser")])
     dialog = connection_module.PhonesDialog(plugin)
-    assert [dialog._list.item(i).text() for i in range(2)] == ["A", "Chrome on Android (browser)"]
-    dialog._list.setCurrentRow(1)
-    assert not dialog._rename_btn.isEnabled() and dialog._remove_btn.isEnabled()
+    rows = _phone_rows(dialog)
+    assert [name for name, _r, _x in rows.values()] == ["A", "Chrome on Android"]
+    _name, rename, remove = rows["browser:pixel-aaaaaaaa"]
+    assert rename is None and remove is not None
     monkeypatch.setattr(connection_module.QMessageBox, "question",
                         lambda *a: QMessageBox.StandardButton.Yes)
-    dialog._remove()
+    remove.click()
     assert asked == ["browser:pixel-aaaaaaaa"]
 
 

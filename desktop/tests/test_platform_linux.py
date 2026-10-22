@@ -116,7 +116,7 @@ def test_reload_uses_shared_parameters(monkeypatch):
 def test_load_refuses_existing_module_or_conflicting_device(monkeypatch):
     monkeypatch.setattr(linux, "v4l2_module_loaded", lambda: True)
     assert linux.v4l2_load()[0] is False
-    assert "different config" in linux.v4l2_load()[1]
+    assert "click Unload and then Load" in linux.v4l2_load()[1]
 
     monkeypatch.setattr(linux, "v4l2_module_loaded", lambda: False)
     monkeypatch.setattr(linux.os.path, "exists", lambda path: path == linux.V4L2_OBS_DEV)
