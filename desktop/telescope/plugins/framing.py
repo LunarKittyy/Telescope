@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtWidgets import QLabel, QSizePolicy, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QSizePolicy, QWidget
 
 from telescope.plugin import TelescopePlugin
 from telescope.pose import ARM_SEEN, SEEN, SIDES, arm, body, hands_out
@@ -18,7 +18,7 @@ from telescope.widgets.common import (
 from telescope.widgets.vision_status import VisionStatus
 
 # Framing runs through these, from 0 to len - 1, and anywhere in between
-FRAMINGS = ("Face", "Head and shoulders", "Upper body", "Whole body")
+FRAMINGS = ("Face", "Head", "Waist", "Body")  # short: the name sits in the slider's readout column
 FRAMING_DEFAULT = 1.0
 _FRAMING_STEPS = 10  # slider steps between two of them
 _HALF_WIDTH = (0.5, 0.85, 1.05, 1.2)  # at each, half the box's width in shoulder widths
@@ -199,16 +199,11 @@ class FramingPlugin(TelescopePlugin):
         self._framing_slider.setRange(0, (len(FRAMINGS) - 1) * _FRAMING_STEPS)
         self._framing_slider.setValue(round(FRAMING_DEFAULT * _FRAMING_STEPS))
         self._framing_slider.set_default(round(FRAMING_DEFAULT * _FRAMING_STEPS))
-        self._framing_slider.setToolTip("How much of you is in the picture")
-        self._framing_lbl = QLabel()
-        self._framing_lbl.setObjectName("setting_sub")
+        self._framing_slider.setToolTip("How much of you is in the picture: just your face, head and shoulders, "
+                                        "down to the waist or all of you")
+        self._framing_lbl = value_label()
         self._framing_slider.valueChanged.connect(self._on_framing)
-        column = QVBoxLayout()
-        column.setContentsMargins(0, 0, 0, 0)
-        column.setSpacing(2)
-        column.addLayout(slider_row(self._framing_slider, value_label()))  # an empty readout lines it up with Speed
-        column.addWidget(self._framing_lbl)
-        lay.addLayout(_row("Framing", column, stretch=True))
+        lay.addLayout(_row("Framing", slider_row(self._framing_slider, self._framing_lbl), stretch=True))
         self._show_framing()
         self._speed_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._speed_slider.setRange(1, 10)

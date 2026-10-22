@@ -226,11 +226,11 @@ def test_settings_round_trip_and_damaged_ones_fall_back(card):
     plugin, host, _bus, _clock = card()
     plugin.set_config({"on": True, "framing": 2.5, "speed": 9, "hand": False})
     assert plugin.get_config() == {"on": True, "framing": 2.5, "speed": 9, "hand": False}
-    assert plugin._framing_lbl.text() in ("Upper body", "Whole body")
+    assert plugin._framing_lbl.text() in ("Waist", "Body")
     assert host.owner == "Auto framing"
     plugin.set_config({"on": "yes", "framing": "head", "speed": 30})
     assert plugin.get_config() == {"on": False, "framing": 1.0, "speed": 5, "hand": True}
-    assert plugin._framing_lbl.text() == "Head and shoulders"
+    assert plugin._framing_lbl.text() == "Head"
     assert host.owner == ""
 
 
