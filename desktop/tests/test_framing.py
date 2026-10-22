@@ -231,7 +231,7 @@ def test_settings_round_trip_and_damaged_ones_fall_back(card):
     assert host.owner == "Auto framing"
     plugin.set_config({"on": "yes", "framing": "head", "speed": 30, "room": True})
     assert plugin.get_config() == {"on": False, "framing": 1.0, "speed": 5, "room": 2, "hand": True}
-    assert plugin._room_lbl.text() == "Shift"
+    assert plugin._room_lbl.text() == "Shift" and plugin._speed_lbl.text() == "Easy"
     assert plugin._framing_lbl.text() == "Chest"
     assert host.owner == ""
 

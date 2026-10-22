@@ -22,7 +22,8 @@ FRAMINGS = ("Head", "Chest", "Waist", "Body")  # short: the name sits in the sli
 FRAMING_DEFAULT = 1.0
 _FRAMING_STEPS = 10  # slider steps between two of them
 _HALF_WIDTH = (0.5, 0.85, 1.05, 1.2)  # at each, half the box's width in shoulder widths
-SPEED_DEFAULT = 5  # Speed runs from 1 (calmest) to 10 (quickest)
+SPEEDS = ("Sloth", "Lazy", "Mellow", "Calm", "Easy", "Steady", "Brisk", "Quick", "Snappy", "Zippy")  # Speed 1 to 10
+SPEED_DEFAULT = 5
 _OMEGA_SLOW, _OMEGA_FAST = 0.4, 9.0  # how fast the framing catches up at either end (spring stiffness, 1/s)
 _TICK_MS = 33
 _MAX_ZOOM = 4.0  # closer than this gets too soft to be worth it
@@ -259,7 +260,7 @@ class FramingPlugin(TelescopePlugin):
         self._speed_slider.setValue(SPEED_DEFAULT)
         self._speed_slider.set_default(SPEED_DEFAULT)
         self._speed_slider.setToolTip("How quickly the framing catches up when you move")
-        self._speed_lbl = value_label(str(SPEED_DEFAULT))
+        self._speed_lbl = value_label(SPEEDS[SPEED_DEFAULT - 1])
         self._speed_slider.valueChanged.connect(self._on_speed)
         lay.addLayout(_row("Speed", slider_row(self._speed_slider, self._speed_lbl), stretch=True))
         self._room_slider = NoScrollSlider(Qt.Orientation.Horizontal)
@@ -308,7 +309,7 @@ class FramingPlugin(TelescopePlugin):
         self._room_lbl.setText(ROOMS[self._room_slider.value()])
 
     def _on_speed(self, value: int):
-        self._speed_lbl.setText(str(value))
+        self._speed_lbl.setText(SPEEDS[value - 1])
         self._host.schedule_save()
 
     # ── On and off (Qt thread) ────────────────────────────────────────────
@@ -417,7 +418,7 @@ class FramingPlugin(TelescopePlugin):
         self._speed_slider.setValue(speed if isinstance(speed, int) and not isinstance(speed, bool) and 1 <= speed <= 10
                                     else SPEED_DEFAULT)
         self._speed_slider.blockSignals(False)
-        self._speed_lbl.setText(str(self._speed_slider.value()))
+        self._speed_lbl.setText(SPEEDS[self._speed_slider.value() - 1])
         room = cfg.get("room")
         self._room_slider.blockSignals(True)
         self._room_slider.setValue(room if isinstance(room, int) and not isinstance(room, bool)
