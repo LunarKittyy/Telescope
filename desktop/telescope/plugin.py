@@ -429,6 +429,55 @@ class TelescopePlugin:
     def create_settings_sections(self) -> list:
         """SettingsSections for the settings window, asked for once when it first opens; lets a plugin without a panel
         still have settings. Its controls apply as they change."""
+        entries = self.create_menu_actions()
+        if not entries:
+            return []
+        # Keep API 1 plugins' old actions reachable for the transition to SettingsSections.
+        import logging
+        from PyQt6 import sip
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtWidgets import QMenu, QToolButton
+        from telescope.widgets.common import add_card_header, card_layout, create_card
+
+        card = create_card()
+        lay = card_layout(card)
+        add_card_header(lay, self.title or self.name, "plug")
+        button = QToolButton(card)
+        button.setText("Open settings")
+        button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        menu = QMenu(button)
+
+        def fill(items):
+            for entry in items:
+                if isinstance(entry, QMenu):
+                    entry.setParent(menu, entry.windowFlags())
+                    menu.addMenu(entry)
+                else:
+                    entry.setParent(menu)
+                    menu.addAction(entry)
+
+        def refresh():
+            nonlocal entries
+            menu.clear()
+            for entry in entries:
+                if not sip.isdeleted(entry):  # QMenu.clear() already deletes actions it owns
+                    entry.deleteLater()
+            entries = []
+            try:
+                entries = self.create_menu_actions()
+                fill(entries)
+            except Exception:
+                logging.exception("Plugin %s couldn't list its legacy settings", self.name)
+
+        fill(entries)
+        menu.aboutToShow.connect(refresh)  # the old hook was asked afresh on every menu open
+        button.setMenu(menu)
+        lay.addWidget(button, 0, Qt.AlignmentFlag.AlignLeft)
+        return [SettingsSection("general", card)]
+
+    def create_menu_actions(self) -> list:
+        """Deprecated API 1 hook: QActions and QMenus, shown under this plugin in Settings > General.
+        New plugins should use create_settings_sections()."""
         return []
 
     def create_tray_actions(self) -> list:

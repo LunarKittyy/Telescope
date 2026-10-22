@@ -5,10 +5,11 @@ from PyQt6 import sip
 from PyQt6.QtCore import QEvent, QPointF, Qt
 from PyQt6.QtGui import QEnterEvent
 from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 
 from telescope.config import load_config
 from telescope.plugin import TelescopePlugin
+from telescope.shortcuts import button_action, control_ready
 from telescope.widgets.collapse import Collapsing
 from telescope.widgets.common import add_card_header, add_section_heading, card_layout, create_card
 
@@ -77,6 +78,44 @@ def test_a_section_folds_alone(qapp, shown):
     assert not rows["Light 0"].isVisible() and not rows["Light 1"].isVisible()
     assert rows["loose"].isVisible()
     assert rows["Focus 0"].isVisible() and title_of(card, "Focus").isVisible()
+
+
+def test_shortcuts_work_inside_folded_cards_and_sections(qapp, shown):
+    card, _rows = make_card()
+    button = QPushButton("Toggle")
+    button.setCheckable(True)
+    card.layout().addWidget(button)
+    action = button_action("toggle", "Toggle", "Test", button)
+    state = Collapsing()
+    state.install(card, "p")
+    shown(card)
+    state.set_folded("p/Things/Focus", True)
+    state.set_folded("p/Things", True)
+    assert not button.isVisible()
+    assert action.run(action.full_params({})) is not None
+    assert button.isChecked()
+    button.hide()  # a plugin hid the control itself: it still must not run
+    assert not control_ready(button)
+    button.show()
+    button.setEnabled(False)
+    assert not control_ready(button)
+
+
+def test_folding_a_card_while_a_shortcut_is_held_still_restores_it(qapp, shown):
+    card, _rows = make_card()
+    button = QPushButton("Toggle")
+    button.setCheckable(True)
+    card.layout().addWidget(button)
+    action = button_action("toggle", "Toggle", "Test", button)
+    state = Collapsing()
+    state.install(card, "p")
+    shown(card)
+    params = action.full_params({"mode": "hold"})
+    action.run(params)
+    assert button.isChecked()
+    state.set_folded("p/Things", True)
+    action.release(params)
+    assert not button.isChecked()
 
 
 def test_the_rule_and_icon_of_a_section_heading_fold_it_too(qapp, shown):

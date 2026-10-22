@@ -164,6 +164,7 @@ TelescopePlugin.about = ''
 TelescopePlugin.apply_preset(self, cfg)
 TelescopePlugin.create_actions(self)
 TelescopePlugin.create_header_widget(self)
+TelescopePlugin.create_menu_actions(self)
 TelescopePlugin.create_panel(self)
 TelescopePlugin.create_settings_sections(self)
 TelescopePlugin.create_tray_actions(self)

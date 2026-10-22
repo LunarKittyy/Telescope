@@ -130,7 +130,8 @@ function makePage() {
     localStorage: { getItem: () => null, setItem() {} },
     sessionStorage: { getItem: () => null, setItem() {} },
     document: {
-      visibilityState: "visible", addEventListener() {}, getElementById: element,
+      visibilityState: "visible", listeners: {},
+      addEventListener(type, fn) { this.listeners[type] = fn; }, getElementById: element,
       documentElement: root, fullscreenEnabled: true,
       get fullscreenElement() { return world.fullscreen; },
       exitFullscreen: async () => { world.fullscreen = null; },
@@ -307,6 +308,19 @@ const scenarios = {
     assert.notStrictEqual(again, mic);
     assert.strictEqual(micSender(page.peer()).track, again);
     assert.deepStrictEqual(page.world.gum[page.world.gum.length - 1].video, false);
+  },
+
+  async a_mic_that_recovers_clears_its_error_on_the_computer() {
+    const page = await connectedPage();
+    page.world.gumFails = "NotReadableError";
+    page.value("mic").end();
+    await page.flush();
+    assert.ok(page.socket().of("hello").at(-1).mic_error);
+    page.world.gumFails = null;
+    page.value("document").listeners.visibilitychange();
+    await page.flush();
+    assert.strictEqual(page.value("mic").readyState, "live");
+    assert.strictEqual(page.socket().of("hello").at(-1).mic_error, "");
   },
 
   // Without the mic the camera still starts, and the computer hears why

@@ -81,14 +81,15 @@ def build(key: str, work: Path, cache: Path) -> Path:
         with zipfile.ZipFile(wheel) as z:
             z.extractall(site)
     fetch_models(root / "models", cache)
-    (root / "NOTICES.txt").write_text(NOTICES)
+    (root / "NOTICES.txt").write_text(NOTICES, encoding="utf-8", newline="\n")
     return root
 
 
 def write_zip(root: Path, dest: Path):
     """Same files in the same order with the same dates, so it only changes when what's in it does."""
     with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
-        for path in sorted(p for p in root.rglob("*") if p.is_file()):
+        for path in sorted((p for p in root.rglob("*") if p.is_file()),
+                           key=lambda p: p.relative_to(root).parts):
             info = zipfile.ZipInfo(path.relative_to(root).as_posix(), _EPOCH)
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o644 << 16
