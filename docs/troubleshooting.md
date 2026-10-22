@@ -3,7 +3,7 @@
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | A card or a menu entry is gone | That part of Telescope is switched off in **Plugins…** | Open the settings menu (it reads **Plugins… (N off)** when something is off) and switch it back on or click **Turn all back on**. Then click **Restart now** |
-| Auto framing or Background says what it needs isn't downloaded | The vision download didn't happen yet or was removed. A new Telescope version can need a newer one too | Click **Download** on the card. If it fails, check that GitHub is reachable from this computer |
+| Auto framing or Background says it needs a one-time download | The vision download didn't happen yet or was removed. A new Telescope version can need a newer one too | Click **Download** on the card. If it fails, check that GitHub is reachable from this computer |
 | Auto framing or Background says MediaPipe didn't load | The download is there but MediaPipe wouldn't start on this computer (it only works on 64-bit Intel and AMD). On Linux it also needs the EGL and OpenGL ES libraries, which graphics drivers normally bring along | If **Copy diagnostics** says `libEGL.so.1 missing` or `libGLESv2.so.2 missing`, install `libegl1` and `libgles2` (Debian/Ubuntu) or `libglvnd-egl` and `libglvnd-gles` (Fedora) and restart Telescope. Otherwise open an issue with your **Copy diagnostics** report |
 | Zoom and Pan are greyed out on the Transforms card | Auto framing is moving them | Switch Auto framing off on its card and your own zoom and pan come back |
 | Manual exposure greyed out | Camera doesn't report `MANUAL_SENSOR` capability | Some front cameras and telephoto lenses don't support it; use Auto |

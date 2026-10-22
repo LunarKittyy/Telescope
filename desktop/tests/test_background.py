@@ -145,7 +145,7 @@ def test_settings_round_trip_and_damaged_ones_fall_back(card):
 def test_without_the_download_the_card_offers_it(card):
     plugin, _host, panel = card(state=vision.MISSING)
     plugin._set_mode("blur")
-    assert "isn't downloaded yet" in plugin._status.text()
+    assert plugin._status.text().startswith("Needs a one-time download (about ")
     buttons = [b for b in panel.findChildren(QPushButton) if b.text() == "Download"]
     assert buttons and not buttons[0].isHidden()
 

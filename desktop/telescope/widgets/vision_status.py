@@ -45,7 +45,7 @@ class VisionStatus(QWidget):
         elif dl.running():
             text = "Downloading…"
         elif state == vision.MISSING:
-            text, download = f"What it needs isn't downloaded yet (about {dl.size_mb()} MB).", dl.available()
+            text, download = f"Needs a one-time download (about {dl.size_mb()} MB).", dl.available()
         elif state == vision.FAILED:
             text = "MediaPipe didn't load on this computer. Copy diagnostics has the details."
         elif state == vision.LOADING:
