@@ -97,7 +97,7 @@ def _open_hw(device_type: str):
         return None
 
 
-class _ToBgr:
+class ToBgr:
     """Converts decoded frames to BGR with one reused converter. frame.to_ndarray() builds a new one, threads and all, per frame."""
 
     _THREADS = 4
@@ -212,7 +212,7 @@ class Decoder:
         self._headers = {}
         self._header_tail = b""
         self._hw_proven = False  # decoded a frame: from then on a bad packet is the stream's fault, not the card's
-        self._to_bgr = _ToBgr() if av is not None else None
+        self._to_bgr = ToBgr() if av is not None else None
         if _hardware_requested():
             device = hardware_device()
             self._codec = _open_hw(device)

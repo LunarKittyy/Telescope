@@ -22,6 +22,7 @@ BORDER_STRONG = "#2f3641"
 BORDER_HOVER  = "#4a5462"
 
 TEXT          = "#e7eaef"
+TEXT_HOVER    = QColor(TEXT).darker(200).name()   # a card title while the pointer is on it, half as bright
 TEXT_DIM      = "#a1abb8"
 TEXT_FAINT    = "#7a8491"
 TEXT_DISABLED = "#525b67"
@@ -40,6 +41,7 @@ PLUGIN_HUES = {
     "mic":        "#e8d08a",  # butter
     "camera":     "#7fd3c4",  # mint
     "phone":      "#f2a0bf",  # rose
+    "vision":     "#bcd98c",  # pistachio, the optional plugins that find people in the picture
 }
 _own_hues = True
 
@@ -170,6 +172,9 @@ QLabel#card_title {{
     font-weight: 600;
     color: {TEXT};
 }}
+QLabel#card_title[hot="true"] {{
+    color: {TEXT_HOVER};
+}}
 QLabel#card_subtitle {{
     color: {TEXT_FAINT};
     font-size: 9pt;
@@ -178,6 +183,9 @@ QLabel#section_title {{
     color: {TEXT_FAINT};
     font-size: 9pt;
     font-weight: 600;
+}}
+QLabel#section_title[hot="true"] {{
+    color: {TEXT};
 }}
 QWidget#section_head {{
     background: transparent;
@@ -803,6 +811,41 @@ QListWidget::item:selected {{
 }}
 QListWidget::item:hover:!selected {{
     background-color: {SURFACE_HOVER};
+}}
+QFrame#settings_side {{
+    background-color: {CHROME};
+    border: none;
+    border-right: 1px solid {BORDER};
+    border-radius: 0;
+}}
+QListWidget#settings_nav {{
+    background-color: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 4px 0 12px 0;
+    outline: 0;
+}}
+QListWidget#settings_results {{
+    background-color: transparent;
+    border: none;
+    padding: 0;
+    outline: 0;
+}}
+QListWidget#settings_results::item {{
+    border-radius: 8px;
+    padding: 0;
+}}
+QFrame#setting_row[found="true"], QFrame#card[found="true"] {{
+    border: 1px solid {ACCENT};
+}}
+QListWidget#settings_nav::item {{
+    padding: 0 10px;
+    margin: 1px 0;
+    border-radius: 7px;
+    color: {TEXT_DIM};
+}}
+QListWidget#settings_nav::item:selected {{
+    color: #ffffff;
 }}
 QMenu {{
     background-color: {SURFACE_RAISE};

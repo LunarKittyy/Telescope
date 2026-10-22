@@ -1,12 +1,13 @@
 import logging
 import threading
+from dataclasses import replace
 from typing import Optional
 
 from PyQt6.QtCore import Qt, QTimer, QUrl, pyqtSignal
-from PyQt6.QtGui import QAction, QDesktopServices, QGuiApplication
+from PyQt6.QtGui import QDesktopServices, QGuiApplication
 from PyQt6.QtWidgets import (
     QComboBox,
-    QButtonGroup, QDialog, QHBoxLayout, QInputDialog, QLabel, QPushButton, QVBoxLayout,
+    QButtonGroup, QHBoxLayout, QInputDialog, QLabel, QPushButton, QVBoxLayout,
     QWidget,
 )
 
@@ -21,12 +22,13 @@ from telescope.platform.windows import (
     UC_NAME, download_unitycapture, register_unitycapture, uc_in_app_folder, uc_registered_name, unitycapture_dir,
     unitycapture_downloaded,
 )
-from telescope.plugin import TelescopePlugin
+from telescope.plugin import SettingsSection, TelescopePlugin
 from telescope.widgets.adb import AdbDownload
 from telescope.version import display_version
 from telescope.widgets.banner import Issue, copy_action
-from telescope.widgets.controls import CommandBox, fit_height, setting_row, window_frame
+from telescope.widgets.controls import CommandBox, setting_row
 from telescope.widgets.line_icons import line_icon
+from telescope.widgets.settings_search import keywords
 from telescope.widgets.common import (
     set_button_icon,
     Switch,
@@ -93,8 +95,10 @@ _SUDO_HINT = "Asks for your password (pkexec or sudo): this changes system setti
 AUTHOR_URL = "https://github.com/LunarKittyy"
 
 
-class AdvancedDialog(QDialog):
-    """Rarely needed controls. First-run setup lives in the onboarding checklist instead."""
+class AdvancedSettings(QWidget):
+    """Rarely needed controls, as cards for the settings window: the virtual camera and phone app (Virtual camera &
+    phone), video, microphone, look (General) and About. First-run setup lives in the onboarding checklist instead.
+    The widget itself is never shown; sections() hands the cards out."""
 
     _sig_v4l_result   = pyqtSignal(bool, str, str)  # ok, message, the command to run by hand ("" if none)
     _sig_v4l_unload   = pyqtSignal(bool, str, str)
@@ -112,9 +116,7 @@ class AdvancedDialog(QDialog):
         self._extras_in_use = extras_in_use or (lambda: False)
         self._report = report
         self._uc_installing = False
-        self.setWindowTitle("Advanced")
-        self.setMinimumWidth(ui_px(560))
-        self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
+        self._sections: list = []
         self._on_apply_canvas = on_apply_canvas
         self._on_max_zoom = on_max_zoom
         self._on_max_gain = on_max_gain
@@ -132,28 +134,36 @@ class AdvancedDialog(QDialog):
                                   if hasattr(self, "_uc_status_lbl") else None)
         self._sig_apk_done.connect(self._on_apk_done)
 
-    def _fit_height(self):
-        fit_height(self)
+    def card_visible(self) -> bool:
+        """Whether the Video card is on screen, which is where a canvas change reports back."""
+        return self._advanced_content.isVisible()
 
-    def showEvent(self, event):
+    def sections(self) -> list:
+        """The cards as SettingsSections; the owner adds on_show."""
+        return list(self._sections)
+
+    def _dialog_parent(self) -> QWidget:
+        """The window the cards are in, for what they pop up."""
+        return self._vc_card.window()
+
+    def on_show(self):
+        """Their tabs came on screen: look at the system again."""
         self._refresh_extras()
-        self._fit_height()
-        super().showEvent(event)
         if IS_LINUX:
             self._v4l_check()
             self._refresh_persist_status()
         else:
             threading.Thread(target=self._check_win_setup, daemon=True).start()
 
-    def _build_ui(self):
-        version = QLabel(f"Telescope {display_version()}")
-        version.setObjectName("version_note")
-        body, bottom, _scroll = window_frame(self, "Advanced", aside=version)
+    def _place(self, tab: str, card: QWidget, order: int = 0):
+        self._sections.append(SettingsSection(tab, card, order=order))
 
+    def _build_ui(self):
         # ── Virtual camera ────────────────────────────────────────────────────
-        vc_card = create_card()
+        vc_card = self._vc_card = create_card(self)
         vc_lay = card_layout(vc_card)
         add_card_header(vc_lay, "Virtual camera", "video", hue="stream")
+        keywords(vc_card, "obs zoom teams discord webcam driver output device loopback")
         if IS_LINUX:
             chk_btn    = QPushButton("Check")
             load_btn   = QPushButton("Load")
@@ -169,6 +179,8 @@ class AdvancedDialog(QDialog):
             self._v4l_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             set_status_kind(self._v4l_lbl, "status_dim")
             strip.setToolTip("Already says Ready? Leave these alone; they're only for fixing a \"not ready\" status.")
+            keywords(strip, "v4l2loopback linux virtual camera driver load unload check status not ready /dev/video "
+                            "missing fix modprobe")
             vc_lay.addWidget(strip)
 
             self._persist_chk = Switch()
@@ -183,12 +195,16 @@ class AdvancedDialog(QDialog):
             set_status_kind(self._persist_status_lbl, "status_dim")
             self._persist_row = self._persist_status_lbl
             self._persist_row.setVisible(False)
+            keywords(strip, "boot startup reboot persist permanent every start modprobe v4l2loopback driver survive "
+                            "restart")
             vc_lay.addWidget(strip)
         else:
             self._uc_btn = action_button("Install driver")
             self._uc_btn.clicked.connect(self._install_uc)
             strip, self._uc_status_lbl = setting_row("Driver", "Checking...", self._uc_btn)
             set_status_kind(self._uc_status_lbl, "status_dim")
+            keywords(strip, "unitycapture unity video capture windows virtual camera install reinstall rename "
+                            "register missing not showing obs zoom")
             vc_lay.addWidget(strip)
 
             # Not bundled (Google's license doesn't allow passing it on), so it's fetched from Google when asked
@@ -210,6 +226,7 @@ class AdvancedDialog(QDialog):
             strip, self._adb_status_lbl = setting_row("ADB", "Checking...", self._adb_row)
             set_status_kind(self._adb_status_lbl, "status_dim")
             self._adb_status_lbl.setTextFormat(Qt.TextFormat.PlainText)  # errors can hold <urlopen error ...>
+            keywords(strip, "adb android debug bridge usb pairing download get platform-tools google own cable")
             vc_lay.addWidget(strip)
             self._adb_download = AdbDownload(self)
             self._adb_download.progress.connect(self._adb_status_lbl.setText)
@@ -218,16 +235,19 @@ class AdvancedDialog(QDialog):
         # The ones Add camera set up, for streaming several cameras at once
         self._extras_btn = QPushButton("Remove")
         self._extras_btn.clicked.connect(self._remove_extras)
-        self._extras_row, self._extras_lbl = setting_row("Extra cameras", "", self._extras_btn)
+        self._extras_row, self._extras_lbl = setting_row(
+            "Extra cameras", "", self._extras_btn,
+            keywords="multiple second cameras add camera several streams remove virtual cameras")
         self._extras_row.setVisible(False)
         vc_lay.addWidget(self._extras_row)
-        body.addWidget(vc_card)
+        self._place("devices", vc_card)
 
         # ── Video ─────────────────────────────────────────────────────────────
-        video_card = create_card()
+        video_card = create_card(self)
         self._advanced_content = video_card
         video_lay = card_layout(video_card)
         add_card_header(video_lay, "Video", "chip", hue="stream")
+        keywords(video_card, "picture quality image stream camera output")
         device = h264_reader.hardware_device()
         self._hw_chk = Switch()
         self._hw_chk.setEnabled(device is not None)
@@ -246,7 +266,9 @@ class AdvancedDialog(QDialog):
         hw_controls.addWidget(self._hw_chk)
         strip, self._hw_line = setting_row(
             "Hardware acceleration",
-            f"Found {_HW_NAMES.get(device, device)}" if device else "No graphics card Telescope can use", hw_controls)
+            f"Found {_HW_NAMES.get(device, device)}" if device else "No graphics card Telescope can use", hw_controls,
+            keywords="hw accel gpu graphics card nvidia cuda amd intel vaapi d3d11 decode decoding h264 faster cpu "
+                     "processor laptop 4k")
         strip.setToolTip(self._hw_chk.toolTip())
         video_lay.addWidget(strip)
         self._max_zoom_spin = NoScrollSpinBox()
@@ -257,7 +279,8 @@ class AdvancedDialog(QDialog):
         self._max_zoom_spin.setSuffix("×")
         self._max_zoom_spin.valueChanged.connect(
             lambda value: self._on_max_zoom(value) if self._on_max_zoom else None)
-        strip, _ = setting_row("Max zoom", "", self._max_zoom_spin)
+        strip, _ = setting_row("Max zoom", "", self._max_zoom_spin,
+                               keywords="zoom limit magnify telephoto digital crop 10x 30x slider range")
         strip.setToolTip("How far the Zoom slider goes. Past what the phone can zoom itself, the rest is cropped on "
                          "this computer.")
         video_lay.addWidget(strip)
@@ -314,14 +337,17 @@ class AdvancedDialog(QDialog):
         under.addLayout(apply_row)
         self._canvas_cmd = CommandBox()
         under.addWidget(self._canvas_cmd)
-        strip, _ = setting_row("Canvas size", "", self._canvas_combo, under)
+        strip, _ = setting_row("Canvas size", "", self._canvas_combo, under,
+                               keywords="resolution output size 1080p 720p 4k portrait landscape "
+                                        "aspect ratio custom width height pixels apply reload")
         video_lay.addWidget(strip)
-        body.addWidget(video_card)
+        self._place("video", video_card)
 
         # ── Microphone ────────────────────────────────────────────────────────
-        mic_card = create_card()
+        mic_card = create_card(self)
         mic_lay = card_layout(mic_card)
         add_card_header(mic_lay, "Microphone", "mic", hue="mic")
+        keywords(mic_card, "audio sound voice input volume")
         self._max_gain_btns = {db: SegmentButton(f"+{db} dB") for db in MAX_GAIN_CHOICES}
         self._max_gain_grp = QButtonGroup(mic_card)
         self._max_gain_grp.setExclusive(True)
@@ -330,20 +356,23 @@ class AdvancedDialog(QDialog):
         self._max_gain_btns[DEFAULT_MAX_GAIN].setChecked(True)
         self._max_gain_grp.idClicked.connect(
             lambda db: self._on_max_gain(db) if self._on_max_gain else None)
-        strip, _ = setting_row("Max gain", "", None, segmented_row(*self._max_gain_btns.values()))
+        strip, _ = setting_row("Max gain", "", None, segmented_row(*self._max_gain_btns.values()),
+                               keywords="microphone volume loudness boost amplify quiet decibel db slider range")
         strip.setToolTip("How far the Gain slider goes. Less range gives finer steps; more helps a quiet phone.")
         mic_lay.addWidget(strip)
         self._limiter_chk = Switch()
         self._limiter_chk.setChecked(True)
         self._limiter_chk.toggled.connect(lambda on: self._on_limiter(on) if self._on_limiter else None)
-        strip, _ = setting_row("Limiter", "Keeps loud sounds from clipping", self._limiter_chk)
+        strip, _ = setting_row("Limiter", "Keeps loud sounds from clipping", self._limiter_chk,
+                               keywords="microphone audio compressor distortion clipping loud peaks sound")
         mic_lay.addWidget(strip)
-        body.addWidget(mic_card)
+        self._place("audio", mic_card)
 
         # ── Phone app ─────────────────────────────────────────────────────────
-        apk_card = create_card()
+        apk_card = create_card(self)
         apk_lay = card_layout(apk_card)
         add_card_header(apk_lay, "Phone app", "phone", hue="phone")
+        keywords(apk_card, "android install apk usb")
         _apk = bundled_apk_path()
         self._apk_btn = action_button("Install over USB" if _apk else "Choose APK...")
         set_button_icon(self._apk_btn, line_icon("download", theme.TEXT_DIM))
@@ -351,15 +380,17 @@ class AdvancedDialog(QDialog):
                                  "plugged in over USB.")
         self._apk_btn.clicked.connect(self._install_apk)
         strip, self._apk_status_lbl = setting_row(
-            "Telescope.apk", "Comes with this app" if _apk else "None came with this app", self._apk_btn)
+            "Telescope.apk", "Comes with this app" if _apk else "None came with this app", self._apk_btn,
+            keywords="phone app install usb android reinstall newer version sideload cable")
         set_status_kind(self._apk_status_lbl, "status_dim")
         apk_lay.addWidget(strip)
-        body.addWidget(apk_card)
+        self._place("devices", apk_card, order=10)
 
         # ── Look ────────────────────────────────────────────────────────────
-        look_card = create_card()
+        look_card = create_card(self)
         look_lay = card_layout(look_card)
         add_card_header(look_lay, "Look", "sliders")
+        keywords(look_card, "appearance theme colors colours interface")
         self._hues_own, self._hues_purple = SegmentButton("Colourful"), SegmentButton("Monochrome")
         self._hues_grp = QButtonGroup(look_card)
         self._hues_grp.setExclusive(True)
@@ -369,17 +400,23 @@ class AdvancedDialog(QDialog):
         self._hues_own.setToolTip("Every card in the main window gets its own colour.")
         self._hues_grp.buttonClicked.connect(
             lambda btn: self._on_plugin_hues(btn is self._hues_own) if self._on_plugin_hues else None)
-        strip, _ = setting_row("Card colours", "", None, segmented_row(self._hues_own, self._hues_purple))
+        strip, _ = setting_row("Card colours", "", None, segmented_row(self._hues_own, self._hues_purple),
+                               keywords="color colour theme appearance monochrome colourful purple hue accent look")
         look_lay.addWidget(strip)
-        body.addWidget(look_card)
-        body.addStretch(1)
+        self._place("general", look_card, order=10)
 
-        by_lbl = QLabel(f'by <a href="{AUTHOR_URL}">LunarKittyy</a>')
-        by_lbl.setObjectName("version_note")
+        about_card = create_card(self)
+        about_lay = card_layout(about_card)
+        add_card_header(about_lay, "About", "help")
+        keywords(about_card, "info version help support credits")
+        by_lbl = QLabel(f'<a href="{AUTHOR_URL}">LunarKittyy</a>')
         by_lbl.setTextFormat(Qt.TextFormat.RichText)
         by_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.LinksAccessibleByMouse)  # a credit, not a Tab stop
         by_lbl.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         by_lbl.setOpenExternalLinks(True)
+        strip, _ = setting_row("Telescope", f"Version {display_version()}", by_lbl,
+                               keywords="about author credits made by version number build")
+        about_lay.addWidget(strip)
         self._diag_btn = QPushButton("Copy diagnostics")
         set_button_icon(self._diag_btn, line_icon("copy", theme.TEXT_DIM))
         self._diag_btn.setToolTip("Copies info for a bug report, leaving out pairing tokens, addresses and file paths.")
@@ -389,14 +426,12 @@ class AdvancedDialog(QDialog):
         self._log_btn.setToolTip("The full log, in the temp folder (the system clears it).")
         self._log_btn.clicked.connect(self._open_log)
         self._log_btn.setVisible(self._report is not None and diagnostics.events.path is not None)
-        close_btn = QPushButton("Close")
-        set_ui_role(close_btn, "primary")
-        close_btn.clicked.connect(self.accept)
-        bottom.addWidget(by_lbl)
-        bottom.addStretch(1)
-        bottom.addWidget(self._log_btn)
-        bottom.addWidget(self._diag_btn)
-        bottom.addWidget(close_btn)
+        self._support_row, _ = setting_row("Bug reports", "Paste the diagnostics into the report.",
+                                           button_row(self._log_btn, self._diag_btn))
+        keywords(self._support_row, "bug report diagnostics logs debug support problem issue help copy log file")
+        self._support_row.setVisible(self._report is not None)
+        about_lay.addWidget(self._support_row)
+        self._place("about", about_card, order=10)
 
     def _copy_diagnostics(self):
         QGuiApplication.clipboard().setText(self._report())
@@ -538,7 +573,6 @@ class AdvancedDialog(QDialog):
         set_status_kind(self._persist_status_lbl, "status_dim")
         self._persist_status_lbl.setText("Working...")
         self._persist_row.setVisible(True)
-        self._fit_height()
         action = v4l2_persist_enable if checked else v4l2_persist_disable
         threading.Thread(target=lambda: self._sig_persist_result.emit(*result_parts(action())), daemon=True).start()
 
@@ -553,7 +587,6 @@ class AdvancedDialog(QDialog):
         set_status_kind(self._persist_status_lbl, "status_ok" if ok else "status_err")
         self._persist_status_lbl.setText(msg)
         self._persist_row.setVisible(True)
-        self._fit_height()
 
     # ── Extra cameras ─────────────────────────────────────────────────────────
 
@@ -637,11 +670,11 @@ class AdvancedDialog(QDialog):
 
     def _get_adb(self):
         self._adb_from_google = True
-        self._adb_download.ask_and_start(self, self._adb_starting)
+        self._adb_download.ask_and_start(self._dialog_parent(), self._adb_starting)
 
     def _pick_adb(self):
         self._adb_from_google = False
-        self._adb_download.pick_and_start(self, self._adb_starting)
+        self._adb_download.pick_and_start(self._dialog_parent(), self._adb_starting)
 
     def _on_adb_downloaded(self, ok: bool, detail: str):
         self._adb_btn.setEnabled(True)
@@ -704,7 +737,7 @@ class AdvancedDialog(QDialog):
         apk = bundled_apk_path()
         if apk is None:
             from PyQt6.QtWidgets import QFileDialog
-            chosen, _ = QFileDialog.getOpenFileName(self, "Select APK", "", "Android Package (*.apk)")
+            chosen, _ = QFileDialog.getOpenFileName(self._dialog_parent(), "Select APK", "", "Android Package (*.apk)")
             if not chosen:
                 return
             path = chosen
@@ -719,7 +752,7 @@ class AdvancedDialog(QDialog):
         serial = serials[0]
         if len(serials) > 1:
             serial, ok = QInputDialog.getItem(
-                self, "Select device",
+                self._dialog_parent(), "Select device",
                 "More than one phone is plugged in. Which one should get the app?",
                 serials, 0, False,
             )
@@ -745,13 +778,13 @@ class AdvancedDialog(QDialog):
 class SetupPlugin(TelescopePlugin):
     name = "setup"
     title = "Advanced settings"
-    about = "The Advanced dialog with the virtual camera, its size, extra cameras and other settings you rarely change."
+    about = "The virtual camera, its size, extra cameras, video and microphone limits, and the Updates & About tab."
     required = True
 
     def setup(self, host, bus):
         self._host = host
         self._bus = bus
-        self._dlg: Optional[AdvancedDialog] = None
+        self._panel: Optional[AdvancedSettings] = None
         self._vaapi_dlg = None  # closing setup leaves a build running; reopening follows the same job
         self._max_zoom = DEFAULT_MAX_ZOOM
         self._max_gain = DEFAULT_MAX_GAIN
@@ -767,38 +800,40 @@ class SetupPlugin(TelescopePlugin):
         return canvas_dims(self.get_config())
 
     def create_panel(self) -> Optional[QWidget]:
-        """No panel; setup is dialog-only (see create_menu_actions)."""
+        """No panel; its settings are in the settings window (see create_settings_sections)."""
         return None
 
-    def create_menu_actions(self) -> list:
-        action = QAction("Advanced…", None)
-        action.triggered.connect(self._open)
-        return [action]
+    def create_settings_sections(self) -> list:
+        self._panel = AdvancedSettings(
+            self._host, on_apply_canvas=self._on_apply_canvas,
+            report=self._host.diagnostics_report,
+            on_max_zoom=self._on_max_zoom, on_max_gain=self._on_max_gain,
+            on_limiter=self._on_limiter, on_plugin_hues=self._on_plugin_hues,
+            on_remove_extras=lambda done: self._host.remove_extra_cameras(done),
+            extras_in_use=lambda: self._host.stream_count() > 1,
+            on_hw_decode=self._on_hw_decode, on_vaapi=self._open_vaapi)
+        self._sync_panel()
+        return [replace(section, on_show=self._on_show) for section in self._panel.sections()]
 
-    def _open(self):
-        if self._dlg is None:
-            self._dlg = AdvancedDialog(self._host, on_apply_canvas=self._on_apply_canvas,
-                                       report=self._host.diagnostics_report,
-                                       on_max_zoom=self._on_max_zoom, on_max_gain=self._on_max_gain,
-                                       on_limiter=self._on_limiter, on_plugin_hues=self._on_plugin_hues,
-                                       on_remove_extras=lambda done: self._host.remove_extra_cameras(done),
-                                       extras_in_use=lambda: self._host.stream_count() > 1,
-                                       on_hw_decode=self._on_hw_decode, on_vaapi=self._open_vaapi)
-        self._dlg.set_canvas_preset(self._canvas_preset, self._custom_w, self._custom_h)
-        self._dlg.set_max_zoom(self._max_zoom)
-        self._dlg.set_max_gain(self._max_gain)
-        self._dlg.set_limiter(self._limiter)
-        self._dlg.set_hw_decode(self._hw_decode)
-        self._dlg.set_plugin_hues(self._plugin_hues)
-        self._dlg.show()
-        self._dlg.raise_()
-        self._dlg.activateWindow()
+    def _sync_panel(self):
+        """The controls show what's saved, which changes while Settings is closed (a preset, a config reload)."""
+        panel = self._panel
+        panel.set_canvas_preset(self._canvas_preset, self._custom_w, self._custom_h)
+        panel.set_max_zoom(self._max_zoom)
+        panel.set_max_gain(self._max_gain)
+        panel.set_limiter(self._limiter)
+        panel.set_hw_decode(self._hw_decode)
+        panel.set_plugin_hues(self._plugin_hues)
+
+    def _on_show(self):
+        self._sync_panel()
+        self._panel.on_show()
 
     def _on_apply_canvas(self, w: int | None, h: int | None):
         # In effect for the restart, but kept only once the host accepts it
         before = (self._canvas_preset, self._custom_w, self._custom_h)
-        if self._dlg:
-            self._canvas_preset = self._dlg.get_canvas_preset_label()
+        if self._panel:
+            self._canvas_preset = self._panel.get_canvas_preset_label()
             if self._canvas_preset == "Custom...":
                 self._custom_w = w
                 self._custom_h = h
@@ -807,9 +842,9 @@ class SetupPlugin(TelescopePlugin):
             if not ok:
                 self._canvas_preset, self._custom_w, self._custom_h = before
             self._host.schedule_save()
-            if self._dlg:
-                self._dlg.set_canvas_apply_result(ok, msg, command)
-            if command and not (self._dlg and self._dlg.isVisible()):  # closed meanwhile: the main window says it
+            if self._panel:
+                self._panel.set_canvas_apply_result(ok, msg, command)
+            if command and not (self._panel and self._panel.card_visible()):  # closed meanwhile: the main window says it
                 self._host.show_issue("vcam", Issue("Resize the virtual camera", msg, [copy_action(command)],
                                                     kind="warn", details=command))
         self._host.restart_vcam_canvas(w, h, on_done=on_done)
@@ -827,7 +862,7 @@ class SetupPlugin(TelescopePlugin):
     def _open_vaapi(self):
         from telescope.widgets.vaapi_setup import VaapiSetupDialog
         if self._vaapi_dlg is None:
-            self._vaapi_dlg = VaapiSetupDialog(self._dlg, self._host.restart_app)
+            self._vaapi_dlg = VaapiSetupDialog(self._panel._dialog_parent() if self._panel else None, self._host.restart_app)
         else:
             self._vaapi_dlg.check_again()
         self._vaapi_dlg.exec()

@@ -38,10 +38,16 @@ class _Host:
         if name in self.plugins:
             self.plugins[name].apply_preset(cfg)
 
+    def preset_plugins(self):
+        return [name for name, p in self.plugins.items() if p.in_presets]
+
     def update_stream_output(self, fps=None, **_kw):
         self.fps.append(fps)
 
     def reconnect_stream(self):
+        pass
+
+    def set_view(self, **_changes):
         pass
 
 
@@ -54,6 +60,8 @@ class _Ctrl:
 
 
 class _Stub(TelescopePlugin):
+    in_presets = True
+
     def __init__(self, name, cfg):
         self.name, self.cfg = name, dict(cfg)
 
@@ -94,6 +102,22 @@ def test_save_snapshots_each_section_and_replaces_by_name(qapp):
     assert plugin.find("Desk") == {"name": "Desk", "camera": {"iso": 200}, "transforms": {"zoom": 2.0}}
     assert plugin.find("Night")["camera"] == {"iso": 800}
     assert host.saves == 3
+
+
+def test_any_plugin_in_presets_is_saved_and_an_older_preset_leaves_it_alone(qapp):
+    host = _Host()
+    host.plugins = {"transforms": _Stub("transforms", {"zoom": 2.0}), "framing": _Stub("framing", {"on": True}),
+                    "microphone": _Stub("microphone", {"gain": 3})}
+    host.plugins["microphone"].in_presets = False
+    plugin = _presets(host)
+    plugin.save("Talking")
+    assert plugin.find("Talking") == {"name": "Talking", "transforms": {"zoom": 2.0}, "framing": {"on": True}}
+    plugin.set_config({"presets": [{"name": "Old", "transforms": {"zoom": 1.0}},
+                                   {"name": "Talking", "framing": {"on": True}, "gone": {"x": 1}, "junk": 3}]})
+    assert plugin.find("Talking") == {"name": "Talking", "framing": {"on": True}, "gone": {"x": 1}}
+    host.plugins["framing"].cfg = {"on": False}
+    plugin.apply("Old")
+    assert host.applied == ["transforms"] and host.plugins["framing"].cfg == {"on": False}
 
 
 def test_blank_names_are_ignored(qapp):

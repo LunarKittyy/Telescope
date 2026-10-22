@@ -4,13 +4,13 @@ This is the short version of how the desktop app is split up and which rules kee
 
 ## The pieces
 
-- **The window** (`telescope/app.py`, `TelescopeWindow`) is the host. It owns the event bus, starts and stops streams, saves settings and lays out the cards. It doesn't know what any of the cards do.
+- **The window** (`telescope/app.py`, `TelescopeWindow`) is the host. It owns the event bus, starts and stops streams, saves settings, lays out the cards and builds the Settings window. It doesn't know what any of the cards do.
 - **Plugins** (`telescope/plugins/`) are the cards and most of the features, like camera controls, transforms, the microphone and the wait screen. Each one is a `TelescopePlugin` subclass. `builtin_plugins()` in `telescope/plugins/__init__.py` lists the built-in ones in the order they're registered.
 - **The plugin API** lives in `telescope/plugin.py`. It has the `TelescopePlugin` hooks, `HostServices` (everything a plugin may call on the window) and the `EventBus` signals. A plugin only talks to the rest of the app through these three.
 - **Sources** (`telescope/sources.py`) are what a stream comes from, which is either a paired phone or a plugin's `StreamSource`. They reach the window only through `SourceHost`.
 - **Sessions** (`telescope/session.py`) keeps track of which sources are streaming, which one the panels show and what's still starting. There's no Qt in it at all.
 - **The stream flow** (`telescope/stream_flow.py`, `StreamFlow`) starts and stops streams, moves the panels between them and keeps the mic on one stream. It works on `Sessions` and reaches the window only through `FlowHost`.
-- **Added plugins** are loaded from the user's plugins folder by `telescope/plugin_loader.py`. The Plugins dialog (`telescope/widgets/plugins_dialog.py`) is where people switch them on and off, built-in ones included.
+- **Added plugins** are loaded from the user's plugins folder by `telescope/plugin_loader.py`. The Plugins tab of the Settings window (`telescope/widgets/plugins_panel.py`) is where people switch them on and off, built-in ones included.
 
 ## The rules
 
@@ -22,11 +22,15 @@ This is the short version of how the desktop app is split up and which rules kee
 
 `host.plugin_config(name)` exists too, but reading another plugin's settings ties you to how that plugin stores them. Only use it when none of the above fits.
 
-**Every plugin except Connection can be missing.** People can switch built-in plugins off in the Plugins dialog and the app still has to start, stream and quit without any one of them. If your code needs something another plugin provides, handle the case where it isn't there. `tests/test_plugin_removal.py` builds the app with each plugin left out and fails on any error that gets logged.
+**Every plugin except Connection can be missing.** People can switch built-in plugins off in the Plugins tab and the app still has to start, stream and quit without any one of them. If your code needs something another plugin provides, handle the case where it isn't there. `tests/test_plugin_removal.py` builds the app with each plugin left out and fails on any error that gets logged.
 
 **Plugins only use the public host.** There's no `host._anything` in a plugin. If a plugin needs something new from the window, add a method to the right protocol in `plugin.py` (`HostSettings`, `HostStreams`, `HostCamera`, `HostSources` or `HostShell`), implement it on `TelescopeWindow` and note it in MODULES.md. `test_window_implements_the_public_host_services_contract` checks that the window has all of them.
 
+**Settings go in the Settings window, as sections.** The window owns the tabs (`SETTINGS_TABS` in `plugin.py`) and a plugin adds a `SettingsSection` to one of them from `create_settings_sections()`. Two plugins can share a tab (Streaming holds Startup's card and the Wait screen's) because each adds its own section and neither knows about the other. Sections are built once, when Settings first opens, and refresh in `on_show`, since the saved values can change while the window is closed (a preset, a config reload). A switched-off plugin leaves no section behind and a tab with nothing in it isn't shown.
+
 **Don't count on the registration order.** Plugins are set up one at a time. While one is in `setup()`, the plugins registered after it don't exist yet and won't hear anything it emits. Anything other plugins follow (like how many phones there are or which source is picked) gets emitted again from `on_plugins_ready()`, which runs once every plugin is set up and the saved settings are loaded.
+
+**Cards fold without the plugins knowing.** The window owns folding cards and their sections (`widgets/collapse.py`, `Collapsing`) and plugins don't take part. It works from whatever the shared card helpers in `widgets/common.py` built and never names a card, so a plugin or a later change that builds its card the usual way is foldable with no extra code. Keep it that way: no list of card titles in `collapse.py`, no fold calls in a plugin. Cards come and go, so saved folds are kept for plugins that are switched off and applied when their panel is installed again. A fold hides a container around the rows and never a row, which leaves a plugin free to show and hide its own rows or its whole card. The rows are grouped once `create_panel()` returns, so a plugin builds its card completely in there. `tests/test_collapse.py` and `tests/test_plugin_removal.py` check this.
 
 **Each hook means one thing.** `on_stream_start` and `on_stream_stop` are for a stream that really starts or ends. `on_focus_gained` and `on_focus_lost` are for the panels moving between streams that keep running, for example when someone clicks a tile or the mic moves to another stream. Don't guess one from the other. A plugin that wants to pick up where it left off on a stream uses `StreamsBehind` from the focus hooks.
 
@@ -46,14 +50,14 @@ People write plugins against what `plugin.py` offers and expect them to keep wor
 
 ## When plugins need the same thing
 
-None of this is built yet. It's the plan for when the first plugin needs it, written down so nobody reaches for plugin-to-plugin dependencies first.
+Two shared pieces are built. The view (`view.py` and `view_controller.py`, `HostView` in `plugin.py`) is the zoom, pan, flip and rotation that Transforms and Auto framing both move. The vision service (`vision.py`, `HostVision`) runs MediaPipe once per frame for Background and Auto framing, so two plugins asking for a person mask don't each run the model. The `needs` list and the registry below are still only a plan, written down so nobody reaches for plugin-to-plugin dependencies first.
 
-Some future plugins will want a shared base. Several effect plugins could share one post-processing backend (a GPU context, a smaller copy of the frame or face detection run once a frame). An AI framing plugin would want to move the same zoom and pan the Transforms card does rather than add a second transform on top of it.
+More plugins will want a shared base like that. Several effects could share a GPU context or a smaller copy of the frame, the same way they already share the mask.
 
 Plugins still won't depend on other plugins. If B used A's code then any update of A could break B, and nothing would catch it the way `test_plugin_api.py` catches changes to the host. Switching A off or removing it would have to do something about B too, and the loader would need versions and a load order between plugins. So the plan is this:
 
-- **The shared part moves into the app.** A post-processing backend becomes a host service that effect plugins call through `HostServices`. Zoom, pan and rotation become a view the window owns, with Transforms as the manual controls for it. AI framing drives the same view through a host method and keeps working when someone switches the Transforms card off. Helpers like the zoom math in `plugins/transforms.py` move out of `plugins/` as the rules above already say.
-- **A plugin can say what it needs.** A `needs` list in plugin.json names the built-in plugins it can't work without. If one of them is switched off the Plugins dialog shows which one it's waiting for (instead of the plugin quietly doing nothing), and switching it off warns about the plugins that need it.
+- **The shared part moves into the app.** Something like the vision service becomes a host service that plugins call through `HostServices`. Zoom, pan, flip and rotation are a view the window owns, with Transforms as the manual controls for it (`host.set_view`). Something that moves the view by itself, like AI framing, takes it with `host.take_view` and keeps working when someone switches the Transforms card off. The zoom maths lives in `view.py`, outside `plugins/`.
+- **A plugin can say what it needs.** A `needs` list in plugin.json names the built-in plugins it can't work without. If one of them is switched off the Plugins tab shows which one it's waiting for (instead of the plugin quietly doing nothing), and switching it off warns about the plugins that need it.
 - **Added plugins sharing with each other** would go through a host registry if that ever comes up for real. One plugin registers a service under a name and the others ask `host.service(name)` and get None when it isn't there. They still never import each other.
 
 Build each piece together with the first plugin that needs it, since what the service should look like depends on that plugin.

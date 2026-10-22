@@ -5,9 +5,12 @@ from types import SimpleNamespace
 
 import pytest
 from PyQt6.QtCore import QCoreApplication, QEvent, QTimer
+from PyQt6.QtWidgets import QLabel
 
 import telescope.app as app_module
 import telescope.plugins.connection as connection_module
+from telescope.config import load_config
+import telescope.plugins.setup as setup_plugin
 from telescope.plugin import TelescopePlugin
 from telescope.plugins import builtin_plugins
 from telescope.plugins.onboarding import OnboardingPlugin
@@ -137,6 +140,8 @@ def build(qapp, config_home, monkeypatch):
     monkeypatch.setattr(app_module, "StreamWorker", _Worker)
     monkeypatch.setattr(connection_module, "LanDiscovery", lambda *a, **k: _Held())
     monkeypatch.setattr(connection_module, "stop_adb_server", lambda: None)
+    monkeypatch.setattr(setup_plugin, "uc_registered_name", lambda: None, raising=False)  # Setup's tabs scan the registry on a thread when shown
+    monkeypatch.setattr(setup_plugin, "uc_in_app_folder", lambda: False, raising=False)
     monkeypatch.setattr(connection_module.ConnectionPlugin, "_spawn_resolve", lambda self, *a: None)
     monkeypatch.setattr(connection_module.ConnectionPlugin, "ensure_virtual_camera", lambda self, interactive=True: True)
     monkeypatch.setattr(OnboardingPlugin, "check_virtual_camera", lambda self: None)
@@ -173,11 +178,21 @@ def build(qapp, config_home, monkeypatch):
 
 
 @pytest.mark.parametrize("left_out", [None, *OPTIONAL])
-def test_the_app_starts_streams_and_quits_without_any_one_optional_plugin(build, caplog, left_out):
+def test_the_app_starts_streams_and_quits_without_any_one_optional_plugin(build, qapp, caplog, left_out):
     caplog.set_level(logging.ERROR)
     window = build(left_out)
     names = {p.name for p in window._plugins}
     assert left_out not in names and REQUIRED <= names
+
+    window.open_settings()  # every tab builds and comes up, whatever's missing
+    win = window._settings_win
+    for tab in win.tabs():
+        win.show_tab(tab)
+        qapp.processEvents()
+    assert ("shortcuts" in win.tabs()) == (left_out != "shortcuts")
+    assert ({"video", "audio", "devices"} <= set(win.tabs())) == (left_out != "setup")
+    assert "plugins" in win.tabs()
+    win.close()
 
     window.stream_source("test:cam")
     assert window.is_streaming() and _Worker.made[-1].started
@@ -192,12 +207,39 @@ def test_the_app_starts_streams_and_quits_without_any_one_optional_plugin(build,
     assert [r.getMessage() for r in caplog.records if r.levelno >= logging.ERROR] == []
 
 
+def test_every_card_and_section_in_the_window_folds(build):
+    window = build(None)
+    cards = {t.text() for t in window.findChildren(QLabel, "card_title")}
+    folds = set(window._collapse._bodies)
+    assert cards and cards <= {key.split("/")[1] for key in folds}
+    assert {"camera_control/Camera/Light", "camera_control/Camera/Image", "monitoring/Phone/Warnings"} <= folds
+
+
+def test_a_plugin_switched_off_and_on_again_has_its_folds_as_it_left_them(build):
+    first = build(None)
+    first._collapse.set_folded("transforms/Transforms", True)
+    first._collapse.set_folded("camera_control/Camera/Image", True)
+    first.save_now()
+
+    without = build("transforms")  # Transforms is off for this run
+    assert "transforms/Transforms" not in without._collapse._bodies
+    assert without._collapse.is_folded("camera_control/Camera/Image")
+    without.save_now()
+    assert "transforms/Transforms" in load_config()["collapsed"]
+
+    again = build(None)
+    assert again._collapse.is_folded("transforms/Transforms")
+    assert again._collapse._bodies["transforms/Transforms"].isHidden()
+    assert again._collapse._bodies["camera_control/Camera/Image"].isHidden()
+    assert not again._collapse._bodies["camera_control/Camera/Light"].isHidden()
+
+
 def test_only_connection_is_required():
     assert set(OPTIONAL) | REQUIRED == {p.name for p in builtin_plugins()}
     assert len(OPTIONAL) == len(builtin_plugins()) - 1
 
 
-def test_every_built_in_plugin_says_what_it_is_for_the_plugins_dialog():
+def test_every_built_in_plugin_says_what_it_is_for_the_plugins_tab():
     for plugin in builtin_plugins():
         assert plugin.title and plugin.about, plugin.name
         assert plugin.required or plugin.when_off, f"{plugin.name}: say what goes away while it's off"

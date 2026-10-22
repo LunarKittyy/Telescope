@@ -71,6 +71,7 @@ h1, h2, h3 { text-wrap: balance; }
 /* the home world glows behind the setup text, so it gets a shadow to stay legible */
 .landing .copy { text-shadow: 0 0 18px rgba(15, 18, 22, 0.95), 0 1px 3px rgba(15, 18, 22, 0.9); }
 .landing .dl, .landing .cmd { text-shadow: none; }
+.side-left .copy, .side-right .lede { text-shadow: 0 0 14px rgba(15, 18, 22, 0.95), 0 1px 3px rgba(15, 18, 22, 0.9); }
 
 /* hero */
 .hero { padding-left: max(var(--gutter), calc(50% - var(--wide) / 2 + var(--gutter))); }
@@ -79,6 +80,7 @@ h1, h2, h3 { text-wrap: balance; }
 .hero h1 { font-size: clamp(4rem, 11vw, 9.5rem); font-weight: 800; line-height: 0.9; letter-spacing: -0.045em; font-variation-settings: "opsz" 96; }
 .tagline { margin-top: 26px; font-family: var(--display); font-size: clamp(1.35rem, 2.3vw, 1.85rem); line-height: 1.3; color: var(--ink-muted); font-variation-settings: "opsz" 24; }
 .tagline span { display: block; }
+.free { margin-top: 18px; font-size: 1rem; color: var(--lavender-light); }
 .flat-lens { display: none; }
 body.static .flat-lens { display: block; position: absolute; width: min(64vh, 600px, 48vw); right: max(-40px, calc(50% - 680px)); top: 50%; translate: 0 -50%; pointer-events: none; }
 

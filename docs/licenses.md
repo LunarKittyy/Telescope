@@ -27,4 +27,7 @@ Source: https://github.com/schellingb/UnityCapture
 **Android SDK Platform Tools** - not included. On Windows, Telescope downloads `adb.exe` from Google when you ask for it, for USB mode.
 Copyright (c) Google LLC. Android Software Development Kit License Agreement: https://developer.android.com/studio/terms
 
+**MediaPipe** and its selfie segmenter and pose landmarker models - not included. Telescope downloads them from its own GitHub releases when you switch on Auto framing or Background. Copyright (c) Google LLC. Apache License 2.0. The download carries its own notices file (`NOTICES.txt`), along with absl-py, flatbuffers (both Apache 2.0) and certifi (MPL 2.0).
+Source: https://github.com/google-ai-edge/mediapipe
+
 **Python runtime dependencies** (PyQt6, opencv-python-headless, numpy, pyvirtualcam, qrcode, ifaddr, zeroconf, av, cryptography, truststore, sounddevice on Windows and jeepney on Linux) - installed from PyPI; exact pinned versions are in `desktop/constraints.txt`. PyQt6 in particular is GPL v3-licensed (a commercial Riverbank Computing license also exists but isn't what this project uses).

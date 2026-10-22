@@ -5,7 +5,7 @@ import pytest
 from telescope import theme
 from telescope.plugin import UNCHANGED, EventBus
 from telescope.plugins.monitoring import MonitoringPlugin
-from telescope.plugins.setup import AdvancedDialog, SetupPlugin
+from telescope.plugins.setup import AdvancedSettings, SetupPlugin
 from telescope.plugins.stream_output import StreamOutputPlugin
 
 
@@ -937,19 +937,19 @@ def test_setup_plugin_apply_canvas_persists_and_reports_result(setup_plugin):
         def get_canvas_preset_label(self):
             return "Custom..."
 
-        def isVisible(self):
+        def card_visible(self):
             return True
 
         def set_canvas_apply_result(self, ok, msg, command=""):
             self.result = (ok, msg)
 
-    plugin._dlg = Dialog()
+    plugin._panel = Dialog()
     plugin._on_apply_canvas(900, 700)
 
     assert plugin.get_canvas_dims() == (900, 700)
     assert host.saves == 1
     assert host.canvas_restarts == [(900, 700)]
-    assert plugin._dlg.result == (True, "done")
+    assert plugin._panel.result == (True, "done")
 
 
 def test_setup_plugin_keeps_a_canvas_the_host_refused(setup_plugin):
@@ -961,18 +961,18 @@ def test_setup_plugin_keeps_a_canvas_the_host_refused(setup_plugin):
         def get_canvas_preset_label(self):
             return "Custom..."
 
-        def isVisible(self):
+        def card_visible(self):
             return True
 
         def set_canvas_apply_result(self, ok, msg, command=""):
             self.result = (ok, msg)
 
-    plugin._dlg = Dialog()
+    plugin._panel = Dialog()
     plugin._on_apply_canvas(1280, 720)
 
     assert plugin.get_canvas_dims() == (1920, 1080)
     assert plugin.get_config()["custom_canvas_w"] == 1920
-    assert plugin._dlg.result == (False, "Stop all but one camera first")
+    assert plugin._panel.result == (False, "Stop all but one camera first")
 
 
 def test_setup_plugin_shows_a_command_to_run_where_it_was_asked_for(setup_plugin):
@@ -987,16 +987,16 @@ def test_setup_plugin_shows_a_command_to_run_where_it_was_asked_for(setup_plugin
         def get_canvas_preset_label(self):
             return "1280 × 720"
 
-        def isVisible(self):
+        def card_visible(self):
             return self.visible
 
         def set_canvas_apply_result(self, ok, msg, command=""):
             self.result = (ok, msg, command)
 
-    plugin._dlg = Dialog()
+    plugin._panel = Dialog()
     plugin._on_apply_canvas(1280, 720)
-    assert plugin._dlg.result == (False, "Run this", "sudo modprobe v4l2loopback") and issues == []
-    plugin._dlg.visible = False  # closed while it ran: the main window says it instead
+    assert plugin._panel.result == (False, "Run this", "sudo modprobe v4l2loopback") and issues == []
+    plugin._panel.visible = False  # closed while it ran: the main window says it instead
     plugin._on_apply_canvas(1280, 720)
     assert issues == ["sudo modprobe v4l2loopback"]
 
@@ -1010,19 +1010,19 @@ def test_setup_plugin_uses_the_new_canvas_for_the_restart_it_asks_for(setup_plug
         def get_canvas_preset_label(self):
             return "720p 16:9 - 1280 x 720"
 
-        def isVisible(self):
+        def card_visible(self):
             return True
 
         def set_canvas_apply_result(self, ok, msg, command=""):
             pass
 
-    plugin._dlg = Dialog()
+    plugin._panel = Dialog()
     plugin._on_apply_canvas(1280, 720)
     assert seen == [(1280, 720)] and plugin.get_canvas_dims() == (1280, 720)
 
 
 def test_setup_dialog_rounds_an_odd_custom_size_up_to_even(qapp):
-    dialog = AdvancedDialog()
+    dialog = AdvancedSettings()
     assert dialog._custom_w.singleStep() == 2 and dialog._custom_h.singleStep() == 2
     dialog.set_canvas_preset("Custom...", 1921, 1081)
     assert dialog._get_selected_dims() == (1922, 1082)
@@ -1030,7 +1030,7 @@ def test_setup_dialog_rounds_an_odd_custom_size_up_to_even(qapp):
 
 
 def test_setup_dialog_canvas_dimension_selection_and_result_messages(qapp):
-    dialog = AdvancedDialog()
+    dialog = AdvancedSettings()
     dialog.set_canvas_preset("Custom...", 1234, 568)
     assert dialog._get_selected_dims() == (1234, 568)
     assert dialog.get_canvas_preset_label() == "Custom..."

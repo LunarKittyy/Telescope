@@ -41,9 +41,11 @@ def check_app_construction():
     from PyQt6.QtWidgets import QApplication
 
     from telescope.app import TelescopeWindow
+    from telescope.plugins.background import BackgroundPlugin
     from telescope.plugins.browser_camera import BrowserCameraPlugin
     from telescope.plugins.camera_control import CameraControlPlugin
     from telescope.plugins.connection import ConnectionPlugin
+    from telescope.plugins.framing import FramingPlugin
     from telescope.plugins.microphone import MicrophonePlugin
     from telescope.plugins.monitoring import MonitoringPlugin
     from telescope.plugins.presets import PresetsPlugin
@@ -58,8 +60,8 @@ def check_app_construction():
     app = QApplication.instance() or QApplication([])
     win = TelescopeWindow()
     for plugin_cls in (
-        SetupPlugin, ConnectionPlugin, CameraControlPlugin, BrowserCameraPlugin, StreamOutputPlugin,
-        TransformsPlugin, MicrophonePlugin, PresetsPlugin, PreviewPlugin, MonitoringPlugin, UpdatesPlugin,
+        SetupPlugin, ConnectionPlugin, CameraControlPlugin, BrowserCameraPlugin, BackgroundPlugin, StreamOutputPlugin,
+        TransformsPlugin, FramingPlugin, MicrophonePlugin, PresetsPlugin, PreviewPlugin, MonitoringPlugin, UpdatesPlugin,
         ShortcutsPlugin, StartupPlugin,
     ):
         win.register_plugin(plugin_cls())
@@ -70,6 +72,29 @@ def check_app_construction():
              f"{type(shortcuts.backend).__name__ if shortcuts.backend else 'nothing'}"
     shortcuts.shutdown()
     return f"{len(win._plugins)} plugins registered, {detail}"
+
+
+def check_background_speed():
+    import time
+
+    import cv2
+    import numpy as np
+
+    from telescope.plugins.background import blurred, compose, soften
+
+    cv2.setNumThreads(2)  # as the app runs it (main.py)
+    frame = np.random.default_rng(0).integers(0, 255, (1080, 1920, 3), np.uint8)
+    mask = np.zeros((1080, 1920), np.uint8)
+    mask[:, :900] = 255
+    times = []
+    for _ in range(30):
+        t0 = time.perf_counter()
+        compose(frame, soften(mask, 3), blurred(frame, 6, mask))
+        times.append((time.perf_counter() - t0) * 1000)
+    median = sorted(times)[len(times) // 2]
+    if median > 40:  # far past a 33 ms frame at 30 fps: something made it a lot slower
+        raise RuntimeError(f"a 1080p background blur took {median:.1f} ms")
+    return f"1080p blur without the model: {median:.1f} ms"
 
 
 def check_adb_discovery():
@@ -153,19 +178,65 @@ def check_authenticated_stream_round_trip():
 
 
 def check_browser_camera_round_trip():
-    """The page and its certificate work in this bundle (web files and cryptography packaged), and a frame sent
-    over the WebSocket the way the page sends it comes out of the reader."""
+    """The page and its certificate work in this bundle (web files, cryptography and aiortc packaged), and video sent
+    over WebRTC the way the page sends it, set up over the WebSocket, comes out of the reader."""
+    import asyncio
     import base64
     import http.client
+    import json
     import socket
     import struct
     import tempfile
 
-    import cv2
+    import av
     import numpy as np
+    from aiortc import RTCConfiguration, RTCPeerConnection, RTCSessionDescription
+    from aiortc.mediastreams import VideoStreamTrack
 
     from telescope import browser_server as bs
 
+    class Grey(VideoStreamTrack):
+        async def recv(self):
+            pts, time_base = await self.next_timestamp()
+            frame = av.VideoFrame.from_ndarray(np.full((48, 64, 3), 128, np.uint8), format="bgr24")
+            frame.pts, frame.time_base = pts, time_base
+            return frame
+
+    loop = asyncio.new_event_loop()
+    threading.Thread(target=loop.run_forever, daemon=True).start()
+
+    def run(coro):
+        return asyncio.run_coroutine_threadsafe(coro, loop).result(10)
+
+    async def offer():
+        pc = RTCPeerConnection(RTCConfiguration(iceServers=[]))
+        pc.addTransceiver(Grey(), direction="sendonly")
+        await pc.setLocalDescription(await pc.createOffer())
+        return pc
+
+    def send_text(sock, text: str):
+        payload, mask = text.encode(), b"\x01\x02\x03\x04"
+        head = struct.pack("!BB", 0x81, 0x80 | len(payload)) if len(payload) < 126 else \
+            struct.pack("!BBH", 0x81, 0x80 | 126, len(payload))
+        sock.sendall(head + mask + bs.unmask(payload, mask))
+
+    def take(sock, n: int) -> bytes:
+        data = b""
+        while len(data) < n:
+            data += sock.recv(n - len(data))
+        return data
+
+    def recv_text(sock) -> dict:
+        while True:
+            b0, b1 = take(sock, 2)
+            n = b1 & 0x7F
+            if n == 126:
+                n = struct.unpack("!H", take(sock, 2))[0]
+            data = take(sock, n)
+            if b0 & 0x0F == 0x1:
+                return json.loads(data)
+
+    peer = run(offer())
     with tempfile.TemporaryDirectory() as folder:
         cert, key = bs.ensure_certificate(Path(folder), ["127.0.0.1"])
         feed = bs.BrowserFeed()
@@ -177,13 +248,13 @@ def check_browser_camera_round_trip():
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
             conn = http.client.HTTPSConnection("127.0.0.1", server.port, context=ctx, timeout=5)
-            for path in ("/", "/app.js", "/mic-worklet.js"):
+            for path in ("/", "/app.js"):
                 conn.request("GET", path)
                 resp = conn.getresponse()
                 assert resp.status == 200 and resp.read(), f"{path} isn't served"
             conn.close()
 
-            sock = ctx.wrap_socket(socket.create_connection(("127.0.0.1", server.port), timeout=5))
+            sock = ctx.wrap_socket(socket.create_connection(("127.0.0.1", server.port), timeout=10))
             ws_key = base64.b64encode(b"smoke-check-key!").decode()
             sock.sendall((f"GET /ws?token={server.token} HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\n"
                           f"Connection: Upgrade\r\nSec-WebSocket-Key: {ws_key}\r\nSec-WebSocket-Version: 13\r\n\r\n").encode())
@@ -191,18 +262,21 @@ def check_browser_camera_round_trip():
             while b"\r\n\r\n" not in head:
                 head += sock.recv(1)
             assert head.startswith(b"HTTP/1.1 101") and bs.ws_accept_key(ws_key).encode() in head, "no WebSocket"
-            ok, buf = cv2.imencode(".jpg", np.zeros((4, 6, 3), np.uint8))
-            payload = bytes([bs.FRAME_JPEG]) + buf.tobytes()
-            mask = b"\x01\x02\x03\x04"
-            sock.sendall(struct.pack("!BBH", 0x82, 0x80 | 126, len(payload)) + mask + bs.unmask(payload, mask))
+            assert recv_text(sock)["type"] == "config", "no settings for the page"
+            send_text(sock, json.dumps({"type": "offer", "sdp": peer.localDescription.sdp}))
+            answer = recv_text(sock)
+            assert answer["type"] == "answer", f"the offer wasn't answered: {answer}"
+            run(peer.setRemoteDescription(RTCSessionDescription(answer["sdp"], "answer")))
             reader = bs.BrowserReader(feed)
             assert reader.open(), "the browser didn't connect"
             ok, frame = reader.read()
-            assert ok and frame.shape == (4, 6, 3), "the frame didn't come through"
+            assert ok and frame.shape == (48, 64, 3), "the video didn't come through"
             sock.close()
         finally:
             server.stop()
-    return "page served over TLS; a WebSocket frame reached the reader"
+            run(peer.close())
+            loop.call_soon_threadsafe(loop.stop)
+    return f"page served over TLS; an offer was answered and {feed.codec} video reached the reader"
 
 
 def main() -> int:
@@ -211,6 +285,7 @@ def main() -> int:
     _check("Virtual-camera availability check runs without crashing", check_virtual_camera_availability)
     _check("Authenticated MJPEG stream round-trip", check_authenticated_stream_round_trip)
     _check("Browser camera round-trip", check_browser_camera_round_trip)
+    _check("Background blur keeps up at 1080p", check_background_speed)
 
     print()
     if _FAILURES:

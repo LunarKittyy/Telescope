@@ -136,7 +136,7 @@ On port 8766, and the one request without auth: it only says which phone this is
 
 ## `GET /v1/ping`
 
-Served on port 8766 by `SessionServer` - unlike the endpoints above, it exists whether or not a stream is running (while the app's main screen is up, while the camera service is running, or while **Wait for my computer** is on - in any combination). Returns `200` if the token belongs to a paired computer, `401` if not.
+Served on port 8766 by `SessionServer` - unlike the endpoints above, it exists whether or not a stream is running (while the app's main screen is up, while the camera service is running, while **Wait for my computer** is on, and for 6 s after a stream stops - in any combination). Returns `200` if the token belongs to a paired computer, `401` if not.
 
 ```json
 {
@@ -205,23 +205,21 @@ One code pairs one phone: once a phone has paired from it, a POST from a differe
 
 ## Browser camera
 
-Not the phone: the desktop serves this itself (`telescope/browser_server.py`) on port 8767 (any free port if that's taken) while Browser camera is picked, over HTTPS with a self-signed certificate it keeps next to the config. The QR code is `https://<desktop>:8767/#<token>`. The token is after `#`, so loading the page (`/`, `/app.js`, `/mic-worklet.js`) never sends it.
+Not the phone: the desktop serves this itself (`telescope/browser_server.py`) on port 8767 (any free port if that's taken) while Browser camera is picked, over HTTPS with a self-signed certificate it keeps next to the config. The QR code is `https://<desktop>:8767/#<token>`. The token is after `#`, so loading the page (`/`, `/app.js`) never sends it.
 
-The page opens a WebSocket on `/ws?token=<token>`. A wrong token gets `403`. A second connection with the right token takes over, and the first is closed with code `4000`. **New link** or switching Browser camera off closes it with `1001`. A connection that sends nothing for 10 seconds is closed.
+The camera and mic go over WebRTC (`telescope/browser_rtc.py`, using aiortc). A WebSocket on `/ws?token=<token>&id=<browser id>` carries everything else: the offer and answer, the settings and the page's stats. It's also how the desktop knows the browser is there. A wrong token gets `403`. A second connection from the same browser id takes over and the first is closed with code `4000`. A browser that would need a virtual camera when none is free is closed with `4001`. **New link** closes every browser with `4002`, which tells the page to stop instead of retrying a code that no longer works, and switching Browser camera off closes them with `1001`. The desktop pings every 3 seconds (browsers answer those on their own) and a connection it hears nothing from for 10 seconds is closed.
 
-Page to desktop:
+Page to desktop, all text:
 
-- Binary, first byte `1`: one JPEG frame, the rest of the message
-- Binary, first byte `3`: H.264, then `1` for a keyframe or `0`, then one Annex-B access unit (keyframes carry SPS and PPS). Only sent when the config says `h264`, and only from a hardware encoder; every frame refers to the ones before it, so the page never skips one it has encoded without starting over at a keyframe
-- Binary, first byte `2`: microphone audio, 48 kHz mono s16le, 20 ms per message. Only sent while the desktop asks for it
-- Text: `{"type": "hello", "device": "Safari on iPhone", "mic_error": "", "codec": "h264", "codec_note": ""}`, sent on connect, after the camera restarts and when the codec changes. A non-empty `mic_error` says why there's no mic, and the Microphone card shows it. `codec` is `h264` or `jpeg`, and `codec_note` says why it's JPEG
+- `{"type": "hello", "device": "Safari on iPhone", "mic_error": ""}` on connect and when the mic changes. A non-empty `mic_error` says why there's no mic, and the Microphone card shows it
+- `{"type": "offer", "sdp": "..."}`: a complete offer (every address gathered first, there's no trickle ICE) with one send-only video and one send-only audio transceiver. The page asks for H.264 Constrained Baseline or Baseline with `packetization-mode=1` first (what the device's hardware encoder usually does), then VP8, the two codecs the desktop decodes. It sends a new offer after the connection fails, or stays disconnected for 5 seconds
+- `{"type": "stats", "width": 1280, "height": 720, "fps": 30, "limit": ""}` every 2 seconds: what the browser is really sending, and `cpu` or `bandwidth` when it says that's holding it back
 
-Desktop to page, as text whenever something changes and once on connect:
+Desktop to page:
 
-```json
-{ "type": "config", "width": 1280, "height": 720, "fps": 30, "audio": false, "h264": true }
-```
+- `{"type": "config", "width": 1280, "height": 720, "fps": 30, "audio": false, "max_kbps": 4147, "camera": "Telescope #2"}` once on connect and whenever something changes. `camera` (the virtual camera it streams to) is left out while there's none
+- `{"type": "answer", "sdp": "..."}` for each offer, or `{"type": "rtc_error", "message": "..."}` when it couldn't answer
 
-`h264` is true when the desktop can decode it (PyAV installed). `{"type": "keyframe"}` asks for a keyframe next: the desktop sends it when its decoder starts and when it had to drop H.264 that piled up.
+The answer carries no STUN or TURN server, so only the two devices' own addresses are tried and nothing outside the local network is contacted. Its video codecs get `x-google-start-bitrate` and `x-google-max-bitrate`: without the first Chrome starts at 300 kbps and takes about half a minute to get sharp. `max_kbps` is width × height × fps × 0.15 bits, between 1500 and 12000 kbps.
 
-The page asks the camera for that size and rate, scales frames down to fit it, and sends audio only while `audio` is true (the Microphone card is on and streaming). Messages over 16 MB end the connection.
+The page asks the camera for that size and rate, sets the sender's `maxBitrate`, `maxFramerate` and, for a camera that delivers more than asked, `scaleResolutionDownBy`. The mic's sender only has a track while `audio` is true (the Microphone card is on and streaming). The mic is opened raw, without echo cancellation, noise suppression or automatic gain, since the app on the computer does its own. Messages over 64 KB end the connection and binary ones are ignored.

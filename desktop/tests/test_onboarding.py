@@ -21,6 +21,12 @@ class _Host:
     def can_turn_camera_off(self):
         return False, "Turn on the phone mic first."
 
+    def vision_state(self):
+        return "missing"
+
+    def want_people(self, _owner, _on):
+        pass
+
     def schedule_save(self):
         pass
 

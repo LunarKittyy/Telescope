@@ -1,21 +1,23 @@
-"""The Plugins dialog (settings menu): every plugin, built in or added, with a switch for each one that can be off."""
+"""The Plugins tab of Settings: every plugin, built in or added, with a switch for each one that can be off."""
 
 import logging
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Optional
 
-from PyQt6.QtCore import QSignalBlocker, Qt, QUrl
+from PyQt6.QtCore import QSignalBlocker, QUrl
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
-    QCheckBox, QDialog, QFileDialog, QFrame, QHBoxLayout, QMessageBox, QPushButton, QVBoxLayout, QWidget,
+    QCheckBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QMessageBox, QPushButton, QScrollArea, QVBoxLayout, QWidget,
 )
 
 from telescope import plugin_loader
+from telescope.widgets import vision_download
 from telescope.widgets.common import (
     Switch,
-    add_card_header, card_action, card_layout, create_card, icon_button, set_ui_role, ui_px, wrapped_note,
+    add_card_header, card_action, card_layout, create_card, icon_button, set_ui_role, wrapped_note,
 )
-from telescope.widgets.controls import fit_height, setting_row, window_frame
+from telescope.widgets.controls import setting_row
+from telescope.widgets.settings_search import keywords
 
 logger = logging.getLogger(__name__)
 
@@ -31,27 +33,29 @@ def _ask(parent, title: str, text: str, yes: str, danger: bool = False) -> bool:
     return box.clickedButton() is yes_btn
 
 
-class PluginsDialog(QDialog):
-    def __init__(self, parent, builtins: list, running: set, problems: dict, restart: Callable[[], bool],
-                 is_streaming: Callable[[], bool] = lambda: False):
+class PluginsPanel(QWidget):
+    def __init__(self, builtins: list, running: set, problems: dict, restart: Callable[[], bool],
+                 is_streaming: Callable[[], bool] = lambda: False, download=None):
         """builtins: every built-in plugin object; running: the names of the plugins running now; problems: why each
         added plugin that's on didn't start this time; restart() starts Telescope again, False if it couldn't."""
-        super().__init__(parent)
+        super().__init__()
         self._builtins = list(builtins)
         self._reserved = {p.name for p in builtins}
         self._running = set(running)
         self._problems = dict(problems)
         self._restart = restart
         self._is_streaming = is_streaming
-        self.setWindowTitle("Plugins")
-        self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
-        self.setMinimumWidth(ui_px(600))
+        self._download = download or vision_download.shared()
+        self._download.progress.connect(self._on_download_progress)
+        self._download.finished.connect(self._on_download_done)
         self.setAcceptDrops(True)
-        body, bottom, self._scroll = window_frame(
-            self, "Plugins", "Switch parts of Telescope on or off. A change takes effect the next time Telescope "
-                             "starts, and settings are kept either way.")
+        body = QVBoxLayout(self)
+        body.setContentsMargins(0, 0, 0, 0)
+        body.setSpacing(14)
+        body.addWidget(wrapped_note("Switch parts of Telescope on or off. A change takes effect the next time "
+                                    "Telescope starts, and settings are kept either way."))
         self._keep_at = 0
-        self._scroll.verticalScrollBar().rangeChanged.connect(self._restore_scroll)
+        self._watching = None
 
         self._restart_bar = QFrame()
         self._restart_bar.setObjectName("setting_row")
@@ -64,55 +68,75 @@ class PluginsDialog(QDialog):
         set_ui_role(self._restart_btn, "primary")
         self._restart_btn.clicked.connect(self._restart_now)
         bar.addWidget(self._restart_btn)
-        self._scroll.parentWidget().layout().addWidget(self._restart_bar)  # under the list, so it stays in view
+        body.addWidget(self._restart_bar)
         self._list = QWidget()
         self._rows = QVBoxLayout(self._list)
         self._rows.setContentsMargins(0, 0, 0, 0)
         self._rows.setSpacing(body.spacing())
         body.addWidget(self._list)
-        body.addStretch(1)
 
         self._folder_btn = QPushButton("Open plugins folder")
         self._folder_btn.clicked.connect(self._open_folder)
         help_btn = QPushButton("How plugins work")
         help_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(DOCS_URL)))
-        close_btn = QPushButton("Close")
-        set_ui_role(close_btn, "primary")
-        close_btn.clicked.connect(self.accept)
-        bottom.addWidget(help_btn)
-        bottom.addWidget(self._folder_btn)
-        bottom.addStretch(1)
-        bottom.addWidget(close_btn)
+        links = QHBoxLayout()
+        links.setSpacing(8)
+        links.addWidget(help_btn)
+        links.addWidget(self._folder_btn)
+        links.addStretch(1)
+        body.addLayout(links)
         self.refresh()
-
-    def showEvent(self, event):
-        fit_height(self)
-        super().showEvent(event)
 
     # ── The list ──────────────────────────────────────────────────────────
 
+    def _scroll(self) -> Optional[QScrollArea]:
+        """The page this sits in, once it's in one."""
+        area = self.parentWidget()
+        while area is not None and not isinstance(area, QScrollArea):
+            area = area.parentWidget()
+        if area is not None and area is not self._watching:
+            self._watching = area
+            area.verticalScrollBar().rangeChanged.connect(self._restore_scroll)
+        return area
+
     def _restore_scroll(self, _low: int, high: int):
         if self._keep_at and high >= self._keep_at:
-            self._scroll.verticalScrollBar().setValue(self._keep_at)
+            self._watching.verticalScrollBar().setValue(self._keep_at)
             self._keep_at = 0
 
     def refresh(self):
-        self._keep_at = self._scroll.verticalScrollBar().value()  # stay where the person was once the rows are back
+        area = self._scroll()
+        if area is not None:
+            self._keep_at = area.verticalScrollBar().value()  # stay where the person was once the rows are back
         while self._rows.count():
             item = self._rows.takeAt(0)
             if item.widget() is not None:
                 item.widget().hide()  # deleteLater waits for the event loop, and until then it'd paint under the new one
                 item.widget().deleteLater()
         off = self._read(plugin_loader.builtin_off, set())
+        on = self._read(plugin_loader.optional_on, set())
         self._installed = self._read(lambda: plugin_loader.find_installed(self._reserved), [])
 
         self._all_on_btn = card_action("Turn all back on", "reset", "Switch every built-in plugin back on")
         self._all_on_btn.clicked.connect(self._all_on)
-        self._all_on_btn.setEnabled(any(p.name in off for p in self._builtins if not p.required))
+        self._all_on_btn.setEnabled(any(p.name in off for p in self._builtins if not p.required and not p.optional))
         rows = self._card("Built in", "plug", self._all_on_btn)
         for plugin in self._builtins:
-            if not plugin.required:
+            if not plugin.required and not plugin.optional:
                 rows.addWidget(self._builtin_row(plugin, plugin.name not in off))
+        optional = [p for p in self._builtins if p.optional]
+        if optional:
+            dl = self._download
+            self._remove_pack_btn = card_action("Remove download", "trash",
+                                                "Delete the download the plugins here use. Switching one on gets it "
+                                                "again.")
+            self._remove_pack_btn.clicked.connect(self._remove_pack)
+            self._remove_pack_btn.setVisible(dl.ready() and not dl.running() and not any(
+                p.needs_vision and (p.name in on or p.name in self._running) for p in optional))
+            rows = self._card("Optional", "download", self._remove_pack_btn)
+            self._progress_note = None
+            for plugin in optional:
+                rows.addWidget(self._optional_row(plugin, plugin.name in on))
         self._add_btn = card_action("Install", "plus", "Pick a plugin's .zip file. You can also drop one onto this "
                                                        "window.")
         self._add_btn.clicked.connect(self._add_zip)
@@ -128,7 +152,8 @@ class PluginsDialog(QDialog):
             if plugin.required:
                 rows.addWidget(self._builtin_row(plugin, True))
 
-        wanted = {p.name for p in self._builtins if p.required or p.name not in off}
+        wanted = {p.name for p in self._builtins
+                  if p.required or (p.name in on if p.optional else p.name not in off)}
         wanted |= {i.name for i in self._installed if i.enabled and not i.problem}
         known = self._reserved | {i.name for i in self._installed} | set(self._problems)
         self._restart_bar.setVisible(wanted != (self._running & known))
@@ -138,6 +163,7 @@ class PluginsDialog(QDialog):
         card = create_card()
         lay = card_layout(card)
         add_card_header(lay, title, icon, action=action)
+        keywords(card, "plugins extensions addons add ons modules features turn off on disable enable install zip")
         self._rows.addWidget(card)
         return lay
 
@@ -178,6 +204,67 @@ class PluginsDialog(QDialog):
         row, box, _top = self._row(title, on, plugin.about, note, kind)
         box.toggled.connect(lambda checked, p=plugin, b=box: self._switch_builtin(p, checked, b))
         return row
+
+    def _optional_row(self, plugin, on: bool) -> QWidget:
+        """An optional built-in plugin: off until switched on, which first downloads what it needs."""
+        title, dl = plugin.title or plugin.name, self._download
+        needs = plugin.needs_vision and not dl.ready()
+        note, kind = "", "dim"
+        if plugin.needs_vision and dl.running() and dl.waiting == plugin.name:
+            note, kind = "Downloading…", "status_warn"
+        elif dl.failed_for == plugin.name and dl.error:
+            note, kind = f"The download didn't work. {dl.error}", "status_err"
+        elif needs and not dl.available():
+            note, kind = "There's no download of what it needs for this computer yet, so it can't be switched on.", \
+                "status_err"
+        elif on and needs:
+            note, kind = (f"Its download (about {dl.size_mb()} MB) isn't there anymore. Switch it off and on again "
+                          "to get it."), "status_warn"
+        elif on and plugin.name not in self._running:
+            note, kind = "It starts after Telescope restarts.", "status_warn"
+        elif not on and plugin.name in self._running:
+            note, kind = "It goes away after Telescope restarts.", "status_warn"
+        elif needs:
+            note = f"Switching it on downloads about {dl.size_mb()} MB first."
+        row, box, _controls = self._row(title, on, plugin.about, note, kind)
+        if note == "Downloading…":
+            self._progress_note = next((lbl for lbl in row.findChildren(QLabel) if lbl.text() == note), None)
+        box.setEnabled(not (needs and not dl.available()) and not (dl.running() and dl.waiting == plugin.name))
+        box.toggled.connect(lambda checked, p=plugin, b=box: self._switch_optional(p, checked, b))
+        return row
+
+    def _switch_optional(self, plugin, on: bool, box: QCheckBox):
+        title, dl = plugin.title or plugin.name, self._download
+        if on and plugin.needs_vision and not dl.ready():
+            if not _ask(self, f"Download about {dl.size_mb()} MB?",
+                        f"{title} uses MediaPipe to find people in the picture. It comes as a separate download from "
+                        "Telescope's releases on GitHub, which the other optional plugins share.",
+                        "Download and switch on"):
+                with QSignalBlocker(box):
+                    box.setChecked(False)
+                return
+            dl.start(switch_on=plugin.name)
+            self.refresh()
+            return
+        self._save(lambda: plugin_loader.set_optional_on(plugin.name, on))
+
+    def _on_download_progress(self, done: int, size: int):
+        if self._progress_note is not None and size:
+            self._progress_note.setText(f"Downloading… {min(99, done * 100 // size)}%")
+
+    def _on_download_done(self, _error: str):
+        self.refresh()
+
+    def _remove_pack(self):
+        if not _ask(self, "Remove the download?",
+                    f"It frees about {self._download.size_mb()} MB. Switching on one of the optional plugins downloads "
+                    "it again.", "Remove"):
+            return
+        try:
+            self._download.remove()
+        except OSError as exc:
+            QMessageBox.warning(self, "Couldn't remove it", f"Telescope couldn't delete it: {exc}")
+        self.refresh()
 
     def _added_row(self, item) -> QWidget:
         title = f"{item.title} {item.version}".strip()
@@ -336,4 +423,4 @@ class PluginsDialog(QDialog):
             QMessageBox.warning(self, "Couldn't restart", "Telescope couldn't start a new copy of itself. Close "
                                                           "it and open it again to apply your changes.")
             return
-        self.accept()
+        self.window().close()

@@ -112,7 +112,8 @@ Write-Host 'ok: every file and folder is admin-owned and only admins can change 
 if ((Py "from telescope.platform.windows import uc_in_app_folder as f; print(f())") -ne 'False') { throw 'still registered from the app folder' }
 $name = Py "from telescope.platform.windows import uc_registered_name as n; print(n())"
 if ($name -ne 'Telescope') { throw "registered as '$name'" }
-Py "import pyvirtualcam; cam = pyvirtualcam.Camera(width=640, height=480, fps=30, backend='unitycapture', device='Telescope'); print(cam.device); cam.close()"
+# Match app startup: Qt supplies the C++ runtime DLLs on a fresh Windows install.
+Py "from PyQt6 import QtCore; import pyvirtualcam; cam = pyvirtualcam.Camera(width=640, height=480, fps=30, backend='unitycapture', device='Telescope'); print(cam.device); cam.close()"
 if ($LASTEXITCODE -ne 0) { throw 'pyvirtualcam could not open the camera' }
 Write-Host 'ok: the old registration moved to Program Files, apps list it as Telescope, and the camera opens'
 

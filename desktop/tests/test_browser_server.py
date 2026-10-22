@@ -1,4 +1,5 @@
-"""Browser camera server, end to end: a Python client stands in for the browser over TLS and a WebSocket."""
+"""Browser camera server, end to end: a Python client stands in for the browser over TLS and a WebSocket, and _FakeRtc
+for its WebRTC side (test_browser_rtc.py runs the real one)."""
 
 import base64
 import datetime
@@ -12,12 +13,12 @@ import threading
 import time
 import urllib.error
 
-import cv2
 import numpy as np
 import pytest
 
 import telescope.stream as stream
 from telescope import audio
+from telescope import browser_rtc
 from telescope import browser_server as bs
 
 
@@ -30,7 +31,8 @@ def cert(tmp_path_factory):
 def server(cert):
     feed = bs.BrowserFeed()
     changes = []
-    srv = bs.BrowserServer(feed, *cert, on_change=lambda: changes.append(1), port=0, host="127.0.0.1")
+    srv = bs.BrowserServer(feed, *cert, on_change=lambda: changes.append(1), port=0, host="127.0.0.1",
+                           rtc_session=_FakeRtc)
     srv.changes = changes
     srv.start()
     yield srv
@@ -104,10 +106,51 @@ class _Browser:
             pass
 
 
-def _jpeg(w=64, h=48, value=200) -> bytes:
-    ok, data = cv2.imencode(".jpg", np.full((h, w, 3), value, np.uint8))
-    assert ok
-    return data.tobytes()
+class _FakeRtc:
+    """Stands in for browser_rtc.RtcSession: answers any offer, and the test hands frames and audio in through it."""
+
+    made: list = []
+
+    def __init__(self, on_video, on_audio):
+        self._on_video, self._on_audio = on_video, on_audio
+        self.codec = ""
+        self.max_kbps = 0
+        self.closed = False
+        _FakeRtc.made.append(self)
+
+    def answer(self, offer: str, max_kbps: int) -> str:
+        self.codec, self.max_kbps = "H264", max_kbps
+        return f"answer to {offer}"
+
+    def on_video(self, frame, size: int = 0):
+        if not self.closed:
+            self._on_video(frame, size)
+
+    def on_audio(self, pcm: bytes):
+        if not self.closed:
+            self._on_audio(pcm)
+
+    def close(self):
+        self.closed = True
+
+
+class _FailingRtc(_FakeRtc):
+    def answer(self, offer: str, max_kbps: int) -> str:
+        raise browser_rtc.RtcError("no codec in common")
+
+
+def _frame(w=64, h=48, value=200):
+    """A decoded frame the way aiortc hands them over."""
+    av = pytest.importorskip("av")
+    return av.VideoFrame.from_ndarray(np.full((h, w, 3), value, np.uint8), format="bgr24").reformat(format="yuv420p")
+
+
+def _next_close(b) -> tuple:
+    """Skips what the server sends until its close frame."""
+    while True:
+        op, payload = b.recv()
+        if op == 0x8:
+            return op, payload
 
 
 def _wait(cond, timeout=5.0):
@@ -173,11 +216,11 @@ def _get(port: int, path: str) -> tuple:
     return resp.status, resp.getheader("Content-Type"), body
 
 
-def test_serves_the_page_and_its_scripts(server):
+def test_serves_the_page_and_its_script(server):
     status, ctype, body = _get(server.port, "/")
     assert status == 200 and ctype.startswith("text/html") and b"/app.js" in body
     assert _get(server.port, "/app.js")[0] == 200
-    assert _get(server.port, "/mic-worklet.js")[0] == 200
+    assert _get(server.port, "/mic-worklet.js")[0] == 404  # the mic goes over WebRTC now
     assert _get(server.port, "/../browser_server.py")[0] == 404
 
 
@@ -226,37 +269,84 @@ def test_a_taken_port_is_logged_and_shown(cert, caplog):
         first.stop()
 
 
-def test_browser_frames_and_audio_reach_the_reader_and_the_mic(server):
+def _offer(b, sdp="offer-sdp") -> dict:
+    b.send(0x1, json.dumps({"type": "offer", "sdp": sdp}).encode())
+    return b.recv_json()
+
+
+def test_an_offer_is_answered_and_the_browsers_video_and_mic_come_out(server):
     feed = server.feed
     b = _Browser(server.port, server.token)
     assert b.status == 101
     assert f"Sec-WebSocket-Accept: {b.accept}" in b.head
     config = b.recv_json()
-    assert config == {"type": "config", "width": 1280, "height": 720, "fps": 30, "audio": False, "h264": feed.h264}
+    assert config == {"type": "config", "width": 1280, "height": 720, "fps": 30, "audio": False,
+                      "max_kbps": browser_rtc.max_kbps_for(1280, 720, 30)}
 
     b.send(0x1, json.dumps({"type": "hello", "device": "Safari on <iPhone>", "mic_error": ""}).encode())
     assert _wait(lambda: feed.device == "Safari on iPhone")
 
+    assert _offer(b) == {"type": "answer", "sdp": "answer to offer-sdp"}
+    rtc = _FakeRtc.made[-1]
+    assert rtc.max_kbps == config["max_kbps"] and feed.codec == "H264"
+
     reader = bs.BrowserReader(feed)
     assert reader.open() and reader.isOpened()
-    b.send(0x2, bytes([bs.FRAME_JPEG]) + _jpeg())
+    rtc.on_video(_frame(value=120), 2345)
     ok, frame = reader.read()
-    assert ok and frame.shape == (48, 64, 3)
-    assert reader.last_frame_bytes > 0
-    assert b.recv_json() == {"type": "keyframe"}  # the reader's new decoder starts at one
+    assert ok and frame.shape == (48, 64, 3) and abs(int(frame.mean()) - 120) <= 3
+    assert reader.last_frame_bytes == 2345
 
     # The mic asks for audio: the page hears it should send some, and it comes out of the stream
     mic = feed.open_audio()
     assert b.recv_json()["audio"] is True
     pcm = struct.pack("<4h", 1, -2, 300, -32768)
-    b.send(0x2, bytes([bs.FRAME_PCM]) + pcm)
+    rtc.on_audio(pcm)
     assert mic.read1(4096) == pcm
     mic.close()
     assert b.recv_json()["audio"] is False
 
     b.close()
     assert _wait(lambda: not feed.connected)
+    assert _wait(lambda: rtc.closed)  # the browser left, so its WebRTC side ends too
     assert reader.read_packet() == (False, None)
+
+
+def test_a_new_offer_replaces_the_connection_before_it(server):
+    b = _Browser(server.port, server.token)
+    b.recv_json()
+    _offer(b, "first")
+    first = _FakeRtc.made[-1]
+    assert _offer(b, "second") == {"type": "answer", "sdp": "answer to second"}
+    assert first.closed and not _FakeRtc.made[-1].closed
+    first.on_video(_frame(), 10)  # the old one's frames are dropped by the stand-in, as the real one has stopped
+    b.close()
+
+
+def test_an_offer_that_cant_be_answered_tells_the_page_and_the_card(cert):
+    srv = bs.BrowserServer(bs.BrowserFeed(), *cert, port=0, host="127.0.0.1", rtc_session=_FailingRtc)
+    srv.start()
+    try:
+        b = _Browser(srv.port, srv.token)
+        b.recv_json()
+        reply = _offer(b)
+        assert reply["type"] == "rtc_error" and reply["message"]
+        assert srv.feed.rtc_error and srv.feed.codec == ""
+        b.close()
+    finally:
+        srv.stop()
+
+
+def test_the_pages_stats_reach_the_card_cleaned_up(server):
+    b = _Browser(server.port, server.token)
+    b.recv_json()
+    before = len(server.changes)
+    b.send(0x1, json.dumps({"type": "stats", "width": 1280, "height": 720, "fps": 29.6, "limit": "cpu"}).encode())
+    assert _wait(lambda: server.feed.sent == {"width": 1280, "height": 720, "fps": 30, "limit": "cpu"})
+    assert _wait(lambda: len(server.changes) > before)
+    b.send(0x1, json.dumps({"type": "stats", "width": "<b>", "fps": -5, "limit": "everything"}).encode())
+    assert _wait(lambda: server.feed.sent == {"limit": ""})
+    b.close()
 
 
 def test_fragmented_messages_and_pings_are_handled(server):
@@ -264,13 +354,30 @@ def test_fragmented_messages_and_pings_are_handled(server):
     b.recv_json()
     b.send(0x9, b"hey")
     assert b.recv() == (0xA, b"hey")
-    reader = bs.BrowserReader(server.feed)
-    assert reader.open()
-    data = bytes([bs.FRAME_JPEG]) + _jpeg()
-    b.send(0x2, data[:100], fin=False)
-    b.send(0x0, data[100:])
-    ok, jpeg = reader.read_packet()
-    assert ok and jpeg == data[1:]
+    data = json.dumps({"type": "hello", "device": "Firefox on Android", "mic_error": ""}).encode()
+    b.send(0x1, data[:10], fin=False)
+    b.send(0x0, data[10:])
+    assert _wait(lambda: server.feed.device == "Firefox on Android")
+    b.send(0x2, b"\x01old page media")  # a page from before WebRTC: ignored, not an error
+    b.send(0x1, json.dumps({"type": "hello", "device": "still here", "mic_error": ""}).encode())
+    assert _wait(lambda: server.feed.device == "still here")
+    b.close()
+
+
+def test_a_quiet_page_that_answers_pings_stays_and_one_that_doesnt_goes(server, monkeypatch):
+    monkeypatch.setattr(bs, "_PING_S", 0.1)
+    monkeypatch.setattr(bs, "_IDLE_TIMEOUT_S", 0.6)
+    b = _Browser(server.port, server.token)
+    b.recv_json()
+    deadline = time.monotonic() + 1.5
+    pings = 0
+    while time.monotonic() < deadline:
+        op, payload = b.recv()
+        if op == 0x9:
+            pings += 1
+            b.send(0xA, payload)  # what a browser does by itself
+    assert pings >= 3 and server.feed.connected
+    assert _wait(lambda: not server.feed.connected, timeout=3)  # nothing answers now
     b.close()
 
 
@@ -290,7 +397,7 @@ def test_a_newer_browser_takes_over_and_the_older_is_told(server):
 def hub_server(cert):
     joined = []
     hub = bs.BrowserHub(can_join=lambda bid: joined.append(bid) or len(joined) <= 2)
-    srv = bs.BrowserServer(hub, *cert, port=0, host="127.0.0.1")
+    srv = bs.BrowserServer(hub, *cert, port=0, host="127.0.0.1", rtc_session=_FakeRtc)
     srv.start()
     yield srv, hub
     srv.stop()
@@ -304,7 +411,8 @@ def test_each_browser_gets_a_feed_of_its_own(hub_server):
     b.recv_json()
     feeds = hub.feeds()
     assert set(feeds) == {"pixel-aaaaaaaa", "iphone-bbbbbbbb"} and all(f.connected for f in feeds.values())
-    a.send(0x2, bytes([bs.FRAME_JPEG]) + _jpeg())
+    _offer(a)
+    _FakeRtc.made[-1].on_video(_frame(), 10)
     assert _wait(lambda: feeds["pixel-aaaaaaaa"]._frame is not None)
     assert feeds["iphone-bbbbbbbb"]._frame is None
 
@@ -348,8 +456,8 @@ def test_a_new_link_drops_the_browser_and_the_old_token(server):
     old = server.token
     server.new_token()
     assert _wait(lambda: not server.feed.connected)
-    op, payload = b.recv()  # ended by its own thread, which says so
-    assert op == 0x8 and struct.unpack("!H", payload[:2])[0] == 1001
+    op, payload = _next_close(b)  # ended by its own thread, with the code that tells the page to stop
+    assert struct.unpack("!H", payload[:2])[0] == bs.CLOSE_NEW_LINK
     assert _Browser(server.port, old).status == 403
     b.close()
 
@@ -359,7 +467,7 @@ def test_capture_changes_reach_a_connected_page(server):
     b.recv_json()
     server.feed.set_capture(1920, 1080, 24)
     assert b.recv_json() == {"type": "config", "width": 1920, "height": 1080, "fps": 24, "audio": False,
-                             "h264": server.feed.h264}
+                             "max_kbps": browser_rtc.max_kbps_for(1920, 1080, 24)}
     b.close()
 
 
@@ -375,12 +483,17 @@ def test_mic_is_refused_with_the_browsers_reason(server):
 
 
 def test_stop_ends_a_connected_browser(cert):
-    srv = bs.BrowserServer(bs.BrowserFeed(), *cert, port=0, host="127.0.0.1")
+    srv = bs.BrowserServer(bs.BrowserFeed(), *cert, port=0, host="127.0.0.1", rtc_session=_FakeRtc)
     srv.start()
     b = _Browser(srv.port, srv.token)
     b.recv_json()
+    _offer(b)
+    rtc = _FakeRtc.made[-1]
     srv.stop()
     assert _wait(lambda: not srv.feed.connected)
+    op, payload = _next_close(b)
+    assert struct.unpack("!H", payload[:2])[0] == 1001
+    assert _wait(lambda: rtc.closed)
     b.close()
 
 
@@ -405,6 +518,8 @@ def test_stream_worker_sends_browser_frames_to_the_virtual_camera(server, monkey
     feed = server.feed
     b = _Browser(server.port, server.token)
     b.recv_json()
+    _offer(b)
+    rtc = _FakeRtc.made[-1]
     cam = _FakeCam()
     worker = stream.StreamWorker(url="browser:", width=None, height=None, fps=30,
                                  frame_pipeline=[lambda f: f[:, ::-1].copy()],
@@ -414,7 +529,7 @@ def test_stream_worker_sends_browser_frames_to_the_virtual_camera(server, monkey
 
     def pump():
         while not stop.is_set():
-            b.send(0x2, bytes([bs.FRAME_JPEG]) + _jpeg(value=90))
+            rtc.on_video(_frame(value=90), 1000)
             time.sleep(0.02)
 
     pumper = threading.Thread(target=pump, daemon=True)
@@ -438,6 +553,8 @@ def test_audio_worker_plays_the_browsers_mic(server):
     feed = server.feed
     b = _Browser(server.port, server.token)
     b.recv_json()
+    _offer(b)
+    rtc = _FakeRtc.made[-1]
     written = []
 
     class Sink:
@@ -456,7 +573,7 @@ def test_audio_worker_plays_the_browsers_mic(server):
         assert b.recv_json()["audio"] is True
         tone = (np.sin(np.arange(4800) / 10) * 10000).astype("<i2").tobytes()
         for i in range(0, len(tone), 1920):
-            b.send(0x2, bytes([bs.FRAME_PCM]) + tone[i:i + 1920])
+            rtc.on_audio(tone[i:i + 1920])
         assert _wait(lambda: any(any(chunk) for chunk in written))
         assert ("ok", "") in statuses
     finally:
@@ -472,83 +589,14 @@ def test_reader_waits_for_a_browser_and_says_what_its_waiting_for():
     assert "Browser camera" in reader.waiting_text
 
 
-# ── H.264 ────────────────────────────────────────────────────────────────────
-
-def _h264(values, size=(64, 48), gop=5):
-    """(keyframe, Annex-B) per flat grey frame, the way a browser's WebCodecs encoder hands them out."""
-    av = pytest.importorskip("av")
-    import fractions
-    w, h = size
-    enc = av.CodecContext.create("libx264", "w")
-    enc.width, enc.height, enc.pix_fmt = w, h, "yuv420p"
-    enc.time_base = fractions.Fraction(1, 30)
-    enc.options = {"tune": "zerolatency", "g": str(gop), "bf": "0"}
-    out = []
-    for i, v in enumerate(values):
-        frame = av.VideoFrame.from_ndarray(np.full((h, w, 3), v, dtype=np.uint8), format="bgr24")
-        frame.pts = i
-        out += [(p.is_keyframe, bytes(p)) for p in enc.encode(frame)]
-    return out
-
-
-def test_h264_waits_for_a_keyframe_and_queues_the_rest_in_order():
-    feed = bs.BrowserFeed(h264=True)
+def test_the_reader_hands_over_only_the_newest_frame():
+    feed = bs.BrowserFeed()
     gen = feed.connect()
-    feed.put_h264(gen, False, b"delta")  # joined between keyframes: nothing to decode it against
-    assert feed.next_frame(gen, 0, 0.01) is None
-    feed.put_h264(gen, True, b"key")
-    feed.put_h264(gen, False, b"d1")
-    assert feed.next_frame(gen, 0, 0.01) == (2, "h264", b"keyd1")  # none skipped, unlike JPEG
-    feed.put_frame(gen, b"jpeg")  # the page fell back to JPEG
-    assert feed.next_frame(gen, 2, 0.01) == (3, "jpeg", b"jpeg")
-
-
-def test_h264_piling_up_is_dropped_to_the_next_keyframe_which_the_page_is_asked_for(monkeypatch):
-    monkeypatch.setattr(bs, "_MAX_H264_BYTES", 10)
-    feed = bs.BrowserFeed(h264=True)
-    gen = feed.connect()
-    asked = feed.keyframe_requests()
-    feed.put_h264(gen, True, b"key12")
-    feed.put_h264(gen, False, b"d1234")
-    feed.put_h264(gen, False, b"d5678")  # past the limit
-    assert feed.next_frame(gen, 0, 0.01) is None and feed.keyframe_requests() == asked + 1
-    feed.put_h264(gen, False, b"d9")
-    assert feed.next_frame(gen, 0, 0.01) is None
-    feed.put_h264(gen, True, b"key")
-    assert feed.next_frame(gen, 0, 0.01)[1:] == ("h264", b"key")
-
-
-def test_browser_h264_reaches_the_reader_decoded_in_order(server):
-    feed = server.feed
-    if not feed.h264:
-        pytest.skip("PyAV isn't installed")
-    b = _Browser(server.port, server.token)
-    assert b.recv_json()["h264"] is True  # the page may send H.264
     reader = bs.BrowserReader(feed)
     assert reader.open()
-    assert b.recv_json() == {"type": "keyframe"}
-    values = [20, 80, 140, 200, 240]
-    for key, data in _h264(values):
-        b.send(0x2, bytes([bs.FRAME_H264, 1 if key else 0]) + data)
-    seen = []
-    while not seen or seen[-1] < 190:  # the decoder holds the newest frame back until the next one
-        ok, frame = reader.read_packet()
-        assert ok
-        seen.append(int(reader.decode(frame).mean()))
-    assert seen == sorted(seen)
-    b.close()
-
-
-def test_a_computer_without_pyav_ignores_h264_and_tells_the_page(cert):
-    feed = bs.BrowserFeed(h264=False)
-    server = bs.BrowserServer(feed, *cert, port=0, host="127.0.0.1")
-    server.start()
-    try:
-        b = _Browser(server.port, server.token)
-        assert b.recv_json()["h264"] is False
-        b.send(0x2, bytes([bs.FRAME_H264, 1]) + b"\x00\x00\x00\x01\x67")
-        time.sleep(0.2)
-        assert feed.next_frame(feed._gen, 0, 0.01) is None
-        b.close()
-    finally:
-        server.stop()
+    for value in (10, 20, 30):
+        feed.put_video(gen, _frame(value=value))
+    ok, frame = reader.read()
+    assert ok and abs(int(frame.mean()) - 30) <= 3
+    reader.FRAME_WAIT_S = 0.05
+    assert reader.read_packet() == (False, None)  # nothing newer

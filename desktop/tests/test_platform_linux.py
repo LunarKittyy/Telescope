@@ -1,6 +1,11 @@
+import shutil
+
 import pytest
 
 import telescope.platform.linux as linux
+
+
+SH = shutil.which("sh")
 
 
 def test_options_line_contains_every_runtime_parameter():
@@ -142,7 +147,7 @@ def test_load_invokes_modprobe_and_handles_failure(monkeypatch):
     assert "isn't installed" in linux.v4l2_load()[1]
 
 
-def test_setup_with_persist_writes_the_boot_config_in_the_same_prompt(monkeypatch, tmp_path):
+def test_setup_with_persist_writes_the_boot_config_in_the_same_prompt(monkeypatch):
     _clean_slate(monkeypatch)
     _tools(monkeypatch, "pkexec")
     calls = _record(monkeypatch, (0, "", ""))
@@ -152,10 +157,18 @@ def test_setup_with_persist_writes_the_boot_config_in_the_same_prompt(monkeypatc
     assert linux.V4L2_PERSIST_MODPROBE_CONF in script and linux.V4L2_PERSIST_MODULES_CONF in script
     assert script.index("printf") < script.index("modprobe v4l2loopback")
 
+
+@pytest.mark.skipif(SH is None, reason="needs a POSIX shell")
+def test_persist_script_writes_the_exact_boot_config(monkeypatch, tmp_path):
+    _clean_slate(monkeypatch)
+    _tools(monkeypatch, "pkexec")
+    calls = _record(monkeypatch, (0, "", ""))
+    assert linux.v4l2_setup(persist=True).ok
+    script = calls[0][0][3]
     # The script writes exactly the options line (checked by running it against a temp dir).
     import subprocess
     local = script.replace("/etc/modprobe.d/", "a-").replace("/etc/modules-load.d/", "b-")
-    subprocess.run(["sh", "-c", local.split(" && modprobe")[0]], check=True, cwd=tmp_path)
+    subprocess.run([SH, "-c", local.split(" && modprobe")[0]], check=True, cwd=tmp_path)
     assert (tmp_path / "a-99-telescope-v4l2loopback.conf").read_text() == linux._v4l2_options_line()
     assert (tmp_path / "b-99-telescope-v4l2loopback.conf").read_text() == "v4l2loopback\n"
 

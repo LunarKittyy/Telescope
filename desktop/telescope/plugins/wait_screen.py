@@ -12,16 +12,16 @@ from pathlib import Path
 from typing import Optional
 
 from PyQt6.QtCore import QObject, QSignalBlocker, QSize, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QAction, QImage, QImageReader, QMovie, QPixmap
-from PyQt6.QtWidgets import QDialog, QFileDialog, QLabel, QPushButton
+from PyQt6.QtGui import QImage, QImageReader, QMovie, QPixmap
+from PyQt6.QtWidgets import QFileDialog, QLabel, QVBoxLayout, QWidget
 
 from telescope import vcam
 from telescope.config import config_path
-from telescope.plugin import TelescopePlugin
+from telescope.plugin import SettingsSection, TelescopePlugin
+from telescope.widgets.settings_search import keywords
 from telescope.widgets.common import (
-    host_window,
     Switch,
-    action_button, button_row, dialog_buttons, dialog_header, dialog_layout, ui_px, wrapped_note,
+    action_button, add_card_header, button_row, card_layout, create_card, ui_px, wrapped_note,
 )
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ class WaitScreenPlugin(TelescopePlugin):
     name = "wait_screen"
     title = "Wait screen"
     about = "The picture apps see on the virtual camera while nothing is streaming."
-    when_off = ("Without it Wait screen isn't in the settings menu and between streams apps might see a black picture "
+    when_off = ("Without it Wait screen isn't in Settings and between streams apps might see a black picture "
                 "or nothing at all.")
 
     def __init__(self, screen: vcam.WaitScreen = None, watch_cls=vcam.CameraWatch, extra_screen=None):
@@ -52,7 +52,7 @@ class WaitScreenPlugin(TelescopePlugin):
         self._main_idle = False  # nothing streams to the main camera while others stream to extra ones
         self._watch_cls = watch_cls
         self._watch = None
-        self._dlg = None
+        self._section: Optional[WaitScreenSection] = None
         self._shut = False
 
     def setup(self, host, bus):
@@ -164,18 +164,9 @@ class WaitScreenPlugin(TelescopePlugin):
 
     # ── Menu and dialog ───────────────────────────────────────────────────
 
-    def create_menu_actions(self) -> list:
-        action = QAction("Wait screen…", None)
-        action.triggered.connect(self._open_dialog)
-        return [action]
-
-    def _open_dialog(self):
-        if self._dlg is None:
-            self._dlg = WaitScreenDialog(self, host_window(self._host))
-        self._dlg.refresh()
-        self._dlg.show()
-        self._dlg.raise_()
-        self._dlg.activateWindow()
+    def create_settings_sections(self) -> list:
+        self._section = WaitScreenSection(self)
+        return [SettingsSection("streaming", self._section, order=10, on_show=self._section.refresh)]
 
     # ── Config ────────────────────────────────────────────────────────────
 
@@ -207,15 +198,20 @@ class WaitScreenPlugin(TelescopePlugin):
             self._watch.stop()
 
 
-class WaitScreenDialog(QDialog):
-    def __init__(self, plugin: WaitScreenPlugin, parent=None):
-        super().__init__(parent)
+class WaitScreenSection(QWidget):
+    def __init__(self, plugin: WaitScreenPlugin):
+        super().__init__()
         self._plugin = plugin
         self._movie = None
-        self.setWindowTitle("Wait screen")
-        self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
-        lay = dialog_layout(self)
-        dialog_header(lay, "Wait screen", "What video calls see while the phone isn't streaming.")
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        card = create_card()
+        lay = card_layout(card)
+        add_card_header(lay, "Wait screen", "image", hue="stream")
+        keywords(card, "idle standby placeholder picture image gif black screen frozen not streaming mirror flip custom "
+                       "background logo")
+        lay.addWidget(wrapped_note("What video calls see while the phone isn't streaming."))
+        outer.addWidget(card)
 
         self._preview = QLabel()
         self._preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -231,10 +227,6 @@ class WaitScreenDialog(QDialog):
         self._mirror_box = Switch("Mirror it, for apps that flip the camera")
         self._mirror_box.toggled.connect(self._plugin.set_mirror)
         lay.addWidget(self._mirror_box)
-
-        close_btn = QPushButton("Close")
-        close_btn.clicked.connect(self.accept)
-        dialog_buttons(lay, close_btn)
 
     def _preview_size(self) -> QSize:
         w, h = self._plugin.size()

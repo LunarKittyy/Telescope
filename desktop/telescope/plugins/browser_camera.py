@@ -18,7 +18,7 @@ from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import QHBoxLayout, QPushButton, QVBoxLayout, QWidget
 
-from telescope import ip_utils, vcam
+from telescope import browser_rtc, ip_utils, vcam
 from telescope.browser_server import (
     BrowserControl, BrowserFeed, BrowserHub, BrowserReader, BrowserServer, certificate_available, ensure_certificate,
 )
@@ -39,13 +39,23 @@ REMEMBER_DAYS = 60
 SIZES = [("480p", 854, 480), ("720p", 1280, 720), ("1080p", 1920, 1080)]
 FPS_CHOICES = [15, 24, 30]
 DEFAULT_SIZE, DEFAULT_FPS = "720p", 30
-_CODEC_NAMES = {"h264": "H.264", "jpeg": "JPEG"}
+_CODEC_NAMES = {"H264": "H.264", "VP8": "VP8"}
+_LIMITS = {"cpu": "The device's processor can't keep up, so the browser is sending less. Try a lower resolution or frame rate.",
+           "bandwidth": "The browser is lowering the picture to fit the connection or the bitrate for this resolution."}
 
 _CERT_NOTE = ("The browser warns that the connection isn't private: it's this computer's own certificate. "
               "On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed.")
 _BACKGROUND_NOTE = "Keep the page open with the screen on: phones pause the camera when you leave the browser."
 # Waiting this long with nothing reaching the server is worth a hint: scanning and loading the page take seconds.
 HINT_AFTER_S = 30
+
+
+def sending_text(codec: str, sent: dict) -> str:
+    """", H.264, 1280×720 at 30 fps" from what WebRTC settled on and the page's stats; "" before either is known."""
+    parts = [_CODEC_NAMES[codec]] if codec in _CODEC_NAMES else []
+    if sent.get("width") and sent.get("height"):
+        parts.append(f"{sent['width']}×{sent['height']}" + (f" at {sent['fps']} fps" if sent.get("fps") else ""))
+    return "".join(f", {p}" for p in parts)
 
 
 def waiting_hint(stats, connected: bool, now: float) -> str:
@@ -281,19 +291,22 @@ class BrowserCameraPlugin(TelescopePlugin):
         if server is None:
             kind, text = ("status_err", self._problem) if self._problem else ("status_dim", "Off")
         elif feed is not None and feed.connected:
-            codec = _CODEC_NAMES.get(feed.codec)
             shown = next((src.name for src in self._browsers.values() if src.feed is feed), feed.device)
-            kind, text = "status_ok", f"{shown if feed.device else 'Connected'}" + (f", {codec}" if codec else "")
-            if feed.codec_note:
-                tip = f"{text}\n{feed.codec_note}"  # why it isn't H.264
+            kind, text = "status_ok", shown if feed.device else "Connected"
+            if feed.rtc_error:
+                kind, text = "status_err", feed.rtc_error
+            else:
+                text += sending_text(feed.codec, feed.sent)
+                tip = _LIMITS.get(feed.sent.get("limit", ""), "")
+                if feed.sent.get("limit") == "cpu":
+                    kind = "status_warn"
         elif connected:
             kind, text = "status_ok", f"{len(connected)} connected" if len(connected) > 1 else f"{connected[0].name}"
         else:
             kind, text = "status_dim", "Waiting for a browser"
         set_status_kind(self._status_lbl, kind)
         self._status_lbl.setText(text)
-        if tip:
-            self._status_lbl.setToolTip(tip)
+        self._status_lbl.setToolTip(tip)
         lines = [f"{src.name}: {self._host.stream_output(src.id) or 'not streaming'}" for src in connected]
         self._list_lbl.setText("\n".join(lines))
         self._list_row.setVisible(len(lines) > 1)
@@ -489,6 +502,9 @@ class BrowserCameraPlugin(TelescopePlugin):
         if not certificate_available():
             self._problem = "Needs the cryptography package: pip install cryptography"
             return False
+        if not browser_rtc.available():
+            self._problem = "Needs the aiortc package: pip install --no-deps -r requirements-nodeps.txt"
+            return False
         folder = self._cert_folder or config_path().parent
         try:
             cert, key = ensure_certificate(folder, [a.ip for a in self._addresses()])
@@ -650,12 +666,12 @@ class BrowserCameraPlugin(TelescopePlugin):
             return {"Browser camera": "off" if not self._problem else "not available"}
         stats = server.stats
         port = f"{stats.port}" + (f" ({stats.wanted_port} was taken)" if stats.fell_back else "")
-        sending = [src.feed.codec or "nothing yet" for src in self._connected()]
-        notes = sorted({src.feed.codec_note for src in self._connected() if src.feed.codec_note})
+        sending = [src.feed.rtc_error or (sending_text(src.feed.codec, src.feed.sent)[2:] or "nothing yet")
+                   + (f" (held back: {src.feed.sent['limit']})" if src.feed.sent.get("limit") else "")
+                   for src in self._connected()]
         return {
             "Browser camera": (f"{len(sending)} browser{'s' if len(sending) > 1 else ''} connected, sending "
-                               f"{', '.join(sending)}" + (f" ({'; '.join(notes)})" if notes else "")
-                               if sending else "waiting for a browser"),
+                               f"{'; '.join(sending)}" if sending else "waiting for a browser"),
             "Browser camera port": port,
             # How far browsers got: none at all points at the network or firewall, handshakes alone at the certificate
             "Browser camera reached": (f"{stats['connections']} connections, {stats['tls_failed']} certificate "

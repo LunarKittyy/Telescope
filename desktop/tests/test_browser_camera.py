@@ -262,6 +262,12 @@ class _Server:
         self.token = "t2"
 
 
+@pytest.fixture(autouse=True)
+def _rtc_available(monkeypatch):
+    # The fake server never runs WebRTC, so these tests don't need aiortc installed
+    monkeypatch.setattr(browser_module.browser_rtc, "available", lambda: True)
+
+
 @pytest.fixture
 def browser(qapp, tmp_path):
     _Server.instances.clear()
@@ -282,7 +288,7 @@ def _arrive(plugin, bid, device=""):
     feed = plugin.hub.join(bid)
     gen = feed.connect()
     if device:
-        feed.note_hello(gen, device, "", "h264")
+        feed.note_hello(gen, device, "")
     plugin._on_server_changed()
     return feed, gen
 
@@ -465,13 +471,32 @@ def test_the_card_shows_the_browser_the_panels_show(browser):
     plugin, host, bus, card = browser
     bus.source_selected.emit(SOURCE_ID)
     feed, gen = _arrive(plugin, "pixel-aaaaaaaa")
-    feed.note_hello(gen, "Firefox on Android", "Not allowed", "jpeg", "No hardware H.264 encoder")
+    feed.note_hello(gen, "Firefox on Android", "Not allowed")
+    feed.note_rtc(gen, "VP8")
+    feed.note_sent(gen, {"width": 1280, "height": 720, "fps": 24, "limit": "cpu"})
     plugin._on_server_changed()
     bus.source_selected.emit("browser:pixel-aaaaaaaa")
     assert not card.isHidden()
-    assert plugin._status_lbl.fullText() == "Firefox on Android, JPEG"
-    assert "No hardware" in plugin._status_lbl.toolTip()
+    assert plugin._status_lbl.fullText() == "Firefox on Android, VP8, 1280×720 at 24 fps"
+    assert plugin._status_lbl.objectName() == "status_warn"
+    assert "processor" in plugin._status_lbl.toolTip()
     assert plugin._mic_lbl.text() == "No microphone: Not allowed"
+
+    feed.note_sent(gen, {"width": 1280, "height": 720, "fps": 30, "limit": ""})
+    plugin._on_server_changed()
+    assert plugin._status_lbl.objectName() == "status_ok" and plugin._status_lbl.toolTip() == ""
+
+    feed.note_rtc(gen, "", "This computer couldn't set up the video connection.")
+    plugin._on_server_changed()
+    assert plugin._status_lbl.fullText() == "This computer couldn't set up the video connection."
+    assert plugin._status_lbl.objectName() == "status_err"
+
+
+def test_sending_text_says_codec_size_and_rate_once_known():
+    assert browser_module.sending_text("", {}) == ""
+    assert browser_module.sending_text("H264", {}) == ", H.264"
+    assert browser_module.sending_text("H264", {"width": 1920, "height": 1080}) == ", H.264, 1920×1080"
+    assert browser_module.sending_text("XYZ", {"width": 640, "height": 480, "fps": 15}) == ", 640×480 at 15 fps"
 
 
 def test_capture_settings_go_to_every_page_and_stream(browser):
@@ -535,6 +560,15 @@ def test_without_cryptography_it_says_so_and_start_fails(browser, monkeypatch):
     assert "cryptography" in host.issues["start"].text
 
 
+def test_without_aiortc_it_says_so_and_start_fails(browser, monkeypatch):
+    plugin, host, bus, _card = browser
+    monkeypatch.setattr(browser_module.browser_rtc, "available", lambda: False)
+    bus.source_selected.emit(SOURCE_ID)
+    assert "aiortc" in plugin._status_lbl.fullText()
+    assert not plugin.prepare()
+    assert "aiortc" in host.issues["start"].text
+
+
 def test_diagnostics_say_how_far_browsers_got_but_never_name_the_device(browser):
     plugin, _host, bus, _card = browser
     bus.source_selected.emit(SOURCE_ID)
@@ -542,9 +576,11 @@ def test_diagnostics_say_how_far_browsers_got_but_never_name_the_device(browser)
     stats.note("connections")
     stats.note("tls_failed")
     feed, gen = _arrive(plugin, "pixel-aaaaaaaa")
-    feed.note_hello(gen, "Safari on iPhone", "", "jpeg", "No hardware H.264 encoder")
+    feed.note_hello(gen, "Safari on iPhone", "")
+    feed.note_rtc(gen, "H264")
+    feed.note_sent(gen, {"width": 1280, "height": 720, "fps": 30, "limit": "bandwidth"})
     diag = plugin.diagnostics()
-    assert diag["Browser camera"] == "1 browser connected, sending jpeg (No hardware H.264 encoder)"
+    assert diag["Browser camera"] == "1 browser connected, sending H.264, 1280×720 at 30 fps (held back: bandwidth)"
     assert diag["Browser camera port"] == "8767"
     assert diag["Browser camera reached"].startswith("1 connections, 1 certificate refusals, 0 page loads")
     assert "iPhone" not in str(diag)
@@ -583,10 +619,10 @@ def test_feed_drops_frames_from_a_replaced_browser():
     feed = BrowserFeed()
     old = feed.connect()
     new = feed.connect()
-    feed.put_frame(old, b"old")
+    feed.put_video(old, "old")
     assert feed.next_frame(new, 0, 0.01) is None
-    feed.put_frame(new, b"new")
-    assert feed.next_frame(new, 0, 0.01) == (1, "jpeg", b"new")
+    feed.put_video(new, "new")
+    assert feed.next_frame(new, 0, 0.01) == (1, "new")
 
 
 def test_falling_behind_points_at_its_own_resolution_and_frame_rate(browser):

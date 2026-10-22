@@ -9,13 +9,13 @@ import sys
 import pytest
 from PyQt6.QtCore import QCoreApplication, QEvent
 from PyQt6.QtGui import QAction
-from PyQt6.QtWidgets import QMenu, QWidget
+from PyQt6.QtWidgets import QLabel, QMenu, QToolButton, QWidget
 
 import telescope.app as app_module
 import telescope.single_instance as instance_module
 import telescope.sources as sources_module
 from telescope import theme
-from telescope.plugin import TelescopePlugin
+from telescope.plugin import SettingsSection, TelescopePlugin
 from telescope.session import StreamSession
 
 
@@ -60,8 +60,8 @@ class _Plugin(TelescopePlugin):
     def create_header_widget(self):
         return None
 
-    def create_menu_actions(self):
-        return list(getattr(self, "menu_actions", []))
+    def create_settings_sections(self):
+        return list(getattr(self, "settings_sections", []))
 
     def process_frame(self, frame):
         return frame
@@ -557,48 +557,92 @@ def test_narrow_layout_stacks_every_panel_into_one_visible_column(window):
                        window._panels["right"][0]]
 
 
-def test_settings_menu_collects_actions_from_every_plugin(window, qapp):
-    plugin = _Plugin("with_actions")
-    action = QAction("Do a thing", None)
-    plugin.menu_actions = [action]
+def test_settings_window_collects_sections_from_every_plugin(window, qapp):
+    plugin = _Plugin("with_sections")
+    plugin.settings_sections = [SettingsSection("general", QLabel("Do a thing")),
+                                SettingsSection("my_own", QLabel("Mine"), tab_title="My own")]
     window.register_plugin(plugin)
 
-    assert [a.text() for p in window._plugins for a in p.create_menu_actions()] \
-        == ["Do a thing"]
+    window.open_settings()
+    win = window._settings_win
+    try:
+        assert win.isVisible()
+        assert win.tabs() == ["general", "my_own", "plugins"]  # a tab of its own goes before Plugins
+        assert window._settings_win is win
+        window.open_settings("my_own")
+        assert win.current_tab() == "my_own"
+        window.open_settings("nowhere")  # not a tab: stays where it was
+        assert win.current_tab() == "my_own"
+    finally:
+        win.close()
 
 
-def test_settings_menu_takes_a_submenu_and_owns_it(window, qapp, monkeypatch):
-    plugin = _Plugin("with_submenu")
-    sub = QMenu("More")
-    sub.addAction("Inside")
-    plugin.menu_actions = [QAction("Before", None), sub]
+def test_the_gear_button_opens_settings_without_a_menu(window, qapp, monkeypatch):
+    monkeypatch.setattr(QMenu, "exec", lambda self, *_a: pytest.fail("a menu came up"))
+    window._menu_btn.click()
+    win = window._settings_win
+    try:
+        assert win is not None and win.isVisible()
+    finally:
+        win.close()
+
+
+def test_a_plugin_that_cant_list_its_settings_doesnt_stop_the_window(window, qapp):
+    plugin = _Plugin("broken")
+
+    def fail():
+        raise RuntimeError("nope")
+    plugin.create_settings_sections = fail
     window.register_plugin(plugin)
-    shown = []
-    monkeypatch.setattr(QMenu, "exec", lambda self, *_a: shown.append(self))
-
-    window._show_settings_menu()
-
-    (menu,) = shown
-    before, more, plugins = menu.actions()
-    assert before.text() == "Before" and more.menu() is sub and plugins.text() == "Plugins…"
-    assert sub.parent() is menu and sub.isWindow()  # still a popup, and freed with the menu
+    window.open_settings("plugins")
+    try:
+        assert window._settings_win.current_tab() == "plugins"
+    finally:
+        window._settings_win.close()
 
 
-def test_plugins_goes_with_the_dialogs_above_the_divider(window, qapp, monkeypatch):
-    dialogs, toggles = _Plugin("dialogs"), _Plugin("toggles")
-    dialogs.menu_actions = [QAction("Wait screen…", None)]
-    divider = QAction(None)
-    divider.setSeparator(True)
-    toggle = QAction("Open when I sign in", None)
-    toggle.setCheckable(True)
-    toggles.menu_actions = [divider, QMenu("Automatic streaming"), toggle]
-    window.register_plugin(dialogs)
-    window.register_plugin(toggles)
-    shown = []
-    monkeypatch.setattr(QMenu, "exec", lambda self, *_a: shown.append(
-        ["---" if a.isSeparator() else a.text() for a in self.actions()]))
-    window._show_settings_menu()
-    assert shown == [["Wait screen…", "Plugins…", "---", "Automatic streaming", "Open when I sign in"]]
+def test_a_plugin_still_using_the_settings_menu_hook_is_warned_about(window, caplog):
+    plugin = _Plugin("old_style")
+    plugin.create_menu_actions = lambda: []
+    with caplog.at_level("WARNING"):
+        window.register_plugin(plugin)
+    assert "old_style" in caplog.text and "create_menu_actions" in caplog.text
+
+
+def test_a_legacy_plugins_settings_actions_still_work(window, qapp):
+    triggered = []
+    enabled = [True]
+
+    class LegacyPlugin(TelescopePlugin):
+        name = "legacy"
+        title = "Legacy effect"
+
+        def create_menu_actions(self):
+            entries = super().create_menu_actions()
+            toggle = QAction("Enable effect")
+            toggle.setCheckable(True)
+            toggle.triggered.connect(triggered.append)
+            menu = QMenu("More")
+            menu.addAction("Reset").triggered.connect(lambda: triggered.append("reset"))
+            menu.setEnabled(enabled[0])
+            return entries + [toggle, menu]
+
+    window.register_plugin(LegacyPlugin())
+    window.open_settings("general")
+    try:
+        win = window._settings_win
+        button = next(b for b in win.findChildren(QToolButton) if b.text() == "Open settings")
+        actions = button.menu().actions()
+        assert actions[0].text() == "Enable effect"
+        actions[0].trigger()
+        assert actions[0].isChecked() and triggered == [True]
+        actions[1].menu().actions()[0].trigger()
+        assert triggered == [True, "reset"]
+        enabled[0] = False
+        button.menu().aboutToShow.emit()
+        assert not button.menu().actions()[1].isEnabled()
+    finally:
+        window._settings_win.close()
 
 
 def test_save_config_separates_global_and_device_local_plugins(window, config_home):
@@ -935,7 +979,7 @@ def test_start_builds_worker_pipeline_and_notifies_plugins(window, monkeypatch):
     assert workers[0].kwargs["auth"] == "tok"
     frame = np.zeros((2, 2, 3), np.uint8)
     steps = workers[0].kwargs["frame_pipeline"]
-    assert len(steps) == len(window._plugins)  # every fake here has its own process_frame
+    assert len(steps) == len(window._plugins) + 1  # the window's view, then every fake (each has a process_frame)
     assert all(step(frame) is frame for step in steps)
     assert workers[0].started is True
     assert bus_urls == ["http://phone/video"]
@@ -964,9 +1008,9 @@ def test_a_stream_the_panels_dont_show_gets_their_steps_frozen(window):
     for plugin in (Frozen("transforms"), _Plugin("preview"), Broken("other")):
         window.register_plugin(plugin)
     frame = np.zeros((1, 1, 3), np.uint8)
-    assert len(window._flow.pipeline()) == 3
+    assert len(window._flow.pipeline()) == 4  # the window's view first
     steps = window._flow.pipeline(live=False)
-    assert len(steps) == 1 and steps[0](frame)[0, 0, 0] == 1
+    assert len(steps) == 2 and steps[1](steps[0](frame))[0, 0, 0] == 1
 
 
 def test_wake_progress_updates_status_while_waking(window):
@@ -3384,12 +3428,31 @@ def test_coming_back_to_a_zoomed_phone_doesnt_crop_its_crop_again(camera_env, mo
     window._apply_state(phone.session.id, _camera_state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True),
                         phone)
     view._zoom_slider.setValue(200)
-    assert view._desktop_crop == (1.0, 0.0, 0.0)  # the phone crops it all
+    assert window._view._desktop_crop == (1.0, 0.0, 0.0)  # the phone crops it all
     window.add_stream("B")
     phone.session.client.sent.clear()
     window.focus_stream("Phone")
-    assert view._desktop_crop == (1.0, 0.0, 0.0)
+    assert window._view._desktop_crop == (1.0, 0.0, 0.0)
     assert phone.session.client.sent == []
+    window._flow.stop_all()
+
+
+def test_a_stream_behind_the_panels_keeps_its_own_zoom(camera_env, monkeypatch):
+    from telescope.plugins.transforms import TransformsPlugin
+    window, _conn, _mic, _clients, workers, _changes = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    card = TransformsPlugin()
+    window.register_plugin(card)
+    window._flow.start()
+    card._zoom_slider.setValue(200)  # this phone's lens can't zoom itself: it's all cropped here
+    window.add_stream("B")
+    frame = np.arange(4 * 8 * 3, dtype=np.uint8).reshape(4, 8, 3)
+    behind, shown = workers[0].pipelines[-1], workers[1].kwargs["frame_pipeline"]
+    assert behind[0](frame).shape == frame.shape and not np.array_equal(behind[0](frame), frame)
+    assert np.array_equal(shown[0](frame), frame)  # B has its own settings: not zoomed
+    assert window.view().zoom == 1.0
+    window.focus_stream("Phone")
+    assert window.view().zoom == 2.0
     window._flow.stop_all()
 
 

@@ -75,6 +75,18 @@ cryptography (https://pypi.org/project/cryptography/)
     (https://www.openssl.org/), Apache License 2.0, and depend on cffi
     (https://pypi.org/project/cffi/), MIT.
 
+aiortc (https://pypi.org/project/aiortc/)
+    Receives the Browser camera's video and sound over WebRTC.
+    Copyright (c) Jeremy Lainé. License: BSD 3-Clause.
+    Installed from desktop/requirements-nodeps.txt. It depends on:
+    - aioice (https://pypi.org/project/aioice/), BSD 3-Clause
+    - pylibsrtp (https://pypi.org/project/pylibsrtp/), BSD 3-Clause. Its wheels
+      bundle libsrtp (https://github.com/cisco/libsrtp), BSD 3-Clause
+    - pyee (https://pypi.org/project/pyee/), MIT
+    - google-crc32c (https://pypi.org/project/google-crc32c/), Apache 2.0
+    - pyOpenSSL (https://pypi.org/project/pyOpenSSL/), Apache 2.0
+    - dnspython (https://pypi.org/project/dnspython/), ISC
+
 truststore (https://pypi.org/project/truststore/)
     Checks the certificates of Telescope's own downloads (updates, adb,
     VB-Cable) with the system's certificate store. Copyright (c) 2022 Seth

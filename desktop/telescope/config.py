@@ -216,6 +216,11 @@ def _validate_sections(cfg: dict) -> dict:
             logger.warning("Config 'devices' section is malformed - resetting to defaults")
         result["devices"] = {}
 
+    collapsed = result.get("collapsed")
+    if "collapsed" in result and not (isinstance(collapsed, list) and all(isinstance(k, str) for k in collapsed)):
+        logger.warning("Config 'collapsed' section is malformed - resetting to defaults")
+        result["collapsed"] = []
+
     selected = result.get("selected_device")
     if selected is not None and not isinstance(selected, str):
         logger.warning("Config 'selected_device' is malformed - resetting to default")

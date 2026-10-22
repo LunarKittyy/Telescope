@@ -19,7 +19,7 @@ desktop/main.py  (Python, PyQt6)
       |     pyvirtualcam -> virtual camera device
       |
       +-- telescope/plugins/        one plugin per UI card
-            setup                   Advanced dialog: virtual camera module, canvas, APK over USB
+            setup                   Settings tabs: virtual camera module, canvas, video and audio limits, APK over USB, About
             connection              phones, Add phone dialog (pairing.py, port 8765), route choice
                                     (phones.py, discovery.py), session channel (port 8766): status, start/stop
             onboarding              first-run checklist on the video stage
@@ -37,7 +37,7 @@ A second responder on the phone (`SessionServer`, port 8766) runs independently 
 
 That second endpoint is why the desktop's Start button is the only one anyone has to press. Hitting Start asks the phone to bring its camera up, waits for it, then connects; hitting Stop takes the phone's camera back down. Starting on the phone still works exactly as before, and the desktop leaves a stream it finds already running alone.
 
-`SessionServer` stays bound while any of three owners holds it (see `SessionEndpoint`'s refcount): `MainActivity` is on screen, `CameraStreamService` is running, or `WaitingService` is running because **Wait for my computer** is on. With that setting off (the default), a fully backgrounded, non-streaming app cannot be told to open the camera - which is also what keeps the start legal, since Android 12+ blocks starting a `camera`-type foreground service from the background. Turning it on is the opt-in exception that lets an idle, backgrounded phone start streaming; see WaitingService below. Covering the streaming case as well is what lets you stop and restart a session from the desktop after the phone's screen has gone dark.
+`SessionServer` stays bound while any of four owners holds it (see `SessionEndpoint`'s refcount): `MainActivity` is on screen, `CameraStreamService` is running, `WaitingService` is running because **Wait for my computer** is on, or a stream stopped less than 6 s ago (`holdAfterStop()`, so leaving the app right after Stop still lets the desktop hear it was a stop and not a drop). With that setting off (the default), a fully backgrounded, non-streaming app cannot be told to open the camera - which is also what keeps the start legal, since Android 12+ blocks starting a `camera`-type foreground service from the background. Turning it on is the opt-in exception that lets an idle, backgrounded phone start streaming; see WaitingService below. Covering the streaming case as well is what lets you stop and restart a session from the desktop after the phone's screen has gone dark.
 
 On **Linux**, two `v4l2loopback` devices are created (`/dev/video10` and `/dev/video11`). Telescope writes to `video11`; `video10` is intentionally left free for other software (e.g. OBS Virtual Camera).
 
@@ -104,6 +104,7 @@ telescope/
     |-- update_guard.py          # Finishes or rolls back an update before the app imports anything
     |-- requirements.txt         # Readable ">=" lower bounds
     |-- requirements-dev.txt     # requirements.txt + pytest, used by CI
+    |-- requirements-nodeps.txt  # aiortc, installed with --no-deps after the rest (its PyAV cap is out of date)
     |-- constraints.txt          # Exact pinned versions for CI/release installs
     |-- scripts/smoke_check.py   # Packaging smoke checks (see building.md)
     |-- scripts/dev_desktop.py   # A dev desktop in its own profile, paired with the dev app (see building.md)
@@ -150,7 +151,8 @@ telescope/
         |-- discovery.py         # Finds phones on the LAN via mDNS (zeroconf)
         |-- ip_utils.py          # Desktop address discovery for the pairing code, address ranking
         |-- browser_server.py    # Browser camera: HTTPS + WebSocket server, its certificate, BrowserReader
-        |-- web/                 # The page the Browser camera serves (HTML, JS, mic AudioWorklet)
+        |-- browser_rtc.py       # Browser camera: the WebRTC side (aiortc), answers the page and decodes
+        |-- web/                 # The page the Browser camera serves (HTML, JS)
         |-- platform/
         |   |-- adb_download.py  # Windows: adb from Google, on request
         |   |-- autostart.py     # Open at sign-in (XDG autostart / HKCU Run)
@@ -179,11 +181,13 @@ telescope/
             |-- adb.py           # Windows' Get adb: asks, then downloads off the UI thread
             |-- banner.py        # In-window problem banners
             |-- common.py        # NoScroll*, LogSliderRow, rows, segmented toggles, icons
-            |-- controls.py      # The redesign's card pieces: tiles, tags, setting rows, the settings window frame
+            |-- controls.py      # The redesign's card pieces: tiles, tags, setting rows
             |-- line_icons.py    # The redesign's line icons
-            |-- plugins_dialog.py  # The Plugins window
+            |-- plugins_panel.py # The Plugins tab of Settings
+            |-- settings_search.py # Reads the Settings tabs for the search box
+            |-- settings_window.py # The Settings window: tabs down the left, plugins fill them
             |-- tiles.py         # A tile per stream while several run
-            |-- vaapi_setup.py   # Advanced's Set up VA-API window
+            |-- vaapi_setup.py   # Video settings' Set up VA-API window
             |-- qr.py            # QR code widget
             |-- level_meter.py   # The Microphone card's level meter
             +-- lens_panel.py    # Lens picker widget
@@ -261,11 +265,11 @@ A **Copy diagnostics** button copies app version, device info, current stream st
 
 **Plugin system:** The app is built around `TelescopePlugin` - a base class with hooks for `setup()`, `create_panel()`, `process_frame()`, `frame_step()`, `on_stream_starting/start/stop()`, `on_focus_gained/lost()`, `on_phone_state()`, `on_plugins_ready()`, `get/set_config()`, `apply_preset()`, `diagnostics()` and `shutdown()`. `builtin_plugins()` in `telescope/plugins/__init__.py` lists the built-in ones in the order they're registered. Plugins people add are loaded from the plugins folder by `plugin_loader.py` (see [Plugins](plugins.md)). An `EventBus` (QObject with Qt signals) handles cross-plugin communication. Any plugin but Connection can be switched off and [desktop/ARCHITECTURE.md](../desktop/ARCHITECTURE.md) has the rules that keep that working.
 
-**Window layout:** A plugin declares a `panel_region` (`"left"`, `"right"` or `"center"`) and the window routes its panel there, so no plugin knows where it physically lands. Wide windows get three columns - the desktop-side cards (connection, output, transforms) on the left and the phone-side cards (camera, monitoring) on the right, both the same width so the video stage stays centred; below ~1300px the rails fold together, and below ~900px everything stacks into one scrolling column. A plugin can also contribute a header control via `create_header_widget()` (the Connection plugin puts the phone picker there) or entries in the header's settings menu via `create_menu_actions()` (how Advanced is reached, since nothing in it is adjusted mid-stream). Plugins don't call each other: the first-run checklist hears about paired phones through `EventBus.phones_changed`, asks for pairing with `add_phone_requested`, and tells the video stage to make room with `setup_needed`.
+**Window layout:** A plugin declares a `panel_region` (`"left"`, `"right"` or `"center"`) and the window routes its panel there, so no plugin knows where it physically lands. Wide windows get three columns - the desktop-side cards (connection, output, transforms) on the left and the phone-side cards (camera, monitoring) on the right, both the same width so the video stage stays centred; below ~1300px the rails fold together, and below ~900px everything stacks into one scrolling column. A plugin can also contribute a header control via `create_header_widget()` (the Connection plugin puts the phone picker there) or settings for the Settings window via `create_settings_sections()` (a card for one of its tabs, the way Setup puts its limits there, since nothing in them is adjusted mid-stream). Plugins don't call each other: the first-run checklist hears about paired phones through `EventBus.phones_changed`, asks for pairing with `add_phone_requested`, and tells the video stage to make room with `setup_needed`.
 
 **Theming:** `telescope/theme.py` owns the entire look - palette constants, a dark `QPalette` so Qt-drawn chrome matches, and one stylesheet, applied over Fusion by `apply_theme()`. There are no image assets: icons are drawn procedurally with `QPainter` (`create_vector_icon`), and segmented toggles are ordinary radios/checkboxes carrying a `segmented` property the stylesheet picks up, so exclusivity and signal wiring stay plain Qt.
 
-**Frame pipeline:** `StreamWorker` holds a list of `process_frame` callables (one per plugin). Each frame passes through the full pipeline on a decoder thread, in BGR. A stream the panels aren't showing gets each plugin's `frame_step()` instead: the same work frozen at the settings it had when the panels moved away (`StreamWorker.set_pipeline` swaps them). `_fit_frame()` then letterboxes/pillarboxes the result to the fixed vcam canvas size, preserving aspect ratio with black bars.
+**Frame pipeline:** `StreamWorker` holds a list of `process_frame` callables (one per plugin). Each frame passes through the full pipeline on a decoder thread, in BGR. A stream the panels aren't showing gets each plugin's `frame_step()` instead: the same work frozen at the settings it had when the panels moved away (`StreamWorker.set_pipeline` swaps them). `_fit_frame()` then letterboxes/pillarboxes the result to the fixed vcam canvas size, preserving aspect ratio with black bars. On Linux the fitted frame is converted to I420 for v4l2loopback (OpenCV does it far cheaper than pyvirtualcam would from BGR) while `_latest` stays BGR for the thumbnails.
 
 **Several streams:** each streaming source holds its own `StreamSession` and its own `StreamWorker`, which feeds one of up to four virtual cameras (`vcam.MAX_SLOTS`). One stream at a time is focused, which means the panels show it and its worker runs the live pipeline. Follower plugins hear `on_stream_start`/`on_stream_stop` when it really starts or stops and `on_focus_gained`/`on_focus_lost` when the panels move to or away from it. The bookkeeping (which sources stream, which one is focused, what's starting) lives in `Sessions` in `session.py`, and `StreamFlow` in `stream_flow.py` does the starting, stopping and focus changes. Moving the focus saves the follower plugins' per-device settings for the old stream, loads the new one's and replays its last phone state. A plugin with `follows_focus = False` (the microphone) stays with the first stream instead. The bus keeps one-stream semantics: `stream_started` is the first start, `stream_stopped` the last stop, and `streams_changed` carries the count. Extra virtual cameras are set up on first use: `v4l2loopback-ctl add` on Linux, UnityCapture registered with `/i:UnityCaptureDevices=4` on Windows.
 
@@ -301,7 +305,7 @@ A **Copy diagnostics** button copies app version, device info, current stream st
 
 **Per-phone config:** Camera, stream-output, transform, and monitoring settings serialize to `telescope_config.json` with a 500ms debounce. Connection settings and virtual-camera canvas settings are global. The `devices` dict is keyed by phone id; switching phones saves the current phone's settings before loading the new one's, and removing a phone deletes its entry. A version 2 config is upgraded by dropping its pairings and per-phone settings (keyed by name back then) and keeping the rest; anything older is backed up as `telescope_config.json.invalid-<timestamp>` and replaced with defaults.
 
-**Single-instance:** `acquire_single_instance()` in `single_instance.py` tries to bind a local TCP socket on port 47823. If already bound, it signals the running instance to restore its window and exits. Restarting after an update or from the Plugins dialog starts a new copy with `--restarted`, and that copy waits for the old one to let go of the port.
+**Single-instance:** `acquire_single_instance()` in `single_instance.py` tries to bind a local TCP socket on port 47823. If already bound, it signals the running instance to restore its window and exits. Restarting after an update or from the Plugins tab starts a new copy with `--restarted`, and that copy waits for the old one to let go of the port.
 
 **Zoom split:** the phone does as much of the crop as its lens allows, straight from the full-resolution sensor (on the **Auto** lens, switching to the telephoto when the framing fits in it), and the desktop crops whatever is left, so the framing is the same either way. While you zoom or pan, the preview briefly outlines what each longer lens sees; the outlines are preview-only and approximate, since the lenses sit a little apart. The zoom slider sticks to the dots where the phone switches to a longer lens (the sharpest view that lens gets), the pan sliders and preview drag stick at the centre, and compensation sticks at 0. The sticking is a few pixels wide and the arrow keys never stick. The lens dot is lavender when the phone switched to a longer lens and red when it stayed on the main one although the zoom would get the telephoto (panned outside it, or the phone chose to, usually in low light or up close).
 
