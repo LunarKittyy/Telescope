@@ -115,6 +115,8 @@ The Presets button in the header saves your camera, output and transform setting
 - **Open Telescope when I sign in** starts it quietly in the tray
 - Closing the window while streaming (or while waiting to start automatically) keeps Telescope running in the tray
 - When Start can't go ahead, a banner tells you why and has the button that fixes it
+- Click a card's title (Camera, Transforms, Connection and so on) to fold the card down to its header, and click it again to open it. Section titles inside a card work the same way, so you can fold just **Image** in the Camera card and leave **Light** and **Focus** open. A card remembers which of its sections you folded, even while the whole card is folded. A card title gets darker when the pointer is on it and a section title lights up to the colour of the card titles and there's no other sign that it can be clicked
+- Everything starts open and folds are remembered after a restart. They're saved for the whole app and not per phone. If you switch a plugin off and on again its card comes back folded the way you left it
 - Every card in the main window has its own colour. **Monochrome** under **Card colours** in Advanced puts them all back in the app's purple if you'd rather have that
 
 ## Keyboard shortcuts

@@ -22,6 +22,7 @@ BORDER_STRONG = "#2f3641"
 BORDER_HOVER  = "#4a5462"
 
 TEXT          = "#e7eaef"
+TEXT_HOVER    = QColor(TEXT).darker(200).name()   # a card title while the pointer is on it, half as bright
 TEXT_DIM      = "#a1abb8"
 TEXT_FAINT    = "#7a8491"
 TEXT_DISABLED = "#525b67"
@@ -170,6 +171,9 @@ QLabel#card_title {{
     font-weight: 600;
     color: {TEXT};
 }}
+QLabel#card_title[hot="true"] {{
+    color: {TEXT_HOVER};
+}}
 QLabel#card_subtitle {{
     color: {TEXT_FAINT};
     font-size: 9pt;
@@ -178,6 +182,9 @@ QLabel#section_title {{
     color: {TEXT_FAINT};
     font-size: 9pt;
     font-weight: 600;
+}}
+QLabel#section_title[hot="true"] {{
+    color: {TEXT};
 }}
 QWidget#section_head {{
     background: transparent;
