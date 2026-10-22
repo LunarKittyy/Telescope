@@ -10,24 +10,24 @@ The first two parts of this page are for everyone. The last one is for people wh
 
 ## Switching plugins on and off
 
-Click the settings button next to **Start streaming** and pick **Plugins…**. Every plugin is listed there with a sentence about what it does and a switch. Telescope asks before switching one off and tells you what will be missing without it.
+Click the settings button next to **Start streaming** and open the **Plugins** tab. Every plugin is listed there with a sentence about what it does and a switch. Telescope asks before switching one off and tells you what will be missing without it.
 
-Changes apply the next time Telescope starts. If there's something to apply the dialog shows a **Restart now** button (if you're streaming, the stream stops for the few seconds the restart takes).
+Changes apply the next time Telescope starts. If there's something to apply the tab shows a **Restart now** button (if you're streaming, the stream stops for the few seconds the restart takes).
 
 Switching a plugin off doesn't delete anything. Its settings stay saved and everything is back as before once you switch it on again. **Turn all back on** switches every built-in plugin on in one go.
 
 Under **Optional** are the built-in plugins that start out switched off (Auto framing and Background). Both need MediaPipe, which is a separate download the first time you switch either of them on. [Features](features.md#the-vision-download) has the details.
 
-Phones and connection, Advanced settings and Updates can't be switched off because Telescope doesn't work without them. They're listed at the bottom under "Always on".
+Phones and connection, Advanced settings (the virtual camera, video and audio limits, and About) and Updates can't be switched off because Telescope doesn't work without them. They're listed at the bottom under "Always on".
 
-**A card or a menu entry is gone?** Look at the settings menu. When some plugins are off the entry reads something like **Plugins… (2 off)**. Right after a restart that switched one off there's also a banner at the top of the window naming it.
+**A card or a setting is gone?** Look at the Plugins tab in Settings. When some plugins are off its name reads something like **Plugins (2 off)**. Right after a restart that switched one off there's also a banner at the top of the window naming it.
 
 ## Installing a plugin someone made
 
 Plugins people share come as a `.zip` file. To install one:
 
-1. Open **Plugins…** from the settings menu.
-2. Click **Install** under **Added** and pick the `.zip` (or drag the file onto the Plugins window).
+1. Open Settings and go to the **Plugins** tab.
+2. Click **Install** under **Added** and pick the `.zip` (or drag the file onto the tab).
 3. Switch it on under **Added** (new plugins start out switched off).
 4. Click **Restart now**.
 
@@ -37,10 +37,10 @@ A few more things worth knowing:
 
 - **Updating a plugin.** Remove the old version with **Remove** and install the new `.zip`. The new version starts out switched off too, which means you always decide whether to trust it.
 - **A plugin whose files changed is switched off.** If anything in a plugin's folder changes after you switched it on, Telescope won't run it until you switch it on again. Plugins never update themselves behind your back.
-- **A broken plugin doesn't take Telescope down with it.** If a plugin fails while starting, Telescope starts without it and shows a banner about it. The Plugins dialog shows what went wrong under its name and **Copy diagnostics** lists it as one that didn't start.
-- **The plugins folder.** Installed plugins live in a `plugins` folder next to Telescope's settings. That's `~/.config/telescope/plugins` on Linux and `%APPDATA%\Telescope\plugins` on Windows. **Open plugins folder** in the dialog takes you there. You can also copy a plugin's folder in there by hand instead of using the `.zip`.
+- **A broken plugin doesn't take Telescope down with it.** If a plugin fails while starting, Telescope starts without it and shows a banner about it. The Plugins tab shows what went wrong under its name and **Copy diagnostics** lists it as one that didn't start.
+- **The plugins folder.** Installed plugins live in a `plugins` folder next to Telescope's settings. That's `~/.config/telescope/plugins` on Linux and `%APPDATA%\Telescope\plugins` on Windows. **Open plugins folder** on the tab takes you there. You can also copy a plugin's folder in there by hand instead of using the `.zip`.
 
-If an added plugin won't switch on, the dialog shows why under its name. The usual reasons are:
+If an added plugin won't switch on, the Plugins tab shows why under its name. The usual reasons are:
 
 | What it says | What it means |
 |---|---|
@@ -71,7 +71,7 @@ For your own plugin copy the folder somewhere, rename it and change `name` in bo
 
 ### Trying out changes
 
-Leave the dev copy running while you work. Every time you save a file in your plugin's folder Telescope restarts by itself with the new code. If it was streaming it starts streaming again once it's back. Errors from your plugin show up with their tracebacks in the terminal you started it from, and if your plugin didn't start at all the Plugins dialog says why under its name.
+Leave the dev copy running while you work. Every time you save a file in your plugin's folder Telescope restarts by itself with the new code. If it was streaming it starts streaming again once it's back. Errors from your plugin show up with their tracebacks in the terminal you started it from, and if your plugin didn't start at all the Plugins tab says why under its name.
 
 For a quick check that doesn't open Telescope run this:
 
@@ -96,7 +96,7 @@ It loads your plugin next to the built-in ones in a throwaway profile and builds
 ```
 
 - `name` is your plugin's id. It has to match the folder's name and the `name` in your class, using only lowercase letters, digits and `_` (like `my_overlay`). Your settings are saved under it, so don't change it later.
-- `title`, `version`, `author` and `description` are what people see in the Plugins dialog. Write the description for someone who has never heard of your plugin.
+- `title`, `version`, `author` and `description` are what people see in the Plugins tab. Write the description for someone who has never heard of your plugin.
 - `api` is the version of the plugin API you wrote it for, which is `1` for now. Telescope only raises it for a change that would break existing plugins, and everything in `plugin.py` keeps working until then (Telescope's own tests check that). A plugin with the wrong number isn't loaded.
 - `class` is the name of your plugin class in `__init__.py`.
 
@@ -163,7 +163,7 @@ All of these are optional and you only override what you need.
 |---|---|
 | `create_panel()` | A card in the main window |
 | `create_header_widget()` | A small control in the header bar next to the phone picker (or on the right with `header_side = "right"`) |
-| `create_menu_actions()` | Entries in the settings menu, like one that opens a dialog of your own |
+| `create_settings_sections()` | Settings of your own as `SettingsSection`s, a card each for a tab in the Settings window (see below) |
 | `create_tray_actions()` | Entries in the tray icon's menu |
 | `create_actions()` | Things people can bind keyboard shortcuts to |
 | `process_frame()`, `frame_step()` | Changing the picture |
@@ -174,7 +174,11 @@ All of these are optional and you only override what you need.
 | `diagnostics()` | A few lines for Copy diagnostics (no tokens, addresses or names) |
 | `shutdown()` | Telescope is quitting and you should stop anything you started |
 
-You can also set `title`, `about` and `when_off` on your class. `title` and `about` fall back to your `plugin.json`. `when_off` says what's missing without your plugin (like "Without it there's no Black and white card") and the Plugins dialog shows it when someone switches your plugin off. With `in_presets = True` your settings get saved in presets along with the camera and the transforms, and come back through `apply_preset()` (which calls `set_config()` unless you override it).
+You can also set `title`, `about` and `when_off` on your class. `title` and `about` fall back to your `plugin.json`. `when_off` says what's missing without your plugin (like "Without it there's no Black and white card") and the Plugins tab shows it when someone switches your plugin off. With `in_presets = True` your settings get saved in presets along with the camera and the transforms, and come back through `apply_preset()` (which calls `set_config()` unless you override it).
+
+#### Settings of your own
+
+`create_settings_sections()` returns a list of `SettingsSection(tab, widget)`, one for each block of controls you want in the Settings window. The tab is the id of one Telescope already has (`general`, `streaming`, `video`, `audio`, `devices`, `shortcuts`, `about`) or a new one, which gets its own tab named by `tab_title` and sits just above Plugins. Build the widget the way you would a card and let its controls save as they change, since the window has no OK button. The Settings search finds what's in your section by reading its widgets, so most of it needs nothing from you. To help people find it by other words, pass `keywords="..."` to `SettingsSection` (or set a `keywords` property on a widget). `on_show` is called each time your tab comes up, which is the place to bring the controls in line with your plugin's state. The old `create_menu_actions()` isn't called anymore (the settings menu is gone), and Telescope logs a warning at start if your plugin still has it.
 
 ### The view and people in the picture
 
@@ -192,7 +196,7 @@ These keep plugins from breaking each other or Telescope. The [architecture note
 - **Keep `process_frame()` quick.** It runs for every frame on a decoding thread and the stream falls behind if it takes too long. A frame it raises on goes through unchanged. If it keeps failing Telescope skips it until the next stream.
 - **Don't write files into your plugin's folder.** Any new or changed file there counts as a change and your plugin would be switched off at the next start. Keep settings in `get_config()` and put anything else outside the plugins folder.
 - **Ship source code.** A plugin with compiled files in it (`.pyc`, `.so`, `.pyd`) isn't loaded. Telescope also clears `__pycache__` before loading one to make sure what runs is the code people can read.
-- **Use what Telescope comes with.** That's PyQt6, NumPy, OpenCV and Python's standard library, and Telescope can't install anything else for your plugin. The Windows app only carries the parts of the standard library that Telescope itself uses, so try your plugin there too. If an import is missing there the Plugins dialog shows it as the reason the plugin didn't start. A plugin with more than one file imports its own modules relatively (`from . import helpers`).
+- **Use what Telescope comes with.** That's PyQt6, NumPy, OpenCV and Python's standard library, and Telescope can't install anything else for your plugin. The Windows app only carries the parts of the standard library that Telescope itself uses, so try your plugin there too. If an import is missing there the Plugins tab shows it as the reason the plugin didn't start. A plugin with more than one file imports its own modules relatively (`from . import helpers`).
 
 When something in your plugin raises an exception Telescope logs it and carries on, and the other plugins still hear about everything. In the dev copy you see it in the terminal. A normal install writes it to `telescope.log` in Telescope's temp folder (`/tmp/telescope-<user>` on Linux, `%TEMP%\Telescope` on Windows).
 
@@ -207,4 +211,4 @@ black_and_white.zip
     └── __init__.py
 ```
 
-Bump `version` in `plugin.json` whenever you share a new one. People install it with **Install** in **Plugins…** and have to switch your plugin on again after each update.
+Bump `version` in `plugin.json` whenever you share a new one. People install it with **Install** on the Plugins tab and have to switch your plugin on again after each update.

@@ -23,19 +23,19 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 
 ## Packaging
 
-- [ ] Windows: `TelescopeDesktop.exe` launches with the Telescope icon, the first-run checklist's Install driver registers UnityCapture, the **get from Google** link in Add phone (or **Get adb** in Advanced) downloads adb and USB pairing then works, and no `adb.exe` is left running after quitting.
-- [ ] Windows, upgrading from a version that registered the driver from the app folder: **Advanced** shows **Reinstall for a security fix**, the camera still works until then, and Reinstall puts the DLLs in `C:\Program Files\Telescope\UnityCapture` and shows Ready.
+- [ ] Windows: `TelescopeDesktop.exe` launches with the Telescope icon, the first-run checklist's Install driver registers UnityCapture, the **get from Google** link in Add phone (or **Get adb** under Virtual camera & phone in Settings) downloads adb and USB pairing then works, and no `adb.exe` is left running after quitting.
+- [ ] Windows, upgrading from a version that registered the driver from the app folder: Settings shows **Reinstall for a security fix** under Virtual camera & phone, the camera still works until then, and Reinstall puts the DLLs in `C:\Program Files\Telescope\UnityCapture` and shows Ready.
 - [ ] Windows: `TelescopeSetup.exe` installs without a UAC prompt, the Start menu entry opens Telescope, Update and restart works on the installed copy, and uninstalling (from Settings → Apps) removes it, asks before deleting settings, and after one UAC prompt takes the Telescope camera out of the camera list in Zoom or Discord.
 - [ ] Windows, an unzipped copy of the previous release: Updates says updating installs it, **Update and restart** comes back as the installed copy (Start menu entry there, settings and phones kept), and the unzipped folder is gone a few seconds later. With **Keep this copy where it is** ticked it updates in place instead. Windows asks about the firewall once more for the installed copy, and Add phone over Wi-Fi works after allowing it. A copy run from a USB stick doesn't offer the move.
 - [ ] Windows: opening `TelescopeDesktop.exe` from inside the zip without extracting says to extract it first.
 - [ ] Linux: Telescope shows up in the app menu after the first launch, and still opens after moving the folder and launching once from the new place.
-- [ ] Windows: OBS and Zoom list the camera as **Telescope**. On a machine registered by an older version, Advanced offers Rename, and streaming works before and after.
+- [ ] Windows: OBS and Zoom list the camera as **Telescope**. On a machine registered by an older version, Virtual camera & phone in Settings offers Rename, and streaming works before and after.
 - [ ] Linux: `start.sh` creates venv at `$XDG_DATA_HOME/Telescope/venv` on clean machine/account and launches successfully.
 - [ ] Both bundles contain `THIRD_PARTY_NOTICES.txt` and `Telescope.apk`.
 - [ ] `manifest.json` checksums match the downloaded files (`sha256sum`).
 - [ ] The new APK installs over the previous release's APK with `adb install -r` (same signing key).
-- [ ] Advanced (desktop) and the About card (phone) show the release's version. Copy diagnostics works on both.
-- [ ] APK installs via `adb install`, via the checklist's QR link, and via Install over USB (checklist and Advanced).
+- [ ] Updates & About in Settings (desktop) and the About card (phone) show the release's version. Copy diagnostics works on both.
+- [ ] APK installs via `adb install`, via the checklist's QR link, and via Install over USB (checklist and Settings).
 
 ## Updates
 
@@ -89,7 +89,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 - [ ] FPS: the dropdown grays out rates the camera doesn't list (48 and 60 on a 30 fps phone). On a phone that lists 60, picking 60 shows about 60 in the footer; Copy diagnostics shows what the camera actually did.
 - [ ] Microphone, Linux (Fedora/Nobara, PipeWire): switching it on while streaming makes "Telescope Microphone" appear; Audacity or a call records the phone; switching off or quitting removes it. Lip-sync looks right by eye. A 30-minute run doesn't drift, and unplugging and replugging recovers.
 - [ ] Microphone, Windows: without VB-Cable the card offers Install VB-Cable; it asks first (naming VB-Audio), opens VB-Audio's setup through UAC, and after a restart and an off/on, apps record from CABLE Output.
-- [ ] Microphone card: the meter moves with your voice even when no app is recording, and its dot goes yellow on a loud clap (red with the limiter off in Advanced). Mute (card and tray) gives silence without the mic disappearing from the call app. Gain changes and typed values are audible without crackle, and Advanced's Max gain changes the slider's range. On Windows too.
+- [ ] Microphone card: the meter moves with your voice even when no app is recording, and its dot goes yellow on a loud clap (red with the limiter off under Audio in Settings). Mute (card and tray) gives silence without the mic disappearing from the call app. Gain changes and typed values are audible without crackle, and Max gain under Audio in Settings changes the slider's range. On Windows too.
 - [ ] Microphone permission: the first request makes the phone's Get set up card show Microphone; allowing it there starts the audio within a few seconds, without restarting the stream. Recording keeps going with the phone's screen off.
 - [ ] Canvas size change (Linux and Windows) restarts cleanly.
 - [ ] Linux, module not loaded: Start asks once, with the startup box ticked; after a reboot Start doesn't ask. Unticked: it asks again after a reboot.
@@ -121,7 +121,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 - [ ] UDP, mic off: the phone says Streaming. Remove the computer on the phone: its video stops within a second. A lost desktop releases its UDP session within 5 seconds.
 - [ ] UDP to Dynamic and the UDP switch both reconnect onto the right transport; changing to Heavy leaves no UDP session behind.
 - [ ] Automatic routing, mic only: plugging in USB moves the microphone too. Rapid mic off/on leaves no recording held.
-- [ ] Linux, AMD or Intel card: **Set up VA-API…** in Advanced uses the distro's PyAV or builds one, and after **Restart now** Hardware acceleration says it found VA-API.
+- [ ] Linux, AMD or Intel card: **Set up VA-API…** under Video in Settings uses the distro's PyAV or builds one, and after **Restart now** Hardware acceleration says it found VA-API.
 - [ ] Hardware acceleration: a driver failure resumes in software without missing setup headers; Copy diagnostics reflects the decoder still running if the preference changes mid-stream.
 - [ ] Auto level: beginning in silence or recovering from a gap does not turn up steady room noise.
 - [ ] Tab through the tiles and switches, use rotation/pan shortcuts saved before this release, pan with arrow keys and Home, and inspect labels with a screen reader.
@@ -131,7 +131,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi. Re-chec
 
 Make a `.zip` of `desktop/examples/plugins/black_and_white` (the folder itself inside it) to try these with.
 
-- [ ] Windows exe and Linux bundle: **Install** in **Plugins…** installs the `.zip`, and so does dragging it onto the dialog. It shows under **Added**, switched off.
+- [ ] Windows exe and Linux bundle: **Install** on the Plugins tab installs the `.zip`, and so does dragging it onto the tab. It shows under **Added**, switched off.
 - [ ] Switching it on asks first with the warning. After **Restart now** its card shows and the picture turns black and white while streaming from a real phone.
 - [ ] Changing one of its files in the plugins folder (**Open plugins folder**) switches it off on the next start until you switch it on again.
 - [ ] A plugin that raises in `setup()` is left out with a banner naming it, and the rest of Telescope starts and streams.

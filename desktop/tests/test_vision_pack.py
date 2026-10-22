@@ -1,6 +1,9 @@
 import io
 import json
+import subprocess
+import sys
 import zipfile
+from pathlib import Path
 
 import pytest
 
@@ -137,3 +140,14 @@ def test_a_failed_download_remembers_why_for_the_plugin_that_waited(qapp, config
     _finish(qapp, dl)
     assert plugin_loader.optional_on() == set()
     assert dl.failed_for == "framing" and "internet connection" in dl.error
+
+
+def test_the_pack_script_runs_without_opencv_or_the_apps_other_packages():
+    # The release's vision job builds the pack with a bare Python; -S leaves out every installed package
+    desktop = Path(__file__).resolve().parent.parent
+    code = ("import runpy, sys; sys.path.insert(0, sys.argv[1]); "
+            "runpy.run_path(sys.argv[2]); print('cv2' in sys.modules)")
+    done = subprocess.run([sys.executable, "-S", "-c", code, str(desktop), str(desktop / "scripts" / "build_vision_pack.py")],
+                          capture_output=True, text=True, timeout=30)
+    assert done.returncode == 0, done.stderr
+    assert done.stdout.strip() == "False"

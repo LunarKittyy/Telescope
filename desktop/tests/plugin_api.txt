@@ -62,6 +62,7 @@ HostSettings.schedule_save(self)
 HostSettings.switch_device(self, prev_name, new_name)
 HostShell.clear_issue(self, key=None, issue=None)
 HostShell.diagnostics_report(self)
+HostShell.open_settings(self, tab='')
 HostShell.quit_app(self)
 HostShell.restart_app(self)
 HostShell.send_notification(self, title, body, urgent=True)
@@ -126,6 +127,13 @@ Param.options(self)
 Param.shown(self, params)
 Param.shown_if = None
 Param.suffix = ''
+SettingsSection(tab, widget, order=0, on_show=None, tab_title='', keywords='')
+SettingsSection.keywords = ''
+SettingsSection.on_show = None
+SettingsSection.order = 0
+SettingsSection.tab
+SettingsSection.tab_title = ''
+SettingsSection.widget
 ShortcutAction(id, label, group, run, params=(), release=None, repeats=<lambda>, describe=None, widgets=(), current=None, keywords='')
 ShortcutAction.controls(self)
 ShortcutAction.current = None
@@ -156,8 +164,8 @@ TelescopePlugin.about = ''
 TelescopePlugin.apply_preset(self, cfg)
 TelescopePlugin.create_actions(self)
 TelescopePlugin.create_header_widget(self)
-TelescopePlugin.create_menu_actions(self)
 TelescopePlugin.create_panel(self)
+TelescopePlugin.create_settings_sections(self)
 TelescopePlugin.create_tray_actions(self)
 TelescopePlugin.device_local = False
 TelescopePlugin.diagnostics(self)

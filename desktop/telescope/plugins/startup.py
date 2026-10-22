@@ -1,6 +1,6 @@
 """Starting and stopping on its own, and opening Telescope at sign-in.
 
-The settings menu's Automatic streaming submenu picks when a stream starts by itself (never, as soon as the phone is
+The Automatic streaming card in Settings picks when a stream starts by itself (never, as soon as the phone is
 ready, or when an app opens the camera) and when one stops by itself (never, or once no app has read the camera for a
 while: only a stream it started, or any stream). Starting when the phone is ready happens once each time the phone
 becomes ready, and keeps the phone checked with the window hidden (otherwise it's checked only while the window is on
@@ -15,19 +15,18 @@ you); the camera comes back on when an app opens it again, and Stop ends the str
 import logging
 from typing import Optional
 
-from PyQt6.QtCore import QTimer
-from PyQt6.QtGui import QAction, QActionGroup
-from PyQt6.QtWidgets import QDialog, QHBoxLayout, QLabel, QMenu, QPushButton, QSizePolicy, QWidgetAction
+from PyQt6.QtCore import QSignalBlocker, QTimer
+from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 
 from telescope import dev_profile
 from telescope.platform import autostart
-from telescope.plugin import TelescopePlugin
+from telescope.plugin import SettingsSection, TelescopePlugin
+from telescope.widgets.settings_search import keywords
 from telescope.widgets.banner import Issue
 from telescope.widgets.common import (
-    host_window,
-    NoScrollComboBox, NoScrollSpinBox, card_layout, control_row, create_card, dialog_buttons, dialog_header,
-    dialog_layout, set_ui_role, ui_px,
+    NoScrollComboBox, NoScrollSpinBox, Switch, add_card_header, card_layout, create_card, ui_px, wrapped_note,
 )
+from telescope.widgets.controls import setting_row
 
 
 logger = logging.getLogger(__name__)
@@ -51,8 +50,6 @@ MIN_STOP_DELAY_S = 10
 MAX_STOP_DELAY_S = 3600
 DEFAULT_STOP_DELAY_S = 15
 
-_DELAY_DIALOG_WIDTH = 440  # room for the number and the unit side by side in the control column
-
 
 def delay_text(seconds: int) -> str:
     """"90 s", "2 min": whole minutes read as minutes."""
@@ -69,7 +66,7 @@ class StartupPlugin(TelescopePlugin):
     name = "startup"
     title = "Start and stop by itself"
     about = "Opening Telescope when you sign in, and Automatic streaming."
-    when_off = ("Without it Automatic streaming stops and both it and the sign-in option leave the settings menu. "
+    when_off = ("Without it Automatic streaming stops and both it and the sign-in option leave Settings. "
                 "Telescope still opens at sign-in if it did before.")
 
     def __init__(self):
@@ -90,7 +87,6 @@ class StartupPlugin(TelescopePlugin):
         # Several cameras streamed since the last full stop: the one left may go to an extra camera, which the watch
         # doesn't see, so nothing stops by itself until everything has
         self._several = False
-        self._delay_dlg: Optional["StopDelayDialog"] = None
 
     def setup(self, host, bus):
         self._host = host
@@ -107,76 +103,13 @@ class StartupPlugin(TelescopePlugin):
         bus.camera_watched.connect(self._on_camera_watched)
         bus.window_shown.connect(self._on_window_shown)
 
-    # ── Menu ──────────────────────────────────────────────────────────────
+    # ── Settings window ───────────────────────────────────────────────────
 
-    def create_menu_actions(self) -> list:
-        divider = QAction(None)
-        divider.setSeparator(True)
-        sign_in = QAction("Open Telescope when I sign in", None)
-        sign_in.setCheckable(True)
-        sign_in.setChecked(autostart.is_enabled())
-        sign_in.toggled.connect(self.set_open_at_sign_in)
-        if dev_profile.active():  # the sign-in entry is the real app's
-            sign_in.setEnabled(False)
-            sign_in.setToolTip("Not in a dev profile")
-        return [divider, self._build_submenu(), sign_in]
-
-    def _build_submenu(self) -> QMenu:
-        menu = QMenu("Automatic streaming")
-        self._add_heading(menu, "Start")
-        self._add_choices(menu, START_CHOICES, self.start_on, self.set_start_on)
-        self._add_heading(menu, "Stop")
-        self._add_choices(menu, STOP_CHOICES, self.stop_idle, self.set_stop_idle)
-        stops = self.stop_idle != STOP_OFF  # the wait and the notice do nothing without an idle stop
-        note = self._add_action(menu, "With the phone mic on, only the camera turns off")
-        note.setEnabled(False)
-        note.setVisible(stops)
-        menu.addSeparator()
-        delay = self._add_action(menu, f"Wait before stopping: {delay_text(self.stop_delay_s)}…")
-        delay.setEnabled(stops)
-        delay.triggered.connect(self._open_delay_dialog)
-        notify = self._add_action(menu, "Tell me when it stops a stream")
-        notify.setCheckable(True)
-        notify.setChecked(self.notify_stop)
-        notify.setEnabled(stops)
-        notify.toggled.connect(self.set_notify_stop)
-        return menu
-
-    @staticmethod
-    def _add_action(menu: QMenu, text: str) -> QAction:
-        # Made here rather than by menu.addAction(text), so PyQt hears when the menu deletes it.
-        action = QAction(text, menu)
-        menu.addAction(action)
-        return action
-
-    @staticmethod
-    def _add_heading(menu: QMenu, text: str):
-        # A label, not addSection(): the app's menu style draws sections as a bare gap.
-        label = QLabel(text.upper())
-        label.setObjectName("menu_section")
-        heading = QWidgetAction(menu)
-        heading.setDefaultWidget(label)
-        heading.setEnabled(False)
-        menu.addAction(heading)
-
-    @staticmethod
-    def _add_choices(menu: QMenu, choices, current: str, setter):
-        group = QActionGroup(menu)
-        group.setExclusive(True)
-        for mode, text in choices:
-            action = StartupPlugin._add_action(menu, text)
-            action.setCheckable(True)
-            action.setChecked(mode == current)
-            group.addAction(action)
-            action.triggered.connect(lambda _checked=False, m=mode: setter(m))
-
-    def _open_delay_dialog(self):
-        if self._delay_dlg is None:
-            self._delay_dlg = StopDelayDialog(self, host_window(self._host))
-        self._delay_dlg.refresh()
-        self._delay_dlg.show()
-        self._delay_dlg.raise_()
-        self._delay_dlg.activateWindow()
+    def create_settings_sections(self) -> list:
+        self._sign_in = SignInSection(self)
+        self._auto = AutomaticStreamingSection(self)
+        return [SettingsSection("general", self._sign_in, on_show=self._sign_in.refresh),
+                SettingsSection("streaming", self._auto, on_show=self._auto.refresh)]
 
     # ── Settings ──────────────────────────────────────────────────────────
 
@@ -411,44 +344,90 @@ class StartupPlugin(TelescopePlugin):
         self._sync_idle_timer()
 
 
-class StopDelayDialog(QDialog):
-    """How long the camera can go unread before an idle stop: a number and a unit."""
+class SignInSection(QWidget):
+    """Opening Telescope when the person signs in to the computer."""
+
+    def __init__(self, plugin: StartupPlugin):
+        super().__init__()
+        self._plugin = plugin
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        card = create_card()
+        lay = card_layout(card)
+        add_card_header(lay, "Startup", "monitor")
+        keywords(card, "login boot autostart run on startup tray minimized")
+        self._box = Switch()
+        self._box.toggled.connect(plugin.set_open_at_sign_in)
+        strip, _ = setting_row("Open Telescope when I sign in", "", self._box,
+                               keywords="autostart login log in boot startup run on startup launch computer starts tray")
+        if dev_profile.active():  # the sign-in entry is the real app's
+            self._box.setEnabled(False)
+            strip.setToolTip("Not in a dev profile")
+        lay.addWidget(strip)
+        outer.addWidget(card)
+
+    def refresh(self):
+        with QSignalBlocker(self._box):
+            self._box.setChecked(autostart.is_enabled())
+
+
+class AutomaticStreamingSection(QWidget):
+    """When a stream starts by itself and when it stops by itself, with the wait before an idle stop."""
 
     _UNITS = (("seconds", 1), ("minutes", 60))
 
-    def __init__(self, plugin: StartupPlugin, parent=None):
-        super().__init__(parent)
+    def __init__(self, plugin: StartupPlugin):
+        super().__init__()
         self._plugin = plugin
-        self.setWindowTitle("Wait before stopping")
-        self.setMinimumWidth(ui_px(_DELAY_DIALOG_WIDTH))
-        lay = dialog_layout(self)
-        dialog_header(lay, "Wait before stopping",
-                      "How long no app can use the camera before the stream stops.")
-
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
         card = create_card()
-        card_lay = card_layout(card)
+        lay = card_layout(card)
+        add_card_header(lay, "Automatic streaming", "bolt")
+        keywords(card, "auto start stop camera app opens discord obs zoom meet teams phone ready idle hands free")
+
+        self._start = self._choice(START_CHOICES, plugin.set_start_on)
+        strip, _ = setting_row("Start", "", None, self._start,
+                               keywords="automatically begin streaming when phone ready app opens the camera auto start")
+        lay.addWidget(strip)
+        self._stop = self._choice(STOP_CHOICES, plugin.set_stop_idle)
+        strip, _ = setting_row("Stop", "", None, self._stop,
+                               keywords="automatically end streaming idle no app uses the camera auto stop")
+        lay.addWidget(strip)
+        self._mic_note = wrapped_note("With the phone mic on, only the camera turns off.")
+        lay.addWidget(self._mic_note)
+
         self._value = NoScrollSpinBox()
+        self._value.setKeyboardTracking(False)  # saved once it's typed, not at every digit
         self._unit = NoScrollComboBox()
         for text, _scale in self._UNITS:
             self._unit.addItem(text)
-        self._unit.currentIndexChanged.connect(self._on_unit_changed)
+        self._value.valueChanged.connect(self._save_delay)
+        self._unit.activated.connect(self._on_unit_changed)
         fields = QHBoxLayout()
-        fields.setContentsMargins(0, 0, 0, 0)
         fields.setSpacing(8)
-        for field in (self._value, self._unit):  # the two share the control column equally
-            field.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-            field.setMinimumWidth(1)
-            fields.addWidget(field, 1)
-        card_lay.addLayout(control_row("Wait", fields, stretch=True))
-        lay.addWidget(card)
+        for field in (self._value, self._unit):
+            field.setMinimumWidth(ui_px(90))
+            fields.addWidget(field)
+        self._delay_row, _ = setting_row("Wait before stopping", "How long no app can use the camera before the "
+                                         "stream stops.", fields,
+                                         keywords="delay timeout idle seconds minutes how long grace period auto stop")
+        lay.addWidget(self._delay_row)
 
-        cancel = QPushButton("Cancel")
-        cancel.clicked.connect(self.reject)
-        save = QPushButton("Save")
-        set_ui_role(save, "primary")
-        save.setDefault(True)
-        save.clicked.connect(self._save)
-        dialog_buttons(lay, cancel, save)
+        self._notify = Switch()
+        self._notify.toggled.connect(plugin.set_notify_stop)
+        self._notify_row, _ = setting_row("Tell me when it stops a stream", "", self._notify,
+                                          keywords="notification notify alert popup message")
+        lay.addWidget(self._notify_row)
+        outer.addWidget(card)
+
+    @staticmethod
+    def _choice(choices, setter) -> NoScrollComboBox:
+        combo = NoScrollComboBox()
+        for mode, text in choices:
+            combo.addItem(text, mode)
+        combo.activated.connect(lambda i, c=combo: setter(c.itemData(i)))
+        return combo
 
     def _scale(self) -> int:
         return self._UNITS[self._unit.currentIndex()][1]
@@ -458,23 +437,32 @@ class StopDelayDialog(QDialog):
         self._value.setRange(-(-MIN_STOP_DELAY_S // scale), MAX_STOP_DELAY_S // scale)
 
     def refresh(self):
-        seconds = self._plugin.stop_delay_s
-        self._unit.blockSignals(True)
-        self._unit.setCurrentIndex(1 if seconds % 60 == 0 else 0)
-        self._unit.blockSignals(False)
-        self._set_range()
-        self._value.setValue(seconds // self._scale())
+        p = self._plugin
+        for combo, current in ((self._start, p.start_on), (self._stop, p.stop_idle)):
+            with QSignalBlocker(combo):
+                combo.setCurrentIndex(max(0, combo.findData(current)))
+        stops = p.stop_idle != STOP_OFF  # the wait and the notice do nothing without an idle stop
+        self._mic_note.setVisible(stops)
+        self._delay_row.setEnabled(stops)
+        self._notify_row.setEnabled(stops)
+        with QSignalBlocker(self._unit), QSignalBlocker(self._value):
+            self._unit.setCurrentIndex(1 if p.stop_delay_s % 60 == 0 else 0)
+            self._set_range()
+            self._value.setValue(p.stop_delay_s // self._scale())
+        with QSignalBlocker(self._notify):
+            self._notify.setChecked(p.notify_stop)
 
     def _on_unit_changed(self, _index: int):
         # Keep roughly the same wait: 90 s becomes 2 min, 2 min becomes 120 s.
         old_scale = 60 if self._scale() == 1 else 1
         seconds = self._value.value() * old_scale
-        self._set_range()
-        self._value.setValue(round(seconds / self._scale()))
+        with QSignalBlocker(self._value):
+            self._set_range()
+            self._value.setValue(round(seconds / self._scale()))
+        self._save_delay()
 
     def seconds(self) -> int:
         return clamp_delay(self._value.value() * self._scale())
 
-    def _save(self):
+    def _save_delay(self, _value: int = 0):
         self._plugin.set_stop_delay(self.seconds())
-        self.accept()

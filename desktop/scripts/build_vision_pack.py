@@ -22,15 +22,15 @@ from pathlib import Path
 DESKTOP = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(DESKTOP))
 
-from telescope import vision, vision_pack  # noqa: E402
+from telescope import vision_pack  # noqa: E402  (no OpenCV: the release runs this on a bare Python)
 
 PLATFORMS = {"linux": "manylinux_2_28_x86_64", "windows": "win_amd64"}
 _MODELS = "https://storage.googleapis.com/mediapipe-models"
 MODELS = {  # name: (url, sha256); version 1 of each, as tested
-    vision.SEGMENTER_MODEL: (f"{_MODELS}/image_segmenter/selfie_segmenter_landscape/float16/1/"
+    vision_pack.SEGMENTER_MODEL: (f"{_MODELS}/image_segmenter/selfie_segmenter_landscape/float16/1/"
                              f"selfie_segmenter_landscape.tflite",
                              "490e9ea734313e0de10fa0cd9e3c6133e36ea4db2b7a49bde9ef019f72796b8e"),
-    vision.POSE_MODEL: (f"{_MODELS}/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+    vision_pack.POSE_MODEL: (f"{_MODELS}/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
                         "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a"),
 }
 NOTICES = """Telescope's vision pack, used by the Auto framing and Background plugins.
@@ -73,9 +73,10 @@ def build(key: str, work: Path, cache: Path) -> Path:
     root = work / key
     site = root / "site"
     site.mkdir(parents=True)
-    wanted = {p.split("==")[0].lower().replace("-", "_") for p in pins()}
+    # The cache keeps wheels of older pins too, so match the version as well as the name
+    wanted = {tuple(p.lower().replace("-", "_").split("==")) for p in pins()}
     for wheel in sorted(wheels.glob("*.whl")):
-        if wheel.name.split("-")[0].lower() not in wanted:
+        if tuple(wheel.name.lower().split("-")[:2]) not in wanted:
             continue
         with zipfile.ZipFile(wheel) as z:
             z.extractall(site)
@@ -126,7 +127,7 @@ def main():
                 shutil.move(zipped, args.out / name)  # the temp folder can be on another filesystem
                 print(f"  wrote {args.out / name}")
             if args.install and key == vision_pack.platform_key():
-                dest = vision.vision_dir() / tree[:16]
+                dest = vision_pack.default_dir() / tree[:16]
                 if dest.exists():
                     shutil.rmtree(dest)
                 dest.parent.mkdir(parents=True, exist_ok=True)

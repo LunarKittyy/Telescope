@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Optional, Protocol
 
 import numpy as np
@@ -11,6 +12,37 @@ if TYPE_CHECKING:
 
 UNCHANGED = object()
 """Sentinel for update_stream_output; UNCHANGED keeps current, None is a real value."""
+
+SETTINGS_TABS = (
+    ("general", "General"),
+    ("streaming", "Streaming"),
+    ("video", "Video"),
+    ("audio", "Audio"),
+    ("devices", "Virtual camera & phone"),
+    ("shortcuts", "Keyboard shortcuts"),
+    ("plugins", "Plugins"),
+    ("about", "Updates & About"),
+)
+"""The tabs of the settings window, in order: (id, name). A SettingsSection names one by id; a tab nobody puts anything
+in isn't shown. An id that isn't here makes a tab of its own, between Keyboard shortcuts and Plugins."""
+
+
+@dataclass
+class SettingsSection:
+    """A block of controls for the settings window (usually a card from create_card)."""
+
+    tab: str
+    """Which tab it goes in: an id from SETTINGS_TABS, or a new one (then give tab_title)."""
+    widget: QWidget
+    """What's shown. Controls apply as they change; the window has no OK button."""
+    order: int = 0
+    """Where it sits in its tab: lower first, then in registration order."""
+    on_show: Optional[Callable[[], None]] = None
+    """Called each time its tab comes on screen, to bring the controls up to date with the plugin's state."""
+    tab_title: str = ""
+    """The name of the tab, for one that isn't in SETTINGS_TABS (or to replace the usual one)."""
+    keywords: str = ""
+    """Extra words the search finds everything in this section by (what people might call it)."""
 
 
 class HostSettings(Protocol):
@@ -231,6 +263,10 @@ class HostShell(Protocol):
         """The Copy diagnostics text: version, system, each plugin's diagnostics() and recent events."""
         ...
 
+    def open_settings(self, tab: str = "") -> None:
+        """Bring up the settings window, on the tab with this id (see SETTINGS_TABS) or the one it was left on."""
+        ...
+
     def shortcut_actions(self) -> list:
         """Every plugin's create_actions(), in registration order."""
         ...
@@ -347,16 +383,16 @@ class StreamsBehind:
 
 class TelescopePlugin:
     name: str = ""
-    """Its id: where its settings are saved, and what other plugins and the Plugins dialog know it by."""
+    """Its id: where its settings are saved, and what other plugins and the Plugins tab know it by."""
 
     title: str = ""
-    """What the Plugins dialog calls it ("Camera"); a plugin someone added takes it from its plugin.json."""
+    """What the Plugins tab calls it ("Camera"); a plugin someone added takes it from its plugin.json."""
     about: str = ""
-    """One plain sentence for the Plugins dialog: what it does."""
+    """One plain sentence for the Plugins tab: what it does."""
     when_off: str = ""
     """What goes away while it's turned off, so nobody wonders where a card went ("The Camera card goes away...")."""
     required: bool = False
-    """Telescope can't work without it, so the Plugins dialog doesn't offer to turn it off."""
+    """Telescope can't work without it, so the Plugins tab doesn't offer to turn it off."""
     optional: bool = False
     """A built-in one that's off until someone switches it on in Plugins, since it asks more of the computer."""
     needs_vision: bool = False
@@ -390,8 +426,9 @@ class TelescopePlugin:
         """Compact header bar widget (e.g. device picker), not panel content."""
         return None
 
-    def create_menu_actions(self) -> list:
-        """QActions (or a QMenu, shown as a submenu) for the settings menu; lets dialog-only plugins skip a panel."""
+    def create_settings_sections(self) -> list:
+        """SettingsSections for the settings window, asked for once when it first opens; lets a plugin without a panel
+        still have settings. Its controls apply as they change."""
         return []
 
     def create_tray_actions(self) -> list:

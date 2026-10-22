@@ -5,7 +5,7 @@ import math
 
 from PyQt6.QtCore import QEvent, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QFontMetrics, QFontMetricsF, QGuiApplication, QPainter, QPen
-from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 from telescope import theme
 from telescope.widgets.common import (
@@ -417,12 +417,15 @@ def hairline() -> QFrame:
 
 # ── Settings strips (Advanced) ────────────────────────────────────────────────
 
-def setting_row(title: str, sub: str = "", control=None, below=None) -> tuple:
+def setting_row(title: str, sub: str = "", control=None, below=None, keywords: str = "") -> tuple:
     """One setting as a raised strip: its name with a short line under it on the left and its control on the right,
-    or a full-width control below (segments). Returns the strip and the line under the name."""
+    or a full-width control below (segments). keywords are extra words the settings search finds it by. Returns the
+    strip and the line under the name."""
     from telescope.widgets.common import WrapLabel
     strip = QFrame()
     strip.setObjectName("setting_row")
+    if keywords:
+        strip.setProperty("keywords", keywords)
     outer = QVBoxLayout(strip)
     outer.setContentsMargins(12, 8, 12, 8)
     outer.setSpacing(8)
@@ -465,77 +468,7 @@ def setting_row(title: str, sub: str = "", control=None, below=None) -> tuple:
     return strip, line
 
 
-class FitScroll(QScrollArea):
-    """Asks for its content's full height, so a window opens as tall as the screen allows and scrolls past that."""
-
-    def __init__(self):
-        super().__init__()
-        self.setWidgetResizable(True)
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.setFrameShape(QFrame.Shape.NoFrame)
-
-    def sizeHint(self) -> QSize:
-        inner = self.widget().sizeHint() if self.widget() else QSize()
-        return QSize(inner.width() + self.verticalScrollBar().sizeHint().width(), inner.height())
-
-
 SCREEN_MARGIN = 48  # px a window keeps clear of the screen edges
-
-
-def fit_height(window: QWidget):
-    """As tall as the window's content, up to the screen's height; its FitScroll scrolls past that. Not adjustSize():
-    Qt caps that at two thirds of the screen."""
-    from PyQt6.QtGui import QGuiApplication
-    screen = window.screen() or QGuiApplication.primaryScreen()
-    if screen is None:
-        window.adjustSize()
-        return
-    cap = screen.availableGeometry().height() - SCREEN_MARGIN
-    window.setMaximumHeight(cap)
-    window.resize(max(window.width(), window.sizeHint().width()), min(window.sizeHint().height(), cap))
-
-
-def window_frame(window: QWidget, title: str, subtitle: str = "", aside: QWidget = None) -> tuple:
-    """A settings window in the redesign's look: the title, cards that scroll under it, and a bar of buttons across
-    the bottom. Returns (the layout the cards go in, the bar's layout, the scroll area)."""
-    from telescope.widgets.common import WrapLabel
-    outer = QVBoxLayout(window)
-    outer.setContentsMargins(0, 0, 0, 0)
-    outer.setSpacing(0)
-    page = QWidget()
-    outer.addWidget(page, 1)
-    lay = QVBoxLayout(page)
-    lay.setContentsMargins(20, 18, 20, 14)
-    lay.setSpacing(14)
-    head = QVBoxLayout()
-    head.setSpacing(2)
-    title_row = QHBoxLayout()
-    name = QLabel(title)
-    name.setObjectName("dialog_title")
-    title_row.addWidget(name)
-    title_row.addStretch(1)
-    if aside is not None:
-        title_row.addWidget(aside)
-    head.addLayout(title_row)
-    if subtitle:
-        sub = WrapLabel(subtitle)
-        sub.setObjectName("dialog_subtitle")
-        head.addWidget(sub)
-    lay.addLayout(head)
-    scroll = FitScroll()
-    content = QWidget()
-    body = QVBoxLayout(content)
-    body.setContentsMargins(0, 0, 6, 0)  # room for the scrollbar beside the cards
-    body.setSpacing(lay.spacing())
-    scroll.setWidget(content)
-    lay.addWidget(scroll, 1)
-    bar = QFrame()
-    bar.setObjectName("dialog_footer")
-    bottom = QHBoxLayout(bar)
-    bottom.setContentsMargins(20, 10, 20, 10)
-    bottom.setSpacing(8)
-    outer.addWidget(bar)
-    return body, bottom, scroll
 
 
 class CommandBox(QWidget):

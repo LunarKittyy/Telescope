@@ -1,22 +1,23 @@
-"""The Plugins dialog (settings menu): every plugin, built in or added, with a switch for each one that can be off."""
+"""The Plugins tab of Settings: every plugin, built in or added, with a switch for each one that can be off."""
 
 import logging
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Optional
 
-from PyQt6.QtCore import QSignalBlocker, Qt, QUrl
+from PyQt6.QtCore import QSignalBlocker, QUrl
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
-    QCheckBox, QDialog, QFileDialog, QFrame, QHBoxLayout, QLabel, QMessageBox, QPushButton, QVBoxLayout, QWidget,
+    QCheckBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QMessageBox, QPushButton, QScrollArea, QVBoxLayout, QWidget,
 )
 
 from telescope import plugin_loader
 from telescope.widgets import vision_download
 from telescope.widgets.common import (
     Switch,
-    add_card_header, card_action, card_layout, create_card, icon_button, set_ui_role, ui_px, wrapped_note,
+    add_card_header, card_action, card_layout, create_card, icon_button, set_ui_role, wrapped_note,
 )
-from telescope.widgets.controls import fit_height, setting_row, window_frame
+from telescope.widgets.controls import setting_row
+from telescope.widgets.settings_search import keywords
 
 logger = logging.getLogger(__name__)
 
@@ -32,12 +33,12 @@ def _ask(parent, title: str, text: str, yes: str, danger: bool = False) -> bool:
     return box.clickedButton() is yes_btn
 
 
-class PluginsDialog(QDialog):
-    def __init__(self, parent, builtins: list, running: set, problems: dict, restart: Callable[[], bool],
+class PluginsPanel(QWidget):
+    def __init__(self, builtins: list, running: set, problems: dict, restart: Callable[[], bool],
                  is_streaming: Callable[[], bool] = lambda: False, download=None):
         """builtins: every built-in plugin object; running: the names of the plugins running now; problems: why each
         added plugin that's on didn't start this time; restart() starts Telescope again, False if it couldn't."""
-        super().__init__(parent)
+        super().__init__()
         self._builtins = list(builtins)
         self._reserved = {p.name for p in builtins}
         self._running = set(running)
@@ -47,15 +48,14 @@ class PluginsDialog(QDialog):
         self._download = download or vision_download.shared()
         self._download.progress.connect(self._on_download_progress)
         self._download.finished.connect(self._on_download_done)
-        self.setWindowTitle("Plugins")
-        self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
-        self.setMinimumWidth(ui_px(600))
         self.setAcceptDrops(True)
-        body, bottom, self._scroll = window_frame(
-            self, "Plugins", "Switch parts of Telescope on or off. A change takes effect the next time Telescope "
-                             "starts, and settings are kept either way.")
+        body = QVBoxLayout(self)
+        body.setContentsMargins(0, 0, 0, 0)
+        body.setSpacing(14)
+        body.addWidget(wrapped_note("Switch parts of Telescope on or off. A change takes effect the next time "
+                                    "Telescope starts, and settings are kept either way."))
         self._keep_at = 0
-        self._scroll.verticalScrollBar().rangeChanged.connect(self._restore_scroll)
+        self._watching = None
 
         self._restart_bar = QFrame()
         self._restart_bar.setObjectName("setting_row")
@@ -68,40 +68,46 @@ class PluginsDialog(QDialog):
         set_ui_role(self._restart_btn, "primary")
         self._restart_btn.clicked.connect(self._restart_now)
         bar.addWidget(self._restart_btn)
-        self._scroll.parentWidget().layout().addWidget(self._restart_bar)  # under the list, so it stays in view
+        body.addWidget(self._restart_bar)
         self._list = QWidget()
         self._rows = QVBoxLayout(self._list)
         self._rows.setContentsMargins(0, 0, 0, 0)
         self._rows.setSpacing(body.spacing())
         body.addWidget(self._list)
-        body.addStretch(1)
 
         self._folder_btn = QPushButton("Open plugins folder")
         self._folder_btn.clicked.connect(self._open_folder)
         help_btn = QPushButton("How plugins work")
         help_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(DOCS_URL)))
-        close_btn = QPushButton("Close")
-        set_ui_role(close_btn, "primary")
-        close_btn.clicked.connect(self.accept)
-        bottom.addWidget(help_btn)
-        bottom.addWidget(self._folder_btn)
-        bottom.addStretch(1)
-        bottom.addWidget(close_btn)
+        links = QHBoxLayout()
+        links.setSpacing(8)
+        links.addWidget(help_btn)
+        links.addWidget(self._folder_btn)
+        links.addStretch(1)
+        body.addLayout(links)
         self.refresh()
-
-    def showEvent(self, event):
-        fit_height(self)
-        super().showEvent(event)
 
     # ── The list ──────────────────────────────────────────────────────────
 
+    def _scroll(self) -> Optional[QScrollArea]:
+        """The page this sits in, once it's in one."""
+        area = self.parentWidget()
+        while area is not None and not isinstance(area, QScrollArea):
+            area = area.parentWidget()
+        if area is not None and area is not self._watching:
+            self._watching = area
+            area.verticalScrollBar().rangeChanged.connect(self._restore_scroll)
+        return area
+
     def _restore_scroll(self, _low: int, high: int):
         if self._keep_at and high >= self._keep_at:
-            self._scroll.verticalScrollBar().setValue(self._keep_at)
+            self._watching.verticalScrollBar().setValue(self._keep_at)
             self._keep_at = 0
 
     def refresh(self):
-        self._keep_at = self._scroll.verticalScrollBar().value()  # stay where the person was once the rows are back
+        area = self._scroll()
+        if area is not None:
+            self._keep_at = area.verticalScrollBar().value()  # stay where the person was once the rows are back
         while self._rows.count():
             item = self._rows.takeAt(0)
             if item.widget() is not None:
@@ -157,6 +163,7 @@ class PluginsDialog(QDialog):
         card = create_card()
         lay = card_layout(card)
         add_card_header(lay, title, icon, action=action)
+        keywords(card, "plugins extensions addons add ons modules features turn off on disable enable install zip")
         self._rows.addWidget(card)
         return lay
 
@@ -416,4 +423,4 @@ class PluginsDialog(QDialog):
             QMessageBox.warning(self, "Couldn't restart", "Telescope couldn't start a new copy of itself. Close "
                                                           "it and open it again to apply your changes.")
             return
-        self.accept()
+        self.window().close()

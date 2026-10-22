@@ -5,12 +5,11 @@ import types
 from pathlib import Path
 
 import pytest
-from PyQt6.QtWidgets import QMenu, QWidgetAction
 
 import telescope.platform.autostart as autostart
 import telescope.plugins.startup as startup_module
 from telescope.plugin import EventBus
-from telescope.plugins.startup import StartupPlugin, StopDelayDialog
+from telescope.plugins.startup import AutomaticStreamingSection, SignInSection, StartupPlugin
 
 
 class _Host:
@@ -200,73 +199,92 @@ def test_diagnostics_say_what_is_on_and_who_owns_the_stream(env):
     }
 
 
-def _submenu_actions(menu):
-    return {a.text(): a for a in menu.actions() if a.text() and not a.isSeparator()}
+def _choose(combo, text):
+    """Pick an entry the way a click does."""
+    index = combo.findText(text)
+    assert index >= 0, text
+    combo.setCurrentIndex(index)
+    combo.activated.emit(index)
 
 
-def test_menu_is_one_submenu_and_the_sign_in_entry(env, monkeypatch):
+def test_sign_in_switch_opens_telescope_at_sign_in(env, monkeypatch, qapp):
     plugin, host, _bus = env
     calls = []
     monkeypatch.setattr(startup_module.autostart, "is_enabled", lambda: False)
     monkeypatch.setattr(startup_module.autostart, "enable", lambda: calls.append("on") or (True, ""))
     monkeypatch.setattr(startup_module.autostart, "disable", lambda: calls.append("off") or (False, "denied"))
-    divider, menu, sign_in = plugin.create_menu_actions()
-    assert divider.isSeparator() and isinstance(menu, QMenu) and menu.title() == "Automatic streaming"
-    assert not sign_in.isChecked()
-    sign_in.setChecked(True)
-    sign_in.setChecked(False)
+    section = SignInSection(plugin)
+    section.refresh()
+    assert not section._box.isChecked()
+    section._box.setChecked(True)
+    section._box.setChecked(False)
     assert calls == ["on", "off"]
     assert host.issues["startup"].title == "denied"
+    monkeypatch.setattr(startup_module.autostart, "is_enabled", lambda: True)
+    section.refresh()  # what the computer says, not what was last clicked
+    assert section._box.isChecked() and calls == ["on", "off"]
 
 
-def test_submenu_radios_reflect_and_change_the_settings(env):
+def test_settings_sections_go_in_general_and_streaming(env, qapp):
+    plugin, _host, _bus = env
+    sections = plugin.create_settings_sections()
+    assert [s.tab for s in sections] == ["general", "streaming"]
+    assert all(s.on_show is not None for s in sections)
+
+
+def test_start_and_stop_choices_reflect_and_change_the_settings(env, qapp):
     plugin, host, _bus = env
-    _divider, menu, _sign_in = plugin.create_menu_actions()
-    items = _submenu_actions(menu)
-    headings = [a.defaultWidget().text() for a in menu.actions() if isinstance(a, QWidgetAction)]
-    assert headings == ["START", "STOP"]
-    assert items["Only when I press Start"].isChecked() and items["Only when I press Stop"].isChecked()
-    delay = items["Wait before stopping: 15 s…"]
-    notify = items["Tell me when it stops a stream"]
-    assert not delay.isEnabled() and not notify.isEnabled()  # nothing stops by itself yet
+    section = AutomaticStreamingSection(plugin)
+    section.refresh()
+    assert section._start.currentText() == "Only when I press Start"
+    assert section._stop.currentText() == "Only when I press Stop"
+    assert not section._delay_row.isEnabled() and not section._notify_row.isEnabled()  # nothing stops by itself yet
+    assert section._mic_note.isHidden()
 
-    items["When an app opens the camera"].trigger()
+    _choose(section._start, "When an app opens the camera")
     assert plugin.start_on == "watched" and host.keep is True
-    assert not items["Only when I press Start"].isChecked()  # one start choice at a time
-    items["When the phone is ready"].trigger()
-    assert plugin.start_on == "ready" and not items["When an app opens the camera"].isChecked()
-    items["When no app uses the camera, even if I started it"].trigger()
+    _choose(section._start, "When the phone is ready")
+    assert plugin.start_on == "ready"
+    _choose(section._stop, "When no app uses the camera, even if I started it")
     assert plugin.stop_idle == "any"
+    section.refresh()
+    assert section._delay_row.isEnabled() and section._notify_row.isEnabled() and not section._mic_note.isHidden()
 
-    _d, menu, _s = plugin.create_menu_actions()  # rebuilt on every open
-    items = _submenu_actions(menu)
-    assert items["When the phone is ready"].isChecked()
-    assert items["When no app uses the camera, even if I started it"].isChecked()
-    assert items["Wait before stopping: 15 s…"].isEnabled()
-    items["Tell me when it stops a stream"].setChecked(False)
+    plugin.set_config({"start_on": "watched", "stop_idle": "off"})  # changed behind its back (a preset, a reload)
+    section.refresh()
+    assert section._start.currentText() == "When an app opens the camera"
+    assert not section._delay_row.isEnabled()
+
+    section._notify.setChecked(False)
     assert plugin.notify_stop is False
+    section.refresh()
+    assert not section._notify.isChecked()
 
 
-def test_delay_dialog_reads_and_writes_the_wait(env):
+def test_wait_fields_read_and_write_the_wait(env, qapp):
     plugin, host, _bus = env
     plugin.set_config({"stop_idle": "any", "stop_delay_s": 120})
-    dlg = StopDelayDialog(plugin)
-    dlg.refresh()
-    assert dlg._unit.currentText() == "minutes" and dlg._value.value() == 2
-    dlg._unit.setCurrentIndex(0)                 # to seconds: the same wait
-    assert dlg._value.value() == 120 and dlg.seconds() == 120
-    dlg._value.setValue(90)
-    dlg._unit.setCurrentIndex(1)                 # 90 s rounds to 2 min
-    assert dlg._value.value() == 2
-    dlg._unit.setCurrentIndex(0)
-    assert dlg._value.minimum() == 10 and dlg._value.maximum() == 3600
-    dlg._value.setValue(45)
-    dlg._save()
+    section = AutomaticStreamingSection(plugin)
+    section.refresh()
+    assert section._unit.currentText() == "minutes" and section._value.value() == 2
+    section._unit.setCurrentIndex(0)             # to seconds: the same wait
+    section._unit.activated.emit(0)
+    assert section._value.value() == 120 and section.seconds() == 120 and plugin.stop_delay_s == 120
+    section._value.setValue(90)
+    assert plugin.stop_delay_s == 90
+    section._unit.setCurrentIndex(1)             # 90 s rounds to 2 min
+    section._unit.activated.emit(1)
+    assert section._value.value() == 2 and plugin.stop_delay_s == 120
+    section._unit.setCurrentIndex(0)
+    section._unit.activated.emit(0)
+    assert section._value.minimum() == 10 and section._value.maximum() == 3600
+    section._value.setValue(45)
     assert plugin.stop_delay_s == 45 and host.saves > 0
-    dlg.refresh()
-    assert dlg._unit.currentText() == "seconds" and dlg._value.value() == 45
-    dlg._unit.setCurrentIndex(1)
-    assert dlg._value.minimum() == 1 and dlg._value.maximum() == 60
+    section.refresh()
+    assert section._unit.currentText() == "seconds" and section._value.value() == 45
+    section._unit.setCurrentIndex(1)
+    section._unit.activated.emit(1)
+    assert section._value.minimum() == 1 and section._value.maximum() == 60
 
 
 # ── Streaming while an app uses the camera ─────────────────────────────────────

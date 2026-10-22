@@ -12,7 +12,22 @@ import zipfile
 from pathlib import Path
 from typing import Callable, Optional
 
-from telescope import version, web
+from telescope import dev_profile, version, web
+
+# No OpenCV or MediaPipe in here: the release builds the pack with a bare Python (scripts/build_vision_pack.py)
+SEGMENTER_MODEL = "selfie_segmenter_landscape.tflite"
+POSE_MODEL = "pose_landmarker_lite.task"
+
+
+def default_dir() -> Path:
+    """Where vision packs are unpacked, one folder per pack."""
+    if dev_profile.active():
+        return dev_profile.folder() / "vision"
+    if sys.platform == "win32":
+        base = os.environ.get("LOCALAPPDATA") or str(Path.home())
+        return Path(base) / "Telescope" / "vision"
+    base = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
+    return Path(base) / "telescope" / "vision"
 
 logger = logging.getLogger(__name__)
 
