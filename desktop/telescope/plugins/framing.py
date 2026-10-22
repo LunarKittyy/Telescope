@@ -5,19 +5,23 @@ from dataclasses import dataclass
 from typing import Optional
 
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtWidgets import QButtonGroup, QSizePolicy, QWidget
+from PyQt6.QtWidgets import QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 from telescope.plugin import TelescopePlugin
 from telescope.pose import ARM_SEEN, SEEN, SIDES, arm, body, hands_out
-from telescope.shortcuts import button_action, choice_action, slider_action
+from telescope.shortcuts import button_action, slider_action
 from telescope.view import pan_for, shown_to_view, view_to_shown, window_centre
 from telescope.widgets.common import (
-    NoScrollSlider, SegmentButton, Switch, add_card_header, card_layout, control_row as _row, create_card,
-    dim_until_paired, segmented_row, slider_row, value_label,
+    NoScrollSlider, Switch, add_card_header, card_layout, control_row as _row, create_card, dim_until_paired,
+    slider_row, value_label,
 )
 from telescope.widgets.vision_status import VisionStatus
 
-FRAMINGS = (("head", "Head and shoulders"), ("body", "Upper body"))
+# Framing runs through these, from 0 to len - 1, and anywhere in between
+FRAMINGS = ("Face", "Head and shoulders", "Upper body", "Whole body")
+FRAMING_DEFAULT = 1.0
+_FRAMING_STEPS = 10  # slider steps between two of them
+_HALF_WIDTH = (0.5, 0.85, 1.05, 1.2)  # at each, half the box's width in shoulder widths
 SPEED_DEFAULT = 5  # Speed runs from 1 (calmest) to 10 (quickest)
 _OMEGA_SLOW, _OMEGA_FAST = 0.4, 9.0  # how fast the framing catches up at either end (spring stiffness, 1/s)
 _TICK_MS = 33
@@ -40,7 +44,17 @@ class Target:
     zoom: float
 
 
-def target_box(people, aspect: float, framing: str = "head", hands=()) -> Optional[tuple]:
+def _bottoms(person, sy: float, width: float) -> tuple:
+    """Where the box ends at each of FRAMINGS, in picture heights."""
+    def lowest(names, fallback):
+        seen = [p[1] for p in (person.point(n, SEEN) for n in names) if p]
+        return max(seen) if seen else fallback
+    hips = lowest(("left_hip", "right_hip"), sy + 1.4 * width)
+    feet = lowest(("left_ankle", "right_ankle"), sy + 3.1 * width) + 0.25 * width
+    return sy - 0.1 * width, sy + 0.6 * width, hips, max(feet, hips + width)
+
+
+def target_box(people, aspect: float, framing: float = FRAMING_DEFAULT, hands=()) -> Optional[tuple]:
     """(x0, y0, x1, y1) in the picture as shown around everyone, or None when nobody's clear enough to frame."""
     boxes = []
     for person in people:
@@ -50,13 +64,11 @@ def target_box(people, aspect: float, framing: str = "head", hands=()) -> Option
         (cx, sy), width = shoulders
         head = [p for p in (person.point(n, SEEN) for n in ("nose", "left_eye", "right_eye")) if p]
         top = (min(p[1] for p in head) if head else sy - 0.6 * width) - 0.55 * width
-        if framing == "body":
-            hips = [p for p in (person.point(n, SEEN) for n in ("left_hip", "right_hip")) if p]
-            bottom = max(p[1] for p in hips) if hips else sy + 1.4 * width
-            half = 1.05 * width / aspect
-        else:
-            bottom = sy + 0.6 * width
-            half = 0.85 * width / aspect
+        at = min(max(framing, 0.0), len(FRAMINGS) - 1.0)
+        i = min(int(at), len(FRAMINGS) - 2)
+        f, bottoms = at - i, _bottoms(person, sy, width)
+        bottom = bottoms[i] + (bottoms[i + 1] - bottoms[i]) * f
+        half = (_HALF_WIDTH[i] + (_HALF_WIDTH[i + 1] - _HALF_WIDTH[i]) * f) * width / aspect
         box = [cx - half, top, cx + half, bottom]
         margin = 0.6 * width  # room for what's in the hand
         for side in hands:
@@ -183,7 +195,21 @@ class FramingPlugin(TelescopePlugin):
         self._switch.toggled.connect(self._on_switch)
         add_card_header(lay, "Auto framing", "framing", action=self._switch, hue="vision")
         dim_until_paired(card, self._bus)
-        self._framing_btns = self._segments(lay, "Framing", FRAMINGS, "head")
+        self._framing_slider = NoScrollSlider(Qt.Orientation.Horizontal)
+        self._framing_slider.setRange(0, (len(FRAMINGS) - 1) * _FRAMING_STEPS)
+        self._framing_slider.setValue(round(FRAMING_DEFAULT * _FRAMING_STEPS))
+        self._framing_slider.set_default(round(FRAMING_DEFAULT * _FRAMING_STEPS))
+        self._framing_slider.setToolTip("How much of you is in the picture")
+        self._framing_lbl = QLabel()
+        self._framing_lbl.setObjectName("setting_sub")
+        self._framing_slider.valueChanged.connect(self._on_framing)
+        column = QVBoxLayout()
+        column.setContentsMargins(0, 0, 0, 0)
+        column.setSpacing(2)
+        column.addLayout(slider_row(self._framing_slider, value_label()))  # an empty readout lines it up with Speed
+        column.addWidget(self._framing_lbl)
+        lay.addLayout(_row("Framing", column, stretch=True))
+        self._show_framing()
         self._speed_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._speed_slider.setRange(1, 10)
         self._speed_slider.setValue(SPEED_DEFAULT)
@@ -201,34 +227,28 @@ class FramingPlugin(TelescopePlugin):
         self._show()
         return card
 
-    def _segments(self, lay, label: str, options, default: str) -> dict:
-        btns, group = {}, QButtonGroup(lay.parentWidget())
-        for key, text in options:
-            btn = SegmentButton(text)
-            btn.setProperty("shortcutValue", key)
-            btn.clicked.connect(lambda _c=False: self._host.schedule_save())
-            group.addButton(btn)
-            btns[key] = btn
-        btns[default].setChecked(True)
-        lay.addLayout(_row(label, segmented_row(*btns.values()), stretch=True))
-        return btns
-
     def create_actions(self) -> list:
         g = "Auto framing"
         return [
             button_action("framing.on", "Auto framing", g, self._switch),
-            choice_action("framing.framing", "Framing", g, buttons=list(self._framing_btns.values())),
+            slider_action("framing.framing", "Auto framing: how much of you", g, self._framing_slider, step=1.0),
             slider_action("framing.speed", "Auto framing speed", g, self._speed_slider, step=1.0,
                           readout=self._speed_lbl),
         ]
 
+    def _framing(self) -> float:
+        return self._framing_slider.value() / _FRAMING_STEPS
+
+    def _on_framing(self, _value: int):
+        self._show_framing()
+        self._host.schedule_save()
+
+    def _show_framing(self):
+        self._framing_lbl.setText(FRAMINGS[round(self._framing())])
+
     def _on_speed(self, value: int):
         self._speed_lbl.setText(str(value))
         self._host.schedule_save()
-
-    @staticmethod
-    def _picked(btns: dict) -> str:
-        return next((k for k, btn in btns.items() if btn.isChecked()), next(iter(btns)))
 
     # ── On and off (Qt thread) ────────────────────────────────────────────
 
@@ -297,7 +317,7 @@ class FramingPlugin(TelescopePlugin):
         people = self._people if fresh else []
         out = hands_out(people, aspect) if self._hand_switch.isChecked() else set()
         self._widened = {side for side, latch in self._hands.items() if latch.update(side in out, now)}
-        box = target_box(people, aspect, self._picked(self._framing_btns), self._widened)
+        box = target_box(people, aspect, self._framing(), self._widened)
         return fit(box, self._max_zoom) if box else Target(0.5, 0.5, 1.0)
 
     def _steer(self, at: Target):
@@ -311,11 +331,16 @@ class FramingPlugin(TelescopePlugin):
     # ── Config ────────────────────────────────────────────────────────────
 
     def get_config(self) -> dict:
-        return {"on": self._switch.isChecked(), "framing": self._picked(self._framing_btns),
+        return {"on": self._switch.isChecked(), "framing": self._framing(),
                 "speed": self._speed_slider.value(), "hand": self._hand_switch.isChecked()}
 
     def set_config(self, cfg: dict):
-        self._framing_btns.get(str(cfg.get("framing")), self._framing_btns["head"]).setChecked(True)
+        framing = cfg.get("framing")
+        ok = isinstance(framing, (int, float)) and not isinstance(framing, bool) and 0 <= framing <= len(FRAMINGS) - 1
+        self._framing_slider.blockSignals(True)
+        self._framing_slider.setValue(round((framing if ok else FRAMING_DEFAULT) * _FRAMING_STEPS))
+        self._framing_slider.blockSignals(False)
+        self._show_framing()
         speed = cfg.get("speed")
         self._speed_slider.blockSignals(True)
         self._speed_slider.setValue(speed if isinstance(speed, int) and not isinstance(speed, bool) and 1 <= speed <= 10

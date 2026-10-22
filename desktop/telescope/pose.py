@@ -14,6 +14,7 @@ BONES = (
     ("left_ear", "left_eye"), ("left_eye", "nose"), ("nose", "right_eye"), ("right_eye", "right_ear"),
     ("left_shoulder", "right_shoulder"), ("left_hip", "right_hip"),
     ("left_shoulder", "left_hip"), ("right_shoulder", "right_hip"),
+    ("left_hip", "left_knee"), ("left_knee", "left_ankle"), ("right_hip", "right_knee"), ("right_knee", "right_ankle"),
 ) + tuple(pair for side in SIDES for pair in (
     (f"{side}_shoulder", f"{side}_elbow"), (f"{side}_elbow", f"{side}_wrist"),
     (f"{side}_wrist", f"{side}_index"), (f"{side}_wrist", f"{side}_pinky"), (f"{side}_wrist", f"{side}_thumb"),

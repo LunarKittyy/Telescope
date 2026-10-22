@@ -21,11 +21,12 @@ These apply live without restarting the phone's camera.
 
 ## Auto framing
 
-An optional plugin, switched on under **Optional** in **Plugins…** (see [the vision download](#the-vision-download) below). It finds you in the picture and moves the zoom and pan to keep you framed, either your head and shoulders or your whole upper body. Two people in the picture get framed together. If nobody's been in the picture for two seconds it zooms back out to the whole thing.
+An optional plugin, switched on under **Optional** in **Plugins…** (see [the vision download](#the-vision-download) below). It finds you in the picture and moves the zoom and pan to keep you framed. The **Framing** slider sets how much of you that is, anywhere from just your face through head and shoulders and upper body to all of you. Two people in the picture get framed together. If nobody's been in the picture for two seconds it zooms back out to the whole thing.
 
 - **Widen for something in your hand** (on by default) widens the framing when you hold a hand out to the side to fit whatever you're showing in next to you. It goes back to the usual framing a moment after you put the hand down
 - **Speed** goes from 1, which lets you move around a fair bit before it slowly follows, to 10, which stays close behind you
 - While it's on, Zoom and Pan on the Transforms card are greyed out and flip and rotation still work as usual. Switching it off puts the zoom and pan back where you had them
+- The skeleton button under the preview draws the points MediaPipe finds on you, with an arm in orange when it counts as held out. It's only drawn in the preview and never shows in the camera output. It's there for fun, and for checking what the framing is reacting to
 - The phone still does as much of the zoom as it can. While the framing moves around the phone stays on a slightly wider crop and the small moves happen on the computer, which stops the phone from hopping between lenses every time you lean over. The phone's part only changes once the framing has settled somewhere new for a couple of seconds or is about to run off its edge. When it does, the computer waits for the phone's new picture to actually arrive before cropping for it, so the picture doesn't jump
 
 ## Background

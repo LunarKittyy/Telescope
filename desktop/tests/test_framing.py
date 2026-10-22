@@ -30,12 +30,21 @@ def _person(x=0.5, y=0.4, width=0.1, left_wrist=None, hips=True, left_elbow=None
 
 
 def test_the_box_takes_in_the_head_and_shoulders_and_upper_body_takes_more():
-    head = target_box([_person()], _ASPECT, "head")
-    body = target_box([_person()], _ASPECT, "body")
+    head = target_box([_person()], _ASPECT, 1.0)
+    body = target_box([_person()], _ASPECT, 2.0)
     assert head[1] < 0.26 and head[0] < 0.45 < 0.55 < head[2]
     assert body[3] > head[3] and body[2] - body[0] > head[2] - head[0]
     assert target_box([], _ASPECT) is None
     assert target_box([Person({"nose": (0.5, 0.5, 0.99)})], _ASPECT) is None  # no shoulders to go by
+
+
+def test_framing_goes_smoothly_from_the_face_to_the_whole_body():
+    feet = _person()
+    feet = Person({**feet.points, "left_ankle": (0.53, 0.95, 0.9), "right_ankle": (0.47, 0.95, 0.9)})
+    heights = [target_box([feet], _ASPECT, f / 10)[3] for f in range(31)]
+    assert all(a <= b + 1e-9 for a, b in zip(heights, heights[1:]))
+    assert heights[0] < 0.4 < 0.75 <= heights[20] and heights[30] > 0.95
+    assert target_box([feet], _ASPECT, 0.0)[1] == target_box([feet], _ASPECT, 3.0)[1]  # the top stays above the head
 
 
 def test_two_people_get_one_box_around_both():
@@ -215,11 +224,13 @@ def test_it_says_so_when_something_else_has_the_view(card):
 
 def test_settings_round_trip_and_damaged_ones_fall_back(card):
     plugin, host, _bus, _clock = card()
-    plugin.set_config({"on": True, "framing": "body", "speed": 9, "hand": False})
-    assert plugin.get_config() == {"on": True, "framing": "body", "speed": 9, "hand": False}
+    plugin.set_config({"on": True, "framing": 2.5, "speed": 9, "hand": False})
+    assert plugin.get_config() == {"on": True, "framing": 2.5, "speed": 9, "hand": False}
+    assert plugin._framing_lbl.text() in ("Upper body", "Whole body")
     assert host.owner == "Auto framing"
-    plugin.set_config({"on": "yes", "framing": ["x"], "speed": 30})
-    assert plugin.get_config() == {"on": False, "framing": "head", "speed": 5, "hand": True}
+    plugin.set_config({"on": "yes", "framing": "head", "speed": 30})
+    assert plugin.get_config() == {"on": False, "framing": 1.0, "speed": 5, "hand": True}
+    assert plugin._framing_lbl.text() == "Head and shoulders"
     assert host.owner == ""
 
 
