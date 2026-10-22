@@ -13,6 +13,7 @@ Each file covers the work that led up to one release. Once a release ships its f
 
 The files up to 3.5 were written afterwards from the release notes, the commit history and the issues people opened, so they're shorter than the notes and say more about why.
 
+- [4.0](4.0.md) (October 2026): a lighter desktop, the new look with one Settings window, and Auto framing and Background as the first optional plugins
 - [3.5](3.5.md) (October 2026): plugins, and taking the desktop app apart to make them possible
 - [3.4](3.4.md) (October 2026): keyboard shortcuts, the Windows installer and Low light
 - [3.3](3.3.md) (October 2026): several cameras at once, Browser camera and mic only
