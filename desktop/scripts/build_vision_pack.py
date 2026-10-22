@@ -11,6 +11,7 @@ Works from any OS (pip downloads the other platform's wheels).
 import argparse
 import hashlib
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -122,15 +123,14 @@ def main():
             if args.out:
                 args.out.mkdir(parents=True, exist_ok=True)
                 name = f"Telescope-vision-{key}-{tree[:16]}.zip"
-                zipped.replace(args.out / name)
+                shutil.move(zipped, args.out / name)  # the temp folder can be on another filesystem
                 print(f"  wrote {args.out / name}")
             if args.install and key == vision_pack.platform_key():
                 dest = vision.vision_dir() / tree[:16]
                 if dest.exists():
-                    import shutil
                     shutil.rmtree(dest)
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                root.replace(dest)
+                shutil.move(root, dest)
                 (dest / ".verified").write_text(tree[:16])
                 print(f"  installed in {dest}")
     if args.write:
