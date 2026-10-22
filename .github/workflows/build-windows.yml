@@ -116,6 +116,8 @@ jobs:
                                 "imageformats/qsvg.dll", "imageformats/qgif.dll") {
               if (-not (Test-Path "$($lib.FullName)/PyQt6/Qt6/plugins/$plugin")) { $missing += $plugin }
             }
+            # Without it Auto framing and Background have no pack to download
+            if (-not (Test-Path "$($lib.FullName)/telescope/vision_pack.json")) { $missing += "telescope/vision_pack.json" }
           }
           # adb is under Google's SDK license, which doesn't allow passing it on: the app downloads it on request
           if (Get-ChildItem bundle -Recurse -Filter "adb*.exe") { Write-Error "adb must not be in the bundle"; exit 1 }

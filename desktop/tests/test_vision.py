@@ -93,6 +93,9 @@ def test_without_a_pack_its_missing_and_tries_again_later():
     v.load()
     _wait(lambda: v.state() == MISSING)
     assert v.diagnostics() == {"Vision": "not downloaded"}  # no path (it has the user's name in it)
+    v.load()  # asked again on the next frame: it doesn't look again straight away
+    assert len(tries) == 1
+    v._looked_at -= vision._LOOK_AGAIN_S
     v.load()
     _wait(lambda: len(tries) == 2)
 

@@ -349,6 +349,10 @@ class TelescopePlugin:
     """What goes away while it's turned off, so nobody wonders where a card went ("The Camera card goes away...")."""
     required: bool = False
     """Telescope can't work without it, so the Plugins dialog doesn't offer to turn it off."""
+    optional: bool = False
+    """A built-in one that's off until someone switches it on in Plugins, since it asks more of the computer."""
+    needs_vision: bool = False
+    """It uses person_mask or want_people: switching it on in Plugins downloads the vision pack first."""
 
     device_local: bool = False
     """Each phone (or other source) gets its own copy of this plugin's settings, swapped in when it's picked or the

@@ -14,7 +14,6 @@ import cv2
 import numpy as np
 
 from telescope import dev_profile
-from telescope.version import VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +22,7 @@ POSE_MODEL = "pose_landmarker_lite.task"
 _PEOPLE_EVERY_S = 0.08  # how often people are looked for (about 12 a second); framing smooths in between
 _PEOPLE_WIDTH = 640  # the size the pose model gets the frame at
 _MAX_PEOPLE = 3
+_LOOK_AGAIN_S = 5.0  # without a pack, how often asking looks for one again (a download may have finished)
 
 # Which stream the frame being processed comes from, and its number: set by StreamWorker around the plugin steps.
 current_frame: contextvars.ContextVar = contextvars.ContextVar("current_frame", default=None)
@@ -62,8 +62,9 @@ def vision_dir() -> Path:
 
 
 def pack_dir() -> Path:
-    """This app version's pack: site/ holds MediaPipe (absent when it's pip-installed) and models/ the two models."""
-    return vision_dir() / VERSION
+    """The pack this version uses (vision_pack.json): site/ holds MediaPipe, models/ the two models."""
+    from telescope import vision_pack
+    return vision_dir() / (vision_pack.pack_id() or "none")
 
 
 def _stub_matplotlib():
@@ -123,11 +124,11 @@ class MediaPipeBackend:
 
 
 def find_backend():
-    """MediaPipe from this version's pack, or pip-installed with the pack's models; raises when neither works."""
-    folder = pack_dir()
-    if not (folder / "models" / SEGMENTER_MODEL).is_file():
-        raise FileNotFoundError(f"no vision pack in {folder}")
-    return MediaPipeBackend(folder)
+    """MediaPipe from this version's pack (checked when it was unpacked); FileNotFoundError when it isn't there."""
+    from telescope import vision_pack
+    if not vision_pack.installed(vision_dir()):
+        raise FileNotFoundError(f"no vision pack in {pack_dir()}")
+    return MediaPipeBackend(pack_dir())
 
 
 class _Timestamps:
@@ -169,6 +170,7 @@ class Vision:
         self._problem = ""
         self._lock = threading.Lock()
         self._streams: dict = {}
+        self._looked_at = -_LOOK_AGAIN_S  # time.monotonic() of the last load() that found no pack
         self._people_wanted: set = set()
         self._ms = {"mask": [], "people": []}  # recent timings, for diagnostics
 
@@ -182,10 +184,13 @@ class Vision:
         return self._problem
 
     def load(self):
-        """Start loading MediaPipe in the background, once; again after it was missing (a pack just arrived)."""
+        """Start loading MediaPipe in the background, once; after no pack was found, again every _LOOK_AGAIN_S."""
         with self._lock:
             if self._state in (LOADING, READY, FAILED):
                 return
+            if self._state == MISSING and time.monotonic() - self._looked_at < _LOOK_AGAIN_S:
+                return
+            self._looked_at = time.monotonic()
             self._set_state(LOADING)
         threading.Thread(target=self._load, daemon=True, name="vision-load").start()
 

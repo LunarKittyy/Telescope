@@ -71,6 +71,17 @@ jobs:
         working-directory: desktop
         run: python -m pytest -q
 
+      # The release builds the vision packs again (release.yml); this catches a pin that changed without a new
+      # vision_pack.json, and runs the real models once.
+      - name: Check the vision pack
+        if: github.event_name == 'pull_request'
+        working-directory: desktop
+        env:
+          XDG_DATA_HOME: ${{ runner.temp }}/xdg
+        run: |
+          python scripts/build_vision_pack.py --check --install
+          TELESCOPE_VISION_PACK=$(ls -d "$XDG_DATA_HOME"/telescope/vision/*/) python -m pytest -q tests/test_vision.py
+
       - name: Stamp the version
         if: inputs.channel
         working-directory: desktop

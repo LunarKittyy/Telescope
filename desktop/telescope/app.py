@@ -407,9 +407,9 @@ class TelescopeWindow(QMainWindow):
         """Register the built-in plugins (all but those turned off in Plugins, never the required ones), then the
         added plugins turned on there. One of those that can't load is left out, with a banner saying which."""
         self._builtin_plugins = list(builtins)
-        off = plugin_loader.builtin_off()
+        off, on = plugin_loader.builtin_off(), plugin_loader.optional_on()
         for plugin in builtins:
-            if plugin.required or plugin.name not in off:
+            if plugin.required or (plugin.name in on if plugin.optional else plugin.name not in off):
                 self.register_plugin(plugin)
         loaded, failed = plugin_loader.load_enabled(reserved={p.name for p in builtins})
         problems = {item.name: (item.title, item.error) for item in failed}
@@ -458,8 +458,8 @@ class TelescopeWindow(QMainWindow):
             [BannerAction("Plugins…", open_plugins)], kind="warn", on_dismiss=noticed))
 
     def plugins_off(self) -> list:
-        """The built-in plugins turned off this run."""
-        return [p for p in self._builtin_plugins if p not in self._plugins]
+        """The built-in plugins turned off this run (not the optional ones that were never switched on)."""
+        return [p for p in self._builtin_plugins if p not in self._plugins and not p.optional]
 
     def show_plugins(self):
         """The Plugins dialog: every plugin, built in or added, with a switch for each one that can be turned off."""

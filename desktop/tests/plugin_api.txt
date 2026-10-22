@@ -164,6 +164,7 @@ TelescopePlugin.frame_step(self)
 TelescopePlugin.get_config(self)
 TelescopePlugin.header_side = 'left'
 TelescopePlugin.name = ''
+TelescopePlugin.needs_vision = False
 TelescopePlugin.on_camera_off(self)
 TelescopePlugin.on_camera_on(self)
 TelescopePlugin.on_focus_gained(self, stream_url, ctrl)
@@ -173,6 +174,7 @@ TelescopePlugin.on_plugins_ready(self)
 TelescopePlugin.on_stream_start(self, stream_url, ctrl)
 TelescopePlugin.on_stream_starting(self)
 TelescopePlugin.on_stream_stop(self)
+TelescopePlugin.optional = False
 TelescopePlugin.panel_region = 'left'
 TelescopePlugin.process_frame(self, frame)
 TelescopePlugin.required = False
