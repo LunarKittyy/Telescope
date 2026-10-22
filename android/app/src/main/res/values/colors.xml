@@ -11,6 +11,7 @@
     <color name="colorOnSurface">#e7eaef</color>
     <color name="colorOnSurfaceDim">#a1abb8</color>
     <color name="colorOnSurfaceFaint">#7a8491</color>
+    <color name="colorOnSurfaceDisabled">#525b67</color>
 
     <color name="colorAccent">#aa9cf5</color>       <!-- icons, switches, links -->
     <color name="colorPrimary">#6a58cf</color>      <!-- filled buttons -->

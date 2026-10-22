@@ -38,8 +38,10 @@
         <item name="android:letterSpacing">0</item>
         <item name="android:textSize">15sp</item>
         <item name="cornerRadius">12dp</item>
-        <item name="backgroundTint">@color/colorPrimary</item>
-        <item name="android:textColor">@color/colorOnPrimary</item>
+        <item name="backgroundTint">@color/button_fill</item>
+        <item name="android:textColor">@color/button_text</item>
+        <item name="strokeColor">@color/button_stroke</item>
+        <item name="strokeWidth">1dp</item>
         <!-- Flat like the cards. The raised shadow also showed through as a lighter box when
              a button is restyled with a transparent fill (Pair another computer). -->
         <item name="android:stateListAnimator">@null</item>
