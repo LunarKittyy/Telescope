@@ -1,7 +1,6 @@
 """Person masks and people's positions from MediaPipe, once per stream, for the plugins that ask. No Qt here."""
 import contextvars
 import logging
-import os
 import re
 import sys
 import threading
@@ -14,12 +13,11 @@ from typing import Callable, Optional
 import cv2
 import numpy as np
 
-from telescope import dev_profile
+from telescope import vision_pack
+from telescope.vision_pack import POSE_MODEL, SEGMENTER_MODEL
 
 logger = logging.getLogger(__name__)
 
-SEGMENTER_MODEL = "selfie_segmenter_landscape.tflite"
-POSE_MODEL = "pose_landmarker_lite.task"
 _PEOPLE_EVERY_S = 0.08  # how often people are looked for (about 12 a second); framing smooths in between
 _PEOPLE_WIDTH = 640  # the size the pose model gets the frame at
 _MAX_PEOPLE = 3
@@ -59,20 +57,11 @@ class Person:
         return (p[0], p[1]) if p is not None and p[2] >= min_visibility else None
 
 
-def vision_dir() -> Path:
-    """Where vision packs are unpacked, one folder per app version."""
-    if dev_profile.active():
-        return dev_profile.folder() / "vision"
-    if sys.platform == "win32":
-        base = os.environ.get("LOCALAPPDATA") or str(Path.home())
-        return Path(base) / "Telescope" / "vision"
-    base = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
-    return Path(base) / "telescope" / "vision"
+vision_dir = vision_pack.default_dir
 
 
 def pack_dir() -> Path:
     """The pack this version uses (vision_pack.json): site/ holds MediaPipe, models/ the two models."""
-    from telescope import vision_pack
     return vision_dir() / (vision_pack.pack_id() or "none")
 
 
@@ -136,13 +125,11 @@ class MediaPipeBackend:
 
 def pack_there() -> bool:
     """This version's pack is unpacked and checked (cheap: nothing is imported)."""
-    from telescope import vision_pack
     return vision_pack.installed(vision_dir())
 
 
 def find_backend():
     """MediaPipe from this version's pack (checked when it was unpacked); FileNotFoundError when it isn't there."""
-    from telescope import vision_pack
     if not vision_pack.installed(vision_dir()):
         raise FileNotFoundError(f"no vision pack in {pack_dir()}")
     return MediaPipeBackend(pack_dir())
