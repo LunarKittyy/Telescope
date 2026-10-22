@@ -9,13 +9,47 @@ import numpy as np
 from telescope.plugin import StreamsBehind, TelescopePlugin
 from telescope.view import (
     PhoneZoom, PhoneZoomCaps, View, ViewStatus, apply_zoom, inverse_map, lens_boxes, pan_for, phone_window, rest_within,
-    shown_to_view, split_zoom, transform_frame, view_to_shown, window_centre,
+    share_shift, shown_to_view, split_zoom, transform_frame, view_to_shown, window_centre,
 )
 
 _MOVES = ("zoom", "pan_x", "pan_y")  # what a taken view moves; flip and rotation stay manual
 _HOLD_SLACK = 1.4  # while steered, the phone is sent a share this much wider than the framing
 _HOLD_DRIFT = 1.25  # and a new one once the share it would get is this far off its own
 _HOLD_S = 2.0  # for this long
+_HANDOVER_S = 1.0  # a new phone share that hasn't shown up in the frames by then is taken to have
+_THUMB = (128, 72)  # the size frames are compared at while a new phone share is on its way
+_ARRIVED = 0.6  # a frame counts as the new share once it matches that this much better than the old one
+
+
+class _Handover:
+    """A phone share sent while steering, until its frames arrive: the frames before it still come cropped the old
+    way, and cropping them for the new one would make the picture jump for a moment."""
+
+    def __init__(self, old: PhoneZoom, new: PhoneZoom, crops: tuple):
+        self.old, self.new = old, new
+        self.shift = share_shift(old, new)
+        self.crops = crops  # (desktop crop for the old share, for the new one); the Qt thread keeps them current
+        self.since = time.monotonic()
+        self.arrived = False  # set by the worker thread
+
+
+def _thumb(frame: np.ndarray) -> np.ndarray:
+    small = cv2.resize(frame[::4, ::4], _THUMB, interpolation=cv2.INTER_AREA)
+    return cv2.GaussianBlur(cv2.cvtColor(small, cv2.COLOR_BGR2GRAY), (5, 5), 0).astype(np.float32)
+
+
+def moved_like(before: np.ndarray, now: np.ndarray, shift: tuple) -> bool:
+    """now looks like before moved by shift (share_shift) clearly better than like before as it was."""
+    scale, dx, dy = shift
+    h, w = before.shape
+    move = np.float32([[scale, 0, dx * w + (scale - 1) * 0.5], [0, scale, dy * h + (scale - 1) * 0.5]])
+    moved = cv2.warpAffine(before, move, (w, h), flags=cv2.INTER_LINEAR)
+    seen = cv2.warpAffine(np.ones_like(before), move, (w, h), flags=cv2.INTER_NEAREST) > 0.5
+    if seen.sum() < 0.2 * seen.size:
+        return False
+    stayed, went = np.abs(now - before)[seen].mean(), np.abs(now - moved)[seen].mean()
+    return stayed > 1.5 and went < _ARRIVED * stayed
+
 
 
 class ViewController(TelescopePlugin):
@@ -39,6 +73,8 @@ class ViewController(TelescopePlugin):
         self._sent_ratio_at = 0.0  # time.monotonic() when the phone was last sent a new ratio
         self._drift_since = None  # while steered: since when the phone's share has been clearly off (_held)
         self._behind = StreamsBehind()  # the phone side of each stream the panels moved away from
+        self._handover: Optional[_Handover] = None  # Written by Qt thread; read and marked arrived by worker thread.
+        self._last_thumb = None  # worker thread: the last frame, small, while something steers
         bus.focus_point_picked.connect(self._on_point_picked)
         bus.camera_switched.connect(self._on_camera_caps)
 
@@ -92,8 +128,22 @@ class ViewController(TelescopePlugin):
         view = self.view
         if self._vision is not None and self._vision.wants_people():
             self._vision.feed_raw(frame, *self._upright(view))
-        frame = apply_zoom(frame, *self._desktop_crop)
+        frame = apply_zoom(frame, *self._crop_for(frame))
         return transform_frame(frame, view.flip_h, view.flip_v, view.rotation)
+
+    def _crop_for(self, frame: np.ndarray) -> tuple:
+        """The desktop's share for this frame: while a new phone share is on its way, the old one's until the
+        frames show the phone has moved."""
+        handover, steering = self._handover, bool(self._owner)
+        thumb = _thumb(frame) if steering else None
+        before, self._last_thumb = self._last_thumb, thumb
+        if handover is None:
+            return self._desktop_crop
+        if not handover.arrived:
+            late = time.monotonic() - handover.since > _HANDOVER_S
+            handover.arrived = late or (before is not None and thumb is not None
+                                        and moved_like(before, thumb, handover.shift))
+        return handover.crops[1] if handover.arrived else handover.crops[0]
 
     def _upright(self, view: View) -> tuple:
         """(prepare, to_shown) for vision: the raw frame turned the way it's shown, and its points onto the
@@ -168,18 +218,40 @@ class ViewController(TelescopePlugin):
             phone, desktop = self._held(view, caps, current, split)
         self._desktop_crop = desktop
         if phone is not None and phone != self._sent_zoom:
-            if self._sent_zoom is None or phone.ratio != self._sent_zoom.ratio:
+            sent = self._sent_zoom
+            if sent is None or phone.ratio != sent.ratio:
                 self._sent_ratio_at = time.monotonic()
+            # A new lens animates on the phone, so only a crop on the same lens gets a handover
+            if self._owner and sent is not None and phone.ratio == sent.ratio:
+                self._handover = _Handover(sent, phone, (self._rest(view, sent), desktop))
+            else:
+                self._handover = None
             self._sent_zoom = phone
             self._ctrl.send(action="zoom", **asdict(phone))
+        elif self._handover is not None:
+            self._handover = self._still_handing_over(view, desktop)
         self._bus.view_status.emit(ViewStatus(self._ctrl is not None, self._zoom_caps if self._ctrl else None,
                                               self._sent_zoom, self._sent_ratio_at, desktop[0]))
+
+    def _rest(self, view: View, phone: PhoneZoom) -> tuple:
+        return rest_within(view.zoom, view.pan_x, view.pan_y, phone, clamp=True)
+
+    def _still_handing_over(self, view: View, desktop: tuple) -> Optional[_Handover]:
+        handover = self._handover
+        if handover.arrived or not self._owner or handover.new != self._sent_zoom:
+            return None
+        if time.monotonic() - handover.since > _HANDOVER_S:
+            return None
+        handover.crops = (self._rest(view, handover.old), desktop)
+        return handover
 
     def _held(self, view: View, caps, current: float, split) -> tuple:
         """(phone share, desktop crop) while something steers the view: the phone keeps what it was sent (a moving
         crop would make it hop lenses and lag behind) until the framing leaves it, or wants a clearly different one
         for _HOLD_S."""
         held = self._sent_zoom
+        if self._handover is not None and not self._handover.arrived:
+            return held, self._rest(view, held)  # no new share until the last one has shown up
         rest = rest_within(view.zoom, view.pan_x, view.pan_y, held) if held else None
         wide = max(1.0, view.zoom / _HOLD_SLACK)  # room around the framing, so small moves stay on this computer
         centre = (window_centre(view.zoom, view.pan_x), window_centre(view.zoom, view.pan_y))

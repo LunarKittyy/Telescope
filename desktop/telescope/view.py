@@ -149,20 +149,31 @@ def phone_window(phone: Optional[PhoneZoom]) -> tuple:
     return (total, pan_for(0.5 + (phone.x - 0.5) / phone.ratio, total), pan_for(0.5 + (phone.y - 0.5) / phone.ratio, total))
 
 
-def rest_within(zoom: float, pan_x: float, pan_y: float, phone: PhoneZoom) -> Optional[tuple]:
+def rest_within(zoom: float, pan_x: float, pan_y: float, phone: PhoneZoom, clamp: bool = False) -> Optional[tuple]:
     """What this computer crops for the framing asked for when the phone stays on phone's share, or None when the
-    framing doesn't fit inside what the phone sends (it would have to be told something else)."""
+    framing doesn't fit inside what the phone sends (it would have to be told something else). clamp: the nearest
+    framing that does fit instead of None."""
     total = phone.ratio * phone.crop
-    zoom = max(zoom, 1.0)
+    zoom = max(zoom, total) if clamp else max(zoom, 1.0)
     size, view = 1.0 / zoom, 1.0 / total
     centre = (window_centre(zoom, pan_x), window_centre(zoom, pan_y))
     view_centre = (0.5 + (phone.x - 0.5) / phone.ratio, 0.5 + (phone.y - 0.5) / phone.ratio)
-    if zoom < total - 1e-6 or any(abs(c - v) + size / 2 > view / 2 + 1e-6 for c, v in zip(centre, view_centre)):
+    fits = zoom >= total - 1e-6 and all(abs(c - v) + size / 2 <= view / 2 + 1e-6 for c, v in zip(centre, view_centre))
+    if not fits and not clamp:
         return None
     rest = zoom / total
     if rest < 1.0 + 1e-3:
         return (1.0, 0.0, 0.0)
     return (rest, _pan_within(centre[0], view_centre[0], view, size), _pan_within(centre[1], view_centre[1], view, size))
+
+
+def share_shift(old: PhoneZoom, new: PhoneZoom) -> tuple:
+    """(scale, dx, dy): where a point at u (0..1) of a frame cropped to old lands in one cropped to new,
+    u * scale + d (the same scale on both axes, since a share keeps the picture's shape)."""
+    (oz, opx, opy), (nz, npx, npy) = phone_window(old), phone_window(new)
+    (ox, osize), (oy, _) = window(oz, opx), window(oz, opy)
+    (nx, nsize), (ny, _) = window(nz, npx), window(nz, npy)
+    return osize / nsize, (ox - nx) / nsize, (oy - ny) / nsize
 
 
 def lens_step(lens: float) -> int:

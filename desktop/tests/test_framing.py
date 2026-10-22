@@ -3,7 +3,9 @@ import pytest
 from telescope import vision
 from telescope.plugin import EventBus
 from telescope.plugins import framing
-from telescope.plugins.framing import FramingPlugin, Spring, Target, _Latch, fit, hand_out, settled, target_box
+from telescope.plugins.framing import (
+    FramingPlugin, Spring, Target, _Latch, fit, follow, hand_out, smoothed, target_box, tuning,
+)
 from telescope.view import View
 from telescope.vision import Person
 
@@ -61,10 +63,31 @@ def test_the_hand_latch_waits_before_switching_both_ways():
     assert not latch.update(False, 1.25)
 
 
-def test_small_moves_stay_put_and_big_ones_dont():
+def test_small_moves_stay_put_and_a_steady_move_is_followed_without_hops():
     goal = Target(0.5, 0.5, 2.0)
-    assert settled(goal, Target(0.52, 0.5, 2.1))
-    assert not settled(goal, Target(0.6, 0.5, 2.0)) and not settled(goal, Target(0.5, 0.5, 2.6))
+    assert follow(goal, Target(0.51, 0.5, 2.1)) == goal
+    xs, target = [], 0.5
+    for _ in range(60):
+        target += 0.005
+        goal = follow(goal, Target(target, 0.5, 2.0))
+        xs.append(goal.x)
+    steps = [b - a for a, b in zip(xs, xs[1:])]
+    assert xs[-1] > 0.75 and max(steps) <= 0.005 + 1e-9  # it never catches up in one go
+    assert follow(Target(0.5, 0.5, 2.0), Target(0.5, 0.5, 3.0)).zoom == pytest.approx(3.0 / 1.12)
+
+
+def test_smoothing_takes_the_wobble_out_of_the_target():
+    last = None
+    for i in range(30):
+        last = smoothed(last, Target(0.5 + (0.02 if i % 2 else -0.02), 0.5, 2.0), 1 / 30, 0.3)
+    assert abs(last.x - 0.5) < 0.005
+
+
+def test_speed_goes_from_calm_and_patient_to_quick_and_close():
+    calm, middle, quick = tuning(1), tuning(5), tuning(10)
+    assert calm[0] < middle[0] < quick[0]
+    assert calm[2] > middle[2] > quick[2]  # a calmer framing lets you move further before it follows
+    assert middle[0] == pytest.approx(1.6, rel=0.05)
 
 
 def test_the_spring_settles_without_overshooting():
@@ -151,7 +174,7 @@ def test_it_frames_the_person_on_the_shown_stream_and_goes_wide_when_they_leave(
     zoom, pan_x, _pan_y = host.steered[-1]
     assert zoom > 2.0 and pan_x > 0
     host._view = View(zoom=zoom, pan_x=pan_x)
-    _run(plugin, clock, 6)  # nobody seen since
+    _run(plugin, clock, 10)  # nobody seen since
     assert host.steered[-1][0] == pytest.approx(1.0, abs=0.02)
 
 
@@ -172,11 +195,11 @@ def test_it_says_so_when_something_else_has_the_view(card):
 
 def test_settings_round_trip_and_damaged_ones_fall_back(card):
     plugin, host, _bus, _clock = card()
-    plugin.set_config({"on": True, "framing": "body", "speed": "quick", "hand": False})
-    assert plugin.get_config() == {"on": True, "framing": "body", "speed": "quick", "hand": False}
+    plugin.set_config({"on": True, "framing": "body", "speed": 9, "hand": False})
+    assert plugin.get_config() == {"on": True, "framing": "body", "speed": 9, "hand": False}
     assert host.owner == "Auto framing"
-    plugin.set_config({"on": "yes", "framing": ["x"], "speed": 3})
-    assert plugin.get_config() == {"on": False, "framing": "head", "speed": "calm", "hand": True}
+    plugin.set_config({"on": "yes", "framing": ["x"], "speed": 30})
+    assert plugin.get_config() == {"on": False, "framing": "head", "speed": 5, "hand": True}
     assert host.owner == ""
 
 

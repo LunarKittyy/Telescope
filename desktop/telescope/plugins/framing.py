@@ -4,26 +4,27 @@ import time
 from dataclasses import dataclass
 from typing import Optional
 
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QButtonGroup, QSizePolicy, QWidget
 
 from telescope.plugin import TelescopePlugin
-from telescope.shortcuts import button_action, choice_action
+from telescope.shortcuts import button_action, choice_action, slider_action
 from telescope.view import pan_for, shown_to_view, view_to_shown, window_centre
 from telescope.widgets.common import (
-    SegmentButton, Switch, add_card_header, card_layout, control_row as _row, create_card, dim_until_paired,
-    segmented_row,
+    NoScrollSlider, SegmentButton, Switch, add_card_header, card_layout, control_row as _row, create_card,
+    dim_until_paired, segmented_row, slider_row, value_label,
 )
 from telescope.widgets.vision_status import VisionStatus
 
 FRAMINGS = (("head", "Head and shoulders"), ("body", "Upper body"))
-SPEEDS = (("calm", "Calm"), ("quick", "Quick"))
-_OMEGA = {"calm": 1.6, "quick": 4.0}  # how fast the framing catches up (spring stiffness, 1/s)
+SPEED_DEFAULT = 5  # Speed runs from 1 (calmest) to 10 (quickest)
+_OMEGA_SLOW, _OMEGA_FAST = 0.4, 9.0  # how fast the framing catches up at either end (spring stiffness, 1/s)
 _TICK_MS = 33
 _MAX_ZOOM = 4.0  # closer than this gets too soft to be worth it
 _LOST_S = 2.0  # nobody seen for this long: back to the whole picture
-_DEAD_CENTRE = 0.08  # the framing only moves once the target's centre is this far off (of the window's size)
-_DEAD_ZOOM = 1.15  # or its zoom this much
+_DEAD_CENTRE = 0.06  # the framing lets the target's centre wander this far (of the window's size) at Speed 5
+_DEAD_ZOOM = 1.12  # and its zoom this much, and only follows what goes past that
+_SETTLE_S = 2.0  # inside the dead zone it drifts back to the target this slowly (at Speed 5)
 _HAND_OUT = 1.3  # a wrist this many shoulder widths out from its shoulder is holding something out
 _HAND_ON_S = 0.3
 _HAND_OFF_S = 0.8
@@ -109,11 +110,30 @@ def fit(box: tuple, max_zoom: float = _MAX_ZOOM) -> Target:
     return Target(x, y, zoom)
 
 
-def settled(goal: Target, target: Target) -> bool:
-    """target is close enough to goal that moving to it would only make the framing wander."""
-    size = 1.0 / goal.zoom
-    near = abs(goal.x - target.x) < _DEAD_CENTRE * size and abs(goal.y - target.y) < _DEAD_CENTRE * size
-    return near and 1 / _DEAD_ZOOM < target.zoom / goal.zoom < _DEAD_ZOOM
+def tuning(speed: int) -> tuple:
+    """(spring stiffness, target smoothing in s, dead zone scale) for a Speed of 1 to 10."""
+    t = (min(max(speed, 1), 10) - 1) / 9
+    omega = _OMEGA_SLOW * (_OMEGA_FAST / _OMEGA_SLOW) ** t
+    return omega, min(0.6, 0.5 / omega), math.sqrt(1.6 / omega)
+
+
+def follow(goal: Target, target: Target, scale: float = 1.0) -> Target:
+    """goal moved only as far as it takes to keep target inside the dead zone around it: small wobbles don't move
+    the framing, and a steady move is followed smoothly instead of in hops."""
+    band = _DEAD_CENTRE * scale / goal.zoom
+    room = math.log(_DEAD_ZOOM) * scale
+    zoom = math.exp(min(max(math.log(goal.zoom), math.log(target.zoom) - room), math.log(target.zoom) + room))
+    return Target(min(max(goal.x, target.x - band), target.x + band),
+                  min(max(goal.y, target.y - band), target.y + band), zoom)
+
+
+def smoothed(last: Optional[Target], target: Target, dt: float, tau: float) -> Target:
+    """target followed with a time constant of tau, zoom in log space; landmarks wobble a little every frame."""
+    if last is None:
+        return target
+    a = 1.0 - math.exp(-dt / max(tau, 1e-3))
+    return Target(last.x + (target.x - last.x) * a, last.y + (target.y - last.y) * a,
+                  math.exp(math.log(last.zoom) + (math.log(target.zoom) - math.log(last.zoom)) * a))
 
 
 class Spring:
@@ -166,6 +186,7 @@ class FramingPlugin(TelescopePlugin):
         self._people, self._seen_at = [], None
         self._spring: Optional[Spring] = None
         self._goal: Optional[Target] = None
+        self._smooth: Optional[Target] = None  # the target after smoothing()
         self._hands = _Latch(_HAND_ON_S, _HAND_OFF_S)
         self._ticked_at = None
         self._max_zoom = _MAX_ZOOM
@@ -188,7 +209,14 @@ class FramingPlugin(TelescopePlugin):
         add_card_header(lay, "Auto framing", "framing", action=self._switch, hue="vision")
         dim_until_paired(card, self._bus)
         self._framing_btns = self._segments(lay, "Framing", FRAMINGS, "head")
-        self._speed_btns = self._segments(lay, "Speed", SPEEDS, "calm")
+        self._speed_slider = NoScrollSlider(Qt.Orientation.Horizontal)
+        self._speed_slider.setRange(1, 10)
+        self._speed_slider.setValue(SPEED_DEFAULT)
+        self._speed_slider.set_default(SPEED_DEFAULT)
+        self._speed_slider.setToolTip("How quickly the framing catches up when you move")
+        self._speed_lbl = value_label(str(SPEED_DEFAULT))
+        self._speed_slider.valueChanged.connect(self._on_speed)
+        lay.addLayout(_row("Speed", slider_row(self._speed_slider, self._speed_lbl), stretch=True))
         self._hand_switch = Switch("Widen for something in your hand")
         self._hand_switch.setChecked(True)
         self._hand_switch.toggled.connect(lambda _on: self._host.schedule_save())
@@ -215,7 +243,13 @@ class FramingPlugin(TelescopePlugin):
         return [
             button_action("framing.on", "Auto framing", g, self._switch),
             choice_action("framing.framing", "Framing", g, buttons=list(self._framing_btns.values())),
+            slider_action("framing.speed", "Auto framing speed", g, self._speed_slider, step=1.0,
+                          readout=self._speed_lbl),
         ]
+
+    def _on_speed(self, value: int):
+        self._speed_lbl.setText(str(value))
+        self._host.schedule_save()
 
     @staticmethod
     def _picked(btns: dict) -> str:
@@ -234,7 +268,7 @@ class FramingPlugin(TelescopePlugin):
                 return
             self._steering = True
             self._host.want_people(self.title, True)
-            self._spring = self._goal = None
+            self._spring = self._goal = self._smooth = None
             self._ticked_at = None
             self._timer.start()
         elif not on and self._steering:
@@ -256,7 +290,7 @@ class FramingPlugin(TelescopePlugin):
             self._people, self._seen_at = people, time.monotonic()
 
     def on_focus_gained(self, stream_url: str, ctrl):
-        self._people, self._seen_at, self._spring, self._goal = [], None, None, None
+        self._people, self._seen_at, self._spring, self._goal, self._smooth = [], None, None, None, None
 
     def _start_from_view(self) -> Spring:
         view = self._host.view()
@@ -270,12 +304,13 @@ class FramingPlugin(TelescopePlugin):
         self._ticked_at = now
         if self._spring is None:
             self._spring = self._start_from_view()
-        target = self._target(now)
-        if self._goal is None or not settled(self._goal, target):
-            self._goal = target
+        omega, tau, scale = tuning(self._speed_slider.value())
+        self._smooth = smoothed(self._smooth, self._target(now), dt, tau)
+        self._goal = follow(self._goal or self._smooth, self._smooth, scale)
+        self._goal = smoothed(self._goal, self._smooth, dt, _SETTLE_S * scale)  # and it centres up once you stop
         before = self._spring.at
-        at = self._spring.step(self._goal, dt, _OMEGA[self._picked(self._speed_btns)])
-        if abs(at.x - before.x) + abs(at.y - before.y) + abs(at.zoom - before.zoom) > 1e-4:
+        at = self._spring.step(self._goal, dt, omega)
+        if abs(at.x - before.x) + abs(at.y - before.y) + abs(at.zoom - before.zoom) > 1e-5:
             self._steer(at)
 
     def _target(self, now: float) -> Target:
@@ -298,11 +333,16 @@ class FramingPlugin(TelescopePlugin):
 
     def get_config(self) -> dict:
         return {"on": self._switch.isChecked(), "framing": self._picked(self._framing_btns),
-                "speed": self._picked(self._speed_btns), "hand": self._hand_switch.isChecked()}
+                "speed": self._speed_slider.value(), "hand": self._hand_switch.isChecked()}
 
     def set_config(self, cfg: dict):
         self._framing_btns.get(str(cfg.get("framing")), self._framing_btns["head"]).setChecked(True)
-        self._speed_btns.get(str(cfg.get("speed")), self._speed_btns["calm"]).setChecked(True)
+        speed = cfg.get("speed")
+        self._speed_slider.blockSignals(True)
+        self._speed_slider.setValue(speed if isinstance(speed, int) and not isinstance(speed, bool) and 1 <= speed <= 10
+                                    else SPEED_DEFAULT)
+        self._speed_slider.blockSignals(False)
+        self._speed_lbl.setText(str(self._speed_slider.value()))
         self._hand_switch.blockSignals(True)
         self._hand_switch.setChecked(cfg.get("hand") is not False)
         self._hand_switch.blockSignals(False)

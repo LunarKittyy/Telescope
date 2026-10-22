@@ -5,13 +5,13 @@ import cv2
 import numpy as np
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QButtonGroup, QFileDialog, QHBoxLayout, QLabel, QPushButton, QWidget
+from PyQt6.QtWidgets import QButtonGroup, QFileDialog, QHBoxLayout, QPushButton, QWidget
 
 from telescope.plugin import TelescopePlugin
 from telescope.shortcuts import choice_action, slider_action
 from telescope.widgets.vision_status import VisionStatus
 from telescope.widgets.common import (
-    NoScrollSlider, SegmentButton, add_card_header, card_layout, control_row as _row, control_row_widget,
+    ElidingLabel, NoScrollSlider, SegmentButton, add_card_header, card_layout, control_row as _row, control_row_widget,
     create_card, dim_until_paired, segmented_row, slider_row, value_label,
 )
 
@@ -149,7 +149,7 @@ class BackgroundPlugin(TelescopePlugin):
         self._pick_btn = QPushButton("Choose…")
         self._pick_btn.setToolTip("Pick the picture that goes behind you")
         self._pick_btn.clicked.connect(self._choose_picture)
-        self._picture_lbl = QLabel("No picture yet")
+        self._picture_lbl = ElidingLabel("No picture yet", mode=Qt.TextElideMode.ElideMiddle)  # a long name can't widen the card
         self._picture_lbl.setObjectName("setting_sub")
         pick = QHBoxLayout()
         pick.setSpacing(8)

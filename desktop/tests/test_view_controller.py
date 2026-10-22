@@ -4,7 +4,7 @@ import pytest
 
 from telescope.plugin import EventBus
 from telescope.plugins.transforms import TransformsPlugin
-from telescope.view import PhoneZoom, View, rest_within
+from telescope.view import PhoneZoom, View, apply_zoom, rest_within
 from telescope.view_controller import ViewController
 
 
@@ -206,3 +206,57 @@ def test_people_are_found_in_the_picture_as_shown_through_the_phone_share(qapp):
     assert (x, y) == (pytest.approx(0.5), pytest.approx(0.5))
     x, y = to_shown(1.0, 0.0)  # the top right of the upright frame, inside the share
     assert x == pytest.approx(0.5 + 0.35, abs=1e-3) and y == pytest.approx(0.5 - 0.35, abs=1e-3)
+
+
+def _scene():
+    rng = np.random.default_rng(1)
+    small = rng.integers(0, 255, (18, 32, 3), np.uint8)
+    return cv2.resize(small, (1600, 900), interpolation=cv2.INTER_CUBIC)  # blobs, so a shift is easy to see
+
+
+def _from_phone(scene, share):
+    """What the phone sends for a share: that part of the full view, at the stream's size."""
+    from telescope.view import phone_window
+    return cv2.resize(apply_zoom(scene, *phone_window(share)), (320, 180), interpolation=cv2.INTER_AREA)
+
+
+def test_a_new_phone_share_is_cropped_for_only_once_its_frames_arrive(view):
+    vc, _bus = view
+    ctrl = _Ctrl()
+    vc.on_stream_start("url", ctrl)
+    vc.on_phone_state(_ZOOMS)
+    vc.take_view("Auto framing")
+    vc.steer_view("Auto framing", 3.0, 0.0, 0.0)
+    scene, old = _scene(), vc._sent_zoom
+    vc.process_frame(_from_phone(scene, old))
+    vc.steer_view("Auto framing", 3.0, 0.22, 0.0)  # just past the side of what the phone sends: a new share at once
+    new = vc._sent_zoom
+    assert new != old and vc._handover is not None
+    truth = cv2.resize(apply_zoom(scene, 3.0, 0.22, 0.0), (320, 180), interpolation=cv2.INTER_AREA)
+    for _ in range(3):  # the phone hasn't caught up yet
+        late = _from_phone(scene, old)
+        out = vc.process_frame(late)
+        assert not vc._handover.arrived
+    naive = apply_zoom(late, *vc._desktop_crop)  # the new share's crop on a frame from the old one
+    assert np.abs(out.astype(int) - truth).mean() < 0.5 * np.abs(naive.astype(int) - truth).mean()
+    out = vc.process_frame(_from_phone(scene, new))
+    assert vc._handover.arrived
+    assert np.abs(out.astype(int) - truth).mean() < 12
+
+
+def test_a_handover_gives_up_waiting_after_a_while(view, monkeypatch):
+    vc, _bus = view
+    clock = [100.0]
+    monkeypatch.setattr("telescope.view_controller.time.monotonic", lambda: clock[0])
+    ctrl = _Ctrl()
+    vc.on_stream_start("url", ctrl)
+    vc.on_phone_state(_ZOOMS)
+    vc.take_view("Auto framing")
+    vc.steer_view("Auto framing", 3.0, 0.0, 0.0)
+    scene, old = _scene(), vc._sent_zoom
+    vc.steer_view("Auto framing", 3.0, 0.6, 0.0)
+    vc.process_frame(_from_phone(scene, old))
+    assert not vc._handover.arrived
+    clock[0] += 1.5
+    vc.process_frame(_from_phone(scene, old))
+    assert vc._handover.arrived
