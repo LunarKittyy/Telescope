@@ -6,6 +6,7 @@ from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtWidgets import QWidget
 
 if TYPE_CHECKING:
+    from telescope.view import View
     from telescope.widgets.banner import Issue
 
 
@@ -61,6 +62,10 @@ class HostSettings(Protocol):
 
     def apply_preset(self, name: str, cfg: dict) -> None:
         """Hand a saved config to another plugin's apply_preset(); unknown names are ignored."""
+        ...
+
+    def preset_plugins(self) -> list:
+        """The names of the running plugins that are in_presets, in the order they're registered (and applied)."""
         ...
 
     def device_config(self, source_id: Optional[str], plugin_name: str) -> dict:
@@ -267,7 +272,53 @@ class HostShell(Protocol):
         ...
 
 
-class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, Protocol):
+class HostView(Protocol):
+    """The shown stream's view: zoom, pan, flip and rotation, done before the plugins see the frame."""
+
+    def view(self) -> "View":
+        """The shown stream's view as it is now (telescope.view.View)."""
+        ...
+
+    def view_aspect(self) -> float:
+        """Width over height of the shown stream's picture as shown (after rotation), 0 before its first frame."""
+        ...
+
+    def set_view(self, **changes) -> None:
+        """Change the manual view (zoom, pan_x, pan_y, flip_h, flip_v, rotation); the phone does its share of the zoom.
+        While something has taken the view, zoom and pan wait until it lets go."""
+        ...
+
+    def take_view(self, owner: str) -> bool:
+        """Move zoom and pan yourself (owner: what the card says is moving them); False if something else has it."""
+        ...
+
+    def steer_view(self, owner: str, zoom: float, pan_x: float, pan_y: float) -> None:
+        """Set zoom and pan while owner has the view taken; ignored otherwise."""
+        ...
+
+    def release_view(self, owner: str) -> None:
+        """Let go of the view: zoom and pan go back to the manual ones."""
+        ...
+
+
+class HostVision(Protocol):
+    """People in the picture, from MediaPipe: loaded the first time something asks, None or nothing until then."""
+
+    def vision_state(self) -> str:
+        """"off" (nothing asked yet), "loading", "ready", "missing" (not downloaded) or "failed"; vision_state_changed."""
+        ...
+
+    def person_mask(self, frame: np.ndarray) -> Optional[np.ndarray]:
+        """From process_frame or a frame_step only: how sure it is each pixel of frame is a person (uint8 0..255, the
+        frame's size), or None while it can't say. The same frame asked twice is worked out once."""
+        ...
+
+    def want_people(self, owner: str, on: bool) -> None:
+        """While on, people_seen reports where the people in the shown stream are, about 12 times a second."""
+        ...
+
+
+class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, HostView, HostVision, Protocol):
     """Everything a plugin may call on the host (structural typing), instead of reaching into private methods.
     A plugin that only needs part of it can say so with one of the narrower protocols above."""
 
@@ -342,6 +393,13 @@ class TelescopePlugin:
     """What goes away while it's turned off, so nobody wonders where a card went ("The Camera card goes away...")."""
     required: bool = False
     """Telescope can't work without it, so the Plugins tab doesn't offer to turn it off."""
+    optional: bool = False
+    """A built-in one that's off until someone switches it on in Plugins, since it asks more of the computer."""
+    needs_vision: bool = False
+    """It uses person_mask or want_people: switching it on in Plugins downloads the vision pack first."""
+
+    in_presets: bool = False
+    """Presets save its get_config() and bring it back through apply_preset(), in the order plugins are registered."""
 
     device_local: bool = False
     """Each phone (or other source) gets its own copy of this plugin's settings, swapped in when it's picked or the
@@ -460,6 +518,17 @@ class EventBus(QObject):
     lens_boxes             = pyqtSignal(list, bool)
     """What each longer lens sees, [(label, x0, y0, x1, y1)] in the frame as shown, and whether the
     user just moved the framing (the preview shows them for a moment)."""
+    view_changed           = pyqtSignal(object)
+    """The shown stream's view (telescope.view.View) changed, manually or by whatever took it."""
+    view_taken             = pyqtSignal(str)
+    """Something took the view (what's moving it), or "" once it let go; the Transforms card greys out Zoom and Pan."""
+    people_seen            = pyqtSignal(str, list)
+    """Where the people are in a stream (its source id) as [telescope.vision.Person], in its frame before the view;
+    only while something wants_people. Check focused_source_id() for the shown stream."""
+    vision_state_changed   = pyqtSignal(str)
+    """host.vision_state() changed (MediaPipe loading, ready, missing or failed)."""
+    view_status            = pyqtSignal(object)
+    """How the shown stream's zoom is shared with the phone now (telescope.view.ViewStatus), for the lens dot."""
     max_zoom_changed       = pyqtSignal(int)
     """How far the Zoom slider goes (Advanced); Setup emits it on change and when its config loads."""
     max_gain_changed       = pyqtSignal(int)

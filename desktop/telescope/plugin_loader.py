@@ -165,11 +165,20 @@ def _noticed(cfg: dict) -> set:
     return {n for n in noticed if isinstance(n, str)} if isinstance(noticed, list) else set()
 
 
-def _save_state(off: set, added: dict, noticed: Optional[set] = None):
+def _optional_on(cfg: dict) -> set:
+    raw = cfg.get("plugins")
+    on = raw.get("on") if isinstance(raw, dict) else None
+    return {n for n in on if isinstance(n, str)} if isinstance(on, list) else set()
+
+
+def _save_state(off: set, added: dict, noticed: Optional[set] = None, on: Optional[set] = None):
     """Write the plugin switches; raises OSError when the settings can't be read or written (nothing is lost)."""
     cfg = load_config(strict=True)
     noticed = _noticed(cfg) if noticed is None else noticed
+    on = _optional_on(cfg) if on is None else on
     cfg["plugins"] = {"off": sorted(off), "noticed": sorted(noticed & off), "added": dict(sorted(added.items()))}
+    if on:
+        cfg["plugins"]["on"] = sorted(on)
     if not save_config(cfg):
         raise OSError("Couldn't save the settings.")
 
@@ -203,8 +212,21 @@ def notice_off():
 
 
 def all_builtin_on():
-    """Turn every built-in plugin back on, from the next start."""
+    """Turn every built-in plugin back on, from the next start (not the optional ones)."""
     _save_state(set(), _state(load_config(strict=True))[1])
+
+
+def optional_on() -> set:
+    """The names of the optional built-in plugins the user switched on (they start out off)."""
+    return _optional_on(load_config())
+
+
+def set_optional_on(name: str, on: bool):
+    """Switch an optional built-in plugin on (or off again) from the next start."""
+    cfg = load_config(strict=True)
+    names = _optional_on(cfg)
+    (names.add if on else names.discard)(name)
+    _save_state(*_state(cfg), on=names)
 
 
 def find_installed(reserved=(), folder: Optional[Path] = None) -> list:

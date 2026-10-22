@@ -83,6 +83,27 @@ jobs:
       build: ${{ needs.meta.outputs.build }}
       channel: ${{ needs.meta.outputs.channel }}
 
+  # MediaPipe and its models for the optional plugins, downloaded by the app when one is switched on. Both platforms
+  # build here (pip fetches the Windows wheels too), and they have to match telescope/vision_pack.json.
+  vision:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+
+      - name: Build the vision packs
+        working-directory: desktop
+        run: python scripts/build_vision_pack.py --check --out ../vision
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: vision
+          path: vision/
+          retention-days: 7
+
   # The setup holds the same files as Telescope-windows-portable.zip, APK included, so it's built once both are ready.
   windows-setup:
     needs: [meta, apk, windows]
@@ -107,7 +128,7 @@ jobs:
           retention-days: 7
 
   publish:
-    needs: [meta, apk, windows, linux, windows-setup]
+    needs: [meta, apk, windows, linux, windows-setup, vision]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -135,6 +156,7 @@ jobs:
           cp dist/apk/Telescope.apk dist/linux-bundle/
           chmod +x dist/linux-bundle/start.sh  # artifacts don't keep file modes
           tar -czf out/Telescope-linux.tar.gz -C dist/linux-bundle .
+          cp dist/vision/*.zip out/  # not in manifest.json: the app finds its pack by name (vision_pack.json)
 
       - name: Write manifest.json
         run: >-

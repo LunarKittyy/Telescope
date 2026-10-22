@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from PyQt6.QtCore import Qt, QEvent, QObject, QPoint, QRectF, QSize, QTimer, QVariantAnimation, pyqtSignal
+from PyQt6.QtCore import Qt, QEvent, QLineF, QObject, QPoint, QRectF, QSize, QTimer, QVariantAnimation, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QFontMetricsF, QIcon, QImage, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget,
@@ -8,9 +8,10 @@ from PyQt6.QtWidgets import (
 
 from telescope.widgets.common import set_button_icon
 from telescope.widgets.line_icons import line_icon
-from telescope import theme
+from telescope import pose, theme, vision
 from telescope.plugin import TelescopePlugin
 from telescope.shortcuts import button_action
+from telescope.view import shown_to_view, view_to_shown
 from telescope.widgets.common import create_vector_icon, set_ui_role, ui_px
 
 
@@ -34,6 +35,24 @@ _WHEEL_STEP = 1.1  # zoom factor per wheel notch
 _BOXES_HOLD_MS = 1000  # the lens boxes stay this long after the framing last moved, then fade
 _BOXES_FADE_MS = 300
 _PLACEHOLDER_ICON = 52  # px, the camera-off icon over the stage's text
+_SKELETON_OWNER = "Preview skeleton"  # what asks vision for people while the skeleton is on
+
+
+def skeleton(people, map_point, aspect: float) -> list:
+    """[(x0, y0, x1, y1, sure, out)] lines to draw for people, in the frame as shown (0..1): sure when the model is
+    sure of both ends, out for an arm Auto framing would count as held out."""
+    lines = []
+    for person in people:
+        out_sides = pose.hands_out([person], aspect)
+        for a, b in pose.BONES:
+            pa, pb = person.point(a, pose.ARM_SEEN), person.point(b, pose.ARM_SEEN)
+            if pa is None or pb is None:
+                continue
+            sure = person.point(a, pose.SEEN) is not None and person.point(b, pose.SEEN) is not None
+            side, part = b.split("_", 1) if "_" in b else ("", b)
+            out = side in out_sides and part in ("elbow", "wrist", "index", "pinky", "thumb")  # that arm and hand
+            lines.append((*map_point(*pa), *map_point(*pb), sure, out))
+    return lines
 
 
 def _fit_within(frame: np.ndarray, size) -> np.ndarray:
@@ -78,6 +97,7 @@ class FrameLabel(QLabel):
         self._dragging = False
         self._boxes: list = []  # [(label, x0, y0, x1, y1)] in the frame, 0..1
         self._boxes_opacity = 0.0
+        self._skeleton: list = []  # skeleton() lines
         self._placeholder_icon: QIcon | None = None  # drawn above the text while there's no frame
         self._marker = QFrame(self)
         self._marker.setObjectName("focus_marker")
@@ -99,6 +119,11 @@ class FrameLabel(QLabel):
     def set_boxes(self, boxes: list, opacity: float):
         if boxes != self._boxes or opacity != self._boxes_opacity:
             self._boxes, self._boxes_opacity = boxes, opacity
+            self.update()
+
+    def set_skeleton(self, lines: list):
+        if lines != self._skeleton:
+            self._skeleton = lines
             self.update()
 
     def set_placeholder_icon(self, icon: QIcon | None):
@@ -188,6 +213,8 @@ class FrameLabel(QLabel):
         rect = self.frame_rect()
         if rect is None and self._placeholder_icon is not None and self.text():
             self._paint_placeholder_icon()
+        if rect is not None and self._skeleton:
+            self._paint_skeleton(rect)
         if rect is None or not self._boxes or self._boxes_opacity <= 0.0:
             return
         p = QPainter(self)
@@ -225,6 +252,25 @@ class FrameLabel(QLabel):
             p.setPen(QColor(255, 255, 255))
             p.drawText(tag, Qt.AlignmentFlag.AlignCenter, label)
 
+
+    def _paint_skeleton(self, rect: QRectF):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setClipRect(rect)
+        bone, out = QColor(theme.hue("vision")), QColor(theme.WARN)
+        for halo in (True, False):
+            for x0, y0, x1, y1, sure, held_out in self._skeleton:
+                if halo:
+                    color, width = QColor(0, 0, 0, 110), ui_px(5)
+                else:
+                    color, width = QColor(out if held_out else bone), ui_px(3 if held_out else 2)
+                    color.setAlpha(235 if sure else 110)
+                pen = QPen(color, width)
+                pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                p.setPen(pen)
+                p.drawLine(QLineF(rect.x() + x0 * rect.width(), rect.y() + y0 * rect.height(),
+                                  rect.x() + x1 * rect.width(), rect.y() + y1 * rect.height()))
+        p.end()
 
     def _paint_placeholder_icon(self):
         """The icon centred just above the (centred) placeholder text."""
@@ -349,6 +395,12 @@ class PreviewPlugin(TelescopePlugin):
         bus.camera_on_changed.connect(self._on_camera_changed)
         for signal in (bus.mic_changed, bus.stream_started, bus.stream_stopped, bus.phone_state_updated):
             signal.connect(self._show_camera_btn)
+        # The skeleton: the people vision finds, drawn over the frame while the Skeleton button is on
+        self._people: list = []
+        bus.people_seen.connect(self._on_people)
+        bus.view_changed.connect(lambda _view: self._push_skeleton())
+        bus.stream_stopped.connect(lambda: self._on_people("", [], force=True))
+        bus.vision_state_changed.connect(lambda _state: self._show_skeleton_btn())
 
     def create_panel(self) -> QWidget:
         """Video stage: letterboxed frame area with toolbar beneath (centre column, no chrome)."""
@@ -398,6 +450,21 @@ class PreviewPlugin(TelescopePlugin):
 
         tb_lay.addStretch()
 
+        self._skeleton_btn = QPushButton()
+        self._skeleton_btn.setFixedWidth(ui_px(36))
+        self._skeleton_btn.setAccessibleName("Skeleton")
+        set_ui_role(self._skeleton_btn, "quiet")
+        icon = QIcon()
+        for color, state in ((theme.TEXT_DIM, QIcon.State.Off), (theme.ACCENT_SOFT, QIcon.State.On)):
+            icon.addPixmap(line_icon("skeleton", color).pixmap(QSize(32, 32)), QIcon.Mode.Normal, state)
+        self._skeleton_btn.setIcon(icon)
+        self._skeleton_btn.setIconSize(QSize(16, 16))
+        self._skeleton_btn.setCheckable(True)
+        self._skeleton_btn.setToolTip("Draw the skeleton MediaPipe finds. Doesn't show in the camera output.")
+        self._skeleton_btn.toggled.connect(self._on_skeleton)
+        tb_lay.addWidget(self._skeleton_btn)
+        self._show_skeleton_btn()
+
         # Icon only, at a fixed width: the stage is the narrowest column, and no style may widen it.
         self._lenses_btn = QPushButton()
         self._lenses_btn.setFixedWidth(ui_px(36))
@@ -441,6 +508,7 @@ class PreviewPlugin(TelescopePlugin):
         return [
             button_action("preview.show_hide", "Show or hide the preview", g, self._toggle_btn),
             button_action("preview.lens_outlines", "Lens outlines", g, self._lenses_btn),
+            button_action("preview.skeleton", "Skeleton", g, self._skeleton_btn),
             button_action("preview.pop_out", "Pop out the preview", g, self._popout_btn),
         ]
 
@@ -587,11 +655,50 @@ class PreviewPlugin(TelescopePlugin):
         for lbl in self._labels():
             lbl.set_boxes(self._boxes, opacity)
 
+    def _show_skeleton_btn(self):
+        """Only with the vision download there; MediaPipe itself loads when the button goes on."""
+        if not hasattr(self, "_skeleton_btn"):
+            return
+        there = self._host.vision_state() not in (vision.MISSING, vision.FAILED)
+        self._skeleton_btn.setVisible(there)
+        if not there and self._skeleton_btn.isChecked():
+            self._skeleton_btn.setChecked(False)
+
+    def _on_skeleton(self, on: bool):
+        self._host.want_people(_SKELETON_OWNER, on)
+        if not on:
+            self._people = []
+        self._push_skeleton()
+        self._host.schedule_save()
+
+    def _on_people(self, source_id: str, people: list, force: bool = False):
+        if force or (self._skeleton_btn.isChecked() and source_id == (self._host.focused_source_id() or "")):
+            self._people = people
+            self._push_skeleton()
+
+    def _push_skeleton(self):
+        lines = []
+        if self._people:
+            view = self._host.view()
+            flips = (view.flip_h, view.flip_v, view.rotation)
+
+            def map_point(x, y):
+                return view_to_shown(*shown_to_view(x, y, 1.0, 0.0, 0.0, *flips), view.zoom, view.pan_x,
+                                     view.pan_y, *flips)
+            lines = skeleton(self._people, map_point, self._host.view_aspect() or 16 / 9)
+        for lbl in self._labels():
+            lbl.set_skeleton(lines)
+
     def get_config(self) -> dict:
-        return {"lens_boxes": self._lenses_btn.isChecked()}
+        return {"lens_boxes": self._lenses_btn.isChecked(), "skeleton": self._skeleton_btn.isChecked()}
 
     def set_config(self, cfg: dict):
         self._lenses_btn.setChecked(cfg.get("lens_boxes", False) is True)
+        self._skeleton_btn.blockSignals(True)
+        self._skeleton_btn.setChecked(cfg.get("skeleton", False) is True and not self._skeleton_btn.isHidden())
+        self._skeleton_btn.blockSignals(False)
+        self._host.want_people(_SKELETON_OWNER, self._skeleton_btn.isChecked())
+        self._push_skeleton()
 
     def _on_host_visibility(self, visible: bool):
         self._host_visible = visible

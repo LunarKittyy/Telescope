@@ -2,6 +2,7 @@
 """Telescope Desktop — entry point."""
 
 import argparse
+import os
 import sys
 import threading
 from pathlib import Path
@@ -155,6 +156,9 @@ def main():
     if IS_LINUX:
         from telescope.platform.linux import limit_malloc_arenas
         limit_malloc_arenas()  # before Qt and the stream start their threads
+        # pip's Qt has no KDE or GNOME integration, so file pickers would be Qt's own (no previews) without the portal
+        if os.environ.get("QT_QPA_PLATFORMTHEME") not in ("gtk3", "xdgdesktopportal"):  # e.g. "kde", which it lacks
+            os.environ["QT_QPA_PLATFORMTHEME"] = "xdgdesktopportal"
     app = QApplication([sys.argv[0]] + qt_argv)
     # Set at QApplication level so dialogs and window share icon.
     app.setWindowIcon(create_app_icon(64))

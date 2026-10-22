@@ -4,19 +4,23 @@ import pytest
 from PyQt6.QtCore import Qt
 
 from telescope.plugin import EventBus
-import telescope.plugins.transforms as transforms_mod
+import telescope.view_controller as view_controller_mod
 from telescope.theme import ACCENT, ERR
-from telescope.plugins.transforms import (
-    ROTATIONS,
-    TransformsPlugin,
-    _apply_zoom,
-    _transform_frame,
-)
+from telescope.plugins.transforms import TransformsPlugin
+from telescope.view import ROTATIONS, apply_zoom as _apply_zoom, transform_frame as _transform_frame
+from telescope.view_controller import ViewController
 
 
 class _Host:
-    def __init__(self):
+    """The window as far as Transforms goes: its view is a real ViewController."""
+
+    def __init__(self, bus):
         self.saves = 0
+        self.vc = ViewController()
+        self.vc.setup(self, bus)
+
+    def set_view(self, **changes):
+        self.vc.set_view(**changes)
 
     def schedule_save(self):
         self.saves += 1
@@ -33,19 +37,25 @@ class _Host:
 
 @pytest.fixture
 def transforms_plugin(qapp):
-    host = _Host()
-    plugin = TransformsPlugin()
     bus = EventBus()
+    host = _Host(bus)
+    plugin = TransformsPlugin()
     plugin.setup(host, bus)
     panel = plugin.create_panel()
+    plugin.set_config({})  # the saved settings load, as the window does at startup
     bus.phones_changed.emit(1)
     return plugin, host, panel
+
+
+def _both(plugin, hook, *args):
+    getattr(plugin._host.vc, hook)(*args)
+    getattr(plugin, hook)(*args)
 
 
 def test_the_card_is_greyed_out_until_a_phone_is_paired(qapp):
     bus = EventBus()
     plugin = TransformsPlugin()
-    plugin.setup(_Host(), bus)
+    plugin.setup(_Host(bus), bus)
     panel = plugin.create_panel()
     assert not panel.isEnabled()
     bus.phones_changed.emit(1)
@@ -157,25 +167,23 @@ def test_returning_zoom_to_one_resets_and_disables_pan(transforms_plugin):
     assert not plugin._pan_x_slider._slider.isEnabled()
 
 
-def test_plugin_process_frame_uses_runtime_transform_state(transforms_plugin):
+def test_the_view_crops_flips_and_rotates_as_the_card_says(transforms_plugin):
     plugin, _host, _panel = transforms_plugin
-    plugin.flip_h = True
-    plugin.flip_v = False
-    plugin.rotation = cv2.ROTATE_90_CLOCKWISE
-    plugin.zoom = 1.0
+    plugin._flip_h.setChecked(True)
+    plugin._rot_combo.setCurrentText("90 CW")
 
-    result = plugin.process_frame(_grid())
+    result = plugin._host.vc.process_frame(_grid())
 
     expected = cv2.rotate(cv2.flip(_grid(), 1), cv2.ROTATE_90_CLOCKWISE)
     assert np.array_equal(result, expected)
 
 
 def test_a_frozen_frame_step_keeps_the_settings_it_was_taken_with(transforms_plugin):
-    plugin, _host, _panel = transforms_plugin
-    plugin.flip_h = True
-    step = plugin.frame_step()
-    plugin.flip_h = False
-    plugin.rotation = cv2.ROTATE_90_CLOCKWISE
+    plugin, host, _panel = transforms_plugin
+    plugin._flip_h.setChecked(True)
+    step = host.vc.frame_step()
+    plugin._flip_h.setChecked(False)
+    plugin._rot_combo.setCurrentText("90 CW")
     assert np.array_equal(step(_grid()), cv2.flip(_grid(), 1))
 
 
@@ -214,7 +222,7 @@ def test_saved_pan_config_updates_runtime_processing_state(transforms_plugin):
 
 # ── Mapping a preview click back onto the phone's frame ──────────────────────
 
-from telescope.plugins.transforms import inverse_map  # noqa: E402
+from telescope.view import inverse_map  # noqa: E402
 
 
 @pytest.mark.parametrize("rotation", list(ROTATIONS.values()))
@@ -243,17 +251,16 @@ def test_a_picked_point_goes_out_in_phone_frame_coordinates(transforms_plugin):
     plugin, _host, _panel = transforms_plugin
     seen = []
     plugin._bus.focus_point.connect(lambda x, y: seen.append((round(x, 3), round(y, 3))))
-    plugin.process_frame(np.zeros((90, 160, 3), np.uint8))
-    plugin.flip_h = True
+    plugin._host.vc.process_frame(np.zeros((90, 160, 3), np.uint8))
+    plugin._flip_h.setChecked(True)
     plugin._bus.focus_point_picked.emit(0.25, 0.5)
     assert seen == [(0.75, 0.5)]
 
 
 # ── Splitting zoom between the phone and this computer ───────────────────────
 
-from telescope.plugins.transforms import (  # noqa: E402
-    PhoneZoom, PhoneZoomCaps, lens_note, lens_step, split_zoom,
-)
+from telescope.plugins.transforms import lens_note  # noqa: E402
+from telescope.view import PhoneZoom, PhoneZoomCaps, lens_step, split_zoom  # noqa: E402
 
 _TELE = PhoneZoomCaps(ratio_max=10.0, crop_max=4.0, freeform=True, lens_zooms=(3.7,))
 _CENTRE_ONLY = PhoneZoomCaps(ratio_max=10.0, crop_max=4.0, freeform=False, lens_zooms=(3.7,))
@@ -372,27 +379,27 @@ def _state(**caps):
 def test_plugin_tells_the_phone_only_when_its_share_changes(transforms_plugin):
     plugin, _host, _panel = transforms_plugin
     ctrl = _Ctrl()
-    plugin.on_stream_start("http://phone/v1/video", ctrl)
+    _both(plugin, 'on_stream_start', "http://phone/v1/video", ctrl)
     assert ctrl.sent == []  # no caps yet: nothing to tell it
-    plugin.on_phone_state(_state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True))
-    plugin.on_phone_state(_state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True))
+    _both(plugin, 'on_phone_state', _state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True))
+    _both(plugin, 'on_phone_state', _state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True))
     plugin._zoom_slider.setValue(300)
     assert ctrl.sent == [{"action": "zoom", "ratio": 1.0, "crop": 1.0, "x": 0.5, "y": 0.5},
                          {"action": "zoom", "ratio": 1.0, "crop": 3.0, "x": 0.5, "y": 0.5}]
-    assert plugin._desktop_crop == (1.0, 0.0, 0.0)
+    assert plugin._host.vc._desktop_crop == (1.0, 0.0, 0.0)
 
 
 def test_plugin_crops_everything_itself_without_a_phone_that_zooms(transforms_plugin):
     plugin, _host, _panel = transforms_plugin
     ctrl = _Ctrl()
-    plugin.on_stream_start("http://phone/v1/video", ctrl)
-    plugin.on_phone_state(_state(zoomRatioMax=4.0))
+    _both(plugin, 'on_stream_start', "http://phone/v1/video", ctrl)
+    _both(plugin, 'on_phone_state', _state(zoomRatioMax=4.0))
     plugin._zoom_slider.setValue(200)
-    plugin.on_stream_stop()
-    assert plugin._desktop_crop == (2.0, 0.0, 0.0)
-    plugin.on_stream_start("http://phone/v1/video", ctrl)
+    _both(plugin, 'on_stream_stop')
+    assert plugin._host.vc._desktop_crop == (2.0, 0.0, 0.0)
+    _both(plugin, 'on_stream_start', "http://phone/v1/video", ctrl)
     plugin._bus.camera_switched.emit({"id": "2"})  # a lens that can't zoom itself
-    assert plugin._desktop_crop == (2.0, 0.0, 0.0)
+    assert plugin._host.vc._desktop_crop == (2.0, 0.0, 0.0)
     assert ctrl.sent == [{"action": "zoom", "ratio": 1.0, "crop": 1.0, "x": 0.5, "y": 0.5}]  # a ratio alone picks no lens
 
 
@@ -400,10 +407,10 @@ def test_a_picked_point_only_undoes_the_desktop_share_of_the_zoom(transforms_plu
     plugin, _host, _panel = transforms_plugin
     seen = []
     plugin._bus.focus_point.connect(lambda x, y: seen.append((round(x, 3), round(y, 3))))
-    plugin.on_stream_start("http://phone/v1/video", _Ctrl())
-    plugin.on_phone_state(_state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True))
+    _both(plugin, 'on_stream_start', "http://phone/v1/video", _Ctrl())
+    _both(plugin, 'on_phone_state', _state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True))
     plugin._zoom_slider.setValue(200)
-    plugin.process_frame(np.zeros((90, 160, 3), np.uint8))
+    plugin._host.vc.process_frame(np.zeros((90, 160, 3), np.uint8))
     plugin._bus.focus_point_picked.emit(0.25, 0.5)
     assert seen == [(0.25, 0.5)]  # the phone zoomed, so the point is already in its stream frame
 
@@ -457,21 +464,21 @@ def _lens_state(active):
 
 def _clock(monkeypatch):
     now = [100.0]
-    monkeypatch.setattr(transforms_mod.time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(view_controller_mod.time, "monotonic", lambda: now[0])
     return now
 
 
 def _settled_state(plugin, now, active):
     """A phone state from after the ratio sent last had time to take."""
     now[0] += 3.0
-    plugin.on_phone_state(_lens_state(active))
+    _both(plugin, 'on_phone_state', _lens_state(active))
 
 
 def test_the_lens_dot_shows_only_when_the_phone_switched_or_fell_back(transforms_plugin, monkeypatch):
     plugin, _host, _panel = transforms_plugin
     now = _clock(monkeypatch)
-    plugin.on_stream_start("http://phone/v1/video", _Ctrl())
-    plugin.on_phone_state(_lens_state("2"))
+    _both(plugin, 'on_stream_start', "http://phone/v1/video", _Ctrl())
+    _both(plugin, 'on_phone_state', _lens_state("2"))
     _settled_state(plugin, now, "2")  # unzoomed: learns the default camera
     assert plugin._lens_dot.isHidden()
     plugin._zoom_slider.setValue(400)
@@ -491,11 +498,11 @@ def test_the_lens_dot_shows_only_when_the_phone_switched_or_fell_back(transforms
 def test_the_dot_goes_red_once_the_phone_had_time_to_switch_and_didnt(transforms_plugin, monkeypatch):
     plugin, _host, _panel = transforms_plugin
     now = _clock(monkeypatch)
-    plugin.on_stream_start("http://phone/v1/video", _Ctrl())
-    plugin.on_phone_state(_lens_state("2"))
+    _both(plugin, 'on_stream_start', "http://phone/v1/video", _Ctrl())
+    _both(plugin, 'on_phone_state', _lens_state("2"))
     _settled_state(plugin, now, "2")
     plugin._zoom_slider.setValue(400)
-    plugin.on_phone_state(_lens_state("2"))
+    _both(plugin, 'on_phone_state', _lens_state("2"))
     assert plugin._lens_dot.isHidden()  # just asked: give it a moment
     now[0] += 3.0
     plugin._settle_timer.timeout.emit()
@@ -507,18 +514,18 @@ def test_sweeping_the_zoom_under_a_lens_and_back_doesnt_make_the_telephoto_the_u
         transforms_plugin, monkeypatch):
     plugin, _host, _panel = transforms_plugin
     now = _clock(monkeypatch)
-    plugin.on_stream_start("http://phone/v1/video", _Ctrl())
-    plugin.on_phone_state(_lens_state("2"))
+    _both(plugin, 'on_stream_start', "http://phone/v1/video", _Ctrl())
+    _both(plugin, 'on_phone_state', _lens_state("2"))
     _settled_state(plugin, now, "2")
     plugin._zoom_slider.setValue(500)
     _settled_state(plugin, now, "4")
     for _ in range(3):  # quick back and forth, dipping under 3.7x: the phone is still on the tele meanwhile
         plugin._zoom_slider.setValue(350)
         now[0] += 0.3
-        plugin.on_phone_state(_lens_state("4"))
+        _both(plugin, 'on_phone_state', _lens_state("4"))
         plugin._zoom_slider.setValue(600)
         now[0] += 0.3
-        plugin.on_phone_state(_lens_state("4"))
+        _both(plugin, 'on_phone_state', _lens_state("4"))
     _settled_state(plugin, now, "4")
     plugin._settle_timer.timeout.emit()
     assert plugin._lens_dot._color.name() == ACCENT
@@ -527,10 +534,10 @@ def test_sweeping_the_zoom_under_a_lens_and_back_doesnt_make_the_telephoto_the_u
 
 def test_the_zoom_slider_marks_each_lens(transforms_plugin):
     plugin, _host, _panel = transforms_plugin
-    plugin.on_stream_start("http://phone/v1/video", _Ctrl())
-    plugin.on_phone_state(_lens_state("2"))
+    _both(plugin, 'on_stream_start', "http://phone/v1/video", _Ctrl())
+    _both(plugin, 'on_phone_state', _lens_state("2"))
     assert plugin._zoom_slider.snaps() == [370]
-    plugin.on_stream_stop()
+    _both(plugin, 'on_stream_stop')
     assert plugin._zoom_slider.snaps() == []
 
 
@@ -553,8 +560,8 @@ def test_dragging_the_zoom_sticks_to_a_lens_but_keys_dont(transforms_plugin):
     plugin, _host, panel = transforms_plugin
     panel.resize(420, panel.sizeHint().height())
     panel.show()
-    plugin.on_stream_start("http://phone/v1/video", _Ctrl())
-    plugin.on_phone_state(_lens_state("2"))  # a lens at 3.7x
+    _both(plugin, 'on_stream_start', "http://phone/v1/video", _Ctrl())
+    _both(plugin, 'on_phone_state', _lens_state("2"))  # a lens at 3.7x
     slider = plugin._zoom_slider
     step_px = (slider.mark_x(1000) - slider.mark_x(100)) / 900
     near = 370 - int(3 / step_px)  # 3 px short of the mark
@@ -596,9 +603,7 @@ def test_the_zoom_slider_follows_max_zoom(transforms_plugin):
 
 # ── Dragging and scrolling the preview, lens boxes ───────────────────────────
 
-from telescope.plugins.transforms import (  # noqa: E402
-    lens_boxes, pan_for, shown_to_view, view_to_shown, zoom_detent,
-)
+from telescope.view import lens_boxes, pan_for, shown_to_view, view_to_shown, zoom_detent  # noqa: E402
 
 _ALL_TRANSFORMS = [(fh, fv, rot) for fh in (False, True) for fv in (False, True) for rot in ROTATIONS.values()]
 
@@ -687,8 +692,8 @@ def test_scrolling_zooms_around_the_mouse(transforms_plugin, rot):
 
 def test_small_scrolls_add_up_and_stop_on_a_lens(transforms_plugin):
     plugin, _host, _panel = transforms_plugin
-    plugin.on_stream_start("http://phone/v1/video", _Ctrl())
-    plugin.on_phone_state(_lens_state("2"))  # a lens at 3.7x
+    _both(plugin, 'on_stream_start', "http://phone/v1/video", _Ctrl())
+    _both(plugin, 'on_phone_state', _lens_state("2"))  # a lens at 3.7x
     plugin._zoom_slider.setValue(350)
     for _ in range(10):
         plugin._bus.view_scrolled.emit(1.002, 0.5, 0.5)  # a trackpad: well under a slider step each
@@ -704,12 +709,12 @@ def test_the_preview_hears_about_the_lens_boxes_and_the_pan(transforms_plugin):
     boxes, pannable = [], []
     plugin._bus.lens_boxes.connect(lambda b, moved: boxes.append((b, moved)))
     plugin._bus.view_pannable.connect(pannable.append)
-    plugin.on_stream_start("http://phone/v1/video", _Ctrl())
-    plugin.on_phone_state(_lens_state("2"))
+    _both(plugin, 'on_stream_start', "http://phone/v1/video", _Ctrl())
+    _both(plugin, 'on_phone_state', _lens_state("2"))
     assert boxes[-1][0][0][0] == "3.7×" and boxes[-1][1] is False  # new lens data: no flash
     plugin._zoom_slider.setValue(200)
     assert boxes[-1][1] is True and pannable[-1] is True
-    plugin.on_stream_stop()
+    _both(plugin, 'on_stream_stop')
     assert boxes[-1] == ([], False)
 
 
@@ -746,20 +751,30 @@ def test_a_damaged_saved_zoom_or_pan_falls_back_instead_of_breaking_frames(trans
 
     plugin.set_config({"zoom": "big"})
     assert plugin.get_config()["zoom"] == 1.0
-    assert plugin.process_frame(_grid()).shape == (4, 6, 3)
+    assert plugin._host.vc.process_frame(_grid()).shape == (4, 6, 3)
 
 
 def test_back_on_a_tile_the_phone_isnt_told_its_zoom_again_but_after_a_real_stop_it_is(transforms_plugin):
     plugin, _host, _panel = transforms_plugin
     ctrl = _Ctrl()
-    plugin.on_stream_start("http://phone/v1/video", ctrl)
-    plugin.on_phone_state(_state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True))
-    plugin.on_focus_lost()
+    _both(plugin, 'on_stream_start', "http://phone/v1/video", ctrl)
+    _both(plugin, 'on_phone_state', _state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True))
+    _both(plugin, 'on_focus_lost')
     ctrl.sent.clear()
-    plugin.on_focus_gained("http://phone/v1/video", ctrl)
-    plugin.on_phone_state(_state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True))
+    _both(plugin, 'on_focus_gained', "http://phone/v1/video", ctrl)
+    _both(plugin, 'on_phone_state', _state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True))
     assert ctrl.sent == []
-    plugin.on_stream_stop()
-    plugin.on_focus_gained("http://phone/v1/video", ctrl)
-    plugin.on_phone_state(_state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True))
+    _both(plugin, 'on_stream_stop')
+    _both(plugin, 'on_focus_gained', "http://phone/v1/video", ctrl)
+    _both(plugin, 'on_phone_state', _state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True))
     assert ctrl.sent == [{"action": "zoom", "ratio": 1.0, "crop": 1.0, "x": 0.5, "y": 0.5}]
+
+
+def test_a_slow_pan_moves_the_picture_evenly_instead_of_in_whole_pixels():
+    small = np.random.default_rng(2).integers(0, 255, (36, 64), np.uint8)
+    frame = cv2.cvtColor(cv2.resize(small, (640, 360), interpolation=cv2.INTER_CUBIC), cv2.COLOR_GRAY2BGR)
+    shots = [cv2.cvtColor(_apply_zoom(frame, 1.4, -0.5 + i * 0.002, 0.0), cv2.COLOR_BGR2GRAY).astype(np.float32)
+             for i in range(12)]
+    steps = [cv2.phaseCorrelate(a, b)[0][0] for a, b in zip(shots, shots[1:])]
+    # Each frame the window moves about a third of an output pixel: whole-pixel crops made that 0, 0, 1.4, 0...
+    assert all(step < -0.05 for step in steps) and max(steps) - min(steps) < 0.04

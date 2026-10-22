@@ -943,7 +943,7 @@ def test_start_builds_worker_pipeline_and_notifies_plugins(window, monkeypatch):
     assert workers[0].kwargs["auth"] == "tok"
     frame = np.zeros((2, 2, 3), np.uint8)
     steps = workers[0].kwargs["frame_pipeline"]
-    assert len(steps) == len(window._plugins)  # every fake here has its own process_frame
+    assert len(steps) == len(window._plugins) + 1  # the window's view, then every fake (each has a process_frame)
     assert all(step(frame) is frame for step in steps)
     assert workers[0].started is True
     assert bus_urls == ["http://phone/video"]
@@ -972,9 +972,9 @@ def test_a_stream_the_panels_dont_show_gets_their_steps_frozen(window):
     for plugin in (Frozen("transforms"), _Plugin("preview"), Broken("other")):
         window.register_plugin(plugin)
     frame = np.zeros((1, 1, 3), np.uint8)
-    assert len(window._flow.pipeline()) == 3
+    assert len(window._flow.pipeline()) == 4  # the window's view first
     steps = window._flow.pipeline(live=False)
-    assert len(steps) == 1 and steps[0](frame)[0, 0, 0] == 1
+    assert len(steps) == 2 and steps[1](steps[0](frame))[0, 0, 0] == 1
 
 
 def test_wake_progress_updates_status_while_waking(window):
@@ -3392,12 +3392,31 @@ def test_coming_back_to_a_zoomed_phone_doesnt_crop_its_crop_again(camera_env, mo
     window._apply_state(phone.session.id, _camera_state(zoomRatioMax=10.0, cropZoomMax=4.0, freeformCrop=True),
                         phone)
     view._zoom_slider.setValue(200)
-    assert view._desktop_crop == (1.0, 0.0, 0.0)  # the phone crops it all
+    assert window._view._desktop_crop == (1.0, 0.0, 0.0)  # the phone crops it all
     window.add_stream("B")
     phone.session.client.sent.clear()
     window.focus_stream("Phone")
-    assert view._desktop_crop == (1.0, 0.0, 0.0)
+    assert window._view._desktop_crop == (1.0, 0.0, 0.0)
     assert phone.session.client.sent == []
+    window._flow.stop_all()
+
+
+def test_a_stream_behind_the_panels_keeps_its_own_zoom(camera_env, monkeypatch):
+    from telescope.plugins.transforms import TransformsPlugin
+    window, _conn, _mic, _clients, workers, _changes = camera_env
+    monkeypatch.setattr(app_module.vcam, "slot_ready", lambda _slot: True)
+    card = TransformsPlugin()
+    window.register_plugin(card)
+    window._flow.start()
+    card._zoom_slider.setValue(200)  # this phone's lens can't zoom itself: it's all cropped here
+    window.add_stream("B")
+    frame = np.arange(4 * 8 * 3, dtype=np.uint8).reshape(4, 8, 3)
+    behind, shown = workers[0].pipelines[-1], workers[1].kwargs["frame_pipeline"]
+    assert behind[0](frame).shape == frame.shape and not np.array_equal(behind[0](frame), frame)
+    assert np.array_equal(shown[0](frame), frame)  # B has its own settings: not zoomed
+    assert window.view().zoom == 1.0
+    window.focus_stream("Phone")
+    assert window.view().zoom == 2.0
     window._flow.stop_all()
 
 
