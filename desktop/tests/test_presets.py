@@ -44,6 +44,9 @@ class _Host:
     def reconnect_stream(self):
         pass
 
+    def set_view(self, **_changes):
+        pass
+
 
 class _Ctrl:
     def __init__(self):

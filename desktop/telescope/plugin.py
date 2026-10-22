@@ -5,6 +5,7 @@ from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtWidgets import QWidget
 
 if TYPE_CHECKING:
+    from telescope.view import View
     from telescope.widgets.banner import Issue
 
 
@@ -231,7 +232,32 @@ class HostShell(Protocol):
         ...
 
 
-class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, Protocol):
+class HostView(Protocol):
+    """The shown stream's view: zoom, pan, flip and rotation, done before the plugins see the frame."""
+
+    def view(self) -> "View":
+        """The shown stream's view as it is now (telescope.view.View)."""
+        ...
+
+    def set_view(self, **changes) -> None:
+        """Change the manual view (zoom, pan_x, pan_y, flip_h, flip_v, rotation); the phone does its share of the zoom.
+        While something has taken the view, zoom and pan wait until it lets go."""
+        ...
+
+    def take_view(self, owner: str) -> bool:
+        """Move zoom and pan yourself (owner: what the card says is moving them); False if something else has it."""
+        ...
+
+    def steer_view(self, owner: str, zoom: float, pan_x: float, pan_y: float) -> None:
+        """Set zoom and pan while owner has the view taken; ignored otherwise."""
+        ...
+
+    def release_view(self, owner: str) -> None:
+        """Let go of the view: zoom and pan go back to the manual ones."""
+        ...
+
+
+class HostServices(HostSettings, HostStreams, HostCamera, HostSources, HostShell, HostView, Protocol):
     """Everything a plugin may call on the host (structural typing), instead of reaching into private methods.
     A plugin that only needs part of it can say so with one of the narrower protocols above."""
 
@@ -423,6 +449,12 @@ class EventBus(QObject):
     lens_boxes             = pyqtSignal(list, bool)
     """What each longer lens sees, [(label, x0, y0, x1, y1)] in the frame as shown, and whether the
     user just moved the framing (the preview shows them for a moment)."""
+    view_changed           = pyqtSignal(object)
+    """The shown stream's view (telescope.view.View) changed, manually or by whatever took it."""
+    view_taken             = pyqtSignal(str)
+    """Something took the view (what's moving it), or "" once it let go; the Transforms card greys out Zoom and Pan."""
+    view_status            = pyqtSignal(object)
+    """How the shown stream's zoom is shared with the phone now (telescope.view.ViewStatus), for the lens dot."""
     max_zoom_changed       = pyqtSignal(int)
     """How far the Zoom slider goes (Advanced); Setup emits it on change and when its config loads."""
     max_gain_changed       = pyqtSignal(int)

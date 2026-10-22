@@ -27,6 +27,7 @@ from telescope.single_instance import relaunch, restart_argv
 from telescope.sources import PhoneSource, PluginSource, Source
 from telescope.stream import StreamWorker
 from telescope.stream_flow import StreamFlow
+from telescope.view_controller import ViewController
 from telescope.widgets.banner import BannerAction, BannerArea, Issue, copy_action
 from telescope.widgets.tiles import StreamTiles
 from telescope.widgets.common import (
@@ -135,7 +136,7 @@ class _FlowHost:
         self.bus = win._bus
 
     def plugins(self) -> list:
-        return self._win._plugins
+        return [self._win._view] + self._win._plugins  # the view first: it crops before the plugins see a frame
 
     def plugin(self, name: str):
         return self._win._plugin(name)
@@ -231,6 +232,8 @@ class TelescopeWindow(QMainWindow):
         self.resize(ui_px(1380), ui_px(900))
 
         self._bus     = EventBus()
+        self._view    = ViewController()  # the shown stream's zoom, pan, flip and rotation (HostView)
+        self._view.setup(self, self._bus)
         self._reported_shown: Optional[bool] = None  # what window_shown last said
         self._bus.resolution_change_requested.connect(self._on_resolution_pending)
         # Both restart the phone's camera, so the stream gets a moment before it counts as behind.
@@ -1612,6 +1615,21 @@ class TelescopeWindow(QMainWindow):
 
     def background_streams(self) -> list:
         return [(s.id, s.name, s.session.client) for s in self._sessions.background()]
+
+    def view(self):
+        return self._view.view
+
+    def set_view(self, **changes):
+        self._view.set_view(**changes)
+
+    def take_view(self, owner: str) -> bool:
+        return self._view.take_view(owner)
+
+    def steer_view(self, owner: str, zoom: float, pan_x: float, pan_y: float):
+        self._view.steer_view(owner, zoom, pan_x, pan_y)
+
+    def release_view(self, owner: str):
+        self._view.release_view(owner)
 
     def device_config(self, source_id: Optional[str], plugin_name: str) -> dict:
         cfg = load_config()
