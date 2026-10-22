@@ -78,7 +78,9 @@ def download_size() -> int:
 def tree_hash(folder: Path) -> str:
     """What's in a folder, as one sha256 over each file's path and sha256 (the zip itself can differ by zlib)."""
     lines = []
-    for path in sorted(p for p in folder.rglob("*") if p.is_file()):
+    # WindowsPath sorts without case; use the same case-sensitive component order as PosixPath.
+    for path in sorted((p for p in folder.rglob("*") if p.is_file()),
+                       key=lambda p: p.relative_to(folder).parts):
         rel = path.relative_to(folder).as_posix()
         if rel == _DONE:
             continue

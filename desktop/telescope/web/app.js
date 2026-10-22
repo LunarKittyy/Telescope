@@ -150,6 +150,8 @@ async function openMic() {
       return;
     }
     useMic(got.getAudioTracks()[0]);
+    micError = "";
+    sendHello();  // the computer retries its microphone once the browser's recording works again
   } catch (_) {
     micError = "The browser couldn't record the microphone.";
     sendHello();

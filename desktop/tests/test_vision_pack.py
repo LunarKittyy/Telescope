@@ -1,5 +1,7 @@
 import io
+import hashlib
 import json
+import runpy
 import subprocess
 import sys
 import zipfile
@@ -28,6 +30,14 @@ def _tree_of(files: dict, tmp_path) -> str:
 
 
 _FILES = {"site/mediapipe/__init__.py": b"", "models/a.task": b"model", "NOTICES.txt": b"licences"}
+
+
+def test_pack_hash_uses_case_sensitive_path_order_on_every_platform(tmp_path):
+    files = {"site/pkg/METADATA": b"upper", "site/pkg/entry.py": b"lower",
+             "site/pkg-info/RECORD": b"sibling"}
+    manifest = "".join(f"{name}\0{hashlib.sha256(files[name]).hexdigest()}\n"
+                       for name in sorted(files, key=lambda name: tuple(name.split("/"))))
+    assert _tree_of(files, tmp_path) == hashlib.sha256(manifest.encode()).hexdigest()
 
 
 @pytest.fixture
@@ -151,3 +161,13 @@ def test_the_pack_script_runs_without_opencv_or_the_apps_other_packages():
                           capture_output=True, text=True, timeout=30)
     assert done.returncode == 0, done.stderr
     assert done.stdout.strip() == "False"
+
+
+def test_pack_notices_have_the_same_bytes_on_every_build_platform(tmp_path, monkeypatch):
+    script = Path(__file__).resolve().parents[1] / "scripts" / "build_vision_pack.py"
+    build = runpy.run_path(str(script))["build"]
+    monkeypatch.setattr(subprocess, "run", lambda *_a, **_kw: None)
+    monkeypatch.setitem(build.__globals__, "pins", lambda: [])
+    monkeypatch.setitem(build.__globals__, "fetch_models", lambda *_a: None)
+    folder = build("windows", tmp_path / "work", tmp_path / "cache")
+    assert (folder / "NOTICES.txt").read_bytes() == build.__globals__["NOTICES"].encode("utf-8")

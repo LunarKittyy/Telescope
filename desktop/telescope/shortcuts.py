@@ -233,11 +233,19 @@ def clashes(bindings: list) -> set:
 # ── Actions made from controls ───────────────────────────────────────────────
 
 def control_ready(widget: Optional[QWidget]) -> bool:
-    """Whether a control can be used now: enabled, and not hidden in its card (a closed window doesn't count)."""
+    """Enabled and available in its mode. Folding a card or closing its window doesn't disable its shortcuts."""
     if widget is None:
         return False
     try:
-        return widget.isEnabled() and widget.isVisibleTo(widget.window())
+        if not widget.isEnabled():
+            return False
+        node, window = widget, widget.window()
+        while node is not None and node is not window:
+            # Collapsing hides a container, leaving the controls' own mode visibility alone.
+            if node.isHidden() and node.objectName() != "card_body":
+                return False
+            node = node.parentWidget()
+        return True
     except RuntimeError:  # the control was deleted
         return False
 
