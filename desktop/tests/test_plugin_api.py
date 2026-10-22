@@ -13,7 +13,7 @@ from telescope.widgets import banner
 
 FROZEN = Path(__file__).with_name("plugin_api.txt")
 
-# What docs/plugins.md and plugin.py offer to plugins; anything else in Telescope can change freely
+# What docs/writing-plugins.md and plugin.py offer to plugins; anything else in Telescope can change freely
 _PROTOCOLS = (plugin.HostSettings, plugin.HostStreams, plugin.HostCamera, plugin.HostSources, plugin.HostShell,
               plugin.HostView, plugin.HostVision, plugin.StreamSource)
 _CLASSES = (plugin.TelescopePlugin, plugin.StreamsBehind, plugin.SettingsSection,

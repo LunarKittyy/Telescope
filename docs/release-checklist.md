@@ -11,7 +11,7 @@ Run before tagging. CI covers pytest, Android unit tests, and packaging smoke ch
 5. Merge the draft PRs held for the release: README and website screenshots or text that show what's new. Until the release is out they would advertise the nightly.
 6. Rename `docs/roadmap/next.md` after the release (for example `3.6.md`), add it to the list in `docs/roadmap/README.md` and start a fresh `next.md` with whatever didn't make it. Patch releases go into the file of the release they patch.
 
-The APK signing key lives in the repository secrets (see [Building and CI](building.md#ci--github-actions)). Keep a backup of the keystore outside GitHub: without it, no future APK can install as an update over the current one.
+The APK signing key lives in the repository secrets (see [Building and CI](building.md#ci)). Keep a backup of the keystore outside GitHub: without it, no future APK can install as an update over the current one.
 
 ## Before starting
 

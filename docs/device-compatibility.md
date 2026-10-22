@@ -1,46 +1,51 @@
-# Device compatibility matrix
+# Device compatibility
 
-Manually maintained - update after testing that exact device/build combo. "OK" means the feature worked as documented in [features.md](features.md); put caveats in the notes under the table instead of just checking off.
+Phones Telescope has been tested on, and what worked on each. Android 8 or newer is needed.
 
-Tried Telescope on a phone? Share how it went in [Device compatibility](https://github.com/LunarKittyy/Telescope/discussions/new?category=device-compatibility).
+Tried Telescope on a phone that isn't here? [Tell me how it went](https://github.com/LunarKittyy/Telescope/discussions/new?category=device-compatibility). Even one stream helps.
 
-Legend: `OK` tested and working · `PARTIAL` works with caveats (see [notes](#notes)) ·
-`FAIL` doesn't work · `-` not tested yet.
+✅ works · ⚠️ works with caveats (see [notes](#notes)) · ❌ doesn't work · ➖ not tested
 
-| Device | Android version | App build | USB pairing | Wi-Fi pairing | Lens selection | Zoom on Auto | Manual exposure | Manual WB | Focus | OIS toggle | H.264 | Microphone | Reconnect after drop | Battery/temp reporting | Stop/start |
+| Device | Android | App build | USB pairing | Wi-Fi pairing | Lens selection | Zoom on Auto | Manual exposure | Manual WB | Focus | OIS toggle | H.264 | Microphone | Reconnect | Battery/temp | Stop/start |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Pixel-like (e.g. Pixel 6/7/8) | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| Samsung Galaxy S10+ (SM-G975F) | 12 | 3.1.0-nightly.374 | OK | OK | PARTIAL | - | OK | OK | OK | OK | OK | OK | OK | OK | OK |
-| Samsung Galaxy S25 Ultra (SM-S938U) | 17 | - | OK | - | OK | OK | OK | OK | OK | OK | OK | - | - | OK | OK |
-| Samsung Galaxy A-series | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |
-| vivo V2413 | 16 | 3.1.0-nightly.374 | OK | OK | OK | OK | OK | OK | OK | OK | OK | OK | OK | OK | OK |
-| Xiaomi Poco M6 Pro (2312FPCA6G) | 16 | 3.4.0 | OK | OK | PARTIAL | OK | OK | OK | OK | OK | OK | OK | OK | OK | OK |
+| Samsung Galaxy S10+ (SM-G975F) | 12 | 3.1.0-nightly.374 | ✅ | ✅ | ⚠️ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Samsung Galaxy S25 Ultra (SM-S938U) | 17 | ➖ | ✅ | ➖ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ➖ | ➖ | ✅ | ✅ |
+| vivo V2413 | 16 | 3.1.0-nightly.374 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Xiaomi Poco M6 Pro (2312FPCA6G) | 16 | 3.4.0 | ✅ | ✅ | ⚠️ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ## Notes
 
-- **Samsung Galaxy S10+**: the 2x telephoto isn't exposed through Camera2, so only the main, ultrawide and both front lenses show up. All four of those work.
-- **Samsung Galaxy S25 Ultra**: Auto covers the main camera plus both telephotos (they kick in at about 3x and 5x). The ultrawide and both front cameras show up as their own lenses. Tested over USB only.
-- **Xiaomi Poco M6 Pro**: the ultrawide and macro lenses don't show up because Camera2 only exposes the main back camera and the front camera. Xiaomi's own camera app records 1080p at 60 fps, but other apps get at most 30 fps. Android offers 60 fps and up only as 720p high-speed mode, which Telescope doesn't use.
+- **Samsung Galaxy S10+:** the 2x telephoto isn't exposed through Camera2, so only the main, ultrawide and both front lenses show up. All four work
+- **Samsung Galaxy S25 Ultra:** Auto covers the main camera plus both telephotos (they kick in at about 3x and 5x). The ultrawide and both front cameras show up as their own lenses. Tested over USB only
+- **Xiaomi Poco M6 Pro:** the ultrawide and macro lenses don't show up because Camera2 only exposes the main back camera and the front camera. Xiaomi's own camera app records 1080p at 60 fps but other apps get 30 at most, since Android offers 60 fps and up only as 720p high-speed mode, which Telescope doesn't use
 
-## What to check per row
+<details>
+<summary><b>For testers: what each column means and how to fill a row</b></summary>
 
-- **USB pairing**: with Add phone open, plugging in pairs the phone on USB only (no Wi-Fi/LAN), pairing server reached via `adb reverse`, then `adb forward` + authenticated stream works.
-- **Wi-Fi pairing**: QR code pairing works over Wi-Fi without USB.
-- **Lens selection**: all physical lenses (wide/main/telephoto) enumerate; switching changes video feed, not just digital zoom.
-- **Zoom on Auto**: on the Auto lens, zooming in past the lens marks switches to the telephoto (the dot next to the zoom turns lavender) and the picture gets sharper.
-- **Manual exposure**: ISO and shutter sliders change on-device exposure (not just toggle correctly).
-- **Manual WB**: Kelvin slider visibly shifts colour temperature (features.md already notes this is inconsistent across devices/lenses - record exactly what happens, not just pass/fail).
-- **Focus**: manual focus distance and clicking the preview to focus both change what's sharp.
-- **OIS toggle**: visible effect on lenses reporting `hasOis: true`.
-- **H.264**: switching Format to H.264 streams, and the Mbps readout drops compared to MJPEG.
-- **Microphone**: with the Microphone card on, other apps record the phone's mic.
-- **Reconnect after drop**: kill Wi-Fi or unplug USB mid-stream; confirm auto-reconnect within `RECONNECT_DELAY` when connectivity returns (no full restart needed).
-- **Battery/temp reporting**: Monitoring-panel values update and alert thresholds fire correctly.
-- **Stop/start**: the desktop's Start/Stop controls the phone camera, including with the phone screen dark, and 5+ cycles don't break the phone's foreground service or the desktop virtual camera.
+### What to check
 
-## Process
+| Column | It passes when |
+|---|---|
+| USB pairing | With Add phone open, plugging in pairs the phone on USB only and an authenticated stream works |
+| Wi-Fi pairing | QR pairing works over Wi-Fi without USB |
+| Lens selection | Every physical lens (wide, main, telephoto) shows up and switching changes the video feed, not just digital zoom |
+| Zoom on Auto | Zooming past the lens marks switches to the telephoto (the dot next to the zoom turns lavender) and the picture gets sharper |
+| Manual exposure | The ISO and shutter sliders change the exposure on the device |
+| Manual WB | The Kelvin slider visibly shifts colour temperature. Record exactly what happens since it differs across devices and lenses |
+| Focus | Manual focus distance and clicking the preview both change what's sharp |
+| OIS toggle | Visible effect on lenses that report OIS |
+| H.264 | Switching Format to Light streams and the Mbps readout drops compared to Heavy |
+| Microphone | With the Microphone card on, other apps record the phone's mic |
+| Reconnect | Kill Wi-Fi or unplug USB mid-stream and it reconnects when connectivity returns, with no full restart |
+| Battery/temp | The Monitoring values update and alert thresholds fire |
+| Stop/start | Start and Stop control the camera, including with the screen dark, and 5+ cycles don't break the phone's service or the virtual camera |
 
-1. Install release-candidate APK and desktop bundle.
-2. Pair fresh (reset phone pairing first if previously paired to different build) via USB and Wi-Fi.
-3. Work each column, note exact build/commit in "App build" column.
-4. File issue for any FAIL or notable PARTIAL before checking off in [release-checklist.md](release-checklist.md).
+### Process
+
+1. Install the release candidate APK and desktop bundle
+2. Pair fresh (reset the phone's pairing first if it was paired to a different build) over USB and Wi-Fi
+3. Work each column and note the exact build in "App build"
+4. File an issue for any ❌ or notable ⚠️ before ticking it off in the [release checklist](release-checklist.md)
+
+The matrix is maintained by hand. Update it after testing that exact device and build.
+</details>

@@ -1,30 +1,26 @@
 # Telescope docs
 
-New to Telescope? Start with the [Quick Start](../README.md#quick-start). It's all most people need.
+New here? The [Quick Start](../README.md#quick-start) is all most people need.
 
-## Getting help
+## For users
 
-- Questions go in [Q&A](https://github.com/LunarKittyy/Telescope/discussions/categories/q-a), and ideas in [Ideas](https://github.com/LunarKittyy/Telescope/discussions/categories/ideas)
-- Bugs and crashes go in an [issue](https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml), with your **Copy diagnostics** report
+- [Features](features.md): everything the apps can do
+- [Troubleshooting](troubleshooting.md): common problems and their fixes
+- [Plugins](plugins.md): switching parts of the app off and installing plugins other people made
+- [Manual setup](setup.md): the virtual camera by hand on Linux, loading it at boot, OBS as a Flatpak
+- [Device compatibility](device-compatibility.md): phones that have been tested
+- [Licenses](licenses.md): what the license means for you and the third-party parts used
 
-## Using Telescope
+**Need help?** Ask in [Q&A](https://github.com/LunarKittyy/Telescope/discussions/categories/q-a) or share an idea in [Ideas](https://github.com/LunarKittyy/Telescope/discussions/categories/ideas). For bugs open an [issue](https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml) with your **Copy diagnostics** report.
 
-- [Features](features.md): everything the apps can do, from camera controls and zoom to the microphone, Browser camera, automatic streaming and updates
-- [Plugins](plugins.md): switching parts of the desktop app off, installing plugins other people made and writing your own
-- [Troubleshooting](troubleshooting.md): common problems, what usually causes them, and the fix
-- [Manual setup](setup.md): setting up the virtual camera by hand on Linux, loading it at boot, and OBS as a Flatpak
-- [Device compatibility](device-compatibility.md): phones that have been tested, and what worked on each
-- [Licenses](licenses.md): Telescope's license, what it means for you, and the third-party parts it uses
+## For contributors
 
-## How it works
-
-- [Architecture](architecture.md): how the phone and desktop apps fit together, the repository layout, and implementation notes for contributors
-- [Control API](protocol.md): the phone's HTTP endpoints, what they return, the pairing QR code's contents, and the Browser camera's WebSocket messages
-- [desktop/ARCHITECTURE.md](../desktop/ARCHITECTURE.md): how the desktop app is split into plugins and the rules that keep it that way
-- [desktop/MODULES.md](../desktop/MODULES.md): the desktop app, module by module
-
-## Building and releasing
-
-- [Building and CI](building.md): building the Android app, testing a change with the dev app and dev desktop, versions, and what each GitHub Actions workflow does
-- [Release checklist](release-checklist.md): what to test by hand on real devices before tagging a release
-- [Roadmap](roadmap/README.md): what's planned for the next release, ideas for some day, and what each past release set out to do
+- [Architecture](architecture.md): how the phone and desktop apps fit together
+- [Desktop architecture](../desktop/ARCHITECTURE.md): the plugin rules that keep the desktop app working when parts are switched off
+- [Desktop modules](../desktop/MODULES.md): every desktop module, one by one
+- [Control API](protocol.md): the phone's endpoints, the pairing QR code and the Browser camera messages
+- [Writing a plugin](writing-plugins.md): a guide with an example
+- [Building and CI](building.md): building the apps, trying a change with a dev app and what each workflow does
+- [Release checklist](release-checklist.md): what to test by hand before tagging a release
+- [Roadmap](roadmap/README.md): what's planned, ideas for some day and what each past release set out to do
+- [CONTRIBUTING.md](../CONTRIBUTING.md): the short version of how to help

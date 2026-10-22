@@ -2,99 +2,85 @@
 
 ## Build the Android app
 
-Requires JDK 21 and Android SDK with `platform-tools`, `platforms;android-34`, `build-tools;34.0.0`.
+Needs JDK 21 and the Android SDK with `platform-tools`, `platforms;android-34` and `build-tools;34.0.0`.
 
 ```bash
 cd android
 echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
 ./gradlew assembleDebug
 # output: app/build/outputs/apk/debug/app-debug.apk
-```
-
-Install it over ADB:
-```bash
 adb install app/build/outputs/apk/debug/app-debug.apk
 ```
 
-This is a debug build - self-signed, for personal/development use.
+This is a self-signed debug build for development.
 
-## Test a change without touching your real install
+## Run the desktop app from source
 
-A dev phone app and a dev desktop client run next to the real ones and pair only with each other, so you can try a change before it's published.
+```bash
+cd desktop
+python -m pytest -q              # tests
+python scripts/smoke_check.py    # packaging smoke checks
+```
+
+Linux can run `./start.sh` and Windows `start.bat`, which set up the dependencies on first run.
+
+## Try a change without touching your real install
+
+A dev phone app and a dev desktop run next to the real ones and pair only with each other.
 
 ```bash
 cd android && ./gradlew installDev        # "Telescope (dev)", package com.telescope.dev
 cd desktop && python scripts/dev_desktop.py --keep
 ```
 
-The dev app has its own data, pairings and phone identity, and the real app can't update over it or the other way round. The dev desktop keeps its config and log in a profile folder in your temp dir instead of your real config, so it gets its own pairings and computer identity too. It runs alongside the real desktop, never writes the menu or sign-in entries, uses its own virtual mic ("Telescope Microphone (dev)"), aims USB pairing at the dev app, and **Install over USB** installs the dev APK once `assembleDev` or `installDev` has built it.
+- The dev app has its own data, pairings and phone identity. The dev desktop keeps its config and log in a profile folder in your temp dir, runs alongside the real desktop, never writes menu or sign-in entries and uses its own virtual mic ("Telescope Microphone (dev)")
+- **Install over USB** installs the dev APK once `assembleDev` or `installDev` has built it
+- Without `--keep` the profile is fresh on every run, so you pair again each time. With it the profile stays (in `telescope-dev-profile-<user>` under your temp dir) until `python scripts/dev_desktop.py --reset`
+- `--plugin FOLDER` loads a plugin you're writing straight from its folder and restarts the dev desktop on every save. See [Writing a plugin](writing-plugins.md#trying-out-changes)
 
-Without `--keep` the profile is fresh on every run and deleted when the app quits, so you pair again each time. With it, the profile stays (in `telescope-dev-profile-<user>` under your temp dir) until you run `python scripts/dev_desktop.py --reset`.
-
-`--plugin FOLDER` loads a plugin you're writing straight from its folder and restarts the dev desktop whenever you save one of its files. [Plugins](plugins.md#trying-out-changes) has the details and `scripts/check_plugin.py`.
-
-`python scripts/phone_check.py` runs a quick check against the paired dev phone: how long a start takes and how steady the stream is. With `--wifi-drop 5` it also turns the phone's Wi-Fi off for 5 seconds and times how long the video takes to come back, and `--handover` checks automatic Wi-Fi-to-USB handover without replacing the video worker (it briefly hides the connected cable from discovery, then reveals it). Both checks need the cable plugged in. It only prints numbers, nothing about the phone or the network, which makes the output fine to paste into an issue or PR.
+`python scripts/phone_check.py` runs a quick check against the paired dev phone: how long a start takes and how steady the stream is. `--wifi-drop 5` also turns the phone's Wi-Fi off for 5 seconds and times the recovery, and `--handover` checks the automatic Wi-Fi to USB handover. Both need the cable plugged in. It only prints numbers, so the output is fine to paste into an issue or PR.
 
 Some things are shared because there's only one of them:
-- The phone apps use the same ports, so only one of them can be open (or waiting for its computer) at a time. The one you open while the other still holds them takes them over within a few seconds of it closing
-- On Linux both desktops stream into the same virtual camera device, and on Windows into the same UnityCapture driver, so only one can stream at a time
-- Actions in Settings that change the system (loading v4l2loopback, installing the Windows driver) affect both
 
-## CI / GitHub Actions
+- The phone apps use the same ports, so only one can be open at a time. The one you open takes the ports over within a few seconds of the other closing
+- Both desktops stream into the same virtual camera, so only one can stream at a time
+- Settings actions that change the system (loading v4l2loopback, installing the Windows driver) affect both
 
-### Versions
+## Versions
 
-Both apps share one version, the `VERSION` file at the repo root. The build number is the commit count on `master`, so it only grows; it's the Android `versionCode` and what the update check compares. A build is stable (`3.0.0`), nightly (`3.0.0-nightly.123`) or a source checkout (`3.0.0 dev`). The version shows under Updates & About in Settings on the desktop and under Copy diagnostics on the phone, and both apps' Copy diagnostics include it.
+Both apps share one version, the `VERSION` file at the repo root. The build number is the commit count on `master`, so it only grows. It's the Android `versionCode` and what the update check compares.
 
-### `release.yml` - every push to `master` that changes more than docs or the website, and every `v*` tag
+A build is stable (`3.0.0`), nightly (`3.0.0-nightly.123`) or a source checkout (`3.0.0 dev`). The version shows under Updates & About in Settings and in both apps' Copy diagnostics.
 
-Builds everything from one commit, then publishes it together:
+## CI
 
-- a push to `master` replaces the rolling **`nightly`** pre-release (deleted and recreated, so it stays at the top of the Releases page)
-- a tag `vX.Y.Z` creates the stable release `Telescope X.Y.Z`; the tag must match `VERSION`
+### `release.yml`
 
-Each release holds `Telescope.apk`, `Telescope-windows-portable.zip`, `TelescopeSetup.exe` (the same files as the zip, as an installer, built in its own Windows job once the APK is ready), `Telescope-linux.tar.gz` (the desktop bundles include the APK, for Install over USB) and `manifest.json`: version, build number, channel, commit, session protocol, and each file's URL, size and SHA-256. The zip is also listed under its old name, `Telescope-windows.zip`, so copies from before the rename still find their update. The apps' update check reads the manifest: the phone compares `android.versionCode` with its own, the desktop compares `build`. An installed copy updates from the zip like any other. A copy someone unzipped updates through `TelescopeSetup.exe` instead, which moves it to the per-user install (see Updates in [features.md](features.md#updates)).
+Runs on every push to `master` that changes more than docs or the website, and on every `v*` tag. It builds everything from one commit and publishes it together:
 
-The APK is signed with the release key from the repository secrets `TELESCOPE_KEYSTORE` (the keystore, base64), `TELESCOPE_KEYSTORE_PASSWORD`, `TELESCOPE_KEY_ALIAS` and `TELESCOPE_KEY_PASSWORD`. A release fails rather than publish an APK signed with a debug key, because Android only installs an update signed with the same key as the installed app.
+- a push to `master` replaces the rolling **`nightly`** pre-release
+- a tag `vX.Y.Z` creates the stable release `Telescope X.Y.Z` (the tag must match `VERSION`)
 
-The three build workflows below also run on every pull request, without publishing. Their checks are called `android`, `windows` and `linux`, and `master` only takes a pull request once all three pass (a ruleset, with the maintainer allowed to push past it). A small `changes` job in each looks at what the pull request changes and the check skips itself when nothing it covers changed, which GitHub counts as passing. That way a docs-only pull request isn't stuck waiting for a check that never runs. A new push to a pull request cancels its checks that are still running.
+Each release holds `Telescope.apk`, `Telescope-windows-portable.zip`, `TelescopeSetup.exe`, `Telescope-linux.tar.gz` and `manifest.json` (version, build number, channel, commit, session protocol, and each file's URL, size and SHA-256). The desktop bundles include the APK for Install over USB. The zip is also listed as `Telescope-windows.zip`, its old name, so older copies still find their update. The apps' update check reads the manifest: the phone compares `android.versionCode` and the desktop compares `build`.
 
-### `build-apk.yml` (`android`) - runs for `android/**`, `VERSION` or the workflow itself
+The APK is signed with the release key from the repository secrets `TELESCOPE_KEYSTORE` (base64), `TELESCOPE_KEYSTORE_PASSWORD`, `TELESCOPE_KEY_ALIAS` and `TELESCOPE_KEY_PASSWORD`. A release fails rather than publish a debug-signed APK, because Android only installs an update signed with the same key as the installed app.
 
-1. JDK 21 (Temurin) + Gradle cache (dependencies and build outputs, written only by `master` runs)
-2. Android SDK (android-34, build-tools;34.0.0)
-3. `./gradlew lintDebug testDebugUnitTest`, then `./gradlew assembleRelease -PbuildNumber=N -Pchannel=nightly|stable` (debug-signed on pull requests)
-4. In a release: checks the APK isn't debug-signed
+### The three build workflows
 
-### `build-windows.yml` (`windows`) - runs for `desktop/**`, `installer/**`, `VERSION` or the workflow itself
+They also run on every pull request without publishing. Their checks are called `android`, `windows` and `linux`, and `master` only takes a pull request once all three pass (the maintainer can push past it). Each has a small `changes` job that skips the check when nothing it covers changed, which GitHub counts as passing, so a docs-only pull request never waits on a check that doesn't run. A new push cancels checks still running.
 
-1. Python 3.11 + pip cache
-2. `pip install -r requirements-dev.txt pyinstaller -c constraints.txt`, then `pip install --no-deps -r requirements-nodeps.txt -c constraints.txt` (aiortc, whose PyAV cap is out of date); runs `pytest`
-3. In a release: `scripts/write_build_info.py` stamps the version into `telescope/_build.py`
-4. `python scripts/smoke_check.py` - packaging smoke checks (see below)
-5. `scripts/windows_driver_check.ps1` installs UnityCapture for real on the runner: it starts from an old registration in the app folder, checks that a junction, a planted DLL symlink and a user-owned folder in Program Files are each refused with their targets untouched, then does a clean install with `%ProgramFiles%` pointed elsewhere and checks the files land admin-owned in the real Program Files, the old registration moved, it's listed as **Telescope**, and pyvirtualcam opens it
-6. `pyinstaller telescope.spec` - a folder build: `TelescopeDesktop.exe` next to `lib-<build>/`
-7. Assembles the bundle: the app folder + `THIRD_PARTY_NOTICES.txt` + `unitycapture/`, and checks nothing is missing, including the Qt plugins it can't start or draw without, and that no adb crept in (the app downloads it from Google on request)
-8. `installer/build.ps1` builds `TelescopeSetup.exe` from that bundle with Inno Setup (installed through Chocolatey when the runner lacks it), and `installer/check.ps1` installs it silently for the current user, checks the files and Start menu entry, plays an update's leftovers, the log, a firewall rule and an "Open at sign-in" entry, uninstalls, and checks nothing's left, the camera the driver check installed included (and that another copy's sign-in entry survives, and that a running Telescope gets closed instead of keeping its files)
-9. `scripts/windows_move_check.py` copies the bundle into a fake Downloads folder next to a file of the user's, runs the real `updates.install_with_setup()` with that setup, checks it found the install through the setup's uninstall entry, then runs the clean-up the installed copy does and checks only Telescope's files went
+| Workflow | Runs for | What it does |
+|---|---|---|
+| `build-apk.yml` | `android/**`, `VERSION` | `./gradlew lintDebug testDebugUnitTest`, then `assembleRelease`. In a release it checks the APK isn't debug-signed |
+| `build-windows.yml` | `desktop/**`, `installer/**`, `VERSION` | Installs dependencies, runs `pytest` and `smoke_check.py`, checks the driver install for real on the runner, builds the app folder with PyInstaller (`telescope.spec`) and `TelescopeSetup.exe` with Inno Setup, and checks the installer, update and uninstall paths |
+| `build-linux.yml` | `desktop/**`, `VERSION` | Runs `pytest` and `smoke_check.py`, then assembles the source bundle: `main.py`, `update_guard.py`, the `telescope/` package, the requirements files, `start.sh` and the notices. There's no compiled build step since `start.sh` makes its own venv on first run |
 
-The setup (`installer/Telescope.iss`) is per-user: it installs to `%LOCALAPPDATA%\Programs\Telescope` without admin, because the app updates itself in place and needs its folder writable. It doesn't touch the camera driver; the first-run checklist installs that. Uninstalling closes a running Telescope, deletes the log and the downloaded adb, asks before deleting settings and pairings, and offers to remove the camera driver with the firewall rules Windows made (one UAC prompt, since both are for the whole computer). A silent uninstall only does that part when it already runs as admin. Keep its `AppId` as it is: Windows finds an existing install by it.
+The Windows setup (`installer/Telescope.iss`) is per-user: it installs to `%LOCALAPPDATA%\Programs\Telescope` without admin, because the app updates itself in place and needs its folder writable. It doesn't touch the camera driver (the first-run checklist installs that). Uninstalling closes a running Telescope, deletes the log and the downloaded adb, asks before deleting settings and pairings, and offers to remove the camera driver and firewall rules (one UAC prompt). Keep its `AppId` as it is since Windows finds an existing install by it.
 
-`telescope.spec` takes Qt through PyInstaller's own hooks (only the modules Telescope imports) and skips UPX.
+### `pages.yml`
 
-### `build-linux.yml` (`linux`) - runs for `desktop/**`, `VERSION` or the workflow itself
-
-1. Python 3.11 + pip cache; apt-installs `libegl1 libgl1 libxkbcommon0 libdbus-1-3` (PyQt6 needs these even in headless/offscreen test mode); installs `requirements-dev.txt` via `constraints.txt` and `requirements-nodeps.txt` with `--no-deps`; runs `pytest`
-2. In a release: stamps the version
-3. `python3 scripts/smoke_check.py` - packaging smoke checks
-4. Assembles the bundle: `main.py` + `update_guard.py` + `telescope/` package + `requirements.txt` + `requirements-nodeps.txt` + `constraints.txt` + `start.sh` + `THIRD_PARTY_NOTICES.txt`
-
-No compiled build step - the Linux bundle is the Python source and launcher script, which creates its own venv on first run (see `start.sh`).
-
-### `pages.yml` - pushes to `master` touching `site/**` or the workflow itself
-
-Publishes `site/`, the landing page, to GitHub Pages as it is; there's no build step. The page loads three.js from jsDelivr and falls back to a still version without WebGL or with reduced motion. The repository's Pages source has to be set to **GitHub Actions**. It's served at `telescope.webcam`: the domain is set under Settings → Pages (not a `CNAME` file, which Actions deploys ignore) and its DNS lives in Cloudflare as an unproxied CNAME to `lunarkittyy.github.io`.
+Publishes `site/`, the landing page, to GitHub Pages on pushes to `master` that touch `site/**`. There's no build step. The repository's Pages source has to be set to **GitHub Actions**. The page is served at `telescope.webcam`, set under Settings → Pages (not a `CNAME` file, which Actions deploys ignore), with DNS in Cloudflare as an unproxied CNAME to `lunarkittyy.github.io`.
 
 ### `desktop/scripts/smoke_check.py`
 
-Run in both desktop CI workflows before assembling the bundle: constructs the full app and registers every plugin, exercises ADB discovery and virtual-camera-availability detection without crashing, drives a real authenticated MJPEG round-trip (auth header, multipart framing, JPEG decode, and that an unauthenticated request is actually rejected) against a local test server, and makes a Browser camera certificate, fetches the page over TLS and has an aiortc peer send video through the WebSocket's offer and answer into the reader (so a bundle missing `cryptography`, aiortc or the `web/` files fails here). It isn't a substitute for testing against a real phone - see the manual [release checklist](release-checklist.md) and [device-compatibility matrix](device-compatibility.md) for that.
+Runs in both desktop workflows before the bundle is assembled. It builds the full app with every plugin, exercises adb discovery and virtual camera detection, does a real authenticated MJPEG round trip against a local test server (including that an unauthenticated request is rejected), and serves a Browser camera page over TLS with an aiortc peer sending video through the WebSocket. A bundle missing `cryptography`, aiortc or the `web/` files fails here. It's no substitute for testing on a real phone, see the [release checklist](release-checklist.md) and [device compatibility](device-compatibility.md).
