@@ -363,4 +363,5 @@ class SettingsWindow(QDialog):
         if screen is not None:
             area = screen.availableGeometry()
             w, h = min(w, area.width() - SCREEN_MARGIN), min(h, area.height() - SCREEN_MARGIN)
+            self.setMinimumSize(min(self.minimumWidth(), w), min(self.minimumHeight(), h))  # a small screen wins
         self.resize(w, h)

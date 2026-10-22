@@ -207,15 +207,20 @@ def test_switching_one_keeps_the_list_where_it_was(qapp, plugins, answers):
     win.resize(700, 500)
     win.show()
     bar = win._stack.currentWidget().verticalScrollBar()
-    for _ in range(40):  # the rows are rebuilt as the tab comes up, and laid out a pass later
-        if bar.maximum() > 0:
+    seen = -1
+    for _ in range(40):  # the rows are rebuilt as the tab comes up, and laid out a pass later: wait for it to settle
+        QTest.qWait(100)
+        if bar.maximum() > 0 and bar.maximum() == seen:
             break
-        QTest.qWait(50)
+        seen = bar.maximum()
     bar.setValue(bar.maximum())
     at = bar.value()
     assert at > 0
     _boxes(panel)["Extra39"].setChecked(True)
-    QTest.qWait(50)
+    for _ in range(40):
+        QTest.qWait(50)
+        if bar.value() == at:
+            break
     assert bar.value() == at
     win.close()
 
