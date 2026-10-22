@@ -73,9 +73,10 @@ def build(key: str, work: Path, cache: Path) -> Path:
     root = work / key
     site = root / "site"
     site.mkdir(parents=True)
-    wanted = {p.split("==")[0].lower().replace("-", "_") for p in pins()}
+    # The cache keeps wheels of older pins too, so match the version as well as the name
+    wanted = {tuple(p.lower().replace("-", "_").split("==")) for p in pins()}
     for wheel in sorted(wheels.glob("*.whl")):
-        if wheel.name.split("-")[0].lower() not in wanted:
+        if tuple(wheel.name.lower().split("-")[:2]) not in wanted:
             continue
         with zipfile.ZipFile(wheel) as z:
             z.extractall(site)
