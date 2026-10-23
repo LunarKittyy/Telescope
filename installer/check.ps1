@@ -1,5 +1,6 @@
 # Installs TelescopeSetup.exe for this user, looks at what it made, plays a self-update and "Open at sign-in", then
-# uninstalls and checks it took everything with it. CI runs it on a fresh runner (build-windows.yml).
+# uninstalls and checks it took everything with it. CI runs it on a fresh runner: build-windows.yml on pull requests,
+# release.yml on the setup it publishes.
 param([Parameter(Mandatory)] [string] $Setup)
 $ErrorActionPreference = "Stop"
 

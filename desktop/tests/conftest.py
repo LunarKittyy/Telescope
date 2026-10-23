@@ -47,6 +47,10 @@ def config_home(tmp_path, monkeypatch):
 def qapp():
     from PyQt6.QtWidgets import QApplication
     app = QApplication.instance() or QApplication([])
+    # Applied before any test makes a widget: doing it later restyles the ones still alive, which crashes Qt, and
+    # whether that happens would depend on which tests share a process (pytest -n) instead of being the same every run
+    from telescope.theme import apply_theme
+    apply_theme(app)
     yield app
 
 

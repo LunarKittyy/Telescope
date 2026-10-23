@@ -70,7 +70,7 @@ jobs:
 
       - name: Run tests
         working-directory: desktop
-        run: python -m pytest -q
+        run: python -m pytest -q -n auto
 
       - name: Stamp the version
         if: inputs.channel
@@ -132,15 +132,17 @@ jobs:
           Write-Host "Release bundle verified."
 
       # A per-user install, a look at what it made, then an uninstall that has to leave nothing behind.
-      # release.yml builds the published one again with Telescope.apk inside, like the zip.
+      # A release skips these two: release.yml builds the published setup with Telescope.apk inside and runs both on it.
       - name: Build and check the installer
+        if: ${{ !inputs.channel }}
         shell: pwsh
         run: |
-          ./installer/build.ps1 -Bundle bundle -Out setup -Build "${{ inputs.build || '0' }}"
+          ./installer/build.ps1 -Bundle bundle -Out setup -Build "0" -Fast
           ./installer/check.ps1 -Setup setup/TelescopeSetup.exe
 
       # The update path for people who unzipped Telescope: the real setup, registry entry and clean-up.
       - name: Check an unzipped copy moves to the installed one
+        if: ${{ !inputs.channel }}
         working-directory: desktop
         run: python scripts/windows_move_check.py ../setup/TelescopeSetup.exe ../bundle
 

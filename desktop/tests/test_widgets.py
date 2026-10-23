@@ -539,6 +539,8 @@ def test_tab_follows_the_layout_not_the_order_widgets_were_made(qapp):
 def test_tab_in_a_dialog_stops_on_every_option_of_a_group(qapp):
     from PyQt6.QtTest import QTest
     from PyQt6.QtWidgets import QButtonGroup, QDialog, QPushButton, QVBoxLayout
+    from telescope.theme import apply_theme
+    apply_theme(qapp)  # the theme's style is what gives a dialog this Tab order
     dialog = QDialog()
     lay = QVBoxLayout(dialog)
     group = QButtonGroup(dialog)

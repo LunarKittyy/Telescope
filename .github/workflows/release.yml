@@ -105,11 +105,17 @@ jobs:
           retention-days: 7
 
   # The setup holds the same files as Telescope-windows-portable.zip, APK included, so it's built once both are ready.
+  # Its install, uninstall and unzipped-copy checks (which build-windows.yml runs on pull requests) run here, on the
+  # file that gets published.
   windows-setup:
     needs: [meta, apk, windows]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
 
       - uses: actions/download-artifact@v8
         with:
@@ -120,6 +126,14 @@ jobs:
         run: |
           Copy-Item dist/apk/Telescope.apk dist/windows-bundle/
           ./installer/build.ps1 -Bundle dist/windows-bundle -Out setup -Build "${{ needs.meta.outputs.build }}"
+
+      - name: Check the installer
+        shell: pwsh
+        run: ./installer/check.ps1 -Setup setup/TelescopeSetup.exe
+
+      - name: Check an unzipped copy moves to the installed one
+        working-directory: desktop
+        run: python scripts/windows_move_check.py ../setup/TelescopeSetup.exe ../dist/windows-bundle
 
       - uses: actions/upload-artifact@v7
         with:

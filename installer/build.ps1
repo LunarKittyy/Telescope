@@ -3,7 +3,8 @@
 param(
     [Parameter(Mandatory)] [string] $Bundle,
     [Parameter(Mandatory)] [string] $Out,
-    [string] $Build = "0"
+    [string] $Build = "0",
+    [switch] $Fast  # a quicker, bigger setup for checks that only install it; a release is built without
 )
 $ErrorActionPreference = "Stop"
 
@@ -30,7 +31,8 @@ $bundlePath = (Resolve-Path $Bundle).Path
 New-Item -ItemType Directory -Force -Path $Out | Out-Null
 $outPath = (Resolve-Path $Out).Path
 
-& $iscc /Q "/DAppVersion=$version" "/DBuild=$Build" "/DSourceDir=$bundlePath" "/DOutputDir=$outPath" `
-    "$PSScriptRoot/Telescope.iss"
+$defines = @("/DAppVersion=$version", "/DBuild=$Build", "/DSourceDir=$bundlePath", "/DOutputDir=$outPath")
+if ($Fast) { $defines += "/DFast=1" }
+& $iscc /Q @defines "$PSScriptRoot/Telescope.iss"
 if ($LASTEXITCODE -ne 0) { throw "ISCC failed with $LASTEXITCODE" }
 Write-Host "Built $outPath\TelescopeSetup.exe"
