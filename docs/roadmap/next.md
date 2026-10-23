@@ -5,6 +5,7 @@ Planned in October 2026, after 4.1. The first two were left over from 4.0 and di
 - [ ] [720p when the phone gets critically hot](#720p-when-the-phone-gets-critically-hot)
 - [ ] [Saying to extract the Windows zip first](#saying-to-extract-the-windows-zip-first)
 - [ ] [Live notification for streaming status](#live-notification-for-streaming-status)
+- [ ] [Phone app in the 4.0 style](#phone-app-in-the-40-style)
 - [ ] [Dependency updates](#dependency-updates)
 
 ## 720p when the phone gets critically hot
@@ -24,6 +25,12 @@ A small launcher exe that checks for its `lib` folder before starting the real o
 Android has a newer live notification style for ongoing activity, and the phone app could use it to show the streaming status (connected, streaming, paused) on the lock screen and status bar. Not started. The Android docs need reading first, to see which Android versions support it, what the API looks like and how it fits with the foreground service notification we already have. Don't build anything until that research is done.
 
 Unknown until researched. Needs a real phone on a version that supports it.
+
+## Phone app in the 4.0 style
+
+The desktop got its new look in 4.0 (a colour for each card, its own icon set, tiles for resolution and frame rate, one row per setting) but the phone app still looks like it did before that. Its screens should follow the same style so the two apps feel like one thing. That means the layout and spacing, the card colours and icons drawn the same way as the desktop's in `desktop/telescope/widgets/common.py`. Not started. Nothing about how it works should change, only how it looks.
+
+Medium to big depending on how far it goes. Needs checking at a large font size and on a small phone.
 
 ## Dependency updates
 
