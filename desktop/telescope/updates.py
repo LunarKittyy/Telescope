@@ -261,6 +261,25 @@ def download(asset: Asset, dest_dir: Path, progress: Optional[Callable[[int, int
     return final
 
 
+def download_update(manifest: Manifest, asset: Asset, dest_dir: Path,
+                    progress: Optional[Callable[[int, int], None]] = None,
+                    cancelled: Callable[[], bool] = lambda: False) -> tuple[Manifest, Path]:
+    """Retry once with a newer manifest if a rolling release changed before its download."""
+    try:
+        return manifest, download(asset, dest_dir, progress=progress, cancelled=cancelled)
+    except UpdateError:
+        if cancelled():
+            raise
+        latest = fetch_manifest(manifest.channel)
+        replacement = latest.assets.get(asset.name) if latest else None
+        if (latest is None or latest.channel != manifest.channel or latest.build <= manifest.build
+                or replacement is None or was_rolled_back(latest)):
+            raise
+        if cancelled():
+            raise UpdateError(tr("Cancelled."))
+        return latest, download(replacement, dest_dir, progress=progress, cancelled=cancelled)
+
+
 # ── Install ───────────────────────────────────────────────────────────────────
 
 def _safe_members_zip(archive: zipfile.ZipFile, root: Path):

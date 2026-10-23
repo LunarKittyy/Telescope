@@ -131,6 +131,55 @@ def test_download_can_be_cancelled(tmp_path):
         updates.download(_asset_for(b"abc"), tmp_path, cancelled=lambda: True, opener=_opener(b"abc"))
 
 
+@pytest.mark.parametrize("old_payload", [b"old", b"old build much larger than new", b"older"])
+def test_download_update_recovers_when_a_nightly_is_replaced(tmp_path, monkeypatch, old_payload):
+    payload = b"newer"
+    old_asset, new_asset = _asset_for(old_payload), _asset_for(payload)
+    old = updates.Manifest("1", 120, "nightly", "", "", 2, {old_asset.name: old_asset})
+    latest = updates.Manifest("1", 121, "nightly", "", "", 2, {new_asset.name: new_asset})
+    opener = _opener(payload)
+    download = updates.download
+    monkeypatch.setattr(updates, "download", lambda *a, **kw: download(*a, **kw, opener=opener))
+    monkeypatch.setattr(updates, "fetch_manifest", lambda channel: latest)
+    monkeypatch.setattr(updates, "was_rolled_back", lambda manifest: False)
+    selected, path = updates.download_update(old, old_asset, tmp_path)
+    assert selected == latest and path.read_bytes() == payload
+    assert len(opener.seen) == 2
+    assert sorted(p.name for p in tmp_path.iterdir()) == [new_asset.name]
+
+
+@pytest.mark.parametrize("replacement", ["same", "older", "missing", "channel", "rolled back", "corrupt"])
+def test_download_update_does_not_accept_an_invalid_replacement(tmp_path, monkeypatch, replacement):
+    asset = _asset_for(b"old")
+    old = updates.Manifest("1", 120, "nightly", "", "", 2, {asset.name: asset})
+    latest = updates.Manifest("1", 120 if replacement == "same" else 119 if replacement == "older" else 121,
+                              "stable" if replacement == "channel" else "nightly", "", "", 2,
+                              {} if replacement == "missing" else old.assets)
+    seen = []
+
+    def fail(*args, **kwargs):
+        seen.append(args[0])
+        raise UpdateError("checksum mismatch")
+
+    monkeypatch.setattr(updates, "download", fail)
+    monkeypatch.setattr(updates, "fetch_manifest", lambda channel: latest)
+    monkeypatch.setattr(updates, "was_rolled_back", lambda manifest: replacement == "rolled back")
+    with pytest.raises(UpdateError, match="checksum"):
+        updates.download_update(old, asset, tmp_path)
+    assert len(seen) == (2 if replacement == "corrupt" else 1)
+
+
+def test_download_update_does_not_refresh_after_success_or_cancellation(tmp_path, monkeypatch):
+    asset = _asset_for(b"old")
+    old = updates.Manifest("1", 120, "nightly", "", "", 2, {asset.name: asset})
+    monkeypatch.setattr(updates, "fetch_manifest", lambda channel: pytest.fail("unexpected refresh"))
+    download = updates.download
+    monkeypatch.setattr(updates, "download", lambda *a, **kw: download(*a, **kw, opener=_opener(b"old")))
+    assert updates.download_update(old, asset, tmp_path)[0] == old
+    with pytest.raises(UpdateError, match="Cancelled"):
+        updates.download_update(old, asset, tmp_path, cancelled=lambda: True)
+
+
 # ── Offline ──────────────────────────────────────────────────────────────────
 # A wifi can reach the phone and nothing else. Every way a connection with no internet behind it fails has to
 # end in an UpdateError the UI can show, quickly, with nothing left behind.

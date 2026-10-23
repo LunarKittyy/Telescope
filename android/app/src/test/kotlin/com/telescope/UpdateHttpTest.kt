@@ -5,6 +5,7 @@ import java.io.IOException
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketException
+import java.nio.file.Files
 import java.security.MessageDigest
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
@@ -110,4 +111,62 @@ class UpdateHttpTest {
             assertEquals(emptyList<String>(), dir.list()!!.toList(), name)
         }
     }
+
+    private fun manifest(build: Int, url: String, bytes: ByteArray): UpdateManifest {
+        val sha = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+        return UpdateManifest("1", build, "nightly", assets = listOf(
+            ManifestAsset("Telescope.apk", url, sha, bytes.size.toLong())),
+            android = ManifestAndroid(build, "1-nightly.$build", "Telescope.apk"))
+    }
+
+    @Test
+    fun `a replaced nightly retries with its new size and checksum`() {
+        val bytes = "newer".toByteArray()
+        val url = serve { conn ->
+            send(conn, "HTTP/1.1 200 OK\r\nContent-Length: ${bytes.size}\r\n\r\nnewer")
+        }
+        for (old in listOf("old", "old build much larger than new", "older")) {
+            val dir = Files.createTempDirectory("update").toFile()
+            try {
+                val dest = File(dir, "Telescope.apk")
+                val latest = manifest(121, url, bytes)
+                val seen = mutableListOf<Int>()
+                val (selected, problem) = http.downloadUpdate(manifest(120, url, old.toByteArray()), dest,
+                    EnglishStrings, fetchLatest = { latest }, progress = { current, _ -> seen += current.build })
+                assertEquals(null, problem)
+                assertEquals(latest, selected)
+                assertEquals("newer", dest.readText())
+                assertEquals(121, seen.last())
+                assertEquals(listOf("Telescope.apk"), dir.list()!!.toList())
+            } finally {
+                dir.deleteRecursively()
+            }
+        }
+    }
+
+    @Test
+    fun `an unchanged or corrupt release still fails and retries at most once`() {
+        var requests = 0
+        val url = serve { conn ->
+            requests++
+            send(conn, "HTTP/1.1 200 OK\r\nContent-Length: 8\r\n\r\ntampered")
+        }
+        val old = manifest(120, url, "old".toByteArray())
+        val latest = manifest(121, url, "newer".toByteArray())
+        for (replacement in listOf(null, old, latest.copy(build = 119), latest.copy(channel = "stable"),
+                                   latest.copy(android = old.android), latest)) {
+            val dir = Files.createTempDirectory("update").toFile()
+            try {
+                val before = requests
+                val (_, problem) = http.downloadUpdate(old, File(dir, "Telescope.apk"), EnglishStrings,
+                    fetchLatest = { replacement }, progress = { _, _ -> })
+                assertNotNull(problem)
+                assertEquals(if (replacement == latest) 2 else 1, requests - before)
+                assertEquals(emptyList<String>(), dir.list()!!.toList())
+            } finally {
+                dir.deleteRecursively()
+            }
+        }
+    }
+
 }

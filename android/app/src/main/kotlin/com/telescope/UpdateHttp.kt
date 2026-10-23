@@ -66,6 +66,19 @@ internal class UpdateHttp(private val userAgent: String, private val timeoutMs: 
         }
     }
 
+    // Rolling nightly assets can change after the update card was shown; retry once with fresh checksums.
+    fun downloadUpdate(manifest: UpdateManifest, dest: File, strings: Strings,
+                       fetchLatest: () -> UpdateManifest?, progress: (UpdateManifest, Int) -> Unit): Pair<UpdateManifest, String?> {
+        val asset = UpdateLogic.apkAsset(manifest) ?: return manifest to strings.get(R.string.update_error_not_an_app)
+        val problem = download(asset, dest, strings) { progress(manifest, it) } ?: return manifest to null
+        val latest = runCatching { fetchLatest() }.getOrNull() ?: return manifest to problem
+        val replacement = UpdateLogic.apkAsset(latest)
+        if (latest.channel != manifest.channel || latest.build <= manifest.build ||
+            latest.android.versionCode <= manifest.android.versionCode || replacement == null) return manifest to problem
+        progress(latest, 0)
+        return latest to download(replacement, dest, strings) { progress(latest, it) }
+    }
+
     private fun open(url: String): HttpURLConnection =
         (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = timeoutMs
