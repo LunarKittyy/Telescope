@@ -4,6 +4,7 @@ Planned in October 2026, after 4.1. The first two were left over from 4.0 and di
 
 - [ ] [720p when the phone gets critically hot](#720p-when-the-phone-gets-critically-hot)
 - [ ] [Saying to extract the Windows zip first](#saying-to-extract-the-windows-zip-first)
+- [ ] [Live notification for streaming status](#live-notification-for-streaming-status)
 - [ ] [Dependency updates](#dependency-updates)
 
 ## 720p when the phone gets critically hot
@@ -17,6 +18,12 @@ Medium. Needs a real phone that gets hot enough, since the emulator never reache
 Opening `TelescopeDesktop.exe` straight from the portable zip fails with "Failed to load Python DLL". Windows 11 only extracts the exe itself into a temp folder (without `lib-<build>`) and the loader gives up before any of Telescope's code runs. That means `warn_running_from_archive()` in `desktop/telescope/platform/windows.py` never gets a chance. Windows does warn about it first but plenty of people click Run anyway.
 
 A small launcher exe that checks for its `lib` folder before starting the real one could show the "extract first" message itself. Small to medium, mostly packaging in `desktop/telescope.spec` and the release workflow.
+
+## Live notification for streaming status
+
+Android has a newer live notification style for ongoing activity, and the phone app could use it to show the streaming status (connected, streaming, paused) on the lock screen and status bar. Not started. The Android docs need reading first, to see which Android versions support it, what the API looks like and how it fits with the foreground service notification we already have. Don't build anything until that research is done.
+
+Unknown until researched. Needs a real phone on a version that supports it.
 
 ## Dependency updates
 
