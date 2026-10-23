@@ -166,6 +166,91 @@ def test_without_a_pack_its_missing_and_tries_again_later():
     _wait(lambda: len(tries) == 2)
 
 
+@pytest.mark.parametrize("error", [None, FileNotFoundError, OSError])
+def test_a_loader_finishing_after_shutdown_does_not_notify_the_window(error):
+    entered, finish = threading.Event(), threading.Event()
+    states, loaders = [], []
+
+    def find():
+        loaders.append(threading.current_thread())
+        entered.set()
+        assert finish.wait(2)
+        if error:
+            raise error("test load failed")
+        return _Backend()
+
+    v = Vision(on_people=lambda *_: None, on_state=states.append, find=find)
+    v.load()
+    try:
+        assert entered.wait(2)
+        v.shutdown()
+    finally:
+        finish.set()
+        if loaders:
+            loaders[0].join(2)
+    assert not loaders[0].is_alive()
+    assert states == [LOADING]
+    v.load()
+    assert len(loaders) == 1
+
+
+def test_shutdown_waits_for_a_state_callback_already_in_progress():
+    entered, finish, stopped = threading.Event(), threading.Event(), threading.Event()
+    loaders = []
+
+    def find():
+        loaders.append(threading.current_thread())
+        return _Backend()
+
+    def on_state(state):
+        if state == READY:
+            entered.set()
+            assert finish.wait(2)
+
+    v = Vision(on_people=lambda *_: None, on_state=on_state, find=find)
+    v.load()
+    assert entered.wait(2)
+
+    def stop():
+        v.shutdown()
+        stopped.set()
+
+    shutdown = threading.Thread(target=stop)
+    shutdown.start()
+    try:
+        assert not stopped.wait(0.05)
+    finally:
+        finish.set()
+        shutdown.join(2)
+        loaders[0].join(2)
+    assert stopped.is_set()
+
+
+def test_people_detection_finishing_after_shutdown_does_not_notify_the_window():
+    entered, finish = threading.Event(), threading.Event()
+    v, backend, _states, people = _ready()
+
+    def pose():
+        def detect(_frame, _timestamp):
+            entered.set()
+            assert finish.wait(2)
+            return [Person({})]
+        return detect, lambda: backend.closed.append("pose")
+
+    backend.pose = pose
+    v.want_people("test", True)
+    _in_stream("a", 1, lambda: v.feed_raw(np.zeros((8, 8, 3), np.uint8)))
+    worker = v._streams["a"].people_thread
+    try:
+        assert entered.wait(2)
+        v.shutdown()
+    finally:
+        finish.set()
+        worker.join(2)
+    assert not worker.is_alive()
+    assert people == [] and backend.closed == ["pose"]
+
+
 def test_a_broken_mediapipe_fails_once_and_names_only_the_error():
     tries = []
 

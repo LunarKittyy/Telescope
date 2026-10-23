@@ -257,6 +257,7 @@ class Vision:
         self._ms = {"mask": [], "people": []}  # recent timings, for diagnostics
         self._tidier: Optional[threading.Thread] = None
         self._closed = threading.Event()
+        self._callback_lock = threading.RLock()
 
     # ── Loading ───────────────────────────────────────────────────────────
 
@@ -273,6 +274,8 @@ class Vision:
     def load(self):
         """Start loading MediaPipe in the background, once; after no pack was found, again every _LOOK_AGAIN_S."""
         with self._lock:
+            if self._closed.is_set():
+                return
             if self._state in (LOADING, READY, FAILED):
                 return
             if self._state == MISSING and time.monotonic() - self._looked_at < _LOOK_AGAIN_S:
@@ -304,11 +307,14 @@ class Vision:
         self._set_state(READY)
 
     def _set_state(self, state: str):
-        self._state = state
-        try:
-            self._on_state(state)
-        except Exception:
-            logger.exception("Vision state callback failed")
+        with self._callback_lock:
+            if self._closed.is_set():
+                return
+            self._state = state
+            try:
+                self._on_state(state)
+            except Exception:
+                logger.exception("Vision state callback failed")
 
     # ── Person masks (worker thread, inside the plugin steps) ─────────────
 
@@ -430,7 +436,9 @@ class Vision:
                     logger.exception("Looking for people failed; trying the next frame")
                     continue
                 self._note("people", t0)
-                self._on_people(key, people)
+                with self._callback_lock:
+                    if not self._closed.is_set():
+                        self._on_people(key, people)
         finally:
             close()
             if done.is_set():
@@ -495,7 +503,9 @@ class Vision:
                 sv.segment = sv.close_segmenter = None
 
     def shutdown(self):
-        self._closed.set()
+        # No callback may still be emitting into Qt when shutdown returns.
+        with self._callback_lock:
+            self._closed.set()
         for key in list(self._streams):
             self.drop_stream(key)
 
