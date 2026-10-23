@@ -18,7 +18,7 @@ This is a self-signed debug build for development.
 
 ```bash
 cd desktop
-python -m pytest -q              # tests
+python -m pytest -q              # tests (add -n auto to run them in parallel, as CI does)
 python scripts/smoke_check.py    # packaging smoke checks
 ```
 
@@ -72,7 +72,7 @@ They also run on every pull request without publishing. Their checks are called 
 | Workflow | Runs for | What it does |
 |---|---|---|
 | `build-apk.yml` | `android/**`, `VERSION` | `./gradlew lintDebug testDebugUnitTest`, then `assembleRelease`. In a release it checks the APK isn't debug-signed |
-| `build-windows.yml` | `desktop/**`, `installer/**`, `VERSION` | Installs dependencies, runs `pytest` and `smoke_check.py`, checks the driver install for real on the runner, builds the app folder with PyInstaller (`telescope.spec`) and `TelescopeSetup.exe` with Inno Setup, and checks the installer, update and uninstall paths |
+| `build-windows.yml` | `desktop/**`, `installer/**`, `VERSION` | Installs dependencies, runs `pytest` and `smoke_check.py`, checks the driver install for real on the runner, builds the app folder with PyInstaller (`telescope.spec`), and on pull requests builds a quick `TelescopeSetup.exe` with Inno Setup and checks the installer, update and uninstall paths. A release does those last two in `release.yml`, on the setup it publishes |
 | `build-linux.yml` | `desktop/**`, `VERSION` | Runs `pytest` and `smoke_check.py`, then assembles the source bundle: `main.py`, `update_guard.py`, the `telescope/` package, the requirements files, `start.sh` and the notices. There's no compiled build step since `start.sh` makes its own venv on first run |
 
 The Windows setup (`installer/Telescope.iss`) is per-user: it installs to `%LOCALAPPDATA%\Programs\Telescope` without admin, because the app updates itself in place and needs its folder writable. It doesn't touch the camera driver (the first-run checklist installs that). Uninstalling closes a running Telescope, deletes the log and the downloaded adb, asks before deleting settings and pairings, and offers to remove the camera driver and firewall rules (one UAC prompt). Keep its `AppId` as it is since Windows finds an existing install by it.

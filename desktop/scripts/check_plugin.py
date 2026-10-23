@@ -137,6 +137,7 @@ def check_running(folder: Path, name: str, log: _Logged):
         _fail(f"Starting it: {win._plugin_problems.get(name, 'it was left out')}")
         for record in log.take():
             _indented(record)
+        win._shut_down()  # the wait screen's thread is still drawing, and crashes Qt if the process exits under it
         return
     _ok(f"Starting it next to the built-in plugins ({len(win._plugins) - 1} of them)")
     _logged("Setting it up", log)

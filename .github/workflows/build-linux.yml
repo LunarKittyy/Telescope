@@ -70,7 +70,7 @@ jobs:
 
       - name: Run tests
         working-directory: desktop
-        run: python -m pytest -q
+        run: python -m pytest -q -n auto
 
       # The release builds the vision packs again (release.yml); this catches a pin that changed without a new
       # vision_pack.json, and runs the real models once.

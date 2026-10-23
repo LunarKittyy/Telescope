@@ -52,7 +52,12 @@ SetupIconFile=..\desktop\resources\telescope.ico
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName=Telescope
 WizardStyle=modern
+; CI's pull request check only installs and uninstalls it, so it passes /DFast to skip the slow squeeze
+#ifdef Fast
+Compression=lzma2/fast
+#else
 Compression=lzma2/max
+#endif
 SolidCompression=yes
 OutputDir={#OutputDir}
 OutputBaseFilename=TelescopeSetup
