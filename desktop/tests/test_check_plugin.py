@@ -49,8 +49,8 @@ def test_a_plugin_that_wont_load_says_why(tmp_path):
     assert code == 1 and "No module named 'not_a_module_anywhere'" in out, out
 
 
-@pytest.mark.parametrize("interrupted", [False, True])
-def test_checker_destroys_its_window_before_releasing_qt(qapp, monkeypatch, tmp_path, interrupted):
+@pytest.mark.parametrize("failure", [None, "setup", "shutdown"])
+def test_checker_destroys_its_window_before_releasing_qt(qapp, monkeypatch, tmp_path, failure):
     from PyQt6 import sip
     from PyQt6.QtWidgets import QWidget
     from scripts import check_plugin
@@ -61,41 +61,25 @@ def test_checker_destroys_its_window_before_releasing_qt(qapp, monkeypatch, tmp_
     class Window(QWidget):
         def _shut_down(self):
             shutdown.append(not sip.isdeleted(self))
+            if failure == "shutdown":
+                raise RuntimeError("shutdown failed")
 
     win = Window()
     child = QWidget(win)
     monkeypatch.setattr(app, "TelescopeWindow", lambda: win)
 
     def check_window(*_args):
-        if interrupted:
+        if failure == "setup":
             raise RuntimeError("setup failed")
         return  # a plugin that did not load returns early too
 
     monkeypatch.setattr(check_plugin, "_check_window", check_window)
     log = check_plugin._Logged("broken", tmp_path)
-    if interrupted:
-        with pytest.raises(RuntimeError, match="setup failed"):
+    if failure:
+        with pytest.raises(RuntimeError, match=f"{failure} failed"):
             check_plugin.check_running(tmp_path, "broken", log)
     else:
         check_plugin.check_running(tmp_path, "broken", log)
     assert shutdown == [True]
     assert sip.isdeleted(win) and sip.isdeleted(child)
     assert not sip.isdeleted(qapp)
-
-
-def test_checker_destroys_its_window_even_if_shutting_down_fails(qapp, monkeypatch, tmp_path):
-    from PyQt6 import sip
-    from PyQt6.QtWidgets import QWidget
-    from scripts import check_plugin
-    from telescope import app
-
-    class Window(QWidget):
-        def _shut_down(self):
-            raise RuntimeError("shutdown failed")
-
-    win = Window()
-    monkeypatch.setattr(app, "TelescopeWindow", lambda: win)
-    monkeypatch.setattr(check_plugin, "_check_window", lambda *_args: None)
-    with pytest.raises(RuntimeError, match="shutdown failed"):
-        check_plugin.check_running(tmp_path, "broken", check_plugin._Logged("broken", tmp_path))
-    assert sip.isdeleted(win)
