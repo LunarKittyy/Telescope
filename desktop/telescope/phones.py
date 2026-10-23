@@ -13,6 +13,7 @@ from dataclasses import dataclass, field, replace
 from typing import Callable, Optional
 
 from telescope import ip_utils
+from telescope.i18n import tr
 from telescope.pinned_https import PhoneAuth, is_fingerprint
 from telescope.session_client import (
     HELLO_MISSING, HELLO_USB_ONLY, PING_PORT, SESSION_PROTOCOL, Hello, PhoneSessionClient, clean_name,
@@ -277,9 +278,10 @@ _WINDOWS = sys.platform == "win32"  # adb is a click away there (platform/adb_do
 def usb_note_text(note: Optional[str]) -> str:
     """Why the connection isn't using USB, in the words the UI shows."""
     return {
-        USB_NO_ADB: "adb isn't installed, so USB can't be used" + (" (Add phone can get it)" if _WINDOWS else ""),
-        USB_NO_CABLE: "no phone plugged in over USB",
-        USB_UNAUTHORIZED: "phone plugged in, but USB debugging isn't allowed yet: accept the prompt on the phone",
-        USB_OTHER_PHONE: "the phone plugged in over USB is a different one",
-        USB_APP_CLOSED: "phone plugged in, but Telescope isn't open on it",
+        USB_NO_ADB: tr("adb isn't installed, so USB can't be used (Add phone can get it)") if _WINDOWS
+        else tr("adb isn't installed, so USB can't be used"),
+        USB_NO_CABLE: tr("no phone plugged in over USB"),
+        USB_UNAUTHORIZED: tr("phone plugged in, but USB debugging isn't allowed yet: accept the prompt on the phone"),
+        USB_OTHER_PHONE: tr("the phone plugged in over USB is a different one"),
+        USB_APP_CLOSED: tr("phone plugged in, but Telescope isn't open on it"),
     }.get(note, "")

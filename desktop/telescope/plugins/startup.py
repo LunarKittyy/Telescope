@@ -390,12 +390,12 @@ class AutomaticStreamingSection(QWidget):
                           ctx="search"))
 
         self._start = self._choice(START_CHOICES, plugin.set_start_on)
-        strip, _ = setting_row(tr("Start"), "", None, self._start,
+        strip, _ = setting_row(tr("Start", ctx="setting"), "", None, self._start,
                                keywords=tr("automatically begin streaming when phone ready app opens the camera auto "
                                            "start", ctx="search"))
         lay.addWidget(strip)
         self._stop = self._choice(STOP_CHOICES, plugin.set_stop_idle)
-        strip, _ = setting_row(tr("Stop"), "", None, self._stop,
+        strip, _ = setting_row(tr("Stop", ctx="setting"), "", None, self._stop,
                                keywords=tr("automatically end streaming idle no app uses the camera auto stop", ctx="search"))
         lay.addWidget(strip)
         self._mic_note = wrapped_note(tr("With the phone mic on, only the camera turns off."))

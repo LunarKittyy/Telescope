@@ -17,7 +17,7 @@ from telescope import vcam
 from telescope.phone_client import PhoneControlClient
 from telescope.phones import DESKTOP_OUTDATED, LOCAL_ONLY, NOT_PAIRED, PHONE_OUTDATED, READY
 from telescope.widgets.banner import BannerAction, Issue
-from telescope.i18n import N_, tr
+from telescope.i18n import N_, sentence, tr
 
 if TYPE_CHECKING:
     from telescope.session import StreamSession
@@ -614,7 +614,7 @@ class PhoneSource(Source):
                 host.stop_source(self)
                 host.show_issue(f"stopped:{self.id}", Issue(
                     tr("The phone is streaming to {computer}", computer=other) if not host.is_streaming()
-                    else tr("{phone} is streaming to {computer}", phone=self.name, computer=other),
+                    else sentence(tr("{phone} is streaming to {computer}", phone=self.name, computer=other)),
                     tr("Stop it there or on the phone, then start again."),
                     [BannerAction(tr("Start"), lambda: host.start_source(self.id))], kind="warn"))
                 return
@@ -623,7 +623,7 @@ class PhoneSource(Source):
                 host.stop_source(self)
                 host.show_issue(f"stopped:{self.id}", Issue(
                     tr("The phone stopped streaming") if not host.is_streaming()
-                    else tr("{phone} stopped streaming", phone=self.name),
+                    else sentence(tr("{phone} stopped streaming", phone=self.name)),
                     tr("Start again when you're ready."),
                     [BannerAction(tr("Start"), lambda: host.start_source(self.id))], kind="warn"))
                 return

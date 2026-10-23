@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from telescope import diagnostics, h264_reader, pyav_vaapi, theme, vcam, vision
+from telescope import diagnostics, h264_reader, i18n, pyav_vaapi, theme, vcam, vision
 from telescope.platform import IS_LINUX, adb_available, adb_devices, adb_install, bundled_apk_path
 from telescope.platform.linux import (
     CANCELLED, V4L2_OBS_DEV, V4L2_PHONE_DEV, result_parts,
@@ -33,7 +33,7 @@ from telescope.widgets.common import (
     set_button_icon,
     Switch,
     NoScrollComboBox, NoScrollSpinBox, SegmentButton, action_button, add_card_header, button_row, card_layout,
-    create_card, refresh_hues,
+    card_action, create_card, refresh_hues,
     run_off_ui_thread, segmented_row,
     set_status_kind, set_ui_role, ui_px, wrapped_note,
 )
@@ -113,7 +113,7 @@ class AdvancedSettings(QWidget):
 
     def __init__(self, parent=None, on_apply_canvas=None, report=None, on_max_zoom=None, on_max_gain=None,
                  on_limiter=None, on_remove_extras=None, extras_in_use=None, on_hw_decode=None,
-                 on_plugin_hues=None, on_vaapi=None, on_power_saving=None):
+                 on_plugin_hues=None, on_vaapi=None, on_power_saving=None, on_language=None, on_restart=None):
         super().__init__(parent)
         self._on_remove_extras = on_remove_extras
         self._extras_in_use = extras_in_use or (lambda: False)
@@ -128,6 +128,8 @@ class AdvancedSettings(QWidget):
         self._on_vaapi = on_vaapi
         self._on_plugin_hues = on_plugin_hues
         self._on_power_saving = on_power_saving
+        self._on_language = on_language
+        self._on_restart = on_restart
         self._build_ui()
         self._sig_v4l_result.connect(self._on_v4l_result)
         self._sig_v4l_unload.connect(self._on_v4l_unload_result)
@@ -421,6 +423,23 @@ class AdvancedSettings(QWidget):
         strip, _ = setting_row(tr("Card colours"), "", None, segmented_row(self._hues_own, self._hues_purple),
                                keywords=tr("color colour theme appearance monochrome colourful purple hue accent look", ctx="search"))
         look_lay.addWidget(strip)
+        self._lang_combo = NoScrollComboBox()
+        self._lang_combo.addItem(tr("Same as the system"), "")
+        for lang in [i18n.SOURCE_LANGUAGE] + i18n.available():
+            self._lang_combo.addItem(i18n.native_name(lang), lang)
+        self._lang_combo.currentIndexChanged.connect(self._language_picked)
+        self._lang_restart = QWidget()
+        restart_lay = QHBoxLayout(self._lang_restart)
+        restart_lay.setContentsMargins(0, 0, 0, 0)
+        restart_lay.setSpacing(8)
+        restart_lay.addWidget(wrapped_note(tr("Restart Telescope to switch to it."), "status_warn"), 1)
+        restart_btn = card_action(tr("Restart now"), "reset", tr("Start Telescope again in the language you picked"))
+        restart_btn.clicked.connect(lambda: self._on_restart() if self._on_restart else None)
+        restart_lay.addWidget(restart_btn, 0, Qt.AlignmentFlag.AlignVCenter)
+        self._lang_restart.setVisible(False)
+        strip, _ = setting_row(tr("Language"), "", self._lang_combo, self._lang_restart,
+                               keywords=tr("language translation translate locale", ctx="search"))
+        look_lay.addWidget(strip)
         self._place("general", look_card, order=10)
 
         about_card = create_card(self)
@@ -557,6 +576,18 @@ class AdvancedSettings(QWidget):
 
     def set_plugin_hues(self, on: bool):
         (self._hues_own if on else self._hues_purple).setChecked(True)
+
+    def set_language(self, lang: str):
+        self._lang_combo.blockSignals(True)  # syncing the stored value isn't a change
+        self._lang_combo.setCurrentIndex(max(0, self._lang_combo.findData(lang)))
+        self._lang_combo.blockSignals(False)
+        self._lang_restart.setVisible(i18n.resolve(lang) != i18n.language())
+
+    def _language_picked(self):
+        lang = self._lang_combo.currentData()
+        self._lang_restart.setVisible(i18n.resolve(lang) != i18n.language())
+        if self._on_language:
+            self._on_language(lang)
 
     def set_limiter(self, on: bool):
         self._limiter_chk.blockSignals(True)  # syncing the stored value isn't a change
@@ -695,7 +726,7 @@ class AdvancedSettings(QWidget):
             set_status_kind(self._uc_status_lbl, "status_err")
             dlls = unitycapture_downloaded(unitycapture_dir())
             self._uc_status_lbl.setText(
-                tr("Not installed") if dlls else tr("Not installed (Install downloads the driver first)"))
+                tr("Not installed") if dlls else tr("Not installed (Install driver downloads it first)"))
             self._uc_btn.setText(tr("Install driver"))
             self._uc_btn.setToolTip("")
             set_ui_role(self._uc_btn, "primary")
@@ -844,6 +875,7 @@ class SetupPlugin(TelescopePlugin):
         self._hw_decode = False
         self._power_saving = False
         self._plugin_hues = True
+        self._language = ""  # the system's
         self._canvas_preset = "Auto (from first frame)"
         self._custom_w = 1920
         self._custom_h = 1080
@@ -864,7 +896,8 @@ class SetupPlugin(TelescopePlugin):
             on_limiter=self._on_limiter, on_plugin_hues=self._on_plugin_hues,
             on_remove_extras=lambda done: self._host.remove_extra_cameras(done),
             extras_in_use=lambda: self._host.stream_count() > 1,
-            on_hw_decode=self._on_hw_decode, on_vaapi=self._open_vaapi, on_power_saving=self._on_power_saving)
+            on_hw_decode=self._on_hw_decode, on_vaapi=self._open_vaapi, on_power_saving=self._on_power_saving,
+            on_language=self._on_language, on_restart=lambda: self._host.restart_app())
         self._sync_panel()
         return [replace(section, on_show=self._on_show) for section in self._panel.sections()]
 
@@ -878,6 +911,7 @@ class SetupPlugin(TelescopePlugin):
         panel.set_hw_decode(self._hw_decode)
         panel.set_power_saving(self._power_saving)
         panel.set_plugin_hues(self._plugin_hues)
+        panel.set_language(self._language)
 
     def _on_show(self):
         self._sync_panel()
@@ -937,6 +971,10 @@ class SetupPlugin(TelescopePlugin):
         refresh_hues()
         self._host.schedule_save()
 
+    def _on_language(self, lang: str):
+        self._language = lang  # main.py loads it at the next start
+        self._host.schedule_save()
+
     def _on_limiter(self, on: bool):
         self._limiter = on
         self._bus.limiter_changed.emit(on)
@@ -975,6 +1013,7 @@ class SetupPlugin(TelescopePlugin):
             "hw_decode":       self._hw_decode,
             "power_saving":    self._power_saving,
             "plugin_hues":     self._plugin_hues,
+            "language":        self._language,
         }
 
     def set_config(self, cfg: dict):
@@ -995,5 +1034,7 @@ class SetupPlugin(TelescopePlugin):
         self._power_saving = cfg.get("power_saving") is True  # off unless turned on
         vision.set_power_saving(self._power_saving)
         self._plugin_hues = cfg.get("plugin_hues", True) is not False
+        language = cfg.get("language", "")
+        self._language = language if isinstance(language, str) else ""
         theme.set_plugin_hues(self._plugin_hues)
         refresh_hues()

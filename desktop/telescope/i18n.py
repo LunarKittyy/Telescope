@@ -55,10 +55,19 @@ def _fill(text: str, fallback: str, fields: dict) -> str:
         return fallback
 
 
+class Shown(str):
+    """A translated text that remembers its English, so a key saved from it doesn't change with the language."""
+
+    def __new__(cls, text: str, source: str):
+        shown = super().__new__(cls, text)
+        shown.english = source
+        return shown
+
+
 def tr(text: str, /, ctx: str = "", **fields) -> str:
     """The text in the current language, with {fields} filled in (any name but ctx)."""
     forms = _catalog.get((ctx, text))
-    return _fill(forms[0] if forms and forms[0] else text, text, fields)
+    return Shown(_fill(forms[0] if forms and forms[0] else text, text, fields), text)
 
 
 def trn(singular: str, plural: str, n: int, /, ctx: str = "", **fields) -> str:
@@ -75,8 +84,14 @@ def trn(singular: str, plural: str, n: int, /, ctx: str = "", **fields) -> str:
 
 def english(text: str) -> str:
     """The English a shown text was translated from (itself if it wasn't), for keys that are saved, like which cards
-    are folded: they mustn't change with the language."""
-    return _english.get(text, text)
+    are folded: they mustn't change with the language. A text from tr() knows; any other is looked up, which can
+    pick the wrong English when two texts are translated alike."""
+    return getattr(text, "english", None) or _english.get(text, text)
+
+
+def sentence(text: str) -> str:
+    """The text with a capital first letter, for one that can start with a filled-in field like "the phone"."""
+    return text[:1].upper() + text[1:]
 
 
 def and_list(words: list) -> str:
@@ -118,9 +133,6 @@ def pick(wanted: Iterable[str], have: Iterable[str]) -> str:
 
 def system_languages() -> List[str]:
     """The languages the desktop asks for, most wanted first."""
-    override = os.environ.get(ENV_LANGUAGE, "").strip()
-    if override:
-        return [override]
     try:
         from PyQt6.QtCore import QLocale
         return list(QLocale.system().uiLanguages())
@@ -128,10 +140,28 @@ def system_languages() -> List[str]:
         return []
 
 
+def resolve(chosen: str = "") -> str:
+    """The language to load for the one picked in Settings ("" is the system's). TELESCOPE_LANG wins over both."""
+    override = os.environ.get(ENV_LANGUAGE, "").strip()
+    return pick([override or chosen] if override or chosen else system_languages(), available())
+
+
+def native_name(lang: str) -> str:
+    """A language's name in itself, as a language picker lists it: "Svenska" for sv."""
+    if lang == SOURCE_LANGUAGE:
+        return "English"
+    try:
+        from PyQt6.QtCore import QLocale
+        name = QLocale(lang).nativeLanguageName()
+    except ImportError:
+        name = ""
+    return sentence(name) if name else lang
+
+
 def load(lang: Optional[str] = None) -> str:
     """Loads a language (the system's when None) and returns the one loaded. Call before building any window."""
     global _catalog, _english, _plural, _language
-    lang = pick([lang] if lang else system_languages(), available())
+    lang = pick([lang], available()) if lang else resolve()
     _catalog, _english, _plural, _language = {}, {}, (lambda n: int(n != 1)), SOURCE_LANGUAGE
     if lang == SOURCE_LANGUAGE:
         return _language
@@ -143,7 +173,7 @@ def load(lang: Optional[str] = None) -> str:
     _plural = plural_rule(header)
     _catalog = {(e.ctx, e.msgid): e.msgstr for e in entries if not e.fuzzy and any(e.msgstr)}
     for (ctx, msgid), forms in _catalog.items():
-        if not ctx and len(forms) == 1:
+        if ctx != "search" and len(forms) == 1:
             _english.setdefault(forms[0], msgid)  # two texts translated alike: the first one's English
     _language = lang
     _load_qt(lang)

@@ -106,10 +106,18 @@ def _attach_console():
         pass
 
 
+def _chosen_language() -> str:
+    """The language picked in Settings > General, "" for the system's."""
+    from telescope.config import load_config
+    setup = load_config().get("plugin_configs", {}).get("setup")
+    lang = setup.get("language") if isinstance(setup, dict) else ""
+    return lang if isinstance(lang, str) else ""
+
+
 def run_action(args) -> int:
     """--action / --list-actions: talk to the running copy, print what it says, and exit."""
     _attach_console()
-    i18n.load()
+    i18n.load(i18n.resolve(_chosen_language()))
     try:
         request = {"list": True} if args.list_actions else action_request(args.action)
     except ValueError as exc:
@@ -161,7 +169,7 @@ def main():
         if os.environ.get("QT_QPA_PLATFORMTHEME") not in ("gtk3", "xdgdesktopportal"):  # e.g. "kde", which it lacks
             os.environ["QT_QPA_PLATFORMTHEME"] = "xdgdesktopportal"
     app = QApplication([sys.argv[0]] + qt_argv)
-    i18n.load()  # before any window or dialog is built
+    i18n.load(i18n.resolve(_chosen_language()))  # before any window or dialog is built
     # Set at QApplication level so dialogs and window share icon.
     app.setWindowIcon(create_app_icon(64))
     if not dev_profile.active():  # a dev profile's window shouldn't group under the real app's dock icon
