@@ -69,7 +69,7 @@ def build(key: str, work: Path, cache: Path) -> Path:
     wheels = cache / f"wheels-{key}"
     subprocess.run([sys.executable, "-m", "pip", "download", "--quiet", "--disable-pip-version-check", "--no-deps",
                     "--only-binary=:all:", "--platform", PLATFORMS[key], "--platform", "any",
-                    "--python-version", "3.11", "--implementation", "py", "-d", str(wheels), *pins()], check=True)
+                    "--python-version", "3.12", "--implementation", "py", "-d", str(wheels), *pins()], check=True)
     root = work / key
     site = root / "site"
     site.mkdir(parents=True)

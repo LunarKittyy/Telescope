@@ -54,10 +54,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Set up Python 3.11
+      # Bundled into the app, so the newest one every pinned package has wheels for
+      - name: Set up Python 3.14
         uses: actions/setup-python@v7
         with:
-          python-version: '3.11'
+          python-version: '3.14'
           cache: pip
 
       - name: Install dependencies and PyInstaller
