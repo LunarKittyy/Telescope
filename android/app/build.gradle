@@ -22,7 +22,7 @@ android {
     defaultConfig {
         applicationId "com.telescope"
         minSdk 26
-        targetSdk 34
+        targetSdk 37
         versionCode buildNumber
         versionName appVersionName
         buildConfigField 'String', 'CHANNEL', "\"${channel}\""

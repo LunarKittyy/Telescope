@@ -52,6 +52,8 @@
     <string name="setup_title">Get set up</string>
     <string name="setup_camera">Camera</string>
     <string name="setup_camera_reason">To stream from this phone\'s cameras.</string>
+    <string name="setup_local_network">Local network</string>
+    <string name="setup_local_network_reason">So your computer can reach this phone over Wi-Fi. USB works without it.</string>
     <string name="setup_notifications">Notifications</string>
     <string name="setup_notifications_reason">Shows when the camera is streaming, and stops it from there.</string>
     <string name="setup_microphone">Microphone</string>

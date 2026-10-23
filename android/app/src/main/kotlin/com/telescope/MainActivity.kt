@@ -115,6 +115,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         RecentRuns.recordCrashes(this)
         setContentView(R.layout.activity_main)
+        SystemBars.pad(findViewById(R.id.root), top = findViewById(R.id.header))
         // The screen stays on while the app is open (the Wi-Fi locks only work with it on); the power button still turns it off
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
@@ -135,6 +136,7 @@ class MainActivity : AppCompatActivity() {
         checkLocalOnly.setOnCheckedChangeListener { _, checked ->
             StreamPrefs.setLocalOnly(this, checked)
             SessionEndpoint.refreshAnnouncement()
+            checkPermissions()
             if (service?.isStreaming == true) {
                 service?.stopStreaming()
                 unbind(); service = null
@@ -154,6 +156,7 @@ class MainActivity : AppCompatActivity() {
                 setBeepEnabled(false)
                 setOrientationLocked(false)
                 setBarcodeImageEnabled(false)
+                setCaptureActivity(ScanActivity::class.java)
             }
             scanLauncher.launch(opts)
         }
@@ -559,6 +562,13 @@ class MainActivity : AppCompatActivity() {
             SetupStep(Manifest.permission.CAMERA, getString(R.string.setup_camera),
                 getString(R.string.setup_camera_reason), cameraGranted()),
         )
+        // Android 17 blocks Wi-Fi traffic without it; USB goes through localhost and works either way
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN && !StreamPrefs.localOnly(this)) {
+            steps += SetupStep(Manifest.permission.ACCESS_LOCAL_NETWORK, getString(R.string.setup_local_network),
+                getString(R.string.setup_local_network_reason),
+                ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_LOCAL_NETWORK) ==
+                    PackageManager.PERMISSION_GRANTED)
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             steps += SetupStep(Manifest.permission.POST_NOTIFICATIONS, getString(R.string.setup_notifications),
                 getString(R.string.setup_notifications_reason),
