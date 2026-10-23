@@ -45,6 +45,10 @@ def _wait(condition, timeout=2.0):
         time.sleep(0.005)
 
 
+# A bit more than Windows' clock step (about 16 ms), so turning a clock back by an interval is past it there too
+_TICK = 0.02
+
+
 def _in_stream(key, seq, fn):
     token = vision.current_frame.set((key, seq))
     try:
@@ -81,13 +85,28 @@ def test_while_nothing_moves_the_mask_is_worked_out_less_often():
     still = np.full((720, 1280, 3), 80, np.uint8)
     masks = [_in_stream("a", seq, lambda: v.person_mask(still)) for seq in (1, 2, 3)]
     assert len(backend.segmented) == 1 and masks[1] is masks[0] and masks[2] is masks[0]
-    v._streams["a"].mask_at -= vision._MASK_STILL_EVERY_S
+    v._streams["a"].mask_at -= vision._MASK_STILL_EVERY_S + _TICK
     _in_stream("a", 4, lambda: v.person_mask(still))
     assert len(backend.segmented) == 2  # still, but it's been a while
     moved = still.copy()
     moved[200:500, 400:700] = 200  # someone's arm
     _in_stream("a", 5, lambda: v.person_mask(moved))
     assert len(backend.segmented) == 3  # straight away
+
+
+def test_more_of_the_last_mask_carries_over_while_nothing_moves():
+    v, backend, _states, _people = _ready()
+    values = iter((200, 0, 0))
+    backend.segmenter = lambda: (lambda frame, _ts: np.full(frame.shape[:2], next(values), np.uint8), lambda: None)
+    still = np.full((720, 1280, 3), 80, np.uint8)
+    _in_stream("a", 1, lambda: v.person_mask(still))
+    v._streams["a"].mask_at -= vision._MASK_STILL_EVERY_S + _TICK
+    calm = _in_stream("a", 2, lambda: v.person_mask(still))
+    assert calm[0, 0] == round(200 * vision._MASK_CARRY_STILL)
+    moved = still.copy()
+    moved[200:500, 400:700] = 200
+    quick = _in_stream("a", 3, lambda: v.person_mask(moved))
+    assert quick[0, 0] == round(calm[0, 0] * vision._MASK_CARRY)
 
 
 def test_camera_noise_alone_doesnt_count_as_moving():
@@ -248,7 +267,7 @@ def test_people_are_looked_for_less_often_while_nothing_moves(monkeypatch):
         sv = v._streams["a"]
         sent.append(sv.people_frame is not None)
         sv.people_frame = None
-        sv.people_at -= ago  # time passing until the next one
+        sv.people_at -= ago + _TICK  # time passing until the next one
     feed(1, still, vision._PEOPLE_EVERY_S)
     feed(2, still, vision._PEOPLE_STILL_EVERY_S)
     feed(3, still, vision._PEOPLE_EVERY_S)

@@ -23,6 +23,7 @@ _PEOPLE_STILL_EVERY_S = 0.33  # and while nothing does
 _PEOPLE_WIDTH = 640  # the size the pose model gets the frame at
 _MAX_PEOPLE = 3
 _MASK_CARRY = 0.3  # how much of the last frame's mask carries into the next
+_MASK_CARRY_STILL = 0.5  # and while nothing moves: the edges flicker half as much, and there's no movement to lag behind
 _MASK_STILL_EVERY_S = 1 / 15  # while nothing moves the mask is worked out this often, instead of for every frame
 _MODEL_SIZE = (256, 144)  # the segmenter's input (selfie_segmenter_landscape): MediaPipe shrinks anything bigger to it
 # Moving: more than this share of a tiny grey copy changed by more than this many levels since the frame last used
@@ -300,11 +301,13 @@ class Vision:
         small = model_input(frame)
         now = time.monotonic()
         # Nothing moving: the last mask still fits, so the model runs less often (anything moving brings it back)
-        if sv.mask_motion.moved(small) or sv.small_mask is None or now - sv.mask_at >= _MASK_STILL_EVERY_S:
+        moved = sv.mask_motion.moved(small)
+        if moved or sv.small_mask is None or now - sv.mask_at >= _MASK_STILL_EVERY_S:
             t0 = time.perf_counter()
             mask = sv.segment(small, sv.mask_clock.next())
             if sv.small_mask is not None and sv.small_mask.shape == mask.shape:
-                mask = cv2.addWeighted(mask, 1.0 - _MASK_CARRY, sv.small_mask, _MASK_CARRY, 0)  # less flicker at the edges
+                carry = _MASK_CARRY if moved else _MASK_CARRY_STILL  # less flicker at the edges, more while nothing moves
+                mask = cv2.addWeighted(mask, 1.0 - carry, sv.small_mask, carry, 0)
             self._note("mask", t0)
             sv.mask_motion.used()
             sv.small_mask, sv.mask_at, sv.mask = mask, now, None
