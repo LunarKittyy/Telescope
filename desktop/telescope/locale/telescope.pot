@@ -370,6 +370,12 @@ msgstr ""
 msgid "{items} and {last}"
 msgstr ""
 
+#: telescope/i18n.py:110
+#, python-brace-format
+msgctxt "percentage"
+msgid "{n}%"
+msgstr ""
+
 #: telescope/platform/__init__.py:217
 msgid "The Telescope app on the phone was signed differently. Uninstall it on the phone, then try again."
 msgstr ""
@@ -1020,7 +1026,7 @@ msgstr ""
 msgid "Waiting for a browser"
 msgstr ""
 
-#: telescope/plugins/browser_camera.py:318 telescope/plugins/shortcuts.py:183 telescope/plugins/shortcuts.py:187 telescope/shortcuts.py:280 telescope/shortcuts.py:302 telescope/shortcuts.py:340 telescope/shortcuts.py:341 telescope/shortcuts.py:410 telescope/shortcuts.py:499 telescope/shortcuts.py:501 telescope/shortcuts.py:515 telescope/shortcuts.py:516 telescope/widgets/common.py:927
+#: telescope/plugins/browser_camera.py:318 telescope/plugins/shortcuts.py:183 telescope/plugins/shortcuts.py:187 telescope/shortcuts.py:281 telescope/shortcuts.py:303 telescope/shortcuts.py:341 telescope/shortcuts.py:342 telescope/shortcuts.py:411 telescope/shortcuts.py:501 telescope/shortcuts.py:503 telescope/shortcuts.py:517 telescope/shortcuts.py:518 telescope/widgets/common.py:927
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr ""
@@ -1122,6 +1128,11 @@ msgstr ""
 
 #: telescope/plugins/camera_control.py:38
 msgid "External"
+msgstr ""
+
+#: telescope/plugins/camera_control.py:58
+#, python-brace-format
+msgid "{n} m"
 msgstr ""
 
 #: telescope/plugins/camera_control.py:134 telescope/plugins/camera_control.py:167 telescope/plugins/camera_control.py:342
@@ -1296,6 +1307,11 @@ msgstr ""
 
 #: telescope/plugins/camera_control.py:451
 msgid "Unavailable"
+msgstr ""
+
+#: telescope/plugins/camera_control.py:517 telescope/plugins/camera_control.py:757 telescope/plugins/camera_control.py:858
+#, python-brace-format
+msgid "{n} EV"
 msgstr ""
 
 #: telescope/plugins/camera_control.py:552
@@ -2276,6 +2292,11 @@ msgstr ""
 msgid "Warnings"
 msgstr ""
 
+#: telescope/plugins/monitoring.py:108
+msgctxt "after a number"
+msgid "%"
+msgstr ""
+
 #: telescope/plugins/monitoring.py:110
 msgid "Counts as low at this level, even while charging if it keeps dropping"
 msgstr ""
@@ -2290,6 +2311,11 @@ msgstr ""
 
 #: telescope/plugins/monitoring.py:116
 msgid "Stop the stream when the battery runs low, and at every restart until it's fine again"
+msgstr ""
+
+#: telescope/plugins/monitoring.py:122
+msgctxt "after a number"
+msgid " °C"
 msgstr ""
 
 #: telescope/plugins/monitoring.py:123
@@ -2330,6 +2356,11 @@ msgstr ""
 
 #: telescope/plugins/monitoring.py:267
 msgid "Hot"
+msgstr ""
+
+#: telescope/plugins/monitoring.py:268
+#, python-brace-format
+msgid "{temp} °C"
 msgstr ""
 
 #: telescope/plugins/monitoring.py:301
@@ -2524,11 +2555,11 @@ msgstr ""
 msgid "Preset: {name}"
 msgstr ""
 
-#: telescope/plugins/presets.py:153 telescope/shortcuts.py:507
+#: telescope/plugins/presets.py:153 telescope/shortcuts.py:509
 msgid "Next"
 msgstr ""
 
-#: telescope/plugins/presets.py:153 telescope/shortcuts.py:507
+#: telescope/plugins/presets.py:153 telescope/shortcuts.py:509
 msgid "Previous"
 msgstr ""
 
@@ -2544,7 +2575,7 @@ msgstr ""
 msgid "Next or previous preset"
 msgstr ""
 
-#: telescope/plugins/presets.py:161 telescope/plugins/shortcuts.py:182 telescope/plugins/shortcuts.py:186 telescope/shortcuts.py:304 telescope/shortcuts.py:330 telescope/shortcuts.py:386 telescope/shortcuts.py:507
+#: telescope/plugins/presets.py:161 telescope/plugins/shortcuts.py:182 telescope/plugins/shortcuts.py:186 telescope/shortcuts.py:305 telescope/shortcuts.py:331 telescope/shortcuts.py:387 telescope/shortcuts.py:509
 msgid "Does"
 msgstr ""
 
@@ -3322,15 +3353,15 @@ msgstr ""
 msgid "Telescope: hidden"
 msgstr ""
 
-#: telescope/plugins/shortcuts.py:178 telescope/shortcuts.py:259
+#: telescope/plugins/shortcuts.py:178 telescope/shortcuts.py:260
 msgid "Switch on or off"
 msgstr ""
 
-#: telescope/plugins/shortcuts.py:178 telescope/shortcuts.py:259
+#: telescope/plugins/shortcuts.py:178 telescope/shortcuts.py:260
 msgid "Turn on"
 msgstr ""
 
-#: telescope/plugins/shortcuts.py:178 telescope/shortcuts.py:259
+#: telescope/plugins/shortcuts.py:178 telescope/shortcuts.py:260
 msgid "Turn off"
 msgstr ""
 
@@ -3579,7 +3610,7 @@ msgstr ""
 msgid "{n} min"
 msgstr ""
 
-#: telescope/plugins/startup.py:57
+#: telescope/plugins/startup.py:57 telescope/widgets/common.py:1003
 #, python-brace-format
 msgid "{n} s"
 msgstr ""
@@ -3886,6 +3917,11 @@ msgstr ""
 
 #: telescope/plugins/transforms.py:192 telescope/plugins/transforms.py:246
 msgid "Rotation"
+msgstr ""
+
+#: telescope/plugins/transforms.py:201 telescope/plugins/transforms.py:375
+#, python-brace-format
+msgid "{n}×"
 msgstr ""
 
 #: telescope/plugins/transforms.py:203 telescope/plugins/transforms.py:247
@@ -4245,99 +4281,99 @@ msgstr ""
 msgid "it built, but didn't load"
 msgstr ""
 
-#: telescope/shortcuts.py:260
+#: telescope/shortcuts.py:261
 msgid "Switch while held, back on release"
 msgstr ""
 
-#: telescope/shortcuts.py:325
+#: telescope/shortcuts.py:326
 msgid "Increase by"
 msgstr ""
 
-#: telescope/shortcuts.py:325
+#: telescope/shortcuts.py:326
 msgid "Decrease by"
 msgstr ""
 
-#: telescope/shortcuts.py:325 telescope/shortcuts.py:387
+#: telescope/shortcuts.py:326 telescope/shortcuts.py:388
 msgid "Set to"
 msgstr ""
 
-#: telescope/shortcuts.py:328
+#: telescope/shortcuts.py:329
 msgid "Reset to default"
 msgstr ""
 
-#: telescope/shortcuts.py:331
+#: telescope/shortcuts.py:332
 msgid "By"
 msgstr ""
 
-#: telescope/shortcuts.py:333 telescope/shortcuts.py:391
+#: telescope/shortcuts.py:334 telescope/shortcuts.py:392
 msgid "Value"
 msgstr ""
 
-#: telescope/shortcuts.py:368 telescope/shortcuts.py:415
+#: telescope/shortcuts.py:369 telescope/shortcuts.py:416
 #, python-brace-format
 msgid "{label}: set to {value}"
 msgstr ""
 
-#: telescope/shortcuts.py:371
+#: telescope/shortcuts.py:372
 #, python-brace-format
 msgid "{label}: reset to default"
 msgstr ""
 
-#: telescope/shortcuts.py:373
+#: telescope/shortcuts.py:374
 #, python-brace-format
 msgid "{label}: increase by {amount}"
 msgstr ""
 
-#: telescope/shortcuts.py:374
+#: telescope/shortcuts.py:375
 #, python-brace-format
 msgid "{label}: decrease by {amount}"
 msgstr ""
 
-#: telescope/shortcuts.py:386
+#: telescope/shortcuts.py:387
 msgid "Raise by"
 msgstr ""
 
-#: telescope/shortcuts.py:386
+#: telescope/shortcuts.py:387
 msgid "Lower by"
 msgstr ""
 
 #. the unit after a number of stops, with its space: "1.5 stops"
-#: telescope/shortcuts.py:389
+#: telescope/shortcuts.py:390
 msgid "Stops"
 msgstr ""
 
 #. the unit after a number of stops, with its space: "1.5 stops"
-#: telescope/shortcuts.py:389
+#: telescope/shortcuts.py:390
 msgid " stops"
 msgstr ""
 
-#: telescope/shortcuts.py:418
+#: telescope/shortcuts.py:420
 #, python-brace-format
 msgid "{label}: raise by {stops} stop"
 msgid_plural "{label}: raise by {stops} stops"
 msgstr[0] ""
 msgstr[1] ""
 
-#: telescope/shortcuts.py:420
+#: telescope/shortcuts.py:422
 #, python-brace-format
 msgid "{label}: lower by {stops} stop"
 msgid_plural "{label}: lower by {stops} stops"
 msgstr[0] ""
 msgstr[1] ""
 
-#: telescope/shortcuts.py:508
+#: telescope/shortcuts.py:510
 msgid "Pick"
 msgstr ""
 
-#: telescope/shortcuts.py:509
+#: telescope/shortcuts.py:511
 msgid "Option"
 msgstr ""
 
-#: telescope/shortcuts.py:516
+#: telescope/shortcuts.py:518
 msgid "next"
 msgstr ""
 
-#: telescope/shortcuts.py:516
+#: telescope/shortcuts.py:518
 msgid "previous"
 msgstr ""
 

@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
 
 from telescope import theme
 from telescope.widgets.line_icons import LINE_ICONS, line_icon
-from telescope.i18n import N_, tr
+from telescope.i18n import N_, number, tr
 
 
 # ── Shared desktop UI primitives ─────────────────────────────────────────────
@@ -1000,7 +1000,7 @@ def ns_to_display(ns: int) -> str:
     if ns <= 0: return "?"
     s = ns / 1_000_000_000.0
     if s >= 1.0:
-        return f"{s:.1f} s"
+        return tr("{n} s", n=number(s, 1))
     denom = round(1.0 / s)
     return f"1/{denom:,}"
 

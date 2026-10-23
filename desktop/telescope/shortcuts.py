@@ -20,7 +20,7 @@ from PyQt6.QtGui import QKeySequence
 from PyQt6.QtWidgets import QAbstractButton, QAbstractSlider, QComboBox, QWidget
 
 from telescope.platform import IS_WINDOWS
-from telescope.i18n import N_, tr, trn
+from telescope.i18n import N_, number, percent, tr, trn
 
 _PORTABLE = QKeySequence.SequenceFormat.PortableText
 _MODIFIER_KEYS = {Qt.Key.Key_Control, Qt.Key.Key_Shift, Qt.Key.Key_Alt, Qt.Key.Key_Meta, Qt.Key.Key_AltGr,
@@ -252,8 +252,9 @@ def control_ready(widget: Optional[QWidget]) -> bool:
 
 
 def _fmt(value: float, decimals: int, suffix: str, sign: bool = False) -> str:
-    text = f"{value:+.{decimals}f}" if sign else f"{value:.{decimals}f}"
-    return text + suffix
+    if suffix == "%":
+        return percent(value, decimals, sign)
+    return number(value, decimals, sign) + suffix
 
 
 _TOGGLE_MODES = (("toggle", N_("Switch on or off")), ("on", N_("Turn on")), ("off", N_("Turn off")),
@@ -415,9 +416,10 @@ def log_slider_action(id: str, label: str, group: str, row, display_scale: float
             return tr("{label}: set to {value}", label=label, value=_fmt(v, decimals, suffix) if v is not None else "…")
         stops = p.get("stops") or 0
         n = 1 if stops == 1 else 2
-        return (trn("{label}: raise by {stops} stop", "{label}: raise by {stops} stops", n, label=label, stops=f"{stops:g}")
+        amount = number(stops, 0 if float(stops).is_integer() else 1)
+        return (trn("{label}: raise by {stops} stop", "{label}: raise by {stops} stops", n, label=label, stops=amount)
                 if p["op"] == "up" else
-                trn("{label}: lower by {stops} stop", "{label}: lower by {stops} stops", n, label=label, stops=f"{stops:g}"))
+                trn("{label}: lower by {stops} stop", "{label}: lower by {stops} stops", n, label=label, stops=amount))
 
     return ShortcutAction(id, label, group, run, params=params, describe=describe,
                           repeats=lambda p: p.get("op") in ("up", "down"), widgets=(row,),
