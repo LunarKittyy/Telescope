@@ -314,7 +314,8 @@ class HostVision(Protocol):
         ...
 
     def want_people(self, owner: str, on: bool) -> None:
-        """While on, people_seen reports where the people in the shown stream are, about 12 times a second."""
+        """While on, people_seen reports where the people in the shown stream are, about 12 times a second while
+        anything moves and 3 while nothing does."""
         ...
 
 

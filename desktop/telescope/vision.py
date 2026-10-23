@@ -18,10 +18,19 @@ from telescope.vision_pack import POSE_MODEL, SEGMENTER_MODEL
 
 logger = logging.getLogger(__name__)
 
-_PEOPLE_EVERY_S = 0.08  # how often people are looked for (about 12 a second); framing smooths in between
+# How often people are looked for while something moves (about 12 a second); framing smooths in between
+_PEOPLE_EVERY_S = 0.08
+_PEOPLE_STILL_EVERY_S = 0.33  # and while nothing does
 _PEOPLE_WIDTH = 640  # the size the pose model gets the frame at
 _MAX_PEOPLE = 3
 _MASK_CARRY = 0.3  # how much of the last frame's mask carries into the next
+_MASK_CARRY_STILL = 0.5  # and while nothing moves: steadier edges, and no movement to lag behind
+_MASK_STILL_EVERY_S = 1 / 15  # while nothing moves the mask is worked out this often, instead of for every frame
+_MODEL_SIZE = (256, 144)  # the segmenter's input (selfie_segmenter_landscape): MediaPipe shrinks anything bigger to it
+# Moving: more than this share of a tiny grey copy changed by more than this many levels since the frame last used
+_MOVED_SHARE = 0.005
+_MOVED_LEVELS = 12
+_THUMB = (64, 36)
 _LOOK_AGAIN_S = 5.0  # without a pack, how often asking looks for one again (a download may have finished)
 
 # Which stream the frame being processed comes from, and its number: set by StreamWorker around the plugin steps.
@@ -146,6 +155,40 @@ class _Timestamps:
         return self._last
 
 
+def model_input(frame: np.ndarray, size: tuple = _MODEL_SIZE) -> np.ndarray:
+    """frame shrunk to just cover size, keeping its shape. A linear step to twice that and an area step from there
+    looks like one area step at a fraction of the cost (that one is slow at uneven ratios such as 1080p's 7.5)."""
+    h, w = frame.shape[:2]
+    scale = max(size[0] / w, size[1] / h)
+    if scale >= 1:
+        return frame
+    out = (max(1, round(w * scale)), max(1, round(h * scale)))
+    if out[0] * 2 < w and out[1] * 2 < h:
+        frame = cv2.resize(frame, (out[0] * 2, out[1] * 2), interpolation=cv2.INTER_LINEAR)
+    return cv2.resize(frame, out, interpolation=cv2.INTER_AREA)
+
+
+class _Motion:
+    """Whether frames still look like the one last used, from a tiny grey copy (cheap enough for every frame)."""
+
+    def __init__(self):
+        self._used = None
+        self._now = None
+
+    def moved(self, frame: np.ndarray) -> bool:
+        step = max(1, frame.shape[1] // (_THUMB[0] * 4))
+        small = cv2.resize(frame[::step, ::step], _THUMB, interpolation=cv2.INTER_AREA)
+        self._now = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY) if small.ndim == 3 else small
+        if self._used is None:
+            return True
+        changed = cv2.absdiff(self._now, self._used) > _MOVED_LEVELS
+        return np.count_nonzero(changed) > _MOVED_SHARE * changed.size
+
+    def used(self):
+        """The frame moved() last looked at is the one used: later frames are compared with it."""
+        self._used = self._now
+
+
 class _StreamVision:
     """One stream's tasks (VIDEO mode keeps tracking state, so streams don't share them) and its people thread."""
 
@@ -153,9 +196,13 @@ class _StreamVision:
         self.segment = self.close_segmenter = None
         self.mask_clock = _Timestamps()
         self.mask_seq = None  # the frame the cached mask is for
-        self.mask = None
+        self.mask = None  # at the frame's size
+        self.small_mask = None  # as the model gave it, with the last ones carried in
+        self.mask_at = 0.0  # time.monotonic() the model last ran
+        self.mask_motion = _Motion()
         self.people_frame = None  # the newest (small frame, prepare, to_shown) waiting for the pose model
         self.people_at = 0.0  # time.monotonic() a frame was last handed over
+        self.people_motion = _Motion()
         self.people_wake = threading.Event()
         self.people_thread: Optional[threading.Thread] = None
         self.stopping = False
@@ -252,13 +299,25 @@ class Vision:
                 logger.exception("Couldn't make the person segmenter")
                 self._fail(exc)  # trying again on every frame would only fill the log
                 return None
-        t0 = time.perf_counter()
-        mask = sv.segment(frame, sv.mask_clock.next())
-        if sv.mask is not None and sv.mask.shape == mask.shape:
-            mask = cv2.addWeighted(mask, 1.0 - _MASK_CARRY, sv.mask, _MASK_CARRY, 0)  # less flicker at the edges
-        self._note("mask", t0)
-        sv.mask_seq, sv.mask = seq, mask
-        return mask
+        small = model_input(frame)
+        now = time.monotonic()
+        # Nothing moving: the last mask still fits, so the model runs less often (anything moving brings it back)
+        moved = sv.mask_motion.moved(small)
+        if moved or sv.small_mask is None or now - sv.mask_at >= _MASK_STILL_EVERY_S:
+            t0 = time.perf_counter()
+            mask = sv.segment(small, sv.mask_clock.next())
+            if sv.small_mask is not None and sv.small_mask.shape == mask.shape:
+                carry = _MASK_CARRY if moved else _MASK_CARRY_STILL  # less flicker at the edges
+                mask = cv2.addWeighted(mask, 1.0 - carry, sv.small_mask, carry, 0)
+            self._note("mask", t0)
+            sv.mask_motion.used()
+            sv.small_mask, sv.mask_at, sv.mask = mask, now, None
+        h, w = frame.shape[:2]
+        if sv.mask is None or sv.mask.shape != (h, w):
+            sv.mask = sv.small_mask if sv.small_mask.shape == (h, w) else cv2.resize(sv.small_mask, (w, h),
+                                                                                    interpolation=cv2.INTER_LINEAR)
+        sv.mask_seq = seq
+        return sv.mask
 
     # ── People (a thread per stream) ──────────────────────────────────────
 
@@ -273,7 +332,8 @@ class Vision:
         return bool(self._people_wanted)
 
     def feed_raw(self, frame: np.ndarray, prepare: Optional[Callable] = None, to_shown: Optional[Callable] = None):
-        """A stream's frame before the view; one every _PEOPLE_EVERY_S goes to its people thread, the rest are skipped.
+        """A stream's frame before the view; one every _PEOPLE_EVERY_S goes to its people thread while something moves,
+        one every _PEOPLE_STILL_EVERY_S while nothing does, and the rest are skipped.
 
         prepare(frame) turns the small copy upright for the model (on that thread), and to_shown(x, y) takes a point
         from it to the picture as shown at zoom 1.
@@ -288,6 +348,9 @@ class Vision:
         now = time.monotonic()
         if now - sv.people_at < _PEOPLE_EVERY_S:
             return
+        if not sv.people_motion.moved(frame) and now - sv.people_at < _PEOPLE_STILL_EVERY_S:
+            return
+        sv.people_motion.used()
         sv.people_at = now
         h, w = frame.shape[:2]
         width = min(_PEOPLE_WIDTH, w)
