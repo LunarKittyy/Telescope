@@ -18,6 +18,7 @@ import sys
 import time
 from pathlib import Path
 from typing import Optional
+from weakref import WeakSet
 
 from PyQt6.QtCore import QEvent, QObject, QPoint, Qt, QTimer
 from PyQt6.QtGui import QAction, QGuiApplication, QKeySequence
@@ -566,7 +567,8 @@ class _KeyFilter(QObject):
     def __init__(self, plugin: ShortcutsPlugin):
         super().__init__()
         self._plugin = plugin
-        self._watched: list = []  # the control with focus and its window (keys go to the window when nothing has focus)
+        # Owning a watched window can destroy it inside a focus callback while Qt still uses its pointer.
+        self._watched: WeakSet = WeakSet()
         self._watching = True
 
     def follow_focus(self, _old, new):
@@ -593,7 +595,7 @@ class _KeyFilter(QObject):
         for w in widgets:
             if not any(w is o for o in self._watched):
                 w.installEventFilter(self)
-        self._watched = widgets
+        self._watched = WeakSet(widgets)
 
     def _binding(self, event) -> Optional[dict]:
         keys = keys_from_event(event.key(), event.modifiers())

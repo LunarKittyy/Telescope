@@ -2,6 +2,7 @@ import time
 """The update button, dialog and flow on top of telescope/updates.py."""
 
 import pytest
+from PyQt6.QtCore import QCoreApplication, QEvent
 from PyQt6.QtWidgets import QWidget
 
 import telescope.plugins.updates as plugin_module
@@ -67,7 +68,15 @@ def env(qapp, monkeypatch):
     plugin.setup(host, bus)
     plugin._timer.stop()
     button = plugin.create_header_widget()
-    return plugin, host, bus, button, fetched
+    yield plugin, host, bus, button, fetched
+    plugin.shutdown()
+    # Parentless widgets must die before a later test's paint callbacks can collect them.
+    for widget in (plugin._section, button, host):
+        if widget is not None:
+            widget.close()
+            widget.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    qapp.processEvents()
 
 
 def _fetch_now(fetch, channel):
