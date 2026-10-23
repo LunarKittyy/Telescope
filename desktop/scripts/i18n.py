@@ -6,6 +6,10 @@
   python scripts/i18n.py new sv           start a Swedish catalog
   python scripts/i18n.py status [sv]      how much of each language is done, and any broken {fields}
   python scripts/i18n.py todo sv          the Swedish texts still missing, ready to paste into a .po
+
+Every command also takes --plugin FOLDER to work on the texts of a plugin you wrote instead (its catalogs are
+FOLDER/locale/<lang>.po and its template FOLDER/locale/<plugin>.pot), e.g.
+  python scripts/i18n.py extract --plugin ~/my_plugin
 """
 
 import argparse
@@ -17,11 +21,36 @@ sys.path.insert(0, str(ROOT))
 
 from telescope import i18n  # noqa: E402
 
-TEMPLATE = i18n.LOCALE_DIR / "telescope.pot"
-HEADER_COMMENTS = [
-    "Telescope desktop app texts. Made by scripts/i18n.py extract: translate the msgstr lines, keep everything",
-    "else as it is. See docs/translating.md.",
-]
+
+class Target:
+    """The texts one set of code keeps: Telescope's own, or one plugin's."""
+
+    def __init__(self, plugin: str = ""):
+        if plugin:
+            folder = Path(plugin).expanduser().resolve()
+            if not (folder / "plugin.json").is_file():
+                raise SystemExit(f"{folder} has no plugin.json: give the plugin's folder")
+            self.what = f"The {folder.name} plugin's"
+            self.root, self.package = folder.parent, folder.name
+            self.locale = folder / i18n.PLUGIN_LOCALE
+            self.template = self.locale / f"{folder.name}.pot"
+            self.base = folder
+        else:
+            self.what = ""
+            self.root, self.package = ROOT, "telescope"
+            self.locale = i18n.LOCALE_DIR
+            self.template = self.locale / "telescope.pot"
+            self.base = ROOT
+
+    def rel(self, path: Path) -> str:
+        return path.relative_to(self.base).as_posix()
+
+    def catalogs(self) -> list:
+        return sorted(self.locale.glob("*.po"))
+
+    def header_comments(self) -> list:
+        return [f"{self.what or 'Telescope desktop app'} texts. Made by scripts/i18n.py extract: translate the msgstr "
+                "lines, keep everything", "else as it is. See docs/translating.md."]
 
 # Plural-Forms for some languages; anything else, look up and fix the header by hand
 _LIKE_ENGLISH = "nplurals=2; plural=(n != 1);"
@@ -54,10 +83,6 @@ def header(lang: str = "") -> str:
     return "".join(line + "\n" for line in lines)
 
 
-def catalogs():
-    return sorted(i18n.LOCALE_DIR.glob("*.po"))
-
-
 def merge(po: Path, template) -> None:
     """Brings one language up to date: new texts come in empty, gone ones are kept at the end as #~ for reuse."""
     old, head = i18n.read_po(po)
@@ -84,30 +109,35 @@ def merge(po: Path, template) -> None:
     i18n.write_po(po, head, merged)
 
 
-def extract(_args) -> int:
-    entries, problems = i18n.find_all(ROOT)
+def extract(args) -> int:
+    target = Target(args.plugin)
+    entries, problems = i18n.find_all(target.root, target.package)
     for p in problems:
         print(p, file=sys.stderr)
     if problems:
         return 1
-    i18n.LOCALE_DIR.mkdir(exist_ok=True)
-    i18n.write_po(TEMPLATE, header(), entries, HEADER_COMMENTS)
-    for po in catalogs():
+    target.locale.mkdir(exist_ok=True)
+    i18n.write_po(target.template, header(), entries, target.header_comments())
+    for po in target.catalogs():
         merge(po, entries)
-    print(f"{len(entries)} texts in {TEMPLATE.relative_to(ROOT)}; updated {len(catalogs())} languages")
+    print(f"{len(entries)} texts in {target.rel(target.template)}; updated {len(target.catalogs())} languages")
     return 0
 
 
 def new(args) -> int:
-    po = i18n.LOCALE_DIR / f"{args.lang}.po"
+    target = Target(args.plugin)
+    po = target.locale / f"{args.lang}.po"
     if po.exists():
-        print(f"{po.relative_to(ROOT)} already exists", file=sys.stderr)
+        print(f"{target.rel(po)} already exists", file=sys.stderr)
         return 1
-    i18n.write_po(po, header(args.lang), [], [f"Telescope desktop app in {args.lang}. See docs/translating.md."])
-    merge(po, i18n.read_po(TEMPLATE)[0])
+    if not target.template.is_file():
+        print(f"No {target.rel(target.template)} yet: run extract first", file=sys.stderr)
+        return 1
+    i18n.write_po(po, header(args.lang), [], [f"{target.what or 'Telescope desktop app'} texts in {args.lang}. See docs/translating.md."])
+    merge(po, i18n.read_po(target.template)[0])
     if args.lang not in PLURALS and args.lang.split("_")[0] not in PLURALS:
         print(f"Check the Plural-Forms line in {po.name}: it has English's rule")
-    print(f"Wrote {po.relative_to(ROOT)}")
+    print(f"Wrote {target.rel(po)}")
     return 0
 
 
@@ -123,7 +153,7 @@ def problems_in(entry) -> list:
 
 def status(args) -> int:
     broken = 0
-    for po in catalogs():
+    for po in Target(args.plugin).catalogs():
         if args.lang and po.stem != args.lang:
             continue
         entries, _ = i18n.read_po(po)
@@ -138,7 +168,7 @@ def status(args) -> int:
 
 
 def todo(args) -> int:
-    po = i18n.LOCALE_DIR / f"{args.lang}.po"
+    po = Target(args.plugin).locale / f"{args.lang}.po"
     entries, head = i18n.read_po(po)
     left = [e for e in entries if not (e.msgstr and all(e.msgstr)) or e.fuzzy]
     sys.stdout.reconfigure(encoding="utf-8")
@@ -165,16 +195,15 @@ def todo(args) -> int:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("extract").set_defaults(run=extract)
-    p = sub.add_parser("new")
-    p.add_argument("lang", help="language code, e.g. sv, de, pt_BR")
-    p.set_defaults(run=new)
-    p = sub.add_parser("status")
-    p.add_argument("lang", nargs="?")
-    p.set_defaults(run=status)
-    p = sub.add_parser("todo")
-    p.add_argument("lang")
-    p.set_defaults(run=todo)
+    for name, run, arg in (("extract", extract, None), ("new", new, "lang"), ("status", status, "?"),
+                           ("todo", todo, "lang")):
+        p = sub.add_parser(name)
+        if arg == "lang":
+            p.add_argument("lang", help="language code, e.g. sv, de, pt_BR")
+        elif arg:
+            p.add_argument("lang", nargs="?")
+        p.add_argument("--plugin", metavar="FOLDER", default="", help="work on a plugin's texts instead of Telescope's")
+        p.set_defaults(run=run)
     args = parser.parse_args(argv)
     return args.run(args)
 

@@ -197,6 +197,9 @@ TelescopePlugin.shutdown(self)
 TelescopePlugin.title = ''
 TelescopePlugin.when_off = ''
 banner.copy_action(text, label='Copy command')
+i18n.N_(text)
+i18n.tr(text, ctx='', **fields)
+i18n.trn(singular, plural, n, ctx='', **fields)
 shortcuts.button_action(id, label, group, button, states=('on', 'off'), verbs=None)
 shortcuts.choice_action(id, label, group, combo=None, buttons=None, wrap=True)
 shortcuts.log_slider_action(id, label, group, row, display_scale=1.0, suffix='', decimals=0)

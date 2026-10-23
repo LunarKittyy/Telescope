@@ -117,6 +117,25 @@ def check_files(folder: Path, reserved: set):
     return item
 
 
+def check_translations(folder: Path):
+    """Each locale/<lang>.po can be read, and no translation has a {field} the English lacks."""
+    from telescope import i18n
+    for po in sorted((folder / i18n.PLUGIN_LOCALE).glob("*.po")):
+        try:
+            entries, header = i18n.read_po(po)
+        except (OSError, ValueError) as exc:
+            _fail(f"Translation {po.name}: couldn't be read, so the plugin stays in English ({exc})")
+            continue
+        bad = [e.msgid for e in entries for text in e.msgstr
+               if not i18n.fields(text) <= i18n.fields(e.msgid) | i18n.fields(e.plural)]
+        if bad:
+            _fail(f"Translation {po.name}: a {{field}} the English doesn't have, so these show in English: "
+                  + ", ".join(repr(b) for b in bad[:5]))
+            continue
+        _ok(f"Translation {po.name}: {sum(1 for e in entries if e.msgstr and all(e.msgstr) and not e.fuzzy)} of "
+            f"{len(entries)} texts")
+
+
 def check_running(folder: Path, name: str, log: _Logged):
     import numpy as np
     from PyQt6.QtWidgets import QApplication
@@ -228,6 +247,7 @@ def main(argv) -> int:
         logging.getLogger().setLevel(logging.ERROR)  # the plugin's problems are printed below, with their tracebacks
         from telescope.plugins import builtin_plugins
         item = check_files(folder, {p.name for p in builtin_plugins()})
+        check_translations(folder)
         if item is not None:
             log = _Logged(item.name, folder)
             logging.getLogger().addHandler(log)

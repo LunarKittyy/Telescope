@@ -27,7 +27,7 @@ from typing import Optional
 from telescope import dev_profile
 from telescope.config import config_path, load_config, save_config
 from telescope.plugin import TelescopePlugin
-from telescope.i18n import N_, tr
+from telescope.i18n import N_, PLUGIN_PACKAGE, add_plugin_catalog, tr
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ _MAX_BYTES = 20 * 1024 * 1024  # a plugin folder, or what a .zip unpacks to
 _CACHE = "__pycache__"  # Python writes these next to the code when it's imported; cleared before each load
 _SHARED = N_("Other users on this computer could change it, so it isn't loaded.")
 _LINK = N_("It contains a link to somewhere else, which plugins can't have.")
-_PACKAGE = "telescope_ext"  # loaded plugins are telescope_ext.<name>, never on sys.path
+_PACKAGE = PLUGIN_PACKAGE  # loaded plugins are telescope_ext.<name>, never on sys.path
 
 
 def plugins_dir() -> Path:
@@ -319,6 +319,7 @@ def load(plugin: Installed) -> TelescopePlugin:
         package.__path__ = []  # a namespace for the plugins, with nothing to import from on its own
         sys.modules[_PACKAGE] = package
     module_name = f"{_PACKAGE}.{plugin.name}"
+    add_plugin_catalog(plugin.name, plugin.folder)  # its locale/<lang>.po, if it has one; never keeps it from loading
     if not plugin.dev:  # the author's own folder: their code, and their caches
         _clear_caches(plugin.folder)
     spec = importlib.util.spec_from_file_location(module_name, plugin.folder / "__init__.py",

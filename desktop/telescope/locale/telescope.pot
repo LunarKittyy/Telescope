@@ -377,17 +377,17 @@ msgid "This computer couldn't set up the video connection."
 msgstr ""
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: telescope/i18n.py:103
+#: telescope/i18n.py:137
 msgid ", "
 msgstr ""
 
 #. the end of a list, as in "Camera, Microphone and Preview"
-#: telescope/i18n.py:105
+#: telescope/i18n.py:139
 #, python-brace-format
 msgid "{items} and {last}"
 msgstr ""
 
-#: telescope/i18n.py:125
+#: telescope/i18n.py:159
 #, python-brace-format
 msgctxt "percentage"
 msgid "{n}%"
@@ -801,7 +801,7 @@ msgstr ""
 msgid "It contains compiled code (like .pyc files). Plugins have to be source code."
 msgstr ""
 
-#: telescope/plugin_loader.py:108 telescope/plugin_loader.py:388
+#: telescope/plugin_loader.py:108 telescope/plugin_loader.py:389
 msgid "It's too big for a plugin (over 500 files or 20 MB)."
 msgstr ""
 
@@ -813,7 +813,7 @@ msgstr ""
 msgid "It's a link to another folder, which plugins can't be."
 msgstr ""
 
-#: telescope/plugin_loader.py:259 telescope/plugin_loader.py:402
+#: telescope/plugin_loader.py:259 telescope/plugin_loader.py:403
 msgid "The folder has to have the same name as the plugin, using only lowercase letters, digits and _ (starting with a letter)."
 msgstr ""
 
@@ -841,7 +841,7 @@ msgstr ""
 msgid "Its {file} has to give the folder's name as \"name\"."
 msgstr ""
 
-#: telescope/plugin_loader.py:287 telescope/plugin_loader.py:405
+#: telescope/plugin_loader.py:287 telescope/plugin_loader.py:406
 msgid "A plugin that comes with Telescope already has that name."
 msgstr ""
 
@@ -868,33 +868,33 @@ msgstr ""
 msgid "It isn't turned on."
 msgstr ""
 
-#: telescope/plugin_loader.py:335
+#: telescope/plugin_loader.py:336
 #, python-brace-format
 msgid "{name} isn't a TelescopePlugin class."
 msgstr ""
 
-#: telescope/plugin_loader.py:338
+#: telescope/plugin_loader.py:339
 #, python-brace-format
 msgid "Its class has name = {have}; it has to be {want}, as in {file}."
 msgstr ""
 
-#: telescope/plugin_loader.py:366
+#: telescope/plugin_loader.py:367
 msgid "Its files changed since it was turned on. Turn it on again if you trust this version."
 msgstr ""
 
-#: telescope/plugin_loader.py:394
+#: telescope/plugin_loader.py:395
 msgid "It holds a file with a path that points outside the plugin."
 msgstr ""
 
-#: telescope/plugin_loader.py:399
+#: telescope/plugin_loader.py:400
 msgid "It has to hold one folder, named as the plugin."
 msgstr ""
 
-#: telescope/plugin_loader.py:427
+#: telescope/plugin_loader.py:428
 msgid "It isn't a .zip file Telescope can open."
 msgstr ""
 
-#: telescope/plugin_loader.py:436
+#: telescope/plugin_loader.py:437
 msgid "That isn't a folder in the plugins folder."
 msgstr ""
 

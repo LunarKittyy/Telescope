@@ -375,17 +375,17 @@ msgid "This computer couldn't set up the video connection."
 msgstr "Den här datorn kunde inte upprätta videoanslutningen."
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: telescope/i18n.py:103
+#: telescope/i18n.py:137
 msgid ", "
 msgstr ", "
 
 #. the end of a list, as in "Camera, Microphone and Preview"
-#: telescope/i18n.py:105
+#: telescope/i18n.py:139
 #, python-brace-format
 msgid "{items} and {last}"
 msgstr "{items} och {last}"
 
-#: telescope/i18n.py:125
+#: telescope/i18n.py:159
 #, python-brace-format
 msgctxt "percentage"
 msgid "{n}%"
@@ -799,7 +799,7 @@ msgstr "Det innehåller en länk till en annan plats, vilket tillägg inte får 
 msgid "It contains compiled code (like .pyc files). Plugins have to be source code."
 msgstr "Det innehåller kompilerad kod (som .pyc-filer). Tillägg måste vara källkod."
 
-#: telescope/plugin_loader.py:108 telescope/plugin_loader.py:388
+#: telescope/plugin_loader.py:108 telescope/plugin_loader.py:389
 msgid "It's too big for a plugin (over 500 files or 20 MB)."
 msgstr "Det är för stort för ett tillägg (över 500 filer eller 20 MB)."
 
@@ -811,7 +811,7 @@ msgstr "Kunde inte spara inställningarna."
 msgid "It's a link to another folder, which plugins can't be."
 msgstr "Det är en länk till en annan mapp, vilket tillägg inte får vara."
 
-#: telescope/plugin_loader.py:259 telescope/plugin_loader.py:402
+#: telescope/plugin_loader.py:259 telescope/plugin_loader.py:403
 msgid "The folder has to have the same name as the plugin, using only lowercase letters, digits and _ (starting with a letter)."
 msgstr "Mappen måste ha samma namn som tillägget, med bara små bokstäver, siffror och _ (och börja med en bokstav)."
 
@@ -839,7 +839,7 @@ msgstr "Dess filer kunde inte läsas."
 msgid "Its {file} has to give the folder's name as \"name\"."
 msgstr "Dess {file} måste ange mappens namn som \"name\"."
 
-#: telescope/plugin_loader.py:287 telescope/plugin_loader.py:405
+#: telescope/plugin_loader.py:287 telescope/plugin_loader.py:406
 msgid "A plugin that comes with Telescope already has that name."
 msgstr "Ett tillägg som följer med Telescope har redan det namnet."
 
@@ -866,33 +866,33 @@ msgstr "Det har ingen __init__.py."
 msgid "It isn't turned on."
 msgstr "Det är inte påslaget."
 
-#: telescope/plugin_loader.py:335
+#: telescope/plugin_loader.py:336
 #, python-brace-format
 msgid "{name} isn't a TelescopePlugin class."
 msgstr "{name} är inte en TelescopePlugin-klass."
 
-#: telescope/plugin_loader.py:338
+#: telescope/plugin_loader.py:339
 #, python-brace-format
 msgid "Its class has name = {have}; it has to be {want}, as in {file}."
 msgstr "Dess klass har name = {have}; det måste vara {want}, som i {file}."
 
-#: telescope/plugin_loader.py:366
+#: telescope/plugin_loader.py:367
 msgid "Its files changed since it was turned on. Turn it on again if you trust this version."
 msgstr "Dess filer har ändrats sedan det slogs på. Slå på det igen om du litar på den här versionen."
 
-#: telescope/plugin_loader.py:394
+#: telescope/plugin_loader.py:395
 msgid "It holds a file with a path that points outside the plugin."
 msgstr "Det innehåller en fil med en sökväg som pekar utanför tillägget."
 
-#: telescope/plugin_loader.py:399
+#: telescope/plugin_loader.py:400
 msgid "It has to hold one folder, named as the plugin."
 msgstr "Det måste innehålla en mapp, med samma namn som tillägget."
 
-#: telescope/plugin_loader.py:427
+#: telescope/plugin_loader.py:428
 msgid "It isn't a .zip file Telescope can open."
 msgstr "Det är inte en .zip-fil som Telescope kan öppna."
 
-#: telescope/plugin_loader.py:436
+#: telescope/plugin_loader.py:437
 msgid "That isn't a folder in the plugins folder."
 msgstr "Det där är inte en mapp i tilläggsmappen."
 

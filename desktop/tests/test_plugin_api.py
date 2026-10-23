@@ -7,7 +7,7 @@ import inspect
 import os
 from pathlib import Path
 
-from telescope import plugin, shortcuts
+from telescope import i18n, plugin, shortcuts
 from telescope.plugin_loader import OLDEST_PLUGIN_API, PLUGIN_API
 from telescope.widgets import banner
 
@@ -20,7 +20,7 @@ _CLASSES = (plugin.TelescopePlugin, plugin.StreamsBehind, plugin.SettingsSection
             banner.Issue, banner.BannerAction, shortcuts.Param,
             shortcuts.ShortcutAction)
 _FUNCTIONS = (banner.copy_action, shortcuts.button_action, shortcuts.slider_action, shortcuts.log_slider_action,
-              shortcuts.choice_action)
+              shortcuts.choice_action, i18n.tr, i18n.trn, i18n.N_)
 
 
 def _value(value) -> str:
