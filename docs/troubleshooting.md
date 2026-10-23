@@ -116,6 +116,23 @@ Background and Auto framing cost the most. On a test laptop, a 720p stream witho
 
 Minimizing the window barely helps, since drawing the preview is cheap.
 
+**Telescope uses a lot of RAM**
+Most of it isn't Telescope's own. Measured on a Linux laptop, streaming 1080p at 30 fps:
+
+| What | About |
+|---|---|
+| Telescope open, not streaming | 240 MB |
+| Streaming | 360 MB |
+| Streaming with Background and Auto framing | 470 MB |
+
+Where it goes:
+- **Libraries, about 130 MB**: Qt draws the window, OpenCV and NumPy handle the pictures, FFmpeg decodes the video. They're loaded once and don't grow.
+- **Frames from the camera, about 100 MB at 1080p**: a few copies of each picture on its way from the phone to the virtual camera. Lower resolutions need less.
+- **The vision models, about 150 MB**: only while Background or Auto framing is on. About 10 seconds after you switch both off most of it is given back, and restarting Telescope frees the rest.
+- **Telescope itself, about 50 MB**: its code, settings and the wait screen.
+
+Task managers count memory in different ways (Windows Task Manager, for one, leaves out memory other apps could share), so your numbers may not match these.
+
 **"No graphics card Telescope can use" in Video settings**
 On Linux, Telescope's decoder only uses NVIDIA cards. For AMD and Intel click **Set up VA-API…** next to it. Without a usable card Light still decodes on the processor.
 

@@ -305,6 +305,79 @@ def test_power_saving_runs_the_models_less_often_even_while_something_moves(monk
     assert sent == [True, False, True]  # moving, but every _SAVING_PEOPLE_EVERY_S instead of _PEOPLE_EVERY_S
 
 
+class _CountingBackend(_Backend):
+    def __init__(self):
+        super().__init__()
+        self.made = []
+
+    def segmenter(self):
+        self.made.append("segmenter")
+        return super().segmenter()
+
+    def pose(self):
+        self.made.append("pose")
+        return super().pose()
+
+
+def test_a_mask_nobody_asks_for_closes_after_a_while_and_comes_back_when_asked(monkeypatch):
+    backend = _CountingBackend()
+    v = Vision(on_people=lambda *_: None, on_state=lambda _s: None, find=lambda: backend)
+    v.load()
+    _wait(lambda: v.state() == READY)
+    released = []
+    monkeypatch.setattr(vision, "_give_back_memory", lambda: released.append(1))
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    _in_stream("a", 1, lambda: v.person_mask(frame))
+    asked = v._streams["a"].mask_asked
+    v.tidy(asked + vision._IDLE_CLOSE_S - 1)  # Background switched off a moment ago: kept
+    assert backend.closed == [] and released == []
+    v.tidy(asked + vision._IDLE_CLOSE_S)
+    assert backend.closed == ["segmenter"] and released == [1]
+    assert _in_stream("a", 2, lambda: v.person_mask(frame)) is not None  # switched back on: made again
+    assert backend.made == ["segmenter", "segmenter"]
+    v.shutdown()
+
+
+def test_flipping_auto_framing_on_and_off_keeps_the_pose_model_loaded():
+    backend = _CountingBackend()
+    people = []
+    v = Vision(on_people=lambda key, found: people.append(found), on_state=lambda _s: None, find=lambda: backend)
+    v.load()
+    _wait(lambda: v.state() == READY)
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    for seq in range(20):
+        v.want_people("Auto framing", seq % 2 == 0)  # someone spamming the switch
+        _in_stream("a", seq, lambda: v.feed_raw(frame))
+        v._streams["a"].people_at -= vision._PEOPLE_EVERY_S + _TICK
+        v.tidy()
+    _wait(lambda: people)
+    assert backend.made == ["pose"] and "pose" not in backend.closed
+
+
+def test_a_pose_model_nobody_feeds_closes_in_its_own_thread_and_comes_back(monkeypatch):
+    backend = _CountingBackend()
+    people = []
+    v = Vision(on_people=lambda key, found: people.append(found), on_state=lambda _s: None, find=lambda: backend)
+    v.load()
+    _wait(lambda: v.state() == READY)
+    released = []
+    monkeypatch.setattr(vision, "_give_back_memory", lambda: released.append(1))
+    v.want_people("Auto framing", True)
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    _in_stream("a", 1, lambda: v.feed_raw(frame))
+    _wait(lambda: people)
+    v.want_people("Auto framing", False)
+    v.tidy(v._streams["a"].people_fed + vision._IDLE_CLOSE_S)
+    _wait(lambda: "pose" in backend.closed and released)
+    assert v._streams["a"].people_thread is None
+    v.want_people("Auto framing", True)
+    people.clear()
+    _in_stream("a", 2, lambda: v.feed_raw(frame))
+    _wait(lambda: people)
+    assert backend.made == ["pose", "pose"]
+    v.shutdown()
+
+
 def test_a_segmenter_that_cant_load_fails_once_and_names_the_missing_library():
     v, backend, states, _people = _ready()
     tries = []
