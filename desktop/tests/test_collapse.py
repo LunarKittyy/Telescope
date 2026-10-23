@@ -493,3 +493,19 @@ def test_a_malformed_saved_list_is_reset(config_home):
     assert config_home.load_config()["collapsed"] == []
     path.write_text(json.dumps({"version": config_home.CONFIG_VERSION, "collapsed": ["a"]}))
     assert config_home.load_config()["collapsed"] == ["a"]
+
+
+def test_a_fold_is_remembered_in_any_language(qapp, tmp_path, monkeypatch):
+    from telescope import i18n
+    monkeypatch.setattr(i18n, "LOCALE_DIR", tmp_path)
+    (tmp_path / "sv.po").write_text('msgid ""\nmsgstr "Plural-Forms: nplurals=2; plural=(n != 1);\\n"\n\n'
+                                    'msgid "Things"\nmsgstr "Saker"\n\nmsgid "Light"\nmsgstr "Ljus"\n', encoding="utf-8")
+    try:
+        i18n.load("sv")
+        card, rows = make_card(title=i18n.tr("Things"), sections=(i18n.tr("Light"),))
+        folds = Collapsing(lambda: None)
+        folds.install(card, "camera")
+        folds.load(["camera/Things/Light"])  # what the English app saved
+        assert not rows["Ljus 0"].isVisibleTo(card) and rows["loose"].isVisibleTo(card)
+    finally:
+        i18n.load("en")

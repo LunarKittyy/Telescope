@@ -32,6 +32,8 @@ The short version of how the desktop app is split up and which rules keep it tha
 
 **Each hook means one thing.** `on_stream_start` and `on_stream_stop` are for a stream that really starts or ends. `on_focus_gained` and `on_focus_lost` are for the panels moving between streams that keep running. Signals about a stream carry its source id, so a card about the shown stream compares it with `host.focused_source_id()`.
 
+**Text is translated where it's shown.** Wrap what people see in `tr()` from `telescope.i18n` when it's shown, never at import time: the language loads after the modules do, so a class attribute or module constant holds `N_("...")` and gets its `tr()` at the place it's displayed. Anything kept as an identity or saved (a plugin's `title` passed to `take_view`, a fold key, a canvas preset, a shortcut's choice) stays in English, and the window reads a shown text back to English with `english()` where it needs to. Diagnostics stay in English for bug reports. [docs/translating.md](../docs/translating.md) has the details.
+
 **The window drives and nothing reaches back.** `sources.py`, `session.py`, `stream_flow.py` and `plugin.py` never import `app.py`. Session state lives in `Sessions` and start, stop and focus changes in `StreamFlow`. Anything they need from the window goes through `SourceHost` or `FlowHost`.
 
 ## Keeping plugins working
@@ -54,7 +56,8 @@ Plugins still don't depend on each other. Something two of them need becomes a h
 - `tests/test_plugin_removal.py`: every optional plugin can be left out
 - `tests/test_plugin_api.py`: the plugin API only changes on purpose
 - `tests/test_stream_flow.py`: who hears which hook as streams start, stop and change focus
-- `tests/test_collapse.py`: card folding
+- `tests/test_collapse.py`: card folding, in any language
+- `tests/test_i18n.py`: no text is translated at import time, every `tr()` call fills in its text's fields, and the catalogs are up to date
 
 When you add a rule that a test could check, add the test too.
 

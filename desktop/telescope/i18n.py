@@ -30,6 +30,7 @@ ENV_LANGUAGE = "TELESCOPE_LANG"
 
 # (context, english) -> translated forms; one entry for tr(), one per plural form for trn()
 _catalog: Dict[Tuple[str, str], List[str]] = {}
+_english: Dict[str, str] = {}  # translated -> English, for english()
 _plural: Callable[[int], int] = lambda n: int(n != 1)
 _language = SOURCE_LANGUAGE
 
@@ -70,6 +71,12 @@ def trn(singular: str, plural: str, n: int, /, ctx: str = "", **fields) -> str:
         if 0 <= index < len(forms) and forms[index]:
             return _fill(forms[index], english, fields)
     return _fill(english, english, fields)
+
+
+def english(text: str) -> str:
+    """The English a shown text was translated from (itself if it wasn't), for keys that are saved, like which cards
+    are folded: they mustn't change with the language."""
+    return _english.get(text, text)
 
 
 def and_list(words: list) -> str:
@@ -123,9 +130,9 @@ def system_languages() -> List[str]:
 
 def load(lang: Optional[str] = None) -> str:
     """Loads a language (the system's when None) and returns the one loaded. Call before building any window."""
-    global _catalog, _plural, _language
+    global _catalog, _english, _plural, _language
     lang = pick([lang] if lang else system_languages(), available())
-    _catalog, _plural, _language = {}, (lambda n: int(n != 1)), SOURCE_LANGUAGE
+    _catalog, _english, _plural, _language = {}, {}, (lambda n: int(n != 1)), SOURCE_LANGUAGE
     if lang == SOURCE_LANGUAGE:
         return _language
     try:
@@ -135,6 +142,9 @@ def load(lang: Optional[str] = None) -> str:
         return _language
     _plural = plural_rule(header)
     _catalog = {(e.ctx, e.msgid): e.msgstr for e in entries if not e.fuzzy and any(e.msgstr)}
+    for (ctx, msgid), forms in _catalog.items():
+        if not ctx and len(forms) == 1:
+            _english.setdefault(forms[0], msgid)  # two texts translated alike: the first one's English
     _language = lang
     _load_qt(lang)
     logger.info("Language: %s (%d texts translated)", lang, len(_catalog))

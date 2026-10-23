@@ -360,12 +360,12 @@ msgid "This computer couldn't set up the video connection."
 msgstr ""
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: telescope/i18n.py:81
+#: telescope/i18n.py:88
 msgid ", "
 msgstr ""
 
 #. the end of a list, as in "Camera, Microphone and Preview"
-#: telescope/i18n.py:83
+#: telescope/i18n.py:90
 #, python-brace-format
 msgid "{items} and {last}"
 msgstr ""

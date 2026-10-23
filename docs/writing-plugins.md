@@ -154,6 +154,7 @@ These keep plugins from breaking each other or Telescope. The [architecture note
 - **Keep the window responsive.** Hooks run on the window's thread, so don't wait for the network or the disk there. Do slow work in a thread and come back with a Qt signal.
 - **Keep `process_frame()` quick.** It runs for every frame on a decoding thread and the stream falls behind if it takes too long. A frame it raises on goes through unchanged. If it keeps failing Telescope skips it until the next stream.
 - **Don't write files into your plugin's folder.** Any new or changed file there counts as a change and your plugin would be switched off at the next start. Keep settings in `get_config()` and put anything else outside the plugins folder.
+- **Your texts show as you write them.** Telescope's translations only cover its own texts, so your plugin's stay in the language you wrote them in.
 - **Ship source code.** A plugin with compiled files in it (`.pyc`, `.so`, `.pyd`) isn't loaded. Telescope also clears `__pycache__` before loading one to make sure what runs is the code people can read.
 - **Use what Telescope comes with.** That's PyQt6, NumPy, OpenCV and Python's standard library. Telescope can't install anything else for your plugin. The Windows app only carries the parts of the standard library that Telescope itself uses, so try your plugin there too. If an import is missing there the Plugins tab shows it as the reason the plugin didn't start. A plugin with more than one file imports its own modules relatively (`from . import helpers`).
 
