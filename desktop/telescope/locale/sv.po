@@ -385,6 +385,12 @@ msgstr ", "
 msgid "{items} and {last}"
 msgstr "{items} och {last}"
 
+#: telescope/i18n.py:125
+#, python-brace-format
+msgctxt "percentage"
+msgid "{n}%"
+msgstr "{n} %"
+
 #: telescope/phones.py:281
 msgid "adb isn't installed, so USB can't be used (Add phone can get it)"
 msgstr "adb är inte installerat, så USB kan inte användas (Lägg till telefon kan hämta det)"
@@ -1059,7 +1065,7 @@ msgstr "{n} anslutna"
 msgid "Waiting for a browser"
 msgstr "Väntar på en webbläsare"
 
-#: telescope/plugins/browser_camera.py:318 telescope/plugins/shortcuts.py:183 telescope/plugins/shortcuts.py:187 telescope/shortcuts.py:283 telescope/shortcuts.py:305 telescope/shortcuts.py:343 telescope/shortcuts.py:344 telescope/shortcuts.py:413 telescope/shortcuts.py:502 telescope/shortcuts.py:504 telescope/shortcuts.py:518 telescope/shortcuts.py:519 telescope/widgets/common.py:931
+#: telescope/plugins/browser_camera.py:318 telescope/plugins/shortcuts.py:183 telescope/plugins/shortcuts.py:187 telescope/shortcuts.py:284 telescope/shortcuts.py:306 telescope/shortcuts.py:344 telescope/shortcuts.py:345 telescope/shortcuts.py:414 telescope/shortcuts.py:504 telescope/shortcuts.py:506 telescope/shortcuts.py:520 telescope/shortcuts.py:521 telescope/widgets/common.py:931
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -1162,6 +1168,11 @@ msgstr "Nivå 3"
 #: telescope/plugins/camera_control.py:38
 msgid "External"
 msgstr "Extern"
+
+#: telescope/plugins/camera_control.py:58
+#, python-brace-format
+msgid "{n} m"
+msgstr "{n} m"
 
 #: telescope/plugins/camera_control.py:134 telescope/plugins/camera_control.py:167 telescope/plugins/camera_control.py:342
 msgid "Camera"
@@ -1341,6 +1352,11 @@ msgstr "Laddar objektiv..."
 #: telescope/plugins/camera_control.py:451
 msgid "Unavailable"
 msgstr "Inte tillgänglig"
+
+#: telescope/plugins/camera_control.py:517 telescope/plugins/camera_control.py:757 telescope/plugins/camera_control.py:858
+#, python-brace-format
+msgid "{n} EV"
+msgstr "{n} EV"
 
 #: telescope/plugins/camera_control.py:552
 msgid "Full manual control"
@@ -2343,6 +2359,11 @@ msgstr "Utan det finns inte kortet Telefon och inget varnar dig om lågt batteri
 msgid "Warnings"
 msgstr "Varningar"
 
+#: telescope/plugins/monitoring.py:108
+msgctxt "after a number"
+msgid "%"
+msgstr " %"
+
 #: telescope/plugins/monitoring.py:110
 msgid "Counts as low at this level, even while charging if it keeps dropping"
 msgstr "Räknas som lågt vid den här nivån, även under laddning om batteriet fortsätter sjunka"
@@ -2358,6 +2379,11 @@ msgstr "Visa en avisering när batteriet blir lågt"
 #: telescope/plugins/monitoring.py:116
 msgid "Stop the stream when the battery runs low, and at every restart until it's fine again"
 msgstr "Stoppa strömmen när batteriet blir lågt, och vid varje omstart tills det är okej igen"
+
+#: telescope/plugins/monitoring.py:122
+msgctxt "after a number"
+msgid " °C"
+msgstr " °C"
 
 #: telescope/plugins/monitoring.py:123
 msgid "The temperature that counts as too hot"
@@ -2398,6 +2424,11 @@ msgstr "Varm"
 #: telescope/plugins/monitoring.py:267
 msgid "Hot"
 msgstr "Het"
+
+#: telescope/plugins/monitoring.py:268
+#, python-brace-format
+msgid "{temp} °C"
+msgstr "{temp} °C"
 
 #: telescope/plugins/monitoring.py:301
 #, python-brace-format
@@ -2591,11 +2622,11 @@ msgstr "Utan det finns ingen knapp för Förinställningar högst upp (dina spar
 msgid "Preset: {name}"
 msgstr "Förinställning: {name}"
 
-#: telescope/plugins/presets.py:153 telescope/shortcuts.py:510
+#: telescope/plugins/presets.py:153 telescope/shortcuts.py:512
 msgid "Next"
 msgstr "Nästa"
 
-#: telescope/plugins/presets.py:153 telescope/shortcuts.py:510
+#: telescope/plugins/presets.py:153 telescope/shortcuts.py:512
 msgid "Previous"
 msgstr "Föregående"
 
@@ -2611,7 +2642,7 @@ msgstr "Förinställning"
 msgid "Next or previous preset"
 msgstr "Nästa eller föregående förinställning"
 
-#: telescope/plugins/presets.py:161 telescope/plugins/shortcuts.py:182 telescope/plugins/shortcuts.py:186 telescope/shortcuts.py:307 telescope/shortcuts.py:333 telescope/shortcuts.py:389 telescope/shortcuts.py:510
+#: telescope/plugins/presets.py:161 telescope/plugins/shortcuts.py:182 telescope/plugins/shortcuts.py:186 telescope/shortcuts.py:308 telescope/shortcuts.py:334 telescope/shortcuts.py:390 telescope/shortcuts.py:512
 msgid "Does"
 msgstr "Gör"
 
@@ -3432,15 +3463,15 @@ msgstr "Telefonkamera: av"
 msgid "Telescope: hidden"
 msgstr "Telescope: dolt"
 
-#: telescope/plugins/shortcuts.py:178 telescope/shortcuts.py:259
+#: telescope/plugins/shortcuts.py:178 telescope/shortcuts.py:260
 msgid "Switch on or off"
 msgstr "Slå på eller stäng av"
 
-#: telescope/plugins/shortcuts.py:178 telescope/shortcuts.py:259
+#: telescope/plugins/shortcuts.py:178 telescope/shortcuts.py:260
 msgid "Turn on"
 msgstr "Slå på"
 
-#: telescope/plugins/shortcuts.py:178 telescope/shortcuts.py:259
+#: telescope/plugins/shortcuts.py:178 telescope/shortcuts.py:260
 msgid "Turn off"
 msgstr "Stäng av"
 
@@ -3689,7 +3720,7 @@ msgstr "När ingen app använder kameran, även om jag startade den"
 msgid "{n} min"
 msgstr "{n} min"
 
-#: telescope/plugins/startup.py:57
+#: telescope/plugins/startup.py:57 telescope/widgets/common.py:1007
 #, python-brace-format
 msgid "{n} s"
 msgstr "{n} s"
@@ -4031,6 +4062,11 @@ msgstr "Vänd"
 #: telescope/plugins/transforms.py:194 telescope/plugins/transforms.py:248
 msgid "Rotation"
 msgstr "Rotation"
+
+#: telescope/plugins/transforms.py:203 telescope/plugins/transforms.py:377
+#, python-brace-format
+msgid "{n}×"
+msgstr "{n}×"
 
 #: telescope/plugins/transforms.py:205 telescope/plugins/transforms.py:249
 msgid "Zoom"
@@ -4391,109 +4427,109 @@ msgstr "det byggdes, men VA-API kunde inte öppnas med det"
 msgid "it built, but didn't load"
 msgstr "det byggdes, men kunde inte laddas"
 
-#: telescope/shortcuts.py:260
+#: telescope/shortcuts.py:261
 msgid "Switch while held, back on release"
 msgstr "Växla medan tangenten hålls ner, tillbaka när du släpper"
 
 #. a switch's state, as in "Phone mic: on"
-#: telescope/shortcuts.py:280
+#: telescope/shortcuts.py:281
 msgid "on"
 msgstr "på"
 
 #. a switch's state, as in "Phone mic: on"
-#: telescope/shortcuts.py:280
+#: telescope/shortcuts.py:281
 msgid "off"
 msgstr "av"
 
-#: telescope/shortcuts.py:328
+#: telescope/shortcuts.py:329
 msgid "Increase by"
 msgstr "Öka med"
 
-#: telescope/shortcuts.py:328
+#: telescope/shortcuts.py:329
 msgid "Decrease by"
 msgstr "Minska med"
 
-#: telescope/shortcuts.py:328 telescope/shortcuts.py:390
+#: telescope/shortcuts.py:329 telescope/shortcuts.py:391
 msgid "Set to"
 msgstr "Ställ in på"
 
-#: telescope/shortcuts.py:331
+#: telescope/shortcuts.py:332
 msgid "Reset to default"
 msgstr "Återställ till standard"
 
-#: telescope/shortcuts.py:334
+#: telescope/shortcuts.py:335
 msgid "By"
 msgstr "Med"
 
-#: telescope/shortcuts.py:336 telescope/shortcuts.py:394
+#: telescope/shortcuts.py:337 telescope/shortcuts.py:395
 msgid "Value"
 msgstr "Värde"
 
-#: telescope/shortcuts.py:371 telescope/shortcuts.py:418
+#: telescope/shortcuts.py:372 telescope/shortcuts.py:419
 #, python-brace-format
 msgid "{label}: set to {value}"
 msgstr "{label}: ställ in på {value}"
 
-#: telescope/shortcuts.py:374
+#: telescope/shortcuts.py:375
 #, python-brace-format
 msgid "{label}: reset to default"
 msgstr "{label}: återställ till standard"
 
-#: telescope/shortcuts.py:376
+#: telescope/shortcuts.py:377
 #, python-brace-format
 msgid "{label}: increase by {amount}"
 msgstr "{label}: öka med {amount}"
 
-#: telescope/shortcuts.py:377
+#: telescope/shortcuts.py:378
 #, python-brace-format
 msgid "{label}: decrease by {amount}"
 msgstr "{label}: minska med {amount}"
 
-#: telescope/shortcuts.py:389
+#: telescope/shortcuts.py:390
 msgid "Raise by"
 msgstr "Höj med"
 
-#: telescope/shortcuts.py:389
+#: telescope/shortcuts.py:390
 msgid "Lower by"
 msgstr "Sänk med"
 
 #. the unit after a number of stops, with its space: "1.5 stops"
-#: telescope/shortcuts.py:392
+#: telescope/shortcuts.py:393
 msgid "Stops"
 msgstr "Steg"
 
 #. the unit after a number of stops, with its space: "1.5 stops"
-#: telescope/shortcuts.py:392
+#: telescope/shortcuts.py:393
 msgid " stops"
 msgstr " steg"
 
-#: telescope/shortcuts.py:421
+#: telescope/shortcuts.py:423
 #, python-brace-format
 msgid "{label}: raise by {stops} stop"
 msgid_plural "{label}: raise by {stops} stops"
 msgstr[0] "{label}: höj med {stops} steg"
 msgstr[1] "{label}: höj med {stops} steg"
 
-#: telescope/shortcuts.py:423
+#: telescope/shortcuts.py:425
 #, python-brace-format
 msgid "{label}: lower by {stops} stop"
 msgid_plural "{label}: lower by {stops} stops"
 msgstr[0] "{label}: sänk med {stops} steg"
 msgstr[1] "{label}: sänk med {stops} steg"
 
-#: telescope/shortcuts.py:511
+#: telescope/shortcuts.py:513
 msgid "Pick"
 msgstr "Välj"
 
-#: telescope/shortcuts.py:512
+#: telescope/shortcuts.py:514
 msgid "Option"
 msgstr "Alternativ"
 
-#: telescope/shortcuts.py:519
+#: telescope/shortcuts.py:521
 msgid "next"
 msgstr "nästa"
 
-#: telescope/shortcuts.py:519
+#: telescope/shortcuts.py:521
 msgid "previous"
 msgstr "föregående"
 

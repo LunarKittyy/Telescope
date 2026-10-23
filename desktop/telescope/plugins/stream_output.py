@@ -17,7 +17,7 @@ from telescope.widgets.common import (
     slider_row, value_label,
 )
 from telescope.widgets.controls import ChoiceTile, OptionCard, option_row
-from telescope.i18n import N_, tr
+from telescope.i18n import N_, percent, tr
 
 _DEFAULT_QUALITY = 85  # the recommended spot, marked on the slider
 _MAX_QUALITY     = 95  # past about 92 a JPEG roughly doubles in size for no difference anyone sees
@@ -707,7 +707,7 @@ class StreamOutputPlugin(TelescopePlugin):
             self._ctrl.send(action="fps_target", value=fps)
 
     def _show_quality(self, q: int):
-        self._quality_val_lbl.setText(f"{q}%")
+        self._quality_val_lbl.setText(percent(q))
         tip = tr("{quality}. The dot ({default}%) is recommended: higher costs a lot more data for little you'd "
                  "see. On slow Wi-Fi, lower it or the FPS.", quality=quality_label(q), default=_DEFAULT_QUALITY)
         self._quality_slider.setToolTip(tip)

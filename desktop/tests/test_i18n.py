@@ -153,6 +153,27 @@ def test_a_list_reads_naturally():
     assert i18n.and_list(["Camera", "Microphone", "Preview"]) == "Camera, Microphone and Preview"
 
 
+def test_shown_numbers_follow_the_language(catalogs):
+    from PyQt6.QtCore import QLocale
+    i18n.load("en")
+    assert i18n.number(1, 1) == "1.0"
+    assert i18n.number(-0.5, 1, signed=True) == "-0.5"
+    assert i18n.number(10, 0, signed=True) == "+10"
+    assert i18n.percent(80) == "80%"
+    assert i18n.percent(-10, signed=True) == "-10%"
+    assert QLocale().decimalPoint() == "."
+    _po(catalogs, "sv", 'msgctxt "percentage"\nmsgid "{n}%"\nmsgstr "{n} %"\n')
+    assert i18n.load("sv") == "sv"
+    assert i18n.number(1, 1) == "1,0"
+    assert i18n.number(45.5, 1) == "45,5"
+    assert i18n.number(10, 0, signed=True) == "+10"
+    assert i18n.percent(80) == "80 %"
+    assert i18n.percent(12.5, 1) == "12,5 %"
+    assert QLocale().decimalPoint() == ","  # spinboxes follow too
+    i18n.load("en")
+    assert QLocale().decimalPoint() == "."
+
+
 def test_the_language_follows_the_system_unless_set(catalogs, monkeypatch):
     _po(catalogs, "sv", "")
     _po(catalogs, "pt_BR", "")

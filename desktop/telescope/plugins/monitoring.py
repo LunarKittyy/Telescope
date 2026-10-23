@@ -13,7 +13,7 @@ from telescope.widgets.common import (
     NoScrollSpinBox, add_card_header, add_section_heading, card_layout, create_card,
     dim_until_paired, hued_icon, ui_px,
 )
-from telescope.i18n import N_, tr
+from telescope.i18n import N_, number, percent, tr
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +105,7 @@ class MonitoringPlugin(TelescopePlugin):
         self._batt_alert_spin = NoScrollSpinBox()
         self._batt_alert_spin.setRange(5, 95)
         self._batt_alert_spin.setValue(20)
-        self._batt_alert_spin.setSuffix("%")
+        self._batt_alert_spin.setSuffix(tr("%", ctx="after a number"))
         self._batt_alert_spin.setToolTip(
             tr("Counts as low at this level, even while charging if it keeps dropping")
         )
@@ -119,7 +119,7 @@ class MonitoringPlugin(TelescopePlugin):
         self._temp_alert_spin = NoScrollSpinBox()
         self._temp_alert_spin.setRange(35, 65)
         self._temp_alert_spin.setValue(45)
-        self._temp_alert_spin.setSuffix(" °C")
+        self._temp_alert_spin.setSuffix(tr(" °C", ctx="after a number"))
         self._temp_alert_spin.setToolTip(tr("The temperature that counts as too hot"))
         self._temp_alert_spin.valueChanged.connect(self._host.schedule_save)
         self._temp_notify, self._temp_stop = self._alert_block(
@@ -255,7 +255,7 @@ class MonitoringPlugin(TelescopePlugin):
             batt_kind = "status_warn"
         else:
             batt_kind = "status_ok"
-        self._battery_lbl.set(f"{level}%", tr("Charging") if charging else "", batt_kind,
+        self._battery_lbl.set(percent(level), tr("Charging") if charging else "", batt_kind,
                               "battery_charging" if charging else "battery")
 
         if temp_c >= temp_thresh:
@@ -265,7 +265,7 @@ class MonitoringPlugin(TelescopePlugin):
         else:
             temp_kind = "status_ok"
         feel = {"status_ok": tr("Cool"), "status_warn": tr("Warm"), "status_err": tr("Hot")}[temp_kind]
-        self._temp_lbl.set(f"{temp_c:.1f} °C", feel, temp_kind, "thermometer")
+        self._temp_lbl.set(tr("{temp} °C", temp=number(temp_c, 1)), feel, temp_kind, "thermometer")
 
     def _check_alerts(self, level: int, charging: bool, temp_c: float):
         """The shown stream's alerts, by the thresholds on the card."""
@@ -309,7 +309,7 @@ class MonitoringPlugin(TelescopePlugin):
         if hot and (stop_hot or not entry["temp"]):
             entry["temp"] = True
             if cfg["temp_notify"] is not False:
-                temp = f"{temp_c:.1f}"
+                temp = number(temp_c, 1)
                 text = (tr("Temperature is {temp} °C.", temp=temp) if not name
                         else tr("{phone}: temperature is {temp} °C.", phone=name, temp=temp))
                 text += " " + (tr("Stopped streaming to let it cool down.") if stop_hot
@@ -328,7 +328,7 @@ class MonitoringPlugin(TelescopePlugin):
                          else tr("The phone's battery is at {level}%", level=level))
                 text = tr("Streaming stopped, as Monitoring stops it at {level}% or lower.", level=batt_thresh)
             else:
-                temp = f"{temp_c:.1f}"
+                temp = number(temp_c, 1)
                 title = (tr("{phone} is at {temp} °C", phone=name, temp=temp) if name
                          else tr("The phone is at {temp} °C", temp=temp))
                 text = tr("Streaming stopped to let it cool down, as Monitoring stops it at {temp} °C.",
