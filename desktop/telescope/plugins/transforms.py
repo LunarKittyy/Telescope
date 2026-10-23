@@ -24,7 +24,7 @@ from telescope.widgets.common import (
 )
 from telescope.widgets.lens_panel import shorten_lens_label
 from telescope.theme import ACCENT, ERR
-from telescope.i18n import N_, tr
+from telescope.i18n import N_, number, percent, tr
 
 # Rotation's segments, by the names saved settings and the shortcut use.
 _ROTATION_SEGMENTS = (("None", "0°"), ("90 CW", "90°"), ("180", "180°"), ("90 CCW", "270°"))
@@ -198,7 +198,7 @@ class TransformsPlugin(TelescopePlugin):
         self._zoom_slider.setRange(100, 1000)  # up to Max zoom in Advanced (max_zoom_changed)
         self._zoom_slider.setValue(100)
         self._zoom_slider.set_default(100)
-        self._zoom_val_lbl = value_label("1.0×")
+        self._zoom_val_lbl = value_label(tr("{n}×", n=number(1, 1)))
         self._zoom_slider.valueChanged.connect(self._on_zoom_changed)
         lay.addLayout(_row(tr("Zoom"), slider_row(self._zoom_slider, self._zoom_val_lbl), stretch=True))
         # Only there when the phone switched lens (or isn't on the one it should be); details on hover.
@@ -227,7 +227,7 @@ class TransformsPlugin(TelescopePlugin):
         self._pan_pad = PanPad()
         self._pan_pad.moved.connect(self._on_pan_pad)
         # Translators: H and V for horizontal and vertical, in the narrow Pan readout
-        self._pan_lbl = value_label(tr("H {x}\nV {y}", x="0%", y="0%"))
+        self._pan_lbl = value_label(tr("H {x}\nV {y}", x=percent(0), y=percent(0)))
         pan_row = _row(tr("Pan"), slider_row(self._pan_pad, self._pan_lbl), stretch=True)
         pan_row.setAlignment(pan_row.itemAt(0).widget(), Qt.AlignmentFlag.AlignVCenter)
         lay.addLayout(pan_row)
@@ -372,7 +372,7 @@ class TransformsPlugin(TelescopePlugin):
 
     def _on_zoom_changed(self, val: int):
         self.zoom = val / 100.0
-        self._zoom_val_lbl.setText(f"{self.zoom:.1f}×")
+        self._zoom_val_lbl.setText(tr("{n}×", n=number(self.zoom, 1)))
         self._lens_dot.place()
         if self.zoom <= 1.0:
             self.pan_x = self.pan_y = 0.0
@@ -456,7 +456,7 @@ class TransformsPlugin(TelescopePlugin):
         for lbl, slider, pan in ((self._pan_x_lbl, self._pan_x_slider, self.pan_x),
                                  (self._pan_y_lbl, self._pan_y_slider, self.pan_y)):
             pct = round(pan * 100)
-            lbl.setText(f"{pct:+d}%" if pct else "0%")
+            lbl.setText(percent(pct, signed=True) if pct else percent(0))
             lbl.setEnabled(slider._slider.isEnabled())
         self._pan_lbl.setText(tr("H {x}\nV {y}", x=self._pan_x_lbl.text(), y=self._pan_y_lbl.text()))
         self._pan_lbl.setEnabled(self._pan_pad.isEnabled())
