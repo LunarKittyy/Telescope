@@ -133,9 +133,6 @@ def pick(wanted: Iterable[str], have: Iterable[str]) -> str:
 
 def system_languages() -> List[str]:
     """The languages the desktop asks for, most wanted first."""
-    override = os.environ.get(ENV_LANGUAGE, "").strip()
-    if override:
-        return [override]
     try:
         from PyQt6.QtCore import QLocale
         return list(QLocale.system().uiLanguages())
@@ -143,10 +140,28 @@ def system_languages() -> List[str]:
         return []
 
 
+def resolve(chosen: str = "") -> str:
+    """The language to load for the one picked in Settings ("" is the system's). TELESCOPE_LANG wins over both."""
+    override = os.environ.get(ENV_LANGUAGE, "").strip()
+    return pick([override or chosen] if override or chosen else system_languages(), available())
+
+
+def native_name(lang: str) -> str:
+    """A language's name in itself, as a language picker lists it: "Svenska" for sv."""
+    if lang == SOURCE_LANGUAGE:
+        return "English"
+    try:
+        from PyQt6.QtCore import QLocale
+        name = QLocale(lang).nativeLanguageName()
+    except ImportError:
+        name = ""
+    return sentence(name) if name else lang
+
+
 def load(lang: Optional[str] = None) -> str:
     """Loads a language (the system's when None) and returns the one loaded. Call before building any window."""
     global _catalog, _english, _plural, _language
-    lang = pick([lang] if lang else system_languages(), available())
+    lang = pick([lang], available()) if lang else resolve()
     _catalog, _english, _plural, _language = {}, {}, (lambda n: int(n != 1)), SOURCE_LANGUAGE
     if lang == SOURCE_LANGUAGE:
         return _language
