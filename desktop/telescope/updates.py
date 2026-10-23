@@ -36,6 +36,7 @@ import update_guard
 from update_guard import EXE_NAME, LIB_PREFIX, OLD_EXE_NAME, PREVIOUS_DIR, STAGING_DIR
 from telescope import version, web
 from telescope.platform import IS_WINDOWS, NO_WINDOW
+from telescope.i18n import tr
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +103,7 @@ def parse_manifest(raw: bytes) -> Manifest:
             protocol=int(data.get("protocol", 0)), assets=assets,
         )
     except (ValueError, KeyError, TypeError, AttributeError) as exc:
-        raise UpdateError("The update information couldn't be read.") from exc
+        raise UpdateError(tr("The update information couldn't be read.")) from exc
 
 
 def _open(url: str, timeout: float):
@@ -118,14 +119,14 @@ def fetch_manifest(channel: str, opener: Callable = _open) -> Optional[Manifest]
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
             return None
-        raise UpdateError(f"Couldn't check for updates (HTTP {exc.code}).") from exc
+        raise UpdateError(tr("Couldn't check for updates (HTTP {code}).", code=exc.code)) from exc
     except (OSError, ValueError, http.client.HTTPException) as exc:  # HTTPException: a reply that isn't HTTP
         if web.certificate_failed(exc):
-            raise UpdateError("Couldn't check GitHub's certificate, so updates weren't checked. Security software or "
-                              "a network that inspects HTTPS can cause this.") from exc
-        raise UpdateError("Couldn't check for updates. Check the internet connection.") from exc
+            raise UpdateError(tr("Couldn't check GitHub's certificate, so updates weren't checked. Security software or "
+                              "a network that inspects HTTPS can cause this.")) from exc
+        raise UpdateError(tr("Couldn't check for updates. Check the internet connection.")) from exc
     if len(raw) > MAX_MANIFEST_BYTES:
-        raise UpdateError("The update information couldn't be read.")
+        raise UpdateError(tr("The update information couldn't be read."))
     return parse_manifest(raw)
 
 
@@ -211,11 +212,11 @@ def self_update_blocker(directory: Optional[Path] = None) -> Optional[str]:
     """Why this copy can't replace itself (the UI then offers the release page), or None."""
     directory = directory or install_dir()
     if version.CHANNEL == "dev":  # not a .git check: a release unpacked inside a git-tracked folder is still a release
-        return "This is a source checkout. Update it with git."
+        return tr("This is a source checkout. Update it with git.")
     if IS_WINDOWS and not getattr(sys, "frozen", False):
-        return "Only the packaged app can update itself."
+        return tr("Only the packaged app can update itself.")
     if not os.access(directory, os.W_OK):
-        return "Telescope's folder isn't writable, so it can't update itself."
+        return tr("Telescope's folder isn't writable, so it can't update itself.")
     return None
 
 
@@ -233,13 +234,13 @@ def download(asset: Asset, dest_dir: Path, progress: Optional[Callable[[int, int
         with opener(asset.url, REQUEST_TIMEOUT) as r, partial.open("wb") as f:
             while True:
                 if cancelled():
-                    raise UpdateError("Cancelled.")
+                    raise UpdateError(tr("Cancelled."))
                 chunk = r.read(256 * 1024)
                 if not chunk:
                     break
                 done += len(chunk)
                 if done > asset.size:
-                    raise UpdateError("The download is bigger than it should be.")
+                    raise UpdateError(tr("The download is bigger than it should be."))
                 digest.update(chunk)
                 f.write(chunk)
                 if progress:
@@ -249,13 +250,13 @@ def download(asset: Asset, dest_dir: Path, progress: Optional[Callable[[int, int
         raise
     except (OSError, http.client.HTTPException) as exc:  # HTTPException: cut off part way (IncompleteRead)
         partial.unlink(missing_ok=True)
-        raise UpdateError("The download failed. Check the internet connection and try again.") from exc
+        raise UpdateError(tr("The download failed. Check the internet connection and try again.")) from exc
     if done < asset.size:  # the connection closed early, as when a wifi without internet drops it
         partial.unlink(missing_ok=True)
-        raise UpdateError("The download was cut short. Check the internet connection and try again.")
+        raise UpdateError(tr("The download was cut short. Check the internet connection and try again."))
     if digest.hexdigest() != asset.sha256:
         partial.unlink(missing_ok=True)
-        raise UpdateError("The download didn't match its checksum, so it wasn't installed.")
+        raise UpdateError(tr("The download didn't match its checksum, so it wasn't installed."))
     os.replace(partial, final)
     return final
 
@@ -266,7 +267,7 @@ def _safe_members_zip(archive: zipfile.ZipFile, root: Path):
     for name in archive.namelist():
         target = (root / name).resolve()
         if root.resolve() not in target.parents and target != root.resolve():
-            raise UpdateError("The update contains unexpected paths, so it wasn't installed.")
+            raise UpdateError(tr("The update contains unexpected paths, so it wasn't installed."))
 
 
 def _extract(archive_path: Path, staging: Path):
@@ -283,15 +284,15 @@ def _extract(archive_path: Path, staging: Path):
                 for m in t.getmembers():
                     target = (staging / m.name).resolve()
                     if staging.resolve() not in target.parents and target != staging.resolve():
-                        raise UpdateError("The update contains unexpected paths, so it wasn't installed.")
+                        raise UpdateError(tr("The update contains unexpected paths, so it wasn't installed."))
                     if not (m.isfile() or m.isdir()):
-                        raise UpdateError("The update contains unexpected files, so it wasn't installed.")
+                        raise UpdateError(tr("The update contains unexpected files, so it wasn't installed."))
                 if hasattr(tarfile, "data_filter"):
                     t.extractall(staging, filter="data")
                 else:
                     t.extractall(staging)
     except (zipfile.BadZipFile, tarfile.TarError, OSError) as exc:
-        raise UpdateError("The download couldn't be unpacked.") from exc
+        raise UpdateError(tr("The download couldn't be unpacked.")) from exc
 
 
 @dataclass
@@ -311,7 +312,7 @@ def _swap(directory: Path, journal: dict) -> list:
             update_guard.roll_back(directory, journal, remember=False)
         except OSError:
             logger.exception("Putting the old version back failed; the next start tries again")
-        raise UpdateError(f"Couldn't replace Telescope's files: {exc.strerror or exc}") from exc
+        raise UpdateError(tr("Couldn't replace Telescope's files: {error}", error=exc.strerror or exc)) from exc
     # The old version stays until the new one has started once (update_guard.confirm()).
     update_guard.write_journal(directory, dict(journal, state="trial", started=False))
     return skipped
@@ -322,14 +323,15 @@ def install_windows(archive: Path, directory: Path, build: int = 0) -> InstallRe
     _extract(archive, staging)
     if not (staging / EXE_NAME).is_file():
         shutil.rmtree(staging, ignore_errors=True)
-        raise UpdateError("The download doesn't contain Telescope, so it wasn't installed.")
+        raise UpdateError(tr("The download doesn't contain Telescope, so it wasn't installed."))
     # A roll-back puts back whatever old exe it finds, so one left from an earlier update must go first
     for leftover in (update_guard.OLD_EXE_NAME, update_guard.FAILED_EXE_NAME):
         try:
             (directory / leftover).unlink(missing_ok=True)
         except OSError:
             shutil.rmtree(staging, ignore_errors=True)
-            raise UpdateError(f"{leftover} is in use, so the update wasn't installed. Try again after a restart.")
+            raise UpdateError(tr("{file} is in use, so the update wasn't installed. Try again after a restart.",
+                                 file=leftover))
     skipped = _swap(directory, {"platform": "windows", "to_build": build})
     return InstallResult([str(directory / EXE_NAME), "--after-update"], skipped)
 
@@ -340,7 +342,7 @@ def install_linux(archive: Path, directory: Path, build: int = 0) -> InstallResu
     entries = sorted(p.name for p in staging.iterdir())
     if "main.py" not in entries or "telescope" not in entries:
         shutil.rmtree(staging, ignore_errors=True)
-        raise UpdateError("The download doesn't contain Telescope, so it wasn't installed.")
+        raise UpdateError(tr("The download doesn't contain Telescope, so it wasn't installed."))
     previous = directory / PREVIOUS_DIR
     if previous.exists():
         shutil.rmtree(previous)
@@ -472,14 +474,14 @@ def install_with_setup(setup: Path, old_dir: Optional[Path] = None, run: Callabl
         # Per-user, so no UAC prompt; downloaded by Telescope itself, so no SmartScreen prompt either
         r = run(argv, timeout=600, **NO_WINDOW)
     except subprocess.TimeoutExpired as exc:
-        raise UpdateError("The installer took too long, so this copy stays as it is.") from exc
+        raise UpdateError(tr("The installer took too long, so this copy stays as it is.")) from exc
     except OSError as exc:
-        raise UpdateError(f"Couldn't start the installer: {exc.strerror or exc}") from exc
+        raise UpdateError(tr("Couldn't start the installer: {error}", error=exc.strerror or exc)) from exc
     if r.returncode != 0:
-        raise UpdateError(f"The installer stopped (code {r.returncode}), so this copy stays as it is.")
+        raise UpdateError(tr("The installer stopped (code {code}), so this copy stays as it is.", code=r.returncode))
     location = locate()
     if location is None or not (location / EXE_NAME).is_file():
-        raise UpdateError("Telescope was installed, but its folder wasn't where expected. Open it from the Start menu.")
+        raise UpdateError(tr("Telescope was installed, but its folder wasn't where expected. Open it from the Start menu."))
     argv = [str(location / EXE_NAME), "--after-update"]
     if location.resolve() != old_dir.resolve():
         argv += [MOVED_FROM, str(old_dir)]

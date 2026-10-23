@@ -26,13 +26,13 @@ internal class UpdateHttp(private val userAgent: String, private val timeoutMs: 
     }
 
     // Null once dest holds the verified file, or the message to show. Leaves nothing behind on failure.
-    fun download(asset: ManifestAsset, dest: File, progress: (Int) -> Unit): String? {
+    fun download(asset: ManifestAsset, dest: File, strings: Strings, progress: (Int) -> Unit): String? {
         val partial = File(dest.path + ".part")
         return try {
             val conn = open(asset.url)
             try {
-                if (conn.responseCode < 0) return OFFLINE  // an answer that isn't HTTP
-                if (conn.responseCode != 200) return "The download failed (HTTP ${conn.responseCode})."
+                if (conn.responseCode < 0) return strings.get(R.string.update_error_offline)  // an answer that isn't HTTP
+                if (conn.responseCode != 200) return strings.get(R.string.update_error_http, conn.responseCode)
                 var done = 0L
                 var lastPct = -1
                 conn.inputStream.use { input ->
@@ -42,25 +42,25 @@ internal class UpdateHttp(private val userAgent: String, private val timeoutMs: 
                             val n = input.read(buf)
                             if (n < 0) break
                             done += n
-                            if (done > asset.size) return "The download is bigger than it should be."
+                            if (done > asset.size) return strings.get(R.string.update_error_too_big)
                             out.write(buf, 0, n)
                             val pct = (done * 100 / asset.size).toInt()
                             if (pct != lastPct) { lastPct = pct; progress(pct) }
                         }
                     }
                 }
-                if (done != asset.size) return "The download was cut short. Check the internet connection and try again."
+                if (done != asset.size) return strings.get(R.string.update_error_cut_short)
             } finally {
                 conn.disconnect()
             }
             val hash = partial.inputStream().use { UpdateLogic.sha256Hex(it) }
             if (!hash.equals(asset.sha256, ignoreCase = true)) {
-                return "The download didn't match its checksum, so it wasn't installed."
+                return strings.get(R.string.update_error_checksum)
             }
-            if (!partial.renameTo(dest)) return "Couldn't save the download."
+            if (!partial.renameTo(dest)) return strings.get(R.string.update_error_save)
             null
         } catch (e: Exception) {  // not only IOException: this runs on a bare thread, where anything else would crash the app
-            OFFLINE
+            strings.get(R.string.update_error_offline)
         } finally {
             partial.delete()
         }
@@ -87,6 +87,5 @@ internal class UpdateHttp(private val userAgent: String, private val timeoutMs: 
 
     companion object {
         const val MAX_MANIFEST_BYTES = 256 * 1024
-        private const val OFFLINE = "The download failed. Check the internet connection and try again."
     }
 }

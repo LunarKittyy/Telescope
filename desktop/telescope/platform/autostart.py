@@ -13,6 +13,7 @@ from typing import Callable, Optional
 
 from telescope import version
 from telescope.platform import IS_WINDOWS
+from telescope.i18n import tr
 
 logger = logging.getLogger(__name__)
 
@@ -164,7 +165,7 @@ def enable(command: Optional[list] = None, config_home: Optional[Path] = None, w
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(desktop_entry(command))
     except OSError as exc:
-        return False, f"Couldn't set Telescope to open at sign-in: {exc}"
+        return False, tr("Couldn't set Telescope to open at sign-in: {error}", error=exc)
     return True, ""
 
 
@@ -202,7 +203,7 @@ def disable(config_home: Optional[Path] = None, winreg=None) -> tuple:
     except FileNotFoundError:
         pass
     except OSError as exc:
-        return False, f"Couldn't stop Telescope opening at sign-in: {exc}"
+        return False, tr("Couldn't stop Telescope opening at sign-in: {error}", error=exc)
     return True, ""
 
 

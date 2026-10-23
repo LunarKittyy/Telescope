@@ -24,10 +24,11 @@ from telescope.widgets.common import (
     set_ui_role,
 )
 from telescope.widgets.qr import QRCodeWidget
+from telescope.i18n import N_, tr
 
 APK_URL = release_asset_url("Telescope.apk")
 
-_LINUX_INSTALL_HINT = (
+_LINUX_INSTALL_HINT = N_(
     "Install the v4l2loopback package. Fedora and Nobara: "
     "v4l2loopback (from RPM Fusion). Debian, Ubuntu and Arch: v4l2loopback-dkms."
 )
@@ -79,9 +80,9 @@ class _Step:
 
 class OnboardingPlugin(TelescopePlugin):
     name = "onboarding"
-    title = "Setup guide"
-    about = "The step by step checklist shown until the first stream works."
-    when_off = "Without it the setup checklist never shows, not even when nothing is set up yet."
+    title = N_("Setup guide")
+    about = N_("The step by step checklist shown until the first stream works.")
+    when_off = N_("Without it the setup checklist never shows, not even when nothing is set up yet.")
     panel_region = "center"
 
     def setup(self, host, bus):
@@ -110,28 +111,28 @@ class OnboardingPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         self._card = create_card()
         lay = card_layout(self._card)
-        self._close_btn = card_action("", "close", "Close the setup guide")
-        self._close_btn.setAccessibleName("Close the setup guide")
+        self._close_btn = card_action("", "close", tr("Close the setup guide"))
+        self._close_btn.setAccessibleName(tr("Close the setup guide"))
         self._close_btn.clicked.connect(lambda: self._set_asked(False))
-        add_card_header(lay, "Get set up", "check", action=self._close_btn)
+        add_card_header(lay, tr("Get set up"), "check", action=self._close_btn)
 
         grid = QGridLayout()
         grid.setContentsMargins(0, 4, 0, 0)
         grid.setHorizontalSpacing(14)
         grid.setVerticalSpacing(22)
         grid.setColumnStretch(1, 1)
-        self._vcam = _Step(grid, 0, 1, "Virtual camera")
+        self._vcam = _Step(grid, 0, 1, tr("Virtual camera"))
         self._vcam.button.clicked.connect(self._vcam_action)
-        self._app = _Step(grid, 1, 2, "Phone app")
+        self._app = _Step(grid, 1, 2, tr("Phone app"))
         self._app.button.clicked.connect(self._install_apk)
         self._qr_row = QWidget()
         qr_lay = QVBoxLayout(self._qr_row)
         qr_lay.setContentsMargins(0, 4, 0, 0)
         qr_lay.addWidget(QRCodeWidget(APK_URL, module_px=3), 0, Qt.AlignmentFlag.AlignLeft)
         self._app.body.addWidget(self._qr_row)
-        self._pair = _Step(grid, 2, 3, "Add your phone")
+        self._pair = _Step(grid, 2, 3, tr("Add your phone"))
         self._pair.button.clicked.connect(self._bus.add_phone_requested.emit)
-        self._start = _Step(grid, 3, 4, "Start streaming")
+        self._start = _Step(grid, 3, 4, tr("Start streaming"))
         lay.addLayout(grid)
         lay.addStretch(1)
 
@@ -142,53 +143,53 @@ class OnboardingPlugin(TelescopePlugin):
     def _render(self):
         vcam = self._vcam
         if not self._vcam_checked:
-            vcam.set(False, "Checking…")
+            vcam.set(False, tr("Checking…"))
             vcam.action(None)
         elif self._vcam_ready:
-            vcam.set(True, "Installed. Starting a stream may ask for your password to switch it on."
-                     if IS_LINUX else "Installed. If Discord, Zoom or a similar app was already open, quit it "
-                                      "fully (closing the window isn't enough if it's still in the tray) and "
-                                      "open it again to see the camera.")
+            vcam.set(True, tr("Installed. Starting a stream may ask for your password to switch it on.")
+                     if IS_LINUX else tr("Installed. If Discord, Zoom or a similar app was already open, quit it "
+                                         "fully (closing the window isn't enough if it's still in the tray) and "
+                                         "open it again to see the camera."))
             vcam.action(None)
         elif IS_LINUX:
-            vcam.set(False, _LINUX_INSTALL_HINT, "status_warn")
-            vcam.action("Check again")
+            vcam.set(False, tr(_LINUX_INSTALL_HINT), "status_warn")
+            vcam.action(tr("Check again"))
         else:
-            vcam.set(False, "Other apps see Telescope as a webcam through this driver. "
-                            "Installing it needs admin access.")
-            vcam.action("Install driver", primary=True)
+            vcam.set(False, tr("Other apps see Telescope as a webcam through this driver. "
+                               "Installing it needs admin access."))
+            vcam.action(tr("Install driver"), primary=True)
 
         no_phone = bool(self._source) and not self._asked  # asked for, it's the phone steps people came for
         paired = self._phones > 0 or no_phone
         if no_phone:
-            self._app.set(True, "Not needed: you picked a camera that isn't a phone.")
+            self._app.set(True, tr("Not needed: you picked a camera that isn't a phone."))
             self._app.action(None)
         elif paired:
-            self._app.set(True, "Installed.")
+            self._app.set(True, tr("Installed."))
             self._app.action(None)
         elif not self._busy:
-            self._app.set(False, "Scan this with the phone's camera app to download Telescope.apk, "
-                                 "then open it to install. It's a download link, not the "
-                                 "pairing code.")
+            self._app.set(False, tr("Scan this with the phone's camera app to download Telescope.apk, "
+                                    "then open it to install. It's a download link, not the "
+                                    "pairing code."))
             usb = bundled_apk_path() is not None and adb_available()
-            self._app.action("Install over USB" if usb else None)
+            self._app.action(tr("Install over USB") if usb else None)
         self._qr_row.setVisible(not paired)
 
         if no_phone:
-            self._pair.set(True, "Not needed: you picked a camera that isn't a phone.")
+            self._pair.set(True, tr("Not needed: you picked a camera that isn't a phone."))
             self._pair.action(None)
         elif paired:
-            self._pair.set(True, "Paired.")
+            self._pair.set(True, tr("Paired."))
             self._pair.action(None)
         else:
-            self._pair.set(False, "Open Telescope on the phone first.")
-            self._pair.action("Add phone", primary=True)
+            self._pair.set(False, tr("Open Telescope on the phone first."))
+            self._pair.action(tr("Add phone"), primary=True)
 
         if self._streamed:
-            self._start.set(True, "Done.")
+            self._start.set(True, tr("Done."))
         else:
             # Points at the real button rather than duplicating it, so people learn where it lives.
-            self._start.set(False, "Click Start streaming in the top right corner of this window.")
+            self._start.set(False, tr("Click Start streaming in the top right corner of this window."))
         self._update_visibility()
 
     def _update_visibility(self):
@@ -242,7 +243,7 @@ class OnboardingPlugin(TelescopePlugin):
             self.check_virtual_camera()
             return
         self._vcam.button.setEnabled(False)
-        self._vcam.set(False, "Installing… Windows asks for admin access.")
+        self._vcam.set(False, tr("Installing… Windows asks for admin access."))
         signals = self._signals
 
         def work():
@@ -265,8 +266,8 @@ class OnboardingPlugin(TelescopePlugin):
         self._vcam.button.setEnabled(True)
         self._render()
         if detail and not ready:
-            self._vcam.set(False, f"Didn't install: {detail}", "status_err")
-            self._vcam.action("Try again", primary=True)
+            self._vcam.set(False, tr("Didn't install: {detail}", detail=detail), "status_err")
+            self._vcam.action(tr("Try again"), primary=True)
 
     # ── Phone app over USB ────────────────────────────────────────────────
 
@@ -276,14 +277,14 @@ class OnboardingPlugin(TelescopePlugin):
             return
         self._busy = True
         self._app.button.setEnabled(False)
-        self._app.set(False, "Installing over USB…")
+        self._app.set(False, tr("Installing over USB…"))
         signals = self._signals
 
         def work():
             serials = adb_devices()
             if not serials:
-                signals.apk.emit(False, "No phone found over USB. Plug it in and allow USB debugging "
-                                        "when the phone asks.")
+                signals.apk.emit(False, tr("No phone found over USB. Plug it in and allow USB debugging "
+                                           "when the phone asks."))
                 return
             signals.apk.emit(*adb_install(serials[0], apk))
         threading.Thread(target=work, daemon=True).start()
@@ -293,7 +294,7 @@ class OnboardingPlugin(TelescopePlugin):
         self._app.button.setEnabled(True)
         self._render()
         if ok:
-            self._app.set(False, "Installed. Open Telescope on the phone for the next step.", "status_ok")
+            self._app.set(False, tr("Installed. Open Telescope on the phone for the next step."), "status_ok")
         else:
             self._app.set(False, detail, "status_err")
 

@@ -22,6 +22,7 @@ from typing import Callable, Optional
 import numpy as np
 
 from telescope.pinned_https import PhoneAuth
+from telescope.i18n import tr
 
 logger = logging.getLogger(__name__)
 
@@ -453,7 +454,7 @@ class AudioWorker:
             except urllib.error.HTTPError as e:
                 return _phone_reason(e)
             except Exception:
-                return "Can't reach the phone's microphone."
+                return tr("Can't reach the phone's microphone.")
             pending = b""
             self._response = resp
             self._buffer.restart_clock()
@@ -466,7 +467,7 @@ class AudioWorker:
                     return _MOVED
                 chunk, pending = pending or resp.read1(4096), b""
                 if not chunk:
-                    return _MOVED if self._handover is not None else "The phone's microphone stopped."
+                    return _MOVED if self._handover is not None else tr("The phone's microphone stopped.")
                 self._buffer.push(chunk)
                 self._measure(chunk)
                 if not told:
@@ -475,7 +476,7 @@ class AudioWorker:
         except Exception:
             if self._stop.is_set():
                 return None
-            return _MOVED if self._handover is not None else "The phone's microphone stopped."
+            return _MOVED if self._handover is not None else tr("The phone's microphone stopped.")
         finally:
             self._response = None
             try:
@@ -501,7 +502,7 @@ class AudioWorker:
         except Exception as e:
             if not recovering:
                 logger.exception("Couldn't open the microphone output")
-            return f"Couldn't open the virtual microphone: {e}"
+            return tr("Couldn't open the virtual microphone: {error}", error=e)
         try:
             if recovering:
                 self._on_status("ok", "")
@@ -512,7 +513,7 @@ class AudioWorker:
         except Exception:
             if not self._stop.is_set():
                 logger.exception("Microphone output failed")
-                return "The virtual microphone stopped taking audio."
+                return tr("The virtual microphone stopped taking audio.")
         finally:
             sink.close()
         return None
@@ -625,4 +626,4 @@ def _phone_reason(err: urllib.error.HTTPError) -> str:
     try:
         return json.loads(err.read(4096).decode("utf-8")).get("error") or f"HTTP {err.code}"
     except Exception:
-        return f"The phone refused the microphone (HTTP {err.code})."
+        return tr("The phone refused the microphone (HTTP {code}).", code=err.code)

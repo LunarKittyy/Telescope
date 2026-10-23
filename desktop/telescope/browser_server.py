@@ -39,6 +39,7 @@ from typing import Callable, Optional
 import numpy as np
 
 from telescope import browser_rtc, h264_reader
+from telescope.i18n import N_, tr
 
 logger = logging.getLogger(__name__)
 
@@ -425,7 +426,7 @@ class BrowserReader:
     already decoded the frames; read_packet() hands over the newest and decode() turns it into BGR."""
 
     parallel_decode = False  # one reused converter (h264_reader.ToBgr), and the frames are decoded already
-    waiting_text = "Waiting for the browser. Scan the code on the Browser camera card and tap Start."
+    waiting_text = N_("Waiting for the browser. Scan the code on the Browser camera card and tap Start.")
     # How long open() waits for a browser, and how long read_packet() waits for a frame before the worker reconnects.
     OPEN_WAIT_S = 1.0
     FRAME_WAIT_S = 3.0
@@ -896,7 +897,7 @@ class BrowserServer:
             sdp = session.answer(offer, feed.max_kbps())
         except Exception as exc:
             logger.warning("Browser camera: couldn't answer the browser's offer: %s", exc)
-            feed.note_rtc(gen, "", "This computer couldn't set up the video connection.")
+            feed.note_rtc(gen, "", tr("This computer couldn't set up the video connection."))
             return {"type": "rtc_error", "message": "The computer couldn't set up the video connection."}
         feed.note_rtc(gen, session.codec)
         return {"type": "answer", "sdp": sdp}

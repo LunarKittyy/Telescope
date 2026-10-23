@@ -30,6 +30,7 @@ from telescope.widgets.common import (
     create_card, set_status_kind, wrapped_note,
 )
 from telescope.widgets.qr import QRCodeWidget
+from telescope.i18n import N_, tr
 
 logger = logging.getLogger(__name__)
 
@@ -40,12 +41,16 @@ SIZES = [("480p", 854, 480), ("720p", 1280, 720), ("1080p", 1920, 1080)]
 FPS_CHOICES = [15, 24, 30]
 DEFAULT_SIZE, DEFAULT_FPS = "720p", 30
 _CODEC_NAMES = {"H264": "H.264", "VP8": "VP8"}
-_LIMITS = {"cpu": "The device's processor can't keep up, so the browser is sending less. Try a lower resolution or frame rate.",
-           "bandwidth": "The browser is lowering the picture to fit the connection or the bitrate for this resolution."}
+_LIMITS = {"cpu": N_("The device's processor can't keep up, so the browser is sending less. Try a lower resolution "
+                      "or frame rate."),
+           "bandwidth": N_("The browser is lowering the picture to fit the connection or the bitrate for this "
+                           "resolution.")}
 
-_CERT_NOTE = ("The browser warns that the connection isn't private: it's this computer's own certificate. "
-              "On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed.")
-_BACKGROUND_NOTE = "Keep the page open with the screen on: phones pause the camera when you leave the browser."
+# Translators: Show Details, visit this website, Advanced and Proceed are what Safari and Chrome call their buttons:
+# use the names those browsers show in your language
+_CERT_NOTE = N_("The browser warns that the connection isn't private: it's this computer's own certificate. "
+                "On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed.")
+_BACKGROUND_NOTE = N_("Keep the page open with the screen on: phones pause the camera when you leave the browser.")
 # Waiting this long with nothing reaching the server is worth a hint: scanning and loading the page take seconds.
 HINT_AFTER_S = 30
 
@@ -54,7 +59,8 @@ def sending_text(codec: str, sent: dict) -> str:
     """", H.264, 1280×720 at 30 fps" from what WebRTC settled on and the page's stats; "" before either is known."""
     parts = [_CODEC_NAMES[codec]] if codec in _CODEC_NAMES else []
     if sent.get("width") and sent.get("height"):
-        parts.append(f"{sent['width']}×{sent['height']}" + (f" at {sent['fps']} fps" if sent.get("fps") else ""))
+        size = f"{sent['width']}×{sent['height']}"
+        parts.append(tr("{size} at {fps} fps", size=size, fps=sent["fps"]) if sent.get("fps") else size)
     return "".join(f", {p}" for p in parts)
 
 
@@ -65,10 +71,10 @@ def waiting_hint(stats, connected: bool, now: float) -> str:
     if stats["browsers"] or stats["pages"]:
         return ""  # one got through before, or is on the page now
     if stats["tls_failed"]:
-        return "A browser reached this computer but hasn't accepted its certificate yet. Tap through the warning."
+        return tr("A browser reached this computer but hasn't accepted its certificate yet. Tap through the warning.")
     if stats.nothing_arrived() and now - stats.started >= HINT_AFTER_S:
-        return (f"Nothing has reached this computer yet. Check that the device is on the same network as the address "
-                f"in the code, and that the firewall allows port {stats.port}.")
+        return tr("Nothing has reached this computer yet. Check that the device is on the same network as the address "
+                  "in the code, and that the firewall allows port {port}.", port=stats.port)
     return ""
 
 
@@ -90,6 +96,7 @@ class _Source:
 
     def __init__(self, plugin: "BrowserCameraPlugin"):
         self._plugin = plugin
+        self.name = tr("Browser camera")
 
     def redirect(self) -> Optional[str]:
         return self._plugin.idle_browser()
@@ -124,7 +131,7 @@ class _BrowserSource:
         self._plugin = plugin
         self.bid, self.feed = bid, feed
         self.id = BROWSER_PREFIX + bid
-        self.name = "Browser"
+        self.name = tr("Browser")
         self.device = ""  # what the page said it runs on, without the number a second one of its kind gets
 
     def prepare(self, interactive: bool) -> bool:
@@ -142,9 +149,9 @@ class _BrowserSource:
 
 class BrowserCameraPlugin(TelescopePlugin):
     name = "browser_camera"
-    title = "Browser camera"
-    about = "Streaming from any device's web browser, by scanning a code."
-    when_off = "Without it Browser camera isn't in the phone picker and its card is gone too."
+    title = N_("Browser camera")
+    about = N_("Streaming from any device's web browser, by scanning a code.")
+    when_off = N_("Without it Browser camera isn't in the phone picker and its card is gone too.")
     panel_region = "right"  # where the Camera card is, which hides while this streams
 
     def __init__(self, server_cls=BrowserServer, cert_folder=None, addresses=None):
@@ -202,12 +209,12 @@ class BrowserCameraPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = self._card = create_card()
         lay = card_layout(card)
-        self._new_link_btn = card_action("New link", "reset", "Make a new code; the old one stops working")
+        self._new_link_btn = card_action(tr("New link"), "reset", tr("Make a new code; the old one stops working"))
         self._new_link_btn.clicked.connect(self.new_link)
-        add_card_header(lay, "Browser camera", "qr", action=self._new_link_btn, hue="connection")
+        add_card_header(lay, tr("Browser camera"), "qr", action=self._new_link_btn, hue="connection")
 
         self._status_lbl = ElidingLabel("")
-        lay.addLayout(control_row("Browser", self._status_lbl, stretch=True))
+        lay.addLayout(control_row(tr("Browser"), self._status_lbl, stretch=True))
         self._list_lbl = wrapped_note("")  # each connected browser and the camera it streams to
         self._list_row = control_row_widget("", self._list_lbl, stretch=True)
         lay.addWidget(self._list_row)
@@ -227,40 +234,40 @@ class BrowserCameraPlugin(TelescopePlugin):
         self._qr_lay.setContentsMargins(0, 4, 0, 4)
         self._qr: Optional[QRCodeWidget] = None
         self._qr_url = ""
-        self._qr_row = control_row_widget("Scan", self._qr_box)
+        self._qr_row = control_row_widget(tr("Scan"), self._qr_box)
         lay.addWidget(self._qr_row)
 
         self._addr_combo = NoScrollComboBox()
-        self._addr_combo.setToolTip("Which of this computer's addresses the code points to")
+        self._addr_combo.setToolTip(tr("Which of this computer's addresses the code points to"))
         self._addr_combo.currentIndexChanged.connect(self._on_address_picked)
-        self._addr_row = control_row_widget("Address", self._addr_combo, stretch=True)
+        self._addr_row = control_row_widget(tr("Address"), self._addr_combo, stretch=True)
         lay.addWidget(self._addr_row)
 
         link = QHBoxLayout()
         link.setContentsMargins(0, 0, 0, 0)
         link.setSpacing(8)
         self._url_lbl = ElidingLabel("")
-        self._copy_btn = QPushButton("Copy")
-        self._copy_btn.setToolTip("Copy the link, to open it on a device that can't scan the code")
+        self._copy_btn = QPushButton(tr("Copy"))
+        self._copy_btn.setToolTip(tr("Copy the link, to open it on a device that can't scan the code"))
         self._copy_btn.clicked.connect(lambda: QGuiApplication.clipboard().setText(self._url()))
         link.addWidget(self._url_lbl, 1)
         link.addWidget(self._copy_btn)
-        self._link_row = control_row_widget("Link", link, stretch=True)
+        self._link_row = control_row_widget(tr("Link"), link, stretch=True)
         lay.addWidget(self._link_row)
 
         self._size_combo = NoScrollComboBox()
         for label, w, h in SIZES:
             self._size_combo.addItem(label, label)
-        self._size_combo.setToolTip("The size the browser sends; a camera that can't do it sends what it can")
+        self._size_combo.setToolTip(tr("The size the browser sends; a camera that can't do it sends what it can"))
         self._size_combo.currentIndexChanged.connect(lambda i: self._set_capture(size=self._size_combo.itemData(i)))
-        lay.addLayout(control_row("Resolution", self._size_combo))
+        lay.addLayout(control_row(tr("Resolution"), self._size_combo))
         self._fps_combo = NoScrollComboBox()
         for fps in FPS_CHOICES:
             self._fps_combo.addItem(f"{fps} fps", fps)
         self._fps_combo.currentIndexChanged.connect(lambda i: self._set_capture(fps=self._fps_combo.itemData(i)))
-        lay.addLayout(control_row("Frame rate", self._fps_combo))
+        lay.addLayout(control_row(tr("Frame rate"), self._fps_combo))
 
-        self._note_lbl = wrapped_note(f"{_CERT_NOTE} {_BACKGROUND_NOTE}")
+        self._note_lbl = wrapped_note(tr(_CERT_NOTE) + " " + tr(_BACKGROUND_NOTE))
         lay.addWidget(control_row_widget("", self._note_lbl, stretch=True))
 
         self._sync_combos()
@@ -289,29 +296,31 @@ class BrowserCameraPlugin(TelescopePlugin):
         connected = self._connected() if server is not None else []
         tip = ""
         if server is None:
-            kind, text = ("status_err", self._problem) if self._problem else ("status_dim", "Off")
+            kind, text = ("status_err", self._problem) if self._problem else ("status_dim", tr("Off"))
         elif feed is not None and feed.connected:
             shown = next((src.name for src in self._browsers.values() if src.feed is feed), feed.device)
-            kind, text = "status_ok", shown if feed.device else "Connected"
+            kind, text = "status_ok", shown if feed.device else tr("Connected")
             if feed.rtc_error:
                 kind, text = "status_err", feed.rtc_error
             else:
                 text += sending_text(feed.codec, feed.sent)
-                tip = _LIMITS.get(feed.sent.get("limit", ""), "")
+                tip = tr(_LIMITS[feed.sent["limit"]]) if feed.sent.get("limit") in _LIMITS else ""
                 if feed.sent.get("limit") == "cpu":
                     kind = "status_warn"
         elif connected:
-            kind, text = "status_ok", f"{len(connected)} connected" if len(connected) > 1 else f"{connected[0].name}"
+            kind, text = "status_ok", (tr("{n} connected", n=len(connected)) if len(connected) > 1
+                                       else connected[0].name)
         else:
-            kind, text = "status_dim", "Waiting for a browser"
+            kind, text = "status_dim", tr("Waiting for a browser")
         set_status_kind(self._status_lbl, kind)
         self._status_lbl.setText(text)
         self._status_lbl.setToolTip(tip)
-        lines = [f"{src.name}: {self._host.stream_output(src.id) or 'not streaming'}" for src in connected]
+        lines = [tr("{label}: {value}", label=src.name, value=self._host.stream_output(src.id) or tr("not streaming"))
+                 for src in connected]
         self._list_lbl.setText("\n".join(lines))
         self._list_row.setVisible(len(lines) > 1)
         mic = feed.mic_error if server is not None and feed is not None and feed.connected else ""
-        self._mic_lbl.setText(f"No microphone: {mic}" if mic else "")
+        self._mic_lbl.setText(tr("No microphone: {problem}", problem=mic) if mic else "")
         self._mic_row.setVisible(bool(mic))
         hint = waiting_hint(server.stats if server else None, bool(connected), time.monotonic())
         self._hint_lbl.setText(hint)
@@ -369,9 +378,9 @@ class BrowserCameraPlugin(TelescopePlugin):
             return
         if sid != (self._host.focused_source_id() or ""):
             return
-        text = ("Try a lower resolution or frame rate on the Browser camera card." if self._size != SIZES[0][0]
-                or self.fps != FPS_CHOICES[0] else "The device's browser can't send any faster.")
-        self._host.show_issue("behind", Issue("Can't keep up", text, kind="warn"))
+        text = (tr("Try a lower resolution or frame rate on the Browser camera card.") if self._size != SIZES[0][0]
+                or self.fps != FPS_CHOICES[0] else tr("The device's browser can't send any faster."))
+        self._host.show_issue("behind", Issue(tr("Can't keep up"), text, kind="warn"))
 
     def _on_source_selected(self, sid: str):
         sid = sid if is_browser(sid) else ""
@@ -428,7 +437,7 @@ class BrowserCameraPlugin(TelescopePlugin):
         for bid, feed in self.hub.feeds().items():
             src = self._browsers.get(bid)
             if feed.connected or src is not None:
-                device = feed.device or (src.device if src is not None else "") or "Browser"  # kept across a reconnect
+                device = feed.device or (src.device if src is not None else "") or tr("Browser")  # kept across a reconnect
                 taken[device] = taken.get(device, 0) + 1
             if feed.connected:
                 name = device if taken[device] == 1 else f"{device} ({taken[device]})"
@@ -500,10 +509,10 @@ class BrowserCameraPlugin(TelescopePlugin):
         self._problem = ""
         self._fill_addresses()
         if not certificate_available():
-            self._problem = "Needs the cryptography package: pip install cryptography"
+            self._problem = tr("Needs the cryptography package: pip install cryptography")
             return False
         if not browser_rtc.available():
-            self._problem = "Needs the aiortc package: pip install --no-deps -r requirements-nodeps.txt"
+            self._problem = tr("Needs the aiortc package: pip install --no-deps -r requirements-nodeps.txt")
             return False
         folder = self._cert_folder or config_path().parent
         try:
@@ -513,7 +522,7 @@ class BrowserCameraPlugin(TelescopePlugin):
             server.start()
         except Exception as exc:
             logger.exception("Browser camera server didn't start")
-            self._problem = f"Couldn't start: {exc}"
+            self._problem = tr("Couldn't start: {error}", error=exc)
             return False
         self._server = server
         self._apply_capture()
@@ -553,15 +562,16 @@ class BrowserCameraPlugin(TelescopePlugin):
         browser there yet, nothing starts: the first browser to connect does."""
         if not self._start_server():
             self._render()
-            self._host.show_issue("start", Issue("Browser camera isn't available", self._problem,
-                                                 [BannerAction("Try again", self._host.start_again())]))
+            self._host.show_issue("start", Issue(tr("Browser camera isn't available"), self._problem,
+                                                 [BannerAction(tr("Try again"), self._host.start_again())]))
             return False
         if need_browser:
             self._set_waiting(True)
             if not self._host.stream_count():  # next to other streams, its tile says it's waiting
                 self._host.show_issue("start", Issue(
-                    "Waiting for a browser", "Scan the code on the Browser camera card with the device to use. It "
-                    "starts streaming as soon as it connects.", [BannerAction("Cancel", self.cancel_waiting)],
+                    tr("Waiting for a browser"), tr("Scan the code on the Browser camera card with the device to "
+                                                    "use. It starts streaming as soon as it connects."),
+                    [BannerAction(tr("Cancel"), self.cancel_waiting)],
                     kind="warn", on_dismiss=self.cancel_waiting))
             return False
         return True
@@ -640,8 +650,8 @@ class BrowserCameraPlugin(TelescopePlugin):
         for bid, entry in sorted(self._known.items(), key=lambda kv: -kv[1]["seen"]):
             sid = BROWSER_PREFIX + bid
             if self._host.has_device_settings(sid):
-                out.append((sid, entry["name"], "Browser, last connected " + time.strftime(
-                    "%Y-%m-%d", time.localtime(entry["seen"]))))
+                out.append((sid, entry["name"], tr("Browser, last connected {date}", date=time.strftime(
+                    "%Y-%m-%d", time.localtime(entry["seen"])))))
         return out
 
     def _note_remembered(self):

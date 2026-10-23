@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from telescope import dev_profile, web
+from telescope.i18n import tr
 
 logger = logging.getLogger(__name__)
 
@@ -100,12 +101,12 @@ def linux_setup(run: Callable = _run, fifo: Optional[str] = None) -> tuple:
     always the one this run writes to. Returns (module ids to unload later, error text or "")."""
     ok, out = run(["pactl", "list", "short", "modules"])
     if not ok:
-        return [], "The sound server didn't answer (pactl list failed)."
+        return [], tr("The sound server didn't answer (pactl list failed).")
     linux_teardown(_stale_modules(out), run)
     try:
         fifo = fifo or fifo_path()
     except OSError as e:
-        return [], f"Couldn't create the virtual microphone: {e}"
+        return [], tr("Couldn't create the virtual microphone: {error}", error=e)
     try:
         os.unlink(fifo)
     except OSError:
@@ -118,7 +119,7 @@ def linux_setup(run: Callable = _run, fifo: Optional[str] = None) -> tuple:
         ok, out = run(base + extra)
         if ok and out.strip().isdigit():
             return [int(out.strip())], ""
-    return [], f"Couldn't create the virtual microphone: {out or 'pactl failed'}"
+    return [], tr("Couldn't create the virtual microphone: {error}", error=out or "pactl failed")
 
 
 def linux_teardown(module_ids: list, run: Callable = _run):
@@ -164,18 +165,19 @@ def download_vb_cable(folder: Optional[Path] = None, urlopen: Callable = web.url
                 f.write(chunk)
     except urllib.error.HTTPError as e:  # reached, but it said no
         logger.warning("VB-Cable download: %s", e)
-        return None, "VB-Audio's site didn't hand over VB-Cable. Try again later, or get it from their site."
+        return None, tr("VB-Audio's site didn't hand over VB-Cable. Try again later, or get it from their site.")
     except urllib.error.URLError as e:
         logger.warning("VB-Cable download: %s", e)
         if web.certificate_failed(e):
-            return None, ("Couldn't check vb-audio.com's certificate, so nothing was downloaded. Security software "
-                          "or a network that inspects HTTPS can cause this.")
-        return None, "Couldn't reach vb-audio.com. Check the internet connection and try again."
+            return None, tr("Couldn't check vb-audio.com's certificate, so nothing was downloaded. Security "
+                            "software or a network that inspects HTTPS can cause this.")
+        return None, tr("Couldn't reach vb-audio.com. Check the internet connection and try again.")
     except Exception as e:
         logger.warning("VB-Cable download: %s", e)
-        return None, "Couldn't download VB-Cable. Try again, or get it from their site."
+        return None, tr("Couldn't download VB-Cable. Try again, or get it from their site.")
     if _sha256(pack) != VB_CABLE_PACK_SHA256:
-        return None, "VB-Audio's download has changed since this version of Telescope. Get it from their site instead."
+        return None, tr("VB-Audio's download has changed since this version of Telescope. Get it from their site "
+                        "instead.")
     try:
         with zipfile.ZipFile(pack) as z:
             for name in z.namelist():
@@ -186,10 +188,10 @@ def download_vb_cable(folder: Optional[Path] = None, urlopen: Callable = web.url
                     shutil.copyfileobj(src, dst)
     except (OSError, zipfile.BadZipFile) as e:
         logger.warning("VB-Cable unpack: %s", e)
-        return None, "Couldn't unpack VB-Cable. Try again, or get it from their site."
+        return None, tr("Couldn't unpack VB-Cable. Try again, or get it from their site.")
     setup = folder / VB_CABLE_SETUP
     if not setup.exists():
-        return None, "VB-Audio's download doesn't have the setup it used to. Get it from their site instead."
+        return None, tr("VB-Audio's download doesn't have the setup it used to. Get it from their site instead.")
     return setup, ""
 
 
@@ -214,13 +216,13 @@ def run_vb_cable_setup(setup: Path, start: Optional[Callable] = None) -> str:
     """Open VB-Audio's setup as admin, after checking it and everything beside it once more; "" once it's open,
     else why not."""
     if _sha256(setup) != VB_CABLE_SETUP_SHA256 or not _folder_is_the_pack(setup.parent):
-        return "VB-Cable's setup changed after it was checked, so it wasn't opened."
+        return tr("VB-Cable's setup changed after it was checked, so it wasn't opened.")
     start = start or os.startfile  # Windows only; ShellExecute's runas shows UAC for the setup itself
     try:
         start(str(setup), "runas", cwd=str(setup.parent))  # the setup's own folder, wherever it looks for its files
     except OSError as e:
         if getattr(e, "winerror", None) == _ERROR_CANCELLED:
-            return "Windows didn't get permission to install VB-Cable."
+            return tr("Windows didn't get permission to install VB-Cable.")
         logger.warning("VB-Cable setup: %s", e)
-        return "Couldn't open VB-Cable's setup. Try again, or get it from their site."
+        return tr("Couldn't open VB-Cable's setup. Try again, or get it from their site.")
     return ""

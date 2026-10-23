@@ -33,7 +33,7 @@
         android:layout_margin="16dp"
         android:src="@drawable/ic_close"
         android:background="@drawable/bg_circle_overlay"
-        android:contentDescription="Close preview"
+        android:contentDescription="@string/close_preview"
         android:padding="10dp" />
 
     <HorizontalScrollView

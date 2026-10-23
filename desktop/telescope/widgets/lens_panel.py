@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import QLabel, QPushButton, QSizePolicy, QStyle, QStyleOpti
 
 from telescope import theme
 from telescope.widgets.common import FlowLayout, cap_baseline, card_hue, stacked_baselines, ui_px
+from telescope.i18n import tr
 
 TILE_HEIGHT = 54
 """Height of a lens tile, the same whatever its label says."""
@@ -118,7 +119,7 @@ class LensPanel(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
-        self._ph = QLabel("Start streaming to load lenses")
+        self._ph = QLabel(tr("Start streaming to load lenses"))
         self._ph.setObjectName("dim")
         outer.addWidget(self._ph)
 
@@ -135,7 +136,7 @@ class LensPanel(QWidget):
     def load(self, cameras: list):
         if not cameras:
             self.clear()
-            self.set_placeholder("No cameras available")
+            self.set_placeholder(tr("No cameras available"))
             return
         self._ph.hide()
         self._flow_host.show()
@@ -188,5 +189,5 @@ class LensPanel(QWidget):
         self._btns.clear()
         self._cameras = []
         self._flow_host.hide()
-        self._ph.setText("Start streaming to load lenses")
+        self._ph.setText(tr("Start streaming to load lenses"))
         self._ph.show()

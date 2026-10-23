@@ -33,6 +33,16 @@ android {
         resValues true
     }
 
+    // Lists every values-<lang> folder as a language in Android's per-app language setting (Android 13+)
+    androidResources {
+        generateLocaleConfig = true
+    }
+
+    // A translation that's still missing some strings falls back to English for those, so it can ship part done
+    lint {
+        warning 'MissingTranslation'
+    }
+
     signingConfigs {
         if (hasReleaseKey) {
             release {

@@ -42,6 +42,7 @@ from telescope.widgets.common import (
     add_card_header, card_action, card_layout, create_card, icon_button,
 )
 from telescope.widgets.controls import setting_row
+from telescope.i18n import N_, tr
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,7 @@ def edits_text(keys: str) -> bool:
         return False
     qkey = split_keys(keys)[2]
     return not (Qt.Key.Key_F1 <= qkey <= Qt.Key.Key_F35 or qkey in _NEVER_TYPES)
-_ADD_TEXT = "Add keyboard shortcut…"
+_ADD_TEXT = N_("Add keyboard shortcut…")
 _DOUBLED_S = 0.15  # a global and an in-app press of one binding this close together are one key press
 
 
@@ -78,16 +79,17 @@ def _remote_param_problem(action: ShortcutAction, params: dict) -> str:
             except (TypeError, ValueError):
                 number = math.nan
             if not math.isfinite(number):
-                return f"{p.name} has to be a number, not {value!r}."
+                return tr("{name} has to be a number, not {value}.", name=p.name, value=repr(value))
         elif value not in [v for v, _ in p.options()]:
-            options = " | ".join(str(v) for v, _ in p.options()) or "nothing right now"
-            return f"{p.name} can be {options}, not {value!r}."
+            options = " | ".join(str(v) for v, _ in p.options()) or tr("nothing right now")
+            return tr("{name} can be {options}, not {value}.", name=p.name, options=options, value=repr(value))
         if value == "hold":
-            return "hold needs a key to let go of; use toggle, on or off with --action."
+            # Translators: hold, toggle, on and off are values typed on the command line: keep them in English
+            return tr("hold needs a key to let go of; use toggle, on or off with --action.")
     full = action.full_params(params)
     for p in action.params:
         if p.shown(full) and p.kind == "number" and full.get(p.name) is None:
-            return f"{action.id} needs {p.name}=… for that."
+            return tr("{action} needs {name}=… for that.", action=action.id, name=p.name)
     return ""
 
 
@@ -110,15 +112,15 @@ def portal_app_id() -> str:
     return autostart.APP_ID + ("-dev" if dev_profile.active() else "")
 
 
-WINDOW_SHOWN = "Telescope: shown"
+WINDOW_SHOWN = N_("Telescope: shown")
 
 
 class ShortcutsPlugin(TelescopePlugin):
     name = "shortcuts"
-    title = "Keyboard shortcuts"
-    about = "Keys for Telescope's controls, including ones that work in other apps."
-    when_off = ("Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your "
-                "shortcuts are kept for when it's back).")
+    title = N_("Keyboard shortcuts")
+    about = N_("Keys for Telescope's controls, including ones that work in other apps.")
+    when_off = N_("Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your "
+                  "shortcuts are kept for when it's back).")
 
     def __init__(self, backend_factory=None):
         self._backend_factory = backend_factory
@@ -146,20 +148,20 @@ class ShortcutsPlugin(TelescopePlugin):
 
     def create_actions(self) -> list:
         host = self._host
-        streaming_modes = (("toggle", "Start or stop"), ("start", "Start"), ("stop", "Stop"))
+        streaming_modes = (("toggle", tr("Start or stop")), ("start", tr("Start")), ("stop", tr("Stop")))
 
         def stream(p):
             running = host.is_streaming() or host.is_starting()
             mode = p.get("mode", "toggle")
             if mode == "start" or (mode == "toggle" and not running):
                 if running:
-                    return "Already streaming"
+                    return tr("Already streaming")
                 host.start_stream(interactive=QApplication.activeWindow() is not None)
-                return "Streaming: starting"
+                return tr("Streaming: starting")
             if not running:
-                return "Not streaming"
+                return tr("Not streaming")
             host.stop_all_streams()
-            return "Streaming: stopped"
+            return tr("Streaming: stopped")
 
         def camera(p):
             on = host.is_camera_on()
@@ -168,20 +170,23 @@ class ShortcutsPlugin(TelescopePlugin):
                 if not want and not host.can_turn_camera_off()[0]:
                     return None
                 host.set_camera_on(want)
-            return f"Phone camera: {'on' if host.is_camera_on() else 'off'}"
+            return tr("Phone camera: on") if host.is_camera_on() else tr("Phone camera: off")
 
         def window(_p):
-            return WINDOW_SHOWN if host.toggle_window() else "Telescope: hidden"
+            return tr(WINDOW_SHOWN) if host.toggle_window() else tr("Telescope: hidden")
 
-        camera_modes = (("toggle", "Switch on or off"), ("on", "Turn on"), ("off", "Turn off"))
+        camera_modes = (("toggle", tr("Switch on or off")), ("on", tr("Turn on")), ("off", tr("Turn off")))
+        streaming, camera_label = tr("Streaming"), tr("Phone camera")
         return [
-            ShortcutAction("streaming.start_stop", "Streaming", "Telescope", stream,
-                           params=(Param("mode", "Does", "choice", "toggle", streaming_modes),),
-                           describe=lambda p: f"Streaming: {dict(streaming_modes)[p['mode']].lower()}"),
-            ShortcutAction("streaming.camera", "Phone camera", "Telescope", camera,
-                           params=(Param("mode", "Does", "choice", "toggle", camera_modes),),
-                           describe=lambda p: f"Phone camera: {dict(camera_modes)[p['mode']].lower()}"),
-            ShortcutAction("window.show_hide", "Show or hide Telescope", "Telescope", window),
+            ShortcutAction("streaming.start_stop", streaming, "Telescope", stream,
+                           params=(Param("mode", tr("Does"), "choice", "toggle", streaming_modes),),
+                           describe=lambda p: tr("{label}: {value}", label=streaming,
+                                                 value=dict(streaming_modes)[p['mode']].lower())),
+            ShortcutAction("streaming.camera", camera_label, "Telescope", camera,
+                           params=(Param("mode", tr("Does"), "choice", "toggle", camera_modes),),
+                           describe=lambda p: tr("{label}: {value}", label=camera_label,
+                                                 value=dict(camera_modes)[p['mode']].lower())),
+            ShortcutAction("window.show_hide", tr("Show or hide Telescope"), "Telescope", window),
         ]
 
     # ── Start, apply ──────────────────────────────────────────────────────────
@@ -262,19 +267,19 @@ class ShortcutsPlugin(TelescopePlugin):
     def where(self, binding: dict) -> tuple:
         """(text, ok) for the Works column: where this binding works, or why it doesn't."""
         if binding["id"] in clashes(self._bindings):
-            return "Key used by a shortcut above", False
+            return tr("Key used by a shortcut above"), False
         if binding["action"] not in self._actions:
-            return "Not in this version of Telescope", False
+            return tr("Not in this version of Telescope"), False
         if not binding["global"]:
-            return "In Telescope", True
+            return tr("In Telescope"), True
         if self._backend is None:
-            return "In Telescope (no global shortcuts here)", False
+            return tr("In Telescope (no global shortcuts here)"), False
         status = self._backend.status(binding["id"])
         if status is None:
-            return "Everywhere (setting up)", True
+            return tr("Everywhere (setting up)"), True
         if status.working:
             return status.text, True
-        return (f"In Telescope: {status.text}", False) if status.reaches_app else (status.text, False)
+        return (tr("In Telescope: {status}", status=status.text), False) if status.reaches_app else (status.text, False)
 
     # ── Running ───────────────────────────────────────────────────────────────
 
@@ -317,7 +322,7 @@ class ShortcutsPlugin(TelescopePlugin):
                 self._held.pop(bid, None)  # nothing happened, so there's nothing to undo on release
             return None
         # Showing the window says it all, and Windows only activates it a moment later
-        shown = said == WINDOW_SHOWN
+        shown = said == tr(WINDOW_SHOWN)
         if source != "app" and self._notify and QApplication.activeWindow() is None and not shown:
             self._host.send_notification("Telescope", said, urgent=False)
         return said
@@ -358,12 +363,12 @@ class ShortcutsPlugin(TelescopePlugin):
             return {"ok": True, "text": self.list_text()}
         action = self._actions.get(request.get("action"))
         if action is None:
-            return {"ok": False, "text": f"No action called {request.get('action')!r}. "
-                                         "telescope --list-actions lists them."}
+            return {"ok": False, "text": tr("No action called {action}. telescope --list-actions lists them.",
+                                            action=repr(request.get('action')))}
         params = request.get("params") if isinstance(request.get("params"), dict) else {}
         unknown = sorted(set(params) - {p.name for p in action.params})
         if unknown:
-            return {"ok": False, "text": f"{action.id} has no setting {unknown[0]!r}."}
+            return {"ok": False, "text": tr("{action} has no setting {name}.", action=action.id, name=repr(unknown[0]))}
         problem = _remote_param_problem(action, params)
         if problem:
             return {"ok": False, "text": problem}
@@ -371,9 +376,10 @@ class ShortcutsPlugin(TelescopePlugin):
             said = action.run(action.full_params(params))
         except Exception:
             logger.exception("--action %s failed", action.id)
-            return {"ok": False, "text": "That failed; Copy diagnostics has the details."}
+            return {"ok": False, "text": tr("That failed; Copy diagnostics has the details.")}
         if said is None:
-            return {"ok": False, "text": f"{action.label} can't be used right now (no phone, or the control is off)."}
+            return {"ok": False, "text": tr("{action} can't be used right now (no phone, or the control is off).",
+                                            action=action.label)}
         if self._notify and QApplication.activeWindow() is None:
             self._host.send_notification("Telescope", said, urgent=False)
         return {"ok": True, "text": said}
@@ -425,7 +431,7 @@ class ShortcutsPlugin(TelescopePlugin):
                 continue  # another plugin's dynamic controls may have disappeared
         ids = [a.id for a in actions] if len(actions) > 1 else [action_id]
         for aid in ids:
-            text = f"Add shortcut for {self._actions[aid].label}…" if len(ids) > 1 else _ADD_TEXT
+            text = tr("Add shortcut for {action}…", action=self._actions[aid].label) if len(ids) > 1 else tr(_ADD_TEXT)
             add = QAction(text, menu)
             add.triggered.connect(lambda _=False, a=aid: self.add_binding(a, parent=window))
             menu.addAction(add)
@@ -677,10 +683,10 @@ class _BindingRow(QFrame):
         self.where.setProperty("sub", True)
         texts.addWidget(self.where)
         lay.addLayout(texts, 1)
-        self.edit_btn = icon_button("pencil", f"Edit {does}", "Edit")
+        self.edit_btn = icon_button("pencil", tr("Edit {shortcut}", shortcut=does), tr("Edit"))
         self.edit_btn.clicked.connect(on_edit)
         lay.addWidget(self.edit_btn)
-        self.remove_btn = icon_button("trash", f"Remove {does}", "Remove")
+        self.remove_btn = icon_button("trash", tr("Remove {shortcut}", shortcut=does), tr("Remove"))
         self.remove_btn.clicked.connect(on_remove)
         lay.addWidget(self.remove_btn)
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -699,38 +705,39 @@ class ShortcutsSection(QWidget):
         body = QVBoxLayout(self)
         body.setContentsMargins(0, 0, 0, 0)
         body.setSpacing(14)
-        body.addWidget(wrapped_note("Keys for Telescope's controls, with how much each one changes. Right-click "
-                                    "most controls to add one for it."))
+        body.addWidget(wrapped_note(tr("Keys for Telescope's controls, with how much each one changes. Right-click "
+                                       "most controls to add one for it.")))
 
         keys_card = create_card()
         keys_lay = card_layout(keys_card)
-        self._add_btn = card_action("Add", "plus", "Pick a control and the key for it")
+        self._add_btn = card_action(tr("Add"), "plus", tr("Pick a control and the key for it"))
         self._add_btn.clicked.connect(lambda: self._plugin.add_binding(parent=self))
-        add_card_header(keys_lay, "Shortcuts", "keyboard", action=self._add_btn)
-        keywords(keys_card, "hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove")
+        add_card_header(keys_lay, tr("Shortcuts"), "keyboard", action=self._add_btn)
+        keywords(keys_card, tr("hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove", ctx="search"))
         self._rows_lay = QVBoxLayout()
         self._rows_lay.setSpacing(8)
         keys_lay.addLayout(self._rows_lay)
         self._rows: list = []
-        self._empty = wrapped_note("No shortcuts yet. Add one, or right-click a control in the main window.")
+        self._empty = wrapped_note(tr("No shortcuts yet. Add one, or right-click a control in the main window."))
         keys_lay.addWidget(self._empty)
         body.addWidget(keys_card)
 
         global_card = create_card()
         global_lay = card_layout(global_card)
-        add_card_header(global_lay, "Everywhere", "monitor")
-        keywords(global_card, "global system wide hotkeys background other apps")
-        self._system_btn = QPushButton("Open")
-        self._system_btn.setToolTip("Where your desktop lets you change the keys of global shortcuts")
+        add_card_header(global_lay, tr("Everywhere"), "monitor")
+        keywords(global_card, tr("global system wide hotkeys background other apps", ctx="search"))
+        self._system_btn = QPushButton(tr("Open"))
+        self._system_btn.setToolTip(tr("Where your desktop lets you change the keys of global shortcuts"))
         self._system_btn.clicked.connect(self._open_system)
-        strip, self._note = setting_row("Desktop shortcut settings", "", self._system_btn,
-                                        keywords="global hotkeys portal kde plasma gnome desktop keys rebind")
+        strip, self._note = setting_row(tr("Desktop shortcut settings"), "", self._system_btn,
+                                        keywords=tr("global hotkeys portal kde plasma gnome desktop keys rebind",
+                                                    ctx="search"))
         self._note.setObjectName("setting_sub")
         global_lay.addWidget(strip)
         self._notify_box = Switch()
         self._notify_box.toggled.connect(self._plugin.set_notify)
-        strip, _ = setting_row("Notify when one runs", "While Telescope is in the background", self._notify_box,
-                               keywords="notification notify toast confirmation popup")
+        strip, _ = setting_row(tr("Notify when one runs"), tr("While Telescope is in the background"),
+                               self._notify_box, keywords=tr("notification notify toast confirmation popup", ctx="search"))
         global_lay.addWidget(strip)
         body.addWidget(global_card)
 
@@ -752,9 +759,9 @@ class ShortcutsSection(QWidget):
         if backend is not None:
             self._note.setText(backend.note())
         else:
-            self._note.setText("Global shortcuts aren't available on this desktop, so these work inside Telescope. "
-                               "For keys that work everywhere, bind a shortcut's Copy command line in your "
-                               "desktop's keyboard settings.")
+            self._note.setText(tr("Global shortcuts aren't available on this desktop, so these work inside "
+                                  "Telescope. For keys that work everywhere, bind a shortcut's Copy command line in "
+                                  "your desktop's keyboard settings."))
         self._note.setVisible(bool(self._note.text()))
         self._system_btn.setVisible(IS_LINUX and (backend is None or backend.system_picks_keys))
         self._notify_box.blockSignals(True)
@@ -772,7 +779,7 @@ class ShortcutsSection(QWidget):
         if binding is None:
             return
         menu = QMenu(self)
-        copy = QAction("Copy command line", menu)
+        copy = QAction(tr("Copy command line"), menu)
         copy.triggered.connect(lambda: QGuiApplication.clipboard().setText(
             command_text(action_command(binding["action"], binding["params"]))))
         copy.setEnabled(binding["params"].get("mode") != "hold")  # nothing would let go of it
@@ -782,8 +789,8 @@ class ShortcutsSection(QWidget):
 
     def _open_system(self):
         if not self._plugin.open_system_settings():
-            self._note.setText("Couldn't open your desktop's shortcut settings. Look for Shortcuts in its "
-                               "System Settings.")
+            self._note.setText(tr("Couldn't open your desktop's shortcut settings. Look for Shortcuts in its "
+                                  "System Settings."))
 
 
 class BindingEditor(QDialog):
@@ -794,23 +801,23 @@ class BindingEditor(QDialog):
         self._plugin = plugin
         self._binding = dict(binding)
         self._param_widgets: dict = {}
-        self.setWindowTitle("Keyboard shortcut")
+        self.setWindowTitle(tr("Keyboard shortcut"))
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self.setModal(True)
         self.setMinimumWidth(ui_px(520))
         lay = dialog_layout(self)
-        dialog_header(lay, "Keyboard shortcut", "Pick a control, what the key does to it, then press the key.")
+        dialog_header(lay, tr("Keyboard shortcut"), tr("Pick a control, what the key does to it, then press the key."))
 
         self._search = QLineEdit()
-        self._search.setPlaceholderText("Search: mute, zoom, exposure, preset…")
+        self._search.setPlaceholderText(tr("Search: mute, zoom, exposure, preset…"))
         self._search.setClearButtonEnabled(True)
         self._search.textChanged.connect(self._filter_actions)
-        lay.addLayout(control_row("Find", self._search, stretch=True))
+        lay.addLayout(control_row(tr("Find"), self._search, stretch=True))
         self._action_combo = NoScrollComboBox()
         self._shown_action = None  # the action the settings below were built for
         self._fill_actions()
         self._action_combo.currentIndexChanged.connect(lambda _i: self._on_action_picked())
-        lay.addLayout(control_row("Control", self._action_combo, stretch=True))
+        lay.addLayout(control_row(tr("Control"), self._action_combo, stretch=True))
 
         self._params_box = QWidget()
         self._params_lay = QVBoxLayout(self._params_box)
@@ -828,9 +835,9 @@ class BindingEditor(QDialog):
         if META_NAME != "Meta":  # Qt writes the Windows key as Meta
             self._keys_edit.keySequenceChanged.connect(lambda _s: self._show_native_keys())
             self._show_native_keys()
-        lay.addLayout(control_row("Key", self._keys_edit, stretch=True))
+        lay.addLayout(control_row(tr("Key"), self._keys_edit, stretch=True))
 
-        self._global_box = Switch("Also works while another app is in front")
+        self._global_box = Switch(tr("Also works while another app is in front"))
         self._global_box.setChecked(binding.get("global", True))
         self._global_box.toggled.connect(lambda _on: self._check())
         lay.addLayout(control_row("", self._global_box, stretch=True))
@@ -838,12 +845,12 @@ class BindingEditor(QDialog):
         lay.addWidget(self._problem)
         lay.addStretch(1)  # spare height goes below, so rows don't move when the note or a setting hides
 
-        self._copy_btn = QPushButton("Copy command")
-        self._copy_btn.setToolTip("A command line that does the same, for your desktop's own keyboard settings")
+        self._copy_btn = QPushButton(tr("Copy command"))
+        self._copy_btn.setToolTip(tr("A command line that does the same, for your desktop's own keyboard settings"))
         self._copy_btn.clicked.connect(self._copy_command)
-        cancel = QPushButton("Cancel")
+        cancel = QPushButton(tr("Cancel"))
         cancel.clicked.connect(self.reject)
-        self._save_btn = QPushButton("Save")
+        self._save_btn = QPushButton(tr("Save"))
         set_ui_role(self._save_btn, "primary")
         self._save_btn.setDefault(False)
         self._save_btn.setAutoDefault(False)
@@ -901,7 +908,7 @@ class BindingEditor(QDialog):
             if action.id == wanted:
                 combo.setCurrentIndex(combo.count() - 1)
         if wanted and not query and combo.findData(wanted) < 0:  # an action this version doesn't have: kept
-            combo.addItem(f"Unknown ({wanted})", wanted)
+            combo.addItem(tr("Unknown ({action})", action=wanted), wanted)
             combo.setCurrentIndex(combo.count() - 1)
         if combo.currentData() is None:
             first = next((i for i in range(combo.count()) if combo.itemData(i) is not None), -1)
@@ -930,7 +937,7 @@ class BindingEditor(QDialog):
                     w.addItem(label, v)
                 at = w.findData(value)
                 if at < 0 and value not in (None, ""):  # a preset that's gone, say: keep it, so Save keeps it
-                    w.addItem(f"{value} (not there now)", value)
+                    w.addItem(tr("{value} (not there now)", value=value), value)
                     at = w.count() - 1
                 w.setCurrentIndex(max(at, 0))
                 w.currentIndexChanged.connect(lambda _i: self._show_params())
@@ -973,21 +980,23 @@ class BindingEditor(QDialog):
         keys = self._keys()
         problem, blocking = "", True
         if self._action_combo.currentData() is None:
-            problem = "No control matches that search." if self._action_combo.count() == 0 else "Pick a control."
+            problem = (tr("No control matches that search.") if self._action_combo.count() == 0
+                       else tr("Pick a control."))
         elif not keys:
-            problem = (f"Press a key, with Ctrl, Alt, Shift or {META_NAME} if you like."
+            problem = (tr("Press a key, with Ctrl, Alt, Shift or {meta} if you like.", meta=META_NAME)
                        if self._keys_edit.keySequence().isEmpty()
-                       else "A modifier can't be a shortcut on its own. Add a key to it.")
+                       else tr("A modifier can't be a shortcut on its own. Add a key to it."))
         elif (other := next((b for b in self._plugin.bindings
                              if b["keys"] == keys and b["id"] != self._binding["id"]), None)) is not None:
-            problem = f"{native_keys(keys)} already does \"{self._plugin.describe(other)}\". Pick another key."
+            problem = tr('{keys} already does "{action}". Pick another key.', keys=native_keys(keys),
+                         action=self._plugin.describe(other))
         elif self._global_box.isChecked() and edits_text(keys):
-            problem, blocking = (f"Everywhere, {native_keys(keys)} would stop typing it in other apps. "
-                                 f"Adding Ctrl, Alt or {META_NAME} is safer."), False
+            problem, blocking = tr("Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} "
+                                   "is safer.", keys=native_keys(keys), meta=META_NAME), False
         hold = self._params().get("mode") == "hold"
         self._copy_btn.setEnabled(not hold)
-        self._copy_btn.setToolTip("A command can't hold a key down; pick another choice to copy one" if hold else
-                                  "A command line that does the same, for your desktop's own keyboard settings")
+        self._copy_btn.setToolTip(tr("A command can't hold a key down; pick another choice to copy one") if hold else
+                                  tr("A command line that does the same, for your desktop's own keyboard settings"))
         self._problem.setText(problem)
         self._problem.setVisible(bool(problem))
         self._save_btn.setEnabled(not (problem and blocking))
@@ -996,8 +1005,8 @@ class BindingEditor(QDialog):
         action_id = self._action_combo.currentData()
         if action_id and self._params().get("mode") != "hold":
             QGuiApplication.clipboard().setText(command_text(action_command(action_id, self._params())))
-            self._copy_btn.setText("Copied")
-            QTimer.singleShot(1500, lambda: self._copy_btn.setText("Copy command"))
+            self._copy_btn.setText(tr("Copied"))
+            QTimer.singleShot(1500, lambda: self._copy_btn.setText(tr("Copy command")))
 
     def binding(self) -> dict:
         return {"id": self._binding["id"], "keys": self._keys(), "action": self._action_combo.currentData(),

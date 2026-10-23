@@ -15,6 +15,7 @@ from PyQt6.QtGui import QPainter
 from PyQt6.QtWidgets import QApplication, QBoxLayout, QFrame, QLabel, QLayoutItem, QToolButton, QVBoxLayout, QWidget
 
 from telescope.widgets.common import paint_focus
+from telescope.i18n import english, tr
 
 # The object names common.py gives the pieces, which is how they're told apart from the rows around them.
 CARD = "card"
@@ -172,8 +173,8 @@ class Collapsing:
             button.setFocus(Qt.FocusReason.OtherFocusReason)
         body.setVisible(not folded)
         button.setChecked(not folded)
-        description = ("Collapsed. Press Space or Enter to expand." if folded else
-                       "Expanded. Press Space or Enter to collapse.")
+        description = (tr("Collapsed. Press Space or Enter to expand.") if folded else
+                       tr("Expanded. Press Space or Enter to collapse."))
         button.setAccessibleDescription(description)
         button.setToolTip(description)
 
@@ -212,7 +213,8 @@ class Collapsing:
             used[base] = used.get(base, 0) + 1
             return base if used[base] == 1 else f"{base}#{used[base]}"
 
-        card_key = unique(f"{scope}/{title.text()}")
+        # Keyed by the English, so a fold is still remembered after the language changes
+        card_key = unique(f"{scope}/{english(title.text())}")
         card_body, card_lay = _body(lay)
         target = card_lay
         for item, stretch in rows:
@@ -220,7 +222,7 @@ class Collapsing:
                 heading = item.widget()
                 card_lay.addWidget(heading)
                 label = heading.findChild(QLabel, SECTION_TITLE)
-                section_key = unique(f"{card_key}/{label.text() if label else heading.objectName()}")
+                section_key = unique(f"{card_key}/{english(label.text()) if label else heading.objectName()}")
                 section_body, target = _body(lay)
                 card_lay.addWidget(section_body)
                 if label is not None:

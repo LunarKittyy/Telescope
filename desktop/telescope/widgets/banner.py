@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayou
 
 from telescope import theme
 from telescope.widgets.common import WrapLabel, create_vector_icon
+from telescope.i18n import N_, tr
 
 KIND_COLORS = {"err": theme.ERR, "warn": theme.WARN}
 
@@ -20,8 +21,8 @@ class BannerAction:
     keeps_banner: bool = False  # most actions retry or move on, so the banner goes; Copy stays
 
 
-def copy_action(text: str, label: str = "Copy command") -> BannerAction:
-    return BannerAction(label, lambda: QGuiApplication.clipboard().setText(text), keeps_banner=True)
+def copy_action(text: str, label: str = N_("Copy command")) -> BannerAction:
+    return BannerAction(tr(label), lambda: QGuiApplication.clipboard().setText(text), keeps_banner=True)
 
 
 @dataclass
@@ -81,7 +82,7 @@ class Banner(QFrame):
         close.setIcon(create_vector_icon("close", theme.TEXT_DIM))
         close.setIconSize(QSize(14, 14))
         close.setFixedSize(28, 28)
-        close.setToolTip("Dismiss")
+        close.setToolTip(tr("Dismiss"))
         close.clicked.connect(self._close)
         lay.addWidget(close, 0, Qt.AlignmentFlag.AlignTop)
         self.close_btn = close

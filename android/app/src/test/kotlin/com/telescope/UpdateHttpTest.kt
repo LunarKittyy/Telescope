@@ -74,7 +74,7 @@ class UpdateHttpTest {
             val dir = Files.createTempDirectory("update").toFile()
             val asset = ManifestAsset("Telescope.apk", url(), sha, payload.size.toLong())
             var message: String? = null
-            timed(name) { message = http.download(asset, File(dir, "Telescope.apk")) {} }
+            timed(name) { message = http.download(asset, File(dir, "Telescope.apk"), EnglishStrings) {} }
             assertNotNull(message, name)
             if (name != "login page") assertTrue("internet connection" in message!!, "$name: $message")
             assertEquals(emptyList<String>(), dir.list()!!.toList(), name)

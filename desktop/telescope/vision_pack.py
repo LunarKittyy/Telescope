@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from telescope import dev_profile, version, web
+from telescope.i18n import tr
 
 # No OpenCV or MediaPipe in here: the release builds the pack with a bare Python (scripts/build_vision_pack.py)
 SEGMENTER_MODEL = "selfie_segmenter_landscape.tflite"
@@ -113,7 +114,7 @@ def download(vision_dir: Path, progress: Optional[Callable[[int, int], None]] = 
     """Download this version's pack from its release, check it and unpack it; raises PackError. Older packs go."""
     entry, name, pid = expected(), asset_name(), pack_id()
     if entry is None or name is None:
-        raise PackError("There's no download for this computer yet.")
+        raise PackError(tr("There's no download for this computer yet."))
     url = url or version.release_asset_url(name)
     size = int(entry.get("size", 0))
     vision_dir.mkdir(parents=True, exist_ok=True)
@@ -124,19 +125,19 @@ def download(vision_dir: Path, progress: Optional[Callable[[int, int], None]] = 
         with opener(url, _TIMEOUT) as r, archive.open("wb") as f:
             while True:
                 if cancelled():
-                    raise PackError("Cancelled.")
+                    raise PackError(tr("Cancelled."))
                 chunk = r.read(256 * 1024)
                 if not chunk:
                     break
                 done += len(chunk)
                 if size and done > size * _SLACK:
-                    raise PackError("The download is bigger than it should be.")
+                    raise PackError(tr("The download is bigger than it should be."))
                 f.write(chunk)
                 if progress:
                     progress(done, size)
         _unpack(archive, staging)
         if tree_hash(staging) != entry["id"]:
-            raise PackError("The download didn't match what this version of Telescope expects, so it wasn't used.")
+            raise PackError(tr("The download didn't match what this version of Telescope expects, so it wasn't used."))
         (staging / _DONE).write_text(pid)
         final = vision_dir / pid
         if final.exists():
@@ -146,7 +147,7 @@ def download(vision_dir: Path, progress: Optional[Callable[[int, int], None]] = 
         raise
     except (OSError, http.client.HTTPException) as exc:  # HTTPException: cut off part way (IncompleteRead)
         logger.warning("Vision pack download failed: %s", exc)
-        raise PackError("The download failed. Check the internet connection and try again.") from exc
+        raise PackError(tr("The download failed. Check the internet connection and try again.")) from exc
     finally:
         archive.unlink(missing_ok=True)
         shutil.rmtree(staging, ignore_errors=True)
@@ -163,10 +164,10 @@ def _unpack(archive: Path, staging: Path):
             for info in z.infolist():
                 target = (root / info.filename).resolve()
                 if root not in target.parents:
-                    raise PackError("The download contains unexpected paths, so it wasn't used.")
+                    raise PackError(tr("The download contains unexpected paths, so it wasn't used."))
             z.extractall(staging)
     except zipfile.BadZipFile as exc:
-        raise PackError("The download couldn't be unpacked.") from exc
+        raise PackError(tr("The download couldn't be unpacked.")) from exc
 
 
 def remove(vision_dir: Path, keep: Optional[str] = None):

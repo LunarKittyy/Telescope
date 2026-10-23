@@ -18,6 +18,7 @@ from telescope.widgets.common import (
 )
 from telescope.widgets.controls import setting_row
 from telescope.widgets.settings_search import keywords
+from telescope.i18n import tr
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ DOCS_URL = "https://github.com/LunarKittyy/Telescope/blob/master/docs/plugins.md
 def _ask(parent, title: str, text: str, yes: str, danger: bool = False) -> bool:
     box = QMessageBox(QMessageBox.Icon.Warning if danger else QMessageBox.Icon.Question, title, text, parent=parent)
     yes_btn = box.addButton(yes, QMessageBox.ButtonRole.AcceptRole)
-    cancel = box.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
+    cancel = box.addButton(tr("Cancel"), QMessageBox.ButtonRole.RejectRole)
     box.setDefaultButton(cancel)
     box.exec()
     return box.clickedButton() is yes_btn
@@ -52,8 +53,8 @@ class PluginsPanel(QWidget):
         body = QVBoxLayout(self)
         body.setContentsMargins(0, 0, 0, 0)
         body.setSpacing(14)
-        body.addWidget(wrapped_note("Switch parts of Telescope on or off. A change takes effect the next time "
-                                    "Telescope starts, and settings are kept either way."))
+        body.addWidget(wrapped_note(tr("Switch parts of Telescope on or off. A change takes effect the next time "
+                                       "Telescope starts, and settings are kept either way.")))
         self._keep_at = 0
         self._watching = None
 
@@ -62,9 +63,9 @@ class PluginsPanel(QWidget):
         bar = QHBoxLayout(self._restart_bar)
         bar.setContentsMargins(12, 8, 8, 8)
         bar.setSpacing(12)
-        self._restart_note = wrapped_note("Restart Telescope to apply your changes.", "status_warn")
+        self._restart_note = wrapped_note(tr("Restart Telescope to apply your changes."), "status_warn")
         bar.addWidget(self._restart_note, 1)
-        self._restart_btn = QPushButton("Restart now")
+        self._restart_btn = QPushButton(tr("Restart now"))
         set_ui_role(self._restart_btn, "primary")
         self._restart_btn.clicked.connect(self._restart_now)
         bar.addWidget(self._restart_btn)
@@ -75,9 +76,9 @@ class PluginsPanel(QWidget):
         self._rows.setSpacing(body.spacing())
         body.addWidget(self._list)
 
-        self._folder_btn = QPushButton("Open plugins folder")
+        self._folder_btn = QPushButton(tr("Open plugins folder"))
         self._folder_btn.clicked.connect(self._open_folder)
-        help_btn = QPushButton("How plugins work")
+        help_btn = QPushButton(tr("How plugins work"))
         help_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(DOCS_URL)))
         links = QHBoxLayout()
         links.setSpacing(8)
@@ -118,37 +119,37 @@ class PluginsPanel(QWidget):
         on = self._read(plugin_loader.optional_on, set())
         self._installed = self._read(lambda: plugin_loader.find_installed(self._reserved), [])
 
-        self._all_on_btn = card_action("Turn all back on", "reset", "Switch every built-in plugin back on")
+        self._all_on_btn = card_action(tr("Turn all back on"), "reset", tr("Switch every built-in plugin back on"))
         self._all_on_btn.clicked.connect(self._all_on)
         self._all_on_btn.setEnabled(any(p.name in off for p in self._builtins if not p.required and not p.optional))
-        rows = self._card("Built in", "plug", self._all_on_btn)
+        rows = self._card(tr("Built in"), "plug", self._all_on_btn)
         for plugin in self._builtins:
             if not plugin.required and not plugin.optional:
                 rows.addWidget(self._builtin_row(plugin, plugin.name not in off))
         optional = [p for p in self._builtins if p.optional]
         if optional:
             dl = self._download
-            self._remove_pack_btn = card_action("Remove download", "trash",
-                                                "Delete the download the plugins here use. Switching one on gets it "
-                                                "again.")
+            self._remove_pack_btn = card_action(tr("Remove download"), "trash",
+                                                tr("Delete the download the plugins here use. Switching one on gets "
+                                                   "it again."))
             self._remove_pack_btn.clicked.connect(self._remove_pack)
             self._remove_pack_btn.setVisible(dl.ready() and not dl.running() and not any(
                 p.needs_vision and (p.name in on or p.name in self._running) for p in optional))
-            rows = self._card("Optional", "download", self._remove_pack_btn)
+            rows = self._card(tr("Optional"), "download", self._remove_pack_btn)
             self._progress_note = None
             for plugin in optional:
                 rows.addWidget(self._optional_row(plugin, plugin.name in on))
-        self._add_btn = card_action("Install", "plus", "Pick a plugin's .zip file. You can also drop one onto this "
-                                                       "window.")
+        self._add_btn = card_action(tr("Install"), "plus", tr("Pick a plugin's .zip file. You can also drop one "
+                                                              "onto this window."))
         self._add_btn.clicked.connect(self._add_zip)
-        rows = self._card("Added", "download", self._add_btn)
+        rows = self._card(tr("Added"), "download", self._add_btn)
         if not self._installed:
-            rows.addWidget(wrapped_note(
+            rows.addWidget(wrapped_note(tr(
                 "No plugins added yet. Plugins people share come as .zip files. Click Install and pick one or "
-                "drop it onto this window. Added plugins start out switched off."))
+                "drop it onto this window. Added plugins start out switched off.")))
         for item in self._installed:
             rows.addWidget(self._added_row(item))
-        rows = self._card("Always on", "lock")
+        rows = self._card(tr("Always on"), "lock")
         for plugin in self._builtins:
             if plugin.required:
                 rows.addWidget(self._builtin_row(plugin, True))
@@ -165,7 +166,8 @@ class PluginsPanel(QWidget):
         card = create_card()
         lay = card_layout(card)
         add_card_header(lay, title, icon, action=action)
-        keywords(card, "plugins extensions addons add ons modules features turn off on disable enable install zip")
+        keywords(card, tr("plugins extensions addons add ons modules features turn off on disable enable install zip",
+                          ctx="search"))
         self._rows.addWidget(card)
         return lay
 
@@ -191,7 +193,7 @@ class PluginsPanel(QWidget):
             extra = QHBoxLayout()
             extra.setSpacing(8)
             extra.addWidget(label, 1)
-            restart = card_action("Restart now", "reset", "Start Telescope again to apply your changes")
+            restart = card_action(tr("Restart now"), "reset", tr("Start Telescope again to apply your changes"))
             restart.setObjectName("row_restart")
             restart.clicked.connect(self._restart_now)
             extra.addWidget(restart, 0, Qt.AlignmentFlag.AlignVCenter)
@@ -201,57 +203,60 @@ class PluginsPanel(QWidget):
         return strip, box, controls
 
     def _builtin_row(self, plugin, on: bool) -> QWidget:
-        title = plugin.title or plugin.name
+        title = tr(plugin.title or plugin.name)
         if plugin.required:
-            row, _box, _top = self._row(title, True, plugin.about, locked=True,
-                                        tooltip="Telescope can't work without this one, so it can't be switched off")
+            row, _box, _top = self._row(title, True, tr(plugin.about), locked=True,
+                                        tooltip=tr("Telescope can't work without this one, so it can't be switched "
+                                                   "off"))
             return row
         note, kind = "", "dim"
         if on and plugin.name not in self._running:
-            note, kind = "It comes back after Telescope restarts.", "restart"
+            note, kind = tr("It comes back after Telescope restarts."), "restart"
         elif not on and plugin.name in self._running:
-            note, kind = "It goes away after Telescope restarts.", "restart"
-        elif not on:
-            note = plugin.when_off
-        row, box, _top = self._row(title, on, plugin.about, note, kind)
+            note, kind = tr("It goes away after Telescope restarts."), "restart"
+        elif not on and plugin.when_off:
+            note = tr(plugin.when_off)
+        row, box, _top = self._row(title, on, tr(plugin.about), note, kind)
         box.toggled.connect(lambda checked, p=plugin, b=box: self._switch_builtin(p, checked, b))
         return row
 
     def _optional_row(self, plugin, on: bool) -> QWidget:
         """An optional built-in plugin: off until switched on, which first downloads what it needs."""
-        title, dl = plugin.title or plugin.name, self._download
+        title, dl = tr(plugin.title or plugin.name), self._download
         needs = plugin.needs_vision and not dl.ready()
         note, kind = "", "dim"
-        if plugin.needs_vision and dl.running() and dl.waiting == plugin.name:
-            note, kind = "Downloading…", "status_warn"
+        downloading = plugin.needs_vision and dl.running() and dl.waiting == plugin.name
+        if downloading:
+            note, kind = tr("Downloading…"), "status_warn"
         elif dl.failed_for == plugin.name and dl.error:
-            note, kind = f"The download didn't work. {dl.error}", "status_err"
+            note, kind = tr("The download didn't work. {error}", error=dl.error), "status_err"
         elif needs and not dl.available():
-            note, kind = "There's no download of what it needs for this computer yet, so it can't be switched on.", \
-                "status_err"
+            note, kind = tr("There's no download of what it needs for this computer yet, so it can't be switched "
+                            "on."), "status_err"
         elif on and needs:
-            note, kind = (f"Its download (about {dl.size_mb()} MB) isn't there anymore. Switch it off and on again "
-                          "to get it."), "status_warn"
+            note, kind = tr("Its download (about {mb} MB) isn't there anymore. Switch it off and on again to get "
+                            "it.", mb=dl.size_mb()), "status_warn"
         elif on and plugin.name not in self._running:
-            note, kind = "It starts after Telescope restarts.", "restart"
+            note, kind = tr("It starts after Telescope restarts."), "restart"
         elif not on and plugin.name in self._running:
-            note, kind = "It goes away after Telescope restarts.", "restart"
+            note, kind = tr("It goes away after Telescope restarts."), "restart"
         elif needs:
-            note = f"Switching it on downloads about {dl.size_mb()} MB first."
-        row, box, _controls = self._row(title, on, plugin.about, note, kind)
-        if note == "Downloading…":
+            note = tr("Switching it on downloads about {mb} MB first.", mb=dl.size_mb())
+        row, box, _controls = self._row(title, on, tr(plugin.about), note, kind)
+        if downloading:
             self._progress_note = next((lbl for lbl in row.findChildren(QLabel) if lbl.text() == note), None)
         box.setEnabled(not (needs and not dl.available()) and not (dl.running() and dl.waiting == plugin.name))
         box.toggled.connect(lambda checked, p=plugin, b=box: self._switch_optional(p, checked, b))
         return row
 
     def _switch_optional(self, plugin, on: bool, box: QCheckBox):
-        title, dl = plugin.title or plugin.name, self._download
+        title, dl = tr(plugin.title or plugin.name), self._download
         if on and plugin.needs_vision and not dl.ready():
-            if not _ask(self, f"Download about {dl.size_mb()} MB?",
-                        f"{title} uses MediaPipe to find people in the picture. It comes as a separate download from "
-                        "Telescope's releases on GitHub, which the other optional plugins share.",
-                        "Download and switch on"):
+            if not _ask(self, tr("Download about {mb} MB?", mb=dl.size_mb()),
+                        tr("{plugin} uses MediaPipe to find people in the picture. It comes as a separate download "
+                           "from Telescope's releases on GitHub, which the other optional plugins share.",
+                           plugin=title),
+                        tr("Download and switch on")):
                 with QSignalBlocker(box):
                     box.setChecked(False)
                 return
@@ -262,43 +267,43 @@ class PluginsPanel(QWidget):
 
     def _on_download_progress(self, done: int, size: int):
         if self._progress_note is not None and size:
-            self._progress_note.setText(f"Downloading… {min(99, done * 100 // size)}%")
+            self._progress_note.setText(tr("Downloading… {percent}%", percent=min(99, done * 100 // size)))
 
     def _on_download_done(self, _error: str):
         self.refresh()
 
     def _remove_pack(self):
-        if not _ask(self, "Remove the download?",
-                    f"It frees about {self._download.size_mb()} MB. Switching on one of the optional plugins downloads "
-                    "it again.", "Remove"):
+        if not _ask(self, tr("Remove the download?"),
+                    tr("It frees about {mb} MB. Switching on one of the optional plugins downloads it again.",
+                       mb=self._download.size_mb()), tr("Remove")):
             return
         try:
             self._download.remove()
         except OSError as exc:
-            QMessageBox.warning(self, "Couldn't remove it", f"Telescope couldn't delete it: {exc}")
+            QMessageBox.warning(self, tr("Couldn't remove it"), tr("Telescope couldn't delete it: {error}", error=exc))
         self.refresh()
 
     def _added_row(self, item) -> QWidget:
         title = f"{item.title} {item.version}".strip()
-        about = item.description + (f" By {item.author}." if item.author else "")
+        about = item.description + (" " + tr("By {author}.", author=item.author) if item.author else "")
         note, kind = "", "dim"
         if item.dev:
             return self._dev_row(item, title, about)
         if item.problem:
             note, kind = item.problem, "status_err"
         elif item.changed:
-            note, kind = ("Its files changed since you switched it on, so it's off for now. Switch it on again if "
-                          "you trust this version."), "status_warn"
+            note, kind = tr("Its files changed since you switched it on, so it's off for now. Switch it on again "
+                            "if you trust this version."), "status_warn"
         elif item.name in self._problems and item.enabled:
-            note, kind = f"It didn't start ({self._problems[item.name].rstrip('.')}).", "status_err"
+            note, kind = tr("It didn't start ({problem}).", problem=self._problems[item.name].rstrip('.')), "status_err"
         elif item.enabled and item.name not in self._running:
-            note, kind = "It starts after Telescope restarts.", "restart"
+            note, kind = tr("It starts after Telescope restarts."), "restart"
         elif not item.enabled and item.name in self._running:
-            note, kind = "It goes away after Telescope restarts.", "restart"
+            note, kind = tr("It goes away after Telescope restarts."), "restart"
         row, box, controls = self._row(title, item.enabled, about, note, kind)
         box.setEnabled(not item.problem or item.enabled)  # one that's on can always be switched off
         box.toggled.connect(lambda checked, i=item, b=box: self._switch_added(i, checked, b))
-        remove = icon_button("trash", f"Remove {item.title}", "Remove")
+        remove = icon_button("trash", tr("Remove {plugin}", plugin=item.title), tr("Remove"))
         remove.clicked.connect(lambda _=False, i=item: self._remove(i))
         controls.insertWidget(0, remove)
         return row
@@ -306,22 +311,23 @@ class PluginsPanel(QWidget):
     def _dev_row(self, item, title: str, about: str) -> QWidget:
         """A plugin dev_desktop.py --plugin loads from where it's written: always on, nothing to switch or remove."""
         if item.problem or item.name in self._problems:
-            note, kind = f"It didn't start ({(item.problem or self._problems[item.name]).rstrip('.')}).", "status_err"
+            note, kind = tr("It didn't start ({problem}).",
+                            problem=(item.problem or self._problems[item.name]).rstrip('.')), "status_err"
         else:
-            note, kind = (f"Loaded from {item.folder} by dev_desktop.py. Telescope restarts by itself when you save "
-                          "one of its files."), "dim"
+            note, kind = tr("Loaded from {folder} by dev_desktop.py. Telescope restarts by itself when you save one "
+                            "of its files.", folder=item.folder), "dim"
         row, _box, _top = self._row(title, True, about, note, kind, locked=True,
-                                    tooltip="dev_desktop.py --plugin loads this one, so it's always on")
+                                    tooltip=tr("dev_desktop.py --plugin loads this one, so it's always on"))
         return row
 
     # ── Switching ─────────────────────────────────────────────────────────
 
     def _switch_builtin(self, plugin, on: bool, box: QCheckBox):
-        title = plugin.title or plugin.name
-        if not on and not _ask(self, f"Switch off {title}?",
-                               (plugin.when_off + "\n\n" if plugin.when_off else "")
-                               + "Its settings stay saved for when you switch it back on.",
-                               "Switch off"):
+        title = tr(plugin.title or plugin.name)
+        if not on and not _ask(self, tr("Switch off {plugin}?", plugin=title),
+                               (tr(plugin.when_off) + "\n\n" if plugin.when_off else "")
+                               + tr("Its settings stay saved for when you switch it back on."),
+                               tr("Switch off")):
             with QSignalBlocker(box):
                 box.setChecked(True)
             return
@@ -329,13 +335,13 @@ class PluginsPanel(QWidget):
 
     def _switch_added(self, item, on: bool, box: QCheckBox):
         if on:
-            ok = _ask(self, f"Switch on {item.title}?",
-                      "A plugin can do anything on your computer. Only switch it on if you trust its source.",
-                      "Switch on", danger=True)
+            ok = _ask(self, tr("Switch on {plugin}?", plugin=item.title),
+                      tr("A plugin can do anything on your computer. Only switch it on if you trust its source."),
+                      tr("Switch on"), danger=True)
         else:
-            ok = _ask(self, f"Switch off {item.title}?",
-                      "Without it whatever it added to Telescope is gone. Its settings stay saved for when you switch "
-                      "it back on.", "Switch off")
+            ok = _ask(self, tr("Switch off {plugin}?", plugin=item.title),
+                      tr("Without it whatever it added to Telescope is gone. Its settings stay saved for when you "
+                         "switch it back on."), tr("Switch off"))
         if not ok:
             with QSignalBlocker(box):
                 box.setChecked(not on)
@@ -346,15 +352,15 @@ class PluginsPanel(QWidget):
         self._save(plugin_loader.all_builtin_on)
 
     def _remove(self, item):
-        if not _ask(self, f"Remove {item.title}?",
-                    f"Its folder ({item.folder.name}) is deleted from the plugins folder. To use it again you'll "
-                    "have to add it again.", "Remove", danger=True):
+        if not _ask(self, tr("Remove {plugin}?", plugin=item.title),
+                    tr("Its folder ({folder}) is deleted from the plugins folder. To use it again you'll have to add "
+                       "it again.", folder=item.folder.name), tr("Remove"), danger=True):
             return
         try:
             plugin_loader.remove(item)
         except (OSError, ValueError) as exc:
             logger.exception("Couldn't remove plugin %s", item.name)
-            QMessageBox.warning(self, "Couldn't remove it", f"Telescope couldn't delete its folder: {exc}")
+            QMessageBox.warning(self, tr("Couldn't remove it"), tr("Telescope couldn't delete its folder: {error}", error=exc))
         self.refresh()
 
     def _save(self, change: Callable[[], None]):
@@ -362,7 +368,7 @@ class PluginsPanel(QWidget):
             change()
         except (OSError, ValueError) as exc:
             logger.exception("Couldn't save a plugin switch")
-            QMessageBox.warning(self, "Couldn't save that", f"Telescope couldn't save the change: {exc}")
+            QMessageBox.warning(self, tr("Couldn't save that"), tr("Telescope couldn't save the change: {error}", error=exc))
         self.refresh()
 
     def _read(self, fn, fallback):
@@ -393,9 +399,9 @@ class PluginsPanel(QWidget):
         return None
 
     def _add_zip(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Install a plugin", str(Path.home() / "Downloads")
+        path, _ = QFileDialog.getOpenFileName(self, tr("Install a plugin"), str(Path.home() / "Downloads")
                                               if (Path.home() / "Downloads").is_dir() else str(Path.home()),
-                                              "Plugins (*.zip)")
+                                              tr("Plugins (*.zip)"))
         if path:
             self._install(path)
 
@@ -403,36 +409,39 @@ class PluginsPanel(QWidget):
         try:
             item = plugin_loader.install_zip(Path(path), self._reserved)
         except FileExistsError as exc:
-            QMessageBox.warning(self, "Already installed", f"A plugin called {exc.args[0]} is already installed. "
-                                                           "Remove that one first to put this one in its place.")
+            QMessageBox.warning(self, tr("Already installed"),
+                                tr("A plugin called {plugin} is already installed. Remove that one first to put this "
+                                   "one in its place.", plugin=exc.args[0]))
             return
         except (OSError, ValueError) as exc:
-            QMessageBox.warning(self, "Couldn't install it", str(exc))
+            QMessageBox.warning(self, tr("Couldn't install it"), str(exc))
             return
         finally:
             self.refresh()
         if item.problem:
-            QMessageBox.warning(self, "Installed, but it won't load", f"{item.title} was installed, but it can't run "
-                                                                     f"yet. {item.problem}")
+            QMessageBox.warning(self, tr("Installed, but it won't load"),
+                                tr("{plugin} was installed, but it can't run yet. {problem}",
+                                   plugin=item.title, problem=item.problem))
         else:
-            QMessageBox.information(self, "Installed", f"{item.title} is installed but switched off for now. "
-                                                       "To use it, switch it on under Added and restart Telescope.")
+            QMessageBox.information(self, tr("Installed"),
+                                    tr("{plugin} is installed but switched off for now. To use it, switch it on under "
+                                       "Added and restart Telescope.", plugin=item.title))
 
     def _open_folder(self):
         try:
             folder = plugin_loader.make_plugins_dir()
         except OSError as exc:
-            QMessageBox.warning(self, "Couldn't open it", f"Telescope couldn't make its plugins folder: {exc}")
+            QMessageBox.warning(self, tr("Couldn't open it"), tr("Telescope couldn't make its plugins folder: {error}", error=exc))
             return
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder)))
 
     def _restart_now(self):
-        if self._is_streaming() and not _ask(self, "Restart Telescope now?",
-                                             "Streaming stops while Telescope restarts. It takes a few seconds.",
-                                             "Restart"):
+        if self._is_streaming() and not _ask(self, tr("Restart Telescope now?"),
+                                             tr("Streaming stops while Telescope restarts. It takes a few seconds."),
+                                             tr("Restart")):
             return
         if not self._restart():
-            QMessageBox.warning(self, "Couldn't restart", "Telescope couldn't start a new copy of itself. Close "
-                                                          "it and open it again to apply your changes.")
+            QMessageBox.warning(self, tr("Couldn't restart"), tr("Telescope couldn't start a new copy of itself. "
+                                                                 "Close it and open it again to apply your changes."))
             return
         self.window().close()

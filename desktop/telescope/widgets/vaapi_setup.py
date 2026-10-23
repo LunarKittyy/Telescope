@@ -16,11 +16,12 @@ from telescope.widgets.common import (
     card_layout, create_card, dialog_header, dialog_layout, set_status_kind, set_ui_role, ui_px,
 )
 from telescope.widgets.controls import setting_row
+from telescope.i18n import N_, and_list, tr
 
 _WHY_NOT = {
-    "old": "PyAV {v}. It needs PyAV 14 or newer",
-    "novaapi": "PyAV {v}, built without VA-API",
-    "noopen": "PyAV {v}, but VA-API didn't open with it",
+    "old": N_("PyAV {v}. It needs PyAV 14 or newer"),
+    "novaapi": N_("PyAV {v}, built without VA-API"),
+    "noopen": N_("PyAV {v}, but VA-API didn't open with it"),
 }
 
 
@@ -37,7 +38,7 @@ class VaapiSetupDialog(QDialog):
 
     def __init__(self, parent=None, restart: Optional[Callable[[], bool]] = None):
         super().__init__(parent)
-        self.setWindowTitle("Set up VA-API")
+        self.setWindowTitle(tr("Set up VA-API"))
         self.setMinimumWidth(ui_px(520))
         self._restart = restart
         self._system: Optional[tuple] = None
@@ -56,18 +57,18 @@ class VaapiSetupDialog(QDialog):
 
     def _build_ui(self):
         lay = dialog_layout(self)
-        dialog_header(lay, "Set up VA-API",
-                      "AMD and Intel graphics cards decode through VA-API, which the PyAV that comes with Telescope "
-                      "leaves out. Telescope can use one that has it instead.")
+        dialog_header(lay, tr("Set up VA-API"),
+                      tr("AMD and Intel graphics cards decode through VA-API, which the PyAV that comes with Telescope "
+                         "leaves out. Telescope can use one that has it instead."))
         card = create_card()
         card_lay = card_layout(card)
 
-        self._system_btn = QPushButton("Use it")
+        self._system_btn = QPushButton(tr("Use it"))
         self._system_btn.clicked.connect(self._use_system)
-        strip, self._system_line = setting_row("Your distro's PyAV", "Checking...", self._system_btn)
+        strip, self._system_line = setting_row(tr("Your distro's PyAV"), tr("Checking..."), self._system_btn)
         card_lay.addWidget(strip)
 
-        self._build_btn = QPushButton("Build")
+        self._build_btn = QPushButton(tr("Build"))
         self._build_btn.clicked.connect(self._start_build)
         self._command = QLabel("")
         self._command.setObjectName("banner_details")
@@ -75,9 +76,9 @@ class VaapiSetupDialog(QDialog):
         self._command.setTextFormat(Qt.TextFormat.PlainText)
         self._command_text = ""
         self._command.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)  # selected, its hyphens would paste wrong
-        self._copy_btn = QPushButton("Copy")
+        self._copy_btn = QPushButton(tr("Copy"))
         self._copy_btn.clicked.connect(lambda: QApplication.clipboard().setText(self._command_text))
-        self._recheck_btn = QPushButton("Check again")
+        self._recheck_btn = QPushButton(tr("Check again"))
         self._recheck_btn.clicked.connect(self.check_again)
         # The command gets the strip's whole width, its buttons under it
         self._tools = QWidget()
@@ -91,23 +92,23 @@ class VaapiSetupDialog(QDialog):
         buttons.addWidget(self._copy_btn)
         buttons.addWidget(self._recheck_btn)
         tools_lay.addLayout(buttons)
-        strip, self._build_line = setting_row("Build one here", "", self._build_btn, self._tools)
+        strip, self._build_line = setting_row(tr("Build one here"), "", self._build_btn, self._tools)
         card_lay.addWidget(strip)
 
-        self._standard_btn = QPushButton("Use the standard one")
+        self._standard_btn = QPushButton(tr("Use the standard one"))
         self._standard_btn.clicked.connect(self._use_standard)
-        self._using_strip, self._using_line = setting_row("In use", "", self._standard_btn)
+        self._using_strip, self._using_line = setting_row(tr("In use"), "", self._standard_btn)
         card_lay.addWidget(self._using_strip)
         card.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)  # spare height goes below, not into the strips
         lay.addWidget(card)
         lay.addStretch(1)
 
-        self._restart_note = QLabel("Restart Telescope to switch.")
+        self._restart_note = QLabel(tr("Restart Telescope to switch."))
         set_status_kind(self._restart_note, "status_dim")
-        self._restart_btn = QPushButton("Restart now")
+        self._restart_btn = QPushButton(tr("Restart now"))
         set_ui_role(self._restart_btn, "primary")
         self._restart_btn.clicked.connect(self._do_restart)
-        close_btn = QPushButton("Close")
+        close_btn = QPushButton(tr("Close"))
         close_btn.clicked.connect(self.accept)
         bottom = QHBoxLayout()
         bottom.setSpacing(8)
@@ -177,18 +178,19 @@ class VaapiSetupDialog(QDialog):
 
         # The distro's
         if self._system is None:
-            system_text, system_ok = "None installed", False
+            system_text, system_ok = tr("None installed"), False
             if not self._system_checked:
-                system_text = "Checking..."
+                system_text = tr("Checking...")
         else:
             _folder, ok, version, why = self._system
             system_ok = ok
             if ok:
-                system_text = f"PyAV {version}, with VA-API"
+                system_text = tr("PyAV {version}, with VA-API", version=version)
             elif why in _WHY_NOT:
-                system_text = _WHY_NOT[why].format(v=version)
+                system_text = tr(_WHY_NOT[why], v=version)
             else:
-                system_text = f"Doesn't load in Telescope's Python {sys.version_info.major}.{sys.version_info.minor}"
+                system_text = tr("Doesn't load in Telescope's Python {version}",
+                                 version=f"{sys.version_info.major}.{sys.version_info.minor}")
         _say(self._system_line, system_text)
         self._system_btn.setVisible(system_ok and not (pick and pick["kind"] == pyav_vaapi.SYSTEM))
 
@@ -202,35 +204,38 @@ class VaapiSetupDialog(QDialog):
         if self._building:
             pass  # the build's own lines show here
         elif not supported:
-            _say(self._build_line, pyav_vaapi.UPGRADE_NEEDED)
+            _say(self._build_line, pyav_vaapi.upgrade_needed())
         elif checking:
-            _say(self._build_line, "Checking the existing build...")
+            _say(self._build_line, tr("Checking the existing build..."))
         elif built:
-            _say(self._build_line, f"PyAV {self._version} is built")
+            _say(self._build_line, tr("PyAV {version} is built", version=self._version))
         elif missing:
-            needs = " and ".join([", ".join(missing[:-1]), missing[-1]] if len(missing) > 1 else missing)
-            _say(self._build_line, f"Needs {needs}." + (" To install them:" if command else " Your distro has them."))
+            needs = and_list(missing)
+            _say(self._build_line, tr("Needs {needs}. To install them:", needs=needs) if command
+                 else tr("Needs {needs}. Your distro has them.", needs=needs))
         else:
-            _say(self._build_line, "The existing build no longer works. Rebuild it against your system's FFmpeg."
-                 if exists else f"Builds PyAV {self._version} against your system's FFmpeg, in a minute or two")
+            _say(self._build_line, tr("The existing build no longer works. Rebuild it against your system's FFmpeg.")
+                 if exists else tr("Builds PyAV {version} against your system's FFmpeg, in a minute or two",
+                                   version=self._version))
         self._command_text = command
         # Shown with non-breaking hyphens so a package name never splits; Copy gives the plain command
         self._command.setText(command.replace("-", "\u2011"))
         self._tools.setVisible(bool(missing))
         self._command.setVisible(bool(command))
         self._copy_btn.setVisible(bool(command))
-        self._build_btn.setText("Use it" if built else "Rebuild" if exists else "Build")
+        self._build_btn.setText(tr("Use it") if built else tr("Rebuild") if exists else tr("Build"))
         self._build_btn.setVisible(supported and not missing and not checking and not self._building
                                   and not (built and pick and pick["kind"] == pyav_vaapi.BUILD))
 
         # What's in use
         if active:
-            which = "the distro's" if active["kind"] == pyav_vaapi.SYSTEM else "the built"
-            using = f"Telescope is using {which} PyAV {active['version']}"
+            using = (tr("Telescope is using the distro's PyAV {version}", version=active["version"])
+                     if active["kind"] == pyav_vaapi.SYSTEM
+                     else tr("Telescope is using the built PyAV {version}", version=active["version"]))
         elif pyav_vaapi.problem:
-            using = f"Not in use: {pyav_vaapi.problem}"
+            using = tr("Not in use: {problem}", problem=pyav_vaapi.problem)
         elif pick:
-            using = "From the next start"
+            using = tr("From the next start")
         else:
             using = ""
         _say(self._using_line, using)
@@ -266,7 +271,7 @@ class VaapiSetupDialog(QDialog):
             self._refresh()
             return
         self._building = True
-        _say(self._build_line, "Starting the build...")
+        _say(self._build_line, tr("Starting the build..."))
         self._refresh()
         threading.Thread(target=self._build, daemon=True).start()
 
@@ -291,8 +296,8 @@ class VaapiSetupDialog(QDialog):
             self._refresh()
         else:
             self._refresh()
-            _say(self._build_line, f"The build failed: {message}")
-            self._build_btn.setText("Try again")
+            _say(self._build_line, tr("The build failed: {message}", message=message))
+            self._build_btn.setText(tr("Try again"))
 
     def _do_restart(self):
         if self._restart and self._restart():

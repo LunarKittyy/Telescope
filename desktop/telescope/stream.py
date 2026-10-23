@@ -15,6 +15,7 @@ from telescope.h264_reader import H264Reader
 from telescope.udp_reader import UdpH264Reader
 from telescope.mjpeg_reader import MjpegReader
 from telescope.pinned_https import PhoneAuth
+from telescope.i18n import tr
 
 logger = logging.getLogger(__name__)
 
@@ -331,7 +332,7 @@ class StreamWorker(QThread):
         return reader
 
     def _reconnect_cap(self, stop_event: threading.Event) -> Optional[object]:
-        self.status.emit("reconnecting", "Stream dropped - reconnecting")
+        self.status.emit("reconnecting", tr("Stream dropped - reconnecting"))
         while not stop_event.is_set() and not self._stop_flag:
             for _ in range(DROP_RETRY_DELAY * 10):
                 if stop_event.is_set() or self._stop_flag:
@@ -385,7 +386,7 @@ class StreamWorker(QThread):
                     if cap is None:
                         return
                     self.settle()
-                    self.status.emit("ok", "Stream reconnected")
+                    self.status.emit("ok", tr("Stream reconnected"))
                     self.reconnected.emit()
                     continue
                 self._bytes_total += cap.last_frame_bytes
@@ -439,23 +440,25 @@ class StreamWorker(QThread):
         except Exception as exc:
             # A bug here must end the stream visibly, not leave a thread the app thinks is still streaming
             logger.exception("Stream worker crashed")
-            self.status.emit("error", f"Stream error: {exc}")
+            self.status.emit("error", tr("Stream error: {error}", error=exc))
         finally:
             if vcam.IS_LINUX:
                 from telescope.platform.linux import release_freed_memory
                 release_freed_memory()
-            self.status.emit("idle", "Not streaming")
+            self.status.emit("idle", tr("Not streaming"))
 
     def _run(self):
-        self.status.emit("info", "Connecting..." if self._open_reader else f"Connecting to {self.url}...")
+        self.status.emit("info", tr("Connecting...") if self._open_reader else tr("Connecting to {url}...", url=self.url))
         failed = False  # the phone may be reachable another way by now, so the host looks for it (see "waiting")
         while not self._stop_flag:
             cap = self._open_cap()
             if not cap.isOpened():
                 cap.release()
                 failed = True
-                self.status.emit("waiting", getattr(cap, "waiting_text", None)
-                                 or f"Can't reach the phone's stream. Trying again in {RECONNECT_DELAY} s…")
+                waiting = getattr(cap, "waiting_text", None)
+                self.status.emit("waiting", tr(waiting) if waiting
+                                 else tr("Can't reach the phone's stream. Trying again in {seconds} s…",
+                                       seconds=RECONNECT_DELAY))
                 self._restart_vcam.wait(timeout=RECONNECT_DELAY)
                 self._restart_vcam.clear()
                 continue
@@ -464,7 +467,7 @@ class StreamWorker(QThread):
             if not ret or frame is None:
                 cap.release()
                 failed = True
-                self.status.emit("waiting", "Waiting for the first frame…")
+                self.status.emit("waiting", tr("Waiting for the first frame…"))
                 self._restart_vcam.wait(timeout=RECONNECT_DELAY)
                 self._restart_vcam.clear()
                 continue
@@ -524,7 +527,8 @@ class StreamWorker(QThread):
                 # Name the camera the way other apps list it (the v4l2loopback card label on Linux).
                 shown_as = vcam.slot_label(self.slot) if vcam.IS_LINUX else cam.device
                 self.vcam_opened.emit(cam_w, cam_h)
-                self.status.emit("ok", f"Streaming {cam_w} × {cam_h} at {self._fps} fps to {shown_as}")
+                self.status.emit("ok", tr("Streaming {size} at {fps} fps to {camera}", size=f"{cam_w} × {cam_h}",
+                                         fps=self._fps, camera=shown_as))
                 t0, bytes0, recv0 = time.monotonic(), self._bytes_total, self._frames_arrived
                 period = 1 / self._fps
                 last_src = fitted = None
@@ -574,6 +578,6 @@ class StreamWorker(QThread):
 
                         t0, bytes0, recv0 = time.monotonic(), bytes_now, recv_now
         except Exception as exc:
-            self.status.emit("warn", f"Virtual camera error: {exc}")
+            self.status.emit("warn", tr("Virtual camera error: {error}", error=exc))
         finally:
             self._vcam_free.set()

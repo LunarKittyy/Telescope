@@ -27,6 +27,7 @@ from telescope.widgets.common import (
     NoScrollComboBox, NoScrollSpinBox, Switch, add_card_header, card_layout, create_card, ui_px, wrapped_note,
 )
 from telescope.widgets.controls import setting_row
+from telescope.i18n import N_, tr
 
 
 logger = logging.getLogger(__name__)
@@ -34,14 +35,14 @@ logger = logging.getLogger(__name__)
 START_OFF, START_READY, START_WATCHED = "off", "ready", "watched"
 STOP_OFF, STOP_OWN, STOP_ANY = "off", "own", "any"
 START_CHOICES = (
-    (START_OFF, "Only when I press Start"),
-    (START_READY, "When the phone is ready"),
-    (START_WATCHED, "When an app opens the camera"),
+    (START_OFF, N_("Only when I press Start")),
+    (START_READY, N_("When the phone is ready")),
+    (START_WATCHED, N_("When an app opens the camera")),
 )
 STOP_CHOICES = (
-    (STOP_OFF, "Only when I press Stop"),
-    (STOP_OWN, "When no app uses the camera, if it started the stream"),
-    (STOP_ANY, "When no app uses the camera, even if I started it"),
+    (STOP_OFF, N_("Only when I press Stop")),
+    (STOP_OWN, N_("When no app uses the camera, if it started the stream")),
+    (STOP_ANY, N_("When no app uses the camera, even if I started it")),
 )
 
 # The shortest wait is longer than the slowest camera watch takes to notice an app (the /proc scan runs every 5 s,
@@ -53,7 +54,7 @@ DEFAULT_STOP_DELAY_S = 15
 
 def delay_text(seconds: int) -> str:
     """"90 s", "2 min": whole minutes read as minutes."""
-    return f"{seconds // 60} min" if seconds % 60 == 0 else f"{seconds} s"
+    return tr("{n} min", n=seconds // 60) if seconds % 60 == 0 else tr("{n} s", n=seconds)
 
 
 def clamp_delay(value) -> int:
@@ -64,10 +65,10 @@ def clamp_delay(value) -> int:
 
 class StartupPlugin(TelescopePlugin):
     name = "startup"
-    title = "Start and stop by itself"
-    about = "Opening Telescope when you sign in, and Automatic streaming."
-    when_off = ("Without it Automatic streaming stops and both it and the sign-in option leave Settings. "
-                "Telescope still opens at sign-in if it did before.")
+    title = N_("Start and stop by itself")
+    about = N_("Opening Telescope when you sign in, and Automatic streaming.")
+    when_off = N_("Without it Automatic streaming stops and both it and the sign-in option leave Settings. "
+                  "Telescope still opens at sign-in if it did before.")
 
     def __init__(self):
         self.start_on = START_OFF
@@ -303,8 +304,8 @@ class StartupPlugin(TelescopePlugin):
         self._host.stop_stream()  # also stops a start still waking the phone
         if self.notify_stop:
             self._host.send_notification(
-                "Telescope stopped streaming",
-                f"No app used the camera for {delay_text(self.stop_delay_s)}.",
+                tr("Telescope stopped streaming"),
+                tr("No app used the camera for {time}.", time=delay_text(self.stop_delay_s)),
                 urgent=False,
             )
 
@@ -354,15 +355,16 @@ class SignInSection(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, "Startup", "monitor")
-        keywords(card, "login boot autostart run on startup tray minimized")
+        add_card_header(lay, tr("Startup"), "monitor")
+        keywords(card, tr("login boot autostart run on startup tray minimized", ctx="search"))
         self._box = Switch()
         self._box.toggled.connect(plugin.set_open_at_sign_in)
-        strip, _ = setting_row("Open Telescope when I sign in", "", self._box,
-                               keywords="autostart login log in boot startup run on startup launch computer starts tray")
+        strip, _ = setting_row(tr("Open Telescope when I sign in"), "", self._box,
+                               keywords=tr("autostart login log in boot startup run on startup launch computer starts "
+                                           "tray", ctx="search"))
         if dev_profile.active():  # the sign-in entry is the real app's
             self._box.setEnabled(False)
-            strip.setToolTip("Not in a dev profile")
+            strip.setToolTip(tr("Not in a dev profile"))
         lay.addWidget(strip)
         outer.addWidget(card)
 
@@ -374,7 +376,7 @@ class SignInSection(QWidget):
 class AutomaticStreamingSection(QWidget):
     """When a stream starts by itself and when it stops by itself, with the wait before an idle stop."""
 
-    _UNITS = (("seconds", 1), ("minutes", 60))
+    _UNITS = ((N_("seconds"), 1), (N_("minutes"), 60))
 
     def __init__(self, plugin: StartupPlugin):
         super().__init__()
@@ -383,25 +385,27 @@ class AutomaticStreamingSection(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, "Automatic streaming", "bolt")
-        keywords(card, "auto start stop camera app opens discord obs zoom meet teams phone ready idle hands free")
+        add_card_header(lay, tr("Automatic streaming"), "bolt")
+        keywords(card, tr("auto start stop camera app opens discord obs zoom meet teams phone ready idle hands free",
+                          ctx="search"))
 
         self._start = self._choice(START_CHOICES, plugin.set_start_on)
-        strip, _ = setting_row("Start", "", None, self._start,
-                               keywords="automatically begin streaming when phone ready app opens the camera auto start")
+        strip, _ = setting_row(tr("Start"), "", None, self._start,
+                               keywords=tr("automatically begin streaming when phone ready app opens the camera auto "
+                                           "start", ctx="search"))
         lay.addWidget(strip)
         self._stop = self._choice(STOP_CHOICES, plugin.set_stop_idle)
-        strip, _ = setting_row("Stop", "", None, self._stop,
-                               keywords="automatically end streaming idle no app uses the camera auto stop")
+        strip, _ = setting_row(tr("Stop"), "", None, self._stop,
+                               keywords=tr("automatically end streaming idle no app uses the camera auto stop", ctx="search"))
         lay.addWidget(strip)
-        self._mic_note = wrapped_note("With the phone mic on, only the camera turns off.")
+        self._mic_note = wrapped_note(tr("With the phone mic on, only the camera turns off."))
         lay.addWidget(self._mic_note)
 
         self._value = NoScrollSpinBox()
         self._value.setKeyboardTracking(False)  # saved once it's typed, not at every digit
         self._unit = NoScrollComboBox()
         for text, _scale in self._UNITS:
-            self._unit.addItem(text)
+            self._unit.addItem(tr(text))
         self._value.valueChanged.connect(self._save_delay)
         self._unit.activated.connect(self._on_unit_changed)
         fields = QHBoxLayout()
@@ -409,15 +413,16 @@ class AutomaticStreamingSection(QWidget):
         for field in (self._value, self._unit):
             field.setMinimumWidth(ui_px(90))
             fields.addWidget(field)
-        self._delay_row, _ = setting_row("Wait before stopping", "How long no app can use the camera before the "
-                                         "stream stops.", fields,
-                                         keywords="delay timeout idle seconds minutes how long grace period auto stop")
+        self._delay_row, _ = setting_row(tr("Wait before stopping"), tr("How long no app can use the camera before "
+                                                                        "the stream stops."), fields,
+                                         keywords=tr("delay timeout idle seconds minutes how long grace period auto "
+                                                     "stop", ctx="search"))
         lay.addWidget(self._delay_row)
 
         self._notify = Switch()
         self._notify.toggled.connect(plugin.set_notify_stop)
-        self._notify_row, _ = setting_row("Tell me when it stops a stream", "", self._notify,
-                                          keywords="notification notify alert popup message")
+        self._notify_row, _ = setting_row(tr("Tell me when it stops a stream"), "", self._notify,
+                                          keywords=tr("notification notify alert popup message", ctx="search"))
         lay.addWidget(self._notify_row)
         outer.addWidget(card)
 
@@ -425,7 +430,7 @@ class AutomaticStreamingSection(QWidget):
     def _choice(choices, setter) -> NoScrollComboBox:
         combo = NoScrollComboBox()
         for mode, text in choices:
-            combo.addItem(text, mode)
+            combo.addItem(tr(text), mode)
         combo.activated.connect(lambda i, c=combo: setter(c.itemData(i)))
         return combo
 

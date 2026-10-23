@@ -12,6 +12,7 @@ from telescope.widgets.common import (
     NoScrollComboBox, SegmentButton, Switch, cap_baseline, card_hue, paint_focus, stacked_baselines, ui_px,
 )
 from telescope.widgets.line_icons import line_icon
+from telescope.i18n import tr
 
 def icon_label(name: str, color: str, px: int = 16) -> QLabel:
     label = QLabel()
@@ -288,9 +289,9 @@ class PanPad(QWidget):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setMinimumWidth(ui_px(96))
         self.setCursor(Qt.CursorShape.OpenHandCursor)
-        self.setToolTip("Drag to move the view. Double-click to centre it.")
+        self.setToolTip(tr("Drag to move the view. Double-click to centre it."))
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self.setAccessibleName("Pan")
+        self.setAccessibleName(tr("Pan"))
         self._x = self._y = 0.0
 
     def set_position(self, x: float, y: float):
@@ -485,7 +486,7 @@ class CommandBox(QWidget):
         theme.use_mono(self.label)
         self.label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         lay.addWidget(self.label, 1)
-        self.copy_btn = card_action("Copy", "copy", "Copy the command, to paste in a terminal")
+        self.copy_btn = card_action(tr("Copy"), "copy", tr("Copy the command, to paste in a terminal"))
         self.copy_btn.clicked.connect(lambda: QGuiApplication.clipboard().setText(self.label.text()))
         lay.addWidget(self.copy_btn, 0, Qt.AlignmentFlag.AlignTop)
         self.setVisible(False)

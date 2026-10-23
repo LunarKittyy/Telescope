@@ -31,6 +31,7 @@ from telescope.widgets.common import (
     value_label, wrapped_note,
 )
 from telescope.widgets.level_meter import FLOOR_DB, LevelMeter
+from telescope.i18n import N_, and_list, tr
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,8 @@ class LinuxMic:
         """(text, (button label, url) or None) when this computer can't have the mic, else None."""
         missing = virtual_mic.linux_tools_missing()
         if missing:
-            return (f"Needs {' and '.join(missing)} (in pulseaudio-utils; PipeWire systems use it too).", None)
+            return (tr("Needs {tools} (in pulseaudio-utils; PipeWire systems use it too).", tools=and_list(missing)),
+                    None)
         return None
 
     def prepare(self) -> str:
@@ -102,17 +104,17 @@ class WindowsMic:
 
     def problem(self):
         if self._sd is None:
-            return ("The sounddevice package isn't installed.", None)
+            return (tr("The sounddevice package isn't installed."), None)
         try:
             self._device = virtual_mic.find_vb_cable(list(self._sd.query_devices()))
         except Exception:
             self._device = None
         if self._device is None:
             if self.setup_opened:  # closed without installing, it can be opened again
-                return ("Once VB-Cable's setup says it's done, restart the computer, then switch this off and on.",
-                        ("Open setup again", INSTALL))
-            return ("Needs VB-Audio Virtual Cable, a free virtual audio cable by VB-Audio.",
-                    ("Install VB-Cable", INSTALL))
+                return (tr("Once VB-Cable's setup says it's done, restart the computer, then switch this off and on."),
+                        (tr("Open setup again"), INSTALL))
+            return (tr("Needs VB-Audio Virtual Cable, a free virtual audio cable by VB-Audio."),
+                    (tr("Install VB-Cable"), INSTALL))
         return None
 
     def install(self) -> str:
@@ -145,10 +147,10 @@ class _Signals(QObject):
 
 class MicrophonePlugin(TelescopePlugin):
     name = "microphone"
-    title = "Microphone"
-    about = "Using the phone's microphone on this computer."
-    when_off = ("Without it there's no Microphone card or Mute in the tray menu and Telescope doesn't make a virtual "
-                "microphone.")
+    title = N_("Microphone")
+    about = N_("Using the phone's microphone on this computer.")
+    when_off = N_("Without it there's no Microphone card or Mute in the tray menu and Telescope doesn't make a "
+                  "virtual microphone.")
     device_local = True
     follows_focus = False  # stays on one stream (the first, until another one's card takes it) whichever the panels show
     panel_region = "left"
@@ -194,10 +196,10 @@ class MicrophonePlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        self._mute_btn = card_action("Mute", "mic")
+        self._mute_btn = card_action(tr("Mute"), "mic")
         self._mute_btn.setCheckable(True)
         self._mute_btn.toggled.connect(self._on_mute)
-        self._tray_mute = QAction("Mute microphone")
+        self._tray_mute = QAction(tr("Mute microphone"))
         self._tray_mute.setCheckable(True)
         self._tray_mute.triggered.connect(self._mute_btn.setChecked)  # triggered: only a click, not our own syncing
         self._toggle = Switch()
@@ -209,14 +211,14 @@ class MicrophonePlugin(TelescopePlugin):
         head_lay.setSpacing(10)
         head_lay.addWidget(self._mute_btn)
         head_lay.addWidget(self._toggle)
-        add_card_header(lay, "Microphone", "mic", action=head_right, hue="mic")
+        add_card_header(lay, tr("Microphone"), "mic", action=head_right, hue="mic")
         dim_until_paired(card, self._bus)
         self._meter = LevelMeter()
         self._readout = value_label()
         self._readout.setFixedWidth(ui_px(SPIN_COL_WIDTH))  # the gain box's column, so both line up
         self._level_row = QWidget()
         self._level_row.setLayout(_readout_row(self._meter, self._readout))
-        self._mic_row = control_row_widget("Phone mic", self._level_row, stretch=True)
+        self._mic_row = control_row_widget(tr("Phone mic"), self._level_row, stretch=True)
         self._toggle_lbl = self._mic_row.layout().itemAt(0).widget()
         lay.addWidget(self._mic_row)
         self._gain_slider = NoScrollSlider(Qt.Orientation.Horizontal)
@@ -234,12 +236,12 @@ class MicrophonePlugin(TelescopePlugin):
         self._gain_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
         self._gain_slider.valueChanged.connect(self._on_gain)
         self._gain_spin.valueChanged.connect(self._gain_slider.setValue)
-        self._gain_row = control_row_widget("Gain", _readout_row(self._gain_slider, self._gain_spin), stretch=True)
+        self._gain_row = control_row_widget(tr("Gain"), _readout_row(self._gain_slider, self._gain_spin), stretch=True)
         lay.addWidget(self._gain_row)
         self._auto_cb = Switch()
-        self._auto_cb.setToolTip("Evens out quiet and loud speech.")
+        self._auto_cb.setToolTip(tr("Evens out quiet and loud speech."))
         self._auto_cb.toggled.connect(self._on_auto_level)
-        self._auto_row = control_row_widget("Auto level", self._auto_cb)
+        self._auto_row = control_row_widget(tr("Auto level"), self._auto_cb)
         lay.addWidget(self._auto_row)
         self._meter_timer = QTimer(card)
         self._meter_timer.setInterval(METER_MS)
@@ -263,8 +265,8 @@ class MicrophonePlugin(TelescopePlugin):
         self._said = (text, kind, action)  # shown again when the panels come back to this mic's stream
         if self._elsewhere is not None:  # this card is about another stream's mic: it says where this one is
             name = self._elsewhere[1]
-            text, kind, action = (f"On for {name}. Turning it on here turns it off there." if self._enabled
-                                  else ""), "dim", None
+            text, kind, action = (tr("On for {name}. Turning it on here turns it off there.", name=name)
+                                  if self._enabled else ""), "dim", None
         self._status.setText(text)
         self._status_row.setVisible(bool(text))
         set_status_kind(self._status, f"status_{kind}")
@@ -313,11 +315,11 @@ class MicrophonePlugin(TelescopePlugin):
         self._auto_row.setVisible(here)
         self._level_row.setVisible(here)
         self._mic_row.setVisible(here)
-        self._mute_btn.setText("Unmute" if self._muted else "Mute")
+        self._mute_btn.setText(tr("Unmute") if self._muted else tr("Mute"))
         set_button_icon(self._mute_btn, create_vector_icon("mic_off" if self._muted else "mic",
                                                            theme.ERR if self._muted else theme.TEXT_DIM))
-        self._mute_btn.setToolTip("Apps hear the mic again." if self._muted else
-                                  "Apps hear silence, but the microphone stays connected.")
+        self._mute_btn.setToolTip(tr("Apps hear the mic again.") if self._muted else
+                                  tr("Apps hear silence, but the microphone stays connected."))
         self._tray_mute.setVisible(self._enabled)
         self._tray_mute.setChecked(self._muted)
         self._mute_btn.setProperty("muted", self._muted)
@@ -330,7 +332,7 @@ class MicrophonePlugin(TelescopePlugin):
     def _show_readout(self):
         red = self._muted or self._meter.clipping()
         if self._muted:
-            text = "Muted"
+            text = tr("Muted")
         elif self._worker is None or self._meter.held_db() <= FLOOR_DB:
             text = ""
         else:
@@ -341,16 +343,17 @@ class MicrophonePlugin(TelescopePlugin):
         self._readout.setStyleSheet(f"padding-right: 11px;{f' color: {theme.ERR};' if red else ''}")
 
     def create_actions(self) -> list:
+        group = tr("Microphone")
         actions = [
-            button_action("microphone.mute", "Mute", "Microphone", self._mute_btn, states=("muted", "unmuted"),
-                          verbs={"toggle": "Mute or unmute", "on": "Mute", "off": "Unmute",
-                                 "hold": "Switch while held (push to talk while muted)"}),
-            button_action("microphone.on", "Phone mic", "Microphone", self._toggle),
-            slider_action("microphone.gain", "Gain", "Microphone", self._gain_slider, suffix=" dB", step=3,
+            button_action("microphone.mute", tr("Mute"), group, self._mute_btn, states=(tr("muted"), tr("unmuted")),
+                          verbs={"toggle": tr("Mute or unmute"), "on": tr("Mute"), "off": tr("Unmute"),
+                                 "hold": tr("Switch while held (push to talk while muted)")}),
+            button_action("microphone.on", tr("Phone mic"), group, self._toggle),
+            slider_action("microphone.gain", tr("Gain"), group, self._gain_slider, suffix=" dB", step=3,
                           signed=True),
         ]
-        actions[0].keywords = "push to talk silence"
-        actions[2].keywords = "volume loudness"
+        actions[0].keywords = tr("push to talk silence", ctx="search")
+        actions[2].keywords = tr("volume loudness", ctx="search")
         return actions
 
     def create_tray_actions(self) -> list:
@@ -380,7 +383,7 @@ class MicrophonePlugin(TelescopePlugin):
         if problem:
             self._show(problem[0], "warn", problem[1])
         elif self._worker is None and not self._preparing:
-            self._show("Starts with the stream.")
+            self._show(tr("Starts with the stream."))
 
     def _on_toggled(self, on: bool):
         if self._elsewhere is None:
@@ -414,14 +417,17 @@ class MicrophonePlugin(TelescopePlugin):
             self._show_source_words()
 
     def _show_source_words(self):
-        what = "phone" if self._phone_picked else "browser"
-        self._toggle_lbl.setText(f"{what.capitalize()} mic")
-        self._toggle.setAccessibleName(f"{what.capitalize()} microphone")
-        self._toggle.setToolTip(f"Use the {what}'s microphone on this computer while streaming. "
-                                f"Apps list it as “{self._backend.pick_name}”.")
+        phone, name = self._phone_picked, self._backend.pick_name
+        self._toggle_lbl.setText(tr("Phone mic") if phone else tr("Browser mic"))
+        self._toggle.setAccessibleName(tr("Phone microphone") if phone else tr("Browser microphone"))
+        self._toggle.setToolTip(
+            tr("Use the phone's microphone on this computer while streaming. Apps list it as “{name}”.", name=name)
+            if phone else
+            tr("Use the browser's microphone on this computer while streaming. Apps list it as “{name}”.", name=name))
         if hasattr(self, "_gain_slider"):
-            self._gain_slider.setToolTip(f"Makes the {what} mic louder or quieter for other apps. "
-                                         "The range is in Advanced.")
+            self._gain_slider.setToolTip(
+                tr("Makes the phone mic louder or quieter for other apps. The range is in Advanced.") if phone else
+                tr("Makes the browser mic louder or quieter for other apps. The range is in Advanced."))
 
     def _sync_place(self, *_args):
         """Whether the panels show the stream the mic is on: with several, the card is about the shown one's."""
@@ -454,7 +460,7 @@ class MicrophonePlugin(TelescopePlugin):
             return
         self._gen += 1
         self._preparing = True
-        self._show("Setting up…")
+        self._show(tr("Setting up…"))
         gen, signals, backend = self._gen, self._sig, self._backend
 
         def prepare():
@@ -462,7 +468,7 @@ class MicrophonePlugin(TelescopePlugin):
                 err = backend.prepare()
             except Exception as e:
                 logger.exception("Microphone setup failed")
-                err = f"Couldn't create the virtual microphone: {e}"
+                err = tr("Couldn't create the virtual microphone: {error}", error=e)
             try:
                 signals.prepared.emit(gen, err)
             except RuntimeError:
@@ -479,7 +485,7 @@ class MicrophonePlugin(TelescopePlugin):
         if self._ctrl is None or not self._enabled:
             self._refresh()
             return
-        self._show("Connecting…")
+        self._show(tr("Connecting…"))
         self._audio_base = self._ctrl.base
         self._worker = self._worker_cls(f"{self._ctrl.base}/audio", self._ctrl.auth,
                                         self._backend.open_sink, self._sig.status.emit)
@@ -516,16 +522,17 @@ class MicrophonePlugin(TelescopePlugin):
 
     def _confirm_install(self) -> bool:
         box = QMessageBox(self._action_btn.window())
-        box.setWindowTitle("Install VB-Cable")
+        box.setWindowTitle(tr("Install VB-Cable"))
         box.setIcon(QMessageBox.Icon.Question)
-        box.setText("The phone's mic needs VB-Audio Virtual Cable on Windows.")
+        box.setText(tr("The phone's mic needs VB-Audio Virtual Cable on Windows."))
+        # VB-Audio's own two lines stay in English, as their license asks for them word for word
         box.setInformativeText(
-            "VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open "
-            "VB-Audio's own setup, which asks for admin. Restart the computer when it's done.<br><br>"
+            tr("VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open "
+               "VB-Audio's own setup, which asks for admin. Restart the computer when it's done.") + "<br><br>"
             f"{virtual_mic.VB_CABLE_ORIGIN}<br>{virtual_mic.VB_CABLE_DONATIONWARE} "
-            f'<a href="{virtual_mic.VB_CABLE_URL}">Donate or read more</a>')
+            + tr('<a href="{url}">Donate or read more</a>', url=virtual_mic.VB_CABLE_URL))
         box.setTextFormat(Qt.TextFormat.RichText)
-        install = box.addButton("Download and install", QMessageBox.ButtonRole.AcceptRole)
+        install = box.addButton(tr("Download and install"), QMessageBox.ButtonRole.AcceptRole)
         box.addButton(QMessageBox.StandardButton.Cancel)
         box.exec()
         return box.clickedButton() is install
@@ -534,7 +541,7 @@ class MicrophonePlugin(TelescopePlugin):
         if self._installing or not self._confirm_install():
             return
         self._installing = True
-        self._show("Downloading VB-Cable from vb-audio.com…")
+        self._show(tr("Downloading VB-Cable from vb-audio.com…"))
         backend, signals = self._backend, self._sig
 
         def install():
@@ -542,7 +549,7 @@ class MicrophonePlugin(TelescopePlugin):
                 err = backend.install()
             except Exception as e:
                 logger.exception("VB-Cable install failed")
-                err = f"Couldn't install VB-Cable: {e}"
+                err = tr("Couldn't install VB-Cable: {error}", error=e)
             try:
                 signals.installed.emit(err)
             except RuntimeError:
@@ -552,7 +559,7 @@ class MicrophonePlugin(TelescopePlugin):
     def _on_installed(self, err: str):
         self._installing = False
         if err and self._enabled:
-            self._show(err, "err", ("Get VB-Cable", virtual_mic.VB_CABLE_URL))
+            self._show(err, "err", (tr("Get VB-Cable"), virtual_mic.VB_CABLE_URL))
         else:
             self._refresh()
 

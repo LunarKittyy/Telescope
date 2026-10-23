@@ -18,6 +18,7 @@ from typing import Callable, Optional
 
 import numpy as np
 import pyvirtualcam
+from telescope.i18n import tr
 
 logger = logging.getLogger(__name__)
 
@@ -365,7 +366,7 @@ def _default_screen(width: int, height: int) -> np.ndarray:
     p.setFont(note)
     p.setPen(QColor(TEXT_DIM))
     p.drawText(QRectF(0, top + 74 * k, width, 40 * k), Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
-               "Waiting for camera")
+               tr("Waiting for camera"))
     p.end()
     return _to_rgb(canvas)
 

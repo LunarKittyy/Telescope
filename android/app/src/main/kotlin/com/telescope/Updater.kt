@@ -99,7 +99,7 @@ object Updater {
         set(State.Downloading(manifest, 0))
         Thread {
             val apk = File(File(app.cacheDir, "updates").apply { mkdirs() }, "Telescope.apk")
-            val problem = http.download(asset, apk) { pct -> set(State.Downloading(manifest, pct)) }
+            val problem = http.download(asset, apk, app.strings()) { pct -> set(State.Downloading(manifest, pct)) }
                 ?: verifyApk(app, apk, manifest)
             if (problem != null) {
                 apk.delete()
@@ -110,7 +110,7 @@ object Updater {
             try {
                 install(app, apk)
             } catch (e: Exception) {
-                set(State.Failed("Android couldn't start the install.", manifest))
+                set(State.Failed(app.getString(R.string.update_error_install_start), manifest))
             }
         }.start()
     }
@@ -123,14 +123,13 @@ object Updater {
         } else {
             @Suppress("DEPRECATION") PackageManager.GET_SIGNATURES
         }
-        val archive = pm.getPackageArchiveInfo(apk.path, flags) ?: return "The download isn't a valid app."
-        if (archive.packageName != context.packageName) return "The download isn't Telescope."
+        val archive = pm.getPackageArchiveInfo(apk.path, flags) ?: return context.getString(R.string.update_error_not_an_app)
+        if (archive.packageName != context.packageName) return context.getString(R.string.update_error_not_telescope)
         val installed = pm.getPackageInfo(context.packageName, flags)
         val theirs = signers(archive)
         val ours = signers(installed)
         if (theirs.isNotEmpty() && ours.isNotEmpty() && theirs != ours) {
-            return "This copy of Telescope was signed differently from the update. " +
-                "Uninstall it and install ${UpdateLogic.displayVersion(manifest)} from the releases page."
+            return context.getString(R.string.update_error_signature, UpdateLogic.displayVersion(manifest))
         }
         return null
     }
@@ -161,11 +160,11 @@ object Updater {
     }
 
     // From UpdateInstallReceiver: the installer finished without replacing this app.
-    internal fun installFinished(ok: Boolean, message: String?) {
+    internal fun installFinished(context: Context, ok: Boolean, message: String?) {
         val manifest = (state as? State.Installing)?.manifest
         if (ok) { set(State.UpToDate); return }
-        set(State.Failed(message?.takeIf { it.isNotBlank() }?.let { "The update wasn't installed: $it" }
-            ?: "The update wasn't installed.", manifest))
+        set(State.Failed(message?.takeIf { it.isNotBlank() }?.let { context.getString(R.string.update_error_not_installed_because, it) }
+            ?: context.getString(R.string.update_error_not_installed), manifest))
     }
 
     internal fun installCancelled() {
@@ -187,16 +186,16 @@ class UpdateInstallReceiver : BroadcastReceiver() {
                     @Suppress("DEPRECATION") intent.getParcelableExtra(Intent.EXTRA_INTENT)
                 }
                 if (confirm == null) {
-                    Updater.installFinished(false, null)
+                    Updater.installFinished(context, false, null)
                     return
                 }
                 confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 runCatching { context.startActivity(confirm) }
-                    .onFailure { Updater.installFinished(false, null) }
+                    .onFailure { Updater.installFinished(context, false, null) }
             }
-            PackageInstaller.STATUS_SUCCESS -> Updater.installFinished(true, null)
+            PackageInstaller.STATUS_SUCCESS -> Updater.installFinished(context, true, null)
             PackageInstaller.STATUS_FAILURE_ABORTED -> Updater.installCancelled()
-            else -> Updater.installFinished(false, intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE))
+            else -> Updater.installFinished(context, false, intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE))
         }
     }
 }

@@ -36,6 +36,7 @@ from telescope.widgets.tiles import StreamTiles
 from telescope.widgets.common import (
     ElidingLabel, create_app_icon, create_tray_icon, create_vector_icon, set_status_kind, tab_in_reading_order, ui_px,
 )
+from telescope.i18n import N_, and_list, tr, trn
 
 STATUS_COLORS = theme.STATUS_COLORS
 _WIDTH_THREE_COL = 1300
@@ -43,14 +44,9 @@ _WIDTH_TWO_COL   = 900
 # Both rails share one width so the preview sits on the window's centre line.
 _RAIL_WIDTH       = 412
 _RAIL_WIDTH_SOLO  = 440  # two-column mode: the one rail holding every card
-_CAMERA_LIMITED_TIP = "The phone's camera is making fewer frames than asked for. Dim light slows it down."
-_DYNAMIC_FPS_TIP = "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection."
-_HEAT_FPS_TIP = "The phone got hot and lowered the frame rate to {fps} fps for now."
-
-
-def _joined(words: list) -> str:
-    """["A", "B", "C"] as "A, B and C"."""
-    return words[0] if len(words) == 1 else ", ".join(words[:-1]) + " and " + words[-1]
+_CAMERA_LIMITED_TIP = N_("The phone's camera is making fewer frames than asked for. Dim light slows it down.")
+_DYNAMIC_FPS_TIP = N_("Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection.")
+_HEAT_FPS_TIP = N_("The phone got hot and lowered the frame rate to {fps} fps for now.")
 
 
 # ── What sources see of the window ────────────────────────────────────────────
@@ -120,7 +116,7 @@ class _SourceHost:
         self._win._on_stream_reconnected(source)
 
     def lost_contact(self, source: Source):
-        self._win._start_reconnecting_animation("Lost the phone - reconnecting")
+        self._win._start_reconnecting_animation(tr("Lost the phone - reconnecting"))
         self._win._flow.begin_recovery(source)
 
     def park(self, source: Source):
@@ -160,7 +156,7 @@ class _FlowHost:
         QTimer.singleShot(0, fn)
 
     def start_problem(self, title: str, text: str):
-        self._win.show_issue("start", Issue(title, text, [BannerAction("Try again", self._win.start_again())]))
+        self._win.show_issue("start", Issue(title, text, [BannerAction(tr("Try again"), self._win.start_again())]))
 
     def clear_issue(self, key: str):
         self._win.clear_issue(key)
@@ -232,7 +228,7 @@ class TelescopeWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Telescope (dev)" if dev_profile.active() else "Telescope")
+        self.setWindowTitle(tr("Telescope (dev)") if dev_profile.active() else "Telescope")
         self.setMinimumSize(ui_px(560), ui_px(520))
         self.resize(ui_px(1380), ui_px(900))
 
@@ -431,12 +427,13 @@ class TelescopeWindow(QMainWindow):
         self._added_plugins = [p for p in loaded if p in self._plugins]
         self._plugin_problems = {name: error for name, (_title, error) in problems.items()}
         if problems:
-            titles = [title for title, _error in problems.values()]
+            titles = [tr(title) for title, _error in problems.values()]
             self.show_issue("plugins", Issue(
-                f"{_joined(titles)} didn't start" if len(titles) < 4 else f"{len(titles)} plugins didn't start",
-                "Telescope works without it. The Plugins tab in Settings says what went wrong." if len(titles) == 1
-                else "Telescope works without them. The Plugins tab in Settings says what went wrong.",
-                [BannerAction("Plugins…", lambda: self.open_settings("plugins"))], kind="warn"))
+                trn("{plugins} didn't start", "{plugins} didn't start", len(titles), plugins=and_list(titles))
+                if len(titles) < 4 else trn("{n} plugin didn't start", "{n} plugins didn't start", len(titles)),
+                trn("Telescope works without it. The Plugins tab in Settings says what went wrong.",
+                    "Telescope works without them. The Plugins tab in Settings says what went wrong.", len(titles)),
+                [BannerAction(tr("Plugins…"), lambda: self.open_settings("plugins"))], kind="warn"))
         self._remind_plugins_off()
 
     def _remind_plugins_off(self):
@@ -445,7 +442,7 @@ class TelescopeWindow(QMainWindow):
             names = plugin_loader.unnoticed_off()
         except OSError:
             return
-        titles = [p.title or p.name for p in self._builtin_plugins if p.name in names and not p.required]
+        titles = [tr(p.title or p.name) for p in self._builtin_plugins if p.name in names and not p.required]
         if not titles:
             return
 
@@ -460,11 +457,11 @@ class TelescopeWindow(QMainWindow):
             self.open_settings("plugins")
 
         self.show_issue("plugins_off", Issue(
-            f"{_joined(titles)} {'is' if len(titles) == 1 else 'are'} turned off",
-            "You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on."
-            if len(titles) == 1 else
-            "You turned these off in Plugins. To get them back, open Plugins in Settings and switch them on.",
-            [BannerAction("Plugins…", open_plugins)], kind="warn", on_dismiss=noticed))
+            trn("{plugins} is turned off", "{plugins} are turned off", len(titles), plugins=and_list(titles)),
+            trn("You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on.",
+                "You turned these off in Plugins. To get them back, open Plugins in Settings and switch them on.",
+                len(titles)),
+            [BannerAction(tr("Plugins…"), open_plugins)], kind="warn", on_dismiss=noticed))
 
     def plugins_off(self) -> list:
         """The built-in plugins turned off this run (not the optional ones that were never switched on)."""
@@ -493,7 +490,7 @@ class TelescopeWindow(QMainWindow):
                              self.restart_app, self.is_streaming)
         off = len(self.plugins_off())
         sections.append(SettingsSection("plugins", panel, on_show=panel.refresh,
-                                        tab_title=f"Plugins ({off} off)" if off else ""))
+                                        tab_title=tr("Plugins ({n} off)", n=off) if off else ""))
         # Not modal: it would block every other Telescope window, which can still come up over it
         return SettingsWindow(sections, self)
 
@@ -520,10 +517,10 @@ class TelescopeWindow(QMainWindow):
         self._apply_config(load_config())
         self._each_plugin("on_plugins_ready")  # what was said during setup, for those set up after
         if (backup := take_reset_notice()) is not None:
-            where = f" A copy of the old file is at {backup}." if backup else ""
+            where = " " + tr("A copy of the old file is at {path}.", path=backup) if backup else ""
             self.show_issue("config", Issue(
-                "Your settings couldn't be read",
-                "Telescope started with its defaults, so paired phones need pairing again." + where, kind="warn"))
+                tr("Your settings couldn't be read"),
+                tr("Telescope started with its defaults, so paired phones need pairing again.") + where, kind="warn"))
 
     # ── UI construction ───────────────────────────────────────────────────────
 
@@ -574,8 +571,8 @@ class TelescopeWindow(QMainWindow):
         self._menu_btn.setFixedSize(36, 36)
         self._menu_btn.setIcon(create_vector_icon("gear", theme.TEXT_DIM))
         self._menu_btn.setIconSize(QSize(19, 19))
-        self._menu_btn.setToolTip("Settings")
-        self._menu_btn.setAccessibleName("Settings")
+        self._menu_btn.setToolTip(tr("Settings"))
+        self._menu_btn.setAccessibleName(tr("Settings"))
         self._menu_btn.clicked.connect(lambda: self.open_settings())
         lay.addWidget(self._menu_btn)
 
@@ -584,13 +581,13 @@ class TelescopeWindow(QMainWindow):
         self._add_btn.setFixedSize(36, 36)
         self._add_btn.setIcon(create_vector_icon("plus", theme.TEXT_DIM))
         self._add_btn.setIconSize(QSize(18, 18))
-        self._add_btn.setToolTip("Stream another camera at the same time, to a virtual camera of its own")
-        self._add_btn.setAccessibleName("Add camera")
+        self._add_btn.setToolTip(tr("Stream another camera at the same time, to a virtual camera of its own"))
+        self._add_btn.setAccessibleName(tr("Add camera"))
         self._add_btn.clicked.connect(self._show_add_menu)
         self._add_btn.setVisible(False)
         lay.addWidget(self._add_btn)
 
-        self._start_btn = QPushButton("Start streaming")
+        self._start_btn = QPushButton(tr("Start streaming"))
         self._start_btn.setObjectName("start_btn")
         self._start_btn.setProperty("uiRole", "primary")
         self._start_btn.setProperty("streaming", False)
@@ -604,11 +601,13 @@ class TelescopeWindow(QMainWindow):
     def _set_start_button(self, streaming: bool):
         """Keep label, icon, and color consistent."""
         self._streaming_label = streaming
-        verb = "Stop" if streaming else "Start"
         if not streaming and not self.is_camera_on():
-            self._start_btn.setText("Start mic only")
+            self._start_btn.setText(tr("Start mic only"))
+        elif self._layout_mode == "one":
+            # Translators: the short form of Start streaming / Stop streaming, on a narrow window
+            self._start_btn.setText(tr("Stop") if streaming else tr("Start"))
         else:
-            self._start_btn.setText(verb if self._layout_mode == "one" else f"{verb} streaming")
+            self._start_btn.setText(tr("Stop streaming") if streaming else tr("Start streaming"))
         self._start_btn.setIcon(
             create_vector_icon("stop" if streaming else "play", "#ffffff"))
         self._start_btn.setProperty("streaming", streaming)
@@ -653,17 +652,17 @@ class TelescopeWindow(QMainWindow):
         lay.setSpacing(14)
 
         # No caption (already reads as status); elides long messages.
-        self._status_lbl = ElidingLabel("Not streaming")
+        self._status_lbl = ElidingLabel(tr("Not streaming"))
         set_status_kind(self._status_lbl, "status_dim")
         lay.addWidget(self._status_lbl, 1)
 
         self._fps_lbl = QLabel("—")
         self._fps_lbl.setObjectName("fps_lbl")
-        lay.addWidget(self._footer_pill("FPS", self._fps_lbl))
+        lay.addWidget(self._footer_pill(tr("FPS"), self._fps_lbl))
 
         self._net_lbl = QLabel("—")
         self._net_lbl.setObjectName("fps_lbl")
-        lay.addWidget(self._footer_pill("Throughput", self._net_lbl))
+        lay.addWidget(self._footer_pill(tr("Throughput"), self._net_lbl))
 
         return bar
 
@@ -816,8 +815,8 @@ class TelescopeWindow(QMainWindow):
             self._save_failure_notified = True
             logging.error("Failed to save settings")
             self.send_notification(
-                "Telescope - Save failed",
-                "Could not save settings. Check disk space and permissions.",
+                tr("Telescope - Save failed"),
+                tr("Could not save settings. Check disk space and permissions."),
             )
 
     def _profile_key(self, plugin: TelescopePlugin) -> Optional[str]:
@@ -1172,19 +1171,19 @@ class TelescopeWindow(QMainWindow):
         entries = []
         for s in self._sessions.streams:
             if s.recovering:
-                state, kind = "Reconnecting", "status_warn"
+                state, kind = tr("Reconnecting"), "status_warn"
             elif s.connected or s.session.worker is None:
-                state, kind = "Live", "status_ok"
+                state, kind = tr("Live"), "status_ok"
             else:
-                state, kind = "Connecting", "status_dim"
+                state, kind = tr("Connecting"), "status_dim"
             entries.append((s.id or "", s.name, vcam.slot_label(s.slot), state, kind, s is self._sessions.focus))
         if self._sessions.waking and self._sessions.wake_source is not None and self._sessions.streams:
             s = self._sessions.wake_source
-            entries.append((s.id or "", s.name, vcam.slot_label(self._flow.free_slot(s)), "Starting", "status_dim",
+            entries.append((s.id or "", s.name, vcam.slot_label(self._flow.free_slot(s)), tr("Starting"), "status_dim",
                             s is self._sessions.focus))
         if self._sessions.pending is not None and self._sessions.streams:
             s = self._sessions.pending
-            entries.append((s.id or "", s.name, vcam.slot_label(self._flow.free_slot(s)), "Waiting", "status_dim",
+            entries.append((s.id or "", s.name, vcam.slot_label(self._flow.free_slot(s)), tr("Waiting"), "status_dim",
                             s is self._sessions.focus))
         self._tiles.show_streams(entries)
         if len(entries) > 1:
@@ -1230,7 +1229,7 @@ class TelescopeWindow(QMainWindow):
         if not self._ask_slots():
             return
         self._slots_then = [then]
-        self._set_status("Setting up more virtual cameras…", "dim")
+        self._set_status(tr("Setting up more virtual cameras…"), "dim")
 
         def work():
             command = ""
@@ -1254,7 +1253,7 @@ class TelescopeWindow(QMainWindow):
         extras = [n for n in range(1, vcam.MAX_SLOTS) if vcam.slot_ready(n)]
         if self._extras_done is not None or not extras or any(s.slot for s in self._sessions.streams):
             if on_done is not None:
-                on_done(False, "Stop the streams going to them first" if extras else "There are none to remove")
+                on_done(False, tr("Stop the streams going to them first") if extras else tr("There are none to remove"))
             return
         self._extras_done = on_done or (lambda ok, msg: None)
 
@@ -1282,11 +1281,11 @@ class TelescopeWindow(QMainWindow):
             done(ok, msg)
 
     def _ask_slots(self) -> bool:
-        names = f"{vcam.slot_label(1)} to {vcam.slot_label(vcam.MAX_SLOTS - 1)}"
+        names = tr("{first} to {last}", first=vcam.slot_label(1), last=vcam.slot_label(vcam.MAX_SLOTS - 1))
         box = QMessageBox(self)
-        box.setWindowTitle("Set up more virtual cameras")
-        box.setText(f"To stream several cameras at once, Telescope adds more virtual cameras ({names}). "
-                    + ("This asks for your password." if IS_LINUX else "Windows asks for permission."))
+        box.setWindowTitle(tr("Set up more virtual cameras"))
+        box.setText(tr("To stream several cameras at once, Telescope adds more virtual cameras ({names}).", names=names)
+                    + " " + (tr("This asks for your password.") if IS_LINUX else tr("Windows asks for permission.")))
         box.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
         box.setDefaultButton(QMessageBox.StandardButton.Ok)
         return box.exec() == QMessageBox.StandardButton.Ok
@@ -1303,7 +1302,7 @@ class TelescopeWindow(QMainWindow):
             return
         if msg == CANCELLED:
             return
-        self.show_issue("vcam", Issue("Couldn't add more virtual cameras", msg,
+        self.show_issue("vcam", Issue(tr("Couldn't add more virtual cameras"), msg,
                                       [copy_action(command)] if command else [], kind="warn",
                                       details=command))
 
@@ -1321,13 +1320,13 @@ class TelescopeWindow(QMainWindow):
         session = self._session
         source = self._active_source()
         if not source.mic_alone:
-            return False, "Only a phone can turn its camera off and keep streaming its mic."
+            return False, tr("Only a phone can turn its camera off and keep streaming its mic.")
         if len(self._sessions.streams) > 1 or (self._sessions.streams and source.session is None):
-            return False, "Only while one camera streams."
+            return False, tr("Only while one camera streams.")
         if not self._mic_enabled():
-            return False, "Turn on the phone mic first. With the camera off, the mic is all that streams."
+            return False, tr("Turn on the phone mic first. With the camera off, the mic is all that streams.")
         if session is not None and source.camera_toggle is False:
-            return False, "Update Telescope on the phone to turn its camera off while streaming."
+            return False, tr("Update Telescope on the phone to turn its camera off while streaming.")
         return True, ""
 
     def set_camera_on(self, on: bool, auto: bool = False):
@@ -1379,7 +1378,7 @@ class TelescopeWindow(QMainWindow):
         self._sessions.add(session.source, replace(
             session, worker=self._flow.start_worker(session.url, session.client.auth, session.source)))
         self._tell(session.source, "on_camera_on")
-        self._set_status("Turning the phone's camera on…", "dim")
+        self._set_status(tr("Turning the phone's camera on…"), "dim")
         session.source.camera_turned_on(session.id)
 
     def _show_camera_off(self):
@@ -1387,7 +1386,7 @@ class TelescopeWindow(QMainWindow):
         self._fps_lbl.setToolTip("")
         self._net_lbl.setStyleSheet("")
         self._net_lbl.setText("—")
-        self._source_status(self._active_source(), "Streaming the mic, camera off", "ok")
+        self._source_status(self._active_source(), tr("Streaming the mic, camera off"), "ok")
         self._active_source().watch_alive()
 
     def _mic_enabled(self) -> bool:
@@ -1412,16 +1411,18 @@ class TelescopeWindow(QMainWindow):
         if not streaming:
             tip = "Telescope"
         elif camera:
-            tip = "Telescope: streaming the camera" + {None: "", "on": " and mic", "muted": ", mic muted"}[mic]
+            tip = {None: tr("Telescope: streaming the camera"), "on": tr("Telescope: streaming the camera and mic"),
+                   "muted": tr("Telescope: streaming the camera, mic muted")}[mic]
         else:
-            tip = "Telescope: streaming the mic, camera off" + (" (muted)" if mic == "muted" else "")
+            tip = (tr("Telescope: streaming the mic, camera off (muted)") if mic == "muted"
+                   else tr("Telescope: streaming the mic, camera off"))
         self._tray.setToolTip(tip)
 
     def _show_focus_stopped(self):
         self._fps_lbl.setText("—")
         self._net_lbl.setStyleSheet("")
         self._net_lbl.setText("—")
-        self._set_status("Not streaming", "dim")
+        self._set_status(tr("Not streaming"), "dim")
         self._fps_lbl.setToolTip("")
 
     def _drain_phone_stops(self, timeout: float = 2.0):
@@ -1438,7 +1439,7 @@ class TelescopeWindow(QMainWindow):
         """Stop stream, optionally reload the vcam driver, restart stream."""
         if len(self._sessions.streams) > 1:  # the reload needs every virtual camera free, and would drop the extra ones
             if on_done is not None:
-                on_done(False, "Stop all but one camera first, then apply again")
+                on_done(False, tr("Stop all but one camera first, then apply again"))
             return
         self._vcam_reload_callback = on_done
         was_streaming = self._session is not None or self._sessions.waking  # a start still waking restarts after it too
@@ -1450,7 +1451,7 @@ class TelescopeWindow(QMainWindow):
         # Idle: nothing to stop, and a stream_stopped now would tell Startup the user stopped one
 
         if IS_LINUX:
-            self._set_status("Reloading v4l2loopback…", "dim")
+            self._set_status(tr("Reloading v4l2loopback…"), "dim")
 
             def worker():
                 if old_worker:
@@ -1468,7 +1469,7 @@ class TelescopeWindow(QMainWindow):
 
             threading.Thread(target=worker, daemon=True).start()
         else:
-            self._set_status("Restarting stream…", "dim")
+            self._set_status(tr("Restarting stream…"), "dim")
 
             def worker():
                 if old_worker:
@@ -1482,17 +1483,18 @@ class TelescopeWindow(QMainWindow):
         if restart_stream:
             self._sessions.canvas_restart = False
         if ok:
-            self._set_status(f"Loopback reloaded: {msg}" if IS_LINUX else "Canvas updated", "ok")
+            self._set_status(tr("Loopback reloaded: {message}", message=msg) if IS_LINUX else tr("Canvas updated"), "ok")
             if restart:
                 self.start_stream()  # not over a stream started while the reload ran
         else:
-            self._set_status("Not streaming" if command else f"Reload failed: {msg}", "dim" if command else "err")
+            self._set_status(tr("Not streaming") if command else tr("Reload failed: {message}", message=msg),
+                             "dim" if command else "err")
         cb = getattr(self, "_vcam_reload_callback", None)
         self._vcam_reload_callback = None
         if cb:
             cb(ok, msg, command)  # whoever asked shows a command to run by hand
         elif command and not ok:
-            self.show_issue("vcam", Issue("Resize the virtual camera", msg, [copy_action(command)],
+            self.show_issue("vcam", Issue(tr("Resize the virtual camera"), msg, [copy_action(command)],
                                           kind="warn", details=command))
 
     def _codec_trouble(self, source: Source, state: dict) -> bool:
@@ -1515,7 +1517,7 @@ class TelescopeWindow(QMainWindow):
             PhoneState.from_dict(state)
         except PhoneStateError:
             logging.exception("Phone sent a malformed /v1/state response - not applying it")
-            self._set_status("The phone sent data this version can't read. Update both apps to the same version.", "err")
+            self._set_status(tr("The phone sent data this version can't read. Update both apps to the same version."), "err")
             return
         if source is not self._sessions.focus and self._codec_trouble(source, state):
             if self._sessions.is_starting():
@@ -1542,8 +1544,8 @@ class TelescopeWindow(QMainWindow):
         self._tray.setToolTip("Telescope")
 
         menu = QMenu()
-        show_action = QAction("Show", self)
-        quit_action = QAction("Quit", self)
+        show_action = QAction(tr("Show"), self)
+        quit_action = QAction(tr("Quit"), self)
         show_action.triggered.connect(self._tray_show)
         quit_action.triggered.connect(self._tray_quit)
         menu.addAction(show_action)
@@ -1582,17 +1584,17 @@ class TelescopeWindow(QMainWindow):
         box = {"done": threading.Event()}
         self._sig_action.emit(request, box)
         if not box["done"].wait(5):
-            return {"ok": False, "text": "Telescope didn't answer in time."}
+            return {"ok": False, "text": tr("Telescope didn't answer in time.")}
         return box["reply"]
 
     def _on_remote_action(self, request, box):
         try:
             plugin = self._plugin("shortcuts")
             box["reply"] = plugin.handle_remote(request) if plugin is not None else {
-                "ok": False, "text": "This Telescope has no shortcuts."}
+                "ok": False, "text": tr("This Telescope has no shortcuts.")}
         except Exception:
             logging.exception("A --action request failed")
-            box["reply"] = {"ok": False, "text": "That failed; Copy diagnostics has the details."}
+            box["reply"] = {"ok": False, "text": tr("That failed; Copy diagnostics has the details.")}
         finally:
             box["done"].set()
 
@@ -1866,8 +1868,8 @@ class TelescopeWindow(QMainWindow):
                 logging.warning("The stream worker ended by itself")
                 self._flow.stop()
                 self.show_issue(f"stopped:{source.id}", Issue(
-                    "The stream stopped unexpectedly", "Copy diagnostics has the details.",
-                    [BannerAction("Start", lambda sid=source.id: self._start_source(sid))], kind="warn"))
+                    tr("The stream stopped unexpectedly"), tr("Copy diagnostics has the details."),
+                    [BannerAction(tr("Start"), lambda sid=source.id: self._start_source(sid))], kind="warn"))
         else:
             self._set_status(msg, "dim")
 
@@ -1881,8 +1883,9 @@ class TelescopeWindow(QMainWindow):
             logging.warning("The stream worker for %s ended by itself", source.name)
             self._flow.stop(source=source)
             self.show_issue(f"stopped:{source.id}", Issue(
-                f"The stream from {source.name} stopped unexpectedly", "Copy diagnostics has the details.",
-                [BannerAction("Start", lambda sid=source.id: self._start_source(sid))], kind="warn"))
+                tr("The stream from {name} stopped unexpectedly", name=source.name),
+                tr("Copy diagnostics has the details."),
+                [BannerAction(tr("Start"), lambda sid=source.id: self._start_source(sid))], kind="warn"))
 
     def _on_slow_arrival(self):
         """Frames arrive under the rate asked for. If the phone's camera makes about that many, it's not the link."""
@@ -1902,9 +1905,9 @@ class TelescopeWindow(QMainWindow):
             source = self._active_source()
             stepped, heat = getattr(source, "dynamic_fps", 0), getattr(source, "heat_fps", 0)
             if heat and (not stepped or heat <= stepped):
-                tip = _HEAT_FPS_TIP.format(fps=heat)
+                tip = tr(_HEAT_FPS_TIP, fps=heat)
             else:
-                tip = _DYNAMIC_FPS_TIP.format(fps=stepped) if stepped else _CAMERA_LIMITED_TIP
+                tip = tr(_DYNAMIC_FPS_TIP, fps=stepped) if stepped else tr(_CAMERA_LIMITED_TIP)
         self._fps_lbl.setToolTip(tip)
         self._note_throughput(behind)
 
@@ -1959,10 +1962,10 @@ class TelescopeWindow(QMainWindow):
             if not self._tray_close_notified:
                 self._tray_close_notified = True
                 self.send_notification(
-                    "Telescope is still running",
-                    ("Streaming continues in the background." if self._sessions.streams else
-                     "It starts streaming by itself when it needs to.")
-                    + " Right-click the tray icon to quit.",
+                    tr("Telescope is still running"),
+                    (tr("Streaming continues in the background.") if self._sessions.streams else
+                     tr("It starts streaming by itself when it needs to."))
+                    + " " + tr("Right-click the tray icon to quit."),
                     urgent=False,
                 )
         else:

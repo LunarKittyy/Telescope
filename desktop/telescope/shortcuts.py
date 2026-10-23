@@ -20,6 +20,7 @@ from PyQt6.QtGui import QKeySequence
 from PyQt6.QtWidgets import QAbstractButton, QAbstractSlider, QComboBox, QWidget
 
 from telescope.platform import IS_WINDOWS
+from telescope.i18n import N_, tr, trn
 
 _PORTABLE = QKeySequence.SequenceFormat.PortableText
 _MODIFIER_KEYS = {Qt.Key.Key_Control, Qt.Key.Key_Shift, Qt.Key.Key_Alt, Qt.Key.Key_Meta, Qt.Key.Key_AltGr,
@@ -255,8 +256,8 @@ def _fmt(value: float, decimals: int, suffix: str, sign: bool = False) -> str:
     return text + suffix
 
 
-_TOGGLE_MODES = (("toggle", "Switch on or off"), ("on", "Turn on"), ("off", "Turn off"),
-                 ("hold", "Switch while held, back on release"))
+_TOGGLE_MODES = (("toggle", N_("Switch on or off")), ("on", N_("Turn on")), ("off", N_("Turn off")),
+                 ("hold", N_("Switch while held, back on release")))
 
 
 def button_action(id: str, label: str, group: str, button: QAbstractButton,
@@ -273,10 +274,10 @@ def button_action(id: str, label: str, group: str, button: QAbstractButton,
         return ShortcutAction(id, label, group, run_click, widgets=(button,))
 
     held = {}
-    modes = tuple((m, (verbs or {}).get(m, text)) for m, text in _TOGGLE_MODES)
+    modes = tuple((m, (verbs or {}).get(m) or tr(text)) for m, text in _TOGGLE_MODES)
 
     def state_text() -> str:
-        return f"{label}: {states[0] if button.isChecked() else states[1]}"
+        return tr("{label}: {value}", label=label, value=states[0] if button.isChecked() else states[1])
 
     def run(p):
         if not control_ready(button):
@@ -298,9 +299,9 @@ def button_action(id: str, label: str, group: str, button: QAbstractButton,
 
     def describe(p):
         text = dict(modes)[p["mode"]]
-        return text if verbs and p["mode"] in verbs else f"{label}: {text.lower()}"
+        return text if verbs and p["mode"] in verbs else tr("{label}: {value}", label=label, value=text.lower())
 
-    return ShortcutAction(id, label, group, run, params=(Param("mode", "Does", "choice", "toggle", modes),),
+    return ShortcutAction(id, label, group, run, params=(Param("mode", tr("Does"), "choice", "toggle", modes),),
                           release=release, describe=describe, widgets=(button,))
 
 
@@ -321,23 +322,23 @@ def slider_action(id: str, label: str, group: str, slider: QAbstractSlider, scal
         return slider.maximum() * sc()
 
     default_amount = step if step is not None else max(slider.singleStep(), 1) * sc()
-    ops = [("up", "Increase by"), ("down", "Decrease by"), ("set", "Set to")]
+    ops = [("up", tr("Increase by")), ("down", tr("Decrease by")), ("set", tr("Set to"))]
     has_default = getattr(slider, "default", None) is not None and slider.default() is not None
     if has_default:
-        ops.append(("reset", "Reset to default"))
+        ops.append(("reset", tr("Reset to default")))
     params = (
-        Param("op", "Does", "choice", "up", tuple(ops)),
-        Param("amount", "By", "number", default_amount, minimum=lambda: 0.0, maximum=lambda: hi() - lo(),
+        Param("op", tr("Does"), "choice", "up", tuple(ops)),
+        Param("amount", tr("By"), "number", default_amount, minimum=lambda: 0.0, maximum=lambda: hi() - lo(),
               decimals=decimals, suffix=suffix, shown_if=("op", ("up", "down"))),
-        Param("value", "Value", "number", None, minimum=lo, maximum=hi, decimals=decimals,
+        Param("value", tr("Value"), "number", None, minimum=lo, maximum=hi, decimals=decimals,
               suffix=suffix, shown_if=("op", ("set",))),
     )
 
     def show_value() -> str:
         if readout is not None:
             text = readout() if callable(readout) else readout.text()
-            return f"{label}: {text}"
-        return f"{label}: {_fmt(slider.value() * sc(), decimals, suffix, signed)}"
+            return tr("{label}: {value}", label=label, value=text)
+        return tr("{label}: {value}", label=label, value=_fmt(slider.value() * sc(), decimals, suffix, signed))
 
     def run(p):
         try:
@@ -364,11 +365,13 @@ def slider_action(id: str, label: str, group: str, slider: QAbstractSlider, scal
         op = p["op"]
         if op == "set":
             v = p.get("value")
-            return f"{label}: set to {_fmt(v, decimals, suffix, signed)}" if v is not None else f"{label}: set to …"
+            return tr("{label}: set to {value}", label=label,
+                      value=_fmt(v, decimals, suffix, signed) if v is not None else "…")
         if op == "reset":
-            return f"{label}: reset to default"
-        amount = p.get("amount") or 0
-        return f"{label}: {'increase' if op == 'up' else 'decrease'} by {_fmt(amount, decimals, suffix)}"
+            return tr("{label}: reset to default", label=label)
+        amount = _fmt(p.get("amount") or 0, decimals, suffix)
+        return (tr("{label}: increase by {amount}", label=label, amount=amount) if op == "up"
+                else tr("{label}: decrease by {amount}", label=label, amount=amount))
 
     return ShortcutAction(id, label, group, run, params=params, describe=describe,
                           repeats=lambda p: p.get("op") in ("up", "down"), widgets=widgets or (slider,),
@@ -380,10 +383,12 @@ def log_slider_action(id: str, label: str, group: str, row, display_scale: float
     """A key for a LogSliderRow (ISO, shutter): up or down in stops (each one doubles or halves it), or to a
     value. display_scale turns the row's value into what its box shows (nanoseconds to milliseconds)."""
     params = (
-        Param("op", "Does", "choice", "up", (("up", "Raise by"), ("down", "Lower by"), ("set", "Set to"))),
-        Param("stops", "Stops", "number", 1.0, minimum=0.1, maximum=10.0, decimals=1, suffix=" stops",
+        Param("op", tr("Does"), "choice", "up", (("up", tr("Raise by")), ("down", tr("Lower by")),
+                                                ("set", tr("Set to")))),
+        # Translators: the unit after a number of stops, with its space: "1.5 stops"
+        Param("stops", tr("Stops"), "number", 1.0, minimum=0.1, maximum=10.0, decimals=1, suffix=tr(" stops"),
               shown_if=("op", ("up", "down"))),
-        Param("value", "Value", "number", None, minimum=lambda: row.v_min * display_scale,
+        Param("value", tr("Value"), "number", None, minimum=lambda: row.v_min * display_scale,
               maximum=lambda: row.v_max * display_scale, decimals=decimals, suffix=suffix,
               shown_if=("op", ("set",))),
     )
@@ -402,14 +407,17 @@ def log_slider_action(id: str, label: str, group: str, row, display_scale: float
         new = min(max(new, row.v_min), row.v_max)
         row.set_value(new)
         row.value_changed.emit(new)
-        return f"{label}: {row.display_text()}"
+        return tr("{label}: {value}", label=label, value=row.display_text())
 
     def describe(p):
         if p["op"] == "set":
             v = p.get("value")
-            return f"{label}: set to {_fmt(v, decimals, suffix)}" if v is not None else f"{label}: set to …"
+            return tr("{label}: set to {value}", label=label, value=_fmt(v, decimals, suffix) if v is not None else "…")
         stops = p.get("stops") or 0
-        return f"{label}: {'raise' if p['op'] == 'up' else 'lower'} by {stops:g} stop{'s' if stops != 1 else ''}"
+        n = 1 if stops == 1 else 2
+        return (trn("{label}: raise by {stops} stop", "{label}: raise by {stops} stops", n, label=label, stops=f"{stops:g}")
+                if p["op"] == "up" else
+                trn("{label}: lower by {stops} stop", "{label}: lower by {stops} stops", n, label=label, stops=f"{stops:g}"))
 
     return ShortcutAction(id, label, group, run, params=params, describe=describe,
                           repeats=lambda p: p.get("op") in ("up", "down"), widgets=(row,),
@@ -420,7 +428,8 @@ def choice_action(id: str, label: str, group: str, combo: Optional[QComboBox] = 
                   wrap: bool = True) -> ShortcutAction:
     """A key that picks in a drop-down (combo) or a row of buttons only one of which is on (buttons: a list, or a
     callable for one that changes, like the lens buttons): the next one, the previous one, or a named one.
-    A button's shortcutValue property or a combo item's SHORTCUT_VALUE_ROLE preserves saved choices when its text changes."""
+    A button's shortcutValue property or a combo item's SHORTCUT_VALUE_ROLE preserves saved choices when its text changes:
+    a translated text needs one, in English, or a binding saved in one language misses in another."""
     def options() -> list:
         """[(text, enabled)] in order."""
         if combo is not None:
@@ -487,23 +496,24 @@ def choice_action(id: str, label: str, group: str, combo: Optional[QComboBox] = 
                     target = i
                     break
             if target is None:
-                return f"{label}: {shown(cur)}" if 0 <= cur < len(opts) else None
+                return tr("{label}: {value}", label=label, value=shown(cur)) if 0 <= cur < len(opts) else None
         pick(target)
-        return f"{label}: {shown(target)}"
+        return tr("{label}: {value}", label=label, value=shown(target))
 
     def option_choices():
         return [(value, shown(i)) for i, (value, _on) in enumerate(options())]
 
     params = (
-        Param("op", "Does", "choice", "next", (("next", "Next"), ("previous", "Previous"), ("set", "Pick"))),
-        Param("option", "Option", "choice", "", option_choices, shown_if=("op", ("set",))),
+        Param("op", tr("Does"), "choice", "next", (("next", tr("Next")), ("previous", tr("Previous")),
+                                                  ("set", tr("Pick")))),
+        Param("option", tr("Option"), "choice", "", option_choices, shown_if=("op", ("set",))),
     )
 
     def describe(p):
         if p["op"] == "set":
             option = p.get("option")
-            return f"{label}: {dict(option_choices()).get(option, option) or '…'}"
-        return f"{label}: {p['op']}"
+            return tr("{label}: {value}", label=label, value=dict(option_choices()).get(option, option) or "…")
+        return tr("{label}: {value}", label=label, value=tr("next") if p["op"] == "next" else tr("previous"))
 
     return ShortcutAction(id, label, group, run, params=params, describe=describe,
                           repeats=lambda p: p.get("op") in ("next", "previous"),

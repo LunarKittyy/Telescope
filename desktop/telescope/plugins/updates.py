@@ -34,13 +34,14 @@ from telescope.widgets.common import (
     create_card, create_vector_icon, set_status_kind,
     set_ui_role, wrapped_note,
 )
+from telescope.i18n import N_, tr
 
 logger = logging.getLogger(__name__)
 
 _FIRST_CHECK_MS = 8_000
 _TICK_MS = 60 * 60 * 1000       # how often to see whether a day has passed
 _CHECK_INTERVAL_S = 24 * 60 * 60
-_CHANNEL_LABELS = (("stable", "Stable"), ("nightly", "Nightly"))
+_CHANNEL_LABELS = (("stable", N_("Stable")), ("nightly", N_("Nightly")))
 RELEASES_URL = f"https://github.com/{version.REPO}/releases"
 
 
@@ -59,47 +60,51 @@ class UpdatesSection(QWidget):
 
         card = create_card()
         c = card_layout(card)
-        self._check_btn = card_action("Check now", "reset")
+        self._check_btn = card_action(tr("Check now"), "reset")
         self._check_btn.clicked.connect(lambda: plugin.check(manual=True))
         add_card_header(c, "Telescope", "update", action=self._check_btn)
-        keywords(card, "update upgrade new version release download install latest")
+        keywords(card, tr("update upgrade new version release download install latest", ctx="search"))
         self._version_lbl = wrapped_note(version.display_version(), "val")
-        c.addLayout(control_row("This version", self._version_lbl, stretch=True, keywords="current build number"))
+        c.addLayout(control_row(tr("This version"), self._version_lbl, stretch=True,
+                                keywords=tr("current build number", ctx="search")))
 
         self._channel = NoScrollComboBox()
         for key, label in _CHANNEL_LABELS:
-            self._channel.addItem(label, key)
-        self._channel.setToolTip("Nightly: built from every change. Fixes first, less tested.")
+            self._channel.addItem(tr(label), key)
+        self._channel.setToolTip(tr("Nightly: built from every change. Fixes first, less tested."))
         self._channel.currentIndexChanged.connect(
             lambda i: plugin.set_channel(self._channel.itemData(i)))
-        c.addLayout(control_row("Channel", self._channel, stretch=True,
-                                keywords="stable nightly beta release track builds testing"))
+        c.addLayout(control_row(tr("Channel"), self._channel, stretch=True,
+                                keywords=tr("stable nightly beta release track builds testing", ctx="search")))
 
         self._auto = Switch()
         self._auto.toggled.connect(plugin.set_auto_check)
-        c.addLayout(control_row("Check daily", self._auto, keywords="automatic updates auto check every day background"))
+        c.addLayout(control_row(tr("Check daily"), self._auto,
+                                keywords=tr("automatic updates auto check every day background", ctx="search")))
 
-        self._portable = Switch("Keep this copy where it is")
-        self._portable.setToolTip("Updates this unzipped folder in place instead of installing Telescope for your user.")
+        self._portable = Switch(tr("Keep this copy where it is"))
+        self._portable.setToolTip(tr("Updates this unzipped folder in place instead of installing Telescope for your "
+                                     "user."))
         self._portable.toggled.connect(plugin.set_keep_portable)
         self._portable_row = QWidget()
-        self._portable_row.setLayout(control_row("Unzipped copy", self._portable,
-                                                      keywords="portable keep this copy where it is zip folder in place windows"))
+        self._portable_row.setLayout(control_row(tr("Unzipped copy"), self._portable,
+                                                 keywords=tr("portable keep this copy where it is zip folder in place "
+                                                             "windows", ctx="search")))
         self._portable_row.setVisible(updates.is_unzipped_copy())
         c.addWidget(self._portable_row)
 
         self._status = wrapped_note("")
         c.addLayout(control_row("", self._status, stretch=True))
 
-        self._update_btn = QPushButton("Update and restart")
+        self._update_btn = QPushButton(tr("Update and restart"))
         set_ui_role(self._update_btn, "primary")
         self._update_btn.clicked.connect(plugin.update_now)
-        self._notes_btn = QPushButton("What's new")
+        self._notes_btn = QPushButton(tr("What's new"))
         self._notes_btn.clicked.connect(plugin.open_notes)
         self._actions = QWidget()
         self._actions.setLayout(button_row(self._notes_btn, self._update_btn))
         c.addLayout(control_row("", self._actions, stretch=True))
-        self._retry_btn = QPushButton("Try again")
+        self._retry_btn = QPushButton(tr("Try again"))
         self._retry_btn.clicked.connect(plugin.try_again)
         self._retry = QWidget()
         self._retry.setLayout(button_row(self._retry_btn))
@@ -129,14 +134,14 @@ class UpdatesSection(QWidget):
         self._retry.setVisible(p.rolled_back is not None and not available)
         self._retry_btn.setEnabled(not busy)
         blocker = p.update_blocker() if available else None
-        self._update_btn.setText("Open download page" if blocker else "Update and restart")
+        self._update_btn.setText(tr("Open download page") if blocker else tr("Update and restart"))
         self._update_btn.setEnabled(not busy and (blocker is not None or not p.host_streaming()))
 
 
 class UpdatesPlugin(TelescopePlugin):
     name = "updates"
-    title = "Updates"
-    about = "Checking for new versions of Telescope and installing them."
+    title = N_("Updates")
+    about = N_("Checking for new versions of Telescope and installing them.")
     required = True
     header_side = "right"
 
@@ -179,7 +184,7 @@ class UpdatesPlugin(TelescopePlugin):
 
     def create_header_widget(self) -> QWidget:
         # Green, not the accent blue: Start streaming stays the one primary button in the header.
-        self._header_btn = QPushButton("Update")
+        self._header_btn = QPushButton(tr("Update"))
         self._header_btn.setFixedHeight(36)
         self._header_btn.setIcon(create_vector_icon("update", "#ffffff"))
         self._header_btn.setIconSize(QSize(16, 16))
@@ -201,7 +206,7 @@ class UpdatesPlugin(TelescopePlugin):
         if hasattr(self, "_header_btn"):
             self._header_btn.setVisible(self.available is not None)
             if self.available is not None:
-                self._header_btn.setToolTip(f"Telescope {self.available.display_version} is available")
+                self._header_btn.setToolTip(tr("Telescope {version} is available", version=self.available.display_version))
         if self._section is not None:
             self._section.refresh()
 
@@ -215,37 +220,45 @@ class UpdatesPlugin(TelescopePlugin):
     def status_text(self) -> tuple:
         if self._phase == "downloading":
             done, total = self._progress
-            pct = f" {done * 100 // total}%" if total else ""
-            return f"Downloading{pct}…", "status_dim"
+            if total:
+                return tr("Downloading {percent}%…", percent=done * 100 // total), "status_dim"
+            return tr("Downloading…"), "status_dim"
         if self._phase == "installing":
-            return "Installing…", "status_dim"
+            return tr("Installing…"), "status_dim"
         if self._phase == "restart_pending":
-            return "Updated. Telescope restarts when you stop streaming.", "status_ok"
+            return tr("Updated. Telescope restarts when you stop streaming."), "status_ok"
         if self._checking:
-            return "Checking…", "status_dim"
+            return tr("Checking…"), "status_dim"
         if self._error:
             return self._error, "status_err"
         if self.available is not None:
             blocker = self.update_blocker()
-            text = f"Telescope {self.available.display_version} is available."
+            text = tr("Telescope {version} is available.", version=self.available.display_version)
             if self.moves_on_update():
-                text += (" Updating also installs it for your user, with a Start menu entry, and removes this "
-                         "unzipped copy. Settings and phones come along.")
+                text += " " + tr("Updating also installs it for your user, with a Start menu entry, and removes this "
+                                 "unzipped copy. Settings and phones come along.")
             if blocker:
                 return f"{text} {blocker}", "status_warn"
             if self.host_streaming():
-                return f"{text} Stop streaming to update.", "status_warn"
+                return text + " " + tr("Stop streaming to update."), "status_warn"
             return text, "status_ok"
         if not self._checked:
             return "", "status_dim"
         if self.rolled_back is not None:
-            return f"Telescope {self.rolled_back.display_version} didn't start after updating, so it's held back. Try again?", "status_warn"
+            return tr("Telescope {version} didn't start after updating, so it's held back. Try again?",
+                      version=self.rolled_back.display_version), "status_warn"
+        nightly = self.channel == "nightly"
         if version.CHANNEL == "dev":
-            latest = f" The latest {self.channel} build is {self.latest.display_version}." if self.latest else ""
-            return f"This is a source checkout, so it doesn't update itself.{latest}", "status_dim"
+            text = tr("This is a source checkout, so it doesn't update itself.")
+            if self.latest:
+                text += " " + (tr("The latest nightly build is {version}.", version=self.latest.display_version)
+                               if nightly else
+                               tr("The latest stable build is {version}.", version=self.latest.display_version))
+            return text, "status_dim"
         if self.latest is None:
-            return f"There's no {self.channel} release yet.", "status_dim"
-        return "You have the latest version.", "status_dim"
+            return (tr("There's no nightly release yet.") if nightly else tr("There's no stable release yet.")), \
+                "status_dim"
+        return tr("You have the latest version."), "status_dim"
 
     # ── Settings ──────────────────────────────────────────────────────────
 
@@ -329,7 +342,7 @@ class UpdatesPlugin(TelescopePlugin):
                 manifest, error = None, str(exc)
             except Exception:
                 logger.exception("Update check failed")
-                manifest, error = None, "Couldn't check for updates."
+                manifest, error = None, tr("Couldn't check for updates.")
             try:
                 signals.checked.emit(check_id, manifest, error)
             except RuntimeError:
@@ -400,7 +413,7 @@ class UpdatesPlugin(TelescopePlugin):
                 result, error = None, str(exc)
             except Exception:
                 logger.exception("Update failed")
-                result, error = None, "The update failed."
+                result, error = None, tr("The update failed.")
             finally:
                 if folder is not None:
                     shutil.rmtree(folder, ignore_errors=True)
@@ -449,7 +462,7 @@ class UpdatesPlugin(TelescopePlugin):
             # The new version is in place; staying open beats quitting with nothing to replace us
             logger.exception("Couldn't restart after the update")
             self._phase = ""
-            self._error = "Updated. Close and reopen Telescope to finish."
+            self._error = tr("Updated. Close and reopen Telescope to finish.")
             self._refresh()
             return
         if updates.MOVED_FROM in argv:  # the installed copy is starting now; see mark_started_elsewhere

@@ -24,6 +24,7 @@ from telescope.widgets.common import (
 )
 from telescope.widgets.lens_panel import shorten_lens_label
 from telescope.theme import ACCENT, ERR
+from telescope.i18n import N_, tr
 
 # Rotation's segments, by the names saved settings and the shortcut use.
 _ROTATION_SEGMENTS = (("None", "0°"), ("90 CW", "90°"), ("180", "180°"), ("90 CCW", "270°"))
@@ -52,20 +53,20 @@ def lens_note(zoom: float, sent_ratio: float, caps: Optional[PhoneZoomCaps], liv
     """
     lines, level = [], ""
     if live and default and live != default:
-        lines.append(f"Switched to {live}")
+        lines.append(tr("Switched to {lens}", lens=live))
         level = "on"
     if caps is not None and caps.lens_zooms:
         centred = max((lens for lens in caps.lens_zooms if zoom >= lens), default=1.0)
         if centred > sent_ratio + 1e-3:
-            lines.append(f"Panned past what {tele or 'the telephoto'} can see, so it's on "
-                         f"{live or 'the main camera'}. Pan back to switch again.")
+            lines.append(tr("Panned past what {tele} can see, so it's on {live}. Pan back to switch again.",
+                            tele=tele or tr("the telephoto"), live=live or tr("the main camera")))
             level = "off"
         elif sent_ratio > 1.0 + 1e-3 and settled and live and live == default:
-            lines.append(f"The phone stayed on {live} by itself, most likely too dark or too close "
-                         f"for {tele or 'the telephoto'}. It switches once it can.")
+            lines.append(tr("The phone stayed on {live} by itself, most likely too dark or too close for {tele}. It "
+                            "switches once it can.", live=live, tele=tele or tr("the telephoto")))
             level = "off"
     if lines:
-        lines.append("It can wobble for a moment while it switches.")
+        lines.append(tr("It can wobble for a moment while it switches."))
     return level, "\n".join(lines)
 
 
@@ -124,9 +125,9 @@ class _LensDot(QWidget):
 
 class TransformsPlugin(TelescopePlugin):
     name = "transforms"
-    title = "Transforms"
-    about = "Zoom, pan, flip and rotate the picture."
-    when_off = "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
+    title = N_("Transforms")
+    about = N_("Zoom, pan, flip and rotate the picture.")
+    when_off = N_("Without it there's no Transforms card and the picture goes out exactly as the phone sends it.")
     in_presets = True
     device_local = True
     panel_region = "left"   # desktop-side processing, with the output settings
@@ -159,19 +160,19 @@ class TransformsPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        self._reset_btn = card_action("Reset", "reset", "Clear flip, rotation, zoom and pan back to defaults")
+        self._reset_btn = card_action(tr("Reset"), "reset", tr("Clear flip, rotation, zoom and pan back to defaults"))
         self._reset_btn.clicked.connect(self._reset_all)
-        add_card_header(lay, "Transforms", "crop", action=self._reset_btn, hue="transforms")
+        add_card_header(lay, tr("Transforms"), "crop", action=self._reset_btn, hue="transforms")
         dim_until_paired(card, self._bus)
 
         # ── Flip ─────────────────────────────────────────────────────────────
-        self._flip_h = SegmentButton("Mirror")
-        self._flip_v = SegmentButton("Upside down")
+        self._flip_h = SegmentButton(tr("Mirror"))
+        self._flip_v = SegmentButton(tr("Upside down"))
         set_button_icon(self._flip_h, line_icon("mirror", theme.TEXT_DIM), 13)
         set_button_icon(self._flip_v, line_icon("upside_down", theme.TEXT_DIM), 13)
         self._flip_h.toggled.connect(self._on_flip)
         self._flip_v.toggled.connect(self._on_flip)
-        lay.addLayout(_row("Flip", segmented_row(self._flip_h, self._flip_v), stretch=True))
+        lay.addLayout(_row(tr("Flip"), segmented_row(self._flip_h, self._flip_v), stretch=True))
 
         # ── Rotation ──────────────────────────────────────────────────────────
         self._rot_combo = NoScrollComboBox()
@@ -188,7 +189,7 @@ class TransformsPlugin(TelescopePlugin):
             self._rot_segs[name] = btn
         self._rot_segs["None"].setChecked(True)
         self._rot_combo.currentTextChanged.connect(lambda n: self._rot_segs[n].setChecked(True))
-        rot_row = _row("Rotation", segmented_row(*self._rot_segs.values()), stretch=True)
+        rot_row = _row(tr("Rotation"), segmented_row(*self._rot_segs.values()), stretch=True)
         rot_row.addWidget(self._rot_combo)
         lay.addLayout(rot_row)
 
@@ -199,7 +200,7 @@ class TransformsPlugin(TelescopePlugin):
         self._zoom_slider.set_default(100)
         self._zoom_val_lbl = value_label("1.0×")
         self._zoom_slider.valueChanged.connect(self._on_zoom_changed)
-        lay.addLayout(_row("Zoom", slider_row(self._zoom_slider, self._zoom_val_lbl), stretch=True))
+        lay.addLayout(_row(tr("Zoom"), slider_row(self._zoom_slider, self._zoom_val_lbl), stretch=True))
         # Only there when the phone switched lens (or isn't on the one it should be); details on hover.
         self._lens_dot = _LensDot(self._zoom_val_lbl)
         self._lens_dot.setVisible(False)
@@ -225,8 +226,9 @@ class TransformsPlugin(TelescopePlugin):
 
         self._pan_pad = PanPad()
         self._pan_pad.moved.connect(self._on_pan_pad)
-        self._pan_lbl = value_label("H 0%\nV 0%")
-        pan_row = _row("Pan", slider_row(self._pan_pad, self._pan_lbl), stretch=True)
+        # Translators: H and V for horizontal and vertical, in the narrow Pan readout
+        self._pan_lbl = value_label(tr("H {x}\nV {y}", x="0%", y="0%"))
+        pan_row = _row(tr("Pan"), slider_row(self._pan_pad, self._pan_lbl), stretch=True)
         pan_row.setAlignment(pan_row.itemAt(0).widget(), Qt.AlignmentFlag.AlignVCenter)
         lay.addLayout(pan_row)
 
@@ -237,24 +239,27 @@ class TransformsPlugin(TelescopePlugin):
         return card
 
     def create_actions(self) -> list:
-        g = "Transforms"
+        g = tr("Transforms")
         actions = [
-            button_action("transforms.flip_horizontal", "Flip horizontal", g, self._flip_h),
-            button_action("transforms.flip_vertical", "Flip vertical", g, self._flip_v),
-            choice_action("transforms.rotation", "Rotation", g, buttons=list(self._rot_segs.values())),
-            slider_action("transforms.zoom", "Zoom", g, self._zoom_slider, scale=0.01, suffix="×", decimals=2,
+            button_action("transforms.flip_horizontal", tr("Flip horizontal"), g, self._flip_h),
+            button_action("transforms.flip_vertical", tr("Flip vertical"), g, self._flip_v),
+            choice_action("transforms.rotation", tr("Rotation"), g, buttons=list(self._rot_segs.values())),
+            slider_action("transforms.zoom", tr("Zoom"), g, self._zoom_slider, scale=0.01, suffix="×", decimals=2,
                           step=0.25, readout=self._zoom_val_lbl),
-            slider_action("transforms.pan_x", "Pan left/right", g, self._pan_x_slider.slider(), scale=0.5,
+            slider_action("transforms.pan_x", tr("Pan left/right"), g, self._pan_x_slider.slider(), scale=0.5,
                           suffix="%", step=10.0, readout=self._pan_x_lbl, signed=True,
                           widgets=(self._pan_pad,), ready_widget=self._pan_pad),
-            slider_action("transforms.pan_y", "Pan up/down", g, self._pan_y_slider.slider(), scale=0.5,
+            slider_action("transforms.pan_y", tr("Pan up/down"), g, self._pan_y_slider.slider(), scale=0.5,
                           suffix="%", step=10.0, readout=self._pan_y_lbl, signed=True,
                           widgets=(self._pan_pad,), ready_widget=self._pan_pad),
-            button_action("transforms.reset", "Reset transforms", g, self._reset_btn),
+            button_action("transforms.reset", tr("Reset transforms"), g, self._reset_btn),
         ]
-        keywords = {"transforms.flip_horizontal": "mirror", "transforms.flip_vertical": "mirror upside down",
-                    "transforms.rotation": "rotate turn", "transforms.zoom": "crop framing",
-                    "transforms.pan_x": "framing move", "transforms.pan_y": "framing move"}
+        keywords = {"transforms.flip_horizontal": tr("mirror", ctx="search"),
+                    "transforms.flip_vertical": tr("mirror upside down", ctx="search"),
+                    "transforms.rotation": tr("rotate turn", ctx="search"),
+                    "transforms.zoom": tr("crop framing", ctx="search"),
+                    "transforms.pan_x": tr("framing move", ctx="search"),
+                    "transforms.pan_y": tr("framing move", ctx="search")}
         for action in actions:
             action.keywords = keywords.get(action.id, "")
         return actions
@@ -319,19 +324,20 @@ class TransformsPlugin(TelescopePlugin):
         if status.sent_ratio_at != old.sent_ratio_at:
             self._settle_timer.start()
         if status.sent is None:
-            self._zoom_where = "Zoomed on this computer" + (": this lens can't zoom itself" if status.streaming else "")
+            self._zoom_where = (tr("Zoomed on this computer: this lens can't zoom itself") if status.streaming
+                                else tr("Zoomed on this computer"))
         elif status.desktop_zoom > 1.0:
-            self._zoom_where = "Zoomed on the phone's sensor as far as this lens allows, the rest on this computer"
+            self._zoom_where = tr("Zoomed on the phone's sensor as far as this lens allows, the rest on this computer")
         else:
-            self._zoom_where = "Zoomed on the phone's sensor"
+            self._zoom_where = tr("Zoomed on the phone's sensor")
         self._show_zoom_where()
 
     def _show_zoom_where(self):
         where = self._zoom_where
         if self._zoom_slider.snaps():
-            where += "\nDots mark where the phone switches to another lens"
+            where += "\n" + tr("Dots mark where the phone switches to another lens")
         if self._taken_by:
-            where = f"{self._taken_by} is moving the zoom and pan"
+            where = tr("{owner} is moving the zoom and pan", owner=tr(self._taken_by))
         self._zoom_slider.setToolTip(where)
         self._zoom_val_lbl.setToolTip(where)
         status = self._status
@@ -452,7 +458,7 @@ class TransformsPlugin(TelescopePlugin):
             pct = round(pan * 100)
             lbl.setText(f"{pct:+d}%" if pct else "0%")
             lbl.setEnabled(slider._slider.isEnabled())
-        self._pan_lbl.setText(f"H {self._pan_x_lbl.text()}\nV {self._pan_y_lbl.text()}")
+        self._pan_lbl.setText(tr("H {x}\nV {y}", x=self._pan_x_lbl.text(), y=self._pan_y_lbl.text()))
         self._pan_lbl.setEnabled(self._pan_pad.isEnabled())
 
     # ── Config ────────────────────────────────────────────────────────────────

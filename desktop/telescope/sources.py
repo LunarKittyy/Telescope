@@ -17,6 +17,7 @@ from telescope import vcam
 from telescope.phone_client import PhoneControlClient
 from telescope.phones import DESKTOP_OUTDATED, LOCAL_ONLY, NOT_PAIRED, PHONE_OUTDATED, READY
 from telescope.widgets.banner import BannerAction, Issue
+from telescope.i18n import N_, tr
 
 if TYPE_CHECKING:
     from telescope.session import StreamSession
@@ -133,7 +134,7 @@ class Source(QObject):
     mic_alone = False  # can stream its mic with the camera off
     open_reader = None  # a StreamWorker reader factory; None reads url
     auto_canvas = None  # the virtual camera's size when Setup's canvas is Auto; None takes the first frame's
-    lost_hint = "Check that it's still on."  # what to do when it can't be reached for a while
+    lost_hint = N_("Check that it's still on.")  # what to do when it can't be reached for a while
 
     def __init__(self, host: SourceHost):
         super().__init__()
@@ -166,7 +167,7 @@ class Source(QObject):
 
     def forget_stream_status(self):
         """What the footer shows for this stream while the panels show another, back to before it started."""
-        self.status = ("Not streaming", "dim")
+        self.status = (tr("Not streaming"), "dim")
         self.fps_text = self.net_text = "—"
         self.connected = False
 
@@ -236,7 +237,8 @@ class Source(QObject):
         if not self.recovering or self.session is None:
             return
         self.unreachable_shown = True
-        self._host.show_issue(f"stopped:{self.id}", Issue(f"Can't reach {self.name}", self.lost_hint, kind="warn"))
+        self._host.show_issue(f"stopped:{self.id}", Issue(tr("Can't reach {name}", name=self.name),
+                                                                   tr(self.lost_hint), kind="warn"))
 
     def end_recovery(self):
         self.recovering = False
@@ -286,7 +288,7 @@ class PluginSource(Source):
 
     @property
     def lost_hint(self) -> str:
-        return getattr(self._source, "lost_hint", "Open the Telescope page in it again.")
+        return getattr(self._source, "lost_hint", N_("Open the Telescope page in it again."))
 
     @property
     def url(self) -> str:
@@ -326,7 +328,7 @@ class PhoneSource(Source):
 
     wakes = True
     mic_alone = True
-    lost_hint = "Open Telescope on it."
+    lost_hint = N_("Open Telescope on it.")
 
     _sig_state = pyqtSignal(int, dict)
     _sig_wake_done = pyqtSignal(int, bool, str, str, object)  # wake_id, ok, reason, url, PhoneAuth
@@ -378,7 +380,7 @@ class PhoneSource(Source):
     def name(self) -> str:
         conn = self._host.connection()
         phone = conn.phone(self.id) if conn is not None and hasattr(conn, "phone") else None
-        return phone.name if phone is not None else "the phone"
+        return phone.name if phone is not None else tr("the phone")
 
     # ── Start and stop ────────────────────────────────────────────────────
 
@@ -423,7 +425,7 @@ class PhoneSource(Source):
             ok, reason = conn.ensure_phone_streaming(on_progress=on_progress, target=target, opening=opening)
         except Exception:
             logging.exception("Phone wake failed")
-            ok, reason = False, "Couldn't reach the phone."
+            ok, reason = False, tr("Couldn't reach the phone.")
         try:
             self._sig_wake_done.emit(wake_id, ok, reason, url, auth)
         except RuntimeError:
@@ -518,17 +520,17 @@ class PhoneSource(Source):
         if state.get("camera_taken"):
             # Android gives the camera to the app on screen; the phone opens it again once that app lets go
             self._host.show_issue(f"camera_taken:{self.id}", Issue(
-                "Another app on the phone is using the camera",
-                "The stream comes back by itself once that app closes or lets go of it.", kind="warn"))
+                tr("Another app on the phone is using the camera"),
+                tr("The stream comes back by itself once that app closes or lets go of it."), kind="warn"))
         else:
             self._host.clear_issue(f"camera_taken:{self.id}")
         self.camera_toggle = bool(state.get("camera_toggle"))
         if not self.camera_toggle:
             if self.camera_off:
                 self._host.set_camera_on(True)
-                self._host.show_issue("camera", Issue("This phone can't turn its camera off yet",
-                                                      "Update Telescope on the phone to stream the mic with the camera off.",
-                                                      kind="warn"))
+                self._host.show_issue("camera", Issue(tr("This phone can't turn its camera off yet"),
+                                                      tr("Update Telescope on the phone to stream the mic with the "
+                                                         "camera off."), kind="warn"))
             return
         if bool(state.get("camera_off")) != self.camera_off:
             session.client.send(action="camera_on", value=0 if self.camera_off else 1)
@@ -610,18 +612,20 @@ class PhoneSource(Source):
             if other:
                 # Another computer started the phone while this one couldn't reach it: that stream is theirs.
                 host.stop_source(self)
-                phone = "The phone" if not host.is_streaming() else self.name
                 host.show_issue(f"stopped:{self.id}", Issue(
-                    f"{phone} is streaming to {other}", "Stop it there or on the phone, then start again.",
-                    [BannerAction("Start", lambda: host.start_source(self.id))], kind="warn"))
+                    tr("The phone is streaming to {computer}", computer=other) if not host.is_streaming()
+                    else tr("{phone} is streaming to {computer}", phone=self.name, computer=other),
+                    tr("Stop it there or on the phone, then start again."),
+                    [BannerAction(tr("Start"), lambda: host.start_source(self.id))], kind="warn"))
                 return
             if not res.streaming and not res.busy:
                 # Stopped on the phone, or by its idle watchdog while we couldn't reach it.
                 host.stop_source(self)
                 host.show_issue(f"stopped:{self.id}", Issue(
-                    "The phone stopped streaming" if not host.is_streaming() else f"{self.name} stopped streaming",
-                    "Start again when you're ready.",
-                    [BannerAction("Start", lambda: host.start_source(self.id))], kind="warn"))
+                    tr("The phone stopped streaming") if not host.is_streaming()
+                    else tr("{phone} stopped streaming", phone=self.name),
+                    tr("Start again when you're ready."),
+                    [BannerAction(tr("Start"), lambda: host.start_source(self.id))], kind="warn"))
                 return
             if res.streaming and res.route != self._recovery_route:
                 self._move_stream(session, res.route)
@@ -806,5 +810,5 @@ class PhoneSource(Source):
         if state.get("camera_off") and state.get("camera_error"):
             self.camera_off = True
             host.camera_stayed_off(session)
-            host.show_issue("camera", Issue("The camera didn't turn back on", state["camera_error"],
-                                            [BannerAction("Try again", self._camera_on_again)], kind="warn"))
+            host.show_issue("camera", Issue(tr("The camera didn't turn back on"), state["camera_error"],
+                                            [BannerAction(tr("Try again"), self._camera_on_again)], kind="warn"))

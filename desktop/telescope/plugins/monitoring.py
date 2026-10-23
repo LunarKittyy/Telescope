@@ -13,6 +13,7 @@ from telescope.widgets.common import (
     NoScrollSpinBox, add_card_header, add_section_heading, card_layout, create_card,
     dim_until_paired, hued_icon, ui_px,
 )
+from telescope.i18n import N_, tr
 
 logger = logging.getLogger(__name__)
 
@@ -51,9 +52,9 @@ def _reading(state: dict) -> Optional[tuple]:
 
 class MonitoringPlugin(TelescopePlugin):
     name = "monitoring"
-    title = "Monitoring"
-    about = "The phone's battery and temperature, with warnings when they get low or high."
-    when_off = "Without it there's no Monitoring card and nothing warns you about a low battery or a hot phone."
+    title = N_("Monitoring")
+    about = N_("The phone's battery and temperature, with warnings when they get low or high.")
+    when_off = N_("Without it there's no Monitoring card and nothing warns you about a low battery or a hot phone.")
     device_local = True
     panel_region = "right"  # the phone's own health, beside its camera
 
@@ -80,7 +81,7 @@ class MonitoringPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, "Phone", "phone", hue="phone")
+        add_card_header(lay, tr("Phone"), "phone", hue="phone")
         dim_until_paired(card, self._bus, phone_only=True)
 
         # ── Live readings ─────────────────────────────────────────────────────
@@ -94,7 +95,7 @@ class MonitoringPlugin(TelescopePlugin):
         lay.addLayout(pills)
 
         # ── Warnings ──────────────────────────────────────────────────────────
-        add_section_heading(lay, "Warnings", "bell")
+        add_section_heading(lay, tr("Warnings"), "bell")
         block = QFrame()
         block.setObjectName("subsection")
         warnings = QVBoxLayout(block)
@@ -106,25 +107,29 @@ class MonitoringPlugin(TelescopePlugin):
         self._batt_alert_spin.setValue(20)
         self._batt_alert_spin.setSuffix("%")
         self._batt_alert_spin.setToolTip(
-            "Counts as low at this level, even while charging if it keeps dropping"
+            tr("Counts as low at this level, even while charging if it keeps dropping")
         )
         self._batt_alert_spin.valueChanged.connect(self._host.schedule_save)
         self._batt_notify, self._batt_stop = self._alert_block(
-            warnings, "battery", "Battery under", self._batt_alert_spin, "battery runs low")
+            warnings, "battery", tr("Battery under"), self._batt_alert_spin,
+            tr("Show a notification when the battery runs low"),
+            tr("Stop the stream when the battery runs low, and at every restart until it's fine again"))
         warnings.addWidget(hairline())
 
         self._temp_alert_spin = NoScrollSpinBox()
         self._temp_alert_spin.setRange(35, 65)
         self._temp_alert_spin.setValue(45)
         self._temp_alert_spin.setSuffix(" °C")
-        self._temp_alert_spin.setToolTip("The temperature that counts as too hot")
+        self._temp_alert_spin.setToolTip(tr("The temperature that counts as too hot"))
         self._temp_alert_spin.valueChanged.connect(self._host.schedule_save)
         self._temp_notify, self._temp_stop = self._alert_block(
-            warnings, "thermometer", "Hotter than", self._temp_alert_spin, "phone gets too hot")
+            warnings, "thermometer", tr("Hotter than"), self._temp_alert_spin,
+            tr("Show a notification when the phone gets too hot"),
+            tr("Stop the stream when the phone gets too hot, and at every restart until it's fine again"))
 
         return card
 
-    def _alert_block(self, lay, icon_name: str, label: str, spin, what: str) -> tuple:
+    def _alert_block(self, lay, icon_name: str, label: str, spin, notify_tip: str, stop_tip: str) -> tuple:
         """One warning: what counts, then whether to notify and stop the stream."""
         inner = lay
         top = QHBoxLayout()
@@ -136,15 +141,15 @@ class MonitoringPlugin(TelescopePlugin):
         spin.setFixedSize(ui_px(80), ui_px(30))
         top.addWidget(spin)
         inner.addLayout(top)
-        return self._alert_choices(inner, what)
+        return self._alert_choices(inner, notify_tip, stop_tip)
 
-    def _alert_choices(self, lay, what: str) -> tuple:
+    def _alert_choices(self, lay, notify_tip: str, stop_tip: str) -> tuple:
         """The Notify and Stop streaming switches of one warning."""
-        notify = Switch("Notify me")
+        notify = Switch(tr("Notify me"))
         notify.setChecked(True)
-        notify.setToolTip(f"Show a notification when the {what}")
-        stop = Switch("Stop the stream")
-        stop.setToolTip(f"Stop the stream when the {what}, and at every restart until it's fine again")
+        notify.setToolTip(notify_tip)
+        stop = Switch(tr("Stop the stream"))
+        stop.setToolTip(stop_tip)
         for box in (notify, stop):
             box.setProperty("dim_text", True)  # the choices under a warning read quieter than the warning itself
             box.toggled.connect(self._host.schedule_save)
@@ -250,7 +255,7 @@ class MonitoringPlugin(TelescopePlugin):
             batt_kind = "status_warn"
         else:
             batt_kind = "status_ok"
-        self._battery_lbl.set(f"{level}%", "Charging" if charging else "", batt_kind,
+        self._battery_lbl.set(f"{level}%", tr("Charging") if charging else "", batt_kind,
                               "battery_charging" if charging else "battery")
 
         if temp_c >= temp_thresh:
@@ -259,7 +264,7 @@ class MonitoringPlugin(TelescopePlugin):
             temp_kind = "status_warn"
         else:
             temp_kind = "status_ok"
-        feel = {"status_ok": "Cool", "status_warn": "Warm", "status_err": "Hot"}[temp_kind]
+        feel = {"status_ok": tr("Cool"), "status_warn": tr("Warm"), "status_err": tr("Hot")}[temp_kind]
         self._temp_lbl.set(f"{temp_c:.1f} °C", feel, temp_kind, "thermometer")
 
     def _check_alerts(self, level: int, charging: bool, temp_c: float):
@@ -287,26 +292,29 @@ class MonitoringPlugin(TelescopePlugin):
             allowed.discard("temp")
         stop_low = low and streaming and cfg["battery_stop"] is True and "batt" not in allowed
         stop_hot = hot and streaming and cfg["temp_stop"] is True and "temp" not in allowed
-        phone = name or "Phone"
+        phone = name or tr("Phone")
 
         notes = []
         if low and (stop_low or not entry["batt"]):
             entry["batt"] = True
             if cfg["battery_notify"] is not False:
-                text = (f"{phone} battery is at {level}% and still dropping despite being "
-                        "plugged in - the charger may not be keeping up." if charging else
-                        f"{phone} battery is at {level}%.")
-                notes.append(("Telescope - Low Battery", text + (" Stopped streaming." if stop_low else "")))
+                text = (tr("{phone} battery is at {level}% and still dropping despite being plugged in - the charger "
+                           "may not be keeping up.", phone=phone, level=level) if charging else
+                        tr("{phone} battery is at {level}%.", phone=phone, level=level))
+                notes.append((tr("Telescope - Low Battery"),
+                              text + (" " + tr("Stopped streaming.") if stop_low else "")))
         elif level > batt_thresh + 5:
             entry["batt"] = False
 
         if hot and (stop_hot or not entry["temp"]):
             entry["temp"] = True
             if cfg["temp_notify"] is not False:
-                where = f"{name}: t" if name else "T"
-                text = (f"{where}emperature is {temp_c:.1f} °C. Stopped streaming to let it cool down." if stop_hot else
-                        f"{where}emperature is {temp_c:.1f} °C. Consider stopping charging or closing other apps.")
-                notes.append(("Telescope - Phone Running Hot", text))
+                temp = f"{temp_c:.1f}"
+                text = (tr("Temperature is {temp} °C.", temp=temp) if not name
+                        else tr("{phone}: temperature is {temp} °C.", phone=name, temp=temp))
+                text += " " + (tr("Stopped streaming to let it cool down.") if stop_hot
+                               else tr("Consider stopping charging or closing other apps."))
+                notes.append((tr("Telescope - Phone Running Hot"), text))
         elif temp_c < temp_thresh - 5:
             entry["temp"] = False
 
@@ -315,15 +323,18 @@ class MonitoringPlugin(TelescopePlugin):
         if stop_low or stop_hot:
             logger.info("Stopping the stream: phone %s", "battery low" if stop_low else "too hot")
             self._host.stop_stream(sid)  # for the shown one it runs on_stream_stop, which clears its state here
-            who = name or "The phone"
             if stop_low:
-                title = f"{who}'s battery is at {level}%"
-                text = f"Streaming stopped, as Monitoring stops it at {batt_thresh}% or lower."
+                title = (tr("{phone}'s battery is at {level}%", phone=name, level=level) if name
+                         else tr("The phone's battery is at {level}%", level=level))
+                text = tr("Streaming stopped, as Monitoring stops it at {level}% or lower.", level=batt_thresh)
             else:
-                title = f"{who} is at {temp_c:.1f} °C"
-                text = f"Streaming stopped to let it cool down, as Monitoring stops it at {temp_thresh} °C."
+                temp = f"{temp_c:.1f}"
+                title = (tr("{phone} is at {temp} °C", phone=name, temp=temp) if name
+                         else tr("The phone is at {temp} °C", temp=temp))
+                text = tr("Streaming stopped to let it cool down, as Monitoring stops it at {temp} °C.",
+                          temp=temp_thresh)
             self._host.show_issue(f"stopped:{key}", Issue(
-                title, text, [BannerAction("Start anyway", lambda: self._start_anyway(key, stop_low, stop_hot))],
+                title, text, [BannerAction(tr("Start anyway"), lambda: self._start_anyway(key, stop_low, stop_hot))],
                 kind="warn"))
 
     def _start_anyway(self, sid, low: bool, hot: bool):

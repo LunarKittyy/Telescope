@@ -18,6 +18,7 @@ from telescope.session_client import clean_name
 from telescope.shortcuts import Param, ShortcutAction
 from telescope.widgets.common import set_button_icon
 from telescope.widgets.line_icons import line_icon
+from telescope.i18n import N_, tr
 
 logger = logging.getLogger(__name__)
 
@@ -56,9 +57,9 @@ def clean_presets(raw) -> list:
 
 class PresetsPlugin(TelescopePlugin):
     name = "presets"
-    title = "Presets"
-    about = "Saving and loading groups of settings with one click."
-    when_off = "Without it there's no Presets button in the header (your saved presets aren't deleted)."
+    title = N_("Presets")
+    about = N_("Saving and loading groups of settings with one click.")
+    when_off = N_("Without it there's no Presets button in the header (your saved presets aren't deleted).")
     device_local = True
     header_side = "left"
 
@@ -138,7 +139,7 @@ class PresetsPlugin(TelescopePlugin):
             if self.find(p.get("name")) is None:
                 return None
             self.apply(p["name"])
-            return f"Preset: {p['name']}"
+            return tr("Preset: {name}", name=p["name"])
 
         def cycle(p):
             names = self.names()
@@ -147,25 +148,27 @@ class PresetsPlugin(TelescopePlugin):
             at = names.index(self._last) if self._last in names else (-1 if p.get("op") == "next" else 0)
             name = names[(at + (1 if p.get("op") == "next" else -1)) % len(names)]
             self.apply(name)
-            return f"Preset: {name}"
+            return tr("Preset: {name}", name=name)
 
-        ops = (("next", "Next"), ("previous", "Previous"))
+        ops = (("next", tr("Next")), ("previous", tr("Previous")))
+        group = tr("Presets")
         return [
-            ShortcutAction("presets.apply", "Apply a preset", "Presets", apply,
-                           params=(Param("name", "Preset", "choice", "", lambda: [(n, n) for n in self.names()]),),
-                           describe=lambda p: f"Preset: {p.get('name') or '…'}"),
-            ShortcutAction("presets.cycle", "Next or previous preset", "Presets", cycle,
-                           params=(Param("op", "Does", "choice", "next", ops),),
-                           describe=lambda p: f"Preset: {p['op']}"),
+            ShortcutAction("presets.apply", tr("Apply a preset"), group, apply,
+                           params=(Param("name", tr("Preset"), "choice", "",
+                                         lambda: [(n, n) for n in self.names()]),),
+                           describe=lambda p: tr("Preset: {name}", name=p.get('name') or '…')),
+            ShortcutAction("presets.cycle", tr("Next or previous preset"), group, cycle,
+                           params=(Param("op", tr("Does"), "choice", "next", ops),),
+                           describe=lambda p: tr("Preset: {name}", name=dict(ops)[p['op']].lower())),
         ]
 
     # ── UI ────────────────────────────────────────────────────────────────────
 
     def create_header_widget(self) -> QWidget:
-        self._btn = QPushButton("Presets")
+        self._btn = QPushButton(tr("Presets"))
         self._btn.setFixedHeight(34)
         set_button_icon(self._btn, line_icon("bookmark", theme.ACCENT_SOFT))
-        self._btn.setToolTip("This phone's saved camera, output, transform, framing and background settings")
+        self._btn.setToolTip(tr("This phone's saved camera, output, transform, framing and background settings"))
         self._btn.clicked.connect(self._show_menu)
         return self._btn
 
@@ -177,10 +180,10 @@ class PresetsPlugin(TelescopePlugin):
             menu.addAction(action)
         if self._presets:
             menu.addSeparator()
-        save = QAction("Save current as…", menu)
+        save = QAction(tr("Save current as…"), menu)
         save.triggered.connect(self._ask_save)
         menu.addAction(save)
-        for label, handler in (("Rename", self._ask_rename), ("Delete", self.delete)):
+        for label, handler in ((tr("Rename"), self._ask_rename), (tr("Delete"), self.delete)):
             sub = menu.addMenu(label)
             sub.setEnabled(bool(self._presets))
             for name in self.names():
@@ -195,26 +198,27 @@ class PresetsPlugin(TelescopePlugin):
 
     def unused_name(self) -> str:
         n = len(self._presets) + 1
-        while self.find(f"Preset {n}") is not None:
+        while self.find(tr("Preset {n}", n=n)) is not None:
             n += 1
-        return f"Preset {n}"
+        return tr("Preset {n}", n=n)
 
     def _may_replace(self, name: str, keep: Optional[str] = None) -> bool:
         """Whether saving as name may go ahead: yes when no other preset has it, else ask first."""
         name = _clean(name)
         if not name or name == keep or self.find(name) is None:
             return True
-        answer = QMessageBox.question(self._btn.window(), "Replace preset",
-                                      f"There's already a preset called \"{name}\". Replace it?")
+        answer = QMessageBox.question(self._btn.window(), tr("Replace preset"),
+                                      tr('There\'s already a preset called "{name}". Replace it?', name=name))
         return answer == QMessageBox.StandardButton.Yes
 
     def _ask_save(self):
-        name, ok = QInputDialog.getText(self._btn.window(), "Save preset", "Name:", QLineEdit.EchoMode.Normal,
+        name, ok = QInputDialog.getText(self._btn.window(), tr("Save preset"), tr("Name:"), QLineEdit.EchoMode.Normal,
                                         self.unused_name())
         if ok and self._may_replace(name):
             self.save(name)
 
     def _ask_rename(self, old: str):
-        name, ok = QInputDialog.getText(self._btn.window(), "Rename preset", "Name:", QLineEdit.EchoMode.Normal, old)
+        name, ok = QInputDialog.getText(self._btn.window(), tr("Rename preset"), tr("Name:"),
+                                        QLineEdit.EchoMode.Normal, old)
         if ok and self._may_replace(name, keep=old):
             self.rename(old, name)

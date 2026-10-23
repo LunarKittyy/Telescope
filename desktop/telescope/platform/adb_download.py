@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from telescope import web
+from telescope.i18n import tr
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +143,7 @@ def _clear_leftovers(parent: Path):
 
 def _download(urlopen: Callable, dest: Path, say: Callable[[str], None]) -> tuple:
     try:
-        say("Finding the current adb…")
+        say(tr("Finding the current adb…"))
         index = bytearray()
         _fetch(urlopen, INDEX_URL, index.extend, _MAX_INDEX)
         archive = find_archive(bytes(index))
@@ -150,30 +151,31 @@ def _download(urlopen: Callable, dest: Path, say: Callable[[str], None]) -> tupl
             raise ValueError(f"platform-tools is listed at {archive.size} bytes")
     except Exception as e:
         logger.warning("adb index: %s", e)
-        return False, _offline(e) or "Google's list of downloads wasn't what Telescope expected. Try again later."
+        return False, _offline(e) or tr("Google's list of downloads wasn't what Telescope expected. Try again later.")
 
     dest.parent.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix=".adb-", dir=dest.parent))  # same drive, so the final move is a rename
     try:
         zip_path = work / "platform-tools.zip"
-        say(f"Downloading adb {archive.revision} from Google…" if archive.revision else "Downloading adb from Google…")
+        say(tr("Downloading adb {version} from Google…", version=archive.revision) if archive.revision
+            else tr("Downloading adb from Google…"))
         try:
             with open(zip_path, "wb") as f:
                 _fetch(urlopen, archive.url, f.write, archive.size)
         except Exception as e:
             logger.warning("adb download: %s", e)
-            return False, _offline(e) or "Couldn't download adb. Try again."
+            return False, _offline(e) or tr("Couldn't download adb. Try again.")
         if zip_path.stat().st_size != archive.size or _sha1(zip_path) != archive.sha1:
-            return False, "The download didn't match Google's checksum, so it wasn't used. Try again."
-        say("Unpacking…")
+            return False, tr("The download didn't match Google's checksum, so it wasn't used. Try again.")
+        say(tr("Unpacking…"))
         unpacked = work / "platform-tools"
         try:
             _unzip(zip_path, unpacked)
         except (OSError, zipfile.BadZipFile) as e:
             logger.warning("adb unpack: %s", e)
-            return False, "Couldn't unpack adb. Try again."
+            return False, tr("Couldn't unpack adb. Try again.")
         if not (unpacked / "adb.exe").is_file():
-            return False, "Google's download doesn't have adb.exe in it anymore."
+            return False, tr("Google's download doesn't have adb.exe in it anymore.")
         ok, why = _put_in_place(unpacked, dest, work)
         return (True, archive.revision) if ok else (False, why)
     finally:
@@ -204,7 +206,7 @@ def _put_in_place(unpacked: Path, dest: Path, work: Path) -> tuple:
         if old is not None and not dest.exists():
             os.replace(old, dest)
         logger.warning("adb move: %s", e)
-        return False, "Couldn't put adb in place. Is another program using it? Try again."
+        return False, tr("Couldn't put adb in place. Is another program using it? Try again.")
     return True, ""
 
 
@@ -228,9 +230,9 @@ def use_own_adb(source: Path, dest: Optional[Path] = None) -> tuple:
                             shutil.copyfile(source.parent / name, unpacked / name)
             except (OSError, zipfile.BadZipFile) as e:
                 logger.warning("own adb: %s", e)
-                return False, "Couldn't copy adb from there."
+                return False, tr("Couldn't copy adb from there.")
             if not (unpacked / "adb.exe").is_file():
-                return False, "That doesn't have adb.exe in it."
+                return False, tr("That doesn't have adb.exe in it.")
             ok, why = _put_in_place(unpacked, dest, work)
             return (True, downloaded_revision(dest)) if ok else (False, why)
         finally:
@@ -240,16 +242,16 @@ def use_own_adb(source: Path, dest: Optional[Path] = None) -> tuple:
 def _offline(e: Exception) -> str:
     """A plain sentence for a network failure, "" for anything else."""
     if web.certificate_failed(e):
-        return ("Couldn't check Google's certificate, so nothing was downloaded. Security software or a network "
-                "that inspects HTTPS can cause this.")
+        return tr("Couldn't check Google's certificate, so nothing was downloaded. Security software or a network "
+                  "that inspects HTTPS can cause this.")
     if isinstance(e, (urllib.error.URLError, TimeoutError, ConnectionError)) and not isinstance(
             e, urllib.error.HTTPError):
-        return "Couldn't reach Google. Check the internet connection and try again."
+        return tr("Couldn't reach Google. Check the internet connection and try again.")
     if isinstance(e, urllib.error.HTTPError) and e.code in (403, 404, 451):
-        return (f"Google wouldn't send adb to this computer (it said {e.code}). Google blocks Android downloads in "
-                "some countries. If you get platform-tools another way, pick its adb.exe or zip instead.")
+        return tr("Google wouldn't send adb to this computer (it said {code}). Google blocks Android downloads in "
+                  "some countries. If you get platform-tools another way, pick its adb.exe or zip instead.", code=e.code)
     if isinstance(e, urllib.error.HTTPError):
-        return f"Google's server said {e.code}. Try again later."
+        return tr("Google's server said {code}. Try again later.", code=e.code)
     return ""
 
 

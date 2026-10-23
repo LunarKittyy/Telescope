@@ -37,19 +37,20 @@ from telescope.widgets.common import (
     run_off_ui_thread, segmented_row,
     set_status_kind, set_ui_role, ui_px, wrapped_note,
 )
+from telescope.i18n import N_, tr
 
-# (width, height) tuples for canvas presets; None = auto from first frame
+# (width, height) tuples for canvas presets; None = auto from first frame. The English label is what's saved.
 CANVAS_PRESETS: list[tuple[str, tuple[int, int] | None]] = [
-    ("Auto (from first frame)",        None),
+    (N_("Auto (from first frame)"),    None),
     ("1080p 16:9 - 1920 x 1080",      (1920, 1080)),
-    ("1080p 16:9 Portrait - 1080 x 1920", (1080, 1920)),
+    (N_("1080p 16:9 Portrait - 1080 x 1920"), (1080, 1920)),
     ("720p 16:9 - 1280 x 720",        (1280,  720)),
-    ("720p 16:9 Portrait - 720 x 1280",   ( 720, 1280)),
+    (N_("720p 16:9 Portrait - 720 x 1280"), ( 720, 1280)),
     ("4K 16:9 - 3840 x 2160",         (3840, 2160)),
-    ("4K 16:9 Portrait - 2160 x 3840",    (2160, 3840)),
+    (N_("4K 16:9 Portrait - 2160 x 3840"), (2160, 3840)),
     ("XGA 4:3 - 1024 x 768",          (1024,  768)),
     ("UXGA 4:3 - 1600 x 1200",        (1600, 1200)),
-    ("Custom...",                       "custom"),
+    (N_("Custom..."),                   "custom"),
 ]
 
 _PRESET_LABELS = [label for label, _ in CANVAS_PRESETS]
@@ -89,7 +90,7 @@ MAX_GAIN_CHOICES = (12, 24, 36, 48)
 _HW_NAMES = {"d3d11va": "Direct3D 11", "cuda": "NVIDIA CUDA", "vaapi": "VA-API"}
 DEFAULT_MAX_GAIN = 12
 
-_SUDO_HINT = "Asks for your password (pkexec or sudo): this changes system settings."
+_SUDO_HINT = N_("Asks for your password (pkexec or sudo): this changes system settings.")
 
 
 AUTHOR_URL = "https://github.com/LunarKittyy"
@@ -165,59 +166,60 @@ class AdvancedSettings(QWidget):
         # ── Virtual camera ────────────────────────────────────────────────────
         vc_card = self._vc_card = create_card(self)
         vc_lay = card_layout(vc_card)
-        add_card_header(vc_lay, "Virtual camera", "video", hue="stream")
-        keywords(vc_card, "obs zoom teams discord webcam driver output device loopback")
+        add_card_header(vc_lay, tr("Virtual camera"), "video", hue="stream")
+        keywords(vc_card, tr("obs zoom teams discord webcam driver output device loopback", ctx="search"))
         if IS_LINUX:
-            chk_btn    = QPushButton("Check")
-            load_btn   = QPushButton("Load")
-            unload_btn = QPushButton("Unload")
-            load_btn.setToolTip(_SUDO_HINT)
-            unload_btn.setToolTip(_SUDO_HINT)
+            chk_btn    = QPushButton(tr("Check"))
+            load_btn   = QPushButton(tr("Load"))
+            unload_btn = QPushButton(tr("Unload"))
+            load_btn.setToolTip(tr(_SUDO_HINT))
+            unload_btn.setToolTip(tr(_SUDO_HINT))
             chk_btn.clicked.connect(self._v4l_check)
             load_btn.clicked.connect(self._v4l_load)
             unload_btn.clicked.connect(self._v4l_unload)
             self._v4l_cmd = CommandBox()
-            strip, self._v4l_lbl = setting_row("Kernel module", "Checking...", button_row(chk_btn, load_btn, unload_btn),
+            strip, self._v4l_lbl = setting_row(tr("Kernel module"), tr("Checking..."), button_row(chk_btn, load_btn, unload_btn),
                                                self._v4l_cmd)
             self._v4l_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             set_status_kind(self._v4l_lbl, "status_dim")
-            strip.setToolTip("Already says Ready? Leave these alone; they're only for fixing a \"not ready\" status.")
-            keywords(strip, "v4l2loopback linux virtual camera driver load unload check status not ready /dev/video "
-                            "missing fix modprobe")
+            strip.setToolTip(tr("Already says Ready? Leave these alone; they're only for fixing a \"not ready\" status."))
+            keywords(strip, tr("v4l2loopback linux virtual camera driver load unload check status not ready /dev/video "
+                            "missing fix modprobe", ctx="search"))
             vc_lay.addWidget(strip)
 
             self._persist_chk = Switch()
             self._persist_chk.setToolTip(
-                "Also writes it to /etc/modprobe.d/ and /etc/modules-load.d/, so it survives a reboot.\n" + _SUDO_HINT
+                tr("Also writes it to /etc/modprobe.d/ and /etc/modules-load.d/, so it survives a reboot.") + "\n"
+                + tr(_SUDO_HINT)
             )
             self._persist_chk.toggled.connect(self._on_persist_toggled)
             self._persist_cmd = CommandBox()
-            strip, self._persist_status_lbl = setting_row("Load when the computer starts", "", self._persist_chk,
+            strip, self._persist_status_lbl = setting_row(tr("Load when the computer starts"), "", self._persist_chk,
                                                           self._persist_cmd)
             self._persist_status_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             set_status_kind(self._persist_status_lbl, "status_dim")
             self._persist_row = self._persist_status_lbl
             self._persist_row.setVisible(False)
-            keywords(strip, "boot startup reboot persist permanent every start modprobe v4l2loopback driver survive "
-                            "restart")
+            keywords(strip, tr("boot startup reboot persist permanent every start modprobe v4l2loopback driver survive "
+                            "restart", ctx="search"))
             vc_lay.addWidget(strip)
         else:
-            self._uc_btn = action_button("Install driver")
+            self._uc_btn = action_button(tr("Install driver"))
             self._uc_btn.clicked.connect(self._install_uc)
-            strip, self._uc_status_lbl = setting_row("Driver", "Checking...", self._uc_btn)
+            strip, self._uc_status_lbl = setting_row(tr("Driver"), tr("Checking..."), self._uc_btn)
             set_status_kind(self._uc_status_lbl, "status_dim")
-            keywords(strip, "unitycapture unity video capture windows virtual camera install reinstall rename "
-                            "register missing not showing obs zoom")
+            keywords(strip, tr("unitycapture unity video capture windows virtual camera install reinstall rename "
+                            "register missing not showing obs zoom", ctx="search"))
             vc_lay.addWidget(strip)
 
             # Not bundled (Google's license doesn't allow passing it on), so it's fetched from Google when asked
-            self._adb_btn = action_button("Get adb", "primary")
+            self._adb_btn = action_button(tr("Get adb"), "primary")
             self._adb_from_google = True
-            self._adb_btn.setToolTip("Downloads adb from Google, for pairing and installing over USB")
+            self._adb_btn.setToolTip(tr("Downloads adb from Google, for pairing and installing over USB"))
             self._adb_btn.clicked.connect(self._get_adb)
             # Google blocks the download in some countries, so one got another way can be picked instead
-            self._adb_pick_btn = QPushButton("Use my own adb…")
-            self._adb_pick_btn.setToolTip("Pick an adb.exe or platform-tools zip you already have")
+            self._adb_pick_btn = QPushButton(tr("Use my own adb…"))
+            self._adb_pick_btn.setToolTip(tr("Pick an adb.exe or platform-tools zip you already have"))
             self._adb_pick_btn.clicked.connect(self._pick_adb)
             self._adb_row = QWidget()
             adb_buttons = QHBoxLayout(self._adb_row)
@@ -226,21 +228,21 @@ class AdvancedSettings(QWidget):
             adb_buttons.addWidget(self._adb_btn)
             adb_buttons.addWidget(self._adb_pick_btn)
             self._adb_row.setVisible(False)
-            strip, self._adb_status_lbl = setting_row("ADB", "Checking...", self._adb_row)
+            strip, self._adb_status_lbl = setting_row("ADB", tr("Checking..."), self._adb_row)
             set_status_kind(self._adb_status_lbl, "status_dim")
             self._adb_status_lbl.setTextFormat(Qt.TextFormat.PlainText)  # errors can hold <urlopen error ...>
-            keywords(strip, "adb android debug bridge usb pairing download get platform-tools google own cable")
+            keywords(strip, tr("adb android debug bridge usb pairing download get platform-tools google own cable", ctx="search"))
             vc_lay.addWidget(strip)
             self._adb_download = AdbDownload(self)
             self._adb_download.progress.connect(self._adb_status_lbl.setText)
             self._adb_download.finished.connect(self._on_adb_downloaded)
 
         # The ones Add camera set up, for streaming several cameras at once
-        self._extras_btn = QPushButton("Remove")
+        self._extras_btn = QPushButton(tr("Remove"))
         self._extras_btn.clicked.connect(self._remove_extras)
         self._extras_row, self._extras_lbl = setting_row(
-            "Extra cameras", "", self._extras_btn,
-            keywords="multiple second cameras add camera several streams remove virtual cameras")
+            tr("Extra cameras"), "", self._extras_btn,
+            keywords=tr("multiple second cameras add camera several streams remove virtual cameras", ctx="search"))
         self._extras_row.setVisible(False)
         vc_lay.addWidget(self._extras_row)
         self._place("devices", vc_card)
@@ -249,16 +251,16 @@ class AdvancedSettings(QWidget):
         video_card = create_card(self)
         self._advanced_content = video_card
         video_lay = card_layout(video_card)
-        add_card_header(video_lay, "Video", "chip", hue="stream")
-        keywords(video_card, "picture quality image stream camera output")
+        add_card_header(video_lay, tr("Video"), "chip", hue="stream")
+        keywords(video_card, tr("picture quality image stream camera output", ctx="search"))
         device = h264_reader.hardware_device()
         self._hw_chk = Switch()
         self._hw_chk.setEnabled(device is not None)
-        self._hw_chk.setToolTip("Decodes the Light format on the graphics card from the next stream on.")
+        self._hw_chk.setToolTip(tr("Decodes the Light format on the graphics card from the next stream on."))
         self._hw_chk.toggled.connect(lambda on: self._on_hw_decode(on) if self._on_hw_decode else None)
         # The line under it names the graphics card it would use, so one strip says whether it's on and what with
         # On Linux without a card PyAV can use, VA-API can be set up for AMD and Intel ones (pyav_vaapi)
-        self._vaapi_btn = QPushButton("Set up VA-API…")
+        self._vaapi_btn = QPushButton(tr("Set up VA-API…"))
         self._vaapi_btn.clicked.connect(lambda: self._on_vaapi() if self._on_vaapi else None)
         self._vaapi_btn.setVisible(pyav_vaapi.supported() and (device is None or pyav_vaapi.chosen() is not None
                                                                 or bool(pyav_vaapi.problem)))
@@ -268,20 +270,21 @@ class AdvancedSettings(QWidget):
         hw_controls.addWidget(self._vaapi_btn)
         hw_controls.addWidget(self._hw_chk)
         strip, self._hw_line = setting_row(
-            "Hardware acceleration",
-            f"Found {_HW_NAMES.get(device, device)}" if device else "No graphics card Telescope can use", hw_controls,
-            keywords="hw accel gpu graphics card nvidia cuda amd intel vaapi d3d11 decode decoding h264 faster cpu "
-                     "processor laptop 4k")
+            tr("Hardware acceleration"),
+            tr("Found {device}", device=_HW_NAMES.get(device, device)) if device
+            else tr("No graphics card Telescope can use"), hw_controls,
+            keywords=tr("hw accel gpu graphics card nvidia cuda amd intel vaapi d3d11 decode decoding h264 faster cpu "
+                     "processor laptop 4k", ctx="search"))
         strip.setToolTip(self._hw_chk.toolTip())
         video_lay.addWidget(strip)
         self._saving_chk = Switch()
         self._saving_chk.toggled.connect(lambda on: self._on_power_saving(on) if self._on_power_saving else None)
         strip, _ = setting_row(
-            "Power-saving effects", "Background and Auto framing update less often", self._saving_chk,
-            keywords="battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe "
-                     "lighter effects quality")
-        strip.setToolTip("Uses less of the processor and battery while Background or Auto framing is on. They follow "
-                         "quick moves a little later.")
+            tr("Power-saving effects"), tr("Background and Auto framing update less often"), self._saving_chk,
+            keywords=tr("battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe "
+                     "lighter effects quality", ctx="search"))
+        strip.setToolTip(tr("Uses less of the processor and battery while Background or Auto framing is on. They "
+                            "follow quick moves a little later."))
         video_lay.addWidget(strip)
         self._max_zoom_spin = NoScrollSpinBox()
         self._max_zoom_spin.setObjectName("chip_spin")
@@ -291,17 +294,19 @@ class AdvancedSettings(QWidget):
         self._max_zoom_spin.setSuffix("×")
         self._max_zoom_spin.valueChanged.connect(
             lambda value: self._on_max_zoom(value) if self._on_max_zoom else None)
-        strip, _ = setting_row("Max zoom", "", self._max_zoom_spin,
-                               keywords="zoom limit magnify telephoto digital crop 10x 30x slider range")
-        strip.setToolTip("How far the Zoom slider goes. Past what the phone can zoom itself, the rest is cropped on "
-                         "this computer.")
+        strip, _ = setting_row(tr("Max zoom"), "", self._max_zoom_spin,
+                               keywords=tr("zoom limit magnify telephoto digital crop 10x 30x slider range", ctx="search"))
+        strip.setToolTip(tr("How far the Zoom slider goes. Past what the phone can zoom itself, the rest is cropped "
+                            "on this computer."))
         video_lay.addWidget(strip)
 
         self._canvas_combo = NoScrollComboBox()
-        self._canvas_combo.addItems(_PRESET_LABELS)
+        for label in _PRESET_LABELS:
+            self._canvas_combo.addItem(tr(label), label)
         self._canvas_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self._canvas_combo.setMinimumContentsLength(18)  # the row fits the dialog; the list opens as wide as it needs
-        self._canvas_combo.currentTextChanged.connect(self._on_preset_changed)
+        self._canvas_combo.currentIndexChanged.connect(
+            lambda _index: self._on_preset_changed(self._canvas_combo.currentData()))
 
         # Custom W x H spinboxes (hidden unless "Custom..." selected)
         self._custom_w = NoScrollSpinBox()
@@ -324,12 +329,13 @@ class AdvancedSettings(QWidget):
         size_lay.addWidget(times)
         size_lay.addWidget(self._custom_h, 1)
         if IS_LINUX:
-            canvas_note = ("Applying stops the stream, unloads v4l2loopback and loads it again. "
-                           "Close OBS and anything else using the virtual camera first.")
-            apply_label, apply_tooltip = "Apply and reload", _SUDO_HINT
+            canvas_note = tr("Applying stops the stream, unloads v4l2loopback and loads it again. "
+                             "Close OBS and anything else using the virtual camera first.")
+            apply_label, apply_tooltip = tr("Apply and reload"), tr(_SUDO_HINT)
         else:
-            canvas_note = "Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."
-            apply_label, apply_tooltip = "Apply", None
+            canvas_note = tr("Applying restarts the stream at the new size. If OBS loses the source, remove it and "
+                             "add it again.")
+            apply_label, apply_tooltip = tr("Apply"), None
         self._canvas_apply_btn = action_button(apply_label, tooltip="\n".join(t for t in (canvas_note, apply_tooltip) if t))
         self._canvas_apply_btn.clicked.connect(self._apply_canvas)
         self._custom_widget.setVisible(False)
@@ -349,17 +355,17 @@ class AdvancedSettings(QWidget):
         under.addLayout(apply_row)
         self._canvas_cmd = CommandBox()
         under.addWidget(self._canvas_cmd)
-        strip, _ = setting_row("Canvas size", "", self._canvas_combo, under,
-                               keywords="resolution output size 1080p 720p 4k portrait landscape "
-                                        "aspect ratio custom width height pixels apply reload")
+        strip, _ = setting_row(tr("Canvas size"), "", self._canvas_combo, under,
+                               keywords=tr("resolution output size 1080p 720p 4k portrait landscape "
+                                        "aspect ratio custom width height pixels apply reload", ctx="search"))
         video_lay.addWidget(strip)
         self._place("video", video_card)
 
         # ── Microphone ────────────────────────────────────────────────────────
         mic_card = create_card(self)
         mic_lay = card_layout(mic_card)
-        add_card_header(mic_lay, "Microphone", "mic", hue="mic")
-        keywords(mic_card, "audio sound voice input volume")
+        add_card_header(mic_lay, tr("Microphone"), "mic", hue="mic")
+        keywords(mic_card, tr("audio sound voice input volume", ctx="search"))
         self._max_gain_btns = {db: SegmentButton(f"+{db} dB") for db in MAX_GAIN_CHOICES}
         self._max_gain_grp = QButtonGroup(mic_card)
         self._max_gain_grp.setExclusive(True)
@@ -368,32 +374,32 @@ class AdvancedSettings(QWidget):
         self._max_gain_btns[DEFAULT_MAX_GAIN].setChecked(True)
         self._max_gain_grp.idClicked.connect(
             lambda db: self._on_max_gain(db) if self._on_max_gain else None)
-        strip, _ = setting_row("Max gain", "", None, segmented_row(*self._max_gain_btns.values()),
-                               keywords="microphone volume loudness boost amplify quiet decibel db slider range")
-        strip.setToolTip("How far the Gain slider goes. Less range gives finer steps; more helps a quiet phone.")
+        strip, _ = setting_row(tr("Max gain"), "", None, segmented_row(*self._max_gain_btns.values()),
+                               keywords=tr("microphone volume loudness boost amplify quiet decibel db slider range", ctx="search"))
+        strip.setToolTip(tr("How far the Gain slider goes. Less range gives finer steps; more helps a quiet phone."))
         mic_lay.addWidget(strip)
         self._limiter_chk = Switch()
         self._limiter_chk.setChecked(True)
         self._limiter_chk.toggled.connect(lambda on: self._on_limiter(on) if self._on_limiter else None)
-        strip, _ = setting_row("Limiter", "Keeps loud sounds from clipping", self._limiter_chk,
-                               keywords="microphone audio compressor distortion clipping loud peaks sound")
+        strip, _ = setting_row(tr("Limiter"), tr("Keeps loud sounds from clipping"), self._limiter_chk,
+                               keywords=tr("microphone audio compressor distortion clipping loud peaks sound", ctx="search"))
         mic_lay.addWidget(strip)
         self._place("audio", mic_card)
 
         # ── Phone app ─────────────────────────────────────────────────────────
         apk_card = create_card(self)
         apk_lay = card_layout(apk_card)
-        add_card_header(apk_lay, "Phone app", "phone", hue="phone")
-        keywords(apk_card, "android install apk usb")
+        add_card_header(apk_lay, tr("Phone app"), "phone", hue="phone")
+        keywords(apk_card, tr("android install apk usb", ctx="search"))
         _apk = bundled_apk_path()
-        self._apk_btn = action_button("Install over USB" if _apk else "Choose APK...")
+        self._apk_btn = action_button(tr("Install over USB") if _apk else tr("Choose APK..."))
         set_button_icon(self._apk_btn, line_icon("download", theme.TEXT_DIM))
-        self._apk_btn.setToolTip("Installs the Telescope.apk that came with this app, or one you pick, on a phone "
-                                 "plugged in over USB.")
+        self._apk_btn.setToolTip(tr("Installs the Telescope.apk that came with this app, or one you pick, on a "
+                                    "phone plugged in over USB."))
         self._apk_btn.clicked.connect(self._install_apk)
         strip, self._apk_status_lbl = setting_row(
-            "Telescope.apk", "Comes with this app" if _apk else "None came with this app", self._apk_btn,
-            keywords="phone app install usb android reinstall newer version sideload cable")
+            "Telescope.apk", tr("Comes with this app") if _apk else tr("None came with this app"), self._apk_btn,
+            keywords=tr("phone app install usb android reinstall newer version sideload cable", ctx="search"))
         set_status_kind(self._apk_status_lbl, "status_dim")
         apk_lay.addWidget(strip)
         self._place("devices", apk_card, order=10)
@@ -401,66 +407,67 @@ class AdvancedSettings(QWidget):
         # ── Look ────────────────────────────────────────────────────────────
         look_card = create_card(self)
         look_lay = card_layout(look_card)
-        add_card_header(look_lay, "Look", "sliders")
-        keywords(look_card, "appearance theme colors colours interface")
-        self._hues_own, self._hues_purple = SegmentButton("Colourful"), SegmentButton("Monochrome")
+        add_card_header(look_lay, tr("Look"), "sliders")
+        keywords(look_card, tr("appearance theme colors colours interface", ctx="search"))
+        self._hues_own, self._hues_purple = SegmentButton(tr("Colourful")), SegmentButton(tr("Monochrome"))
         self._hues_grp = QButtonGroup(look_card)
         self._hues_grp.setExclusive(True)
         self._hues_grp.addButton(self._hues_own)
         self._hues_grp.addButton(self._hues_purple)
         self._hues_own.setChecked(True)
-        self._hues_own.setToolTip("Every card in the main window gets its own colour.")
+        self._hues_own.setToolTip(tr("Every card in the main window gets its own colour."))
         self._hues_grp.buttonClicked.connect(
             lambda btn: self._on_plugin_hues(btn is self._hues_own) if self._on_plugin_hues else None)
-        strip, _ = setting_row("Card colours", "", None, segmented_row(self._hues_own, self._hues_purple),
-                               keywords="color colour theme appearance monochrome colourful purple hue accent look")
+        strip, _ = setting_row(tr("Card colours"), "", None, segmented_row(self._hues_own, self._hues_purple),
+                               keywords=tr("color colour theme appearance monochrome colourful purple hue accent look", ctx="search"))
         look_lay.addWidget(strip)
         self._place("general", look_card, order=10)
 
         about_card = create_card(self)
         about_lay = card_layout(about_card)
-        add_card_header(about_lay, "About", "help")
-        keywords(about_card, "info version help support credits")
-        by_lbl = QLabel(f'Made by <a href="{AUTHOR_URL}">LunarKittyy</a>')
+        add_card_header(about_lay, tr("About"), "help")
+        keywords(about_card, tr("info version help support credits", ctx="search"))
+        # Translators: keep the <a href="{url}"> link and the name LunarKittyy as they are
+        by_lbl = QLabel(tr('Made by <a href="{url}">LunarKittyy</a>', url=AUTHOR_URL))
         by_lbl.setTextFormat(Qt.TextFormat.RichText)
         by_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.LinksAccessibleByMouse)  # a credit, not a Tab stop
         by_lbl.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         by_lbl.setOpenExternalLinks(True)
-        strip, _ = setting_row("Telescope", f"Version {display_version()}", by_lbl,
-                               keywords="about author credits made by version number build")
+        strip, _ = setting_row("Telescope", tr("Version {version}", version=display_version()), by_lbl,
+                               keywords=tr("about author credits made by version number build", ctx="search"))
         about_lay.addWidget(strip)
-        self._diag_btn = QPushButton("Copy diagnostics")
+        self._diag_btn = QPushButton(tr("Copy diagnostics"))
         set_button_icon(self._diag_btn, line_icon("copy", theme.TEXT_DIM))
-        self._diag_btn.setToolTip("Copies info for a bug report, leaving out pairing tokens, addresses and file paths.")
+        self._diag_btn.setToolTip(tr("Copies info for a bug report, leaving out pairing tokens, addresses and file paths."))
         self._diag_btn.clicked.connect(self._copy_diagnostics)
         self._diag_btn.setVisible(self._report is not None)
-        self._log_btn = QPushButton("Open log")
-        self._log_btn.setToolTip("The full log, in the temp folder (the system clears it).")
+        self._log_btn = QPushButton(tr("Open log"))
+        self._log_btn.setToolTip(tr("The full log, in the temp folder (the system clears it)."))
         self._log_btn.clicked.connect(self._open_log)
         self._log_btn.setVisible(self._report is not None and diagnostics.events.path is not None)
-        self._bug_btn = QPushButton("Report a bug")
-        self._bug_btn.setToolTip("Copies the diagnostics and opens the bug form on GitHub.")
+        self._bug_btn = QPushButton(tr("Report a bug"))
+        self._bug_btn.setToolTip(tr("Copies the diagnostics and opens the bug form on GitHub."))
         self._bug_btn.clicked.connect(self._report_bug)
-        self._support_row, _ = setting_row("Bug reports", "Paste the diagnostics into the report.",
+        self._support_row, _ = setting_row(tr("Bug reports"), tr("Paste the diagnostics into the report."),
                                            self._support_buttons())
-        keywords(self._support_row, "bug report diagnostics logs debug support problem issue help copy log file")
+        keywords(self._support_row, tr("bug report diagnostics logs debug support problem issue help copy log file", ctx="search"))
         self._support_row.setVisible(self._report is not None)
         about_lay.addWidget(self._support_row)
-        help_btn = QPushButton("Troubleshooting")
+        help_btn = QPushButton(tr("Troubleshooting"))
         help_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(HELP_URL)))
-        help_row, _ = setting_row("Need help?", "Fixes for common problems, and where to ask if yours isn't there.",
+        help_row, _ = setting_row(tr("Need help?"), tr("Fixes for common problems, and where to ask if yours isn't there."),
                                   help_btn)
-        keywords(help_row, "help support troubleshooting question faq problem not working stuck ask")
+        keywords(help_row, tr("help support troubleshooting question faq problem not working stuck ask", ctx="search"))
         about_lay.addWidget(help_row)
         self._place("about", about_card, order=10)
 
     def _copy_diagnostics(self):
         QGuiApplication.clipboard().setText(self._report())
-        self._diag_btn.setText("Copied")
+        self._diag_btn.setText(tr("Copied"))
         # A timer owned by the button dies with it, unlike a bare singleShot lambda, which would touch a deleted button
         reset = QTimer(self._diag_btn)
         reset.setSingleShot(True)
-        reset.timeout.connect(lambda: (self._diag_btn.setText("Copy diagnostics"), reset.deleteLater()))
+        reset.timeout.connect(lambda: (self._diag_btn.setText(tr("Copy diagnostics")), reset.deleteLater()))
         reset.start(2000)
 
     def _support_buttons(self) -> QHBoxLayout:
@@ -487,7 +494,7 @@ class AdvancedSettings(QWidget):
         w, h = self._get_selected_dims()
         self._canvas_apply_btn.setEnabled(False)
         set_status_kind(self._canvas_status_lbl, "status_dim")
-        self._canvas_status_lbl.setText("Reloading loopback..." if IS_LINUX else "Restarting stream...")
+        self._canvas_status_lbl.setText(tr("Reloading loopback...") if IS_LINUX else tr("Restarting stream..."))
         self._canvas_status_row.setVisible(True)
         if self._on_apply_canvas:
             self._on_apply_canvas(w, h)
@@ -499,20 +506,20 @@ class AdvancedSettings(QWidget):
         if ok:
             set_status_kind(self._canvas_status_lbl, "status_ok")
             self._canvas_status_lbl.setText(
-                "Done - loopback reloaded." if IS_LINUX else "Done - canvas updated.")
+                tr("Done - loopback reloaded.") if IS_LINUX else tr("Done - canvas updated."))
         else:
             set_status_kind(self._canvas_status_lbl, "status_err")
             if "in use" in msg.lower():
                 self._canvas_status_lbl.setText(
-                    "Failed: module is still in use. Close OBS and any other app "
-                    "using the virtual camera, then try again."
+                    tr("Failed: module is still in use. Close OBS and any other app "
+                       "using the virtual camera, then try again.")
                 )
             else:
-                self._canvas_status_lbl.setText(f"Failed: {msg}")
+                self._canvas_status_lbl.setText(tr("Failed: {message}", message=msg))
         self._canvas_status_row.setVisible(True)
 
     def _get_selected_dims(self) -> tuple[int | None, int | None]:
-        label = self._canvas_combo.currentText()
+        label = self._canvas_combo.currentData()
         val = _PRESET_VALUES.get(label)
         if val is None:
             return None, None
@@ -526,14 +533,14 @@ class AdvancedSettings(QWidget):
     # ── called by SetupPlugin to sync combo to stored config ─────────────────
 
     def set_canvas_preset(self, label: str, custom_w: int = 1920, custom_h: int = 1080):
-        idx = self._canvas_combo.findText(label)
+        idx = self._canvas_combo.findData(label)
         if idx >= 0:
             self._canvas_combo.setCurrentIndex(idx)
         self._custom_w.setValue(custom_w)
         self._custom_h.setValue(custom_h)
 
     def get_canvas_preset_label(self) -> str:
-        return self._canvas_combo.currentText()
+        return self._canvas_combo.currentData()
 
     def set_max_gain(self, value: int):
         self._max_gain_btns[value].setChecked(True)
@@ -566,22 +573,22 @@ class AdvancedSettings(QWidget):
     def _v4l_check(self):
         if v4l2_devices_ready():
             set_status_kind(self._v4l_lbl, "status_ok")
-            self._v4l_lbl.setText(f"Ready: {V4L2_PHONE_DEV} + {V4L2_OBS_DEV}")
+            self._v4l_lbl.setText(tr("Ready: {phone} + {obs}", phone=V4L2_PHONE_DEV, obs=V4L2_OBS_DEV))
         elif v4l2_module_loaded():
             set_status_kind(self._v4l_lbl, "status_warn")
-            self._v4l_lbl.setText(f"Module loaded but {V4L2_PHONE_DEV} not found - another config active")
+            self._v4l_lbl.setText(tr("Module loaded but {device} not found - another config active", device=V4L2_PHONE_DEV))
         else:
             set_status_kind(self._v4l_lbl, "status_err")
-            self._v4l_lbl.setText("Not loaded - click Load")
+            self._v4l_lbl.setText(tr("Not loaded - click Load"))
 
     def _v4l_load(self):
         set_status_kind(self._v4l_lbl, "status_dim")
-        self._v4l_lbl.setText("Loading...")
+        self._v4l_lbl.setText(tr("Loading..."))
         threading.Thread(target=lambda: self._sig_v4l_result.emit(*result_parts(v4l2_load())), daemon=True).start()
 
     def _v4l_unload(self):
         set_status_kind(self._v4l_lbl, "status_dim")
-        self._v4l_lbl.setText("Unloading...")
+        self._v4l_lbl.setText(tr("Unloading..."))
         def unload():
             with vcam.device_released():
                 result = v4l2_unload()
@@ -589,12 +596,12 @@ class AdvancedSettings(QWidget):
         threading.Thread(target=unload, daemon=True).start()
 
     def _on_v4l_result(self, ok: bool, msg: str, command: str = ""):
-        self._v4l_lbl.setText(("Loaded - " if ok else "Failed - ") + msg)
+        self._v4l_lbl.setText(tr("Loaded - {message}", message=msg) if ok else tr("Failed - {message}", message=msg))
         set_status_kind(self._v4l_lbl, "status_ok" if ok else "status_err")
         self._v4l_cmd.set_command(command)
 
     def _on_v4l_unload_result(self, ok: bool, msg: str, command: str = ""):
-        self._v4l_lbl.setText(("Unloaded - " if ok else "Failed - ") + msg)
+        self._v4l_lbl.setText(tr("Unloaded - {message}", message=msg) if ok else tr("Failed - {message}", message=msg))
         set_status_kind(self._v4l_lbl, "status_ok" if ok else "status_err")
         self._v4l_cmd.set_command(command)
 
@@ -610,7 +617,7 @@ class AdvancedSettings(QWidget):
     def _on_persist_toggled(self, checked: bool):
         self._persist_chk.setEnabled(False)
         set_status_kind(self._persist_status_lbl, "status_dim")
-        self._persist_status_lbl.setText("Working...")
+        self._persist_status_lbl.setText(tr("Working..."))
         self._persist_row.setVisible(True)
         action = v4l2_persist_enable if checked else v4l2_persist_disable
         threading.Thread(target=lambda: self._sig_persist_result.emit(*result_parts(action())), daemon=True).start()
@@ -640,22 +647,22 @@ class AdvancedSettings(QWidget):
         self._extras_btn.setVisible(bool(extras))
         self._extras_btn.setEnabled(bool(extras) and not busy and self._on_remove_extras is not None)
         self._extras_btn.setToolTip(
-            "Stop the streams going to them first" if busy else
-            "Back to just the one camera; Add camera sets them up again. "
-            + ("Asks for your password." if IS_LINUX else "Windows asks for permission."))
+            tr("Stop the streams going to them first") if busy else
+            tr("Back to just the one camera; Add camera sets them up again.") + " "
+            + (tr("Asks for your password.") if IS_LINUX else tr("Windows asks for permission.")))
 
     def _remove_extras(self):
         self._extras_btn.setEnabled(False)
-        self._extras_lbl.setText("Removing…")
+        self._extras_lbl.setText(tr("Removing…"))
         self._on_remove_extras(self._on_extras_removed)
 
     def _on_extras_removed(self, ok: bool, msg: str):
         if ok:
-            self._refresh_extras("Removed", "status_ok")
+            self._refresh_extras(tr("Removed"), "status_ok")
         elif msg == CANCELLED:
             self._refresh_extras()
         else:
-            self._refresh_extras(f"Couldn't remove them: {msg}", "status_err")
+            self._refresh_extras(tr("Couldn't remove them: {message}", message=msg), "status_err")
 
     # ── Windows ───────────────────────────────────────────────────────────────
 
@@ -667,29 +674,29 @@ class AdvancedSettings(QWidget):
         if uc_name and in_app_folder:
             # Registered by an older Telescope from the app's own folder, which any program running as this user can write to.
             set_status_kind(self._uc_status_lbl, "status_warn")
-            self._uc_status_lbl.setText("Reinstall for a security fix")
-            self._uc_btn.setText("Reinstall")
-            self._uc_btn.setToolTip("Moves the driver into Program Files (Windows asks for admin access once).")
+            self._uc_status_lbl.setText(tr("Reinstall for a security fix"))
+            self._uc_btn.setText(tr("Reinstall"))
+            self._uc_btn.setToolTip(tr("Moves the driver into Program Files (Windows asks for admin access once)."))
             set_ui_role(self._uc_btn, "primary")
         elif uc_name == UC_NAME:
             set_status_kind(self._uc_status_lbl, "status_ok")
-            self._uc_status_lbl.setText("Ready")
-            self._uc_btn.setText("Reinstall")
+            self._uc_status_lbl.setText(tr("Ready"))
+            self._uc_btn.setText(tr("Reinstall"))
             self._uc_btn.setToolTip("")
             set_ui_role(self._uc_btn, "")
         elif uc_name:
             # Registered by an older Telescope under UnityCapture's own name. Works, just harder to find.
             set_status_kind(self._uc_status_lbl, "status_warn")
-            self._uc_status_lbl.setText(f"Apps list it as \u201c{uc_name}\u201d")
-            self._uc_btn.setText("Rename")
-            self._uc_btn.setToolTip(f"Register it again as \u201c{UC_NAME}\u201d")
+            self._uc_status_lbl.setText(tr("Apps list it as “{name}”", name=uc_name))
+            self._uc_btn.setText(tr("Rename"))
+            self._uc_btn.setToolTip(tr("Register it again as “{name}”", name=UC_NAME))
             set_ui_role(self._uc_btn, "primary")
         else:
             set_status_kind(self._uc_status_lbl, "status_err")
             dlls = unitycapture_downloaded(unitycapture_dir())
             self._uc_status_lbl.setText(
-                "Not installed" if dlls else "Not installed (Install downloads the driver first)")
-            self._uc_btn.setText("Install driver")
+                tr("Not installed") if dlls else tr("Not installed (Install downloads the driver first)"))
+            self._uc_btn.setText(tr("Install driver"))
             self._uc_btn.setToolTip("")
             set_ui_role(self._uc_btn, "primary")
         if self._adb_download.running:
@@ -697,10 +704,10 @@ class AdvancedSettings(QWidget):
         self._adb_row.setVisible(not adb_ok)
         if adb_ok:
             set_status_kind(self._adb_status_lbl, "status_ok")
-            self._adb_status_lbl.setText("Ready")
+            self._adb_status_lbl.setText(tr("Ready"))
         else:
             set_status_kind(self._adb_status_lbl, "status_err")
-            self._adb_status_lbl.setText("Not found. Pairing and installing over USB need it; Wi-Fi doesn't.")
+            self._adb_status_lbl.setText(tr("Not found. Pairing and installing over USB need it; Wi-Fi doesn't."))
 
     def _adb_starting(self):
         self._adb_btn.setEnabled(False)
@@ -721,10 +728,14 @@ class AdvancedSettings(QWidget):
         if ok:
             self._adb_row.setVisible(False)
             set_status_kind(self._adb_status_lbl, "status_ok")
-            where = ", from Google" if self._adb_from_google else ""
-            self._adb_status_lbl.setText(f"Ready (adb {detail}{where})" if detail else f"Ready (adb{where})")
+            if self._adb_from_google:
+                text = (tr("Ready (adb {version}, from Google)", version=detail) if detail
+                        else tr("Ready (adb, from Google)"))
+            else:
+                text = tr("Ready (adb {version})", version=detail) if detail else tr("Ready (adb)")
+            self._adb_status_lbl.setText(text)
         else:
-            self._adb_btn.setText("Try again")
+            self._adb_btn.setText(tr("Try again"))
             set_status_kind(self._adb_status_lbl, "status_err")
             self._adb_status_lbl.setText(detail)
 
@@ -736,12 +747,12 @@ class AdvancedSettings(QWidget):
         def worker():
             try:
                 if not unitycapture_downloaded(unitycapture_dir()):
-                    self._sig_uc_msg.emit("Downloading driver files...")
+                    self._sig_uc_msg.emit(tr("Downloading driver files..."))
                     ok, msg = download_unitycapture()
                     if not ok:
                         self._sig_uc_done.emit(False, msg)
                         return
-                self._sig_uc_msg.emit("Registering (admin access required)...")
+                self._sig_uc_msg.emit(tr("Registering (admin access required)..."))
                 ok, msg = register_unitycapture()
             except Exception as exc:  # always report back, or the button stays off until a restart
                 logger.exception("Driver install failed")
@@ -755,28 +766,29 @@ class AdvancedSettings(QWidget):
         self._uc_btn.setEnabled(True)
         if ok:
             set_status_kind(self._uc_status_lbl, "status_ok")
-            self._uc_status_lbl.setText("Ready")
-            self._uc_btn.setText("Reinstall")
+            self._uc_status_lbl.setText(tr("Ready"))
+            self._uc_btn.setText(tr("Reinstall"))
             self._uc_btn.setToolTip("")
         else:
             set_status_kind(self._uc_status_lbl, "status_err")
-            self._uc_status_lbl.setText(f"Failed: {msg}")
-            self._uc_btn.setText("Retry")
+            self._uc_status_lbl.setText(tr("Failed: {message}", message=msg))
+            self._uc_btn.setText(tr("Retry"))
 
     # ── APK ───────────────────────────────────────────────────────────────────
 
     def _install_apk(self):
         if not adb_available():
             set_status_kind(self._apk_status_lbl, "status_err")
-            self._apk_status_lbl.setText("Installing over USB needs adb. Click Get adb under Virtual camera above."
+            self._apk_status_lbl.setText(tr("Installing over USB needs adb. Click Get adb under Virtual camera above.")
                                          if not IS_LINUX else
-                                         "Installing over USB needs adb. Install it from your distro's packages.")
+                                         tr("Installing over USB needs adb. Install it from your distro's packages."))
             return
 
         apk = bundled_apk_path()
         if apk is None:
             from PyQt6.QtWidgets import QFileDialog
-            chosen, _ = QFileDialog.getOpenFileName(self._dialog_parent(), "Select APK", "", "Android Package (*.apk)")
+            chosen, _ = QFileDialog.getOpenFileName(self._dialog_parent(), tr("Select APK"), "",
+                                                    tr("Android Package (*.apk)"))
             if not chosen:
                 return
             path = chosen
@@ -786,13 +798,14 @@ class AdvancedSettings(QWidget):
         serials = run_off_ui_thread(adb_devices)
         if not serials:
             set_status_kind(self._apk_status_lbl, "status_err")
-            self._apk_status_lbl.setText("No phone found over USB. Plug it in and allow USB debugging when the phone asks.")
+            self._apk_status_lbl.setText(tr("No phone found over USB. Plug it in and allow USB debugging when the phone "
+                                            "asks."))
             return
         serial = serials[0]
         if len(serials) > 1:
             serial, ok = QInputDialog.getItem(
-                self._dialog_parent(), "Select device",
-                "More than one phone is plugged in. Which one should get the app?",
+                self._dialog_parent(), tr("Select device"),
+                tr("More than one phone is plugged in. Which one should get the app?"),
                 serials, 0, False,
             )
             if not ok:
@@ -800,11 +813,11 @@ class AdvancedSettings(QWidget):
 
         self._apk_btn.setEnabled(False)
         set_status_kind(self._apk_status_lbl, "status_dim")
-        self._apk_status_lbl.setText("Installing...")
+        self._apk_status_lbl.setText(tr("Installing..."))
 
         def worker():
             ok, detail = adb_install(serial, path)
-            self._sig_apk_done.emit(ok, "Installed" if ok else detail)
+            self._sig_apk_done.emit(ok, tr("Installed") if ok else detail)
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -816,8 +829,8 @@ class AdvancedSettings(QWidget):
 
 class SetupPlugin(TelescopePlugin):
     name = "setup"
-    title = "Advanced settings"
-    about = "The virtual camera, its size, extra cameras, video and microphone limits, and the Updates & About tab."
+    title = N_("Advanced settings")
+    about = N_("The virtual camera, its size, extra cameras, video and microphone limits, and the Updates & About tab.")
     required = True
 
     def setup(self, host, bus):
@@ -886,7 +899,7 @@ class SetupPlugin(TelescopePlugin):
             if self._panel:
                 self._panel.set_canvas_apply_result(ok, msg, command)
             if command and not (self._panel and self._panel.card_visible()):  # closed meanwhile: the main window says it
-                self._host.show_issue("vcam", Issue("Resize the virtual camera", msg, [copy_action(command)],
+                self._host.show_issue("vcam", Issue(tr("Resize the virtual camera"), msg, [copy_action(command)],
                                                     kind="warn", details=command))
         self._host.restart_vcam_canvas(w, h, on_done=on_done)
 

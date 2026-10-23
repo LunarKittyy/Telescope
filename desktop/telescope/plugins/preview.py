@@ -13,16 +13,18 @@ from telescope.plugin import TelescopePlugin
 from telescope.shortcuts import button_action
 from telescope.view import shown_to_view, view_to_shown
 from telescope.widgets.common import create_vector_icon, set_ui_role, ui_px
+from telescope.i18n import N_, tr
 
 
-_IDLE_TEXT    = "Not streaming\n\nPress Start streaming and the phone's camera comes up on its own."
-_IDLE_BROWSER_TEXT = "Not streaming\n\nPress Start streaming and the browser's camera comes up once it connects."
-_IDLE_MIC_TEXT = "Not streaming\n\nStart mic only streams the phone's mic with its camera off."
-_WAITING_TEXT = "Waiting for the first frame\u2026"
-_CAMERA_OFF_TEXT = "Camera off\n\nThe phone's mic is still streaming.\nStop streaming ends it."
+# Translators: the preview area doesn't wrap lines, so keep the line breaks and each line about as long as this one
+_IDLE_TEXT    = N_("Not streaming\n\nPress Start streaming and the phone's camera comes up on its own.")
+_IDLE_BROWSER_TEXT = N_("Not streaming\n\nPress Start streaming and the browser's camera comes up once it connects.")
+_IDLE_MIC_TEXT = N_("Not streaming\n\nStart mic only streams the phone's mic with its camera off.")
+_WAITING_TEXT = N_("Waiting for the first frame\u2026")
+_CAMERA_OFF_TEXT = N_("Camera off\n\nThe phone's mic is still streaming.\nStop streaming ends it.")
 # Broken by hand like the rest: the stage doesn't wrap, and these are its longest lines
-_CAMERA_OFF_AUTO_TEXT = ("Camera off\n\nNo app was using the camera, so it turned off.\nThe phone's mic is still "
-                         "streaming, and the camera\ncomes back when an app opens it.")
+_CAMERA_OFF_AUTO_TEXT = N_("Camera off\n\nNo app was using the camera, so it turned off.\nThe phone's mic is still "
+                           "streaming, and the camera\ncomes back when an app opens it.")
 
 
 class _Sig(QObject):
@@ -291,7 +293,7 @@ class _PopoutWindow(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent, Qt.WindowType.Window)
-        self.setWindowTitle("Telescope - Video Preview")
+        self.setWindowTitle(tr("Telescope - Video Preview"))
         self.setMinimumSize(320, 180)
         self._aspect: float = 16 / 9
         self._adjusting = False
@@ -338,9 +340,9 @@ class _HostFilter(QObject):
 
 class PreviewPlugin(TelescopePlugin):
     name = "preview"
-    title = "Preview"
-    about = "The live picture in the middle of the window, and the camera on/off button under it."
-    when_off = "Without it the window doesn't show the picture but apps using the virtual camera still get it."
+    title = N_("Preview")
+    about = N_("The live picture in the middle of the window, and the camera on/off button under it.")
+    when_off = N_("Without it the window doesn't show the picture but apps using the virtual camera still get it.")
     panel_region = "center"
     sees_final_frame = True  # shows what apps get, added plugins included
 
@@ -419,7 +421,7 @@ class PreviewPlugin(TelescopePlugin):
         self._preview_lbl.setSizePolicy(
             QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)  # QLabel min hint ignored; frames scaled on arrival.
         self._preview_lbl.setMinimumWidth(1)
-        self._preview_lbl.setText(_IDLE_TEXT)
+        self._preview_lbl.setText(tr(_IDLE_TEXT))
         lay.addWidget(self._preview_lbl, 1)
 
         toolbar = QWidget()
@@ -428,11 +430,11 @@ class PreviewPlugin(TelescopePlugin):
         tb_lay.setContentsMargins(12, 9, 12, 10)
         tb_lay.setSpacing(8)
 
-        self._toggle_btn = QPushButton("Hide")
+        self._toggle_btn = QPushButton(tr("Hide"))
         self._toggle_btn.setMinimumWidth(ui_px(78))
         set_ui_role(self._toggle_btn, "quiet")
         self._toggle_btn.setToolTip(
-            "Stop drawing this preview. The camera output doesn't change."
+            tr("Stop drawing this preview. The camera output doesn't change.")
         )
         self._toggle_btn.clicked.connect(self._toggle)
         set_button_icon(self._toggle_btn, line_icon("eye_off", theme.TEXT_DIM))
@@ -441,7 +443,7 @@ class PreviewPlugin(TelescopePlugin):
         # The phone's camera, like a call app's: off leaves the stream to the mic. Icon only, like the lens toggle
         self._camera_btn = QPushButton()
         self._camera_btn.setFixedWidth(ui_px(36))
-        self._camera_btn.setAccessibleName("Phone camera")
+        self._camera_btn.setAccessibleName(tr("Phone camera"))
         set_ui_role(self._camera_btn, "quiet")
         self._camera_btn.setIconSize(QSize(16, 16))
         self._camera_btn.clicked.connect(lambda: self._host.set_camera_on(not self._host.is_camera_on()))
@@ -452,7 +454,7 @@ class PreviewPlugin(TelescopePlugin):
 
         self._skeleton_btn = QPushButton()
         self._skeleton_btn.setFixedWidth(ui_px(36))
-        self._skeleton_btn.setAccessibleName("Skeleton")
+        self._skeleton_btn.setAccessibleName(tr("Skeleton"))
         set_ui_role(self._skeleton_btn, "quiet")
         icon = QIcon()
         for color, state in ((theme.TEXT_DIM, QIcon.State.Off), (theme.ACCENT_SOFT, QIcon.State.On)):
@@ -460,7 +462,7 @@ class PreviewPlugin(TelescopePlugin):
         self._skeleton_btn.setIcon(icon)
         self._skeleton_btn.setIconSize(QSize(16, 16))
         self._skeleton_btn.setCheckable(True)
-        self._skeleton_btn.setToolTip("Draw the skeleton MediaPipe finds. Doesn't show in the camera output.")
+        self._skeleton_btn.setToolTip(tr("Draw the skeleton MediaPipe finds. Doesn't show in the camera output."))
         self._skeleton_btn.toggled.connect(self._on_skeleton)
         tb_lay.addWidget(self._skeleton_btn)
         self._show_skeleton_btn()
@@ -468,7 +470,7 @@ class PreviewPlugin(TelescopePlugin):
         # Icon only, at a fixed width: the stage is the narrowest column, and no style may widen it.
         self._lenses_btn = QPushButton()
         self._lenses_btn.setFixedWidth(ui_px(36))
-        self._lenses_btn.setAccessibleName("Lens outlines")
+        self._lenses_btn.setAccessibleName(tr("Lens outlines"))
         set_ui_role(self._lenses_btn, "quiet")
         # With no text, the icon alone has to show whether it's on, off or unavailable.
         icon = QIcon()
@@ -482,12 +484,12 @@ class PreviewPlugin(TelescopePlugin):
         self._lenses_btn.setCheckable(True)
         self._lenses_btn.setEnabled(False)
         self._lenses_btn.setToolTip(
-            "Keep showing what the phone's longer lenses see. Doesn't show in the camera output."
+            tr("Keep showing what the phone's longer lenses see. Doesn't show in the camera output.")
         )
         self._lenses_btn.toggled.connect(self._push_boxes)
         tb_lay.addWidget(self._lenses_btn)
 
-        self._popout_btn = QPushButton("Pop out")
+        self._popout_btn = QPushButton(tr("Pop out"))
         self._popout_btn.setMinimumWidth(ui_px(92))
         set_ui_role(self._popout_btn, "quiet")
         set_button_icon(self._popout_btn, line_icon("pop_out", theme.TEXT_DIM))
@@ -504,21 +506,21 @@ class PreviewPlugin(TelescopePlugin):
         self._stage.setVisible(not needed)
 
     def create_actions(self) -> list:
-        g = "Preview"
+        g = tr("Preview")
         return [
-            button_action("preview.show_hide", "Show or hide the preview", g, self._toggle_btn),
-            button_action("preview.lens_outlines", "Lens outlines", g, self._lenses_btn),
-            button_action("preview.skeleton", "Skeleton", g, self._skeleton_btn),
-            button_action("preview.pop_out", "Pop out the preview", g, self._popout_btn),
+            button_action("preview.show_hide", tr("Show or hide the preview"), g, self._toggle_btn),
+            button_action("preview.lens_outlines", tr("Lens outlines"), g, self._lenses_btn),
+            button_action("preview.skeleton", tr("Skeleton"), g, self._skeleton_btn),
+            button_action("preview.pop_out", tr("Pop out the preview"), g, self._popout_btn),
         ]
 
     def _toggle(self):
         self._active = not self._active
-        self._toggle_btn.setText("Hide" if self._active else "Show")
+        self._toggle_btn.setText(tr("Hide") if self._active else tr("Show"))
         set_button_icon(self._toggle_btn, line_icon("eye_off" if self._active else "eye", theme.TEXT_DIM))
         if not self._active:
             self._preview_lbl.setPixmap(QPixmap())
-            self._preview_lbl.setText("Preview hidden")
+            self._preview_lbl.setText(tr("Preview hidden"))
         else:
             self._preview_lbl.setText(self._idle_text())
 
@@ -531,17 +533,17 @@ class PreviewPlugin(TelescopePlugin):
         """What the stage says with no frame to show."""
         if not self._host.is_streaming():
             if not self._host.is_camera_on():
-                return _IDLE_MIC_TEXT
-            return _IDLE_TEXT if self._phone_picked else _IDLE_BROWSER_TEXT
+                return tr(_IDLE_MIC_TEXT)
+            return tr(_IDLE_TEXT) if self._phone_picked else tr(_IDLE_BROWSER_TEXT)
         if not self._host.is_camera_on():
-            return _CAMERA_OFF_AUTO_TEXT if self._host.is_camera_off_auto() else _CAMERA_OFF_TEXT
-        return _WAITING_TEXT
+            return tr(_CAMERA_OFF_AUTO_TEXT) if self._host.is_camera_off_auto() else tr(_CAMERA_OFF_TEXT)
+        return tr(_WAITING_TEXT)
 
     def _clear(self):
         if self._popout is not None:
             self._popout._lbl.setPixmap(QPixmap())
         self._preview_lbl.setPixmap(QPixmap())
-        self._preview_lbl.setText(self._idle_text() if self._active else "Preview hidden")
+        self._preview_lbl.setText(self._idle_text() if self._active else tr("Preview hidden"))
         camera_off = self._host.is_streaming() and not self._host.is_camera_on()
         set_ui_role(self._preview_lbl, "camera_off" if camera_off else "")
         self._preview_lbl.set_placeholder_icon(create_vector_icon("camera_off", theme.ACCENT) if camera_off else None)
@@ -551,7 +553,7 @@ class PreviewPlugin(TelescopePlugin):
         self._stream_gen += 1
         self._busy = False  # a frame lost on its way to the UI mustn't freeze the preview for good
         if self._active and self._preview_lbl.pixmap().isNull() and self._host.is_camera_on():
-            self._preview_lbl.setText(_WAITING_TEXT)  # with the camera off, on_camera_off follows and says so
+            self._preview_lbl.setText(tr(_WAITING_TEXT))  # with the camera off, on_camera_off follows and says so
 
     def on_stream_stop(self):
         self._streaming = False
@@ -577,13 +579,13 @@ class PreviewPlugin(TelescopePlugin):
                                                     theme.TEXT_DIM if on else theme.ACCENT))
         self._camera_btn.setEnabled(not on or can)
         if not on:
-            tip = "Turn the phone's camera back on."
+            tip = tr("Turn the phone's camera back on.")
         elif not can:
             tip = why
         elif self._host.is_streaming():
-            tip = "Turn the phone's camera off. Its mic keeps streaming."
+            tip = tr("Turn the phone's camera off. Its mic keeps streaming.")
         else:
-            tip = "Start with the phone's camera off, streaming just its mic."
+            tip = tr("Start with the phone's camera off, streaming just its mic.")
         self._camera_btn.setToolTip(tip)
         self._camera_btn.setProperty("camera_off", not on)
         self._camera_btn.style().unpolish(self._camera_btn)

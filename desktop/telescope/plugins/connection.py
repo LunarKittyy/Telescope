@@ -59,6 +59,7 @@ from telescope.widgets.common import (
 from telescope.widgets.banner import BannerAction, Issue, copy_action
 from telescope.widgets.adb import GET_ADB_LINK, PICK_ADB_LINK, AdbDownload
 from telescope.widgets.qr import QRCodeWidget
+from telescope.i18n import N_, tr
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +77,7 @@ _UNREACHABLE_STREAK_LIMIT = 3
 
 
 def default_computer_name() -> str:
-    return clean_name(socket.gethostname().split(".")[0]) or "Computer"
+    return clean_name(socket.gethostname().split(".")[0]) or tr("Computer")
 
 
 def _ask_name(parent, title: str, label: str, text: str):
@@ -101,8 +102,9 @@ class SessionTarget:
 
 def busy_other_reason(computer: Optional[str]) -> str:
     """Why Start didn't take the phone: another paired computer's stream is running on it."""
-    who = computer or "another computer"
-    return f"The phone is streaming to {who}.\n\nStop it there or on the phone, then try again."
+    text = (tr("The phone is streaming to {computer}.", computer=computer) if computer
+            else tr("The phone is streaming to another computer."))
+    return text + "\n\n" + tr("Stop it there or on the phone, then try again.")
 
 
 # ── Status text ───────────────────────────────────────────────────────────────
@@ -110,52 +112,53 @@ def busy_other_reason(computer: Optional[str]) -> str:
 def status_line(res: Optional[Resolution]) -> tuple:
     """(status kind, short text) for the Connection card's Phone row."""
     if res is None:
-        return "status_dim", "Checking…"
+        return "status_dim", tr("Checking…")
     return {
-        READY: ("status_ok", "Ready"),
-        UNREACHABLE: ("status_warn", "○ Can't reach the phone"),
-        NOT_PAIRED: ("status_err", "○ Needs pairing again"),
-        LOCAL_ONLY: ("status_warn", "○ Phone accepts USB only"),
-        USB_NEEDS_ATTENTION: ("status_warn", "○ USB not available"),
-        PHONE_OUTDATED: ("status_warn", "○ Phone app needs an update"),
-        DESKTOP_OUTDATED: ("status_warn", "○ This app needs an update"),
+        READY: ("status_ok", tr("Ready")),
+        UNREACHABLE: ("status_warn", "○ " + tr("Can't reach the phone")),
+        NOT_PAIRED: ("status_err", "○ " + tr("Needs pairing again")),
+        LOCAL_ONLY: ("status_warn", "○ " + tr("Phone accepts USB only")),
+        USB_NEEDS_ATTENTION: ("status_warn", "○ " + tr("USB not available")),
+        PHONE_OUTDATED: ("status_warn", "○ " + tr("Phone app needs an update")),
+        DESKTOP_OUTDATED: ("status_warn", "○ " + tr("This app needs an update")),
     }.get(res.status, ("status_dim", ""))
 
 
 def problem_text(res: Resolution, phone_name: str, preference: str) -> str:
     """What's wrong and what to do about it, for the card note and for Start failures."""
     if res.status == UNREACHABLE:
-        return (f"Open Telescope on {phone_name} and keep it on screen. It needs to be on the same "
-                "network as this computer, or plugged in with a USB cable.")
+        return tr("Open Telescope on {phone} and keep it on screen. It needs to be on the same network as this "
+                  "computer, or plugged in with a USB cable.", phone=phone_name)
     if res.status == NOT_PAIRED and res.before_tls:  # LEGACY MIGRATION PATH
-        return (f"This version of Telescope encrypts the connection to {phone_name}, which needs a new "
-                "pairing. Click Add phone and scan the code again.")
+        return tr("This version of Telescope encrypts the connection to {phone}, which needs a new pairing. Click "
+                  "Add phone and scan the code again.", phone=phone_name)
     if res.status == NOT_PAIRED:
-        return (f"{phone_name} doesn't recognise this computer anymore (it was removed on the phone, "
-                "or the app was reinstalled). Click Add phone to pair it again.")
+        return tr("{phone} doesn't recognise this computer anymore (it was removed on the phone, or the app was "
+                  "reinstalled). Click Add phone to pair it again.", phone=phone_name)
     if res.status == LOCAL_ONLY:
-        text = (f"Local only is on in the phone app, so {phone_name} only accepts USB. Plug it in "
-                "with a cable, or turn Local only off on the phone.")
+        text = tr("Local only is on in the phone app, so {phone} only accepts USB. Plug it in with a cable, or turn "
+                  "Local only off on the phone.", phone=phone_name)
         if IS_WINDOWS and not adb_available():
-            text += " USB needs adb, which Add phone can get."
+            text += " " + tr("USB needs adb, which Add phone can get.")
         return text
     if res.status == USB_NEEDS_ATTENTION:
-        why = usb_note_text(res.usb_note) or "the phone isn't answering over USB"
-        return f"The connection is set to USB only: {why}. Switch to Automatic to use Wi-Fi instead."
+        why = usb_note_text(res.usb_note) or tr("the phone isn't answering over USB")
+        return tr("The connection is set to USB only: {why}. Switch to Automatic to use Wi-Fi instead.", why=why)
     if res.status == PHONE_OUTDATED:
-        return f"The Telescope app on {phone_name} is older than this one. Update it on the phone."
+        return tr("The Telescope app on {phone} is older than this one. Update it on the phone.", phone=phone_name)
     if res.status == DESKTOP_OUTDATED:
-        return f"The Telescope app on {phone_name} is newer than this one. Update Telescope on this computer."
+        return tr("The Telescope app on {phone} is newer than this one. Update Telescope on this computer.",
+                  phone=phone_name)
     return ""
 
 
 def route_text(route: Optional[Route]) -> str:
     if route is None:
         return "—"
-    return "USB cable" if route.kind == "usb" else f"Wi-Fi · {route.host}"
+    return tr("USB cable") if route.kind == "usb" else f"Wi-Fi · {route.host}"
 
 
-_ROUTE_CHOICES = ((ROUTE_AUTO, "Automatic"), (ROUTE_USB, "USB only"), (ROUTE_WIFI, "Wi-Fi only"))
+_ROUTE_CHOICES = ((ROUTE_AUTO, N_("Automatic")), (ROUTE_USB, N_("USB only")), (ROUTE_WIFI, N_("Wi-Fi only")))
 
 
 # ── Add phone ─────────────────────────────────────────────────────────────────
@@ -170,7 +173,7 @@ class AddPhoneDialog(QDialog):
 
     def __init__(self, parent, computer_id: str, computer_name: str, on_paired):
         super().__init__(parent)
-        self.setWindowTitle("Add phone")
+        self.setWindowTitle(tr("Add phone"))
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self.setMinimumWidth(ui_px(460))
         self._on_paired = on_paired
@@ -188,14 +191,14 @@ class AddPhoneDialog(QDialog):
 
     def _build_ui(self):
         lay = dialog_layout(self)
-        self._subtitle = dialog_header(lay, "Add a phone",
-                                       "Open Telescope on the phone first.")
+        self._subtitle = dialog_header(lay, tr("Add a phone"),
+                                       tr("Open Telescope on the phone first."))
 
         self._qr_container = QVBoxLayout()
         self._qr_container.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         lay.addLayout(self._qr_container)
 
-        self._wifi_lbl = wrapped_note("Starting…")
+        self._wifi_lbl = wrapped_note(tr("Starting…"))
         self._wifi_row = control_row_widget("Wi-Fi", self._wifi_lbl, stretch=True)
         lay.addWidget(self._wifi_row)
 
@@ -215,7 +218,7 @@ class AddPhoneDialog(QDialog):
         self._result_lbl.setVisible(False)
         lay.addWidget(self._result_lbl)
 
-        self._close_btn = QPushButton("Cancel")
+        self._close_btn = QPushButton(tr("Cancel"))
         self._close_btn.clicked.connect(self.reject)
         dialog_buttons(lay, self._close_btn)
 
@@ -241,29 +244,31 @@ class AddPhoneDialog(QDialog):
         offer = self._server.start()
         if offer.candidates:
             self._qr_container.addWidget(QRCodeWidget(offer.payload))
-            self._wifi_lbl.setText("On the phone, tap Scan pairing code and point it at this code.")
+            # Translators: "Scan pairing code" is a button in the phone app: use the phone app's translation of it
+            self._wifi_lbl.setText(tr("On the phone, tap Scan pairing code and point it at this code."))
         else:
-            self._wifi_lbl.setText("This computer isn't on a network right now, so pair over USB.")
+            self._wifi_lbl.setText(tr("This computer isn't on a network right now, so pair over USB."))
         self._start_usb()
 
     def _start_usb(self):
         if self._adb_download.running:  # reopened mid-download: its progress shows on the next step
-            self._set_usb("Getting adb from Google…", "status_dim")
+            self._set_usb(tr("Getting adb from Google…"), "status_dim")
         elif adb_available():
-            self._set_usb("Plug the phone in with a USB cable and it pairs by itself.", "status_dim")
+            self._set_usb(tr("Plug the phone in with a USB cable and it pairs by itself."), "status_dim")
             self._usb_timer.start(_PAIR_USB_POLL_MS)
             self._poll_usb()
         elif IS_WINDOWS:
-            self._set_usb(f'Needs adb, which Telescope can <a href="{GET_ADB_LINK}">get from Google</a>. '
-                          "Wi-Fi works without it.", "status_dim")
+            # Translators: keep the <a href="{link}"> link
+            self._set_usb(tr('Needs adb, which Telescope can <a href="{link}">get from Google</a>. Wi-Fi works '
+                             'without it.', link=GET_ADB_LINK), "status_dim")
         else:
-            self._set_usb("Needs adb, which isn't installed. Wi-Fi works without it.", "status_dim")
+            self._set_usb(tr("Needs adb, which isn't installed. Wi-Fi works without it."), "status_dim")
 
     def _get_adb(self, link: str):
         if link == GET_ADB_LINK and not self._done:
             self._adb_download.ask_and_start(self)
         elif link == PICK_ADB_LINK and not self._done:
-            self._adb_download.pick_and_start(self, lambda: self._set_usb("Copying adb…", "status_dim"))
+            self._adb_download.pick_and_start(self, lambda: self._set_usb(tr("Copying adb…"), "status_dim"))
 
     def _on_adb_downloaded(self, ok: bool, detail: str):
         if self._done or self._server is None:  # closed meanwhile: opening it again starts USB if adb is there
@@ -271,8 +276,10 @@ class AddPhoneDialog(QDialog):
         if ok:
             self._start_usb()
         else:
-            self._set_usb(f'{html.escape(detail)} <a href="{GET_ADB_LINK}">Try again</a> or '
-                          f'<a href="{PICK_ADB_LINK}">pick one you already have</a>.', "status_err")
+            # Translators: keep both <a href="..."> links
+            self._set_usb(html.escape(detail) + " " + tr('<a href="{get}">Try again</a> or <a href="{pick}">pick one '
+                                                         'you already have</a>.', get=GET_ADB_LINK, pick=PICK_ADB_LINK),
+                          "status_err")
 
     def _stop(self):
         self._usb_timer.stop()
@@ -302,11 +309,11 @@ class AddPhoneDialog(QDialog):
         usable = [s for s, state in states if state == "device"]
         if not usable:
             if any(state == "unauthorized" for _s, state in states):
-                self._set_usb("Phone plugged in. Allow USB debugging in the prompt on the phone.", "status_warn")
+                self._set_usb(tr("Phone plugged in. Allow USB debugging in the prompt on the phone."), "status_warn")
             else:
-                self._set_usb("Plug the phone in with a USB cable and it pairs by itself.", "status_dim")
+                self._set_usb(tr("Plug the phone in with a USB cable and it pairs by itself."), "status_dim")
             return
-        self._set_usb("Phone plugged in. Keep Telescope open on it; pairing…", "status_dim")
+        self._set_usb(tr("Phone plugged in. Keep Telescope open on it; pairing…"), "status_dim")
         offer = self._server.offer
         payload_b64 = base64.b64encode(offer.usb_payload.encode()).decode()
         now = time.monotonic()
@@ -339,10 +346,10 @@ class AddPhoneDialog(QDialog):
                 item.widget().deleteLater()
         self._wifi_row.setVisible(False)
         self._usb_row.setVisible(False)
-        self._subtitle.setText("You can start streaming now.")
-        self._result_lbl.setText(f"Paired with {result.name}")
+        self._subtitle.setText(tr("You can start streaming now."))
+        self._result_lbl.setText(tr("Paired with {name}", name=result.name))
         self._result_lbl.setVisible(True)
-        self._close_btn.setText("Done")
+        self._close_btn.setText(tr("Done"))
         set_ui_role(self._close_btn, "primary")
         self._close_btn.clicked.disconnect()
         self._close_btn.clicked.connect(self.accept)
@@ -395,40 +402,40 @@ class PhonesDialog(QDialog):
     def __init__(self, plugin: "ConnectionPlugin", parent=None):
         super().__init__(parent)
         self._plugin = plugin
-        self.setWindowTitle("Your phones")
+        self.setWindowTitle(tr("Your phones"))
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self.setMinimumWidth(ui_px(460))
         lay = dialog_layout(self)
-        dialog_header(lay, "Your phones",
-                      "Each phone keeps its own camera settings, and so does a browser once you change one. "
-                      "Removing a phone also unpairs it on the phone.")
+        dialog_header(lay, tr("Your phones"),
+                      tr("Each phone keeps its own camera settings, and so does a browser once you change one. "
+                         "Removing a phone also unpairs it on the phone."))
 
         phones_card = create_card()
         phones_lay = card_layout(phones_card)
-        self._add_btn = card_action("Add phone", "plus", "Pair another phone")
+        self._add_btn = card_action(tr("Add phone"), "plus", tr("Pair another phone"))
         self._add_btn.clicked.connect(plugin.open_add_phone)
-        add_card_header(phones_lay, "Phones", "phone", action=self._add_btn, hue="connection")
+        add_card_header(phones_lay, tr("Phones"), "phone", action=self._add_btn, hue="connection")
         self._scroll = _PhoneRows()
         phones_lay.addWidget(self._scroll)
         self._rows: dict = {}  # id -> its strip
-        self._empty = wrapped_note("No phones yet. Add one to pair it with this computer.")
+        self._empty = wrapped_note(tr("No phones yet. Add one to pair it with this computer."))
         phones_lay.addWidget(self._empty)
         lay.addWidget(phones_card)
 
         computer_card = create_card()
         computer_lay = card_layout(computer_card)
-        add_card_header(computer_lay, "This computer", "monitor", hue="connection")
-        rename_computer = QPushButton("Change name")
-        rename_computer.setToolTip("The name your phones show for this computer")
+        add_card_header(computer_lay, tr("This computer"), "monitor", hue="connection")
+        rename_computer = QPushButton(tr("Change name"))
+        rename_computer.setToolTip(tr("The name your phones show for this computer"))
         rename_computer.clicked.connect(self._rename_computer)
-        strip, _ = setting_row("", "What your phones call it", rename_computer)
+        strip, _ = setting_row("", tr("What your phones call it"), rename_computer)
         self._computer_lbl = strip.findChild(QLabel, "setting_name")
-        rename_computer.setAccessibleName("Change this computer's name")
+        rename_computer.setAccessibleName(tr("Change this computer's name"))
         computer_lay.addWidget(strip)
         lay.addWidget(computer_card)
         lay.addStretch(1)
 
-        close_btn = QPushButton("Close")
+        close_btn = QPushButton(tr("Close"))
         close_btn.clicked.connect(self.accept)
         dialog_buttons(lay, close_btn)
         self.refresh()
@@ -441,7 +448,7 @@ class PhonesDialog(QDialog):
         self._rows = {}
         for phone in self._plugin.phones:
             ip = phone.active_ip or (phone.ips[0] if phone.ips else "")
-            self._add_row(phone.id, phone.name, f"Phone · {ip}" if ip else "Phone", renamable=True)
+            self._add_row(phone.id, phone.name, tr("Phone · {ip}", ip=ip) if ip else tr("Phone"), renamable=True)
         for sid, name, detail in self._plugin.remembered:  # browsers with settings of their own
             self._add_row(sid, name, detail, renamable=False)
         self._empty.setVisible(not self._rows)
@@ -463,11 +470,11 @@ class PhonesDialog(QDialog):
         buttons.setContentsMargins(0, 0, 0, 0)
         buttons.setSpacing(6)
         if renamable:
-            rename = icon_button("pencil", f"Rename {name}", "Rename")
+            rename = icon_button("pencil", tr("Rename {name}", name=name), tr("Rename"))
             rename.setObjectName("rename")
             rename.clicked.connect(lambda _c=False, i=sid: self._rename(i))
             buttons.addWidget(rename)
-        remove = icon_button("trash", f"Remove {name}", "Remove")
+        remove = icon_button("trash", tr("Remove {name}", name=name), tr("Remove"))
         remove.setObjectName("remove")
         remove.clicked.connect(lambda _c=False, i=sid: self._remove(i))
         buttons.addWidget(remove)
@@ -482,14 +489,14 @@ class PhonesDialog(QDialog):
         phone = self._plugin.phone(pid)
         if phone is None:
             return
-        name, ok = _ask_name(self, "Rename phone", "Name", phone.name)
+        name, ok = _ask_name(self, tr("Rename phone"), tr("Name"), phone.name)
         if ok and name.strip():
             self._plugin.rename_phone(pid, name.strip())
             self.refresh()
 
     def _rename_computer(self):
-        name, ok = _ask_name(self, "Rename this computer",
-                             "Name your phones show (applies to phones you pair from now on)",
+        name, ok = _ask_name(self, tr("Rename this computer"),
+                             tr("Name your phones show (applies to phones you pair from now on)"),
                              self._plugin.computer_name)
         if ok and name.strip():
             self._plugin.set_computer_name(name.strip())
@@ -498,9 +505,9 @@ class PhonesDialog(QDialog):
     def _remove(self, pid: str):
         if (browser := self._browser(pid)) is not None:
             r = QMessageBox.question(
-                self, "Remove browser",
-                f'Remove "{browser[1]}"? This deletes the settings it had on this computer. It can still connect '
-                "with the code, and starts from the defaults.",
+                self, tr("Remove browser"),
+                tr('Remove "{name}"? This deletes the settings it had on this computer. It can still connect with '
+                   'the code, and starts from the defaults.', name=browser[1]),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
             if r == QMessageBox.StandardButton.Yes:
                 self._plugin.forget_source(pid)
@@ -510,9 +517,9 @@ class PhonesDialog(QDialog):
         if phone is None:
             return
         r = QMessageBox.question(
-            self, "Remove phone",
-            f'Remove "{phone.name}"? This deletes its camera settings on this computer, and unpairs it '
-            "on the phone too if Telescope can reach it.",
+            self, tr("Remove phone"),
+            tr('Remove "{name}"? This deletes its camera settings on this computer, and unpairs it on the phone too '
+               'if Telescope can reach it.', name=phone.name),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -532,8 +539,8 @@ class _Signals(QObject):
 
 class ConnectionPlugin(TelescopePlugin):
     name = "connection"
-    title = "Phones and connection"
-    about = "Pairing phones, picking one and connecting to it over Wi-Fi or USB."
+    title = N_("Phones and connection")
+    about = N_("Pairing phones, picking one and connecting to it over Wi-Fi or USB.")
     required = True
 
     def setup(self, host, bus):
@@ -669,11 +676,12 @@ class ConnectionPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        self._add_btn = card_action("Add phone", "plus", "Pair a phone over Wi-Fi or USB")
+        self._add_btn = card_action(tr("Add phone"), "plus", tr("Pair a phone over Wi-Fi or USB"))
         self._add_btn.clicked.connect(self.open_add_phone)
-        header = add_card_header(lay, "Connection", "connection", action=self._add_btn, hue="connection")
-        self._guide_btn = card_action("", "help", "Open or close the setup guide: the virtual camera, the phone app and pairing")
-        self._guide_btn.setAccessibleName("Setup guide")
+        header = add_card_header(lay, tr("Connection"), "connection", action=self._add_btn, hue="connection")
+        self._guide_btn = card_action("", "help", tr("Open or close the setup guide: the virtual camera, the phone app "
+                                                     "and pairing"))
+        self._guide_btn.setAccessibleName(tr("Setup guide"))
         self._guide_btn.clicked.connect(self._bus.setup_guide_requested.emit)
         header.insertWidget(header.count() - 1, self._guide_btn)
 
@@ -708,12 +716,12 @@ class ConnectionPlugin(TelescopePlugin):
         note_lay.setSpacing(8)
         self._note_lbl = wrapped_note("")
         note_lay.addWidget(self._note_lbl)
-        self._switch_usb_btn = action_button("Switch to USB", "primary",
-                                             "The phone was plugged in; reconnect over the cable")
+        self._switch_usb_btn = action_button(tr("Switch to USB"), "primary",
+                                             tr("The phone was plugged in; reconnect over the cable"))
         self._switch_usb_btn.clicked.connect(self._switch_to_usb)
         self._switch_usb_btn.setVisible(False)
         note_lay.addWidget(self._switch_usb_btn, 0, Qt.AlignmentFlag.AlignLeft)
-        self._update_btn = action_button("Update over USB", "primary")
+        self._update_btn = action_button(tr("Update over USB"), "primary")
         self._update_btn.clicked.connect(self._update_action)
         self._update_btn.setVisible(False)
         note_lay.addWidget(self._update_btn, 0, Qt.AlignmentFlag.AlignLeft)
@@ -725,14 +733,14 @@ class ConnectionPlugin(TelescopePlugin):
 
         self._route_combo = NoScrollComboBox()
         for key, label in _ROUTE_CHOICES:
-            self._route_combo.addItem(label, key)
-        self._route_combo.setToolTip("Automatic: USB when the phone's plugged in, Wi-Fi otherwise.")
+            self._route_combo.addItem(tr(label), key)
+        self._route_combo.setToolTip(tr("Automatic: USB when the phone's plugged in, Wi-Fi otherwise."))
         self._route_combo.currentIndexChanged.connect(
             lambda i: self.set_route_preference(self._route_combo.itemData(i)))
         self._route_combo.setVisible(False)  # the segments below drive it; it stays for shortcuts
         self._route_segs = {}
         self._route_grp = QButtonGroup(link)
-        for key, text, icon in ((ROUTE_AUTO, "Auto", ""), (ROUTE_USB, "USB", "usb"), (ROUTE_WIFI, "Wi-Fi", "wifi")):
+        for key, text, icon in ((ROUTE_AUTO, tr("Auto"), ""), (ROUTE_USB, "USB", "usb"), (ROUTE_WIFI, "Wi-Fi", "wifi")):
             btn = SegmentButton(text)
             if icon:
                 set_button_icon(btn, line_icon(icon, theme.TEXT_DIM), 13)
@@ -740,23 +748,24 @@ class ConnectionPlugin(TelescopePlugin):
             btn.clicked.connect(lambda _c=False, k=key: self._route_combo.setCurrentIndex(self._route_combo.findData(k)))
             self._route_grp.addButton(btn)
             self._route_segs[key] = btn
-        self._route_row = control_row_widget("Connect via", segmented_row(*self._route_segs.values()), stretch=True)
+        self._route_row = control_row_widget(tr("Connect via"), segmented_row(*self._route_segs.values()), stretch=True)
         self._route_row.layout().addWidget(self._route_combo)
         link_lay.addWidget(self._route_row)
 
         self._udp_cb = Switch("")
         self._udp_cb.setChecked(self._udp)
-        self._udp_cb.setToolTip("Can smooth out lag spikes on busy Wi-Fi. Dynamic and Heavy still use TCP.")
-        self._udp_cb.setAccessibleName("UDP on Wi-Fi")
+        # Translators: Dynamic and Heavy are names of stream formats, as the Stream output card shows them
+        self._udp_cb.setToolTip(tr("Can smooth out lag spikes on busy Wi-Fi. Dynamic and Heavy still use TCP."))
+        self._udp_cb.setAccessibleName(tr("UDP on Wi-Fi"))
         self._udp_cb.toggled.connect(self._on_udp)
         self._udp_row = QWidget()
         udp_lay = QHBoxLayout(self._udp_row)
         udp_lay.setContentsMargins(0, 0, 0, 0)
         udp_lay.setSpacing(8)
-        udp_name = QLabel("UDP on Wi-Fi")
+        udp_name = QLabel(tr("UDP on Wi-Fi"))
         udp_name.setMinimumHeight(ui_px(ROW_HEIGHT))
         udp_lay.addWidget(udp_name)
-        udp_lay.addWidget(Tag("Experimental", "warn"))
+        udp_lay.addWidget(Tag(tr("Experimental"), "warn"))
         udp_lay.addStretch(1)
         udp_lay.addWidget(self._udp_cb)
         self._udp_row.setToolTip(self._udp_cb.toolTip())
@@ -774,7 +783,7 @@ class ConnectionPlugin(TelescopePlugin):
         return card
 
     def create_actions(self) -> list:
-        return [choice_action("phone.pick", "Phone", "Telescope", combo=self._phone_combo)]
+        return [choice_action("phone.pick", tr("Phone"), "Telescope", combo=self._phone_combo)]
 
     def create_header_widget(self) -> QWidget:
         return self._header_w
@@ -787,9 +796,9 @@ class ConnectionPlugin(TelescopePlugin):
         lay.setSpacing(8)
         self._phone_combo = NoScrollComboBox()
         self._phone_combo.setMinimumWidth(ui_px(180))
-        self._phone_combo.setPlaceholderText("No phone yet")
-        self._phone_combo.setToolTip("Which phone to stream from")
-        self._phone_combo.setAccessibleName("Phone")
+        self._phone_combo.setPlaceholderText(tr("No phone yet"))
+        self._phone_combo.setToolTip(tr("Which phone to stream from"))
+        self._phone_combo.setAccessibleName(tr("Phone"))
         self._phone_combo.currentIndexChanged.connect(self._on_combo_changed)
         self._phone_combo.setObjectName("phone_picker")
         phone_icon = QLabel(self._phone_combo)
@@ -804,8 +813,8 @@ class ConnectionPlugin(TelescopePlugin):
         self._manage_btn.setFixedSize(34, 34)
         self._manage_btn.setIcon(create_vector_icon("devices", theme.TEXT_DIM))
         self._manage_btn.setIconSize(QSize(18, 18))
-        self._manage_btn.setToolTip("Your phones: add, rename, remove")
-        self._manage_btn.setAccessibleName("Your phones")
+        self._manage_btn.setToolTip(tr("Your phones: add, rename, remove"))
+        self._manage_btn.setAccessibleName(tr("Your phones"))
         self._manage_btn.clicked.connect(self.open_phones)
         lay.addWidget(self._manage_btn)
 
@@ -836,11 +845,11 @@ class ConnectionPlugin(TelescopePlugin):
             live = self._streaming and self._connected and not self._lost
             set_status_kind(self._status_lbl, "status_ok" if live else "status_dim")
             if source is None:
-                self._status_lbl.setText("No phone yet")
+                self._status_lbl.setText(tr("No phone yet"))
             elif self._streaming:
-                self._status_lbl.setText("Streaming" if live else f"Waiting for {source}…")
+                self._status_lbl.setText(tr("Streaming") if live else tr("Waiting for {source}…", source=source))
             else:
-                self._status_lbl.setText(f"{source}, no phone needed")
+                self._status_lbl.setText(tr("{source}, no phone needed", source=source))
             self._using_row.setVisible(False)
             self._route_row.setVisible(False)
             self._show_route_icon(None)
@@ -852,14 +861,14 @@ class ConnectionPlugin(TelescopePlugin):
         kind, text = status_line(res)
         if self._streaming:
             if self._lost:
-                kind, text = "status_warn", "Reconnecting…"
+                kind, text = "status_warn", tr("Reconnecting…")
             elif self._connected:
-                kind, text = "", "Streaming"
+                kind, text = "", tr("Streaming")
                 over = getattr(self._stream_route, "kind", None)
                 if over:
-                    text = "Streaming over USB" if over == "usb" else "Streaming over Wi-Fi"
+                    text = tr("Streaming over USB") if over == "usb" else tr("Streaming over Wi-Fi")
             else:
-                kind, text = "status_dim", "Connecting…"
+                kind, text = "status_dim", tr("Connecting…")
         set_status_kind(self._status_lbl, kind)
         self._status_lbl.setText(text)
         self._route_row.setVisible(True)
@@ -878,34 +887,35 @@ class ConnectionPlugin(TelescopePlugin):
                     and res.usb_note not in (None, USB_NO_CABLE, USB_NO_ADB)):
                 # A cable is in but not used: exactly when "why isn't it on USB?" needs an answer.
                 reason = usb_note_text(res.usb_note)
-                note = f"Not using USB: {reason}."
+                note = tr("Not using USB: {reason}.", reason=reason)
         note_kind = "status_dim"
         if self._update_note is not None:
             note_kind, note = self._update_note
         elif self._updating_phone:
-            note = "Updating the phone app over USB…"
+            note = tr("Updating the phone app over USB…")
         set_status_kind(self._note_lbl, note_kind)
         self._note_lbl.setText(note)
         self._note_row.setVisible(bool(note))
         action = None if self._streaming else self._outdated_action(res)
-        if action == "Update over USB" and self._update_note is None and not self._updating_phone:
-            note = f"The Telescope app on {phone.name} is older than this one."  # the button is the how
+        if action == "usb" and self._update_note is None and not self._updating_phone:
+            # the button is the how
+            note = tr("The Telescope app on {phone} is older than this one.", phone=phone.name)
             self._note_lbl.setText(note)
         self._update_row.setVisible(action is not None)
         if action is not None:
-            self._update_btn.setText(action)
+            self._update_btn.setText(tr("Update this app") if action == "desktop" else tr("Update over USB"))
             self._update_btn.setEnabled(not self._updating_phone)
 
     @staticmethod
     def _outdated_action(res: Optional[Resolution]) -> Optional[str]:
-        """The button an app-version mismatch gets, if there's something to press."""
+        """The button an app-version mismatch gets, if there's something to press: "desktop" or "usb"."""
         if res is None:
             return None
         if res.status == DESKTOP_OUTDATED:
-            return "Update this app"
+            return "desktop"
         if (res.status == PHONE_OUTDATED and res.route is not None and res.route.kind == "usb"
                 and bundled_apk_path() is not None and adb_available()):
-            return "Update over USB"
+            return "usb"
         return None
 
     # ── App versions ──────────────────────────────────────────────────────
@@ -932,7 +942,7 @@ class ConnectionPlugin(TelescopePlugin):
                 ok, detail = adb_install(serial, apk)
             except Exception as exc:  # always report back, or the card stays on "Updating…" for good
                 logger.exception("Phone app install failed")
-                ok, detail = False, f"Couldn't update the phone app: {exc}"
+                ok, detail = False, tr("Couldn't update the phone app: {error}", error=exc)
             try:
                 signals.phone_updated.emit(ok, detail)
             except RuntimeError:
@@ -941,7 +951,7 @@ class ConnectionPlugin(TelescopePlugin):
 
     def _on_phone_updated(self, ok: bool, detail: str):
         self._updating_phone = False
-        self._update_note = ("status_ok", "Phone app updated. Open Telescope on the phone.") if ok \
+        self._update_note = ("status_ok", tr("Phone app updated. Open Telescope on the phone.")) if ok \
             else ("status_err", detail)
         self._render()
         self._check_status()
@@ -1067,15 +1077,17 @@ class ConnectionPlugin(TelescopePlugin):
             self._use_route_preference(preference)
             return
         self._render()
-        how = {ROUTE_USB: " over USB", ROUTE_WIFI: " over Wi-Fi"}.get(preference, "")
+        title = {ROUTE_USB: tr("Can't reach {phone} over USB", phone=phone.name),
+                 ROUTE_WIFI: tr("Can't reach {phone} over Wi-Fi", phone=phone.name)}.get(preference) \
+            or tr("Can't reach {phone}", phone=phone.name)
         now = "USB" if self._stream_route is not None and self._stream_route.kind == "usb" else "Wi-Fi"
-        kept = dict(_ROUTE_CHOICES).get(self._route_pref, self._route_pref)
-        hint = {ROUTE_USB: " Check the cable and that Telescope is open on the phone.",
-                ROUTE_WIFI: " Check that it's on the same network as this computer."}.get(preference, "")
+        kept = tr(dict(_ROUTE_CHOICES).get(self._route_pref, self._route_pref))
+        hint = {ROUTE_USB: " " + tr("Check the cable and that Telescope is open on the phone."),
+                ROUTE_WIFI: " " + tr("Check that it's on the same network as this computer.")}.get(preference, "")
         self._host.show_issue("route", Issue(
-            f"Can't reach {phone.name}{how}",
-            f"Still streaming over {now}, so Connect via stays on {kept}.{hint}",
-            [BannerAction("Try again", lambda: self.set_route_preference(preference))], kind="warn"))
+            title,
+            tr("Still streaming over {now}, so Connect via stays on {kept}.", now=now, kept=kept) + hint,
+            [BannerAction(tr("Try again"), lambda: self.set_route_preference(preference))], kind="warn"))
 
     def _use_route_preference(self, preference: str):
         self._pending_route = None
@@ -1103,8 +1115,8 @@ class ConnectionPlugin(TelescopePlugin):
         pid = self._selected_id if pid is None else pid
         phone = self.phone(pid)
         if phone is None:
-            self._no_phone_issue = Issue("No phone yet", "Add a phone to stream from.",
-                                         [BannerAction("Add phone", self.open_add_phone)], kind="warn")
+            self._no_phone_issue = Issue(tr("No phone yet"), tr("Add a phone to stream from."),
+                                         [BannerAction(tr("Add phone"), self.open_add_phone)], kind="warn")
             self._host.show_issue("start", self._no_phone_issue)
             return None, None, False
         res = run_off_ui_thread(self._resolver.resolve, Phone(**phone.to_dict()), self._route_pref)
@@ -1117,9 +1129,9 @@ class ConnectionPlugin(TelescopePlugin):
         url = self._hold_stream_route(res.route, pid)
         if url is None:
             self._host.show_issue("start", Issue(
-                "Can't connect to the phone",
-                "adb couldn't open a connection to the phone. Unplug it, plug it back in and try again.",
-                [BannerAction("Try again", self._host.start_again())]))
+                tr("Can't connect to the phone"),
+                tr("adb couldn't open a connection to the phone. Unplug it, plug it back in and try again."),
+                [BannerAction(tr("Try again"), self._host.start_again())]))
             return None, None, False
         return url, phone.auth, True
 
@@ -1136,7 +1148,7 @@ class ConnectionPlugin(TelescopePlugin):
 
     def _show_start_problem(self, res: Resolution, phone):
         self._host.show_issue("start", Issue(
-            "Can't connect to the phone", problem_text(res, phone.name, self._route_pref),
+            tr("Can't connect to the phone"), problem_text(res, phone.name, self._route_pref),
             self._fix_actions(res, phone.id)))
 
     def _hold_stream_route(self, route: Route, pid: Optional[str]) -> Optional[str]:
@@ -1266,15 +1278,16 @@ class ConnectionPlugin(TelescopePlugin):
         """The banner buttons for a phone Start couldn't reach (or a dropped stream that won't come back)."""
         again = self._host.start_again(pid)
         if res.status == NOT_PAIRED:
-            return [BannerAction("Add phone", self.open_add_phone)]
+            return [BannerAction(tr("Add phone"), self.open_add_phone)]
         update = self._outdated_action(res)
         if update is not None:
-            return [BannerAction(update, self._update_action)]
+            label = tr("Update this app") if update == "desktop" else tr("Update over USB")
+            return [BannerAction(label, self._update_action)]
         actions = []
         if res.status == USB_NEEDS_ATTENTION or (self._route_pref != ROUTE_AUTO and res.status == UNREACHABLE):
-            actions.append(BannerAction("Switch to Automatic", lambda: self._switch_to_automatic(again)))
+            actions.append(BannerAction(tr("Switch to Automatic"), lambda: self._switch_to_automatic(again)))
         if res.status in (UNREACHABLE, LOCAL_ONLY, USB_NEEDS_ATTENTION):
-            actions.append(BannerAction("Try again", again))
+            actions.append(BannerAction(tr("Try again"), again))
         return actions
 
     def _switch_to_automatic(self, start):
@@ -1287,16 +1300,16 @@ class ConnectionPlugin(TelescopePlugin):
         if v4l2_module_loaded():
             command = "sudo modprobe -r v4l2loopback"
             self._host.show_issue("start", Issue(
-                "Virtual camera is set up differently",
-                f"v4l2loopback is loaded, but without {V4L2_PHONE_DEV}: another app set it up with other "
-                "settings. Close that app and run this to hand it over to Telescope:",
+                tr("Virtual camera is set up differently"),
+                tr("v4l2loopback is loaded, but without {device}: another app set it up with other settings. Close "
+                   "that app and run this to hand it over to Telescope:", device=V4L2_PHONE_DEV),
                 [copy_action(command)], details=command))
             return False
         if not interactive:
             # Started by itself (nobody at the keyboard asked): no password prompt out of nowhere.
             self._host.show_issue("start", Issue(
-                "The virtual camera is off", "Switching it on asks for your password.",
-                [BannerAction("Switch on", self._host.start_again())], kind="warn"))
+                tr("The virtual camera is off"), tr("Switching it on asks for your password."),
+                [BannerAction(tr("Switch on"), self._host.start_again())], kind="warn"))
             return False
         persist = self._ask_virtual_camera()
         if persist is None:
@@ -1306,19 +1319,19 @@ class ConnectionPlugin(TelescopePlugin):
             return True
         if result.command:
             self._host.show_issue("start", Issue(
-                "Set up the virtual camera", result.message,
+                tr("Set up the virtual camera"), result.message,
                 [copy_action(result.command)], kind="warn", details=result.command))
         elif result.message != CANCELLED:
-            self._host.show_issue("start", Issue("Couldn't set up the virtual camera", result.message,
-                                                 [BannerAction("Try again", self._host.start_again())]))
+            self._host.show_issue("start", Issue(tr("Couldn't set up the virtual camera"), result.message,
+                                                 [BannerAction(tr("Try again"), self._host.start_again())]))
         return False
 
     def _ask_virtual_camera(self) -> Optional[bool]:
         """Consent to the password prompt. True/False: also switch it on at startup; None: cancelled."""
         box = QMessageBox(self._host)
-        box.setWindowTitle("Set up the virtual camera")
-        box.setText("Telescope needs to switch on its virtual camera first. This asks for your password.")
-        check = Switch("Also switch it on at every startup")
+        box.setWindowTitle(tr("Set up the virtual camera"))
+        box.setText(tr("Telescope needs to switch on its virtual camera first. This asks for your password."))
+        check = Switch(tr("Also switch it on at every startup"))
         check.setChecked(True)
         box.setCheckBox(check)
         box.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
@@ -1361,20 +1374,20 @@ class ConnectionPlugin(TelescopePlugin):
         target = target or self.session_target()
         with self.session_channel(target) as client:
             if client is None:
-                return False, "Lost the connection to the phone. Try again."
+                return False, tr("Lost the connection to the phone. Try again.")
             ping = client.ping()
             if ping.status == "not_paired":
-                return False, ("The phone doesn't recognise this computer anymore.\n\n"
-                               "Click Add phone to pair it again.")
+                return False, tr("The phone doesn't recognise this computer anymore.\n\n"
+                                 "Click Add phone to pair it again.")
             if ping.status != "paired":
-                return False, "Couldn't reach the phone. Open Telescope on it and try again."
+                return False, tr("Couldn't reach the phone. Open Telescope on it and try again.")
             if ping.streaming_for:
                 return False, busy_other_reason(ping.streaming_for)
             if ping.streaming:
                 return True, ""
             if not ping.busy:
                 if on_progress:
-                    on_progress("Starting the phone's camera...")
+                    on_progress(tr("Starting the phone's camera..."))
                 result = client.start(opening)
                 if not result.ok:
                     return False, self._start_refused_reason(result.error, result.computer)
@@ -1396,27 +1409,29 @@ class ConnectionPlugin(TelescopePlugin):
             if ping.streaming:
                 return True, ""
             if ping.status == "not_paired":
-                return False, "Lost contact with the phone while its camera was starting."
+                return False, tr("Lost contact with the phone while its camera was starting.")
             if ping.streaming_for:  # another computer's start got there first
                 return False, busy_other_reason(ping.streaming_for)
             if ping.status != "paired":
                 unreachable_streak += 1  # tolerate brief blips; bail on sustained failure
                 if unreachable_streak >= _UNREACHABLE_STREAK_LIMIT:
-                    return False, "Lost contact with the phone while its camera was starting."
+                    return False, tr("Lost contact with the phone while its camera was starting.")
                 if on_progress:
-                    on_progress(f"Phone went quiet for a moment, still waiting... ({elapsed:.0f}s)")
+                    on_progress(tr("Phone went quiet for a moment, still waiting... ({seconds}s)",
+                                   seconds=f"{elapsed:.0f}"))
                 continue
             unreachable_streak = 0
             if ping.busy:
                 started = True
             elif started:
-                return False, ("The phone's camera stopped before it finished starting.\n\n"
-                               "Check the phone for a permission prompt or an error.")
+                return False, tr("The phone's camera stopped before it finished starting.\n\n"
+                                 "Check the phone for a permission prompt or an error.")
             if on_progress:
-                phase = "Phone's camera is opening" if started else "Waiting for the phone's camera"
-                on_progress(f"{phase}... ({elapsed:.0f}s)")
-        return False, ("The phone's camera didn't finish starting in time.\n\n"
-                       "Try again. If it keeps happening, open Telescope on the phone.")
+                seconds = f"{elapsed:.0f}"
+                on_progress(tr("Phone's camera is opening... ({seconds}s)", seconds=seconds) if started
+                            else tr("Waiting for the phone's camera... ({seconds}s)", seconds=seconds))
+        return False, tr("The phone's camera didn't finish starting in time.\n\n"
+                         "Try again. If it keeps happening, open Telescope on the phone.")
 
     def stop_phone_streaming(self, target: Optional[SessionTarget] = None):
         """Tell the phone to stop its camera (best effort); blocking, worker threads only."""
@@ -1429,13 +1444,14 @@ class ConnectionPlugin(TelescopePlugin):
         if error == "busy_other":
             return busy_other_reason(computer)
         return {
-            "no_camera_permission": ("The phone hasn't given Telescope camera access.\n\n"
-                                     "Open the app on the phone and allow the camera permission."),
-            "busy": "The phone is busy starting or stopping a stream.\n\nTry again in a moment.",
-            "start_refused": ("Android didn't let the camera start in the background.\n\n"
-                              "Bring Telescope to the front on the phone and try again."),
-            "not_paired": "The phone doesn't recognise this computer anymore.\n\nClick Add phone to pair it again.",
-        }.get(error or "", f"The phone refused to start streaming ({error or 'unknown error'}).")
+            "no_camera_permission": tr("The phone hasn't given Telescope camera access.\n\n"
+                                       "Open the app on the phone and allow the camera permission."),
+            "busy": tr("The phone is busy starting or stopping a stream.\n\nTry again in a moment."),
+            "start_refused": tr("Android didn't let the camera start in the background.\n\n"
+                                "Bring Telescope to the front on the phone and try again."),
+            "not_paired": tr("The phone doesn't recognise this computer anymore.\n\n"
+                             "Click Add phone to pair it again."),
+        }.get(error or "") or tr("The phone refused to start streaming ({error}).", error=error or tr("unknown error"))
 
     def on_stream_start(self, stream_url: str, ctrl):
         self._transport_udp = stream_url.endswith(".udp")
@@ -1587,11 +1603,12 @@ class ConnectionPlugin(TelescopePlugin):
     def _ask_same_phone(self, name: str) -> bool:
         parent = self._add_dlg if self._add_dlg is not None and self._add_dlg.isVisible() else self._host
         box = QMessageBox(parent)
-        box.setWindowTitle("Same phone?")
-        box.setText(f"Is this {name} again?")
-        box.setInformativeText(
-            f"A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or "
-            f"its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry.")
+        box.setWindowTitle(tr("Same phone?"))
+        box.setText(tr("Is this {name} again?", name=name))
+        box.setInformativeText(tr(
+            "A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or its "
+            "data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry.",
+            name=name))
         box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         box.setDefaultButton(QMessageBox.StandardButton.Yes)
         return box.exec() == QMessageBox.StandardButton.Yes
