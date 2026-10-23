@@ -582,6 +582,22 @@ def test_the_key_filter_follows_focus_instead_of_watching_the_whole_app(make, ca
     assert card.torch.isChecked()
 
 
+def test_the_key_filter_does_not_keep_a_watched_window_alive(make):
+    from weakref import ref
+
+    plugin, _host, _ = make()
+    window = QWidget()
+    entry = QLineEdit(window)
+    plugin._filter._watch([entry, window])
+    window_ref, entry_ref = ref(window), ref(entry)
+
+    # The filter mustn't postpone destruction until Qt's next window activation handler.
+    del entry, window
+    assert window_ref() is None
+    assert entry_ref() is None
+    plugin._filter.let_go()  # removing the filter still works after its watched widgets have gone
+
+
 def test_keys_reach_a_window_where_nothing_takes_focus(make, card):
     plugin, _host, _ = make([_b("a", "Ctrl+T", "camera.torch")])
     bare = QWidget()
