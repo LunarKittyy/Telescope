@@ -145,6 +145,14 @@
     <string name="no_browser">No browser to open %1$s</string>
 
     <!-- Preview screen -->
+    <!-- A lens in the preview's lens buttons. The side the lens faces: -->
+    <string name="lens_back">Back</string>
+    <string name="lens_front">Front</string>
+    <string name="lens_external">External</string>
+    <!-- 35 mm equivalent focal length, %1$d is the number of millimetres -->
+    <string name="lens_focal">~%1$dmm</string>
+    <!-- Marks the camera that picks the lens by itself, shown after the focal length -->
+    <string name="lens_auto">[auto]</string>
     <string name="preview_camera_permission">Camera permission required.</string>
     <string name="preview_stream_starting">The stream is starting. Try again in a moment.</string>
     <string name="preview_no_cameras">No cameras found.</string>

@@ -622,8 +622,21 @@ def _target_for(url: str) -> int:
     return USB_TARGET_MS if host in ("127.0.0.1", "localhost") else WIFI_TARGET_MS
 
 
+def phone_mic_reason(code, english: str) -> str:
+    """Why the phone won't give its microphone, in the current language. `code` is what the phone sent next to its
+    English text; a phone that sends none, or one this app doesn't know, gets the English as it is."""
+    # Translators: why the phone's microphone can't be used; shown next to the Microphone card
+    reasons = {"mic_none": tr("No microphone"),
+               "mic_not_streaming": tr("Not streaming"),
+               "mic_permission": tr("Allow the microphone in Telescope on the phone"),
+               "mic_open_app": tr("Open Telescope on the phone once, then try again"),
+               "mic_in_use": tr("The phone's microphone is in use")}
+    return (reasons.get(code) if isinstance(code, str) else None) or english
+
+
 def _phone_reason(err: urllib.error.HTTPError) -> str:
     try:
-        return json.loads(err.read(4096).decode("utf-8")).get("error") or f"HTTP {err.code}"
+        body = json.loads(err.read(4096).decode("utf-8"))
+        return phone_mic_reason(body.get("code"), body.get("error") or f"HTTP {err.code}")
     except Exception:
         return tr("The phone refused the microphone (HTTP {code}).", code=err.code)

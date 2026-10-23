@@ -85,6 +85,22 @@ class _ColoredItemDelegate(ComboItemDelegate):
         self.paint_tick(painter, option, index)
 
 
+def codec_error_text(state: dict) -> str:
+    """Why the phone went back from H.264, in the current language. A phone sends a code and the size next to its
+    English text; one that sends neither, or a code this app doesn't know, gets the English as it is."""
+    code, w, h = state.get("codec_error_code"), state.get("codec_error_width"), state.get("codec_error_height")
+    size = f"{w}x{h}" if isinstance(w, int) and isinstance(h, int) and w > 0 and h > 0 else ""
+    if code == "encoder_stopped":
+        return tr("The phone's H.264 encoder stopped")
+    if size and code == "h264_unavailable":
+        return tr("H.264 isn't available at {size} on this phone", size=size)
+    if size and code == "camera_cant_feed":
+        return tr("The camera can't feed H.264 at {size} on this phone", size=size)
+    if size and code == "camera_stopped":
+        return tr("H.264 at {size} stopped the camera on this phone", size=size)
+    return str(state.get("codec_error"))
+
+
 def _size_label(w: int, h: int) -> str:
     return f"{w} × {h}"
 
@@ -319,17 +335,17 @@ class StreamOutputPlugin(TelescopePlugin):
             actions = [BannerAction(tr("Switch to Heavy"), self._host.start_again(sid, self._switch_to_heavy))]
             if back:
                 text = tr("{error}. It's set back to {size}, the last size that worked.",
-                          error=state['codec_error'], size=back)
+                          error=codec_error_text(state), size=back)
                 actions.insert(0, BannerAction(tr("Start at {size}", size=back), self._host.start_again(sid)))
             else:
-                text = tr("{error}. Try a lower resolution or FPS, or switch to Heavy.", error=state['codec_error'])
+                text = tr("{error}. Try a lower resolution or FPS, or switch to Heavy.", error=codec_error_text(state))
             self._host.show_issue("encoder", Issue(tr("Too much for the phone's H.264 encoder"), text, actions,
                                                    kind="warn"))
         elif self._format == FORMAT_H264 and state.get("codec_error"):
             # The phone went back to MJPEG; so does the stream, or it would keep asking for H.264.
             self._host.show_issue("h264", Issue(
                 tr("Switched to Heavy"), tr("{error}. You can try Light again in Stream output.",
-                                            error=state['codec_error']), kind="warn"))
+                                            error=codec_error_text(state)), kind="warn"))
             self._set_format(FORMAT_MJPEG)
         cams = state.get("cameras")
         if not isinstance(cams, list):

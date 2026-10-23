@@ -25,7 +25,7 @@ class MjpegServer(
     // Every LINK_SAMPLE_MS while H.264 goes out: how the link to the slowest viewer is doing (DynamicBitrate).
     val onH264Link: (DynamicBitrate.Sample) -> Unit = {},
     // The first listener to /v1/audio: start the mic, or say why not. The last one leaving: stop it.
-    val startAudio: () -> String? = { "No microphone" },
+    val startAudio: () -> MicProblem? = { MicProblem.NO_MIC },
     val stopAudio: () -> Unit = {},
     private val requestDeadlineMs: Int = HttpWire.REQUEST_DEADLINE_MS,
     private val pending: PendingLimiter = PendingLimiter(),
@@ -270,10 +270,10 @@ class MjpegServer(
                     try {
                         val client = AudioClient(socket, request)
                         val problem = synchronized(audioLock) {
-                            if (!running.get()) "Not streaming"
+                            if (!running.get()) MicProblem.NOT_STREAMING
                             else (if (audioClients.isEmpty()) startAudio() else null).also { if (it == null) audioClients.add(client) }
                         }
-                        if (problem != null) { HttpWire.sendError(socket.getOutputStream(), 403, problem); return }
+                        if (problem != null) { HttpWire.sendError(socket.getOutputStream(), 403, problem.text, problem.code); return }
                         trackViewer(socket, true)
                         try {
                             client.stream()

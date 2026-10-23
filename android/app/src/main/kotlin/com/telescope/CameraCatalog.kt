@@ -12,6 +12,9 @@ data class CameraInfo(
     val id: String,
     val logicalId: String?,
     val label: String,
+    val facing: String,
+    val focalMm: Int,
+    val kind: String,
     val hasOis: Boolean,
     val supportedSizes: List<Size>
 )
@@ -24,10 +27,10 @@ object CameraCatalog {
             val chars = manager.getCameraCharacteristics(id)
 
             val facing = when (chars.get(CameraCharacteristics.LENS_FACING)) {
-                CameraCharacteristics.LENS_FACING_BACK     -> "Back"
-                CameraCharacteristics.LENS_FACING_FRONT    -> "Front"
-                CameraCharacteristics.LENS_FACING_EXTERNAL -> "Ext"
-                else                                        -> "?"
+                CameraCharacteristics.LENS_FACING_BACK     -> LensLabel.BACK
+                CameraCharacteristics.LENS_FACING_FRONT    -> LensLabel.FRONT
+                CameraCharacteristics.LENS_FACING_EXTERNAL -> LensLabel.EXTERNAL
+                else                                        -> ""
             }
 
             val focalRaw = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)
@@ -48,14 +51,14 @@ object CameraCatalog {
                 ?: listOf(Size(1920, 1080), Size(1280, 720))
 
             val prefix    = if (logicalParent != null) "[phys of $logicalParent] " else ""
-            val focalStr  = if (focalEq > 0) "~${focalEq}mm eq" else "focal?"
-            val oisStr    = if (hasOis) " OIS" else ""
-            val label     = "ID $id  $facing  $focalStr$oisStr"
+            val kind      = if (logicalParent != null) LensLabel.PHYSICAL else ""
+            val side      = LensLabel.english(facing, focalEq, hasOis, "")
+            val label     = "ID $id  $side"
 
-            debugOut?.appendLine("$prefix[$id] $facing  $focalStr$oisStr")
+            debugOut?.appendLine("$prefix[$id] $side")
             debugOut?.appendLine("     sizes: ${sizes.take(3).joinToString { "${it.width}x${it.height}" }}…")
 
-            CameraInfo(id, logicalParent, label, hasOis, sizes)
+            CameraInfo(id, logicalParent, label, facing, focalEq, kind, hasOis, sizes)
         }.getOrNull()
 
         val topLevel = manager.cameraIdList

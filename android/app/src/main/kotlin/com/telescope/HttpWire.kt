@@ -166,9 +166,9 @@ object HttpWire {
         out.flush()
     }
 
-    fun sendError(out: OutputStream, code: Int, reason: String) {
+    fun sendError(out: OutputStream, code: Int, reason: String, errorCode: String? = null) {
         try {
-            val body = Json.encodeToString(ApiError.serializer(), ApiError(reason)).toByteArray(Charsets.UTF_8)
+            val body = Json.encodeToString(ApiError.serializer(), ApiError(reason, errorCode)).toByteArray(Charsets.UTF_8)
             val hdr = "HTTP/1.1 $code $reason\r\nContent-Type: application/json\r\n" +
                 "Content-Length: ${body.size}\r\nConnection: close\r\n\r\n"
             out.write(hdr.toByteArray(Charsets.UTF_8))
