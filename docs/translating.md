@@ -65,6 +65,19 @@ Hand it one file and the notes above. Things worth asking for:
 - Use one word for each thing across both apps. "Add phone" on the desktop and "Scan pairing code" on the phone are names of buttons that the other app's texts refer to
 - Have a person who speaks the language read through it in the running app before it ships
 
+## Plugins
+
+Plugins people add can ship their own translations as `locale/<lang>.po` inside the plugin's folder. A plugin's texts are looked up there first, then in Telescope's own `<lang>.po` and then they stay in English, so a plugin never has to translate everything. [Writing a plugin](writing-plugins.md#translating-your-plugin) covers the author's side.
+
+To translate someone's plugin, use the `.pot` in its `locale` folder or run the script on a copy of the plugin:
+
+```
+python scripts/i18n.py new sv --plugin path/to/the_plugin
+python scripts/i18n.py todo sv --plugin path/to/the_plugin
+```
+
+The `.po` format is the same as above. Telescope's own translations don't change.
+
 ## For developers: adding a text
 
 Phone: add it to `values/strings.xml` and use `getString(R.string.x)` or `@string/x`. Code that builds a message without a `Context` takes a `Strings` (see `Pairing.kt`).

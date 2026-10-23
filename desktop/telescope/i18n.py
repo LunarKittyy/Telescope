@@ -11,6 +11,9 @@ Rules for the code:
 - Never at import time (module level, class bodies, default arguments): the language isn't loaded yet.
   Mark such texts with N_("...") and translate them with tr(value) where they're shown
 - A "# Translators: ..." comment on the line(s) right above the call is passed on to the translators
+
+Plugins people add use the same tr(), trn() and N_(): a call made from a plugin's code is looked up in that plugin's own
+locale/<lang>.po first (add_plugin_catalog), then in Telescope's, then it stays English. docs/writing-plugins.md.
 """
 
 import ast
@@ -18,8 +21,9 @@ import gettext
 import logging
 import os
 import re
+import sys
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Callable, Dict, Iterable, Iterator, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +37,11 @@ _catalog: Dict[Tuple[str, str], List[str]] = {}
 _english: Dict[str, str] = {}  # translated -> English, for english()
 _plural: Callable[[int], int] = lambda n: int(n != 1)
 _language = SOURCE_LANGUAGE
+PLUGIN_PACKAGE = "telescope_ext"  # added plugins are modules named telescope_ext.<plugin> (plugin_loader.py)
+PLUGIN_LOCALE = "locale"  # a plugin's catalogs: <plugin folder>/locale/<lang>.po
+# plugin name -> its folder, and -> the (catalog, plural rule) loaded from it for the current language
+_plugin_folders: Dict[str, Path] = {}
+_plugin_catalogs: Dict[str, Tuple[Dict[Tuple[str, str], List[str]], Callable[[int], int]]] = {}
 
 
 def N_(text: str) -> str:
@@ -64,21 +73,46 @@ class Shown(str):
         return shown
 
 
+def _calling_plugin(module: object) -> str:
+    """The added plugin a module belongs to (telescope_ext.<plugin>, or one of its own modules), "" for any other."""
+    if isinstance(module, str):
+        package, _, rest = module.partition(".")
+        if package == PLUGIN_PACKAGE:
+            return rest.partition(".")[0]
+    return ""
+
+
+def _catalogs(caller: object) -> Iterator[Tuple[Dict[Tuple[str, str], List[str]], Callable[[int], int]]]:
+    """Where to look a text up, first to last: the catalog of the plugin that asks (caller is its module's name), then
+    Telescope's own."""
+    mine = _plugin_catalogs.get(_calling_plugin(caller)) if _plugin_catalogs else None
+    if mine:
+        yield mine
+    yield _catalog, _plural
+
+
 def tr(text: str, /, ctx: str = "", **fields) -> str:
     """The text in the current language, with {fields} filled in (any name but ctx)."""
-    forms = _catalog.get((ctx, text))
-    return Shown(_fill(forms[0] if forms and forms[0] else text, text, fields), text)
+    for catalog, _rule in _catalogs(sys._getframe(1).f_globals.get("__name__")):
+        forms = catalog.get((ctx, text))
+        if forms and forms[0]:
+            return Shown(_fill(forms[0], text, fields), text)
+    return Shown(_fill(text, text, fields), text)
 
 
 def trn(singular: str, plural: str, n: int, /, ctx: str = "", **fields) -> str:
     """The form of the text that fits n, with {n} and the other {fields} filled in."""
     fields = {"n": n, **fields}
     english = singular if n == 1 else plural
-    forms = _catalog.get((ctx, singular))
-    if forms:
-        index = _plural(n)
-        if 0 <= index < len(forms) and forms[index]:
-            return _fill(forms[index], english, fields)
+    for catalog, rule in _catalogs(sys._getframe(1).f_globals.get("__name__")):
+        forms = catalog.get((ctx, singular))
+        if forms:
+            try:
+                index = rule(n)
+            except ArithmeticError:  # a plugin's Plural-Forms can divide by zero
+                continue
+            if 0 <= index < len(forms) and forms[index]:
+                return _fill(forms[index], english, fields)
     return _fill(english, english, fields)
 
 
@@ -158,27 +192,62 @@ def native_name(lang: str) -> str:
     return sentence(name) if name else lang
 
 
+def _read_catalog(path: Path) -> Tuple[Dict[Tuple[str, str], List[str]], Callable[[int], int]]:
+    """A .po file as {(context, English): forms} without the fuzzy and empty ones, and its plural rule."""
+    entries, header = read_po(path)
+    catalog = {(e.ctx, e.msgid): e.msgstr for e in entries if not e.fuzzy and any(e.msgstr)}
+    return catalog, plural_rule(header)
+
+
 def load(lang: Optional[str] = None) -> str:
     """Loads a language (the system's when None) and returns the one loaded. Call before building any window."""
     global _catalog, _english, _plural, _language
     lang = pick([lang], available()) if lang else resolve()
     _catalog, _english, _plural, _language = {}, {}, (lambda n: int(n != 1)), SOURCE_LANGUAGE
+    _plugin_catalogs.clear()
     if lang == SOURCE_LANGUAGE:
         return _language
     try:
-        entries, header = read_po(LOCALE_DIR / f"{lang}.po")
+        _catalog, _plural = _read_catalog(LOCALE_DIR / f"{lang}.po")
     except (OSError, ValueError):
         logger.exception("Couldn't read the %s translation, staying in English", lang)
+        _catalog, _plural = {}, (lambda n: int(n != 1))
         return _language
-    _plural = plural_rule(header)
-    _catalog = {(e.ctx, e.msgid): e.msgstr for e in entries if not e.fuzzy and any(e.msgstr)}
     for (ctx, msgid), forms in _catalog.items():
         if ctx != "search" and len(forms) == 1:
             _english.setdefault(forms[0], msgid)  # two texts translated alike: the first one's English
     _language = lang
     _load_qt(lang)
     logger.info("Language: %s (%d texts translated)", lang, len(_catalog))
+    for name, folder in _plugin_folders.items():
+        _load_plugin_catalog(name, folder)
     return _language
+
+
+def add_plugin_catalog(name: str, folder: Path) -> None:
+    """Lets the added plugin called name show its texts in the loaded language, from folder/locale/<lang>.po (or the
+    language without its region: pt.po for pt_BR). A plugin without a catalog for it, or whose file can't be read,
+    stays in English, and a text it hasn't translated falls back to Telescope's own translation, then English."""
+    _plugin_folders[name] = folder
+    _load_plugin_catalog(name, folder)
+
+
+def _load_plugin_catalog(name: str, folder: Path) -> None:
+    _plugin_catalogs.pop(name, None)
+    if _language == SOURCE_LANGUAGE:
+        return
+    for lang in dict.fromkeys((_language, _language.split("_")[0])):
+        path = folder / PLUGIN_LOCALE / f"{lang}.po"
+        if not path.is_file():
+            continue
+        try:
+            catalog = _read_catalog(path)
+        except Exception:  # noqa: BLE001 (a file somebody else wrote: whatever is wrong with it, the plugin still loads)
+            logger.warning("Plugin %s: couldn't read %s, its texts stay in English", name, path.name, exc_info=True)
+            return
+        if catalog[0]:
+            _plugin_catalogs[name] = catalog
+        return
 
 
 _qt_translators: list = []

@@ -9,6 +9,7 @@ This page is for people who write Python. To switch plugins on and off or instal
 - [Folding the card](#folding-the-card)
 - [What else a plugin can do](#what-else-a-plugin-can-do)
 - [The view and people in the picture](#the-view-and-people-in-the-picture)
+- [Translating your plugin](#translating-your-plugin)
 - [Ground rules](#a-few-ground-rules)
 - [Sharing it](#sharing-it)
 
@@ -145,6 +146,47 @@ Zoom, pan, flip and rotation belong to the window, not to the Transforms card, s
 
 The vision service runs MediaPipe for plugins that ask. `host.person_mask(frame)` in `process_frame()` gives a mask of where the people are (`None` while it's still loading or if the download isn't there). `host.want_people("My plugin", True)` makes `bus.people_seen` report the people on each stream with their landmarks (eyes, shoulders, wrists, hips and so on) a dozen or so times a second while anything in the picture moves, and about 3 times a second while nothing does. `host.vision_state()` and `bus.vision_state_changed` tell you whether it's ready. Plugins someone adds can use all of this, but only once the vision download is there, which right now only happens by switching on Auto framing or Background.
 
+## Translating your plugin
+
+Telescope can be set to other languages and your plugin's texts can follow in any language you add. Texts without a translation show as you wrote them. Wrap each one in `tr()` from `telescope.i18n`:
+
+```python
+from telescope.i18n import N_, tr, trn
+
+label.setText(tr("Strength"))
+label.setText(tr("Blurring {name}", name=phone_name))   # {fields} instead of f-strings or + between pieces
+count.setText(trn("{n} face", "{n} faces", faces))      # anything with a number in it
+TITLE = N_("My overlay")                                # at import time: mark it, then tr(TITLE) where it shows
+```
+
+`tr()`, `trn()` and `N_()` work the same as in Telescope's own code and they're part of the plugin API. The docstring at the top of [`i18n.py`](../desktop/telescope/i18n.py) has the rules. The one to remember is that `tr()` must not run while your module is being imported (module level, class bodies, default arguments) because the language isn't loaded yet. Import it as `from telescope.i18n import tr`, since the extractor looks for calls named `tr`.
+
+Each language is a `.po` file in a `locale` folder inside your plugin:
+
+```
+my_overlay/
+├── plugin.json
+├── __init__.py
+└── locale/
+    ├── my_overlay.pot
+    └── sv.po
+```
+
+Run these in `desktop/` of a Telescope checkout:
+
+```bash
+python scripts/i18n.py extract --plugin path/to/my_overlay       # finds your texts and writes locale/my_overlay.pot
+python scripts/i18n.py new sv --plugin path/to/my_overlay        # starts locale/sv.po
+```
+
+Run `extract` again after changing a text. New texts are added to every `.po` file and translations still in use are left alone. `status` and `todo` take `--plugin` as well, and [Translating](translating.md) explains the `.po` format.
+
+A text is looked up in your plugin's catalog first, then in Telescope's own (common words like "Camera" arrive translated already) and then it stays as you wrote it. A language you only half translated works fine. `sv_SE` uses `sv.po` when there's no `sv_SE.po`.
+
+Your plugin follows the language Telescope shows, which is the one picked in Settings > General or the system's. That means you can add your texts to a language Telescope has but a `de.po` does nothing while Telescope has no German. Which plugin a `tr()` call belongs to is decided by the module it's written in, so it works from every file of your plugin.
+
+A `.po` file that can't be read never stops your plugin from loading. The plugin stays in English and the log tells you which file it was. `check_plugin.py` goes through your catalogs and lists the broken ones, along with translations that have a `{field}` the English text doesn't (those show in English). Catalogs count as part of the plugin's files, so after changing one people have to switch the plugin on again like after any other change.
+
 ## A few ground rules
 
 These keep plugins from breaking each other or Telescope. The [architecture notes](../desktop/ARCHITECTURE.md) explain why.
@@ -154,7 +196,6 @@ These keep plugins from breaking each other or Telescope. The [architecture note
 - **Keep the window responsive.** Hooks run on the window's thread, so don't wait for the network or the disk there. Do slow work in a thread and come back with a Qt signal.
 - **Keep `process_frame()` quick.** It runs for every frame on a decoding thread and the stream falls behind if it takes too long. A frame it raises on goes through unchanged. If it keeps failing Telescope skips it until the next stream.
 - **Don't write files into your plugin's folder.** Any new or changed file there counts as a change and your plugin would be switched off at the next start. Keep settings in `get_config()` and put anything else outside the plugins folder.
-- **Your texts show as you write them.** Telescope's translations only cover its own texts, so your plugin's stay in the language you wrote them in.
 - **Ship source code.** A plugin with compiled files in it (`.pyc`, `.so`, `.pyd`) isn't loaded. Telescope also clears `__pycache__` before loading one to make sure what runs is the code people can read.
 - **Use what Telescope comes with.** That's PyQt6, NumPy, OpenCV and Python's standard library. Telescope can't install anything else for your plugin. The Windows app only carries the parts of the standard library that Telescope itself uses, so try your plugin there too. If an import is missing there the Plugins tab shows it as the reason the plugin didn't start. A plugin with more than one file imports its own modules relatively (`from . import helpers`).
 
