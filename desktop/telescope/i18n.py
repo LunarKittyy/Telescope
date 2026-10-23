@@ -55,10 +55,19 @@ def _fill(text: str, fallback: str, fields: dict) -> str:
         return fallback
 
 
+class Shown(str):
+    """A translated text that remembers its English, so a key saved from it doesn't change with the language."""
+
+    def __new__(cls, text: str, source: str):
+        shown = super().__new__(cls, text)
+        shown.english = source
+        return shown
+
+
 def tr(text: str, /, ctx: str = "", **fields) -> str:
     """The text in the current language, with {fields} filled in (any name but ctx)."""
     forms = _catalog.get((ctx, text))
-    return _fill(forms[0] if forms and forms[0] else text, text, fields)
+    return Shown(_fill(forms[0] if forms and forms[0] else text, text, fields), text)
 
 
 def trn(singular: str, plural: str, n: int, /, ctx: str = "", **fields) -> str:
@@ -75,8 +84,14 @@ def trn(singular: str, plural: str, n: int, /, ctx: str = "", **fields) -> str:
 
 def english(text: str) -> str:
     """The English a shown text was translated from (itself if it wasn't), for keys that are saved, like which cards
-    are folded: they mustn't change with the language."""
-    return _english.get(text, text)
+    are folded: they mustn't change with the language. A text from tr() knows; any other is looked up, which can
+    pick the wrong English when two texts are translated alike."""
+    return getattr(text, "english", None) or _english.get(text, text)
+
+
+def sentence(text: str) -> str:
+    """The text with a capital first letter, for one that can start with a filled-in field like "the phone"."""
+    return text[:1].upper() + text[1:]
 
 
 def and_list(words: list) -> str:
@@ -143,7 +158,7 @@ def load(lang: Optional[str] = None) -> str:
     _plural = plural_rule(header)
     _catalog = {(e.ctx, e.msgid): e.msgstr for e in entries if not e.fuzzy and any(e.msgstr)}
     for (ctx, msgid), forms in _catalog.items():
-        if not ctx and len(forms) == 1:
+        if ctx != "search" and len(forms) == 1:
             _english.setdefault(forms[0], msgid)  # two texts translated alike: the first one's English
     _language = lang
     _load_qt(lang)

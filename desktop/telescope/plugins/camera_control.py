@@ -172,7 +172,7 @@ class CameraControlPlugin(TelescopePlugin):
         lay.addWidget(self._lens_panel)  # the tiles take the whole width, so they stay one size
 
         # ── Light ─────────────────────────────────────────────────────────────
-        add_section_heading(lay, tr("Light"), "sun")
+        add_section_heading(lay, tr("Light", ctx="camera section"), "sun")
         self._rb_exp_auto   = SegmentButton(tr("Auto"), value="Auto")
         self._rb_exp_manual = SegmentButton(tr("Manual"), value="Manual")
         self._exp_grp = QButtonGroup(card)
@@ -253,7 +253,7 @@ class CameraControlPlugin(TelescopePlugin):
         self._rb_focus_auto   = SegmentButton(tr("Auto"), value="Auto")
         self._rb_focus_point  = SegmentButton(tr("Tap a point"), value="Point")
         self._rb_focus_point.setEnabled(False)
-        self._rb_focus_manual = SegmentButton(tr("Manual"), value="Manual")
+        self._rb_focus_manual = SegmentButton(tr("Manual", ctx="focus"), value="Manual")
         self._focus_grp = QButtonGroup(card)
         self._focus_grp.addButton(self._rb_focus_auto)
         self._focus_grp.addButton(self._rb_focus_point)

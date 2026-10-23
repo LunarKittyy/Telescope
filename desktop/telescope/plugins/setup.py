@@ -695,7 +695,7 @@ class AdvancedSettings(QWidget):
             set_status_kind(self._uc_status_lbl, "status_err")
             dlls = unitycapture_downloaded(unitycapture_dir())
             self._uc_status_lbl.setText(
-                tr("Not installed") if dlls else tr("Not installed (Install downloads the driver first)"))
+                tr("Not installed") if dlls else tr("Not installed (Install driver downloads it first)"))
             self._uc_btn.setText(tr("Install driver"))
             self._uc_btn.setToolTip("")
             set_ui_role(self._uc_btn, "primary")

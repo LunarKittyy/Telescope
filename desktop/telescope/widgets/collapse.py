@@ -40,6 +40,11 @@ def _title_of(item: QLayoutItem) -> Optional[QLabel]:
     return None
 
 
+def _english_of(label: QLabel) -> str:
+    """The English of a title or heading, which its helper in common.py keeps; looked up if something else made it."""
+    return label.property("english") or english(label.text())
+
+
 def _is_section_head(item: QLayoutItem) -> bool:
     widget = item.widget()
     return widget is not None and widget.objectName() == SECTION_HEAD
@@ -214,7 +219,7 @@ class Collapsing:
             return base if used[base] == 1 else f"{base}#{used[base]}"
 
         # Keyed by the English, so a fold is still remembered after the language changes
-        card_key = unique(f"{scope}/{english(title.text())}")
+        card_key = unique(f"{scope}/{_english_of(title)}")
         card_body, card_lay = _body(lay)
         target = card_lay
         for item, stretch in rows:
@@ -222,7 +227,7 @@ class Collapsing:
                 heading = item.widget()
                 card_lay.addWidget(heading)
                 label = heading.findChild(QLabel, SECTION_TITLE)
-                section_key = unique(f"{card_key}/{english(label.text()) if label else heading.objectName()}")
+                section_key = unique(f"{card_key}/{_english_of(label) if label else heading.objectName()}")
                 section_body, target = _body(lay)
                 card_lay.addWidget(section_body)
                 if label is not None:

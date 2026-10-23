@@ -55,6 +55,7 @@ def test_each_language_has_the_template_and_working_fields(po):
             assert i18n.fields(text) <= want, f"{po.name}: {e.msgid!r} has a {{field}} the English doesn't"
 
 
+
 def _runs_at_import(node: ast.AST):
     """What runs when the module is imported: everything but function bodies (class bodies and default arguments
     do run)."""
@@ -135,6 +136,15 @@ msgstr[2] "{n} telefonów"
     i18n.load("pl")
     assert [i18n.trn("{n} phone", "{n} phones", n) for n in (1, 3, 5, 22)] == [
         "1 telefon", "3 telefony", "5 telefonów", "22 telefony"]
+
+
+def test_a_text_keeps_its_english_when_another_is_translated_alike(catalogs):
+    # What a fold is saved under: "Bild" alone can't say whether it was Picture or Image
+    _po(catalogs, "sv", 'msgid "Picture"\nmsgstr "Bild"\n\nmsgid "Image"\nmsgstr "Bild"\n')
+    i18n.load("sv")
+    assert i18n.english(i18n.tr("Image")) == "Image"
+    assert i18n.english(i18n.tr("Picture")) == "Picture"
+    assert i18n.english("Ljus") == "Ljus"  # text that didn't come from tr() is looked up, and is itself if unknown
 
 
 def test_a_list_reads_naturally():
