@@ -15,7 +15,7 @@ class StateExampleTest {
     // Every field off its default, so none is left out of the JSON
     private val example = V1State(
         cameras = listOf(CameraCapability(
-            id = "2", logicalId = "0", label = "Main (wide)", current = true, hasOis = true,
+            id = "2", logicalId = "0", label = "Back ~24mm OIS [phys]", facing = "back", focalMm = 24, lensKind = "physical", current = true, hasOis = true,
             isoMin = 50, isoMax = 3200, shutterMinNs = 100_000L, shutterMaxNs = 1_000_000_000L,
             supportsManualSensor = true, supportsManualWB = true, supportsManualFocus = true, minFocusDistance = 10f,
             aeCompMin = -12, aeCompMax = 12, aeCompStep = 0.16666667f, supportsFlash = true, hwLevel = "FULL",
@@ -30,8 +30,9 @@ class StateExampleTest {
         black_level_lock = true, torch = true, jpeg_quality = 90, phone_fps = 30, camera_fps = 29.8,
         codecs = listOf("mjpeg", "h264"), codec = "h264", bitrate = 8_087_040,
         dynamic_bitrate = true, dynamic_fps = 24, heat_fps = 15, low_light = true, low_light_toggle = true,
-        h264_profile = "high", intra_refresh = true, wifi_band = "5", wifi_rssi = -58, wifi_mbps = 866, codec_error = "The phone's H.264 encoder stopped", codec_unsupported = true,
-        active_lens = "2", camera_off = true, camera_error = "The camera is in use by another app",
+        h264_profile = "high", intra_refresh = true, wifi_band = "5", wifi_rssi = -58, wifi_mbps = 866, codec_error = "H.264 isn't available at 1920x1080 on this phone", codec_error_code = "h264_unavailable",
+        codec_error_width = 1920, codec_error_height = 1080, codec_unsupported = true,
+        active_lens = "2", camera_off = true, camera_error = "The camera didn't turn back on. Another app may be using it.", camera_error_code = "camera_in_use",
         camera_taken = true, camera_toggle = true,
         stream_width = 1920, stream_height = 1080, battery = 87, charging = true, battery_temp_c = 32.5,
     )

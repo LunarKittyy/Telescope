@@ -34,6 +34,14 @@ _CAMERA_LIMITED_SHARE = 0.9
 _CAMERA_FPS_KEEP_S = 10.0
 
 
+def camera_error_text(state: dict) -> str:
+    """Why the phone's camera didn't turn back on, in the current language. A phone that sends no code, or one this
+    app doesn't know, gets its English text as it is."""
+    if state.get("camera_error_code") == "camera_in_use":
+        return tr("The camera didn't turn back on. Another app may be using it.")
+    return str(state["camera_error"])
+
+
 class SourceHost(Protocol):
     """What a source needs from the window, so one can be built (and tested) without it."""
 
@@ -810,5 +818,5 @@ class PhoneSource(Source):
         if state.get("camera_off") and state.get("camera_error"):
             self.camera_off = True
             host.camera_stayed_off(session)
-            host.show_issue("camera", Issue(tr("The camera didn't turn back on"), state["camera_error"],
+            host.show_issue("camera", Issue(tr("The camera didn't turn back on"), camera_error_text(state),
                                             [BannerAction(tr("Try again"), self._camera_on_again)], kind="warn"))

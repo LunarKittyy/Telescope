@@ -39,8 +39,7 @@ data class CameraControlSnapshot(
     val streamHeight:      Int,
     val codec:             String,
     val bitrate:           Int,
-    val codecError:        String?,
-    val codecUnsupported:  Boolean,  // codecError is H.264 not doing this size or rate here, not a crash
+    val codecFailure:      CodecFailure?,
     val activeLens:        String?,
     val dynamicFps:        Int = 0,  // the rate Dynamic stepped down to for a slow link; 0 = the rate asked for
     val lowLight:          Boolean = false,
@@ -122,8 +121,7 @@ class CameraSessionController(
     @Volatile private var dynamic: DynamicBitrate? = null
     // Dynamic's frame rate step, alongside its bitrate: only while Dynamic runs the H.264 stream
     @Volatile private var frameRate: DynamicFrameRate? = null
-    @Volatile private var codecError: String? = null
-    @Volatile private var codecUnsupported = false
+    @Volatile private var codecFailure: CodecFailure? = null
 
     @Volatile private var currentCamera: CameraEntry? = null
 
@@ -180,8 +178,7 @@ class CameraSessionController(
         streamHeight    = streamHeight,
         codec           = codec,
         bitrate         = currentBitrate(),
-        codecError      = codecError,
-        codecUnsupported = codecUnsupported,
+        codecFailure    = codecFailure,
         activeLens      = activeLens,
         dynamicFps      = frameRate?.cap ?: 0,
         lowLight        = currentLowLight,
@@ -335,8 +332,7 @@ class CameraSessionController(
         post {
             if (value == codec) return@post
             codec = value
-            codecError = null
-            codecUnsupported = false
+            codecFailure = null
             forgetFrameRate()  // the reopen below picks the rate up again
             reopen("setCodec")
         }
@@ -648,26 +644,24 @@ class CameraSessionController(
             } catch (e: Exception) {
                 codec = H264Stream.CODEC_MJPEG
                 forgetFrameRate()  // Dynamic's step was for H.264; JPEG goes back to the rate asked for
-                codecError = "H.264 isn't available at ${streamWidth}x$streamHeight on this phone"
-                codecUnsupported = true
+                codecFailure = CodecFailure(CodecFailure.UNAVAILABLE, streamWidth, streamHeight)
                 onControlError("h264Encoder", e)
-                onCodecFailed(codecError!!)
+                onCodecFailed(codecFailure!!.text)
             }
         }
         imageReader = buildImageReader()
     }
 
-    // unsupported: it can't do this size or rate here (so trying again won't help), rather than a crash.
+    // code: a CodecFailure code; all but ENCODER_STOPPED mean it can't do this size or rate here (so trying again
+    // won't help), rather than a crash.
     // reopenTries: after the camera itself failed, it can take a moment before it can be opened again.
-    private fun encoderFailed(e: Throwable, reason: String = "The phone's H.264 encoder stopped",
-                              unsupported: Boolean = false, reopenTries: Int = 0) {
+    private fun encoderFailed(e: Throwable, code: String = CodecFailure.ENCODER_STOPPED, reopenTries: Int = 0) {
         if (codec != H264Stream.CODEC_H264) return
         codec = H264Stream.CODEC_MJPEG
         forgetFrameRate()  // Dynamic's step was for H.264, and it can't step back up on JPEG
-        codecError = reason
-        codecUnsupported = unsupported
+        codecFailure = CodecFailure(code, streamWidth, streamHeight)
         onControlError("h264Encoder", e)
-        onCodecFailed(codecError!!)
+        onCodecFailed(codecFailure!!.text)
         reopen("encoderFailed", reopenTries)
     }
 
@@ -750,9 +744,8 @@ class CameraSessionController(
         }
         if (retryWithoutPreview(op, e, onComplete)) return true
         if (codec == H264Stream.CODEC_H264) {
-            // The camera can't feed the encoder at this size: MJPEG instead, and codecError stops the desktop retrying
-            encoderFailed(e ?: IllegalStateException("$op: configure failed"),
-                "The camera can't feed H.264 at ${streamWidth}x$streamHeight on this phone", unsupported = true)
+            // The camera can't feed the encoder at this size: MJPEG instead, and codecFailure stops the desktop retrying
+            encoderFailed(e ?: IllegalStateException("$op: configure failed"), CodecFailure.CAMERA_CANT_FEED)
             return false
         }
         fail(op, e)
@@ -1197,8 +1190,7 @@ class CameraSessionController(
                         if (codec == H264Stream.CODEC_H264 && error == CameraDevice.StateCallback.ERROR_CAMERA_DEVICE) {
                             // The camera gave up feeding the encoder (a size or rate it can't): MJPEG, not the end.
                             // The camera service restarts it first, so opening it again waits a little.
-                            encoderFailed(e, "H.264 at ${streamWidth}x$streamHeight stopped the camera on this phone",
-                                unsupported = true, reopenTries = REOPEN_TRIES)
+                            encoderFailed(e, CodecFailure.CAMERA_STOPPED, reopenTries = REOPEN_TRIES)
                             return
                         }
                         if (tries > 0 && retryReopen(op, tries, myGeneration)) return

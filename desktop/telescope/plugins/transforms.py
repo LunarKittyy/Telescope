@@ -22,7 +22,7 @@ from telescope.widgets.common import (
     control_row as _row, card_layout, create_card, card_action,
     dim_until_paired, segmented_row, slider_row, ui_px, value_label,
 )
-from telescope.widgets.lens_panel import shorten_lens_label
+from telescope.widgets.lens_panel import lens_label, lens_name
 from telescope.theme import ACCENT, ERR
 from telescope.i18n import N_, number, percent, tr
 
@@ -53,17 +53,19 @@ def lens_note(zoom: float, sent_ratio: float, caps: Optional[PhoneZoomCaps], liv
     """
     lines, level = [], ""
     if live and default and live != default:
-        lines.append(tr("Switched to {lens}", lens=live))
+        lines.append(tr("Switched to {lens}", lens=lens_name(live)))
         level = "on"
     if caps is not None and caps.lens_zooms:
         centred = max((lens for lens in caps.lens_zooms if zoom >= lens), default=1.0)
         if centred > sent_ratio + 1e-3:
             lines.append(tr("Panned past what {tele} can see, so it's on {live}. Pan back to switch again.",
-                            tele=tele or tr("the telephoto"), live=live or tr("the main camera")))
+                            tele=lens_name(tele) if tele else tr("the telephoto"),
+                            live=lens_name(live) if live else tr("the main camera")))
             level = "off"
         elif sent_ratio > 1.0 + 1e-3 and settled and live and live == default:
             lines.append(tr("The phone stayed on {live} by itself, most likely too dark or too close for {tele}. It "
-                            "switches once it can.", live=live, tele=tele or tr("the telephoto")))
+                            "switches once it can.", live=lens_name(live),
+                            tele=lens_name(tele) if tele else tr("the telephoto")))
             level = "off"
     if lines:
         lines.append(tr("It can wobble for a moment while it switches."))
@@ -301,7 +303,7 @@ class TransformsPlugin(TelescopePlugin):
     def on_phone_state(self, state: dict):
         cameras = state.get("cameras", [])
         live = next((c for c in cameras if c.get("id") == state.get("active_lens")), None)
-        self._live_lens = shorten_lens_label(live.get("label", "")) if live else ""
+        self._live_lens = lens_label(live) if live else ""
         # Learnt only once the ratio sent last had time to take: right after a sweep back under a lens, or on a
         # reconnect, the phone can still be on the telephoto, and taking that for the unzoomed lens made the dot red.
         sent = self._status.sent

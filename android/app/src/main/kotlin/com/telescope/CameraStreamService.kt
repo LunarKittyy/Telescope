@@ -60,6 +60,9 @@ data class CameraEntry(
     val lensZooms: List<Float> = emptyList(), // a multi-lens camera's zoom ratios where another lens takes over
     // Constrained high-speed (slow-motion) modes, for diagnostics only: "1920x1080, 1280x720 at 30-120 120-120"
     val highSpeed: List<String> = emptyList(),
+    val facing: String = "",  // LensLabel.BACK, FRONT or EXTERNAL
+    val focalMm: Int = 0,      // 35 mm equivalent; 0 = not known
+    val lensKind: String = "", // LensLabel.PHYSICAL for one lens of a multi-lens camera, AUTO for the camera itself
 )
 
 // The sensor's active pixel array (SENSOR_INFO_ACTIVE_ARRAY_SIZE), kept free of android.graphics.Rect so
@@ -301,9 +304,9 @@ class CameraStreamService : Service() {
             fun buildEntry(id: String, logicalParent: String?): CameraEntry? = runCatching {
                 val chars  = manager.getCameraCharacteristics(id)
                 val facing = when (chars.get(CameraCharacteristics.LENS_FACING)) {
-                    CameraCharacteristics.LENS_FACING_BACK  -> "Back"
-                    CameraCharacteristics.LENS_FACING_FRONT -> "Front"
-                    else -> "Ext"
+                    CameraCharacteristics.LENS_FACING_BACK  -> LensLabel.BACK
+                    CameraCharacteristics.LENS_FACING_FRONT -> LensLabel.FRONT
+                    else -> LensLabel.EXTERNAL
                 }
                 val focalEq  = equivalentFocal(chars).toInt()
 
@@ -395,17 +398,15 @@ class CameraStreamService : Service() {
                     else -> "UNKNOWN"
                 }
 
-                val fStr = if (focalEq > 0) "~${focalEq}mm" else "?"
-                val oStr = if (hasOis) " OIS" else ""
-                val pStr = if (logicalParent != null) " [phys]" else if (multiLens) " [auto]" else ""
-                CameraEntry(id, logicalParent, "$facing $fStr$oStr$pStr", hasOis,
+                val kind = if (logicalParent != null) LensLabel.PHYSICAL else if (multiLens) LensLabel.AUTO else ""
+                CameraEntry(id, logicalParent, LensLabel.english(facing, focalEq, hasOis, kind), hasOis,
                             isoMin, isoMax, shtMinNs, shtMaxNs,
                             supportsManualSensor, supportsManualWB, supportsManualFocus, minFocusDist, hwLevel,
                             aeCompMin, aeCompMax, aeCompStep, supportsFlash,
                             aeFpsRanges, afModes, nrModes, edgeModes, supportedSizes,
                             maxAfRegions, maxAeRegions, activeArray,
                             zoomRatioMax.coerceAtLeast(1f), cropZoomMax.coerceAtLeast(1f), freeformCrop, lensZooms,
-                            highSpeed = highSpeed)
+                            highSpeed = highSpeed, facing = facing, focalMm = focalEq, lensKind = kind)
             }.getOrNull()
 
             manager.cameraIdList.forEach { id ->
@@ -752,12 +753,12 @@ class CameraStreamService : Service() {
     }
 
     // Null when the mic is recording; otherwise the reason the desktop shows.
-    private fun startAudio(): String? {
+    private fun startAudio(): MicProblem? {
         val mic = audio ?: AudioStreamer(this) { chunk -> server?.sendAudio(chunk) }.also { audio = it }
         if (!mic.permitted()) {
             // The setup card on the phone offers it from now on.
             getSharedPreferences(PREFS_SETUP, MODE_PRIVATE).edit().putBoolean(KEY_MIC_WANTED, true).apply()
-            return "Allow the microphone in Telescope on the phone"
+            return MicProblem.PERMISSION
         }
         if (!micForeground) {
             // Recording in the background needs the microphone service type, added now the permission is there.
@@ -766,10 +767,10 @@ class CameraStreamService : Service() {
                 if (covered) error("waiting without the microphone type")
                 startForegroundCompat(withMic = true)
             } catch (_: Exception) {
-                return "Open Telescope on the phone once, then try again"
+                return MicProblem.OPEN_APP
             }
         }
-        return if (mic.start()) null else "The phone's microphone is in use"
+        return if (mic.start()) null else MicProblem.IN_USE
     }
 
     // The newest viewer's route picks the codec; viewers of the other one lose their stream.
@@ -780,7 +781,7 @@ class CameraStreamService : Service() {
         if (caller != null && !claim(caller)) return
         if (codec == H264Stream.CODEC_H264 && !h264Available) return  // the reader sees no data and gives up
         // Failed once this stream: stay on MJPEG rather than reopen, fail and reopen as the reader reconnects.
-        if (codec == H264Stream.CODEC_H264 && ctrl.snapshot().codecError != null) return
+        if (codec == H264Stream.CODEC_H264 && ctrl.snapshot().codecFailure != null) return
         if (ctrl.snapshot().codec == codec) return
         if (codec == H264Stream.CODEC_MJPEG) server?.closeH264Clients() else server?.closeMjpegClients()
         ctrl.setCodec(codec)
@@ -837,7 +838,8 @@ class CameraStreamService : Service() {
         val snap = controller?.snapshot()
         val cams = allCameras.map { e ->
             CameraCapability(
-                id = e.id, logicalId = e.logicalId, label = e.label, current = (e.id == snap?.currentCamera?.id),
+                id = e.id, logicalId = e.logicalId, label = e.label,
+                facing = e.facing, focalMm = e.focalMm, lensKind = e.lensKind, current = (e.id == snap?.currentCamera?.id),
                 hasOis = e.hasOis, isoMin = e.isoMin, isoMax = e.isoMax,
                 shutterMinNs = e.shutterMinNs, shutterMaxNs = e.shutterMaxNs,
                 supportsManualSensor = e.supportsManualSensor, supportsManualWB = e.supportsManualWB,
@@ -888,11 +890,15 @@ class CameraStreamService : Service() {
             wifi_band = wifi?.band, wifi_rssi = wifi?.rssi, wifi_mbps = wifi?.mbps,
             heat_fps = snap?.heatFps ?: 0,
             low_light_toggle = true,
-            codec_error = snap?.codecError,
-            codec_unsupported = snap?.codecUnsupported ?: false,
+            codec_error = snap?.codecFailure?.text,
+            codec_error_code = snap?.codecFailure?.code,
+            codec_error_width = snap?.codecFailure?.width ?: 0,
+            codec_error_height = snap?.codecFailure?.height ?: 0,
+            codec_unsupported = snap?.codecFailure?.unsupported ?: false,
             active_lens = snap?.activeLens,
             camera_off = controller?.isCameraOff() ?: false,
             camera_error = controller?.cameraError,
+            camera_error_code = if (controller?.cameraError != null) "camera_in_use" else null,
             camera_taken = controller?.isCameraTaken() ?: false,
             camera_toggle = true,
             stream_width = liveSize.width,

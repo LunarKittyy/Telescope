@@ -14,7 +14,10 @@ data class CameraSize(
 data class CameraCapability(
     val id: String,
     val logicalId: String? = null,
-    val label: String,
+    val label: String,  // English, for desktops that don't read facing, focalMm and lensKind
+    val facing: String = "",  // "back", "front" or "external"
+    val focalMm: Int = 0,  // 35 mm equivalent; 0 = not known
+    val lensKind: String = "",  // "physical" for one lens of a multi-lens camera, "auto" for the camera itself
     val current: Boolean,
     val hasOis: Boolean,
     val isoMin: Int,
@@ -75,11 +78,15 @@ data class V1State(
     val wifi_band: String? = null,  // the phone's Wi-Fi: "2.4", "5" or "6" GHz, left out on mobile data or Android 9
     val wifi_rssi: Int? = null,     // its signal in dBm
     val wifi_mbps: Int? = null,     // its link speed
-    val codec_error: String? = null,
+    val codec_error: String? = null,  // English, for desktops that don't read codec_error_code
+    val codec_error_code: String? = null,  // see CodecFailure; the desktop words it itself, in its own language
+    val codec_error_width: Int = 0,  // the size codec_error_code is about
+    val codec_error_height: Int = 0,
     val codec_unsupported: Boolean = false,  // codec_error is H.264 not doing this size or rate here, not a crash
     val active_lens: String? = null,  // the lens a multi-lens camera is streaming from right now
     val camera_off: Boolean = false,  // streaming the mic with the camera closed
-    val camera_error: String? = null,  // why the camera didn't turn back on
+    val camera_error: String? = null,  // why the camera didn't turn back on, in English
+    val camera_error_code: String? = null,  // "camera_in_use"; the desktop words it itself, in its own language
     val camera_taken: Boolean = false,  // another app on the phone has the camera; it opens again once that lets go
     val camera_toggle: Boolean = false,  // takes camera_on and starts with the camera off; set by every phone that can
     val stream_width: Int,
@@ -97,4 +104,7 @@ data class ControlResult(
 )
 
 @Serializable
-data class ApiError(val error: String)
+data class ApiError(
+    val error: String,  // English, for desktops that don't read code
+    val code: String? = null,  // a fixed identifier for the reason, which the desktop words in its own language
+)

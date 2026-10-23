@@ -54,7 +54,7 @@ python scripts/i18n.py todo sv      # the untranslated entries, ready to paste i
 python scripts/i18n.py status       # how far along each language is
 ```
 
-Some texts stay in English on purpose: Copy diagnostics (it goes into bug reports), the Browser camera web page, the command line, VB-Audio's two license lines, and messages the phone sends to the desktop.
+Some texts stay in English on purpose: Copy diagnostics (it goes into bug reports), the Browser camera web page, the command line, VB-Audio's two license lines. The phone's own camera, codec and microphone messages reach the desktop as codes the desktop words itself (see [the protocol](protocol.md#texts-the-desktop-words-itself)), so they're translated there.
 
 ## Translating with an AI
 
