@@ -1,6 +1,6 @@
 # Plugins
 
-Most of the desktop app is plugins. The Camera card is one, and so are Transforms, the microphone, the wait screen and keyboard shortcuts. You can switch off the ones you don't use or install plugins other people made.
+Most of the desktop app is plugins. The Camera card is one and so are Transforms, the microphone, the wait screen and keyboard shortcuts. You can switch off the ones you don't use or install plugins other people made.
 
 Want to write one? That's in [Writing a plugin](writing-plugins.md).
 
@@ -15,7 +15,7 @@ Switching a plugin off deletes nothing. Its settings stay saved and everything i
 - **Optional** holds the plugins that start out off (Auto framing and Background). They need a separate download the first time, see [the vision download](features.md#the-vision-download)
 - **Always on** holds Phones and connection, Advanced settings and Updates, since Telescope doesn't work without them
 
-**A card or setting is gone?** Check the Plugins tab. When some are off its name reads **Plugins (2 off)**, and right after a restart a banner at the top names them.
+**A card or setting is gone?** Check the Plugins tab. When some are off its name reads **Plugins (2 off)** and right after a restart a banner at the top names them.
 
 ## Installing a plugin someone made
 

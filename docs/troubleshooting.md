@@ -15,7 +15,7 @@ Find your problem below. Nothing there? Ask in [Q&A](https://github.com/LunarKit
 ## Starting Telescope
 
 **"Telescope can't start"**
-Another program is using port 47823, or a stuck Telescope is. Close it (or end the stuck Telescope) and open Telescope again.
+Another program is using port 47823, or an earlier Telescope didn't close properly and still holds it. Close that program (or end `TelescopeDesktop` in Task Manager on Windows, `main.py` on Linux) and open Telescope again.
 
 **"Already running for another user" (Windows)**
 Another account on this PC has Telescope open and both use the same local port. Close it there. Linux accounts don't share it.
@@ -29,13 +29,13 @@ Another account on this PC has Telescope open and both use the same local port. 
 Apps only look for cameras when they start. Restart the app if it was already open when the camera was set up. On Windows, Discord stays in the tray when you close its window, so quit it from the tray icon (right-click, Quit) and open it again. Restarting the computer works too.
 
 **Linux: the virtual camera won't open**
-The `v4l2loopback` package isn't installed or loaded. Install it (`v4l2loopback-dkms` on Debian, Ubuntu and Arch, `v4l2loopback` on Fedora and Nobara through RPM Fusion, see [Manual setup](setup.md#linux)) and click Start again. **Virtual camera & phone** in Settings can load it by hand.
+The `v4l2loopback` package isn't installed or loaded. Install it (`v4l2loopback-dkms` on Debian, Ubuntu and Arch, `v4l2loopback` on Fedora and Nobara through RPM Fusion, see [Manual setup](setup.md#linux)) and click **Start streaming** again. **Virtual camera & phone** in Settings can load it by hand.
 
 **Linux: `/dev/video11` is gone after a reboot**
-The module isn't loaded at boot. Starting loads it again. Leave **Also switch it on at every startup** ticked in the password prompt, or switch on **Load when the computer starts** under Virtual camera & phone in Settings.
+The module isn't loaded at boot. Starting a stream loads it again. Leave **Also switch it on at every startup** ticked in the password prompt, or switch on **Load when the computer starts** under Virtual camera & phone in Settings.
 
 **Linux: "Virtual camera is set up differently"**
-Another app (OBS's own virtual camera, for example) already loaded the module with different settings. Close that app, click **Unload** under Virtual camera & phone in Settings (or run `sudo modprobe -r v4l2loopback`) and click Start again.
+Another app (OBS's own virtual camera, for example) already loaded the module with different settings. Close that app, click **Unload** under Virtual camera & phone in Settings (or run `sudo modprobe -r v4l2loopback`) and click **Start streaming** again.
 
 **Linux: canvas change fails with "module in use"**
 OBS or another app still holds the device. Close everything using the virtual camera and retry.
@@ -64,7 +64,7 @@ Those networks usually block devices from talking to each other. Nothing can wor
 The VPN is blocking local network traffic. Turn on its "allow local network access" option, pause it while pairing or use USB. Streaming over Wi-Fi needs the same.
 
 **Plugged in but USB pairing doesn't happen**
-The USB line in the Add phone dialog names which of these it is: adb isn't installed, USB debugging isn't allowed on the phone, or the app isn't on screen. Install `adb` (Linux) or click **get from Google** in that line (Windows), accept the USB debugging prompt and keep Telescope open on the phone.
+The USB line in the Add phone dialog says which of these is in the way: adb isn't installed, USB debugging isn't allowed on the phone, or the app isn't on screen. Install `adb` (Linux) or click **get from Google** in that line (Windows), accept the USB debugging prompt and keep Telescope open on the phone.
 
 **"Google wouldn't send adb to this computer" (Windows)**
 Google blocks these downloads in some countries. Get Google's platform-tools for Windows another way, then click **pick one you already have** in Add phone (or **Use my own adb…** under Virtual camera & phone in Settings) and choose `adb.exe` or the zip. Wi-Fi works without adb.
@@ -79,7 +79,7 @@ Telescope isn't open on the phone, or the phone is on another network and not pl
 A reinstall (or Clear data) gives the phone a new identity. Click **Add phone** and pair again. Telescope asks whether it's the same phone and, if you say yes, takes over the old settings and presets.
 
 **"Can't reach <phone>" banner while streaming**
-The phone app was closed or killed, or the phone left the network. Open Telescope on the phone. If it's still streaming the picture returns without you doing anything, otherwise press Start.
+The phone app was closed or killed, or the phone left the network. Open Telescope on the phone. If the stream is still running the picture comes back without you doing anything. Otherwise click **Start streaming**.
 
 **"Needs pairing again"**
 The phone removed this computer. Click **Add phone** and pair again. Its settings on this computer stay.
@@ -88,7 +88,7 @@ The phone removed this computer. Click **Add phone** and pair again. Its setting
 Android gives the camera to the app on screen (the Camera app, a video call). Close or switch away from it and the stream picks back up.
 
 **"The phone is streaming to <name>"**
-Another computer paired with the phone started its camera first. Stop it there or on the phone and click Start again.
+Another computer paired with the phone started its camera first. Stop it there or on the phone and click **Start streaming** again.
 
 **Stream stops a few seconds after Start with a battery or temperature banner**
 **Stop the stream** is on in the Phone card and the phone is past its threshold. Click **Start anyway** or change the threshold.
@@ -119,7 +119,7 @@ Telescope's Python environment has an older PyAV. Upgrade it there, restart Tele
 ## Camera controls
 
 **A control is greyed out or does nothing**
-The current lens doesn't support it. Some front cameras and telephoto lenses have no manual exposure or white balance, use Auto there. Hover **Full manual control** or **Limited manual control** to see what the lens can do.
+The current lens doesn't support it. Some front cameras and telephoto lenses have no manual exposure or white balance. Use Auto there. Hover **Full manual control** or **Limited manual control** to see what the lens can do.
 
 **Zoom and Pan are greyed out on the Transforms card**
 Auto framing is moving them. Switch it off on its card and your own zoom and pan come back.
@@ -144,10 +144,10 @@ Phones pause the camera for pages in the background. Keep the page open with the
 Its control is greyed out or hidden right now (no phone, Auto mode for a manual slider, or the mic is off for Mute). `telescope --action` prints why.
 
 **"Another app already uses this key" (Windows)**
-Windows gives the key to the other program every time, even with Telescope in front. Pick another key in **Keyboard shortcuts…**.
+Windows gives the key to the other program every time, even with Telescope in front. Pick another key in the **Keyboard shortcuts** tab of Settings.
 
 **Shortcuts only work inside Telescope (Linux)**
-Your desktop has no global shortcuts portal (only Plasma 5.27+, GNOME 48+ and Hyprland do) or you turned the shortcut down in its confirm dialog. On Plasma, **Open** next to **Desktop shortcut settings** lets you set the key. Elsewhere bind the shortcut's **Copy command line** in your desktop's keyboard settings.
+Your desktop has no global shortcuts portal (only Plasma 5.27+, GNOME 48+ and Hyprland do) or you declined the shortcut when the desktop asked to confirm it. On Plasma, **Open** next to **Desktop shortcut settings** lets you set the key. Elsewhere bind the shortcut's **Copy command line** in your desktop's keyboard settings.
 
 ## Plugins and extra downloads
 
@@ -163,4 +163,4 @@ The download is there but MediaPipe won't start here (it only works on 64-bit In
 ## Updates
 
 **"Didn't start after updating, so it's held back"**
-The new version crashed before its window came up, so the old one was put back (or the installed copy didn't open, for an unzipped copy that moved). Click **Try again**. If it keeps happening open an issue with your **Copy diagnostics** report.
+The new version crashed before its window came up and the old one was put back. For an unzipped copy that was moving to the installed one, it means the installed copy didn't open. Click **Try again**. If it keeps happening open an issue with your **Copy diagnostics** report.
