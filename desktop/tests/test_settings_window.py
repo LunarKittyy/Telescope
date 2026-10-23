@@ -11,17 +11,13 @@ from telescope.widgets.controls import setting_row
 
 
 @pytest.fixture
-def make(qapp):
-    windows = []
+def make(qt_widgets):
 
     def build(*sections):
-        win = SettingsWindow(list(sections))
-        windows.append(win)
+        win = qt_widgets(SettingsWindow(list(sections)))
         return win
 
-    yield build
-    for win in windows:
-        win.close()
+    return build
 
 
 def _section(tab, text="x", **kwargs):

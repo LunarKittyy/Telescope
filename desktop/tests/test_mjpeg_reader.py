@@ -9,28 +9,25 @@ from telescope.pinned_https import PhoneAuth
 from telescope.mjpeg_reader import MjpegReader
 
 
-def _make_frame_bytes():
+def _make_frame_bytes(colour=(10, 20, 30)):
     frame = np.zeros((2, 2, 3), dtype=np.uint8)
-    frame[:] = (10, 20, 30)
+    frame[:] = colour
     ok, buf = cv2.imencode(".jpg", frame)
     assert ok
     return buf.tobytes()
 
 
 class _MjpegHandler(http.server.BaseHTTPRequestHandler):
-    frames = []
-    require_token = None
-
     def do_GET(self):
         auth = self.headers.get("Authorization", "")
-        if self.require_token is not None and auth != f"Bearer {self.require_token}":
+        if self.server.require_token is not None and auth != f"Bearer {self.server.require_token}":
             self.send_response(401)
             self.end_headers()
             return
         self.send_response(200)
         self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=--mjpegframe")
         self.end_headers()
-        for jpeg in self.frames:
+        for jpeg in self.server.frames:
             self.wfile.write(b"--mjpegframe\r\n")
             self.wfile.write(b"Content-Type: image/jpeg\r\n")
             self.wfile.write(f"Content-Length: {len(jpeg)}\r\n\r\n".encode())
@@ -45,16 +42,20 @@ class _MjpegHandler(http.server.BaseHTTPRequestHandler):
 @pytest.fixture
 def mjpeg_server():
     server = http.server.HTTPServer(("127.0.0.1", 0), _MjpegHandler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread = threading.Thread(target=lambda: server.serve_forever(poll_interval=0.01), daemon=True)
+    server.frames = []
+    server.require_token = None
     thread.start()
     yield server
     server.shutdown()
+    server.server_close()
     thread.join(timeout=2)
+    assert not thread.is_alive()
 
 
 def test_reads_authenticated_frames_in_order_then_reports_eof(mjpeg_server):
-    _MjpegHandler.frames = [_make_frame_bytes(), _make_frame_bytes()]
-    _MjpegHandler.require_token = "secret"
+    mjpeg_server.frames = [_make_frame_bytes((20, 20, 20)), _make_frame_bytes((200, 200, 200))]
+    mjpeg_server.require_token = "secret"
     port = mjpeg_server.server_address[1]
 
     reader = MjpegReader(f"http://127.0.0.1:{port}/v1/video", PhoneAuth("secret"))
@@ -64,9 +65,11 @@ def test_reads_authenticated_frames_in_order_then_reports_eof(mjpeg_server):
     ok1, frame1 = reader.read()
     assert ok1 is True
     assert frame1.shape == (2, 2, 3)
+    np.testing.assert_allclose(frame1, 20, atol=2)
 
     ok2, frame2 = reader.read()
     assert ok2 is True
+    np.testing.assert_allclose(frame2, 200, atol=2)
 
     ok3, frame3 = reader.read()
     assert ok3 is False
@@ -77,8 +80,8 @@ def test_reads_authenticated_frames_in_order_then_reports_eof(mjpeg_server):
 
 
 def test_rejects_when_unauthorized(mjpeg_server):
-    _MjpegHandler.frames = []
-    _MjpegHandler.require_token = "secret"
+    mjpeg_server.frames = []
+    mjpeg_server.require_token = "secret"
     port = mjpeg_server.server_address[1]
 
     reader = MjpegReader(f"http://127.0.0.1:{port}/v1/video", PhoneAuth("wrong-token"))
@@ -98,7 +101,7 @@ def test_rejects_non_multipart_response():
             pass
 
     server = http.server.HTTPServer(("127.0.0.1", 0), _PlainHandler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread = threading.Thread(target=lambda: server.serve_forever(poll_interval=0.01), daemon=True)
     thread.start()
     try:
         port = server.server_address[1]
@@ -106,7 +109,9 @@ def test_rejects_non_multipart_response():
         assert reader.open() is False
     finally:
         server.shutdown()
+        server.server_close()
         thread.join(timeout=2)
+        assert not thread.is_alive()
 
 
 def test_open_returns_false_on_connection_failure():
@@ -143,7 +148,7 @@ def test_returns_a_frame_without_waiting_for_the_next_one():
     import time
     _HoldingHandler.release.clear()
     server = http.server.HTTPServer(("127.0.0.1", 0), _HoldingHandler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread = threading.Thread(target=lambda: server.serve_forever(poll_interval=0.01), daemon=True)
     thread.start()
     try:
         reader = MjpegReader(f"http://127.0.0.1:{server.server_address[1]}/v1/video", PhoneAuth("t"))
@@ -158,7 +163,9 @@ def test_returns_a_frame_without_waiting_for_the_next_one():
     finally:
         _HoldingHandler.release.set()
         server.shutdown()
+        server.server_close()
         thread.join(timeout=2)
+        assert not thread.is_alive()
 
 
 class _Feed:

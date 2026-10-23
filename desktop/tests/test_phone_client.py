@@ -14,10 +14,11 @@ class _RecordingHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         length = int(self.headers.get("Content-Length", "0"))
         body = self.rfile.read(length)
-        with self.server.lock:
+        with self.server.changed:
             self.server.received.append(json.loads(body))
             self.server.auth_headers.append(self.headers.get("Authorization"))
-        time.sleep(0.05)
+            self.server.changed.notify_all()
+        self.server.reply.wait(5)
         self.send_response(200)
         self.end_headers()
 
@@ -28,63 +29,100 @@ class _RecordingHandler(BaseHTTPRequestHandler):
 @pytest.fixture
 def recording_server():
     srv = HTTPServer(("127.0.0.1", 0), _RecordingHandler)
-    srv.lock = threading.Lock()
+    srv.changed = threading.Condition()
+    srv.reply = threading.Event()
+    srv.reply.set()
     srv.received = []
     srv.auth_headers = []
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
-    yield srv
-    srv.shutdown()
+    thread = threading.Thread(target=lambda: srv.serve_forever(poll_interval=0.01), daemon=True)
+    thread.start()
+    try:
+        yield srv
+    finally:
+        srv.reply.set()
+        srv.shutdown()
+        srv.server_close()
+        thread.join(5)
+        assert not thread.is_alive()
 
 
-def test_rapid_updates_coalesce_to_latest_value(recording_server):
-    port = recording_server.server_address[1]
-    client = PhoneControlClient(f"http://127.0.0.1:{port}/video", PhoneAuth("tok"))
+@pytest.fixture
+def make_client(recording_server):
+    clients = []
+
+    def make(token="tok"):
+        client = PhoneControlClient(f"http://127.0.0.1:{recording_server.server_port}/video", PhoneAuth(token))
+        clients.append(client)
+        return client
+
+    yield make
+    for client in clients:
+        client.close()
+    recording_server.reply.set()
+    for client in clients:
+        client._thread.join(5)
+        assert not client._thread.is_alive()
+
+
+def _wait_for_requests(server, count):
+    with server.changed:
+        assert server.changed.wait_for(lambda: len(server.received) >= count, timeout=5), server.received
+
+
+def test_rapid_updates_coalesce_to_latest_value(recording_server, make_client):
+    client = make_client()
+    recording_server.reply.clear()
+    client.send(action="camera", id="hold")
+    _wait_for_requests(recording_server, 1)
 
     client.send(action="iso", value=100)
     client.send(action="iso", value=200)
     client.send(action="iso", value=300)
+    client.send(action="camera", id="after-iso")
+    recording_server.reply.set()
 
-    time.sleep(0.5)
-    client.close()
+    _wait_for_requests(recording_server, 3)
+    assert recording_server.received == [
+        {"action": "camera", "id": "hold"}, {"action": "iso", "value": 300},
+        {"action": "camera", "id": "after-iso"},
+    ]
 
-    iso_requests = [r for r in recording_server.received if r["action"] == "iso"]
-    assert len(iso_requests) == 1
-    assert iso_requests[0]["value"] == 300
 
+def test_non_coalescing_actions_preserve_order(recording_server, make_client):
+    client = make_client()
+    recording_server.reply.clear()
 
-def test_non_coalescing_actions_preserve_order(recording_server):
-    port = recording_server.server_address[1]
-    client = PhoneControlClient(f"http://127.0.0.1:{port}/video", PhoneAuth("tok"))
-
-    client.send(action="iso", value=100)
     client.send(action="camera", id="cam0")
-    client.send(action="torch", value="1")
+    _wait_for_requests(recording_server, 1)
+    client.send(action="camera", id="cam1")
+    client.send(action="camera", id="cam2")
+    recording_server.reply.set()
 
-    time.sleep(0.5)
-    client.close()
+    _wait_for_requests(recording_server, 3)
 
-    actions = [r["action"] for r in recording_server.received]
-    assert actions == ["iso", "camera", "torch"]
+    assert recording_server.received == [
+        {"action": "camera", "id": "cam0"}, {"action": "camera", "id": "cam1"},
+        {"action": "camera", "id": "cam2"},
+    ]
 
 
-def test_requests_carry_bearer_token(recording_server):
-    port = recording_server.server_address[1]
-    client = PhoneControlClient(f"http://127.0.0.1:{port}/video", PhoneAuth("secret-tok"))
+def test_requests_carry_bearer_token(recording_server, make_client):
+    client = make_client("secret-tok")
 
     client.send(action="iso", value=100)
-    time.sleep(0.3)
-    client.close()
+    _wait_for_requests(recording_server, 1)
 
     assert recording_server.auth_headers == ["Bearer secret-tok"]
 
 
-def test_close_stops_accepting_new_requests(recording_server):
-    port = recording_server.server_address[1]
-    client = PhoneControlClient(f"http://127.0.0.1:{port}/video", PhoneAuth("tok"))
+def test_close_stops_accepting_new_requests(recording_server, make_client):
+    client = make_client()
     client.close()
+    client._thread.join(5)
+    assert not client._thread.is_alive()
     client.send(action="iso", value=1)
 
-    time.sleep(0.3)
+    assert client._queue.empty()
     assert recording_server.received == []
 
 
@@ -299,10 +337,9 @@ def test_a_request_the_phone_refused_is_not_sent_again(monkeypatch):
     assert len(calls) == 1
 
 
-def test_a_stalled_link_still_delivers_the_setting(recording_server):
+def test_a_stalled_link_still_delivers_the_setting(recording_server, make_client):
     # The first try's connection is refused, like a link mid-stall; the retry reaches the phone.
-    port = recording_server.server_address[1]
-    client = PhoneControlClient(f"http://127.0.0.1:{port}/video", PhoneAuth("tok"))
+    client = make_client()
     real = client._send_now
     first = []
 
@@ -313,10 +350,7 @@ def test_a_stalled_link_still_delivers_the_setting(recording_server):
         return real(params)
     client._send_now = send_now
     client.send(action="iso", value=100)
-    deadline = time.monotonic() + 3
-    while not recording_server.received and time.monotonic() < deadline:
-        time.sleep(0.02)
-    client.close()
+    _wait_for_requests(recording_server, 1)
     assert recording_server.received == [{"action": "iso", "value": 100}]
 
 

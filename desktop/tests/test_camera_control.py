@@ -36,21 +36,21 @@ class _Ctrl:
 
 
 @pytest.fixture
-def camera_plugin(qapp):
+def camera_plugin(qt_widgets):
     host = _Host()
     bus = EventBus()
     plugin = CameraControlPlugin()
     plugin.setup(host, bus)
-    panel = plugin.create_panel()
+    panel = qt_widgets(plugin.create_panel())
     bus.phones_changed.emit(1)
     return plugin, host, bus, panel
 
 
-def test_the_card_is_greyed_out_until_a_phone_is_paired(qapp):
+def test_the_card_is_greyed_out_until_a_phone_is_paired(qt_widgets):
     bus = EventBus()
     plugin = CameraControlPlugin()
     plugin.setup(_Host(), bus)
-    panel = plugin.create_panel()
+    panel = qt_widgets(plugin.create_panel())
     assert not panel.isEnabled()
     bus.phones_changed.emit(1)
     assert panel.isEnabled()

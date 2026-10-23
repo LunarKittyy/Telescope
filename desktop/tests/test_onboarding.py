@@ -32,7 +32,7 @@ class _Host:
 
 
 @pytest.fixture
-def env(qapp, monkeypatch):
+def env(qt_widgets, monkeypatch):
     monkeypatch.setattr(OnboardingPlugin, "check_virtual_camera", lambda self: None)
     monkeypatch.setattr(onboarding_module, "bundled_apk_path", lambda: None)
     monkeypatch.setattr(onboarding_module, "IS_LINUX", True)
@@ -41,7 +41,7 @@ def env(qapp, monkeypatch):
     bus.setup_needed.connect(needed.append)
     plugin = OnboardingPlugin()
     plugin.setup(_Host(), bus)
-    card = plugin.create_panel()
+    card = qt_widgets(plugin.create_panel())
     return plugin, bus, card, needed
 
 

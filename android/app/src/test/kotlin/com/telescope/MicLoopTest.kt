@@ -4,7 +4,12 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.FutureTask
+import java.util.concurrent.TimeUnit.SECONDS
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 class MicLoopTest {
     // Gives `chunks` full chunks, then fails with `then` (a negative error) or blocks until stopped.
@@ -12,13 +17,16 @@ class MicLoopTest {
         var given = 0
         @Volatile var stopped = false
         var released = false
+        val blocked = CountDownLatch(1)
+        private val stopSignal = CountDownLatch(1)
         override fun read(buf: ByteArray, off: Int, len: Int): Int {
             if (given < chunks) { given++; return len }
             if (then != null) return then
-            while (!stopped) Thread.sleep(1)
+            blocked.countDown()
+            stopSignal.await()
             return 0
         }
-        override fun stop() { stopped = true }
+        override fun stop() { stopped = true; stopSignal.countDown() }
         override fun release() { released = true }
     }
 
@@ -58,20 +66,30 @@ class MicLoopTest {
     @Test
     fun `a recording that goes quiet is stopped by the watchdog and reopened`() {
         val active = AtomicBoolean(true)
-        var now = 0L
+        val now = AtomicLong(0)
         val stuck = Fake(1, null)
         val next = Fake(1, null)
         val loop = MicLoop(open = { active.set(false); next }, onChunk = {}, active = active,
-            clockMs = { now }, sleepMs = {})
-        val thread = Thread { loop.run(stuck) }.apply { start() }
-        Thread.sleep(50)
-        assertFalse(loop.checkStall())  // not long enough yet
-        now += MicLoop.STALL_MS
-        assertTrue(loop.checkStall())
-        thread.join(2_000)
-        assertFalse(thread.isAlive)
-        assertTrue(stuck.stopped && stuck.released)
-        assertEquals(1, loop.reopens)
+            clockMs = now::get, sleepMs = {})
+        val task = FutureTask { loop.run(stuck) }
+        val thread = Thread(task).apply { isDaemon = true; start() }
+        try {
+            assertTrue(stuck.blocked.await(2, SECONDS), "recording never reached the stalled read")
+            now.set(MicLoop.STALL_MS - 1)
+            assertFalse(loop.checkStall())
+            now.incrementAndGet()
+            assertTrue(loop.checkStall())
+            task.get(2, SECONDS)
+            assertTrue(stuck.stopped && stuck.released)
+            assertEquals(1, loop.reopens)
+        } finally {
+            active.set(false)
+            loop.halt()
+            stuck.stop()
+            next.stop()
+            thread.join(2_000)
+            assertFalse(thread.isAlive, "recording thread did not stop")
+        }
     }
 
     @Test
@@ -101,7 +119,8 @@ class MicLoopTest {
     fun `a failed chunk consumer cannot hold the microphone`() {
         val source = Fake(1, null)
         val loop = MicLoop(open = { null }, onChunk = { error("consumer failed") }, active = AtomicBoolean(true))
-        runCatching { loop.run(source) }
+        val error = assertThrows<IllegalStateException> { loop.run(source) }
+        assertEquals("consumer failed", error.message)
         assertTrue(source.stopped && source.released)
     }
 }

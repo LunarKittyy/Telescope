@@ -90,12 +90,12 @@ class _Host:
 
 
 @pytest.fixture
-def stream_output(qapp):
+def stream_output(qt_widgets):
     host = _Host()
     plugin = StreamOutputPlugin()
     bus = EventBus()
     plugin.setup(host, bus)
-    panel = plugin.create_panel()
+    panel = qt_widgets(plugin.create_panel())
     bus.phones_changed.emit(1)
     return plugin, host, panel
 
@@ -537,14 +537,16 @@ def test_monitoring_threshold_changes_are_saved(monitoring):
 
 
 @pytest.fixture
-def monitoring(qapp):
+def monitoring(qt_widgets):
     host = _Host()
     bus = EventBus()
     plugin = MonitoringPlugin()
     plugin.setup(host, bus)
-    panel = plugin.create_panel()
+    panel = qt_widgets(plugin.create_panel())
     bus.phones_changed.emit(1)
-    return plugin, host, bus, panel
+    yield plugin, host, bus, panel
+    plugin._timer.stop()
+    plugin._timer.deleteLater()
 
 
 def test_monitoring_stream_lifecycle(monitoring):
