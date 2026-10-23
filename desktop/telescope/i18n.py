@@ -200,10 +200,16 @@ def resolve(chosen: str = "") -> str:
     return pick([override or chosen] if override or chosen else system_languages(), available())
 
 
+# Where Qt's own name is off: "es" alone is "español de España", "id" is just "Indonesia"
+_NAMES = {"es": "Español", "id": "Bahasa Indonesia", "pt_BR": "Português do Brasil"}
+
+
 def native_name(lang: str) -> str:
     """A language's name in itself, as a language picker lists it: "Svenska" for sv."""
     if lang == SOURCE_LANGUAGE:
         return "English"
+    if lang in _NAMES:
+        return _NAMES[lang]
     try:
         from PyQt6.QtCore import QLocale
         name = QLocale(lang).nativeLanguageName()
@@ -217,6 +223,19 @@ def _read_catalog(path: Path) -> Tuple[Dict[Tuple[str, str], List[str]], Callabl
     entries, header = read_po(path)
     catalog = {(e.ctx, e.msgid): e.msgstr for e in entries if not e.fuzzy and any(e.msgstr)}
     return catalog, plural_rule(header)
+
+
+DRAFT_FIELD = "X-Telescope-Draft"
+
+
+def is_draft(lang: str) -> bool:
+    """A first draft nobody has checked yet (its .po header says so): Settings marks it as one."""
+    if lang == SOURCE_LANGUAGE:
+        return False
+    try:
+        return header_field(read_po(LOCALE_DIR / f"{lang}.po")[1], DRAFT_FIELD).lower() == "yes"
+    except (OSError, ValueError):
+        return False
 
 
 def load(lang: Optional[str] = None) -> str:

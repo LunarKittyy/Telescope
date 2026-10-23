@@ -1,11 +1,23 @@
 # Translating Telescope
 
+## Helping without any tools
+
+Spotted a text that reads wrong, or would like Telescope in your language? [Open a translation issue](https://github.com/LunarKittyy/Telescope/issues/new?template=translation.yml) and write what a text says now and what it should say. That's all it takes, no coding or setup needed.
+
+To fix many texts at once, you can edit the files right on GitHub: open your language's file from the table below, click the pencil icon, change the texts and click **Propose changes**. GitHub then makes a copy and opens the pull request for you. Change only the translated text (the part between `>` and `<` on the phone, the `msgstr "..."` lines on the desktop) and keep anything in `{curly braces}` or like `%1$s` as it is.
+
+A language marked as a first draft (it shows "(beta)" in the desktop's Language list) hasn't been checked by someone who speaks it yet. Reading one through and listing what's off is a big help.
+
+The rest of this page is for people working on the files themselves.
+
+## The files
+
 Both apps keep every text they show in one file per language. English lives in the code and in the source files below, and anything a translation leaves out shows in English, so a language can ship half done.
 
 | | Source (English) | A translation |
 |---|---|---|
-| Phone app | `android/app/src/main/res/values/strings.xml` | `android/app/src/main/res/values-<lang>/strings.xml` |
-| Desktop app | `desktop/telescope/locale/telescope.pot` | `desktop/telescope/locale/<lang>.po` |
+| Phone app | `android/app/src/main/res/values/strings.xml` | `values-<lang>/strings.xml` in [android/app/src/main/res](https://github.com/LunarKittyy/Telescope/tree/master/android/app/src/main/res) |
+| Desktop app | `desktop/telescope/locale/telescope.pot` | `<lang>.po` in [desktop/telescope/locale](https://github.com/LunarKittyy/Telescope/tree/master/desktop/telescope/locale) |
 
 `<lang>` is a language code: `sv`, `de`, `fr`. For a regional variant, Android writes `values-pt-rBR` and the desktop writes `pt_BR.po`.
 
@@ -64,6 +76,13 @@ Hand it one file and the notes above. Things worth asking for:
 - Keep the app's tone: short, plain and friendly, addressed to the person using it. Buttons are verbs ("Add phone", "Start streaming")
 - Use one word for each thing across both apps. "Add phone" on the desktop and "Scan pairing code" on the phone are names of buttons that the other app's texts refer to
 - Have a person who speaks the language read through it in the running app before it ships
+
+## First drafts
+
+A translation nobody who speaks the language has checked yet can still ship, marked as a first draft. The desktop's Language list puts "(beta)" after its name, and both apps say it's a first draft (in Settings > General on the desktop, in About on the phone). Two things mark it, and both come off once someone has read it through:
+
+- the line `"X-Telescope-Draft: yes\n"` in the header of the desktop's `<lang>.po`
+- `android/app/src/main/res/values-<lang>/translation.xml` with `<bool name="translation_is_draft">true</bool>`
 
 ## Plugins
 

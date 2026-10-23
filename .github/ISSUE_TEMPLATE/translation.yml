@@ -1,0 +1,36 @@
+name: Translation
+description: A text that reads wrong in your language, or a language you'd like to help with
+title: "[Translation] "
+labels: [translation]
+body:
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      placeholder: Spanish, Brazilian Portuguese, Ukrainian...
+    validations:
+      required: true
+
+  - type: textarea
+    id: texts
+    attributes:
+      label: What should change?
+      description: |
+        For each text: where it shows (which app, card or screen), what it says now, and what it should say. A screenshot works too, drag it in here.
+        Fixing lots of texts at once? List them all here, or edit the files directly as [Translating Telescope](https://github.com/LunarKittyy/Telescope/blob/master/docs/translating.md) explains.
+      placeholder: |
+        Desktop, Microphone card: "Ganancia máxima" should be "Ganancia máx." because it gets cut off
+    validations:
+      required: true
+
+  - type: dropdown
+    id: checked
+    attributes:
+      label: Have you read the rest of the app in this language?
+      description: Only if you'd like to. Telescope marks a language as a first draft until someone who speaks it has read it through.
+      options:
+        - Not really, just these texts
+        - Yes, the rest reads fine with these fixed
+        - Yes, and there's more that needs work
+    validations:
+      required: false

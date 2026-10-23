@@ -68,10 +68,9 @@
     <string name="pair_hint">On your computer, open Telescope and click Add phone. Over USB, the phone pairs without scanning.</string>
     <string name="scan_pairing_code">Scan pairing code</string>
     <string name="pair_another">Pair another computer</string>
-    <plurals name="paired_computers_title">
-        <item quantity="one">Paired computer</item>
-        <item quantity="other">Paired computers</item>
-    </plurals>
+    <!-- Heading over the list when there's exactly one computer, and when there are more -->
+    <string name="paired_computer_title">Paired computer</string>
+    <string name="paired_computers_title">Paired computers</string>
     <!-- %1$s is a date, already written the phone's way -->
     <string name="paired_on">Paired %1$s</string>
     <string name="remove">Remove</string>
@@ -139,6 +138,8 @@
     <string name="nightly_updates">Nightly updates</string>
     <string name="nightly_updates_hint">Built from every change: fixes arrive sooner, with less testing.</string>
     <string name="check_for_updates">Check for updates</string>
+    <!-- Shown in About only while this language's translation is a first draft -->
+    <string name="translation_draft">This translation is a first draft and some texts might read a bit oddly.</string>
     <!-- Keep the <a href="%1$s"> link and the name LunarKittyy as they are -->
     <string name="made_by">Made by &lt;a href="%1$s"&gt;LunarKittyy&lt;/a&gt;</string>
     <!-- %1$s is a web address -->

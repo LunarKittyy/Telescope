@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- True in values-<lang>/translation.xml while that translation is a first draft (docs/translating.md) -->
+    <bool name="translation_is_draft">false</bool>
+</resources>
