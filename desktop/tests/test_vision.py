@@ -59,12 +59,59 @@ def test_a_mask_is_worked_out_once_per_frame_and_per_stream():
     first = _in_stream("a", 1, lambda: v.person_mask(frame))
     again = _in_stream("a", 1, lambda: v.person_mask(frame))
     other = _in_stream("b", 1, lambda: v.person_mask(frame))
-    _in_stream("a", 2, lambda: v.person_mask(frame))
+    _in_stream("a", 2, lambda: v.person_mask(np.full((4, 6, 3), 255, np.uint8)))
     assert first is again and first.shape == (4, 6) and first.dtype == np.uint8
     assert other is not first
     assert len(backend.segmented) == 3
     assert backend.timestamps[2] > backend.timestamps[0]  # each stream's go up, as VIDEO mode needs
     assert states == [LOADING, READY]
+
+
+@pytest.mark.parametrize("h, w, given", [(720, 1280, (144, 256)), (1080, 1920, (144, 256)), (1280, 720, (455, 256)),
+                                         (100, 160, (100, 160))])
+def test_the_segmenter_gets_a_small_copy_and_the_mask_comes_back_at_the_frames_size(h, w, given):
+    v, backend, _states, _people = _ready()
+    mask = _in_stream("a", 1, lambda: v.person_mask(np.zeros((h, w, 3), np.uint8)))
+    assert backend.segmented[0].shape[:2] == given  # just big enough to cover the model's input, same shape
+    assert mask.shape == (h, w) and mask.dtype == np.uint8
+
+
+def test_while_nothing_moves_the_mask_is_worked_out_less_often():
+    v, backend, _states, _people = _ready()
+    still = np.full((720, 1280, 3), 80, np.uint8)
+    masks = [_in_stream("a", seq, lambda: v.person_mask(still)) for seq in (1, 2, 3)]
+    assert len(backend.segmented) == 1 and masks[1] is masks[0] and masks[2] is masks[0]
+    v._streams["a"].mask_at -= vision._MASK_STILL_EVERY_S
+    _in_stream("a", 4, lambda: v.person_mask(still))
+    assert len(backend.segmented) == 2  # still, but it's been a while
+    moved = still.copy()
+    moved[200:500, 400:700] = 200  # someone's arm
+    _in_stream("a", 5, lambda: v.person_mask(moved))
+    assert len(backend.segmented) == 3  # straight away
+
+
+def test_camera_noise_alone_doesnt_count_as_moving():
+    rng = np.random.default_rng(1)
+    base = rng.integers(60, 200, (720, 1280, 3), dtype=np.uint8)
+    motion = vision._Motion()
+    assert motion.moved(base)  # nothing to compare with yet
+    motion.used()
+    noisy = np.clip(base.astype(int) + rng.integers(-15, 16, base.shape), 0, 255).astype(np.uint8)
+    assert not motion.moved(noisy)
+    moved = base.copy()
+    moved[300:420, 600:720] = 255  # about 1.5% of the picture
+    assert motion.moved(moved)
+
+
+def test_model_input_looks_like_one_area_shrink():
+    import cv2
+    rng = np.random.default_rng(2)
+    frame = cv2.GaussianBlur(rng.integers(0, 255, (1080, 1920, 3), dtype=np.uint8), (0, 0), 3)
+    small = vision.model_input(frame)
+    area = cv2.resize(frame, (256, 144), interpolation=cv2.INTER_AREA)
+    assert small.shape == area.shape and np.abs(small.astype(int) - area).mean() < 1.0
+    tiny = np.zeros((90, 160, 3), np.uint8)
+    assert vision.model_input(tiny) is tiny  # already small enough
 
 
 def test_before_its_ready_or_outside_a_stream_there_is_no_mask():
@@ -185,6 +232,28 @@ def test_frames_for_people_are_spaced_out_and_made_small(monkeypatch):
             sizes.append(sv.people_frame[0].shape)
             sv.people_frame = None
     assert sizes == [(360, 640, 3)]
+
+
+def test_people_are_looked_for_less_often_while_nothing_moves(monkeypatch):
+    v, _backend, _states, _people = _ready()
+    v.want_people("x", True)
+    monkeypatch.setattr(vision.threading, "Thread", lambda **kw: type("T", (), {"start": lambda self: None})())
+    still = np.full((720, 1280, 3), 80, np.uint8)
+    moved = still.copy()
+    moved[200:500, 400:700] = 200
+    sent = []
+
+    def feed(seq, frame, ago):
+        _in_stream("a", seq, lambda: v.feed_raw(frame))
+        sv = v._streams["a"]
+        sent.append(sv.people_frame is not None)
+        sv.people_frame = None
+        sv.people_at -= ago  # time passing until the next one
+    feed(1, still, vision._PEOPLE_EVERY_S)
+    feed(2, still, vision._PEOPLE_STILL_EVERY_S)
+    feed(3, still, vision._PEOPLE_EVERY_S)
+    feed(4, moved, 0)
+    assert sent == [True, False, True, True]
 
 
 def test_a_segmenter_that_cant_load_fails_once_and_names_the_missing_library():
