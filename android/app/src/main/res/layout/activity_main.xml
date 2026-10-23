@@ -32,7 +32,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Telescope"
+            android:text="@string/app_name"
             android:textAppearance="@style/TextAppearance.Telescope.AppTitle" />
 
         <ImageButton
@@ -42,7 +42,7 @@
             android:src="@drawable/ic_preview_open"
             app:tint="@color/colorOnSurfaceDim"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Open camera preview"
+            android:contentDescription="@string/open_preview"
             android:padding="12dp" />
 
 
@@ -92,7 +92,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="10dp"
-                            android:text="Update available"
+                            android:text="@string/update_available"
                             android:textAppearance="@style/TextAppearance.Telescope.CardTitle" />
                     </LinearLayout>
 
@@ -108,7 +108,7 @@
                         android:layout_height="wrap_content"
                         android:minHeight="48dp"
                         android:layout_marginTop="14dp"
-                        android:text="Update" />
+                        android:text="@string/update" />
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -143,7 +143,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="10dp"
-                            android:text="Get set up"
+                            android:text="@string/setup_title"
                             android:textAppearance="@style/TextAppearance.Telescope.CardTitle" />
                     </LinearLayout>
 
@@ -185,7 +185,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="10dp"
-                            android:text="Pair with your computer"
+                            android:text="@string/pair_title"
                             android:textAppearance="@style/TextAppearance.Telescope.CardTitle" />
                     </LinearLayout>
 
@@ -194,7 +194,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="14dp"
-                        android:text="On your computer, open Telescope and click Add phone. Over USB, the phone pairs without scanning."
+                        android:text="@string/pair_hint"
                         android:textAppearance="@style/TextAppearance.Telescope.Label" />
 
                     <LinearLayout
@@ -208,7 +208,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:minHeight="52dp"
-                        android:text="Scan pairing code"
+                        android:text="@string/scan_pairing_code"
                         app:icon="@drawable/ic_qr_scan"
                         app:iconGravity="textStart" />
 
@@ -243,7 +243,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="10dp"
-                            android:text="Network"
+                            android:text="@string/network_title"
                             android:textAppearance="@style/TextAppearance.Telescope.CardTitle" />
                     </LinearLayout>
 
@@ -252,12 +252,12 @@
                         style="@style/Widget.Telescope.Switch"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Local only - USB" />
+                        android:text="@string/local_only" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Keeps the camera off the network, so only a USB connection can reach it."
+                        android:text="@string/local_only_hint"
                         android:textAppearance="@style/TextAppearance.Telescope.Hint" />
 
                     <com.google.android.material.switchmaterial.SwitchMaterial
@@ -266,12 +266,12 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
-                        android:text="Wait for my computer" />
+                        android:text="@string/wait_for_computer" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Keeps Telescope running while the screen is off, so a paired computer can start the camera."
+                        android:text="@string/wait_for_computer_hint"
                         android:textAppearance="@style/TextAppearance.Telescope.Hint" />
 
                 </LinearLayout>
@@ -286,7 +286,7 @@
                 android:layout_marginBottom="12dp"
                 android:backgroundTint="@color/colorStop"
                 app:strokeColor="@color/colorStop"
-                android:text="Stop streaming"
+                android:text="@string/stop_streaming"
                 android:visibility="gone" />
 
             <!-- Status -->
@@ -317,7 +317,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="10dp"
-                            android:text="Status"
+                            android:text="@string/status_title"
                             android:textAppearance="@style/TextAppearance.Telescope.CardTitle" />
                     </LinearLayout>
 
@@ -325,7 +325,6 @@
                         android:id="@+id/tvStatus"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="○ Not streaming"
                         android:textAppearance="@style/TextAppearance.Telescope.Body"
                         android:textColor="@color/colorOnSurfaceDim" />
                 </LinearLayout>
@@ -358,7 +357,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="10dp"
-                            android:text="About"
+                            android:text="@string/about_title"
                             android:textAppearance="@style/TextAppearance.Telescope.CardTitle" />
                     </LinearLayout>
 
@@ -368,7 +367,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:minHeight="48dp"
-                        android:text="Copy diagnostics" />
+                        android:text="@string/copy_diagnostics" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnReportBug"
@@ -377,7 +376,7 @@
                         android:layout_height="wrap_content"
                         android:minHeight="48dp"
                         android:layout_marginTop="10dp"
-                        android:text="Report a bug" />
+                        android:text="@string/report_bug" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnHelp"
@@ -386,7 +385,7 @@
                         android:layout_height="wrap_content"
                         android:minHeight="48dp"
                         android:layout_marginTop="10dp"
-                        android:text="Troubleshooting" />
+                        android:text="@string/troubleshooting" />
 
                     <com.google.android.material.switchmaterial.SwitchMaterial
                         android:id="@+id/switchNightly"
@@ -394,13 +393,13 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="10dp"
-                        android:text="Nightly updates" />
+                        android:text="@string/nightly_updates" />
 
                     <TextView
                         android:id="@+id/tvNightlyHint"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Built from every change: fixes arrive sooner, with less testing."
+                        android:text="@string/nightly_updates_hint"
                         android:textAppearance="@style/TextAppearance.Telescope.Hint" />
 
                     <com.google.android.material.button.MaterialButton
@@ -410,7 +409,7 @@
                         android:layout_height="wrap_content"
                         android:minHeight="48dp"
                         android:layout_marginTop="10dp"
-                        android:text="Check for updates" />
+                        android:text="@string/check_for_updates" />
 
                     <TextView
                         android:id="@+id/tvAppVersion"

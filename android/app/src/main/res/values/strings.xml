@@ -1,4 +1,162 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Every text the phone app shows. English is the source; a translation goes in values-<lang>/strings.xml
+     with the same names (see docs/translating.md). A name missing there falls back to English.
+     %1$s, %1$d and so on are filled in by the app: keep them, they may move within the sentence. -->
 <resources>
-    <string name="app_name">Telescope</string>
+    <string name="app_name" translatable="false">Telescope</string>
+
+    <!-- Main screen -->
+    <string name="open_preview">Open camera preview</string>
+    <string name="close_preview">Close preview</string>
+
+    <!-- Update card -->
+    <string name="update_available">Update available</string>
+    <string name="update_failed_title">Update didn\'t finish</string>
+    <string name="update">Update</string>
+    <string name="updating">Updating…</string>
+    <string name="try_again">Try again</string>
+    <!-- %1$s is "Telescope 1.2.3", %2$d the percentage done -->
+    <string name="update_downloading">%1$s · downloading %2$d%%</string>
+    <!-- %1$s is "Telescope 1.2.3" -->
+    <string name="update_installing">%1$s · installing</string>
+    <!-- %1$s is "Telescope 1.2.3" -->
+    <string name="update_stop_streaming_first">%1$s. Stop streaming to update.</string>
+    <string name="allow_installs_title">Allow Telescope to install updates</string>
+    <!-- "Allow from this source" is the name of Android's own setting: use the name Android shows in this language -->
+    <string name="allow_installs_message">In the next screen, turn on Allow from this source, then come back.</string>
+
+    <!-- Update errors, shown on the update card -->
+    <string name="update_error_offline">The download failed. Check the internet connection and try again.</string>
+    <!-- %1$d is an HTTP status code such as 404 -->
+    <string name="update_error_http">The download failed (HTTP %1$d).</string>
+    <string name="update_error_too_big">The download is bigger than it should be.</string>
+    <string name="update_error_cut_short">The download was cut short. Check the internet connection and try again.</string>
+    <string name="update_error_checksum">The download didn\'t match its checksum, so it wasn\'t installed.</string>
+    <string name="update_error_save">Couldn\'t save the download.</string>
+    <string name="update_error_not_an_app">The download isn\'t a valid app.</string>
+    <string name="update_error_not_telescope">The download isn\'t Telescope.</string>
+    <!-- %1$s is a version such as 1.2.3 -->
+    <string name="update_error_signature">This copy of Telescope was signed differently from the update. Uninstall it and install %1$s from the releases page.</string>
+    <string name="update_error_install_start">Android couldn\'t start the install.</string>
+    <string name="update_error_not_installed">The update wasn\'t installed.</string>
+    <!-- %1$s is Android's own reason, in the phone's language -->
+    <string name="update_error_not_installed_because">The update wasn\'t installed: %1$s</string>
+
+    <!-- Version line in the About card. %1$s is a version such as 1.2.3 -->
+    <string name="version">Telescope %1$s</string>
+    <string name="version_up_to_date">Telescope %1$s · up to date</string>
+    <string name="version_checking">Telescope %1$s · checking…</string>
+    <string name="version_check_failed">Telescope %1$s · couldn\'t check for updates</string>
+
+    <!-- First-run setup card -->
+    <string name="setup_title">Get set up</string>
+    <string name="setup_camera">Camera</string>
+    <string name="setup_camera_reason">To stream from this phone\'s cameras.</string>
+    <string name="setup_notifications">Notifications</string>
+    <string name="setup_notifications_reason">Shows when the camera is streaming, and stops it from there.</string>
+    <string name="setup_microphone">Microphone</string>
+    <string name="setup_microphone_reason">For the Telescope microphone on your computer.</string>
+    <string name="setup_battery">Battery</string>
+    <string name="setup_battery_reason">Keeps Android from stopping the stream when the screen is off.</string>
+    <string name="setup_allowed">Allowed</string>
+    <string name="allow">Allow</string>
+    <string name="open_settings">Open settings</string>
+
+    <!-- Pairing card -->
+    <string name="pair_title">Pair with your computer</string>
+    <!-- "Add phone" is the name of a button in the desktop app: keep it the same as the desktop translation -->
+    <string name="pair_hint">On your computer, open Telescope and click Add phone. Over USB, the phone pairs without scanning.</string>
+    <string name="scan_pairing_code">Scan pairing code</string>
+    <string name="pair_another">Pair another computer</string>
+    <plurals name="paired_computers_title">
+        <item quantity="one">Paired computer</item>
+        <item quantity="other">Paired computers</item>
+    </plurals>
+    <!-- %1$s is a date, already written the phone's way -->
+    <string name="paired_on">Paired %1$s</string>
+    <string name="remove">Remove</string>
+    <string name="cancel">Cancel</string>
+    <string name="ok">OK</string>
+    <!-- %1$s is the computer's name -->
+    <string name="remove_computer_title">Remove %1$s?</string>
+    <string name="remove_computer_message">It won\'t be able to use this phone\'s camera until you pair it again.</string>
+    <string name="scan_prompt">Point the camera at the pairing code on your computer</string>
+    <string name="scan_download_link">That code downloads the app. Scan the one under Add phone on the computer.</string>
+    <string name="scan_not_pairing_code">That\'s not a Telescope pairing code.</string>
+    <string name="scan_other_version">This code is from a different Telescope version. Update the app on your computer and this app to the same version, then try again.</string>
+    <!-- Name saved for a computer that didn't send one -->
+    <string name="default_computer_name">Computer</string>
+    <!-- %1$s is the computer's name -->
+    <string name="paired_with">Paired with %1$s.</string>
+    <string name="paired_with_your_computer">Paired with your computer.</string>
+
+    <!-- Pairing failure dialog -->
+    <string name="pairing_failed">Pairing failed</string>
+    <string name="pairing_unreachable">Couldn\'t reach your computer.</string>
+    <string name="pairing_no_address">The code has no address this phone could try.</string>
+    <!-- Heading of the list of addresses the phone tried -->
+    <string name="pairing_tried">Tried:</string>
+    <!-- One line of that list. %1$s is an IP address, %2$s pairing_via_wifi or pairing_via_default, %3$s what went wrong -->
+    <string name="pairing_attempt">• %1$s over %2$s: %3$s</string>
+    <string name="pairing_via_wifi">Wi-Fi</string>
+    <string name="pairing_via_default">the default network</string>
+    <!-- %2$d is a number of seconds -->
+    <plurals name="pairing_untried">
+        <item quantity="one">• %1$d more not tried - gave up after %2$d seconds</item>
+        <item quantity="other">• %1$d more not tried - gave up after %2$d seconds</item>
+    </plurals>
+    <string name="pairing_advice">Check that the phone and computer are on the same Wi-Fi. If a VPN is on, it may be blocking local network access: turn on its LAN access option or pause it. Or plug the phone in over USB, and it pairs without scanning.</string>
+    <!-- What went wrong reaching one address, the end of a pairing_attempt line -->
+    <string name="network_timed_out">timed out</string>
+    <string name="network_no_route">no route to host</string>
+    <string name="network_refused">connection refused</string>
+    <string name="network_unreachable">unreachable</string>
+
+    <!-- Network card -->
+    <string name="network_title">Network</string>
+    <string name="local_only">Local only - USB</string>
+    <string name="local_only_hint">Keeps the camera off the network, so only a USB connection can reach it.</string>
+    <string name="wait_for_computer">Wait for my computer</string>
+    <string name="wait_for_computer_hint">Keeps Telescope running while the screen is off, so a paired computer can start the camera.</string>
+
+    <!-- Status card. Keep the ● (streaming) or ○ (not streaming) at the start. -->
+    <string name="stop_streaming">Stop streaming</string>
+    <string name="status_title">Status</string>
+    <string name="status_not_streaming">○ Not streaming</string>
+    <string name="status_starting">○ Starting…</string>
+    <string name="status_streaming">● Streaming</string>
+    <string name="status_waiting_for_computer">● Waiting for the computer</string>
+    <string name="status_mic_only">● Streaming the mic, camera off</string>
+    <string name="status_camera_taken">● Another app is using the camera. Streaming goes on when it\'s free.</string>
+    <string name="streaming_started_remotely">Streaming started from your computer</string>
+
+    <!-- About card -->
+    <string name="about_title">About</string>
+    <string name="copy_diagnostics">Copy diagnostics</string>
+    <string name="diagnostics_copied">Diagnostics copied to clipboard</string>
+    <string name="report_bug">Report a bug</string>
+    <string name="troubleshooting">Troubleshooting</string>
+    <string name="nightly_updates">Nightly updates</string>
+    <string name="nightly_updates_hint">Built from every change: fixes arrive sooner, with less testing.</string>
+    <string name="check_for_updates">Check for updates</string>
+    <!-- Keep the <a href="%1$s"> link and the name LunarKittyy as they are -->
+    <string name="made_by">Made by &lt;a href="%1$s"&gt;LunarKittyy&lt;/a&gt;</string>
+    <!-- %1$s is a web address -->
+    <string name="no_browser">No browser to open %1$s</string>
+
+    <!-- Preview screen -->
+    <string name="preview_camera_permission">Camera permission required.</string>
+    <string name="preview_stream_starting">The stream is starting. Try again in a moment.</string>
+    <string name="preview_no_cameras">No cameras found.</string>
+    <string name="preview_may_stretch">Preview may look stretched - couldn\'t read camera info.</string>
+
+    <!-- Notifications -->
+    <string name="notif_channel_streaming">Streaming</string>
+    <string name="notif_channel_streaming_desc">Shown while the camera is streaming to your computer</string>
+    <string name="notif_channel_waiting">Waiting for the computer</string>
+    <string name="notif_channel_waiting_desc">Shown while Telescope keeps waiting for a paired computer to start the camera</string>
+    <string name="notif_camera_streaming">Camera is streaming</string>
+    <string name="notif_mic_streaming">Microphone is streaming, camera off</string>
+    <string name="notif_waiting">Waiting for your computer</string>
+    <string name="notif_stop_waiting">Stop waiting</string>
 </resources>

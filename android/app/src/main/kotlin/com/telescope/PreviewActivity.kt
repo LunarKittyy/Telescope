@@ -154,7 +154,7 @@ class PreviewActivity : AppCompatActivity() {
         super.onStart()
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA)
                 != PackageManager.PERMISSION_GRANTED) {
-            Toast.makeText(this, "Camera permission required.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.preview_camera_permission), Toast.LENGTH_SHORT).show()
             finish()
             return
         }
@@ -197,7 +197,7 @@ class PreviewActivity : AppCompatActivity() {
         resolved = true
         if (svc?.state == StreamState.StartingServer) {
             // Its camera is about to open; a camera of our own would take it away from the stream.
-            Toast.makeText(this, "The stream is starting. Try again in a moment.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.preview_stream_starting), Toast.LENGTH_SHORT).show()
             finish()
             return
         }
@@ -247,7 +247,7 @@ class PreviewActivity : AppCompatActivity() {
         val manager = getSystemService(CAMERA_SERVICE) as CameraManager
         cameras = CameraCatalog.enumerate(manager)
         if (cameras.isEmpty()) {
-            Toast.makeText(this, "No cameras found.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.preview_no_cameras), Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -381,7 +381,7 @@ class PreviewActivity : AppCompatActivity() {
                 }, TRANSFORM_RETRY_DELAY_MS)
             } else {
                 Toast.makeText(this,
-                    "Preview may look stretched - couldn't read camera info.",
+                    getString(R.string.preview_may_stretch),
                     Toast.LENGTH_SHORT).show()
             }
         }

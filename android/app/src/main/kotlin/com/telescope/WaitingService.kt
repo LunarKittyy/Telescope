@@ -28,8 +28,8 @@ class WaitingService : Service() {
     override fun onCreate() {
         super.onCreate()
         RecentRuns.recordCrashes(this)
-        val ch = NotificationChannel(CHANNEL_ID, "Waiting for the computer", NotificationManager.IMPORTANCE_LOW)
-            .apply { description = "Shown while Telescope keeps waiting for a paired computer to start the camera" }
+        val ch = NotificationChannel(CHANNEL_ID, getString(R.string.notif_channel_waiting), NotificationManager.IMPORTANCE_LOW)
+            .apply { description = getString(R.string.notif_channel_waiting_desc) }
         (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(ch)
     }
 
@@ -110,11 +110,12 @@ class WaitingService : Service() {
                 Intent(context, WaitingService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE)
             return NotificationCompat.Builder(context, CHANNEL_ID)
                 .setContentTitle("Telescope")
-                .setContentText(if (streaming) CameraStreamService.streamingText(cameraOff) else "Waiting for your computer")
+                .setContentText(if (streaming) CameraStreamService.streamingText(context, cameraOff)
+                    else context.getString(R.string.notif_waiting))
                 .setSmallIcon(R.drawable.ic_notification)
                 .setColor(ContextCompat.getColor(context, R.color.colorPrimary))
                 .setContentIntent(open)
-                .addAction(0, "Stop waiting", stop)
+                .addAction(0, context.getString(R.string.notif_stop_waiting), stop)
                 .setOngoing(true)
                 .build()
         }

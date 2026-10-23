@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
@@ -244,8 +245,8 @@ class CameraStreamService : Service() {
         private const val BUSY_STUCK_MS = 20_000L
         private const val WAKE_LOCK_MS = 12 * 60 * 60 * 1000L
 
-        fun streamingText(cameraOff: Boolean): String =
-            if (cameraOff) "Microphone is streaming, camera off" else "Camera is streaming"
+        fun streamingText(context: Context, cameraOff: Boolean): String =
+            context.getString(if (cameraOff) R.string.notif_mic_streaming else R.string.notif_camera_streaming)
         private val BUSY_STATES = setOf(
             StreamState.StartingServer, StreamState.OpeningCamera, StreamState.ConfiguringSession, StreamState.Recovering)
 
@@ -1081,8 +1082,8 @@ class CameraStreamService : Service() {
     }
 
     private fun createNotificationChannel() {
-        val ch = NotificationChannel(CHANNEL_ID, "Streaming", NotificationManager.IMPORTANCE_LOW)
-            .apply { description = "Shown while the camera is streaming to your computer" }
+        val ch = NotificationChannel(CHANNEL_ID, getString(R.string.notif_channel_streaming), NotificationManager.IMPORTANCE_LOW)
+            .apply { description = getString(R.string.notif_channel_streaming_desc) }
         (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(ch)
     }
 
@@ -1090,7 +1091,7 @@ class CameraStreamService : Service() {
         val pi = PendingIntent.getActivity(this, 0,
             Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Telescope").setContentText(streamingText(cameraOff))
+            .setContentTitle("Telescope").setContentText(streamingText(this, cameraOff))
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(ContextCompat.getColor(this, R.color.colorPrimary))
             .setColorized(false)

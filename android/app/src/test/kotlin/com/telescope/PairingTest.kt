@@ -174,7 +174,7 @@ class PairingTest {
         val message = pairingFailureMessage(listOf(
             PairingAttemptFailure("192.168.1.42", PairingRouteKind.WIFI, "timed out"),
             PairingAttemptFailure("100.90.12.34", PairingRouteKind.DEFAULT, "unreachable"),
-        ))
+        ), EnglishStrings)
 
         assertEquals(
             """
@@ -194,6 +194,7 @@ class PairingTest {
     fun `failure message says how many addresses were abandoned`() {
         val message = pairingFailureMessage(
             listOf(PairingAttemptFailure("192.168.1.42", PairingRouteKind.WIFI, "timed out")),
+            EnglishStrings,
             untried = 3,
         )
 
@@ -222,18 +223,18 @@ class PairingTest {
 
     @Test
     fun `failure message still explains itself with nothing to list`() {
-        val message = pairingFailureMessage(emptyList())
+        val message = pairingFailureMessage(emptyList(), EnglishStrings)
         assertFalse(message.contains("Tried:"))
         assertTrue(message.contains("plug the phone in over USB"))
     }
 
     @Test
     fun `network errors are described in plain language`() {
-        assertEquals("timed out", describeNetworkError(SocketTimeoutException("connect timed out")))
-        assertEquals("no route to host", describeNetworkError(NoRouteToHostException("No route to host")))
-        assertEquals("connection refused", describeNetworkError(ConnectException("Connection refused")))
-        assertEquals("unreachable", describeNetworkError(ConnectException("Network is unreachable")))
-        assertEquals("IllegalStateException", describeNetworkError(IllegalStateException()))
+        assertEquals("timed out", describeNetworkError(SocketTimeoutException("connect timed out"), EnglishStrings))
+        assertEquals("no route to host", describeNetworkError(NoRouteToHostException("No route to host"), EnglishStrings))
+        assertEquals("connection refused", describeNetworkError(ConnectException("Connection refused"), EnglishStrings))
+        assertEquals("unreachable", describeNetworkError(ConnectException("Network is unreachable"), EnglishStrings))
+        assertEquals("IllegalStateException", describeNetworkError(IllegalStateException(), EnglishStrings))
     }
 
     @Test

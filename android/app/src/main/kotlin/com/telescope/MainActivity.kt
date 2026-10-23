@@ -150,7 +150,7 @@ class MainActivity : AppCompatActivity() {
         btnPreview.setOnClickListener { startActivity(Intent(this, PreviewActivity::class.java)) }
         btnScanPair.setOnClickListener {
             val opts = ScanOptions().apply {
-                setPrompt("Point the camera at the pairing code on your computer")
+                setPrompt(getString(R.string.scan_prompt))
                 setBeepEnabled(false)
                 setOrientationLocked(false)
                 setBarcodeImageEnabled(false)
@@ -161,7 +161,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.btnReportBug).setOnClickListener { reportBug() }
         findViewById<View>(R.id.btnHelp).setOnClickListener { openUrl(HELP_URL) }
         findViewById<TextView>(R.id.tvMadeBy).apply {
-            text = HtmlCompat.fromHtml("Made by <a href=\"$AUTHOR_URL\">LunarKittyy</a>", HtmlCompat.FROM_HTML_MODE_LEGACY)
+            text = HtmlCompat.fromHtml(getString(R.string.made_by, AUTHOR_URL), HtmlCompat.FROM_HTML_MODE_LEGACY)
             movementMethod = LinkMovementMethod.getInstance()
         }
 
@@ -259,16 +259,13 @@ class MainActivity : AppCompatActivity() {
             is PairingParse.Invalid ->
                 Toast.makeText(
                     this,
-                    if (isDownloadLink(data))
-                        "That code downloads the app. Scan the one under Add phone on the computer."
-                    else "That's not a Telescope pairing code.",
+                    if (isDownloadLink(data)) R.string.scan_download_link else R.string.scan_not_pairing_code,
                     Toast.LENGTH_LONG,
                 ).show()
             is PairingParse.UnsupportedVersion ->
                 Toast.makeText(
                     this,
-                    "This code is from a different Telescope version. Update the app on your " +
-                        "computer and this app to the same version, then try again.",
+                    R.string.scan_other_version,
                     Toast.LENGTH_LONG,
                 ).show()
             is PairingParse.Ok -> startPairing(parsed.offer)
@@ -309,7 +306,7 @@ class MainActivity : AppCompatActivity() {
                 // Servers read the list per request, so a running stream doesn't need restarting.
                 PairedComputers.add(this, PairedComputer(
                     id = offer.computerId,
-                    name = offer.computerName.ifBlank { "Computer" },
+                    name = offer.computerName.ifBlank { getString(R.string.default_computer_name) },
                     token = offer.token,
                     pairedAtMs = System.currentTimeMillis(),
                 ))
@@ -317,13 +314,15 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread {
                 if (success) {
                     Toast.makeText(
-                        this, "Paired with ${offer.computerName.ifBlank { "your computer" }}.",
+                        this,
+                        if (offer.computerName.isBlank()) getString(R.string.paired_with_your_computer)
+                        else getString(R.string.paired_with, offer.computerName),
                         Toast.LENGTH_LONG,
                     ).show()
                 } else {
                     // Show in dialog for readability (too long for toast).
                     if (!isFinishing && !isDestroyed) {
-                        showPairingFailure(pairingFailureMessage(failures, untried))
+                        showPairingFailure(pairingFailureMessage(failures, strings(), untried))
                     }
                 }
             }
@@ -363,7 +362,7 @@ class MainActivity : AppCompatActivity() {
             conn.outputStream.use { it.write(body.toByteArray()) }
             if (conn.responseCode == 200) null else "HTTP ${conn.responseCode}"
         } catch (e: Exception) {
-            describeNetworkError(e)
+            describeNetworkError(e, strings())
         } finally {
             try { conn?.disconnect() } catch (_: Exception) {}
         }
@@ -371,9 +370,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun showPairingFailure(message: String) {
         MaterialAlertDialogBuilder(this)
-            .setTitle("Pairing failed")
+            .setTitle(R.string.pairing_failed)
             .setMessage(message)
-            .setPositiveButton("OK", null)
+            .setPositiveButton(R.string.ok, null)
             .show()
     }
 
@@ -396,13 +395,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun renderUpdate() {
         val state = Updater.state
-        val suffix = when (state) {
-            is Updater.State.UpToDate -> " · up to date"
-            is Updater.State.Checking -> " · checking…"
-            is Updater.State.CheckFailed -> " · couldn't check for updates"
-            else -> ""
+        val versionLine = when (state) {
+            is Updater.State.UpToDate -> R.string.version_up_to_date
+            is Updater.State.Checking -> R.string.version_checking
+            is Updater.State.CheckFailed -> R.string.version_check_failed
+            else -> R.string.version
         }
-        tvAppVersion.text = "Telescope ${BuildConfig.VERSION_NAME}$suffix"
+        tvAppVersion.text = getString(versionLine, BuildConfig.VERSION_NAME)
         btnCheckUpdates.isEnabled = state !is Updater.State.Checking &&
             state !is Updater.State.Downloading && state !is Updater.State.Installing
         val streaming = service?.isStreaming == true || isBusy()
@@ -419,26 +418,26 @@ class MainActivity : AppCompatActivity() {
         }
         cardUpdate.visibility = View.VISIBLE
         val version = "Telescope ${UpdateLogic.displayVersion(manifest)}"
-        tvUpdateTitle.text = if (state is Updater.State.Failed) "Update didn't finish" else "Update available"
+        tvUpdateTitle.setText(if (state is Updater.State.Failed) R.string.update_failed_title else R.string.update_available)
         when (state) {
             is Updater.State.Downloading -> {
-                tvUpdateText.text = "$version · downloading ${state.percent}%"
-                btnUpdate.text = "Updating…"
+                tvUpdateText.text = getString(R.string.update_downloading, version, state.percent)
+                btnUpdate.setText(R.string.updating)
                 btnUpdate.isEnabled = false
             }
             is Updater.State.Installing -> {
-                tvUpdateText.text = "$version · installing"
-                btnUpdate.text = "Updating…"
+                tvUpdateText.text = getString(R.string.update_installing, version)
+                btnUpdate.setText(R.string.updating)
                 btnUpdate.isEnabled = false
             }
             is Updater.State.Failed -> {
                 tvUpdateText.text = state.message
-                btnUpdate.text = "Try again"
+                btnUpdate.setText(R.string.try_again)
                 btnUpdate.isEnabled = !streaming
             }
             else -> {
-                tvUpdateText.text = if (streaming) "$version. Stop streaming to update." else version
-                btnUpdate.text = "Update"
+                tvUpdateText.text = if (streaming) getString(R.string.update_stop_streaming_first, version) else version
+                btnUpdate.setText(R.string.update)
                 btnUpdate.isEnabled = !streaming
             }
         }
@@ -457,10 +456,10 @@ class MainActivity : AppCompatActivity() {
             // Android asks once per app; after that, each update is a single confirm.
             pendingUpdate = manifest
             MaterialAlertDialogBuilder(this)
-                .setTitle("Allow Telescope to install updates")
-                .setMessage("In the next screen, turn on Allow from this source, then come back.")
-                .setNegativeButton("Cancel") { _, _ -> pendingUpdate = null }
-                .setPositiveButton("Open settings") { _, _ ->
+                .setTitle(R.string.allow_installs_title)
+                .setMessage(R.string.allow_installs_message)
+                .setNegativeButton(R.string.cancel) { _, _ -> pendingUpdate = null }
+                .setPositiveButton(R.string.open_settings) { _, _ ->
                     startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                         Uri.parse("package:$packageName")))
                 }
@@ -475,16 +474,16 @@ class MainActivity : AppCompatActivity() {
         val computers = PairedComputers.list(this).computers
         layoutComputers.removeAllViews()
         if (computers.isEmpty()) {
-            tvPairingTitle.text = "Pair with your computer"
+            tvPairingTitle.setText(R.string.pair_title)
             tvPairingHint.visibility = View.VISIBLE
-            btnScanPair.text = "Scan pairing code"
+            btnScanPair.setText(R.string.scan_pairing_code)
             styleScanButton(primary = true)
             return
         }
-        tvPairingTitle.text = if (computers.size == 1) "Paired computer" else "Paired computers"
+        tvPairingTitle.text = resources.getQuantityString(R.plurals.paired_computers_title, computers.size)
         tvPairingHint.visibility = View.GONE
         computers.sortedBy { it.pairedAtMs }.forEach { layoutComputers.addView(buildComputerRow(it)) }
-        btnScanPair.text = "Pair another computer"
+        btnScanPair.setText(R.string.pair_another)
         styleScanButton(primary = false)
     }
 
@@ -515,14 +514,14 @@ class MainActivity : AppCompatActivity() {
         textBlock.addView(TextView(this).apply {
             val date = java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM)
                 .format(java.util.Date(computer.pairedAtMs))
-            text = "Paired $date"
+            text = getString(R.string.paired_on, date)
             setTextAppearance(R.style.TextAppearance_Telescope_Hint)
         })
         row.addView(textBlock)
         row.addView(com.google.android.material.button.MaterialButton(
             this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle,
         ).apply {
-            text = "Remove"
+            setText(R.string.remove)
             setOnClickListener { confirmRemoveComputer(computer) }
             // Start, not left: in Persian or Arabic the button sits on the left, and the gap goes on its right
             layoutParams = LinearLayout.LayoutParams(
@@ -535,10 +534,10 @@ class MainActivity : AppCompatActivity() {
     // Removing a computer revokes only its token; the others keep working.
     private fun confirmRemoveComputer(computer: PairedComputer) {
         MaterialAlertDialogBuilder(this)
-            .setTitle("Remove ${computer.name}?")
-            .setMessage("It won't be able to use this phone's camera until you pair it again.")
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Remove") { _, _ -> PairedComputers.remove(this, computer.id) }
+            .setTitle(getString(R.string.remove_computer_title, computer.name))
+            .setMessage(R.string.remove_computer_message)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.remove) { _, _ -> PairedComputers.remove(this, computer.id) }
             .show()
     }
 
@@ -556,21 +555,22 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupSteps(): List<SetupStep> {
         val steps = mutableListOf(
-            SetupStep(Manifest.permission.CAMERA, "Camera", "To stream from this phone's cameras.", cameraGranted()),
+            SetupStep(Manifest.permission.CAMERA, getString(R.string.setup_camera),
+                getString(R.string.setup_camera_reason), cameraGranted()),
         )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            steps += SetupStep(Manifest.permission.POST_NOTIFICATIONS, "Notifications",
-                "Shows when the camera is streaming, and stops it from there.",
+            steps += SetupStep(Manifest.permission.POST_NOTIFICATIONS, getString(R.string.setup_notifications),
+                getString(R.string.setup_notifications_reason),
                 ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
                     PackageManager.PERMISSION_GRANTED)
         }
         if (getSharedPreferences(CameraStreamService.PREFS_SETUP, MODE_PRIVATE).getBoolean(CameraStreamService.KEY_MIC_WANTED, false)) {
-            steps += SetupStep(Manifest.permission.RECORD_AUDIO, "Microphone",
-                "For the Telescope microphone on your computer.",
+            steps += SetupStep(Manifest.permission.RECORD_AUDIO, getString(R.string.setup_microphone),
+                getString(R.string.setup_microphone_reason),
                 AudioStreamer.permitted(this))
         }
         val pm = getSystemService(POWER_SERVICE) as PowerManager
-        steps += SetupStep(null, "Battery", "Keeps Android from stopping the stream when the screen is off.",
+        steps += SetupStep(null, getString(R.string.setup_battery), getString(R.string.setup_battery_reason),
             pm.isIgnoringBatteryOptimizations(packageName))
         return steps
     }
@@ -635,7 +635,7 @@ class MainActivity : AppCompatActivity() {
             row.addView(android.widget.ImageView(this).apply {
                 setImageResource(R.drawable.ic_check)
                 imageTintList = ColorStateList.valueOf(resources.getColor(R.color.colorStreamingText, theme))
-                contentDescription = "Allowed"
+                contentDescription = getString(R.string.setup_allowed)
                 layoutParams = LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginStart = dp(12) }
             })
             return row
@@ -653,7 +653,7 @@ class MainActivity : AppCompatActivity() {
             MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle)
         }
         btn.apply {
-            text = if (action == SetupSteps.Action.SETTINGS) "Open settings" else "Allow"
+            setText(if (action == SetupSteps.Action.SETTINGS) R.string.open_settings else R.string.allow)
             setOnClickListener {
                 when {
                     perm == null -> startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
@@ -720,7 +720,7 @@ class MainActivity : AppCompatActivity() {
         if (!bound) rebindToService()
         if (!remoteStartAnnounced && service.startedRemotely && service.isStreaming) {
             remoteStartAnnounced = true
-            Toast.makeText(this, "Streaming started from your computer", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.streaming_started_remotely, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -747,21 +747,21 @@ class MainActivity : AppCompatActivity() {
         val busy = isBusy()
         btnToggle.visibility = if (streaming || busy) View.VISIBLE else View.GONE
         btnToggle.isEnabled = streaming || (busy && service != null)
-        btnToggle.text = if (busy) "Cancel" else "Stop streaming"
+        btnToggle.setText(if (busy) R.string.cancel else R.string.stop_streaming)
         if (streaming) {
             // The camera stays on while the computer reconnects; say so rather than claim it's getting video.
             val viewed = service?.hasViewer == true
             val taken = service?.cameraTaken == true
-            tvStatus.text = when {
-                taken -> "● Another app is using the camera. Streaming goes on when it's free."
-                !viewed -> "● Waiting for the computer"
-                service?.cameraOff == true -> "● Streaming the mic, camera off"
-                else -> "● Streaming"
-            }
+            tvStatus.setText(when {
+                taken -> R.string.status_camera_taken
+                !viewed -> R.string.status_waiting_for_computer
+                service?.cameraOff == true -> R.string.status_mic_only
+                else -> R.string.status_streaming
+            })
             tvStatus.setTextColor(resources.getColor(
                 if (viewed && !taken) R.color.colorStreamingText else R.color.colorWarn, theme))
         } else {
-            tvStatus.text = if (busy) "○ Starting…" else "○ Not streaming"
+            tvStatus.setText(if (busy) R.string.status_starting else R.string.status_not_streaming)
             tvStatus.setTextColor(resources.getColor(R.color.colorOnSurfaceDim, theme))
         }
         if (::cardUpdate.isInitialized && cardUpdate.visibility == View.VISIBLE) renderUpdate()
@@ -775,7 +775,7 @@ class MainActivity : AppCompatActivity() {
         val report = RecentRuns.report(live, RecentRuns.load(this))
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(ClipData.newPlainText("Telescope diagnostics", report))
-        Toast.makeText(this, "Diagnostics copied to clipboard", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, R.string.diagnostics_copied, Toast.LENGTH_SHORT).show()
     }
 
     private fun reportBug() {
@@ -785,7 +785,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun openUrl(url: String) {
         runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-            .onFailure { Toast.makeText(this, "No browser to open $url", Toast.LENGTH_LONG).show() }
+            .onFailure { Toast.makeText(this, getString(R.string.no_browser, url), Toast.LENGTH_LONG).show() }
     }
 
     // All IPv4 addresses with Wi-Fi ones first (reachable through VPN for desktop streaming)

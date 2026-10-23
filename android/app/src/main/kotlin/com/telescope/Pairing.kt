@@ -142,43 +142,41 @@ fun attemptTimeoutMs(elapsedMs: Long, budgetMs: Long = PAIR_TOTAL_BUDGET_MS): In
 }
 
 /** Short, non-technical cause for the "Tried:" list in a failure report. */
-fun describeNetworkError(error: Throwable): String {
+fun describeNetworkError(error: Throwable, strings: Strings): String {
     val message = error.message.orEmpty().lowercase()
     return when {
-        error is SocketTimeoutException -> "timed out"
-        error is NoRouteToHostException -> "no route to host"
-        message.contains("refused") -> "connection refused"
-        message.contains("unreachable") -> "unreachable"
-        error is UnknownHostException -> "unreachable"
+        error is SocketTimeoutException -> strings.get(R.string.network_timed_out)
+        error is NoRouteToHostException -> strings.get(R.string.network_no_route)
+        message.contains("refused") -> strings.get(R.string.network_refused)
+        message.contains("unreachable") -> strings.get(R.string.network_unreachable)
+        error is UnknownHostException -> strings.get(R.string.network_unreachable)
         message.isNotBlank() -> message
         else -> error.javaClass.simpleName
     }
 }
 
-private fun PairingRouteKind.label(): String = when (this) {
-    PairingRouteKind.WIFI -> "Wi-Fi"
-    PairingRouteKind.DEFAULT -> "the default network"
+private fun PairingRouteKind.label(strings: Strings): String = when (this) {
+    PairingRouteKind.WIFI -> strings.get(R.string.pairing_via_wifi)
+    PairingRouteKind.DEFAULT -> strings.get(R.string.pairing_via_default)
 }
 
 // Failure message listing tried candidates and suggesting VPN/guest Wi-Fi/USB options
-fun pairingFailureMessage(failures: List<PairingAttemptFailure>, untried: Int = 0): String {
-    val tried = failures.joinToString("\n") { "• ${it.ip} over ${it.via.label()}: ${it.problem}" }
+fun pairingFailureMessage(failures: List<PairingAttemptFailure>, strings: Strings, untried: Int = 0): String {
+    val tried = failures.joinToString("\n") {
+        strings.get(R.string.pairing_attempt, it.ip, it.via.label(strings), it.problem)
+    }
     return buildString {
-        append("Couldn't reach your computer.\n\n")
+        append(strings.get(R.string.pairing_unreachable)).append("\n\n")
         if (failures.isEmpty()) {
-            append("The code has no address this phone could try.\n\n")
+            append(strings.get(R.string.pairing_no_address)).append("\n\n")
         } else {
-            append("Tried:\n").append(tried).append("\n")
+            append(strings.get(R.string.pairing_tried)).append("\n").append(tried).append("\n")
             if (untried > 0) {
-                append("• $untried more not tried - gave up after ")
-                append("${PAIR_TOTAL_BUDGET_MS / 1000} seconds\n")
+                append(strings.plural(R.plurals.pairing_untried, untried, untried, PAIR_TOTAL_BUDGET_MS / 1000))
+                append("\n")
             }
             append("\n")
         }
-        append(
-            "Check that the phone and computer are on the same Wi-Fi. If a VPN is on, it may " +
-                "be blocking local network access: turn on its LAN access option or pause it. " +
-                "Or plug the phone in over USB, and it pairs without scanning."
-        )
+        append(strings.get(R.string.pairing_advice))
     }
 }
