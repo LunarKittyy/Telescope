@@ -95,22 +95,24 @@ object Updater {
     // Downloads, verifies and installs. The caller has already made sure installs are allowed.
     fun downloadAndInstall(context: Context, manifest: UpdateManifest) {
         val app = context.applicationContext
-        val asset = UpdateLogic.apkAsset(manifest) ?: return
+        if (UpdateLogic.apkAsset(manifest) == null) return
         set(State.Downloading(manifest, 0))
         Thread {
             val apk = File(File(app.cacheDir, "updates").apply { mkdirs() }, "Telescope.apk")
-            val problem = http.download(asset, apk, app.strings()) { pct -> set(State.Downloading(manifest, pct)) }
-                ?: verifyApk(app, apk, manifest)
+            val (selected, downloadProblem) = http.downloadUpdate(manifest, apk, app.strings(),
+                fetchLatest = { http.fetchManifest(UpdateLogic.manifestUrl(manifest.channel)) },
+                progress = { current, pct -> set(State.Downloading(current, pct)) })
+            val problem = downloadProblem ?: verifyApk(app, apk, selected)
             if (problem != null) {
                 apk.delete()
-                set(State.Failed(problem, manifest))
+                set(State.Failed(problem, selected))
                 return@Thread
             }
-            set(State.Installing(manifest))
+            set(State.Installing(selected))
             try {
                 install(app, apk)
             } catch (e: Exception) {
-                set(State.Failed(app.getString(R.string.update_error_install_start), manifest))
+                set(State.Failed(app.getString(R.string.update_error_install_start), selected))
             }
         }.start()
     }

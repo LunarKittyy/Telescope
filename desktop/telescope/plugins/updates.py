@@ -393,22 +393,23 @@ class UpdatesPlugin(TelescopePlugin):
 
     def _spawn_install(self, asset, via_setup: bool = False):
         signals, cancel, host = self._signals, self._cancel, self._host
-        build = self.available.build if self.available else 0
-        self._install_build = build
+        manifest = self.available
+        self._install_build = manifest.build
 
         def work():
             folder = None
             try:
                 folder = Path(tempfile.mkdtemp(prefix="telescope-update-"))  # our own, not a shared /tmp path
-                archive = updates.download(
-                    asset, folder, progress=lambda d, t: signals.progress.emit(d, t), cancelled=cancel.is_set)
+                selected, archive = updates.download_update(
+                    manifest, asset, folder, progress=lambda d, t: signals.progress.emit(d, t), cancelled=cancel.is_set)
+                self._install_build = selected.build
                 signals.progress.emit(-1, -1)  # downloaded: now installing
                 if not host.is_streaming():  # a stream started meanwhile may run over USB; platform-tools can wait
                     stop_adb_server()  # a running adb.exe locks its folder, which a move deletes
                 if via_setup:
                     result, error = updates.install_with_setup(archive), ""
                 else:
-                    result, error = updates.install(archive, build=build), ""
+                    result, error = updates.install(archive, build=selected.build), ""
             except updates.UpdateError as exc:
                 result, error = None, str(exc)
             except Exception:
