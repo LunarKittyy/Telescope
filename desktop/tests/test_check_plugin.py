@@ -81,3 +81,21 @@ def test_checker_destroys_its_window_before_releasing_qt(qapp, monkeypatch, tmp_
     assert shutdown == [True]
     assert sip.isdeleted(win) and sip.isdeleted(child)
     assert not sip.isdeleted(qapp)
+
+
+def test_checker_destroys_its_window_even_if_shutting_down_fails(qapp, monkeypatch, tmp_path):
+    from PyQt6 import sip
+    from PyQt6.QtWidgets import QWidget
+    from scripts import check_plugin
+    from telescope import app
+
+    class Window(QWidget):
+        def _shut_down(self):
+            raise RuntimeError("shutdown failed")
+
+    win = Window()
+    monkeypatch.setattr(app, "TelescopeWindow", lambda: win)
+    monkeypatch.setattr(check_plugin, "_check_window", lambda *_args: None)
+    with pytest.raises(RuntimeError, match="shutdown failed"):
+        check_plugin.check_running(tmp_path, "broken", check_plugin._Logged("broken", tmp_path))
+    assert sip.isdeleted(win)
