@@ -41,7 +41,7 @@ Optional and it shares the vision download. **Blur** blurs everything behind you
 
 ## The vision download
 
-Auto framing and Background use MediaPipe to find people. It and its two models don't come with Telescope since most people won't use them. The first time you switch either plugin on Telescope asks and downloads them from its GitHub releases (about 47 MB on Linux and 28 MB on Windows). Both plugins share the download and **Remove download** on the Optional card deletes it again.
+Auto framing and Background use MediaPipe to find people. MediaPipe and its two models don't come with Telescope since most people won't use them. The first time you switch either plugin on Telescope asks and downloads them from its GitHub releases (about 47 MB on Linux and 28 MB on Windows). Both plugins share the download and **Remove download** on the Optional card deletes it again.
 
 It only works on 64-bit Intel and AMD computers for now.
 
@@ -89,7 +89,7 @@ The phone's mic can be a microphone on your computer while you stream.
 
 ## Browser camera
 
-Stream from anything with a browser (an iPhone, a tablet, another laptop) with nothing to install on it. Pick **Browser camera** in the phone picker, scan the code and tap **Start** on the page. It uses WebRTC like browser video calls do, so any up to date browser works. Nothing goes through a server outside your network.
+Stream from anything with a browser (an iPhone, a tablet, another laptop) with nothing to install on it. Pick **Browser camera** in the phone picker, scan the code and tap **Start** on the page. It uses WebRTC like browser video calls do, so any up-to-date browser works. Nothing goes through a server outside your network.
 
 - **First visit warning:** the browser says the connection isn't private because Telescope makes its own certificate. It's still encrypted. On iPhone tap **Show Details** then **visit this website**. In Chrome it's **Advanced** then **Proceed**
 - **Keep the page open with the screen on.** Phones pause the camera when you switch apps or lock and it picks up again when you come back
@@ -113,7 +113,7 @@ Click the **+** next to Stop while streaming to add another phone (or Browser ca
 - A phone gets the same virtual camera slot as last time if it's free, to lower the need for redoing OBS scenes
 - Only one stream has the mic at a time (the first to start). To move it, click another tile and turn on **Phone mic**
 - With more than one stream mic only isn't available, the canvas can't be resized and Automatic streaming won't stop anything until all of them have stopped
-- Extra cameras are always the size set under Setup (1920x1080 on Auto). Other shapes get black bars
+- Extra cameras are always the size set in **Canvas size** under Video in Settings (1920x1080 on Auto). Other shapes get black bars
 
 ## Monitoring
 

@@ -7,14 +7,14 @@
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-support-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/lunarkittyy)
 
-Telescope turns your Android phone into a webcam for your Linux or Windows computer, and lets you use any of its lenses like telephoto or ultra-wide.
+Telescope turns your Android phone into a webcam for your Linux or Windows computer and lets you use any of its lenses like telephoto or ultra-wide.
 
 <a href="https://github.com/LunarKittyy/Telescope/releases/latest/download/TelescopeSetup.exe"><img src="docs/assets/download-windows.svg" alt="Download for Windows" height="56"></a>
 <a href="https://github.com/LunarKittyy/Telescope/releases/latest/download/Telescope-linux.tar.gz"><img src="docs/assets/download-linux.svg" alt="Download for Linux" height="56"></a>
 <a href="https://github.com/LunarKittyy/Telescope/releases/latest/download/Telescope.apk"><img src="docs/assets/download-android.svg" alt="Download for Android" height="56"></a>
 
-- Shows up as a normal webcam in Discord, Zoom, OBS and anything else, and the phone's mic can be your [microphone](docs/features.md#microphone) too
-- [Pick the lens](docs/features.md#camera-control), and set exposure, focus and white balance remotely from the computer
+- Shows up as a normal webcam in Discord, Zoom, OBS and anything else. The phone's mic can be your [microphone](docs/features.md#microphone) too
+- [Pick the lens](docs/features.md#camera-control) and set exposure, focus and white balance remotely from the computer
 - Connects over [USB or Wi-Fi](docs/features.md#phones-pairing-and-connection), transfers data [encrypted](docs/features.md#privacy)
 - Can [start streaming on its own](docs/features.md#system-integration) when an app opens the camera and stop again once nothing's using it
 - A built-in [updater](docs/features.md#updates) lets you install new versions in one click

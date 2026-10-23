@@ -34,6 +34,6 @@ Updating a plugin right now means removing it with **Remove** and installing the
 
 `plugin.json` could also get a `repo` link that the Plugins dialog shows next to the author. It's only a shorter way to look at the source and download a new version. Nothing gets pulled in the background. For plugins that publish their builds as GitHub Releases there could be an optional update check on top of that. It would only tell you a new version is out so you know to go get it.
 
-If someone really wants updates installed and switched on without asking, that could be a switch in Advanced. It should be a big red one surrounded by warnings, since it lets whoever controls the plugin's repo run new code on your computer every time they publish a release.
+If someone really wants updates installed and switched on without asking, that could be a switch in the Plugins tab. It should be a big red one surrounded by warnings, since it lets whoever controls the plugin's repo run new code on your computer every time they publish a release.
 
 Medium. Most of it is in the Plugins dialog and the install code. The update check has to stay quiet when GitHub is unreachable or rate limiting it.

@@ -24,7 +24,7 @@ To try it, set up the desktop app from source (see [Building and CI](building.md
 python scripts/dev_desktop.py --plugin examples/plugins/black_and_white
 ```
 
-That starts a dev copy of Telescope with its own settings, which keeps your normal Telescope safe from whatever you try. The plugin is loaded straight from its folder and is always on and the Black and white card shows up in the right column.
+That starts a dev copy of Telescope with its own settings, which keeps your normal Telescope safe from whatever you try. The plugin is loaded straight from its folder and always switched on. Its Black and white card shows up in the right column.
 
 For your own plugin copy the folder somewhere, rename it and change `name` in both files to match. Then point `--plugin` at your copy. You can give `--plugin` more than once to load several plugins.
 
@@ -155,7 +155,7 @@ These keep plugins from breaking each other or Telescope. The [architecture note
 - **Keep `process_frame()` quick.** It runs for every frame on a decoding thread and the stream falls behind if it takes too long. A frame it raises on goes through unchanged. If it keeps failing Telescope skips it until the next stream.
 - **Don't write files into your plugin's folder.** Any new or changed file there counts as a change and your plugin would be switched off at the next start. Keep settings in `get_config()` and put anything else outside the plugins folder.
 - **Ship source code.** A plugin with compiled files in it (`.pyc`, `.so`, `.pyd`) isn't loaded. Telescope also clears `__pycache__` before loading one to make sure what runs is the code people can read.
-- **Use what Telescope comes with.** That's PyQt6, NumPy, OpenCV and Python's standard library and Telescope can't install anything else for your plugin. The Windows app only carries the parts of the standard library that Telescope itself uses, so try your plugin there too. If an import is missing there the Plugins tab shows it as the reason the plugin didn't start. A plugin with more than one file imports its own modules relatively (`from . import helpers`).
+- **Use what Telescope comes with.** That's PyQt6, NumPy, OpenCV and Python's standard library. Telescope can't install anything else for your plugin. The Windows app only carries the parts of the standard library that Telescope itself uses, so try your plugin there too. If an import is missing there the Plugins tab shows it as the reason the plugin didn't start. A plugin with more than one file imports its own modules relatively (`from . import helpers`).
 
 When something in your plugin raises an exception Telescope logs it and carries on and the other plugins still hear about everything. In the dev copy you see it in the terminal. A normal install writes it to `telescope.log` in Telescope's temp folder (`/tmp/telescope-<user>` on Linux, `%TEMP%\Telescope` on Windows).
 
