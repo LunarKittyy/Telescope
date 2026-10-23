@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Callable, Optional, Protocol
 import numpy as np
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtWidgets import QWidget
+from telescope.i18n import N_, tr
 
 if TYPE_CHECKING:
     from telescope.view import View
@@ -14,14 +15,14 @@ UNCHANGED = object()
 """Sentinel for update_stream_output; UNCHANGED keeps current, None is a real value."""
 
 SETTINGS_TABS = (
-    ("general", "General"),
-    ("streaming", "Streaming"),
-    ("video", "Video"),
-    ("audio", "Audio"),
-    ("devices", "Virtual camera & phone"),
-    ("shortcuts", "Keyboard shortcuts"),
-    ("plugins", "Plugins"),
-    ("about", "Updates & About"),
+    ("general", N_("General")),
+    ("streaming", N_("Streaming")),
+    ("video", N_("Video")),
+    ("audio", N_("Audio")),
+    ("devices", N_("Virtual camera & phone")),
+    ("shortcuts", N_("Keyboard shortcuts")),
+    ("plugins", N_("Plugins")),
+    ("about", N_("Updates & About")),
 )
 """The tabs of the settings window, in order: (id, name). A SettingsSection names one by id; a tab nobody puts anything
 in isn't shown. An id that isn't here makes a tab of its own, between Keyboard shortcuts and Plugins."""
@@ -387,7 +388,8 @@ class TelescopePlugin:
     """Its id: where its settings are saved, and what other plugins and the Plugins tab know it by."""
 
     title: str = ""
-    """What the Plugins tab calls it ("Camera"); a plugin someone added takes it from its plugin.json."""
+    """What the Plugins tab calls it ("Camera"); a plugin someone added takes it from its plugin.json.
+    Built-in plugins mark it, about and when_off with N_() and the window shows them through tr()."""
     about: str = ""
     """One plain sentence for the Plugins tab: what it does."""
     when_off: str = ""
@@ -442,9 +444,9 @@ class TelescopePlugin:
 
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, self.title or self.name, "plug")
+        add_card_header(lay, tr(self.title or self.name), "plug")
         button = QToolButton(card)
-        button.setText("Open settings")
+        button.setText(tr("Open settings"))
         button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         menu = QMenu(button)
 

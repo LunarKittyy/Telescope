@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Optional
 
 from telescope import dev_profile
+from telescope.i18n import tr
 
 IS_LINUX   = platform.system() == "Linux"
 IS_WINDOWS = platform.system() == "Windows"
@@ -213,7 +214,8 @@ def adb_install(serial: str, apk_path, timeout: int = 120) -> tuple:
         return True, ""
     if "INSTALL_FAILED_UPDATE_INCOMPATIBLE" in output:
         # The installed app was signed with another key (the debug builds from before release signing).
-        return False, "The Telescope app on the phone was signed differently. Uninstall it on the phone, then try again."
+        return False, tr("The Telescope app on the phone was signed differently. Uninstall it on the phone, then try "
+                         "again.")
     if "INSTALL_FAILED_VERSION_DOWNGRADE" in output:
-        return False, "The phone already has a newer Telescope app."
-    return False, output.splitlines()[-1] if output else "adb install failed"
+        return False, tr("The phone already has a newer Telescope app.")
+    return False, output.splitlines()[-1] if output else tr("adb install failed")

@@ -15,6 +15,7 @@ import sys
 import sysconfig
 from pathlib import Path
 from typing import Callable, Optional
+from telescope.i18n import tr
 
 MIN_VERSION = (14, 0)  # PyAV's hardware decoding came in 14
 BUILD_CYTHON = "3.3.0"  # the Cython PyAV 18.1.0 last built with here; a newer one can stop an older PyAV compiling
@@ -74,8 +75,9 @@ def build_version_supported(version: str) -> bool:
     return bool(version) and _version_tuple(version) >= MIN_VERSION
 
 
-UPGRADE_NEEDED = (f"Upgrade PyAV in Telescope's Python environment to {MIN_VERSION[0]} or newer, "
-                  "then restart Telescope.")
+def upgrade_needed() -> str:
+    return tr("Upgrade PyAV in Telescope's Python environment to {version} or newer, then restart Telescope.",
+              version=MIN_VERSION[0])
 
 
 def staged(folder: Path) -> Path:
@@ -158,12 +160,15 @@ def activate() -> Optional[dict]:
     if pick["kind"] == BUILD:
         _swap_in_staged(folder)
     if pick["kind"] == BUILD and folder.name != standard_version():
-        problem = f"built for PyAV {folder.name}, and this version of Telescope uses {standard_version()}"
+        problem = tr("built for PyAV {built}, and this version of Telescope uses {standard}",
+                     built=folder.name, standard=standard_version())
         return None
     ok, version, why = probe(folder)
     if not ok:
-        problem = {"old": f"PyAV {version} is older than {'.'.join(map(str, MIN_VERSION))}",
-                   "novaapi": f"PyAV {version} has no VA-API", "noopen": "VA-API didn't open"}.get(why, "it didn't load")
+        oldest = ".".join(map(str, MIN_VERSION))
+        problem = {"old": tr("PyAV {version} is older than {oldest}", version=version, oldest=oldest),
+                   "novaapi": tr("PyAV {version} has no VA-API", version=version),
+                   "noopen": tr("VA-API didn't open")}.get(why) or tr("it didn't load")
         return None
     sys.path.insert(0, str(folder))
     active = {"kind": pick["kind"], "version": version, "path": str(folder)}
@@ -218,7 +223,7 @@ def missing_tools() -> list:
     """What a build needs that isn't here, in words."""
     missing = []
     if not (shutil.which("cc") or shutil.which("gcc")):
-        missing.append("a C compiler")
+        missing.append(tr("a C compiler"))
     if not shutil.which("pkg-config"):
         missing.append("pkg-config")
     else:
@@ -227,10 +232,10 @@ def missing_tools() -> list:
         except OSError:  # an error here would end Telescope, as it runs inside a Qt slot
             found = False
         if not found:
-            missing.append("FFmpeg's development files")
+            missing.append(tr("FFmpeg's development files"))
     include = sysconfig.get_paths().get("include", "")
     if not (include and Path(include, "Python.h").is_file()):
-        missing.append("Python's development files")
+        missing.append(tr("Python's development files"))
     return missing
 
 
@@ -263,7 +268,7 @@ def install_command() -> str:
 def build(version: str, on_line: Callable[[str], None]) -> tuple:
     """Build PyAV `version` against the system FFmpeg into its own folder. (ok, message); runs for a minute or two."""
     if not build_version_supported(version):
-        return False, UPGRADE_NEEDED
+        return False, upgrade_needed()
     final = root() / version
     work = root() / f".building-{version}"
     shutil.rmtree(work, ignore_errors=True)
@@ -291,7 +296,8 @@ def build(version: str, on_line: Callable[[str], None]) -> tuple:
     ok, _, why = probe(work)
     if not ok:
         shutil.rmtree(work, ignore_errors=True)
-        return False, "it built, but VA-API didn't open with it" if why in ("novaapi", "noopen") else "it built, but didn't load"
+        return False, (tr("it built, but VA-API didn't open with it") if why in ("novaapi", "noopen")
+                       else tr("it built, but didn't load"))
     if active and Path(active["path"]) == final:
         # This run still imports from final, so swapping it now would mix two builds; activate() swaps it in
         shutil.rmtree(staged(final), ignore_errors=True)

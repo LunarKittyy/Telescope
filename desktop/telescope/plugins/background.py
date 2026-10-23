@@ -14,9 +14,10 @@ from telescope.widgets.common import (
     ElidingLabel, NoScrollSlider, SegmentButton, add_card_header, card_layout, control_row as _row, control_row_widget,
     create_card, dim_until_paired, segmented_row, slider_row, value_label,
 )
+from telescope.i18n import N_, tr
 
-MODES = (("off", "Off"), ("blur", "Blur"), ("picture", "Picture"))
-_PICTURES = "Pictures (*.png *.jpg *.jpeg *.webp *.bmp)"
+MODES = (("off", N_("Off")), ("blur", N_("Blur")), ("picture", N_("Picture")))
+_PICTURES = N_("Pictures (*.png *.jpg *.jpeg *.webp *.bmp)")
 _SMALL = 4  # edges are worked out at a quarter of the size, then scaled back up
 _BLUR_SMALL = 8  # and the blurred background at an eighth, since it's that blurry anyway
 
@@ -104,9 +105,9 @@ class _Settings:
 
 class BackgroundPlugin(TelescopePlugin):
     name = "background"
-    title = "Background"
-    about = "Blurs the background behind you or swaps it for a picture."
-    when_off = "Without it there's no Background card and the background stays as the camera sees it."
+    title = N_("Background")
+    about = N_("Blurs the background behind you or swaps it for a picture.")
+    when_off = N_("Without it there's no Background card and the background stays as the camera sees it.")
     optional = True
     needs_vision = True
     in_presets = True
@@ -124,19 +125,18 @@ class BackgroundPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, "Background", "image", hue="vision")
+        add_card_header(lay, tr("Background"), "image", hue="vision")
         dim_until_paired(card, self._bus)
 
         self._mode_btns = {}
         group = QButtonGroup(card)
         for key, text in MODES:
-            btn = SegmentButton(text)
-            btn.setProperty("shortcutValue", key)
+            btn = SegmentButton(tr(text), value=key)
             btn.clicked.connect(lambda _c=False, k=key: self._set_mode(k))
             group.addButton(btn)
             self._mode_btns[key] = btn
         self._mode_btns["off"].setChecked(True)
-        lay.addLayout(_row("Background", segmented_row(*self._mode_btns.values()), stretch=True))
+        lay.addLayout(_row(tr("Background"), segmented_row(*self._mode_btns.values()), stretch=True))
 
         self._blur_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._blur_slider.setRange(1, 10)
@@ -144,29 +144,29 @@ class BackgroundPlugin(TelescopePlugin):
         self._blur_slider.set_default(6)
         self._blur_lbl = value_label("6")
         self._blur_slider.valueChanged.connect(self._on_blur)
-        self._blur_row = control_row_widget("Blur", slider_row(self._blur_slider, self._blur_lbl), stretch=True)
+        self._blur_row = control_row_widget(tr("Blur"), slider_row(self._blur_slider, self._blur_lbl), stretch=True)
         lay.addWidget(self._blur_row)
 
-        self._pick_btn = QPushButton("Choose…")
-        self._pick_btn.setToolTip("Pick the picture that goes behind you")
+        self._pick_btn = QPushButton(tr("Choose…"))
+        self._pick_btn.setToolTip(tr("Pick the picture that goes behind you"))
         self._pick_btn.clicked.connect(self._choose_picture)
-        self._picture_lbl = ElidingLabel("No picture yet", mode=Qt.TextElideMode.ElideMiddle)  # a long name can't widen the card
+        self._picture_lbl = ElidingLabel(tr("No picture yet"), mode=Qt.TextElideMode.ElideMiddle)  # a long name can't widen the card
         self._picture_lbl.setObjectName("setting_sub")
         pick = QHBoxLayout()
         pick.setSpacing(8)
         pick.addWidget(self._pick_btn)
         pick.addWidget(self._picture_lbl, 1)
-        self._picture_row = control_row_widget("Picture", pick, stretch=True)
+        self._picture_row = control_row_widget(tr("Picture"), pick, stretch=True)
         lay.addWidget(self._picture_row)
 
         self._edges_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._edges_slider.setRange(0, 10)
         self._edges_slider.setValue(3)
         self._edges_slider.set_default(3)
-        self._edges_slider.setToolTip("How soft the edge around you is")
+        self._edges_slider.setToolTip(tr("How soft the edge around you is"))
         self._edges_lbl = value_label("3")
         self._edges_slider.valueChanged.connect(self._on_edges)
-        self._edges_row = control_row_widget("Edges", slider_row(self._edges_slider, self._edges_lbl), stretch=True)
+        self._edges_row = control_row_widget(tr("Edges"), slider_row(self._edges_slider, self._edges_lbl), stretch=True)
         lay.addWidget(self._edges_row)
 
         self._status = VisionStatus(self._host, self._bus)
@@ -176,10 +176,10 @@ class BackgroundPlugin(TelescopePlugin):
         return card
 
     def create_actions(self) -> list:
-        g = "Background"
+        g = tr("Background")
         return [
-            choice_action("background.mode", "Background", g, buttons=list(self._mode_btns.values())),
-            slider_action("background.blur", "Background blur", g, self._blur_slider, step=1.0,
+            choice_action("background.mode", tr("Background"), g, buttons=list(self._mode_btns.values())),
+            slider_action("background.blur", tr("Background blur"), g, self._blur_slider, step=1.0,
                           readout=self._blur_lbl),
         ]
 
@@ -203,7 +203,7 @@ class BackgroundPlugin(TelescopePlugin):
 
     def _choose_picture(self):
         start = str(Path(self._picture_path).parent) if self._picture_path else str(Path.home())
-        path, _filter = QFileDialog.getOpenFileName(self._pick_btn.window(), "Choose a picture", start, _PICTURES)
+        path, _filter = QFileDialog.getOpenFileName(self._pick_btn.window(), tr("Choose a picture"), start, tr(_PICTURES))
         if path:
             self._load_picture(path)
             if not self._picture_problem:
@@ -213,8 +213,8 @@ class BackgroundPlugin(TelescopePlugin):
     def _load_picture(self, path: str):
         self._picture_path = path
         self._picture = read_picture(path) if path else None
-        self._picture_problem = "Telescope can't open that picture." if path and self._picture is None else ""
-        self._picture_lbl.setText(Path(path).name if path else "No picture yet")
+        self._picture_problem = tr("Telescope can't open that picture.") if path and self._picture is None else ""
+        self._picture_lbl.setText(Path(path).name if path else tr("No picture yet"))
         self._picture_lbl.setToolTip(path)
         self._apply()
         self._show_status()
@@ -240,7 +240,7 @@ class BackgroundPlugin(TelescopePlugin):
         if mode == "picture" and self._picture_problem:
             problem = self._picture_problem
         elif mode == "picture" and self._picture is None:
-            problem = "Choose a picture to put behind you."
+            problem = tr("Choose a picture to put behind you.")
         self._status.refresh(mode != "off", problem)
 
     # ── Frames (worker thread) ────────────────────────────────────────────

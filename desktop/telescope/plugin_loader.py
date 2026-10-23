@@ -27,6 +27,7 @@ from typing import Optional
 from telescope import dev_profile
 from telescope.config import config_path, load_config, save_config
 from telescope.plugin import TelescopePlugin
+from telescope.i18n import N_, tr
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +43,8 @@ _TEXT_MAX = 300  # longest title, author or description shown
 _MAX_FILES = 500
 _MAX_BYTES = 20 * 1024 * 1024  # a plugin folder, or what a .zip unpacks to
 _CACHE = "__pycache__"  # Python writes these next to the code when it's imported; cleared before each load
-_SHARED = "Other users on this computer could change it, so it isn't loaded."
-_LINK = "It contains a link to somewhere else, which plugins can't have."
+_SHARED = N_("Other users on this computer could change it, so it isn't loaded.")
+_LINK = N_("It contains a link to somewhere else, which plugins can't have.")
 _PACKAGE = "telescope_ext"  # loaded plugins are telescope_ext.<name>, never on sys.path
 
 
@@ -89,22 +90,22 @@ def _files(folder: Path, skip_hidden: bool = False) -> list:
             names = [n for n in names if not n.startswith(".")]
         for d in dirs:
             if (here / d).is_symlink():
-                raise ValueError(_LINK)
+                raise ValueError(tr(_LINK))
         dirs[:] = sorted(d for d in dirs if d != _CACHE)
         if _unsafe_permissions(here):
-            raise ValueError(_SHARED)
+            raise ValueError(tr(_SHARED))
         for n in sorted(names):
             path = here / n
             if path.is_symlink():
-                raise ValueError(_LINK)
+                raise ValueError(tr(_LINK))
             if n.endswith((".pyc", ".pyo", ".so", ".pyd")):
-                raise ValueError("It contains compiled code (like .pyc files). Plugins have to be source code.")
+                raise ValueError(tr("It contains compiled code (like .pyc files). Plugins have to be source code."))
             if _unsafe_permissions(path):
-                raise ValueError(_SHARED)
+                raise ValueError(tr(_SHARED))
             total += path.stat().st_size
             found.append(path.relative_to(folder))
             if len(found) > _MAX_FILES or total > _MAX_BYTES:
-                raise ValueError("It's too big for a plugin (over 500 files or 20 MB).")
+                raise ValueError(tr("It's too big for a plugin (over 500 files or 20 MB)."))
     return found
 
 
@@ -180,7 +181,7 @@ def _save_state(off: set, added: dict, noticed: Optional[set] = None, on: Option
     if on:
         cfg["plugins"]["on"] = sorted(on)
     if not save_config(cfg):
-        raise OSError("Couldn't save the settings.")
+        raise OSError(tr("Couldn't save the settings."))
 
 
 def _read_enabled() -> dict:
@@ -253,18 +254,18 @@ def _inspect(path: Path, reserved, enabled: dict, shared: bool, dev: bool = Fals
         return plugin
 
     if path.is_symlink():
-        return problem("It's a link to another folder, which plugins can't be.")
+        return problem(tr("It's a link to another folder, which plugins can't be."))
     if not _NAME.match(path.name):
-        return problem("The folder has to have the same name as the plugin, using only lowercase letters, digits and _ "
-                       "(starting with a letter).")
+        return problem(tr("The folder has to have the same name as the plugin, using only lowercase letters, digits and _ "
+                       "(starting with a letter)."))
     try:
         manifest = json.loads((path / MANIFEST).read_text(encoding="utf-8"))
     except OSError:
-        return problem(f"It has no {MANIFEST}.")
+        return problem(tr("It has no {file}.", file=MANIFEST))
     except ValueError:
-        return problem(f"Its {MANIFEST} isn't valid JSON.")
+        return problem(tr("Its {file} isn't valid JSON.", file=MANIFEST))
     if not isinstance(manifest, dict):
-        return problem(f"Its {MANIFEST} isn't valid.")
+        return problem(tr("Its {file} isn't valid.", file=MANIFEST))
     plugin.title = _text(manifest.get("title")) or path.name
     plugin.version = _text(manifest.get("version"))
     plugin.author = _text(manifest.get("author"))
@@ -277,23 +278,25 @@ def _inspect(path: Path, reserved, enabled: dict, shared: bool, dev: bool = Fals
     except (OSError, ValueError) as exc:
         plugin.changed = path.name in enabled  # it was on: say why it didn't start
         plugin.enabled = dev
-        return problem(str(exc) if isinstance(exc, ValueError) else "Its files couldn't be read.")
+        return problem(str(exc) if isinstance(exc, ValueError) else tr("Its files couldn't be read."))
     plugin.enabled = dev or enabled.get(path.name) == plugin.digest
     plugin.changed = not dev and path.name in enabled and not plugin.enabled
     if manifest.get("name") != path.name:
-        return problem(f"Its {MANIFEST} has to give the folder's name as \"name\".")
+        return problem(tr('Its {file} has to give the folder\'s name as "name".', file=MANIFEST))
     if path.name in reserved:
-        return problem("A plugin that comes with Telescope already has that name.")
+        return problem(tr("A plugin that comes with Telescope already has that name."))
     if plugin.api > PLUGIN_API:
-        return problem(f"It needs a newer Telescope (plugin API {plugin.api}; this one has {PLUGIN_API}).")
+        return problem(tr("It needs a newer Telescope (plugin API {wanted}; this one has {have}).",
+                          wanted=plugin.api, have=PLUGIN_API))
     if plugin.api < OLDEST_PLUGIN_API:
-        return problem(f"It was made for an older Telescope (plugin API {plugin.api or '?'}) and needs an update.")
+        return problem(tr("It was made for an older Telescope (plugin API {api}) and needs an update.",
+                          api=plugin.api or "?"))
     if not _CLASS.match(plugin.class_name):
-        return problem(f"Its {MANIFEST} has to name its plugin class as \"class\".")
+        return problem(tr('Its {file} has to name its plugin class as "class".', file=MANIFEST))
     if not (path / "__init__.py").is_file():
-        return problem("It has no __init__.py.")
+        return problem(tr("It has no __init__.py."))
     if shared or _unsafe_permissions(path):
-        return problem(_SHARED)
+        return problem(tr(_SHARED))
     return plugin
 
 
@@ -310,7 +313,7 @@ def set_enabled(plugin: Installed, on: bool):
 def load(plugin: Installed) -> TelescopePlugin:
     """Import a plugin that's on and make its object; raises with what went wrong."""
     if plugin.problem or not plugin.enabled:
-        raise RuntimeError(plugin.problem or "It isn't turned on.")
+        raise RuntimeError(plugin.problem or tr("It isn't turned on."))
     if _PACKAGE not in sys.modules:
         package = types.ModuleType(_PACKAGE)
         package.__path__ = []  # a namespace for the plugins, with nothing to import from on its own
@@ -329,10 +332,11 @@ def load(plugin: Installed) -> TelescopePlugin:
         raise
     cls = getattr(module, plugin.class_name, None)
     if not (isinstance(cls, type) and issubclass(cls, TelescopePlugin)):
-        raise TypeError(f"{plugin.class_name} isn't a TelescopePlugin class.")
+        raise TypeError(tr("{name} isn't a TelescopePlugin class.", name=plugin.class_name))
     instance = cls()
     if instance.name != plugin.name:
-        raise ValueError(f"Its class has name = {instance.name!r}; it has to be {plugin.name!r}, as in {MANIFEST}.")
+        raise ValueError(tr("Its class has name = {have}; it has to be {want}, as in {file}.",
+                            have=repr(instance.name), want=repr(plugin.name), file=MANIFEST))
     instance.title = instance.title or plugin.title
     instance.about = instance.about or plugin.description
     return instance
@@ -359,8 +363,8 @@ def load_enabled(reserved=(), folder: Optional[Path] = None) -> tuple:
             failed.append(plugin)
             continue
         if plugin.changed:
-            plugin.error = plugin.problem or ("Its files changed since it was turned on. Turn it on again if you "
-                                              "trust this version.")
+            plugin.error = plugin.problem or tr("Its files changed since it was turned on. Turn it on again if you "
+                                                "trust this version.")
             failed.append(plugin)
             continue
         try:
@@ -381,24 +385,24 @@ def install_zip(archive: Path, reserved=(), folder: Optional[Path] = None) -> In
         with zipfile.ZipFile(archive) as zf:
             entries = zf.infolist()
             if len(entries) > _MAX_FILES or sum(e.file_size for e in entries) > _MAX_BYTES:
-                raise ValueError("It's too big for a plugin (over 500 files or 20 MB).")
+                raise ValueError(tr("It's too big for a plugin (over 500 files or 20 MB)."))
             tops = set()
             for e in entries:
                 parts = PurePosixPath(e.filename).parts
                 if (not parts or e.filename.startswith(("/", "\\")) or "\\" in e.filename
                         or any(p in ("..", "") or ":" in p for p in parts)):
-                    raise ValueError("It holds a file with a path that points outside the plugin.")
+                    raise ValueError(tr("It holds a file with a path that points outside the plugin."))
                 if (e.external_attr >> 16) & 0o170000 == 0o120000:
-                    raise ValueError(_LINK)
+                    raise ValueError(tr(_LINK))
                 tops.add(parts[0])
             if len(tops) != 1:
-                raise ValueError("It has to hold one folder, named as the plugin.")
+                raise ValueError(tr("It has to hold one folder, named as the plugin."))
             name = tops.pop()
             if not _NAME.match(name):
-                raise ValueError("The folder has to have the same name as the plugin, using only lowercase letters, "
-                                 "digits and _ (starting with a letter).")
+                raise ValueError(tr("The folder has to have the same name as the plugin, using only lowercase letters, "
+                                 "digits and _ (starting with a letter)."))
             if name in reserved:
-                raise ValueError("A plugin that comes with Telescope already has that name.")
+                raise ValueError(tr("A plugin that comes with Telescope already has that name."))
             if (folder / name).exists():
                 raise FileExistsError(name)
             make_plugins_dir(folder)
@@ -420,7 +424,7 @@ def install_zip(archive: Path, reserved=(), folder: Optional[Path] = None) -> In
             finally:
                 shutil.rmtree(staging, ignore_errors=True)
     except zipfile.BadZipFile:
-        raise ValueError("It isn't a .zip file Telescope can open.") from None
+        raise ValueError(tr("It isn't a .zip file Telescope can open.")) from None
     return _inspect(folder / name, reserved, _read_enabled(), _unsafe_permissions(folder))
 
 
@@ -429,6 +433,6 @@ def remove(plugin: Installed, folder: Optional[Path] = None):
     folder = folder or plugins_dir()
     target = plugin.folder
     if target.is_symlink() or target.resolve().parent != folder.resolve() or target.name != plugin.name:
-        raise ValueError("That isn't a folder in the plugins folder.")
+        raise ValueError(tr("That isn't a folder in the plugins folder."))
     set_enabled(plugin, False)
     shutil.rmtree(target)

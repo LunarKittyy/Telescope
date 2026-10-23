@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (
 
 from telescope import theme
 from telescope.widgets.line_icons import LINE_ICONS, line_icon
+from telescope.i18n import N_, tr
 
 
 # ── Shared desktop UI primitives ─────────────────────────────────────────────
@@ -244,12 +245,15 @@ def make_segmented(*buttons: QWidget):
 
 
 class SegmentButton(QPushButton):
-    """One checkable segment of a segmented toggle; exclusivity comes from the QButtonGroup it's added to."""
+    """One checkable segment of a segmented toggle; exclusivity comes from the QButtonGroup it's added to.
+    value: what a keyboard shortcut saves for it (its English text when text is translated)."""
 
-    def __init__(self, text: str = "", parent=None):
+    def __init__(self, text: str = "", parent=None, value: str = ""):
         super().__init__(text, parent)
         self.setCheckable(True)
         self.setAutoExclusive(False)
+        if value:
+            self.setProperty("shortcutValue", value)
 
     def minimumSizeHint(self) -> QSize:
         """In a segment row: room for the text in bold, as it turns when picked, plus the theme's 8 px padding."""
@@ -920,7 +924,7 @@ def name_controls(label: str, item):
             name_controls(label, child.widget() or child.layout())
     elif isinstance(item, SegmentButton):
         if not item.accessibleName():
-            item.setAccessibleName(f"{label}: {item.text()}")
+            item.setAccessibleName(tr("{label}: {value}", label=label, value=item.text()))
     elif isinstance(item, (QAbstractSlider, QAbstractSpinBox, QComboBox, QAbstractButton)):
         if not item.accessibleName() and not (isinstance(item, QAbstractButton) and item.text().strip()):
             item.setAccessibleName(label)
@@ -1002,10 +1006,10 @@ def ns_to_display(ns: int) -> str:
 
 
 def quality_label(q: int) -> str:
-    if q >= 91: return f"{q}%: High"
-    if q >= 80: return f"{q}%: Balanced"
-    if q >= 60: return f"{q}%: Low"
-    return f"{q}%: Very low"
+    if q >= 91: return tr("{q}%: High", q=q)
+    if q >= 80: return tr("{q}%: Balanced", q=q)
+    if q >= 60: return tr("{q}%: Low", q=q)
+    return tr("{q}%: Very low", q=q)
 
 
 # ── Log-scale math ────────────────────────────────────────────────────────────
@@ -1130,7 +1134,7 @@ class NoScrollSlider(QSlider):
 
     _MARK = 5  # dot diameter, px; a bit wider than the 4px groove so it shows on the filled part too
     SNAP_PX = 5  # how close (design px) a dragged handle has to come to a snap point to stick to it
-    RESET_HINT = "Double-click to reset"
+    RESET_HINT = N_("Double-click to reset")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1159,7 +1163,7 @@ class NoScrollSlider(QSlider):
 
     def setToolTip(self, text: str):
         self._tip = text
-        hint = self.RESET_HINT if self._default is not None else ""
+        hint = tr(self.RESET_HINT) if self._default is not None else ""
         super().setToolTip("\n".join(t for t in (text, hint) if t))
 
     def mouseDoubleClickEvent(self, event):

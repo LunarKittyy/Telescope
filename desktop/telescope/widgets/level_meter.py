@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import QSizePolicy, QWidget
 
 from telescope import theme
 from telescope.widgets.common import ROW_HEIGHT, ui_px
+from telescope.i18n import tr
 
 FLOOR_DB = -60.0
 WARN_DB = -18.0  # green below, yellow from here
@@ -48,7 +49,8 @@ class LevelMeter(QWidget):
         self.setFixedHeight(ROW_HEIGHT)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setToolTip("Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear).")
+        self.setToolTip(tr("Yellow means the limiter is holding loud peaks down and red means the sound clipped "
+                           "(click to clear)."))
 
     # ── State ─────────────────────────────────────────────────────────────────
 

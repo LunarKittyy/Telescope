@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayou
 
 from telescope import theme
 from telescope.widgets.common import create_vector_icon, set_status_kind, ui_px
+from telescope.i18n import tr
 
 THUMB_W, THUMB_H = 128, 72
 
@@ -95,11 +96,12 @@ class StreamTiles(QWidget):
             if self._lay.indexOf(tile) != i:
                 self._lay.insertWidget(i, tile)
             tile.name.setText(name)
-            tile.output.setText(f"to {output}")
+            # Translators: under a stream's tile, the virtual camera it goes to
+            tile.output.setText(tr("to {output}", output=output))
             tile.state.setText(state)
             set_status_kind(tile.state, kind)
-            tile.stop_btn.setToolTip(f"Stop streaming {name}")
-            tile.setToolTip("" if focused else "Show this one's settings")
+            tile.stop_btn.setToolTip(tr("Stop streaming {name}", name=name))
+            tile.setToolTip("" if focused else tr("Show this one's settings"))
             if tile.property("focused") != focused:
                 tile.setProperty("focused", focused)
                 tile.style().unpolish(tile)

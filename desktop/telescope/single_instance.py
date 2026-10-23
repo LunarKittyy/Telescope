@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import QMessageBox
 import update_guard
 from telescope import dev_profile
 from telescope.config import config_path
+from telescope.i18n import tr
 
 # ── Single-instance enforcement ───────────────────────────────────────────────
 # The guard checks the real app's address before an update's roll-back; a dev profile takes its own so it runs next to it
@@ -76,18 +77,21 @@ def acquire_single_instance(wait: float = 0.0) -> Optional[socket.socket]:
 
 def _other_user_notice():
     QMessageBox.information(
-        None, "Telescope is already running",
-        "Telescope is already running for another user on this computer. Close it there, then open it again here.",
+        None, tr("Telescope is already running"),
+        tr("Telescope is already running for another user on this computer. Close it there, then open it again "
+           "here."),
     )
 
 
 def _port_taken_notice():
     # Quitting without a word looks like a crash when the lock is held by something that isn't Telescope
-    where = f"port {_INSTANCE_ADDRESS[1]}" if _INSTANCE_FAMILY == socket.AF_INET else "a local socket"
+    where = (tr("port {port}", port=_INSTANCE_ADDRESS[1]) if _INSTANCE_FAMILY == socket.AF_INET
+             else tr("a local socket"))
     QMessageBox.warning(
-        None, "Telescope can't start",
-        f"Telescope couldn't start because something else is holding its single-instance lock ({where}), "
-        "or another Telescope is stuck. Close that program, or restart the computer, then open Telescope again.",
+        None, tr("Telescope can't start"),
+        tr("Telescope couldn't start because something else is holding its single-instance lock ({where}), or "
+           "another Telescope is stuck. Close that program, or restart the computer, then open Telescope again.",
+           where=where),
     )
 
 
@@ -123,7 +127,7 @@ def send_action(request: dict) -> tuple:
     try:
         key = control_key_path().read_bytes().strip()
     except OSError:
-        return False, "Telescope isn't running."
+        return False, tr("Telescope isn't running.")
     payload = _ACTION + json.dumps({**request, "key": key.decode(errors="replace")}).encode()
     c = socket.socket(_INSTANCE_FAMILY, socket.SOCK_STREAM)
     reply = b""
@@ -138,14 +142,14 @@ def send_action(request: dict) -> tuple:
                 break
             reply += chunk
     except OSError:
-        return False, "Telescope isn't running."
+        return False, tr("Telescope isn't running.")
     finally:
         c.close()
     try:
         answer = json.loads(reply.decode())
         return bool(answer["ok"]), str(answer["text"])
     except (ValueError, KeyError, TypeError):
-        return False, "Telescope didn't understand that. Is it an older version? Update it to use --action."
+        return False, tr("Telescope didn't understand that. Is it an older version? Update it to use --action.")
 
 
 def _read_request(conn: socket.socket, first: bytes) -> Optional[dict]:
@@ -183,11 +187,11 @@ def listen_for_raise(srv: socket.socket, raise_cb, action_cb=None, control_key: 
                 request = _read_request(conn, message)
                 sent = str((request or {}).get("key", "")).encode()
                 if request is not None and action_cb is not None and not control_key:
-                    reply = {"ok": False, "text": "Telescope couldn't write the key --action needs next to its "
-                                                  "settings when it started. Restart it."}
+                    reply = {"ok": False, "text": tr("Telescope couldn't write the key --action needs next to its "
+                                                     "settings when it started. Restart it.")}
                 elif request is None or action_cb is None or not hmac.compare_digest(sent, control_key):
-                    reply = {"ok": False, "text": "Telescope turned that down: it didn't come from this user's "
-                                                  "Telescope command."}
+                    reply = {"ok": False, "text": tr("Telescope turned that down: it didn't come from this user's "
+                                                     "Telescope command.")}
                 else:
                     request.pop("key", None)
                     reply = action_cb(request)

@@ -53,7 +53,7 @@ if _missing:
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QApplication
 
-from telescope import dev_profile, diagnostics
+from telescope import dev_profile, diagnostics, i18n
 from telescope.single_instance import (
     RESTARTED, acquire_single_instance, listen_for_raise, send_action, write_control_key,
 )
@@ -109,6 +109,7 @@ def _attach_console():
 def run_action(args) -> int:
     """--action / --list-actions: talk to the running copy, print what it says, and exit."""
     _attach_console()
+    i18n.load()
     try:
         request = {"list": True} if args.list_actions else action_request(args.action)
     except ValueError as exc:
@@ -160,6 +161,7 @@ def main():
         if os.environ.get("QT_QPA_PLATFORMTHEME") not in ("gtk3", "xdgdesktopportal"):  # e.g. "kde", which it lacks
             os.environ["QT_QPA_PLATFORMTHEME"] = "xdgdesktopportal"
     app = QApplication([sys.argv[0]] + qt_argv)
+    i18n.load()  # before any window or dialog is built
     # Set at QApplication level so dialogs and window share icon.
     app.setWindowIcon(create_app_icon(64))
     if not dev_profile.active():  # a dev profile's window shouldn't group under the real app's dock icon

@@ -16,13 +16,17 @@ from telescope.widgets.common import (
     slider_row, value_label,
 )
 from telescope.widgets.vision_status import VisionStatus
+from telescope.i18n import N_, tr
 
 # Framing runs through these, from 0 to len - 1, and anywhere in between
-FRAMINGS = ("Head", "Chest", "Waist", "Body")  # short: the name sits in the slider's readout column
+# Translators: keep these short, they sit in the slider's narrow readout column
+FRAMINGS = (N_("Head"), N_("Chest"), N_("Waist"), N_("Body"))  # short: the name sits in the slider's readout column
 FRAMING_DEFAULT = 1.0
 _FRAMING_STEPS = 10  # slider steps between two of them
 _HALF_WIDTH = (0.5, 0.85, 1.05, 1.2)  # at each, half the box's width in shoulder widths
-SPEEDS = ("Sloth", "Lazy", "Mellow", "Calm", "Easy", "Steady", "Brisk", "Quick", "Snappy", "Zippy")  # Speed 1 to 10
+# Translators: Speed 1 to 10, slowest first, as a playful word for each step; keep them short
+SPEEDS = (N_("Sloth"), N_("Lazy"), N_("Mellow"), N_("Calm"), N_("Easy"), N_("Steady"), N_("Brisk"), N_("Quick"),
+          N_("Snappy"), N_("Zippy"))  # Speed 1 to 10
 SPEED_DEFAULT = 5
 _OMEGA_SLOW, _OMEGA_FAST = 0.4, 9.0  # how fast the framing catches up at either end (spring stiffness, 1/s)
 _TICK_MS = 33
@@ -31,7 +35,9 @@ _LOST_S = 2.0  # nobody seen for this long: back to the whole picture
 _DEAD_CENTRE = 0.06  # the framing lets the target's centre wander this far (of the window's size) at Speed 5
 _DEAD_ZOOM = 1.12  # and its zoom this much, and only follows what goes past that
 _SETTLE_S = 2.0  # inside the dead zone it drifts back to the target this slowly (at Speed 5)
-ROOMS = ("Off", "Fidget", "Shift", "Lean", "Step", "Roam")  # Room to move: what you can do before it follows
+# Translators: Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over,
+# take a step, move around. Keep them short
+ROOMS = (N_("Off"), N_("Fidget"), N_("Shift"), N_("Lean"), N_("Step"), N_("Roam"))
 ROOM_DEFAULT = 2
 _ROOM_STEP = 0.06  # each step lets you move this much further (of the window's size) before the framing follows
 _LEAVE_S = 0.5  # outside the room for this long before it does (a quick lean and back doesn't count)
@@ -211,9 +217,9 @@ class _Latch:
 
 class FramingPlugin(TelescopePlugin):
     name = "framing"
-    title = "Auto framing"
-    about = "Zooms and pans to keep you in the picture as you move."
-    when_off = "Without it there's no Auto framing card and the zoom stays where you put it."
+    title = N_("Auto framing")
+    about = N_("Zooms and pans to keep you in the picture as you move.")
+    when_off = N_("Without it there's no Auto framing card and the zoom stays where you put it.")
     optional = True
     needs_vision = True
     in_presets = True  # a preset can be a scene: framing on for talking, off with the zoom parked on something
@@ -246,39 +252,39 @@ class FramingPlugin(TelescopePlugin):
         lay = card_layout(card)
         self._switch = Switch("")
         self._switch.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self._switch.setToolTip("Follow you with the zoom and pan")
+        self._switch.setToolTip(tr("Follow you with the zoom and pan"))
         self._switch.toggled.connect(self._on_switch)
-        add_card_header(lay, "Auto framing", "framing", action=self._switch, hue="vision")
+        add_card_header(lay, tr("Auto framing"), "framing", action=self._switch, hue="vision")
         dim_until_paired(card, self._bus)
         self._framing_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._framing_slider.setRange(0, (len(FRAMINGS) - 1) * _FRAMING_STEPS)
         self._framing_slider.setValue(round(FRAMING_DEFAULT * _FRAMING_STEPS))
         self._framing_slider.set_default(round(FRAMING_DEFAULT * _FRAMING_STEPS))
-        self._framing_slider.setToolTip("How much of you is in the picture: just your head, down to your chest, "
-                                        "down to your waist or all of you")
+        self._framing_slider.setToolTip(tr("How much of you is in the picture: just your head, down to your chest, "
+                                           "down to your waist or all of you"))
         self._framing_lbl = value_label()
         self._framing_slider.valueChanged.connect(self._on_framing)
-        lay.addLayout(_row("Framing", slider_row(self._framing_slider, self._framing_lbl), stretch=True))
+        lay.addLayout(_row(tr("Framing"), slider_row(self._framing_slider, self._framing_lbl), stretch=True))
         self._show_framing()
         self._speed_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._speed_slider.setRange(1, 10)
         self._speed_slider.setValue(SPEED_DEFAULT)
         self._speed_slider.set_default(SPEED_DEFAULT)
-        self._speed_slider.setToolTip("How quickly the framing catches up when you move")
-        self._speed_lbl = value_label(SPEEDS[SPEED_DEFAULT - 1])
+        self._speed_slider.setToolTip(tr("How quickly the framing catches up when you move"))
+        self._speed_lbl = value_label(tr(SPEEDS[SPEED_DEFAULT - 1]))
         self._speed_slider.valueChanged.connect(self._on_speed)
-        lay.addLayout(_row("Speed", slider_row(self._speed_slider, self._speed_lbl), stretch=True))
+        lay.addLayout(_row(tr("Speed"), slider_row(self._speed_slider, self._speed_lbl), stretch=True))
         self._room_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._room_slider.setRange(0, len(ROOMS) - 1)
         self._room_slider.setValue(ROOM_DEFAULT)
         self._room_slider.set_default(ROOM_DEFAULT)
-        self._room_slider.setToolTip("What you can do before the framing follows you: fidget, shift in your seat, "
-                                     "lean over, take a step or move around")
+        self._room_slider.setToolTip(tr("What you can do before the framing follows you: fidget, shift in your seat, "
+                                        "lean over, take a step or move around"))
         self._room_lbl = value_label()
         self._room_slider.valueChanged.connect(self._on_room)
-        lay.addLayout(_row("Room to move", slider_row(self._room_slider, self._room_lbl), stretch=True))
+        lay.addLayout(_row(tr("Room to move"), slider_row(self._room_slider, self._room_lbl), stretch=True))
         self._show_room()
-        self._hand_switch = Switch("Widen for something in your hand")
+        self._hand_switch = Switch(tr("Widen for something in your hand"))
         self._hand_switch.setChecked(False)
         self._hand_switch.toggled.connect(lambda _on: self._host.schedule_save())
         lay.addWidget(self._hand_switch)
@@ -288,11 +294,11 @@ class FramingPlugin(TelescopePlugin):
         return card
 
     def create_actions(self) -> list:
-        g = "Auto framing"
+        g = tr("Auto framing")
         return [
-            button_action("framing.on", "Auto framing", g, self._switch),
-            slider_action("framing.framing", "Auto framing: how much of you", g, self._framing_slider, step=1.0),
-            slider_action("framing.speed", "Auto framing speed", g, self._speed_slider, step=1.0,
+            button_action("framing.on", tr("Auto framing"), g, self._switch),
+            slider_action("framing.framing", tr("Auto framing: how much of you"), g, self._framing_slider, step=1.0),
+            slider_action("framing.speed", tr("Auto framing speed"), g, self._speed_slider, step=1.0,
                           readout=self._speed_lbl),
         ]
 
@@ -304,17 +310,17 @@ class FramingPlugin(TelescopePlugin):
         self._host.schedule_save()
 
     def _show_framing(self):
-        self._framing_lbl.setText(FRAMINGS[round(self._framing())])
+        self._framing_lbl.setText(tr(FRAMINGS[round(self._framing())]))
 
     def _on_room(self, _value: int):
         self._show_room()
         self._host.schedule_save()
 
     def _show_room(self):
-        self._room_lbl.setText(ROOMS[self._room_slider.value()])
+        self._room_lbl.setText(tr(ROOMS[self._room_slider.value()]))
 
     def _on_speed(self, value: int):
-        self._speed_lbl.setText(SPEEDS[value - 1])
+        self._speed_lbl.setText(tr(SPEEDS[value - 1]))
         self._host.schedule_save()
 
     # ── On and off (Qt thread) ────────────────────────────────────────────
@@ -326,7 +332,7 @@ class FramingPlugin(TelescopePlugin):
     def _apply(self, on: bool):
         if on and not self._steering:
             if not self._host.take_view(self.title):
-                self._status.refresh(True, "Something else is moving the zoom and pan.")
+                self._status.refresh(True, tr("Something else is moving the zoom and pan."))
                 return
             self._steering = True
             self._host.want_people(self.title, True)
@@ -438,7 +444,7 @@ class FramingPlugin(TelescopePlugin):
         self._speed_slider.setValue(speed if isinstance(speed, int) and not isinstance(speed, bool) and 1 <= speed <= 10
                                     else SPEED_DEFAULT)
         self._speed_slider.blockSignals(False)
-        self._speed_lbl.setText(SPEEDS[self._speed_slider.value() - 1])
+        self._speed_lbl.setText(tr(SPEEDS[self._speed_slider.value() - 1]))
         room = cfg.get("room")
         self._room_slider.blockSignals(True)
         self._room_slider.setValue(room if isinstance(room, int) and not isinstance(room, bool)

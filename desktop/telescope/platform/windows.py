@@ -10,6 +10,7 @@ from typing import Optional
 
 from telescope import web
 from telescope.platform import NO_WINDOW
+from telescope.i18n import tr
 
 # Pinned commit with hash verification to prevent tampering before registration.
 _UNITYCAPTURE_COMMIT = "3ed54c325e0ad71afcf4f246c07e5e17b3d7f2d2"
@@ -49,7 +50,7 @@ def download_unitycapture(progress_cb=None) -> tuple:
     try:
         d.mkdir(parents=True, exist_ok=True)
     except OSError as e:
-        return False, f"Couldn't create {d}: {e}"
+        return False, tr("Couldn't create {path}: {error}", path=d, error=e)
     for bits in ("32", "64"):
         name = f"UnityCaptureFilter{bits}.dll"
         url  = f"{UNITYCAPTURE_URL_BASE}/{name}"
@@ -57,21 +58,22 @@ def download_unitycapture(progress_cb=None) -> tuple:
         part = d / (name + ".part")  # a cut-off download never sits where the callers look for a finished one
         try:
             if progress_cb:
-                progress_cb(f"Downloading {name}...")
+                progress_cb(tr("Downloading {file}...", file=name))
             with web.urlopen(url, 30) as r, open(part, "wb") as f:  # urlretrieve never times out
                 shutil.copyfileobj(r, f)
             digest = _sha256(part)
             if digest != _EXPECTED_SHA256[name]:
-                return False, f"{name} failed checksum verification (got {digest[:12]}...) - not registering"
+                return False, tr("{file} failed checksum verification (got {digest}...) - not registering",
+                                 file=name, digest=digest[:12])
             os.replace(part, dest)
         except Exception as e:
-            return False, f"Download failed: {e}"
+            return False, tr("Download failed: {error}", error=e)
         finally:
             try:
                 part.unlink(missing_ok=True)
             except OSError:
                 pass
-    return True, "Downloaded"
+    return True, tr("Downloaded")
 
 
 def _known_folder(folder_id: str) -> Optional[Path]:
@@ -229,7 +231,7 @@ def register_unitycapture(devices: int = 1, reset: bool = False) -> tuple:
                 path.unlink(missing_ok=True)  # so "Try again" downloads it afresh instead of failing the same way
             except OSError:
                 pass
-            return False, f"{name} failed checksum verification - not registering"
+            return False, tr("{file} failed checksum verification - not registering", file=name)
     # The check above is only for a quick, clear failure; the one that counts runs as admin on the protected copy
     script = _elevated_install_script(d, devices, reset)
     encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
@@ -243,18 +245,19 @@ def register_unitycapture(devices: int = 1, reset: bool = False) -> tuple:
             capture_output=True, timeout=60, **NO_WINDOW,
         )
         if r.returncode == 0:
-            return True, "Installed"
+            return True, tr("Installed")
         if r.returncode == _EXIT_CHECKSUM:
-            return False, "The driver copy in Program Files failed checksum verification - not registering"
+            return False, tr("The driver copy in Program Files failed checksum verification - not registering")
         if r.returncode == _EXIT_ERROR:
-            return False, "The driver install hit an error while running as admin - not registering"
+            return False, tr("The driver install hit an error while running as admin - not registering")
         if r.returncode == _EXIT_UNSAFE_FOLDER:
-            return False, "Program Files\\Telescope has links in it or other users can change it - delete that folder, then install again"
+            return False, tr("Program Files\\Telescope has links in it or other users can change it - delete that "
+                             "folder, then install again")
         if r.returncode == _EXIT_REGSVR32:
-            return False, "Windows refused to register the driver (regsvr32 failed)"
-        return False, "Registration failed (cancelled or denied?)"
+            return False, tr("Windows refused to register the driver (regsvr32 failed)")
+        return False, tr("Registration failed (cancelled or denied?)")
     except subprocess.TimeoutExpired:
-        return False, "Timed out"
+        return False, tr("Timed out")
     except Exception as e:
         return False, str(e)
 

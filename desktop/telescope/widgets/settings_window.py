@@ -16,6 +16,7 @@ from telescope.widgets import settings_search
 from telescope.widgets.common import ui_px, wrapped_note
 from telescope.widgets.controls import SCREEN_MARGIN
 from telescope.widgets.line_icons import line_icon
+from telescope.i18n import tr
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ def ordered_tabs(sections: list) -> list:
     for tab in ids:
         mine = sorted((s for s in sections if s.tab == tab), key=lambda s: s.order)  # stable: registration order
         if mine:
-            tabs.append((tab, names[tab], mine))
+            tabs.append((tab, tr(names[tab]), mine))
     return tabs
 
 
@@ -133,7 +134,7 @@ class SettingsWindow(QDialog):
     def __init__(self, sections: list, parent=None):
         """sections: every SettingsSection to show; its tab and order say where each goes."""
         super().__init__(parent)
-        self.setWindowTitle("Settings")
+        self.setWindowTitle(tr("Settings"))
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self.setMinimumSize(ui_px(720), ui_px(480))
         outer = QHBoxLayout(self)
@@ -147,8 +148,8 @@ class SettingsWindow(QDialog):
         side_lay.setContentsMargins(10, 14, 10, 0)
         side_lay.setSpacing(8)
         self._search = _SearchEdit()
-        self._search.setPlaceholderText("Search settings")
-        self._search.setAccessibleName("Search settings")
+        self._search.setPlaceholderText(tr("Search settings"))
+        self._search.setAccessibleName(tr("Search settings"))
         self._search.setClearButtonEnabled(True)
         self._search.addAction(line_icon("search", theme.TEXT_DIM), QLineEdit.ActionPosition.LeadingPosition)
         self._search.textChanged.connect(self._on_query)
@@ -158,7 +159,7 @@ class SettingsWindow(QDialog):
         self._nav = QListWidget()
         self._nav.setObjectName("settings_nav")
         self._nav.setIconSize(QSize(16, 16))
-        self._nav.setAccessibleName("Settings tabs")
+        self._nav.setAccessibleName(tr("Settings tabs"))
         self._nav.setFrameShape(QFrame.Shape.NoFrame)
         side_lay.addWidget(self._nav, 1)
         outer.addWidget(side)
@@ -188,11 +189,11 @@ class SettingsWindow(QDialog):
         self._results_page = QWidget()
         results_lay = QVBoxLayout(self._results_page)
         results_lay.setContentsMargins(0, 0, 0, 0)
-        self._note = wrapped_note("Nothing matches every word. These match some of them.")
+        self._note = wrapped_note(tr("Nothing matches every word. These match some of them."))
         results_lay.addWidget(self._note)
         self._results = QListWidget()
         self._results.setObjectName("settings_results")
-        self._results.setAccessibleName("Search results")
+        self._results.setAccessibleName(tr("Search results"))
         self._results.setItemDelegate(_ResultDelegate(self._results))
         self._results.setFrameShape(QFrame.Shape.NoFrame)
         self._results.itemClicked.connect(self._open_item)
@@ -281,9 +282,9 @@ class SettingsWindow(QDialog):
         if found:
             self._results.setCurrentRow(0)
         else:
-            self._empty.setText(f"Nothing matches “{text}”. Try fewer words, or say what it does "
-                                "(resolution, microphone, startup).")
-        self._title.setText("Search results")
+            self._empty.setText(tr("Nothing matches “{text}”. Try fewer words, or say what it does "
+                                   "(resolution, microphone, startup).", text=text))
+        self._title.setText(tr("Search results"))
         self._stack.setCurrentWidget(self._results_page)
 
     def _leave_search(self):

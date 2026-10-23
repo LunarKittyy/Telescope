@@ -23,6 +23,7 @@ from telescope.widgets.common import (
     Switch,
     action_button, add_card_header, button_row, card_layout, create_card, ui_px, wrapped_note,
 )
+from telescope.i18n import N_, tr
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +37,10 @@ class _Signals(QObject):
 
 class WaitScreenPlugin(TelescopePlugin):
     name = "wait_screen"
-    title = "Wait screen"
-    about = "The picture apps see on the virtual camera while nothing is streaming."
-    when_off = ("Without it Wait screen isn't in Settings and between streams apps might see a black picture "
-                "or nothing at all.")
+    title = N_("Wait screen")
+    about = N_("The picture apps see on the virtual camera while nothing is streaming.")
+    when_off = N_("Without it Wait screen isn't in Settings and between streams apps might see a black picture "
+                  "or nothing at all.")
 
     def __init__(self, screen: vcam.WaitScreen = None, watch_cls=vcam.CameraWatch, extra_screen=None):
         self.image_path: Optional[str] = None
@@ -207,10 +208,10 @@ class WaitScreenSection(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, "Wait screen", "image", hue="stream")
-        keywords(card, "idle standby placeholder picture image gif black screen frozen not streaming mirror flip custom "
-                       "background logo")
-        lay.addWidget(wrapped_note("What video calls see while the phone isn't streaming."))
+        add_card_header(lay, tr("Wait screen"), "image", hue="stream")
+        keywords(card, tr("idle standby placeholder picture image gif black screen frozen not streaming mirror flip "
+                          "custom background logo", ctx="search"))
+        lay.addWidget(wrapped_note(tr("What video calls see while the phone isn't streaming.")))
         outer.addWidget(card)
 
         self._preview = QLabel()
@@ -219,12 +220,12 @@ class WaitScreenSection(QWidget):
         self._note = wrapped_note("")
         lay.addWidget(self._note)
 
-        self._choose_btn = action_button("Choose image…", role="primary")
+        self._choose_btn = action_button(tr("Choose image…"), role="primary")
         self._choose_btn.clicked.connect(self._choose)
-        self._default_btn = action_button("Use default")
+        self._default_btn = action_button(tr("Use default"))
         self._default_btn.clicked.connect(lambda: self._set(None))
         lay.addLayout(button_row(self._choose_btn, self._default_btn))
-        self._mirror_box = Switch("Mirror it, for apps that flip the camera")
+        self._mirror_box = Switch(tr("Mirror it, for apps that flip the camera"))
         self._mirror_box.toggled.connect(self._plugin.set_mirror)
         lay.addWidget(self._mirror_box)
 
@@ -259,20 +260,21 @@ class WaitScreenSection(QWidget):
             img = QImage(frame.data, w, h, w * 3, QImage.Format.Format_RGB888).copy()
             self._preview.setPixmap(QPixmap.fromImage(img))
         w, h = self._plugin.size()
-        self._note.setText(f"Shown at {w} × {h}, the size the stream opens the camera at. "
-                           "Still images and GIFs work; transparent parts show the dark background.")
+        self._note.setText(tr("Shown at {size}, the size the stream opens the camera at. Still images and GIFs "
+                              "work; transparent parts show the dark background.", size=f"{w} × {h}"))
         if pick_error:
-            self._note.setText(f"Couldn't use that image: {pick_error}. Keeping the current wait screen.")
+            self._note.setText(tr("Couldn't use that image: {problem}. Keeping the current wait screen.",
+                                  problem=pick_error))
         elif unreadable:
-            self._note.setText("Couldn't read that image, so the default screen is showing. Choose another one.")
+            self._note.setText(tr("Couldn't read that image, so the default screen is showing. Choose another one."))
         self._default_btn.setEnabled(bool(path))
         with QSignalBlocker(self._mirror_box):
             self._mirror_box.setChecked(self._plugin.mirror)
 
     def _choose(self):
         formats = " ".join(f"*.{bytes(f).decode()}" for f in QImageReader.supportedImageFormats())
-        path, _ = QFileDialog.getOpenFileName(self, "Choose a wait screen", str(Path.home()),
-                                              f"Images ({formats})")
+        path, _ = QFileDialog.getOpenFileName(self, tr("Choose a wait screen"), str(Path.home()),
+                                              tr("Images ({formats})", formats=formats))
         if path:
             self._set(path)
 

@@ -16,6 +16,7 @@ from PyQt6.QtCore import QAbstractNativeEventFilter, QCoreApplication, Qt, QTime
 
 from telescope.platform.hotkeys import HotkeyBackend, HotkeyStatus
 from telescope.shortcuts import split_keys
+from telescope.i18n import tr
 
 logger = logging.getLogger(__name__)
 
@@ -103,22 +104,23 @@ class WindowsHotkeys(HotkeyBackend):
         for number, hk in enumerate(hotkeys, start=1):
             native = to_windows(hk.keys, self._user32.VkKeyScanW)
             if native is None:
-                self._statuses[hk.id] = HotkeyStatus(False, "Windows can't use this key everywhere")
+                self._statuses[hk.id] = HotkeyStatus(False, tr("Windows can't use this key everywhere"))
                 continue
             flags, vk = native
             if self._user32.RegisterHotKey(None, number, flags | MOD_NOREPEAT, vk):
                 self._by_number[number] = (hk.id, vk, flags)
-                self._statuses[hk.id] = HotkeyStatus(True, "Everywhere")
+                self._statuses[hk.id] = HotkeyStatus(True, tr("Everywhere"))
             else:
-                self._statuses[hk.id] = HotkeyStatus(False, "Another app already uses this key", reaches_app=False)
+                self._statuses[hk.id] = HotkeyStatus(False, tr("Another app already uses this key"),
+                                                      reaches_app=False)
         self.changed.emit()
 
     def status(self, hotkey_id: str) -> Optional[HotkeyStatus]:
         return self._statuses.get(hotkey_id)
 
     def note(self) -> str:
-        return ("Everywhere shortcuts are taken from Windows while Telescope runs. A key another app already "
-                "took doesn't reach Telescope at all, so pick another.")
+        return tr("Everywhere shortcuts are taken from Windows while Telescope runs. A key another app already "
+                  "took doesn't reach Telescope at all, so pick another.")
 
     def stop(self) -> None:
         self._unregister_all()

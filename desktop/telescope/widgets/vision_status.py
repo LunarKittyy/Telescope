@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import QHBoxLayout, QPushButton, QWidget
 from telescope import vision
 from telescope.widgets import vision_download
 from telescope.widgets.common import wrapped_note
+from telescope.i18n import tr
 
 
 class VisionStatus(QWidget):
@@ -14,7 +15,7 @@ class VisionStatus(QWidget):
         self._host = host
         self._active, self._problem = False, ""
         self._label = wrapped_note("", "status_warn")
-        self._download_btn = QPushButton("Download")
+        self._download_btn = QPushButton(tr("Download"))
         self._download_btn.clicked.connect(self._download)
         lay = QHBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
@@ -43,13 +44,13 @@ class VisionStatus(QWidget):
         elif self._problem:
             text = self._problem
         elif dl.running():
-            text = "Downloading…"
+            text = tr("Downloading…")
         elif state == vision.MISSING:
-            text, download = f"Needs a one-time download (about {dl.size_mb()} MB).", dl.available()
+            text, download = tr("Needs a one-time download (about {mb} MB).", mb=dl.size_mb()), dl.available()
         elif state == vision.FAILED:
-            text = "MediaPipe didn't load on this computer. Copy diagnostics has the details."
+            text = tr("MediaPipe didn't load on this computer. Copy diagnostics has the details.")
         elif state == vision.LOADING:
-            text = "Getting ready…"
+            text = tr("Getting ready…")
         self._label.setText(text)
         self.setVisible(bool(text))
         self._download_btn.setVisible(download)
@@ -60,4 +61,4 @@ class VisionStatus(QWidget):
 
     def _on_progress(self, done: int, size: int):
         if size and not self.isHidden() and not self._problem:
-            self._label.setText(f"Downloading… {min(99, done * 100 // size)}%")
+            self._label.setText(tr("Downloading… {percent}%", percent=min(99, done * 100 // size)))

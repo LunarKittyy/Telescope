@@ -15,6 +15,7 @@ from PyQt6.QtGui import QPainter
 from PyQt6.QtWidgets import QApplication, QBoxLayout, QFrame, QLabel, QLayoutItem, QToolButton, QVBoxLayout, QWidget
 
 from telescope.widgets.common import paint_focus
+from telescope.i18n import tr
 
 # The object names common.py gives the pieces, which is how they're told apart from the rows around them.
 CARD = "card"
@@ -172,8 +173,8 @@ class Collapsing:
             button.setFocus(Qt.FocusReason.OtherFocusReason)
         body.setVisible(not folded)
         button.setChecked(not folded)
-        description = ("Collapsed. Press Space or Enter to expand." if folded else
-                       "Expanded. Press Space or Enter to collapse.")
+        description = (tr("Collapsed. Press Space or Enter to expand.") if folded else
+                       tr("Expanded. Press Space or Enter to collapse."))
         button.setAccessibleDescription(description)
         button.setToolTip(description)
 

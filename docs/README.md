@@ -20,6 +20,7 @@ New here? The [Quick Start](../README.md#quick-start) is all most people need.
 - [Desktop modules](../desktop/MODULES.md): every desktop module, one by one
 - [Control API](protocol.md): the phone's endpoints, the pairing QR code and the Browser camera messages
 - [Writing a plugin](writing-plugins.md): a guide with an example
+- [Translating](translating.md): adding a language to either app, and keeping new texts translatable
 - [Building and CI](building.md): building the apps, trying a change with a dev app and what each workflow does
 - [Release checklist](release-checklist.md): what to test by hand before tagging a release
 - [Roadmap](roadmap/README.md): what's planned, ideas for some day and what each past release set out to do

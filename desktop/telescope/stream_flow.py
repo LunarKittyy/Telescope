@@ -14,6 +14,7 @@ from telescope.plugin import TelescopePlugin
 from telescope.session import Sessions, StreamSession
 from telescope.sources import Source
 from telescope.stream import guarded_step
+from telescope.i18n import tr
 
 
 class FlowHost(Protocol):
@@ -106,7 +107,7 @@ class StreamFlow:
             ok = source.prepare(interactive)
         except Exception:
             logging.exception("Getting %s ready to stream failed", source.name)
-            host.start_problem("Couldn't start streaming", "Something went wrong. Copy diagnostics has the details.")
+            host.start_problem(tr("Couldn't start streaming"), tr("Something went wrong. Copy diagnostics has the details."))
             ok = False
         finally:
             sessions.preparing = False
@@ -122,8 +123,8 @@ class StreamFlow:
         sessions.wake_source = source
         host.set_start_button(streaming=True)
         host.enable_start(False)
-        host.source_status(source, "Starting the phone's mic…" if source.camera_off else "Starting the phone's camera…",
-                           "dim")
+        host.source_status(source, tr("Starting the phone's mic…") if source.camera_off
+                           else tr("Starting the phone's camera…"), "dim")
         if sessions.streams:
             host.refresh_tiles()  # its tile says it's starting
         source.wake()
@@ -150,8 +151,8 @@ class StreamFlow:
         host.later(self.after_start)
         if not ok:
             host.set_start_button(streaming=bool(sessions.streams))
-            host.source_status(source, "Not streaming", "dim")
-            host.start_problem("Couldn't start the phone's camera", reason)
+            host.source_status(source, tr("Not streaming"), "dim")
+            host.start_problem(tr("Couldn't start the phone's camera"), reason)
             self.start_failed(source)
             return
         self.begin_stream(source)
@@ -185,7 +186,7 @@ class StreamFlow:
         if source.camera_off:
             host.show_camera_off()
         else:
-            host.source_status(source, "Connecting...", "dim")
+            host.source_status(source, tr("Connecting..."), "dim")
         self.streams_changed()
 
     def free_slot(self, source: Source) -> int:

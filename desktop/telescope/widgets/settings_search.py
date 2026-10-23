@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from PyQt6.QtWidgets import QAbstractButton, QCheckBox, QComboBox, QFrame, QLabel, QWidget
 
 from telescope import fuzzy
+from telescope.i18n import tr
 
 KEYWORDS = "keywords"
 """The dynamic property that holds extra words a setting should be found by."""
@@ -37,7 +38,7 @@ class Entry:
     @property
     def path(self) -> str:
         if self.tab_entry:
-            return "Tab"
+            return tr("Tab")
         same = {self.name, self.tab_name}  # a card named like its tab, or like the setting, adds nothing
         return f"{self.tab_name}  ›  {self.card}" if self.card and self.card not in same else self.tab_name
 

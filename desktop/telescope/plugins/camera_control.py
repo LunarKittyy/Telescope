@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
 )
 
 from telescope.plugin import StreamsBehind, TelescopePlugin
-from telescope.shortcuts import button_action, choice_action, log_slider_action, slider_action
+from telescope.shortcuts import SHORTCUT_VALUE_ROLE, button_action, choice_action, log_slider_action, slider_action
 from telescope.widgets.common import (
     LogSliderRow, SegmentButton, NoScrollSlider, add_card_header, add_section_heading,
     control_row, control_row_widget, card_layout,
@@ -15,26 +15,27 @@ from telescope.widgets.common import (
 )
 from telescope.widgets.controls import ChoiceTile, SwitchTile
 from telescope.widgets.lens_panel import LensPanel
+from telescope.i18n import N_, tr
 
 _FOCUS_STEPS = 1000
-_NR_MODES    = [("Off", 0), ("Fast", 1), ("High Quality", 2)]
-_EDGE_MODES  = [("Off", 0), ("Fast", 1), ("High Quality", 2)]
-_LOW_LIGHT_TIP = "Brightens a dark room when exposure is automatic but can drop the frame rate as low as 10 fps."
+_NR_MODES    = [(N_("Off"), 0), (N_("Fast"), 1), (N_("High Quality"), 2)]
+_EDGE_MODES  = [(N_("Off"), 0), (N_("Fast"), 1), (N_("High Quality"), 2)]
+_LOW_LIGHT_TIP = N_("Brightens a dark room when exposure is automatic but can drop the frame rate as low as 10 fps.")
 _CAPABILITY_LABELS = [
-    ("supportsManualSensor", "Manual exposure"),
-    ("supportsManualWB",     "Manual WB"),
-    ("supportsManualFocus",  "Manual focus"),
-    ("supportsFocusPoint",   "Point focus"),
+    ("supportsManualSensor", N_("Manual exposure")),
+    ("supportsManualWB",     N_("Manual WB")),
+    ("supportsManualFocus",  N_("Manual focus")),
+    ("supportsFocusPoint",   N_("Point focus")),
     ("hasOis",               "OIS"),
 ]
 
 # Camera2's INFO_SUPPORTED_HARDWARE_LEVEL constants, in English.
 _HW_LEVELS = {
-    "LEGACY":  "Legacy",
-    "LIMITED": "Limited",
-    "FULL":    "Full",
-    "LEVEL_3": "Level 3",
-    "EXTERNAL": "External",
+    "LEGACY":  N_("Legacy"),
+    "LIMITED": N_("Limited"),
+    "FULL":    N_("Full"),
+    "LEVEL_3": N_("Level 3"),
+    "EXTERNAL": N_("External"),
 }
 
 _WB_MIN_K    = 2000
@@ -130,9 +131,9 @@ _row_widget = control_row_widget
 
 class CameraControlPlugin(TelescopePlugin):
     name = "camera_control"
-    title = "Camera"
-    about = "Exposure, white balance, focus, lenses and the phone camera's other settings."
-    when_off = "Without it there's no Camera card and the phone uses its own automatic settings."
+    title = N_("Camera")
+    about = N_("Exposure, white balance, focus, lenses and the phone camera's other settings.")
+    when_off = N_("Without it there's no Camera card and the phone uses its own automatic settings.")
     in_presets = True
     device_local = True
     panel_region = "right"
@@ -163,7 +164,7 @@ class CameraControlPlugin(TelescopePlugin):
         self._cam_info_lbl.setObjectName("card_note")
         self._cam_info_lbl.setVisible(False)
         self._cam_info_row = self._cam_info_lbl
-        add_card_header(lay, "Camera", "camera", hue="camera", action=self._cam_info_lbl)
+        add_card_header(lay, tr("Camera"), "camera", hue="camera", action=self._cam_info_lbl)
         dim_until_paired(card, self._bus, phone_only=True)
 
         self._lens_panel = LensPanel()
@@ -171,16 +172,16 @@ class CameraControlPlugin(TelescopePlugin):
         lay.addWidget(self._lens_panel)  # the tiles take the whole width, so they stay one size
 
         # ── Light ─────────────────────────────────────────────────────────────
-        add_section_heading(lay, "Light", "sun")
-        self._rb_exp_auto   = SegmentButton("Auto")
-        self._rb_exp_manual = SegmentButton("Manual")
+        add_section_heading(lay, tr("Light"), "sun")
+        self._rb_exp_auto   = SegmentButton(tr("Auto"), value="Auto")
+        self._rb_exp_manual = SegmentButton(tr("Manual"), value="Manual")
         self._exp_grp = QButtonGroup(card)
         self._exp_grp.addButton(self._rb_exp_auto)
         self._exp_grp.addButton(self._rb_exp_manual)
         self._rb_exp_auto.setChecked(True)
         self._exp_grp.buttonClicked.connect(lambda _: self._on_exp_mode())
         lay.addWidget(_row_widget(
-            "Exposure", segmented_row(self._rb_exp_auto, self._rb_exp_manual), stretch=True))
+            tr("Exposure"), segmented_row(self._rb_exp_auto, self._rb_exp_manual), stretch=True))
 
         self._iso_slider = LogSliderRow(
             v_min=50, v_max=6400,
@@ -199,7 +200,7 @@ class CameraControlPlugin(TelescopePlugin):
             spinbox_decimals=2,
         )
         self._sht_slider.value_changed.connect(self._on_shutter_changed)
-        self._shutter_row = _row_widget("Shutter", self._sht_slider, stretch=True)
+        self._shutter_row = _row_widget(tr("Shutter"), self._sht_slider, stretch=True)
         lay.addWidget(self._shutter_row)
         self._sht_slider.set_enabled(False)
         self._manual_exp_rows = (self._iso_row, self._shutter_row)
@@ -211,17 +212,17 @@ class CameraControlPlugin(TelescopePlugin):
         self._ae_comp_slider.set_default(0)
         self._ae_comp_lbl = value_label("0.0 EV")
         self._ae_comp_slider.valueChanged.connect(self._on_ae_comp_changed)
-        lay.addWidget(_row_widget("Brightness", slider_row(self._ae_comp_slider, self._ae_comp_lbl), stretch=True))
+        lay.addWidget(_row_widget(tr("Brightness"), slider_row(self._ae_comp_slider, self._ae_comp_lbl), stretch=True))
 
-        self._rb_wb_auto   = SegmentButton("Auto")
-        self._rb_wb_manual = SegmentButton("Manual")
+        self._rb_wb_auto   = SegmentButton(tr("Auto"), value="Auto")
+        self._rb_wb_manual = SegmentButton(tr("Manual"), value="Manual")
         self._wb_grp = QButtonGroup(card)
         self._wb_grp.addButton(self._rb_wb_auto)
         self._wb_grp.addButton(self._rb_wb_manual)
         self._rb_wb_auto.setChecked(True)
         self._wb_grp.buttonClicked.connect(lambda _: self._on_wb_mode())
         lay.addWidget(_row_widget(
-            "White balance", segmented_row(self._rb_wb_auto, self._rb_wb_manual), stretch=True))
+            tr("White balance"), segmented_row(self._rb_wb_auto, self._rb_wb_manual), stretch=True))
 
         self._wb_slider = NoScrollSlider(Qt.Orientation.Horizontal)
         self._wb_slider.setRange(_WB_MIN_K, _WB_MAX_K)
@@ -230,7 +231,7 @@ class CameraControlPlugin(TelescopePlugin):
         self._wb_slider.set_default(_WB_NEUTRAL)
         self._wb_k_lbl = value_label(f"{_WB_NEUTRAL} K")
         self._wb_slider.valueChanged.connect(self._on_wb_changed)
-        self._temperature_row = _row_widget("Temperature", slider_row(self._wb_slider, self._wb_k_lbl, gutter=True), stretch=True)
+        self._temperature_row = _row_widget(tr("Temperature"), slider_row(self._wb_slider, self._wb_k_lbl, gutter=True), stretch=True)
         lay.addWidget(self._temperature_row)
         self._wb_slider.setEnabled(False)
         self._wb_k_lbl.setEnabled(False)
@@ -241,19 +242,18 @@ class CameraControlPlugin(TelescopePlugin):
         self._tint_slider.set_default(0)
         self._tint_lbl = value_label("+0")
         self._tint_slider.valueChanged.connect(self._on_tint_changed)
-        self._tint_row = _row_widget("Tint G–M", slider_row(self._tint_slider, self._tint_lbl, gutter=True), stretch=True)
+        self._tint_row = _row_widget(tr("Tint G–M"), slider_row(self._tint_slider, self._tint_lbl, gutter=True), stretch=True)
         lay.addWidget(self._tint_row)
         self._tint_slider.setEnabled(False)
         self._tint_lbl.setEnabled(False)
         self._manual_wb_rows = (self._temperature_row, self._tint_row)
 
         # ── Focus ─────────────────────────────────────────────────────────────
-        add_section_heading(lay, "Focus", "focus")
-        self._rb_focus_auto   = SegmentButton("Auto")
-        self._rb_focus_point  = SegmentButton("Tap a point")
-        self._rb_focus_point.setProperty("shortcutValue", "Point")
+        add_section_heading(lay, tr("Focus"), "focus")
+        self._rb_focus_auto   = SegmentButton(tr("Auto"), value="Auto")
+        self._rb_focus_point  = SegmentButton(tr("Tap a point"), value="Point")
         self._rb_focus_point.setEnabled(False)
-        self._rb_focus_manual = SegmentButton("Manual")
+        self._rb_focus_manual = SegmentButton(tr("Manual"), value="Manual")
         self._focus_grp = QButtonGroup(card)
         self._focus_grp.addButton(self._rb_focus_auto)
         self._focus_grp.addButton(self._rb_focus_point)
@@ -261,7 +261,7 @@ class CameraControlPlugin(TelescopePlugin):
         self._rb_focus_auto.setChecked(True)
         self._focus_grp.buttonClicked.connect(lambda _: self._on_focus_mode())
         lay.addWidget(_row_widget(
-            "Focus", segmented_row(self._rb_focus_auto, self._rb_focus_point, self._rb_focus_manual),
+            tr("Focus"), segmented_row(self._rb_focus_auto, self._rb_focus_point, self._rb_focus_manual),
             stretch=True))
 
         self._focus_slider = NoScrollSlider(Qt.Orientation.Horizontal)
@@ -271,29 +271,29 @@ class CameraControlPlugin(TelescopePlugin):
         self._focus_slider.valueChanged.connect(self._on_focus_slider)
         self._focus_val_lbl = value_label("inf")
         focus_slider_row = slider_row(self._focus_slider, self._focus_val_lbl, gutter=True)
-        self._focus_distance_row = _row_widget("Distance", focus_slider_row, stretch=True)
+        self._focus_distance_row = _row_widget(tr("Distance"), focus_slider_row, stretch=True)
         lay.addWidget(self._focus_distance_row)
         self._manual_focus_rows = (self._focus_distance_row,)
 
         # ── Image ─────────────────────────────────────────────────────────────
-        add_section_heading(lay, "Image", "image")
-        self._ois_tile = SwitchTile("stabilize", "Stabilization")
+        add_section_heading(lay, tr("Image"), "image")
+        self._ois_tile = SwitchTile("stabilize", tr("Stabilization"))
         self._ois_cb = self._ois_tile.switch
         self._ois_cb.setChecked(True)
-        self._ois_cb.setToolTip("Optical image stabilization")
+        self._ois_cb.setToolTip(tr("Optical image stabilization"))
         self._ois_cb.toggled.connect(self._on_ois)
 
-        self._low_light_row = SwitchTile("moon", "Low light")
+        self._low_light_row = SwitchTile("moon", tr("Low light"))
         self._low_light_cb = self._low_light_row.switch
-        self._low_light_cb.setToolTip(_LOW_LIGHT_TIP)
+        self._low_light_cb.setToolTip(tr(_LOW_LIGHT_TIP))
         self._low_light_cb.toggled.connect(self._on_low_light)
         self._low_light_row.setVisible(False)  # until the phone says it takes it
 
-        self._bll_tile = SwitchTile("lock", "Black level lock")
+        self._bll_tile = SwitchTile("lock", tr("Black level lock"))
         self._bll_cb = self._bll_tile.switch
         self._bll_cb.toggled.connect(self._on_bll_changed)
 
-        self._torch_tile = SwitchTile("torch", "Torch")
+        self._torch_tile = SwitchTile("torch", tr("Torch"))
         self._torch_btn = self._torch_tile.switch
         self._torch_btn.toggled.connect(self._on_torch_toggled)
 
@@ -306,15 +306,17 @@ class CameraControlPlugin(TelescopePlugin):
         lay.addLayout(self._tile_grid)
         self._place_switch_tiles(low_light=False)
 
-        self._nr_combo = ChoiceTile("Noise reduction", "field")
+        self._nr_combo = ChoiceTile(tr("Noise reduction"), "field")
         for label, _ in _NR_MODES:
-            self._nr_combo.addItem(label)
+            self._nr_combo.addItem(tr(label))
+            self._nr_combo.setItemData(self._nr_combo.count() - 1, label, SHORTCUT_VALUE_ROLE)
         self._nr_combo.setCurrentIndex(1)  # Fast
         self._nr_combo.currentIndexChanged.connect(self._on_nr_mode_changed)
 
-        self._edge_combo = ChoiceTile("Sharpening", "field")
+        self._edge_combo = ChoiceTile(tr("Sharpening"), "field")
         for label, _ in _EDGE_MODES:
-            self._edge_combo.addItem(label)
+            self._edge_combo.addItem(tr(label))
+            self._edge_combo.setItemData(self._edge_combo.count() - 1, label, SHORTCUT_VALUE_ROLE)
         self._edge_combo.setCurrentIndex(1)  # Fast
         self._edge_combo.currentIndexChanged.connect(self._on_edge_mode_changed)
         fields = QHBoxLayout()
@@ -337,38 +339,40 @@ class CameraControlPlugin(TelescopePlugin):
         self._low_light_row.setVisible(low_light)
 
     def create_actions(self) -> list:
-        g = "Camera"
+        g = tr("Camera")
         actions = [
-            choice_action("camera.lens", "Lens", g, buttons=self._lens_panel.buttons),
-            choice_action("camera.exposure_mode", "Exposure mode", g,
+            choice_action("camera.lens", tr("Lens"), g, buttons=self._lens_panel.buttons),
+            choice_action("camera.exposure_mode", tr("Exposure mode"), g,
                           buttons=[self._rb_exp_auto, self._rb_exp_manual]),
             log_slider_action("camera.iso", "ISO", g, self._iso_slider),
-            log_slider_action("camera.shutter", "Shutter", g, self._sht_slider, display_scale=1e-6, suffix=" ms",
+            log_slider_action("camera.shutter", tr("Shutter"), g, self._sht_slider, display_scale=1e-6, suffix=" ms",
                               decimals=2),
-            slider_action("camera.compensation", "Compensation", g, self._ae_comp_slider,
+            slider_action("camera.compensation", tr("Compensation"), g, self._ae_comp_slider,
                           scale=lambda: self._ae_comp_step, suffix=" EV", decimals=1, step=1.0,
                           readout=self._ae_comp_lbl, signed=True),
-            choice_action("camera.wb_mode", "White balance mode", g, buttons=[self._rb_wb_auto, self._rb_wb_manual]),
-            slider_action("camera.temperature", "Temperature", g, self._wb_slider, suffix=" K",
+            choice_action("camera.wb_mode", tr("White balance mode"), g, buttons=[self._rb_wb_auto, self._rb_wb_manual]),
+            slider_action("camera.temperature", tr("Temperature"), g, self._wb_slider, suffix=" K",
                           readout=self._wb_k_lbl),
-            slider_action("camera.tint", "Tint", g, self._tint_slider, step=10, readout=self._tint_lbl, signed=True),
-            choice_action("camera.focus_mode", "Focus mode", g,
+            slider_action("camera.tint", tr("Tint"), g, self._tint_slider, step=10, readout=self._tint_lbl, signed=True),
+            choice_action("camera.focus_mode", tr("Focus mode"), g,
                           buttons=[self._rb_focus_auto, self._rb_focus_point, self._rb_focus_manual]),
-            slider_action("camera.focus", "Focus distance", g, self._focus_slider, scale=0.1, suffix="%",
+            slider_action("camera.focus", tr("Focus distance"), g, self._focus_slider, scale=0.1, suffix="%",
                           decimals=1, step=5.0, readout=self._focus_val_lbl),
-            button_action("camera.stabilization", "Stabilization", g, self._ois_cb),
-            choice_action("camera.noise_reduction", "Noise reduction", g, combo=self._nr_combo),
-            choice_action("camera.sharpening", "Sharpening", g, combo=self._edge_combo),
-            button_action("camera.black_level_lock", "Black level lock", g, self._bll_cb),
-            button_action("camera.low_light", "Low light", g, self._low_light_cb),
-            button_action("camera.torch", "Torch", g, self._torch_btn),
+            button_action("camera.stabilization", tr("Stabilization"), g, self._ois_cb),
+            choice_action("camera.noise_reduction", tr("Noise reduction"), g, combo=self._nr_combo),
+            choice_action("camera.sharpening", tr("Sharpening"), g, combo=self._edge_combo),
+            button_action("camera.black_level_lock", tr("Black level lock"), g, self._bll_cb),
+            button_action("camera.low_light", tr("Low light"), g, self._low_light_cb),
+            button_action("camera.torch", tr("Torch"), g, self._torch_btn),
         ]
-        keywords = {"camera.iso": "exposure manual", "camera.shutter": "exposure manual speed",
-                    "camera.compensation": "exposure ev brightness", "camera.temperature": "white balance wb kelvin",
-                    "camera.tint": "white balance wb green magenta", "camera.wb_mode": "wb",
-                    "camera.focus": "manual focus", "camera.stabilization": "ois",
-                    "camera.torch": "flash light", "camera.sharpening": "edge",
-                    "camera.low_light": "dark night brightness"}
+        keywords = {"camera.iso": tr("exposure manual", ctx="search"),
+                    "camera.shutter": tr("exposure manual speed", ctx="search"),
+                    "camera.compensation": tr("exposure ev brightness", ctx="search"),
+                    "camera.temperature": tr("white balance wb kelvin", ctx="search"),
+                    "camera.tint": tr("white balance wb green magenta", ctx="search"), "camera.wb_mode": "wb",
+                    "camera.focus": tr("manual focus", ctx="search"), "camera.stabilization": "ois",
+                    "camera.torch": tr("flash light", ctx="search"), "camera.sharpening": tr("edge", ctx="search"),
+                    "camera.low_light": tr("dark night brightness", ctx="search")}
         for action in actions:
             action.keywords = keywords.get(action.id, "")
         return actions
@@ -377,7 +381,7 @@ class CameraControlPlugin(TelescopePlugin):
 
     def on_stream_start(self, stream_url: str, ctrl):
         self._ctrl = ctrl
-        self._lens_panel.set_placeholder("Loading lenses...")
+        self._lens_panel.set_placeholder(tr("Loading lenses..."))
         self._push_settings_to_phone()
 
     def on_focus_gained(self, stream_url: str, ctrl):
@@ -444,7 +448,7 @@ class CameraControlPlugin(TelescopePlugin):
     def on_phone_state(self, state: dict):
         view = derive_camera_control_view(state)
         if view is None:
-            self._lens_panel.set_placeholder("Unavailable")
+            self._lens_panel.set_placeholder(tr("Unavailable"))
             return
         self._last_state = state
 
@@ -539,17 +543,17 @@ class CameraControlPlugin(TelescopePlugin):
 
     def _update_cam_info_lbl(self, cam: dict):
         """Say "Full manual control" in the header when the lens has it; the tooltip lists what it has and lacks."""
-        supported = [(label, cam.get(key)) for key, label in _CAPABILITY_LABELS]
-        hw_level  = _HW_LEVELS.get(cam.get("hwLevel", ""), cam.get("hwLevel", ""))
+        supported = [(tr(label), cam.get(key)) for key, label in _CAPABILITY_LABELS]
+        hw_level  = tr(_HW_LEVELS.get(cam.get("hwLevel", ""), cam.get("hwLevel", "")))
         have      = [l for l, ok in supported if ok]
         missing   = [l for l, ok in supported if not ok]
 
         full = all(cam.get(k) for k in ("supportsManualSensor", "supportsManualWB", "supportsManualFocus"))
-        self._cam_info_lbl.setText("Full manual control" if full else "Limited manual control")
+        self._cam_info_lbl.setText(tr("Full manual control") if full else tr("Limited manual control"))
         self._cam_info_lbl.setToolTip("\n".join(
-            ([f"Camera level: {hw_level}"] if hw_level else [])
-            + (["Supports: " + ", ".join(have)] if have else [])
-            + (["Not supported: " + ", ".join(missing)] if missing else [])))
+            ([tr("Camera level: {level}", level=hw_level)] if hw_level else [])
+            + ([tr("Supports: {features}", features=", ".join(have))] if have else [])
+            + ([tr("Not supported: {features}", features=", ".join(missing))] if missing else [])))
         self._cam_info_lbl.setVisible(True)
 
     def _update_camera_caps(self, supports_manual_sensor: bool, supports_manual_wb: bool,
@@ -562,7 +566,7 @@ class CameraControlPlugin(TelescopePlugin):
             self._manual_exp = False
             self._iso_slider.set_enabled(False)
             self._sht_slider.set_enabled(False)
-            self._rb_exp_manual.setToolTip("This lens has no manual exposure")
+            self._rb_exp_manual.setToolTip(tr("This lens has no manual exposure"))
         else:
             self._rb_exp_manual.setToolTip("")
 
@@ -575,7 +579,7 @@ class CameraControlPlugin(TelescopePlugin):
             self._wb_k_lbl.setEnabled(False)
             self._tint_slider.setEnabled(False)
             self._tint_lbl.setEnabled(False)
-            self._rb_wb_manual.setToolTip("This lens has no manual white balance")
+            self._rb_wb_manual.setToolTip(tr("This lens has no manual white balance"))
         else:
             self._rb_wb_manual.setToolTip("")
 
@@ -588,18 +592,18 @@ class CameraControlPlugin(TelescopePlugin):
             self._rb_focus_manual.setChecked(False)
             self._manual_focus = False
             self._focus_slider.setEnabled(False)
-            self._rb_focus_manual.setToolTip("This lens has no manual focus")
+            self._rb_focus_manual.setToolTip(tr("This lens has no manual focus"))
         else:
             self._rb_focus_manual.setToolTip("")
 
         self._torch_btn.setEnabled(supports_flash)
         if not supports_flash:
-            self._torch_btn.setToolTip("This lens has no flash to use as a torch")
+            self._torch_btn.setToolTip(tr("This lens has no flash to use as a torch"))
         else:
             self._torch_btn.setToolTip("")
 
         self._ois_cb.setEnabled(has_ois)  # Greyed out but stays checked across lens switches.
-        self._ois_cb.setToolTip("" if has_ois else "This lens has no optical stabilization")
+        self._ois_cb.setToolTip("" if has_ois else tr("This lens has no optical stabilization"))
         self._sync_manual_control_visibility()
 
     def _sync_manual_control_visibility(self):
@@ -702,8 +706,8 @@ class CameraControlPlugin(TelescopePlugin):
 
     def _set_point_available(self, available: bool):
         self._rb_focus_point.setEnabled(available)
-        self._rb_focus_point.setToolTip("Click the preview to focus there" if available else
-                                        "This lens can't focus on a point" if self._ctrl else "")
+        self._rb_focus_point.setToolTip(tr("Click the preview to focus there") if available else
+                                        tr("This lens can't focus on a point") if self._ctrl else "")
         if not available and self._point_focus:
             self._point_focus = False
             self._rb_focus_auto.setChecked(True)

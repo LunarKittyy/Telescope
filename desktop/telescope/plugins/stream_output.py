@@ -17,6 +17,7 @@ from telescope.widgets.common import (
     slider_row, value_label,
 )
 from telescope.widgets.controls import ChoiceTile, OptionCard, option_row
+from telescope.i18n import N_, tr
 
 _DEFAULT_QUALITY = 85  # the recommended spot, marked on the slider
 _MAX_QUALITY     = 95  # past about 92 a JPEG roughly doubles in size for no difference anyone sees
@@ -27,20 +28,20 @@ _MAX_BITRATE_MBPS = 100  # the phone clamps to the same range, and to what its e
 # an older desktop reads as Auto and an older phone treats as Auto.
 _DYNAMIC_POS = _MAX_BITRATE_MBPS + 1
 _DYNAMIC = -1
-_BITRATE_TIP = "All the way right is Dynamic, which adjusts to what your connection can handle."
-_NO_DYNAMIC_TIP = " This phone's app is too old for Dynamic and uses Auto until it's updated."
+_BITRATE_TIP = N_("All the way right is Dynamic, which adjusts to what your connection can handle.")
+_NO_DYNAMIC_TIP = N_("This phone's app is too old for Dynamic and uses Auto until it's updated.")
 
 FORMAT_MJPEG = "mjpeg"
 FORMAT_H264  = "h264"
 
 # Shown as Light and Heavy: the codec names say nothing about the choice people actually make, which is how much data.
 _FORMAT_NOTES = {
-    FORMAT_H264:  "Good for most calls",
-    FORMAT_MJPEG: "Sharper, more data",
+    FORMAT_H264:  N_("Good for most calls"),
+    FORMAT_MJPEG: N_("Sharper, more data"),
 }
 # Tooltips carry the technical side; the note on each button is the plain one.
-_LIGHT_TIP = "H.264 from the phone's hardware encoder, like video calls use."
-_HEAVY_TIP = "MJPEG: every frame a full JPEG. Several times Light's data, sharper in fast motion."
+_LIGHT_TIP = N_("H.264 from the phone's hardware encoder, like video calls use.")
+_HEAVY_TIP = N_("MJPEG: every frame a full JPEG. Several times Light's data, sharper in fast motion.")
 
 # "1080p" etc. names a height, not one exact WxH - matching by height catches every ratio's version.
 _COMMON_HEIGHTS = {2160, 1440, 1080, 720, 480, 360}  # 4K, 1440p, 1080p, 720p, 480p, 360p
@@ -119,9 +120,10 @@ def _closest_size(wh: tuple, sizes) -> tuple:
 
 class StreamOutputPlugin(TelescopePlugin):
     name = "stream_output"
-    title = "Stream output"
-    about = "The resolution, frame rate and format of the stream."
-    when_off = "Without it there's no Stream output card and streams use whatever size and format the phone picks."
+    title = N_("Stream output")
+    about = N_("The resolution, frame rate and format of the stream.")
+    when_off = N_("Without it there's no Stream output card and streams use whatever size and format the phone "
+                  "picks.")
     in_presets = True
     device_local = True
 
@@ -156,27 +158,27 @@ class StreamOutputPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, "Stream output", "stream", hue="stream")
+        add_card_header(lay, tr("Stream output"), "stream", hue="stream")
         dim_until_paired(card, self._bus, phone_only=True)
 
         # ── Resolution, frame rate and shape, as three tiles ────────────────
-        self._ar_combo = ChoiceTile("Shape")  # aspect ratio; narrows the resolution list
+        self._ar_combo = ChoiceTile(tr("Shape"))  # aspect ratio; narrows the resolution list
         self._ar_combo.setItemDelegate(_ColoredItemDelegate(self._ar_combo))
         self._ar_combo.addItem("—")
         self._ar_combo.setEnabled(False)
         self._ar_combo.currentIndexChanged.connect(self._on_aspect_ratio_changed)
 
-        self._res_combo = ChoiceTile("Resolution")
+        self._res_combo = ChoiceTile(tr("Resolution"))
         self._res_combo.setItemDelegate(_ColoredItemDelegate(self._res_combo))
         self._res_combo.addItem("—")
         self._res_combo.setEnabled(False)
         self._res_combo.currentIndexChanged.connect(self._on_resolution)
 
         # Capture and playback rate; faster just wastes power. Rates past what the lens lists are grayed out.
-        self._fps_combo = ChoiceTile("Frame rate")
+        self._fps_combo = ChoiceTile(tr("Frame rate"))
         for fps in _FPS_CHOICES:
             self._fps_combo.addItem(f"{fps} fps", fps)
-        self._fps_combo.setToolTip("The phone's capture rate and the virtual camera's. Lower saves data and battery.")
+        self._fps_combo.setToolTip(tr("The phone's capture rate and the virtual camera's. Lower saves data and battery."))
         self._fps_combo.activated.connect(self._on_fps_picked)
         self._wanted_fps = _DEFAULT_FPS  # what was picked; a lens that can't do it runs the fastest it can below
         self._camera_max_fps = 0         # the current lens's fastest listed rate; 0 = not known, nothing grayed
@@ -199,7 +201,7 @@ class StreamOutputPlugin(TelescopePlugin):
         self._show_quality(_DEFAULT_QUALITY)
         self._quality_slider.valueChanged.connect(self._on_quality_changed)
         self._quality_row = control_row_widget(
-            "JPEG quality", slider_row(self._quality_slider, self._quality_val_lbl), stretch=True)
+            tr("JPEG quality"), slider_row(self._quality_slider, self._quality_val_lbl), stretch=True)
         lay.addWidget(self._quality_row)
 
         self._bitrate_slider = NoScrollSlider(Qt.Orientation.Horizontal)
@@ -207,16 +209,19 @@ class StreamOutputPlugin(TelescopePlugin):
         self._bitrate_slider.setValue(0)
         self._bitrate_slider.set_default(0)  # Auto
         self._bitrate_val_lbl = value_label()
-        self._bitrate_slider.setToolTip(_BITRATE_TIP)
+        self._bitrate_slider.setToolTip(tr(_BITRATE_TIP))
         self._show_bitrate()
         self._bitrate_slider.valueChanged.connect(self._on_bitrate_changed)
         self._bitrate_row = control_row_widget(
-            "Bitrate", slider_row(self._bitrate_slider, self._bitrate_val_lbl), stretch=True)
+            tr("Bitrate"), slider_row(self._bitrate_slider, self._bitrate_val_lbl), stretch=True)
         lay.addWidget(self._bitrate_row)
 
-        self._fmt_h264 = OptionCard("Light", _FORMAT_NOTES[FORMAT_H264], "bolt")
-        self._fmt_mjpeg = OptionCard("Heavy", _FORMAT_NOTES[FORMAT_MJPEG], "heavy")
-        self._fmt_mjpeg.setToolTip(_HEAVY_TIP)
+        # Translators: Light and Heavy are the names of the two stream formats
+        self._fmt_h264 = OptionCard(tr("Light"), tr(_FORMAT_NOTES[FORMAT_H264]), "bolt")
+        self._fmt_mjpeg = OptionCard(tr("Heavy"), tr(_FORMAT_NOTES[FORMAT_MJPEG]), "heavy")
+        self._fmt_h264.setProperty("shortcutValue", "Light")
+        self._fmt_mjpeg.setProperty("shortcutValue", "Heavy")
+        self._fmt_mjpeg.setToolTip(tr(_HEAVY_TIP))
         self._fmt_grp = QButtonGroup(card)
         self._fmt_grp.setExclusive(True)
         for btn in (self._fmt_h264, self._fmt_mjpeg):
@@ -268,15 +273,15 @@ class StreamOutputPlugin(TelescopePlugin):
             combo.blockSignals(False)
 
     def create_actions(self) -> list:
-        g = "Stream output"
+        g = tr("Stream output")
         return [
-            choice_action("stream.aspect_ratio", "Aspect ratio", g, combo=self._ar_combo),
-            choice_action("stream.resolution", "Resolution", g, combo=self._res_combo),
-            choice_action("stream.fps", "FPS", g, combo=self._fps_combo, wrap=False),
-            choice_action("stream.format", "Format", g, buttons=[self._fmt_h264, self._fmt_mjpeg]),
-            slider_action("stream.quality", "JPEG quality", g, self._quality_slider, step=5,
+            choice_action("stream.aspect_ratio", tr("Aspect ratio"), g, combo=self._ar_combo),
+            choice_action("stream.resolution", tr("Resolution"), g, combo=self._res_combo),
+            choice_action("stream.fps", tr("FPS"), g, combo=self._fps_combo, wrap=False),
+            choice_action("stream.format", tr("Format"), g, buttons=[self._fmt_h264, self._fmt_mjpeg]),
+            slider_action("stream.quality", tr("JPEG quality"), g, self._quality_slider, step=5,
                           readout=self._quality_val_lbl),
-            slider_action("stream.bitrate", "Bitrate", g, self._bitrate_slider, suffix=" Mbps",
+            slider_action("stream.bitrate", tr("Bitrate"), g, self._bitrate_slider, suffix=" Mbps",
                           readout=self._bitrate_val_lbl),
         ]
 
@@ -311,17 +316,20 @@ class StreamOutputPlugin(TelescopePlugin):
             sid = self._host.focused_source_id()  # the panels may show another stream by the time it's answered
             QTimer.singleShot(0, lambda: self._host.stop_stream(sid))
             back = self._back_to_good_size(state)
-            actions = [BannerAction("Switch to Heavy", self._host.start_again(sid, self._switch_to_heavy))]
+            actions = [BannerAction(tr("Switch to Heavy"), self._host.start_again(sid, self._switch_to_heavy))]
             if back:
-                text = f"{state['codec_error']}. It's set back to {back}, the last size that worked."
-                actions.insert(0, BannerAction(f"Start at {back}", self._host.start_again(sid)))
+                text = tr("{error}. It's set back to {size}, the last size that worked.",
+                          error=state['codec_error'], size=back)
+                actions.insert(0, BannerAction(tr("Start at {size}", size=back), self._host.start_again(sid)))
             else:
-                text = f"{state['codec_error']}. Try a lower resolution or FPS, or switch to Heavy."
-            self._host.show_issue("encoder", Issue("Too much for the phone's H.264 encoder", text, actions, kind="warn"))
+                text = tr("{error}. Try a lower resolution or FPS, or switch to Heavy.", error=state['codec_error'])
+            self._host.show_issue("encoder", Issue(tr("Too much for the phone's H.264 encoder"), text, actions,
+                                                   kind="warn"))
         elif self._format == FORMAT_H264 and state.get("codec_error"):
             # The phone went back to MJPEG; so does the stream, or it would keep asking for H.264.
             self._host.show_issue("h264", Issue(
-                "Switched to Heavy", f"{state['codec_error']}. You can try Light again in Stream output.", kind="warn"))
+                tr("Switched to Heavy"), tr("{error}. You can try Light again in Stream output.",
+                                            error=state['codec_error']), kind="warn"))
             self._set_format(FORMAT_MJPEG)
         cams = state.get("cameras")
         if not isinstance(cams, list):
@@ -548,11 +556,11 @@ class StreamOutputPlugin(TelescopePlugin):
             btn.blockSignals(False)
         self._fmt_h264.setEnabled(self._h264_offered())
         if not h264_reader.available():
-            tip = "H.264. Needs PyAV on this computer (pip install av)."
+            tip = tr("H.264. Needs PyAV on this computer (pip install av).")
         elif self._phone_codecs and FORMAT_H264 not in self._phone_codecs:
-            tip = "H.264. This phone has no H.264 encoder."
+            tip = tr("H.264. This phone has no H.264 encoder.")
         else:
-            tip = _LIGHT_TIP
+            tip = tr(_LIGHT_TIP)
         self._fmt_h264.setToolTip(tip)
         self._quality_row.setVisible(not h264)
         self._bitrate_row.setVisible(h264)
@@ -583,17 +591,18 @@ class StreamOutputPlugin(TelescopePlugin):
             return
         on_light = self.stream_format() == FORMAT_H264
         if not on_light and self._h264_offered():
-            text, action = "Try Light or lower quality.", BannerAction("Switch to Light", self._switch_to_light)
+            text, action = tr("Try Light or lower quality."), BannerAction(tr("Switch to Light"), self._switch_to_light)
         elif on_light and self._dynamic():
-            text, action = "Try a lower resolution or FPS.", None  # Dynamic already lowered what it could
+            text, action = tr("Try a lower resolution or FPS."), None  # Dynamic already lowered what it could
         elif on_light and self._phone_dynamic is not False:
-            text, action = "Try Dynamic or lower quality.", BannerAction("Switch to Dynamic", self._switch_to_dynamic)
+            text, action = (tr("Try Dynamic or lower quality."),
+                            BannerAction(tr("Switch to Dynamic"), self._switch_to_dynamic))
         else:
-            text, action = "Try lower quality.", None
+            text, action = tr("Try lower quality."), None
         hint = self._wifi_hint()
         if hint:
             text = f"{hint} {text}"
-        self._host.show_issue("behind", Issue("Can't keep up", text, [action] if action else [], kind="warn"))
+        self._host.show_issue("behind", Issue(tr("Can't keep up"), text, [action] if action else [], kind="warn"))
 
     def _wifi_hint(self) -> str:
         """What's likely slowing a Wi-Fi stream down, when the phone's Wi-Fi says so."""
@@ -601,9 +610,11 @@ class StreamOutputPlugin(TelescopePlugin):
         if self._over_usb:
             return ""
         if rssi is not None and rssi <= _WEAK_WIFI_DBM:
-            return "The phone's Wi-Fi signal is weak. Moving it closer to the router or plugging in a cable will help the most."
+            return tr("The phone's Wi-Fi signal is weak. Moving it closer to the router or plugging in a cable will "
+                      "help the most.")
         if band == "2.4":
-            return "The phone is on 2.4 GHz Wi-Fi which is slower and often crowded. A 5 GHz network or a cable will help the most."
+            return tr("The phone is on 2.4 GHz Wi-Fi which is slower and often crowded. A 5 GHz network or a cable "
+                      "will help the most.")
         return ""
 
     def _switch_to_light(self):
@@ -624,8 +635,9 @@ class StreamOutputPlugin(TelescopePlugin):
 
     def _show_bitrate(self):
         mbps = self._bitrate_slider.value()
-        self._bitrate_val_lbl.setText("Dynamic" if self._dynamic() else f"{mbps} Mbps" if mbps else "Auto")
-        self._bitrate_slider.setToolTip(_BITRATE_TIP + (_NO_DYNAMIC_TIP if self._phone_dynamic is False else ""))
+        self._bitrate_val_lbl.setText(tr("Dynamic") if self._dynamic() else f"{mbps} Mbps" if mbps else tr("Auto"))
+        self._bitrate_slider.setToolTip(tr(_BITRATE_TIP) + (" " + tr(_NO_DYNAMIC_TIP) if self._phone_dynamic is False
+                                                            else ""))
 
     def _on_bitrate_changed(self, _value: int):
         self._show_bitrate()
@@ -680,8 +692,8 @@ class StreamOutputPlugin(TelescopePlugin):
 
     def _show_quality(self, q: int):
         self._quality_val_lbl.setText(f"{q}%")
-        tip = (f"{quality_label(q)}. The dot ({_DEFAULT_QUALITY}%) is recommended: higher costs a lot more data "
-               "for little you'd see. On slow Wi-Fi, lower it or the FPS.")
+        tip = tr("{quality}. The dot ({default}%) is recommended: higher costs a lot more data for little you'd "
+                 "see. On slow Wi-Fi, lower it or the FPS.", quality=quality_label(q), default=_DEFAULT_QUALITY)
         self._quality_slider.setToolTip(tip)
         self._quality_val_lbl.setToolTip(tip)
 
@@ -699,8 +711,8 @@ class StreamOutputPlugin(TelescopePlugin):
             "Phone codecs": ", ".join(self._phone_codecs) or "unknown",
             "Resolution": self._res_combo.currentText() or "auto",
             "FPS": str(self._fps()) + (f" ({self._wanted_fps} chosen)" if self._fps() != self._wanted_fps else ""),
-            "Bitrate": self._bitrate_val_lbl.text() + (" (phone uses Auto)" if self._dynamic() and
-                                                       self._phone_dynamic is False else ""),
+            "Bitrate": ("Dynamic" if self._dynamic() else f"{mbps} Mbps" if (mbps := self._bitrate_slider.value())
+                        else "Auto") + (" (phone uses Auto)" if self._dynamic() and self._phone_dynamic is False else ""),
             **({"H.264 profile": self._h264_profile} if self._h264_profile else {}),
             **({"H.264 refresh": "intra refresh" if self._intra_refresh else "keyframes"} if self._h264_profile else {}),
             **({"Phone Wi-Fi": self._wifi_text()} if any(v is not None for v in self._wifi) else {}),

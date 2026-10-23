@@ -19,6 +19,7 @@ from PyQt6.QtCore import Qt
 
 from telescope.platform.hotkeys import HotkeyBackend, HotkeyStatus
 from telescope.shortcuts import split_keys
+from telescope.i18n import tr
 
 logger = logging.getLogger(__name__)
 
@@ -114,19 +115,20 @@ class PortalHotkeys(HotkeyBackend):
     def status(self, hotkey_id: str) -> Optional[HotkeyStatus]:
         with self._lock:
             if self._state == "unavailable":
-                return HotkeyStatus(False, "Not available on this desktop")
+                return HotkeyStatus(False, tr("Not available on this desktop"))
             if self._state == "asking":
-                return HotkeyStatus(False, "Waiting for you to confirm it")
+                return HotkeyStatus(False, tr("Waiting for you to confirm it"))
             return self._statuses.get(hotkey_id)
 
     def note(self) -> str:
         with self._lock:
             state, why = self._state, self._why
         if state == "unavailable":
-            return ("This desktop doesn't offer global shortcuts to apps" + (f" ({why})" if why else "") + ". "
-                    "Bind a Copy command line in its own keyboard settings instead.")
-        return ("Your desktop asks you to confirm global shortcuts, and you can change their keys in its own "
-                "settings. The key it settled on shows next to each one.")
+            return ((tr("This desktop doesn't offer global shortcuts to apps ({why}).", why=why) if why
+                     else tr("This desktop doesn't offer global shortcuts to apps.")) + " "
+                    + tr("Bind a Copy command line in its own keyboard settings instead."))
+        return tr("Your desktop asks you to confirm global shortcuts, and you can change their keys in its own "
+                  "settings. The key it settled on shows next to each one.")
 
     def can_configure(self) -> bool:
         with self._lock:
@@ -302,11 +304,11 @@ class PortalHotkeys(HotkeyBackend):
     @staticmethod
     def _status_of(props: Optional[dict]) -> HotkeyStatus:
         if props is None:
-            return HotkeyStatus(False, "Not confirmed in the desktop's dialog")
+            return HotkeyStatus(False, tr("Not confirmed in the desktop's dialog"))
         trigger = str(props.get("trigger_description", ("s", ""))[1])
         if not trigger:
-            return HotkeyStatus(False, "No key set in the desktop's shortcut settings")
-        return HotkeyStatus(True, f"Everywhere: {trigger}")
+            return HotkeyStatus(False, tr("No key set in the desktop's shortcut settings"))
+        return HotkeyStatus(True, tr("Everywhere: {keys}", keys=trigger))
 
     def _request(self, method: str, signature: str, body) -> tuple:
         """Call a portal method that answers through a Request object's Response signal; (code, results)."""
