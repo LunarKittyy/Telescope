@@ -147,11 +147,13 @@ def check_running(folder: Path, name: str, log: _Logged):
     try:
         _check_window(win, name, log, app)
     finally:
-        win._shut_down()  # stop the wait screen's drawing thread before Qt destroys its resources
-        app.processEvents()
-        # The window has reference cycles. Destroy it while QApplication is still alive, including on early returns.
-        sip.delete(win)
-        _logged("Quitting", log)
+        try:
+            win._shut_down()  # stop the wait screen's drawing thread before Qt destroys its resources
+        finally:
+            app.processEvents()
+            # The window has reference cycles. Destroy it while QApplication is still alive, including on early returns.
+            sip.delete(win)
+            _logged("Quitting", log)
 
 
 def _check_window(win, name: str, log: _Logged, app):
