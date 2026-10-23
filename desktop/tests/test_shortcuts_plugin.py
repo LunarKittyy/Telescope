@@ -367,7 +367,7 @@ def test_editor_search_narrows_the_controls(make):
         combo = editor._action_combo
         listed = lambda: [combo.itemData(i) for i in range(combo.count()) if combo.itemData(i)]  # noqa: E731
         assert len(listed()) == len(plugin.actions())
-        assert editor._search.hasFocus() or QApplication.focusWidget() is None  # a new one starts at the search
+        assert editor.focusWidget() is editor._search  # starts at the search; asks the editor, as another test may hold the app focus
         editor._search.setText("torch")
         assert listed() == ["camera.torch"]
         assert combo.currentData() == "camera.torch"
