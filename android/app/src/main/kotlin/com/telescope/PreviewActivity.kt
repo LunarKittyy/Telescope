@@ -235,7 +235,7 @@ class PreviewActivity : AppCompatActivity() {
         val svc = service ?: return
         currentCameraId = svc.getCurrentCameraId()
         applyPreviewTransform(currentCameraId, bufferSize)
-        buildLensPills(svc.getCameras().map { it.id to it.label }) { id ->
+        buildLensPills(svc.getCameras().map { it.id to LensLabel.local(strings(), it.facing, it.focalMm, it.hasOis, it.lensKind) }) { id ->
             currentCameraId = id
             svc.switchCamera(id)
             applyPreviewTransform(id, bufferSize)
@@ -254,7 +254,7 @@ class PreviewActivity : AppCompatActivity() {
         handlerThread = HandlerThread("PreviewCamThread").also { it.start() }
         handler = Handler(handlerThread!!.looper)
 
-        buildLensPills(cameras.map { it.id to it.label }) { id -> switchStandaloneCamera(id, surface) }
+        buildLensPills(cameras.map { it.id to LensLabel.local(strings(), it.facing, it.focalMm, it.hasOis, it.kind) }) { id -> switchStandaloneCamera(id, surface) }
         switchStandaloneCamera(cameras.first().id, surface)
     }
 
@@ -434,7 +434,7 @@ class PreviewActivity : AppCompatActivity() {
         lensContainer.removeAllViews()
         entries.forEach { (id, label) ->
             val pill = TextView(this).apply {
-                text = shortLabel(label)
+                text = label
                 tag = id
                 textSize = 13f
                 setPadding(28, 16, 28, 16)
@@ -458,12 +458,6 @@ class PreviewActivity : AppCompatActivity() {
                 if (selected) R.drawable.pill_lens_selected else R.drawable.pill_lens, theme)
         }
     }
-
-    private fun shortLabel(raw: String): String =
-        raw.replace(Regex("^ID \\d+\\s+"), "")
-           .replace(Regex("\\[phys[^]]*\\]"), "")
-           .replace(Regex("\\s{2,}"), " ")
-           .trim()
 
     companion object {
         private const val TAG = "PreviewActivity"

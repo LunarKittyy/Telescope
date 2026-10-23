@@ -27,7 +27,7 @@ msgstr ""
 msgid "Lost the phone - reconnecting"
 msgstr ""
 
-#: telescope/app.py:159 telescope/plugins/browser_camera.py:566 telescope/plugins/connection.py:1091 telescope/plugins/connection.py:1135 telescope/plugins/connection.py:1291 telescope/plugins/connection.py:1327 telescope/plugins/onboarding.py:270 telescope/plugins/setup.py:769 telescope/plugins/updates.py:107 telescope/sources.py:814 telescope/widgets/vaapi_setup.py:300
+#: telescope/app.py:159 telescope/plugins/browser_camera.py:566 telescope/plugins/connection.py:1091 telescope/plugins/connection.py:1135 telescope/plugins/connection.py:1291 telescope/plugins/connection.py:1327 telescope/plugins/onboarding.py:270 telescope/plugins/setup.py:769 telescope/plugins/updates.py:107 telescope/sources.py:822 telescope/widgets/vaapi_setup.py:300
 msgid "Try again"
 msgstr ""
 
@@ -116,7 +116,7 @@ msgid "Stop"
 msgstr ""
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: telescope/app.py:608 telescope/app.py:1872 telescope/app.py:1888 telescope/plugins/shortcuts.py:151 telescope/sources.py:619 telescope/sources.py:628
+#: telescope/app.py:608 telescope/app.py:1872 telescope/app.py:1888 telescope/plugins/shortcuts.py:151 telescope/sources.py:627 telescope/sources.py:636
 msgid "Start"
 msgstr ""
 
@@ -124,11 +124,11 @@ msgstr ""
 msgid "Stop streaming"
 msgstr ""
 
-#: telescope/app.py:655 telescope/app.py:1425 telescope/app.py:1490 telescope/plugins/shortcuts.py:162 telescope/sources.py:170 telescope/stream.py:448 telescope/stream_flow.py:154
+#: telescope/app.py:655 telescope/app.py:1425 telescope/app.py:1490 telescope/audio.py:630 telescope/plugins/shortcuts.py:162 telescope/sources.py:178 telescope/stream.py:448 telescope/stream_flow.py:154
 msgid "Not streaming"
 msgstr ""
 
-#: telescope/app.py:661 telescope/plugins/stream_output.py:280
+#: telescope/app.py:661 telescope/plugins/stream_output.py:296
 msgid "FPS"
 msgstr ""
 
@@ -346,7 +346,24 @@ msgstr ""
 msgid "The virtual microphone stopped taking audio."
 msgstr ""
 
+#. why the phone's microphone can't be used; shown next to the Microphone card
 #: telescope/audio.py:629
+msgid "No microphone"
+msgstr ""
+
+#: telescope/audio.py:631
+msgid "Allow the microphone in Telescope on the phone"
+msgstr ""
+
+#: telescope/audio.py:632
+msgid "Open Telescope on the phone once, then try again"
+msgstr ""
+
+#: telescope/audio.py:633
+msgid "The phone's microphone is in use"
+msgstr ""
+
+#: telescope/audio.py:642
 #, python-brace-format
 msgid "The phone refused the microphone (HTTP {code})."
 msgstr ""
@@ -1029,11 +1046,11 @@ msgstr ""
 msgid "The size the browser sends; a camera that can't do it sends what it can"
 msgstr ""
 
-#: telescope/plugins/browser_camera.py:263 telescope/plugins/stream_output.py:171 telescope/plugins/stream_output.py:279
+#: telescope/plugins/browser_camera.py:263 telescope/plugins/stream_output.py:187 telescope/plugins/stream_output.py:295
 msgid "Resolution"
 msgstr ""
 
-#: telescope/plugins/browser_camera.py:268 telescope/plugins/stream_output.py:178
+#: telescope/plugins/browser_camera.py:268 telescope/plugins/stream_output.py:194
 msgid "Frame rate"
 msgstr ""
 
@@ -1072,7 +1089,7 @@ msgstr ""
 msgid "The device's browser can't send any faster."
 msgstr ""
 
-#: telescope/plugins/browser_camera.py:383 telescope/plugins/stream_output.py:605
+#: telescope/plugins/browser_camera.py:383 telescope/plugins/stream_output.py:621
 msgid "Can't keep up"
 msgstr ""
 
@@ -1176,7 +1193,7 @@ msgctxt "camera section"
 msgid "Light"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:176 telescope/plugins/camera_control.py:217 telescope/plugins/camera_control.py:253 telescope/plugins/connection.py:743 telescope/plugins/stream_output.py:638
+#: telescope/plugins/camera_control.py:176 telescope/plugins/camera_control.py:217 telescope/plugins/camera_control.py:253 telescope/plugins/connection.py:743 telescope/plugins/stream_output.py:654
 msgid "Auto"
 msgstr ""
 
@@ -3804,128 +3821,147 @@ msgstr ""
 msgid "MJPEG: every frame a full JPEG. Several times Light's data, sharper in fast motion."
 msgstr ""
 
-#: telescope/plugins/stream_output.py:123 telescope/plugins/stream_output.py:161 telescope/plugins/stream_output.py:276
+#: telescope/plugins/stream_output.py:94
+msgid "The phone's H.264 encoder stopped"
+msgstr ""
+
+#: telescope/plugins/stream_output.py:96
+#, python-brace-format
+msgid "H.264 isn't available at {size} on this phone"
+msgstr ""
+
+#: telescope/plugins/stream_output.py:98
+#, python-brace-format
+msgid "The camera can't feed H.264 at {size} on this phone"
+msgstr ""
+
+#: telescope/plugins/stream_output.py:100
+#, python-brace-format
+msgid "H.264 at {size} stopped the camera on this phone"
+msgstr ""
+
+#: telescope/plugins/stream_output.py:139 telescope/plugins/stream_output.py:177 telescope/plugins/stream_output.py:292
 msgid "Stream output"
 msgstr ""
 
-#: telescope/plugins/stream_output.py:124
+#: telescope/plugins/stream_output.py:140
 msgid "The resolution, frame rate and format of the stream."
 msgstr ""
 
-#: telescope/plugins/stream_output.py:125
+#: telescope/plugins/stream_output.py:141
 msgid "Without it there's no Stream output card and streams use whatever size and format the phone picks."
 msgstr ""
 
-#: telescope/plugins/stream_output.py:165
+#: telescope/plugins/stream_output.py:181
 msgid "Shape"
 msgstr ""
 
-#: telescope/plugins/stream_output.py:181
+#: telescope/plugins/stream_output.py:197
 msgid "The phone's capture rate and the virtual camera's. Lower saves data and battery."
 msgstr ""
 
-#: telescope/plugins/stream_output.py:204 telescope/plugins/stream_output.py:282
+#: telescope/plugins/stream_output.py:220 telescope/plugins/stream_output.py:298
 msgid "JPEG quality"
 msgstr ""
 
-#: telescope/plugins/stream_output.py:216 telescope/plugins/stream_output.py:284
+#: telescope/plugins/stream_output.py:232 telescope/plugins/stream_output.py:300
 msgid "Bitrate"
 msgstr ""
 
 #. Light and Heavy are the names of the two stream formats
-#: telescope/plugins/stream_output.py:220
+#: telescope/plugins/stream_output.py:236
 msgid "Light"
 msgstr ""
 
-#: telescope/plugins/stream_output.py:221
+#: telescope/plugins/stream_output.py:237
 msgid "Heavy"
 msgstr ""
 
-#: telescope/plugins/stream_output.py:278
+#: telescope/plugins/stream_output.py:294
 msgid "Aspect ratio"
 msgstr ""
 
-#: telescope/plugins/stream_output.py:281
+#: telescope/plugins/stream_output.py:297
 msgid "Format"
 msgstr ""
 
-#: telescope/plugins/stream_output.py:319
+#: telescope/plugins/stream_output.py:335
 msgid "Switch to Heavy"
 msgstr ""
 
-#: telescope/plugins/stream_output.py:321
+#: telescope/plugins/stream_output.py:337
 #, python-brace-format
 msgid "{error}. It's set back to {size}, the last size that worked."
 msgstr ""
 
-#: telescope/plugins/stream_output.py:323
+#: telescope/plugins/stream_output.py:339
 #, python-brace-format
 msgid "Start at {size}"
 msgstr ""
 
-#: telescope/plugins/stream_output.py:325
+#: telescope/plugins/stream_output.py:341
 #, python-brace-format
 msgid "{error}. Try a lower resolution or FPS, or switch to Heavy."
 msgstr ""
 
-#: telescope/plugins/stream_output.py:326
+#: telescope/plugins/stream_output.py:342
 msgid "Too much for the phone's H.264 encoder"
 msgstr ""
 
-#: telescope/plugins/stream_output.py:331
+#: telescope/plugins/stream_output.py:347
 msgid "Switched to Heavy"
 msgstr ""
 
-#: telescope/plugins/stream_output.py:331
+#: telescope/plugins/stream_output.py:347
 #, python-brace-format
 msgid "{error}. You can try Light again in Stream output."
 msgstr ""
 
-#: telescope/plugins/stream_output.py:559
+#: telescope/plugins/stream_output.py:575
 msgid "H.264. Needs PyAV on this computer (pip install av)."
 msgstr ""
 
-#: telescope/plugins/stream_output.py:561
+#: telescope/plugins/stream_output.py:577
 msgid "H.264. This phone has no H.264 encoder."
 msgstr ""
 
-#: telescope/plugins/stream_output.py:594
+#: telescope/plugins/stream_output.py:610
 msgid "Try Light or lower quality."
 msgstr ""
 
-#: telescope/plugins/stream_output.py:594
+#: telescope/plugins/stream_output.py:610
 msgid "Switch to Light"
 msgstr ""
 
-#: telescope/plugins/stream_output.py:596
+#: telescope/plugins/stream_output.py:612
 msgid "Try a lower resolution or FPS."
 msgstr ""
 
-#: telescope/plugins/stream_output.py:598
+#: telescope/plugins/stream_output.py:614
 msgid "Try Dynamic or lower quality."
 msgstr ""
 
-#: telescope/plugins/stream_output.py:599
+#: telescope/plugins/stream_output.py:615
 msgid "Switch to Dynamic"
 msgstr ""
 
-#: telescope/plugins/stream_output.py:601
+#: telescope/plugins/stream_output.py:617
 msgid "Try lower quality."
 msgstr ""
 
-#: telescope/plugins/stream_output.py:613
+#: telescope/plugins/stream_output.py:629
 msgid "The phone's Wi-Fi signal is weak. Moving it closer to the router or plugging in a cable will help the most."
 msgstr ""
 
-#: telescope/plugins/stream_output.py:616
+#: telescope/plugins/stream_output.py:632
 msgid "The phone is on 2.4 GHz Wi-Fi which is slower and often crowded. A 5 GHz network or a cable will help the most."
 msgstr ""
 
-#: telescope/plugins/stream_output.py:638
+#: telescope/plugins/stream_output.py:654
 msgid "Dynamic"
 msgstr ""
 
-#: telescope/plugins/stream_output.py:695
+#: telescope/plugins/stream_output.py:711
 #, python-brace-format
 msgid "{quality}. The dot ({default}%) is recommended: higher costs a lot more data for little you'd see. On slow Wi-Fi, lower it or the FPS."
 msgstr ""
@@ -3940,146 +3976,146 @@ msgstr ""
 msgid "Panned past what {tele} can see, so it's on {live}. Pan back to switch again."
 msgstr ""
 
-#: telescope/plugins/transforms.py:62 telescope/plugins/transforms.py:66
+#: telescope/plugins/transforms.py:62 telescope/plugins/transforms.py:68
 msgid "the telephoto"
 msgstr ""
 
-#: telescope/plugins/transforms.py:62
+#: telescope/plugins/transforms.py:63
 msgid "the main camera"
 msgstr ""
 
-#: telescope/plugins/transforms.py:65
+#: telescope/plugins/transforms.py:66
 #, python-brace-format
 msgid "The phone stayed on {live} by itself, most likely too dark or too close for {tele}. It switches once it can."
 msgstr ""
 
-#: telescope/plugins/transforms.py:69
+#: telescope/plugins/transforms.py:71
 msgid "It can wobble for a moment while it switches."
 msgstr ""
 
-#: telescope/plugins/transforms.py:128 telescope/plugins/transforms.py:165 telescope/plugins/transforms.py:242
+#: telescope/plugins/transforms.py:130 telescope/plugins/transforms.py:167 telescope/plugins/transforms.py:244
 msgid "Transforms"
 msgstr ""
 
-#: telescope/plugins/transforms.py:129
+#: telescope/plugins/transforms.py:131
 msgid "Zoom, pan, flip and rotate the picture."
 msgstr ""
 
-#: telescope/plugins/transforms.py:130
+#: telescope/plugins/transforms.py:132
 msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
 msgstr ""
 
-#: telescope/plugins/transforms.py:163
+#: telescope/plugins/transforms.py:165
 msgid "Reset"
 msgstr ""
 
-#: telescope/plugins/transforms.py:163
+#: telescope/plugins/transforms.py:165
 msgid "Clear flip, rotation, zoom and pan back to defaults"
 msgstr ""
 
-#: telescope/plugins/transforms.py:169
+#: telescope/plugins/transforms.py:171
 msgid "Mirror"
 msgstr ""
 
-#: telescope/plugins/transforms.py:170
+#: telescope/plugins/transforms.py:172
 msgid "Upside down"
 msgstr ""
 
-#: telescope/plugins/transforms.py:175
+#: telescope/plugins/transforms.py:177
 msgid "Flip"
 msgstr ""
 
-#: telescope/plugins/transforms.py:192 telescope/plugins/transforms.py:246
+#: telescope/plugins/transforms.py:194 telescope/plugins/transforms.py:248
 msgid "Rotation"
 msgstr ""
 
-#: telescope/plugins/transforms.py:201 telescope/plugins/transforms.py:375
+#: telescope/plugins/transforms.py:203 telescope/plugins/transforms.py:377
 #, python-brace-format
 msgid "{n}×"
 msgstr ""
 
-#: telescope/plugins/transforms.py:203 telescope/plugins/transforms.py:247
+#: telescope/plugins/transforms.py:205 telescope/plugins/transforms.py:249
 msgid "Zoom"
 msgstr ""
 
 #. H and V for horizontal and vertical, in the narrow Pan readout
-#: telescope/plugins/transforms.py:230 telescope/plugins/transforms.py:461
+#: telescope/plugins/transforms.py:232 telescope/plugins/transforms.py:463
 #, python-brace-format
 msgid ""
 "H {x}\n"
 "V {y}"
 msgstr ""
 
-#: telescope/plugins/transforms.py:231 telescope/widgets/controls.py:294
+#: telescope/plugins/transforms.py:233 telescope/widgets/controls.py:294
 msgid "Pan"
 msgstr ""
 
-#: telescope/plugins/transforms.py:244
+#: telescope/plugins/transforms.py:246
 msgid "Flip horizontal"
 msgstr ""
 
-#: telescope/plugins/transforms.py:245
+#: telescope/plugins/transforms.py:247
 msgid "Flip vertical"
 msgstr ""
 
-#: telescope/plugins/transforms.py:249
+#: telescope/plugins/transforms.py:251
 msgid "Pan left/right"
 msgstr ""
 
-#: telescope/plugins/transforms.py:252
+#: telescope/plugins/transforms.py:254
 msgid "Pan up/down"
 msgstr ""
 
-#: telescope/plugins/transforms.py:255
-msgid "Reset transforms"
-msgstr ""
-
 #: telescope/plugins/transforms.py:257
-msgctxt "search"
-msgid "mirror"
-msgstr ""
-
-#: telescope/plugins/transforms.py:258
-msgctxt "search"
-msgid "mirror upside down"
+msgid "Reset transforms"
 msgstr ""
 
 #: telescope/plugins/transforms.py:259
 msgctxt "search"
-msgid "rotate turn"
+msgid "mirror"
 msgstr ""
 
 #: telescope/plugins/transforms.py:260
 msgctxt "search"
+msgid "mirror upside down"
+msgstr ""
+
+#: telescope/plugins/transforms.py:261
+msgctxt "search"
+msgid "rotate turn"
+msgstr ""
+
+#: telescope/plugins/transforms.py:262
+msgctxt "search"
 msgid "crop framing"
 msgstr ""
 
-#: telescope/plugins/transforms.py:261 telescope/plugins/transforms.py:262
+#: telescope/plugins/transforms.py:263 telescope/plugins/transforms.py:264
 msgctxt "search"
 msgid "framing move"
 msgstr ""
 
-#: telescope/plugins/transforms.py:327
+#: telescope/plugins/transforms.py:329
 msgid "Zoomed on this computer: this lens can't zoom itself"
 msgstr ""
 
-#: telescope/plugins/transforms.py:328
+#: telescope/plugins/transforms.py:330
 msgid "Zoomed on this computer"
 msgstr ""
 
-#: telescope/plugins/transforms.py:330
+#: telescope/plugins/transforms.py:332
 msgid "Zoomed on the phone's sensor as far as this lens allows, the rest on this computer"
 msgstr ""
 
-#: telescope/plugins/transforms.py:332
+#: telescope/plugins/transforms.py:334
 msgid "Zoomed on the phone's sensor"
 msgstr ""
 
-#: telescope/plugins/transforms.py:338
+#: telescope/plugins/transforms.py:340
 msgid "Dots mark where the phone switches to another lens"
 msgstr ""
 
-#: telescope/plugins/transforms.py:340
+#: telescope/plugins/transforms.py:342
 #, python-brace-format
 msgid "{owner} is moving the zoom and pan"
 msgstr ""
@@ -4503,75 +4539,79 @@ msgstr ""
 msgid "Telescope turned that down: it didn't come from this user's Telescope command."
 msgstr ""
 
-#: telescope/sources.py:137
+#: telescope/sources.py:41
+msgid "The camera didn't turn back on. Another app may be using it."
+msgstr ""
+
+#: telescope/sources.py:145
 msgid "Check that it's still on."
 msgstr ""
 
-#: telescope/sources.py:240
+#: telescope/sources.py:248
 #, python-brace-format
 msgid "Can't reach {name}"
 msgstr ""
 
-#: telescope/sources.py:291
+#: telescope/sources.py:299
 msgid "Open the Telescope page in it again."
 msgstr ""
 
-#: telescope/sources.py:331
+#: telescope/sources.py:339
 msgid "Open Telescope on it."
 msgstr ""
 
-#: telescope/sources.py:383
+#: telescope/sources.py:391
 msgid "the phone"
 msgstr ""
 
-#: telescope/sources.py:428
+#: telescope/sources.py:436
 msgid "Couldn't reach the phone."
 msgstr ""
 
-#: telescope/sources.py:523
+#: telescope/sources.py:531
 msgid "Another app on the phone is using the camera"
 msgstr ""
 
-#: telescope/sources.py:524
+#: telescope/sources.py:532
 msgid "The stream comes back by itself once that app closes or lets go of it."
 msgstr ""
 
-#: telescope/sources.py:531
+#: telescope/sources.py:539
 msgid "This phone can't turn its camera off yet"
 msgstr ""
 
-#: telescope/sources.py:532
+#: telescope/sources.py:540
 msgid "Update Telescope on the phone to stream the mic with the camera off."
 msgstr ""
 
-#: telescope/sources.py:616
+#: telescope/sources.py:624
 #, python-brace-format
 msgid "The phone is streaming to {computer}"
 msgstr ""
 
-#: telescope/sources.py:617
+#: telescope/sources.py:625
 #, python-brace-format
 msgid "{phone} is streaming to {computer}"
 msgstr ""
 
-#: telescope/sources.py:618
+#: telescope/sources.py:626
 msgid "Stop it there or on the phone, then start again."
 msgstr ""
 
-#: telescope/sources.py:625
+#: telescope/sources.py:633
 msgid "The phone stopped streaming"
 msgstr ""
 
-#: telescope/sources.py:626
+#: telescope/sources.py:634
 #, python-brace-format
 msgid "{phone} stopped streaming"
 msgstr ""
 
-#: telescope/sources.py:627
+#: telescope/sources.py:635
 msgid "Start again when you're ready."
 msgstr ""
 
-#: telescope/sources.py:813
+#: telescope/sources.py:821
 msgid "The camera didn't turn back on"
 msgstr ""
 
@@ -4807,11 +4847,35 @@ msgstr ""
 msgid "Copy the command, to paste in a terminal"
 msgstr ""
 
-#: telescope/widgets/lens_panel.py:122 telescope/widgets/lens_panel.py:192
+#. part of a camera lens name on a lens button, like "Auto 24mm" (the multi-lens camera itself)
+#: telescope/widgets/lens_panel.py:20
+msgctxt "lens"
+msgid "Auto"
+msgstr ""
+
+#. part of a lens name: the front (selfie) camera
+#: telescope/widgets/lens_panel.py:22
+msgctxt "lens"
+msgid "Front"
+msgstr ""
+
+#. part of a lens name: a camera plugged into the phone
+#: telescope/widgets/lens_panel.py:24
+msgctxt "lens"
+msgid "External"
+msgstr ""
+
+#. part of a lens name: the telephoto lens, kept short to fit a button
+#: telescope/widgets/lens_panel.py:26
+msgctxt "lens"
+msgid "Tele"
+msgstr ""
+
+#: telescope/widgets/lens_panel.py:161 telescope/widgets/lens_panel.py:231
 msgid "Start streaming to load lenses"
 msgstr ""
 
-#: telescope/widgets/lens_panel.py:139
+#: telescope/widgets/lens_panel.py:178
 msgid "No cameras available"
 msgstr ""
 

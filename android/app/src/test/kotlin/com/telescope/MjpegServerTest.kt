@@ -535,12 +535,14 @@ class MjpegServerTest {
     @Test
     fun `audio route refuses with the reason when the mic can't start`() {
         val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") },
-            startAudio = { "Allow the microphone in Telescope on the phone" })
+            startAudio = { MicProblem.PERMISSION })
         server.start()
         try {
             val response = authGet(actualPort(server), "/v1/audio", "t")
             assertEquals(403, response.status)
-            assertTrue(response.body.toString(StandardCharsets.UTF_8).contains("Allow the microphone"))
+            val body = response.body.toString(StandardCharsets.UTF_8)
+            assertTrue(body.contains("Allow the microphone"))
+            assertTrue(body.contains("\"code\":\"mic_permission\""))
         } finally {
             server.stop()
         }

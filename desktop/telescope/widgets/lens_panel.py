@@ -14,24 +14,44 @@ TILE_HEIGHT = 54
 _FOCAL = re.compile(r"~?(\d+(?:\.\d+)?)\s*(mm|x)\b")
 
 
+def _lens_words(text: str) -> str:
+    """A lens name's English words ("Auto", "F/", "Ext", "Tele") in the current language."""
+    # Translators: part of a camera lens name on a lens button, like "Auto 24mm" (the multi-lens camera itself)
+    words = {"Auto": tr("Auto", ctx="lens"),
+             # Translators: part of a lens name: the front (selfie) camera
+             "F/": tr("Front", ctx="lens") + " ",
+             # Translators: part of a lens name: a camera plugged into the phone
+             "Ext": tr("External", ctx="lens"),
+             # Translators: part of a lens name: the telephoto lens, kept short to fit a button
+             "Tele": tr("Tele", ctx="lens")}
+    return " ".join(words.get(word, word) for word in text.replace("F/", "F/ ").split())
+
+
 def split_lens_label(label: str) -> tuple:
-    """(number, unit, the rest) of a shortened lens label: "Auto ~24mm OIS" is ("24", "mm", "Auto · OIS")."""
+    """(number, unit, the rest) of a shortened lens label: "Auto ~24mm OIS" is ("24", "mm", "Auto · OIS"), in the
+    current language."""
     match = _FOCAL.search(label)
     if not match:
         return label, "", ""
-    rest = (label[:match.start()] + " " + label[match.end():]).replace("F/", "Front ")
+    rest = _lens_words(label[:match.start()] + " " + label[match.end():])
     return match.group(1), match.group(2), " · ".join(rest.split())
+
+
+def lens_name(label: str) -> str:
+    """A shortened lens label as shown in a sentence, in the current language: "Auto ~24mm OIS"."""
+    return " ".join(_lens_words(label).split())
 
 
 class _LensButton(QPushButton):
     """One lens as a tile: its focal length big on top, what else sets it apart small below. The button's text stays
-    the whole label, for the shortcuts menu and the tooltip."""
+    the whole label, for the shortcuts menu and the tooltip. label() is the English one, which doesn't change with
+    the language."""
 
     def __init__(self, label: str):
-        super().__init__(label)
+        super().__init__(lens_name(label))
         self._label = label
         self._number, self._unit, self._rest = split_lens_label(label)
-        self.setToolTip(label)
+        self.setToolTip(lens_name(label))
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
     def label(self) -> str:
@@ -105,6 +125,25 @@ def shorten_lens_label(raw: str, compact: bool = True) -> str:
     return f"Auto {label}" if auto else label
 
 
+_FACING_PREFIX = {"back": "", "front": "F/", "external": "Ext "}
+
+
+def lens_label(cam: dict, compact: bool = True) -> str:
+    """The shortened English name of a lens from the phone's camera entry, the same wherever the phone app was
+    built: it's what saved shortcuts and the live-lens comparison go by, and what the shown name is made from.
+
+    A phone that sends `facing`, `focalMm` and `lensKind` gets it from those; an older one sends only the English
+    `label`, which is cut down instead (see docs/protocol.md)."""
+    facing = cam.get("facing")
+    if facing not in _FACING_PREFIX:
+        return shorten_lens_label(cam.get("label", ""), compact)
+    focal = cam.get("focalMm")
+    label = _FACING_PREFIX[facing] + (f"~{focal}mm" if isinstance(focal, int) and focal > 0 else "?")
+    if cam.get("hasOis") is True:
+        label += " OIS"
+    return f"Auto {label}" if cam.get("lensKind") == "auto" else label
+
+
 class LensPanel(QWidget):
     lens_selected = pyqtSignal(dict)
 
@@ -148,8 +187,8 @@ class LensPanel(QWidget):
 
         self._layout._columns = _columns(len(cameras))
         for cam in cameras:
-            btn = _LensButton(shorten_lens_label(cam["label"]))
-            btn.setProperty("shortcutValue", shorten_lens_label(cam["label"], compact=False))
+            btn = _LensButton(lens_label(cam))
+            btn.setProperty("shortcutValue", lens_label(cam, compact=False))
             btn.setObjectName("lens_button")
             btn.setCheckable(True)
             btn.setChecked(cam.get("current", False))
