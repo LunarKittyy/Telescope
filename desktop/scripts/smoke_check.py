@@ -38,6 +38,7 @@ def _check(name: str, fn):
 
 
 def check_app_construction():
+    from PyQt6 import sip
     from PyQt6.QtWidgets import QApplication
 
     from telescope.app import TelescopeWindow
@@ -59,19 +60,25 @@ def check_app_construction():
 
     app = QApplication.instance() or QApplication([])
     win = TelescopeWindow()
-    for plugin_cls in (
-        SetupPlugin, ConnectionPlugin, CameraControlPlugin, BrowserCameraPlugin, BackgroundPlugin, StreamOutputPlugin,
-        TransformsPlugin, FramingPlugin, MicrophonePlugin, PresetsPlugin, PreviewPlugin, MonitoringPlugin, UpdatesPlugin,
-        ShortcutsPlugin, StartupPlugin,
-    ):
-        win.register_plugin(plugin_cls())
-    win.apply_saved_config()
-    app.processEvents()  # the shortcuts plugin starts (and asks for the system's global shortcuts) from the loop
-    shortcuts = win._plugin("shortcuts")
-    detail = f"{len(shortcuts.actions())} shortcut actions, global shortcuts via " \
-             f"{type(shortcuts.backend).__name__ if shortcuts.backend else 'nothing'}"
-    shortcuts.shutdown()
-    return f"{len(win._plugins)} plugins registered, {detail}"
+    try:
+        for plugin_cls in (
+            SetupPlugin, ConnectionPlugin, CameraControlPlugin, BrowserCameraPlugin, BackgroundPlugin, StreamOutputPlugin,
+            TransformsPlugin, FramingPlugin, MicrophonePlugin, PresetsPlugin, PreviewPlugin, MonitoringPlugin, UpdatesPlugin,
+            ShortcutsPlugin, StartupPlugin,
+        ):
+            win.register_plugin(plugin_cls())
+        win.apply_saved_config()
+        app.processEvents()  # the shortcuts plugin starts (and asks for the system's global shortcuts) from the loop
+        shortcuts = win._plugin("shortcuts")
+        detail = f"{len(shortcuts.actions())} shortcut actions, global shortcuts via " \
+                 f"{type(shortcuts.backend).__name__ if shortcuts.backend else 'nothing'}"
+        return f"{len(win._plugins)} plugins registered, {detail}"
+    finally:
+        try:
+            win._shut_down()
+        finally:
+            app.processEvents()
+            sip.delete(win)  # Qt must outlive the window and its signal receivers.
 
 
 def check_background_speed():
