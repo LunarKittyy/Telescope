@@ -15,7 +15,7 @@ from telescope.widgets.common import (
 )
 from telescope.widgets.controls import ChoiceTile, SwitchTile
 from telescope.widgets.lens_panel import LensPanel
-from telescope.i18n import N_, tr
+from telescope.i18n import N_, number, tr
 
 _FOCUS_STEPS = 1000
 _NR_MODES    = [(N_("Off"), 0), (N_("Fast"), 1), (N_("High Quality"), 2)]
@@ -55,7 +55,7 @@ def _kelvin_to_rggb(kelvin: int, tint: float) -> tuple[float, float, float, floa
 def _diopters_to_label(d: float) -> str:
     if d <= 0.01:
         return "inf"
-    return f"{1.0 / d:.2f} m"
+    return tr("{n} m", n=number(1.0 / d, 2))
 
 
 @dataclass(frozen=True)
@@ -514,7 +514,7 @@ class CameraControlPlugin(TelescopePlugin):
         self._ae_comp_slider.blockSignals(True)
         self._ae_comp_slider.setValue(view.ae_comp)
         self._ae_comp_slider.blockSignals(False)
-        self._ae_comp_lbl.setText(f"{view.ae_comp * self._ae_comp_step:+.1f} EV")
+        self._ae_comp_lbl.setText(tr("{n} EV", n=number(view.ae_comp * self._ae_comp_step, 1, signed=True)))
 
         self._nr_combo.blockSignals(True)
         self._nr_combo.setCurrentIndex(view.nr_mode_index)
@@ -754,7 +754,7 @@ class CameraControlPlugin(TelescopePlugin):
 
     def _on_ae_comp_changed(self, steps: int):
         ev = steps * self._ae_comp_step
-        self._ae_comp_lbl.setText(f"{ev:+.1f} EV")
+        self._ae_comp_lbl.setText(tr("{n} EV", n=number(ev, 1, signed=True)))
         if self._ctrl:
             self._ctrl.send(action="ae_comp", value=steps)
         self._host.schedule_save()
@@ -855,7 +855,7 @@ class CameraControlPlugin(TelescopePlugin):
             self._tint_lbl.setText(f"{int(t):+d}")
         if (ae := cfg.get("ae_comp")) is not None:
             self._ae_comp_slider.setValue(int(ae))
-            self._ae_comp_lbl.setText(f"{int(ae) * self._ae_comp_step:+.1f} EV")
+            self._ae_comp_lbl.setText(tr("{n} EV", n=number(int(ae) * self._ae_comp_step, 1, signed=True)))
         if (nr := cfg.get("nr_mode")) is not None:
             idx = next((i for i, (_, v) in enumerate(_NR_MODES) if v == nr), 1)
             self._nr_combo.setCurrentIndex(idx)

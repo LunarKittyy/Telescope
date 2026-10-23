@@ -139,6 +139,26 @@ def and_list(words: list) -> str:
     return tr("{items} and {last}", items=between.join(words[:-1]), last=words[-1])
 
 
+def number(value: float, decimals: int = 0, signed: bool = False) -> str:
+    """A number as shown in the current language: "1.0" is "1,0" in Swedish. English matches Python's formatting.
+    Only for what's shown; saved settings and what's sent to the phone stay in plain Python formatting."""
+    text = f"{value:+.{decimals}f}" if signed else f"{value:.{decimals}f}"
+    if _language == SOURCE_LANGUAGE:
+        return text
+    try:
+        from PyQt6.QtCore import QLocale
+    except ImportError:
+        return text
+    loc = QLocale(_language)
+    marks = {".": loc.decimalPoint(), "-": loc.negativeSign(), "+": loc.positiveSign()}
+    return "".join(marks.get(c, c) for c in text)
+
+
+def percent(value: float, decimals: int = 0, signed: bool = False) -> str:
+    """A percentage as shown in the current language: "80%", or "80 %" where that's the way to write it."""
+    return tr("{n}%", ctx="percentage", n=number(value, decimals, signed))
+
+
 def language() -> str:
     """The language loaded, "en" when nothing is translated."""
     return _language
@@ -205,6 +225,7 @@ def load(lang: Optional[str] = None) -> str:
     lang = pick([lang], available()) if lang else resolve()
     _catalog, _english, _plural, _language = {}, {}, (lambda n: int(n != 1)), SOURCE_LANGUAGE
     _plugin_catalogs.clear()
+    _set_qt_locale(lang)
     if lang == SOURCE_LANGUAGE:
         return _language
     try:
@@ -251,6 +272,15 @@ def _load_plugin_catalog(name: str, folder: Path) -> None:
 
 
 _qt_translators: list = []
+
+
+def _set_qt_locale(lang: str) -> None:
+    """Spinboxes and the like write their numbers the way the language does, whatever the system locale is."""
+    try:
+        from PyQt6.QtCore import QLocale
+    except ImportError:
+        return
+    QLocale.setDefault(QLocale(lang))
 
 
 def _load_qt(lang: str) -> None:
