@@ -36,6 +36,10 @@ _SAVING_PEOPLE_EVERY_S = 0.16
 _SAVING_PEOPLE_STILL_EVERY_S = 0.5
 _saving = False
 _LOOK_AGAIN_S = 5.0  # without a pack, how often asking looks for one again (a download may have finished)
+# A model nothing has asked for this long is closed and its memory given back (Background or Auto framing switched
+# off). Switched back on sooner, it's still there, so flipping a switch back and forth doesn't load it again each time.
+_IDLE_CLOSE_S = 10.0
+_TIDY_EVERY_S = 2.0
 
 # Which stream the frame being processed comes from, and its number: set by StreamWorker around the plugin steps.
 current_frame: contextvars.ContextVar = contextvars.ContextVar("current_frame", default=None)
@@ -159,6 +163,13 @@ class _Timestamps:
         return self._last
 
 
+def _give_back_memory():
+    """Linux: glibc keeps memory a closed model freed for later; hand it back to the system."""
+    if sys.platform.startswith("linux"):
+        from telescope.platform.linux import release_freed_memory
+        release_freed_memory()
+
+
 def set_power_saving(on: bool):
     """Power-saving effects (Settings > Video): the models run less often, so blur and framing follow quick moves a
     little later but use less of the processor. Takes effect from the next frame."""
@@ -220,7 +231,11 @@ class _StreamVision:
         self.people_motion = _Motion()
         self.people_wake = threading.Event()
         self.people_thread: Optional[threading.Thread] = None
+        self.people_quit: Optional[threading.Event] = None  # set: that people thread closes its model and ends
         self.stopping = False
+        self.lock = threading.Lock()  # the segmenter isn't closed while a frame is using it
+        self.mask_asked = 0.0  # time.monotonic() a plugin last asked for a mask
+        self.people_fed = 0.0  # and last fed a frame for people
 
 
 class Vision:
@@ -240,6 +255,8 @@ class Vision:
         self._looked_at = -_LOOK_AGAIN_S  # time.monotonic() of the last load() that found no pack
         self._people_wanted: set = set()
         self._ms = {"mask": [], "people": []}  # recent timings, for diagnostics
+        self._tidier: Optional[threading.Thread] = None
+        self._closed = threading.Event()
 
     # ── Loading ───────────────────────────────────────────────────────────
 
@@ -305,6 +322,11 @@ class Vision:
             return None
         key, seq = here
         sv = self._stream(key)
+        with sv.lock:
+            sv.mask_asked = time.monotonic()
+            return self._mask(sv, frame, seq)
+
+    def _mask(self, sv: _StreamVision, frame: np.ndarray, seq) -> Optional[np.ndarray]:
         if sv.mask_seq == seq and sv.mask is not None and sv.mask.shape == frame.shape[:2]:
             return sv.mask
         if sv.segment is None:
@@ -361,6 +383,7 @@ class Vision:
             return
         sv = self._stream(here[0])
         now = time.monotonic()
+        sv.people_fed = now
         every, still_every = ((_SAVING_PEOPLE_EVERY_S, _SAVING_PEOPLE_STILL_EVERY_S) if _saving
                               else (_PEOPLE_EVERY_S, _PEOPLE_STILL_EVERY_S))
         if now - sv.people_at < every:
@@ -374,12 +397,13 @@ class Vision:
         small = cv2.resize(frame, (width, max(1, round(h * width / w))), interpolation=cv2.INTER_AREA)
         sv.people_frame = (small, prepare, to_shown)
         if sv.people_thread is None:
-            sv.people_thread = threading.Thread(target=self._people_loop, args=(here[0], sv), daemon=True,
-                                                name="vision-people")
+            sv.people_quit = threading.Event()
+            sv.people_thread = threading.Thread(target=self._people_loop, args=(here[0], sv, sv.people_quit),
+                                                daemon=True, name="vision-people")
             sv.people_thread.start()
         sv.people_wake.set()
 
-    def _people_loop(self, key, sv: _StreamVision):
+    def _people_loop(self, key, sv: _StreamVision, done: threading.Event):
         try:
             detect, close = self._backend.pose()
         except Exception as exc:
@@ -388,11 +412,13 @@ class Vision:
             return
         clock = _Timestamps()
         try:
-            while not sv.stopping:
+            while not (sv.stopping or done.is_set()):
                 sv.people_wake.wait()
                 sv.people_wake.clear()
+                if sv.stopping or done.is_set():
+                    break
                 waiting, sv.people_frame = sv.people_frame, None
-                if sv.stopping or waiting is None:
+                if waiting is None:
                     continue
                 frame, prepare, to_shown = waiting
                 t0 = time.perf_counter()
@@ -407,6 +433,8 @@ class Vision:
                 self._on_people(key, people)
         finally:
             close()
+            if done.is_set():
+                _give_back_memory()
 
     # ── Streams ───────────────────────────────────────────────────────────
 
@@ -414,7 +442,42 @@ class Vision:
         sv = self._streams.get(key)
         if sv is None:
             sv = self._streams[key] = _StreamVision()
+            if self._tidier is None:
+                self._tidier = threading.Thread(target=self._tidy_loop, daemon=True, name="vision-tidy")
+                self._tidier.start()
         return sv
+
+    def _tidy_loop(self):
+        while not self._closed.wait(_TIDY_EVERY_S):
+            try:
+                self.tidy()
+            except Exception:
+                logger.exception("Closing unused vision models failed")
+
+    def tidy(self, now: Optional[float] = None):
+        """Close the models no plugin has asked for in _IDLE_CLOSE_S, and give their memory back. The next ask makes
+        them again, which takes a moment."""
+        now = time.monotonic() if now is None else now
+        freed = False
+        for sv in list(self._streams.values()):
+            with sv.lock:
+                if sv.segment is not None and now - sv.mask_asked >= _IDLE_CLOSE_S:
+                    close = sv.close_segmenter
+                    sv.segment = sv.close_segmenter = None
+                    sv.mask = sv.small_mask = sv.mask_seq = None
+                    sv.mask_motion = _Motion()
+                    try:
+                        close()
+                    except Exception:
+                        logger.exception("Closing the person segmenter failed")
+                    freed = True
+            if sv.people_thread is not None and now - sv.people_fed >= _IDLE_CLOSE_S:
+                sv.people_quit.set()  # the thread closes the pose model and gives its memory back on the way out
+                sv.people_wake.set()
+                sv.people_thread = sv.people_frame = None
+                sv.people_motion, sv.people_at = _Motion(), 0.0
+        if freed:
+            _give_back_memory()
 
     def drop_stream(self, key):
         """A stream ended: its tasks close and its people thread ends."""
@@ -423,13 +486,16 @@ class Vision:
             return
         sv.stopping = True
         sv.people_wake.set()
-        if sv.close_segmenter is not None:
-            try:
-                sv.close_segmenter()
-            except Exception:
-                logger.exception("Closing the person segmenter failed")
+        with sv.lock:
+            if sv.close_segmenter is not None:
+                try:
+                    sv.close_segmenter()
+                except Exception:
+                    logger.exception("Closing the person segmenter failed")
+                sv.segment = sv.close_segmenter = None
 
     def shutdown(self):
+        self._closed.set()
         for key in list(self._streams):
             self.drop_stream(key)
 

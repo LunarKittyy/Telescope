@@ -279,7 +279,7 @@ class FramingPlugin(TelescopePlugin):
         lay.addLayout(_row("Room to move", slider_row(self._room_slider, self._room_lbl), stretch=True))
         self._show_room()
         self._hand_switch = Switch("Widen for something in your hand")
-        self._hand_switch.setChecked(True)
+        self._hand_switch.setChecked(False)
         self._hand_switch.toggled.connect(lambda _on: self._host.schedule_save())
         lay.addWidget(self._hand_switch)
         self._status = VisionStatus(self._host, self._bus)
@@ -446,7 +446,7 @@ class FramingPlugin(TelescopePlugin):
         self._room_slider.blockSignals(False)
         self._show_room()
         self._hand_switch.blockSignals(True)
-        self._hand_switch.setChecked(cfg.get("hand") is not False)
+        self._hand_switch.setChecked(cfg.get("hand") is True)  # off unless turned on
         self._hand_switch.blockSignals(False)
         self._switch.blockSignals(True)
         self._switch.setChecked(cfg.get("on") is True)

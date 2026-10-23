@@ -275,7 +275,7 @@ def test_settings_round_trip_and_damaged_ones_fall_back(card):
     assert plugin._framing_lbl.text() in ("Waist", "Body")
     assert host.owner == "Auto framing"
     plugin.set_config({"on": "yes", "framing": "head", "speed": 30, "room": True})
-    assert plugin.get_config() == {"on": False, "framing": 1.0, "speed": 5, "room": 2, "hand": True}
+    assert plugin.get_config() == {"on": False, "framing": 1.0, "speed": 5, "room": 2, "hand": False}
     assert plugin._room_lbl.text() == "Shift" and plugin._speed_lbl.text() == "Easy"
     assert plugin._framing_lbl.text() == "Chest"
     assert host.owner == ""
@@ -296,6 +296,7 @@ def _right_edge(steered):
 def test_holding_a_hand_out_gets_it_in_the_picture_quickly_even_at_the_calmest_speed(card):
     plugin, host, bus, clock = card()
     plugin._switch.setChecked(True)
+    plugin._hand_switch.setChecked(True)  # off by default
     plugin._speed_slider.setValue(1)
     _run(plugin, clock, 20, bus, [_person()])
     assert _right_edge(host.steered[-1]) < 0.69
