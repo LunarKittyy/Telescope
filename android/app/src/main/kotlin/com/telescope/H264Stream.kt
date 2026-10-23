@@ -97,7 +97,7 @@ class H264ClientQueue(
             waitNs = ready.awaitNanos(waitNs)
         }
         val now = clock()
-        val waited = now - queuedAt.poll()
+        val waited = now - queuedAt.remove()
         if (shortestWaitMs < 0 || waited < shortestWaitMs) shortestWaitMs = waited
         writingSinceMs = now
         if (isKey.poll() == true) keyWriting = true
