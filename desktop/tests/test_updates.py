@@ -135,32 +135,32 @@ def test_download_can_be_cancelled(tmp_path):
 # A wifi can reach the phone and nothing else. Every way a connection with no internet behind it fails has to
 # end in an UpdateError the UI can show, quickly, with nothing left behind.
 
-def _no_answer(conn):
-    time.sleep(5)
+def _no_answer(conn, stopped):
+    stopped.wait(5)
 
 
-def _stalls_mid_body(conn):
+def _stalls_mid_body(conn, stopped):
     conn.recv(4096)
     conn.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: 1000\r\n\r\n{")
-    time.sleep(5)
+    stopped.wait(5)
 
 
-def _cut_off(conn):
+def _cut_off(conn, _stopped):
     conn.recv(4096)
     conn.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: 1000\r\n\r\n{")
 
 
-def _not_http(conn):
+def _not_http(conn, _stopped):
     conn.recv(4096)
     conn.sendall(b"hello\r\n\r\n")
 
 
-def _reset(conn):
+def _reset(conn, _stopped):
     conn.recv(4096)
     conn.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
 
 
-def _login_page(conn):
+def _login_page(conn, _stopped):
     conn.recv(4096)
     body = b"<html>Log in to use this wifi</html>"
     conn.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\n%s" % (len(body), body))
@@ -171,6 +171,9 @@ def offline(monkeypatch):
     """A URL that behaves like a network without internet, and an opener for it."""
     monkeypatch.setattr(updates, "REQUEST_TIMEOUT", 0.5)
     sockets = []
+    threads = []
+    errors = []
+    stopped = threading.Event()
 
     def make(behaviour):
         if behaviour == "refused":
@@ -184,20 +187,32 @@ def offline(monkeypatch):
             s = socket.socket()
             s.bind(("127.0.0.1", 0))
             s.listen()
+            s.settimeout(5)
             sockets.append(s)
 
             def serve():
-                with contextlib.suppress(OSError):
-                    while True:
-                        conn, _ = s.accept()
-                        with conn:
-                            behaviour(conn)
-            threading.Thread(target=serve, daemon=True).start()
+                try:
+                    conn, _ = s.accept()
+                    with conn:
+                        conn.settimeout(5)
+                        behaviour(conn, stopped)
+                except ConnectionError:
+                    pass
+                except Exception as exc:
+                    errors.append(exc)
+            thread = threading.Thread(target=serve, daemon=True)
+            threads.append(thread)
+            thread.start()
             url = f"http://127.0.0.1:{s.getsockname()[1]}/x"
         return lambda _url, timeout: urllib.request.urlopen(url, timeout=timeout)
     yield make
+    stopped.set()
+    for thread in threads:
+        thread.join(6)
     for s in sockets:
         s.close()
+    assert not any(thread.is_alive() for thread in threads)
+    assert errors == []
 
 
 _OFFLINE = ["refused", "no dns", _no_answer, _stalls_mid_body, _cut_off, _not_http, _reset, _login_page]

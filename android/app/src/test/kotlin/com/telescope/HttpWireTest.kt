@@ -1,6 +1,7 @@
 package com.telescope
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
@@ -27,9 +28,10 @@ class HttpWireTest {
         var thrown: Throwable? = null
         val t = Thread(null, {
             try { result = parse("{\"a\":" + "[".repeat(100_000)) } catch (e: Throwable) { thrown = e }
-        }, "deep-json", 64 * 1024)
+        }, "deep-json", 64 * 1024).apply { isDaemon = true }
         t.start()
-        t.join()
+        t.join(2_000)
+        assertFalse(t.isAlive, "JSON parser did not return")
         assertNull(thrown)
         assertNull(result)
     }

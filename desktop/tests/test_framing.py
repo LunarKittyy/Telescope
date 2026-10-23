@@ -186,7 +186,8 @@ class _Host:
 
 
 @pytest.fixture
-def card(qapp, monkeypatch):
+def card(qt_widgets, monkeypatch):
+    plugins = []
     clock = [10.0]
     monkeypatch.setattr(framing.time, "monotonic", lambda: clock[0])
 
@@ -194,10 +195,14 @@ def card(qapp, monkeypatch):
         host, bus = _Host(**host_kw), EventBus()
         plugin = FramingPlugin()
         plugin.setup(host, bus)
-        plugin.create_panel()
+        qt_widgets(plugin.create_panel())
+        plugins.append(plugin)
         plugin.set_config({})
         return plugin, host, bus, clock
-    return make
+    yield make
+    for plugin in plugins:
+        plugin.shutdown()
+        plugin._timer.deleteLater()
 
 
 def _run(plugin, clock, seconds, bus=None, people=None):

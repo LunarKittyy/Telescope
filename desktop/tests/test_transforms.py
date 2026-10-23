@@ -36,12 +36,12 @@ class _Host:
 
 
 @pytest.fixture
-def transforms_plugin(qapp):
+def transforms_plugin(qt_widgets):
     bus = EventBus()
     host = _Host(bus)
     plugin = TransformsPlugin()
     plugin.setup(host, bus)
-    panel = plugin.create_panel()
+    panel = qt_widgets(plugin.create_panel())
     plugin.set_config({})  # the saved settings load, as the window does at startup
     bus.phones_changed.emit(1)
     return plugin, host, panel
@@ -52,11 +52,11 @@ def _both(plugin, hook, *args):
     getattr(plugin, hook)(*args)
 
 
-def test_the_card_is_greyed_out_until_a_phone_is_paired(qapp):
+def test_the_card_is_greyed_out_until_a_phone_is_paired(qt_widgets):
     bus = EventBus()
     plugin = TransformsPlugin()
     plugin.setup(_Host(bus), bus)
-    panel = plugin.create_panel()
+    panel = qt_widgets(plugin.create_panel())
     assert not panel.isEnabled()
     bus.phones_changed.emit(1)
     assert panel.isEnabled()

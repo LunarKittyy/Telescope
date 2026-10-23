@@ -34,12 +34,12 @@ def _half_mask(w=64, h=36):
 
 
 @pytest.fixture
-def card(qapp):
+def card(qt_widgets):
     def make(**host_kw):
         host, bus = _Host(**host_kw), EventBus()
         plugin = BackgroundPlugin()
         plugin.setup(host, bus)
-        panel = plugin.create_panel()
+        panel = qt_widgets(plugin.create_panel())
         bus.phones_changed.emit(1)
         plugin.set_config({})
         return plugin, host, panel

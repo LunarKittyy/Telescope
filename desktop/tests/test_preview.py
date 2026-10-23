@@ -464,10 +464,8 @@ def test_a_frame_that_fails_to_show_still_frees_the_preview(qapp):
     plugin.on_stream_start("http://phone/", None)
     plugin._busy = True
 
-    try:
+    with pytest.raises(ValueError, match="not enough values to unpack"):
         plugin._on_frame(np.zeros((4,), dtype=np.uint8))  # wrong shape: fails before it's shown
-    except Exception:
-        pass
 
     assert plugin._busy is False
 

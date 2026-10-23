@@ -1,6 +1,7 @@
 import http.client
 import json
 import socket
+import threading
 import time
 
 import pytest
@@ -12,6 +13,31 @@ _CANDIDATES = [
     PairingAddress(ip="192.168.1.42", interface="Wi-Fi", kind="lan"),
     PairingAddress(ip="100.90.12.34", interface="tailscale0", kind="tailscale"),
 ]
+
+
+def _stop_and_wait(server):
+    inner = server._server
+    if inner is None:
+        server.stop()
+        return
+    closed = threading.Event()
+    original = inner.server_close
+
+    def close():
+        try:
+            original()
+        finally:
+            closed.set()
+    inner.server_close = close
+    server.stop()
+    assert closed.wait(5), "pairing server did not close"
+
+
+def _wait_until(predicate):
+    deadline = time.monotonic() + 5
+    while not predicate():
+        assert time.monotonic() < deadline, "pairing server did not reach the expected state"
+        time.sleep(0.005)
 
 
 @pytest.fixture
@@ -26,8 +52,7 @@ def pairing_server(monkeypatch):
     offer = server.start()
     assert offer is not None
     yield server, offer, paired
-    server.stop()
-    time.sleep(0.2)
+    _stop_and_wait(server)
 
 
 def _post(port, path, body: bytes, headers=None):
@@ -54,7 +79,7 @@ def test_start_without_network_still_offers_usb_pairing(monkeypatch):
             {"ip": "127.0.0.1", "interface": "USB (adb)", "kind": "other"},
         ]
     finally:
-        server.stop()
+        _stop_and_wait(server)
 
 
 def test_start_is_idempotent(pairing_server):
@@ -96,8 +121,7 @@ def test_start_with_advertised_addresses_skips_discovery(monkeypatch):
             {"ip": "127.0.0.1", "interface": "USB (adb)", "kind": "other"},
         ]
     finally:
-        server.stop()
-        time.sleep(0.2)
+        _stop_and_wait(server)
 
 
 PIN = "ab" * 32
@@ -111,10 +135,7 @@ def _pair_body(offer, name="Phone", ips=(), phone_id="ph-1", cert=PIN, proof=Non
 
 
 def _wait_for(paired):
-    for _ in range(20):
-        time.sleep(0.05)
-        if paired:
-            break
+    _wait_until(lambda: bool(paired))
 
 
 def test_empty_ips_in_payload_is_accepted(pairing_server):
@@ -236,7 +257,7 @@ def test_a_peer_trickling_bytes_is_cut_off_at_the_deadline(monkeypatch):
         finally:
             sock.close()
     finally:
-        server.stop()
+        _stop_and_wait(server)
 
 
 def test_too_many_connections_from_one_address_are_refused_and_freed_again(monkeypatch):
@@ -244,19 +265,22 @@ def test_too_many_connections_from_one_address_are_refused_and_freed_again(monke
     paired = []
     server = PairingServer(on_paired=paired.append)
     offer = server.start(advertise=[])
+    held = []
     try:
-        held = [socket.create_connection(("127.0.0.1", offer.port), timeout=2) for _ in range(2)]
-        time.sleep(0.2)  # let the server accept both
-        extra = socket.create_connection(("127.0.0.1", offer.port), timeout=2)
-        assert _closed_by_server(extra, 2)
-        extra.close()
+        for _ in range(2):
+            held.append(socket.create_connection(("127.0.0.1", offer.port), timeout=2))
+        _wait_until(lambda: server._server._open.get("127.0.0.1", 0) == 2)
+        with socket.create_connection(("127.0.0.1", offer.port), timeout=2) as extra:
+            assert _closed_by_server(extra, 2)
         for sock in held:
             sock.close()
-        time.sleep(0.2)
+        _wait_until(lambda: not server._server._open)
         assert _post(offer.port, f"/pair/{offer.nonce}", _pair_body(offer)) == 200
         _wait_for(paired)
     finally:
-        server.stop()
+        for sock in held:
+            sock.close()
+        _stop_and_wait(server)
 
 
 def test_a_second_phone_is_refused_once_one_paired(pairing_server):
@@ -292,29 +316,29 @@ def test_offer_names_this_computer():
             assert (data["computer_id"], data["computer_name"]) == ("pc-9", "Desk")
             assert data["nonce"] == offer.nonce and data["token"] == offer.token
     finally:
-        server.stop()
+        _stop_and_wait(server)
 
 
 def test_stop_is_idempotent(pairing_server):
     server, _offer, _paired = pairing_server
-    server.stop()
-    server.stop()  # must not raise
+    _stop_and_wait(server)
+    _stop_and_wait(server)  # must not raise
 
 
 def test_pairing_again_straight_away_keeps_the_fixed_port(monkeypatch):
     import telescope.pairing as pairing_module
-    monkeypatch.setattr(pairing_module, "PAIRING_PORT", 38765)
+    monkeypatch.setattr(pairing_module, "PAIRING_PORT", 0)
     first = PairingServer(on_paired=lambda _r: None)
     port = first.start(advertise=[]).port
     conn = http.client.HTTPConnection("127.0.0.1", port, timeout=2)
     conn.request("GET", "/")
     conn.getresponse().read()
     conn.close()
-    first.stop()  # the server closed its side first, so the port sits in TIME_WAIT
-    time.sleep(1)  # stop() lets go of the port in the background
+    _stop_and_wait(first)  # the server closed its side first, so the port sits in TIME_WAIT
+    monkeypatch.setattr(pairing_module, "PAIRING_PORT", port)
 
     second = PairingServer(on_paired=lambda _r: None)
     try:
-        assert second.start(advertise=[]).port == 38765
+        assert second.start(advertise=[]).port == port
     finally:
-        second.stop()
+        _stop_and_wait(second)

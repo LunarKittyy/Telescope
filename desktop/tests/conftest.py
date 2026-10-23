@@ -54,6 +54,26 @@ def qapp():
     yield app
 
 
+@pytest.fixture
+def qt_widgets(qapp):
+    """Own registered widget roots until their deferred deletion finishes."""
+    from PyQt6 import sip
+    from PyQt6.QtCore import QEvent
+    widgets = []
+
+    def keep(widget):
+        widgets.append(widget)
+        return widget
+
+    yield keep
+    for widget in reversed(widgets):
+        if not sip.isdeleted(widget):
+            widget.close()
+            widget.deleteLater()
+    qapp.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    qapp.processEvents()
+
+
 @pytest.fixture(autouse=True)
 def _no_locked_camera(monkeypatch):
     """Whatever the real virtual camera is doing on this machine stays out of the tests."""
