@@ -407,3 +407,26 @@ def test_the_camera_driver_check_is_remembered_for_half_a_minute(unzipped, monke
     now[0] += 31
     plugin._driver_in_app_folder()
     assert len(asked) == 2
+
+
+@pytest.mark.parametrize("via_setup", [False, True])
+def test_a_refreshed_download_installs_and_tracks_the_selected_build(env, monkeypatch, tmp_path, via_setup):
+    from dataclasses import replace
+
+    plugin, host, _bus, _button, _fetched = env
+    plugin.check()
+    selected = replace(NEWER, build=201)
+    installed, marked = [], []
+    monkeypatch.setattr(updates, "download_update", lambda *a, **kw: (selected, tmp_path / "archive"))
+    monkeypatch.setattr(updates, "install", lambda archive, build: installed.append(build) or InstallResult(["start.sh"]))
+    monkeypatch.setattr(updates, "install_with_setup", lambda archive: InstallResult(["start.sh", updates.MOVED_FROM, "old"]))
+    monkeypatch.setattr(updates, "mark_started_elsewhere", marked.append)
+    monkeypatch.setattr(plugin_module, "stop_adb_server", lambda: None)
+    monkeypatch.setattr(UpdatesPlugin, "_relaunch", staticmethod(lambda argv: None))
+    monkeypatch.setattr(plugin_module.threading, "Thread",
+                        lambda target, daemon: type("T", (), {"start": staticmethod(target)})())
+    plugin._spawn_install(updates.platform_asset(NEWER), via_setup)
+    assert plugin._install_build == 201
+    assert installed == ([] if via_setup else [201])
+    assert marked == ([201] if via_setup else [])
+    assert host.quits == 1
