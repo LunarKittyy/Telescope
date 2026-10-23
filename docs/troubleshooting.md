@@ -107,6 +107,15 @@ A busy network loses a packet and TCP holds everything up until the resend. Try 
 **FPS stays at 30 with 60 picked**
 Some phone makers keep their camera's faster modes for their own camera app. The phone lists 60 fps and accepts the request, then gives other apps 30. Telescope can't change that. **Copy diagnostics** while streaming shows it: the "Camera did" line reads 33.4 ms with range [60, 60]. Rates a camera doesn't list at all are greyed out.
 
+**Telescope uses a lot of power, or the fans spin up**
+Background and Auto framing cost the most. On a test laptop, a 720p stream without them added about 0.2 W of processor power, and with both on about 1.5 W. In rough order of what helps:
+- Switch off the effect you don't need, or turn on **Power-saving effects** under Video in Settings
+- Lower the resolution or FPS. Every step down means less work for the phone and the computer
+- Use the Light format and turn on **Hardware acceleration** if your graphics card supports it
+- On battery, unplug the phone: over USB it runs off the laptop's power. On the test laptop it drew about 2.4 W even while not streaming. Use Wi-Fi, or charge the phone from the wall
+
+Minimizing the window barely helps, since drawing the preview is cheap.
+
 **"No graphics card Telescope can use" in Video settings**
 On Linux, Telescope's decoder only uses NVIDIA cards. For AMD and Intel click **Set up VA-API…** next to it. Without a usable card Light still decodes on the processor.
 
