@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 DESKTOP = Path(__file__).resolve().parent.parent
 
 
@@ -12,7 +14,7 @@ def _check(folder) -> tuple:
     env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
     out = subprocess.run([sys.executable, "scripts/check_plugin.py", str(folder)], env=env, cwd=DESKTOP,
                          capture_output=True, text=True, timeout=120)
-    return out.returncode, out.stdout
+    return out.returncode, out.stdout + out.stderr
 
 
 def test_the_example_plugin_passes():
@@ -44,4 +46,38 @@ def test_a_plugin_that_wont_load_says_why(tmp_path):
     (folder / "plugin.json").write_text('{"name": "broken", "api": 1, "class": "P"}')
     (folder / "__init__.py").write_text("import not_a_module_anywhere\n")
     code, out = _check(folder)
-    assert code == 1 and "No module named 'not_a_module_anywhere'" in out
+    assert code == 1 and "No module named 'not_a_module_anywhere'" in out, out
+
+
+@pytest.mark.parametrize("interrupted", [False, True])
+def test_checker_destroys_its_window_before_releasing_qt(qapp, monkeypatch, tmp_path, interrupted):
+    from PyQt6 import sip
+    from PyQt6.QtWidgets import QWidget
+    from scripts import check_plugin
+    from telescope import app
+
+    shutdown = []
+
+    class Window(QWidget):
+        def _shut_down(self):
+            shutdown.append(not sip.isdeleted(self))
+
+    win = Window()
+    child = QWidget(win)
+    monkeypatch.setattr(app, "TelescopeWindow", lambda: win)
+
+    def check_window(*_args):
+        if interrupted:
+            raise RuntimeError("setup failed")
+        return  # a plugin that did not load returns early too
+
+    monkeypatch.setattr(check_plugin, "_check_window", check_window)
+    log = check_plugin._Logged("broken", tmp_path)
+    if interrupted:
+        with pytest.raises(RuntimeError, match="setup failed"):
+            check_plugin.check_running(tmp_path, "broken", log)
+    else:
+        check_plugin.check_running(tmp_path, "broken", log)
+    assert shutdown == [True]
+    assert sip.isdeleted(win) and sip.isdeleted(child)
+    assert not sip.isdeleted(qapp)
