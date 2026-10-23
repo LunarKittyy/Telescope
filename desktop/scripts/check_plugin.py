@@ -137,15 +137,28 @@ def check_translations(folder: Path):
 
 
 def check_running(folder: Path, name: str, log: _Logged):
-    import numpy as np
+    from PyQt6 import sip
     from PyQt6.QtWidgets import QApplication
 
     from telescope.app import TelescopeWindow
-    from telescope.plugin import TelescopePlugin
-    from telescope.plugins import builtin_plugins
 
     app = QApplication.instance() or QApplication([])
     win = TelescopeWindow()
+    try:
+        _check_window(win, name, log, app)
+    finally:
+        win._shut_down()  # stop the wait screen's drawing thread before Qt destroys its resources
+        app.processEvents()
+        # The window has reference cycles. Destroy it while QApplication is still alive, including on early returns.
+        sip.delete(win)
+        _logged("Quitting", log)
+
+
+def _check_window(win, name: str, log: _Logged, app):
+    import numpy as np
+    from telescope.plugin import TelescopePlugin
+    from telescope.plugins import builtin_plugins
+
     notified = []
     win.send_notification = lambda title, body, urgent=True: notified.append(f"{title}: {body}")  # not on your desktop
     win.load_plugins(builtin_plugins())
@@ -156,7 +169,6 @@ def check_running(folder: Path, name: str, log: _Logged):
         _fail(f"Starting it: {win._plugin_problems.get(name, 'it was left out')}")
         for record in log.take():
             _indented(record)
-        win._shut_down()  # the wait screen's thread is still drawing, and crashes Qt if the process exits under it
         return
     _ok(f"Starting it next to the built-in plugins ({len(win._plugins) - 1} of them)")
     _logged("Setting it up", log)
@@ -216,9 +228,6 @@ def check_running(folder: Path, name: str, log: _Logged):
     _step("A stream starting, moving between tiles and stopping", stream)
     _logged("Stream hooks", log)
 
-    win._shut_down()
-    app.processEvents()
-    _logged("Quitting", log)
     for text in notified:
         _note(f"Telescope would have shown this notification: {text}")
 
