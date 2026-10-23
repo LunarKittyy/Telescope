@@ -411,6 +411,17 @@
                         android:layout_marginTop="10dp"
                         android:text="@string/check_for_updates" />
 
+                    <!-- Shown only in a language whose translation is a first draft (bool translation_is_draft) -->
+                    <TextView
+                        android:id="@+id/tvTranslationDraft"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:gravity="center_horizontal"
+                        android:text="@string/translation_draft"
+                        android:textAppearance="@style/TextAppearance.Telescope.Hint"
+                        android:visibility="gone" />
+
                     <TextView
                         android:id="@+id/tvAppVersion"
                         android:layout_width="match_parent"

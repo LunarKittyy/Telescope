@@ -174,6 +174,7 @@ class MainActivity : AppCompatActivity() {
         btnCheckUpdates = findViewById(R.id.btnCheckUpdates)
         btnUpdate.setOnClickListener { startUpdate() }
         btnCheckUpdates.setOnClickListener { Updater.check(this) }
+        if (resources.getBoolean(R.bool.translation_is_draft)) findViewById<View>(R.id.tvTranslationDraft).visibility = View.VISIBLE
         if (Updater.canUpdate()) {
             switchNightly.isChecked = Updater.channel(this) == UpdateLogic.NIGHTLY
             switchNightly.setOnCheckedChangeListener { _, checked ->
@@ -480,7 +481,7 @@ class MainActivity : AppCompatActivity() {
             styleScanButton(primary = true)
             return
         }
-        tvPairingTitle.text = resources.getQuantityString(R.plurals.paired_computers_title, computers.size)
+        tvPairingTitle.text = getString(if (computers.size == 1) R.string.paired_computer_title else R.string.paired_computers_title)
         tvPairingHint.visibility = View.GONE
         computers.sortedBy { it.pairedAtMs }.forEach { layoutComputers.addView(buildComputerRow(it)) }
         btnScanPair.setText(R.string.pair_another)

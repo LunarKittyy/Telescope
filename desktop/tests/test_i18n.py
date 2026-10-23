@@ -198,6 +198,15 @@ def test_the_language_picked_in_settings_wins_over_the_system(catalogs, monkeypa
     assert i18n.native_name("en") == "English"
 
 
+def test_a_first_draft_says_so(catalogs):
+    _po(catalogs, "sv", "")
+    _po(catalogs, "es", "", plural="nplurals=2; plural=(n != 1);\\n\"\n\"X-Telescope-Draft: yes")
+    assert i18n.is_draft("es")
+    assert not i18n.is_draft("sv")
+    assert not i18n.is_draft("en")
+    assert not i18n.is_draft("de")  # no catalog at all
+
+
 def test_an_unreadable_catalog_leaves_english(catalogs):
     (catalogs / "sv.po").write_text('msgid "x"\nnonsense\n', encoding="utf-8")
     assert i18n.load("sv") == "en"

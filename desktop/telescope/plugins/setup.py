@@ -96,6 +96,7 @@ _SUDO_HINT = N_("Asks for your password (pkexec or sudo): this changes system se
 AUTHOR_URL = "https://github.com/LunarKittyy"
 BUG_REPORT_URL = "https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml"
 HELP_URL = "https://github.com/LunarKittyy/Telescope/blob/master/docs/troubleshooting.md"
+TRANSLATE_URL = "https://github.com/LunarKittyy/Telescope/blob/master/docs/translating.md"
 
 
 class AdvancedSettings(QWidget):
@@ -426,7 +427,9 @@ class AdvancedSettings(QWidget):
         self._lang_combo = NoScrollComboBox()
         self._lang_combo.addItem(tr("Same as the system"), "")
         for lang in [i18n.SOURCE_LANGUAGE] + i18n.available():
-            self._lang_combo.addItem(i18n.native_name(lang), lang)
+            # Translators: after a language's name in the Language list, for a translation that's only a first draft
+            draft = " " + tr("(beta)") if i18n.is_draft(lang) else ""
+            self._lang_combo.addItem(i18n.native_name(lang) + draft, lang)
         self._lang_combo.currentIndexChanged.connect(self._language_picked)
         self._lang_restart = QWidget()
         restart_lay = QHBoxLayout(self._lang_restart)
@@ -437,7 +440,23 @@ class AdvancedSettings(QWidget):
         restart_btn.clicked.connect(lambda: self._on_restart() if self._on_restart else None)
         restart_lay.addWidget(restart_btn, 0, Qt.AlignmentFlag.AlignVCenter)
         self._lang_restart.setVisible(False)
-        strip, _ = setting_row(tr("Language"), "", self._lang_combo, self._lang_restart,
+        # A first draft says so; any other language asks for help, both beside the same button
+        helping = QHBoxLayout()
+        helping.setContentsMargins(0, 0, 0, 0)
+        helping.setSpacing(8)
+        helping.addWidget(wrapped_note(
+            tr("This translation is a first draft and some texts might read a bit oddly.")
+            if i18n.is_draft(i18n.language()) else tr("Missing your language, or spotted a text that reads wrong?"),
+            "status_dim"), 1)
+        translate_btn = card_action(tr("Help translate"), "pencil", tr("Fix a text or add a language, no coding needed"))
+        translate_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(TRANSLATE_URL)))
+        helping.addWidget(translate_btn, 0, Qt.AlignmentFlag.AlignVCenter)
+        below = QVBoxLayout()
+        below.setContentsMargins(0, 0, 0, 0)
+        below.setSpacing(6)
+        below.addLayout(helping)
+        below.addWidget(self._lang_restart)
+        strip, _ = setting_row(tr("Language"), "", self._lang_combo, below,
                                keywords=tr("language translation translate locale", ctx="search"))
         look_lay.addWidget(strip)
         self._place("general", look_card, order=10)
