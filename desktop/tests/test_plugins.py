@@ -913,6 +913,7 @@ def test_setup_plugin_config_round_trip(setup_plugin, monkeypatch):
         "hw_decode": True,
         "power_saving": True,
         "plugin_hues": False,
+        "language": "sv",
     }
     plugin.set_config(cfg)
     assert plugin.get_config() == cfg

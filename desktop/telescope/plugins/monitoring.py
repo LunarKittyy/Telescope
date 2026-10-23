@@ -54,7 +54,7 @@ class MonitoringPlugin(TelescopePlugin):
     name = "monitoring"
     title = N_("Monitoring")
     about = N_("The phone's battery and temperature, with warnings when they get low or high.")
-    when_off = N_("Without it there's no Monitoring card and nothing warns you about a low battery or a hot phone.")
+    when_off = N_("Without it there's no Phone card and nothing warns you about a low battery or a hot phone.")
     device_local = True
     panel_region = "right"  # the phone's own health, beside its camera
 

@@ -847,7 +847,8 @@ class ConnectionPlugin(TelescopePlugin):
             if source is None:
                 self._status_lbl.setText(tr("No phone yet"))
             elif self._streaming:
-                self._status_lbl.setText(tr("Streaming") if live else tr("Waiting for {source}…", source=source))
+                self._status_lbl.setText(tr("Streaming", ctx="status") if live
+                                         else tr("Waiting for {source}…", source=source))
             else:
                 self._status_lbl.setText(tr("{source}, no phone needed", source=source))
             self._using_row.setVisible(False)
@@ -863,7 +864,7 @@ class ConnectionPlugin(TelescopePlugin):
             if self._lost:
                 kind, text = "status_warn", tr("Reconnecting…")
             elif self._connected:
-                kind, text = "", tr("Streaming")
+                kind, text = "", tr("Streaming", ctx="status")
                 over = getattr(self._stream_route, "kind", None)
                 if over:
                     text = tr("Streaming over USB") if over == "usb" else tr("Streaming over Wi-Fi")

@@ -276,6 +276,9 @@ def button_action(id: str, label: str, group: str, button: QAbstractButton,
 
     held = {}
     modes = tuple((m, (verbs or {}).get(m) or tr(text)) for m, text in _TOGGLE_MODES)
+    if states == ("on", "off"):
+        # Translators: a switch's state, as in "Phone mic: on"
+        states = (tr("on"), tr("off"))
 
     def state_text() -> str:
         return tr("{label}: {value}", label=label, value=states[0] if button.isChecked() else states[1])
@@ -415,7 +418,7 @@ def log_slider_action(id: str, label: str, group: str, row, display_scale: float
             v = p.get("value")
             return tr("{label}: set to {value}", label=label, value=_fmt(v, decimals, suffix) if v is not None else "…")
         stops = p.get("stops") or 0
-        n = 1 if stops == 1 else 2
+        n = int(stops) if float(stops).is_integer() else 2  # gettext plurals take whole numbers; 1.5 counts as plural
         amount = number(stops, 0 if float(stops).is_integer() else 1)
         return (trn("{label}: raise by {stops} stop", "{label}: raise by {stops} stops", n, label=label, stops=amount)
                 if p["op"] == "up" else

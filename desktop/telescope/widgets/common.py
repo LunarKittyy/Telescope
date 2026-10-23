@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
 
 from telescope import theme
 from telescope.widgets.line_icons import LINE_ICONS, line_icon
-from telescope.i18n import N_, number, tr
+from telescope.i18n import N_, english, number, tr
 
 
 # ── Shared desktop UI primitives ─────────────────────────────────────────────
@@ -699,6 +699,7 @@ def add_card_header(layout: QVBoxLayout, title: str, icon_name: str,
 
     title_label = QLabel(title)
     title_label.setObjectName("card_title")
+    title_label.setProperty("english", english(title))  # what collapse.py saves the card's fold under
     # Fixed height whether or not the card has a header action, so titles line up across cards.
     title_label.setFixedHeight(30)
     header.addWidget(title_label)
@@ -896,6 +897,7 @@ def add_section_heading(layout: QVBoxLayout, text: str, icon_name: str = ""):
         icon.setPixmap(made(icon_name, theme.TEXT_FAINT).pixmap(13, 13))
         lay.addWidget(icon)
     heading = QLabel(text)
+    heading.setProperty("english", english(text))  # what collapse.py saves the section's fold under
     heading.setIndent(0)  # QSS margins switch on QLabel's auto-indent, which pushed headings ~4px right of the row labels
     heading.setObjectName("section_title")
     lay.addWidget(heading)
@@ -910,7 +912,9 @@ def add_section_heading(layout: QVBoxLayout, text: str, icon_name: str = ""):
 def form_label(text: str, width: int = FORM_LABEL_WIDTH) -> QLabel:
     label = QLabel(text)
     label.setObjectName("form_label")
-    label.setFixedWidth(ui_px(width))
+    # The column's width, unless a translation needs more: then it widens its own row rather than getting cut off
+    label.setMinimumWidth(ui_px(width))
+    label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
     label.setMinimumHeight(ui_px(ROW_HEIGHT))  # every row, text-only or not, keeps the same rhythm
     label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
     return label
