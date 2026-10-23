@@ -275,6 +275,36 @@ def test_people_are_looked_for_less_often_while_nothing_moves(monkeypatch):
     assert sent == [True, False, True, True]
 
 
+def test_power_saving_runs_the_models_less_often_even_while_something_moves(monkeypatch):
+    v, backend, _states, _people = _ready()
+    monkeypatch.setattr(vision, "_saving", True)
+    moving = [np.full((720, 1280, 3), 80, np.uint8) for _ in range(3)]
+    for i, frame in enumerate(moving):
+        frame[100 * i:100 * i + 300, 400:700] = 200  # an arm going up
+    for seq, frame in enumerate(moving):
+        _in_stream("a", seq, lambda: v.person_mask(frame))
+    assert len(backend.segmented) == 1  # moving, but not 15 times a second yet
+    v._streams["a"].mask_at -= vision._MASK_STILL_EVERY_S + _TICK
+    _in_stream("a", 9, lambda: v.person_mask(moving[0]))
+    assert len(backend.segmented) == 2
+    assert "power saving" in v.diagnostics()["Vision"]
+
+    v.want_people("x", True)
+    monkeypatch.setattr(vision.threading, "Thread", lambda **kw: type("T", (), {"start": lambda self: None})())
+    sent = []
+
+    def feed(seq, frame, ago):
+        _in_stream("a", seq, lambda: v.feed_raw(frame))
+        sv = v._streams["a"]
+        sent.append(sv.people_frame is not None)
+        sv.people_frame = None
+        sv.people_at -= ago + _TICK
+    feed(10, moving[0], vision._PEOPLE_EVERY_S)
+    feed(11, moving[1], vision._SAVING_PEOPLE_EVERY_S)
+    feed(12, moving[2], 0)
+    assert sent == [True, False, True]  # moving, but every _SAVING_PEOPLE_EVERY_S instead of _PEOPLE_EVERY_S
+
+
 def test_a_segmenter_that_cant_load_fails_once_and_names_the_missing_library():
     v, backend, states, _people = _ready()
     tries = []

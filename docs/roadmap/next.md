@@ -4,7 +4,7 @@ Planned in October 2026, after 4.0. Both of these were left over from it.
 
 - [ ] [720p when the phone gets critically hot](#720p-when-the-phone-gets-critically-hot)
 - [ ] [Saying to extract the Windows zip first](#saying-to-extract-the-windows-zip-first)
-- [ ] [Cheaper background blur and auto framing](#cheaper-background-blur-and-auto-framing)
+- [x] [Cheaper background blur and auto framing](#cheaper-background-blur-and-auto-framing)
 
 ## 720p when the phone gets critically hot
 
@@ -29,6 +29,6 @@ Measured on a Ryzen AI 5 340 laptop on battery, in the power-saver profile: a 72
 
 On clips made from a photo of three people walking (blur plus framing paced at 30 fps, Balanced power profile), 720p went from 66% to 58% of a core while panning, 61% to 49% with a 1 px sway and 60% to 34% while still. 1080p went from 95% to 85%, 92% to 74% and 90% to 57%. The mask's edge flicker went from 3.7 to 0.5 levels while still and from 11 to 4.7 with the sway. It still needs a look on a real stream, since the clips were made from still photos: how often a person talking on a call counts as "still", and whether a quick move leaves the mask behind.
 
-What's left after that is mostly the pose model (about 10 ms a run) while you move. A low power mode that locks the frame rate, size and effect cadence could build on this.
+What's left after that is mostly the pose model (about 10 ms a run) while you move. Instead of a low power mode that locks settings, there's a **Power-saving effects** switch under Video in Settings that runs both models less often while you move too (720p walking clip: 57% to 42% of a core, 1080p: 86% to 68%), and troubleshooting.md says what else helps.
 
-A phone plugged in over USB runs on the laptop's battery too, and that showed up as about 2.4 W even while not streaming. Worth saying in the troubleshooting doc for people measuring power.
+A phone plugged in over USB runs on the laptop's battery too, and that showed up as about 2.4 W even while not streaming. troubleshooting.md says so now.

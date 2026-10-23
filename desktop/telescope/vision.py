@@ -31,6 +31,10 @@ _MODEL_SIZE = (256, 144)  # the segmenter's input (selfie_segmenter_landscape): 
 _MOVED_SHARE = 0.005
 _MOVED_LEVELS = 12
 _THUMB = (64, 36)
+# Power-saving effects (Settings > Video): the mask at most this often even while something moves, people this often
+_SAVING_PEOPLE_EVERY_S = 0.16
+_SAVING_PEOPLE_STILL_EVERY_S = 0.5
+_saving = False
 _LOOK_AGAIN_S = 5.0  # without a pack, how often asking looks for one again (a download may have finished)
 
 # Which stream the frame being processed comes from, and its number: set by StreamWorker around the plugin steps.
@@ -153,6 +157,17 @@ class _Timestamps:
     def next(self) -> int:
         self._last = max(self._last + 1, int(time.monotonic() * 1000))
         return self._last
+
+
+def set_power_saving(on: bool):
+    """Power-saving effects (Settings > Video): the models run less often, so blur and framing follow quick moves a
+    little later but use less of the processor. Takes effect from the next frame."""
+    global _saving
+    _saving = bool(on)
+
+
+def power_saving() -> bool:
+    return _saving
 
 
 def model_input(frame: np.ndarray, size: tuple = _MODEL_SIZE) -> np.ndarray:
@@ -303,7 +318,7 @@ class Vision:
         now = time.monotonic()
         # Nothing moving: the last mask still fits, so the model runs less often (anything moving brings it back)
         moved = sv.mask_motion.moved(small)
-        if moved or sv.small_mask is None or now - sv.mask_at >= _MASK_STILL_EVERY_S:
+        if (moved and not _saving) or sv.small_mask is None or now - sv.mask_at >= _MASK_STILL_EVERY_S:
             t0 = time.perf_counter()
             mask = sv.segment(small, sv.mask_clock.next())
             if sv.small_mask is not None and sv.small_mask.shape == mask.shape:
@@ -346,9 +361,11 @@ class Vision:
             return
         sv = self._stream(here[0])
         now = time.monotonic()
-        if now - sv.people_at < _PEOPLE_EVERY_S:
+        every, still_every = ((_SAVING_PEOPLE_EVERY_S, _SAVING_PEOPLE_STILL_EVERY_S) if _saving
+                              else (_PEOPLE_EVERY_S, _PEOPLE_STILL_EVERY_S))
+        if now - sv.people_at < every:
             return
-        if not sv.people_motion.moved(frame) and now - sv.people_at < _PEOPLE_STILL_EVERY_S:
+        if not sv.people_motion.moved(frame) and now - sv.people_at < still_every:
             return
         sv.people_motion.used()
         sv.people_at = now
@@ -431,4 +448,6 @@ class Vision:
         for kind, recent in self._ms.items():
             if recent:
                 line += f", {kind} {sorted(recent)[len(recent) // 2]:.1f} ms"
+        if _saving:
+            line += ", power saving"
         return {"Vision": line}

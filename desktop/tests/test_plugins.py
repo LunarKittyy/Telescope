@@ -899,8 +899,9 @@ def test_setup_plugin_canvas_config(setup_plugin, config, expected):
 
 
 def test_setup_plugin_config_round_trip(setup_plugin, monkeypatch):
-    from telescope import theme
+    from telescope import theme, vision
     monkeypatch.setattr(theme, "_own_hues", True)  # put back after: plugin_hues off changes the whole app
+    monkeypatch.setattr(vision, "_saving", False)
     plugin, _host, _panel = setup_plugin
     cfg = {
         "canvas_preset": "Custom...",
@@ -910,6 +911,7 @@ def test_setup_plugin_config_round_trip(setup_plugin, monkeypatch):
         "max_gain": 36,
         "limiter": False,
         "hw_decode": True,
+        "power_saving": True,
         "plugin_hues": False,
     }
     plugin.set_config(cfg)
@@ -928,6 +930,16 @@ def test_hardware_decoding_is_off_unless_turned_on(setup_plugin, monkeypatch):
     monkeypatch.setattr(h264_reader, "_hw_probed", True)
     monkeypatch.setattr(h264_reader, "_hw_found", None)
     assert plugin.diagnostics() == {"Decoding": "not streaming (graphics card selected)"}
+
+
+def test_power_saving_effects_are_off_unless_turned_on(setup_plugin, monkeypatch):
+    from telescope import vision
+    plugin, _host, panel = setup_plugin
+    monkeypatch.setattr(vision, "_saving", False)
+    plugin.set_config({"power_saving": "yes"})
+    assert plugin.get_config()["power_saving"] is False and not vision.power_saving()
+    plugin._on_power_saving(True)
+    assert plugin.get_config()["power_saving"] is True and vision.power_saving()
 
 
 def test_setup_plugin_apply_canvas_persists_and_reports_result(setup_plugin):

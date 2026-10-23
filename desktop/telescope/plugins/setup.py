@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from telescope import diagnostics, h264_reader, pyav_vaapi, theme, vcam
+from telescope import diagnostics, h264_reader, pyav_vaapi, theme, vcam, vision
 from telescope.platform import IS_LINUX, adb_available, adb_devices, adb_install, bundled_apk_path
 from telescope.platform.linux import (
     CANCELLED, V4L2_OBS_DEV, V4L2_PHONE_DEV, result_parts,
@@ -112,7 +112,7 @@ class AdvancedSettings(QWidget):
 
     def __init__(self, parent=None, on_apply_canvas=None, report=None, on_max_zoom=None, on_max_gain=None,
                  on_limiter=None, on_remove_extras=None, extras_in_use=None, on_hw_decode=None,
-                 on_plugin_hues=None, on_vaapi=None):
+                 on_plugin_hues=None, on_vaapi=None, on_power_saving=None):
         super().__init__(parent)
         self._on_remove_extras = on_remove_extras
         self._extras_in_use = extras_in_use or (lambda: False)
@@ -126,6 +126,7 @@ class AdvancedSettings(QWidget):
         self._on_hw_decode = on_hw_decode
         self._on_vaapi = on_vaapi
         self._on_plugin_hues = on_plugin_hues
+        self._on_power_saving = on_power_saving
         self._build_ui()
         self._sig_v4l_result.connect(self._on_v4l_result)
         self._sig_v4l_unload.connect(self._on_v4l_unload_result)
@@ -272,6 +273,15 @@ class AdvancedSettings(QWidget):
             keywords="hw accel gpu graphics card nvidia cuda amd intel vaapi d3d11 decode decoding h264 faster cpu "
                      "processor laptop 4k")
         strip.setToolTip(self._hw_chk.toolTip())
+        video_lay.addWidget(strip)
+        self._saving_chk = Switch()
+        self._saving_chk.toggled.connect(lambda on: self._on_power_saving(on) if self._on_power_saving else None)
+        strip, _ = setting_row(
+            "Power-saving effects", "Background and Auto framing update less often", self._saving_chk,
+            keywords="battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe "
+                     "lighter effects quality")
+        strip.setToolTip("Uses less of the processor and battery while Background or Auto framing is on. They follow "
+                         "quick moves a little later.")
         video_lay.addWidget(strip)
         self._max_zoom_spin = NoScrollSpinBox()
         self._max_zoom_spin.setObjectName("chip_spin")
@@ -532,6 +542,11 @@ class AdvancedSettings(QWidget):
         self._hw_chk.blockSignals(True)  # syncing the stored value isn't a change
         self._hw_chk.setChecked(on)
         self._hw_chk.blockSignals(False)
+
+    def set_power_saving(self, on: bool):
+        self._saving_chk.blockSignals(True)  # syncing the stored value isn't a change
+        self._saving_chk.setChecked(on)
+        self._saving_chk.blockSignals(False)
 
     def set_plugin_hues(self, on: bool):
         (self._hues_own if on else self._hues_purple).setChecked(True)
@@ -814,6 +829,7 @@ class SetupPlugin(TelescopePlugin):
         self._max_gain = DEFAULT_MAX_GAIN
         self._limiter = True
         self._hw_decode = False
+        self._power_saving = False
         self._plugin_hues = True
         self._canvas_preset = "Auto (from first frame)"
         self._custom_w = 1920
@@ -835,7 +851,7 @@ class SetupPlugin(TelescopePlugin):
             on_limiter=self._on_limiter, on_plugin_hues=self._on_plugin_hues,
             on_remove_extras=lambda done: self._host.remove_extra_cameras(done),
             extras_in_use=lambda: self._host.stream_count() > 1,
-            on_hw_decode=self._on_hw_decode, on_vaapi=self._open_vaapi)
+            on_hw_decode=self._on_hw_decode, on_vaapi=self._open_vaapi, on_power_saving=self._on_power_saving)
         self._sync_panel()
         return [replace(section, on_show=self._on_show) for section in self._panel.sections()]
 
@@ -847,6 +863,7 @@ class SetupPlugin(TelescopePlugin):
         panel.set_max_gain(self._max_gain)
         panel.set_limiter(self._limiter)
         panel.set_hw_decode(self._hw_decode)
+        panel.set_power_saving(self._power_saving)
         panel.set_plugin_hues(self._plugin_hues)
 
     def _on_show(self):
@@ -896,6 +913,11 @@ class SetupPlugin(TelescopePlugin):
         h264_reader.set_hardware(on)
         self._host.schedule_save()
 
+    def _on_power_saving(self, on: bool):
+        self._power_saving = on
+        vision.set_power_saving(on)
+        self._host.schedule_save()
+
     def _on_plugin_hues(self, on: bool):
         self._plugin_hues = on
         theme.set_plugin_hues(on)
@@ -938,6 +960,7 @@ class SetupPlugin(TelescopePlugin):
             "max_gain":        self._max_gain,
             "limiter":         self._limiter,
             "hw_decode":       self._hw_decode,
+            "power_saving":    self._power_saving,
             "plugin_hues":     self._plugin_hues,
         }
 
@@ -956,6 +979,8 @@ class SetupPlugin(TelescopePlugin):
         self._bus.limiter_changed.emit(self._limiter)
         self._hw_decode = cfg.get("hw_decode") is True  # off unless turned on
         h264_reader.set_hardware(self._hw_decode)
+        self._power_saving = cfg.get("power_saving") is True  # off unless turned on
+        vision.set_power_saving(self._power_saving)
         self._plugin_hues = cfg.get("plugin_hues", True) is not False
         theme.set_plugin_hues(self._plugin_hues)
         refresh_hues()
