@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="open_preview">कैमरा प्रीव्यू खोलें</string>
+    <string name="preview_button">प्रीव्यू</string>
     <string name="close_preview">प्रीव्यू बंद करें</string>
     <string name="update_available">अपडेट उपलब्ध है</string>
     <string name="update_failed_title">अपडेट पूरा नहीं हुआ</string>
@@ -50,10 +51,15 @@
     <string name="paired_computers_title">पेयर किए गए कंप्यूटर</string>
     <string name="paired_on">%1$s को पेयर किया गया</string>
     <string name="remove">हटाएं</string>
+    <string name="show_all_computers">सभी %1$d दिखाएं</string>
+    <string name="show_fewer">कम दिखाएं</string>
     <string name="cancel">रद्द करें</string>
     <string name="ok">ठीक है</string>
     <string name="remove_computer_title">%1$s को हटाएं?</string>
     <string name="remove_computer_message">जब तक आप इसे फिर से पेयर नहीं करते, यह इस फ़ोन के कैमरे का उपयोग नहीं कर पाएगा.</string>
+    <string name="remove_all">सभी हटाएं</string>
+    <string name="remove_all_title">सभी कंप्यूटर हटाएं?</string>
+    <string name="remove_all_message">जब तक आप इन्हें फिर से पेयर नहीं करते, इनमें से कोई भी इस फ़ोन के कैमरे का उपयोग नहीं कर पाएगा.</string>
     <string name="scan_prompt">कैमरे को अपने कंप्यूटर पर दिख रहे पेयरिंग कोड की तरफ़ करें</string>
     <string name="scan_download_link">वह कोड ऐप डाउनलोड करता है. कंप्यूटर पर फ़ोन जोड़ें के तहत दिख रहा कोड स्कैन करें.</string>
     <string name="scan_not_pairing_code">वह Telescope पेयरिंग कोड नहीं है.</string>
@@ -84,12 +90,12 @@
     <string name="wait_for_computer_hint">स्क्रीन बंद होने पर भी Telescope को चालू रखता है, ताकि पेयर किया गया कंप्यूटर कैमरा शुरू कर सके.</string>
     <string name="stop_streaming">स्ट्रीमिंग रोकें</string>
     <string name="status_title">स्थिति</string>
-    <string name="status_not_streaming">○ स्ट्रीम नहीं हो रहा है</string>
-    <string name="status_starting">○ शुरू हो रहा है…</string>
-    <string name="status_streaming">● स्ट्रीम हो रहा है</string>
-    <string name="status_waiting_for_computer">● कंप्यूटर का इंतज़ार किया जा रहा है</string>
-    <string name="status_mic_only">● माइक स्ट्रीम हो रहा है, कैमरा बंद</string>
-    <string name="status_camera_taken">● कोई अन्य ऐप कैमरे का उपयोग कर रहा है. इसके खाली होते ही स्ट्रीमिंग जारी रहेगी.</string>
+    <string name="status_not_streaming">स्ट्रीम नहीं हो रहा है</string>
+    <string name="status_starting">शुरू हो रहा है…</string>
+    <string name="status_streaming">स्ट्रीम हो रहा है</string>
+    <string name="status_waiting_for_computer">कंप्यूटर का इंतज़ार किया जा रहा है</string>
+    <string name="status_mic_only">माइक स्ट्रीम हो रहा है, कैमरा बंद</string>
+    <string name="status_camera_taken">कोई अन्य ऐप कैमरे का उपयोग कर रहा है. इसके खाली होते ही स्ट्रीमिंग जारी रहेगी.</string>
     <string name="streaming_started_remotely">आपके कंप्यूटर से स्ट्रीमिंग शुरू हुई</string>
     <string name="about_title">परिचय</string>
     <string name="copy_diagnostics">डायग्नोस्टिक्स कॉपी करें</string>
@@ -98,6 +104,7 @@
     <string name="troubleshooting">समस्या निवारण</string>
     <string name="nightly_updates">Nightly अपडेट</string>
     <string name="nightly_updates_hint">हर बदलाव से बनाया गया: सुधार जल्द मिलते हैं, कम टेस्टिंग के साथ.</string>
+    <string name="updates_section">अपडेट</string>
     <string name="check_for_updates">अपडेट खोजें</string>
     <string name="translation_draft">यह अनुवाद अभी पहला ड्राफ़्ट है और कुछ टेक्स्ट थोड़े अजीब लग सकते हैं.</string>
     <string name="made_by">&lt;a href=\"%1$s\"&gt;LunarKittyy&lt;/a&gt; द्वारा निर्मित</string>

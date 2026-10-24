@@ -7,6 +7,8 @@
 
     <!-- Main screen -->
     <string name="open_preview">Open camera preview</string>
+    <!-- The header button that opens the camera preview, kept short -->
+    <string name="preview_button">Preview</string>
     <string name="close_preview">Close preview</string>
 
     <!-- Update card -->
@@ -76,11 +78,17 @@
     <!-- %1$s is a date, already written the phone's way -->
     <string name="paired_on">Paired %1$s</string>
     <string name="remove">Remove</string>
+    <!-- Under the first few paired computers: unfolds the rest. %1$d is how many there are, always more than 3 -->
+    <string name="show_all_computers">Show all %1$d</string>
+    <string name="show_fewer">Show fewer</string>
     <string name="cancel">Cancel</string>
     <string name="ok">OK</string>
     <!-- %1$s is the computer's name -->
     <string name="remove_computer_title">Remove %1$s?</string>
     <string name="remove_computer_message">It won\'t be able to use this phone\'s camera until you pair it again.</string>
+    <string name="remove_all">Remove all</string>
+    <string name="remove_all_title">Remove all computers?</string>
+    <string name="remove_all_message">None of them will be able to use this phone\'s camera until you pair them again.</string>
     <string name="scan_prompt">Point the camera at the pairing code on your computer</string>
     <string name="scan_download_link">That code downloads the app. Scan the one under Add phone on the computer.</string>
     <string name="scan_not_pairing_code">That\'s not a Telescope pairing code.</string>
@@ -123,12 +131,12 @@
     <!-- Status card. Keep the ● (streaming) or ○ (not streaming) at the start. -->
     <string name="stop_streaming">Stop streaming</string>
     <string name="status_title">Status</string>
-    <string name="status_not_streaming">○ Not streaming</string>
-    <string name="status_starting">○ Starting…</string>
-    <string name="status_streaming">● Streaming</string>
-    <string name="status_waiting_for_computer">● Waiting for the computer</string>
-    <string name="status_mic_only">● Streaming the mic, camera off</string>
-    <string name="status_camera_taken">● Another app is using the camera. Streaming goes on when it\'s free.</string>
+    <string name="status_not_streaming">Not streaming</string>
+    <string name="status_starting">Starting…</string>
+    <string name="status_streaming">Streaming</string>
+    <string name="status_waiting_for_computer">Waiting for the computer</string>
+    <string name="status_mic_only">Streaming the mic, camera off</string>
+    <string name="status_camera_taken">Another app is using the camera. Streaming goes on when it\'s free.</string>
     <string name="streaming_started_remotely">Streaming started from your computer</string>
 
     <!-- About card -->
@@ -139,6 +147,7 @@
     <string name="troubleshooting">Troubleshooting</string>
     <string name="nightly_updates">Nightly updates</string>
     <string name="nightly_updates_hint">Built from every change: fixes arrive sooner, with less testing.</string>
+    <string name="updates_section">Updates</string>
     <string name="check_for_updates">Check for updates</string>
     <!-- Shown in About only while this language's translation is a first draft -->
     <string name="translation_draft">This translation is a first draft and some texts might read a bit oddly.</string>

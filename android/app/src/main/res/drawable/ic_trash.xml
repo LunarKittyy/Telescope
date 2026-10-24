@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The desktop's "trash" line icon (desktop/telescope/widgets/line_icons.py) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="16"
+    android:viewportHeight="16">
+    <path
+        android:pathData="M2.5 4.5h11M6 4.5v-2h4v2M4 4.5l.7 9a1 1 0 0 0 1 1h4.6a1 1 0 0 0 1-1l.7-9M6.8 7.5v4M9.2 7.5v4"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

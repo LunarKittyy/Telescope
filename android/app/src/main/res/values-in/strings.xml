@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="open_preview">Buka pratinjau kamera</string>
+    <string name="preview_button">Pratinjau</string>
     <string name="close_preview">Tutup pratinjau</string>
     <string name="update_available">Pembaruan tersedia</string>
     <string name="update_failed_title">Pembaruan tidak selesai</string>
@@ -50,10 +51,15 @@
     <string name="paired_computers_title">Komputer tersanding</string>
     <string name="paired_on">Tersanding %1$s</string>
     <string name="remove">Hapus</string>
+    <string name="show_all_computers">Tampilkan semua %1$d</string>
+    <string name="show_fewer">Tampilkan lebih sedikit</string>
     <string name="cancel">Batal</string>
     <string name="ok">OK</string>
     <string name="remove_computer_title">Ingin menghapus %1$s?</string>
     <string name="remove_computer_message">Komputer ini tidak akan dapat menggunakan kamera ponsel ini sampai Anda menyandingkannya lagi.</string>
+    <string name="remove_all">Hapus semua</string>
+    <string name="remove_all_title">Ingin menghapus semua komputer?</string>
+    <string name="remove_all_message">Tidak ada yang dapat menggunakan kamera ponsel ini sampai Anda menyandingkannya lagi.</string>
     <string name="scan_prompt">Arahkan kamera ke kode penyandingan di komputer Anda</string>
     <string name="scan_download_link">Kode itu mengunduh aplikasi. Pindai kode di bawah Tambahkan ponsel di komputer.</string>
     <string name="scan_not_pairing_code">Itu bukan kode penyandingan Telescope.</string>
@@ -83,12 +89,12 @@
     <string name="wait_for_computer_hint">Menjaga Telescope tetap berjalan saat layar mati, sehingga komputer yang tersanding dapat memulai kamera.</string>
     <string name="stop_streaming">Hentikan streaming</string>
     <string name="status_title">Status</string>
-    <string name="status_not_streaming">○ Tidak streaming</string>
-    <string name="status_starting">○ Memulai…</string>
-    <string name="status_streaming">● Streaming</string>
-    <string name="status_waiting_for_computer">● Menunggu komputer</string>
-    <string name="status_mic_only">● Streaming mikrofon, kamera nonaktif</string>
-    <string name="status_camera_taken">● Aplikasi lain sedang menggunakan kamera. Streaming akan dilanjutkan saat kamera bebas.</string>
+    <string name="status_not_streaming">Tidak streaming</string>
+    <string name="status_starting">Memulai…</string>
+    <string name="status_streaming">Streaming</string>
+    <string name="status_waiting_for_computer">Menunggu komputer</string>
+    <string name="status_mic_only">Streaming mikrofon, kamera nonaktif</string>
+    <string name="status_camera_taken">Aplikasi lain sedang menggunakan kamera. Streaming akan dilanjutkan saat kamera bebas.</string>
     <string name="streaming_started_remotely">Streaming dimulai dari komputer Anda</string>
     <string name="about_title">Tentang</string>
     <string name="copy_diagnostics">Salin diagnostik</string>
@@ -97,6 +103,7 @@
     <string name="troubleshooting">Pemecahan masalah</string>
     <string name="nightly_updates">Pembaruan Nightly</string>
     <string name="nightly_updates_hint">Dibuat dari setiap perubahan: perbaikan tiba lebih cepat, dengan pengujian yang lebih sedikit.</string>
+    <string name="updates_section">Pembaruan</string>
     <string name="check_for_updates">Periksa pembaruan</string>
     <string name="translation_draft">Terjemahan ini masih draf pertama dan beberapa teks mungkin terdengar agak aneh.</string>
     <string name="made_by">Dibuat oleh &lt;a href=\"%1$s\"&gt;LunarKittyy&lt;/a&gt;</string>
