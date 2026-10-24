@@ -472,6 +472,9 @@ class MainActivity : AppCompatActivity() {
         Updater.downloadAndInstall(this, manifest)
     }
 
+    // Whether the paired computers list is unfolded past COMPUTERS_SHOWN
+    private var showAllComputers = false
+
     // The pairing card: how to pair when nothing is paired, otherwise the list of computers.
     private fun renderPairing() {
         val computers = PairedComputers.list(this).computers
@@ -485,7 +488,28 @@ class MainActivity : AppCompatActivity() {
         }
         tvPairingTitle.text = getString(if (computers.size == 1) R.string.paired_computer_title else R.string.paired_computers_title)
         tvPairingHint.visibility = View.GONE
-        computers.sortedBy { it.pairedAtMs }.forEach { layoutComputers.addView(buildComputerRow(it)) }
+        // Newest first, and only the first few until asked, so a long list doesn't push the other cards off the screen
+        val newest = computers.sortedByDescending { it.pairedAtMs }
+        val folded = newest.size > COMPUTERS_SHOWN && !showAllComputers
+        (if (folded) newest.take(COMPUTERS_SHOWN) else newest).forEach { layoutComputers.addView(buildComputerRow(it)) }
+        if (newest.size > COMPUTERS_SHOWN) layoutComputers.addView(
+            TextView(this).apply {
+                text = if (folded) getString(R.string.show_all_computers, newest.size) else getString(R.string.show_fewer)
+                setTextAppearance(R.style.TextAppearance_Telescope_Body)
+                setTextColor(resources.getColor(R.color.hueSky, theme))
+                typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+                gravity = android.view.Gravity.CENTER
+                minHeight = dp(44)
+                isClickable = true
+                isFocusable = true
+                val ripple = android.util.TypedValue()
+                theme.resolveAttribute(android.R.attr.selectableItemBackground, ripple, true)
+                setBackgroundResource(ripple.resourceId)
+                setOnClickListener { showAllComputers = folded; renderPairing() }
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,
+                ).apply { bottomMargin = dp(4) }
+            })
         btnScanPair.setText(R.string.pair_another)
         styleScanButton(primary = false)
     }
@@ -857,6 +881,8 @@ class MainActivity : AppCompatActivity() {
         private const val BUG_REPORT_URL = "https://github.com/${UpdateLogic.REPO}/issues/new?template=bug.yml"
         // Android's "Large" font is 1.15 and its largest 1.3 or more; from there a setup step stacks its button
         private const val STACK_FONT_SCALE = 1.3f
+        // Paired computers listed before "Show all"
+        private const val COMPUTERS_SHOWN = 3
         // Lets the desktop app push a pairing payload straight over adb when
         // there's no camera-scannable QR code involved (USB pairing) - the
         // same JSON shape and handleQrScan() logic as the QR flow, just

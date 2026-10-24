@@ -78,6 +78,9 @@
     <!-- %1$s is a date, already written the phone's way -->
     <string name="paired_on">Paired %1$s</string>
     <string name="remove">Remove</string>
+    <!-- Under the first few paired computers: unfolds the rest. %1$d is how many there are, always more than 3 -->
+    <string name="show_all_computers">Show all %1$d</string>
+    <string name="show_fewer">Show fewer</string>
     <string name="cancel">Cancel</string>
     <string name="ok">OK</string>
     <!-- %1$s is the computer's name -->
