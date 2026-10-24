@@ -13,6 +13,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
@@ -31,11 +32,30 @@ def key(ctx, text):
     return json.dumps([ctx, text], ensure_ascii=False)
 
 
+_catalog_rows = {}
+
+
 def catalog():
-    entries, problems = i18n.find_all(ROOT)
-    if problems:
-        raise ValueError("\n".join(problems))
-    return {key(e.ctx, e.msgid): e for e in entries}
+    # Extracting walks the whole source tree, so it's done once per revision and shared with render workers through a file
+    current = revision()
+    if current not in _catalog_rows:
+        cached = Path(tempfile.gettempdir()) / f"telescope-translation-catalog-{os.getuid() if hasattr(os, 'getuid') else 0}-{current[:24]}.json"
+        try:
+            rows = json.loads(cached.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            entries, problems = i18n.find_all(ROOT)
+            if problems:
+                raise ValueError("\n".join(problems))
+            rows = [[e.msgid, e.plural, e.ctx, e.comments, e.locations, e.flags] for e in entries]
+            review.atomic_write(cached, json.dumps(rows, ensure_ascii=False).encode("utf-8"))
+        _catalog_rows.clear()
+        _catalog_rows[current] = rows
+    entries = {}
+    for msgid, plural, ctx, comments, locations, flags in _catalog_rows[current]:
+        entry = i18n.Entry(msgid, plural, ctx)
+        entry.comments, entry.locations, entry.flags = list(comments), list(locations), list(flags)
+        entries[key(ctx, msgid)] = entry
+    return entries
 
 
 def revision():
@@ -233,12 +253,40 @@ def render(payload):
         return result
 
 
+_spare, _spare_lock = None, threading.Lock()
+
+
+def _spawn():
+    process = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "--render"], stdin=subprocess.PIPE,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8")
+    return process, revision()
+
+
+def warm():
+    global _spare
+    with _spare_lock:
+        if _spare is None:
+            _spare = _spawn()
+
+
 def worker(payload):
-    result = subprocess.run([sys.executable, str(Path(__file__).resolve()), "--render"],
-                            input=json.dumps(payload), capture_output=True, text=True, encoding='utf-8', timeout=25)
-    if result.returncode:
-        raise RuntimeError(result.stderr[-2500:] or "The Qt preview failed")
-    return json.loads(result.stdout)
+    # Every render gets a fresh process; one is kept started ahead so Python and Qt have already loaded when a request comes
+    global _spare
+    with _spare_lock:
+        process, made_for = _spare or _spawn()
+        if made_for != revision():
+            process.kill()
+            process, made_for = _spawn()
+        _spare = _spawn()
+    try:
+        output, errors = process.communicate(json.dumps(payload), timeout=25)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.communicate()
+        raise RuntimeError("The Qt preview took too long")
+    if process.returncode:
+        raise RuntimeError(errors[-2500:] or "The Qt preview failed")
+    return json.loads(output)
 
 
 def coverage(results):
@@ -339,6 +387,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if not self.allowed():
             return self.reply(403, b"Use the printed local address", "text/plain")
+        if self.path == "/api/warm":
+            warm()
+            return self.reply(200, b"{}", "application/json")
         if self.path == "/api/catalog":
             return self.reply(200, json.dumps({**metadata(), "mode": "admin" if getattr(self.server, "reviewer", None) else "manual", "shared_available": getattr(self.server, 'shared', False), "account_deletion_available": bool(getattr(self.server, 'cloud_account', None))}).encode(), "application/json")
         if self.path == '/api/project-snapshot':
@@ -472,7 +523,12 @@ def main():
         print('Recorded machine provenance without approving translations')
         return 0
     if args.render:
+        # Qt loads while the process waits as the spare; telescope modules load after instrument() in render()
+        os.environ["QT_QPA_PLATFORM"] = "offscreen"
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])
         print(json.dumps(render(json.load(sys.stdin))))
+        del app
         return 0
     if args.check or args.check_all or args.record_coverage:
         actual = coverage([worker({"lang": "en", "scene": s}) for s in SCENES])

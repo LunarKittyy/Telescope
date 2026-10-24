@@ -147,7 +147,8 @@ $('backup').onclick = () => {
 };
 async function start() {
   try {
-    const response = await fetch('/api/catalog'); if (!response.ok) throw Error('The catalog could not be loaded. Refresh to try again.'); data = await response.json();
+    fetch('/api/warm').catch(() => {});
+    let response = await fetch('/catalog.json'); if (!response.ok) response = await fetch('/api/catalog'); if (!response.ok) throw Error('The catalog could not be loaded. Refresh to try again.'); data = await response.json();
     repositoryData = structuredClone(data); cloudOverrides = {};
     for (const code of localLanguages) addLocalLanguage(code);
     if (!data.languages.includes(lang)) lang = 'es';

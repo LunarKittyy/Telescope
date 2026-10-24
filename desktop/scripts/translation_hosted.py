@@ -1,6 +1,7 @@
 """WSGI transport for the hosted workbench and its retryable account-erasure job."""
 
 import base64
+import gzip
 import hashlib
 import io
 import json
@@ -150,6 +151,9 @@ def application(environ, start_response):
             request = HostedRequest(environ)
             if not request.allowed():
                 status, body = 403, b'Forbidden origin'
+            elif path == '/api/warm' and method == 'GET':
+                preview.warm()
+                status, body, mime = 200, b'{}', 'application/json'
             elif path == '/api/catalog' and method == 'GET':
                 with catalogue_lock:
                     data = catalogue()
@@ -195,9 +199,11 @@ def application(environ, start_response):
         import logging
         logging.exception('Hosted translation request failed')
         status, body, mime = 503, b'{"error":"The service is temporarily unavailable. Try again shortly."}', 'application/json'
-    start_response(f'{status} {HTTPStatus(status).phrase}', [('Content-Type', mime),
-                   ('Content-Length', str(len(body))), ('Cache-Control', 'no-store'),
-                   ('X-Content-Type-Options', 'nosniff')])
+    headers = [('Content-Type', mime), ('Cache-Control', 'no-store'), ('X-Content-Type-Options', 'nosniff'), ('Vary', 'Accept-Encoding')]
+    if mime == 'application/json' and len(body) > 2048 and 'gzip' in environ.get('HTTP_ACCEPT_ENCODING', ''):
+        body = gzip.compress(body, 5)
+        headers.append(('Content-Encoding', 'gzip'))
+    start_response(f'{status} {HTTPStatus(status).phrase}', headers + [('Content-Length', str(len(body)))])
     return [body]
 
 
@@ -222,6 +228,8 @@ def stage(destination):
     public.mkdir()
     for name in ('index.html', 'app.js', 'shared.js', 'admin.js', 'language-picker.js', 'style.css', 'languages.json', 'languages.LICENSE.txt', 'firebase-config.json'):
         shutil.copy2(preview.ASSETS / name, public)
+    # Served by Hosting's CDN so the first page doesn't wait for the render service to start
+    (public / 'catalog.json').write_text(json.dumps(catalogue(), ensure_ascii=False), encoding='utf-8')
 
 
 if __name__ == '__main__':
