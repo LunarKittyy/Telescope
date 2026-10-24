@@ -95,6 +95,7 @@
     <string name="status_not_streaming">Не транслює</string>
     <string name="status_starting">Запуск…</string>
     <string name="status_streaming">Транслює</string>
+    <string name="status_quality">У %1$dp, %2$d fps</string>
     <string name="status_waiting_for_computer">Очікування на комп\'ютер</string>
     <string name="status_mic_only">Транслює мікрофон, камеру вимкнено</string>
     <string name="status_camera_taken">Інший додаток використовує камеру. Трансляція продовжиться, щойно вона звільниться.</string>
