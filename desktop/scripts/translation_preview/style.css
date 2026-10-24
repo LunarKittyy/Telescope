@@ -205,6 +205,9 @@ progress::-moz-progress-bar { background: #9ad3ae; border-radius: 4px; }
 .mode-options .muted { margin: 16px 0 0; }
 .button-link { display: inline-block; background: var(--accent); color: #291b3b; text-decoration: none; border-radius: 8px; padding: 10px 16px; font-weight: 600; }
 .button-link:hover { background: #e3d0ff; }
+.button-link.secondary { background: #494151; color: var(--ink); }
+.button-link.secondary:hover { background: #5b5068; }
+.overview-heading p a { color: var(--ink); text-underline-offset: 3px; }
 .admin-import { margin: 24px 0 32px; padding: 24px; background: var(--rail); border-radius: 12px; }
 .admin-import p { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
 .admin-import label { display: block; margin-bottom: 16px; font-size: 13px; }

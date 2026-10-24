@@ -244,6 +244,7 @@ function route() {
   if (['language','edit'].includes(view)) { lang = code; save(); }
   $('mode-label').textContent = data.mode === 'admin' ? 'Local administrator' : sharedUser ? 'Shared contribution' : 'Manual contribution';
   breadcrumbs(view);
+  $('mode-link').hidden = view === 'modes';
   if (view === 'modes') { $('modes-title').focus(); }
   else if (view === 'account') { loadAccount(); $('account-title').focus(); }
   else if (view === 'admin') { openAdmin(); $('admin-title').focus(); }
