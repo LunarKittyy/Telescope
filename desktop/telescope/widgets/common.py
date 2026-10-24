@@ -3,7 +3,7 @@ import threading
 import sys
 import weakref
 
-from PyQt6.QtCore import QByteArray, QCoreApplication, QEventLoop, QMetaObject, QThread, QPoint, QPointF, QRect, QRectF, QSize, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QByteArray, QCoreApplication, QEvent, QEventLoop, QMetaObject, QThread, QPoint, QPointF, QRect, QRectF, QSize, Qt, QTimer, pyqtSignal
 from PyQt6 import sip
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtGui import (
@@ -772,24 +772,40 @@ def icon_button(icon_name: str, name: str, tooltip: str = "") -> QPushButton:
     return btn
 
 
+# QTBUG-106583 workaround (Windows shows a new Qt window as an empty frame before it's painted): drop everything tagged with it once Qt fixes it
+def _cloak(dialog: "PlacedDialog", on: bool):
+    """Hides a window from the screen while Windows still treats it as shown, so it can be drawn first."""
+    import ctypes
+    dialog._cloaked = on
+    value = ctypes.c_int(1 if on else 0)
+    ctypes.windll.dwmapi.DwmSetWindowAttribute(ctypes.c_void_p(int(dialog.winId())), 13, ctypes.byref(value), 4)  # DWMWA_CLOAK
+
+
 class PlacedDialog(QDialog):
     """A dialog sized and centred over its window before it's first shown. QDialog centres it in showEvent, and on
     Windows it showed at the top left of the screen for a moment first."""
 
     _placed = False
+    _cloaked = False  # QTBUG-106583 workaround, see _cloak
 
     def setVisible(self, visible):
         if visible and not self._placed:
             self._placed = True
             self.fit_before_show()
             self._centre()
-            if sys.platform == "win32":
-                self.setWindowOpacity(0)  # Windows draws the empty frame before Qt paints the contents
-                QTimer.singleShot(50, self._drawn)  # a method, so the timer goes with the dialog if it's deleted first
+            if sys.platform == "win32":  # QTBUG-106583 workaround, see _cloak
+                _cloak(self, True)
+                QTimer.singleShot(250, self._drawn)  # in case no paint comes; a method, so it goes with the dialog
         super().setVisible(visible)
 
-    def _drawn(self):
-        self.setWindowOpacity(1)
+    def event(self, event):  # QTBUG-106583 workaround, see _cloak
+        if event.type() == QEvent.Type.Paint and self._cloaked:
+            QTimer.singleShot(0, self._drawn)  # once this paint has reached the screen
+        return super().event(event)
+
+    def _drawn(self):  # QTBUG-106583 workaround, see _cloak
+        if self._cloaked:
+            _cloak(self, False)
 
     def fit_before_show(self):
         self.adjustSize()
