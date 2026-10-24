@@ -277,6 +277,12 @@ class CameraStreamService : Service() {
             val stop = PendingIntent.getService(context, 1,
                 Intent(context, CameraStreamService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE)
             builder.addAction(0, context.getString(R.string.stop_streaming), stop)
+            // A progress card is what a tap on the chip opens (with Stop streaming) instead of the app; a stream has no
+            // progress, so the bar is one full segment in the app's colour
+            builder.setStyle(NotificationCompat.ProgressStyle().setStyledByProgress(false)
+                .setProgressSegments(listOf(NotificationCompat.ProgressStyle.Segment(100)
+                    .setColor(ContextCompat.getColor(context, R.color.colorPrimary))))
+                .setProgress(100))
             builder.setContentTitle(context.getString(R.string.notif_streaming_title))
             // The chip's text; without it the chip shows the app's name
             builder.setShortCriticalText(context.getString(R.string.notif_streaming_title))
