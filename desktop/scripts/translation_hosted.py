@@ -29,7 +29,7 @@ def catalogue():
 
 
 def queue_account_job(id_token, action='delete-account'):
-    config = json.loads((preview.ASSETS / 'firebase-config.json').read_text())
+    config = json.loads((preview.ASSETS / 'firebase-config.json').read_text(encoding='utf-8'))
     uid = account.verify_identity(id_token, config['apiKey'], recent=action == 'delete-account')
     store = account.Store(PROJECT)
     region = os.environ.get('TASK_REGION', 'europe-west1')

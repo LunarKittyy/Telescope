@@ -15,7 +15,7 @@ def scenes():
 
 
 def test_coverage_stays_explicit(scenes):
-    expected = json.loads((preview.ASSETS / "coverage.json").read_text())
+    expected = json.loads((preview.ASSETS / "coverage.json").read_text(encoding='utf-8'))
     actual = preview.coverage(scenes)
     assert not preview.check_coverage(actual, expected), preview.check_coverage(actual, expected)
     assert actual["missing"] and actual["outside"] > 0

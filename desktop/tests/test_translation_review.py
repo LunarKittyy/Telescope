@@ -91,7 +91,7 @@ def test_import_records_author_but_does_not_approve(local_catalog, tmp_path):
     translated.msgstr = ['Nueva traducción']
     imported = tmp_path / 'incoming.po'
     i18n.write_po(imported, 'Language: es\n', [translated])
-    assert review.import_po('es', imported.read_text(), {'text': source}, 'github:contributor') == 1
+    assert review.import_po('es', imported.read_text(encoding='utf-8'), {'text': source}, 'github:contributor') == 1
     state = review.load('es')
     assert review.status(source, translated, state)['status'] == 'pending'
     assert state['contributions'][review.identity(source)]['author'] == 'github:contributor'
@@ -105,7 +105,7 @@ def test_malformed_import_changes_nothing(local_catalog, tmp_path):
     imported = tmp_path / 'incoming.po'
     i18n.write_po(imported, 'Language: es\n', [translated])
     with pytest.raises(ValueError, match='placeholder'):
-        review.import_po('es', imported.read_text(), {'text': source}, 'github:contributor')
+        review.import_po('es', imported.read_text(encoding='utf-8'), {'text': source}, 'github:contributor')
     assert (i18n.LOCALE_DIR / 'es.po').read_bytes() == before
     assert not (review.STATE_DIR / 'es.json').exists()
 

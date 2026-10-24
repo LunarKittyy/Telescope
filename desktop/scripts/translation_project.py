@@ -17,14 +17,14 @@ from telescope import i18n
 @lru_cache(maxsize=1)
 def language_options():
     folder = Path(__file__).with_name('translation_preview')
-    names = json.loads((folder / 'languages.json').read_text())
+    names = json.loads((folder / 'languages.json').read_text(encoding='utf-8'))
     return {code.replace('-', '_'): name for code, name in names.items() if code != 'en'}
 
 
 def language_header(language):
     if language not in language_options():
         raise ValueError('Choose a supported language')
-    rules = json.loads((Path(__file__).with_name('translation_preview') / 'plural-rules.json').read_text())['rules']
+    rules = json.loads((Path(__file__).with_name('translation_preview') / 'plural-rules.json').read_text(encoding='utf-8'))['rules']
     rule = rules.get(language) or rules.get(language.split('_')[0])
     plural = f"nplurals={rule['forms']}; plural={rule['expression']};" if rule else 'nplurals=2; plural=(n != 1);'
     header = f'Project-Id-Version: Telescope\nLanguage: {language}\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\nPlural-Forms: {plural}\n{ i18n.DRAFT_FIELD }: yes\n'

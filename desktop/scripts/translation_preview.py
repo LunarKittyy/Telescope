@@ -235,7 +235,7 @@ def render(payload):
 
 def worker(payload):
     result = subprocess.run([sys.executable, str(Path(__file__).resolve()), "--render"],
-                            input=json.dumps(payload), capture_output=True, text=True, timeout=25)
+                            input=json.dumps(payload), capture_output=True, text=True, encoding='utf-8', timeout=25)
     if result.returncode:
         raise RuntimeError(result.stderr[-2500:] or "The Qt preview failed")
     return json.loads(result.stdout)
@@ -288,7 +288,7 @@ def metadata():
         language_stats[lang] = {**language_progress(entries, found), 'approved': len(approvals[lang]),
                                 'machine': sum(item['origin'] == 'machine' for item in statuses.values())}
         translations[lang] = {key(e.ctx, e.msgid): (e.msgstr[0] if e.msgstr and not e.fuzzy else "") for e in found}
-    expected = json.loads((ASSETS / "coverage.json").read_text())
+    expected = json.loads((ASSETS / "coverage.json").read_text(encoding='utf-8'))
     actual = coverage([worker({"lang": "en", "scene": s}) for s in SCENES])
     scoped = {k for k, e in entries.items() if any(loc.startswith("telescope/plugins/monitoring.py:") for loc in e.locations)}
     identities = set(actual["mapped"]) | set(actual["missing"]) | scoped
@@ -366,7 +366,7 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == '/api/delete-account':
                 if not getattr(self.server, 'cloud_account', None):
                     raise ValueError('The account deletion service is not configured on this development server')
-                config = json.loads((ASSETS / 'firebase-config.json').read_text())
+                config = json.loads((ASSETS / 'firebase-config.json').read_text(encoding='utf-8'))
                 account_service.delete_account(payload.get('idToken'), config, self.server.cloud_account)
                 return self.reply(200, b'{"deleted":true}', 'application/json')
             if self.path == '/api/project-action':
@@ -483,7 +483,7 @@ def main():
             temporary.replace(path)
             print("Recorded the current mapped texts and known gaps")
             return 0
-        expected = json.loads((ASSETS / "coverage.json").read_text())
+        expected = json.loads((ASSETS / "coverage.json").read_text(encoding='utf-8'))
         problems = check_coverage(actual, expected)
         print(f"{len(actual['mapped'])} mapped; {len(actual['missing'])} Phone texts missing; "
               f"{actual['outside']} texts outside this prototype")
