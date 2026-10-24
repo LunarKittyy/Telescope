@@ -23,6 +23,8 @@ A first draft hasn't been checked by someone who speaks the language yet (the de
 
 Your language isn't in the table? Open a translation issue to ask for it, or start it yourself with the steps below.
 
+There's also an experimental [translation preview](translation-preview.md) that shows your wording in the real desktop widgets. So far it only covers the Phone card.
+
 The rest of this page is for people working on the files themselves.
 
 ## The files

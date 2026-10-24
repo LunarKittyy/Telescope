@@ -1,0 +1,1840 @@
+{
+  "source": "https://github.com/unicode-org/cldr-json/blob/main/cldr-json/cldr-core/supplemental/plurals.json",
+  "cldrVersion": "48",
+  "rules": {
+    "af": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ak": {
+      "forms": 2,
+      "expression": "((((n >= 0 && n <= 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "am": {
+      "forms": 2,
+      "expression": "((((n == 0))) || (((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "an": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ar": {
+      "forms": 6,
+      "expression": "((((n == 0)))) ? 0 : (((((n == 1)))) ? 1 : (((((n == 2)))) ? 2 : ((((((n % 100) >= 3 && (n % 100) <= 10)))) ? 3 : ((((((n % 100) >= 11 && (n % 100) <= 99)))) ? 4 : (5)))))",
+      "categories": [
+        "zero",
+        "one",
+        "two",
+        "few",
+        "many",
+        "other"
+      ]
+    },
+    "ars": {
+      "forms": 6,
+      "expression": "((((n == 0)))) ? 0 : (((((n == 1)))) ? 1 : (((((n == 2)))) ? 2 : ((((((n % 100) >= 3 && (n % 100) <= 10)))) ? 3 : ((((((n % 100) >= 11 && (n % 100) <= 99)))) ? 4 : (5)))))",
+      "categories": [
+        "zero",
+        "one",
+        "two",
+        "few",
+        "many",
+        "other"
+      ]
+    },
+    "as": {
+      "forms": 2,
+      "expression": "((((n == 0))) || (((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "asa": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ast": {
+      "forms": 2,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "az": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "bal": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "be": {
+      "forms": 3,
+      "expression": "(((((n % 10) == 1)) && !(((n % 100) == 11)))) ? 0 : ((((((n % 10) >= 2 && (n % 10) <= 4)) && !(((n % 100) >= 12 && (n % 100) <= 14)))) ? 1 : ((((((n % 10) == 0))) || ((((n % 10) >= 5 && (n % 10) <= 9))) || ((((n % 100) >= 11 && (n % 100) <= 14)))) ? 2 : (2)))",
+      "categories": [
+        "one",
+        "few",
+        "many"
+      ]
+    },
+    "bem": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "bez": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "bg": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "bho": {
+      "forms": 2,
+      "expression": "((((n >= 0 && n <= 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "blo": {
+      "forms": 3,
+      "expression": "((((n == 0)))) ? 0 : (((((n == 1)))) ? 1 : (2))",
+      "categories": [
+        "zero",
+        "one",
+        "other"
+      ]
+    },
+    "bm": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "bn": {
+      "forms": 2,
+      "expression": "((((n == 0))) || (((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "bo": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "br": {
+      "forms": 5,
+      "expression": "(((((n % 10) == 1)) && !(((n % 100) == 11) || ((n % 100) == 71) || ((n % 100) == 91)))) ? 0 : ((((((n % 10) == 2)) && !(((n % 100) == 12) || ((n % 100) == 72) || ((n % 100) == 92)))) ? 1 : ((((((n % 10) >= 3 && (n % 10) <= 4) || ((n % 10) == 9)) && !(((n % 100) >= 10 && (n % 100) <= 19) || ((n % 100) >= 70 && (n % 100) <= 79) || ((n % 100) >= 90 && (n % 100) <= 99)))) ? 2 : (((!((n == 0)) && (((n % 1000000) == 0)))) ? 3 : (4))))",
+      "categories": [
+        "one",
+        "two",
+        "few",
+        "many",
+        "other"
+      ]
+    },
+    "brx": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "bs": {
+      "forms": 3,
+      "expression": "((((0 == 0)) && (((n % 10) == 1)) && !(((n % 100) == 11))) || ((((0 % 10) == 1)) && !(((0 % 100) == 11)))) ? 0 : (((((0 == 0)) && (((n % 10) >= 2 && (n % 10) <= 4)) && !(((n % 100) >= 12 && (n % 100) <= 14))) || ((((0 % 10) >= 2 && (0 % 10) <= 4)) && !(((0 % 100) >= 12 && (0 % 100) <= 14)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "few",
+        "other"
+      ]
+    },
+    "ca": {
+      "forms": 3,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (((((0 == 0)) && !((n == 0)) && (((n % 1000000) == 0)) && ((0 == 0))) || (!((0 >= 0 && 0 <= 5)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "many",
+        "other"
+      ]
+    },
+    "ce": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ceb": {
+      "forms": 2,
+      "expression": "((((0 == 0)) && ((n == 1) || (n == 2) || (n == 3))) || (((0 == 0)) && !(((n % 10) == 4) || ((n % 10) == 6) || ((n % 10) == 9))) || (!((0 == 0)) && !(((0 % 10) == 4) || ((0 % 10) == 6) || ((0 % 10) == 9)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "cgg": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "chr": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ckb": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "cs": {
+      "forms": 3,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (((((n >= 2 && n <= 4)) && ((0 == 0)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "few",
+        "other"
+      ]
+    },
+    "csw": {
+      "forms": 2,
+      "expression": "((((n >= 0 && n <= 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "cv": {
+      "forms": 3,
+      "expression": "((((n == 0)))) ? 0 : (((((n == 1)))) ? 1 : (2))",
+      "categories": [
+        "zero",
+        "one",
+        "other"
+      ]
+    },
+    "cy": {
+      "forms": 6,
+      "expression": "((((n == 0)))) ? 0 : (((((n == 1)))) ? 1 : (((((n == 2)))) ? 2 : (((((n == 3)))) ? 3 : (((((n == 6)))) ? 4 : (5)))))",
+      "categories": [
+        "zero",
+        "one",
+        "two",
+        "few",
+        "many",
+        "other"
+      ]
+    },
+    "da": {
+      "forms": 2,
+      "expression": "((((n == 1))) || (!((0 == 0)) && ((n == 0) || (n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "de": {
+      "forms": 2,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "doi": {
+      "forms": 2,
+      "expression": "((((n == 0))) || (((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "dsb": {
+      "forms": 4,
+      "expression": "((((0 == 0)) && (((n % 100) == 1))) || ((((0 % 100) == 1)))) ? 0 : (((((0 == 0)) && (((n % 100) == 2))) || ((((0 % 100) == 2)))) ? 1 : (((((0 == 0)) && (((n % 100) >= 3 && (n % 100) <= 4))) || ((((0 % 100) >= 3 && (0 % 100) <= 4)))) ? 2 : (3)))",
+      "categories": [
+        "one",
+        "two",
+        "few",
+        "other"
+      ]
+    },
+    "dv": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "dz": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "ee": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "el": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "en": {
+      "forms": 2,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "eo": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "es": {
+      "forms": 3,
+      "expression": "((((n == 1)))) ? 0 : (((((0 == 0)) && !((n == 0)) && (((n % 1000000) == 0)) && ((0 == 0))) || (!((0 >= 0 && 0 <= 5)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "many",
+        "other"
+      ]
+    },
+    "et": {
+      "forms": 2,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "eu": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "fa": {
+      "forms": 2,
+      "expression": "((((n == 0))) || (((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ff": {
+      "forms": 2,
+      "expression": "((((n == 0) || (n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "fi": {
+      "forms": 2,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "fil": {
+      "forms": 2,
+      "expression": "((((0 == 0)) && ((n == 1) || (n == 2) || (n == 3))) || (((0 == 0)) && !(((n % 10) == 4) || ((n % 10) == 6) || ((n % 10) == 9))) || (!((0 == 0)) && !(((0 % 10) == 4) || ((0 % 10) == 6) || ((0 % 10) == 9)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "fo": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "fr": {
+      "forms": 3,
+      "expression": "((((n == 0) || (n == 1)))) ? 0 : (((((0 == 0)) && !((n == 0)) && (((n % 1000000) == 0)) && ((0 == 0))) || (!((0 >= 0 && 0 <= 5)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "many",
+        "other"
+      ]
+    },
+    "fur": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "fy": {
+      "forms": 2,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ga": {
+      "forms": 5,
+      "expression": "((((n == 1)))) ? 0 : (((((n == 2)))) ? 1 : (((((n >= 3 && n <= 6)))) ? 2 : (((((n >= 7 && n <= 10)))) ? 3 : (4))))",
+      "categories": [
+        "one",
+        "two",
+        "few",
+        "many",
+        "other"
+      ]
+    },
+    "gd": {
+      "forms": 4,
+      "expression": "((((n == 1) || (n == 11)))) ? 0 : (((((n == 2) || (n == 12)))) ? 1 : (((((n >= 3 && n <= 10) || (n >= 13 && n <= 19)))) ? 2 : (3)))",
+      "categories": [
+        "one",
+        "two",
+        "few",
+        "other"
+      ]
+    },
+    "gl": {
+      "forms": 2,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "gsw": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "gu": {
+      "forms": 2,
+      "expression": "((((n == 0))) || (((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "guw": {
+      "forms": 2,
+      "expression": "((((n >= 0 && n <= 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "gv": {
+      "forms": 4,
+      "expression": "((((0 == 0)) && (((n % 10) == 1)))) ? 0 : (((((0 == 0)) && (((n % 10) == 2)))) ? 1 : (((((0 == 0)) && (((n % 100) == 0) || ((n % 100) == 20) || ((n % 100) == 40) || ((n % 100) == 60) || ((n % 100) == 80)))) ? 2 : (3)))",
+      "categories": [
+        "one",
+        "two",
+        "few",
+        "other"
+      ]
+    },
+    "ha": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "haw": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "he": {
+      "forms": 3,
+      "expression": "((((n == 1)) && ((0 == 0))) || (((n == 0)) && !((0 == 0)))) ? 0 : (((((n == 2)) && ((0 == 0)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "two",
+        "other"
+      ]
+    },
+    "hi": {
+      "forms": 2,
+      "expression": "((((n == 0))) || (((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "hnj": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "hr": {
+      "forms": 3,
+      "expression": "((((0 == 0)) && (((n % 10) == 1)) && !(((n % 100) == 11))) || ((((0 % 10) == 1)) && !(((0 % 100) == 11)))) ? 0 : (((((0 == 0)) && (((n % 10) >= 2 && (n % 10) <= 4)) && !(((n % 100) >= 12 && (n % 100) <= 14))) || ((((0 % 10) >= 2 && (0 % 10) <= 4)) && !(((0 % 100) >= 12 && (0 % 100) <= 14)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "few",
+        "other"
+      ]
+    },
+    "hsb": {
+      "forms": 4,
+      "expression": "((((0 == 0)) && (((n % 100) == 1))) || ((((0 % 100) == 1)))) ? 0 : (((((0 == 0)) && (((n % 100) == 2))) || ((((0 % 100) == 2)))) ? 1 : (((((0 == 0)) && (((n % 100) >= 3 && (n % 100) <= 4))) || ((((0 % 100) >= 3 && (0 % 100) <= 4)))) ? 2 : (3)))",
+      "categories": [
+        "one",
+        "two",
+        "few",
+        "other"
+      ]
+    },
+    "hu": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "hy": {
+      "forms": 2,
+      "expression": "((((n == 0) || (n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ia": {
+      "forms": 2,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "id": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "ie": {
+      "forms": 2,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ig": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "ii": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "io": {
+      "forms": 2,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "is": {
+      "forms": 2,
+      "expression": "((((0 == 0)) && (((n % 10) == 1)) && !(((n % 100) == 11))) || ((((0 % 10) == 1)) && !(((0 % 100) == 11)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "it": {
+      "forms": 3,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (((((0 == 0)) && !((n == 0)) && (((n % 1000000) == 0)) && ((0 == 0))) || (!((0 >= 0 && 0 <= 5)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "many",
+        "other"
+      ]
+    },
+    "iu": {
+      "forms": 3,
+      "expression": "((((n == 1)))) ? 0 : (((((n == 2)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "two",
+        "other"
+      ]
+    },
+    "ja": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "jbo": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "jgo": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "jmc": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "jv": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "jw": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "ka": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "kab": {
+      "forms": 2,
+      "expression": "((((n == 0) || (n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "kaj": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "kcg": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "kde": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "kea": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "kk": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "kkj": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "kl": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "km": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "kn": {
+      "forms": 2,
+      "expression": "((((n == 0))) || (((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ko": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "kok": {
+      "forms": 2,
+      "expression": "((((n == 0))) || (((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "kok_Latn": {
+      "forms": 2,
+      "expression": "((((n == 0))) || (((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ks": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ksb": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ksh": {
+      "forms": 3,
+      "expression": "((((n == 0)))) ? 0 : (((((n == 1)))) ? 1 : (2))",
+      "categories": [
+        "zero",
+        "one",
+        "other"
+      ]
+    },
+    "ku": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "kw": {
+      "forms": 6,
+      "expression": "((((n == 0)))) ? 0 : (((((n == 1)))) ? 1 : ((((((n % 100) == 2) || ((n % 100) == 22) || ((n % 100) == 42) || ((n % 100) == 62) || ((n % 100) == 82))) || ((((n % 1000) == 0)) && (((n % 100000) >= 1000 && (n % 100000) <= 20000) || ((n % 100000) == 40000) || ((n % 100000) == 60000) || ((n % 100000) == 80000))) || (!((n == 0)) && (((n % 1000000) == 100000)))) ? 2 : ((((((n % 100) == 3) || ((n % 100) == 23) || ((n % 100) == 43) || ((n % 100) == 63) || ((n % 100) == 83)))) ? 3 : (((!((n == 1)) && (((n % 100) == 1) || ((n % 100) == 21) || ((n % 100) == 41) || ((n % 100) == 61) || ((n % 100) == 81)))) ? 4 : (5)))))",
+      "categories": [
+        "zero",
+        "one",
+        "two",
+        "few",
+        "many",
+        "other"
+      ]
+    },
+    "ky": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "lag": {
+      "forms": 3,
+      "expression": "((((n == 0)))) ? 0 : (((((n == 0) || (n == 1)) && !((n == 0)))) ? 1 : (2))",
+      "categories": [
+        "zero",
+        "one",
+        "other"
+      ]
+    },
+    "lb": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "lg": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "lij": {
+      "forms": 2,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "lkt": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "lld": {
+      "forms": 3,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (((((0 == 0)) && !((n == 0)) && (((n % 1000000) == 0)) && ((0 == 0))) || (!((0 >= 0 && 0 <= 5)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "many",
+        "other"
+      ]
+    },
+    "ln": {
+      "forms": 2,
+      "expression": "((((n >= 0 && n <= 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "lo": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "lt": {
+      "forms": 3,
+      "expression": "(((((n % 10) == 1)) && !(((n % 100) >= 11 && (n % 100) <= 19)))) ? 0 : ((((((n % 10) >= 2 && (n % 10) <= 9)) && !(((n % 100) >= 11 && (n % 100) <= 19)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "few",
+        "other"
+      ]
+    },
+    "lv": {
+      "forms": 3,
+      "expression": "(((((n % 10) == 0))) || ((((n % 100) >= 11 && (n % 100) <= 19))) || (((0 == 2)) && (((0 % 100) >= 11 && (0 % 100) <= 19)))) ? 0 : ((((((n % 10) == 1)) && !(((n % 100) == 11))) || (((0 == 2)) && (((0 % 10) == 1)) && !(((0 % 100) == 11))) || (!((0 == 2)) && (((0 % 10) == 1)))) ? 1 : (2))",
+      "categories": [
+        "zero",
+        "one",
+        "other"
+      ]
+    },
+    "mas": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "mg": {
+      "forms": 2,
+      "expression": "((((n >= 0 && n <= 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "mgo": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "mk": {
+      "forms": 2,
+      "expression": "((((0 == 0)) && (((n % 10) == 1)) && !(((n % 100) == 11))) || ((((0 % 10) == 1)) && !(((0 % 100) == 11)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ml": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "mn": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "mo": {
+      "forms": 3,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (((!((0 == 0))) || (((n == 0))) || (!((n == 1)) && (((n % 100) >= 1 && (n % 100) <= 19)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "few",
+        "other"
+      ]
+    },
+    "mr": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ms": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "mt": {
+      "forms": 5,
+      "expression": "((((n == 1)))) ? 0 : (((((n == 2)))) ? 1 : (((((n == 0))) || ((((n % 100) >= 3 && (n % 100) <= 10)))) ? 2 : ((((((n % 100) >= 11 && (n % 100) <= 19)))) ? 3 : (4))))",
+      "categories": [
+        "one",
+        "two",
+        "few",
+        "many",
+        "other"
+      ]
+    },
+    "my": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "nah": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "naq": {
+      "forms": 3,
+      "expression": "((((n == 1)))) ? 0 : (((((n == 2)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "two",
+        "other"
+      ]
+    },
+    "nb": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "nd": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ne": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "nl": {
+      "forms": 2,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "nn": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "nnh": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "no": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "nqo": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "nr": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "nso": {
+      "forms": 2,
+      "expression": "((((n >= 0 && n <= 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ny": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "nyn": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "om": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "or": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "os": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "osa": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "pa": {
+      "forms": 2,
+      "expression": "((((n >= 0 && n <= 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "pap": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "pcm": {
+      "forms": 2,
+      "expression": "((((n == 0))) || (((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "pl": {
+      "forms": 3,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (((((0 == 0)) && (((n % 10) >= 2 && (n % 10) <= 4)) && !(((n % 100) >= 12 && (n % 100) <= 14)))) ? 1 : (((((0 == 0)) && !((n == 1)) && (((n % 10) >= 0 && (n % 10) <= 1))) || (((0 == 0)) && (((n % 10) >= 5 && (n % 10) <= 9))) || (((0 == 0)) && (((n % 100) >= 12 && (n % 100) <= 14)))) ? 2 : (2)))",
+      "categories": [
+        "one",
+        "few",
+        "many"
+      ]
+    },
+    "prg": {
+      "forms": 3,
+      "expression": "(((((n % 10) == 0))) || ((((n % 100) >= 11 && (n % 100) <= 19))) || (((0 == 2)) && (((0 % 100) >= 11 && (0 % 100) <= 19)))) ? 0 : ((((((n % 10) == 1)) && !(((n % 100) == 11))) || (((0 == 2)) && (((0 % 10) == 1)) && !(((0 % 100) == 11))) || (!((0 == 2)) && (((0 % 10) == 1)))) ? 1 : (2))",
+      "categories": [
+        "zero",
+        "one",
+        "other"
+      ]
+    },
+    "ps": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "pt": {
+      "forms": 3,
+      "expression": "((((n >= 0 && n <= 1)))) ? 0 : (((((0 == 0)) && !((n == 0)) && (((n % 1000000) == 0)) && ((0 == 0))) || (!((0 >= 0 && 0 <= 5)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "many",
+        "other"
+      ]
+    },
+    "pt_PT": {
+      "forms": 3,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (((((0 == 0)) && !((n == 0)) && (((n % 1000000) == 0)) && ((0 == 0))) || (!((0 >= 0 && 0 <= 5)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "many",
+        "other"
+      ]
+    },
+    "rm": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ro": {
+      "forms": 3,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (((!((0 == 0))) || (((n == 0))) || (!((n == 1)) && (((n % 100) >= 1 && (n % 100) <= 19)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "few",
+        "other"
+      ]
+    },
+    "rof": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ru": {
+      "forms": 3,
+      "expression": "((((0 == 0)) && (((n % 10) == 1)) && !(((n % 100) == 11)))) ? 0 : (((((0 == 0)) && (((n % 10) >= 2 && (n % 10) <= 4)) && !(((n % 100) >= 12 && (n % 100) <= 14)))) ? 1 : (((((0 == 0)) && (((n % 10) == 0))) || (((0 == 0)) && (((n % 10) >= 5 && (n % 10) <= 9))) || (((0 == 0)) && (((n % 100) >= 11 && (n % 100) <= 14)))) ? 2 : (2)))",
+      "categories": [
+        "one",
+        "few",
+        "many"
+      ]
+    },
+    "rwk": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "sah": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "saq": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "sat": {
+      "forms": 3,
+      "expression": "((((n == 1)))) ? 0 : (((((n == 2)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "two",
+        "other"
+      ]
+    },
+    "sc": {
+      "forms": 2,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "scn": {
+      "forms": 3,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (((((0 == 0)) && !((n == 0)) && (((n % 1000000) == 0)) && ((0 == 0))) || (!((0 >= 0 && 0 <= 5)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "many",
+        "other"
+      ]
+    },
+    "sd": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "sdh": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "se": {
+      "forms": 3,
+      "expression": "((((n == 1)))) ? 0 : (((((n == 2)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "two",
+        "other"
+      ]
+    },
+    "seh": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ses": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "sg": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "sgs": {
+      "forms": 4,
+      "expression": "(((((n % 10) == 1)) && !(((n % 100) == 11)))) ? 0 : (((((n == 2)))) ? 1 : (((!((n == 2)) && (((n % 10) >= 2 && (n % 10) <= 9)) && !(((n % 100) >= 11 && (n % 100) <= 19)))) ? 2 : (3)))",
+      "categories": [
+        "one",
+        "two",
+        "few",
+        "other"
+      ]
+    },
+    "sh": {
+      "forms": 3,
+      "expression": "((((0 == 0)) && (((n % 10) == 1)) && !(((n % 100) == 11))) || ((((0 % 10) == 1)) && !(((0 % 100) == 11)))) ? 0 : (((((0 == 0)) && (((n % 10) >= 2 && (n % 10) <= 4)) && !(((n % 100) >= 12 && (n % 100) <= 14))) || ((((0 % 10) >= 2 && (0 % 10) <= 4)) && !(((0 % 100) >= 12 && (0 % 100) <= 14)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "few",
+        "other"
+      ]
+    },
+    "shi": {
+      "forms": 3,
+      "expression": "((((n == 0))) || (((n == 1)))) ? 0 : (((((n >= 2 && n <= 10)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "few",
+        "other"
+      ]
+    },
+    "si": {
+      "forms": 2,
+      "expression": "((((n == 0) || (n == 1))) || (((n == 0)) && ((0 == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "sk": {
+      "forms": 3,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (((((n >= 2 && n <= 4)) && ((0 == 0)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "few",
+        "other"
+      ]
+    },
+    "sl": {
+      "forms": 4,
+      "expression": "((((0 == 0)) && (((n % 100) == 1)))) ? 0 : (((((0 == 0)) && (((n % 100) == 2)))) ? 1 : (((((0 == 0)) && (((n % 100) >= 3 && (n % 100) <= 4))) || (!((0 == 0)))) ? 2 : (3)))",
+      "categories": [
+        "one",
+        "two",
+        "few",
+        "other"
+      ]
+    },
+    "sma": {
+      "forms": 3,
+      "expression": "((((n == 1)))) ? 0 : (((((n == 2)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "two",
+        "other"
+      ]
+    },
+    "smi": {
+      "forms": 3,
+      "expression": "((((n == 1)))) ? 0 : (((((n == 2)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "two",
+        "other"
+      ]
+    },
+    "smj": {
+      "forms": 3,
+      "expression": "((((n == 1)))) ? 0 : (((((n == 2)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "two",
+        "other"
+      ]
+    },
+    "smn": {
+      "forms": 3,
+      "expression": "((((n == 1)))) ? 0 : (((((n == 2)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "two",
+        "other"
+      ]
+    },
+    "sms": {
+      "forms": 3,
+      "expression": "((((n == 1)))) ? 0 : (((((n == 2)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "two",
+        "other"
+      ]
+    },
+    "sn": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "so": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "sq": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "sr": {
+      "forms": 3,
+      "expression": "((((0 == 0)) && (((n % 10) == 1)) && !(((n % 100) == 11))) || ((((0 % 10) == 1)) && !(((0 % 100) == 11)))) ? 0 : (((((0 == 0)) && (((n % 10) >= 2 && (n % 10) <= 4)) && !(((n % 100) >= 12 && (n % 100) <= 14))) || ((((0 % 10) >= 2 && (0 % 10) <= 4)) && !(((0 % 100) >= 12 && (0 % 100) <= 14)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "few",
+        "other"
+      ]
+    },
+    "ss": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ssy": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "st": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "su": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "sv": {
+      "forms": 2,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "sw": {
+      "forms": 2,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "syr": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ta": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "te": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "teo": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "th": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "ti": {
+      "forms": 2,
+      "expression": "((((n >= 0 && n <= 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "tig": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "tk": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "tl": {
+      "forms": 2,
+      "expression": "((((0 == 0)) && ((n == 1) || (n == 2) || (n == 3))) || (((0 == 0)) && !(((n % 10) == 4) || ((n % 10) == 6) || ((n % 10) == 9))) || (!((0 == 0)) && !(((0 % 10) == 4) || ((0 % 10) == 6) || ((0 % 10) == 9)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "tn": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "to": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "tpi": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "tr": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ts": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "tzm": {
+      "forms": 2,
+      "expression": "((((n >= 0 && n <= 1))) || (((n >= 11 && n <= 99)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ug": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "uk": {
+      "forms": 3,
+      "expression": "((((0 == 0)) && (((n % 10) == 1)) && !(((n % 100) == 11)))) ? 0 : (((((0 == 0)) && (((n % 10) >= 2 && (n % 10) <= 4)) && !(((n % 100) >= 12 && (n % 100) <= 14)))) ? 1 : (((((0 == 0)) && (((n % 10) == 0))) || (((0 == 0)) && (((n % 10) >= 5 && (n % 10) <= 9))) || (((0 == 0)) && (((n % 100) >= 11 && (n % 100) <= 14)))) ? 2 : (2)))",
+      "categories": [
+        "one",
+        "few",
+        "many"
+      ]
+    },
+    "und": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "ur": {
+      "forms": 2,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "uz": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "ve": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "vec": {
+      "forms": 3,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (((((0 == 0)) && !((n == 0)) && (((n % 1000000) == 0)) && ((0 == 0))) || (!((0 >= 0 && 0 <= 5)))) ? 1 : (2))",
+      "categories": [
+        "one",
+        "many",
+        "other"
+      ]
+    },
+    "vi": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "vo": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "vun": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "wa": {
+      "forms": 2,
+      "expression": "((((n >= 0 && n <= 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "wae": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "wo": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "xh": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "xog": {
+      "forms": 2,
+      "expression": "((((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "yi": {
+      "forms": 2,
+      "expression": "((((n == 1)) && ((0 == 0)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    },
+    "yo": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "yue": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "zh": {
+      "forms": 1,
+      "expression": "0",
+      "categories": [
+        "other"
+      ]
+    },
+    "zu": {
+      "forms": 2,
+      "expression": "((((n == 0))) || (((n == 1)))) ? 0 : (1)",
+      "categories": [
+        "one",
+        "other"
+      ]
+    }
+  }
+}

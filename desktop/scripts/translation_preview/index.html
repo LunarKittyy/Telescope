@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Telescope translations</title>
+<link rel="stylesheet" href="/style.css">
+<header class="app-header">
+  <a id="brand-home" class="brand" href="#modes"><h1>Telescope <span>translations</span></h1></a>
+  <div class="header-actions">
+    <nav id="breadcrumb" aria-label="Breadcrumb"></nav>
+    <a id="mode-link" class="mode-link" href="#modes"><span id="mode-label">Manual contribution</span><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+    <details id="account-menu" class="account-menu" hidden>
+      <summary>Account</summary>
+      <nav aria-label="Your account"><a href="#account">Account settings</a><a id="admin-link" href="#admin" hidden>Admin mode</a><button id="sign-out">Sign out</button></nav>
+    </details>
+    <button id="export" class="primary" hidden disabled>Download .po</button>
+  </div>
+</header>
+<section id="modes-view" class="overview" aria-labelledby="modes-title" hidden>
+  <div class="overview-heading"><div><h2 id="modes-title" tabindex="-1">Contribute a translation</h2><p>Use the shared project or send a translation file.</p></div></div>
+  <div class="mode-options">
+    <section><h3>Shared project</h3><p>Sign in with GitHub to save suggestions under your name. An administrator reviews them before approval.</p><button id="sign-in" disabled>Sign in with GitHub</button><p id="shared-status" class="muted">Shared sign-in is being set up.</p></section>
+    <section><h3>Without an account</h3><p>Edit in this browser, download the .po file and send it to the maintainer. No login is needed.</p><a id="manual-mode" class="button-link" href="#languages">Choose a language</a></section>
+  </div>
+</section>
+<section id="account-view" class="overview account-view" hidden aria-labelledby="account-title">
+  <div class="overview-heading"><div><h2 id="account-title" tabindex="-1">Your account</h2></div></div>
+  <form id="account-form">
+    <label for="account-bio">Bio</label><textarea id="account-bio" maxlength="500" rows="3" placeholder="A little about you, if you like"></textarea>
+    <label for="native-language-input">Native language</label><div id="native-language"></div>
+    <fieldset><legend>Other languages</legend><div id="other-languages" class="language-choices"></div></fieldset>
+    <button id="account-save" class="primary" type="submit">Save changes</button><p id="account-status" role="status"></p>
+  </form>
+  <details class="delete-account"><summary>Delete account</summary><p>Your account and profile will be removed. Translation submissions will become anonymised.</p><button id="delete-account">Delete my account</button></details>
+</section>
+<section id="admin-view" class="overview" hidden aria-labelledby="admin-title">
+  <div class="overview-heading"><div><h2 id="admin-title" tabindex="-1">Admin mode</h2><p>Review suggestions and update the translation project.</p></div><button id="admin-reload">Reload project</button></div>
+  <p id="admin-status" role="status"></p>
+  <details class="admin-tools"><summary>Import, export & backups</summary>
+    <div class="admin-tool-group"><h3>Update from Git</h3><p>Import a repository snapshot. Platform changes are preserved and conflicting edits need your choice.</p><input id="project-file" type="file" accept=".json,application/json" aria-label="Repository snapshot"><button id="project-import">Preview import</button><button id="project-checkout">Use this checkout</button><button id="project-apply" class="primary" hidden>Apply import</button></div>
+    <div class="admin-tool-group"><h3>Export a language</h3><p>Download the .po file and review records together. Pending suggestions are excluded.</p><select id="admin-language" aria-label="Language to export"></select><button id="approved-export">Export language</button><button id="project-backup">Back up whole project</button></div>
+    <div class="admin-tool-group"><h3>Import a .po file</h3><p>Changes are added as drafts in the selected language.</p><input id="shared-po-author" aria-label="Contributor GitHub username" placeholder="GitHub username or Anonymous"><input id="shared-po-file" type="file" accept=".po" aria-label="Translation file"><button id="shared-po-import">Import .po</button></div>
+  </details>
+  <section id="merge-conflicts" hidden><h3>Import conflicts</h3><div id="conflict-list"></div></section>
+  <section class="review-queue"><h3>Waiting for approval</h3><div id="pending-list"></div></section>
+  <details class="admin-tools"><summary>Project settings</summary><label class="creation-setting"><input id="allow-language-creation" type="checkbox">Let contributors add languages</label><button id="save-project-settings">Save settings</button></details>
+  <details id="admin-roles" class="admin-tools" hidden><summary>Administrators</summary><p>Only the owner can grant or revoke admin access.</p><div id="role-list"></div></details>
+</section>
+<section id="languages-view" class="overview" aria-labelledby="languages-title">
+  <div class="overview-heading"><div><h2 id="languages-title" tabindex="-1">Languages</h2><p>Choose a language to contribute to Telescope.</p></div><div class="language-tools"><label><span class="sr-only">Find a language</span><input id="language-search" type="search" placeholder="Find a language…"></label><a class="button-link" href="#add-language">Add a language</a></div></div>
+  <p id="overview-status" role="status">Loading languages…</p>
+  <div class="completion-legend"><span class="machine">Drafted</span><span class="human">Approved</span><span class="untranslated">Untranslated</span></div>
+  <div class="language-columns" aria-hidden="true"><span>Language</span><span>Translation status</span><span>Translated texts</span></div>
+  <div id="language-list" aria-label="Languages"></div>
+  <p id="language-empty" hidden>No languages match your search.</p>
+  <p class="overview-note">Editing progress saves in your browser.</p>
+</section>
+<section id="language-view" class="overview" aria-labelledby="language-title" hidden>
+  <div class="overview-heading"><div><h2 id="language-title" tabindex="-1"></h2><p id="language-description"></p></div></div>
+  <div class="language-summary"><div id="language-meter"></div><p id="language-count"></p></div>
+  <div class="completion-legend"><span class="machine">Drafted</span><span class="human">Approved</span><span class="untranslated">Untranslated</span></div>
+  <section id="admin-import" class="admin-import" hidden>
+    <h3>Import a contribution</h3><p>Importing a .po file adds its changed translations as pending. It does not approve them.</p>
+    <label>Contributor name<input id="import-author" placeholder="Public name or GitHub username"></label>
+    <label>Translation file<input id="import-file" type="file" accept=".po,text/plain"></label>
+    <button id="import-po">Import .po</button><p id="import-status" role="status"></p>
+  </section>
+  <h3>Translate with a preview</h3>
+  <a id="phone-link" class="area-row"><div><strong>Phone</strong><p>Battery, temperature and heat warnings</p></div><div class="area-progress"><span id="phone-count"></span><span class="open-label">Open editor</span></div></a>
+  <p class="overview-note" id="scope-note"></p>
+</section>
+<section id="language-create-view" class="overview account-view" hidden aria-labelledby="language-create-title">
+  <div class="overview-heading"><h2 id="language-create-title" tabindex="-1">Add a language</h2></div>
+  <form id="language-create-form"><label for="create-language-input">Language</label><div id="create-language-field"></div><button id="language-create" class="primary" type="submit">Create language</button><p id="language-create-status" role="status"></p></form>
+</section>
+<main id="editor-view" hidden>
+  <aside class="strings" aria-label="Texts in this scene">
+    <div class="list-heading"><h2>Texts</h2><span id="progress"></span></div>
+    <label class="search-label"><span class="sr-only">Find a text</span><input id="search" type="search" placeholder="Find a text…"></label>
+    <div id="texts" role="group" aria-label="Texts in this scene"></div>
+    <p id="empty" hidden>No texts match. Try another word.</p>
+    <details class="coverage"><summary id="coverage-summary">Preview coverage</summary>
+      <p>Only the Phone card and its heat warning have scenes in this experiment. Tooltips highlight their owning control.</p>
+      <p id="coverage-count"></p><ul id="missing"></ul>
+    </details>
+  </aside>
+  <div class="workspace">
+    <section class="preview-pane" aria-label="App preview">
+      <div class="preview-toolbar"><label>Preview <select id="scene" aria-label="Preview scene"></select></label><button id="refresh">Refresh</button></div>
+      <div class="preview-stage"><div id="picture"><div id="preview-mount"></div><div id="regions"></div></div></div>
+      <div class="preview-caption"><button id="zoom" aria-pressed="false">Actual size</button><p id="render-status" role="status">Opening the Qt preview…</p><p id="placement"></p></div>
+      <div id="fit" role="status"></div>
+    </section>
+    <section class="editor-pane" aria-label="Translation editor">
+      <p id="error" role="alert"></p>
+      <div id="edit" hidden>
+        <div class="editor-fields">
+          <div class="source"><h2>English</h2><p id="english"></p><details class="source-details"><summary>Notes & source</summary><p id="context"></p></details></div>
+          <div class="target"><label for="translation" id="target-label">Your translation</label><textarea id="translation" rows="3" spellcheck="true" aria-describedby="fields error"></textarea><p id="fields" class="muted"></p></div>
+        </div>
+        <div class="editor-actions"><button id="reset">Undo this edit</button><button id="review" disabled>Keep draft & next <span aria-hidden="true">→</span></button><button id="submit" class="primary" hidden disabled>Submit for approval</button><button id="approve" class="primary" hidden disabled>Approve translation</button></div>
+      </div>
+    </section>
+    <footer><p id="draft-status">Draft saved in this browser.</p><button id="backup">Back up session</button></footer>
+  </div>
+</main>
+<script src="/app.js"></script>
+</html>
