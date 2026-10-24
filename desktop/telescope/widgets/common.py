@@ -785,8 +785,11 @@ class PlacedDialog(QDialog):
             self._centre()
             if sys.platform == "win32":
                 self.setWindowOpacity(0)  # Windows draws the empty frame before Qt paints the contents
-                QTimer.singleShot(50, lambda: self.setWindowOpacity(1))
+                QTimer.singleShot(50, self._drawn)  # a method, so the timer goes with the dialog if it's deleted first
         super().setVisible(visible)
+
+    def _drawn(self):
+        self.setWindowOpacity(1)
 
     def fit_before_show(self):
         self.adjustSize()
