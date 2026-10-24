@@ -115,7 +115,10 @@
     <string name="notif_channel_streaming_desc">कैमरा आपके कंप्यूटर पर स्ट्रीम होने के दौरान दिखाया जाता है</string>
     <string name="notif_channel_waiting">कंप्यूटर का इंतज़ार किया जा रहा है</string>
     <string name="notif_channel_waiting_desc">तब दिखाया जाता है जब Telescope पेयर किए गए कंप्यूटर द्वारा कैमरा शुरू करने का इंतज़ार करता है</string>
+    <string name="notif_streaming_title">स्ट्रीमिंग</string>
     <string name="notif_camera_streaming">कैमरा स्ट्रीम कर रहा है</string>
+    <string name="notif_streaming_usb">USB से %1$s पर</string>
+    <string name="notif_streaming_wifi">Wi-Fi से %1$s पर</string>
     <string name="notif_mic_streaming">माइक्रोफ़ोन स्ट्रीम हो रहा है, कैमरा बंद</string>
     <string name="notif_waiting">आपके कंप्यूटर का इंतज़ार किया जा रहा है</string>
     <string name="notif_stop_waiting">इंतज़ार करना बंद करें</string>

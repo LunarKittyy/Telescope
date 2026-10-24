@@ -115,7 +115,10 @@
     <string name="notif_channel_streaming_desc">Se muestra mientras la cámara está transmitiendo a tu computadora</string>
     <string name="notif_channel_waiting">Esperando a la computadora</string>
     <string name="notif_channel_waiting_desc">Se muestra mientras Telescope sigue esperando a que una computadora vinculada inicie la cámara</string>
+    <string name="notif_streaming_title">Transmitiendo</string>
     <string name="notif_camera_streaming">La cámara está transmitiendo</string>
+    <string name="notif_streaming_usb">A %1$s por USB</string>
+    <string name="notif_streaming_wifi">A %1$s por Wi-Fi</string>
     <string name="notif_mic_streaming">El micrófono está transmitiendo, cámara desactivada</string>
     <string name="notif_waiting">Esperando a tu computadora</string>
     <string name="notif_stop_waiting">Dejar de esperar</string>
