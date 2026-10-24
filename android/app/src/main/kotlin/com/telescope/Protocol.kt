@@ -71,6 +71,8 @@ data class V1State(
     val dynamic_bitrate: Boolean = false,  // takes bitrate -1 (Dynamic); older phones treat it as 0 (Auto)
     val dynamic_fps: Int = 0,  // the rate Dynamic stepped down to for a slow link; 0 = the rate asked for
     val heat_fps: Int = 0,  // the rate Android's thermal status capped the camera at; 0 = not capped
+    val heat_width: Int = 0,  // the size Android's thermal status dropped the stream to, below stream_width; 0 = not
+    val heat_height: Int = 0,
     val low_light: Boolean = false,  // auto exposure may slow the camera down in the dark (and noise reduction is high)
     val low_light_toggle: Boolean = false,  // takes low_light; set by every phone that can
     val h264_profile: String? = null,  // "high", "baseline" or "auto" while H.264 runs
