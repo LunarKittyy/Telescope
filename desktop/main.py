@@ -11,6 +11,16 @@ from typing import Optional
 
 import update_guard
 
+WARM_UP = "--warm-up"
+if sys.argv[1:] == [WARM_UP]:
+    # _preload's helper process: Windows scans these files here, holding this process's loader lock instead of the app's
+    try:
+        import av  # noqa: F401
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM  # noqa: F401
+    except ImportError:
+        pass
+    sys.exit(0)
+
 APP_DIR = Path(sys.executable if getattr(sys, "frozen", False) else __file__).resolve().parent
 # Before anything else is imported: an update that was cut short may leave files that don't import together.
 _after_update = "--after-update" in sys.argv[1:]
@@ -149,9 +159,23 @@ def _watch_dev_plugins(win) -> Optional[QTimer]:
     return timer
 
 
+def _warm_up():
+    """Runs the app once more with --warm-up and waits for it. Windows scans each new file while it loads and holds the
+    process's loader lock meanwhile, which every new thread needs, so loading PyAV here first would freeze the window
+    whenever it starts one. Once that helper has had them scanned, loading them here is quick."""
+    import subprocess
+    env = dict(os.environ, PYINSTALLER_SUPPRESS_SPLASH_SCREEN="1")
+    try:
+        subprocess.run([sys.executable, WARM_UP], env=env, timeout=600, creationflags=subprocess.CREATE_NO_WINDOW)
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
 def _preload():
     """What the first stream needs and a Windows first start loads slowly (PyAV, its graphics card, cryptography), once the window is up."""
     from telescope import h264_reader, udp_reader
+    if getattr(sys, "frozen", False) and sys.platform == "win32":
+        h264_reader.load_av(warm=_warm_up)
     h264_reader.hardware_device()
     udp_reader.preload()
 
