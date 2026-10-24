@@ -1,14 +1,17 @@
 """The Windows build's start-up splash: PyInstaller's launcher shows it before Python starts (telescope.spec).
 
 A first start after installing spends a minute or more before the window shows while Windows checks each new program
-file, so the splash says why. Only light modules here: whatever this imports is still waiting on that check.
+file, so the splash says why once it's been up a while (a warm start is gone well before). Only light modules here: whatever this imports is still waiting on that check.
 """
 
 import os
+import threading
 from typing import Callable, List
 
 from telescope import i18n
 from telescope.i18n import tr
+
+WHY_AFTER_S = 5  # since launch: the line about the security scan only shows when the start is slow
 
 
 def _splash():
@@ -45,9 +48,43 @@ def show_text(chosen_language: Callable[[], str]):
         wanted = []
     i18n.load(i18n.pick(wanted, i18n.available()), qt=False)
     starting = tr("Starting Telescope…")
-    # Translators: under "Starting Telescope…" while the app starts on Windows. The scan is Windows checking new program files
+    # Translators: added under "Starting Telescope…" while the app starts on Windows. The scan is Windows checking new program files
     why = tr("This can take a minute while Windows runs a security scan.")
-    splash.update_text(f"{starting}\n{why}")
+    both = f"{starting}\n{why}"
+    wait = WHY_AFTER_S - _seconds_since_launch()
+    if wait <= 0:
+        splash.update_text(both)
+        return
+    splash.update_text(starting)
+    timer = threading.Timer(wait, _update, args=(both,))
+    timer.daemon = True
+    timer.start()
+
+
+def _update(text: str):
+    splash = _splash()
+    try:
+        if splash is not None:
+            splash.update_text(text)
+    except Exception:  # closed meanwhile
+        pass
+
+
+def _seconds_since_launch() -> float:
+    """How long ago Windows started this process (the launcher showed the splash right then); 0 if it won't say."""
+    import ctypes
+    from ctypes import wintypes
+    try:
+        kernel32 = ctypes.windll.kernel32
+        created, ended, kernel, user, now = (wintypes.FILETIME() for _ in range(5))
+        if not kernel32.GetProcessTimes(kernel32.GetCurrentProcess(), ctypes.byref(created), ctypes.byref(ended),
+                                        ctypes.byref(kernel), ctypes.byref(user)):
+            return 0.0
+        kernel32.GetSystemTimeAsFileTime(ctypes.byref(now))
+    except (AttributeError, OSError):
+        return 0.0
+    ticks = ((now.dwHighDateTime - created.dwHighDateTime) << 32) + now.dwLowDateTime - created.dwLowDateTime
+    return ticks / 10_000_000
 
 
 def close():

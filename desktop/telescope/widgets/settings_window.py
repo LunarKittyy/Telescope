@@ -351,10 +351,28 @@ class SettingsWindow(QDialog):
         except RuntimeError:
             pass  # gone already
 
-    def showEvent(self, event):
-        if not self._sized:
+    def setVisible(self, visible):
+        # Sized before the first show, not in showEvent: by then Windows has made the window at the default size and
+        # it jumps once it's resized and centred again
+        if visible and not self._sized:
             self._sized = True
             self._fit_to_screen()
+            self._centre()
+        super().setVisible(visible)
+
+    def _centre(self):
+        """Over the main window like QDialog would, but before the show; moving it here also stops QDialog doing it after."""
+        owner = self.parentWidget()
+        screen = self.screen() or QGuiApplication.primaryScreen()
+        if owner is None or screen is None:
+            return
+        frame = owner.window().frameGeometry()
+        area = screen.availableGeometry()
+        x = frame.x() + (frame.width() - self.width()) // 2
+        y = frame.y() + (frame.height() - self.height()) // 2
+        self.move(max(area.left(), min(x, area.right() - self.width())), max(area.top(), min(y, area.bottom() - self.height())))
+
+    def showEvent(self, event):
         super().showEvent(event)
         self.focus_search()
 
