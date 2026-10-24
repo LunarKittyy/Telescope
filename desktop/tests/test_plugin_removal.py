@@ -11,6 +11,7 @@ import telescope.app as app_module
 import telescope.plugins.connection as connection_module
 from telescope.config import load_config
 import telescope.plugins.setup as setup_plugin
+import telescope.updates as updates_module
 from telescope.plugin import TelescopePlugin
 from telescope.plugins import builtin_plugins
 from telescope.plugins.onboarding import OnboardingPlugin
@@ -259,8 +260,9 @@ class _WindowsShown(QObject):
         return False
 
 
-def test_building_the_window_and_settings_flashes_up_no_other_windows(build, qapp):
+def test_building_the_window_and_settings_flashes_up_no_other_windows(build, qapp, monkeypatch):
     # A widget shown before it has a parent opens as a window of its own for a moment (seen on Windows)
+    monkeypatch.setattr(updates_module, "is_unzipped_copy", lambda: True)  # as on Windows, where it brings a row along
     watch = _WindowsShown()
     qapp.installEventFilter(watch)
     try:
