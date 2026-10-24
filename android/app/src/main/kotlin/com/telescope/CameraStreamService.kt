@@ -483,6 +483,10 @@ class CameraStreamService : Service() {
     var startedRemotely: Boolean = false
         private set
 
+    // Set once MainActivity has toasted about this remote start; kept here so a new MainActivity doesn't toast again
+    @Volatile
+    var remoteStartAnnounced: Boolean = false
+
     // The paired computer this stream belongs to (StreamOwner): set by its start, or by the first computer to watch a
     // stream started on the phone. Another computer's start or stop is refused and its viewer can't switch the codec.
     @Volatile
@@ -625,6 +629,7 @@ class CameraStreamService : Service() {
         val localOnly = intent?.getBooleanExtra(EXTRA_LOCAL_ONLY, false) ?: false
         bindAddr      = if (localOnly) "127.0.0.1" else "0.0.0.0"
         startedRemotely = intent?.getBooleanExtra(EXTRA_REMOTE, false) ?: false
+        remoteStartAnnounced = false
         ownerId = intent?.getStringExtra(EXTRA_OWNER)
         val startOff  = intent?.getBooleanExtra(EXTRA_CAMERA_OFF, false) ?: false
         covered = (intent?.getBooleanExtra(EXTRA_COVERED, false) ?: false) && WaitingService.covering
