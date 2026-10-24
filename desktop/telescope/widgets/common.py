@@ -817,7 +817,8 @@ def dialog_header(layout: QVBoxLayout, title: str, subtitle: str = "") -> QLabel
     box.addWidget(title_lbl)
     sub = WrapLabel(subtitle)
     sub.setObjectName("dialog_subtitle")
-    sub.setVisible(bool(subtitle))
+    if not subtitle:
+        sub.hide()  # never setVisible(True) before it has a parent: on Windows that flashes it up as a window
     box.addWidget(sub)
     layout.addLayout(box)
     return sub
