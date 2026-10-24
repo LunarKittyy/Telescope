@@ -1,7 +1,7 @@
 """Every text fits where it's shown, in every language and the pseudo one (scripts/text_fit.py measures them)."""
 
 import pytest
-from PyQt6.QtGui import QTextLayout
+from PyQt6.QtGui import QFontInfo, QTextLayout
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
 
 from scripts import text_fit
@@ -17,17 +17,22 @@ FIX = ("make it fit (a shorter translation, or room for a longer one), or if it 
 
 def _fonts_drawing(lang: str) -> set:
     """The fonts the window draws lang's texts with on this machine."""
-    entries, _header = i18n.read_po(i18n.LOCALE_DIR / ("telescope.pot" if lang in ("en", "pseudo") else f"{lang}.po"))
-    texts = [e.msgstr[0] if e.msgstr and e.msgstr[0] else e.msgid for e in entries[:200]]
-    if lang == "pseudo":
-        texts = [i18n.pseudo(t) for t in texts]
     label = QLabel()
     label.ensurePolished()
-    layout = QTextLayout(" ".join(texts), label.font())
+    font = label.font()
+    main = QFontInfo(font).family()
+    if main not in FONTS:
+        return {main}  # without laying anything out: reading glyph runs crashed on Windows' runner
+    entries, _header = i18n.read_po(i18n.LOCALE_DIR / ("telescope.pot" if lang in ("en", "pseudo") else f"{lang}.po"))
+    texts = [e.msgstr[0] if e.msgstr and e.msgstr[0] else e.msgid for e in entries[:200]]
+    layout = QTextLayout(" ".join(i18n.pseudo(t) if lang == "pseudo" else t for t in texts), font)
     layout.beginLayout()
-    layout.createLine()
+    line = layout.createLine()
+    line.setLineWidth(1_000_000)
     layout.endLayout()
-    return {run.rawFont().familyName() for run in layout.glyphRuns()}
+    runs = layout.glyphRuns()
+    fonts = [run.rawFont() for run in runs]
+    return {main} | {raw.familyName() for raw in fonts}
 
 
 @pytest.mark.parametrize("lang", text_fit.languages())
