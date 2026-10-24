@@ -31,6 +31,8 @@
     <string name="setup_title">Persiapan</string>
     <string name="setup_camera">Kamera</string>
     <string name="setup_camera_reason">Untuk streaming dari kamera ponsel ini.</string>
+    <string name="setup_local_network">Jaringan lokal</string>
+    <string name="setup_local_network_reason">Memungkinkan komputer Anda menemukan dan terhubung ke ponsel ini melalui Wi-Fi. Tidak diperlukan untuk USB.</string>
     <string name="setup_notifications">Notifikasi</string>
     <string name="setup_notifications_reason">Menampilkan saat kamera sedang streaming, dan menghentikannya dari sana.</string>
     <string name="setup_microphone">Mikrofon</string>

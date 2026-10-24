@@ -31,6 +31,8 @@
     <string name="setup_title">Kom igång</string>
     <string name="setup_camera">Kamera</string>
     <string name="setup_camera_reason">För att strömma från den här telefonens kameror.</string>
+    <string name="setup_local_network">Lokalt nätverk</string>
+    <string name="setup_local_network_reason">Låter datorn hitta och ansluta till den här telefonen via Wi-Fi. Behövs inte för USB.</string>
     <string name="setup_notifications">Aviseringar</string>
     <string name="setup_notifications_reason">Visar när kameran strömmar och låter dig stoppa den därifrån.</string>
     <string name="setup_microphone">Mikrofon</string>

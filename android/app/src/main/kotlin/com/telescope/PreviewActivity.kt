@@ -111,6 +111,7 @@ class PreviewActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_preview)
+        SystemBars.pad(findViewById(R.id.root))
         // The screen stays on while the app is open (the Wi-Fi locks only work with it on); the power button still turns it off
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 

@@ -31,6 +31,8 @@
     <string name="setup_title">Початок роботи</string>
     <string name="setup_camera">Камера</string>
     <string name="setup_camera_reason">Щоб транслювати відео з камер цього телефону.</string>
+    <string name="setup_local_network">Локальна мережа</string>
+    <string name="setup_local_network_reason">Дає змогу комп\'ютеру знайти цей телефон і підключитися до нього через Wi-Fi. Для USB не потрібно.</string>
     <string name="setup_notifications">Сповіщення</string>
     <string name="setup_notifications_reason">Показує, коли камера транслює, і дозволяє зупинити її звідти.</string>
     <string name="setup_microphone">Мікрофон</string>

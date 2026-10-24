@@ -31,6 +31,8 @@
     <string name="setup_title">Configuración inicial</string>
     <string name="setup_camera">Cámara</string>
     <string name="setup_camera_reason">Para transmitir desde las cámaras de este teléfono.</string>
+    <string name="setup_local_network">Red local</string>
+    <string name="setup_local_network_reason">Permite que tu computadora encuentre este teléfono y se conecte a él por Wi-Fi. No hace falta para USB.</string>
     <string name="setup_notifications">Notificaciones</string>
     <string name="setup_notifications_reason">Muestra cuándo la cámara está transmitiendo y la detiene desde allí.</string>
     <string name="setup_microphone">Micrófono</string>
