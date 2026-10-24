@@ -25,6 +25,18 @@ if _right_version is not None:
     sys.exit(0)
 update_guard.confirm_on_terminate(APP_DIR)
 
+
+def _chosen_language() -> str:
+    """The language picked in Settings > General, "" for the system's."""
+    from telescope.config import load_config
+    setup = load_config().get("plugin_configs", {}).get("setup")
+    lang = setup.get("language") if isinstance(setup, dict) else ""
+    return lang if isinstance(lang, str) else ""
+
+
+from telescope import splash  # noqa: E402
+splash.show_text(_chosen_language)  # before Qt, which most of a first start's wait is spent loading
+
 # The new version has started fine this long after its window came up (or once it's closed normally).
 _STARTED_FINE_MS = 3000
 
@@ -102,14 +114,6 @@ def _attach_console():
         pass
 
 
-def _chosen_language() -> str:
-    """The language picked in Settings > General, "" for the system's."""
-    from telescope.config import load_config
-    setup = load_config().get("plugin_configs", {}).get("setup")
-    lang = setup.get("language") if isinstance(setup, dict) else ""
-    return lang if isinstance(lang, str) else ""
-
-
 def run_action(args) -> int:
     """--action / --list-actions: talk to the running copy, print what it says, and exit."""
     _attach_console()
@@ -157,11 +161,13 @@ def main():
         import tempfile
         from telescope.platform import windows
         if windows.running_from_archive(APP_DIR, Path(tempfile.gettempdir())):
+            splash.close()
             windows.warn_running_from_archive()
             sys.exit(1)
         windows.use_installed_app_id(APP_DIR)
     args, qt_argv = parse_args(sys.argv[1:])
     if args.action or args.list_actions:
+        splash.close()
         sys.exit(run_action(args))
     diagnostics.install(APP_DIR)
     import cv2
@@ -206,6 +212,7 @@ def main():
         win.start_hidden()
     else:
         win.show()
+    splash.close()
     QTimer.singleShot(1500, lambda: threading.Thread(target=_preload, daemon=True).start())
     watch = _watch_dev_plugins(win)  # noqa: F841 (kept alive until quitting)
     if dev_profile.resume_stream():
