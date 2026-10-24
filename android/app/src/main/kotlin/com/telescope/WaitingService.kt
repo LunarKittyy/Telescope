@@ -118,7 +118,7 @@ class WaitingService : Service() {
                 .addAction(0, context.getString(R.string.notif_stop_waiting), stop)
                 .setOngoing(true)
             // Only a running stream is a Live Update; waiting on its own is just a quiet notification
-            return (if (streaming) CameraStreamService.asLiveUpdate(builder) else builder).build()
+            return (if (streaming) CameraStreamService.asLiveUpdate(context, builder) else builder).build()
         }
 
         // A stream under this service shows here instead of its own notification. Only a notify: calling

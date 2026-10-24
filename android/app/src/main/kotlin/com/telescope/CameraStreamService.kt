@@ -21,6 +21,7 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.util.Range
 import androidx.core.app.NotificationCompat
+import androidx.core.graphics.drawable.toBitmap
 import androidx.core.content.ContextCompat
 import android.view.Surface
 import kotlin.math.abs
@@ -235,6 +236,7 @@ class CameraStreamService : Service() {
         const val EXTRA_OWNER      = "owner"
         const val CHANNEL_ID       = "telescope_stream"
         const val NOTIF_ID         = 1
+        private const val ACTION_STOP = "com.telescope.action.STOP_STREAMING"
         const val DEFAULT_PORT     = 8080
         private const val TAG      = "CameraStreamService"
         // Permission -> asked once already; also mic_wanted, set once the desktop asked for the mic without permission
@@ -258,10 +260,14 @@ class CameraStreamService : Service() {
 
         // Android 16+ shows the streaming notification as a Live Update: on the lock screen and as a status bar chip
         // counting the stream's time. Older versions ignore all of it except the time next to the notification.
-        fun asLiveUpdate(builder: NotificationCompat.Builder): NotificationCompat.Builder {
+        fun asLiveUpdate(context: Context, builder: NotificationCompat.Builder): NotificationCompat.Builder {
             builder.setRequestPromotedOngoing(true)
             val since = streamingSinceMs
             if (since > 0) builder.setWhen(since).setShowWhen(true).setUsesChronometer(true)
+            val stop = PendingIntent.getService(context, 1,
+                Intent(context, CameraStreamService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE)
+            builder.addAction(0, context.getString(R.string.stop_streaming), stop)
+            builder.setLargeIcon(context.packageManager.getApplicationIcon(context.applicationInfo).toBitmap())
             return builder
         }
         private val BUSY_STATES = setOf(
@@ -624,6 +630,11 @@ class CameraStreamService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP) {
+            // The notification's Stop streaming button
+            if (controller != null) stopStreaming("notificationStop") else stopSelf()
+            return START_NOT_STICKY
+        }
         if (controller != null) {
             // A second start raced the first: keep the running stream rather than rebind its port and fail both.
             if (inForeground) try { startForegroundCompat() } catch (_: Exception) {}
@@ -1112,7 +1123,7 @@ class CameraStreamService : Service() {
     private fun buildNotification(): android.app.Notification {
         val pi = PendingIntent.getActivity(this, 0,
             Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
-        return asLiveUpdate(NotificationCompat.Builder(this, CHANNEL_ID)
+        return asLiveUpdate(this, NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Telescope").setContentText(streamingText(this, cameraOff))
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(ContextCompat.getColor(this, R.color.colorPrimary))
