@@ -23,6 +23,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.text.method.LinkMovementMethod
 import android.view.View
+import android.widget.ImageView
 import android.view.WindowManager
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
@@ -45,7 +46,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvPairingTitle: TextView
     private lateinit var tvPairingHint: TextView
     private lateinit var layoutComputers: LinearLayout
-    private lateinit var btnPreview: ImageButton
+    private lateinit var btnPreview: com.google.android.material.button.MaterialButton
     private lateinit var cardPermissions: CardView
     private lateinit var layoutPermissionsContainer: LinearLayout
     private lateinit var btnCopyDiagnostics: MaterialButton
@@ -108,13 +109,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Toast "started from your desktop" only once per remote start.
-    private var remoteStartAnnounced = false
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         RecentRuns.recordCrashes(this)
         setContentView(R.layout.activity_main)
+        SystemBars.pad(findViewById(R.id.root), top = findViewById(R.id.header))
         // The screen stays on while the app is open (the Wi-Fi locks only work with it on); the power button still turns it off
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
@@ -123,7 +122,20 @@ class MainActivity : AppCompatActivity() {
         checkLocalOnly             = findViewById(R.id.checkLocalOnly)
         checkWaitForComputer       = findViewById(R.id.checkWaitForComputer)
         btnScanPair                = findViewById(R.id.btnScanPair)
-        tvPairingTitle             = findViewById(R.id.tvPairingTitle)
+        val pairingHeader = findViewById<CardHeader>(R.id.headerPairing)
+        tvPairingTitle             = pairingHeader.title
+        btnRemoveAll = MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+            setText(R.string.remove_all)
+            textSize = 13f
+            minimumHeight = 0
+            minHeight = dp(36)
+            insetTop = 0
+            insetBottom = 0
+            setPadding(dp(12), 0, dp(12), 0)
+            visibility = View.GONE
+            setOnClickListener { confirmRemoveAll() }
+        }
+        pairingHeader.setAction(btnRemoveAll)
         tvPairingHint              = findViewById(R.id.tvPairingHint)
         layoutComputers            = findViewById(R.id.layoutComputers)
         btnPreview                 = findViewById(R.id.btnPreview)
@@ -135,6 +147,7 @@ class MainActivity : AppCompatActivity() {
         checkLocalOnly.setOnCheckedChangeListener { _, checked ->
             StreamPrefs.setLocalOnly(this, checked)
             SessionEndpoint.refreshAnnouncement()
+            checkPermissions()
             if (service?.isStreaming == true) {
                 service?.stopStreaming()
                 unbind(); service = null
@@ -154,6 +167,7 @@ class MainActivity : AppCompatActivity() {
                 setBeepEnabled(false)
                 setOrientationLocked(false)
                 setBarcodeImageEnabled(false)
+                setCaptureActivity(ScanActivity::class.java)
             }
             scanLauncher.launch(opts)
         }
@@ -166,7 +180,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         cardUpdate    = findViewById(R.id.cardUpdate)
-        tvUpdateTitle = findViewById(R.id.tvUpdateTitle)
+        tvUpdateTitle = findViewById<CardHeader>(R.id.headerUpdate).title
         tvUpdateText  = findViewById(R.id.tvUpdateText)
         btnUpdate     = findViewById(R.id.btnUpdate)
         switchNightly = findViewById(R.id.switchNightly)
@@ -182,6 +196,7 @@ class MainActivity : AppCompatActivity() {
             }
         } else {
             switchNightly.visibility = View.GONE
+            findViewById<View>(R.id.sectionUpdates).visibility = View.GONE
             findViewById<View>(R.id.tvNightlyHint).visibility = View.GONE
             btnCheckUpdates.visibility = View.GONE
         }
@@ -470,10 +485,17 @@ class MainActivity : AppCompatActivity() {
         Updater.downloadAndInstall(this, manifest)
     }
 
+    // Top right of the pairing card, with two or more computers paired
+    private lateinit var btnRemoveAll: MaterialButton
+
+    // Whether the paired computers list is unfolded past COMPUTERS_SHOWN
+    private var showAllComputers = false
+
     // The pairing card: how to pair when nothing is paired, otherwise the list of computers.
     private fun renderPairing() {
         val computers = PairedComputers.list(this).computers
         layoutComputers.removeAllViews()
+        btnRemoveAll.visibility = if (computers.size >= 2) View.VISIBLE else View.GONE
         if (computers.isEmpty()) {
             tvPairingTitle.setText(R.string.pair_title)
             tvPairingHint.visibility = View.VISIBLE
@@ -483,13 +505,34 @@ class MainActivity : AppCompatActivity() {
         }
         tvPairingTitle.text = getString(if (computers.size == 1) R.string.paired_computer_title else R.string.paired_computers_title)
         tvPairingHint.visibility = View.GONE
-        computers.sortedBy { it.pairedAtMs }.forEach { layoutComputers.addView(buildComputerRow(it)) }
+        // Newest first, and only the first few until asked, so a long list doesn't push the other cards off the screen
+        val newest = computers.sortedByDescending { it.pairedAtMs }
+        val folded = newest.size > COMPUTERS_SHOWN && !showAllComputers
+        (if (folded) newest.take(COMPUTERS_SHOWN) else newest).forEach { layoutComputers.addView(buildComputerRow(it)) }
+        if (newest.size > COMPUTERS_SHOWN) layoutComputers.addView(
+            TextView(this).apply {
+                text = if (folded) getString(R.string.show_all_computers, newest.size) else getString(R.string.show_fewer)
+                setTextAppearance(R.style.TextAppearance_Telescope_Body)
+                setTextColor(resources.getColor(R.color.hueSky, theme))
+                typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+                gravity = android.view.Gravity.CENTER
+                minHeight = dp(44)
+                isClickable = true
+                isFocusable = true
+                val ripple = android.util.TypedValue()
+                theme.resolveAttribute(android.R.attr.selectableItemBackground, ripple, true)
+                setBackgroundResource(ripple.resourceId)
+                setOnClickListener { showAllComputers = folded; renderPairing() }
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,
+                ).apply { bottomMargin = dp(4) }
+            })
         btnScanPair.setText(R.string.pair_another)
         styleScanButton(primary = false)
     }
 
     private fun styleScanButton(primary: Boolean) {
-        val fill = if (primary) R.color.colorPrimary else android.R.color.transparent
+        val fill = if (primary) R.color.colorPrimary else R.color.colorSurfaceHover
         val text = if (primary) R.color.colorOnPrimary else R.color.colorOnSurface
         btnScanPair.backgroundTintList = ColorStateList.valueOf(resources.getColor(fill, theme))
         btnScanPair.setTextColor(resources.getColor(text, theme))
@@ -499,11 +542,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun buildComputerRow(computer: PairedComputer): View {
+        // An inset row like the desktop's phone list: the computer's icon, its name and when it was paired
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = android.view.Gravity.CENTER_VERTICAL
-            setPadding(0, 0, 0, dp(12))
+            setBackgroundResource(R.drawable.bg_inset)
+            setPadding(dp(12), dp(10), dp(10), dp(10))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { bottomMargin = dp(8) }
         }
+        row.addView(ImageView(this).apply {
+            setImageResource(R.drawable.ic_monitor)
+            imageTintList = ColorStateList.valueOf(resources.getColor(R.color.hueSky, theme))
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            layoutParams = LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginEnd = dp(12) }
+        })
         val textBlock = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
@@ -511,6 +565,7 @@ class MainActivity : AppCompatActivity() {
         textBlock.addView(TextView(this).apply {
             text = computer.name
             setTextAppearance(R.style.TextAppearance_Telescope_Body)
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
         })
         textBlock.addView(TextView(this).apply {
             val date = java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM)
@@ -519,17 +574,36 @@ class MainActivity : AppCompatActivity() {
             setTextAppearance(R.style.TextAppearance_Telescope_Hint)
         })
         row.addView(textBlock)
-        row.addView(com.google.android.material.button.MaterialButton(
-            this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle,
-        ).apply {
-            setText(R.string.remove)
+        // An icon, so a long name or a large font keeps the row's width instead of breaking mid-word
+        row.addView(MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+            setIconResource(R.drawable.ic_trash)
+            iconSize = dp(18)
+            iconPadding = 0
+            iconGravity = MaterialButton.ICON_GRAVITY_TEXT_START
+            setPadding(0, 0, 0, 0)
+            minimumWidth = 0
+            minWidth = 0
+            minimumHeight = 0
+            minHeight = 0
+            insetTop = 0
+            insetBottom = 0
+            contentDescription = getString(R.string.remove_computer_title, computer.name)
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(this, getString(R.string.remove))
             setOnClickListener { confirmRemoveComputer(computer) }
             // Start, not left: in Persian or Arabic the button sits on the left, and the gap goes on its right
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { marginStart = dp(12) }
+            layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginStart = dp(12) }
         })
         return row
+    }
+
+    // Every computer's token goes at once; pairing any of them again starts from scratch
+    private fun confirmRemoveAll() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.remove_all_title)
+            .setMessage(R.string.remove_all_message)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.remove_all) { _, _ -> PairedComputers.removeAll(this) }
+            .show()
     }
 
     // Removing a computer revokes only its token; the others keep working.
@@ -559,6 +633,13 @@ class MainActivity : AppCompatActivity() {
             SetupStep(Manifest.permission.CAMERA, getString(R.string.setup_camera),
                 getString(R.string.setup_camera_reason), cameraGranted()),
         )
+        // Android 17 blocks Wi-Fi traffic without it; USB goes through localhost and works either way
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN && !StreamPrefs.localOnly(this)) {
+            steps += SetupStep(Manifest.permission.ACCESS_LOCAL_NETWORK, getString(R.string.setup_local_network),
+                getString(R.string.setup_local_network_reason),
+                ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_LOCAL_NETWORK) ==
+                    PackageManager.PERMISSION_GRANTED)
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             steps += SetupStep(Manifest.permission.POST_NOTIFICATIONS, getString(R.string.setup_notifications),
                 getString(R.string.setup_notifications_reason),
@@ -633,7 +714,7 @@ class MainActivity : AppCompatActivity() {
         row.addView(textBlock)
 
         if (step.done) {
-            row.addView(android.widget.ImageView(this).apply {
+            row.addView(ImageView(this).apply {
                 setImageResource(R.drawable.ic_check)
                 imageTintList = ColorStateList.valueOf(resources.getColor(R.color.colorStreamingText, theme))
                 contentDescription = getString(R.string.setup_allowed)
@@ -713,14 +794,11 @@ class MainActivity : AppCompatActivity() {
     // Desktop can start stream while screen is up; bindService(flags=0) doesn't connect retroactively
     private fun adoptRemoteStart() {
         val service = CameraStreamService.instance
-        if (service == null) {
-            // Nothing running; arm the announcement for the next remote start.
-            remoteStartAnnounced = false
-            return
-        }
+        if (service == null) return
         if (!bound) rebindToService()
-        if (!remoteStartAnnounced && service.startedRemotely && service.isStreaming) {
-            remoteStartAnnounced = true
+        // Toast "started from your desktop" only once per remote start
+        if (!service.remoteStartAnnounced && service.startedRemotely && service.isStreaming) {
+            service.remoteStartAnnounced = true
             Toast.makeText(this, R.string.streaming_started_remotely, Toast.LENGTH_SHORT).show()
         }
     }
@@ -759,13 +837,21 @@ class MainActivity : AppCompatActivity() {
                 service?.cameraOff == true -> R.string.status_mic_only
                 else -> R.string.status_streaming
             })
-            tvStatus.setTextColor(resources.getColor(
-                if (viewed && !taken) R.color.colorStreamingText else R.color.colorWarn, theme))
+            tintStatus(if (viewed && !taken) R.color.colorStreamingText else R.color.colorWarn)
         } else {
             tvStatus.setText(if (busy) R.string.status_starting else R.string.status_not_streaming)
-            tvStatus.setTextColor(resources.getColor(R.color.colorOnSurfaceDim, theme))
+            tintStatus(R.color.colorOnSurfaceDim)
         }
         if (::cardUpdate.isInitialized && cardUpdate.visibility == View.VISIBLE) renderUpdate()
+    }
+
+    // The status text, its icon and the round chip behind it, in one colour
+    private fun tintStatus(colorRes: Int) {
+        val color = resources.getColor(colorRes, theme)
+        tvStatus.setTextColor(color)
+        findViewById<ImageView>(R.id.ivStatus).imageTintList = ColorStateList.valueOf(color)
+        findViewById<View>(R.id.statusChip).backgroundTintList =
+            ColorStateList.valueOf(androidx.core.graphics.ColorUtils.setAlphaComponent(color, 36))
     }
 
     private fun copyDiagnostics() {
@@ -822,6 +908,8 @@ class MainActivity : AppCompatActivity() {
         private const val BUG_REPORT_URL = "https://github.com/${UpdateLogic.REPO}/issues/new?template=bug.yml"
         // Android's "Large" font is 1.15 and its largest 1.3 or more; from there a setup step stacks its button
         private const val STACK_FONT_SCALE = 1.3f
+        // Paired computers listed before "Show all"
+        private const val COMPUTERS_SHOWN = 3
         // Lets the desktop app push a pairing payload straight over adb when
         // there's no camera-scannable QR code involved (USB pairing) - the
         // same JSON shape and handleQrScan() logic as the QR flow, just

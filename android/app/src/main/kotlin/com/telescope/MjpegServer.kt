@@ -20,7 +20,7 @@ class MjpegServer(
     // Read on every request, so pairing or unpairing a computer applies without restarting the stream.
     val tokens: () -> List<String>,
     // A viewer connected to the route for this codec (H264Stream.CODEC_*), with the token it came with.
-    val onVideoClient: (codec: String, token: String?) -> Unit = { _, _ -> },
+    val onVideoClient: (codec: String, token: String?, usb: Boolean) -> Unit = { _, _, _ -> },
     val requestKeyFrame: () -> Unit = {},
     // Every LINK_SAMPLE_MS while H.264 goes out: how the link to the slowest viewer is doing (DynamicBitrate).
     val onH264Link: (DynamicBitrate.Sample) -> Unit = {},
@@ -218,7 +218,7 @@ class MjpegServer(
                     try {
                         val client = MjpegClient(socket, request)
                         clients.add(client)
-                        onVideoClient(H264Stream.CODEC_MJPEG, HttpWire.bearerToken(request))
+                        onVideoClient(H264Stream.CODEC_MJPEG, HttpWire.bearerToken(request), socket.inetAddress.isLoopbackAddress)
                         client.stream()          // blocks until disconnected
                         clients.remove(client)
                     } finally { streamSlots.release() }
@@ -232,7 +232,7 @@ class MjpegServer(
                         val client = H264Client(socket, request)
                         h264Config?.let { client.queue.offerConfig(it) }
                         h264Clients.add(client)
-                        onVideoClient(H264Stream.CODEC_H264, HttpWire.bearerToken(request))
+                        onVideoClient(H264Stream.CODEC_H264, HttpWire.bearerToken(request), socket.inetAddress.isLoopbackAddress)
                         requestKeyFrame()        // a decoder can only start at one
                         client.stream()
                         h264Clients.remove(client)
@@ -257,7 +257,7 @@ class MjpegServer(
                                 flush()
                             }
                             udpClients.add(client)
-                            onVideoClient(H264Stream.CODEC_H264, HttpWire.bearerToken(request))
+                            onVideoClient(H264Stream.CODEC_H264, HttpWire.bearerToken(request), socket.inetAddress.isLoopbackAddress)
                             requestKeyFrame()  // a decoder can only start at one
                             client.run { h264Config }
                         } finally { udpClients.remove(client); client.close() }

@@ -5,6 +5,7 @@
     <color name="colorHeader">#121519</color>
     <color name="colorSurface">#161a20</color>
     <color name="colorSurfaceRaised">#1d222a</color>
+    <color name="colorSurfaceHover">#242a33</color>   <!-- secondary buttons -->
     <color name="colorBorder">#232932</color>
     <color name="colorOutline">#2f3641</color>
 
@@ -22,5 +23,10 @@
     <color name="colorWarn">#f0b65c</color>
     <color name="colorError">#ef6f6b</color>
     <color name="colorStop">#b04a46</color>         <!-- Stop streaming, same as the desktop's -->
+    <!-- Each card's own colour, the desktop's PLUGIN_HUES -->
+    <color name="hueSky">#8cc4f2</color>
+    <color name="hueLavender">#aa9cf5</color>
+    <color name="hueMint">#7fd3c4</color>
+    <color name="hueRose">#f2a0bf</color>
     <color name="colorOverlay">#b3121519</color>    <!-- chips over the camera preview -->
 </resources>

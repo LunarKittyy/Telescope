@@ -27,4 +27,17 @@ object LensLabel {
         return listOfNotNull(side, focal, if (ois) "OIS" else null,
             if (kind == AUTO) strings.get(R.string.lens_auto) else null).joinToString(" ")
     }
+
+    // The preview's lens tile, split like the desktop's (split_lens_label): the focal length, then the rest under it
+    fun tile(strings: Strings, facing: String, focalMm: Int, ois: Boolean, kind: String): Pair<String, String> {
+        val side = when (facing) {
+            BACK -> strings.get(R.string.lens_back)
+            FRONT -> strings.get(R.string.lens_front)
+            EXTERNAL -> strings.get(R.string.lens_external)
+            else -> "?"
+        }
+        val focal = if (focalMm > 0) strings.get(R.string.lens_focal, focalMm) else "?"
+        return focal to listOfNotNull(side, if (ois) "OIS" else null,
+            if (kind == AUTO) strings.get(R.string.lens_auto) else null).joinToString(" · ")
+    }
 }

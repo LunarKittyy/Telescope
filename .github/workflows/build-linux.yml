@@ -54,10 +54,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Set up Python 3.11
+      # The oldest Python start.sh accepts, since Linux runs Telescope from source
+      - name: Set up Python 3.12
         uses: actions/setup-python@v7
         with:
-          python-version: '3.11'
+          python-version: '3.12'
           cache: pip
 
       - name: Install test dependencies

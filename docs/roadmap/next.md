@@ -4,8 +4,8 @@ Planned in October 2026, after 4.1. The first two were left over from 4.0 and di
 
 - [ ] [720p when the phone gets critically hot](#720p-when-the-phone-gets-critically-hot)
 - [ ] [Saying to extract the Windows zip first](#saying-to-extract-the-windows-zip-first)
-- [ ] [Live notification for streaming status](#live-notification-for-streaming-status)
-- [ ] [Phone app in the 4.0 style](#phone-app-in-the-40-style)
+- [x] [Live notification for streaming status](#live-notification-for-streaming-status)
+- [x] [Phone app in the 4.0 style](#phone-app-in-the-40-style)
 - [ ] [Dependency updates](#dependency-updates)
 
 ## 720p when the phone gets critically hot
@@ -22,15 +22,15 @@ A small launcher exe that checks for its `lib` folder before starting the real o
 
 ## Live notification for streaming status
 
-Android has a newer live notification style for ongoing activity, and the phone app could use it to show the streaming status (connected, streaming, paused) on the lock screen and status bar. Not started. The Android docs need reading first, to see which Android versions support it, what the API looks like and how it fits with the foreground service notification we already have. Don't build anything until that research is done.
+On Android 16 and newer the streaming notification is a Live Update. It shows on the lock screen and as a chip in the status bar that says Streaming. The notification says which computer has the stream and whether it's over USB or Wi-Fi, and has a Stop streaming button. Wait for my computer stays a plain notification and only becomes a Live Update once a stream is running.
 
-Unknown until researched. Needs a real phone on a version that supports it.
+It's built as a progress notification with one full bar, since on vivo (and maybe other brands) that's what makes a tap on the chip open a card with Stop streaming instead of the app. The icon is purple because vivo draws it in the chip as it is, while stock Android only uses its shape.
 
 ## Phone app in the 4.0 style
 
-The desktop got its new look in 4.0 (a colour for each card, its own icon set, tiles for resolution and frame rate, one row per setting) but the phone app still looks like it did before that. Its screens should follow the same style so the two apps feel like one thing. That means the layout and spacing, the card colours and icons drawn the same way as the desktop's in `desktop/telescope/widgets/common.py`. Not started. Nothing about how it works should change, only how it looks.
+The phone app now looks like the desktop. Its cards have their own colour and the desktop's tinted icon square, and its icons are the desktop's line icons. Switches and buttons are drawn the same way as the desktop's, and the paired computers sit in inset rows. In the preview the lenses are tiles like the desktop's: the focal length large, the rest small under it. The header's preview button now says Preview, since no icon read as "the camera's view" on its own. Nothing about how the app works changed.
 
-Medium to big depending on how far it goes. Needs checking at a large font size and on a small phone.
+Checked at the largest font size on a 360 dp wide screen.
 
 ## Dependency updates
 

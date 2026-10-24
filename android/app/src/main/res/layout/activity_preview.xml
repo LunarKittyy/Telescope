@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#000000">
@@ -13,15 +14,19 @@
         android:id="@+id/btnAspect"
         android:layout_width="wrap_content"
         android:layout_height="44dp"
-        android:minWidth="90dp"
+        android:minWidth="80dp"
         android:layout_gravity="top|start"
         android:layout_margin="16dp"
-        android:paddingStart="20dp"
-        android:paddingEnd="20dp"
+        android:paddingStart="12dp"
+        android:paddingEnd="16dp"
         android:gravity="center"
+        android:drawableStart="@drawable/ic_crop_small"
+        android:drawablePadding="8dp"
+        android:drawableTint="@color/hueMint"
+        android:fontFamily="sans-serif-medium"
         android:textColor="@color/colorOnSurface"
         android:textSize="14sp"
-        android:background="@drawable/pill_lens"
+        android:background="@drawable/bg_overlay_tile"
         android:clickable="true"
         android:focusable="true" />
 
@@ -32,9 +37,10 @@
         android:layout_gravity="top|end"
         android:layout_margin="16dp"
         android:src="@drawable/ic_close"
-        android:background="@drawable/bg_circle_overlay"
+        android:background="@drawable/bg_overlay_tile"
+        android:scaleType="fitCenter"
         android:contentDescription="@string/close_preview"
-        android:padding="10dp" />
+        android:padding="12dp" />
 
     <HorizontalScrollView
         android:layout_width="match_parent"

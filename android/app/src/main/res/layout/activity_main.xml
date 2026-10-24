@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Same rules as the desktop app (desktop/telescope/widgets/common.py): one type scale (styles.xml),
-     sentence-case card titles with an accent icon, labels above fields on a phone, one primary button,
-     on/off settings as switches, 12dp field and button radius, 16dp cards. -->
+<!-- Same rules as the desktop app (desktop/telescope/widgets/common.py): one type scale (styles.xml), cards with
+     a hue each and the icon on a square of it (CardHeader), the desktop's line icons, labels above fields on a
+     phone, one primary button, on/off settings as switches, 10dp button radius, 14dp cards. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -11,13 +12,16 @@
 
     <!-- Header bar -->
     <LinearLayout
+        android:id="@+id/header"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:minHeight="56dp"
         android:orientation="horizontal"
         android:background="@color/colorHeader"
         android:paddingStart="16dp"
-        android:paddingEnd="4dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp"
         android:gravity="center_vertical">
 
         <ImageView
@@ -35,18 +39,32 @@
             android:text="@string/app_name"
             android:textAppearance="@style/TextAppearance.Telescope.AppTitle" />
 
-        <ImageButton
+        <!-- Says what it opens, since no icon reads as "the camera's view" on its own -->
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnPreview"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:src="@drawable/ic_preview_open"
-            app:tint="@color/colorOnSurfaceDim"
-            android:background="?attr/selectableItemBackgroundBorderless"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:minHeight="36dp"
+            android:paddingStart="10dp"
+            android:paddingEnd="12dp"
+            android:textSize="13sp"
+            app:cornerRadius="8dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:text="@string/preview_button"
             android:contentDescription="@string/open_preview"
-            android:padding="12dp" />
-
+            app:icon="@drawable/ic_eye"
+            app:iconSize="16dp"
+            app:iconPadding="6dp" />
 
     </LinearLayout>
+
+    <!-- A hairline under the header, like the desktop's top bar -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/colorBorder" />
 
     <ScrollView
         android:layout_width="match_parent"
@@ -58,7 +76,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp"
+            android:padding="12dp"
             android:paddingBottom="24dp">
 
             <!-- Update: shown only when a newer app is available (Updater) -->
@@ -66,48 +84,36 @@
                 android:id="@+id/cardUpdate"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
+                android:layout_marginBottom="10dp"
                 android:visibility="gone">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="18dp">
+                    android:padding="16dp">
 
-                    <LinearLayout
+                    <com.telescope.CardHeader
+                        android:id="@+id/headerUpdate"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:layout_marginBottom="6dp">
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:src="@drawable/ic_update"
-                            app:tint="@color/colorStreamingText"
-                            android:importantForAccessibility="no" />
-                        <TextView
-                            android:id="@+id/tvUpdateTitle"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="10dp"
-                            android:text="@string/update_available"
-                            android:textAppearance="@style/TextAppearance.Telescope.CardTitle" />
-                    </LinearLayout>
+                        android:layout_marginBottom="10dp"
+                        app:headerIcon="@drawable/ic_update"
+                        app:headerHue="@color/colorStreamingText"
+                        app:headerTitle="@string/update_available" />
 
                     <TextView
                         android:id="@+id/tvUpdateText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:textAppearance="@style/TextAppearance.Telescope.Hint" />
+                        android:textAppearance="@style/TextAppearance.Telescope.Label" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnUpdate"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:minHeight="48dp"
-                        android:layout_marginTop="14dp"
+                        android:layout_marginTop="12dp"
                         android:text="@string/update" />
 
                 </LinearLayout>
@@ -118,34 +124,22 @@
                 android:id="@+id/cardPermissions"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
+                android:layout_marginBottom="10dp"
                 android:visibility="gone">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="18dp">
+                    android:padding="16dp">
 
-                    <LinearLayout
+                    <com.telescope.CardHeader
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:layout_marginBottom="14dp">
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:src="@drawable/ic_check"
-                            app:tint="@color/colorAccent"
-                            android:importantForAccessibility="no" />
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="10dp"
-                            android:text="@string/setup_title"
-                            android:textAppearance="@style/TextAppearance.Telescope.CardTitle" />
-                    </LinearLayout>
+                        android:layout_marginBottom="14dp"
+                        app:headerIcon="@drawable/ic_check"
+                        app:headerHue="@color/hueLavender"
+                        app:headerTitle="@string/setup_title" />
 
                     <LinearLayout
                         android:id="@+id/layoutPermissionsContainer"
@@ -160,40 +154,28 @@
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp">
+                android:layout_marginBottom="10dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="18dp">
+                    android:padding="16dp">
 
-                    <LinearLayout
+                    <com.telescope.CardHeader
+                        android:id="@+id/headerPairing"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:layout_marginBottom="10dp">
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:src="@drawable/ic_link"
-                            app:tint="@color/colorAccent"
-                            android:importantForAccessibility="no" />
-                        <TextView
-                            android:id="@+id/tvPairingTitle"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="10dp"
-                            android:text="@string/pair_title"
-                            android:textAppearance="@style/TextAppearance.Telescope.CardTitle" />
-                    </LinearLayout>
+                        android:layout_marginBottom="10dp"
+                        app:headerIcon="@drawable/ic_link"
+                        app:headerHue="@color/hueSky"
+                        app:headerTitle="@string/pair_title" />
 
                     <TextView
                         android:id="@+id/tvPairingHint"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="14dp"
+                        android:layout_marginBottom="12dp"
                         android:text="@string/pair_hint"
                         android:textAppearance="@style/TextAppearance.Telescope.Label" />
 
@@ -210,6 +192,7 @@
                         android:minHeight="52dp"
                         android:text="@string/scan_pairing_code"
                         app:icon="@drawable/ic_qr_scan"
+                        app:iconSize="20dp"
                         app:iconGravity="textStart" />
 
                 </LinearLayout>
@@ -219,33 +202,21 @@
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp">
+                android:layout_marginBottom="10dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="18dp">
+                    android:padding="16dp">
 
-                    <LinearLayout
+                    <com.telescope.CardHeader
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:layout_marginBottom="14dp">
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:src="@drawable/ic_camera"
-                            app:tint="@color/colorAccent"
-                            android:importantForAccessibility="no" />
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="10dp"
-                            android:text="@string/network_title"
-                            android:textAppearance="@style/TextAppearance.Telescope.CardTitle" />
-                    </LinearLayout>
+                        android:layout_marginBottom="6dp"
+                        app:headerIcon="@drawable/ic_wifi"
+                        app:headerHue="@color/hueMint"
+                        app:headerTitle="@string/network_title" />
 
                     <com.google.android.material.switchmaterial.SwitchMaterial
                         android:id="@+id/checkLocalOnly"
@@ -257,20 +228,28 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:layout_marginEnd="56dp"
                         android:text="@string/local_only_hint"
                         android:textAppearance="@style/TextAppearance.Telescope.Hint" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="12dp"
+                        android:layout_marginBottom="4dp"
+                        android:background="@color/colorBorder" />
 
                     <com.google.android.material.switchmaterial.SwitchMaterial
                         android:id="@+id/checkWaitForComputer"
                         style="@style/Widget.Telescope.Switch"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
                         android:text="@string/wait_for_computer" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:layout_marginEnd="56dp"
                         android:text="@string/wait_for_computer_hint"
                         android:textAppearance="@style/TextAppearance.Telescope.Hint" />
 
@@ -283,50 +262,64 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:minHeight="56dp"
-                android:layout_marginBottom="12dp"
+                android:layout_marginBottom="10dp"
                 android:backgroundTint="@color/colorStop"
                 app:strokeColor="@color/colorStop"
                 android:text="@string/stop_streaming"
                 android:visibility="gone" />
 
-            <!-- Status -->
+            <!-- Status, drawn like the desktop's connection status: a tinted round icon, then the state -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp">
+                android:layout_marginBottom="10dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="18dp">
+                    android:padding="16dp">
+
+                    <com.telescope.CardHeader
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        app:headerIcon="@drawable/ic_phone"
+                        app:headerHue="@color/hueRose"
+                        app:headerTitle="@string/status_title" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
                         android:gravity="center_vertical"
-                        android:layout_marginBottom="14dp">
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:src="@drawable/ic_status"
-                            app:tint="@color/colorAccent"
-                            android:importantForAccessibility="no" />
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="10dp"
-                            android:text="@string/status_title"
-                            android:textAppearance="@style/TextAppearance.Telescope.CardTitle" />
-                    </LinearLayout>
+                        android:background="@drawable/bg_inset"
+                        android:padding="10dp">
 
-                    <TextView
-                        android:id="@+id/tvStatus"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textAppearance="@style/TextAppearance.Telescope.Body"
-                        android:textColor="@color/colorOnSurfaceDim" />
+                        <FrameLayout
+                            android:id="@+id/statusChip"
+                            android:layout_width="34dp"
+                            android:layout_height="34dp"
+                            android:background="@drawable/bg_status_chip"
+                            android:importantForAccessibility="no">
+                            <ImageView
+                                android:id="@+id/ivStatus"
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:layout_gravity="center"
+                                android:src="@drawable/ic_preview_open" />
+                        </FrameLayout>
+
+                        <TextView
+                            android:id="@+id/tvStatus"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="12dp"
+                            android:fontFamily="sans-serif-medium"
+                            android:textAppearance="@style/TextAppearance.Telescope.Body"
+                            android:textColor="@color/colorOnSurfaceDim" />
+                    </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -339,27 +332,15 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="18dp">
+                    android:padding="16dp">
 
-                    <LinearLayout
+                    <com.telescope.CardHeader
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:layout_marginBottom="14dp">
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:src="@drawable/ic_info"
-                            app:tint="@color/colorAccent"
-                            android:importantForAccessibility="no" />
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="10dp"
-                            android:text="@string/about_title"
-                            android:textAppearance="@style/TextAppearance.Telescope.CardTitle" />
-                    </LinearLayout>
+                        android:layout_marginBottom="12dp"
+                        app:headerIcon="@drawable/ic_help"
+                        app:headerHue="@color/hueLavender"
+                        app:headerTitle="@string/about_title" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnCopyDiagnostics"
@@ -367,7 +348,10 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:minHeight="48dp"
-                        android:text="@string/copy_diagnostics" />
+                        android:text="@string/copy_diagnostics"
+                        app:icon="@drawable/ic_copy"
+                        app:iconSize="18dp"
+                        app:iconGravity="textStart" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnReportBug"
@@ -375,8 +359,11 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:minHeight="48dp"
-                        android:layout_marginTop="10dp"
-                        android:text="@string/report_bug" />
+                        android:layout_marginTop="6dp"
+                        android:text="@string/report_bug"
+                        app:icon="@drawable/ic_pop_out"
+                        app:iconSize="18dp"
+                        app:iconGravity="textStart" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnHelp"
@@ -384,21 +371,52 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:minHeight="48dp"
-                        android:layout_marginTop="10dp"
-                        android:text="@string/troubleshooting" />
+                        android:layout_marginTop="6dp"
+                        android:text="@string/troubleshooting"
+                        app:icon="@drawable/ic_pop_out"
+                        app:iconSize="18dp"
+                        app:iconGravity="textStart" />
+
+                    <!-- Updates, under a section heading like the desktop's -->
+                    <LinearLayout
+                        android:id="@+id/sectionUpdates"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="18dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+                        <ImageView
+                            android:layout_width="14dp"
+                            android:layout_height="14dp"
+                            android:src="@drawable/ic_update"
+                            app:tint="@color/colorOnSurfaceFaint"
+                            android:importantForAccessibility="no" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="@string/updates_section"
+                            android:textAppearance="@style/TextAppearance.Telescope.Section" />
+                        <View
+                            android:layout_width="0dp"
+                            android:layout_height="1dp"
+                            android:layout_weight="1"
+                            android:layout_marginStart="10dp"
+                            android:background="@color/colorBorder" />
+                    </LinearLayout>
 
                     <com.google.android.material.switchmaterial.SwitchMaterial
                         android:id="@+id/switchNightly"
                         style="@style/Widget.Telescope.Switch"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
                         android:text="@string/nightly_updates" />
 
                     <TextView
                         android:id="@+id/tvNightlyHint"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:layout_marginEnd="56dp"
                         android:text="@string/nightly_updates_hint"
                         android:textAppearance="@style/TextAppearance.Telescope.Hint" />
 
@@ -408,8 +426,11 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:minHeight="48dp"
-                        android:layout_marginTop="10dp"
-                        android:text="@string/check_for_updates" />
+                        android:layout_marginTop="12dp"
+                        android:text="@string/check_for_updates"
+                        app:icon="@drawable/ic_update"
+                        app:iconSize="18dp"
+                        app:iconGravity="textStart" />
 
                     <!-- Shown only in a language whose translation is a first draft (bool translation_is_draft) -->
                     <TextView
@@ -426,7 +447,7 @@
                         android:id="@+id/tvAppVersion"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="14dp"
+                        android:layout_marginTop="16dp"
                         android:gravity="center_horizontal"
                         android:textAppearance="@style/TextAppearance.Telescope.Hint" />
 

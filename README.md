@@ -39,7 +39,7 @@ Rather not install anything? `Telescope-windows-portable.zip` has the same app. 
 
 Download `Telescope-linux.tar.gz` from the [releases page](../../releases), extract it and run `./start.sh`. You need:
 
-- **Python 3.11 or newer**
+- **Python 3.12 or newer**
 - **`v4l2loopback`** from your distro (the virtual camera runs on it)
 - **`adb`** for USB only. Wi-Fi works without it
 
