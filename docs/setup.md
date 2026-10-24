@@ -4,7 +4,7 @@ The first-run checklist covers this for most people. This page is for doing it b
 
 ## Linux
 
-You need three things: the `v4l2loopback` package, Python 3.11 or newer and optionally `adb`.
+You need three things: the `v4l2loopback` package, Python 3.12 or newer and optionally `adb`.
 
 ### 1. The virtual camera package
 
@@ -30,17 +30,19 @@ sudo modprobe v4l2loopback devices=2 video_nr=10,11 \
   card_label="OBS Virtual Camera,Phone Camera" exclusive_caps=1
 ```
 
-### 2. Python 3.11 or newer
+### 2. Python 3.12 or newer
 
-`start.sh` checks this first and prefers `python3.13`, `python3.12` or `python3.11` over plain `python3` when one is installed. Ubuntu 22.04 has Python 3.10, so install a newer one from the deadsnakes PPA:
+`start.sh` checks this first and prefers `python3.14`, `python3.13` or `python3.12` over plain `python3` when one is installed. Ubuntu 22.04 has Python 3.10, so install a newer one from the deadsnakes PPA:
 
 ```bash
 sudo add-apt-repository ppa:deadsnakes/ppa
 sudo apt update
-sudo apt install python3.11 python3.11-venv
+sudo apt install python3.12 python3.12-venv
 ```
 
-If a Telescope environment was already created with an older Python `start.sh` will say so. Delete `~/.local/share/Telescope/venv` (or `$XDG_DATA_HOME/Telescope/venv`) and run it again.
+Debian 12 ships Python 3.11, which is too old now. Debian 13 has 3.13.
+
+An environment Telescope made earlier with an older Python gets set up again with the newer one the next time `start.sh` runs. If there's no newer Python yet it lists what to install.
 
 `start.sh` installs the pip dependencies itself and only goes online for them on the first run and after an update.
 

@@ -4,6 +4,8 @@ Planned in October 2026, after 4.1. The first two were left over from 4.0 and di
 
 - [ ] [720p when the phone gets critically hot](#720p-when-the-phone-gets-critically-hot)
 - [ ] [Saying to extract the Windows zip first](#saying-to-extract-the-windows-zip-first)
+- [x] [Live notification for streaming status](#live-notification-for-streaming-status)
+- [ ] [Phone app in the 4.0 style](#phone-app-in-the-40-style)
 - [ ] [Dependency updates](#dependency-updates)
 
 ## 720p when the phone gets critically hot
@@ -17,6 +19,18 @@ Medium. Needs a real phone that gets hot enough, since the emulator never reache
 Opening `TelescopeDesktop.exe` straight from the portable zip fails with "Failed to load Python DLL". Windows 11 only extracts the exe itself into a temp folder (without `lib-<build>`) and the loader gives up before any of Telescope's code runs. That means `warn_running_from_archive()` in `desktop/telescope/platform/windows.py` never gets a chance. Windows does warn about it first but plenty of people click Run anyway.
 
 A small launcher exe that checks for its `lib` folder before starting the real one could show the "extract first" message itself. Small to medium, mostly packaging in `desktop/telescope.spec` and the release workflow.
+
+## Live notification for streaming status
+
+On Android 16 and newer the streaming notification is a Live Update. It shows on the lock screen and as a chip in the status bar that says Streaming. The notification says which computer has the stream and whether it's over USB or Wi-Fi, and has a Stop streaming button. Wait for my computer stays a plain notification and only becomes a Live Update once a stream is running.
+
+It's built as a progress notification with one full bar, since on vivo (and maybe other brands) that's what makes a tap on the chip open a card with Stop streaming instead of the app. The icon is purple because vivo draws it in the chip as it is, while stock Android only uses its shape.
+
+## Phone app in the 4.0 style
+
+The desktop got its new look in 4.0 (a colour for each card, its own icon set, tiles for resolution and frame rate, one row per setting) but the phone app still looks like it did before that. Its screens should follow the same style so the two apps feel like one thing. That means the layout and spacing, the card colours and icons drawn the same way as the desktop's in `desktop/telescope/widgets/common.py`. Not started. Nothing about how it works should change, only how it looks.
+
+Medium to big depending on how far it goes. Needs checking at a large font size and on a small phone.
 
 ## Dependency updates
 

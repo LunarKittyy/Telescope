@@ -41,6 +41,16 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
+:: The pinned NumPy and pyee versions need Python 3.12 or newer
+python -c "import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)" >nul 2>&1
+if errorlevel 1 (
+    echo Telescope needs Python 3.12 or newer. Install a newer one from
+    echo https://www.python.org/downloads/ and run this again.
+    echo.
+    start https://www.python.org/downloads/
+    pause
+    exit /b 1
+)
 
 :: Install Python dependencies
 echo Checking dependencies...
