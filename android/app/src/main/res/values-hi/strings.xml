@@ -93,6 +93,7 @@
     <string name="status_not_streaming">स्ट्रीम नहीं हो रहा है</string>
     <string name="status_starting">शुरू हो रहा है…</string>
     <string name="status_streaming">स्ट्रीम हो रहा है</string>
+    <string name="status_quality">%1$dp पर %2$d fps</string>
     <string name="status_waiting_for_computer">कंप्यूटर का इंतज़ार किया जा रहा है</string>
     <string name="status_mic_only">माइक स्ट्रीम हो रहा है, कैमरा बंद</string>
     <string name="status_camera_taken">कोई अन्य ऐप कैमरे का उपयोग कर रहा है. इसके खाली होते ही स्ट्रीमिंग जारी रहेगी.</string>

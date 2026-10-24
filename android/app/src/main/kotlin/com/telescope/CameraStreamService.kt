@@ -249,13 +249,15 @@ class CameraStreamService : Service() {
         private const val BUSY_STUCK_MS = 20_000L
         private const val WAKE_LOCK_MS = 12 * 60 * 60 * 1000L
 
-        fun streamingText(context: Context, cameraOff: Boolean): String {
-            val to = viewer
-            return when {
-                cameraOff -> context.getString(R.string.notif_mic_streaming)
-                to == null -> context.getString(R.string.notif_camera_streaming)
-                else -> context.getString(if (to.second) R.string.notif_streaming_usb else R.string.notif_streaming_wifi, to.first)
-            }
+        fun streamingText(context: Context, cameraOff: Boolean): String = when {
+            cameraOff -> context.getString(R.string.notif_mic_streaming)
+            else -> routeText(context) ?: context.getString(R.string.notif_camera_streaming)
+        }
+
+        // "To newmoon over USB", once a computer is watching
+        fun routeText(context: Context): String? {
+            val to = viewer ?: return null
+            return context.getString(if (to.second) R.string.notif_streaming_usb else R.string.notif_streaming_wifi, to.first)
         }
 
         // The computer watching the stream and whether it's over USB, once one is; null before that
@@ -607,6 +609,15 @@ class CameraStreamService : Service() {
 
     fun getCameras(): List<CameraEntry> = allCameras
     fun getCurrentCameraId(): String? = controller?.getCurrentCameraId()
+
+    // The picture's short side (1080 for 1920x1080) and the rate the camera runs at now, Dynamic's or the heat's step
+    // included; null with no camera running
+    fun liveQuality(): Pair<Int, Int>? {
+        val snap = controller?.snapshot() ?: return null
+        val size = getStreamSize()
+        val fps = listOf(snap.phoneFps, snap.dynamicFps, snap.heatFps).filter { it > 0 }.minOrNull() ?: return null
+        return minOf(size.width, size.height) to fps
+    }
 
     fun getStreamSize(): android.util.Size =
         controller?.getStreamSize() ?: android.util.Size(streamWidth, streamHeight)

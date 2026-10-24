@@ -134,6 +134,8 @@
     <string name="status_not_streaming">Not streaming</string>
     <string name="status_starting">Starting…</string>
     <string name="status_streaming">Streaming</string>
+    <!-- Under Streaming: the picture's short side and the frame rate, like "At 1080p 30 fps" -->
+    <string name="status_quality">At %1$dp %2$d fps</string>
     <string name="status_waiting_for_computer">Waiting for the computer</string>
     <string name="status_mic_only">Streaming the mic, camera off</string>
     <string name="status_camera_taken">Another app is using the camera. Streaming goes on when it\'s free.</string>

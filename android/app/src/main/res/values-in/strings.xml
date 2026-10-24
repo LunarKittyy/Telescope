@@ -92,6 +92,7 @@
     <string name="status_not_streaming">Tidak streaming</string>
     <string name="status_starting">Memulai…</string>
     <string name="status_streaming">Streaming</string>
+    <string name="status_quality">Pada %1$dp %2$d fps</string>
     <string name="status_waiting_for_computer">Menunggu komputer</string>
     <string name="status_mic_only">Streaming mikrofon, kamera nonaktif</string>
     <string name="status_camera_taken">Aplikasi lain sedang menggunakan kamera. Streaming akan dilanjutkan saat kamera bebas.</string>
