@@ -96,9 +96,23 @@ a.binaries = [b for b in a.binaries if not b[0].replace('\\', '/').startswith(NE
 
 pyz = PYZ(a.pure)
 
+# Shown by the launcher straight away, before Python starts: a first start takes a minute or more to get the window up.
+# telescope/splash.py puts the text on in the user's language and closes it once the window shows
+splash = Splash(
+    os.path.join(SPECPATH, 'resources', 'splash.png'),
+    binaries=a.binaries,
+    datas=a.datas,
+    text_pos=(28, 156),  # bottom left, at write_splash.py's margin; the text grows upwards from here
+    text_size=10,
+    text_color='#a1abb8',
+    text_default='Starting Telescope…',
+    always_on_top=False,
+)
+
 exe = EXE(
     pyz,
     a.scripts,
+    splash,
     [],
     exclude_binaries=True,
     name='TelescopeDesktop',
@@ -120,6 +134,7 @@ coll = COLLECT(
     exe,
     a.binaries,
     a.datas,
+    splash.binaries,
     strip=False,
     upx=False,
     name='TelescopeDesktop',

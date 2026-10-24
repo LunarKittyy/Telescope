@@ -53,6 +53,11 @@ def _av():
     return _av_module
 
 
+def loaded() -> bool:
+    """Whether PyAV has been imported (by the start-up preload or a decoder) and decoding can start right away."""
+    return _av_module is not None
+
+
 def load_av():
     """Imports PyAV behind the same lock as the decoders, for code that imports something built on it (aiortc)."""
     return _av()

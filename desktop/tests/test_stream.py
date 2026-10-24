@@ -844,3 +844,25 @@ def test_a_stream_that_drops_mid_hand_over_carries_on_on_the_new_route(qapp, mon
 def test_sources_from_plugins_dont_hand_over():
     worker = stream.StreamWorker("url", None, None, 30, open_reader=lambda: _Capture())
     assert not worker.hand_over("https://127.0.0.1:41000/v1/video")
+
+
+def test_an_h264_stream_says_it_is_getting_ready_while_pyav_still_loads(monkeypatch):
+    loads = []
+    monkeypatch.setattr(stream.h264_reader, "loaded", lambda: False)
+    monkeypatch.setattr(stream.h264_reader, "load_av", lambda: loads.append(1))
+    worker = stream.StreamWorker("http://127.0.0.1:41000/v1/video.h264", None, None, 30)
+    statuses = []
+    worker.status.connect(lambda kind, text: (statuses.append(text), worker.request_stop()))
+    worker._run()
+    assert statuses[0].startswith("Getting ready")
+    assert loads == [1]
+
+
+def test_an_mjpeg_stream_does_not_wait_for_pyav(monkeypatch):
+    monkeypatch.setattr(stream.h264_reader, "loaded", lambda: False)
+    monkeypatch.setattr(stream.h264_reader, "load_av", lambda: pytest.fail("MJPEG doesn't need PyAV"))
+    worker = stream.StreamWorker("http://127.0.0.1:41000/v1/video", None, None, 30)
+    statuses = []
+    worker.status.connect(lambda kind, text: (statuses.append(text), worker.request_stop()))
+    worker._run()
+    assert not statuses[0].startswith("Getting ready")

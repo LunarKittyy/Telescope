@@ -238,13 +238,15 @@ def is_draft(lang: str) -> bool:
         return False
 
 
-def load(lang: Optional[str] = None) -> str:
-    """Loads a language (the system's when None) and returns the one loaded. Call before building any window."""
+def load(lang: Optional[str] = None, qt: bool = True) -> str:
+    """Loads a language (the system's when None) and returns the one loaded. Call before building any window.
+    qt=False leaves Qt alone (and unloaded), for the start-up splash."""
     global _catalog, _english, _plural, _language
     lang = pick([lang], available()) if lang else resolve()
     _catalog, _english, _plural, _language = {}, {}, (lambda n: int(n != 1)), SOURCE_LANGUAGE
     _plugin_catalogs.clear()
-    _set_qt_locale(lang)
+    if qt:
+        _set_qt_locale(lang)
     if lang == SOURCE_LANGUAGE:
         return _language
     try:
@@ -257,7 +259,8 @@ def load(lang: Optional[str] = None) -> str:
         if ctx != "search" and len(forms) == 1:
             _english.setdefault(forms[0], msgid)  # two texts translated alike: the first one's English
     _language = lang
-    _load_qt(lang)
+    if qt:
+        _load_qt(lang)
     logger.info("Language: %s (%d texts translated)", lang, len(_catalog))
     for name, folder in _plugin_folders.items():
         _load_plugin_catalog(name, folder)
