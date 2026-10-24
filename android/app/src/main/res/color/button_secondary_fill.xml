@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The desktop's ordinary buttons: a raised fill with a stronger border -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_enabled="false" android:color="@color/colorBackground" />
+    <item android:color="@color/colorSurfaceHover" />
+</selector>

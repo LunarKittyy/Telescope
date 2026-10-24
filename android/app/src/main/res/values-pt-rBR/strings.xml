@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="open_preview">Abrir pré-visualização da câmera</string>
+    <string name="preview_button">Prévia</string>
     <string name="close_preview">Fechar pré-visualização</string>
     <string name="update_available">Atualização disponível</string>
     <string name="update_failed_title">A atualização não terminou</string>
@@ -50,10 +51,15 @@
     <string name="paired_computers_title">Computadores pareados</string>
     <string name="paired_on">Pareado em %1$s</string>
     <string name="remove">Remover</string>
+    <string name="show_all_computers">Mostrar todos os %1$d</string>
+    <string name="show_fewer">Mostrar menos</string>
     <string name="cancel">Cancelar</string>
     <string name="ok">OK</string>
     <string name="remove_computer_title">Remover %1$s?</string>
     <string name="remove_computer_message">Ele não poderá usar a câmera deste celular até ser pareado novamente.</string>
+    <string name="remove_all">Remover todos</string>
+    <string name="remove_all_title">Remover todos os computadores?</string>
+    <string name="remove_all_message">Nenhum deles poderá usar a câmera deste celular até ser pareado novamente.</string>
     <string name="scan_prompt">Aponte a câmera para o código de pareamento no seu computador</string>
     <string name="scan_download_link">Esse código baixa o app. Escaneie aquele em Adicionar celular no computador.</string>
     <string name="scan_not_pairing_code">Este não é um código de pareamento do Telescope.</string>
@@ -84,12 +90,12 @@
     <string name="wait_for_computer_hint">Mantém o Telescope em execução com a tela desligada, para que um computador pareado possa iniciar a câmera.</string>
     <string name="stop_streaming">Parar transmissão</string>
     <string name="status_title">Status</string>
-    <string name="status_not_streaming">○ Não está transmitindo</string>
-    <string name="status_starting">○ Iniciando…</string>
-    <string name="status_streaming">● Transmitindo</string>
-    <string name="status_waiting_for_computer">● Aguardando o computador</string>
-    <string name="status_mic_only">● Transmitindo o microfone, câmera desligada</string>
-    <string name="status_camera_taken">● Outro app está usando a câmera. A transmissão continuará quando ela estiver livre.</string>
+    <string name="status_not_streaming">Não está transmitindo</string>
+    <string name="status_starting">Iniciando…</string>
+    <string name="status_streaming">Transmitindo</string>
+    <string name="status_waiting_for_computer">Aguardando o computador</string>
+    <string name="status_mic_only">Transmitindo o microfone, câmera desligada</string>
+    <string name="status_camera_taken">Outro app está usando a câmera. A transmissão continuará quando ela estiver livre.</string>
     <string name="streaming_started_remotely">Transmissão iniciada pelo seu computador</string>
     <string name="about_title">Sobre</string>
     <string name="copy_diagnostics">Copiar diagnósticos</string>
@@ -98,6 +104,7 @@
     <string name="troubleshooting">Solução de problemas</string>
     <string name="nightly_updates">Atualizações Nightly</string>
     <string name="nightly_updates_hint">Compilado a cada alteração: correções chegam mais rápido, com menos testes.</string>
+    <string name="updates_section">Atualizações</string>
     <string name="check_for_updates">Verificar atualizações</string>
     <string name="translation_draft">Esta tradução é um primeiro rascunho e alguns textos podem soar um pouco estranhos.</string>
     <string name="made_by">Feito por &lt;a href=\"%1$s\"&gt;LunarKittyy&lt;/a&gt;</string>
