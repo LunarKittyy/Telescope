@@ -5,6 +5,7 @@ file, so the splash says why once it's been up a while (a warm start is gone wel
 """
 
 import os
+import textwrap
 import threading
 from typing import Callable, List
 
@@ -12,6 +13,7 @@ from telescope import i18n
 from telescope.i18n import tr
 
 WHY_AFTER_S = 5  # since launch: the line about the security scan only shows when the start is slow
+WRAP_AT = 58  # characters: about what fits across the splash in its font, which can't measure text before Qt loads
 
 
 def _splash():
@@ -50,7 +52,7 @@ def show_text(chosen_language: Callable[[], str]):
     starting = tr("Starting Telescope…")
     # Translators: added under "Starting Telescope…" while the app starts on Windows. The scan is Windows checking new program files
     why = tr("This can take a minute while Windows runs a security scan.")
-    both = f"{starting}\n{why}"
+    both = f"{starting}\n{textwrap.fill(why, WRAP_AT)}"
     wait = WHY_AFTER_S - _seconds_since_launch()
     if wait <= 0:
         splash.update_text(both)
