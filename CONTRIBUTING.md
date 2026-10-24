@@ -6,6 +6,7 @@ Thanks for looking! You don't need to write code to help.
 
 - **Try it on your phone and let me know how it went.** Every phone behaves a bit differently and I only have a few to test on. Post in [Device compatibility](https://github.com/LunarKittyy/Telescope/discussions/new?category=device-compatibility), even if all you tried was one stream.
 - **Report bugs** in an [issue](https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml). **Report a bug** under Updates & About in Settings (and in the phone app's About card) copies the diagnostics for you to paste in. Addresses, tokens and your home folder are stripped out of it.
+- **Translate.** Both apps are in a few languages already and most of them are first drafts nobody who speaks the language has read yet. [Translating](docs/translating.md) shows how to fix texts right on GitHub without any setup, and how to start a new language.
 - **Ideas and questions** go in [Discussions](https://github.com/LunarKittyy/Telescope/discussions).
 - **Docs** that confused you are bugs too. A pull request that fixes a sentence is very welcome.
 
