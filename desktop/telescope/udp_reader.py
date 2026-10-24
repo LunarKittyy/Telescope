@@ -28,6 +28,11 @@ def _aesgcm():
     return AESGCM
 
 
+def preload():
+    """Imports AESGCM now, so the first stream doesn't wait for it."""
+    _aesgcm()
+
+
 def _can_seal() -> bool:
     """Whether AESGCM is installed. Looks without importing it, so a start-up check stays cheap."""
     return importlib.util.find_spec("cryptography") is not None

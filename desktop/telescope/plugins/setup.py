@@ -111,6 +111,7 @@ class AdvancedSettings(QWidget):
     _sig_uc_done      = pyqtSignal(bool, str)
     _sig_uc_msg       = pyqtSignal(str)
     _sig_apk_done     = pyqtSignal(bool, str)
+    _sig_hw_found     = pyqtSignal(object)  # the decoder type of the graphics card (h264_reader.hardware_device()), or None
 
     def __init__(self, parent=None, on_apply_canvas=None, report=None, on_max_zoom=None, on_max_gain=None,
                  on_limiter=None, on_remove_extras=None, extras_in_use=None, on_hw_decode=None,
@@ -140,6 +141,7 @@ class AdvancedSettings(QWidget):
         self._sig_uc_msg.connect(lambda msg: self._uc_status_lbl.setText(msg)
                                   if hasattr(self, "_uc_status_lbl") else None)
         self._sig_apk_done.connect(self._on_apk_done)
+        self._sig_hw_found.connect(self._show_graphics_card)
 
     def card_visible(self) -> bool:
         """Whether the Video card is on screen, which is where a canvas change reports back."""
@@ -164,11 +166,13 @@ class AdvancedSettings(QWidget):
             threading.Thread(target=self._check_win_setup, daemon=True).start()
 
     def _look_for_graphics_card(self):
-        """Fills in the Hardware acceleration row, once. Finding the card opens a decoder, which loads PyAV."""
+        """Fills in the Hardware acceleration row, once. Finding the card opens a decoder, which loads PyAV, so off the UI thread."""
         if self._hw_looked:
             return
         self._hw_looked = True
-        device = h264_reader.hardware_device()
+        threading.Thread(target=lambda: self._sig_hw_found.emit(h264_reader.hardware_device()), daemon=True).start()
+
+    def _show_graphics_card(self, device):
         self._hw_chk.setEnabled(device is not None)
         self._hw_line.setText(tr("Found {device}", device=_HW_NAMES.get(device, device)) if device
                               else tr("No graphics card Telescope can use"))

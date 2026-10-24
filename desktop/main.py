@@ -145,6 +145,13 @@ def _watch_dev_plugins(win) -> Optional[QTimer]:
     return timer
 
 
+def _preload():
+    """What the first stream needs and a Windows first start loads slowly (PyAV, its graphics card, cryptography), once the window is up."""
+    from telescope import h264_reader, udp_reader
+    h264_reader.hardware_device()
+    udp_reader.preload()
+
+
 def main():
     if getattr(sys, "frozen", False) and not IS_LINUX:
         import tempfile
@@ -199,6 +206,7 @@ def main():
         win.start_hidden()
     else:
         win.show()
+    QTimer.singleShot(1500, lambda: threading.Thread(target=_preload, daemon=True).start())
     watch = _watch_dev_plugins(win)  # noqa: F841 (kept alive until quitting)
     if dev_profile.resume_stream():
         QTimer.singleShot(0, lambda: win.start_stream(interactive=False))

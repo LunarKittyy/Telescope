@@ -1,4 +1,5 @@
 import threading
+import time
 
 import pytest
 from PyQt6.QtGui import QGuiApplication
@@ -554,3 +555,18 @@ def test_extra_cameras_show_up_and_can_be_removed(monkeypatch, qapp):
     plugin._on_show()
     assert not dialog._extras_btn.isEnabled()  # a stream still goes to one
     dialog.close()
+
+
+def test_the_graphics_card_row_waits_for_settings_and_fills_in_after(qapp, monkeypatch):
+    looked = []
+    monkeypatch.setattr(setup_mod.h264_reader, "hardware_device", lambda: looked.append(1) or "cuda")
+    dialog = AdvancedSettings()
+    assert not looked and not dialog._hw_chk.isEnabled()
+    dialog._look_for_graphics_card()
+    dialog._look_for_graphics_card()
+    deadline = time.monotonic() + 5
+    while not dialog._hw_chk.isEnabled() and time.monotonic() < deadline:
+        qapp.processEvents()
+        time.sleep(0.01)
+    assert looked == [1] and dialog._hw_chk.isEnabled()
+    assert "NVIDIA CUDA" in dialog._hw_line.text()
