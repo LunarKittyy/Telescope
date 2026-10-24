@@ -250,6 +250,20 @@ class CameraStreamService : Service() {
 
         fun streamingText(context: Context, cameraOff: Boolean): String =
             context.getString(if (cameraOff) R.string.notif_mic_streaming else R.string.notif_camera_streaming)
+
+        // When this run first reached Streaming (a recovery keeps it), or 0 while not streaming
+        @Volatile
+        var streamingSinceMs = 0L
+            private set
+
+        // Android 16+ shows the streaming notification as a Live Update: on the lock screen and as a status bar chip
+        // counting the stream's time. Older versions ignore all of it except the time next to the notification.
+        fun asLiveUpdate(builder: NotificationCompat.Builder): NotificationCompat.Builder {
+            builder.setRequestPromotedOngoing(true)
+            val since = streamingSinceMs
+            if (since > 0) builder.setWhen(since).setShowWhen(true).setUsesChronometer(true)
+            return builder
+        }
         private val BUSY_STATES = setOf(
             StreamState.StartingServer, StreamState.OpeningCamera, StreamState.ConfiguringSession, StreamState.Recovering)
 
@@ -510,6 +524,7 @@ class CameraStreamService : Service() {
         val transition = stateMachine.transition(newState, op, error)
         if (old == StreamState.StartingServer && newState != StreamState.StartingServer) SessionStartWindow.settle()
         if (newState == StreamState.Streaming) {
+            if (streamingSinceMs == 0L) streamingSinceMs = System.currentTimeMillis()
             rememberSelection()
             mainHandler.post(::showStreamNotification)  // the camera may have gone off or come back on
         }
@@ -1064,6 +1079,7 @@ class CameraStreamService : Service() {
         releaseWifiLocks()
         stopWatchingThermalStatus()
         controller = null; server = null
+        streamingSinceMs = 0L
         setState(StreamState.Idle, op)
         // Release session; endpoint stays bound if MainActivity holds a reference.
         SessionEndpoint.holdAfterStop(this)
@@ -1096,12 +1112,12 @@ class CameraStreamService : Service() {
     private fun buildNotification(): android.app.Notification {
         val pi = PendingIntent.getActivity(this, 0,
             Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        return asLiveUpdate(NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Telescope").setContentText(streamingText(this, cameraOff))
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(ContextCompat.getColor(this, R.color.colorPrimary))
             .setColorized(false)
-            .setContentIntent(pi).setOngoing(true).build()
+            .setContentIntent(pi).setOngoing(true)).build()
     }
 
     // Says whether the camera is on: only a notify, since startForeground again from the background is refused.

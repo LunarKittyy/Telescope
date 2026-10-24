@@ -108,7 +108,7 @@ class WaitingService : Service() {
                 Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
             val stop = PendingIntent.getService(context, 0,
                 Intent(context, WaitingService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE)
-            return NotificationCompat.Builder(context, CHANNEL_ID)
+            val builder = NotificationCompat.Builder(context, CHANNEL_ID)
                 .setContentTitle("Telescope")
                 .setContentText(if (streaming) CameraStreamService.streamingText(context, cameraOff)
                     else context.getString(R.string.notif_waiting))
@@ -117,7 +117,8 @@ class WaitingService : Service() {
                 .setContentIntent(open)
                 .addAction(0, context.getString(R.string.notif_stop_waiting), stop)
                 .setOngoing(true)
-                .build()
+            // Only a running stream is a Live Update; waiting on its own is just a quiet notification
+            return (if (streaming) CameraStreamService.asLiveUpdate(builder) else builder).build()
         }
 
         // A stream under this service shows here instead of its own notification. Only a notify: calling
