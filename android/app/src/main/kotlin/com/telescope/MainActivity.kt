@@ -23,6 +23,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.text.method.LinkMovementMethod
 import android.view.View
+import android.widget.ImageView
 import android.view.WindowManager
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
@@ -45,7 +46,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvPairingTitle: TextView
     private lateinit var tvPairingHint: TextView
     private lateinit var layoutComputers: LinearLayout
-    private lateinit var btnPreview: ImageButton
+    private lateinit var btnPreview: com.google.android.material.button.MaterialButton
     private lateinit var cardPermissions: CardView
     private lateinit var layoutPermissionsContainer: LinearLayout
     private lateinit var btnCopyDiagnostics: MaterialButton
@@ -124,7 +125,7 @@ class MainActivity : AppCompatActivity() {
         checkLocalOnly             = findViewById(R.id.checkLocalOnly)
         checkWaitForComputer       = findViewById(R.id.checkWaitForComputer)
         btnScanPair                = findViewById(R.id.btnScanPair)
-        tvPairingTitle             = findViewById(R.id.tvPairingTitle)
+        tvPairingTitle             = findViewById<CardHeader>(R.id.headerPairing).title
         tvPairingHint              = findViewById(R.id.tvPairingHint)
         layoutComputers            = findViewById(R.id.layoutComputers)
         btnPreview                 = findViewById(R.id.btnPreview)
@@ -169,7 +170,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         cardUpdate    = findViewById(R.id.cardUpdate)
-        tvUpdateTitle = findViewById(R.id.tvUpdateTitle)
+        tvUpdateTitle = findViewById<CardHeader>(R.id.headerUpdate).title
         tvUpdateText  = findViewById(R.id.tvUpdateText)
         btnUpdate     = findViewById(R.id.btnUpdate)
         switchNightly = findViewById(R.id.switchNightly)
@@ -185,6 +186,7 @@ class MainActivity : AppCompatActivity() {
             }
         } else {
             switchNightly.visibility = View.GONE
+            findViewById<View>(R.id.sectionUpdates).visibility = View.GONE
             findViewById<View>(R.id.tvNightlyHint).visibility = View.GONE
             btnCheckUpdates.visibility = View.GONE
         }
@@ -492,7 +494,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun styleScanButton(primary: Boolean) {
-        val fill = if (primary) R.color.colorPrimary else android.R.color.transparent
+        val fill = if (primary) R.color.colorPrimary else R.color.colorSurfaceHover
         val text = if (primary) R.color.colorOnPrimary else R.color.colorOnSurface
         btnScanPair.backgroundTintList = ColorStateList.valueOf(resources.getColor(fill, theme))
         btnScanPair.setTextColor(resources.getColor(text, theme))
@@ -502,11 +504,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun buildComputerRow(computer: PairedComputer): View {
+        // An inset row like the desktop's phone list: the computer's icon, its name and when it was paired
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = android.view.Gravity.CENTER_VERTICAL
-            setPadding(0, 0, 0, dp(12))
+            setBackgroundResource(R.drawable.bg_inset)
+            setPadding(dp(12), dp(10), dp(10), dp(10))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { bottomMargin = dp(8) }
         }
+        row.addView(ImageView(this).apply {
+            setImageResource(R.drawable.ic_monitor)
+            imageTintList = ColorStateList.valueOf(resources.getColor(R.color.hueSky, theme))
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            layoutParams = LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginEnd = dp(12) }
+        })
         val textBlock = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
@@ -514,6 +527,7 @@ class MainActivity : AppCompatActivity() {
         textBlock.addView(TextView(this).apply {
             text = computer.name
             setTextAppearance(R.style.TextAppearance_Telescope_Body)
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
         })
         textBlock.addView(TextView(this).apply {
             val date = java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM)
@@ -643,7 +657,7 @@ class MainActivity : AppCompatActivity() {
         row.addView(textBlock)
 
         if (step.done) {
-            row.addView(android.widget.ImageView(this).apply {
+            row.addView(ImageView(this).apply {
                 setImageResource(R.drawable.ic_check)
                 imageTintList = ColorStateList.valueOf(resources.getColor(R.color.colorStreamingText, theme))
                 contentDescription = getString(R.string.setup_allowed)
@@ -769,13 +783,21 @@ class MainActivity : AppCompatActivity() {
                 service?.cameraOff == true -> R.string.status_mic_only
                 else -> R.string.status_streaming
             })
-            tvStatus.setTextColor(resources.getColor(
-                if (viewed && !taken) R.color.colorStreamingText else R.color.colorWarn, theme))
+            tintStatus(if (viewed && !taken) R.color.colorStreamingText else R.color.colorWarn)
         } else {
             tvStatus.setText(if (busy) R.string.status_starting else R.string.status_not_streaming)
-            tvStatus.setTextColor(resources.getColor(R.color.colorOnSurfaceDim, theme))
+            tintStatus(R.color.colorOnSurfaceDim)
         }
         if (::cardUpdate.isInitialized && cardUpdate.visibility == View.VISIBLE) renderUpdate()
+    }
+
+    // The status text, its icon and the round chip behind it, in one colour
+    private fun tintStatus(colorRes: Int) {
+        val color = resources.getColor(colorRes, theme)
+        tvStatus.setTextColor(color)
+        findViewById<ImageView>(R.id.ivStatus).imageTintList = ColorStateList.valueOf(color)
+        findViewById<View>(R.id.statusChip).backgroundTintList =
+            ColorStateList.valueOf(androidx.core.graphics.ColorUtils.setAlphaComponent(color, 36))
     }
 
     private fun copyDiagnostics() {

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="open_preview">Öppna kameraförhandsvisning</string>
+    <string name="preview_button">Förhandsvisning</string>
     <string name="close_preview">Stäng förhandsvisning</string>
     <string name="update_available">Uppdatering tillgänglig</string>
     <string name="update_failed_title">Uppdateringen blev inte klar</string>
@@ -84,12 +85,12 @@
     <string name="wait_for_computer_hint">Håller Telescope igång när skärmen är av, så att en parkopplad dator kan starta kameran.</string>
     <string name="stop_streaming">Stoppa strömning</string>
     <string name="status_title">Status</string>
-    <string name="status_not_streaming">○ Strömmar inte</string>
-    <string name="status_starting">○ Startar…</string>
-    <string name="status_streaming">● Strömmar</string>
-    <string name="status_waiting_for_computer">● Väntar på datorn</string>
-    <string name="status_mic_only">● Strömmar mikrofonen, kameran avstängd</string>
-    <string name="status_camera_taken">● En annan app använder kameran. Strömningen fortsätter när den är ledig.</string>
+    <string name="status_not_streaming">Strömmar inte</string>
+    <string name="status_starting">Startar…</string>
+    <string name="status_streaming">Strömmar</string>
+    <string name="status_waiting_for_computer">Väntar på datorn</string>
+    <string name="status_mic_only">Strömmar mikrofonen, kameran avstängd</string>
+    <string name="status_camera_taken">En annan app använder kameran. Strömningen fortsätter när den är ledig.</string>
     <string name="streaming_started_remotely">Strömningen startades från din dator</string>
     <string name="about_title">Om</string>
     <string name="copy_diagnostics">Kopiera diagnostik</string>
@@ -98,6 +99,7 @@
     <string name="troubleshooting">Felsökning</string>
     <string name="nightly_updates">Nightly-uppdateringar</string>
     <string name="nightly_updates_hint">Byggs vid varje ändring: rättningar kommer snabbare men är mindre testade.</string>
+    <string name="updates_section">Uppdateringar</string>
     <string name="check_for_updates">Sök efter uppdateringar</string>
     <string name="translation_draft">Den här översättningen är ett första utkast och vissa texter kan låta lite konstiga.</string>
     <string name="made_by">Skapad av &lt;a href=\"%1$s\"&gt;LunarKittyy&lt;/a&gt;</string>

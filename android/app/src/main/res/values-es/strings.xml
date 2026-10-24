@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="open_preview">Abrir vista previa de la cámara</string>
+    <string name="preview_button">Vista previa</string>
     <string name="close_preview">Cerrar vista previa</string>
     <string name="update_available">Actualización disponible</string>
     <string name="update_failed_title">La actualización no finalizó</string>
@@ -84,12 +85,12 @@
     <string name="wait_for_computer_hint">Mantiene Telescope en ejecución mientras la pantalla está apagada, para que una computadora vinculada pueda iniciar la cámara.</string>
     <string name="stop_streaming">Detener transmisión</string>
     <string name="status_title">Estado</string>
-    <string name="status_not_streaming">○ No está transmitiendo</string>
-    <string name="status_starting">○ Iniciando…</string>
-    <string name="status_streaming">● Transmitiendo</string>
-    <string name="status_waiting_for_computer">● Esperando a la computadora</string>
-    <string name="status_mic_only">● Transmitiendo el micrófono, cámara desactivada</string>
-    <string name="status_camera_taken">● Otra app está usando la cámara. La transmisión continuará cuando esté libre.</string>
+    <string name="status_not_streaming">No está transmitiendo</string>
+    <string name="status_starting">Iniciando…</string>
+    <string name="status_streaming">Transmitiendo</string>
+    <string name="status_waiting_for_computer">Esperando a la computadora</string>
+    <string name="status_mic_only">Transmitiendo el micrófono, cámara desactivada</string>
+    <string name="status_camera_taken">Otra app está usando la cámara. La transmisión continuará cuando esté libre.</string>
     <string name="streaming_started_remotely">Transmisión iniciada desde tu computadora</string>
     <string name="about_title">Acerca de</string>
     <string name="copy_diagnostics">Copiar diagnóstico</string>
@@ -98,6 +99,7 @@
     <string name="troubleshooting">Solución de problemas</string>
     <string name="nightly_updates">Actualizaciones Nightly</string>
     <string name="nightly_updates_hint">Compiladas a partir de cada cambio: las correcciones llegan antes, con menos pruebas.</string>
+    <string name="updates_section">Actualizaciones</string>
     <string name="check_for_updates">Buscar actualizaciones</string>
     <string name="translation_draft">Esta traducción es un primer borrador y algunos textos pueden sonar un poco raros.</string>
     <string name="made_by">Creado por &lt;a href=\"%1$s\"&gt;LunarKittyy&lt;/a&gt;</string>

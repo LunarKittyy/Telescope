@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="open_preview">Відкрити попередній перегляд</string>
+    <string name="preview_button">Перегляд</string>
     <string name="close_preview">Закрити попередній перегляд</string>
     <string name="update_available">Доступне оновлення</string>
     <string name="update_failed_title">Оновлення не завершилося</string>
@@ -86,12 +87,12 @@
     <string name="wait_for_computer_hint">Залишає Telescope працювати, коли екран вимкнено, щоб підключений у парі комп\'ютер міг запустити камеру.</string>
     <string name="stop_streaming">Зупинити трансляцію</string>
     <string name="status_title">Стан</string>
-    <string name="status_not_streaming">○ Не транслює</string>
-    <string name="status_starting">○ Запуск…</string>
-    <string name="status_streaming">● Транслює</string>
-    <string name="status_waiting_for_computer">● Очікування на комп\'ютер</string>
-    <string name="status_mic_only">● Транслює мікрофон, камеру вимкнено</string>
-    <string name="status_camera_taken">● Інший додаток використовує камеру. Трансляція продовжиться, щойно вона звільниться.</string>
+    <string name="status_not_streaming">Не транслює</string>
+    <string name="status_starting">Запуск…</string>
+    <string name="status_streaming">Транслює</string>
+    <string name="status_waiting_for_computer">Очікування на комп\'ютер</string>
+    <string name="status_mic_only">Транслює мікрофон, камеру вимкнено</string>
+    <string name="status_camera_taken">Інший додаток використовує камеру. Трансляція продовжиться, щойно вона звільниться.</string>
     <string name="streaming_started_remotely">Трансляцію запущено з вашого комп\'ютера</string>
     <string name="about_title">Про додаток</string>
     <string name="copy_diagnostics">Скопіювати діагностику</string>
@@ -100,6 +101,7 @@
     <string name="troubleshooting">Усунення несправностей</string>
     <string name="nightly_updates">Оновлення Nightly</string>
     <string name="nightly_updates_hint">Збирається з кожної зміни: виправлення надходять швидше, але з меншим тестуванням.</string>
+    <string name="updates_section">Оновлення</string>
     <string name="check_for_updates">Перевірити наявність оновлень</string>
     <string name="translation_draft">Це перша чернетка перекладу, тому деякі тексти можуть звучати дивно.</string>
     <string name="made_by">Автор: &lt;a href=\"%1$s\"&gt;LunarKittyy&lt;/a&gt;</string>
