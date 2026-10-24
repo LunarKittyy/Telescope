@@ -21,7 +21,6 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.util.Range
 import androidx.core.app.NotificationCompat
-import androidx.core.graphics.drawable.toBitmap
 import androidx.core.content.ContextCompat
 import android.view.Surface
 import kotlin.math.abs
@@ -267,7 +266,7 @@ class CameraStreamService : Service() {
             val stop = PendingIntent.getService(context, 1,
                 Intent(context, CameraStreamService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE)
             builder.addAction(0, context.getString(R.string.stop_streaming), stop)
-            builder.setLargeIcon(context.packageManager.getApplicationIcon(context.applicationInfo).toBitmap())
+            builder.setContentTitle(context.getString(R.string.notif_streaming_title))
             return builder
         }
         private val BUSY_STATES = setOf(

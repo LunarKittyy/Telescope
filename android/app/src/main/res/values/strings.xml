@@ -164,6 +164,7 @@
     <string name="notif_channel_streaming_desc">Shown while the camera is streaming to your computer</string>
     <string name="notif_channel_waiting">Waiting for the computer</string>
     <string name="notif_channel_waiting_desc">Shown while Telescope keeps waiting for a paired computer to start the camera</string>
+    <string name="notif_streaming_title">Streaming</string>
     <string name="notif_camera_streaming">Camera is streaming</string>
     <string name="notif_mic_streaming">Microphone is streaming, camera off</string>
     <string name="notif_waiting">Waiting for your computer</string>
