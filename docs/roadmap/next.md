@@ -2,7 +2,7 @@
 
 Planned in October 2026, after 4.1. The first two were left over from 4.0 and didn't make it into 4.1 either.
 
-- [ ] [720p when the phone gets critically hot](#720p-when-the-phone-gets-critically-hot)
+- [x] [720p when the phone gets critically hot](#720p-when-the-phone-gets-critically-hot)
 - [ ] [Saying to extract the Windows zip first](#saying-to-extract-the-windows-zip-first)
 - [x] [Live notification for streaming status](#live-notification-for-streaming-status)
 - [x] [Phone app in the 4.0 style](#phone-app-in-the-40-style)
@@ -10,9 +10,9 @@ Planned in October 2026, after 4.1. The first two were left over from 4.0 and di
 
 ## 720p when the phone gets critically hot
 
-4.0 caps the frame rate at 24 fps when Android's thermal status hits SEVERE and at 15 fps when it's CRITICAL. The plan was to drop to 720p at CRITICAL too but changing the size mid-stream reaches further than the frame rate does. The desktop's resolution picker, saved sizes and the encoder all have to follow it and the desktop should also show that heat was the reason.
+At Android's critical thermal status the phone now also drops to 720p (the largest size of the same shape with a short side of 720 or less), on top of 15 fps. The state keeps saying the size the desktop asked for in `stream_width` and gives the smaller one in `heat_width`, so the desktop's resolution pick and saved size stay as they were. The desktop shows "The phone is very hot" while it lasts, checking every 15 s so it notices heat that comes mid-stream and goes once the phone cools. It goes back to the asked size after the same 30 s cool-down the frame rate has.
 
-Medium. Needs a real phone that gets hot enough, since the emulator never reaches CRITICAL.
+Tried on a real phone with `adb shell cmd thermalservice override-status 4`. A stream that starts while the phone is already critical opens the virtual camera at 720p and keeps that size until the next start.
 
 ## Saying to extract the Windows zip first
 

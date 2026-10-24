@@ -158,4 +158,26 @@ class HeatStepTest {
         assertEquals(0, HeatStep.status(0, Float.NaN))  // no forecast on this phone
         assertEquals(0, HeatStep.status(0, Float.POSITIVE_INFINITY))
     }
+
+    private val sizes = listOf(3840 to 2160, 1920 to 1080, 1440 to 1080, 1280 to 720, 960 to 720, 640 to 480)
+
+    @Test
+    fun `critical drops to 720p in the same shape, anything cooler keeps the size`() {
+        assertEquals(1280 to 720, HeatStep.size(HeatStep.CRITICAL, 1920 to 1080, sizes))
+        assertEquals(960 to 720, HeatStep.size(HeatStep.CRITICAL, 1440 to 1080, sizes))
+        assertEquals(null, HeatStep.size(HeatStep.SEVERE, 1920 to 1080, sizes))
+        assertEquals(1280 to 720, HeatStep.size(6, 3840 to 2160, sizes))  // shutdown is past critical
+    }
+
+    @Test
+    fun `a size already at 720p or under, or without a smaller one in its shape, isn't touched`() {
+        assertEquals(null, HeatStep.size(HeatStep.CRITICAL, 1280 to 720, sizes))
+        assertEquals(null, HeatStep.size(HeatStep.CRITICAL, 640 to 480, sizes))
+        assertEquals(null, HeatStep.size(HeatStep.CRITICAL, 1920 to 1080, listOf(1920 to 1080, 960 to 720)))
+    }
+
+    @Test
+    fun `it skips sizes the encoder can't take`() {
+        assertEquals(null, HeatStep.size(HeatStep.CRITICAL, 1920 to 1080, sizes) { w, _ -> w != 1280 })
+    }
 }

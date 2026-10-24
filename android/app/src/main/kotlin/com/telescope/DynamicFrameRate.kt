@@ -88,6 +88,20 @@ object HeatStep {
         return RUNGS.filter { it <= limit && canCapAt(it) }.maxOrNull()
     }
 
+    // At critical the picture drops to this (its short side), on top of the frame rate
+    const val CRITICAL_SHORT_SIDE = 720
+
+    /** The size to stream at for this status instead of [asked], or null when it needn't change: at critical, the largest
+     *  of [sizes] with the same shape whose short side is at most [CRITICAL_SHORT_SIDE] (and [fits], for Light). */
+    fun size(status: Int, asked: Pair<Int, Int>, sizes: List<Pair<Int, Int>>,
+             fits: (Int, Int) -> Boolean = { _, _ -> true }): Pair<Int, Int>? {
+        if (status < CRITICAL || minOf(asked.first, asked.second) <= CRITICAL_SHORT_SIDE) return null
+        val shape = asked.first.toFloat() / asked.second
+        return sizes.filter { (w, h) ->
+            minOf(w, h) <= CRITICAL_SHORT_SIDE && kotlin.math.abs(w.toFloat() / h - shape) < 0.01f && fits(w, h)
+        }.maxByOrNull { (w, h) -> w * h }
+    }
+
     const val FORECAST_S = 30  // how far ahead to ask Android about (Android 11 and newer)
     const val FORECAST_EVERY_MS = 10_000L  // Android wants at most one ask a second; this is plenty
 

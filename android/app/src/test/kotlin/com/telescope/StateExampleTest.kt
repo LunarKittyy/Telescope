@@ -29,7 +29,7 @@ class StateExampleTest {
         ois = false, focus_mode = "manual", focus_distance = 2.5f, nr_mode = 2, edge_mode = 2, ae_comp = -3,
         black_level_lock = true, torch = true, jpeg_quality = 90, phone_fps = 30, camera_fps = 29.8,
         codecs = listOf("mjpeg", "h264"), codec = "h264", bitrate = 8_087_040,
-        dynamic_bitrate = true, dynamic_fps = 24, heat_fps = 15, low_light = true, low_light_toggle = true,
+        dynamic_bitrate = true, dynamic_fps = 24, heat_fps = 15, heat_width = 1280, heat_height = 720, low_light = true, low_light_toggle = true,
         h264_profile = "high", intra_refresh = true, wifi_band = "5", wifi_rssi = -58, wifi_mbps = 866, codec_error = "H.264 isn't available at 1920x1080 on this phone", codec_error_code = "h264_unavailable",
         codec_error_width = 1920, codec_error_height = 1080, codec_unsupported = true,
         active_lens = "2", camera_off = true, camera_error = "The camera didn't turn back on. Another app may be using it.", camera_error_code = "camera_in_use",
