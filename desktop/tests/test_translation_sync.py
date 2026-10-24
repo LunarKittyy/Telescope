@@ -73,7 +73,9 @@ def test_push_publishes_and_pull_writes_approved_wording(repository, tmp_path, c
     template = i18n.Entry('Notify me')
     template.flags, template.locations = ['python-brace-format'], ['new.py:9']
     i18n.write_po(tmp_path / 'telescope.pot', 'Language: es\nPlural-Forms: nplurals=2; plural=(n != 1);\n', [template])
+    assert sync.pull(store, None, tmp_path, tmp_path) == []
     assert sync.pull(store, ['es'], tmp_path, tmp_path) == ['es']
+    assert sync.pull(store, None, tmp_path, tmp_path) == ['es']
     entries, _header = i18n.read_po(tmp_path / 'es.po')
     assert entries[0].msgstr == ['Avisarme']
     assert entries[0].flags == ['python-brace-format'] and entries[0].locations == ['new.py:9']

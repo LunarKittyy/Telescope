@@ -110,7 +110,12 @@ def pull(store, languages=None, locale=None, state=None):
         raise ValueError('The shared project is empty. Push this checkout first.')
     pending = [fields(item) for item in store.list('submissions')]
     written = []
-    for language in languages or sorted(platform['languages']):
+    if not languages:
+        drafts = sorted(code for code in platform['languages'] if not (Path(locale) / f'{code}.po').exists())
+        if drafts:
+            print(f"Only on the site, skipped: {', '.join(drafts)}. Name one with --lang to add it to the checkout.")
+        languages = sorted(set(platform['languages']) - set(drafts))
+    for language in languages:
         language = review.trusted_language(language, project.language_options())
         if language not in platform['languages']:
             print(f'{language}: not in the shared project')

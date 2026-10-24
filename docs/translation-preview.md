@@ -52,12 +52,12 @@ Approving or dismissing a suggestion doesn't touch the project version. An appro
 
 ```bash
 python scripts/translation_sync.py --account ACCOUNT pull            # approved site wording into this checkout
-python scripts/translation_sync.py --account ACCOUNT pull --lang pl  # one language
+python scripts/translation_sync.py --account ACCOUNT pull --lang pl  # one language, also one that's only on the site so far
 python scripts/translation_sync.py --account ACCOUNT push            # show what importing this checkout would change
 python scripts/translation_sync.py --account ACCOUNT push --apply    # publish that import
 ```
 
-`pull` only changes translations and takes flags, comments and line numbers from the checkout. A language with no new approvals stays byte for byte the same. It also says how many suggestions are still waiting and whether the site's texts have fallen behind the checkout. `push` refuses to save if someone published in the meantime.
+`pull` only changes translations and takes flags, comments and line numbers from the checkout. A language with no new approvals stays byte for byte the same. Languages that only exist on the site are skipped unless named with `--lang`. It also says how many suggestions are still waiting and whether the site's texts have fallen behind the checkout. `push` refuses to save if someone published in the meantime.
 
 For local maintainer work without Firebase, `--admin PUBLIC_REVIEWER_NAME` enables approvals and `.po` import into this checkout. Imported wording remains pending until approved. This is a trusted local mode, not hosted authentication. See [the review-record format](../desktop/translation-state/README.md).
 
