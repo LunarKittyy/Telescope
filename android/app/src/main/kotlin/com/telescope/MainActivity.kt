@@ -108,9 +108,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Toast "started from your desktop" only once per remote start.
-    private var remoteStartAnnounced = false
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         RecentRuns.recordCrashes(this)
@@ -713,14 +710,11 @@ class MainActivity : AppCompatActivity() {
     // Desktop can start stream while screen is up; bindService(flags=0) doesn't connect retroactively
     private fun adoptRemoteStart() {
         val service = CameraStreamService.instance
-        if (service == null) {
-            // Nothing running; arm the announcement for the next remote start.
-            remoteStartAnnounced = false
-            return
-        }
+        if (service == null) return
         if (!bound) rebindToService()
-        if (!remoteStartAnnounced && service.startedRemotely && service.isStreaming) {
-            remoteStartAnnounced = true
+        // Toast "started from your desktop" only once per remote start
+        if (!service.remoteStartAnnounced && service.startedRemotely && service.isStreaming) {
+            service.remoteStartAnnounced = true
             Toast.makeText(this, R.string.streaming_started_remotely, Toast.LENGTH_SHORT).show()
         }
     }
