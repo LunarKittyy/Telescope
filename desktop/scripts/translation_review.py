@@ -121,6 +121,7 @@ def import_po(language, content, sources, author):
         raise ValueError('An author and a .po file smaller than 4 MB are required')
     if any(int(match) > 5 for match in re.findall(r'(?m)^\s*(?:#~\s*)?msgstr\[(\d+)\]', content)):
         raise ValueError('The .po file has an invalid plural index')
+    language = trusted_language(language, i18n.available())
     state = load(language)
     entries, header = i18n.read_po(i18n.LOCALE_DIR / f'{language}.po')
     source_by_key = {entry.key: entry for entry in sources.values()}
