@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
 from telescope import theme
 from telescope.plugin import SETTINGS_TABS
 from telescope.widgets import settings_search
-from telescope.widgets.common import ui_px, wrapped_note
+from telescope.widgets.common import elided, ui_px, wrapped_note
 from telescope.widgets.controls import SCREEN_MARGIN
 from telescope.widgets.line_icons import line_icon
 from telescope.i18n import tr
@@ -123,10 +123,10 @@ class _ResultDelegate(QStyledItemDelegate):
         top = rect.top() + (rect.height() - 2 * fm.height() - 2) / 2
         width = int(rect.width())
         painter.setPen(QColor("#ffffff" if selected else theme.TEXT))
-        painter.drawText(QPointF(rect.left(), top + fm.ascent()), fm.elidedText(name, Qt.TextElideMode.ElideRight, width))
+        painter.drawText(QPointF(rect.left(), top + fm.ascent()), elided(opt.widget, fm, name, width))
         painter.setPen(QColor("#e6e1ff" if selected else theme.TEXT_DIM))
         painter.drawText(QPointF(rect.left(), top + fm.height() + 2 + fm.ascent()),
-                         fm.elidedText(path, Qt.TextElideMode.ElideRight, width))
+                         elided(opt.widget, fm, path, width))
         painter.restore()
 
 

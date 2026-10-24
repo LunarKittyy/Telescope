@@ -5,7 +5,7 @@ from PyQt6.QtGui import QColor, QFont, QFontMetrics, QPainter
 from PyQt6.QtWidgets import QLabel, QPushButton, QSizePolicy, QStyle, QStyleOptionButton, QVBoxLayout, QWidget
 
 from telescope import theme
-from telescope.widgets.common import FlowLayout, cap_baseline, card_hue, stacked_baselines, ui_px
+from telescope.widgets.common import FlowLayout, cap_baseline, card_hue, elided, stacked_baselines, ui_px
 from telescope.i18n import tr
 
 TILE_HEIGHT = 54
@@ -81,7 +81,7 @@ class _LensButton(QPushButton):
         width = self.width() - 8
         p.setPen(ink)
         p.setFont(big)
-        number = p.fontMetrics().elidedText(self._number, Qt.TextElideMode.ElideRight, width)
+        number = elided(self, p.fontMetrics(), self._number, width)
         n_w = p.fontMetrics().horizontalAdvance(number)
         unit = QFont(small)
         unit.setWeight(QFont.Weight.Medium)
@@ -95,7 +95,7 @@ class _LensButton(QPushButton):
             p.setFont(small)
             faint = QColor(ink if on else theme.TEXT_FAINT)
             p.setPen(faint)
-            rest = p.fontMetrics().elidedText(self._rest, Qt.TextElideMode.ElideRight, width)
+            rest = elided(self, p.fontMetrics(), self._rest, width)
             p.drawText(QPointF(4 + (width - p.fontMetrics().horizontalAdvance(rest)) / 2, second), rest)
         p.end()
 

@@ -102,6 +102,19 @@ def stretch_slider(slider: QWidget, minimum: int = SLIDER_TRACK_WIDTH) -> QWidge
     return slider
 
 
+# While a list, every text elided() cut short is added to it as (widget, text, needed, width): scripts/text_fit.py reads it
+elisions = None
+
+
+def elided(widget, metrics, text: str, width: int, mode: Qt.TextElideMode = Qt.TextElideMode.ElideRight) -> str:
+    """text cut to width with an ellipsis, the way every widget that draws its own text does it, so the layout check
+    sees what got cut."""
+    shown = metrics.elidedText(text, mode, width)
+    if elisions is not None and shown != text:
+        elisions.append((widget, text, math.ceil(metrics.horizontalAdvance(text)), width))
+    return shown
+
+
 class ElidingLabel(QLabel):
     """Label that elides text instead of forcing row wider (full text in tooltip)."""
 
@@ -129,7 +142,7 @@ class ElidingLabel(QLabel):
     def _apply_elide(self):
         metrics = QFontMetrics(self.font())
         width = max(self.width(), 1)
-        super().setText(metrics.elidedText(self._full, self._mode, width))
+        super().setText(elided(self, metrics, self._full, width, self._mode))
 
 
 class FlowLayout(QLayout):
@@ -300,13 +313,13 @@ class OptionButton(SegmentButton):
         p.setPen(ink)
         p.setFont(title)
         p.drawText(QRect(box.left(), 0, box.width(), half + 1), int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom),
-                   p.fontMetrics().elidedText(self.text(), Qt.TextElideMode.ElideRight, box.width()))
+                   elided(self, p.fontMetrics(), self.text(), box.width()))
         faint = QColor(ink)
         faint.setAlphaF(0.85 if on else 0.6)
         p.setPen(faint)
         p.setFont(small)
         p.drawText(QRect(box.left(), half + 2, box.width(), half - 2), int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop),
-                   p.fontMetrics().elidedText(self._note, Qt.TextElideMode.ElideRight, box.width()))
+                   elided(self, p.fontMetrics(), self._note, box.width()))
         p.end()
 
 
@@ -364,7 +377,7 @@ class Switch(QCheckBox):
                                           | Qt.TextFlag.TextWordWrap), self.text())
             else:
                 p.drawText(text_rect, int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
-                           fm.elidedText(self.text(), Qt.TextElideMode.ElideRight, text_rect.width()))
+                           elided(self, fm, self.text(), text_rect.width()))
         p.end()
 
     def enterEvent(self, event):
@@ -528,12 +541,13 @@ class StatusPill(QFrame):
         p.setPen(self._ink)
         p.setFont(big)
         room = self.width() - x - 14
-        p.drawText(QPointF(x, base), fm_big.elidedText(self._value, Qt.TextElideMode.ElideRight, room))
+        p.drawText(QPointF(x, base), elided(self, fm_big, self._value, room))
         x += fm_big.horizontalAdvance(self._value) + 9
-        if self._note and x < self.width() - 14:
+        if self._note:
             p.setFont(self.font())
-            p.drawText(QPointF(x, base), p.fontMetrics().elidedText(self._note, Qt.TextElideMode.ElideRight,
-                                                                     self.width() - 14 - x))
+            note = elided(self, p.fontMetrics(), self._note, max(0, self.width() - 14 - x))  # no room at all is cut too
+            if note:
+                p.drawText(QPointF(x, base), note)
         p.end()
 
 

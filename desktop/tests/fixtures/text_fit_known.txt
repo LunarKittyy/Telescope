@@ -1,0 +1,44 @@
+# Texts known not to fit, made with the Inter font: one line per language, problem and English text (tab-separated).
+# tests/test_text_fit.py fails on anything that doesn't fit and isn't here, and on a line here that fits now.
+# Make a text fit rather than adding it; scripts/text_fit.py --known prints the lines for what it finds.
+es	cut off	Presets
+es	cut short	Frame rate
+es	cut short	Good for most calls
+es	cut short	Stop the stream
+es	out of its box	No phone yet
+id	cut short	Good for most calls
+id	cut short	Sharper, more data
+id	cut short	Stop the stream
+pseudo	cut off	Auto
+pseudo	cut off	Chest
+pseudo	cut off	Easy
+pseudo	cut off	Shift
+pseudo	cut off	[+0.0 ÉṼ ~]
+pseudo	cut off	[Ĥ [0% ~] ~]\n[Ṽ [0% ~] ~]
+pseudo	cut short	Frame rate
+pseudo	cut short	Good for most calls
+pseudo	cut short	Keyboard shortcuts
+pseudo	cut short	Sharper, more data
+pseudo	cut short	Virtual camera & phone
+pseudo	not translated	30 fps
+pseudo	out of its box	20[% ~]
+pseudo	out of its box	270°
+pseudo	out of its box	45[ °Ç ~]
+pseudo	out of its box	Add phone
+pseudo	out of its box	Black level lock
+pseudo	out of its box	Fast
+pseudo	out of its box	Heavy
+pseudo	out of its box	Manual
+pseudo	out of its box	Picture
+pseudo	out of its box	Reset
+pseudo	out of its box	Start streaming to load lenses
+pseudo	out of its box	Stop the stream
+pseudo	out of its box	Upside down
+pseudo	out of its box	Widen for something in your hand
+pseudo	out of its box	[1.0× ~]
+pseudo	out of its box	—
+pt_BR	cut short	Frame rate
+pt_BR	cut short	Good for most calls
+uk	cut short	Frame rate
+uk	cut short	Good for most calls
+uk	cut short	Virtual camera & phone
