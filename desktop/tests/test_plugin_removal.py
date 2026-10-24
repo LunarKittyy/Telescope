@@ -273,6 +273,9 @@ def test_building_the_window_and_settings_flashes_up_no_other_windows(build, qap
         qapp.removeEventFilter(watch)
     stray = [w for w in watch.shown if w is not window and w is not window._settings_win and not w.inherits("QMenu")]
     assert stray == [], [(type(w).__name__, w.objectName()) for w in stray]
+    # A dropdown's list is a window of its own too, and building it early flashed it up on Windows without a Show event
+    popups = [w for w in window.findChildren(QWidget) if type(w).__name__ == "QComboBoxPrivateContainer"]
+    assert popups == [], [w.parent().objectName() for w in popups]
 
 
 class _MovedAfterShow(QObject):

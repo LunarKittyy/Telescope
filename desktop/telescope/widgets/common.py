@@ -1,8 +1,9 @@
 import math
 import threading
+import sys
 import weakref
 
-from PyQt6.QtCore import QByteArray, QCoreApplication, QEventLoop, QMetaObject, QThread, QPoint, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QByteArray, QCoreApplication, QEventLoop, QMetaObject, QThread, QPoint, QPointF, QRect, QRectF, QSize, Qt, QTimer, pyqtSignal
 from PyQt6 import sip
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtGui import (
@@ -782,6 +783,9 @@ class PlacedDialog(QDialog):
             self._placed = True
             self.fit_before_show()
             self._centre()
+            if sys.platform == "win32":
+                self.setWindowOpacity(0)  # Windows draws the empty frame before Qt paints the contents
+                QTimer.singleShot(50, lambda: self.setWindowOpacity(1))
         super().setVisible(visible)
 
     def fit_before_show(self):
@@ -1143,7 +1147,13 @@ class ComboItemDelegate(QStyledItemDelegate):
 class NoScrollComboBox(QComboBox):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setItemDelegate(ComboItemDelegate(self))
+        self._delegate = ComboItemDelegate(self)
+
+    def setItemDelegate(self, delegate):
+        self._delegate = delegate  # set on the first popup: setting it now builds the popup window, which flashes up on Windows
+
+    def itemDelegate(self):
+        return self._delegate or super().itemDelegate()
 
     def wheelEvent(self, event):
         event.ignore()
@@ -1161,6 +1171,9 @@ class NoScrollComboBox(QComboBox):
         # Qt sizes/positions the popup before it can know it overshoots the screen - it lines the current
         # item up with the combo, so picking a lower item near the top edge pushes the list above it.
         # Slide it back on screen, and only shrink it when it's taller than the screen itself.
+        if self._delegate is not None:
+            super().setItemDelegate(self._delegate)
+            self._delegate = None
         super().showPopup()
         popup = self.view().window()
         screen = self.screen()
