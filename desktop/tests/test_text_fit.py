@@ -1,28 +1,40 @@
 """Every text fits where it's shown, in every language and the pseudo one (scripts/text_fit.py measures them)."""
 
 import pytest
-from PyQt6.QtGui import QFontInfo
+from PyQt6.QtGui import QTextLayout
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
 
 from scripts import text_fit
 from telescope import i18n
 from telescope.widgets.common import ElidingLabel
 
-FONT = "Inter"  # what text_fit_known.txt was made with: other fonts measure differently
+# The fonts text_fit_known.txt was made with: other fonts measure differently. Inter has no Devanagari, so Hindi's
+# letters come from Noto Sans Devanagari
+FONTS = {"Inter", "Noto Sans Devanagari"}
 FIX = ("make it fit (a shorter translation, or room for a longer one), or if it has to stay, add the line to "
        "tests/fixtures/text_fit_known.txt. `python scripts/text_fit.py LANG --shots DIR` shows where it is")
 
 
-def _font_in_use() -> str:
-    label = QLabel("x")
+def _fonts_drawing(lang: str) -> set:
+    """The fonts the window draws lang's texts with on this machine."""
+    entries, _header = i18n.read_po(i18n.LOCALE_DIR / ("telescope.pot" if lang in ("en", "pseudo") else f"{lang}.po"))
+    texts = [e.msgstr[0] if e.msgstr and e.msgstr[0] else e.msgid for e in entries[:200]]
+    if lang == "pseudo":
+        texts = [i18n.pseudo(t) for t in texts]
+    label = QLabel()
     label.ensurePolished()
-    return QFontInfo(label.font()).family()
+    layout = QTextLayout(" ".join(texts), label.font())
+    layout.beginLayout()
+    layout.createLine()
+    layout.endLayout()
+    return {run.rawFont().familyName() for run in layout.glyphRuns()}
 
 
 @pytest.mark.parametrize("lang", text_fit.languages())
 def test_every_text_fits(qapp, config_home, lang):
-    if _font_in_use() != FONT:
-        pytest.skip(f"the window isn't in {FONT} here, so its texts measure differently from the known list")
+    other = _fonts_drawing(lang) - FONTS
+    if other:
+        pytest.skip(f"{lang} is drawn with {', '.join(sorted(other))} here, which measures differently from the known list")
     found = text_fit.run(lang)
     known = text_fit.known()
     new = [f for f in found if f.key not in known]

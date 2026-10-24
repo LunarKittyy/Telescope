@@ -80,7 +80,7 @@ It builds the window offscreen at the narrowest width of each of its layouts and
 
 To try a layout before any real translation exists, start the desktop with `TELESCOPE_LANG=pseudo`. That's a made-up language where every text is about 40% longer and accented ("[Šţàŕţ šţŕéàɱîñĝ ~~~~ ~~]"). Any plain English left on screen in it never went through `tr()`.
 
-`tests/test_text_fit.py` runs the same check on every language and the pseudo one and fails on anything new. What's already known not to fit is listed in `tests/fixtures/text_fit_known.txt` (fixing one means taking its line out). Text widths depend on the font, so the test only runs where the window gets the Inter font. The Linux CI job installs it and other machines skip the test.
+`tests/test_text_fit.py` runs the same check on every language and the pseudo one and fails on anything new. What's already known not to fit is listed in `tests/fixtures/text_fit_known.txt` (fixing one means taking its line out). Text widths depend on the font, so the test only runs a language where its texts are drawn in Inter (and Hindi's letters in Noto Sans Devanagari, since Inter has none). The Linux CI job installs both and other machines skip what they can't draw the same way.
 
 ## Translating with an AI
 
