@@ -196,7 +196,8 @@ class OnboardingPlugin(TelescopePlugin):
         has_device = self._phones > 0 or bool(self._source)
         needed = self._asked or not self._streaming and not (has_device and self._vcam_ready and self._streamed)
         self._close_btn.setVisible(self._asked)
-        if self._card.isHidden() != (not needed):
+        # Not shown before it has a parent (create_panel): on Windows that flashes it up as a window
+        if self._card.isHidden() != (not needed) and (not needed or self._card.parentWidget() is not None):
             self._card.setVisible(needed)
         self._bus.setup_needed.emit(needed)
 

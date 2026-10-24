@@ -1,15 +1,16 @@
 import math
 import threading
+import sys
 import weakref
 
-from PyQt6.QtCore import QByteArray, QCoreApplication, QEventLoop, QMetaObject, QThread, QPoint, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QByteArray, QCoreApplication, QEvent, QEventLoop, QMetaObject, QThread, QPoint, QPointF, QRect, QRectF, QSize, Qt, QTimer, pyqtSignal
 from PyQt6 import sip
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtGui import (
     QBrush, QColor, QFont, QFontMetrics, QFontMetricsF, QIcon, QPainter, QPainterPath, QPen, QPixmap,
 )
 from PyQt6.QtWidgets import (
-    QAbstractButton, QAbstractSlider, QAbstractSpinBox, QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QFrame, QGraphicsOpacityEffect, QGridLayout, QHBoxLayout, QLabel, QLayout,
+    QAbstractButton, QAbstractSlider, QAbstractSpinBox, QApplication, QCheckBox, QComboBox, QDialog, QDoubleSpinBox, QFrame, QGraphicsOpacityEffect, QGridLayout, QHBoxLayout, QLabel, QLayout,
     QPushButton, QScrollArea, QSlider, QSpinBox, QSizePolicy, QStyle, QStyledItemDelegate, QStyleOptionButton, QStyleOptionSlider, QVBoxLayout, QWidget,
 )
 
@@ -771,6 +772,57 @@ def icon_button(icon_name: str, name: str, tooltip: str = "") -> QPushButton:
     return btn
 
 
+# QTBUG-106583 workaround (Windows shows a new Qt window as an empty frame before it's painted): drop everything tagged with it once Qt fixes it
+def _cloak(dialog: "PlacedDialog", on: bool):
+    """Hides a window from the screen while Windows still treats it as shown, so it can be drawn first."""
+    import ctypes
+    dialog._cloaked = on
+    value = ctypes.c_int(1 if on else 0)
+    ctypes.windll.dwmapi.DwmSetWindowAttribute(ctypes.c_void_p(int(dialog.winId())), 13, ctypes.byref(value), 4)  # DWMWA_CLOAK
+
+
+class PlacedDialog(QDialog):
+    """A dialog sized and centred over its window before it's first shown. QDialog centres it in showEvent, and on
+    Windows it showed at the top left of the screen for a moment first."""
+
+    _placed = False
+    _cloaked = False  # QTBUG-106583 workaround, see _cloak
+
+    def setVisible(self, visible):
+        if visible and not self._placed:
+            self._placed = True
+            self.fit_before_show()
+            self._centre()
+            if sys.platform == "win32":  # QTBUG-106583 workaround, see _cloak
+                _cloak(self, True)
+                QTimer.singleShot(250, self._drawn)  # in case no paint comes; a method, so it goes with the dialog
+        super().setVisible(visible)
+
+    def event(self, event):  # QTBUG-106583 workaround, see _cloak
+        if event.type() == QEvent.Type.Paint and self._cloaked:
+            QTimer.singleShot(0, self._drawn)  # once this paint has reached the screen
+        return super().event(event)
+
+    def _drawn(self):  # QTBUG-106583 workaround, see _cloak
+        if self._cloaked:
+            _cloak(self, False)
+
+    def fit_before_show(self):
+        self.adjustSize()
+
+    def _centre(self):
+        owner = self.parentWidget()
+        screen = (owner.screen() if owner is not None else None) or QApplication.primaryScreen()
+        if screen is None:
+            return
+        area = screen.availableGeometry()
+        frame = owner.window().frameGeometry() if owner is not None else area
+        x = frame.x() + (frame.width() - self.width()) // 2
+        y = frame.y() + (frame.height() - self.height()) // 2
+        self.move(max(area.left(), min(x, area.right() - self.width())),
+                  max(area.top(), min(y, area.bottom() - self.height())))
+
+
 def dialog_layout(dialog: QWidget) -> QVBoxLayout:
     lay = QVBoxLayout(dialog)
     lay.setContentsMargins(20, 18, 20, 18)
@@ -788,7 +840,8 @@ def dialog_header(layout: QVBoxLayout, title: str, subtitle: str = "") -> QLabel
     box.addWidget(title_lbl)
     sub = WrapLabel(subtitle)
     sub.setObjectName("dialog_subtitle")
-    sub.setVisible(bool(subtitle))
+    if not subtitle:
+        sub.hide()  # never setVisible(True) before it has a parent: on Windows that flashes it up as a window
     box.addWidget(sub)
     layout.addLayout(box)
     return sub
@@ -1113,7 +1166,13 @@ class ComboItemDelegate(QStyledItemDelegate):
 class NoScrollComboBox(QComboBox):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setItemDelegate(ComboItemDelegate(self))
+        self._delegate = ComboItemDelegate(self)
+
+    def setItemDelegate(self, delegate):
+        self._delegate = delegate  # set on the first popup: setting it now builds the popup window, which flashes up on Windows
+
+    def itemDelegate(self):
+        return self._delegate or super().itemDelegate()
 
     def wheelEvent(self, event):
         event.ignore()
@@ -1131,6 +1190,9 @@ class NoScrollComboBox(QComboBox):
         # Qt sizes/positions the popup before it can know it overshoots the screen - it lines the current
         # item up with the combo, so picking a lower item near the top edge pushes the list above it.
         # Slide it back on screen, and only shrink it when it's taller than the screen itself.
+        if self._delegate is not None:
+            super().setItemDelegate(self._delegate)
+            self._delegate = None
         super().showPopup()
         popup = self.view().window()
         screen = self.screen()

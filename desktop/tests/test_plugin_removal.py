@@ -4,13 +4,14 @@ import logging
 from types import SimpleNamespace
 
 import pytest
-from PyQt6.QtCore import QCoreApplication, QEvent, QTimer
-from PyQt6.QtWidgets import QLabel
+from PyQt6.QtCore import QCoreApplication, QEvent, QObject, QTimer
+from PyQt6.QtWidgets import QLabel, QWidget
 
 import telescope.app as app_module
 import telescope.plugins.connection as connection_module
 from telescope.config import load_config
 import telescope.plugins.setup as setup_plugin
+import telescope.updates as updates_module
 from telescope.plugin import TelescopePlugin
 from telescope.plugins import builtin_plugins
 from telescope.plugins.onboarding import OnboardingPlugin
@@ -244,3 +245,78 @@ def test_every_built_in_plugin_says_what_it_is_for_the_plugins_tab():
         assert plugin.title and plugin.about, plugin.name
         assert plugin.required or plugin.when_off, f"{plugin.name}: say what goes away while it's off"
     assert {p.name for p in builtin_plugins() if p.required} == {"connection", "setup", "updates"}
+
+
+class _WindowsShown(QObject):
+    """Notes every widget shown as a window of its own."""
+
+    def __init__(self):
+        super().__init__()
+        self.shown = []
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.Show and isinstance(obj, QWidget) and obj.isWindow():
+            self.shown.append(obj)
+        return False
+
+
+def test_building_the_window_and_settings_flashes_up_no_other_windows(build, qapp, monkeypatch):
+    # A widget shown before it has a parent opens as a window of its own for a moment (seen on Windows)
+    monkeypatch.setattr(updates_module, "is_unzipped_copy", lambda: True)  # as on Windows, where it brings a row along
+    watch = _WindowsShown()
+    qapp.installEventFilter(watch)
+    try:
+        window = build("")
+        window.show()
+        for page in ("general", "streaming", "video", "audio", "camera", "shortcuts", "plugins", "updates"):
+            window.open_settings(page)
+            qapp.processEvents()
+    finally:
+        qapp.removeEventFilter(watch)
+    stray = [w for w in watch.shown if w is not window and w is not window._settings_win and not w.inherits("QMenu")]
+    assert stray == [], [(type(w).__name__, w.objectName()) for w in stray]
+    # A dropdown's list is a window of its own too, and building it early flashed it up on Windows without a Show event
+    popups = [w for w in window.findChildren(QWidget) if type(w).__name__ == "QComboBoxPrivateContainer"]
+    assert popups == [], [w.parent().objectName() for w in popups]
+
+
+class _MovedAfterShow(QObject):
+    """Notes a window moved or resized while it's already on screen."""
+
+    def __init__(self):
+        super().__init__()
+        self.jumps = []
+
+    def eventFilter(self, obj, event):
+        if not (isinstance(obj, QWidget) and obj.isWindow() and obj.isVisible() and not obj.inherits("QMenu")):
+            return False
+        if event.type() == QEvent.Type.Move:
+            self.jumps.append((type(obj).__name__, "Move"))
+        elif event.type() == QEvent.Type.Resize:  # Your phones grows a pixel or two once its rows know their width
+            old, new = event.oldSize(), event.size()
+            if abs(old.width() - new.width()) > 2 or abs(old.height() - new.height()) > 2:
+                self.jumps.append((type(obj).__name__, "Resize"))
+        return False
+
+
+def test_dialogs_are_placed_before_they_show(build, qapp, monkeypatch):
+    # Centred or resized once showing, a dialog appeared at the top left of the screen for a moment on Windows
+    monkeypatch.setattr(connection_module.PairingServer, "start", lambda self, *a, **k: SimpleNamespace(
+        candidates=[], payload="", port=None, usb_payload=""))
+    window = build("")
+    window.show()
+    qapp.processEvents()
+    watch = _MovedAfterShow()
+    qapp.installEventFilter(watch)
+    try:
+        conn = next(p for p in window._plugins if p.name == "connection")
+        window.open_settings()
+        conn.open_add_phone()
+        conn.open_phones()
+        for _ in range(5):
+            qapp.processEvents()
+    finally:
+        qapp.removeEventFilter(watch)
+        if conn._add_dlg is not None:
+            conn._add_dlg.done(0)
+    assert watch.jumps == []

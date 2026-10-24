@@ -6,14 +6,14 @@ import logging
 from PyQt6.QtCore import QPointF, QRectF, QSignalBlocker, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QKeySequence, QPainter, QShortcut
 from PyQt6.QtWidgets import (
-    QDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QScrollArea, QStackedWidget,
+    QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QScrollArea, QStackedWidget,
     QStyle, QStyledItemDelegate, QStyleOptionViewItem, QVBoxLayout, QWidget,
 )
 
 from telescope import theme
 from telescope.plugin import SETTINGS_TABS
 from telescope.widgets import settings_search
-from telescope.widgets.common import elided, ui_px, wrapped_note
+from telescope.widgets.common import PlacedDialog, elided, ui_px, wrapped_note
 from telescope.widgets.controls import SCREEN_MARGIN
 from telescope.widgets.line_icons import line_icon
 from telescope.i18n import tr
@@ -130,7 +130,7 @@ class _ResultDelegate(QStyledItemDelegate):
         painter.restore()
 
 
-class SettingsWindow(QDialog):
+class SettingsWindow(PlacedDialog):
     def __init__(self, sections: list, parent=None):
         """sections: every SettingsSection to show; its tab and order say where each goes."""
         super().__init__(parent)
@@ -177,7 +177,6 @@ class SettingsWindow(QDialog):
         self._tabs = ordered_tabs(sections)
         self._ids: list = []
         self._names: list = []
-        self._sized = False
         for tab, name, mine in self._tabs:
             self._ids.append(tab)
             self._names.append(name)
@@ -351,10 +350,10 @@ class SettingsWindow(QDialog):
         except RuntimeError:
             pass  # gone already
 
+    def fit_before_show(self):
+        self._fit_to_screen()
+
     def showEvent(self, event):
-        if not self._sized:
-            self._sized = True
-            self._fit_to_screen()
         super().showEvent(event)
         self.focus_search()
 

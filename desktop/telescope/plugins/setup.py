@@ -495,18 +495,21 @@ class AdvancedSettings(QWidget):
         set_button_icon(self._diag_btn, line_icon("copy", theme.TEXT_DIM))
         self._diag_btn.setToolTip(tr("Copies info for a bug report, leaving out pairing tokens, addresses and file paths."))
         self._diag_btn.clicked.connect(self._copy_diagnostics)
-        self._diag_btn.setVisible(self._report is not None)
+        if self._report is None:  # hide() only: showing a widget without a parent flashes it up as a window
+            self._diag_btn.hide()
         self._log_btn = QPushButton(tr("Open log"))
         self._log_btn.setToolTip(tr("The full log, in the temp folder (the system clears it)."))
         self._log_btn.clicked.connect(self._open_log)
-        self._log_btn.setVisible(self._report is not None and diagnostics.events.path is not None)
+        if self._report is None or diagnostics.events.path is None:
+            self._log_btn.hide()
         self._bug_btn = QPushButton(tr("Report a bug"))
         self._bug_btn.setToolTip(tr("Copies the diagnostics and opens the bug form on GitHub."))
         self._bug_btn.clicked.connect(self._report_bug)
         self._support_row, _ = setting_row(tr("Bug reports"), tr("Paste the diagnostics into the report."),
                                            self._support_buttons())
         keywords(self._support_row, tr("bug report diagnostics logs debug support problem issue help copy log file", ctx="search"))
-        self._support_row.setVisible(self._report is not None)
+        if self._report is None:
+            self._support_row.hide()
         about_lay.addWidget(self._support_row)
         help_btn = QPushButton(tr("Troubleshooting"))
         help_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(HELP_URL)))

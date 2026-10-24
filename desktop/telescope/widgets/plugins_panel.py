@@ -133,9 +133,9 @@ class PluginsPanel(QWidget):
                                                 tr("Delete the download the plugins here use. Switching one on gets "
                                                    "it again."))
             self._remove_pack_btn.clicked.connect(self._remove_pack)
+            rows = self._card(tr("Optional"), "download", self._remove_pack_btn)
             self._remove_pack_btn.setVisible(dl.ready() and not dl.running() and not any(
                 p.needs_vision and (p.name in on or p.name in self._running) for p in optional))
-            rows = self._card(tr("Optional"), "download", self._remove_pack_btn)
             self._progress_note = None
             for plugin in optional:
                 rows.addWidget(self._optional_row(plugin, plugin.name in on))

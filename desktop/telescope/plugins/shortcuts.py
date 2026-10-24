@@ -38,7 +38,7 @@ from telescope.shortcuts import (
 )
 from telescope.widgets.common import (
     Switch,
-    ElidingLabel, NoScrollComboBox, NoScrollDoubleSpinBox, control_row,
+    ElidingLabel, NoScrollComboBox, NoScrollDoubleSpinBox, PlacedDialog, control_row,
     control_row_widget, dialog_buttons, dialog_header, dialog_layout, set_ui_role, ui_px, wrapped_note,
     add_card_header, card_action, card_layout, create_card, icon_button,
 )
@@ -795,7 +795,7 @@ class ShortcutsSection(QWidget):
                                   "System Settings."))
 
 
-class BindingEditor(QDialog):
+class BindingEditor(PlacedDialog):
     """Add or change one binding: the control, how much, the key, and whether it works everywhere."""
 
     def __init__(self, plugin: ShortcutsPlugin, binding: dict, parent=None):

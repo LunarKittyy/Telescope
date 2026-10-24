@@ -442,7 +442,8 @@ def setting_row(title: str, sub: str = "", control=None, below=None, keywords: s
     line = WrapLabel(sub)
     line.setObjectName("setting_sub")
     line.setProperty("sub", True)
-    line.setVisible(bool(sub))
+    if not sub:
+        line.hide()  # never setVisible(True) before it has a parent: on Windows that flashes it up as a window
     texts.addWidget(line)
     texts.addStretch(1)
     top.addLayout(texts, 1)

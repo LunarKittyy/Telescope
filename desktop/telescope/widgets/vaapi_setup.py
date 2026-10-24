@@ -8,12 +8,12 @@ from typing import Callable, Optional
 
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
-    QApplication, QDialog, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget,
+    QApplication, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget,
 )
 
 from telescope import pyav_vaapi
 from telescope.widgets.common import (
-    card_layout, create_card, dialog_header, dialog_layout, set_status_kind, set_ui_role, ui_px,
+    PlacedDialog, card_layout, create_card, dialog_header, dialog_layout, set_status_kind, set_ui_role, ui_px,
 )
 from telescope.widgets.controls import setting_row
 from telescope.i18n import N_, and_list, tr
@@ -30,7 +30,7 @@ def _say(line: QLabel, text: str):
     line.setVisible(bool(text))
 
 
-class VaapiSetupDialog(QDialog):
+class VaapiSetupDialog(PlacedDialog):
     _sig_system = pyqtSignal(object)        # (folder, ok, version, why) or None
     _sig_existing = pyqtSignal(bool)
     _sig_line = pyqtSignal(str)

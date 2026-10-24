@@ -90,8 +90,9 @@ class UpdatesSection(QWidget):
         self._portable_row.setLayout(control_row(tr("Unzipped copy"), self._portable,
                                                  keywords=tr("portable keep this copy where it is zip folder in place "
                                                              "windows", ctx="search")))
-        self._portable_row.setVisible(updates.is_unzipped_copy())
         c.addWidget(self._portable_row)
+        if not updates.is_unzipped_copy():
+            self._portable_row.hide()  # never setVisible(True) before it has a parent: on Windows that flashes it up as a window
 
         self._status = wrapped_note("")
         c.addLayout(control_row("", self._status, stretch=True))
