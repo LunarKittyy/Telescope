@@ -46,6 +46,19 @@ Imports compare the last imported Git snapshot, the platform's current version a
 
 Approving or dismissing a suggestion doesn't touch the project version. An approval is one small document in `approvals/LANGUAGE-ENTRY`, written in the same batch that marks the submission approved, so several admins can review at once. The editor reads a precomputed summary of the current version from `projections/` and lays newer approvals over it, so opening a language doesn't download the whole project. Exports and the next import fold those approvals into the project; an approval for a source text that changed since is skipped.
 
+### Syncing from the command line
+
+`scripts/translation_sync.py` does the same import and export without the admin page. It signs in through gcloud with the account you pass on each run, and doesn't save it anywhere.
+
+```bash
+python scripts/translation_sync.py --account ACCOUNT pull            # approved site wording into this checkout
+python scripts/translation_sync.py --account ACCOUNT pull --lang pl  # one language
+python scripts/translation_sync.py --account ACCOUNT push            # show what importing this checkout would change
+python scripts/translation_sync.py --account ACCOUNT push --apply    # publish that import
+```
+
+`pull` only changes translations and takes flags, comments and line numbers from the checkout. A language with no new approvals stays byte for byte the same. It also says how many suggestions are still waiting and whether the site's texts have fallen behind the checkout. `push` refuses to save if someone published in the meantime.
+
 For local maintainer work without Firebase, `--admin PUBLIC_REVIEWER_NAME` enables approvals and `.po` import into this checkout. Imported wording remains pending until approved. This is a trusted local mode, not hosted authentication. See [the review-record format](../desktop/translation-state/README.md).
 
 ## How it follows the app
