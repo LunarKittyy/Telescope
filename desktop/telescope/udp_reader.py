@@ -1,6 +1,7 @@
 """Experimental H.264 over UDP for Wi-Fi (/v1/video.udp, docs/protocol.md), falling back to H264Reader's TCP stream."""
 
 import base64
+import importlib.util
 import json
 import logging
 import select
@@ -17,10 +18,19 @@ from telescope.pinned_https import PhoneAuth
 
 logger = logging.getLogger(__name__)
 
-try:
-    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-except ImportError:  # it's a dependency; without it only TCP
-    AESGCM = None
+
+def _aesgcm():
+    """cryptography's AESGCM, imported when a stream seals its first datagram. None without it: then only TCP."""
+    try:
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    except ImportError:  # it's a dependency
+        return None
+    return AESGCM
+
+
+def _can_seal() -> bool:
+    """Whether AESGCM is installed. Looks without importing it, so a start-up check stays cheap."""
+    return importlib.util.find_spec("cryptography") is not None
 
 HEADER = struct.Struct(">IHHB")  # frame, index, count, flags
 FLAG_KEY = 1
@@ -41,7 +51,7 @@ class Seal:
     """AES-GCM for one direction: each datagram is its counter (8 bytes) then the sealed plaintext."""
 
     def __init__(self, key: bytes, direction: int):
-        self._aead = AESGCM(key)
+        self._aead = _aesgcm()(key)
         self._direction = direction
         self._counter = 0
         self._highest = -1
@@ -229,7 +239,7 @@ class UdpH264Reader:
         if not h264_reader.available():
             return False
         host = urllib.parse.urlsplit(self.url).hostname
-        if self._tcp is None and AESGCM is not None and host not in _UDP_FAILED and self._open_udp():
+        if self._tcp is None and _can_seal() and host not in _UDP_FAILED and self._open_udp():
             return True
         return self._fall_back()
 

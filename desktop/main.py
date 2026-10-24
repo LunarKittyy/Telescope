@@ -2,6 +2,7 @@
 """Telescope Desktop — entry point."""
 
 import argparse
+import importlib.util
 import os
 import sys
 import threading
@@ -30,16 +31,11 @@ _STARTED_FINE_MS = 3000
 _missing = []
 try:    from PyQt6.QtCore import Qt
 except ImportError: _missing.append("PyQt6")
-try:    import cv2
-except ImportError: _missing.append("opencv-python-headless")
-try:    import numpy as np
-except ImportError: _missing.append("numpy")
-try:    import pyvirtualcam
-except ImportError: _missing.append("pyvirtualcam")
-try:    import ifaddr
-except ImportError: _missing.append("ifaddr")
-try:    import zeroconf
-except ImportError: _missing.append("zeroconf")
+# Only looked for here, so the log's START comes sooner: a first start on Windows spends seconds on each file it loads
+for _module, _package in (("cv2", "opencv-python-headless"), ("numpy", "numpy"), ("pyvirtualcam", "pyvirtualcam"),
+                          ("ifaddr", "ifaddr"), ("zeroconf", "zeroconf")):
+    if importlib.util.find_spec(_module) is None:
+        _missing.append(_package)
 
 if _missing:
     print(f"Missing: pip install {' '.join(_missing)}", file=sys.stderr)
@@ -161,6 +157,7 @@ def main():
     if args.action or args.list_actions:
         sys.exit(run_action(args))
     diagnostics.install(APP_DIR)
+    import cv2
     cv2.setNumThreads(2)  # 16 threads spin more than they work on per-frame jobs this small
     if IS_LINUX:
         from telescope.platform.linux import limit_malloc_arenas

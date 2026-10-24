@@ -155,12 +155,26 @@ class AdvancedSettings(QWidget):
 
     def on_show(self):
         """Their tabs came on screen: look at the system again."""
+        self._look_for_graphics_card()
         self._refresh_extras()
         if IS_LINUX:
             self._v4l_check()
             self._refresh_persist_status()
         else:
             threading.Thread(target=self._check_win_setup, daemon=True).start()
+
+    def _look_for_graphics_card(self):
+        """Fills in the Hardware acceleration row, once. Finding the card opens a decoder, which loads PyAV."""
+        if self._hw_looked:
+            return
+        self._hw_looked = True
+        device = h264_reader.hardware_device()
+        self._hw_chk.setEnabled(device is not None)
+        self._hw_line.setText(tr("Found {device}", device=_HW_NAMES.get(device, device)) if device
+                              else tr("No graphics card Telescope can use"))
+        self._hw_line.setVisible(True)
+        self._vaapi_btn.setVisible(pyav_vaapi.supported() and (device is None or pyav_vaapi.chosen() is not None
+                                                               or bool(pyav_vaapi.problem)))
 
     def _place(self, tab: str, card: QWidget, order: int = 0):
         self._sections.append(SettingsSection(tab, card, order=order))
@@ -256,17 +270,17 @@ class AdvancedSettings(QWidget):
         video_lay = card_layout(video_card)
         add_card_header(video_lay, tr("Video"), "chip", hue="stream")
         keywords(video_card, tr("picture quality image stream camera output", ctx="search"))
-        device = h264_reader.hardware_device()
+        # Which card it is isn't looked up until Settings opens (_look_for_graphics_card): it loads PyAV, which is slow
+        self._hw_looked = False
         self._hw_chk = Switch()
-        self._hw_chk.setEnabled(device is not None)
+        self._hw_chk.setEnabled(False)
         self._hw_chk.setToolTip(tr("Decodes the Light format on the graphics card from the next stream on."))
         self._hw_chk.toggled.connect(lambda on: self._on_hw_decode(on) if self._on_hw_decode else None)
         # The line under it names the graphics card it would use, so one strip says whether it's on and what with
         # On Linux without a card PyAV can use, VA-API can be set up for AMD and Intel ones (pyav_vaapi)
         self._vaapi_btn = QPushButton(tr("Set up VA-API…"))
         self._vaapi_btn.clicked.connect(lambda: self._on_vaapi() if self._on_vaapi else None)
-        self._vaapi_btn.setVisible(pyav_vaapi.supported() and (device is None or pyav_vaapi.chosen() is not None
-                                                                or bool(pyav_vaapi.problem)))
+        self._vaapi_btn.setVisible(False)
         hw_controls = QHBoxLayout()
         hw_controls.setContentsMargins(0, 0, 0, 0)
         hw_controls.setSpacing(10)
@@ -274,8 +288,7 @@ class AdvancedSettings(QWidget):
         hw_controls.addWidget(self._hw_chk)
         strip, self._hw_line = setting_row(
             tr("Hardware acceleration"),
-            tr("Found {device}", device=_HW_NAMES.get(device, device)) if device
-            else tr("No graphics card Telescope can use"), hw_controls,
+            "", hw_controls,
             keywords=tr("hw accel gpu graphics card nvidia cuda amd intel vaapi d3d11 decode decoding h264 faster cpu "
                      "processor laptop 4k", ctx="search"))
         strip.setToolTip(self._hw_chk.toolTip())

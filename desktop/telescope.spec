@@ -14,6 +14,9 @@
 #   - pyvirtualcam's unitycapture backend calls into a system-installed
 #     DirectShow COM filter (UnityCapture), so no DLLs need bundling.
 #   - cv2 wheels ship their own DLLs; PyInstaller's cv2 hook handles collection.
+#   - Windows checks every program file it hasn't seen before when it first loads, and that takes seconds per file
+#     (minutes for the first start after an install). So the bundle holds as few files as it can: zeroconf runs as
+#     plain Python instead of its ~18 compiled modules, and what the app never uses is left out (see below).
 #   - The exe's icon is resources/telescope.ico, the app icon (create_app_icon); scripts/write_icon.py
 #     writes it again if the icon changes.
 
@@ -57,6 +60,39 @@ a = Analysis(
     ],
     noarchive=False,
 )
+
+# zeroconf ships each of its hot-path modules twice, compiled (Cython) and as plain Python, and works either way.
+# The compiled ones are only a speed-up for a busy network and cost a first start 18 more files to check, so the
+# bundle takes the plain ones: they go into the PYZ and the compiled files stay out.
+def use_plain_zeroconf(analysis):
+    compiled, plain = set(), []
+    for dest, src, kind in analysis.binaries:
+        parts = dest.replace('\\', '/').split('/')
+        if kind != 'EXTENSION' or parts[0] != 'zeroconf':
+            continue
+        module = parts[:-1] + [parts[-1].split('.')[0]]
+        source = os.path.join(os.path.dirname(src), module[-1] + '.py')
+        if not os.path.isfile(source):
+            raise SystemExit(f'zeroconf has no plain Python for {dest}')
+        if module[-1] == '__init__':
+            module.pop()
+        compiled.add(dest)
+        plain.append(('.'.join(module), source, 'PYMODULE'))
+    analysis.binaries = [b for b in analysis.binaries if b[0] not in compiled]
+    known = {name for name, _, _ in analysis.pure}
+    analysis.pure.extend(entry for entry in plain if entry[0] not in known)
+
+
+# Files the app never opens: cv2 reads video files through the first, the next three are PortAudio builds for
+# 32-bit, ARM and ASIO, and Telescope doesn't load PDFs as images
+NEVER_USED = ('cv2/opencv_videoio_ffmpeg',
+              '_sounddevice_data/portaudio-binaries/libportaudio32bit',
+              '_sounddevice_data/portaudio-binaries/libportaudioarm64',
+              '_sounddevice_data/portaudio-binaries/libportaudio64bit-asio',
+              'PyQt6/Qt6/bin/Qt6Pdf', 'PyQt6/Qt6/plugins/imageformats/qpdf')
+
+use_plain_zeroconf(a)
+a.binaries = [b for b in a.binaries if not b[0].replace('\\', '/').startswith(NEVER_USED)]
 
 pyz = PYZ(a.pure)
 
