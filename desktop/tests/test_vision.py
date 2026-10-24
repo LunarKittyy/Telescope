@@ -416,7 +416,7 @@ def test_a_mask_nobody_asks_for_closes_after_a_while_and_comes_back_when_asked(m
     asked = v._streams["a"].mask_asked
     v.tidy(asked + vision._IDLE_CLOSE_S - 1)  # Background switched off a moment ago: kept
     assert backend.closed == [] and released == []
-    v.tidy(asked + vision._IDLE_CLOSE_S)
+    v.tidy(asked + vision._IDLE_CLOSE_S + _TICK)
     assert backend.closed == ["segmenter"] and released == [1]
     assert _in_stream("a", 2, lambda: v.person_mask(frame)) is not None  # switched back on: made again
     assert backend.made == ["segmenter", "segmenter"]
@@ -452,7 +452,7 @@ def test_a_pose_model_nobody_feeds_closes_in_its_own_thread_and_comes_back(monke
     _in_stream("a", 1, lambda: v.feed_raw(frame))
     _wait(lambda: people)
     v.want_people("Auto framing", False)
-    v.tidy(v._streams["a"].people_fed + vision._IDLE_CLOSE_S)
+    v.tidy(v._streams["a"].people_fed + vision._IDLE_CLOSE_S + _TICK)
     _wait(lambda: "pose" in backend.closed and released)
     assert v._streams["a"].people_thread is None
     v.want_people("Auto framing", True)
