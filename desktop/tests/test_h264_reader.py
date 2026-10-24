@@ -127,7 +127,7 @@ def test_reader_refuses_a_non_h264_response(server):
 
 
 def test_without_pyav_the_reader_never_opens(monkeypatch):
-    monkeypatch.setattr(h264_reader, "av", None)
+    monkeypatch.setattr(h264_reader, "_av_failed", True)
     assert h264_reader.available() is False
     assert H264Reader("http://127.0.0.1:1/v1/video.h264", PhoneAuth("t")).open() is False
 

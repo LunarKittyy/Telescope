@@ -14,7 +14,6 @@ import tempfile
 import threading
 import time
 import urllib.error
-import xml.etree.ElementTree as ET
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -65,6 +64,7 @@ def _child(element, name: str):
 
 def find_archive(index: bytes, host_os: str = "windows") -> Archive:
     """The platform-tools zip for host_os in Google's SDK index. Raises ValueError if the index doesn't have one."""
+    import xml.etree.ElementTree as ET  # its parser is two more files for a Windows first start to check
     root = ET.fromstring(index)
     for package in root.iter():
         if _local(package.tag) != "remotePackage" or package.get("path") != "platform-tools":

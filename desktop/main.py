@@ -2,6 +2,7 @@
 """Telescope Desktop — entry point."""
 
 import argparse
+import importlib.util
 import os
 import sys
 import threading
@@ -30,16 +31,11 @@ _STARTED_FINE_MS = 3000
 _missing = []
 try:    from PyQt6.QtCore import Qt
 except ImportError: _missing.append("PyQt6")
-try:    import cv2
-except ImportError: _missing.append("opencv-python-headless")
-try:    import numpy as np
-except ImportError: _missing.append("numpy")
-try:    import pyvirtualcam
-except ImportError: _missing.append("pyvirtualcam")
-try:    import ifaddr
-except ImportError: _missing.append("ifaddr")
-try:    import zeroconf
-except ImportError: _missing.append("zeroconf")
+# Only looked for here, so the log's START comes sooner: a first start on Windows spends seconds on each file it loads
+for _module, _package in (("cv2", "opencv-python-headless"), ("numpy", "numpy"), ("pyvirtualcam", "pyvirtualcam"),
+                          ("ifaddr", "ifaddr"), ("zeroconf", "zeroconf")):
+    if importlib.util.find_spec(_module) is None:
+        _missing.append(_package)
 
 if _missing:
     print(f"Missing: pip install {' '.join(_missing)}", file=sys.stderr)
@@ -149,6 +145,13 @@ def _watch_dev_plugins(win) -> Optional[QTimer]:
     return timer
 
 
+def _preload():
+    """What the first stream needs and a Windows first start loads slowly (PyAV, its graphics card, cryptography), once the window is up."""
+    from telescope import h264_reader, udp_reader
+    h264_reader.hardware_device()
+    udp_reader.preload()
+
+
 def main():
     if getattr(sys, "frozen", False) and not IS_LINUX:
         import tempfile
@@ -161,6 +164,7 @@ def main():
     if args.action or args.list_actions:
         sys.exit(run_action(args))
     diagnostics.install(APP_DIR)
+    import cv2
     cv2.setNumThreads(2)  # 16 threads spin more than they work on per-frame jobs this small
     if IS_LINUX:
         from telescope.platform.linux import limit_malloc_arenas
@@ -202,6 +206,7 @@ def main():
         win.start_hidden()
     else:
         win.show()
+    QTimer.singleShot(1500, lambda: threading.Thread(target=_preload, daemon=True).start())
     watch = _watch_dev_plugins(win)  # noqa: F841 (kept alive until quitting)
     if dev_profile.resume_stream():
         QTimer.singleShot(0, lambda: win.start_stream(interactive=False))

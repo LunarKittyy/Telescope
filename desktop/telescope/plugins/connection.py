@@ -10,10 +10,10 @@ import base64
 import contextlib
 import html
 import logging
+import secrets
 import socket
 import threading
 import time
-import uuid
 from dataclasses import dataclass
 from typing import Optional
 
@@ -555,7 +555,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._udp_cb = None
         self._pending_route: Optional[str] = None  # a Connect via choice checked before the stream moves to it
         self._route_probe_id = 0
-        self._computer_id = uuid.uuid4().hex
+        self._computer_id = secrets.token_hex(16)
         self._computer_name = default_computer_name()
         self._resolution: Optional[Resolution] = None
         self._check_id = 0

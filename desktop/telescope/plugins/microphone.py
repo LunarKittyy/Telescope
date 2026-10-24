@@ -95,12 +95,25 @@ class WindowsMic:
 
     def __init__(self):
         self.setup_opened = False
-        try:
-            import sounddevice
-        except Exception:  # missing module, or PortAudio failing to load
-            sounddevice = None
-        self._sd = sounddevice
+        self._sd_loaded = False
+        self._sd_module = None
         self._device: Optional[int] = None
+
+    @property
+    def _sd(self):
+        """sounddevice, imported when the microphone is first used: loading PortAudio is slow on a first start."""
+        if not self._sd_loaded:
+            self._sd_loaded = True
+            try:
+                import sounddevice
+                self._sd_module = sounddevice
+            except Exception:  # missing module, or PortAudio failing to load
+                pass
+        return self._sd_module
+
+    @_sd.setter
+    def _sd(self, module):
+        self._sd_loaded, self._sd_module = True, module
 
     def problem(self):
         if self._sd is None:
