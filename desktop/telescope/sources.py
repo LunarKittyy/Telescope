@@ -532,6 +532,7 @@ class PhoneSource(Source):
                 tr("The stream comes back by itself once that app closes or lets go of it."), kind="warn"))
         else:
             self._host.clear_issue(f"camera_taken:{self.id}")
+        self._show_heat(state)
         self.camera_toggle = bool(state.get("camera_toggle"))
         if not self.camera_toggle:
             if self.camera_off:
@@ -551,6 +552,29 @@ class PhoneSource(Source):
     def lost(self):
         self._recovery_route = None
         self._probe_recovery()
+
+    def _show_heat(self, state: dict):
+        """Says so while the phone streams a smaller picture than asked because it's critically hot."""
+        w, h, fps = state.get("heat_width"), state.get("heat_height"), state.get("heat_fps")
+        if not (isinstance(w, int) and isinstance(h, int) and w > 0 and h > 0):
+            self._clear_heat()
+            return
+        size = f"{w} × {h}"
+        if isinstance(fps, int) and not isinstance(fps, bool) and fps > 0:
+            text = tr("It's streaming at {size} and {fps} fps until it cools down.", size=size, fps=fps)
+        else:
+            text = tr("It's streaming at {size} until it cools down.", size=size)
+        self._host.show_issue(f"heat:{self.id}", Issue(tr("The phone is very hot"), text, kind="warn"))
+        self._heat_shown = True
+
+    def _clear_heat(self):
+        if getattr(self, "_heat_shown", False):
+            self._heat_shown = False
+            self._host.clear_issue(f"heat:{self.id}")
+
+    def forget_stream_status(self):
+        super().forget_stream_status()
+        self._clear_heat()  # a stopped stream isn't running small any more
 
     def end_recovery(self):
         super().end_recovery()

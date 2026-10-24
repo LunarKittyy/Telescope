@@ -26,7 +26,7 @@ msgstr "Ponsel menjadi panas dan menurunkan frame rate ke {fps} fps untuk saat i
 msgid "Lost the phone - reconnecting"
 msgstr "Koneksi ke ponsel terputus - menghubungkan ulang"
 
-#: telescope/app.py:159 telescope/plugins/browser_camera.py:566 telescope/plugins/connection.py:1091 telescope/plugins/connection.py:1135 telescope/plugins/connection.py:1291 telescope/plugins/connection.py:1327 telescope/plugins/onboarding.py:270 telescope/plugins/setup.py:788 telescope/plugins/updates.py:107 telescope/sources.py:822 telescope/widgets/vaapi_setup.py:300
+#: telescope/app.py:159 telescope/plugins/browser_camera.py:566 telescope/plugins/connection.py:1091 telescope/plugins/connection.py:1135 telescope/plugins/connection.py:1291 telescope/plugins/connection.py:1327 telescope/plugins/onboarding.py:270 telescope/plugins/setup.py:788 telescope/plugins/updates.py:107 telescope/sources.py:846 telescope/widgets/vaapi_setup.py:300
 msgid "Try again"
 msgstr "Coba lagi"
 
@@ -105,12 +105,12 @@ msgid "Start mic only"
 msgstr "Mulai mikrofon saja"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: telescope/app.py:608 telescope/plugins/shortcuts.py:151
+#: telescope/app.py:608 telescope/plugins/shortcuts.py:152
 msgid "Stop"
 msgstr "Stop"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: telescope/app.py:608 telescope/app.py:1872 telescope/app.py:1888 telescope/plugins/shortcuts.py:151 telescope/sources.py:627 telescope/sources.py:636
+#: telescope/app.py:608 telescope/app.py:1872 telescope/app.py:1888 telescope/plugins/shortcuts.py:152 telescope/sources.py:651 telescope/sources.py:660
 msgid "Start"
 msgstr "Mulai"
 
@@ -118,7 +118,7 @@ msgstr "Mulai"
 msgid "Stop streaming"
 msgstr "Hentikan streaming"
 
-#: telescope/app.py:655 telescope/app.py:1425 telescope/app.py:1490 telescope/audio.py:630 telescope/plugins/shortcuts.py:162 telescope/sources.py:178 telescope/stream.py:448 telescope/stream_flow.py:154
+#: telescope/app.py:655 telescope/app.py:1425 telescope/app.py:1490 telescope/audio.py:630 telescope/plugins/shortcuts.py:163 telescope/sources.py:178 telescope/stream.py:448 telescope/stream_flow.py:154
 msgid "Not streaming"
 msgstr "Tidak streaming"
 
@@ -290,7 +290,7 @@ msgstr "Telescope tidak merespons tepat waktu."
 msgid "This Telescope has no shortcuts."
 msgstr "Telescope ini tidak memiliki pintasan."
 
-#: telescope/app.py:1597 telescope/plugins/shortcuts.py:379
+#: telescope/app.py:1597 telescope/plugins/shortcuts.py:380
 msgid "That failed; Copy diagnostics has the details."
 msgstr "Tindakan itu gagal; Salin diagnostik memiliki detailnya."
 
@@ -542,7 +542,7 @@ msgstr "Di mana saja: {keys}"
 msgid "Windows can't use this key everywhere"
 msgstr "Windows tidak dapat menggunakan tombol ini di mana saja"
 
-#: telescope/platform/hotkeys_windows.py:112 telescope/plugins/shortcuts.py:727
+#: telescope/platform/hotkeys_windows.py:112 telescope/plugins/shortcuts.py:729
 msgid "Everywhere"
 msgstr "Di mana saja"
 
@@ -751,7 +751,7 @@ msgstr "Waktu habis"
 msgid "General"
 msgstr "Umum"
 
-#: telescope/plugin.py:19 telescope/plugins/shortcuts.py:179
+#: telescope/plugin.py:19 telescope/plugins/shortcuts.py:180
 msgid "Streaming"
 msgstr "Streaming"
 
@@ -767,7 +767,7 @@ msgstr "Audio"
 msgid "Virtual camera & phone"
 msgstr "Kamera virtual & ponsel"
 
-#: telescope/plugin.py:23 telescope/plugins/shortcuts.py:120
+#: telescope/plugin.py:23 telescope/plugins/shortcuts.py:121
 msgid "Keyboard shortcuts"
 msgstr "Pintasan keyboard"
 
@@ -1061,7 +1061,7 @@ msgstr "{n} terhubung"
 msgid "Waiting for a browser"
 msgstr "Menunggu browser"
 
-#: telescope/plugins/browser_camera.py:318 telescope/plugins/shortcuts.py:183 telescope/plugins/shortcuts.py:187 telescope/shortcuts.py:284 telescope/shortcuts.py:306 telescope/shortcuts.py:344 telescope/shortcuts.py:345 telescope/shortcuts.py:414 telescope/shortcuts.py:504 telescope/shortcuts.py:506 telescope/shortcuts.py:520 telescope/shortcuts.py:521 telescope/widgets/common.py:931
+#: telescope/plugins/browser_camera.py:318 telescope/plugins/shortcuts.py:184 telescope/plugins/shortcuts.py:188 telescope/shortcuts.py:284 telescope/shortcuts.py:306 telescope/shortcuts.py:344 telescope/shortcuts.py:345 telescope/shortcuts.py:414 telescope/shortcuts.py:504 telescope/shortcuts.py:506 telescope/shortcuts.py:520 telescope/shortcuts.py:521 telescope/widgets/common.py:931
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -1108,7 +1108,7 @@ msgstr "Kamera browser tidak tersedia"
 msgid "Scan the code on the Browser camera card with the device to use. It starts streaming as soon as it connects."
 msgstr "Pindai kode pada kartu Kamera browser dengan perangkat yang akan digunakan. Streaming akan dimulai segera setelah terhubung."
 
-#: telescope/plugins/browser_camera.py:574 telescope/plugins/connection.py:221 telescope/plugins/shortcuts.py:851 telescope/widgets/plugins_panel.py:31
+#: telescope/plugins/browser_camera.py:574 telescope/plugins/connection.py:221 telescope/plugins/shortcuts.py:853 telescope/widgets/plugins_panel.py:31
 msgid "Cancel"
 msgstr "Batal"
 
@@ -1654,7 +1654,7 @@ msgstr "Ganti nama"
 msgid "Remove {name}"
 msgstr "Hapus {name}"
 
-#: telescope/plugins/connection.py:477 telescope/plugins/setup.py:244 telescope/plugins/shortcuts.py:689 telescope/widgets/plugins_panel.py:278 telescope/widgets/plugins_panel.py:306 telescope/widgets/plugins_panel.py:357
+#: telescope/plugins/connection.py:477 telescope/plugins/setup.py:244 telescope/plugins/shortcuts.py:691 telescope/widgets/plugins_panel.py:278 telescope/widgets/plugins_panel.py:306 telescope/widgets/plugins_panel.py:357
 msgid "Remove"
 msgstr "Hapus"
 
@@ -2638,7 +2638,7 @@ msgstr "Preset"
 msgid "Next or previous preset"
 msgstr "Preset berikutnya atau sebelumnya"
 
-#: telescope/plugins/presets.py:161 telescope/plugins/shortcuts.py:182 telescope/plugins/shortcuts.py:186 telescope/shortcuts.py:308 telescope/shortcuts.py:334 telescope/shortcuts.py:390 telescope/shortcuts.py:512
+#: telescope/plugins/presets.py:161 telescope/plugins/shortcuts.py:183 telescope/plugins/shortcuts.py:187 telescope/shortcuts.py:308 telescope/shortcuts.py:334 telescope/shortcuts.py:390 telescope/shortcuts.py:512
 msgid "Does"
 msgstr "Tindakan"
 
@@ -2765,7 +2765,7 @@ msgstr "Sembunyikan"
 msgid "Stop drawing this preview. The camera output doesn't change."
 msgstr "Berhenti menampilkan pratinjau ini. Output kamera tidak berubah."
 
-#: telescope/plugins/preview.py:446 telescope/plugins/shortcuts.py:179
+#: telescope/plugins/preview.py:446 telescope/plugins/shortcuts.py:180
 msgid "Phone camera"
 msgstr "Kamera ponsel"
 
@@ -3221,7 +3221,7 @@ msgctxt "search"
 msgid "help support troubleshooting question faq problem not working stuck ask"
 msgstr "bantuan pemecahan masalah pertanyaan masalah tidak berfungsi tanya help support troubleshooting question faq problem not working stuck ask"
 
-#: telescope/plugins/setup.py:504 telescope/plugins/shortcuts.py:1008
+#: telescope/plugins/setup.py:504 telescope/plugins/shortcuts.py:1010
 msgid "Copied"
 msgstr "Disalin"
 
@@ -3412,299 +3412,299 @@ msgstr "Pengaturan lanjutan"
 msgid "The virtual camera, its size, extra cameras, video and microphone limits, and the Updates & About tab."
 msgstr "Kamera virtual, ukurannya, kamera tambahan, batas video dan mikrofon, serta tab Pembaruan & Tentang."
 
-#: telescope/plugins/shortcuts.py:66
+#: telescope/plugins/shortcuts.py:67
 msgid "Add keyboard shortcut…"
 msgstr "Tambahkan pintasan keyboard…"
 
-#: telescope/plugins/shortcuts.py:82
+#: telescope/plugins/shortcuts.py:83
 #, python-brace-format
 msgid "{name} has to be a number, not {value}."
 msgstr "{name} harus berupa angka, bukan {value}."
 
-#: telescope/plugins/shortcuts.py:84
+#: telescope/plugins/shortcuts.py:85
 msgid "nothing right now"
 msgstr "tidak ada saat ini"
 
-#: telescope/plugins/shortcuts.py:85
+#: telescope/plugins/shortcuts.py:86
 #, python-brace-format
 msgid "{name} can be {options}, not {value}."
 msgstr "{name} dapat berupa {options}, bukan {value}."
 
 #. hold, toggle, on and off are values typed on the command line: keep them in English
-#: telescope/plugins/shortcuts.py:88
+#: telescope/plugins/shortcuts.py:89
 msgid "hold needs a key to let go of; use toggle, on or off with --action."
 msgstr "hold memerlukan tombol untuk dilepas; gunakan toggle, on atau off dengan --action."
 
-#: telescope/plugins/shortcuts.py:92
+#: telescope/plugins/shortcuts.py:93
 #, python-brace-format
 msgid "{action} needs {name}=… for that."
 msgstr "{action} memerlukan {name}=… untuk itu."
 
-#: telescope/plugins/shortcuts.py:115
+#: telescope/plugins/shortcuts.py:116
 msgid "Telescope: shown"
 msgstr "Telescope: ditampilkan"
 
-#: telescope/plugins/shortcuts.py:121
+#: telescope/plugins/shortcuts.py:122
 msgid "Keys for Telescope's controls, including ones that work in other apps."
 msgstr "Tombol untuk kontrol Telescope, termasuk yang berfungsi di aplikasi lain."
 
-#: telescope/plugins/shortcuts.py:122
+#: telescope/plugins/shortcuts.py:123
 msgid "Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)."
 msgstr "Tanpa ini, tidak ada pintasan yang berfungsi dan Pintasan keyboard tidak ada di Pengaturan (pintasan Anda disimpan untuk saat fitur ini kembali)."
 
-#: telescope/plugins/shortcuts.py:151
+#: telescope/plugins/shortcuts.py:152
 msgid "Start or stop"
 msgstr "Mulai atau hentikan"
 
-#: telescope/plugins/shortcuts.py:158
+#: telescope/plugins/shortcuts.py:159
 msgid "Already streaming"
 msgstr "Sudah streaming"
 
-#: telescope/plugins/shortcuts.py:160
+#: telescope/plugins/shortcuts.py:161
 msgid "Streaming: starting"
 msgstr "Streaming: memulai"
 
-#: telescope/plugins/shortcuts.py:164
+#: telescope/plugins/shortcuts.py:165
 msgid "Streaming: stopped"
 msgstr "Streaming: dihentikan"
 
-#: telescope/plugins/shortcuts.py:173
+#: telescope/plugins/shortcuts.py:174
 msgid "Phone camera: on"
 msgstr "Kamera ponsel: aktif"
 
-#: telescope/plugins/shortcuts.py:173
+#: telescope/plugins/shortcuts.py:174
 msgid "Phone camera: off"
 msgstr "Kamera ponsel: nonaktif"
 
-#: telescope/plugins/shortcuts.py:176
+#: telescope/plugins/shortcuts.py:177
 msgid "Telescope: hidden"
 msgstr "Telescope: disembunyikan"
 
-#: telescope/plugins/shortcuts.py:178 telescope/shortcuts.py:260
+#: telescope/plugins/shortcuts.py:179 telescope/shortcuts.py:260
 msgid "Switch on or off"
 msgstr "Aktifkan atau nonaktifkan"
 
-#: telescope/plugins/shortcuts.py:178 telescope/shortcuts.py:260
+#: telescope/plugins/shortcuts.py:179 telescope/shortcuts.py:260
 msgid "Turn on"
 msgstr "Aktifkan"
 
-#: telescope/plugins/shortcuts.py:178 telescope/shortcuts.py:260
+#: telescope/plugins/shortcuts.py:179 telescope/shortcuts.py:260
 msgid "Turn off"
 msgstr "Nonaktifkan"
 
-#: telescope/plugins/shortcuts.py:189
+#: telescope/plugins/shortcuts.py:190
 msgid "Show or hide Telescope"
 msgstr "Tampilkan atau sembunyikan Telescope"
 
-#: telescope/plugins/shortcuts.py:270
+#: telescope/plugins/shortcuts.py:271
 msgid "Key used by a shortcut above"
 msgstr "Tombol sudah digunakan oleh pintasan di atas"
 
-#: telescope/plugins/shortcuts.py:272
+#: telescope/plugins/shortcuts.py:273
 msgid "Not in this version of Telescope"
 msgstr "Tidak ada di versi Telescope ini"
 
-#: telescope/plugins/shortcuts.py:274
+#: telescope/plugins/shortcuts.py:275
 msgid "In Telescope"
 msgstr "Di Telescope"
 
-#: telescope/plugins/shortcuts.py:276
+#: telescope/plugins/shortcuts.py:277
 msgid "In Telescope (no global shortcuts here)"
 msgstr "Di Telescope (tidak ada pintasan global di sini)"
 
-#: telescope/plugins/shortcuts.py:279
+#: telescope/plugins/shortcuts.py:280
 msgid "Everywhere (setting up)"
 msgstr "Di mana saja (menyiapkan)"
 
-#: telescope/plugins/shortcuts.py:282
+#: telescope/plugins/shortcuts.py:283
 #, python-brace-format
 msgid "In Telescope: {status}"
 msgstr "Di Telescope: {status}"
 
-#: telescope/plugins/shortcuts.py:366
+#: telescope/plugins/shortcuts.py:367
 #, python-brace-format
 msgid "No action called {action}. telescope --list-actions lists them."
 msgstr "Tidak ada tindakan bernama {action}. telescope --list-actions untuk melihat daftarnya."
 
-#: telescope/plugins/shortcuts.py:371
+#: telescope/plugins/shortcuts.py:372
 #, python-brace-format
 msgid "{action} has no setting {name}."
 msgstr "{action} tidak memiliki pengaturan {name}."
 
-#: telescope/plugins/shortcuts.py:381
+#: telescope/plugins/shortcuts.py:382
 #, python-brace-format
 msgid "{action} can't be used right now (no phone, or the control is off)."
 msgstr "{action} tidak dapat digunakan saat ini (tidak ada ponsel, atau kontrol nonaktif)."
 
-#: telescope/plugins/shortcuts.py:434
+#: telescope/plugins/shortcuts.py:435
 #, python-brace-format
 msgid "Add shortcut for {action}…"
 msgstr "Tambahkan pintasan untuk {action}…"
 
-#: telescope/plugins/shortcuts.py:686
+#: telescope/plugins/shortcuts.py:688
 #, python-brace-format
 msgid "Edit {shortcut}"
 msgstr "Edit {shortcut}"
 
-#: telescope/plugins/shortcuts.py:686
+#: telescope/plugins/shortcuts.py:688
 msgid "Edit"
 msgstr "Edit"
 
-#: telescope/plugins/shortcuts.py:689
+#: telescope/plugins/shortcuts.py:691
 #, python-brace-format
 msgid "Remove {shortcut}"
 msgstr "Hapus {shortcut}"
 
-#: telescope/plugins/shortcuts.py:708
+#: telescope/plugins/shortcuts.py:710
 msgid "Keys for Telescope's controls, with how much each one changes. Right-click most controls to add one for it."
 msgstr "Tombol untuk kontrol Telescope, beserta seberapa besar perubahannya. Klik kanan sebagian besar kontrol untuk menambahkan pintasan."
 
-#: telescope/plugins/shortcuts.py:713
+#: telescope/plugins/shortcuts.py:715
 msgid "Add"
 msgstr "Tambah"
 
-#: telescope/plugins/shortcuts.py:713
+#: telescope/plugins/shortcuts.py:715
 msgid "Pick a control and the key for it"
 msgstr "Pilih kontrol dan tombol untuknya"
 
-#: telescope/plugins/shortcuts.py:715
+#: telescope/plugins/shortcuts.py:717
 msgid "Shortcuts"
 msgstr "Pintasan"
 
-#: telescope/plugins/shortcuts.py:716
+#: telescope/plugins/shortcuts.py:718
 msgctxt "search"
 msgid "hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove"
 msgstr "tombol pintasan bisukan tambah hapus hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove"
 
-#: telescope/plugins/shortcuts.py:721
+#: telescope/plugins/shortcuts.py:723
 msgid "No shortcuts yet. Add one, or right-click a control in the main window."
 msgstr "Belum ada pintasan. Tambahkan satu, atau klik kanan kontrol di jendela utama."
 
-#: telescope/plugins/shortcuts.py:728
+#: telescope/plugins/shortcuts.py:730
 msgctxt "search"
 msgid "global system wide hotkeys background other apps"
 msgstr "global latar belakang aplikasi lain global system wide hotkeys background other apps"
 
-#: telescope/plugins/shortcuts.py:729
+#: telescope/plugins/shortcuts.py:731
 msgid "Open"
 msgstr "Buka"
 
-#: telescope/plugins/shortcuts.py:730
+#: telescope/plugins/shortcuts.py:732
 msgid "Where your desktop lets you change the keys of global shortcuts"
 msgstr "Tempat desktop Anda mengizinkan pengubahan tombol pintasan global"
 
-#: telescope/plugins/shortcuts.py:732
+#: telescope/plugins/shortcuts.py:734
 msgid "Desktop shortcut settings"
 msgstr "Pengaturan pintasan desktop"
 
-#: telescope/plugins/shortcuts.py:733
+#: telescope/plugins/shortcuts.py:735
 msgctxt "search"
 msgid "global hotkeys portal kde plasma gnome desktop keys rebind"
 msgstr "pintasan global tombol ubah global hotkeys portal kde plasma gnome desktop keys rebind"
 
-#: telescope/plugins/shortcuts.py:739
+#: telescope/plugins/shortcuts.py:741
 msgid "Notify when one runs"
 msgstr "Beri tahu saat pintasan dijalankan"
 
-#: telescope/plugins/shortcuts.py:739
+#: telescope/plugins/shortcuts.py:741
 msgid "While Telescope is in the background"
 msgstr "Saat Telescope berada di latar belakang"
 
-#: telescope/plugins/shortcuts.py:740
+#: telescope/plugins/shortcuts.py:742
 msgctxt "search"
 msgid "notification notify toast confirmation popup"
 msgstr "notifikasi pemberitahuan konfirmasi notification notify toast confirmation popup"
 
-#: telescope/plugins/shortcuts.py:762
+#: telescope/plugins/shortcuts.py:764
 msgid "Global shortcuts aren't available on this desktop, so these work inside Telescope. For keys that work everywhere, bind a shortcut's Copy command line in your desktop's keyboard settings."
 msgstr "Pintasan global tidak tersedia di desktop ini, jadi pintasan ini hanya berfungsi di dalam Telescope. Untuk tombol yang berfungsi di mana saja, tetapkan Salin baris perintah dari pintasan di pengaturan keyboard desktop Anda."
 
-#: telescope/plugins/shortcuts.py:782
+#: telescope/plugins/shortcuts.py:784
 msgid "Copy command line"
 msgstr "Salin baris perintah"
 
-#: telescope/plugins/shortcuts.py:792
+#: telescope/plugins/shortcuts.py:794
 msgid "Couldn't open your desktop's shortcut settings. Look for Shortcuts in its System Settings."
 msgstr "Gagal membuka pengaturan pintasan desktop Anda. Cari Pintasan di Pengaturan Sistemnya."
 
-#: telescope/plugins/shortcuts.py:804 telescope/plugins/shortcuts.py:809
+#: telescope/plugins/shortcuts.py:806 telescope/plugins/shortcuts.py:811
 msgid "Keyboard shortcut"
 msgstr "Pintasan keyboard"
 
-#: telescope/plugins/shortcuts.py:809
+#: telescope/plugins/shortcuts.py:811
 msgid "Pick a control, what the key does to it, then press the key."
 msgstr "Pilih kontrol, fungsi tombol untuknya, lalu tekan tombol tersebut."
 
-#: telescope/plugins/shortcuts.py:812
+#: telescope/plugins/shortcuts.py:814
 msgid "Search: mute, zoom, exposure, preset…"
 msgstr "Cari: bisukan, zoom, eksposur, preset…"
 
-#: telescope/plugins/shortcuts.py:815
+#: telescope/plugins/shortcuts.py:817
 msgid "Find"
 msgstr "Cari"
 
-#: telescope/plugins/shortcuts.py:820
+#: telescope/plugins/shortcuts.py:822
 msgid "Control"
 msgstr "Kontrol"
 
-#: telescope/plugins/shortcuts.py:838
+#: telescope/plugins/shortcuts.py:840
 msgid "Key"
 msgstr "Tombol"
 
-#: telescope/plugins/shortcuts.py:840
+#: telescope/plugins/shortcuts.py:842
 msgid "Also works while another app is in front"
 msgstr "Juga berfungsi saat aplikasi lain berada di depan"
 
-#: telescope/plugins/shortcuts.py:848 telescope/plugins/shortcuts.py:1009 telescope/widgets/banner.py:24
+#: telescope/plugins/shortcuts.py:850 telescope/plugins/shortcuts.py:1011 telescope/widgets/banner.py:24
 msgid "Copy command"
 msgstr "Salin perintah"
 
-#: telescope/plugins/shortcuts.py:849 telescope/plugins/shortcuts.py:999
+#: telescope/plugins/shortcuts.py:851 telescope/plugins/shortcuts.py:1001
 msgid "A command line that does the same, for your desktop's own keyboard settings"
 msgstr "Baris perintah yang menjalankan fungsi serupa, untuk pengaturan keyboard desktop Anda"
 
-#: telescope/plugins/shortcuts.py:853
+#: telescope/plugins/shortcuts.py:855
 msgid "Save"
 msgstr "Simpan"
 
-#: telescope/plugins/shortcuts.py:911
+#: telescope/plugins/shortcuts.py:913
 #, python-brace-format
 msgid "Unknown ({action})"
 msgstr "Tidak dikenal ({action})"
 
-#: telescope/plugins/shortcuts.py:940
+#: telescope/plugins/shortcuts.py:942
 #, python-brace-format
 msgid "{value} (not there now)"
 msgstr "{value} (tidak ada saat ini)"
 
-#: telescope/plugins/shortcuts.py:983
+#: telescope/plugins/shortcuts.py:985
 msgid "No control matches that search."
 msgstr "Tidak ada kontrol yang cocok dengan pencarian itu."
 
-#: telescope/plugins/shortcuts.py:984
+#: telescope/plugins/shortcuts.py:986
 msgid "Pick a control."
 msgstr "Pilih kontrol."
 
-#: telescope/plugins/shortcuts.py:986
+#: telescope/plugins/shortcuts.py:988
 #, python-brace-format
 msgid "Press a key, with Ctrl, Alt, Shift or {meta} if you like."
 msgstr "Tekan tombol, bisa bersama Ctrl, Alt, Shift, atau {meta} jika Anda inginkan."
 
-#: telescope/plugins/shortcuts.py:988
+#: telescope/plugins/shortcuts.py:990
 msgid "A modifier can't be a shortcut on its own. Add a key to it."
 msgstr "Tombol pengubah tidak dapat menjadi pintasan tersendiri. Tambahkan tombol lain."
 
-#: telescope/plugins/shortcuts.py:991
+#: telescope/plugins/shortcuts.py:993
 #, python-brace-format
 msgid "{keys} already does \"{action}\". Pick another key."
 msgstr "{keys} sudah digunakan untuk \"{action}\". Pilih tombol lain."
 
-#: telescope/plugins/shortcuts.py:994
+#: telescope/plugins/shortcuts.py:996
 #, python-brace-format
 msgid "Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer."
 msgstr "Di mana saja, {keys} akan membuat tombol tersebut tidak dapat diketik di aplikasi lain. Menambahkan Ctrl, Alt, atau {meta} lebih aman."
 
-#: telescope/plugins/shortcuts.py:998
+#: telescope/plugins/shortcuts.py:1000
 msgid "A command can't hold a key down; pick another choice to copy one"
 msgstr "Perintah tidak dapat menahan tombol; pilih opsi lain untuk menyalinnya"
 
@@ -4332,11 +4332,11 @@ msgstr "Anda menggunakan versi terbaru."
 msgid "Couldn't check for updates."
 msgstr "Tidak dapat memeriksa pembaruan."
 
-#: telescope/plugins/updates.py:416
+#: telescope/plugins/updates.py:417
 msgid "The update failed."
 msgstr "Pembaruan gagal."
 
-#: telescope/plugins/updates.py:465
+#: telescope/plugins/updates.py:466
 msgid "Updated. Close and reopen Telescope to finish."
 msgstr "Diperbarui. Tutup dan buka kembali Telescope untuk menyelesaikan."
 
@@ -4627,42 +4627,56 @@ msgstr "Aplikasi lain di ponsel sedang menggunakan kamera"
 msgid "The stream comes back by itself once that app closes or lets go of it."
 msgstr "Stream akan kembali dengan sendirinya setelah aplikasi tersebut ditutup atau melepaskannya."
 
-#: telescope/sources.py:539
+#: telescope/sources.py:540
 msgid "This phone can't turn its camera off yet"
 msgstr "Ponsel ini belum dapat menonaktifkan kameranya"
 
-#: telescope/sources.py:540
+#: telescope/sources.py:541
 msgid "Update Telescope on the phone to stream the mic with the camera off."
 msgstr "Perbarui Telescope di ponsel untuk streaming mikrofon dengan kamera nonaktif."
 
-#: telescope/sources.py:624
+#: telescope/sources.py:564
+#, python-brace-format
+msgid "It's streaming at {size} and {fps} fps until it cools down."
+msgstr "Streaming di {size} dan {fps} fps sampai ponsel dingin."
+
+#: telescope/sources.py:566
+#, python-brace-format
+msgid "It's streaming at {size} until it cools down."
+msgstr "Streaming di {size} sampai ponsel dingin."
+
+#: telescope/sources.py:567
+msgid "The phone is very hot"
+msgstr "Ponsel sangat panas"
+
+#: telescope/sources.py:648
 #, python-brace-format
 msgid "The phone is streaming to {computer}"
 msgstr "Ponsel sedang streaming ke {computer}"
 
-#: telescope/sources.py:625
+#: telescope/sources.py:649
 #, python-brace-format
 msgid "{phone} is streaming to {computer}"
 msgstr "{phone} sedang streaming ke {computer}"
 
-#: telescope/sources.py:626
+#: telescope/sources.py:650
 msgid "Stop it there or on the phone, then start again."
 msgstr "Hentikan di sana atau di ponsel, lalu mulai lagi."
 
-#: telescope/sources.py:633
+#: telescope/sources.py:657
 msgid "The phone stopped streaming"
 msgstr "Ponsel berhenti streaming"
 
-#: telescope/sources.py:634
+#: telescope/sources.py:658
 #, python-brace-format
 msgid "{phone} stopped streaming"
 msgstr "{phone} berhenti streaming"
 
-#: telescope/sources.py:635
+#: telescope/sources.py:659
 msgid "Start again when you're ready."
 msgstr "Mulai lagi jika sudah siap."
 
-#: telescope/sources.py:821
+#: telescope/sources.py:845
 msgid "The camera didn't turn back on"
 msgstr "Kamera tidak menyala kembali"
 
@@ -4752,7 +4766,7 @@ msgstr "Hanya aplikasi paket yang dapat memperbarui dirinya sendiri."
 msgid "Telescope's folder isn't writable, so it can't update itself."
 msgstr "Folder Telescope tidak dapat ditulisi, sehingga tidak dapat memperbarui dirinya sendiri."
 
-#: telescope/updates.py:237 telescope/vision_pack.py:128
+#: telescope/updates.py:237 telescope/updates.py:279 telescope/vision_pack.py:128
 msgid "Cancelled."
 msgstr "Dibatalkan."
 
@@ -4772,47 +4786,47 @@ msgstr "Unduhan terputus. Periksa koneksi internet dan coba lagi."
 msgid "The download didn't match its checksum, so it wasn't installed."
 msgstr "Unduhan tidak cocok dengan checksum-nya, sehingga tidak diinstal."
 
-#: telescope/updates.py:270 telescope/updates.py:287
+#: telescope/updates.py:289 telescope/updates.py:306
 msgid "The update contains unexpected paths, so it wasn't installed."
 msgstr "Pembaruan berisi jalur yang tidak terduga, sehingga tidak diinstal."
 
-#: telescope/updates.py:289
+#: telescope/updates.py:308
 msgid "The update contains unexpected files, so it wasn't installed."
 msgstr "Pembaruan berisi file yang tidak terduga, sehingga tidak diinstal."
 
-#: telescope/updates.py:295 telescope/vision_pack.py:170
+#: telescope/updates.py:314 telescope/vision_pack.py:170
 msgid "The download couldn't be unpacked."
 msgstr "Unduhan tidak dapat diekstrak."
 
-#: telescope/updates.py:315
+#: telescope/updates.py:334
 #, python-brace-format
 msgid "Couldn't replace Telescope's files: {error}"
 msgstr "Tidak dapat mengganti file Telescope: {error}"
 
-#: telescope/updates.py:326 telescope/updates.py:345
+#: telescope/updates.py:345 telescope/updates.py:364
 msgid "The download doesn't contain Telescope, so it wasn't installed."
 msgstr "Unduhan tidak memuat Telescope, sehingga tidak diinstal."
 
-#: telescope/updates.py:333
+#: telescope/updates.py:352
 #, python-brace-format
 msgid "{file} is in use, so the update wasn't installed. Try again after a restart."
 msgstr "{file} sedang digunakan, sehingga pembaruan tidak diinstal. Coba lagi setelah memulai ulang."
 
-#: telescope/updates.py:477
+#: telescope/updates.py:496
 msgid "The installer took too long, so this copy stays as it is."
 msgstr "Penginstal memerlukan waktu terlalu lama, sehingga salinan ini dibiarkan apa adanya."
 
-#: telescope/updates.py:479
+#: telescope/updates.py:498
 #, python-brace-format
 msgid "Couldn't start the installer: {error}"
 msgstr "Tidak dapat memulai penginstal: {error}"
 
-#: telescope/updates.py:481
+#: telescope/updates.py:500
 #, python-brace-format
 msgid "The installer stopped (code {code}), so this copy stays as it is."
 msgstr "Penginstal berhenti (kode {code}), sehingga salinan ini dibiarkan apa adanya."
 
-#: telescope/updates.py:484
+#: telescope/updates.py:503
 msgid "Telescope was installed, but its folder wasn't where expected. Open it from the Start menu."
 msgstr "Telescope telah diinstal, tetapi foldernya tidak berada di lokasi yang diharapkan. Buka dari menu Mulai."
 

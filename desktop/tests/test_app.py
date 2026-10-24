@@ -2001,6 +2001,27 @@ def test_a_camera_another_app_took_is_named_until_the_stream_is_back(window, mon
     assert window._banners.issue(key) is None
 
 
+def test_a_critically_hot_phone_says_the_smaller_size_until_it_cools(window, monkeypatch):
+    _conn, _worker, _client, _lost = _dropped_stream(window, monkeypatch, [None])
+    key = f"heat:{window._phone.id}"
+    hot = {**_VALID_STATE, "heat_width": 1280, "heat_height": 720, "heat_fps": 15}
+    window._phone.on_phone_state(hot)
+    issue = window._banners.issue(key)
+    assert issue.title == "The phone is very hot"
+    assert issue.text == "It's streaming at 1280 × 720 and 15 fps until it cools down."
+    window._phone.on_phone_state({**hot, "heat_fps": 0})  # asked for 15 fps or less: only the size dropped
+    assert window._banners.issue(key).text == "It's streaming at 1280 × 720 until it cools down."
+    window._phone.on_phone_state(_VALID_STATE)
+    assert window._banners.issue(key) is None
+
+
+def test_the_heat_note_goes_when_the_stream_stops(window, monkeypatch):
+    _conn, _worker, _client, _lost = _dropped_stream(window, monkeypatch, [None])
+    window._phone.on_phone_state({**_VALID_STATE, "heat_width": 1280, "heat_height": 720})
+    window._phone.forget_stream_status()
+    assert window._banners.issue(f"heat:{window._phone.id}") is None
+
+
 def test_a_dropped_stream_keeps_asking_the_phone_why(window, monkeypatch):
     # The camera can take seconds to give up on a size it can't do, after the stream already stopped.
     _dropped_stream(window, monkeypatch, [None, None])
