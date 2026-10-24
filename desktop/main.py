@@ -2,6 +2,7 @@
 """Telescope Desktop — entry point."""
 
 import argparse
+import importlib.util
 import os
 import sys
 import threading
@@ -9,6 +10,16 @@ from pathlib import Path
 from typing import Optional
 
 import update_guard
+
+WARM_UP = "--warm-up"
+if sys.argv[1:] == [WARM_UP]:
+    # _preload's helper process: Windows scans these files here, holding this process's loader lock instead of the app's
+    try:
+        import av  # noqa: F401
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM  # noqa: F401
+    except ImportError:
+        pass
+    sys.exit(0)
 
 APP_DIR = Path(sys.executable if getattr(sys, "frozen", False) else __file__).resolve().parent
 # Before anything else is imported: an update that was cut short may leave files that don't import together.
@@ -24,22 +35,29 @@ if _right_version is not None:
     sys.exit(0)
 update_guard.confirm_on_terminate(APP_DIR)
 
+
+def _chosen_language() -> str:
+    """The language picked in Settings > General, "" for the system's."""
+    from telescope.config import load_config
+    setup = load_config().get("plugin_configs", {}).get("setup")
+    lang = setup.get("language") if isinstance(setup, dict) else ""
+    return lang if isinstance(lang, str) else ""
+
+
+from telescope import splash  # noqa: E402
+splash.show_text(_chosen_language)  # before Qt, which most of a first start's wait is spent loading
+
 # The new version has started fine this long after its window came up (or once it's closed normally).
 _STARTED_FINE_MS = 3000
 
 _missing = []
 try:    from PyQt6.QtCore import Qt
 except ImportError: _missing.append("PyQt6")
-try:    import cv2
-except ImportError: _missing.append("opencv-python-headless")
-try:    import numpy as np
-except ImportError: _missing.append("numpy")
-try:    import pyvirtualcam
-except ImportError: _missing.append("pyvirtualcam")
-try:    import ifaddr
-except ImportError: _missing.append("ifaddr")
-try:    import zeroconf
-except ImportError: _missing.append("zeroconf")
+# Only looked for here, so the log's START comes sooner: a first start on Windows spends seconds on each file it loads
+for _module, _package in (("cv2", "opencv-python-headless"), ("numpy", "numpy"), ("pyvirtualcam", "pyvirtualcam"),
+                          ("ifaddr", "ifaddr"), ("zeroconf", "zeroconf")):
+    if importlib.util.find_spec(_module) is None:
+        _missing.append(_package)
 
 if _missing:
     print(f"Missing: pip install {' '.join(_missing)}", file=sys.stderr)
@@ -106,14 +124,6 @@ def _attach_console():
         pass
 
 
-def _chosen_language() -> str:
-    """The language picked in Settings > General, "" for the system's."""
-    from telescope.config import load_config
-    setup = load_config().get("plugin_configs", {}).get("setup")
-    lang = setup.get("language") if isinstance(setup, dict) else ""
-    return lang if isinstance(lang, str) else ""
-
-
 def run_action(args) -> int:
     """--action / --list-actions: talk to the running copy, print what it says, and exit."""
     _attach_console()
@@ -149,18 +159,42 @@ def _watch_dev_plugins(win) -> Optional[QTimer]:
     return timer
 
 
+def _warm_up():
+    """Runs the app once more with --warm-up and waits for it. Windows scans each new file while it loads and holds the
+    process's loader lock meanwhile, which every new thread needs, so loading PyAV here first would freeze the window
+    whenever it starts one. Once that helper has had them scanned, loading them here is quick."""
+    import subprocess
+    env = dict(os.environ, PYINSTALLER_SUPPRESS_SPLASH_SCREEN="1")
+    try:
+        subprocess.run([sys.executable, WARM_UP], env=env, timeout=600, creationflags=subprocess.CREATE_NO_WINDOW)
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
+def _preload():
+    """What the first stream needs and a Windows first start loads slowly (PyAV, its graphics card, cryptography), once the window is up."""
+    from telescope import h264_reader, udp_reader
+    if getattr(sys, "frozen", False) and sys.platform == "win32":
+        h264_reader.load_av(warm=_warm_up)
+    h264_reader.hardware_device()
+    udp_reader.preload()
+
+
 def main():
     if getattr(sys, "frozen", False) and not IS_LINUX:
         import tempfile
         from telescope.platform import windows
         if windows.running_from_archive(APP_DIR, Path(tempfile.gettempdir())):
+            splash.close()
             windows.warn_running_from_archive()
             sys.exit(1)
         windows.use_installed_app_id(APP_DIR)
     args, qt_argv = parse_args(sys.argv[1:])
     if args.action or args.list_actions:
+        splash.close()
         sys.exit(run_action(args))
     diagnostics.install(APP_DIR)
+    import cv2
     cv2.setNumThreads(2)  # 16 threads spin more than they work on per-frame jobs this small
     if IS_LINUX:
         from telescope.platform.linux import limit_malloc_arenas
@@ -202,6 +236,8 @@ def main():
         win.start_hidden()
     else:
         win.show()
+    splash.close()
+    QTimer.singleShot(1500, lambda: threading.Thread(target=_preload, daemon=True).start())
     watch = _watch_dev_plugins(win)  # noqa: F841 (kept alive until quitting)
     if dev_profile.resume_stream():
         QTimer.singleShot(0, lambda: win.start_stream(interactive=False))

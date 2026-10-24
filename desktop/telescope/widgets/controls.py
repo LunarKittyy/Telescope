@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy, QVBoxLayou
 
 from telescope import theme
 from telescope.widgets.common import (
-    NoScrollComboBox, SegmentButton, Switch, cap_baseline, card_hue, paint_focus, stacked_baselines, ui_px,
+    NoScrollComboBox, SegmentButton, Switch, cap_baseline, card_hue, elided, paint_focus, stacked_baselines, ui_px,
 )
 from telescope.widgets.line_icons import line_icon
 from telescope.i18n import tr
@@ -50,7 +50,7 @@ def _two_lines(p: QPainter, box: QRect, top_font: QFont, top_ink: QColor, top_te
             p.setFont(font)
             p.setPen(ink)
             p.drawText(QPointF(box.left(), base),
-                       p.fontMetrics().elidedText(text, Qt.TextElideMode.ElideRight, box.width()))
+                       elided(p.device(), p.fontMetrics(), text, box.width()))
     return first, second
 
 
@@ -182,7 +182,7 @@ class OptionCard(SegmentButton):
             line_icon(self._icon, ink.name()).paint(p, QRect(x, round(mid - 7), 14, 14))
             x += 21
         p.setPen(ink)
-        p.drawText(QPointF(x, name_base), fm.elidedText(self.text(), Qt.TextElideMode.ElideRight, self.width() - x - pad))
+        p.drawText(QPointF(x, name_base), elided(self, fm, self.text(), self.width() - x - pad))
         paint_focus(p, self, 10)
         p.end()
 
@@ -442,7 +442,8 @@ def setting_row(title: str, sub: str = "", control=None, below=None, keywords: s
     line = WrapLabel(sub)
     line.setObjectName("setting_sub")
     line.setProperty("sub", True)
-    line.setVisible(bool(sub))
+    if not sub:
+        line.hide()  # never setVisible(True) before it has a parent: on Windows that flashes it up as a window
     texts.addWidget(line)
     texts.addStretch(1)
     top.addLayout(texts, 1)

@@ -10,7 +10,7 @@ import numpy as np
 import pyvirtualcam
 from PyQt6.QtCore import QThread, pyqtSignal
 
-from telescope import vcam, vision
+from telescope import h264_reader, vcam, vision
 from telescope.h264_reader import H264Reader
 from telescope.udp_reader import UdpH264Reader
 from telescope.mjpeg_reader import MjpegReader
@@ -448,6 +448,10 @@ class StreamWorker(QThread):
             self.status.emit("idle", tr("Not streaming"))
 
     def _run(self):
+        if self._open_reader is None and self.url.endswith((".h264", ".udp")) and not h264_reader.loaded():
+            # The start-up preload is still importing PyAV (a first start on Windows checks each of its files)
+            self.status.emit("info", tr("Getting ready… The first start after installing can take a minute."))
+            h264_reader.load_av()
         self.status.emit("info", tr("Connecting...") if self._open_reader else tr("Connecting to {url}...", url=self.url))
         failed = False  # the phone may be reachable another way by now, so the host looks for it (see "waiting")
         while not self._stop_flag:

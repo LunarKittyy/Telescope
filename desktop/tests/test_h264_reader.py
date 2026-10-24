@@ -127,9 +127,44 @@ def test_reader_refuses_a_non_h264_response(server):
 
 
 def test_without_pyav_the_reader_never_opens(monkeypatch):
-    monkeypatch.setattr(h264_reader, "av", None)
+    monkeypatch.setattr(h264_reader, "_av_failed", True)
     assert h264_reader.available() is False
     assert H264Reader("http://127.0.0.1:1/v1/video.h264", PhoneAuth("t")).open() is False
+
+
+def test_pyav_is_imported_by_one_thread_at_a_time(monkeypatch):
+    # The start-up preload and a stream's decoder importing PyAV together deadlocked on av.video.reformatter
+    import builtins
+    import time
+    real_import = builtins.__import__
+    inside = []
+    overlapped = []
+
+    def slow_import(name, *args, **kwargs):
+        if name == "av":
+            overlapped.append(bool(inside))
+            inside.append(1)
+            time.sleep(0.05)
+            inside.pop()
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(h264_reader, "_av_module", None)
+    monkeypatch.setattr(builtins, "__import__", slow_import)
+    threads = [threading.Thread(target=h264_reader._av) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert overlapped == [False]
+    assert h264_reader._av() is av
+
+
+def test_the_warm_up_runs_once_under_the_import_lock(monkeypatch):
+    monkeypatch.setattr(h264_reader, "_av_module", None)
+    held = []
+    assert h264_reader.load_av(warm=lambda: held.append(h264_reader._av_lock.locked())) is av
+    h264_reader.load_av(warm=lambda: held.append("again"))
+    assert held == [True]
 
 
 class _Endless:

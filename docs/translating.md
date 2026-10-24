@@ -4,9 +4,24 @@
 
 Spotted a text that reads wrong, or would like Telescope in your language? [Open a translation issue](https://github.com/LunarKittyy/Telescope/issues/new?template=translation.yml) and write what a text says now and what it should say. That's all it takes, no coding or setup needed.
 
-To fix many texts at once, you can edit the files right on GitHub: open your language's file from the table below, click the pencil icon, change the texts and click **Propose changes**. GitHub then makes a copy and opens the pull request for you. Change only the translated text (the part between `>` and `<` on the phone, the `msgstr "..."` lines on the desktop) and keep anything in `{curly braces}` or like `%1$s` as it is.
+To fix many texts at once you can edit the files right on GitHub. These are the languages so far, one file for each app:
 
-A language marked as a first draft (it shows "(beta)" in the desktop's Language list) hasn't been checked by someone who speaks it yet. Reading one through and listing what's off is a big help.
+| Language | Phone app | Desktop app |
+|---|---|---|
+| Spanish (first draft) | [strings.xml](https://github.com/LunarKittyy/Telescope/blob/master/android/app/src/main/res/values-es/strings.xml) | [es.po](https://github.com/LunarKittyy/Telescope/blob/master/desktop/telescope/locale/es.po) |
+| Hindi (first draft) | [strings.xml](https://github.com/LunarKittyy/Telescope/blob/master/android/app/src/main/res/values-hi/strings.xml) | [hi.po](https://github.com/LunarKittyy/Telescope/blob/master/desktop/telescope/locale/hi.po) |
+| Indonesian (first draft) | [strings.xml](https://github.com/LunarKittyy/Telescope/blob/master/android/app/src/main/res/values-in/strings.xml) | [id.po](https://github.com/LunarKittyy/Telescope/blob/master/desktop/telescope/locale/id.po) |
+| Brazilian Portuguese (first draft) | [strings.xml](https://github.com/LunarKittyy/Telescope/blob/master/android/app/src/main/res/values-pt-rBR/strings.xml) | [pt_BR.po](https://github.com/LunarKittyy/Telescope/blob/master/desktop/telescope/locale/pt_BR.po) |
+| Swedish | [strings.xml](https://github.com/LunarKittyy/Telescope/blob/master/android/app/src/main/res/values-sv/strings.xml) | [sv.po](https://github.com/LunarKittyy/Telescope/blob/master/desktop/telescope/locale/sv.po) |
+| Ukrainian (first draft) | [strings.xml](https://github.com/LunarKittyy/Telescope/blob/master/android/app/src/main/res/values-uk/strings.xml) | [uk.po](https://github.com/LunarKittyy/Telescope/blob/master/desktop/telescope/locale/uk.po) |
+
+1. Open the file for the app you want to fix and click the pencil icon at the top right of it
+2. Change the translated texts. On the phone that's the part between `>` and `<`, on the desktop the `msgstr "..."` lines. Leave anything in `{curly braces}` or like `%1$s` as it is (the app fills those in)
+3. Click **Commit changes** and then **Propose changes**. GitHub makes a copy for you and opens the pull request
+
+A first draft hasn't been checked by someone who speaks the language yet (the desktop's Language list shows "(beta)" after its name). Reading one through and listing what's off in an issue is a big help even if you don't change the files.
+
+Your language isn't in the table? Open a translation issue to ask for it, or start it yourself with the steps below.
 
 The rest of this page is for people working on the files themselves.
 
@@ -67,6 +82,20 @@ python scripts/i18n.py status       # how far along each language is
 ```
 
 Some texts stay in English on purpose: Copy diagnostics (it goes into bug reports), the Browser camera web page, the command line, VB-Audio's two license lines. The phone's own camera, codec and microphone messages reach the desktop as codes the desktop words itself (see [the protocol](protocol.md#texts-the-desktop-words-itself)), so they're translated there.
+
+## Checking that texts fit
+
+A translation longer than the English can end up cut off, cut short with "…" or pushed out of its row. To find those:
+
+```
+python scripts/text_fit.py sv --shots shots    # what doesn't fit in Swedish, with pictures in shots/
+```
+
+It builds the window offscreen at the narrowest width of each of its layouts and goes through every settings tab. Each text that doesn't fit is listed with where it shows and how many pixels it needs. With `--shots` you also get a picture of each of those windows with the texts boxed in red.
+
+To try a layout before any real translation exists, start the desktop with `TELESCOPE_LANG=pseudo`. That's a made-up language where every text is about 40% longer and accented ("[Šţàŕţ šţŕéàɱîñĝ ~~~~ ~~]"). Any plain English left on screen in it never went through `tr()`.
+
+`tests/test_text_fit.py` runs the same check on every language and the pseudo one and fails on anything new. What's already known not to fit is listed in `tests/fixtures/text_fit_known.txt` (fixing one means taking its line out). Text widths depend on the font, so the test only runs a language where its texts are drawn in Inter (and Hindi's letters in Noto Sans Devanagari, since Inter has none). The Linux CI job installs both and other machines skip what they can't draw the same way.
 
 ## Translating with an AI
 

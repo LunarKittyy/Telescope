@@ -4,22 +4,23 @@ Same interface as MjpegReader, so StreamWorker doesn't care which one it has. De
 bundled FFmpeg; without PyAV installed, available() is False and the desktop only offers MJPEG.
 """
 
+import importlib.util
 import logging
 import re
 import sys
 import threading
 import urllib.request
 import weakref
-from typing import Optional
+from typing import Callable, Optional
 
 from telescope.pinned_https import PhoneAuth
 
 logger = logging.getLogger(__name__)
 
-try:
-    import av
-except ImportError:  # optional: MJPEG works without it
-    av = None
+# PyAV is optional (MJPEG works without it) and slow to load, so it's imported by the first thing that decodes
+_av_module = None
+_av_failed = False
+_av_lock = threading.Lock()  # two threads importing PyAV at once can deadlock on its submodules
 
 _CHUNK = 64 * 1024
 # Data with no finished frame after this much isn't a stream the phone sent; stop instead of buffering on.
@@ -38,8 +39,40 @@ _decoders = weakref.WeakSet()
 _ANNEX_B_START = re.compile(b"\x00\x00(?:\x00)?\x01")
 
 
+def _av():
+    """The av module, imported on first use; None if PyAV isn't installed."""
+    global _av_module, _av_failed
+    if _av_module is None and not _av_failed:
+        with _av_lock:
+            if _av_module is None and not _av_failed:
+                try:
+                    import av
+                    _av_module = av
+                except ImportError:
+                    _av_failed = True
+    return _av_module
+
+
+def loaded() -> bool:
+    """Whether PyAV has been imported (by the start-up preload or a decoder) and decoding can start right away."""
+    return _av_module is not None
+
+
+def load_av(warm: Optional[Callable[[], None]] = None):
+    """Imports PyAV behind the same lock as the decoders, for code that imports something built on it (aiortc). warm runs
+    first, under the lock, when PyAV isn't loaded yet (main.py's warm-up process), so a decoder that wants it meanwhile waits."""
+    if warm is not None and not loaded():
+        with _av_lock:
+            if not loaded():
+                warm()
+    return _av()
+
+
 def available() -> bool:
-    return av is not None
+    """Whether PyAV is installed. Looks without importing it, so asking at startup stays cheap."""
+    if _av_failed:
+        return False
+    return _av_module is not None or importlib.util.find_spec("av") is not None
 
 
 def set_hardware(on: bool):
@@ -78,7 +111,7 @@ def _hardware_requested() -> bool:
 
 
 def _hw_types() -> list:
-    if av is None:
+    if _av() is None:
         return []
     try:
         from av.codec.hwaccel import hwdevices_available
@@ -91,7 +124,7 @@ def _hw_types() -> list:
 def _open_hw(device_type: str):
     try:
         from av.codec.hwaccel import HWAccel
-        codec = av.CodecContext.create("h264", "r", hwaccel=HWAccel(device_type=device_type, allow_software_fallback=False))
+        codec = _av().CodecContext.create("h264", "r", hwaccel=HWAccel(device_type=device_type, allow_software_fallback=False))
         return codec if codec.is_hwaccel else None
     except Exception:
         return None
@@ -103,6 +136,7 @@ class ToBgr:
     _THREADS = 4
 
     def __init__(self):
+        _av()
         from av.video.reformatter import VideoReformatter
         self._reformatter = VideoReformatter()
         self._threads = True
@@ -117,7 +151,7 @@ class ToBgr:
 
 
 def _software_codec():
-    codec = av.CodecContext.create("h264", "r")
+    codec = _av().CodecContext.create("h264", "r")
     # Show each frame as soon as it's decoded, instead of holding some back for reordering.
     codec.options = {"flags": "low_delay"}
     codec.thread_count = 2
@@ -142,7 +176,7 @@ class H264Reader:
         return self._response is not None
 
     def open(self) -> bool:
-        if av is None:
+        if not available():
             return False
         try:
             req = urllib.request.Request(self.url, headers=self.auth.headers())
@@ -212,7 +246,7 @@ class Decoder:
         self._headers = {}
         self._header_tail = b""
         self._hw_proven = False  # decoded a frame: from then on a bad packet is the stream's fault, not the card's
-        self._to_bgr = ToBgr() if av is not None else None
+        self._to_bgr = ToBgr() if available() else None
         if _hardware_requested():
             device = hardware_device()
             self._codec = _open_hw(device)
@@ -280,7 +314,7 @@ def _decode_counted(codec, data: bytes, fail_on_invalid: bool = False, to_bgr=No
     for packet in codec.parse(data):
         try:
             frames = codec.decode(packet)
-        except av.error.InvalidDataError:
+        except _av().error.InvalidDataError:
             if fail_on_invalid:
                 raise  # hardware refusal must reach Decoder's software fallback too
             continue  # e.g. joined mid-GOP: skip until a keyframe

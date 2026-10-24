@@ -231,3 +231,24 @@ def test_a_field_can_have_any_name():
     i18n.load("en")
     assert i18n.tr("Nothing matches {text}", text="zz") == "Nothing matches zz"
     assert i18n.trn("{n} of {singular}", "{n} of {singular}", 2, singular="x") == "2 of x"
+
+
+# ── The pseudo language ──────────────────────────────────────────────────────
+
+def test_the_pseudo_language_makes_every_text_longer_and_keeps_what_the_app_fills_in():
+    shown = i18n.pseudo('Made by <a href="{url}">LunarKittyy</a>\nsecond line')
+    first, second = shown.split("\n")
+    assert '<a href="{url}">' in first and "</a>" in first and "LunarKittyy" not in first
+    assert first.startswith("[") and second.startswith("[") and second.endswith("~]")
+    assert len(i18n.pseudo("Start streaming")) >= len("Start streaming") * 1.4
+
+
+def test_the_pseudo_language_can_be_picked_to_try_a_layout(monkeypatch):
+    monkeypatch.setenv(i18n.ENV_LANGUAGE, i18n.PSEUDO_LANGUAGE)
+    try:
+        assert i18n.load(i18n.resolve()) == i18n.PSEUDO_LANGUAGE
+        assert i18n.tr("Start streaming") == i18n.pseudo("Start streaming")
+        assert i18n.english(i18n.tr("Start streaming")) == "Start streaming"
+        assert i18n.PSEUDO_LANGUAGE not in i18n.available()  # not in the Language list
+    finally:
+        i18n.load("en")

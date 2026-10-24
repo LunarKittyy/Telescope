@@ -20,6 +20,7 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 - [ ] `desktop/scripts/smoke_check.py` passes on both Linux and Windows CI runners.
 - [ ] `python scripts/phone_check.py --wifi-drop 5 --handover` in `desktop/` passes against the dev app on a real phone (it exits with 1 when something didn't work).
 - [ ] `desktop/constraints.txt` installs cleanly in clean venv and versions haven't drifted out of date.
+- [ ] For every dependency bumped since the last release, its entries in [Upstream bugs](upstream-bugs.md) are checked: fixed ones have their workaround dropped.
 
 ## Packaging
 

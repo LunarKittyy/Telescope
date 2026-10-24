@@ -10,17 +10,17 @@ import base64
 import contextlib
 import html
 import logging
+import secrets
 import socket
 import threading
 import time
-import uuid
 from dataclasses import dataclass
 from typing import Optional
 
 from PyQt6.QtCore import QObject, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
-    QButtonGroup, QDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QLineEdit,
+    QButtonGroup, QFrame, QHBoxLayout, QInputDialog, QLabel, QLineEdit,
     QMessageBox, QPushButton, QScrollArea, QVBoxLayout, QWidget,
 )
 
@@ -51,7 +51,7 @@ from telescope.widgets.common import (
     set_button_icon,
     ROW_HEIGHT, SegmentButton, segmented_row,
     Switch,
-    ElidingLabel, NoScrollComboBox, action_button, add_card_header, card_action,
+    ElidingLabel, NoScrollComboBox, PlacedDialog, action_button, add_card_header, card_action,
     card_layout, control_row_widget, create_card, create_vector_icon,
     dialog_buttons, dialog_header, dialog_layout, icon_button, run_off_ui_thread, set_status_kind, set_ui_role,
     ui_px, wrapped_note,
@@ -168,7 +168,7 @@ class _PairSignals(QObject):
     usb_state = pyqtSignal(object)     # list of (serial, state) from adb
 
 
-class AddPhoneDialog(QDialog):
+class AddPhoneDialog(PlacedDialog):
     """One way in: scan the code over Wi-Fi, or plug the phone in and it pairs over USB by itself."""
 
     def __init__(self, parent, computer_id: str, computer_name: str, on_paired):
@@ -398,7 +398,7 @@ class _PhoneRows(QScrollArea):
         self.setFixedHeight(min(wanted, ui_px(self.MAX_HEIGHT)))
 
 
-class PhonesDialog(QDialog):
+class PhonesDialog(PlacedDialog):
     def __init__(self, plugin: "ConnectionPlugin", parent=None):
         super().__init__(parent)
         self._plugin = plugin
@@ -463,7 +463,7 @@ class PhonesDialog(QDialog):
 
     def showEvent(self, event):
         super().showEvent(event)
-        QTimer.singleShot(0, self._fit)  # again now the rows know their real width
+        QTimer.singleShot(0, self._fit)  # again now the rows know their real width (a pixel or two at most)
 
     def _add_row(self, sid: str, name: str, sub: str, renamable: bool):
         buttons = QHBoxLayout()
@@ -555,7 +555,7 @@ class ConnectionPlugin(TelescopePlugin):
         self._udp_cb = None
         self._pending_route: Optional[str] = None  # a Connect via choice checked before the stream moves to it
         self._route_probe_id = 0
-        self._computer_id = uuid.uuid4().hex
+        self._computer_id = secrets.token_hex(16)
         self._computer_name = default_computer_name()
         self._resolution: Optional[Resolution] = None
         self._check_id = 0
