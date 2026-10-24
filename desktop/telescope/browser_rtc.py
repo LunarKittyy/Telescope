@@ -15,6 +15,8 @@ import threading
 import time
 from typing import Callable, Optional
 
+from telescope import h264_reader
+
 logger = logging.getLogger(__name__)
 
 JITTER_PACKETS = 1024  # aiortc's 128 (~150 KB) never completes a 1080p keyframe, and it asks for one again forever
@@ -32,6 +34,7 @@ class RtcError(Exception):
 
 
 def available() -> bool:
+    h264_reader.load_av()  # aiortc imports PyAV, which mustn't race the start-up preload
     try:
         import aiortc  # noqa: F401
     except ImportError:

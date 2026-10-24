@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 # PyAV is optional (MJPEG works without it) and slow to load, so it's imported by the first thing that decodes
 _av_module = None
 _av_failed = False
+_av_lock = threading.Lock()  # two threads importing PyAV at once can deadlock on its submodules
 
 _CHUNK = 64 * 1024
 # Data with no finished frame after this much isn't a stream the phone sent; stop instead of buffering on.
@@ -42,12 +43,19 @@ def _av():
     """The av module, imported on first use; None if PyAV isn't installed."""
     global _av_module, _av_failed
     if _av_module is None and not _av_failed:
-        try:
-            import av
-            _av_module = av
-        except ImportError:
-            _av_failed = True
+        with _av_lock:
+            if _av_module is None and not _av_failed:
+                try:
+                    import av
+                    _av_module = av
+                except ImportError:
+                    _av_failed = True
     return _av_module
+
+
+def load_av():
+    """Imports PyAV behind the same lock as the decoders, for code that imports something built on it (aiortc)."""
+    return _av()
 
 
 def available() -> bool:
@@ -118,6 +126,7 @@ class ToBgr:
     _THREADS = 4
 
     def __init__(self):
+        _av()
         from av.video.reformatter import VideoReformatter
         self._reformatter = VideoReformatter()
         self._threads = True
