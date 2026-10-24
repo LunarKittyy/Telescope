@@ -533,15 +533,24 @@ class MainActivity : AppCompatActivity() {
             setTextAppearance(R.style.TextAppearance_Telescope_Hint)
         })
         row.addView(textBlock)
-        row.addView(com.google.android.material.button.MaterialButton(
-            this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle,
-        ).apply {
-            setText(R.string.remove)
+        // An icon, so a long name or a large font keeps the row's width instead of breaking mid-word
+        row.addView(MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+            setIconResource(R.drawable.ic_trash)
+            iconSize = dp(18)
+            iconPadding = 0
+            iconGravity = MaterialButton.ICON_GRAVITY_TEXT_START
+            setPadding(0, 0, 0, 0)
+            minimumWidth = 0
+            minWidth = 0
+            minimumHeight = 0
+            minHeight = 0
+            insetTop = 0
+            insetBottom = 0
+            contentDescription = getString(R.string.remove_computer_title, computer.name)
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(this, getString(R.string.remove))
             setOnClickListener { confirmRemoveComputer(computer) }
             // Start, not left: in Persian or Arabic the button sits on the left, and the gap goes on its right
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { marginStart = dp(12) }
+            layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginStart = dp(12) }
         })
         return row
     }
