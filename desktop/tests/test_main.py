@@ -70,6 +70,7 @@ else:
 def test_the_window_comes_up_without_loading_what_only_a_stream_needs(tmp_path):
     # Each file loaded is seconds of Windows checking it on a first start, so these wait until the window is up
     _run(tmp_path, """
+import os
 import socket
 import sys
 from PyQt6.QtWidgets import QApplication
@@ -83,5 +84,6 @@ try:
 except SystemExit:
     pass
 loaded = [name for name in ('av', 'cryptography', 'sounddevice', 'aiortc') if name in sys.modules]
-assert not loaded, loaded
+print(loaded, file=sys.stderr, flush=True)
+os._exit(1 if loaded else 0)  # the window is still up, and tearing Qt down at exit isn't what's under test
 """)
