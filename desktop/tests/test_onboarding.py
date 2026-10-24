@@ -1,6 +1,7 @@
 """First-run checklist: what each step shows, and when the checklist steps aside."""
 
 import pytest
+from PyQt6.QtWidgets import QVBoxLayout, QWidget
 
 import telescope.plugins.onboarding as onboarding_module
 from telescope.plugin import EventBus
@@ -41,7 +42,9 @@ def env(qt_widgets, monkeypatch):
     bus.setup_needed.connect(needed.append)
     plugin = OnboardingPlugin()
     plugin.setup(_Host(), bus)
-    card = qt_widgets(plugin.create_panel())
+    card = plugin.create_panel()
+    holder = qt_widgets(QWidget())  # in a layout like the window's: a card without a parent is a window of its own
+    QVBoxLayout(holder).addWidget(card)
     return plugin, bus, card, needed
 
 
