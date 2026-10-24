@@ -9,7 +9,7 @@ from PyQt6.QtGui import (
     QBrush, QColor, QFont, QFontMetrics, QFontMetricsF, QIcon, QPainter, QPainterPath, QPen, QPixmap,
 )
 from PyQt6.QtWidgets import (
-    QAbstractButton, QAbstractSlider, QAbstractSpinBox, QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QFrame, QGraphicsOpacityEffect, QGridLayout, QHBoxLayout, QLabel, QLayout,
+    QAbstractButton, QAbstractSlider, QAbstractSpinBox, QApplication, QCheckBox, QComboBox, QDialog, QDoubleSpinBox, QFrame, QGraphicsOpacityEffect, QGridLayout, QHBoxLayout, QLabel, QLayout,
     QPushButton, QScrollArea, QSlider, QSpinBox, QSizePolicy, QStyle, QStyledItemDelegate, QStyleOptionButton, QStyleOptionSlider, QVBoxLayout, QWidget,
 )
 
@@ -755,6 +755,35 @@ def icon_button(icon_name: str, name: str, tooltip: str = "") -> QPushButton:
     btn.setAccessibleName(name)
     btn.setToolTip(tooltip or name)
     return btn
+
+
+class PlacedDialog(QDialog):
+    """A dialog sized and centred over its window before it's first shown. QDialog centres it in showEvent, and on
+    Windows it showed at the top left of the screen for a moment first."""
+
+    _placed = False
+
+    def setVisible(self, visible):
+        if visible and not self._placed:
+            self._placed = True
+            self.fit_before_show()
+            self._centre()
+        super().setVisible(visible)
+
+    def fit_before_show(self):
+        self.adjustSize()
+
+    def _centre(self):
+        owner = self.parentWidget()
+        screen = (owner.screen() if owner is not None else None) or QApplication.primaryScreen()
+        if screen is None:
+            return
+        area = screen.availableGeometry()
+        frame = owner.window().frameGeometry() if owner is not None else area
+        x = frame.x() + (frame.width() - self.width()) // 2
+        y = frame.y() + (frame.height() - self.height()) // 2
+        self.move(max(area.left(), min(x, area.right() - self.width())),
+                  max(area.top(), min(y, area.bottom() - self.height())))
 
 
 def dialog_layout(dialog: QWidget) -> QVBoxLayout:

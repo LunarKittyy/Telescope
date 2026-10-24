@@ -273,3 +273,45 @@ def test_building_the_window_and_settings_flashes_up_no_other_windows(build, qap
         qapp.removeEventFilter(watch)
     stray = [w for w in watch.shown if w is not window and w is not window._settings_win and not w.inherits("QMenu")]
     assert stray == [], [(type(w).__name__, w.objectName()) for w in stray]
+
+
+class _MovedAfterShow(QObject):
+    """Notes a window moved or resized while it's already on screen."""
+
+    def __init__(self):
+        super().__init__()
+        self.jumps = []
+
+    def eventFilter(self, obj, event):
+        if not (isinstance(obj, QWidget) and obj.isWindow() and obj.isVisible() and not obj.inherits("QMenu")):
+            return False
+        if event.type() == QEvent.Type.Move:
+            self.jumps.append((type(obj).__name__, "Move"))
+        elif event.type() == QEvent.Type.Resize:  # Your phones grows a pixel or two once its rows know their width
+            old, new = event.oldSize(), event.size()
+            if abs(old.width() - new.width()) > 2 or abs(old.height() - new.height()) > 2:
+                self.jumps.append((type(obj).__name__, "Resize"))
+        return False
+
+
+def test_dialogs_are_placed_before_they_show(build, qapp, monkeypatch):
+    # Centred or resized once showing, a dialog appeared at the top left of the screen for a moment on Windows
+    monkeypatch.setattr(connection_module.PairingServer, "start", lambda self, *a, **k: SimpleNamespace(
+        candidates=[], payload="", port=None, usb_payload=""))
+    window = build("")
+    window.show()
+    qapp.processEvents()
+    watch = _MovedAfterShow()
+    qapp.installEventFilter(watch)
+    try:
+        conn = next(p for p in window._plugins if p.name == "connection")
+        window.open_settings()
+        conn.open_add_phone()
+        conn.open_phones()
+        for _ in range(5):
+            qapp.processEvents()
+    finally:
+        qapp.removeEventFilter(watch)
+        if conn._add_dlg is not None:
+            conn._add_dlg.done(0)
+    assert watch.jumps == []
