@@ -2009,12 +2009,22 @@ def test_a_critically_hot_phone_says_the_smaller_size_until_it_cools(window, mon
     issue = window._banners.issue(key)
     assert issue.title == "The phone is very hot"
     assert issue.text == "It's streaming at 1280 × 720 and 15 fps until it cools down."
-    assert window._phone._heat_timer.isActive()  # asks again, or the note would stay after the phone cooled
     window._phone.on_phone_state({**hot, "heat_fps": 0})  # asked for 15 fps or less: only the size dropped
     assert window._banners.issue(key).text == "It's streaming at 1280 × 720 until it cools down."
     window._phone.on_phone_state(_VALID_STATE)
     assert window._banners.issue(key) is None
-    assert not window._phone._heat_timer.isActive()
+
+
+def test_heat_that_comes_mid_stream_shows_and_goes_with_the_regular_check(window, monkeypatch):
+    _conn, _worker, _client, _lost = _dropped_stream(window, monkeypatch, [None])
+    key = f"heat:{window._phone.id}"
+    sid = window._phone.session.id
+    window._phone._on_heat_state(sid, {**_VALID_STATE, "heat_width": 1280, "heat_height": 720, "heat_fps": 15})
+    assert window._banners.issue(key).title == "The phone is very hot"
+    window._phone._on_heat_state(sid + 1, _VALID_STATE)  # an answer for a stream that's gone changes nothing
+    assert window._banners.issue(key) is not None
+    window._phone._on_heat_state(sid, _VALID_STATE)
+    assert window._banners.issue(key) is None
 
 
 def test_the_heat_note_goes_when_the_stream_stops(window, monkeypatch):

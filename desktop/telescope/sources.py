@@ -32,7 +32,7 @@ _UNREACHABLE_AFTER_MS = 30_000  # gone this long: a banner says so
 # rate is trusted before asking again.
 _CAMERA_LIMITED_SHARE = 0.9
 _CAMERA_FPS_KEEP_S = 10.0
-_HEAT_RECHECK_MS = 10_000  # how often a hot phone's state is asked for again, to see it cool
+_HEAT_CHECK_MS = 15_000  # how often a streaming phone is asked whether its heat dropped the size
 
 
 def camera_error_text(state: dict) -> str:
@@ -346,6 +346,7 @@ class PhoneSource(Source):
     # session id, frames arriving per second, the phone's camera rate, the rate Dynamic stepped down to (0: none)
     _sig_camera_rate = pyqtSignal(int, float, float, int, int)
     _sig_alive = pyqtSignal(int, bool)  # session id, whether the phone answered (camera off)
+    _sig_heat = pyqtSignal(int, object)  # session id, the phone's state for the heat note (or None)
     _sig_camera_check = pyqtSignal(int, object)  # session id, the phone's state after turning the camera on (or None)
 
     def __init__(self, host: SourceHost, phone_id: Optional[str]):
@@ -359,12 +360,14 @@ class PhoneSource(Source):
         self._recovery_gen = 0
         self._recovery_route = None  # the route recovery last moved the stream to
         self._handover = None  # (session id, route, url) of a hand_over() under way
+        self._heat_shown = False
+        self._heat_check_busy = False  # one heat check at a time: an unreachable phone takes seconds to time out
         self._state_poll_busy = False  # one recovery state poll at a time: an unreachable phone takes 4 s to time out
-        # While the heat note is up, the state is asked for again now and then so it goes once the phone cools
+        # The phone can get hot mid-stream, and the state is otherwise only asked for at the start
         self._heat_timer = QTimer(self)
-        self._heat_timer.setSingleShot(True)
-        self._heat_timer.setInterval(_HEAT_RECHECK_MS)
-        self._heat_timer.timeout.connect(self._recheck_heat)
+        self._heat_timer.setInterval(_HEAT_CHECK_MS)
+        self._heat_timer.timeout.connect(self._check_heat)
+        self._sig_heat.connect(self._on_heat_state)
         self._recovery_timer = QTimer(self)
         self._recovery_timer.setSingleShot(True)
         self._recovery_timer.timeout.connect(self._probe_recovery)
@@ -462,12 +465,14 @@ class PhoneSource(Source):
 
     def started(self, session_id: int):
         threading.Thread(target=self._fetch_state_async, args=(session_id,), daemon=True).start()
+        self._heat_timer.start()
 
     def refresh_state(self, session_id: int):
         # After the panels' settings went out, so it holds them rather than the ones the stream started with
         threading.Thread(target=self._fetch_state_async, args=(session_id, False), daemon=True).start()
 
     def stopped(self, remote_stop: bool, active: bool):
+        self._heat_timer.stop()
         self._wake_id += 1
         if not remote_stop:
             self._stop_late_wake = False  # the phone is meant to keep going, so a wake landing late isn't stopped either
@@ -572,17 +577,30 @@ class PhoneSource(Source):
             text = tr("It's streaming at {size} until it cools down.", size=size)
         self._host.show_issue(f"heat:{self.id}", Issue(tr("The phone is very hot"), text, kind="warn"))
         self._heat_shown = True
-        self._heat_timer.start()
 
-    def _recheck_heat(self):
+    def _check_heat(self):
         session = self.session
-        if session is not None and self._heat_shown:
-            self.refresh_state(session.id)
+        if session is None or self._heat_check_busy:
+            return
+        self._heat_check_busy = True
+
+        def work():
+            state = session.client.get_state()
+            try:
+                self._sig_heat.emit(session.id, state)
+            except RuntimeError:
+                pass  # the window is gone
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_heat_state(self, session_id: int, state):
+        self._heat_check_busy = False
+        session = self.session
+        if state and session is not None and session.id == session_id:
+            self._show_heat(state)
 
     def _clear_heat(self):
         if getattr(self, "_heat_shown", False):
             self._heat_shown = False
-            self._heat_timer.stop()
             self._host.clear_issue(f"heat:{self.id}")
 
     def forget_stream_status(self):
