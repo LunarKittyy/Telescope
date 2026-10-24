@@ -122,7 +122,20 @@ class MainActivity : AppCompatActivity() {
         checkLocalOnly             = findViewById(R.id.checkLocalOnly)
         checkWaitForComputer       = findViewById(R.id.checkWaitForComputer)
         btnScanPair                = findViewById(R.id.btnScanPair)
-        tvPairingTitle             = findViewById<CardHeader>(R.id.headerPairing).title
+        val pairingHeader = findViewById<CardHeader>(R.id.headerPairing)
+        tvPairingTitle             = pairingHeader.title
+        btnRemoveAll = MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+            setText(R.string.remove_all)
+            textSize = 13f
+            minimumHeight = 0
+            minHeight = dp(36)
+            insetTop = 0
+            insetBottom = 0
+            setPadding(dp(12), 0, dp(12), 0)
+            visibility = View.GONE
+            setOnClickListener { confirmRemoveAll() }
+        }
+        pairingHeader.setAction(btnRemoveAll)
         tvPairingHint              = findViewById(R.id.tvPairingHint)
         layoutComputers            = findViewById(R.id.layoutComputers)
         btnPreview                 = findViewById(R.id.btnPreview)
@@ -472,6 +485,9 @@ class MainActivity : AppCompatActivity() {
         Updater.downloadAndInstall(this, manifest)
     }
 
+    // Top right of the pairing card, with two or more computers paired
+    private lateinit var btnRemoveAll: MaterialButton
+
     // Whether the paired computers list is unfolded past COMPUTERS_SHOWN
     private var showAllComputers = false
 
@@ -479,6 +495,7 @@ class MainActivity : AppCompatActivity() {
     private fun renderPairing() {
         val computers = PairedComputers.list(this).computers
         layoutComputers.removeAllViews()
+        btnRemoveAll.visibility = if (computers.size >= 2) View.VISIBLE else View.GONE
         if (computers.isEmpty()) {
             tvPairingTitle.setText(R.string.pair_title)
             tvPairingHint.visibility = View.VISIBLE
@@ -577,6 +594,16 @@ class MainActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginStart = dp(12) }
         })
         return row
+    }
+
+    // Every computer's token goes at once; pairing any of them again starts from scratch
+    private fun confirmRemoveAll() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.remove_all_title)
+            .setMessage(R.string.remove_all_message)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.remove_all) { _, _ -> PairedComputers.removeAll(this) }
+            .show()
     }
 
     // Removing a computer revokes only its token; the others keep working.

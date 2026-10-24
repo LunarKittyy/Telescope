@@ -86,6 +86,9 @@
     <!-- %1$s is the computer's name -->
     <string name="remove_computer_title">Remove %1$s?</string>
     <string name="remove_computer_message">It won\'t be able to use this phone\'s camera until you pair it again.</string>
+    <string name="remove_all">Remove all</string>
+    <string name="remove_all_title">Remove all computers?</string>
+    <string name="remove_all_message">None of them will be able to use this phone\'s camera until you pair them again.</string>
     <string name="scan_prompt">Point the camera at the pairing code on your computer</string>
     <string name="scan_download_link">That code downloads the app. Scan the one under Add phone on the computer.</string>
     <string name="scan_not_pairing_code">That\'s not a Telescope pairing code.</string>

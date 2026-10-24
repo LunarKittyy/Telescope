@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.drawable.GradientDrawable
 import android.util.AttributeSet
+import android.view.View
 import android.view.Gravity
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -46,5 +47,12 @@ class CardHeader @JvmOverloads constructor(context: Context, attrs: AttributeSet
             setTextAppearance(R.style.TextAppearance_Telescope_CardTitle)
         }
         addView(title, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(12) })
+    }
+
+    // The card's one button, at the end of the title row like the desktop's header action
+    fun setAction(action: View) {
+        addView(action, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+            marginStart = (8 * resources.displayMetrics.density).toInt()
+        })
     }
 }

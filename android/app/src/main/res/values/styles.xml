@@ -64,6 +64,37 @@
         <item name="rippleColor">@color/colorOutline</item>
     </style>
 
+    <!-- Dialogs like the desktop's: a card's surface and corners, ordinary buttons and the main action filled -->
+    <style name="ThemeOverlay.Telescope.Dialog" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
+        <item name="colorSurface">@color/colorSurface</item>
+        <item name="colorOnSurface">@color/colorOnSurface</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.Telescope.Dialog</item>
+        <item name="elevationOverlayEnabled">false</item>
+        <item name="materialAlertDialogTitleTextStyle">@style/Telescope.DialogTitle</item>
+        <item name="materialAlertDialogBodyTextStyle">@style/Telescope.DialogBody</item>
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.Telescope.DialogButton.Positive</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Widget.Telescope.DialogButton</item>
+        <item name="buttonBarNeutralButtonStyle">@style/Widget.Telescope.DialogButton</item>
+    </style>
+    <style name="ShapeAppearance.Telescope.Dialog" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">14dp</item>
+    </style>
+    <style name="Telescope.DialogTitle" parent="MaterialAlertDialog.MaterialComponents.Title.Text">
+        <item name="android:textSize">18sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textColor">@color/colorOnSurface</item>
+    </style>
+    <style name="Telescope.DialogBody" parent="MaterialAlertDialog.MaterialComponents.Body.Text">
+        <item name="android:textColor">@color/colorOnSurfaceDim</item>
+    </style>
+    <style name="Widget.Telescope.DialogButton" parent="Widget.Telescope.Button.Outlined">
+        <item name="android:layout_marginStart">8dp</item>
+    </style>
+    <style name="Widget.Telescope.DialogButton.Positive" parent="Widget.Telescope.Button">
+        <item name="android:layout_marginStart">8dp</item>
+    </style>
+
     <style name="Widget.Telescope.Switch" parent="Widget.MaterialComponents.CompoundButton.Switch">
         <item name="android:textAppearance">@style/TextAppearance.Telescope.Body</item>
         <item name="android:minHeight">48dp</item>
