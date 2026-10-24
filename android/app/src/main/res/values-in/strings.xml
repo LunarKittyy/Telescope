@@ -112,7 +112,10 @@
     <string name="notif_channel_streaming_desc">Ditampilkan saat kamera sedang streaming ke komputer Anda</string>
     <string name="notif_channel_waiting">Menunggu komputer</string>
     <string name="notif_channel_waiting_desc">Ditampilkan saat Telescope terus menunggu komputer yang tersanding untuk memulai kamera</string>
+    <string name="notif_streaming_title">Streaming</string>
     <string name="notif_camera_streaming">Kamera sedang streaming</string>
+    <string name="notif_streaming_usb">Ke %1$s via USB</string>
+    <string name="notif_streaming_wifi">Ke %1$s via Wi-Fi</string>
     <string name="notif_mic_streaming">Mikrofon sedang streaming, kamera nonaktif</string>
     <string name="notif_waiting">Menunggu komputer Anda</string>
     <string name="notif_stop_waiting">Berhenti menunggu</string>

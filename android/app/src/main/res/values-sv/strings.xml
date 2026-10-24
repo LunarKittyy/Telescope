@@ -113,7 +113,10 @@
     <string name="notif_channel_streaming_desc">Visas medan kameran strömmar till din dator</string>
     <string name="notif_channel_waiting">Väntar på datorn</string>
     <string name="notif_channel_waiting_desc">Visas medan Telescope väntar på att en parkopplad dator ska starta kameran</string>
+    <string name="notif_streaming_title">Strömmar</string>
     <string name="notif_camera_streaming">Kameran strömmar</string>
+    <string name="notif_streaming_usb">Till %1$s via USB</string>
+    <string name="notif_streaming_wifi">Till %1$s via Wi-Fi</string>
     <string name="notif_mic_streaming">Mikrofonen strömmar, kameran avstängd</string>
     <string name="notif_waiting">Väntar på din dator</string>
     <string name="notif_stop_waiting">Sluta vänta</string>

@@ -115,7 +115,10 @@
     <string name="notif_channel_streaming_desc">Показується, коли камера транслює на комп\'ютер</string>
     <string name="notif_channel_waiting">Очікування на комп\'ютер</string>
     <string name="notif_channel_waiting_desc">Показується, поки Telescope очікує, доки підключений у парі комп\'ютер запустить камеру</string>
+    <string name="notif_streaming_title">Трансляція</string>
     <string name="notif_camera_streaming">Камера транслює</string>
+    <string name="notif_streaming_usb">На %1$s через USB</string>
+    <string name="notif_streaming_wifi">На %1$s через Wi-Fi</string>
     <string name="notif_mic_streaming">Мікрофон транслює, камеру вимкнено</string>
     <string name="notif_waiting">Очікування на комп\'ютер</string>
     <string name="notif_stop_waiting">Припинити очікування</string>
