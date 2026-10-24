@@ -31,6 +31,8 @@
     <string name="setup_title">Primeiros passos</string>
     <string name="setup_camera">Câmera</string>
     <string name="setup_camera_reason">Para transmitir usando as câmeras deste celular.</string>
+    <string name="setup_local_network">Rede local</string>
+    <string name="setup_local_network_reason">Permite que seu computador encontre este celular e se conecte a ele pelo Wi-Fi. Não é necessário para USB.</string>
     <string name="setup_notifications">Notificações</string>
     <string name="setup_notifications_reason">Mostra quando a câmera está transmitindo e permite pará-la por ali.</string>
     <string name="setup_microphone">Microfone</string>

@@ -31,6 +31,8 @@
     <string name="setup_title">सेटअप करें</string>
     <string name="setup_camera">कैमरा</string>
     <string name="setup_camera_reason">इस फ़ोन के कैमरों से स्ट्रीम करने के लिए.</string>
+    <string name="setup_local_network">लोकल नेटवर्क</string>
+    <string name="setup_local_network_reason">इससे आपका कंप्यूटर Wi-Fi पर इस फ़ोन को ढूंढकर उससे कनेक्ट कर पाता है. USB के लिए इसकी ज़रूरत नहीं है.</string>
     <string name="setup_notifications">नोटिफ़िकेशन</string>
     <string name="setup_notifications_reason">कैमरा स्ट्रीम होने पर दिखाता है, और वहीं से इसे रोकता है.</string>
     <string name="setup_microphone">माइक्रोफ़ोन</string>
