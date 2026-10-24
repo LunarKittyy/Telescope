@@ -31,6 +31,8 @@ LOCALE_DIR = Path(__file__).resolve().parent / "locale"
 SOURCE_LANGUAGE = "en"
 # Overrides the system language, e.g. TELESCOPE_LANG=sv to try a translation
 ENV_LANGUAGE = "TELESCOPE_LANG"
+# A made-up language: every text longer and accented, so a layout with no room for a translation shows (pseudo())
+PSEUDO_LANGUAGE = "pseudo"
 
 # (context, english) -> translated forms; one entry for tr(), one per plural form for trn()
 _catalog: Dict[Tuple[str, str], List[str]] = {}
@@ -177,6 +179,8 @@ def pick(wanted: Iterable[str], have: Iterable[str]) -> str:
     have = set(have)
     for tag in wanted:
         tag = tag.replace("-", "_")
+        if tag == PSEUDO_LANGUAGE:
+            return tag
         if tag.split("_")[0] == SOURCE_LANGUAGE:
             return SOURCE_LANGUAGE
         for candidate in (tag, tag.split("_")[0]):
@@ -218,6 +222,42 @@ def native_name(lang: str) -> str:
     return sentence(name) if name else lang
 
 
+_ACCENTED = str.maketrans(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    "àƀçđéƒĝĥîĵķĺɱñöþǫŕšţûṽŵẋýžÀßÇĐÉƑĜĤÎĴĶĹṀÑÖÞǪŔŠŢÛṼŴẊÝŽ")
+# What pseudo() keeps as it is: {fields}, HTML tags and entities
+_KEEP = re.compile(r"\{[^{}]*\}|<[^<>]*>|&[a-zA-Z]+;|&#\d+;")
+PSEUDO_GROWTH = 0.4  # how much longer than the English, about what German or Finnish need
+
+
+def pseudo(text: str) -> str:
+    """text the way the pseudo language shows it: "Start streaming" is "[Šţàŕţ šţŕéàɱîñĝ ~~~~ ~~]". Its own line breaks
+    stay, so a hand-broken text keeps its lines, each 40% longer."""
+    lines = []
+    for line in text.split("\n"):
+        if not line:
+            lines.append(line)
+            continue
+        parts, end, letters = [], 0, 0
+        for m in _KEEP.finditer(line):
+            plain = line[end:m.start()]
+            parts += [plain.translate(_ACCENTED), m.group()]
+            letters += len(plain)
+            end = m.end()
+        parts.append(line[end:].translate(_ACCENTED))
+        letters += len(line) - end
+        extra = max(1, round(letters * PSEUDO_GROWTH))
+        lines.append("[" + "".join(parts) + " " + " ".join(["~~~~"] * (extra // 4) + ["~" * (extra % 4)]).strip() + "]")
+    return "\n".join(lines)
+
+
+def _pseudo_catalog() -> Dict[Tuple[str, str], List[str]]:
+    """Every text of the template in the pseudo language, but the settings search's words (they're for typing)."""
+    entries, _header = read_po(LOCALE_DIR / "telescope.pot")
+    return {e.key: [pseudo(e.msgid)] + ([pseudo(e.plural)] if e.plural else [])
+            for e in entries if e.ctx != "search"}
+
+
 def _read_catalog(path: Path) -> Tuple[Dict[Tuple[str, str], List[str]], Callable[[int], int]]:
     """A .po file as {(context, English): forms} without the fuzzy and empty ones, and its plural rule."""
     entries, header = read_po(path)
@@ -246,11 +286,14 @@ def load(lang: Optional[str] = None, qt: bool = True) -> str:
     _catalog, _english, _plural, _language = {}, {}, (lambda n: int(n != 1)), SOURCE_LANGUAGE
     _plugin_catalogs.clear()
     if qt:
-        _set_qt_locale(lang)
+        _set_qt_locale(SOURCE_LANGUAGE if lang == PSEUDO_LANGUAGE else lang)
     if lang == SOURCE_LANGUAGE:
         return _language
     try:
-        _catalog, _plural = _read_catalog(LOCALE_DIR / f"{lang}.po")
+        if lang == PSEUDO_LANGUAGE:
+            _catalog = _pseudo_catalog()
+        else:
+            _catalog, _plural = _read_catalog(LOCALE_DIR / f"{lang}.po")
     except (OSError, ValueError):
         logger.exception("Couldn't read the %s translation, staying in English", lang)
         _catalog, _plural = {}, (lambda n: int(n != 1))
@@ -259,7 +302,7 @@ def load(lang: Optional[str] = None, qt: bool = True) -> str:
         if ctx != "search" and len(forms) == 1:
             _english.setdefault(forms[0], msgid)  # two texts translated alike: the first one's English
     _language = lang
-    if qt:
+    if qt and lang != PSEUDO_LANGUAGE:
         _load_qt(lang)
     logger.info("Language: %s (%d texts translated)", lang, len(_catalog))
     for name, folder in _plugin_folders.items():
