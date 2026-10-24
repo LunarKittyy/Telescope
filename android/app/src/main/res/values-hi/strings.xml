@@ -51,10 +51,15 @@
     <string name="paired_computers_title">पेयर किए गए कंप्यूटर</string>
     <string name="paired_on">%1$s को पेयर किया गया</string>
     <string name="remove">हटाएं</string>
+    <string name="show_all_computers">सभी %1$d दिखाएं</string>
+    <string name="show_fewer">कम दिखाएं</string>
     <string name="cancel">रद्द करें</string>
     <string name="ok">ठीक है</string>
     <string name="remove_computer_title">%1$s को हटाएं?</string>
     <string name="remove_computer_message">जब तक आप इसे फिर से पेयर नहीं करते, यह इस फ़ोन के कैमरे का उपयोग नहीं कर पाएगा.</string>
+    <string name="remove_all">सभी हटाएं</string>
+    <string name="remove_all_title">सभी कंप्यूटर हटाएं?</string>
+    <string name="remove_all_message">जब तक आप इन्हें फिर से पेयर नहीं करते, इनमें से कोई भी इस फ़ोन के कैमरे का उपयोग नहीं कर पाएगा.</string>
     <string name="scan_prompt">कैमरे को अपने कंप्यूटर पर दिख रहे पेयरिंग कोड की तरफ़ करें</string>
     <string name="scan_download_link">वह कोड ऐप डाउनलोड करता है. कंप्यूटर पर फ़ोन जोड़ें के तहत दिख रहा कोड स्कैन करें.</string>
     <string name="scan_not_pairing_code">वह Telescope पेयरिंग कोड नहीं है.</string>

@@ -51,10 +51,15 @@
     <string name="paired_computers_title">Komputer tersanding</string>
     <string name="paired_on">Tersanding %1$s</string>
     <string name="remove">Hapus</string>
+    <string name="show_all_computers">Tampilkan semua %1$d</string>
+    <string name="show_fewer">Tampilkan lebih sedikit</string>
     <string name="cancel">Batal</string>
     <string name="ok">OK</string>
     <string name="remove_computer_title">Ingin menghapus %1$s?</string>
     <string name="remove_computer_message">Komputer ini tidak akan dapat menggunakan kamera ponsel ini sampai Anda menyandingkannya lagi.</string>
+    <string name="remove_all">Hapus semua</string>
+    <string name="remove_all_title">Ingin menghapus semua komputer?</string>
+    <string name="remove_all_message">Tidak ada yang dapat menggunakan kamera ponsel ini sampai Anda menyandingkannya lagi.</string>
     <string name="scan_prompt">Arahkan kamera ke kode penyandingan di komputer Anda</string>
     <string name="scan_download_link">Kode itu mengunduh aplikasi. Pindai kode di bawah Tambahkan ponsel di komputer.</string>
     <string name="scan_not_pairing_code">Itu bukan kode penyandingan Telescope.</string>

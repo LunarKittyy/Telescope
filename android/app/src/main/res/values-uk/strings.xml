@@ -51,10 +51,15 @@
     <string name="paired_computers_title">Комп\'ютери, з якими створено пару</string>
     <string name="paired_on">Пару створено %1$s</string>
     <string name="remove">Вилучити</string>
+    <string name="show_all_computers">Показати всі (%1$d)</string>
+    <string name="show_fewer">Показати менше</string>
     <string name="cancel">Скасувати</string>
     <string name="ok">OK</string>
     <string name="remove_computer_title">Вилучити %1$s?</string>
     <string name="remove_computer_message">Він не зможе використовувати камеру цього телефону, доки ви знову не створите пару.</string>
+    <string name="remove_all">Вилучити всі</string>
+    <string name="remove_all_title">Вилучити всі комп\'ютери?</string>
+    <string name="remove_all_message">Жоден із них не зможе використовувати камеру цього телефону, доки ви знову не створите пару.</string>
     <string name="scan_prompt">Наведіть камеру на код створення пари на комп\'ютері</string>
     <string name="scan_download_link">Цей код завантажує додаток. Скануйте код під написом «Додати телефон» на комп\'ютері.</string>
     <string name="scan_not_pairing_code">Це не код створення пари Telescope.</string>

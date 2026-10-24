@@ -51,10 +51,15 @@
     <string name="paired_computers_title">Parkopplade datorer</string>
     <string name="paired_on">Parkopplad %1$s</string>
     <string name="remove">Ta bort</string>
+    <string name="show_all_computers">Visa alla %1$d</string>
+    <string name="show_fewer">Visa färre</string>
     <string name="cancel">Avbryt</string>
     <string name="ok">OK</string>
     <string name="remove_computer_title">Vill du ta bort %1$s?</string>
     <string name="remove_computer_message">Den kan inte använda den här telefonens kamera förrän du parkopplar den igen.</string>
+    <string name="remove_all">Ta bort alla</string>
+    <string name="remove_all_title">Vill du ta bort alla datorer?</string>
+    <string name="remove_all_message">Ingen av dem kan använda den här telefonens kamera förrän du parkopplar dem igen.</string>
     <string name="scan_prompt">Rikta kameran mot parkopplingskoden på din dator</string>
     <string name="scan_download_link">Den koden laddar ner appen. Skanna koden under Lägg till telefon på datorn.</string>
     <string name="scan_not_pairing_code">Det där är ingen parkopplingskod för Telescope.</string>

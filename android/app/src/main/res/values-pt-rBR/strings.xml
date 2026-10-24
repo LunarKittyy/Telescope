@@ -51,10 +51,15 @@
     <string name="paired_computers_title">Computadores pareados</string>
     <string name="paired_on">Pareado em %1$s</string>
     <string name="remove">Remover</string>
+    <string name="show_all_computers">Mostrar todos os %1$d</string>
+    <string name="show_fewer">Mostrar menos</string>
     <string name="cancel">Cancelar</string>
     <string name="ok">OK</string>
     <string name="remove_computer_title">Remover %1$s?</string>
     <string name="remove_computer_message">Ele não poderá usar a câmera deste celular até ser pareado novamente.</string>
+    <string name="remove_all">Remover todos</string>
+    <string name="remove_all_title">Remover todos os computadores?</string>
+    <string name="remove_all_message">Nenhum deles poderá usar a câmera deste celular até ser pareado novamente.</string>
     <string name="scan_prompt">Aponte a câmera para o código de pareamento no seu computador</string>
     <string name="scan_download_link">Esse código baixa o app. Escaneie aquele em Adicionar celular no computador.</string>
     <string name="scan_not_pairing_code">Este não é um código de pareamento do Telescope.</string>
