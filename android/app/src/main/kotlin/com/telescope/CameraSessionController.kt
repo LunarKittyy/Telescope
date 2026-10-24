@@ -46,6 +46,8 @@ data class CameraControlSnapshot(
     val h264Profile:       String? = null,  // "high", "baseline" or "auto" while H.264 runs
     val intraRefresh:      Boolean = false,  // the encoder refreshes the picture gradually instead of with keyframes
     val heatFps:           Int = 0,  // the rate the phone's heat capped the camera at; 0 = not capped
+    val heatWidth:         Int = 0,  // the size the phone's heat dropped the stream to; 0 = the size asked for
+    val heatHeight:        Int = 0,
 )
 
 // Phone-side zoom, as the desktop splits it: a centred CONTROL_ZOOM_RATIO, then a 1/crop SCALER_CROP_REGION
@@ -113,9 +115,13 @@ class CameraSessionController(
     @Volatile private var currentTorch:          Boolean = false
     @Volatile private var currentJpegQuality: Int = 85
     @Volatile private var currentPhoneFps:    Int = initialPhoneFps
-    // Mutable so switchResolution() can change live; sized by openCamera().
+    // Mutable so switchResolution() can change live; sized by openCamera(). What the camera and encoder run at, which
+    // is the asked size unless the phone's heat dropped it (heatSize)
     @Volatile private var streamWidth:  Int = initialStreamWidth
     @Volatile private var streamHeight: Int = initialStreamHeight
+    // The size the computer asked for, which the state keeps reporting so a hot spell doesn't change its pick
+    @Volatile private var askedWidth:   Int = initialStreamWidth
+    @Volatile private var askedHeight:  Int = initialStreamHeight
     @Volatile private var codec: String = H264Stream.CODEC_MJPEG
     @Volatile private var requestedBitrate: Int = 0  // 0 = sized from resolution and fps, H264Stream.DYNAMIC = dynamic
     @Volatile private var dynamic: DynamicBitrate? = null
@@ -150,6 +156,8 @@ class CameraSessionController(
     fun isCameraOff(): Boolean = cameraOff
     fun isCameraTaken(): Boolean = taken
     fun getStreamSize(): android.util.Size = android.util.Size(streamWidth, streamHeight)
+    // What the computer picked, which the heat may have dropped the stream below
+    fun getAskedSize(): android.util.Size = android.util.Size(askedWidth, askedHeight)
 
     // True while PreviewActivity has a surface attached - the idle watchdog must not stop this.
     fun hasPreviewSurface(): Boolean = previewSurface != null
@@ -174,8 +182,8 @@ class CameraSessionController(
         torch           = currentTorch,
         jpegQuality     = currentJpegQuality,
         phoneFps        = currentPhoneFps,
-        streamWidth     = streamWidth,
-        streamHeight    = streamHeight,
+        streamWidth     = askedWidth,
+        streamHeight    = askedHeight,
         codec           = codec,
         bitrate         = currentBitrate(),
         codecFailure    = codecFailure,
@@ -185,7 +193,19 @@ class CameraSessionController(
         h264Profile     = encoder?.profile?.wire,
         intraRefresh    = encoder?.intraRefresh == true,
         heatFps         = heatCap()?.takeIf { it < (frameRate?.cap ?: currentPhoneFps) } ?: 0,
+        heatWidth       = if (heated()) streamWidth else 0,
+        heatHeight      = if (heated()) streamHeight else 0,
     )
+
+    private fun heated() = streamWidth != askedWidth || streamHeight != askedHeight
+
+    // The smaller size the heat calls for, or null to stream at the asked size
+    private fun heatSize(): Pair<Int, Int>? {
+        val sizes = currentCamera?.supportedSizes?.map { it.width to it.height } ?: return null
+        return HeatStep.size(thermalStatus, askedWidth to askedHeight, sizes) { w, h ->
+            codec != H264Stream.CODEC_H264 || H264Encoder.supportsSize(w, h)
+        }
+    }
 
     // The rate the camera and encoder run at: the one asked for, unless Dynamic stepped it down for a slow link
     // or the phone is running hot.
@@ -308,6 +328,15 @@ class CameraSessionController(
     private fun applyThermalStatus(status: Int) {
         val before = cameraFps() to streamFps()
         thermalStatus = status
+        // A new size needs a new reader or encoder, so the camera reopens, which picks up the new rate too
+        val (w, h) = heatSize() ?: (askedWidth to askedHeight)
+        if (w != streamWidth || h != streamHeight) {
+            android.util.Log.i(TAG, "Thermal status $status: ${w}x$h at ${streamFps()} fps")
+            streamWidth = w
+            streamHeight = h
+            reopen("heatSize")
+            return
+        }
         val after = cameraFps() to streamFps()
         if (after == before) return
         android.util.Log.i(TAG, "Thermal status $status: $after fps")
@@ -1139,9 +1168,12 @@ class CameraSessionController(
     }
 
     private fun switchResolutionInternal(width: Int, height: Int) {
-        if (width == streamWidth && height == streamHeight) return
-        streamWidth = width
-        streamHeight = height
+        askedWidth = width
+        askedHeight = height
+        val (w, h) = heatSize() ?: (width to height)
+        if (w == streamWidth && h == streamHeight) return
+        streamWidth = w
+        streamHeight = h
         reopen("switchResolution")
     }
 

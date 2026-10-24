@@ -93,6 +93,7 @@
     <string name="status_not_streaming">No está transmitiendo</string>
     <string name="status_starting">Iniciando…</string>
     <string name="status_streaming">Transmitiendo</string>
+    <string name="status_quality">A %1$dp y %2$d fps</string>
     <string name="status_waiting_for_computer">Esperando a la computadora</string>
     <string name="status_mic_only">Transmitiendo el micrófono, cámara desactivada</string>
     <string name="status_camera_taken">Otra app está usando la cámara. La transmisión continuará cuando esté libre.</string>

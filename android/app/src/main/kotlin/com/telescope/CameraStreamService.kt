@@ -249,13 +249,15 @@ class CameraStreamService : Service() {
         private const val BUSY_STUCK_MS = 20_000L
         private const val WAKE_LOCK_MS = 12 * 60 * 60 * 1000L
 
-        fun streamingText(context: Context, cameraOff: Boolean): String {
-            val to = viewer
-            return when {
-                cameraOff -> context.getString(R.string.notif_mic_streaming)
-                to == null -> context.getString(R.string.notif_camera_streaming)
-                else -> context.getString(if (to.second) R.string.notif_streaming_usb else R.string.notif_streaming_wifi, to.first)
-            }
+        fun streamingText(context: Context, cameraOff: Boolean): String = when {
+            cameraOff -> context.getString(R.string.notif_mic_streaming)
+            else -> routeText(context) ?: context.getString(R.string.notif_camera_streaming)
+        }
+
+        // "To newmoon over USB", once a computer is watching
+        fun routeText(context: Context): String? {
+            val to = viewer ?: return null
+            return context.getString(if (to.second) R.string.notif_streaming_usb else R.string.notif_streaming_wifi, to.first)
         }
 
         // The computer watching the stream and whether it's over USB, once one is; null before that
@@ -582,7 +584,8 @@ class CameraStreamService : Service() {
         sb.appendLine("Stream started: ${timeText(startedAt)}")
         sb.appendLine("Current state: $state")
         val size = getStreamSize()
-        sb.appendLine("Stream: ${size.width}x${size.height}")
+        val asked = controller?.getAskedSize() ?: size
+        sb.appendLine("Stream: ${size.width}x${size.height}" + if (asked != size) " (asked ${asked.width}x${asked.height}, the heat)" else "")
         val cur = controller?.snapshot()?.currentCamera
         sb.appendLine("Current camera: ${cur?.id ?: "none"} (${cur?.label ?: "-"})")
         controller?.let { sb.append(it.frameReport()) }
@@ -608,6 +611,15 @@ class CameraStreamService : Service() {
     fun getCameras(): List<CameraEntry> = allCameras
     fun getCurrentCameraId(): String? = controller?.getCurrentCameraId()
 
+    // The picture's short side (1080 for 1920x1080) and the rate the camera runs at now, Dynamic's or the heat's step
+    // included; null with no camera running
+    fun liveQuality(): Pair<Int, Int>? {
+        val snap = controller?.snapshot() ?: return null
+        val size = getStreamSize()
+        val fps = listOf(snap.phoneFps, snap.dynamicFps, snap.heatFps).filter { it > 0 }.minOrNull() ?: return null
+        return minOf(size.width, size.height) to fps
+    }
+
     fun getStreamSize(): android.util.Size =
         controller?.getStreamSize() ?: android.util.Size(streamWidth, streamHeight)
 
@@ -618,7 +630,7 @@ class CameraStreamService : Service() {
 
     // A lens that doesn't list the current size gets the closest one it does, or its session would fail
     private fun selectCamera(ctrl: CameraSessionController, entry: CameraEntry) {
-        val size = ctrl.getStreamSize()
+        val size = ctrl.getAskedSize()
         val (w, h) = fitSize(entry, size.width, size.height)
         ctrl.switchTo(entry)
         if (w != size.width || h != size.height) ctrl.switchResolution(w, h)
@@ -628,7 +640,7 @@ class CameraStreamService : Service() {
     private fun rememberSelection() {
         val ctrl = controller ?: return
         val cam = ctrl.snapshot().currentCamera ?: return
-        val size = ctrl.getStreamSize()
+        val size = ctrl.getAskedSize()
         StreamPrefs.updateSelection(this) {
             it.copy(cameraId = cam.id, logicalId = cam.logicalId ?: "", width = size.width, height = size.height)
         }
@@ -910,7 +922,8 @@ class CameraStreamService : Service() {
             )
         }
         val (battLevel, battCharging, battTempC) = getBatteryInfo()
-        val liveSize = controller?.getStreamSize() ?: android.util.Size(streamWidth, streamHeight)
+        // The size the computer asked for, even while the heat streams a smaller one (heat_width), so it keeps its pick
+        val liveSize = controller?.getAskedSize() ?: android.util.Size(streamWidth, streamHeight)
         val wifi = WifiLink.current(this)
         val state = V1State(
             cameras = cams,
@@ -942,6 +955,8 @@ class CameraStreamService : Service() {
             intra_refresh = snap?.intraRefresh == true,
             wifi_band = wifi?.band, wifi_rssi = wifi?.rssi, wifi_mbps = wifi?.mbps,
             heat_fps = snap?.heatFps ?: 0,
+            heat_width = snap?.heatWidth ?: 0,
+            heat_height = snap?.heatHeight ?: 0,
             low_light_toggle = true,
             codec_error = snap?.codecFailure?.text,
             codec_error_code = snap?.codecFailure?.code,

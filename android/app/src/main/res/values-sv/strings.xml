@@ -93,6 +93,7 @@
     <string name="status_not_streaming">Strömmar inte</string>
     <string name="status_starting">Startar…</string>
     <string name="status_streaming">Strömmar</string>
+    <string name="status_quality">I %1$dp och %2$d fps</string>
     <string name="status_waiting_for_computer">Väntar på datorn</string>
     <string name="status_mic_only">Strömmar mikrofonen, kameran avstängd</string>
     <string name="status_camera_taken">En annan app använder kameran. Strömningen fortsätter när den är ledig.</string>

@@ -838,11 +838,26 @@ class MainActivity : AppCompatActivity() {
                 else -> R.string.status_streaming
             })
             tintStatus(if (viewed && !taken) R.color.colorStreamingText else R.color.colorWarn)
+            showStatusDetail(if (viewed && !taken) statusDetail() else null)
         } else {
             tvStatus.setText(if (busy) R.string.status_starting else R.string.status_not_streaming)
             tintStatus(R.color.colorOnSurfaceDim)
+            showStatusDetail(null)
         }
         if (::cardUpdate.isInitialized && cardUpdate.visibility == View.VISIBLE) renderUpdate()
+    }
+
+    // "To newmoon over USB" and "At 1080p 30 fps", each on its own line; the size and rate only with the camera on
+    private fun statusDetail(): String? {
+        val svc = service ?: return null
+        val quality = if (svc.cameraOff) null else svc.liveQuality()?.let { (p, fps) -> getString(R.string.status_quality, p, fps) }
+        return listOfNotNull(CameraStreamService.routeText(this), quality).joinToString("\n").ifEmpty { null }
+    }
+
+    private fun showStatusDetail(text: String?) {
+        val detail = findViewById<TextView>(R.id.tvStatusDetail)
+        detail.text = text
+        detail.visibility = if (text == null) View.GONE else View.VISIBLE
     }
 
     // The status text, its icon and the round chip behind it, in one colour

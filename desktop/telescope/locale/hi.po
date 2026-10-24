@@ -26,7 +26,7 @@ msgstr "फ़ोन गर्म हो गया और उसने अभी
 msgid "Lost the phone - reconnecting"
 msgstr "फ़ोन से संपर्क टूट गया - फिर से कनेक्ट हो रहा है"
 
-#: telescope/app.py:159 telescope/plugins/browser_camera.py:566 telescope/plugins/connection.py:1091 telescope/plugins/connection.py:1135 telescope/plugins/connection.py:1291 telescope/plugins/connection.py:1327 telescope/plugins/onboarding.py:270 telescope/plugins/setup.py:788 telescope/plugins/updates.py:107 telescope/sources.py:822 telescope/widgets/vaapi_setup.py:300
+#: telescope/app.py:159 telescope/plugins/browser_camera.py:566 telescope/plugins/connection.py:1091 telescope/plugins/connection.py:1135 telescope/plugins/connection.py:1291 telescope/plugins/connection.py:1327 telescope/plugins/onboarding.py:270 telescope/plugins/setup.py:788 telescope/plugins/updates.py:107 telescope/sources.py:846 telescope/widgets/vaapi_setup.py:300
 msgid "Try again"
 msgstr "फिर कोशिश करें"
 
@@ -110,12 +110,12 @@ msgid "Start mic only"
 msgstr "सिर्फ़ माइक शुरू करें"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: telescope/app.py:608 telescope/plugins/shortcuts.py:151
+#: telescope/app.py:608 telescope/plugins/shortcuts.py:152
 msgid "Stop"
 msgstr "रोकें"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: telescope/app.py:608 telescope/app.py:1872 telescope/app.py:1888 telescope/plugins/shortcuts.py:151 telescope/sources.py:627 telescope/sources.py:636
+#: telescope/app.py:608 telescope/app.py:1872 telescope/app.py:1888 telescope/plugins/shortcuts.py:152 telescope/sources.py:651 telescope/sources.py:660
 msgid "Start"
 msgstr "शुरू"
 
@@ -123,7 +123,7 @@ msgstr "शुरू"
 msgid "Stop streaming"
 msgstr "स्ट्रीमिंग रोकें"
 
-#: telescope/app.py:655 telescope/app.py:1425 telescope/app.py:1490 telescope/audio.py:630 telescope/plugins/shortcuts.py:162 telescope/sources.py:178 telescope/stream.py:448 telescope/stream_flow.py:154
+#: telescope/app.py:655 telescope/app.py:1425 telescope/app.py:1490 telescope/audio.py:630 telescope/plugins/shortcuts.py:163 telescope/sources.py:178 telescope/stream.py:448 telescope/stream_flow.py:154
 msgid "Not streaming"
 msgstr "स्ट्रीम नहीं हो रहा है"
 
@@ -295,7 +295,7 @@ msgstr "Telescope ने समय पर जवाब नहीं दिया
 msgid "This Telescope has no shortcuts."
 msgstr "इस Telescope में कोई शॉर्टकट नहीं हैं."
 
-#: telescope/app.py:1597 telescope/plugins/shortcuts.py:379
+#: telescope/app.py:1597 telescope/plugins/shortcuts.py:380
 msgid "That failed; Copy diagnostics has the details."
 msgstr "वह विफल रहा; विवरण डायग्नोस्टिक्स कॉपी करें में है."
 
@@ -547,7 +547,7 @@ msgstr "हर जगह: {keys}"
 msgid "Windows can't use this key everywhere"
 msgstr "Windows इस की का उपयोग हर जगह नहीं कर सकता"
 
-#: telescope/platform/hotkeys_windows.py:112 telescope/plugins/shortcuts.py:727
+#: telescope/platform/hotkeys_windows.py:112 telescope/plugins/shortcuts.py:729
 msgid "Everywhere"
 msgstr "हर जगह"
 
@@ -756,7 +756,7 @@ msgstr "टाइम आउट हो गया"
 msgid "General"
 msgstr "सामान्य"
 
-#: telescope/plugin.py:19 telescope/plugins/shortcuts.py:179
+#: telescope/plugin.py:19 telescope/plugins/shortcuts.py:180
 msgid "Streaming"
 msgstr "स्ट्रीमिंग"
 
@@ -772,7 +772,7 @@ msgstr "ऑडियो"
 msgid "Virtual camera & phone"
 msgstr "वर्चुअल कैमरा और फ़ोन"
 
-#: telescope/plugin.py:23 telescope/plugins/shortcuts.py:120
+#: telescope/plugin.py:23 telescope/plugins/shortcuts.py:121
 msgid "Keyboard shortcuts"
 msgstr "कीबोर्ड शॉर्टकट"
 
@@ -1066,7 +1066,7 @@ msgstr "{n} कनेक्टेड"
 msgid "Waiting for a browser"
 msgstr "ब्राउज़र का इंतज़ार है"
 
-#: telescope/plugins/browser_camera.py:318 telescope/plugins/shortcuts.py:183 telescope/plugins/shortcuts.py:187 telescope/shortcuts.py:284 telescope/shortcuts.py:306 telescope/shortcuts.py:344 telescope/shortcuts.py:345 telescope/shortcuts.py:414 telescope/shortcuts.py:504 telescope/shortcuts.py:506 telescope/shortcuts.py:520 telescope/shortcuts.py:521 telescope/widgets/common.py:931
+#: telescope/plugins/browser_camera.py:318 telescope/plugins/shortcuts.py:184 telescope/plugins/shortcuts.py:188 telescope/shortcuts.py:284 telescope/shortcuts.py:306 telescope/shortcuts.py:344 telescope/shortcuts.py:345 telescope/shortcuts.py:414 telescope/shortcuts.py:504 telescope/shortcuts.py:506 telescope/shortcuts.py:520 telescope/shortcuts.py:521 telescope/widgets/common.py:931
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -1113,7 +1113,7 @@ msgstr "ब्राउज़र कैमरा उपलब्ध नहीं
 msgid "Scan the code on the Browser camera card with the device to use. It starts streaming as soon as it connects."
 msgstr "इस्तेमाल करने के लिए डिवाइस से ब्राउज़र कैमरा कार्ड पर दिया कोड स्कैन करें. कनेक्ट होते ही यह स्ट्रीमिंग शुरू कर देता है."
 
-#: telescope/plugins/browser_camera.py:574 telescope/plugins/connection.py:221 telescope/plugins/shortcuts.py:851 telescope/widgets/plugins_panel.py:31
+#: telescope/plugins/browser_camera.py:574 telescope/plugins/connection.py:221 telescope/plugins/shortcuts.py:853 telescope/widgets/plugins_panel.py:31
 msgid "Cancel"
 msgstr "रद्द करें"
 
@@ -1659,7 +1659,7 @@ msgstr "नाम बदलें"
 msgid "Remove {name}"
 msgstr "{name} को हटाएं"
 
-#: telescope/plugins/connection.py:477 telescope/plugins/setup.py:244 telescope/plugins/shortcuts.py:689 telescope/widgets/plugins_panel.py:278 telescope/widgets/plugins_panel.py:306 telescope/widgets/plugins_panel.py:357
+#: telescope/plugins/connection.py:477 telescope/plugins/setup.py:244 telescope/plugins/shortcuts.py:691 telescope/widgets/plugins_panel.py:278 telescope/widgets/plugins_panel.py:306 telescope/widgets/plugins_panel.py:357
 msgid "Remove"
 msgstr "हटाएं"
 
@@ -2643,7 +2643,7 @@ msgstr "प्रीसेट"
 msgid "Next or previous preset"
 msgstr "अगला या पिछला प्रीसेट"
 
-#: telescope/plugins/presets.py:161 telescope/plugins/shortcuts.py:182 telescope/plugins/shortcuts.py:186 telescope/shortcuts.py:308 telescope/shortcuts.py:334 telescope/shortcuts.py:390 telescope/shortcuts.py:512
+#: telescope/plugins/presets.py:161 telescope/plugins/shortcuts.py:183 telescope/plugins/shortcuts.py:187 telescope/shortcuts.py:308 telescope/shortcuts.py:334 telescope/shortcuts.py:390 telescope/shortcuts.py:512
 msgid "Does"
 msgstr "काम"
 
@@ -2770,7 +2770,7 @@ msgstr "छिपाएं"
 msgid "Stop drawing this preview. The camera output doesn't change."
 msgstr "यह प्रीव्यू दिखाना बंद करें. कैमरे का आउटपुट नहीं बदलता."
 
-#: telescope/plugins/preview.py:446 telescope/plugins/shortcuts.py:179
+#: telescope/plugins/preview.py:446 telescope/plugins/shortcuts.py:180
 msgid "Phone camera"
 msgstr "फ़ोन कैमरा"
 
@@ -3226,7 +3226,7 @@ msgctxt "search"
 msgid "help support troubleshooting question faq problem not working stuck ask"
 msgstr "मदद सहायता समस्या निवारण सवाल समस्या काम नहीं कर रहा पूछें help support troubleshooting question faq problem not working stuck ask"
 
-#: telescope/plugins/setup.py:504 telescope/plugins/shortcuts.py:1008
+#: telescope/plugins/setup.py:504 telescope/plugins/shortcuts.py:1010
 msgid "Copied"
 msgstr "कॉपी हो गया"
 
@@ -3417,299 +3417,299 @@ msgstr "उन्नत सेटिंग्स"
 msgid "The virtual camera, its size, extra cameras, video and microphone limits, and the Updates & About tab."
 msgstr "वर्चुअल कैमरा, इसका साइज़, अतिरिक्त कैमरे, वीडियो और माइक्रोफ़ोन की सीमाएं, और 'अपडेट और परिचय' टैब."
 
-#: telescope/plugins/shortcuts.py:66
+#: telescope/plugins/shortcuts.py:67
 msgid "Add keyboard shortcut…"
 msgstr "कीबोर्ड शॉर्टकट जोड़ें…"
 
-#: telescope/plugins/shortcuts.py:82
+#: telescope/plugins/shortcuts.py:83
 #, python-brace-format
 msgid "{name} has to be a number, not {value}."
 msgstr "{name} एक संख्या होनी चाहिए, {value} नहीं."
 
-#: telescope/plugins/shortcuts.py:84
+#: telescope/plugins/shortcuts.py:85
 msgid "nothing right now"
 msgstr "अभी कुछ नहीं"
 
-#: telescope/plugins/shortcuts.py:85
+#: telescope/plugins/shortcuts.py:86
 #, python-brace-format
 msgid "{name} can be {options}, not {value}."
 msgstr "{name} {options} हो सकता है, {value} नहीं."
 
 #. hold, toggle, on and off are values typed on the command line: keep them in English
-#: telescope/plugins/shortcuts.py:88
+#: telescope/plugins/shortcuts.py:89
 msgid "hold needs a key to let go of; use toggle, on or off with --action."
 msgstr "hold के लिए एक की (key) छोड़ना ज़रूरी है; --action के साथ toggle, on या off का इस्तेमाल करें."
 
-#: telescope/plugins/shortcuts.py:92
+#: telescope/plugins/shortcuts.py:93
 #, python-brace-format
 msgid "{action} needs {name}=… for that."
 msgstr "उसके लिए {action} को {name}=… की ज़रूरत है."
 
-#: telescope/plugins/shortcuts.py:115
+#: telescope/plugins/shortcuts.py:116
 msgid "Telescope: shown"
 msgstr "Telescope: दिखाई दे रहा है"
 
-#: telescope/plugins/shortcuts.py:121
+#: telescope/plugins/shortcuts.py:122
 msgid "Keys for Telescope's controls, including ones that work in other apps."
 msgstr "Telescope के कंट्रोल्स के लिए कीज़, जिनमें वे भी शामिल हैं जो अन्य ऐप में काम करती हैं."
 
-#: telescope/plugins/shortcuts.py:122
+#: telescope/plugins/shortcuts.py:123
 msgid "Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)."
 msgstr "इसके बिना कोई शॉर्टकट काम नहीं करता और सेटिंग्स में 'कीबोर्ड शॉर्टकट' नहीं होता (आपके शॉर्टकट इसके वापस आने तक सुरक्षित रखे जाते हैं)."
 
-#: telescope/plugins/shortcuts.py:151
+#: telescope/plugins/shortcuts.py:152
 msgid "Start or stop"
 msgstr "शुरू या रोकें"
 
-#: telescope/plugins/shortcuts.py:158
+#: telescope/plugins/shortcuts.py:159
 msgid "Already streaming"
 msgstr "पहले से स्ट्रीम हो रहा है"
 
-#: telescope/plugins/shortcuts.py:160
+#: telescope/plugins/shortcuts.py:161
 msgid "Streaming: starting"
 msgstr "स्ट्रीमिंग: शुरू हो रही है"
 
-#: telescope/plugins/shortcuts.py:164
+#: telescope/plugins/shortcuts.py:165
 msgid "Streaming: stopped"
 msgstr "स्ट्रीमिंग: रुक गई"
 
-#: telescope/plugins/shortcuts.py:173
+#: telescope/plugins/shortcuts.py:174
 msgid "Phone camera: on"
 msgstr "फ़ोन कैमरा: चालू"
 
-#: telescope/plugins/shortcuts.py:173
+#: telescope/plugins/shortcuts.py:174
 msgid "Phone camera: off"
 msgstr "फ़ोन कैमरा: बंद"
 
-#: telescope/plugins/shortcuts.py:176
+#: telescope/plugins/shortcuts.py:177
 msgid "Telescope: hidden"
 msgstr "Telescope: छिपा हुआ"
 
-#: telescope/plugins/shortcuts.py:178 telescope/shortcuts.py:260
+#: telescope/plugins/shortcuts.py:179 telescope/shortcuts.py:260
 msgid "Switch on or off"
 msgstr "चालू या बंद करें"
 
-#: telescope/plugins/shortcuts.py:178 telescope/shortcuts.py:260
+#: telescope/plugins/shortcuts.py:179 telescope/shortcuts.py:260
 msgid "Turn on"
 msgstr "चालू करें"
 
-#: telescope/plugins/shortcuts.py:178 telescope/shortcuts.py:260
+#: telescope/plugins/shortcuts.py:179 telescope/shortcuts.py:260
 msgid "Turn off"
 msgstr "बंद करें"
 
-#: telescope/plugins/shortcuts.py:189
+#: telescope/plugins/shortcuts.py:190
 msgid "Show or hide Telescope"
 msgstr "Telescope दिखाएं या छिपाएं"
 
-#: telescope/plugins/shortcuts.py:270
+#: telescope/plugins/shortcuts.py:271
 msgid "Key used by a shortcut above"
 msgstr "ऊपर के किसी शॉर्टकट द्वारा इस्तेमाल की गई की (key)"
 
-#: telescope/plugins/shortcuts.py:272
+#: telescope/plugins/shortcuts.py:273
 msgid "Not in this version of Telescope"
 msgstr "Telescope के इस वर्शन में नहीं है"
 
-#: telescope/plugins/shortcuts.py:274
+#: telescope/plugins/shortcuts.py:275
 msgid "In Telescope"
 msgstr "Telescope में"
 
-#: telescope/plugins/shortcuts.py:276
+#: telescope/plugins/shortcuts.py:277
 msgid "In Telescope (no global shortcuts here)"
 msgstr "Telescope में (यहां कोई ग्लोबल शॉर्टकट नहीं)"
 
-#: telescope/plugins/shortcuts.py:279
+#: telescope/plugins/shortcuts.py:280
 msgid "Everywhere (setting up)"
 msgstr "हर जगह (सेट अप हो रहा है)"
 
-#: telescope/plugins/shortcuts.py:282
+#: telescope/plugins/shortcuts.py:283
 #, python-brace-format
 msgid "In Telescope: {status}"
 msgstr "Telescope में: {status}"
 
-#: telescope/plugins/shortcuts.py:366
+#: telescope/plugins/shortcuts.py:367
 #, python-brace-format
 msgid "No action called {action}. telescope --list-actions lists them."
 msgstr "{action} नाम का कोई ऐक्शन नहीं है. telescope --list-actions उनकी सूची देता है."
 
-#: telescope/plugins/shortcuts.py:371
+#: telescope/plugins/shortcuts.py:372
 #, python-brace-format
 msgid "{action} has no setting {name}."
 msgstr "{action} में {name} सेटिंग नहीं है."
 
-#: telescope/plugins/shortcuts.py:381
+#: telescope/plugins/shortcuts.py:382
 #, python-brace-format
 msgid "{action} can't be used right now (no phone, or the control is off)."
 msgstr "{action} का इस्तेमाल अभी नहीं किया जा सकता (फ़ोन नहीं है, या कंट्रोल बंद है)."
 
-#: telescope/plugins/shortcuts.py:434
+#: telescope/plugins/shortcuts.py:435
 #, python-brace-format
 msgid "Add shortcut for {action}…"
 msgstr "{action} के लिए शॉर्टकट जोड़ें…"
 
-#: telescope/plugins/shortcuts.py:686
+#: telescope/plugins/shortcuts.py:688
 #, python-brace-format
 msgid "Edit {shortcut}"
 msgstr "{shortcut} एडिट करें"
 
-#: telescope/plugins/shortcuts.py:686
+#: telescope/plugins/shortcuts.py:688
 msgid "Edit"
 msgstr "एडिट करें"
 
-#: telescope/plugins/shortcuts.py:689
+#: telescope/plugins/shortcuts.py:691
 #, python-brace-format
 msgid "Remove {shortcut}"
 msgstr "{shortcut} हटाएं"
 
-#: telescope/plugins/shortcuts.py:708
+#: telescope/plugins/shortcuts.py:710
 msgid "Keys for Telescope's controls, with how much each one changes. Right-click most controls to add one for it."
 msgstr "Telescope के कंट्रोल्स के लिए कीज़, साथ ही यह कि हर एक कितना बदलता है. किसी कंट्रोल के लिए शॉर्टकट जोड़ने हेतु उस पर राइट-क्लिक करें."
 
-#: telescope/plugins/shortcuts.py:713
+#: telescope/plugins/shortcuts.py:715
 msgid "Add"
 msgstr "जोड़ें"
 
-#: telescope/plugins/shortcuts.py:713
+#: telescope/plugins/shortcuts.py:715
 msgid "Pick a control and the key for it"
 msgstr "एक कंट्रोल और उसके लिए की (key) चुनें"
 
-#: telescope/plugins/shortcuts.py:715
+#: telescope/plugins/shortcuts.py:717
 msgid "Shortcuts"
 msgstr "शॉर्टकट"
 
-#: telescope/plugins/shortcuts.py:716
+#: telescope/plugins/shortcuts.py:718
 msgctxt "search"
 msgid "hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove"
 msgstr "हॉटकी कीबाइंडिंग म्यूट जोड़ें हटाएं hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove"
 
-#: telescope/plugins/shortcuts.py:721
+#: telescope/plugins/shortcuts.py:723
 msgid "No shortcuts yet. Add one, or right-click a control in the main window."
 msgstr "अभी कोई शॉर्टकट नहीं है. एक जोड़ें, या मुख्य विंडो में किसी कंट्रोल पर राइट-क्लिक करें."
 
-#: telescope/plugins/shortcuts.py:728
+#: telescope/plugins/shortcuts.py:730
 msgctxt "search"
 msgid "global system wide hotkeys background other apps"
 msgstr "ग्लोबल सिस्टम बैकग्राउंड अन्य ऐप global system wide hotkeys background other apps"
 
-#: telescope/plugins/shortcuts.py:729
+#: telescope/plugins/shortcuts.py:731
 msgid "Open"
 msgstr "खोलें"
 
-#: telescope/plugins/shortcuts.py:730
+#: telescope/plugins/shortcuts.py:732
 msgid "Where your desktop lets you change the keys of global shortcuts"
 msgstr "जहां आपका डेस्कटॉप आपको ग्लोबल शॉर्टकट की कीज़ बदलने की अनुमति देता है"
 
-#: telescope/plugins/shortcuts.py:732
+#: telescope/plugins/shortcuts.py:734
 msgid "Desktop shortcut settings"
 msgstr "डेस्कटॉप शॉर्टकट सेटिंग्स"
 
-#: telescope/plugins/shortcuts.py:733
+#: telescope/plugins/shortcuts.py:735
 msgctxt "search"
 msgid "global hotkeys portal kde plasma gnome desktop keys rebind"
 msgstr "ग्लोबल हॉटकी डेस्कटॉप बदलें global hotkeys portal kde plasma gnome desktop keys rebind"
 
-#: telescope/plugins/shortcuts.py:739
+#: telescope/plugins/shortcuts.py:741
 msgid "Notify when one runs"
 msgstr "चलने पर सूचना दें"
 
-#: telescope/plugins/shortcuts.py:739
+#: telescope/plugins/shortcuts.py:741
 msgid "While Telescope is in the background"
 msgstr "जब Telescope बैकग्राउंड में हो"
 
-#: telescope/plugins/shortcuts.py:740
+#: telescope/plugins/shortcuts.py:742
 msgctxt "search"
 msgid "notification notify toast confirmation popup"
 msgstr "सूचना नोटिफ़िकेशन पॉपअप notification notify toast confirmation popup"
 
-#: telescope/plugins/shortcuts.py:762
+#: telescope/plugins/shortcuts.py:764
 msgid "Global shortcuts aren't available on this desktop, so these work inside Telescope. For keys that work everywhere, bind a shortcut's Copy command line in your desktop's keyboard settings."
 msgstr "इस डेस्कटॉप पर ग्लोबल शॉर्टकट उपलब्ध नहीं हैं, इसलिए ये Telescope के अंदर काम करते हैं. हर जगह काम करने वाली कीज़ के लिए, अपने डेस्कटॉप की कीबोर्ड सेटिंग्स में शॉर्टकट की 'कमांड लाइन कॉपी करें' को बाइंड करें."
 
-#: telescope/plugins/shortcuts.py:782
+#: telescope/plugins/shortcuts.py:784
 msgid "Copy command line"
 msgstr "कमांड लाइन कॉपी करें"
 
-#: telescope/plugins/shortcuts.py:792
+#: telescope/plugins/shortcuts.py:794
 msgid "Couldn't open your desktop's shortcut settings. Look for Shortcuts in its System Settings."
 msgstr "आपके डेस्कटॉप की शॉर्टकट सेटिंग्स नहीं खोली जा सकीं. इसकी सिस्टम सेटिंग्स में 'शॉर्टकट' देखें."
 
-#: telescope/plugins/shortcuts.py:804 telescope/plugins/shortcuts.py:809
+#: telescope/plugins/shortcuts.py:806 telescope/plugins/shortcuts.py:811
 msgid "Keyboard shortcut"
 msgstr "कीबोर्ड शॉर्टकट"
 
-#: telescope/plugins/shortcuts.py:809
+#: telescope/plugins/shortcuts.py:811
 msgid "Pick a control, what the key does to it, then press the key."
 msgstr "एक कंट्रोल चुनें, की (key) उस पर क्या असर करेगी यह चुनें, फिर की दबाएं."
 
-#: telescope/plugins/shortcuts.py:812
+#: telescope/plugins/shortcuts.py:814
 msgid "Search: mute, zoom, exposure, preset…"
 msgstr "खोजें: म्यूट, ज़ूम, एक्सपोज़र, प्रीसेट…"
 
-#: telescope/plugins/shortcuts.py:815
+#: telescope/plugins/shortcuts.py:817
 msgid "Find"
 msgstr "खोजें"
 
-#: telescope/plugins/shortcuts.py:820
+#: telescope/plugins/shortcuts.py:822
 msgid "Control"
 msgstr "कंट्रोल"
 
-#: telescope/plugins/shortcuts.py:838
+#: telescope/plugins/shortcuts.py:840
 msgid "Key"
 msgstr "की"
 
-#: telescope/plugins/shortcuts.py:840
+#: telescope/plugins/shortcuts.py:842
 msgid "Also works while another app is in front"
 msgstr "दूसरा ऐप सामने होने पर भी काम करता है"
 
-#: telescope/plugins/shortcuts.py:848 telescope/plugins/shortcuts.py:1009 telescope/widgets/banner.py:24
+#: telescope/plugins/shortcuts.py:850 telescope/plugins/shortcuts.py:1011 telescope/widgets/banner.py:24
 msgid "Copy command"
 msgstr "कमांड कॉपी करें"
 
-#: telescope/plugins/shortcuts.py:849 telescope/plugins/shortcuts.py:999
+#: telescope/plugins/shortcuts.py:851 telescope/plugins/shortcuts.py:1001
 msgid "A command line that does the same, for your desktop's own keyboard settings"
 msgstr "वही काम करने वाली एक कमांड लाइन, आपके डेस्कटॉप की अपनी कीबोर्ड सेटिंग्स के लिए"
 
-#: telescope/plugins/shortcuts.py:853
+#: telescope/plugins/shortcuts.py:855
 msgid "Save"
 msgstr "सेव करें"
 
-#: telescope/plugins/shortcuts.py:911
+#: telescope/plugins/shortcuts.py:913
 #, python-brace-format
 msgid "Unknown ({action})"
 msgstr "अज्ञात ({action})"
 
-#: telescope/plugins/shortcuts.py:940
+#: telescope/plugins/shortcuts.py:942
 #, python-brace-format
 msgid "{value} (not there now)"
 msgstr "{value} (अभी मौजूद नहीं)"
 
-#: telescope/plugins/shortcuts.py:983
+#: telescope/plugins/shortcuts.py:985
 msgid "No control matches that search."
 msgstr "उस खोज से कोई कंट्रोल मेल नहीं खाता."
 
-#: telescope/plugins/shortcuts.py:984
+#: telescope/plugins/shortcuts.py:986
 msgid "Pick a control."
 msgstr "एक कंट्रोल चुनें."
 
-#: telescope/plugins/shortcuts.py:986
+#: telescope/plugins/shortcuts.py:988
 #, python-brace-format
 msgid "Press a key, with Ctrl, Alt, Shift or {meta} if you like."
 msgstr "कोई की दबाएं, चाहें तो Ctrl, Alt, Shift या {meta} के साथ."
 
-#: telescope/plugins/shortcuts.py:988
+#: telescope/plugins/shortcuts.py:990
 msgid "A modifier can't be a shortcut on its own. Add a key to it."
 msgstr "मॉडिफ़ायर अपने आप में शॉर्टकट नहीं हो सकता. इसके साथ कोई की जोड़ें."
 
-#: telescope/plugins/shortcuts.py:991
+#: telescope/plugins/shortcuts.py:993
 #, python-brace-format
 msgid "{keys} already does \"{action}\". Pick another key."
 msgstr "{keys} पहले से \"{action}\" करता है. कोई दूसरी की चुनें."
 
-#: telescope/plugins/shortcuts.py:994
+#: telescope/plugins/shortcuts.py:996
 #, python-brace-format
 msgid "Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer."
 msgstr "'हर जगह' होने पर, {keys} अन्य ऐप में टाइप होना बंद हो जाएगा. Ctrl, Alt या {meta} जोड़ना ज़्यादा सुरक्षित है."
 
-#: telescope/plugins/shortcuts.py:998
+#: telescope/plugins/shortcuts.py:1000
 msgid "A command can't hold a key down; pick another choice to copy one"
 msgstr "कमांड किसी की को दबाकर नहीं रख सकती; कमांड कॉपी करने के लिए कोई दूसरा विकल्प चुनें"
 
@@ -4337,11 +4337,11 @@ msgstr "आपके पास सबसे नया वर्शन है."
 msgid "Couldn't check for updates."
 msgstr "अपडेट नहीं खोजे जा सके."
 
-#: telescope/plugins/updates.py:416
+#: telescope/plugins/updates.py:417
 msgid "The update failed."
 msgstr "अपडेट विफल रहा."
 
-#: telescope/plugins/updates.py:465
+#: telescope/plugins/updates.py:466
 msgid "Updated. Close and reopen Telescope to finish."
 msgstr "अपडेट हो गया. पूरा करने के लिए Telescope को बंद करके फिर से खोलें."
 
@@ -4634,42 +4634,56 @@ msgstr "फ़ोन पर कोई अन्य ऐप कैमरे का
 msgid "The stream comes back by itself once that app closes or lets go of it."
 msgstr "जैसे ही वह ऐप बंद होता है या कैमरे को छोड़ता है, स्ट्रीम अपने आप वापस आ जाती है."
 
-#: telescope/sources.py:539
+#: telescope/sources.py:540
 msgid "This phone can't turn its camera off yet"
 msgstr "यह फ़ोन अभी अपना कैमरा बंद नहीं कर सकता"
 
-#: telescope/sources.py:540
+#: telescope/sources.py:541
 msgid "Update Telescope on the phone to stream the mic with the camera off."
 msgstr "कैमरा बंद रखकर माइक स्ट्रीम करने के लिए फ़ोन पर Telescope को अपडेट करें."
 
-#: telescope/sources.py:624
+#: telescope/sources.py:564
+#, python-brace-format
+msgid "It's streaming at {size} and {fps} fps until it cools down."
+msgstr "ठंडा होने तक यह {size} और {fps} fps पर स्ट्रीम कर रहा है."
+
+#: telescope/sources.py:566
+#, python-brace-format
+msgid "It's streaming at {size} until it cools down."
+msgstr "ठंडा होने तक यह {size} पर स्ट्रीम कर रहा है."
+
+#: telescope/sources.py:567
+msgid "The phone is very hot"
+msgstr "फ़ोन बहुत गर्म है"
+
+#: telescope/sources.py:648
 #, python-brace-format
 msgid "The phone is streaming to {computer}"
 msgstr "फ़ोन {computer} पर स्ट्रीम कर रहा है"
 
-#: telescope/sources.py:625
+#: telescope/sources.py:649
 #, python-brace-format
 msgid "{phone} is streaming to {computer}"
 msgstr "{phone}, {computer} पर स्ट्रीम कर रहा है"
 
-#: telescope/sources.py:626
+#: telescope/sources.py:650
 msgid "Stop it there or on the phone, then start again."
 msgstr "वहां या फ़ोन पर इसे रोकें, फिर से शुरू करें."
 
-#: telescope/sources.py:633
+#: telescope/sources.py:657
 msgid "The phone stopped streaming"
 msgstr "फ़ोन ने स्ट्रीमिंग रोक दी"
 
-#: telescope/sources.py:634
+#: telescope/sources.py:658
 #, python-brace-format
 msgid "{phone} stopped streaming"
 msgstr "{phone} ने स्ट्रीमिंग रोक दी"
 
-#: telescope/sources.py:635
+#: telescope/sources.py:659
 msgid "Start again when you're ready."
 msgstr "जब आप तैयार हों तब फिर से शुरू करें."
 
-#: telescope/sources.py:821
+#: telescope/sources.py:845
 msgid "The camera didn't turn back on"
 msgstr "कैमरा दोबारा चालू नहीं हुआ"
 
@@ -4759,7 +4773,7 @@ msgstr "सिर्फ़ पैकेज किया गया ऐप ही 
 msgid "Telescope's folder isn't writable, so it can't update itself."
 msgstr "Telescope के फ़ोल्डर में लिखने की अनुमति नहीं है, इसलिए यह खुद अपडेट नहीं हो सकता."
 
-#: telescope/updates.py:237 telescope/vision_pack.py:128
+#: telescope/updates.py:237 telescope/updates.py:279 telescope/vision_pack.py:128
 msgid "Cancelled."
 msgstr "रद्द किया गया."
 
@@ -4779,47 +4793,47 @@ msgstr "डाउनलोड बीच में ही रुक गया. �
 msgid "The download didn't match its checksum, so it wasn't installed."
 msgstr "डाउनलोड का इसके चेकसम से मिलान नहीं हुआ, इसलिए इसे इंस्टॉल नहीं किया गया."
 
-#: telescope/updates.py:270 telescope/updates.py:287
+#: telescope/updates.py:289 telescope/updates.py:306
 msgid "The update contains unexpected paths, so it wasn't installed."
 msgstr "अपडेट में अनपेक्षित पाथ हैं, इसलिए इसे इंस्टॉल नहीं किया गया."
 
-#: telescope/updates.py:289
+#: telescope/updates.py:308
 msgid "The update contains unexpected files, so it wasn't installed."
 msgstr "अपडेट में अनपेक्षित फ़ाइलें हैं, इसलिए इसे इंस्टॉल नहीं किया गया."
 
-#: telescope/updates.py:295 telescope/vision_pack.py:170
+#: telescope/updates.py:314 telescope/vision_pack.py:170
 msgid "The download couldn't be unpacked."
 msgstr "डाउनलोड अनपैक नहीं किया जा सका."
 
-#: telescope/updates.py:315
+#: telescope/updates.py:334
 #, python-brace-format
 msgid "Couldn't replace Telescope's files: {error}"
 msgstr "Telescope की फ़ाइलों को बदला नहीं जा सका: {error}"
 
-#: telescope/updates.py:326 telescope/updates.py:345
+#: telescope/updates.py:345 telescope/updates.py:364
 msgid "The download doesn't contain Telescope, so it wasn't installed."
 msgstr "डाउनलोड में Telescope नहीं है, इसलिए इसे इंस्टॉल नहीं किया गया."
 
-#: telescope/updates.py:333
+#: telescope/updates.py:352
 #, python-brace-format
 msgid "{file} is in use, so the update wasn't installed. Try again after a restart."
 msgstr "{file} इस्तेमाल में है, इसलिए अपडेट इंस्टॉल नहीं किया गया. रीस्टार्ट करने के बाद फिर कोशिश करें."
 
-#: telescope/updates.py:477
+#: telescope/updates.py:496
 msgid "The installer took too long, so this copy stays as it is."
 msgstr "इंस्टॉलर ने बहुत ज़्यादा समय लिया, इसलिए यह कॉपी जैसी है वैसी ही रहेगी."
 
-#: telescope/updates.py:479
+#: telescope/updates.py:498
 #, python-brace-format
 msgid "Couldn't start the installer: {error}"
 msgstr "इंस्टॉलर शुरू नहीं किया जा सका: {error}"
 
-#: telescope/updates.py:481
+#: telescope/updates.py:500
 #, python-brace-format
 msgid "The installer stopped (code {code}), so this copy stays as it is."
 msgstr "इंस्टॉलर रुक गया (कोड {code}), इसलिए यह कॉपी जैसी है वैसी ही रहेगी."
 
-#: telescope/updates.py:484
+#: telescope/updates.py:503
 msgid "Telescope was installed, but its folder wasn't where expected. Open it from the Start menu."
 msgstr "Telescope इंस्टॉल हो गया, लेकिन इसका फ़ोल्डर वहां नहीं था जहां उम्मीद थी. इसे स्टार्ट मेन्यू से खोलें."
 

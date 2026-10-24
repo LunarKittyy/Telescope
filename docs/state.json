@@ -76,6 +76,8 @@
     "dynamic_bitrate": true,
     "dynamic_fps": 24,
     "heat_fps": 15,
+    "heat_width": 1280,
+    "heat_height": 720,
     "low_light": true,
     "low_light_toggle": true,
     "h264_profile": "high",
