@@ -166,6 +166,8 @@
     <string name="notif_channel_waiting_desc">Shown while Telescope keeps waiting for a paired computer to start the camera</string>
     <string name="notif_streaming_title">Streaming</string>
     <string name="notif_camera_streaming">Camera is streaming</string>
+    <string name="notif_streaming_usb">To %1$s over USB</string>
+    <string name="notif_streaming_wifi">To %1$s over Wi-Fi</string>
     <string name="notif_mic_streaming">Microphone is streaming, camera off</string>
     <string name="notif_waiting">Waiting for your computer</string>
     <string name="notif_stop_waiting">Stop waiting</string>

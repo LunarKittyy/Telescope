@@ -249,8 +249,19 @@ class CameraStreamService : Service() {
         private const val BUSY_STUCK_MS = 20_000L
         private const val WAKE_LOCK_MS = 12 * 60 * 60 * 1000L
 
-        fun streamingText(context: Context, cameraOff: Boolean): String =
-            context.getString(if (cameraOff) R.string.notif_mic_streaming else R.string.notif_camera_streaming)
+        fun streamingText(context: Context, cameraOff: Boolean): String {
+            val to = viewer
+            return when {
+                cameraOff -> context.getString(R.string.notif_mic_streaming)
+                to == null -> context.getString(R.string.notif_camera_streaming)
+                else -> context.getString(if (to.second) R.string.notif_streaming_usb else R.string.notif_streaming_wifi, to.first)
+            }
+        }
+
+        // The computer watching the stream and whether it's over USB, once one is; null before that
+        @Volatile
+        var viewer: Pair<String, Boolean>? = null
+            private set
 
         // When this run first reached Streaming (a recovery keeps it), or 0 while not streaming
         @Volatile
@@ -267,6 +278,8 @@ class CameraStreamService : Service() {
                 Intent(context, CameraStreamService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE)
             builder.addAction(0, context.getString(R.string.stop_streaming), stop)
             builder.setContentTitle(context.getString(R.string.notif_streaming_title))
+            // The chip's text; without it the chip shows the app's name
+            builder.setShortCriticalText(context.getString(R.string.notif_streaming_title))
             return builder
         }
         private val BUSY_STATES = setOf(
@@ -799,11 +812,15 @@ class CameraStreamService : Service() {
     }
 
     // The newest viewer's route picks the codec; viewers of the other one lose their stream.
-    private fun onVideoClient(codec: String, token: String?) {
+    private fun onVideoClient(codec: String, token: String?, usb: Boolean) {
         val ctrl = controller ?: return
         // Another computer watching this one's stream gets it as it is
         val caller = PairedComputers.list(this).matchToken(token)
         if (caller != null && !claim(caller)) return
+        if (caller != null && viewer != caller.name to usb) {
+            viewer = caller.name to usb
+            mainHandler.post { showStreamNotification() }
+        }
         if (codec == H264Stream.CODEC_H264 && !h264Available) return  // the reader sees no data and gives up
         // Failed once this stream: stay on MJPEG rather than reopen, fail and reopen as the reader reconnects.
         if (codec == H264Stream.CODEC_H264 && ctrl.snapshot().codecFailure != null) return
@@ -1090,6 +1107,7 @@ class CameraStreamService : Service() {
         stopWatchingThermalStatus()
         controller = null; server = null
         streamingSinceMs = 0L
+        viewer = null
         setState(StreamState.Idle, op)
         // Release session; endpoint stays bound if MainActivity holds a reference.
         SessionEndpoint.holdAfterStop(this)
