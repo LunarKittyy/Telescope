@@ -87,3 +87,13 @@ loaded = [name for name in ('av', 'cryptography', 'sounddevice', 'aiortc') if na
 print(loaded, file=sys.stderr, flush=True)
 os._exit(1 if loaded else 0)  # the window is still up, and tearing Qt down at exit isn't what's under test
 """)
+
+
+def test_the_warm_up_helper_loads_pyav_and_quits_without_starting_the_app(tmp_path):
+    env = {**os.environ, "XDG_DATA_HOME": str(tmp_path / "data"), "XDG_CONFIG_HOME": str(tmp_path / "config"),
+           "TELESCOPE_DEV_PROFILE": str(tmp_path / "profile"), "QT_QPA_PLATFORM": "offscreen"}
+    code = "import sys, runpy; sys.argv = ['main.py', '--warm-up']\n" \
+           "try:\n    runpy.run_path('main.py', run_name='__main__')\nexcept SystemExit as e:\n    assert e.code == 0\n" \
+           "assert 'av' in sys.modules and 'PyQt6.QtWidgets' not in sys.modules"
+    result = subprocess.run([sys.executable, "-c", code], cwd=DESKTOP, env=env, capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stderr

@@ -11,7 +11,7 @@ import sys
 import threading
 import urllib.request
 import weakref
-from typing import Optional
+from typing import Callable, Optional
 
 from telescope.pinned_https import PhoneAuth
 
@@ -58,8 +58,13 @@ def loaded() -> bool:
     return _av_module is not None
 
 
-def load_av():
-    """Imports PyAV behind the same lock as the decoders, for code that imports something built on it (aiortc)."""
+def load_av(warm: Optional[Callable[[], None]] = None):
+    """Imports PyAV behind the same lock as the decoders, for code that imports something built on it (aiortc). warm runs
+    first, under the lock, when PyAV isn't loaded yet (main.py's warm-up process), so a decoder that wants it meanwhile waits."""
+    if warm is not None and not loaded():
+        with _av_lock:
+            if not loaded():
+                warm()
     return _av()
 
 

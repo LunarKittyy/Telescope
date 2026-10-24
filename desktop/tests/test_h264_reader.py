@@ -159,6 +159,14 @@ def test_pyav_is_imported_by_one_thread_at_a_time(monkeypatch):
     assert h264_reader._av() is av
 
 
+def test_the_warm_up_runs_once_under_the_import_lock(monkeypatch):
+    monkeypatch.setattr(h264_reader, "_av_module", None)
+    held = []
+    assert h264_reader.load_av(warm=lambda: held.append(h264_reader._av_lock.locked())) is av
+    h264_reader.load_av(warm=lambda: held.append("again"))
+    assert held == [True]
+
+
 class _Endless:
     """A peer that keeps sending bytes that never make a frame."""
 
