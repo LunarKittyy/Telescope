@@ -32,6 +32,7 @@ _UNREACHABLE_AFTER_MS = 30_000  # gone this long: a banner says so
 # rate is trusted before asking again.
 _CAMERA_LIMITED_SHARE = 0.9
 _CAMERA_FPS_KEEP_S = 10.0
+_HEAT_RECHECK_MS = 10_000  # how often a hot phone's state is asked for again, to see it cool
 
 
 def camera_error_text(state: dict) -> str:
@@ -359,6 +360,11 @@ class PhoneSource(Source):
         self._recovery_route = None  # the route recovery last moved the stream to
         self._handover = None  # (session id, route, url) of a hand_over() under way
         self._state_poll_busy = False  # one recovery state poll at a time: an unreachable phone takes 4 s to time out
+        # While the heat note is up, the state is asked for again now and then so it goes once the phone cools
+        self._heat_timer = QTimer(self)
+        self._heat_timer.setSingleShot(True)
+        self._heat_timer.setInterval(_HEAT_RECHECK_MS)
+        self._heat_timer.timeout.connect(self._recheck_heat)
         self._recovery_timer = QTimer(self)
         self._recovery_timer.setSingleShot(True)
         self._recovery_timer.timeout.connect(self._probe_recovery)
@@ -566,10 +572,17 @@ class PhoneSource(Source):
             text = tr("It's streaming at {size} until it cools down.", size=size)
         self._host.show_issue(f"heat:{self.id}", Issue(tr("The phone is very hot"), text, kind="warn"))
         self._heat_shown = True
+        self._heat_timer.start()
+
+    def _recheck_heat(self):
+        session = self.session
+        if session is not None and self._heat_shown:
+            self.refresh_state(session.id)
 
     def _clear_heat(self):
         if getattr(self, "_heat_shown", False):
             self._heat_shown = False
+            self._heat_timer.stop()
             self._host.clear_issue(f"heat:{self.id}")
 
     def forget_stream_status(self):

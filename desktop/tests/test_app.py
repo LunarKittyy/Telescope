@@ -2009,10 +2009,12 @@ def test_a_critically_hot_phone_says_the_smaller_size_until_it_cools(window, mon
     issue = window._banners.issue(key)
     assert issue.title == "The phone is very hot"
     assert issue.text == "It's streaming at 1280 × 720 and 15 fps until it cools down."
+    assert window._phone._heat_timer.isActive()  # asks again, or the note would stay after the phone cooled
     window._phone.on_phone_state({**hot, "heat_fps": 0})  # asked for 15 fps or less: only the size dropped
     assert window._banners.issue(key).text == "It's streaming at 1280 × 720 until it cools down."
     window._phone.on_phone_state(_VALID_STATE)
     assert window._banners.issue(key) is None
+    assert not window._phone._heat_timer.isActive()
 
 
 def test_the_heat_note_goes_when_the_stream_stops(window, monkeypatch):
