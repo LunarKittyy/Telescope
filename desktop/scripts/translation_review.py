@@ -46,9 +46,16 @@ def empty_state(language):
     return {'schema': 1, 'language': language, 'machine': {}, 'contributions': {}, 'approvals': {}}
 
 
-def load(language):
-    if language not in i18n.available():
+def trusted_language(language, allowed):
+    # Returns the code from the known list itself, so file names never come straight from a request
+    match = next((code for code in allowed if code == language), None)
+    if match is None:
         raise ValueError('Choose an available translation language')
+    return match
+
+
+def load(language):
+    language = trusted_language(language, i18n.available())
     path = STATE_DIR / f'{language}.json'
     if not path.exists():
         return empty_state(language)
@@ -75,7 +82,7 @@ def atomic_write(path, content):
 
 
 def save(state):
-    atomic_write(STATE_DIR / f"{state['language']}.json", (json.dumps(state, indent=2, sort_keys=True) + '\n').encode())
+    atomic_write(STATE_DIR / f"{trusted_language(state['language'], i18n.available())}.json", (json.dumps(state, indent=2, sort_keys=True) + '\n').encode())
 
 
 def complete(source, translated):

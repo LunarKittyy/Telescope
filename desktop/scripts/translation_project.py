@@ -214,6 +214,7 @@ def export_language(platform, language):
         raise ValueError('Resolve this language’s conflicts before exporting')
     if language not in platform['languages']:
         raise ValueError('Choose an available language')
+    language = review.trusted_language(language, language_options())
     data = platform['languages'][language]
     baseline = platform.get('base', platform)['languages'].get(language, {'entries': {}})['entries']
     state = review.empty_state(language)

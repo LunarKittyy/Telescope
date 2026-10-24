@@ -14,6 +14,16 @@ const value = k => currentDrafts()[k] ?? original(k);
 const reviewStamp = k => JSON.stringify([value(k), data.revision]);
 const humanChecked = k => Boolean(value(k)) && Boolean(data.approvals?.[lang]?.[k]) && value(k) === original(k);
 const prepared = k => Boolean(value(k)) && reviewed[lang]?.[k] === reviewStamp(k);
+// Codes and keys come from browser storage and the address bar, so writes skip names that reach Object.prototype
+function setDraft(store, code, key, text) {
+  if (code === '__proto__' || code === 'constructor' || code === 'prototype' || key === '__proto__' || key === 'constructor' || key === 'prototype') return;
+  if (!Object.hasOwn(store, code)) store[code] = {};
+  store[code][key] = text;
+}
+function dropDraft(store, code, key) {
+  if (code === '__proto__' || code === 'constructor' || code === 'prototype' || key === '__proto__' || key === 'constructor' || key === 'prototype') return;
+  if (Object.hasOwn(store, code)) delete store[code][key];
+}
 const save = () => { try { localStorage.setItem(storageKey, JSON.stringify({drafts, prepared:reviewed, lang,localLanguages})); } catch { $('draft-status').textContent = 'Browser storage is unavailable. Download your draft before closing.'; } };
 function addLocalLanguage(code) {
   if (data.languages.includes(code)) return;
@@ -101,8 +111,8 @@ async function render() {
   }
 }
 $('translation').oninput = () => {
-  drafts[lang] ||= {}; drafts[lang][selected] = $('translation').value;
-  delete (reviewed[lang] || {})[selected];
+  setDraft(drafts, lang, selected, $('translation').value);
+  dropDraft(reviewed, lang, selected);
   busy = true;
   save(); rows(); clearTimeout(timer); generation++; $('render-status').textContent = 'Draft changed. Preview updating…';
   timer = setTimeout(render, 650);
@@ -117,10 +127,10 @@ $('search').oninput = rows;
 $('refresh').onclick = () => { clearTimeout(timer); render(); };
 $('scene').onchange = () => { clearTimeout(timer); render(); };
 
-$('reset').onclick = () => { delete (drafts[lang] || {})[selected]; delete (reviewed[lang] || {})[selected]; save(); choose(selected); render(); };
+$('reset').onclick = () => { dropDraft(drafts, lang, selected); dropDraft(reviewed, lang, selected); save(); choose(selected); render(); };
 $('review').onclick = () => {
   if (busy || $('error').textContent || lang === 'en' || !value(selected)) return;
-  reviewed[lang] ||= {}; reviewed[lang][selected] = reviewStamp(selected); save();
+  setDraft(reviewed, lang, selected, reviewStamp(selected)); save();
   const keys = sceneKeys(), next = keys.find(k => !prepared(k));
   rows(); if (next) choose(next); else $('progress').textContent = `All ${keys.length} texts in this scene ready for export`;
 };
@@ -271,7 +281,7 @@ $('approve').onclick = async () => {
       sharedApproved({...item,reviewer:await shared.approve(item)});
       if (submission) selectedSubmission = null;
     }
-    delete (drafts[lang] || {})[selected]; save();
+    dropDraft(drafts, lang, selected); save();
     if (data.mode === 'admin') await start();
     else { choose(selected); $('draft-status').textContent = 'Translation approved.'; }
   } catch (error) { $('error').textContent = error.message; updateProgress(); }
@@ -397,7 +407,7 @@ async function openAdmin() {
       adminUi = module.createAdmin(shared, sharedUser, sharedRole, (item, source) => {
         const entry = Object.entries(data.entries).find(([,entry]) => entry.id === item.entry && entry.sourceDigest === item.sourceDigest);
         if (!entry || !source) { $('admin-status').textContent = 'This preview needs a checkout containing the suggestion’s current source.'; return; }
-        drafts[item.language] ||= {}; drafts[item.language][entry[0]] = item.text;
+        setDraft(drafts, item.language, entry[0], item.text);
         selectedSubmission = item;
         lang = item.language; preferredKey = entry[0]; save();
         const scene = Object.entries(data.coverage.scenes).find(([,keys]) => keys.includes(entry[0]));

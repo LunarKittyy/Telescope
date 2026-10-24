@@ -55,10 +55,10 @@ def validate(payload):
         raise ValueError("Expected an object")
     if "revision" in payload and payload["revision"] != revision():
         raise ValueError("This checkout changed. Reload the editor to get its current texts and previews.")
-    lang = payload.get("lang", "es")
     scene = payload.get("scene", "cool")
-    if lang not in ["en", *project.language_options()] or scene not in SCENES:
+    if scene not in SCENES:
         raise ValueError("Choose an available language and scene")
+    lang = review.trusted_language(payload.get("lang", "es"), ["en", *project.language_options()])
     drafts = payload.get("drafts", {})
     if not isinstance(drafts, dict) or len(drafts) > 100:
         raise ValueError("Expected at most 100 draft texts")
