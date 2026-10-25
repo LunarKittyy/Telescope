@@ -114,3 +114,8 @@ def test_busy_project_worker_is_rejected_without_queueing_more_work():
         assert call('/api/project-action',{'action':'unsupported'})[0] == 429
     finally:
         hosted.project_slot.release()
+
+
+def test_the_custom_domain_can_use_the_api(monkeypatch):
+    monkeypatch.setattr(hosted, 'catalogue', lambda: {})
+    assert call('/api/catalog', origin='https://translation.telescope.webcam')[0] == 200
