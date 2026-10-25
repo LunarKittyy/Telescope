@@ -80,14 +80,14 @@
     <label class="search-label"><span class="sr-only">Find a text</span><input id="search" type="search" placeholder="Find a text…"></label>
     <div id="texts" role="group" aria-label="Texts in this scene"></div>
     <p id="empty" hidden>No texts match. Try another word.</p>
-    <details class="coverage"><summary id="coverage-summary">Preview coverage</summary>
+    <details class="coverage" hidden><summary id="coverage-summary">Preview coverage</summary>
       <p>Tooltips highlight their owning control. Texts in the messages lists show only their wording, not the screen they belong to.</p>
       <p id="coverage-count"></p><ul id="missing"></ul>
     </details>
   </aside>
   <div class="workspace">
     <section class="preview-pane" aria-label="App preview">
-      <div class="preview-toolbar"><label>Preview <select id="scene" aria-label="Preview scene"></select></label><button id="refresh">Refresh</button></div>
+      <div class="preview-toolbar"><label>Preview <select id="scene" aria-label="Preview scene"></select></label><button id="refresh" hidden>Try again</button></div>
       <div class="preview-stage"><div id="picture"><div id="preview-mount"></div><div id="regions"></div></div></div>
       <div class="preview-caption"><button id="zoom" aria-pressed="false">Actual size</button><p id="render-status" role="status">Opening the Qt preview…</p><p id="placement"></p></div>
       <div id="fit" role="status"></div>
@@ -99,7 +99,7 @@
           <div class="source"><h2>English</h2><p id="english"></p><details class="source-details"><summary>Notes & source</summary><p id="context"></p></details></div>
           <div class="target"><label for="translation" id="target-label">Your translation</label><textarea id="translation" rows="3" spellcheck="true" aria-describedby="fields error"></textarea><p id="fields" class="muted"></p></div>
         </div>
-        <div class="editor-actions"><button id="reset">Undo this edit</button><button id="review" disabled>Keep draft & next <span aria-hidden="true">→</span></button><button id="submit" class="primary" hidden disabled>Suggest</button><button id="approve" class="primary" hidden disabled>Approve translation</button></div>
+        <div class="editor-actions"><button id="reset">Undo this edit</button><button id="review" disabled>Next <span aria-hidden="true">→</span></button><button id="submit" class="primary" hidden disabled>Suggest</button><button id="approve" class="primary" hidden disabled>Approve translation</button></div>
         <section id="suggestions" class="suggestions" hidden aria-labelledby="suggestions-title"><h3 id="suggestions-title">Suggestions</h3><ol id="suggestion-list"></ol></section>
       </div>
     </section>

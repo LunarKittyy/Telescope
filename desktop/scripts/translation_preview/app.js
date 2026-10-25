@@ -54,7 +54,8 @@ function sectionRows() {
 function sceneKeys() { return image ? [...new Set(image.regions.map(r => r.key))].filter(k => data.entries[k]) : (data?.coverage.scenes[$('scene').value] || []).filter(k => data.entries[k]); }
 function updateProgress() {
   const keys = sceneKeys(), done = keys.filter(prepared).length;
-  $('progress').textContent = `${done} / ${keys.length} ready`;
+  $('progress').textContent = `${done} of ${keys.length} checked`;
+  $('reset').disabled = !selected || !Object.hasOwn(drafts[lang] || {}, selected);
   $('export').disabled = lang === 'en' || Boolean($('error').textContent) || busy;
   $('approve').hidden = data?.mode !== 'admin' && !['owner','admin'].includes(sharedRole);
   $('approve').disabled = busy || !image || !value(selected) || Boolean($('error').textContent) || (sharedUser && !shared?.username);
@@ -73,7 +74,7 @@ function rows() {
     const title = document.createElement('span'); title.textContent = value(k) || data.entries[k].english;
     const note = document.createElement('small'); const done = humanChecked(k);
     const waiting = sharedUser ? pendingFor(k).length : 0;
-    note.textContent = `${done ? 'Approved · ' : prepared(k) ? 'Ready for export · ' : ''}${waiting ? `${waiting} ${waiting === 1 ? 'suggestion' : 'suggestions'} · ` : ''}${data.entries[k].english}`; note.className = done ? 'reviewed' : '';
+    note.textContent = `${done ? 'Approved · ' : prepared(k) ? 'Checked · ' : ''}${waiting ? `${waiting} ${waiting === 1 ? 'suggestion' : 'suggestions'} · ` : ''}${data.entries[k].english}`; note.className = done ? 'reviewed' : '';
     button.append(title, note); button.onclick = () => choose(k); $('texts').append(button);
   }
   updateProgress();
@@ -281,7 +282,7 @@ async function render() {
     picture.alt = `${data.scenes[image.scene]} rendered by Telescope`; picture.src = `data:image/png;base64,${image.image}`;
     $('preview-mount').replaceChildren(picture);
     $('error').textContent = '';
-    $('render-status').textContent = 'Live Qt render';
+    $('render-status').textContent = ''; $('refresh').hidden = true;
     $('fit').textContent = image.findings.map(f => `${f.kind}: ${f.text}`).join('\n');
     if (preferredKey && sceneKeys().includes(preferredKey)) selected = preferredKey;
     preferredKey = null;
@@ -289,7 +290,7 @@ async function render() {
     if (selected) choose(selected); else { rows(); highlight(); $('edit').hidden = true; }
   } catch (error) {
     if (request !== generation) return;
-    $('render-status').textContent = image ? 'Preview unavailable. Showing the last successful render.' : 'Preview unavailable. Use Refresh to try again.';
+    $('render-status').textContent = image ? 'Preview unavailable. Showing the last successful render.' : 'Preview unavailable.'; $('refresh').hidden = false;
     $('error').textContent = error.message;
   } finally {
     if (request === generation) { busy = false; $('picture').setAttribute('aria-busy','false'); updateProgress(); }
@@ -369,7 +370,7 @@ $('restore-file').onchange = async () => {
 async function start() {
   try {
     fetch('/api/warm').catch(() => {});
-    let response = await fetch('/catalog.json'); if (!response.ok) response = await fetch('/api/catalog'); if (!response.ok) throw Error('The catalog could not be loaded. Refresh to try again.'); data = await response.json();
+    let response = await fetch('/catalog.json'); if (!response.ok) response = await fetch('/api/catalog'); if (!response.ok) throw Error('The texts could not be loaded. Reload the page to try again.'); data = await response.json();
     repositoryData = structuredClone(data); cloudOverrides = {};
     for (const code of localLanguages) addLocalLanguage(code);
     if (!data.languages.includes(lang)) lang = 'es';
@@ -378,6 +379,8 @@ async function start() {
     $('missing').replaceChildren();
     section = data.sections[0].id;
     const c = data.coverage;
+    // Only worth showing while a text has no preview or the scenes changed
+    $('coverage-summary').closest('details').hidden = !c.missing.length && !data.drift.length;
     $('coverage-summary').textContent = `Preview coverage${data.drift.length ? ' changed' : ''} · ${c.missing.length} missing`;
     $('coverage-count').textContent = `${c.mapped.length} of ${data.total} texts appear in a preview, ${c.messages_only.length} of them only as wording with sample values in the messages lists. ${c.plural.length} plural texts can't be edited yet. The list below shows texts no preview shows.`;
     for (const k of c.missing) { const li = document.createElement('li'); li.textContent = data.entries[k]?.english || `${k} (removed from source)`; $('missing').append(li); }

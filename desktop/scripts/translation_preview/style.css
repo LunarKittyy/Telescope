@@ -168,7 +168,8 @@ progress::-moz-progress-bar { background: #9ad3ae; border-radius: 4px; }
 .area-row strong { font-size: 18px; }
 .area-row p { font-size: 13px; color: var(--muted); margin-top: 4px; }
 .area-progress { display: flex; align-items: center; gap: 24px; font-size: 13px; color: var(--muted); }
-.open-label { background: var(--accent); color: #291b3b; border-radius: 8px; padding: 10px 16px; font-weight: 600; white-space: nowrap; }
+.open-label { background: #ffffff14; color: var(--ink); border-radius: 8px; padding: 10px 16px; font-weight: 600; white-space: nowrap; }
+.area-row:hover .open-label, .area-row:focus-visible .open-label { background: var(--accent); color: #291b3b; }
 @media (max-width: 760px) {
   .app-header .header-actions { width: auto; }
   .overview { padding: 28px 16px; }
