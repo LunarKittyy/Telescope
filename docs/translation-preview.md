@@ -1,6 +1,6 @@
 # Translation preview experiment
 
-The [translation workbench](https://telescope-localization.web.app) tries translations in Telescope's own Qt widgets. About nine in ten desktop texts show on the screen where people read them, grouped into sections you pick from the language page:
+The [translation workbench](https://translation.telescope.webcam) tries translations in Telescope's own Qt widgets. About nine in ten desktop texts show on the screen where people read them, grouped into sections you pick from the language page:
 
 - **Phone card**: cool and charging, warm, and stopped for heat.
 - **Main window**: before any phone is paired, with a phone at three widths, streaming, starting, and with banners and footer lines.

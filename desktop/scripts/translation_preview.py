@@ -659,7 +659,8 @@ class Handler(BaseHTTPRequestHandler):
                   "/admin.js": ("admin.js", "text/javascript"),
                   "/language-picker.js": ("language-picker.js", "text/javascript"),
                   "/languages.json": ("languages.json", "application/json"),
-                  "/firebase-config.json": ("firebase-config.json", "application/json")}
+                  "/firebase-config.json": ("firebase-config.json", "application/json"),
+                  "/favicon.svg": ("favicon.svg", "image/svg+xml")}
         if self.path not in assets:
             return self.reply(404, b"Not found", "text/plain")
         file, mime = assets[self.path]

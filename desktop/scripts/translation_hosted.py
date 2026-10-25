@@ -231,7 +231,7 @@ def stage(destination):
         shutil.copy2(preview.ASSETS / 'firebase' / name, firebase)
     public = firebase / 'public'
     public.mkdir()
-    for name in ('index.html', 'app.js', 'shared.js', 'admin.js', 'language-picker.js', 'style.css', 'languages.json', 'languages.LICENSE.txt', 'firebase-config.json'):
+    for name in ('index.html', 'app.js', 'shared.js', 'admin.js', 'language-picker.js', 'style.css', 'languages.json', 'languages.LICENSE.txt', 'firebase-config.json', 'favicon.svg'):
         shutil.copy2(preview.ASSETS / name, public)
     # Served by Hosting's CDN so the first page doesn't wait for the render service to start
     (public / 'catalog.json').write_text(json.dumps(catalogue(), ensure_ascii=False), encoding='utf-8')

@@ -64,7 +64,7 @@ def test_deployment_stage_contains_only_runtime_files(tmp_path):
     destination = tmp_path / 'stage'
     hosted.stage(destination)
     public = destination / 'firebase' / 'public'
-    assert (public / 'index.html').is_file()
+    assert (public / 'index.html').is_file() and (public / 'favicon.svg').is_file()
     assert (destination / 'desktop' / 'scripts' / 'translation_preview' / 'Dockerfile').is_file()
     assert not (public / 'firestore.rules').exists()
     assert not list(destination.rglob('CLAUDE.md'))

@@ -1,5 +1,9 @@
 # Translating Telescope
 
+## Translating in the browser
+
+The easiest way to translate the desktop app is [translation.telescope.webcam](https://translation.telescope.webcam). You see your wording in the real app as you type and it warns you when a text doesn't fit. Signed in with GitHub you can suggest wordings under your name and like or dislike other people's suggestions (an admin approves the best ones). The phone app isn't on the site yet and still gets translated in the files below.
+
 ## Helping without any tools
 
 Spotted a text that reads wrong, or would like Telescope in your language? [Open a translation issue](https://github.com/LunarKittyy/Telescope/issues/new?template=translation.yml) and write what a text says now and what it should say. That's all it takes, no coding or setup needed.
