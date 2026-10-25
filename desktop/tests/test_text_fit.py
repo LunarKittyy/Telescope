@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
 
 from scripts import text_fit
 from telescope import i18n
-from telescope.widgets.common import ElidingLabel, Switch
+from telescope.widgets.common import SWITCH_W, ElidingLabel, Switch, ui_px
 
 # The fonts text_fit_known.txt was made with: other fonts measure differently. Inter has no Devanagari, so Hindi's
 # letters come from Noto Sans Devanagari
@@ -126,7 +126,7 @@ def test_a_switch_wraps_a_long_name_and_cuts_a_word_too_long_for_it(qt_widgets, 
     two_lines = max(fm.horizontalAdvance("Stop the"), fm.horizontalAdvance("stream")) + 4
     too_short = fm.horizontalAdvance("Microphone") - 10
     for switch, room in ((words, two_lines), (word, too_short)):
-        switch.setFixedSize(room + 12 + 36, 3 * fm.height())  # 12 px gap, then the 36 px track
+        switch.setFixedSize(room + 12 + ui_px(SWITCH_W), 3 * fm.height())  # 12 px gap, then the track
         lay.addWidget(switch)
     found = text_fit.check(_shown(box, 400, 3 * fm.height()), "en", "test", english)
     assert [(f.kind, f.english) for f in found] == [("cut short", "Microphone")]
