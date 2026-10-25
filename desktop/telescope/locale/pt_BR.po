@@ -1051,7 +1051,7 @@ msgstr "Resolução"
 
 #: telescope/plugins/browser_camera.py:268 telescope/plugins/stream_output.py:194
 msgid "Frame rate"
-msgstr "Taxa de quadros"
+msgstr "Quadros/s"
 
 #: telescope/plugins/browser_camera.py:302
 msgid "Connected"
@@ -3863,7 +3863,7 @@ msgstr "O app deste celular é antigo demais para o Dinâmico e usará o Automá
 
 #: telescope/plugins/stream_output.py:39
 msgid "Good for most calls"
-msgstr "Bom para a maioria das chamadas"
+msgstr "Bom para chamadas"
 
 #: telescope/plugins/stream_output.py:40
 msgid "Sharper, more data"

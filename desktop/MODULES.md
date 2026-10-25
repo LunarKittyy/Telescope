@@ -331,7 +331,7 @@ Reusable Qt widgets and helpers used across multiple panels:
 - `host_window(host)` - the main window to parent a plugin's own window on, so it stays above it (None for a test's stand-in host).
 - `reading_order(root)` / `tab_in_reading_order(root, forward)` - Tab follows the layouts (top to bottom, left to right), not the order widgets were made, and stops on every option of a pick-one group. The main window's `focusNextPrevChild` calls it; dialogs get it from `theme`.
 - `NoScrollComboBox` draws its list with `ComboItemDelegate`: items styled by the stylesheet, so the arrow keys show where they are, and a tick on the picked one.
-- `elided()`, which every widget that draws its own text cuts it with, so `scripts/text_fit.py` can list what got cut (`tests/test_text_fit.py`).
+- `elided()`, which every widget that draws its own text cuts it with, so `scripts/text_fit.py` can list what got cut (`tests/test_text_fit.py`). Text drawn past its box without it shows up there too, since the script watches every `drawText()`.
 - `ElidingLabel` (one line, cut with … to fit), `FlowLayout` (wraps its items like text), `StatusPill` (icon, value and a note, tinted by how it's doing), and `OptionButton` (a segment with a short note under its name).
 - `set_status_kind(label, kind)` / `set_ui_role(widget, role)` - switch QSS roles and re-polish (a bare `setObjectName()` leaves the old colour).
 - `run_off_ui_thread(fn, *args)` - run a blocking call (adb) on a worker thread while the window keeps repainting; used by every GUI-thread adb call.

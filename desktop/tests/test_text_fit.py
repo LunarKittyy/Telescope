@@ -1,12 +1,13 @@
 """Every text fits where it's shown, in every language and the pseudo one (scripts/text_fit.py measures them)."""
 
 import pytest
-from PyQt6.QtGui import QFontInfo, QTextLayout
+from PyQt6.QtCore import QPointF, QRect, Qt
+from PyQt6.QtGui import QFontInfo, QPainter, QTextLayout
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
 
 from scripts import text_fit
 from telescope import i18n
-from telescope.widgets.common import ElidingLabel
+from telescope.widgets.common import SWITCH_W, ElidingLabel, Switch, ui_px
 
 # The fonts text_fit_known.txt was made with: other fonts measure differently. Inter has no Devanagari, so Hindi's
 # letters come from Noto Sans Devanagari
@@ -90,6 +91,47 @@ def test_an_app_text_cut_short_is_found_but_a_name_is_cut_on_purpose(qt_widgets,
     found = text_fit.check(_shown(box, 160), "en", "test", english)
     assert [(f.kind, f.english) for f in found] == [
         ("cut short", "Click Start streaming in the top right corner of this window.")]
+
+
+class _Painted(QWidget):
+    """Draws its text the way a widget that skips elided() would: at a point, or wrapped in a box."""
+
+    def __init__(self, text, wrapped, parent):
+        super().__init__(parent)
+        self._text, self._wrapped = text, wrapped
+
+    def paintEvent(self, _event):
+        p = QPainter(self)
+        if self._wrapped:
+            p.drawText(QRect(0, 0, self.width(), self.height()), int(Qt.TextFlag.TextWordWrap), self._text)
+        else:
+            p.drawText(QPointF(0, 15), self._text)
+        p.end()
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_text_a_widget_draws_past_its_box_is_found(qt_widgets, english, wrapped):
+    box = qt_widgets(QWidget())
+    _Painted("Microphone" if wrapped else "Start streaming", wrapped, box).setGeometry(0, 0, 30, 40)
+    found = text_fit.check(_shown(box, 200), "en", "test", english)
+    assert [(f.kind, f.english) for f in found] == [("cut off", "Microphone" if wrapped else "Start streaming")]
+
+
+def test_a_switch_wraps_a_long_name_and_cuts_a_word_too_long_for_it(qt_widgets, english):
+    box = qt_widgets(QWidget())
+    lay = QHBoxLayout(box)
+    lay.setContentsMargins(0, 0, 0, 0)
+    words, word = Switch("Stop the stream"), Switch("Microphone")
+    lay.addWidget(words)
+    lay.addWidget(word)
+    words.ensurePolished()  # measured in the font it's painted with
+    fm = words.fontMetrics()
+    two_lines = max(fm.horizontalAdvance("Stop the"), fm.horizontalAdvance("stream")) + 4
+    too_short = fm.horizontalAdvance("Microphone") - 10
+    for switch, room in ((words, two_lines), (word, too_short)):
+        switch.setFixedSize(room + 12 + ui_px(SWITCH_W), 3 * fm.height())  # 12 px gap, then the track
+    found = text_fit.check(_shown(box, 400, 3 * fm.height()), "en", "test", english)
+    assert [(f.kind, f.english) for f in found] == [("cut short", "Microphone")]
 
 
 def test_text_that_fits_is_left_alone(qt_widgets, english):
