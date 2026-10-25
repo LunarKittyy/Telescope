@@ -4,6 +4,24 @@ Tools and notes for going through [the release checklist](../../docs/release-che
 
 `fetch_nightly.sh [tag]` downloads a release's assets (the nightly by default) with `gh` into `downloads/n<build>` and checks each one against the manifest's sha256. Set `NIGHTLY_DIR` to put them somewhere else, such as a folder your Windows VM can see. `downloads/` is ignored by git.
 
+## The emulator pass
+
+`emulator_pass.py` goes through what the release checklist leaves to an Android emulator and the Linux profile below, and prints PASS, FAIL or SKIP with a reason for each check. `--list` shows them. A full run takes about 15 minutes.
+
+```bash
+./fetch_nightly.sh                                   # the release to check
+./fetch_nightly.sh v4.1.0                            # and the last one, for the upgrade check
+linux/install.sh downloads/n932/Telescope-linux.tar.gz
+linux/.profile/home/.local/share/Telescope/venv/bin/python3 emulator_pass.py downloads/n932 --previous downloads/n838
+```
+
+It runs with the profile's own Python because the frame checks need OpenCV and NumPy and that one has both. It also needs `ffmpeg`, `v4l2-ctl`, `curl` and v4l2loopback loaded, and an emulator that's already running (adb has to see exactly one device). It uninstalls the phone app and starts the profile's settings fresh.
+
+Which emulator to use:
+- Run the whole pass on an Android 14 image with button navigation, the steadiest one. Its camera only goes up to 720p and the heat check gets skipped there.
+- An Android 17 image is the one with the Local network row and a 1080p camera. With SwiftShader rendering its System UI crashes on going Home or taking a screenshot (`hasReadColorBufferDma`). Give it only the checks that stay inside the app: `--only phone_fresh_install phone_allow_everything desktop_fresh_start usb_pairing stream_and_status heat_step`.
+- Turn button navigation on with `adb shell cmd overlay enable com.android.internal.systemui.navbar.threebutton`.
+
 ## Linux
 
 Everything runs in its own profile (`linux/.profile`, with its own HOME and XDG folders) on an offscreen Qt to leave your real install and desktop alone. The log and the single-instance lock are still shared with a real install (`/tmp/telescope-$USER`), so keep sessions short and don't run both at once. `linux/.profile` is ignored by git.
