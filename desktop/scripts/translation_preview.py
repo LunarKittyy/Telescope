@@ -284,6 +284,43 @@ def text_regions(top):
     return regions
 
 
+def finding_keys(finding, regions):
+    """The translated texts a text-fit finding is about: those shown in its words where it sits."""
+    x, y, w, h = finding.rect or (0, 0, 0, 0)
+    near = lambda r: r["rect"][0] < x + w and x < r["rect"][0] + r["rect"][2] and r["rect"][1] < y + h and y < r["rect"][1] + r["rect"][3]
+    named = [r for r in regions if r["shown"] and r["shown"] in finding.text]
+    return sorted({r["key"] for r in [r for r in named if near(r)] or named})
+
+
+def fit_scenes(identity, limit=6):
+    """A few scenes that show identity: one per section and width, narrowest first, so one layout isn't checked twice."""
+    record = recorded()
+    widths = record.get("widths", {})
+    found = [id for id, keys in record["scenes"].items() if identity in keys and id in scenes.SCENES]
+    picked, seen = [], set()
+    for id in sorted(found, key=lambda id: widths.get(id, 0)):
+        layout = (scenes.SCENES[id].section, widths.get(id, 0))
+        if layout not in seen:
+            seen.add(layout)
+            picked.append(id)
+    return picked[:limit]
+
+
+def fit(payload):
+    """Where a wording doesn't fit, among a few of the screens that show it."""
+    from concurrent.futures import ThreadPoolExecutor
+    identity, text = payload.get("key"), payload.get("text")
+    lang, _scene, drafts = validate({"lang": payload.get("lang"), "revision": payload.get("revision", revision()), "drafts": {identity: text}})
+    if lang == "en" or identity not in drafts:
+        raise ValueError("Choose a translation language and a text")
+    checked = fit_scenes(identity)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda id: worker({"lang": lang, "scene": id, "drafts": drafts, "revision": revision()}, timeout=60), checked))
+    screens = [{"scene": r["scene"], "title": SCENES[r["scene"]], "kinds": sorted({f["kind"] for f in r["findings"] if identity in f["keys"]})}
+               for r in results]
+    return {"checked": len(checked), "screens": [s for s in screens if s["kinds"]]}
+
+
 def tooltip_pictures(top, regions):
     """The popup each tooltip would show, by text key, with where it opens: under the control that owns it."""
     from PyQt6.QtCore import QBuffer, QByteArray, QIODevice, QPoint
@@ -341,7 +378,8 @@ def render(payload):
         buffer.open(QIODevice.OpenModeFlag.WriteOnly)
         picture.save(buffer, "PNG")
         result = {"image": base64.b64encode(bytes(array)).decode(), "width": top.width(), "height": top.height(),
-                  "regions": regions, "tips": tooltip_pictures(top, regions), "findings": [{"text": f.text, "kind": f.kind} for f in findings],
+                  "regions": regions, "tips": tooltip_pictures(top, regions), "findings": [{"text": f.text, "kind": f.kind, "keys": finding_keys(f, regions)} for f in findings if f.kind != "not translated"
+                               and (f.kind == "window too wide" or finding_keys(f, regions))],
                   "scene": scene, "lang": lang}
         top.close()
         return result
@@ -501,6 +539,7 @@ def coverage(results):
     return {"mapped": sorted(mapped), "missing": sorted(set(entries) - plural - mapped), "plural": sorted(plural),
             "screens": sorted(in_screens), "messages_only": sorted(mapped - in_screens),
             "scenes": {result["scene"]: sorted({r["key"] for r in result["regions"]} & known) for result in results},
+            "widths": {result["scene"]: result["width"] for result in results},  # fonts differ, so it isn't checked
             "total": len(entries)}
 
 
@@ -705,6 +744,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self.reply(403, json.dumps({'error': 'Only an administrator can import translations'}).encode(), 'application/json')
                 count = review.import_po(payload.get('lang'), payload.get('content', ''), catalog(), payload.get('author', ''))
                 return self.reply(200, json.dumps({'changed': count, 'revision': revision()}).encode(), 'application/json')
+            if self.path == "/api/fit":
+                return self.reply(200, json.dumps(fit(payload)).encode(), "application/json")
             if self.path == "/api/render":
                 data = json.dumps(worker(payload)).encode()
                 return self.reply(200, data, "application/json")

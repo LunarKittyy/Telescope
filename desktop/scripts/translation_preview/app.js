@@ -211,6 +211,8 @@ function suggestionList() {
     head.append(avatar(item.author), who, when);
     if (item === top && list.length > 1) { const badge = document.createElement('span'); badge.className = 'badge'; badge.textContent = 'Top suggestion'; badge.title = 'The best voted wording fills the translation box until one is approved'; head.append(badge); }
     const wording = document.createElement('p'); wording.textContent = item.text; wording.lang = lang.replace('_','-');
+    const known = fitResults.get(fitId(selected, item.text)), shownFor = selected;
+    if (!known && item === top && !fits.has(fitId(selected, item.text))) fitCheck(selected, item.text).then(result => { if (result && selected === shownFor) suggestionList(); });
     const actions = document.createElement('div'); actions.className = 'row-actions';
     const use = document.createElement('button'); use.textContent = 'Use this';
     use.onclick = () => { $('translation').value = item.text; $('translation').dispatchEvent(new Event('input')); $('translation').focus(); };
@@ -222,13 +224,13 @@ function suggestionList() {
         try { await work(); } catch (error) { $('draft-status').textContent = error.message; }
         suggestionList(); rows();
       };
-      approve.onclick = () => review(async () => {
+      approve.onclick = async () => { if (await fitsOrConfirm(selected, item.text, 'Approve')) review(async () => {
         const approval = {language:item.language, entry:item.entry, sourceDigest:item.sourceDigest, text:item.text, submission:machine ? '' : item.id, author:item.author === MACHINE ? 'machine' : item.author};
         sharedApproved({...approval, reviewer:await shared.approve(approval)});
         if (!machine) item.status = 'approved';
         dropDraft(drafts, lang, selected); save(); pickVoted(); choose(selected); render();
         $('draft-status').textContent = machine ? 'Approved the machine’s wording.' : `Approved ${name}’s wording.`;
-      });
+      }); };
       actions.append(approve);
       if (!machine) {
         const dismiss = document.createElement('button'); dismiss.textContent = 'Dismiss';
@@ -242,7 +244,9 @@ function suggestionList() {
       }
     }
     actions.append(voteButtons(item, refresh));
-    row.append(head, wording, actions); $('suggestion-list').append(row);
+    row.append(head, wording);
+    if (misfits(known)) { const warning = document.createElement('p'); warning.className = 'fit-warning'; warning.textContent = misfits(known); row.append(warning); }
+    row.append(actions); $('suggestion-list').append(row);
   }
 }
 async function showPerson(name) {
@@ -264,9 +268,10 @@ async function showPerson(name) {
 $('person-close').onclick = () => $('person').close();
 function highlight() {
   $('regions').replaceChildren();
+  const clipped = new Set((image?.findings || []).flatMap(f => f.keys || []));
   for (const r of image?.regions || []) {
     if (r.slot === 'tooltip' && r.key !== selected) continue;
-    const b = document.createElement('button'); b.className = `region${r.key === selected ? ' selected' : ''}`;
+    const b = document.createElement('button'); b.className = `region${r.key === selected ? ' selected' : ''}${clipped.has(r.key) ? ' clipped' : ''}`;
     b.tabIndex = -1; b.setAttribute('aria-label', data.entries[r.key]?.english || r.shown);
     b.title = r.shown;
     const [x,y,w,h] = r.rect;
@@ -316,7 +321,7 @@ async function render() {
     $('preview-mount').replaceChildren(picture); sizePicture();
     $('error').textContent = '';
     $('render-status').textContent = ''; $('refresh').hidden = true;
-    $('fit').textContent = image.findings.map(f => `${f.kind}: ${f.text}`).join('\n');
+    $('fit').textContent = fitMessage(image.findings);
     if (preferredKey && sceneKeys().includes(preferredKey)) selected = preferredKey;
     preferredKey = null;
     if (!sceneKeys().includes(selected)) selected = sceneKeys()[0];
@@ -338,6 +343,33 @@ $('translation').oninput = () => {
 };
 // Big screens open at actual size, scrolled to the text being edited; Fit shows the whole screen at once
 let fitChosen = false;
+const FIT_WORDS = {'cut short': 'is cut short', 'cut off': 'runs past its space', 'out of its box': 'spills out of its box'};
+function fitMessage(findings) {
+  if (!findings.length) return '';
+  const lines = findings.map(f => f.kind === 'window too wide' ? `The window has to grow past ${f.text} to fit its texts.` : `“${f.text}” ${FIT_WORDS[f.kind] || f.kind}.`);
+  return ['Something doesn’t fit on this screen. Try a shorter wording.', ...new Set(lines)].join('\n');
+}
+// Checks a wording on a few other screens that show it, one check at a time so the preview stays quick
+const fits = new Map(), fitResults = new Map();
+let fitQueue = Promise.resolve();
+const fitId = (k, text) => JSON.stringify([lang, k, text]);
+function fitCheck(k, text) {
+  const id = fitId(k, text), language = lang;
+  if (!fits.has(id)) {
+    const job = fitQueue.then(() => fetch('/api/fit', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({lang:language, key:k, text, drafts:{}, revision:data.revision})}))
+      .then(response => response.ok ? response.json() : null).catch(() => null)
+      .then(result => { fitResults.set(id, result || {checked:0, screens:[]}); return result; });
+    fitQueue = job; fits.set(id, job);
+  }
+  return fits.get(id);
+}
+const misfits = result => result?.screens.length ? `Doesn’t fit on ${result.screens.map(s => s.title).join(', ')}` : '';
+async function fitsOrConfirm(k, text, action) {
+  $('draft-status').textContent = 'Checking the other screens with this text…';
+  const problem = misfits(await fitCheck(k, text));
+  $('draft-status').textContent = '';
+  return !problem || confirm(`${problem}. ${action} it anyway?`);
+}
 function sizePicture() {
   if (!image) return;
   const stage = $('picture').parentElement, actual = !fitChosen && image.width > stage.clientWidth - 40;
@@ -541,6 +573,7 @@ function route() {
 $('language-search').oninput = () => { if (data) languageRows(); };
 $('approve').onclick = async () => {
   if ((data.mode !== 'admin' && !['owner','admin'].includes(sharedRole)) || busy || !value(selected)) return;
+  if (!await fitsOrConfirm(selected, value(selected), 'Approve')) return;
   try {
     if (data.mode === 'admin') await post('/api/approve', {identity:selected});
     else {
@@ -672,6 +705,7 @@ $('manual-mode').onclick = async event => {
 $('submit').onclick = async () => {
   if (!sharedUser || submitting || busy || !value(selected)) return;
   const entry = data.entries[selected], text = value(selected), language = lang;
+  if (!await fitsOrConfirm(selected, text, 'Suggest')) return;
   submitting = true; updateProgress();
   $('draft-status').textContent = 'Submitting for approval…';
   try {
