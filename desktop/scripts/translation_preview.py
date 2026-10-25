@@ -256,35 +256,45 @@ def render(payload):
 _spare, _spare_lock = None, threading.Lock()
 
 
-def _spawn():
-    process = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "--render"], stdin=subprocess.PIPE,
-                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8")
-    return process, revision()
+class _Worker:
+    def __init__(self):
+        self.process = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "--render"], stdin=subprocess.PIPE,
+                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8")
+        self.revision, self.loaded = revision(), False
+
+    def wait_loaded(self):
+        if not self.loaded:
+            self.process.stdout.readline()
+            self.loaded = True
 
 
 def warm():
     global _spare
     with _spare_lock:
         if _spare is None:
-            _spare = _spawn()
+            _spare = _Worker()
 
 
 def worker(payload):
     # Every render gets a fresh process; one is kept started ahead so Python and Qt have already loaded when a request comes
     global _spare
     with _spare_lock:
-        process, made_for = _spare or _spawn()
-        if made_for != revision():
-            process.kill()
-            process, made_for = _spawn()
-        _spare = _spawn()
+        current = _spare or _Worker()
+        if current.revision != revision():
+            current.process.kill()
+            current = _Worker()
+        _spare = spare = _Worker()
     try:
-        output, errors = process.communicate(json.dumps(payload), timeout=25)
+        current.wait_loaded()
+        output, errors = current.process.communicate(json.dumps(payload), timeout=25)
     except subprocess.TimeoutExpired:
-        process.kill()
-        process.communicate()
+        current.process.kill()
+        current.process.communicate()
         raise RuntimeError("The Qt preview took too long")
-    if process.returncode:
+    finally:
+        # Hosting only gives the service CPU while a request runs, so the next process finishes loading before replying
+        spare.wait_loaded()
+    if current.process.returncode:
         raise RuntimeError(errors[-2500:] or "The Qt preview failed")
     return json.loads(output)
 
@@ -527,6 +537,7 @@ def main():
         os.environ["QT_QPA_PLATFORM"] = "offscreen"
         from PyQt6.QtWidgets import QApplication
         app = QApplication.instance() or QApplication([])
+        print("ready", flush=True)
         print(json.dumps(render(json.load(sys.stdin))))
         del app
         return 0
