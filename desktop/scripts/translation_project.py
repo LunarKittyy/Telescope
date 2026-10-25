@@ -304,20 +304,22 @@ def apply_reviews(platform, approvals=None, languages=None):
         record['forms'], record['fuzzy'] = [item['text']], False
         record['approval'] = {**state['approvals'][item['entry']], 'approved_at': item['approvedAt']}
         record['contribution'] = {'digest': record['approval']['digest'], 'author': item['author'],
-                                  'origin': 'human', 'submitted_at': item['approvedAt']}
+                                  'origin': 'machine' if item['author'] == 'machine' else 'human',
+                                  'submitted_at': item['approvedAt']}
         folded[item['id']] = item['approvedAt']
     return validate(result)
 
 
 def projection(platform):
     validate(platform)
-    result = {'translations': {}, 'approvals': {}, 'language_stats': {}, 'sources': {}, 'english': {},
+    # contributed: unapproved wording a person wrote; the rest of the unapproved wording is the machine's
+    result = {'translations': {}, 'approvals': {}, 'language_stats': {}, 'sources': {}, 'english': {}, 'contributed': {},
               'conflicts': copy.deepcopy(platform.get('conflicts', [])), 'folded': dict(platform.get('folded', {}))}
     for identifier, item in platform['catalog'].items():
         result['sources'][identifier] = review.source_digest(source_entry(item))
         result['english'][identifier] = item['english']
     for language, data in platform['languages'].items():
-        translated, approvals, machine = {}, {}, 0
+        translated, approvals, machine, contributed = {}, {}, 0, []
         for identifier, record in data['entries'].items():
             source = source_entry(platform['catalog'][identifier])
             target = translated_entry(source, record)
@@ -331,7 +333,10 @@ def projection(platform):
             if status['status'] == 'approved':
                 approvals[identifier] = status['reviewer']
             machine += status['origin'] == 'machine'
+            if status['status'] == 'pending' and status['origin'] != 'machine':
+                contributed.append(identifier)
         result['translations'][language], result['approvals'][language] = translated, approvals
+        result['contributed'][language] = contributed
         result['language_stats'][language] = {'total': len(platform['catalog']), 'translated': len(translated), 'approved': len(approvals), 'machine': machine}
     return result
 

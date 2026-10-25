@@ -174,3 +174,20 @@ def test_firestore_approvals_fold_once_and_skip_changed_sources(repository):
     assert project.apply_reviews(folded, [approval])['languages']['es']['entries'][identifier]['forms'] == ['Notificarme']
     newer = project.apply_reviews(folded, [{**approval, 'approvedAt': '2026-10-26T10:00:00.000Z'}])
     assert newer['languages']['es']['entries'][identifier]['forms'] == ['Avisarme']
+
+
+def test_projection_tells_people_drafts_from_the_machine_wording(repository):
+    identifier = next(iter(repository['catalog']))
+    record = first(repository)
+    source = project.source_entry(repository['catalog'][identifier])
+    record['machine'] = review.digest(source, project.translated_entry(source, record))
+    platform = project.initialise(repository)
+    assert project.projection(platform)['contributed']['es'] == []
+    drafted = project.import_po(platform, 'es', 'msgid "Notify me"\nmsgstr "Avísame"\n', 'TestContributor')
+    assert project.projection(drafted)['contributed']['es'] == [identifier]
+    digest = review.source_digest(project.source_entry(platform['catalog'][identifier]))
+    machine = {'id': f'es-{identifier}', 'language': 'es', 'entry': identifier, 'sourceDigest': digest, 'text': 'Notificarme',
+               'reviewer': 'github:Owner', 'author': 'machine', 'submission': '', 'approvedAt': '2026-10-25T10:00:00.000Z'}
+    approved = project.apply_reviews(platform, [machine])
+    assert approved['languages']['es']['entries'][identifier]['contribution']['origin'] == 'machine'
+    assert project.projection(approved)['approvals']['es'] == {identifier: 'github:Owner'}

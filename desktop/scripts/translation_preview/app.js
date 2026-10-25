@@ -3,13 +3,23 @@ let data, image, selected, generation = 0, timer, busy = false;
 let drafts = {}, reviewed = {}, lang = 'es';
 let shared, sharedUser = null, sharedRole = null, submitting = false, adminUi, preferredKey;
 let repositoryData, cloudOverrides = {};
-let selectedSubmission, sharedState, suggestions = new Map();
+let selectedSubmission, sharedState, suggestions = new Map(), votes = new Map(), voted = {};
 let profileFields;
 let localLanguages = [], languageCreator;
 let section = '', preferredScene = '';
 const storageKey = 'telescope-translation-preview-v1';
 try { const saved = JSON.parse(localStorage.getItem(storageKey) || '{}'); drafts = saved.drafts || {}; reviewed = saved.prepared || saved.reviewed || {}; lang = saved.lang || lang; localLanguages = saved.localLanguages || []; } catch {}
-const currentDrafts = () => ({...(cloudOverrides[lang] || {}),...Object.fromEntries(Object.entries(drafts[lang] || {}).filter(([k]) => data?.entries[k]))});
+// Codes and keys come from browser storage and the address bar, so writes skip names that reach Object.prototype
+function setDraft(store, code, key, text) {
+  if (code === '__proto__' || code === 'constructor' || code === 'prototype' || key === '__proto__' || key === 'constructor' || key === 'prototype') return;
+  if (!Object.hasOwn(store, code)) store[code] = {};
+  store[code][key] = text;
+}
+function dropDraft(store, code, key) {
+  if (code === '__proto__' || code === 'constructor' || code === 'prototype' || key === '__proto__' || key === 'constructor' || key === 'prototype') return;
+  if (Object.hasOwn(store, code)) delete store[code][key];
+}
+const currentDrafts = () => ({...(cloudOverrides[lang] || {}),...(voted[lang] || {}),...Object.fromEntries(Object.entries(drafts[lang] || {}).filter(([k]) => data?.entries[k]))});
 const original = k => lang === 'en' ? data.entries[k].english : (data.translations[lang]?.[k] || '');
 const value = k => currentDrafts()[k] ?? original(k);
 const reviewStamp = k => JSON.stringify([value(k), data.revision]);
@@ -48,7 +58,8 @@ function updateProgress() {
   $('export').disabled = lang === 'en' || Boolean($('error').textContent) || busy;
   $('approve').hidden = data?.mode !== 'admin' && !['owner','admin'].includes(sharedRole);
   $('approve').disabled = busy || !image || !value(selected) || Boolean($('error').textContent) || (sharedUser && !shared?.username);
-  $('submit').hidden = !sharedUser || data?.mode === 'admin' || !$('approve').hidden;
+  $('submit').hidden = !sharedUser || data?.mode === 'admin';
+  $('submit').classList.toggle('primary', $('approve').hidden);
   $('review').classList.toggle('primary', $('approve').hidden && $('submit').hidden);
   $('submit').disabled = submitting || busy || !image || !value(selected) || Boolean($('error').textContent);
   $('review').disabled = lang === 'en' || Boolean($('error').textContent) || busy || !image || !value(selected);
@@ -72,12 +83,46 @@ async function loadSuggestions() {
   const code = lang;
   if (!sharedUser || !shared || code === 'en') { suggestions = new Map(); return; }
   try {
-    const items = await shared.suggestions(code), next = new Map();
+    const [items, cast] = await Promise.all([shared.suggestions(code), shared.votes(code)]), next = new Map(), tally = new Map();
     if (code !== lang) return;
     for (const item of items) if (item.status !== 'dismissed') next.set(item.entry, [...(next.get(item.entry) || []), item]);
     for (const list of next.values()) list.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
-    suggestions = next; if (selected && data.entries[selected]) suggestionList(); rows();
+    for (const vote of cast) {
+      const count = tally.get(vote.suggestion) || {up:0, down:0, mine:0};
+      count[vote.value > 0 ? 'up' : 'down']++; if (vote.voter === 'github:' + shared.username) count.mine = vote.value;
+      tally.set(vote.suggestion, count);
+    }
+    const before = JSON.stringify(voted[lang] || {});
+    suggestions = next; votes = tally; pickVoted();
+    if (selected && data.entries[selected]) choose(selected); else rows();
+    if (image && JSON.stringify(voted[lang]) !== before) render();
   } catch { $('suggestion-list').replaceChildren(listNote('Suggestions could not be loaded. Reload to try again.')); }
+}
+const MACHINE = 'llm';
+const score = item => { const count = votes.get(item.id); return count ? count.up - count.down : 0; };
+// The machine's wording counts as a suggestion too, so people can vote on it like any other
+function suggestionsFor(k) {
+  const entry = data.entries[k], list = (suggestions.get(entry.id) || []).filter(item => item.sourceDigest === entry.sourceDigest);
+  if (data.machine?.[lang]?.has(k)) list.push({id:`llm-${lang}-${entry.id}`, author:MACHINE, text:data.translations[lang][k], status:'machine', language:lang, entry:entry.id, sourceDigest:entry.sourceDigest});
+  return list;
+}
+// What the box starts with: the approved wording, else the best scored suggestion, with ties going to the machine's
+// wording (or an imported draft) and then to the newest suggestion
+function topSuggestion(k) {
+  if (data.approvals?.[lang]?.[k]) return null;
+  const list = suggestionsFor(k).filter(item => item.status === 'pending' || item.status === 'machine');
+  const baseline = list.find(item => item.status === 'machine');
+  let best = baseline, bar = baseline ? score(baseline) : 0;
+  for (const item of list) if (item.status === 'pending' && score(item) > bar) { best = item; bar = score(item); }
+  return best;
+}
+function pickVoted() {
+  voted[lang] = {};
+  if (!sharedUser || lang === 'en') return;
+  for (const k of Object.keys(data.entries)) {
+    const best = topSuggestion(k);
+    if (best && best.status === 'pending' && best.text !== original(k)) voted[lang][k] = best.text;
+  }
 }
 const listNote = message => { const item = document.createElement('li'); item.className = 'suggestion-empty'; item.textContent = message; return item; };
 const authorName = author => author === 'anonymous' ? 'Anonymous' : author.replace('github:', '');
@@ -87,47 +132,87 @@ function ago(stamp) {
   for (const [unit, size] of [['day', 86400], ['hour', 3600], ['minute', 60]]) if (seconds >= size) return format.format(-Math.floor(seconds / size), unit);
   return 'just now';
 }
+function avatar(author) {
+  const picture = document.createElement('span'); picture.className = 'avatar'; picture.setAttribute('aria-hidden', 'true');
+  if (author === MACHINE) { picture.classList.add('machine'); picture.textContent = 'AI'; }
+  else if (author === 'anonymous') picture.textContent = '?';
+  else { const image = document.createElement('img'); image.src = `https://github.com/${encodeURIComponent(authorName(author))}.png?size=48`; image.alt = ''; image.loading = 'lazy'; picture.append(image); }
+  return picture;
+}
+const thumb = up => `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"${up ? '' : ' style="transform:rotate(180deg)"'}><path fill="currentColor" d="M2 21h3V9H2v12Zm19-11a2 2 0 0 0-2-2h-6.3l1-4.6v-.3c0-.4-.2-.8-.4-1.1L12.2 1 5.6 7.6A2 2 0 0 0 5 9v10a2 2 0 0 0 2 2h9c.8 0 1.5-.5 1.8-1.2l3-7.1.2-.7v-2Z"/></svg>`;
+function voteButtons(item, refresh) {
+  const box = document.createElement('div'); box.className = 'votes';
+  const count = votes.get(item.id) || {up:0, down:0, mine:0}, own = item.author === 'github:' + shared.username;
+  for (const [value, label] of [[1, 'Like'], [-1, 'Dislike']]) {
+    const button = document.createElement('button'); button.className = 'vote';
+    button.innerHTML = thumb(value > 0); button.append(String(value > 0 ? count.up : count.down));
+    button.setAttribute('aria-label', `${label} (${value > 0 ? count.up : count.down})`);
+    button.setAttribute('aria-pressed', String(count.mine === value));
+    button.disabled = own || !shared.username; if (own) button.title = 'You can’t vote on your own suggestion';
+    button.onclick = async () => {
+      const next = count.mine === value ? 0 : value;
+      for (const other of box.querySelectorAll('button')) other.disabled = true;
+      try {
+        await shared.vote({suggestion:item.id, language:lang, entry:item.entry}, next);
+        const updated = {...count}; if (count.mine) updated[count.mine > 0 ? 'up' : 'down']--; if (next) updated[next > 0 ? 'up' : 'down']++; updated.mine = next;
+        votes.set(item.id, updated); refresh();
+      } catch (error) { $('draft-status').textContent = error.message; refresh(); }
+    };
+    box.append(button);
+  }
+  return box;
+}
 function suggestionList() {
   const entry = data.entries[selected], admin = ['owner','admin'].includes(sharedRole);
   $('suggestions').hidden = !sharedUser || lang === 'en';
   if ($('suggestions').hidden) return;
-  const list = (suggestions.get(entry.id) || []).filter(item => item.sourceDigest === entry.sourceDigest);
+  const list = suggestionsFor(selected).sort((a, b) => score(b) - score(a)), top = topSuggestion(selected);
   $('suggestion-list').replaceChildren();
   if (!list.length) { $('suggestion-list').append(listNote('No suggestions yet. What you suggest shows up here for others to build on.')); return; }
+  const refresh = () => { const before = JSON.stringify(voted[lang] || {}); pickVoted(); choose(selected); if (JSON.stringify(voted[lang]) !== before) render(); };
   for (const item of list) {
     const row = document.createElement('li'); row.className = 'suggestion';
     const head = document.createElement('div'); head.className = 'suggestion-head';
-    const name = authorName(item.author), who = document.createElement('button');
-    who.className = 'person-link'; who.textContent = item.author === 'github:' + shared.username ? `${name} (you)` : name;
-    who.disabled = item.author === 'anonymous'; who.onclick = () => showPerson(name);
-    const when = document.createElement('small'); when.textContent = `${ago(item.createdAt)} · ${item.status === 'approved' ? 'approved' : 'waiting for review'}`;
-    head.append(who, when);
+    const machine = item.author === MACHINE, name = machine ? 'LLM Translate' : authorName(item.author);
+    let who;
+    if (machine || item.author === 'anonymous') { who = document.createElement('span'); who.className = 'person-name'; who.textContent = name; }
+    else { who = document.createElement('button'); who.className = 'person-link'; who.textContent = item.author === 'github:' + shared.username ? `${name} (you)` : name; who.onclick = () => showPerson(name); }
+    const when = document.createElement('small');
+    when.textContent = machine ? 'machine translation · needs review' : `${ago(item.createdAt)} · ${item.status === 'approved' ? 'approved' : 'waiting for review'}`;
+    head.append(avatar(item.author), who, when);
+    if (item === top && list.length > 1) { const badge = document.createElement('span'); badge.className = 'badge'; badge.textContent = 'Top suggestion'; badge.title = 'The best voted wording fills the translation box until one is approved'; head.append(badge); }
     const wording = document.createElement('p'); wording.textContent = item.text; wording.lang = lang.replace('_','-');
     const actions = document.createElement('div'); actions.className = 'row-actions';
     const use = document.createElement('button'); use.textContent = 'Use this';
     use.onclick = () => { $('translation').value = item.text; $('translation').dispatchEvent(new Event('input')); $('translation').focus(); };
     actions.append(use);
-    if (admin && item.status === 'pending') {
-      const approve = document.createElement('button'); approve.className = 'primary'; approve.textContent = 'Approve';
-      const dismiss = document.createElement('button'); dismiss.textContent = 'Dismiss';
+    if (admin && (item.status === 'pending' || machine)) {
+      const approve = document.createElement('button'); approve.textContent = 'Approve';
       const review = async work => {
         for (const button of actions.querySelectorAll('button')) button.disabled = true;
         try { await work(); } catch (error) { $('draft-status').textContent = error.message; }
         suggestionList(); rows();
       };
       approve.onclick = () => review(async () => {
-        const approval = {language:item.language, entry:item.entry, sourceDigest:item.sourceDigest, text:item.text, submission:item.id, author:item.author};
+        const approval = {language:item.language, entry:item.entry, sourceDigest:item.sourceDigest, text:item.text, submission:machine ? '' : item.id, author:item.author === MACHINE ? 'machine' : item.author};
         sharedApproved({...approval, reviewer:await shared.approve(approval)});
-        item.status = 'approved'; dropDraft(drafts, lang, selected); save(); choose(selected); render();
-        $('draft-status').textContent = `Approved ${name}’s wording.`;
+        if (!machine) item.status = 'approved';
+        dropDraft(drafts, lang, selected); save(); pickVoted(); choose(selected); render();
+        $('draft-status').textContent = machine ? 'Approved the machine’s wording.' : `Approved ${name}’s wording.`;
       });
-      dismiss.onclick = () => review(async () => {
-        await shared.dismiss(item.id);
-        suggestions.set(entry.id, (suggestions.get(entry.id) || []).filter(other => other !== item));
-        $('draft-status').textContent = 'Suggestion dismissed.';
-      });
-      actions.append(approve, dismiss);
+      actions.append(approve);
+      if (!machine) {
+        const dismiss = document.createElement('button'); dismiss.textContent = 'Dismiss';
+        dismiss.onclick = () => review(async () => {
+          await shared.dismiss(item.id);
+          suggestions.set(entry.id, (suggestions.get(entry.id) || []).filter(other => other !== item));
+          pickVoted(); choose(selected);
+          $('draft-status').textContent = 'Suggestion dismissed.';
+        });
+        actions.append(dismiss);
+      }
     }
+    actions.append(voteButtons(item, refresh));
     row.append(head, wording, actions); $('suggestion-list').append(row);
   }
 }
@@ -139,8 +224,12 @@ async function showPerson(name) {
   try {
     const person = await shared.person(name);
     $('person-bio').textContent = person?.bio || 'No bio yet.';
-    const spoken = [person?.nativeLanguage, ...(person?.languages || [])].filter(Boolean).map(code => languageName(code.replace('-','_')));
-    $('person-languages').textContent = spoken.length ? `Speaks ${spoken.join(', ')}` : '';
+    const native = person?.nativeLanguage, others = (person?.languages || []).filter(code => code && code !== native);
+    const spoken = [...(native ? [native] : []), ...others];
+    $('person-languages').replaceChildren(...(spoken.length ? ['Speaks ', ...spoken.flatMap((code, index) => {
+      const name = languageName(code.replace('-','_')), part = code === native ? Object.assign(document.createElement('strong'), {textContent:name, title:'Native language'}) : name;
+      return index ? [', ', part] : [part];
+    })] : []));
   } catch { $('person-bio').textContent = 'This profile could not be loaded.'; }
 }
 $('person-close').onclick = () => $('person').close();
@@ -207,8 +296,8 @@ async function render() {
   }
 }
 $('translation').oninput = () => {
-  drafts[lang] ||= {}; drafts[lang][selected] = $('translation').value;
-  delete (reviewed[lang] || {})[selected];
+  setDraft(drafts, lang, selected, $('translation').value);
+  dropDraft(reviewed, lang, selected);
   busy = true;
   save(); rows(); clearTimeout(timer); generation++; $('render-status').textContent = 'Draft changed. Preview updating…';
   timer = setTimeout(render, 650);
@@ -223,10 +312,10 @@ $('search').oninput = rows;
 $('refresh').onclick = () => { clearTimeout(timer); render(); };
 $('scene').onchange = () => { clearTimeout(timer); render(); };
 
-$('reset').onclick = () => { delete (drafts[lang] || {})[selected]; delete (reviewed[lang] || {})[selected]; save(); choose(selected); render(); };
+$('reset').onclick = () => { dropDraft(drafts, lang, selected); dropDraft(reviewed, lang, selected); save(); choose(selected); render(); };
 $('review').onclick = () => {
   if (busy || $('error').textContent || lang === 'en' || !value(selected)) return;
-  reviewed[lang] ||= {}; reviewed[lang][selected] = reviewStamp(selected); save();
+  setDraft(reviewed, lang, selected, reviewStamp(selected)); save();
   rows(); goToNext();
 };
 function goToNext() {
@@ -415,7 +504,7 @@ $('approve').onclick = async () => {
       sharedApproved({...item,reviewer:await shared.approve(item)});
       if (submission) selectedSubmission = null;
     }
-    delete (drafts[lang] || {})[selected]; save();
+    dropDraft(drafts, lang, selected); save();
     if (data.mode === 'admin') await start();
     else { choose(selected); $('draft-status').textContent = 'Translation approved.'; }
   } catch (error) { $('error').textContent = error.message; updateProgress(); }
@@ -474,6 +563,14 @@ function applyShared({projection, approvals, languages}) {
       if (reviewers[code][entry.id]) data.approvals[code][key] = reviewers[code][entry.id];
     }
   }
+  // Unapproved wording no person wrote is the machine's; projections saved before this list existed show none
+  data.machine = {};
+  for (const [code, people] of Object.entries(projection.contributed || {})) {
+    const written = new Set(people);
+    data.machine[code] = new Set(Object.keys(data.entries).filter(key => data.translations[code]?.[key] && !data.approvals[code]?.[key] && !written.has(data.entries[key].id)));
+  }
+  // Votes may have arrived before the project did
+  if (suggestions.size || votes.size) { const before = JSON.stringify(voted[lang] || {}); pickVoted(); if (selected && data.entries[selected] && $('edit') && !$('edit').hidden) choose(selected); if (image && JSON.stringify(voted[lang]) !== before) render(); }
 }
 function sharedApproved(item) {
   if (!sharedState) return loadSharedProgress();
@@ -543,7 +640,7 @@ async function openAdmin() {
       adminUi = module.createAdmin(shared, sharedUser, sharedRole, (item, source) => {
         const entry = Object.entries(data.entries).find(([,entry]) => entry.id === item.entry && entry.sourceDigest === item.sourceDigest);
         if (!entry || !source) { $('admin-status').textContent = 'This preview needs a checkout containing the suggestion’s current source.'; return; }
-        drafts[item.language] ||= {}; drafts[item.language][entry[0]] = item.text;
+        setDraft(drafts, item.language, entry[0], item.text);
         selectedSubmission = item;
         lang = item.language; preferredKey = entry[0]; save();
         const scene = Object.entries(data.coverage.scenes).find(([id,keys]) => keys.includes(entry[0]) && !id.startsWith('messages-')) || Object.entries(data.coverage.scenes).find(([,keys]) => keys.includes(entry[0]));

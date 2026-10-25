@@ -106,6 +106,14 @@ export function connect(onUser, {emulators = false} = {}) {
       },
       async person(username) { return (await store.getDoc(store.doc(database, 'people', username))).data() || null; },
       async suggestions(language) { return (await store.getDocs(store.query(store.collection(database, 'suggestions'), store.where('language','==',language)))).docs.map(item => ({id:item.id,...item.data()})); },
+      async votes(language) { return (await store.getDocs(store.query(store.collection(database, 'votes'), store.where('language','==',language)))).docs.map(item => item.data()); },
+      // value 1 likes, -1 dislikes and 0 takes the vote back
+      async vote({suggestion, language, entry}, value) {
+        if (!currentUsername) throw Error('Your GitHub username has not been verified yet. Sign out and try again.');
+        const ref = store.doc(database, 'votes', `${suggestion}_${currentUsername}`);
+        if (value) await store.setDoc(ref, {suggestion, language, entry, voter:'github:'+currentUsername, value});
+        else await store.deleteDoc(ref);
+      },
       async suggestionAuthor(id) { return (await store.getDoc(store.doc(database, 'submissions', id))).data()?.authorUid || null; },
       async deleteAccount() {
         await auth.reauthenticateWithPopup(session.currentUser, new auth.GithubAuthProvider());

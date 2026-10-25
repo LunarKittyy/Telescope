@@ -281,3 +281,18 @@ input[type="checkbox"] { accent-color: var(--accent); }
 #person-avatar { border-radius: 50%; background: #494151; }
 #person .row-actions { display: flex; gap: 8px; margin-top: 20px; }
 .tip { position: absolute; pointer-events: none; z-index: 2; height: auto; box-shadow: 0 4px 14px #0008; }
+.suggestion-head .avatar { width: 24px; height: 24px; border-radius: 50%; overflow: hidden; flex: none; align-self: center; display: grid; place-items: center; background: #494151; color: var(--muted); font-size: 11px; font-weight: 700; }
+.suggestion-head .avatar img { width: 100%; height: 100%; display: block; }
+.suggestion-head .avatar.machine { background: var(--selected); color: var(--accent); letter-spacing: .02em; }
+.suggestion-head { align-items: center; }
+.person-name { font-weight: 600; }
+.badge { margin-left: auto; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--selected); color: var(--accent); }
+.suggestion .row-actions { align-items: center; }
+.votes { display: flex; gap: 4px; margin-left: auto; }
+.suggestion button.vote { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; background: transparent; color: var(--muted); font-variant-numeric: tabular-nums; }
+.suggestion button.vote:hover:enabled { background: #ffffff10; color: var(--ink); }
+.suggestion button.vote[aria-pressed="true"] { background: var(--selected); color: var(--accent); }
+.suggestion button.vote:disabled { opacity: .6; }
+#person-languages strong { color: var(--ink); font-weight: 650; }
+.suggestion .person-link { padding: 0; font-size: inherit; }
+.suggestion-head .avatar { margin-right: -2px; }

@@ -267,3 +267,22 @@ def test_public_profile_is_written_only_under_your_own_username():
     assert request('/people/TestContributor', credential=token('someone-else')) == 200
     fields['email'] = {'stringValue': 'private@example.test'}
     assert request('/people/TestContributor', {'fields': fields}, token(), 'PATCH') == 403
+
+
+def vote_fields(value=1, voter='github:TestContributor', suggestion='llm-es-' + 'a' * 64):
+    return {'fields': {'suggestion': {'stringValue': suggestion}, 'language': {'stringValue': 'es'},
+                       'entry': {'stringValue': 'a' * 64}, 'voter': {'stringValue': voter},
+                       'value': {'integerValue': str(value)}}}
+
+
+def test_one_vote_per_person_and_only_your_own():
+    path = '/votes/llm-es-' + 'a' * 64 + '_TestContributor'
+    assert request(path, vote_fields(), token(), 'PATCH') == 200
+    assert request(path, vote_fields(-1), token(), 'PATCH') == 200
+    assert request(path, credential=token('maintainer')) == 200
+    assert request(path, vote_fields(5), token(), 'PATCH') == 403
+    assert request(path, vote_fields(voter='github:TestMaintainer'), token('maintainer'), 'PATCH') == 403
+    assert request('/votes/llm-es-' + 'a' * 64 + '_TestMaintainer', vote_fields(), token(), 'PATCH') == 403
+    assert request(path, credential=token('maintainer'), method='DELETE') == 403
+    assert request(path, credential=token(), method='DELETE') == 200
+    assert request(path, vote_fields(), token(provider='anonymous'), 'PATCH') == 403

@@ -94,6 +94,24 @@ service cloud.firestore {
         && request.resource.data.reviewedAt == request.time;
       allow delete: if false;
     }
+    // One vote per person and suggestion; machine wordings are voted on as llm-<language>-<entry>
+    match /votes/{voteId} {
+      function voter() {
+        return get(/databases/$(database)/documents/identities/$(request.auth.uid)).data.username;
+      }
+      allow read: if githubUser() && !exists(/databases/$(database)/documents/maintenance/account-deletion);
+      allow create, update: if githubUser()
+        && request.resource.data.keys().hasOnly(['suggestion', 'language', 'entry', 'voter', 'value'])
+        && request.resource.data.keys().hasAll(['suggestion', 'language', 'entry', 'voter', 'value'])
+        && request.resource.data.voter == 'github:' + voter()
+        && voteId == request.resource.data.suggestion + '_' + voter()
+        && request.resource.data.suggestion is string && request.resource.data.suggestion.size() <= 140
+        && request.resource.data.language is string && request.resource.data.language.matches('^[a-z]{2,3}(_[A-Za-z0-9]{2,8})?$')
+        && request.resource.data.entry is string && request.resource.data.entry.size() == 64
+        && request.resource.data.value in [1, -1]
+        && (!exists(/databases/$(database)/documents/votes/$(voteId)) || resource.data.voter == request.resource.data.voter);
+      allow delete: if githubUser() && resource.data.voter == 'github:' + voter();
+    }
     match /people/{username} {
       allow read: if githubUser();
       allow create, update: if githubUser()
