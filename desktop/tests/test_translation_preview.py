@@ -79,6 +79,19 @@ def test_draft_changes_real_qt_image_and_keeps_exact_identity(scenes):
     assert {r["key"] for r in same["regions"] if r["shown"] == draft} == {identity, other}
 
 
+@pytest.mark.skipif(not hasattr(preview.os, "fork"), reason="without fork every render gets a new process anyway")
+def test_reused_render_process_leaves_nothing_behind(monkeypatch):
+    # These scenes used to leak: Qt's Spanish button texts, and the microphone scene's state hiding shortcut tooltips
+    monkeypatch.setattr(preview, "_idle", [])
+    before = [{"lang": "es", "scene": "dialog-plugin-installed"}, {"lang": "de", "scene": "mic-vb-cable-cant-open"}]
+    after = [{"lang": "de", "scene": "dialog-plugin-installed"},
+             {"lang": "ja", "scene": "settings-shortcuts-portal-unavailable"}]
+    reused = [preview.worker(job) for job in before + after][len(before):]
+    for job, result in zip(after, reused):
+        monkeypatch.setattr(preview, "_idle", [])
+        assert result == preview.worker(job), job
+
+
 @pytest.mark.parametrize("text", ["Too hot", "{wrong} degrees", "{temp", "{temp:invalid}"])
 def test_bad_fields_are_rejected_before_render_or_export(text):
     identity = preview.key("", "The phone is at {temp} °C")

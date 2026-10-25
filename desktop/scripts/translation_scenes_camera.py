@@ -394,8 +394,12 @@ def empty_folder(stack):
     """A folder with nothing in it, for a file dialog to open in instead of the real home folder."""
     import tempfile
     import os
-    folder = os.path.join(stack.enter_context(tempfile.TemporaryDirectory(prefix="telescope-translation-files-")), "Pictures")
-    os.makedirs(folder)
+    # A fixed path so the picture is the same every time; a random one only if something was put in it
+    folder = os.path.join(tempfile.gettempdir(), "telescope-preview", "Pictures")
+    os.makedirs(folder, exist_ok=True)
+    if os.listdir(folder):
+        folder = os.path.join(stack.enter_context(tempfile.TemporaryDirectory(prefix="telescope-translation-files-")), "Pictures")
+        os.makedirs(folder)
     return folder
 
 

@@ -129,6 +129,22 @@ def instrument(stack):
     from unittest.mock import patch
     from PyQt6 import QtGui, QtWidgets as widgets
     original_tr = i18n.tr
+    real_popen = subprocess.Popen
+
+    def popen(args, *rest, **kwargs):
+        # Scenes build the real window, which must not notify this desktop or reach a phone on its cable
+        program = os.path.basename(str(args[0] if isinstance(args, (list, tuple)) and args else args).split()[0])
+        if program == "notify-send":
+            return real_popen([sys.executable, "-c", ""], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if program in ("adb", "adb.exe"):
+            raise FileNotFoundError(program)  # as on the hosted service, which has no adb
+        return real_popen(args, *rest, **kwargs)
+
+    stack.enter_context(patch.object(subprocess, "Popen", popen))
+    # The same addresses on every machine, and never the server's own
+    from telescope import ip_utils
+    sample = [ip_utils.PairingAddress("192.168.1.20", "Wi-Fi", "lan"), ip_utils.PairingAddress("100.64.0.7", "tailscale0", "tailscale")]
+    stack.enter_context(patch.object(ip_utils, "get_pairing_addresses", lambda: list(sample)))
 
     def translate(text, /, ctx="", **values):
         return Tagged(original_tr(text, ctx=ctx, **values), text, ctx, values)
@@ -330,59 +346,125 @@ def render(payload):
         return result
 
 
-_spare, _spare_lock = None, threading.Lock()
+_idle, _idle_lock, KEEP, RENDERS = [], threading.Lock(), 4, 100
 
 
 class _Worker:
+    """A render process that has loaded Python and Qt's modules and answers one JSON line per render."""
+
     def __init__(self):
         self.process = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "--render"], stdin=subprocess.PIPE,
-                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8")
-        self.revision, self.loaded = revision(), False
+                                        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, encoding="utf-8")
+        self.revision, self.loaded, self.renders, self.lock, self.dead = revision(), False, 0, threading.Lock(), False
+
+    def _line(self, timeout):
+        # A reader thread keeps the timeout working on Windows, where pipes can't be polled
+        box = []
+        reader = threading.Thread(target=lambda: box.append(self.process.stdout.readline()), daemon=True)
+        reader.start()
+        reader.join(timeout)
+        if reader.is_alive() or not box or not box[0]:
+            self.kill()
+            raise RuntimeError("The Qt preview took too long" if reader.is_alive() else "The Qt preview failed")
+        return box[0]
 
     def wait_loaded(self):
-        if not self.loaded:
-            self.process.stdout.readline()
-            self.loaded = True
+        with self.lock:
+            if not self.loaded:
+                self._line(60)
+                self.loaded = True
+
+    def ask(self, payload):
+        self.wait_loaded()
+        self.process.stdin.write(json.dumps(payload) + "\n")
+        self.process.stdin.flush()
+        answer = json.loads(self._line(25))
+        self.renders += 1
+        if not hasattr(os, "fork"):
+            self.dead = True  # without fork each process renders once, see _serve()
+        if "error" in answer:
+            self.kill()
+            raise RuntimeError(answer["error"][-2500:] or "The Qt preview failed")
+        return answer["result"]
+
+    def kill(self):
+        self.dead = True
+        self.process.kill()
+
+    def usable(self):
+        return not self.dead and self.process.poll() is None
+
+
+def _take():
+    with _idle_lock:
+        while _idle:
+            found = _idle.pop()
+            if found.revision == revision() and found.usable():
+                return found
+            found.kill()
+    return _Worker()
+
+
+def _give_back(found):
+    with _idle_lock:
+        if found.usable() and found.renders < RENDERS and len(_idle) < KEEP:
+            _idle.append(found)
+            return
+    found.kill()
 
 
 def warm():
-    global _spare
-    with _spare_lock:
-        if _spare is None:
-            _spare = _Worker()
+    # Hosting only gives the service CPU while a request runs, so this waits until the process has loaded
+    found = _take()
+    try:
+        found.wait_loaded()
+    finally:
+        _give_back(found)
 
 
 def worker(payload):
-    # Every render gets a fresh process; one is kept started ahead so Python and Qt have already loaded when a request comes
-    global _spare
-    with _spare_lock:
-        current = _spare or _Worker()
-        if current.revision != revision():
-            current.process.kill()
-            current = _Worker()
-        _spare = spare = _Worker()
+    # Render processes are reused, so a render pays for neither starting Python nor importing Qt; each is replaced after RENDERS
+    found = _take()
     try:
-        current.wait_loaded()
-        output, errors = current.process.communicate(json.dumps(payload), timeout=25)
-    except subprocess.TimeoutExpired:
-        current.process.kill()
-        current.process.communicate()
-        raise RuntimeError("The Qt preview took too long")
+        return found.ask(payload)
+    except (OSError, ValueError):
+        found.kill()
+        raise RuntimeError("The Qt preview failed")
     finally:
-        # Hosting only gives the service CPU while a request runs, so the next process finishes loading before replying
-        spare.wait_loaded()
-    if current.process.returncode:
-        raise RuntimeError(errors[-2500:] or "The Qt preview failed")
-    return json.loads(output)
+        _give_back(found)
 
 
-def render_once(payload):
-    """One render in its own process, without the spare the server keeps waiting: for the batches the checks run."""
-    result = subprocess.run([sys.executable, str(Path(__file__).resolve()), "--render"], input=json.dumps(payload),
-                            capture_output=True, text=True, encoding="utf-8", timeout=120)
-    if result.returncode:
-        raise RuntimeError(result.stderr[-2500:] or "The Qt preview failed")
-    return json.loads(result.stdout.splitlines()[-1])
+def _answer(line):
+    try:
+        return {"result": render(json.loads(line))}
+    except Exception:
+        import traceback
+        return {"error": traceback.format_exc()}
+
+
+def _serve(answers):
+    """The --render loop. Each render runs in a fork of this process, so it starts with the modules loaded and nothing
+    an earlier scene left behind; without fork (Windows) the process renders once and exits."""
+    for line in sys.stdin:
+        if not hasattr(os, "fork"):
+            print(json.dumps(_answer(line)), file=answers, flush=True)
+            return
+        read, write = os.pipe()
+        child = os.fork()
+        if child == 0:
+            os.close(read)
+            import signal
+            from PyQt6.QtWidgets import QApplication
+            signal.alarm(20)
+            app = QApplication([])  # noqa: F841
+            with os.fdopen(write, "w", encoding="utf-8") as pipe:
+                pipe.write(json.dumps(_answer(line)))
+            os._exit(0)
+        os.close(write)
+        with os.fdopen(read, encoding="utf-8") as pipe:
+            text = pipe.read()
+        _pid, status = os.waitpid(child, 0)
+        print(text if text and status == 0 else json.dumps({"error": "The Qt preview stopped"}), file=answers, flush=True)
 
 
 def render_all(ids=None, screens=None):
@@ -391,7 +473,7 @@ def render_all(ids=None, screens=None):
     from concurrent.futures import ThreadPoolExecutor
     extra = {} if screens is None else {"screens": sorted(screens)}
     with ThreadPoolExecutor(min(8, os.cpu_count() or 2)) as pool:
-        return list(pool.map(lambda scene: render_once({"lang": "en", "scene": scene, **extra}), ids or list(SCENES)))
+        return list(pool.map(lambda scene: worker({"lang": "en", "scene": scene, **extra}), ids or list(SCENES)))
 
 
 def render_for_record():
@@ -663,13 +745,16 @@ def main():
         print('Recorded machine provenance without approving translations')
         return 0
     if args.render:
-        # Qt loads while the process waits as the spare; telescope modules load after instrument() in render()
+        # Answers go to the original stdout, so anything the app prints while rendering can't break the protocol
         os.environ["QT_QPA_PLATFORM"] = "offscreen"
-        from PyQt6.QtWidgets import QApplication
-        app = QApplication.instance() or QApplication([])
-        print("ready", flush=True)
-        print(json.dumps(render(json.load(sys.stdin))))
-        del app
+        answers, sys.stdout = sys.stdout, sys.stderr
+        # Modules that don't call or bind tr() at import are safe to load before a render picks its language
+        import numpy  # noqa: F401
+        from PyQt6 import QtWidgets  # noqa: F401
+        from telescope import theme  # noqa: F401
+        from scripts import text_fit  # noqa: F401
+        print("ready", file=answers, flush=True)
+        _serve(answers)
         return 0
     if args.check or args.check_all or args.record_coverage:
         actual = coverage(render_for_record() if args.record_coverage else render_all())
