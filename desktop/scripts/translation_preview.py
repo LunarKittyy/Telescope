@@ -102,9 +102,10 @@ def validate(payload):
         raise ValueError("Choose an available language and scene")
     lang = review.trusted_language(payload.get("lang", "es"), ["en", *project.language_options()])
     drafts = payload.get("drafts", {})
-    if not isinstance(drafts, dict) or len(drafts) > 100:
-        raise ValueError("Expected at most 100 draft texts")
     entries = catalog()
+    # A language that only lives in the shared project sends every text as a draft
+    if not isinstance(drafts, dict) or len(drafts) > len(entries):
+        raise ValueError("Expected at most one draft per text")
     for identity, text in drafts.items():
         entry = entries.get(identity)
         if entry is None or entry.plural or not isinstance(text, str) or len(text) > 4000:
@@ -630,7 +631,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(403, b"Expected a local JSON request", "text/plain")
         try:
             length = int(self.headers.get("Content-Length", "0"))
-            maximum = 32_000_000 if self.path == '/api/project-action' else 4_100_000 if self.path == '/api/import-po' else 100_000
+            maximum = 32_000_000 if self.path == '/api/project-action' else 4_100_000 if self.path in ('/api/import-po', '/api/export') else 500_000
             if not 0 < length <= maximum:
                 raise ValueError("Request is too large or empty")
             payload = json.loads(self.rfile.read(length))
