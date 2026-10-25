@@ -159,6 +159,14 @@ def erase_data(store, uid):
             fields = [field, 'authorUsername'] if field == 'authorUid' else [field]
             store.call(':commit', {'writes': [{'update': {'name': item['name'], 'fields': {name: {'stringValue': 'anonymous'} for name in fields}},
                                                 'updateMask': {'fieldPaths': fields}} for item in documents]})
+    # A vote's id holds the voter's username too, so votes are deleted rather than anonymised
+    while username:
+        data = store.call(':runQuery', {'structuredQuery': {'from': [{'collectionId': 'votes'}],
+                          'where': {'fieldFilter': {'field': {'fieldPath': 'voter'}, 'op': 'EQUAL', 'value': {'stringValue': github}}}, 'limit': 100}})
+        documents = [item['document'] for item in data if 'document' in item]
+        if not documents:
+            break
+        store.call(':commit', {'writes': [{'delete': item['name']} for item in documents]})
     if pointer and current_chunks:
         version = str(uuid.uuid4())
         for index, content in enumerate(current_chunks):

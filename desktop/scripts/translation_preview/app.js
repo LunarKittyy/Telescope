@@ -53,8 +53,8 @@ function sectionRows() {
 }
 function sceneKeys() { return image ? [...new Set(image.regions.map(r => r.key))].filter(k => data.entries[k]) : (data?.coverage.scenes[$('scene').value] || []).filter(k => data.entries[k]); }
 function updateProgress() {
-  const keys = sceneKeys(), done = keys.filter(prepared).length;
-  $('progress').textContent = `${done} of ${keys.length} checked`;
+  const keys = sceneKeys(), done = keys.filter(humanChecked).length;
+  $('progress').textContent = `${done} of ${keys.length} approved`;
   $('reset').disabled = !selected || !Object.hasOwn(drafts[lang] || {}, selected);
   $('export').disabled = lang === 'en' || Boolean($('error').textContent) || busy;
   $('approve').hidden = data?.mode !== 'admin' && !['owner','admin'].includes(sharedRole);
@@ -63,7 +63,7 @@ function updateProgress() {
   $('submit').classList.toggle('primary', $('approve').hidden);
   $('review').classList.toggle('primary', $('approve').hidden && $('submit').hidden);
   $('submit').disabled = submitting || busy || !image || !value(selected) || Boolean($('error').textContent);
-  $('review').disabled = lang === 'en' || Boolean($('error').textContent) || busy || !image || !value(selected);
+  $('review').disabled = !selected;
 }
 function rows() {
   const search = $('search').value.toLocaleLowerCase();
@@ -74,7 +74,7 @@ function rows() {
     const title = document.createElement('span'); title.textContent = value(k) || data.entries[k].english;
     const note = document.createElement('small'); const done = humanChecked(k);
     const waiting = sharedUser ? pendingFor(k).length : 0;
-    note.textContent = `${done ? 'Approved · ' : prepared(k) ? 'Checked · ' : ''}${waiting ? `${waiting} ${waiting === 1 ? 'suggestion' : 'suggestions'} · ` : ''}${data.entries[k].english}`; note.className = done ? 'reviewed' : '';
+    note.textContent = `${done ? 'Approved · ' : ''}${waiting ? `${waiting} ${waiting === 1 ? 'suggestion' : 'suggestions'} · ` : ''}${data.entries[k].english}`; note.className = done ? 'reviewed' : '';
     button.append(title, note); button.onclick = () => choose(k); $('texts').append(button);
   }
   updateProgress();
@@ -315,13 +315,12 @@ $('scene').onchange = () => { clearTimeout(timer); render(); };
 
 $('reset').onclick = () => { dropDraft(drafts, lang, selected); dropDraft(reviewed, lang, selected); save(); choose(selected); render(); };
 $('review').onclick = () => {
-  if (busy || $('error').textContent || lang === 'en' || !value(selected)) return;
-  setDraft(reviewed, lang, selected, reviewStamp(selected)); save();
-  rows(); goToNext();
+  if (!selected) return;
+  goToNext();
 };
 function goToNext() {
-  // The next text still to do in this section, going on from this one, before any other section
-  const todo = k => !prepared(k) && !humanChecked(k);
+  // The next text not approved yet in this section, going on from this one, before any other section
+  const todo = k => !humanChecked(k);
   const sceneTexts = id => id === $('scene').value ? sceneKeys() : (data.coverage.scenes[id] || []).filter(k => data.entries[k]);
   const pairs = section => section.scenes.flatMap(id => sceneTexts(id).map(k => [id, k]));
   const sections = data.sections, at = sections.findIndex(s => s.id === section);

@@ -61,11 +61,13 @@ def test_erasure_keeps_submission_but_removes_identity_profile_role_and_version_
     store.put('versions/erase-test/chunks/0', {'content': {'stringValue': json.dumps(payload)}})
     store.put('privateVersions/erase-test/chunks/0', {'content': {'stringValue': json.dumps({'submissions':[{'authorUsername':'DeletedContributor','authorUid':uid}]})}})
     store.put('workspace/current', {'version': {'stringValue': 'erase-test'}, 'parts': {'integerValue': '1'}, 'privateParts':{'integerValue':'1'}})
+    store.put('votes/llm-es-erase_DeletedContributor', {'voter': {'stringValue': 'github:DeletedContributor'}, 'value': {'integerValue': '1'}})
     try:
         account.erase_data(store, uid)
         assert store.get('profiles/' + uid) is None
         assert store.get('roles/' + uid) is None
         assert store.get('identities/' + uid) is None
+        assert store.get('votes/llm-es-erase_DeletedContributor') is None
         submission = store.get('submissions/erase-test')['fields']
         assert submission['authorUid']['stringValue'] == 'anonymous'
         assert submission['text']['stringValue'] == 'Keep this translation'
