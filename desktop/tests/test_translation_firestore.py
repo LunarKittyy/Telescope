@@ -226,3 +226,44 @@ def test_approval_name_must_match_its_language_and_text():
     write = approval()
     write['update']['name'] = BASE + '/approvals/es-' + 'c' * 64
     assert request(':commit', {'writes': [write]}, token('maintainer')) == 403
+
+
+def suggestion(write, **changes):
+    values = {name: write['update']['fields'][name]['stringValue'] for name in ('language', 'entry', 'sourceDigest', 'text')}
+    values.update({'author': 'github:TestContributor', 'status': 'pending', **changes})
+    return {'update': {'name': write['update']['name'].replace('/submissions/', '/suggestions/'),
+                       'fields': {key: {'stringValue': value} for key, value in values.items()}},
+            'updateTransforms': [{'fieldPath': 'createdAt', 'setToServerValue': 'REQUEST_TIME'}]}
+
+
+def test_suggestions_are_public_and_tied_to_a_private_submission():
+    write = submission()
+    assert request(':commit', {'writes': metered(write) + [suggestion(write)]}, token()) == 200
+    path = write['update']['name'].removeprefix(BASE).replace('/submissions/', '/suggestions/')
+    assert request(path, credential=token('someone-else')) == 200
+    assert request(path, credential=token(provider='password')) == 403
+    lone = submission()
+    assert request(':commit', {'writes': [suggestion(lone)]}, token()) == 403
+    for changes in ({'text': 'Different wording'}, {'author': 'github:Someone'}, {'status': 'approved'}):
+        other = submission()
+        assert request(':commit', {'writes': metered(other) + [suggestion(other, **changes)]}, token()) == 403
+        request('/limits/contributor/actions/submissions', credential='owner', method='DELETE')
+
+
+def test_admin_review_closes_both_the_submission_and_the_suggestion():
+    write = submission()
+    assert request(':commit', {'writes': metered(write) + [suggestion(write)]}, token()) == 200
+    public = suggestion(write)
+    batch = [reviewed(write), reviewed({'update': {'name': public['update']['name']}})]
+    assert request(':commit', {'writes': batch}, token()) == 403
+    assert request(':commit', {'writes': batch}, token('maintainer')) == 200
+
+
+def test_public_profile_is_written_only_under_your_own_username():
+    fields = {'bio': {'stringValue': 'Translates to Swedish'}, 'nativeLanguage': {'stringValue': 'sv'},
+              'languages': {'arrayValue': {'values': [{'stringValue': 'en'}]}}}
+    assert request('/people/TestContributor', {'fields': fields}, token(), 'PATCH') == 200
+    assert request('/people/TestMaintainer', {'fields': fields}, token(), 'PATCH') == 403
+    assert request('/people/TestContributor', credential=token('someone-else')) == 200
+    fields['email'] = {'stringValue': 'private@example.test'}
+    assert request('/people/TestContributor', {'fields': fields}, token(), 'PATCH') == 403

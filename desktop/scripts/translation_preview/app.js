@@ -297,7 +297,7 @@ $('approve').onclick = async () => {
       if (sharedState.projection.sources[entry.id] !== entry.sourceDigest) throw Error('This text changed in the shared project. Reload before approving it.');
       const submission = selectedSubmission?.entry === entry.id && selectedSubmission.language === lang ? selectedSubmission : null;
       const item = {language:lang,entry:entry.id,sourceDigest:entry.sourceDigest,text:value(selected),submission:submission?.id || '',
-        author:submission ? (submission.authorUid === 'anonymous' ? 'anonymous' : 'github:'+(submission.authorUsername || 'Contributor')) : 'github:'+shared.username};
+        author:submission ? submission.author : 'github:'+shared.username};
       $('approve').disabled = true;
       sharedApproved({...item,reviewer:await shared.approve(item)});
       if (submission) selectedSubmission = null;

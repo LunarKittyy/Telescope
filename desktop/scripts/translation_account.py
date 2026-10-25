@@ -142,7 +142,8 @@ def erase_data(store, uid):
     github = 'github:' + username if username else uid
     for collection, field, value in [('submissions', 'authorUid', uid), ('submissions', 'reviewedBy', github), ('languages', 'createdBy', uid),
                                     ('languages', 'createdBy', github), ('roles', 'grantedBy', uid),
-                                    ('approvals', 'author', github), ('approvals', 'reviewer', github)]:
+                                    ('approvals', 'author', github), ('approvals', 'reviewer', github),
+                                    ('suggestions', 'author', github), ('suggestions', 'reviewedBy', github)]:
         while True:
             data = store.call(':runQuery', {'structuredQuery': {'from': [{'collectionId': collection}],
                               'where': {'fieldFilter': {'field': {'fieldPath': field}, 'op': 'EQUAL', 'value': {'stringValue': value}}}, 'limit': 100}})
@@ -169,6 +170,8 @@ def erase_data(store, uid):
         fields['updatedBy'] = {'stringValue': 'account-deletion'}
         store.put('workspace/current', fields)
     store.delete('profiles/' + uid)
+    if username:
+        store.delete('people/' + username)
     store.delete('roles/' + uid)
     store.delete('identities/' + uid)
     for kind in ('submissions', 'languages'):

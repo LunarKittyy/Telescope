@@ -53,7 +53,7 @@ export function createAdmin(service, user, role, preview, changed = async () => 
     for (const item of pending.sort((a,b) => (a.createdAt?.toMillis?.() || 0) - (b.createdAt?.toMillis?.() || 0))) {
       const english = projection?.english[item.entry], stale = english !== undefined && projection.sources[item.entry] !== item.sourceDigest;
       const row = document.createElement('article'); row.className = 'pending-row';
-      row.append(text('small',`${item.language} · ${item.authorUid === 'anonymous' ? 'Anonymous' : item.authorUsername || 'Contributor'}`),text('h4',english ?? 'Source not in the current project'),text('p',item.text));
+      row.append(text('small',`${item.language} · ${item.author === 'anonymous' ? 'Anonymous' : item.author.replace('github:','')}`),text('h4',english ?? 'Source not in the current project'),text('p',item.text));
       if (stale) row.append(text('small','The source text changed after this was suggested.'));
       const actions = document.createElement('div'); actions.className = 'row-actions';
       const inspect = text('button','Try in preview'); inspect.onclick = () => preview(item,english); actions.append(inspect);
@@ -61,13 +61,13 @@ export function createAdmin(service, user, role, preview, changed = async () => 
       approve.disabled = approve.dataset.unavailable === 'true';
       approve.onclick = () => review(row, async () => {
         const approval = {language:item.language,entry:item.entry,sourceDigest:item.sourceDigest,text:item.text,submission:item.id,
-          author:item.authorUid === 'anonymous' ? 'anonymous' : 'github:'+(item.authorUsername || 'Contributor')};
+          author:item.author};
         await changed({...approval,reviewer:await service.approve(approval)});
       }, 'Translation approved. It will be included in the language export.');
       actions.append(approve);
       const reject = text('button','Dismiss'); reject.onclick = () => review(row, () => service.dismiss(item.id), 'Suggestion dismissed.'); actions.append(reject);
-      if (role === 'owner' && item.authorUid !== 'anonymous' && item.authorUid !== user.uid) {
-        const grant = text('button','Make contributor an admin'); grant.onclick = () => run(async () => { await service.grantAdmin(item.authorUid); await roles(); status('Admin access granted.'); }); actions.append(grant);
+      if (role === 'owner' && item.author !== 'anonymous' && item.author !== 'github:'+service.username) {
+        const grant = text('button','Make contributor an admin'); grant.onclick = () => run(async () => { const uid = await service.suggestionAuthor(item.id); if (!uid) throw Error('This account no longer exists.'); await service.grantAdmin(uid); await roles(); status('Admin access granted.'); }); actions.append(grant);
       }
       row.append(actions); $('pending-list').append(row);
     }

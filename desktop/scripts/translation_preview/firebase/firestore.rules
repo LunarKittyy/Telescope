@@ -21,6 +21,16 @@ service cloud.firestore {
         || (request.resource.data.languages[index] is string
           && request.resource.data.languages[index].matches('^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$'));
     }
+    function validProfile() {
+      return request.resource.data.keys().hasOnly(['bio', 'nativeLanguage', 'languages'])
+        && request.resource.data.bio is string && request.resource.data.bio.size() <= 500
+        && request.resource.data.nativeLanguage is string
+        && (request.resource.data.nativeLanguage == '' || request.resource.data.nativeLanguage.matches('^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$'))
+        && request.resource.data.languages is list && request.resource.data.languages.size() <= 10
+        && request.resource.data.languages.toSet().size() == request.resource.data.languages.size()
+        && profileLanguage(0) && profileLanguage(1) && profileLanguage(2) && profileLanguage(3) && profileLanguage(4)
+        && profileLanguage(5) && profileLanguage(6) && profileLanguage(7) && profileLanguage(8) && profileLanguage(9);
+    }
     match /catalog/{document=**} {
       allow read: if true;
       allow write: if false;
@@ -64,6 +74,33 @@ service cloud.firestore {
         && request.resource.data.reviewedAt == request.time;
       allow delete: if false;
     }
+    match /suggestions/{suggestionId} {
+      function submission() {
+        return getAfter(/databases/$(database)/documents/submissions/$(suggestionId)).data;
+      }
+      allow read: if githubUser() && !exists(/databases/$(database)/documents/maintenance/account-deletion);
+      allow create: if githubUser()
+        && submission().authorUid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['language', 'entry', 'sourceDigest', 'text', 'author', 'status', 'createdAt'])
+        && request.resource.data.keys().hasAll(['language', 'entry', 'sourceDigest', 'text', 'author', 'status', 'createdAt'])
+        && request.resource.data.language == submission().language && request.resource.data.entry == submission().entry
+        && request.resource.data.sourceDigest == submission().sourceDigest && request.resource.data.text == submission().text
+        && request.resource.data.author == 'github:' + get(/databases/$(database)/documents/identities/$(request.auth.uid)).data.username
+        && request.resource.data.status == 'pending' && request.resource.data.createdAt == request.time;
+      allow update: if admin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewedBy', 'reviewedAt'])
+        && resource.data.status == 'pending' && request.resource.data.status in ['approved', 'dismissed']
+        && request.resource.data.reviewedBy == 'github:' + get(/databases/$(database)/documents/identities/$(request.auth.uid)).data.username
+        && request.resource.data.reviewedAt == request.time;
+      allow delete: if false;
+    }
+    match /people/{username} {
+      allow read: if githubUser();
+      allow create, update: if githubUser()
+        && username == get(/databases/$(database)/documents/identities/$(request.auth.uid)).data.username
+        && validProfile();
+      allow delete: if false;
+    }
     match /roles/{uid} {
       allow read: if githubUser() && (request.auth.uid == uid || admin());
       allow create, update: if owner() && uid != request.auth.uid
@@ -78,14 +115,7 @@ service cloud.firestore {
     match /profiles/{uid} {
       allow read: if githubUser() && (request.auth.uid == uid || admin());
       allow create, update: if githubUser() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['bio', 'nativeLanguage', 'languages'])
-        && request.resource.data.bio is string && request.resource.data.bio.size() <= 500
-        && request.resource.data.nativeLanguage is string
-        && (request.resource.data.nativeLanguage == '' || request.resource.data.nativeLanguage.matches('^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$'))
-        && request.resource.data.languages is list && request.resource.data.languages.size() <= 10
-        && request.resource.data.languages.toSet().size() == request.resource.data.languages.size()
-        && profileLanguage(0) && profileLanguage(1) && profileLanguage(2) && profileLanguage(3) && profileLanguage(4)
-        && profileLanguage(5) && profileLanguage(6) && profileLanguage(7) && profileLanguage(8) && profileLanguage(9);
+        && validProfile();
       allow delete: if false;
     }
     match /identities/{uid} {

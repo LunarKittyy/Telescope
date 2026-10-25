@@ -56,9 +56,13 @@ export function connect(onUser) {
         onUser(user, currentRole, currentUsername);
       } catch (error) { currentRole = null; currentUsername = null; onUser(user, null, null, error.message); }
     });
-    async function createLimited(kind, target, reference, value) {
+    async function createLimited(kind, target, reference, value, also = []) {
       const limit = kind === 'submissions' ? 100 : 3, interval = kind === 'submissions' ? 3600000 : 86400000;
-      if (['owner','admin'].includes(currentRole)) { await store.setDoc(reference,value); return; }
+      if (['owner','admin'].includes(currentRole)) {
+        const batch = store.writeBatch(database);
+        for (const [item, content] of [[reference, value], ...also]) batch.set(item, content);
+        await batch.commit(); return;
+      }
       const usage = store.doc(database,'limits',session.currentUser.uid,'actions',kind);
       await store.runTransaction(database, async transaction => {
         const [existing, snapshot] = await Promise.all([transaction.get(reference),transaction.get(usage)]);
@@ -68,6 +72,7 @@ export function connect(onUser) {
         if (count > limit) throw Error(kind === 'submissions' ? 'Submission limit reached. Try again in an hour.' : 'You can add three languages per day. Try again tomorrow.');
         transaction.set(usage,{window:reset ? store.serverTimestamp() : previous.window,count,lastTarget:target});
         transaction.set(reference,value);
+        for (const [item, content] of also) transaction.set(item, content);
       });
     }
     async function readChunks(collection, version, parts) {
@@ -90,7 +95,17 @@ export function connect(onUser) {
       signOut: () => auth.signOut(session),
       get username() { return currentUsername; },
       async profile() { return (await store.getDoc(store.doc(database, 'profiles', session.currentUser.uid))).data() || {}; },
-      async saveProfile(profile) { await store.setDoc(store.doc(database, 'profiles', session.currentUser.uid), profile); },
+      // The private profile keeps the account's own copy; people/USERNAME is what other contributors see
+      async saveProfile(profile) {
+        if (!currentUsername) throw Error('Your GitHub username has not been verified yet. Sign out and try again.');
+        const batch = store.writeBatch(database);
+        batch.set(store.doc(database, 'profiles', session.currentUser.uid), profile);
+        batch.set(store.doc(database, 'people', currentUsername), profile);
+        await batch.commit();
+      },
+      async person(username) { return (await store.getDoc(store.doc(database, 'people', username))).data() || null; },
+      async suggestions(language) { return (await store.getDocs(store.query(store.collection(database, 'suggestions'), store.where('language','==',language)))).docs.map(item => ({id:item.id,...item.data()})); },
+      async suggestionAuthor(id) { return (await store.getDoc(store.doc(database, 'submissions', id))).data()?.authorUid || null; },
       async deleteAccount() {
         await auth.reauthenticateWithPopup(session.currentUser, new auth.GithubAuthProvider());
         const idToken = await session.currentUser.getIdToken(true);
@@ -103,7 +118,7 @@ export function connect(onUser) {
       async roleList() { return Promise.all((await store.getDocs(store.collection(database, 'roles'))).docs.map(async item => ({uid:item.id,...item.data(),username:(await store.getDoc(store.doc(database,'identities',item.id))).data()?.username || 'Contributor'}))); },
       async grantAdmin(uid) { await store.setDoc(store.doc(database, 'roles', uid), {role:'admin',grantedBy:session.currentUser.uid}); },
       async revokeAdmin(uid) { await store.deleteDoc(store.doc(database, 'roles', uid)); },
-      async pending() { return (await store.getDocs(store.query(store.collection(database, 'submissions'), store.where('status','==','pending')))).docs.map(item => ({id:item.id,...item.data()})); },
+      async pending() { return (await store.getDocs(store.query(store.collection(database, 'suggestions'), store.where('status','==','pending')))).docs.map(item => ({id:item.id,...item.data()})); },
       async submissions() { return (await store.getDocs(store.collection(database, 'submissions'))).docs.map(item => ({id:item.id,...item.data()})); },
       async approvals() {
         return (await store.getDocs(store.collection(database, 'approvals'))).docs.map(item => {
@@ -163,13 +178,15 @@ export function connect(onUser) {
         if (!currentUsername) throw Error('Your GitHub username has not been verified yet. Sign out and try again.');
         const reviewer = 'github:'+currentUsername, batch = store.writeBatch(database);
         batch.set(store.doc(database, 'approvals', `${language}-${entry}`), {language,entry,sourceDigest,text,reviewer,author,submission,approvedAt:store.serverTimestamp()});
-        if (submission) batch.update(store.doc(database, 'submissions', submission), {status:'approved',reviewedBy:reviewer,reviewedAt:store.serverTimestamp()});
+        if (submission) for (const name of ['submissions','suggestions']) batch.update(store.doc(database, name, submission), {status:'approved',reviewedBy:reviewer,reviewedAt:store.serverTimestamp()});
         await batch.commit();
         return reviewer;
       },
       async dismiss(submission) {
         if (!currentUsername) throw Error('Your GitHub username has not been verified yet. Sign out and try again.');
-        await store.updateDoc(store.doc(database, 'submissions', submission), {status:'dismissed',reviewedBy:'github:'+currentUsername,reviewedAt:store.serverTimestamp()});
+        const batch = store.writeBatch(database);
+        for (const name of ['submissions','suggestions']) batch.update(store.doc(database, name, submission), {status:'dismissed',reviewedBy:'github:'+currentUsername,reviewedAt:store.serverTimestamp()});
+        await batch.commit();
       },
       async submit(language, entry, text) {
         if (!session.currentUser) throw Error('Sign in with GitHub before submitting.');
@@ -179,8 +196,10 @@ export function connect(onUser) {
         const id = Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('');
         const reference = store.doc(database, 'submissions', id);
         if ((await store.getDoc(reference)).exists()) return id;
+        // The private submission holds the account id for quotas and erasure; the suggestion is what everyone sees
         await createLimited('submissions',id,reference, {language, entry:entry.id, sourceDigest:entry.sourceDigest,
-          text, authorUid:session.currentUser.uid, authorUsername:currentUsername, status:'pending', createdAt:store.serverTimestamp()});
+          text, authorUid:session.currentUser.uid, authorUsername:currentUsername, status:'pending', createdAt:store.serverTimestamp()},
+          [[store.doc(database, 'suggestions', id), {language, entry:entry.id, sourceDigest:entry.sourceDigest, text, author:'github:'+currentUsername, status:'pending', createdAt:store.serverTimestamp()}]]);
         return reference.id;
       },
     };
