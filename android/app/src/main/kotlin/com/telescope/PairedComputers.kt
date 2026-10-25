@@ -27,6 +27,13 @@ class PairedComputerList(val computers: List<PairedComputer> = emptyList()) {
 
     fun without(id: String): PairedComputerList = PairedComputerList(computers.filter { it.id != id })
 
+    // Newest first, and only the first `limit` until Show all unfolds the rest
+    fun shown(limit: Int, showAll: Boolean): List<PairedComputer> =
+        computers.sortedByDescending { it.pairedAtMs }.let { if (showAll) it else it.take(limit) }
+
+    // Remove all only once there are two to remove
+    val offersRemoveAll: Boolean get() = computers.size >= 2
+
     // Constant-time per comparison, and every entry is compared so timing doesn't reveal which one matched.
     fun matchToken(provided: String?): PairedComputer? {
         if (provided.isNullOrEmpty()) return null
