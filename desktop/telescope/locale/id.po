@@ -3858,11 +3858,11 @@ msgstr "Aplikasi ponsel ini terlalu lama untuk format Dinamis dan menggunakan Ot
 
 #: telescope/plugins/stream_output.py:39
 msgid "Good for most calls"
-msgstr "Bagus untuk sebagian besar panggilan"
+msgstr "Cocok untuk panggilan"
 
 #: telescope/plugins/stream_output.py:40
 msgid "Sharper, more data"
-msgstr "Lebih tajam, lebih banyak data"
+msgstr "Lebih tajam, boros data"
 
 #: telescope/plugins/stream_output.py:43
 msgid "H.264 from the phone's hardware encoder, like video calls use."

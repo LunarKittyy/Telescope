@@ -372,10 +372,12 @@ class Switch(QCheckBox):
             p.setFont(self.font())
             text_rect = QRect(0, 0, int(track.left()) - 12, self.height())
             fm = self.fontMetrics()
-            if fm.horizontalAdvance(self.text()) > text_rect.width() and self.height() >= 2 * fm.height():
+            wrap = int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextWordWrap)
+            one_line = fm.elidedText(self.text(), Qt.TextElideMode.ElideRight, text_rect.width()) == self.text()
+            wrapped = fm.boundingRect(QRect(0, 0, text_rect.width(), 100_000), wrap, self.text())
+            if not one_line and wrapped.width() <= text_rect.width() and wrapped.height() <= self.height():
                 # A long name in a tight spot (a tile) wraps onto a second line rather than losing its end
-                p.drawText(text_rect, int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-                                          | Qt.TextFlag.TextWordWrap), self.text())
+                p.drawText(text_rect, wrap, self.text())
             else:
                 p.drawText(text_rect, int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
                            elided(self, fm, self.text(), text_rect.width()))

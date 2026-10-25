@@ -14,6 +14,7 @@ through tr(). Fonts differ between machines, so a text that only just fits can s
 
 import argparse
 import contextlib
+import math
 import os
 import re
 import sys
@@ -223,6 +224,7 @@ def _rich(label) -> bool:
 def _list_items(view, top):
     """(item, need, room, rect in top) for each item of a list whose text the list cuts short."""
     from PyQt6.QtCore import QRect
+    from PyQt6.QtGui import QFontMetricsF
     from PyQt6.QtWidgets import QStyle, QStyleOptionViewItem
     for row in range(view.count()):
         item = view.item(row)
@@ -236,10 +238,53 @@ def _list_items(view, top):
             opt.features |= QStyleOptionViewItem.ViewItemFeature.HasDecoration
             opt.decorationSize, opt.icon = view.iconSize(), item.icon()
         room = view.style().subElementRect(QStyle.SubElement.SE_ItemViewItemText, opt, view).width()
-        need = view.fontMetrics().horizontalAdvance(item.text())
-        if need > room + SLACK:
+        room -= 2 * (view.style().pixelMetric(QStyle.PixelMetric.PM_FocusFrameHMargin, opt, view) + 1)  # Qt keeps it clear
+        need = QFontMetricsF(view.font()).horizontalAdvance(item.text())
+        if need > room:  # no slack: Qt cuts the item with "..." for a fraction of a pixel
+            need = math.ceil(need)
             at = view.viewport().mapTo(top, opt.rect.topLeft())
             yield item, need, room, QRect(at, opt.rect.size())
+
+
+@contextlib.contextmanager
+def _watched_draws(drawn: list):
+    """Adds every text our widgets draw past its box to drawn as (widget, text, need, room), for those that don't cut
+    it with elided(): a word too long to wrap, or a value drawn at a point with nothing stopping it."""
+    from PyQt6.QtCore import QPoint, QPointF, QRect, QRectF, Qt
+    from PyQt6.QtGui import QFontMetricsF, QPainter
+    from PyQt6.QtWidgets import QWidget
+    saved = QPainter.__dict__["drawText"]  # the descriptor: putting back what QPainter.drawText returns wouldn't bind
+    real = QPainter.drawText
+
+    def note(painter, args):
+        device = painter.device()
+        if not isinstance(device, QWidget) or len(args) < 2:
+            return
+        fm = QFontMetricsF(painter.font())
+        if isinstance(args[0], (QPoint, QPointF)) and isinstance(args[1], str) and "\n" not in args[1]:
+            x = painter.worldTransform().map(QPointF(args[0])).x()
+            need = fm.horizontalAdvance(args[1])
+            if x + need > device.width() + SLACK:
+                drawn.append((device, args[1], math.ceil(need), math.floor(device.width() - x)))
+        elif isinstance(args[0], (QRect, QRectF)) and len(args) >= 3 and isinstance(args[2], str):
+            flags = args[1] if isinstance(args[1], int) else args[1].value
+            box = QRectF(args[0])
+            wraps = bool(flags & (Qt.TextFlag.TextWordWrap.value | Qt.TextFlag.TextWrapAnywhere.value))
+            bound = fm.boundingRect(QRectF(0, 0, box.width(), 100_000 if wraps else box.height()), flags, args[2])
+            if bound.width() > box.width() + SLACK:
+                drawn.append((device, args[2], math.ceil(bound.width()), math.floor(box.width())))
+            elif wraps and bound.height() > max(box.height(), fm.height()) + SLACK:
+                drawn.append((device, args[2], math.ceil(bound.height()), math.floor(box.height())))
+
+    def draw(painter, *args):
+        note(painter, args)
+        return real(painter, *args)
+
+    QPainter.drawText = draw
+    try:
+        yield
+    finally:
+        QPainter.drawText = saved
 
 
 def _rect_in(w, top):
@@ -302,17 +347,19 @@ def check(top, lang: str, view: str, texts: _Texts, width: int = 0) -> list:
 
     if width and top.width() > width + SLACK:
         add(top, "window too wide", f"{width} px", top.width(), width)
-    common.elisions = []
+    common.elisions, overrun = [], []
     try:
-        top.grab()  # paints everything, so what draws its own text says what it cut
+        with _watched_draws(overrun):
+            top.grab()  # paints everything, so what draws its own text says what it cut
         cut = common.elisions
     finally:
         common.elisions = None
     seen = set()
-    for w, text, need, room in cut:
-        if isinstance(w, QWidget) and w.isVisible() and (id(w), text) not in seen and texts.english(text):
-            seen.add((id(w), text))
-            add(w, "cut short", text, need, room)
+    for kind, found_here in (("cut short", cut), ("cut off", overrun)):
+        for w, text, need, room in found_here:
+            if isinstance(w, QWidget) and w.isVisible() and (id(w), text) not in seen and texts.english(text):
+                seen.add((id(w), text))
+                add(w, kind, text, need, room)
     for listed in top.findChildren(QListWidget):
         if listed.isVisible() and type(listed.itemDelegate()) is QStyledItemDelegate:
             for item, need, room, rect in _list_items(listed, top):
@@ -451,7 +498,6 @@ def run(lang: str, shots=None) -> list:
     from telescope import i18n
     from telescope.theme import apply_theme
     from telescope.widgets.common import ui_px
-    from telescope.widgets.settings_window import _SIZE
     import telescope.app as app_module
     global _app
     app = _app = QApplication.instance() or QApplication([])  # kept: it owns what lives as long as the app
@@ -477,7 +523,7 @@ def run(lang: str, shots=None) -> list:
                 settings = win._settings_win
                 for tab, title in settings.tab_names().items():
                     settings.show_tab(tab)
-                    _grow_to_content(settings, ui_px(_SIZE[0]), ui_px(_SIZE[1]))
+                    _grow_to_content(settings, settings.default_size().width(), settings.default_size().height())
                     view = f"Settings > {i18n.english(title)}"
                     here = check(settings, lang, view, texts)
                     found += here

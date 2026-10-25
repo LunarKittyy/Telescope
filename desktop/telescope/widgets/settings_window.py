@@ -2,9 +2,10 @@
 (plugin.SETTINGS_TABS) and plugins fill them with SettingsSections; a tab with nothing in it isn't shown."""
 
 import logging
+import math
 
 from PyQt6.QtCore import QPointF, QRectF, QSignalBlocker, QSize, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QKeySequence, QPainter, QShortcut
+from PyQt6.QtGui import QColor, QFontMetricsF, QGuiApplication, QIcon, QKeySequence, QPainter, QShortcut
 from PyQt6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QScrollArea, QStackedWidget,
     QStyle, QStyledItemDelegate, QStyleOptionViewItem, QVBoxLayout, QWidget,
@@ -21,6 +22,8 @@ from telescope.i18n import tr
 logger = logging.getLogger(__name__)
 
 _NAV_WIDTH = 236
+_NAV_ROOM = 167  # of that, what a tab's name gets; a longer name (in some languages) widens the column and the window
+_NAV_MAX = 320
 _SIZE = (940, 680)
 _TAB_ICONS = {
     "general": "sliders", "streaming": "bolt", "video": "video", "audio": "mic", "devices": "phone",
@@ -143,7 +146,7 @@ class SettingsWindow(PlacedDialog):
 
         side = QFrame()
         side.setObjectName("settings_side")
-        side.setFixedWidth(ui_px(_NAV_WIDTH))
+        self._side = side
         side_lay = QVBoxLayout(side)
         side_lay.setContentsMargins(10, 14, 10, 0)
         side_lay.setSpacing(8)
@@ -184,6 +187,10 @@ class SettingsWindow(PlacedDialog):
             item = QListWidgetItem(_tab_icon(tab), name)
             item.setSizeHint(QSize(0, ui_px(38)))
             self._nav.addItem(item)
+        self._nav.ensurePolished()  # the theme's font comes with the stylesheet
+        fm = QFontMetricsF(self._nav.font())
+        longest = max((math.ceil(fm.horizontalAdvance(n)) + 1 for n in self._names), default=0)  # Qt elides past a fraction
+        side.setFixedWidth(max(ui_px(_NAV_WIDTH), min(ui_px(_NAV_MAX), longest + ui_px(_NAV_WIDTH - _NAV_ROOM))))
 
         self._results_page = QWidget()
         results_lay = QVBoxLayout(self._results_page)
@@ -357,8 +364,12 @@ class SettingsWindow(PlacedDialog):
         super().showEvent(event)
         self.focus_search()
 
+    def default_size(self) -> QSize:
+        """The size it opens at, before a small screen gets a say: wider by what the tab column grew."""
+        return QSize(ui_px(_SIZE[0]) + self._side.width() - ui_px(_NAV_WIDTH), ui_px(_SIZE[1]))
+
     def _fit_to_screen(self):
-        w, h = ui_px(_SIZE[0]), ui_px(_SIZE[1])
+        w, h = self.default_size().width(), self.default_size().height()
         screen = self.screen() or QGuiApplication.primaryScreen()
         if screen is not None:
             area = screen.availableGeometry()

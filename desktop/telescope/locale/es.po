@@ -1051,7 +1051,7 @@ msgstr "Resolución"
 
 #: telescope/plugins/browser_camera.py:268 telescope/plugins/stream_output.py:194
 msgid "Frame rate"
-msgstr "Velocidad de fotogramas"
+msgstr "Fotogramas/s"
 
 #: telescope/plugins/browser_camera.py:302
 msgid "Connected"
@@ -1756,7 +1756,7 @@ msgstr "Experimental"
 
 #: telescope/plugins/connection.py:799 telescope/plugins/connection.py:848 telescope/plugins/connection.py:1119
 msgid "No phone yet"
-msgstr "Sin teléfono aún"
+msgstr "Sin teléfono"
 
 #: telescope/plugins/connection.py:800
 msgid "Which phone to stream from"
@@ -2017,7 +2017,7 @@ msgstr "¿Es {name} otra vez?"
 #: telescope/plugins/connection.py:1609
 #, python-brace-format
 msgid "A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry."
-msgstr "Un teléfono llamado {name} se vinculó como un teléfono nuevo. Esto ocurre tras reinstalar Telescope en él o borrar sus datos. Sí traslada los ajustes y ajustes preestablecidos de {name} hacia este y elimina la entrada anterior."
+msgstr "Un teléfono llamado {name} se vinculó como un teléfono nuevo. Esto ocurre tras reinstalar Telescope en él o borrar sus datos. Sí traslada los ajustes y preajustes de {name} hacia este y elimina la entrada anterior."
 
 #. keep these short, they sit in the slider's narrow readout column
 #: telescope/plugins/framing.py:23
@@ -2404,7 +2404,7 @@ msgstr "Detener la transmisión cuando el teléfono se caliente demasiado y en c
 
 #: telescope/plugins/monitoring.py:148
 msgid "Notify me"
-msgstr "Notificarme"
+msgstr "Avisarme"
 
 #: telescope/plugins/monitoring.py:151
 msgid "Stop the stream"
@@ -2608,7 +2608,7 @@ msgstr "Instalada. Abre Telescope en el teléfono para el siguiente paso."
 
 #: telescope/plugins/presets.py:60 telescope/plugins/presets.py:154 telescope/plugins/presets.py:168
 msgid "Presets"
-msgstr "Ajustes preestablecidos"
+msgstr "Preajustes"
 
 #: telescope/plugins/presets.py:61
 msgid "Saving and loading groups of settings with one click."
@@ -2616,12 +2616,12 @@ msgstr "Guardar y cargar grupos de configuraciones con un solo clic."
 
 #: telescope/plugins/presets.py:62
 msgid "Without it there's no Presets button in the header (your saved presets aren't deleted)."
-msgstr "Sin él, no habrá botón de Ajustes preestablecidos en el encabezado (los ajustes preestablecidos guardados no se eliminan)."
+msgstr "Sin él, no habrá botón de Preajustes en el encabezado (los preajustes guardados no se eliminan)."
 
 #: telescope/plugins/presets.py:142 telescope/plugins/presets.py:151 telescope/plugins/presets.py:159 telescope/plugins/presets.py:162
 #, python-brace-format
 msgid "Preset: {name}"
-msgstr "Ajuste preestablecido: {name}"
+msgstr "Preajuste: {name}"
 
 #: telescope/plugins/presets.py:153 telescope/shortcuts.py:512
 msgid "Next"
@@ -2633,15 +2633,15 @@ msgstr "Anterior"
 
 #: telescope/plugins/presets.py:156
 msgid "Apply a preset"
-msgstr "Aplicar un ajuste preestablecido"
+msgstr "Aplicar un preajuste"
 
 #: telescope/plugins/presets.py:157
 msgid "Preset"
-msgstr "Ajuste preestablecido"
+msgstr "Preajuste"
 
 #: telescope/plugins/presets.py:160
 msgid "Next or previous preset"
-msgstr "Ajuste preestablecido siguiente o anterior"
+msgstr "Preajuste siguiente o anterior"
 
 #: telescope/plugins/presets.py:161 telescope/plugins/shortcuts.py:183 telescope/plugins/shortcuts.py:187 telescope/shortcuts.py:308 telescope/shortcuts.py:334 telescope/shortcuts.py:390 telescope/shortcuts.py:512
 msgid "Does"
@@ -2662,20 +2662,20 @@ msgstr "Eliminar"
 #: telescope/plugins/presets.py:201 telescope/plugins/presets.py:203
 #, python-brace-format
 msgid "Preset {n}"
-msgstr "Ajuste preestablecido {n}"
+msgstr "Preajuste {n}"
 
 #: telescope/plugins/presets.py:210
 msgid "Replace preset"
-msgstr "Reemplazar ajuste preestablecido"
+msgstr "Reemplazar preajuste"
 
 #: telescope/plugins/presets.py:211
 #, python-brace-format
 msgid "There's already a preset called \"{name}\". Replace it?"
-msgstr "Ya existe un ajuste preestablecido llamado \"{name}\". ¿Quieres reemplazarlo?"
+msgstr "Ya existe un preajuste llamado \"{name}\". ¿Quieres reemplazarlo?"
 
 #: telescope/plugins/presets.py:215
 msgid "Save preset"
-msgstr "Guardar ajuste preestablecido"
+msgstr "Guardar preajuste"
 
 #: telescope/plugins/presets.py:215 telescope/plugins/presets.py:221
 msgid "Name:"
@@ -2683,7 +2683,7 @@ msgstr "Nombre:"
 
 #: telescope/plugins/presets.py:221
 msgid "Rename preset"
-msgstr "Cambiar nombre del ajuste preestablecido"
+msgstr "Cambiar nombre del preajuste"
 
 #. the preview area doesn't wrap lines, so keep the line breaks and each line about as long as this one
 #: telescope/plugins/preview.py:20
@@ -3642,7 +3642,7 @@ msgstr "Elige un control, qué le hace la tecla y luego presiona la tecla."
 
 #: telescope/plugins/shortcuts.py:814
 msgid "Search: mute, zoom, exposure, preset…"
-msgstr "Buscar: silenciar, zoom, exposición, ajuste preestablecido…"
+msgstr "Buscar: silenciar, zoom, exposición, preajuste…"
 
 #: telescope/plugins/shortcuts.py:817
 msgid "Find"
@@ -3863,7 +3863,7 @@ msgstr "La app de este teléfono es demasiado antigua para Dinámico y usa Autom
 
 #: telescope/plugins/stream_output.py:39
 msgid "Good for most calls"
-msgstr "Adecuado para la mayoría de las llamadas"
+msgstr "Ideal para llamadas"
 
 #: telescope/plugins/stream_output.py:40
 msgid "Sharper, more data"

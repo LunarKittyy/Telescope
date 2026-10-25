@@ -1056,7 +1056,7 @@ msgstr "Роздільна здатність"
 
 #: telescope/plugins/browser_camera.py:268 telescope/plugins/stream_output.py:194
 msgid "Frame rate"
-msgstr "Частота кадрів"
+msgstr "Кадрів/с"
 
 #: telescope/plugins/browser_camera.py:302
 msgid "Connected"
@@ -3868,7 +3868,7 @@ msgstr "Додаток на цьому телефоні застарілий д�
 
 #: telescope/plugins/stream_output.py:39
 msgid "Good for most calls"
-msgstr "Підходить для більшості дзвінків"
+msgstr "Для більшості дзвінків"
 
 #: telescope/plugins/stream_output.py:40
 msgid "Sharper, more data"
