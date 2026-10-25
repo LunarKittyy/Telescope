@@ -239,7 +239,7 @@ class UpdatesPlugin(TelescopePlugin):
                 text += " " + tr("Updating also installs it for your user, with a Start menu entry, and removes this "
                                  "unzipped copy. Settings and phones come along.")
             if blocker:
-                return f"{text} {blocker}", "status_warn"
+                return text + " " + blocker, "status_warn"
             if self.host_streaming():
                 return text + " " + tr("Stop streaming to update."), "status_warn"
             return text, "status_ok"

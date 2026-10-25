@@ -13,6 +13,7 @@ Each file covers the work that led up to one release. Once a release ships its f
 
 The files up to 3.5 were written afterwards from the release notes, the commit history and the issues people opened, so they're shorter than the notes and say more about why.
 
+- [4.2](4.2.md) (October 2026): the phone app in the desktop's look, a Live Update while streaming, 720p when the phone gets very hot and a faster first start on Windows
 - [4.1](4.1.md) (October 2026): both apps in six more languages and cheaper Background and Auto framing with a Power-saving effects switch
 - [4.0](4.0.md) (October 2026): a lighter desktop, the new look with one Settings window, and Auto framing and Background as the first optional plugins
 - [3.5](3.5.md) (October 2026): plugins, and taking the desktop app apart to make them possible

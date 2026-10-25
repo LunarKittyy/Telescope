@@ -23,6 +23,8 @@ A first draft hasn't been checked by someone who speaks the language yet (the de
 
 Your language isn't in the table? Open a translation issue to ask for it, or start it yourself with the steps below.
 
+There's also an experimental [translation preview](translation-preview.md) for trying desktop wording in real Qt widgets from a local browser editor. It covers the desktop app's screens, Settings pages, dialogs and menus.
+
 The rest of this page is for people working on the files themselves.
 
 ## The files
@@ -105,6 +107,8 @@ Hand it one file and the notes above. Things worth asking for:
 - Keep the app's tone: short, plain and friendly, addressed to the person using it. Buttons are verbs ("Add phone", "Start streaming")
 - Use one word for each thing across both apps. "Add phone" on the desktop and "Scan pairing code" on the phone are names of buttons that the other app's texts refer to
 - Have a person who speaks the language read through it in the running app before it ships
+
+For bigger runs, [automation/translation](../automation/translation/README.md) has the setup used for the languages so far: a glossary per language, prompts, `kit.py` for what's left and for the checks no model needs to do, and a review pack of screenshots for someone who speaks the language.
 
 ## First drafts
 

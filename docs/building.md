@@ -16,22 +16,40 @@ This is a self-signed debug build for development.
 
 ## Run the desktop app from source
 
+Use Python 3.12 or newer. From the repository root, create a development environment:
+
 ```bash
 cd desktop
+python -m venv .venv
+```
+
+Activate it with `source .venv/bin/activate` on Linux or `.venv\Scripts\Activate.ps1` in Windows PowerShell. Then install the same requirements as CI:
+
+```bash
+python -m pip install -r requirements-dev.txt -c constraints.txt
+python -m pip install --no-deps -r requirements-nodeps.txt -c constraints.txt
+python scripts/dev_desktop.py --keep
+```
+
+The second install handles the video dependency whose declared version range conflicts with the version Telescope uses. Keep both steps. In the same activated environment, run:
+
+```bash
 python -m pytest -q              # tests (add -n auto to run them in parallel, as CI does)
 python scripts/smoke_check.py    # packaging smoke checks
 ```
 
-Linux can run `./start.sh` and Windows `start.bat`, which set up the dependencies on first run.
+For normal use from source, Linux can run `./start.sh` and Windows `start.bat`. Those launchers create their own environment for running the app; they don't install the test dependencies or activate it in your terminal. Linux still needs the [virtual camera setup](setup.md) for a real stream.
 
 ## Try a change without touching your real install
 
 A dev phone app and a dev desktop run next to the real ones and pair only with each other.
 
 ```bash
-cd android && ./gradlew installDev        # "Telescope (dev)", package com.telescope.dev
+(cd android && ./gradlew installDev)      # "Telescope (dev)", package com.telescope.dev
 cd desktop && python scripts/dev_desktop.py --keep
 ```
+
+Run both from the repository root, with the development environment above activated.
 
 - The dev app has its own data, pairings and phone identity. The dev desktop keeps its config and log in a profile folder in your temp dir, runs alongside the real desktop, never writes menu or sign-in entries and uses its own virtual mic ("Telescope Microphone (dev)")
 - **Install over USB** installs the dev APK once `assembleDev` or `installDev` has built it
@@ -64,6 +82,8 @@ Runs on every push to `master` that changes more than docs or the website, and o
 Each release holds `Telescope.apk`, `Telescope-windows-portable.zip`, `TelescopeSetup.exe`, `Telescope-linux.tar.gz` and `manifest.json` (version, build number, channel, commit, session protocol, and each file's URL, size and SHA-256). The desktop bundles include the APK for Install over USB. The zip is also listed as `Telescope-windows.zip`, its old name, so older copies still find their update. The apps' update check reads the manifest: the phone compares `android.versionCode` and the desktop compares `build`.
 
 The APK is signed with the release key from the repository secrets `TELESCOPE_KEYSTORE` (base64), `TELESCOPE_KEYSTORE_PASSWORD`, `TELESCOPE_KEY_ALIAS` and `TELESCOPE_KEY_PASSWORD`. A release fails rather than publish a debug-signed APK, because Android only installs an update signed with the same key as the installed app.
+
+Before publishing, `.github/check_release.py` checks the files it's about to upload: the APK's certificate is the release key's (pinned in the script), the APK, the Linux bundle's stamp and the Windows bundle's `lib-<build>` folder all carry this version and build, both bundles hold the notices and the APK, and `manifest.json`'s checksums match.
 
 ### The three build workflows
 

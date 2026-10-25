@@ -493,9 +493,10 @@ class MainActivity : AppCompatActivity() {
 
     // The pairing card: how to pair when nothing is paired, otherwise the list of computers.
     private fun renderPairing() {
-        val computers = PairedComputers.list(this).computers
+        val paired = PairedComputers.list(this)
+        val computers = paired.computers
         layoutComputers.removeAllViews()
-        btnRemoveAll.visibility = if (computers.size >= 2) View.VISIBLE else View.GONE
+        btnRemoveAll.visibility = if (paired.offersRemoveAll) View.VISIBLE else View.GONE
         if (computers.isEmpty()) {
             tvPairingTitle.setText(R.string.pair_title)
             tvPairingHint.visibility = View.VISIBLE
@@ -506,12 +507,11 @@ class MainActivity : AppCompatActivity() {
         tvPairingTitle.text = getString(if (computers.size == 1) R.string.paired_computer_title else R.string.paired_computers_title)
         tvPairingHint.visibility = View.GONE
         // Newest first, and only the first few until asked, so a long list doesn't push the other cards off the screen
-        val newest = computers.sortedByDescending { it.pairedAtMs }
-        val folded = newest.size > COMPUTERS_SHOWN && !showAllComputers
-        (if (folded) newest.take(COMPUTERS_SHOWN) else newest).forEach { layoutComputers.addView(buildComputerRow(it)) }
-        if (newest.size > COMPUTERS_SHOWN) layoutComputers.addView(
+        val folded = computers.size > COMPUTERS_SHOWN && !showAllComputers
+        paired.shown(COMPUTERS_SHOWN, showAllComputers).forEach { layoutComputers.addView(buildComputerRow(it)) }
+        if (computers.size > COMPUTERS_SHOWN) layoutComputers.addView(
             TextView(this).apply {
-                text = if (folded) getString(R.string.show_all_computers, newest.size) else getString(R.string.show_fewer)
+                text = if (folded) getString(R.string.show_all_computers, computers.size) else getString(R.string.show_fewer)
                 setTextAppearance(R.style.TextAppearance_Telescope_Body)
                 setTextColor(resources.getColor(R.color.hueSky, theme))
                 typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
@@ -797,8 +797,7 @@ class MainActivity : AppCompatActivity() {
         if (service == null) return
         if (!bound) rebindToService()
         // Toast "started from your desktop" only once per remote start
-        if (!service.remoteStartAnnounced && service.startedRemotely && service.isStreaming) {
-            service.remoteStartAnnounced = true
+        if (service.remoteStartNotice.take(service.isStreaming)) {
             Toast.makeText(this, R.string.streaming_started_remotely, Toast.LENGTH_SHORT).show()
         }
     }

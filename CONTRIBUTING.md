@@ -12,13 +12,13 @@ Thanks for looking! You don't need to write code to help.
 
 ## With code
 
-The Android app is in `android/` (Kotlin, Camera2) and the desktop app in `desktop/` (Python, PyQt6). [Architecture](docs/architecture.md) shows how they fit together and [desktop/MODULES.md](desktop/MODULES.md) goes through the desktop module by module.
+The Android app is in `android/` (Kotlin, Camera2) and the desktop app in `desktop/` (Python, PyQt6). [Architecture](docs/architecture.md) introduces the code and links to the detailed references. Start with [the desktop development setup](docs/building.md#run-the-desktop-app-from-source) to prepare Python and the test dependencies.
 
 To try a change on a real phone without touching your normal install:
 
 ```bash
-cd android && ./gradlew installDev                 # a separate dev app on the phone
-cd desktop && python scripts/dev_desktop.py --keep # a dev desktop that pairs with it
+(cd android && ./gradlew installDev)               # a separate dev app on the phone
+cd desktop && python scripts/dev_desktop.py --keep # use your activated development environment
 ```
 
 [Building and CI](docs/building.md) has the details.

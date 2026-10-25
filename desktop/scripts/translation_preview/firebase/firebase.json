@@ -1,0 +1,16 @@
+{
+  "firestore": {"rules": "firestore.rules", "indexes": "firestore.indexes.json"},
+  "hosting": {
+    "site": "telescope-localization",
+    "public": "public",
+    "ignore": [".*"],
+    "rewrites": [{"source": "/api/**", "run": {"serviceId": "translation-workbench", "region": "europe-west1", "pinTag": true}}],
+    "headers": [{"source": "**", "headers": [
+      {"key": "X-Content-Type-Options", "value": "nosniff"},
+      {"key": "Referrer-Policy", "value": "strict-origin-when-cross-origin"},
+      {"key": "Content-Security-Policy", "value": "object-src 'none'; base-uri 'self'; frame-ancestors 'none'"},
+      {"key": "Cache-Control", "value": "no-cache"}
+    ]}]
+  },
+  "emulators": {"auth": {"port": 9099}, "firestore": {"port": 8085}, "singleProjectMode": true}
+}
