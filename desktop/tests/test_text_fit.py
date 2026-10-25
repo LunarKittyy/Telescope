@@ -123,9 +123,9 @@ def test_a_switch_wraps_a_long_name_and_cuts_a_word_too_long_for_it(qt_widgets, 
     lay.setContentsMargins(0, 0, 0, 0)
     words, word = Switch("Stop the stream"), Switch("Microphone")
     fm = words.fontMetrics()
-    room = fm.horizontalAdvance("Microphone") - 10  # every word of the other one fits, this one word doesn't
-    assert max(fm.horizontalAdvance(w) for w in ("Stop", "the", "stream")) < room
-    for switch in (words, word):
+    two_lines = max(fm.horizontalAdvance("Stop the"), fm.horizontalAdvance("stream")) + 4
+    too_short = fm.horizontalAdvance("Microphone") - 10
+    for switch, room in ((words, two_lines), (word, too_short)):
         switch.setFixedSize(room + 12 + 36, 3 * fm.height())  # 12 px gap, then the 36 px track
         lay.addWidget(switch)
     found = text_fit.check(_shown(box, 400, 3 * fm.height()), "en", "test", english)
