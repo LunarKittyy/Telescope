@@ -108,6 +108,8 @@ Hand it one file and the notes above. Things worth asking for:
 - Use one word for each thing across both apps. "Add phone" on the desktop and "Scan pairing code" on the phone are names of buttons that the other app's texts refer to
 - Have a person who speaks the language read through it in the running app before it ships
 
+For bigger runs, [automation/translation](../automation/translation/README.md) has the setup used for the languages so far: a glossary per language, prompts, `kit.py` for what's left and for the checks no model needs to do, and a review pack of screenshots for someone who speaks the language.
+
 ## First drafts
 
 A translation nobody who speaks the language has checked yet can still ship, marked as a first draft. The desktop's Language list puts "(beta)" after its name, and both apps say it's a first draft (in Settings > General on the desktop, in About on the phone). Two things mark it, and both come off once someone has read it through:

@@ -2,6 +2,8 @@
 
 Run before tagging. CI covers pytest, Android unit tests, and packaging smoke checks; everything here needs a real phone and desktop.
 
+Some of it can be done against a nightly in a VM and the Android emulator first. [automation/release-testing](../automation/release-testing/README.md) has the scripts and notes for that.
+
 ## Cutting a stable release
 
 1. Set `VERSION` to the new version (e.g. `3.1.0`) and merge that to `master`.
