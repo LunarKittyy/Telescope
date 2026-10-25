@@ -35,8 +35,34 @@ const sectionKeys = s => [...new Set(s.scenes.flatMap(id => data.coverage.scenes
 function fillScenes(preferred) {
   const current = data.sections.find(s => s.id === section);
   $('scene').replaceChildren();
-  for (const id of current.scenes) $('scene').add(new Option(data.scenes[id], id));
+  // "Setup guide · Windows driver missing" goes under a Setup guide group as "Windows driver missing"
+  const groups = new Map();
+  for (const id of current.scenes) {
+    const [group, ...rest] = data.scenes[id].split(' · ');
+    if (!groups.has(group)) groups.set(group, []);
+    groups.get(group).push([id, rest.join(' · ') || group]);
+  }
+  for (const [group, items] of groups) {
+    const parent = groups.size > 1 && items.length > 1 ? Object.assign(document.createElement('optgroup'), {label:group}) : $('scene');
+    for (const [id, label] of items) parent.append(new Option(parent === $('scene') && label !== group ? `${group} · ${label}` : label, id));
+    if (parent !== $('scene')) $('scene').append(parent);
+  }
   if (preferred && current.scenes.includes(preferred)) $('scene').value = preferred;
+}
+// The screens in this section that show a text, the current one first
+function scenesFor(k) {
+  const current = data.sections.find(s => s.id === section);
+  return (current?.scenes || []).filter(id => (data.coverage.scenes[id] || []).includes(k));
+}
+function sceneSteps() {
+  const list = selected ? scenesFor(selected) : [], at = list.indexOf($('scene').value);
+  $('scene-steps').hidden = list.length < 2;
+  $('scene-count').textContent = list.length > 1 ? `${at >= 0 ? at + 1 : 1} of ${list.length} screens with this text` : '';
+}
+function stepScene(by) {
+  const list = scenesFor(selected); if (list.length < 2) return;
+  const at = list.indexOf($('scene').value);
+  $('scene').value = list[(at + by + list.length) % list.length]; preferredKey = selected; clearTimeout(timer); render();
 }
 function sectionRows() {
   $('section-list').replaceChildren();
@@ -51,9 +77,10 @@ function sectionRows() {
     progress.append(count, open); row.append(text, progress); $('section-list').append(row);
   }
 }
+function listKeys() { const current = data.sections.find(s => s.id === section); return current ? sectionKeys(current) : sceneKeys(); }
 function sceneKeys() { return image ? [...new Set(image.regions.map(r => r.key))].filter(k => data.entries[k]) : (data?.coverage.scenes[$('scene').value] || []).filter(k => data.entries[k]); }
 function updateProgress() {
-  const keys = sceneKeys(), done = keys.filter(humanChecked).length;
+  const keys = listKeys(), done = keys.filter(humanChecked).length;
   $('progress').textContent = `${done} of ${keys.length} approved`;
   $('reset').disabled = !selected || !Object.hasOwn(drafts[lang] || {}, selected);
   $('export').disabled = lang === 'en' || Boolean($('error').textContent) || busy;
@@ -67,7 +94,7 @@ function updateProgress() {
 }
 function rows() {
   const search = $('search').value.toLocaleLowerCase();
-  const keys = sceneKeys().filter(k => `${data.entries[k].english} ${value(k)}`.toLocaleLowerCase().includes(search));
+  const keys = listKeys().filter(k => `${data.entries[k].english} ${value(k)}`.toLocaleLowerCase().includes(search));
   $('texts').replaceChildren(); $('empty').hidden = keys.length > 0;
   for (const k of keys) {
     const button = document.createElement('button'); button.className = 'text-row'; button.setAttribute('aria-pressed', String(k === selected));
@@ -256,6 +283,8 @@ const placements = {tooltip:'Tooltip shown when the highlighted control is hover
 function choose(k) {
   if (!data.entries[k]) return;
   selected = k; $('edit').hidden = false;
+  if (image && !sceneKeys().includes(k) && scenesFor(k).length) { $('scene').value = scenesFor(k)[0]; preferredKey = k; clearTimeout(timer); render(); }
+  sceneSteps();
   const entry = data.entries[k]; $('english').textContent = entry.english;
   $('translation').value = value(k); $('translation').disabled = lang === 'en';
   $('translation').lang = lang.replace('_','-');
@@ -264,7 +293,7 @@ function choose(k) {
   const uses = (image?.regions || []).filter(r => r.key === k);
   $('fields').textContent = uses.find(r => Object.keys(r.values).length) ? `Example values: ${JSON.stringify(uses.find(r => Object.keys(r.values).length).values)}` : 'An empty translation falls back to English.';
   $('placement').textContent = placements[uses[0]?.slot] || '';
-  rows(); highlight(); suggestionList();
+  rows(); highlight(); suggestionList(); focusSelection();
 }
 async function post(path, extra = {}) {
   const response = await fetch(path, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lang,scene:$('scene').value,drafts:currentDrafts(),revision:data.revision,...extra})});
@@ -280,7 +309,7 @@ async function render() {
     image = result;
     const picture = document.createElement('img'); picture.id = 'preview';
     picture.alt = `${data.scenes[image.scene]} rendered by Telescope`; picture.src = `data:image/png;base64,${image.image}`;
-    $('preview-mount').replaceChildren(picture);
+    $('preview-mount').replaceChildren(picture); sizePicture();
     $('error').textContent = '';
     $('render-status').textContent = ''; $('refresh').hidden = true;
     $('fit').textContent = image.findings.map(f => `${f.kind}: ${f.text}`).join('\n');
@@ -303,12 +332,26 @@ $('translation').oninput = () => {
   save(); rows(); clearTimeout(timer); generation++; $('render-status').textContent = 'Draft changed. Preview updating…';
   timer = setTimeout(render, 650);
 };
-$('zoom').onclick = () => {
-  const enlarged = $('zoom').getAttribute('aria-pressed') !== 'true';
-  $('zoom').setAttribute('aria-pressed', String(enlarged));
-  $('zoom').textContent = enlarged ? 'Fit to width' : 'Actual size';
-  $('picture').parentElement.classList.toggle('actual-size', enlarged);
-};
+// Big screens open at actual size, scrolled to the text being edited; Fit shows the whole screen at once
+let fitChosen = false;
+function sizePicture() {
+  if (!image) return;
+  const stage = $('picture').parentElement, actual = !fitChosen && image.width > stage.clientWidth - 40;
+  stage.classList.toggle('actual-size', actual);
+  $('picture').style.width = actual ? `${image.width}px` : `min(100%, ${image.width}px)`;
+  $('zoom').hidden = image.width <= stage.clientWidth - 40;
+  $('zoom').setAttribute('aria-pressed', String(!actual));
+  $('zoom').textContent = actual ? 'Fit to screen' : 'Zoom to text';
+  focusSelection();
+}
+function focusSelection() {
+  const stage = $('picture').parentElement, region = (image?.regions || []).find(r => r.key === selected);
+  if (!region || !stage.classList.contains('actual-size')) return;
+  const [x, y, w, h] = region.rect;
+  stage.scrollTo({left: $('picture').offsetLeft + x + w / 2 - stage.clientWidth / 2, top: $('picture').offsetTop + y + h / 2 - stage.clientHeight / 2, behavior: 'smooth'});
+}
+$('zoom').onclick = () => { fitChosen = !fitChosen; sizePicture(); };
+addEventListener('resize', () => sizePicture());
 $('search').oninput = rows;
 $('refresh').onclick = () => { clearTimeout(timer); render(); };
 $('scene').onchange = () => { clearTimeout(timer); render(); };
@@ -715,3 +758,5 @@ $('language-create-form').onsubmit = async event => {
   finally { $('language-create').disabled = false; }
 };
 start();
+$('scene-prev').onclick = () => stepScene(-1);
+$('scene-next').onclick = () => stepScene(1);

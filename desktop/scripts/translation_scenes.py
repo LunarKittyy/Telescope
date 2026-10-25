@@ -86,7 +86,9 @@ def section(id, title, description):
 
 def sections():
     """The sections that have scenes, each with its scene ids in order."""
-    return [{**s, "scenes": list(s["scenes"])} for s in SECTIONS.values() if s["scenes"]]
+    # The main window comes first, then its Phone card up close
+    up_close = ("cool", "warm", "hot")
+    return [{**s, "scenes": sorted(s["scenes"], key=lambda id: id in up_close)} for s in SECTIONS.values() if s["scenes"]]
 
 
 def scene(id, section_id, title, width=0):
@@ -226,7 +228,7 @@ def grow(widget, width, height):
 
 # ── Phone card ───────────────────────────────────────────────────────────────
 
-section("phone", "Phone card", "Battery, temperature and heat warnings")
+section("main", "Main window", "The cards, banners and layouts of the main window, including the Phone card")
 
 
 class PhoneHost:
@@ -282,24 +284,23 @@ def phone(stack, state):
     return top
 
 
-@scene("cool", "phone", "Phone · cool and charging", width=620)
+@scene("cool", "main", "Phone · cool and charging", width=620)
 def phone_cool(stack):
     return phone(stack, "cool")
 
 
-@scene("warm", "phone", "Phone · warm", width=620)
+@scene("warm", "main", "Phone · warm", width=620)
 def phone_warm(stack):
     return phone(stack, "warm")
 
 
-@scene("hot", "phone", "Phone · stopped for heat", width=620)
+@scene("hot", "main", "Phone · stopped for heat", width=620)
 def phone_hot(stack):
     return phone(stack, "hot")
 
 
 # ── Main window ──────────────────────────────────────────────────────────────
 
-section("main", "Main window", "The cards, banners and layouts of the main window")
 
 
 def window_at(stack, width):

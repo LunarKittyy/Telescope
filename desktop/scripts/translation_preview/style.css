@@ -71,8 +71,8 @@ details p { margin-top: 12px; }
 .region { position: absolute; padding: 0; border-radius: 4px; background: transparent; border: 2px solid transparent; }
 .region:hover { background: #d4b7ff20; border-color: #d4b7ff99; }
 .region.selected { border-color: var(--accent); background: #d4b7ff18; }
-.preview-stage.actual-size { overflow-x: auto; justify-content: flex-start; }
-.preview-stage.actual-size #picture { width: 620px; max-width: none; flex-shrink: 0; margin-inline: auto; }
+.preview-stage.actual-size { overflow: auto; max-height: 72vh; justify-content: flex-start; align-items: flex-start; }
+.preview-stage.actual-size #picture { max-width: none; flex-shrink: 0; margin: auto; }
 #zoom { font-size: 12px; padding: 6px 12px; }
 #zoom[aria-pressed="true"] { background: var(--selected); color: var(--ink); }
 .preview-caption { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 12px 0 20px; font-size: 12px; color: var(--muted); }
@@ -297,3 +297,5 @@ input[type="checkbox"] { accent-color: var(--accent); }
 #person-languages strong { color: var(--ink); font-weight: 650; }
 .suggestion .person-link { padding: 0; font-size: inherit; }
 .suggestion-head .avatar { margin-right: -2px; }
+.scene-steps { display: flex; align-items: center; gap: 6px; margin-right: auto; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.scene-steps button { padding: 6px 12px; font-size: 16px; line-height: 1; }
