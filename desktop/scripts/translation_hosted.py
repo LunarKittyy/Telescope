@@ -18,7 +18,7 @@ from scripts import translation_account as account
 from scripts import translation_preview as preview
 
 PROJECT = 'telescope-localization'
-ORIGINS = {f'https://{PROJECT}.web.app', f'https://{PROJECT}.firebaseapp.com'}
+ORIGINS = {f'https://{PROJECT}.web.app', f'https://{PROJECT}.firebaseapp.com', 'https://translation.telescope.webcam'}
 catalogue_lock = threading.Lock()
 project_slot = threading.BoundedSemaphore(1)
 
