@@ -55,7 +55,9 @@ Imports compare the last imported Git snapshot, the platform's current version a
 
 **Export language** downloads a ZIP containing the full `.po` catalogue and its `translation-state/LANGUAGE.json` review record. Approved platform changes replace the imported Git wording; unapproved changes are excluded. Put the `.po` file in `desktop/telescope/locale/` and the review record in `desktop/translation-state/`, then review and commit both. The platform needs no GitHub write access.
 
-**Back up whole project** includes the import base, working translations, pending suggestions, conflict records and archived strings. A backup can be restored into an empty project. Firebase saves stage immutable chunks before switching the current-version pointer. If another admin publishes first, the stale save fails and asks for a reload.
+**Back up whole project** includes the import base, working translations, pending suggestions, conflict records and archived strings. A backup can be restored into an empty project. Imports, conflict fixes, `.po` imports and restores save a whole new project version in chunks before switching the current-version pointer. If another admin publishes first, the stale save fails and asks for a reload.
+
+Approving or dismissing a suggestion doesn't save a new version, so several admins can review at the same time without tripping over each other. An approval is one small document in `approvals/LANGUAGE-ENTRY`, written in the same batch that marks the suggestion approved. Opening a language doesn't download the whole project either. Every saved version comes with a summary in `projections/` (the translations, who approved what and the per-language counts) and the editor lays any approvals newer than that version over it. Exports, `translation_sync.py` and the next import fold those approvals into the project for real. An approval for a text whose English changed since, or one with an open conflict, is skipped.
 
 ### Syncing from the command line
 
