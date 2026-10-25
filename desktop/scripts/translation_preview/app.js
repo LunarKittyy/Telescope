@@ -1,0 +1,763 @@
+const $ = id => document.getElementById(id);
+let data, image, selected, generation = 0, timer, busy = false;
+let drafts = {}, reviewed = {}, lang = 'es';
+let shared, sharedUser = null, sharedRole = null, submitting = false, adminUi, preferredKey;
+let repositoryData, cloudOverrides = {};
+let selectedSubmission, sharedState, suggestions = new Map(), votes = new Map(), voted = new Map();
+let profileFields;
+let localLanguages = [], languageCreator;
+let section = '', preferredScene = '';
+const storageKey = 'telescope-translation-preview-v1';
+try { const saved = JSON.parse(localStorage.getItem(storageKey) || '{}'); drafts = saved.drafts || {}; reviewed = saved.prepared || saved.reviewed || {}; lang = saved.lang || lang; localLanguages = saved.localLanguages || []; } catch {}
+// Codes and keys come from browser storage and the address bar, so writes skip names that reach Object.prototype
+function setDraft(store, code, key, text) {
+  if (code === '__proto__' || code === 'constructor' || code === 'prototype' || key === '__proto__' || key === 'constructor' || key === 'prototype') return;
+  if (!Object.hasOwn(store, code)) store[code] = {};
+  store[code][key] = text;
+}
+function dropDraft(store, code, key) {
+  if (code === '__proto__' || code === 'constructor' || code === 'prototype' || key === '__proto__' || key === 'constructor' || key === 'prototype') return;
+  if (Object.hasOwn(store, code)) delete store[code][key];
+}
+const currentDrafts = () => ({...(cloudOverrides[lang] || {}),...(voted.get(lang) || {}),...Object.fromEntries(Object.entries(drafts[lang] || {}).filter(([k]) => data?.entries[k]))});
+const original = k => lang === 'en' ? data.entries[k].english : (data.translations[lang]?.[k] || '');
+const value = k => currentDrafts()[k] ?? original(k);
+const reviewStamp = k => JSON.stringify([value(k), data.revision]);
+const humanChecked = k => Boolean(value(k)) && Boolean(data.approvals?.[lang]?.[k]) && value(k) === original(k);
+const prepared = k => Boolean(value(k)) && reviewed[lang]?.[k] === reviewStamp(k);
+const save = () => { try { localStorage.setItem(storageKey, JSON.stringify({drafts, prepared:reviewed, lang,localLanguages})); } catch { $('draft-status').textContent = 'Browser storage is unavailable. Download your draft before closing.'; } };
+function addLocalLanguage(code) {
+  if (data.languages.includes(code)) return;
+  data.languages.push(code); data.translations[code] = {}; data.approvals[code] = {};
+  data.language_stats[code] = {total:data.total,translated:0,approved:0,machine:0};
+}
+const sectionKeys = s => [...new Set(s.scenes.flatMap(id => data.coverage.scenes[id] || []))].filter(k => data.entries[k]);
+function fillScenes(preferred) {
+  const current = data.sections.find(s => s.id === section);
+  $('scene').replaceChildren();
+  // "Setup guide · Windows driver missing" goes under a Setup guide group as "Windows driver missing"
+  const groups = new Map();
+  for (const id of current.scenes) {
+    const [group, ...rest] = data.scenes[id].split(' · ');
+    if (!groups.has(group)) groups.set(group, []);
+    groups.get(group).push([id, rest.join(' · ') || group]);
+  }
+  for (const [group, items] of groups) {
+    const parent = groups.size > 1 && items.length > 1 ? Object.assign(document.createElement('optgroup'), {label:group}) : $('scene');
+    for (const [id, label] of items) parent.append(new Option(parent === $('scene') && label !== group ? `${group} · ${label}` : label, id));
+    if (parent !== $('scene')) $('scene').append(parent);
+  }
+  if (preferred && current.scenes.includes(preferred)) $('scene').value = preferred;
+}
+// The screens in this section that show a text, the current one first
+function scenesFor(k) {
+  const current = data.sections.find(s => s.id === section);
+  return (current?.scenes || []).filter(id => (data.coverage.scenes[id] || []).includes(k));
+}
+function sceneSteps() {
+  const list = selected ? scenesFor(selected) : [], at = list.indexOf($('scene').value);
+  $('scene-steps').hidden = list.length < 2;
+  $('scene-count').textContent = list.length > 1 ? `${at >= 0 ? at + 1 : 1} of ${list.length} screens with this text` : '';
+}
+function stepScene(by) {
+  const list = scenesFor(selected); if (list.length < 2) return;
+  const at = list.indexOf($('scene').value);
+  $('scene').value = list[(at + by + list.length) % list.length]; preferredKey = selected; clearTimeout(timer); render();
+}
+function sectionRows() {
+  $('section-list').replaceChildren();
+  for (const s of data.sections) {
+    const keys = sectionKeys(s), approved = keys.filter(humanChecked).length;
+    const row = document.createElement('a'); row.className = 'area-row'; row.href = `#edit/${lang}/${s.id}`;
+    const text = document.createElement('div'), name = document.createElement('strong'), note = document.createElement('p');
+    name.textContent = s.title; note.textContent = s.description; text.append(name, note);
+    const progress = document.createElement('div'); progress.className = 'area-progress';
+    const count = document.createElement('span'); count.textContent = `${approved} / ${keys.length} approved`;
+    const open = document.createElement('span'); open.className = 'open-label'; open.textContent = 'Open editor';
+    progress.append(count, open); row.append(text, progress); $('section-list').append(row);
+  }
+}
+function listKeys() { const current = data.sections.find(s => s.id === section); return current ? sectionKeys(current) : sceneKeys(); }
+function sceneKeys() { return image ? [...new Set(image.regions.map(r => r.key))].filter(k => data.entries[k]) : (data?.coverage.scenes[$('scene').value] || []).filter(k => data.entries[k]); }
+function updateProgress() {
+  const keys = listKeys(), done = keys.filter(humanChecked).length;
+  $('progress').textContent = `${done} of ${keys.length} approved`;
+  $('reset').disabled = !selected || !Object.hasOwn(drafts[lang] || {}, selected);
+  $('export').disabled = lang === 'en' || Boolean($('error').textContent) || busy;
+  $('approve').hidden = data?.mode !== 'admin' && !['owner','admin'].includes(sharedRole);
+  $('approve').disabled = busy || !image || !value(selected) || Boolean($('error').textContent) || (sharedUser && !shared?.username);
+  $('submit').hidden = !sharedUser || data?.mode === 'admin';
+  $('submit').classList.toggle('primary', $('approve').hidden);
+  $('review').classList.toggle('primary', $('approve').hidden && $('submit').hidden);
+  $('submit').disabled = submitting || busy || !image || !value(selected) || Boolean($('error').textContent);
+  $('review').disabled = !selected;
+}
+function rows() {
+  const search = $('search').value.toLocaleLowerCase();
+  const keys = listKeys().filter(k => `${data.entries[k].english} ${value(k)}`.toLocaleLowerCase().includes(search));
+  $('texts').replaceChildren(); $('empty').hidden = keys.length > 0;
+  for (const k of keys) {
+    const button = document.createElement('button'); button.className = 'text-row'; button.setAttribute('aria-pressed', String(k === selected));
+    const title = document.createElement('span'); title.textContent = value(k) || data.entries[k].english;
+    const note = document.createElement('small'); const done = humanChecked(k);
+    const waiting = sharedUser ? pendingFor(k).length : 0;
+    note.textContent = `${done ? 'Approved · ' : ''}${waiting ? `${waiting} ${waiting === 1 ? 'suggestion' : 'suggestions'} · ` : ''}${data.entries[k].english}`; note.className = done ? 'reviewed' : '';
+    button.append(title, note); button.onclick = () => choose(k); $('texts').append(button);
+  }
+  updateProgress();
+}
+// Everyone signed in sees the suggestions for a text and can start from one; admins review them here too
+async function loadSuggestions() {
+  const code = lang;
+  if (!sharedUser || !shared || code === 'en') { suggestions = new Map(); return; }
+  try {
+    const [items, cast] = await Promise.all([shared.suggestions(code), shared.votes(code)]), next = new Map(), tally = new Map();
+    if (code !== lang) return;
+    for (const item of items) if (item.status !== 'dismissed') next.set(item.entry, [...(next.get(item.entry) || []), item]);
+    for (const list of next.values()) list.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+    for (const vote of cast) {
+      const count = tally.get(vote.suggestion) || {up:0, down:0, mine:0};
+      count[vote.value > 0 ? 'up' : 'down']++; if (vote.voter === 'github:' + shared.username) count.mine = vote.value;
+      tally.set(vote.suggestion, count);
+    }
+    const before = JSON.stringify(voted.get(lang) || {});
+    suggestions = next; votes = tally; pickVoted();
+    if (selected && data.entries[selected]) choose(selected); else rows();
+    if (image && JSON.stringify(voted.get(lang) || {}) !== before) render();
+  } catch { $('suggestion-list').replaceChildren(listNote('Suggestions could not be loaded. Reload to try again.')); }
+}
+const MACHINE = 'llm';
+const score = item => { const count = votes.get(item.id); return count ? count.up - count.down : 0; };
+// The machine's wording counts as a suggestion too, so people can vote on it like any other
+function suggestionsFor(k) {
+  const entry = data.entries[k], list = (suggestions.get(entry.id) || []).filter(item => item.sourceDigest === entry.sourceDigest);
+  if (data.machine?.[lang]?.has(k)) list.push({id:`llm-${lang}-${entry.id}`, author:MACHINE, text:data.translations[lang][k], status:'machine', language:lang, entry:entry.id, sourceDigest:entry.sourceDigest});
+  return list;
+}
+// What the box starts with: the approved wording, else the best scored suggestion, with ties going to the machine's
+// wording (or an imported draft) and then to the newest suggestion
+function topSuggestion(k) {
+  if (data.approvals?.[lang]?.[k]) return null;
+  const list = suggestionsFor(k).filter(item => item.status === 'pending' || item.status === 'machine');
+  const baseline = list.find(item => item.status === 'machine');
+  let best = baseline, bar = baseline ? score(baseline) : 0;
+  for (const item of list) if (item.status === 'pending' && score(item) > bar) { best = item; bar = score(item); }
+  return best;
+}
+function pickVoted() {
+  const chosen = Object.create(null);
+  voted.set(lang, chosen);
+  if (!sharedUser || lang === 'en') return;
+  for (const k of Object.keys(data.entries)) {
+    const best = topSuggestion(k);
+    if (best && best.status === 'pending' && best.text !== original(k)) chosen[k] = best.text;
+  }
+}
+const listNote = message => { const item = document.createElement('li'); item.className = 'suggestion-empty'; item.textContent = message; return item; };
+const authorName = author => author === 'anonymous' ? 'Anonymous' : author.replace('github:', '');
+const pendingFor = k => (suggestions.get(data.entries[k]?.id) || []).filter(item => item.status === 'pending' && item.sourceDigest === data.entries[k].sourceDigest);
+function ago(stamp) {
+  const seconds = (Date.now() - (stamp?.toMillis?.() || Date.now())) / 1000, format = new Intl.RelativeTimeFormat('en', {numeric:'auto'});
+  for (const [unit, size] of [['day', 86400], ['hour', 3600], ['minute', 60]]) if (seconds >= size) return format.format(-Math.floor(seconds / size), unit);
+  return 'just now';
+}
+function avatar(author) {
+  const picture = document.createElement('span'); picture.className = 'avatar'; picture.setAttribute('aria-hidden', 'true');
+  if (author === MACHINE) { picture.classList.add('machine'); picture.textContent = 'AI'; }
+  else if (author === 'anonymous') picture.textContent = '?';
+  else { const image = document.createElement('img'); image.src = `https://github.com/${encodeURIComponent(authorName(author))}.png?size=48`; image.alt = ''; image.loading = 'lazy'; picture.append(image); }
+  return picture;
+}
+const thumb = up => `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"${up ? '' : ' style="transform:rotate(180deg)"'}><path fill="currentColor" d="M2 21h3V9H2v12Zm19-11a2 2 0 0 0-2-2h-6.3l1-4.6v-.3c0-.4-.2-.8-.4-1.1L12.2 1 5.6 7.6A2 2 0 0 0 5 9v10a2 2 0 0 0 2 2h9c.8 0 1.5-.5 1.8-1.2l3-7.1.2-.7v-2Z"/></svg>`;
+function voteButtons(item, refresh) {
+  const box = document.createElement('div'); box.className = 'votes';
+  const count = votes.get(item.id) || {up:0, down:0, mine:0}, own = item.author === 'github:' + shared.username;
+  for (const [value, label] of [[1, 'Like'], [-1, 'Dislike']]) {
+    const button = document.createElement('button'); button.className = 'vote';
+    button.innerHTML = thumb(value > 0); button.append(String(value > 0 ? count.up : count.down));
+    button.setAttribute('aria-label', `${label} (${value > 0 ? count.up : count.down})`);
+    button.setAttribute('aria-pressed', String(count.mine === value));
+    button.disabled = own || !shared.username; if (own) button.title = 'You can’t vote on your own suggestion';
+    button.onclick = async () => {
+      const next = count.mine === value ? 0 : value;
+      for (const other of box.querySelectorAll('button')) other.disabled = true;
+      try {
+        await shared.vote({suggestion:item.id, language:lang, entry:item.entry}, next);
+        const updated = {...count}; if (count.mine) updated[count.mine > 0 ? 'up' : 'down']--; if (next) updated[next > 0 ? 'up' : 'down']++; updated.mine = next;
+        votes.set(item.id, updated); refresh();
+      } catch (error) { $('draft-status').textContent = error.message; refresh(); }
+    };
+    box.append(button);
+  }
+  return box;
+}
+function suggestionList() {
+  const entry = data.entries[selected], admin = ['owner','admin'].includes(sharedRole);
+  $('suggestions').hidden = !sharedUser || lang === 'en';
+  if ($('suggestions').hidden) return;
+  const list = suggestionsFor(selected).sort((a, b) => score(b) - score(a)), top = topSuggestion(selected);
+  $('suggestion-list').replaceChildren();
+  if (!list.length) { $('suggestion-list').append(listNote('No suggestions yet. What you suggest shows up here for others to build on.')); return; }
+  const refresh = () => { const before = JSON.stringify(voted.get(lang) || {}); pickVoted(); choose(selected); if (JSON.stringify(voted.get(lang) || {}) !== before) render(); };
+  for (const item of list) {
+    const row = document.createElement('li'); row.className = 'suggestion';
+    const head = document.createElement('div'); head.className = 'suggestion-head';
+    const machine = item.author === MACHINE, name = machine ? 'LLM Translate' : authorName(item.author);
+    let who;
+    if (machine || item.author === 'anonymous') { who = document.createElement('span'); who.className = 'person-name'; who.textContent = name; }
+    else { who = document.createElement('button'); who.className = 'person-link'; who.textContent = item.author === 'github:' + shared.username ? `${name} (you)` : name; who.onclick = () => showPerson(name); }
+    const when = document.createElement('small');
+    when.textContent = machine ? 'waiting for review' : `${ago(item.createdAt)} · ${item.status === 'approved' ? 'approved' : 'waiting for review'}`;
+    head.append(avatar(item.author), who, when);
+    if (item === top && list.length > 1) { const badge = document.createElement('span'); badge.className = 'badge'; badge.textContent = 'Top suggestion'; badge.title = 'The best voted wording fills the translation box until one is approved'; head.append(badge); }
+    const wording = document.createElement('p'); wording.textContent = item.text; wording.lang = lang.replace('_','-');
+    const actions = document.createElement('div'); actions.className = 'row-actions';
+    const use = document.createElement('button'); use.textContent = 'Use this';
+    use.onclick = () => { $('translation').value = item.text; $('translation').dispatchEvent(new Event('input')); $('translation').focus(); };
+    actions.append(use);
+    if (admin && (item.status === 'pending' || machine)) {
+      const approve = document.createElement('button'); approve.textContent = 'Approve';
+      const review = async work => {
+        for (const button of actions.querySelectorAll('button')) button.disabled = true;
+        try { await work(); } catch (error) { $('draft-status').textContent = error.message; }
+        suggestionList(); rows();
+      };
+      approve.onclick = () => review(async () => {
+        const approval = {language:item.language, entry:item.entry, sourceDigest:item.sourceDigest, text:item.text, submission:machine ? '' : item.id, author:item.author === MACHINE ? 'machine' : item.author};
+        sharedApproved({...approval, reviewer:await shared.approve(approval)});
+        if (!machine) item.status = 'approved';
+        dropDraft(drafts, lang, selected); save(); pickVoted(); choose(selected); render();
+        $('draft-status').textContent = machine ? 'Approved the machine’s wording.' : `Approved ${name}’s wording.`;
+      });
+      actions.append(approve);
+      if (!machine) {
+        const dismiss = document.createElement('button'); dismiss.textContent = 'Dismiss';
+        dismiss.onclick = () => review(async () => {
+          await shared.dismiss(item.id);
+          suggestions.set(entry.id, (suggestions.get(entry.id) || []).filter(other => other !== item));
+          pickVoted(); choose(selected);
+          $('draft-status').textContent = 'Suggestion dismissed.';
+        });
+        actions.append(dismiss);
+      }
+    }
+    actions.append(voteButtons(item, refresh));
+    row.append(head, wording, actions); $('suggestion-list').append(row);
+  }
+}
+async function showPerson(name) {
+  $('person-name').textContent = name; $('person-bio').textContent = 'Loading…'; $('person-languages').textContent = '';
+  $('person-avatar').src = `https://github.com/${encodeURIComponent(name)}.png?size=96`;
+  $('person-github').href = `https://github.com/${encodeURIComponent(name)}`;
+  $('person').showModal();
+  try {
+    const person = await shared.person(name);
+    $('person-bio').textContent = person?.bio || 'No bio yet.';
+    const native = person?.nativeLanguage, others = (person?.languages || []).filter(code => code && code !== native);
+    const spoken = [...(native ? [native] : []), ...others];
+    $('person-languages').replaceChildren(...(spoken.length ? ['Speaks ', ...spoken.flatMap((code, index) => {
+      const name = languageName(code.replace('-','_')), part = code === native ? Object.assign(document.createElement('strong'), {textContent:name, title:'Native language'}) : name;
+      return index ? [', ', part] : [part];
+    })] : []));
+  } catch { $('person-bio').textContent = 'This profile could not be loaded.'; }
+}
+$('person-close').onclick = () => $('person').close();
+function highlight() {
+  $('regions').replaceChildren();
+  for (const r of image?.regions || []) {
+    if (r.slot === 'tooltip' && r.key !== selected) continue;
+    const b = document.createElement('button'); b.className = `region${r.key === selected ? ' selected' : ''}`;
+    b.tabIndex = -1; b.setAttribute('aria-label', data.entries[r.key]?.english || r.shown);
+    b.title = r.shown;
+    const [x,y,w,h] = r.rect;
+    Object.assign(b.style, {left:`${100*x/image.width}%`,top:`${100*y/image.height}%`,width:`${100*w/image.width}%`,height:`${100*h/image.height}%`});
+    b.onclick = () => choose(r.key); $('regions').append(b);
+  }
+  const tip = image?.tips?.[selected];
+  if (tip) {
+    const img = document.createElement('img'); img.className = 'tip'; img.alt = ''; img.src = `data:image/png;base64,${tip.image}`;
+    Object.assign(img.style, {left:`${100*Math.max(0, Math.min(tip.x, image.width - tip.width))/image.width}%`,top:`${100*Math.min(tip.y, image.height - tip.height)/image.height}%`,width:`${100*tip.width/image.width}%`});
+    $('regions').append(img);
+  }
+}
+const placements = {tooltip:'Tooltip shown when the highlighted control is hovered', 'window title':'Title of the highlighted window', 'search keywords':'Words that find this result when typed into Settings search', 'editor search keywords':'Words that find this control when typed into the shortcut search'};
+function choose(k) {
+  if (!data.entries[k]) return;
+  selected = k; $('edit').hidden = false;
+  if (image && !sceneKeys().includes(k) && scenesFor(k).length) { $('scene').value = scenesFor(k)[0]; preferredKey = k; clearTimeout(timer); render(); }
+  sceneSteps();
+  const entry = data.entries[k]; $('english').textContent = entry.english;
+  $('translation').value = value(k); $('translation').disabled = lang === 'en';
+  $('translation').lang = lang.replace('_','-');
+  $('target-label').textContent = languageName(lang);
+  $('context').textContent = [...entry.comments, entry.context ? `Context: ${entry.context}` : '', entry.locations.join(' · ')].filter(Boolean).join('\n');
+  const uses = (image?.regions || []).filter(r => r.key === k);
+  $('fields').textContent = uses.find(r => Object.keys(r.values).length) ? `Example values: ${JSON.stringify(uses.find(r => Object.keys(r.values).length).values)}` : 'An empty translation falls back to English.';
+  $('placement').textContent = placements[uses[0]?.slot] || '';
+  rows(); highlight(); suggestionList(); focusSelection();
+}
+async function post(path, extra = {}) {
+  const response = await fetch(path, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lang,scene:$('scene').value,drafts:currentDrafts(),revision:data.revision,...extra})});
+  if (!response.ok) { let message; try { message = (await response.json()).error; } catch {} throw Error(message || 'The preview could not be generated.'); }
+  return response;
+}
+async function render() {
+  const request = ++generation; busy = true;
+  $('render-status').textContent = 'Rendering your draft in Qt…'; $('picture').setAttribute('aria-busy','true'); updateProgress();
+  try {
+    const response = await post('/api/render'); const result = await response.json();
+    if (request !== generation) return;
+    image = result;
+    const picture = document.createElement('img'); picture.id = 'preview';
+    picture.alt = `${data.scenes[image.scene]} rendered by Telescope`; picture.src = `data:image/png;base64,${image.image}`;
+    $('preview-mount').replaceChildren(picture); sizePicture();
+    $('error').textContent = '';
+    $('render-status').textContent = ''; $('refresh').hidden = true;
+    $('fit').textContent = image.findings.map(f => `${f.kind}: ${f.text}`).join('\n');
+    if (preferredKey && sceneKeys().includes(preferredKey)) selected = preferredKey;
+    preferredKey = null;
+    if (!sceneKeys().includes(selected)) selected = sceneKeys()[0];
+    if (selected) choose(selected); else { rows(); highlight(); $('edit').hidden = true; }
+  } catch (error) {
+    if (request !== generation) return;
+    $('render-status').textContent = image ? 'Preview unavailable. Showing the last successful render.' : 'Preview unavailable.'; $('refresh').hidden = false;
+    $('error').textContent = error.message;
+  } finally {
+    if (request === generation) { busy = false; $('picture').setAttribute('aria-busy','false'); updateProgress(); }
+  }
+}
+$('translation').oninput = () => {
+  setDraft(drafts, lang, selected, $('translation').value);
+  dropDraft(reviewed, lang, selected);
+  busy = true;
+  save(); rows(); clearTimeout(timer); generation++; $('render-status').textContent = 'Draft changed. Preview updating…';
+  timer = setTimeout(render, 650);
+};
+// Big screens open at actual size, scrolled to the text being edited; Fit shows the whole screen at once
+let fitChosen = false;
+function sizePicture() {
+  if (!image) return;
+  const stage = $('picture').parentElement, actual = !fitChosen && image.width > stage.clientWidth - 40;
+  stage.classList.toggle('actual-size', actual);
+  $('picture').style.width = actual ? `${image.width}px` : `min(100%, ${image.width}px)`;
+  $('zoom').hidden = image.width <= stage.clientWidth - 40;
+  $('zoom').setAttribute('aria-pressed', String(!actual));
+  $('zoom').textContent = actual ? 'Fit to screen' : 'Zoom to text';
+  focusSelection();
+}
+function focusSelection() {
+  const stage = $('picture').parentElement, region = (image?.regions || []).find(r => r.key === selected);
+  if (!region || !stage.classList.contains('actual-size')) return;
+  const [x, y, w, h] = region.rect;
+  stage.scrollTo({left: $('picture').offsetLeft + x + w / 2 - stage.clientWidth / 2, top: $('picture').offsetTop + y + h / 2 - stage.clientHeight / 2, behavior: 'smooth'});
+}
+$('zoom').onclick = () => { fitChosen = !fitChosen; sizePicture(); };
+addEventListener('resize', () => sizePicture());
+$('search').oninput = rows;
+$('refresh').onclick = () => { clearTimeout(timer); render(); };
+$('scene').onchange = () => { clearTimeout(timer); render(); };
+
+$('reset').onclick = () => { dropDraft(drafts, lang, selected); dropDraft(reviewed, lang, selected); save(); choose(selected); render(); };
+$('review').onclick = () => {
+  if (!selected) return;
+  goToNext();
+};
+function goToNext() {
+  // The next text not approved yet in this section, going on from this one, before any other section
+  const todo = k => !humanChecked(k);
+  const sceneTexts = id => id === $('scene').value ? sceneKeys() : (data.coverage.scenes[id] || []).filter(k => data.entries[k]);
+  const pairs = section => section.scenes.flatMap(id => sceneTexts(id).map(k => [id, k]));
+  const sections = data.sections, at = sections.findIndex(s => s.id === section);
+  for (const [offset, s] of [...sections.slice(at), ...sections.slice(0, at)].entries()) {
+    const list = pairs(s), start = offset === 0 ? Math.max(0, list.findIndex(([id, k]) => id === $('scene').value && k === selected) + 1) : 0;
+    const found = [...list.slice(start), ...(offset === 0 ? list.slice(0, start) : [])].find(([, k]) => todo(k));
+    if (!found) continue;
+    const [id, k] = found;
+    if (s.id !== section) { preferredKey = k; preferredScene = id; location.hash = `#edit/${lang}/${s.id}`; }
+    else if (id !== $('scene').value) { $('scene').value = id; preferredKey = k; clearTimeout(timer); render(); }
+    else choose(k);
+    return;
+  }
+  $('progress').textContent = 'Every text is ready for export';
+}
+$('export').onclick = async () => {
+  try {
+    const response = await post('/api/export'); const url = URL.createObjectURL(await response.blob());
+    const a = document.createElement('a'); a.href = url; a.download = `${lang}.po`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    $('draft-status').textContent = 'Draft downloaded. Open a pull request with the .po file when you have checked it.';
+  } catch (error) { $('error').textContent = error.message; }
+};
+$('backup').onclick = () => {
+  const url = URL.createObjectURL(new Blob([JSON.stringify({drafts,prepared:reviewed,lang,revision:data.revision},null,2)],{type:'application/json'}));
+  const a = document.createElement('a'); a.href = url; a.download = 'telescope-translation-session.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url),1000);
+};
+$('restore').onclick = () => $('restore-file').click();
+$('restore-file').onchange = async () => {
+  const file = $('restore-file').files[0]; $('restore-file').value = '';
+  if (!file) return;
+  try {
+    if (file.size > 4_000_000) throw Error();
+    const saved = JSON.parse(await file.text());
+    let count = 0;
+    for (const [code, texts] of Object.entries(saved.drafts || {})) {
+      if (!data.languages.includes(code) || typeof texts !== 'object' || !texts) continue;
+      for (const [k, text] of Object.entries(texts)) {
+        if (!data.entries[k] || typeof text !== 'string' || text.length > 4000) continue;
+        setDraft(drafts, code, k, text); count++;
+      }
+    }
+    save(); if (selected) choose(selected); rows(); render();
+    $('draft-status').textContent = count ? `Restored ${count} ${count === 1 ? 'draft' : 'drafts'} from the backup.` : 'That backup has no drafts for these texts.';
+  } catch { $('draft-status').textContent = 'That file isn’t a session backup from this editor.'; }
+};
+async function start() {
+  try {
+    fetch('/api/warm').catch(() => {});
+    let response = await fetch('/catalog.json'); if (!response.ok) response = await fetch('/api/catalog'); if (!response.ok) throw Error('The texts could not be loaded. Reload the page to try again.'); data = await response.json();
+    repositoryData = structuredClone(data); cloudOverrides = {};
+    for (const code of localLanguages) addLocalLanguage(code);
+    if (!data.languages.includes(lang)) lang = 'es';
+    const old = Object.keys(drafts[lang] || {}).filter(k => !data.entries[k]).length;
+    if (old) $('draft-status').textContent = `${old} saved drafts no longer match these texts and are excluded from previews and .po export. Download the session .json to keep them.`;
+    $('missing').replaceChildren();
+    section = data.sections[0].id;
+    const c = data.coverage;
+    // Only worth showing while a text has no preview or the scenes changed
+    $('coverage-summary').closest('details').hidden = !c.missing.length && !data.drift.length;
+    $('coverage-summary').textContent = `Preview coverage${data.drift.length ? ' changed' : ''} · ${c.missing.length} missing`;
+    $('coverage-count').textContent = `${c.mapped.length} of ${data.total} texts appear in a preview, ${c.messages_only.length} of them only as wording with sample values in the messages lists. ${c.plural.length} plural texts can't be edited yet. The list below shows texts no preview shows.`;
+    for (const k of c.missing) { const li = document.createElement('li'); li.textContent = data.entries[k]?.english || `${k} (removed from source)`; $('missing').append(li); }
+    $('overview-status').textContent = '';
+    $('sign-in').disabled = !data.shared_available;
+    $('shared-status').textContent = data.shared_available ? 'GitHub is used for attribution. Suggestions wait for admin approval.' : 'Shared sign-in is being set up. The manual editor is available below.';
+    route();
+    if (data.shared_available && sessionStorage.getItem('telescope-shared-session') === 'yes') {
+      try { shared = await (await import('/shared.js')).connect(accountChanged, {emulators:Boolean(data.emulators)}); }
+      catch { $('shared-status').textContent = 'The shared project could not be reached. Your browser drafts are still available.'; }
+    }
+  } catch (error) { $('overview-status').textContent = error.message; }
+}
+const languageNames = new Intl.DisplayNames(['en'], {type:'language'});
+const nativeName = code => new Intl.DisplayNames([code.replace('_','-')], {type:'language'}).of(code.replace('_','-'));
+const languageName = code => languageNames.of(code.replace('_','-'));
+const percent = (done, total) => !done || !total ? 0 : done === total ? 100 : Math.min(99.9, Math.max(.1, Math.round(1000 * done / total) / 10));
+function completion(code) {
+  const stats = data.language_stats[code];
+  const edits = drafts[code] || {};
+  let translated = stats.translated;
+  for (const [k,text] of Object.entries(edits)) {
+    if (data.entries[k] && !data.entries[k].plural) translated += Number(Boolean(text)) - Number(Boolean(data.translations[code]?.[k]));
+  }
+  const invalidated = Object.entries(edits).filter(([k,text]) => data.entries[k]
+    && data.approvals?.[code]?.[k] && text !== data.translations[code]?.[k]).length;
+  const checked = (stats.approved || 0) - invalidated;
+  return {total: stats.total, translated, checked};
+}
+function meter(done, total, label, checked = 0) {
+  const progress = document.createElement('div'); progress.className = 'completion-meter';
+  progress.setAttribute('role','img');
+  progress.setAttribute('aria-label', `${label}: ${checked} approved, ${done - checked} drafted, ${total - done} untranslated`);
+  for (const [kind,count] of [['human',checked],['machine',done - checked]]) {
+    const segment = document.createElement('span'); segment.className = kind;
+    segment.style.width = `${total ? 100 * count / total : 0}%`; progress.append(segment);
+  }
+  return progress;
+}
+function localEdits(code) { return Object.entries(drafts[code] || {}).filter(([k,text]) => data.entries[k] && text !== (data.translations[code]?.[k] || '')).length; }
+function languageRows() {
+  const query = $('language-search').value.toLocaleLowerCase();
+  $('language-list').replaceChildren();
+  for (const code of data.languages.filter(l => l !== 'en').sort((a,b) => languageName(a).localeCompare(languageName(b)))) {
+    const name = languageName(code), native = nativeName(code);
+    if (!`${name} ${native} ${code}`.toLocaleLowerCase().includes(query)) continue;
+    const stats = completion(code), row = document.createElement('a');
+    row.className = 'language-row'; row.href = `#language/${code}`;
+    const title = document.createElement('div'), heading = document.createElement('strong'), subtitle = document.createElement('span');
+    heading.textContent = name; subtitle.textContent = native; subtitle.lang = code.replace('_','-');
+    title.append(heading, subtitle);
+    const progress = document.createElement('div'), number = document.createElement('span'); progress.className = 'language-progress';
+    number.textContent = `${percent(stats.checked, stats.total)}% approved`;
+    progress.append(meter(stats.translated, stats.total, name, stats.checked), number);
+    const remaining = document.createElement('div'), count = document.createElement('span'); remaining.className = 'remaining';
+    count.textContent = `${stats.translated} / ${stats.total} translated`; remaining.append(count);
+    if (localEdits(code)) { const note = document.createElement('small'); note.textContent = `${localEdits(code)} local ${localEdits(code) === 1 ? 'edit' : 'edits'}`; remaining.append(note); }
+    row.append(title, progress, remaining); $('language-list').append(row);
+  }
+  $('language-empty').hidden = $('language-list').childElementCount > 0;
+}
+function breadcrumbs(view) {
+  const nav = $('breadcrumb'); nav.replaceChildren();
+  const home = document.createElement('a'); home.href = '#languages'; home.textContent = 'Languages'; nav.append(home);
+  if (view === 'modes') { nav.replaceChildren(); return; }
+  if (['account','admin','add-language'].includes(view)) { const current = document.createElement('span'); current.textContent = view === 'account' ? 'Your account' : view === 'admin' ? 'Admin mode' : 'Add a language'; nav.append(current); return; }
+  if (view === 'languages') { home.setAttribute('aria-current','page'); return; }
+  const language = document.createElement('a'); language.href = `#language/${lang}`; language.textContent = languageName(lang); nav.append(language);
+  if (view === 'language') language.setAttribute('aria-current','page');
+  else { const current = document.createElement('span'); current.textContent = data.sections.find(s => s.id === section)?.title || 'Preview'; current.setAttribute('aria-current','page'); nav.append(current); }
+}
+function route() {
+  if (!data) return;
+  const [requested, code, picked] = location.hash.slice(1).split('/');
+  const validLanguage = code && data.languages.includes(code) && code !== 'en';
+  const view = requested === 'add-language' ? requested : ['account','admin'].includes(requested) && sharedUser && (requested !== 'admin' || ['owner','admin'].includes(sharedRole)) ? requested : ['language','edit'].includes(requested) && validLanguage ? requested : requested === 'modes' || !requested ? 'modes' : 'languages';
+  clearTimeout(timer); generation++; busy = false;
+  $('modes-view').hidden = view !== 'modes';
+  $('account-view').hidden = view !== 'account'; $('admin-view').hidden = view !== 'admin';
+  $('language-create-view').hidden = view !== 'add-language';
+  $('account-menu').open = false;
+  $('languages-view').hidden = view !== 'languages'; $('language-view').hidden = view !== 'language';
+  $('editor-view').hidden = view !== 'edit'; $('export').hidden = view !== 'edit';
+  if (['language','edit'].includes(view)) { lang = code; save(); }
+  $('mode-label').textContent = data.mode === 'admin' ? 'Local administrator' : sharedUser ? 'Shared contribution' : 'Manual contribution';
+  if (picked && data.sections.some(s => s.id === picked)) section = picked;
+  breadcrumbs(view);
+  $('mode-link').hidden = view === 'modes';
+  if (view === 'modes') { $('modes-title').focus(); }
+  else if (view === 'account') { loadAccount(); $('account-title').focus(); }
+  else if (view === 'admin') { openAdmin(); $('admin-title').focus(); }
+  else if (view === 'add-language') { openLanguageCreator(); $('language-create-title').focus(); }
+  else if (view === 'languages') { languageRows(); $('languages-title').focus(); }
+  else if (view === 'language') {
+    $('admin-import').hidden = data.mode !== 'admin';
+    const stats = completion(lang); $('language-title').textContent = languageName(lang);
+    $('language-description').textContent = nativeName(lang);
+    $('language-meter').replaceChildren(meter(stats.translated, stats.total, languageName(lang), stats.checked));
+    $('language-count').textContent = `${stats.checked} approved · ${stats.translated - stats.checked} drafted · ${stats.total - stats.translated} untranslated`;
+    sectionRows();
+    $('scope-note').textContent = `The desktop app's screens, dialogs and menus have previews. Texts that only show in some situations are listed with sample values. The phone app isn't in the editor yet.`;
+    $('language-title').focus();
+  } else {
+    fillScenes(preferredScene || $('scene').value); preferredScene = '';
+    image = null; selected = null; $('error').textContent = ''; $('fit').textContent = ''; $('search').value = '';
+    suggestions = new Map(); loadSuggestions();
+    $('preview-mount').replaceChildren(); $('edit').hidden = true; $('regions').replaceChildren(); selected = sceneKeys()[0]; if (selected) choose(selected); else rows(); render();
+  }
+  window.scrollTo(0,0);
+}
+$('language-search').oninput = () => { if (data) languageRows(); };
+$('approve').onclick = async () => {
+  if ((data.mode !== 'admin' && !['owner','admin'].includes(sharedRole)) || busy || !value(selected)) return;
+  try {
+    if (data.mode === 'admin') await post('/api/approve', {identity:selected});
+    else {
+      if (!sharedState?.projection) throw Error('Import the repository snapshot in Admin mode first.');
+      const entry = data.entries[selected];
+      if (sharedState.projection.sources[entry.id] !== entry.sourceDigest) throw Error('This text changed in the shared project. Reload before approving it.');
+      const submission = selectedSubmission?.entry === entry.id && selectedSubmission.language === lang ? selectedSubmission : null;
+      const item = {language:lang,entry:entry.id,sourceDigest:entry.sourceDigest,text:value(selected),submission:submission?.id || '',
+        author:submission ? submission.author : 'github:'+shared.username};
+      $('approve').disabled = true;
+      sharedApproved({...item,reviewer:await shared.approve(item)});
+      if (submission) selectedSubmission = null;
+    }
+    dropDraft(drafts, lang, selected); save();
+    if (data.mode === 'admin') await start();
+    else { choose(selected); $('draft-status').textContent = 'Translation approved.'; }
+  } catch (error) { $('error').textContent = error.message; updateProgress(); }
+};
+$('import-po').onclick = async () => {
+  const file = $('import-file').files[0], author = $('import-author').value.trim();
+  if (!file || !author) { $('import-status').textContent = 'Choose a .po file and enter its contributor’s public name.'; return; }
+  if (file.size > 4_000_000) { $('import-status').textContent = 'Choose a .po file smaller than 4 MB.'; return; }
+  $('import-po').disabled = true;
+  try {
+    const response = await post('/api/import-po', {content:await file.text(),author});
+    const result = await response.json();
+    await start();
+    $('import-status').textContent = `Imported ${result.changed} changed translations for approval.`;
+  } catch (error) { $('import-status').textContent = error.message; }
+  finally { $('import-po').disabled = false; }
+};
+window.addEventListener('hashchange', route);
+function accountChanged(user, role, username, identityError) {
+  sharedUser = user;
+  $('brand-home').href = user ? '#languages' : '#modes';
+  sharedRole = role;
+  adminUi = null;
+  try { sessionStorage.setItem('telescope-shared-session', user ? 'yes' : ''); } catch {}
+  $('account-menu').hidden = !user;
+  $('admin-link').hidden = !['owner','admin'].includes(role);
+  $('sign-in').textContent = user ? 'Continue to languages' : 'Sign in with GitHub';
+  $('shared-status').textContent = user ? 'Signed in with GitHub. Your suggestions will wait for admin approval.' : 'GitHub is used for attribution. Suggestions wait for admin approval.';
+  if (identityError) $('shared-status').textContent = identityError;
+  $('mode-label').textContent = data?.mode === 'admin' ? 'Local administrator' : user ? 'Shared contribution' : 'Manual contribution';
+  if (data) { updateProgress(); if (['#admin','#account'].includes(location.hash)) route(); }
+  if (user) { loadSharedProgress(); loadSuggestions(); }
+  else if (repositoryData) { suggestions = new Map(); data = structuredClone(repositoryData); cloudOverrides = {}; sharedState = null; for (const code of localLanguages) addLocalLanguage(code); if (location.hash !== '#modes') route(); }
+}
+// Approval documents saved after the project version was published are laid over its projection
+function applyShared({projection, approvals, languages}) {
+  const translations = structuredClone(projection.translations), reviewers = structuredClone(projection.approvals);
+  const conflicted = new Set(projection.conflicts.map(item => `${item.language}-${item.entry}`));
+  for (const code of languages) if (code !== 'en') { translations[code] ||= {}; reviewers[code] ||= {}; }
+  for (const item of approvals) {
+    if (projection.folded[item.id] === item.approvedAt || projection.sources[item.entry] !== item.sourceDigest || !translations[item.language] || conflicted.has(item.id)) continue;
+    translations[item.language][item.entry] = item.text; reviewers[item.language][item.entry] = item.reviewer;
+  }
+  const total = Object.keys(projection.sources).length;
+  data.language_stats = {};
+  for (const code of Object.keys(translations)) data.language_stats[code] = {total,translated:Object.keys(translations[code]).length,approved:Object.keys(reviewers[code]).length,machine:projection.language_stats[code]?.machine || 0};
+  data.languages = ['en',...Object.keys(translations)];
+  for (const code of Object.keys(translations)) {
+    data.translations[code] ||= {};
+    cloudOverrides[code] = {}; data.approvals[code] = {};
+    for (const [key,entry] of Object.entries(data.entries)) {
+      if (projection.sources[entry.id] !== entry.sourceDigest) continue;
+      const translated = translations[code][entry.id] || '';
+      data.translations[code][key] = translated;
+      if (translated !== repositoryData.translations[code]?.[key]) cloudOverrides[code][key] = translated;
+      if (reviewers[code][entry.id]) data.approvals[code][key] = reviewers[code][entry.id];
+    }
+  }
+  // Unapproved wording no person wrote is the machine's; projections saved before this list existed show none
+  data.machine = {};
+  for (const [code, people] of Object.entries(projection.contributed || {})) {
+    const written = new Set(people);
+    data.machine[code] = new Set(Object.keys(data.entries).filter(key => data.translations[code]?.[key] && !data.approvals[code]?.[key] && !written.has(data.entries[key].id)));
+  }
+  // Votes may have arrived before the project did
+  if (suggestions.size || votes.size) { const before = JSON.stringify(voted.get(lang) || {}); pickVoted(); if (selected && data.entries[selected] && $('edit') && !$('edit').hidden) choose(selected); if (image && JSON.stringify(voted.get(lang) || {}) !== before) render(); }
+}
+function sharedApproved(item) {
+  if (!sharedState) return loadSharedProgress();
+  const id = `${item.language}-${item.entry}`;
+  sharedState.approvals = [...sharedState.approvals.filter(existing => existing.id !== id),{...item,id,approvedAt:new Date().toISOString()}];
+  applyShared(sharedState);
+}
+async function loadSharedProgress() {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const loaded = await shared.loadProgress();
+      if (!loaded.projection || !sharedUser) return;
+      const [requested, code] = location.hash.slice(1).split('/'), wasMissing = !data.languages.includes(code);
+      sharedState = loaded; applyShared(loaded);
+      if (['language','edit'].includes(requested) && wasMissing && data.languages.includes(code)) route();
+      else if (location.hash === '#languages') languageRows();
+      return;
+    } catch { await new Promise(resolve => setTimeout(resolve, 1500 * (attempt + 1))); }
+  }
+  $('draft-status').textContent = 'Shared progress could not be loaded. Showing this checkout’s catalogue until you reload.';
+}
+$('sign-in').onclick = async () => {
+  if (sharedUser) { location.hash = '#languages'; return; }
+  $('sign-in').disabled = true;
+  $('shared-status').textContent = 'Opening GitHub sign-in…';
+  try {
+    const module = await import('/shared.js');
+    shared = await module.connect(accountChanged, {emulators:Boolean(data.emulators)});
+    try { sessionStorage.setItem('telescope-shared-session', 'yes'); } catch {}
+    await shared.signIn();
+    location.hash = '#languages';
+  } catch (error) {
+    $('shared-status').textContent = error.code === 'auth/unauthorized-domain'
+      ? 'This address is not authorised for GitHub sign-in. Add it in Firebase Authentication or use the manual editor.'
+      : error.code === 'auth/popup-closed-by-user' ? 'Sign-in was closed. You can try again or use the manual editor.'
+      : 'GitHub sign-in failed. Try again or use the manual editor.';
+  } finally { $('sign-in').disabled = false; }
+};
+$('sign-out').onclick = async () => {
+  try { await shared.signOut(); $('draft-status').textContent = 'Signed out. Your browser drafts are still available for download.'; }
+  catch { $('draft-status').textContent = 'Sign-out failed. Try again before leaving this computer.'; }
+};
+$('manual-mode').onclick = async event => {
+  if (!sharedUser) return;
+  event.preventDefault();
+  try { await shared.signOut(); location.hash = '#languages'; }
+  catch { $('shared-status').textContent = 'Sign-out failed. Try again before switching to the manual editor.'; }
+};
+$('submit').onclick = async () => {
+  if (!sharedUser || submitting || busy || !value(selected)) return;
+  const entry = data.entries[selected], text = value(selected), language = lang;
+  submitting = true; updateProgress();
+  $('draft-status').textContent = 'Submitting for approval…';
+  try {
+    await shared.submit(language, entry, text);
+    loadSuggestions();
+    $('draft-status').textContent = 'Suggested. Others can see it now, and an admin will review it.';
+  } catch (error) {
+    $('draft-status').textContent = error.message?.startsWith('Submission limit') ? error.message : 'Submission failed. Your draft is still here. Try again or download the .po file.';
+  } finally { submitting = false; updateProgress(); }
+};
+async function openAdmin() {
+  if (!shared || !sharedUser || !['owner','admin'].includes(sharedRole)) return;
+  try {
+    if (!adminUi) {
+      const module = await import('/admin.js');
+      adminUi = module.createAdmin(shared, sharedUser, sharedRole, (item, source) => {
+        const entry = Object.entries(data.entries).find(([,entry]) => entry.id === item.entry && entry.sourceDigest === item.sourceDigest);
+        if (!entry || !source) { $('admin-status').textContent = 'This preview needs a checkout containing the suggestion’s current source.'; return; }
+        setDraft(drafts, item.language, entry[0], item.text);
+        selectedSubmission = item;
+        lang = item.language; preferredKey = entry[0]; save();
+        const scene = Object.entries(data.coverage.scenes).find(([id,keys]) => keys.includes(entry[0]) && !id.startsWith('messages-')) || Object.entries(data.coverage.scenes).find(([,keys]) => keys.includes(entry[0]));
+        const target = scene && data.sections.find(s => s.scenes.includes(scene[0]));
+        if (target) { section = target.id; fillScenes(scene[0]); }
+        location.hash = `#edit/${lang}/${section}`;
+      }, item => item ? sharedApproved(item) : loadSharedProgress());
+    }
+    await adminUi.reload();
+  } catch (error) { $('admin-status').textContent = error.message; }
+}
+async function loadAccount() {
+  if (!shared || !sharedUser) return;
+  profileFields = null; $('account-form').inert = true; $('account-save').disabled = true;
+  $('account-status').textContent = 'Loading your account…';
+  $('delete-account').disabled = !data.account_deletion_available;
+  try {
+    const profile = await shared.profile();
+    $('account-bio').value = profile.bio || '';
+    const [module,response] = await Promise.all([import('/language-picker.js'),fetch('/languages.json')]);
+    if (!response.ok) throw Error('The language list could not be loaded.');
+    profileFields = module.createLanguageFields(await response.json(),$('native-language'),$('other-languages'),profile);
+    $('account-status').textContent = '';
+  } catch { $('account-status').textContent = 'Your account could not be loaded. Reopen account settings to try again.'; }
+  finally { $('account-form').inert = false; $('account-save').disabled = !profileFields; }
+}
+$('account-form').onsubmit = async event => {
+  event.preventDefault();
+  const button = $('account-save'); button.disabled = true;
+  try {
+    if (!profileFields) throw Error('Reopen account settings to load your profile.');
+    await shared.saveProfile({bio:$('account-bio').value,...profileFields.value()});
+    $('account-status').textContent = 'Account saved.';
+  } catch { $('account-status').textContent = 'Your account could not be saved. Your edits are still here; try again.'; }
+  finally { button.disabled = false; }
+};
+$('delete-account').onclick = async () => {
+  if (!confirm('Delete your account and profile? Your translation submissions will become anonymised. This cannot be undone.')) return;
+  $('delete-account').disabled = true; $('account-status').textContent = 'Confirming your GitHub identity before deletion…';
+  try { const result = await shared.deleteAccount(); location.hash = '#modes'; $('shared-status').textContent = result.pending ? 'Account deletion requested. Your submissions will become anonymised.' : 'Your account was deleted. Your submissions have been anonymised.'; }
+  catch (error) { $('account-status').textContent = error.message; }
+  finally { $('delete-account').disabled = false; }
+};
+document.addEventListener('click', event => { if (!$('account-menu').contains(event.target)) $('account-menu').open = false; });
+document.addEventListener('keydown', event => { if (event.key === 'Escape' && $('account-menu').open) { $('account-menu').open = false; $('account-menu').querySelector('summary').focus(); } });
+async function openLanguageCreator() {
+  $('language-create-status').textContent = 'Loading languages…'; $('language-create').disabled = true;
+  try {
+    const [module,response] = await Promise.all([import('/language-picker.js'),fetch('/languages.json')]);
+    if (!response.ok) throw Error('The language list could not be loaded.');
+    const names = await response.json();
+    languageCreator = module.createLanguageFields(names,$('create-language-field'),document.createElement('div'),{}, {id:'create-language-input',exclude:data.languages.map(code => code.replace('_','-'))});
+    const enabled = !sharedUser || ['owner','admin'].includes(sharedRole) || await shared.creationEnabled();
+    $('language-create').disabled = !enabled;
+    $('language-create').textContent = sharedUser ? 'Create language' : 'Start translating';
+    $('language-create-status').textContent = enabled ? '' : 'New languages are currently paused.';
+  } catch { $('language-create-status').textContent = 'The language list could not be loaded. Reopen this page to try again.'; }
+}
+$('language-create-form').onsubmit = async event => {
+  event.preventDefault(); if ($('language-create').disabled) return;
+  try {
+    const chosen = languageCreator.value().nativeLanguage;
+    if (!chosen) throw Error('Choose a language.');
+    const code = chosen.replace('-','_');
+    $('language-create').disabled = true;
+    if (sharedUser) { await shared.createLanguage(code); await loadSharedProgress(); if (!data.languages.includes(code)) throw Error('The new language could not be loaded. Reload and try again.'); }
+    else { localLanguages = [...new Set([...localLanguages,code])]; addLocalLanguage(code); save(); }
+    location.hash = `#edit/${code}`;
+  } catch (error) { $('language-create-status').textContent = error.code === 'permission-denied' ? 'New languages are currently paused. Reload to check again.' : error.message; }
+  finally { $('language-create').disabled = false; }
+};
+start();
+$('scene-prev').onclick = () => stepScene(-1);
+$('scene-next').onclick = () => stepScene(1);

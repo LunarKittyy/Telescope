@@ -35,7 +35,7 @@
     <string name="setup_local_network">Red local</string>
     <string name="setup_local_network_reason">Permite que tu computadora encuentre este teléfono y se conecte a él por Wi-Fi. No hace falta para USB.</string>
     <string name="setup_notifications">Notificaciones</string>
-    <string name="setup_notifications_reason">Muestra cuándo la cámara está transmitiendo y la detiene desde allí.</string>
+    <string name="setup_notifications_reason">Muestra cuándo la cámara está transmitiendo y te permite detenerla desde allí.</string>
     <string name="setup_microphone">Micrófono</string>
     <string name="setup_microphone_reason">Para el micrófono de Telescope en tu computadora.</string>
     <string name="setup_battery">Batería</string>

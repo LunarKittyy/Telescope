@@ -1,0 +1,199 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function githubUser() {
+      return request.auth != null && request.auth.token.firebase.sign_in_provider == 'github.com'
+        && !exists(/databases/$(database)/documents/accountDeletions/$(request.auth.uid));
+    }
+    function admin() {
+      return githubUser() && exists(/databases/$(database)/documents/roles/$(request.auth.uid))
+        && !exists(/databases/$(database)/documents/maintenance/account-deletion)
+        && get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role in ['owner', 'admin'];
+    }
+    function owner() {
+      return admin() && get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role == 'owner';
+    }
+    function quotaUsed(kind, target) {
+      return admin() || getAfter(/databases/$(database)/documents/limits/$(request.auth.uid)/actions/$(kind)).data.lastTarget == target;
+    }
+    function profileLanguage(index) {
+      return request.resource.data.languages.size() <= index
+        || (request.resource.data.languages[index] is string
+          && request.resource.data.languages[index].matches('^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$'));
+    }
+    function validProfile() {
+      return request.resource.data.keys().hasOnly(['bio', 'nativeLanguage', 'languages'])
+        && request.resource.data.bio is string && request.resource.data.bio.size() <= 500
+        && request.resource.data.nativeLanguage is string
+        && (request.resource.data.nativeLanguage == '' || request.resource.data.nativeLanguage.matches('^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$'))
+        && request.resource.data.languages is list && request.resource.data.languages.size() <= 10
+        && request.resource.data.languages.toSet().size() == request.resource.data.languages.size()
+        && profileLanguage(0) && profileLanguage(1) && profileLanguage(2) && profileLanguage(3) && profileLanguage(4)
+        && profileLanguage(5) && profileLanguage(6) && profileLanguage(7) && profileLanguage(8) && profileLanguage(9);
+    }
+    match /catalog/{document=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /approvals/{approvalId} {
+      allow read: if githubUser() && !exists(/databases/$(database)/documents/maintenance/account-deletion);
+      allow create, update: if admin()
+        && request.resource.data.keys().hasOnly(['language', 'entry', 'sourceDigest', 'text', 'reviewer', 'author', 'submission', 'approvedAt'])
+        && request.resource.data.keys().hasAll(['language', 'entry', 'sourceDigest', 'text', 'reviewer', 'author', 'submission', 'approvedAt'])
+        && approvalId == request.resource.data.language + '-' + request.resource.data.entry
+        && exists(/databases/$(database)/documents/languages/$(request.resource.data.language))
+        && request.resource.data.reviewer == 'github:' + get(/databases/$(database)/documents/identities/$(request.auth.uid)).data.username
+        && request.resource.data.approvedAt == request.time
+        && request.resource.data.entry is string && request.resource.data.entry.size() == 64
+        && request.resource.data.sourceDigest is string && request.resource.data.sourceDigest.size() == 64
+        && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 4000
+        && request.resource.data.author is string && request.resource.data.author.size() <= 60
+        && request.resource.data.submission is string && request.resource.data.submission.size() <= 64;
+      allow delete: if false;
+    }
+    match /submissions/{submissionId} {
+      allow read: if githubUser() && (resource.data.authorUid == request.auth.uid || admin());
+      allow get: if githubUser() && !exists(/databases/$(database)/documents/submissions/$(submissionId));
+      allow create: if githubUser()
+        && quotaUsed('submissions', submissionId)
+        && request.resource.data.keys().hasOnly(['language', 'entry', 'sourceDigest', 'text', 'authorUid', 'authorUsername', 'createdAt', 'status'])
+        && request.resource.data.keys().hasAll(['language', 'entry', 'sourceDigest', 'text', 'authorUid', 'authorUsername', 'createdAt', 'status'])
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.authorUsername == get(/databases/$(database)/documents/identities/$(request.auth.uid)).data.username
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt == request.time
+        && exists(/databases/$(database)/documents/languages/$(request.resource.data.language))
+        && request.resource.data.entry is string && request.resource.data.entry.size() == 64
+        && request.resource.data.sourceDigest is string && request.resource.data.sourceDigest.size() == 64
+        && request.resource.data.text is string && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 4000;
+      allow update: if admin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewedBy', 'reviewedAt'])
+        && resource.data.status == 'pending' && request.resource.data.status in ['approved', 'dismissed']
+        && request.resource.data.reviewedBy == 'github:' + get(/databases/$(database)/documents/identities/$(request.auth.uid)).data.username
+        && request.resource.data.reviewedAt == request.time;
+      allow delete: if false;
+    }
+    match /suggestions/{suggestionId} {
+      function submission() {
+        return getAfter(/databases/$(database)/documents/submissions/$(suggestionId)).data;
+      }
+      allow read: if githubUser() && !exists(/databases/$(database)/documents/maintenance/account-deletion);
+      allow create: if githubUser()
+        && submission().authorUid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['language', 'entry', 'sourceDigest', 'text', 'author', 'status', 'createdAt'])
+        && request.resource.data.keys().hasAll(['language', 'entry', 'sourceDigest', 'text', 'author', 'status', 'createdAt'])
+        && request.resource.data.language == submission().language && request.resource.data.entry == submission().entry
+        && request.resource.data.sourceDigest == submission().sourceDigest && request.resource.data.text == submission().text
+        && request.resource.data.author == 'github:' + get(/databases/$(database)/documents/identities/$(request.auth.uid)).data.username
+        && request.resource.data.status == 'pending' && request.resource.data.createdAt == request.time;
+      allow update: if admin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewedBy', 'reviewedAt'])
+        && resource.data.status == 'pending' && request.resource.data.status in ['approved', 'dismissed']
+        && request.resource.data.reviewedBy == 'github:' + get(/databases/$(database)/documents/identities/$(request.auth.uid)).data.username
+        && request.resource.data.reviewedAt == request.time;
+      allow delete: if false;
+    }
+    // One vote per person and suggestion; machine wordings are voted on as llm-<language>-<entry>
+    match /votes/{voteId} {
+      function voter() {
+        return get(/databases/$(database)/documents/identities/$(request.auth.uid)).data.username;
+      }
+      allow read: if githubUser() && !exists(/databases/$(database)/documents/maintenance/account-deletion);
+      allow create, update: if githubUser()
+        && request.resource.data.keys().hasOnly(['suggestion', 'language', 'entry', 'voter', 'value'])
+        && request.resource.data.keys().hasAll(['suggestion', 'language', 'entry', 'voter', 'value'])
+        && request.resource.data.voter == 'github:' + voter()
+        && voteId == request.resource.data.suggestion + '_' + voter()
+        && request.resource.data.suggestion is string && request.resource.data.suggestion.size() <= 140
+        && request.resource.data.language is string && request.resource.data.language.matches('^[a-z]{2,3}(_[A-Za-z0-9]{2,8})?$')
+        && request.resource.data.entry is string && request.resource.data.entry.size() == 64
+        && request.resource.data.value in [1, -1]
+        && (!exists(/databases/$(database)/documents/votes/$(voteId)) || resource.data.voter == request.resource.data.voter);
+      allow delete: if githubUser() && resource.data.voter == 'github:' + voter();
+    }
+    match /people/{username} {
+      allow read: if githubUser();
+      allow create, update: if githubUser()
+        && username == get(/databases/$(database)/documents/identities/$(request.auth.uid)).data.username
+        && validProfile();
+      allow delete: if false;
+    }
+    match /roles/{uid} {
+      allow read: if githubUser() && (request.auth.uid == uid || admin());
+      allow create, update: if owner() && uid != request.auth.uid
+        && request.resource.data.keys().hasOnly(['role', 'grantedBy'])
+        && request.resource.data.role == 'admin' && request.resource.data.grantedBy == request.auth.uid;
+      allow delete: if owner() && uid != request.auth.uid && resource.data.role == 'admin';
+    }
+    match /workspace/current {
+      allow read: if githubUser() && !exists(/databases/$(database)/documents/maintenance/account-deletion);
+      allow write: if admin();
+    }
+    match /profiles/{uid} {
+      allow read: if githubUser() && (request.auth.uid == uid || admin());
+      allow create, update: if githubUser() && request.auth.uid == uid
+        && validProfile();
+      allow delete: if false;
+    }
+    match /identities/{uid} {
+      allow read: if githubUser() && (request.auth.uid == uid || admin());
+      allow write: if false;
+    }
+    match /limits/{uid}/actions/{kind} {
+      function validLimit() {
+        return kind in ['submissions','languages'] && request.resource.data.keys().hasOnly(['window','count','lastTarget'])
+          && request.resource.data.window is timestamp && request.resource.data.count is int
+          && request.resource.data.lastTarget is string && request.resource.data.lastTarget.size() <= 128
+          && request.resource.data.count >= 1 && request.resource.data.count <= (kind == 'submissions' ? 100 : 3);
+      }
+      allow read: if githubUser() && uid == request.auth.uid;
+      allow create: if githubUser() && uid == request.auth.uid && validLimit()
+        && request.resource.data.count == 1 && request.resource.data.window == request.time;
+      allow update: if githubUser() && uid == request.auth.uid && validLimit()
+        && ((resource.data.window > request.time - duration.value(kind == 'submissions' ? 1 : 24,'h')
+          && request.resource.data.window == resource.data.window && request.resource.data.count == resource.data.count + 1)
+          || (resource.data.window <= request.time - duration.value(kind == 'submissions' ? 1 : 24,'h')
+          && request.resource.data.window == request.time && request.resource.data.count == 1));
+      allow delete: if false;
+    }
+    match /settings/project {
+      allow read: if githubUser();
+      allow write: if admin() && request.resource.data.keys().hasOnly(['allowLanguageCreation'])
+        && request.resource.data.allowLanguageCreation is bool;
+    }
+    match /languages/{language} {
+      allow read: if githubUser();
+      allow create: if githubUser()
+        && quotaUsed('languages', language)
+        && (admin() || !exists(/databases/$(database)/documents/settings/project)
+          || get(/databases/$(database)/documents/settings/project).data.allowLanguageCreation == true)
+        && language in get(/databases/$(database)/documents/catalog/languageOptions).data.codes
+        && request.resource.data.keys().hasOnly(['createdBy', 'createdAt'])
+        && request.resource.data.createdBy == 'github:' + get(/databases/$(database)/documents/identities/$(request.auth.uid)).data.username
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
+    }
+    match /versions/{version}/chunks/{chunk} {
+      allow read: if githubUser() && !exists(/databases/$(database)/documents/maintenance/account-deletion);
+      allow create: if admin() && request.resource.data.keys().hasOnly(['content'])
+        && request.resource.data.content is string && request.resource.data.content.size() <= 200000;
+      allow update, delete: if false;
+    }
+    match /projections/{version}/chunks/{chunk} {
+      allow read: if githubUser() && !exists(/databases/$(database)/documents/maintenance/account-deletion);
+      allow create: if admin() && request.resource.data.keys().hasOnly(['content'])
+        && request.resource.data.content is string && request.resource.data.content.size() <= 200000;
+      allow update, delete: if false;
+    }
+    match /privateVersions/{version}/chunks/{chunk} {
+      allow read: if admin();
+      allow create: if admin() && request.resource.data.keys().hasOnly(['content'])
+        && request.resource.data.content is string && request.resource.data.content.size() <= 200000;
+      allow update, delete: if false;
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

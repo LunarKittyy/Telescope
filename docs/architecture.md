@@ -33,6 +33,30 @@ Desktop  (Python, PyQt6)
 | `.github/` | Workflows, issue and PR templates, release notes |
 | `VERSION` | The version both apps ship as |
 
+## Where to change what
+
+Desktop paths are under `desktop/telescope/` and phone files under `android/app/src/main/`. [desktop/MODULES.md](../desktop/MODULES.md) has the full story for any desktop file.
+
+| To change | Start in |
+|---|---|
+| A desktop card or its settings | Its plugin in `plugins/`, one file per card. Read the rules in [desktop/ARCHITECTURE.md](../desktop/ARCHITECTURE.md) first |
+| The main window or the Settings window | `app.py`, `widgets/settings_window.py` |
+| Colours and styling | `theme.py`. Shared controls are in `widgets/common.py` |
+| Pairing and reaching the phone | `plugins/connection.py`, `pairing.py`, `phones.py` (`RouteResolver`) |
+| Receiving and decoding video | `stream.py`, `mjpeg_reader.py`, `h264_reader.py`, `udp_reader.py` |
+| The virtual camera | `vcam.py`, plus `platform/linux.py` or `platform/windows.py` |
+| The microphone | `audio.py`, `platform/virtual_mic.py`, `plugins/microphone.py` |
+| Saved settings | `config.py` |
+| Desktop wording | The `tr()` call in the code, then `python scripts/i18n.py extract`. See [translating.md](translating.md) |
+| Messages between the apps | `kotlin/com/telescope/Protocol.kt` and `phone_client.py`, written up in [protocol.md](protocol.md) |
+| The phone's camera and encoding | `CameraSessionController.kt`, `CameraStreamService.kt`, `H264Encoder.kt`, `MjpegServer.kt` |
+| Phone pairing and TLS | `Pairing.kt`, `PairedComputers.kt`, `TlsIdentity.kt` |
+| The phone's screen and Get set up | `MainActivity.kt`, `SetupSteps.kt`, `res/layout/activity_main.xml` |
+| Phone wording | `res/values/strings.xml` |
+| The Windows installer | `installer/` |
+
+Desktop tests are in `desktop/tests/` and phone unit tests in `android/app/src/test/`.
+
 ## The phone app
 
 On first launch the top card is **Get set up**: camera access, notifications and the battery exemption, each with its reason and an Allow button (plus Microphone once a desktop asks for it). The app asks for nothing on its own.

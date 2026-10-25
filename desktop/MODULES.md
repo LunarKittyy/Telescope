@@ -1,6 +1,6 @@
 # Telescope Desktop - Module Reference
 
-Quick navigation index; see source code for detailed behaviour.
+The detailed reference for every desktop module. For an introduction, start with [the architecture overview](../docs/architecture.md). Where this and the code disagree, the code wins.
 
 ---
 

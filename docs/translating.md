@@ -23,6 +23,8 @@ A first draft hasn't been checked by someone who speaks the language yet (the de
 
 Your language isn't in the table? Open a translation issue to ask for it, or start it yourself with the steps below.
 
+There's also an experimental [translation preview](translation-preview.md) for trying desktop wording in real Qt widgets from a local browser editor. It covers the desktop app's screens, Settings pages, dialogs and menus.
+
 The rest of this page is for people working on the files themselves.
 
 ## The files
