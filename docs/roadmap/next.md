@@ -4,7 +4,7 @@ Planned in October 2026 after 4.2, starting with a 4.2.1 for the Windows zip. Th
 
 - [ ] [Saying to extract the Windows zip first](#saying-to-extract-the-windows-zip-first)
 - [ ] [PyAV 19](#pyav-19)
-- [ ] [A shorter release checklist](#a-shorter-release-checklist)
+- [x] [A shorter release checklist](#a-shorter-release-checklist)
 
 ## Saying to extract the Windows zip first
 
