@@ -179,6 +179,9 @@ jobs:
           --tag "$TAG" --repo "$GITHUB_REPOSITORY" --out out/manifest.json
           out/Telescope.apk out/Telescope-windows-portable.zip out/TelescopeSetup.exe out/Telescope-linux.tar.gz
 
+      - name: Check the release files
+        run: python3 .github/check_release.py --version "$VERSION" --build "$BUILD" --channel "$CHANNEL" out
+
       - name: Publish the stable release
         if: needs.meta.outputs.channel == 'stable'
         run: |
