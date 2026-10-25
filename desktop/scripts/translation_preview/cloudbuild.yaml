@@ -4,4 +4,5 @@ steps:
 images: ['${_IMAGE}']
 options:
   logging: CLOUD_LOGGING_ONLY
-timeout: 1200s
+  machineType: E2_HIGHCPU_8  # the image renders every scene while it builds
+timeout: 2400s
