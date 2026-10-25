@@ -6,6 +6,7 @@ let repositoryData, cloudOverrides = {};
 let selectedSubmission, sharedState, suggestions = new Map();
 let profileFields;
 let localLanguages = [], languageCreator;
+let section = '', preferredScene = '';
 const storageKey = 'telescope-translation-preview-v1';
 try { const saved = JSON.parse(localStorage.getItem(storageKey) || '{}'); drafts = saved.drafts || {}; reviewed = saved.prepared || saved.reviewed || {}; lang = saved.lang || lang; localLanguages = saved.localLanguages || []; } catch {}
 const currentDrafts = () => ({...(cloudOverrides[lang] || {}),...Object.fromEntries(Object.entries(drafts[lang] || {}).filter(([k]) => data?.entries[k]))});
@@ -14,21 +15,31 @@ const value = k => currentDrafts()[k] ?? original(k);
 const reviewStamp = k => JSON.stringify([value(k), data.revision]);
 const humanChecked = k => Boolean(value(k)) && Boolean(data.approvals?.[lang]?.[k]) && value(k) === original(k);
 const prepared = k => Boolean(value(k)) && reviewed[lang]?.[k] === reviewStamp(k);
-// Codes and keys come from browser storage and the address bar, so writes skip names that reach Object.prototype
-function setDraft(store, code, key, text) {
-  if (code === '__proto__' || code === 'constructor' || code === 'prototype' || key === '__proto__' || key === 'constructor' || key === 'prototype') return;
-  if (!Object.hasOwn(store, code)) store[code] = {};
-  store[code][key] = text;
-}
-function dropDraft(store, code, key) {
-  if (code === '__proto__' || code === 'constructor' || code === 'prototype' || key === '__proto__' || key === 'constructor' || key === 'prototype') return;
-  if (Object.hasOwn(store, code)) delete store[code][key];
-}
 const save = () => { try { localStorage.setItem(storageKey, JSON.stringify({drafts, prepared:reviewed, lang,localLanguages})); } catch { $('draft-status').textContent = 'Browser storage is unavailable. Download your draft before closing.'; } };
 function addLocalLanguage(code) {
   if (data.languages.includes(code)) return;
   data.languages.push(code); data.translations[code] = {}; data.approvals[code] = {};
   data.language_stats[code] = {total:data.total,translated:0,approved:0,machine:0};
+}
+const sectionKeys = s => [...new Set(s.scenes.flatMap(id => data.coverage.scenes[id] || []))].filter(k => data.entries[k]);
+function fillScenes(preferred) {
+  const current = data.sections.find(s => s.id === section);
+  $('scene').replaceChildren();
+  for (const id of current.scenes) $('scene').add(new Option(data.scenes[id], id));
+  if (preferred && current.scenes.includes(preferred)) $('scene').value = preferred;
+}
+function sectionRows() {
+  $('section-list').replaceChildren();
+  for (const s of data.sections) {
+    const keys = sectionKeys(s), approved = keys.filter(humanChecked).length;
+    const row = document.createElement('a'); row.className = 'area-row'; row.href = `#edit/${lang}/${s.id}`;
+    const text = document.createElement('div'), name = document.createElement('strong'), note = document.createElement('p');
+    name.textContent = s.title; note.textContent = s.description; text.append(name, note);
+    const progress = document.createElement('div'); progress.className = 'area-progress';
+    const count = document.createElement('span'); count.textContent = `${approved} / ${keys.length} approved`;
+    const open = document.createElement('span'); open.className = 'open-label'; open.textContent = 'Open editor';
+    progress.append(count, open); row.append(text, progress); $('section-list').append(row);
+  }
 }
 function sceneKeys() { return image ? [...new Set(image.regions.map(r => r.key))].filter(k => data.entries[k]) : (data?.coverage.scenes[$('scene').value] || []).filter(k => data.entries[k]); }
 function updateProgress() {
@@ -144,7 +155,14 @@ function highlight() {
     Object.assign(b.style, {left:`${100*x/image.width}%`,top:`${100*y/image.height}%`,width:`${100*w/image.width}%`,height:`${100*h/image.height}%`});
     b.onclick = () => choose(r.key); $('regions').append(b);
   }
+  const tip = image?.tips?.[selected];
+  if (tip) {
+    const img = document.createElement('img'); img.className = 'tip'; img.alt = ''; img.src = `data:image/png;base64,${tip.image}`;
+    Object.assign(img.style, {left:`${100*Math.max(0, Math.min(tip.x, image.width - tip.width))/image.width}%`,top:`${100*Math.min(tip.y, image.height - tip.height)/image.height}%`,width:`${100*tip.width/image.width}%`});
+    $('regions').append(img);
+  }
 }
+const placements = {tooltip:'Tooltip shown when the highlighted control is hovered', 'window title':'Title of the highlighted window', 'search keywords':'Words that find this result when typed into Settings search', 'editor search keywords':'Words that find this control when typed into the shortcut search'};
 function choose(k) {
   if (!data.entries[k]) return;
   selected = k; $('edit').hidden = false;
@@ -155,7 +173,7 @@ function choose(k) {
   $('context').textContent = [...entry.comments, entry.context ? `Context: ${entry.context}` : '', entry.locations.join(' · ')].filter(Boolean).join('\n');
   const uses = (image?.regions || []).filter(r => r.key === k);
   $('fields').textContent = uses.find(r => Object.keys(r.values).length) ? `Example values: ${JSON.stringify(uses.find(r => Object.keys(r.values).length).values)}` : 'An empty translation falls back to English.';
-  $('placement').textContent = uses.some(r => r.slot === 'tooltip') ? `Tooltip on the highlighted control: ${uses[0].shown}` : '';
+  $('placement').textContent = placements[uses[0]?.slot] || '';
   rows(); highlight(); suggestionList();
 }
 async function post(path, extra = {}) {
@@ -171,7 +189,7 @@ async function render() {
     if (request !== generation) return;
     image = result;
     const picture = document.createElement('img'); picture.id = 'preview';
-    picture.alt = 'The Phone card rendered by Telescope'; picture.src = `data:image/png;base64,${image.image}`;
+    picture.alt = `${data.scenes[image.scene]} rendered by Telescope`; picture.src = `data:image/png;base64,${image.image}`;
     $('preview-mount').replaceChildren(picture);
     $('error').textContent = '';
     $('render-status').textContent = 'Live Qt render';
@@ -189,8 +207,8 @@ async function render() {
   }
 }
 $('translation').oninput = () => {
-  setDraft(drafts, lang, selected, $('translation').value);
-  dropDraft(reviewed, lang, selected);
+  drafts[lang] ||= {}; drafts[lang][selected] = $('translation').value;
+  delete (reviewed[lang] || {})[selected];
   busy = true;
   save(); rows(); clearTimeout(timer); generation++; $('render-status').textContent = 'Draft changed. Preview updating…';
   timer = setTimeout(render, 650);
@@ -205,13 +223,30 @@ $('search').oninput = rows;
 $('refresh').onclick = () => { clearTimeout(timer); render(); };
 $('scene').onchange = () => { clearTimeout(timer); render(); };
 
-$('reset').onclick = () => { dropDraft(drafts, lang, selected); dropDraft(reviewed, lang, selected); save(); choose(selected); render(); };
+$('reset').onclick = () => { delete (drafts[lang] || {})[selected]; delete (reviewed[lang] || {})[selected]; save(); choose(selected); render(); };
 $('review').onclick = () => {
   if (busy || $('error').textContent || lang === 'en' || !value(selected)) return;
-  setDraft(reviewed, lang, selected, reviewStamp(selected)); save();
-  const keys = sceneKeys(), next = keys.find(k => !prepared(k));
-  rows(); if (next) choose(next); else $('progress').textContent = `All ${keys.length} texts in this scene ready for export`;
+  reviewed[lang] ||= {}; reviewed[lang][selected] = reviewStamp(selected); save();
+  rows(); goToNext();
 };
+function goToNext() {
+  // The next text still to do in this section, going on from this one, before any other section
+  const todo = k => !prepared(k) && !humanChecked(k);
+  const sceneTexts = id => id === $('scene').value ? sceneKeys() : (data.coverage.scenes[id] || []).filter(k => data.entries[k]);
+  const pairs = section => section.scenes.flatMap(id => sceneTexts(id).map(k => [id, k]));
+  const sections = data.sections, at = sections.findIndex(s => s.id === section);
+  for (const [offset, s] of [...sections.slice(at), ...sections.slice(0, at)].entries()) {
+    const list = pairs(s), start = offset === 0 ? Math.max(0, list.findIndex(([id, k]) => id === $('scene').value && k === selected) + 1) : 0;
+    const found = [...list.slice(start), ...(offset === 0 ? list.slice(0, start) : [])].find(([, k]) => todo(k));
+    if (!found) continue;
+    const [id, k] = found;
+    if (s.id !== section) { preferredKey = k; preferredScene = id; location.hash = `#edit/${lang}/${s.id}`; }
+    else if (id !== $('scene').value) { $('scene').value = id; preferredKey = k; clearTimeout(timer); render(); }
+    else choose(k);
+    return;
+  }
+  $('progress').textContent = 'Every text is ready for export';
+}
 $('export').onclick = async () => {
   try {
     const response = await post('/api/export'); const url = URL.createObjectURL(await response.blob());
@@ -251,12 +286,11 @@ async function start() {
     if (!data.languages.includes(lang)) lang = 'es';
     const old = Object.keys(drafts[lang] || {}).filter(k => !data.entries[k]).length;
     if (old) $('draft-status').textContent = `${old} saved drafts no longer match these texts and are excluded from previews and .po export. Download the session .json to keep them.`;
-    $('scene').replaceChildren();
     $('missing').replaceChildren();
-    for (const [id,title] of Object.entries(data.scenes)) $('scene').add(new Option(title,id));
+    section = data.sections[0].id;
     const c = data.coverage;
     $('coverage-summary').textContent = `Preview coverage${data.drift.length ? ' changed' : ''} · ${c.missing.length} missing`;
-    $('coverage-count').textContent = `${data.total - c.mapped.length} catalog texts have no mapped preview in this prototype. The list below shows the Phone texts still missing.`;
+    $('coverage-count').textContent = `${c.mapped.length} of ${data.total} texts appear in a preview, ${c.messages_only.length} of them only as wording with sample values in the messages lists. ${c.plural.length} plural texts can't be edited yet. The list below shows texts no preview shows.`;
     for (const k of c.missing) { const li = document.createElement('li'); li.textContent = data.entries[k]?.english || `${k} (removed from source)`; $('missing').append(li); }
     $('overview-status').textContent = '';
     $('sign-in').disabled = !data.shared_available;
@@ -324,11 +358,11 @@ function breadcrumbs(view) {
   if (view === 'languages') { home.setAttribute('aria-current','page'); return; }
   const language = document.createElement('a'); language.href = `#language/${lang}`; language.textContent = languageName(lang); nav.append(language);
   if (view === 'language') language.setAttribute('aria-current','page');
-  else { const phone = document.createElement('span'); phone.textContent = 'Phone'; phone.setAttribute('aria-current','page'); nav.append(phone); }
+  else { const current = document.createElement('span'); current.textContent = data.sections.find(s => s.id === section)?.title || 'Preview'; current.setAttribute('aria-current','page'); nav.append(current); }
 }
 function route() {
   if (!data) return;
-  const [requested, code] = location.hash.slice(1).split('/');
+  const [requested, code, picked] = location.hash.slice(1).split('/');
   const validLanguage = code && data.languages.includes(code) && code !== 'en';
   const view = requested === 'add-language' ? requested : ['account','admin'].includes(requested) && sharedUser && (requested !== 'admin' || ['owner','admin'].includes(sharedRole)) ? requested : ['language','edit'].includes(requested) && validLanguage ? requested : requested === 'modes' || !requested ? 'modes' : 'languages';
   clearTimeout(timer); generation++; busy = false;
@@ -340,6 +374,7 @@ function route() {
   $('editor-view').hidden = view !== 'edit'; $('export').hidden = view !== 'edit';
   if (['language','edit'].includes(view)) { lang = code; save(); }
   $('mode-label').textContent = data.mode === 'admin' ? 'Local administrator' : sharedUser ? 'Shared contribution' : 'Manual contribution';
+  if (picked && data.sections.some(s => s.id === picked)) section = picked;
   breadcrumbs(view);
   $('mode-link').hidden = view === 'modes';
   if (view === 'modes') { $('modes-title').focus(); }
@@ -353,12 +388,11 @@ function route() {
     $('language-description').textContent = nativeName(lang);
     $('language-meter').replaceChildren(meter(stats.translated, stats.total, languageName(lang), stats.checked));
     $('language-count').textContent = `${stats.checked} approved · ${stats.translated - stats.checked} drafted · ${stats.total - stats.translated} untranslated`;
-    const keys = data.coverage.mapped, translated = keys.filter(k => data.translations[lang]?.[k]).length;
-    $('phone-count').textContent = `${keys.filter(humanChecked).length} / ${keys.length} approved`;
-    $('phone-link').href = `#edit/${lang}`;
-    $('scope-note').textContent = `This prototype has previews for ${keys.length} texts in the Phone card and its heat warning. The rest of the desktop catalogue is not available in the editor yet.`;
+    sectionRows();
+    $('scope-note').textContent = `The desktop app's screens, dialogs and menus have previews. Texts that only show in some situations are listed with sample values. The phone app isn't in the editor yet.`;
     $('language-title').focus();
   } else {
+    fillScenes(preferredScene || $('scene').value); preferredScene = '';
     image = null; selected = null; $('error').textContent = ''; $('fit').textContent = ''; $('search').value = '';
     suggestions = new Map(); loadSuggestions();
     $('preview-mount').replaceChildren(); $('edit').hidden = true; $('regions').replaceChildren(); selected = sceneKeys()[0]; if (selected) choose(selected); else rows(); render();
@@ -381,7 +415,7 @@ $('approve').onclick = async () => {
       sharedApproved({...item,reviewer:await shared.approve(item)});
       if (submission) selectedSubmission = null;
     }
-    dropDraft(drafts, lang, selected); save();
+    delete (drafts[lang] || {})[selected]; save();
     if (data.mode === 'admin') await start();
     else { choose(selected); $('draft-status').textContent = 'Translation approved.'; }
   } catch (error) { $('error').textContent = error.message; updateProgress(); }
@@ -509,12 +543,13 @@ async function openAdmin() {
       adminUi = module.createAdmin(shared, sharedUser, sharedRole, (item, source) => {
         const entry = Object.entries(data.entries).find(([,entry]) => entry.id === item.entry && entry.sourceDigest === item.sourceDigest);
         if (!entry || !source) { $('admin-status').textContent = 'This preview needs a checkout containing the suggestion’s current source.'; return; }
-        setDraft(drafts, item.language, entry[0], item.text);
+        drafts[item.language] ||= {}; drafts[item.language][entry[0]] = item.text;
         selectedSubmission = item;
         lang = item.language; preferredKey = entry[0]; save();
-        const scene = Object.entries(data.coverage.scenes).find(([,keys]) => keys.includes(entry[0]));
-        if (scene) $('scene').value = scene[0];
-        location.hash = `#edit/${lang}`;
+        const scene = Object.entries(data.coverage.scenes).find(([id,keys]) => keys.includes(entry[0]) && !id.startsWith('messages-')) || Object.entries(data.coverage.scenes).find(([,keys]) => keys.includes(entry[0]));
+        const target = scene && data.sections.find(s => s.scenes.includes(scene[0]));
+        if (target) { section = target.id; fillScenes(scene[0]); }
+        location.hash = `#edit/${lang}/${section}`;
       }, item => item ? sharedApproved(item) : loadSharedProgress());
     }
     await adminUi.reload();

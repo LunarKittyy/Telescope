@@ -1,6 +1,17 @@
 # Translation preview experiment
 
-The [translation workbench](https://telescope-localization.web.app) tries translations in Telescope's own Qt widgets. It currently has three scenes for the desktop's Phone card: cool and charging, warm, and stopped for heat. No phone or virtual camera is needed. Android previews and plural editing aren't built yet.
+The [translation workbench](https://telescope-localization.web.app) tries translations in Telescope's own Qt widgets. About nine in ten desktop texts show on the screen where people read them, grouped into sections you pick from the language page:
+
+- **Phone card**: cool and charging, warm, and stopped for heat.
+- **Main window**: before any phone is paired, with a phone at three widths, streaming, starting, and with banners and footer lines.
+- **Status lines and problems**: the Connection, Setup, Microphone, Updates, Stream output and other cards in the states that show their messages, one scene per state.
+- **Settings**: one scene per page, plus the Plugins page with its questions and problems.
+- **Dialogs and menus**: adding and listing phones, the shortcut editor, VA-API and adb setup, confirmation questions, and the tray and preset menus.
+- **Notifications**: drawn as the desktop shows them, with a title and text.
+- **Settings search**: the search box with one of a keyword's words typed in and the result it finds.
+- **Other texts**: the few texts no screen shows yet, each with where the app uses them and sample values filled in. They show the wording and its length, not a screen.
+
+No phone or virtual camera is needed. Android previews and plural editing aren't built yet, so the seven plural texts have no editor.
 
 Use the [development environment](building.md#run-the-desktop-app-from-source), then run this in `desktop/`:
 
@@ -8,9 +19,9 @@ Use the [development environment](building.md#run-the-desktop-app-from-source), 
 python scripts/translation_preview.py
 ```
 
-Open the local address printed in the terminal. Choose a language from the overview, open the Phone editor and select a text in the picture or list to edit it. A fresh Qt process renders the scene after each edit, including custom-painted switches and readings. Highlights mark the containing widget rather than exact glyphs; selecting a tooltip highlights its owning control and shows its wording below the picture. Missing or broken placeholders block the preview and export. Text-fit findings appear below the picture.
+Open the local address printed in the terminal. Choose a language from the overview, open a section and pick a scene from the list above the picture. Select a text in the picture or list to edit it. A fresh Qt process renders the scene after each edit, including custom-painted switches and readings. Highlights mark the containing widget rather than exact glyphs; selecting a tooltip highlights its owning control and opens its popup under it. Menu entries, tabs, list rows and dialog titles are highlighted by their own rectangle, and a text in a message box or input dialog marks the whole box. Missing or broken placeholders block the preview and export. Text-fit findings appear below the picture.
 
-The language bars show drafted texts in blue, approved texts in green and untranslated texts in grey. Only the owner and delegated admins approve translations. **Keep draft & next** prepares a local draft for export and never grants approval.
+The language bars show drafted texts in blue, approved texts in green and untranslated texts in grey. Only the owner and delegated admins approve translations. **Keep draft & next** prepares a local draft for export and never grants approval, then moves to the next text still to do in the same section before going on to another section.
 
 Drafts save in browser storage. **Download .po** exports a copy with your edits. **Back up session** saves all browser drafts to a file, and **Restore a backup** loads them again in any browser. Removed source entries stay in that backup but are excluded from previews and .po exports.
 
@@ -42,9 +53,7 @@ Imports compare the last imported Git snapshot, the platform's current version a
 
 **Export language** downloads a ZIP containing the full `.po` catalogue and its `translation-state/LANGUAGE.json` review record. Approved platform changes replace the imported Git wording; unapproved changes are excluded. Put the `.po` file in `desktop/telescope/locale/` and the review record in `desktop/translation-state/`, then review and commit both. The platform needs no GitHub write access.
 
-**Back up whole project** includes the import base, working translations, pending suggestions, conflict records and archived strings. A backup can be restored into an empty project. Imports, conflict fixes and `.po` imports save a new project version in chunks before switching the current-version pointer. If another admin publishes first, the stale save fails and asks for a reload.
-
-Approving or dismissing a suggestion doesn't touch the project version. An approval is one small document in `approvals/LANGUAGE-ENTRY`, written in the same batch that marks the submission approved, so several admins can review at once. The editor reads a precomputed summary of the current version from `projections/` and lays newer approvals over it, so opening a language doesn't download the whole project. Exports and the next import fold those approvals into the project; an approval for a source text that changed since is skipped.
+**Back up whole project** includes the import base, working translations, pending suggestions, conflict records and archived strings. A backup can be restored into an empty project. Firebase saves stage immutable chunks before switching the current-version pointer. If another admin publishes first, the stale save fails and asks for a reload.
 
 ### Syncing from the command line
 
@@ -63,9 +72,11 @@ For local maintainer work without Firebase, `--admin PUBLIC_REVIEWER_NAME` enabl
 
 ## How it follows the app
 
-The browser contains the editor and an image with clickable regions. `scripts/translation_preview.py` builds the real `MonitoringPlugin` panel and its warning banner with sample state, then uses Qt to capture the result. Edits change an in-memory catalog before the widgets are constructed. A new render reads the current checkout; there are no stored screenshots or manually placed rectangles.
+The browser contains the editor and an image with clickable regions. `scripts/translation_preview.py` runs the real window, Settings pages, dialogs and menus with sample state and uses Qt to capture the result. `scripts/translation_scenes.py` lists the sections and how scenes are built, and each area keeps its scenes in `translation_scenes_<area>.py`. A scene drives the real plugin through its own state, the event bus or `host.show_issue`, so a banner or status line is what the code builds. Nothing touches the network, the system or your own settings. Edits change an in-memory catalog before the widgets are constructed. A new render reads the current checkout; there are no stored screenshots or manually placed rectangles.
 
-The worker temporarily instruments translation calls and widget setters to attach the translation key before Qt converts the text. It doesn't infer identity from translated wording. Two entries translated alike remain distinct. Custom-painted `StatusPill` readings have a small adapter. Other custom widgets will need adapters before they can claim coverage. These hooks exist only in the preview subprocess and don't change the installed app.
+The worker temporarily instruments translation calls and the Qt setters for text, tooltips, titles, placeholders, combo box items, tabs, list rows, menu entries and message boxes to attach the translation key before Qt converts the text. Texts joined with `+` keep their keys; an f-string, `.format()` or a text passed into another `tr()` loses them, so a scene re-attaches those with a small helper in its own file. The same goes for custom-painted widgets: `StatusPill` has an adapter, and a scene marks other painted texts itself. It doesn't infer identity from translated wording, so two entries translated alike remain distinct. Modal dialogs are built without being run: the worker swaps `exec()` and the static message box helpers for ones that keep the dialog and return. Desktop notifications are captured and drawn as a bubble. These hooks exist only in the preview subprocess and don't change the installed app.
+
+To add a screen, write a builder in the scenes file of its area that returns the shown widget and register it with `@scene` under a section. Import nothing from `telescope` at the top of that file: a module imported before the worker instruments `tr` keeps the plain one and its texts can't be mapped.
 
 ## Catching missing coverage
 
@@ -74,13 +85,18 @@ python scripts/translation_preview.py --check
 python scripts/translation_preview.py --check-all
 ```
 
-`--check` compares fresh scene mappings and the catalog against `scripts/translation_preview/coverage.json`. New Phone texts, removed mappings, per-scene mapping changes and changes to the texts outside this experiment fail the check. The same check runs in `tests/test_translation_preview.py` as part of the normal desktop suite. The browser computes fresh coverage too and lists the Phone texts still missing scenes.
+`--check` renders every scene and compares the texts each one shows with `scripts/translation_preview/coverage.json`. A new text, a text that stops showing in a scene, or a new gap fails the check. It renders about 650 scenes, which takes a few minutes of CPU, so `tests/test_translation_preview.py` samples ten scenes and checks the rest of the record for consistency. Set `TELESCOPE_FULL_PREVIEW=1` to make that test render every scene too. The container build runs the full `--check`. The local server renders everything once per checkout revision when it starts, so the first page load waits a moment.
 
-`--check-all` fails until every catalog entry has a mapped preview. A normal `--check` passing means the declared coverage hasn't drifted, including its known gaps. It doesn't mean every screen, tooltip state, plural form or platform has been exercised. The prototype renders the host platform's Qt appearance at one width.
+`--check-all` also fails when a text has no scene at all. It passes today. The record lists the remaining gaps:
+
+- **Plural texts** (`trn`) have no scene because the editor can't change plurals yet. There are seven.
+- **Not on a real screen** lists texts that only appear on the Other texts pages, 125 of them. Some have no visible home (accessible names, replies printed to the terminal for `telescope --action`, log lines). The rest are states that were hard to reach and are the next candidates for real scenes.
+
+A passing check means the declared coverage hasn't drifted, including those gaps. It doesn't mean every screen state, plural form or platform has been exercised. The previews render the host platform's Qt appearance, and the Windows-only code runs on Linux by patching the platform flags, so a Windows scene shows Windows wording in Linux fonts.
 
 After inspecting affected scenes and deciding which remaining gaps are acceptable, run `python scripts/translation_preview.py --record-coverage` and review the changed record. Don't regenerate it automatically in CI. The renderer prevents an open editor from using a different app revision without a reload.
 
-The development server listens only on `127.0.0.1` and accepts requests from that local origin. Each render has a timeout and a fresh worker. Hosted previews run the same Qt code inside a container with a restricted service identity. The container build renders the scenes and checks coverage before it can be deployed.
+The development server listens only on `127.0.0.1` and accepts requests from that local origin. Each render has a timeout and a fresh worker. Hosted previews run the same Qt code inside a container with a restricted service identity. The container build renders the scenes and checks coverage before it can be deployed, and the hosted catalogue reads that recorded coverage instead of rendering every scene on a cold start.
 
 ## Updating the hosted site
 

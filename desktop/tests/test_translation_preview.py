@@ -9,16 +9,29 @@ from scripts import translation_preview as preview
 from telescope import i18n
 
 
+QUICK = ["cool", "warm", "hot", "main-wide", "settings-general", "dialog-phones", "dialog-preset-save", "menu-presets",
+         "notify-battery-low", "search-1"]
+RECORD = json.loads((preview.ASSETS / "coverage.json").read_text(encoding="utf-8"))
+
+
 @pytest.fixture(scope="module")
 def scenes():
-    return [preview.worker({"lang": "en", "scene": name}) for name in preview.SCENES]
+    """A few scenes of each kind; the whole set takes minutes, so `--check` renders it and this only samples."""
+    return preview.render_all(QUICK)
 
 
-def test_coverage_stays_explicit(scenes):
-    expected = json.loads((preview.ASSETS / "coverage.json").read_text(encoding='utf-8'))
-    actual = preview.coverage(scenes)
-    assert not preview.check_coverage(actual, expected), preview.check_coverage(actual, expected)
-    assert actual["missing"] and actual["outside"] > 0
+def test_sampled_scenes_still_show_what_the_record_says(scenes):
+    assert not [r["scene"] for r in scenes if sorted({x["key"] for x in r["regions"]}) != RECORD["scenes"][r["scene"]]]
+    assert not RECORD["missing"] and RECORD["plural"]
+
+
+@pytest.mark.skipif(not __import__("os").environ.get("TELESCOPE_FULL_PREVIEW"), reason="renders every scene, minutes of CPU")
+def test_whole_record_matches_every_scene():
+    actual = preview.coverage(preview.render_all())
+    assert not preview.check_coverage(actual, RECORD)
+
+
+def test_widget_adapters_are_exercised(scenes):
     assert any(r["widget"] == "Switch" for s in scenes for r in s["regions"])
     assert any(r["widget"] == "StatusPill" and r["values"] for s in scenes for r in s["regions"])
 
@@ -138,3 +151,44 @@ def test_language_progress_ignores_fuzzy_missing_partial_and_obsolete_entries():
     assert preview.language_progress(entries, [*found, obsolete]) == {'translated': 1, 'total': 5}
     found[-1].msgstr = ['One', 'Many']
     assert preview.language_progress(entries, found) == {'translated': 2, 'total': 5}
+
+
+def test_every_scene_belongs_to_a_section_and_the_sample_renders_something(scenes):
+    listed = [scene for section in preview.scenes.sections() for scene in section["scenes"]]
+    assert sorted(listed) == sorted(preview.SCENES)
+    assert all(result["regions"] for result in scenes)
+    assert all(r["rect"][2] > 0 and r["rect"][3] > 0 for result in scenes for r in result["regions"])
+
+
+def test_settings_scenes_match_the_pages_the_window_has():
+    import subprocess
+    import sys
+    code = ("import contextlib, json, os\n"
+            "from PyQt6.QtWidgets import QApplication\n"
+            "app = QApplication([])\n"
+            "from scripts import translation_scenes as m\n"
+            "with contextlib.ExitStack() as stack:\n"
+            "    m.use_scratch_profile(stack)\n"
+            "    window = m.main_window(stack)\n"
+            "    window.open_settings()\n"
+            "    print(json.dumps(list(window._settings_win.tab_names())), flush=True)\n"
+            "    os._exit(0)\n")
+    env = {**__import__("os").environ, "QT_QPA_PLATFORM": "offscreen"}
+    out = subprocess.run([sys.executable, "-c", code], cwd=preview.ROOT, env=env, capture_output=True, text=True, timeout=60)
+    assert json.loads(out.stdout.splitlines()[-1]) == [tab for tab, _title in preview.scenes.SETTINGS_PAGES], out.stderr
+
+
+def test_menus_dialogs_and_lists_are_mapped_to_their_own_items(scenes):
+    by_id = {result["scene"]: result for result in scenes}
+    assert any(r["widget"] == "QMenu" for r in by_id["menu-presets"]["regions"])
+    assert any(r["slot"] == "window title" for r in by_id["dialog-phones"]["regions"])
+    assert any(r["slot"] == "label" for r in by_id["dialog-preset-save"]["regions"])
+    assert any(r["widget"] == "QListWidget" for r in by_id["settings-general"]["regions"])
+
+
+def test_every_text_has_a_scene_except_plurals():
+    entries = preview.catalog()
+    assert all(entries[k].plural for k in RECORD["plural"])
+    shown = {k for keys in RECORD["scenes"].values() for k in keys}
+    assert set(entries) - shown == set(RECORD["plural"]) - shown
+    assert RECORD["screens"] and len(RECORD["screens"]) > len(RECORD["messages_only"])

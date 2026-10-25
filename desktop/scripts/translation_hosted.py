@@ -30,7 +30,7 @@ def catalogue():
 
 
 def queue_account_job(id_token, action='delete-account'):
-    config = json.loads((preview.ASSETS / 'firebase-config.json').read_text(encoding='utf-8'))
+    config = json.loads((preview.ASSETS / 'firebase-config.json').read_text())
     uid = account.verify_identity(id_token, config['apiKey'], recent=action == 'delete-account')
     store = account.Store(PROJECT)
     region = os.environ.get('TASK_REGION', 'europe-west1')
@@ -219,6 +219,8 @@ def stage(destination):
     scripts.mkdir()
     for name in ('translation_preview', 'translation_project', 'translation_review', 'translation_account', 'translation_hosted', 'text_fit'):
         shutil.copy2(preview.ROOT / 'scripts' / (name + '.py'), scripts)
+    for path in sorted((preview.ROOT / 'scripts').glob('translation_scenes*.py')):
+        shutil.copy2(path, scripts)
     shutil.copytree(preview.ASSETS, scripts / 'translation_preview', ignore=shutil.ignore_patterns('firebase', '__pycache__'))
     firebase = destination / 'firebase'
     firebase.mkdir()

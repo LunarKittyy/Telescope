@@ -8,7 +8,7 @@ WORKDIR /app
 COPY desktop/scripts/translation_preview/requirements-hosted.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 COPY desktop/telescope ./telescope
-COPY desktop/scripts/translation_preview.py desktop/scripts/translation_project.py desktop/scripts/translation_review.py desktop/scripts/translation_account.py desktop/scripts/translation_hosted.py desktop/scripts/text_fit.py ./scripts/
+COPY desktop/scripts/translation_preview.py desktop/scripts/translation_project.py desktop/scripts/translation_review.py desktop/scripts/translation_account.py desktop/scripts/translation_hosted.py desktop/scripts/translation_scenes*.py desktop/scripts/text_fit.py ./scripts/
 COPY desktop/scripts/translation_preview ./scripts/translation_preview
 COPY desktop/translation-state ./translation-state
 RUN python scripts/translation_preview.py --check

@@ -162,6 +162,7 @@ progress::-moz-progress-bar { background: #9ad3ae; border-radius: 4px; }
 .language-summary { display: flex; align-items: center; gap: 24px; margin-bottom: 48px; color: var(--muted); }
 #language-meter { width: 240px; }
 .overview h3 { font-size: 16px; margin: 0 0 16px; }
+.area-list { display: grid; gap: 12px; }
 .area-row { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 24px; background: var(--panel); border-radius: 12px; text-decoration: none; color: var(--ink); }
 .area-row:hover { background: #40364e; }
 .area-row strong { font-size: 18px; }
@@ -279,3 +280,4 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .person-head { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
 #person-avatar { border-radius: 50%; background: #494151; }
 #person .row-actions { display: flex; gap: 8px; margin-top: 20px; }
+.tip { position: absolute; pointer-events: none; z-index: 2; height: auto; box-shadow: 0 4px 14px #0008; }

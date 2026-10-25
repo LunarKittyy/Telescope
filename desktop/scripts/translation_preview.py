@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Local translation workbench: python scripts/translation_preview.py [--port 8769].
 
---check checks the Phone scenes against their coverage record. --check-all also fails for texts outside this
-proof of concept. Qt runs in a fresh offscreen subprocess per preview; drafts never change the source catalogs.
+--check compares every scene with its coverage record. --check-all also fails for texts no scene shows. Qt runs in a fresh offscreen subprocess per preview; drafts never change the source catalogs.
 """
 
 import argparse
@@ -24,13 +23,14 @@ from telescope import i18n
 from scripts import translation_review as review
 from scripts import translation_project as project
 from scripts import translation_account as account_service
+from scripts import translation_scenes as scenes
 
 ASSETS = Path(__file__).with_name("translation_preview")
-SCENES = {"cool": "Phone · cool and charging", "warm": "Phone · warm", "hot": "Phone · stopped for heat"}
 
 
-def key(ctx, text):
-    return json.dumps([ctx, text], ensure_ascii=False)
+key = scenes.key
+Tagged = scenes.Tagged
+remember = scenes.remember
 
 
 _catalog_rows = {}
@@ -71,15 +71,36 @@ def revision():
     return digest.hexdigest()
 
 
+def recorded():
+    try:
+        return json.loads((ASSETS / "coverage.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {"scenes": {}, "screens": []}
+
+
+scenes.register_search(catalog().values())
+SCENES = {}
+
+
+def register_scenes(screens):
+    """The scenes there are, with the other-texts pages for what the real screens in screens leave out."""
+    scenes.register_galleries(catalog().values(), set(screens))
+    SCENES.clear()
+    SCENES.update({id: scene.title for id, scene in scenes.SCENES.items()})
+
+
+register_scenes(recorded().get("screens", []))
+
+
 def validate(payload):
     if not isinstance(payload, dict):
         raise ValueError("Expected an object")
     if "revision" in payload and payload["revision"] != revision():
         raise ValueError("This checkout changed. Reload the editor to get its current texts and previews.")
+    lang = payload.get("lang", "es")
     scene = payload.get("scene", "cool")
-    if scene not in SCENES:
+    if lang not in ["en", *project.language_options()] or scene not in SCENES:
         raise ValueError("Choose an available language and scene")
-    lang = review.trusted_language(payload.get("lang", "es"), ["en", *project.language_options()])
     drafts = payload.get("drafts", {})
     if not isinstance(drafts, dict) or len(drafts) > 100:
         raise ValueError("Expected at most 100 draft texts")
@@ -99,18 +120,14 @@ def validate(payload):
     return lang, scene, drafts
 
 
-class Tagged(i18n.Shown):
-    def __new__(cls, text, source, ctx, values):
-        shown = super().__new__(cls, text, source)
-        shown.identity = key(ctx, source)
-        shown.values = {k: str(v) for k, v in values.items()}
-        return shown
+def first_text(args):
+    return next((a for a in args if isinstance(a, str)), "")
 
 
 def instrument(stack):
     """Attach translation identities before Qt converts Python strings into QStrings, only in this worker."""
     from unittest.mock import patch
-    from PyQt6 import QtWidgets as widgets
+    from PyQt6 import QtGui, QtWidgets as widgets
     original_tr = i18n.tr
 
     def translate(text, /, ctx="", **values):
@@ -118,37 +135,85 @@ def instrument(stack):
 
     stack.enter_context(patch.object(i18n, "tr", translate))
 
-    def remember(widget, slot, text):
-        records = getattr(widget, "_preview_texts", {})
-        if isinstance(text, Tagged):
-            records[slot] = text
-        else:
-            records.pop(slot, None)
-        widget._preview_texts = records
-
-    for cls in (widgets.QLabel, widgets.QPushButton, widgets.QCheckBox):
-        original = cls.__init__
-
-        def init(widget, *args, _original=original, **kwargs):
-            _original(widget, *args, **kwargs)
-            text = next((a for a in args if isinstance(a, str)), kwargs.get("text", ""))
-            remember(widget, "text", text)
-
-        stack.enter_context(patch.object(cls, "__init__", init))
-    for cls, name, slot in ((widgets.QLabel, "setText", "text"),
-                            (widgets.QAbstractButton, "setText", "text"),
-                            (widgets.QWidget, "setToolTip", "tooltip"),
-                            (widgets.QSpinBox, "setSuffix", "suffix"),
-                            (widgets.QDoubleSpinBox, "setSuffix", "suffix")):
-        if not hasattr(cls, name):
-            continue
+    def after(cls, name, handler):
         original = getattr(cls, name)
 
-        def setter(widget, text, _original=original, _slot=slot):
-            _original(widget, text)
-            remember(widget, _slot, text)
+        def wrapper(target, *args, **kwargs):
+            result = original(target, *args, **kwargs)
+            handler(target, args, kwargs, result)
+            return result
 
-        stack.enter_context(patch.object(cls, name, setter))
+        stack.enter_context(patch.object(cls, name, wrapper))
+
+    def slot_for(slot):
+        return lambda target, args, kwargs, _result: remember(target, slot, first_text(args) or kwargs.get("text", ""))
+
+    for cls in (widgets.QLabel, widgets.QPushButton, widgets.QCheckBox, widgets.QRadioButton):
+        after(cls, "__init__", slot_for("text"))
+    after(widgets.QGroupBox, "__init__", slot_for("title"))
+
+    def box_texts(box, args, _kwargs, _result):
+        if args and not isinstance(args[0], widgets.QWidget):
+            remember(box, "window title", first_text(args[1:]))
+            remember(box, "text", first_text(args[2:]))
+
+    after(widgets.QMessageBox, "__init__", box_texts)
+    after(QtGui.QAction, "__init__", slot_for("text"))
+    after(widgets.QListWidgetItem, "__init__", slot_for("text"))
+    for cls, name, slot in ((widgets.QLabel, "setText", "text"),
+                            (widgets.QAbstractButton, "setText", "text"),
+                            (widgets.QGroupBox, "setTitle", "title"),
+                            (widgets.QWidget, "setToolTip", "tooltip"),
+                            (widgets.QWidget, "setWindowTitle", "window title"),
+                            (widgets.QLineEdit, "setPlaceholderText", "placeholder"),
+                            (widgets.QAbstractSpinBox, "setSpecialValueText", "special"),
+                            (widgets.QSpinBox, "setSuffix", "suffix"),
+                            (widgets.QDoubleSpinBox, "setSuffix", "suffix"),
+                            (widgets.QMessageBox, "setText", "text"),
+                            (widgets.QInputDialog, "setLabelText", "label"),
+                            (widgets.QMessageBox, "setInformativeText", "detail"),
+                            (QtGui.QAction, "setText", "text"),
+                            (QtGui.QAction, "setToolTip", "tooltip"),
+                            (widgets.QListWidgetItem, "setText", "text")):
+        if hasattr(cls, name):
+            after(cls, name, slot_for(slot))
+
+    def combo_item(combo, args, _kwargs, _result):
+        remember(combo, f"item {combo.count() - 1}", first_text(args))
+
+    after(widgets.QComboBox, "addItem", combo_item)
+    after(widgets.QComboBox, "setItemText", lambda combo, args, _k, _r: remember(combo, f"item {args[0]}", args[1]))
+    after(widgets.QComboBox, "addItems",
+          lambda combo, args, _k, _r: [remember(combo, f"item {combo.count() - len(args[0]) + i}", t) for i, t in enumerate(args[0])])
+    after(widgets.QTabWidget, "addTab",
+          lambda tabs, args, _k, index: remember(tabs.tabBar(), f"tab {index}", first_text(args[1:])))
+    after(widgets.QTabWidget, "setTabText", lambda tabs, args, _k, _r: remember(tabs.tabBar(), f"tab {args[0]}", args[1]))
+    after(widgets.QTabBar, "addTab", lambda bar, args, _k, index: remember(bar, f"tab {index}", first_text(args)))
+    after(widgets.QTabBar, "setTabText", lambda bar, args, _k, _r: remember(bar, f"tab {args[0]}", args[1]))
+    after(widgets.QMenu, "addAction",
+          lambda _menu, args, _k, action: remember(action, "text", first_text(args)) if action is not None and first_text(args) else None)
+    after(widgets.QMenu, "addMenu",
+          lambda _menu, args, _k, sub: remember(sub.menuAction(), "text", first_text(args)) if sub is not None and first_text(args) else None)
+    after(widgets.QListWidget, "addItem",
+          lambda view, args, _k, _r: remember(view.item(view.count() - 1), "text", first_text(args)) if args and isinstance(args[0], str) else None)
+    after(widgets.QMessageBox, "addButton",
+          lambda box, args, _k, button: remember(button, "text", first_text(args)) if first_text(args) else None)
+
+    from PyQt6.QtCore import QObject
+
+    def named_property(target, args, _kwargs, _result):
+        if args and args[0] == "keywords":
+            remember(target, "search keywords", args[1])
+
+    after(QObject, "setProperty", named_property)
+    from telescope.widgets import settings_search
+    original_keywords = settings_search.keywords
+
+    def keywords(widget, text):
+        remember(widget, "search keywords", text)
+        return original_keywords(widget, text)
+
+    stack.enter_context(patch.object(settings_search, "keywords", keywords))
 
     from telescope.widgets.common import StatusPill
     original_set = StatusPill.set
@@ -161,15 +226,81 @@ def instrument(stack):
     stack.enter_context(patch.object(StatusPill, "set", set_pill))
 
 
+def text_regions(top):
+    """Every translated text visible on top, with the rectangle of what shows it."""
+    from PyQt6.QtCore import QPoint, QRect
+    from PyQt6.QtWidgets import QListWidget, QMenu, QTabBar, QWidget
+    regions = []
+
+    def add(owner, slot, text, rect, widget):
+        for part in scenes.parts_of(text):
+            regions.append({"key": part.identity, "slot": slot, "shown": str(part), "values": part.values,
+                            "rect": [rect.x(), rect.y(), rect.width(), rect.height()], "widget": widget})
+
+    for widget in [top, *top.findChildren(QWidget)]:
+        if not widget.isVisible():
+            continue
+        origin = widget.mapTo(top, QPoint(0, 0))
+        whole = QRect(origin, widget.size())
+        for slot, text in getattr(widget, "_preview_texts", {}).items():
+            if not text or slot == "search keywords":
+                continue
+            rect = whole
+            if slot == "window title":
+                rect = QRect(origin, widget.size()).intersected(QRect(origin.x(), origin.y(), widget.width(), 28))
+            elif slot.startswith("tab ") and isinstance(widget, QTabBar):
+                rect = QRect(widget.mapTo(top, widget.tabRect(int(slot[4:])).topLeft()), widget.tabRect(int(slot[4:])).size())
+            add(widget, slot, text, rect, type(widget).__name__)
+        if isinstance(widget, QMenu):
+            for action in widget.actions():
+                for slot, text in getattr(action, "_preview_texts", {}).items():
+                    if text and slot == "text" and action.isVisible():
+                        box = widget.actionGeometry(action)
+                        add(action, slot, text, QRect(widget.mapTo(top, box.topLeft()), box.size()), "QMenu")
+        if isinstance(widget, QListWidget):
+            for row in range(widget.count()):
+                item = widget.item(row)
+                for slot, text in getattr(item, "_preview_texts", {}).items():
+                    if text:
+                        box = widget.visualItemRect(item)
+                        add(item, slot, text, QRect(widget.viewport().mapTo(top, box.topLeft()), box.size()), "QListWidget")
+    return regions
+
+
+def tooltip_pictures(top, regions):
+    """The popup each tooltip would show, by text key, with where it opens: under the control that owns it."""
+    from PyQt6.QtCore import QBuffer, QByteArray, QIODevice, QPoint
+    from PyQt6.QtWidgets import QApplication, QToolTip
+    tips = {}
+    for region in regions:
+        if region["slot"] != "tooltip" or region["key"] in tips or len(tips) >= 120:
+            continue
+        QToolTip.showText(QPoint(0, 0), region["shown"], top)
+        QApplication.processEvents()
+        label = next((w for w in QApplication.topLevelWidgets() if w.metaObject().className() == "QTipLabel"), None)
+        if label is None:
+            continue
+        array = QByteArray()
+        buffer = QBuffer(array)
+        buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+        label.grab().save(buffer, "PNG")
+        x, y, _w, h = region["rect"]
+        tips[region["key"]] = {"image": base64.b64encode(bytes(array)).decode(), "x": x, "y": y + h + 4,
+                               "width": label.width(), "height": label.height()}
+    QToolTip.hideText()
+    return tips
+
+
 def render(payload):
     import contextlib
     os.environ["QT_QPA_PLATFORM"] = "offscreen"
-    from PyQt6.QtCore import QByteArray, QBuffer, QIODevice, QPoint
-    from PyQt6.QtWidgets import QApplication, QVBoxLayout, QWidget
+    from PyQt6.QtCore import QByteArray, QBuffer, QIODevice
+    from PyQt6.QtWidgets import QApplication
     from telescope.theme import apply_theme
-    from telescope.plugin import EventBus
     from scripts import text_fit
 
+    if "screens" in payload:
+        register_scenes(payload["screens"])
     lang, scene, drafts = validate(payload)
     app = QApplication.instance() or QApplication([])
     apply_theme(app)
@@ -183,74 +314,19 @@ def render(payload):
 
     with contextlib.ExitStack() as stack:
         instrument(stack)
-        from telescope.plugins.monitoring import MonitoringPlugin
-        from telescope.widgets.banner import Banner
-
-        class Host:
-            issues = []
-
-            def schedule_save(self):
-                pass
-
-            def is_streaming(self):
-                return True
-
-            def stop_stream(self, _sid):
-                pass
-
-            def send_notification(self, *_args):
-                pass
-
-            def show_issue(self, _key, issue):
-                self.issues.append(issue)
-
-        host, bus = Host(), EventBus()
-        plugin = MonitoringPlugin()
-        plugin.setup(host, bus)
-        top = QWidget()
-        top.setObjectName("translation_preview")
-        layout = QVBoxLayout(top)
-        layout.setContentsMargins(16, 16, 16, 16)
-        panel = plugin.create_panel()
-        layout.addWidget(panel)
-        panel.setGraphicsEffect(None)
-        panel.setEnabled(True)
-        if scene == "hot":
-            plugin._temp_stop.setChecked(True)
-            plugin._on_state({"battery": 64, "charging": False, "battery_temp_c": 48.2})
-        else:
-            plugin._update_display(64, scene == "cool", 29.4 if scene == "cool" else 42.1)
-        for issue in host.issues:
-            layout.addWidget(Banner(issue))
-        top.resize(620, 600)
-        top.setMaximumWidth(1400)
-        top.show()
-        app.processEvents()
-        top.resize(620, top.sizeHint().height())
+        top = scenes.SCENES[scene].build(stack)
         app.processEvents()
         picture = top.grab()
-        regions = []
-        for widget in top.findChildren(QWidget):
-            if not widget.isVisible():
-                continue
-            rect = widget.rect()
-            point = widget.mapTo(top, QPoint(0, 0))
-            for slot, text in getattr(widget, "_preview_texts", {}).items():
-                if not text:
-                    continue
-                regions.append({"key": text.identity, "slot": slot, "shown": str(text), "values": text.values,
-                                "rect": [point.x(), point.y(), rect.width(), rect.height()],
-                                "widget": type(widget).__name__})
-        findings = text_fit.check(top, lang, SCENES[scene], text_fit._Texts(), width=620)
+        regions = text_regions(top)
+        findings = text_fit.check(top, lang, SCENES[scene], text_fit._Texts(), width=scenes.SCENES[scene].width)
         array = QByteArray()
         buffer = QBuffer(array)
         buffer.open(QIODevice.OpenModeFlag.WriteOnly)
         picture.save(buffer, "PNG")
         result = {"image": base64.b64encode(bytes(array)).decode(), "width": top.width(), "height": top.height(),
-                  "regions": regions, "findings": [{"text": f.text, "kind": f.kind} for f in findings],
+                  "regions": regions, "tips": tooltip_pictures(top, regions), "findings": [{"text": f.text, "kind": f.kind} for f in findings],
                   "scene": scene, "lang": lang}
         top.close()
-        plugin._timer.stop()
         return result
 
 
@@ -300,29 +376,57 @@ def worker(payload):
     return json.loads(output)
 
 
+def render_once(payload):
+    """One render in its own process, without the spare the server keeps waiting: for the batches the checks run."""
+    result = subprocess.run([sys.executable, str(Path(__file__).resolve()), "--render"], input=json.dumps(payload),
+                            capture_output=True, text=True, encoding="utf-8", timeout=120)
+    if result.returncode:
+        raise RuntimeError(result.stderr[-2500:] or "The Qt preview failed")
+    return json.loads(result.stdout.splitlines()[-1])
+
+
+def render_all(ids=None, screens=None):
+    """Scenes rendered in English, a few workers at a time, in scene order. screens: the texts the real screens show,
+    which decides what the other-texts pages hold (the recorded ones when None)."""
+    from concurrent.futures import ThreadPoolExecutor
+    extra = {} if screens is None else {"screens": sorted(screens)}
+    with ThreadPoolExecutor(min(8, os.cpu_count() or 2)) as pool:
+        return list(pool.map(lambda scene: render_once({"lang": "en", "scene": scene, **extra}), ids or list(SCENES)))
+
+
+def render_for_record():
+    """Real screens first, then the other-texts pages for whatever those leave out."""
+    real = render_all([id for id, scene in scenes.SCENES.items() if scene.section != "messages"])
+    screens = {r["key"] for result in real for r in result["regions"]}
+    register_scenes(screens)
+    rest = render_all([id for id, scene in scenes.SCENES.items() if scene.section == "messages"], screens)
+    return real + rest
+
+
 def coverage(results):
+    """Which catalog texts the scenes show. Plural texts have no scene yet; messages scenes only list wording."""
     entries = catalog()
-    scoped = {identity for identity, entry in entries.items()
-              if any(loc.startswith("telescope/plugins/monitoring.py:") for loc in entry.locations)}
-    mapped = {region["key"] for result in results for region in result["regions"]}
-    outside = sorted(set(entries) - scoped - mapped)
-    return {"mapped": sorted(mapped), "missing": sorted(scoped - mapped),
-            "scenes": {result["scene"]: sorted({r["key"] for r in result["regions"]}) for result in results},
-            "outside": len(outside), "outside_digest": hashlib.sha256(json.dumps(outside).encode()).hexdigest(),
+    plural = {identity for identity, entry in entries.items() if entry.plural}
+    known = set(entries)  # a plugin's own text or one built at run time can be tagged without being in the catalog
+    mapped = {region["key"] for result in results for region in result["regions"]} & known
+    in_screens = {region["key"] for result in results if not result["scene"].startswith("messages-")
+                  for region in result["regions"]} & known
+    return {"mapped": sorted(mapped), "missing": sorted(set(entries) - plural - mapped), "plural": sorted(plural),
+            "screens": sorted(in_screens), "messages_only": sorted(mapped - in_screens),
+            "scenes": {result["scene"]: sorted({r["key"] for r in result["regions"]} & known) for result in results},
             "total": len(entries)}
 
 
 def check_coverage(actual, expected):
     problems = []
-    for name in ("mapped", "missing"):
+    for name in ("missing", "plural", "messages_only", "screens"):
         added = set(actual[name]) - set(expected[name])
         removed = set(expected[name]) - set(actual[name])
         problems.extend(f"{name}: added {identity}" for identity in sorted(added))
         problems.extend(f"{name}: removed {identity}" for identity in sorted(removed))
-    if actual["scenes"] != expected["scenes"]:
-        problems.append("The texts mapped to a scene changed; inspect its preview before updating coverage.json")
-    if actual["outside_digest"] != expected["outside_digest"]:
-        problems.append("Catalog texts outside the prototype changed; review the missing coverage before updating coverage.json")
+    for name in sorted(set(actual["scenes"]) | set(expected["scenes"])):
+        if actual["scenes"].get(name) != expected["scenes"].get(name):
+            problems.append(f"The texts in scene {name} changed; inspect its preview before updating coverage.json")
     return problems
 
 
@@ -333,7 +437,7 @@ def language_progress(entries, found):
     return {"translated": len(translated), "total": len(current)}
 
 
-def metadata():
+def metadata(fresh=False):
     entries = catalog()
     translations = {}
     language_stats = {}
@@ -347,15 +451,26 @@ def metadata():
         language_stats[lang] = {**language_progress(entries, found), 'approved': len(approvals[lang]),
                                 'machine': sum(item['origin'] == 'machine' for item in statuses.values())}
         translations[lang] = {key(e.ctx, e.msgid): (e.msgstr[0] if e.msgstr and not e.fuzzy else "") for e in found}
-    expected = json.loads((ASSETS / "coverage.json").read_text(encoding='utf-8'))
-    actual = coverage([worker({"lang": "en", "scene": s}) for s in SCENES])
-    scoped = {k for k, e in entries.items() if any(loc.startswith("telescope/plugins/monitoring.py:") for loc in e.locations)}
-    identities = set(actual["mapped"]) | set(actual["missing"]) | scoped
-    return {"scenes": SCENES, "languages": ["en", *i18n.available()], "translations": translations, "language_stats": language_stats, "approvals": approvals,
+    expected = json.loads((ASSETS / "coverage.json").read_text(encoding="utf-8"))
+    actual, drift = recorded_coverage(expected, fresh)
+    return {"scenes": SCENES, "sections": scenes.sections(), "languages": ["en", *i18n.available()], "translations": translations, "language_stats": language_stats, "approvals": approvals,
             "entries": {k: {"english": e.msgid, "context": e.ctx, "locations": e.locations,
                              "comments": e.comments, "plural": e.plural,
-                             "id": review.identity(e), "sourceDigest": review.source_digest(e)} for k, e in entries.items() if k in identities},
-            "coverage": actual, "total": len(entries), "revision": revision(), "drift": check_coverage(actual, expected)}
+                             "id": review.identity(e), "sourceDigest": review.source_digest(e)} for k, e in entries.items()},
+            "coverage": actual, "total": len(entries), "revision": revision(), "drift": drift}
+
+
+_fresh = {}
+
+
+def recorded_coverage(expected, fresh):
+    """The recorded coverage, or this checkout's own (rendered once per revision) when fresh, with how they differ."""
+    if not fresh:
+        return {**expected, "mapped": sorted({k for keys in expected["scenes"].values() for k in keys})}, []
+    current = revision()
+    if _fresh.get("revision") != current:
+        _fresh.update(revision=current, coverage=coverage(render_all()))
+    return _fresh["coverage"], check_coverage(_fresh["coverage"], expected)
 
 
 def emulator_identity(id_token):
@@ -410,7 +525,7 @@ class Handler(BaseHTTPRequestHandler):
             warm()
             return self.reply(200, b"{}", "application/json")
         if self.path == "/api/catalog":
-            return self.reply(200, json.dumps({**metadata(), "mode": "admin" if getattr(self.server, "reviewer", None) else "manual", "shared_available": getattr(self.server, 'shared', False), "emulators": bool(getattr(self.server, 'emulators', False)), "account_deletion_available": bool(getattr(self.server, 'cloud_account', None))}).encode(), "application/json")
+            return self.reply(200, json.dumps({**metadata(fresh=True), "mode": "admin" if getattr(self.server, "reviewer", None) else "manual", "shared_available": getattr(self.server, 'shared', False), "emulators": bool(getattr(self.server, 'emulators', False)), "account_deletion_available": bool(getattr(self.server, 'cloud_account', None))}).encode(), "application/json")
         if self.path == '/api/project-snapshot':
             return self.reply(200, json.dumps(project.repository_snapshot(catalog())).encode(), 'application/json')
         assets = {"/": ("index.html", "text/html; charset=utf-8"), "/app.js": ("app.js", "text/javascript"),
@@ -436,6 +551,8 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == '/api/identity' and getattr(self.server, 'emulators', False):
                 emulator_identity(payload.get('idToken'))
                 return self.reply(200, b'{}', 'application/json')
+            if isinstance(payload, dict):
+                payload.pop("screens", None)  # only the coverage tools say what the real screens show
             if self.path == '/api/delete-account':
                 if not getattr(self.server, 'cloud_account', None):
                     raise ValueError('The account deletion service is not configured on this development server')
@@ -555,20 +672,24 @@ def main():
         del app
         return 0
     if args.check or args.check_all or args.record_coverage:
-        actual = coverage([worker({"lang": "en", "scene": s}) for s in SCENES])
+        actual = coverage(render_for_record() if args.record_coverage else render_all())
         if args.record_coverage:
             path = ASSETS / "coverage.json"
             temporary = path.with_suffix(".tmp")
+            actual.pop("mapped")  # what the scenes list, joined
             temporary.write_text(json.dumps(actual, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
             temporary.replace(path)
             print("Recorded the current mapped texts and known gaps")
             return 0
-        expected = json.loads((ASSETS / "coverage.json").read_text(encoding='utf-8'))
+        expected = json.loads((ASSETS / "coverage.json").read_text(encoding="utf-8"))
         problems = check_coverage(actual, expected)
-        print(f"{len(actual['mapped'])} mapped; {len(actual['missing'])} Phone texts missing; "
-              f"{actual['outside']} texts outside this prototype")
+        print(f"{len(actual['mapped'])} of {actual['total']} texts shown by {len(SCENES)} scenes; "
+              f"{len(actual['messages_only'])} not on a real screen; {len(actual['missing'])} missing; "
+              f"{len(actual['plural'])} plural texts not editable yet")
         print("\n".join(problems))
-        return int(bool(problems) or (args.check_all and bool(actual["missing"] or actual["outside"])))
+        return int(bool(problems) or (args.check_all and bool(actual["missing"])))
+    import threading
+    threading.Thread(target=lambda: metadata(fresh=True), daemon=True).start()  # the first page load waits for the scenes
     with HTTPServer(("127.0.0.1", args.port), Handler) as server:
         server.reviewer = args.admin
         server.shared = args.shared
