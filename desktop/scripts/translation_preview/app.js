@@ -296,8 +296,11 @@ function choose(k) {
   $('placement').textContent = placements[uses[0]?.slot] || '';
   rows(); highlight(); suggestionList(); focusSelection();
 }
-async function post(path, extra = {}) {
-  const response = await fetch(path, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lang,scene:$('scene').value,drafts:currentDrafts(),revision:data.revision,...extra})});
+async function post(path, extra = {}, everything = false) {
+  // A preview only needs the texts its screen shows, which keeps each render small
+  const shown = new Set([...(data.coverage.scenes[$('scene').value] || []), selected]);
+  const sent = everything ? currentDrafts() : Object.fromEntries(Object.entries(currentDrafts()).filter(([k]) => shown.has(k)));
+  const response = await fetch(path, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lang,scene:$('scene').value,drafts:sent,revision:data.revision,...extra})});
   if (!response.ok) { let message; try { message = (await response.json()).error; } catch {} throw Error(message || 'The preview could not be generated.'); }
   return response;
 }
@@ -346,10 +349,11 @@ function sizePicture() {
   focusSelection();
 }
 function focusSelection() {
-  const stage = $('picture').parentElement, region = (image?.regions || []).find(r => r.key === selected);
+  const stage = $('picture').parentElement, region = $('regions').querySelector('.region.selected');
   if (!region || !stage.classList.contains('actual-size')) return;
-  const [x, y, w, h] = region.rect;
-  stage.scrollTo({left: $('picture').offsetLeft + x + w / 2 - stage.clientWidth / 2, top: $('picture').offsetTop + y + h / 2 - stage.clientHeight / 2, behavior: 'smooth'});
+  // Measured on screen, since offsetTop counts from the page rather than the stage
+  const box = region.getBoundingClientRect(), view = stage.getBoundingClientRect();
+  stage.scrollTo({left: stage.scrollLeft + box.left + box.width / 2 - view.left - view.width / 2, top: stage.scrollTop + box.top + box.height / 2 - view.top - view.height / 2, behavior: 'smooth'});
 }
 $('zoom').onclick = () => { fitChosen = !fitChosen; sizePicture(); };
 addEventListener('resize', () => sizePicture());
@@ -382,7 +386,7 @@ function goToNext() {
 }
 $('export').onclick = async () => {
   try {
-    const response = await post('/api/export'); const url = URL.createObjectURL(await response.blob());
+    const response = await post('/api/export', {}, true); const url = URL.createObjectURL(await response.blob());
     const a = document.createElement('a'); a.href = url; a.download = `${lang}.po`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
     $('draft-status').textContent = 'Draft downloaded. Open a pull request with the .po file when you have checked it.';
   } catch (error) { $('error').textContent = error.message; }

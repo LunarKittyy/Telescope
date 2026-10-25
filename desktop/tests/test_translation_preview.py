@@ -111,6 +111,12 @@ def test_invalid_input_is_rejected(payload):
         preview.validate(payload)
 
 
+def test_a_language_only_in_the_shared_project_can_send_every_text():
+    texts = {k: "Tekst" for k, e in preview.catalog().items() if not e.plural and not i18n.fields(e.msgid)}
+    assert len(texts) > 100
+    assert preview.validate({"lang": "pl", "drafts": texts})[2] == texts
+
+
 def test_editor_from_an_older_checkout_is_rejected():
     with pytest.raises(ValueError, match="checkout changed"):
         preview.validate({"revision": "an older revision"})
