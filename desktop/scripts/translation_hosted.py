@@ -215,6 +215,9 @@ def stage(destination):
     ignored = shutil.ignore_patterns('__pycache__', '*.pyc', '*.log', '_build.py')
     for folder in ('telescope', 'translation-state'):
         shutil.copytree(preview.ROOT / folder, desktop / folder, ignore=ignored)
+    # The scenes build the real desktop UI, so the image gets the desktop's own dependencies
+    for name in ('requirements.txt', 'requirements-nodeps.txt', 'update_guard.py'):
+        shutil.copy2(preview.ROOT / name, desktop)
     scripts = desktop / 'scripts'
     scripts.mkdir()
     for name in ('translation_preview', 'translation_project', 'translation_review', 'translation_account', 'translation_hosted', 'text_fit'):

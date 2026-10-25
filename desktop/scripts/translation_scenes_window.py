@@ -753,6 +753,16 @@ def problem_folders():
 
 def problems_page(stack, names):
     chosen = {name: build for name, build in problem_folders() if name in names}
+    if "unreadable" in chosen:
+        # chmod doesn't stop root, which builds the hosted image, so the read fails here as it would for anyone else
+        from telescope import plugin_loader
+        real = plugin_loader.digest
+
+        def digest(path, *args, **kwargs):
+            if path.name == "unreadable":
+                raise PermissionError("notes.txt")
+            return real(path, *args, **kwargs)
+        stack.enter_context(mock.patch.object(plugin_loader, "digest", digest))
 
     def before():
         for name, build in chosen.items():

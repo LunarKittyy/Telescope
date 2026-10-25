@@ -179,7 +179,7 @@ function suggestionList() {
     if (machine || item.author === 'anonymous') { who = document.createElement('span'); who.className = 'person-name'; who.textContent = name; }
     else { who = document.createElement('button'); who.className = 'person-link'; who.textContent = item.author === 'github:' + shared.username ? `${name} (you)` : name; who.onclick = () => showPerson(name); }
     const when = document.createElement('small');
-    when.textContent = machine ? 'machine translation · needs review' : `${ago(item.createdAt)} · ${item.status === 'approved' ? 'approved' : 'waiting for review'}`;
+    when.textContent = machine ? 'waiting for review' : `${ago(item.createdAt)} · ${item.status === 'approved' ? 'approved' : 'waiting for review'}`;
     head.append(avatar(item.author), who, when);
     if (item === top && list.length > 1) { const badge = document.createElement('span'); badge.className = 'badge'; badge.textContent = 'Top suggestion'; badge.title = 'The best voted wording fills the translation box until one is approved'; head.append(badge); }
     const wording = document.createElement('p'); wording.textContent = item.text; wording.lang = lang.replace('_','-');

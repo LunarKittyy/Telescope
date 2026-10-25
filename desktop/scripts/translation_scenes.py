@@ -130,7 +130,9 @@ def use_scratch_profile(stack):
     """Settings and plugin state go to a throwaway folder, never to the real profile."""
     home = stack.enter_context(tempfile.TemporaryDirectory(prefix="telescope-translation-profile-"))
     os.environ["XDG_CONFIG_HOME"] = os.path.join(home, "xdg")
+    os.environ["XDG_DATA_HOME"] = os.path.join(home, "xdg-data")
     os.environ["APPDATA"] = os.path.join(home, "appdata")
+    os.environ["LOCALAPPDATA"] = os.path.join(home, "localappdata")
 
 
 def quiet_system(stack, tray=False):
@@ -158,6 +160,15 @@ def quiet_system(stack, tray=False):
     ):
         if hasattr(target, name):
             stack.enter_context(mock.patch.object(target, name, value))
+    # This computer's virtual cameras and drivers stay out of the picture unless the scene set up its own;
+    # by default v4l2loopback is set up and working, as on most Linux machines that use Telescope
+    if not getattr(stack, "faked_linux", False):
+        from scripts.translation_scenes_setup import fake_linux
+        from telescope.platform.linux import V4L2_OBS_DEV, V4L2_PHONE_DEV
+        fake_linux(stack, loaded=True, nodes=(V4L2_PHONE_DEV, V4L2_OBS_DEV))
+    if getattr(setup.unitycapture_dir, "__module__", "") == "telescope.platform.windows":
+        stack.enter_context(mock.patch.object(setup, "unitycapture_dir",
+                                              lambda: Path(tempfile.gettempdir()) / "telescope-preview" / "no-unitycapture"))
 
 
 def main_window(stack, tray=False, phone=True):
