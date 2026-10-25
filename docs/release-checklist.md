@@ -4,6 +4,7 @@ Everything that has to hold before a version gets tagged. Most of it is checked 
 
 - **The Release workflow** runs the desktop tests, the Android unit tests, the smoke checks, the installer checks (install, update, uninstall, an unzipped copy moving to the installed one, the driver) and `.github/check_release.py` (the APK's signing key, the version in every file, what the bundles carry and the manifest's checksums). It won't publish when one of them fails.
 - **`automation/release-testing/emulator_pass.py`** goes through what an Android emulator and an isolated Linux profile can do against the nightly: a fresh phone install and Get set up, USB pairing, streaming with the phone's Status card and Live Update, transforms and the wait screen in the virtual camera, the remote start toast, re-pairing and removing from either side, the Start failure banner, the heat step, plugins (install, the warning, black and white output, changed files, a plugin that crashes, a built-in switched off, Remove), a broken config, single instance, the Linux menu entry and sign-in entry, Copy diagnostics and updating an older phone app over USB. Its [README](../automation/release-testing/README.md) has the setup.
+- **`automation/release-testing/windows_pass.py`** does the same on a Windows VM, driving the app the way a user would: opening the exe from inside the zip, an install without an admin prompt, the first start (splash, never Not Responding), the icon, Install driver with one prompt for Windows PowerShell and the camera's name in DirectShow, Settings and the other dialogs opening centred with nothing flashing up, the security fix and Rename for a driver an older version registered, installing a plugin with Install and by dragging it from Explorer, Get adb and adb gone after quitting, uninstalling, updating the installed previous release, an unzipped copy updating into the installed one or in place, a copy on a network drive (the same rule as a USB stick) and an update cut short.
 - **`.github/checklist_due.py`** lists which of the sections below the changes since the last release can reach.
 
 That leaves a short pass on a real phone every release plus whatever sections are due.
@@ -11,7 +12,7 @@ That leaves a short pass on a real phone every release plus whatever sections ar
 ## Cutting a stable release
 
 1. Set `VERSION` to the new version (e.g. `3.1.0`) and merge that to `master`.
-2. Against that commit's nightly: run `emulator_pass.py`, go through [Every release](#every-release), then run `python3 .github/checklist_due.py` and go through each section it lists.
+2. Against that commit's nightly: run `emulator_pass.py` and `windows_pass.py`, go through [Every release](#every-release), then run `python3 .github/checklist_due.py` and go through each section it lists.
 3. Tag it and push the tag: `git tag v3.1.0 <commit> && git push origin v3.1.0`.
 4. `release.yml` builds everything and publishes the release. It refuses a tag that doesn't match `VERSION`.
 5. Merge the draft PRs held for the release: README and website screenshots or text that show what's new. Until the release is out they would advertise the nightly.
@@ -22,6 +23,7 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 ## Every release
 
 - [ ] `emulator_pass.py` passes against the nightly (a skip needs a reason that holds, like an emulator camera without 1080p).
+- [ ] `windows_pass.py` passes against the nightly on a VM restored to a clean snapshot.
 - [ ] `python scripts/phone_check.py --wifi-drop 5 --handover` in `desktop/` passes against the dev app on a real phone (it exits with 1 when something didn't work).
 - [ ] What this release's notes promise works on a real phone and on both desktops.
 - [ ] Camera controls (lens, exposure, WB, OIS) apply live on a real phone and match what the desktop shows.
@@ -34,7 +36,7 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 
 `checklist_due.py` reads the comment under each heading below: the files and packages that section depends on. A section is due when one of them changed since the last release. Code that everything leans on (the main window, the stream service, the protocol) is listed as shared and a change there brings up every section as worth a look along with how big the change is. How far it reaches is for a person to judge. Any other file that's in no section makes the script fail until someone puts it in one, which keeps the lists from going stale. When unsure where a file goes, put it in more than one section.
 
-<!-- shared: desktop/main.py desktop/telescope/app.py desktop/telescope/models.py desktop/telescope/plugin.py desktop/telescope/session.py desktop/telescope/theme.py desktop/telescope/i18n.py desktop/telescope/version.py desktop/telescope/__init__.py desktop/telescope/plugins/__init__.py desktop/telescope/widgets/__init__.py desktop/telescope/widgets/common.py desktop/telescope/widgets/tiles.py desktop/telescope/widgets/banner.py desktop/telescope/widgets/line_icons.py desktop/requirements.txt desktop/constraints.txt android/app/src/main/kotlin/com/telescope/MainActivity.kt android/app/src/main/kotlin/com/telescope/CameraStreamService.kt android/app/src/main/kotlin/com/telescope/Protocol.kt android/app/src/main/kotlin/com/telescope/Strings.kt android/app/src/main/kotlin/com/telescope/StreamPrefs.kt android/app/src/main/kotlin/com/telescope/CardHeader.kt android/app/src/main/kotlin/com/telescope/SystemBars.kt android/app/src/main/AndroidManifest.xml android/app/src/main/res/layout/** android/app/src/main/res/values/** android/app/src/main/res/xml/** android/app/src/main/res/menu/** android/app/src/main/res/resources.properties android/app/build.gradle android/build.gradle android/settings.gradle android/gradle.properties android/gradle/** android/gradlew android/gradlew.bat .github/workflows/build-apk.yml VERSION ; packages: pyqt6 pyqt6-qt6 pyqt6-sip -->
+<!-- shared: desktop/main.py desktop/telescope/app.py desktop/telescope/models.py desktop/telescope/plugin.py desktop/telescope/plugin_loader.py desktop/telescope/session.py desktop/telescope/theme.py desktop/telescope/i18n.py desktop/telescope/version.py desktop/telescope/__init__.py desktop/telescope/plugins/__init__.py desktop/telescope/widgets/__init__.py desktop/telescope/widgets/common.py desktop/telescope/widgets/tiles.py desktop/telescope/widgets/banner.py desktop/telescope/widgets/line_icons.py desktop/requirements.txt desktop/constraints.txt android/app/src/main/kotlin/com/telescope/MainActivity.kt android/app/src/main/kotlin/com/telescope/CameraStreamService.kt android/app/src/main/kotlin/com/telescope/Protocol.kt android/app/src/main/kotlin/com/telescope/Strings.kt android/app/src/main/kotlin/com/telescope/StreamPrefs.kt android/app/src/main/kotlin/com/telescope/CardHeader.kt android/app/src/main/kotlin/com/telescope/SystemBars.kt android/app/src/main/AndroidManifest.xml android/app/src/main/res/layout/** android/app/src/main/res/values/** android/app/src/main/res/xml/** android/app/src/main/res/menu/** android/app/src/main/res/resources.properties android/app/build.gradle android/build.gradle android/settings.gradle android/gradle.properties android/gradle/** android/gradlew android/gradlew.bat .github/workflows/build-apk.yml VERSION ; packages: pyqt6 pyqt6-qt6 pyqt6-sip -->
 
 <!-- ignore: desktop/tests/** desktop/scripts/check_plugin.py desktop/scripts/dev_desktop.py desktop/scripts/i18n.py desktop/scripts/translation_*.py desktop/scripts/translation_preview/** desktop/translation-state/** desktop/scripts/phone_check.py desktop/scripts/smoke_check.py desktop/scripts/text_fit.py desktop/scripts/windows_move_check.py desktop/scripts/write_build_info.py desktop/examples/** desktop/telescope/locale/** desktop/MODULES.md desktop/ARCHITECTURE.md desktop/pytest.ini desktop/requirements-dev.txt android/app/src/test/** android/app/proguard-rules.pro docs/** site/** automation/** README.md CONTRIBUTING.md CLAUDE.md LICENSE .gitignore .github/release-notes/** .github/pull_request_template.md .github/ISSUE_TEMPLATE/** .github/NIGHTLY_NOTES.md .github/dependabot.yml .github/check_release.py .github/checklist_due.py .github/workflows/pages.yml .github/workflows/dependency-graph.yml .github/DISCUSSION_TEMPLATE/** .github/FUNDING.yml .github/python_dependency_snapshot.py desktop/THIRD_PARTY_NOTICES.txt android/app/src/main/res/drawable*/** android/app/src/main/res/mipmap*/** android/app/src/main/res/color/** android/app/src/main/res/values-*/** ; packages: pytest pytest-xdist execnet iniconfig pluggy pygments -->
 
@@ -42,13 +44,11 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 
 <!-- due: installer/** desktop/telescope.spec desktop/resources/** desktop/unitycapture/** desktop/start.bat desktop/update_guard.py desktop/telescope/splash.py desktop/telescope/platform/windows.py desktop/telescope/platform/winjob.py desktop/telescope/platform/__init__.py desktop/telescope/platform/adb_download.py desktop/telescope/vcam.py desktop/telescope/single_instance.py desktop/telescope/widgets/adb.py desktop/scripts/write_splash.py desktop/scripts/write_icon.py desktop/scripts/windows_driver_check.ps1 .github/workflows/build-windows.yml .github/workflows/release.yml ; packages: pyinstaller pyinstaller-hooks-contrib altgraph packaging setuptools jinja2 markupsafe pywin32 -->
 
-- [ ] The first start after installing shows the splash within a few seconds, the window never shows Not Responding (open Add phone and Settings during the first minute) and it takes about as long as the last release did or less.
-- [ ] `TelescopeDesktop.exe` has the Telescope icon, the first-run checklist's Install driver registers UnityCapture (one UAC prompt naming Windows PowerShell), **Get adb** downloads adb and USB pairing then works and no `adb.exe` is left running after quitting.
-- [ ] Settings, Add phone, Your phones and the shortcut editor open centred with no stray small windows flashing up.
-- [ ] `TelescopeSetup.exe` started from Explorer installs without a UAC prompt and the Start menu entry opens Telescope. Uninstalling from Settings → Apps asks before deleting settings and after one UAC prompt takes the camera out of the camera list.
-- [ ] An unzipped copy of the previous release: Updates says updating installs it, **Update and restart** comes back as the installed copy with settings and phones kept and the unzipped folder goes. **Keep this copy where it is** updates in place instead. Windows asks about the firewall once more and Add phone over Wi-Fi works after allowing it. A copy on a USB stick doesn't offer the move.
-- [ ] Opening `TelescopeDesktop.exe` from inside the zip without extracting says to extract it first.
-- [ ] OBS and Zoom list the camera as **Telescope**. On a machine registered by an older version, Virtual camera & phone offers Rename (or **Reinstall for a security fix** for a driver registered from the app folder) and streaming works before and after.
+`windows_pass.py` checks the rest of Windows packaging. These need a real phone:
+
+- [ ] After **Get adb**, plugging a phone in pairs it over USB.
+- [ ] After an unzipped copy updated into the installed one, Windows asks about the firewall once more and Add phone over Wi-Fi works after allowing it.
+- [ ] On a machine an older version registered the driver on, streaming works before and after **Rename** or **Reinstall for a security fix**.
 
 ### Linux system setup
 
@@ -62,11 +62,10 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 
 <!-- due: desktop/telescope/updates.py desktop/update_guard.py desktop/telescope/plugins/updates.py desktop/telescope/config.py android/app/src/main/kotlin/com/telescope/Updater.kt android/app/src/main/kotlin/com/telescope/UpdateLogic.kt android/app/src/main/kotlin/com/telescope/UpdateHttp.kt .github/write_manifest.py .github/workflows/release.yml installer/** -->
 
-- [ ] Desktop on the previous nightly (Windows and Linux): the Update button appears, Update and restart replaces the app and it comes back on the new version with the stream working.
+- [ ] Desktop on the previous nightly on Linux: the Update button appears, Update and restart replaces the app and it comes back on the new version with the stream working. On Windows `windows_pass.py` does the update and what's left is checking that the stream works after it.
 - [ ] Update is refused while streaming, on both apps.
 - [ ] Phone on the previous nightly: the update card offers the new build, asks once to allow installs from Telescope and the installed app shows the new version.
 - [ ] Phone app older than the desktop with a different session protocol, plugged in: the Connection panel says so and Update over USB installs the bundled APK.
-- [ ] Windows: an update cut short (kill the app mid-install) gets finished on the next launch, or comes back on the old version.
 - [ ] Settings stay across a restart, including each phone's own after switching between phones. A config from the previous version keeps the global settings and asks to pair again.
 
 ### Pairing and networks
@@ -158,7 +157,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Settings, keyboard and folding
 
-<!-- due: desktop/telescope/widgets/settings_window.py desktop/telescope/widgets/settings_search.py desktop/telescope/widgets/collapse.py desktop/telescope/fuzzy.py desktop/telescope/shortcuts.py desktop/telescope/plugins/shortcuts.py desktop/telescope/platform/hotkeys.py desktop/telescope/platform/hotkeys_portal.py desktop/telescope/platform/hotkeys_windows.py desktop/telescope/phones.py ; packages: jeepney -->
+<!-- due: desktop/telescope/widgets/settings_window.py desktop/telescope/widgets/settings_search.py desktop/telescope/widgets/collapse.py desktop/telescope/fuzzy.py desktop/telescope/shortcuts.py desktop/telescope/plugins/shortcuts.py desktop/telescope/platform/hotkeys.py desktop/telescope/platform/hotkeys_portal.py desktop/telescope/platform/hotkeys_windows.py desktop/telescope/phones.py desktop/telescope/widgets/plugins_panel.py ; packages: jeepney -->
 
 - [ ] Every Settings tab opens and the settings button brings the window back on the tab it was left on.
 - [ ] Folding: clicking a card title and a section title folds and unfolds them, Tab reaches the titles and Space or Enter toggles them. A shortcut for a control in a folded card still works. Folds come back after a restart.
@@ -170,9 +169,3 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 <!-- due: desktop/telescope/vision.py desktop/telescope/pose.py desktop/telescope/vision_pack.py desktop/telescope/vision_pack.json desktop/telescope/plugins/background.py desktop/telescope/plugins/framing.py desktop/telescope/widgets/vision_download.py desktop/telescope/widgets/vision_status.py desktop/scripts/build_vision_pack.py desktop/requirements-vision.txt ; packages: mediapipe opencv-python-headless numpy -->
 
 - [ ] Auto framing and Background (Linux and Windows): switching one on under **Optional** asks before downloading, shows the progress and after **Restart now** its card shows. Auto framing follows you while streaming from a real phone, widens when you hold a hand out and zooms back out when you leave, also at 90, 180 and 270 degrees and flipped. Zoom and Pan in Transforms grey out while it's on. Background blurs and puts a picture behind you. With both off **Remove download** deletes the download.
-
-### Plugins on Windows
-
-<!-- due: desktop/telescope/plugin_loader.py desktop/telescope/widgets/plugins_panel.py desktop/telescope.spec -->
-
-- [ ] The Windows app installs a plugin `.zip` with **Install** and by dragging it from Explorer and after switching it on and **Restart now** its card shows. Make the zip from `desktop/examples/plugins/black_and_white` with the folder itself inside it (`emulator_pass.py` does the rest of the plugin checks on Linux).

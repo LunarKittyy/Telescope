@@ -22,6 +22,27 @@ Which emulator to use:
 - An Android 17 image is the one with the Local network row and a 1080p camera. With SwiftShader rendering its System UI crashes on going Home or taking a screenshot (`hasReadColorBufferDma`). Give it only the checks that stay inside the app: `--only phone_fresh_install phone_allow_everything desktop_fresh_start usb_pairing stream_and_status heat_step`.
 - Turn button navigation on with `adb shell cmd overlay enable com.android.internal.systemui.navbar.threebutton`.
 
+## The Windows pass
+
+`windows_pass.py` does the Windows part of the checklist on a Windows 11 VM it reaches over SSH. It runs in the signed-in user's session, unelevated like anything started from Explorer, finds Telescope's controls through UI Automation and clicks them with the real mouse (so leave the VM's mouse alone while it runs). `--list` shows the checks and a full run takes about 20 minutes.
+
+```bash
+./fetch_nightly.sh
+./fetch_nightly.sh v4.1.0
+python3 windows_pass.py downloads/n932 --previous downloads/n838 --ssh "-p 2222 -i ~/.ssh/vm_key user@127.0.0.1"
+```
+
+What the VM needs:
+- OpenSSH server with key login for an administrator account that's also signed in on the desktop (the checks run as a scheduled task in that session).
+- A snapshot to go back to. The run uninstalls Telescope, deletes its settings, registers and removes the camera and creates a share called TelescopeTest.
+- UAC at its default. For the run the script switches the prompt off (the prompts sit on the secure desktop where nothing can press them) and counts elevations from the security log instead, then puts both settings back.
+
+Things to know:
+- First start times only mean something on a fresh snapshot. Defender scans files the first time they run, which is most of the slowness the first start check is about. A VM that already ran nearly the same files (any other Telescope build) starts it in a couple of seconds. That's why the first start comes right after the install, before the update checks bring in other builds.
+- The update checks land on whatever the channel's newest build is, which isn't necessarily the build being checked once newer nightlies are out. A run that overlaps a nightly being published can fail them; run those checks again with `--only`.
+- **Get adb** stays skipped unless you pass `--agree-adb-licence`, since it means accepting Google's SDK licence in the app.
+- Windows' firewall question can't be reached through UI Automation and it swallows clicks elsewhere. The script closes it whenever it comes up, like dismissing it would.
+
 ## Linux
 
 Everything runs in its own profile (`linux/.profile`, with its own HOME and XDG folders) on an offscreen Qt to leave your real install and desktop alone. The log and the single-instance lock are still shared with a real install (`/tmp/telescope-$USER`), so keep sessions short and don't run both at once. `linux/.profile` is ignored by git.
