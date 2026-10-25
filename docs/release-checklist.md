@@ -1,6 +1,6 @@
 # Manual release checklist
 
-Run before tagging. CI covers pytest, Android unit tests, and packaging smoke checks; everything here needs a real phone and desktop.
+Run before tagging. The Release workflow already runs the desktop tests, the Android unit tests, the smoke checks, the installer checks and `.github/check_release.py` (the APK's signing key, the version in every file, what the bundles carry and the manifest's checksums), and it won't publish when one of them fails. Everything here needs a real phone and desktop.
 
 Some of it can be done against a nightly in a VM and the Android emulator first. [automation/release-testing](../automation/release-testing/README.md) has the scripts and notes for that.
 
@@ -17,9 +17,6 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 
 ## Before starting
 
-- [ ] `desktop` pytest suite passes locally and in CI for the release commit.
-- [ ] Android JVM unit tests pass locally and in CI for the release commit.
-- [ ] `desktop/scripts/smoke_check.py` passes on both Linux and Windows CI runners.
 - [ ] `python scripts/phone_check.py --wifi-drop 5 --handover` in `desktop/` passes against the dev app on a real phone (it exits with 1 when something didn't work).
 - [ ] `desktop/constraints.txt` installs cleanly in clean venv and versions haven't drifted out of date.
 - [ ] For every dependency bumped since the last release, its entries in [Upstream bugs](upstream-bugs.md) are checked: fixed ones have their workaround dropped.
@@ -34,10 +31,7 @@ The APK signing key lives in the repository secrets (see [Building and CI](build
 - [ ] Linux: Telescope shows up in the app menu after the first launch, and still opens after moving the folder and launching once from the new place.
 - [ ] Windows: OBS and Zoom list the camera as **Telescope**. On a machine registered by an older version, Virtual camera & phone in Settings offers Rename, and streaming works before and after.
 - [ ] Linux: `start.sh` creates venv at `$XDG_DATA_HOME/Telescope/venv` on clean machine/account and launches successfully.
-- [ ] Both bundles contain `THIRD_PARTY_NOTICES.txt` and `Telescope.apk`.
-- [ ] `manifest.json` checksums match the downloaded files (`sha256sum`).
-- [ ] The new APK installs over the previous release's APK with `adb install -r` (same signing key).
-- [ ] Updates & About in Settings (desktop) and the About card (phone) show the release's version. Copy diagnostics works on both.
+- [ ] Copy diagnostics works on both apps and starts with the release's version.
 - [ ] APK installs via `adb install`, via the checklist's QR link, and via Install over USB (checklist and Settings).
 
 ## Updates

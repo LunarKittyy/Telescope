@@ -65,6 +65,8 @@ Each release holds `Telescope.apk`, `Telescope-windows-portable.zip`, `Telescope
 
 The APK is signed with the release key from the repository secrets `TELESCOPE_KEYSTORE` (base64), `TELESCOPE_KEYSTORE_PASSWORD`, `TELESCOPE_KEY_ALIAS` and `TELESCOPE_KEY_PASSWORD`. A release fails rather than publish a debug-signed APK, because Android only installs an update signed with the same key as the installed app.
 
+Before publishing, `.github/check_release.py` checks the files it's about to upload: the APK's certificate is the release key's (pinned in the script), the APK, the Linux bundle's stamp and the Windows bundle's `lib-<build>` folder all carry this version and build, both bundles hold the notices and the APK, and `manifest.json`'s checksums match.
+
 ### The three build workflows
 
 They also run on every pull request without publishing. Their checks are called `android`, `windows` and `linux`, and `master` only takes a pull request once all three pass (the maintainer can push past it). Each has a small `changes` job that skips the check when nothing it covers changed, which GitHub counts as passing, so a docs-only pull request never waits on a check that doesn't run. A new push cancels checks still running.
