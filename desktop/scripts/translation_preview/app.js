@@ -145,6 +145,25 @@ $('backup').onclick = () => {
   const url = URL.createObjectURL(new Blob([JSON.stringify({drafts,prepared:reviewed,lang,revision:data.revision},null,2)],{type:'application/json'}));
   const a = document.createElement('a'); a.href = url; a.download = 'telescope-translation-session.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url),1000);
 };
+$('restore').onclick = () => $('restore-file').click();
+$('restore-file').onchange = async () => {
+  const file = $('restore-file').files[0]; $('restore-file').value = '';
+  if (!file) return;
+  try {
+    if (file.size > 4_000_000) throw Error();
+    const saved = JSON.parse(await file.text());
+    let count = 0;
+    for (const [code, texts] of Object.entries(saved.drafts || {})) {
+      if (!data.languages.includes(code) || typeof texts !== 'object' || !texts) continue;
+      for (const [k, text] of Object.entries(texts)) {
+        if (!data.entries[k] || typeof text !== 'string' || text.length > 4000) continue;
+        setDraft(drafts, code, k, text); count++;
+      }
+    }
+    save(); if (selected) choose(selected); rows(); render();
+    $('draft-status').textContent = count ? `Restored ${count} ${count === 1 ? 'draft' : 'drafts'} from the backup.` : 'That backup has no drafts for these texts.';
+  } catch { $('draft-status').textContent = 'That file isn’t a session backup from this editor.'; }
+};
 async function start() {
   try {
     fetch('/api/warm').catch(() => {});

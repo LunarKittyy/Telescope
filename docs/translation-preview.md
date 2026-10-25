@@ -12,7 +12,7 @@ Open the local address printed in the terminal. Choose a language from the overv
 
 The language bars show drafted texts in blue, approved texts in green and untranslated texts in grey. Only the owner and delegated admins approve translations. **Keep draft & next** prepares a local draft for export and never grants approval.
 
-Drafts save in browser storage. **Download .po** exports a copy with your edits. **Back up session** saves all browser drafts (session import isn't built yet). Removed source entries stay in that backup but are excluded from previews and .po exports.
+Drafts save in browser storage. **Download .po** exports a copy with your edits. **Back up session** saves all browser drafts to a file, and **Restore a backup** loads them again in any browser. Removed source entries stay in that backup but are excluded from previews and .po exports.
 
 ## Shared project and accounts
 
