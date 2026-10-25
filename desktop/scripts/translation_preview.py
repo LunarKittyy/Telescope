@@ -10,6 +10,7 @@ import base64
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -357,6 +358,14 @@ def metadata():
             "coverage": actual, "total": len(entries), "revision": revision(), "drift": check_coverage(actual, expected)}
 
 
+def emulator_identity(id_token):
+    # Only with --emulators: the Auth emulator's tokens are unsigned, and the name typed into its sign-in form becomes the username
+    claims = json.loads(base64.urlsafe_b64decode(id_token.split('.')[1] + '==='))
+    name = re.sub(r'[^A-Za-z0-9-]', '', claims.get('name') or claims.get('email', '').split('@')[0])[:39] or 'Tester'
+    store = account_service.Store('demo-telescope')
+    store.put('identities/' + claims['sub'], {'username': {'stringValue': name}})
+
+
 def export_po(payload):
     lang, _scene, drafts = validate(payload)
     if lang == "en":
@@ -401,7 +410,7 @@ class Handler(BaseHTTPRequestHandler):
             warm()
             return self.reply(200, b"{}", "application/json")
         if self.path == "/api/catalog":
-            return self.reply(200, json.dumps({**metadata(), "mode": "admin" if getattr(self.server, "reviewer", None) else "manual", "shared_available": getattr(self.server, 'shared', False), "account_deletion_available": bool(getattr(self.server, 'cloud_account', None))}).encode(), "application/json")
+            return self.reply(200, json.dumps({**metadata(), "mode": "admin" if getattr(self.server, "reviewer", None) else "manual", "shared_available": getattr(self.server, 'shared', False), "emulators": bool(getattr(self.server, 'emulators', False)), "account_deletion_available": bool(getattr(self.server, 'cloud_account', None))}).encode(), "application/json")
         if self.path == '/api/project-snapshot':
             return self.reply(200, json.dumps(project.repository_snapshot(catalog())).encode(), 'application/json')
         assets = {"/": ("index.html", "text/html; charset=utf-8"), "/app.js": ("app.js", "text/javascript"),
@@ -424,6 +433,9 @@ class Handler(BaseHTTPRequestHandler):
             if not 0 < length <= maximum:
                 raise ValueError("Request is too large or empty")
             payload = json.loads(self.rfile.read(length))
+            if self.path == '/api/identity' and getattr(self.server, 'emulators', False):
+                emulator_identity(payload.get('idToken'))
+                return self.reply(200, b'{}', 'application/json')
             if self.path == '/api/delete-account':
                 if not getattr(self.server, 'cloud_account', None):
                     raise ValueError('The account deletion service is not configured on this development server')
@@ -507,6 +519,7 @@ def main():
     parser.add_argument("--port", type=int, default=8769)
     parser.add_argument("--admin", metavar="REVIEWER", help="Local administrator mode; approvals record this public reviewer name")
     parser.add_argument("--shared", action="store_true", help="Enable GitHub sign-in and pending Firebase submissions")
+    parser.add_argument("--emulators", action="store_true", help="Use the local Firebase emulators for shared mode (with --shared)")
     parser.add_argument("--cloud-account", metavar="ACCOUNT", help="Explicit gcloud account for verified account erasure, only on this loopback development server")
     parser.add_argument("--export-project", metavar="PATH", help="Write a repository snapshot for an administrator to import")
     parser.add_argument("--record-machine-baseline", action="store_true", help="Record current machine translations without approving them")
@@ -559,6 +572,7 @@ def main():
     with HTTPServer(("127.0.0.1", args.port), Handler) as server:
         server.reviewer = args.admin
         server.shared = args.shared
+        server.emulators = args.emulators
         server.cloud_account = args.cloud_account
         print(f"Translation preview: http://127.0.0.1:{server.server_port}", flush=True)
         try:

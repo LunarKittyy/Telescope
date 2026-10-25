@@ -22,7 +22,7 @@ export async function projectAction(action, body) {
     await new Promise(resolve => setTimeout(resolve, 1500 * (attempt + 1)));
   }
 }
-export function connect(onUser) {
+export function connect(onUser, {emulators = false} = {}) {
   service ||= (async () => {
     const [app, auth, store, response] = await Promise.all([
       import(`https://www.gstatic.com/firebasejs/${version}/firebase-app.js`),
@@ -31,8 +31,9 @@ export function connect(onUser) {
       fetch('/firebase-config.json'),
     ]);
     if (!response.ok) throw Error('Shared project configuration is unavailable. You can still download a .po file.');
-    const instance = app.initializeApp(await response.json());
+    const instance = app.initializeApp(emulators ? {projectId:'demo-telescope', apiKey:'demo-key', authDomain:location.host} : await response.json());
     const session = auth.getAuth(instance), database = store.getFirestore(instance);
+    if (emulators) { auth.connectAuthEmulator(session, 'http://127.0.0.1:9099', {disableWarnings:true}); store.connectFirestoreEmulator(database, '127.0.0.1', 8085); }
     await auth.setPersistence(session, auth.browserSessionPersistence);
     let currentRole, currentUsername;
     async function usernameFor(user) {
@@ -91,7 +92,7 @@ export function connect(onUser) {
       });
     }
     return {
-      signIn: () => auth.signInWithPopup(session, new auth.GithubAuthProvider()),
+      signIn: () => emulators ? auth.signInWithRedirect(session, new auth.GithubAuthProvider()) : auth.signInWithPopup(session, new auth.GithubAuthProvider()),
       signOut: () => auth.signOut(session),
       get username() { return currentUsername; },
       async profile() { return (await store.getDoc(store.doc(database, 'profiles', session.currentUser.uid))).data() || {}; },

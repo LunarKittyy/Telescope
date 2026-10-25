@@ -16,13 +16,13 @@ Drafts save in browser storage. **Download .po** exports a copy with your edits.
 
 ## Shared project and accounts
 
-Add `--shared` to enable GitHub sign-in and Firebase submissions. The manual editor loads no Firebase SDK until shared mode is chosen. GitHub is used for identity without requesting repository access. Suggestions stay pending until an admin approves them.
+Add `--shared` to enable GitHub sign-in and Firebase submissions. The manual editor loads no Firebase SDK until shared mode is chosen. GitHub is used for identity without requesting repository access. **Suggest** adds your wording to that text's suggestion list. Everyone signed in sees the list with each author's GitHub username and can start from a suggestion with **Use this**. Admins approve or dismiss suggestions from the same list, or from Admin mode.
 
 The account menu has a bio, language preferences, sign-out and an admin entry for authorised accounts. Profile language fields search by name or code and allow up to ten other languages. Only the owner can grant or revoke admins. Roles are enforced by Firestore rules, not by hiding buttons.
 
 Contributors can add a language from the overview. The language list comes from Unicode CLDR and isn't limited to the catalogues already in Git. The workbench creates a blank catalogue with gettext plural rules where known. Unrecognised plural rules are marked for maintainer review. **Project settings** has a switch to pause contributor language creation. Ordinary accounts can add three languages per day and submit 100 suggestions per hour; admins can import larger changes.
 
-GitHub usernames are the only contributor identities displayed or exported. Firebase account identifiers stay in private records used for permissions and pending suggestions. The platform doesn't copy email addresses or real names from GitHub into profiles or attribution. Profiles are readable only by their owner and admins. Restored pending suggestions use separate admin-only storage.
+GitHub usernames are the only contributor identities displayed or exported. Firebase account identifiers stay in private records used for permissions and pending suggestions. The platform doesn't copy email addresses or real names from GitHub into profiles or attribution. Bios and languages are public to signed-in translators through `people/USERNAME`, and clicking a name opens them. The private `profiles` record and `submissions` keep the Firebase account id for quotas and erasure; the public `suggestions` don't. Restored pending suggestions use separate admin-only storage.
 
 Account erasure requires the local development server's `--cloud-account ACCOUNT` option and a fresh GitHub sign-in. The server verifies the Firebase token before using that explicitly selected gcloud account. It removes the profile and role, anonymises submissions and identity references in saved project versions, then deletes the Firebase account. A private deletion marker blocks remaining old sign-in tokens. Failed cleanup can be retried. Already downloaded backups and Git history are outside the platform's control.
 
@@ -97,3 +97,13 @@ Only runtime files are copied. The bundle excludes local settings, credentials, 
 Update `translation-workbench` and `translation-erasure` to that image, then deploy Hosting and Firestore rules using the staged `firebase/firebase.json`. Hosting pins its API rewrite to the deployed preview revision. Keep the erasure service private and preserve its service identity and task audience configuration. Test GitHub sign-in, manual export and the real preview through the Hosting address after deployment.
 
 Normal desktop tests cover the renderer, merge/export behaviour and hosted request checks. Firestore permission and erasure tests run against the local `demo-telescope` emulator with `FIRESTORE_EMULATOR_HOST=127.0.0.1:8085`. Never point those tests at the live project.
+
+To try shared mode without real accounts, start both emulators and seed them with this checkout:
+
+```bash
+(cd scripts/translation_preview/firebase && firebase emulators:start --only firestore,auth --project demo-telescope)
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8085 python scripts/translation_sync.py --account emulator --project demo-telescope push --apply
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8085 python scripts/translation_preview.py --shared --emulators
+```
+
+Sign in through the emulator's form; the display name becomes the GitHub username. Give an account a role by writing `roles/UID` in the emulator UI. The push only reaches the emulator because `demo-` projects never go to Google. New languages also need `catalog/languageOptions` and a `languages/CODE` document, which the emulator UI can add.

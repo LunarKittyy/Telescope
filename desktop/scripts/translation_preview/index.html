@@ -26,6 +26,7 @@
 <section id="account-view" class="overview account-view" hidden aria-labelledby="account-title">
   <div class="overview-heading"><div><h2 id="account-title" tabindex="-1">Your account</h2></div></div>
   <form id="account-form">
+    <p class="muted account-note">Other translators see your bio and languages next to your GitHub username.</p>
     <label for="account-bio">Bio</label><textarea id="account-bio" maxlength="500" rows="3" placeholder="A little about you, if you like"></textarea>
     <label for="native-language-input">Native language</label><div id="native-language"></div>
     <fieldset><legend>Other languages</legend><div id="other-languages" class="language-choices"></div></fieldset>
@@ -98,11 +99,13 @@
           <div class="source"><h2>English</h2><p id="english"></p><details class="source-details"><summary>Notes & source</summary><p id="context"></p></details></div>
           <div class="target"><label for="translation" id="target-label">Your translation</label><textarea id="translation" rows="3" spellcheck="true" aria-describedby="fields error"></textarea><p id="fields" class="muted"></p></div>
         </div>
-        <div class="editor-actions"><button id="reset">Undo this edit</button><button id="review" disabled>Keep draft & next <span aria-hidden="true">→</span></button><button id="submit" class="primary" hidden disabled>Submit for approval</button><button id="approve" class="primary" hidden disabled>Approve translation</button></div>
+        <div class="editor-actions"><button id="reset">Undo this edit</button><button id="review" disabled>Keep draft & next <span aria-hidden="true">→</span></button><button id="submit" class="primary" hidden disabled>Suggest</button><button id="approve" class="primary" hidden disabled>Approve translation</button></div>
+        <section id="suggestions" class="suggestions" hidden aria-labelledby="suggestions-title"><h3 id="suggestions-title">Suggestions</h3><ol id="suggestion-list"></ol></section>
       </div>
     </section>
     <footer><p id="draft-status">Draft saved in this browser.</p><button id="backup">Back up session</button><button id="restore">Restore a backup</button><input id="restore-file" type="file" accept=".json,application/json" hidden></footer>
   </div>
 </main>
+<dialog id="person" aria-labelledby="person-name"><div class="person-head"><img id="person-avatar" alt="" width="48" height="48"><h3 id="person-name"></h3></div><p id="person-bio"></p><p id="person-languages" class="muted"></p><div class="row-actions"><a id="person-github" class="button-link secondary" target="_blank" rel="noopener">GitHub profile</a><button id="person-close">Close</button></div></dialog>
 <script src="/app.js"></script>
 </html>

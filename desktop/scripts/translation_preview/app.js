@@ -3,7 +3,7 @@ let data, image, selected, generation = 0, timer, busy = false;
 let drafts = {}, reviewed = {}, lang = 'es';
 let shared, sharedUser = null, sharedRole = null, submitting = false, adminUi, preferredKey;
 let repositoryData, cloudOverrides = {};
-let selectedSubmission, sharedState;
+let selectedSubmission, sharedState, suggestions = new Map();
 let profileFields;
 let localLanguages = [], languageCreator;
 const storageKey = 'telescope-translation-preview-v1';
@@ -50,11 +50,89 @@ function rows() {
     const button = document.createElement('button'); button.className = 'text-row'; button.setAttribute('aria-pressed', String(k === selected));
     const title = document.createElement('span'); title.textContent = value(k) || data.entries[k].english;
     const note = document.createElement('small'); const done = humanChecked(k);
-    note.textContent = `${done ? 'Approved · ' : prepared(k) ? 'Ready for export · ' : ''}${data.entries[k].english}`; note.className = done ? 'reviewed' : '';
+    const waiting = sharedUser ? pendingFor(k).length : 0;
+    note.textContent = `${done ? 'Approved · ' : prepared(k) ? 'Ready for export · ' : ''}${waiting ? `${waiting} ${waiting === 1 ? 'suggestion' : 'suggestions'} · ` : ''}${data.entries[k].english}`; note.className = done ? 'reviewed' : '';
     button.append(title, note); button.onclick = () => choose(k); $('texts').append(button);
   }
   updateProgress();
 }
+// Everyone signed in sees the suggestions for a text and can start from one; admins review them here too
+async function loadSuggestions() {
+  const code = lang;
+  if (!sharedUser || !shared || code === 'en') { suggestions = new Map(); return; }
+  try {
+    const items = await shared.suggestions(code), next = new Map();
+    if (code !== lang) return;
+    for (const item of items) if (item.status !== 'dismissed') next.set(item.entry, [...(next.get(item.entry) || []), item]);
+    for (const list of next.values()) list.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+    suggestions = next; if (selected && data.entries[selected]) suggestionList(); rows();
+  } catch { $('suggestion-list').replaceChildren(listNote('Suggestions could not be loaded. Reload to try again.')); }
+}
+const listNote = message => { const item = document.createElement('li'); item.className = 'suggestion-empty'; item.textContent = message; return item; };
+const authorName = author => author === 'anonymous' ? 'Anonymous' : author.replace('github:', '');
+const pendingFor = k => (suggestions.get(data.entries[k]?.id) || []).filter(item => item.status === 'pending' && item.sourceDigest === data.entries[k].sourceDigest);
+function ago(stamp) {
+  const seconds = (Date.now() - (stamp?.toMillis?.() || Date.now())) / 1000, format = new Intl.RelativeTimeFormat('en', {numeric:'auto'});
+  for (const [unit, size] of [['day', 86400], ['hour', 3600], ['minute', 60]]) if (seconds >= size) return format.format(-Math.floor(seconds / size), unit);
+  return 'just now';
+}
+function suggestionList() {
+  const entry = data.entries[selected], admin = ['owner','admin'].includes(sharedRole);
+  $('suggestions').hidden = !sharedUser || lang === 'en';
+  if ($('suggestions').hidden) return;
+  const list = (suggestions.get(entry.id) || []).filter(item => item.sourceDigest === entry.sourceDigest);
+  $('suggestion-list').replaceChildren();
+  if (!list.length) { $('suggestion-list').append(listNote('No suggestions yet. What you suggest shows up here for others to build on.')); return; }
+  for (const item of list) {
+    const row = document.createElement('li'); row.className = 'suggestion';
+    const head = document.createElement('div'); head.className = 'suggestion-head';
+    const name = authorName(item.author), who = document.createElement('button');
+    who.className = 'person-link'; who.textContent = item.author === 'github:' + shared.username ? `${name} (you)` : name;
+    who.disabled = item.author === 'anonymous'; who.onclick = () => showPerson(name);
+    const when = document.createElement('small'); when.textContent = `${ago(item.createdAt)} · ${item.status === 'approved' ? 'approved' : 'waiting for review'}`;
+    head.append(who, when);
+    const wording = document.createElement('p'); wording.textContent = item.text; wording.lang = lang.replace('_','-');
+    const actions = document.createElement('div'); actions.className = 'row-actions';
+    const use = document.createElement('button'); use.textContent = 'Use this';
+    use.onclick = () => { $('translation').value = item.text; $('translation').dispatchEvent(new Event('input')); $('translation').focus(); };
+    actions.append(use);
+    if (admin && item.status === 'pending') {
+      const approve = document.createElement('button'); approve.className = 'primary'; approve.textContent = 'Approve';
+      const dismiss = document.createElement('button'); dismiss.textContent = 'Dismiss';
+      const review = async work => {
+        for (const button of actions.querySelectorAll('button')) button.disabled = true;
+        try { await work(); } catch (error) { $('draft-status').textContent = error.message; }
+        suggestionList(); rows();
+      };
+      approve.onclick = () => review(async () => {
+        const approval = {language:item.language, entry:item.entry, sourceDigest:item.sourceDigest, text:item.text, submission:item.id, author:item.author};
+        sharedApproved({...approval, reviewer:await shared.approve(approval)});
+        item.status = 'approved'; dropDraft(drafts, lang, selected); save(); choose(selected); render();
+        $('draft-status').textContent = `Approved ${name}’s wording.`;
+      });
+      dismiss.onclick = () => review(async () => {
+        await shared.dismiss(item.id);
+        suggestions.set(entry.id, (suggestions.get(entry.id) || []).filter(other => other !== item));
+        $('draft-status').textContent = 'Suggestion dismissed.';
+      });
+      actions.append(approve, dismiss);
+    }
+    row.append(head, wording, actions); $('suggestion-list').append(row);
+  }
+}
+async function showPerson(name) {
+  $('person-name').textContent = name; $('person-bio').textContent = 'Loading…'; $('person-languages').textContent = '';
+  $('person-avatar').src = `https://github.com/${encodeURIComponent(name)}.png?size=96`;
+  $('person-github').href = `https://github.com/${encodeURIComponent(name)}`;
+  $('person').showModal();
+  try {
+    const person = await shared.person(name);
+    $('person-bio').textContent = person?.bio || 'No bio yet.';
+    const spoken = [person?.nativeLanguage, ...(person?.languages || [])].filter(Boolean).map(code => languageName(code.replace('-','_')));
+    $('person-languages').textContent = spoken.length ? `Speaks ${spoken.join(', ')}` : '';
+  } catch { $('person-bio').textContent = 'This profile could not be loaded.'; }
+}
+$('person-close').onclick = () => $('person').close();
 function highlight() {
   $('regions').replaceChildren();
   for (const r of image?.regions || []) {
@@ -78,7 +156,7 @@ function choose(k) {
   const uses = (image?.regions || []).filter(r => r.key === k);
   $('fields').textContent = uses.find(r => Object.keys(r.values).length) ? `Example values: ${JSON.stringify(uses.find(r => Object.keys(r.values).length).values)}` : 'An empty translation falls back to English.';
   $('placement').textContent = uses.some(r => r.slot === 'tooltip') ? `Tooltip on the highlighted control: ${uses[0].shown}` : '';
-  rows(); highlight();
+  rows(); highlight(); suggestionList();
 }
 async function post(path, extra = {}) {
   const response = await fetch(path, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lang,scene:$('scene').value,drafts:currentDrafts(),revision:data.revision,...extra})});
@@ -185,7 +263,7 @@ async function start() {
     $('shared-status').textContent = data.shared_available ? 'GitHub is used for attribution. Suggestions wait for admin approval.' : 'Shared sign-in is being set up. The manual editor is available below.';
     route();
     if (data.shared_available && sessionStorage.getItem('telescope-shared-session') === 'yes') {
-      try { shared = await (await import('/shared.js')).connect(accountChanged); }
+      try { shared = await (await import('/shared.js')).connect(accountChanged, {emulators:Boolean(data.emulators)}); }
       catch { $('shared-status').textContent = 'The shared project could not be reached. Your browser drafts are still available.'; }
     }
   } catch (error) { $('overview-status').textContent = error.message; }
@@ -282,6 +360,7 @@ function route() {
     $('language-title').focus();
   } else {
     image = null; selected = null; $('error').textContent = ''; $('fit').textContent = ''; $('search').value = '';
+    suggestions = new Map(); loadSuggestions();
     $('preview-mount').replaceChildren(); $('edit').hidden = true; $('regions').replaceChildren(); selected = sceneKeys()[0]; if (selected) choose(selected); else rows(); render();
   }
   window.scrollTo(0,0);
@@ -334,8 +413,8 @@ function accountChanged(user, role, username, identityError) {
   if (identityError) $('shared-status').textContent = identityError;
   $('mode-label').textContent = data?.mode === 'admin' ? 'Local administrator' : user ? 'Shared contribution' : 'Manual contribution';
   if (data) { updateProgress(); if (['#admin','#account'].includes(location.hash)) route(); }
-  if (user) loadSharedProgress();
-  else if (repositoryData) { data = structuredClone(repositoryData); cloudOverrides = {}; sharedState = null; for (const code of localLanguages) addLocalLanguage(code); if (location.hash !== '#modes') route(); }
+  if (user) { loadSharedProgress(); loadSuggestions(); }
+  else if (repositoryData) { suggestions = new Map(); data = structuredClone(repositoryData); cloudOverrides = {}; sharedState = null; for (const code of localLanguages) addLocalLanguage(code); if (location.hash !== '#modes') route(); }
 }
 // Approval documents saved after the project version was published are laid over its projection
 function applyShared({projection, approvals, languages}) {
@@ -388,7 +467,8 @@ $('sign-in').onclick = async () => {
   $('shared-status').textContent = 'Opening GitHub sign-in…';
   try {
     const module = await import('/shared.js');
-    shared = await module.connect(accountChanged);
+    shared = await module.connect(accountChanged, {emulators:Boolean(data.emulators)});
+    try { sessionStorage.setItem('telescope-shared-session', 'yes'); } catch {}
     await shared.signIn();
     location.hash = '#languages';
   } catch (error) {
@@ -415,7 +495,8 @@ $('submit').onclick = async () => {
   $('draft-status').textContent = 'Submitting for approval…';
   try {
     await shared.submit(language, entry, text);
-    $('draft-status').textContent = 'Submitted for admin approval. Your draft is still saved in this browser.';
+    loadSuggestions();
+    $('draft-status').textContent = 'Suggested. Others can see it now, and an admin will review it.';
   } catch (error) {
     $('draft-status').textContent = error.message?.startsWith('Submission limit') ? error.message : 'Submission failed. Your draft is still here. Try again or download the .po file.';
   } finally { submitting = false; updateProgress(); }

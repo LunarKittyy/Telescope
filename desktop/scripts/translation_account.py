@@ -2,6 +2,7 @@
 
 import base64
 import json
+import os
 import subprocess
 import time
 import urllib.error
@@ -50,6 +51,11 @@ class Store:
     def __init__(self, project, account=None):
         self.base = f'https://firestore.googleapis.com/v1/projects/{project}/databases/(default)/documents'
         self.name = f'projects/{project}/databases/(default)/documents'
+        emulator = os.environ.get('FIRESTORE_EMULATOR_HOST')
+        if emulator and project.startswith('demo-'):
+            # The emulator accepts "owner" as an admin credential; demo- projects never reach Google
+            self.base, self.headers = f'http://{emulator}/v1/{self.name}', {'Authorization': 'Bearer owner'}
+            return
         if account is None:
             import google.auth
             from google.auth.transport.requests import Request

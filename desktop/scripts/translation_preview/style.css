@@ -261,3 +261,21 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .pending-row small, .conflict-row small { color: var(--muted); }
 .row-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 #role-list > div { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 16px; overflow-wrap: anywhere; }
+
+.suggestions { margin-top: 24px; padding-top: 20px; border-top: 1px solid #ffffff14; }
+.suggestions h3 { font-size: 14px; margin-bottom: 12px; }
+#suggestion-list { list-style: none; display: grid; gap: 10px; padding: 0; margin: 0; }
+.suggestion { padding: 14px 16px; background: #2a2433; border-radius: 10px; }
+.suggestion-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.suggestion-head small { color: var(--muted); font-size: 12px; }
+.suggestion p { margin: 8px 0 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.suggestion .row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.suggestion button { font-size: 13px; padding: 8px 12px; }
+.suggestion-empty { color: var(--muted); font-size: 13px; }
+.person-link { background: none; padding: 0; color: var(--ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: #ffffff40; }
+.person-link:disabled { text-decoration: none; }
+#person { background: var(--panel); color: var(--ink); border: 0; border-radius: 14px; padding: 24px; width: min(420px, calc(100vw - 32px)); box-shadow: 0 16px 40px #0007; }
+#person::backdrop { background: #0009; }
+.person-head { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+#person-avatar { border-radius: 50%; background: #494151; }
+#person .row-actions { display: flex; gap: 8px; margin-top: 20px; }
