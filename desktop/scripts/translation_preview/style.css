@@ -71,6 +71,8 @@ details p { margin-top: 12px; }
 .region { position: absolute; padding: 0; border-radius: 4px; background: transparent; border: 2px solid transparent; }
 .region:hover { background: #d4b7ff20; border-color: #d4b7ff99; }
 .region.selected { border-color: var(--accent); background: #d4b7ff18; }
+.region.clipped { border-color: #ff8a9a; background: #ff8a9a22; }
+.region.clipped.selected { box-shadow: 0 0 0 2px var(--accent); }
 .preview-stage.actual-size { overflow: auto; max-height: 72vh; justify-content: flex-start; align-items: flex-start; }
 .preview-stage.actual-size #picture { max-width: none; flex-shrink: 0; margin: auto; }
 #zoom { font-size: 12px; padding: 6px 12px; }
@@ -299,3 +301,5 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .suggestion-head .avatar { margin-right: -2px; }
 .scene-steps { display: flex; align-items: center; gap: 6px; margin-right: auto; font-size: 13px; color: var(--muted); white-space: nowrap; }
 .scene-steps button { padding: 6px 12px; font-size: 16px; line-height: 1; }
+
+.fit-warning { margin: 6px 0 0; color: #ffced4; font-size: .85rem; }

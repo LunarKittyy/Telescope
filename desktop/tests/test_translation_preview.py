@@ -211,3 +211,16 @@ def test_every_text_has_a_scene_except_plurals():
     shown = {k for keys in RECORD["scenes"].values() for k in keys}
     assert set(entries) - shown == set(RECORD["plural"]) - shown
     assert RECORD["screens"] and len(RECORD["screens"]) > len(RECORD["messages_only"])
+
+
+def test_a_wording_too_long_for_its_space_is_tied_to_its_text():
+    presets = preview.key("", "Presets")
+    result = preview.worker({"lang": "es", "scene": "main-narrow", "drafts": {presets: "Ajustes preestablecidos guardados"}})
+    assert any(presets in f["keys"] for f in result["findings"])
+    assert all(f["keys"] or f["kind"] == "window too wide" for f in result["findings"])
+
+
+def test_the_fit_check_starts_with_the_narrowest_window():
+    picked = preview.fit_scenes(preview.key("", "Presets"))
+    widths = [RECORD["widths"][id] for id in picked]
+    assert widths == sorted(widths) and "main-narrow" in picked and len(picked) <= 6
