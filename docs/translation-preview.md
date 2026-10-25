@@ -102,7 +102,7 @@ The development server listens only on `127.0.0.1` and accepts requests from tha
 
 ## Updating the hosted site
 
-Firebase Hosting serves the browser files and forwards `/api/` requests to Cloud Run. The existing deployment uses project `telescope-localization` and region `europe-west1`. Both services scale to zero; rendering is capped at two instances and account jobs at one. Billing is enabled for the project. Free allowances aren't a spending cap.
+Firebase Hosting serves the browser files and forwards `/api/` requests to Cloud Run. The existing deployment uses project `telescope-localization` and region `europe-west1`. Both services scale to zero; rendering runs on 2 CPUs, so a fit check renders two screens at once, and is capped at two instances; account jobs are capped at one. Billing is enabled for the project. Free allowances aren't a spending cap.
 
 From `desktop/`, create a clean bundle in a new directory:
 
@@ -112,7 +112,7 @@ python -m scripts.translation_hosted --stage /tmp/telescope-deployment
 
 Only runtime files are copied. The bundle excludes local settings, credentials, tests and private development notes. Build its container with `scripts/translation_preview/cloudbuild.yaml`, setting `_IMAGE` to a new tag in `europe-west1-docker.pkg.dev/telescope-localization/translations/workbench`. Select the intended Google account and project explicitly for every cloud command.
 
-Update `translation-workbench` and `translation-erasure` to that image, then deploy Hosting and Firestore rules using the staged `firebase/firebase.json`. Hosting pins its API rewrite to the deployed preview revision. Keep the erasure service private and preserve its service identity and task audience configuration. Test GitHub sign-in, manual export and the real preview through the Hosting address after deployment.
+Update `translation-workbench` and `translation-erasure` to that image, then deploy Hosting and Firestore rules using the staged `firebase/firebase.json`. Hosting pins its API rewrite to the preview revision that was live when Hosting was deployed, so a change to the service alone (a new image, CPU or memory) reaches the site only after Hosting is deployed again. Keep the erasure service private and preserve its service identity and task audience configuration. Test GitHub sign-in, manual export and the real preview through the Hosting address after deployment.
 
 Normal desktop tests cover the renderer, merge/export behaviour and hosted request checks. Firestore permission and erasure tests run against the local `demo-telescope` emulator with `FIRESTORE_EMULATOR_HOST=127.0.0.1:8085`. Never point those tests at the live project.
 
