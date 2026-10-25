@@ -374,11 +374,11 @@ class _Worker:
                 self._line(60)
                 self.loaded = True
 
-    def ask(self, payload):
+    def ask(self, payload, timeout=25):
         self.wait_loaded()
         self.process.stdin.write(json.dumps(payload) + "\n")
         self.process.stdin.flush()
-        answer = json.loads(self._line(25))
+        answer = json.loads(self._line(timeout))
         self.renders += 1
         if not hasattr(os, "fork"):
             self.dead = True  # without fork each process renders once, see _serve()
@@ -422,11 +422,11 @@ def warm():
         _give_back(found)
 
 
-def worker(payload):
+def worker(payload, timeout=25):
     # Render processes are reused, so a render pays for neither starting Python nor importing Qt; each is replaced after RENDERS
     found = _take()
     try:
-        return found.ask(payload)
+        return found.ask(payload, timeout)
     except (OSError, ValueError):
         found.kill()
         raise RuntimeError("The Qt preview failed")
@@ -455,7 +455,7 @@ def _serve(answers):
             os.close(read)
             import signal
             from PyQt6.QtWidgets import QApplication
-            signal.alarm(20)
+            signal.alarm(120)  # the parent's timeout is what a person waits for; this only ends a stuck fork
             app = QApplication([])  # noqa: F841
             with os.fdopen(write, "w", encoding="utf-8") as pipe:
                 pipe.write(json.dumps(_answer(line)))
@@ -464,7 +464,11 @@ def _serve(answers):
         with os.fdopen(read, encoding="utf-8") as pipe:
             text = pipe.read()
         _pid, status = os.waitpid(child, 0)
-        print(text if text and status == 0 else json.dumps({"error": "The Qt preview stopped"}), file=answers, flush=True)
+        if not text or status:
+            how = f"signal {os.WTERMSIG(status)}" if os.WIFSIGNALED(status) else f"exit code {os.waitstatus_to_exitcode(status)}"
+            scene = json.loads(line).get("scene", "") if line.strip().startswith("{") else ""
+            text = json.dumps({"error": f"The Qt preview stopped ({how}, scene {scene})"})
+        print(text, file=answers, flush=True)
 
 
 def render_all(ids=None, screens=None):
@@ -473,7 +477,7 @@ def render_all(ids=None, screens=None):
     from concurrent.futures import ThreadPoolExecutor
     extra = {} if screens is None else {"screens": sorted(screens)}
     with ThreadPoolExecutor(min(8, os.cpu_count() or 2)) as pool:
-        return list(pool.map(lambda scene: worker({"lang": "en", "scene": scene, **extra}), ids or list(SCENES)))
+        return list(pool.map(lambda scene: worker({"lang": "en", "scene": scene, **extra}, timeout=120), ids or list(SCENES)))
 
 
 def render_for_record():
