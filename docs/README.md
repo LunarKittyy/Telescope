@@ -23,6 +23,7 @@ New here? The [Quick Start](../README.md#quick-start) is all most people need.
 - [Translating](translating.md): adding a language to either app, and keeping new texts translatable
 - [Building and CI](building.md): building the apps, trying a change with a dev app and what each workflow does
 - [Release checklist](release-checklist.md): what to test by hand before tagging a release
+- [Automation](../automation/README.md): translating with AI models and release testing in a VM and the emulator
 - [Upstream bugs](upstream-bugs.md): dependency bugs we work around, where the workaround is and when to drop it
 - [Roadmap](roadmap/README.md): what's planned, ideas for some day and what each past release set out to do
 - [CONTRIBUTING.md](../CONTRIBUTING.md): the short version of how to help
