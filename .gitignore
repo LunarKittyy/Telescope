@@ -41,3 +41,9 @@ desktop/telescope/_build.py
 
 # Link to the log in the temp folder (desktop/telescope/diagnostics.py)
 desktop/telescope.log
+
+# Made by the scripts in automation/
+automation/translation/work/
+automation/translation/review-renders/
+automation/release-testing/downloads/
+automation/release-testing/linux/.profile/
