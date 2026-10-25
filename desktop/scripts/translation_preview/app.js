@@ -3,7 +3,7 @@ let data, image, selected, generation = 0, timer, busy = false;
 let drafts = {}, reviewed = {}, lang = 'es';
 let shared, sharedUser = null, sharedRole = null, submitting = false, adminUi, preferredKey;
 let repositoryData, cloudOverrides = {};
-let selectedSubmission, sharedState, suggestions = new Map(), votes = new Map(), voted = {};
+let selectedSubmission, sharedState, suggestions = new Map(), votes = new Map(), voted = new Map();
 let profileFields;
 let localLanguages = [], languageCreator;
 let section = '', preferredScene = '';
@@ -19,7 +19,7 @@ function dropDraft(store, code, key) {
   if (code === '__proto__' || code === 'constructor' || code === 'prototype' || key === '__proto__' || key === 'constructor' || key === 'prototype') return;
   if (Object.hasOwn(store, code)) delete store[code][key];
 }
-const currentDrafts = () => ({...(cloudOverrides[lang] || {}),...(voted[lang] || {}),...Object.fromEntries(Object.entries(drafts[lang] || {}).filter(([k]) => data?.entries[k]))});
+const currentDrafts = () => ({...(cloudOverrides[lang] || {}),...(voted.get(lang) || {}),...Object.fromEntries(Object.entries(drafts[lang] || {}).filter(([k]) => data?.entries[k]))});
 const original = k => lang === 'en' ? data.entries[k].english : (data.translations[lang]?.[k] || '');
 const value = k => currentDrafts()[k] ?? original(k);
 const reviewStamp = k => JSON.stringify([value(k), data.revision]);
@@ -120,10 +120,10 @@ async function loadSuggestions() {
       count[vote.value > 0 ? 'up' : 'down']++; if (vote.voter === 'github:' + shared.username) count.mine = vote.value;
       tally.set(vote.suggestion, count);
     }
-    const before = JSON.stringify(voted[lang] || {});
+    const before = JSON.stringify(voted.get(lang) || {});
     suggestions = next; votes = tally; pickVoted();
     if (selected && data.entries[selected]) choose(selected); else rows();
-    if (image && JSON.stringify(voted[lang]) !== before) render();
+    if (image && JSON.stringify(voted.get(lang) || {}) !== before) render();
   } catch { $('suggestion-list').replaceChildren(listNote('Suggestions could not be loaded. Reload to try again.')); }
 }
 const MACHINE = 'llm';
@@ -145,11 +145,12 @@ function topSuggestion(k) {
   return best;
 }
 function pickVoted() {
-  voted[lang] = {};
+  const chosen = Object.create(null);
+  voted.set(lang, chosen);
   if (!sharedUser || lang === 'en') return;
   for (const k of Object.keys(data.entries)) {
     const best = topSuggestion(k);
-    if (best && best.status === 'pending' && best.text !== original(k)) voted[lang][k] = best.text;
+    if (best && best.status === 'pending' && best.text !== original(k)) chosen[k] = best.text;
   }
 }
 const listNote = message => { const item = document.createElement('li'); item.className = 'suggestion-empty'; item.textContent = message; return item; };
@@ -197,7 +198,7 @@ function suggestionList() {
   const list = suggestionsFor(selected).sort((a, b) => score(b) - score(a)), top = topSuggestion(selected);
   $('suggestion-list').replaceChildren();
   if (!list.length) { $('suggestion-list').append(listNote('No suggestions yet. What you suggest shows up here for others to build on.')); return; }
-  const refresh = () => { const before = JSON.stringify(voted[lang] || {}); pickVoted(); choose(selected); if (JSON.stringify(voted[lang]) !== before) render(); };
+  const refresh = () => { const before = JSON.stringify(voted.get(lang) || {}); pickVoted(); choose(selected); if (JSON.stringify(voted.get(lang) || {}) !== before) render(); };
   for (const item of list) {
     const row = document.createElement('li'); row.className = 'suggestion';
     const head = document.createElement('div'); head.className = 'suggestion-head';
@@ -615,7 +616,7 @@ function applyShared({projection, approvals, languages}) {
     data.machine[code] = new Set(Object.keys(data.entries).filter(key => data.translations[code]?.[key] && !data.approvals[code]?.[key] && !written.has(data.entries[key].id)));
   }
   // Votes may have arrived before the project did
-  if (suggestions.size || votes.size) { const before = JSON.stringify(voted[lang] || {}); pickVoted(); if (selected && data.entries[selected] && $('edit') && !$('edit').hidden) choose(selected); if (image && JSON.stringify(voted[lang]) !== before) render(); }
+  if (suggestions.size || votes.size) { const before = JSON.stringify(voted.get(lang) || {}); pickVoted(); if (selected && data.entries[selected] && $('edit') && !$('edit').hidden) choose(selected); if (image && JSON.stringify(voted.get(lang) || {}) !== before) render(); }
 }
 function sharedApproved(item) {
   if (!sharedState) return loadSharedProgress();
