@@ -499,6 +499,13 @@ def fun_pack_cloak(stack):
     return fun_pack_card(stack, "cloak", counting)
 
 
+@scene("fun-pack-cloak-stale", "states", "Fun pack · cloak after the picture changed under the empty room", width=CARD_WIDTH)
+def fun_pack_cloak_stale(stack):
+    def stale(plugin):
+        plugin._stale = True
+    return fun_pack_card(stack, "cloak", stale)
+
+
 @scene("fun-pack-light", "states", "Fun pack · light painting", width=CARD_WIDTH)
 def fun_pack_light(stack):
     return fun_pack_card(stack, "light")

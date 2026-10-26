@@ -105,6 +105,9 @@ class FunPackPlugin(TelescopePlugin):
         self._grab: Optional[str] = None  # "plate" or "clone": process_frame takes the next frame for it
         self._plate: Optional[np.ndarray] = None
         self._clones: Optional[Clones] = None
+        self._taken_with = None  # (source, view, frame shape) the empty room and clones were taken with
+        self._stale = False  # they were dropped because one of those changed
+        self._stale_sent = False  # process_frame told the GUI thread about a new frame shape already
         self._people: list = []
         self._lines, self._heads = (), ()
         self._reset = 0
@@ -118,7 +121,9 @@ class FunPackPlugin(TelescopePlugin):
         self._timer.setInterval(1000)
         self._timer.timeout.connect(self._tick)
         bus.people_seen.connect(self._on_people)
-        bus.view_changed.connect(lambda _view: self._map_people())
+        bus.view_changed.connect(lambda _view: (self._check_taken(), self._map_people()))
+        bus.source_selected.connect(lambda _id: self._new_source())
+        bus.device_changed.connect(lambda _id: self._new_source())
         for signal in (bus.stream_transport_changed, bus.stream_stopped, bus.stream_started, bus.source_selected,
                        bus.device_changed):
             signal.connect(lambda *_a: self._refresh())
@@ -233,13 +238,40 @@ class FunPackPlugin(TelescopePlugin):
             self._grab, self._counting = self._counting, ""
         self._show()
 
+    def _taken_key(self, shape) -> tuple:
+        return self._host.focused_source_id() or "", self._host.view(), tuple(shape)
+
     def _on_taken(self, what: str, value):
+        if what == "reshaped":
+            self._drop_taken()
+            return
+        if value is not None:
+            key = self._taken_key((value if what == "plate" else value.picture).shape)
+            if key != self._taken_with:
+                self._plate, self._clones = None, None
+            self._taken_with, self._stale, self._stale_sent = key, False, False
         if what == "plate":
             self._plate = value
         elif what == "clone" and value is not None:
             self._clones = value
         self._problem = "" if value is not None else tr("Take the empty room first, so you can be cut out.")
         self._apply()
+
+    def _drop_taken(self):
+        """The empty room and clones no longer line up with the picture: the card asks for the room again."""
+        if self._plate is None and self._clones is None:
+            return
+        self._plate, self._clones, self._taken_with = None, None, None
+        self._stale, self._stale_sent = True, False
+        self._apply()
+
+    def _check_taken(self):
+        if self._taken_with is not None and self._host.view() != self._taken_with[1]:
+            self._drop_taken()
+
+    def _new_source(self):
+        self._runner = fun_effects.Runner()  # slit-scan history and light trails belong to the stream before
+        self._drop_taken()
 
     def _clear(self):
         if self._effect() == "clones":
@@ -328,6 +360,8 @@ class FunPackPlugin(TelescopePlugin):
         problem = ""
         if effect == "mosh":
             problem = self._host.packets_problem()
+        elif effect in _PLATE and self._stale and self._plate is None:
+            problem = tr("The picture changed, so take the empty room again.")
         elif effect == "cloak" and self._plate is None:
             problem = tr("Take the empty room first.")
         elif effect == "clones":
@@ -340,6 +374,10 @@ class FunPackPlugin(TelescopePlugin):
 
     def process_frame(self, frame: np.ndarray) -> np.ndarray:
         grab, look = self._grab, self._look
+        taken = look.plate if look.plate is not None else look.clones.picture if look.clones is not None else None
+        if taken is not None and taken.shape != frame.shape and not self._stale_sent:
+            self._stale_sent = True  # a new stream size: what was taken no longer lines up
+            self._relay.taken.emit("reshaped", None)
         if grab is not None:
             self._grab = None
             self._take(grab, frame, look)
@@ -359,7 +397,7 @@ class FunPackPlugin(TelescopePlugin):
 
     def frame_step(self):
         look = self._look
-        if look.effect not in fun_effects.EFFECTS:
+        if look.effect not in fun_effects.EFFECTS or look.effect in _PLATE:  # the room and pose are the shown stream's
             return None
         runner = fun_effects.Runner()
         return lambda frame: runner(frame, look)

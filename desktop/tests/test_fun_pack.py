@@ -147,6 +147,7 @@ class _Host:
     def __init__(self, problem=""):
         self.problem, self.packets, self.people, self.saves = problem, {}, {}, 0
         self.mask = None
+        self.shown = View()
 
     def person_mask(self, frame):
         return self.mask
@@ -170,7 +171,7 @@ class _Host:
         return "phone"
 
     def view(self):
-        return View()
+        return self.shown
 
     def view_aspect(self):
         return 16 / 9
@@ -306,3 +307,63 @@ def test_settings_come_back(card):
     assert cfg["effect"] == "slit" and cfg["spread"] == 30 and cfg["across"] is True and cfg["fade"] == 10
     plugin.set_config({"effect": "nonsense"})
     assert plugin.get_config()["effect"] == "off"
+
+
+def test_a_plate_of_another_shape_is_never_stretched_over_the_picture():
+    room = _room()
+    turned = np.ascontiguousarray(np.rot90(_with_person(room, 60, 100)))
+    out, = _run(Look("cloak", plate=room, edges=0), [turned])
+    assert out is turned
+
+
+def _take_room(plugin, qapp, room):
+    plugin._grab = "plate"
+    plugin.process_frame(room)
+    qapp.processEvents()
+    assert plugin._look.plate is not None
+
+
+@pytest.mark.parametrize("change", ["source", "device", "view", "shape"])
+def test_the_empty_room_is_dropped_when_the_picture_changes_under_it(card, qapp, change):
+    plugin, host, bus, _panel = card()
+    _pick(plugin, "cloak")
+    room = _room()
+    _take_room(plugin, qapp, room)
+    plugin._clones = Clones.add(None, room, _mask(10, 40))
+    bus.view_changed.emit(host.shown)  # the same view again: kept
+    plugin.process_frame(room)
+    qapp.processEvents()
+    assert plugin._look.plate is not None
+    if change == "source":
+        bus.source_selected.emit("other")
+    elif change == "device":
+        bus.device_changed.emit("other")
+    elif change == "view":
+        host.shown = View(flip_h=True)
+        bus.view_changed.emit(host.shown)
+    else:
+        plugin.process_frame(np.zeros((H * 2, W, 3), np.uint8))
+        qapp.processEvents()
+    assert plugin._look.plate is None and plugin._clones is None
+    assert "again" in plugin._note.text() and not plugin._note.isHidden()
+    _take_room(plugin, qapp, room)
+    assert plugin._note.isHidden()
+
+
+def test_background_streams_get_no_stick_figure_or_empty_room(card, qapp):
+    plugin, _host, _bus, _panel = card()
+    for effect in ("stick", "cloak", "clones"):
+        _pick(plugin, effect)
+        _take_room(plugin, qapp, _room())
+        assert plugin.frame_step() is None
+
+
+def test_another_stream_starts_without_the_last_ones_history(card):
+    plugin, _host, bus, _panel = card()
+    _pick(plugin, "slit")
+    for _ in range(30):
+        plugin.process_frame(np.full((H, W, 3), 200, np.uint8))
+    bus.source_selected.emit("other")
+    dark = np.full((H, W, 3), 10, np.uint8)
+    out = plugin.process_frame(dark)
+    assert out.max() < 50  # no band from the stream before

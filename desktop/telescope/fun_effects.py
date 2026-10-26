@@ -37,10 +37,16 @@ class Look:
     reset: int = 0  # bumped to start the effect afresh (Clear on light painting)
 
 
-def _fit(image: np.ndarray, frame: np.ndarray) -> np.ndarray:
+def _fit(image: Optional[np.ndarray], frame: np.ndarray) -> Optional[np.ndarray]:
+    """image at frame's size, or None when it's missing or a different shape, which stretching would only bend."""
+    if image is None:
+        return None
     h, w = frame.shape[:2]
-    if image.shape[:2] == (h, w):
+    ih, iw = image.shape[:2]
+    if (ih, iw) == (h, w):
         return image
+    if abs(iw * h - ih * w) > max(iw * h, ih * w) * 0.01:
+        return None
     return cv2.resize(image, (w, h), interpolation=cv2.INTER_LINEAR)
 
 
@@ -84,8 +90,9 @@ class PlateMask:
 def person(frame: np.ndarray, look: Look, plate_mask: PlateMask) -> Optional[np.ndarray]:
     """The person mask: from the vision download when it's there, else the difference from the empty room."""
     mask = look.mask(frame) if look.mask is not None else None
-    if mask is None and look.plate is not None:
-        mask = plate_mask(frame, _fit(look.plate, frame))
+    plate = _fit(look.plate, frame) if mask is None else None
+    if plate is not None:
+        mask = plate_mask(frame, plate)
     return mask
 
 
@@ -110,9 +117,10 @@ class CloneParty:
 
     def __call__(self, frame: np.ndarray, look: Look) -> np.ndarray:
         clones = look.clones
-        if clones is None:
+        picture = None if clones is None else _fit(clones.picture, frame)
+        if picture is None:
             return frame
-        out = compose(_fit(clones.picture, frame), _fit(clones.mask, frame), frame)
+        out = compose(picture, _fit(clones.mask, frame), frame)
         mask = person(frame, look, self._plate_mask)
         return out if mask is None else compose(frame, soften(mask, look.edges), out)
 
@@ -122,9 +130,9 @@ class Cloak:
         self._plate_mask = PlateMask()
 
     def __call__(self, frame: np.ndarray, look: Look) -> np.ndarray:
-        if look.plate is None:
-            return frame
         plate = _fit(look.plate, frame)
+        if plate is None:
+            return frame
         mask = look.mask(frame) if look.mask is not None else None
         if mask is None:
             mask = self._plate_mask(frame, plate)
@@ -197,8 +205,9 @@ class StickFigure:
 
     def __call__(self, frame: np.ndarray, look: Look) -> np.ndarray:
         h, w = frame.shape[:2]
-        if look.plate is not None:
-            out = _fit(look.plate, frame).copy()
+        plate = _fit(look.plate, frame)
+        if plate is not None:
+            out = plate.copy()
         else:
             if self._paper is None or self._paper.shape != frame.shape:
                 self._paper = np.full_like(frame, self.PAPER)

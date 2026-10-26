@@ -947,11 +947,11 @@ msgstr ""
 msgid "No picture yet"
 msgstr ""
 
-#: telescope/plugins/background.py:166 telescope/plugins/fun_pack.py:165
+#: telescope/plugins/background.py:166 telescope/plugins/fun_pack.py:170
 msgid "How soft the edge around you is"
 msgstr ""
 
-#: telescope/plugins/background.py:169 telescope/plugins/fun_pack.py:165
+#: telescope/plugins/background.py:169 telescope/plugins/fun_pack.py:170
 msgid "Edges"
 msgstr ""
 
@@ -1217,7 +1217,7 @@ msgstr ""
 msgid "Shutter"
 msgstr ""
 
-#: telescope/plugins/camera_control.py:215 telescope/plugins/fun_pack.py:167
+#: telescope/plugins/camera_control.py:215 telescope/plugins/fun_pack.py:172
 msgid "Brightness"
 msgstr ""
 
@@ -2227,7 +2227,7 @@ msgstr ""
 msgid "Move around and the picture smears instead of refreshing."
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:93 telescope/plugins/fun_pack.py:131 telescope/plugins/fun_pack.py:200
+#: telescope/plugins/fun_pack.py:93 telescope/plugins/fun_pack.py:136 telescope/plugins/fun_pack.py:205
 msgid "Fun pack"
 msgstr ""
 
@@ -2239,109 +2239,113 @@ msgstr ""
 msgid "Without it there's no Fun pack card and the picture has no effects."
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:141
+#: telescope/plugins/fun_pack.py:146
 msgid "Effect"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:145 telescope/plugins/fun_pack.py:203 telescope/plugins/fun_pack.py:313
+#: telescope/plugins/fun_pack.py:150 telescope/plugins/fun_pack.py:208 telescope/plugins/fun_pack.py:345
 msgid "Take the empty room"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:146
+#: telescope/plugins/fun_pack.py:151
 msgid "Step out of the picture: it's taken after a short countdown"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:148 telescope/plugins/fun_pack.py:204 telescope/plugins/fun_pack.py:315
+#: telescope/plugins/fun_pack.py:153 telescope/plugins/fun_pack.py:209 telescope/plugins/fun_pack.py:347
 msgid "Add a clone"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:149
+#: telescope/plugins/fun_pack.py:154
 msgid "Get in place: you're copied after a short countdown"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:151
+#: telescope/plugins/fun_pack.py:156
 msgid "Clear"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:153
+#: telescope/plugins/fun_pack.py:158
 msgid "Clean up"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:154
+#: telescope/plugins/fun_pack.py:159
 msgid "Let the next keyframe through so the picture comes back"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:166
+#: telescope/plugins/fun_pack.py:171
 msgid "Trails"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:166
+#: telescope/plugins/fun_pack.py:171
 msgid "How long the light trails last"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:167
+#: telescope/plugins/fun_pack.py:172
 msgid "How bright a light has to be to paint"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:168
+#: telescope/plugins/fun_pack.py:173
 msgid "Spread"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:168
+#: telescope/plugins/fun_pack.py:173
 msgid "Frames between one end of the picture and the other"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:169
+#: telescope/plugins/fun_pack.py:174
 msgid "Smear"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:169
+#: telescope/plugins/fun_pack.py:174
 msgid "Plays each frame's motion this many extra times"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:183
+#: telescope/plugins/fun_pack.py:188
 msgid "Down"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:183
+#: telescope/plugins/fun_pack.py:188
 msgid "Across"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:189
+#: telescope/plugins/fun_pack.py:194
 msgid "Direction"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:202
+#: telescope/plugins/fun_pack.py:207
 msgid "Fun pack effect"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:205
+#: telescope/plugins/fun_pack.py:210
 msgid "Clean up the datamosh"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:206
+#: telescope/plugins/fun_pack.py:211
 msgid "Datamosh smear"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:241
+#: telescope/plugins/fun_pack.py:257
 msgid "Take the empty room first, so you can be cut out."
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:311
+#: telescope/plugins/fun_pack.py:343
 #, python-brace-format
 msgid "Taking it in {n}…"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:312
+#: telescope/plugins/fun_pack.py:344
 msgid "Take the empty room again"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:314
+#: telescope/plugins/fun_pack.py:346
 #, python-brace-format
 msgid "Copying you in {n}…"
 msgstr ""
 
-#: telescope/plugins/fun_pack.py:332
+#: telescope/plugins/fun_pack.py:364
+msgid "The picture changed, so take the empty room again."
+msgstr ""
+
+#: telescope/plugins/fun_pack.py:366
 msgid "Take the empty room first."
 msgstr ""
 

@@ -874,6 +874,7 @@
     "[\"\", \"The phone's microphone is in use\"]",
     "[\"\", \"The phone's microphone stopped.\"]",
     "[\"\", \"The picture apps see on the virtual camera while nothing is streaming.\"]",
+    "[\"\", \"The picture changed, so take the empty room again.\"]",
     "[\"\", \"The resolution, frame rate and format of the stream.\"]",
     "[\"\", \"The size the browser sends; a camera that can't do it sends what it can\"]",
     "[\"\", \"The sound server didn't answer (pactl list failed).\"]",
@@ -4874,6 +4875,30 @@
       "[\"\", \"Take the empty room first.\"]",
       "[\"\", \"Take the empty room, then step back in.\"]",
       "[\"\", \"Taking it in {n}…\"]",
+      "[\"\", \"VHS\"]"
+    ],
+    "fun-pack-cloak-stale": [
+      "[\"\", \"1998 webcam\"]",
+      "[\"\", \"ASCII\"]",
+      "[\"\", \"CRT\"]",
+      "[\"\", \"Cleaner edges with a one-time download (about {mb} MB).\"]",
+      "[\"\", \"Clone party\"]",
+      "[\"\", \"Datamosh\"]",
+      "[\"\", \"Download\"]",
+      "[\"\", \"Edges\"]",
+      "[\"\", \"Effect\"]",
+      "[\"\", \"Expanded. Press Space or Enter to collapse.\"]",
+      "[\"\", \"Fun pack\"]",
+      "[\"\", \"Game Boy\"]",
+      "[\"\", \"Invisibility cloak\"]",
+      "[\"\", \"Light painting\"]",
+      "[\"\", \"Off\"]",
+      "[\"\", \"Slit-scan\"]",
+      "[\"\", \"Step out of the picture: it's taken after a short countdown\"]",
+      "[\"\", \"Stick figure\"]",
+      "[\"\", \"Take the empty room\"]",
+      "[\"\", \"Take the empty room, then step back in.\"]",
+      "[\"\", \"The picture changed, so take the empty room again.\"]",
       "[\"\", \"VHS\"]"
     ],
     "fun-pack-light": [
@@ -31382,6 +31407,7 @@
     "fun-pack-clone-countdown": 444,
     "fun-pack-clone-failed": 444,
     "fun-pack-cloak": 444,
+    "fun-pack-cloak-stale": 444,
     "fun-pack-light": 444,
     "fun-pack-slit": 444,
     "fun-pack-stick": 444,
@@ -31885,5 +31911,5 @@
     "messages-audio-1": 620,
     "messages-search-1": 620
   },
-  "total": 1295
+  "total": 1296
 }
