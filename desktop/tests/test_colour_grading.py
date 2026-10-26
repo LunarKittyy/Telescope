@@ -1,12 +1,16 @@
+import os
+
 import numpy as np
 import pytest
-from PyQt6.QtCore import QPoint, Qt
+from PyQt6.QtCore import QEvent, QPoint, QPointF, Qt
+from PyQt6.QtGui import QMouseEvent
 from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QFileDialog
+from PyQt6.QtWidgets import QApplication, QFileDialog
 
 from telescope import grade as g
 from telescope.colour import ColourStage, lattice, read_cube, write_cube
 from telescope.plugin import EventBus
+from telescope.plugins import colour_grading
 from telescope.plugins.colour_grading import OWNER, ColourGradingPlugin
 from telescope.widgets.colour_wheel import ColourWheel
 from telescope.widgets.curve_editor import CurveEditor
@@ -356,3 +360,105 @@ def test_the_curve_drawn_is_the_one_applied(editor):
     xs = np.linspace(0, 1, 11, dtype=np.float32)
     assert np.allclose(e._curve(xs), g.monotone_curve(pts, xs))
     e.grab()  # paints without trouble
+
+
+def _mouse(e, kind, point: QPoint, buttons=Qt.MouseButton.LeftButton):
+    """Sends one mouse event as the window system does, for the press, release, double-click order of a real one."""
+    pos = QPointF(point)
+    event = QMouseEvent(kind, pos, e.mapToGlobal(pos), Qt.MouseButton.LeftButton, buttons,
+                        Qt.KeyboardModifier.NoModifier)
+    QApplication.sendEvent(e, event)
+
+
+@pytest.mark.parametrize("second_press", [False, True])
+def test_a_real_double_click_on_the_curve_resets_it(editor, second_press):
+    e, edits = editor
+    e.set_curve("tone", ((0.0, 0.0), (0.3, 0.5), (1.0, 1.0)), g.LINEAR)
+    where = _at(e, 0.7, float(e._curve(np.array([0.7], np.float32))[0]))
+    _mouse(e, QEvent.Type.MouseButtonPress, where)
+    assert len(e.points()) == 4  # the first press adds a point
+    _mouse(e, QEvent.Type.MouseButtonRelease, where, Qt.MouseButton.NoButton)
+    if second_press:  # some platforms send the second press too
+        _mouse(e, QEvent.Type.MouseButtonPress, where)
+    _mouse(e, QEvent.Type.MouseButtonDblClick, where)
+    _mouse(e, QEvent.Type.MouseButtonRelease, where, Qt.MouseButton.NoButton)
+    assert e.points() == g.LINEAR and edits[-1] == g.LINEAR
+
+
+def test_a_real_double_click_on_a_point_still_removes_it(editor):
+    e, _edits = editor
+    e.set_curve("tone", ((0.0, 0.0), (0.3, 0.5), (0.7, 0.6), (1.0, 1.0)), g.LINEAR)
+    where = _at(e, 0.3, 0.5)
+    _mouse(e, QEvent.Type.MouseButtonPress, where)
+    _mouse(e, QEvent.Type.MouseButtonRelease, where, Qt.MouseButton.NoButton)
+    _mouse(e, QEvent.Type.MouseButtonDblClick, where)
+    assert e.points() == ((0.0, 0.0), (0.7, 0.6), (1.0, 1.0))
+
+
+def test_hue_points_stay_below_1_and_apart_round_the_hues(editor):
+    e, _edits = editor
+    e.set_curve("hue", g.NEUTRAL_HUE, g.NEUTRAL_HUE)
+    QTest.mousePress(e, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, _at(e, 5 / 6, 0.5))
+    QTest.mouseMove(e, _at(e, 1.0, 0.7))
+    QTest.mouseRelease(e, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, _at(e, 1.0, 0.7))
+    xs = [x for x, _y in e.points()]
+    assert len(xs) == 6 and max(xs) < 1 and 1 - max(xs) >= 0.0099  # still apart from the point at 0
+    count = len(e.points())
+    QTest.mousePress(e, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, _at(e, 1.0, 0.2))
+    QTest.mouseRelease(e, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, _at(e, 1.0, 0.2))
+    assert len(e.points()) == count  # a click at 1 would land on the hue at 0
+
+
+def test_arrow_keys_keep_a_hue_point_in_range(editor):
+    e, _edits = editor
+    e.set_curve("hue", g.NEUTRAL_HUE, g.NEUTRAL_HUE)
+    QTest.keyClick(e, Qt.Key.Key_BracketRight)
+    assert e.picked() == 0
+    for _ in range(5):
+        QTest.keyClick(e, Qt.Key.Key_Left, Qt.KeyboardModifier.ShiftModifier)
+    assert e.points()[0][0] == 0.0
+    QTest.keyClick(e, Qt.Key.Key_BracketLeft)
+    for _ in range(10):
+        QTest.keyClick(e, Qt.Key.Key_Right, Qt.KeyboardModifier.ShiftModifier)
+    assert all(0 <= x < 1 for x, _y in e.points())
+    assert e.points()[-1][0] == 0.99
+
+
+def test_saved_hue_points_at_1_or_twice_come_back_as_one(card):
+    plugin, _host, _panel = card
+    plugin.set_config({"hue_sat": [[0.0, 0.5], [0.5, 0.2], [1.0, 0.5], [0.5, 0.3]]})
+    assert plugin.get_config()["hue_sat"] == [[0.0, 0.5], [0.5, 0.3]]
+
+
+def test_switching_phones_publishes_the_lut_once_and_reads_the_file_once(card, tmp_path, monkeypatch):
+    plugin, host, _panel = card
+    path = tmp_path / "Look.cube"
+    write_cube(path, (lattice(3) * 0.5).reshape(3, 3, 3, 3))
+    reads, published = [], []
+    real = colour_grading.read_cube
+    monkeypatch.setattr(colour_grading, "read_cube", lambda p: reads.append(p) or real(p))
+    saved = {"lut": str(path), "saturation": 1.3}
+    plugin.set_config(saved)
+    monkeypatch.setattr(host, "set_colour_stage", lambda owner, stage, *a, **k: published.append(stage))
+    plugin.set_config({})  # what switching phones does: the defaults, then the phone's settings
+    plugin.set_config(saved)
+    assert len(reads) == 1 and len(published) == 2 and published[0] is None
+    assert published[1].fn.lut is not None and published[1].fn.saturation == 1.3
+    write_cube(path, (lattice(3) * 0.25).reshape(3, 3, 3, 3))
+    os.utime(path, ns=(1, 1))  # changed on disk: read again
+    plugin.set_config(saved)
+    assert len(reads) == 2
+
+
+def test_export_asks_before_replacing_a_file_the_dialog_didnt_name(card, tmp_path, monkeypatch):
+    plugin, _host, _panel = card
+    target = tmp_path / "Mine.cube"
+    target.write_text("keep me")
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", staticmethod(lambda *_a: (str(tmp_path / "Mine"), "")))
+    asked = []
+    monkeypatch.setattr(plugin, "_may_replace", lambda name: asked.append(name) or False)
+    plugin._export()
+    assert asked == ["Mine.cube"] and target.read_text() == "keep me"
+    monkeypatch.setattr(plugin, "_may_replace", lambda name: True)
+    plugin._export()
+    assert target.read_text().startswith("TITLE")

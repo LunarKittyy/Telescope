@@ -635,6 +635,7 @@
     "[\"\", \"Rename this computer\"]",
     "[\"\", \"Rename\"]",
     "[\"\", \"Replace preset\"]",
+    "[\"\", \"Replace\"]",
     "[\"\", \"Report a bug\"]",
     "[\"\", \"Reset the grade\"]",
     "[\"\", \"Reset to default\"]",
@@ -1076,6 +1077,7 @@
     "[\"\", \"{error}. You can try Light again in Stream output.\"]",
     "[\"\", \"{file} failed checksum verification (got {digest}...) - not registering\"]",
     "[\"\", \"{file} failed checksum verification - not registering\"]",
+    "[\"\", \"{file} is already there. Replace it?\"]",
     "[\"\", \"{file} is in use, so the update wasn't installed. Try again after a restart.\"]",
     "[\"\", \"{first} to {last}\"]",
     "[\"\", \"{items} and {last}\"]",
@@ -4940,6 +4942,12 @@
     ],
     "dialog-colour-grading-export": [
       "[\"\", \"Export the grade\"]"
+    ],
+    "dialog-colour-grading-replace": [
+      "[\"\", \"Cancel\"]",
+      "[\"\", \"Export the grade\"]",
+      "[\"\", \"Replace\"]",
+      "[\"\", \"{file} is already there. Replace it?\"]"
     ],
     "preview-idle": [
       "[\"\", \"Draw the skeleton MediaPipe finds. Doesn't show in the camera output.\"]",
@@ -32420,6 +32428,7 @@
     "colour-grading-lut-problem": 444,
     "dialog-colour-grading-lut": 760,
     "dialog-colour-grading-export": 760,
+    "dialog-colour-grading-replace": 399,
     "preview-idle": 760,
     "preview-mic-only": 760,
     "preview-waiting": 760,
@@ -32918,5 +32927,5 @@
     "messages-audio-1": 620,
     "messages-search-1": 620
   },
-  "total": 1318
+  "total": 1320
 }

@@ -2,7 +2,8 @@ from pathlib import Path
 
 from PyQt6.QtCore import QSignalBlocker, Qt
 from PyQt6.QtWidgets import (
-    QButtonGroup, QFileDialog, QGridLayout, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget,
+    QButtonGroup, QFileDialog, QGridLayout, QHBoxLayout, QLabel, QMessageBox, QPushButton, QSizePolicy, QVBoxLayout,
+    QWidget,
 )
 
 from telescope import grade as g
@@ -43,6 +44,8 @@ SLIDERS = {
 }
 _DEFAULTS = Grade()
 _MASTER_STEPS = {"lift": 1000, "gamma": 100, "gain": 100, "offset": 1000}
+_KEEP_PARSED = 4  # .cube files kept parsed, so switching phones doesn't read a 65-point LUT again (about 0.3 s)
+_parsed: dict = {}  # (path, mtime, size): CubeLut, the newest last
 
 
 def _number(value, default: float, lo: float, hi: float) -> float:
@@ -54,17 +57,39 @@ def _number(value, default: float, lo: float, hi: float) -> float:
 
 
 def _points(raw, default: tuple, tone: bool) -> tuple:
-    """Saved curve points, cleaned up: pairs of numbers 0..1, sorted, a tone curve's ends at 0 and 1."""
+    """Saved curve points, cleaned up: pairs of numbers 0..1, sorted, a tone curve's ends at 0 and 1, a hue curve's x
+    below 1."""
     if not isinstance(raw, (list, tuple)):
         return default
     pts = []
     for item in raw[:64]:
         if isinstance(item, (list, tuple)) and len(item) == 2:
             pts.append((_number(item[0], 0.0, 0.0, 1.0), _number(item[1], 0.0, 0.0, 1.0)))
+    if not tone:  # a hue of 1 is the hue at 0 again, and one hue gets one point
+        pts = list({x % 1.0: (x % 1.0, y) for x, y in pts}.values())
     pts.sort()
     if tone and (len(pts) < 2 or pts[0][0] != 0.0 or pts[-1][0] != 1.0):
         return default
     return tuple(pts) if pts else default
+
+
+def _read_lut(path: str) -> tuple:
+    """(the CubeLut at path or None, the problem with it in words or ""), from _parsed while the file is unchanged."""
+    try:
+        info = Path(path).stat()
+        key = (path, info.st_mtime_ns, info.st_size)
+        if key in _parsed:
+            _parsed[key] = _parsed.pop(key)
+            return _parsed[key], ""
+        lut = read_cube(path)
+    except CubeError as err:
+        return None, tr(err.text, **err.fields)
+    except (OSError, UnicodeError):
+        return None, tr("Telescope can't open that file.")
+    while len(_parsed) >= _KEEP_PARSED:
+        del _parsed[next(iter(_parsed))]
+    _parsed[key] = lut
+    return lut, ""
 
 
 class ColourGradingPlugin(TelescopePlugin):
@@ -361,14 +386,7 @@ class ColourGradingPlugin(TelescopePlugin):
             self._host.schedule_save()
 
     def _load_lut(self, path: str):
-        lut, problem = None, ""
-        if path:
-            try:
-                lut = read_cube(path)
-            except CubeError as err:
-                problem = tr(err.text, **err.fields)
-            except (OSError, UnicodeError):
-                problem = tr("Telescope can't open that file.")
+        lut, problem = _read_lut(path) if path else (None, "")
         self._lut_path, self._lut_problem = path, problem
         self._grade = self._grade.changed(lut=lut)
         self._show_lut()
@@ -386,7 +404,9 @@ class ColourGradingPlugin(TelescopePlugin):
         if not path:
             return
         if not path.lower().endswith(".cube"):
-            path += ".cube"
+            path += ".cube"  # the dialog only asked about the name without it
+            if Path(path).exists() and not self._may_replace(Path(path).name):
+                return
         size = next((s for s, text in _EXPORT_SIZES if tr(text) == chosen), 33)
         grade = self._grade if self._on else Grade()
         try:
@@ -397,6 +417,14 @@ class ColourGradingPlugin(TelescopePlugin):
             return
         self._export_note.setText(tr("Saved {file}.", file=Path(path).name))
         set_status_kind(self._export_note, "dim")
+
+    def _may_replace(self, name: str) -> bool:
+        box = QMessageBox(QMessageBox.Icon.Question, tr("Export the grade"),
+                          tr("{file} is already there. Replace it?", file=name), parent=self._export_btn.window())
+        replace = box.addButton(tr("Replace"), QMessageBox.ButtonRole.AcceptRole)
+        box.setDefaultButton(box.addButton(tr("Cancel"), QMessageBox.ButtonRole.RejectRole))
+        box.exec()
+        return box.clickedButton() is replace
 
     # ── Showing the settings ──────────────────────────────────────────────
 
@@ -484,17 +512,18 @@ class ColourGradingPlugin(TelescopePlugin):
         for key, (_label, lo, hi, _steps, _d, _s, _tip) in SLIDERS.items():
             values[key] = _number(cfg.get(key), getattr(_DEFAULTS, key), lo, hi)
         curves = {c: _points(curves_raw.get(c), g.LINEAR, True) for c in g.CHANNELS}
+        path = cfg.get("lut") if isinstance(cfg.get("lut"), str) else ""
+        lut, self._lut_problem = _read_lut(path) if path else (None, "")
+        self._lut_path = path
         self._grade = Grade(wheels=wheels, masters=masters, curves=curves,
                             hue_sat=_points(cfg.get("hue_sat"), g.NEUTRAL_HUE, False),
-                            hue_hue=_points(cfg.get("hue_hue"), g.NEUTRAL_HUE, False),
+                            hue_hue=_points(cfg.get("hue_hue"), g.NEUTRAL_HUE, False), lut=lut,
                             lut_strength=_number(cfg.get("lut_strength"), 1.0, 0.0, 1.0), **values)
         self._on = cfg.get("on", True) is not False
         with QSignalBlocker(self._switch):
             self._switch.setChecked(self._on)
-        lut = cfg.get("lut")
-        self._load_lut(lut if isinstance(lut, str) else "")
         self._show_controls()
-        self._publish()
+        self._publish()  # once, with the whole grade, so the stream never sees half of it
 
     def diagnostics(self) -> dict:
         if not self._on or self._grade.is_identity():

@@ -375,44 +375,44 @@ msgstr "Aguardando o navegador. Escaneie o código no cartão Câmera do navegad
 msgid "This computer couldn't set up the video connection."
 msgstr "Este computador não conseguiu configurar a conexão de vídeo."
 
-#: telescope/colour.py:264
+#: telescope/colour.py:277
 #, python-brace-format
 msgid "Line {line} of the file isn't a colour (three numbers)."
 msgstr ""
 
-#: telescope/colour.py:269
+#: telescope/colour.py:282
 #, python-brace-format
 msgid "Line {line} of the file can't be read."
 msgstr ""
 
-#: telescope/colour.py:271
+#: telescope/colour.py:284
 msgid "This isn't a .cube LUT: it doesn't say its size."
 msgstr ""
 
-#: telescope/colour.py:273
+#: telescope/colour.py:286
 #, python-brace-format
 msgid "This LUT has {size} points per side. Telescope takes up to {most}."
 msgstr ""
 
-#: telescope/colour.py:276
+#: telescope/colour.py:289
 #, python-brace-format
 msgid "This LUT's 1D table has {size} entries, which isn't a size Telescope can use."
 msgstr ""
 
-#: telescope/colour.py:279
+#: telescope/colour.py:292
 #, python-brace-format
 msgid "This LUT should have {expected} colours but has {found}."
 msgstr ""
 
-#: telescope/colour.py:282
+#: telescope/colour.py:295
 msgid "This LUT has colours that aren't numbers."
 msgstr ""
 
-#: telescope/colour.py:294
+#: telescope/colour.py:307
 msgid "This LUT's DOMAIN_MAX isn't above its DOMAIN_MIN."
 msgstr ""
 
-#: telescope/colour.py:302
+#: telescope/colour.py:315
 msgid "This file is too big to be a LUT Telescope can use."
 msgstr ""
 
@@ -1154,7 +1154,7 @@ msgstr "A Câmera do navegador não está disponível"
 msgid "Scan the code on the Browser camera card with the device to use. It starts streaming as soon as it connects."
 msgstr "Escaneie o código no cartão Câmera do navegador com o dispositivo que deseja usar. A transmissão começa assim que ele se conectar."
 
-#: telescope/plugins/browser_camera.py:574 telescope/plugins/connection.py:221 telescope/plugins/shortcuts.py:853 telescope/widgets/plugins_panel.py:31
+#: telescope/plugins/browser_camera.py:574 telescope/plugins/colour_grading.py:425 telescope/plugins/connection.py:221 telescope/plugins/shortcuts.py:853 telescope/widgets/plugins_panel.py:31
 msgid "Cancel"
 msgstr "Cancelar"
 
@@ -1471,7 +1471,7 @@ msgstr ""
 msgid "Curves"
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:26 telescope/plugins/colour_grading.py:245
+#: telescope/plugins/colour_grading.py:26 telescope/plugins/colour_grading.py:269
 msgid "LUT"
 msgstr ""
 
@@ -1583,121 +1583,130 @@ msgstr ""
 msgid "Brightens or darkens the brighter parts"
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:73 telescope/plugins/colour_grading.py:99 telescope/plugins/colour_grading.py:101 telescope/plugins/colour_grading.py:266 telescope/plugins/colour_grading.py:267
+#: telescope/plugins/colour_grading.py:88
+msgid "Telescope can't open that file."
+msgstr ""
+
+#: telescope/plugins/colour_grading.py:97 telescope/plugins/colour_grading.py:123 telescope/plugins/colour_grading.py:125 telescope/plugins/colour_grading.py:290 telescope/plugins/colour_grading.py:291
 msgid "Colour grading"
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:74
+#: telescope/plugins/colour_grading.py:98
 msgid "Colour wheels, curves and LUT files for the look of the picture."
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:75
+#: telescope/plugins/colour_grading.py:99
 msgid "Without it there's no Colour grading card and the picture keeps the camera's colours."
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:98
+#: telescope/plugins/colour_grading.py:122
 msgid "Switch the grade off to see the camera's own colours"
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:105
+#: telescope/plugins/colour_grading.py:129
 msgid "Left of the line the preview shows the picture without the grade (apps always get it graded)"
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:108
+#: telescope/plugins/colour_grading.py:132
 msgid "Compare"
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:109
+#: telescope/plugins/colour_grading.py:133
 msgid "Where the line between before and after is"
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:112
+#: telescope/plugins/colour_grading.py:136
 msgid "Split"
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:122
+#: telescope/plugins/colour_grading.py:146
 msgid "Reset the grade"
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:187
+#: telescope/plugins/colour_grading.py:211
 #, python-brace-format
 msgid "{wheel} colour"
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:211 telescope/plugins/colour_grading.py:224
+#: telescope/plugins/colour_grading.py:235 telescope/plugins/colour_grading.py:248
 msgid "Curve"
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:220 telescope/plugins/updates.py:77
+#: telescope/plugins/colour_grading.py:244 telescope/plugins/updates.py:77
 msgid "Channel"
 msgstr "Canal"
 
-#: telescope/plugins/colour_grading.py:233
+#: telescope/plugins/colour_grading.py:257
 msgid "Load…"
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:234
+#: telescope/plugins/colour_grading.py:258
 msgid "Pick a .cube LUT to put on top of the grade"
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:236 telescope/plugins/colour_grading.py:454
+#: telescope/plugins/colour_grading.py:260 telescope/plugins/colour_grading.py:481
 msgid "No LUT loaded"
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:238
+#: telescope/plugins/colour_grading.py:262
 msgid "Take the LUT off"
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:246
+#: telescope/plugins/colour_grading.py:270
 msgid "How much of the LUT's look goes on the picture"
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:249
+#: telescope/plugins/colour_grading.py:273
 msgid "Strength"
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:254
+#: telescope/plugins/colour_grading.py:278
 msgid "Export grade…"
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:255
+#: telescope/plugins/colour_grading.py:279
 msgid "Save the grade, LUT included, as a .cube file for other apps"
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:260
+#: telescope/plugins/colour_grading.py:284
 msgid "Export"
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:268
+#: telescope/plugins/colour_grading.py:292
 msgid "Compare before and after"
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:358
+#: telescope/plugins/colour_grading.py:382
 msgid "Load a LUT"
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:372
-msgid "Telescope can't open that file."
-msgstr ""
-
-#: telescope/plugins/colour_grading.py:385
+#: telescope/plugins/colour_grading.py:402 telescope/plugins/colour_grading.py:422
 msgid "Export the grade"
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:396
+#: telescope/plugins/colour_grading.py:415
 msgid "Telescope couldn't save the LUT there."
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:399
+#: telescope/plugins/colour_grading.py:418
 #, python-brace-format
 msgid "Saved {file}."
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:448
+#: telescope/plugins/colour_grading.py:423
+#, python-brace-format
+msgid "{file} is already there. Replace it?"
+msgstr ""
+
+#: telescope/plugins/colour_grading.py:424
+msgid "Replace"
+msgstr ""
+
+#: telescope/plugins/colour_grading.py:475
 msgid "Up gives a hue more colour, down takes it out."
 msgstr ""
 
-#: telescope/plugins/colour_grading.py:449
+#: telescope/plugins/colour_grading.py:476
 msgid "Up turns a hue towards the next one along, down towards the one before."
 msgstr ""
 
@@ -5219,11 +5228,11 @@ msgstr "Arraste para mover a visualização. Clique duas vezes para centralizar.
 msgid "Copy the command, to paste in a terminal"
 msgstr "Copiar o comando para colar em um terminal"
 
-#: telescope/widgets/curve_editor.py:29
+#: telescope/widgets/curve_editor.py:30
 msgid "Click to add a point and drag it. Double-click a point to remove it, or the curve to reset."
 msgstr ""
 
-#: telescope/widgets/curve_editor.py:30
+#: telescope/widgets/curve_editor.py:31
 msgid "Click a hue to add a point and drag it. Double-click a point to remove it, or the curve to reset."
 msgstr ""
 

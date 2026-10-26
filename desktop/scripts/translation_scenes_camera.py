@@ -567,6 +567,14 @@ def colour_grading_export_dialog(stack):
     return shown(stack, held[-1])
 
 
+@scene("dialog-colour-grading-replace", "dialogs", "Colour grading · replace a LUT file on export")
+def colour_grading_replace_dialog(stack):
+    held = hold_dialogs(stack)
+    win = ready_window(stack)
+    plugin_of(win, "colour_grading")._may_replace("Telescope grade.cube")
+    return shown(stack, held[-1])
+
+
 # ── Preview ──────────────────────────────────────────────────────────────────
 
 PREVIEW_WIDTH = 760
