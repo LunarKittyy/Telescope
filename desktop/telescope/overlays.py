@@ -64,7 +64,10 @@ class Pick:
     spot when the view changes (telescope.view.to_shown brings them back)."""
     picture: Optional[np.ndarray] = field(default=None, compare=False, repr=False)
     """The picture the preview showed when the pick ended (BGR, the preview's size, before any layer's tint), for
-    reading colours where shown points: it's what was clicked on, after every plugin. None without one."""
+    reading colours at in_picture: it's what was clicked on, after every plugin. None without one."""
+    in_picture: tuple = ()
+    """The points where they are in picture (0..1). The same as shown unless a plugin moves the picture around after
+    the view (Desk mode's warp, see set_warp)."""
 
 
 @dataclass
@@ -116,6 +119,7 @@ class PreviewOverlays(QObject):
         self._surfaces = 0
         self._pick: Optional[_PickState] = None
         self._picture: Optional[np.ndarray] = None  # the last frame the preview showed, while a pick runs
+        self._warp: Optional[tuple] = None  # (owner, matrix, inverse): a plugin moving the picture after the view
         self._analysed.connect(self.changed)
         self._cond = threading.Condition()
         self._pending: Optional[np.ndarray] = None
@@ -234,6 +238,43 @@ class PreviewOverlays(QObject):
             self._paint_pick(painter, rect)
             painter.restore()
 
+    # ── A plugin moving the picture ───────────────────────────────────────
+
+    def set_warp(self, owner: str, matrix):
+        """Any thread: owner's plugin moves the whole picture after the view, by matrix (a 3 x 3 homography from the
+        frame as shown with the view to what the preview shows, both 0..1), or stops with None. A matrix that can't be
+        undone (it squashes the picture flat) counts as None."""
+        inverse = None
+        if matrix is not None:
+            matrix = np.asarray(matrix, np.float64)
+            try:
+                inverse = np.linalg.inv(matrix)
+            except np.linalg.LinAlgError:
+                logger.warning("%s gave the preview a warp that can't be undone; ignoring it", owner)
+        if inverse is None or not np.isfinite(inverse).all():
+            if self._warp is not None and self._warp[0] == owner:
+                self._warp = None
+            return
+        self._warp = (owner, matrix, inverse)
+
+    def warping(self) -> bool:
+        return self._warp is not None
+
+    @staticmethod
+    def _apply(matrix, u: float, v: float) -> tuple:
+        x, y, z = matrix @ (u, v, 1.0)
+        return (x / z, y / z) if abs(z) > 1e-9 else (u, v)
+
+    def unwarp(self, u: float, v: float) -> tuple:
+        """A point on the preview back to the frame as shown with the view (where clicks there mean)."""
+        warp = self._warp
+        return self._apply(warp[2], u, v) if warp is not None else (u, v)
+
+    def warp_point(self, u: float, v: float) -> tuple:
+        """The reverse of unwarp: where a point of the frame as shown lands on the preview."""
+        warp = self._warp
+        return self._apply(warp[1], u, v) if warp is not None else (u, v)
+
     # ── Picks ─────────────────────────────────────────────────────────────
 
     def start_pick(self, owner: str, kind: str, on_done: Callable, start=None, hint: str = "") -> bool:
@@ -299,16 +340,22 @@ class PreviewOverlays(QObject):
             shown = [(min(u0, u1), min(v0, v1)), (max(u0, u1), max(v0, v1))]
         else:
             shown = [to_shown(view, *p) for p in full]
-        return Pick(pick.kind, tuple(_clamp(p) for p in shown), tuple(_clamp(p) for p in full), self._picture)
+        on_screen = tuple(_clamp(self.warp_point(*p)) for p in shown)
+        return Pick(pick.kind, tuple(_clamp(p) for p in shown), tuple(_clamp(p) for p in full), self._picture,
+                    on_screen)
 
     def _shown_points(self) -> list:
         view = self._view()
         return [to_shown(view, *p) for p in self._pick.points] if self._pick else []
 
+    def _screen_points(self) -> list:
+        """The pick's points where they are on the preview."""
+        return [self.warp_point(*p) for p in self._shown_points()]
+
     def _corner_at(self, u: float, v: float, size: tuple) -> Optional[int]:
         w, h = size
         best, best_d = None, _GRAB
-        for i, (pu, pv) in enumerate(self._shown_points()):
+        for i, (pu, pv) in enumerate(self._screen_points()):
             d = ((pu - u) * w) ** 2 + ((pv - v) * h) ** 2
             if d <= best_d ** 2:
                 best, best_d = i, d ** 0.5
@@ -320,7 +367,7 @@ class PreviewOverlays(QObject):
         pick = self._pick
         if pick is None:
             return False
-        full = to_full(self._view(), u, v)
+        full = to_full(self._view(), *self.unwarp(u, v))
         if pick.kind == "point":
             pick.points = [full]
             return True
@@ -333,8 +380,8 @@ class PreviewOverlays(QObject):
         if corner is not None:
             pick.drag = corner
             return True
-        if _inside((u, v), self._shown_points()):
-            pick.drag, pick.grab_at = "all", (u, v)
+        if _inside((u, v), self._screen_points()):
+            pick.drag, pick.grab_at = "all", self.unwarp(u, v)
             return True
         return False
 
@@ -343,7 +390,8 @@ class PreviewOverlays(QObject):
         pick = self._pick
         if pick is None or pick.drag is None:
             return False
-        full = to_full(self._view(), min(max(u, 0.0), 1.0), min(max(v, 0.0), 1.0))
+        u, v = self.unwarp(min(max(u, 0.0), 1.0), min(max(v, 0.0), 1.0))
+        full = to_full(self._view(), u, v)
         if pick.drag == "rect":
             pick.points[1] = full
         elif pick.drag == "all":
@@ -399,7 +447,7 @@ class PreviewOverlays(QObject):
             return Qt.CursorShape.CrossCursor
         if pick.drag is not None or self._corner_at(u, v, size) is not None:
             return Qt.CursorShape.SizeAllCursor
-        if _inside((u, v), self._shown_points()):
+        if _inside((u, v), self._screen_points()):
             return Qt.CursorShape.OpenHandCursor
         return None
 
@@ -415,12 +463,14 @@ class PreviewOverlays(QObject):
     def _paint_pick(self, p: QPainter, rect: QRectF):
         pick = self._pick
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        at = [QPointF(rect.x() + u * rect.width(), rect.y() + v * rect.height()) for u, v in self._shown_points()]
+        points = self._shown_points()
+        if pick.kind == "rect" and len(points) == 2:
+            (u0, v0), (u1, v1) = points
+            points = [(u0, v0), (u1, v0), (u1, v1), (u0, v1)]
+        at = [QPointF(rect.x() + u * rect.width(), rect.y() + v * rect.height())
+              for u, v in (self.warp_point(*p) for p in points)]
         light, dark = QColor(255, 255, 255, 235), QColor(0, 0, 0, 130)
-        if pick.kind == "quad" and len(at) == 4 or pick.kind == "rect" and len(at) == 2:
-            if pick.kind == "rect":
-                (a, b) = at
-                at = [a, QPointF(b.x(), a.y()), b, QPointF(a.x(), b.y())]
+        if len(at) == 4:
             shape = QPolygonF(at + at[:1])
             outside = QPainterPath()
             outside.addRect(rect)

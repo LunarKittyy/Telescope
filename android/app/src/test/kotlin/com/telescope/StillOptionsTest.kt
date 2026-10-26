@@ -207,4 +207,40 @@ class StillOptionsTest {
         // Arrays that don't start at 0
         assertEquals(SensorBox(16, 8, 200, 100), StillOptions.scaleBox(SensorBox(8, 4, 100, 50), SensorBox(0, 0, 100, 50), SensorBox(0, 0, 200, 100)))
     }
+
+    @Test
+    fun `a single photo gets a bounded time, plus the exposure of a long one`() {
+        val plainShot = ok(mapOf("format" to "heic", "nr_hq" to "1", "edge_hq" to "1", "hot_pixel_hq" to "1"))
+        assertEquals(StillTiming.SETUP_MS + StillTiming.SHOT_MS, StillTiming.limitMs(plainShot))
+        assertTrue(StillTiming.limitMs(plainShot) <= 20_000L)
+        val long = ok(mapOf("format" to "jpeg", "exposure_ns" to "8000000000"))
+        assertEquals(StillTiming.SETUP_MS + 8_000L + StillTiming.SHOT_MS, StillTiming.limitMs(long))
+        val burst = ok(mapOf("format" to "jpeg", "count" to "10"))
+        assertEquals(StillTiming.SETUP_MS + 10 * StillTiming.SHOT_MS, StillTiming.limitMs(burst))
+    }
+
+    @Test
+    fun `a photo stalls after a while without news, a long exposure later`() {
+        val plainShot = ok(mapOf("format" to "heic"))
+        assertFalse(StillTiming.stalled(1_000L + StillTiming.STALL_MS, 1_000L, plainShot))
+        assertTrue(StillTiming.stalled(1_001L + StillTiming.STALL_MS, 1_000L, plainShot))
+        val long = ok(mapOf("format" to "jpeg", "bracket_ev" to "-1,0,1", "exposure_ns" to "4000000000"))
+        assertEquals(8_000L, long.longestExposureMs)  // +1 EV of 4 s
+        assertFalse(StillTiming.stalled(StillTiming.STALL_MS + 8_000L, 0L, long))
+        assertTrue(StillTiming.stalled(StillTiming.STALL_MS + 8_001L, 0L, long))
+    }
+
+    @Test
+    fun `the best quality modes can be dropped for a second go, which the backstop leaves room for`() {
+        val best = ok(mapOf("format" to "heic", "nr_hq" to "1", "edge_hq" to "1", "hot_pixel_hq" to "1"))
+        assertTrue(best.hq)
+        val without = best.withoutHq()
+        assertFalse(without.hq)
+        assertEquals(best.format, without.format)
+        assertEquals(best.shots, without.shots)
+        assertEquals(2 * StillTiming.limitMs(best) + StillTiming.BACKSTOP_MS, StillTiming.backstopMs(best))
+        assertEquals(StillTiming.limitMs(without) + StillTiming.BACKSTOP_MS, StillTiming.backstopMs(without))
+        // Lenses without the modes never get them asked for
+        assertFalse(ok(mapOf("format" to "jpeg", "nr_hq" to "1"), plain, null).hq)
+    }
 }
