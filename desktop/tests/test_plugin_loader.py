@@ -286,10 +286,105 @@ def test_a_zip_thats_not_a_zip_is_refused(plugins, tmp_path):
         plugin_loader.install_zip(tmp_path / "x.zip", folder=plugins)
 
 
-def test_installing_over_one_already_there_is_refused(plugins, tmp_path):
+def test_installing_over_one_already_there_needs_replace(plugins, tmp_path):
     _example(plugins)
     with pytest.raises(FileExistsError):
         plugin_loader.install_zip(_zip(tmp_path / "bw.zip", _example_files()), folder=plugins)
+
+
+def _newer_example(tmp_path, version="2.0") -> Path:
+    files = _example_files()
+    manifest = json.loads(files["black_and_white/plugin.json"])
+    files["black_and_white/plugin.json"] = json.dumps(dict(manifest, version=version)).encode()
+    files["black_and_white/extra.py"] = b"X = 1\n"
+    return _zip(tmp_path / "bw2.zip", files)
+
+
+def test_replacing_keeps_the_settings_and_switches_it_off(plugins, tmp_path, config_home):
+    _example(plugins)
+    (plugins / "black_and_white" / "old_only.py").write_text("")
+    plugin_loader.set_enabled(_one(plugins), True)
+    cfg = config_home.load_config()
+    cfg.setdefault("plugin_configs", {})["black_and_white"] = {"enabled": True}
+    cfg["devices"] = {"phone": {"plugin_configs": {"black_and_white": {"enabled": True}}}}
+    config_home.save_config(cfg)
+
+    found = plugin_loader.install_zip(_newer_example(tmp_path), folder=plugins, replace=True)
+    assert found.version == "2.0" and found.problem == "" and not found.enabled and not found.changed
+    assert (plugins / "black_and_white" / "extra.py").is_file()
+    assert not (plugins / "black_and_white" / "old_only.py").exists()  # replaced, not merged
+    assert [p.name for p in plugins.iterdir()] == ["black_and_white"]  # nothing left from the swap
+    cfg = config_home.load_config()
+    assert cfg["plugin_configs"]["black_and_white"] == {"enabled": True}
+    assert cfg["devices"]["phone"]["plugin_configs"]["black_and_white"] == {"enabled": True}
+    assert plugin_loader.load_enabled(folder=plugins) == ([], [])  # off, not "changed since switched on"
+
+
+def test_replacing_an_identical_copy_still_switches_it_off(plugins, tmp_path):
+    _example(plugins)
+    plugin_loader.set_enabled(_one(plugins), True)
+    found = plugin_loader.install_zip(_zip(tmp_path / "bw.zip", _example_files()), folder=plugins, replace=True)
+    assert not found.enabled
+
+
+def test_replacing_leaves_the_update_switches_alone(plugins, tmp_path):
+    _example(plugins)
+    plugin_loader.set_plugin_switch("auto_update", True)
+    plugin_loader.set_enabled(_one(plugins), True)
+    plugin_loader.install_zip(_newer_example(tmp_path), folder=plugins, replace=True)
+    assert plugin_loader.plugin_switch("auto_update", False) is True
+
+
+def test_a_zip_with_another_plugin_installs_next_to_it(plugins, tmp_path):
+    _example(plugins)
+    plugin_loader.set_enabled(_one(plugins), True)
+    found = plugin_loader.install_zip(_zip(tmp_path / "other.zip", _example_files("other_one/")), folder=plugins,
+                                      replace=True)
+    assert found.name == "other_one"
+    installed = {i.name: i for i in plugin_loader.find_installed(folder=plugins)}
+    assert set(installed) == {"black_and_white", "other_one"} and installed["black_and_white"].enabled
+
+
+def test_a_bad_zip_leaves_the_installed_one_alone(plugins, tmp_path):
+    _example(plugins)
+    plugin_loader.set_enabled(_one(plugins), True)
+    with pytest.raises(ValueError, match="outside"):
+        plugin_loader.install_zip(_zip(tmp_path / "bad.zip", {"black_and_white/../evil.py": b""}), folder=plugins,
+                                  replace=True)
+    assert _one(plugins).enabled
+
+
+def test_replacing_a_link_is_refused(plugins, tmp_path):
+    real = _example(tmp_path)
+    (plugins / "black_and_white").symlink_to(real)
+    with pytest.raises(ValueError, match="isn't a folder"):
+        plugin_loader.install_zip(_zip(tmp_path / "bw.zip", _example_files()), folder=plugins, replace=True)
+    assert (real / "plugin.json").is_file()
+
+
+def test_the_zips_plugin_name_can_be_read_first(tmp_path):
+    assert plugin_loader.zip_plugin_name(_zip(tmp_path / "bw.zip", _example_files())) == "black_and_white"
+    with pytest.raises(ValueError, match="one folder"):
+        plugin_loader.zip_plugin_name(_zip(tmp_path / "two.zip", {"a/x.py": b"", "b/y.py": b""}))
+
+
+@pytest.mark.parametrize("repo, shown", [
+    ("https://github.com/someone/their_plugin", "https://github.com/someone/their_plugin"),
+    ("https://codeberg.org/someone/plugin/", "https://codeberg.org/someone/plugin/"),
+    (None, ""),
+    ("http://github.com/someone/plugin", ""),
+    ("javascript:alert(1)", ""),
+    ("https://github.com/a b", ""),
+    ('https://x.org/"><b>hi</b>', ""),
+    ("https://x.org/" + "a" * 300, ""),
+    (["https://x.org"], ""),
+])
+def test_repo_is_shown_only_when_its_a_plain_https_address(plugins, repo, shown):
+    manifest = {"repo": repo} if repo is not None else {}
+    _plugin(plugins, "extra", _SIMPLE.format(name="extra"), **manifest)
+    found = _one(plugins)
+    assert found.repo == shown and found.problem == ""  # a bad one never keeps it from loading
+    assert bool(plugin_loader.repo_problem(repo)) == (repo is not None and not shown)
 
 
 def test_a_built_in_name_cant_be_installed(plugins, tmp_path):

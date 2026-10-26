@@ -8,6 +8,7 @@ from PyQt6 import sip
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtGui import (
     QBrush, QColor, QFont, QFontMetrics, QFontMetricsF, QIcon, QPainter, QPainterPath, QPen, QPixmap,
+    QTextDocumentFragment,
 )
 from PyQt6.QtWidgets import (
     QAbstractButton, QAbstractSlider, QAbstractSpinBox, QApplication, QCheckBox, QComboBox, QDialog, QDoubleSpinBox, QFrame, QGraphicsOpacityEffect, QGridLayout, QHBoxLayout, QLabel, QLayout,
@@ -354,6 +355,8 @@ class Switch(QCheckBox):
         on, enabled = self.isChecked(), self.isEnabled()
         if not enabled:
             fill, knob = QColor(theme.BORDER_STRONG if on else theme.SURFACE_RAISE), QColor(theme.TEXT_DISABLED)
+        elif on and self.property("danger"):  # a switch that's risky to leave on stays red while it is
+            fill, knob = QColor(theme.ERR), QColor("#ffffff")
         elif on:
             fill, knob = QColor(theme.FILL_HOVER if self.underMouse() else theme.FILL), QColor("#ffffff")
         else:
@@ -880,8 +883,11 @@ class WrapLabel(QLabel):
         if width <= 1:
             return
         m = self.contentsMargins()
+        text = self.text()
+        if self.textFormat() == Qt.TextFormat.RichText:  # measure what shows, not the tags
+            text = QTextDocumentFragment.fromHtml(text).toPlainText()
         need = self.fontMetrics().boundingRect(
-            0, 0, width, 100_000, int(Qt.TextFlag.TextWordWrap | self.alignment().value), self.text(),
+            0, 0, width, 100_000, int(Qt.TextFlag.TextWordWrap | self.alignment().value), text,
         ).height() + m.top() + m.bottom()
         if need != self.minimumHeight():
             self.setMinimumHeight(need)

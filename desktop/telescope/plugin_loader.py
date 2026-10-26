@@ -6,7 +6,7 @@ on remembers a fingerprint of its files: a plugin that changes afterwards stays 
 
 Which plugins are on is kept in the settings file, under "plugins": "off" lists the built-in ones turned off,
 "noticed" the ones of those the user has been told about, and "added" maps each added one that's on to that
-fingerprint.
+fingerprint. "check_updates" and "auto_update" are the two update switches (plugin_updates.py).
 """
 
 import hashlib
@@ -40,6 +40,8 @@ MANIFEST = "plugin.json"
 _NAME = re.compile(r"[a-z][a-z0-9_]{1,31}\Z")
 _CLASS = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,63}\Z")
 _TEXT_MAX = 300  # longest title, author or description shown
+_REPO_MAX = 200
+_REPO = re.compile(r"https://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~%!$&'()*+,;=:@/-]*)?\Z")
 _MAX_FILES = 500
 _MAX_BYTES = 20 * 1024 * 1024  # a plugin folder, or what a .zip unpacks to
 _CACHE = "__pycache__"  # Python writes these next to the code when it's imported; cleared before each load
@@ -63,6 +65,7 @@ class Installed:
     version: str = ""
     author: str = ""
     description: str = ""
+    repo: str = ""  # its source's https address, "" when it gives none or one that isn't valid
     api: int = 0
     class_name: str = ""
     digest: str = ""
@@ -77,6 +80,16 @@ def _text(value) -> str:
     """Manifest text as one plain line: no control characters, capped."""
     text = "".join(ch for ch in str(value) if ch.isprintable()) if isinstance(value, (str, int, float)) else ""
     return text.strip()[:_TEXT_MAX]
+
+
+def repo_problem(value) -> str:
+    """Why a manifest's "repo" can't be shown as a link ("" when it can, or when there's none)."""
+    if value is None:
+        return ""
+    if not isinstance(value, str) or len(value) > _REPO_MAX or not _REPO.match(value):
+        return (f'"repo" has to be an https:// address of up to {_REPO_MAX} characters, like '
+                'https://github.com/you/your_plugin.')  # only check_plugin.py shows it, in English
+    return ""
 
 
 def _files(folder: Path, skip_hidden: bool = False) -> list:
@@ -172,12 +185,17 @@ def _optional_on(cfg: dict) -> set:
     return {n for n in on if isinstance(n, str)} if isinstance(on, list) else set()
 
 
+_KEPT = ("check_updates", "auto_update")  # what _save_state leaves as it is
+
+
 def _save_state(off: set, added: dict, noticed: Optional[set] = None, on: Optional[set] = None):
     """Write the plugin switches; raises OSError when the settings can't be read or written (nothing is lost)."""
     cfg = load_config(strict=True)
     noticed = _noticed(cfg) if noticed is None else noticed
     on = _optional_on(cfg) if on is None else on
-    cfg["plugins"] = {"off": sorted(off), "noticed": sorted(noticed & off), "added": dict(sorted(added.items()))}
+    kept = {k: v for k, v in cfg["plugins"].items() if k in _KEPT} if isinstance(cfg.get("plugins"), dict) else {}
+    cfg["plugins"] = {"off": sorted(off), "noticed": sorted(noticed & off), "added": dict(sorted(added.items())),
+                      **kept}
     if on:
         cfg["plugins"]["on"] = sorted(on)
     if not save_config(cfg):
@@ -230,6 +248,22 @@ def set_optional_on(name: str, on: bool):
     _save_state(*_state(cfg), on=names)
 
 
+def plugin_switch(key: str, default: bool) -> bool:
+    """One of the update switches under "plugins" in the settings (check_updates, auto_update)."""
+    raw = load_config().get("plugins")
+    value = raw.get(key) if isinstance(raw, dict) else None
+    return value if isinstance(value, bool) else default
+
+
+def set_plugin_switch(key: str, on: bool):
+    """Save one of the update switches; raises OSError when the settings can't be written."""
+    cfg = load_config(strict=True)
+    raw = cfg.get("plugins") if isinstance(cfg.get("plugins"), dict) else {}
+    cfg["plugins"] = dict(raw, **{key: bool(on)})
+    if not save_config(cfg):
+        raise OSError(tr("Couldn't save the settings."))
+
+
 def find_installed(reserved=(), folder: Optional[Path] = None) -> list:
     """Every plugin folder, by name, with whether it's on and why it can't load. reserved: names already taken (the
     built-in plugins')."""
@@ -270,6 +304,7 @@ def _inspect(path: Path, reserved, enabled: dict, shared: bool, dev: bool = Fals
     plugin.version = _text(manifest.get("version"))
     plugin.author = _text(manifest.get("author"))
     plugin.description = _text(manifest.get("description"))
+    plugin.repo = "" if repo_problem(manifest.get("repo")) else (manifest.get("repo") or "")
     api = manifest.get("api")
     plugin.api = api if isinstance(api, int) and not isinstance(api, bool) else 0
     plugin.class_name = manifest.get("class") if isinstance(manifest.get("class"), str) else ""
@@ -378,50 +413,79 @@ def load_enabled(reserved=(), folder: Optional[Path] = None) -> tuple:
     return loaded, failed
 
 
-def install_zip(archive: Path, reserved=(), folder: Optional[Path] = None) -> Installed:
+def zip_plugin_name(archive: Path) -> str:
+    """The name of the plugin in a .zip (its one top folder), checked as install_zip checks it; raises ValueError."""
+    try:
+        with zipfile.ZipFile(archive) as zf:
+            return _zip_name(zf.infolist())
+    except zipfile.BadZipFile:
+        raise ValueError(tr("It isn't a .zip file Telescope can open.")) from None
+
+
+def _zip_name(entries: list) -> str:
+    if len(entries) > _MAX_FILES or sum(e.file_size for e in entries) > _MAX_BYTES:
+        raise ValueError(tr("It's too big for a plugin (over 500 files or 20 MB)."))
+    tops = set()
+    for e in entries:
+        parts = PurePosixPath(e.filename).parts
+        if (not parts or e.filename.startswith(("/", "\\")) or "\\" in e.filename
+                or any(p in ("..", "") or ":" in p for p in parts)):
+            raise ValueError(tr("It holds a file with a path that points outside the plugin."))
+        if (e.external_attr >> 16) & 0o170000 == 0o120000:
+            raise ValueError(tr(_LINK))
+        tops.add(parts[0])
+    if len(tops) != 1:
+        raise ValueError(tr("It has to hold one folder, named as the plugin."))
+    name = tops.pop()
+    if not _NAME.match(name):
+        raise ValueError(tr("The folder has to have the same name as the plugin, using only lowercase letters, "
+                            "digits and _ (starting with a letter)."))
+    return name
+
+
+def install_zip(archive: Path, reserved=(), folder: Optional[Path] = None, replace: bool = False) -> Installed:
     """Unpack a plugin .zip (one folder, named as the plugin) into the plugins folder, turned off. Raises ValueError
-    saying what's wrong with it, or FileExistsError if a plugin of that name is already there."""
+    saying what's wrong with it, or FileExistsError if a plugin of that name is already there and replace is False.
+    replace: put it in place of the one there, switched off; its settings are kept since they're saved by name."""
     folder = folder or plugins_dir()
     try:
         with zipfile.ZipFile(archive) as zf:
             entries = zf.infolist()
-            if len(entries) > _MAX_FILES or sum(e.file_size for e in entries) > _MAX_BYTES:
-                raise ValueError(tr("It's too big for a plugin (over 500 files or 20 MB)."))
-            tops = set()
-            for e in entries:
-                parts = PurePosixPath(e.filename).parts
-                if (not parts or e.filename.startswith(("/", "\\")) or "\\" in e.filename
-                        or any(p in ("..", "") or ":" in p for p in parts)):
-                    raise ValueError(tr("It holds a file with a path that points outside the plugin."))
-                if (e.external_attr >> 16) & 0o170000 == 0o120000:
-                    raise ValueError(tr(_LINK))
-                tops.add(parts[0])
-            if len(tops) != 1:
-                raise ValueError(tr("It has to hold one folder, named as the plugin."))
-            name = tops.pop()
-            if not _NAME.match(name):
-                raise ValueError(tr("The folder has to have the same name as the plugin, using only lowercase letters, "
-                                 "digits and _ (starting with a letter)."))
+            name = _zip_name(entries)
             if name in reserved:
                 raise ValueError(tr("A plugin that comes with Telescope already has that name."))
-            if (folder / name).exists():
+            target = folder / name
+            if (target.exists() or target.is_symlink()) and not replace:
                 raise FileExistsError(name)
+            if target.is_symlink() or (target.exists() and not target.is_dir()):
+                raise ValueError(tr("That isn't a folder in the plugins folder."))
             make_plugins_dir(folder)
             staging = Path(tempfile.mkdtemp(prefix=".adding-", dir=folder))
             try:
                 for e in entries:
-                    target = staging.joinpath(*PurePosixPath(e.filename).parts)
+                    out = staging.joinpath(*PurePosixPath(e.filename).parts)
                     if e.is_dir():
-                        target.mkdir(parents=True, exist_ok=True)
+                        out.mkdir(parents=True, exist_ok=True)
                         continue
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    with zf.open(e) as src, open(target, "wb") as dst:
+                    out.parent.mkdir(parents=True, exist_ok=True)
+                    with zf.open(e) as src, open(out, "wb") as dst:
                         shutil.copyfileobj(src, dst)
                 for root, dirs, names in os.walk(staging / name):
                     os.chmod(root, 0o755)
                     for n in names:
                         os.chmod(Path(root) / n, 0o644)
-                os.replace(staging / name, folder / name)
+                if target.exists():
+                    off, added = _state(load_config(strict=True))
+                    if added.pop(name, None) is not None:
+                        _save_state(off, added)  # before the swap: a new version is never on by itself
+                    os.replace(target, staging / ".old")
+                    try:
+                        os.replace(staging / name, target)
+                    except OSError:
+                        os.replace(staging / ".old", target)
+                        raise
+                else:
+                    os.replace(staging / name, target)
             finally:
                 shutil.rmtree(staging, ignore_errors=True)
     except zipfile.BadZipFile:

@@ -251,6 +251,7 @@ class TelescopeWindow(QMainWindow):
         self._builtin_plugins: list = []  # every built-in one, turned off or not (load_plugins)
         self._added_plugins: list = []  # the ones the user installed that are running
         self._plugin_problems: dict = {}  # name: why an added plugin that's on didn't start
+        self._plugin_updater = None  # widgets/plugin_updater.py, made by load_plugins
         self._settings_win: Optional[SettingsWindow] = None  # built the first time Settings is opened
         self._plugins_by_name: dict[str, TelescopePlugin] = {}
         self._shortcut_actions: list = []
@@ -425,6 +426,9 @@ class TelescopeWindow(QMainWindow):
                 logging.exception("Plugin %s failed while starting; leaving it out", plugin.name)
                 problems[plugin.name] = (plugin.title or plugin.name, f"{type(exc).__name__}: {exc}"[:300])
         self._added_plugins = [p for p in loaded if p in self._plugins]
+        from telescope.widgets.plugin_updater import PluginUpdater
+        self._plugin_updater = PluginUpdater({p.name for p in builtins}, parent=self)
+        self._plugin_updater.start()
         self._plugin_problems = {name: error for name, (_title, error) in problems.items()}
         if problems:
             titles = [tr(title) for title, _error in problems.values()]
@@ -487,7 +491,7 @@ class TelescopeWindow(QMainWindow):
             except Exception:
                 logging.exception("Plugin %s couldn't list its settings", p.name)
         panel = PluginsPanel(self._builtin_plugins, {p.name for p in self._plugins}, self._plugin_problems,
-                             self.restart_app, self.is_streaming)
+                             self.restart_app, self.is_streaming, updater=self._plugin_updater)
         off = len(self.plugins_off())
         sections.append(SettingsSection("plugins", panel, on_show=panel.refresh,
                                         tab_title=tr("Plugins ({n} off)", n=off) if off else ""))
