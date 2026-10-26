@@ -1,6 +1,4 @@
-# The Windows 11 virtual camera (docs/architecture.md). Build on Windows with MSVC:
-#   cmake -S virtualcamera -B virtualcamera/build -A x64
-#   cmake --build virtualcamera/build --config Release
+# The Windows 11 virtual camera; docs/building.md says how to build it
 cmake_minimum_required(VERSION 3.20)
 project(TelescopeCamera CXX)
 

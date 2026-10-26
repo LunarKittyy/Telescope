@@ -495,17 +495,13 @@ class WaitScreen(_Held):
                 self._nudge.wait(IDLE_PERIOD)
 
 
-# ── The Windows 11 camera ─────────────────────────────────────────────────
-# Telescope's own media source (desktop/virtualcamera), which Windows' Frame Server loads for every app. It makes
-# "Global\TelescopeCamera<slot>" while an app reads the camera and takes its frames from there; the layout is in
-# virtualcamera/shared_frame.h. Only the camera can make it, as a normal account can't create a Global name.
+# ── The Windows 11 camera (desktop/virtualcamera; how it works is in docs/architecture.md) ──
 
 MF_SHARED_NAME = "Global\\TelescopeCamera"
 MF_MAGIC = 0x4D435354  # "TSCM"
 MF_PROTOCOL = 1
 MF_NV12 = 1
-# magic, version, data offset, data capacity, reader state, its width, height and fps, heartbeat (the camera's);
-# frame counter, frame width, height, format, reserved (Telescope's)
+# The camera's fields (magic to heartbeat), then Telescope's (frame counter to reserved), as in shared_frame.h
 _MF_HEADER = struct.Struct("<8IQQ4I")
 _MF_COUNTER_AT, _MF_FRAME_AT = 40, 48
 

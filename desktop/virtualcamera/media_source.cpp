@@ -12,8 +12,7 @@ struct Mode {
     UINT32 width, height, fps;
 };
 
-// Telescope fits its picture to whichever one an app picks. No portrait ones: some apps (the Windows Camera app) pick
-// one of those if offered, and a webcam is expected to be landscape.
+// Telescope fits its picture to whichever one an app picks; no portrait ones, which the Windows Camera app picks if offered
 constexpr Mode kModes[] = {
     {1920, 1080, 30}, {1920, 1080, 60}, {1280, 720, 30}, {1280, 720, 60}, {3840, 2160, 30},
     {2560, 1440, 30}, {960, 540, 30},   {640, 480, 30},  {640, 360, 30},
@@ -130,8 +129,8 @@ IFACEMETHODIMP MediaStream::RequestSample(IUnknown* token) {
     std::lock_guard<std::mutex> lock(m_lock);
     HRESULT hr = CheckShutdown();
     if (FAILED(hr)) return hr;
-    if (m_state != MF_STREAM_STATE_RUNNING) return MF_E_INVALIDREQUEST;
-    m_tokens.emplace_back(token);
+    if (m_state == MF_STREAM_STATE_STOPPED) return MF_E_INVALIDREQUEST;
+    m_tokens.emplace_back(token);  // while paused it waits for the stream to run again
     m_wake.notify_all();
     return S_OK;
 }
@@ -146,6 +145,11 @@ IFACEMETHODIMP MediaStream::SetStreamState(MF_STREAM_STATE state) {
         m_state = state;
         return S_OK;
     case MF_STREAM_STATE_RUNNING:
+        if (m_state == MF_STREAM_STATE_PAUSED) {  // carry on where it paused, with the requests it already had
+            m_state = state;
+            m_wake.notify_all();
+            return S_OK;
+        }
         lock.unlock();
         return Run(nullptr);
     case MF_STREAM_STATE_STOPPED:
@@ -218,9 +222,12 @@ void MediaStream::Halt() {
 }
 
 void MediaStream::Shutdown() {
+    {
+        std::lock_guard<std::mutex> lock(m_lock);  // first, so nothing can start a new frame thread meanwhile
+        m_shutdown = true;
+    }
     Halt();
     std::lock_guard<std::mutex> lock(m_lock);
-    m_shutdown = true;
     if (m_queue) m_queue->Shutdown();
     m_queue.Reset();
     m_source.Reset();
@@ -240,7 +247,8 @@ void MediaStream::Deliver() {
     auto next = clock::now();
     std::unique_lock<std::mutex> lock(m_lock);
     while (!m_stopWorker) {
-        m_wake.wait(lock, [this] { return m_stopWorker || !m_tokens.empty(); });
+        // Paused, requests wait in the queue until it runs again
+        m_wake.wait(lock, [this] { return m_stopWorker || (!m_tokens.empty() && m_state == MF_STREAM_STATE_RUNNING); });
         if (m_stopWorker) break;
         if (m_wake.wait_until(lock, next, [this] { return m_stopWorker; })) break;
         if (m_tokens.empty() || m_state != MF_STREAM_STATE_RUNNING) continue;

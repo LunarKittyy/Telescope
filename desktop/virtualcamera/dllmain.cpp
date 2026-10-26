@@ -116,11 +116,20 @@ void RemoveCamera(int slot) {
 HRESULT SetUpCameras(int count) {
     HRESULT hr = MFStartup(MF_VERSION, MFSTARTUP_LITE);
     if (FAILED(hr)) return hr;
+    int done = 0;
     for (int slot = 0; slot < kSlots && SUCCEEDED(hr); slot++) {
         if (slot < count) {
             hr = RegisterClsid(slot);
             if (SUCCEEDED(hr)) hr = AddCamera(slot);
+            if (SUCCEEDED(hr)) done = slot + 1;
         } else {
+            RemoveCamera(slot);
+            UnregisterClsid(slot);
+        }
+    }
+    if (FAILED(hr)) {
+        // Windows wouldn't take one (camera access blocked, Frame Server off): none stay, so Telescope uses UnityCapture for all
+        for (int slot = 0; slot <= done && slot < kSlots; slot++) {
             RemoveCamera(slot);
             UnregisterClsid(slot);
         }

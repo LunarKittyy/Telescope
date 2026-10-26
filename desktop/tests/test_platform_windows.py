@@ -422,9 +422,14 @@ def test_a_slot_streams_to_the_windows_11_camera_once_its_registered(monkeypatch
     clsid = windows.MF_CLSIDS[1]
     _mf_registry(monkeypatch, {rf"CLSID\{clsid}\InprocServer32": {"": str(dll)},
                                rf"CLSID\{clsid}": {"TelescopeVersion": windows.MF_VERSION}})
+    cameras = {clsid}
+    monkeypatch.setattr(windows, "_mf_cameras", lambda: cameras)
     assert not windows.use_mf(1)  # registered, but its DLL is gone
     dll.write_bytes(b"dll")
     assert windows.use_mf(1) and not windows.use_mf(0)
+    cameras.clear()  # Windows refused the camera, or it was removed some other way: the registration alone isn't enough
+    assert not windows.use_mf(1)
+    cameras.add(clsid)
     _windows(monkeypatch, 19045)
     assert not windows.use_mf(1)  # Windows 10 keeps UnityCapture whatever the registry says
 
@@ -507,3 +512,38 @@ def test_the_clsids_and_version_match_the_dll():
         parts = clsid.strip("{}").split("-")
         assert f"{{0x{parts[0]}, 0x{parts[1]}, 0x{parts[2]}, {{0x{parts[3][:2]}, 0x{parts[3][2:]}" in dllmain
     assert f"kCameraVersion = {windows.MF_VERSION};" in (_VIRTUALCAMERA / "camera.h").read_text()
+
+
+def test_the_cameras_windows_has_are_read_from_their_device_interfaces(monkeypatch):
+    base = windows._KSCATEGORY_VIDEO_CAMERA
+    ours = r"##?#SWD#VCAMDEVAPI#2B26#{e5323777-f976-4f5b-9b55-b94699c46e44}"
+    webcam = r"##?#USB#VID_046D#{e5323777-f976-4f5b-9b55-b94699c46e44}"
+    keys = {base: [webcam, ours], f"{base}\\{ours}": ["#{FCEBBA03-9D13-4C13-9940-CC84FCD132D1}"], f"{base}\\{webcam}": []}
+    values = {f"{base}\\{ours}\\#{{FCEBBA03-9D13-4C13-9940-CC84FCD132D1}}\\Device Parameters":
+              {"CustomCaptureSourceClsid": windows.MF_CLSIDS[0].lower()}}
+
+    class Key:
+        def __init__(self, path):
+            if path not in keys and path not in values:
+                raise OSError(path)
+            self.path = path
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+    def enum(key, i):
+        children = keys.get(key.path, [])
+        if i >= len(children):
+            raise OSError
+        return children[i]
+    fake = types.SimpleNamespace(
+        HKEY_LOCAL_MACHINE="HKLM",
+        OpenKey=lambda root, path: Key(path if root == "HKLM" else f"{root.path}\\{path}"),
+        EnumKey=enum, QueryValueEx=lambda key, name: (values[key.path][name], 1))
+    monkeypatch.setitem(sys.modules, "winreg", fake)
+    assert windows._mf_cameras() == {windows.MF_CLSIDS[0]}
+    keys[base] = [webcam]
+    assert windows._mf_cameras() == set()

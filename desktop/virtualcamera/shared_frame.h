@@ -4,8 +4,7 @@
 
 namespace telescope {
 
-// The camera creates "Global\TelescopeCamera<slot>" when an app starts reading it and closes it when the app stops,
-// so Telescope can tell the camera is in use from it being there.
+// "Global\TelescopeCamera<slot>" exists while an app reads the camera, which is how Telescope tells it's in use
 constexpr wchar_t kSharedName[] = L"Global\\TelescopeCamera";
 constexpr uint32_t kMagic = 0x4D435354;  // "TSCM"
 constexpr uint32_t kVersion = 1;

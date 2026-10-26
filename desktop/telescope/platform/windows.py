@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import itertools
 import logging
 import os
 import re
@@ -342,9 +343,7 @@ def uc_is_registered() -> bool:
     return uc_registered_name() is not None
 
 
-# ── The Windows 11 camera (desktop/virtualcamera) ──
-# A media source Windows' Frame Server loads, so every app sees it, Media Foundation ones included. Older Windows, or
-# Windows 11 when it can't be set up, keeps UnityCapture.
+# ── The Windows 11 camera (desktop/virtualcamera), which every app sees; older Windows keeps UnityCapture ──
 
 MF_DLL = "TelescopeCamera.dll"
 MF_MIN_BUILD = 22000  # MFCreateVirtualCamera arrived with Windows 11
@@ -402,10 +401,48 @@ def _mf_registration(slot: int) -> Optional[tuple]:
         return None
 
 
+_KSCATEGORY_VIDEO_CAMERA = r"SYSTEM\CurrentControlSet\Control\DeviceClasses\{e5323777-f976-4f5b-9b55-b94699c46e44}"
+
+
+def _mf_cameras() -> set:
+    """The CLSIDs (upper case) of the media sources behind the virtual cameras Windows has right now. Each camera's
+    device interface names its source, and goes away with the camera."""
+    found = set()
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, _KSCATEGORY_VIDEO_CAMERA) as category:
+            for i in itertools.count():
+                try:
+                    interface = winreg.EnumKey(category, i)
+                except OSError:
+                    break
+                if "VCAMDEVAPI" not in interface.upper():
+                    continue
+                try:
+                    with winreg.OpenKey(category, interface) as k:
+                        for j in itertools.count():
+                            try:
+                                reference = winreg.EnumKey(k, j)
+                            except OSError:
+                                break
+                            try:
+                                with winreg.OpenKey(k, rf"{reference}\Device Parameters") as params:
+                                    clsid, _ = winreg.QueryValueEx(params, "CustomCaptureSourceClsid")
+                                found.add(str(clsid).upper())
+                            except OSError:
+                                continue
+                except OSError:
+                    continue
+    except (OSError, ImportError):
+        pass
+    return found
+
+
 def mf_registered(slot: int = 0) -> bool:
-    """Whether slot's Windows 11 camera is set up (its DLL registered and still there)."""
+    """Whether slot's Windows 11 camera is set up: its DLL registered and still there, and Windows really has the camera
+    (a registration it refused leaves no camera behind it)."""
     reg = _mf_registration(slot)
-    return reg is not None and Path(reg[0]).is_file()
+    return reg is not None and Path(reg[0]).is_file() and MF_CLSIDS[slot].upper() in _mf_cameras()
 
 
 def use_mf(slot: int = 0) -> bool:
