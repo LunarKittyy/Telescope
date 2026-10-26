@@ -17,6 +17,7 @@ def builtin_plugins() -> list:
     from telescope.plugins.microphone import MicrophonePlugin
     from telescope.plugins.monitoring import MonitoringPlugin
     from telescope.plugins.onboarding import OnboardingPlugin
+    from telescope.plugins.photos import PhotosPlugin
     from telescope.plugins.presets import PresetsPlugin
     from telescope.plugins.privacy_blur import PrivacyBlurPlugin
     from telescope.plugins.preview import PreviewPlugin
@@ -39,6 +40,7 @@ def builtin_plugins() -> list:
         BackgroundPlugin(),  # optional: off until switched on in Plugins
         ChromaKeyPlugin(),  # optional, next to Background: both swap what's behind you
         PrivacyBlurPlugin(),  # optional, after Background: it blurs what Background puts together
+        PhotosPlugin(),  # optional
         StreamOutputPlugin(),
         TransformsPlugin(),
         FramingPlugin(),  # optional, after Transforms: it moves the zoom and pan Transforms shows

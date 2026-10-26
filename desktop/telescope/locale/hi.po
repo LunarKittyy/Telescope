@@ -8,323 +8,323 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Telescope-Draft: yes\n"
 
-#: telescope/app.py:51
+#: telescope/app.py:52
 msgid "The phone's camera is making fewer frames than asked for. Dim light slows it down."
 msgstr "फ़ोन का कैमरा मांगे गए फ़्रेम से कम फ़्रेम बना रहा है. हल्की रोशनी इसे धीमा कर देती है."
 
-#: telescope/app.py:52
+#: telescope/app.py:53
 #, python-brace-format
 msgid "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection."
 msgstr "धीमे कनेक्शन के साथ तालमेल बनाए रखने के लिए डाइनैमिक ने फ़्रेम रेट घटाकर {fps} fps कर दिया."
 
-#: telescope/app.py:53
+#: telescope/app.py:54
 #, python-brace-format
 msgid "The phone got hot and lowered the frame rate to {fps} fps for now."
 msgstr "फ़ोन गर्म हो गया और उसने अभी के लिए फ़्रेम रेट घटाकर {fps} fps कर दिया."
 
-#: telescope/app.py:123
+#: telescope/app.py:124
 msgid "Lost the phone - reconnecting"
 msgstr "फ़ोन से संपर्क टूट गया - फिर से कनेक्ट हो रहा है"
 
-#: telescope/app.py:163 telescope/plugins/browser_camera.py:566 telescope/plugins/connection.py:1097 telescope/plugins/connection.py:1141 telescope/plugins/connection.py:1299 telescope/plugins/connection.py:1335 telescope/plugins/onboarding.py:265 telescope/plugins/setup.py:827 telescope/plugins/updates.py:108 telescope/sources.py:877 telescope/widgets/vaapi_setup.py:300
+#: telescope/app.py:164 telescope/plugins/browser_camera.py:566 telescope/plugins/connection.py:1097 telescope/plugins/connection.py:1141 telescope/plugins/connection.py:1299 telescope/plugins/connection.py:1335 telescope/plugins/onboarding.py:265 telescope/plugins/setup.py:827 telescope/plugins/updates.py:108 telescope/sources.py:877 telescope/widgets/vaapi_setup.py:300
 msgid "Try again"
 msgstr "फिर कोशिश करें"
 
-#: telescope/app.py:236
+#: telescope/app.py:238
 msgid "Telescope (dev)"
 msgstr "Telescope (dev)"
 
-#: telescope/app.py:452
+#: telescope/app.py:458
 #, python-brace-format
 msgid "{plugins} didn't start"
 msgid_plural "{plugins} didn't start"
 msgstr[0] "{plugins} शुरू नहीं हुआ"
 msgstr[1] "{plugins} शुरू नहीं हुए"
 
-#: telescope/app.py:453
+#: telescope/app.py:459
 #, python-brace-format
 msgid "{n} plugin didn't start"
 msgid_plural "{n} plugins didn't start"
 msgstr[0] "{n} प्लगइन शुरू नहीं हुआ"
 msgstr[1] "{n} प्लगइन शुरू नहीं हुए"
 
-#: telescope/app.py:454
+#: telescope/app.py:460
 msgid "Telescope works without it. The Plugins tab in Settings says what went wrong."
 msgid_plural "Telescope works without them. The Plugins tab in Settings says what went wrong."
 msgstr[0] "Telescope इसके बिना काम करता है. सेटिंग्स में प्लगइन्स टैब बताता है कि क्या गड़बड़ी हुई."
 msgstr[1] "Telescope इनके बिना काम करता है. सेटिंग्स में प्लगइन्स टैब बताता है कि क्या गड़बड़ी हुई."
 
-#: telescope/app.py:456 telescope/app.py:484
+#: telescope/app.py:462 telescope/app.py:490
 msgid "Plugins…"
 msgstr "प्लगइन्स…"
 
-#: telescope/app.py:480
+#: telescope/app.py:486
 #, python-brace-format
 msgid "{plugins} is turned off"
 msgid_plural "{plugins} are turned off"
 msgstr[0] "{plugins} बंद है"
 msgstr[1] "{plugins} बंद हैं"
 
-#: telescope/app.py:481
+#: telescope/app.py:487
 msgid "You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on."
 msgid_plural "You turned these off in Plugins. To get them back, open Plugins in Settings and switch them on."
 msgstr[0] "आपने इसे प्लगइन्स में बंद कर दिया था. इसे वापस पाने के लिए, सेटिंग्स में प्लगइन्स खोलें और इसे चालू करें."
 msgstr[1] "आपने इन्हें प्लगइन्स में बंद कर दिया था. इन्हें वापस पाने के लिए, सेटिंग्स में प्लगइन्स खोलें और उन्हें चालू करें."
 
-#: telescope/app.py:513
+#: telescope/app.py:519
 #, python-brace-format
 msgid "Plugins ({n} off)"
 msgstr "प्लगइन ({n} बंद)"
 
-#: telescope/app.py:540
+#: telescope/app.py:546
 #, python-brace-format
 msgid "A copy of the old file is at {path}."
 msgstr "पुरानी फ़ाइल की एक कॉपी {path} पर है."
 
-#: telescope/app.py:542
+#: telescope/app.py:548
 msgid "Your settings couldn't be read"
 msgstr "आपकी सेटिंग्स पढ़ी नहीं जा सकीं"
 
-#: telescope/app.py:543
+#: telescope/app.py:549
 msgid "Telescope started with its defaults, so paired phones need pairing again."
 msgstr "Telescope अपनी डिफ़ॉल्ट सेटिंग्स के साथ शुरू हुआ, इसलिए पेयर किए गए फ़ोन फिर से पेयर करने होंगे."
 
-#: telescope/app.py:594 telescope/app.py:595 telescope/widgets/settings_window.py:140
+#: telescope/app.py:600 telescope/app.py:601 telescope/widgets/settings_window.py:140
 msgid "Settings"
 msgstr "सेटिंग्स"
 
-#: telescope/app.py:604
+#: telescope/app.py:610
 msgid "Stream another camera at the same time, to a virtual camera of its own"
 msgstr "एक ही समय में दूसरे कैमरे को उसके अपने वर्चुअल कैमरे में स्ट्रीम करें"
 
-#: telescope/app.py:605
+#: telescope/app.py:611
 msgid "Add camera"
 msgstr "कैमरा जोड़ें"
 
-#: telescope/app.py:610 telescope/app.py:630 telescope/plugins/onboarding.py:133
+#: telescope/app.py:616 telescope/app.py:636 telescope/plugins/onboarding.py:133
 msgid "Start streaming"
 msgstr "स्ट्रीमिंग शुरू करें"
 
-#: telescope/app.py:625
+#: telescope/app.py:631
 msgid "Start mic only"
 msgstr "सिर्फ़ माइक शुरू करें"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: telescope/app.py:628 telescope/plugins/shortcuts.py:152
+#: telescope/app.py:634 telescope/plugins/shortcuts.py:152
 msgid "Stop"
 msgstr "रोकें"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: telescope/app.py:628 telescope/app.py:1951 telescope/app.py:1967 telescope/plugins/shortcuts.py:152 telescope/sources.py:682 telescope/sources.py:691
+#: telescope/app.py:634 telescope/app.py:2013 telescope/app.py:2029 telescope/plugins/shortcuts.py:152 telescope/sources.py:682 telescope/sources.py:691
 msgid "Start"
 msgstr "शुरू"
 
-#: telescope/app.py:630
+#: telescope/app.py:636
 msgid "Stop streaming"
 msgstr "स्ट्रीमिंग रोकें"
 
-#: telescope/app.py:675 telescope/app.py:1450 telescope/app.py:1515 telescope/audio.py:688 telescope/plugins/shortcuts.py:163 telescope/sources.py:179 telescope/stream.py:425 telescope/stream_flow.py:154
+#: telescope/app.py:681 telescope/app.py:1457 telescope/app.py:1522 telescope/audio.py:688 telescope/plugins/shortcuts.py:163 telescope/sources.py:179 telescope/stream.py:435 telescope/stream_flow.py:154
 msgid "Not streaming"
 msgstr "स्ट्रीम नहीं हो रहा है"
 
-#: telescope/app.py:681 telescope/plugins/stream_output.py:296
+#: telescope/app.py:687 telescope/plugins/stream_output.py:296
 msgid "FPS"
 msgstr "FPS"
 
-#: telescope/app.py:685
+#: telescope/app.py:691
 msgid "Throughput"
 msgstr "थ्रूपुट"
 
-#: telescope/app.py:838
+#: telescope/app.py:844
 msgid "Telescope - Save failed"
 msgstr "Telescope - सेव नहीं हो सका"
 
-#: telescope/app.py:839
+#: telescope/app.py:845
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "सेटिंग्स सेव नहीं की जा सकीं. डिस्क स्पेस और अनुमतियां जांचें."
 
-#: telescope/app.py:1199
+#: telescope/app.py:1206
 msgid "Reconnecting"
 msgstr "फिर से कनेक्ट हो रहा है"
 
-#: telescope/app.py:1201
+#: telescope/app.py:1208
 msgid "Live"
 msgstr "लाइव"
 
-#: telescope/app.py:1203
+#: telescope/app.py:1210
 msgid "Connecting"
 msgstr "कनेक्ट हो रहा है"
 
-#: telescope/app.py:1207
+#: telescope/app.py:1214
 msgid "Starting"
 msgstr "शुरू हो रहा है"
 
-#: telescope/app.py:1211
+#: telescope/app.py:1218
 msgid "Waiting"
 msgstr "इंतज़ार में"
 
-#: telescope/app.py:1257
+#: telescope/app.py:1264
 msgid "Setting up more virtual cameras…"
 msgstr "और वर्चुअल कैमरे सेट किए जा रहे हैं…"
 
-#: telescope/app.py:1281 telescope/plugins/setup.py:721
+#: telescope/app.py:1288 telescope/plugins/setup.py:721
 msgid "Stop the streams going to them first"
 msgstr "पहले उन पर जा रही स्ट्रीम रोकें"
 
-#: telescope/app.py:1281
+#: telescope/app.py:1288
 msgid "There are none to remove"
 msgstr "हटाने के लिए कुछ नहीं है"
 
-#: telescope/app.py:1309
+#: telescope/app.py:1316
 #, python-brace-format
 msgid "{first} to {last}"
 msgstr "{first} से {last}"
 
-#: telescope/app.py:1311
+#: telescope/app.py:1318
 msgid "Set up more virtual cameras"
 msgstr "और वर्चुअल कैमरे सेट करें"
 
-#: telescope/app.py:1312
+#: telescope/app.py:1319
 #, python-brace-format
 msgid "To stream several cameras at once, Telescope adds more virtual cameras ({names})."
 msgstr "एक साथ कई कैमरे स्ट्रीम करने के लिए, Telescope और वर्चुअल कैमरे जोड़ता है ({names})."
 
-#: telescope/app.py:1313
+#: telescope/app.py:1320
 msgid "This asks for your password."
 msgstr "यह आपका पासवर्ड मांगेगा."
 
-#: telescope/app.py:1313 telescope/plugins/setup.py:723
+#: telescope/app.py:1320 telescope/plugins/setup.py:723
 msgid "Windows asks for permission."
 msgstr "Windows अनुमति मांगता है."
 
-#: telescope/app.py:1330
+#: telescope/app.py:1337
 msgid "Couldn't add more virtual cameras"
 msgstr "और वर्चुअल कैमरे नहीं जोड़े जा सके"
 
-#: telescope/app.py:1348
+#: telescope/app.py:1355
 msgid "Only a phone can turn its camera off and keep streaming its mic."
 msgstr "सिर्फ़ एक फ़ोन ही अपना कैमरा बंद कर सकता है और अपना माइक स्ट्रीम करना जारी रख सकता है."
 
-#: telescope/app.py:1350
+#: telescope/app.py:1357
 msgid "Only while one camera streams."
 msgstr "सिर्फ़ तब जब एक कैमरा स्ट्रीम होता है."
 
-#: telescope/app.py:1352
+#: telescope/app.py:1359
 msgid "Turn on the phone mic first. With the camera off, the mic is all that streams."
 msgstr "पहले फ़ोन का माइक चालू करें. कैमरा बंद होने पर, सिर्फ़ माइक ही स्ट्रीम होता है."
 
-#: telescope/app.py:1354
+#: telescope/app.py:1361
 msgid "Update Telescope on the phone to turn its camera off while streaming."
 msgstr "स्ट्रीमिंग के दौरान कैमरा बंद करने के लिए फ़ोन पर Telescope अपडेट करें."
 
-#: telescope/app.py:1406
+#: telescope/app.py:1413
 msgid "Turning the phone's camera on…"
 msgstr "फ़ोन का कैमरा चालू किया जा रहा है…"
 
-#: telescope/app.py:1414
+#: telescope/app.py:1421
 msgid "Streaming the mic, camera off"
 msgstr "माइक स्ट्रीम हो रहा है, कैमरा बंद"
 
-#: telescope/app.py:1439
+#: telescope/app.py:1446
 msgid "Telescope: streaming the camera"
 msgstr "Telescope: कैमरा स्ट्रीम हो रहा है"
 
-#: telescope/app.py:1439
+#: telescope/app.py:1446
 msgid "Telescope: streaming the camera and mic"
 msgstr "Telescope: कैमरा और माइक स्ट्रीम हो रहे हैं"
 
-#: telescope/app.py:1440
+#: telescope/app.py:1447
 msgid "Telescope: streaming the camera, mic muted"
 msgstr "Telescope: कैमरा स्ट्रीम हो रहा है, माइक म्यूट"
 
-#: telescope/app.py:1442
+#: telescope/app.py:1449
 msgid "Telescope: streaming the mic, camera off (muted)"
 msgstr "Telescope: माइक स्ट्रीम हो रहा है, कैमरा बंद (म्यूट)"
 
-#: telescope/app.py:1443
+#: telescope/app.py:1450
 msgid "Telescope: streaming the mic, camera off"
 msgstr "Telescope: माइक स्ट्रीम हो रहा है, कैमरा बंद"
 
-#: telescope/app.py:1467
+#: telescope/app.py:1474
 msgid "Stop all but one camera first, then apply again"
 msgstr "पहले एक कैमरे को छोड़कर बाकी सब रोकें, फिर लागू करें"
 
-#: telescope/app.py:1479
+#: telescope/app.py:1486
 msgid "Reloading v4l2loopback…"
 msgstr "v4l2loopback दोबारा लोड किया जा रहा है…"
 
-#: telescope/app.py:1497
+#: telescope/app.py:1504
 msgid "Restarting stream…"
 msgstr "स्ट्रीम रीस्टार्ट हो रही है…"
 
-#: telescope/app.py:1511
+#: telescope/app.py:1518
 #, python-brace-format
 msgid "Loopback reloaded: {message}"
 msgstr "लूपबैक दोबारा लोड हुआ: {message}"
 
-#: telescope/app.py:1511
+#: telescope/app.py:1518
 msgid "Canvas updated"
 msgstr "कैनवस अपडेट हुआ"
 
-#: telescope/app.py:1515
+#: telescope/app.py:1522
 #, python-brace-format
 msgid "Reload failed: {message}"
 msgstr "दोबारा लोड होना विफल रहा: {message}"
 
-#: telescope/app.py:1522 telescope/plugins/setup.py:987
+#: telescope/app.py:1529 telescope/plugins/setup.py:987
 msgid "Resize the virtual camera"
 msgstr "वर्चुअल कैमरे का साइज़ बदलें"
 
-#: telescope/app.py:1545
+#: telescope/app.py:1552
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "फ़ोन ने ऐसा डेटा भेजा जिसे यह वर्शन नहीं पढ़ सकता. दोनों ऐप्स को एक ही वर्शन पर अपडेट करें."
 
-#: telescope/app.py:1572 telescope/plugins/preview.py:590
+#: telescope/app.py:1581 telescope/plugins/preview.py:590
 msgid "Show"
 msgstr "दिखाएं"
 
-#: telescope/app.py:1573
+#: telescope/app.py:1582
 msgid "Quit"
 msgstr "बंद करें"
 
-#: telescope/app.py:1612
+#: telescope/app.py:1621
 msgid "Telescope didn't answer in time."
 msgstr "Telescope ने समय पर जवाब नहीं दिया."
 
-#: telescope/app.py:1619
+#: telescope/app.py:1628
 msgid "This Telescope has no shortcuts."
 msgstr "इस Telescope में कोई शॉर्टकट नहीं हैं."
 
-#: telescope/app.py:1622 telescope/plugins/shortcuts.py:380
+#: telescope/app.py:1631 telescope/plugins/shortcuts.py:380
 msgid "That failed; Copy diagnostics has the details."
 msgstr "वह विफल रहा; विवरण डायग्नोस्टिक्स कॉपी करें में है."
 
-#: telescope/app.py:1950
+#: telescope/app.py:2012
 msgid "The stream stopped unexpectedly"
 msgstr "स्ट्रीम अचानक रुक गई"
 
-#: telescope/app.py:1950 telescope/app.py:1966
+#: telescope/app.py:2012 telescope/app.py:2028
 msgid "Copy diagnostics has the details."
 msgstr "विवरण डायग्नोस्टिक्स कॉपी करें में है."
 
-#: telescope/app.py:1965
+#: telescope/app.py:2027
 #, python-brace-format
 msgid "The stream from {name} stopped unexpectedly"
 msgstr "{name} से स्ट्रीम अचानक रुक गई"
 
-#: telescope/app.py:2044
+#: telescope/app.py:2106
 msgid "Telescope is still running"
 msgstr "Telescope अभी भी चल रहा है"
 
-#: telescope/app.py:2045
+#: telescope/app.py:2107
 msgid "Streaming continues in the background."
 msgstr "स्ट्रीमिंग बैकग्राउंड में जारी रहती है."
 
-#: telescope/app.py:2046
+#: telescope/app.py:2108
 msgid "It starts streaming by itself when it needs to."
 msgstr "ज़रूरत पड़ने पर यह अपने आप स्ट्रीमिंग शुरू कर देता है."
 
-#: telescope/app.py:2047
+#: telescope/app.py:2109
 msgid "Right-click the tray icon to quit."
 msgstr "बंद करने के लिए सिस्टम ट्रे आइकन पर राइट-क्लिक करें."
 
@@ -781,39 +781,39 @@ msgstr "रजिस्टर किया जा रहा है (एडमि
 msgid "Downloading driver files..."
 msgstr "ड्राइवर फ़ाइलें डाउनलोड हो रही हैं..."
 
-#: telescope/plugin.py:19
+#: telescope/plugin.py:20
 msgid "General"
 msgstr "सामान्य"
 
-#: telescope/plugin.py:20 telescope/plugins/shortcuts.py:180
+#: telescope/plugin.py:21 telescope/plugins/shortcuts.py:180
 msgid "Streaming"
 msgstr "स्ट्रीमिंग"
 
-#: telescope/plugin.py:21 telescope/plugins/setup.py:276
+#: telescope/plugin.py:22 telescope/plugins/setup.py:276
 msgid "Video"
 msgstr "वीडियो"
 
-#: telescope/plugin.py:22
+#: telescope/plugin.py:23
 msgid "Audio"
 msgstr "ऑडियो"
 
-#: telescope/plugin.py:23
+#: telescope/plugin.py:24
 msgid "Virtual camera & phone"
 msgstr "वर्चुअल कैमरा और फ़ोन"
 
-#: telescope/plugin.py:24 telescope/plugins/shortcuts.py:121
+#: telescope/plugin.py:25 telescope/plugins/shortcuts.py:121
 msgid "Keyboard shortcuts"
 msgstr "कीबोर्ड शॉर्टकट"
 
-#: telescope/plugin.py:25
+#: telescope/plugin.py:26
 msgid "Plugins"
 msgstr "प्लगइन्स"
 
-#: telescope/plugin.py:26
+#: telescope/plugin.py:27
 msgid "Updates & About"
 msgstr "अपडेट और परिचय"
 
-#: telescope/plugin.py:511
+#: telescope/plugin.py:533
 msgid "Open settings"
 msgstr "सेटिंग्स खोलें"
 
@@ -928,7 +928,7 @@ msgstr "यह प्लगइन्स फ़ोल्डर में को�
 
 #. what "make the writing stand out" does to the sheet: nothing, more contrast, or black and white
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: telescope/plugins/background.py:20 telescope/plugins/browser_camera.py:299 telescope/plugins/camera_control.py:21 telescope/plugins/camera_control.py:22 telescope/plugins/cinema.py:22 telescope/plugins/desk.py:21 telescope/plugins/framing.py:40
+#: telescope/plugins/background.py:20 telescope/plugins/browser_camera.py:299 telescope/plugins/camera_control.py:21 telescope/plugins/camera_control.py:22 telescope/plugins/cinema.py:22 telescope/plugins/desk.py:21 telescope/plugins/framing.py:40 telescope/plugins/photos.py:34 telescope/plugins/photos.py:207
 msgid "Off"
 msgstr "बंद"
 
@@ -1223,7 +1223,7 @@ msgid "Light"
 msgstr "रोशनी"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: telescope/plugins/camera_control.py:179 telescope/plugins/camera_control.py:220 telescope/plugins/camera_control.py:256 telescope/plugins/connection.py:744 telescope/plugins/desk.py:23 telescope/plugins/stream_output.py:654
+#: telescope/plugins/camera_control.py:179 telescope/plugins/camera_control.py:220 telescope/plugins/camera_control.py:256 telescope/plugins/connection.py:744 telescope/plugins/desk.py:23 telescope/plugins/photos.py:24 telescope/plugins/stream_output.py:654
 msgid "Auto"
 msgstr "ऑटो"
 
@@ -1231,7 +1231,7 @@ msgstr "ऑटो"
 msgid "Manual"
 msgstr "मैनुअल"
 
-#: telescope/plugins/camera_control.py:187
+#: telescope/plugins/camera_control.py:187 telescope/plugins/photos.py:201
 msgid "Exposure"
 msgstr "एक्सपोज़र"
 
@@ -3035,6 +3035,253 @@ msgstr "USB पर कोई फ़ोन नहीं मिला. इसे �
 msgid "Installed. Open Telescope on the phone for the next step."
 msgstr "इंस्टॉल हो गया. अगले कदम के लिए फ़ोन पर Telescope खोलें."
 
+#: telescope/plugins/photos.py:21
+msgid "JPEG"
+msgstr ""
+
+#: telescope/plugins/photos.py:21
+msgid "HEIC"
+msgstr ""
+
+#: telescope/plugins/photos.py:21
+msgid "Ultra HDR"
+msgstr ""
+
+#: telescope/plugins/photos.py:21
+msgid "RAW (DNG)"
+msgstr ""
+
+#: telescope/plugins/photos.py:22
+msgid "RAW and JPEG"
+msgstr ""
+
+#: telescope/plugins/photos.py:23
+msgid "Normal"
+msgstr ""
+
+#: telescope/plugins/photos.py:23
+msgid "Full resolution"
+msgstr ""
+
+#: telescope/plugins/photos.py:23
+msgid "Night"
+msgstr ""
+
+#: telescope/plugins/photos.py:23
+msgid "HDR"
+msgstr ""
+
+#: telescope/plugins/photos.py:24
+msgid "Bokeh"
+msgstr ""
+
+#: telescope/plugins/photos.py:26
+msgid "Single"
+msgstr ""
+
+#: telescope/plugins/photos.py:26
+msgid "Burst"
+msgstr ""
+
+#: telescope/plugins/photos.py:26
+msgid "Exposure bracket"
+msgstr ""
+
+#: telescope/plugins/photos.py:27
+msgid "Focus bracket"
+msgstr ""
+
+#: telescope/plugins/photos.py:29
+msgid "3 photos, 1 EV apart"
+msgstr ""
+
+#: telescope/plugins/photos.py:29
+msgid "3 photos, 2 EV apart"
+msgstr ""
+
+#: telescope/plugins/photos.py:30
+msgid "5 photos, 1 EV apart"
+msgstr ""
+
+#: telescope/plugins/photos.py:30
+msgid "7 photos, 1 EV apart"
+msgstr ""
+
+#: telescope/plugins/photos.py:34
+msgid "As the camera does it"
+msgstr ""
+
+#: telescope/plugins/photos.py:34
+msgid "On"
+msgstr ""
+
+#: telescope/plugins/photos.py:110
+msgid "Like the video"
+msgstr ""
+
+#: telescope/plugins/photos.py:110 telescope/plugins/photos.py:207
+#, python-brace-format
+msgid "{seconds} s"
+msgstr ""
+
+#: telescope/plugins/photos.py:115 telescope/plugins/photos.py:140 telescope/plugins/photos.py:247
+msgid "Photos"
+msgstr ""
+
+#: telescope/plugins/photos.py:116
+msgid "Takes full-quality photos on the phone, RAW and the phone's Night mode included where it has them."
+msgstr ""
+
+#: telescope/plugins/photos.py:117
+msgid "Without it there's no Photos card and no Take photo shortcut."
+msgstr ""
+
+#: telescope/plugins/photos.py:143 telescope/plugins/photos.py:249
+msgid "Take photo"
+msgstr ""
+
+#: telescope/plugins/photos.py:144
+msgid "Take a photo on the phone with the settings below"
+msgstr ""
+
+#: telescope/plugins/photos.py:146
+msgid "Open folder"
+msgstr ""
+
+#: telescope/plugins/photos.py:147
+msgid "Show the photos taken last"
+msgstr ""
+
+#: telescope/plugins/photos.py:162 telescope/plugins/stream_output.py:297
+msgid "Format"
+msgstr "फ़ॉर्मेट"
+
+#: telescope/plugins/photos.py:170
+msgid "Quality"
+msgstr ""
+
+#: telescope/plugins/photos.py:174
+msgid "The phone maker's own Night, HDR and Bokeh modes pause the video while they shoot"
+msgstr ""
+
+#: telescope/plugins/photos.py:175
+msgid "Mode"
+msgstr ""
+
+#: telescope/plugins/photos.py:179
+msgid "Shots"
+msgstr ""
+
+#: telescope/plugins/photos.py:183
+msgid "How many"
+msgstr ""
+
+#: telescope/plugins/photos.py:191
+msgid "Bracket"
+msgstr ""
+
+#: telescope/plugins/photos.py:194
+msgid "Photos from the nearest focus to the farthest, for focus stacking"
+msgstr ""
+
+#: telescope/plugins/photos.py:196
+msgid "Steps"
+msgstr ""
+
+#: telescope/plugins/photos.py:200
+msgid "A long exposure keeps the video's ISO and the video stops while the shutter is open"
+msgstr ""
+
+#: telescope/plugins/photos.py:211
+msgid "Timer"
+msgstr ""
+
+#: telescope/plugins/photos.py:213
+msgid "Best quality noise reduction and sharpening"
+msgstr ""
+
+#: telescope/plugins/photos.py:214
+msgid "Takes a little longer and only changes the photo, not the video"
+msgstr ""
+
+#: telescope/plugins/photos.py:224
+msgid "Distortion fix"
+msgstr ""
+
+#: telescope/plugins/photos.py:228
+msgid "Change…"
+msgstr ""
+
+#: telescope/plugins/photos.py:229
+msgid "Where photos are saved"
+msgstr ""
+
+#: telescope/plugins/photos.py:235
+msgid "Save in"
+msgstr ""
+
+#: telescope/plugins/photos.py:250
+msgid "Photo mode"
+msgstr ""
+
+#: telescope/plugins/photos.py:251
+msgid "Photo timer"
+msgstr ""
+
+#: telescope/plugins/photos.py:329
+msgid "Start streaming to take photos."
+msgstr ""
+
+#: telescope/plugins/photos.py:330
+msgid "This phone can't take photos from Telescope yet. Update the app on the phone."
+msgstr ""
+
+#: telescope/plugins/photos.py:348 telescope/stills.py:35
+msgid "The phone is already taking a photo."
+msgstr ""
+
+#: telescope/plugins/photos.py:350 telescope/plugins/photos.py:361
+msgid "Taking the photo…"
+msgstr ""
+
+#: telescope/plugins/photos.py:355
+#, python-brace-format
+msgid "Taking the photo in {seconds} s"
+msgstr ""
+
+#: telescope/plugins/photos.py:357
+#, python-brace-format
+msgid "Photo {n} of {total}"
+msgstr ""
+
+#: telescope/plugins/photos.py:359
+msgid "Taking the photo, the video is paused…"
+msgstr ""
+
+#: telescope/plugins/photos.py:369
+#, python-brace-format
+msgid "Saved {name} and {n} more"
+msgid_plural "Saved {name} and {n} more"
+msgstr[0] ""
+msgstr[1] ""
+
+#: telescope/plugins/photos.py:370
+#, python-brace-format
+msgid "Saved {name}"
+msgstr ""
+
+#: telescope/plugins/photos.py:373
+msgid "Photo saved"
+msgstr ""
+
+#: telescope/plugins/photos.py:375 telescope/stills.py:39
+msgid "The phone couldn't take the photo."
+msgstr ""
+
+#: telescope/plugins/photos.py:390
+msgid "Save photos in"
+msgstr ""
+
 #: telescope/plugins/presets.py:60 telescope/plugins/presets.py:154 telescope/plugins/presets.py:168
 msgid "Presets"
 msgstr "प्रीसेट"
@@ -3145,7 +3392,7 @@ msgstr ""
 "\n"
 "'सिर्फ़ माइक शुरू करें' से कैमरा बंद रखकर फ़ोन का माइक स्ट्रीम होता है."
 
-#: telescope/plugins/preview.py:23 telescope/stream.py:451
+#: telescope/plugins/preview.py:23 telescope/stream.py:461
 msgid "Waiting for the first frame…"
 msgstr "पहले फ़्रेम का इंतज़ार है…"
 
@@ -4495,10 +4742,6 @@ msgstr "भारी"
 msgid "Aspect ratio"
 msgstr "आस्पेक्ट रेशियो"
 
-#: telescope/plugins/stream_output.py:297
-msgid "Format"
-msgstr "फ़ॉर्मेट"
-
 #: telescope/plugins/stream_output.py:335
 msgid "Switch to Heavy"
 msgstr "भारी पर स्विच करें"
@@ -5246,43 +5489,87 @@ msgstr "Telescope शुरू हो रहा है…"
 msgid "This can take a minute while Windows runs a security scan."
 msgstr "Windows के सुरक्षा स्कैन करने तक इसमें एक मिनट लग सकता है।"
 
-#: telescope/stream.py:312
+#: telescope/stills.py:32
+msgid "This phone's camera can't take that photo."
+msgstr ""
+
+#: telescope/stills.py:33
+msgid "The phone didn't accept those photo settings."
+msgstr ""
+
+#: telescope/stills.py:34
+msgid "The phone isn't ready for photos yet. Try again in a moment."
+msgstr ""
+
+#: telescope/stills.py:36
+msgid "The phone's camera is off."
+msgstr ""
+
+#: telescope/stills.py:37
+msgid "The photo was interrupted by a change to the camera."
+msgstr ""
+
+#: telescope/stills.py:38
+msgid "The phone took too long to take the photo."
+msgstr ""
+
+#: telescope/stills.py:40
+msgid "Lost the phone while it was taking the photo."
+msgstr ""
+
+#: telescope/stills.py:41
+msgid "The phone gave up on the photo, maybe because its stream stopped."
+msgstr ""
+
+#: telescope/stills.py:42
+msgid "Telescope couldn't save the photo."
+msgstr ""
+
+#: telescope/stills.py:43
+msgid "This phone can't take photos from Telescope. Update the app on the phone."
+msgstr ""
+
+#: telescope/stream.py:320
+msgid "The video is paused while the phone takes a photo"
+msgstr ""
+
+#: telescope/stream.py:322
 msgid "Stream dropped - reconnecting"
 msgstr "स्ट्रीम टूट गई - फिर से कनेक्ट हो रहा है"
 
-#: telescope/stream.py:366
+#: telescope/stream.py:376
 msgid "Stream reconnected"
 msgstr "स्ट्रीम फिर से कनेक्ट हो गई"
 
-#: telescope/stream.py:420
+#: telescope/stream.py:430
 #, python-brace-format
 msgid "Stream error: {error}"
 msgstr "स्ट्रीम एरर: {error}"
 
-#: telescope/stream.py:430
+#: telescope/stream.py:440
 msgid "Getting ready… The first start after installing can take a minute."
 msgstr "तैयारी हो रही है… इंस्टॉल करने के बाद पहली बार शुरू होने में एक मिनट लग सकता है।"
 
-#: telescope/stream.py:432 telescope/stream_flow.py:189
+#: telescope/stream.py:442 telescope/stream_flow.py:189
 msgid "Connecting..."
 msgstr "कनेक्ट हो रहा है..."
 
-#: telescope/stream.py:432
+#: telescope/stream.py:442
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "{url} से कनेक्ट हो रहा है..."
 
-#: telescope/stream.py:441
+#: telescope/stream.py:451
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "फ़ोन की स्ट्रीम से संपर्क नहीं हो पा रहा है. {seconds} सेकंड में फिर कोशिश की जाएगी…"
 
-#: telescope/stream.py:511
+#: telescope/stream.py:521
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "{camera} पर {fps} fps पर {size} स्ट्रीम हो रहा है"
 
-#: telescope/stream.py:564
+#: telescope/stream.py:574
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "वर्चुअल कैमरा एरर: {error}"

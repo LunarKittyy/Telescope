@@ -3885,3 +3885,52 @@ def test_a_lens_switch_starts_motion_over(window, monkeypatch):
     monkeypatch.setattr(window._motion, "reset", lambda settle_s=0.0: resets.append(settle_s))
     window._bus.camera_switched.emit({"id": "2"})
     assert resets == [LENS_SETTLE_S]
+
+
+def test_photos_follow_the_shown_streams_phone_and_tell_every_plugin(window, monkeypatch):
+    from telescope.stills import StillProgress, StillResult
+    held = []
+    worker = SimpleNamespace(hold_for_photo=lambda: held.append(True))
+    window._session = StreamSession(source=window._phone, id=1, url="url", client=object(), worker=worker)
+    sid = window._phone.id
+    assert window.still_caps() is None and not window.take_still({}, "/tmp", lambda r: None)  # nothing said yet
+    window._last_states[sid] = {"stills": 1, "cameras": [{"id": "0", "current": True, "stills": {"formats": ["jpeg"]}}]}
+    assert window.still_caps().formats == ("jpeg",)
+
+    taken = {}
+    monkeypatch.setattr(window._stills, "take", lambda source, client, options, folder, on_done, on_progress, alive:
+                        taken.update(source=source, on_done=on_done, on_progress=on_progress, alive=alive) or True)
+    busy, saved, done = [], [], []
+    window._bus.still_busy_changed.connect(lambda s, b: busy.append(b))
+    window._bus.still_saved.connect(lambda s, files: saved.append(files))
+    assert window.take_still({"format": "jpeg"}, "/tmp", done.append)
+    assert taken["source"] == sid and busy == [True]
+    taken["on_progress"](StillProgress("capturing"))
+    QCoreApplication.processEvents()
+    assert held == [True]  # the stream doesn't count as dropped while the phone takes it
+    taken["on_done"](StillResult(True, ["/tmp/IMG_1.jpg"]))
+    QCoreApplication.processEvents()
+    assert busy == [True, False] and saved == [["/tmp/IMG_1.jpg"]] and done[0].ok
+    # A restart gives the phone a new session: the photo on the old one counts as interrupted
+    assert taken["alive"]()
+    window._phone.session = StreamSession(source=window._phone, id=2, url="url", client=object(), worker=worker)
+    assert not taken["alive"]()
+
+    # The next photo already started there when the last one's end reaches the Qt thread: still busy
+    monkeypatch.setattr(window._stills, "busy", lambda source: True)
+    taken["on_done"](StillResult(True, []))
+    QCoreApplication.processEvents()
+    assert busy[-1] is True
+
+
+def test_photo_options_follow_a_lens_switch(window):
+    window._session = StreamSession(source=window._phone, id=1, url="url", client=object(), worker=None)
+    full = {"formats": ["jpeg"], "width": 4000, "height": 3000, "maxResWidth": 8000, "maxResHeight": 6000}
+    window._last_states[window._phone.id] = {"stills": 1, "cameras": [
+        {"id": "1", "current": True, "stills": full},
+        {"id": "4", "current": False, "stills": {"formats": ["jpeg"], "width": 1920, "height": 1440}}]}
+    assert window.still_caps().max_res == (8000, 6000)
+    seen = []
+    window._bus.camera_switched.connect(lambda _cam: seen.append(window.still_caps()))
+    window._bus.camera_switched.emit({"id": "4", "current": False, "stills": {"formats": ["jpeg"], "width": 1920, "height": 1440}})  # as /v1/state lists it
+    assert seen[0].max_res is None and seen[0].size == (1920, 1440)  # already the new lens's for plugins listening

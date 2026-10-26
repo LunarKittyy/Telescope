@@ -184,6 +184,8 @@ A plain photo goes into the stream's own camera session next to the video and th
 
 `POST /v1/still` with `{"action": "forget", "id": "<id>"}` deletes the files once the desktop has them. It always answers ok, also for an `id` that's already gone. Otherwise the phone holds on to them in its cache for ten minutes (at most the last four requests and 1 GB) and deletes all of them when the stream stops.
 
+The desktop gives up on a photo whose status hasn't moved for 45 s plus its exposures (`timeout`, and it tells the phone to forget it), and ends one as `interrupted` as soon as its own stream to that phone stops or restarts, rather than waiting to lose the phone.
+
 ## `GET /v1/video.udp` (experimental)
 
 The same H.264 as `/v1/video.h264`, but the frames come over UDP, so one lost packet on a busy Wi-Fi doesn't hold up everything behind it the way TCP does. The desktop only asks for it on a Wi-Fi route with **UDP on Wi-Fi** checked and the Light format. With Dynamic it also needs `udpDynamic` in the phone's `/v1/ping` (an older phone gets Dynamic over TCP as before). Changing the switch, or entering Dynamic with an older phone, reconnects onto the appropriate transport.
