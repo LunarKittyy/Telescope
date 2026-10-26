@@ -23,7 +23,6 @@ from telescope.widgets.common import (
 from telescope.i18n import N_, tr
 
 _PICTURES = N_("Pictures (*.png *.jpg *.jpeg *.webp *.bmp)")
-_HANDLES = ("tl", "t", "tr", "r", "br", "b", "bl", "l")
 _HANDLE_PX = 9  # how far from a handle a click still grabs it
 _CORNER_PX = 10  # a corner handle's size
 _STAGE_PAD = 14  # room around the picture inside the dark stage, so handles on its edge aren't cut off
@@ -33,7 +32,7 @@ _NUDGE_PX = 1  # arrow keys move the picked stream this many pixels of the pictu
 _ZOOM_STEP = 1.1
 _SIDE_W = 384
 _LABEL_W = 72
-_HUE = "stream"
+_HUE = "streaming"  # Several cameras in one picture's group
 _MODES = {"move": N_("Move"), "scale": N_("Scale"), "stretch": N_("Stretch"), "crop": N_("Crop"), "pan": N_("Pan")}
 
 

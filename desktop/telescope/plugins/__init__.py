@@ -36,6 +36,7 @@ def builtin_plugins() -> list:
     from telescope.plugins.updates import UpdatesPlugin
     from telescope.plugins.wait_screen import WaitScreenPlugin
 
+    # Frames go through them by frame_stage (plugin.FRAME_STAGES), in this order within a stage
     return [
         SetupPlugin(),
         ConnectionPlugin(),
@@ -44,18 +45,18 @@ def builtin_plugins() -> list:
         CinemaPlugin(),  # optional, under Camera: what it shows is for judging the camera's settings
         FaceExposurePlugin(),  # optional, after Camera: it moves the point Tap a point picks
         BackgroundPlugin(),  # optional: off until switched on in Plugins
-        ChromaKeyPlugin(),  # optional, next to Background: both swap what's behind you
-        FunPackPlugin(),  # optional, after Background: its effects work on the picture with the background done
-        PrivacyBlurPlugin(),  # optional, after Background: it blurs what Background puts together
+        ChromaKeyPlugin(),  # optional
+        FunPackPlugin(),  # optional
+        PrivacyBlurPlugin(),  # optional
         PhotosPlugin(),  # optional
         ColourGradingPlugin(),  # optional: off until switched on in Plugins
         StreamOutputPlugin(),
         TransformsPlugin(),
         FramingPlugin(),  # optional, after Transforms: it moves the zoom and pan Transforms shows
-        DeskPlugin(),  # optional, after the view: it straightens the picture as shown
-        NameTagPlugin(),  # optional, after Background: its text mustn't be taken for the background
+        DeskPlugin(),  # optional
+        NameTagPlugin(),  # optional
         NotesPlugin(),  # optional: off until switched on in Plugins
-        CompositePlugin(),  # optional, after the plugins that change each stream's own picture
+        CompositePlugin(),  # optional
         MicrophonePlugin(),
         PresetsPlugin(),
         QrReaderPlugin(),  # optional

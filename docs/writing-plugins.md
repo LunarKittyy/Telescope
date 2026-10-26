@@ -59,7 +59,7 @@ It loads your plugin next to the built-in ones in a throwaway profile and builds
 - `title`, `version`, `author` and `description` are what people see in the Plugins tab. Write the description for someone who has never heard of your plugin.
 - `api` is the version of the plugin API you wrote it for, which is `1` for now. Telescope only raises it for a change that would break existing plugins and everything in `plugin.py` keeps working until then (Telescope's own tests check that). A plugin with the wrong number isn't loaded.
 - `class` is the name of your plugin class in `__init__.py`.
-- `category` is optional and says which group of the Plugins tab your plugin is listed in: `camera` (Camera and picture), `preview` (Preview tools), `vision` (People and vision), `on_screen` (On screen), `sound` (Sound) or `streaming` (Streaming and devices). Without one, or with a name Telescope doesn't know, it goes under Extras.
+- `category` is optional and says which group of the Plugins tab your plugin is listed in: `camera` (Camera), `look` (Look), `vision` (People), `preview` (Preview tools), `on_screen` (On screen), `sound` (Sound) or `streaming` (Streaming and devices). Without one, or with a name Telescope doesn't know, it goes under Extras.
 - `repo` is an optional `https://` link to where your plugin's source lives, like `"repo": "https://github.com/you/your_plugin"` (the example has none). The Plugins tab shows it next to the author. When it's a GitHub repo Telescope can also tell people about new versions, see [Sharing it](#sharing-it). Anything that isn't a plain `https://` address is left out and `check_plugin.py` points it out.
 
 ## __init__.py
@@ -97,7 +97,7 @@ class BlackAndWhitePlugin(TelescopePlugin):
 
 `setup()` runs once at the start and gets two things. `host` is the window and has everything a plugin may ask of it, like saving settings, starting or stopping a stream or showing a banner. `bus` is the event bus where you can listen for things happening, like a stream starting or a phone being paired. Both are described in [`desktop/telescope/plugin.py`](../desktop/telescope/plugin.py), which is the whole plugin API in one file.
 
-`process_frame()` gets every frame of the stream as a NumPy array (BGR, height × width × 3) and returns the frame to send on. Plugins get the frame in the order they're registered, built-in ones first and the preview always shows it after every plugin had its turn. When several phones stream at once, `frame_step()` hands Telescope a frozen copy of that for the streams the panels aren't showing. Return `None` there if your plugin shouldn't touch those.
+`process_frame()` gets every frame of the stream as a NumPy array (BGR, height × width × 3) and returns the frame to send on. Where your plugin gets it is set by `frame_stage`, one of the stages in `FRAME_STAGES` in `plugin.py`: `background` for what's behind someone, `effects` (the default) for changing the picture, `overlay` for something drawn on top that shouldn't be graded or blurred, and so on. Within a stage plugins take turns in the order they're registered, built-in ones first, and the preview always shows the frame after every plugin had its turn. When several phones stream at once, `frame_step()` hands Telescope a frozen copy of that for the streams the panels aren't showing. Return `None` there if your plugin shouldn't touch those.
 
 `get_config()` and `set_config()` are how settings get saved. Return a plain dict of what you want remembered and read it back in `set_config()`. Telescope calls `get_config()` whenever it saves and `host.schedule_save()` asks it to save after something changed. `set_config()` might also get a dict saved by an older version of your plugin (or edited by hand) so read it carefully, the way the example checks `cfg.get("on") is True`.
 
@@ -106,7 +106,7 @@ class BlackAndWhitePlugin(TelescopePlugin):
 People can click a card's title to fold the card down to its header and a section title inside it to fold just that section. There's nothing for you to write. After `create_panel()` returns Telescope looks at the card and makes it foldable if you built it with the helpers in `telescope/widgets/common.py`:
 
 - `create_card()` and `card_layout(card)` make the card and its layout
-- `add_card_header(layout, "Title", "icon")` adds the header and its title is what people click. A card without one is left alone
+- `add_card_header(layout, "Title", self.icon, hue=self.category)` adds the header, in your group's colour and with your icon, and its title is what people click. A card without one is left alone
 - `add_section_heading(layout, "Section", "icon")` starts a section that runs until the next heading or the end of the card
 
 What to keep in mind while building the card:

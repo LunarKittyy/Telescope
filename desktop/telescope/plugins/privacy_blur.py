@@ -124,6 +124,7 @@ class PrivacyBlurPlugin(TelescopePlugin):
     about = N_("Blurs the other people, everything but you, or puts the wait screen up when someone else walks in.")
     category = "vision"
     icon = "eye_off"
+    frame_stage = "privacy"
     when_off = N_("Without it there's no Privacy blur card and nothing gets hidden when someone walks in.")
     optional = True
     in_presets = True
@@ -154,7 +155,7 @@ class PrivacyBlurPlugin(TelescopePlugin):
         self._switch.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._switch.setToolTip(tr("Blur automatically when a second person shows up"))
         self._switch.toggled.connect(self._on_switch)
-        add_card_header(lay, tr("Privacy blur"), "eye_off", action=self._switch, hue="vision")
+        add_card_header(lay, tr("Privacy blur"), self.icon, action=self._switch, hue=self.category)
         dim_until_paired(card, self._bus)
         self._mode_combo = NoScrollComboBox()
         self._mode_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)

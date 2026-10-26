@@ -33,16 +33,41 @@ SETTINGS_TABS = (
 in isn't shown. An id that isn't here makes a tab of its own, between Keyboard shortcuts and Plugins."""
 
 PLUGIN_CATEGORIES = (
-    ("camera", N_("Camera and picture")),
+    ("camera", N_("Camera")),
+    ("look", N_("Look")),
+    ("vision", N_("People")),
     ("preview", N_("Preview tools")),
-    ("vision", N_("People and vision")),
     ("on_screen", N_("On screen")),
     ("sound", N_("Sound")),
     ("streaming", N_("Streaming and devices")),
     ("extras", N_("Extras")),
 )
-"""The groups of the Plugins tab, in order: (id, name). TelescopePlugin.category names one by id; an id that isn't
-here goes under Extras."""
+"""The plugin groups, in order: (id, name). TelescopePlugin.category names one by id; an id that isn't here goes under
+Extras. A group has its colour in theme.PLUGIN_HUES, and the cards in each column of the window are sorted by group."""
+
+
+FRAME_STAGES = (
+    ("view", "the window's zoom, pan, flip, rotation and stretch"),
+    ("geometry", "moving the whole picture after the view (Desk mode)"),
+    ("reading", "looking at the clean picture without changing it (QR codes)"),
+    ("background", "what's behind you (Background, Chroma key)"),
+    ("effects", "changing the picture (Fun pack), and where a plugin goes that doesn't say"),
+    ("colour", "the colour pipeline: every grade baked into one LUT per stream"),
+    ("privacy", "hiding things, after anything that could bring them back (Privacy blur)"),
+    ("overlay", "drawn on top, never graded or blurred (Name tag)"),
+    ("combine", "several streams put into one picture"),
+    ("cover", "the wait screen in place of the picture"),
+    ("final", "seeing what apps get and handing it back unchanged (Preview)"),
+)
+"""The stages a frame goes through, in order: (id, what belongs there). TelescopePlugin.frame_stage names one; plugins in
+the same stage run in the order they're registered."""
+
+
+def frame_stage_index(plugin) -> int:
+    """Where plugin's process_frame runs among the others: its frame_stage's place in FRAME_STAGES."""
+    ids = [sid for sid, _what in FRAME_STAGES]
+    stage = "final" if getattr(plugin, "sees_final_frame", False) else getattr(plugin, "frame_stage", "effects")
+    return ids.index(stage) if stage in ids else ids.index("effects")
 
 
 @dataclass
@@ -612,9 +637,12 @@ class TelescopePlugin:
     needs_vision: bool = False
     """It uses person_mask or want_people: switching it on in Plugins downloads the vision pack first."""
     category: str = "extras"
-    """Which group of the Plugins tab it's listed in: an id from PLUGIN_CATEGORIES."""
+    """Its group: an id from PLUGIN_CATEGORIES. Its tile is listed under it and its cards take its colour
+    (hue=self.category in add_card_header)."""
     icon: str = "plug"
-    """Its icon on the Plugins tab: a name from widgets/line_icons.py or the icons in widgets/common.py."""
+    """Its icon on the Plugins tab and its card's header: a name from widgets/line_icons.py or widgets/common.py."""
+    pinned: bool = False
+    """Its card stays at the top of its column, above the groups, as the essential ones do (Connection, Camera)."""
 
     in_presets: bool = False
     """Presets save its get_config() and bring it back through apply_preset(), in the order plugins are registered."""
@@ -623,9 +651,12 @@ class TelescopePlugin:
     """Each phone (or other source) gets its own copy of this plugin's settings, swapped in when it's picked or the
     panels move to its stream; False: one copy for the whole app."""
 
+    frame_stage: str = "effects"
+    """Where its process_frame runs: an id from FRAME_STAGES. The stages keep the frame order from depending on the
+    order plugins are registered in or shown."""
     sees_final_frame: bool = False
-    """Its process_frame runs after every other plugin's, so it sees the frame the virtual camera gets (the preview).
-    It has to hand the frame back unchanged."""
+    """The same as frame_stage = "final": its process_frame runs after every other plugin's, so it sees the frame the
+    virtual camera gets (the preview). It has to hand the frame back unchanged."""
     follows_focus: bool = True
     """With several streams, hear about the one the panels show (False: the first one, like the mic)."""
 
@@ -659,7 +690,7 @@ class TelescopePlugin:
 
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, tr(self.title or self.name), "plug")
+        add_card_header(lay, tr(self.title or self.name), self.icon, hue=self.category)
         button = QToolButton(card)
         button.setText(tr("Open settings"))
         button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)

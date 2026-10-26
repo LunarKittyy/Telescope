@@ -7,7 +7,7 @@ import pytest
 
 from telescope import composite, vcam
 from telescope.composite import Compositor, Layout, Tile
-from telescope.plugin import StreamFrame
+from telescope.plugin import EventBus, StreamFrame
 
 
 def _solid(colour, size=(1080, 1920)) -> np.ndarray:
@@ -405,20 +405,11 @@ class _Host:
         self.saves += 1
 
 
-class _Bus:
-    class _Signal:
-        def connect(self, _slot):
-            pass
-
-    def __getattr__(self, _name):
-        return self._Signal()
-
-
 @pytest.fixture
 def plugin(qapp):
     from telescope.plugins.composite import CompositePlugin
     p = CompositePlugin()
-    p.setup(_Host(), _Bus())
+    p.setup(_Host(), EventBus())
     p.card = p.create_panel()
     p.on_stream_start("u", None)
     yield p
@@ -545,7 +536,7 @@ def test_settings_and_presets_bring_the_picture_back(plugin, qapp):
     plugin.save_layout("Two")
     saved = plugin.get_config()
     other = CompositePlugin()
-    other.setup(_Host(), _Bus())
+    other.setup(_Host(), EventBus())
     other.card = other.create_panel()
     other.set_config(saved)
     assert other.get_config() == saved and other._switch.isChecked()

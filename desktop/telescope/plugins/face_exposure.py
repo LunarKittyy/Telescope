@@ -102,7 +102,7 @@ class FaceExposurePlugin(TelescopePlugin):
         self._switch.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._switch.setToolTip(tr("Meter the exposure on your face"))
         self._switch.toggled.connect(self._on_switch)
-        add_card_header(lay, tr("Expose for my face"), "sun", action=self._switch, hue="vision")
+        add_card_header(lay, tr("Expose for my face"), self.icon, action=self._switch, hue=self.category)
         dim_until_paired(card, self._bus, phone_only=True)
         self._manual_note = wrapped_note("")
         lay.addWidget(self._manual_note)

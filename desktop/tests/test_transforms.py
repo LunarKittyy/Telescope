@@ -81,13 +81,13 @@ def test_auto_framing_visibly_disables_the_zoom_handle_and_value(transforms_plug
                                              QStyle.SubControl.SC_SliderHandle, slider)
         return slider.grab().toImage().pixelColor(rect.center())
 
-    assert handle_color() == QColor(theme.hue("transforms"))
+    assert handle_color() == QColor(theme.hue("camera"))
     assert host.vc.take_view("Auto framing")
     assert not plugin._zoom_slider.isEnabled() and not plugin._zoom_val_lbl.isEnabled()
     assert handle_color() == QColor(theme.TEXT_DISABLED)
     host.vc.release_view("Auto framing")
     assert plugin._zoom_slider.isEnabled() and plugin._zoom_val_lbl.isEnabled()
-    assert handle_color() == QColor(theme.hue("transforms"))
+    assert handle_color() == QColor(theme.hue("camera"))
     panel.close()
 
 
@@ -716,7 +716,7 @@ def test_the_zoom_slider_follows_max_zoom(transforms_plugin):
 
 # ── Dragging and scrolling the preview, lens boxes ───────────────────────────
 
-from telescope.view import lens_boxes, pan_for, shown_to_view, view_to_shown, zoom_detent  # noqa: E402
+from telescope.view import lens_boxes, pan_for, zoom_detent  # noqa: E402
 
 _ALL_TRANSFORMS = [(fh, fv, rot) for fh in (False, True) for fv in (False, True) for rot in ROTATIONS.values()]
 

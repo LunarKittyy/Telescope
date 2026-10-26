@@ -61,7 +61,8 @@ class MjpegServer(
     @Volatile private var h264Config: ByteArray? = null
     // Dynamic bitrate: short socket buffers and a short backlog, so a full link shows up as a queue here right away.
     @Volatile var dynamicH264 = false
-    private var encodedBytes = 0L         // since the last link sample; the encoder's thread only
+    private var encodedBytes = 0L         // since the last link sample that went to Dynamic; the encoder's thread only
+    private var rateBytes = 0L            // since the last link sample of any kind, for encodedBps
     private var encodedBps = 0.0          // smoothed, for sizing Dynamic's socket buffers
     private var lastLinkSampleMs = 0L
     private val audioClients = CopyOnWriteArrayList<AudioClient>()
@@ -154,6 +155,7 @@ class MjpegServer(
         }
         if (wantKey) requestKeyFrame()
         encodedBytes += framed.size
+        rateBytes += framed.size
         sampleH264Link()
     }
 
@@ -161,7 +163,9 @@ class MjpegServer(
         val now = System.currentTimeMillis()
         if (now - lastLinkSampleMs < LINK_SAMPLE_MS) return
         val first = lastLinkSampleMs == 0L
-        if (!first) encodedBytes.times(8_000.0 / (now - lastLinkSampleMs)).let { encodedBps = if (encodedBps == 0.0) it else 0.8 * encodedBps + 0.2 * it }
+        // Counted apart from encodedBytes, which a late report carries over to the next sample, over a span that doesn't
+        if (!first) rateBytes.times(8_000.0 / (now - lastLinkSampleMs)).let { encodedBps = if (encodedBps == 0.0) it else 0.8 * encodedBps + 0.2 * it }
+        rateBytes = 0
         lastLinkSampleMs = now
         var queueMs = 0L
         var sent = Long.MAX_VALUE

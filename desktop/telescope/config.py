@@ -117,6 +117,14 @@ def _tighten(chmod: Callable, path: Path) -> None:
         logger.warning("Couldn't restrict permissions on %s", path)
 
 
+def clamped_int(value, default: int, lo: int, hi: int) -> int:
+    """A saved whole number kept within lo..hi; default when it isn't one (hand-edited or damaged)."""
+    try:
+        return min(hi, max(lo, int(value)))
+    except (TypeError, ValueError):
+        return default
+
+
 def saveable(value) -> bool:
     """Whether save_config() can write value (what JSON holds, numpy numbers and arrays included)."""
     try:

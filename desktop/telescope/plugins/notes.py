@@ -8,6 +8,7 @@ from typing import Optional
 from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QButtonGroup, QHBoxLayout, QPlainTextEdit, QPushButton, QWidget
 
+from telescope.config import clamped_int
 from telescope.plugin import TelescopePlugin
 from telescope.shortcuts import button_action, slider_action
 from telescope.widgets.common import (
@@ -117,7 +118,7 @@ class NotesPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, tr("Notes"), "notes", hue="phone")
+        add_card_header(lay, tr("Notes"), self.icon, hue=self.category)
         dim_until_paired(card, self._bus)
 
         self._set_combo = NoScrollComboBox()
@@ -447,8 +448,8 @@ class NotesPlugin(TelescopePlugin):
         self._sets = sets or [""]
         current = cfg.get("current")
         self._current = current if isinstance(current, int) and 0 <= current < len(self._sets) else 0
-        self._size_slider.setValue(_clamp(cfg.get("size"), SIZE_DEFAULT, SIZE_MIN, SIZE_MAX))
-        self._speed_slider.setValue(_clamp(cfg.get("speed"), SPEED_DEFAULT, 1, SPEED_MAX))
+        self._size_slider.setValue(clamped_int(cfg.get("size"), SIZE_DEFAULT, SIZE_MIN, SIZE_MAX))
+        self._speed_slider.setValue(clamped_int(cfg.get("speed"), SPEED_DEFAULT, 1, SPEED_MAX))
         scroll = cfg.get("scroll") if cfg.get("scroll") in dict(SCROLLS) else "auto"
         self._scroll_btns[scroll].setChecked(True)
         self._fill_sets()
@@ -457,10 +458,3 @@ class NotesPlugin(TelescopePlugin):
     def diagnostics(self) -> dict:
         return {"Notes": "on the phone" if self._is_sent() else "not sent",
                 "Notes on phone": {None: "not known", True: "yes", False: "phone too old"}[self._takes_notes]}
-
-
-def _clamp(value, default: int, lo: int, hi: int) -> int:
-    try:
-        return min(hi, max(lo, int(value)))
-    except (TypeError, ValueError):
-        return default

@@ -1080,12 +1080,13 @@ class CameraSessionController(
     private fun requestTemplate(): Int =
         if (codec == H264Stream.CODEC_H264) CameraDevice.TEMPLATE_RECORD else CameraDevice.TEMPLATE_PREVIEW
 
-    private fun buildRequest(camera: CameraDevice = cameraDevice!!): CaptureRequest {
+    // probe: only to ask the camera about a session, so sessionFps stays the running request's
+    private fun buildRequest(camera: CameraDevice = cameraDevice!!, probe: Boolean = false): CaptureRequest {
         return camera.createCaptureRequest(requestTemplate()).apply {
             addTarget(outputSurface()!!)
             previewSurface?.let { addTarget(it) }
             val fps = cameraFps()
-            sessionFps = fps
+            if (!probe) sessionFps = fps
             applyControls(this, fps)
         }.build()
     }
@@ -1217,7 +1218,7 @@ class CameraSessionController(
                     override fun onConfigured(s: CameraCaptureSession) {}
                     override fun onConfigureFailed(s: CameraCaptureSession) {}
                 })
-            cfg.sessionParameters = buildRequest(camera)
+            cfg.sessionParameters = buildRequest(camera, probe = true)
             camera.isSessionConfigurationSupported(cfg)
         } catch (_: Exception) { null }
     }

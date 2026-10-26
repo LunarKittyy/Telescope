@@ -55,6 +55,7 @@ def moved_like(before: np.ndarray, now: np.ndarray, shift: tuple) -> bool:
 class ViewController(TelescopePlugin):
     """Hears the stream hooks like a plugin that follows the panels (through FlowHost.plugins()), but it's the
     window's: it isn't in the plugin list, has no card and can't be switched off."""
+    frame_stage = "view"
     name = "view"
 
     def setup(self, host, bus, vision=None, motion=None):

@@ -35,6 +35,7 @@ class CompositePlugin(TelescopePlugin):
     about = N_("Puts the streams you run side by side or one inside another, out on one virtual camera.")
     category = "streaming"
     icon = "layout"
+    frame_stage = "combine"
     when_off = N_("Without it there's no One picture card and each stream only goes to its own camera.")
     optional = True
     in_presets = True  # a preset can be a scene: "face big, desk small" for talking, side by side for a demo
@@ -257,7 +258,7 @@ class CompositePlugin(TelescopePlugin):
         self._switch.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._switch.setToolTip(tr("Send the streams out as one picture"))
         self._switch.toggled.connect(self._on_switch)
-        add_card_header(lay, tr("One picture"), "layout", action=self._switch, hue="stream")
+        add_card_header(lay, tr("One picture"), self.icon, action=self._switch, hue=self.category)
         self._combo = NoScrollComboBox()
         self._combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self._combo.setMinimumContentsLength(12)  # a long layout name doesn't widen the card; the list opens wider

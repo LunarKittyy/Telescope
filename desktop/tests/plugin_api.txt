@@ -281,6 +281,7 @@ TelescopePlugin.create_tray_actions(self)
 TelescopePlugin.device_local = False
 TelescopePlugin.diagnostics(self)
 TelescopePlugin.follows_focus = True
+TelescopePlugin.frame_stage = 'effects'
 TelescopePlugin.frame_step(self)
 TelescopePlugin.get_config(self)
 TelescopePlugin.header_side = 'left'
@@ -299,6 +300,7 @@ TelescopePlugin.on_stream_starting(self)
 TelescopePlugin.on_stream_stop(self)
 TelescopePlugin.optional = False
 TelescopePlugin.panel_region = 'left'
+TelescopePlugin.pinned = False
 TelescopePlugin.process_frame(self, frame)
 TelescopePlugin.required = False
 TelescopePlugin.sees_final_frame = False

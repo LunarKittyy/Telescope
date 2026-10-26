@@ -482,6 +482,7 @@ class CameraStreamService : Service() {
     private val stillJobs by lazy { StillJobs(java.io.File(cacheDir, "stills")) }
     // What each lens can do for photos, read once in the background when the stream starts (StillCatalog)
     private val stillCaps = java.util.concurrent.ConcurrentHashMap<String, StillCaps>()
+    private val stillCapsRead = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()  // lenses read, photos or not
     private var server: MjpegServer? = null
     private var audio: AudioStreamer? = null
     private val sensorsMade = lazy {
@@ -805,7 +806,10 @@ class CameraStreamService : Service() {
         val cameras = allCameras
         // Reading the maker's modes can take a moment per lens; the state lists photos for each lens once it's read
         kotlin.concurrent.thread(name = "still-caps", isDaemon = true) {
-            for (cam in cameras) StillCatalog.read(manager, cam)?.let { stillCaps[cam.id] = it }
+            for (cam in cameras) {
+                StillCatalog.read(manager, cam)?.let { stillCaps[cam.id] = it }
+                stillCapsRead.add(cam.id)
+            }
         }
         startServer()
     }
@@ -1203,7 +1207,8 @@ class CameraStreamService : Service() {
         val capture = stills ?: return refuse("camera_off", "The camera isn't running")
         if (ctrl.isCameraOff() || ctrl.isCameraTaken()) return refuse("camera_off", "The camera isn't running")
         val cam = ctrl.snapshot().currentCamera ?: return refuse("camera_off", "The camera isn't running")
-        val caps = stillCaps[cam.id] ?: return refuse("not_ready", "The phone is still finding out what this lens can do")
+        val caps = stillCaps[cam.id] ?: return if (cam.id in stillCapsRead) refuse("unsupported", "This lens can't take photos")
+            else refuse("not_ready", "The phone is still finding out what this lens can do")
         val request = when (val parsed = StillOptions.parse(params, caps, ctrl.streamExposure())) {
             is StillOptions.Parsed.Refused -> return refuse(parsed.code, parsed.text)
             is StillOptions.Parsed.Ok -> parsed.request

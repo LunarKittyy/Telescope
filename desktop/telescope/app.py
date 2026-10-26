@@ -24,7 +24,7 @@ from telescope.phone_client import PhoneControlClient
 from telescope.platform import IS_LINUX
 from telescope.platform.linux import CANCELLED
 from telescope import plugin_loader
-from telescope.plugin import UNCHANGED, EventBus, SettingsSection, TelescopePlugin
+from telescope.plugin import PLUGIN_CATEGORIES, UNCHANGED, EventBus, SettingsSection, TelescopePlugin
 from telescope.sensors import SensorHub
 from telescope.session import Sessions, StreamSession
 from telescope.single_instance import relaunch, restart_argv
@@ -144,7 +144,7 @@ class _FlowHost:
         self.bus = win._bus
 
     def plugins(self) -> list:
-        # The view first (it crops before the plugins see a frame), the colour pipeline after them
+        # The view and the colour pipeline run as plugins in their frame stages (FRAME_STAGES)
         return [self._win._view] + self._win._plugins + [self._win._colour]
 
     def plugin(self, name: str):
@@ -406,7 +406,7 @@ class TelescopeWindow(QMainWindow):
             if panel:
                 self._collapse.install(panel, plugin.name or type(plugin).__name__)
                 region = plugin.panel_region if plugin.panel_region in self._panels else "left"
-                self._panels[region].append(panel)
+                self._place_panel(region, panel, plugin)
                 # Forced: the mode hasn't changed, but the panel set has.
                 self._refresh_layout(force=True)
             header_widget = plugin.create_header_widget()
@@ -432,6 +432,20 @@ class TelescopeWindow(QMainWindow):
             self._shortcut_actions.extend(plugin.create_actions())
         except Exception:
             logging.exception("Plugin %s couldn't list its shortcut actions", plugin.name)
+
+    def _place_panel(self, region: str, panel, plugin: TelescopePlugin):
+        """Pinned cards at the top of a side column, then the others by group, each group in the order registered; the
+        stage's column keeps the order registered."""
+        panels = self._panels[region]
+        if region == "center":
+            panels.append(panel)
+            return
+        groups = [cid for cid, _name in PLUGIN_CATEGORIES]
+        group = groups.index(plugin.category) if plugin.category in groups else len(groups)
+        key = (0, 0) if plugin.pinned else (1, group)
+        self._panel_order[id(panel)] = key
+        at = next((i for i, p in enumerate(panels) if self._panel_order.get(id(p), (1, len(groups))) > key), len(panels))
+        panels.insert(at, panel)
 
     def _take_out(self, plugin: TelescopePlugin, panel, header_widget, tray: list):
         """Undo what register_plugin did for a plugin that failed part way (what it connected to the bus stays)."""
@@ -577,6 +591,7 @@ class TelescopeWindow(QMainWindow):
     def _build_ui(self):
         # Regions allow rearrangement on resize without plugin awareness.
         self._panels: dict[str, list[QWidget]] = {"left": [], "center": [], "right": []}
+        self._panel_order: dict = {}  # id(panel): (pinned or not, group), how _place_panel sorts the side columns
         self._layout_mode: Optional[str] = None
 
         root = QWidget()

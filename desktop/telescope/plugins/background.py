@@ -7,7 +7,8 @@ import numpy as np
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QButtonGroup, QFileDialog, QHBoxLayout, QPushButton, QWidget
 
-from telescope.pictures import cover, read_picture, shrink
+from telescope.config import clamped_int
+from telescope.pictures import compose, cover, read_picture, shrink, soften
 from telescope.plugin import TelescopePlugin
 from telescope.shortcuts import choice_action, slider_action
 from telescope.widgets.vision_status import VisionStatus
@@ -21,13 +22,6 @@ MODES = (("off", N_("Off")), ("blur", N_("Blur")), ("picture", N_("Picture")))
 _PICTURES = N_("Pictures (*.png *.jpg *.jpeg *.webp *.bmp)")
 _SMALL = 4  # edges are worked out at a quarter of the size, then scaled back up
 _BLUR_SMALL = 8  # and the blurred background at an eighth, since it's that blurry anyway
-
-
-def _clamp(value, default: int, lo: int, hi: int) -> int:
-    try:
-        return min(hi, max(lo, int(value)))
-    except (TypeError, ValueError):
-        return default
 
 
 def blurred(frame: np.ndarray, strength: int, mask: Optional[np.ndarray] = None) -> np.ndarray:
@@ -46,24 +40,6 @@ def blurred(frame: np.ndarray, strength: int, mask: Optional[np.ndarray] = None)
     weight = np.clip(spread * 4.0, 0.0, 1.0)[..., None]  # where there's next to no background, the plain blur
     out = total / np.maximum(spread, 1e-3)[..., None] * weight + plain * (1.0 - weight)
     return cv2.resize(out.clip(0, 255).astype(np.uint8), (w, h), interpolation=cv2.INTER_LINEAR)
-
-
-def soften(mask: np.ndarray, edges: int) -> np.ndarray:
-    """The person mask with its edge feathered (edges 0..10; 0 leaves it as the model drew it)."""
-    if edges <= 0:
-        return mask
-    h, w = mask.shape[:2]
-    small = cv2.resize(mask, (max(1, w // _SMALL), max(1, h // _SMALL)), interpolation=cv2.INTER_AREA)
-    small = cv2.GaussianBlur(small, (0, 0), edges * 0.6)
-    return cv2.resize(small, (w, h), interpolation=cv2.INTER_LINEAR)
-
-
-def compose(frame: np.ndarray, mask: np.ndarray, background: np.ndarray) -> np.ndarray:
-    """The person (mask 255) from frame over background, all uint8: two multiplies and an add."""
-    weight = cv2.merge((mask, mask, mask))
-    person = cv2.multiply(frame, weight, scale=1 / 255)
-    rest = cv2.multiply(background, cv2.bitwise_not(weight), scale=1 / 255)
-    return cv2.add(person, rest)
 
 
 class _Settings:
@@ -88,8 +64,9 @@ class BackgroundPlugin(TelescopePlugin):
     name = "background"
     title = N_("Background")
     about = N_("Blurs the background behind you or swaps it for a picture.")
-    category = "vision"
+    category = "look"
     icon = "image"
+    frame_stage = "background"
     when_off = N_("Without it there's no Background card and the background stays as the camera sees it.")
     optional = True
     needs_vision = True
@@ -109,7 +86,7 @@ class BackgroundPlugin(TelescopePlugin):
     def create_panel(self) -> QWidget:
         card = create_card()
         lay = card_layout(card)
-        add_card_header(lay, tr("Background"), "image", hue="vision")
+        add_card_header(lay, tr("Background"), self.icon, hue=self.category)
         dim_until_paired(card, self._bus)
 
         self._mode_btns = {}
@@ -257,8 +234,8 @@ class BackgroundPlugin(TelescopePlugin):
 
     def set_config(self, cfg: dict):
         mode = cfg.get("mode") if cfg.get("mode") in dict(MODES) else "off"
-        self._blur_slider.setValue(_clamp(cfg.get("blur"), 6, 1, 10))
-        self._edges_slider.setValue(_clamp(cfg.get("edges"), 3, 0, 10))
+        self._blur_slider.setValue(clamped_int(cfg.get("blur"), 6, 1, 10))
+        self._edges_slider.setValue(clamped_int(cfg.get("edges"), 3, 0, 10))
         picture = cfg.get("picture")
         self._load_picture(picture if isinstance(picture, str) else "")
         self._mode_btns[mode].setChecked(True)
