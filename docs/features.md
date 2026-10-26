@@ -45,11 +45,17 @@ Optional and it shares the vision download too. It moves the phone's metering po
 
 Picking a point on the preview or a focus mode on the Camera card takes over from it until you click **Follow my face** or switch it off and on. It also waits while focus is on Manual (moving the point would undo that) until you click **Follow my face**. The phone only meters on the point while exposure is automatic. With manual exposure the point sets the focus and nothing else. On a front camera that can't focus on a point it only meters there and leaves the focus alone. A few lenses can't do either.
 
+## Privacy blur
+
+Optional. It hides other people who walk into the picture, in one of three ways picked on its card. **Blur the others** blurs everyone but you, **Blur all but me** blurs the room as well and **Show the wait screen** puts the wait screen up in place of the whole picture. "You" is whoever has been in the picture longest when blurring starts. If you step out while it blurs, nobody else gets taken for you: they stay blurred until you come back to about where you were. Blurring starts once a second person has been found a couple of times in a row and only stops after there has been only one person (or nobody) for about five seconds. Someone walking past or the model losing track for a moment won't make it flicker.
+
+**Blur now** does the same by hand until you click it again and you can bind it to a key in Keyboard shortcuts. It works without the vision download too, in which case it blurs the whole picture since there's nobody to tell apart. Switching the card on for automatic blurring does need the download.
+
 Background and Auto framing work less while nothing in the picture moves. **Power-saving effects** under Video in Settings slows them down while you move too, which uses less of the processor and battery but follows quick moves a little later.
 
 ## The vision download
 
-Auto framing, Background and Expose for my face use MediaPipe to find people. MediaPipe and its two models don't come with Telescope since most people won't use them. The first time you switch one of them on Telescope asks and downloads them from its GitHub releases (about 47 MB on Linux and 28 MB on Windows). They share the download and **Remove download** on the Optional card deletes it again.
+Auto framing, Background, Expose for my face and Privacy blur use MediaPipe to find people. MediaPipe and its two models don't come with Telescope since most people won't use them. The first time you switch one of them on Telescope asks and downloads them from its GitHub releases (about 47 MB on Linux and 28 MB on Windows). They share the download and **Remove download** on the Optional card deletes it again.
 
 It only works on 64-bit Intel and AMD computers for now.
 
@@ -80,7 +86,9 @@ A phone that can't do Light switches to Heavy automatically.
 <details>
 <summary><b>UDP on Wi-Fi (experimental)</b></summary>
 
-Under the connection settings. It sends Light over UDP instead of TCP while the phone is on Wi-Fi. On a busy network a lost packet then only costs a resend of that one piece instead of holding up the whole stream, which can cut lag spikes. It's encrypted and if the video doesn't get through (usually a firewall) it goes back to TCP. It isn't used over USB, for Heavy or with Dynamic.
+Under the connection settings. It sends Light over UDP instead of TCP while the phone is on Wi-Fi. On a busy network a lost packet then only costs a resend of that one piece instead of holding up the whole stream, which can cut lag spikes. It's encrypted and if the video doesn't get through (usually a firewall) it goes back to TCP. It isn't used over USB or for Heavy.
+
+Dynamic works over UDP too. The computer tells the phone how many packets went missing and how long they took to arrive, which shows a thinning link earlier than waiting for video to pile up on the phone. If the phone app is older than the desktop app, Dynamic still runs over TCP.
 </details>
 
 ## Microphone
@@ -91,6 +99,7 @@ The phone's mic can be a microphone on your computer while you stream.
 - **Windows:** needs [VB-Audio Virtual Cable](https://vb-audio.com/Cable/) (free). The card's **Install VB-Cable** downloads and opens VB-Audio's setup for you (Windows asks for admin and VB-Audio asks for a restart). Afterwards pick **CABLE Output** as the microphone in other apps and switch the mic off and on again in Telescope
 - **Gain** goes from -24 to +12 dB (**Max gain** under Audio in Settings raises the top). The level meter turns yellow while the limiter is holding loud moments down and red when the sound clips. The limiter is on by default
 - **Auto level** (off by default) evens out quiet and loud speech and stops adjusting while nobody talks
+- **Noise reduction** (off by default) takes typing, fans and room hiss out of the mic with RNNoise running on your computer. It cleans up the same way for every phone and for a browser's mic, which helps most with phones whose own noise suppression is weak or missing. It adds about 20 ms of delay and switches in or out at the next pause in speech. With Discord, Zoom or a similar app turn off the app's own noise suppression while this is on (both at once can make voices sound thin). The level meter shows the mic as it arrives, before noise reduction
 - **Mute** sends silence without disconnecting. It's in the card and the tray menu and resets when Telescope restarts
 - **Mic only:** the camera button under the preview turns the phone's camera off while the mic stays on. Apps see the wait screen. Press it before starting and Start becomes **Start mic only**
 - The tray icon shows what's live: a red dot for the camera and a mic for the mic (crossed out when muted)
