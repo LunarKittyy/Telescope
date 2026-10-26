@@ -40,12 +40,17 @@ class FakeAuth:
     def __init__(self, refuse: int = 0):
         self.refuse = refuse
         self.opened: list = []  # (url, response)
+        self.pings: list = []  # keepalive urls
         self.lock = threading.Lock()
 
     def headers(self):
         return {"Authorization": "Bearer t"}
 
     def open(self, req, timeout=None):
+        if req.full_url.endswith("/alive"):
+            with self.lock:
+                self.pings.append(req.full_url)
+            return io.BytesIO(b'{"ok":true}')
         if self.refuse:
             raise urllib.error.HTTPError(req.full_url, self.refuse, "no", {}, io.BytesIO(b"{}"))
         resp = FakeResponse()
@@ -230,7 +235,73 @@ def test_unknown_kinds_are_ignored(hub):
 def test_a_line_only_changes_what_it_carries():
     reading = apply_line(SensorReading(), {"t": 1, "gravity": [0.1, 9.8, 0.2], "light": 30}, 5.0)
     assert reading.gravity == (0.1, 9.8, 0.2) and reading.light == 30.0 and reading.at == 5.0
+    assert reading.orientation_at == 0.0
     reading = apply_line(reading, {"t": 2, "orientation": {"roll": -4, "pitch": 2.5, "camera": "1"}}, 6.0)
     assert (reading.roll, reading.pitch, reading.camera, reading.light) == (-4.0, 2.5, "1", 30.0)
+    assert reading.orientation_at == 6.0
+    assert apply_line(reading, {"t": 3, "light": 31}, 7.0).orientation_at == 6.0
     assert apply_line(reading, {"t": 3}, 7.0) is reading  # a heartbeat
     assert apply_line(reading, {"orientation": {"roll": "x", "pitch": True}}, 8.0).roll is None
+
+
+def test_an_external_camera_is_its_own_reason(hub):
+    hub.want("level", ["orientation"])
+    hub.follow("phone", "https://p/v1", FakeAuth(), state={"sensors": ["accelerometer", "gravity", "light"]})
+    assert (hub.status().state, hub.status().reason) == ("unavailable", "camera")
+
+
+def test_it_tells_the_phone_it_is_still_there(hub):
+    auth = FakeAuth()
+    hub.want("level", ["orientation"])
+    hub.follow("phone", "https://p/v1", auth, state={"sensors": ALL})
+    assert wait_for(lambda: len(auth.live()) == 1)
+    auth.live()[0][1].send({"version": 1, "sensors": ["orientation"], "alive_ms": 300})
+    assert wait_for(lambda: len(auth.pings) >= 3, timeout=2.0)
+    assert auth.pings[0] == "https://p/v1/sensors/alive"
+    hub.want("level", [])
+    assert wait_for(lambda: auth.live() == [])
+    pings = len(auth.pings)
+    time.sleep(0.4)
+    assert len(auth.pings) <= pings + 1  # stops with the stream
+
+
+def test_letting_go_never_waits_for_a_read_in_progress(hub):
+    # A real HTTP response blocked in readline(): closing it would wait for the read's lock
+    import http.client
+    import socket as socket_module
+    server = socket_module.socket()
+    server.bind(("127.0.0.1", 0))
+    server.listen(1)
+    held = []
+
+    def serve():
+        conn, _ = server.accept()
+        held.append(conn)
+        conn.recv(4096)
+        conn.sendall(b"HTTP/1.1 200 OK\r\nContent-Type: application/x-ndjson\r\n\r\n"
+                     b'{"version": 1, "sensors": ["orientation"]}\n')
+    threading.Thread(target=serve, daemon=True).start()
+
+    class RealAuth(FakeAuth):
+        def open(self, req, timeout=None):
+            if req.full_url.endswith("/alive"):
+                return super().open(req, timeout)
+            conn = http.client.HTTPConnection("127.0.0.1", server.getsockname()[1], timeout=30)
+            conn.request("GET", "/v1/sensors?kinds=orientation")
+            resp = conn.getresponse()
+            with self.lock:
+                self.opened.append((req.full_url, resp))
+            return resp
+
+    hub.want("level", ["orientation"])
+    hub.follow("phone", "http://127.0.0.1/v1", RealAuth(), state={"sensors": ALL})
+    assert wait_for(lambda: hub.status().state == "on")
+    reader = hub._reader
+    time.sleep(0.1)  # in readline() now, waiting for a line that never comes
+    started = time.monotonic()
+    hub.want("level", [])
+    assert time.monotonic() - started < 0.3
+    assert wait_for(lambda: not reader._thread.is_alive(), timeout=2.0)
+    for conn in held:
+        conn.close()
+    server.close()

@@ -694,6 +694,54 @@ class MjpegServerTest {
     }
 
     @Test
+    fun `a computer that sends no keepalive loses its sensors even while every line still fits`() {
+        val quiet = FakeFeed(listOf(SensorKinds.LIGHT))
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t", "u") }, sensors = quiet,
+            sensorAliveMs = 700L)
+        server.start()
+        try {
+            val gone = openSensors(actualPort(server), "", "t")  // never asks anything again, never closes
+            val kept = openSensors(actualPort(server), "", "u")
+            val pinging = java.util.concurrent.atomic.AtomicBoolean(true)
+            val pinger = Thread {
+                while (pinging.get()) {
+                    runCatching { assertEquals(200, authGet(actualPort(server), "/v1/sensors/alive", "u").status) }
+                    Thread.sleep(150)
+                }
+            }.apply { start() }
+            val deadline = System.currentTimeMillis() + 5_000
+            while (quiet.running[SensorKinds.LIGHT] != 1 && System.currentTimeMillis() < deadline) Thread.sleep(20)
+            Thread.sleep(1_200)  // past the keepalive time
+            assertEquals(1, quiet.running[SensorKinds.LIGHT], "only the computer that keeps asking keeps the sensor")
+            pinging.set(false)
+            pinger.join(2_000)
+            val end = System.currentTimeMillis() + 5_000
+            while (quiet.running.isNotEmpty() && System.currentTimeMillis() < end) Thread.sleep(20)
+            assertTrue(quiet.running.isEmpty())
+            gone.close()
+            kept.close()
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `the keepalive needs the token and a phone with sensors`() {
+        val server = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") }, sensors = FakeFeed(SensorKinds.ALL))
+        val old = MjpegServer(0, { "{}" }, { "{}" }, "127.0.0.1", tokens = { listOf("t") })
+        server.start()
+        old.start()
+        try {
+            assertEquals(200, authGet(actualPort(server), "/v1/sensors/alive", "t").status)
+            assertEquals(401, authGet(actualPort(server), "/v1/sensors/alive", "x").status)
+            assertEquals(404, authGet(actualPort(old), "/v1/sensors/alive", "t").status)
+        } finally {
+            server.stop()
+            old.stop()
+        }
+    }
+
+    @Test
     fun `a computer that stops reading without closing loses its sensors`() {
         // Wide readings fill the socket buffers in moments, like seconds of normal ones would
         val feed = FakeFeed(listOf(SensorKinds.GRAVITY), width = 2_000)

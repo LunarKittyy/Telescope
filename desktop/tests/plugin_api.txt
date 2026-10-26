@@ -149,7 +149,7 @@ PreviewLayer.analyse_fps = 0.0
 PreviewLayer.order = 0
 PreviewLayer.paint(self, painter, rect)
 PreviewLayer.tint(self, frame)
-SensorReading(at=0.0, roll=None, pitch=None, camera='', accelerometer=None, gyroscope=None, magnetometer=None, gravity=None, rotation=None, light=None)
+SensorReading(at=0.0, roll=None, pitch=None, camera='', orientation_at=0.0, accelerometer=None, gyroscope=None, magnetometer=None, gravity=None, rotation=None, light=None)
 SensorReading.accelerometer = None
 SensorReading.at = 0.0
 SensorReading.camera = ''
@@ -157,6 +157,7 @@ SensorReading.gravity = None
 SensorReading.gyroscope = None
 SensorReading.light = None
 SensorReading.magnetometer = None
+SensorReading.orientation_at = 0.0
 SensorReading.pitch = None
 SensorReading.roll = None
 SensorReading.rotation = None

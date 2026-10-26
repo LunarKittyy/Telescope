@@ -836,6 +836,7 @@
     "[\"\", \"The latest nightly build is {version}.\"]",
     "[\"\", \"The latest stable build is {version}.\"]",
     "[\"\", \"The level needs a phone's motion sensors.\"]",
+    "[\"\", \"The level works with the phone's own cameras, not an external one.\"]",
     "[\"\", \"The live picture in the middle of the window, and the camera on/off button under it.\"]",
     "[\"\", \"The name your phones show for this computer\"]",
     "[\"\", \"The phone already has a newer Telescope app.\"]",
@@ -4976,6 +4977,26 @@
       "[\"\", \"Show the horizon from the phone's motion sensors\"]",
       "[\"\", \"Stripe what's about to clip to white\"]",
       "[\"\", \"This phone has no motion sensor for the level.\"]",
+      "[\"\", \"Vectorscope\"]",
+      "[\"\", \"Waveform\"]",
+      "[\"\", \"Zebras\"]"
+    ],
+    "cinema-level-camera": [
+      "[\"\", \"Cinema tools\"]",
+      "[\"\", \"Colour the picture by how bright it is\"]",
+      "[\"\", \"Expanded. Press Space or Enter to collapse.\"]",
+      "[\"\", \"False colour\"]",
+      "[\"\", \"Focus peaking\"]",
+      "[\"\", \"Histogram\"]",
+      "[\"\", \"Level\"]",
+      "[\"\", \"Off\"]",
+      "[\"\", \"Only on the preview. Apps never see these.\"]",
+      "[\"\", \"Outline what's sharp\"]",
+      "[\"\", \"RGB parade\"]",
+      "[\"\", \"Scope\"]",
+      "[\"\", \"Show the horizon from the phone's motion sensors\"]",
+      "[\"\", \"Stripe what's about to clip to white\"]",
+      "[\"\", \"The level works with the phone's own cameras, not an external one.\"]",
       "[\"\", \"Vectorscope\"]",
       "[\"\", \"Waveform\"]",
       "[\"\", \"Zebras\"]"
@@ -31749,6 +31770,7 @@
     "cinema-level-not-phone": 444,
     "cinema-level-old-phone": 444,
     "cinema-level-none": 444,
+    "cinema-level-camera": 444,
     "cinema-level-failed": 444,
     "browser-waiting": 444,
     "browser-hint-certificate": 444,
@@ -32241,5 +32263,5 @@
     "messages-audio-1": 620,
     "messages-search-1": 620
   },
-  "total": 1290
+  "total": 1291
 }

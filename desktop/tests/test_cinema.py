@@ -276,14 +276,17 @@ def test_readings_reach_the_layer_as_shown(cinema):
     plugin, host = cinema
     plugin._level_switch.setChecked(True)
     host.shown_view = View(flip_h=True)
-    host.reading = SensorReading(at=1.0, roll=6.0, pitch=-3.0, camera="0")
+    host.reading = SensorReading(at=1.0, roll=6.0, pitch=-3.0, camera="0", orientation_at=1.0)
     plugin._on_sensors("phone")
-    level, _at = plugin._layer.level
-    assert (level.roll, level.pitch, level.roll_level) == (-6.0, -3.0, False)
+    level, at = plugin._layer.level
+    assert (level.roll, level.pitch, level.roll_level, at) == (-6.0, -3.0, False, 1.0)
     refreshes = host.refreshes
-    host.reading = SensorReading(at=1.01, roll=6.0, pitch=-3.0, camera="0")
+    host.reading = SensorReading(at=1.01, roll=6.0, pitch=-3.0, camera="0", orientation_at=1.01)
     plugin._on_sensors("phone")
     assert host.refreshes == refreshes  # nothing new to draw
+    host.reading = SensorReading(at=5.0, roll=6.0, pitch=-3.0, camera="0", light=20.0, orientation_at=1.01)
+    plugin._on_sensors("phone")
+    assert plugin._layer.level[1] == 1.01  # light alone doesn't keep a frozen horizon fresh
     plugin._on_sensors("another phone")  # not the shown stream
     host.reading = None
     plugin._on_sensors("phone")
@@ -315,8 +318,29 @@ def test_the_sensors_stop_while_nothing_draws_the_guide(cinema, monkeypatch):
     now[0] += 3.0  # the preview hid, or the window went to the tray: no paints
     plugin._check_seen()
     assert host.wanted["cinema"] == []
+    plugin._zebras_switch.setChecked(True)  # another tool changing doesn't ask the phone while the guide is unseen
+    assert host.wanted["cinema"] == []
     plugin._layer.painted_at = now[0]  # drawn again
     plugin._check_seen()
     assert host.wanted["cinema"] == ["orientation"]
     plugin._level_switch.setChecked(False)
     assert host.wanted["cinema"] == [] and not plugin._seen_timer.isActive()
+
+
+def test_a_frozen_horizon_isnt_drawn(cinema, monkeypatch):
+    from PyQt6.QtCore import QRectF
+    from PyQt6.QtGui import QImage, QPainter
+    from telescope.plugins import cinema as cinema_module
+    plugin, host = cinema
+    plugin._level_switch.setChecked(True)
+    host.reading = SensorReading(at=10.0, roll=3.0, pitch=0.0, orientation_at=10.0)
+    plugin._on_sensors("phone")
+    drawn = []
+    monkeypatch.setattr(cinema_module, "paint_level", lambda *a: drawn.append(a))
+    image = QImage(64, 36, QImage.Format.Format_ARGB32)
+    for now in (10.5, 12.0):
+        monkeypatch.setattr(cinema_module.time, "monotonic", lambda now=now: now)
+        p = QPainter(image)
+        plugin._layer.paint(p, QRectF(0, 0, 64, 36))
+        p.end()
+    assert len(drawn) == 1  # at 12 s the newest roll is 2 s old

@@ -44,6 +44,7 @@ LEVEL_PROBLEMS = {
     "not_phone": N_("The level needs a phone's motion sensors."),
     "old_phone": N_("Update Telescope on the phone to use the level."),
     "none": N_("This phone has no motion sensor for the level."),
+    "camera": N_("The level works with the phone's own cameras, not an external one."),
     "failed": N_("Can't reach the phone's motion sensors."),
 }
 
@@ -215,7 +216,7 @@ class CinemaLayer(PreviewLayer):
         self.look = Look()
         self._phase = 0
         self._scope: Optional[tuple] = None  # (name, QImage) last worked out
-        self.level: Optional[tuple] = None  # (Level, time.monotonic() it came) for the level guide
+        self.level: Optional[tuple] = None  # (Level, time.monotonic() its reading came) for the level guide
         self.painted_at = 0.0  # time.monotonic() the preview last drew this layer
 
     @property
@@ -510,7 +511,7 @@ class CinemaPlugin(TelescopePlugin):
             self._seen_timer.start()
         elif not look.level:
             self._seen_timer.stop()
-        self._want_sensors(look.level)
+        self._want_sensors(look.level and self._seen())
         self._host.refresh_preview()
 
     # ── Level guide ───────────────────────────────────────────────────────
@@ -525,8 +526,12 @@ class CinemaPlugin(TelescopePlugin):
             self._layer.level = None
         self._show_level_status()
 
+    def _seen(self) -> bool:
+        """Whether the preview drew the guide lately."""
+        return time.monotonic() - self._layer.painted_at < _LEVEL_UNSEEN_S
+
     def _check_seen(self):
-        self._want_sensors(self._layer.look.level and time.monotonic() - self._layer.painted_at < _LEVEL_UNSEEN_S)
+        self._want_sensors(self._layer.look.level and self._seen())
 
     def _on_sensors(self, source_id: str):
         if not self._wants_sensors or source_id != self._host.focused_source_id():
@@ -539,10 +544,12 @@ class CinemaPlugin(TelescopePlugin):
                 self._layer.level = None
                 self._host.refresh_preview()
             return
-        roll = shown_roll(reading.roll, self._host.view()) if reading.roll is not None else None
-        level = self._level_filter.update(roll, reading.pitch, reading.at)
         old = self._layer.level
-        self._layer.level = (level, time.monotonic()) if level is not None else None
+        if old is not None and reading.orientation_at <= old[1]:
+            return  # a heartbeat or another kind: nothing new about the horizon, so it can still go stale
+        roll = shown_roll(reading.roll, self._host.view()) if reading.roll is not None else None
+        level = self._level_filter.update(roll, reading.pitch, reading.orientation_at)
+        self._layer.level = (level, reading.orientation_at) if level is not None else None
         # Painted again only when what's drawn changes, at the tenth of a degree it shows
         if old is None or level is None or _drawn(old[0]) != _drawn(level):
             self._host.refresh_preview()

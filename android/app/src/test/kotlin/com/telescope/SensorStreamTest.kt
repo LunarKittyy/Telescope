@@ -102,11 +102,12 @@ class SensorStreamTest {
 
     @Test
     fun `hello line names the version and what's streamed`() {
-        val hello = SensorWire.hello(listOf("orientation", "light"))
+        val hello = SensorWire.hello(listOf("orientation", "light"), 15_000L)
         assertTrue(hello.endsWith("\n"))
         val json = Json.parseToJsonElement(hello).jsonObject
         assertEquals(1L, json.getValue("version").jsonPrimitive.long)
         assertEquals(listOf("orientation", "light"), json.getValue("sensors").jsonArray.map { it.jsonPrimitive.content })
+        assertEquals(15_000L, json.getValue("alive_ms").jsonPrimitive.long)
     }
 
     @Test

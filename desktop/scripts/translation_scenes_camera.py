@@ -613,7 +613,8 @@ def level_problem_scene(reason, title):
 
 
 for _reason, _title in (("not_phone", "not a phone"), ("old_phone", "an older phone app"),
-                        ("none", "no motion sensor"), ("failed", "the sensors can't be reached")):
+                        ("none", "no motion sensor"), ("camera", "an external camera"),
+                        ("failed", "the sensors can't be reached")):
     level_problem_scene(_reason, _title)
 
 
