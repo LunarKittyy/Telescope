@@ -25,7 +25,7 @@ msgstr "Telefonen blev för varm och sänkte bildfrekvensen till {fps} fps tills
 msgid "Lost the phone - reconnecting"
 msgstr "Tappade kontakten med telefonen - återansluter"
 
-#: telescope/app.py:159 telescope/plugins/browser_camera.py:566 telescope/plugins/connection.py:1091 telescope/plugins/connection.py:1135 telescope/plugins/connection.py:1291 telescope/plugins/connection.py:1327 telescope/plugins/onboarding.py:271 telescope/plugins/setup.py:808 telescope/plugins/updates.py:107 telescope/sources.py:877 telescope/widgets/vaapi_setup.py:300
+#: telescope/app.py:159 telescope/plugins/browser_camera.py:566 telescope/plugins/connection.py:1091 telescope/plugins/connection.py:1135 telescope/plugins/connection.py:1291 telescope/plugins/connection.py:1327 telescope/plugins/onboarding.py:271 telescope/plugins/setup.py:808 telescope/plugins/updates.py:108 telescope/sources.py:877 telescope/widgets/vaapi_setup.py:300
 msgid "Try again"
 msgstr "Försök igen"
 
@@ -88,7 +88,7 @@ msgstr "Dina inställningar kunde inte läsas"
 msgid "Telescope started with its defaults, so paired phones need pairing again."
 msgstr "Telescope startade med standardinställningarna, så parkopplade telefoner måste parkopplas igen."
 
-#: telescope/app.py:574 telescope/app.py:575 telescope/widgets/settings_window.py:137
+#: telescope/app.py:574 telescope/app.py:575 telescope/plugins/on_air.py:183 telescope/widgets/settings_window.py:140
 msgid "Settings"
 msgstr "Inställningar"
 
@@ -370,22 +370,22 @@ msgstr "Telefonen nekade mikrofonen (HTTP {code})."
 msgid "Waiting for the browser. Scan the code on the Browser camera card and tap Start."
 msgstr "Väntar på webbläsaren. Skanna koden på kortet Webbläsarkamera och tryck på Start."
 
-#: telescope/browser_server.py:900
+#: telescope/browser_server.py:905
 msgid "This computer couldn't set up the video connection."
 msgstr "Den här datorn kunde inte upprätta videoanslutningen."
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: telescope/i18n.py:137
+#: telescope/i18n.py:139
 msgid ", "
 msgstr ", "
 
 #. the end of a list, as in "Camera, Microphone and Preview"
-#: telescope/i18n.py:139
+#: telescope/i18n.py:141
 #, python-brace-format
 msgid "{items} and {last}"
 msgstr "{items} och {last}"
 
-#: telescope/i18n.py:159
+#: telescope/i18n.py:161
 #, python-brace-format
 msgctxt "percentage"
 msgid "{n}%"
@@ -970,7 +970,7 @@ msgid "The browser is lowering the picture to fit the connection or the bitrate 
 msgstr "Webbläsaren sänker bildkvaliteten för att passa anslutningen eller bithastigheten för den här upplösningen."
 
 #. Show Details, visit this website, Advanced and Proceed are what Safari and Chrome call their buttons: use the names those browsers show in your language
-#: telescope/plugins/browser_camera.py:51
+#: telescope/plugins/browser_camera.py:51 telescope/plugins/on_air.py:44
 msgid "The browser warns that the connection isn't private: it's this computer's own certificate. On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed."
 msgstr "Webbläsaren varnar för att anslutningen inte är privat: det är den här datorns eget certifikat. På iPhone trycker du på Visa detaljer och sedan på besök den här webbplatsen. I Chrome trycker du på Avancerat och sedan på Fortsätt."
 
@@ -1008,7 +1008,7 @@ msgstr "Strömma från webbläsaren på vilken enhet som helst, genom att skanna
 msgid "Without it Browser camera isn't in the phone picker and its card is gone too."
 msgstr "Utan det finns Webbläsarkamera inte i telefonväljaren, och kortet försvinner också."
 
-#: telescope/plugins/browser_camera.py:212
+#: telescope/plugins/browser_camera.py:212 telescope/plugins/on_air.py:361
 msgid "New link"
 msgstr "Ny länk"
 
@@ -1016,7 +1016,7 @@ msgstr "Ny länk"
 msgid "Make a new code; the old one stops working"
 msgstr "Skapa en ny kod; den gamla slutar fungera"
 
-#: telescope/plugins/browser_camera.py:237
+#: telescope/plugins/browser_camera.py:237 telescope/plugins/on_air.py:375
 msgid "Scan"
 msgstr "Skanna"
 
@@ -1024,19 +1024,19 @@ msgstr "Skanna"
 msgid "Which of this computer's addresses the code points to"
 msgstr "Vilken av den här datorns adresser som koden pekar på"
 
-#: telescope/plugins/browser_camera.py:243
+#: telescope/plugins/browser_camera.py:243 telescope/plugins/on_air.py:380 telescope/plugins/on_air.py:408
 msgid "Address"
 msgstr "Adress"
 
-#: telescope/plugins/browser_camera.py:250 telescope/widgets/controls.py:490 telescope/widgets/vaapi_setup.py:79
+#: telescope/plugins/browser_camera.py:250 telescope/plugins/on_air.py:386 telescope/widgets/controls.py:490 telescope/widgets/vaapi_setup.py:79
 msgid "Copy"
 msgstr "Kopiera"
 
-#: telescope/plugins/browser_camera.py:251
+#: telescope/plugins/browser_camera.py:251 telescope/plugins/on_air.py:387
 msgid "Copy the link, to open it on a device that can't scan the code"
 msgstr "Kopiera länken för att öppna den på en enhet som inte kan skanna koden"
 
-#: telescope/plugins/browser_camera.py:255
+#: telescope/plugins/browser_camera.py:255 telescope/plugins/on_air.py:391
 msgid "Link"
 msgstr "Länk"
 
@@ -1065,7 +1065,7 @@ msgstr "{n} anslutna"
 msgid "Waiting for a browser"
 msgstr "Väntar på en webbläsare"
 
-#: telescope/plugins/browser_camera.py:318 telescope/plugins/shortcuts.py:184 telescope/plugins/shortcuts.py:188 telescope/shortcuts.py:284 telescope/shortcuts.py:306 telescope/shortcuts.py:344 telescope/shortcuts.py:345 telescope/shortcuts.py:414 telescope/shortcuts.py:504 telescope/shortcuts.py:506 telescope/shortcuts.py:520 telescope/shortcuts.py:521 telescope/widgets/common.py:931
+#: telescope/plugins/browser_camera.py:318 telescope/plugins/shortcuts.py:184 telescope/plugins/shortcuts.py:188 telescope/shortcuts.py:284 telescope/shortcuts.py:306 telescope/shortcuts.py:344 telescope/shortcuts.py:345 telescope/shortcuts.py:414 telescope/shortcuts.py:504 telescope/shortcuts.py:506 telescope/shortcuts.py:520 telescope/shortcuts.py:521 telescope/widgets/common.py:1000
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -1091,7 +1091,7 @@ msgstr "Enhetens webbläsare kan inte skicka snabbare."
 msgid "Can't keep up"
 msgstr "Hinner inte med"
 
-#: telescope/plugins/browser_camera.py:512
+#: telescope/plugins/browser_camera.py:512 telescope/plugins/on_air.py:202
 msgid "Needs the cryptography package: pip install cryptography"
 msgstr "Behöver paketet cryptography: pip install cryptography"
 
@@ -1099,7 +1099,7 @@ msgstr "Behöver paketet cryptography: pip install cryptography"
 msgid "Needs the aiortc package: pip install --no-deps -r requirements-nodeps.txt"
 msgstr "Behöver paketet aiortc: pip install --no-deps -r requirements-nodeps.txt"
 
-#: telescope/plugins/browser_camera.py:525
+#: telescope/plugins/browser_camera.py:525 telescope/plugins/on_air.py:211
 #, python-brace-format
 msgid "Couldn't start: {error}"
 msgstr "Kunde inte starta: {error}"
@@ -1426,7 +1426,7 @@ msgstr "Telefonen strömmar till en annan dator."
 msgid "Stop it there or on the phone, then try again."
 msgstr "Stoppa strömningen där eller på telefonen och försök sedan igen."
 
-#: telescope/plugins/connection.py:115 telescope/plugins/onboarding.py:146 telescope/plugins/updates.py:231
+#: telescope/plugins/connection.py:115 telescope/plugins/onboarding.py:146 telescope/plugins/updates.py:232
 msgid "Checking…"
 msgstr "Kontrollerar…"
 
@@ -2503,6 +2503,163 @@ msgstr "Strömningen stoppades för att låta den svalna, eftersom Övervakning 
 #: telescope/plugins/monitoring.py:337
 msgid "Start anyway"
 msgstr "Starta ändå"
+
+#: telescope/plugins/on_air.py:36
+msgid "An app is using the camera"
+msgstr ""
+
+#: telescope/plugins/on_air.py:37
+msgid "An app is using the camera or the mic is live"
+msgstr ""
+
+#: telescope/plugins/on_air.py:38
+msgid "Telescope's mic is live"
+msgstr ""
+
+#: telescope/plugins/on_air.py:39
+msgid "Telescope is streaming"
+msgstr ""
+
+#: telescope/plugins/on_air.py:55 telescope/plugins/on_air.py:343
+msgid "On Air sign"
+msgstr ""
+
+#: telescope/plugins/on_air.py:56
+msgid "Shows the people around you that you're on a call, on another device's screen or through a smart home light."
+msgstr ""
+
+#: telescope/plugins/on_air.py:58
+msgid "Without it there's no On Air tab in Settings and no sign or webhook."
+msgstr ""
+
+#: telescope/plugins/on_air.py:143 telescope/plugins/on_air.py:278 telescope/plugins/on_air.py:450
+msgid "On air"
+msgstr ""
+
+#: telescope/plugins/on_air.py:143 telescope/plugins/on_air.py:450
+msgid "Off air"
+msgstr ""
+
+#: telescope/plugins/on_air.py:144 telescope/plugins/on_air.py:288
+msgid "On Air"
+msgstr ""
+
+#: telescope/plugins/on_air.py:167
+msgid "Enter an address starting with http:// or https:// first."
+msgstr ""
+
+#: telescope/plugins/on_air.py:170
+msgid "Sending…"
+msgstr ""
+
+#: telescope/plugins/on_air.py:182
+msgid "The On Air webhook didn't go through"
+msgstr ""
+
+#: telescope/plugins/on_air.py:182
+#, python-brace-format
+msgid "It answered: {error}"
+msgstr ""
+
+#: telescope/plugins/on_air.py:185
+msgid "It went through."
+msgstr ""
+
+#: telescope/plugins/on_air.py:186
+#, python-brace-format
+msgid "It didn't go through: {error}"
+msgstr ""
+
+#: telescope/plugins/on_air.py:280
+msgid "Open the On Air settings"
+msgstr ""
+
+#: telescope/plugins/on_air.py:289
+msgctxt "search"
+msgid "on air sign busy light call meeting do not disturb webhook home assistant smart home"
+msgstr ""
+
+#: telescope/plugins/on_air.py:344
+msgid "Lets the people around you know you're on a call. Show it on a tablet by the door, switch a smart light with the webhook, or both."
+msgstr ""
+
+#: telescope/plugins/on_air.py:347
+msgid "Now"
+msgstr ""
+
+#: telescope/plugins/on_air.py:353
+msgid "The mic counts while it streams and isn't muted"
+msgstr ""
+
+#: telescope/plugins/on_air.py:356
+msgid "On air when"
+msgstr ""
+
+#: telescope/plugins/on_air.py:361
+msgid "Make a new link; the old one stops working"
+msgstr ""
+
+#: telescope/plugins/on_air.py:363
+msgid "Sign on another device"
+msgstr ""
+
+#: telescope/plugins/on_air.py:364
+msgctxt "search"
+msgid "tablet phone screen page link qr code"
+msgstr ""
+
+#: telescope/plugins/on_air.py:365
+msgid "Show the sign on a web page"
+msgstr ""
+
+#: telescope/plugins/on_air.py:378
+msgid "Which of this computer's addresses the link points to"
+msgstr ""
+
+#: telescope/plugins/on_air.py:393
+msgid "Open the link in a browser on any device on the same network and tap the page to make it full screen. The link stays the same after Telescope restarts."
+msgstr ""
+
+#: telescope/plugins/on_air.py:401
+msgid "Webhook"
+msgstr ""
+
+#: telescope/plugins/on_air.py:402
+msgctxt "search"
+msgid "smart home light home assistant url http request automation"
+msgstr ""
+
+#: telescope/plugins/on_air.py:403
+msgid "Sends a request each time you go on or off air, for a smart home hub or anything else that takes one."
+msgstr ""
+
+#: telescope/plugins/on_air.py:418
+msgid "Method"
+msgstr ""
+
+#: telescope/plugins/on_air.py:421 telescope/plugins/on_air.py:425
+msgid "POST sends it as the body, GET adds it to the address"
+msgstr ""
+
+#: telescope/plugins/on_air.py:422
+msgid "Going on air"
+msgstr ""
+
+#: telescope/plugins/on_air.py:426
+msgid "Going off air"
+msgstr ""
+
+#: telescope/plugins/on_air.py:427
+msgid "Test on"
+msgstr ""
+
+#: telescope/plugins/on_air.py:427
+msgid "Test off"
+msgstr ""
+
+#: telescope/plugins/on_air.py:444
+msgid "The address has to start with http:// or https://"
+msgstr ""
 
 #: telescope/plugins/onboarding.py:31
 msgid "Install the v4l2loopback package. Fedora and Nobara: v4l2loopback (from RPM Fusion). Debian, Ubuntu and Arch: v4l2loopback-dkms."
@@ -3741,7 +3898,7 @@ msgstr "När ingen app använder kameran, även om jag startade den"
 msgid "{n} min"
 msgstr "{n} min"
 
-#: telescope/plugins/startup.py:57 telescope/widgets/common.py:1007
+#: telescope/plugins/startup.py:57 telescope/widgets/common.py:1076
 #, python-brace-format
 msgid "{n} s"
 msgstr "{n} s"
@@ -4242,105 +4399,105 @@ msgctxt "search"
 msgid "portable keep this copy where it is zip folder in place windows"
 msgstr "portabel behåll den här kopian där den är zip mapp på plats windows portable folder"
 
-#: telescope/plugins/updates.py:99 telescope/plugins/updates.py:137
+#: telescope/plugins/updates.py:100 telescope/plugins/updates.py:138
 msgid "Update and restart"
 msgstr "Uppdatera och starta om"
 
-#: telescope/plugins/updates.py:102
+#: telescope/plugins/updates.py:103
 msgid "What's new"
 msgstr "Nyheter"
 
-#: telescope/plugins/updates.py:137
+#: telescope/plugins/updates.py:138
 msgid "Open download page"
 msgstr "Öppna nedladdningssidan"
 
-#: telescope/plugins/updates.py:143
+#: telescope/plugins/updates.py:144
 msgid "Updates"
 msgstr "Uppdateringar"
 
-#: telescope/plugins/updates.py:144
+#: telescope/plugins/updates.py:145
 msgid "Checking for new versions of Telescope and installing them."
 msgstr "Söker efter nya versioner av Telescope och installerar dem."
 
-#: telescope/plugins/updates.py:187
+#: telescope/plugins/updates.py:188
 msgid "Update"
 msgstr "Uppdatera"
 
-#: telescope/plugins/updates.py:209
+#: telescope/plugins/updates.py:210
 #, python-brace-format
 msgid "Telescope {version} is available"
 msgstr "Telescope {version} är tillgänglig"
 
-#: telescope/plugins/updates.py:224
+#: telescope/plugins/updates.py:225
 #, python-brace-format
 msgid "Downloading {percent}%…"
 msgstr "Laddar ner {percent} %…"
 
-#: telescope/plugins/updates.py:225 telescope/widgets/plugins_panel.py:230 telescope/widgets/vision_status.py:47
+#: telescope/plugins/updates.py:226 telescope/widgets/plugins_panel.py:230 telescope/widgets/vision_status.py:47
 msgid "Downloading…"
 msgstr "Laddar ner…"
 
-#: telescope/plugins/updates.py:227
+#: telescope/plugins/updates.py:228
 msgid "Installing…"
 msgstr "Installerar…"
 
-#: telescope/plugins/updates.py:229
+#: telescope/plugins/updates.py:230
 msgid "Updated. Telescope restarts when you stop streaming."
 msgstr "Uppdaterat. Telescope startar om när du slutar strömma."
 
-#: telescope/plugins/updates.py:236
+#: telescope/plugins/updates.py:237
 #, python-brace-format
 msgid "Telescope {version} is available."
 msgstr "Telescope {version} är tillgänglig."
 
-#: telescope/plugins/updates.py:238
+#: telescope/plugins/updates.py:239
 msgid "Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and phones come along."
 msgstr "När du uppdaterar installeras det också för din användare, med en genväg i Start-menyn, och den här uppackade kopian tas bort. Inställningar och telefoner följer med."
 
-#: telescope/plugins/updates.py:243
+#: telescope/plugins/updates.py:244
 msgid "Stop streaming to update."
 msgstr "Stoppa strömningen för att uppdatera."
 
-#: telescope/plugins/updates.py:248
+#: telescope/plugins/updates.py:249
 #, python-brace-format
 msgid "Telescope {version} didn't start after updating, so it's held back. Try again?"
 msgstr "Telescope {version} startade inte efter uppdateringen, så den hålls tillbaka. Vill du försöka igen?"
 
-#: telescope/plugins/updates.py:252
+#: telescope/plugins/updates.py:253
 msgid "This is a source checkout, so it doesn't update itself."
 msgstr "Det här körs från källkoden, så det uppdaterar inte sig självt."
 
-#: telescope/plugins/updates.py:254
+#: telescope/plugins/updates.py:255
 #, python-brace-format
 msgid "The latest nightly build is {version}."
 msgstr "Det senaste Nightly-bygget är {version}."
 
-#: telescope/plugins/updates.py:256
+#: telescope/plugins/updates.py:257
 #, python-brace-format
 msgid "The latest stable build is {version}."
 msgstr "Det senaste stabila bygget är {version}."
 
-#: telescope/plugins/updates.py:259
+#: telescope/plugins/updates.py:260
 msgid "There's no nightly release yet."
 msgstr "Det finns ingen Nightly-utgåva än."
 
-#: telescope/plugins/updates.py:259
+#: telescope/plugins/updates.py:260
 msgid "There's no stable release yet."
 msgstr "Det finns ingen stabil utgåva än."
 
-#: telescope/plugins/updates.py:261
+#: telescope/plugins/updates.py:262
 msgid "You have the latest version."
 msgstr "Du har den senaste versionen."
 
-#: telescope/plugins/updates.py:345
+#: telescope/plugins/updates.py:346
 msgid "Couldn't check for updates."
 msgstr "Kunde inte söka efter uppdateringar."
 
-#: telescope/plugins/updates.py:417
+#: telescope/plugins/updates.py:418
 msgid "The update failed."
 msgstr "Uppdateringen misslyckades."
 
-#: telescope/plugins/updates.py:466
+#: telescope/plugins/updates.py:467
 msgid "Updated. Close and reopen Telescope to finish."
 msgstr "Uppdaterat. Stäng och öppna Telescope igen för att slutföra."
 
@@ -4686,12 +4843,12 @@ msgstr "Starta igen när du är redo."
 msgid "The camera didn't turn back on"
 msgstr "Kameran slogs inte på igen"
 
-#: telescope/splash.py:50
+#: telescope/splash.py:52
 msgid "Starting Telescope…"
 msgstr "Startar Telescope…"
 
 #. added under "Starting Telescope…" while the app starts on Windows. The scan is Windows checking new program files
-#: telescope/splash.py:52
+#: telescope/splash.py:54
 msgid "This can take a minute while Windows runs a security scan."
 msgstr "Det kan ta en minut medan Windows gör en säkerhetskontroll."
 
@@ -4899,27 +5056,27 @@ msgstr "Hopfälld. Tryck på Blanksteg eller Enter för att fälla ut."
 msgid "Expanded. Press Space or Enter to collapse."
 msgstr "Utfälld. Tryck på Blanksteg eller Enter för att fälla ihop."
 
-#: telescope/widgets/common.py:1013
+#: telescope/widgets/common.py:1082
 #, python-brace-format
 msgid "{q}%: High"
 msgstr "{q} %: Hög"
 
-#: telescope/widgets/common.py:1014
+#: telescope/widgets/common.py:1083
 #, python-brace-format
 msgid "{q}%: Balanced"
 msgstr "{q} %: Balanserad"
 
-#: telescope/widgets/common.py:1015
+#: telescope/widgets/common.py:1084
 #, python-brace-format
 msgid "{q}%: Low"
 msgstr "{q} %: Låg"
 
-#: telescope/widgets/common.py:1016
+#: telescope/widgets/common.py:1085
 #, python-brace-format
 msgid "{q}%: Very low"
 msgstr "{q} %: Mycket låg"
 
-#: telescope/widgets/common.py:1141
+#: telescope/widgets/common.py:1219
 msgid "Double-click to reset"
 msgstr "Dubbelklicka för att återställa"
 
@@ -5254,23 +5411,23 @@ msgstr "Telescope kunde inte starta en ny instans av sig självt. Stäng det och
 msgid "Tab"
 msgstr "Flik"
 
-#: telescope/widgets/settings_window.py:151 telescope/widgets/settings_window.py:152
+#: telescope/widgets/settings_window.py:154 telescope/widgets/settings_window.py:155
 msgid "Search settings"
 msgstr "Sök i inställningar"
 
-#: telescope/widgets/settings_window.py:162
+#: telescope/widgets/settings_window.py:165
 msgid "Settings tabs"
 msgstr "Inställningsflikar"
 
-#: telescope/widgets/settings_window.py:192
+#: telescope/widgets/settings_window.py:198
 msgid "Nothing matches every word. These match some of them."
 msgstr "Inget matchar alla ord. De här matchar några av dem."
 
-#: telescope/widgets/settings_window.py:196 telescope/widgets/settings_window.py:287
+#: telescope/widgets/settings_window.py:202 telescope/widgets/settings_window.py:293
 msgid "Search results"
 msgstr "Sökresultat"
 
-#: telescope/widgets/settings_window.py:285
+#: telescope/widgets/settings_window.py:291
 #, python-brace-format
 msgid "Nothing matches “{text}”. Try fewer words, or say what it does (resolution, microphone, startup)."
 msgstr "Inget matchar “{text}”. Prova med färre ord eller beskriv vad det gör (upplösning, mikrofon, start)."

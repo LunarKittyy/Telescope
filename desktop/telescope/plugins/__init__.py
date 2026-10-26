@@ -12,6 +12,7 @@ def builtin_plugins() -> list:
     from telescope.plugins.framing import FramingPlugin
     from telescope.plugins.microphone import MicrophonePlugin
     from telescope.plugins.monitoring import MonitoringPlugin
+    from telescope.plugins.on_air import OnAirPlugin
     from telescope.plugins.onboarding import OnboardingPlugin
     from telescope.plugins.presets import PresetsPlugin
     from telescope.plugins.preview import PreviewPlugin
@@ -39,6 +40,7 @@ def builtin_plugins() -> list:
         MonitoringPlugin(),
         UpdatesPlugin(),
         WaitScreenPlugin(),
+        OnAirPlugin(),  # optional: off until switched on in Plugins
         ShortcutsPlugin(),
         StartupPlugin(),
     ]

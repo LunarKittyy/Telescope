@@ -155,6 +155,14 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Android in Chrome and a second computer's browser: the same. Resolution and Frame rate on the card change what arrives. New link drops the browser and the old code stops working. Opening the link in a second tab takes over from the first.
 - [ ] Windows: the firewall prompt (or a rule) lets port 8767 through and picking a phone again stops the server.
 
+### On Air sign
+
+<!-- due: desktop/telescope/on_air.py desktop/telescope/plugins/on_air.py desktop/telescope/browser_server.py desktop/telescope/web/** ; packages: cryptography -->
+
+- [ ] With On Air sign switched on, a tablet or phone opens the sign from its code, taps through the certificate warning and goes full screen with the screen staying on. Joining a call turns it red within about a second and leaving turns it back about six seconds later.
+- [ ] A webhook to Home Assistant (or any hub) switches a light on and off with the default POST and with a GET payload. Stopping the hub gives one banner, not one per change.
+- [ ] Windows: the firewall prompt (or a rule) lets port 8768 through. New link makes an open sign say its link doesn't work any more.
+
 ### Settings, keyboard and folding
 
 <!-- due: desktop/telescope/widgets/settings_window.py desktop/telescope/widgets/settings_search.py desktop/telescope/widgets/collapse.py desktop/telescope/fuzzy.py desktop/telescope/shortcuts.py desktop/telescope/plugins/shortcuts.py desktop/telescope/platform/hotkeys.py desktop/telescope/platform/hotkeys_portal.py desktop/telescope/platform/hotkeys_windows.py desktop/telescope/phones.py desktop/telescope/widgets/plugins_panel.py ; packages: jeepney -->

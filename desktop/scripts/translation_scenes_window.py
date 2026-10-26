@@ -7,7 +7,7 @@ import types
 from unittest import mock
 
 from scripts.translation_scenes import *  # noqa: F401,F403
-from scripts.translation_scenes import _Held, _MicBackend, remember
+from scripts.translation_scenes import _Held, _MicBackend, quiet_sign, remember
 
 
 def also_shows(target, slot, *texts):
@@ -458,6 +458,8 @@ def tweak_plugins(plugins):
             plugin._backend = _MicBackend()
         elif plugin.name == "shortcuts":
             plugin._backend_factory = lambda: None
+        elif plugin.name == "on_air":
+            quiet_sign(plugin)
 
 
 def loaded_window(stack, before=None, tray=False, dev=False):
@@ -1185,3 +1187,73 @@ def settings_legacy_plugin(stack):
     QApplication.processEvents()
     grow(settings, _SIZE[0], _SIZE[1])
     return settings
+
+
+# ── On Air sign ──────────────────────────────────────────────────────────────
+
+def on_air_section(stack, setup=None):
+    """The On Air page's section on its own, after setup(plugin)."""
+    from scripts.translation_scenes_camera import on_its_own
+    win = main_window(stack)
+    win.open_settings()
+    plugin = win._plugin("on_air")
+    if setup is not None:
+        setup(plugin)
+    plugin._section.refresh()
+    return on_its_own(stack, plugin._section)
+
+
+@scene("on-air-problems", "states", "On Air · on air, with problems")
+def on_air_problems(stack):
+    def broken(plugin):
+        class Taken(plugin._server_cls):
+            def start(self):
+                raise OSError(98, "Address already in use")
+        plugin._debounce.state = True
+        plugin.set_page(False)
+        plugin._server_cls = Taken
+        plugin.set_page(True)
+        plugin.webhook_url = "homeassistant.local/api/webhook/office"
+        plugin.webhook_method = "GET"
+        plugin._on_webhook_done("test", "HTTP 404")
+    return on_air_section(stack, broken)
+
+
+@scene("on-air-test-sending", "states", "On Air · webhook test on its way")
+def on_air_test_sending(stack):
+    def sending(plugin):
+        plugin.webhook_url = "http://homeassistant.local:8123/api/webhook/office"
+        plugin._sender = _Held()
+        plugin.send_test(True)
+    return on_air_section(stack, sending)
+
+
+@scene("on-air-test-sent", "states", "On Air · webhook test that worked")
+def on_air_test_sent(stack):
+    return on_air_section(stack, lambda plugin: plugin._on_webhook_done("test", ""))
+
+
+@scene("on-air-test-no-address", "states", "On Air · webhook test without an address")
+def on_air_test_no_address(stack):
+    return on_air_section(stack, lambda plugin: plugin.send_test(False))
+
+
+@scene("on-air-cryptography-missing", "states", "On Air · sign without the cryptography package")
+def on_air_cryptography_missing(stack):
+    from telescope.plugins import on_air as on_air_plugin
+
+    def missing(plugin):
+        stack.enter_context(mock.patch.object(on_air_plugin, "certificate_available", lambda: False))
+        plugin.set_page(False)
+        plugin.set_page(True)
+    return on_air_section(stack, missing)
+
+
+@scene("on-air-header-and-banner", "states", "On Air · on air, and the webhook didn't go through")
+def on_air_header_and_banner(stack):
+    win = live_window(stack)
+    plugin = win._plugin("on_air")
+    plugin._debounce.state = True
+    plugin._refresh()
+    plugin._on_webhook_done("state", "Connection refused")
+    return window_wide(win)

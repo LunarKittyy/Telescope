@@ -11,6 +11,10 @@ pseudo	cut short	Frame rate
 pseudo	cut short	Good for most calls
 pseudo	cut short	Sharper, more data
 pseudo	not translated	30 fps
+pseudo	not translated	GET
+pseudo	not translated	POST
+pseudo	not translated	{"on_air": false}
+pseudo	not translated	{"on_air": true}
 pseudo	out of its box	20[% ~]
 pseudo	out of its box	270°
 pseudo	out of its box	45[ °Ç ~]

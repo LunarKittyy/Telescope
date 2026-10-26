@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0f1216">
+<title>On Air</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { --bg: #0f1216; --text: #e7eaef; --dim: #8b96a4; --on: #d93a32; --on-deep: #a4241e; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vmin;
+         background: var(--bg); color: var(--dim); cursor: default; user-select: none; -webkit-user-select: none;
+         font: 16px/1.3 -apple-system, "Segoe UI", Roboto, "Noto Sans", Ubuntu, Cantarell, system-ui, sans-serif; transition: background-color .4s ease;
+         padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+  #sign { margin: 0; font-weight: 800; font-size: clamp(56px, 19vmin, 320px); letter-spacing: .04em; text-align: center;
+          text-transform: uppercase; line-height: 1; padding: 0 4vmin; transition: color .4s ease; }
+  #note { margin: 0; font-size: clamp(14px, 3vmin, 28px); min-height: 1.3em; text-align: center; padding: 0 4vmin; }
+  #lamp { width: 3.2vmin; height: 3.2vmin; min-width: 14px; min-height: 14px; border-radius: 50%; background: #2a3039;
+          transition: background-color .4s ease, box-shadow .4s ease; }
+  body.on { background: radial-gradient(ellipse at center, var(--on) 0%, var(--on-deep) 100%); color: #fff; }
+  body.on #sign { color: #fff; text-shadow: 0 0 4vmin rgba(255, 255, 255, .25); }
+  body.on #note { color: rgba(255, 255, 255, .8); }
+  body.on #lamp { background: #fff; box-shadow: 0 0 3vmin rgba(255, 255, 255, .9); }
+  body.off #sign { color: #aab3bf; }
+  body.lost #sign { color: #5c6573; }
+  @media (prefers-reduced-motion: reduce) { body, #sign, #lamp { transition: none; } }
+</style>
+</head>
+<body class="lost">
+<div id="lamp" aria-hidden="true"></div>
+<h1 id="sign" aria-live="polite">On Air</h1>
+<p id="note">Connecting to Telescope…</p>
+<script src="/on-air.js"></script>
+</body>
+</html>
