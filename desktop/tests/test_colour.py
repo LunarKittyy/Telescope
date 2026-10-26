@@ -35,12 +35,12 @@ def _warm(rgb):
 
 @pytest.mark.parametrize("size", colour.SIZES)
 def test_an_identity_lut_leaves_frames_alone(size):
-    frame = _frame()
+    frame = _frame(h=400, seed=size)
     lut = bake([ColourStage(lambda x: x, size=size)])
     assert lut.kind == f"3D {size}"
     out = lut.apply(frame)
     assert out.shape == frame.shape and out.dtype == np.uint8 and out is not frame
-    assert np.abs(out.astype(int) - frame).max() <= 1
+    assert np.array_equal(out, frame)  # the lattice isn't rounded to whole levels before it's interpolated
 
 
 def test_per_channel_stages_become_exact_tables():
@@ -178,6 +178,58 @@ def test_new_stages_are_baked_off_the_stream_thread():
     assert pipeline.process_frame(frame)[0, 0, 0] == 128
 
 
+def _slow(fn, gate):
+    """A stage that waits for gate before it's baked, so a test can look at the frames meanwhile."""
+    def run(x):
+        gate.wait(5)
+        return fn(x)
+    return ColourStage(run, per_channel=True)
+
+
+def test_a_stream_keeps_its_lut_through_a_moment_without_stages():
+    import threading
+    pipeline = ColourPipeline(lambda: "phone")
+    frame = np.zeros((1, 1, 3), np.uint8)
+    pipeline.set_stage("grade", ColourStage(lambda x: 1 - x, per_channel=True))
+    pipeline.process_frame(frame)
+    assert pipeline.settle() and pipeline.process_frame(frame)[0, 0, 0] == 255
+    pipeline.set_stage("grade", None)  # the defaults, then the next phone's settings
+    assert pipeline.process_frame(frame) is frame
+    gate = threading.Event()
+    pipeline.set_stage("grade", _slow(lambda x: x * 0 + 0.5, gate))
+    assert pipeline.process_frame(frame)[0, 0, 0] == 255  # the old LUT while the new one bakes
+    gate.set()
+    assert pipeline.settle() and pipeline.process_frame(frame)[0, 0, 0] == 128
+
+
+def test_baked_luts_in_use_stay_and_a_hit_keeps_one_longer(monkeypatch):
+    monkeypatch.setattr(colour, "_KEEP_BAKED", 4)
+    pipeline = ColourPipeline(lambda: "a", bake_inline=True)
+    shown = (ColourStage(lambda x: 1 - x, per_channel=True),)
+    pipeline.lut(shown, "a")
+    o = [(ColourStage(lambda x, v=v: x * 0 + v, per_channel=True),) for v in (0.1, 0.2, 0.3, 0.4, 0.5)]
+    for stages in (o[0], o[1], o[0], o[2], o[3]):  # o[0] used again before o[2]
+        pipeline.lut(stages, "b")
+    assert shown in pipeline._baked  # stream a still shows it, though it's the oldest
+    assert o[0] in pipeline._baked and o[1] not in pipeline._baked
+    pipeline.lut(o[4], "b")
+    assert shown in pipeline._baked and o[3] in pipeline._baked and len(pipeline._baked) == 4
+
+
+def test_a_bake_that_fails_doesnt_leave_the_baking_thread_stuck(monkeypatch):
+    pipeline = ColourPipeline(lambda: "phone")
+    calls = []
+
+    def broken(stages):
+        calls.append(stages)
+        raise MemoryError("no")
+    monkeypatch.setattr(colour, "bake", broken)
+    monkeypatch.setattr("threading.excepthook", lambda _args: None)
+    pipeline.set_stage("grade", ColourStage(lambda x: x))
+    pipeline.process_frame(np.zeros((1, 1, 3), np.uint8))
+    assert pipeline.settle() and calls and pipeline._baking is None
+
+
 def test_the_preview_shows_the_picture_before_the_colour_step_left_of_the_split():
     pipeline, _ = _pipeline()
     pipeline.set_stage("grade", ColourStage(lambda x: 1 - x, per_channel=True))
@@ -268,6 +320,18 @@ def test_files_telescope_cant_use_say_why(text, problem):
         parse_cube(text)
     assert problem in str(err.value)
     assert err.value.text  # the untranslated text the card shows through tr()
+
+
+def test_tabs_after_keywords_and_a_hash_inside_a_quoted_title():
+    rows = [f"{r}\t{g}\t{b}" for b in (0, 1) for g in (0, 1) for r in (0, 1)]
+    lut = parse_cube('TITLE\t"Look # 2" # a comment\nLUT_3D_SIZE\t2\nDOMAIN_MAX\t1\t1\t1\n' + "\n".join(rows))
+    assert lut.title == "Look # 2" and lut.size == 2
+
+
+def test_a_file_that_starts_with_a_byte_order_mark(tmp_path):
+    path = tmp_path / "Bom.cube"
+    path.write_bytes(b"\xef\xbb\xbfLUT_1D_SIZE 2\n0 0 0\n1 1 1\n")
+    assert read_cube(path).size == 2
 
 
 def test_a_cube_written_reads_back_the_same(tmp_path):

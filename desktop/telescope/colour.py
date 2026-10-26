@@ -23,8 +23,7 @@ SIZES = (33, 65)
 MAX_CUBE_SIZE = 65
 _KEEP_BAKED = 8  # composed LUTs kept per pipeline, for streams with different stages and quick back and forth
 _SPLIT_LINE = (235, 235, 235)
-# A big frame is cut into this many bands that run side by side: main.py holds OpenCV to 2 threads, which suits the
-# small per-frame jobs elsewhere, but a 1080p 3D LUT took 12 ms that way and takes 5 in four bands
+# Bands of a big frame run side by side, as main.py holds OpenCV to 2 threads (1080p took 12 ms that way, 5 in four)
 _BANDS = max(1, min(4, (os.cpu_count() or 2) // 2))
 _BAND_ROWS = 360  # frames shorter than this aren't worth cutting up
 _pool: Optional[ThreadPoolExecutor] = None
@@ -76,7 +75,8 @@ def _tile(cube: np.ndarray, dtype) -> np.ndarray:
 
 class Lut:
     """A baked colour transform for uint8 BGR frames: three 256-entry tables, or a 3D lattice applied trilinearly.
-    cv2.remap does the red and green part on two blue slices and blendLinear mixes them."""
+    cv2.remap does the red and green part on two blue slices and blendLinear mixes them, all in float32 so the lattice
+    isn't rounded to whole levels before it's interpolated (that moved an identity LUT's colours by a level)."""
 
     def __init__(self, table: Optional[np.ndarray] = None, cube: Optional[np.ndarray] = None):
         """table: (256, 3) RGB values 0..1 per input level; cube: (n, n, n, 3) indexed [b][g][r], RGB values 0..1."""
@@ -87,7 +87,7 @@ class Lut:
         if cube is not None:
             rgb = np.clip(np.asarray(cube, np.float32), 0, 1)
             self.size = rgb.shape[0]
-            self._tile = _tile(rgb[..., ::-1] * 255 + 0.5, np.uint8)
+            self._tile = _tile(rgb[..., ::-1] * 255, np.float32)
 
     @property
     def kind(self) -> str:
@@ -117,7 +117,7 @@ class Lut:
         y = cv2.LUT(g, pos)
         low = cv2.remap(self._tile, x, y, cv2.INTER_LINEAR)
         high = cv2.remap(self._tile, cv2.add(x, float(n)), y, cv2.INTER_LINEAR)
-        return cv2.blendLinear(low, high, cv2.LUT(b, w1), cv2.LUT(b, w))
+        return cv2.convertScaleAbs(cv2.blendLinear(low, high, cv2.LUT(b, w1), cv2.LUT(b, w)))  # rounds to uint8
 
 
 def lattice(n: int) -> np.ndarray:
@@ -226,6 +226,19 @@ _NUMBER = r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
 _TRIPLE = re.compile(rf"^\s*({_NUMBER})\s+({_NUMBER})\s+({_NUMBER})\s*$")
 
 
+def _without_comment(line: str) -> str:
+    """line up to a # that isn't inside quotes (a TITLE can have one)."""
+    if "#" not in line:
+        return line
+    quoted = False
+    for i, ch in enumerate(line):
+        if ch == '"':
+            quoted = not quoted
+        elif ch == "#" and not quoted:
+            return line[:i]
+    return line
+
+
 def parse_cube(text: str) -> CubeLut:
     """A .cube file's text (Adobe's format, plus Resolve's LUT_1D_INPUT_RANGE and shaper-then-cube files)."""
     title, size1, size3 = "", 0, 0
@@ -233,15 +246,15 @@ def parse_cube(text: str) -> CubeLut:
     range1 = range3 = None
     rows = []
     for number, raw in enumerate(text.splitlines(), 1):
-        line = raw.split("#", 1)[0].strip()
+        line = _without_comment(raw).strip()
         if not line:
             continue
         match = _TRIPLE.match(line)
         if match:
             rows.append(tuple(float(v) for v in match.groups()))
             continue
-        word, _, rest = line.partition(" ")
-        word, rest = word.upper(), rest.strip()
+        word, *rest = line.split(None, 1)
+        word, rest = word.upper(), (rest[0].strip() if rest else "")
         try:
             if word == "TITLE":
                 title = rest.strip('"')
@@ -300,7 +313,7 @@ def read_cube(path) -> CubeLut:
     data = Path(path).read_bytes()
     if len(data) > 64 * 1024 * 1024:
         raise CubeError(N_("This file is too big to be a LUT Telescope can use."))
-    return parse_cube(data.decode("utf-8", errors="replace"))
+    return parse_cube(data.decode("utf-8-sig", errors="replace"))
 
 
 def cube_text(cube: np.ndarray, title: str = "") -> str:
@@ -390,13 +403,14 @@ class ColourPipeline(TelescopePlugin):
     def lut(self, stages: tuple, key=None) -> Optional[Lut]:
         """The baked Lut of these stages for the stream called key. Stages not baked yet go to the baking thread and the
         stream gets the Lut it had meanwhile, so dragging a slider never holds frames up (a 65-point bake can take
-        a tenth of a second)."""
+        a tenth of a second). It keeps that Lut through stages going away for a moment, as when a phone's settings
+        are put back after the defaults."""
         if not stages:
-            self._current.pop(key, None)
             return None
         with self._bake_lock:
             if stages in self._baked:
-                lut = self._current[key] = self._baked[stages]
+                lut = self._current[key] = self._baked.pop(stages)
+                self._baked[stages] = lut  # the newest last again
                 return lut
             if not self._inline:
                 self._wanted[key] = stages
@@ -410,22 +424,29 @@ class ColourPipeline(TelescopePlugin):
 
     def _store(self, stages: tuple, lut: Optional[Lut]) -> Optional[Lut]:
         with self._bake_lock:
-            while len(self._baked) >= _KEEP_BAKED:
-                self._baked.pop(next(iter(self._baked)))
+            in_use = {id(v) for v in self._current.values() if v is not None}
+            for old in [k for k, v in self._baked.items() if id(v) not in in_use]:
+                if len(self._baked) < _KEEP_BAKED:
+                    break
+                del self._baked[old]  # the oldest first, never one a stream is showing
             self._baked[stages] = lut
         return lut
 
     def _bake_wanted(self):
-        while True:
+        try:
+            while True:
+                with self._bake_lock:
+                    if not self._wanted:
+                        return
+                    stages = self._wanted.pop(next(iter(self._wanted)))
+                    if stages in self._baked or stages in self._wanted.values():
+                        continue
+                self._store(stages, bake(stages))
+        finally:
             with self._bake_lock:
+                self._baking = None
                 if not self._wanted:
-                    self._baking = None
                     self._idle.set()
-                    return
-                stages = self._wanted.pop(next(iter(self._wanted)))
-                if stages in self._baked or stages in self._wanted.values():
-                    continue
-            self._store(stages, bake(stages))
 
     def settle(self, timeout: float = 5.0) -> bool:
         """Wait until nothing waits to be baked (tests); False if it still does after timeout seconds."""
