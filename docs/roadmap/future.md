@@ -48,7 +48,7 @@ Several plugins need the same things underneath. Those get built once as host se
 - **Calm people tracking.** Smoothing and slow backoff on top of `bus.people_seen`, since MediaPipe drops people and finds them again all the time. Used by Expose for my face, the auto blur and a name tag that follows you
 - **Preview-only overlays and scopes.** Drawing on the preview without it ever reaching the output, plus the waveform, parade and vectorscope maths. Used by the cinema tools, colour grading, motion zones and the document corners
 - **Picking points and areas on the preview.** Used for document corners, motion zones, the chroma key colour, the grey patch for colour matching and the stargazer's target
-- **Frames from other streams.** Right now a plugin only sees the stream it's processing. Used by Several cameras in one picture and colour matching between phones
+- **Frames from other streams.** Right now a plugin only sees the stream it's processing. Used by Several cameras in one picture, colour matching between phones and 3D from two phones
 - **Full-quality stills.** Phone app and protocol work, see below. Used by Photos, the phototrap, the stargazer and document mode
 - **Lining up and stacking frames.** OpenCV's `phaseCorrelate` and friends. Used by the stargazer and maybe a denoised "hold still" scan in document mode
 - **The colour pipeline.** Every colour control baked into one 3D LUT and applied on the graphics card through Qt's OpenGL (applying a 3D LUT per pixel in numpy won't keep up at 1080p60). Used by colour grading, LUTs, colour matching and the chroma key's spill removal
@@ -112,6 +112,21 @@ For wildlife and anything else that shows up when you're not looking. Draw zones
 
 People clip phones to telescopes. Lucky imaging for the moon and planets grabs a burst, keeps the sharpest frames, lines them up and averages them. Live stacking does the same slowly for faint things and star trails stack a long series. Manual ISO and shutter are already there, focus peaking helps focusing on a star and Photos brings long exposures and RAW. Medium.
 
+### 3D from two phones
+
+Two phones side by side make a stereo camera. One plugin shows it as red/cyan for glasses on any screen or side by side for a headset. For a Quest or similar the Browser camera server can serve a WebXR page that shows each half to one eye. Nothing has to be installed on the headset.
+
+Getting the two pictures to match is most of the work:
+
+- **Timing.** Frames get paired by when they were captured and not when they arrived. Each phone sends its sensor's capture time with every frame and the desktop works out each phone's clock offset from round trips over the connection it already has. The faster stream then waits for the slower one. That takes network and processing delay out of it. Two separate phones can't fire their shutters together though. The best case is within half a frame (about 16 ms at 30 fps), fine for talking with a little ghosting on fast moves
+- **Alignment.** A sheet to print with a ChArUco board on it (a chessboard with codes in the squares that OpenCV finds out of the box). Hold it up, both phones find the same corners and the plugin works out how the phones sit compared to each other. It then shows how to turn or tilt one of them until they're close and straightens the rest with a warp on each stream. That warp is a rectifying one that turns the whole picture (Desk mode's only flattens the sheet) but it can go through the same warp code
+- **Colour.** Grey and colour patches on the same sheet give colour matching between phones its reference
+- **Checking the timing.** Paper can't show time but the desktop screen can. A fast changing code on the monitor filmed by both phones shows the real offset between them, a good test of the clock sync
+
+Some phones can stream two of their own rear cameras at once from one camera session, with the frames hardware synced. The cameras sit only a centimetre or two apart and the depth comes out subtle. In return there's no clock to sync and nothing to align. Worth offering where the phone has it.
+
+Big. It needs capture times through the phone app and the protocol, frames from other streams, the calibration sheet and its guidance, the rectifying warp and the WebXR page.
+
 ### Smaller ones
 
 - **QR and Wi-Fi code reader.** Hold a code up to the camera and the link or the Wi-Fi details go to the clipboard. OpenCV has the detector built in. Tiny
@@ -121,7 +136,7 @@ People clip phones to telescopes. Lucky imaging for the moon and planets grabs a
 
 ### A fun pack
 
-One plugin for playing around, after the useful ones above. Clone party, an invisibility cloak (a clean plate plus frame differencing, nicer edges with `person_mask`), light painting, slit-scan, red/cyan 3D from two phones, a stick figure stand-in and retro looks (Game Boy, 1998 webcam, VHS, CRT, ASCII). Real datamosh too, by dropping keyframes from the H.264 packets before they're decoded (only with Light, Heavy has no keyframes to drop). Each one is about an afternoon apart from datamosh, which needs the packet hook.
+One plugin for playing around, after the useful ones above. Clone party, an invisibility cloak (a clean plate plus frame differencing, nicer edges with `person_mask`), light painting, slit-scan, a stick figure stand-in and retro looks (Game Boy, 1998 webcam, VHS, CRT, ASCII). Real datamosh too, by dropping keyframes from the H.264 packets before they're decoded (only with Light, Heavy has no keyframes to drop). Each one is about an afternoon apart from datamosh, which needs the packet hook.
 
 ### Not for now
 
