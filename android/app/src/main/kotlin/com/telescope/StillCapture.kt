@@ -96,6 +96,9 @@ class StillCapture(
                             val cameraId: String, val array: SensorBox?, val maxResArray: SensorBox?) {
         var active = true
         var attempt = 0               // a go without the best quality modes after a stall is the second
+        var round = 0                 // bumped by every new go, so callbacks of the one before are ignored
+        var sessionRetried = false    // asked again once already after a rebuild of the stream's session dropped it
+        var awaiting = false          // the stream's session was rebuilt under it: waiting for the new one
         var progressAt = 0L           // the last time the camera did anything for it, from its first shot (0 = not shooting yet)
         var streamTargets = false
         var timeout: Runnable? = null
@@ -108,6 +111,7 @@ class StillCapture(
         val expected = request.shots.size * request.filesPerShot
         var written = 0
         val tries = IntArray(request.shots.size)
+        val taken = BooleanArray(request.shots.size)  // shots the camera completed, which a go after a rebuild skips
         val results = HashMap<Long, TotalCaptureResult>()
         val images = HashMap<Long, MutableList<Pair<Output, Image>>>()
         val discard = HashSet<Long>()
@@ -133,10 +137,12 @@ class StillCapture(
     private class Waiting(val id: String, val cameraId: String, val go: Runnable)
 
     init {
-        // A rebuild of the stream's session or camera fails a photo in flight there and then, instead of on its timer
-        controller.onStillInterrupted = {
-            current?.let { end(it, "interrupted", "The stream restarted during the photo", restore = false) }
+        // A new lens, a reopened camera or one that stopped fails a photo in flight there and then, instead of on its timer
+        controller.onStillInterrupted = { cause ->
+            current?.let { end(it, "interrupted", StillRebuild.text(cause), restore = false) }
         }
+        // Only the stream's session was rebuilt: a photo whose captures it dropped asks again in the new one
+        controller.onStillSessionReady = { current?.let { if (it.awaiting) resumeOnSession(it) } }
     }
 
     private fun handler(): Handler? = controller.stillHandler()
@@ -218,6 +224,7 @@ class StillCapture(
         val req = if (request.hq && hqKey(request) in hqRefused) request.withoutHq() else request
         val r = Run(id, req, caps, controller.stillGeneration(), cam.id, cam.activeArray, maxResArray)
         current = r
+        controller.stillBusy(true)
         armTimeout(r)
         try {
             if (request.extension != null) { shootExtension(r, device); return }
@@ -238,7 +245,7 @@ class StillCapture(
                 // The session has let go of the old ones either way: in it now are the new ones or none
                 kept?.close()
                 kept = if (ok) fresh else null
-                if (!ok) { fresh.close(); refused += refusal }
+                if (!ok) { fresh.close(); if (r.active) refused += refusal }
                 if (!r.active) return@useStillOutputs
                 r.outputs = if (ok) fresh else null
                 if (ok) beside(r) else alone(r)
@@ -442,14 +449,17 @@ class StillCapture(
             val burst = mutableListOf<CaptureRequest>()
             var lastFocus: Float? = null
             r.request.shots.forEachIndexed { i, shot ->
+                if (r.taken[i]) return@forEachIndexed
                 // The lens moves to a new focus distance over a few frames: those go to the video or the meter first
                 if (shot.focus != null && shot.focus != lastFocus) repeat(FOCUS_SETTLE_FRAMES) { settleFrame(r, device, shot.focus)?.let(burst::add) }
                 lastFocus = shot.focus
                 r.requests[i] = buildShot(r, device, shot, i, streamTargets).also(burst::add)
             }
-            if (burst.size == 1) session.capture(burst[0], shotCallback(r, r.attempt), handler())
-            else session.captureBurst(burst, shotCallback(r, r.attempt), handler())
+            if (burst.isEmpty()) return
+            if (burst.size == 1) session.capture(burst[0], shotCallback(r, r.round), handler())
+            else session.captureBurst(burst, shotCallback(r, r.round), handler())
         } catch (e: Exception) {
+            if (lostSession(r, session)) return
             onError("still.shoot", e)
             end(r, "failed", "The phone couldn't take the photo")
         }
@@ -517,9 +527,9 @@ class StillCapture(
         }
     }
 
-    // attempt: callbacks of a go given up on after a stall are ignored
-    private fun shotCallback(r: Run, attempt: Int) = object : CameraCaptureSession.CaptureCallback() {
-        fun mine() = current === r && r.active && r.attempt == attempt
+    // round: callbacks of a go given up on (after a stall or a rebuilt session) are ignored
+    private fun shotCallback(r: Run, round: Int) = object : CameraCaptureSession.CaptureCallback() {
+        fun mine() = current === r && r.active && r.round == round
 
         override fun onCaptureStarted(session: CameraCaptureSession, request: CaptureRequest, timestamp: Long, frameNumber: Long) {
             if (!mine()) return
@@ -544,6 +554,7 @@ class StillCapture(
                 retry(r, index)
                 return
             }
+            r.taken[index] = true
             jobs.shotTaken(r.id)
             r.results[ts] = result
             r.images.remove(ts)?.forEach { (output, image) -> save(r, output, image, result) }
@@ -552,6 +563,7 @@ class StillCapture(
         override fun onCaptureFailed(session: CameraCaptureSession, request: CaptureRequest, failure: CaptureFailure) {
             if (!mine()) return
             val index = request.tag as? Int ?: return
+            if (lostSession(r, session)) return
             if (r.tries[index] < 1 && failure.reason != CaptureFailure.REASON_FLUSHED) { r.tries[index]++; retry(r, index); return }
             if (failure.reason != CaptureFailure.REASON_FLUSHED && fallBack(r)) return
             end(r, "failed", "The camera couldn't take the photo")
@@ -568,7 +580,41 @@ class StillCapture(
 
         // Dropped before the camera got to it (its session closing): nothing more comes for it
         override fun onCaptureSequenceAborted(session: CameraCaptureSession, sequenceId: Int) {
-            if (mine()) end(r, "interrupted", "The camera dropped the photo")
+            if (mine() && !lostSession(r, session)) end(r, "interrupted", "The camera dropped the photo")
+        }
+    }
+
+    // The stream's session was rebuilt under the photo (a setting changed, the preview came or went), dropping its
+    // captures there: true when it goes again once the new session is up rather than failing
+    private fun lostSession(r: Run, session: CameraCaptureSession): Boolean {
+        if (current !== r || !r.active || r.paused || session !== r.target || session === r.session) return false
+        if (controller.stillSession() === session) return false  // still the stream's session: the camera failed it
+        if (r.awaiting) return true
+        r.awaiting = true
+        r.round++
+        // Already up: asked again after this callback rather than inside it
+        if (controller.stillSession() != null) handler()?.post { resumeOnSession(r) }
+        return true
+    }
+
+    private fun resumeOnSession(r: Run) {
+        if (!r.awaiting || current !== r || !r.active) return
+        r.awaiting = false
+        val session = controller.stillSession()
+        val outputs = r.outputs
+        val inSession = outputs != null && controller.stillOutputsInSession(outputs.stills)
+        val next = StillRebuild.afterLostSession(r.sessionRetried, inSession, session != null)
+        if (next != StillRebuild.Lost.FAIL) r.sessionRetried = true
+        when (next) {
+            StillRebuild.Lost.RETRY -> shoot(r, session!!, r.streamTargets)
+            StillRebuild.Lost.ALONE -> {
+                // The session dropped the photo outputs: it goes on in a session of its own
+                outputs?.list?.forEach { o -> o.reader.setOnImageAvailableListener({ discardWaiting(o) }, handler()) }
+                r.images.values.flatten().forEach { (output, image) -> close(output, image) }
+                r.images.clear()
+                alone(r)
+            }
+            StillRebuild.Lost.FAIL -> end(r, "interrupted", "The stream restarted during the photo")
         }
     }
 
@@ -577,6 +623,8 @@ class StillCapture(
         handler()?.postDelayed(object : Runnable {
             override fun run() {
                 if (current !== r || !r.active) return
+                // Between sessions nothing comes; the photo's limit still holds
+                if (r.awaiting) { handler()?.postDelayed(this, STALL_CHECK_MS); return }
                 if (StillTiming.stalled(SystemClock.elapsedRealtime(), r.progressAt, r.request)) stalled(r)
                 else handler()?.postDelayed(this, STALL_CHECK_MS)
             }
@@ -596,6 +644,7 @@ class StillCapture(
         android.util.Log.w(TAG, "Photo ${r.id} got nowhere with the best quality modes: again without them")
         hqRefused += hqKey(r.request)
         r.attempt++
+        r.round++
         r.request = r.request.withoutHq()
         try { session.abortCaptures() } catch (_: Exception) {}
         if (session !== r.session) controller.stillRestartStream(session)
@@ -604,6 +653,7 @@ class StillCapture(
         r.results.clear()
         r.discard.clear()
         r.tries.fill(0)
+        r.taken.fill(false)
         r.firstTs = Long.MAX_VALUE
         armTimeout(r)
         shoot(r, session, r.streamTargets)
@@ -613,8 +663,9 @@ class StillCapture(
     private fun retry(r: Run, index: Int) {
         val session = r.target ?: return
         try {
-            session.capture(r.requests[index]!!, shotCallback(r, r.attempt), handler())
+            session.capture(r.requests[index]!!, shotCallback(r, r.round), handler())
         } catch (e: Exception) {
+            if (lostSession(r, session)) return
             onError("still.retry", e)
             end(r, "failed", "The camera couldn't take the photo")
         }
@@ -781,6 +832,8 @@ class StillCapture(
         val ownOutputs = r.own
         if (ownOutputs != null) try { writer.execute { ownOutputs.close() } } catch (_: Exception) { ownOutputs.close() }
         if (r.paused && restore) controller.resumeAfterStill(r.generation)
+        // Changes Dynamic or the heat held back for the photo go ahead now
+        if (current == null) controller.stillBusy(false)
         if (jobs.active() == null) onBusy(false)
     }
 }
