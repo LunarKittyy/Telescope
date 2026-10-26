@@ -242,16 +242,20 @@ class PreviewOverlays(QObject):
 
     def set_warp(self, owner: str, matrix):
         """Any thread: owner's plugin moves the whole picture after the view, by matrix (a 3 x 3 homography from the
-        frame as shown with the view to what the preview shows, both 0..1), or stops with None."""
-        if matrix is None:
+        frame as shown with the view to what the preview shows, both 0..1), or stops with None. A matrix that can't be
+        undone (it squashes the picture flat) counts as None."""
+        inverse = None
+        if matrix is not None:
+            matrix = np.asarray(matrix, np.float64)
+            try:
+                inverse = np.linalg.inv(matrix)
+            except np.linalg.LinAlgError:
+                logger.warning("%s gave the preview a warp that can't be undone; ignoring it", owner)
+        if inverse is None or not np.isfinite(inverse).all():
             if self._warp is not None and self._warp[0] == owner:
                 self._warp = None
             return
-        matrix = np.asarray(matrix, np.float64)
-        self._warp = (owner, matrix, np.linalg.inv(matrix))
-
-    def end_warps(self):
-        self._warp = None
+        self._warp = (owner, matrix, inverse)
 
     def warping(self) -> bool:
         return self._warp is not None

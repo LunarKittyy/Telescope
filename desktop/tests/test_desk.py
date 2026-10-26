@@ -7,7 +7,8 @@ import pytest
 from telescope.overlays import Pick
 from telescope.plugin import EventBus
 from telescope.plugins.desk import (
-    DeskPlugin, Settings, Warp, black_and_white, order_corners, sheet_size, straighten, target_rect, whiten,
+    DeskPlugin, Settings, Warp, black_and_white, order_corners, sheet_size, straighten, target_rect, usable_corners,
+    whiten,
 )
 from telescope.view import View, to_full
 
@@ -33,6 +34,15 @@ def _full(points, view=View()):
 def test_corners_come_out_clockwise_from_the_top_left_however_they_were_placed():
     shuffled = [CORNERS[2], CORNERS[0], CORNERS[3], CORNERS[1]]
     assert order_corners(shuffled).tolist() == [list(map(float, p)) for p in CORNERS]
+
+
+def test_corners_bunched_up_crossed_or_in_a_line_are_not_a_sheet():
+    assert usable_corners(_full(CORNERS))
+    assert usable_corners([(0.9, 0.1), (0.1, 0.1), (0.9, 0.9), (0.1, 0.9)])  # placed in any order
+    assert not usable_corners([(0.5, 0.5), (0.51, 0.5), (0.51, 0.51), (0.5, 0.51)])  # touching
+    assert not usable_corners([(0.1, 0.5), (0.4, 0.5), (0.6, 0.5), (0.9, 0.5)])  # in a line
+    assert not usable_corners([(0.1, 0.1), (0.9, 0.1), (0.9, 0.9), (0.5, 0.12)])  # one nearly on another's edge
+    assert not usable_corners([(0.1, 0.1), (0.9, 0.1), (0.5, 0.2), (0.1, 0.9)])  # dented in
 
 
 def test_the_sheet_keeps_its_shape_inside_the_frame():
@@ -154,6 +164,22 @@ def test_a_cancelled_pick_changes_nothing(desk):
     plugin._mark()
     host.picks[-1][2](None)
     assert plugin.get_config()["corners"] is None
+
+
+def test_corners_that_make_no_sheet_are_refused_and_the_card_says_why(desk):
+    plugin, host, bus = desk()
+    plugin.set_config({"on": True, "corners": [list(p) for p in _full(CORNERS)]})
+    plugin._mark()
+    bus.preview_pick_changed.emit("desk")
+    bus.preview_pick_changed.emit("")
+    host.picks[-1][2](Pick("quad", (), ((0.1, 0.5), (0.4, 0.5), (0.6, 0.5), (0.9, 0.5))))
+    assert plugin.get_config()["corners"] == [list(p) for p in _full(CORNERS)]  # kept what it had
+    assert "in a line" in plugin._status.text() and not plugin._status.isHidden()
+    plugin._mark()
+    bus.preview_pick_changed.emit("desk")
+    assert "in a line" not in plugin._status.text()
+    plugin.set_config({"on": True, "corners": [[0.1, 0.5], [0.4, 0.5], [0.6, 0.5], [0.9, 0.5]]})
+    assert plugin.get_config()["corners"] is None  # saved ones are checked too
 
 
 def test_without_a_stream_the_card_says_to_start_one(desk):

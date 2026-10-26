@@ -305,3 +305,9 @@ def test_with_a_plugin_moving_the_picture_picks_map_back_through_it(overlays):
     assert overlays.warping()
     overlays.set_warp("Desk", None)
     assert not overlays.warping() and overlays.unwarp(0.75, 0.5) == (0.75, 0.5)
+
+
+def test_a_warp_that_squashes_the_picture_flat_counts_as_none(overlays):
+    overlays.set_warp("Desk", [[1, 0, 0.25], [0, 1, 0], [0, 0, 1]])
+    overlays.set_warp("Desk", [[1, 0, 0], [1, 0, 0], [0, 0, 1]])  # singular
+    assert not overlays.warping() and overlays.unwarp(0.3, 0.6) == (0.3, 0.6)

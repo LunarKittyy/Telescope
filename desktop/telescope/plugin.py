@@ -355,7 +355,8 @@ class HostPreview(Protocol):
     def set_preview_warp(self, owner: str, matrix) -> None:
         """For a plugin that moves the whole picture after the view (Desk mode): matrix is a 3 x 3 homography from the
         frame as shown with the view to what comes out, both 0..1, or None once it stops. Clicks, scrolls and picks on
-        the preview are mapped back through it, and the lens outlines and skeleton aren't drawn meanwhile. Any thread."""
+        the preview are mapped back through it, and the lens outlines and skeleton aren't drawn meanwhile. It lasts
+        until the plugin sends None, streams stopping and starting included. Any thread."""
         ...
 
     def preview_overlays(self) -> "PreviewOverlays":

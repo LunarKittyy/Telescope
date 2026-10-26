@@ -629,6 +629,16 @@ def desk_off_picture(stack):
     return cards(stack, win, "desk")
 
 
+@scene("desk-refused", "states", "Desk mode · corners marked in a line, refused", width=CARD_WIDTH)
+def desk_refused(stack):
+    win, _source = streaming_window(stack)
+    picture(win)
+    plugin_of(win, "desk")._mark()
+    win.preview_overlays()._pick.points = [(0.1, 0.5), (0.4, 0.5), (0.6, 0.5), (0.9, 0.5)]
+    win.finish_pick("desk")
+    return cards(stack, win, "desk")
+
+
 @scene("desk-not-streaming", "states", "Desk mode · marking the sheet before streaming", width=CARD_WIDTH)
 def desk_not_streaming(stack):
     win = ready_window(stack)
