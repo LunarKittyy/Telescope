@@ -1174,6 +1174,17 @@ class CameraSessionController(
         return true
     }
 
+    // The stream's repeating request again after a photo aborted its captures on the stream's own session
+    fun stillRestartStream(session: CameraCaptureSession) {
+        if (captureSession !== session || stillPaused) return
+        val c = cameraDevice ?: return
+        try {
+            session.setRepeatingRequest(buildRequest(c), ccmCaptureCallback, handler)
+        } catch (e: Exception) {
+            onControlError("stillRestartStream", e)
+        }
+    }
+
     // The stream's session again, unless something else rebuilt it or reopened the camera meanwhile
     fun resumeAfterStill(generation: Int) {
         if (!stillPaused || generation != cameraGeneration || stopped) return

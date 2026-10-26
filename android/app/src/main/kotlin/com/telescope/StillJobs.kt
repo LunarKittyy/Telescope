@@ -11,7 +11,7 @@ class StillJobs(private val dir: File, private val clock: () -> Long = System::c
     companion object {
         const val KEEP_MS = 10 * 60_000L  // files a computer never came back for go after this
         const val MAX_KEPT = 4             // and only the newest few are kept at all
-        const val MAX_BYTES = 1_000_000_000L  // and no more than this of finished requests' files
+        const val MAX_BYTES = 1_000_000_000L  // and no more than this of finished requests' files a computer already fetched
         fun type(name: String): String = when (name.substringAfterLast('.').lowercase()) {
             "dng" -> "image/x-adobe-dng"
             "heic" -> "image/heic"
@@ -28,6 +28,8 @@ class StillJobs(private val dir: File, private val clock: () -> Long = System::c
         val files = mutableListOf<File>()
         var endedAt = 0L
         var named = 0  // files handed out so far
+        val fetched = HashSet<Int>()  // files a computer asked for
+        fun allFetched() = files.indices.all { it in fetched }
     }
 
     private val jobs = LinkedHashMap<String, Job>()
@@ -111,7 +113,8 @@ class StillJobs(private val dir: File, private val clock: () -> Long = System::c
     @Synchronized
     fun file(id: String, n: Int): File? {
         sweep()
-        return jobs[id]?.files?.getOrNull(n)?.takeIf { it.isFile }
+        val job = jobs[id] ?: return null
+        return job.files.getOrNull(n)?.takeIf { it.isFile }?.also { job.fetched += n }
     }
 
     // The computer has what it wanted: the files go
@@ -132,14 +135,15 @@ class StillJobs(private val dir: File, private val clock: () -> Long = System::c
     // The name a computer saves it under, without the request id kept to tell requests apart here
     fun publicName(file: File): String = file.name.replace(Regex("_[0-9a-f]{16}(\\.[a-z]+)$"), "$1")
 
-    // Requests over KEEP_MS old, past the newest MAX_KEPT - 1, or past MAX_BYTES (oldest first) go with their files
+    // Requests over KEEP_MS old, past the newest MAX_KEPT - 1, or past MAX_BYTES of fetched ones bar the newest (oldest first) go
     @Synchronized
     fun sweep() {
         val now = clock()
         val ended = jobs.values.filter { it.endedAt != 0L }
         val old = (ended.filter { now - it.endedAt > KEEP_MS } + ended.dropLast(MAX_KEPT - 1)).toMutableSet()
         var bytes = 0L
-        for (job in ended.reversed()) {
+        for (job in ended.reversed().drop(1)) {
+            if (!job.allFetched()) continue
             bytes += job.files.sumOf { it.length() }
             if (bytes > MAX_BYTES) old += job
         }

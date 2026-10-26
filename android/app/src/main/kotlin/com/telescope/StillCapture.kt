@@ -20,6 +20,7 @@ import android.media.Image
 import android.media.ImageReader
 import android.os.Build
 import android.os.Handler
+import android.os.SystemClock
 import android.view.Surface
 import java.io.File
 import java.io.FileOutputStream
@@ -110,6 +111,7 @@ class StillCapture(
         val needsResult = request.extension == null
         val requests = arrayOfNulls<CaptureRequest>(request.shots.size)
         var target: CameraCaptureSession? = null  // the session its pictures are asked of
+        var firstTs = Long.MAX_VALUE  // when its first frame started: pictures from before are an earlier photo's
     }
 
     private val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
@@ -298,7 +300,7 @@ class StillCapture(
     // Runs the stream's settings on the meter until exposure and focus settle, then shoots
     private fun settle(r: Run, s: CameraCaptureSession, meter: ImageReader) {
         val device = controller.stillDevice() ?: return end(r, "camera_off", "The camera isn't running")
-        val started = System.currentTimeMillis()
+        val started = SystemClock.elapsedRealtime()
         var shot = false
         fun go() {
             if (shot || !r.active) return
@@ -309,7 +311,7 @@ class StillCapture(
             val request = controller.stillRequest(device, CameraDevice.TEMPLATE_PREVIEW).apply { addTarget(meter.surface) }.build()
             s.setRepeatingRequest(request, object : CameraCaptureSession.CaptureCallback() {
                 override fun onCaptureCompleted(session: CameraCaptureSession, req: CaptureRequest, result: TotalCaptureResult) {
-                    if (System.currentTimeMillis() - started >= SETTLE_MIN_MS && settled(result)) go()
+                    if (SystemClock.elapsedRealtime() - started >= SETTLE_MIN_MS && settled(result)) go()
                 }
             }, handler())
             handler()?.postDelayed({ go() }, SETTLE_MAX_MS)
@@ -452,6 +454,13 @@ class StillCapture(
     }
 
     private fun shotCallback(r: Run) = object : CameraCaptureSession.CaptureCallback() {
+        override fun onCaptureStarted(session: CameraCaptureSession, request: CaptureRequest, timestamp: Long, frameNumber: Long) {
+            if (current !== r || !r.active || timestamp >= r.firstTs) return
+            r.firstTs = timestamp
+            // Pictures an earlier photo left on a kept reader never get a result here, so they'd hold their buffers
+            r.images.keys.filter { it < timestamp }.forEach { ts -> r.images.remove(ts)?.forEach { (output, image) -> close(output, image) } }
+        }
+
         override fun onCaptureCompleted(session: CameraCaptureSession, request: CaptureRequest, result: TotalCaptureResult) {
             if (current !== r || !r.active) return
             val index = request.tag as? Int ?: return
@@ -490,7 +499,7 @@ class StillCapture(
 
     private fun onImage(r: Run, output: Output, image: Image) {
         val ts = image.timestamp
-        if (ts in r.discard) { close(output, image); return }
+        if (ts in r.discard || ts < r.firstTs && r.firstTs != Long.MAX_VALUE) { close(output, image); return }
         if (!r.needsResult) { save(r, output, image, null); return }
         val result = r.results[ts]
         if (result != null) save(r, output, image, result)
@@ -624,7 +633,12 @@ class StillCapture(
             output.reader.setOnImageAvailableListener({ discardWaiting(output) }, handler())
         }
         // A photo that failed part way stops asking for the rest, whose frames would also hold up the video
-        if (code != null) try { r.target?.abortCaptures() } catch (_: Exception) {}
+        val target = r.target
+        if (code != null && target != null) {
+            try { target.abortCaptures() } catch (_: Exception) {}
+            // On the stream's session that also dropped the video's repeating request
+            if (target !== r.session && restore) controller.stillRestartStream(target)
+        }
         val own = r.session
         r.session = null
         try { own?.close() } catch (_: Exception) {}
