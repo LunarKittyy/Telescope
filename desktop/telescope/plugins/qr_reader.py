@@ -20,9 +20,12 @@ from telescope.widgets.common import (
 from telescope.i18n import N_, tr
 
 _EVERY_S = 0.3  # a frame is looked at this often
+_PENDING_S = 0.1  # ...and this often while a code just read waits to be confirmed
+_STEADY = 3  # a code counts once it's read this many looks in a row at about the same place
+_GRACE = 1  # a confirmed code stays through this many looks that miss it
 _WIDTH = 1280  # ...shrunk to this width first, and tried again at half that (a big code close up reads better small)
 _AGAIN_S = 3.0  # the same code is copied again only after it's been out of view this long
-_OUTLINE_S = 1.5  # how long the code found stays outlined on the preview
+_OUTLINE_S = 1.0  # the outline goes if no look confirms the code for this long (frames stopped coming)
 _CHECK_MS = 400  # the clipboard is read back this long after a copy (Wayland ignores one from a window in the background)
 
 
@@ -75,6 +78,20 @@ def is_link(text: str) -> bool:
     return text.lower().startswith(("http://", "https://"))
 
 
+def plausible(points: np.ndarray) -> bool:
+    """Whether a quad in pixels could be a code: four corners, convex, not tiny and not a sliver."""
+    points = np.asarray(points, np.float64).reshape(-1, 2)
+    if points.shape != (4, 2) or not np.isfinite(points).all():
+        return False
+    edges = np.roll(points, -1, axis=0) - points
+    turns = edges[:, 0] * np.roll(edges, -1, axis=0)[:, 1] - edges[:, 1] * np.roll(edges, -1, axis=0)[:, 0]
+    if not ((turns > 0).all() or (turns < 0).all()):
+        return False
+    sides = np.hypot(edges[:, 0], edges[:, 1])
+    area = abs(np.dot(points[:, 0], np.roll(points[:, 1], -1)) - np.dot(points[:, 1], np.roll(points[:, 0], -1))) / 2
+    return sides.min() >= 16 and sides.min() / sides.max() >= 0.3 and area >= 0.3 * sides.max() ** 2
+
+
 def read_code(grey: np.ndarray, detectors) -> Optional[tuple]:
     """(text, corners 0..1) of a QR code in a grey frame, "" for one seen but not read; None for no code."""
     seen = None
@@ -88,19 +105,58 @@ def read_code(grey: np.ndarray, detectors) -> Optional[tuple]:
                 continue
             if points is None or not len(points):
                 continue
-            corners = points.reshape(-1, 2)[:4] / size
+            points = points.reshape(-1, 2)[:4]
+            if not plausible(points):
+                continue
+            corners = points / size
             if text:
                 return text, corners
             seen = seen or ("", corners)
     return seen
 
 
+def _near(a: np.ndarray, b: np.ndarray) -> bool:
+    """Whether two quads (0..1) are about the same place: the centre moved less than the code's size."""
+    size = np.hypot(*(a.max(axis=0) - a.min(axis=0)))
+    return float(np.hypot(*(a.mean(axis=0) - b.mean(axis=0)))) < size
+
+
+class Steady:
+    """Lets through only a code read several looks in a row at about the same place, so stray quads never show."""
+
+    def __init__(self, looks: int = _STEADY, grace: int = _GRACE):
+        self.looks, self.grace = looks, grace
+        self.text, self.corners, self.count, self.misses = "", None, 0, 0
+
+    @property
+    def confirmed(self) -> bool:
+        return self.count >= self.looks
+
+    @property
+    def pending(self) -> bool:
+        return 0 < self.count < self.looks
+
+    def see(self, text: str, corners) -> Optional[tuple]:
+        """Takes one look's result ("" or None corners for a miss); (text, corners) while a code is confirmed."""
+        if not text or corners is None:
+            self.misses += 1
+            if not self.confirmed or self.misses > self.grace:
+                self.text, self.corners, self.count = "", None, 0
+            return (self.text, self.corners) if self.confirmed else None
+        if text == self.text and (self.confirmed or _near(corners, self.corners)):
+            self.count += 1  # once confirmed the text alone says it's the same code, so one moved fast stays
+        else:
+            self.text, self.count = text, 1
+        self.corners, self.misses = corners, 0
+        return (self.text, self.corners) if self.confirmed else None
+
+
 class _Sig(QObject):
-    found = pyqtSignal(str, object)  # the code's text, its corners (0..1 in the frame) or None
+    found = pyqtSignal(str, object)  # the code's text ("" for none read), its corners (0..1 in the frame) or None
 
 
 class CodeLayer(PreviewLayer):
-    """Outlines the code just read on the preview for a moment."""
+    """Outlines the code being read on the preview while it's confirmed."""
 
     def __init__(self):
         self.corners: Optional[np.ndarray] = None
@@ -134,6 +190,7 @@ class QrReaderPlugin(TelescopePlugin):
         self._last_text = ""
         self._last_seen = 0.0
         self._layer = CodeLayer()
+        self._steady = Steady()
         self._copied = ""  # what the last code put (or tried to put) on the clipboard
         self._copied_line = ""
         self._note = ""
@@ -176,6 +233,7 @@ class QrReaderPlugin(TelescopePlugin):
 
     def _on_switch(self, on: bool):
         self._on = on
+        self._steady, self._layer.corners = Steady(), None
         if on:
             self._host.add_preview_layer(self.name, self._layer)
         else:
@@ -192,11 +250,16 @@ class QrReaderPlugin(TelescopePlugin):
 
     def _on_found(self, text: str, corners):
         now = time.monotonic()
-        if corners is not None:
-            self._layer.corners, self._layer.until = corners, now + _OUTLINE_S
-            self._host.refresh_preview()
-        if not text:
+        steady = self._steady.see(text, corners)
+        if steady is None:
+            if self._layer.corners is not None:
+                self._layer.corners = None
+                self._host.refresh_preview()
             return
+        self._layer.corners, self._layer.until = steady[1], now + _OUTLINE_S
+        self._host.refresh_preview()
+        if not text:
+            return  # kept through a missed look, but not read this time
         again = text == self._last_text and now - self._last_seen < _AGAIN_S
         self._last_text, self._last_seen = text, now
         if again or not self._on:
@@ -245,7 +308,8 @@ class QrReaderPlugin(TelescopePlugin):
 
     def process_frame(self, frame: np.ndarray) -> np.ndarray:
         now = time.monotonic()
-        if self._on and not self._busy.is_set() and now - self._looked_at >= _EVERY_S:
+        every = _PENDING_S if self._steady.pending else _EVERY_S
+        if self._on and not self._busy.is_set() and now - self._looked_at >= every:
             self._looked_at = now
             self._busy.set()
             h, w = frame.shape[:2]
@@ -257,8 +321,7 @@ class QrReaderPlugin(TelescopePlugin):
     def _look(self, small: np.ndarray):
         try:
             found = read_code(cv2.cvtColor(small, cv2.COLOR_BGR2GRAY), self._detectors)
-            if found is not None:
-                self._sig.found.emit(*found)
+            self._sig.found.emit(*(found or ("", None)))  # a miss too, so a code that's gone stops being outlined
         finally:
             self._busy.clear()
 
