@@ -95,6 +95,7 @@ def _font(families: tuple, px: float, weight: QFont.Weight) -> QFont:
     font.setPixelSize(max(6, round(px)))
     font.setWeight(weight)
     font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)  # smooth at video sizes
+    font.setStyleStrategy(QFont.StyleStrategy.PreferAntialias)
     return font
 
 

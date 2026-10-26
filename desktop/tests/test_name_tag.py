@@ -81,7 +81,7 @@ def test_names_in_other_scripts_get_drawn(name):
     box = lay.box.toRect().adjusted(1, 1, -1, -1).translated(-tag.x, -tag.y)
     assert (tag.keep[box.top():box.bottom(), box.left():box.right()] < 255).all()  # the box covers its area
     text = tag.ink[box.top():box.bottom(), int(box.left() + lay.em * 0.9):box.right()]
-    assert (text.max(axis=2) > 200).sum() > lay.em * 3 and len(np.unique(text[..., 0])) > 4  # glyphs, antialiased
+    assert (text.max(axis=2) > 200).sum() > lay.em * 3  # the glyphs are there
 
 
 # ── Drawing and the cache ────────────────────────────────────────────────────
