@@ -119,8 +119,8 @@ def check_virtual_camera_availability():
         from telescope.platform.linux import v4l2_devices_ready, v4l2_module_loaded
         return f"module_loaded={v4l2_module_loaded()}, devices_ready={v4l2_devices_ready()}"
     if IS_WINDOWS:
-        from telescope.platform.windows import uc_is_registered
-        return f"unitycapture_registered={uc_is_registered()}"
+        from telescope.platform.windows import uc_is_registered, use_mf
+        return f"windows11_camera={use_mf(0)}, unitycapture_registered={uc_is_registered()}"
     return "unsupported platform - skipped"
 
 

@@ -80,7 +80,9 @@ A phone that can't do Light switches to Heavy automatically.
 <details>
 <summary><b>UDP on Wi-Fi (experimental)</b></summary>
 
-Under the connection settings. It sends Light over UDP instead of TCP while the phone is on Wi-Fi. On a busy network a lost packet then only costs a resend of that one piece instead of holding up the whole stream, which can cut lag spikes. It's encrypted and if the video doesn't get through (usually a firewall) it goes back to TCP. It isn't used over USB, for Heavy or with Dynamic.
+Under the connection settings. It sends Light over UDP instead of TCP while the phone is on Wi-Fi. On a busy network a lost packet then only costs a resend of that one piece instead of holding up the whole stream, which can cut lag spikes. It's encrypted and if the video doesn't get through (usually a firewall) it goes back to TCP. It isn't used over USB or for Heavy.
+
+Dynamic works over UDP too. The computer tells the phone how many packets went missing and how long they took to arrive, which shows a thinning link earlier than waiting for video to pile up on the phone. If the phone app is older than the desktop app, Dynamic still runs over TCP.
 </details>
 
 ## Microphone
@@ -91,6 +93,7 @@ The phone's mic can be a microphone on your computer while you stream.
 - **Windows:** needs [VB-Audio Virtual Cable](https://vb-audio.com/Cable/) (free). The card's **Install VB-Cable** downloads and opens VB-Audio's setup for you (Windows asks for admin and VB-Audio asks for a restart). Afterwards pick **CABLE Output** as the microphone in other apps and switch the mic off and on again in Telescope
 - **Gain** goes from -24 to +12 dB (**Max gain** under Audio in Settings raises the top). The level meter turns yellow while the limiter is holding loud moments down and red when the sound clips. The limiter is on by default
 - **Auto level** (off by default) evens out quiet and loud speech and stops adjusting while nobody talks
+- **Noise reduction** (off by default) takes typing, fans and room hiss out of the mic with RNNoise running on your computer. It cleans up the same way for every phone and for a browser's mic, which helps most with phones whose own noise suppression is weak or missing. It adds about 20 ms of delay and switches in or out at the next pause in speech. With Discord, Zoom or a similar app turn off the app's own noise suppression while this is on (both at once can make voices sound thin). The level meter shows the mic as it arrives, before noise reduction
 - **Mute** sends silence without disconnecting. It's in the card and the tray menu and resets when Telescope restarts
 - **Mic only:** the camera button under the preview turns the phone's camera off while the mic stays on. Apps see the wait screen. Press it before starting and Start becomes **Start mic only**
 - The tray icon shows what's live: a red dot for the camera and a mic for the mic (crossed out when muted)

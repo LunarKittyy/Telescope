@@ -359,3 +359,191 @@ def test_the_first_powershell_comes_from_the_system_folder(monkeypatch, tmp_path
 def test_only_the_installed_copy_takes_the_start_menu_entrys_app_id(tmp_path):
     from telescope.platform import windows
     assert not windows.use_installed_app_id(tmp_path)  # unzipped: no uninstaller, so no shortcut with the id
+
+
+# ── The Windows 11 camera ─────────────────────────────────────────────────────
+
+_VIRTUALCAMERA = Path(__file__).resolve().parent.parent / "virtualcamera"
+
+
+def _windows(monkeypatch, build):
+    monkeypatch.setattr(windows.sys, "getwindowsversion", lambda: types.SimpleNamespace(build=build), raising=False)
+
+
+@pytest.mark.parametrize("build, forced, allowed", [
+    (22000, "", True), (26200, "", True), (19045, "", False), (0, "", False), (22621, "UnityCapture", False),
+])
+def test_the_windows_11_camera_needs_windows_11(monkeypatch, build, forced, allowed):
+    _windows(monkeypatch, build)
+    monkeypatch.setenv(windows.FORCE_ENV, forced)
+    assert windows.mf_allowed() is allowed
+
+
+def test_it_installs_only_with_the_dll_bundled(monkeypatch, tmp_path):
+    _windows(monkeypatch, 22631)
+    monkeypatch.setattr(windows, "mf_camera_dir", lambda: tmp_path)
+    assert not windows.mf_installable()
+    (tmp_path / windows.MF_DLL).write_bytes(b"dll")
+    assert windows.mf_installable()
+
+
+def test_mf_camera_dir_frozen_and_source(monkeypatch, tmp_path):
+    monkeypatch.setattr(windows.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(windows.sys, "executable", str(tmp_path / "Telescope.exe"))
+    assert windows.mf_camera_dir() == tmp_path / "virtualcamera"
+    monkeypatch.delattr(windows.sys, "frozen", raising=False)
+    assert windows.mf_camera_dir() == _VIRTUALCAMERA / "build" / "Release"
+
+
+def _mf_registry(monkeypatch, registry):
+    class Key:
+        def __init__(self, path):
+            if path not in registry:
+                raise OSError(path)
+            self.path = path
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+    def query(key, name):
+        if name not in registry[key.path]:
+            raise FileNotFoundError(name)
+        return registry[key.path][name], 1
+    fake = types.SimpleNamespace(HKEY_CLASSES_ROOT="HKCR", OpenKey=lambda _root, path: Key(path), QueryValueEx=query)
+    monkeypatch.setitem(sys.modules, "winreg", fake)
+
+
+def test_a_slot_streams_to_the_windows_11_camera_once_its_registered(monkeypatch, tmp_path):
+    _windows(monkeypatch, 22631)
+    dll = tmp_path / windows.MF_DLL
+    clsid = windows.MF_CLSIDS[1]
+    _mf_registry(monkeypatch, {rf"CLSID\{clsid}\InprocServer32": {"": str(dll)},
+                               rf"CLSID\{clsid}": {"TelescopeVersion": windows.MF_VERSION}})
+    cameras = {clsid}
+    monkeypatch.setattr(windows, "_mf_cameras", lambda: cameras)
+    assert not windows.use_mf(1)  # registered, but its DLL is gone
+    dll.write_bytes(b"dll")
+    assert windows.use_mf(1) and not windows.use_mf(0)
+    cameras.clear()  # Windows refused the camera, or it was removed some other way: the registration alone isn't enough
+    assert not windows.use_mf(1)
+    cameras.add(clsid)
+    _windows(monkeypatch, 19045)
+    assert not windows.use_mf(1)  # Windows 10 keeps UnityCapture whatever the registry says
+
+
+def test_an_older_windows_11_camera_is_offered_an_update(monkeypatch, tmp_path):
+    _windows(monkeypatch, 22631)
+    monkeypatch.setattr(windows, "mf_camera_dir", lambda: tmp_path)
+    (tmp_path / windows.MF_DLL).write_bytes(b"dll")
+    clsid = windows.MF_CLSIDS[0]
+    registry = {rf"CLSID\{clsid}\InprocServer32": {"": str(tmp_path / windows.MF_DLL)}, rf"CLSID\{clsid}": {}}
+    _mf_registry(monkeypatch, registry)
+    assert windows.mf_outdated()  # from before versions were registered
+    registry[rf"CLSID\{clsid}"]["TelescopeVersion"] = windows.MF_VERSION
+    assert not windows.mf_outdated()
+
+
+def _install_calls(monkeypatch, mf_result=None, installable=True):
+    calls = []
+    monkeypatch.setattr(windows, "mf_installable", lambda: installable)
+    monkeypatch.setattr(windows, "register_mf_camera", lambda devices: calls.append(("mf", devices)) or mf_result)
+    monkeypatch.setattr(windows, "unitycapture_downloaded", lambda _d: False)
+    monkeypatch.setattr(windows, "download_unitycapture", lambda: calls.append(("download",)) or (True, "Downloaded"))
+    monkeypatch.setattr(windows, "register_unitycapture",
+                        lambda devices, reset: calls.append(("uc", devices, reset)) or (True, "Installed"))
+    return calls
+
+
+def test_windows_11_installs_its_own_camera_and_never_downloads_unitycapture(monkeypatch):
+    calls = _install_calls(monkeypatch, (True, "Installed", 0))
+    progress = []
+    assert windows.install_camera(4, progress_cb=progress.append) == (True, "Installed")
+    assert calls == [("mf", 4)] and progress == ["Registering (admin access required)..."]
+
+
+def test_unitycapture_is_the_fallback_when_windows_refuses_the_new_camera(monkeypatch):
+    calls = _install_calls(monkeypatch, (False, "refused", windows._EXIT_REGSVR32))
+    assert windows.install_camera() == (True, "Installed")
+    assert calls == [("mf", 1), ("download",), ("uc", 1, False)]
+
+
+@pytest.mark.parametrize("code", [1, None, windows._EXIT_UNSAFE_FOLDER])
+def test_a_cancelled_or_unsafe_install_doesnt_ask_again_for_unitycapture(monkeypatch, code):
+    calls = _install_calls(monkeypatch, (False, "denied", code))
+    assert windows.install_camera() == (False, "denied")
+    assert calls == [("mf", 1)]
+
+
+def test_windows_10_installs_unitycapture(monkeypatch):
+    calls = _install_calls(monkeypatch, installable=False)
+    assert windows.install_camera(1, reset=True) == (True, "Installed")
+    assert calls == [("download",), ("uc", 1, True)]
+
+
+def test_the_windows_11_camera_is_copied_checked_and_registered_as_admin(monkeypatch, tmp_path):
+    monkeypatch.setattr(windows, "mf_camera_dir", lambda: tmp_path)
+    (tmp_path / windows.MF_DLL).write_bytes(b"the camera")
+    calls = []
+    monkeypatch.setattr(windows.subprocess, "run",
+                        lambda cmd, **kwargs: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    assert windows.register_mf_camera(4) == (True, "Installed", 0)
+    script = _elevated_script(calls[0])
+    assert "$dst = Join-Path $telescope 'VirtualCamera'" in script
+    assert hashlib.sha256(b"the camera").hexdigest().upper() in script  # hashed before the prompt, checked after
+    copy, check = script.index("Copy-Item"), script.rindex("Get-Sha256 $target")
+    register = script.index("'/s', '/n', '/i:4'")
+    unregister_uc = script.index("'UnityCaptureFilter64.dll'")
+    assert script.index("Test-AdminOnly $telescope") < copy < check < register < unregister_uc
+    assert "'/u'" in script[unregister_uc:]  # the old camera goes only once the new one is in
+
+
+def test_an_update_renames_a_loaded_dll_out_of_the_way(monkeypatch, tmp_path):
+    script = windows._mf_install_script(tmp_path, "AB" * 32)
+    rename = script.index("Move-Item -LiteralPath $target")
+    assert script.index("'*.old'") < rename < script.index("Copy-Item")
+
+
+def test_the_clsids_and_version_match_the_dll():
+    dllmain = (_VIRTUALCAMERA / "dllmain.cpp").read_text()
+    for clsid in windows.MF_CLSIDS:
+        parts = clsid.strip("{}").split("-")
+        assert f"{{0x{parts[0]}, 0x{parts[1]}, 0x{parts[2]}, {{0x{parts[3][:2]}, 0x{parts[3][2:]}" in dllmain
+    assert f"kCameraVersion = {windows.MF_VERSION};" in (_VIRTUALCAMERA / "camera.h").read_text()
+
+
+def test_the_cameras_windows_has_are_read_from_their_device_interfaces(monkeypatch):
+    base = windows._KSCATEGORY_VIDEO_CAMERA
+    ours = r"##?#SWD#VCAMDEVAPI#2B26#{e5323777-f976-4f5b-9b55-b94699c46e44}"
+    webcam = r"##?#USB#VID_046D#{e5323777-f976-4f5b-9b55-b94699c46e44}"
+    keys = {base: [webcam, ours], f"{base}\\{ours}": ["#{FCEBBA03-9D13-4C13-9940-CC84FCD132D1}"], f"{base}\\{webcam}": []}
+    values = {f"{base}\\{ours}\\#{{FCEBBA03-9D13-4C13-9940-CC84FCD132D1}}\\Device Parameters":
+              {"CustomCaptureSourceClsid": windows.MF_CLSIDS[0].lower()}}
+
+    class Key:
+        def __init__(self, path):
+            if path not in keys and path not in values:
+                raise OSError(path)
+            self.path = path
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+    def enum(key, i):
+        children = keys.get(key.path, [])
+        if i >= len(children):
+            raise OSError
+        return children[i]
+    fake = types.SimpleNamespace(
+        HKEY_LOCAL_MACHINE="HKLM",
+        OpenKey=lambda root, path: Key(path if root == "HKLM" else f"{root.path}\\{path}"),
+        EnumKey=enum, QueryValueEx=lambda key, name: (values[key.path][name], 1))
+    monkeypatch.setitem(sys.modules, "winreg", fake)
+    assert windows._mf_cameras() == {windows.MF_CLSIDS[0]}
+    keys[base] = [webcam]
+    assert windows._mf_cameras() == set()

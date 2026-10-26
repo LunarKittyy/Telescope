@@ -43,6 +43,15 @@ OBS or another app still holds the device. Close everything using the virtual ca
 **Windows: the virtual camera won't open**
 The driver isn't registered. Open **Virtual camera & phone** in Settings and reinstall it.
 
+**Windows 11: an app doesn't list Telescope**
+Open **Virtual camera & phone** in Settings. If the Driver row says **Some apps can't see it** you still have the older driver, which apps that only use Media Foundation (the Windows Camera app, for one) never see. Click **Update**. An app that was already open may need restarting before it lists the new camera.
+
+**Windows 11: the camera shows a plain dark picture**
+Telescope isn't running, or it's still starting. The camera stays in every app's list even with Telescope closed and shows that dark background until Telescope sends it something. Open Telescope and the wait screen or your phone takes over.
+
+**Windows 11: keep using the older driver**
+Set the environment variable `TELESCOPE_VCAM` to `unitycapture` before starting Telescope (in System Properties under Environment Variables) and click **Install driver**. Telescope then streams to UnityCapture like on Windows 10. Apps list both cameras while the Windows 11 one is still installed, and the one Telescope uses is the one without "(Windows Virtual Camera)". Remove the variable to go back.
+
 **Windows: the camera is called "Unity Video Capture"**
 An older Telescope installed the driver before it had its own name. Click **Rename** under **Virtual camera & phone** in Settings.
 
@@ -102,7 +111,7 @@ The update moved an unzipped copy to the installed one and Windows treats it as 
 Heavy (MJPEG) sends several times the data of Light. Switch Format to Light, use USB, lower JPEG quality or reduce FPS.
 
 **Light freezes for a moment now and then over Wi-Fi**
-A busy network loses a packet and TCP holds everything up until the resend. Try **UDP on Wi-Fi** in the Connection card (experimental).
+A busy network loses a packet and TCP holds everything up until the resend. Try **UDP on Wi-Fi** in the Connection card (experimental). It works with Dynamic too, which then lowers the bitrate once more packets start going missing than the resends can cover.
 
 **FPS stays at 30 with 60 picked**
 Some phone makers keep their camera's faster modes for their own camera app. The phone lists 60 fps and accepts the request, then gives other apps 30. Telescope can't change that. **Copy diagnostics** while streaming shows it: the "Camera did" line reads 33.4 ms with range [60, 60]. Rates a camera doesn't list at all are greyed out.

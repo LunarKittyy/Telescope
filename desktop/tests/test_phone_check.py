@@ -46,3 +46,25 @@ def test_handover_uses_automatic_discovery_and_keeps_the_worker():
     check.connection = SimpleNamespace(_resolver=resolver, _watch_usb=appeared)
     assert check.handover()
     assert preferences == [ROUTE_AUTO]
+
+
+def test_a_thin_link_forwards_its_speed_drops_past_its_buffer_and_adds_its_delay():
+    link = phone_check.ThinLink(8, buffer_ms=10.5, delay_ms=5, rnd=lambda: 1.0)  # 1 MB/s: 1000 bytes take 1 ms
+    for i in range(15):
+        link.push(i, 1000, 0.0)
+    assert link.passed == 11 and link.dropped == 4  # 10 ms of it queued behind the first, the rest dropped
+    assert link.due(0.0061) == [0] and link.due(0.0069) == []
+    assert link.due(1.0) == list(range(1, 11))
+    lossy = phone_check.ThinLink(8, loss=0.5, rnd=iter([0.1, 0.9]).__next__)
+    lossy.push("lost", 100, 0.0)
+    lossy.push("kept", 100, 0.0)
+    assert lossy.due(1.0) == ["kept"]
+
+
+def test_lag_is_the_first_frame_that_clearly_changed():
+    import numpy as np
+
+    still, brighter = np.zeros((18, 32)), np.full((18, 32), 50.0)
+    thumbs = [(t / 10, still) for t in range(10)] + [(1.0 + t / 10, brighter) for t in range(1, 5)]
+    assert phone_check.change_lags(thumbs, [0.95]) == [pytest.approx(0.15)]
+    assert phone_check.change_lags(thumbs[:10], [0.55]) == [None]  # nothing changed after it

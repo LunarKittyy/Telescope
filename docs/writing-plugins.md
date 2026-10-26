@@ -59,6 +59,7 @@ It loads your plugin next to the built-in ones in a throwaway profile and builds
 - `title`, `version`, `author` and `description` are what people see in the Plugins tab. Write the description for someone who has never heard of your plugin.
 - `api` is the version of the plugin API you wrote it for, which is `1` for now. Telescope only raises it for a change that would break existing plugins and everything in `plugin.py` keeps working until then (Telescope's own tests check that). A plugin with the wrong number isn't loaded.
 - `class` is the name of your plugin class in `__init__.py`.
+- `repo` is an optional `https://` link to where your plugin's source lives, like `"repo": "https://github.com/you/your_plugin"` (the example has none). The Plugins tab shows it next to the author. When it's a GitHub repo Telescope can also tell people about new versions, see [Sharing it](#sharing-it). Anything that isn't a plain `https://` address is left out and `check_plugin.py` points it out.
 
 ## __init__.py
 
@@ -214,4 +215,6 @@ black_and_white.zip
     └── __init__.py
 ```
 
-Bump `version` in `plugin.json` whenever you share a new one. People install it with **Install** on the Plugins tab and have to switch your plugin on again after each update.
+Bump `version` in `plugin.json` whenever you share a new one. People install it with **Install** on the Plugins tab. That replaces the old version and its settings stay as they were. They have to switch your plugin on again after each update.
+
+If `repo` points at GitHub you can publish each version as a GitHub Release with the `.zip` attached and tag it with the version number (`v1.3` or `1.3`, matching `"version": "1.3"`). Telescope compares the tag of your latest release with the installed `version` once a day and mentions a newer one on the Plugins tab. Name the file after your plugin (`black_and_white.zip`) when a release has more than one `.zip`. Drafts and pre-releases are skipped. People who switched on **Install updates without asking** get your release installed and running from their next start without seeing it first, so treat your GitHub account like the keys to their computers.
