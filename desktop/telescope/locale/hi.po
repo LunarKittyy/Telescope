@@ -26,7 +26,7 @@ msgstr "फ़ोन गर्म हो गया और उसने अभी
 msgid "Lost the phone - reconnecting"
 msgstr "फ़ोन से संपर्क टूट गया - फिर से कनेक्ट हो रहा है"
 
-#: telescope/app.py:159 telescope/plugins/browser_camera.py:566 telescope/plugins/connection.py:1091 telescope/plugins/connection.py:1135 telescope/plugins/connection.py:1291 telescope/plugins/connection.py:1327 telescope/plugins/onboarding.py:271 telescope/plugins/setup.py:808 telescope/plugins/updates.py:108 telescope/sources.py:877 telescope/widgets/vaapi_setup.py:300
+#: telescope/app.py:159 telescope/plugins/browser_camera.py:566 telescope/plugins/connection.py:1097 telescope/plugins/connection.py:1141 telescope/plugins/connection.py:1299 telescope/plugins/connection.py:1335 telescope/plugins/onboarding.py:271 telescope/plugins/setup.py:808 telescope/plugins/updates.py:108 telescope/sources.py:877 telescope/widgets/vaapi_setup.py:300
 msgid "Try again"
 msgstr "फिर कोशिश करें"
 
@@ -401,27 +401,27 @@ msgctxt "percentage"
 msgid "{n}%"
 msgstr "{n}%"
 
-#: telescope/phones.py:281
+#: telescope/phones.py:284
 msgid "adb isn't installed, so USB can't be used (Add phone can get it)"
 msgstr "adb इंस्टॉल नहीं है, इसलिए USB का उपयोग नहीं हो सकता (फ़ोन जोड़ें इसे ला सकता है)"
 
-#: telescope/phones.py:282
+#: telescope/phones.py:285
 msgid "adb isn't installed, so USB can't be used"
 msgstr "adb इंस्टॉल नहीं है, इसलिए USB का उपयोग नहीं हो सकता"
 
-#: telescope/phones.py:283
+#: telescope/phones.py:286
 msgid "no phone plugged in over USB"
 msgstr "USB पर कोई फ़ोन कनेक्ट नहीं है"
 
-#: telescope/phones.py:284
+#: telescope/phones.py:287
 msgid "phone plugged in, but USB debugging isn't allowed yet: accept the prompt on the phone"
 msgstr "फ़ोन कनेक्ट है, लेकिन USB डीबगिंग की अनुमति नहीं है: फ़ोन पर प्रॉम्प्ट स्वीकार करें"
 
-#: telescope/phones.py:285
+#: telescope/phones.py:288
 msgid "the phone plugged in over USB is a different one"
 msgstr "USB पर कनेक्ट फ़ोन कोई दूसरा है"
 
-#: telescope/phones.py:286
+#: telescope/phones.py:289
 msgid "phone plugged in, but Telescope isn't open on it"
 msgstr "फ़ोन कनेक्ट है, लेकिन उस पर Telescope खुला नहीं है"
 
@@ -1201,7 +1201,7 @@ msgctxt "camera section"
 msgid "Light"
 msgstr "रोशनी"
 
-#: telescope/plugins/camera_control.py:176 telescope/plugins/camera_control.py:217 telescope/plugins/camera_control.py:253 telescope/plugins/connection.py:743 telescope/plugins/stream_output.py:654
+#: telescope/plugins/camera_control.py:176 telescope/plugins/camera_control.py:217 telescope/plugins/camera_control.py:253 telescope/plugins/connection.py:744 telescope/plugins/stream_output.py:654
 msgid "Auto"
 msgstr "ऑटो"
 
@@ -1527,7 +1527,7 @@ msgstr "सिर्फ़ USB"
 msgid "Wi-Fi only"
 msgstr "सिर्फ़ Wi-Fi"
 
-#: telescope/plugins/connection.py:176 telescope/plugins/connection.py:415 telescope/plugins/connection.py:679 telescope/plugins/connection.py:1120 telescope/plugins/connection.py:1282 telescope/plugins/onboarding.py:186
+#: telescope/plugins/connection.py:176 telescope/plugins/connection.py:415 telescope/plugins/connection.py:680 telescope/plugins/connection.py:1126 telescope/plugins/connection.py:1290 telescope/plugins/onboarding.py:186
 msgid "Add phone"
 msgstr "फ़ोन जोड़ें"
 
@@ -1601,7 +1601,7 @@ msgstr "{name} के साथ पेयर किया गया"
 msgid "Done"
 msgstr "हो गया"
 
-#: telescope/plugins/connection.py:405 telescope/plugins/connection.py:409 telescope/plugins/connection.py:817
+#: telescope/plugins/connection.py:405 telescope/plugins/connection.py:409 telescope/plugins/connection.py:818
 msgid "Your phones"
 msgstr "आपके फ़ोन"
 
@@ -1650,7 +1650,7 @@ msgstr "बंद करें"
 msgid "Phone · {ip}"
 msgstr "फ़ोन · {ip}"
 
-#: telescope/plugins/connection.py:451 telescope/plugins/connection.py:786 telescope/plugins/connection.py:801 telescope/plugins/monitoring.py:84 telescope/plugins/monitoring.py:295
+#: telescope/plugins/connection.py:451 telescope/plugins/connection.py:787 telescope/plugins/connection.py:802 telescope/plugins/monitoring.py:84 telescope/plugins/monitoring.py:295
 msgid "Phone"
 msgstr "फ़ोन"
 
@@ -1714,211 +1714,211 @@ msgstr "फ़ोन और कनेक्शन"
 msgid "Pairing phones, picking one and connecting to it over Wi-Fi or USB."
 msgstr "फ़ोन पेयर करना, कोई फ़ोन चुनना और Wi-Fi या USB से उससे कनेक्ट करना."
 
-#: telescope/plugins/connection.py:679
+#: telescope/plugins/connection.py:680
 msgid "Pair a phone over Wi-Fi or USB"
 msgstr "Wi-Fi या USB से फ़ोन पेयर करें"
 
-#: telescope/plugins/connection.py:681
+#: telescope/plugins/connection.py:682
 msgid "Connection"
 msgstr "कनेक्शन"
 
-#: telescope/plugins/connection.py:682
+#: telescope/plugins/connection.py:683
 msgid "Open or close the setup guide: the virtual camera, the phone app and pairing"
 msgstr "सेटअप गाइड खोलें या बंद करें: वर्चुअल कैमरा, फ़ोन ऐप और पेयरिंग"
 
-#: telescope/plugins/connection.py:684 telescope/plugins/onboarding.py:83
+#: telescope/plugins/connection.py:685 telescope/plugins/onboarding.py:83
 msgid "Setup guide"
 msgstr "सेटअप गाइड"
 
-#: telescope/plugins/connection.py:719
+#: telescope/plugins/connection.py:720
 msgid "Switch to USB"
 msgstr "USB पर स्विच करें"
 
-#: telescope/plugins/connection.py:720
+#: telescope/plugins/connection.py:721
 msgid "The phone was plugged in; reconnect over the cable"
 msgstr "फ़ोन कनेक्ट कर दिया गया था; केबल से फिर से कनेक्ट करें"
 
-#: telescope/plugins/connection.py:724 telescope/plugins/connection.py:907 telescope/plugins/connection.py:1285
+#: telescope/plugins/connection.py:725 telescope/plugins/connection.py:908 telescope/plugins/connection.py:1293
 msgid "Update over USB"
 msgstr "USB से अपडेट करें"
 
-#: telescope/plugins/connection.py:737
+#: telescope/plugins/connection.py:738
 msgid "Automatic: USB when the phone's plugged in, Wi-Fi otherwise."
 msgstr "ऑटोमैटिक: फ़ोन कनेक्ट होने पर USB, अन्यथा Wi-Fi."
 
-#: telescope/plugins/connection.py:751
+#: telescope/plugins/connection.py:752
 msgid "Connect via"
 msgstr "इससे कनेक्ट करें"
 
-#. Dynamic and Heavy are names of stream formats, as the Stream output card shows them
-#: telescope/plugins/connection.py:758
-msgid "Can smooth out lag spikes on busy Wi-Fi. Dynamic and Heavy still use TCP."
-msgstr "व्यस्त Wi-Fi पर लैग स्पाइक्स को कम कर सकता है. डाइनैमिक और भारी अब भी TCP का इस्तेमाल करते हैं."
+#. Heavy is the name of a stream format, as the Stream output card shows it
+#: telescope/plugins/connection.py:759
+msgid "Can smooth out lag spikes on busy Wi-Fi. Heavy still uses TCP."
+msgstr "व्यस्त Wi-Fi पर लैग स्पाइक्स को कम कर सकता है. भारी अब भी TCP का इस्तेमाल करता है."
 
-#: telescope/plugins/connection.py:759 telescope/plugins/connection.py:765
+#: telescope/plugins/connection.py:760 telescope/plugins/connection.py:766
 msgid "UDP on Wi-Fi"
 msgstr "Wi-Fi पर UDP"
 
-#: telescope/plugins/connection.py:768
+#: telescope/plugins/connection.py:769
 msgid "Experimental"
 msgstr "प्रायोगिक"
 
-#: telescope/plugins/connection.py:799 telescope/plugins/connection.py:848 telescope/plugins/connection.py:1119
+#: telescope/plugins/connection.py:800 telescope/plugins/connection.py:849 telescope/plugins/connection.py:1125
 msgid "No phone yet"
 msgstr "अभी कोई फ़ोन नहीं है"
 
-#: telescope/plugins/connection.py:800
+#: telescope/plugins/connection.py:801
 msgid "Which phone to stream from"
 msgstr "किस फ़ोन से स्ट्रीम करना है"
 
-#: telescope/plugins/connection.py:816
+#: telescope/plugins/connection.py:817
 msgid "Your phones: add, rename, remove"
 msgstr "आपके फ़ोन: जोड़ें, नाम बदलें, हटाएं"
 
-#: telescope/plugins/connection.py:850 telescope/plugins/connection.py:867
+#: telescope/plugins/connection.py:851 telescope/plugins/connection.py:868
 msgctxt "status"
 msgid "Streaming"
 msgstr "स्ट्रीमिंग"
 
-#: telescope/plugins/connection.py:851
+#: telescope/plugins/connection.py:852
 #, python-brace-format
 msgid "Waiting for {source}…"
 msgstr "{source} का इंतज़ार है…"
 
-#: telescope/plugins/connection.py:853
+#: telescope/plugins/connection.py:854
 #, python-brace-format
 msgid "{source}, no phone needed"
 msgstr "{source}, फ़ोन की ज़रूरत नहीं"
 
-#: telescope/plugins/connection.py:865
+#: telescope/plugins/connection.py:866
 msgid "Reconnecting…"
 msgstr "फिर से कनेक्ट हो रहा है…"
 
-#: telescope/plugins/connection.py:870
+#: telescope/plugins/connection.py:871
 msgid "Streaming over USB"
 msgstr "USB से स्ट्रीम हो रहा है"
 
-#: telescope/plugins/connection.py:870
+#: telescope/plugins/connection.py:871
 msgid "Streaming over Wi-Fi"
 msgstr "Wi-Fi से स्ट्रीम हो रहा है"
 
-#: telescope/plugins/connection.py:872 telescope/plugins/microphone.py:529
+#: telescope/plugins/connection.py:873 telescope/plugins/microphone.py:529
 msgid "Connecting…"
 msgstr "कनेक्ट हो रहा है…"
 
-#: telescope/plugins/connection.py:891
+#: telescope/plugins/connection.py:892
 #, python-brace-format
 msgid "Not using USB: {reason}."
 msgstr "USB का इस्तेमाल नहीं हो रहा है: {reason}."
 
-#: telescope/plugins/connection.py:896
+#: telescope/plugins/connection.py:897
 msgid "Updating the phone app over USB…"
 msgstr "USB से फ़ोन ऐप को अपडेट किया जा रहा है…"
 
-#: telescope/plugins/connection.py:903
+#: telescope/plugins/connection.py:904
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "{phone} पर मौजूद Telescope ऐप इससे पुराना है."
 
-#: telescope/plugins/connection.py:907 telescope/plugins/connection.py:1285
+#: telescope/plugins/connection.py:908 telescope/plugins/connection.py:1293
 msgid "Update this app"
 msgstr "इस ऐप को अपडेट करें"
 
-#: telescope/plugins/connection.py:946
+#: telescope/plugins/connection.py:947
 #, python-brace-format
 msgid "Couldn't update the phone app: {error}"
 msgstr "फ़ोन ऐप अपडेट नहीं हो सका: {error}"
 
-#: telescope/plugins/connection.py:955
+#: telescope/plugins/connection.py:956
 msgid "Phone app updated. Open Telescope on the phone."
 msgstr "फ़ोन ऐप अपडेट हो गया. फ़ोन पर Telescope खोलें."
 
-#: telescope/plugins/connection.py:1081
+#: telescope/plugins/connection.py:1087
 #, python-brace-format
 msgid "Can't reach {phone} over USB"
 msgstr "USB पर {phone} से संपर्क नहीं हो पा रहा है"
 
-#: telescope/plugins/connection.py:1082
+#: telescope/plugins/connection.py:1088
 #, python-brace-format
 msgid "Can't reach {phone} over Wi-Fi"
 msgstr "Wi-Fi पर {phone} से संपर्क नहीं हो पा रहा है"
 
-#: telescope/plugins/connection.py:1083
+#: telescope/plugins/connection.py:1089
 #, python-brace-format
 msgid "Can't reach {phone}"
 msgstr "{phone} से संपर्क नहीं हो पा रहा है"
 
-#: telescope/plugins/connection.py:1086
+#: telescope/plugins/connection.py:1092
 msgid "Check the cable and that Telescope is open on the phone."
 msgstr "केबल जांचें और देखें कि फ़ोन पर Telescope खुला है."
 
-#: telescope/plugins/connection.py:1087
+#: telescope/plugins/connection.py:1093
 msgid "Check that it's on the same network as this computer."
 msgstr "जांचें कि यह इस कंप्यूटर के समान नेटवर्क पर है."
 
-#: telescope/plugins/connection.py:1090
+#: telescope/plugins/connection.py:1096
 #, python-brace-format
 msgid "Still streaming over {now}, so Connect via stays on {kept}."
 msgstr "अभी भी {now} से स्ट्रीम हो रहा है, इसलिए 'इससे कनेक्ट करें' {kept} पर ही रहेगा."
 
-#: telescope/plugins/connection.py:1119
+#: telescope/plugins/connection.py:1125
 msgid "Add a phone to stream from."
 msgstr "स्ट्रीम करने के लिए एक फ़ोन जोड़ें."
 
-#: telescope/plugins/connection.py:1133 telescope/plugins/connection.py:1152
+#: telescope/plugins/connection.py:1139 telescope/plugins/connection.py:1158
 msgid "Can't connect to the phone"
 msgstr "फ़ोन से कनेक्ट नहीं हो पा रहा है"
 
-#: telescope/plugins/connection.py:1134
+#: telescope/plugins/connection.py:1140
 msgid "adb couldn't open a connection to the phone. Unplug it, plug it back in and try again."
 msgstr "adb फ़ोन से कनेक्शन नहीं खोल सका. इसे अनप्लग करें, फिर से लगाएं और फिर कोशिश करें."
 
-#: telescope/plugins/connection.py:1289
+#: telescope/plugins/connection.py:1297
 msgid "Switch to Automatic"
 msgstr "ऑटोमैटिक पर स्विच करें"
 
-#: telescope/plugins/connection.py:1304
+#: telescope/plugins/connection.py:1312
 msgid "Virtual camera is set up differently"
 msgstr "वर्चुअल कैमरा अलग तरीके से सेट है"
 
-#: telescope/plugins/connection.py:1305
+#: telescope/plugins/connection.py:1313
 #, python-brace-format
 msgid "v4l2loopback is loaded, but without {device}: another app set it up with other settings. Close that app and run this to hand it over to Telescope:"
 msgstr "v4l2loopback लोड है, लेकिन {device} के बिना: किसी अन्य ऐप ने इसे अलग सेटिंग्स के साथ सेट किया है. उस ऐप को बंद करें और इसे Telescope को सौंपने के लिए यह चलाएं:"
 
-#: telescope/plugins/connection.py:1312
+#: telescope/plugins/connection.py:1320
 msgid "The virtual camera is off"
 msgstr "वर्चुअल कैमरा बंद है"
 
-#: telescope/plugins/connection.py:1312
+#: telescope/plugins/connection.py:1320
 msgid "Switching it on asks for your password."
 msgstr "इसे चालू करने पर आपका पासवर्ड मांगा जाएगा."
 
-#: telescope/plugins/connection.py:1313 telescope/widgets/plugins_panel.py:370 telescope/widgets/plugins_panel.py:410
+#: telescope/plugins/connection.py:1321 telescope/widgets/plugins_panel.py:370 telescope/widgets/plugins_panel.py:410
 msgid "Switch on"
 msgstr "चालू करें"
 
-#: telescope/plugins/connection.py:1323 telescope/plugins/connection.py:1333
+#: telescope/plugins/connection.py:1331 telescope/plugins/connection.py:1341
 msgid "Set up the virtual camera"
 msgstr "वर्चुअल कैमरा सेट करें"
 
-#: telescope/plugins/connection.py:1326
+#: telescope/plugins/connection.py:1334
 msgid "Couldn't set up the virtual camera"
 msgstr "वर्चुअल कैमरा सेट नहीं किया जा सका"
 
-#: telescope/plugins/connection.py:1334
+#: telescope/plugins/connection.py:1342
 msgid "Telescope needs to switch on its virtual camera first. This asks for your password."
 msgstr "Telescope को पहले अपना वर्चुअल कैमरा चालू करना होगा. इसके लिए आपका पासवर्ड मांगा जाएगा."
 
-#: telescope/plugins/connection.py:1335
+#: telescope/plugins/connection.py:1343
 msgid "Also switch it on at every startup"
 msgstr "हर स्टार्टअप पर भी इसे चालू करें"
 
-#: telescope/plugins/connection.py:1378
+#: telescope/plugins/connection.py:1386
 msgid "Lost the connection to the phone. Try again."
 msgstr "फ़ोन से कनेक्शन टूट गया. फिर कोशिश करें."
 
-#: telescope/plugins/connection.py:1381 telescope/plugins/connection.py:1453
+#: telescope/plugins/connection.py:1389 telescope/plugins/connection.py:1461
 msgid ""
 "The phone doesn't recognise this computer anymore.\n"
 "\n"
@@ -1928,24 +1928,24 @@ msgstr ""
 "\n"
 "इसे फिर से पेयर करने के लिए 'फ़ोन जोड़ें' पर क्लिक करें."
 
-#: telescope/plugins/connection.py:1384
+#: telescope/plugins/connection.py:1392
 msgid "Couldn't reach the phone. Open Telescope on it and try again."
 msgstr "फ़ोन से संपर्क नहीं हो सका. इस पर Telescope खोलें और फिर कोशिश करें."
 
-#: telescope/plugins/connection.py:1391
+#: telescope/plugins/connection.py:1399
 msgid "Starting the phone's camera..."
 msgstr "फ़ोन का कैमरा शुरू हो रहा है..."
 
-#: telescope/plugins/connection.py:1413 telescope/plugins/connection.py:1419
+#: telescope/plugins/connection.py:1421 telescope/plugins/connection.py:1427
 msgid "Lost contact with the phone while its camera was starting."
 msgstr "फ़ोन का कैमरा शुरू होने के दौरान उससे संपर्क टूट गया."
 
-#: telescope/plugins/connection.py:1421
+#: telescope/plugins/connection.py:1429
 #, python-brace-format
 msgid "Phone went quiet for a moment, still waiting... ({seconds}s)"
 msgstr "फ़ोन थोड़ी देर के लिए शांत हो गया, अब भी इंतज़ार किया जा रहा है... ({seconds}s)"
 
-#: telescope/plugins/connection.py:1428
+#: telescope/plugins/connection.py:1436
 msgid ""
 "The phone's camera stopped before it finished starting.\n"
 "\n"
@@ -1955,17 +1955,17 @@ msgstr ""
 "\n"
 "फ़ोन पर कोई अनुमति प्रॉम्प्ट या गड़बड़ी देखें."
 
-#: telescope/plugins/connection.py:1432
+#: telescope/plugins/connection.py:1440
 #, python-brace-format
 msgid "Phone's camera is opening... ({seconds}s)"
 msgstr "फ़ोन का कैमरा खुल रहा है... ({seconds}s)"
 
-#: telescope/plugins/connection.py:1433
+#: telescope/plugins/connection.py:1441
 #, python-brace-format
 msgid "Waiting for the phone's camera... ({seconds}s)"
 msgstr "फ़ोन के कैमरे का इंतज़ार किया जा रहा है... ({seconds}s)"
 
-#: telescope/plugins/connection.py:1434
+#: telescope/plugins/connection.py:1442
 msgid ""
 "The phone's camera didn't finish starting in time.\n"
 "\n"
@@ -1975,7 +1975,7 @@ msgstr ""
 "\n"
 "फिर कोशिश करें. अगर ऐसा होता रहे, तो फ़ोन पर Telescope खोलें."
 
-#: telescope/plugins/connection.py:1448
+#: telescope/plugins/connection.py:1456
 msgid ""
 "The phone hasn't given Telescope camera access.\n"
 "\n"
@@ -1985,7 +1985,7 @@ msgstr ""
 "\n"
 "फ़ोन पर ऐप खोलें और कैमरे की अनुमति दें."
 
-#: telescope/plugins/connection.py:1450
+#: telescope/plugins/connection.py:1458
 msgid ""
 "The phone is busy starting or stopping a stream.\n"
 "\n"
@@ -1995,7 +1995,7 @@ msgstr ""
 "\n"
 "थोड़ी देर में फिर कोशिश करें."
 
-#: telescope/plugins/connection.py:1451
+#: telescope/plugins/connection.py:1459
 msgid ""
 "Android didn't let the camera start in the background.\n"
 "\n"
@@ -2005,25 +2005,25 @@ msgstr ""
 "\n"
 "फ़ोन पर Telescope को सामने लाएं और फिर कोशिश करें."
 
-#: telescope/plugins/connection.py:1455
+#: telescope/plugins/connection.py:1463
 #, python-brace-format
 msgid "The phone refused to start streaming ({error})."
 msgstr "फ़ोन ने स्ट्रीमिंग शुरू करने से इनकार कर दिया ({error})."
 
-#: telescope/plugins/connection.py:1455
+#: telescope/plugins/connection.py:1463
 msgid "unknown error"
 msgstr "अज्ञात गड़बड़ी"
 
-#: telescope/plugins/connection.py:1607
+#: telescope/plugins/connection.py:1615
 msgid "Same phone?"
 msgstr "वही फ़ोन?"
 
-#: telescope/plugins/connection.py:1608
+#: telescope/plugins/connection.py:1616
 #, python-brace-format
 msgid "Is this {name} again?"
 msgstr "क्या यह फिर से {name} है?"
 
-#: telescope/plugins/connection.py:1609
+#: telescope/plugins/connection.py:1617
 #, python-brace-format
 msgid "A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry."
 msgstr "{name} नाम का फ़ोन एक नए फ़ोन के रूप में पेयर हुआ. ऐसा तब होता है जब उस पर Telescope फिर से इंस्टॉल किया जाता है या उसका डेटा साफ़ किया जाता है. 'हाँ' चुनने से {name} की सेटिंग्स और प्रीसेट इस पर आ जाते हैं और पुरानी एंट्री हट जाती है."

@@ -382,12 +382,22 @@ class CameraSessionController(
         return capped
     }
 
+    /** The bitrate Dynamic set, or 0 when it's off. */
+    val dynamicBitrate: Int get() = if (requestedBitrate == H264Stream.DYNAMIC) dynamic?.bitrate ?: 0 else 0
+
+    /** Whether Dynamic found where the link fills up lately (DynamicBitrate.full). */
+    val dynamicFull: Boolean get() = requestedBitrate == H264Stream.DYNAMIC && dynamic?.full == true
+
     /** How the link did lately (MjpegServer, on the encoder's thread); Dynamic moves the bitrate to match, and the
      *  frame rate too once the bitrate alone can't keep it sharp. */
     fun onLinkSample(sample: DynamicBitrate.Sample) {
         if (requestedBitrate != H264Stream.DYNAMIC || codec != H264Stream.CODEC_H264) return
         val d = dynamic ?: return
-        d.update(sample)?.let { encoder?.setBitrate(it) }
+        d.update(sample)?.let {
+            android.util.Log.i(TAG, "Dynamic: ${it / 1000} kbps (queue ${sample.queueMs} ms, on the way ${sample.routerMs} ms, " +
+                "lost ${"%.1f".format(sample.loss * 100)}%, through ${sample.sentBytes * 8 / 250} kbps)")
+            encoder?.setBitrate(it)
+        }
         // A sample racing setFpsTarget or a lens switch could put back rungs for the rate or lens before; those are
         // rebuilt here
         val camera = currentCamera

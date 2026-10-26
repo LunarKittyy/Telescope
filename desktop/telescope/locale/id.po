@@ -26,7 +26,7 @@ msgstr "Ponsel menjadi panas dan menurunkan frame rate ke {fps} fps untuk saat i
 msgid "Lost the phone - reconnecting"
 msgstr "Koneksi ke ponsel terputus - menghubungkan ulang"
 
-#: telescope/app.py:159 telescope/plugins/browser_camera.py:566 telescope/plugins/connection.py:1091 telescope/plugins/connection.py:1135 telescope/plugins/connection.py:1291 telescope/plugins/connection.py:1327 telescope/plugins/onboarding.py:271 telescope/plugins/setup.py:808 telescope/plugins/updates.py:108 telescope/sources.py:877 telescope/widgets/vaapi_setup.py:300
+#: telescope/app.py:159 telescope/plugins/browser_camera.py:566 telescope/plugins/connection.py:1097 telescope/plugins/connection.py:1141 telescope/plugins/connection.py:1299 telescope/plugins/connection.py:1335 telescope/plugins/onboarding.py:271 telescope/plugins/setup.py:808 telescope/plugins/updates.py:108 telescope/sources.py:877 telescope/widgets/vaapi_setup.py:300
 msgid "Try again"
 msgstr "Coba lagi"
 
@@ -396,27 +396,27 @@ msgctxt "percentage"
 msgid "{n}%"
 msgstr "{n}%"
 
-#: telescope/phones.py:281
+#: telescope/phones.py:284
 msgid "adb isn't installed, so USB can't be used (Add phone can get it)"
 msgstr "adb belum terinstal, jadi USB tidak dapat digunakan (Tambahkan ponsel dapat mengunduhnya)"
 
-#: telescope/phones.py:282
+#: telescope/phones.py:285
 msgid "adb isn't installed, so USB can't be used"
 msgstr "adb belum terinstal, jadi USB tidak dapat digunakan"
 
-#: telescope/phones.py:283
+#: telescope/phones.py:286
 msgid "no phone plugged in over USB"
 msgstr "tidak ada ponsel yang terhubung melalui USB"
 
-#: telescope/phones.py:284
+#: telescope/phones.py:287
 msgid "phone plugged in, but USB debugging isn't allowed yet: accept the prompt on the phone"
 msgstr "ponsel terhubung, tetapi Debugging USB belum diizinkan: setujui perintah di ponsel"
 
-#: telescope/phones.py:285
+#: telescope/phones.py:288
 msgid "the phone plugged in over USB is a different one"
 msgstr "ponsel yang terhubung melalui USB adalah ponsel yang berbeda"
 
-#: telescope/phones.py:286
+#: telescope/phones.py:289
 msgid "phone plugged in, but Telescope isn't open on it"
 msgstr "ponsel terhubung, tetapi Telescope belum dibuka di ponsel"
 
@@ -1196,7 +1196,7 @@ msgctxt "camera section"
 msgid "Light"
 msgstr "Pencahayaan"
 
-#: telescope/plugins/camera_control.py:176 telescope/plugins/camera_control.py:217 telescope/plugins/camera_control.py:253 telescope/plugins/connection.py:743 telescope/plugins/stream_output.py:654
+#: telescope/plugins/camera_control.py:176 telescope/plugins/camera_control.py:217 telescope/plugins/camera_control.py:253 telescope/plugins/connection.py:744 telescope/plugins/stream_output.py:654
 msgid "Auto"
 msgstr "Otomatis"
 
@@ -1522,7 +1522,7 @@ msgstr "Hanya USB"
 msgid "Wi-Fi only"
 msgstr "Hanya Wi-Fi"
 
-#: telescope/plugins/connection.py:176 telescope/plugins/connection.py:415 telescope/plugins/connection.py:679 telescope/plugins/connection.py:1120 telescope/plugins/connection.py:1282 telescope/plugins/onboarding.py:186
+#: telescope/plugins/connection.py:176 telescope/plugins/connection.py:415 telescope/plugins/connection.py:680 telescope/plugins/connection.py:1126 telescope/plugins/connection.py:1290 telescope/plugins/onboarding.py:186
 msgid "Add phone"
 msgstr "Tambahkan ponsel"
 
@@ -1596,7 +1596,7 @@ msgstr "Tersanding dengan {name}"
 msgid "Done"
 msgstr "Selesai"
 
-#: telescope/plugins/connection.py:405 telescope/plugins/connection.py:409 telescope/plugins/connection.py:817
+#: telescope/plugins/connection.py:405 telescope/plugins/connection.py:409 telescope/plugins/connection.py:818
 msgid "Your phones"
 msgstr "Ponsel Anda"
 
@@ -1645,7 +1645,7 @@ msgstr "Tutup"
 msgid "Phone · {ip}"
 msgstr "Ponsel · {ip}"
 
-#: telescope/plugins/connection.py:451 telescope/plugins/connection.py:786 telescope/plugins/connection.py:801 telescope/plugins/monitoring.py:84 telescope/plugins/monitoring.py:295
+#: telescope/plugins/connection.py:451 telescope/plugins/connection.py:787 telescope/plugins/connection.py:802 telescope/plugins/monitoring.py:84 telescope/plugins/monitoring.py:295
 msgid "Phone"
 msgstr "Ponsel"
 
@@ -1709,211 +1709,211 @@ msgstr "Ponsel dan koneksi"
 msgid "Pairing phones, picking one and connecting to it over Wi-Fi or USB."
 msgstr "Menyandingkan ponsel, memilih ponsel, dan menghubungkannya melalui Wi-Fi atau USB."
 
-#: telescope/plugins/connection.py:679
+#: telescope/plugins/connection.py:680
 msgid "Pair a phone over Wi-Fi or USB"
 msgstr "Sandingkan ponsel melalui Wi-Fi atau USB"
 
-#: telescope/plugins/connection.py:681
+#: telescope/plugins/connection.py:682
 msgid "Connection"
 msgstr "Koneksi"
 
-#: telescope/plugins/connection.py:682
+#: telescope/plugins/connection.py:683
 msgid "Open or close the setup guide: the virtual camera, the phone app and pairing"
 msgstr "Buka atau tutup panduan persiapan: kamera virtual, aplikasi ponsel, dan penyandingan"
 
-#: telescope/plugins/connection.py:684 telescope/plugins/onboarding.py:83
+#: telescope/plugins/connection.py:685 telescope/plugins/onboarding.py:83
 msgid "Setup guide"
 msgstr "Panduan persiapan"
 
-#: telescope/plugins/connection.py:719
+#: telescope/plugins/connection.py:720
 msgid "Switch to USB"
 msgstr "Beralih ke USB"
 
-#: telescope/plugins/connection.py:720
+#: telescope/plugins/connection.py:721
 msgid "The phone was plugged in; reconnect over the cable"
 msgstr "Ponsel tersambung; hubungkan ulang melalui kabel"
 
-#: telescope/plugins/connection.py:724 telescope/plugins/connection.py:907 telescope/plugins/connection.py:1285
+#: telescope/plugins/connection.py:725 telescope/plugins/connection.py:908 telescope/plugins/connection.py:1293
 msgid "Update over USB"
 msgstr "Perbarui melalui USB"
 
-#: telescope/plugins/connection.py:737
+#: telescope/plugins/connection.py:738
 msgid "Automatic: USB when the phone's plugged in, Wi-Fi otherwise."
 msgstr "Otomatis: USB saat ponsel tersambung dengan kabel, Wi-Fi jika tidak."
 
-#: telescope/plugins/connection.py:751
+#: telescope/plugins/connection.py:752
 msgid "Connect via"
 msgstr "Hubungkan via"
 
-#. Dynamic and Heavy are names of stream formats, as the Stream output card shows them
-#: telescope/plugins/connection.py:758
-msgid "Can smooth out lag spikes on busy Wi-Fi. Dynamic and Heavy still use TCP."
-msgstr "Dapat meminimalkan lonjakan lag pada Wi-Fi yang sibuk. Dinamis dan Berat tetap menggunakan TCP."
+#. Heavy is the name of a stream format, as the Stream output card shows it
+#: telescope/plugins/connection.py:759
+msgid "Can smooth out lag spikes on busy Wi-Fi. Heavy still uses TCP."
+msgstr "Dapat meminimalkan lonjakan lag pada Wi-Fi yang sibuk. Berat tetap menggunakan TCP."
 
-#: telescope/plugins/connection.py:759 telescope/plugins/connection.py:765
+#: telescope/plugins/connection.py:760 telescope/plugins/connection.py:766
 msgid "UDP on Wi-Fi"
 msgstr "UDP di Wi-Fi"
 
-#: telescope/plugins/connection.py:768
+#: telescope/plugins/connection.py:769
 msgid "Experimental"
 msgstr "Eksperimental"
 
-#: telescope/plugins/connection.py:799 telescope/plugins/connection.py:848 telescope/plugins/connection.py:1119
+#: telescope/plugins/connection.py:800 telescope/plugins/connection.py:849 telescope/plugins/connection.py:1125
 msgid "No phone yet"
 msgstr "Belum ada ponsel"
 
-#: telescope/plugins/connection.py:800
+#: telescope/plugins/connection.py:801
 msgid "Which phone to stream from"
 msgstr "Ponsel yang digunakan untuk streaming"
 
-#: telescope/plugins/connection.py:816
+#: telescope/plugins/connection.py:817
 msgid "Your phones: add, rename, remove"
 msgstr "Ponsel Anda: tambah, ganti nama, hapus"
 
-#: telescope/plugins/connection.py:850 telescope/plugins/connection.py:867
+#: telescope/plugins/connection.py:851 telescope/plugins/connection.py:868
 msgctxt "status"
 msgid "Streaming"
 msgstr "Streaming"
 
-#: telescope/plugins/connection.py:851
+#: telescope/plugins/connection.py:852
 #, python-brace-format
 msgid "Waiting for {source}…"
 msgstr "Menunggu {source}…"
 
-#: telescope/plugins/connection.py:853
+#: telescope/plugins/connection.py:854
 #, python-brace-format
 msgid "{source}, no phone needed"
 msgstr "{source}, tidak memerlukan ponsel"
 
-#: telescope/plugins/connection.py:865
+#: telescope/plugins/connection.py:866
 msgid "Reconnecting…"
 msgstr "Menghubungkan ulang…"
 
-#: telescope/plugins/connection.py:870
+#: telescope/plugins/connection.py:871
 msgid "Streaming over USB"
 msgstr "Streaming via USB"
 
-#: telescope/plugins/connection.py:870
+#: telescope/plugins/connection.py:871
 msgid "Streaming over Wi-Fi"
 msgstr "Streaming via Wi-Fi"
 
-#: telescope/plugins/connection.py:872 telescope/plugins/microphone.py:529
+#: telescope/plugins/connection.py:873 telescope/plugins/microphone.py:529
 msgid "Connecting…"
 msgstr "Menghubungkan…"
 
-#: telescope/plugins/connection.py:891
+#: telescope/plugins/connection.py:892
 #, python-brace-format
 msgid "Not using USB: {reason}."
 msgstr "Tidak menggunakan USB: {reason}."
 
-#: telescope/plugins/connection.py:896
+#: telescope/plugins/connection.py:897
 msgid "Updating the phone app over USB…"
 msgstr "Memperbarui aplikasi ponsel melalui USB…"
 
-#: telescope/plugins/connection.py:903
+#: telescope/plugins/connection.py:904
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "Aplikasi Telescope di {phone} lebih lama daripada versi ini."
 
-#: telescope/plugins/connection.py:907 telescope/plugins/connection.py:1285
+#: telescope/plugins/connection.py:908 telescope/plugins/connection.py:1293
 msgid "Update this app"
 msgstr "Perbarui aplikasi ini"
 
-#: telescope/plugins/connection.py:946
+#: telescope/plugins/connection.py:947
 #, python-brace-format
 msgid "Couldn't update the phone app: {error}"
 msgstr "Gagal memperbarui aplikasi ponsel: {error}"
 
-#: telescope/plugins/connection.py:955
+#: telescope/plugins/connection.py:956
 msgid "Phone app updated. Open Telescope on the phone."
 msgstr "Aplikasi ponsel telah diperbarui. Buka Telescope di ponsel."
 
-#: telescope/plugins/connection.py:1081
+#: telescope/plugins/connection.py:1087
 #, python-brace-format
 msgid "Can't reach {phone} over USB"
 msgstr "Tidak dapat menjangkau {phone} melalui USB"
 
-#: telescope/plugins/connection.py:1082
+#: telescope/plugins/connection.py:1088
 #, python-brace-format
 msgid "Can't reach {phone} over Wi-Fi"
 msgstr "Tidak dapat menjangkau {phone} melalui Wi-Fi"
 
-#: telescope/plugins/connection.py:1083
+#: telescope/plugins/connection.py:1089
 #, python-brace-format
 msgid "Can't reach {phone}"
 msgstr "Tidak dapat menjangkau {phone}"
 
-#: telescope/plugins/connection.py:1086
+#: telescope/plugins/connection.py:1092
 msgid "Check the cable and that Telescope is open on the phone."
 msgstr "Periksa kabel dan pastikan Telescope terbuka di ponsel."
 
-#: telescope/plugins/connection.py:1087
+#: telescope/plugins/connection.py:1093
 msgid "Check that it's on the same network as this computer."
 msgstr "Pastikan ponsel berada di jaringan yang sama dengan komputer ini."
 
-#: telescope/plugins/connection.py:1090
+#: telescope/plugins/connection.py:1096
 #, python-brace-format
 msgid "Still streaming over {now}, so Connect via stays on {kept}."
 msgstr "Masih streaming melalui {now}, jadi Hubungkan via tetap pada {kept}."
 
-#: telescope/plugins/connection.py:1119
+#: telescope/plugins/connection.py:1125
 msgid "Add a phone to stream from."
 msgstr "Tambahkan ponsel untuk streaming."
 
-#: telescope/plugins/connection.py:1133 telescope/plugins/connection.py:1152
+#: telescope/plugins/connection.py:1139 telescope/plugins/connection.py:1158
 msgid "Can't connect to the phone"
 msgstr "Tidak dapat terhubung ke ponsel"
 
-#: telescope/plugins/connection.py:1134
+#: telescope/plugins/connection.py:1140
 msgid "adb couldn't open a connection to the phone. Unplug it, plug it back in and try again."
 msgstr "adb tidak dapat membuka koneksi ke ponsel. Cabut kabel, hubungkan kembali, lalu coba lagi."
 
-#: telescope/plugins/connection.py:1289
+#: telescope/plugins/connection.py:1297
 msgid "Switch to Automatic"
 msgstr "Beralih ke Otomatis"
 
-#: telescope/plugins/connection.py:1304
+#: telescope/plugins/connection.py:1312
 msgid "Virtual camera is set up differently"
 msgstr "Kamera virtual disiapkan secara berbeda"
 
-#: telescope/plugins/connection.py:1305
+#: telescope/plugins/connection.py:1313
 #, python-brace-format
 msgid "v4l2loopback is loaded, but without {device}: another app set it up with other settings. Close that app and run this to hand it over to Telescope:"
 msgstr "v4l2loopback telah dimuat, tetapi tanpa {device}: aplikasi lain menyiapkannya dengan pengaturan lain. Tutup aplikasi tersebut dan jalankan perintah ini untuk menyerahkannya ke Telescope:"
 
-#: telescope/plugins/connection.py:1312
+#: telescope/plugins/connection.py:1320
 msgid "The virtual camera is off"
 msgstr "Kamera virtual nonaktif"
 
-#: telescope/plugins/connection.py:1312
+#: telescope/plugins/connection.py:1320
 msgid "Switching it on asks for your password."
 msgstr "Mengaktifkannya akan meminta kata sandi Anda."
 
-#: telescope/plugins/connection.py:1313 telescope/widgets/plugins_panel.py:370 telescope/widgets/plugins_panel.py:410
+#: telescope/plugins/connection.py:1321 telescope/widgets/plugins_panel.py:370 telescope/widgets/plugins_panel.py:410
 msgid "Switch on"
 msgstr "Aktifkan"
 
-#: telescope/plugins/connection.py:1323 telescope/plugins/connection.py:1333
+#: telescope/plugins/connection.py:1331 telescope/plugins/connection.py:1341
 msgid "Set up the virtual camera"
 msgstr "Siapkan kamera virtual"
 
-#: telescope/plugins/connection.py:1326
+#: telescope/plugins/connection.py:1334
 msgid "Couldn't set up the virtual camera"
 msgstr "Gagal menyiapkan kamera virtual"
 
-#: telescope/plugins/connection.py:1334
+#: telescope/plugins/connection.py:1342
 msgid "Telescope needs to switch on its virtual camera first. This asks for your password."
 msgstr "Telescope perlu mengaktifkan kamera virtualnya terlebih dahulu. Tindakan ini akan meminta kata sandi Anda."
 
-#: telescope/plugins/connection.py:1335
+#: telescope/plugins/connection.py:1343
 msgid "Also switch it on at every startup"
 msgstr "Aktifkan juga di setiap startup"
 
-#: telescope/plugins/connection.py:1378
+#: telescope/plugins/connection.py:1386
 msgid "Lost the connection to the phone. Try again."
 msgstr "Koneksi ke ponsel terputus. Coba lagi."
 
-#: telescope/plugins/connection.py:1381 telescope/plugins/connection.py:1453
+#: telescope/plugins/connection.py:1389 telescope/plugins/connection.py:1461
 msgid ""
 "The phone doesn't recognise this computer anymore.\n"
 "\n"
@@ -1923,24 +1923,24 @@ msgstr ""
 "\n"
 "Klik Tambahkan ponsel untuk menyandingkannya lagi."
 
-#: telescope/plugins/connection.py:1384
+#: telescope/plugins/connection.py:1392
 msgid "Couldn't reach the phone. Open Telescope on it and try again."
 msgstr "Tidak dapat menjangkau ponsel. Buka Telescope di ponsel dan coba lagi."
 
-#: telescope/plugins/connection.py:1391
+#: telescope/plugins/connection.py:1399
 msgid "Starting the phone's camera..."
 msgstr "Memulai kamera ponsel..."
 
-#: telescope/plugins/connection.py:1413 telescope/plugins/connection.py:1419
+#: telescope/plugins/connection.py:1421 telescope/plugins/connection.py:1427
 msgid "Lost contact with the phone while its camera was starting."
 msgstr "Kehilangan kontak dengan ponsel saat kameranya sedang dimulai."
 
-#: telescope/plugins/connection.py:1421
+#: telescope/plugins/connection.py:1429
 #, python-brace-format
 msgid "Phone went quiet for a moment, still waiting... ({seconds}s)"
 msgstr "Ponsel tidak merespons sesaat, masih menunggu... ({seconds} dtk)"
 
-#: telescope/plugins/connection.py:1428
+#: telescope/plugins/connection.py:1436
 msgid ""
 "The phone's camera stopped before it finished starting.\n"
 "\n"
@@ -1950,17 +1950,17 @@ msgstr ""
 "\n"
 "Periksa permintaan izin atau error di ponsel."
 
-#: telescope/plugins/connection.py:1432
+#: telescope/plugins/connection.py:1440
 #, python-brace-format
 msgid "Phone's camera is opening... ({seconds}s)"
 msgstr "Kamera ponsel sedang dibuka... ({seconds} dtk)"
 
-#: telescope/plugins/connection.py:1433
+#: telescope/plugins/connection.py:1441
 #, python-brace-format
 msgid "Waiting for the phone's camera... ({seconds}s)"
 msgstr "Menunggu kamera ponsel... ({seconds} dtk)"
 
-#: telescope/plugins/connection.py:1434
+#: telescope/plugins/connection.py:1442
 msgid ""
 "The phone's camera didn't finish starting in time.\n"
 "\n"
@@ -1970,7 +1970,7 @@ msgstr ""
 "\n"
 "Coba lagi. Jika terus terjadi, buka Telescope di ponsel."
 
-#: telescope/plugins/connection.py:1448
+#: telescope/plugins/connection.py:1456
 msgid ""
 "The phone hasn't given Telescope camera access.\n"
 "\n"
@@ -1980,7 +1980,7 @@ msgstr ""
 "\n"
 "Buka aplikasi di ponsel dan berikan izin kamera."
 
-#: telescope/plugins/connection.py:1450
+#: telescope/plugins/connection.py:1458
 msgid ""
 "The phone is busy starting or stopping a stream.\n"
 "\n"
@@ -1990,7 +1990,7 @@ msgstr ""
 "\n"
 "Coba lagi sebentar."
 
-#: telescope/plugins/connection.py:1451
+#: telescope/plugins/connection.py:1459
 msgid ""
 "Android didn't let the camera start in the background.\n"
 "\n"
@@ -2000,25 +2000,25 @@ msgstr ""
 "\n"
 "Buka Telescope ke layar depan di ponsel dan coba lagi."
 
-#: telescope/plugins/connection.py:1455
+#: telescope/plugins/connection.py:1463
 #, python-brace-format
 msgid "The phone refused to start streaming ({error})."
 msgstr "Ponsel menolak untuk mulai streaming ({error})."
 
-#: telescope/plugins/connection.py:1455
+#: telescope/plugins/connection.py:1463
 msgid "unknown error"
 msgstr "error tidak dikenal"
 
-#: telescope/plugins/connection.py:1607
+#: telescope/plugins/connection.py:1615
 msgid "Same phone?"
 msgstr "Ponsel yang sama?"
 
-#: telescope/plugins/connection.py:1608
+#: telescope/plugins/connection.py:1616
 #, python-brace-format
 msgid "Is this {name} again?"
 msgstr "Apakah ini {name} lagi?"
 
-#: telescope/plugins/connection.py:1609
+#: telescope/plugins/connection.py:1617
 #, python-brace-format
 msgid "A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry."
 msgstr "Ponsel bernama {name} disandingkan sebagai ponsel baru. Hal ini terjadi setelah Telescope diinstal ulang atau datanya dihapus. Memilih Ya akan memindahkan pengaturan dan preset {name} ke ponsel ini serta menghapus entri lama."
