@@ -12,6 +12,7 @@ from PyQt6.QtGui import QColor, QFont, QFontMetricsF, QImage, QPainter, QPen
 from PyQt6.QtWidgets import QButtonGroup, QComboBox, QVBoxLayout, QWidget
 
 from telescope import scopes
+from telescope.config import clamped_int
 from telescope.overlays import PreviewLayer
 from telescope.plugin import SettingsSection, TelescopePlugin
 from telescope.view import View
@@ -61,13 +62,6 @@ FALSE_COLOURS = (
     (99, (40, 220, 240), N_("Nearly clipped")),
     (100, (40, 40, 230), N_("Clipped")),
 )
-
-
-def _clamp(value, default: int, lo: int, hi: int) -> int:
-    try:
-        return min(hi, max(lo, int(value)))
-    except (TypeError, ValueError):
-        return default
 
 
 def _false_colour_lut() -> np.ndarray:
@@ -598,8 +592,8 @@ class CinemaPlugin(TelescopePlugin):
             scope=cfg.get("scope") if cfg.get("scope") in dict(SCOPES) else "off",
             peaking_colour=cfg.get("peaking_colour") if cfg.get("peaking_colour") in
             {key for key, *_ in PEAKING_COLOURS} else "red",
-            peaking_level=_clamp(cfg.get("peaking_level"), 5, 1, 10),
-            zebra_level=_clamp(cfg.get("zebra_level"), 95, 70, 100),
+            peaking_level=clamped_int(cfg.get("peaking_level"), 5, 1, 10),
+            zebra_level=clamped_int(cfg.get("zebra_level"), 95, 70, 100),
             scope_size=cfg.get("scope_size") if cfg.get("scope_size") in {key for key, *_ in SIZES} else "medium",
         )
         for switch, on in ((self._peaking_switch, look.peaking), (self._zebras_switch, look.zebras),

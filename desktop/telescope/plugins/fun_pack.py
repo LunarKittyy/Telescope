@@ -9,7 +9,9 @@ from PyQt6.QtWidgets import QButtonGroup, QComboBox, QPushButton, QWidget
 from telescope import fun_effects, vision
 from telescope.fun_effects import Clones, Look
 from telescope.h264_mosh import Mosh, Mosher
+from telescope.config import clamped_int
 from telescope.i18n import N_, tr
+from telescope.pictures import soften
 from telescope.plugin import TelescopePlugin
 from telescope.pose import BONES
 from telescope.shortcuts import SHORTCUT_VALUE_ROLE, button_action, choice_action, slider_action
@@ -46,13 +48,6 @@ _PLATE = ("clones", "cloak", "stick")  # effects that use the empty room
 _EDGES = ("clones", "cloak")
 _COUNTDOWN_S = 3
 _FACE = ("eye", "ear", "nose")
-
-
-def _clamp(value, default: int, lo: int, hi: int) -> int:
-    try:
-        return min(hi, max(lo, int(value)))
-    except (TypeError, ValueError):
-        return default
 
 
 def stick_figure(people: list, map_point, aspect: float) -> tuple:
@@ -396,7 +391,7 @@ class FunPackPlugin(TelescopePlugin):
             self._relay.taken.emit("plate", frame.copy())
             return
         mask = fun_effects.person(frame, look, fun_effects.PlateMask())
-        clones = None if mask is None else Clones.add(look.clones, frame, fun_effects.soften(mask, look.edges))
+        clones = None if mask is None else Clones.add(look.clones, frame, soften(mask, look.edges))
         self._relay.taken.emit("clone", clones)
 
     def frame_step(self):
@@ -416,7 +411,7 @@ class FunPackPlugin(TelescopePlugin):
     def set_config(self, cfg: dict):
         effect = cfg.get("effect") if cfg.get("effect") in dict(EFFECTS) else "off"
         for key, (slider, _readout, _row) in self._sliders.items():
-            slider.setValue(_clamp(cfg.get(key), slider.default(), slider.minimum(), slider.maximum()))
+            slider.setValue(clamped_int(cfg.get(key), slider.default(), slider.minimum(), slider.maximum()))
         self._dir_btns["across" if cfg.get("across") is True else "down"].setChecked(True)
         self._combo.blockSignals(True)
         self._combo.setCurrentIndex(self._combo.findData(effect))
