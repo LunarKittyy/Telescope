@@ -148,6 +148,16 @@ def test_hue_curves_go_round():
     _close(g.periodic_curve(g.NEUTRAL_HUE, xs), np.full(4, 0.5))
 
 
+@pytest.mark.parametrize("pts", [
+    g.NEUTRAL_HUE[:1] + ((1.0, 0.7),) + g.NEUTRAL_HUE[1:],  # x at 1 is the hue at 0 again
+    g.NEUTRAL_HUE + ((1 / 6, 0.7),),  # one hue given twice
+])
+def test_a_hue_curve_given_one_hue_twice_has_no_hard_edge(pts):
+    xs = np.linspace(0, 1, 2001, dtype=np.float32)
+    ys = g.periodic_curve(pts, xs)
+    assert np.isfinite(ys).all() and np.abs(np.diff(ys)).max() < 0.01
+
+
 def test_hue_vs_sat_takes_the_colour_out_of_one_hue_only():
     pts = tuple((h, 0.0 if abs(h - 1 / 3) < 1e-6 else 0.5) for h, _ in g.NEUTRAL_HUE)
     out = Grade(hue_sat=pts)(np.array([[0.2, 0.8, 0.2], [0.8, 0.2, 0.2]], np.float32))

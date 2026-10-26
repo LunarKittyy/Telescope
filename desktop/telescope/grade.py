@@ -88,7 +88,14 @@ def _hermite(xs, ys, m, x):
 
 def periodic_curve(points, x: np.ndarray) -> np.ndarray:
     """A hue curve: like monotone_curve, but going round (x is a hue 0..1 and 1 is 0 again)."""
-    pts = sorted((float(px) % 1.0, float(py)) for px, py in points)
+    pts = []
+    for px, py in sorted((float(px) % 1.0, float(py)) for px, py in points):
+        if pts and px - pts[-1][0] < 1e-6:
+            pts[-1] = (pts[-1][0], (pts[-1][1] + py) / 2)  # one hue given twice: the middle of the two
+        else:
+            pts.append((px, py))
+    if len(pts) > 1 and pts[0][0] + 1 - pts[-1][0] < 1e-6:  # x near 1 is the hue at 0 again
+        pts[0] = (pts[0][0], (pts[0][1] + pts.pop()[1]) / 2)
     if not pts:
         return np.full_like(x, 0.5)
     if len(pts) == 1:

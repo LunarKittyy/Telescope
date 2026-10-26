@@ -2,14 +2,15 @@
 import numpy as np
 from PyQt6.QtCore import QPointF, QRectF, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QLinearGradient, QPainter, QPainterPath, QPen
-from PyQt6.QtWidgets import QSizePolicy, QWidget
+from PyQt6.QtWidgets import QApplication, QSizePolicy, QWidget
 
 from telescope import theme
 from telescope.grade import monotone_curve, periodic_curve
 from telescope.i18n import N_, tr
 from telescope.widgets.common import ui_px
 
-_GAP = 0.01  # the least room between two points of a tone curve
+_GAP = 0.01  # the least room between two points of a curve (round the hues for a hue curve)
+_HUE_TOP = 0.9999  # a hue point stays below 1, which is the hue at 0 again
 _STEP = 0.005  # an arrow key moves the picked point this far
 _BIG_STEP = 0.05  # with Shift
 _GRAB_PX = 9  # how close a press has to be to a point to pick it up
@@ -37,6 +38,7 @@ class CurveEditor(QWidget):
         self._default: tuple = ()
         self._picked = -1
         self._dragging = False
+        self._added = None  # (point, press time) of a point the last press added, which a double-click takes off again
         self._colour = QColor(theme.TEXT)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -53,6 +55,7 @@ class CurveEditor(QWidget):
         self._default = tuple(default)
         self._colour = QColor(colour or theme.TEXT)
         self._picked = min(self._picked, len(self._points) - 1)
+        self._added = None
         self.setToolTip(tr(self.HINTS[kind]))
         self.update()
 
@@ -98,19 +101,23 @@ class CurveEditor(QWidget):
             x = pts[i][0]
         elif self._kind == "tone":
             x = min(pts[i + 1][0] - _GAP, max(pts[i - 1][0] + _GAP, x))
+        else:  # between its neighbours round the hues, and below 1
+            lo = pts[i - 1][0] + _GAP if i > 0 else max(0.0, pts[-1][0] - 1 + _GAP)
+            hi = pts[i + 1][0] - _GAP if i < len(pts) - 1 else min(_HUE_TOP, pts[0][0] + 1 - _GAP)
+            x = min(hi, max(lo, x))
         pts[i] = (round(x, 4), round(min(1.0, max(0.0, y)), 4))
-        if self._kind == "hue":
-            moved = pts[i]
-            pts.sort()
-            self._picked = pts.index(moved)
 
     def _add(self, x: float, y: float) -> int:
-        if self._kind == "tone":
-            if any(abs(px - x) < _GAP for px, _ in self._points):
+        if self._kind == "hue":
+            x = min(_HUE_TOP, x)
+            if any(min(abs(px - x), 1 - abs(px - x)) < _GAP for px, _ in self._points):
                 return -1
-        self._points.append((round(x, 4), round(y, 4)))
+        elif any(abs(px - x) < _GAP for px, _ in self._points):
+            return -1
+        point = (round(x, 4), round(y, 4))
+        self._points.append(point)
         self._points.sort()
-        return self._points.index((round(x, 4), round(y, 4)))
+        return self._points.index(point)
 
     def _remove(self, i: int):
         if i < 0 or self._fixed_x(i) or (self._kind == "tone" and len(self._points) <= 2):
@@ -138,12 +145,17 @@ class CurveEditor(QWidget):
         if event.button() != Qt.MouseButton.LeftButton:
             return
         i = self._near(pos)
+        added, self._added = self._added, None
         if i < 0:
             x, _y = self._from_px(pos)
             y = float(self._curve(np.array([x], np.float32))[0])  # on the line, then dragged from there
             i = self._add(x, y)
             if i >= 0:
+                self._added = (self._points[i], event.timestamp())
                 self._changed()
+        elif added and self._points[i] == added[0] and \
+                event.timestamp() - added[1] <= QApplication.doubleClickInterval():
+            self._added = added  # the second press of a double-click on the point the first one added
         self._picked = i
         self._dragging = i >= 0
         self.update()
@@ -151,6 +163,7 @@ class CurveEditor(QWidget):
     def mouseMoveEvent(self, event):
         if self._dragging and self._picked >= 0:
             self._move(self._picked, *self._from_px(event.position()))
+            self._added = None
             self._changed()
         else:
             near = self._near(event.position()) >= 0
@@ -161,6 +174,12 @@ class CurveEditor(QWidget):
 
     def mouseDoubleClickEvent(self, event):
         if event.button() != Qt.MouseButton.LeftButton:
+            return
+        added, self._added = self._added, None
+        self._dragging = False
+        if added and added[0] in self._points:
+            self._points.remove(added[0])  # the first click of this double-click added it
+            self._reset()
             return
         i = self._near(event.position())
         if i >= 0 and not self._fixed_x(i) and not (self._kind == "tone" and len(self._points) <= 2):
