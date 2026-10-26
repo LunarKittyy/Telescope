@@ -128,4 +128,19 @@ class UdpLinkTest {
         link.report(report(154 + 100, 156 + 100), 3_000)
         assertEquals(0.0, link.take(3_000, 0)!!.lossLately, 1e-9)  // the old ones are too long ago
     }
+
+    @Test
+    fun `samples between loss shares carry the last one, and a give-up floors lately too`() {
+        val link = UdpLink()
+        link.report(report(0, 0), 0)
+        link.take(0, 0)
+        link.report(report(51, 60), 100)  // 9 of 60 lost
+        assertEquals(9.0 / 60, link.take(250, 0)!!.loss, 1e-9)
+        link.report(report(51 + 17, 60 + 20), 400)  // 20 more: not a share yet
+        assertEquals(9.0 / 60, link.take(500, 0)!!.loss, 1e-9)
+        link.report(report(68 + 5, 80 + 5), 3_000)
+        assertEquals(0.0, link.take(3_000, 0)!!.loss, 1e-9)  // too long ago to carry
+        link.report(report(73 + 5, 85 + 5, gaveUp = 1), 3_100)
+        assertEquals(UdpLink.GAVE_UP_LOSS, link.take(3_250, 0)!!.lossLately, 1e-9)
+    }
 }

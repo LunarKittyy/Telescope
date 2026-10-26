@@ -48,10 +48,10 @@ class DynamicUdpSimTest {
     }
 
     private fun simulate(name: String, dynamic: Boolean, link: Link, seconds: Int, seed: Int = 1,
-                         usage: (Long) -> Double = { 0.9 }): Result {
+                         usage: (Long) -> Double = { 0.9 }, startBps: Int = auto): Result {
         val rnd = Random(seed)
         var now = 0L
-        val controller = if (dynamic) DynamicBitrate(auto, top) else null
+        val controller = if (dynamic) DynamicBitrate(startBps, top) else null
         var bitrate = controller?.bitrate ?: auto
         val udpLink = UdpLink()
         val piece = UdpWire.MAX_PAYLOAD
@@ -342,5 +342,21 @@ class DynamicUdpSimTest {
             { ms -> Path(40.0, if (ms < 20_000) 1.5 else 25.0, 100, 0.02) }, 90)
         assertTrue(dyn.bitrates[19] < 2_000_000, "down while thin: ${dyn.bitrates[19]}")
         assertTrue(dyn.bitrates.last() >= 12_000_000, "back up: ${dyn.bitrates.last()}")
+    }
+
+    @Test
+    fun `steady heavy loss at a low bitrate still cuts`() {
+        // At 1 Mbps a loss share takes a couple of samples, which mustn't read as clear in between
+        val dyn = simulate("Dynamic over UDP", true, { Path(40.0, 40.0, 100, 0.15) }, 20, startBps = 1_000_000)
+        println("\n1 Mbps, 15% loss\n  $dyn\n  " + dyn.bitrates.joinToString(" ") { "%.2f".format(it / 1e6) })
+        assertTrue(dyn.bitrates.drop(5).all { it < 1_000_000 }, "${dyn.bitrates}")
+    }
+
+    @Test
+    fun `steady heavy loss at the floor never climbs`() {
+        val start = H264Stream.DYNAMIC_MIN_BPS
+        val dyn = simulate("Dynamic over UDP", true, { Path(40.0, 40.0, 100, 0.15) }, 30, startBps = start)
+        println("\nFloor, 15% loss\n  $dyn\n  " + dyn.bitrates.joinToString(" ") { "%.2f".format(it / 1e6) })
+        assertTrue(dyn.bitrates.all { it <= start }, "${dyn.bitrates}")
     }
 }
