@@ -39,6 +39,7 @@
                 }
             ],
             "supportsFocusPoint": true,
+            "supportsMeterPoint": true,
             "zoomRatioMax": 10.0,
             "cropZoomMax": 8.0,
             "freeformCrop": true,

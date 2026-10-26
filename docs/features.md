@@ -39,11 +39,23 @@ Optional. It finds you in the picture and moves zoom and pan to keep you framed.
 
 Optional and it shares the vision download. **Blur** blurs everything behind you and **Picture** puts an image there instead (PNG, JPEG, WebP or BMP). **Edges** sets how soft the outline around you is. It runs on the computer so it works with any phone and with Browser camera.
 
+## Expose for my face
+
+Optional and it shares the vision download too. It moves the phone's metering point (the same one **Tap a point** on the Camera card uses) to your face, which helps with a bright window behind you. It moves the point slowly and leaves it alone for small head moves, since every move makes the phone meter and focus again. When you leave the picture the point stays where your face was instead of chasing the empty room.
+
+Picking a point on the preview or a focus mode on the Camera card takes over from it until you click **Follow my face** or switch it off and on. It also waits while focus is on Manual (moving the point would undo that) until you click **Follow my face**. The phone only meters on the point while exposure is automatic. With manual exposure the point sets the focus and nothing else. On a front camera that can't focus on a point it only meters there and leaves the focus alone. A few lenses can't do either.
+
+## Privacy blur
+
+Optional. It hides other people who walk into the picture, in one of three ways picked on its card. **Blur the others** blurs everyone but you, **Blur all but me** blurs the room as well and **Show the wait screen** puts the wait screen up in place of the whole picture. "You" is whoever has been in the picture longest when blurring starts. If you step out while it blurs, nobody else gets taken for you: they stay blurred until you come back to about where you were. Blurring starts once a second person has been found a couple of times in a row and only stops after there has been only one person (or nobody) for about five seconds. Someone walking past or the model losing track for a moment won't make it flicker.
+
+**Blur now** does the same by hand until you click it again and you can bind it to a key in Keyboard shortcuts. It works without the vision download too, in which case it blurs the whole picture since there's nobody to tell apart. Switching the card on for automatic blurring does need the download.
+
 Background and Auto framing work less while nothing in the picture moves. **Power-saving effects** under Video in Settings slows them down while you move too, which uses less of the processor and battery but follows quick moves a little later.
 
 ## The vision download
 
-Auto framing and Background use MediaPipe to find people. MediaPipe and its two models don't come with Telescope since most people won't use them. The first time you switch either plugin on Telescope asks and downloads them from its GitHub releases (about 47 MB on Linux and 28 MB on Windows). Both plugins share the download and **Remove download** on the Optional card deletes it again.
+Auto framing, Background, Expose for my face and Privacy blur use MediaPipe to find people. MediaPipe and its two models don't come with Telescope since most people won't use them. The first time you switch one of them on Telescope asks and downloads them from its GitHub releases (about 47 MB on Linux and 28 MB on Windows). They share the download and **Remove download** on the Optional card deletes it again.
 
 It only works on 64-bit Intel and AMD computers for now.
 

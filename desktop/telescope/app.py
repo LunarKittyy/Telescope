@@ -27,7 +27,10 @@ from telescope.single_instance import relaunch, restart_argv
 from telescope.sources import PhoneSource, PluginSource, Source
 from telescope.stream import StreamWorker
 from telescope.stream_flow import StreamFlow
+from telescope.view import shown_to_view, view_to_shown
 from telescope.view_controller import ViewController
+from telescope.motion import LENS_SETTLE_S, Motion
+from telescope.people import PeopleTracking
 from telescope.vision import Vision
 from telescope.widgets.banner import BannerAction, BannerArea, Issue, copy_action
 from telescope.widgets.collapse import Collapsing
@@ -225,6 +228,7 @@ class TelescopeWindow(QMainWindow):
     _sig_extras_removed = pyqtSignal(bool, str)
     _sig_people = pyqtSignal(object, list)  # a stream's worker, [Person], from its people thread
     _sig_vision_state = pyqtSignal(str)
+    _sig_motion = pyqtSignal(object, str, list)  # a stream's worker, owner, [zone index], from its worker thread
 
     def __init__(self):
         super().__init__()
@@ -236,13 +240,19 @@ class TelescopeWindow(QMainWindow):
         self._vision  = Vision(on_people=self._sig_people.emit, on_state=self._sig_vision_state.emit)  # (HostVision)
         self._sig_people.connect(self._on_people)
         self._sig_vision_state.connect(self._bus.vision_state_changed)
+        self._tracking = PeopleTracking()  # people_seen made steady (HostVision.tracked_people)
+        self._motion = Motion(on_change=self._sig_motion.emit)  # (HostMotion)
+        self._sig_motion.connect(self._on_motion)
         self._view    = ViewController()  # the shown stream's zoom, pan, flip and rotation (HostView)
-        self._view.setup(self, self._bus, self._vision)
+        self._view.setup(self, self._bus, self._vision, self._motion)
+        self._turned = None  # the view's flips and rotation, for starting people tracking over when they change
+        self._bus.view_changed.connect(self._on_view_turned)
         self._reported_shown: Optional[bool] = None  # what window_shown last said
         self._bus.resolution_change_requested.connect(self._on_resolution_pending)
         # Both restart the phone's camera, so the stream gets a moment before it counts as behind.
         self._bus.resolution_change_requested.connect(lambda _w, _h: self._settle_stream())
         self._bus.camera_switched.connect(lambda _cam: self._settle_stream())
+        self._bus.camera_switched.connect(lambda _cam: self._motion.reset(LENS_SETTLE_S))  # another lens isn't motion
         # Animated "Stream dropped - reconnecting..." status.
         self._reconnecting_timer: Optional[QTimer] = None
         self._reconnecting_base = ""
@@ -1143,8 +1153,12 @@ class TelescopeWindow(QMainWindow):
                 signal.disconnect(slot)
             except (TypeError, RuntimeError, ValueError):
                 pass  # already disconnected
+        source = self._sessions.by_worker(worker)
+        if source is not None:
+            self._tracking.drop(source.id or "")
         worker.request_stop()
         self._vision.drop_stream(worker)
+        self._motion.drop_stream(worker)
         # Bounded wait so a stalled read can't freeze the UI; if it doesn't finish in time, let it keep unwinding in the background.
         if not worker.wait(5000):
             logging.warning("Stream worker did not stop within 5s; abandoning it in the background")
@@ -1657,6 +1671,35 @@ class TelescopeWindow(QMainWindow):
         source = self._sessions.by_worker(worker)
         if source is not None:
             self._bus.people_seen.emit(source.id or "", people)
+            tracks, count = self._tracking.update(source.id or "", people, time.monotonic())
+            self._bus.people_tracked.emit(source.id or "", tracks, count)
+
+    def tracked_people(self, source_id: Optional[str] = None) -> tuple:
+        return self._tracking.last((self.focused_source_id() if source_id is None else source_id) or "",
+                                   time.monotonic())
+
+    def _on_view_turned(self, view):
+        old, new = self._turned, (view.flip_h, view.flip_v, view.rotation)
+        self._turned = new
+        if old is None or old == new:
+            return
+
+        def remap(x, y):
+            return view_to_shown(*shown_to_view(x, y, 1.0, 0.0, 0.0, *old), 1.0, 0.0, 0.0, *new)
+        self._tracking.remap(remap)  # the same people, somewhere else in the picture now
+        self._motion.reset()
+
+    def watch_motion(self, owner: str, zones: list, sensitivity: int = 5):
+        self._motion.watch(owner, zones, sensitivity)
+
+    def motion(self, owner: str) -> list:
+        shown = self._sessions.shown()
+        return self._motion.moving(shown.worker, owner) if shown is not None else []
+
+    def _on_motion(self, worker, owner: str, zones: list):
+        source = self._sessions.by_worker(worker)
+        if source is not None:
+            self._bus.motion_seen.emit(source.id or "", owner, zones)
 
     def device_config(self, source_id: Optional[str], plugin_name: str) -> dict:
         cfg = load_config()
@@ -1698,6 +1741,7 @@ class TelescopeWindow(QMainWindow):
             added += [f"{name} (didn't start)" for name in self._plugin_problems]
             state["Added plugins"] = ", ".join(added)
         state.update(self._vision.diagnostics())
+        state.update(self._motion.diagnostics())
         for plugin in self._plugins:
             try:
                 state.update(plugin.diagnostics())
