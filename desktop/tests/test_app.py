@@ -3846,3 +3846,90 @@ def test_a_worker_that_cant_hand_over_lets_go_of_the_route_at_once(window):
     conn, _worker, _client, _listener = _wifi_stream(window, can=False)
     assert not window.hand_over_stream(Route("usb", "127.0.0.1", "SER"))
     assert conn.dropped == [(window._phone.id, False)]
+
+
+def test_a_pick_on_the_preview_ends_when_the_panels_move_to_another_phone(window):
+    overlays = window.preview_overlays()
+    overlays.attach()
+    got = []
+    assert overlays.start_pick("Test", "quad", got.append)
+    window._bus.device_changed.emit("phone-2")
+    assert got == [None] and overlays.picking() == ""
+
+
+def test_people_are_tracked_steadily_and_carried_through_a_flip(window, monkeypatch):
+    from types import SimpleNamespace
+    from telescope.view import View
+    from telescope.vision import Person
+    person = Person({"nose": (0.3, 0.3, 0.99), "left_shoulder": (0.35, 0.45, 0.99),
+                     "right_shoulder": (0.25, 0.45, 0.99)})
+    worker = object()
+    monkeypatch.setattr(window._sessions, "by_worker", lambda w: SimpleNamespace(id="phone") if w is worker else None)
+    monkeypatch.setattr(window, "focused_source_id", lambda: "phone")
+    heard = []
+    window._bus.people_tracked.connect(lambda sid, tracks, count: heard.append((sid, count)))
+    window._bus.view_changed.emit(View())
+    for _ in range(3):
+        window._on_people(worker, [person])
+    assert heard[-1] == ("phone", 1)
+    resets = []
+    monkeypatch.setattr(window._motion, "reset", lambda: resets.append(True))
+    window._bus.view_changed.emit(View(flip_h=True))
+    tracks, count = window.tracked_people()
+    assert count == 1 and tracks[0].id == 1 and tracks[0].centre[0] > 0.5  # mirrored, same person
+    assert resets == [True]
+    window._tracking.drop("phone")
+    assert window.tracked_people() == ([], 0)
+
+
+def test_a_lens_switch_starts_motion_over(window, monkeypatch):
+    from telescope.motion import LENS_SETTLE_S
+    resets = []
+    monkeypatch.setattr(window._motion, "reset", lambda settle_s=0.0: resets.append(settle_s))
+    window._bus.camera_switched.emit({"id": "2"})
+    assert resets == [LENS_SETTLE_S]
+
+
+def test_photos_follow_the_shown_streams_phone_and_tell_every_plugin(window, monkeypatch):
+    from telescope.stills import StillProgress, StillResult
+    held = []
+    worker = SimpleNamespace(hold_for_photo=lambda: held.append(True))
+    window._session = StreamSession(source=window._phone, id=1, url="url", client=object(), worker=worker)
+    sid = window._phone.id
+    assert window.still_caps() is None and not window.take_still({}, "/tmp", lambda r: None)  # nothing said yet
+    window._last_states[sid] = {"stills": 1, "cameras": [{"id": "0", "current": True, "stills": {"formats": ["jpeg"]}}]}
+    assert window.still_caps().formats == ("jpeg",)
+
+    taken = {}
+    monkeypatch.setattr(window._stills, "take", lambda source, client, options, folder, on_done, on_progress:
+                        taken.update(source=source, on_done=on_done, on_progress=on_progress) or True)
+    busy, saved, done = [], [], []
+    window._bus.still_busy_changed.connect(lambda s, b: busy.append(b))
+    window._bus.still_saved.connect(lambda s, files: saved.append(files))
+    assert window.take_still({"format": "jpeg"}, "/tmp", done.append)
+    assert taken["source"] == sid and busy == [True]
+    taken["on_progress"](StillProgress("capturing"))
+    QCoreApplication.processEvents()
+    assert held == [True]  # the stream doesn't count as dropped while the phone takes it
+    taken["on_done"](StillResult(True, ["/tmp/IMG_1.jpg"]))
+    QCoreApplication.processEvents()
+    assert busy == [True, False] and saved == [["/tmp/IMG_1.jpg"]] and done[0].ok
+
+    # The next photo already started there when the last one's end reaches the Qt thread: still busy
+    monkeypatch.setattr(window._stills, "busy", lambda source: True)
+    taken["on_done"](StillResult(True, []))
+    QCoreApplication.processEvents()
+    assert busy[-1] is True
+
+
+def test_photo_options_follow_a_lens_switch(window):
+    window._session = StreamSession(source=window._phone, id=1, url="url", client=object(), worker=None)
+    full = {"formats": ["jpeg"], "width": 4000, "height": 3000, "maxResWidth": 8000, "maxResHeight": 6000}
+    window._last_states[window._phone.id] = {"stills": 1, "cameras": [
+        {"id": "1", "current": True, "stills": full},
+        {"id": "4", "current": False, "stills": {"formats": ["jpeg"], "width": 1920, "height": 1440}}]}
+    assert window.still_caps().max_res == (8000, 6000)
+    seen = []
+    window._bus.camera_switched.connect(lambda _cam: seen.append(window.still_caps()))
+    window._bus.camera_switched.emit({"id": "4", "current": False, "stills": {"formats": ["jpeg"], "width": 1920, "height": 1440}})  # as /v1/state lists it
+    assert seen[0].max_res is None and seen[0].size == (1920, 1440)  # already the new lens's for plugins listening

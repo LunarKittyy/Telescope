@@ -58,11 +58,12 @@ def skeleton(people, map_point, aspect: float) -> list:
 
 
 def _fit_within(frame: np.ndarray, size) -> np.ndarray:
-    """frame scaled to fit inside size (w, h), keeping its shape; always a new array, since it crosses threads."""
+    """frame scaled down to fit inside size (w, h), keeping its shape (never up); always a new array, since it crosses
+    threads."""
     h, w = frame.shape[:2]
     if size is None:
         return frame.copy()
-    scale = min(size[0] / w, size[1] / h)
+    scale = min(size[0] / w, size[1] / h, 1.0)  # never bigger than the stream: the UI thread scales the pixmap up
     new_w, new_h = max(1, round(w * scale)), max(1, round(h * scale))
     if (new_w, new_h) == (w, h):
         return frame.copy()
@@ -101,6 +102,8 @@ class FrameLabel(QLabel):
         self._boxes_opacity = 0.0
         self._skeleton: list = []  # skeleton() lines
         self._placeholder_icon: QIcon | None = None  # drawn above the text while there's no frame
+        self._overlays = None  # the host's PreviewOverlays: plugins' layers, and the pick under way
+        self._pick_press = False  # the left button went down on a pick, so moves and the release are the pick's
         self._marker = QFrame(self)
         self._marker.setObjectName("focus_marker")
         self._marker.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
@@ -128,12 +131,44 @@ class FrameLabel(QLabel):
             self._skeleton = lines
             self.update()
 
+    def set_overlays(self, overlays):
+        self._overlays = overlays
+        overlays.changed.connect(self.update)
+        overlays.pick_changed.connect(self._on_pick_changed)
+        self._on_pick_changed(overlays.picking())
+
+    def _picking(self) -> bool:
+        return self._overlays is not None and bool(self._overlays.picking())
+
+    def _on_pick_changed(self, owner: str):
+        self._pick_press = False
+        self.setMouseTracking(bool(owner))  # the cursor shows what a press would grab
+        self.setFocusPolicy(Qt.FocusPolicy.ClickFocus if owner else Qt.FocusPolicy.NoFocus)
+        if owner and self.isVisible():
+            self.setFocus()
+        self._update_cursor()
+
+    def _frame_size(self) -> tuple:
+        rect = self.frame_rect()
+        return (rect.width(), rect.height()) if rect is not None else (1.0, 1.0)
+
+    def _frame_uv(self, pos: QPoint):
+        """Where pos falls against the shown frame, (u, v), outside 0..1 too; None without a frame."""
+        rect = self.frame_rect()
+        if rect is None:
+            return None
+        return (pos.x() - rect.x()) / rect.width(), (pos.y() - rect.y()) / rect.height()
+
     def set_placeholder_icon(self, icon: QIcon | None):
         self._placeholder_icon = icon
         self.update()
 
-    def _update_cursor(self):
-        if self._dragging:
+    def _update_cursor(self, pick_shape=None):
+        if pick_shape is not None:
+            shape = pick_shape
+        elif self._picking() and self._overlays.cursor(0.5, 0.5, self._frame_size()) == Qt.CursorShape.CrossCursor:
+            shape = Qt.CursorShape.CrossCursor  # a point or an area: anywhere on the picture
+        elif self._dragging:
             shape = Qt.CursorShape.ClosedHandCursor
         elif self._pannable:
             shape = Qt.CursorShape.OpenHandCursor
@@ -163,6 +198,16 @@ class FrameLabel(QLabel):
 
     def mousePressEvent(self, event):
         pos = event.position().toPoint()
+        if self._picking():
+            if event.button() == Qt.MouseButton.RightButton:
+                self._overlays.cancel_pick()
+                return
+            point = self.frame_point(pos)
+            if (event.button() == Qt.MouseButton.LeftButton and point is not None
+                    and self._overlays.press(*point, self._frame_size())):
+                self._pick_press = True
+                self.setFocus()
+                return
         if (event.button() != Qt.MouseButton.LeftButton or not (self._pickable or self._pannable)
                 or self.frame_point(pos) is None):
             super().mousePressEvent(event)
@@ -171,6 +216,13 @@ class FrameLabel(QLabel):
         self._dragging = False
 
     def mouseMoveEvent(self, event):
+        uv = self._frame_uv(event.position().toPoint())
+        if self._pick_press and uv is not None:
+            self._overlays.move(*uv, self._frame_size())
+            self._update_cursor(self._overlays.cursor(*uv, self._frame_size()))
+            return
+        if self._picking() and self._press is None and uv is not None:
+            self._update_cursor(self._overlays.cursor(*uv, self._frame_size()))
         if self._press is None or not self._pannable:
             super().mouseMoveEvent(event)
             return
@@ -186,6 +238,11 @@ class FrameLabel(QLabel):
         self._last = pos
 
     def mouseReleaseEvent(self, event):
+        if self._pick_press and event.button() == Qt.MouseButton.LeftButton:
+            self._pick_press = False
+            uv = self._frame_uv(event.position().toPoint()) or (0.5, 0.5)
+            self._overlays.release(*uv)
+            return
         if self._press is None or event.button() != Qt.MouseButton.LeftButton:
             super().mouseReleaseEvent(event)
             return
@@ -194,13 +251,18 @@ class FrameLabel(QLabel):
         self._dragging = False
         self._update_cursor()
         point = self.frame_point(press)
-        if was_drag or not self._pickable or point is None:
+        if was_drag or not self._pickable or point is None or self._picking():
             return
         self._marker.move(press.x() - _MARKER // 2, press.y() - _MARKER // 2)
         self._marker.show()
         self._marker.raise_()
         self._marker_timer.start(1000)
         self.picked.emit(*point)
+
+    def keyPressEvent(self, event):
+        if self._overlays is not None and self._overlays.key(event.key()):
+            return
+        super().keyPressEvent(event)
 
     def wheelEvent(self, event):
         notches = event.angleDelta().y() / 120
@@ -217,6 +279,11 @@ class FrameLabel(QLabel):
             self._paint_placeholder_icon()
         if rect is not None and self._skeleton:
             self._paint_skeleton(rect)
+        if rect is not None and self._overlays is not None:
+            p = QPainter(self)
+            p.setClipRect(rect)
+            self._overlays.paint(p, rect)
+            p.end()
         if rect is None or not self._boxes or self._boxes_opacity <= 0.0:
             return
         p = QPainter(self)
@@ -374,6 +441,8 @@ class PreviewPlugin(TelescopePlugin):
         host.installEventFilter(self._host_filter)
         bus.setup_needed.connect(self._on_setup_needed)
         self._bus = bus
+        self._overlays = host.preview_overlays()  # what plugins draw on the preview, and their picks
+        bus.preview_pick_changed.connect(self._on_pick_changed)
         self._pickable = False
         self._pannable = False
         bus.focus_point_available.connect(self._on_focus_point_available)
@@ -415,6 +484,7 @@ class PreviewPlugin(TelescopePlugin):
 
         self._preview_lbl = FrameLabel()
         self._wire(self._preview_lbl)
+        self._overlays.attach()
         self._preview_lbl.setObjectName("preview_surface")
         self._preview_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._preview_lbl.setMinimumHeight(240)
@@ -627,12 +697,17 @@ class PreviewPlugin(TelescopePlugin):
             self._popout._lbl.set_pickable(available)
 
     def _wire(self, lbl: FrameLabel):
+        lbl.set_overlays(self._overlays)
         lbl.picked.connect(self._bus.focus_point_picked.emit)
         lbl.dragged.connect(self._bus.view_dragged.emit)
         lbl.scrolled.connect(self._bus.view_scrolled.emit)
 
     def _labels(self):
         return [self._preview_lbl] + ([self._popout._lbl] if self._popout is not None else [])
+
+    def _on_pick_changed(self, owner: str):
+        if owner and not self._active and not self._popout_active:
+            self._toggle()  # a pick needs the picture to pick on
 
     def _on_pannable(self, pannable: bool):
         self._pannable = pannable
@@ -733,7 +808,7 @@ class PreviewPlugin(TelescopePlugin):
             if stream_gen is not None and stream_gen != self._stream_gen:
                 return  # the panels have moved on to another stream since
             if self._streaming and self._host.is_camera_on():  # a frame from just before the camera went off
-                self._show_frame(frame)
+                self._show_frame(self._overlays.tint(frame))  # here, not in process_frame: it adds no lag to the output
         finally:
             self._busy = False
 

@@ -57,10 +57,11 @@ class ViewController(TelescopePlugin):
     window's: it isn't in the plugin list, has no card and can't be switched off."""
     name = "view"
 
-    def setup(self, host, bus, vision=None):
+    def setup(self, host, bus, vision=None, motion=None):
         self._host = host
         self._bus = bus
         self._vision = vision  # the raw frames go to it while something wants people (Auto framing)
+        self._motion = motion  # and to this while something watches for motion
         self.view = View()  # Written by Qt thread; read by worker thread (GIL ensures atomicity).
         self._manual = View()  # what set_view asked for; differs from view in zoom and pan while it's taken
         self._owner = ""  # what took the view ("" = nobody)
@@ -76,6 +77,7 @@ class ViewController(TelescopePlugin):
         self._handover: Optional[_Handover] = None  # Written by Qt thread; read and marked arrived by worker thread.
         self._last_thumb = None  # worker thread: the last frame, small, while something steers
         bus.focus_point_picked.connect(self._on_point_picked)
+        bus.meter_point_picked.connect(self._on_meter_picked)
         bus.camera_switched.connect(self._on_camera_caps)
 
     # ── What the window offers plugins (HostView) ─────────────────────────
@@ -126,8 +128,14 @@ class ViewController(TelescopePlugin):
     def process_frame(self, frame: np.ndarray) -> np.ndarray:
         self._frame_size = (frame.shape[1], frame.shape[0])
         view = self.view
-        if self._vision is not None and self._vision.wants_people():
-            self._vision.feed_raw(frame, *self._upright(view))
+        people = self._vision is not None and self._vision.wants_people()
+        motion = self._motion is not None and self._motion.watching()
+        if people or motion:
+            upright = self._upright(view)
+            if people:
+                self._vision.feed_raw(frame, *upright)
+            if motion:
+                self._motion.feed(frame, *upright)
         frame = apply_zoom(frame, *self._crop_for(frame))
         return transform_frame(frame, view.flip_h, view.flip_v, view.rotation)
 
@@ -274,10 +282,15 @@ class ViewController(TelescopePlugin):
     # ── The preview ───────────────────────────────────────────────────────
 
     def _on_point_picked(self, u: float, v: float):
+        self._bus.focus_point.emit(*self._in_phone_frame(u, v))
+
+    def _on_meter_picked(self, u: float, v: float):
+        self._bus.meter_point.emit(*self._in_phone_frame(u, v))
+
+    def _in_phone_frame(self, u: float, v: float) -> tuple:
         w, h = self._frame_size
         view = self.view
-        self._bus.focus_point.emit(*inverse_map(u, v, w, h, *self._desktop_crop,
-                                                view.flip_h, view.flip_v, view.rotation))
+        return inverse_map(u, v, w, h, *self._desktop_crop, view.flip_h, view.flip_v, view.rotation)
 
     def _emit_lens_boxes(self, moved: bool):
         caps, view = self._zoom_caps if self._ctrl else None, self.view

@@ -39,13 +39,54 @@
                 }
             ],
             "supportsFocusPoint": true,
+            "supportsMeterPoint": true,
             "zoomRatioMax": 10.0,
             "cropZoomMax": 8.0,
             "freeformCrop": true,
             "lensZooms": [
                 3.0
             ],
-            "maxFps": 60
+            "maxFps": 60,
+            "stills": {
+                "formats": [
+                    "jpeg",
+                    "heic",
+                    "ultrahdr",
+                    "raw"
+                ],
+                "width": 4032,
+                "height": 3024,
+                "maxResWidth": 8064,
+                "maxResHeight": 6048,
+                "maxResRaw": true,
+                "extensions": [
+                    "night",
+                    "hdr",
+                    "bokeh"
+                ],
+                "extensionSizes": {
+                    "night": {
+                        "width": 3840,
+                        "height": 2160
+                    },
+                    "hdr": {
+                        "width": 4032,
+                        "height": 3024
+                    },
+                    "bokeh": {
+                        "width": 4032,
+                        "height": 3024
+                    }
+                },
+                "exposureMaxNs": 30000000000,
+                "bracketing": true,
+                "focusBracketing": true,
+                "noiseReductionHq": true,
+                "sharpeningHq": true,
+                "hotPixelHq": true,
+                "distortionCorrection": true,
+                "burstMax": 60
+            }
         }
     ],
     "auto": false,
@@ -96,6 +137,7 @@
     "camera_error_code": "camera_in_use",
     "camera_taken": true,
     "camera_toggle": true,
+    "stills": 1,
     "stream_width": 1920,
     "stream_height": 1080,
     "battery": 87,
