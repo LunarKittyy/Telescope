@@ -115,6 +115,12 @@ class _Held:
         return []
 
 
+def quiet_sign(plugin):
+    """The On Air sign with a fixed address and no server or certificate of its own."""
+    from scripts import text_fit
+    text_fit.quiet_sign(plugin)
+
+
 class _MicBackend:
     pick_name = "Microphone"
 
@@ -144,6 +150,7 @@ def quiet_system(stack, tray=False):
     import telescope.plugins.connection as connection
     import telescope.plugins.setup as setup
     from telescope import h264_reader
+    from telescope.plugins import on_air as on_air_plugin
     from telescope.plugins.onboarding import OnboardingPlugin
     from telescope.plugins.updates import UpdatesPlugin
     for target, name, value in (
@@ -158,6 +165,7 @@ def quiet_system(stack, tray=False):
         (connection.ConnectionPlugin, "_check_status", lambda self, *a, **k: None),
         (connection.ConnectionPlugin, "ensure_virtual_camera", lambda self, interactive=True: True),
         (OnboardingPlugin, "check_virtual_camera", lambda self: None),
+        (on_air_plugin, "ensure_certificate", lambda _folder, _hosts: ("", "")),
         (UpdatesPlugin, "_maybe_auto_check", lambda self: None),
     ):
         if hasattr(target, name):
@@ -188,6 +196,8 @@ def main_window(stack, tray=False, phone=True):
             plugin._backend = _MicBackend()
         elif plugin.name == "shortcuts":
             plugin._backend_factory = lambda: None
+        elif plugin.name == "on_air":
+            quiet_sign(plugin)
         win.register_plugin(plugin)
     win.apply_saved_config()
     if phone:
@@ -354,7 +364,8 @@ def settings_page(stack, tab):
 
 
 SETTINGS_PAGES = (("general", "General"), ("streaming", "Streaming"), ("video", "Video"), ("audio", "Audio"),
-                  ("devices", "Virtual camera & phone"), ("shortcuts", "Keyboard shortcuts"), ("plugins", "Plugins"),
+                  ("devices", "Virtual camera & phone"), ("shortcuts", "Keyboard shortcuts"), ("on_air", "On Air"),
+                  ("plugins", "Plugins"),
                   ("about", "Updates & About"))
 
 

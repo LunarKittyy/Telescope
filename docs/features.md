@@ -1,6 +1,6 @@
 # Features
 
-Jump to: [Camera](#camera-control) · [Picture](#stream-transforms) · [Auto framing](#auto-framing) · [Chroma key](#chroma-key) · [Cinema tools](#cinema-tools) · [Desk mode](#desk-and-document-mode) · [Quality](#resolution-and-fps) · [Microphone](#microphone) · [Browser camera](#browser-camera) · [Several cameras](#several-cameras-at-once) · [Connection](#phones-pairing-and-connection) · [Privacy](#privacy) · [Updates](#updates) · [Automation](#system-integration) · [Shortcuts](#keyboard-shortcuts) · [Plugins](#plugins)
+Jump to: [Camera](#camera-control) · [Picture](#stream-transforms) · [Auto framing](#auto-framing) · [Chroma key](#chroma-key) · [Cinema tools](#cinema-tools) · [Desk mode](#desk-and-document-mode) · [Quality](#resolution-and-fps) · [Microphone](#microphone) · [Browser camera](#browser-camera) · [Several cameras](#several-cameras-at-once) · [On Air](#on-air-sign) · [Connection](#phones-pairing-and-connection) · [Privacy](#privacy) · [Updates](#updates) · [Automation](#system-integration) · [Shortcuts](#keyboard-shortcuts) · [Plugins](#plugins)
 
 ## Camera control
 
@@ -183,6 +183,17 @@ Click the **+** next to Stop while streaming to add another phone (or Browser ca
 - With more than one stream mic only isn't available, the canvas can't be resized and Automatic streaming won't stop anything until all of them have stopped
 - Extra cameras are always the size set in **Canvas size** under Video in Settings (1920x1080 on Auto). Other shapes get black bars
 
+## On Air sign
+
+Optional. It lets the people you live with know you're on a call without you having to tell them. Switch it on under **Optional** in the Plugins tab of Settings and it gets an **On Air** tab of its own.
+
+- **On air when** decides what counts. By default it's an app using the virtual camera, even while it only sees the wait screen. It can also count Telescope's mic being live (streaming and not muted), the mic alone or any stream at all
+- It waits a second before going on air and six before going off again, because apps like to close and reopen the camera when you change their settings
+- **Sign on another device** shows a big On air or Off air page in any browser on your network. Scan the code with an old tablet or phone and tap the page to make it full screen. The screen stays on where the browser allows that. The link stays the same after Telescope restarts until you click **New link** and the page only answers to that link. The browser warns about the certificate the first time, the same as with [Browser camera](#browser-camera)
+- **Webhook** sends a request every time you go on or off air, for Home Assistant or a smart plug or anything else that takes one. POST sends what's in **Going on air** or **Going off air** as the body (`{"on_air": true}` when left empty) and GET adds it to the address instead. **Test on** and **Test off** send one right away
+- If the webhook stops answering you get one quiet banner about it and no more of them until it has worked again. Meanwhile Telescope tries the latest state again after 5 seconds, 15 seconds and a minute, then every 5 minutes, which puts the light right after a Wi-Fi blip or a hub restart. It also sends the current state when it starts. Quitting while on air sends the off request first
+- While you're on air an **On air** button shows next to the settings button and takes you to the tab
+
 ## Monitoring
 
 - FPS and throughput sit in the footer. When the stream can't keep up a note suggests what to try, with a button for it
@@ -208,6 +219,7 @@ Click the **+** next to Stop while streaming to add another phone (or Browser ca
 - Someone on the network can still see that a stream is running and roughly how much data it moves. **Local only - USB** in the Android app takes the stream and controls off the network entirely
 - **Wait for my computer** (off by default) lets you start the camera from your PC with the phone's screen off or the app closed. Tap **Stop waiting** in its notification to end it
 - Browser camera only listens on port 8767 while it is picked or a browser is streaming. Anyone can load the page but sending video needs the token in the code, which changes on every start and on **New link**. Its certificate isn't pinned like a phone's, so on a network you don't trust use a phone
+- The On Air sign listens on port 8768 while it's switched on. It serves nothing but the sign page and whether you're on air (that part only to its link's token)
 - The apps only go online to check GitHub for updates. On Windows the desktop also fetches adb from Google and VB-Cable from VB-Audio, but only after you click to get them
 - On Linux only your user can read the config folder with the pairing tokens. On Windows the camera driver sits in Program Files where other programs can't swap it
 

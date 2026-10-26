@@ -690,7 +690,8 @@ def plugins_page(stack, off):
     for name in off:
         plugin_loader.set_builtin_off(name, True)
     win._builtin_plugins = builtin_plugins()
-    win._plugins = [p for p in win._plugins if p.name not in off]
+    # Optional plugins without the vision download start out off, as they do in the app
+    win._plugins = [p for p in win._plugins if p.name not in off and not (p.optional and not p.needs_vision)]
     win.resize(1380, 900)
     win.open_settings()
     settings = win._settings_win
