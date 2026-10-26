@@ -34,6 +34,11 @@ class Frames:
         entry = next((e for e in self._streams if e[0] == (source_id or "")), None)
         return _frame(entry, copy) if entry is not None else None
 
+    def replace_frame(self, source_id: Optional[str], frame, number: int) -> bool:
+        entry = next((e for e in self._streams if e[0] == (source_id or "")), None)
+        replace = getattr(entry[2], "replace_frame", None) if entry is not None else None
+        return bool(replace is not None and replace(frame, number))
+
     def source_of_current(self) -> Optional[str]:
         """The source id of the stream whose frame steps are running on this thread now, or None outside them."""
         here = vision.current_frame.get()

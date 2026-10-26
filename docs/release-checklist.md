@@ -168,8 +168,8 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 <!-- due: desktop/telescope/frames.py desktop/telescope/composite.py desktop/telescope/pictures.py desktop/telescope/plugins/composite.py desktop/telescope/widgets/composite_editor.py desktop/telescope/stream.py desktop/telescope/stream_flow.py ; packages: opencv-python-headless numpy -->
 
-- [ ] Two real phones streaming (Linux and Windows): switching on **Several cameras in one picture** under **Optional** shows the One picture card. **Start from** Big and small, then drag, resize, zoom and right-drag a stream in **Edit picture…** while the call app shows the picture on the main camera. Borders, corners and a background picture show there too and the second phone's own camera still works.
-- [ ] Save two layouts, bind one to a key, save a preset with each and switch between them by key and preset. After stopping the second phone the camera shows the main phone alone within 3 seconds. The second one is in the picture again once it's restarted.
+- [ ] Two real phones streaming (Linux and Windows): switching on **Several cameras in one picture** under **Optional** shows the One picture card. **Start from** Big and small, then drag, resize, zoom and right-drag a stream in **Edit picture…** while the call app shows the picture on the Telescope camera. Borders, corners and a background picture show there too and the second phone's own camera still works.
+- [ ] Save two layouts, bind one to a key, save a preset with each and switch between them by key and preset. After stopping the second phone the camera shows the first alone within 3 seconds. The second one is in the picture again once it's restarted. Turning off the first phone's Wi-Fi doesn't freeze the second in the picture. With an upright phone on Telescope and a landscape one on Telescope 2, moving the mic to the second leaves the picture upright on Telescope.
 
 ### Vision effects
 

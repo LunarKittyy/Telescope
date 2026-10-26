@@ -127,9 +127,9 @@ Optional (switch it on under **Optional** in the Plugins tab of Settings). It pu
 - Each stream can get a border and rounded corners. Behind them goes a colour or a picture
 - **Start from** lays out the running streams **Side by side**, **Big and small** or in a **Grid** to tweak from there
 - Layouts can be saved under a name and picked on the card. A keyboard shortcut can switch to one and a preset brings back the picture it was saved with (without touching your saved layouts)
-- The picture goes out on the virtual camera of the main stream, which is the one with the mic and usually the first you started. The other streams still go to their own cameras as well, for OBS scenes that use them one by one
-- It only takes over while at least two of its streams are running. A stream that drops leaves the picture after 3 seconds and is back in it once it reconnects
-- The picture runs at the main stream's frame rate. Its size is the canvas size under Video in Settings, or on Auto the size of the main camera
+- The picture goes out on the **Telescope** camera, the one call apps use, whichever stream goes there (usually the first you started). The other streams still go to their own cameras as well, for OBS scenes that use them one by one. While no stream goes to Telescope, or the one there has its camera off, the picture waits
+- It only takes over while at least two of its streams are running. A stream that drops leaves the picture after 3 seconds and is back in it once it reconnects. The others don't freeze with it, even when it's the one on Telescope
+- The picture runs at the frame rate of the stream going to Telescope. Its size is the canvas size under Video in Settings, or on Auto the size the Telescope camera opened at
 
 ## Monitoring
 

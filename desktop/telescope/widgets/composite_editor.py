@@ -378,22 +378,29 @@ class CompositeEditor(PlacedDialog):
         name = name.strip()
         if not ok or not name:
             return
-        if name in self._model.names() and name != current:
-            answer = QMessageBox.question(self, tr("Replace layout"),
-                                          tr('There\'s already a layout called "{name}". Replace it?', name=name))
-            if answer != QMessageBox.StandardButton.Yes:
-                return
+        if name != current and not self._may_replace(name):
+            return
         self._model.save_layout(name)
         self.reload()
+
+    def _may_replace(self, name: str) -> bool:
+        """Whether name is free, or there's a layout of that name and the user said to replace it."""
+        if name not in self._model.names():
+            return True
+        answer = QMessageBox.question(self, tr("Replace layout"),
+                                      tr('There\'s already a layout called "{name}". Replace it?', name=name))
+        return answer == QMessageBox.StandardButton.Yes
 
     def _ask_rename(self):
         old = self._model.saved_match() or self._model.layout().name
         if old not in self._model.names():
             return
         name, ok = QInputDialog.getText(self, tr("Rename layout"), tr("Name:"), QLineEdit.EchoMode.Normal, old)
-        if ok and name.strip():
-            self._model.rename_layout(old, name)
-            self.reload()
+        name = name.strip()
+        if not ok or not name or name == old or not self._may_replace(name):
+            return
+        self._model.rename_layout(old, name)
+        self.reload()
 
     def _delete(self):
         name = self._model.saved_match() or self._model.layout().name

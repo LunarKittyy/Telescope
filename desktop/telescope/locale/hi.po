@@ -115,7 +115,7 @@ msgid "Stop"
 msgstr "रोकें"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: telescope/app.py:611 telescope/app.py:1889 telescope/app.py:1905 telescope/plugins/shortcuts.py:152 telescope/sources.py:682 telescope/sources.py:691
+#: telescope/app.py:611 telescope/app.py:1907 telescope/app.py:1923 telescope/plugins/shortcuts.py:152 telescope/sources.py:682 telescope/sources.py:691
 msgid "Start"
 msgstr "शुरू"
 
@@ -123,7 +123,7 @@ msgstr "शुरू"
 msgid "Stop streaming"
 msgstr "स्ट्रीमिंग रोकें"
 
-#: telescope/app.py:658 telescope/app.py:1429 telescope/app.py:1494 telescope/audio.py:630 telescope/plugins/shortcuts.py:163 telescope/sources.py:179 telescope/stream.py:457 telescope/stream_flow.py:154
+#: telescope/app.py:658 telescope/app.py:1444 telescope/app.py:1509 telescope/audio.py:630 telescope/plugins/shortcuts.py:163 telescope/sources.py:179 telescope/stream.py:469 telescope/stream_flow.py:154
 msgid "Not streaming"
 msgstr "स्ट्रीम नहीं हो रहा है"
 
@@ -143,188 +143,188 @@ msgstr "Telescope - सेव नहीं हो सका"
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "सेटिंग्स सेव नहीं की जा सकीं. डिस्क स्पेस और अनुमतियां जांचें."
 
-#: telescope/app.py:1178
+#: telescope/app.py:1193
 msgid "Reconnecting"
 msgstr "फिर से कनेक्ट हो रहा है"
 
-#: telescope/app.py:1180
+#: telescope/app.py:1195
 msgid "Live"
 msgstr "लाइव"
 
-#: telescope/app.py:1182
+#: telescope/app.py:1197
 msgid "Connecting"
 msgstr "कनेक्ट हो रहा है"
 
-#: telescope/app.py:1186
+#: telescope/app.py:1201
 msgid "Starting"
 msgstr "शुरू हो रहा है"
 
-#: telescope/app.py:1190
+#: telescope/app.py:1205
 msgid "Waiting"
 msgstr "इंतज़ार में"
 
-#: telescope/app.py:1236
+#: telescope/app.py:1251
 msgid "Setting up more virtual cameras…"
 msgstr "और वर्चुअल कैमरे सेट किए जा रहे हैं…"
 
-#: telescope/app.py:1260 telescope/plugins/setup.py:720
+#: telescope/app.py:1275 telescope/plugins/setup.py:720
 msgid "Stop the streams going to them first"
 msgstr "पहले उन पर जा रही स्ट्रीम रोकें"
 
-#: telescope/app.py:1260
+#: telescope/app.py:1275
 msgid "There are none to remove"
 msgstr "हटाने के लिए कुछ नहीं है"
 
-#: telescope/app.py:1288
+#: telescope/app.py:1303
 #, python-brace-format
 msgid "{first} to {last}"
 msgstr "{first} से {last}"
 
-#: telescope/app.py:1290
+#: telescope/app.py:1305
 msgid "Set up more virtual cameras"
 msgstr "और वर्चुअल कैमरे सेट करें"
 
-#: telescope/app.py:1291
+#: telescope/app.py:1306
 #, python-brace-format
 msgid "To stream several cameras at once, Telescope adds more virtual cameras ({names})."
 msgstr "एक साथ कई कैमरे स्ट्रीम करने के लिए, Telescope और वर्चुअल कैमरे जोड़ता है ({names})."
 
-#: telescope/app.py:1292
+#: telescope/app.py:1307
 msgid "This asks for your password."
 msgstr "यह आपका पासवर्ड मांगेगा."
 
-#: telescope/app.py:1292 telescope/plugins/setup.py:722
+#: telescope/app.py:1307 telescope/plugins/setup.py:722
 msgid "Windows asks for permission."
 msgstr "Windows अनुमति मांगता है."
 
-#: telescope/app.py:1309
+#: telescope/app.py:1324
 msgid "Couldn't add more virtual cameras"
 msgstr "और वर्चुअल कैमरे नहीं जोड़े जा सके"
 
-#: telescope/app.py:1327
+#: telescope/app.py:1342
 msgid "Only a phone can turn its camera off and keep streaming its mic."
 msgstr "सिर्फ़ एक फ़ोन ही अपना कैमरा बंद कर सकता है और अपना माइक स्ट्रीम करना जारी रख सकता है."
 
-#: telescope/app.py:1329
+#: telescope/app.py:1344
 msgid "Only while one camera streams."
 msgstr "सिर्फ़ तब जब एक कैमरा स्ट्रीम होता है."
 
-#: telescope/app.py:1331
+#: telescope/app.py:1346
 msgid "Turn on the phone mic first. With the camera off, the mic is all that streams."
 msgstr "पहले फ़ोन का माइक चालू करें. कैमरा बंद होने पर, सिर्फ़ माइक ही स्ट्रीम होता है."
 
-#: telescope/app.py:1333
+#: telescope/app.py:1348
 msgid "Update Telescope on the phone to turn its camera off while streaming."
 msgstr "स्ट्रीमिंग के दौरान कैमरा बंद करने के लिए फ़ोन पर Telescope अपडेट करें."
 
-#: telescope/app.py:1385
+#: telescope/app.py:1400
 msgid "Turning the phone's camera on…"
 msgstr "फ़ोन का कैमरा चालू किया जा रहा है…"
 
-#: telescope/app.py:1393
+#: telescope/app.py:1408
 msgid "Streaming the mic, camera off"
 msgstr "माइक स्ट्रीम हो रहा है, कैमरा बंद"
 
-#: telescope/app.py:1418
+#: telescope/app.py:1433
 msgid "Telescope: streaming the camera"
 msgstr "Telescope: कैमरा स्ट्रीम हो रहा है"
 
-#: telescope/app.py:1418
+#: telescope/app.py:1433
 msgid "Telescope: streaming the camera and mic"
 msgstr "Telescope: कैमरा और माइक स्ट्रीम हो रहे हैं"
 
-#: telescope/app.py:1419
+#: telescope/app.py:1434
 msgid "Telescope: streaming the camera, mic muted"
 msgstr "Telescope: कैमरा स्ट्रीम हो रहा है, माइक म्यूट"
 
-#: telescope/app.py:1421
+#: telescope/app.py:1436
 msgid "Telescope: streaming the mic, camera off (muted)"
 msgstr "Telescope: माइक स्ट्रीम हो रहा है, कैमरा बंद (म्यूट)"
 
-#: telescope/app.py:1422
+#: telescope/app.py:1437
 msgid "Telescope: streaming the mic, camera off"
 msgstr "Telescope: माइक स्ट्रीम हो रहा है, कैमरा बंद"
 
-#: telescope/app.py:1446
+#: telescope/app.py:1461
 msgid "Stop all but one camera first, then apply again"
 msgstr "पहले एक कैमरे को छोड़कर बाकी सब रोकें, फिर लागू करें"
 
-#: telescope/app.py:1458
+#: telescope/app.py:1473
 msgid "Reloading v4l2loopback…"
 msgstr "v4l2loopback दोबारा लोड किया जा रहा है…"
 
-#: telescope/app.py:1476
+#: telescope/app.py:1491
 msgid "Restarting stream…"
 msgstr "स्ट्रीम रीस्टार्ट हो रही है…"
 
-#: telescope/app.py:1490
+#: telescope/app.py:1505
 #, python-brace-format
 msgid "Loopback reloaded: {message}"
 msgstr "लूपबैक दोबारा लोड हुआ: {message}"
 
-#: telescope/app.py:1490
+#: telescope/app.py:1505
 msgid "Canvas updated"
 msgstr "कैनवस अपडेट हुआ"
 
-#: telescope/app.py:1494
+#: telescope/app.py:1509
 #, python-brace-format
 msgid "Reload failed: {message}"
 msgstr "दोबारा लोड होना विफल रहा: {message}"
 
-#: telescope/app.py:1501 telescope/plugins/setup.py:975
+#: telescope/app.py:1516 telescope/plugins/setup.py:975
 msgid "Resize the virtual camera"
 msgstr "वर्चुअल कैमरे का साइज़ बदलें"
 
-#: telescope/app.py:1524
+#: telescope/app.py:1539
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "फ़ोन ने ऐसा डेटा भेजा जिसे यह वर्शन नहीं पढ़ सकता. दोनों ऐप्स को एक ही वर्शन पर अपडेट करें."
 
-#: telescope/app.py:1551 telescope/plugins/preview.py:519
+#: telescope/app.py:1566 telescope/plugins/preview.py:519
 msgid "Show"
 msgstr "दिखाएं"
 
-#: telescope/app.py:1552
+#: telescope/app.py:1567
 msgid "Quit"
 msgstr "बंद करें"
 
-#: telescope/app.py:1591
+#: telescope/app.py:1606
 msgid "Telescope didn't answer in time."
 msgstr "Telescope ने समय पर जवाब नहीं दिया."
 
-#: telescope/app.py:1598
+#: telescope/app.py:1613
 msgid "This Telescope has no shortcuts."
 msgstr "इस Telescope में कोई शॉर्टकट नहीं हैं."
 
-#: telescope/app.py:1601 telescope/plugins/shortcuts.py:380
+#: telescope/app.py:1616 telescope/plugins/shortcuts.py:380
 msgid "That failed; Copy diagnostics has the details."
 msgstr "वह विफल रहा; विवरण डायग्नोस्टिक्स कॉपी करें में है."
 
-#: telescope/app.py:1888
+#: telescope/app.py:1906
 msgid "The stream stopped unexpectedly"
 msgstr "स्ट्रीम अचानक रुक गई"
 
-#: telescope/app.py:1888 telescope/app.py:1904
+#: telescope/app.py:1906 telescope/app.py:1922
 msgid "Copy diagnostics has the details."
 msgstr "विवरण डायग्नोस्टिक्स कॉपी करें में है."
 
-#: telescope/app.py:1903
+#: telescope/app.py:1921
 #, python-brace-format
 msgid "The stream from {name} stopped unexpectedly"
 msgstr "{name} से स्ट्रीम अचानक रुक गई"
 
-#: telescope/app.py:1982
+#: telescope/app.py:2000
 msgid "Telescope is still running"
 msgstr "Telescope अभी भी चल रहा है"
 
-#: telescope/app.py:1983
+#: telescope/app.py:2001
 msgid "Streaming continues in the background."
 msgstr "स्ट्रीमिंग बैकग्राउंड में जारी रहती है."
 
-#: telescope/app.py:1984
+#: telescope/app.py:2002
 msgid "It starts streaming by itself when it needs to."
 msgstr "ज़रूरत पड़ने पर यह अपने आप स्ट्रीमिंग शुरू कर देता है."
 
-#: telescope/app.py:1985
+#: telescope/app.py:2003
 msgid "Right-click the tray icon to quit."
 msgstr "बंद करने के लिए सिस्टम ट्रे आइकन पर राइट-क्लिक करें."
 
@@ -784,7 +784,7 @@ msgstr "प्लगइन्स"
 msgid "Updates & About"
 msgstr "अपडेट और परिचय"
 
-#: telescope/plugin.py:488
+#: telescope/plugin.py:500
 msgid "Open settings"
 msgstr "सेटिंग्स खोलें"
 
@@ -914,7 +914,7 @@ msgstr "तस्वीर"
 msgid "Pictures (*.png *.jpg *.jpeg *.webp *.bmp)"
 msgstr "तस्वीरें (*.png *.jpg *.jpeg *.webp *.bmp)"
 
-#: telescope/plugins/background.py:89 telescope/plugins/background.py:109 telescope/plugins/background.py:120 telescope/plugins/background.py:160 telescope/plugins/background.py:162 telescope/widgets/composite_editor.py:579
+#: telescope/plugins/background.py:89 telescope/plugins/background.py:109 telescope/plugins/background.py:120 telescope/plugins/background.py:160 telescope/plugins/background.py:162 telescope/widgets/composite_editor.py:588
 msgid "Background"
 msgstr "बैकग्राउंड"
 
@@ -1410,62 +1410,68 @@ msgstr "वहां फ़ोकस करने के लिए प्री�
 msgid "This lens can't focus on a point"
 msgstr "यह लेंस किसी पॉइंट पर फ़ोकस नहीं कर सकता"
 
-#: telescope/plugins/composite.py:28
+#: telescope/plugins/composite.py:34
 msgid "Several cameras in one picture"
 msgstr ""
 
-#: telescope/plugins/composite.py:29
+#: telescope/plugins/composite.py:35
 msgid "Puts the streams you run side by side or one inside another, out on one virtual camera."
 msgstr ""
 
-#: telescope/plugins/composite.py:30
+#: telescope/plugins/composite.py:36
 msgid "Without it there's no One picture card and each stream only goes to its own camera."
 msgstr ""
 
-#: telescope/plugins/composite.py:203
+#: telescope/plugins/composite.py:256
 msgid "Send the streams out as one picture"
 msgstr ""
 
-#: telescope/plugins/composite.py:205 telescope/plugins/composite.py:220 telescope/plugins/composite.py:222
+#: telescope/plugins/composite.py:258 telescope/plugins/composite.py:275 telescope/plugins/composite.py:277
 msgid "One picture"
 msgstr ""
 
-#: telescope/plugins/composite.py:207 telescope/widgets/composite_editor.py:341
+#: telescope/plugins/composite.py:262 telescope/widgets/composite_editor.py:343
 msgid "Not saved"
 msgstr ""
 
-#: telescope/plugins/composite.py:208
+#: telescope/plugins/composite.py:263
 msgid "A layout you saved in the editor"
 msgstr ""
 
-#: telescope/plugins/composite.py:210 telescope/widgets/composite_editor.py:339
+#: telescope/plugins/composite.py:265 telescope/widgets/composite_editor.py:339
 msgid "Layout"
 msgstr ""
 
-#: telescope/plugins/composite.py:211
+#: telescope/plugins/composite.py:266
 msgid "Edit picture…"
 msgstr ""
 
-#: telescope/plugins/composite.py:223
+#: telescope/plugins/composite.py:278
 msgid "Picture layout"
 msgstr ""
 
-#: telescope/plugins/composite.py:249
+#: telescope/plugins/composite.py:313
 msgid "Nothing's in the picture yet. Put streams in it with Edit picture."
 msgstr ""
 
-#: telescope/plugins/composite.py:251
+#: telescope/plugins/composite.py:315
 msgid "It takes over once two of its streams are running."
 msgstr ""
 
-#: telescope/plugins/composite.py:253
+#: telescope/plugins/composite.py:317
+#, python-brace-format
+msgid "It goes out on {camera}, and no stream goes there now."
+msgstr ""
+
+#: telescope/plugins/composite.py:319
+#, python-brace-format
+msgid "It goes out on {camera} once the stream there sends a picture."
+msgstr ""
+
+#: telescope/plugins/composite.py:321
 #, python-brace-format
 msgid "Goes out on {camera}."
 msgstr ""
-
-#: telescope/plugins/composite.py:253 telescope/plugins/transforms.py:63
-msgid "the main camera"
-msgstr "मुख्य कैमरा"
 
 #: telescope/plugins/connection.py:80
 msgid "Computer"
@@ -2712,7 +2718,7 @@ msgstr "इस फ़ोन की सेव की गई कैमरा, आ�
 msgid "Save current as…"
 msgstr "मौजूदा ऐसे सेव करें…"
 
-#: telescope/plugins/presets.py:186 telescope/widgets/composite_editor.py:348
+#: telescope/plugins/presets.py:186 telescope/widgets/composite_editor.py:350
 msgid "Delete"
 msgstr "मिटाएं"
 
@@ -2734,7 +2740,7 @@ msgstr "\"{name}\" नाम का एक प्रीसेट पहले �
 msgid "Save preset"
 msgstr "प्रीसेट सेव करें"
 
-#: telescope/plugins/presets.py:215 telescope/plugins/presets.py:221 telescope/widgets/composite_editor.py:374 telescope/widgets/composite_editor.py:391
+#: telescope/plugins/presets.py:215 telescope/plugins/presets.py:221 telescope/widgets/composite_editor.py:376 telescope/widgets/composite_editor.py:398
 msgid "Name:"
 msgstr "नाम:"
 
@@ -2773,7 +2779,7 @@ msgstr ""
 "\n"
 "'सिर्फ़ माइक शुरू करें' से कैमरा बंद रखकर फ़ोन का माइक स्ट्रीम होता है."
 
-#: telescope/plugins/preview.py:23 telescope/stream.py:483
+#: telescope/plugins/preview.py:23 telescope/stream.py:495
 msgid "Waiting for the first frame…"
 msgstr "पहले फ़्रेम का इंतज़ार है…"
 
@@ -4093,6 +4099,10 @@ msgstr "{tele} के देखने के दायरे से बाहर
 msgid "the telephoto"
 msgstr "टेलीफ़ोटो"
 
+#: telescope/plugins/transforms.py:63
+msgid "the main camera"
+msgstr "मुख्य कैमरा"
+
 #: telescope/plugins/transforms.py:66
 #, python-brace-format
 msgid "The phone stayed on {live} by itself, most likely too dark or too close for {tele}. It switches once it can."
@@ -4143,7 +4153,7 @@ msgstr "घुमाव"
 msgid "{n}×"
 msgstr "{n}×"
 
-#: telescope/plugins/transforms.py:205 telescope/plugins/transforms.py:249 telescope/widgets/composite_editor.py:470
+#: telescope/plugins/transforms.py:205 telescope/plugins/transforms.py:249 telescope/widgets/composite_editor.py:479
 msgid "Zoom"
 msgstr "ज़ूम"
 
@@ -4749,43 +4759,43 @@ msgstr "Telescope शुरू हो रहा है…"
 msgid "This can take a minute while Windows runs a security scan."
 msgstr "Windows के सुरक्षा स्कैन करने तक इसमें एक मिनट लग सकता है।"
 
-#: telescope/stream.py:343
+#: telescope/stream.py:355
 msgid "Stream dropped - reconnecting"
 msgstr "स्ट्रीम टूट गई - फिर से कनेक्ट हो रहा है"
 
-#: telescope/stream.py:397
+#: telescope/stream.py:409
 msgid "Stream reconnected"
 msgstr "स्ट्रीम फिर से कनेक्ट हो गई"
 
-#: telescope/stream.py:452
+#: telescope/stream.py:464
 #, python-brace-format
 msgid "Stream error: {error}"
 msgstr "स्ट्रीम एरर: {error}"
 
-#: telescope/stream.py:462
+#: telescope/stream.py:474
 msgid "Getting ready… The first start after installing can take a minute."
 msgstr "तैयारी हो रही है… इंस्टॉल करने के बाद पहली बार शुरू होने में एक मिनट लग सकता है।"
 
-#: telescope/stream.py:464 telescope/stream_flow.py:189
+#: telescope/stream.py:476 telescope/stream_flow.py:189
 msgid "Connecting..."
 msgstr "कनेक्ट हो रहा है..."
 
-#: telescope/stream.py:464
+#: telescope/stream.py:476
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "{url} से कनेक्ट हो रहा है..."
 
-#: telescope/stream.py:473
+#: telescope/stream.py:485
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "फ़ोन की स्ट्रीम से संपर्क नहीं हो पा रहा है. {seconds} सेकंड में फिर कोशिश की जाएगी…"
 
-#: telescope/stream.py:543
+#: telescope/stream.py:557
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "{camera} पर {fps} fps पर {size} स्ट्रीम हो रहा है"
 
-#: telescope/stream.py:594
+#: telescope/stream.py:608
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "वर्चुअल कैमरा एरर: {error}"
@@ -4994,122 +5004,122 @@ msgstr ""
 msgid "Drag a stream to move it and its corners to resize it. Shift keeps its shape and Alt stops it snapping."
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:344
+#: telescope/widgets/composite_editor.py:346
 msgid "Save as…"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:346
+#: telescope/widgets/composite_editor.py:348
 msgid "Rename…"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:352
+#: telescope/widgets/composite_editor.py:354
 msgid "Side by side"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:352
+#: telescope/widgets/composite_editor.py:354
 msgid "Big and small"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:353
+#: telescope/widgets/composite_editor.py:355
 msgid "Grid"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:355
+#: telescope/widgets/composite_editor.py:357
 msgid "Start again with the running streams laid out like this"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:368 telescope/widgets/composite_editor.py:370
+#: telescope/widgets/composite_editor.py:370 telescope/widgets/composite_editor.py:372
 #, python-brace-format
 msgid "Layout {n}"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:374
+#: telescope/widgets/composite_editor.py:376
 msgid "Save layout"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:380
+#: telescope/widgets/composite_editor.py:390
 msgid "Replace layout"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:381
+#: telescope/widgets/composite_editor.py:391
 #, python-brace-format
 msgid "There's already a layout called \"{name}\". Replace it?"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:391
+#: telescope/widgets/composite_editor.py:398
 msgid "Rename layout"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:413
+#: telescope/widgets/composite_editor.py:422
 msgid "Streams"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:417
+#: telescope/widgets/composite_editor.py:426
 msgid "Start two or more streams to put them together. The + next to Stop adds one."
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:434
+#: telescope/widgets/composite_editor.py:443
 #, python-brace-format
 msgid "{name} (not streaming)"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:456
+#: telescope/widgets/composite_editor.py:465
 msgid "Picked stream"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:466
+#: telescope/widgets/composite_editor.py:475
 msgid "Scroll over a stream to zoom in and drag it with the right mouse button to move what's shown"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:476
+#: telescope/widgets/composite_editor.py:485
 msgid "Border"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:477
+#: telescope/widgets/composite_editor.py:486
 msgid "Border colour"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:479
+#: telescope/widgets/composite_editor.py:488
 msgid "Colour"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:485
+#: telescope/widgets/composite_editor.py:494
 msgid "Corners"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:486
+#: telescope/widgets/composite_editor.py:495
 msgid "Fit its shape"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:487
+#: telescope/widgets/composite_editor.py:496
 msgid "Make the box the stream's own shape, so none of it is cut off"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:489
+#: telescope/widgets/composite_editor.py:498
 msgid "Send back"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:491
+#: telescope/widgets/composite_editor.py:500
 msgid "Bring forward"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:495
+#: telescope/widgets/composite_editor.py:504
 msgid "Click a stream in the picture to change it."
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:580
+#: telescope/widgets/composite_editor.py:589
 msgid "Background colour"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:582
+#: telescope/widgets/composite_editor.py:591
 msgid "Picture…"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:584
+#: telescope/widgets/composite_editor.py:593
 msgid "No picture"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:593
+#: telescope/widgets/composite_editor.py:602
 msgid "Background picture"
 msgstr ""
 

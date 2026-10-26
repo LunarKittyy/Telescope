@@ -186,6 +186,11 @@ class HostStreams(Protocol):
         """The virtual camera source_id streams to, as apps list it, or "" when it doesn't stream."""
         ...
 
+    def stream_on_camera(self, slot: int = 0) -> Optional[tuple]:
+        """(source id, width, height) of the stream going to virtual camera slot (0 is the one apps list as Telescope),
+        or None when none does. Width and height are None until its camera has opened, and with the camera off."""
+        ...
+
     def remove_extra_cameras(self, on_done=None) -> None:
         """Take away the virtual cameras Add camera set up, back to the one; on_done(ok, message) after."""
         ...
@@ -355,6 +360,13 @@ class HostFrames(Protocol):
 
     def frame_source(self) -> Optional[str]:
         """From process_frame or a frame_step only: the source id of the stream the frame being worked on is from."""
+        ...
+
+    def replace_frame(self, source_id: Optional[str], frame: np.ndarray, number: int) -> bool:
+        """From any thread: frame (BGR, never changed after) goes out on source_id's virtual camera in place of that
+        stream's newest frame, the one numbered number. False, and nothing sent, once the stream has a newer frame or
+        doesn't run. For a picture that should move on while the stream it goes out on stalls; stream_frame() keeps
+        handing out the stream's own frame."""
         ...
 
 
@@ -630,6 +642,9 @@ class EventBus(QObject):
     """Show the desktop app's update dialog (e.g. the phone app turned out to be newer)."""
     vcam_opened            = pyqtSignal(int, int)
     """The stream opened the virtual camera at this width and height."""
+    camera_opened          = pyqtSignal(str, int, int, int)
+    """Any stream's virtual camera opened: its source id, slot (0 is Telescope's own), width and height. vcam_opened
+    says the same for slot 0 alone."""
     camera_watched         = pyqtSignal(bool)
     """Whether an app is reading the virtual camera (Wait screen watches it)."""
     window_shown           = pyqtSignal(bool)

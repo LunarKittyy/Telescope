@@ -922,19 +922,21 @@ def test_pattern(w, h, hue):
     return cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
 
 
-def picture_streams(stack, win, streams):
-    """win running streams [(id, name)] with a picture each, the first the main one."""
+def picture_streams(stack, win, streams, on_camera=True, camera_picture=True):
+    """win running streams [(id, name)] with a picture each, the first on the Telescope camera unless on_camera is
+    False; camera_picture=False: that one hasn't sent a picture (its camera is off)."""
     import time
     from telescope.plugin import StreamFrame
     frames = [StreamFrame(sid, name, test_pattern(640, 360, 40 * i), i + 1, time.monotonic() + 3600)
-              for i, (sid, name) in enumerate(streams)]
+              for i, (sid, name) in enumerate(streams) if camera_picture or i]
     patch(stack, win, "stream_frames", lambda copy=False: list(frames))
-    patch(stack, win, "main_stream", lambda: streams[0] if streams else None)
-    patch(stack, win, "stream_output", lambda sid: "Phone Camera" if streams and sid == streams[0][0] else "")
+    patch(stack, win, "stream_frame", lambda sid, copy=False: next((f for f in frames if f.source_id == sid), None))
+    patch(stack, win, "stream_on_camera",
+          lambda slot=0: (streams[0][0], 640, 360) if streams and on_camera and slot == 0 else None)
     patch(stack, win, "is_streaming_from", lambda sid: any(sid == s for s, _name in streams))
     plugin = plugin_of(win, "composite")
-    plugin._follow_main()
-    if streams:
+    plugin._follow_camera()
+    if streams and on_camera and camera_picture:
         plugin._main_frame = (frames[0].frame, time.monotonic() + 3600)
     return plugin
 
@@ -942,11 +944,11 @@ def picture_streams(stack, win, streams):
 TWO_STREAMS = [("phone:a", "Pixel 8"), ("phone:b", "Desk phone")]
 
 
-def picture_card(stack, streams, tiles, on=True, saved=False):
+def picture_card(stack, streams, tiles, on=True, saved=False, **camera):
     """The One picture card with streams running and the others of tiles laid out big and small too."""
     from telescope import composite
     win = ready_window(stack)
-    plugin = picture_streams(stack, win, streams)
+    plugin = picture_streams(stack, win, streams, **camera)
     if tiles:
         plugin.set_layout(composite.Layout(tiles=composite.big_and_small([(sid, name, 16 / 9) for sid, name in tiles],
                                                                          16 / 9)))
@@ -969,6 +971,17 @@ def composite_waiting(stack):
 @scene("composite-empty", "states", "One picture · nothing in it yet", width=CARD_WIDTH)
 def composite_empty(stack):
     return picture_card(stack, TWO_STREAMS, tiles=())
+
+
+@scene("composite-no-camera", "states", "One picture · no stream goes to the Telescope camera", width=CARD_WIDTH)
+def composite_no_camera(stack):
+    return picture_card(stack, TWO_STREAMS, tiles=TWO_STREAMS, on_camera=False)
+
+
+@scene("composite-camera-off", "states", "One picture · the Telescope camera's stream has its camera off",
+       width=CARD_WIDTH)
+def composite_camera_off(stack):
+    return picture_card(stack, TWO_STREAMS, tiles=TWO_STREAMS, camera_picture=False)
 
 
 def picture_editor(stack, streams, layout_of, picked=True):

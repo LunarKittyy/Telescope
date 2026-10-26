@@ -5,7 +5,7 @@ import time
 import numpy as np
 import pytest
 
-from telescope import composite
+from telescope import composite, vcam
 from telescope.composite import Compositor, Layout, Tile
 from telescope.plugin import StreamFrame
 
@@ -91,6 +91,14 @@ def test_the_starting_layouts_fill_the_picture_sensibly():
     assert (big[0].w, big[0].h) == (1.0, 1.0) and big[1].border and big[2].y + big[2].h < big[1].y
     assert all(0 <= t.x and t.x + t.w <= 1 and 0 <= t.y and t.y + t.h <= 1 for t in big)
     assert len(composite.grid(streams, 16 / 9)) == 3 and composite.grid([], 16 / 9) == ()
+
+
+def test_big_and_small_shrinks_upright_phones_so_the_stack_fits():
+    streams = [("a", "A", 16 / 9)] + [(c, c, 9 / 16) for c in "bcd"]
+    small = composite.big_and_small(streams, 16 / 9)[1:]
+    assert all(t.y > 0 and t.y + t.h < 1 for t in small)
+    assert all(upper.y + upper.h < lower.y for lower, upper in zip(small, small[1:]))  # no overlaps
+    assert all(t.w / t.h * 16 / 9 == pytest.approx(9 / 16) for t in small)  # still their own shape
 
 
 # ── Saving ────────────────────────────────────────────────────────────────
@@ -211,6 +219,33 @@ def test_the_background_picture_covers_the_picture(tmp_path):
         == [255, 255, 255]
 
 
+def test_a_missing_background_picture_is_read_again_once_its_there(tmp_path):
+    import cv2
+    path = tmp_path / "later.png"
+    layout = Layout(picture=str(path), background="#ffffff")
+    comp = Compositor()
+    comp.prepare(layout, (8, 8))
+    assert comp.render({})[0, 0].tolist() == [255, 255, 255]
+    cv2.imwrite(str(path), _solid((10, 20, 30), size=(8, 8)))
+    comp.prepare(layout, (8, 8))
+    assert comp.render({})[0, 0].tolist() == [10, 20, 30]
+
+
+def test_moving_a_tile_doesnt_scale_the_background_picture_again(tmp_path, monkeypatch):
+    import cv2
+    path = tmp_path / "bg.png"
+    cv2.imwrite(str(path), _solid((10, 20, 30), size=(40, 30)))
+    covered = []
+    real = composite.cover
+    monkeypatch.setattr(composite, "cover", lambda *a: covered.append(a[1:]) or real(*a))
+    comp = Compositor()
+    for x in (0.0, 0.1, 0.2):
+        comp.prepare(Layout(tiles=(Tile("a", "", x, 0.0, 0.5, 0.5),), picture=str(path)), (64, 36))
+    assert covered == [(64, 36)]
+    comp.prepare(Layout(picture=str(path)), (32, 18))
+    assert covered == [(64, 36), (32, 18)]
+
+
 def test_four_1080p_streams_draw_well_inside_a_60_fps_frame():
     streams = [(c, c, 16 / 9) for c in "abcd"]
     rng = np.random.default_rng(2)
@@ -229,22 +264,32 @@ def test_four_1080p_streams_draw_well_inside_a_60_fps_frame():
 
 class _Host:
     def __init__(self):
-        self.frames, self.current, self.main, self.saves = [], None, ("a", "Phone A"), 0
+        self.frames, self.current, self.saves = [], None, 0
+        self.on_camera = ("a", None, None)  # what goes to the Telescope camera
+        self.canvas = (320, 180)
+        self.replaced = []  # (source id, frame, number) handed to replace_frame
+        self.newer = False  # replace_frame finds the stream has sent a newer frame
 
     def stream_frames(self, copy=False):
         return list(self.frames)
 
+    def stream_frame(self, source_id, copy=False):
+        return next((sf for sf in self.frames if sf.source_id == source_id), None)
+
+    def replace_frame(self, source_id, frame, number):
+        if self.newer:
+            return False
+        self.replaced.append((source_id, frame, number))
+        return True
+
     def frame_source(self):
         return self.current
 
-    def main_stream(self):
-        return self.main
+    def stream_on_camera(self, slot=0):
+        return self.on_camera if slot == 0 else None
 
     def canvas_size(self):
-        return 320, 180
-
-    def stream_output(self, source_id):
-        return "Phone Camera" if source_id == "a" else ""
+        return self.canvas
 
     def is_streaming_from(self, source_id):
         return any(sf.source_id == source_id for sf in self.frames)
@@ -269,7 +314,8 @@ def plugin(qapp):
     p.setup(_Host(), _Bus())
     p.card = p.create_panel()
     p.on_stream_start("u", None)
-    return p
+    yield p
+    p.shutdown()
 
 
 def _two_streams(plugin, b_age=0.0):
@@ -288,7 +334,67 @@ def test_the_picture_goes_out_on_the_main_stream_only(plugin):
     plugin._host.current = "a"
     out = plugin.frame_step()(frame)
     assert out.shape == (180, 320, 3) and out[90, 40].tolist() == [255, 0, 0] and out[90, 280].tolist() == [0, 255, 0]
-    assert "Phone Camera" in plugin._note.text()
+    assert vcam.slot_label(0) in plugin._note.text()
+
+
+def test_the_picture_goes_out_on_the_telescope_camera_at_its_size(plugin):
+    _two_streams(plugin)
+    plugin._host.canvas = (None, None)  # Auto
+    plugin._host.on_camera = ("a", 90, 160)  # a phone held upright on Telescope
+    plugin._on_camera_opened("a", 0, 90, 160)
+    assert plugin.size() == (90, 160)
+    plugin._host.current = "a"
+    assert plugin.process_frame(_solid((255, 0, 0), (160, 90))).shape == (160, 90, 3)
+    # b is made the main stream (the mic moves) but still goes to its own camera: the picture stays on a's
+    plugin._on_camera_opened("b", 1, 1920, 1080)
+    assert plugin.size() == (90, 160)
+    # a stops and b is the only stream: nothing goes to Telescope, so nothing is drawn
+    plugin._host.on_camera = None
+    plugin.on_stream_stop()
+    frame = _solid((0, 0, 255), (180, 320))
+    plugin._host.current = "b"
+    assert plugin.process_frame(frame) is frame and "no stream goes there" in plugin._note.text()
+    # b restarts onto Telescope, in landscape: the picture is drawn there at its new size
+    plugin._host.on_camera = ("b", 320, 180)
+    plugin._on_camera_opened("b", 0, 320, 180)
+    assert plugin.size() == (320, 180) and plugin.process_frame(frame).shape == (180, 320, 3)
+
+
+def test_while_the_telescope_stream_stalls_the_others_keep_moving(plugin):
+    _two_streams(plugin)
+    host = plugin._host
+    host.current = "a"
+    main = _solid((255, 0, 0), (90, 160))
+    t0 = time.monotonic()
+    plugin._main_frame = (main, t0)
+    assert not plugin.draw_stalled(t0 + 0.03)  # a is on time: its own frame steps draw the picture
+    assert plugin.draw_stalled(t0 + 0.1)
+    sid, out, number = host.replaced[-1]
+    assert (sid, number) == ("a", 1) and out[90, 40].tolist() == [255, 0, 0] and out[90, 280].tolist() == [0, 255, 0]
+    assert not plugin.draw_stalled(t0 + 0.15)  # b hasn't sent a new frame either: nothing to draw again
+    host.frames[1] = StreamFrame("b", "Phone B", _solid((0, 255, 255), (90, 160)), 3, t0 + 0.15)
+    host.newer = True  # a sent a frame while this was drawn: that one wins
+    assert not plugin.draw_stalled(t0 + 0.2)
+    host.newer = False
+    assert plugin.draw_stalled(t0 + 0.2) and host.replaced[-1][1][90, 280].tolist() == [0, 255, 255]
+    # a gone for longer than STALE_S leaves the picture, as any other stream does
+    host.frames[1] = StreamFrame("b", "Phone B", _solid((0, 255, 0), (90, 160)), 4, t0 + composite.STALE_S + 1)
+    assert plugin.draw_stalled(t0 + composite.STALE_S + 1)
+    out = host.replaced[-1][1]
+    assert out[90, 40].tolist() == list(composite.bgr(composite.DEFAULT_BACKGROUND))
+
+
+def test_the_stall_clock_draws_nothing_without_another_stream_or_a_frame(plugin):
+    _two_streams(plugin, b_age=composite.STALE_S + 1)
+    t0 = time.monotonic()
+    plugin._main_frame = (_solid((255, 0, 0), (90, 160)), t0)
+    assert not plugin.draw_stalled(t0 + 0.5)  # b dropped: a alone goes through as it is, frozen or not
+    _two_streams(plugin)
+    plugin._main_frame = None  # a hasn't sent a frame since the picture was switched on
+    assert not plugin.draw_stalled(t0 + 0.5)
+    plugin._main_frame = (_solid((255, 0, 0), (90, 160)), t0)
+    plugin._switch.setChecked(False)
+    assert not plugin.draw_stalled(t0 + 0.5) and plugin._host.replaced == []
 
 
 def test_with_one_stream_running_or_switched_off_frames_go_through(plugin):
@@ -299,6 +405,17 @@ def test_with_one_stream_running_or_switched_off_frames_go_through(plugin):
     _two_streams(plugin)
     plugin._switch.setChecked(False)
     assert plugin.process_frame(frame) is frame
+
+
+def test_a_closed_editor_is_freed(plugin, qapp):
+    from PyQt6 import sip
+    plugin.open_editor()
+    editor = plugin._editor
+    editor.close()
+    qapp.processEvents()
+    from PyQt6.QtCore import QCoreApplication, QEvent
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
+    assert plugin._editor is None and sip.isdeleted(editor)
 
 
 def test_layouts_are_saved_picked_renamed_and_deleted(plugin):
@@ -434,6 +551,24 @@ def test_starting_from_a_layout_and_saving_it(editor, plugin, monkeypatch):
     assert editor._rename_btn.isEnabled() and editor._delete_btn.isEnabled()
 
 
+def test_renaming_onto_another_layouts_name_asks_first(editor, plugin, monkeypatch):
+    from telescope.widgets import composite_editor
+    from PyQt6.QtWidgets import QMessageBox
+    plugin.save_layout("One")
+    plugin.set_layout(Layout("", (Tile("a"),)))
+    plugin.save_layout("Two")
+    editor.reload()
+    asked = []
+    monkeypatch.setattr(composite_editor.QInputDialog, "getText", lambda *a: ("One", True))
+    monkeypatch.setattr(composite_editor.QMessageBox, "question",
+                        lambda *a: asked.append(a) or QMessageBox.StandardButton.No)
+    editor._rename_btn.click()
+    assert asked and plugin.names() == ["One", "Two"] and plugin.layout().name == "Two"
+    monkeypatch.setattr(composite_editor.QMessageBox, "question", lambda *a: QMessageBox.StandardButton.Yes)
+    editor._rename_btn.click()
+    assert plugin.names() == ["One"] and len(plugin.layout().tiles) == 1
+
+
 def test_the_picked_streams_border_corners_and_order_change_from_the_side(editor, plugin):
     plugin.set_layout(Layout(tiles=(Tile("a", "", 0.0, 0.0, 1.0, 1.0), Tile("b", "", 0.6, 0.6, 0.3, 0.3))))
     editor.view.select(1)
@@ -462,3 +597,11 @@ def test_through_real_workers_the_main_stream_sends_the_picture_and_the_other_it
     assert b.latest_frame().shape == (90, 160, 3)  # its own camera still gets its own picture
     out = a.latest_frame()
     assert out.shape == (180, 320, 3) and out[90, 40].tolist() == [255, 0, 0] and out[90, 280].tolist() == [0, 255, 0]
+    # a stalls and b moves on: the clock's picture goes out on a's camera, but not over a frame a sent since
+    plugin._host.stream_frame = frames.frame
+    plugin._host.replace_frame = frames.replace_frame
+    number = frames.frame("a").number
+    b._publish(2, _solid((0, 255, 255), (90, 160)))
+    assert plugin.draw_stalled(time.monotonic() + 1.0)
+    assert a.latest_frame()[90, 280].tolist() == [0, 255, 255] and frames.frame("a").number == number
+    assert not frames.replace_frame("a", out, number - 1) and not frames.replace_frame("gone", out, number)

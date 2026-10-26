@@ -362,6 +362,8 @@
     "[\"\", \"It didn't start ({problem}).\"]",
     "[\"\", \"It frees about {mb} MB. Switching on one of the optional plugins downloads it again.\"]",
     "[\"\", \"It goes away after Telescope restarts.\"]",
+    "[\"\", \"It goes out on {camera} once the stream there sends a picture.\"]",
+    "[\"\", \"It goes out on {camera}, and no stream goes there now.\"]",
     "[\"\", \"It has no __init__.py.\"]",
     "[\"\", \"It has no {file}.\"]",
     "[\"\", \"It has to hold one folder, named as the plugin.\"]",
@@ -5408,6 +5410,24 @@
       "[\"\", \"Expanded. Press Space or Enter to collapse.\"]",
       "[\"\", \"Layout\"]",
       "[\"\", \"Nothing's in the picture yet. Put streams in it with Edit picture.\"]",
+      "[\"\", \"One picture\"]",
+      "[\"\", \"Send the streams out as one picture\"]"
+    ],
+    "composite-no-camera": [
+      "[\"\", \"A layout you saved in the editor\"]",
+      "[\"\", \"Edit picture…\"]",
+      "[\"\", \"Expanded. Press Space or Enter to collapse.\"]",
+      "[\"\", \"It goes out on {camera}, and no stream goes there now.\"]",
+      "[\"\", \"Layout\"]",
+      "[\"\", \"One picture\"]",
+      "[\"\", \"Send the streams out as one picture\"]"
+    ],
+    "composite-camera-off": [
+      "[\"\", \"A layout you saved in the editor\"]",
+      "[\"\", \"Edit picture…\"]",
+      "[\"\", \"Expanded. Press Space or Enter to collapse.\"]",
+      "[\"\", \"It goes out on {camera} once the stream there sends a picture.\"]",
+      "[\"\", \"Layout\"]",
       "[\"\", \"One picture\"]",
       "[\"\", \"Send the streams out as one picture\"]"
     ],
@@ -29840,6 +29860,8 @@
     "composite-live": 444,
     "composite-waiting": 444,
     "composite-empty": 444,
+    "composite-no-camera": 444,
+    "composite-camera-off": 444,
     "composite-editor": 1180,
     "composite-editor-alone": 1180,
     "connection-ready": 1300,
@@ -30307,5 +30329,5 @@
     "messages-audio-1": 620,
     "messages-search-1": 620
   },
-  "total": 1292
+  "total": 1294
 }

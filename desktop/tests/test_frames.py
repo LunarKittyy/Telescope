@@ -148,3 +148,29 @@ def test_the_window_shares_its_streams_as_they_start_change_and_stop(qapp, confi
     finally:
         win._tray = None
         win.deleteLater()
+
+
+def test_the_window_says_which_stream_goes_to_each_camera_and_when_it_opens(qapp, config_home, monkeypatch):
+    from types import SimpleNamespace
+
+    from telescope import app as app_module
+    from telescope.session import StreamSession
+
+    monkeypatch.setattr(app_module.QSystemTrayIcon, "isSystemTrayAvailable", lambda: False)
+    win = app_module.TelescopeWindow()
+    try:
+        a, b = _worker(), _worker()
+        a.camera_size = (1080, 1920)
+        sources = [SimpleNamespace(id=sid, name=sid, session=None, slot=slot) for sid, slot in (("a", 0), ("b", 1))]
+        for source, worker in zip(sources, (a, b)):
+            win._sessions.add(source, StreamSession(id=1, url="u", client=None, worker=worker, source=source))
+        assert win.stream_on_camera(0) == ("a", 1080, 1920) and win.stream_on_camera(1) == ("b", None, None)
+        assert win.stream_on_camera(2) is None
+        opened = []
+        win._bus.camera_opened.connect(lambda *args: opened.append(args))
+        monkeypatch.setattr(win, "sender", lambda: b)
+        win._on_camera_opened(1920, 1080)
+        assert opened == [("b", 1, 1920, 1080)]
+    finally:
+        win._tray = None
+        win.deleteLater()

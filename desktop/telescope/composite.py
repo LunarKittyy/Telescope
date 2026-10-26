@@ -179,23 +179,29 @@ def side_by_side(streams: list, canvas_aspect: float, gap: float = 0.02) -> tupl
 
 
 def big_and_small(streams: list, canvas_aspect: float) -> tuple:
-    """The first stream filling the picture and the others small in the bottom corner, the newest on top."""
+    """The first stream filling the picture and the others small in the bottom corner, the newest on top. Upright
+    phones in a short picture are made smaller so the stack still fits."""
     if not streams:
         return ()
     sid, name, _aspect = streams[0]
     tiles = [Tile(sid, name, 0.0, 0.0, 1.0, 1.0)]
     margin, width = 0.03, 0.26
-    bottom = 1.0 - margin * canvas_aspect
-    for sid, name, aspect in streams[1:MAX_TILES]:
+    gap = margin * canvas_aspect  # the same gap up and down as across, in fractions of the height
+    sizes = []
+    for _sid, _name, aspect in streams[1:MAX_TILES]:
         h = width * canvas_aspect / aspect
         if h > 0.45:
             h = 0.45
-            w = h * aspect / canvas_aspect
-        else:
-            w = width
+        sizes.append(h)
+    room = 1.0 - gap * (len(sizes) + 1)
+    shrink = min(1.0, room / sum(sizes)) if sizes else 1.0
+    bottom = 1.0 - gap
+    for (sid, name, aspect), h in zip(streams[1:MAX_TILES], sizes):
+        h *= shrink
+        w = h * aspect / canvas_aspect
         y = bottom - h
         tiles.append(Tile(sid, name, 1.0 - margin - w, max(0.0, y), w, h, border=4, radius=24))
-        bottom = y - margin * canvas_aspect
+        bottom = y - gap
     return tuple(tiles)
 
 
@@ -342,17 +348,11 @@ class Compositor:
         self._scaled: dict = {}  # tile index: ((frame number, crop, size), scaled stream), for a frame seen before
         self._lock = threading.Lock()  # the preview and the stream may render at once
         self._pictures: dict = {}  # path: the picture as read, so moving a tile doesn't read it again
+        self._backgrounds: dict = {}  # (picture, colour, size): the background drawn, so moving a tile reuses it
 
     def prepare(self, layout: Layout, size: tuple):
         width, height = size
-        background = np.empty((height, width, 3), np.uint8)
-        background[:] = bgr(layout.background)
-        if layout.picture:
-            if layout.picture not in self._pictures:
-                self._pictures = {layout.picture: read_picture(layout.picture)}
-            picture = self._pictures[layout.picture]
-            if picture is not None:
-                background = cover(picture, width, height)
+        background = self._background(layout, width, height)
         boxes = []
         for tile in layout.tiles:
             x0, y0, x1, y1 = box_px(tile, width, height)
@@ -360,6 +360,28 @@ class Compositor:
             radius = scaled_size(tile.radius, height)
             boxes.append(((x0, y0, x1 - x0, y1 - y0), border, radius, max(0, radius - border)))
         self._plan = _Plan(layout, (width, height), background, tuple(boxes))
+
+    def _background(self, layout: Layout, width: int, height: int) -> np.ndarray:
+        """The picture behind the tiles, worked out once per picture, colour and size (render() only copies it)."""
+        key = (layout.picture, layout.background, width, height)
+        cached = self._backgrounds.get(key)
+        if cached is not None:
+            return cached
+        picture = None
+        if layout.picture:
+            picture = self._pictures.get(layout.picture)
+            if picture is None:
+                picture = read_picture(layout.picture)
+                if picture is not None:  # one that's missing now may be there next time
+                    self._pictures = {layout.picture: picture}
+        if picture is not None:
+            background = cover(picture, width, height)
+        else:
+            background = np.empty((height, width, 3), np.uint8)
+            background[:] = bgr(layout.background)
+        if picture is not None or not layout.picture:
+            self._backgrounds = {key: background}  # one at a time: a new size or colour replaces it
+        return background
 
     @property
     def layout(self) -> Optional[Layout]:

@@ -1074,6 +1074,19 @@ class TelescopeWindow(QMainWindow):
         source = self._sessions.find(source_id)
         return vcam.slot_label(source.slot) if source is not None else ""
 
+    def stream_on_camera(self, slot: int = 0) -> Optional[tuple]:
+        source = next((s for s in self._sessions.streams if s.slot == slot and s.session is not None), None)
+        if source is None:
+            return None
+        worker = source.session.worker
+        size = getattr(worker, "camera_size", None) if worker is not None else None
+        return (source.id or "", *(size or (None, None)))
+
+    def _on_camera_opened(self, w: int, h: int):
+        source = self._sessions.by_worker(self.sender())
+        if source is not None:
+            self._bus.camera_opened.emit(source.id or "", source.slot, w, h)
+
     def _source_by_id(self, source_id: Optional[str]) -> Source:
         return self._sources.get(source_id) or self._phone_source(source_id)
 
@@ -1122,6 +1135,7 @@ class TelescopeWindow(QMainWindow):
             signal.connect(slot)
         if source.slot == 0:
             worker.vcam_opened.connect(self._bus.vcam_opened)
+        worker.vcam_opened.connect(self._on_camera_opened)
         worker.start()
         return worker
 
@@ -1137,7 +1151,8 @@ class TelescopeWindow(QMainWindow):
     def _end_worker(self, worker: StreamWorker):
         for signal, slot in ((worker.status, self._on_worker_status),
                              (worker.reconnected, self._on_stream_reconnected),
-                             (worker.vcam_opened, self._bus.vcam_opened), *self._move_signals(worker)):
+                             (worker.vcam_opened, self._bus.vcam_opened), (worker.vcam_opened, self._on_camera_opened),
+                             *self._move_signals(worker)):
             try:
                 signal.disconnect(slot)
             except (TypeError, RuntimeError, ValueError):
@@ -1661,6 +1676,9 @@ class TelescopeWindow(QMainWindow):
 
     def frame_source(self) -> Optional[str]:
         return self._frames.source_of_current()
+
+    def replace_frame(self, source_id: Optional[str], frame, number: int) -> bool:
+        return self._frames.replace_frame(source_id, frame, number)
 
     def _share_streams(self):
         self._frames.set_streams((s.id, s.name, s.session.worker) for s in self._sessions.streams
