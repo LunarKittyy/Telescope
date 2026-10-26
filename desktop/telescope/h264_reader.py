@@ -247,6 +247,7 @@ class Decoder:
         self._codec = None
         self._headers = {}
         self._header_tail = b""
+        self._step = None  # the tap's step last fed, so a new one gets SPS and PPS first
         self._hw_proven = False  # decoded a frame: from then on a bad packet is the stream's fault, not the card's
         self._to_bgr = ToBgr() if available() else None
         if _hardware_requested():
@@ -264,6 +265,10 @@ class Decoder:
         """(newest BGR frame the data completed or None, how many frames it completed)."""
         self._remember_headers(data)
         step = self.tap.step if self.tap is not None else None
+        if step is not self._step:
+            self._step = step
+            if step is not None:  # TCP sends SPS and PPS only when joining, and a step put on later needs them
+                data = b"".join(self._headers[k] for k in (7, 8) if k in self._headers) + data
         try:
             frame, count = _decode_counted(self._codec, data, fail_on_invalid=self.hardware is not None and not self._hw_proven,
                                            to_bgr=self._to_bgr, step=step)

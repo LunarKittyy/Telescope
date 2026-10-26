@@ -224,10 +224,11 @@ def test_datamosh_on_heavy_says_why_and_changes_no_packets(card):
 
 def test_clean_up_lets_a_keyframe_through(card):
     plugin, host, _bus, _panel = card()
+    calls = []
+    host.change_packets = lambda owner, make: calls.append(make is not None)
     _pick(plugin, "mosh")
-    before = plugin._mosh.clean
     plugin._clean_btn.click()
-    assert plugin._mosh.clean == before + 1
+    assert calls == [True, False, True]  # off and on again, which asks the phone for a keyframe
 
 
 def test_the_stick_figure_asks_for_people_and_follows_them(card):

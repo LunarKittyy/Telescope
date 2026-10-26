@@ -23,7 +23,6 @@ class Mosh:
 
     drop_keyframes: bool = True
     repeats: int = 0  # extra copies of every frame, which smears the motion further
-    clean: int = 0  # bumped to let the next keyframe through
 
 
 def _nals(data: bytes) -> list:
@@ -143,15 +142,16 @@ def _cut(nal: bytes) -> int:
 
 
 class Mosher:
-    """A packet step (HostPackets) that moshes one stream. settings() is read for each access unit."""
+    """A packet step (HostPackets) that moshes one stream. settings() is read for each access unit. clean_up: let the
+    next keyframe through first, so the picture comes back."""
 
-    def __init__(self, settings: Callable[[], Mosh]):
+    def __init__(self, settings: Callable[[], Mosh], clean_up: bool = False):
         self._settings = settings
         self._sps: Optional[_Sps] = None
         self._sps_bytes = b""
         self._rewriting = False  # once a frame is dropped or repeated, every header after it gets new numbers
         self._decoded = False  # nothing to smear onto before the first frame
-        self._clean = settings().clean
+        self._clean_up = clean_up
         self._frame_num = 0  # the last reference frame's, as decoded
         self._poc = 0  # the last frame's, as decoded
         self._poc_step = 2
@@ -169,8 +169,8 @@ class Mosher:
         if self._sps is None or not any(t in (_SLICE, _IDR) for t in types):
             return [unit]
         if _IDR in types:
-            if mosh.clean != self._clean or not mosh.drop_keyframes or not self._decoded:
-                self._clean = mosh.clean
+            if not mosh.drop_keyframes or not self._decoded or self._clean_up:
+                self._clean_up = False
                 return self._pass(unit, nals, types)
             kept = b"".join(b"\x00\x00\x00\x01" + unit[s:e] for (s, e), t in zip(nals, types) if t not in (_SLICE, _IDR))
             self._rewriting = True

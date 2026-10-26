@@ -63,17 +63,33 @@ def test_dropped_keyframes_smear_the_old_picture_instead_of_freezing():
 def test_clean_up_lets_the_next_keyframe_through_and_the_picture_comes_back():
     units = _units(30)
     clean = _decode(units)
-    settings = [Mosh()]
-    mosher = Mosher(lambda: settings[0])
+    settings = Mosh()
+    moshers = [Mosher(lambda: settings)]
+
+    headers = b"".join(b"\x00\x00\x00\x01" + units[0][s:e] for s, e in h264_mosh._nals(units[0]) if units[0][s] & 31 in (7, 8))
 
     def step(unit):
         if unit is units[15]:
-            settings[0] = Mosh(clean=1)
-        return mosher(unit)
+            moshers.append(Mosher(lambda: settings, clean_up=True))  # Clean up puts a new one on
+            unit = headers + unit  # which the decoder hands the stream's SPS and PPS first
+        return moshers[-1](unit)
     moshed = _decode(units, step)
     assert np.abs(moshed[14].astype(int) - clean[16].astype(int)).mean() > 10  # keyframes 6 and 12 dropped
-    assert np.abs(moshed[18].astype(int) - clean[20].astype(int)).mean() < 3  # 18 went through
-    assert len(moshed) == len(clean) - 3  # and 24 is dropped again
+    assert any(np.abs(m.astype(int) - clean[20].astype(int)).mean() < 3 for m in moshed[14:22])  # 18 went through
+    assert np.abs(moshed[-1].astype(int) - clean[-1].astype(int)).mean() > 10  # and 24 is dropped again
+
+
+def test_put_on_mid_stream_it_moshes_from_the_next_keyframe():
+    units = _units(14)
+    headers = b"".join(b"\x00\x00\x00\x01" + units[0][s:e] for s, e in h264_mosh._nals(units[0]) if units[0][s] & 31 in (7, 8))
+    settings = Mosh()
+    mosher = Mosher(lambda: settings)
+
+    def step(unit):
+        if unit is units[3]:
+            return mosher(headers + unit)  # the decoder hands a new step the SPS and PPS first
+        return mosher(unit) if units.index(unit) > 3 else [unit]
+    assert len(_decode(units, step)) == len(_decode(units)) - 2  # keyframes 6 and 12
 
 
 def test_repeats_hand_back_more_frames_and_all_of_them_decode():

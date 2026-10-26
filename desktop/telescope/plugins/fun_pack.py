@@ -248,7 +248,12 @@ class FunPackPlugin(TelescopePlugin):
         self._apply()
 
     def _clean_up(self):
-        self._mosh = Mosh(True, self._value("smear"), self._mosh.clean + 1)
+        if self._mosh_on:  # off and on again: the phone is asked for a keyframe and a new Mosher lets it through
+            self._host.change_packets(self.name, None)
+            self._host.change_packets(self.name, lambda: Mosher(lambda: self._mosh, clean_up=True))
+
+    def _make_mosher(self) -> Mosher:
+        return Mosher(lambda: self._mosh)
 
     def _on_people(self, source_id: str, people: list):
         if self._effect() == "stick" and source_id == (self._host.focused_source_id() or ""):
@@ -273,7 +278,7 @@ class FunPackPlugin(TelescopePlugin):
             fade=self._value("fade"), brightness=self._value("brightness"), spread=self._value("spread"),
             across=self._dir_btns["across"].isChecked(), lines=self._lines, heads=self._heads,
             mask=self._person_mask if effect in _EDGES else None, reset=self._reset)
-        self._mosh = Mosh(True, self._value("smear"), self._mosh.clean)
+        self._mosh = Mosh(True, self._value("smear"))
         if show:
             self._refresh()
 
@@ -285,7 +290,7 @@ class FunPackPlugin(TelescopePlugin):
         mosh = effect == "mosh" and not self._host.packets_problem()
         if mosh != self._mosh_on:
             self._mosh_on = mosh
-            self._host.change_packets(self.name, (lambda: Mosher(lambda: self._mosh)) if mosh else None)
+            self._host.change_packets(self.name, self._make_mosher if mosh else None)
         if (effect == "stick") != self._wants_people:  # only on a change: asking loads MediaPipe, which signals back here
             self._wants_people = effect == "stick"
             self._host.want_people(self.name, self._wants_people)

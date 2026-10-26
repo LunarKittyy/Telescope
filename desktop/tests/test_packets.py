@@ -57,6 +57,19 @@ def test_a_step_sees_every_access_unit_and_what_it_hands_back_is_decoded():
     assert count == 7
 
 
+def test_a_step_put_on_mid_stream_gets_the_streams_sps_and_pps_first():
+    units = []
+    tap = packets.Tap()
+    dec = new_decoder(tap)
+    stream = _stream([50] * 12, gop=100)  # SPS and PPS only at the start, as TCP sends them
+    half = [i for i in range(len(stream)) if stream.startswith(_AUD, i)][5] + len(_AUD)  # after six frames
+    decode_counted(dec, stream[:half])
+    tap.set({"test": lambda: lambda unit: units.append(unit) or [unit]})
+    _frame, count = decode_counted(dec, stream[half:])
+    first = {units[0][i + 3] & 31 for i in range(len(units[0]) - 3) if units[0][i:i + 3] == b"\x00\x00\x01"}
+    assert count > 0 and {7, 8} <= first
+
+
 def test_a_step_can_drop_a_frame():
     dec = new_decoder(_tap(lambda: lambda unit: [] if b"\x00\x00\x01\x41" in unit[:64] and len(unit) % 2 else [unit]))
     _frame, count = decode_counted(dec, _stream([50] * 10))
