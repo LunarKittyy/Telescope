@@ -153,6 +153,7 @@ data class V1State(
     val notes_closed: Boolean = false,  // closed on the phone; they stay off its screen until new text comes
     val notes_preview: Boolean = false,  // held back while Preview is open, and shown once it closes
     val stills: Int = 0,  // the /v1/still version this phone takes; 0 = none (an older phone)
+    val sensors: List<String>? = null,  // the SensorKinds /v1/sensors streams here, even when empty; null = no /v1/sensors
     val stream_width: Int,
     val stream_height: Int,
     val battery: Int,

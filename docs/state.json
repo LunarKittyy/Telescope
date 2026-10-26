@@ -143,6 +143,14 @@
     "notes_closed": true,
     "notes_preview": true,
     "stills": 1,
+    "sensors": [
+        "orientation",
+        "accelerometer",
+        "gyroscope",
+        "gravity",
+        "rotation",
+        "light"
+    ],
     "stream_width": 1920,
     "stream_height": 1080,
     "battery": 87,

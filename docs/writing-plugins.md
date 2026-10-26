@@ -161,6 +161,10 @@ The stills service takes real photos on the phone for any plugin, with or withou
 
 A plugin that changes colours shouldn't touch the pixels in `process_frame()`. It hands the colour pipeline a `ColourStage` from `telescope.colour` instead and Telescope bakes every plugin's stages into one LUT per stream, applied once after all the plugins' frame steps. The stage's function gets an `(n, 3)` array of RGB values from 0 to 1 and returns the changed ones (`per_channel=True` if each channel only depends on itself, which lets a simple grade skip the 3D LUT). `host.set_colour_stage("My plugin", stage)` puts it in, a later call replaces it and `None` takes it out. `order` decides where it goes among other plugins' stages (Colour grading's is 0) and `source_id` ties it to one stream instead of the one the panels show. `host.colour_split("My plugin", 0.5)` shows the picture without the colour stages on the left half of the preview, never in the output.
 
+## The phone's sensors
+
+A plugin can read the motion and light sensors of the phone the panels show. `host.want_sensors("My plugin", ["orientation", "light"])` asks for them and `host.want_sensors("My plugin", [])` lets go. The phone only runs its sensors while some plugin wants them (it's a battery thing), so remember to let go when your plugin is switched off and in `shutdown()`. `bus.sensors_changed` fires with the source id on every new reading (up to 30 a second) and when the status changes. `host.sensor_reading()` has the newest values: `roll` and `pitch` of the picture as the phone sends it, plus `accelerometer`, `gyroscope`, `magnetometer`, `gravity`, `rotation` and `light`. `host.sensor_status()` says whether they're `off`, `starting`, `on` or `unavailable`, and for that last one why (`not_phone`, `old_phone`, `none` or `failed`, which your plugin words for people). The readings jump around a little, so smooth them before drawing anything.
+
 ## Translating your plugin
 
 Telescope can be set to other languages and your plugin's texts can follow in any language you add. Texts without a translation show as you wrote them. Wrap each one in `tr()` from `telescope.i18n`:

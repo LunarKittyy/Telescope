@@ -63,6 +63,7 @@ data class CameraEntry(
     val facing: String = "",  // LensLabel.BACK, FRONT or EXTERNAL
     val focalMm: Int = 0,      // 35 mm equivalent; 0 = not known
     val lensKind: String = "", // LensLabel.PHYSICAL for one lens of a multi-lens camera, AUTO for the camera itself
+    val sensorOrientation: Int = 0,  // SENSOR_ORIENTATION: the clockwise turn that makes the picture upright on the screen
 )
 
 // The sensor's active pixel array (SENSOR_INFO_ACTIVE_ARRAY_SIZE), kept free of android.graphics.Rect so
@@ -446,7 +447,8 @@ class CameraStreamService : Service() {
                             aeFpsRanges, afModes, nrModes, edgeModes, supportedSizes,
                             maxAfRegions, maxAeRegions, activeArray,
                             zoomRatioMax.coerceAtLeast(1f), cropZoomMax.coerceAtLeast(1f), freeformCrop, lensZooms,
-                            highSpeed = highSpeed, facing = facing, focalMm = focalEq, lensKind = kind)
+                            highSpeed = highSpeed, facing = facing, focalMm = focalEq, lensKind = kind,
+                            sensorOrientation = chars.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0)
             }.getOrNull()
 
             manager.cameraIdList.forEach { id ->
@@ -482,6 +484,12 @@ class CameraStreamService : Service() {
     private val stillCaps = java.util.concurrent.ConcurrentHashMap<String, StillCaps>()
     private var server: MjpegServer? = null
     private var audio: AudioStreamer? = null
+    private val sensorsMade = lazy {
+        PhoneSensors(this) {
+            controller?.getCurrentCamera()?.let { PhoneSensors.Lens(it.id, it.facing, it.sensorOrientation) }
+        }
+    }
+    private val sensors by sensorsMade
     @Volatile private var micForeground = false
     // In the foreground on its own; false while running under WaitingService.
     private var inForeground = false
@@ -817,6 +825,7 @@ class CameraStreamService : Service() {
             dynamicFull    = { controller?.dynamicFull ?: false },
             startAudio     = ::startAudio,
             stopAudio      = { audio?.stop() },
+            sensors        = sensors,
             socketFactory  = PhoneTls.identity(this).serverSocketFactory(),
             onWifiViewersChanged = { watching -> mainHandler.post {
                 if (server === serving) {
@@ -996,6 +1005,7 @@ class CameraStreamService : Service() {
             notes_closed = NotesBoard.hasNotes && NotesBoard.dismissed,
             notes_preview = NotesBoard.wantsScreen && !NotesBoard.shown && controller?.hasPreviewSurface() == true,
             stills = 1,
+            sensors = sensors.available(),
             stream_width = liveSize.width,
             stream_height = liveSize.height,
             battery = battLevel,
@@ -1209,6 +1219,7 @@ class CameraStreamService : Service() {
         stills = null
         stillJobs.clear()
         server?.stop()
+        if (sensorsMade.isInitialized()) sensors.stopAll()
         audio?.stop()
         wakeLock?.let { if (it.isHeld) it.release() }
         releaseWifiLocks()

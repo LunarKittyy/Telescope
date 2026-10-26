@@ -172,6 +172,7 @@ class CameraSessionController(
     @Volatile private var sessionGeneration = 0
 
     fun getCurrentCameraId(): String? = currentCamera?.id
+    fun getCurrentCamera(): CameraEntry? = currentCamera
     fun isCameraOff(): Boolean = cameraOff
     fun isCameraTaken(): Boolean = taken
     fun getStreamSize(): android.util.Size = android.util.Size(streamWidth, streamHeight)

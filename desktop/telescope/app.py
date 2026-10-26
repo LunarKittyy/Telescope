@@ -24,6 +24,7 @@ from telescope.platform import IS_LINUX
 from telescope.platform.linux import CANCELLED
 from telescope import plugin_loader
 from telescope.plugin import UNCHANGED, EventBus, SettingsSection, TelescopePlugin
+from telescope.sensors import SensorHub
 from telescope.session import Sessions, StreamSession
 from telescope.single_instance import relaunch, restart_argv
 from telescope.sources import PhoneSource, PluginSource, Source
@@ -232,6 +233,7 @@ class TelescopeWindow(QMainWindow):
     _sig_extras_removed = pyqtSignal(bool, str)
     _sig_people = pyqtSignal(object, list)  # a stream's worker, [Person], from its people thread
     _sig_vision_state = pyqtSignal(str)
+    _sig_sensors = pyqtSignal(str)  # a source id, from the sensor reader's thread
     _sig_still = pyqtSignal(object, object)  # a callback and its value, from a photo's thread
     _sig_motion = pyqtSignal(object, str, list)  # a stream's worker, owner, [zone index], from its worker thread
 
@@ -245,6 +247,12 @@ class TelescopeWindow(QMainWindow):
         self._vision  = Vision(on_people=self._sig_people.emit, on_state=self._sig_vision_state.emit)  # (HostVision)
         self._sig_people.connect(self._on_people)
         self._sig_vision_state.connect(self._bus.vision_state_changed)
+        self._sensors = SensorHub(on_change=self._sig_sensors.emit)  # the shown phone's sensors (HostSensors)
+        self._sig_sensors.connect(self._bus.sensors_changed)
+        self._bus.device_changed.connect(lambda _id: self._sync_sensors())
+        self._bus.stream_started.connect(lambda _url: self._sync_sensors())
+        self._bus.stream_stopped.connect(lambda: self._sync_sensors())
+        self._bus.stream_connected.connect(lambda _id: self._sync_sensors())  # maybe on another route now
         self._stills  = Stills()  # full-quality photos on the phone (HostStills)
         self._last_states: dict = {}  # source id: the newest whole /v1/state from its phone, for still_caps
         self._sig_still.connect(lambda callback, value: callback(value))
@@ -968,6 +976,7 @@ class TelescopeWindow(QMainWindow):
             except Exception:
                 logging.exception("Plugin %s failed to shut down", p.name)
         self._vision.shutdown()
+        self._sensors.shutdown()
         self._stills.shutdown()
         self._overlays.shutdown()
 
@@ -1564,6 +1573,7 @@ class TelescopeWindow(QMainWindow):
             self._last_states[source.id] = state
         # Plugins get the dict as sent; PhoneState above only checks it
         if source is self._sessions.focus:
+            self._sync_sensors(state)
             self._bus.phone_state_updated.emit(state)
         if source.session is None or source.session.id != session_id:
             return  # something listening (Monitoring, too hot) stopped the stream just now
@@ -1783,6 +1793,26 @@ class TelescopeWindow(QMainWindow):
     def preview_overlays(self):
         return self._overlays
 
+    def want_sensors(self, owner: str, kinds):
+        self._sensors.want(owner, kinds)
+
+    def sensor_status(self, source_id: Optional[str] = None):
+        return self._sensors.status(source_id)
+
+    def sensor_reading(self, source_id: Optional[str] = None):
+        return self._sensors.reading(source_id)
+
+    def _sync_sensors(self, state: Optional[dict] = None):
+        """Point the sensors at the shown stream, as it is now."""
+        source = self._sessions.focus
+        session = source.session if source is not None else None
+        if session is None:
+            self._sensors.follow(None)
+            return
+        ctrl = session.client
+        self._sensors.follow(source.id or "", getattr(ctrl, "base", None), getattr(ctrl, "auth", None),
+                             phone=isinstance(source, PhoneSource), state=state)
+
     def _on_people(self, worker, people: list):
         source = self._sessions.by_worker(worker)
         if source is not None:
@@ -1857,6 +1887,7 @@ class TelescopeWindow(QMainWindow):
             added += [f"{name} (didn't start)" for name in self._plugin_problems]
             state["Added plugins"] = ", ".join(added)
         state.update(self._vision.diagnostics())
+        state.update(self._sensors.diagnostics())
         state.update(self._colour.diagnostics())
         state.update(self._motion.diagnostics())
         for plugin in self._plugins:

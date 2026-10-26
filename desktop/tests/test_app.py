@@ -2601,6 +2601,25 @@ def test_start_mic_only_opens_the_phone_with_its_camera_off(camera_env):
     assert window._start_btn.text() == "Start streaming"
 
 
+def test_the_shown_streams_phone_state_tells_the_sensors_what_it_has(camera_env):
+    window, *_rest = camera_env
+    changes = []
+    window._bus.sensors_changed.connect(changes.append)
+    window.want_sensors("test", ["orientation"])
+    assert window.sensor_status().state == "off"  # nothing streams
+    window._flow.start()
+    pid = window.focused_source_id()
+    assert window.sensor_status().state == "starting"
+    window._apply_state(window._session.id, {**_VALID_STATE, "sensors": ["orientation", "light"]})
+    assert window.sensor_status(pid).kinds == ("orientation", "light")
+    window._apply_state(window._session.id, _VALID_STATE)  # an older phone
+    assert (window.sensor_status().state, window.sensor_status().reason) == ("unavailable", "old_phone")
+    assert pid in changes
+    window._flow.stop()
+    assert window.sensor_status().state == "off" and window.sensor_reading() is None
+    window.want_sensors("test", [])
+
+
 def test_a_restart_keeps_the_camera_off(camera_env):
     window, _conn, _mic, clients, workers, _changes = camera_env
     window._flow.start()
