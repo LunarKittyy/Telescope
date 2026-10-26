@@ -101,6 +101,83 @@ def test_big_and_small_shrinks_upright_phones_so_the_stack_fits():
     assert all(t.w / t.h * 16 / 9 == pytest.approx(9 / 16) for t in small)  # still their own shape
 
 
+# ── Scaling, stretching and cropping like OBS ─────────────────────────────
+
+WIDE = 16 / 9
+
+
+def test_a_plain_drag_scales_the_stream_keeping_its_shape():
+    tile = Tile("a", "", 0.2, 0.2, 0.4, 0.4)
+    corner = composite.dragged(tile, "br", 0.2, 0.0, "scale", WIDE)
+    assert corner.w / corner.h == pytest.approx(1.0) and corner.w == pytest.approx(0.6) and (corner.x, corner.y) == (0.2, 0.2)
+    side = composite.dragged(tile, "r", 0.1, 0.0, "scale", WIDE)  # from the opposite side, centred the other way
+    assert (side.x, side.w, side.h) == (0.2, pytest.approx(0.5), pytest.approx(0.5))
+    assert side.y + side.h / 2 == pytest.approx(0.4)
+    top = composite.dragged(tile, "t", 0.0, -0.1, "scale", WIDE)
+    assert top.y + top.h == pytest.approx(0.6) and top.w == pytest.approx(0.5) and top.x + top.w / 2 == pytest.approx(0.4)
+    huge = composite.dragged(tile, "l", -5.0, 0.0, "scale", WIDE)  # stops where the picture ends
+    assert huge.x >= 0 and huge.y >= 0 and huge.x + huge.w <= 1 + 1e-9 and huge.y + huge.h <= 1 + 1e-9
+
+
+def test_shift_stretches_the_stream_to_the_new_box():
+    tile = Tile("a", "", 0.2, 0.2, 0.4, 0.4)  # a 16:9 box for a 16:9 stream
+    wide = composite.dragged(tile, "r", 0.2, 0.0, "stretch", WIDE, WIDE)
+    assert (wide.x, wide.y, wide.w, wide.h, wide.stretch) == (0.2, 0.2, pytest.approx(0.6), pytest.approx(0.4), True)
+    assert composite.crop_px(wide, 1920, 1080, 1152, 432) == (0, 0, 1920, 1080)  # all of it, squashed
+
+
+def test_stretching_a_centre_cropped_stream_keeps_what_it_showed():
+    tile = Tile("a", "", 0.2, 0.2, 0.3, 0.4)  # narrower than the stream: its middle is shown
+    before = composite.crop_px(tile, 1920, 1080, 576, 432)
+    stretched = composite.dragged(tile, "b", 0.0, 0.0, "stretch", WIDE, WIDE)
+    assert stretched.stretch and stretched.crop_l > 0 and stretched.crop_l == pytest.approx(stretched.crop_r)
+    assert composite.crop_px(stretched, 1920, 1080, 576, 432) == before
+
+
+def test_alt_crops_the_side_being_dragged_and_leaves_the_rest_in_place():
+    tile = Tile("a", "", 0.2, 0.2, 0.4, 0.4)
+    left = composite.dragged(tile, "l", 0.1, 0.0, "crop", WIDE, WIDE)
+    assert (left.x, left.w, left.h) == (pytest.approx(0.3), pytest.approx(0.3), pytest.approx(0.4))
+    assert (left.crop_l, left.crop_t, left.crop_r, left.crop_b) == (pytest.approx(0.25), 0.0, 0.0, 0.0)
+    assert composite.crop_px(left, 1920, 1080, 576, 432) == (480, 0, 1920, 1080)  # the same size as before on screen
+    corner = composite.dragged(left, "br", -0.1, -0.2, "crop", WIDE, WIDE)
+    assert (corner.crop_l, corner.crop_r, corner.crop_b) == (pytest.approx(0.25), pytest.approx(0.25), pytest.approx(0.5))
+    assert (corner.x, corner.y) == (pytest.approx(0.3), 0.2)
+
+
+def test_cropping_outwards_brings_back_only_what_was_cut_off():
+    tile = composite.dragged(Tile("a", "", 0.2, 0.2, 0.4, 0.4), "l", 0.1, 0.0, "crop", WIDE, WIDE)
+    back = composite.dragged(tile, "l", -0.5, 0.0, "crop", WIDE, WIDE)
+    assert back.crop_l == 0.0 and back.x == pytest.approx(0.2) and back.w == pytest.approx(0.4)
+    assert composite.dragged(back, "r", 5.0, 0.0, "crop", WIDE, WIDE).w == pytest.approx(0.4)  # nothing more to show
+
+
+def test_a_cropped_stream_scales_with_its_crop():
+    cropped = composite.dragged(Tile("a", "", 0.2, 0.2, 0.4, 0.4), "l", 0.1, 0.0, "crop", WIDE, WIDE)
+    bigger = composite.dragged(cropped, "br", 0.15, 0.0, "scale", WIDE)
+    assert bigger.crop_l == cropped.crop_l and bigger.w / bigger.h == pytest.approx(cropped.w / cropped.h)
+
+
+def test_stretching_or_cropping_a_stream_thats_off_only_moves_the_box():
+    tile = Tile("gone", "", 0.2, 0.2, 0.4, 0.4)
+    for how in ("stretch", "crop"):
+        moved = composite.dragged(tile, "r", 0.1, 0.0, how, WIDE)
+        assert moved.w == pytest.approx(0.5) and not moved.stretch and moved.crop_r == 0.0
+
+
+def test_fitting_its_shape_undoes_stretch_crop_and_zoom():
+    tile = composite.dragged(Tile("a", "", 0.2, 0.2, 0.4, 0.4, zoom=2.0), "l", 0.1, 0.0, "crop", WIDE, WIDE)
+    tile = composite.dragged(tile, "t", 0.0, 0.1, "stretch", WIDE, WIDE)
+    fitted = composite.fitted(tile, WIDE, WIDE)
+    assert (fitted.zoom, fitted.stretch, fitted.crop_l, fitted.crop_t, fitted.crop_r, fitted.crop_b) == (1.0, False, 0, 0, 0, 0)
+    assert fitted.w / fitted.h == pytest.approx(1.0)
+
+
+def test_zooming_stays_inside_the_crop():
+    tile = Tile("a", crop_l=0.5, zoom=2.0, cx=0.0)
+    assert composite.crop_px(tile, 1920, 1080, 960, 1080) == (960, 270, 1440, 810)
+
+
 # ── Saving ────────────────────────────────────────────────────────────────
 
 def test_a_layout_goes_through_settings_unchanged():
@@ -108,6 +185,24 @@ def test_a_layout_goes_through_settings_unchanged():
                                  Tile("browser:x", "Laptop", 0.7, 0.7, 0.25, 0.25, 1.5, 0.4, 0.6, 4, "#ff8800", 24)),
                     "#202020", "/home/me/bg.png")
     assert composite.clean_layout(composite.layout_dict(layout)) == layout
+    cropped = Layout("Cropped", (Tile("a", crop_l=0.1, crop_t=0.2, crop_r=0.3, crop_b=0.05, stretch=True),))
+    assert composite.clean_layout(composite.layout_dict(cropped)) == cropped
+
+
+def test_a_layout_saved_before_crop_and_stretch_still_loads_and_looks_the_same():
+    old = {"name": "Old", "background": "#202020", "picture": "", "tiles": [
+        {"source_id": "a", "name": "A", "x": 0.1, "y": 0.1, "w": 0.3, "h": 0.4, "zoom": 1.5, "cx": 0.4, "cy": 0.6,
+         "border": 2, "border_colour": "#ffffff", "radius": 8}]}
+    tile = composite.clean_layout(old).tiles[0]
+    assert (tile.crop_l, tile.crop_t, tile.crop_r, tile.crop_b, tile.stretch) == (0.0, 0.0, 0.0, 0.0, False)
+    assert composite.crop_px(tile, 1920, 1080, 500, 500) == (408, 288, 1128, 1008)  # zoomed around its centre, as before
+
+
+def test_broken_crop_values_still_leave_some_of_the_stream():
+    tile = composite.clean_tile({"source_id": "a", "crop_l": 0.99, "crop_r": 0.5, "crop_t": -1, "crop_b": "x",
+                                 "stretch": "yes"})
+    assert tile.crop_l + tile.crop_r == pytest.approx(1.0 - composite.MIN_SHOWN) and tile.crop_r == 0.0
+    assert (tile.crop_t, tile.crop_b, tile.stretch) == (0.0, 0.0, False)
 
 
 @pytest.mark.parametrize("raw", [None, [], "x", {"tiles": "nope"}])
@@ -177,6 +272,18 @@ def test_a_border_goes_inside_the_box_in_its_colour():
     assert out[52, 102].tolist() == [0, 0, 255]  # border, BGR
     assert out[100, 200].tolist() == [0, 255, 0]
     assert out[48, 98].tolist() == [0, 0, 0]
+
+
+def test_a_stretched_or_cropped_stream_is_drawn_that_way():
+    frame = np.empty((90, 160, 3), np.uint8)
+    frame[:, :80] = (0, 0, 255)
+    frame[:, 80:] = (255, 0, 0)
+    comp = Compositor()
+    comp.prepare(Layout(tiles=(Tile("a", "", 0.0, 0.0, 0.5, 1.0, stretch=True),
+                               Tile("b", "", 0.5, 0.0, 0.5, 1.0, crop_l=0.5))), (320, 180))
+    out = comp.render({"a": (frame, 1), "b": (frame, 1)})
+    assert tuple(out[90, 10]) == (0, 0, 255) and tuple(out[90, 150]) == (255, 0, 0)  # both halves, squashed into it
+    assert tuple(out[90, 170]) == (255, 0, 0) and tuple(out[90, 310]) == (255, 0, 0)  # only the right half
 
 
 def test_corner_masks_are_worked_out_once_per_radius():
@@ -498,23 +605,52 @@ def test_dragging_a_stream_moves_it_and_snaps_to_the_middle(editor, plugin):
     assert tile.x + tile.w / 2 == pytest.approx(0.5)
 
 
-def test_dragging_a_corner_with_shift_keeps_the_shape(editor, plugin):
+def _drag(view, start, end, modifiers=None):
     from PyQt6.QtCore import QPointF, Qt
     from PyQt6.QtGui import QMouseEvent
-    plugin.set_layout(Layout(tiles=(Tile("b", "", 0.1, 0.1, 0.4, 0.2),)))
-    view = editor.view
-    view.select(0)
-
-    def send(kind, x, y, buttons, modifiers=Qt.KeyboardModifier.NoModifier):
-        pos = QPointF(_at(view, x, y))
-        view.event(QMouseEvent(kind, pos, view.mapToGlobal(pos), Qt.MouseButton.LeftButton, buttons, modifiers))
-
+    modifiers = modifiers or Qt.KeyboardModifier.NoModifier
     left = Qt.MouseButton.LeftButton
-    send(QMouseEvent.Type.MouseButtonPress, 0.5, 0.3, left)
-    send(QMouseEvent.Type.MouseMove, 0.7, 0.32, left, Qt.KeyboardModifier.ShiftModifier)
-    send(QMouseEvent.Type.MouseButtonRelease, 0.7, 0.32, Qt.MouseButton.NoButton)
+
+    def send(kind, at, buttons, mods):
+        pos = QPointF(_at(view, *at))
+        view.event(QMouseEvent(kind, pos, view.mapToGlobal(pos), left, buttons, mods))
+
+    send(QMouseEvent.Type.MouseButtonPress, start, left, Qt.KeyboardModifier.NoModifier)
+    send(QMouseEvent.Type.MouseMove, end, left, modifiers)
+    send(QMouseEvent.Type.MouseButtonRelease, end, Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier)
+
+
+def test_dragging_a_corner_keeps_the_shape(editor, plugin):
+    plugin.set_layout(Layout(tiles=(Tile("b", "", 0.1, 0.1, 0.4, 0.2),)))
+    editor.view.select(0)
+    _drag(editor.view, (0.5, 0.3), (0.7, 0.32))
     tile = plugin.layout().tiles[0]
-    assert tile.w == pytest.approx(0.6, abs=0.01) and tile.w / tile.h == pytest.approx(2.0)
+    assert tile.w == pytest.approx(0.6, abs=0.01) and tile.w / tile.h == pytest.approx(2.0) and not tile.stretch
+
+
+def test_shift_stretches_and_alt_crops_from_the_editor(editor, plugin):
+    from PyQt6.QtCore import Qt
+    plugin.set_layout(Layout(tiles=(Tile("b", "", 0.1, 0.1, 0.4, 0.4),)))
+    editor.view.select(0)
+    _drag(editor.view, (0.5, 0.3), (0.7, 0.3), Qt.KeyboardModifier.ShiftModifier)
+    tile = plugin.layout().tiles[0]
+    assert tile.stretch and tile.w == pytest.approx(0.6, abs=0.01) and tile.h == pytest.approx(0.4)
+    plugin.set_layout(Layout(tiles=(Tile("b", "", 0.1, 0.1, 0.4, 0.4),)))
+    _drag(editor.view, (0.1, 0.3), (0.2, 0.3), Qt.KeyboardModifier.AltModifier)
+    tile = plugin.layout().tiles[0]
+    assert tile.crop_l == pytest.approx(0.25, abs=0.02) and tile.x == pytest.approx(0.2, abs=0.01) and not tile.stretch
+
+
+def test_ctrl_stops_snapping(editor, plugin):
+    from PyQt6.QtCore import Qt
+    plugin.set_layout(Layout(tiles=(Tile("a", "", 0.0, 0.0, 1.0, 1.0), Tile("b", "", 0.1, 0.1, 0.3, 0.3))))
+    _drag(editor.view, (0.2, 0.2), (0.448, 0.2), Qt.KeyboardModifier.ControlModifier)
+    tile = plugin.layout().tiles[1]
+    assert tile.x + tile.w / 2 == pytest.approx(0.498, abs=0.003) and tile.x + tile.w / 2 != pytest.approx(0.5)
+    editor.view.select(1)
+    edge = tile.x + tile.w
+    _drag(editor.view, (edge, 0.4), (0.745, 0.4), Qt.KeyboardModifier.ControlModifier)  # the right edge, near 0.75
+    assert plugin.layout().tiles[1].x + plugin.layout().tiles[1].w != pytest.approx(0.75, abs=1e-4)
 
 
 def test_scrolling_over_a_stream_zooms_into_it(editor, plugin):

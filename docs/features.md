@@ -122,8 +122,11 @@ Click the **+** next to Stop while streaming to add another phone (or Browser ca
 Optional (switch it on under **Optional** in the Plugins tab of Settings). It puts the streams you run into one picture for call apps that take only one camera, like your face big with the desk small in a corner, two phones side by side or a grid of up to four.
 
 - The switch on the **One picture** card turns it on and **Edit picture…** opens the editor with a live preview
-- Drag a stream to move it and drag its corners to resize it. Hold Shift to keep its shape or Alt to stop it snapping to the edges and the other streams. Arrow keys nudge it a pixel at a time
+- Drag a stream to move it. Arrow keys nudge it a pixel at a time
+- The handles on the corners and sides resize it the way OBS does. A plain drag scales it without changing its shape. Hold Shift to stretch or squash it into any shape and Alt to crop the side you're dragging instead (each side remembers its own crop)
+- Edges snap to the picture's edges and middle and to the other streams. Hold Ctrl to place one freely
 - Scroll over a stream to zoom into it and drag it with the right mouse button to pick which part shows
+- **Fit its shape** puts a stream back to its own shape with nothing cropped, stretched or zoomed
 - Each stream can get a border and rounded corners. Behind them goes a colour or a picture
 - **Start from** lays out the running streams **Side by side**, **Big and small** or in a **Grid** to tweak from there
 - Layouts can be saved under a name and picked on the card. A keyboard shortcut can switch to one and a preset brings back the picture it was saved with (without touching your saved layouts)

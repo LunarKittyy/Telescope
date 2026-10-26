@@ -23,6 +23,7 @@ MAX_BORDER = 40
 MAX_RADIUS = 200
 MAX_ZOOM = 4.0
 MIN_SIZE = 0.05  # a box can't get smaller than this share of the picture
+MIN_SHOWN = 0.05  # cropping always leaves at least this share of the stream's frame each way
 STALE_S = 3.0  # a stream whose newest frame is older than this (it dropped) is left out until it's back
 SNAP = 0.012  # how close an edge has to come to another to snap to it, as a share of the picture
 DEFAULT_BACKGROUND = "#15151a"
@@ -39,12 +40,17 @@ class Tile:
     y: float = 0.0
     w: float = 1.0
     h: float = 1.0
-    zoom: float = 1.0  # the crop: how far in, and where its centre is in the stream's frame (0..1)
+    zoom: float = 1.0  # how far in, and where the middle of what's shown is in the cropped frame (0..1)
     cx: float = 0.5
     cy: float = 0.5
     border: int = 0
     border_colour: str = "#ffffff"
     radius: int = 0
+    crop_l: float = 0.0  # how much is cut off each side of the stream's frame, as fractions of it
+    crop_t: float = 0.0
+    crop_r: float = 0.0
+    crop_b: float = 0.0
+    stretch: bool = False  # fill the box whatever its shape; otherwise the middle of the crop is cut to the box's shape
 
 
 @dataclass(frozen=True)
@@ -78,6 +84,8 @@ def clean_tile(raw) -> Optional[Tile]:
         return None
     w = _number(raw.get("w"), 1.0, MIN_SIZE, 1.0)
     h = _number(raw.get("h"), 1.0, MIN_SIZE, 1.0)
+    crop_l = _number(raw.get("crop_l"), 0.0, 0.0, 1.0 - MIN_SHOWN)
+    crop_t = _number(raw.get("crop_t"), 0.0, 0.0, 1.0 - MIN_SHOWN)
     return Tile(
         source_id=raw["source_id"][:200], name=_text(raw.get("name"), MAX_NAME),
         x=_number(raw.get("x"), 0.0, 0.0, 1.0 - w), y=_number(raw.get("y"), 0.0, 0.0, 1.0 - h), w=w, h=h,
@@ -86,6 +94,9 @@ def clean_tile(raw) -> Optional[Tile]:
         border=int(_number(raw.get("border"), 0, 0, MAX_BORDER)),
         border_colour=_colour(raw.get("border_colour"), "#ffffff"),
         radius=int(_number(raw.get("radius"), 0, 0, MAX_RADIUS)),
+        crop_l=crop_l, crop_t=crop_t, crop_r=_number(raw.get("crop_r"), 0.0, 0.0, 1.0 - MIN_SHOWN - crop_l),
+        crop_b=_number(raw.get("crop_b"), 0.0, 0.0, 1.0 - MIN_SHOWN - crop_t),
+        stretch=raw.get("stretch") is True,
     )
 
 
@@ -136,16 +147,30 @@ def box_px(tile: Tile, width: int, height: int) -> tuple:
     return x0, y0, min(width, max(x0 + 1, x1)), min(height, max(y0 + 1, y1))
 
 
+def shown(tile: Tile, src_w: float, src_h: float, box_w: float, box_h: float) -> tuple:
+    """(x0, y0, x1, y1) of the part of a src_w x src_h frame that fills a box_w x box_h box, unrounded. The crop is
+    cut off first; then, unless the tile stretches, the biggest piece of what's left with the box's shape; the zoom
+    makes that smaller around the tile's centre without leaving the crop."""
+    rx, ry = tile.crop_l * src_w, tile.crop_t * src_h
+    rw = max(1e-6, (1.0 - tile.crop_l - tile.crop_r) * src_w)
+    rh = max(1e-6, (1.0 - tile.crop_t - tile.crop_b) * src_h)
+    if tile.stretch:
+        w, h = rw, rh
+    else:
+        aspect = box_w / max(1e-6, box_h)
+        w, h = (rh * aspect, rh) if rw / rh > aspect else (rw, rw / aspect)
+    w, h = w / tile.zoom, h / tile.zoom
+    x0 = rx + min(max(0.0, tile.cx * rw - w / 2), rw - w)
+    y0 = ry + min(max(0.0, tile.cy * rh - h / 2), rh - h)
+    return x0, y0, x0 + w, y0 + h
+
+
 def crop_px(tile: Tile, src_w: int, src_h: int, box_w: int, box_h: int) -> tuple:
-    """(x0, y0, x1, y1) of the part of a src_w x src_h frame that fills a box_w x box_h box: the biggest piece with the
-    box's shape, made smaller by the zoom and moved to the crop centre without leaving the frame."""
-    aspect = box_w / max(1, box_h)
-    w, h = (src_h * aspect, src_h) if src_w / src_h > aspect else (src_w, src_w / aspect)
-    w, h = max(1.0, w / tile.zoom), max(1.0, h / tile.zoom)
-    x0 = min(max(0.0, tile.cx * src_w - w / 2), src_w - w)
-    y0 = min(max(0.0, tile.cy * src_h - h / 2), src_h - h)
-    x0, y0 = round(x0), round(y0)
-    return x0, y0, min(src_w, x0 + max(1, round(w))), min(src_h, y0 + max(1, round(h)))
+    """(x0, y0, x1, y1) of shown() in whole pixels, at least one each way and inside the frame."""
+    x0, y0, x1, y1 = shown(tile, src_w, src_h, box_w, box_h)
+    w, h = max(1, round(x1 - x0)), max(1, round(y1 - y0))
+    x0, y0 = min(max(0, round(x0)), src_w - 1), min(max(0, round(y0)), src_h - 1)
+    return x0, y0, min(src_w, x0 + w), min(src_h, y0 + h)
 
 
 def scaled_size(reference: int, height: int) -> int:
@@ -250,6 +275,85 @@ def resized(box: tuple, handle: str, dx: float, dy: float, aspect: Optional[floa
         x = box[0] if right else box[0] + box[2] - w
         y = box[1] if bottom else box[1] + box[3] - h
     return x, y, w, h
+
+
+def scaled(box: tuple, handle: str, dx: float, dy: float) -> tuple:
+    """box (x, y, w, h) made bigger or smaller by dragging handle, keeping its shape. A corner keeps the opposite corner
+    where it is; a side keeps the opposite side and stays centred the other way."""
+    x, y, w, h = box
+    if len(handle) == 2:
+        return resized(box, handle, dx, dy, aspect=w / h)
+    _nx, _ny, nw, nh = resized(box, handle, dx, dy)
+    s = nw / w if handle in ("l", "r") else nh / h
+    other = h if handle in ("l", "r") else w  # the side that follows along
+    s = min(max(s, MIN_SIZE / min(w, h)), 1.0 / other)
+    nw, nh = w * s, h * s
+    if handle in ("l", "r"):
+        nx = x if handle == "r" else x + w - nw
+        nx = min(max(0.0, nx), 1.0 - nw)
+        return nx, min(max(0.0, y + (h - nh) / 2), 1.0 - nh), nw, nh
+    ny = y if handle == "b" else y + h - nh
+    ny = min(max(0.0, ny), 1.0 - nh)
+    return min(max(0.0, x + (w - nw) / 2), 1.0 - nw), ny, nw, nh
+
+
+def pinned(tile: Tile, src_aspect: float, canvas_aspect: float) -> Tile:
+    """tile with what it shows right now written into its crop, at zoom 1: it looks the same, and its crop can then be
+    moved side by side or stretched. src_aspect is the stream's width over height, canvas_aspect the picture's."""
+    x0, y0, x1, y1 = shown(tile, src_aspect, 1.0, tile.w * canvas_aspect, tile.h)
+    return replace(tile, crop_l=x0 / src_aspect, crop_t=y0, crop_r=1.0 - x1 / src_aspect, crop_b=1.0 - y1, zoom=1.0,
+                   cx=0.5, cy=0.5)
+
+
+def cropped(tile: Tile, handle: str, dx: float, dy: float) -> Tile:
+    """tile with the sides handle names dragged by dx, dy, cutting off (or bringing back) that side of the stream while
+    the rest of it stays where it is on the picture. The tile has to be pinned() first."""
+    x, y, w, h = tile.x, tile.y, tile.w, tile.h
+    x1, y1 = x + w, y + h
+    nx, ny, nw, nh = resized((x, y, w, h), handle, dx, dy)
+    nx1, ny1 = nx + nw, ny + nh
+    l, t, r, b = tile.crop_l, tile.crop_t, tile.crop_r, tile.crop_b
+    per_u = w / max(1e-6, 1.0 - l - r)  # picture per share of the stream's width
+    per_v = h / max(1e-6, 1.0 - t - b)
+    if "l" in handle:
+        l2 = min(max(0.0, l + (nx - x) / per_u), 1.0 - r - MIN_SHOWN)
+        nx, l = x + (l2 - l) * per_u, l2
+    if "r" in handle:
+        r2 = min(max(0.0, r - (nx1 - x1) / per_u), 1.0 - l - MIN_SHOWN)
+        nx1, r = x1 - (r2 - r) * per_u, r2
+    if "t" in handle:
+        t2 = min(max(0.0, t + (ny - y) / per_v), 1.0 - b - MIN_SHOWN)
+        ny, t = y + (t2 - t) * per_v, t2
+    if "b" in handle:
+        b2 = min(max(0.0, b - (ny1 - y1) / per_v), 1.0 - t - MIN_SHOWN)
+        ny1, b = y1 - (b2 - b) * per_v, b2
+    return replace(tile, x=nx, y=ny, w=nx1 - nx, h=ny1 - ny, crop_l=l, crop_t=t, crop_r=r, crop_b=b)
+
+
+def dragged(tile: Tile, handle: str, dx: float, dy: float, how: str, canvas_aspect: float,
+            src_aspect: Optional[float] = None) -> Tile:
+    """tile after dragging handle by dx, dy, the way OBS does it. how is "scale" (keeps the shape), "stretch" (the box
+    takes any shape and the stream is squashed to fill it) or "crop" (cuts off the side being dragged). Stretching and
+    cropping need the stream's shape (src_aspect); without one they only change the box, as for a stream that's off."""
+    box = (tile.x, tile.y, tile.w, tile.h)
+    if how == "scale":
+        x, y, w, h = scaled(box, handle, dx, dy)
+        return replace(tile, x=x, y=y, w=w, h=h)
+    if src_aspect is None:
+        x, y, w, h = resized(box, handle, dx, dy)
+        return replace(tile, x=x, y=y, w=w, h=h)
+    tile = pinned(tile, src_aspect, canvas_aspect)
+    if how == "crop":
+        return cropped(tile, handle, dx, dy)
+    x, y, w, h = resized(box, handle, dx, dy)
+    return replace(tile, x=x, y=y, w=w, h=h, stretch=True)
+
+
+def fitted(tile: Tile, src_aspect: float, canvas_aspect: float) -> Tile:
+    """tile with its box the stream's own shape inside the old one, and no crop, stretch or zoom."""
+    x, y, w, h = fit_box(src_aspect, (tile.x, tile.y, tile.w, tile.h), canvas_aspect)
+    return replace(tile, x=x, y=y, w=w, h=h, zoom=1.0, cx=0.5, cy=0.5, crop_l=0.0, crop_t=0.0, crop_r=0.0, crop_b=0.0,
+                   stretch=False)
 
 
 def snap_lines(tiles: tuple, skip: int) -> tuple:

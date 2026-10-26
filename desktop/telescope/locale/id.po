@@ -901,15 +901,15 @@ msgstr "Nonaktif"
 msgid "Blur"
 msgstr "Buram"
 
-#: telescope/plugins/background.py:20 telescope/plugins/background.py:140
+#: telescope/plugins/background.py:20 telescope/plugins/background.py:140 telescope/widgets/composite_editor.py:480 telescope/widgets/composite_editor.py:743
 msgid "Picture"
 msgstr "Gambar"
 
-#: telescope/plugins/background.py:21 telescope/widgets/composite_editor.py:22
+#: telescope/plugins/background.py:21 telescope/widgets/composite_editor.py:24
 msgid "Pictures (*.png *.jpg *.jpeg *.webp *.bmp)"
 msgstr "Gambar (*.png *.jpg *.jpeg *.webp *.bmp)"
 
-#: telescope/plugins/background.py:89 telescope/plugins/background.py:109 telescope/plugins/background.py:120 telescope/plugins/background.py:160 telescope/plugins/background.py:162 telescope/widgets/composite_editor.py:588
+#: telescope/plugins/background.py:89 telescope/plugins/background.py:109 telescope/plugins/background.py:120 telescope/plugins/background.py:160 telescope/plugins/background.py:162 telescope/widgets/composite_editor.py:725
 msgid "Background"
 msgstr "Latar belakang"
 
@@ -1425,7 +1425,7 @@ msgstr ""
 msgid "One picture"
 msgstr ""
 
-#: telescope/plugins/composite.py:262 telescope/widgets/composite_editor.py:343
+#: telescope/plugins/composite.py:262 telescope/widgets/composite_editor.py:505
 msgid "Not saved"
 msgstr ""
 
@@ -1433,7 +1433,7 @@ msgstr ""
 msgid "A layout you saved in the editor"
 msgstr ""
 
-#: telescope/plugins/composite.py:265 telescope/widgets/composite_editor.py:339
+#: telescope/plugins/composite.py:265 telescope/widgets/composite_editor.py:501 telescope/widgets/composite_editor.py:506
 msgid "Layout"
 msgstr ""
 
@@ -1690,7 +1690,7 @@ msgstr "Nama yang dilihat ponsel Anda"
 msgid "Change this computer's name"
 msgstr "Ganti nama komputer ini"
 
-#: telescope/plugins/connection.py:438 telescope/widgets/composite_editor.py:322 telescope/widgets/vaapi_setup.py:111
+#: telescope/plugins/connection.py:438 telescope/widgets/composite_editor.py:438 telescope/widgets/vaapi_setup.py:111
 msgid "Close"
 msgstr "Tutup"
 
@@ -2713,7 +2713,7 @@ msgstr "Pengaturan kamera, output, transformasi, pembingkaian, dan latar belakan
 msgid "Save current as…"
 msgstr "Simpan saat ini sebagai…"
 
-#: telescope/plugins/presets.py:186 telescope/widgets/composite_editor.py:350
+#: telescope/plugins/presets.py:186 telescope/widgets/composite_editor.py:510
 msgid "Delete"
 msgstr "Hapus permanen"
 
@@ -2735,7 +2735,7 @@ msgstr "Sudah ada preset bernama \"{name}\". Ingin menggantinya?"
 msgid "Save preset"
 msgstr "Simpan preset"
 
-#: telescope/plugins/presets.py:215 telescope/plugins/presets.py:221 telescope/widgets/composite_editor.py:376 telescope/widgets/composite_editor.py:398
+#: telescope/plugins/presets.py:215 telescope/plugins/presets.py:221 telescope/widgets/composite_editor.py:534 telescope/widgets/composite_editor.py:556
 msgid "Name:"
 msgstr "Nama:"
 
@@ -4148,7 +4148,7 @@ msgstr "Rotasi"
 msgid "{n}×"
 msgstr "{n}×"
 
-#: telescope/plugins/transforms.py:205 telescope/plugins/transforms.py:249 telescope/widgets/composite_editor.py:479
+#: telescope/plugins/transforms.py:205 telescope/plugins/transforms.py:249 telescope/widgets/composite_editor.py:636
 msgid "Zoom"
 msgstr "Zoom"
 
@@ -4162,7 +4162,7 @@ msgstr ""
 "H {x}\n"
 "V {y}"
 
-#: telescope/plugins/transforms.py:233 telescope/widgets/controls.py:294
+#: telescope/plugins/transforms.py:233 telescope/widgets/composite_editor.py:36 telescope/widgets/controls.py:294
 msgid "Pan"
 msgstr "Geser"
 
@@ -4980,140 +4980,193 @@ msgstr "{q}%: Sangat rendah"
 msgid "Double-click to reset"
 msgstr "Klik dua kali untuk mereset"
 
-#: telescope/widgets/composite_editor.py:51
+#: telescope/widgets/composite_editor.py:36
+msgid "Move"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:36
+msgid "Scale"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:36
+msgid "Stretch"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:36
+msgid "Crop"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:61
 msgid "Picture preview"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:132
+#: telescope/widgets/composite_editor.py:183
 #, python-brace-format
 msgid "{name} isn't streaming"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:294 telescope/widgets/composite_editor.py:297
+#: telescope/widgets/composite_editor.py:296
+#, python-brace-format
+msgid "{mode}, no snapping"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:412 telescope/widgets/composite_editor.py:416
 msgid "Edit picture"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:297
-msgid "Drag a stream to move it and its corners to resize it. Shift keeps its shape and Alt stops it snapping."
+#: telescope/widgets/composite_editor.py:416
+msgid "Drag a stream to move it and a handle to resize it. Hold Shift to stretch it, Alt to crop that side and Ctrl to stop it snapping."
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:346
-msgid "Save as…"
+#: telescope/widgets/composite_editor.py:468
+msgid "Start from"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:348
-msgid "Rename…"
-msgstr ""
-
-#: telescope/widgets/composite_editor.py:354
+#: telescope/widgets/composite_editor.py:472
 msgid "Side by side"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:354
+#: telescope/widgets/composite_editor.py:472
 msgid "Big and small"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:355
+#: telescope/widgets/composite_editor.py:473
 msgid "Grid"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:357
+#: telescope/widgets/composite_editor.py:476
 msgid "Start again with the running streams laid out like this"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:370 telescope/widgets/composite_editor.py:372
+#: telescope/widgets/composite_editor.py:499
+msgid "Save as…"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:499
+msgid "Keep this picture under a name"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:508
+msgid "Rename…"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:508
+msgid "Rename this layout"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:510
+msgid "Delete this layout"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:528 telescope/widgets/composite_editor.py:530
 #, python-brace-format
 msgid "Layout {n}"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:376
+#: telescope/widgets/composite_editor.py:534
 msgid "Save layout"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:390
+#: telescope/widgets/composite_editor.py:548
 msgid "Replace layout"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:391
+#: telescope/widgets/composite_editor.py:549
 #, python-brace-format
 msgid "There's already a layout called \"{name}\". Replace it?"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:398
+#: telescope/widgets/composite_editor.py:556
 msgid "Rename layout"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:422
+#: telescope/widgets/composite_editor.py:572
 msgid "Streams"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:426
+#: telescope/widgets/composite_editor.py:577
 msgid "Start two or more streams to put them together. The + next to Stop adds one."
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:443
+#: telescope/widgets/composite_editor.py:595
 #, python-brace-format
 msgid "{name} (not streaming)"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:465
-msgid "Picked stream"
-msgstr ""
-
-#: telescope/widgets/composite_editor.py:475
-msgid "Scroll over a stream to zoom in and drag it with the right mouse button to move what's shown"
-msgstr ""
-
-#: telescope/widgets/composite_editor.py:485
-msgid "Border"
-msgstr ""
-
-#: telescope/widgets/composite_editor.py:486
-msgid "Border colour"
-msgstr ""
-
-#: telescope/widgets/composite_editor.py:488
-msgid "Colour"
-msgstr ""
-
-#: telescope/widgets/composite_editor.py:494
-msgid "Corners"
-msgstr ""
-
-#: telescope/widgets/composite_editor.py:495
+#: telescope/widgets/composite_editor.py:618
 msgid "Fit its shape"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:496
-msgid "Make the box the stream's own shape, so none of it is cut off"
+#: telescope/widgets/composite_editor.py:619
+msgid "Make the box the stream's own shape again, with nothing cropped or stretched"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:498
+#: telescope/widgets/composite_editor.py:621
+msgid "Picked stream"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:628
+msgid "Stream"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:632
+msgid "Scroll over a stream to zoom in and drag it with the right mouse button to move what's shown"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:642
+msgid "Border"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:643
+msgid "Border colour"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:646 telescope/widgets/composite_editor.py:729
+msgid "Colour"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:652
+msgid "Corners"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:653
 msgid "Send back"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:500
+#: telescope/widgets/composite_editor.py:655
 msgid "Bring forward"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:504
+#: telescope/widgets/composite_editor.py:659
+msgid "Order"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:661
 msgid "Click a stream in the picture to change it."
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:589
+#: telescope/widgets/composite_editor.py:726
 msgid "Background colour"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:591
+#: telescope/widgets/composite_editor.py:732
 msgid "Picture…"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:593
+#: telescope/widgets/composite_editor.py:733
+msgid "Put a picture behind the streams instead of the colour"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:735
 msgid "No picture"
 msgstr ""
 
-#: telescope/widgets/composite_editor.py:602
+#: telescope/widgets/composite_editor.py:747
 msgid "Background picture"
+msgstr ""
+
+#: telescope/widgets/composite_editor.py:779
+msgid "None"
 msgstr ""
 
 #: telescope/widgets/controls.py:292
