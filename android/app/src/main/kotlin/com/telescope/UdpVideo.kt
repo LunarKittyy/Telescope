@@ -213,24 +213,28 @@ class UdpSeal(key: ByteArray, private val direction: Byte) {
     }
 }
 
-// A token bucket for UdpVideoClient's pacing; pure apart from the clock it's given, so it runs as a JVM test
+// UdpVideoClient's pacing on a schedule, so an oversleep (Android's timer slack) is caught up rather than lost; pure, a JVM test
 class UdpPacer(private val burst: Int = UdpVideoClient.PACE_BURST) {
-    private var tokens = 0.0
-    private var atNs = 0L
-    private var started = false
+    private var nextNs = Long.MIN_VALUE  // when the next datagram is due at the pace
+    private var owed = false              // behind because it overslept, not because it was idle
 
-    /** How long to wait before sending bytes at bps (0 or less: no pacing, and nothing builds up meanwhile). */
+    /** How long to wait before sending bytes at bps; 0 or less is no pacing, and nothing builds up meanwhile. */
     fun waitNs(bytes: Int, bps: Int, nowNs: Long): Long {
-        if (bps <= 0 || !started) {
-            started = bps > 0
-            atNs = nowNs
-            tokens = burst.toDouble()
-            if (bps <= 0) return 0
-        }
-        val elapsed = (nowNs - atNs).coerceIn(0L, 1_000_000_000L).toDouble()
-        tokens = minOf(burst.toDouble(), tokens + elapsed * bps / 8e9) - bytes
-        atNs = nowNs
-        return if (tokens < 0) (-tokens * 8e9 / bps).toLong() else 0
+        if (bps <= 0) { nextNs = Long.MIN_VALUE; owed = false; return 0 }
+        val burstNs = (burst * 8e9 / bps).toLong()
+        if (owed && nextNs >= nowNs - burstNs) owed = false
+        val floor = nowNs - if (owed) CATCH_UP_NS else burstNs  // idle banks at most a burst
+        if (nextNs < floor) nextNs = floor
+        val wait = nextNs - nowNs
+        nextNs += (bytes * 8e9 / bps).toLong()
+        if (wait < MIN_SLEEP_NS) return 0  // short waits add up until one is worth a sleep
+        owed = true
+        return wait
+    }
+
+    companion object {
+        const val MIN_SLEEP_NS = 1_000_000L
+        const val CATCH_UP_NS = 100_000_000L
     }
 }
 

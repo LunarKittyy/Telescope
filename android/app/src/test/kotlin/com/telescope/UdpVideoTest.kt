@@ -76,17 +76,21 @@ class UdpVideoTest {
     }
 
     @Test
-    fun `pacing spreads bytes at the rate, and time with it off or a long gap doesn't build up a burst`() {
-        val pacer = UdpPacer(burst = 10_000)
+    fun `pacing spreads bytes at the rate, catches up an oversleep, and banks no more than a burst`() {
+        val pacer = UdpPacer(burst = 10_000)  // 8 Mbps below: 1000 bytes a millisecond
         assertEquals(0L, pacer.waitNs(10_000, 8_000_000, 0))  // the burst goes at once
-        assertEquals(1_000_000L, pacer.waitNs(1_000, 8_000_000, 0))  // 1000 bytes at 1 MB/s: 1 ms
-        assertEquals(0L, pacer.waitNs(5_000, 0, 1_000_000))  // off
-        assertEquals(0L, pacer.waitNs(10_000, 8_000_000, 600_000_000_000L))  // on again ten minutes later: a fresh burst
+        assertEquals(0L, pacer.waitNs(1_000, 8_000_000, 0))  // under a millisecond owed: no sleep yet
+        assertEquals(1_000_000L, pacer.waitNs(1_000, 8_000_000, 0))
+        // It asked for 1 ms and the phone slept 40: the time it's behind goes out now, not lost to the cap
+        repeat(39) { assertEquals(0L, pacer.waitNs(1_000, 8_000_000, 40_000_000)) }
+        assertTrue(pacer.waitNs(1_000, 8_000_000, 40_000_000) > 0)
+        assertEquals(0L, pacer.waitNs(5_000, 0, 41_000_000))  // off
+        assertEquals(0L, pacer.waitNs(10_000, 8_000_000, 600_000_000_000L))  // on again ten minutes later: one burst
+        assertEquals(0L, pacer.waitNs(1_000, 8_000_000, 600_000_000_000L))
         assertEquals(1_000_000L, pacer.waitNs(1_000, 8_000_000, 600_000_000_000L))  // not ten minutes' worth
         val steady = UdpPacer(burst = 10_000)
         steady.waitNs(10_000, 100_000_000, 0)
-        val wait = steady.waitNs(1_000, 100_000_000, 900_000_000_000L)  // minutes at one rate: no overflow
-        assertEquals(0L, wait)
+        assertEquals(0L, steady.waitNs(1_000, 100_000_000, 900_000_000_000L))  // minutes at one rate: no overflow
     }
 
     @Test

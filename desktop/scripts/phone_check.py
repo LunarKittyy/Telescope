@@ -291,6 +291,8 @@ class Check:
         output.set_config({**cfg, "format": "h264", "bitrate_mbps": -1 if mode.startswith("dynamic") else 0})
         self.connection._udp_cb.setChecked(mode.endswith("udp"))
         self.reader, self.ctrl = None, None
+        import telescope.udp_reader as udp_reader
+        udp_reader._UDP_FAILED.clear()  # a mode that collapsed on UDP shouldn't send the next one to TCP
         if not self.start():
             print(f"  {mode}: no frames")
             return False
