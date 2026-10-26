@@ -10,6 +10,7 @@ def builtin_plugins() -> list:
     from telescope.plugins.camera_control import CameraControlPlugin
     from telescope.plugins.cinema import CinemaPlugin
     from telescope.plugins.connection import ConnectionPlugin
+    from telescope.plugins.desk import DeskPlugin
     from telescope.plugins.framing import FramingPlugin
     from telescope.plugins.microphone import MicrophonePlugin
     from telescope.plugins.monitoring import MonitoringPlugin
@@ -34,6 +35,7 @@ def builtin_plugins() -> list:
         StreamOutputPlugin(),
         TransformsPlugin(),
         FramingPlugin(),  # optional, after Transforms: it moves the zoom and pan Transforms shows
+        DeskPlugin(),  # optional, after the view: it straightens the picture as shown
         MicrophonePlugin(),
         PresetsPlugin(),
         PreviewPlugin(),

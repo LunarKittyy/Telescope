@@ -1,4 +1,4 @@
-"""Scenes for camera, cinema tools, framing, transforms, preview, stream output, background, presets, wait screen, browser camera: see translation_scenes.py for how scenes are registered."""
+"""Scenes for camera, cinema tools, desk mode, framing, transforms, preview, stream output, background, presets, wait screen, browser camera: see translation_scenes.py for how scenes are registered."""
 
 from scripts.translation_scenes import *  # noqa: F401,F403
 from scripts.translation_scenes import Joined, _Held, parts_of  # noqa: F401
@@ -86,7 +86,7 @@ def streaming_window(stack, state=None, camera_on=True):
 
 CARD_WIDGETS = {"camera_control": "_lens_panel", "framing": "_framing_slider", "transforms": "_zoom_slider",
                 "preview": "_preview_lbl", "stream_output": "_res_combo", "background": "_blur_slider",
-                "browser_camera": "_card", "cinema": "_scope_combo"}
+                "browser_camera": "_card", "cinema": "_scope_combo", "desk": "_mark_btn"}
 
 
 def card_of(win, widget):
@@ -580,6 +580,52 @@ def preview_false_colour(stack):
     names = [cinema.tr(name) for _upper, colour, name in reversed(cinema.FALSE_COLOURS) if colour is not None]
     remember(plugin_of(win, "preview")._preview_lbl, "legend", Joined("\n".join(names), names))
     return preview_stage(stack, win)
+
+
+# ── Desk mode ────────────────────────────────────────────────────────────────
+
+SHEET = ((0.15, 0.45), (0.5, 0.42), (0.56, 0.95), (0.08, 0.97))
+
+
+@scene("desk-marking", "main", "Desk mode · marking the sheet", width=CARD_WIDTH)
+def desk_marking(stack):
+    win, _source = streaming_window(stack)
+    picture(win)
+    plugin_of(win, "desk")._switch.setChecked(True)  # with no corners yet it asks for them
+    return cards(stack, win, "desk")
+
+
+@scene("preview-desk-corners", "states", "Preview · Desk mode asking for the sheet's corners", width=PREVIEW_WIDTH)
+def preview_desk_corners(stack):
+    win, _source = streaming_window(stack)
+    picture(win)
+    plugin_of(win, "desk")._mark()
+    overlays = win.preview_overlays()
+    remember(plugin_of(win, "preview")._preview_lbl, "hint", overlays._hint(overlays._pick))
+    return preview_stage(stack, win)
+
+
+@scene("desk-straightened", "main", "Desk mode · straightening a sheet, writing in black and white", width=CARD_WIDTH)
+def desk_straightened(stack):
+    win, _source = streaming_window(stack)
+    plugin_of(win, "desk").set_config({"on": True, "corners": [list(p) for p in SHEET], "cleanup": "bw"})
+    return cards(stack, win, "desk")
+
+
+@scene("desk-no-corners", "states", "Desk mode · switched on, the marking cancelled", width=CARD_WIDTH)
+def desk_no_corners(stack):
+    win, _source = streaming_window(stack)
+    picture(win)
+    plugin_of(win, "desk")._switch.setChecked(True)
+    win.cancel_pick("desk")
+    return cards(stack, win, "desk")
+
+
+@scene("desk-not-streaming", "states", "Desk mode · marking the sheet before streaming", width=CARD_WIDTH)
+def desk_not_streaming(stack):
+    win = ready_window(stack)
+    plugin_of(win, "desk")._mark()
+    return cards(stack, win, "desk")
 
 
 # ── Browser camera ───────────────────────────────────────────────────────────

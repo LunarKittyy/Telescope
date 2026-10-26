@@ -35,7 +35,7 @@ class _Signal:
 
 
 # The built-in plugins whose settings are kept per phone (their device_local)
-_DEVICE_LOCAL = {"camera_control", "stream_output", "transforms", "monitoring", "presets", "microphone"}
+_DEVICE_LOCAL = {"camera_control", "stream_output", "transforms", "monitoring", "presets", "microphone", "desk"}
 
 
 class _Plugin(TelescopePlugin):

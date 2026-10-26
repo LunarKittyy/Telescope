@@ -908,8 +908,9 @@ msgstr "Det är inte en .zip-fil som Telescope kan öppna."
 msgid "That isn't a folder in the plugins folder."
 msgstr "Det där är inte en mapp i tilläggsmappen."
 
+#. what "make the writing stand out" does to the sheet: nothing, more contrast, or black and white
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: telescope/plugins/background.py:19 telescope/plugins/browser_camera.py:299 telescope/plugins/camera_control.py:21 telescope/plugins/camera_control.py:22 telescope/plugins/cinema.py:22 telescope/plugins/framing.py:40
+#: telescope/plugins/background.py:19 telescope/plugins/browser_camera.py:299 telescope/plugins/camera_control.py:21 telescope/plugins/camera_control.py:22 telescope/plugins/cinema.py:22 telescope/plugins/desk.py:21 telescope/plugins/framing.py:40
 msgid "Off"
 msgstr "Av"
 
@@ -1124,7 +1125,7 @@ msgstr "Webbläsarkamera är inte tillgänglig"
 msgid "Scan the code on the Browser camera card with the device to use. It starts streaming as soon as it connects."
 msgstr "Skanna koden på kortet Webbläsarkamera med enheten du vill använda. Den börjar strömma så fort den ansluter."
 
-#: telescope/plugins/browser_camera.py:574 telescope/plugins/connection.py:221 telescope/plugins/shortcuts.py:853 telescope/widgets/plugins_panel.py:31
+#: telescope/plugins/browser_camera.py:574 telescope/plugins/connection.py:221 telescope/plugins/desk.py:162 telescope/plugins/shortcuts.py:853 telescope/widgets/plugins_panel.py:31
 msgid "Cancel"
 msgstr "Avbryt"
 
@@ -1740,7 +1741,7 @@ msgstr "Du kan börja strömma nu."
 msgid "Paired with {name}"
 msgstr "Parkopplad med {name}"
 
-#: telescope/plugins/connection.py:352
+#: telescope/plugins/connection.py:352 telescope/plugins/desk.py:160
 msgid "Done"
 msgstr "Klar"
 
@@ -2170,6 +2171,89 @@ msgstr "Är det här {name} igen?"
 #, python-brace-format
 msgid "A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry."
 msgstr "En telefon som heter {name} parkopplades som en ny telefon. Det händer när Telescope har installerats om på den eller dess data har rensats. Väljer du Ja flyttas inställningar och förinställningar för {name} över till den, och den gamla posten tas bort."
+
+#. what "make the writing stand out" does to the sheet: nothing, more contrast, or black and white
+#: telescope/plugins/desk.py:21
+msgid "Contrast"
+msgstr ""
+
+#. what "make the writing stand out" does to the sheet: nothing, more contrast, or black and white
+#: telescope/plugins/desk.py:21
+msgid "Black and white"
+msgstr ""
+
+#: telescope/plugins/desk.py:129 telescope/plugins/desk.py:192 telescope/plugins/desk.py:205
+msgid "Desk and document mode"
+msgstr ""
+
+#: telescope/plugins/desk.py:130
+msgid "Straightens a sheet of paper you mark on the preview and can make the writing on it stand out."
+msgstr ""
+
+#: telescope/plugins/desk.py:131
+msgid "Without it there's no Desk mode card and the picture stays the way the camera sees it."
+msgstr ""
+
+#: telescope/plugins/desk.py:152
+msgid "Straighten the sheet you marked"
+msgstr ""
+
+#: telescope/plugins/desk.py:154 telescope/plugins/desk.py:207
+msgid "Desk mode"
+msgstr ""
+
+#: telescope/plugins/desk.py:157 telescope/plugins/desk.py:208 telescope/plugins/desk.py:267
+msgid "Mark the sheet"
+msgstr ""
+
+#: telescope/plugins/desk.py:158
+msgid "Drag the four corners of the sheet into place on the preview"
+msgstr ""
+
+#: telescope/plugins/desk.py:174
+msgid "Make the writing on the sheet stand out"
+msgstr ""
+
+#: telescope/plugins/desk.py:179
+msgid "Writing"
+msgstr ""
+
+#: telescope/plugins/desk.py:193
+msgctxt "search"
+msgid "document paper sheet whiteboard homework perspective straighten keystone scan"
+msgstr ""
+
+#: telescope/plugins/desk.py:195
+msgid "Keep the sheet's shape"
+msgstr ""
+
+#: telescope/plugins/desk.py:196
+msgid "Off stretches the sheet to fill the whole picture"
+msgstr ""
+
+#: telescope/plugins/desk.py:209
+msgid "Make the writing stand out"
+msgstr ""
+
+#: telescope/plugins/desk.py:242
+msgid "Drag the corners onto the sheet's corners, then press Enter."
+msgstr ""
+
+#: telescope/plugins/desk.py:243
+msgid "Start streaming to mark the sheet on the preview."
+msgstr ""
+
+#: telescope/plugins/desk.py:267
+msgid "Mark the sheet again"
+msgstr ""
+
+#: telescope/plugins/desk.py:269
+msgid "Drag the corners on the preview onto the sheet's corners."
+msgstr ""
+
+#: telescope/plugins/desk.py:271
+msgid "Mark the sheet's corners to straighten it."
+msgstr ""
 
 #. keep these short, they sit in the slider's narrow readout column
 #: telescope/plugins/framing.py:23
