@@ -122,9 +122,9 @@ def check_colour_speed():
         lut.apply(frame)
         times.append((time.perf_counter() - t0) * 1000)
     median = sorted(times)[len(times) // 2]
-    if median > 25:  # well past what 60 fps leaves for it: something made it a lot slower
-        raise RuntimeError(f"a 1080p 3D LUT took {median:.1f} ms")
-    return f"1080p 3D LUT: {median:.1f} ms"
+    if median > 50:  # CI's Windows runner takes about 37 ms; far past that, something made it a lot slower
+        raise RuntimeError(f"a 1080p 3D LUT took {median:.1f} ms on {os.cpu_count()} processors")
+    return f"1080p 3D LUT: {median:.1f} ms on {os.cpu_count()} processors"
 
 
 def check_adb_discovery():
